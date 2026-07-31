@@ -22,6 +22,7 @@ import type {
 
 import { useDeviceStatus } from '../../hooks/useDeviceStatus'
 import styles from './DeviceCardWorkbench.module.scss'
+import { deviceInstanceOptionLabel } from './presentation'
 
 type WorkbenchNotice = {
   kind: 'success' | 'warning' | 'error' | 'info'
@@ -534,7 +535,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
             ) : null}
             {devices.map((device) => (
               <option key={device.deviceId} value={device.deviceId}>
-                {device.label} · {device.online ? '在线' : '离线'}
+                {deviceInstanceOptionLabel(device)}
               </option>
             ))}
           </select>
