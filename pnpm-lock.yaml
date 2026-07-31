@@ -71,6 +71,9 @@ importers:
       '@unilab/design-system':
         specifier: workspace:*
         version: link:../../packages/design-system
+      '@unilab/device-card-authoring-kit':
+        specifier: workspace:*
+        version: link:../../packages/device-card-authoring-kit
       '@unilab/device-card-sdk':
         specifier: workspace:*
         version: link:../../packages/device-card-sdk
@@ -203,6 +206,22 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
 
+  packages/device-card-authoring-kit:
+    dependencies:
+      '@unilab/device-card-sdk':
+        specifier: workspace:*
+        version: link:../device-card-sdk
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+    devDependencies:
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.20.1)(lightningcss@1.30.1)(sass@1.102.0)
+
   packages/device-card-builder:
     dependencies:
       '@unilab/device-card-sdk':
@@ -297,6 +316,9 @@ importers:
 
   packages/device-card-tooling:
     dependencies:
+      '@unilab/device-card-authoring-kit':
+        specifier: workspace:*
+        version: link:../device-card-authoring-kit
       '@unilab/device-card-builder':
         specifier: workspace:*
         version: link:../device-card-builder

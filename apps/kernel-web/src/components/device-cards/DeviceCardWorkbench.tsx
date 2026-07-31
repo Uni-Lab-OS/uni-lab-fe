@@ -9,8 +9,11 @@ import {
   useServices,
   type DeviceCatalogItem
 } from '@unilab/services'
+import { createDeviceCardAuthoringKit } from '@unilab/device-card-authoring-kit'
 import type {
   DeviceCardActionRun,
+  DeviceCardAuthoringContext,
+  DeviceCardAuthoringProfile,
   DeviceCardHostActionRequest,
   DeviceCardRuntimeSnapshot,
   InstalledDeviceCard
@@ -30,7 +33,10 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   const [devices, setDevices] = useState<DeviceCatalogItem[]>([])
   const [selectedCardKey, setSelectedCardKey] = useState('')
   const [selectedDeviceId, setSelectedDeviceId] = useState('')
+  const [authoringProfile, setAuthoringProfile] =
+    useState<DeviceCardAuthoringProfile>('vue-web-component-v1')
   const [loading, setLoading] = useState(false)
+  const [exportingKit, setExportingKit] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
@@ -64,23 +70,22 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   }, [desktopApi, refresh])
 
   const selectedCard = cards.find((card) => card.key === selectedCardKey)
-  const compatibleDevices = useMemo(() => {
-    if (!selectedCard) return []
-    return devices.filter((device) =>
-      selectedCard.deviceTypes.includes(device.deviceTypeId)
-    )
-  }, [devices, selectedCard])
-  const selectedDevice = compatibleDevices.find(
+  const selectedDevice = devices.find(
     (device) => device.deviceId === selectedDeviceId
-  ) ?? compatibleDevices[0]
+  ) ?? devices[0]
+  const previewDevice = selectedDevice && selectedCard?.deviceTypes.includes(
+    selectedDevice.deviceTypeId
+  )
+    ? selectedDevice
+    : undefined
 
   useEffect(() => {
     setSelectedDeviceId((current) =>
-      compatibleDevices.some((device) => device.deviceId === current)
+      devices.some((device) => device.deviceId === current)
         ? current
-        : compatibleDevices[0]?.deviceId ?? ''
+        : devices[0]?.deviceId ?? ''
     )
-  }, [compatibleDevices])
+  }, [devices])
 
   const runtimeState = useMemo<Record<string, unknown>>(() => {
     if (!selectedDevice) return { status: 'idle', online: false }
@@ -97,19 +102,25 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
       )
     }
   }, [selectedDevice, statusMap])
-  runtimeStateRef.current = runtimeState
+  const previewState = useMemo<Record<string, unknown>>(
+    () => previewDevice
+      ? runtimeState
+      : { status: 'idle', online: false },
+    [previewDevice, runtimeState]
+  )
+  runtimeStateRef.current = previewState
 
   useEffect(() => {
     if (!desktopApi || !selectedCard || !previewRef.current) return
     const preview = previewRef.current
     let disposed = false
     const context: DeviceCardRuntimeSnapshot = {
-      mode: selectedDevice ? 'live' : 'mock',
+      mode: previewDevice ? 'live' : 'mock',
       device: {
-        deviceId: selectedDevice?.deviceId ?? null,
+        deviceId: previewDevice?.deviceId ?? null,
         deviceTypeId:
-          selectedDevice?.deviceTypeId ?? selectedCard.deviceTypes[0] ?? '',
-        title: selectedDevice?.label ?? selectedCard.title
+          previewDevice?.deviceTypeId ?? selectedCard.deviceTypes[0] ?? '',
+        title: previewDevice?.label ?? selectedCard.title
       },
       state: runtimeStateRef.current,
       config: {},
@@ -138,7 +149,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
           height: rect.height
         },
         context,
-        availableActions: selectedDevice?.actions.map(
+        availableActions: previewDevice?.actions.map(
           (action) => action.actionName
         )
       }).catch((error) => {
@@ -153,12 +164,12 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
       observer.disconnect()
       void desktopApi.close()
     }
-  }, [desktopApi, selectedCard, selectedDevice])
+  }, [desktopApi, previewDevice, selectedCard])
 
   useEffect(() => {
     if (!desktopApi || !selectedCard) return
-    void desktopApi.updateState(runtimeState)
-  }, [desktopApi, runtimeState, selectedCard])
+    void desktopApi.updateState(previewState)
+  }, [desktopApi, previewState, selectedCard])
 
   useEffect(() => {
     if (!desktopApi) return
@@ -181,38 +192,29 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     }
   }
 
-  const exportContext = async (): Promise<void> => {
+  const exportAuthoringKit = async (): Promise<void> => {
     if (!fileApi || !selectedDevice) return
-    const stateSchema = Object.fromEntries(
-      Object.entries(runtimeState).map(([key, value]) => [
-        key,
-        {
-          type: jsonType(value),
-          status: 'unresolved',
-          source: 'runtime-sample'
-        }
-      ])
-    )
-    await fileApi.save({
-      path: null,
-      defaultName: `${selectedDevice.deviceTypeId}-authoring-context.json`,
-      content: `${JSON.stringify({
-        schemaVersion: 'device-card-authoring-context/v1',
-        deviceTypeId: selectedDevice.deviceTypeId,
-        deviceId: selectedDevice.deviceId,
-        title: selectedDevice.label,
-        actions: selectedDevice.actions.map((action) => ({
-          action: action.actionName,
-          label: action.label,
-          inputSchema: action.inputSchema,
-          outputSchema: action.outputSchema,
-          busy: action.isBusy
-        })),
-        stateSchema,
-        sampleState: runtimeState,
-        media: []
-      }, null, 2)}\n`
-    })
+    setExportingKit(true)
+    setMessage(null)
+    try {
+      const kit = await createDeviceCardAuthoringKit({
+        context: createAuthoringContext(selectedDevice, runtimeState),
+        profile: authoringProfile
+      })
+      const saved = await fileApi.saveBinary({
+        defaultName: kit.fileName,
+        content: kit.archive
+      })
+      if (saved) {
+        setMessage(`完整 Authoring Kit 已保存：${saved.path}`)
+      }
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : '导出 Authoring Kit 失败'
+      )
+    } finally {
+      setExportingKit(false)
+    }
   }
 
   if (!desktopApi) {
@@ -258,12 +260,12 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
           <select
             value={selectedDevice?.deviceId ?? ''}
             onChange={(event) => setSelectedDeviceId(event.target.value)}
-            disabled={compatibleDevices.length === 0}
+            disabled={devices.length === 0}
           >
-            {compatibleDevices.length === 0 ? (
-              <option value="">Mock 模式</option>
+            {devices.length === 0 ? (
+              <option value="">尚无可创作设备</option>
             ) : null}
-            {compatibleDevices.map((device) => (
+            {devices.map((device) => (
               <option key={device.deviceId} value={device.deviceId}>
                 {device.label} · {device.online ? '在线' : '离线'}
               </option>
@@ -271,13 +273,27 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
           </select>
         </label>
 
+        <label>
+          创作框架
+          <select
+            value={authoringProfile}
+            onChange={(event) => setAuthoringProfile(
+              event.target.value as DeviceCardAuthoringProfile
+            )}
+          >
+            <option value="vue-web-component-v1">Vue 3</option>
+            <option value="react-web-component-v1">React</option>
+            <option value="web-component-lite-v1">Web Component Lite</option>
+          </select>
+        </label>
+
         <button
           type="button"
           className={styles.secondary}
-          disabled={!selectedDevice || !fileApi}
-          onClick={() => void exportContext()}
+          disabled={!selectedDevice || !fileApi || exportingKit}
+          onClick={() => void exportAuthoringKit()}
         >
-          导出 Authoring Context
+          {exportingKit ? '正在生成…' : '导出完整 Authoring Kit'}
         </button>
 
         <div className={styles.security}>
@@ -293,9 +309,11 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
           <div>
             <strong>{selectedCard?.title ?? '卡片预览'}</strong>
             <span>
-              {selectedDevice
-                ? `Live · ${selectedDevice.deviceId}`
-                : 'Mock · 未绑定设备'}
+              {previewDevice
+                ? `Live · ${previewDevice.deviceId}`
+                : selectedCard && selectedDevice
+                  ? `Mock · 卡片不支持 ${selectedDevice.deviceTypeId}`
+                  : 'Mock · 未绑定设备'}
             </span>
           </div>
           <span className={styles.profile}>
@@ -355,4 +373,35 @@ function jsonType(value: unknown): string {
   if (Array.isArray(value)) return 'array'
   if (value === null) return 'null'
   return typeof value === 'object' ? 'object' : typeof value
+}
+
+function createAuthoringContext(
+  device: DeviceCatalogItem,
+  state: Record<string, unknown>
+): DeviceCardAuthoringContext {
+  return {
+    schemaVersion: 'device-card-authoring-context/v1',
+    deviceTypeId: device.deviceTypeId,
+    deviceId: device.deviceId,
+    title: device.label,
+    actions: device.actions.map((action) => ({
+      action: action.actionName,
+      label: action.label,
+      inputSchema: action.inputSchema,
+      outputSchema: action.outputSchema,
+      busy: action.isBusy
+    })),
+    stateSchema: Object.fromEntries(
+      Object.entries(state).map(([key, value]) => [
+        key,
+        {
+          type: jsonType(value),
+          status: 'unresolved',
+          source: 'runtime-sample'
+        }
+      ])
+    ),
+    sampleState: state,
+    media: []
+  }
 }

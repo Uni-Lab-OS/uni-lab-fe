@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@unilab/device-card-authoring-kit": "workspace:*",
     "@unilab/device-card-builder": "workspace:*",
     "@unilab/device-card-sdk": "workspace:*",
     "@unilab/device-card-ui": "workspace:*",

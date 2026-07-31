@@ -22,6 +22,11 @@ interface SaveFilePayload {
   defaultName?: string
 }
 
+interface SaveBinaryFilePayload {
+  content: Uint8Array
+  defaultName?: string
+}
+
 interface OpenFilePayload {
   accept?: 'json' | 'python'
 }
@@ -36,6 +41,9 @@ interface DesktopApi {
   file?: {
     open: (payload?: OpenFilePayload) => Promise<OpenedFile | null>
     save: (payload: SaveFilePayload) => Promise<SavedFile | null>
+    saveBinary: (
+      payload: SaveBinaryFilePayload
+    ) => Promise<SavedFile | null>
   }
   deviceCards?: {
     list: () => Promise<InstalledDeviceCard[]>

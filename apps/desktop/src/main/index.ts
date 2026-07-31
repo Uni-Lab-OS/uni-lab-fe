@@ -14,6 +14,11 @@ interface SaveFilePayload {
   defaultName?: string
 }
 
+interface SaveBinaryFilePayload {
+  content: Uint8Array
+  defaultName?: string
+}
+
 // 打开文件的入参:accept 指定对话框过滤的文件类型,缺省为 JSON
 interface OpenFilePayload {
   accept?: 'json' | 'python'
@@ -236,6 +241,42 @@ app.whenReady().then(() => {
     await writeFile(filePath, payload.content, 'utf-8')
     return { path: filePath }
   })
+
+  // 保存由受信任 renderer 生成的二进制交付物。始终通过对话框选择目标，
+  // renderer 不能借此直接覆盖任意本地路径。
+  ipcMain.handle(
+    'file:saveBinary',
+    async (event, payload: SaveBinaryFilePayload) => {
+      if (event.sender.id !== mainWindow?.webContents.id) {
+        throw new Error('二进制保存调用方不是主渲染进程。')
+      }
+      if (
+        !payload ||
+        !(payload.content instanceof Uint8Array) ||
+        payload.content.byteLength === 0 ||
+        payload.content.byteLength > 10 * 1024 * 1024
+      ) {
+        throw new Error('二进制文件无效或超过 10 MiB。')
+      }
+      const defaultName = basename(
+        payload.defaultName || 'unilab-authoring-kit.zip'
+      )
+      const options: Electron.SaveDialogOptions = {
+        title: '保存 Uni-Lab Authoring Kit',
+        defaultPath: defaultName,
+        filters: [{
+          name: 'Uni-Lab Authoring Kit',
+          extensions: ['zip']
+        }]
+      }
+      const result = mainWindow
+        ? await dialog.showSaveDialog(mainWindow, options)
+        : await dialog.showSaveDialog(options)
+      if (result.canceled || !result.filePath) return null
+      await writeFile(result.filePath, payload.content)
+      return { path: result.filePath }
+    }
+  )
 
   createWindow()
 

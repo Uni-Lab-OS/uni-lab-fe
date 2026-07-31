@@ -36,6 +36,11 @@ export interface SaveFilePayload {
   defaultName?: string
 }
 
+export interface SaveBinaryFilePayload {
+  content: Uint8Array
+  defaultName?: string
+}
+
 // 打开文件的入参:accept 指定对话框过滤的文件类型,缺省为 JSON
 export interface OpenFilePayload {
   accept?: 'json' | 'python'
@@ -57,7 +62,10 @@ const api = {
       ipcRenderer.invoke('file:open', payload),
     // 保存文本到本地文件(path 为 null 时弹出"另存为"),取消返回 null
     save: (payload: SaveFilePayload): Promise<SavedFile | null> =>
-      ipcRenderer.invoke('file:save', payload)
+      ipcRenderer.invoke('file:save', payload),
+    // 保存二进制文件，始终弹出"另存为"，避免 renderer 指定任意覆盖路径
+    saveBinary: (payload: SaveBinaryFilePayload): Promise<SavedFile | null> =>
+      ipcRenderer.invoke('file:saveBinary', payload)
   },
   deviceCards: {
     list: (): Promise<InstalledDeviceCard[]> =>

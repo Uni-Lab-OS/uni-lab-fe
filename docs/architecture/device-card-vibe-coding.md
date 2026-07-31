@@ -1,7 +1,7 @@
 # 设备包驱动的本地 Vibe Coding 卡片设计
 
 状态：Proposed；V1 纵向切片已在前端分支实现
-日期：2026-07-30
+日期：2026-07-31
 适用范围：`uni-lab-fe`、Uni-Lab-OS、设备包仓库、本地卡片开发工具
 
 ## 0. 结论
@@ -44,6 +44,8 @@ Runtime。
 
 - `packages/device-card-sdk`：Manifest、Authoring Context、Host Bridge，以及
   Vue/React hooks。
+- `packages/device-card-authoring-kit`：确定性 ZIP、设备绑定项目、三套框架模板、
+  Agent 规则、Manifest Schema、SDK 类型、UI Catalog、Mock 和示例。
 - `packages/device-card-ui`：`u-card`、`u-metric`、`u-status`、
   `u-action-button`、rack、well plate、timeseries、log console 等受控组件。
 - `packages/device-card-builder`：固定 Builder、Vue SFC/React/原生 Web Component
@@ -52,8 +54,8 @@ Runtime。
 - `packages/device-card-host`：Electron 导入后权威重编译和不可变 Artifact Store。
 - `apps/desktop`：独立 card preload、非持久 session、禁网 `WebContentsView`、
   IPC 能力白名单。
-- `apps/kernel-web`：设备卡片管理页、Authoring Context 导出、Artifact 导入、
-  Preview bounds 管理，以及经 `@unilab/services` 提交的 Action。
+- `apps/kernel-web`：设备卡片管理页、完整 Authoring Kit ZIP 导出、Artifact
+  导入、Preview bounds 管理，以及经 `@unilab/services` 提交的 Action。
 
 当前纵向切片不等于本文所有后续能力均已完成。签名、回滚 UI、媒体协议、
 Feature Packs、完整 JSON Schema 表单和专用 OS Authoring Context 端点仍是后续项。
@@ -293,6 +295,7 @@ Electron 不需要也不应该修改用户的本地源码目录。
 | 模块 | 位置建议 | 职责 |
 |---|---|---|
 | Device Card SDK | `packages/device-card-sdk` | 作者接口、Manifest、协议和内置 UI |
+| Authoring Kit | `packages/device-card-authoring-kit` | ZIP、模板、Schema、类型、规则和示例 |
 | Device Card CLI | 独立可分发 CLI 或 `packages/device-card-cli` | init/check/preview/pack |
 | Device Card Host | `packages/device-card-host` | Import、Build、Artifact 和能力契约 |
 | Device Card Services | `packages/services/src/deviceCards.ts` | OS Authoring Context 与目录 |
@@ -557,6 +560,11 @@ interface DeviceCardAuthoringContext {
 
 Authoring Kit 是 Electron 和用户本地 Vibe Coding 环境之间的主要交付物。
 
+当前前端实现已提供 `packages/device-card-authoring-kit`。设备卡片页在没有任何已安装
+卡片时也可以选择 OS 设备与 Vue/React/Lite Profile，并导出确定性的
+`<device-type>.unilab-card-kit.zip`。ZIP 保存走 Electron 受信任 preload 的二进制
+保存接口，renderer 不能指定任意覆盖路径。
+
 ### 9.1 导出结构
 
 ```text
@@ -564,9 +572,20 @@ centrifuge.unilab-card-kit/
 ├── README.md
 ├── AGENTS.md
 ├── CARD_SPEC.md
-├── card-context.json
+├── kit-metadata.json
+├── authoring-context.json
 ├── card-manifest.schema.json
 ├── ui-catalog.json
+├── card-project/
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── card.manifest.json
+│   ├── authoring-context.json
+│   ├── mock.json
+│   ├── AGENTS.md
+│   ├── CARD_SPEC.md
+│   ├── src/card.vue
+│   └── .unilab-card/*.d.ts
 ├── sdk/
 │   ├── index.d.ts
 │   ├── ui-elements.d.ts
@@ -581,15 +600,8 @@ centrifuge.unilab-card-kit/
 │   └── default-state.json
 └── templates/
     ├── web-component-lite/
-    │   ├── card.manifest.json
-    │   ├── src/card.ts
-    │   ├── src/card.css
-    │   └── mock.json
-    └── vue-web-component/
-        ├── card.manifest.json
-        ├── src/card.vue
-        ├── src/theme.css
-        └── mock.json
+    ├── vue-web-component/
+    └── react-web-component/
 ```
 
 ### 9.2 给 Vibe Coding Agent 的规则
@@ -601,7 +613,7 @@ centrifuge.unilab-card-kit/
 - `vue-web-component-v1` Profile 可以使用 Builder 固定版本的 Vue 3 SFC
   语法，但不能自行安装 Vue 插件。
 - 不允许 Node、Electron、fetch、WebSocket、eval。
-- 只能使用 `card-context.json` 中存在的状态和 Action。
+- 只能使用 `authoring-context.json` 中存在的状态和 Action。
 - 权限变更必须同步修改 Manifest。
 - 不能自己注册任意 `customElements`。
 - 不处理设备连接和鉴权。
@@ -624,16 +636,20 @@ interface CardAuthoringKitMetadata {
   kitVersion: 1
   generatedAt: string
   deviceTypeId: string
-  packageVersion: string
+  deviceId?: string
+  authoringProfile: DeviceCardAuthoringProfile
   authoringContextDigest: string
   sdkVersion: string
+  toolingVersion: string
   hostProtocolVersion: 1
   uiCatalogVersion: string
 }
 ```
 
-导入卡片时，Electron 会重新获取当前 Authoring Context。Kit 只用于本地创作，
-不是导入时的最终权威。
+目标状态下，导入卡片时 Electron 会重新获取当前 Authoring Context。Kit 只用于
+本地创作，不是导入时的最终权威。当前 V1 已在导入时权威重编译，并在 Live 打开时
+对照当前 OS 设备目录校验 Device Type 与 Action；待 OS 专用端点完成后，把完整
+Context digest、状态 Schema、媒体和风险等级校验前移到导入阶段。
 
 ## 10. 用户本地 Card Project
 
@@ -2201,10 +2217,13 @@ Vue SFC 本地创作
 - 设备包安装返回 packageId/deviceTypeId。
 - Registry 生成 Authoring Context。
 - `packages/services/src/deviceCards.ts`。
-- Electron “导出卡片开发包”。
-- Kit 模板、类型和规则。
+- Electron “导出卡片开发包”。（前端 V1 已实现）
+- Kit 模板、类型和规则。（前端 V1 已实现）
 
 完成标准：上传无卡片设备包后，用户能得到可交给 Coding Agent 的完整 Kit。
+
+当前前端侧完成标准已满足；整个 Phase 1 仍受 OS 专用 Authoring Context 端点、
+正式状态 Schema、媒体和风险等级缺口限制。
 
 ### Phase 2：SDK 与 CLI
 
