@@ -1,10 +1,11 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { basename, join } from 'path'
-import { appendFileSync } from 'node:fs'
+import { appendFileSync, existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { readSession, clearSession, runOAuthLogin } from './authManager'
+import { DeviceCardManager } from './deviceCardManager'
 
 // 保存文件的入参:path 为 null 时弹出"另存为"对话框
 interface SaveFilePayload {
@@ -27,6 +28,24 @@ function logLine(message: string): void {
     // 忽略日志写入失败
   }
 }
+
+function configurePackagedDeviceCardBuilder(): void {
+  if (!app.isPackaged) return
+  const executable = process.platform === 'win32' ? 'esbuild.exe' : 'esbuild'
+  const binaryPath = join(
+    process.resourcesPath,
+    'app.asar.unpacked',
+    'node_modules',
+    'esbuild',
+    'bin',
+    executable
+  )
+  if (!existsSync(binaryPath)) {
+    logLine(`Device Card Builder 缺少 esbuild binary: ${binaryPath}`)
+    return
+  }
+  process.env['ESBUILD_BINARY_PATH'] = binaryPath
+}
 process.on('uncaughtException', (error) => {
   logLine(`uncaughtException: ${error instanceof Error ? error.stack : String(error)}`)
 })
@@ -42,6 +61,7 @@ const localAppIcon = join(__dirname, '../../build/icon.png')
 
 // 主窗口引用,供 OAuth 弹窗作为模态父窗口使用
 let mainWindow: BrowserWindow | null = null
+let deviceCardManager: DeviceCardManager | null = null
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -67,6 +87,7 @@ function createWindow(): void {
   })
 
   mainWindow.on('closed', () => {
+    deviceCardManager?.destroy()
     mainWindow = null
   })
 
@@ -143,12 +164,20 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   logLine('app ready')
+  configurePackagedDeviceCardBuilder()
   // macOS 开发态运行的是 Electron 可执行文件，BrowserWindow.icon 不会改变
   // Dock 图标；安装包则从 icon.icns 自动获得图标。
   if (isDev && process.platform === 'darwin') {
     app.dock.setIcon(localAppIcon)
   }
   ipcMain.handle('app:getVersion', () => app.getVersion())
+  deviceCardManager = new DeviceCardManager({
+    getMainWindow: () => mainWindow,
+    preloadPath: join(__dirname, '../preload/deviceCard.js'),
+    storeRoot: join(app.getPath('userData'), 'device-cards', 'artifacts'),
+    log: logLine
+  })
+  deviceCardManager.registerIpc()
 
   // 读取当前登录会话(启动/刷新时使用)
   ipcMain.handle('auth:getSession', () => readSession())

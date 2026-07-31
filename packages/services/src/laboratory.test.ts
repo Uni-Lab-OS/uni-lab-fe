@@ -4,6 +4,48 @@ import type { HttpClient } from './http'
 import { createLaboratoryService } from './laboratory'
 
 describe('laboratory service', () => {
+  it('projects the OS-owned Edge device catalog for card authoring', async () => {
+    const service = createLaboratoryService(fixtureHttp({
+      '/api/v1/devices': {
+        schemaVersion: 'device-catalog/v1',
+        items: [{
+          id: 'robot',
+          deviceKey: '/cell/robot',
+          namespace: '/cell',
+          name: '六轴机械臂',
+          online: true,
+          actions: [{
+            id: 'move',
+            actionRef: 'robot.move',
+            name: '移动',
+            typeName: 'UniLabJsonCommand',
+            inputSchema: { target: { type: 'string', required: true } },
+            outputSchema: { position: { type: 'string' } },
+            busy: false
+          }]
+        }]
+      }
+    }))
+
+    await expect(service.getDeviceCatalog()).resolves.toEqual([{
+      deviceId: 'robot',
+      deviceTypeId: 'robot',
+      deviceKey: '/cell/robot',
+      namespace: '/cell',
+      label: '六轴机械臂',
+      online: true,
+      actions: [{
+        actionName: 'move',
+        actionRef: 'robot.move',
+        label: '移动',
+        typeName: 'UniLabJsonCommand',
+        inputSchema: { target: { type: 'string', required: true } },
+        outputSchema: { position: { type: 'string' } },
+        isBusy: false
+      }]
+    }])
+  })
+
   it('projects Action devices and schemas from the unified node catalog', async () => {
     const http = fixtureHttp({
       '/api/v1/workflow-node-templates': {

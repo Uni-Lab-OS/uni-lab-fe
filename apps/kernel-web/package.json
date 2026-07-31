@@ -13,6 +13,7 @@
   "dependencies": {
     "@unilab/app-shell": "workspace:*",
     "@unilab/design-system": "workspace:*",
+    "@unilab/device-card-sdk": "workspace:*",
     "@unilab/material": "workspace:*",
     "@unilab/workbench-layout": "workspace:*",
     "@unilab/pascal-lab-plugin": "workspace:*",

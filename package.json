@@ -11,6 +11,7 @@
     "build": "pnpm -r --if-present build",
     "build:web": "pnpm --filter @unilab/kernel-web build",
     "build:desktop": "pnpm --filter @unilab/desktop build",
+    "card": "pnpm --filter @unilab/device-card-tooling build && node packages/device-card-tooling/dist/cli.mjs",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "test:e2e:workflow": "playwright test e2e/workflow-runtime.spec.ts e2e/workflow-cloud-import.spec.ts",

@@ -5,15 +5,19 @@
   "description": "Electron wrapper for @unilab/kernel-web",
   "main": "./out/main/index.js",
   "scripts": {
+    "predev": "pnpm --filter @unilab/device-card-host build",
     "dev": "unset ELECTRON_RUN_AS_NODE; electron-vite dev",
+    "prebuild": "pnpm --filter @unilab/device-card-host build",
     "build": "electron-vite build",
     "preview": "unset ELECTRON_RUN_AS_NODE; electron-vite preview",
-    "package:mac": "electron-vite build && electron-builder --mac",
-    "package:win": "electron-vite build && electron-builder --win",
+    "package:mac": "pnpm build && electron-builder --mac",
+    "package:win": "pnpm build && electron-builder --win",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node scripts/verify-icons.mjs"
   },
   "dependencies": {
+    "@unilab/device-card-host": "workspace:*",
+    "@unilab/device-card-sdk": "workspace:*",
     "@unilab/kernel-web": "workspace:*"
   },
   "devDependencies": {

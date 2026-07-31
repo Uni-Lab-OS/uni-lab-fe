@@ -20,12 +20,14 @@ import ConnectionBar from './ConnectionBar';
 import UserMenu from './auth/UserMenu';
 import ErrorBoundary from './ErrorBoundary';
 import DevicePanel from './device/DevicePanel';
+import DeviceCardWorkbench from './device-cards/DeviceCardWorkbench';
 import { LabPanelWorkspace } from '../integrations/lab-workbench/LabPanelWorkspace';
 import type { WorkbenchSection } from '../data/lab';
 
 // 左侧导航项定义
 const NAV_ITEMS: readonly AppShellNavigationItem[] = [
   { id: 'device', label: '仪器设备', icon: '⚙' },
+  { id: 'cards', label: '设备卡片', icon: '▣' },
   { id: 'material', label: '物料', icon: '⬡' },
   { id: 'workflow', label: '工作流', icon: '⇄' }
 ];
@@ -96,6 +98,7 @@ function SectionView({
   onWorkflowUnsavedChangesChange: (hasUnsavedChanges: boolean) => void;
 }): React.JSX.Element {
   if (section === 'device') return <DevicePanel />;
+  if (section === 'cards') return <DeviceCardWorkbench />;
   if (section === 'material') {
     return (
       <LabPanelWorkspace

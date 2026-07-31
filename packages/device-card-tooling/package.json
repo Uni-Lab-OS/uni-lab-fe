@@ -1,0 +1,29 @@
+{
+  "name": "@unilab/device-card-tooling",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "unilab-card": "./dist/cli.mjs"
+  },
+  "scripts": {
+    "build": "pnpm --filter @unilab/device-card-builder build && esbuild src/cli.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/cli.mjs --banner:js='#!/usr/bin/env node' --external:esbuild --external:@vue/compiler-sfc",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@unilab/device-card-builder": "workspace:*",
+    "@unilab/device-card-sdk": "workspace:*",
+    "@unilab/device-card-ui": "workspace:*",
+    "@vue/compiler-sfc": "^3.5.12",
+    "esbuild": "0.21.5",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "vue": "^3.5.12"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  }
+}

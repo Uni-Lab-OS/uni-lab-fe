@@ -1,4 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type {
+  DeviceCardActionRun,
+  DeviceCardBounds,
+  DeviceCardHostActionRequest,
+  InstalledDeviceCard,
+  OpenDeviceCardRequest
+} from '@unilab/device-card-sdk'
 
 // 登录会话结构(与主进程 authManager.AuthSession 保持一致)
 export interface AuthUserInfo {
@@ -51,6 +58,34 @@ const api = {
     // 保存文本到本地文件(path 为 null 时弹出"另存为"),取消返回 null
     save: (payload: SaveFilePayload): Promise<SavedFile | null> =>
       ipcRenderer.invoke('file:save', payload)
+  },
+  deviceCards: {
+    list: (): Promise<InstalledDeviceCard[]> =>
+      ipcRenderer.invoke('device-cards:list'),
+    importCard: (): Promise<InstalledDeviceCard | null> =>
+      ipcRenderer.invoke('device-cards:import'),
+    open: (request: OpenDeviceCardRequest): Promise<void> =>
+      ipcRenderer.invoke('device-cards:open', request),
+    updateBounds: (bounds: DeviceCardBounds): Promise<void> =>
+      ipcRenderer.invoke('device-cards:updateBounds', bounds),
+    updateState: (state: Record<string, unknown>): Promise<void> =>
+      ipcRenderer.invoke('device-cards:updateState', state),
+    close: (): Promise<void> => ipcRenderer.invoke('device-cards:close'),
+    resolveAction: (run: DeviceCardActionRun): Promise<void> =>
+      ipcRenderer.invoke('device-cards:resolveAction', run),
+    onActionRequest: (
+      listener: (request: DeviceCardHostActionRequest) => void
+    ): (() => void) => {
+      const wrapped = (
+        _event: Electron.IpcRendererEvent,
+        request: DeviceCardHostActionRequest
+      ): void => listener(request)
+      ipcRenderer.on('device-cards:actionRequest', wrapped)
+      return () => ipcRenderer.removeListener(
+        'device-cards:actionRequest',
+        wrapped
+      )
+    }
   }
 }
 

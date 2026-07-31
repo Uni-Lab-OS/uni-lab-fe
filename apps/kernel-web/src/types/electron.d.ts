@@ -1,4 +1,11 @@
 import type { AuthSession } from './auth'
+import type {
+  DeviceCardActionRun,
+  DeviceCardBounds,
+  DeviceCardHostActionRequest,
+  InstalledDeviceCard,
+  OpenDeviceCardRequest
+} from '@unilab/device-card-sdk'
 
 interface OpenedFile {
   path: string
@@ -29,6 +36,18 @@ interface DesktopApi {
   file?: {
     open: (payload?: OpenFilePayload) => Promise<OpenedFile | null>
     save: (payload: SaveFilePayload) => Promise<SavedFile | null>
+  }
+  deviceCards?: {
+    list: () => Promise<InstalledDeviceCard[]>
+    importCard: () => Promise<InstalledDeviceCard | null>
+    open: (request: OpenDeviceCardRequest) => Promise<void>
+    updateBounds: (bounds: DeviceCardBounds) => Promise<void>
+    updateState: (state: Record<string, unknown>) => Promise<void>
+    close: () => Promise<void>
+    resolveAction: (run: DeviceCardActionRun) => Promise<void>
+    onActionRequest: (
+      listener: (request: DeviceCardHostActionRequest) => void
+    ) => () => void
   }
 }
 
