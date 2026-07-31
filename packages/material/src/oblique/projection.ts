@@ -7,6 +7,13 @@ import type {
 import { resolveMaterialWorldPose } from '../react-flow/projection'
 import { readMaterial2DVisual } from '../react-flow/visual'
 import { isDecorativeDeckRail } from '../sitePresentation'
+import {
+  resolveShapePrimitives,
+  resolveShapeSpec,
+  type MaterialShapeLibrary,
+  type MaterialShapePrimitive,
+  type MaterialShapeSpec
+} from './shapeSpec'
 
 export const OBLIQUE_ANGLE_DEG = 45
 export const OBLIQUE_DEPTH_SCALE = 0.5
@@ -17,10 +24,19 @@ const DEPTH_Y = Math.sin(ANGLE_RAD) * OBLIQUE_DEPTH_SCALE
 
 export type ObliquePoint = readonly [number, number]
 export type ObliqueWorldPoint = readonly [number, number, number]
-export type MaterialObliqueRenderStyle =
-  | 'solid'
-  | 'labware'
-  | 'stack'
+/**
+ * 只有两种画法：外形声明命中就按声明画（`spec`），否则退回实心包围盒
+ * （`solid`）。具体长什么样由设备包的 shape manifest 决定。
+ */
+export type MaterialObliqueRenderStyle = 'solid' | 'spec'
+
+/** 命中的外形声明与它展开出的本地 mm 图元。 */
+export interface MaterialObliqueShape {
+  id: string
+  bundle: string
+  primitives: readonly MaterialShapePrimitive[]
+  shadow: MaterialShapeSpec['shadow']
+}
 
 export interface MaterialObliqueShelf {
   key: string
@@ -28,6 +44,13 @@ export interface MaterialObliqueShelf {
   occupied: boolean
   siteKey?: string
   label?: string
+}
+
+/** Slot plane of an open rack: every site sitting on the same shelf board. */
+export interface MaterialObliqueLevel {
+  key: string
+  zMm: number
+  sites: readonly MaterialSite[]
 }
 
 export interface MaterialObliqueObject {
@@ -47,6 +70,10 @@ export interface MaterialObliqueObject {
   topTransform: readonly [number, number, number, number, number, number]
   sites: readonly MaterialSite[]
   shelves: readonly MaterialObliqueShelf[]
+  levels: readonly MaterialObliqueLevel[]
+  shape?: MaterialObliqueShape
+  /** 0 = 地面层（台面），1 = 台面上的设备与物料。层内再按深度排。 */
+  sortLayer: number
   sortDepth: number
 }
 
@@ -74,17 +101,19 @@ export function projectObliquePoint(
 }
 
 export function buildMaterialObliqueScene(
-  aggregates: readonly MaterialAggregate[]
+  aggregates: readonly MaterialAggregate[],
+  shapes?: MaterialShapeLibrary
 ): MaterialObliqueScene {
   const aggregatesById = Object.fromEntries(
     aggregates.map((aggregate) => [aggregate.material.id, aggregate])
   )
   const objects = aggregates
     .map((aggregate) =>
-      materialToObliqueObject(aggregate, aggregatesById)
+      materialToObliqueObject(aggregate, aggregatesById, shapes)
     )
     .sort(
       (left, right) =>
+        left.sortLayer - right.sortLayer ||
         right.sortDepth - left.sortDepth ||
         left.pose.positionMm[2] - right.pose.positionMm[2] ||
         left.materialId.localeCompare(right.materialId)
@@ -123,7 +152,8 @@ export function buildMaterialObliqueScene(
 
 function materialToObliqueObject(
   aggregate: MaterialAggregate,
-  aggregatesById: Readonly<Record<MaterialId, MaterialAggregate>>
+  aggregatesById: Readonly<Record<MaterialId, MaterialAggregate>>,
+  shapes: MaterialShapeLibrary | undefined
 ): MaterialObliqueObject {
   const visual = readMaterial2DVisual(aggregate)
   const pose = resolveMaterialWorldPose(
@@ -132,7 +162,26 @@ function materialToObliqueObject(
   )
   const [widthMm, depthMm] = visual.footprintMm
   const heightMm = visual.heightMm
-  const renderStyle = obliqueRenderStyle(visual.kind)
+  const sites = aggregate.sites.filter(
+    (site) =>
+      site.visible !== false && !isDecorativeDeckRail(aggregate, site)
+  )
+  const levels = buildSlotLevels(sites)
+  const resolved = resolveShape(shapes, visual.kind, levels, {
+    widthMm,
+    depthMm,
+    heightMm
+  })
+  const renderStyle: MaterialObliqueRenderStyle = resolved ? 'spec' : 'solid'
+  const usesLevels =
+    resolved?.primitives.some(
+      (primitive) =>
+        primitive.kind === 'open-rack' || primitive.kind === 'site-holes'
+    ) ?? false
+  const usesShelves =
+    resolved?.primitives.some(
+      (primitive) => primitive.kind === 'stack-shelves'
+    ) ?? false
   const yawRad = (pose.rotationDegXYZ[2] * Math.PI) / 180
   const cosine = Math.cos(yawRad)
   const sine = Math.sin(yawRad)
@@ -170,49 +219,92 @@ function materialToObliqueObject(
     base,
     top,
     topTransform: topPlaneTransform(pose, heightMm),
-    sites: aggregate.sites.filter(
-      (site) =>
-        site.visible !== false &&
-        !isDecorativeDeckRail(aggregate, site)
-    ),
-    shelves: buildStackShelves(aggregate, heightMm, renderStyle),
+    sites,
+    shelves: usesShelves ? buildStackShelves(aggregate, heightMm) : [],
+    levels: usesLevels ? levels : [],
+    shape: resolved?.shape,
+    // 台面承载所有设备，必须先画，否则它半透明的顶面会盖住工站后半区。
+    sortLayer: isGroundKind(visual.kind) ? 0 : 1,
+    // An open rack is painted before whatever stands inside it, so it sorts on
+    // its rear edge instead of its centre.
     sortDepth:
-      worldCorners.reduce((total, point) => total + point[1], 0) /
-      worldCorners.length
+      resolved?.spec.sort === 'rear-edge'
+        ? Math.max(...worldCorners.map((point) => point[1]))
+        : worldCorners.reduce((total, point) => total + point[1], 0) /
+          worldCorners.length
   }
 }
 
-function obliqueRenderStyle(
-  kind: string
-): MaterialObliqueRenderStyle {
-  const normalized = normalizeKind(kind)
-  if (
-    normalized.includes('hotel') ||
-    normalized.includes('stacker') ||
-    normalized.includes('plate-stack') ||
-    normalized.includes('labware-stack') ||
-    normalized.includes('storage-tower')
-  ) {
-    return 'stack'
+interface ResolvedShape {
+  spec: MaterialShapeSpec
+  shape: MaterialObliqueShape
+  primitives: readonly MaterialShapePrimitive[]
+}
+
+/**
+ * 按物料 category 查外形声明。敞口层架只有一层位点时退回实心包围盒——单层的
+ * 「层架」画成柜体反而看不清里面站着什么。
+ */
+function resolveShape(
+  shapes: MaterialShapeLibrary | undefined,
+  kind: string,
+  levels: readonly MaterialObliqueLevel[],
+  envelope: { widthMm: number; depthMm: number; heightMm: number }
+): ResolvedShape | undefined {
+  const spec = resolveShapeSpec(shapes, kind)
+  if (!spec) return undefined
+  const primitives = resolveShapePrimitives(spec, envelope)
+  if (primitives.length === 0) return undefined
+  const needsRack = primitives.some(
+    (primitive) => primitive.kind === 'open-rack'
+  )
+  if (needsRack && levels.length < 2) return undefined
+
+  return {
+    spec,
+    primitives,
+    shape: {
+      id: spec.id,
+      bundle: spec.bundle,
+      primitives,
+      shadow: spec.shadow
+    }
   }
-  if (
-    normalized.includes('plate') ||
-    normalized.includes('tip-rack') ||
-    normalized.includes('tiprack') ||
-    normalized.includes('labware')
-  ) {
-    return 'labware'
+}
+
+function isGroundKind(kind: string): boolean {
+  const normalized = kind.replaceAll('_', '-').toLowerCase()
+  return normalized.includes('deck') || normalized.includes('bench')
+}
+
+/** Sites are grouped per shelf board by their local Z, lowest board first. */
+function buildSlotLevels(
+  sites: readonly MaterialSite[]
+): MaterialObliqueLevel[] {
+  const groups = new Map<number, MaterialSite[]>()
+  for (const site of sites) {
+    const zMm = Math.round(site.poseInAnchor.positionMm[2])
+    const group = groups.get(zMm)
+    if (group) {
+      group.push(site)
+      continue
+    }
+    groups.set(zMm, [site])
   }
-  return 'solid'
+
+  return [...groups.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([zMm, levelSites]) => ({
+      key: `level-${zMm}`,
+      zMm,
+      sites: levelSites
+    }))
 }
 
 function buildStackShelves(
   aggregate: MaterialAggregate,
-  heightMm: number,
-  renderStyle: MaterialObliqueRenderStyle
+  heightMm: number
 ): MaterialObliqueShelf[] {
-  if (renderStyle !== 'stack') return []
-
   const siteShelves = aggregate.sites
     .filter(
       (site) =>
@@ -250,10 +342,6 @@ function buildStackShelves(
     heightMm: lower + step * index,
     occupied: false
   }))
-}
-
-function normalizeKind(kind: string): string {
-  return kind.replaceAll('_', '-').toLowerCase()
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

@@ -885,17 +885,255 @@
   stroke: rgb(167 172 187 / 74%);
 }
 
-:where(.scope, .scope *):global(.material-oblique-labware__layer) {
+/* ------------------------------------------------------------------
+   2.5D 图元样式。token 与 shape manifest 的 style 一一对应，故意只用
+   通用机械/几何词，这样加一台新设备不需要动 CSS。
+   立体图元（box/slab/cylinder）把 token 挂在组上，组里是 front/side/top
+   三个面；平面图元（disc/rect/edge）直接把 token 挂在 circle/rect/line 上。
+   ------------------------------------------------------------------ */
+
+:where(.scope, .scope *):global(.material-oblique-part--frame) > :global(.material-oblique-object__front),
+:where(.scope, .scope *):global(.material-oblique-part--frame) > :global(.material-oblique-object__side) {
+  fill: rgb(178 186 204 / 92%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--plate) > :global(.material-oblique-object__front) {
+  fill: rgb(203 210 224 / 94%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--plate) > :global(.material-oblique-object__side) {
+  fill: rgb(184 192 209 / 92%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--plate) > :global(.material-oblique-object__top) {
+  fill: rgb(233 237 245 / 94%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--board) > :global(.material-oblique-object__front) {
+  fill: rgb(206 213 227 / 95%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--board) > :global(.material-oblique-object__side) {
+  fill: rgb(184 192 209 / 92%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--board) > :global(.material-oblique-object__top) {
+  fill: rgb(234 238 246 / 95%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--body) > :global(.material-oblique-object__front) {
+  fill: rgb(198 206 221 / 95%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--body) > :global(.material-oblique-object__side) {
+  fill: rgb(176 185 203 / 93%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--body) > :global(.material-oblique-object__top) {
+  fill: rgb(226 231 242 / 94%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--column) > :global(.material-oblique-object__front) {
+  fill: rgb(196 204 220 / 94%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--column) > :global(.material-oblique-object__side) {
+  fill: rgb(174 183 201 / 92%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--column) > :global(.material-oblique-object__top),
+:where(.scope, .scope *):global(.material-oblique-part--module) > :global(.material-oblique-object__top) {
+  fill: rgb(236 240 247 / 95%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--module) > :global(.material-oblique-object__front) {
+  fill: rgb(210 217 230 / 95%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--module) > :global(.material-oblique-object__side) {
+  fill: rgb(186 195 212 / 93%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--shell) > :global(.material-oblique-object__front) {
+  fill: rgb(226 232 240 / 94%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--shell) > :global(.material-oblique-object__side) {
+  fill: rgb(205 212 224 / 92%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--shell) > :global(.material-oblique-object__top) {
+  fill: rgb(240 243 249 / 95%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--beam) > :global(.material-oblique-object__front) {
+  fill: rgb(186 193 210 / 92%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--beam) > :global(.material-oblique-object__side) {
+  fill: rgb(168 176 195 / 90%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--beam) > :global(.material-oblique-object__top) {
+  fill: rgb(232 236 244 / 94%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--shaft) > :global(.material-oblique-object__front) {
+  fill: rgb(176 184 202 / 92%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--shaft) > :global(.material-oblique-object__side) {
+  fill: rgb(160 169 186 / 90%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--shaft) > :global(.material-oblique-object__top),
+:where(.scope, .scope *):global(.material-oblique-part--probe) > :global(.material-oblique-object__top) {
+  fill: rgb(214 220 232 / 94%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--probe) > :global(.material-oblique-object__front) {
+  fill: rgb(160 169 189 / 92%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--probe) > :global(.material-oblique-object__side) {
+  fill: rgb(148 157 178 / 90%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--deck) > :global(.material-oblique-object__front) {
+  fill: rgb(200 208 223 / 95%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--deck) > :global(.material-oblique-object__side) {
+  fill: rgb(180 189 206 / 92%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--deck) > :global(.material-oblique-object__top) {
+  fill: rgb(238 241 248 / 95%);
+  stroke: rgb(148 163 184 / 78%);
+  stroke-width: 0.8;
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--gear) > :global(.material-oblique-object__front) {
+  fill: rgb(188 196 213 / 94%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--gear) > :global(.material-oblique-object__side) {
+  fill: rgb(170 178 196 / 92%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--gear) > :global(.material-oblique-object__top) {
+  fill: rgb(222 228 239 / 94%);
+  stroke: rgb(140 152 173 / 70%);
+  stroke-width: 0.8;
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--motor) > :global(.material-oblique-object__front) {
+  fill: rgb(190 198 214 / 94%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--motor) > :global(.material-oblique-object__side) {
+  fill: rgb(170 179 198 / 92%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--motor) > :global(.material-oblique-object__top) {
+  fill: rgb(218 224 236 / 94%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--foot) > :global(.material-oblique-object__front),
+:where(.scope, .scope *):global(.material-oblique-part--foot) > :global(.material-oblique-object__side) {
+  fill: rgb(168 176 195 / 90%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--foot) > :global(.material-oblique-object__top) {
+  fill: rgb(214 220 232 / 94%);
+}
+
+/* 敞口层架的背板/侧板/层板直接就是多边形 */
+polygon:where(.scope, .scope *):global(.material-oblique-part--frame) {
+  fill: rgb(226 229 238 / 78%);
+  stroke: rgb(176 181 196 / 70%);
+  stroke-width: 0.8;
+}
+
+polygon:where(.scope, .scope *):global(.material-oblique-part--frame):global(.is-rear) {
+  fill: rgb(236 238 245 / 82%);
+}
+
+polygon:where(.scope, .scope *):global(.material-oblique-part--frame):global(.is-inner-side) {
+  fill: rgb(216 220 231 / 72%);
+}
+
+polygon:where(.scope, .scope *):global(.material-oblique-part--board) {
+  fill: rgb(250 251 253 / 90%);
+  stroke: rgb(184 189 203 / 78%);
+  stroke-width: 0.8;
+}
+
+polygon:where(.scope, .scope *):global(.material-oblique-part--board):global(.is-lip) {
+  fill: rgb(214 218 229 / 88%);
+  stroke: rgb(174 179 194 / 76%);
+  stroke-width: 0.75;
+}
+
+line:where(.scope, .scope *):global(.material-oblique-part--post) {
+  stroke: rgb(163 169 186 / 82%);
+  stroke-linecap: round;
+  stroke-width: 2.4;
+}
+
+/* 平面图元 */
+:where(.scope, .scope *):global(.material-oblique-part--hole) {
+  fill: rgb(226 232 240 / 92%);
+  stroke: rgb(148 163 184 / 82%);
+  stroke-width: 0.7;
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--hole):global(.is-tip-present) {
+  fill: rgb(187 247 208 / 92%);
+  stroke: rgb(34 197 94 / 82%);
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--bore) {
+  fill: rgb(190 199 216 / 94%);
+  stroke: rgb(130 143 166 / 78%);
+  stroke-width: 0.8;
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--port) {
+  fill: rgb(214 221 233 / 94%);
+  stroke: rgb(130 143 166 / 82%);
+  stroke-width: 0.8;
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--seat) {
+  fill: rgb(238 241 248 / 95%);
+  stroke: rgb(130 143 166 / 82%);
+  stroke-width: 0.8;
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--pad) {
+  fill: rgb(219 225 236 / 94%);
+  stroke: rgb(140 152 173 / 78%);
+  stroke-width: 0.8;
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--rim) {
+  fill: rgb(255 255 255 / 44%);
+  stroke: rgb(181 185 198 / 72%);
+  stroke-width: 0.9;
+  pointer-events: none;
+}
+
+:where(.scope, .scope *):global(.material-oblique-part--hairline) {
   stroke: rgb(148 153 170 / 55%);
   stroke-width: 0.8;
   pointer-events: none;
 }
 
-:where(.scope, .scope *):global(.material-oblique-labware__rim) {
-  fill: rgb(255 255 255 / 44%);
-  stroke: rgb(181 185 198 / 72%);
-  stroke-width: 0.9;
-  pointer-events: none;
+:where(.scope, .scope *):global(.material-oblique-hole__collar) {
+  fill: rgb(148 163 184 / 62%);
+  stroke: rgb(120 132 154 / 60%);
+  stroke-width: 0.5;
 }
 
 :where(.scope, .scope *):global(.material-oblique-stack__rail) {
@@ -943,6 +1181,44 @@
   stroke: rgb(255 255 255 / 88%);
   stroke-width: 2px;
   pointer-events: none;
+}
+
+/* 回转体（烧杯 / 试剂瓶 / 注粉瓶）：壁面、盖子、竖纹、鹰嘴与口面 */
+:where(.scope, .scope *):global(.material-oblique-lathe__wall) {
+  fill: rgb(232 235 243 / 88%);
+  stroke: rgb(160 166 182 / 78%);
+  stroke-width: 0.9;
+}
+
+:where(.scope, .scope *):global(.material-oblique-lathe__cap) {
+  fill: rgb(207 211 223 / 92%);
+  stroke: rgb(150 156 173 / 80%);
+  stroke-width: 0.9;
+}
+
+:where(.scope, .scope *):global(.material-oblique-lathe__rib) {
+  stroke: rgb(140 146 163 / 62%);
+  stroke-width: 0.7;
+  pointer-events: none;
+}
+
+:where(.scope, .scope *):global(.material-oblique-lathe__mouth) {
+  fill: rgb(250 251 254 / 94%);
+  stroke: rgb(158 164 180 / 82%);
+  stroke-width: 0.9;
+}
+
+:where(.scope, .scope *):global(.material-oblique-lathe__rim) {
+  fill: none;
+  stroke: rgb(176 182 197 / 72%);
+  stroke-width: 0.8;
+  pointer-events: none;
+}
+
+:where(.scope, .scope *):global(.material-oblique-lathe__spout) {
+  fill: rgb(245 247 251 / 92%);
+  stroke: rgb(160 166 182 / 76%);
+  stroke-width: 0.85;
 }
 
 :where(.scope, .scope *):global(.material-oblique-object):global(.is-trash) :global(.material-oblique-object__front) {

@@ -37,6 +37,7 @@ import {
 } from '../utils/debugControls'
 import { useWorkflowDownload } from '../hooks/useWorkflowDownload'
 import { useWorkflowFileUpload } from '../hooks/useWorkflowFileUpload'
+import { useWorkflowSessionStore } from './WorkflowSessionProvider'
 import styles from './workflow.module.scss'
 
 export interface WorkflowStepFocus {
@@ -57,54 +58,146 @@ type RunMode = 'run' | 'debug'
 type OutputTab = 'nodes' | 'events' | 'errors'
 type CompactPane = 'code' | 'dag'
 
+interface WorkflowPanelSession {
+  authoringMode: AuthoringMode
+  runMode: RunMode
+  legendOpen: boolean
+  outputExpanded: boolean
+  outputTab: OutputTab
+  compactPane: CompactPane
+  sourceFileName: string | null
+  sourceFileWriter: ((content: string) => Promise<void>) | null
+  editorValue: string
+  editorBaseline: string
+  canonicalSource: string
+  pythonBaseline: string | null
+  pythonSourceMap: NonNullable<WorkflowAuthoringCandidate['source_map']>
+  run: WorkflowRun | null
+  runNodes: WorkflowRunNode[]
+  events: WorkflowRunEvent[]
+  breakpoints: string[]
+  startNodeId: string | null
+  selectedNodeId: string | null
+  message: string
+  error: string | null
+  latestSequence: number
+}
+
 export default function WorkflowPanel({
   runtime,
   activeWorkflowStorageKey,
   onStepFocus,
   onUnsavedChangesChange
 }: WorkflowPanelProps): React.JSX.Element {
-  const [authoringMode, setAuthoringMode] = useState<AuthoringMode>('json')
-  const [runMode, setRunMode] = useState<RunMode>('run')
-  const [legendOpen, setLegendOpen] = useState(false)
-  const [outputExpanded, setOutputExpanded] = useState(true)
-  const [outputTab, setOutputTab] = useState<OutputTab>('nodes')
-  const [compactPane, setCompactPane] = useState<CompactPane>('dag')
-  const [sourceFileName, setSourceFileName] = useState<string | null>(null)
+  const sessionStore = useWorkflowSessionStore()
+  const sessionKey =
+    activeWorkflowStorageKey || 'unilab.workflow.active.default.v1'
+  const [initialSession] = useState<WorkflowPanelSession | null>(
+    () => sessionStore?.read<WorkflowPanelSession>(sessionKey) ?? null
+  )
+  const [authoringMode, setAuthoringMode] = useState<AuthoringMode>(
+    initialSession?.authoringMode ?? 'json'
+  )
+  const [runMode, setRunMode] = useState<RunMode>(
+    initialSession?.runMode ?? 'run'
+  )
+  const [legendOpen, setLegendOpen] = useState(
+    initialSession?.legendOpen ?? false
+  )
+  const [outputExpanded, setOutputExpanded] = useState(
+    initialSession?.outputExpanded ?? true
+  )
+  const [outputTab, setOutputTab] = useState<OutputTab>(
+    initialSession?.outputTab ?? 'nodes'
+  )
+  const [compactPane, setCompactPane] = useState<CompactPane>(
+    initialSession?.compactPane ?? 'dag'
+  )
+  const [sourceFileName, setSourceFileName] = useState<string | null>(
+    initialSession?.sourceFileName ?? null
+  )
   const [saveFilePromptOpen, setSaveFilePromptOpen] = useState(false)
   const saveFileButtonRef = useRef<HTMLButtonElement>(null)
   const saveRevisionButtonRef = useRef<HTMLButtonElement>(null)
   const workflowDownload = useWorkflowDownload()
   const sourceFileWriter = useRef<
     ((content: string) => Promise<void>) | null
-  >(null)
-  const editor = useCodeMirror(CONTROL_DAG_JSON, authoringMode)
-  const [canonicalSource, setCanonicalSource] = useState(CONTROL_DAG_JSON)
-  const pythonBaseline = useRef<string | null>(null)
+  >(initialSession?.sourceFileWriter ?? null)
+  const editor = useCodeMirror(
+    initialSession?.editorValue ?? CONTROL_DAG_JSON,
+    authoringMode,
+    initialSession?.editorBaseline
+  )
+  const [canonicalSource, setCanonicalSource] = useState(
+    initialSession?.canonicalSource ?? CONTROL_DAG_JSON
+  )
+  const pythonBaseline = useRef<string | null>(
+    initialSession?.pythonBaseline ?? null
+  )
   const [pythonSourceMap, setPythonSourceMap] = useState<
     NonNullable<WorkflowAuthoringCandidate['source_map']>
-  >([])
+  >(initialSession?.pythonSourceMap ?? [])
   const parsed = useMemo(() => {
     const source = authoringMode === 'json' ? editor.value : canonicalSource
     return parseCanonicalWorkflow(source)
   }, [authoringMode, canonicalSource, editor.value])
-  const [run, setRun] = useState<WorkflowRun | null>(null)
-  const [runNodes, setRunNodes] = useState<WorkflowRunNode[]>([])
-  const [events, setEvents] = useState<WorkflowRunEvent[]>([])
-  const [breakpoints, setBreakpoints] = useState<Set<string>>(
-    () => new Set(['branch'])
+  const [run, setRun] = useState<WorkflowRun | null>(
+    initialSession?.run ?? null
   )
-  const [startNodeId, setStartNodeId] = useState<string | null>('measure')
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
-  const [message, setMessage] = useState('标准工作流 DAG 已就绪')
-  const [error, setError] = useState<string | null>(null)
+  const [runNodes, setRunNodes] = useState<WorkflowRunNode[]>(
+    initialSession?.runNodes ?? []
+  )
+  const [events, setEvents] = useState<WorkflowRunEvent[]>(
+    initialSession?.events ?? []
+  )
+  const [breakpoints, setBreakpoints] = useState<Set<string>>(
+    () => new Set(initialSession?.breakpoints ?? ['branch'])
+  )
+  const [startNodeId, setStartNodeId] = useState<string | null>(
+    initialSession?.startNodeId ?? 'measure'
+  )
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
+    initialSession?.selectedNodeId ?? null
+  )
+  const [message, setMessage] = useState(
+    initialSession?.message ?? '标准工作流 DAG 已就绪'
+  )
+  const [error, setError] = useState<string | null>(
+    initialSession?.error ?? null
+  )
   const [busy, setBusy] = useState(false)
-  const latestSequence = useRef(0)
+  const latestSequence = useRef(initialSession?.latestSequence ?? 0)
   const { containerRef, leftRatio, isDragging, handlePointerDown } =
     useResizableSplit({
       initialRatio: 0.38,
       minRatio: 0.28,
       maxRatio: 0.58
     })
+  const latestSession = useRef<WorkflowPanelSession | null>(null)
+  latestSession.current = {
+    authoringMode,
+    runMode,
+    legendOpen,
+    outputExpanded,
+    outputTab,
+    compactPane,
+    sourceFileName,
+    sourceFileWriter: sourceFileWriter.current,
+    editorValue: editor.value,
+    editorBaseline: editor.baseline,
+    canonicalSource,
+    pythonBaseline: pythonBaseline.current,
+    pythonSourceMap,
+    run,
+    runNodes,
+    events,
+    breakpoints: [...breakpoints],
+    startNodeId,
+    selectedNodeId,
+    message,
+    error,
+    latestSequence: latestSequence.current
+  }
 
   const nodeStates = useMemo(
     () => Object.fromEntries(
@@ -148,6 +241,15 @@ export default function WorkflowPanel({
   useEffect(() => {
     editor.setLineMarkers(codeMarkers)
   }, [codeMarkers, editor.setLineMarkers])
+
+  useEffect(
+    () => () => {
+      if (latestSession.current) {
+        sessionStore?.write(sessionKey, latestSession.current)
+      }
+    },
+    [sessionKey, sessionStore]
+  )
 
   useEffect(() => {
     onUnsavedChangesChange?.(editor.isDirty)
@@ -253,6 +355,7 @@ export default function WorkflowPanel({
   }, [])
 
   useEffect(() => {
+    if (initialSession) return
     const workflowId = readActiveWorkflowId(activeWorkflowStorageKey)
     if (!workflowId) return
 
@@ -301,7 +404,12 @@ export default function WorkflowPanel({
     return () => {
       active = false
     }
-  }, [activeWorkflowStorageKey, editor.replaceContent, runtime])
+  }, [
+    activeWorkflowStorageKey,
+    editor.replaceContent,
+    initialSession,
+    runtime
+  ])
 
   const fileUpload = useWorkflowFileUpload({
     onLoaded: ({ content, fileName, writeBack }) => {

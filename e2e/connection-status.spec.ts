@@ -9,7 +9,7 @@ test('连接成功后持续展示已连接状态', async ({ page }) => {
     })
   })
 
-  await page.goto('/')
+  await page.goto('/?enable=materialNav')
   await page.getByRole('button', { name: /物料/ }).click()
 
   const connectionBar = page.getByRole('group', {

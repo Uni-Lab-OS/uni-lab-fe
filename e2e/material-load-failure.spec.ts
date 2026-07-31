@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('物料加载上下文失败时仍保留视图切换入口', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?enable=materialNav')
   await page.getByRole('button', { name: /物料/ }).click()
   await page
     .getByRole('combobox', { name: '切换服务配置' })

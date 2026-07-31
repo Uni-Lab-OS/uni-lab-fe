@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
 test('工作流未保存时拦截模块切换与窗口关闭', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?enable=materialNav')
   const navigation = page.getByRole('navigation', { name: '主导航' })
   const workflowButton = navigation.getByRole('button', { name: '工作流' })
   const materialButton = navigation.getByRole('button', { name: '物料' })
@@ -82,5 +82,7 @@ async function editWorkflow(page: Page) {
   await editor.click()
   await page.keyboard.press('Control+End')
   await page.keyboard.insertText('\n ')
-  await expect(page.getByText('● 未保存', { exact: true })).toBeVisible()
+  await expect(
+    page.locator('span:visible', { hasText: /^● 未保存$/ })
+  ).toBeVisible()
 }

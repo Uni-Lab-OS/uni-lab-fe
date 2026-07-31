@@ -17,13 +17,37 @@ export interface DeviceActionTarget {
   label: string
 }
 
+export interface OnlineDevice {
+  id: string
+  deviceKey: string
+  namespace: string
+  machineName: string
+  online: boolean
+  actions: DeviceAction[]
+}
+
 export interface DeviceAction {
   actionName: string
+  actionRef: string
+  displayName: string
   label: string
   typeName: string
   isBusy: boolean
   currentJobId: string | null
   schema: Record<string, unknown> | null
+  inputSchema: Record<string, DeviceActionInputSchema>
+  outputSchema: Record<string, DeviceActionInputSchema>
+}
+
+export interface DeviceActionInputSchema {
+  type?: string
+  title?: string
+  description?: string
+  default?: unknown
+  enum?: unknown[]
+  required?: boolean
+  minimum?: number
+  maximum?: number
 }
 
 export interface DeviceActionSchema {
@@ -103,6 +127,7 @@ interface RuntimeActionTemplate {
   deviceId: string
   label: string
   inputSchema: Record<string, unknown>
+  outputSchema: Record<string, unknown>
 }
 
 let actionRunSequence = 0
@@ -129,6 +154,26 @@ export function createLaboratoryService(http: HttpClient) {
       const raw = await http.request<Record<string, unknown>>('/api/v1/devices')
       const items = Array.isArray(raw.items) ? raw.items : []
       return items.map((value) => mapDeviceCatalogItem(asRecord(value)))
+    },
+
+    async getOnlineDevices(): Promise<OnlineDevice[]> {
+      const templates = await getRuntimeActionTemplates(http)
+      const actionsByDevice = new Map<string, RuntimeActionTemplate[]>()
+      for (const template of templates) {
+        const actions = actionsByDevice.get(template.deviceId) ?? []
+        actions.push(template)
+        actionsByDevice.set(template.deviceId, actions)
+      }
+      return [...actionsByDevice.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([deviceId, actions]) => ({
+          id: deviceId,
+          deviceKey: `/devices/${deviceId}`,
+          namespace: '/devices',
+          machineName: 'Uni-Lab OS',
+          online: true,
+          actions: actions.map(mapDeviceAction)
+        }))
     },
 
     async getDeviceActions(deviceId: string): Promise<DeviceAction[]> {
@@ -267,13 +312,18 @@ function mapDeviceCatalogItem(
 }
 
 function mapDeviceAction(template: RuntimeActionTemplate): DeviceAction {
+  const schema = normalizeInputSchema(template.inputSchema)
   return {
     actionName: template.actionName,
+    actionRef: template.actionRef,
+    displayName: template.label,
     label: template.label,
     typeName: template.actionRef,
     isBusy: false,
     currentJobId: null,
-    schema: normalizeInputSchema(template.inputSchema)
+    schema,
+    inputSchema: mapActionSchema(schema.properties),
+    outputSchema: mapActionSchema(template.outputSchema)
   }
 }
 
@@ -327,10 +377,23 @@ async function getRuntimeActionTemplates(
         deviceId: actionRef.slice(0, separator),
         actionName: actionRef.slice(separator + 1),
         label: str(item.label) || actionRef.slice(separator + 1),
-        inputSchema: asRecord(item.inputSchema)
+        inputSchema: asRecord(item.inputSchema),
+        outputSchema: asRecord(item.outputSchema)
       }
     ]
   })
+}
+
+function mapActionSchema(
+  value: unknown
+): Record<string, DeviceActionInputSchema> {
+  const schema = asRecord(value)
+  return Object.fromEntries(
+    Object.entries(schema).map(([name, definition]) => [
+      name,
+      asRecord(definition) as DeviceActionInputSchema
+    ])
+  )
 }
 
 function normalizeInputSchema(

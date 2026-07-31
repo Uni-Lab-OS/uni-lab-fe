@@ -26,6 +26,7 @@ export function SceneWorkbench({
     (state) => state.aggregatesById
   )
   const loadState = useMaterialStore((state) => state.loadState)
+  const shapeLibrary = useMaterialStore((state) => state.shapeLibrary)
   const selectedMaterialIds = useLabInteraction(
     (state) => state.selectedMaterialIds
   )
@@ -109,6 +110,7 @@ export function SceneWorkbench({
   return (
     <PascalLabWorkbench
       aggregates={aggregates}
+      shapes={shapeLibrary}
       viewMode={viewMode}
       projectId={`unilab-${backend.id}-${scopeKey}`}
       editable={moveStatus.available}

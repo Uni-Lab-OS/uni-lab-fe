@@ -6,6 +6,7 @@ import {
   createMaterialHistory,
   emptyAuthoringSnapshot
 } from './undo'
+import type { MaterialShapeLibrary } from './oblique/shapeSpec'
 import type {
   AttachMaterialCommand,
   CreateMaterialInput,
@@ -50,6 +51,8 @@ export interface MaterialStoreState {
   creationOperationByMaterialId: Readonly<Record<MaterialId, string>>
   loadState: MaterialLoadState
   error: string | null
+  /** 设备包声明的 2.5D 外形；后端不提供时为空表，视图退回实心包围盒。 */
+  shapeLibrary: MaterialShapeLibrary
 
   loadGraph: () => Promise<void>
   createMaterial: (input: CreateMaterialInput) => Promise<CreateMaterialResult>
@@ -156,6 +159,7 @@ export function createMaterialStore(
       creationOperationByMaterialId: {},
       loadState: 'idle',
       error: null,
+      shapeLibrary: [],
 
       loadGraph: async () => {
         if (
@@ -187,6 +191,14 @@ export function createMaterialStore(
           graphRevision = aggregates[0]?.revision ?? 0
           history.reset(authoringSnapshot(byId))
           finish(commandId)
+          // 外形只影响画法，取不到也不该让整张图加载失败。
+          try {
+            const shapeLibrary =
+              (await dependencies.graph.getShapeLibrary?.()) ?? []
+            if (shapeLibrary.length > 0) set({ shapeLibrary })
+          } catch {
+            set({ shapeLibrary: [] })
+          }
         } catch (error) {
           set({ loadState: 'error' })
           fail(commandId, error)

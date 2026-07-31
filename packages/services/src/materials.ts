@@ -16,6 +16,11 @@ import type {
   MaterialTemplateSummary
 } from '@unilab/material'
 
+import {
+  parseShapeLibrary,
+  type MaterialShapeLibrary
+} from '@unilab/material/domain'
+
 import type { BackendConfig } from './backends'
 import {
   getCapabilityStatus,
@@ -34,6 +39,12 @@ export type {
 export type MaterialService =
   MaterialTemplateCatalogPort &
   MaterialGraphPort
+
+/**
+ * 外形声明按后端地址缓存：它是设备包的静态资产，一次会话内不会变，而 2.5D
+ * 视图每次挂载都要用。
+ */
+const shapeLibraryByApiUrl = new Map<string, Promise<MaterialShapeLibrary>>()
 
 export function createMaterialService(
   http: HttpClient,
@@ -166,6 +177,24 @@ export function createMaterialService(
         }
       )
     },
+
+    getShapeLibrary: async () => {
+      const cached = shapeLibraryByApiUrl.get(backend.apiUrl)
+      if (cached) return cached
+      const pending = requestData<{ items?: unknown }>(
+        http,
+        '/api/v1/material-shapes'
+      )
+        .then((response) => parseShapeLibrary(response.items))
+        .catch(() => {
+          // 老后端没有这个端点，2.5D 退回实心包围盒即可；下次挂载再试。
+          shapeLibraryByApiUrl.delete(backend.apiUrl)
+          return [] as MaterialShapeLibrary
+        })
+      shapeLibraryByApiUrl.set(backend.apiUrl, pending)
+      return pending
+    },
+
     updateConfig: async (_command) =>
       unavailableGraphOperation('material.updateConfig'),
     move: async (_command) =>

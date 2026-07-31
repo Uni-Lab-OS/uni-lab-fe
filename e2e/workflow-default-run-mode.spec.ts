@@ -6,7 +6,9 @@ test('物料与工作流页面默认使用整图运行', async ({ page }) => {
   const bridge = await startOfflineLocalBridge(0)
 
   try {
-    await page.goto(`/?localOsUrl=${encodeURIComponent(bridge.url)}`)
+    await page.goto(
+      `/?localOsUrl=${encodeURIComponent(bridge.url)}&enable=materialNav`
+    )
 
     await page.getByText('物料', { exact: true }).first().click()
     await expectDefaultFullRun(page)

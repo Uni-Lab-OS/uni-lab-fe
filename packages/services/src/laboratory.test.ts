@@ -83,9 +83,11 @@ describe('laboratory service', () => {
     await expect(service.getActionDevices()).resolves.toEqual([
       { deviceId: 'pump-1', label: 'pump-1' }
     ])
-    await expect(service.getDeviceActions('pump-1')).resolves.toEqual([
+    await expect(service.getDeviceActions('pump-1')).resolves.toMatchObject([
       {
         actionName: 'aspirate',
+        actionRef: 'pump-1.aspirate',
+        displayName: '吸液',
         label: '吸液',
         typeName: 'pump-1.aspirate',
         isBusy: false,
@@ -99,6 +101,8 @@ describe('laboratory service', () => {
       },
       {
         actionName: 'dispense',
+        actionRef: 'pump-1.dispense',
+        displayName: '排液',
         label: '排液',
         typeName: 'pump-1.dispense',
         isBusy: false,
@@ -109,6 +113,16 @@ describe('laboratory service', () => {
             volume: { type: 'number', default: 2 }
           }
         }
+      }
+    ])
+    await expect(service.getOnlineDevices()).resolves.toMatchObject([
+      {
+        id: 'pump-1',
+        online: true,
+        actions: [
+          { actionRef: 'pump-1.aspirate' },
+          { actionRef: 'pump-1.dispense' }
+        ]
       }
     ])
     await expect(

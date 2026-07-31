@@ -1,6 +1,7 @@
 /** [AI] Model: Claude Opus 4.8 | 2026-07-24 | 应用根:登录门禁 + 统一外壳 + 模式 Provider */
 import { useCallback, type ReactNode } from 'react'
 import { ServicesProvider } from '@unilab/services'
+import { WorkflowSessionProvider } from '@unilab/workflow-editor'
 import {
   WorkbenchProvider,
   useWorkbench
@@ -37,7 +38,9 @@ function AuthGate(): React.JSX.Element {
       <ActiveServices>
         <MaterialRuntimeProvider>
           <ActiveInteraction>
-            <AppShell />
+            <WorkflowSessionProvider>
+              <AppShell />
+            </WorkflowSessionProvider>
           </ActiveInteraction>
         </MaterialRuntimeProvider>
       </ActiveServices>

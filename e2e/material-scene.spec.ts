@@ -30,10 +30,11 @@ const SCHEDULE_PORT = Number(
 // default in both development and packaged renderers. Hardware-backed CI can
 // explicitly opt back in to exercise the native pipeline.
 const MATERIAL_SCENE_PARAMS = new URLSearchParams({
-  localOsUrl: API_URL
+  localOsUrl: API_URL,
+  enable: 'materialNav'
 })
 if (process.env.UNILAB_E2E_NATIVE_POSTFX === '1') {
-  MATERIAL_SCENE_PARAMS.set('enable', 'postFx')
+  MATERIAL_SCENE_PARAMS.set('enable', 'materialNav,postFx')
 }
 const MATERIAL_SCENE_URL = `/?${MATERIAL_SCENE_PARAMS.toString()}`
 

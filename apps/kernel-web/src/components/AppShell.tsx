@@ -4,8 +4,8 @@
  * ============================================================
  * Model: Claude Opus 4.8
  * Generation Date: 2026-07-22
- * Prompt Summary: 调试客户端统一外壳(顶栏 + 左侧三方向导航 + 主区)
- * Context: 设备/物料/工作流三方向共用框架
+ * Prompt Summary: 调试客户端统一外壳(顶栏 + 左侧导航 + 主区)
+ * Context: 设备与工作流共用框架，物料工作台暂不提供导航入口
  * Human Review Status: [ ] Pending  [ ] Reviewed  [ ] Approved
  * ============================================================
  */
@@ -24,13 +24,41 @@ import DeviceCardWorkbench from './device-cards/DeviceCardWorkbench';
 import { LabPanelWorkspace } from '../integrations/lab-workbench/LabPanelWorkspace';
 import type { WorkbenchSection } from '../data/lab';
 
-// 左侧导航项定义
-const NAV_ITEMS: readonly AppShellNavigationItem[] = [
-  { id: 'device', label: '仪器设备', icon: '⚙' },
-  { id: 'cards', label: '设备卡片', icon: '▣' },
-  { id: 'material', label: '物料', icon: '⬡' },
-  { id: 'workflow', label: '工作流', icon: '⇄' }
+const DEVICE_NAV_ITEM: AppShellNavigationItem = {
+  id: 'device',
+  label: '仪器设备',
+  icon: '⚙'
+};
+const CARD_NAV_ITEM: AppShellNavigationItem = {
+  id: 'cards',
+  label: '设备卡片',
+  icon: '▣'
+};
+const MATERIAL_NAV_ITEM: AppShellNavigationItem = {
+  id: 'material',
+  label: '物料',
+  icon: '⬡'
+};
+const WORKFLOW_NAV_ITEM: AppShellNavigationItem = {
+  id: 'workflow',
+  label: '工作流',
+  icon: '⇄'
+};
+const PUBLIC_NAV_ITEMS: readonly AppShellNavigationItem[] = [
+  DEVICE_NAV_ITEM,
+  CARD_NAV_ITEM,
+  WORKFLOW_NAV_ITEM
 ];
+// 独立物料工作台保留用于内部联调，默认不向用户开放导航入口。
+const NAV_ITEMS: readonly AppShellNavigationItem[] =
+  materialNavigationEnabled()
+    ? [
+        DEVICE_NAV_ITEM,
+        CARD_NAV_ITEM,
+        MATERIAL_NAV_ITEM,
+        WORKFLOW_NAV_ITEM
+      ]
+    : PUBLIC_NAV_ITEMS;
 
 // 统一外壳:顶栏 + 左侧导航 + 主区
 export default function AppShell(): React.JSX.Element {
@@ -52,12 +80,12 @@ export default function AppShell(): React.JSX.Element {
         const destination = NAV_ITEMS.find(
           (item) => item.id === nextSection
         )?.label;
-        const shouldDiscard = globalThis.confirm(
+        const shouldNavigate = globalThis.confirm(
           `工作流代码有未保存的修改。切换到“${
             destination || '其他模块'
-          }”将丢失这些修改，是否继续？`
+          }”后修改仍会保留，离开页面前请及时保存。是否继续？`
         );
-        if (!shouldDiscard) return;
+        if (!shouldNavigate) return;
         hasUnsavedWorkflowChanges.current = false;
       }
 
@@ -71,7 +99,7 @@ export default function AppShell(): React.JSX.Element {
       brand="Uni-Lab 调试台"
       topbar={
         <>
-          {section === 'device' ? null : <ConnectionBar />}
+          <ConnectionBar />
           {session ? (
             <UserMenu userInfo={session.userInfo} onLogout={logout} />
           ) : null}
@@ -161,4 +189,15 @@ function WorkflowIcon(): React.JSX.Element {
       <path d="M5.5 5h3a3 3 0 0 1 3 3v4a3 3 0 0 0 3 3M11.5 8a3 3 0 0 1 3-3" />
     </svg>
   );
+}
+
+function materialNavigationEnabled(): boolean {
+  if (typeof globalThis.location === 'undefined') return false;
+  const enabledFeatures = new Set(
+    (new URLSearchParams(globalThis.location.search).get('enable') ?? '')
+      .split(',')
+      .map((feature) => feature.trim())
+      .filter(Boolean)
+  );
+  return enabledFeatures.has('materialNav');
 }

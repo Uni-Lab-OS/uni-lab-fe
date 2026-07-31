@@ -52,6 +52,7 @@ export interface CodeLineMarker {
 
 export interface UseCodeMirrorResult {
   value: string
+  baseline: string
   isDirty: boolean
   containerRef: React.RefObject<HTMLDivElement | null>
   replaceContent: (next: string) => void
@@ -254,13 +255,14 @@ function languageExtension(language: EditorLanguage): Extension {
 // 管理 CodeMirror 6 实例:挂载、内容同步、isDirty 判定、语言切换
 export function useCodeMirror(
   initialValue: string,
-  language: EditorLanguage
+  language: EditorLanguage,
+  initialBaseline = initialValue
 ): UseCodeMirrorResult {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const markersRef = useRef<ReadonlyArray<CodeLineMarker>>([])
   const [value, setValue] = useState(initialValue)
-  const [baseline, setBaseline] = useState(initialValue)
+  const [baseline, setBaseline] = useState(initialBaseline)
 
   // 初始化编辑器实例;语言变化时重建以套用新语法
   useEffect(() => {
@@ -342,6 +344,7 @@ export function useCodeMirror(
 
   return {
     value,
+    baseline,
     isDirty: value !== baseline,
     containerRef,
     replaceContent,

@@ -8,7 +8,10 @@ import {
   MaterialCanvas,
   MaterialObliqueCanvas
 } from '@unilab/material'
-import type { MaterialAggregate } from '@unilab/material/domain'
+import type {
+  MaterialAggregate,
+  MaterialShapeLibrary
+} from '@unilab/material/domain'
 import {
   useCallback,
   useEffect,
@@ -33,6 +36,8 @@ import {
 
 export interface PascalLabWorkbenchProps {
   aggregates: readonly MaterialAggregate[]
+  /** 设备包声明的 2.5D 外形，透传给斜二测画布。 */
+  shapes?: MaterialShapeLibrary
   viewMode?: '2d' | '2.5d' | '3d' | 'split'
   projectId?: string
   modelRuntime?: LabModelRuntime
@@ -48,6 +53,7 @@ export interface PascalLabWorkbenchProps {
 
 export function PascalLabWorkbench({
   aggregates,
+  shapes,
   viewMode = '3d',
   projectId = 'unilab-local-scene',
   modelRuntime,
@@ -227,6 +233,7 @@ export function PascalLabWorkbench({
         <div className="pascal-lab-workbench__oblique">
           <MaterialObliqueCanvas
             aggregates={aggregates}
+            shapes={shapes}
             selectedMaterialIds={selectedMaterialIds}
             highlightedMaterialIds={highlightedMaterialIds}
             onSelectionChange={(materialIds) => {

@@ -1,0 +1,55 @@
+.executionTools {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copyButton {
+  display: inline-flex;
+  height: 28px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  color: var(--unilab-color-device);
+  border: 1px solid color-mix(
+    in srgb,
+    var(--unilab-color-device) 30%,
+    var(--unilab-color-border)
+  );
+  border-radius: var(--unilab-radius-sm);
+  background: var(--unilab-color-surface);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    color var(--unilab-motion-fast) ease,
+    border-color var(--unilab-motion-fast) ease,
+    background var(--unilab-motion-fast) ease;
+
+  &:hover {
+    border-color: var(--unilab-color-device);
+    background: color-mix(
+      in srgb,
+      var(--unilab-color-device-soft) 72%,
+      var(--unilab-color-surface)
+    );
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--unilab-color-focus);
+    outline-offset: 2px;
+  }
+
+  &[data-copied='true'] {
+    color: var(--unilab-color-success);
+    border-color: color-mix(
+      in srgb,
+      var(--unilab-color-success) 34%,
+      var(--unilab-color-border)
+    );
+    background: var(--unilab-color-success-soft);
+  }
+}

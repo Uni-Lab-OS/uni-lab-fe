@@ -329,6 +329,13 @@ export interface MaterialMutationResult {
 
 export interface MaterialGraphPort {
   getGraph(scope: MaterialScope): Promise<readonly MaterialAggregate[]>
+  /**
+   * 2.5D 外形声明由设备包提供、Bridge 下发。老后端没有这个端点，所以是可选的：
+   * 取不到就退回实心包围盒。
+   */
+  getShapeLibrary?(): Promise<
+    import('./oblique/shapeSpec').MaterialShapeLibrary
+  >
   createMaterial(
     scope: MaterialScope,
     input: CreateMaterialInput

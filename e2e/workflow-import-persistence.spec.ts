@@ -11,7 +11,9 @@ test('已保存的导入工作流在切换模块后仍然保留', async ({ page 
   const bridge = await startOfflineLocalBridge(0, [profilePath])
 
   try {
-    await page.goto(`/?localOsUrl=${encodeURIComponent(bridge.url)}`)
+    await page.goto(
+      `/?localOsUrl=${encodeURIComponent(bridge.url)}&enable=materialNav`
+    )
     await page.getByText('工作流', { exact: true }).first().click()
     await page.locator('input[type="file"]').setInputFiles({
       name: 'persisted-workflow.json',
@@ -19,7 +21,7 @@ test('已保存的导入工作流在切换模块后仍然保留', async ({ page 
       buffer: Buffer.from(JSON.stringify(IMPORTED_WORKFLOW))
     })
 
-    await expect(page.locator('.cm-content')).toContainText(
+    await expect(page.locator('.cm-content:visible')).toContainText(
       '"workflow_id": "persistence-e2e"'
     )
     await page.getByRole('button', { name: '保存修订版本' }).click()
@@ -39,9 +41,81 @@ test('已保存的导入工作流在切换模块后仍然保留', async ({ page 
     await expect(
       page.locator('[data-panel-type="workflow-dag"]')
     ).toBeVisible()
-    await expect(page.locator('.cm-content')).toContainText(
+    await expect(page.locator('.cm-content:visible')).toContainText(
       '"workflow_id": "persistence-e2e"'
     )
+  } finally {
+    await bridge.stop()
+  }
+})
+
+test('当前工作流在切换左侧模块后仍然保留', async ({ page }) => {
+  const profilePath = resolve(
+    process.cwd(),
+    'e2e/fixtures/host-node-test-latency/profile.yaml'
+  )
+  const bridge = await startOfflineLocalBridge(0, [profilePath])
+
+  try {
+    await page.goto(
+      `/?localOsUrl=${encodeURIComponent(bridge.url)}&enable=materialNav`
+    )
+    await page.getByText('工作流', { exact: true }).first().click()
+    await page.locator('input[type="file"]').setInputFiles({
+      name: 'current-workflow.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(IMPORTED_WORKFLOW))
+    })
+
+    const editor = page.locator('.cm-content:visible')
+    await expect(editor).toContainText(
+      '"workflow_id": "persistence-e2e"'
+    )
+    await editor.click()
+    await page.keyboard.press('Control+End')
+    await page.keyboard.insertText('\n ')
+    await expect(
+      page.locator('span:visible', { hasText: /^● 未保存$/ })
+    ).toBeVisible()
+
+    let navigationMessage = ''
+    page.once('dialog', (dialog) => {
+      navigationMessage = dialog.message()
+      void dialog.accept()
+    })
+    await page.getByText('仪器设备', { exact: true }).first().click()
+    expect(navigationMessage).toContain('切换到“仪器设备”后修改仍会保留')
+    await expect(
+      page.getByRole('navigation', { name: '主导航' })
+        .getByRole('button', { name: '仪器设备' })
+    ).toHaveAttribute('aria-current', 'page')
+
+    await page.getByText('工作流', { exact: true }).first().click()
+    await expect(
+      page.locator('[data-panel-type="workflow-dag"]')
+    ).toBeVisible()
+    await expect(page.locator('.cm-content:visible')).toContainText(
+      '"workflow_id": "persistence-e2e"'
+    )
+    await expect(
+      page.locator('span:visible', { hasText: /^● 未保存$/ })
+    ).toBeVisible()
+
+    page.once('dialog', (dialog) => void dialog.accept())
+    await page.getByText('物料', { exact: true }).first().click()
+    await expect(
+      page.getByRole('navigation', { name: '主导航' })
+        .getByRole('button', { name: '物料' })
+    ).toHaveAttribute('aria-current', 'page')
+
+    page.once('dialog', (dialog) => void dialog.accept())
+    await page.getByText('工作流', { exact: true }).first().click()
+    await expect(page.locator('.cm-content:visible')).toContainText(
+      '"workflow_id": "persistence-e2e"'
+    )
+    await expect(
+      page.locator('span:visible', { hasText: /^● 未保存$/ })
+    ).toBeVisible()
   } finally {
     await bridge.stop()
   }
@@ -65,7 +139,7 @@ test('Python 可直接粘贴或导入并自动投影到画布', async ({ page })
     await pythonMode.click()
     await expect(pythonMode).toHaveAttribute('aria-pressed', 'true')
 
-    const editor = page.locator('.cm-content')
+    const editor = page.locator('.cm-content:visible')
     await editor.click()
     await page.keyboard.press('Control+A')
     await page.keyboard.insertText(PYTHON_WORKFLOW)
@@ -78,9 +152,7 @@ test('Python 可直接粘贴或导入并自动投影到画布', async ({ page })
       page.locator('.workflow-runtime__projection-state')
     ).toHaveCount(0)
 
-    await page.getByLabel(
-      '选择工作流 JSON 或 Python 文件'
-    ).setInputFiles({
+    await page.getByLabel('选择工作流文件').setInputFiles({
       name: 'python-import-e2e.py',
       mimeType: 'text/x-python',
       buffer: Buffer.from(PYTHON_IMPORTED_WORKFLOW)
