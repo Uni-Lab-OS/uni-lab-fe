@@ -5,6 +5,7 @@ import {
   mkdir,
   readFile,
   readdir,
+  realpath,
   rm,
   writeFile
 } from 'node:fs/promises'
@@ -19,6 +20,7 @@ import {
 import {
   parseDeviceCardManifest,
   validateDeviceCardManifest,
+  type DeviceCardAuthoringContext,
   type DeviceCardDiagnostic,
   type DeviceCardManifest
 } from '@unilab/device-card-sdk'
@@ -55,7 +57,9 @@ const IMPORT_ALLOWLIST = new Set([
 export async function buildDeviceCard(
   request: DeviceCardBuildRequest
 ): Promise<DeviceCardBuildResult> {
-  const projectDir = resolve(request.projectDir)
+  // macOS 上 /tmp → /private/tmp；esbuild 用真实路径做 importer，
+  // 不 realpath 时 import 白名单会误判越界，vue/sdk 解析失败。
+  const projectDir = await realpath(resolve(request.projectDir))
   const outDir = resolve(request.outDir)
   const diagnostics: DeviceCardDiagnostic[] = []
   let manifest: DeviceCardManifest
@@ -80,8 +84,14 @@ export async function buildDeviceCard(
     return { ok: false, diagnostics, outDir }
   }
 
+  // OS runtime context may only have currently-seen topics; project
+  // authoring-context.json declares the full state contract the card needs.
+  const authoringContext = mergeAuthoringContext(
+    request.authoringContext,
+    await readProjectAuthoringContext(projectDir)
+  )
   diagnostics.push(
-    ...validatePermissionsAgainstContext(manifest, request.authoringContext)
+    ...validatePermissionsAgainstContext(manifest, authoringContext)
   )
   const entry = assertInside(projectDir, manifest.entry)
   try {
@@ -108,7 +118,15 @@ export async function buildDeviceCard(
       absWorkingDir: projectDir,
       bundle: true,
       define: {
-        __UNILAB_CARD_ELEMENT__: JSON.stringify(elementName)
+        __UNILAB_CARD_ELEMENT__: JSON.stringify(elementName),
+        // Vue 生产构建会读这些全局；不注入时 minify 产物运行期抛
+        // ReferenceError: __VUE_PROD_DEVTOOLS__ is not defined，卡片空白。
+        __VUE_OPTIONS_API__: 'true',
+        __VUE_PROD_DEVTOOLS__: 'false',
+        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false',
+        'process.env.NODE_ENV': JSON.stringify(
+          request.development ? 'development' : 'production'
+        )
       },
       format: 'esm',
       jsx: 'automatic',
@@ -166,7 +184,7 @@ export async function buildDeviceCard(
     ),
     writeFile(
       resolve(outDir, 'mock-host.js'),
-      mockHostSource(manifest, request.authoringContext),
+      mockHostSource(manifest, authoringContext),
       'utf8'
     ),
     writeFile(
@@ -502,6 +520,48 @@ function elementNameFor(
 ): string {
   const safeId = manifest.id.toLowerCase().replace(/[^a-z0-9]+/g, '-')
   return `ulcard-${safeId}-${sourceHash.slice(0, 8)}`
+}
+
+function isAuthoringContext(value: unknown): value is DeviceCardAuthoringContext {
+  if (!value || typeof value !== 'object') return false
+  const record = value as Record<string, unknown>
+  return (
+    record.schemaVersion === 'device-card-authoring-context/v1' &&
+    typeof record.deviceTypeId === 'string' &&
+    typeof record.title === 'string' &&
+    Array.isArray(record.actions) &&
+    !!record.stateSchema &&
+    typeof record.stateSchema === 'object' &&
+    !!record.sampleState &&
+    typeof record.sampleState === 'object' &&
+    Array.isArray(record.media)
+  )
+}
+
+async function readProjectAuthoringContext(
+  projectDir: string
+): Promise<DeviceCardAuthoringContext | undefined> {
+  try {
+    const raw: unknown = JSON.parse(
+      await readFile(resolve(projectDir, 'authoring-context.json'), 'utf8')
+    )
+    return isAuthoringContext(raw) ? raw : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function mergeAuthoringContext(
+  runtime: DeviceCardAuthoringContext | undefined,
+  project: DeviceCardAuthoringContext | undefined
+): DeviceCardAuthoringContext | undefined {
+  if (!runtime) return project
+  if (!project) return runtime
+  return {
+    ...runtime,
+    stateSchema: { ...project.stateSchema, ...runtime.stateSchema },
+    sampleState: { ...project.sampleState, ...runtime.sampleState }
+  }
 }
 
 function esbuildDiagnostics(error: unknown): DeviceCardDiagnostic[] {

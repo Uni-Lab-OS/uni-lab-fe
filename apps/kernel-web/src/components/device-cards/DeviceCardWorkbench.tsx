@@ -12,7 +12,6 @@ import {
 import { createDeviceCardAuthoringKit } from '@unilab/device-card-authoring-kit'
 import type {
   DeviceCardActionRun,
-  DeviceCardAuthoringContext,
   DeviceCardAuthoringProfile,
   DeviceCardHostActionRequest,
   DeviceCardRuntimeSnapshot,
@@ -20,6 +19,7 @@ import type {
   InstalledDeviceCard
 } from '@unilab/device-card-sdk'
 
+import { createAuthoringContext } from '../../data/authoringContext'
 import { useDeviceStatus } from '../../hooks/useDeviceStatus'
 import styles from './DeviceCardWorkbench.module.scss'
 import { deviceInstanceOptionLabel } from './presentation'
@@ -47,7 +47,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   const [workspace, setWorkspace] =
     useState<DeviceCardWorkspaceStatus | null>(null)
   const [workspaceOperation, setWorkspaceOperation] = useState<
-    'open' | 'rebuild' | 'install' | 'export' | 'close' | null
+    'open' | 'rebuild' | 'install' | 'close' | null
   >(null)
   const [message, setMessage] = useState<WorkbenchNotice | null>(null)
 
@@ -103,7 +103,8 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   )
     ? selectedDevice
     : undefined
-  const previewDevice = workspaceActive ? undefined : compatibleDevice
+  // 有兼容设备就 Live 绑定（含源码目录预览），与仪器单点同一条下发路径。
+  const previewDevice = compatibleDevice
 
   useEffect(() => {
     setSelectedDeviceId((current) =>
@@ -116,9 +117,9 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   const runtimeState = useMemo<Record<string, unknown>>(() => {
     if (!selectedDevice) return { status: 'idle', online: false }
     const live = statusMap.get(selectedDevice.deviceId)?.status ?? {}
+    // Edge /api/v1/ws/device_status 真值；online / actionBusy 仍来自目录。
     return {
       ...live,
-      status: selectedDevice.online ? 'online' : 'offline',
       online: selectedDevice.online,
       actionBusy: Object.fromEntries(
         selectedDevice.actions.map((action) => [
@@ -129,14 +130,8 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     }
   }, [selectedDevice, statusMap])
   const previewState = useMemo<Record<string, unknown>>(
-    () => workspaceActive
-      ? compatibleDevice
-        ? runtimeState
-        : { status: 'idle', online: false }
-      : previewDevice
-        ? runtimeState
-        : { status: 'idle', online: false },
-    [compatibleDevice, previewDevice, runtimeState, workspaceActive]
+    () => (previewDevice ? runtimeState : { status: 'idle', online: false }),
+    [previewDevice, runtimeState]
   )
   runtimeStateRef.current = previewState
 
@@ -145,9 +140,9 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     const preview = previewRef.current
     let disposed = false
     const context: DeviceCardRuntimeSnapshot = {
-      mode: workspaceActive ? 'mock' : previewDevice ? 'live' : 'mock',
+      mode: previewDevice ? 'live' : 'mock',
       device: {
-        deviceId: workspaceActive ? null : previewDevice?.deviceId ?? null,
+        deviceId: previewDevice?.deviceId ?? null,
         deviceTypeId:
           previewDevice?.deviceTypeId ?? previewCard.deviceTypes[0] ?? '',
         title: previewDevice?.label ?? previewCard.title
@@ -220,26 +215,6 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
       void submitAction(request, services.laboratory, desktopApi.resolveAction)
     })
   }, [desktopApi, services.laboratory])
-
-  const importCard = async (): Promise<void> => {
-    if (!desktopApi) return
-    setMessage(null)
-    try {
-      const imported = await desktopApi.importCard()
-      if (!imported) return
-      await refresh()
-      setSelectedCardKey(imported.key)
-      setMessage({
-        kind: 'success',
-        text: `已导入并由 Electron 重新构建：${imported.title}`
-      })
-    } catch (error) {
-      setMessage({
-        kind: 'error',
-        text: error instanceof Error ? error.message : '导入卡片失败'
-      })
-    }
-  }
 
   const openWorkspace = async (): Promise<void> => {
     if (!desktopApi || !selectedDevice) return
@@ -318,28 +293,6 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     }
   }
 
-  const exportWorkspace = async (): Promise<void> => {
-    if (!desktopApi || workspace?.state !== 'ready') return
-    setWorkspaceOperation('export')
-    setMessage(null)
-    try {
-      const saved = await desktopApi.workspace.exportCard()
-      if (saved) {
-        setMessage({
-          kind: 'success',
-          text: `已导出检查通过的源码快照：${saved.path}`
-        })
-      }
-    } catch (error) {
-      setMessage({
-        kind: 'error',
-        text: error instanceof Error ? error.message : '导出 .ulcard 失败'
-      })
-    } finally {
-      setWorkspaceOperation(null)
-    }
-  }
-
   const closeWorkspace = async (): Promise<void> => {
     if (!desktopApi || !workspace) return
     setWorkspaceOperation('close')
@@ -374,7 +327,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
       if (saved) {
         setMessage({
           kind: 'success',
-          text: `完整 Authoring Kit 已保存：${saved.path}`
+          text: `卡片开发包已保存：${saved.path}`
         })
       }
     } catch (error) {
@@ -382,7 +335,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
         kind: 'error',
         text: error instanceof Error
           ? error.message
-          : '导出 Authoring Kit 失败'
+          : '导出卡片开发包失败'
       })
     } finally {
       setExportingKit(false)
@@ -393,7 +346,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     return (
       <section className={styles.unavailable}>
         <h1>设备自定义卡片</h1>
-        <p>卡片导入和隔离预览仅在 Electron 桌面端可用。</p>
+        <p>源码目录预览与安装仅在 Electron 桌面端可用。</p>
       </section>
     )
   }
@@ -416,14 +369,6 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
             onClick={() => void openWorkspace()}
           >
             {workspaceOperation === 'open' ? '正在打开…' : '打开源码目录'}
-          </button>
-          <button
-            type="button"
-            className={styles.secondary}
-            disabled={workspaceOperation !== null}
-            onClick={() => void importCard()}
-          >
-            导入 .ulcard
           </button>
         </div>
 
@@ -487,16 +432,6 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
               </button>
               <button
                 type="button"
-                className={styles.secondary}
-                disabled={
-                  workspace.state !== 'ready' || workspaceOperation !== null
-                }
-                onClick={() => void exportWorkspace()}
-              >
-                {workspaceOperation === 'export' ? '导出中…' : '导出 .ulcard'}
-              </button>
-              <button
-                type="button"
                 className={styles.ghost}
                 disabled={workspaceOperation !== null}
                 onClick={() => void closeWorkspace()}
@@ -514,7 +449,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
             onChange={(event) => setSelectedCardKey(event.target.value)}
             disabled={loading || cards.length === 0}
           >
-            {cards.length === 0 ? <option value="">尚未导入</option> : null}
+            {cards.length === 0 ? <option value="">尚未安装</option> : null}
             {cards.map((card) => (
               <option key={card.key} value={card.key}>
                 {card.title} · {card.version}
@@ -561,7 +496,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
           disabled={!selectedDevice || !fileApi || exportingKit}
           onClick={() => void exportAuthoringKit()}
         >
-          {exportingKit ? '正在生成…' : '导出完整 Authoring Kit'}
+          {exportingKit ? '正在生成…' : '导出卡片开发包'}
         </button>
 
         <div className={styles.security}>
@@ -589,7 +524,9 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
             <span>
               {workspace
                 ? workspace.state === 'ready'
-                  ? '本地开发 · Mock · 保存后自动刷新'
+                  ? previewDevice
+                    ? `本地开发 · Live · ${previewDevice.deviceId}`
+                    : '本地开发 · Mock · 未绑定兼容设备'
                   : workspace.card
                     ? '本地开发 · 显示最后有效构建'
                     : '本地开发 · 等待检查通过'
@@ -603,7 +540,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
           <span className={styles.profile}>
             {workspace
               ? workspaceCard?.authoringProfile ?? '等待检查'
-              : selectedCard?.authoringProfile ?? '等待导入'}
+              : selectedCard?.authoringProfile ?? '等待安装'}
           </span>
         </header>
         <div ref={previewRef} className={styles.preview}>
@@ -611,7 +548,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
             <div className={styles.empty}>
               {workspace
                 ? '修复 diagnostics.json 错误后自动预览。'
-                : '打开卡片源码目录，或导入 .ulcard 后在这里预览。'}
+                : '打开卡片源码目录并检查通过后，可在这里预览。'}
             </div>
           ) : null}
         </div>
@@ -641,9 +578,9 @@ function workspaceSummary(workspace: DeviceCardWorkspaceStatus): string {
   if (workspace.state === 'ready') {
     return warnings > 0
       ? `构建成功，仍有 ${warnings} 条警告。`
-      : '构建成功，可以安装当前源码或导出源码包。'
+      : '构建成功，可以安装当前源码。'
   }
-  return `${errors} 个错误；安装和导出已禁用。`
+  return `${errors} 个错误；安装已禁用。`
 }
 
 async function submitAction(
@@ -657,11 +594,20 @@ async function submitAction(
       action: request.action,
       actionArgs: request.params
     })
+    // addJob 只表示 run 已受理；卡片读数靠 Edge device_status WS。
+    const finished = await waitForJob(laboratory, job.jobId)
     await resolveAction({
       requestId: request.requestId,
       action: request.action,
-      status: mapActionStatus(job.status),
-      result: { jobId: job.jobId, status: job.status }
+      status: mapActionStatus(finished.status),
+      result: {
+        jobId: finished.jobId,
+        status: finished.status,
+        ...extractNodeResult(finished.result)
+      },
+      error: finished.status === 'failed'
+        ? '设备动作执行失败。'
+        : undefined
     })
   } catch (error) {
     await resolveAction({
@@ -671,6 +617,48 @@ async function submitAction(
       error: error instanceof Error ? error.message : String(error)
     })
   }
+}
+
+async function waitForJob(
+  laboratory: ReturnType<typeof useServices>['laboratory'],
+  jobId: string,
+  timeoutMs = 120_000
+): Promise<Awaited<ReturnType<typeof laboratory.getJobStatus>>> {
+  const started = Date.now()
+  let status = 'pending'
+  while (Date.now() - started < timeoutMs) {
+    const current = await laboratory.getJobStatus(jobId)
+    status = current.status
+    if (
+      status === 'completed' ||
+      status === 'failed' ||
+      status === 'cancelled' ||
+      status === 'cancel_requested' ||
+      status === 'dispatch_unknown'
+    ) {
+      return {
+        ...current,
+        jobId: current.jobId || jobId
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200))
+  }
+  throw new Error(`等待动作完成超时（${timeoutMs}ms），最后状态：${status}`)
+}
+
+function extractNodeResult(
+  result: Record<string, unknown> | null | undefined
+): Record<string, unknown> {
+  if (!result || typeof result !== 'object') return {}
+  const nodes = result.nodes
+  if (!Array.isArray(nodes) || nodes.length === 0) return {}
+  const node = nodes[0]
+  if (!node || typeof node !== 'object' || Array.isArray(node)) return {}
+  const nodeResult = (node as Record<string, unknown>).result
+  if (!nodeResult || typeof nodeResult !== 'object' || Array.isArray(nodeResult)) {
+    return {}
+  }
+  return nodeResult as Record<string, unknown>
 }
 
 function mapActionStatus(
@@ -683,39 +671,3 @@ function mapActionStatus(
   return 'ACCEPTED'
 }
 
-function jsonType(value: unknown): string {
-  if (Array.isArray(value)) return 'array'
-  if (value === null) return 'null'
-  return typeof value === 'object' ? 'object' : typeof value
-}
-
-function createAuthoringContext(
-  device: DeviceCatalogItem,
-  state: Record<string, unknown>
-): DeviceCardAuthoringContext {
-  return {
-    schemaVersion: 'device-card-authoring-context/v1',
-    deviceTypeId: device.deviceTypeId,
-    deviceId: device.deviceId,
-    title: device.label,
-    actions: device.actions.map((action) => ({
-      action: action.actionName,
-      label: action.label,
-      inputSchema: action.inputSchema,
-      outputSchema: action.outputSchema,
-      busy: action.isBusy
-    })),
-    stateSchema: Object.fromEntries(
-      Object.entries(state).map(([key, value]) => [
-        key,
-        {
-          type: jsonType(value),
-          status: 'unresolved',
-          source: 'runtime-sample'
-        }
-      ])
-    ),
-    sampleState: state,
-    media: []
-  }
-}

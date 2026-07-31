@@ -260,13 +260,13 @@ app.whenReady().then(() => {
         throw new Error('二进制文件无效或超过 10 MiB。')
       }
       const defaultName = basename(
-        payload.defaultName || 'unilab-authoring-kit.zip'
+        payload.defaultName || 'unilab-card-kit.zip'
       )
       const options: Electron.SaveDialogOptions = {
-        title: '保存 Uni-Lab Authoring Kit',
+        title: '保存卡片开发包',
         defaultPath: defaultName,
         filters: [{
-          name: 'Uni-Lab Authoring Kit',
+          name: '卡片开发包',
           extensions: ['zip']
         }]
       }

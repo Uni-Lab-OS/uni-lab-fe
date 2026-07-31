@@ -5,7 +5,7 @@
  * Model: Claude Opus 4.8
  * Generation Date: 2026-07-22
  * Prompt Summary: Uni-Lab-OS WebSocket 客户端封装(设备状态订阅)
- * Context: 订阅 ws://host/ws/device_status,1Hz 广播设备运行时状态
+ * Context: 订阅 Edge FastAPI /api/v1/ws/device_status（约 1Hz）
  * Human Review Status: [ ] Pending  [ ] Reviewed  [ ] Approved
  * ============================================================
  */
@@ -16,7 +16,7 @@ interface DeviceStatusMessage {
   type: string
   data: {
     device_status?: Record<string, Record<string, unknown>>
-    device_status_timestamps?: Record<string, number>
+    device_status_timestamps?: Record<string, number | Record<string, unknown>>
   }
 }
 
@@ -27,11 +27,15 @@ export interface DeviceStatusHandlers {
   onError?: (error: string) => void
 }
 
-// 将 http(s) 基址转为 ws(s) 的 /ws/device_status 地址
-function toDeviceStatusUrl(baseUrl: string): string {
+/** Edge mounts the api router at /api/v1; route is /ws/device_status. */
+export function toDeviceStatusUrl(baseUrl: string): string {
   const trimmed = baseUrl.replace(/\/$/, '')
   const wsBase = trimmed.replace(/^http/, 'ws')
-  return `${wsBase}/ws/device_status`
+  if (wsBase.endsWith('/api/v1/ws/device_status')) return wsBase
+  if (wsBase.endsWith('/ws/device_status')) {
+    return wsBase.replace(/\/ws\/device_status$/, '/api/v1/ws/device_status')
+  }
+  return `${wsBase}/api/v1/ws/device_status`
 }
 
 // 建立设备状态订阅连接,返回关闭函数
@@ -106,6 +110,22 @@ function mapStatuses(data: DeviceStatusMessage['data']): DeviceStatus[] {
   return Object.entries(statusMap).map(([deviceId, status]) => ({
     deviceId,
     status,
-    timestamp: Number(timestamps[deviceId] ?? 0)
+    timestamp: deviceTimestamp(timestamps[deviceId])
   }))
+}
+
+function deviceTimestamp(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const nums = Object.values(value).flatMap((item) => {
+      if (typeof item === 'number' && Number.isFinite(item)) return [item]
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        const nested = (item as { timestamp?: unknown }).timestamp
+        if (typeof nested === 'number' && Number.isFinite(nested)) return [nested]
+      }
+      return []
+    })
+    if (nums.length > 0) return Math.max(...nums)
+  }
+  return 0
 }

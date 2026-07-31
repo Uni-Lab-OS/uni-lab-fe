@@ -203,6 +203,8 @@ function localGoCapabilities(): ServerCapabilities {
 function localPythonCapabilities(): ServerCapabilities {
   const capabilities = unavailableCapabilities()
   capabilities.devices.listActions = true
+  // Edge FastAPI broadcasts at :18003/api/v1/ws/device_status (not Bridge :8014).
+  capabilities.devices.subscribeStatus = true
   capabilities.material.readTemplates = true
   capabilities.material.readGraph = true
   capabilities.material.create = true
