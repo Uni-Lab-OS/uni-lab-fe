@@ -304,6 +304,51 @@ export const VUE_SHIM_DECLARATION = `declare module '*.vue' {
 }
 `
 
+export const FRAMEWORK_DECLARATION = `declare namespace React {
+  namespace JSX {
+    interface Element {}
+  }
+}
+
+declare module 'react' {
+  export function useCallback<T extends (...args: never[]) => unknown>(
+    callback: T,
+    dependencies: readonly unknown[]
+  ): T
+  export function useEffect(
+    effect: () => void | (() => void),
+    dependencies?: readonly unknown[]
+  ): void
+  export function useMemo<T>(
+    factory: () => T,
+    dependencies: readonly unknown[]
+  ): T
+  export function useRef<T>(initialValue: T): { current: T }
+  export function useState<T>(
+    initialValue: T
+  ): [T, (value: T | ((current: T) => T)) => void]
+}
+
+declare module 'react/jsx-runtime' {
+  export const Fragment: unique symbol
+  export function jsx(type: unknown, props: unknown, key?: unknown): React.JSX.Element
+  export function jsxs(type: unknown, props: unknown, key?: unknown): React.JSX.Element
+}
+
+declare module 'vue' {
+  export type DefineComponent<
+    Props = Record<string, never>,
+    RawBindings = Record<string, never>,
+    Data = unknown
+  > = unknown
+  export function computed<T>(getter: () => T): Readonly<{ value: T }>
+  export function onBeforeUnmount(callback: () => void): void
+  export function onMounted(callback: () => void): void
+  export function reactive<T extends object>(value: T): T
+  export function ref<T>(value: T): { value: T }
+}
+`
+
 function stringArraySchema(): {
   type: 'array'
   uniqueItems: true

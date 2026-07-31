@@ -14,9 +14,10 @@
 → OS 登记 Device Type、Action、状态字段和参数 Schema
 → Electron 获取并导出 Card Authoring Kit
 → 用户在自己电脑上的 Cursor/Codex/VS Code 等环境中 Vibe Coding
-→ 用户把卡片源码打包为 .ulcard
-→ 用户将 .ulcard 上传/导入 Electron
-→ Electron 重新校验并构建源码
+→ 用户在 Electron 中授权本地 card-project 源码目录
+→ Electron 内置 Builder 自动检查、诊断并刷新 Mock 预览
+→ 用户安装当前源码，或导出 .ulcard 供其他 Electron 导入
+→ Electron 从新快照重新校验并权威构建
 → 构建产物安装到本地 Artifact Store
 → WebContentsView 加载本地产物
 → 卡片通过受控能力订阅状态和调用 Action
@@ -25,7 +26,8 @@
 Electron **不是** Vibe Coding 编辑器，也不负责 AI 生成源码。Electron 的职责是：
 
 - 提供设备卡片开发所需的稳定上下文。
-- 接收用户从本地开发目录打包出来的源码。
+- 监视用户明确授权的源码目录并生成结构化诊断，不提供源码编辑能力。
+- 接收当前源码快照或用户从其他机器带来的 `.ulcard`。
 - 对源码做独立、权威的校验和重新构建。
 - 安装、加载、更新和回滚卡片产物。
 - 把卡片请求安全地转发到现有设备能力。
@@ -51,11 +53,13 @@ Runtime。
 - `packages/device-card-builder`：固定 Builder、Vue SFC/React/原生 Web Component
   编译、导入白名单、危险源码检查和 `.ulcard` 归档安全限制。
 - `packages/device-card-tooling`：`init/check/dev/preview/test/build/pack/inspect`。
-- `packages/device-card-host`：Electron 导入后权威重编译和不可变 Artifact Store。
+- `packages/device-card-host`：受限源码快照、本地目录指纹轮询/诊断、开发构建、导入后
+  权威重编译和不可变 Artifact Store。
 - `apps/desktop`：独立 card preload、非持久 session、禁网 `WebContentsView`、
-  IPC 能力白名单。
+  IPC 能力白名单，以及用户授权的本地源码工作区。
 - `apps/kernel-web`：设备卡片管理页、完整 Authoring Kit ZIP 导出、Artifact
-  导入、Preview bounds 管理，以及经 `@unilab/services` 提交的 Action。
+  导入、本地源码目录状态/诊断/安装/导出、Preview bounds 管理，以及经
+  `@unilab/services` 提交的 Action。
 
 当前纵向切片不等于本文所有后续能力均已完成。签名、回滚 UI、媒体协议、
 Feature Packs、完整 JSON Schema 表单和专用 OS Authoring Context 端点仍是后续项。
@@ -99,26 +103,28 @@ Feature Packs、完整 JSON Schema 表单和专用 OS Authoring Context 端点�
 
 **Electron**
 
-连接 OS、导出 Authoring Kit、导入 Card Source、重新构建、安装 Artifact、创建
-WebContentsView，并把卡片能力连接到现有 services。
+连接 OS、导出 Authoring Kit、管理用户授权的本地源码工作区、导入 Card Source、
+重新构建、安装 Artifact、创建 WebContentsView，并把卡片能力连接到现有 services。
 
 **Local Coding Environment**
 
 用户自己的本地目录和编辑器，例如 Cursor、Codex、VS Code、Claude Code。Vibe
 Coding 发生在这里，不发生在 Electron。
 
-**Card CLI**
+**Card CLI（可选）**
 
-运行在用户本地开发目录中的辅助工具，用于初始化、检查、Mock 预览和打包 Card
-Source。CLI 不连接真实设备，不执行真实 Action。
+仅用于 Uni-Lab monorepo 开发、CI 或未来独立发行。默认用户路径由 Electron 内置
+Builder 提供检查、Mock 预览和打包，不依赖 CLI 或 npm Registry。CLI 不连接真实
+设备，不执行真实 Action。
 
 **Card Source Project**
 
 本地 Git 仓库中的可编辑源码。它是用户卡片源码的唯一长期权威。
 
-**Imported Source Snapshot**
+**Imported/Workspace Source Snapshot**
 
-Electron 导入时收到的不可变源码快照。它用于审计、诊断和重建，不是可编辑草稿。
+Electron 从已授权目录或 `.ulcard` 创建的不可变源码快照。它用于审计、诊断和重建，
+不是可编辑草稿。
 
 **Card Artifact**
 
@@ -210,13 +216,13 @@ my-card.ulcard
 
 ```text
 1. 用户在自己的设备包仓库或新目录中解压 Authoring Kit
-2. 用户运行 unilab-card init，或让 Coding Agent 阅读规则文件
+2. 用户在 Electron 中点击“打开源码目录”，授权 card-project 目录
 3. 用户在 Cursor/Codex/VS Code 中描述卡片需求
 4. Coding Agent 按 SDK、Device Schema 和 UI Catalog 修改源码
-5. 用户运行 unilab-card check
-6. 用户运行 unilab-card preview --mock
-7. 用户确认后运行 unilab-card pack
-8. CLI 生成 my-card.ulcard
+5. Electron 内置固定 Builder 在每次保存后自动生成结构化诊断
+6. Coding Agent 读取 .unilab-card/diagnostics.json 并修复错误
+7. WebContentsView 自动刷新 Mock 预览
+8. 用户确认后在 Electron 中安装当前源码或导出 my-card.ulcard
 ```
 
 ### 4.3 导入 Electron
@@ -241,14 +247,16 @@ my-card.ulcard
 
 ```text
 1. 用户继续在本地目录修改源码
-2. 用户重新运行 check/preview/pack
-3. 用户将新 .ulcard 导入 Electron
-4. Electron 重新构建为新的内容哈希
-5. 新 View ready 后替换旧 View
-6. 新版本失败时继续保留旧 View
+2. Electron 自动创建源码快照并重新检查
+3. 检查成功后刷新开发预览
+4. 用户点击“安装当前源码”
+5. Electron 再次权威构建为新的内容哈希
+6. 新 View ready 后替换旧 View
+7. 新版本失败时继续保留最后一个有效预览和已安装 Artifact
 ```
 
-Electron 不需要也不应该修改用户的本地源码目录。
+Electron 不修改用户源码、Manifest 或业务文档，只在用户明确授权的项目内写入
+`.unilab-card/diagnostics.json`。该文件属于可删除的生成状态，应加入 `.gitignore`。
 
 ## 5. 总体架构
 
@@ -282,9 +290,15 @@ Electron 不需要也不应该修改用户的本地源码目录。
 │ Trusted Card Shell → Device Card SDK → User Card Bundle │
 └──────────────────────────────────────────────────────────┘
 
-              用户本地目录（Electron 之外）
+              用户本地目录（代码编辑仍在 Electron 之外）
 ┌──────────────────────────────────────────────────────────┐
-│ Authoring Kit + Card Source + Local Coding Agent + CLI  │
+│ Authoring Kit + Card Source + Local Coding Agent         │
+│              ▲ 自动诊断 / 文件保存事件                   │
+└───────────────┼──────────────────────────────────────────┘
+                │ 用户显式授权一个项目目录
+┌───────────────┴──────────────────────────────────────────┐
+│ Electron Local Card Workspace                           │
+│ Snapshot → Check/Build → diagnostics.json → Mock Preview │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -296,8 +310,8 @@ Electron 不需要也不应该修改用户的本地源码目录。
 |---|---|---|
 | Device Card SDK | `packages/device-card-sdk` | 作者接口、Manifest、协议和内置 UI |
 | Authoring Kit | `packages/device-card-authoring-kit` | ZIP、模板、Schema、类型、规则和示例 |
-| Device Card CLI | 独立可分发 CLI 或 `packages/device-card-cli` | init/check/preview/pack |
-| Device Card Host | `packages/device-card-host` | Import、Build、Artifact 和能力契约 |
+| Device Card CLI | `packages/device-card-tooling`（可选） | monorepo/CI 的 init/check/preview/pack，不是用户硬依赖 |
+| Device Card Host | `packages/device-card-host` | Workspace、Snapshot、Import、Build、Artifact 和能力契约 |
 | Device Card Services | `packages/services/src/deviceCards.ts` | OS Authoring Context 与目录 |
 | Card Import Center | `apps/kernel-web/src/features/device-cards` | 导出 Kit、导入 Source、诊断 |
 | Electron Card Adapter | `apps/desktop/src/main/device-cards` | Builder、Store、Protocol、View |
@@ -589,6 +603,7 @@ centrifuge.unilab-card-kit/
 ├── sdk/
 │   ├── index.d.ts
 │   ├── ui-elements.d.ts
+│   ├── framework.d.ts
 │   ├── vue-shim.d.ts
 │   └── protocol-version.json
 ├── examples/
@@ -621,11 +636,14 @@ centrifuge.unilab-card-kit/
 - 必须使用 SDK 生命周期管理订阅。
 - 必须支持 Mock 模式。
 - 必须使用内置 UI 元素和主题 token。
-- 必须通过 `unilab-card check`。
+- 必须保持 Electron 本地工作区自动检查通过；Agent 读取
+  `.unilab-card/diagnostics.json` 获取同一 Builder 的诊断。
 
 “可以使用 Vue”不等于“允许任意 npm 依赖”。Vue 编译器和运行时由 Card Toolchain
 固定，用户上传包中不携带 `node_modules`。Electron Builder 把 `card.vue` 编译为
 Host 指定名称的 Custom Element；卡片代码不能决定注册名，也不能注册其他全局元素。
+Authoring Kit 提供 SDK/UI/固定框架的编辑器类型快照，不需要安装
+`@unilab/device-card-tooling`，也不访问 npm Registry。
 
 ### 9.3 Kit 版本绑定
 
@@ -686,11 +704,32 @@ my-centrifuge-card/
 └── .unilab-card/
 ```
 
-用户本地目录是可编辑源码权威。Electron 不通过 IPC 回写该目录。
+用户本地目录是可编辑源码权威。Electron 不通过 IPC 回写业务源码，只允许工作区
+模块原子写入 `.unilab-card/diagnostics.json`。每次构建先把允许的文件复制为受限
+快照，Builder 不直接信任正在变化的目录。
 
-## 11. Card CLI
+## 11. Electron Local Card Workspace 与可选 CLI
 
-### 11.1 命令
+### 11.1 默认工作流
+
+默认用户工作流不依赖 npm：
+
+```text
+打开源码目录
+→ Electron 记录本次目录授权
+→ 对允许的源码创建有大小上限的不可变快照
+→ 内置 Builder 自动检查并构建
+→ 原子写入 .unilab-card/diagnostics.json
+→ 成功时刷新隔离 Mock 预览
+→ 用户安装当前源码或导出 .ulcard
+```
+
+构建失败时保留最后一个成功开发预览；安装动作始终基于一次新的源码快照并再次执行
+生产模式权威构建。V1 使用跨平台目录指纹轮询，忽略 `.git`、`.unilab-card` 和
+`node_modules`；关闭工作区后停止轮询，并清理 Electron `userData` 下的临时开发
+Artifact。
+
+### 11.2 可选 CLI
 
 ```bash
 unilab-card init ./centrifuge-card --profile vue
@@ -706,7 +745,7 @@ unilab-card pack ./centrifuge-card --out centrifuge-dashboard.ulcard
 unilab-card inspect centrifuge-dashboard.ulcard
 ```
 
-在当前 monorepo 尚未发布 CLI 包时，使用等价入口：
+这些命令只用于 Uni-Lab monorepo 开发或未来 CI。当前未发布 CLI 包时使用：
 
 ```bash
 pnpm card init ./centrifuge-card --profile vue
@@ -714,7 +753,7 @@ pnpm card dev ./centrifuge-card
 pnpm card pack ./centrifuge-card --out centrifuge-dashboard.ulcard
 ```
 
-### 11.2 CLI 职责
+### 11.3 Workspace/CLI 共同职责
 
 - 生成项目模板。
 - 安装/更新本地 Authoring Context。
@@ -724,7 +763,7 @@ pnpm card pack ./centrifuge-card --out centrifuge-dashboard.ulcard
 - 使用 Mock Adapter 做浏览器预览。
 - 打包 `.ulcard`。
 
-### 11.3 CLI 非职责
+### 11.4 Workspace/CLI 非职责
 
 - 不连接真实设备。
 - 不保存 OS token。
@@ -733,7 +772,8 @@ pnpm card pack ./centrifuge-card --out centrifuge-dashboard.ulcard
 - 不决定 Electron 是否接受卡片。
 - 不把本地预览结果冒充 Electron 运行结果。
 
-CLI 检查用于缩短反馈周期。Electron Import Pipeline 仍会独立重复所有关键校验。
+开发工作区检查用于缩短反馈周期。Electron 安装流水线仍会从新的源码快照独立重复
+所有关键校验，不把开发预览视为已安装 Artifact。
 
 ## 12. Card Source Package
 
@@ -1669,9 +1709,12 @@ V1 约束：
 
 ```text
 用户修改本地源码
-→ unilab-card pack
-→ 导入新的 .ulcard
-→ Electron 重新构建
+→ Electron 目录指纹轮询发现变更
+→ 受限源码快照
+→ 自动检查并更新 diagnostics.json
+→ 成功后刷新开发 View
+→ 用户点击安装当前源码
+→ Electron 从新快照重新构建
 → 生成新 Artifact digest
 → 创建隐藏的新 View
 → 新 View ready
@@ -1821,13 +1864,17 @@ CARD_VIEW_LIMIT_REACHED
 - riskLevel 不能由卡片降低。
 - Kit metadata 与 context digest 一致。
 
-### 29.2 Card CLI
+### 29.2 Local Card Workspace
 
-- init 生成确定性目录。
-- check 拒绝未知字段和 Action。
-- preview 只使用 Mock。
-- pack 不包含 node_modules/dist/symlink。
-- pack 计算正确 source digest。
+- 目录指纹轮询忽略 `.git`、`.unilab-card` 和 `node_modules`。
+- 每次检查先生成受大小、文件数和扩展名限制的不可变快照。
+- 自动检查拒绝未知状态字段、Action 和危险源码。
+- preview 只使用 Mock，失败时保留最后一个成功构建。
+- error 状态禁止安装和导出。
+- diagnostics 原子写入，且不会触发轮询自循环。
+- 关闭工作区后释放轮询任务并清理临时 Artifact。
+
+可选 CLI 继续覆盖 init/check/preview/pack 与 Electron Builder 的一致性。
 
 ### 29.3 Import Pipeline
 
@@ -2225,7 +2272,7 @@ Vue SFC 本地创作
 当前前端侧完成标准已满足；整个 Phase 1 仍受 OS 专用 Authoring Context 端点、
 正式状态 Schema、媒体和风险等级缺口限制。
 
-### Phase 2：SDK 与 CLI
+### Phase 2：SDK、本地工作区与可选 CLI
 
 - `defineDeviceCard()`。
 - Vue SDK Adapter 和固定 SFC Profile。
@@ -2234,9 +2281,11 @@ Vue SFC 本地创作
 - `init/check/preview/pack`。
 - Mock Adapter。
 - `.ulcard` Schema 和测试。
+- Electron 源码目录授权、跨平台目录轮询、结构化诊断、自动 Mock Preview、安装与导出。
 
-完成标准：用户可在 Electron 外部用 Vue SFC 完成一张 Mock 卡片并打包，且卡片源码
-没有 Axios、WebSocket 或用户自带 npm 依赖。
+完成标准：用户可在 Electron 外部用 Vue SFC 完成一张 Mock 卡片，由 Electron 自动
+检查和预览，并直接安装或导出 `.ulcard`；卡片源码没有 Axios、WebSocket、私有
+Tooling 依赖或用户自带 npm 依赖。
 
 ### Phase 3：Import 与 Builder
 
@@ -2290,13 +2339,13 @@ Vue SFC 本地创作
 1. 上传 virtual_centrifuge 设备包
 2. OS 返回 Authoring Context
 3. Electron 导出 centrifuge.unilab-card-kit.zip
-4. 在仓库外部执行 unilab-card init
+4. 解压并在 Electron 中打开 card-project 源码目录
 5. 使用本地 Coding Agent 生成卡片
-6. CLI check
-7. CLI preview --mock
-8. CLI pack 生成 .ulcard
+6. Electron 自动 check 并写入 diagnostics.json
+7. WebContentsView 自动 preview --mock
+8. Electron 导出 .ulcard 或安装当前源码
 9. Electron inspect
-10. Electron Builder 重新构建
+10. Electron Builder 从新快照权威重建
 11. WebContentsView Mock Preview
 12. 绑定 virtual_centrifuge 实例
 13. 收到 current_speed/temperature/status
@@ -2313,6 +2362,7 @@ Vue SFC 本地创作
 - 不在 Electron 内实现 Vibe Coding。
 - 不在 Electron 内建立 AI Generation Port。
 - 不建立 Electron Draft Editor/Store。
+- 不要求用户从 npm Registry 安装私有 Card Tooling。
 - 不把用户上传源码直接 import 到主 renderer。
 - 不信任用户本地 dist。
 - 不复用主窗口 preload。
@@ -2322,6 +2372,7 @@ Vue SFC 本地创作
 - 不把 Element Plus、ECharts option 或 Vue Store 作为 Card SDK interface。
 - 不直接复制带 Axios/Router/业务 Store 的领域页面作为卡片。
 - 不让 Electron 自动改写用户 Git 仓库。
+- 除 `.unilab-card/diagnostics.json` 外不回写用户授权的源码目录。
 - 不把本地 `local-unsigned` 冒充正式发布版本。
 - 不把源码、路径或 WebContents ID 写进布局。
 - 不为每张卡片创建不同 Panel 类型。
@@ -2331,13 +2382,15 @@ Vue SFC 本地创作
 ## 34. 最终验收不变量
 
 - Vibe Coding 发生在 Electron 外部的用户本地目录。
+- 默认开发工作流不依赖 npm Registry；固定 Builder 随 Electron 分发。
 - OS 是设备能力的唯一权威。
 - Authoring Kit 只用于创作，导入时 Electron 必须重新校验当前 Context。
 - 用户上传的是 Card Source Package，不是可信可执行 Bundle。
 - Electron 必须重新构建源码。
 - Vue/图表等运行时版本必须由 Electron 固定，不能由用户源码包携带。
 - UI 元素必须以 JSON 属性/事件为 interface，不泄漏具体 UI 框架类型。
-- 只有成功安装的 Artifact 可以进入 Runtime。
+- 只有 Builder 成功的开发 Artifact 可以进入隔离 Mock Preview；只有成功安装的
+  不可变 Artifact 可以进入 Live Runtime。
 - Card WebContents 不拥有 OS 地址、token 或任意 Electron 能力。
 - Card Instance 只能操作 Host 绑定的 Device Instance。
 - Preview 默认使用 Mock。
@@ -2346,7 +2399,8 @@ Vue SFC 本地创作
 - 工作台只认识一个 `device-card` Panel。
 - 重新导入失败不能破坏最后有效版本。
 - View 关闭时必须释放订阅、MessagePort 和 WebContents。
-- Electron 不修改用户本地源码仓库。
+- Electron 不修改用户本地业务源码；唯一允许的回写是可删除且已忽略的
+  `.unilab-card/diagnostics.json`。
 - 主 React renderer 不执行用户上传的卡片代码。
 
 ## 35. 参考

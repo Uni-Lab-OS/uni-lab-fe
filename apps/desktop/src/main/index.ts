@@ -180,6 +180,7 @@ app.whenReady().then(() => {
     getMainWindow: () => mainWindow,
     preloadPath: join(__dirname, '../preload/deviceCard.js'),
     storeRoot: join(app.getPath('userData'), 'device-cards', 'artifacts'),
+    workspaceRoot: join(app.getPath('userData'), 'device-cards', 'workspaces'),
     log: logLine
   })
   deviceCardManager.registerIpc()

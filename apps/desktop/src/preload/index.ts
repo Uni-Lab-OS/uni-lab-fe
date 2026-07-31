@@ -1,10 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   DeviceCardActionRun,
+  DeviceCardAuthoringContext,
   DeviceCardBounds,
   DeviceCardHostActionRequest,
+  DeviceCardWorkspaceStatus,
   InstalledDeviceCard,
-  OpenDeviceCardRequest
+  OpenDeviceCardRequest,
+  OpenDeviceCardWorkspaceRequest
 } from '@unilab/device-card-sdk'
 
 // 登录会话结构(与主进程 authManager.AuthSession 保持一致)
@@ -72,6 +75,37 @@ const api = {
       ipcRenderer.invoke('device-cards:list'),
     importCard: (): Promise<InstalledDeviceCard | null> =>
       ipcRenderer.invoke('device-cards:import'),
+    workspace: {
+      get: (): Promise<DeviceCardWorkspaceStatus | null> =>
+        ipcRenderer.invoke('device-cards:workspace:get'),
+      open: (
+        context?: DeviceCardAuthoringContext
+      ): Promise<DeviceCardWorkspaceStatus | null> =>
+        ipcRenderer.invoke('device-cards:workspace:open', context),
+      close: (): Promise<void> =>
+        ipcRenderer.invoke('device-cards:workspace:close'),
+      rebuild: (): Promise<DeviceCardWorkspaceStatus> =>
+        ipcRenderer.invoke('device-cards:workspace:rebuild'),
+      install: (): Promise<InstalledDeviceCard> =>
+        ipcRenderer.invoke('device-cards:workspace:install'),
+      exportCard: (): Promise<SavedFile | null> =>
+        ipcRenderer.invoke('device-cards:workspace:export'),
+      preview: (request: OpenDeviceCardWorkspaceRequest): Promise<void> =>
+        ipcRenderer.invoke('device-cards:workspace:preview', request),
+      onStatus: (
+        listener: (status: DeviceCardWorkspaceStatus | null) => void
+      ): (() => void) => {
+        const wrapped = (
+          _event: Electron.IpcRendererEvent,
+          status: DeviceCardWorkspaceStatus | null
+        ): void => listener(status)
+        ipcRenderer.on('device-cards:workspaceStatus', wrapped)
+        return () => ipcRenderer.removeListener(
+          'device-cards:workspaceStatus',
+          wrapped
+        )
+      }
+    },
     open: (request: OpenDeviceCardRequest): Promise<void> =>
       ipcRenderer.invoke('device-cards:open', request),
     updateBounds: (bounds: DeviceCardBounds): Promise<void> =>

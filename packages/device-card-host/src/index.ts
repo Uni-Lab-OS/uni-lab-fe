@@ -21,6 +21,12 @@ import type {
   InstalledDeviceCard
 } from '@unilab/device-card-sdk'
 
+export {
+  createDeviceCardWorkspace,
+  type DeviceCardWorkspace,
+  type DeviceCardWorkspaceArtifact
+} from './workspace'
+
 export interface InstalledDeviceCardRecord extends InstalledDeviceCard {
   artifactDir: string
   metadata: DeviceCardBuildMetadata

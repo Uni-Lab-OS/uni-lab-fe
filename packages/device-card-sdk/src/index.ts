@@ -19,9 +19,13 @@ export type {
   DeviceCardRuntimeSnapshot,
   DeviceCardBounds,
   DeviceCardHostActionRequest,
+  DeviceCardWorkspaceCard,
+  DeviceCardWorkspaceState,
+  DeviceCardWorkspaceStatus,
   InstalledDeviceCard,
   JsonObject,
   JsonPrimitive,
   JsonValue,
-  OpenDeviceCardRequest
+  OpenDeviceCardRequest,
+  OpenDeviceCardWorkspaceRequest
 } from './contracts'

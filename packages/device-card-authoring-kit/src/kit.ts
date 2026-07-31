@@ -14,6 +14,7 @@ import {
   DEVICE_CARD_TOOLING_VERSION,
   DEVICE_CARD_UI_CATALOG,
   DEVICE_CARD_UI_CATALOG_VERSION,
+  FRAMEWORK_DECLARATION,
   SDK_DECLARATION,
   UI_ELEMENTS_DECLARATION,
   VUE_SHIM_DECLARATION
@@ -90,6 +91,7 @@ function kitFiles(
     'ui-catalog.json': stringifyStable(DEVICE_CARD_UI_CATALOG),
     'sdk/index.d.ts': SDK_DECLARATION,
     'sdk/ui-elements.d.ts': UI_ELEMENTS_DECLARATION,
+    'sdk/framework.d.ts': FRAMEWORK_DECLARATION,
     'sdk/vue-shim.d.ts': VUE_SHIM_DECLARATION,
     'sdk/protocol-version.json': stringifyStable({
       hostProtocolVersion: 1,
@@ -141,15 +143,17 @@ function kitReadme(
 1. 进入 \`card-project/\`。
 2. 让本地 Coding Agent 先阅读 \`AGENTS.md\`、\`CARD_SPEC.md\` 和
    \`authoring-context.json\`。
-3. 安装固定版本工具链，执行 \`pnpm dev\` 查看 Mock 效果。
-4. 执行 \`pnpm check && pnpm test && pnpm pack\`。
-5. 将生成的 \`.ulcard\` 导入 Electron。
+3. 在 Uni-Lab Electron 的“设备卡片”页打开 \`card-project/\` 源码目录。
+4. 在本地编辑器中修改代码；Electron 自动检查并刷新 Mock 预览。
+5. Agent 读取 \`.unilab-card/diagnostics.json\` 修复错误。
+6. 在 Electron 中安装当前源码，或导出 \`.ulcard\`。
 
 \`templates/\` 包含 Vue、React 和原生 Web Component 三套起始模板，
 \`examples/\` 包含状态、Action、层架和趋势图示例。
 
 Authoring Kit 只用于本地创作。Electron 会重新构建导入源码，并在 Live 打开时
 对照当前 OS 设备目录校验设备类型和 Action，不会信任 Kit 或本地构建产物。
+项目不依赖 \`@unilab/device-card-tooling\`，也不需要访问 npm Registry。
 `
 }
 
@@ -162,7 +166,7 @@ function kitAgentRules(context: DeviceCardAuthoringContext): string {
   \`card-project/CARD_SPEC.md\`、\`authoring-context.json\` 和
   \`ui-catalog.json\`。
 - 不得扩展 Authoring Context 中不存在的设备状态、Action 或媒体能力。
-- 不得绕过 \`unilab-card check\`、Electron 权威重编译或权限校验。
+- 不得绕过 Electron 本地工作区检查、权威重编译或权限校验。
 `
 }
 

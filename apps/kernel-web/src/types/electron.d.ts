@@ -1,10 +1,13 @@
 import type { AuthSession } from './auth'
 import type {
   DeviceCardActionRun,
+  DeviceCardAuthoringContext,
   DeviceCardBounds,
   DeviceCardHostActionRequest,
+  DeviceCardWorkspaceStatus,
   InstalledDeviceCard,
-  OpenDeviceCardRequest
+  OpenDeviceCardRequest,
+  OpenDeviceCardWorkspaceRequest
 } from '@unilab/device-card-sdk'
 
 interface OpenedFile {
@@ -48,6 +51,20 @@ interface DesktopApi {
   deviceCards?: {
     list: () => Promise<InstalledDeviceCard[]>
     importCard: () => Promise<InstalledDeviceCard | null>
+    workspace: {
+      get: () => Promise<DeviceCardWorkspaceStatus | null>
+      open: (
+        context?: DeviceCardAuthoringContext
+      ) => Promise<DeviceCardWorkspaceStatus | null>
+      close: () => Promise<void>
+      rebuild: () => Promise<DeviceCardWorkspaceStatus>
+      install: () => Promise<InstalledDeviceCard>
+      exportCard: () => Promise<SavedFile | null>
+      preview: (request: OpenDeviceCardWorkspaceRequest) => Promise<void>
+      onStatus: (
+        listener: (status: DeviceCardWorkspaceStatus | null) => void
+      ) => () => void
+    }
     open: (request: OpenDeviceCardRequest) => Promise<void>
     updateBounds: (bounds: DeviceCardBounds) => Promise<void>
     updateState: (state: Record<string, unknown>) => Promise<void>

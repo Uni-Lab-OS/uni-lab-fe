@@ -6,7 +6,7 @@ import type {
 
 import {
   DEVICE_CARD_SDK_VERSION,
-  DEVICE_CARD_TOOLING_VERSION,
+  FRAMEWORK_DECLARATION,
   SDK_DECLARATION,
   UI_ELEMENTS_DECLARATION,
   VUE_SHIM_DECLARATION
@@ -47,18 +47,13 @@ export function createDeviceCardProjectFiles(
       version: '0.1.0',
       private: true,
       type: 'module',
-      packageManager: 'pnpm@10.13.1',
-      scripts: {
-        check: 'unilab-card check .',
-        dev: 'unilab-card dev .',
-        test: 'unilab-card test .',
-        build: 'unilab-card build .',
-        pack: 'unilab-card pack .'
-      },
-      devDependencies: {
-        '@unilab/device-card-tooling': DEVICE_CARD_TOOLING_VERSION
+      unilab: {
+        developmentWorkflow: 'electron-workspace',
+        hostProtocolVersion: 1
       }
     }),
+    '.gitignore': `.unilab-card/diagnostics.json*
+`,
     'tsconfig.json': json({
       compilerOptions: {
         target: 'ES2022',
@@ -79,6 +74,7 @@ export function createDeviceCardProjectFiles(
     'README.md': projectReadme(context, profile),
     '.unilab-card/sdk.d.ts': SDK_DECLARATION,
     '.unilab-card/ui-elements.d.ts': UI_ELEMENTS_DECLARATION,
+    '.unilab-card/framework.d.ts': FRAMEWORK_DECLARATION,
     '.unilab-card/vue-shim.d.ts': VUE_SHIM_DECLARATION,
     [entryForProfile(profile)]: sourceForProfile(context, profile)
   }
@@ -205,8 +201,9 @@ function agentRules(context: DeviceCardAuthoringContext): string {
 - 禁止新增 npm 依赖、运行第三方脚本或注册额外全局 Custom Element。
 - Action 必须经 Host Bridge 调用，参数必须符合对应 JSON Schema。
 - 权限变化必须同步修改 \`card.manifest.json\`。
-- 必须支持 Mock 模式，并在交付前通过 \`pnpm check\`、\`pnpm test\` 和 \`pnpm pack\`。
-- 不要编辑 \`.unilab-card/\` 中的 SDK 类型；重新导出 Kit 更新它们。
+- 必须支持 Mock 模式，并保持 Electron“本地开发工作区”的自动检查通过。
+- 每次保存后读取 \`.unilab-card/diagnostics.json\`；存在 error 时继续修复。
+- 不要编辑 \`.unilab-card/\` 中的 SDK 类型或诊断文件；重新导出 Kit 更新类型。
 `
 }
 
@@ -232,8 +229,9 @@ ${context.actions.map((action) => `- \`${action.action}\`：${action.label}`).jo
 
 ## 交付
 
-上传的是 \`.ulcard\` 源码归档。Electron 会重新校验并使用固定 Builder 构建，
-本地预览结果不是正式运行时权威。
+Electron 从用户授权目录创建受限源码快照。用户可以直接安装当前源码，也可以导出
+\`.ulcard\` 供其他 Electron 导入；两条路径都会重新校验并使用固定 Builder
+权威构建，开发预览结果不等于正式运行结果。
 `
 }
 
@@ -245,22 +243,15 @@ function projectReadme(
 
 该项目由 Uni-Lab Authoring Kit 生成，Profile 为 \`${profile}\`。
 
-\`\`\`bash
-pnpm install --frozen-lockfile=false
-pnpm dev
-pnpm check
-pnpm test
-pnpm pack
-\`\`\`
+无需执行 \`pnpm install\`，也不依赖 npm Registry。
 
-开发工具包版本固定为 \`${DEVICE_CARD_TOOLING_VERSION}\`。如果公司内部 npm
-Registry 尚未发布该版本，请在 Uni-Lab 前端仓库中执行等价命令：
+1. 在 Cursor、Codex 或 VS Code 中打开本目录。
+2. 在 Uni-Lab Electron 的“设备卡片”页点击“打开源码目录”并选择本目录。
+3. Electron 使用内置固定 Builder 自动检查、构建并刷新隔离预览。
+4. Coding Agent 可读取 \`.unilab-card/diagnostics.json\` 获取结构化诊断。
+5. 检查通过后，在 Electron 中安装当前源码或导出 \`.ulcard\`。
 
-\`\`\`bash
-pnpm card dev /absolute/path/to/this/card-project
-pnpm card check /absolute/path/to/this/card-project
-pnpm card pack /absolute/path/to/this/card-project
-\`\`\`
+Electron 只会写入受管理的诊断文件，不会修改 \`src/\`、Manifest 或业务文档。
 `
 }
 

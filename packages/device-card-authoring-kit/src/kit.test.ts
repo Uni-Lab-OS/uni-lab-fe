@@ -31,6 +31,7 @@ describe('createDeviceCardAuthoringKit', () => {
       `${root}ui-catalog.json`,
       `${root}sdk/index.d.ts`,
       `${root}sdk/ui-elements.d.ts`,
+      `${root}sdk/framework.d.ts`,
       `${root}sdk/vue-shim.d.ts`,
       `${root}mocks/default-state.json`,
       `${root}card-project/card.manifest.json`,
@@ -67,6 +68,18 @@ describe('createDeviceCardAuthoringKit', () => {
     expect(manifest.deviceTypes).toEqual(['example_device'])
     expect(manifest.permissions.state).toEqual(['status', 'temperature'])
     expect(manifest.permissions.actions).toEqual(['start'])
+
+    const packageJson = JSON.parse(
+      new TextDecoder().decode(
+        entries[`${root}card-project/package.json`]
+      )
+    ) as {
+      devDependencies?: Record<string, string>
+      unilab?: { developmentWorkflow?: string }
+    }
+    expect(packageJson.devDependencies).toBeUndefined()
+    expect(packageJson.unilab?.developmentWorkflow)
+      .toBe('electron-workspace')
   })
 
   it('is deterministic when the context and generation time are fixed', async () => {

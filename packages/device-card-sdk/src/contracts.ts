@@ -128,6 +128,35 @@ export interface OpenDeviceCardRequest {
   availableActions?: string[]
 }
 
+export type DeviceCardWorkspaceState = 'building' | 'ready' | 'error'
+
+export interface DeviceCardWorkspaceCard {
+  id: string
+  version: string
+  title: string
+  deviceTypes: string[]
+  authoringProfile: DeviceCardAuthoringProfile
+  sourceHash: string
+}
+
+export interface DeviceCardWorkspaceStatus {
+  schemaVersion: 'device-card-workspace-status/v1'
+  projectDir: string
+  projectName: string
+  state: DeviceCardWorkspaceState
+  revision: number
+  updatedAt: string
+  diagnosticsPath: string
+  diagnostics: DeviceCardDiagnostic[]
+  card?: DeviceCardWorkspaceCard
+}
+
+export interface OpenDeviceCardWorkspaceRequest {
+  bounds: DeviceCardBounds
+  context: DeviceCardRuntimeSnapshot
+  availableActions?: string[]
+}
+
 export interface DeviceCardHostActionRequest {
   requestId: string
   deviceId: string

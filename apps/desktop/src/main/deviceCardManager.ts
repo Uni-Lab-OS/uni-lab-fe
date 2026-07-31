@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { join, resolve } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 
 import {
   BrowserWindow,
@@ -10,24 +10,37 @@ import {
   WebContentsView
 } from 'electron'
 import {
+  createDeviceCardWorkspace,
   installDeviceCardArchive,
   listInstalledDeviceCards,
   verifyArtifactKey,
+  type DeviceCardWorkspace,
+  type DeviceCardWorkspaceArtifact,
   type InstalledDeviceCardRecord
 } from '@unilab/device-card-host'
 import type {
   DeviceCardActionRun,
+  DeviceCardAuthoringContext,
   DeviceCardBounds,
   DeviceCardHostActionRequest,
   DeviceCardRuntimeSnapshot,
+  DeviceCardWorkspaceStatus,
   InstalledDeviceCard,
   JsonObject,
-  OpenDeviceCardRequest
+  OpenDeviceCardRequest,
+  OpenDeviceCardWorkspaceRequest
 } from '@unilab/device-card-sdk'
+
+interface RuntimeCardRecord {
+  id: string
+  deviceTypes: string[]
+  artifactDir: string
+  metadata: InstalledDeviceCardRecord['metadata']
+}
 
 interface RuntimeSession {
   view: WebContentsView
-  record: InstalledDeviceCardRecord
+  record: RuntimeCardRecord
   context: DeviceCardRuntimeSnapshot
   config: JsonObject
 }
@@ -41,11 +54,14 @@ export class DeviceCardManager {
   private readonly sessions = new Map<number, RuntimeSession>()
   private readonly pendingActions = new Map<string, PendingAction>()
   private activeView: WebContentsView | null = null
+  private activeWorkspace: DeviceCardWorkspace | null = null
+  private workspaceContext: DeviceCardAuthoringContext | undefined
 
   constructor(private readonly options: {
     getMainWindow: () => BrowserWindow | null
     preloadPath: string
     storeRoot: string
+    workspaceRoot: string
     log: (message: string) => void
   }) {}
 
@@ -70,10 +86,81 @@ export class DeviceCardManager {
       return publicRecord(record)
     })
     ipcMain.handle(
+      'device-cards:workspace:open',
+      async (event, context?: DeviceCardAuthoringContext) => {
+        this.assertMainRenderer(event)
+        if (context !== undefined && !isAuthoringContext(context)) {
+          throw new Error('卡片工作区 Authoring Context 无效。')
+        }
+        const window = this.requireMainWindow()
+        const selection = await dialog.showOpenDialog(window, {
+          title: '打开 Uni-Lab 卡片源码目录',
+          properties: ['openDirectory']
+        })
+        if (selection.canceled || selection.filePaths.length === 0) return null
+        await this.closeWorkspace()
+        this.workspaceContext = context
+        this.activeWorkspace = await createDeviceCardWorkspace({
+          projectDir: selection.filePaths[0],
+          workRoot: this.options.workspaceRoot,
+          authoringContext: context,
+          onStatus: (status) => this.sendWorkspaceStatus(status)
+        })
+        const status = this.activeWorkspace.getStatus()
+        this.sendWorkspaceStatus(status)
+        return status
+      }
+    )
+    ipcMain.handle('device-cards:workspace:get', (event) => {
+      this.assertMainRenderer(event)
+      return this.activeWorkspace?.getStatus() ?? null
+    })
+    ipcMain.handle('device-cards:workspace:close', async (event) => {
+      this.assertMainRenderer(event)
+      await this.closeWorkspace()
+    })
+    ipcMain.handle('device-cards:workspace:rebuild', async (event) => {
+      this.assertMainRenderer(event)
+      return this.requireWorkspace().rebuild()
+    })
+    ipcMain.handle('device-cards:workspace:install', async (event) => {
+      this.assertMainRenderer(event)
+      const artifact = this.requireWorkspace().getReadyArtifact()
+      const record = await installDeviceCardArchive({
+        archivePath: artifact.sourceArchivePath,
+        storeRoot: this.options.storeRoot,
+        authoringContext: this.workspaceContext
+      })
+      return publicRecord(record)
+    })
+    ipcMain.handle('device-cards:workspace:export', async (event) => {
+      this.assertMainRenderer(event)
+      const workspace = this.requireWorkspace()
+      const artifact = workspace.getReadyArtifact()
+      const defaultName = basename(
+        `${artifact.metadata.cardId}-${artifact.metadata.cardVersion}.ulcard`
+      )
+      const selection = await dialog.showSaveDialog(this.requireMainWindow(), {
+        title: '导出 Uni-Lab 设备卡片源码',
+        defaultPath: defaultName,
+        filters: [{ name: 'Uni-Lab Device Card', extensions: ['ulcard'] }]
+      })
+      if (selection.canceled || !selection.filePath) return null
+      await workspace.exportSourceArchive(selection.filePath)
+      return { path: selection.filePath }
+    })
+    ipcMain.handle(
       'device-cards:open',
       async (event, request: OpenDeviceCardRequest) => {
         this.assertMainRenderer(event)
         await this.open(request)
+      }
+    )
+    ipcMain.handle(
+      'device-cards:workspace:preview',
+      async (event, request: OpenDeviceCardWorkspaceRequest) => {
+        this.assertMainRenderer(event)
+        await this.openWorkspacePreview(request)
       }
     )
     ipcMain.handle(
@@ -127,6 +214,7 @@ export class DeviceCardManager {
 
   destroy(): void {
     this.closeActive()
+    void this.closeWorkspace()
     for (const pending of this.pendingActions.values()) {
       clearTimeout(pending.timer)
       pending.resolve({
@@ -151,6 +239,23 @@ export class DeviceCardManager {
         verifyArtifactKey(candidate, request.key)
       )
     if (!record) throw new Error('卡片 Artifact 不存在。')
+    await this.openRecord(record, request)
+  }
+
+  private async openWorkspacePreview(
+    request: OpenDeviceCardWorkspaceRequest
+  ): Promise<void> {
+    if (!isOpenWorkspaceRequest(request)) {
+      throw new Error('本地卡片预览参数无效。')
+    }
+    const artifact = this.requireWorkspace().getPreviewArtifact()
+    await this.openRecord(workspaceRuntimeRecord(artifact), request)
+  }
+
+  private async openRecord(
+    record: RuntimeCardRecord,
+    request: OpenDeviceCardRequest | OpenDeviceCardWorkspaceRequest
+  ): Promise<void> {
     if (!record.deviceTypes.includes(request.context.device.deviceTypeId)) {
       throw new Error(
         `卡片不支持设备类型 ${request.context.device.deviceTypeId}。`
@@ -212,6 +317,16 @@ export class DeviceCardManager {
     window.contentView.addChildView(view)
     view.setBounds(normalizeBounds(request.bounds))
     await view.webContents.loadFile(join(record.artifactDir, 'index.html'))
+  }
+
+  private async closeWorkspace(): Promise<void> {
+    const workspace = this.activeWorkspace
+    if (!workspace) return
+    this.closeActive()
+    this.activeWorkspace = null
+    this.workspaceContext = undefined
+    await workspace.close()
+    this.sendWorkspaceStatus(null)
   }
 
   private closeActive(): void {
@@ -346,6 +461,21 @@ export class DeviceCardManager {
     if (!window || window.isDestroyed()) throw new Error('主窗口不可用。')
     return window
   }
+
+  private requireWorkspace(): DeviceCardWorkspace {
+    if (!this.activeWorkspace) {
+      throw new Error('尚未打开本地卡片源码目录。')
+    }
+    return this.activeWorkspace
+  }
+
+  private sendWorkspaceStatus(
+    status: DeviceCardWorkspaceStatus | null
+  ): void {
+    const window = this.options.getMainWindow()
+    if (!window || window.isDestroyed()) return
+    window.webContents.send('device-cards:workspaceStatus', status)
+  }
 }
 
 function publicRecord(record: InstalledDeviceCardRecord): InstalledDeviceCard {
@@ -357,6 +487,17 @@ function publicRecord(record: InstalledDeviceCardRecord): InstalledDeviceCard {
     deviceTypes: record.deviceTypes,
     authoringProfile: record.authoringProfile,
     installedAt: record.installedAt
+  }
+}
+
+function workspaceRuntimeRecord(
+  artifact: DeviceCardWorkspaceArtifact
+): RuntimeCardRecord {
+  return {
+    id: artifact.metadata.cardId,
+    deviceTypes: [...artifact.metadata.manifest.deviceTypes],
+    artifactDir: artifact.artifactDir,
+    metadata: artifact.metadata
   }
 }
 
@@ -384,10 +525,20 @@ function filterAllowedState(
 }
 
 function isOpenRequest(value: unknown): value is OpenDeviceCardRequest {
-  if (!isPlainRecord(value)) return false
+  return isPlainRecord(value) &&
+    typeof value.key === 'string' &&
+    isOpenPreviewRequest(value)
+}
+
+function isOpenWorkspaceRequest(
+  value: unknown
+): value is OpenDeviceCardWorkspaceRequest {
+  return isPlainRecord(value) && isOpenPreviewRequest(value)
+}
+
+function isOpenPreviewRequest(value: Record<string, unknown>): boolean {
   const context = value.context
-  return typeof value.key === 'string' &&
-    isPlainRecord(value.bounds) &&
+  return isPlainRecord(value.bounds) &&
     isPlainRecord(context) &&
     (context.mode === 'mock' || context.mode === 'live') &&
     isPlainRecord(context.device) &&
@@ -399,6 +550,28 @@ function isOpenRequest(value: unknown): value is OpenDeviceCardRequest {
       Array.isArray(value.availableActions) &&
       value.availableActions.every((action) => typeof action === 'string')
     )
+}
+
+function isAuthoringContext(
+  value: unknown
+): value is DeviceCardAuthoringContext {
+  return isPlainRecord(value) &&
+    value.schemaVersion === 'device-card-authoring-context/v1' &&
+    typeof value.deviceTypeId === 'string' &&
+    value.deviceTypeId.length > 0 &&
+    typeof value.title === 'string' &&
+    Array.isArray(value.actions) &&
+    value.actions.every((action) =>
+      isPlainRecord(action) &&
+      typeof action.action === 'string' &&
+      typeof action.label === 'string' &&
+      isPlainRecord(action.inputSchema) &&
+      isPlainRecord(action.outputSchema)
+    ) &&
+    isPlainRecord(value.stateSchema) &&
+    isPlainRecord(value.sampleState) &&
+    Array.isArray(value.media) &&
+    value.media.every((item) => typeof item === 'string')
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
