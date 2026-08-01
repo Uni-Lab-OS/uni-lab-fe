@@ -227,7 +227,7 @@ commit。
 
 `packages/services` 的 typed port 是 FE 唯一可移植边界：组件不得依赖 snake_case wire row、
 FastAPI/SQLite 细节、浏览器全局或某个部署 profile。Web、Desktop 与测试 adapter 必须消费
-同一 canonical DTO/diagnostic semantics；更换 OS transport 或持久化 adapter不得要求复制
+同一 canonical DTO/diagnostic semantics；更换 OS transport 或持久化 adapter 不得要求复制
 schema store 或改写 Workflow editor domain model。
 
 ## Non-goals
