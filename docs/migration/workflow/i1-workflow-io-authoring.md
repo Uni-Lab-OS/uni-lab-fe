@@ -217,19 +217,18 @@ FE unit/component tests 至少覆盖：
 `pnpm build:desktop`、相关真实 OS workflow E2E 和 `git diff --check`。E2E、review 与报告必须
 固定 exact SHA；任何 production change 都使对应证据失效。
 
-## Governance blocker
+## Governance decision 与可移植性
 
-当前 RED authoring、production implementation 和跨仓 integration gate 暂停：
+[Core #158](https://github.com/Uni-Lab-OS/Uni-Lab-Core/issues/158) 已 Accepted，并明确
+supersede Core #104 的 2 test-author / 3 reviewer 数量要求。I1 每个 round 使用恰好一名
+test-author、一名 implementation owner 和一名 reviewer；同一 round 严格串行，A1/I1/M1
+可以在隔离 branch/worktree 中并行。FE production implementation 仍必须先取得独立 RED
+commit。
 
-- [Core #158](https://github.com/Uni-Lab-OS/Uni-Lab-Core/issues/158) 正在裁决以下冲突；
-- [Core #104](https://github.com/Uni-Lab-OS/Uni-Lab-Core/issues/104) 要求每个
-  implementation round 至少两名 test author、至少三名 reviewer；
-- OS `AGENTS.md` 要求恰好一名 test author、恰好一名 reviewer，且 subagent 不并发。
-
-I1 是跨 FE/OS round，不能让 FE 先选一套规则、OS 再选另一套规则来制造不可接受的 evidence。
-在 owner 明确替代/收窄关系并同步 Core、Feishu 与 OS repository rule 前，只允许完成本文和
-只读审计；不得启动 RED、production 修改或把一仓局部通过描述为 I1 gate 已开始。冲突解除后
-仍必须先取得符合最终治理规则的独立 failing tests，再进入 GREEN。
+`packages/services` 的 typed port 是 FE 唯一可移植边界：组件不得依赖 snake_case wire row、
+FastAPI/SQLite 细节、浏览器全局或某个部署 profile。Web、Desktop 与测试 adapter 必须消费
+同一 canonical DTO/diagnostic semantics；更换 OS transport 或持久化 adapter不得要求复制
+schema store 或改写 Workflow editor domain model。
 
 ## Non-goals
 
