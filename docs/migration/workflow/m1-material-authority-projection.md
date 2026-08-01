@@ -34,8 +34,8 @@ FE M1 只消费 OS 权威的 Material/Site、Task Reservation 与 Job Claim read
 - 通过既有全局 SSE invalidation 后 REST rehydrate，不消费 event patch，不增加 polling 或
   WebSocket。
 
-本设计不修改 production code。Core #158 Accepted、OS DTO gate 冻结、独立 RED gate 被明确
-允许之前，不开始 FE production RED 或 implementation。
+本设计不修改 production code。Core #158 已 Accepted；FE production RED/implementation 继续
+等待 OS DTO gate 冻结，并且必须先取得独立 RED commit。
 
 Feishu OKF《01.1 工作流协议》revision 9（wiki node
 `Qa1EwFWB1iqx4OkfNXhcvTh3nPf`）仍把 Site label 写成跨端 identity；Core #155 与 OS exact
@@ -128,6 +128,8 @@ JobExecutionClaimDTO
 
 raw DTO 只能存在于 services adapter boundary；React component 不读取 snake_case network
 object。`fencing_generation` 只供诊断/新旧投影识别，FE 永不把它回传为 commit/release 权限。
+该 adapter 同时是可移植性边界：Web、Desktop 与测试环境消费同一 domain projection，组件
+不得依赖 SQLite schema、FastAPI request shape、进程内 Material object 或特定部署 profile。
 
 ## 4. MaterialAggregate / Site 投影
 
