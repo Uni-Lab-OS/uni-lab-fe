@@ -6,6 +6,9 @@
 
 基线：`integration/fe-os-migration@a641fa6fa38b223ec90648a2c308c67d4a57b6fd`
 
+Material/Site 字段基线：
+`Uni-Lab-OS/uni-lab-backend@2b961459bd020a3abeccd495001f585ec9b49c00`
+
 控制面：
 
 - [Core #155](https://github.com/Uni-Lab-OS/Uni-Lab-Core/issues/155)：M1 Material/Site
@@ -21,6 +24,12 @@ FE M1 只消费 OS 权威的 Material/Site、Task Reservation 与 Job Claim read
 并把它们投影到现有 `MaterialAggregate`、WorkflowTask/WorkflowNodeJob 状态和状态提示。
 前端不参与 resource resolution、reservation、claim、fencing、release 或 reconciliation
 决策。
+
+Material/Site 共享实体的 wire 字段、字段名、空值和 JSON 语义采用上述 Backend exact SHA。
+OS 仅把 Site allowlist 在 SQLite 中规范化为
+`site_allowed_resource_template(site_uuid, resource_template_uuid)`；services adapter 仍接收
+Backend 同名 `allowed_resource_template_uuids` 数组，不感知关联表。Disposition、material kind、
+optimistic version、Reservation/Claim/fencing 是明确标注的 OS 扩展。
 
 本轮后续 production 必须：
 
@@ -74,7 +83,7 @@ FE production 类型/adapter 开始前，OS 必须在 exact implementation spec/
 
 - Material list/detail 的 route、pagination、closed fields 与 enum；
 - Site 的 stable `uuid`、owner `material_uuid`、`sort_order`、template allowlist、nullable
-  `occupied_material_uuid`、geometry、version；
+  `occupied_material_uuid`、Backend 六个 position/dimension 字段及 OS version；
 - Reservation 按 `workflow_task_uuid` 查询的 route、complete member shape、lifecycle 与
   authority-owned waiting/contention reason；
 - Claim 按 `job_uuid + attempt` 查询的 route、typed complete members、
@@ -95,20 +104,31 @@ FE production 类型/adapter 开始前，OS 必须在 exact implementation spec/
 ```text
 MaterialAuthorityDTO
   uuid
+  create_time / update_time
+  description?
+  meta_data
   resource_template_uuid
   parent_uuid?
-  code
+  class
+  barcode
+  name
+  config
+  data
   disposition
+  material_kind
   version
-  create_time / update_time
 
 SiteAuthorityDTO
   uuid
+  create_time / update_time
+  description?
+  meta_data
   material_uuid
   name / sort_order
   allowed_resource_template_uuids
   occupied_material_uuid?
-  geometry
+  position_x / position_y / position_z
+  depth / length / width
   version
 
 TaskReservationDTO
@@ -139,13 +159,14 @@ OS Material 与 Site DTO 经一个 adapter 合并为现有 `MaterialAggregate`�
 |---|---|
 | `Material.uuid` | `material.id` |
 | `resource_template_uuid` | `material.sourceTemplateId` |
-| `code` | `material.code` |
+| `barcode` | `material.code`（现有 FE domain property 保留，network 不再接受 `code`） |
 | Material `version` | `aggregate.revision` |
 | `parent_uuid` | composition 对应的 `placement.kind='parent'`，但不得由 Site occupancy 推导 |
 | `Site.uuid` | `site.id` |
 | `Site.material_uuid` | `site.ownerMaterialId` |
 | `allowed_resource_template_uuids` | `site.allowedTemplateIds` |
 | nullable `occupied_material_uuid` | 兼容当前 UI 的 `occupiedMaterialIds=[] | [uuid]` |
+| `position_x/position_y/position_z/depth/length/width` | `site` 的现有 scene geometry projection |
 
 M1 Site 一个位点最多一个 occupant，因此 adapter 只能生成空数组或单元素数组，不能把 FE
 现有 `capacity` 或 legacy `config.sites` 扩展为多占用权威。`Material.parent_uuid` 与 Site
@@ -159,7 +180,7 @@ projection 展示。
 
 ## 5. ResourceSlot codec 与 Task form
 
-用户在 Task launch form 或 typed Action input 中选择 Material 时，可显示 name、code、
+用户在 Task launch form 或 typed Action input 中选择 Material 时，可显示 name、barcode、
 template、Site 和当前权威状态，但请求值严格为：
 
 ```json
@@ -186,7 +207,7 @@ services adapter 保留 HTTP status、machine code、field diagnostics 与安全
 | OS response | FE 含义与展示 |
 |---|---|
 | `400 invalid_input` | ResourceSlot shape/type/template 或 Task 字段错误；定位对应字段，保留用户其他输入，不自动改值。 |
-| `404 not_found` | Material/Site 不存在或已 soft-delete；标记当前选择失效，要求用户重新选择，不静默按 code/name 重绑。 |
+| `404 not_found` | Material/Site 不存在或已 soft-delete；标记当前选择失效，要求用户重新选择，不静默按 barcode/name 重绑。 |
 | `409 conflict` | stable non-runnable disposition、fence、version 或 `material_in_use`；显示 OS reason 与建议动作，不乐观重试/释放。 |
 
 另一个 Task 的 Reservation contention 不属于上述 create-time 409：Task 已成功创建并保持
@@ -245,9 +266,10 @@ FE 也不得建立浏览器 reservation/claim table、local lock、optimistic al
 Core #158 裁决治理人数且 OS DTO gate 固定后，按被确认的唯一 agent gate 编写 RED。最低
 验收：
 
-1. services adapter 对 closed Material/Site/Reservation/Claim DTO 严格解析，unknown/missing/
-   invalid enum fail closed；
-2. `config.sites` 不再作为 M1 authority，single occupant 映射稳定；
+1. services adapter 对 closed Material/Site/Reservation/Claim DTO 严格解析，Backend 字段及 OS
+   扩展的 unknown/missing/invalid enum fail closed；
+2. `config.sites` 不再作为 M1 authority，single occupant 映射稳定；Site allowlist 数组及六个
+   Backend geometry scalar round-trip 稳定，前端不感知 OS 关联表；
 3. Task request 对单个/nullable/list ResourceSlot 只发送 `{uuid}`；
 4. exact 400/404/409 使用 machine code 呈现且不丢 field diagnostics；
 5. 两 Task 争用同一 Material：获胜方 active Reservation，等待方 pending + zero Reservation，
