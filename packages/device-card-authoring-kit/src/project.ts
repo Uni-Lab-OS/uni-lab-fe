@@ -197,9 +197,12 @@ function agentRules(context: DeviceCardAuthoringContext): string {
 
 - 只使用 \`@unilab/device-card-sdk\`、固定 Vue/React 运行时和 Kit 中列出的 \`u-*\` 元素。
 - 只能读取 \`authoring-context.json\` 中声明的状态、Action 和媒体。
+- \`authoring-context.json\` 是能力合同，\`mock.json\` 是预览样本；二者都不是运行时实时状态来源。
+- 运行态只能通过 SDK 获取：原生 Web Component 使用 Host Bridge 的 \`getContext()\` 和 \`subscribeState()\`，Vue/React 使用对应的 \`useDeviceCard()\`。禁止自行连接设备接口或 WebSocket。
 - 禁止使用 Node.js、Electron、fetch、WebSocket、XMLHttpRequest、eval、Worker 和动态 import。
 - 禁止新增 npm 依赖、运行第三方脚本或注册额外全局 Custom Element。
-- Action 必须经 Host Bridge 调用，参数必须符合对应 JSON Schema。
+- Action 必须通过 Host Bridge 的 \`callAction()\`（或 \`useDeviceCard()\` 返回的 \`callAction()\`）调用，名称和参数必须严格符合对应 JSON Schema。
+- 界面必须处理离线、未知状态、\`actionBusy\`、Action 失败和 Mock/Live 两种模式；原生订阅必须在组件销毁时取消。
 - 权限变化必须同步修改 \`card.manifest.json\`。
 - 必须支持 Mock 模式，并保持 Electron“本地开发工作区”的自动检查通过。
 - 每次保存后读取 \`.unilab-card/diagnostics.json\`；存在 error 时继续修复。

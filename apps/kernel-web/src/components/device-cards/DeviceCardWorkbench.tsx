@@ -14,7 +14,6 @@ import type {
   DeviceCardActionRun,
   DeviceCardAgentEnvironmentInfo,
   DeviceCardAuthoringProfile,
-  DeviceCardAuthoringSessionStatus,
   DeviceCardHostActionRequest,
   DeviceCardRuntimeSnapshot,
   DeviceCardWorkspaceStatus,
@@ -44,12 +43,9 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   const [selectedDeviceId, setSelectedDeviceId] = useState('')
   const [authoringProfile, setAuthoringProfile] =
     useState<DeviceCardAuthoringProfile>('vue-web-component-v1')
-  const [loading, setLoading] = useState(false)
   const [exportingKit, setExportingKit] = useState(false)
   const [workspace, setWorkspace] =
     useState<DeviceCardWorkspaceStatus | null>(null)
-  const [authoringSession, setAuthoringSession] =
-    useState<DeviceCardAuthoringSessionStatus | null>(null)
   const [agentInfo, setAgentInfo] =
     useState<DeviceCardAgentEnvironmentInfo | null>(null)
   const [workspaceOperation, setWorkspaceOperation] = useState<
@@ -59,26 +55,18 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
 
   const refresh = useCallback(async () => {
     if (!desktopApi) return
-    setLoading(true)
     setMessage(null)
     try {
-      const [
-        installed,
-        catalog,
-        workspaceStatus,
-        currentSession,
-        currentAgentInfo
-      ] = await Promise.all([
-        desktopApi.list(),
-        services.laboratory.getDeviceCatalog().catch(() => []),
-        desktopApi.workspace.get(),
-        desktopApi.authoring.get(),
-        desktopApi.agent.getInfo()
-      ])
+      const [installed, catalog, workspaceStatus, currentAgentInfo] =
+        await Promise.all([
+          desktopApi.list(),
+          services.laboratory.getDeviceCatalog().catch(() => []),
+          desktopApi.workspace.get(),
+          desktopApi.agent.getInfo()
+        ])
       setCards(installed)
       setDevices(catalog)
       setWorkspace(workspaceStatus)
-      setAuthoringSession(currentSession)
       setAgentInfo(currentAgentInfo)
       setSelectedCardKey((current) =>
         installed.some((card) => card.key === current)
@@ -90,8 +78,6 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
         kind: 'error',
         text: error instanceof Error ? error.message : '加载设备卡片失败'
       })
-    } finally {
-      setLoading(false)
     }
   }, [desktopApi, services.laboratory])
 
@@ -106,14 +92,6 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     if (!desktopApi) return
     return desktopApi.workspace.onStatus((status) => {
       setWorkspace(status)
-      if (!status) {
-        setAuthoringSession(null)
-        return
-      }
-      void desktopApi.authoring.get().then(
-        setAuthoringSession,
-        () => setAuthoringSession(null)
-      )
     })
   }, [desktopApi])
 
@@ -124,13 +102,17 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   const workspaceCard = workspace?.card
   const workspaceActive = workspace !== null
   const previewCard = workspaceCard ?? selectedCard
-  const compatibleDevice = selectedDevice && previewCard?.deviceTypes.includes(
+  const previewDevice = selectedDevice && previewCard?.deviceTypes.includes(
     selectedDevice.deviceTypeId
   )
     ? selectedDevice
     : undefined
   // 有兼容设备就 Live 绑定（含源码目录预览），与仪器单点同一条下发路径。
-  const previewDevice = compatibleDevice
+  const agentReady = Boolean(
+    agentInfo?.bridge.enabled &&
+    agentInfo.cli.installed &&
+    agentInfo.cli.compatible
+  )
 
   useEffect(() => {
     setSelectedDeviceId((current) =>
@@ -252,7 +234,6 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
       )
       if (!status) return
       setWorkspace(status)
-      setAuthoringSession(await desktopApi.authoring.get())
       setMessage(status.state === 'ready'
         ? {
             kind: 'success',
@@ -265,7 +246,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     } catch (error) {
       setMessage({
         kind: 'error',
-        text: error instanceof Error ? error.message : '打开源码目录失败'
+        text: error instanceof Error ? error.message : '打开已有项目失败'
       })
     } finally {
       setWorkspaceOperation(null)
@@ -282,13 +263,12 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
         profile: authoringProfile
       })
       if (!result) return
-      setAuthoringSession(result)
       setWorkspace(result.workspace)
       setMessage({
         kind: result.workspace.state === 'ready' ? 'success' : 'warning',
         text: result.workspace.state === 'ready'
-          ? 'Agent 项目已创建并检查通过，可以在本地编辑器中开始 Vibe Coding。'
-          : 'Agent 项目已创建，请让 Agent 根据 diagnostics.json 修复错误。'
+          ? '项目已创建并检查通过，可以交给 AI 修改。'
+          : '项目已创建，请让 AI 根据诊断继续修复。'
       })
     } catch (error) {
       setMessage({
@@ -312,8 +292,8 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
       setMessage({
         kind: 'success',
         text: next.cli.installed
-          ? `Agent CLI 已安装：${next.cli.installPath}`
-          : 'Agent CLI PATH 入口已移除。'
+          ? `AI 助手连接工具已安装：${next.cli.installPath}`
+          : 'AI 助手连接工具已移除。'
       })
     } catch (error) {
       setMessage({
@@ -337,33 +317,47 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
       setMessage({
         kind: 'success',
         text: next.bridge.enabled
-          ? 'Agent Bridge 已启用。'
-          : 'Agent Bridge 已停用，外部 CLI 连接已关闭。'
+          ? 'AI 编程助手连接已启用。'
+          : 'AI 编程助手连接已停止。'
       })
     } catch (error) {
       setMessage({
         kind: 'error',
-        text: error instanceof Error ? error.message : '更新 Agent Bridge 失败'
+        text: error instanceof Error ? error.message : '更新 AI 助手连接失败'
       })
     } finally {
       setWorkspaceOperation(null)
     }
   }
 
-  const copyAgentCommand = async (): Promise<void> => {
-    if (!authoringSession || !agentInfo?.cli.compatible) return
+  const copyAgentPrompt = async (): Promise<void> => {
+    if (!workspace || !agentReady || !agentInfo) return
     const command = [
       quoteCommand(agentInfo.cli.command),
       'workspace status',
       '--project',
-      quoteCommand(authoringSession.session.projectDir),
-      '--wait --json'
+      quoteCommand(workspace.projectDir),
+      '--json'
     ].join(' ')
+    const prompt = [
+      `请开发 ${workspace.projectDir} 中的 Uni-Lab 设备卡片。`,
+      '先完整阅读项目中的 AGENTS.md、CARD_SPEC.md、authoring-context.json、card.manifest.json 和 mock.json，了解设备状态、Action、权限和开发限制。',
+      '请根据设备能力设计清晰、专业、适合实验室使用的设备卡片，并修改 src 目录中的源码。不要安装依赖，不要使用网络、Node.js 或未声明的状态和 Action。',
+      '必须按照 AGENTS.md 中的 Host Bridge 规范获取运行时状态和调用 Action，不得自行连接设备接口或 WebSocket；同时处理离线、忙碌、失败以及 Mock/Live 模式。',
+      `每次修改后运行以下命令检查 Electron 构建结果：\n${command}`,
+      '如果检查失败，请读取 .unilab-card/diagnostics.json 并继续修复，直到工作区状态为 ready。不要安装卡片，也不要调用真实设备 Action。'
+    ].join('\n\n')
     try {
-      await navigator.clipboard.writeText(command)
-      setMessage({ kind: 'success', text: 'Agent 命令已复制。' })
+      await navigator.clipboard.writeText(prompt)
+      setMessage({
+        kind: 'success',
+        text: 'AI 开发指令已复制'
+      })
     } catch {
-      setMessage({ kind: 'warning', text: `请复制命令：${command}` })
+      setMessage({
+        kind: 'warning',
+        text: '自动复制失败，请在项目目录中打开后重试。'
+      })
     }
   }
 
@@ -422,7 +416,6 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     try {
       await desktopApi.workspace.close()
       setWorkspace(null)
-      setAuthoringSession(null)
       setMessage({ kind: 'info', text: '本地开发工作区已关闭。' })
     } catch (error) {
       setMessage({
@@ -465,6 +458,25 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     }
   }
 
+  const previewDescription = (() => {
+    if (workspace) {
+      if (workspace.state !== 'ready') {
+        return workspace.card
+          ? '正在检查修改，暂时显示上次成功版本'
+          : '正在检查源码，通过后自动显示预览'
+      }
+      return previewDevice
+        ? `开发预览 / 实时设备 ${previewDevice.deviceId}`
+        : '开发预览 / Mock 模式'
+    }
+    if (previewDevice) {
+      return `已安装卡片 / 实时设备 ${previewDevice.deviceId}`
+    }
+    return previewCard && selectedDevice
+      ? `Mock 模式 / 不支持 ${selectedDevice.deviceTypeId}`
+      : 'Mock 模式 / 未绑定设备'
+  })()
+
   if (!desktopApi) {
     return (
       <section className={styles.unavailable}>
@@ -477,38 +489,33 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   return (
     <section className={styles.page}>
       <aside className={styles.sidebar}>
-        <header>
+        <header className={styles.sidebarHeader}>
           <div>
             <h1>设备卡片</h1>
-            <p>{cards.length} 个已安装 Artifact</p>
+            <span>{cards.length} 张已安装</span>
           </div>
+          <p>创建和预览设备操作界面。</p>
         </header>
 
-        <div className={styles.primaryActions}>
-          <button
-            type="button"
-            disabled={!selectedDevice || workspaceOperation !== null}
-            aria-busy={workspaceOperation === 'prepare'}
-            onClick={() => void prepareAgentProject()}
+        {message ? (
+          <p
+            className={`${styles.message} ${
+              styles[`message_${message.kind}`]
+            }`}
+            role={message.kind === 'error' ? 'alert' : 'status'}
+            aria-live={message.kind === 'error' ? 'assertive' : 'polite'}
           >
-            {workspaceOperation === 'prepare'
-              ? '正在准备…'
-              : '为 Agent 准备项目'}
-          </button>
-          <button
-            type="button"
-            disabled={!selectedDevice || workspaceOperation !== null}
-            aria-busy={workspaceOperation === 'open'}
-            onClick={() => void openWorkspace()}
-          >
-            {workspaceOperation === 'open' ? '正在打开…' : '打开源码目录'}
-          </button>
-        </div>
+            {message.text}
+          </p>
+        ) : null}
 
         {workspace ? (
           <section className={styles.workspace} aria-label="本地开发工作区">
             <div className={styles.workspaceHeading}>
-              <strong>{workspace.projectName}</strong>
+              <div>
+                <span>当前项目</span>
+                <strong>{workspace.projectName}</strong>
+              </div>
               <span
                 className={`${styles.workspaceState} ${
                   styles[`workspaceState_${workspace.state}`]
@@ -525,33 +532,9 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
                 {workspaceStateLabel(workspace.state)}
               </span>
             </div>
-            <code title={workspace.projectDir}>{workspace.projectDir}</code>
-            {authoringSession ? (
-              <div className={styles.agentProjectActions}>
-                <button
-                  type="button"
-                  className={styles.secondary}
-                  disabled={!agentInfo?.cli.compatible}
-                  onClick={() => void copyAgentCommand()}
-                >
-                  {agentInfo?.cli.compatible
-                    ? '复制 Agent 命令'
-                    : '请先安装 Agent CLI'}
-                </button>
-                <button
-                  type="button"
-                  className={styles.secondary}
-                  onClick={() => void desktopApi.authoring.reveal(
-                    authoringSession.session.projectDir
-                  )}
-                >
-                  在文件管理器中打开
-                </button>
-                <code title={authoringSession.session.diagnosticsPath}>
-                  diagnostics: {authoringSession.session.diagnosticsPath}
-                </code>
-              </div>
-            ) : null}
+            <div className={styles.projectPath}>
+              <code title={workspace.projectDir}>{workspace.projectDir}</code>
+            </div>
             <p className={styles.workspaceSummary}>
               {workspaceSummary(workspace)}
             </p>
@@ -571,6 +554,24 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
                 ))}
               </ul>
             ) : null}
+            <div className={styles.projectActions}>
+              <button
+                type="button"
+                disabled={!agentReady || workspaceOperation !== null}
+                onClick={() => void copyAgentPrompt()}
+              >
+                {agentReady ? '复制 AI 指令' : '请先设置 AI 助手'}
+              </button>
+              <button
+                type="button"
+                className={styles.secondary}
+                onClick={() => void desktopApi.authoring.reveal(
+                  workspace.projectDir
+                )}
+              >
+                打开文件夹
+              </button>
+            </div>
             <div className={styles.workspaceActions}>
               <button
                 type="button"
@@ -587,7 +588,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
                 }
                 onClick={() => void installWorkspace()}
               >
-                {workspaceOperation === 'install' ? '安装中…' : '安装当前源码'}
+                {workspaceOperation === 'install' ? '安装中…' : '确认并安装'}
               </button>
               <button
                 type="button"
@@ -599,134 +600,144 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
               </button>
             </div>
           </section>
-        ) : null}
+        ) : (
+          <>
+            <section className={styles.creationFlow} aria-label="开始卡片开发">
+              <h2>开始开发</h2>
 
-        <label>
-          已安装卡片
-          <select
-            value={selectedCardKey}
-            onChange={(event) => setSelectedCardKey(event.target.value)}
-            disabled={loading || cards.length === 0}
-          >
-            {cards.length === 0 ? <option value="">尚未安装</option> : null}
-            {cards.map((card) => (
-              <option key={card.key} value={card.key}>
-                {card.title} · {card.version}
-              </option>
-            ))}
-          </select>
-        </label>
+              <div className={styles.fieldGroup}>
+                <label>
+                  目标设备
+                  <select
+                    value={selectedDevice?.deviceId ?? ''}
+                    onChange={(event) => setSelectedDeviceId(event.target.value)}
+                    disabled={devices.length === 0}
+                  >
+                    {devices.length === 0 ? (
+                      <option value="">没有可用设备</option>
+                    ) : null}
+                    {devices.map((device) => (
+                      <option key={device.deviceId} value={device.deviceId}>
+                        {deviceInstanceOptionLabel(device)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-        <label>
-          设备实例
-          <select
-            value={selectedDevice?.deviceId ?? ''}
-            onChange={(event) => setSelectedDeviceId(event.target.value)}
-            disabled={devices.length === 0}
-          >
-            {devices.length === 0 ? (
-              <option value="">尚无可创作设备</option>
-            ) : null}
-            {devices.map((device) => (
-              <option key={device.deviceId} value={device.deviceId}>
-                {deviceInstanceOptionLabel(device)}
-              </option>
-            ))}
-          </select>
-        </label>
+                <label>
+                  开发框架
+                  <select
+                    value={authoringProfile}
+                    onChange={(event) => setAuthoringProfile(
+                      event.target.value as DeviceCardAuthoringProfile
+                    )}
+                  >
+                    <option value="vue-web-component-v1">Vue 3</option>
+                    <option value="react-web-component-v1">React</option>
+                    <option value="web-component-lite-v1">Web Component Lite</option>
+                  </select>
+                </label>
+              </div>
 
-        <label>
-          创作框架
-          <select
-            value={authoringProfile}
-            onChange={(event) => setAuthoringProfile(
-              event.target.value as DeviceCardAuthoringProfile
-            )}
-          >
-            <option value="vue-web-component-v1">Vue 3</option>
-            <option value="react-web-component-v1">React</option>
-            <option value="web-component-lite-v1">Web Component Lite</option>
-          </select>
-        </label>
+              <div className={styles.creationActions}>
+                <button
+                  type="button"
+                  disabled={!selectedDevice || workspaceOperation !== null}
+                  aria-busy={workspaceOperation === 'prepare'}
+                  onClick={() => void prepareAgentProject()}
+                >
+                  {workspaceOperation === 'prepare' ? '正在创建…' : '新建项目'}
+                </button>
+                <button
+                  type="button"
+                  className={styles.secondary}
+                  disabled={!selectedDevice || workspaceOperation !== null}
+                  aria-busy={workspaceOperation === 'open'}
+                  onClick={() => void openWorkspace()}
+                >
+                  {workspaceOperation === 'open' ? '正在打开…' : '打开项目'}
+                </button>
+              </div>
 
-        <button
-          type="button"
-          className={styles.secondary}
-          disabled={!selectedDevice || !fileApi || exportingKit}
-          onClick={() => void exportAuthoringKit()}
-        >
-          {exportingKit ? '正在生成…' : '导出卡片开发包'}
-        </button>
+              <button
+                type="button"
+                className={styles.textButton}
+                disabled={!selectedDevice || !fileApi || exportingKit}
+                onClick={() => void exportAuthoringKit()}
+              >
+                {exportingKit ? '正在导出…' : '导出离线开发包'}
+              </button>
+            </section>
+
+            <section className={styles.libraryPicker} aria-label="已安装卡片预览">
+              <label>
+                预览已安装卡片
+                <select
+                  value={selectedCardKey}
+                  onChange={(event) => setSelectedCardKey(event.target.value)}
+                  disabled={cards.length === 0}
+                >
+                  {cards.length === 0 ? <option value="">尚未安装卡片</option> : null}
+                  {cards.map((card) => (
+                    <option key={card.key} value={card.key}>
+                      {card.title} / {card.version}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </section>
+          </>
+        )}
 
         {agentInfo ? (
-          <section className={styles.agentStatus} aria-label="Agent Bridge 状态">
-            <div>
-              <strong>Agent Bridge</strong>
-              <span>{agentInfo.bridge.enabled ? '运行中' : '已停用'}</span>
+          <details className={styles.agentTools}>
+            <summary>
+              <strong>AI 助手</strong>
+              <b data-ready={agentReady}>
+                {agentStatusLabel(agentInfo)}
+              </b>
+            </summary>
+            <div className={styles.agentToolsBody}>
+              <p>供本机 AI 读取项目和检查结果，不能控制真实设备。</p>
+              <div className={styles.agentActions}>
+                {!agentInfo.cli.compatible ? (
+                  <button
+                    type="button"
+                    disabled={workspaceOperation !== null}
+                    onClick={() => void toggleAgentCli()}
+                  >
+                    {workspaceOperation === 'cli'
+                      ? '处理中…'
+                      : agentInfo.cli.installed
+                        ? '更新工具'
+                        : '安装工具'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={workspaceOperation !== null}
+                    onClick={() => void toggleAgentBridge()}
+                  >
+                    {workspaceOperation === 'cli'
+                      ? '处理中…'
+                      : agentInfo.bridge.enabled
+                        ? '停止连接'
+                        : '启用连接'}
+                  </button>
+                )}
+                {agentInfo.cli.installed && agentInfo.cli.compatible ? (
+                  <button
+                    type="button"
+                    className={styles.secondary}
+                    disabled={workspaceOperation !== null}
+                    onClick={() => void toggleAgentCli()}
+                  >
+                    移除工具
+                  </button>
+                ) : null}
+              </div>
             </div>
-            <code title={agentInfo.cli.installPath}>
-              {agentInfo.cli.installed
-                ? agentInfo.cli.compatible
-                  ? agentInfo.cli.installPath
-                  : `CLI 版本不兼容：${agentInfo.cli.installPath}`
-                : 'CLI 尚未安装'}
-            </code>
-            <button
-              type="button"
-              className={styles.secondary}
-              disabled={workspaceOperation !== null}
-              onClick={() => void toggleAgentCli()}
-            >
-              {workspaceOperation === 'cli'
-                ? '处理中…'
-                : agentInfo.cli.installed && agentInfo.cli.compatible
-                  ? '移除 CLI PATH 入口'
-                  : agentInfo.cli.installed
-                    ? '更新 Agent CLI'
-                    : '安装 Agent CLI 到 PATH'}
-            </button>
-            <button
-              type="button"
-              className={styles.secondary}
-              disabled={workspaceOperation !== null}
-              onClick={() => void toggleAgentBridge()}
-            >
-              {agentInfo.bridge.enabled ? '停用 Agent Bridge' : '启用 Agent Bridge'}
-            </button>
-            {agentInfo.cli.installed && !agentInfo.cli.onPath ? (
-              <span>请将 {agentInfo.cli.installPath.replace(/[/\\][^/\\]+$/, '')} 加入 PATH。</span>
-            ) : null}
-            {agentInfo.recentRequests?.length ? (
-              <details>
-                <summary>最近 Agent 请求</summary>
-                <ul className={styles.agentRequests}>
-                  {agentInfo.recentRequests.slice(0, 5).map((request) => (
-                    <li key={request.requestId}>
-                      <code>{request.method}</code>
-                      <span>{request.status === 'success' ? '成功' : '失败'}</span>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            ) : null}
-          </section>
-        ) : null}
-
-        <div className={styles.security}>
-          <strong>隔离策略</strong>
-          <span>WebContentsView · sandbox · contextIsolation</span>
-          <span>网络禁用 · Node 禁用 · Action 白名单</span>
-        </div>
-        {message ? (
-          <p
-            className={`${styles.message} ${
-              styles[`message_${message.kind}`]
-            }`}
-            role={message.kind === 'error' ? 'alert' : 'status'}
-            aria-live={message.kind === 'error' ? 'assertive' : 'polite'}
-          >
-            {message.text}
-          </p>
+          </details>
         ) : null}
       </aside>
 
@@ -734,34 +745,15 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
         <header className={styles.previewHeader}>
           <div>
             <strong>{previewCard?.title ?? '卡片预览'}</strong>
-            <span>
-              {workspace
-                ? workspace.state === 'ready'
-                  ? previewDevice
-                    ? `本地开发 · Live · ${previewDevice.deviceId}`
-                    : '本地开发 · Mock · 未绑定兼容设备'
-                  : workspace.card
-                    ? '本地开发 · 显示最后有效构建'
-                    : '本地开发 · 等待检查通过'
-                : previewDevice
-                  ? `Live · ${previewDevice.deviceId}`
-                  : previewCard && selectedDevice
-                    ? `Mock · 卡片不支持 ${selectedDevice.deviceTypeId}`
-                    : 'Mock · 未绑定设备'}
-            </span>
+            <span>{previewDescription}</span>
           </div>
-          <span className={styles.profile}>
-            {workspace
-              ? workspaceCard?.authoringProfile ?? '等待检查'
-              : selectedCard?.authoringProfile ?? '等待安装'}
-          </span>
         </header>
         <div ref={previewRef} className={styles.preview}>
           {!previewCard ? (
             <div className={styles.empty}>
               {workspace
-                ? '修复 diagnostics.json 错误后自动预览。'
-                : '打开卡片源码目录并检查通过后，可在这里预览。'}
+                ? '修复左侧显示的问题后，预览会自动更新。'
+                : '创建项目或选择一张已安装卡片后，可在这里预览。'}
             </div>
           ) : null}
         </div>
@@ -789,15 +781,24 @@ function workspaceSummary(workspace: DeviceCardWorkspaceStatus): string {
   const warnings = workspace.diagnostics.length - errors
   if (workspace.state === 'building') {
     return workspace.card
-      ? '正在检查新快照，预览暂时保留上一个成功版本。'
-      : '正在创建受限源码快照并调用 Electron 内置 Builder。'
+      ? '正在检查最新修改，右侧暂时保留上次成功预览。'
+      : '正在进行第一次源码检查，通过后会自动显示预览。'
   }
   if (workspace.state === 'ready') {
     return warnings > 0
-      ? `构建成功，仍有 ${warnings} 条警告。`
-      : '构建成功，可以安装当前源码。'
+      ? `检查通过，仍有 ${warnings} 条提醒。请确认预览后再安装。`
+      : '检查通过。请先确认右侧预览，满意后再安装。'
   }
-  return `${errors} 个错误；安装已禁用。`
+  return `发现 ${errors} 个问题。修复前不能安装。`
+}
+
+function agentStatusLabel(
+  info: DeviceCardAgentEnvironmentInfo
+): string {
+  if (!info.cli.installed) return '未安装'
+  if (!info.cli.compatible) return '需更新'
+  if (!info.bridge.enabled) return '未启用'
+  return '已连接'
 }
 
 async function submitAction(

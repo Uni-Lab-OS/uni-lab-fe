@@ -8,7 +8,7 @@ describe('device card presentation', () => {
       deviceId: 'robot',
       label: '本地',
       online: true
-    })).toBe('本地 · robot · 在线')
+    })).toBe('robot（本地，在线）')
   })
 
   it('does not repeat the id when it is already the label', () => {
@@ -16,7 +16,7 @@ describe('device card presentation', () => {
       deviceId: 'robot',
       label: 'robot',
       online: false
-    })).toBe('robot · 离线')
+    })).toBe('robot（离线）')
   })
 
   it('makes a malformed catalog entry explicit', () => {
@@ -24,6 +24,6 @@ describe('device card presentation', () => {
       deviceId: '',
       label: '本地',
       online: true
-    })).toBe('本地 · 缺少 Device ID · 在线')
+    })).toBe('缺少 Device ID（本地，在线）')
   })
 })

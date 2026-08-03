@@ -1,6 +1,6 @@
 .page {
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
+  grid-template-columns: 360px minmax(0, 1fr);
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -11,36 +11,22 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: var(--unilab-space-4);
+  gap: 16px;
   min-height: 0;
-  padding: 20px;
+  padding: 24px;
   overflow: auto;
   background: var(--unilab-color-surface);
   border-right: 1px solid var(--unilab-color-border);
 
-  header {
-    display: flex;
-    gap: var(--unilab-space-3);
-    align-items: flex-start;
-    justify-content: space-between;
-  }
-
-  h1 {
-    margin: 0;
-    color: var(--unilab-color-text);
-    font-size: 20px;
-    letter-spacing: -.015em;
-  }
-
+  h1,
+  h2,
   p {
-    margin: 3px 0 0;
-    color: var(--unilab-color-text-muted);
-    font-size: 12px;
+    margin: 0;
   }
 
   label {
     display: grid;
-    gap: 7px;
+    gap: 8px;
     color: var(--unilab-color-text-muted);
     font-size: 12px;
     font-weight: 650;
@@ -48,13 +34,12 @@
 
   select,
   button {
-    min-height: 38px;
-    padding: 0 11px;
+    min-height: 40px;
+    padding: 0 12px;
     border: 1px solid var(--unilab-color-border-strong);
     border-radius: var(--unilab-radius-md);
     font-family: inherit;
     font-size: 13px;
-    white-space: nowrap;
   }
 
   select {
@@ -64,32 +49,104 @@
   }
 
   button {
-    color: #fff;
+    color: #f8fffd;
     background: var(--unilab-color-device);
     border-color: var(--unilab-color-device);
     cursor: pointer;
+    font-weight: 650;
   }
 
   button:hover:not(:disabled) {
     filter: brightness(.94);
   }
 
+  button:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
   button:focus-visible,
-  select:focus-visible {
+  select:focus-visible,
+  summary:focus-visible {
     outline: 3px solid var(--unilab-color-focus);
     outline-offset: 2px;
   }
 
-  button:disabled {
+  button:disabled,
+  select:disabled {
     cursor: not-allowed;
     opacity: .5;
   }
 }
 
-.primaryActions {
+.sidebarHeader {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--unilab-space-2);
+  gap: 4px;
+
+  div {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  h1 {
+    font-size: 23px;
+    letter-spacing: -.02em;
+  }
+
+  p,
+  span {
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+  }
+
+  span {
+    font-size: 11px;
+    font-weight: 650;
+  }
+}
+
+.creationFlow > h2 {
+  font-size: 15px;
+  letter-spacing: -.01em;
+}
+
+.creationFlow {
+  display: grid;
+  gap: 12px;
+}
+
+.fieldGroup {
+  display: grid;
+  gap: 12px;
+}
+
+.creationActions,
+.projectActions,
+.agentActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+
+  button {
+    min-width: 0;
+    padding-inline: 8px;
+  }
+}
+
+.textButton {
+  min-height: auto !important;
+  padding: 4px 0 !important;
+  color: var(--unilab-color-text-muted) !important;
+  background: transparent !important;
+  border: 0 !important;
+  font-size: 12px !important;
+  text-align: left;
+}
+
+.libraryPicker {
+  padding-top: 16px;
+  border-top: 1px solid var(--unilab-color-border);
 }
 
 .secondary {
@@ -106,42 +163,45 @@
 
 .workspace {
   display: grid;
-  gap: var(--unilab-space-2);
-  padding: var(--unilab-space-3) 0;
-  border-top: 1px solid var(--unilab-color-border);
-  border-bottom: 1px solid var(--unilab-color-border);
-
-  > code {
-    overflow: hidden;
-    color: var(--unilab-color-text-muted);
-    font-family: var(--unilab-font-mono);
-    font-size: 11px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+  gap: 12px;
+  padding: 16px;
+  background: var(--unilab-color-bg-subtle);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
 }
 
 .workspaceHeading {
   display: flex;
-  gap: var(--unilab-space-2);
+  gap: 12px;
   align-items: center;
   justify-content: space-between;
   min-width: 0;
 
-  > strong {
-    overflow: hidden;
-    font-size: 13px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  > div {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+
+    > span {
+      color: var(--unilab-color-text-muted);
+      font-size: 10px;
+    }
+
+    > strong {
+      overflow: hidden;
+      font-size: 14px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   }
 }
 
 .workspaceState {
   flex: none;
-  padding: 4px 7px;
+  padding: 4px 8px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .workspaceState_ready {
@@ -159,17 +219,26 @@
   background: var(--unilab-color-danger-soft);
 }
 
+.projectPath code {
+  display: block;
+  overflow: hidden;
+  color: var(--unilab-color-text-muted);
+  font-family: var(--unilab-font-mono);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .workspaceSummary {
-  margin: 0 !important;
-  color: var(--unilab-color-text-muted) !important;
-  font-size: 12px !important;
-  line-height: 1.5;
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .diagnostics {
   display: grid;
-  gap: 6px;
-  max-height: 150px;
+  gap: 8px;
+  max-height: 140px;
   margin: 0;
   padding: 0;
   overflow: auto;
@@ -177,7 +246,7 @@
 
   li {
     display: grid;
-    gap: 2px;
+    gap: 4px;
     padding: 8px;
     border-radius: var(--unilab-radius-control);
     font-size: 11px;
@@ -206,117 +275,88 @@
 
 .workspaceActions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--unilab-space-2);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 
   button {
     min-width: 0;
-    padding-inline: 8px;
-    font-size: 11px;
+    padding-inline: 6px;
+    font-size: 10px;
   }
 }
 
-.agentProjectActions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--unilab-space-2);
+.agentTools {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--unilab-color-border);
 
-  button {
-    min-width: 0;
-    padding-inline: 7px;
-    font-size: 10px;
-  }
-
-  code {
-    grid-column: 1 / -1;
-    overflow: hidden;
-    color: var(--unilab-color-text-muted);
-    font-size: 10px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.agentStatus {
-  display: grid;
-  gap: 7px;
-  padding: 10px;
-  background: var(--unilab-color-bg-subtle);
-  border: 1px solid var(--unilab-color-border);
-  border-radius: var(--unilab-radius-md);
-
-  > div {
+  > summary {
     display: flex;
+    gap: 12px;
     align-items: center;
     justify-content: space-between;
-  }
+    cursor: pointer;
+    list-style: none;
 
-  strong {
-    font-size: 12px;
-  }
+    &::-webkit-details-marker {
+      display: none;
+    }
 
-  span,
-  code {
-    overflow: hidden;
+    strong {
+      font-size: 13px;
+    }
+
+    b {
+      padding: 4px 7px;
+      color: var(--unilab-color-warning);
+      background: var(--unilab-color-warning-soft);
+      border-radius: 999px;
+      font-size: 10px;
+    }
+
+    b[data-ready='true'] {
+      color: var(--unilab-color-success);
+      background: var(--unilab-color-success-soft);
+    }
+  }
+}
+
+.agentToolsBody {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+
+  > p {
     color: var(--unilab-color-text-muted);
-    font-size: 10px;
-    text-overflow: ellipsis;
-  }
-}
-
-.agentRequests {
-  display: grid;
-  gap: 4px;
-  margin: 6px 0 0;
-  padding: 0;
-  list-style: none;
-
-  li {
-    display: flex;
-    gap: 6px;
-    justify-content: space-between;
-  }
-}
-
-.security {
-  display: grid;
-  gap: 5px;
-  margin-top: auto;
-  padding: 12px;
-  color: var(--unilab-color-text-muted);
-  background: var(--unilab-color-bg-subtle);
-  border: 1px solid var(--unilab-color-border);
-  border-radius: var(--unilab-radius-md);
-  font-size: 11px;
-
-  strong {
-    color: var(--unilab-color-text);
+    font-size: 11px;
+    line-height: 1.5;
   }
 }
 
 .message {
-  padding: 9px 10px;
+  padding: 8px 12px;
   border-radius: var(--unilab-radius-control);
+  font-size: 12px;
   line-height: 1.45;
 }
 
 .message_success {
-  color: var(--unilab-color-success) !important;
+  color: var(--unilab-color-success);
   background: var(--unilab-color-success-soft);
 }
 
 .message_warning {
-  color: var(--unilab-color-warning) !important;
+  color: var(--unilab-color-warning);
   background: var(--unilab-color-warning-soft);
 }
 
 .message_error {
-  color: var(--unilab-color-danger) !important;
+  color: var(--unilab-color-danger);
   background: var(--unilab-color-danger-soft);
 }
 
 .message_info {
-  color: var(--unilab-color-primary) !important;
+  color: var(--unilab-color-primary);
   background: var(--unilab-color-primary-soft);
 }
 
@@ -325,14 +365,11 @@
   grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
-  padding: 18px;
+  padding: 20px;
 }
 
 .previewHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2px 12px;
+  padding: 0 4px 12px;
 
   div {
     display: grid;
@@ -343,14 +380,6 @@
     color: var(--unilab-color-text-muted);
     font-size: 12px;
   }
-}
-
-.profile {
-  padding: 5px 8px;
-  color: var(--unilab-color-primary) !important;
-  background: var(--unilab-color-primary-soft);
-  border-radius: 999px;
-  font-family: ui-monospace, monospace;
 }
 
 .preview {
@@ -384,8 +413,18 @@
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 980px) {
   .page {
-    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-columns: 320px minmax(0, 1fr);
+  }
+
+  .sidebar {
+    padding: 20px;
+  }
+
+  .projectActions,
+  .workspaceActions,
+  .agentActions {
+    grid-template-columns: 1fr;
   }
 }
