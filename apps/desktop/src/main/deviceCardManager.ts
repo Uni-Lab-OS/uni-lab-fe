@@ -5,22 +5,25 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  shell,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
   WebContentsView
 } from 'electron'
 import {
-  createDeviceCardWorkspace,
   installDeviceCardArchive,
+  LocalDeviceCardAuthoringAutomation,
   listInstalledDeviceCards,
   verifyArtifactKey,
-  type DeviceCardWorkspace,
   type DeviceCardWorkspaceArtifact,
   type InstalledDeviceCardRecord
 } from '@unilab/device-card-host'
 import type {
   DeviceCardActionRun,
   DeviceCardAuthoringContext,
+  DeviceCardAuthoringProfile,
+  DeviceCardAuthoringSessionStatus,
+  DeviceCardAuthoringTargetResponse,
   DeviceCardBounds,
   DeviceCardHostActionRequest,
   DeviceCardRuntimeSnapshot,
@@ -30,6 +33,9 @@ import type {
   OpenDeviceCardRequest,
   OpenDeviceCardWorkspaceRequest
 } from '@unilab/device-card-sdk'
+
+import { ElectronDeviceCardAuthoringApprovals } from './deviceCardAgentPermissions'
+import { RendererDeviceCardAuthoringTargetPort } from './deviceCardAuthoringTargets'
 
 interface RuntimeCardRecord {
   id: string
@@ -54,8 +60,8 @@ export class DeviceCardManager {
   private readonly sessions = new Map<number, RuntimeSession>()
   private readonly pendingActions = new Map<string, PendingAction>()
   private activeView: WebContentsView | null = null
-  private activeWorkspace: DeviceCardWorkspace | null = null
-  private workspaceContext: DeviceCardAuthoringContext | undefined
+  private readonly targetPort: RendererDeviceCardAuthoringTargetPort
+  readonly authoring: LocalDeviceCardAuthoringAutomation
 
   constructor(private readonly options: {
     getMainWindow: () => BrowserWindow | null
@@ -63,7 +69,21 @@ export class DeviceCardManager {
     storeRoot: string
     workspaceRoot: string
     log: (message: string) => void
-  }) {}
+  }) {
+    this.targetPort = new RendererDeviceCardAuthoringTargetPort(
+      options.getMainWindow
+    )
+    this.authoring = new LocalDeviceCardAuthoringAutomation({
+      targets: this.targetPort,
+      approvals: new ElectronDeviceCardAuthoringApprovals(options.getMainWindow),
+      workRoot: options.workspaceRoot,
+      storeRoot: options.storeRoot,
+      installArchive: installDeviceCardArchive,
+      onStatus: (status) => this.sendWorkspaceStatus(
+        status?.workspace ?? null
+      )
+    })
+  }
 
   registerIpc(): void {
     ipcMain.handle('device-cards:list', (event) => {
@@ -98,22 +118,18 @@ export class DeviceCardManager {
           properties: ['openDirectory']
         })
         if (selection.canceled || selection.filePaths.length === 0) return null
-        await this.closeWorkspace()
-        this.workspaceContext = context
-        this.activeWorkspace = await createDeviceCardWorkspace({
+        const result = await this.authoring.prepare({
+          mode: 'attach',
+          deviceId: context?.deviceId ?? '',
           projectDir: selection.filePaths[0],
-          workRoot: this.options.workspaceRoot,
-          authoringContext: context,
-          onStatus: (status) => this.sendWorkspaceStatus(status)
+          principal: 'renderer'
         })
-        const status = this.activeWorkspace.getStatus()
-        this.sendWorkspaceStatus(status)
-        return status
+        return result.workspace
       }
     )
     ipcMain.handle('device-cards:workspace:get', (event) => {
       this.assertMainRenderer(event)
-      return this.activeWorkspace?.getStatus() ?? null
+      return this.authoring.getActiveStatus()?.workspace ?? null
     })
     ipcMain.handle('device-cards:workspace:close', async (event) => {
       this.assertMainRenderer(event)
@@ -121,22 +137,23 @@ export class DeviceCardManager {
     })
     ipcMain.handle('device-cards:workspace:rebuild', async (event) => {
       this.assertMainRenderer(event)
-      return this.requireWorkspace().rebuild()
+      const active = this.requireAuthoringSession()
+      return (await this.authoring.recheck(active.session.sessionId)).workspace
     })
     ipcMain.handle('device-cards:workspace:install', async (event) => {
       this.assertMainRenderer(event)
-      const artifact = this.requireWorkspace().getReadyArtifact()
-      const record = await installDeviceCardArchive({
-        archivePath: artifact.sourceArchivePath,
-        storeRoot: this.options.storeRoot,
-        authoringContext: this.workspaceContext
-      })
-      return publicRecord(record)
+      const active = this.requireAuthoringSession()
+      const approval = await this.authoring.requestInstall(
+        active.session.sessionId,
+        'renderer'
+      )
+      if (!approval.installed) throw new Error('用户取消了卡片安装。')
+      return approval.installed
     })
     ipcMain.handle('device-cards:workspace:export', async (event) => {
       this.assertMainRenderer(event)
-      const workspace = this.requireWorkspace()
-      const artifact = workspace.getReadyArtifact()
+      const active = this.requireAuthoringSession()
+      const artifact = this.authoring.getPreviewArtifact(active.session.sessionId)
       const defaultName = basename(
         `${artifact.metadata.cardId}-${artifact.metadata.cardVersion}.ulcard`
       )
@@ -146,9 +163,60 @@ export class DeviceCardManager {
         filters: [{ name: 'Uni-Lab Device Card', extensions: ['ulcard'] }]
       })
       if (selection.canceled || !selection.filePath) return null
-      await workspace.exportSourceArchive(selection.filePath)
-      return { path: selection.filePath }
+      return this.authoring.exportSource(
+        active.session.sessionId,
+        selection.filePath,
+        'renderer'
+      )
     })
+    ipcMain.handle(
+      'device-cards:authoring:prepare',
+      async (
+        event,
+        input: { deviceId?: unknown; profile?: unknown }
+      ) => {
+        this.assertMainRenderer(event)
+        const deviceId = typeof input?.deviceId === 'string'
+          ? input.deviceId
+          : ''
+        const profile = input?.profile as DeviceCardAuthoringProfile
+        const selection = await dialog.showOpenDialog(this.requireMainWindow(), {
+          title: '选择空目录，为 Agent 创建卡片项目',
+          buttonLabel: '创建并接入',
+          properties: ['openDirectory', 'createDirectory']
+        })
+        if (selection.canceled || selection.filePaths.length === 0) return null
+        return this.authoring.prepare({
+          mode: 'bootstrap',
+          deviceId,
+          profile,
+          projectDir: selection.filePaths[0],
+          principal: 'renderer'
+        })
+      }
+    )
+    ipcMain.handle('device-cards:authoring:get', (event) => {
+      this.assertMainRenderer(event)
+      return this.authoring.getActiveStatus()
+    })
+    ipcMain.handle(
+      'device-cards:authoring:reveal',
+      (event, path: unknown) => {
+        this.assertMainRenderer(event)
+        if (typeof path !== 'string' || path.trim().length === 0) {
+          throw new Error('打开目录路径无效。')
+        }
+        shell.showItemInFolder(resolve(path, 'card.manifest.json'))
+      }
+    )
+    ipcMain.on(
+      'device-cards:authoringTargetResponse',
+      (event, response: DeviceCardAuthoringTargetResponse) => {
+        if (event.sender.id !== this.requireMainWindow().webContents.id) return
+        if (!response || typeof response.requestId !== 'string') return
+        this.targetPort.resolve(response)
+      }
+    )
     ipcMain.handle(
       'device-cards:open',
       async (event, request: OpenDeviceCardRequest) => {
@@ -214,7 +282,8 @@ export class DeviceCardManager {
 
   destroy(): void {
     this.closeActive()
-    void this.closeWorkspace()
+    this.targetPort.destroy()
+    void this.authoring.destroy()
     for (const pending of this.pendingActions.values()) {
       clearTimeout(pending.timer)
       pending.resolve({
@@ -248,7 +317,8 @@ export class DeviceCardManager {
     if (!isOpenWorkspaceRequest(request)) {
       throw new Error('本地卡片预览参数无效。')
     }
-    const artifact = this.requireWorkspace().getPreviewArtifact()
+    const active = this.requireAuthoringSession()
+    const artifact = this.authoring.getPreviewArtifact(active.session.sessionId)
     await this.openRecord(workspaceRuntimeRecord(artifact), request)
   }
 
@@ -320,13 +390,10 @@ export class DeviceCardManager {
   }
 
   private async closeWorkspace(): Promise<void> {
-    const workspace = this.activeWorkspace
-    if (!workspace) return
+    const active = this.authoring.getActiveStatus()
+    if (!active) return
     this.closeActive()
-    this.activeWorkspace = null
-    this.workspaceContext = undefined
-    await workspace.close()
-    this.sendWorkspaceStatus(null)
+    await this.authoring.close(active.session.sessionId)
   }
 
   private closeActive(): void {
@@ -462,11 +529,12 @@ export class DeviceCardManager {
     return window
   }
 
-  private requireWorkspace(): DeviceCardWorkspace {
-    if (!this.activeWorkspace) {
+  private requireAuthoringSession(): DeviceCardAuthoringSessionStatus {
+    const active = this.authoring.getActiveStatus()
+    if (!active) {
       throw new Error('尚未打开本地卡片源码目录。')
     }
-    return this.activeWorkspace
+    return active
   }
 
   private sendWorkspaceStatus(

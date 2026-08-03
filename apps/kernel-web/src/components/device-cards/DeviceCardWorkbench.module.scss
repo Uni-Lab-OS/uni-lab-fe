@@ -216,6 +216,68 @@
   }
 }
 
+.agentProjectActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--unilab-space-2);
+
+  button {
+    min-width: 0;
+    padding-inline: 7px;
+    font-size: 10px;
+  }
+
+  code {
+    grid-column: 1 / -1;
+    overflow: hidden;
+    color: var(--unilab-color-text-muted);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.agentStatus {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  background: var(--unilab-color-bg-subtle);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
+
+  > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  strong {
+    font-size: 12px;
+  }
+
+  span,
+  code {
+    overflow: hidden;
+    color: var(--unilab-color-text-muted);
+    font-size: 10px;
+    text-overflow: ellipsis;
+  }
+}
+
+.agentRequests {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    gap: 6px;
+    justify-content: space-between;
+  }
+}
+
 .security {
   display: grid;
   gap: 5px;

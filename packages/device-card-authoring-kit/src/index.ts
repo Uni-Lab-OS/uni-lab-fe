@@ -7,6 +7,12 @@ export {
 } from './catalog'
 export { createDeviceCardAuthoringKit } from './kit'
 export {
+  buildDeviceCardAuthoringSampleState,
+  createDeviceCardAuthoringContext,
+  inferDeviceCardStateSeeds,
+  summarizeDeviceCardAuthoringTarget
+} from './context'
+export {
   createDeviceCardProjectFiles,
   createExampleAuthoringContext
 } from './project'

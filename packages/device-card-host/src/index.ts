@@ -27,6 +27,20 @@ export {
   type DeviceCardWorkspaceArtifact
 } from './workspace'
 
+export {
+  DeviceCardAuthoringError,
+  LocalDeviceCardAuthoringAutomation,
+  toDeviceCardAgentError,
+  type DeviceCardAuthoringApprovalPort,
+  type DeviceCardAuthoringAutomation,
+  type DeviceCardAuthoringPrincipal,
+  type DeviceCardAuthoringTargetPort,
+  type ExportDeviceCardKitInput,
+  type GetDeviceCardAuthoringStatusInput,
+  type LocalDeviceCardAuthoringAutomationOptions,
+  type PrepareDeviceCardAuthoringInput
+} from './authoringAutomation'
+
 export interface InstalledDeviceCardRecord extends InstalledDeviceCard {
   artifactDir: string
   metadata: DeviceCardBuildMetadata

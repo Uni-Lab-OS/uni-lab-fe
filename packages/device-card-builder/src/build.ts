@@ -37,7 +37,7 @@ import {
 } from './security'
 import { vueSfcPlugin } from './vuePlugin'
 
-const BUILDER_VERSION = '0.1.0'
+export const DEVICE_CARD_BUILDER_VERSION = '0.1.0'
 const runtimeRequire = createRequire(
   typeof __filename === 'string' ? __filename : import.meta.url
 )
@@ -162,7 +162,7 @@ export async function buildDeviceCard(
 
   const metadata: DeviceCardBuildMetadata = {
     schemaVersion: 'device-card-artifact/v1',
-    builderVersion: BUILDER_VERSION,
+    builderVersion: DEVICE_CARD_BUILDER_VERSION,
     cardId: manifest.id,
     cardVersion: manifest.version,
     elementName,

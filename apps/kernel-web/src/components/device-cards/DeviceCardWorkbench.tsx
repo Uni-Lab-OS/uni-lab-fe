@@ -12,7 +12,9 @@ import {
 import { createDeviceCardAuthoringKit } from '@unilab/device-card-authoring-kit'
 import type {
   DeviceCardActionRun,
+  DeviceCardAgentEnvironmentInfo,
   DeviceCardAuthoringProfile,
+  DeviceCardAuthoringSessionStatus,
   DeviceCardHostActionRequest,
   DeviceCardRuntimeSnapshot,
   DeviceCardWorkspaceStatus,
@@ -46,8 +48,12 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   const [exportingKit, setExportingKit] = useState(false)
   const [workspace, setWorkspace] =
     useState<DeviceCardWorkspaceStatus | null>(null)
+  const [authoringSession, setAuthoringSession] =
+    useState<DeviceCardAuthoringSessionStatus | null>(null)
+  const [agentInfo, setAgentInfo] =
+    useState<DeviceCardAgentEnvironmentInfo | null>(null)
   const [workspaceOperation, setWorkspaceOperation] = useState<
-    'open' | 'rebuild' | 'install' | 'close' | null
+    'open' | 'prepare' | 'rebuild' | 'install' | 'close' | 'cli' | null
   >(null)
   const [message, setMessage] = useState<WorkbenchNotice | null>(null)
 
@@ -56,14 +62,24 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     setLoading(true)
     setMessage(null)
     try {
-      const [installed, catalog, workspaceStatus] = await Promise.all([
+      const [
+        installed,
+        catalog,
+        workspaceStatus,
+        currentSession,
+        currentAgentInfo
+      ] = await Promise.all([
         desktopApi.list(),
         services.laboratory.getDeviceCatalog().catch(() => []),
-        desktopApi.workspace.get()
+        desktopApi.workspace.get(),
+        desktopApi.authoring.get(),
+        desktopApi.agent.getInfo()
       ])
       setCards(installed)
       setDevices(catalog)
       setWorkspace(workspaceStatus)
+      setAuthoringSession(currentSession)
+      setAgentInfo(currentAgentInfo)
       setSelectedCardKey((current) =>
         installed.some((card) => card.key === current)
           ? current
@@ -88,7 +104,17 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
 
   useEffect(() => {
     if (!desktopApi) return
-    return desktopApi.workspace.onStatus(setWorkspace)
+    return desktopApi.workspace.onStatus((status) => {
+      setWorkspace(status)
+      if (!status) {
+        setAuthoringSession(null)
+        return
+      }
+      void desktopApi.authoring.get().then(
+        setAuthoringSession,
+        () => setAuthoringSession(null)
+      )
+    })
   }, [desktopApi])
 
   const selectedCard = cards.find((card) => card.key === selectedCardKey)
@@ -226,6 +252,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
       )
       if (!status) return
       setWorkspace(status)
+      setAuthoringSession(await desktopApi.authoring.get())
       setMessage(status.state === 'ready'
         ? {
             kind: 'success',
@@ -242,6 +269,101 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
       })
     } finally {
       setWorkspaceOperation(null)
+    }
+  }
+
+  const prepareAgentProject = async (): Promise<void> => {
+    if (!desktopApi || !selectedDevice) return
+    setWorkspaceOperation('prepare')
+    setMessage(null)
+    try {
+      const result = await desktopApi.authoring.prepare({
+        deviceId: selectedDevice.deviceId,
+        profile: authoringProfile
+      })
+      if (!result) return
+      setAuthoringSession(result)
+      setWorkspace(result.workspace)
+      setMessage({
+        kind: result.workspace.state === 'ready' ? 'success' : 'warning',
+        text: result.workspace.state === 'ready'
+          ? 'Agent 项目已创建并检查通过，可以在本地编辑器中开始 Vibe Coding。'
+          : 'Agent 项目已创建，请让 Agent 根据 diagnostics.json 修复错误。'
+      })
+    } catch (error) {
+      setMessage({
+        kind: 'error',
+        text: error instanceof Error ? error.message : '创建 Agent 项目失败'
+      })
+    } finally {
+      setWorkspaceOperation(null)
+    }
+  }
+
+  const toggleAgentCli = async (): Promise<void> => {
+    if (!desktopApi || !agentInfo) return
+    setWorkspaceOperation('cli')
+    setMessage(null)
+    try {
+      const next = agentInfo.cli.installed && agentInfo.cli.compatible
+        ? await desktopApi.agent.removeCli()
+        : await desktopApi.agent.installCli()
+      setAgentInfo(next)
+      setMessage({
+        kind: 'success',
+        text: next.cli.installed
+          ? `Agent CLI 已安装：${next.cli.installPath}`
+          : 'Agent CLI PATH 入口已移除。'
+      })
+    } catch (error) {
+      setMessage({
+        kind: 'error',
+        text: error instanceof Error ? error.message : '更新 Agent CLI 失败'
+      })
+    } finally {
+      setWorkspaceOperation(null)
+    }
+  }
+
+  const toggleAgentBridge = async (): Promise<void> => {
+    if (!desktopApi || !agentInfo) return
+    setWorkspaceOperation('cli')
+    setMessage(null)
+    try {
+      const next = await desktopApi.agent.setBridgeEnabled(
+        !agentInfo.bridge.enabled
+      )
+      setAgentInfo(next)
+      setMessage({
+        kind: 'success',
+        text: next.bridge.enabled
+          ? 'Agent Bridge 已启用。'
+          : 'Agent Bridge 已停用，外部 CLI 连接已关闭。'
+      })
+    } catch (error) {
+      setMessage({
+        kind: 'error',
+        text: error instanceof Error ? error.message : '更新 Agent Bridge 失败'
+      })
+    } finally {
+      setWorkspaceOperation(null)
+    }
+  }
+
+  const copyAgentCommand = async (): Promise<void> => {
+    if (!authoringSession || !agentInfo?.cli.compatible) return
+    const command = [
+      quoteCommand(agentInfo.cli.command),
+      'workspace status',
+      '--project',
+      quoteCommand(authoringSession.session.projectDir),
+      '--wait --json'
+    ].join(' ')
+    try {
+      await navigator.clipboard.writeText(command)
+      setMessage({ kind: 'success', text: 'Agent 命令已复制。' })
+    } catch {
+      setMessage({ kind: 'warning', text: `请复制命令：${command}` })
     }
   }
 
@@ -300,6 +422,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     try {
       await desktopApi.workspace.close()
       setWorkspace(null)
+      setAuthoringSession(null)
       setMessage({ kind: 'info', text: '本地开发工作区已关闭。' })
     } catch (error) {
       setMessage({
@@ -365,6 +488,16 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
           <button
             type="button"
             disabled={!selectedDevice || workspaceOperation !== null}
+            aria-busy={workspaceOperation === 'prepare'}
+            onClick={() => void prepareAgentProject()}
+          >
+            {workspaceOperation === 'prepare'
+              ? '正在准备…'
+              : '为 Agent 准备项目'}
+          </button>
+          <button
+            type="button"
+            disabled={!selectedDevice || workspaceOperation !== null}
             aria-busy={workspaceOperation === 'open'}
             onClick={() => void openWorkspace()}
           >
@@ -393,6 +526,32 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
               </span>
             </div>
             <code title={workspace.projectDir}>{workspace.projectDir}</code>
+            {authoringSession ? (
+              <div className={styles.agentProjectActions}>
+                <button
+                  type="button"
+                  className={styles.secondary}
+                  disabled={!agentInfo?.cli.compatible}
+                  onClick={() => void copyAgentCommand()}
+                >
+                  {agentInfo?.cli.compatible
+                    ? '复制 Agent 命令'
+                    : '请先安装 Agent CLI'}
+                </button>
+                <button
+                  type="button"
+                  className={styles.secondary}
+                  onClick={() => void desktopApi.authoring.reveal(
+                    authoringSession.session.projectDir
+                  )}
+                >
+                  在文件管理器中打开
+                </button>
+                <code title={authoringSession.session.diagnosticsPath}>
+                  diagnostics: {authoringSession.session.diagnosticsPath}
+                </code>
+              </div>
+            ) : null}
             <p className={styles.workspaceSummary}>
               {workspaceSummary(workspace)}
             </p>
@@ -499,6 +658,60 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
           {exportingKit ? '正在生成…' : '导出卡片开发包'}
         </button>
 
+        {agentInfo ? (
+          <section className={styles.agentStatus} aria-label="Agent Bridge 状态">
+            <div>
+              <strong>Agent Bridge</strong>
+              <span>{agentInfo.bridge.enabled ? '运行中' : '已停用'}</span>
+            </div>
+            <code title={agentInfo.cli.installPath}>
+              {agentInfo.cli.installed
+                ? agentInfo.cli.compatible
+                  ? agentInfo.cli.installPath
+                  : `CLI 版本不兼容：${agentInfo.cli.installPath}`
+                : 'CLI 尚未安装'}
+            </code>
+            <button
+              type="button"
+              className={styles.secondary}
+              disabled={workspaceOperation !== null}
+              onClick={() => void toggleAgentCli()}
+            >
+              {workspaceOperation === 'cli'
+                ? '处理中…'
+                : agentInfo.cli.installed && agentInfo.cli.compatible
+                  ? '移除 CLI PATH 入口'
+                  : agentInfo.cli.installed
+                    ? '更新 Agent CLI'
+                    : '安装 Agent CLI 到 PATH'}
+            </button>
+            <button
+              type="button"
+              className={styles.secondary}
+              disabled={workspaceOperation !== null}
+              onClick={() => void toggleAgentBridge()}
+            >
+              {agentInfo.bridge.enabled ? '停用 Agent Bridge' : '启用 Agent Bridge'}
+            </button>
+            {agentInfo.cli.installed && !agentInfo.cli.onPath ? (
+              <span>请将 {agentInfo.cli.installPath.replace(/[/\\][^/\\]+$/, '')} 加入 PATH。</span>
+            ) : null}
+            {agentInfo.recentRequests?.length ? (
+              <details>
+                <summary>最近 Agent 请求</summary>
+                <ul className={styles.agentRequests}>
+                  {agentInfo.recentRequests.slice(0, 5).map((request) => (
+                    <li key={request.requestId}>
+                      <code>{request.method}</code>
+                      <span>{request.status === 'success' ? '成功' : '失败'}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+          </section>
+        ) : null}
+
         <div className={styles.security}>
           <strong>隔离策略</strong>
           <span>WebContentsView · sandbox · contextIsolation</span>
@@ -563,6 +776,10 @@ function workspaceStateLabel(
   if (state === 'ready') return '检查通过'
   if (state === 'error') return '需要修复'
   return '正在检查'
+}
+
+function quoteCommand(value: string): string {
+  return `"${value.replaceAll('"', '\\"')}"`
 }
 
 function workspaceSummary(workspace: DeviceCardWorkspaceStatus): string {
@@ -670,4 +887,3 @@ function mapActionStatus(
   if (status === 'running') return 'RUNNING'
   return 'ACCEPTED'
 }
-

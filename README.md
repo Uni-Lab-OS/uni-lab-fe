@@ -42,6 +42,7 @@ uni-lab-fe/
     ├── material/               # 物料模型、模板逻辑和物料 UI
     ├── workflow-editor/        # Uni-Lab FE 唯一工作流引擎与编辑器
     ├── code-editor/            # CodeMirror 封装
+    ├── device-card-agent-cli/  # 随 Electron 分发的本地 Agent 薄 CLI
     ├── pascal-host/            # Pascal Editor 上游加载与 React 宿主
     ├── pascal-lab-plugin/      # Uni-Lab 场景能力适配
     └── testing/                # 跨包测试工具
@@ -69,3 +70,6 @@ Python OS 和 Uni-Lab Cloud 三种默认配置。切换配置后会重新创建
 详细依赖规则、状态所有权和跨 panel 通信方式见
 [架构说明](docs/architecture.md)。迁移范围和当前进度见
 [迁移记录](docs/migration.md)。
+
+设备包开发者使用本地 Coding Agent 创建 Vue/React/Web Component 卡片时，见
+[设备卡片 Agent 使用指南](docs/device-card-agent-authoring.md)。

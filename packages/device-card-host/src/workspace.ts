@@ -40,7 +40,9 @@ export interface DeviceCardWorkspace {
   getPreviewArtifact(): DeviceCardWorkspaceArtifact
   getReadyArtifact(): DeviceCardWorkspaceArtifact
   rebuild(): Promise<DeviceCardWorkspaceStatus>
-  exportSourceArchive(archivePath: string): Promise<void>
+  exportSourceArchive(
+    archivePath: string
+  ): Promise<DeviceCardWorkspaceArtifact>
   close(): Promise<void>
 }
 
@@ -136,11 +138,14 @@ class LocalDeviceCardWorkspace implements DeviceCardWorkspace {
     return this.getStatus()
   }
 
-  async exportSourceArchive(archivePath: string): Promise<void> {
+  async exportSourceArchive(
+    archivePath: string
+  ): Promise<DeviceCardWorkspaceArtifact> {
     const artifact = this.getReadyArtifact()
     const destination = resolve(archivePath)
     await mkdir(dirname(destination), { recursive: true })
     await copyFile(artifact.sourceArchivePath, destination)
+    return artifact
   }
 
   async startWatching(): Promise<void> {

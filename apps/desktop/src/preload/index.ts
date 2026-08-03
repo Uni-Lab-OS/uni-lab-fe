@@ -1,7 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   DeviceCardActionRun,
+  DeviceCardAgentEnvironmentInfo,
   DeviceCardAuthoringContext,
+  DeviceCardAuthoringProfile,
+  DeviceCardAuthoringSessionStatus,
+  DeviceCardAuthoringTargetRequest,
+  DeviceCardAuthoringTargetResponse,
   DeviceCardBounds,
   DeviceCardHostActionRequest,
   DeviceCardWorkspaceStatus,
@@ -75,6 +80,48 @@ const api = {
       ipcRenderer.invoke('device-cards:list'),
     importCard: (): Promise<InstalledDeviceCard | null> =>
       ipcRenderer.invoke('device-cards:import'),
+    agent: {
+      getInfo: (): Promise<DeviceCardAgentEnvironmentInfo> =>
+        ipcRenderer.invoke('device-cards:agent:getInfo'),
+      installCli: (): Promise<DeviceCardAgentEnvironmentInfo> =>
+        ipcRenderer.invoke('device-cards:agent:installCli'),
+      removeCli: (): Promise<DeviceCardAgentEnvironmentInfo> =>
+        ipcRenderer.invoke('device-cards:agent:removeCli'),
+      setBridgeEnabled: (
+        enabled: boolean
+      ): Promise<DeviceCardAgentEnvironmentInfo> =>
+        ipcRenderer.invoke('device-cards:agent:setBridgeEnabled', enabled)
+    },
+    authoring: {
+      prepare: (input: {
+        deviceId: string
+        profile: DeviceCardAuthoringProfile
+      }): Promise<DeviceCardAuthoringSessionStatus | null> =>
+        ipcRenderer.invoke('device-cards:authoring:prepare', input),
+      get: (): Promise<DeviceCardAuthoringSessionStatus | null> =>
+        ipcRenderer.invoke('device-cards:authoring:get'),
+      reveal: (path: string): Promise<void> =>
+        ipcRenderer.invoke('device-cards:authoring:reveal', path),
+      onTargetRequest: (
+        listener: (request: DeviceCardAuthoringTargetRequest) => void
+      ): (() => void) => {
+        const wrapped = (
+          _event: Electron.IpcRendererEvent,
+          request: DeviceCardAuthoringTargetRequest
+        ): void => listener(request)
+        ipcRenderer.on('device-cards:authoringTargetRequest', wrapped)
+        return () => ipcRenderer.removeListener(
+          'device-cards:authoringTargetRequest',
+          wrapped
+        )
+      },
+      resolveTargetRequest: (
+        response: DeviceCardAuthoringTargetResponse
+      ): void => ipcRenderer.send(
+        'device-cards:authoringTargetResponse',
+        response
+      )
+    },
     workspace: {
       get: (): Promise<DeviceCardWorkspaceStatus | null> =>
         ipcRenderer.invoke('device-cards:workspace:get'),

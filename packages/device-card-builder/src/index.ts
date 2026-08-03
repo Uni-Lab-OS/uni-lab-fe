@@ -1,4 +1,4 @@
-export { buildDeviceCard } from './build'
+export { buildDeviceCard, DEVICE_CARD_BUILDER_VERSION } from './build'
 export {
   inspectDeviceCardArchive,
   packDeviceCard,

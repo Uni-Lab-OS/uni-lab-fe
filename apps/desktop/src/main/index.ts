@@ -1,11 +1,16 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { basename, join } from 'path'
 import { appendFileSync, existsSync } from 'node:fs'
-import { readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { readSession, clearSession, runOAuthLogin } from './authManager'
 import { DeviceCardManager } from './deviceCardManager'
+import {
+  DeviceCardAgentBridge,
+  deviceCardAgentEndpoint
+} from './deviceCardAgentBridge'
+import { DeviceCardAgentCliManager } from './deviceCardAgentCli'
 
 // 保存文件的入参:path 为 null 时弹出"另存为"对话框
 interface SaveFilePayload {
@@ -67,6 +72,8 @@ const localAppIcon = join(__dirname, '../../build/icon.png')
 // 主窗口引用,供 OAuth 弹窗作为模态父窗口使用
 let mainWindow: BrowserWindow | null = null
 let deviceCardManager: DeviceCardManager | null = null
+let deviceCardAgentBridge: DeviceCardAgentBridge | null = null
+let deviceCardAgentCli: DeviceCardAgentCliManager | null = null
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -92,7 +99,6 @@ function createWindow(): void {
   })
 
   mainWindow.on('closed', () => {
-    deviceCardManager?.destroy()
     mainWindow = null
   })
 
@@ -167,7 +173,7 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   logLine('app ready')
   configurePackagedDeviceCardBuilder()
   // macOS 开发态运行的是 Electron 可执行文件，BrowserWindow.icon 不会改变
@@ -184,6 +190,61 @@ app.whenReady().then(() => {
     log: logLine
   })
   deviceCardManager.registerIpc()
+  const agentRoot = join(
+    app.getPath('userData'),
+    'device-cards',
+    'agent'
+  )
+  deviceCardAgentBridge = new DeviceCardAgentBridge({
+    automation: deviceCardManager.authoring,
+    agentRoot,
+    endpoint: deviceCardAgentEndpoint(app.getPath('userData')),
+    log: logLine
+  })
+  if (await readAgentBridgeEnabled(agentRoot)) {
+    await deviceCardAgentBridge.start()
+  }
+  const cliPath = app.isPackaged
+    ? join(process.resourcesPath, 'device-card-agent', 'cli.mjs')
+    : join(
+        __dirname,
+        '../../../../packages/device-card-agent-cli/dist/cli.mjs'
+      )
+  deviceCardAgentCli = new DeviceCardAgentCliManager({
+    cliPath,
+    descriptorPath: deviceCardAgentBridge.descriptorPath,
+    electronExecutable: process.execPath
+  })
+  ipcMain.handle('device-cards:agent:getInfo', (event) => {
+    assertMainRenderer(event.sender.id)
+    return getDeviceCardAgentEnvironmentInfo()
+  })
+  ipcMain.handle('device-cards:agent:installCli', async (event) => {
+    assertMainRenderer(event.sender.id)
+    await deviceCardAgentCli?.install()
+    return getDeviceCardAgentEnvironmentInfo()
+  })
+  ipcMain.handle('device-cards:agent:removeCli', async (event) => {
+    assertMainRenderer(event.sender.id)
+    await deviceCardAgentCli?.remove()
+    return getDeviceCardAgentEnvironmentInfo()
+  })
+  ipcMain.handle(
+    'device-cards:agent:setBridgeEnabled',
+    async (event, enabled: unknown) => {
+      assertMainRenderer(event.sender.id)
+      if (typeof enabled !== 'boolean') {
+        throw new Error('Agent Bridge enabled 参数无效。')
+      }
+      if (enabled) {
+        await deviceCardAgentBridge?.start()
+      } else {
+        await deviceCardAgentBridge?.stop()
+      }
+      await writeAgentBridgeEnabled(agentRoot, enabled)
+      return getDeviceCardAgentEnvironmentInfo()
+    }
+  )
 
   // 读取当前登录会话(启动/刷新时使用)
   ipcMain.handle('auth:getSession', () => readSession())
@@ -293,3 +354,50 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
+
+app.on('before-quit', () => {
+  deviceCardManager?.destroy()
+  void deviceCardAgentBridge?.stop()
+})
+
+function assertMainRenderer(senderId: number): void {
+  if (!mainWindow || mainWindow.isDestroyed() ||
+    senderId !== mainWindow.webContents.id) {
+    throw new Error('IPC 调用方不是主渲染进程。')
+  }
+}
+
+async function getDeviceCardAgentEnvironmentInfo() {
+  const info = await deviceCardAgentCli?.getInfo(
+    deviceCardAgentBridge?.getInfo().enabled ?? false
+  )
+  return info
+    ? {
+        ...info,
+        recentRequests: deviceCardAgentBridge?.getRecentRequests() ?? []
+      }
+    : null
+}
+
+async function readAgentBridgeEnabled(agentRoot: string): Promise<boolean> {
+  try {
+    const settings = JSON.parse(
+      await readFile(join(agentRoot, 'settings.json'), 'utf8')
+    ) as { enabled?: unknown }
+    return settings.enabled !== false
+  } catch {
+    return true
+  }
+}
+
+async function writeAgentBridgeEnabled(
+  agentRoot: string,
+  enabled: boolean
+): Promise<void> {
+  await mkdir(agentRoot, { recursive: true, mode: 0o700 })
+  await writeFile(
+    join(agentRoot, 'settings.json'),
+    `${JSON.stringify({ enabled }, null, 2)}\n`,
+    { encoding: 'utf8', mode: 0o600 }
+  )
+}

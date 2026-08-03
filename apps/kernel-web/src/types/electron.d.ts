@@ -1,7 +1,12 @@
 import type { AuthSession } from './auth'
 import type {
   DeviceCardActionRun,
+  DeviceCardAgentEnvironmentInfo,
   DeviceCardAuthoringContext,
+  DeviceCardAuthoringProfile,
+  DeviceCardAuthoringSessionStatus,
+  DeviceCardAuthoringTargetRequest,
+  DeviceCardAuthoringTargetResponse,
   DeviceCardBounds,
   DeviceCardHostActionRequest,
   DeviceCardWorkspaceStatus,
@@ -51,6 +56,28 @@ interface DesktopApi {
   deviceCards?: {
     list: () => Promise<InstalledDeviceCard[]>
     importCard: () => Promise<InstalledDeviceCard | null>
+    agent: {
+      getInfo: () => Promise<DeviceCardAgentEnvironmentInfo>
+      installCli: () => Promise<DeviceCardAgentEnvironmentInfo>
+      removeCli: () => Promise<DeviceCardAgentEnvironmentInfo>
+      setBridgeEnabled: (
+        enabled: boolean
+      ) => Promise<DeviceCardAgentEnvironmentInfo>
+    }
+    authoring: {
+      prepare: (input: {
+        deviceId: string
+        profile: DeviceCardAuthoringProfile
+      }) => Promise<DeviceCardAuthoringSessionStatus | null>
+      get: () => Promise<DeviceCardAuthoringSessionStatus | null>
+      reveal: (path: string) => Promise<void>
+      onTargetRequest: (
+        listener: (request: DeviceCardAuthoringTargetRequest) => void
+      ) => () => void
+      resolveTargetRequest: (
+        response: DeviceCardAuthoringTargetResponse
+      ) => void
+    }
     workspace: {
       get: () => Promise<DeviceCardWorkspaceStatus | null>
       open: (

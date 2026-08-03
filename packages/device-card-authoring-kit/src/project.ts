@@ -251,6 +251,14 @@ function projectReadme(
 4. Coding Agent 可读取 \`.unilab-card/diagnostics.json\` 获取结构化诊断。
 5. 检查通过后，在 Electron 中安装当前源码或导出 \`.ulcard\`。
 
+如果已从 Electron 安装 \`unilab-card-agent\`，Agent 也可以运行：
+
+\`\`\`bash
+unilab-card-agent workspace status --project . --wait --json
+\`\`\`
+
+CLI 只连接 Electron Local Authoring Bridge，不包含 Builder，也不会安装 npm 依赖。
+
 Electron 只会写入受管理的诊断文件，不会修改 \`src/\`、Manifest 或业务文档。
 `
 }

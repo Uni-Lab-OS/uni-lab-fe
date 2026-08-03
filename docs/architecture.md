@@ -21,6 +21,14 @@
   Material 查询。其余 Backend/Edge 契约仍是未来前置工作，前端不能伪装
   服务端尚未具备的能力。
 
+## 设备卡片创作
+
+- [设备卡片 Vibe Coding 架构](architecture/device-card-vibe-coding.md)：定义卡片
+  源码、固定 Builder、Web Component Bundle、Preview/Live Runtime 与安装链路。
+- [设备卡片 Agent 自动创作桥功能设计](architecture/device-card-agent-authoring-bridge.md)：
+  定义本地 Agent 如何通过 Electron 随附 CLI 获取 Authoring Kit、创建或接入
+  源码目录、读取诊断、导出和请求安装；Local Bridge 与薄 CLI V1 已实现。
+
 ## 依赖方向
 
 ```text
