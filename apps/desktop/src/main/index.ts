@@ -665,7 +665,7 @@ function runtimePathDialogOptions(
   }
   const titles: Record<Exclude<LocalRuntimePathKind, 'graph'>, string> = {
     os: '选择 Uni-Lab-OS 项目根目录',
-    szlab: '选择 Uni-Lab-SZLab 项目根目录',
+    szlab: '选择领域项目根目录（以 Uni-Lab-SZLab 为例）',
     environment: '选择 unilab Conda 环境目录',
     simulator: '选择 PLC-Sim 项目根目录'
   }

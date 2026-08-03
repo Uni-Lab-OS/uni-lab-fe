@@ -119,6 +119,37 @@ describe('WorkflowTask runtime port', () => {
     )
   })
 
+  it('reads the durable Task runtime event journal with a sequence cursor', async () => {
+    const page = {
+      items: [{
+        sequence: 12,
+        workflow_task_uuid: TASK_UUID,
+        workflow_node_job_uuid: JOB_UUID,
+        workflow_node_uuid: '44444444-4444-4444-8444-444444444444',
+        kind: 'job_transition',
+        from_status: 'pending',
+        to_status: 'dispatched',
+        param: { target: 'P01' },
+        data: {},
+        create_time: '2026-08-03T06:35:43Z'
+      }],
+      next_cursor: 12,
+      has_more: false
+    }
+    const request = vi.fn().mockResolvedValue({ code: 0, data: page })
+    const runtime = taskPort(request)
+
+    await expect(runtime.listWorkflowTaskEvents(TASK_UUID, {
+      after_sequence: 10,
+      limit: 50
+    })).resolves.toEqual(page)
+
+    expect(request).toHaveBeenCalledWith(
+      `/api/v1/workflow-tasks/${TASK_UUID}/events?after_sequence=10&limit=50`,
+      undefined
+    )
+  })
+
   it('returns only the durable command record without optimistic Task refresh', async () => {
     const command = {
       uuid: '44444444-4444-4444-8444-444444444444',

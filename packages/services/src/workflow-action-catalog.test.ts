@@ -22,6 +22,63 @@ const fingerprint = `sha256:${'a'.repeat(64)}`
 const authority = { authority_id: 'os-local', kind: 'local' }
 
 describe('Workflow Action Catalog adapter', () => {
+  it('treats JSON object and required-key order as non-semantic', async () => {
+    const responses = executableCatalogResponses()
+    const schema = workflowSchemaValue(responses)
+    schema.required = ['result', 'goal']
+    const properties = schema.properties as Record<string, unknown>
+    schema.properties = {
+      result: properties.result,
+      goal: properties.goal
+    }
+    const runtime = createWorkflowRuntime(
+      fixtureHttp(responses),
+      getDefaultBackend('local-python')
+    )
+
+    await expect(runtime.getWorkflowActionCatalog()).resolves.toBeDefined()
+  })
+
+  it('accepts a Unicode Python workflow symbol', async () => {
+    const responses = executableCatalogResponses()
+    const source = workflowSource(responses)
+    const symbol = 's07_粉桶与烧杯搬运后固体称量'
+    source.symbol = symbol
+    workflowDetail(responses).class = `${String(source.module)}:${symbol}`
+    const runtime = createWorkflowRuntime(
+      fixtureHttp(responses),
+      getDefaultBackend('local-python')
+    )
+
+    await expect(runtime.getWorkflowActionCatalog()).resolves.toBeDefined()
+  })
+
+  it('validates workflow defaults separately from Handle value schemas', async () => {
+    const responses = executableCatalogResponses()
+    const schema = workflowSchemaValue(responses)
+    const goal = (schema.properties as Record<string, Record<string, unknown>>)
+      .goal
+    const sample = (goal.properties as Record<string, Record<string, unknown>>)
+      .sample
+    const defaultSample = {
+      uuid: '60000000-0000-4000-8000-000000000001'
+    }
+    sample.default = defaultSample
+    goal.required = []
+    workflowDetail(responses).goal_default = { sample: defaultSample }
+    const firstHandle = workflowHandles(responses)[0]
+    if (!firstHandle) throw new Error('Published Workflow input Handle missing')
+    firstHandle.required = false
+    const runtime = createWorkflowRuntime(
+      fixtureHttp(responses),
+      getDefaultBackend('local-python')
+    )
+
+    await expect(runtime.getWorkflowActionCatalog()).resolves.toBeDefined()
+  })
+
+
+
   it('loads one authority-scoped snapshot without splitting action strings', async () => {
     const requests: string[] = []
     const runtime = createWorkflowRuntime(

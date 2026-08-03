@@ -10,7 +10,6 @@ import { useCodeMirror, CodeEditor } from '@unilab/code-editor'
 import type {
   WorkflowActionCatalogSnapshot,
   WorkflowNodeJob,
-  WorkflowNodeJobFeedback,
   WorkflowAuthoringDiagnostic,
   WorkflowAuthoringAggregate,
   WorkflowAuthoringGraph,
@@ -68,6 +67,10 @@ import {
 } from '../utils/workflowMaterialSource'
 import { materialTraceAccent } from '../utils/workflowMaterialTrace'
 import {
+  projectWorkflowTaskEvents,
+  projectWorkflowTaskJob
+} from '../utils/workflowTaskOutputProjection'
+import {
   AuthoringOperationQueue,
   authoringProjection,
   authoringStateMessage,
@@ -97,8 +100,6 @@ import {
 } from './WorkflowDebugger'
 import {
   WorkflowOutput,
-  type WorkflowOutputEvent,
-  type WorkflowOutputNode,
   type WorkflowOutputTab
 } from './WorkflowOutput'
 import { WorkflowIoSummary } from './WorkflowIoSummary'
@@ -419,7 +420,7 @@ export function PersistentWorkflowAuthoringPanel({
   const task = taskRuntime.snapshot.task
   const taskJobs = taskRuntime.snapshot.jobs
   const taskOutputNodes = useMemo(
-    () => taskJobs.map(projectWorkflowJob),
+    () => taskJobs.map(projectWorkflowTaskJob),
     [taskJobs]
   )
   const failedTaskJobCount = useMemo(
@@ -443,12 +444,17 @@ export function PersistentWorkflowAuthoringPanel({
     ])),
     [structure.nodes]
   )
-  const taskFeedbackEvents = useMemo(
-    () => projectWorkflowFeedback(
+  const taskRuntimeEvents = useMemo(
+    () => projectWorkflowTaskEvents(
+      taskRuntime.snapshot.events,
       taskRuntime.snapshot.feedback,
       taskJobs
     ),
-    [taskJobs, taskRuntime.snapshot.feedback]
+    [
+      taskJobs,
+      taskRuntime.snapshot.events,
+      taskRuntime.snapshot.feedback
+    ]
   )
   const taskNodeStates = useMemo(
     () => Object.fromEntries(taskJobs.map((job) => [
@@ -2351,7 +2357,7 @@ export function PersistentWorkflowAuthoringPanel({
           expectedNodeCount={taskJobs.length}
           nodes={taskOutputNodes}
           nodeNames={taskNodeNames}
-          events={taskFeedbackEvents}
+          events={taskRuntimeEvents}
           error={taskRuntime.snapshot.error}
           selectedNode={selectedTaskNode}
           selectedNodeId={selectedJobNodeUuid}
@@ -2955,44 +2961,6 @@ const TERMINAL_JOB_STATUSES = new Set([
   'canceled',
   'timeout'
 ])
-
-function projectWorkflowJob(job: WorkflowNodeJob): WorkflowOutputNode {
-  return {
-    nodeId: job.uuid,
-    sourceNodeId: job.workflow_node_uuid,
-    nodeType: job.executor_kind,
-    state: job.status,
-    attempt: job.attempt,
-    result: {
-      job_uuid: job.uuid,
-      workflow_node_uuid: job.workflow_node_uuid,
-      executor_kind: job.executor_kind,
-      status: job.status,
-      attempt: job.attempt,
-      feedback_sequence: job.feedback_sequence,
-      feedback_data: job.feedback_data,
-      return_info: job.return_info,
-      error_info: job.error_info
-    }
-  }
-}
-
-function projectWorkflowFeedback(
-  feedback: readonly WorkflowNodeJobFeedback[],
-  jobs: readonly WorkflowNodeJob[]
-): WorkflowOutputEvent[] {
-  const sourceNodeByJob = new Map(jobs.map((job) => [
-    job.uuid,
-    job.workflow_node_uuid
-  ]))
-  return feedback.map((item) => ({
-    key: item.uuid,
-    seq: item.sequence,
-    type: item.feedback_type,
-    nodeId: sourceNodeByJob.get(item.workflow_node_job_uuid) ?? null,
-    detail: item.data
-  }))
-}
 
 function workflowTaskDagState(
   status: WorkflowNodeJob['status'],

@@ -424,7 +424,7 @@ function typedWorkflowSchema(raw: unknown): WorkflowSchemaProjection | null {
   }
   const properties = closedRecord(schema.properties, ['goal', 'result'])
   const required = stringArray(schema.required)
-  if (!sameStrings(required, ['goal', 'result'])) invalidCatalog()
+  if (!sameStringSet(required, ['goal', 'result'])) invalidCatalog()
   const goal = objectEnvelope(properties.goal)
   const result = objectEnvelope(properties.result)
   const extension = closedRecord(schema['x-unilabos-workflow-contract'], [
@@ -444,8 +444,8 @@ function typedWorkflowSchema(raw: unknown): WorkflowSchemaProjection | null {
   const inputOrder = uniqueStringArray(extension.input_order)
   const outputOrder = uniqueStringArray(extension.output_order)
   if (
-    !sameStrings(inputOrder, Object.keys(goal.properties)) ||
-    !sameStrings(outputOrder, Object.keys(result.properties))
+    !sameStringSet(inputOrder, Object.keys(goal.properties)) ||
+    !sameStringSet(outputOrder, Object.keys(result.properties))
   ) invalidCatalog()
   return {
     schema,
@@ -543,9 +543,17 @@ function validateBusinessHandle(
     handle.editorControl !== (
       resourceSlotSchema(schema) ? 'material_port' : 'variable_selector'
     ) ||
-    !jsonEquals(handle.valueSchema, schema) ||
+    !jsonEquals(handle.valueSchema, handleValueSchema(schema)) ||
     !sameAllowlist(handle.allowedResourceTemplateUuids, schemaAllowlist(schema))
   ) invalidCatalog()
+}
+
+function handleValueSchema(
+  schema: Record<string, unknown>
+): Record<string, unknown> {
+  const value = { ...schema }
+  delete value.default
+  return value
 }
 
 function validateReadyHandle(
@@ -618,7 +626,7 @@ function stringMapMatches(
   raw: Record<string, unknown>,
   order: string[]
 ): boolean {
-  return sameStrings(Object.keys(raw), order) &&
+  return sameStringSet(Object.keys(raw), order) &&
     order.every((name) => raw[name] === name)
 }
 
@@ -629,7 +637,7 @@ function defaultsMatch(
   const expected = contract.inputOrder.filter((name) =>
     Object.prototype.hasOwnProperty.call(contract.inputSchemas[name], 'default')
   )
-  return sameStrings(Object.keys(defaults), expected) && expected.every((name) =>
+  return sameStringSet(Object.keys(defaults), expected) && expected.every((name) =>
     jsonEquals(defaults[name], contract.inputSchemas[name]?.default)
   )
 }
@@ -653,6 +661,13 @@ function uniqueStringArray(raw: unknown): string[] {
 function sameStrings(left: string[], right: string[]): boolean {
   return left.length === right.length &&
     left.every((value, index) => value === right[index])
+}
+
+function sameStringSet(left: string[], right: string[]): boolean {
+  return left.length === right.length &&
+    new Set(left).size === left.length &&
+    new Set(right).size === right.length &&
+    left.every((value) => right.includes(value))
 }
 
 function jsonEquals(left: unknown, right: unknown): boolean {
@@ -689,7 +704,9 @@ function absoluteModule(raw: unknown): string {
 
 function identifierValue(raw: unknown): string {
   const value = stringValue(raw)
-  if (!/^[A-Za-z_]\w*$/.test(value)) invalidCatalog()
+  if (!/^(?:[_\p{ID_Start}])(?:[_\p{ID_Continue}])*$/u.test(value)) {
+    invalidCatalog()
+  }
   return value
 }
 

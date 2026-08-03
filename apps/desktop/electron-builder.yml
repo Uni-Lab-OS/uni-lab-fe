@@ -9,6 +9,11 @@ files:
 extraResources:
   - from: ../../packages/device-card-agent-cli/dist/cli.mjs
     to: device-card-agent/cli.mjs
+npmRebuild: false
+electronLanguages:
+  - zh-CN
+  - en-US
+afterPack: scripts/after-pack.mjs
 mac:
   category: public.app-category.developer-tools
   icon: build/icon.icns

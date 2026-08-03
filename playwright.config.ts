@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test'
 
 const materialCreateFixture =
   process.env.UNILAB_E2E_MATERIAL_CREATE_FIXTURE === '1'
+const electronFixture = process.env.UNILAB_E2E_ELECTRON === '1'
 const baseURL =
   process.env.UNILAB_FE_E2E_URL ||
   (materialCreateFixture
@@ -23,7 +24,7 @@ export default defineConfig({
     locale: 'zh-CN',
     trace: 'retain-on-failure'
   },
-  webServer: process.env.UNILAB_FE_E2E_URL
+  webServer: process.env.UNILAB_FE_E2E_URL || electronFixture
     ? undefined
     : {
         command: materialCreateFixture

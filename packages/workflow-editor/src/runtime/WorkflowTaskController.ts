@@ -6,6 +6,7 @@ import type {
   WorkflowTask,
   WorkflowTaskCommand,
   WorkflowTaskCommandType,
+  WorkflowTaskRuntimeEvent,
   WorkflowTaskRunMode
 } from '@unilab/services'
 
@@ -13,14 +14,17 @@ export interface WorkflowTaskRuntimeSnapshot {
   loading: boolean
   task: WorkflowTask | null
   jobs: readonly WorkflowNodeJob[]
+  events: readonly WorkflowTaskRuntimeEvent[]
   feedback: readonly WorkflowNodeJobFeedback[]
   lastCommand: WorkflowTaskCommand | null
   error: string | null
   actionError: string | null
   projectionError: string | null
+  eventError: string | null
   feedbackError: string | null
   realtimeError: string | null
   projectionStale: boolean
+  eventStale: boolean
   feedbackStale: boolean
   realtimeStatus: 'connecting' | 'live' | 'reconnecting'
   generation: number
@@ -34,14 +38,17 @@ export class WorkflowTaskController {
     loading: true,
     task: null,
     jobs: [],
+    events: [],
     feedback: [],
     lastCommand: null,
     error: null,
     actionError: null,
     projectionError: null,
+    eventError: null,
     feedbackError: null,
     realtimeError: null,
     projectionStale: false,
+    eventStale: false,
     feedbackStale: false,
     realtimeStatus: 'connecting',
     generation: 0
@@ -136,6 +143,7 @@ export class WorkflowTaskController {
     this.install({
       actionError: null,
       projectionError: null,
+      eventError: null,
       feedbackError: null,
       realtimeError: null
     })
@@ -183,10 +191,13 @@ export class WorkflowTaskController {
             loading: false,
             task: null,
             jobs: [],
+            events: [],
             feedback: [],
             projectionError: null,
+            eventError: null,
             feedbackError: null,
             projectionStale: false,
+            eventStale: false,
             feedbackStale: false,
             generation: this.snapshot.generation + 1
           })
@@ -201,20 +212,62 @@ export class WorkflowTaskController {
       const sortedJobs = [...jobs].sort(
         (left, right) => left.topological_index - right.topological_index
       )
+      const taskChanged = this.snapshot.task?.uuid !== task.uuid
       this.install({
         loading: false,
         task,
         jobs: sortedJobs,
+        ...(taskChanged ? { events: [], feedback: [] } : {}),
         projectionError: null,
         projectionStale: false,
         generation: this.snapshot.generation + 1
       })
+      await this.hydrateEvents(task.uuid)
       await this.hydrateFeedback(task.uuid, sortedJobs)
     } catch (error) {
       this.install({
         loading: false,
         projectionError: errorMessage(error),
         projectionStale: this.snapshot.task !== null
+      })
+    }
+  }
+
+  private async hydrateEvents(taskUuid: string): Promise<void> {
+    let events = this.snapshot.task?.uuid === taskUuid
+      ? [...this.snapshot.events]
+      : []
+    try {
+      let cursor = events.reduce(
+        (maximum, item) => Math.max(maximum, item.sequence),
+        0
+      )
+      while (true) {
+        const page = await this.runtime.listWorkflowTaskEvents(taskUuid, {
+          after_sequence: cursor,
+          limit: 100
+        })
+        events.push(...page.items)
+        const nextCursor = Math.max(
+          page.next_cursor,
+          ...page.items.map((item) => item.sequence)
+        )
+        if (page.has_more && nextCursor <= cursor) {
+          throw new Error('Workflow runtime event cursor 未向前推进')
+        }
+        cursor = Math.max(cursor, nextCursor)
+        if (!page.has_more) break
+      }
+      this.install({
+        events: uniqueRuntimeEvents(events),
+        eventStale: false,
+        eventError: null
+      })
+    } catch (error) {
+      this.install({
+        events: uniqueRuntimeEvents(events),
+        eventStale: true,
+        eventError: errorMessage(error)
       })
     }
   }
@@ -286,10 +339,23 @@ export class WorkflowTaskController {
     if (!this.active) return
     const next = { ...this.snapshot, ...patch }
     next.error = next.actionError ?? next.projectionError ??
-      next.feedbackError ?? next.realtimeError
+      next.eventError ?? next.feedbackError ?? next.realtimeError
     this.snapshot = next
     for (const listener of this.listeners) listener()
   }
+}
+
+function uniqueRuntimeEvents(
+  items: readonly WorkflowTaskRuntimeEvent[]
+): WorkflowTaskRuntimeEvent[] {
+  const sequences = new Set<number>()
+  return [...items]
+    .sort((left, right) => left.sequence - right.sequence)
+    .filter((item) => {
+      if (sequences.has(item.sequence)) return false
+      sequences.add(item.sequence)
+      return true
+    })
 }
 
 function errorMessage(value: unknown): string {

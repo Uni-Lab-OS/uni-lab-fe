@@ -20,15 +20,16 @@
 
 ## 本地环境启动
 
-桌面端连接栏可选择以下路径，并分别启动或停止 PLC-Sim 与 SZLab Edge：
+桌面端连接栏可选择以下路径，并分别启动或停止 PLC-Sim 与领域侧 Edge。当前
+界面和默认启动配置以 `sz_lab` 为例：
 
 - `unilab` Conda 环境目录（自动识别本机兼容环境，也可手动选择；macOS/Linux
   使用 `bin/python` 与 `bin/unilab`，Windows 使用 `python.exe` 与
   `Scripts/unilab.exe`。Windows 子进程还会注入所选环境的 `CONDA_PREFIX`，并按
   Conda 激活顺序前置环境目录、`Library/bin` 与 `Scripts` 到 `PATH`）
 - Uni-Lab-OS 项目根目录
-- Uni-Lab-SZLab 项目根目录
-- SZLab 设备图 JSON
+- 领域项目根目录（示例：Uni-Lab-SZLab）
+- 领域设备图 JSON（示例：sz_lab 设备图）
 - PLC-Sim 项目根目录（可选，内部使用 `OpcUaSim/gui/backend.py`）
 
 两个服务不再绑定为一次启动操作：
@@ -36,24 +37,22 @@
 1. PLC-Sim（可选）：用户单独启动 `python -m gui.backend`，监听
    `127.0.0.1:18765`。
 2. 如需使用 PLC，用户在 PLC-Sim 中上传 PLC 变量表并确认完成。
-3. SZLab Edge：用户再单独启动内部服务与 Edge。内部服务使用
-   `deployment/local_bridge_entrypoint.py`，API 监听 `8014`，Schedule
-   WebSocket 监听 `8892`，连接 Edge `18003`。
-   Edge 使用 ROS backend、`ROS_DOMAIN_ID=42`，HTTP 监听 `18003`。
+3. 领域侧 Edge：用户再单独通过 `unilab` CLI 启动 Edge。`sz_lab` 示例使用
+   ROS backend、FastAPI bridge 与 Edge Scheduler，`ROS_DOMAIN_ID=42`，HTTP
+   监听 `18003`；不再额外启动本地 Bridge 进程。
    每次启动会在 `runtime/ideawit-e2e` 下生成独立的
    `edge-runtime-YYYYMMDD-HHMMSS.sqlite3`，并通过 `UNILABOS_RUNTIME_DB`
    传给 Edge。
 
-停止 SZLab Edge 不会停止 PLC-Sim；为避免变量表与设备目录状态不一致，Edge
+停止领域侧 Edge 不会停止 PLC-Sim；为避免变量表与设备目录状态不一致，Edge
 运行期间不能启动或停止 PLC-Sim。退出桌面应用时仍会统一回收两个服务。
 
-产品界面仅展示 OPC UA 与 SZLab Edge；内部服务随 SZLab Edge 一起启动和停止，
-不作为独立服务暴露给用户。
+产品界面仅展示 OPC UA 与领域侧 Edge，不把 CLI 内部 bridge 暴露为独立服务。
 
 启动前会校验项目结构、可执行文件和端口占用；任一进程启动失败或意外退出时，
 其余进程会被统一回收。所有命令均以参数数组直接启动，不经过 renderer 或任意
-shell 字符串拼接。日志分别写入 `simulator.log`、`bridge.log` 和 `edge.log`，可在
-应用右上角打开日志抽屉直接查看；日志目录与读取方式均由 Electron 按当前平台处理。
+shell 字符串拼接。日志分别写入 `simulator.log` 和 `edge.log`，可在应用右上角打开
+日志抽屉直接查看；日志目录与读取方式均由 Electron 按当前平台处理。
 
 ## Trace 日志
 

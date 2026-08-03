@@ -4,7 +4,7 @@ import type {
   WorkflowTaskCommandType,
   WorkflowTaskRunMode
 } from '@unilab/services'
-import { useEffect, useMemo, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 
 import { WorkflowTaskController } from '../runtime/WorkflowTaskController'
 
@@ -25,6 +25,7 @@ export function useWorkflowTaskRuntime(
     () => new WorkflowTaskController(runtime, workflowUuid),
     [runtime, workflowUuid]
   )
+  const lifecycleGeneration = useRef(0)
   const snapshot = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
@@ -32,8 +33,16 @@ export function useWorkflowTaskRuntime(
   )
 
   useEffect(() => {
+    const generation = ++lifecycleGeneration.current
     void controller.start()
-    return () => controller.dispose()
+    return () => {
+      globalThis.queueMicrotask(() => {
+        // React StrictMode immediately replays effects in development.  Do
+        // not permanently dispose the memoized controller during that replay;
+        // only dispose when no replacement setup occurred in the same turn.
+        if (lifecycleGeneration.current === generation) controller.dispose()
+      })
+    }
   }, [controller])
 
   return {

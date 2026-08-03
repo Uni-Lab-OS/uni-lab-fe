@@ -28,7 +28,8 @@
     "test:e2e:materials": "UNILAB_E2E_HEADED=1 xvfb-run -a playwright test e2e/material-scene.spec.ts",
     "test:e2e:device-catalog": "playwright test e2e/device-catalog-real-os.spec.ts",
     "test:e2e:device-manual-unlock": "playwright test e2e/device-manual-unlock-real-os.spec.ts",
-    "test:e2e:device-single-action": "playwright test e2e/device-single-action-real-os.spec.ts"
+    "test:e2e:device-single-action": "playwright test e2e/device-single-action-real-os.spec.ts",
+    "test:e2e:desktop-local-runtime": "UNILAB_E2E_ELECTRON=1 playwright test e2e/local-runtime-electron-real-edge.spec.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0",

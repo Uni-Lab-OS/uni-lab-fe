@@ -40,7 +40,7 @@ test('keeps the original log entry in the local runtime dialog', async ({
   })
   await connectionBar.getByRole('button', { name: '启动本地环境' }).click()
   const runtimeDialog = page.getByRole('dialog', {
-    name: '启动 SZLab 本地调试环境'
+    name: '启动领域侧本地调试环境（以 sz_lab 为例）'
   })
   const dialogLogButton = runtimeDialog.getByRole('button', {
     name: '查看日志'
@@ -67,7 +67,7 @@ test('keeps the log drawer usable on a narrow viewport', async ({ page }) => {
   })
   await connectionBar.getByRole('button', { name: '启动本地环境' }).click()
   const runtimeDialog = page.getByRole('dialog', {
-    name: '启动 SZLab 本地调试环境'
+    name: '启动领域侧本地调试环境（以 sz_lab 为例）'
   })
   const dialogLogButton = runtimeDialog.getByRole('button', {
     name: '查看日志'
@@ -79,7 +79,6 @@ test('keeps the log drawer usable on a narrow viewport', async ({ page }) => {
   const logDrawer = page.getByRole('dialog', { name: '本地运行日志' })
   await expect(logDrawer).toBeVisible()
   await expect(logDrawer.getByRole('tab', { name: /PLC-Sim/ })).toBeVisible()
-  await expect(logDrawer.getByRole('tab', { name: /Edge 服务/ })).toBeVisible()
   await expect(logDrawer.getByRole('tab', { name: /Edge 运行时/ })).toBeVisible()
   await expect(logDrawer).toHaveCSS('width', '390px')
 })
@@ -88,7 +87,7 @@ async function installRuntimeApi(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const idleSnapshot = {
       phase: 'idle' as const,
-      message: 'PLC-Sim 与 SZLab Edge 均未启动',
+      message: 'PLC-Sim 与领域侧 Edge 均未启动',
       simulatorRunning: false,
       bridgeRunning: false,
       edgeRunning: false

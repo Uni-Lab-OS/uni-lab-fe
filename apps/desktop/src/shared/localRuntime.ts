@@ -55,7 +55,7 @@ export interface LocalRuntimeSnapshot {
 
 export const IDLE_LOCAL_RUNTIME_SNAPSHOT: LocalRuntimeSnapshot = {
   phase: 'idle',
-  message: 'PLC-Sim 与 SZLab Edge 均未启动',
+  message: 'PLC-Sim 与领域侧 Edge 均未启动',
   simulatorRunning: false,
   bridgeRunning: false,
   edgeRunning: false

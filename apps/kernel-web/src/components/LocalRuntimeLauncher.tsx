@@ -30,7 +30,7 @@ const EMPTY_CONFIG: LocalRuntimeLaunchConfig = {
 }
 const IDLE_SNAPSHOT: LocalRuntimeSnapshot = {
   phase: 'idle',
-  message: 'PLC-Sim 与 SZLab Edge 均未启动',
+  message: 'PLC-Sim 与领域侧 Edge 均未启动',
   simulatorRunning: false,
   bridgeRunning: false,
   edgeRunning: false
@@ -387,9 +387,11 @@ export function LocalRuntimeDialog({
       >
         <header className={styles.header}>
           <div>
-            <h2 id="local-runtime-title">启动 SZLab 本地调试环境</h2>
+            <h2 id="local-runtime-title">
+              启动领域侧本地调试环境（以 sz_lab 为例）
+            </h2>
             <p id="local-runtime-description">
-              分别启动 PLC-Sim 和 SZLab Edge，由你决定是否使用本地 PLC。
+              分别启动 PLC-Sim 和领域侧 Edge，由你决定是否使用本地 PLC。
             </p>
           </div>
           <div className={styles.headerActions}>
@@ -482,8 +484,10 @@ export function LocalRuntimeDialog({
           >
             <header className={styles.serviceHeader}>
               <div>
-                <h3 id="local-edge-title">SZLab Edge</h3>
-                <p>启动设备图、本地服务和 Edge 运行时。</p>
+                <h3 id="local-edge-title">
+                  领域侧 Edge（以 sz_lab 为例）
+                </h3>
+                <p>启动领域设备图、本地服务和 Edge 运行时。</p>
               </div>
               <button
                 type="button"
@@ -500,7 +504,7 @@ export function LocalRuntimeDialog({
             <div className={styles.dependencyNotice} role="note">
               <strong>使用 PLC 时，请先上传变量表</strong>
               <span>
-                先启动 PLC-Sim，在 PLC-Sim 中上传 PLC 变量表，确认完成后再启动 SZLab Edge。
+                先启动 PLC-Sim，在 PLC-Sim 中上传 PLC 变量表，确认完成后再启动领域侧 Edge。
               </span>
             </div>
 
@@ -526,9 +530,9 @@ export function LocalRuntimeDialog({
               />
               <PathField
                 id="runtime-szlab-path"
-                label="Uni-Lab-SZLab 项目根目录"
+                label="领域项目根目录（以 Uni-Lab-SZLab 为例）"
                 value={config.szlabProjectPath}
-                placeholder="选择 Uni-Lab-SZLab 项目根目录"
+                placeholder="选择领域项目根目录"
                 buttonLabel="选择目录"
                 disabled={edgeDisabled}
                 invalid={edgeSubmitted
@@ -545,9 +549,9 @@ export function LocalRuntimeDialog({
               />
               <PathField
                 id="runtime-graph-path"
-                label="SZLab 设备图 JSON"
+                label="领域设备图 JSON（以 sz_lab 为例）"
                 value={config.graphPath}
-                placeholder="选择 szlab-ideawit-sim 设备图"
+                placeholder="选择领域设备图，例如 szlab-ideawit-sim"
                 buttonLabel="选择文件"
                 disabled={edgeDisabled}
                 invalid={edgeSubmitted
@@ -600,7 +604,6 @@ const LOG_TABS: Array<{
   label: string
 }> = [
   { kind: 'simulator', label: 'PLC-Sim' },
-  { kind: 'bridge', label: 'Edge 服务' },
   { kind: 'edge', label: 'Edge 运行时' }
 ]
 
@@ -857,8 +860,8 @@ function RuntimeStatus({
           status={simulatorRuntimeStatus(snapshot)}
         />
         <ProcessState
-          label="SZLab Edge"
-          port="8014 · 18003 · WS 8892"
+          label="领域侧 Edge"
+          port="HTTP 18003"
           status={edgeRuntimeStatus(snapshot)}
         />
       </div>
@@ -921,7 +924,7 @@ export function validateEdgeConfig(
     errors.osProjectPath = '请选择 Uni-Lab-OS 项目根目录'
   }
   if (!config.szlabProjectPath.trim()) {
-    errors.szlabProjectPath = '请选择 Uni-Lab-SZLab 项目根目录'
+    errors.szlabProjectPath = '请选择领域项目根目录'
   }
   if (!config.environmentPath.trim()) {
     errors.environmentPath = '请选择 unilab Conda 环境目录'
@@ -1043,11 +1046,7 @@ function edgeRuntimeStatus(
   ) {
     return 'stopping'
   }
-  if (
-    snapshot.phase === 'ready'
-    && snapshot.bridgeRunning
-    && snapshot.edgeRunning
-  ) {
+  if (snapshot.phase === 'ready' && snapshot.edgeRunning) {
     return 'running'
   }
   if (

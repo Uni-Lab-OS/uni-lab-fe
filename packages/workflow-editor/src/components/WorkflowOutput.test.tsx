@@ -256,4 +256,84 @@ describe('WorkflowOutput', () => {
     expect(html).toContain('#411 节点执行成功 (node.result)')
     expect(html).toContain('&quot;effects&quot;: []')
   })
+
+  it('shows action dispatch parameters and execution results in the node log', () => {
+    const selectedNode = {
+      nodeId: 'job-transfer',
+      sourceNodeId: 'transfer',
+      nodeType: 'action',
+      state: 'success' as const,
+      result: {},
+      attempt: 1
+    }
+    const html = renderToStaticMarkup(
+      <WorkflowOutput
+        expanded
+        activeTab="nodes"
+        completedNodeCount={1}
+        expectedNodeCount={1}
+        nodes={[selectedNode]}
+        nodeNames={{ transfer: '转移样品' }}
+        events={[
+          {
+            seq: 42,
+            type: 'node.dispatched',
+            nodeId: 'transfer',
+            detail: {
+              param: { source: 'tube-a', target: 'plate-a' }
+            }
+          },
+          {
+            seq: 44,
+            type: 'node.result',
+            nodeId: 'transfer',
+            detail: {
+              return_info: { completed: true, transferred_ul: 50 }
+            }
+          }
+        ]}
+        error={null}
+        selectedNode={selectedNode}
+        selectedNodeId="transfer"
+        pausedBeforeNodeId={null}
+        onExpandedChange={() => {}}
+        onTabChange={() => {}}
+        onNodeSelect={() => {}}
+        onClearError={() => {}}
+      />
+    )
+
+    expect(html).toContain('动作下发参数')
+    expect(html).toContain('&quot;source&quot;: &quot;tube-a&quot;')
+    expect(html).toContain('执行结果')
+    expect(html).toContain('&quot;transferred_ul&quot;: 50')
+  })
+
+  it('labels the durable dispatch and feedback event types', () => {
+    const html = renderToStaticMarkup(
+      <WorkflowOutput
+        expanded
+        activeTab="events"
+        completedNodeCount={0}
+        expectedNodeCount={0}
+        nodes={[]}
+        nodeNames={{}}
+        events={[
+          { seq: 1, type: 'node.dispatched', nodeId: 'transfer' },
+          { seq: 2, type: 'node.feedback', nodeId: 'transfer' }
+        ]}
+        error={null}
+        selectedNode={undefined}
+        selectedNodeId={null}
+        pausedBeforeNodeId={null}
+        onExpandedChange={() => {}}
+        onTabChange={() => {}}
+        onNodeSelect={() => {}}
+        onClearError={() => {}}
+      />
+    )
+
+    expect(html).toContain('动作已下发')
+    expect(html).toContain('动作反馈')
+  })
 })

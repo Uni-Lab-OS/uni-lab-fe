@@ -4,7 +4,8 @@ import type {
   WorkflowRuntimeChangedEvent,
   WorkflowRuntimePort,
   WorkflowTask,
-  WorkflowTaskCommand
+  WorkflowTaskCommand,
+  WorkflowTaskRuntimeEvent
 } from '@unilab/services'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -125,6 +126,43 @@ describe('WorkflowTaskController', () => {
 
     expect(feedbackReads).toEqual([0, 1])
     expect(controller.getSnapshot().feedback.map((item) => item.sequence))
+      .toEqual([1, 2])
+  })
+
+  it('increments durable Task runtime events from the last journal cursor', async () => {
+    const task = workflowTask()
+    let latestSequence = 1
+    const eventReads: number[] = []
+    const runtime = runtimePort({
+      subscribeWorkflowRuntime: vi.fn(() => ({ dispose: vi.fn() })),
+      listWorkflowTasks: vi.fn(async () => ({
+        items: [task], total: 1, page: 1, page_size: 1
+      })),
+      getWorkflowTask: vi.fn(async () => task),
+      listWorkflowTaskJobs: vi.fn(async () => [workflowJob()]),
+      listWorkflowTaskEvents: vi.fn(async (_taskUuid, query = {}) => {
+        const afterSequence = query.after_sequence ?? 0
+        eventReads.push(afterSequence)
+        return {
+          items: afterSequence === 0
+            ? [workflowRuntimeEvent(1, 'dispatched')]
+            : [workflowRuntimeEvent(2, 'succeeded')],
+          next_cursor: afterSequence === 0 ? 1 : latestSequence,
+          has_more: false
+        }
+      })
+    })
+    const controller = new WorkflowTaskController(runtime, task.workflow_uuid)
+
+    await controller.start()
+    expect(controller.getSnapshot().events.map((item) => item.sequence))
+      .toEqual([1])
+
+    latestSequence = 2
+    await controller.refresh()
+
+    expect(eventReads).toEqual([0, 1])
+    expect(controller.getSnapshot().events.map((item) => item.sequence))
       .toEqual([1, 2])
   })
 
@@ -527,7 +565,12 @@ describe('WorkflowTaskController', () => {
 function runtimePort(
   value: Partial<WorkflowRuntimePort>
 ): WorkflowRuntimePort {
-  return value as WorkflowRuntimePort
+  return {
+    listWorkflowTaskEvents: vi.fn(async () => ({
+      items: [], next_cursor: 0, has_more: false
+    })),
+    ...value
+  } as WorkflowRuntimePort
 }
 
 function workflowTask(): WorkflowTask {
@@ -604,5 +647,22 @@ function workflowFeedback(
     observed_at: `2026-08-01T00:00:0${sequence}Z`,
     received_at: `2026-08-01T00:00:0${sequence}Z`,
     idempotency_key: `feedback-${sequence}`
+  }
+}
+
+function workflowRuntimeEvent(
+  sequence: number,
+  toStatus: string
+): WorkflowTaskRuntimeEvent {
+  return {
+    sequence,
+    workflow_task_uuid: workflowTask().uuid,
+    workflow_node_job_uuid: workflowJob().uuid,
+    workflow_node_uuid: workflowJob().workflow_node_uuid,
+    kind: 'job_transition',
+    from_status: toStatus === 'dispatched' ? 'pending' : 'running',
+    to_status: toStatus,
+    data: {},
+    create_time: `2026-08-01T00:00:0${sequence}Z`
   }
 }

@@ -10,8 +10,10 @@
     "prebuild": "pnpm --filter @unilab/device-card-host build && pnpm --filter @unilab/device-card-agent-cli build",
     "build": "electron-vite build",
     "preview": "unset ELECTRON_RUN_AS_NODE; electron-vite preview",
-    "package:mac": "pnpm build && electron-builder --mac",
-    "package:win": "pnpm build && electron-builder --win",
+    "prepackage:mac": "pnpm --filter @unilab/device-card-host build && pnpm --filter @unilab/device-card-agent-cli build",
+    "package:mac": "node scripts/package-macos.mjs",
+    "prepackage:win": "pnpm --filter @unilab/device-card-host build && pnpm --filter @unilab/device-card-agent-cli build",
+    "package:win": "node scripts/package-windows.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "pretest": "pnpm --filter @unilab/device-card-host build && pnpm --filter @unilab/device-card-agent-cli build",
     "test": "vitest run && node scripts/verify-icons.mjs && node scripts/verify-installer.mjs"
@@ -20,12 +22,12 @@
     "@arizeai/phoenix-otel": "2.1.0",
     "@unilab/device-card-agent-cli": "workspace:*",
     "@unilab/device-card-host": "workspace:*",
-    "@unilab/device-card-sdk": "workspace:*",
-    "@unilab/kernel-web": "workspace:*"
+    "@unilab/device-card-sdk": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.14",
     "@types/node": "^22.10.0",
+    "@unilab/kernel-web": "workspace:*",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
