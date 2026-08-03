@@ -4,17 +4,27 @@
  * ============================================================
  * Model: Claude Opus 4.8
  * Generation Date: 2026-07-22
- * Prompt Summary: 设备实时状态订阅 hook(在线模式下连接 /ws/device_status)
+ * Prompt Summary: 设备实时状态订阅 hook(在线模式下连接 /api/v1/ws/device_status)
  * Context: 设备方向实时状态灯,离线不连接,连接状态与更新时间对外暴露
  * Human Review Status: [ ] Pending  [ ] Reviewed  [ ] Approved
  * ============================================================
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  createContext,
+  createElement,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode
+} from 'react'
 import { useServices } from '@unilab/services'
 import { useWorkbench } from '../context/WorkbenchContext'
 import type { DeviceStatus } from '../data/lab'
 
-interface UseDeviceStatusResult {
+export interface UseDeviceStatusResult {
   // 以 deviceId 为键的实时状态表
   statusMap: Map<string, DeviceStatus>
   // WebSocket 是否已建立
@@ -23,8 +33,27 @@ interface UseDeviceStatusResult {
   lastUpdate: number | null
 }
 
-// 订阅设备实时状态:仅在线模式连接 /ws/device_status,离线返回空表
+const DeviceStatusContext = createContext<UseDeviceStatusResult | null>(null)
+
+export function DeviceStatusProvider({
+  children
+}: {
+  children: ReactNode
+}): ReactElement {
+  const value = useDeviceStatusSubscription()
+  return createElement(DeviceStatusContext.Provider, { value }, children)
+}
+
+// 订阅设备实时状态:仅在线模式连接 /api/v1/ws/device_status,离线返回空表
 export function useDeviceStatus(): UseDeviceStatusResult {
+  const value = useContext(DeviceStatusContext)
+  if (!value) {
+    throw new Error('useDeviceStatus 必须在 DeviceStatusProvider 内使用。')
+  }
+  return value
+}
+
+function useDeviceStatusSubscription(): UseDeviceStatusResult {
   const { backendEnabled, connection } = useWorkbench()
   const services = useServices()
   const realtime = services.realtime
@@ -52,9 +81,14 @@ export function useDeviceStatus(): UseDeviceStatusResult {
 
     const close = realtime.subscribeDeviceStatus({
       onOpen: () => setConnected(true),
-      onClose: () => setConnected(false),
+      onClose: () => {
+        mapRef.current = new Map()
+        setStatusMap(new Map())
+        setConnected(false)
+        setLastUpdate(null)
+      },
       onDeviceStatus: (statuses) => {
-        const next = new Map(mapRef.current)
+        const next = new Map<string, DeviceStatus>()
         statuses.forEach((item) => next.set(item.deviceId, item))
         mapRef.current = next
         setStatusMap(next)

@@ -39,9 +39,7 @@ export function useDeviceCard(options: {
       setState(snapshot.state)
       const stateKeys = stateKey.length > 0 ? stateKey.split('\u0000') : []
       unsubscribe = bridge.subscribeState(stateKeys, (nextState) => {
-        if (active) {
-          setState((current) => ({ ...current, ...nextState }))
-        }
+        if (active) setState(nextState)
       })
       setReady(true)
     })

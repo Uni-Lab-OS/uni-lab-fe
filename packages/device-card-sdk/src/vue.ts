@@ -35,6 +35,9 @@ export function useDeviceCard(options: {
     context.value = snapshot
     Object.assign(state, snapshot.state)
     unsubscribe = bridge.subscribeState(options.state, (nextState) => {
+      for (const key of Object.keys(state)) {
+        if (!(key in nextState)) delete state[key]
+      }
       Object.assign(state, nextState)
     })
     ready.value = true

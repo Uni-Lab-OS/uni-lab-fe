@@ -1,7 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useServices } from '@unilab/services'
 
 import { createAuthoringTarget } from '../../data/authoringContext'
+import { useDeviceStatus } from '../../hooks/useDeviceStatus'
+import { buildDeviceCardRuntimeState } from './runtimeState'
 
 /**
  * Production Adapter for the main-process Authoring Automation Module.
@@ -10,6 +12,9 @@ import { createAuthoringTarget } from '../../data/authoringContext'
 export function DeviceCardAuthoringTargetConnector(): null {
   const services = useServices()
   const authoring = window.api?.deviceCards?.authoring
+  const { statusMap } = useDeviceStatus()
+  const statusMapRef = useRef(statusMap)
+  statusMapRef.current = statusMap
 
   useEffect(() => {
     if (!authoring) return
@@ -18,7 +23,10 @@ export function DeviceCardAuthoringTargetConnector(): null {
         (devices) => authoring.resolveTargetRequest({
           requestId: request.requestId,
           ok: true,
-          targets: devices.map((device) => createAuthoringTarget(device))
+          targets: devices.map((device) => createAuthoringTarget(
+            device,
+            buildDeviceCardRuntimeState(device, statusMapRef.current)
+          ))
         }),
         (error: unknown) => authoring.resolveTargetRequest({
           requestId: request.requestId,

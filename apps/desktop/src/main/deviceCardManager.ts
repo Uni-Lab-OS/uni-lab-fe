@@ -419,7 +419,7 @@ export class DeviceCardManager {
     )
     session.context = {
       ...session.context,
-      state: { ...session.context.state, ...allowed }
+      state: allowed
     }
     view.webContents.send('device-card:state', allowed)
   }

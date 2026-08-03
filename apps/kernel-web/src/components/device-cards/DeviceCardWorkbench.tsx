@@ -26,6 +26,7 @@ import { useDeviceStatus } from '../../hooks/useDeviceStatus'
 import { supportsD1AS1 } from '../device/deviceActionRun'
 import styles from './DeviceCardWorkbench.module.scss'
 import { deviceInstanceOptionLabel } from './presentation'
+import { buildDeviceCardRuntimeState } from './runtimeState'
 
 type WorkbenchNotice = {
   kind: 'success' | 'warning' | 'error' | 'info'
@@ -55,19 +56,29 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   >(null)
   const [message, setMessage] = useState<WorkbenchNotice | null>(null)
 
+  const refreshDeviceCatalog = useCallback(async () => {
+    try {
+      setDevices(await services.laboratory.getDeviceCatalog())
+    } catch (error) {
+      setMessage({
+        kind: 'warning',
+        text: error instanceof Error
+          ? `同步设备目录失败：${error.message}`
+          : '同步设备目录失败'
+      })
+    }
+  }, [services.laboratory])
+
   const refresh = useCallback(async () => {
     if (!desktopApi) return
     setMessage(null)
     try {
-      const [installed, catalog, workspaceStatus, currentAgentInfo] =
-        await Promise.all([
-          desktopApi.list(),
-          services.laboratory.getDeviceCatalog().catch(() => []),
-          desktopApi.workspace.get(),
-          desktopApi.agent.getInfo()
-        ])
+      const [installed, workspaceStatus, currentAgentInfo] = await Promise.all([
+        desktopApi.list(),
+        desktopApi.workspace.get(),
+        desktopApi.agent.getInfo()
+      ])
       setCards(installed)
-      setDevices(catalog)
       setWorkspace(workspaceStatus)
       setAgentInfo(currentAgentInfo)
       setSelectedCardKey((current) =>
@@ -75,13 +86,14 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
           ? current
           : installed[0]?.key ?? ''
       )
+      await refreshDeviceCatalog()
     } catch (error) {
       setMessage({
         kind: 'error',
         text: error instanceof Error ? error.message : '加载设备卡片失败'
       })
     }
-  }, [desktopApi, services.laboratory])
+  }, [desktopApi, refreshDeviceCatalog])
 
   useEffect(() => {
     void refresh()
@@ -89,6 +101,13 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
       void desktopApi?.close()
     }
   }, [desktopApi, refresh])
+
+  useEffect(() => {
+    const timer = globalThis.setInterval(() => {
+      void refreshDeviceCatalog()
+    }, 5_000)
+    return () => globalThis.clearInterval(timer)
+  }, [refreshDeviceCatalog])
 
   useEffect(() => {
     if (!desktopApi) return
@@ -109,6 +128,14 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   )
     ? selectedDevice
     : undefined
+  const previewDeviceId = previewDevice?.deviceId ?? ''
+  const previewDeviceTypeId = previewDevice?.deviceTypeId ?? ''
+  const previewDeviceLabel = previewDevice?.label ?? ''
+  const previewActionSignature = (previewDevice?.actions ?? [])
+    .map((action) => action.actionName)
+    .join('\u0000')
+  const previewFallbackDeviceTypeId = previewCard?.deviceTypes[0] ?? ''
+  const previewCardTitle = previewCard?.title ?? ''
   // 有兼容设备就 Live 绑定（含源码目录预览），与仪器单点同一条下发路径。
   const agentReady = Boolean(
     agentInfo?.bridge.enabled &&
@@ -126,18 +153,8 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
 
   const runtimeState = useMemo<Record<string, unknown>>(() => {
     if (!selectedDevice) return { status: 'idle', online: false }
-    const live = statusMap.get(selectedDevice.deviceId)?.status ?? {}
     // Edge /api/v1/ws/device_status 真值；online / actionBusy 仍来自目录。
-    return {
-      ...live,
-      online: selectedDevice.online,
-      actionBusy: Object.fromEntries(
-        selectedDevice.actions.map((action) => [
-          action.actionName,
-          action.isBusy
-        ])
-      )
-    }
+    return buildDeviceCardRuntimeState(selectedDevice, statusMap)
   }, [selectedDevice, statusMap])
   const previewState = useMemo<Record<string, unknown>>(
     () => (previewDevice ? runtimeState : { status: 'idle', online: false }),
@@ -150,12 +167,12 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     const preview = previewRef.current
     let disposed = false
     const context: DeviceCardRuntimeSnapshot = {
-      mode: previewDevice ? 'live' : 'mock',
+      mode: previewDeviceId ? 'live' : 'mock',
       device: {
-        deviceId: previewDevice?.deviceId ?? null,
+        deviceId: previewDeviceId || null,
         deviceTypeId:
-          previewDevice?.deviceTypeId ?? previewCard.deviceTypes[0] ?? '',
-        title: previewDevice?.label ?? previewCard.title
+          previewDeviceTypeId || previewFallbackDeviceTypeId,
+        title: previewDeviceLabel || previewCardTitle
       },
       state: runtimeStateRef.current,
       config: {},
@@ -183,9 +200,11 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
           height: rect.height
         },
         context,
-        availableActions: previewDevice?.actions.map(
-          (action) => action.actionName
-        )
+        availableActions: previewDeviceId
+          ? previewActionSignature
+            ? previewActionSignature.split('\u0000')
+            : []
+          : undefined
       }
       const opening = workspaceActive
         ? desktopApi.workspace.preview(request)
@@ -207,9 +226,13 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     }
   }, [
     desktopApi,
-    previewDevice,
+    previewActionSignature,
+    previewCardTitle,
+    previewDeviceId,
+    previewDeviceLabel,
+    previewDeviceTypeId,
+    previewFallbackDeviceTypeId,
     selectedCard?.key,
-    selectedDevice?.deviceId,
     workspaceActive,
     workspaceCard?.sourceHash
   ])
@@ -343,11 +366,9 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     ].join(' ')
     const prompt = [
       `请开发 ${workspace.projectDir} 中的 Uni-Lab 设备卡片。`,
-      '先完整阅读项目中的 AGENTS.md、CARD_SPEC.md、authoring-context.json、card.manifest.json 和 mock.json，了解设备状态、Action、权限和开发限制。',
-      '请根据设备能力设计清晰、专业、适合实验室使用的设备卡片，并修改 src 目录中的源码。不要安装依赖，不要使用网络、Node.js 或未声明的状态和 Action。',
-      '必须按照 AGENTS.md 中的 Host Bridge 规范获取运行时状态和调用 Action，不得自行连接设备接口或 WebSocket；同时处理离线、忙碌、失败以及 Mock/Live 模式。',
-      `每次修改后运行以下命令检查 Electron 构建结果：\n${command}`,
-      '如果检查失败，请读取 .unilab-card/diagnostics.json 并继续修复，直到工作区状态为 ready。不要安装卡片，也不要调用真实设备 Action。'
+      '先完整阅读 AGENTS.md、CARD_SPEC.md、authoring-context.json、card.manifest.json 和 mock.json；仅按声明的设备能力修改 src，设计专业的实验室界面。禁止安装依赖、使用网络、Node.js 或未声明的状态和 Action。',
+      '运行时只允许通过 Host Bridge 读取当前 deviceId 的状态并调用 Action，禁止直连设备或 WebSocket。Action 输入只是草稿，实时值必须等待设备上报；切换实例不得沿用旧值。处理离线、忙碌、失败、未上报及 Mock/Live 模式。',
+      `每次修改后运行：\n${command}\n失败时读取 .unilab-card/diagnostics.json 并修复到 ready。不要安装卡片或调用真实设备 Action。`
     ].join('\n\n')
     try {
       await navigator.clipboard.writeText(prompt)

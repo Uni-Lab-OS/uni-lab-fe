@@ -31,9 +31,14 @@ export function createAuthoringTarget(
     })),
     media: []
   }
-  return {
+  const context = createDeviceCardAuthoringContext({
     ...target,
     sampleState: buildDeviceCardAuthoringSampleState(target, runtimeState)
+  }, runtimeState)
+  return {
+    ...target,
+    stateSchema: context.stateSchema,
+    sampleState: context.sampleState
   }
 }
 

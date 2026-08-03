@@ -59,9 +59,9 @@ OS 与 Go backend 的逐路由、字段和调用链对照记录在 Uni-Lab-OS：
 
 ## 设备端口
 
-设备目录与低频 `device_status` 也服从 capability matrix。`local-python` 已打开
-`devices.subscribeStatus`：HTTP API 走 Bridge `:8014`，状态 WS 走 Edge FastAPI
-`:18003/api/v1/ws/device_status`（不是 Bridge，也不是旧路径 `/ws/device_status`）。
+设备目录与低频 `device_status` 也服从 capability matrix。`local-python` 直接访问
+Edge FastAPI：设备目录使用 `:18003/api/v1/devices`，状态订阅使用
+`:18003/api/v1/ws/device_status`。这里不经过已退役的 `:8014` 网络 Bridge；
 未声明的其它能力仍直接降级。
 
 ## 工作流端口

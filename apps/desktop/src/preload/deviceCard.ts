@@ -18,7 +18,7 @@ let currentState: Record<string, unknown> = {}
 ipcRenderer.on(
   'device-card:state',
   (_event, nextState: Record<string, unknown>) => {
-    currentState = { ...currentState, ...nextState }
+    currentState = { ...nextState }
     for (const subscription of subscriptions) {
       subscription.listener(filterState(currentState, subscription.keys))
     }

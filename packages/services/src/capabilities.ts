@@ -212,6 +212,7 @@ function localGoCapabilities(): ServerCapabilities {
 
 function localPythonCapabilities(): ServerCapabilities {
   const capabilities = unavailableCapabilities()
+  capabilities.devices.listOnline = true
   capabilities.devices.listActions = true
   capabilities.devices.forceUnlock = true
   capabilities.devices.runActionTask = true
@@ -255,7 +256,7 @@ function unavailableReason(
 
   if (backend.id === 'local-python') {
     if (capability.startsWith('devices.')) {
-      return '当前 Uni-Lab-OS unified v1 bridge 尚未提供设备目录与 device_status 订阅'
+      return '当前 Uni-Lab-OS 尚未提供该设备能力'
     }
     if (capability.startsWith('material.')) {
       return '当前 Uni-Lab-OS 物料图仅开放只读查询，写操作尚未提供统一命令契约'

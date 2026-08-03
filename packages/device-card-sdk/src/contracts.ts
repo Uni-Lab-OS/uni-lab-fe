@@ -88,6 +88,7 @@ export interface DeviceCardActionRun {
 
 export interface DeviceCardBridge {
   getContext: () => Promise<DeviceCardRuntimeSnapshot>
+  /** Listener receives the complete current snapshot for the requested keys. */
   subscribeState: (
     keys: readonly string[],
     listener: (state: Record<string, unknown>) => void

@@ -44,25 +44,54 @@ export function connectDeviceStatus(
   handlers: DeviceStatusHandlers
 ): () => void {
   let closedByCaller = false
-  const socket = new WebSocket(toDeviceStatusUrl(baseUrl))
+  let socket: WebSocket | null = null
+  let reconnectTimer: ReturnType<typeof globalThis.setTimeout> | null = null
 
-  socket.onopen = () => handlers.onOpen?.()
-
-  socket.onmessage = (event) => {
-    const parsed = parseMessage(event.data)
-    if (!parsed || parsed.type !== 'device_status') return
-    handlers.onDeviceStatus(mapStatuses(parsed.data))
+  const scheduleReconnect = (): void => {
+    if (closedByCaller || reconnectTimer !== null) return
+    reconnectTimer = globalThis.setTimeout(() => {
+      reconnectTimer = null
+      openSocket()
+    }, 1_000)
   }
 
-  socket.onerror = () => handlers.onError?.('设备状态 WebSocket 连接出错')
-
-  socket.onclose = () => {
-    if (!closedByCaller) handlers.onClose?.()
+  const openSocket = (): void => {
+    if (closedByCaller) return
+    try {
+      const nextSocket = new WebSocket(toDeviceStatusUrl(baseUrl))
+      socket = nextSocket
+      nextSocket.onopen = () => handlers.onOpen?.()
+      nextSocket.onmessage = (event) => {
+        const parsed = parseMessage(event.data)
+        if (!parsed || parsed.type !== 'device_status') return
+        handlers.onDeviceStatus(mapStatuses(parsed.data))
+      }
+      nextSocket.onerror = () => {
+        handlers.onError?.('设备状态 WebSocket 连接出错')
+      }
+      nextSocket.onclose = () => {
+        if (socket === nextSocket) socket = null
+        if (closedByCaller) return
+        handlers.onClose?.()
+        scheduleReconnect()
+      }
+    } catch {
+      handlers.onError?.('设备状态 WebSocket 连接出错')
+      handlers.onClose?.()
+      scheduleReconnect()
+    }
   }
+
+  openSocket()
 
   return () => {
     closedByCaller = true
-    socket.close()
+    if (reconnectTimer !== null) {
+      globalThis.clearTimeout(reconnectTimer)
+      reconnectTimer = null
+    }
+    socket?.close()
+    socket = null
   }
 }
 
