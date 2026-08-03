@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { LabInteractionProvider } from './integrations/lab-workbench/LabInteractionProvider'
 import { MaterialRuntimeProvider } from './integrations/lab-workbench/MaterialRuntimeProvider'
 import AppShell from './components/AppShell'
+import { DeviceCardAuthoringTargetConnector } from './components/device-cards/DeviceCardAuthoringTargetConnector'
 
 export default function App(): React.JSX.Element {
   return (
@@ -56,6 +57,7 @@ function ActiveServices({ children }: { children: ReactNode }): React.JSX.Elemen
 
   return (
     <ServicesProvider backend={backend} getAccessToken={getAccessToken}>
+      <DeviceCardAuthoringTargetConnector />
       {children}
     </ServicesProvider>
   )

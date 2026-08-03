@@ -215,6 +215,8 @@ function localPythonCapabilities(): ServerCapabilities {
   capabilities.devices.listActions = true
   capabilities.devices.forceUnlock = true
   capabilities.devices.runActionTask = true
+  // Edge FastAPI broadcasts at :18003/api/v1/ws/device_status (not Bridge :8014).
+  capabilities.devices.subscribeStatus = true
   capabilities.material.readGraph = true
   return capabilities
 }

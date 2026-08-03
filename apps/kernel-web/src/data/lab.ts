@@ -11,7 +11,12 @@
  */
 
 // 三大工作方向
-export type WorkbenchSection = 'device' | 'material' | 'scene' | 'workflow'
+export type WorkbenchSection =
+  | 'device'
+  | 'cards'
+  | 'material'
+  | 'scene'
+  | 'workflow'
 
 // 后端连接状态
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error'

@@ -63,7 +63,8 @@ export function WorkbenchProvider({ children }: { children: ReactNode }): React.
         patch.apiUrl &&
         patch.realtimeUrl === undefined
       ) {
-        next.realtimeUrl = realtimeUrlFor(patch.apiUrl)
+        // Bridge :8014 ≠ Edge FastAPI status WS :18003
+        next.realtimeUrl = edgeRealtimeUrlFor(patch.apiUrl)
       }
       return next
     })
@@ -135,7 +136,7 @@ function initialBackend(): BackendConfig {
     return {
       ...backend,
       apiUrl,
-      realtimeUrl: realtimeUrlFor(apiUrl)
+      realtimeUrl: edgeRealtimeUrlFor(apiUrl)
     }
   } catch {
     return backend
@@ -147,6 +148,7 @@ function initialSection(): WorkbenchSection {
   const section = new URLSearchParams(globalThis.location.search).get('section')
   if (
     section === 'device' ||
+    section === 'cards' ||
     section === 'material' ||
     section === 'scene' ||
     section === 'workflow'
@@ -156,12 +158,16 @@ function initialSection(): WorkbenchSection {
   return 'device'
 }
 
-function realtimeUrlFor(apiUrl: string): string {
+/** Map Bridge API URL → Edge FastAPI host that serves device_status WS. */
+function edgeRealtimeUrlFor(apiUrl: string): string {
   try {
     const url = new URL(apiUrl)
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+    if (url.port === '8014' || url.port === '') {
+      url.port = '18003'
+    }
     return url.toString().replace(/\/$/, '')
   } catch {
-    return apiUrl
+    return 'ws://127.0.0.1:18003'
   }
 }

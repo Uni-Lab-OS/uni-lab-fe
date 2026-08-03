@@ -1,4 +1,12 @@
-import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  writeFile
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 
@@ -90,7 +98,9 @@ describe('discoverDefaultCondaEnvironment', () => {
 })
 
 async function createFixture(): Promise<string> {
-  const fixture = await mkdtemp(join(tmpdir(), 'unilab-conda-discovery-'))
+  const fixture = await realpath(
+    await mkdtemp(join(tmpdir(), 'unilab-conda-discovery-'))
+  )
   temporaryDirectories.push(fixture)
   return fixture
 }

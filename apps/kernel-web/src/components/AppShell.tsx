@@ -20,6 +20,7 @@ import ConnectionBar from './ConnectionBar';
 import UserMenu from './auth/UserMenu';
 import ErrorBoundary from './ErrorBoundary';
 import DevicePanel from './device/DevicePanel';
+import DeviceCardWorkbench from './device-cards/DeviceCardWorkbench';
 import { LabPanelWorkspace } from '../integrations/lab-workbench/LabPanelWorkspace';
 import type { WorkbenchSection } from '../data/lab';
 
@@ -27,6 +28,11 @@ const DEVICE_NAV_ITEM: AppShellNavigationItem = {
   id: 'device',
   label: '仪器设备',
   icon: <DeviceIcon />
+};
+const CARD_NAV_ITEM: AppShellNavigationItem = {
+  id: 'cards',
+  label: '设备卡片',
+  icon: '▣'
 };
 const MATERIAL_NAV_ITEM: AppShellNavigationItem = {
   id: 'material',
@@ -40,6 +46,7 @@ const WORKFLOW_NAV_ITEM: AppShellNavigationItem = {
 };
 const NAV_ITEMS: readonly AppShellNavigationItem[] = [
   DEVICE_NAV_ITEM,
+  CARD_NAV_ITEM,
   MATERIAL_NAV_ITEM,
   WORKFLOW_NAV_ITEM
 ];
@@ -82,6 +89,7 @@ function SectionView({ section }: {
   section: WorkbenchSection;
 }): React.JSX.Element {
   if (section === 'device') return <DevicePanel />;
+  if (section === 'cards') return <DeviceCardWorkbench />;
   if (section === 'material') {
     return (
       <LabPanelWorkspace

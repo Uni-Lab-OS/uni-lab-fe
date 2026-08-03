@@ -70,7 +70,33 @@ describe('laboratory service', () => {
         ]
       }
     ])
+    await expect(service.getDeviceCatalog()).resolves.toEqual([
+      {
+        deviceId: 'pump-1',
+        deviceTypeId: 'pump-1',
+        deviceKey: '/cell/pump-1',
+        namespace: '/cell',
+        label: '蠕动泵',
+        online: false,
+        actions: [
+          {
+            actionName: 'aspirate',
+            actionRef: 'pump-1.aspirate',
+            label: '吸液',
+            typeName: 'unilabos_msgs.action.Pump',
+            inputSchema: { volume: { type: 'number', default: 10 } },
+            outputSchema: {},
+            isBusy: true
+          }
+        ]
+      }
+    ])
     expect(requests).toEqual([
+      {
+        path: '/api/v1/devices',
+        method: undefined,
+        body: undefined
+      },
       {
         path: '/api/v1/devices',
         method: undefined,

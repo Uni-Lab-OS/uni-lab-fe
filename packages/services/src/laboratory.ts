@@ -73,6 +73,26 @@ export interface DeviceStatus {
   timestamp: number
 }
 
+export interface DeviceCatalogAction {
+  actionName: string
+  actionRef: string
+  label: string
+  typeName: string
+  inputSchema: Record<string, unknown>
+  outputSchema: Record<string, unknown>
+  isBusy: boolean
+}
+
+export interface DeviceCatalogItem {
+  deviceId: string
+  deviceTypeId: string
+  deviceKey: string
+  namespace: string
+  label: string
+  online: boolean
+  actions: DeviceCatalogAction[]
+}
+
 export interface ResourceNode {
   id: string
   uuid: string
@@ -126,6 +146,15 @@ export function createLaboratoryService(
         .filter((device) => device.actions.length > 0)
         .sort((left, right) => left.id.localeCompare(right.id))
         .map((device) => ({ deviceId: device.id, label: device.id }))
+    },
+
+    async getDeviceCatalog(): Promise<DeviceCatalogItem[]> {
+      const raw = await requestData<Record<string, unknown>>(
+        http,
+        '/api/v1/devices'
+      )
+      const items = Array.isArray(raw.items) ? raw.items : []
+      return items.map((value) => mapDeviceCatalogItem(asRecord(value)))
     },
 
     async getOnlineDevices(): Promise<OnlineDevice[]> {
@@ -216,6 +245,38 @@ export function createLaboratoryService(
 }
 
 export type LaboratoryService = ReturnType<typeof createLaboratoryService>
+
+function mapDeviceCatalogItem(
+  raw: Record<string, unknown>
+): DeviceCatalogItem {
+  const deviceId = str(raw.id)
+  return {
+    deviceId,
+    // 当前 OS device-catalog/v1 只有实例 id；兼容未来补充的类型字段。
+    deviceTypeId: str(raw.deviceTypeId ?? raw.typeId ?? raw.className) || deviceId,
+    deviceKey: str(raw.deviceKey),
+    namespace: str(raw.namespace),
+    label: str(raw.name) || deviceId,
+    online: Boolean(raw.online),
+    actions: Array.isArray(raw.actions)
+      ? raw.actions.map((value) => {
+          const action = asRecord(value)
+          const actionRef = str(action.actionRef)
+          const separator = actionRef.lastIndexOf('.')
+          return {
+            actionName: str(action.id) ||
+              (separator >= 0 ? actionRef.slice(separator + 1) : actionRef),
+            actionRef,
+            label: str(action.name) || str(action.id),
+            typeName: str(action.typeName),
+            inputSchema: asRecord(action.inputSchema),
+            outputSchema: asRecord(action.outputSchema),
+            isBusy: Boolean(action.busy)
+          }
+        })
+      : []
+  }
+}
 
 function mapDeviceAction(template: RuntimeActionTemplate): DeviceAction {
   const schema = normalizeInputSchema(template.inputSchema)

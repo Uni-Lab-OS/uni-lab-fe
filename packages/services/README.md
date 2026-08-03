@@ -59,10 +59,10 @@ OS 与 Go backend 的逐路由、字段和调用链对照记录在 Uni-Lab-OS：
 
 ## 设备端口
 
-设备目录与低频 `device_status` 也服从 capability matrix。当前 unified v1 bridge
-尚未实现 `devices.listOnline` 和 `devices.subscribeStatus`，因此选择 Edge Profile
-时不得试探旧 `/api/v1/online-devices` 或 `/ws/device_status`；未声明的能力直接降级，
-避免把预期的 404/WS 握手失败污染为运行时异常。
+设备目录与低频 `device_status` 也服从 capability matrix。`local-python` 已打开
+`devices.subscribeStatus`：HTTP API 走 Bridge `:8014`，状态 WS 走 Edge FastAPI
+`:18003/api/v1/ws/device_status`（不是 Bridge，也不是旧路径 `/ws/device_status`）。
+未声明的其它能力仍直接降级。
 
 ## 工作流端口
 

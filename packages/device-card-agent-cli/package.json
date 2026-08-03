@@ -1,0 +1,23 @@
+{
+  "name": "@unilab/device-card-agent-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "unilab-card-agent": "./dist/cli.mjs"
+  },
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/cli.mjs --banner:js='#!/usr/bin/env node'",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@unilab/device-card-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "0.21.5",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  }
+}

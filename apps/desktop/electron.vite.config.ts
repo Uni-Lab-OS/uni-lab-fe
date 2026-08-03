@@ -19,7 +19,8 @@ export default defineConfig(({ mode }) => ({
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'src/preload/index.ts')
+          index: resolve(__dirname, 'src/preload/index.ts'),
+          deviceCard: resolve(__dirname, 'src/preload/deviceCard.ts')
         }
       }
     }

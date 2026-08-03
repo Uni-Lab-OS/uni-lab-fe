@@ -7,11 +7,17 @@ import {
   type IpcMainInvokeEvent
 } from 'electron'
 import { basename, join } from 'path'
-import { appendFileSync } from 'node:fs'
-import { readFile, writeFile } from 'node:fs/promises'
+import { appendFileSync, existsSync } from 'node:fs'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { readSession, clearSession, runOAuthLogin } from './authManager'
+import { DeviceCardManager } from './deviceCardManager'
+import {
+  DeviceCardAgentBridge,
+  deviceCardAgentEndpoint
+} from './deviceCardAgentBridge'
+import { DeviceCardAgentCliManager } from './deviceCardAgentCli'
 import { discoverDefaultCondaEnvironment } from './localRuntimeEnvironment'
 import { LocalRuntimeManager } from './localRuntimeManager'
 import {
@@ -27,6 +33,11 @@ import type {
 interface SaveFilePayload {
   path: string | null
   content: string
+  defaultName?: string
+}
+
+interface SaveBinaryFilePayload {
+  content: Uint8Array
   defaultName?: string
 }
 
@@ -47,6 +58,24 @@ function logLine(message: string): void {
 
 const isDev = !app.isPackaged
 const electronObservability = createMainObservability()
+
+function configurePackagedDeviceCardBuilder(): void {
+  if (!app.isPackaged) return
+  const executable = process.platform === 'win32' ? 'esbuild.exe' : 'esbuild'
+  const binaryPath = join(
+    process.resourcesPath,
+    'app.asar.unpacked',
+    'node_modules',
+    'esbuild',
+    'bin',
+    executable
+  )
+  if (!existsSync(binaryPath)) {
+    logLine(`Device Card Builder 缺少 esbuild binary: ${binaryPath}`)
+    return
+  }
+  process.env['ESBUILD_BINARY_PATH'] = binaryPath
+}
 
 process.on('uncaughtException', (error) => {
   logLine(`uncaughtException: ${error instanceof Error ? error.stack : String(error)}`)
@@ -76,6 +105,9 @@ let mainWindow: BrowserWindow | null = null
 let localRuntimeManager: LocalRuntimeManager | null = null
 let quitCleanupStarted = false
 let quitCleanupFinished = false
+let deviceCardManager: DeviceCardManager | null = null
+let deviceCardAgentBridge: DeviceCardAgentBridge | null = null
+let deviceCardAgentCli: DeviceCardAgentCliManager | null = null
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -224,15 +256,79 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   logLine('app ready')
   electronObservability.record('electron.app.ready')
+  configurePackagedDeviceCardBuilder()
   // macOS 开发态运行的是 Electron 可执行文件，BrowserWindow.icon 不会改变
   // Dock 图标；安装包则从 icon.icns 自动获得图标。
   if (isDev && process.platform === 'darwin') {
     app.dock.setIcon(localAppIcon)
   }
   ipcMain.handle('app:getVersion', () => app.getVersion())
+  deviceCardManager = new DeviceCardManager({
+    getMainWindow: () => mainWindow,
+    preloadPath: join(__dirname, '../preload/deviceCard.js'),
+    storeRoot: join(app.getPath('userData'), 'device-cards', 'artifacts'),
+    workspaceRoot: join(app.getPath('userData'), 'device-cards', 'workspaces'),
+    log: logLine
+  })
+  deviceCardManager.registerIpc()
+  const agentRoot = join(
+    app.getPath('userData'),
+    'device-cards',
+    'agent'
+  )
+  deviceCardAgentBridge = new DeviceCardAgentBridge({
+    automation: deviceCardManager.authoring,
+    agentRoot,
+    endpoint: deviceCardAgentEndpoint(app.getPath('userData')),
+    log: logLine
+  })
+  if (await readAgentBridgeEnabled(agentRoot)) {
+    await deviceCardAgentBridge.start()
+  }
+  const cliPath = app.isPackaged
+    ? join(process.resourcesPath, 'device-card-agent', 'cli.mjs')
+    : join(
+        __dirname,
+        '../../../../packages/device-card-agent-cli/dist/cli.mjs'
+      )
+  deviceCardAgentCli = new DeviceCardAgentCliManager({
+    cliPath,
+    descriptorPath: deviceCardAgentBridge.descriptorPath,
+    electronExecutable: process.execPath
+  })
+  ipcMain.handle('device-cards:agent:getInfo', (event) => {
+    assertMainRenderer(event.sender.id)
+    return getDeviceCardAgentEnvironmentInfo()
+  })
+  ipcMain.handle('device-cards:agent:installCli', async (event) => {
+    assertMainRenderer(event.sender.id)
+    await deviceCardAgentCli?.install()
+    return getDeviceCardAgentEnvironmentInfo()
+  })
+  ipcMain.handle('device-cards:agent:removeCli', async (event) => {
+    assertMainRenderer(event.sender.id)
+    await deviceCardAgentCli?.remove()
+    return getDeviceCardAgentEnvironmentInfo()
+  })
+  ipcMain.handle(
+    'device-cards:agent:setBridgeEnabled',
+    async (event, enabled: unknown) => {
+      assertMainRenderer(event.sender.id)
+      if (typeof enabled !== 'boolean') {
+        throw new Error('Agent Bridge enabled 参数无效。')
+      }
+      if (enabled) {
+        await deviceCardAgentBridge?.start()
+      } else {
+        await deviceCardAgentBridge?.stop()
+      }
+      await writeAgentBridgeEnabled(agentRoot, enabled)
+      return getDeviceCardAgentEnvironmentInfo()
+    }
+  )
 
   localRuntimeManager = new LocalRuntimeManager(
     join(app.getPath('logs'), 'local-runtime'),
@@ -419,6 +515,42 @@ app.whenReady().then(() => {
     return { path: filePath }
   })
 
+  // 保存由受信任 renderer 生成的二进制交付物。始终通过对话框选择目标，
+  // renderer 不能借此直接覆盖任意本地路径。
+  ipcMain.handle(
+    'file:saveBinary',
+    async (event, payload: SaveBinaryFilePayload) => {
+      if (event.sender.id !== mainWindow?.webContents.id) {
+        throw new Error('二进制保存调用方不是主渲染进程。')
+      }
+      if (
+        !payload ||
+        !(payload.content instanceof Uint8Array) ||
+        payload.content.byteLength === 0 ||
+        payload.content.byteLength > 10 * 1024 * 1024
+      ) {
+        throw new Error('二进制文件无效或超过 10 MiB。')
+      }
+      const defaultName = basename(
+        payload.defaultName || 'unilab-card-kit.zip'
+      )
+      const options: Electron.SaveDialogOptions = {
+        title: '保存卡片开发包',
+        defaultPath: defaultName,
+        filters: [{
+          name: '卡片开发包',
+          extensions: ['zip']
+        }]
+      }
+      const result = mainWindow
+        ? await dialog.showSaveDialog(mainWindow, options)
+        : await dialog.showSaveDialog(options)
+      if (result.canceled || !result.filePath) return null
+      await writeFile(result.filePath, payload.content)
+      return { path: result.filePath }
+    }
+  )
+
   createWindow()
 
   app.on('activate', () => {
@@ -447,6 +579,20 @@ app.on('before-quit', (event) => {
 })
 
 async function cleanupBeforeQuit(): Promise<void> {
+  try {
+    deviceCardManager?.destroy()
+  } catch (error) {
+    logLine(
+      `退出时销毁设备卡片管理器失败: ${error instanceof Error ? error.stack : String(error)}`
+    )
+  }
+  try {
+    await deviceCardAgentBridge?.stop()
+  } catch (error) {
+    logLine(
+      `退出时停止 Agent Bridge 失败: ${error instanceof Error ? error.stack : String(error)}`
+    )
+  }
   const manager = localRuntimeManager
   try {
     if (manager && manager.getSnapshot().phase !== 'idle') {
@@ -551,4 +697,46 @@ function parseRuntimeConfig(value: unknown): LocalRuntimeLaunchConfig {
     environmentPath: candidate.environmentPath,
     simulatorProjectPath: candidate.simulatorProjectPath
   }
+}
+
+function assertMainRenderer(senderId: number): void {
+  if (!mainWindow || mainWindow.isDestroyed() ||
+    senderId !== mainWindow.webContents.id) {
+    throw new Error('IPC 调用方不是主渲染进程。')
+  }
+}
+
+async function getDeviceCardAgentEnvironmentInfo() {
+  const info = await deviceCardAgentCli?.getInfo(
+    deviceCardAgentBridge?.getInfo().enabled ?? false
+  )
+  return info
+    ? {
+        ...info,
+        recentRequests: deviceCardAgentBridge?.getRecentRequests() ?? []
+      }
+    : null
+}
+
+async function readAgentBridgeEnabled(agentRoot: string): Promise<boolean> {
+  try {
+    const settings = JSON.parse(
+      await readFile(join(agentRoot, 'settings.json'), 'utf8')
+    ) as { enabled?: unknown }
+    return settings.enabled !== false
+  } catch {
+    return true
+  }
+}
+
+async function writeAgentBridgeEnabled(
+  agentRoot: string,
+  enabled: boolean
+): Promise<void> {
+  await mkdir(agentRoot, { recursive: true, mode: 0o700 })
+  await writeFile(
+    join(agentRoot, 'settings.json'),
+    `${JSON.stringify({ enabled }, null, 2)}\n`,
+    { encoding: 'utf8', mode: 0o600 }
+  )
 }
