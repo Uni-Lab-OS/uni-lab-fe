@@ -9,6 +9,8 @@ import LocalRuntimeLauncher, {
   LocalRuntimeLogLauncher
 } from './LocalRuntimeLauncher'
 
+const LOCAL_RUNTIME_EDGE_API_URL = 'http://127.0.0.1:18003'
+
 export default function ConnectionBar(): React.JSX.Element {
   const {
     backend,
@@ -57,8 +59,8 @@ export default function ConnectionBar(): React.JSX.Element {
       selectBackend('local-python')
       return
     }
-    if (backend.apiUrl !== 'http://127.0.0.1:8014') {
-      updateBackend({ apiUrl: 'http://127.0.0.1:8014' })
+    if (backend.apiUrl !== LOCAL_RUNTIME_EDGE_API_URL) {
+      updateBackend({ apiUrl: LOCAL_RUNTIME_EDGE_API_URL })
       return
     }
     void reconnect()

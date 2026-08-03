@@ -16,13 +16,14 @@
     "@unilab/device-card-authoring-kit": "workspace:*",
     "@unilab/device-card-sdk": "workspace:*",
     "@unilab/material": "workspace:*",
-    "@unilab/workbench-layout": "workspace:*",
     "@unilab/pascal-lab-plugin": "workspace:*",
     "@unilab/services": "workspace:*",
+    "@unilab/workbench-layout": "workspace:*",
     "@unilab/workflow-editor": "workspace:*",
     "howler": "2.2.4",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "use-sync-external-store": "1.6.0",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
@@ -30,8 +31,8 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.3.4",
-    "typescript": "^5.6.3",
     "tailwindcss": "4.1.14",
+    "typescript": "^5.6.3",
     "vite": "^5.4.11",
     "vitest": "^2.1.9"
   }

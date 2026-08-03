@@ -115,7 +115,7 @@ describe('material template adapter', () => {
       compatibility: { allowedSiteTypes: ['deck-slot'] },
       assets: {
         preview2d:
-          'http://127.0.0.1:8014/api/v1/resource-templates/template-1/assets/preview-2d'
+          'http://127.0.0.1:18003/api/v1/resource-templates/template-1/assets/preview-2d'
       }
     })
     expect(request).toHaveBeenCalledWith(

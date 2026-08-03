@@ -226,7 +226,7 @@ describe('WorkflowTask runtime port', () => {
 
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledOnce())
     const [url, init] = fetcher.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('http://127.0.0.1:8014/api/v1/events')
+    expect(url).toBe('http://127.0.0.1:18003/api/v1/events')
     expect(new Headers(init.headers).get('Accept')).toBe('text/event-stream')
     expect(new Headers(init.headers).get('Last-Event-ID')).toBe('40')
 
