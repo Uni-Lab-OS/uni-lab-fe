@@ -90,6 +90,8 @@ export interface DeviceCatalogItem {
   namespace: string
   label: string
   online: boolean
+  /** Formal Driver/Host property contract. Runtime samples never extend it. */
+  stateSchema?: Record<string, unknown>
   actions: DeviceCatalogAction[]
 }
 
@@ -120,10 +122,12 @@ interface RuntimeActionTemplate {
 
 interface RuntimeDeviceCatalogItem {
   id: string
+  deviceTypeId?: string
   deviceKey: string
   namespace: string
   name: string
   online: boolean
+  stateSchema?: Record<string, unknown>
   actions: RuntimeActionTemplate[]
 }
 
@@ -252,12 +256,15 @@ function mapDeviceCatalogItem(
   const deviceId = str(raw.id)
   return {
     deviceId,
-    // 当前 OS device-catalog/v1 只有实例 id；兼容未来补充的类型字段。
+    // 新目录提供 Driver 类型；保留旧 Edge 的实例 id 回退。
     deviceTypeId: str(raw.deviceTypeId ?? raw.typeId ?? raw.className) || deviceId,
     deviceKey: str(raw.deviceKey),
     namespace: str(raw.namespace),
     label: str(raw.name) || deviceId,
     online: Boolean(raw.online),
+    stateSchema: Object.prototype.hasOwnProperty.call(raw, 'stateSchema')
+      ? normalizeDeviceStateSchema(raw.stateSchema)
+      : undefined,
     actions: Array.isArray(raw.actions)
       ? raw.actions.map((value) => {
           const action = asRecord(value)
@@ -363,10 +370,14 @@ async function getRuntimeDevices(
     return [
       {
         id: deviceId,
+        deviceTypeId: optionalString(item.deviceTypeId) ?? undefined,
         deviceKey: str(item.deviceKey),
         namespace: str(item.namespace),
         name: str(item.name) || deviceId,
         online: Boolean(item.online),
+        stateSchema: Object.prototype.hasOwnProperty.call(item, 'stateSchema')
+          ? normalizeDeviceStateSchema(item.stateSchema)
+          : undefined,
         actions
       }
     ]
@@ -437,4 +448,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function asRecord(value: unknown): Record<string, unknown> {
   return isRecord(value) ? value : {}
+}
+
+function normalizeDeviceStateSchema(value: unknown): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(asRecord(value)).map(([key, definition]) => {
+      if (!isRecord(definition)) return [key, definition]
+      const source = definition.source
+      return [
+        key,
+        source === 'registry' || source === 'package-catalog'
+          ? { ...definition, source: 'driver' }
+          : { ...definition }
+      ]
+    })
+  )
 }

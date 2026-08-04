@@ -127,6 +127,8 @@ export interface OpenDeviceCardRequest {
   bounds: DeviceCardBounds
   context: DeviceCardRuntimeSnapshot
   availableActions?: string[]
+  availableState?: string[]
+  availableMedia?: string[]
 }
 
 export type DeviceCardWorkspaceState = 'building' | 'ready' | 'error'
@@ -156,6 +158,8 @@ export interface OpenDeviceCardWorkspaceRequest {
   bounds: DeviceCardBounds
   context: DeviceCardRuntimeSnapshot
   availableActions?: string[]
+  availableState?: string[]
+  availableMedia?: string[]
 }
 
 export interface DeviceCardHostActionRequest {

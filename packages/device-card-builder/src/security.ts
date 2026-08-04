@@ -1,9 +1,10 @@
 import { relative, resolve, sep } from 'node:path'
 
-import type {
-  DeviceCardAuthoringContext,
-  DeviceCardDiagnostic,
-  DeviceCardManifest
+import {
+  isDeviceCardRealtimeStateDefinition,
+  type DeviceCardAuthoringContext,
+  type DeviceCardDiagnostic,
+  type DeviceCardManifest
 } from '@unilab/device-card-sdk'
 
 const FORBIDDEN_SOURCE: ReadonlyArray<{
@@ -66,9 +67,31 @@ export function scanSource(
 
 export function validatePermissionsAgainstContext(
   manifest: DeviceCardManifest,
-  context?: DeviceCardAuthoringContext
+  context?: DeviceCardAuthoringContext,
+  options: { allowLegacyPreviewState?: boolean } = {}
 ): DeviceCardDiagnostic[] {
-  if (!context) return []
+  if (!context) {
+    return [
+      ...manifest.permissions.state.map((key) => ({
+        severity: 'error' as const,
+        code: 'context.state_permission',
+        message: `状态字段 ${key} 缺少 Authoring Context 声明。`,
+        path: 'permissions.state'
+      })),
+      ...manifest.permissions.actions.map((action) => ({
+        severity: 'error' as const,
+        code: 'context.action_permission',
+        message: `Action ${action} 缺少 Authoring Context 声明。`,
+        path: 'permissions.actions'
+      })),
+      ...manifest.permissions.media.map((key) => ({
+        severity: 'error' as const,
+        code: 'context.media_permission',
+        message: `媒体资源 ${key} 缺少 Authoring Context 声明。`,
+        path: 'permissions.media'
+      }))
+    ]
+  }
   const diagnostics: DeviceCardDiagnostic[] = []
   if (!manifest.deviceTypes.includes(context.deviceTypeId)) {
     diagnostics.push({
@@ -89,13 +112,27 @@ export function validatePermissionsAgainstContext(
       })
     }
   }
-  const state = new Set(Object.keys(context.stateSchema))
   for (const key of manifest.permissions.state) {
-    if (state.size > 0 && !state.has(key)) {
+    if (!Object.prototype.hasOwnProperty.call(context.stateSchema, key)) {
       diagnostics.push({
         severity: 'error',
         code: 'context.state_permission',
         message: `状态字段 ${key} 不在 Authoring Context 中。`,
+        path: 'permissions.state'
+      })
+      continue
+    }
+    if (
+      !isDeviceCardRealtimeStateDefinition(context.stateSchema[key]) &&
+      !(
+        options.allowLegacyPreviewState &&
+        isLegacyPreviewStateDefinition(context.stateSchema[key])
+      )
+    ) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'context.state_not_realtime',
+        message: `状态字段 ${key} 不是可订阅的正式实时状态。`,
         path: 'permissions.state'
       })
     }
@@ -112,6 +149,16 @@ export function validatePermissionsAgainstContext(
     }
   }
   return diagnostics
+}
+
+function isLegacyPreviewStateDefinition(value: unknown): boolean {
+  return isRecord(value) &&
+    !Object.prototype.hasOwnProperty.call(value, 'source') &&
+    !Object.prototype.hasOwnProperty.call(value, 'status')
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === 'object' && !Array.isArray(value)
 }
 
 export function assertInside(root: string, candidate: string): string {

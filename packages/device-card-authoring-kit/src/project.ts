@@ -3,6 +3,7 @@ import type {
   DeviceCardAuthoringProfile,
   DeviceCardManifest
 } from '@unilab/device-card-sdk'
+import { deviceCardRealtimeStateKeys } from '@unilab/device-card-sdk'
 
 import {
   DEVICE_CARD_SDK_VERSION,
@@ -12,12 +13,16 @@ import {
   VUE_SHIM_DECLARATION
 } from './catalog'
 import type { DeviceCardProjectFiles } from './contracts'
+import {
+  deviceCardPresentationStateKeys,
+  isDeviceCardScalarStateDefinition
+} from './stateSelection'
 
 export function createDeviceCardProjectFiles(
   context: DeviceCardAuthoringContext,
   profile: DeviceCardAuthoringProfile
 ): DeviceCardProjectFiles {
-  const stateKeys = Object.keys(context.stateSchema).sort()
+  const stateKeys = deviceCardRealtimeStateKeys(context.stateSchema)
   const actions = context.actions.map((action) => action.action).sort()
   const manifest: DeviceCardManifest = {
     schemaVersion: 1,
@@ -93,8 +98,8 @@ export function createExampleAuthoringContext(): DeviceCardAuthoringContext {
       outputSchema: {}
     }],
     stateSchema: {
-      status: { type: 'string' },
-      temperature: { type: 'number' }
+      status: { type: 'string', source: 'driver', status: 'resolved' },
+      temperature: { type: 'number', source: 'driver', status: 'resolved' }
     },
     sampleState: {
       status: 'idle',
@@ -108,11 +113,49 @@ function sourceForProfile(
   context: DeviceCardAuthoringContext,
   profile: DeviceCardAuthoringProfile
 ): string {
-  const stateKeys = Object.keys(context.stateSchema).sort()
-  const primaryState = stateKeys[0] ?? 'status'
-  const secondaryState = stateKeys[1] ?? primaryState
+  const stateKeys = deviceCardRealtimeStateKeys(context.stateSchema)
+  const presentationStateKeys = deviceCardPresentationStateKeys(
+    context.stateSchema
+  )
+  const primaryState = presentationStateKeys[0]
   const action = context.actions[0]?.action
   const actionLabel = context.actions[0]?.label ?? action
+  if (!primaryState) {
+    if (profile === 'vue-web-component-v1') {
+      return `<template>
+  <u-card title="${escapeHtml(context.title)}" subtitle="Vue → Web Component">
+    <p>设备未声明可订阅的实时状态。</p>
+    ${action ? `<u-action-button action="${escapeHtml(action)}">${escapeHtml(actionLabel ?? action)}</u-action-button>` : ''}
+  </u-card>
+</template>
+`
+    }
+    if (profile === 'react-web-component-v1') {
+      return `export default function Card(): React.JSX.Element {
+  return (
+    <u-card title=${JSON.stringify(context.title)} subtitle="React → Web Component">
+      <p>设备未声明可订阅的实时状态。</p>
+      ${action ? `<u-action-button action=${JSON.stringify(action)}>${escapeHtml(actionLabel ?? action)}</u-action-button>` : ''}
+    </u-card>
+  )
+}
+`
+    }
+    return `export default class DeviceCardElement extends HTMLElement {
+  connectedCallback(): void {
+    this.innerHTML = \`
+      <u-card title="${escapeHtml(context.title)}" subtitle="Web Component Lite">
+        <p>设备未声明可订阅的实时状态。</p>
+        ${action ? `<u-action-button action="${escapeHtml(action)}">${escapeHtml(actionLabel ?? action)}</u-action-button>` : ''}
+      </u-card>
+    \`
+  }
+}
+`
+  }
+  const secondaryState = presentationStateKeys.slice(1).find((key) =>
+    isDeviceCardScalarStateDefinition(context.stateSchema[key])
+  ) ?? primaryState
   if (profile === 'vue-web-component-v1') {
     return `<script setup lang="ts">
 import { computed } from 'vue'
@@ -197,6 +240,8 @@ function agentRules(context: DeviceCardAuthoringContext): string {
 
 - 只使用 \`@unilab/device-card-sdk\`、固定 Vue/React 运行时和 Kit 中列出的 \`u-*\` 元素。
 - 只能读取 \`authoring-context.json\` 中声明的状态、Action 和媒体。
+- \`stateSchema\` 只表示 Host Bridge 可订阅的正式状态；Action 输入和输出绝不是设备实时状态。
+- 禁止把 \`source: action-inferred/runtime-sample\` 或 \`status: unresolved\` 的兼容字段加入状态权限或实时面板。
 - \`authoring-context.json\` 是能力合同，\`mock.json\` 是预览样本；二者都不是运行时实时状态来源。
 - 运行态只能通过 SDK 获取：原生 Web Component 使用 Host Bridge 的 \`getContext()\` 和 \`subscribeState()\`，Vue/React 使用对应的 \`useDeviceCard()\`。禁止自行连接设备接口或 WebSocket。
 - 禁止使用 Node.js、Electron、fetch、WebSocket、XMLHttpRequest、eval、Worker 和动态 import。
@@ -224,7 +269,9 @@ function cardSpec(
 
 ## 状态字段
 
-${Object.keys(context.stateSchema).sort().map((key) => `- \`${key}\``).join('\n') || '- 无'}
+${deviceCardRealtimeStateKeys(context.stateSchema).map((key) => `- \`${key}\``).join('\n') || '- 无（仅可开发 Action 控制，不得虚构实时状态）'}
+
+Action 输入只属于调用草稿，Action 输出只属于该次调用结果；两者不得作为实时状态订阅。
 
 ## Actions
 

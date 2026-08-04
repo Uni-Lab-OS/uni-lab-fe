@@ -16,7 +16,8 @@ import {
   buildDeviceCard,
   packDeviceCard,
   unpackDeviceCard,
-  type DeviceCardBuildMetadata
+  type DeviceCardBuildMetadata,
+  type DeviceCardContextAuthority
 } from '@unilab/device-card-builder'
 import type {
   DeviceCardAuthoringContext,
@@ -50,6 +51,7 @@ export async function createDeviceCardWorkspace(options: {
   projectDir: string
   workRoot: string
   authoringContext?: DeviceCardAuthoringContext
+  contextAuthority?: DeviceCardContextAuthority
   watch?: boolean
   onStatus?: (status: DeviceCardWorkspaceStatus) => void
 }): Promise<DeviceCardWorkspace> {
@@ -64,6 +66,7 @@ export async function createDeviceCardWorkspace(options: {
     projectDir,
     sessionRoot,
     authoringContext: options.authoringContext,
+    contextAuthority: options.contextAuthority ?? 'project-preview',
     onStatus: options.onStatus
   })
   if (options.watch !== false) {
@@ -77,6 +80,7 @@ class LocalDeviceCardWorkspace implements DeviceCardWorkspace {
   private readonly projectDir: string
   private readonly sessionRoot: string
   private readonly authoringContext?: DeviceCardAuthoringContext
+  private readonly contextAuthority: DeviceCardContextAuthority
   private readonly onStatus?: (status: DeviceCardWorkspaceStatus) => void
   private readonly diagnosticsPath: string
   private poller: ReturnType<typeof setInterval> | null = null
@@ -94,11 +98,13 @@ class LocalDeviceCardWorkspace implements DeviceCardWorkspace {
     projectDir: string
     sessionRoot: string
     authoringContext?: DeviceCardAuthoringContext
+    contextAuthority: DeviceCardContextAuthority
     onStatus?: (status: DeviceCardWorkspaceStatus) => void
   }) {
     this.projectDir = options.projectDir
     this.sessionRoot = options.sessionRoot
     this.authoringContext = options.authoringContext
+    this.contextAuthority = options.contextAuthority
     this.onStatus = options.onStatus
     this.diagnosticsPath = join(
       this.projectDir,
@@ -213,6 +219,7 @@ class LocalDeviceCardWorkspace implements DeviceCardWorkspace {
         projectDir: sourceDir,
         outDir: artifactDir,
         authoringContext: this.authoringContext,
+        contextAuthority: this.contextAuthority,
         development: true
       })
       if (!result.ok || !result.metadata) {

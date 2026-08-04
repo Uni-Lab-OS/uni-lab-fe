@@ -61,6 +61,7 @@ async function checkProject(args: string[]): Promise<void> {
     projectDir,
     outDir: resolve(projectDir, '.unilab-card/check'),
     authoringContext: context,
+    contextAuthority: 'project-preview',
     development: true
   })
   printDiagnostics(result.diagnostics)
@@ -77,7 +78,8 @@ async function buildProject(args: string[]): Promise<void> {
   const result = await buildDeviceCard({
     projectDir,
     outDir,
-    authoringContext: context
+    authoringContext: context,
+    contextAuthority: 'project-preview'
   })
   printDiagnostics(result.diagnostics)
   if (!result.ok) throw new Error('卡片构建失败。')
@@ -96,6 +98,7 @@ async function testProject(args: string[]): Promise<void> {
     projectDir,
     outDir,
     authoringContext: context,
+    contextAuthority: 'project-preview',
     development: true
   })
   printDiagnostics(result.diagnostics)
@@ -114,7 +117,8 @@ async function packProject(args: string[]): Promise<void> {
   const result = await buildDeviceCard({
     projectDir,
     outDir: resolve(projectDir, '.unilab-card/pack-check'),
-    authoringContext: context
+    authoringContext: context,
+    contextAuthority: 'project-preview'
   })
   printDiagnostics(result.diagnostics)
   if (!result.ok || !result.metadata) throw new Error('打包前检查失败。')
@@ -159,6 +163,7 @@ async function devProject(args: string[]): Promise<void> {
         projectDir,
         outDir,
         authoringContext: context,
+        contextAuthority: 'project-preview',
         development: true
       })
       printDiagnostics(result.diagnostics)

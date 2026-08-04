@@ -7,6 +7,7 @@ import type {
   DeviceCardAuthoringContext,
   DeviceCardAuthoringProfile
 } from '@unilab/device-card-sdk'
+import { deviceCardRealtimeStateKeys } from '@unilab/device-card-sdk'
 
 import {
   CARD_MANIFEST_SCHEMA,
@@ -25,6 +26,7 @@ import type {
   GeneratedDeviceCardAuthoringKit
 } from './contracts'
 import { createDeviceCardProjectFiles } from './project'
+import { deviceCardPresentationStateKeys } from './stateSelection'
 
 const MAX_KIT_BYTES = 10 * 1024 * 1024
 const ZIP_MTIME = new Date('1980-01-01T00:00:00.000Z')
@@ -158,6 +160,7 @@ Authoring Kit 只用于本地创作。Electron 会重新构建导入源码，并
 }
 
 function kitAgentRules(context: DeviceCardAuthoringContext): string {
+  const stateKeys = deviceCardRealtimeStateKeys(context.stateSchema)
   return `# Authoring Kit Agent Rules
 
 - 当前设备类型只能是 \`${context.deviceTypeId}\`。
@@ -166,11 +169,14 @@ function kitAgentRules(context: DeviceCardAuthoringContext): string {
   \`card-project/CARD_SPEC.md\`、\`authoring-context.json\` 和
   \`ui-catalog.json\`。
 - 不得扩展 Authoring Context 中不存在的设备状态、Action 或媒体能力。
+- 只有 SDK 判定为正式可订阅的实时状态键才能进入状态权限和实时面板：${stateKeys.map((key) => `\`${key}\``).join('、') || '无'}。
+- Action 输入只是调用参数，Action 输出只是该次调用结果；\`action-inferred\`、\`runtime-sample\` 和 \`unresolved\` 字段不是实时状态合同。
 - 不得绕过 Electron 本地工作区检查、权威重编译或权限校验。
 `
 }
 
 function kitCardSpec(context: DeviceCardAuthoringContext): string {
+  const stateKeys = deviceCardRealtimeStateKeys(context.stateSchema)
   return `# Device Contract Snapshot
 
 设备：${context.title}
@@ -182,13 +188,19 @@ function kitCardSpec(context: DeviceCardAuthoringContext): string {
 - UI Catalog: \`ui-catalog.json\`
 - Host Protocol: \`1\`
 
-状态字段标记为 \`unresolved/runtime-sample\` 时，仅能作为 Mock 创作提示，
-不能将它当作 OS Registry 的正式状态合同。
+## 正式实时状态
+
+${stateKeys.map((key) => `- \`${key}\``).join('\n') || '- 无（只能开发 Action 控制，不得虚构实时状态）'}
+
+只有上述字段可以通过 Host Bridge 订阅。Action 输入只是调用参数，
+Action 输出只是该次调用结果。\`action-inferred\`、\`runtime-sample\` 或
+\`status: unresolved\` 的兼容字段不属于实时状态合同。
 `
 }
 
 function statusExample(context: DeviceCardAuthoringContext): string {
-  const key = Object.keys(context.stateSchema).sort()[0] ?? 'status'
+  const key = deviceCardPresentationStateKeys(context.stateSchema)[0]
+  if (!key) return actionExample(context)
   return `<script setup lang="ts">
 import { useDeviceCard } from '@unilab/device-card-sdk/vue'
 const card = useDeviceCard({ state: [${JSON.stringify(key)}] })

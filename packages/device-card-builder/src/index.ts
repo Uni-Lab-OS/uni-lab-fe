@@ -12,5 +12,6 @@ export type {
   DeviceCardArchiveInspection,
   DeviceCardBuildMetadata,
   DeviceCardBuildRequest,
-  DeviceCardBuildResult
+  DeviceCardBuildResult,
+  DeviceCardContextAuthority
 } from './contracts'

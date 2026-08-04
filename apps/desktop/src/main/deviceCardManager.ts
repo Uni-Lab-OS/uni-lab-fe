@@ -36,6 +36,7 @@ import type {
 
 import { ElectronDeviceCardAuthoringApprovals } from './deviceCardAgentPermissions'
 import { RendererDeviceCardAuthoringTargetPort } from './deviceCardAuthoringTargets'
+import { unavailableDeviceCardCapabilities } from './deviceCardRuntimeCapabilities'
 
 interface RuntimeCardRecord {
   id: string
@@ -332,12 +333,27 @@ export class DeviceCardManager {
       )
     }
     if (request.context.mode === 'live') {
-      const availableActions = new Set(request.availableActions ?? [])
-      const unavailable = record.metadata.manifest.permissions.actions
-        .filter((action) => !availableActions.has(action))
-      if (unavailable.length > 0) {
+      const unavailable = unavailableDeviceCardCapabilities(
+        record.metadata.manifest.permissions,
+        {
+          actions: request.availableActions,
+          state: request.availableState,
+          media: request.availableMedia
+        }
+      )
+      if (unavailable.actions.length > 0) {
         throw new Error(
-          `当前 OS 设备目录不包含卡片请求的 Action：${unavailable.join('、')}`
+          `当前 OS 设备目录不包含卡片请求的 Action：${unavailable.actions.join('、')}`
+        )
+      }
+      if (unavailable.state.length > 0) {
+        throw new Error(
+          `当前 OS 设备目录不包含卡片请求的实时状态：${unavailable.state.join('、')}`
+        )
+      }
+      if (unavailable.media.length > 0) {
+        throw new Error(
+          `当前 OS 设备目录不包含卡片请求的媒体资源：${unavailable.media.join('、')}`
         )
       }
     }
@@ -617,6 +633,14 @@ function isOpenPreviewRequest(value: Record<string, unknown>): boolean {
       value.availableActions === undefined ||
       Array.isArray(value.availableActions) &&
       value.availableActions.every((action) => typeof action === 'string')
+    ) && (
+      value.availableState === undefined ||
+      Array.isArray(value.availableState) &&
+      value.availableState.every((key) => typeof key === 'string')
+    ) && (
+      value.availableMedia === undefined ||
+      Array.isArray(value.availableMedia) &&
+      value.availableMedia.every((key) => typeof key === 'string')
     )
 }
 

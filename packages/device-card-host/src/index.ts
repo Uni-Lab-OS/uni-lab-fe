@@ -14,7 +14,8 @@ import { basename, join, resolve } from 'node:path'
 import {
   buildDeviceCard,
   unpackDeviceCard,
-  type DeviceCardBuildMetadata
+  type DeviceCardBuildMetadata,
+  type DeviceCardContextAuthority
 } from '@unilab/device-card-builder'
 import type {
   DeviceCardAuthoringContext,
@@ -50,6 +51,7 @@ export async function installDeviceCardArchive(options: {
   archivePath: string
   storeRoot: string
   authoringContext?: DeviceCardAuthoringContext
+  contextAuthority?: DeviceCardContextAuthority
 }): Promise<InstalledDeviceCardRecord> {
   const storeRoot = resolve(options.storeRoot)
   await mkdir(storeRoot, { recursive: true })
@@ -61,7 +63,8 @@ export async function installDeviceCardArchive(options: {
     const build = await buildDeviceCard({
       projectDir: sourceDir,
       outDir: artifactDir,
-      authoringContext: options.authoringContext
+      authoringContext: options.authoringContext,
+      contextAuthority: options.contextAuthority ?? 'project-preview'
     })
     if (!build.ok || !build.metadata) {
       throw new Error(

@@ -137,6 +137,7 @@ export interface LocalDeviceCardAuthoringAutomationOptions {
     archivePath: string
     storeRoot: string
     authoringContext: ReturnType<typeof createDeviceCardAuthoringContext>
+    contextAuthority: 'host'
   }): Promise<InstalledDeviceCard>
   onStatus?: (status: DeviceCardAuthoringSessionStatus | null) => void
 }
@@ -243,6 +244,7 @@ implements DeviceCardAuthoringAutomation {
       projectDir,
       workRoot: this.options.workRoot,
       authoringContext: context,
+      contextAuthority: 'host',
       onStatus: () => {
         if (!record || this.active !== record) return
         this.syncSession(record)
@@ -423,7 +425,8 @@ implements DeviceCardAuthoringAutomation {
       installed = await this.options.installArchive({
         archivePath: approvedArtifact.sourceArchivePath,
         storeRoot: this.options.storeRoot,
-        authoringContext: record.context
+        authoringContext: record.context,
+        contextAuthority: 'host'
       })
     } catch (error) {
       throw authoringError(

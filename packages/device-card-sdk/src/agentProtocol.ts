@@ -20,6 +20,7 @@ export interface DeviceCardAuthoringTarget {
   title: string
   online: boolean
   actions: DeviceCardActionContract[]
+  /** undefined means the OS did not provide a formal state contract; {} is an authoritative action-only device. */
   stateSchema?: Record<string, unknown>
   sampleState?: Record<string, unknown>
   media?: string[]

@@ -1,7 +1,6 @@
 import {
   buildDeviceCardAuthoringSampleState,
-  createDeviceCardAuthoringContext,
-  inferDeviceCardStateSeeds
+  createDeviceCardAuthoringContext
 } from '@unilab/device-card-authoring-kit'
 import type {
   DeviceCardAuthoringContext,
@@ -29,16 +28,12 @@ export function createAuthoringTarget(
       outputSchema: action.outputSchema,
       busy: action.isBusy
     })),
+    stateSchema: device.stateSchema,
     media: []
   }
-  const context = createDeviceCardAuthoringContext({
-    ...target,
-    sampleState: buildDeviceCardAuthoringSampleState(target, runtimeState)
-  }, runtimeState)
   return {
     ...target,
-    stateSchema: context.stateSchema,
-    sampleState: context.sampleState
+    sampleState: buildDeviceCardAuthoringSampleState(target, runtimeState)
   }
 }
 
@@ -60,16 +55,4 @@ export function buildAuthoringSampleState(
     createAuthoringTarget(device),
     runtimeState
   )
-}
-
-export function inferStateSeedsFromActions(
-  actions: DeviceCatalogItem['actions']
-): Record<string, unknown> {
-  return inferDeviceCardStateSeeds(actions.map((action) => ({
-    action: action.actionName,
-    label: action.label,
-    inputSchema: action.inputSchema,
-    outputSchema: action.outputSchema,
-    busy: action.isBusy
-  })))
 }

@@ -3,28 +3,18 @@ import type {
   DeviceCardAuthoringTarget,
   DeviceCardAuthoringTargetSummary
 } from '@unilab/device-card-sdk'
+import {
+  DEVICE_CARD_HOST_STATE_SCHEMA,
+  filterDeviceCardRealtimeStateSchema
+} from '@unilab/device-card-sdk'
 
 export function createDeviceCardAuthoringContext(
   target: DeviceCardAuthoringTarget,
   runtimeState: Record<string, unknown> = {}
 ): DeviceCardAuthoringContext {
   assertTarget(target)
+  const stateSchema = buildFormalStateSchema(target.stateSchema)
   const sampleState = buildDeviceCardAuthoringSampleState(target, runtimeState)
-  const suppliedSchema = target.stateSchema ?? {}
-  const stateSchema = Object.keys(suppliedSchema).length > 0
-    ? structuredClone(suppliedSchema)
-    : Object.fromEntries(
-        Object.entries(sampleState).map(([key, value]) => [
-          key,
-          {
-            type: jsonType(value),
-            status: 'unresolved',
-            source: Object.prototype.hasOwnProperty.call(runtimeState, key)
-              ? 'runtime-sample'
-              : 'action-inferred'
-          }
-        ])
-      )
   return {
     schemaVersion: 'device-card-authoring-context/v1',
     deviceTypeId: target.deviceTypeId,
@@ -41,6 +31,13 @@ export function summarizeDeviceCardAuthoringTarget(
 ): DeviceCardAuthoringTargetSummary {
   const blocked = target.deviceId.trim().length === 0 ||
     target.deviceTypeId.trim().length === 0
+  const suppliedSchema = target.stateSchema
+  const suppliedKeys = Object.keys(suppliedSchema ?? {})
+  const formalKeys = Object.keys(
+    filterDeviceCardRealtimeStateSchema(suppliedSchema ?? {})
+  )
+  const contractProvided = suppliedSchema !== undefined &&
+    (suppliedKeys.length === 0 || formalKeys.length === suppliedKeys.length)
   return {
     deviceId: target.deviceId,
     deviceTypeId: target.deviceTypeId,
@@ -49,14 +46,14 @@ export function summarizeDeviceCardAuthoringTarget(
     actionCount: target.actions.length,
     contextAvailability: blocked
       ? 'blocked'
-      : target.stateSchema && Object.keys(target.stateSchema).length > 0
+      : contractProvided
         ? 'ready'
         : 'partial'
   }
 }
 
 export function buildDeviceCardAuthoringSampleState(
-  target: Pick<DeviceCardAuthoringTarget, 'actions' | 'online' | 'sampleState'>,
+  target: Pick<DeviceCardAuthoringTarget, 'actions' | 'online' | 'sampleState' | 'stateSchema'>,
   runtimeState: Record<string, unknown> = {}
 ): Record<string, unknown> {
   const actionBusyDefault = Object.fromEntries(
@@ -68,30 +65,49 @@ export function buildDeviceCardAuthoringSampleState(
   const online = typeof runtimeState.online === 'boolean'
     ? runtimeState.online
     : target.online
-  return {
-    status: 'idle',
-    ...inferDeviceCardStateSeeds(target.actions),
+  const candidates = {
     ...(target.sampleState ?? {}),
     ...runtimeState,
     online,
     actionBusy
   }
+  return buildSampleStateForSchema(
+    buildFormalStateSchema(target.stateSchema),
+    candidates
+  )
 }
 
 export function inferDeviceCardStateSeeds(
-  actions: DeviceCardAuthoringTarget['actions']
+  _actions: DeviceCardAuthoringTarget['actions']
 ): Record<string, unknown> {
-  const seeds: Record<string, unknown> = {}
-  for (const action of actions) {
-    const input = action.inputSchema
-    if ('aspirate_position' in input) seeds.aspirate_position = 0
-    if ('dispense_position' in input) seeds.dispense_position = 0
-    if ('position' in input) seeds.current_position = 0
-    for (const [key, schema] of Object.entries(action.outputSchema)) {
-      if (!(key in seeds)) seeds[key] = defaultForSchema(schema)
-    }
+  // Kept for source compatibility. Action inputs and outputs are command
+  // contracts, never subscribable device state.
+  return {}
+}
+
+function buildFormalStateSchema(
+  suppliedSchema: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  return {
+    ...filterDeviceCardRealtimeStateSchema(
+      structuredClone(suppliedSchema ?? {})
+    ),
+    ...structuredClone(DEVICE_CARD_HOST_STATE_SCHEMA)
   }
-  return seeds
+}
+
+function buildSampleStateForSchema(
+  stateSchema: Record<string, unknown>,
+  candidates: Record<string, unknown>
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(stateSchema).map(([key, schema]) => [
+      key,
+      Object.prototype.hasOwnProperty.call(candidates, key)
+        ? candidates[key]
+        : defaultForSchema(schema)
+    ])
+  )
 }
 
 function assertTarget(target: DeviceCardAuthoringTarget): void {
@@ -115,6 +131,9 @@ function assertTarget(target: DeviceCardAuthoringTarget): void {
 
 function defaultForSchema(schema: unknown): unknown {
   if (!isRecord(schema)) return null
+  if (Object.prototype.hasOwnProperty.call(schema, 'default')) {
+    return structuredClone(schema.default)
+  }
   const type = schema.type
   if (type === 'number' || type === 'integer') return 0
   if (type === 'boolean') return false
@@ -122,12 +141,6 @@ function defaultForSchema(schema: unknown): unknown {
   if (type === 'object') return {}
   if (type === 'string') return ''
   return null
-}
-
-function jsonType(value: unknown): string {
-  if (Array.isArray(value)) return 'array'
-  if (value === null) return 'null'
-  return typeof value === 'object' ? 'object' : typeof value
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

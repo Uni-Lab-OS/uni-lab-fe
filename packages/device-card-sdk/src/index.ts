@@ -7,6 +7,12 @@ export {
   parseDeviceCardManifest,
   validateDeviceCardManifest
 } from './manifest'
+export {
+  DEVICE_CARD_HOST_STATE_SCHEMA,
+  deviceCardRealtimeStateKeys,
+  filterDeviceCardRealtimeStateSchema,
+  isDeviceCardRealtimeStateDefinition
+} from './stateContract'
 
 export type {
   DeviceCardActionContract,

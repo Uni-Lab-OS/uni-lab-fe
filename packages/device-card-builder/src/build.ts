@@ -84,14 +84,17 @@ export async function buildDeviceCard(
     return { ok: false, diagnostics, outDir }
   }
 
-  // OS runtime context may only have currently-seen topics; project
-  // authoring-context.json declares the full state contract the card needs.
-  const authoringContext = mergeAuthoringContext(
-    request.authoringContext,
-    await readProjectAuthoringContext(projectDir)
-  )
+  const contextAuthority = request.contextAuthority ?? 'project-preview'
+  const projectContext = await readProjectAuthoringContext(projectDir)
+  // Only a Host-supplied Context is authoritative. Project Context remains a
+  // useful offline preview snapshot, but cannot broaden a Host contract.
+  const authoringContext = contextAuthority === 'host'
+    ? mergeHostAuthoringContext(request.authoringContext, projectContext)
+    : request.authoringContext ?? projectContext
   diagnostics.push(
-    ...validatePermissionsAgainstContext(manifest, authoringContext)
+    ...validatePermissionsAgainstContext(manifest, authoringContext, {
+      allowLegacyPreviewState: contextAuthority === 'project-preview'
+    })
   )
   const entry = assertInside(projectDir, manifest.entry)
   try {
@@ -163,6 +166,9 @@ export async function buildDeviceCard(
   const metadata: DeviceCardBuildMetadata = {
     schemaVersion: 'device-card-artifact/v1',
     builderVersion: DEVICE_CARD_BUILDER_VERSION,
+    contextAuthority: contextAuthority === 'host' && request.authoringContext
+      ? 'host'
+      : 'project-only',
     cardId: manifest.id,
     cardVersion: manifest.version,
     elementName,
@@ -551,15 +557,15 @@ async function readProjectAuthoringContext(
   }
 }
 
-function mergeAuthoringContext(
+function mergeHostAuthoringContext(
   runtime: DeviceCardAuthoringContext | undefined,
   project: DeviceCardAuthoringContext | undefined
 ): DeviceCardAuthoringContext | undefined {
-  if (!runtime) return project
+  if (!runtime) return undefined
   if (!project) return runtime
   return {
     ...runtime,
-    stateSchema: { ...project.stateSchema, ...runtime.stateSchema },
+    stateSchema: { ...runtime.stateSchema },
     sampleState: { ...project.sampleState, ...runtime.sampleState }
   }
 }

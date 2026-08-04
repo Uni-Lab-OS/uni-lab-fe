@@ -153,6 +153,7 @@ interface DeviceCardAuthoringTarget {
   title: string
   online: boolean
   actions: DeviceCardAuthoringAction[]
+  stateSchema?: Record<string, JsonSchema>
 }
 ```
 
@@ -161,7 +162,8 @@ interface DeviceCardAuthoringTarget {
 - `deviceId` 必须非空且在当前 OS 会话中唯一。
 - `deviceTypeId` 必须稳定，不能长期使用实例 ID 代替设备类型。
 - Action 必须具有稳定名称和输入、输出 Schema。
-- 状态 Schema 缺失时可生成 `partial` Context，但必须标记字段来源和未解析状态。
+- 状态 Schema 缺失时可生成 Action-only 的 `partial` Context，但不得从 Action
+  或运行时样本推断状态字段；显式空对象表示设备权威声明“没有 property 状态”。
 - Device Catalog 不满足最低要求时，CLI 返回结构化错误，不生成伪造项目。
 
 ## 5. 用户体验
@@ -315,8 +317,9 @@ unilab-card-agent devices list --json
 
 `contextAvailability`：
 
-- `ready`：Device Type、Action 和状态 Schema 完整。
-- `partial`：允许 Mock 创作，但含 unresolved 状态字段。
+- `ready`：Device Type、Action 和正式状态 Schema 完整（Schema 可以显式为空）。
+- `partial`：OS 尚未提供正式状态 Schema；允许 Action-only Mock 创作，但不得
+  把 Action 输入、输出或运行时样本当作实时状态。
 - `blocked`：缺少 Device ID、Device Type 或必要契约，不能生成项目。
 
 ### 7.3 导出 Authoring Kit
@@ -794,7 +797,7 @@ unilab_card_request_install
 
 - 完整 Device Target 生成稳定 Context。
 - 缺少 Device ID 或 Device Type 时阻止 bootstrap。
-- `partial` Context 保留 unresolved 字段和来源。
+- `partial` Context 不把 unresolved、Action 推断或运行时样本字段提升为实时权限。
 - 新项目不覆盖非空目录。
 - 返回路径全部为绝对路径。
 - 工作区失败时保留最后有效预览但阻止安装和导出。

@@ -11,6 +11,10 @@ import {
   type DeviceCatalogItem
 } from '@unilab/services'
 import { createDeviceCardAuthoringKit } from '@unilab/device-card-authoring-kit'
+import {
+  DEVICE_CARD_HOST_STATE_SCHEMA,
+  deviceCardRealtimeStateKeys
+} from '@unilab/device-card-sdk'
 import type {
   DeviceCardActionRun,
   DeviceCardAgentEnvironmentInfo,
@@ -134,6 +138,12 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   const previewActionSignature = (previewDevice?.actions ?? [])
     .map((action) => action.actionName)
     .join('\u0000')
+  const previewStateSignature = previewDevice
+    ? deviceCardRealtimeStateKeys({
+        ...(previewDevice.stateSchema ?? {}),
+        ...DEVICE_CARD_HOST_STATE_SCHEMA
+      }).join('\u0000')
+    : ''
   const previewFallbackDeviceTypeId = previewCard?.deviceTypes[0] ?? ''
   const previewCardTitle = previewCard?.title ?? ''
   // 有兼容设备就 Live 绑定（含源码目录预览），与仪器单点同一条下发路径。
@@ -204,7 +214,13 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
           ? previewActionSignature
             ? previewActionSignature.split('\u0000')
             : []
-          : undefined
+          : undefined,
+        availableState: previewDeviceId
+          ? previewStateSignature
+            ? previewStateSignature.split('\u0000')
+            : []
+          : undefined,
+        availableMedia: previewDeviceId ? [] : undefined
       }
       const opening = workspaceActive
         ? desktopApi.workspace.preview(request)
@@ -232,6 +248,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     previewDeviceLabel,
     previewDeviceTypeId,
     previewFallbackDeviceTypeId,
+    previewStateSignature,
     selectedCard?.key,
     workspaceActive,
     workspaceCard?.sourceHash
@@ -367,6 +384,7 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     const prompt = [
       `请开发 ${workspace.projectDir} 中的 Uni-Lab 设备卡片。`,
       '先完整阅读 AGENTS.md、CARD_SPEC.md、authoring-context.json、card.manifest.json 和 mock.json；仅按声明的设备能力修改 src，设计专业的实验室界面。禁止安装依赖、使用网络、Node.js 或未声明的状态和 Action。',
+      '只有 authoring-context.json 中经 SDK 判定为正式可订阅的 Driver/Host 状态键才能进入状态权限和实时面板；Action 输出以及 action-inferred、runtime-sample、unresolved 字段不是实时状态。',
       '运行时只允许通过 Host Bridge 读取当前 deviceId 的状态并调用 Action，禁止直连设备或 WebSocket。Action 输入只是草稿，实时值必须等待设备上报；切换实例不得沿用旧值。处理离线、忙碌、失败、未上报及 Mock/Live 模式。',
       `每次修改后运行：\n${command}\n失败时读取 .unilab-card/diagnostics.json 并修复到 ready。不要安装卡片或调用真实设备 Action。`
     ].join('\n\n')

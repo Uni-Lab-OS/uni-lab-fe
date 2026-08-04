@@ -134,7 +134,7 @@ Electron 使用自己的 Builder 从 Imported Source Snapshot 构建出的不可
 
 | 事实 | 唯一权威 |
 |---|---|
-| 驱动、Device Type、Action 和状态 Schema | Uni-Lab-OS Registry |
+| 驱动、Device Type、Action 和状态 Schema | Uni-Lab-OS Driver PackageCatalog |
 | 设备实时状态和 Action 结果 | Uni-Lab-OS runtime |
 | 可编辑卡片源码 | 用户本地设备包/Card Git 仓库 |
 | Electron 收到的源码版本 | Imported Source Snapshot |
@@ -204,7 +204,7 @@ my-card.ulcard
 ```text
 1. 用户在 Electron 中上传 device-package.zip
 2. Electron 通过 packages/services 将设备包交给 OS
-3. OS 校验、安装驱动并更新 Registry
+3. OS 校验、安装驱动并编译 PackageCatalog
 4. OS 返回 packageId、deviceTypeId 和安装诊断
 5. Electron 请求 DeviceCardAuthoringContext
 6. Electron 展示可用于卡片的状态字段和 Action
@@ -263,7 +263,7 @@ Electron 不修改用户源码、Manifest 或业务文档，只在用户明确�
 ```text
 ┌──────────────────────────────────────────────────────────┐
 │                    Uni-Lab-OS                            │
-│ Device Package Installer → Registry → Authoring Context │
+│ Device Package → PackageCatalog → Authoring Context     │
 │ Device Runtime → State / Action Run                     │
 └─────────────────────────────┬────────────────────────────┘
                               │ packages/services
@@ -466,9 +466,8 @@ frontend:
 
 #### 8.2.1 当前 OS 分支的真实适配
 
-已核对 Uni-Lab-OS 分支
-`codex/private-github-snapshot-20260725` 的远端提交
-`a9c6916723e83b990d84cfad6df9726a59e4e328`。当前可直接复用的公开契约是：
+已核对相邻 Uni-Lab-OS 工作区的
+`integration/workflow-task-runtime` 分支。当前可直接复用的公开契约是：
 
 ```text
 GET  /api/v1/devices
@@ -479,10 +478,21 @@ GET  /api/v1/runtime/runs/{run_id}/nodes
 GET  /api/v1/runtime/runs/{run_id}/events
 ```
 
-其中 `GET /api/v1/devices` 返回 Edge 权威的设备实例、online、busy、`actionRef`、
-`inputSchema` 和 `outputSchema`。前端通过 `packages/services/src/laboratory.ts`
-读取并组装当前 V1 Authoring Context，卡片 Action 仍通过同一个
+其中 `GET /api/v1/devices` 返回 Edge 权威的设备实例、Driver Device Type、
+正式 property `stateSchema`、online、busy、`actionRef`、`inputSchema` 和
+`outputSchema`。前端通过 `packages/services/src/laboratory.ts` 读取并组装当前
+V1 Authoring Context，卡片 Action 仍通过同一个
 `POST /api/v1/runtime/runs` 单 Action workflow 提交路径执行。
+
+`stateSchema` 只投影驱动 `status_properties` 的正式 property，字段来源标记为
+`driver/resolved`；`online` 和 `actionBusy` 由 Host 补充。Action 输入、Action
+输出和运行时样本都不能扩张实时状态合同。没有正式 property 的设备仍可生成
+Action-only 卡片，但不得虚构 `status`、`current_position` 等状态。
+
+项目内的 `authoring-context.json` 只是离线预览快照。Builder 会把产物标记为
+`host` 或 `project-only`；只有 Electron 从当前设备目录取得的 Host Context 才能
+授权 Live 能力。每次打开 Live 卡片时，Host 都会重新校验 Manifest 请求的 Action
+和状态字段，项目快照以及旧 V1 无来源字段都不能扩张当前设备权限。
 
 OS 同时提供：
 
@@ -495,13 +505,7 @@ GET /api/runtime/local/actions
 卡片、Electron main 和前端组件都不能直连内部端点，也不能缓存一份目录成为新的
 Action 权威。
 
-当前契约有三个明确缺口：
-
-- `device-catalog/v1` 暂未公开 Registry Device Type ID；前端适配器优先读取未来的
-  `deviceTypeId/typeId/className`，当前只能回退到设备实例 `id`。
-- 目录暂未提供正式状态 Schema；当前导出的实时样本字段只能标记为
-  `unresolved/runtime-sample` 用于 Mock 创作，不能宣称是 Registry 类型合同。
-- 媒体 Channel、风险等级和 SDK/UI Catalog 版本尚未由 OS 一次性投影。
+当前契约仍未一次性投影媒体 Channel、风险等级和 SDK/UI Catalog 版本。
 
 因此，下述专用端点仍是目标契约，不是当前代码已经存在的 API。
 
@@ -561,10 +565,10 @@ interface DeviceCardAuthoringContext {
 
 约束：
 
-- Action 来自 OS Registry 的正式登记结果。
+- Action 来自 OS Driver PackageCatalog 的正式登记结果。
 - Action 参数必须使用完整 JSON Schema。
 - 状态类型不能从某一帧实时值临时猜测。
-- 媒体引用来自 OS Registry 声明的 Channel，不能是任意文件路径或 URL。
+- 媒体引用来自 OS Driver 声明的 Channel，不能是任意文件路径或 URL。
 - 无法解析的状态字段标记 `unresolved`。
 - `riskLevel` 由设备包/OS 决定，卡片不能降低。
 - Authoring Context 必须版本化。
@@ -2262,7 +2266,7 @@ Vue SFC 本地创作
 ### Phase 1：OS 能力与 Kit 导出
 
 - 设备包安装返回 packageId/deviceTypeId。
-- Registry 生成 Authoring Context。
+- Driver PackageCatalog 生成 Authoring Context。
 - `packages/services/src/deviceCards.ts`。
 - Electron “导出卡片开发包”。（前端 V1 已实现）
 - Kit 模板、类型和规则。（前端 V1 已实现）
