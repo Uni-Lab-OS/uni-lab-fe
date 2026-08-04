@@ -14,9 +14,9 @@ export function WorkflowIoSummary({
   return (
     <section
       className="persistent-authoring__io-summary"
-      aria-label="Applied Workflow I/O"
+      aria-label="已应用的工作流输入与输出"
     >
-      <ContractList title="Workflow Inputs">
+      <IoList title="输入参数">
         {io.input_contract.parameters.map((parameter) => (
           <li key={parameter.name}>
             <div className="persistent-authoring__io-name">
@@ -24,17 +24,17 @@ export function WorkflowIoSummary({
               <span>{schemaLabel(parameter.schema)}</span>
             </div>
             <div className="persistent-authoring__io-properties">
-              <span>{parameter.required ? '必填 required' : '可选 optional'}</span>
+              <span>{parameter.required ? '必填' : '选填'}</span>
               {'default' in parameter && (
-                <span>默认值: {jsonLabel(parameter.default)}</span>
+                <span>默认值：{jsonLabel(parameter.default)}</span>
               )}
-              {isNullable(parameter.schema) && <span>可空 nullable</span>}
+              {isNullable(parameter.schema) && <span>允许为空</span>}
             </div>
           </li>
         ))}
-      </ContractList>
+      </IoList>
 
-      <ContractList title="Workflow Outputs">
+      <IoList title="输出参数">
         {io.output_contract.outputs.map((output) => (
           <li key={output.name}>
             <div className="persistent-authoring__io-name">
@@ -42,17 +42,17 @@ export function WorkflowIoSummary({
               <span>{schemaLabel(output.schema)}</span>
             </div>
             <div className="persistent-authoring__io-properties">
-              {output.implicit && <span>隐式 implicit</span>}
+              {output.implicit && <span>系统生成</span>}
               <span>{bindingLabel(io.output_bindings[output.name])}</span>
             </div>
           </li>
         ))}
-      </ContractList>
+      </IoList>
     </section>
   )
 }
 
-function ContractList({
+function IoList({
   title,
   children
 }: {
@@ -68,14 +68,14 @@ function ContractList({
 }
 
 function bindingLabel(binding: WorkflowOutputBinding | undefined): string {
-  if (!binding) return 'binding unavailable'
+  if (!binding) return '尚未绑定'
   if (binding.kind === 'workflow_input') {
-    return `workflow_input · parameter: ${binding.parameter}`
+    return `工作流输入：${binding.parameter}`
   }
   return [
-    'node_output',
-    `node: ${binding.workflow_node_uuid}`,
-    `handle: ${binding.source_handle_uuid}`
+    '节点输出',
+    `节点 UUID：${binding.workflow_node_uuid}`,
+    `端口 UUID：${binding.source_handle_uuid}`
   ].join(' · ')
 }
 
@@ -84,14 +84,21 @@ function isNullable(schema: WorkflowValueSchema): boolean {
 }
 
 function schemaLabel(schema: WorkflowValueSchema): string {
-  if ('anyOf' in schema) return `${schemaLabel(schema.anyOf[0])} | null`
-  if ('$slot' in schema) return schema.$slot
-  if (schema.type === 'array') return `list[${schemaLabel(schema.items)}]`
-  return schema.type
+  if ('anyOf' in schema) return `${schemaLabel(schema.anyOf[0])} · 可空`
+  if ('$slot' in schema) return '资源位'
+  if (schema.type === 'array') return `列表<${schemaLabel(schema.items)}>`
+  const labels: Record<string, string> = {
+    string: '文本',
+    integer: '整数',
+    number: '数值',
+    boolean: '布尔值',
+    object: '对象'
+  }
+  return labels[schema.type] ?? schema.type
 }
 
 function jsonLabel(value: unknown): string {
   if (typeof value === 'string') return JSON.stringify(value)
   const encoded = JSON.stringify(value)
-  return encoded === undefined ? 'undefined' : encoded
+  return encoded === undefined ? '未定义' : encoded
 }

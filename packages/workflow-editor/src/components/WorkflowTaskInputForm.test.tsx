@@ -28,9 +28,9 @@ describe('WorkflowTaskInputForm Applied projection', () => {
 
     expect(text).toMatch(/Applied[^0-9]*7|已应用[^0-9]*7/i)
     expect(text).toMatch(/attempts[\s\S]*(default|默认)[^0-9]*3/i)
-    expect(markup).toMatch(/untouched|未填写|省略/i)
-    expect(markup).toMatch(/explicit[_ -]?null|显式空值/i)
-    expect(markup).toMatch(/value|明确值/i)
+    expect(markup).toContain('使用工作流默认值')
+    expect(markup).toContain('传入空值')
+    expect(markup).toContain('自定义值')
     expect(text).not.toContain('candidate_only')
   })
 
@@ -42,8 +42,8 @@ describe('WorkflowTaskInputForm Applied projection', () => {
     ))
     const text = visibleText(markup)
 
-    expect(text).toMatch(/sample[\s\S]*(ResourceSlot|资源槽)/i)
-    expect(text).toMatch(/暂不支持|尚不可用|后续.*selector|unavailable/i)
+    expect(text).toMatch(/sample[\s\S]*(ResourceSlot|资源槽|资源位)/i)
+    expect(text).toMatch(/暂不支持|尚不可用|不可用|后续.*selector|unavailable/i)
     expect(markup).toMatch(/disabled=""|aria-disabled="true"/i)
   })
 

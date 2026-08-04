@@ -48,14 +48,35 @@ describe('persistent Authoring canvas graph edits', () => {
           workflow_node_template_uuid: 'template-1',
           handle_key: 'sample',
           display_name: '样品输出',
-          io_type: 'source'
+          description: '处理后的样品',
+          io_type: 'source',
+          type: 'ResourceSlot',
+          data_key: 'sample',
+          meta_data: {
+            unilab: {
+              value_schema: { $slot: 'ResourceSlot' },
+              editor_control: 'material_port',
+              allowed_resource_template_uuids: ['plate-template'],
+              implicit_passthrough: true
+            }
+          }
         },
         {
           uuid: 'target-handle',
           workflow_node_template_uuid: 'template-2',
           handle_key: 'sample',
           display_name: '样品输入',
-          io_type: 'target'
+          io_type: 'target',
+          type: 'ResourceSlot',
+          data_key: 'sample',
+          meta_data: {
+            unilab: {
+              value_schema: { $slot: 'ResourceSlot' },
+              editor_control: 'material_port',
+              allowed_resource_template_uuids: ['plate-template'],
+              implicit_passthrough: false
+            }
+          }
         }
       ],
       edges: [{
@@ -68,11 +89,32 @@ describe('persistent Authoring canvas graph edits', () => {
       }]
     })
 
-    expect(projected.nodes[0]?.handles).toEqual([
-      expect.objectContaining({ uuid: 'source-handle', ioType: 'source' })
-    ])
+    expect(projected.nodes[0]?.handles).toEqual([{
+      uuid: 'source-handle',
+      handleKey: 'sample',
+      displayName: '样品输出',
+      title: '样品输出',
+      description: '处理后的样品',
+      ioType: 'source',
+      valueType: 'ResourceSlot',
+      valueSchema: { $slot: 'ResourceSlot' },
+      dataKey: 'sample',
+      editorControl: 'material_port',
+      allowedResourceTemplateUuids: ['plate-template'],
+      implicitPassthrough: true
+    }])
     expect(projected.nodes[1]?.handles).toEqual([
-      expect.objectContaining({ uuid: 'target-handle', ioType: 'target' })
+      expect.objectContaining({
+        uuid: 'target-handle',
+        ioType: 'target',
+        title: '样品输入',
+        valueType: 'ResourceSlot',
+        valueSchema: { $slot: 'ResourceSlot' },
+        dataKey: 'sample',
+        editorControl: 'material_port',
+        allowedResourceTemplateUuids: ['plate-template'],
+        implicitPassthrough: false
+      })
     ])
     expect(projected.links).toEqual([
       expect.objectContaining({

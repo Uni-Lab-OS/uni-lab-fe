@@ -41,12 +41,12 @@ describe('layoutDag', () => {
       result.nodes.map((node) => [node.id, { x: node.x, y: node.y }])
     )
 
-    expect(positions.get('start')?.x).toBe(160)
-    expect(positions.get('branch')?.x).toBe(160)
-    expect(positions.get('left')?.y).toBe(320)
-    expect(positions.get('right')?.y).toBe(320)
-    expect(positions.get('join')?.x).toBe(160)
-    expect(positions.get('join')?.y).toBe(460)
+    expect(positions.get('start')?.x).toBe(360)
+    expect(positions.get('branch')?.x).toBe(360)
+    expect(positions.get('left')?.y).toBe(264)
+    expect(positions.get('right')?.y).toBe(264)
+    expect(positions.get('join')?.x).toBe(360)
+    expect(positions.get('join')?.y).toBe(376)
     expect(result.direction).toBe('vertical')
   })
 
@@ -103,7 +103,7 @@ describe('beautifyWorkflowRevision', () => {
 
     expect(layout.viewport).toEqual({ zoom: 0.8 })
     expect(layout.nodes.start.collapsed).toBe(true)
-    expect(layout.nodes.start).toMatchObject({ x: 160, y: 40 })
+    expect(layout.nodes.start).toMatchObject({ x: 360, y: 40 })
     expect(revision.layout).not.toEqual(result.layout)
   })
 })

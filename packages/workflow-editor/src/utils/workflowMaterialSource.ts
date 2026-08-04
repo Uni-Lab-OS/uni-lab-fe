@@ -52,11 +52,11 @@ export function createMaterialSourceNode(
   input: { nodeUuid: string; name: string }
 ): WorkflowAuthoringGraph {
   if (graph.nodes.some((node) => node.uuid === input.nodeUuid)) {
-    throw new Error('Workflow Node UUID 已存在')
+    throw new Error('工作流节点 UUID 已存在')
   }
   if (!validPythonName(input.name) || graph.nodes.some(
     (node) => node.name === input.name
-  )) throw new Error('MaterialSource 节点名称无效或重复')
+  )) throw new Error('物料来源节点名称无效或重复')
   const mount = materialSourceMounts(catalog)[0]
   const mountTemplateUuids = new Set(
     materialSourceMounts(catalog).map((item) => item.resourceTemplateUuid)
@@ -65,7 +65,7 @@ export function createMaterialSourceNode(
     (item) => !mountTemplateUuids.has(item.uuid)
   ) ?? catalog.resourceTemplates[0]
   if (!resourceTemplate || !mount) {
-    throw new Error('OS Material/Site 目录中没有可用的 MaterialSource 初始选项')
+    throw new Error('OS 物料与库位目录中没有可用的物料来源初始选项')
   }
   const template = catalog.template
   const sourceHandle = template.sourceHandle
@@ -128,10 +128,10 @@ export function projectMaterialSourceEditor(
 ): MaterialSourceEditorProjection {
   const node = graph.nodes.find((item) => item.uuid === nodeUuid)
   if (!node || node.type !== 'material_source') {
-    throw new Error('选择的节点不是 MaterialSource')
+    throw new Error('选择的节点不是物料来源')
   }
   if (node.workflow_node_template_uuid !== catalog.template.uuid) {
-    throw new Error('MaterialSource framework template identity 不匹配')
+    throw new Error('物料来源框架模板标识不匹配')
   }
   const param = recordValue(node.param, 'MaterialSource param')
   assertClosedSelector(param)
@@ -142,36 +142,36 @@ export function projectMaterialSourceEditor(
   )
   const mountRecord = recordValue(param.mount, 'mount')
   if (Object.keys(mountRecord).some((key) => key !== 'uuid')) {
-    throw new Error('MaterialSource mount 只接受稳定 UUID')
+    throw new Error('物料来源挂载点只接受稳定 UUID')
   }
   const mountUuid = requiredString(mountRecord.uuid, 'mount.uuid')
   const fixedMaterialUuid = nullableString(param.material_uuid, 'material_uuid')
   const fixedSiteUuid = nullableString(param.site, 'site')
   const candidateSiteUuids = nullableStringArray(param.slot_range, 'slot_range')
   if (fixedSiteUuid && candidateSiteUuids.length > 0) {
-    throw new Error('MaterialSource Site selector 不能同时固定 Site 与候选集')
+    throw new Error('物料来源库位选择器不能同时指定固定库位和候选集')
   }
   if (mode === 'create_new' && fixedMaterialUuid) {
-    throw new Error('create_new 不能携带 fixed Material')
+    throw new Error('新建物料模式不能携带固定物料')
   }
   const flowRole = materialSourceFlowRole(param.flow_role)
   const sites = compatibleSites(catalog, mountUuid, resourceTemplateUuid)
   const staleReferences: string[] = []
   if (!catalog.resourceTemplates.some((item) =>
     item.uuid === resourceTemplateUuid
-  )) staleReferences.push(`ResourceTemplate ${resourceTemplateUuid}`)
+  )) staleReferences.push(`资源模板 ${resourceTemplateUuid}`)
   if (!catalog.materials.some((item) => item.uuid === mountUuid)) {
-    staleReferences.push(`Mount ${mountUuid}`)
+    staleReferences.push(`挂载点 ${mountUuid}`)
   }
   if (fixedMaterialUuid && !catalog.materials.some((item) =>
     item.uuid === fixedMaterialUuid
-  )) staleReferences.push(`Material ${fixedMaterialUuid}`)
+  )) staleReferences.push(`物料 ${fixedMaterialUuid}`)
   for (const siteUuid of [
     ...(fixedSiteUuid ? [fixedSiteUuid] : []),
     ...candidateSiteUuids
   ]) {
     if (!catalog.sites.some((item) => item.uuid === siteUuid)) {
-      staleReferences.push(`Site ${siteUuid}`)
+      staleReferences.push(`库位 ${siteUuid}`)
     }
   }
   return {
@@ -209,9 +209,9 @@ export function updateMaterialSourceSelector(
   requireOption(
     catalog.resourceTemplates,
     update.resourceTemplateUuid,
-    'ResourceTemplate'
+    '资源模板'
   )
-  requireOption(materialSourceMounts(catalog), update.mountUuid, 'Mount')
+  requireOption(materialSourceMounts(catalog), update.mountUuid, '挂载点')
   const sites = compatibleSites(
     catalog,
     update.mountUuid,
@@ -224,10 +224,10 @@ export function updateMaterialSourceSelector(
     ? [...new Set(update.candidateSiteUuids ?? [])].sort()
     : []
   if (update.siteScope === 'fixed' && !fixedSiteUuid) {
-    throw new Error('固定 Site 范围必须选择一个 Site')
+    throw new Error('固定库位范围必须选择一个库位')
   }
   if (update.siteScope === 'candidates' && candidateSiteUuids.length === 0) {
-    throw new Error('候选 Site 集不能为空')
+    throw new Error('候选库位集不能为空')
   }
   for (const siteUuid of [
     ...(fixedSiteUuid ? [fixedSiteUuid] : []),
@@ -242,7 +242,7 @@ export function updateMaterialSourceSelector(
         item.resourceTemplateUuid === update.resourceTemplateUuid
       ),
       fixedMaterialUuid,
-      'Fixed Material'
+      '固定物料'
     )
   }
   return {
@@ -284,12 +284,12 @@ export function connectMaterialSourceToTypedActionEdge(
   )
   const template = materialSourceCatalog.template
   if (input.sourceHandleUuid !== template.sourceHandle.uuid) {
-    throw new Error('MaterialSource source Handle identity 不匹配')
+    throw new Error('物料来源输出端口标识不匹配')
   }
   if (graph.edges.some((edge) =>
     edge.source_node_uuid === input.sourceNodeUuid &&
     edge.source_handle_uuid === input.sourceHandleUuid
-  )) throw new Error('MaterialSource source Handle fan-out 不得超过 1')
+  )) throw new Error('物料来源输出端口最多只能连接一个目标')
   return connectFrameworkSourceToTypedActionEdge(
     actionCatalog,
     graph,
@@ -335,7 +335,7 @@ function appendStableTemplate(
   const existing = current.find((item) => item.uuid === template.uuid)
   if (!existing) return [...current, structuredClone(template)]
   if (identityKeys.some((key) => existing[key] !== template[key])) {
-    throw new Error(`Template ${String(template.uuid)} identity 内容冲突`)
+    throw new Error(`模板 ${String(template.uuid)} 的标识内容冲突`)
   }
   return current
 }
@@ -344,7 +344,7 @@ function requiredWireValue(
   value: Record<string, unknown> | undefined,
   label: string
 ): Record<string, unknown> {
-  if (!value) throw new Error(`${label} 缺少 OS wire value`)
+  if (!value) throw new Error(`${label} 缺少 OS 传输值`)
   return value
 }
 
@@ -375,12 +375,12 @@ function assertClosedSelector(param: Record<string, unknown>): void {
       key
     )) ||
     [...allowed].some((key) => !Object.prototype.hasOwnProperty.call(param, key))
-  ) throw new Error('MaterialSource selector 字段不符合 closed contract')
+  ) throw new Error('物料来源选择器字段不符合闭合规范')
 }
 
 function materialSourceMode(value: unknown): MaterialSourceMode {
   if (value !== 'existing' && value !== 'create_new') {
-    throw new Error('MaterialSource mode 不在闭合目录中')
+    throw new Error('物料来源模式不在闭合目录中')
   }
   return value
 }
@@ -391,7 +391,7 @@ function materialSourceFlowRole(value: unknown): MaterialSourceFlowRole {
     value !== 'aliquot_sample' &&
     value !== 'reagent' &&
     value !== 'consumable'
-  ) throw new Error('MaterialSource flow_role 不在闭合目录中')
+  ) throw new Error('物料来源角色不在闭合目录中')
   return value
 }
 

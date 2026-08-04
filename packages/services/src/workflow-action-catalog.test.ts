@@ -22,6 +22,35 @@ const fingerprint = `sha256:${'a'.repeat(64)}`
 const authority = { authority_id: 'os-local', kind: 'local' }
 
 describe('Workflow Action Catalog adapter', () => {
+  it('bounds concurrent detail reads for a full Registry catalog', async () => {
+    const detailCount = 24
+    const responses = frameworkCatalogResponses(detailCount)
+    let activeDetailReads = 0
+    let maxActiveDetailReads = 0
+    const runtime = createWorkflowRuntime({
+      request: async <ResponseValue>(path: string): Promise<ResponseValue> => {
+        if (!(path in responses)) throw new Error(`Unexpected request: ${path}`)
+        if (path.startsWith('/api/v1/workflow-node-templates/')) {
+          activeDetailReads += 1
+          maxActiveDetailReads = Math.max(
+            maxActiveDetailReads,
+            activeDetailReads
+          )
+          await new Promise((resolve) => setTimeout(resolve, 2))
+          activeDetailReads -= 1
+        }
+        return structuredClone(responses[path]) as ResponseValue
+      }
+    }, getDefaultBackend('local-python'))
+
+    const catalog = await runtime.getWorkflowActionCatalog()
+
+    expect(catalog.actionTemplates).toEqual([])
+    expect(catalog.workflowTemplates).toEqual([])
+    expect(maxActiveDetailReads).toBeGreaterThan(1)
+    expect(maxActiveDetailReads).toBeLessThanOrEqual(8)
+  })
+
   it('forwards caller cancellation to every catalog request', async () => {
     const controller = new AbortController()
     const observedSignals: Array<AbortSignal | null> = []
@@ -1202,6 +1231,63 @@ function catalogResponses(): Record<string, unknown> {
       }
     }
   }
+}
+
+function frameworkCatalogResponses(count: number): Record<string, unknown> {
+  const items = Array.from({ length: count }, (_, index) => {
+    const suffix = String(index + 1).padStart(12, '0')
+    return {
+      uuid: `20000000-0000-4000-8000-${suffix}`,
+      name: `framework-${index + 1}`,
+      display_name: `Framework ${index + 1}`,
+      type: 'framework',
+      node_type: 'group',
+      resource_template: {
+        uuid: `10000000-0000-4000-8000-${suffix}`,
+        name: 'host_node',
+        display_name: 'Host Node'
+      }
+    }
+  })
+  const responses: Record<string, unknown> = {
+    '/api/v1/workflow-node-templates?page=1&page_size=100': {
+      code: 0,
+      data: {
+        authority,
+        catalog_fingerprint: fingerprint,
+        items,
+        total: count,
+        page: 1,
+        page_size: 100
+      }
+    }
+  }
+  for (const item of items) {
+    responses[`/api/v1/workflow-node-templates/${item.uuid}`] = {
+      code: 0,
+      data: {
+        authority,
+        catalog_fingerprint: fingerprint,
+        template: {
+          uuid: item.uuid,
+          resource_template_uuid: item.resource_template.uuid,
+          name: item.name,
+          display_name: item.display_name,
+          class: 'unilabos.workflow.authoring:group',
+          type: item.type,
+          node_type: item.node_type,
+          schema: null,
+          goal: {},
+          goal_default: {},
+          feedback: {},
+          result: {},
+          meta_data: { unilab: { framework_owner_only: true } }
+        },
+        handles: []
+      }
+    }
+  }
+  return responses
 }
 
 function fixtureHttp(

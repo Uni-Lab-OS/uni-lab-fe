@@ -256,20 +256,31 @@ export function WorkflowOutput({
             hidden={activeTab !== 'events'}
           >
             <div className="workflow-runtime__events">
+              {events.length > 0 && (
+                <p className="workflow-runtime__events-order">
+                  最新事件在前
+                </p>
+              )}
               {[...events].reverse().slice(0, 50).map((event) => {
                 const nodeName = event.nodeId
                   ? eventNodeNames.get(event.nodeId) || event.nodeId
                   : '整体运行'
                 return (
-                  <div key={event.key ?? `${event.nodeId}:${event.seq}:${event.type}`}>
+                  <div
+                    key={event.key ?? `${event.nodeId}:${event.seq}:${event.type}`}
+                    data-event-kind={event.type}
+                  >
                     <code>#{event.seq}</code>
                     <span>
                       <strong>{eventLabel(event.type)}</strong>
                       <small>{event.type}</small>
                       {event.detail && (
-                        <small className="is-detail">
-                          {JSON.stringify(event.detail)}
-                        </small>
+                        <details
+                          className="workflow-runtime__event-raw"
+                        >
+                          <summary>查看原始数据</summary>
+                          <pre>{JSON.stringify(event.detail, null, 2)}</pre>
+                        </details>
                       )}
                     </span>
                     <em

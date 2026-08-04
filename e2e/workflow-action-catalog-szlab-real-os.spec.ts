@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test'
-import type { Locator, Page } from '@playwright/test'
 
 import {
   startSzlabActionCatalogOs,
@@ -128,14 +127,38 @@ test('SZLab persisted Catalog reaches the original typed workflow editor', async
   const editor = page.getByRole('complementary', {
     name: '画布节点编辑器'
   })
-  await expect(editor.getByText('Action 参数', { exact: true })).toBeVisible()
-  await expect(editor.getByRole('textbox', {
-    name: '磁搅位置'
+  await expect(editor.getByRole('region', {
+    name: '操作参数摘要'
   })).toBeVisible()
-  await expect(editor.getByText('必填', { exact: true })).toBeVisible()
-  await expect(editor.getByText('无默认值', { exact: true })).toBeVisible()
-  await expect(editor.getByText('默认值', { exact: true }).first()).toBeVisible()
-  await expect(editor.getByText(/允许空值|不可为空/).first()).toBeVisible()
+  await editor.getByRole('button', { name: '配置节点参数' }).click()
+  const stirringParameters = page.getByRole('dialog', {
+    name: '节点参数 stirring'
+  })
+  await expect(stirringParameters).toBeVisible()
+  await expect(stirringParameters.getByText('输入参数', {
+    exact: true
+  })).toBeVisible()
+  await expect(stirringParameters.getByRole('textbox', {
+    name: '磁搅位置 参数值'
+  })).toBeVisible()
+  await expect(stirringParameters.getByText('必填', {
+    exact: true
+  }).first()).toBeVisible()
+  await expect(stirringParameters.getByText('无默认值', {
+    exact: true
+  }).first()).toBeVisible()
+  await expect(stirringParameters.getByText(/允许为空|不可为空/).first())
+    .toBeVisible()
+  await stirringParameters.getByRole('button', { name: '完成' }).click()
+  await expect(stirringParameters).toBeHidden()
+
+  const existingNode = page.locator('.wf-node__id').filter({
+    hasText: /^stirring$/
+  }).locator('xpath=ancestor::*[@data-workflow-node-uuid]')
+  const editedNodeUuid = await existingNode.getAttribute(
+    'data-workflow-node-uuid'
+  )
+  expect(editedNodeUuid).toMatch(UUID_PATTERN)
 
   const renderedHandleUuids = await page.locator(
     '[data-workflow-handle-template-uuid]'
@@ -144,32 +167,30 @@ test('SZLab persisted Catalog reaches the original typed workflow editor', async
   ))
   expect(renderedHandleUuids).toEqual(expect.arrayContaining(handleUuids))
 
-  await page.getByLabel('Action 模板').selectOption(stirringSummary.uuid)
-  const newNodeLabel = page.locator('.wf-node__id').filter({
-    hasText: /^run_stirring$/
+  const actionPalette = page.getByRole('complementary', {
+    name: '工作流节点面板'
+  }).getByRole('button', {
+    name: 'run_stirring run_stirring',
+    exact: true
   })
-  await expect(newNodeLabel).toBeVisible()
-  const newNode = newNodeLabel.locator(
-    'xpath=ancestor::*[@data-workflow-node-uuid]'
-  )
-  const existingNode = page.locator('.wf-node__id').filter({
-    hasText: /^stirring$/
-  }).locator('xpath=ancestor::*[@data-workflow-node-uuid]')
-  const newNodeUuid = await newNode.getAttribute('data-workflow-node-uuid')
-  expect(newNodeUuid).toMatch(UUID_PATTERN)
+  await expect(actionPalette).toBeVisible()
   const readySource = existingNode.locator(
     '[data-workflow-handle-key="ready"][data-workflow-handle-io="source"]'
   )
-  const readyTarget = newNode.locator(
+  const readyTarget = existingNode.locator(
     '[data-workflow-handle-key="ready"][data-workflow-handle-io="target"]'
   )
-  await connectReactFlowHandles(page, readySource, readyTarget)
-  await expect(page.getByText(
-    '已用真实 Handle UUID 创建 Edge；保存前将生成完整 Python'
-  )).toBeVisible()
+  await expect(readySource).toHaveCSS('visibility', 'hidden')
+  await expect(readyTarget).toHaveCSS('visibility', 'hidden')
 
-  await newNode.click({ position: { x: 40, y: 40 } })
-  const positionInput = editor.getByRole('textbox', { name: '磁搅位置' })
+  await editor.getByRole('button', { name: '配置节点参数' }).click()
+  await expect(stirringParameters).toBeVisible()
+  await stirringParameters.getByRole('combobox', {
+    name: '磁搅位置 参数来源'
+  }).selectOption('literal')
+  const positionInput = stirringParameters.getByRole('textbox', {
+    name: '磁搅位置 参数值'
+  })
   await positionInput.fill('4')
   await positionInput.press('Tab')
   await expect(positionInput).toHaveValue('4')
@@ -178,9 +199,11 @@ test('SZLab persisted Catalog reaches the original typed workflow editor', async
   )
   expect(positionHandle).toBeDefined()
   if (!positionHandle) throw new Error('run_stirring position Handle missing')
-  await expect(editor.locator(
-    `[aria-label="Action 参数诊断 ${positionHandle.uuid}"]`
+  await expect(stirringParameters.locator(
+    `[data-workflow-handle-template-uuid="${positionHandle.uuid}"] [role="alert"]`
   )).toHaveCount(0)
+  await stirringParameters.getByRole('button', { name: '完成' }).click()
+  await expect(stirringParameters).toBeHidden()
 
   await page.getByRole('button', { name: '保存草稿' }).click()
   const diffDialog = page.getByRole('dialog', { name: '完整 Python 差异' })
@@ -202,21 +225,10 @@ test('SZLab persisted Catalog reaches the original typed workflow editor', async
   expect(savedBeforeConflict.candidate).not.toBeNull()
   const savedGraph = savedBeforeConflict.candidate?.graph
   if (!savedGraph) throw new Error('saved Candidate graph missing')
-  expect(savedGraph.nodes).toHaveLength(candidateBefore.graph.nodes.length + 1)
-  expect(savedGraph.edges).toHaveLength(candidateBefore.graph.edges.length + 1)
-  expect(savedGraph.nodes.find((node) => node.uuid === newNodeUuid)?.param)
+  expect(savedGraph.nodes).toHaveLength(candidateBefore.graph.nodes.length)
+  expect(savedGraph.edges).toHaveLength(candidateBefore.graph.edges.length)
+  expect(savedGraph.nodes.find((node) => node.uuid === editedNodeUuid)?.param)
     .toEqual(expect.objectContaining({ position: 4 }))
-  const newEdge = savedGraph.edges.find((edge) =>
-    edge.target_node_uuid === newNodeUuid
-  )
-  expect(newEdge).toEqual(expect.objectContaining({
-    source_handle_uuid: detail.handles.find((handle) =>
-      handle.handle_key === 'ready' && handle.io_type === 'source'
-    )?.uuid,
-    target_handle_uuid: detail.handles.find((handle) =>
-      handle.handle_key === 'ready' && handle.io_type === 'target'
-    )?.uuid
-  }))
 
   const bumped = await readEnvelope<{ catalog_fingerprint: string }>(
     `${os.url}/__e2e/catalog-bump`,
@@ -237,7 +249,7 @@ test('SZLab persisted Catalog reaches the original typed workflow editor', async
     (path) => path === '/api/v1/workflow-node-templates'
   ).length).toBeGreaterThan(catalogReadsBeforeConflict)
   await expect(page.getByText(
-    'Action Catalog 与 Authoring 已刷新；本地画布按稳定 UUID 重新 hydrate'
+    '操作目录与工作流编辑数据已刷新；本地画布已按稳定 UUID 恢复'
   )).toBeVisible()
   await page.getByRole('button', { name: '关闭' }).first().click()
 
@@ -309,7 +321,7 @@ test('SZLab persisted Catalog reaches the original typed workflow editor', async
     JSON.stringify(finalGenerated.diagnostics, null, 2)
   ).not.toBeNull()
   expect(finalGenerated.normalized_python_source).toContain(
-    `# unilab:node_uuid=${newNodeUuid}`
+    `# unilab:node_uuid=${editedNodeUuid}`
   )
   expect(finalGenerated.normalized_python_source).toContain('position=4')
   expect(graphIdentity(finalGenerated.graph as AuthoringGraph)).toEqual(
@@ -397,30 +409,6 @@ function graphIdentity(graph: AuthoringGraph): Record<string, unknown> {
       workflow_node_template_uuid: item.workflow_node_template_uuid
     })).sort((left, right) => left.uuid.localeCompare(right.uuid))
   }
-}
-
-async function connectReactFlowHandles(
-  page: Page,
-  source: Locator,
-  target: Locator
-): Promise<void> {
-  await expect(source).toBeVisible()
-  await expect(target).toBeVisible()
-  const sourceBox = await source.boundingBox()
-  const targetBox = await target.boundingBox()
-  if (!sourceBox || !targetBox) throw new Error('ReactFlow Handle box missing')
-  const sourcePoint = {
-    x: sourceBox.x + sourceBox.width / 2,
-    y: sourceBox.y + sourceBox.height / 2
-  }
-  const targetPoint = {
-    x: targetBox.x + targetBox.width / 2,
-    y: targetBox.y + targetBox.height / 2
-  }
-  await page.mouse.move(sourcePoint.x, sourcePoint.y)
-  await page.mouse.down()
-  await page.mouse.move(targetPoint.x, targetPoint.y, { steps: 12 })
-  await page.mouse.up()
 }
 
 async function readEnvelope<Value>(

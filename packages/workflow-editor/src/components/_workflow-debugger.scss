@@ -6,7 +6,21 @@
   gap: var(--unilab-space-4);
   padding: 10px var(--unilab-space-3);
   border-bottom: 1px solid var(--unilab-color-border);
-  background: var(--unilab-color-surface-subtle);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(
+        in srgb,
+        var(--unilab-color-workflow) 5%,
+        var(--unilab-color-surface)
+      ),
+      var(--unilab-color-surface) 42%
+    );
+  box-shadow: inset 0 1px 0 color-mix(
+    in srgb,
+    var(--unilab-color-workflow) 8%,
+    transparent
+  );
 }
 
 .workflow :global(.workflow-runtime__debug-status) {
@@ -26,8 +40,8 @@
 }
 
 .workflow :global(.workflow-runtime__debug-mark) {
-  width: 3px;
-  height: 34px;
+  width: 4px;
+  height: 40px;
   border-radius: 2px;
   background: var(--unilab-color-skipped);
 }
@@ -205,6 +219,11 @@
   min-width: 0;
   align-items: center;
   gap: 4px;
+  min-height: 24px;
+  padding: 2px 7px;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-sm);
+  background: var(--unilab-color-surface);
   white-space: nowrap;
 }
 
@@ -228,6 +247,11 @@
   border: 1px solid var(--unilab-color-border);
   border-radius: var(--unilab-radius-md);
   background: var(--unilab-color-surface-muted);
+  box-shadow: inset 0 1px 0 color-mix(
+    in srgb,
+    var(--unilab-color-surface) 74%,
+    transparent
+  );
 }
 
 .workflow :global(.workflow-runtime__debug-action-group):global(.is-danger) {

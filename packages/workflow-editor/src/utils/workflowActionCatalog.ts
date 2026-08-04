@@ -48,10 +48,10 @@ export function createTypedActionNode(
 ): WorkflowAuthoringGraph {
   const template = typedActionTemplate(catalog, input.templateUuid)
   if (graph.nodes.some((node) => node.uuid === input.nodeUuid)) {
-    throw new Error('Workflow Node UUID 已存在')
+    throw new Error('工作流节点 UUID 已存在')
   }
   if (!input.name || graph.nodes.some((node) => node.name === input.name)) {
-    throw new Error('Workflow Node 名称无效或重复')
+    throw new Error('工作流节点名称无效或重复')
   }
   const nodeType = typeof template.wireValue?.node_type === 'string' &&
     template.wireValue.node_type
@@ -102,10 +102,10 @@ export function createPublishedWorkflowNode(
 ): WorkflowAuthoringGraph {
   const template = publishedWorkflowTemplate(catalog, input.templateUuid)
   if (graph.nodes.some((node) => node.uuid === input.nodeUuid)) {
-    throw new Error('Workflow Node UUID 已存在')
+    throw new Error('工作流节点 UUID 已存在')
   }
   if (!input.name || graph.nodes.some((node) => node.name === input.name)) {
-    throw new Error('Workflow Node 名称无效或重复')
+    throw new Error('工作流节点名称无效或重复')
   }
   return {
     ...graph,
@@ -174,7 +174,7 @@ export function projectTypedActionEditor(
   osDiagnostics: ReadonlyArray<WorkflowAuthoringDiagnostic>
 ): TypedActionEditorProjection {
   const node = graph.nodes.find((item) => item.uuid === nodeUuid)
-  if (!node) throw new Error('Workflow Node 不存在')
+  if (!node) throw new Error('工作流节点不存在')
   const templateUuid = requiredString(node.workflow_node_template_uuid)
   const template = typedTemplate(catalog, templateUuid)
   const param = recordValue(node.param)
@@ -209,11 +209,11 @@ export function projectTypedActionEditor(
       Object.keys(binding).some((key) => key !== 'parameter') ||
       !workflowInputOptions.includes(workflowInput as string)
     )) {
-      throw new Error('Workflow input binding 不符合当前合同')
+      throw new Error('工作流入参绑定与当前参数配置不一致')
     }
     const providerCount = Number(hasValue) + Number(edgeProvided) +
       Number(workflowInput !== null)
-    if (providerCount > 1) throw new Error('Action target Handle 有多个 provider')
+    if (providerCount > 1) throw new Error('操作目标端口存在多个数据来源')
     const providerKind = hasValue
       ? 'literal'
       : workflowInput !== null
@@ -280,21 +280,21 @@ export function updateTypedActionLiteral(
 ): WorkflowAuthoringGraph {
   assertParentBoundaryNode(graph, nodeUuid)
   const node = graph.nodes.find((item) => item.uuid === nodeUuid)
-  if (!node) throw new Error('Workflow Node 不存在')
+  if (!node) throw new Error('工作流节点不存在')
   const template = typedTemplate(
     catalog,
     requiredString(node.workflow_node_template_uuid)
   )
   const handle = template.handles.find((item) => item.uuid === handleUuid)
   if (!handle || handle.ioType !== 'target') {
-    throw new Error('Action target Handle 不存在')
+    throw new Error('操作目标端口不存在')
   }
   const dataKey = requiredString(handle.dataKey)
   if (value === undefined) {
     return clearTypedActionProvider(graph, nodeUuid, handleUuid, dataKey)
   }
   if (!acceptsValue(handle.valueSchema, value)) {
-    throw new Error(`${handle.displayName}的值不符合 typed Action schema`)
+    throw new Error(`${handle.displayName} 的值不符合操作参数规范`)
   }
   return {
     ...graph,
@@ -341,7 +341,7 @@ export function bindTypedActionWorkflowInput(
     'target'
   )
   if (!workflowInputNames(graph).includes(parameter)) {
-    throw new Error('Workflow input 不存在')
+    throw new Error('工作流入参不存在')
   }
   const dataKey = requiredString(handle.dataKey)
   const cleared = clearTypedActionProvider(
@@ -428,7 +428,7 @@ export function connectFrameworkSourceToTypedActionEdge(
     sourceNode.type !== source.nodeType ||
     sourceNode.workflow_node_template_uuid !== source.nodeTemplateUuid ||
     input.sourceHandleUuid !== source.handleUuid
-  ) throw new Error('Framework source Node/Handle identity 不匹配')
+  ) throw new Error('框架来源节点与端口标识不匹配')
   const graphHandle = graph.handle_templates.find(
     (handle) => handle.uuid === input.sourceHandleUuid
   )
@@ -437,7 +437,7 @@ export function connectFrameworkSourceToTypedActionEdge(
     graphHandle.workflow_node_template_uuid !== source.nodeTemplateUuid ||
     graphHandle.io_type !== 'source' ||
     graphHandle.type !== source.valueType
-  ) throw new Error('Framework source Handle 不在 Candidate Graph 中')
+  ) throw new Error('框架来源端口不在候选工作流中')
   return connectTypedActionTarget(
     catalog,
     graph,
@@ -469,10 +469,10 @@ function connectTypedActionTarget(
       edge.target_node_uuid === input.targetNodeUuid &&
       edge.target_handle_uuid === input.targetHandleUuid
   )) {
-    throw new Error('Action target Handle 已有 provider')
+    throw new Error('操作目标端口已有数据来源')
   }
   if (graph.edges.some((edge) => edge.uuid === edgeUuid)) {
-    throw new Error('Workflow Edge UUID 已存在')
+    throw new Error('工作流连线 UUID 已存在')
   }
   const targetHandle = requireNodeHandle(
     catalog,
@@ -482,7 +482,7 @@ function connectTypedActionTarget(
     'target'
   )
   if (sourceValueType !== targetHandle.valueType) {
-    throw new Error('Workflow Edge source/target Handle 类型不兼容')
+    throw new Error('工作流连线两端的端口类型不兼容')
   }
   if (
     sourceResourceTemplateUuid &&
@@ -490,7 +490,7 @@ function connectTypedActionTarget(
     !targetHandle.allowedResourceTemplateUuids.includes(
       sourceResourceTemplateUuid
     )
-  ) throw new Error('MaterialSource ResourceTemplate 不被 Action target 接受')
+  ) throw new Error('物料来源的资源模板不被操作目标接受')
   const dataKey = requiredString(targetHandle.dataKey)
   return {
     ...graph,
@@ -540,7 +540,7 @@ export function rehydrateTypedActionGraph(
   const referencedFrameworkTemplateUuids = new Set<string>()
   for (const node of graph.nodes) {
     const nodeUuid = requiredString(node.uuid)
-    if (nodeUuids.has(nodeUuid)) throw new Error('Workflow Node UUID 重复')
+    if (nodeUuids.has(nodeUuid)) throw new Error('工作流节点 UUID 重复')
     nodeUuids.add(nodeUuid)
     nodesByUuid.set(nodeUuid, node)
     const templateUuid = requiredString(node.workflow_node_template_uuid)
@@ -554,7 +554,7 @@ export function rehydrateTypedActionGraph(
           wireTemplate.type !== 'material_source' &&
           wireTemplate.node_type !== 'material_source'
         )
-      ) throw new Error('MaterialSource framework template 不在 Candidate Graph 中')
+      ) throw new Error('物料来源框架模板不在候选工作流中')
       referencedFrameworkTemplateUuids.add(templateUuid)
     } else {
       typedTemplate(catalog, templateUuid)
@@ -565,7 +565,7 @@ export function rehydrateTypedActionGraph(
   const edgeUuids = new Set<string>()
   for (const edge of graph.edges) {
     const edgeUuid = requiredString(edge.uuid)
-    if (edgeUuids.has(edgeUuid)) throw new Error('Workflow Edge UUID 重复')
+    if (edgeUuids.has(edgeUuid)) throw new Error('工作流连线 UUID 重复')
     edgeUuids.add(edgeUuid)
     requireRehydratedNodeHandle(
       catalog, graph, nodesByUuid,
@@ -623,7 +623,7 @@ function requireRehydratedNodeHandle(
   ioType: 'source' | 'target'
 ): void {
   const node = nodesByUuid.get(nodeUuid)
-  if (!node) throw new Error('Workflow Edge 引用了不存在的 Node')
+  if (!node) throw new Error('工作流连线引用了不存在的节点')
   if (node.type !== 'material_source') {
     requireNodeHandle(catalog, graph, nodeUuid, handleUuid, ioType)
     return
@@ -635,7 +635,7 @@ function requireRehydratedNodeHandle(
     !handle ||
     handle.workflow_node_template_uuid !== node.workflow_node_template_uuid ||
     handle.io_type !== ioType
-  ) throw new Error('Framework Node Handle 不在 Candidate Graph 中')
+  ) throw new Error('框架节点端口不在候选工作流中')
 }
 
 function nodeTemplateWireValue(
@@ -768,13 +768,13 @@ function workflowInputNames(graph: WorkflowAuthoringGraph): string[] {
   const contract = recordOrNull(unilab.input_contract)
   if (!contract) return []
   if (contract.version !== 1 || !Array.isArray(contract.parameters)) {
-    throw new Error('Workflow input contract 不符合当前合同')
+    throw new Error('工作流入参定义与当前版本不一致')
   }
   const names = contract.parameters.map((value) =>
     requiredString(recordValue(value).name)
   )
   if (new Set(names).size !== names.length) {
-    throw new Error('Workflow input contract 存在重复参数')
+    throw new Error('工作流入参存在重复参数')
   }
   return names
 }
@@ -805,7 +805,7 @@ function typedTemplate(
     )
     if (extension?.version === 1) return workflow
   }
-  throw new Error('Typed Action/Workflow template 不存在')
+  throw new Error('类型化操作或工作流模板不存在')
 }
 
 function publishedWorkflowTemplate(
@@ -819,7 +819,7 @@ function publishedWorkflowTemplate(
     template.schema['x-unilabos-workflow-contract']
   )
   if (!template || extension?.version !== 1) {
-    throw new Error('Published Workflow template 不存在')
+    throw new Error('已发布工作流模板不存在')
   }
   return template
 }
@@ -830,7 +830,7 @@ function typedActionTemplate(
 ): WorkflowActionNodeTemplate {
   const template = typedTemplate(catalog, templateUuid)
   if ('workflowUuid' in template) {
-    throw new Error('Typed Action template 不存在')
+    throw new Error('类型化操作模板不存在')
   }
   return template
 }
@@ -851,11 +851,11 @@ function orderedTargetHandles(
       .map((handle) => [requiredString(handle.dataKey), handle])
   )
   if (handles.size !== order.length) {
-    throw new Error('Typed Action target Handles 与 schema 不一致')
+    throw new Error('类型化操作的目标端口与参数规范不一致')
   }
   return order.map((dataKey) => {
     const handle = handles.get(dataKey)
-    if (!handle) throw new Error('Typed Action target Handle 缺失')
+    if (!handle) throw new Error('类型化操作的目标端口缺失')
     return handle
   })
 }
@@ -865,7 +865,7 @@ function assertParentBoundaryNode(
   nodeUuid: string
 ): void {
   const node = graph.nodes.find((item) => item.uuid === nodeUuid)
-  if (!node) throw new Error('Workflow Node 不存在')
+  if (!node) throw new Error('工作流节点不存在')
   if (node.parent_uuid !== undefined && node.parent_uuid !== null) {
     throw new Error('Composite internal/private Node 只读；请编辑 invocation boundary')
   }
@@ -879,14 +879,14 @@ function requireNodeHandle(
   ioType: 'source' | 'target'
 ): WorkflowActionHandleTemplate {
   const node = graph.nodes.find((item) => item.uuid === nodeUuid)
-  if (!node) throw new Error('Workflow Edge 引用了未知 Node')
+  if (!node) throw new Error('工作流连线引用了未知节点')
   const template = typedTemplate(
     catalog,
     requiredString(node.workflow_node_template_uuid)
   )
   const handle = template.handles.find((item) => item.uuid === handleUuid)
   if (!handle || handle.ioType !== ioType) {
-    throw new Error(`Workflow Edge 引用了未知 ${ioType} Handle`)
+    throw new Error(`工作流连线引用了未知的 ${ioType} 端口`)
   }
   return handle
 }
@@ -931,7 +931,7 @@ function enumValues(schema: Record<string, unknown>): unknown[] | null {
 
 function recordValue(value: unknown): Record<string, unknown> {
   const record = recordOrNull(value)
-  if (!record) throw new Error('Typed Action value 必须是 object')
+  if (!record) throw new Error('类型化操作的值必须是对象')
   return record
 }
 
@@ -943,14 +943,14 @@ function recordOrNull(value: unknown): Record<string, unknown> | null {
 
 function requiredString(value: unknown): string {
   if (typeof value !== 'string' || !value) {
-    throw new Error('Typed Action identity 缺失')
+    throw new Error('类型化操作标识缺失')
   }
   return value
 }
 
 function stringArray(value: unknown): string[] {
   if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
-    throw new Error('Typed Action order 无效')
+    throw new Error('类型化操作顺序无效')
   }
   return value as string[]
 }

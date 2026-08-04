@@ -44,7 +44,15 @@ export interface WorkflowHandlePort {
   uuid: string
   handleKey: string
   displayName: string
+  title?: string
+  description?: string
   ioType: 'source' | 'target'
+  valueType?: string
+  valueSchema?: Record<string, unknown>
+  dataKey?: string | null
+  editorControl?: string | null
+  allowedResourceTemplateUuids?: string[] | null
+  implicitPassthrough?: boolean
 }
 
 export interface WorkflowLink {

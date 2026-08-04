@@ -11,6 +11,7 @@ Workflow HTTP API 与全局 SSE；故障注入只允许位于浏览器之外的�
 - `workflow-task-runtime-resilience-real-os.spec.ts`：feedback cursor、部分读取失败、SSE 重连与同库 OS restart。
 - `workflow-runtime-final-gate-real-os.spec.ts`：旧 Run/WS/polling 负向门禁、command 幂等/冲突、terminal race、重载恢复与最终视觉证据。
 - `workflow-material-source-native-cli-real-os.spec.ts`：由 OS 原生 `unilab` CLI 启动 ROS/FastAPI/Edge Scheduler；浏览器完成 MaterialSource palette 添加、selector 编辑、Apply/Start、重复启动的 `admission_blocked`/取消和静态位置冲突拒绝，并以 Inventory snapshot、ledger、outbox 与 native log 证明真实物料创建、Site 占用和 Reservation。
+- `workflow-material-flow-projection-real-os.spec.ts`：从真实 OS Authoring draft 投影 ResourceSlot 变量卡片、显式物料边与同名隐式透传血缘；检查 `display_name`/`description` 展示、句柄相对卡片居中且落在节点外缘、独立物料配色、流向动画和五张视觉证据。
 
 已退役的 local bridge、Canonical/Run、Task-scoped events 和旧 Debugger E2E 不得恢复。
 设备执行与真实 driver 归后续 Device execution 阶段；UI1D 只用静态/单元门禁确认
@@ -46,6 +47,7 @@ pnpm test:e2e:workflow
 pnpm test:e2e:workflow-final-gate
 pnpm test:e2e:workflow-debug
 pnpm test:e2e:workflow-material-source
+pnpm test:e2e:workflow-material-flow
 ```
 
 M2B 默认读取

@@ -9,7 +9,7 @@
  * Human Review Status: [ ] Pending  [ ] Reviewed  [ ] Approved
  * ============================================================
  */
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 
 interface SlideOverDrawerProps {
@@ -20,6 +20,7 @@ interface SlideOverDrawerProps {
   footer?: ReactNode
   ariaLabel?: string
   closeLabel?: string
+  size?: 'default' | 'medium' | 'wide'
 }
 
 // 右侧滑出抽屉:遮罩点击关闭,Esc 关闭,面板从右侧 translate-x 滑入
@@ -30,24 +31,74 @@ export function SlideOverDrawer({
   children,
   footer,
   ariaLabel,
-  closeLabel = '关闭'
+  closeLabel = '关闭',
+  size = 'default'
 }: SlideOverDrawerProps): React.JSX.Element {
+  const dialogRef = useRef<HTMLDivElement | null>(null)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
   // 打开时监听 Esc 关闭
   useEffect(() => {
     if (!open) return
+    const returnFocus = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
     const handleKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') {
+        onCloseRef.current()
+        return
+      }
+      if (event.key !== 'Tab' || !dialogRef.current) return
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), ' +
+          'select:not([disabled]), textarea:not([disabled]), ' +
+          '[href], [tabindex]:not([tabindex="-1"])'
+        )
+      )
+      if (focusable.length === 0) {
+        event.preventDefault()
+        dialogRef.current.focus()
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last?.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first?.focus()
+      }
     }
     window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [open, onClose])
+    requestAnimationFrame(() => {
+      const initialFocus = dialogRef.current?.querySelector<HTMLElement>(
+        'input:not([disabled]), select:not([disabled]), ' +
+        'textarea:not([disabled]), button:not([disabled])'
+      )
+      ;(initialFocus ?? dialogRef.current)?.focus({ preventScroll: true })
+    })
+    return () => {
+      window.removeEventListener('keydown', handleKey)
+      returnFocus?.focus({ preventScroll: true })
+    }
+  }, [open])
 
   return (
     <div
-      className={`absolute inset-0 ${
+      className={`fixed inset-0 overflow-hidden ${
         open ? 'pointer-events-auto' : 'pointer-events-none'
       }`}
-      style={{ zIndex: 1000 }}
+      style={{
+        zIndex: 1000,
+        visibility: open ? 'visible' : 'hidden',
+        transition: open ? 'none' : 'visibility 0s linear 300ms'
+      }}
       aria-hidden={!open}
     >
       <div
@@ -57,31 +108,40 @@ export function SlideOverDrawer({
         onClick={onClose}
       />
       <div
-        className={`absolute inset-y-0 right-0 flex w-[480px] max-w-[90%] flex-col bg-white shadow-[-8px_0_24px_rgba(15,23,42,0.18)] transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-          open ? 'translate-x-0' : 'translate-x-full'
-        }`}
+        ref={dialogRef}
+        className={`absolute inset-y-0 right-0 flex ${
+          size === 'wide'
+            ? 'w-[min(1120px,96%)]'
+            : size === 'medium'
+              ? 'w-[min(860px,96%)]'
+              : 'w-[480px] max-w-[90%]'
+        } flex-col bg-[var(--unilab-color-surface)] shadow-[-8px_0_24px_rgba(15,23,42,0.18)] transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
+        style={{
+          transform: open ? 'translateX(0)' : 'translateX(100%)'
+        }}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         aria-label={
           ariaLabel ?? (typeof title === 'string' ? title : undefined)
         }
       >
-        <header className="flex items-center justify-between border-b border-[#e8ebef] bg-[#fbfcfe] px-[18px] py-3.5">
-          <div className="text-[15px] font-semibold text-[#1f2329]">{title}</div>
+        <header className="flex items-center justify-between border-b border-[var(--unilab-color-border)] bg-[var(--unilab-color-surface-subtle)] px-[18px] py-3.5">
+          <div className="text-[15px] font-semibold text-[var(--unilab-color-text)]">{title}</div>
           <button
             type="button"
-            className="h-7 w-7 cursor-pointer rounded-md border-0 bg-transparent text-xl leading-none text-[#6b7280] transition-colors hover:bg-[#eceff3]"
+            className="h-8 w-8 cursor-pointer rounded-md border-0 bg-transparent text-xl leading-none text-[var(--unilab-color-text-muted)] transition-colors hover:bg-[var(--unilab-color-surface-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--unilab-color-focus)]"
             onClick={onClose}
             aria-label={closeLabel}
           >
             ×
           </button>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto bg-[#f8fafc] px-[18px] py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--unilab-color-bg-subtle)] px-[18px] py-4">
           {children}
         </div>
         {footer && (
-          <footer className="flex justify-end gap-2 border-t border-[#e8ebef] bg-[#fbfcfe] px-[18px] py-3">
+          <footer className="flex justify-end gap-2 border-t border-[var(--unilab-color-border)] bg-[var(--unilab-color-surface-subtle)] px-[18px] py-3">
             {footer}
           </footer>
         )}

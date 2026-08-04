@@ -80,7 +80,19 @@ Uni-Lab-OS 未启动、未启用 observability 或 Phoenix 暂不可用时，上
 Electron 一键启动 Edge 时会为该子进程启用 Uni-Lab-OS observability，并把用户选择的
 Conda 环境 `bin` 放到 `PATH` 首位，以便 Uni-Lab-OS 找到同一环境中的 `phoenix`。
 该环境需要预先安装 Uni-Lab-OS 的 `observability` 可选依赖；未安装时 Edge 继续启动，
-trace 状态显示为降级。
+trace 状态显示为降级。桌面端检测到当前 Edge 启动日志同时包含“未安装 Arize
+Phoenix”和 OTLP trace 路径的 `503` 后，会在本地调试界面显示不阻塞业务的修复提示；
+旧启动会话中的同类日志不会触发提示。按界面中当前 Uni-Lab-OS 路径执行：
+
+```bash
+cd /path/to/Uni-Lab-OS
+conda activate unilab
+pip install -e '.[observability]'
+```
+
+这会安装 `arize-phoenix==17.5.0`、`arize-phoenix-otel==0.16.1` 并提供
+`phoenix` 命令。安装完成后，在桌面端停止并重新启动 Edge。每台机器都要对实际用于
+Edge 的 Conda 环境执行一次；如果环境名不是 `unilab`，替换激活命令中的环境名。
 
 可选环境变量：
 

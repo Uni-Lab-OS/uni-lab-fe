@@ -183,6 +183,10 @@ test('existing Workflow UI drives Task/Jobs/commands through real OS HTTP and SS
     name: '开始运行',
     exact: true
   }).click()
+  await page.getByRole('button', {
+    name: '使用以上参数运行',
+    exact: true
+  }).click()
   const created = await createResponse
   expect(created.status()).toBe(201)
   const createTaskBody = created.request().postDataJSON() as Record<

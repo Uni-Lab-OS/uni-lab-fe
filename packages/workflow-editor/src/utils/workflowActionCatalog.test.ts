@@ -442,7 +442,7 @@ describe('typed Action editor projection', () => {
       nodeUuid: '40000000-0000-4000-8000-000000000004',
       templateUuid: '20000000-0000-4000-8000-000000000099',
       name: 'unknown'
-    })).toThrow(/template/i)
+    })).toThrow(/模板/i)
 
     const catalogWithAuto: WorkflowActionCatalogSnapshot = {
       ...catalog,
@@ -460,7 +460,7 @@ describe('typed Action editor projection', () => {
       nodeUuid: '40000000-0000-4000-8000-000000000005',
       templateUuid: '20000000-0000-4000-8000-000000000003',
       name: 'health'
-    })).toThrow(/typed|action|template/i)
+    })).toThrow(/类型化|操作|模板/i)
   })
 
   it('switches atomically between workflow input, literal and edge providers', () => {
@@ -528,7 +528,7 @@ describe('typed Action editor projection', () => {
       nodeUuid,
       requiredHandleUuid,
       'missing_input'
-    )).toThrow(/Workflow input/)
+    )).toThrow(/工作流入参/)
   })
 
   it('preserves required/default/null/enum/object/list/ResourceSlot semantics', () => {
@@ -710,7 +710,7 @@ describe('typed Action editor projection', () => {
       nodeUuid,
       materialHandleUuid,
       'material-1'
-    )).toThrow(/typed Action schema/)
+    )).toThrow(/操作参数规范/)
   })
 
   it('creates and rehydrates edges only by real Handle UUID', () => {
@@ -795,7 +795,7 @@ describe('typed Action editor projection', () => {
       sourceHandleUuid: upstreamHandleUuid,
       targetNodeUuid: nodeUuid,
       targetHandleUuid: materialHandleUuid
-    })).toThrow('Action target Handle 已有 provider')
+    })).toThrow('操作目标端口已有数据来源')
   })
 
   it('rehydrates only typed Actions while preserving framework wire records', () => {
@@ -908,7 +908,7 @@ describe('typed Action editor projection', () => {
       sourceHandleUuid: upstreamHandleUuid,
       targetNodeUuid: nodeUuid,
       targetHandleUuid: materialHandleUuid
-    })).toThrow('Action target Handle 已有 provider')
+    })).toThrow('操作目标端口已有数据来源')
   })
 
   it('retains both dirty buffers after a catalog fingerprint conflict', () => {
@@ -932,15 +932,20 @@ describe('typed Action editor projection', () => {
       import.meta.url
     ))
     const source = readFileSync(panelPath, 'utf8')
+    const drawerSource = readFileSync(fileURLToPath(new URL(
+      '../components/WorkflowActionParameterDrawer.tsx',
+      import.meta.url
+    )), 'utf8')
 
     expect(source).toContain('runtime.getWorkflowActionCatalog')
     expect(source).toContain('createTypedActionNode')
     expect(source).toContain('connectTypedActionEdge')
     expect(source).toContain('bindTypedActionWorkflowInput')
-    expect(source).toContain('参数来源')
-    expect(source).toContain('明确 Material reference（JSON）')
+    expect(source).toContain('WorkflowActionParameterDrawer')
+    expect(drawerSource).toContain('参数来源')
+    expect(drawerSource).toContain('物料引用（JSON）')
     expect(source).toContain('projectTypedActionEditor')
-    expect(source).toContain('data-workflow-handle-template-uuid')
+    expect(drawerSource).toContain('data-workflow-handle-template-uuid')
     expect(source).not.toContain('lastIndexOf')
     expect(source).not.toMatch(/split\([^)]*[.][^)]*\)/)
   })

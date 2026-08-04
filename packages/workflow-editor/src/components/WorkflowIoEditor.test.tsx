@@ -15,16 +15,20 @@ const resourceTemplateUuid = '70000000-0000-4000-8000-000000000001'
 const otherResourceTemplateUuid = '70000000-0000-4000-8000-000000000002'
 
 describe('WorkflowIoEditor', () => {
-  it('exposes Candidate inputs, outputs, add actions, and stable Handle identity', () => {
+  it('exposes editable inputs, outputs, add actions, and stable Handle identity', () => {
     const markup = renderToStaticMarkup(
       <WorkflowIoEditor graph={graph} editable onGraphChange={() => {}} />
     )
     const text = visibleText(markup)
 
-    expect(text).toMatch(/Workflow Inputs/i)
-    expect(text).toMatch(/Workflow Outputs/i)
-    expect(text).toMatch(/Add Input/i)
-    expect(text).toMatch(/Add Output/i)
+    expect(text).toMatch(/输入参数/)
+    expect(text).toMatch(/输出参数/)
+    expect(text).toMatch(/添加输入参数/)
+    expect(text).toMatch(/添加输出参数/)
+    expect(markup).toContain('role="tablist"')
+    expect(markup).toContain('aria-selected="true"')
+    expect(markup).toContain('id="workflow-io-panel-output"')
+    expect(markup).toMatch(/id="workflow-io-panel-output"[^>]*hidden=""/)
     expect(text).toContain('count')
     expect(text).toContain('report')
     expect(markup).toContain(`data-workflow-node-uuid="${targetNodeUuid}"`)
@@ -50,7 +54,7 @@ describe('WorkflowIoEditor', () => {
     expect(implicitStart).toBeGreaterThanOrEqual(0)
     expect(implicitMarkup).toContain('aria-readonly="true"')
     expect(implicitMarkup).toMatch(/disabled=""|disabled(?=[ >])/)
-    expect(visibleText(implicitMarkup)).toMatch(/implicit|隐式/i)
+    expect(visibleText(implicitMarkup)).toMatch(/系统生成|OS 管理/i)
   })
 
   it('renders editable closed-v1 controls without losing recursive schema', () => {
@@ -67,41 +71,41 @@ describe('WorkflowIoEditor', () => {
     const sample = inputMarkup(markup, 'sample')
     const metrics = outputMarkup(markup, 'metrics')
 
-    expect(temperature).toContain('aria-label="temperature input enum JSON"')
+    expect(temperature).toContain('aria-label="temperature 入参 可选值 JSON"')
     expect(temperature).toContain('value="[20,40]"')
-    expect(temperature).toContain('aria-label="temperature input minimum"')
+    expect(temperature).toContain('aria-label="temperature 入参 最小值"')
     expect(temperature).toContain('value="10"')
-    expect(temperature).toContain('aria-label="temperature input maximum"')
+    expect(temperature).toContain('aria-label="temperature 入参 最大值"')
     expect(temperature).toContain('value="80"')
 
     expect(labels).toMatch(
       /<option(?=[^>]*value="array")(?=[^>]*selected="")[^>]*>/
     )
-    expect(labels).toContain('aria-label="labels input items type"')
-    expect(labels).toContain('aria-label="labels input items enum JSON"')
+    expect(labels).toContain('aria-label="labels 入参 项目 数据类型"')
+    expect(labels).toContain('aria-label="labels 入参 项目 可选值 JSON"')
     expect(labels).toContain('value="[&quot;fast&quot;,&quot;safe&quot;]"')
-    expect(labels).toContain('aria-label="labels input items min length"')
+    expect(labels).toContain('aria-label="labels 入参 项目 最短长度"')
     expect(labels).toContain('value="4"')
-    expect(labels).toContain('aria-label="labels input items max length"')
+    expect(labels).toContain('aria-label="labels 入参 项目 最长长度"')
     expect(labels).toContain('value="8"')
-    expect(labels).toContain('aria-label="labels input min items"')
-    expect(labels).toContain('aria-label="labels input max items"')
-    expect(payloads).toContain('aria-label="payloads input items type"')
+    expect(labels).toContain('aria-label="labels 入参 最少项目数"')
+    expect(labels).toContain('aria-label="labels 入参 最多项目数"')
+    expect(payloads).toContain('aria-label="payloads 入参 项目 数据类型"')
     expect(payloads).toMatch(
       /<option(?=[^>]*value="object")(?=[^>]*selected="")[^>]*>/
     )
 
     expect(sample).toContain(
-      'aria-label="sample input allowed resource template UUIDs"'
+      'aria-label="sample 入参 允许的资源模板 UUID"'
     )
     expect(sample).toContain(resourceTemplateUuid)
     expect(sample).toContain(otherResourceTemplateUuid)
     expect(metrics).toMatch(
       /<option(?=[^>]*value="array")(?=[^>]*selected="")[^>]*>/
     )
-    expect(metrics).toContain('aria-label="metrics output items type"')
-    expect(metrics).toContain('aria-label="metrics output items minimum"')
-    expect(metrics).toContain('aria-label="metrics output items maximum"')
+    expect(metrics).toContain('aria-label="metrics 出参 项目 数据类型"')
+    expect(metrics).toContain('aria-label="metrics 出参 项目 最小值"')
+    expect(metrics).toContain('aria-label="metrics 出参 项目 最大值"')
   })
 
   it('uses stable Node and Handle UUIDs as input target option values', () => {
@@ -160,9 +164,9 @@ describe('WorkflowIoEditor', () => {
       const row = inputMarkup(markup, name)
 
       expect(row).toMatch(
-        /<label[^>]*io-check[^>]*><input(?=[^>]*type="checkbox")(?=[^>]*disabled="")[^>]*\/>Required<\/label>/
+        /<label[^>]*io-check[^>]*><input(?=[^>]*type="checkbox")(?=[^>]*disabled="")[^>]*\/>必填<\/label>/
       )
-      expect(visibleText(row)).toMatch(/nullable|可空/i)
+      expect(visibleText(row)).toMatch(/允许为空|可空/i)
       expect(row).not.toContain('value="{&quot;uuid&quot;:&quot;&quot;}"')
       expect(row).not.toContain('value="[]"')
     })

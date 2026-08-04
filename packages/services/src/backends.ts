@@ -17,7 +17,7 @@ export interface BackendConfig {
 export const DEFAULT_BACKENDS: readonly BackendConfig[] = [
   {
     id: 'local-go',
-    name: 'Local Go',
+    name: '本地 Go 服务',
     protocol: 'unilab/v1',
     apiUrl: 'http://127.0.0.1:8000',
     auth: 'none',
@@ -26,7 +26,7 @@ export const DEFAULT_BACKENDS: readonly BackendConfig[] = [
   },
   {
     id: 'local-python',
-    name: 'Local Python OS',
+    name: '本地 Python OS',
     protocol: 'unilab/v1',
     apiUrl: 'http://127.0.0.1:18003',
     realtimeUrl: 'ws://127.0.0.1:18003',
@@ -36,7 +36,7 @@ export const DEFAULT_BACKENDS: readonly BackendConfig[] = [
   },
   {
     id: 'cloud',
-    name: 'Uni-Lab Cloud',
+    name: 'Uni-Lab 云端',
     protocol: 'unilab/v1',
     apiUrl: '',
     auth: 'oauth',

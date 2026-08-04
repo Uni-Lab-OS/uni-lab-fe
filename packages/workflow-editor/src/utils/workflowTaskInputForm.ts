@@ -65,9 +65,9 @@ export function setWorkflowTaskInputField(
   const index = form.fields.findIndex(({ descriptor }) =>
     descriptor.name === name
   )
-  if (index < 0) throw new Error(`Workflow input 不存在：${name}`)
+  if (index < 0) throw new Error(`工作流入参不存在：${name}`)
   const field = form.fields[index]
-  if (!field) throw new Error(`Workflow input 不存在：${name}`)
+  if (!field) throw new Error(`工作流入参不存在：${name}`)
   validateFieldState(field.descriptor, state, false)
   return {
     ...form,
@@ -87,7 +87,7 @@ export function buildWorkflowTaskInput(
     validateFieldState(descriptor, state, true)
     if (state.kind === 'untouched') {
       if (descriptor.required) {
-        throw new Error(`必填 Workflow input 尚未填写：${descriptor.name}`)
+        throw new Error(`必填的工作流入参尚未填写：${descriptor.name}`)
       }
       continue
     }
@@ -131,8 +131,8 @@ export async function submitWorkflowTaskInput(options: {
       authority: afterCreate,
       form: afterCreateForm,
       message:
-        `Task 已创建，使用 snapshot revision ${snapshotRevision}；` +
-        `最新 Applied revision ${afterCreateForm.appliedRevision}，` +
+        `任务已创建，使用快照版本 ${snapshotRevision}；` +
+        `最新已应用版本 ${afterCreateForm.appliedRevision}，` +
         '表单已重新投影，如需再次运行请重新填写确认'
     }
   }
@@ -141,8 +141,8 @@ export async function submitWorkflowTaskInput(options: {
     kind: 'created',
     task,
     message:
-      `Task 已按 Applied revision ${beforeCreateForm.appliedRevision} 创建；` +
-      'input default 与规范化结果以 OS Task projection 为准'
+      `任务已按已应用版本 ${beforeCreateForm.appliedRevision} 创建；` +
+      '输入默认值与规范化结果以 OS 任务投影为准'
   }
 }
 
@@ -168,7 +168,7 @@ function validateFieldState(
   if (state.kind === 'untouched') return
   if (state.kind === 'explicit_null') {
     if (!isNullableWorkflowInputSchema(descriptor.schema)) {
-      throw new Error(`${descriptor.name} 不是 nullable Workflow input`)
+      throw new Error(`${descriptor.name} 不是允许为空的工作流入参`)
     }
     return
   }
@@ -188,7 +188,7 @@ function requireSchemaValue(
 ): void {
   if ('anyOf' in schema) {
     if (value === null) {
-      throw new Error(`${path} 的 null 必须使用 explicit_null 状态`)
+      throw new Error(`${path} 的 null 必须使用“显式空值”状态`)
     }
     requireSchemaValue(schema.anyOf[0], value, path, enforceConstraints)
     return
@@ -205,18 +205,18 @@ function requireSchemaValue(
         schema.enum &&
         !schema.enum.includes(value as string)
       ) {
-        throw new Error(`${path} 不在 string enum 中`)
+        throw new Error(`${path} 不在文本可选值中`)
       }
       if (
         enforceConstraints &&
         schema.minLength !== undefined &&
         (value as string).length < schema.minLength
-      ) throw new Error(`${path} 小于 minLength`)
+      ) throw new Error(`${path} 少于最短长度`)
       if (
         enforceConstraints &&
         schema.maxLength !== undefined &&
         (value as string).length > schema.maxLength
-      ) throw new Error(`${path} 大于 maxLength`)
+      ) throw new Error(`${path} 超过最长长度`)
       return
     case 'integer':
     case 'number': {
@@ -231,21 +231,21 @@ function requireSchemaValue(
         schema.enum &&
         !schema.enum.includes(numberValue)
       ) {
-        throw new Error(`${path} 不在 ${schema.type} enum 中`)
+        throw new Error(`${path} 不在 ${schema.type} 类型的可选值中`)
       }
       if (
         enforceConstraints &&
         schema.minimum !== undefined &&
         numberValue < schema.minimum
       ) {
-        throw new Error(`${path} 小于 minimum`)
+        throw new Error(`${path} 小于最小值`)
       }
       if (
         enforceConstraints &&
         schema.maximum !== undefined &&
         numberValue > schema.maximum
       ) {
-        throw new Error(`${path} 大于 maximum`)
+        throw new Error(`${path} 大于最大值`)
       }
       return
     }
@@ -256,7 +256,7 @@ function requireSchemaValue(
         schema.enum &&
         !schema.enum.includes(value as boolean)
       ) {
-        throw new Error(`${path} 不在 boolean enum 中`)
+        throw new Error(`${path} 不在布尔可选值中`)
       }
       return
     case 'object':
@@ -270,14 +270,14 @@ function requireSchemaValue(
         schema.minItems !== undefined &&
         value.length < schema.minItems
       ) {
-        throw new Error(`${path} 小于 minItems`)
+        throw new Error(`${path} 少于最少项目数`)
       }
       if (
         enforceConstraints &&
         schema.maxItems !== undefined &&
         value.length > schema.maxItems
       ) {
-        throw new Error(`${path} 大于 maxItems`)
+        throw new Error(`${path} 超过最多项目数`)
       }
       value.forEach((item, index) =>
         requireSchemaValue(
@@ -292,18 +292,18 @@ function requireSchemaValue(
 
 function requireClosedResourceSlot(value: unknown, path: string): void {
   if (!isJsonObject(value)) {
-    throw new Error(`${path} ResourceSlot 必须是 closed {uuid} object`)
+    throw new Error(`${path} 资源位必须是仅含 {uuid} 的对象`)
   }
   const keys = Object.keys(value)
   if (keys.length !== 1 || keys[0] !== 'uuid') {
-    throw new Error(`${path} ResourceSlot 只允许 uuid 字段`)
+    throw new Error(`${path} 资源位只允许 uuid 字段`)
   }
   if (
     typeof value.uuid !== 'string' ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
       .test(value.uuid)
   ) {
-    throw new Error(`${path} ResourceSlot uuid 无效`)
+    throw new Error(`${path} 资源位 uuid 无效`)
   }
 }
 
@@ -335,7 +335,7 @@ function requireJsonValue(value: unknown, path: string): void {
     typeof value === 'boolean'
   ) return
   if (typeof value === 'number') {
-    if (!Number.isFinite(value)) throw new Error(`${path} 不是 JSON number`)
+    if (!Number.isFinite(value)) throw new Error(`${path} 不是有效的 JSON 数值`)
     return
   }
   if (Array.isArray(value)) {
@@ -348,7 +348,7 @@ function requireJsonValue(value: unknown, path: string): void {
     }
     return
   }
-  throw new Error(`${path} 不是 JSON value`)
+  throw new Error(`${path} 不是有效的 JSON 值`)
 }
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {

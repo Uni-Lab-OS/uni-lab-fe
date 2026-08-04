@@ -149,13 +149,13 @@ test('LINQ-inspired MaterialSource starts through native unilab and commits Inve
   await expect(panel.getByText('完整控制流 DAG')).toBeVisible()
   await panel.getByRole('button', { name: '画布模式', exact: true }).click()
   const materialSourcePaletteButton = panel.getByRole('button', {
-    name: /MaterialSource OS 准入声明/
+    name: /物料来源 OS 准入声明/
   })
   await expect(materialSourcePaletteButton).toBeEnabled()
   await materialSourcePaletteButton.click()
   await expect(panel.locator('[data-workflow-node-uuid]')).toHaveCount(2)
   await expect(panel.getByRole('region', {
-    name: 'MaterialSource Properties'
+    name: '物料来源属性'
   })).toBeVisible()
 
   await page.reload()
@@ -172,7 +172,7 @@ test('LINQ-inspired MaterialSource starts through native unilab and commits Inve
     name: '画布节点编辑器'
   })
   const inspector = nodeEditor.getByRole('region', {
-    name: 'MaterialSource Properties'
+    name: '物料来源属性'
   })
   await expect(inspector).toBeVisible()
   await expect(inspector.getByLabel('物料角色')).toHaveValue('consumable')
@@ -180,40 +180,40 @@ test('LINQ-inspired MaterialSource starts through native unilab and commits Inve
     name: '新建物料',
     exact: true
   })).toHaveAttribute('aria-pressed', 'true')
-  await expect(inspector.getByLabel('ResourceTemplate')).toHaveValue(
+  await expect(inspector.getByLabel('资源模板')).toHaveValue(
     resourceTemplateUuid
   )
-  await expect(inspector.getByLabel('Mount')).toHaveValue(M2B_MOUNT_UUID)
-  await expect(inspector.getByLabel('Site scope')).toHaveValue('fixed')
-  await expect(inspector.getByLabel('固定 Site')).toHaveValue(M2B_SITE_UUID)
-  await expect(inspector.getByLabel('Fixed Material')).toHaveCount(0)
+  await expect(inspector.getByLabel('挂载点')).toHaveValue(M2B_MOUNT_UUID)
+  await expect(inspector.getByLabel('库位范围')).toHaveValue('fixed')
+  await expect(inspector.getByLabel('固定库位')).toHaveValue(M2B_SITE_UUID)
+  await expect(inspector.getByLabel('固定物料')).toHaveCount(0)
   await expect(inspector.getByText(/Content|Closure State|Comments/)).toHaveCount(0)
   await inspector.getByRole('button', {
     name: '已有物料',
     exact: true
   }).click()
-  await expect(inspector.getByLabel('Fixed Material')).toBeVisible()
+  await expect(inspector.getByLabel('固定物料')).toBeVisible()
   await inspector.getByRole('button', {
     name: '新建物料',
     exact: true
   }).click()
-  await expect(inspector.getByLabel('Fixed Material')).toHaveCount(0)
-  await inspector.getByLabel('Site scope').selectOption('all')
-  await expect(inspector.getByLabel('固定 Site')).toHaveCount(0)
-  await inspector.getByLabel('Site scope').selectOption('candidates')
-  const siteSearch = inspector.getByLabel('搜索候选 Site')
+  await expect(inspector.getByLabel('固定物料')).toHaveCount(0)
+  await inspector.getByLabel('库位范围').selectOption('all')
+  await expect(inspector.getByLabel('固定库位')).toHaveCount(0)
+  await inspector.getByLabel('库位范围').selectOption('candidates')
+  const siteSearch = inspector.getByLabel('搜索候选库位')
   await expect(siteSearch).toBeVisible()
   await expect(inspector.getByText('已选择 1 / 2')).toBeVisible()
   await siteSearch.fill('Slot 2')
-  const candidateSites = inspector.getByRole('group', { name: '候选 Sites' })
+  const candidateSites = inspector.getByRole('group', { name: '候选库位' })
   await expect(candidateSites.getByRole('checkbox', { name: /Slot 1/ }))
     .toHaveCount(0)
   const filteredSite = candidateSites.getByRole('checkbox', { name: /Slot 2/ })
   await expect(filteredSite).toBeVisible()
   await filteredSite.check()
   await expect(inspector.getByText(/已选择 2 \/ 2/)).toBeVisible()
-  await inspector.getByLabel('Site scope').selectOption('fixed')
-  await inspector.getByLabel('固定 Site').selectOption(M2B_SITE_UUID)
+  await inspector.getByLabel('库位范围').selectOption('fixed')
+  await inspector.getByLabel('固定库位').selectOption(M2B_SITE_UUID)
   await inspector.getByLabel('物料角色').selectOption('reagent')
   await expect(inspector.getByLabel('物料角色')).toHaveValue('reagent')
   await screenshot(page, artifactDirectory, '01-material-source-properties.png')
@@ -260,7 +260,7 @@ test('LINQ-inspired MaterialSource starts through native unilab and commits Inve
     exact: true
   }).click()
   await panel.getByRole('button', {
-    name: '确认并创建 Task',
+    name: '使用以上参数运行',
     exact: true
   }).click()
   const taskEnvelope = await (await taskCreated).json() as {
@@ -363,7 +363,7 @@ test('LINQ-inspired MaterialSource starts through native unilab and commits Inve
   )
   await startButton.click()
   await panel.getByRole('button', {
-    name: '确认并创建 Task',
+    name: '使用以上参数运行',
     exact: true
   }).click()
   const blockedTaskUuid = ((await (await blockedCreated).json()) as {
@@ -408,9 +408,9 @@ test('LINQ-inspired MaterialSource starts through native unilab and commits Inve
     name: '已有物料',
     exact: true
   }).click()
-  await inspector.getByLabel('Fixed Material').selectOption(createdMaterialUuid)
-  await inspector.getByLabel('Site scope').selectOption('fixed')
-  await inspector.getByLabel('固定 Site').selectOption(M2B_ALTERNATE_SITE_UUID)
+  await inspector.getByLabel('固定物料').selectOption(createdMaterialUuid)
+  await inspector.getByLabel('库位范围').selectOption('fixed')
+  await inspector.getByLabel('固定库位').selectOption(M2B_ALTERNATE_SITE_UUID)
 
   await panel.getByRole('button', { name: '保存草稿', exact: true }).click()
   const staticReject = panel.getByRole('alert').filter({

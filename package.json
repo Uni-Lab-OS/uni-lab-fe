@@ -21,6 +21,7 @@
     "test:e2e:workflow-task-runtime": "playwright test e2e/workflow-task-runtime-real-os.spec.ts",
     "test:e2e:workflow-task-runtime-resilience": "playwright test e2e/workflow-task-runtime-resilience-real-os.spec.ts",
     "test:e2e:workflow-material-source": "playwright test e2e/workflow-material-source-native-cli-real-os.spec.ts",
+    "test:e2e:workflow-material-flow": "playwright test e2e/workflow-material-flow-projection-real-os.spec.ts",
     "test:workflow-runtime-contract": "node scripts/verify-workflow-runtime-contract.mjs",
     "test:e2e:workflow-final-gate": "pnpm test:workflow-runtime-contract && playwright test e2e/workflow-runtime-final-gate-real-os.spec.ts",
     "test:e2e:workflow-debug": "pnpm test:workflow-runtime-contract && playwright test e2e/workflow-authoring-real-os.spec.ts e2e/workflow-task-runtime-real-os.spec.ts e2e/workflow-task-runtime-resilience-real-os.spec.ts e2e/workflow-runtime-final-gate-real-os.spec.ts",

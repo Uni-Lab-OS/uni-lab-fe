@@ -138,14 +138,14 @@ describe('Workflow I/O authoring', () => {
       name: 'renamed',
       schema: { $slot: 'ResourceSlot' },
       implicit: true
-    })).toThrow(/implicit|隐式|只读/i)
+    })).toThrow(/系统生成|不可修改/i)
     expect(() => removeWorkflowOutput(graph, 'sample'))
-      .toThrow(/implicit|隐式|只读/i)
+      .toThrow(/系统生成|不可删除/i)
     expect(() => bindWorkflowOutput(graph, 'sample', {
       kind: 'node_output',
       workflow_node_uuid: sourceNodeUuid,
       source_handle_uuid: sourceHandleUuid
-    })).toThrow(/implicit|隐式|只读/i)
+    })).toThrow(/系统生成|绑定不可修改/i)
   })
 
   it('preserves an assignable same-name explicit ResourceSlot output', () => {
@@ -223,7 +223,7 @@ describe('Workflow I/O authoring', () => {
     expect(() => bindWorkflowOutput(graph, 'echo', {
       kind: 'workflow_input',
       parameter: 'missing'
-    })).toThrow(/input|参数/i)
+    })).toThrow(/入参|参数/i)
     expect(() => bindWorkflowOutput(graph, 'echo', {
       kind: 'node_output',
       workflow_node_uuid: sourceNodeUuid,
@@ -409,7 +409,7 @@ describe('Workflow I/O authoring', () => {
         name: 'sample',
         schema,
         required: false
-      })).toThrow(/nullable|ResourceSlot|default|可空/i)
+      })).toThrow(/允许为空|资源位|默认值/i)
       expect(inputParameters(required)).toEqual([{
         name: 'sample',
         schema,

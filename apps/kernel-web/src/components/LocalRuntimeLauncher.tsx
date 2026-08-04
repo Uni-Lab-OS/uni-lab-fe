@@ -36,6 +36,8 @@ const IDLE_SNAPSHOT: LocalRuntimeSnapshot = {
   bridgeRunning: false,
   edgeRunning: false
 }
+const OBSERVABILITY_LOG_CHECK_INTERVAL_MS = 2_000
+const OBSERVABILITY_LOG_CHECK_LIMIT = 15
 
 interface LocalRuntimeLauncherProps {
   runtimeApi?: DesktopRuntimeApi
@@ -173,6 +175,7 @@ export default function LocalRuntimeLauncher({
   const [simulatorSubmitted, setSimulatorSubmitted] = useState(false)
   const [edgeSubmitted, setEdgeSubmitted] = useState(false)
   const [dialogLogsOpen, setDialogLogsOpen] = useState(false)
+  const [phoenixDependencyMissing, setPhoenixDependencyMissing] = useState(false)
   const readyNotificationSentRef = useRef(false)
   useDeviceCardSurfaceOcclusion('local-runtime-dialog', open)
 
@@ -203,6 +206,49 @@ export default function LocalRuntimeLauncher({
     readyNotificationSentRef.current = true
     onReady?.()
   }, [onReady, snapshot.edgeRunning, snapshot.phase])
+
+  useEffect(() => {
+    const edgeReady = snapshot.phase === 'ready' && snapshot.edgeRunning
+    if (!runtimeApi || !edgeReady) {
+      setPhoenixDependencyMissing(false)
+      return
+    }
+    if (phoenixDependencyMissing) return
+
+    let active = true
+    let checksRemaining = OBSERVABILITY_LOG_CHECK_LIMIT
+    let nextCheckTimer: ReturnType<typeof globalThis.setTimeout> | undefined
+
+    const inspectEdgeLogs = async (): Promise<void> => {
+      try {
+        const logs = await runtimeApi.readLogs()
+        if (!active) return
+        const edgeLog = logs.entries.find((entry) => entry.kind === 'edge')
+        if (detectPhoenixObservabilityDependencyIssue(edgeLog?.content ?? '')) {
+          setPhoenixDependencyMissing(true)
+          return
+        }
+      } catch {
+        // 日志读取失败已有日志抽屉负责呈现；这里仅做非阻塞的依赖提示检测。
+      }
+
+      checksRemaining -= 1
+      if (active && checksRemaining > 0) {
+        nextCheckTimer = globalThis.setTimeout(
+          () => void inspectEdgeLogs(),
+          OBSERVABILITY_LOG_CHECK_INTERVAL_MS
+        )
+      }
+    }
+
+    void inspectEdgeLogs()
+    return () => {
+      active = false
+      if (nextCheckTimer !== undefined) {
+        globalThis.clearTimeout(nextCheckTimer)
+      }
+    }
+  }, [phoenixDependencyMissing, runtimeApi, snapshot.edgeRunning, snapshot.phase])
 
   useEffect(() => {
     if (!runtimeApi || config.environmentPath.trim()) return
@@ -308,10 +354,12 @@ export default function LocalRuntimeLauncher({
         type="button"
         className={styles.launcherButton}
         data-runtime-phase={snapshot.phase}
+        data-observability-degraded={phoenixDependencyMissing || undefined}
         onClick={() => setOpen(true)}
       >
         <span className={styles.launcherDot} aria-hidden="true" />
         {launcherLabel(snapshot)}
+        {phoenixDependencyMissing ? ' · Trace 降级' : ''}
       </button>
       {open && typeof document !== 'undefined'
         ? createPortal(
@@ -323,6 +371,7 @@ export default function LocalRuntimeLauncher({
               edgeSubmitted={edgeSubmitted}
               simulatorValidation={simulatorValidation}
               edgeValidation={edgeValidation}
+              phoenixDependencyMissing={phoenixDependencyMissing}
               onChange={setConfig}
               onChoosePath={(kind) => void choosePath(kind)}
               onClose={closeDialog}
@@ -354,6 +403,7 @@ interface LocalRuntimeDialogProps {
   edgeSubmitted: boolean
   simulatorValidation: ValidationResult
   edgeValidation: ValidationResult
+  phoenixDependencyMissing?: boolean
   transitioning: boolean
   onChange: (config: LocalRuntimeLaunchConfig) => void
   onChoosePath: (kind: LocalRuntimePathKind) => void
@@ -373,6 +423,7 @@ export function LocalRuntimeDialog({
   edgeSubmitted,
   simulatorValidation,
   edgeValidation,
+  phoenixDependencyMissing = false,
   transitioning,
   onChange,
   onChoosePath,
@@ -519,6 +570,12 @@ export function LocalRuntimeDialog({
               </button>
             </header>
 
+            {phoenixDependencyMissing ? (
+              <PhoenixDependencyRecoveryNotice
+                osProjectPath={config.osProjectPath}
+              />
+            ) : null}
+
             <div className={styles.dependencyNotice} role="note">
               <strong>使用 PLC 时，请先上传变量表</strong>
               <span>
@@ -609,6 +666,64 @@ export function LocalRuntimeDialog({
   )
 }
 
+function PhoenixDependencyRecoveryNotice({
+  osProjectPath
+}: {
+  osProjectPath: string
+}): React.JSX.Element {
+  const titleId = useId()
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const commands = phoenixRecoveryCommands(osProjectPath)
+
+  const copyCommands = async (): Promise<void> => {
+    try {
+      await globalThis.navigator.clipboard.writeText(commands)
+      setCopyState('copied')
+    } catch {
+      setCopyState('failed')
+    }
+  }
+
+  return (
+    <section
+      className={styles.observabilityNotice}
+      role="status"
+      aria-labelledby={titleId}
+    >
+      <div className={styles.observabilityNoticeHeader}>
+        <div>
+          <strong id={titleId}>链路追踪（Trace）功能已降级</strong>
+          <p>
+            设备与业务运行不受影响；Phoenix 未安装，OTLP Trace 上报会持续返回 503。
+          </p>
+        </div>
+        <span>不影响业务</span>
+      </div>
+      <p>
+        在本机当前 Edge 使用的 Conda 环境中执行以下命令。若环境名不是
+        <code>unilab</code>，请替换第二行。
+      </p>
+      <div className={styles.recoveryCommand}>
+        <pre aria-label="Phoenix 依赖修复命令"><code>{commands}</code></pre>
+        <button type="button" onClick={() => void copyCommands()}>
+          {copyState === 'copied' ? '已复制' : '复制命令'}
+        </button>
+      </div>
+      <small className={styles.dependencySummary}>
+        将安装 arize-phoenix==17.5.0、arize-phoenix-otel==0.16.1，并提供
+        <code>phoenix</code>命令。
+      </small>
+      <p>
+        安装完成后，在桌面端停止并重新启动 Edge。每台机器都需要在各自实际使用的
+        Conda 环境中安装一次。
+      </p>
+      <span className={styles.copyFeedback} aria-live="polite">
+        {copyState === 'failed' ? '复制失败，请手动选择命令。' : ''}
+      </span>
+    </section>
+  )
+}
+
 interface LocalRuntimeLogDrawerProps {
   instanceId?: string
   snapshot: LocalRuntimeLogsSnapshot | null
@@ -628,6 +743,8 @@ const LOG_TABS: Array<{
   { kind: 'edge', label: 'Edge 运行时' }
 ]
 
+const LOG_BOTTOM_TOLERANCE_PX = 4
+
 export function LocalRuntimeLogDrawer({
   instanceId,
   snapshot,
@@ -639,6 +756,8 @@ export function LocalRuntimeLogDrawer({
   onClose
 }: LocalRuntimeLogDrawerProps): React.JSX.Element {
   const outputRef = useRef<HTMLOListElement>(null)
+  const followLogTailRef = useRef(true)
+  const activeLogKindRef = useRef(activeKind)
   const idSuffix = instanceId ? `-${instanceId}` : ''
   const drawerId = `local-runtime-log-drawer${idSuffix}`
   const titleId = `local-runtime-log-title${idSuffix}`
@@ -652,8 +771,14 @@ export function LocalRuntimeLogDrawer({
   )
 
   useEffect(() => {
+    const activeKindChanged = activeLogKindRef.current !== activeKind
+    activeLogKindRef.current = activeKind
+    if (activeKindChanged) followLogTailRef.current = true
+
     const output = outputRef.current
-    if (output) output.scrollTop = output.scrollHeight
+    if (output && followLogTailRef.current) {
+      output.scrollTop = output.scrollHeight
+    }
   }, [activeEntry?.content, activeKind])
 
   return (
@@ -749,6 +874,19 @@ export function LocalRuntimeLogDrawer({
                 ref={outputRef}
                 className={styles.logOutput}
                 aria-label="格式化运行日志"
+                onPointerDown={() => {
+                  followLogTailRef.current = false
+                }}
+                onWheel={(event) => {
+                  if (event.deltaY < 0) followLogTailRef.current = false
+                }}
+                onScroll={(event) => {
+                  const output = event.currentTarget
+                  followLogTailRef.current = (
+                    output.scrollHeight - output.clientHeight - output.scrollTop
+                    <= LOG_BOTTOM_TOLERANCE_PX
+                  )
+                }}
               >
                 {formattedRows.map((row, index) => (
                   <li key={`${index}-${row.message}`} data-level={row.level}>
@@ -806,16 +944,41 @@ const ANSI_SINGLE_ESCAPE_PATTERN = new RegExp(
   'g'
 )
 const ANSI_C1_PATTERN = /[\u0080-\u009f]/g
+const PHOENIX_DEPENDENCY_MISSING_PATTERN =
+  /Phoenix[^\r\n]*未安装\s+Arize Phoenix/i
+const OTLP_TRACE_PATH = '/api/v1/observability/otlp/v1/traces'
+const CURRENT_EDGE_LAUNCH_PATTERN =
+  /^\[launcher\]\s+\S+\s+starting\s*$/gm
+
+export function detectPhoenixObservabilityDependencyIssue(
+  content: string
+): boolean {
+  const sanitizedContent = stripTerminalControlCodes(content)
+  const launchMarkers = [...sanitizedContent.matchAll(CURRENT_EDGE_LAUNCH_PATTERN)]
+  const latestLaunch = launchMarkers.at(-1)
+  const currentLaunchContent = latestLaunch?.index === undefined
+    ? sanitizedContent
+    : sanitizedContent.slice(latestLaunch.index)
+
+  return PHOENIX_DEPENDENCY_MISSING_PATTERN.test(currentLaunchContent)
+    && currentLaunchContent.split(/\r?\n/).some((line) => (
+      line.includes(OTLP_TRACE_PATH) && /\b503\b/.test(line)
+    ))
+}
 
 function formatLocalRuntimeLog(content: string): FormattedLocalRuntimeLogRow[] {
+  return stripTerminalControlCodes(content)
+    .split(/\r?\n/)
+    .filter((line) => line.length > 0)
+    .map(formatLocalRuntimeLogLine)
+}
+
+function stripTerminalControlCodes(content: string): string {
   return content
     .replace(ANSI_STRING_PATTERN, '')
     .replace(ANSI_CSI_PATTERN, '')
     .replace(ANSI_SINGLE_ESCAPE_PATTERN, '')
     .replace(ANSI_C1_PATTERN, '')
-    .split(/\r?\n/)
-    .filter((line) => line.length > 0)
-    .map(formatLocalRuntimeLogLine)
 }
 
 function formatLocalRuntimeLogLine(
@@ -1285,4 +1448,17 @@ function useDeviceCardSurfaceOcclusion(
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function phoenixRecoveryCommands(osProjectPath: string): string {
+  const projectPath = osProjectPath.trim() || '/path/to/Uni-Lab-OS'
+  return [
+    `cd ${shellQuote(projectPath)}`,
+    'conda activate unilab',
+    "pip install -e '.[observability]'"
+  ].join('\n')
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`
 }

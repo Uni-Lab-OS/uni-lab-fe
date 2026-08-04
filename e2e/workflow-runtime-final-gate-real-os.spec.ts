@@ -157,6 +157,10 @@ test('production UI passes the retired-Run, idempotency and terminal-race gate',
       url.pathname === '/api/v1/workflow-tasks'
   })
   await startButton.click()
+  await page.getByRole('button', {
+    name: '使用以上参数运行',
+    exact: true
+  }).click()
   const createResponse = await createResponsePromise
   expect(createResponse.status()).toBe(201)
   expect(createResponse.request().postDataJSON()).toMatchObject({

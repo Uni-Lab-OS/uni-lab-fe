@@ -220,7 +220,7 @@ describe('MaterialSource closed selector', () => {
         targetNodeUuid: '86000000-0000-4000-8000-000000000003',
         targetHandleUuid: actionTargetHandleUuid
       }
-    )).toThrow(/fan-out/i)
+    )).toThrow(/输出端口.*一个目标/i)
   })
 })
 

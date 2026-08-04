@@ -75,7 +75,7 @@ describe('Workflow ResourceSlot Task controls', () => {
       resourceSlotOptions: { kind: 'ready', options },
       onChange
     })
-    const selector = findByLabel(tree, 'sample ResourceSlot')
+    const selector = findByLabel(tree, 'sample 资源位')
 
     expect(optionValues(selector)).toEqual(['', MATERIAL_A1, MATERIAL_A2])
     expect(visibleText(selector.children)).toContain('Sample A1')
@@ -132,11 +132,11 @@ describe('Workflow ResourceSlot Task controls', () => {
     })
 
     expect([
-      findByLabel(tree, 'samples ResourceSlot 1').value,
-      findByLabel(tree, 'samples ResourceSlot 2').value,
-      findByLabel(tree, 'samples ResourceSlot 3').value
+      findByLabel(tree, 'samples 资源位 1').value,
+      findByLabel(tree, 'samples 资源位 2').value,
+      findByLabel(tree, 'samples 资源位 3').value
     ]).toEqual([MATERIAL_A2, MATERIAL_A1, MATERIAL_A2])
-    expect(findByLabel(tree, 'samples 添加 ResourceSlot')).toBeDefined()
+    expect(findByLabel(tree, 'samples 添加资源位')).toBeDefined()
     click(findByLabel(tree, 'samples 上移 2'))
     expect(onChange).toHaveBeenLastCalledWith('samples', {
       kind: 'value',

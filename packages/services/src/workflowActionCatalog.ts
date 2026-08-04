@@ -1,6 +1,8 @@
 import type { HttpClient } from './http'
 import { ServiceError } from './errors'
 
+const DETAIL_REQUEST_BATCH_SIZE = 8
+
 export type WorkflowActionEditorControl =
   | 'material_port'
   | 'site_selector'
@@ -133,7 +135,7 @@ export async function loadWorkflowActionCatalog(
     }
   })
 
-  const projected = await Promise.all(summaryValues.map(async (
+  const projected = await mapInBatches(summaryValues, async (
     summary
   ): Promise<
     WorkflowActionNodeTemplate | WorkflowPublishedNodeTemplate | null
@@ -188,7 +190,7 @@ export async function loadWorkflowActionCatalog(
         projectHandle(handle, uuid)
       )
     }, template)
-  }))
+  })
   const actionTemplates = projected.filter(
     (value): value is WorkflowActionNodeTemplate =>
       value !== null && 'actionType' in value
@@ -212,6 +214,19 @@ export async function loadWorkflowActionCatalog(
     actionTemplates,
     workflowTemplates
   }
+}
+
+async function mapInBatches<Input, Output>(
+  values: Input[],
+  project: (value: Input) => Promise<Output>
+): Promise<Output[]> {
+  const projected: Output[] = []
+  for (let index = 0; index < values.length; index += DETAIL_REQUEST_BATCH_SIZE) {
+    projected.push(...await Promise.all(
+      values.slice(index, index + DETAIL_REQUEST_BATCH_SIZE).map(project)
+    ))
+  }
+  return projected
 }
 
 interface WorkflowSchemaProjection {

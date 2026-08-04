@@ -3191,13 +3191,19 @@ body {
   background: var(--unilab-color-surface);
 }
 
-.lab-panel-workspace [role='tab'] {
+.lab-panel-workspace
+  [data-panel-tab-drop-owner]
+  > [role='tablist']
+  [role='tab'] {
   min-height: 38px;
   padding-inline: 12px;
   font-size: 12px;
 }
 
-.lab-panel-workspace [role='tab'][aria-selected='true'] {
+.lab-panel-workspace
+  [data-panel-tab-drop-owner]
+  > [role='tablist']
+  [role='tab'][aria-selected='true'] {
   color: var(--unilab-panel-accent, var(--unilab-color-primary));
 }
 

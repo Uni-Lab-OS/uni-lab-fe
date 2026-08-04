@@ -320,7 +320,12 @@ describe('WorkflowOutput', () => {
         nodeNames={{}}
         events={[
           { seq: 1, type: 'node.dispatched', nodeId: 'transfer' },
-          { seq: 2, type: 'node.feedback', nodeId: 'transfer' }
+          {
+            seq: 2,
+            type: 'node.feedback',
+            nodeId: 'transfer',
+            detail: { progress: 0.5 }
+          }
         ]}
         error={null}
         selectedNode={undefined}
@@ -335,5 +340,10 @@ describe('WorkflowOutput', () => {
 
     expect(html).toContain('动作已下发')
     expect(html).toContain('动作反馈')
+    expect(html).toContain('最新事件在前')
+    expect(html.indexOf('#2')).toBeLessThan(html.indexOf('#1'))
+    expect(html).toContain('class="workflow-runtime__event-raw"')
+    expect(html).toContain('查看原始数据')
+    expect(html).not.toMatch(/workflow-runtime__event-raw" open/)
   })
 })

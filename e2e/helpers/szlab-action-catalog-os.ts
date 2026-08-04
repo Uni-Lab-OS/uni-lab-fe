@@ -17,6 +17,10 @@ export const SZLAB_WORKFLOW_UUID =
   '67da810c-34f6-59c6-94ba-7e73dcc06207'
 export const SZLAB_FIXTURE_SHA =
   '975e9b12282aeb68282022631d4ff5e30af3f0e9'
+export const SZLAB_MATERIAL_WORKFLOW_UUID =
+  '5e7ce142-bf5a-5d30-8666-fdf5374941f1'
+export const SZLAB_MATERIAL_FIXTURE_SHA =
+  '60a0fc00fc6be4d09ecfa8e83e1cc876e7cc3cce'
 
 export interface SzlabActionCatalogOs {
   url: string
@@ -25,7 +29,31 @@ export interface SzlabActionCatalogOs {
   stop: () => Promise<void>
 }
 
+export interface SzlabMaterialWorkflowOs extends SzlabActionCatalogOs {
+  szlabRevision: string
+}
+
 export async function startSzlabActionCatalogOs(): Promise<SzlabActionCatalogOs> {
+  return startSzlabOs({
+    workflowUuid: SZLAB_WORKFLOW_UUID,
+    fixtureSha: SZLAB_FIXTURE_SHA,
+    applyCompatibility: true
+  })
+}
+
+export async function startSzlabMaterialWorkflowOs(): Promise<SzlabMaterialWorkflowOs> {
+  return startSzlabOs({
+    workflowUuid: SZLAB_MATERIAL_WORKFLOW_UUID,
+    fixtureSha: SZLAB_MATERIAL_FIXTURE_SHA,
+    applyCompatibility: false
+  })
+}
+
+async function startSzlabOs(options: {
+  workflowUuid: string
+  fixtureSha: string
+  applyCompatibility: boolean
+}): Promise<SzlabMaterialWorkflowOs> {
   const osRepository = resolve(requiredEnvironment('UNILAB_A1_OS_ROOT'))
   const szlabSourceRepository = resolve(
     requiredEnvironment('UNILAB_SZLAB_REPOSITORY')
@@ -42,17 +70,19 @@ export async function startSzlabActionCatalogOs(): Promise<SzlabActionCatalogOs>
     )
     execFileSync(
       'git',
-      ['checkout', '--quiet', '--detach', SZLAB_FIXTURE_SHA],
+      ['checkout', '--quiet', '--detach', options.fixtureSha],
       { cwd: szlabRepository, stdio: 'pipe' }
     )
     const actualSha = execFileSync('git', ['rev-parse', 'HEAD'], {
       cwd: szlabRepository,
       encoding: 'utf8'
     }).trim()
-    if (actualSha !== SZLAB_FIXTURE_SHA) {
+    if (actualSha !== options.fixtureSha) {
       throw new Error(`SZLab fixture SHA mismatch: ${actualSha}`)
     }
-    applyA1WorkflowInputCompatibility(szlabRepository)
+    if (options.applyCompatibility) {
+      applyA1WorkflowInputCompatibility(szlabRepository)
+    }
   } catch (error) {
     rmSync(directory, { recursive: true, force: true })
     throw error
@@ -98,7 +128,8 @@ export async function startSzlabActionCatalogOs(): Promise<SzlabActionCatalogOs>
 
   return {
     url,
-    workflowUuid: SZLAB_WORKFLOW_UUID,
+    workflowUuid: options.workflowUuid,
+    szlabRevision: options.fixtureSha,
     logs: () => output,
     stop: async () => {
       await stopChild(child)
@@ -134,7 +165,6 @@ from pathlib import Path
 from unilabos.config.config import BasicConfig
 from unilabos.package_manager import WorkspaceSource, compile_package_source
 from unilabos.registry.catalog_consumer import (
-    register_package_catalog,
     workflow_template_imports_from_registry_snapshot,
 )
 from unilabos.registry.registry import Registry
@@ -142,7 +172,12 @@ from unilabos.workflow.catalog import (
     CatalogAuthority,
     LocalResourceTemplateIdentityIndex,
 )
-from unilabos.workflow.composition import get_workflow_service
+from unilabos.resources.graphio import read_node_link_json
+from unilabos.workflow.composition import (
+    compose_workflow_runtime,
+    get_workflow_service,
+    get_workflow_inventory_service,
+)
 from unilabos.workflow.service import WorkflowService
 from unilabos.workflow.store import WorkflowStore
 
@@ -151,11 +186,13 @@ szlab_root = Path(sys.argv[2]).resolve()
 port = int(sys.argv[3])
 working_dir.mkdir(parents=True, exist_ok=True)
 
-package_catalog = compile_package_source(WorkspaceSource(szlab_root))
+package_source = WorkspaceSource(szlab_root)
+package_catalog = compile_package_source(package_source)
 registry = Registry()
 registry.device_type_registry = {}
 registry.resource_type_registry = {}
-register_package_catalog(registry, package_catalog)
+registry._setup_called = False
+registry.setup(external_only=True, package_catalogs=[package_catalog])
 registry_snapshot = copy.deepcopy(registry.device_type_registry)
 resource_registry_snapshot = copy.deepcopy(registry.resource_type_registry)
 
@@ -179,11 +216,41 @@ BasicConfig.working_dir = str(working_dir)
 BasicConfig.workflow_graph_authority = authority
 BasicConfig.workflow_editable_package_roots = (szlab_root,)
 
+graph_path = szlab_root / "deployment" / "graphs" / "szlab-local-debug.json"
+_graph, resource_tree_set, _links = read_node_link_json(str(graph_path))
+inventory_snapshot = {
+    "source_id": graph_path.name,
+    "nodes": [
+        node.res_content.model_dump(by_alias=True)
+        for node in resource_tree_set.all_nodes
+    ],
+}
+workflow_service = compose_workflow_runtime(
+    working_dir,
+    authority=authority,
+    editable_package_roots=(szlab_root,),
+    registry_snapshot=registry_snapshot,
+    resource_registry_snapshot=resource_registry_snapshot,
+    workflow_package_catalogs=(package_catalog,),
+    inventory_graph_snapshot=inventory_snapshot,
+    package_sources=(package_source,),
+    package_catalogs=(package_catalog,),
+)
+from unilabos.app.scheduler.integration import setup_edge_scheduler
+
+setup_edge_scheduler(
+    inventory_service=get_workflow_inventory_service(),
+    workflow_tasks=workflow_service,
+    device_state_db_path="off",
+    workflow_history_db_path="off",
+)
+
 from unilabos.app.web import server
 
 server.setup_server(
     registry_snapshot=registry_snapshot,
     resource_registry_snapshot=resource_registry_snapshot,
+    workflow_package_catalogs=(package_catalog,),
 )
 
 @server.app.post("/__e2e/catalog-bump")

@@ -7,6 +7,7 @@ import type {
   LocalRuntimeSnapshot
 } from '../types/electron'
 import {
+  detectPhoenixObservabilityDependencyIssue,
   LocalRuntimeDialog,
   LocalRuntimeLogDrawer,
   validateEdgeConfig,
@@ -138,6 +139,58 @@ describe('LocalRuntimeLauncher', () => {
     expect(markup).not.toContain('Bridge')
   })
 
+  it('detects the missing Phoenix dependency only with the matching OTLP 503', () => {
+    const launchMarker = '[launcher] 2026-08-04T03:12:00.000Z starting'
+    const missingPhoenix =
+      'Phoenix trace 日志服务启动失败：未安装 Arize Phoenix'
+    const otlpUnavailable =
+      'POST /api/v1/observability/otlp/v1/traces HTTP/1.1 503 Service Unavailable'
+
+    expect(detectPhoenixObservabilityDependencyIssue([
+      launchMarker,
+      missingPhoenix,
+      otlpUnavailable
+    ].join('\n'))).toBe(true)
+    expect(detectPhoenixObservabilityDependencyIssue([
+      launchMarker,
+      missingPhoenix
+    ].join('\n'))).toBe(false)
+    expect(detectPhoenixObservabilityDependencyIssue([
+      launchMarker,
+      otlpUnavailable
+    ].join('\n'))).toBe(false)
+  })
+
+  it('ignores a Phoenix failure left over from an earlier Edge launch', () => {
+    expect(detectPhoenixObservabilityDependencyIssue([
+      '[launcher] 2026-08-04T03:10:00.000Z starting',
+      'Phoenix trace 日志服务启动失败：未安装 Arize Phoenix',
+      'POST /api/v1/observability/otlp/v1/traces HTTP/1.1 503',
+      '[launcher] process exited code=0 signal=null',
+      '[launcher] 2026-08-04T03:12:00.000Z starting',
+      '26-08-04 [11:12:03,100] [INFO] Phoenix trace 日志服务已就绪'
+    ].join('\n'))).toBe(false)
+  })
+
+  it('renders an actionable non-blocking Phoenix recovery notice', () => {
+    const markup = renderDialog(baseConfig, {
+      ...idleSnapshot,
+      phase: 'ready',
+      message: '领域侧 Edge 已就绪',
+      edgeRunning: true
+    }, true)
+
+    expect(markup).toContain('链路追踪（Trace）功能已降级')
+    expect(markup).toContain('设备与业务运行不受影响')
+    expect(markup).toContain("cd &#x27;/tmp/Uni-Lab-OS&#x27;")
+    expect(markup).toContain('conda activate unilab')
+    expect(markup).toContain("pip install -e &#x27;.[observability]&#x27;")
+    expect(markup).toContain('arize-phoenix==17.5.0')
+    expect(markup).toContain('arize-phoenix-otel==0.16.1')
+    expect(markup).toContain('停止并重新启动 Edge')
+    expect(markup).toContain('每台机器都需要')
+  })
+
   it('renders process output directly in the log drawer', () => {
     const logsSnapshot: LocalRuntimeLogsSnapshot = {
       readAt: 1_785_499_200_000,
@@ -239,7 +292,8 @@ describe('LocalRuntimeLauncher', () => {
 
 function renderDialog(
   config: LocalRuntimeLaunchConfig,
-  snapshot: LocalRuntimeSnapshot
+  snapshot: LocalRuntimeSnapshot,
+  phoenixDependencyMissing = false
 ): string {
   const transitioning = ![
     'idle',
@@ -256,6 +310,7 @@ function renderDialog(
       edgeSubmitted={false}
       simulatorValidation={validateSimulatorConfig(config)}
       edgeValidation={validateEdgeConfig(config)}
+      phoenixDependencyMissing={phoenixDependencyMissing}
       transitioning={transitioning}
       onChange={vi.fn()}
       onChoosePath={vi.fn()}

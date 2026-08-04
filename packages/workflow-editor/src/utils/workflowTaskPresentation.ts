@@ -22,8 +22,8 @@ export function workflowTaskControls(
     {
       command: 'pause',
       label: '暂停',
-      title: '提交 durable pause intent；等待 OS 权威状态确认',
-      message: 'pause 已由 OS 接受，等待 Task 状态补读',
+      title: '提交暂停请求；等待 OS 确认状态',
+      message: 'OS 已接受暂停请求，正在补读任务状态',
       glyph: 'Ⅱ',
       disabled: busy || terminal || admissionBlocked ||
         task.control_status !== 'active'
@@ -31,8 +31,8 @@ export function workflowTaskControls(
     {
       command: 'resume',
       label: '继续',
-      title: '提交 durable resume intent；等待 OS 权威状态确认',
-      message: 'resume 已由 OS 接受，等待 Task 状态补读',
+      title: '提交继续请求；等待 OS 确认状态',
+      message: 'OS 已接受继续请求，正在补读任务状态',
       glyph: '▶',
       primary: true,
       disabled: busy || terminal || admissionBlocked ||
@@ -41,8 +41,8 @@ export function workflowTaskControls(
     {
       command: 'step',
       label: '单步',
-      title: '仅 step 模式且权威状态为 paused 时提交一步执行 intent',
-      message: 'step 已由 OS 接受，等待 Job/Task 状态补读',
+      title: '仅单步模式且任务已暂停时执行一步',
+      message: 'OS 已接受单步请求，正在补读节点任务与工作流任务状态',
       glyph: '→',
       disabled: busy || terminal || admissionBlocked ||
         task.run_mode !== 'step' || task.control_status !== 'paused'
@@ -50,8 +50,8 @@ export function workflowTaskControls(
     {
       command: 'cancel',
       label: '取消',
-      title: '提交 durable cancel intent；等待 Task/Jobs 权威终态',
-      message: 'cancel 已由 OS 接受，等待 Task/Jobs 状态补读',
+      title: '提交取消请求；等待工作流任务与节点任务结束',
+      message: 'OS 已接受取消请求，正在补读工作流任务与节点任务状态',
       glyph: '■',
       danger: true,
       disabled: busy || terminal
@@ -73,7 +73,7 @@ export function workflowTaskVisualStatus(task: WorkflowTask | null): string {
 export function workflowTaskControlStatusLabel(
   task: WorkflowTask | null
 ): string {
-  if (!task) return '未创建 Task'
+  if (!task) return '未创建任务'
   if (TERMINAL_TASK_STATUSES.has(task.status)) return '执行已结束'
   if (task.status === 'admission_blocked') return '等待物料准入'
   return {

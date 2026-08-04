@@ -69,7 +69,7 @@ export function updateWorkflowInput(
       name === descriptor.name && !implicit
     )
   ) {
-    throw new Error('Workflow input 名称与显式 output 冲突')
+    throw new Error('工作流入参名称与显式出参冲突')
   }
   io.inputContract.parameters[index] = structuredClone(descriptor)
   if (descriptor.name !== currentName) {
@@ -142,7 +142,7 @@ export function bindWorkflowInput(
   const io = mutableIo(next)
   if (!io.inputContract.parameters.some(
     ({ name }) => name === binding.parameter
-  )) throw new Error('Workflow input 参数不存在')
+  )) throw new Error('工作流入参不存在')
   requireOwnedHandle(
     next,
     binding.workflowNodeUuid,
@@ -199,7 +199,7 @@ export function addWorkflowOutput(
   descriptor: WorkflowOutputDescriptor
 ): WorkflowAuthoringGraph {
   if (descriptor.implicit) {
-    throw new Error('implicit Workflow output 是 server-managed 只读合同')
+    throw new Error('系统生成的工作流出参由服务器管理，不可新增')
   }
   const next = cloneGraph(graph)
   const io = mutableIo(next)
@@ -228,7 +228,7 @@ export function updateWorkflowOutput(
     'Workflow output'
   )
   if (io.outputContract.outputs[index]?.implicit || descriptor.implicit) {
-    throw new Error('implicit Workflow output 是只读合同')
+    throw new Error('系统生成的工作流出参不可修改')
   }
   requireAvailableName(
     descriptor.name,
@@ -260,7 +260,7 @@ export function removeWorkflowOutput(
     'Workflow output'
   )
   if (io.outputContract.outputs[index]?.implicit) {
-    throw new Error('implicit Workflow output 是只读合同')
+    throw new Error('系统生成的工作流出参不可删除')
   }
   io.outputContract.outputs.splice(index, 1)
   delete io.outputBindings[name]
@@ -276,7 +276,7 @@ export function moveWorkflowOutput(
   const outputs = mutableIo(next).outputContract.outputs
   const output = outputs.find((item) => item.name === name)
   if (output?.implicit) {
-    throw new Error('implicit Workflow output 顺序是 server-managed 只读合同')
+    throw new Error('系统生成的工作流出参顺序由服务器管理')
   }
   moveNamedDescriptor(outputs, name, direction, 'Workflow output')
   return next
@@ -290,14 +290,14 @@ export function bindWorkflowOutput(
   const next = cloneGraph(graph)
   const io = mutableIo(next)
   const output = io.outputContract.outputs.find((item) => item.name === name)
-  if (!output) throw new Error('Workflow output 不存在')
+  if (!output) throw new Error('工作流出参不存在')
   if (output.implicit) {
-    throw new Error('implicit Workflow output binding 是只读合同')
+    throw new Error('系统生成的工作流出参绑定不可修改')
   }
   if (binding.kind === 'workflow_input') {
     if (!io.inputContract.parameters.some(
       ({ name }) => name === binding.parameter
-    )) throw new Error('Workflow input 参数不存在')
+    )) throw new Error('工作流入参不存在')
   } else {
     requireOwnedHandle(
       next,
@@ -317,9 +317,9 @@ export function unbindWorkflowOutput(
   const next = cloneGraph(graph)
   const io = mutableIo(next)
   const output = io.outputContract.outputs.find((item) => item.name === name)
-  if (!output) throw new Error('Workflow output 不存在')
+  if (!output) throw new Error('工作流出参不存在')
   if (output.implicit) {
-    throw new Error('implicit Workflow output binding 是只读合同')
+    throw new Error('系统生成的工作流出参绑定不可解除')
   }
   delete io.outputBindings[name]
   return next
@@ -449,18 +449,18 @@ function requireInputDescriptorContract(
   const hasDefault = Object.hasOwn(descriptor, 'default')
   if (descriptor.required) {
     if (nullable || hasDefault) {
-      throw new Error('required Workflow input 必须 non-nullable 且没有 default')
+      throw new Error('必填的工作流入参不能允许为空，也不能设置默认值')
     }
     return
   }
   if (containsResourceSlot(descriptor.schema) && !nullable) {
-    throw new Error('optional ResourceSlot Workflow input 必须使用 nullable schema')
+    throw new Error('选填的资源位工作流入参必须允许为空')
   }
   if (!hasDefault) {
-    throw new Error('optional Workflow input 必须声明 default')
+    throw new Error('选填的工作流入参必须声明默认值')
   }
   if (nullable && descriptor.default !== null) {
-    throw new Error('nullable Workflow input 的 default 必须是 null')
+    throw new Error('允许为空的工作流入参，其默认值必须是 null')
   }
 }
 
@@ -517,7 +517,7 @@ function requireOwnedHandle(
   ioType: 'source' | 'target'
 ): void {
   const node = graph.nodes.find(({ uuid }) => uuid === nodeUuid)
-  if (!node) throw new Error('Workflow 节点不存在')
+  if (!node) throw new Error('工作流节点不存在')
   const handle = graph.handle_templates.find(({ uuid }) => uuid === handleUuid)
   if (
     !handle ||

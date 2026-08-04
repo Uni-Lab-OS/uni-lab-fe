@@ -167,7 +167,7 @@ describe('WorkflowTaskInputForm pure builder', () => {
       { kind: 'value', value: [] }
     ])
     expect(() => formModule.buildWorkflowTaskInput!(form))
-      .toThrow(/short_code.*minLength|minLength.*short_code/i)
+      .toThrow(/short_code.*最短长度|最短长度.*short_code/i)
 
     form = formModule.setWorkflowTaskInputField!(
       form,
@@ -175,7 +175,7 @@ describe('WorkflowTaskInputForm pure builder', () => {
       { kind: 'value', value: 'ok' }
     )
     expect(() => formModule.buildWorkflowTaskInput!(form))
-      .toThrow(/steps.*minItems|minItems.*steps/i)
+      .toThrow(/steps.*最少项目数|最少项目数.*steps/i)
     form = formModule.setWorkflowTaskInputField!(
       form,
       'steps',
@@ -239,7 +239,7 @@ describe('WorkflowTaskInputForm pure builder', () => {
       kind: 'reproject_after_create',
       task: created,
       form: { appliedRevision: 9 },
-      message: expect.stringMatching(/Task.*已创建[\s\S]*8[\s\S]*9/i)
+      message: expect.stringMatching(/任务.*已创建[\s\S]*8[\s\S]*9/i)
     })
     if (result.kind !== 'reproject_after_create') {
       throw new Error(`Expected post-create reproject, received ${result.kind}`)

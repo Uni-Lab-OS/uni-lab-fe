@@ -11,7 +11,7 @@
  */
 import { useEffect, useMemo } from 'react'
 import type { Edge, Node, OnNodesChange, OnEdgesChange } from 'reactflow'
-import { Position, useNodesState, useEdgesState } from 'reactflow'
+import { MarkerType, Position, useNodesState, useEdgesState } from 'reactflow'
 import { layoutDag } from '../utils/dagLayout'
 import { getNodeColor } from '../utils/nodeColors'
 import type { WorkflowLink, WorkflowNode } from '../utils/parseWorkflow'
@@ -54,6 +54,7 @@ export function useWorkflowDag(nodes: WorkflowNode[], links: WorkflowLink[]): Us
     } = layoutDag(nodes, links)
     const horizontal = direction === 'horizontal'
     const materialTraces = projectMaterialTraces(nodes, links)
+    const nodeNames = new Map(nodes.map((node) => [node.id, node.name]))
 
     const flowNodes: Node<WorkflowNodeData>[] = laidOut.map((node) => ({
       id: node.id,
@@ -72,8 +73,12 @@ export function useWorkflowDag(nodes: WorkflowNode[], links: WorkflowLink[]): Us
         handles: node.handles,
         materialSource: node.materialSource,
         traceAccent: node.type === 'material_source'
-          ? materialTraceAccent(node.id)
+          ? materialTraces.materialSourceAccents.get(node.id) ??
+            materialTraceAccent(node.id)
           : undefined,
+        materialHandleAccents: Object.fromEntries(
+          materialTraces.handleAccentsByNode.get(node.id) ?? []
+        ),
         materialChips: materialTraces.chipsByNode.get(node.id) ?? []
       }
     }))
@@ -81,6 +86,7 @@ export function useWorkflowDag(nodes: WorkflowNode[], links: WorkflowLink[]): Us
     // 连线端点跟随布局主轴，曲线保持统一线色(通信边虚线)。
     const flowEdges: Edge[] = edges.map((link, index) => {
       const isComm = link.type === COMM_EDGE_TYPE
+      const materialAccent = materialTraces.edgeAccents.get(index)
       return {
         id: `e-${link.source}-${link.target}-${index}`,
         source: link.source,
@@ -89,18 +95,32 @@ export function useWorkflowDag(nodes: WorkflowNode[], links: WorkflowLink[]): Us
         targetHandle: link.targetHandleUuid || undefined,
         label: link.branch ? (link.branch === 'true' ? 'TRUE' : 'FALSE') : undefined,
         labelStyle: {
-          fill: link.branch === 'true' ? '#087f5b' : '#c92a2a',
+          fill: link.branch === 'true'
+            ? 'var(--unilab-color-success)'
+            : 'var(--unilab-color-danger)',
           fontSize: 10,
           fontWeight: 700
         },
         type: 'default',
-        animated: isComm,
+        animated: isComm || Boolean(materialAccent),
+        markerEnd: materialAccent
+          ? {
+              type: MarkerType.ArrowClosed,
+              color: materialAccent,
+              width: 14,
+              height: 14
+            }
+          : undefined,
+        ariaLabel: materialAccent
+          ? `物料流：${nodeNames.get(link.source) ?? link.source} 到 ` +
+            `${nodeNames.get(link.target) ?? link.target}`
+          : undefined,
         style: {
-          stroke: materialTraces.edgeAccents.get(index) ?? EDGE_COLOR,
-          strokeWidth: materialTraces.edgeAccents.has(index) ? 2.2 : 1.6,
-          strokeDasharray: isComm ? '4 4' : undefined
+          stroke: materialAccent ?? EDGE_COLOR,
+          strokeWidth: materialAccent ? 2.4 : 2,
+          strokeDasharray: isComm && !materialAccent ? '4 4' : undefined
         },
-        className: materialTraces.edgeAccents.has(index)
+        className: materialAccent
           ? 'wf-flow-edge--material-trace'
           : undefined
       }

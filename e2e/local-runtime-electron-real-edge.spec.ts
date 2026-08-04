@@ -136,6 +136,49 @@ test('starts a real Edge from the desktop local debugger', async () => {
       /ResourceTreeSet class 未进入 PackageCatalog|无法找到类型 warehouse|backend_thread/
     )
     await capture(page, '07-edge-runtime-log.png')
+
+    const logOutput = logDrawer.getByRole('list', {
+      name: '格式化运行日志'
+    })
+    await appendHealthLogs(12)
+    await expect.poll(
+      () => logOutput.evaluate((element) => (
+        element.scrollHeight > element.clientHeight
+      )),
+      { timeout: 10_000 }
+    ).toBe(true)
+
+    await logOutput.evaluate((element) => {
+      element.scrollTop = 0
+      element.dispatchEvent(new Event('scroll', { bubbles: true }))
+    })
+    const rowsBeforeUserPausedFollow = await logOutput.locator('li').count()
+    await appendHealthLogs(4)
+    await expect.poll(
+      () => logOutput.locator('li').count(),
+      { timeout: 10_000 }
+    ).toBeGreaterThan(rowsBeforeUserPausedFollow)
+    expect(await logOutput.evaluate((element) => element.scrollTop)).toBe(0)
+    await capture(page, '07a-edge-log-user-scroll-preserved.png')
+
+    await logOutput.evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+      element.dispatchEvent(new Event('scroll', { bubbles: true }))
+    })
+    const rowsBeforeFollowResumed = await logOutput.locator('li').count()
+    await appendHealthLogs(4)
+    await expect.poll(
+      () => logOutput.locator('li').count(),
+      { timeout: 10_000 }
+    ).toBeGreaterThan(rowsBeforeFollowResumed)
+    await expect.poll(
+      () => logOutput.evaluate((element) => (
+        element.scrollHeight - element.clientHeight - element.scrollTop
+      )),
+      { timeout: 10_000 }
+    ).toBeLessThanOrEqual(2)
+    await capture(page, '07b-edge-log-follow-resumed.png')
+
     await page.keyboard.press('Escape')
     expect(browserErrors).toEqual([])
 
@@ -293,6 +336,13 @@ async function fetchDeviceCatalog(): Promise<{
       schemaVersion: string
       items: unknown[]
     }
+  }
+}
+
+async function appendHealthLogs(count: number): Promise<void> {
+  for (let index = 0; index < count; index += 1) {
+    const response = await fetch('http://127.0.0.1:18003/api/v1/health')
+    expect(response.ok).toBe(true)
   }
 }
 

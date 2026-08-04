@@ -10,25 +10,25 @@ const panelPath = fileURLToPath(new URL(
 const dagPath = fileURLToPath(new URL('./WorkflowDag.tsx', import.meta.url))
 
 describe('Published Workflow Catalog in the original Authoring panel', () => {
-  it('renders separate Action and child Workflow pickers from one union snapshot', () => {
+  it('renders separate Action and child Workflow palette groups from one union snapshot', () => {
     const source = readFileSync(panelPath, 'utf8')
-    const actionPicker = pickerLabel(source, 'Action 模板')
-    const workflowPicker = pickerLabel(source, '子工作流模板')
+    const actionPicker = paletteSection(source, '操作')
+    const workflowPicker = paletteSection(source, '子工作流')
 
     expect(actionPicker).toContain('actionTemplates.map')
     expect(actionPicker).toMatch(
-      /<option key=\{template\.uuid\} value=\{template\.uuid\}>[\s\S]*?\{template\.displayName\}/
+      /<button[\s\S]*?key=\{template\.uuid\}[\s\S]*?\{template\.displayName\}/
     )
     expect(workflowPicker).toContain('workflowTemplates.map')
     expect(workflowPicker).toMatch(
-      /<option key=\{template\.uuid\} value=\{template\.uuid\}>[\s\S]*?\{template\.displayName\}/
+      /<button[\s\S]*?key=\{template\.uuid\}[\s\S]*?\{template\.displayName\}/
     )
   })
 
   it('does not present the Published Workflow renderer owner as a device', () => {
-    const workflowPicker = pickerLabel(
+    const workflowPicker = paletteSection(
       readFileSync(panelPath, 'utf8'),
-      '子工作流模板'
+      '子工作流'
     )
 
     expect(workflowPicker).not.toMatch(
@@ -40,15 +40,14 @@ describe('Published Workflow Catalog in the original Authoring panel', () => {
 
   it('enables child selection through the Published boundary insertion seam', () => {
     const source = readFileSync(panelPath, 'utf8')
-    const workflowPicker = pickerLabel(source, '子工作流模板')
+    const workflowPicker = paletteSection(source, '子工作流')
 
     expect(source).toContain('createPublishedWorkflowNode')
-    expect(workflowPicker).not.toMatch(/<select[\s\S]*?\sdisabled(?:\s|>)/)
     expect(workflowPicker).toMatch(
       /disabled=\{[\s\S]*?busy[\s\S]*?canvasMutationEnabled[\s\S]*?graph[\s\S]*?\}/
     )
     expect(workflowPicker).toMatch(
-      /onChange=\{[\s\S]*?addPublishedWorkflowNode\(event\.target\.value\)/
+      /onClick=\{\(\) => addPublishedWorkflowNode\(template\.uuid\)\}/
     )
     expect(source).toContain('globalThis.crypto.randomUUID()')
   })
@@ -97,11 +96,13 @@ describe('Published Workflow Catalog in the original Authoring panel', () => {
   })
 })
 
-function pickerLabel(source: string, label: string): string {
-  const labels = [...source.matchAll(/<label\b[\s\S]*?<\/label>/g)]
-  const value = labels.find((match) => match[0].includes(label))?.[0]
-  expect(value, `${label} picker must remain in the original panel`).toBeTruthy()
-  return value ?? ''
+function paletteSection(source: string, label: string): string {
+  const start = source.indexOf(`<h3>${label}</h3>`)
+  expect(start, `${label} palette must remain in the original panel`)
+    .toBeGreaterThanOrEqual(0)
+  const end = source.indexOf('</section>', start)
+  expect(end).toBeGreaterThan(start)
+  return source.slice(start, end)
 }
 
 function functionBody(source: string, declaration: string): string {

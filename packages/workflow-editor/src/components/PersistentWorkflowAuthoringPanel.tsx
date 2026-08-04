@@ -7,6 +7,7 @@
  * FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
  */
 import { useCodeMirror, CodeEditor } from '@unilab/code-editor'
+import { SlideOverDrawer } from '@unilab/design-system'
 import type {
   WorkflowActionCatalogSnapshot,
   WorkflowNodeJob,
@@ -65,7 +66,10 @@ import {
   type MaterialSourceEditorProjection,
   type MaterialSourceSelectorUpdate
 } from '../utils/workflowMaterialSource'
-import { materialTraceAccent } from '../utils/workflowMaterialTrace'
+import {
+  materialTraceAccent,
+  projectMaterialTraces
+} from '../utils/workflowMaterialTrace'
 import {
   projectWorkflowTaskEvents,
   projectWorkflowTaskJob
@@ -105,6 +109,7 @@ import {
 import { WorkflowIoSummary } from './WorkflowIoSummary'
 import { WorkflowIoEditor } from './WorkflowIoEditor'
 import { WorkflowTaskInputForm } from './WorkflowTaskInputForm'
+import { WorkflowActionParameterDrawer } from './WorkflowActionParameterDrawer'
 import { useWorkflowSessionStore } from './WorkflowSessionProvider'
 import { WorkflowTraceViewer } from './WorkflowTraceViewer'
 import {
@@ -194,7 +199,10 @@ export function PersistentWorkflowAuthoringPanel({
   const [selectedNodeUuid, setSelectedNodeUuid] = useState<string | null>(null)
   const [selectedNodeName, setSelectedNodeName] = useState('')
   const [selectedNodeNameDirty, setSelectedNodeNameDirty] = useState(false)
-  const [message, setMessage] = useState('正在读取 OS Authoring 状态…')
+  const [actionParametersOpen, setActionParametersOpen] = useState(false)
+  const [workflowIoOpen, setWorkflowIoOpen] = useState(false)
+  const [nodePaletteOpen, setNodePaletteOpen] = useState(true)
+  const [message, setMessage] = useState('正在读取 OS 工作流编辑状态…')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [pendingMode, setPendingMode] = useState<WorkflowEditMode | null>(null)
@@ -259,7 +267,7 @@ export function PersistentWorkflowAuthoringPanel({
     onLoaded: ({ content, fileName }) => {
       const current = localState.current
       if (!current.aggregate) {
-        setError('Authoring aggregate 尚未就绪，无法导入文件')
+        setError('工作流编辑数据尚未就绪，无法导入文件')
         return
       }
       if (current.codeDirty || current.canvasDirty) {
@@ -276,7 +284,7 @@ export function PersistentWorkflowAuthoringPanel({
           )
           const generated = await generateCanvasPython(importedGraph)
           if (!generated.graph || !generated.normalized_python_source) {
-            throw new Error('OS 未返回完整 Authoring Graph/Python 投影')
+            throw new Error('OS 未返回完整的画布与 Python 数据')
           }
           setMode('canvas')
           setGraph(generated.graph)
@@ -317,7 +325,7 @@ export function PersistentWorkflowAuthoringPanel({
       setSelectedNodeNameDirty(false)
       setPendingPythonImport(fileName)
       setError(null)
-      setMessage(`${fileName} 已导入为未保存的 Python Draft`)
+      setMessage(`${fileName} 已导入为未保存的 Python 草稿`)
       localState.current = {
         ...current,
         mode: 'code',
@@ -338,6 +346,10 @@ export function PersistentWorkflowAuthoringPanel({
       ? projectPersistentAuthoringGraph(graph)
       : { nodes: [], links: [], steps: [], error: null },
     [graph]
+  )
+  const materialTraces = useMemo(
+    () => projectMaterialTraces(structure.nodes, structure.links),
+    [structure.links, structure.nodes]
   )
   const effectiveMaterialSourceCatalog = useMemo(() => {
     if (!materialSourceCatalog) return null
@@ -724,7 +736,7 @@ export function PersistentWorkflowAuthoringPanel({
       {
         onOpen: () => {
           setError((current) =>
-            current?.startsWith('Authoring 实时同步中断：')
+            current?.startsWith('工作流编辑实时同步中断：')
               ? null
               : current
           )
@@ -773,7 +785,7 @@ export function PersistentWorkflowAuthoringPanel({
       : current.canvasDirty
     if (!currentDirty) {
       remotePending.current = false
-      installAggregate(remote, '已同步远端 Authoring 状态')
+      installAggregate(remote, '已同步远端工作流编辑状态')
       return
     }
     remotePending.current = true
@@ -793,9 +805,9 @@ export function PersistentWorkflowAuthoringPanel({
     sourceGraph: WorkflowAuthoringGraph,
     authority: WorkflowAuthoringAggregate = aggregate as WorkflowAuthoringAggregate
   ): Promise<WorkflowAuthoringTransformResult> => {
-    if (!authority) throw new Error('Authoring aggregate 尚未就绪')
+    if (!authority) throw new Error('工作流编辑数据尚未就绪')
     const sourceUri = authority.draft?.source_uri
-    if (!sourceUri) throw new Error('当前 Workflow 尚未注册 package Python Draft')
+    if (!sourceUri) throw new Error('当前工作流尚未注册软件包中的 Python 草稿')
     const request = (graphValue: WorkflowAuthoringGraph) => queue.run(
       () => runtime.generateWorkflowAuthoringPython({
         workflow_uuid: workflowUuid,
@@ -833,7 +845,7 @@ export function PersistentWorkflowAuthoringPanel({
       })
       if (!decision) {
         if (catalogFailure) throw catalogFailure
-        throw new Error('Action Catalog mismatch 未产生新的 fingerprint')
+        throw new Error('操作目录已变化，但未返回新的版本标识')
       }
       graphValue = rehydrateTypedActionGraph(
         refreshedCatalog,
@@ -846,10 +858,10 @@ export function PersistentWorkflowAuthoringPanel({
         graph: graphValue,
         canvasDirty: true
       }
-      setMessage('Action Catalog 已更新；本地画布已按稳定 UUID 重新 hydrate')
+      setMessage('操作目录已更新；本地画布已按稳定 UUID 恢复')
       generated = await request(graphValue)
     }
-    if (!generated) throw new Error('OS 未返回 Authoring transform')
+    if (!generated) throw new Error('OS 未返回工作流转换结果')
     let blocking = generated.diagnostics.filter(
       (diagnostic) => diagnostic.severity === 'error'
     )
@@ -859,7 +871,7 @@ export function PersistentWorkflowAuthoringPanel({
         'OS 未返回完整规范化 Python'
       )
     }
-    if (!generated.graph) throw new Error('OS 未返回完整 Authoring Graph')
+    if (!generated.graph) throw new Error('OS 未返回完整画布数据')
     const validated = await queue.run(
       () => runtime.validateWorkflowAuthoring({
         workflow_uuid: workflowUuid,
@@ -879,7 +891,7 @@ export function PersistentWorkflowAuthoringPanel({
     ) {
       throw new Error(
         blocking.map((item) => `${item.code}: ${item.message}`).join('\n') ||
-        'OS 未通过 Candidate I/O Authoring validate'
+        'OS 未通过编辑中入参与出参校验'
       )
     }
     return validated
@@ -895,7 +907,7 @@ export function PersistentWorkflowAuthoringPanel({
   const enterMode = useCallback(async (
     nextMode: WorkflowEditMode
   ): Promise<void> => {
-    if (!aggregate) throw new Error('Authoring aggregate 尚未就绪')
+    if (!aggregate) throw new Error('工作流编辑数据尚未就绪')
     setPendingPythonImport(null)
     if (nextMode === 'canvas') {
       const sourceGraph = authoringProjection(aggregate).graph
@@ -1111,13 +1123,13 @@ export function PersistentWorkflowAuthoringPanel({
     remotePending.current = false
     setPendingPythonImport(null)
     setMode(remoteConflict.localMode)
-    installAggregate(remote, '已采用远端 Authoring 状态，本地修改已放弃')
+    installAggregate(remote, '已采用远端工作流编辑状态，本地修改已放弃')
   }
 
   const applyCandidate = (): void => {
     const candidateHash = aggregate?.candidate?.candidate_hash
     if (!candidateHash) {
-      setError('当前没有可应用的 server-owned Candidate')
+      setError('当前没有可应用的服务器候选版本')
       return
     }
     void run(async () => {
@@ -1157,7 +1169,7 @@ export function PersistentWorkflowAuthoringPanel({
           () => runtime.getWorkflowAuthoring(workflowUuid)
         )
         remotePending.current = false
-        installAggregate(refreshed, '预览已变化，已刷新最新 Authoring 状态')
+        installAggregate(refreshed, '预览已变化，已刷新最新工作流编辑状态')
         if (catalogRecovery) {
           const rehydrated = rehydrateTypedActionGraph(
             catalogRecovery.catalog,
@@ -1171,7 +1183,7 @@ export function PersistentWorkflowAuthoringPanel({
             canvasDirty: true
           }
           setMessage(
-            'Action Catalog 与 Authoring 已刷新；本地画布按稳定 UUID 重新 hydrate'
+            '操作目录与工作流编辑数据已刷新；本地画布已按稳定 UUID 恢复'
           )
         }
         throw applyError
@@ -1189,6 +1201,11 @@ export function PersistentWorkflowAuthoringPanel({
     setSelectedNodeUuid(nodeUuid)
     setSelectedNodeName(String(node.name || ''))
     setSelectedNodeNameDirty(false)
+    setActionParametersOpen(Boolean(
+      actionCatalog?.actionTemplates.some(
+        (template) => template.uuid === node.workflow_node_template_uuid
+      )
+    ))
     const sourceLine = codeSourceMap.find(
       (entry) => entry.workflow_node_uuid === nodeUuid
     )?.start_line
@@ -1200,8 +1217,8 @@ export function PersistentWorkflowAuthoringPanel({
     setDebugStartNodeId(removing ? null : nodeUuid)
     setMessage(
       removing
-        ? '已取消 Debugger 起始点'
-        : '已设置 Debugger 起始点；普通 Task 不携带此配置'
+        ? '已取消调试器起始点'
+        : '已设置调试器起始点；普通任务不携带此配置'
     )
   }
 
@@ -1215,8 +1232,8 @@ export function PersistentWorkflowAuthoringPanel({
     })
     setMessage(
       removing
-        ? '已取消 Debugger 断点'
-        : '已设置 Debugger 断点；普通 Task 不携带此配置'
+        ? '已取消调试器断点'
+        : '已设置调试器断点；普通任务不携带此配置'
     )
   }
 
@@ -1258,6 +1275,9 @@ export function PersistentWorkflowAuthoringPanel({
     selectedNodeUuid
   ])
   const selectedActionEditor = selectedActionProjection.editor
+  const selectedActionTemplate = actionCatalog?.actionTemplates.find(
+    (template) => template.uuid === selectedActionEditor?.templateUuid
+  ) ?? null
   const selectedNodeIsInternal = graph?.nodes.some((node) =>
     node.uuid === selectedNodeUuid &&
     node.parent_uuid !== undefined &&
@@ -1311,7 +1331,7 @@ export function PersistentWorkflowAuthoringPanel({
       })
       setGraph(next)
       setCanvasDirty(true)
-      setMessage('已从真实 Action template 创建节点；保存前将生成完整 Python')
+      setMessage('已从真实操作模板创建节点；保存前将生成完整 Python')
     } catch (createError) {
       setError(errorMessage(createError))
     }
@@ -1340,7 +1360,7 @@ export function PersistentWorkflowAuthoringPanel({
       setGraph(next)
       setCanvasDirty(true)
       setMessage(
-        '已插入 Published Workflow boundary；内部展开与 mapping 由 OS 生成'
+        '已插入已发布工作流边界；内部展开与映射由 OS 生成'
       )
     } catch (createError) {
       setError(errorMessage(createError))
@@ -1370,7 +1390,7 @@ export function PersistentWorkflowAuthoringPanel({
       setSelectedNodeUuid(nodeUuid)
       setSelectedNodeName(name)
       setSelectedNodeNameDirty(false)
-      setMessage('已添加 MaterialSource；请在 Properties 中完成 closed selector')
+      setMessage('已添加物料来源；请在属性面板中完成受控选择')
     } catch (createError) {
       setError(errorMessage(createError))
     }
@@ -1425,7 +1445,7 @@ export function PersistentWorkflowAuthoringPanel({
       setGraph(updated)
       setCanvasDirty(true)
       setError(null)
-      setMessage('MaterialSource selector 已更新；保存前将生成完整 Python')
+      setMessage('物料来源选择已更新；保存前将生成完整 Python')
     } catch (updateError) {
       setError(errorMessage(updateError))
     }
@@ -1442,7 +1462,7 @@ export function PersistentWorkflowAuthoringPanel({
       )
       setGraph(next)
       setCanvasDirty(true)
-      setMessage('Action 参数已更新；保存前将生成完整 Python')
+      setMessage('操作参数已更新；保存前将生成完整 Python')
     } catch (updateError) {
       setError(errorMessage(updateError))
     }
@@ -1474,7 +1494,7 @@ export function PersistentWorkflowAuthoringPanel({
       )
       setGraph(next)
       setCanvasDirty(true)
-      setMessage('Action 参数已绑定 Workflow input；保存前将生成完整 Python')
+      setMessage('操作参数已绑定工作流入参；保存前将生成完整 Python')
     } catch (bindingError) {
       setError(errorMessage(bindingError))
     }
@@ -1494,7 +1514,7 @@ export function PersistentWorkflowAuthoringPanel({
       let next: WorkflowAuthoringGraph
       if (sourceNode?.type === 'material_source') {
         if (!materialSourceCatalog) {
-          throw new Error('MaterialSource catalog 尚未就绪')
+          throw new Error('物料来源目录尚未就绪')
         }
         next = connectMaterialSourceToTypedActionEdge(
           actionCatalog,
@@ -1507,7 +1527,7 @@ export function PersistentWorkflowAuthoringPanel({
       }
       setGraph(next)
       setCanvasDirty(true)
-      setMessage('已用真实 Handle UUID 创建 Edge；保存前将生成完整 Python')
+      setMessage('已使用真实端口创建连线；保存前将生成完整 Python')
     } catch (connectError) {
       setError(errorMessage(connectError))
     }
@@ -1532,8 +1552,8 @@ export function PersistentWorkflowAuthoringPanel({
           )
         }
         setMessage(
-          `本次运行使用 Applied revision ${latest.workflow_revision}；` +
-          '未填写 default 字段将保持省略'
+          `本次运行使用已应用版本 ${latest.workflow_revision}；` +
+          '未填写且没有默认值的字段将保持省略'
         )
       } catch (openError) {
         setError(errorMessage(openError))
@@ -1592,6 +1612,7 @@ export function PersistentWorkflowAuthoringPanel({
   const appliedIo = aggregate
     ? workflowIoMetadata(aggregate.applied_graph)
     : null
+  const candidateIo = graph ? workflowIoMetadata(graph) : null
 
   return (
     <div
@@ -1606,7 +1627,7 @@ export function PersistentWorkflowAuthoringPanel({
         <div className="workflow__context">
           <div className="workflow__title-row">
             <span className="workflow__toolbar-label">工作流编写</span>
-            <span className="workflow__format">OS Authoring</span>
+            <span className="workflow__format">OS 工作流编辑</span>
           </div>
           <span
             className="workflow-runtime__message"
@@ -1643,17 +1664,6 @@ export function PersistentWorkflowAuthoringPanel({
         </div>
 
         <div className="workflow__toolbar-actions">
-          {onChooseWorkflow && (
-            <button
-              type="button"
-              className="workflow__upload"
-              disabled={busy || dirty}
-              title={dirty ? '请先保存当前可写表示' : undefined}
-              onClick={onChooseWorkflow}
-            >
-              工作流列表
-            </button>
-          )}
           <input
             ref={fileUpload.inputRef}
             className="workflow__file-input"
@@ -1662,58 +1672,85 @@ export function PersistentWorkflowAuthoringPanel({
             aria-label="选择工作流文件"
             onChange={fileUpload.handleFileChange}
           />
-          <button
-            type="button"
-            className="workflow__upload"
-            disabled={busy || dirty || !aggregate}
-            title={dirty ? '请先保存当前可写表示' : undefined}
-            onClick={() => fileUpload.openFilePicker('python')}
-          >
-            导入 Python
-          </button>
-          <button
-            type="button"
-            className="workflow__upload"
-            disabled={busy || dirty || !aggregate}
-            title={dirty ? '请先保存当前可写表示' : undefined}
-            onClick={() => fileUpload.openFilePicker('json')}
-          >
-            导入 JSON
-          </button>
-          <button
-            type="button"
-            className="workflow__upload"
-            disabled={busy || !aggregate}
-            onClick={saveDraft}
-          >
-            保存草稿
-          </button>
-          <button
-            type="button"
-            className="workflow-runtime__primary"
-            disabled={
-              busy ||
-              dirty ||
-              !aggregate?.candidate ||
-              materialSourceAuthorityBlocked
-            }
-            title={
-              dirty
-                ? '请先保存当前可写表示'
-                : materialSourceAuthorityBlocked
-                  ? 'MaterialSource 目录或引用已失效，请先刷新'
-                  : undefined
-            }
-            onClick={applyCandidate}
-          >
-            应用工作流
-          </button>
-          <span className="workflow__toolbar-divider" aria-hidden="true" />
           <div
-            className="workflow__mode-switch workflow__run-mode"
+            className="persistent-authoring__toolbar-group"
             role="group"
-            aria-label="Task 运行模式"
+            aria-label="工作流导航与导入"
           >
+            {onChooseWorkflow && (
+              <button
+                type="button"
+                className="workflow__upload"
+                disabled={busy || dirty}
+                title={dirty ? '请先保存当前可写表示' : undefined}
+                onClick={onChooseWorkflow}
+              >
+                工作流列表
+              </button>
+            )}
+            <button
+              type="button"
+              className="workflow__upload"
+              disabled={busy || dirty || !aggregate}
+              title={dirty ? '请先保存当前可写表示' : undefined}
+              onClick={() => fileUpload.openFilePicker('python')}
+            >
+              导入 Python
+            </button>
+            <button
+              type="button"
+              className="workflow__upload"
+              disabled={busy || dirty || !aggregate}
+              title={dirty ? '请先保存当前可写表示' : undefined}
+              onClick={() => fileUpload.openFilePicker('json')}
+            >
+              导入 JSON
+            </button>
+          </div>
+          <div
+            className="persistent-authoring__toolbar-group"
+            role="group"
+            aria-label="工作流保存与应用"
+          >
+            <button
+              type="button"
+              className="workflow__upload"
+              disabled={busy || !aggregate}
+              onClick={saveDraft}
+            >
+              保存草稿
+            </button>
+            <button
+              type="button"
+              className="workflow__upload persistent-authoring__apply"
+              disabled={
+                busy ||
+                dirty ||
+                !aggregate?.candidate ||
+                materialSourceAuthorityBlocked
+              }
+              title={
+                dirty
+                  ? '请先保存当前可写表示'
+                  : materialSourceAuthorityBlocked
+                    ? '物料来源目录或引用已失效，请先刷新'
+                    : undefined
+              }
+              onClick={applyCandidate}
+            >
+              应用工作流
+            </button>
+          </div>
+          <div
+            className="persistent-authoring__toolbar-group persistent-authoring__toolbar-run"
+            role="group"
+            aria-label="工作流任务运行"
+          >
+            <div
+              className="workflow__mode-switch workflow__run-mode"
+              role="group"
+              aria-label="任务运行模式"
+            >
             <button
               type="button"
               className={taskRunMode === 'normal' ? 'is-active' : ''}
@@ -1732,45 +1769,46 @@ export function PersistentWorkflowAuthoringPanel({
             >
               单步模式
             </button>
+            </div>
+            <button
+              type="button"
+              className="workflow-runtime__primary"
+              disabled={
+                busy ||
+                runtimeBusy ||
+                dirty ||
+                !aggregate
+              }
+              title={
+                dirty
+                  ? '请先保存当前可写表示'
+                  : aggregate
+                    ? `将使用已应用版本 ${aggregate.workflow_revision}`
+                    : '已应用工作流尚未就绪'
+              }
+              onClick={openTaskInputForm}
+            >
+              {runtimeBusy ? '处理中…' : '开始运行'}
+            </button>
           </div>
-          <button
-            type="button"
-            className="workflow-runtime__primary"
-            disabled={
-              busy ||
-              runtimeBusy ||
-              dirty ||
-              !aggregate
-            }
-            title={
-              dirty
-                ? '请先保存当前可写表示'
-                : aggregate
-                  ? `将使用 Applied revision ${aggregate.workflow_revision}`
-                  : 'Applied Workflow 尚未就绪'
-            }
-            onClick={openTaskInputForm}
-          >
-            {runtimeBusy ? '处理中…' : '开始运行'}
-          </button>
         </div>
       </header>
 
       {error && (
         <div className="workflow-runtime__problem" role="alert">
-          <strong>Authoring 操作失败</strong>
+          <strong>工作流编辑操作失败</strong>
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)}>关闭</button>
         </div>
       )}
       {taskRuntime.snapshot.error && (
         <div className="workflow-runtime__problem" role="alert">
-          <strong>Runtime 状态读取失败</strong>
+          <strong>运行状态读取失败</strong>
           <span>
             {taskRuntime.snapshot.projectionStale
               ? `上一次一致状态已保留：${taskRuntime.snapshot.error}`
               : taskRuntime.snapshot.feedbackStale
-                ? `已确认 Feedback 已保留：${taskRuntime.snapshot.error}`
+                ? `已确认的反馈事件已保留：${taskRuntime.snapshot.error}`
                 : taskRuntime.snapshot.error}
           </span>
           <button
@@ -1782,24 +1820,6 @@ export function PersistentWorkflowAuthoringPanel({
           </button>
           <button type="button" onClick={taskRuntime.clearError}>关闭</button>
         </div>
-      )}
-      {taskInputAuthority && taskInputForm && (
-        <WorkflowTaskInputForm
-          aggregate={taskInputAuthority}
-          form={taskInputForm}
-          busy={runtimeBusy}
-          problem={taskInputProblem}
-          resourceSlotOptions={resourceSlotOptions}
-          onChange={updateTaskInput}
-          onProblem={setTaskInputProblem}
-          onSubmit={submitTaskInput}
-          onCancel={() => {
-            setTaskInputAuthority(null)
-            setTaskInputForm(null)
-            setTaskInputProblem(null)
-            setResourceSlotOptions(undefined)
-          }}
-        />
       )}
       {diagnostics.length > 0 && (
         <section
@@ -1821,8 +1841,6 @@ export function PersistentWorkflowAuthoringPanel({
         </section>
       )}
 
-      {appliedIo && <WorkflowIoSummary io={appliedIo} />}
-
       <main className={[
         'persistent-authoring__workbench',
         mode === 'canvas' ? 'is-canvas-mode' : ''
@@ -1839,7 +1857,7 @@ export function PersistentWorkflowAuthoringPanel({
           <p className="persistent-authoring__authority-note">
             {mode === 'canvas'
               ? 'Python 是 OS 生成的只读投影'
-              : 'Python Draft 可编辑；保存使用 Draft hash 与 Workflow revision 双 CAS'}
+              : 'Python 草稿可编辑；保存时校验草稿哈希与工作流版本'}
           </p>
         </section>
 
@@ -1854,82 +1872,67 @@ export function PersistentWorkflowAuthoringPanel({
                 {structure.nodes.length} 个节点 · {structure.links.length} 条边
               </span>
             </div>
-            <p>
-              {projectionKind === 'candidate'
-                ? mode === 'code'
-                  ? '画布是 server-owned Candidate 的只读投影'
-                  : '画布编辑缓冲以 Candidate 为起点；保存时由 OS 生成完整 Python'
-                : mode === 'code'
-                  ? '当前显示 Applied Graph；暂无可应用候选'
-                  : '画布编辑缓冲以 Applied Graph 为起点；暂无可应用候选'}
-            </p>
-          </header>
-          {actionCatalog && (
-            <div className="persistent-authoring__template-pickers">
-              <label className="persistent-authoring__template-picker">
-                Action 模板
-                <select
-                  aria-label="Action 模板"
-                  value=""
-                  disabled={busy || !policy.canvasMutationEnabled || !graph}
-                  onChange={(event) => {
-                    if (event.target.value) addTypedActionNode(event.target.value)
-                  }}
+            <div className="persistent-authoring__stage-context">
+              <p>
+                {projectionKind === 'candidate'
+                  ? mode === 'code'
+                    ? '当前画布是服务器候选版本的只读预览'
+                    : '画布编辑区基于候选版本；保存时由 OS 生成完整 Python'
+                  : mode === 'code'
+                    ? '当前显示已应用版本；暂无待应用修改'
+                    : '画布编辑区基于已应用版本；暂无待应用修改'}
+              </p>
+              <div className="persistent-authoring__stage-tools">
+                {mode === 'canvas' && (
+                  <button
+                    type="button"
+                    className="persistent-authoring__panel-toggle"
+                    aria-controls="persistent-authoring-node-palette"
+                    aria-pressed={nodePaletteOpen}
+                    onClick={() => setNodePaletteOpen((open) => !open)}
+                  >
+                    {nodePaletteOpen ? '隐藏节点库' : '显示节点库'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="persistent-authoring__io-trigger"
+                  disabled={!graph}
+                  title={mode === 'code'
+                    ? '当前为只读预览；切换到画布模式后可配置'
+                    : '配置整个工作流的输入、输出与节点参数连接'}
+                  onClick={() => setWorkflowIoOpen(true)}
                 >
-                  <option value="">选择 typed @action…</option>
-                  {actionCatalog.actionTemplates.map((template) => (
-                    <option key={template.uuid} value={template.uuid}>
-                      {template.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="persistent-authoring__template-picker">
-                子工作流模板
-                <select
-                  aria-label="子工作流模板"
-                  value=""
-                  disabled={busy || !policy.canvasMutationEnabled || !graph}
-                  onChange={(event) => {
-                    if (event.target.value) {
-                      addPublishedWorkflowNode(event.target.value)
-                    }
-                  }}
-                >
-                  <option value="">选择已发布子工作流…</option>
-                  {actionCatalog.workflowTemplates.map((template) => (
-                    <option key={template.uuid} value={template.uuid}>
-                      {template.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  <span>输入与输出</span>
+                  <strong>
+                    输入 {candidateIo?.input_contract.parameters.length ?? 0}
+                    {' · '}输出 {candidateIo?.output_contract.outputs.length ?? 0}
+                  </strong>
+                </button>
+              </div>
             </div>
-          )}
-          {graph && mode === 'canvas' && (
-            <WorkflowIoEditor
-              graph={graph}
-              editable={!busy && policy.canvasMutationEnabled}
-              onGraphChange={(nextGraph) => {
-                setGraph(nextGraph)
-                setCanvasDirty(true)
-                setError(null)
-                setMessage(
-                  'Candidate I/O 已修改；保存前将由 OS 生成 canonical Python'
-                )
-              }}
-            />
-          )}
-          <div className="persistent-authoring__canvas-body">
+          </header>
+          <div className={[
+            'persistent-authoring__canvas-body',
+            mode === 'code' ? 'is-code-mode' : '',
+            mode === 'canvas' && !nodePaletteOpen
+              ? 'is-palette-closed'
+              : '',
+            mode === 'canvas' && selectedNodeUuid
+              ? 'has-inspector'
+              : ''
+          ].filter(Boolean).join(' ')}>
             {graph ? (
               <>
-                <aside
-                  className="persistent-authoring__palette"
-                  aria-label="工作流节点 palette"
-                >
+                {mode === 'canvas' && nodePaletteOpen && (
+                  <aside
+                    id="persistent-authoring-node-palette"
+                    className="persistent-authoring__palette"
+                    aria-label="工作流节点面板"
+                  >
                   <header>
                     <strong>节点</strong>
-                    <span>添加到 Candidate</span>
+                    <span>添加到画布编辑区</span>
                   </header>
                   <section>
                     <h3>物料</h3>
@@ -1946,12 +1949,12 @@ export function PersistentWorkflowAuthoringPanel({
                     >
                       <span aria-hidden="true">▱</span>
                       <span>
-                        <strong>MaterialSource</strong>
+                        <strong>物料来源</strong>
                         <small>OS 准入声明</small>
                       </span>
                     </button>
                     {materialSourceCatalogLoading && (
-                      <p role="status">正在读取 Material / Site 目录…</p>
+                      <p role="status">正在读取物料与库位目录…</p>
                     )}
                     {materialSourceCatalogError && (
                       <div className="persistent-authoring__palette-problem">
@@ -1988,7 +1991,33 @@ export function PersistentWorkflowAuthoringPanel({
                       ))}
                     </div>
                   </section>
-                </aside>
+                  {Boolean(actionCatalog?.workflowTemplates.length) && (
+                    <section>
+                      <h3>子工作流</h3>
+                      <div className="persistent-authoring__palette-actions">
+                        {actionCatalog?.workflowTemplates.map((template) => (
+                          <button
+                            type="button"
+                            key={template.uuid}
+                            disabled={
+                              busy ||
+                              !policy.canvasMutationEnabled ||
+                              !graph
+                            }
+                            onClick={() => addPublishedWorkflowNode(template.uuid)}
+                          >
+                            <span aria-hidden="true">▣</span>
+                            <span>
+                              <strong>{template.displayName}</strong>
+                              <small>{template.source.symbol}</small>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                  </aside>
+                )}
                 <div className="persistent-authoring__graph-stage">
                   <WorkflowDag
                     nodes={structure.nodes}
@@ -2007,30 +2036,28 @@ export function PersistentWorkflowAuthoringPanel({
                     onConnectHandles={connectTypedHandles}
                   />
                 </div>
-                <aside
-                  className={[
-                    'persistent-authoring__node-editor',
-                    selectedNodeUuid ? '' : 'is-empty'
-                  ].filter(Boolean).join(' ')}
-                  aria-label="画布节点编辑器"
-                >
-                  <header className="persistent-authoring__inspector-heading">
-                    <span>
-                      <span>Properties</span>
-                      <strong>
-                        {selectedIsMaterialSource ? 'MaterialSource' : '节点属性'}
-                      </strong>
-                    </span>
-                    {selectedNodeUuid && (
+                {mode === 'canvas' && selectedNodeUuid && (
+                  <aside
+                    className="persistent-authoring__node-editor"
+                    aria-label="画布节点编辑器"
+                  >
+                    <header className="persistent-authoring__inspector-heading">
+                      <span>
+                        <span>属性</span>
+                        <strong>
+                          {selectedIsMaterialSource ? '物料来源' : '节点属性'}
+                        </strong>
+                      </span>
                       <button
                         type="button"
-                        aria-label="关闭 Properties"
-                        title="关闭 Properties"
+                        aria-label="关闭属性面板"
+                        title="关闭属性面板"
                         onClick={() => {
                           const nodeUuid = selectedNodeUuid
                           setSelectedNodeUuid(null)
                           setSelectedNodeName('')
                           setSelectedNodeNameDirty(false)
+                          setActionParametersOpen(false)
                           requestAnimationFrame(() => {
                             document.querySelector<HTMLElement>(
                               `.react-flow__node[data-id="${nodeUuid}"]`
@@ -2040,31 +2067,33 @@ export function PersistentWorkflowAuthoringPanel({
                       >
                         ×
                       </button>
-                    )}
-                  </header>
-                  {selectedNodeUuid ? (
-                    <>
-                      <label>
-                        节点名称
-                        <input
-                          value={selectedNodeName}
-                          disabled={
-                            busy || !policy.canvasMutationEnabled ||
-                            selectedNodeIsInternal
-                          }
-                          aria-describedby="persistent-node-name-help"
-                          onChange={(event) => {
-                            setSelectedNodeName(event.target.value)
-                            setSelectedNodeNameDirty(true)
-                            setMessage(
-                              '画布缓冲已修改；保存前将生成完整 Python 差异'
-                            )
-                          }}
-                        />
-                      </label>
+                    </header>
+                    <label>
+                      节点名称
+                      <input
+                        value={selectedNodeName}
+                        disabled={
+                          busy || !policy.canvasMutationEnabled ||
+                          selectedNodeIsInternal
+                        }
+                        aria-describedby="persistent-node-name-help"
+                        onChange={(event) => {
+                          setSelectedNodeName(event.target.value)
+                          setSelectedNodeNameDirty(true)
+                          setMessage(
+                            '画布缓冲已修改；保存前将生成完整 Python 差异'
+                          )
+                        }}
+                      />
+                    </label>
                       {selectedMaterialSourceEditor && (
                         <MaterialSourceInspector
                           editor={selectedMaterialSourceEditor}
+                          accent={
+                            materialTraces.materialSourceAccents.get(
+                              selectedMaterialSourceEditor.nodeUuid
+                            )
+                          }
                           editable={
                             !busy && policy.canvasMutationEnabled &&
                             !materialSourceCatalogLoading &&
@@ -2082,240 +2111,51 @@ export function PersistentWorkflowAuthoringPanel({
                       )}
                       {selectedMaterialSourceProjection.error && (
                         <p role="alert">
-                          MaterialSource selector 投影失败：
+                          物料来源选择读取失败：
                           {selectedMaterialSourceProjection.error}
                         </p>
                       )}
                       {selectedActionEditor && (
                         <section
-                          className="persistent-authoring__action-fields"
-                          aria-label="Action 参数"
+                          className="persistent-authoring__action-summary"
+                          aria-label="操作参数摘要"
                         >
-                          <strong>Action 参数</strong>
-                          {selectedActionEditor.fields.map((field) => (
-                            <div
-                              key={field.handleUuid}
-                              data-workflow-handle-template-uuid={
-                                field.handleUuid
-                              }
-                            >
-                              <label>
-                                参数来源
-                                <select
-                                  aria-label={`${field.displayName} 参数来源`}
-                                  value={field.providerKind === 'workflow_input'
-                                    ? `workflow:${field.workflowInput}`
-                                    : field.providerKind}
-                                  disabled={
-                                    busy || !policy.canvasMutationEnabled
-                                  }
-                                  onChange={(event) => {
-                                    const provider = event.target.value
-                                    if (provider.startsWith('workflow:')) {
-                                      bindTypedFieldToWorkflowInput(
-                                        field.handleUuid,
-                                        provider.slice('workflow:'.length)
-                                      )
-                                    } else if (
-                                      provider === 'literal' ||
-                                      provider === 'missing'
-                                    ) {
-                                      updateTypedField(
-                                        field.handleUuid,
-                                        undefined
-                                      )
-                                    }
-                                  }}
-                                >
-                                  <option value="missing">未提供</option>
-                                  <option value="literal">
-                                    字面量 / 明确引用
-                                  </option>
-                                  {field.workflowInputOptions.map((name) => (
-                                    <option key={name} value={`workflow:${name}`}>
-                                      Workflow input · {name}
-                                    </option>
-                                  ))}
-                                  <option
-                                    value="upstream_output"
-                                    disabled={field.providerKind !==
-                                      'upstream_output'}
-                                  >
-                                    上游 output · 通过 Handle 连线
-                                  </option>
-                                </select>
-                              </label>
-                              <label>
-                                {field.displayName}
-                                {field.editorControl === 'material_port' ? (
-                                  <input
-                                    key={`${field.handleUuid}:${typedFieldInputValue(field)}`}
-                                    aria-label={
-                                      `${field.displayName} 明确 Material reference（JSON）`
-                                    }
-                                    defaultValue={typedFieldInputValue(field)}
-                                    placeholder="明确 Material reference（JSON）"
-                                    disabled={
-                                      busy || !policy.canvasMutationEnabled ||
-                                      field.providerKind === 'workflow_input' ||
-                                      field.providerKind === 'upstream_output'
-                                    }
-                                    onBlur={(event) => updateTypedFieldFromRaw(
-                                      field,
-                                      event.target.value
-                                    )}
-                                  />
-                                ) : field.enumValues ? (
-                                  <select
-                                    value={typedFieldInputValue(field)}
-                                    disabled={
-                                      busy || !policy.canvasMutationEnabled
-                                    }
-                                    onChange={(event) => updateTypedField(
-                                      field.handleUuid,
-                                      parseTypedFieldValue(
-                                        field,
-                                        event.target.value
-                                      )
-                                    )}
-                                  >
-                                    <option value="">未设置</option>
-                                    {field.enumValues.map((value) => (
-                                      <option
-                                        key={JSON.stringify(value)}
-                                        value={JSON.stringify(value)}
-                                      >
-                                        {String(value)}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    key={`${field.handleUuid}:${typedFieldInputValue(field)}`}
-                                    defaultValue={typedFieldInputValue(field)}
-                                    placeholder={field.hasDefault
-                                      ? `默认 ${JSON.stringify(
-                                          field.defaultValue
-                                        )}`
-                                      : undefined}
-                                    disabled={
-                                      busy || !policy.canvasMutationEnabled
-                                    }
-                                    onBlur={(event) => updateTypedFieldFromRaw(
-                                      field,
-                                      event.target.value
-                                    )}
-                                  />
-                                )}
-                              </label>
-                              <div>
-                                <button
-                                  type="button"
-                                  disabled={
-                                    busy || !policy.canvasMutationEnabled
-                                  }
-                                  onClick={() => updateTypedField(
-                                    field.handleUuid,
-                                    undefined
-                                  )}
-                                >
-                                  清除值
-                                </button>
-                                {field.nullable && (
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      busy || !policy.canvasMutationEnabled
-                                    }
-                                    onClick={() => updateTypedField(
-                                      field.handleUuid,
-                                      null
-                                    )}
-                                  >
-                                    设为 null
-                                  </button>
-                                )}
-                              </div>
-                              <small>
-                                <span>{field.required ? '必填' : '选填'}</span>
-                                <span>
-                                  {field.hasDefault ? '默认值' : '无默认值'}
-                                </span>
-                                <span>
-                                  {field.nullable ? '允许空值' : '不可为空'}
-                                </span>
-                              </small>
-                              {selectedActionEditor.diagnostics.some(
-                                (diagnostic) => diagnostic.handleUuid ===
-                                  field.handleUuid
-                              ) && (
-                                <ul aria-label={
-                                  `Action 参数诊断 ${field.handleUuid}`
-                                }>
-                                  {selectedActionEditor.diagnostics
-                                    .filter((diagnostic) =>
-                                      diagnostic.handleUuid === field.handleUuid
-                                    )
-                                    .map((diagnostic, index) => (
-                                      <li key={`${diagnostic.code}:${index}`}>
-                                        {diagnostic.message}
-                                      </li>
-                                    ))}
-                                </ul>
-                              )}
-                            </div>
-                          ))}
-                          {selectedActionEditor.diagnostics.some(
-                            (diagnostic) => !diagnostic.handleUuid
-                          ) && (
-                            <ul aria-label="Action 字段诊断">
-                              {selectedActionEditor.diagnostics
-                                .filter((diagnostic) =>
-                                  !diagnostic.handleUuid
-                                )
-                                .map((diagnostic, index) => (
-                                  <li key={`${diagnostic.code}:${index}`}>
-                                    {diagnostic.message}
-                                  </li>
-                                ))}
-                            </ul>
-                          )}
-                          <div aria-label="Action Handle 端口">
-                            {actionCatalog?.actionTemplates.find(
-                              (template) => template.uuid ===
-                                selectedActionEditor.templateUuid
-                            )?.handles.map((handle) => (
-                              <span
-                                key={handle.uuid}
-                                data-workflow-handle-template-uuid={handle.uuid}
-                                title={`${handle.ioType}:${handle.handleKey}`}
-                              >
-                                {handle.displayName}
-                              </span>
-                            ))}
+                          <div>
+                            <strong>操作参数</strong>
+                            <span>
+                              输入 {selectedActionEditor.fields.length}
+                              {' · '}输出 {selectedActionTemplate?.handles.filter(
+                                (handle) => handle.ioType === 'source'
+                              ).length ?? 0}
+                            </span>
                           </div>
+                          <p>
+                            点击下方按钮编辑输入，并查看输出端口与连接关系。
+                          </p>
+                          <button
+                            type="button"
+                            className="workflow-runtime__primary"
+                            onClick={() => setActionParametersOpen(true)}
+                          >
+                            配置节点参数
+                          </button>
                         </section>
                       )}
                       {selectedActionProjection.error && (
                         <p role="alert">
-                          Action template/Handle 投影失败：
+                          操作模板或端口读取失败：
                           {selectedActionProjection.error}
                         </p>
                       )}
-                    </>
-                  ) : (
-                    <p>选择一个节点后可编辑可由 Python 表示的属性。</p>
-                  )}
-                  <p id="persistent-node-name-help">
-                    {mode === 'canvas'
-                      ? '名称修改属于画布缓冲，接受完整 Python 差异后才会持久化。'
-                      : '代码模式下节点属性只读。'}
-                  </p>
-                </aside>
+                    <p id="persistent-node-name-help">
+                      名称修改属于画布缓冲，接受完整 Python 差异后才会持久化。
+                    </p>
+                  </aside>
+                )}
               </>
             ) : (
               <p className="persistent-authoring__empty">
-                正在等待 OS Authoring aggregate…
+                正在读取 OS 工作流编辑数据…
               </p>
             )}
           </div>
@@ -2324,23 +2164,23 @@ export function PersistentWorkflowAuthoringPanel({
 
       <section
         className="persistent-authoring__runtime"
-        aria-label="Workflow Task 运行控制"
+        aria-label="工作流任务运行控制"
       >
         <WorkflowDebugger
           debugStatus={workflowTaskVisualStatus(task)}
           runStatus={task?.status || 'draft'}
           heading="工作流运行"
-          subtitle="OS Task 控制"
+          subtitle="OS 任务控制"
           statusText={workflowTaskControlStatusLabel(task)}
           runStatusText={workflowTaskStatusLabel(task?.status)}
-          runStatusPrefix="Task"
+          runStatusPrefix="任务"
           metadata={workflowTaskMetadata(
             task,
             taskRuntime.snapshot.lastCommand,
             taskRuntime.snapshot
           )}
-          actionGroupLabel="Task 执行控制"
-          dangerGroupLabel="Task 取消控制"
+          actionGroupLabel="任务执行控制"
+          dangerGroupLabel="任务取消控制"
           commandDataAttribute="runtime"
           controls={taskControls}
           traceAvailable={Boolean(traceRuntime)}
@@ -2363,8 +2203,8 @@ export function PersistentWorkflowAuthoringPanel({
           selectedNodeId={selectedJobNodeUuid}
           pausedBeforeNodeId={null}
           title="运行输出"
-          countLabel="个 Job 已结束"
-          nodesTabLabel="Job 状态"
+          countLabel="个节点任务已结束"
+          nodesTabLabel="节点任务状态"
           onExpandedChange={setOutputExpanded}
           onTabChange={setOutputTab}
           onNodeSelect={setSelectedJobNodeUuid}
@@ -2380,6 +2220,153 @@ export function PersistentWorkflowAuthoringPanel({
           onClose={() => setTraceViewerOpen(false)}
         />
       )}
+
+      <WorkflowActionParameterDrawer
+        open={Boolean(actionParametersOpen && selectedActionEditor)}
+        nodeName={selectedNodeName}
+        templateName={selectedActionTemplate?.displayName ?? ''}
+        editor={selectedActionEditor}
+        outputHandles={selectedActionTemplate?.handles.filter(
+          (handle) => handle.ioType === 'source'
+        ) ?? []}
+        graph={graph}
+        editable={!busy && policy.canvasMutationEnabled}
+        onClose={() => setActionParametersOpen(false)}
+        onProviderChange={(field, provider) => {
+          if (provider.startsWith('workflow:')) {
+            bindTypedFieldToWorkflowInput(
+              field.handleUuid,
+              provider.slice('workflow:'.length)
+            )
+          } else if (provider === 'literal' || provider === 'missing') {
+            updateTypedField(field.handleUuid, undefined)
+          }
+        }}
+        onLiteralBlur={updateTypedFieldFromRaw}
+        onClear={(handleUuid) => updateTypedField(handleUuid, undefined)}
+        onNull={(handleUuid) => updateTypedField(handleUuid, null)}
+      />
+
+      <SlideOverDrawer
+        open={workflowIoOpen}
+        size="medium"
+        ariaLabel="工作流输入与输出配置"
+        title={(
+          <span className="persistent-authoring__drawer-title">
+            <span>工作流设置</span>
+            <strong>设置工作流输入与输出</strong>
+          </span>
+        )}
+        onClose={() => setWorkflowIoOpen(false)}
+        footer={(
+          <div className="persistent-authoring__drawer-footer">
+            <span>
+              {mode === 'canvas'
+                ? '修改暂存在画布编辑区，保存草稿后生效。'
+                : '代码模式下仅预览；切换到画布模式后可配置。'}
+            </span>
+            <button type="button" onClick={() => setWorkflowIoOpen(false)}>
+              完成
+            </button>
+          </div>
+        )}
+      >
+        <div className="persistent-authoring__io-drawer">
+          <header>
+            <strong>整个工作流的输入与输出</strong>
+            <p>
+              输入可提供给任意节点；输出可连接节点结果，也可直接返回输入值。
+            </p>
+          </header>
+          {appliedIo && (
+            <details className="persistent-authoring__applied-io">
+              <summary>
+                已应用版本 {aggregate?.workflow_revision}
+                <span>
+                  输入 {appliedIo.input_contract.parameters.length}
+                  {' · '}输出 {appliedIo.output_contract.outputs.length}
+                </span>
+              </summary>
+              <WorkflowIoSummary io={appliedIo} />
+            </details>
+          )}
+          {graph ? (
+            <WorkflowIoEditor
+              graph={graph}
+              editable={!busy && policy.canvasMutationEnabled}
+              onGraphChange={(nextGraph) => {
+                setGraph(nextGraph)
+                setCanvasDirty(true)
+                setError(null)
+                setMessage(
+                  '工作流输入与输出已修改；保存前将由 OS 生成规范 Python'
+                )
+              }}
+            />
+          ) : (
+            <p className="persistent-authoring__parameter-empty">
+              正在读取 OS 工作流编辑数据…
+            </p>
+          )}
+        </div>
+      </SlideOverDrawer>
+
+      <SlideOverDrawer
+        open={Boolean(taskInputAuthority && taskInputForm)}
+        size="medium"
+        ariaLabel="本次工作流运行参数"
+        title={(
+          <span className="persistent-authoring__drawer-title">
+            <span>本次运行</span>
+            <strong>确认运行参数</strong>
+          </span>
+        )}
+        onClose={() => {
+          if (runtimeBusy) return
+          setTaskInputAuthority(null)
+          setTaskInputForm(null)
+          setTaskInputProblem(null)
+          setResourceSlotOptions(undefined)
+        }}
+      >
+        {taskInputAuthority && taskInputForm && (
+          <div className="persistent-authoring__task-input-drawer">
+            {workflowIoMetadata(taskInputAuthority.applied_graph) && (
+              <details className="persistent-authoring__task-io-summary">
+                <summary>
+                  查看工作流输入与输出
+                  <span>
+                    输入 {workflowIoMetadata(taskInputAuthority.applied_graph)!
+                      .input_contract.parameters.length}
+                    {' · '}输出 {workflowIoMetadata(
+                      taskInputAuthority.applied_graph
+                    )!.output_contract.outputs.length}
+                  </span>
+                </summary>
+                <WorkflowIoSummary
+                  io={workflowIoMetadata(taskInputAuthority.applied_graph)!}
+                />
+              </details>
+            )}
+            <WorkflowTaskInputForm
+              aggregate={taskInputAuthority}
+              form={taskInputForm}
+              busy={runtimeBusy}
+              problem={taskInputProblem}
+              resourceSlotOptions={resourceSlotOptions}
+              onChange={updateTaskInput}
+              onProblem={setTaskInputProblem}
+              onSubmit={submitTaskInput}
+              onCancel={() => {
+                setTaskInputAuthority(null)
+                setTaskInputForm(null)
+                setTaskInputProblem(null)
+                setResourceSlotOptions(undefined)
+              }}
+            />
+          </div>
+        )}
+      </SlideOverDrawer>
 
       {pendingMode && (
         <div className="workflow-save-prompt">
@@ -2516,6 +2503,7 @@ export function PersistentWorkflowAuthoringPanel({
 
 export interface MaterialSourceInspectorProps {
   editor: MaterialSourceEditorProjection
+  accent?: string
   editable: boolean
   status: string
   diagnostics: readonly WorkflowAuthoringDiagnostic[]
@@ -2524,12 +2512,13 @@ export interface MaterialSourceInspectorProps {
 
 export function MaterialSourceInspector({
   editor,
+  accent,
   editable,
   status,
   diagnostics,
   onChange
 }: MaterialSourceInspectorProps): React.JSX.Element {
-  const accent = materialTraceAccent(editor.nodeUuid)
+  const resolvedAccent = accent ?? materialTraceAccent(editor.nodeUuid)
   const [siteQuery, setSiteQuery] = useState('')
   const visibleSites = useMemo(
     () => filterMaterialSourceSites(editor.sites, siteQuery),
@@ -2539,9 +2528,9 @@ export function MaterialSourceInspector({
   return (
     <section
       className="persistent-authoring__material-source-inspector"
-      aria-label="MaterialSource Properties"
+      aria-label="物料来源属性"
       data-material-source-node-uuid={editor.nodeUuid}
-      style={{ '--wf-material-accent': accent } as React.CSSProperties}
+      style={{ '--wf-material-accent': resolvedAccent } as React.CSSProperties}
     >
       <div className="persistent-authoring__material-identity">
         <span className="persistent-authoring__material-hex" aria-hidden="true">
@@ -2578,9 +2567,9 @@ export function MaterialSourceInspector({
           </select>
         </label>
         <label>
-          ResourceTemplate
+          资源模板
           <select
-            aria-label="ResourceTemplate"
+            aria-label="资源模板"
             value={editor.resourceTemplateUuid}
             disabled={!editable}
             onChange={(event) => onChange({
@@ -2627,9 +2616,9 @@ export function MaterialSourceInspector({
           </button>
         </div>
         <label>
-          Mount
+          挂载点
           <select
-            aria-label="Mount"
+            aria-label="挂载点"
             value={editor.mountUuid}
             disabled={!editable}
             onChange={(event) => onChange({ mountUuid: event.target.value })}
@@ -2643,9 +2632,9 @@ export function MaterialSourceInspector({
         </label>
         {editor.mode === 'existing' && (
           <label>
-            Fixed Material
+            固定物料
             <select
-              aria-label="Fixed Material"
+              aria-label="固定物料"
               value={editor.fixedMaterialUuid ?? ''}
               disabled={!editable}
               onChange={(event) => onChange({
@@ -2666,9 +2655,9 @@ export function MaterialSourceInspector({
       <fieldset>
         <legend>库位范围</legend>
         <label>
-          Site scope
+          库位范围
           <select
-            aria-label="Site scope"
+            aria-label="库位范围"
             value={editor.siteScope}
             disabled={!editable}
             onChange={(event) => {
@@ -2683,20 +2672,20 @@ export function MaterialSourceInspector({
               })
             }}
           >
-            <option value="all">全部兼容 direct Sites</option>
+            <option value="all">全部兼容的直接库位</option>
             <option value="fixed" disabled={editor.sites.length === 0}>
-              固定 Site
+              固定库位
             </option>
             <option value="candidates" disabled={editor.sites.length === 0}>
-              候选 Site 集
+              候选库位集
             </option>
           </select>
         </label>
         {editor.siteScope === 'fixed' && (
           <label>
-            固定 Site
+            固定库位
             <select
-              aria-label="固定 Site"
+              aria-label="固定库位"
               value={editor.fixedSiteUuid ?? ''}
               disabled={!editable}
               onChange={(event) => onChange({
@@ -2714,10 +2703,10 @@ export function MaterialSourceInspector({
         {editor.siteScope === 'candidates' && (
           <div className="persistent-authoring__candidate-site-selector">
             <label>
-              搜索候选 Site
+              搜索候选库位
               <input
                 type="search"
-                aria-label="搜索候选 Site"
+                aria-label="搜索候选库位"
                 value={siteQuery}
                 placeholder="名称、顺序或 UUID"
                 onChange={(event) => setSiteQuery(event.target.value)}
@@ -2730,7 +2719,7 @@ export function MaterialSourceInspector({
             <div
               className="persistent-authoring__candidate-sites"
               role="group"
-              aria-label="候选 Sites"
+              aria-label="候选库位"
             >
               {visibleSites.map((site) => {
                 const checked = editor.candidateSiteUuids.includes(site.uuid)
@@ -2753,7 +2742,7 @@ export function MaterialSourceInspector({
                     <span>
                       {site.name}
                       <small>
-                        Site #{site.sortOrder} · {' '}
+                        库位 #{site.sortOrder} · {' '}
                         {site.occupiedMaterialUuid ? '已占用' : '空闲'}
                       </small>
                     </span>
@@ -2761,13 +2750,13 @@ export function MaterialSourceInspector({
                 )
               })}
               {visibleSites.length === 0 && (
-                <p role="status">没有匹配的候选 Site</p>
+                <p role="status">没有匹配的候选库位</p>
               )}
             </div>
           </div>
         )}
         {editor.sites.length === 0 && (
-          <p role="status">当前 Mount 没有兼容 direct Site；OS Preview 将给出诊断。</p>
+          <p role="status">当前挂载点没有兼容的直接库位；OS 预览将给出诊断。</p>
         )}
       </fieldset>
 
@@ -2790,7 +2779,7 @@ export function MaterialSourceInspector({
         </ul>
       )}
       <p className="persistent-authoring__selector-authority">
-        仅保存稳定 UUID；Site 按业务顺序展示，候选集按 UUID 规范持久化。
+        仅保存稳定 UUID；库位按业务顺序展示，候选集按 UUID 规范保存。
       </p>
     </section>
   )
@@ -2885,13 +2874,6 @@ function rebaseGraphIdentity(
 
 function errorMessage(value: unknown): string {
   return value instanceof Error ? value.message : String(value)
-}
-
-function typedFieldInputValue(field: TypedActionFieldProjection): string {
-  if (field.valueState === 'missing') return ''
-  if (field.enumValues) return JSON.stringify(field.value)
-  if (typeof field.value === 'string') return field.value
-  return JSON.stringify(field.value)
 }
 
 function parseTypedFieldValue(
@@ -3008,7 +2990,7 @@ function workflowTaskMetadata(
 ): ReadonlyArray<{ label: string; value: string; title?: string }> {
   return [
     {
-      label: 'Task',
+      label: '任务',
       value: task ? task.uuid.slice(-8) : '尚未创建',
       title: task?.uuid
     },
@@ -3035,7 +3017,7 @@ function workflowTaskMetadata(
       value: snapshot.projectionStale
         ? '保留的上一版本'
         : snapshot.feedbackStale
-          ? 'Feedback 待补读'
+          ? '反馈事件待补读'
           : '已确认'
     }
   ]

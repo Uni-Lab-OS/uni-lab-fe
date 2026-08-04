@@ -207,15 +207,15 @@ test('Applied scalar Task form preserves explicit falsy/null and leaves OS defau
   await start.click()
 
   const form = page.getByRole('region', {
-    name: 'Workflow Task 输入表单'
+    name: '工作流运行输入表单'
   })
   await expect(form).toBeVisible()
   await expect(form).toContainText(
-    `使用 Applied revision ${applied.workflow_revision}`
+    `使用已应用版本 ${applied.workflow_revision}`
   )
   await expect(form.locator(
     '[data-workflow-task-input-name="attempts"]'
-  )).toContainText(/default[^0-9]*3/i)
+  )).toContainText(/默认值[^0-9]*3/i)
 
   await chooseExplicitValue(form, 'label')
   await form.getByRole('textbox', { name: 'label 明确值' }).fill('')
@@ -247,7 +247,7 @@ test('Applied scalar Task form preserves explicit falsy/null and leaves OS defau
     new URL(response.url()).pathname === '/api/v1/workflow-tasks'
   )
   await form.getByRole('button', {
-    name: '确认并创建 Task',
+    name: '使用以上参数运行',
     exact: true
   }).click()
   const created = await createdResponse
@@ -388,11 +388,11 @@ test('Applied ResourceSlot Task form selects a real Material and OS freezes its 
   await page.getByRole('button', { name: '开始运行', exact: true }).click()
 
   const form = page.getByRole('region', {
-    name: 'Workflow Task 输入表单'
+    name: '工作流运行输入表单'
   })
   await expect(form).toBeVisible()
   await expect(form).toContainText(
-    `使用 Applied revision ${applied.workflow_revision}`
+    `使用已应用版本 ${applied.workflow_revision}`
   )
   const inputState = form.getByRole('combobox', {
     name: 'sample 输入状态'
@@ -400,7 +400,7 @@ test('Applied ResourceSlot Task form selects a real Material and OS freezes its 
   await expect(inputState).toBeEnabled({ timeout: 10_000 })
   await inputState.selectOption('value')
   const materialSelector = form.getByRole('combobox', {
-    name: 'sample ResourceSlot'
+    name: 'sample 资源位'
   })
   await expect(materialSelector).toContainText('I1 ResourceSlot sample')
   await materialSelector.selectOption(os.resourceSlotMaterialUuid)
@@ -410,7 +410,7 @@ test('Applied ResourceSlot Task form selects a real Material and OS freezes its 
     new URL(response.url()).pathname === '/api/v1/workflow-tasks'
   )
   await form.getByRole('button', {
-    name: '确认并创建 Task',
+    name: '使用以上参数运行',
     exact: true
   }).click()
   const created = await createdResponse
@@ -565,7 +565,7 @@ for (const scenario of [
       exact: true
     }).click()
     const form = page.getByRole('region', {
-      name: 'Workflow Task 输入表单'
+      name: '工作流运行输入表单'
     })
     await expect(form).toBeVisible()
     const inputState = form.getByRole('combobox', {
@@ -574,7 +574,7 @@ for (const scenario of [
     await expect(inputState).toBeEnabled({ timeout: 10_000 })
     await inputState.selectOption('value')
     const materialSelector = form.getByRole('combobox', {
-      name: 'sample ResourceSlot'
+      name: 'sample 资源位'
     })
     await expect(materialSelector).toContainText('I1 ResourceSlot sample')
     await materialSelector.selectOption(os.resourceSlotMaterialUuid)
@@ -587,7 +587,7 @@ for (const scenario of [
         new URL(response.url()).pathname === '/api/v1/workflow-tasks'
       )
       await form.getByRole('button', {
-        name: '确认并创建 Task',
+        name: '使用以上参数运行',
         exact: true
       }).click()
       const rejected = await rejectedResponse
@@ -614,7 +614,7 @@ for (const scenario of [
       )
       await expect(alert).not.toContainText(/已删除|已不存在|已占用|类型不兼容/)
       await expect(form.getByRole('button', {
-        name: '确认并创建 Task',
+        name: '使用以上参数运行',
         exact: true
       })).toBeEnabled()
       expect(await workflowTaskCount(os.resourceSlotInputWorkflowUuid))
@@ -713,16 +713,18 @@ test('Candidate Workflow I/O survives real OS apply and result-record round-trip
     name: '画布模式',
     exact: true
   }).click()
+  await page.getByRole('button', { name: /输入与输出/ }).click()
 
   const ioEditor = page.getByRole('region', {
-    name: 'Workflow I/O 编辑器'
+    name: '工作流输入与输出编辑器'
   })
   await expect(ioEditor).toBeVisible()
   const cyclesInput = ioEditor.locator(
     '[data-workflow-input-name="cycles"]'
   )
+  await cyclesInput.locator('summary').click()
   const cyclesTarget = cyclesInput.getByRole('combobox', {
-    name: 'Action input 绑定'
+    name: '节点入参绑定'
   })
   const cyclesTargetOption = cyclesTarget.locator(
     `option[data-workflow-node-uuid="${PREPARE_NODE_UUID}"]` +
@@ -735,11 +737,14 @@ test('Candidate Workflow I/O survives real OS apply and result-record round-trip
     .fill('repeat_count')
   await page.keyboard.press('Tab')
 
+  await ioEditor.getByRole('tab', { name: /输出参数/ }).click()
+
   const reportOutput = ioEditor.locator(
     '[data-workflow-output-name="report"]'
   )
+  await reportOutput.locator('summary').click()
   const reportSource = reportOutput.getByRole('combobox', {
-    name: 'Workflow output 绑定'
+    name: '工作流出参绑定'
   })
   const reportSourceOption = reportSource.locator(
     `option[data-workflow-node-uuid="${ANALYZE_NODE_UUID}"]` +
@@ -751,6 +756,9 @@ test('Candidate Workflow I/O survives real OS apply and result-record round-trip
   await reportOutput.getByRole('textbox', { name: '输出名称' })
     .fill('analysis_report')
   await page.keyboard.press('Tab')
+  await page.getByRole('dialog', {
+    name: '工作流输入与输出配置'
+  }).getByRole('button', { name: '完成', exact: true }).click()
 
   const generationBeforeSave = countRequests(
     requests,
@@ -936,7 +944,7 @@ test('Candidate Workflow I/O survives real OS apply and result-record round-trip
   )
   expect(forbidden).toEqual([])
   expect(webSockets).toEqual([])
-  await expect(page.getByText('Authoring 操作失败', { exact: true }))
+  await expect(page.getByText('工作流编辑操作失败', { exact: true }))
     .toHaveCount(0)
   expect(applicationErrors).toEqual([])
   expect(browserErrors).toEqual([])
@@ -1161,7 +1169,7 @@ test('kernel-web uses D-117 single edit authority through the real OS', async ({
   )).toBeVisible()
   expect(readFileSync(os.sourcePath, 'utf8')).toContain('= 4,')
   await expect(page.getByText('● 未保存', { exact: true })).toHaveCount(0)
-  await expect(page.getByText('Authoring 操作失败', { exact: true }))
+  await expect(page.getByText('工作流编辑操作失败', { exact: true }))
     .toHaveCount(0)
   const codeDraftRequest = lastRequest(
     authoringRequests,
@@ -1216,7 +1224,7 @@ test('kernel-web uses D-117 single edit authority through the real OS', async ({
     { exact: true }
   )).toBeVisible()
   expect(readFileSync(os.sourcePath, 'utf8')).toContain('= 6,')
-  await expect(page.getByText('Authoring 操作失败', { exact: true }))
+  await expect(page.getByText('工作流编辑操作失败', { exact: true }))
     .toHaveCount(0)
 
   await canvasMode.click()

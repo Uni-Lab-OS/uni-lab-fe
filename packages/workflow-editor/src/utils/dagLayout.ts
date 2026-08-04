@@ -31,9 +31,9 @@ export interface LayoutDagOptions {
 }
 
 // 层间垂直间距、层内水平间距(与 ReactFlow 节点尺寸匹配)
-const LAYER_GAP_Y = 140
-const NODE_GAP_X = 240
-const ORIGIN_X = 40
+const LAYER_GAP_Y = 112
+const NODE_GAP_X = 360
+const ORIGIN_X = 180
 const ORIGIN_Y = 40
 
 // 对 nodes/links 做从上到下的分层布局
@@ -117,7 +117,7 @@ export function layoutDag(
   return {
     nodes: layoutNodes,
     links: edges,
-    direction: layoutDirection(layoutNodes, edges)
+    direction: 'vertical'
   }
 }
 
