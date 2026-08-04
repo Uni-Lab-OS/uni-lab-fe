@@ -10,12 +10,11 @@ const graphPath = process.env.UNILAB_E2E_GRAPH_PATH ?? ''
 const artifactDirectory = process.env.UNILAB_E2E_ARTIFACT_DIR
   ?? resolve('e2e-artifacts', 'local-debugger-real-edge')
 
-test.skip(
-  !environmentPath || !osProjectPath || !domainProjectPath || !graphPath,
-  '需要 UNILAB_E2E_CONDA_ENV、UNILAB_E2E_OS_ROOT、UNILAB_E2E_DOMAIN_ROOT 和 UNILAB_E2E_GRAPH_PATH'
-)
-
 test('starts a real Edge from the desktop local debugger', async () => {
+  test.skip(
+    !environmentPath || !osProjectPath || !domainProjectPath || !graphPath,
+    '需要 UNILAB_E2E_CONDA_ENV、UNILAB_E2E_OS_ROOT、UNILAB_E2E_DOMAIN_ROOT 和 UNILAB_E2E_GRAPH_PATH'
+  )
   test.setTimeout(300_000)
   mkdirSync(artifactDirectory, { recursive: true })
 
@@ -74,7 +73,7 @@ test('starts a real Edge from the desktop local debugger', async () => {
     })
     await expect(runtimeDialog).toBeVisible()
     await expect(runtimeDialog.getByRole('textbox', {
-      name: '领域项目根目录（以 Uni-Lab-SZLab 为例）'
+      name: '领域项目根目录（可选，以 Uni-Lab-SZLab 为例）'
     })).toHaveValue(domainProjectPath)
     await capture(page, '02-domain-debugger-configured.png')
 
@@ -92,10 +91,20 @@ test('starts a real Edge from the desktop local debugger', async () => {
     await expect(runtimeDialog.getByText('运行中', { exact: true }))
       .toHaveCount(1)
     await capture(page, '04-edge-ready.png')
-    browserErrors.length = 0
+
+    await page.reload()
+    await expect(connectionBar).toContainText('Edge 已连接', {
+      timeout: 30_000
+    })
+    await capture(page, '04a-edge-ready-after-reload.png')
+    await connectionBar.getByRole('button', {
+      name: /启动本地环境|本地调试已启动/
+    }).click()
+    await expect(runtimeDialog).toBeVisible()
 
     const deviceCatalog = await fetchDeviceCatalog()
     expect(deviceCatalog.data.items.length).toBeGreaterThan(0)
+    expect(deviceCatalog.data.items.some(hasDomainDeviceAction)).toBe(true)
     writeFileSync(
       resolve(artifactDirectory, 'edge-devices.json'),
       `${JSON.stringify(deviceCatalog, null, 2)}\n`
@@ -136,13 +145,13 @@ test('starts a real Edge from the desktop local debugger', async () => {
       { timeout: 30_000 }
     )
     await capture(page, '08-edge-stopped.png')
+    expect(browserErrors).toEqual([])
 
     await runtimeDialog.getByRole('button', { name: '启动 Edge' }).click()
     await expect(runtimeDialog.getByRole('status')).toContainText(
       '领域侧 Edge 已就绪',
       { timeout: 120_000 }
     )
-    browserErrors.length = 0
     expect((await fetchDeviceCatalog()).data.items.length).toBeGreaterThan(0)
     await capture(page, '09-edge-restarted.png')
     expect(browserErrors).toEqual([])
@@ -153,6 +162,99 @@ test('starts a real Edge from the desktop local debugger', async () => {
       { timeout: 30_000 }
     )
     await capture(page, '10-edge-restopped.png')
+    expect(browserErrors).toEqual([])
+  } finally {
+    await electronApp.close()
+  }
+})
+
+test('starts a real Edge without a domain device package', async () => {
+  test.skip(
+    !environmentPath || !osProjectPath,
+    '需要 UNILAB_E2E_CONDA_ENV 和 UNILAB_E2E_OS_ROOT'
+  )
+  test.setTimeout(180_000)
+  mkdirSync(artifactDirectory, { recursive: true })
+  const osOnlyGraphPath = resolve(artifactDirectory, 'os-only-empty-graph.json')
+  writeFileSync(osOnlyGraphPath, '{"nodes":[],"links":[]}\n')
+
+  const electronApp = await electron.launch({
+    args: [resolve('apps/desktop/out/main/index.js')],
+    env: {
+      ...process.env,
+      ELECTRON_RENDERER_URL: '',
+      UNILABOS_TRACE_ENABLED: '0',
+      XDG_CONFIG_HOME: resolve(artifactDirectory, 'electron-config-os-only')
+    }
+  })
+
+  try {
+    const page = await electronApp.firstWindow()
+    const browserErrors: string[] = []
+    page.on('console', (message) => {
+      if (message.type() !== 'error') return
+      const location = message.location()
+      browserErrors.push(
+        [message.text(), location.url].filter(Boolean).join(' @ ')
+      )
+    })
+    page.on('pageerror', (error) => browserErrors.push(error.message))
+    await page.evaluate((config) => {
+      globalThis.localStorage.setItem(
+        'unilab.local-runtime-launch-config.v2',
+        JSON.stringify(config)
+      )
+    }, {
+      graphPath: osOnlyGraphPath,
+      osProjectPath,
+      szlabProjectPath: '',
+      environmentPath,
+      simulatorProjectPath: ''
+    })
+    await page.reload()
+
+    const connectionBar = page.getByRole('group', { name: 'Edge 连接配置' })
+    await connectionBar.getByRole('button', { name: '启动本地环境' }).click()
+    const runtimeDialog = page.getByRole('dialog', {
+      name: '启动领域侧本地调试环境（以 sz_lab 为例）'
+    })
+    await expect(runtimeDialog.getByRole('textbox', {
+      name: '领域项目根目录（可选，以 Uni-Lab-SZLab 为例）'
+    })).toHaveValue('')
+    await expect(runtimeDialog).toContainText(
+      '留空时仅加载 Uni-Lab-OS 内置设备能力'
+    )
+    await capture(page, '11-os-only-configured.png')
+
+    await runtimeDialog.getByRole('button', { name: '启动 Edge' }).click()
+    await expect(runtimeDialog.getByRole('status')).toContainText(
+      /正在检查|正在通过 unilab CLI|正在初始化|正在等待/,
+      { timeout: 30_000 }
+    )
+    await capture(page, '12-os-only-starting.png')
+    await expect(runtimeDialog.getByRole('status')).toContainText(
+      '领域侧 Edge 已就绪',
+      { timeout: 120_000 }
+    )
+    await fetchDeviceCatalog()
+    await capture(page, '13-os-only-ready.png')
+
+    await runtimeDialog.getByRole('button', { name: '查看日志' }).click()
+    const logDrawer = page.getByRole('dialog', { name: '本地运行日志' })
+    await expect(logDrawer.getByRole('list', {
+      name: '格式化运行日志'
+    })).toBeVisible()
+    await page.waitForTimeout(500)
+    await capture(page, '14-os-only-formatted-log.png')
+    await page.keyboard.press('Escape')
+
+    await runtimeDialog.getByRole('button', { name: '停止 Edge' }).click()
+    await expect(runtimeDialog.getByRole('status')).toContainText(
+      'PLC-Sim 与领域侧 Edge 均未启动',
+      { timeout: 30_000 }
+    )
+    await capture(page, '15-os-only-stopped.png')
+    expect(browserErrors).toEqual([])
   } finally {
     await electronApp.close()
   }
@@ -192,4 +294,12 @@ async function fetchDeviceCatalog(): Promise<{
       items: unknown[]
     }
   }
+}
+
+function hasDomainDeviceAction(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  const item = value as { id?: unknown; actions?: unknown }
+  return item.id !== 'host_node'
+    && Array.isArray(item.actions)
+    && item.actions.length > 0
 }

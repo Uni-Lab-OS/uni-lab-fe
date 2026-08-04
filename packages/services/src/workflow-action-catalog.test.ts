@@ -22,6 +22,27 @@ const fingerprint = `sha256:${'a'.repeat(64)}`
 const authority = { authority_id: 'os-local', kind: 'local' }
 
 describe('Workflow Action Catalog adapter', () => {
+  it('forwards caller cancellation to every catalog request', async () => {
+    const controller = new AbortController()
+    const observedSignals: Array<AbortSignal | null> = []
+    const fixture = fixtureHttp(catalogResponses())
+    const runtime = createWorkflowRuntime({
+      request: async <ResponseValue>(
+        path: string,
+        init?: RequestInit
+      ): Promise<ResponseValue> => {
+        observedSignals.push(init?.signal ?? null)
+        return fixture.request<ResponseValue>(path, init)
+      }
+    }, getDefaultBackend('local-python'))
+
+    await runtime.getWorkflowActionCatalog(controller.signal)
+
+    expect(observedSignals.length).toBeGreaterThan(1)
+    expect(observedSignals.every((signal) => signal === controller.signal))
+      .toBe(true)
+  })
+
   it('treats JSON object and required-key order as non-semantic', async () => {
     const responses = executableCatalogResponses()
     const schema = workflowSchemaValue(responses)

@@ -9,7 +9,7 @@
  * Human Review Status: [ ] Pending  [ ] Reviewed  [ ] Approved
  * ============================================================
  */
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useServices, type LaboratoryService } from '@unilab/services'
 import { useWorkbench } from '../context/WorkbenchContext'
 
@@ -19,36 +19,55 @@ interface UseBackendConnectionResult {
   client: LaboratoryService
   isOnline: boolean
   reconnect: () => Promise<void>
+  disconnect: () => void
 }
 
 // 管理后端连接:根据 baseUrl 创建客户端,在线模式下自动探测连通性
 export function useBackendConnection(): UseBackendConnectionResult {
   const { backendEnabled, connection, setConnection } = useWorkbench()
   const client = useServices().laboratory
+  const reconnectControllerRef = useRef<AbortController | null>(null)
+  const stopProbeRef = useRef<(() => void) | null>(null)
 
   const reconnect = useCallback(async () => {
+    reconnectControllerRef.current?.abort()
+    const controller = new AbortController()
+    reconnectControllerRef.current = controller
     setConnection('connecting')
-    const ok = await client.ping()
-    setConnection(ok ? 'connected' : 'error')
+    const ok = await client.ping(controller.signal)
+    if (!controller.signal.aborted) {
+      setConnection(ok ? 'connected' : 'error')
+    }
+    if (reconnectControllerRef.current === controller) {
+      reconnectControllerRef.current = null
+    }
   }, [client, setConnection])
+
+  const disconnect = useCallback(() => {
+    reconnectControllerRef.current?.abort()
+    reconnectControllerRef.current = null
+    stopProbeRef.current?.()
+    setConnection('disconnected')
+  }, [setConnection])
 
   // 保持健康探测，避免 Edge 断开后界面仍停留在已连接状态。
   useEffect(() => {
     if (!backendEnabled) return
+    const controller = new AbortController()
     let cancelled = false
     let hasConnected = false
     let timer: ReturnType<typeof globalThis.setTimeout> | null = null
 
     const scheduleNextProbe = (): void => {
-      if (cancelled) return
+      if (cancelled || controller.signal.aborted) return
       timer = globalThis.setTimeout(() => {
         void probe()
       }, HEALTH_CHECK_INTERVAL_MS)
     }
 
     const probe = async (): Promise<void> => {
-      const ok = await client.ping()
-      if (cancelled) return
+      const ok = await client.ping(controller.signal)
+      if (cancelled || controller.signal.aborted) return
       if (ok) {
         hasConnected = true
         setConnection('connected')
@@ -58,17 +77,24 @@ export function useBackendConnection(): UseBackendConnectionResult {
       scheduleNextProbe()
     }
 
+    const stopProbe = (): void => {
+      cancelled = true
+      controller.abort()
+      if (timer != null) globalThis.clearTimeout(timer)
+    }
+    stopProbeRef.current = stopProbe
     setConnection('connecting')
     void probe()
     return () => {
-      cancelled = true
-      if (timer != null) globalThis.clearTimeout(timer)
+      stopProbe()
+      if (stopProbeRef.current === stopProbe) stopProbeRef.current = null
     }
   }, [backendEnabled, client, setConnection])
 
   return {
     client,
     isOnline: backendEnabled && connection === 'connected',
-    reconnect
+    reconnect,
+    disconnect
   }
 }

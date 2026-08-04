@@ -534,7 +534,9 @@ export interface WorkflowEventSubscription {
 }
 
 export interface WorkflowRuntimePort {
-  getWorkflowActionCatalog: () => Promise<WorkflowActionCatalogSnapshot>
+  getWorkflowActionCatalog: (
+    signal?: AbortSignal
+  ) => Promise<WorkflowActionCatalogSnapshot>
   getWorkflowMaterialSourceCatalog: () =>
     Promise<WorkflowMaterialSourceCatalogSnapshot>
   listWorkflows: (query?: WorkflowListQuery) => Promise<WorkflowPage>
@@ -640,7 +642,7 @@ export function createWorkflowRuntime(
   )
 
   const port: WorkflowRuntimePort = {
-    getWorkflowActionCatalog: () => loadWorkflowActionCatalog(http),
+    getWorkflowActionCatalog: (signal) => loadWorkflowActionCatalog(http, signal),
     getWorkflowMaterialSourceCatalog: () =>
       loadWorkflowMaterialSourceCatalog(http),
     listWorkflows: (query = {}) =>

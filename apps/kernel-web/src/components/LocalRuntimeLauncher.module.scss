@@ -379,6 +379,13 @@
   line-height: 1.4;
 }
 
+.fieldHint {
+  margin: -2px 0 2px;
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .statusPanel {
   overflow: hidden;
   color: var(--unilab-color-text-muted);
@@ -626,7 +633,7 @@
 
 .logTabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   padding-inline: 12px;
   border-bottom: 1px solid var(--unilab-color-border);
   background: var(--unilab-color-surface-subtle);
@@ -704,6 +711,7 @@
 }
 
 .logOutput {
+  display: block;
   min-width: 0;
   min-height: 0;
   flex: 1;
@@ -714,9 +722,62 @@
   border: 1px solid var(--unilab-color-border);
   border-radius: var(--unilab-radius-control);
   background: var(--unilab-color-surface);
-  font: 11px/1.6 var(--unilab-font-mono);
-  overflow-wrap: anywhere;
+  font: 11px/1.55 var(--unilab-font-mono);
+  list-style: none;
   tab-size: 2;
+
+  li {
+    display: grid;
+    grid-template-columns: minmax(156px, auto) minmax(0, 1fr);
+    gap: 12px;
+    padding: 3px 4px;
+    border-radius: 3px;
+
+    &:hover {
+      background: var(--unilab-color-surface-subtle);
+    }
+
+    &[data-level='warning'] {
+      color: var(--unilab-color-warning);
+    }
+
+    &[data-level='error'],
+    &[data-level='critical'] {
+      color: var(--unilab-color-danger);
+      background: var(--unilab-color-danger-soft);
+    }
+  }
+}
+
+.logRowMeta {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 82px 46px minmax(0, 1fr);
+  gap: 6px;
+  color: var(--unilab-color-text-subtle);
+
+  time,
+  code,
+  > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  code {
+    color: inherit;
+  }
+}
+
+.logLevel {
+  color: currentColor;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.logMessage {
+  min-width: 0;
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 

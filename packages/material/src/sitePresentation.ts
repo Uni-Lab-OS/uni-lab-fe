@@ -28,6 +28,22 @@ export function isDecorativeDeckRail(
   return railNumber >= 1 && railNumber <= railCount
 }
 
+/**
+ * Generic site-bound overlays describe installable carrier/workstation slots.
+ * Tip spots remain authoritative Inventory sites for tip occupancy and model
+ * instances, but their dense hole grid is owned by the tip-box presentation.
+ */
+export function shouldRenderSiteBounds(
+  aggregate: MaterialAggregate,
+  site: MaterialSite
+): boolean {
+  return (
+    site.visible !== false &&
+    site.kind !== 'tip-spot' &&
+    !isDecorativeDeckRail(aggregate, site)
+  )
+}
+
 function recordValue(value: unknown): Record<string, unknown> {
   return value != null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)

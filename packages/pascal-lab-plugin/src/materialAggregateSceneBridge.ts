@@ -2,6 +2,7 @@ import {
   composePoses,
   IDENTITY_POSE,
   relativePose,
+  shouldRenderSiteBounds,
   type LabPose,
   type MaterialAggregate,
   type MaterialAnchor,
@@ -97,6 +98,10 @@ export function materialAggregatesToSceneGraph(
   for (const aggregate of aggregates) {
     const id = sceneObjectIdByMaterialId[aggregate.material.id]
     const rendering = readMaterialRendering(aggregate)
+    const materialConfig = readRecord(aggregate.material.config)
+    const logicalMount =
+      materialConfig.logical_mount === true ||
+      materialConfig.logicalMount === true
     const projected = projectPlacement(
       aggregate,
       aggregatesById,
@@ -125,17 +130,19 @@ export function materialAggregatesToSceneGraph(
         sites:
           options.showSites === false
             ? []
-            : aggregate.sites.map((site) => ({
-                id: site.id,
-                key: site.key,
-                name: site.name,
-                kind: site.kind,
-                shape: site.shape,
-                positionMm: site.poseInAnchor.positionMm,
-                sizeMm: site.sizeMm,
-                visible: site.visible !== false,
-                visualState: site.visual?.state ?? 'empty'
-              }))
+            : aggregate.sites
+                .filter((site) => shouldRenderSiteBounds(aggregate, site))
+                .map((site) => ({
+                  id: site.id,
+                  key: site.key,
+                  name: site.name,
+                  kind: site.kind,
+                  shape: site.shape,
+                  positionMm: site.poseInAnchor.positionMm,
+                  sizeMm: site.sizeMm,
+                  visible: site.visible !== false,
+                  visualState: site.visual?.state ?? 'empty'
+                }))
       }
     }
 
@@ -148,6 +155,7 @@ export function materialAggregatesToSceneGraph(
       nodes[id] = LabDeviceNodeSchema.parse({
         ...common,
         type: 'lab-device',
+        renderBody: !logicalMount,
         deviceType: rendering.kind || 'custom',
         templateUuid: aggregate.material.sourceTemplateId,
         rosDeviceName: sanitizeRosName(

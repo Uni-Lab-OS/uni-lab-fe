@@ -201,7 +201,7 @@ describe('Material Aggregate / Pascal bridge', () => {
     const scene = materialAggregatesToSceneGraph([rack])
     const node = scene.nodes['lab-rack']
     if (!isLabDeviceNode(node)) throw new Error('Expected lab device')
-    expect(node.floorplanSnapshot?.sites).toHaveLength(1)
+    expect(node.floorplanSnapshot?.sites).toHaveLength(0)
     expect(node.model.instances?.items).toHaveLength(1)
     expectTupleCloseTo(
       node.model.instances?.items[0]?.position ?? [],
@@ -221,6 +221,43 @@ describe('Material Aggregate / Pascal bridge', () => {
     }
     expect(hiddenNode.floorplanSnapshot?.sites).toEqual([])
     expect(hiddenNode.model.instances?.items).toHaveLength(1)
+  })
+
+  it('projects a logical mount as site bounds without a device body', () => {
+    const mountSite: MaterialSite = {
+      id: 'mount-site-1',
+      ownerMaterialId: 'logical-warehouse',
+      key: 'S041',
+      name: 'S041',
+      anchor: { kind: 'root' },
+      poseInAnchor: {
+        positionMm: [90, 80, 150],
+        rotationDegXYZ: [0, 0, 0]
+      },
+      sizeMm: [86, 86, 120],
+      capacity: 1,
+      allowedTemplateIds: [],
+      occupiedMaterialIds: [],
+      kind: 'site',
+      visible: true
+    }
+    const warehouse = aggregate('logical-warehouse', {
+      sites: [mountSite],
+      config: {
+        logical_mount: true,
+        rendering: {
+          kind: 'process-warehouse',
+          dimensionsMm: [710, 780, 359]
+        }
+      }
+    })
+
+    const scene = materialAggregatesToSceneGraph([warehouse])
+    const node = scene.nodes['lab-logical-warehouse']
+    if (!isLabDeviceNode(node)) throw new Error('Expected lab device')
+
+    expect(node.renderBody).toBe(false)
+    expect(node.floorplanSnapshot?.sites).toHaveLength(1)
   })
 
   it('flattens a static root-anchored child into world space', () => {

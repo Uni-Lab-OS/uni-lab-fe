@@ -15,14 +15,16 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { MAX_PACKAGED_APP_BYTES } from './package-windows.mjs'
+import {
+  MAX_PACKAGED_APP_BYTES,
+  resolvePackagingCliPaths
+} from './package-windows.mjs'
 
 const MEBIBYTE = 1024 * 1024
 
 export const MIN_MACOS_INSTALLER_BYTES = 10 * MEBIBYTE
 
 const desktopDirectory = join(dirname(fileURLToPath(import.meta.url)), '..')
-const workspaceDirectory = resolve(desktopDirectory, '../..')
 const releaseDirectory = join(desktopDirectory, 'release')
 
 export function validateMacosInstaller(
@@ -139,21 +141,7 @@ function runCli(entryPath, args) {
 
 export function packageMacos() {
   const outputDirectory = mkdtempSync(join(tmpdir(), 'unilab-macos-package-'))
-  const electronViteCli = join(
-    workspaceDirectory,
-    'node_modules',
-    'electron-vite',
-    'bin',
-    'electron-vite.js'
-  )
-  const electronBuilderCli = join(
-    workspaceDirectory,
-    'node_modules',
-    'electron-builder',
-    'out',
-    'cli',
-    'cli.js'
-  )
+  const { electronViteCli, electronBuilderCli } = resolvePackagingCliPaths()
 
   try {
     runCli(electronViteCli, ['build'])

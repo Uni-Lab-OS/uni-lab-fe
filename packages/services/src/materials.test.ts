@@ -349,6 +349,33 @@ describe('material template adapter', () => {
     )
   })
 
+  it('loads complete material graphs larger than the legacy Edge page limit', async () => {
+    const { http, request } = mockHttp({
+      data: {
+        nodes: Array.from(
+          { length: 126 },
+          (_, index) => rawMaterialGraphNode(index + 1)
+        )
+      }
+    })
+    const backend = getDefaultBackend('local-python')
+    const service = createMaterialService(
+      http,
+      backend,
+      resolveServerCapabilities(backend)
+    )
+
+    const aggregates = await service.getGraph({ kind: 'singleton' })
+
+    expect(aggregates).toHaveLength(126)
+    expect(aggregates.at(-1)?.material.code).toBe('szlab-material-126')
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(request).toHaveBeenCalledWith(
+      '/api/v1/materials/graph',
+      undefined
+    )
+  })
+
   it('creates a Registry template instance through the unified command', async () => {
     const { http, request } = mockHttp({
       data: {
@@ -549,6 +576,26 @@ function rawTemplateSummary(): Record<string, unknown> {
       available: false,
       reason: '当前 Edge 尚未开放物料创建'
     }
+  }
+}
+
+function rawMaterialGraphNode(index: number): Record<string, unknown> {
+  const materialId = `szlab-material-${index}`
+  return {
+    material: {
+      uuid: materialId,
+      resource_template_uuid: 'template-device',
+      barcode: materialId,
+      name: `SZLab Material ${index}`,
+      create_time: '2026-07-31T00:00:00Z',
+      update_time: '2026-07-31T00:00:00Z',
+      meta_data: {},
+      config: {},
+      data: {}
+    },
+    sites: [],
+    current_site_uuid: null,
+    handles: []
   }
 }
 

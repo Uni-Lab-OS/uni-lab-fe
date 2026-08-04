@@ -68,6 +68,7 @@ describe('LocalRuntimeManager command plan', () => {
       ]
     })
     expect(plan).not.toHaveProperty('bridge')
+    expect(plan.deviceCatalogRequirement).toBe('domain_actions')
     expect(plan.edge.command).toBe(fixture.unilab)
     expect(plan.edge.cwd).toBe(fixture.szlabRoot)
     expect(plan.edge.args).toEqual([
@@ -95,6 +96,7 @@ describe('LocalRuntimeManager command plan', () => {
     expect(plan.edge.env['UNILABOS_OBSERVABILITYCONFIG_PROJECT_NAME']).toBe(
       'uni-lab-electron'
     )
+    expect(plan.edge.env['UNILABOS_HOSTLINKCONFIG_PORT']).toBe('18004')
     expect(plan.edge.env['PYTHONUNBUFFERED']).toBe('1')
     expect(plan.edge.env['PATH']?.split(delimiter)[0]).toBe(
       join(fixture.config.environmentPath, 'bin')
@@ -184,6 +186,34 @@ describe('LocalRuntimeManager command plan', () => {
     )
   })
 
+  it('launches Edge without a domain device package workspace', async () => {
+    const fixture = await createFixture('packages')
+    const plan = await resolveLocalRuntimeLaunchPlan({
+      ...fixture.config,
+      szlabProjectPath: ''
+    })
+
+    expect(plan.edge.cwd).toBe(fixture.osRoot)
+    expect(plan.deviceCatalogRequirement).toBe('catalog')
+    expect(plan.edge.args).not.toContain('--workspace')
+    expect(plan.edge.args).toContain('--config')
+    expect(plan.edge.args).toContain(
+      join(fixture.osRoot, 'unilabos', 'config', 'example_config.py')
+    )
+    expect(plan.edge.args).toEqual(expect.arrayContaining([
+      '--graph',
+      fixture.graphPath,
+      '--backend',
+      'ros',
+      '--app_bridges',
+      'fastapi'
+    ]))
+    expect(plan.edge.env['PYTHONPATH']?.split(delimiter)[0]).toBe(
+      fixture.osRoot
+    )
+    expect(plan.edge.env['PYTHONPATH']).not.toContain(fixture.szlabRoot)
+  })
+
   it('rejects a Conda environment without the expected executables', async () => {
     const fixture = await createFixture('packages')
     await rm(fixture.unilab)
@@ -225,6 +255,7 @@ async function createFixture(
 
   await Promise.all([
     mkdir(osRoot, { recursive: true }),
+    mkdir(join(osRoot, 'unilabos', 'config'), { recursive: true }),
     mkdir(join(szlabRoot, 'deployment', 'graphs'), { recursive: true }),
     mkdir(dirname(python), { recursive: true }),
     mkdir(dirname(unilab), { recursive: true }),
@@ -232,6 +263,7 @@ async function createFixture(
   ])
   await Promise.all([
     writeFile(graphPath, '{}'),
+    writeFile(join(osRoot, 'unilabos', 'config', 'example_config.py'), ''),
     writeFile(join(szlabRoot, 'deployment', 'local_config.py'), ''),
     writeFile(join(simulatorRoot, 'OpcUaSim', 'gui', 'backend.py'), ''),
     writeFile(python, ''),

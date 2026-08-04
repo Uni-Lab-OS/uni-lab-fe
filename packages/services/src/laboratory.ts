@@ -132,9 +132,9 @@ export function createLaboratoryService(
   backend: BackendConfig
 ) {
   return {
-    async ping(): Promise<boolean> {
+    async ping(signal?: AbortSignal): Promise<boolean> {
       try {
-        await http.request<unknown>('/api/v1/health')
+        await http.request<unknown>('/api/v1/health', { signal })
         return true
       } catch {
         return false
@@ -157,8 +157,8 @@ export function createLaboratoryService(
       return items.map((value) => mapDeviceCatalogItem(asRecord(value)))
     },
 
-    async getOnlineDevices(): Promise<OnlineDevice[]> {
-      return (await getRuntimeDevices(http))
+    async getOnlineDevices(signal?: AbortSignal): Promise<OnlineDevice[]> {
+      return (await getRuntimeDevices(http, signal))
         .sort((left, right) => left.id.localeCompare(right.id))
         .map((device) => ({
           id: device.id,
@@ -326,11 +326,13 @@ function mapResource(raw: Record<string, unknown>): ResourceNode {
 }
 
 async function getRuntimeDevices(
-  http: HttpClient
+  http: HttpClient,
+  signal?: AbortSignal
 ): Promise<RuntimeDeviceCatalogItem[]> {
   const raw = await requestData<Record<string, unknown>>(
     http,
-    '/api/v1/devices'
+    '/api/v1/devices',
+    { signal }
   )
   const items = Array.isArray(raw.items) ? raw.items : []
   return items.flatMap((value) => {

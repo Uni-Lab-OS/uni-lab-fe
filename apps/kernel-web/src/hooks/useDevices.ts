@@ -36,7 +36,7 @@ export function useDevices(): UseDevicesResult {
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<number | null>(null)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (signal?: AbortSignal) => {
     if (!backendEnabled) {
       setDevices([])
       setError(null)
@@ -55,10 +55,12 @@ export function useDevices(): UseDevicesResult {
     setLoading(true)
     setError(null)
     try {
-      const list = await client.getOnlineDevices()
+      const list = await client.getOnlineDevices(signal)
+      if (signal?.aborted) return
       setDevices(presentEdgeDevices(list))
       setLastUpdated(Date.now())
     } catch (err) {
+      if (signal?.aborted) return
       setError(err instanceof Error ? err.message : '获取设备列表失败')
       setDevices([])
     } finally {
@@ -75,11 +77,15 @@ export function useDevices(): UseDevicesResult {
       }
       return
     }
-    void refresh()
+    const controller = new AbortController()
+    void refresh(controller.signal)
     const timer = globalThis.setInterval(() => {
-      void refresh()
+      void refresh(controller.signal)
     }, 5_000)
-    return () => globalThis.clearInterval(timer)
+    return () => {
+      controller.abort()
+      globalThis.clearInterval(timer)
+    }
   }, [connection, isOnline, refresh])
 
   return { devices, loading, error, lastUpdated, refresh }

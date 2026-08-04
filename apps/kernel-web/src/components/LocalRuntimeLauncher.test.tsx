@@ -45,6 +45,10 @@ describe('LocalRuntimeLauncher', () => {
       osProjectPath: '',
       szlabProjectPath: ''
     })).toEqual({ valid: true, errors: {} })
+    expect(validateEdgeConfig({
+      ...baseConfig,
+      szlabProjectPath: ''
+    })).toEqual({ valid: true, errors: {} })
   })
 
   it('renders separate PLC and Edge controls with the variable-table reminder', () => {
@@ -55,7 +59,8 @@ describe('LocalRuntimeLauncher', () => {
     expect(markup).toContain('PLC-Sim（可选）')
     expect(markup).toContain('启动领域侧本地调试环境（以 sz_lab 为例）')
     expect(markup).toContain('领域侧 Edge（以 sz_lab 为例）')
-    expect(markup).toContain('领域项目根目录（以 Uni-Lab-SZLab 为例）')
+    expect(markup).toContain('领域项目根目录（可选，以 Uni-Lab-SZLab 为例）')
+    expect(markup).toContain('留空时仅加载 Uni-Lab-OS 内置设备能力')
     expect(markup).toContain('领域设备图 JSON（以 sz_lab 为例）')
     expect(markup).toContain('启动 PLC')
     expect(markup).toContain('启动 Edge')
@@ -177,6 +182,58 @@ describe('LocalRuntimeLauncher', () => {
     expect(markup).toContain('当前展示最新 128 KB')
     expect(markup).not.toContain('Edge 服务')
     expect(markup).not.toContain('>Bridge<')
+  })
+
+  it('strips terminal control codes and renders structured log rows', () => {
+    const markup = renderToStaticMarkup(
+      <LocalRuntimeLogDrawer
+        snapshot={{
+          readAt: 1_785_499_200_000,
+          entries: [{
+            kind: 'edge',
+            content: [
+              '\u001b[32m2026-08-03 16:04:05.123 | INFO | unilabos.app - Edge ready\u001b[0m',
+              '\u001b]0;forged title\u0007',
+              '\u001bPforged device control\u001b\\',
+              '\u001bc\u001b7\u001b8\u001b=\u001b>single escape controls',
+              '\u009dforged c1 title\u009c',
+              '\u0090forged c1 device control\u009c',
+              '\u009b31mc1 colored tail\u009b0m',
+              '\u001b[37m26-08-03 [17:25:23,512]\u001b[0m \u001b[1;33m[WARNING]\u001b[0m \u001b[33mdevice retry\u001b[0m [run:42] [unilabos.runtime]',
+              '[launcher] 2026-08-03T08:04:06.000Z starting',
+              'plain diagnostic tail'
+            ].join('\n'),
+            available: true,
+            truncated: false
+          }]
+        }}
+        activeKind="edge"
+        loading={false}
+        error={null}
+        onSelect={vi.fn()}
+        onRefresh={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+
+    expect(markup).not.toContain('\u001b')
+    expect(markup).not.toMatch(/[\u0080-\u009f]/)
+    expect(markup).not.toContain('forged title')
+    expect(markup).not.toContain('forged device control')
+    expect(markup).not.toContain('forged c1 title')
+    expect(markup).not.toContain('forged c1 device control')
+    expect(markup).toContain('single escape controls')
+    expect(markup).toContain('c1 colored tail')
+    expect(markup).toContain('aria-label="格式化运行日志"')
+    expect(markup).toContain('data-level="info"')
+    expect(markup).toContain('16:04:05.123')
+    expect(markup).toContain('Edge ready')
+    expect(markup).toContain('data-level="warning"')
+    expect(markup).toContain('17:25:23,512')
+    expect(markup).toContain('unilabos.runtime')
+    expect(markup).toContain('device retry')
+    expect(markup).toContain('data-level="system"')
+    expect(markup).toContain('plain diagnostic tail')
   })
 })
 

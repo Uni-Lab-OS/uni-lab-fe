@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { isDecorativeDeckRail } from './sitePresentation'
+import {
+  isDecorativeDeckRail,
+  shouldRenderSiteBounds
+} from './sitePresentation'
 import { materialAggregate } from './testFixtures'
 import type { MaterialSite } from './types'
 
@@ -42,6 +45,18 @@ describe('site presentation', () => {
         )
       ).toBe(false)
     }
+  })
+
+  it('keeps tip spots as inventory sites without presenting generic site bounds', () => {
+    const tipBox = materialAggregate('tip-box')
+    const tipSpot = site(tipBox.material.id, 'A1', 'tip-a1')
+    tipSpot.kind = 'tip-spot'
+
+    expect(shouldRenderSiteBounds(tipBox, tipSpot)).toBe(false)
+
+    const carrierSite = site(tipBox.material.id, 'slot-1', 'slot-1')
+    carrierSite.kind = 'site'
+    expect(shouldRenderSiteBounds(tipBox, carrierSite)).toBe(true)
   })
 })
 

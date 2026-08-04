@@ -28,7 +28,8 @@
   `Scripts/unilab.exe`。Windows 子进程还会注入所选环境的 `CONDA_PREFIX`，并按
   Conda 激活顺序前置环境目录、`Library/bin` 与 `Scripts` 到 `PATH`）
 - Uni-Lab-OS 项目根目录
-- 领域项目根目录（示例：Uni-Lab-SZLab）
+- 领域项目根目录（可选，示例：Uni-Lab-SZLab）；留空时仅加载
+  Uni-Lab-OS 内置设备能力
 - 领域设备图 JSON（示例：sz_lab 设备图）
 - PLC-Sim 项目根目录（可选，内部使用 `OpcUaSim/gui/backend.py`）
 
@@ -39,10 +40,16 @@
 2. 如需使用 PLC，用户在 PLC-Sim 中上传 PLC 变量表并确认完成。
 3. 领域侧 Edge：用户再单独通过 `unilab` CLI 启动 Edge。`sz_lab` 示例使用
    ROS backend、FastAPI bridge 与 Edge Scheduler，`ROS_DOMAIN_ID=42`，HTTP
-   监听 `18003`；不再额外启动本地 Bridge 进程。
-   每次启动会在 `runtime/ideawit-e2e` 下生成独立的
+   监听 `18003`，HostLink 使用本地调试专用端口 `18004`；不再额外启动
+   本地 Bridge 进程。挂载领域项目时，每次启动会在
+   `runtime/ideawit-e2e` 下生成独立的
    `edge-runtime-YYYYMMDD-HHMMSS.sqlite3`，并通过 `UNILABOS_RUNTIME_DB`
-   传给 Edge。
+   传给 Edge；未挂载领域项目时改用 OS 内置配置与
+   `Uni-Lab-OS/runtime/edge-local-debug`。
+
+就绪门与启动模式对齐：挂载领域设备包时，`GET /api/v1/devices`
+必须至少返回一个非 `host_node` 设备的 Action；仅 OS 模式则只要
+`device-catalog/v1` 目录就绪即可。
 
 停止领域侧 Edge 不会停止 PLC-Sim；为避免变量表与设备目录状态不一致，Edge
 运行期间不能启动或停止 PLC-Sim。退出桌面应用时仍会统一回收两个服务。
@@ -52,7 +59,8 @@
 启动前会校验项目结构、可执行文件和端口占用；任一进程启动失败或意外退出时，
 其余进程会被统一回收。所有命令均以参数数组直接启动，不经过 renderer 或任意
 shell 字符串拼接。日志分别写入 `simulator.log` 和 `edge.log`，可在应用右上角打开
-日志抽屉直接查看；日志目录与读取方式均由 Electron 按当前平台处理。
+日志抽屉查看；抽屉会去除 ANSI 控制字符，并按时间、级别、来源和正文
+结构化渲染。日志目录与读取方式均由 Electron 按当前平台处理。
 
 ## Trace 日志
 

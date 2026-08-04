@@ -21,8 +21,27 @@ export const MIN_WINDOWS_INSTALLER_BYTES = 10 * MEBIBYTE
 export const MAX_PACKAGED_APP_BYTES = 32 * MEBIBYTE
 
 const desktopDirectory = join(dirname(fileURLToPath(import.meta.url)), '..')
-const workspaceDirectory = resolve(desktopDirectory, '../..')
 const releaseDirectory = join(desktopDirectory, 'release')
+
+export function resolvePackagingCliPaths() {
+  return {
+    electronViteCli: join(
+      desktopDirectory,
+      'node_modules',
+      'electron-vite',
+      'bin',
+      'electron-vite.js'
+    ),
+    electronBuilderCli: join(
+      desktopDirectory,
+      'node_modules',
+      'electron-builder',
+      'out',
+      'cli',
+      'cli.js'
+    )
+  }
+}
 
 export function validateWindowsInstaller(
   installerPath,
@@ -121,21 +140,7 @@ function runCli(entryPath, args) {
 
 export function packageWindows() {
   const outputDirectory = mkdtempSync(join(tmpdir(), 'unilab-win-package-'))
-  const electronViteCli = join(
-    workspaceDirectory,
-    'node_modules',
-    'electron-vite',
-    'bin',
-    'electron-vite.js'
-  )
-  const electronBuilderCli = join(
-    workspaceDirectory,
-    'node_modules',
-    'electron-builder',
-    'out',
-    'cli',
-    'cli.js'
-  )
+  const { electronViteCli, electronBuilderCli } = resolvePackagingCliPaths()
 
   try {
     runCli(electronViteCli, ['build'])

@@ -10,6 +10,7 @@ import LocalRuntimeLauncher, {
 } from './LocalRuntimeLauncher'
 
 const LOCAL_RUNTIME_EDGE_API_URL = 'http://127.0.0.1:18003'
+const LOCAL_RUNTIME_DISCONNECT_GRACE_MS = 250
 
 export default function ConnectionBar(): React.JSX.Element {
   const {
@@ -18,9 +19,10 @@ export default function ConnectionBar(): React.JSX.Element {
     connection,
     availableBackends,
     selectBackend,
-    updateBackend
+    updateBackend,
+    setBackendEnabled
   } = useWorkbench()
-  const { reconnect } = useBackendConnection()
+  const { disconnect, reconnect } = useBackendConnection()
   const [draftUrl, setDraftUrl] = useState(backend.apiUrl)
 
   useEffect(() => {
@@ -42,11 +44,16 @@ export default function ConnectionBar(): React.JSX.Element {
       ? `${targetName} 已连接`
       : showDisconnected
         ? `${targetName} 未连接`
-        : null
+        : !backendEnabled
+            ? `${targetName} 未连接`
+            : null
 
   const handleApply = (): void => {
     const trimmed = draftUrl.trim()
     if (!trimmed) return
+    // Applying an address is an explicit request to connect to an externally
+    // managed backend, even when the Electron local launcher is still idle.
+    setBackendEnabled(true)
     if (trimmed !== backend.apiUrl) {
       updateBackend({ apiUrl: trimmed })
       return
@@ -55,6 +62,7 @@ export default function ConnectionBar(): React.JSX.Element {
   }
 
   const handleRuntimeReady = (): void => {
+    setBackendEnabled(true)
     if (backend.id !== 'local-python') {
       selectBackend('local-python')
       return
@@ -64,6 +72,22 @@ export default function ConnectionBar(): React.JSX.Element {
       return
     }
     void reconnect()
+  }
+
+  const handleRuntimeStopping = async (): Promise<void> => {
+    if (
+      backend.id === 'local-python'
+      && backend.apiUrl === LOCAL_RUNTIME_EDGE_API_URL
+    ) {
+      disconnect()
+      setBackendEnabled(false)
+      // Let React tear down health/device polling and allow any request already
+      // in flight to settle while Edge is still available. Closing the local
+      // port before this drain produces user-visible ERR_CONNECTION_REFUSED.
+      await new Promise<void>((resolve) => {
+        globalThis.setTimeout(resolve, LOCAL_RUNTIME_DISCONNECT_GRACE_MS)
+      })
+    }
   }
 
   return (
@@ -91,7 +115,10 @@ export default function ConnectionBar(): React.JSX.Element {
         className={styles.field}
         aria-label="切换服务配置"
         value={backend.id}
-        onChange={(event) => selectBackend(event.target.value)}
+        onChange={(event) => {
+          setBackendEnabled(true)
+          selectBackend(event.target.value)
+        }}
       >
         {availableBackends.map((candidate) => (
           <option key={candidate.id} value={candidate.id}>
@@ -110,21 +137,26 @@ export default function ConnectionBar(): React.JSX.Element {
         onKeyDown={(event) => {
           if (event.key === 'Enter') {
             event.preventDefault()
-            if (hasDraftChange || showRecovery) handleApply()
+            if (hasDraftChange || showRecovery || !backendEnabled) {
+              handleApply()
+            }
           }
         }}
       />
-      {hasDraftChange || showRecovery ? (
+      {hasDraftChange || showRecovery || !backendEnabled ? (
         <button
           type="button"
           className={styles.action}
           disabled={!trimmedDraftUrl}
           onClick={handleApply}
         >
-          {hasDraftChange ? '应用' : '重试'}
+          {hasDraftChange ? '应用' : backendEnabled ? '重试' : '连接'}
         </button>
       ) : null}
-      <LocalRuntimeLauncher onReady={handleRuntimeReady} />
+      <LocalRuntimeLauncher
+        onReady={handleRuntimeReady}
+        onStopping={handleRuntimeStopping}
+      />
     </div>
   )
 }

@@ -58,6 +58,16 @@ describe('oblique material projection', () => {
       'solid',
       'solid'
     ])
+    expect(scene.objects.map((object) => object.fidelity)).toEqual([
+      'envelope',
+      'envelope'
+    ])
+    expect(scene.diagnostics).toEqual({
+      declaredShapeCount: 0,
+      envelopeApproximationCount: 2,
+      inferredStructureCount: 0,
+      invalidObjectCount: 0
+    })
     expect(scene.objects.every((object) => object.shape === undefined)).toBe(
       true
     )
@@ -86,6 +96,7 @@ describe('oblique material projection', () => {
     const object = scene.objects[0]
 
     expect(object?.renderStyle).toBe('spec')
+    expect(object?.fidelity).toBe('declared')
     expect(object?.shape?.id).toBe('vision_cell')
     expect(object?.shape?.bundle).toBe('test-bundle')
     expect(object?.shape?.shadow).toBe('box')
@@ -338,6 +349,8 @@ describe('oblique material projection', () => {
 
     expect(hotel?.shelves).toHaveLength(11)
     expect(hotel?.shelves.every((shelf) => !shelf.occupied)).toBe(true)
+    expect(hotel?.fidelity).toBe('inferred')
+    expect(scene.diagnostics.inferredStructureCount).toBe(1)
   })
 
   it('hands tip-spot levels to the perforated plate generator', () => {
@@ -413,6 +426,18 @@ describe('oblique material projection', () => {
       'vial'
     ])
     expect(scene.objects.map((object) => object.sortLayer)).toEqual([0, 1, 1])
+  })
+
+  it('omits non-finite objects and reports them without breaking the scene', () => {
+    const scene = buildMaterialObliqueScene([
+      aggregate('valid', [0, 0, 0]),
+      aggregate('invalid', [Number.NaN, 0, 0])
+    ])
+
+    expect(scene.objects.map((object) => object.materialId)).toEqual([
+      'valid'
+    ])
+    expect(scene.diagnostics.invalidObjectCount).toBe(1)
   })
 })
 

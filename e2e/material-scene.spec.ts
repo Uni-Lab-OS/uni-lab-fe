@@ -187,10 +187,26 @@ test('SZLab MaterialGraph renders complete 2.5D and 3D views', async ({
   ).toBeVisible()
   await captureViewport(page, 'szlab-materials-2_5d.png')
 
+  const zoomIn = page.getByRole('button', {
+    name: '放大 2.5D 视图'
+  })
+  const fitAll = page.getByRole('button', { name: '适应全部物料' })
+  await expect(zoomIn).toBeEnabled()
+  await expect(fitAll).toBeEnabled()
+  await zoomIn.click()
+  await expect(oblique).toHaveAttribute('data-camera-zoom', '1.25')
+  await expect(
+    page.getByRole('status', { name: '当前缩放比例' })
+  ).toHaveText('125%')
+  await captureViewport(page, 'szlab-materials-2_5d-zoomed.png')
+  await fitAll.click()
+  await expect(oblique).toHaveAttribute('data-camera-zoom', '1.00')
+
   await siteLayerToggle.click()
   await expect(siteLayerToggle).toHaveAttribute('aria-pressed', 'false')
   await expect(oblique).toHaveAttribute('data-site-layer-visible', 'false')
   await expect(oblique.locator('[data-oblique-site-bounds]')).toHaveCount(0)
+  await captureViewport(page, 'szlab-materials-2_5d-sites-hidden.png')
 
   await page.getByRole('button', { name: '3D', exact: true }).click()
   await expect(page.locator('.lab-unified-viewport')).toHaveAttribute(

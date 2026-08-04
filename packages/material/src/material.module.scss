@@ -7,7 +7,7 @@
   min-width: 240px;
   height: min(620px, calc(100vh - 96px));
   color: var(--unilab-color-text);
-  background: var(--unilab-color-bg);
+  background: var(--unilab-color-surface);
   border: 1px solid var(--unilab-color-border);
   border-radius: 12px;
   box-shadow: 0 12px 36px rgb(15 23 42 / 16%);
@@ -142,10 +142,17 @@
 :where(.scope, .scope *):global(.material-tree-sidebar__reopen) {
   position: absolute;
   z-index: 90;
-  top: 52px;
+  top: 16px;
   left: 8px;
   color: var(--unilab-color-text);
   background: transparent;
+}
+
+:where(.scope, .scope *):global(.material-workbench):has(
+    > :global(.material-tree-sidebar__reopen)
+  )
+  :global(.material-oblique-canvas__header) {
+  left: 48px;
 }
 
 :where(.scope, .scope *):global(.material-tree-sidebar__tree) {
@@ -419,7 +426,7 @@
   place-items: center;
   padding: 0;
   color: var(--unilab-color-text-muted);
-  background: var(--unilab-color-bg);
+  background: var(--unilab-color-surface);
   border: 1px solid var(--unilab-color-border);
   border-radius: 7px;
   cursor: pointer;
@@ -453,7 +460,7 @@
   margin: 12px;
   padding: 8px 10px;
   color: inherit;
-  background: var(--unilab-color-bg);
+  background: var(--unilab-color-surface);
   border: 1px solid var(--unilab-color-border);
   border-radius: var(--unilab-radius-md);
 }
@@ -478,7 +485,7 @@
   flex: 0 0 auto;
   padding: 4px 7px;
   color: inherit;
-  background: var(--unilab-color-bg);
+  background: var(--unilab-color-surface);
   border: 1px solid currentcolor;
   border-radius: var(--unilab-radius-sm);
   cursor: pointer;
@@ -490,7 +497,7 @@
   background: color-mix(
     in srgb,
     var(--unilab-color-danger) 7%,
-    var(--unilab-color-bg)
+    var(--unilab-color-surface)
   );
 }
 
@@ -817,13 +824,7 @@
   min-width: 0;
   min-height: 0;
   color: var(--unilab-color-text);
-  background:
-    radial-gradient(
-      circle at 50% 8%,
-      rgb(224 231 255 / 34%),
-      transparent 52%
-    ),
-    linear-gradient(180deg, #ffffff, #f8f9fc);
+  background: var(--unilab-color-canvas, #f1f5fa);
   overflow: hidden;
 }
 
@@ -833,31 +834,178 @@
   top: 12px;
   left: 12px;
   display: flex;
-  gap: 8px;
   align-items: center;
-  padding: 7px 10px;
-  font-size: 11px;
+  min-height: 38px;
+  font-size: 12px;
   color: var(--unilab-color-text-muted);
-  background: color-mix(in srgb, var(--unilab-color-bg) 88%, transparent);
-  border: 1px solid color-mix(
-    in srgb,
-    var(--unilab-color-border-strong) 65%,
-    transparent
-  );
+  background: var(--unilab-color-bg);
+  border: 1px solid var(--unilab-color-border-strong);
   border-radius: var(--unilab-radius-md);
-  box-shadow: 0 5px 18px rgb(15 23 42 / 10%);
-  backdrop-filter: blur(12px);
 }
 
-:where(.scope, .scope *):global(.material-oblique-canvas__header) strong {
+:where(.scope, .scope *):global(.material-oblique-canvas__identity) {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 0 10px;
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__identity) strong {
   color: var(--unilab-color-text);
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__camera) {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 3px;
+  border-left: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__camera) button,
+:where(.scope, .scope *):global(.material-oblique-canvas__selection) button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0 8px;
+  color: var(--unilab-color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--unilab-radius-sm);
+  cursor: pointer;
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__camera) button:hover:not(:disabled),
+:where(.scope, .scope *):global(.material-oblique-canvas__selection) button:hover:not(:disabled) {
+  color: var(--unilab-color-primary);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-primary) 8%,
+    transparent
+  );
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__camera) button:focus-visible,
+:where(.scope, .scope *):global(.material-oblique-canvas__selection) button:focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 1px;
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__camera) button:disabled {
+  color: color-mix(
+    in srgb,
+    var(--unilab-color-text-muted) 45%,
+    transparent
+  );
+  cursor: not-allowed;
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__camera) output {
+  min-width: 48px;
+  color: var(--unilab-color-text);
+  font-family: var(--unilab-font-data, monospace);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__coverage) {
+  position: absolute;
+  z-index: 3;
+  top: 58px;
+  left: 12px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__coverage) span {
+  padding: 3px 6px;
+  background: var(--unilab-color-bg);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-sm);
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__coverage) span:global(.is-invalid) {
+  color: var(--unilab-color-danger);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-danger) 7%,
+    var(--unilab-color-surface)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--unilab-color-danger) 38%,
+    var(--unilab-color-border)
+  );
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__selection) {
+  position: absolute;
+  z-index: 3;
+  top: 88px;
+  left: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 40px;
+  max-width: min(760px, calc(100% - 164px));
+  padding: 4px 5px 4px 10px;
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-md);
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__selection) > div {
+  display: grid;
+  min-width: 0;
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__selection) strong {
+  overflow: hidden;
+  color: var(--unilab-color-text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__selection) > div > span,
+:where(.scope, .scope *):global(.material-oblique-canvas__coordinates) {
+  overflow: hidden;
+  font-family: var(--unilab-font-data, monospace);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__selection) button {
+  gap: 5px;
+  min-width: auto;
+  margin-left: auto;
+  color: var(--unilab-color-primary);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 :where(.scope, .scope *):global(.material-oblique-canvas__svg) {
   display: block;
   width: 100%;
   height: 100%;
+  cursor: grab;
   shape-rendering: geometricPrecision;
+  touch-action: none;
+  user-select: none;
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__svg)[data-panning] {
+  cursor: grabbing;
 }
 
 :where(.scope, .scope *):global(.material-oblique-canvas__empty) {
@@ -865,13 +1013,98 @@
   width: 100%;
   height: 100%;
   place-items: center;
+  align-content: center;
+  gap: 4px;
   font-size: 12px;
   color: var(--unilab-color-text-muted);
+  text-align: center;
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__empty) strong {
+  color: var(--unilab-color-text);
+  font-size: 13px;
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__legend) {
+  position: absolute;
+  z-index: 3;
+  bottom: 16px;
+  left: 16px;
+  display: grid;
+  gap: 4px;
+  max-width: calc(100% - 300px);
+  padding: 7px 9px;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__legend) > div {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+:where(.scope, .scope *):global(.material-oblique-legend-key) {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-oblique-legend-key) i {
+  width: 11px;
+  height: 8px;
+  background: #d9e0eb;
+  border: 1px solid #77839a;
+  border-radius: 2px;
+}
+
+:where(.scope, .scope *):global(.material-oblique-legend-key):global(.is-selected) i {
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-primary) 12%,
+    transparent
+  );
+  border: 2px solid var(--unilab-color-primary);
+}
+
+:where(.scope, .scope *):global(.material-oblique-legend-key):global(.is-occupied) i {
+  background: #bfdbfe;
+  border-color: #3b82f6;
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas__sr-only) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 :where(.scope, .scope *):global(.material-oblique-object) {
   cursor: pointer;
   outline: none;
+}
+
+:where(.scope, .scope *):global(.material-oblique-object):global(.is-fidelity-envelope) polygon {
+  stroke-dasharray: 5 4;
+}
+
+:where(.scope, .scope *):global(.material-oblique-object):global(.is-fidelity-inferred) polygon {
+  stroke: color-mix(
+    in srgb,
+    var(--unilab-color-warning) 72%,
+    #64748b
+  );
+  stroke-dasharray: 2 3;
 }
 
 :where(.scope, .scope *):global(.material-oblique-object) polygon {
@@ -1176,13 +1409,13 @@ line:where(.scope, .scope *):global(.material-oblique-part--post) {
 }
 
 :where(.scope, .scope *):global(.material-oblique-stack__rail) {
-  stroke: rgb(196 200 211 / 90%);
+  stroke: rgb(91 101 119 / 88%);
   stroke-linecap: round;
   stroke-width: 3;
 }
 
 :where(.scope, .scope *):global(.material-oblique-stack__rail):global(.is-rear) {
-  stroke: rgb(221 224 232 / 88%);
+  stroke: rgb(137 147 165 / 82%);
   stroke-width: 2.5;
 }
 
@@ -1230,13 +1463,13 @@ line:where(.scope, .scope *):global(.material-oblique-part--post) {
 }
 
 :where(.scope, .scope *):global(.material-oblique-lathe__cap) {
-  fill: rgb(207 211 223 / 92%);
-  stroke: rgb(150 156 173 / 80%);
-  stroke-width: 0.9;
+  fill: rgb(50 57 70 / 96%);
+  stroke: rgb(28 34 45 / 92%);
+  stroke-width: 1;
 }
 
 :where(.scope, .scope *):global(.material-oblique-lathe__rib) {
-  stroke: rgb(140 146 163 / 62%);
+  stroke: rgb(220 225 235 / 48%);
   stroke-width: 0.7;
   pointer-events: none;
 }
@@ -1272,16 +1505,25 @@ line:where(.scope, .scope *):global(.material-oblique-part--post) {
   fill: #475569;
 }
 
-:where(.scope, .scope *):global(.material-oblique-object):is(:global(.is-selected), :global(.is-highlighted)) polygon {
+:where(.scope, .scope *):global(.material-oblique-object):is(:global(.is-selected), :global(.is-highlighted))
+  :is(polygon, path, circle, line, rect) {
   stroke-width: 1.8;
 }
 
-:where(.scope, .scope *):global(.material-oblique-object):global(.is-selected) polygon {
-  stroke: var(--unilab-color-primary);
+:where(.scope, .scope *):global(.material-oblique-object):global(.is-selected)
+  :is(polygon, path, circle, line, rect) {
+  stroke: var(--unilab-color-material);
 }
 
-:where(.scope, .scope *):global(.material-oblique-object):global(.is-highlighted) polygon {
+:where(.scope, .scope *):global(.material-oblique-object):global(.is-highlighted)
+  :is(polygon, path, circle, line, rect) {
   stroke: var(--unilab-color-warning);
+}
+
+:where(.scope, .scope *):global(.material-oblique-object):focus-visible
+  :is(polygon, path, circle, line, rect) {
+  stroke: var(--unilab-color-primary);
+  stroke-width: 2.2;
 }
 
 :where(.scope, .scope *):global(.material-oblique-site) {
@@ -1329,30 +1571,113 @@ line:where(.scope, .scope *):global(.material-oblique-part--post) {
 }
 
 :where(.scope, .scope *):global(.material-oblique-object):hover :global(.material-oblique-object__tag),
-:where(.scope, .scope *):global(.material-oblique-object):is(:global(.is-equipment), :global(.is-selected), :global(.is-highlighted))
+:where(.scope, .scope *):global(.material-oblique-object):focus-visible :global(.material-oblique-object__tag),
+:where(.scope, .scope *):global(.material-oblique-object):global(.is-tag-visible)
   :global(.material-oblique-object__tag) {
   opacity: 1;
 }
 
 :where(.scope, .scope *):global(.material-oblique-object__tag) line {
-  stroke: rgb(107 114 128 / 32%);
-  stroke-width: 0.8;
+  stroke: rgb(75 85 99 / 48%);
+  stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
 
 :where(.scope, .scope *):global(.material-oblique-object__tag) rect {
-  fill: rgb(255 255 255 / 82%);
-  stroke: rgb(180 184 197 / 58%);
-  stroke-width: 0.8;
+  fill: rgb(255 255 255 / 96%);
+  stroke: rgb(148 163 184 / 82%);
+  stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
 
 :where(.scope, .scope *):global(.material-oblique-object__tag) text {
-  fill: #686c79;
-  font-size: 13px;
-  font-weight: 550;
   text-anchor: middle;
   dominant-baseline: middle;
+}
+
+:where(.scope, .scope *):global(.material-oblique-object__tag-name) {
+  fill: #334155;
+  font-size: 46px;
+  font-weight: 650;
+}
+
+:where(.scope, .scope *):global(.material-oblique-object__tag-code) {
+  fill: #64748b;
+  font-family: var(--unilab-font-data, monospace);
+  font-size: 31px;
+  font-weight: 550;
+}
+
+:where(.scope, .scope *):global(.material-oblique-canvas)[data-semantic-zoom='overview']
+  :is(
+    :global(.material-oblique-site__label),
+    :global(.material-oblique-stack__label)
+  ) {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.scope, .scope *):global(.material-oblique-object__tag) {
+    transition: none;
+  }
+}
+
+@media (max-width: 900px) {
+  :where(.scope, .scope *):global(.material-oblique-canvas__coverage) {
+    max-width: calc(100% - 24px);
+    flex-wrap: wrap;
+  }
+
+  :where(.scope, .scope *):global(.material-oblique-canvas__selection) {
+    max-width: calc(100% - 24px);
+  }
+
+  :where(.scope, .scope *):global(.material-oblique-canvas__coordinates) {
+    display: none;
+  }
+
+  :where(.scope, .scope *):global(.material-oblique-canvas__legend) {
+    bottom: 68px;
+    max-width: calc(100% - 32px);
+  }
+}
+
+@media (max-width: 640px) {
+  :where(.scope, .scope *):global(.material-oblique-canvas__identity) span {
+    display: none;
+  }
+
+  :where(.scope, .scope *):global(.material-oblique-canvas__identity) {
+    padding-inline: 8px;
+  }
+
+  :where(.scope, .scope *):global(.material-oblique-canvas__camera) button {
+    min-width: 30px;
+    padding-inline: 6px;
+  }
+
+  :where(.scope, .scope *):global(.material-oblique-canvas__camera) output {
+    min-width: 42px;
+  }
+
+  :where(.scope, .scope *):global(.material-oblique-canvas__selection) {
+    top: 108px;
+    gap: 7px;
+  }
+
+  :where(.scope, .scope *):global(.material-oblique-canvas__selection)
+    > div
+    > span {
+    display: none;
+  }
+
+  :where(.scope, .scope *):global(.material-oblique-canvas__legend) {
+    right: 16px;
+  }
+
+  :where(.scope, .scope *):global(.material-oblique-canvas__legend) > span {
+    display: none;
+  }
 }
 
 :where(.scope, .scope *):global(.material-canvas) :global(.material__error) {

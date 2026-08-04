@@ -294,6 +294,37 @@ describe('laboratory service', () => {
       }
     ])
   })
+
+  it('forwards caller cancellation to managed health and device reads', async () => {
+    const controller = new AbortController()
+    const observedSignals: Array<AbortSignal | null> = []
+    const http: HttpClient = {
+      request: async <ResponseValue>(
+        path: string,
+        init?: RequestInit
+      ): Promise<ResponseValue> => {
+        observedSignals.push(init?.signal ?? null)
+        return (path === '/api/v1/health'
+          ? { status: 'ok' }
+          : {
+              code: 0,
+              data: { schemaVersion: 'device-catalog/v1', items: [] }
+            }) as ResponseValue
+      }
+    }
+    const service = createLaboratoryService(
+      http,
+      getDefaultBackend('local-python')
+    )
+
+    await service.ping(controller.signal)
+    await service.getOnlineDevices(controller.signal)
+
+    expect(observedSignals).toEqual([
+      controller.signal,
+      controller.signal
+    ])
+  })
 })
 
 function fixtureHttp(

@@ -80,7 +80,8 @@ export interface WorkflowExecutableCatalogSnapshot {
 export type WorkflowActionCatalogSnapshot = WorkflowExecutableCatalogSnapshot
 
 export async function loadWorkflowActionCatalog(
-  http: HttpClient
+  http: HttpClient,
+  signal?: AbortSignal
 ): Promise<WorkflowExecutableCatalogSnapshot> {
   const summaries: Record<string, unknown>[] = []
   let authority: ReturnType<typeof authorityValue> | null = null
@@ -89,7 +90,8 @@ export async function loadWorkflowActionCatalog(
   let page = 1
   do {
     const list = catalogEnvelope(await http.request<unknown>(
-      `/api/v1/workflow-node-templates?page=${page}&page_size=100`
+      `/api/v1/workflow-node-templates?page=${page}&page_size=100`,
+      { signal }
     ))
     const pageAuthority = authorityValue(list.authority)
     const pageFingerprint = fingerprintValue(list.catalog_fingerprint)
@@ -137,7 +139,8 @@ export async function loadWorkflowActionCatalog(
     WorkflowActionNodeTemplate | WorkflowPublishedNodeTemplate | null
   > => {
     const data = catalogEnvelope(await http.request<unknown>(
-      `/api/v1/workflow-node-templates/${encodeURIComponent(summary.uuid)}`
+      `/api/v1/workflow-node-templates/${encodeURIComponent(summary.uuid)}`,
+      { signal }
     ))
     if (
       !sameAuthority(authority, authorityValue(data.authority)) ||

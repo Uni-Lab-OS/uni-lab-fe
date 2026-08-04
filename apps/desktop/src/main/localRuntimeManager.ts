@@ -23,6 +23,7 @@ export interface LocalRuntimeSpawnSpec {
 export interface LocalRuntimeLaunchPlan {
   runtimeDirectory: string
   edge: LocalRuntimeSpawnSpec
+  deviceCatalogRequirement: 'catalog' | 'domain_actions'
 }
 
 export interface LocalSimulatorLaunchPlan {
@@ -57,7 +58,8 @@ type ActiveOperation = 'simulator' | 'edge' | 'all'
 
 export const LOCAL_RUNTIME_PORTS = {
   simulator: 18_765,
-  edgeHttp: 18_003
+  edgeHttp: 18_003,
+  hostLink: 18_004
 } as const
 
 const HOST = '127.0.0.1'
@@ -159,7 +161,8 @@ export class LocalRuntimeManager {
     try {
       const plan = await resolveLocalRuntimeLaunchPlan(config)
       await requireAvailablePorts([
-        { port: LOCAL_RUNTIME_PORTS.edgeHttp, label: '领域侧 Edge HTTP' }
+        { port: LOCAL_RUNTIME_PORTS.edgeHttp, label: '领域侧 Edge HTTP' },
+        { port: LOCAL_RUNTIME_PORTS.hostLink, label: 'Edge HostLink' }
       ])
       await mkdir(this.logsDirectory, { recursive: true })
       await mkdir(plan.runtimeDirectory, { recursive: true })
@@ -177,18 +180,25 @@ export class LocalRuntimeManager {
         (payload) => isRecord(payload) && payload['status'] === 'ok'
       )
 
-      this.publishState('waiting_edge', 'HostNode 已启动，正在等待工作流模板目录…')
-      await waitForHttp(
-        WORKFLOW_TEMPLATE_CATALOG_URL,
-        managedChildren([
-          ['simulator', this.simulatorProcess],
-          ['edge', this.edgeProcess]
-        ]),
-        PROCESS_READY_TIMEOUT_MS,
-        () => true
-      )
+      if (plan.deviceCatalogRequirement === 'domain_actions') {
+        this.publishState('waiting_edge', 'HostNode 已启动，正在等待工作流模板目录…')
+        await waitForHttp(
+          WORKFLOW_TEMPLATE_CATALOG_URL,
+          managedChildren([
+            ['simulator', this.simulatorProcess],
+            ['edge', this.edgeProcess]
+          ]),
+          PROCESS_READY_TIMEOUT_MS,
+          () => true
+        )
+      }
 
-      this.publishState('waiting_edge', '工作流目录已就绪，正在等待设备运行时…')
+      this.publishState(
+        'waiting_edge',
+        plan.deviceCatalogRequirement === 'domain_actions'
+          ? '工作流目录已就绪，正在等待领域设备动作上报…'
+          : '工作流目录已就绪，正在等待设备运行时…'
+      )
       await waitForHttp(
         DEVICE_CATALOG_URL,
         managedChildren([
@@ -196,7 +206,10 @@ export class LocalRuntimeManager {
           ['edge', this.edgeProcess]
         ]),
         PROCESS_READY_TIMEOUT_MS,
-        isDeviceCatalogReady
+        (payload) => isDeviceCatalogReady(
+          payload,
+          plan.deviceCatalogRequirement
+        )
       )
 
       this.publishState(
@@ -480,7 +493,10 @@ export async function resolveLocalRuntimeLaunchPlan(
   const resolvedConfig = await resolveRuntimeConfig(config, platform)
   return {
     runtimeDirectory: resolvedConfig.runtimeDirectory,
-    edge: edgeSpec(resolvedConfig)
+    edge: edgeSpec(resolvedConfig),
+    deviceCatalogRequirement: resolvedConfig.szlabProjectPath
+      ? 'domain_actions'
+      : 'catalog'
   }
 }
 
@@ -501,10 +517,7 @@ async function resolveRuntimeConfig(
     config.osProjectPath,
     '请选择 Uni-Lab-OS 项目根目录'
   )
-  const szlabProjectPath = normalizeRequiredPath(
-    config.szlabProjectPath,
-    '请选择领域项目根目录（以 Uni-Lab-SZLab 为例）'
-  )
+  const szlabProjectPath = normalizeOptionalPath(config.szlabProjectPath)
   const environmentPath = normalizeRequiredPath(
     config.environmentPath,
     '请选择 unilab Conda 环境目录'
@@ -515,7 +528,9 @@ async function resolveRuntimeConfig(
   }
   await requireFile(graphPath, '设备图 JSON 不存在')
   await requireDirectory(osProjectPath, 'Uni-Lab-OS 项目根目录不存在')
-  await requireDirectory(szlabProjectPath, '领域项目根目录不存在')
+  if (szlabProjectPath) {
+    await requireDirectory(szlabProjectPath, '领域项目根目录不存在')
+  }
   await requireDirectory(environmentPath, 'unilab Conda 环境目录不存在')
 
   const { unilabExecutable } = runtimeExecutablePaths(
@@ -529,12 +544,15 @@ async function resolveRuntimeConfig(
       : '所选 Conda 环境缺少 bin/unilab'
   )
 
-  const localConfigPath = join(
-    szlabProjectPath,
-    'deployment',
-    'local_config.py'
+  const localConfigPath = szlabProjectPath
+    ? join(szlabProjectPath, 'deployment', 'local_config.py')
+    : join(osProjectPath, 'unilabos', 'config', 'example_config.py')
+  await requireFile(
+    localConfigPath,
+    szlabProjectPath
+      ? '领域项目缺少 deployment/local_config.py'
+      : 'Uni-Lab-OS 缺少内置本地调试配置'
   )
-  await requireFile(localConfigPath, '领域项目缺少 deployment/local_config.py')
 
   return {
     platform,
@@ -544,7 +562,9 @@ async function resolveRuntimeConfig(
     environmentPath,
     unilabExecutable,
     localConfigPath,
-    runtimeDirectory: join(szlabProjectPath, 'runtime', 'ideawit-e2e'),
+    runtimeDirectory: szlabProjectPath
+      ? join(szlabProjectPath, 'runtime', 'ideawit-e2e')
+      : join(osProjectPath, 'runtime', 'edge-local-debug'),
   }
 }
 
@@ -598,8 +618,9 @@ function edgeSpec(config: ResolvedRuntimeConfig): LocalRuntimeSpawnSpec {
   return {
     command: config.unilabExecutable,
     args: [
-      '--workspace',
-      config.szlabProjectPath,
+      ...(config.szlabProjectPath
+        ? ['--workspace', config.szlabProjectPath]
+        : []),
       '--graph',
       config.graphPath,
       '--config',
@@ -617,12 +638,13 @@ function edgeSpec(config: ResolvedRuntimeConfig): LocalRuntimeSpawnSpec {
       '--skip_env_check',
       '--test_mode'
     ],
-    cwd: config.szlabProjectPath,
+    cwd: config.szlabProjectPath || config.osProjectPath,
     env: {
       ...runtimeEnvironment(config),
       UNILABOS_RUNTIME_DB: edgeRuntimeDatabasePath(config.runtimeDirectory),
       UNILABOS_OBSERVABILITYCONFIG_ENABLED: 'true',
       UNILABOS_OBSERVABILITYCONFIG_PROJECT_NAME: 'uni-lab-electron',
+      UNILABOS_HOSTLINKCONFIG_PORT: String(LOCAL_RUNTIME_PORTS.hostLink),
       ROS_DOMAIN_ID: '42'
     }
   }
@@ -965,6 +987,11 @@ function normalizeRequiredPath(value: string, message: string): string {
   return normalize(resolve(trimmed))
 }
 
+function normalizeOptionalPath(value: string): string {
+  const trimmed = value.trim()
+  return trimmed ? normalize(resolve(trimmed)) : ''
+}
+
 function processLabel(kind: LocalRuntimeProcessKind): string {
   if (kind === 'simulator') return 'OPC UA'
   return '领域侧 Edge'
@@ -974,12 +1001,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object'
 }
 
-function isDeviceCatalogReady(payload: unknown): boolean {
+function isDeviceCatalogReady(
+  payload: unknown,
+  requirement: LocalRuntimeLaunchPlan['deviceCatalogRequirement']
+): boolean {
   if (!isRecord(payload) || payload['code'] !== 0) return false
   const data = payload['data']
-  return isRecord(data)
-    && data['schemaVersion'] === 'device-catalog/v1'
-    && Array.isArray(data['items'])
+  if (
+    !isRecord(data)
+    || data['schemaVersion'] !== 'device-catalog/v1'
+    || !Array.isArray(data['items'])
+  ) return false
+  if (requirement === 'catalog') return true
+  return data['items'].some((value) => {
+    if (!isRecord(value) || value['id'] === 'host_node') return false
+    return Array.isArray(value['actions']) && value['actions'].length > 0
+  })
 }
 
 function delay(milliseconds: number): Promise<void> {

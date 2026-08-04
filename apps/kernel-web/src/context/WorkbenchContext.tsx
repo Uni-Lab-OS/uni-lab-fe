@@ -40,7 +40,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }): React.
     initialBackend()
   )
   const [backendEnabled, setBackendEnabledState] = useState(
-    DEFAULT_BACKEND_ENABLED
+    initialBackendEnabled
   )
   const [connection, setConnection] =
     useState<ConnectionStatus>('disconnected')
@@ -139,6 +139,37 @@ function initialBackend(): BackendConfig {
     }
   } catch {
     return backend
+  }
+}
+
+function initialBackendEnabled(): boolean {
+  // Electron owns the lifecycle of its local Edge. Do not probe the managed
+  // port before the operator starts that runtime; the launcher enables the
+  // profile only after the Edge readiness gate succeeds. Browser deployments
+  // retain the existing auto-connect policy for externally managed services.
+  if (
+    typeof globalThis.window !== 'undefined'
+    && globalThis.window.api?.runtime
+    && !hasExplicitBackendOverride()
+  ) {
+    return false
+  }
+  return DEFAULT_BACKEND_ENABLED
+}
+
+function hasExplicitBackendOverride(): boolean {
+  if (typeof globalThis.location === 'undefined') return false
+  const override = new URLSearchParams(globalThis.location.search)
+    .get('localOsUrl')
+  if (!override) return false
+  try {
+    const url = new URL(override)
+    return (
+      ['http:', 'https:'].includes(url.protocol)
+      && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+    )
+  } catch {
+    return false
   }
 }
 

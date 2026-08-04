@@ -325,7 +325,7 @@ export default function LabDeviceRenderer({
         events.onPointerLeave(event)
       }}
     >
-      {!object && !deckSurfaceProvidedByParent && (
+      {node.renderBody && !object && !deckSurfaceProvidedByParent && (
         <mesh
           position={
             isDeck
@@ -357,7 +357,7 @@ export default function LabDeviceRenderer({
           />
         </mesh>
       )}
-      {object && (
+      {node.renderBody && object && (
         <group
           ref={modelGroupRef}
           rotation={isZUp ? [-Math.PI / 2, 0, 0] : undefined}
@@ -379,7 +379,7 @@ export default function LabDeviceRenderer({
           selected={isSelected}
         />
       )}
-      {error && (
+      {node.renderBody && error && (
         <Html position={[0, 0.1, 0]} center distanceFactor={6}>
           <div className="pascal-model-label" title={error}>
             模型加载失败，已使用占位体

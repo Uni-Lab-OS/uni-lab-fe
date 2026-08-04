@@ -1,5 +1,6 @@
 import {
   closeSync,
+  existsSync,
   ftruncateSync,
   mkdirSync,
   mkdtempSync,
@@ -14,6 +15,7 @@ import {
   MAX_PACKAGED_APP_BYTES,
   MIN_WINDOWS_INSTALLER_BYTES,
   findWindowsInstaller,
+  resolvePackagingCliPaths,
   validatePackagedApp
 } from './package-windows.mjs'
 
@@ -26,6 +28,19 @@ afterEach(() => {
 })
 
 describe('Windows package publication gates', () => {
+  it('resolves packaging CLIs from the desktop package dependencies', () => {
+    const paths = resolvePackagingCliPaths()
+
+    expect(paths.electronViteCli).toContain(
+      '/apps/desktop/node_modules/electron-vite/'
+    )
+    expect(paths.electronBuilderCli).toContain(
+      '/apps/desktop/node_modules/electron-builder/'
+    )
+    expect(existsSync(paths.electronViteCli)).toBe(true)
+    expect(existsSync(paths.electronBuilderCli)).toBe(true)
+  })
+
   it('rejects the small NSIS shell left by a failed build', () => {
     const outputDirectory = createOutputDirectory()
     createSparsePeFile(

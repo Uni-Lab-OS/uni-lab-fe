@@ -139,19 +139,22 @@ export default function DevicePanel(): React.JSX.Element {
     [actionCatalog, selectedAction]
   )
 
-  const loadActionCatalog = useCallback(async () => {
+  const loadActionCatalog = useCallback(async (signal?: AbortSignal) => {
     if (!canRunActionTask || connection !== 'connected') return
     setActionCatalogLoading(true)
     setActionCatalogError(null)
     try {
-      setActionCatalog(await services.workflow.getWorkflowActionCatalog())
+      const catalog = await services.workflow.getWorkflowActionCatalog(signal)
+      if (signal?.aborted) return
+      setActionCatalog(catalog)
     } catch (error) {
+      if (signal?.aborted) return
       setActionCatalog(null)
       setActionCatalogError(
         error instanceof Error ? error.message : 'Action 合同目录不可用'
       )
     } finally {
-      setActionCatalogLoading(false)
+      if (!signal?.aborted) setActionCatalogLoading(false)
     }
   }, [canRunActionTask, connection, services.workflow])
 
@@ -162,7 +165,9 @@ export default function DevicePanel(): React.JSX.Element {
       setActionCatalogLoading(false)
       return
     }
-    void loadActionCatalog()
+    const controller = new AbortController()
+    void loadActionCatalog(controller.signal)
+    return () => controller.abort()
   }, [backend.apiUrl, backend.id, canRunActionTask, connection, loadActionCatalog])
   useEffect(() => {
     if (!devices.length) {
@@ -587,7 +592,8 @@ export default function DevicePanel(): React.JSX.Element {
             canRunActionTask={canRunActionTask}
             connection={connection}
             runState={
-              runOperation?.actionRef === selectedAction?.actionRef
+              runOperation !== null && selectedAction !== null &&
+              runOperation.actionRef === selectedAction.actionRef
                 ? runOperation.state
                 : null
             }

@@ -98,6 +98,7 @@ export const LabDeviceNodeSchema = BaseNode.extend({
   rotation: Vector3Schema.default([0, 0, 0]),
   scale: Vector3Schema.default([1, 1, 1]),
   dimensions: Vector3Schema.default([0.6, 0.5, 0.6]),
+  renderBody: z.boolean().default(true),
   model: z
     .object({
       path: z.string().default(''),
