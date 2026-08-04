@@ -65,6 +65,7 @@ export function LocalRuntimeLogLauncher({
   const [error, setError] = useState<string | null>(null)
   const readSequenceRef = useRef(0)
   const selectInitialLogRef = useRef(true)
+  useDeviceCardSurfaceOcclusion(`local-runtime-log-${variant}`, open)
 
   const closeLogs = useCallback((): void => {
     setOpen(false)
@@ -173,6 +174,7 @@ export default function LocalRuntimeLauncher({
   const [edgeSubmitted, setEdgeSubmitted] = useState(false)
   const [dialogLogsOpen, setDialogLogsOpen] = useState(false)
   const readyNotificationSentRef = useRef(false)
+  useDeviceCardSurfaceOcclusion('local-runtime-dialog', open)
 
   useEffect(() => {
     if (!runtimeApi) return
@@ -1263,6 +1265,22 @@ function desktopRuntimeApi(): DesktopRuntimeApi | undefined {
   return typeof globalThis.window === 'undefined'
     ? undefined
     : globalThis.window.api?.runtime
+}
+
+function useDeviceCardSurfaceOcclusion(
+  source: string,
+  occluded: boolean
+): void {
+  useEffect(() => {
+    if (typeof globalThis.window === 'undefined') return
+    const deviceCards = globalThis.window.api?.deviceCards
+    if (!deviceCards) return
+    void deviceCards.setOccluded(source, occluded).catch(() => undefined)
+    return () => {
+      if (!occluded) return
+      void deviceCards.setOccluded(source, false).catch(() => undefined)
+    }
+  }, [occluded, source])
 }
 
 function errorMessage(error: unknown): string {

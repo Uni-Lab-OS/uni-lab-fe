@@ -40,6 +40,7 @@ import type {
 import { ElectronDeviceCardAuthoringApprovals } from './deviceCardAgentPermissions'
 import { RendererDeviceCardAuthoringTargetPort } from './deviceCardAuthoringTargets'
 import { unavailableDeviceCardCapabilities } from './deviceCardRuntimeCapabilities'
+import { DeviceCardVisibilityController } from './deviceCardVisibility'
 
 interface RuntimeCardRecord {
   id: string
@@ -63,6 +64,7 @@ interface PendingAction {
 export class DeviceCardManager {
   private readonly sessions = new Map<number, RuntimeSession>()
   private readonly pendingActions = new Map<string, PendingAction>()
+  private readonly visibility = new DeviceCardVisibilityController()
   private activeView: WebContentsView | null = null
   private readonly targetPort: RendererDeviceCardAuthoringTargetPort
   readonly authoring: LocalDeviceCardAuthoringAutomation
@@ -243,6 +245,16 @@ export class DeviceCardManager {
       }
     )
     ipcMain.handle(
+      'device-cards:setOccluded',
+      (event, source: unknown, occluded: unknown) => {
+        this.assertMainRenderer(event)
+        if (typeof source !== 'string' || typeof occluded !== 'boolean') {
+          throw new Error('设备卡片遮挡状态无效。')
+        }
+        this.visibility.setOccluded(source, occluded)
+      }
+    )
+    ipcMain.handle(
       'device-cards:updateState',
       (event, state: Record<string, unknown>) => {
         this.assertMainRenderer(event)
@@ -406,9 +418,13 @@ export class DeviceCardManager {
     view.webContents.on('will-attach-webview', (event) => event.preventDefault())
     view.webContents.on('destroyed', () => {
       this.sessions.delete(view.webContents.id)
-      if (this.activeView === view) this.activeView = null
+      if (this.activeView === view) {
+        this.visibility.detach(view)
+        this.activeView = null
+      }
     })
     window.contentView.addChildView(view)
+    this.visibility.attach(view)
     view.setBounds(normalizeBounds(request.bounds))
     await view.webContents.loadFile(join(record.artifactDir, 'index.html'))
   }
@@ -423,6 +439,7 @@ export class DeviceCardManager {
   private closeActive(): void {
     const view = this.activeView
     if (!view) return
+    this.visibility.detach(view)
     this.activeView = null
     this.sessions.delete(view.webContents.id)
     const window = this.options.getMainWindow()

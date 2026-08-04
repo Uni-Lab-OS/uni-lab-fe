@@ -220,6 +220,7 @@ interface DesktopApi {
     }
     open: (request: OpenDeviceCardRequest) => Promise<void>
     updateBounds: (bounds: DeviceCardBounds) => Promise<void>
+    setOccluded: (source: string, occluded: boolean) => Promise<void>
     updateState: (state: Record<string, unknown>) => Promise<void>
     close: () => Promise<void>
     resolveAction: (run: DeviceCardActionRun) => Promise<void>

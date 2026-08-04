@@ -170,6 +170,8 @@ const api = {
       ipcRenderer.invoke('device-cards:open', request),
     updateBounds: (bounds: DeviceCardBounds): Promise<void> =>
       ipcRenderer.invoke('device-cards:updateBounds', bounds),
+    setOccluded: (source: string, occluded: boolean): Promise<void> =>
+      ipcRenderer.invoke('device-cards:setOccluded', source, occluded),
     updateState: (state: Record<string, unknown>): Promise<void> =>
       ipcRenderer.invoke('device-cards:updateState', state),
     close: (): Promise<void> => ipcRenderer.invoke('device-cards:close'),
