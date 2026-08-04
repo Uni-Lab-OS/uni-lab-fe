@@ -2785,6 +2785,11 @@ body {
   margin-top: 14px;
 }
 
+.edge-device__run-control {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
 .edge-device__run-button,
 .edge-device__cancel-button {
   min-height: 36px;
@@ -2799,6 +2804,10 @@ body {
   color: #fff;
   border: 1px solid var(--unilab-color-device);
   background: var(--unilab-color-device);
+}
+
+.edge-device__run-control > .edge-device__run-button {
+  width: 100%;
 }
 
 .edge-device__run-button:hover:not(:disabled) {
@@ -2824,11 +2833,11 @@ body {
   background: var(--unilab-color-danger-soft);
 }
 
-.edge-device__debug-actions > span {
+.edge-device__debug-actions > .edge-device__run-reason {
   margin-left: auto;
-  color: var(--unilab-color-text-subtle);
-  font-size: 9px;
-  line-height: 1.4;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+  line-height: 1.5;
   text-align: right;
 }
 
@@ -2956,7 +2965,7 @@ body {
     flex-direction: column;
   }
 
-  .edge-device__debug-actions > span {
+  .edge-device__debug-actions > .edge-device__run-reason {
     margin-left: 0;
     text-align: left;
   }

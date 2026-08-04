@@ -7,6 +7,12 @@ import type {
 
 export type DeviceActionArgumentDraft = Record<string, string | boolean>
 
+export type D1AS1UnsupportedReason =
+  | 'material_port'
+  | 'resource_slot'
+  | 'site_selector'
+  | 'implicit_passthrough'
+
 export function matchDeviceActionTemplate(
   catalog: WorkflowActionCatalogSnapshot,
   action: DeviceAction
@@ -21,12 +27,20 @@ export function matchDeviceActionTemplate(
 export function supportsD1AS1(
   template: WorkflowActionNodeTemplate
 ): boolean {
-  return template.handles.every((handle) =>
-    handle.editorControl !== 'material_port' &&
-    handle.editorControl !== 'site_selector' &&
-    !handle.implicitPassthrough &&
-    !containsUnsupportedContract(handle.valueSchema)
-  ) && !containsUnsupportedContract(template.schema)
+  return getD1AS1UnsupportedReason(template) === null
+}
+
+export function getD1AS1UnsupportedReason(
+  template: WorkflowActionNodeTemplate
+): D1AS1UnsupportedReason | null {
+  for (const handle of template.handles) {
+    if (handle.editorControl === 'material_port') return 'material_port'
+    if (handle.editorControl === 'site_selector') return 'site_selector'
+    if (handle.implicitPassthrough) return 'implicit_passthrough'
+    const valueSchemaReason = findUnsupportedContract(handle.valueSchema)
+    if (valueSchemaReason) return valueSchemaReason
+  }
+  return findUnsupportedContract(template.schema)
 }
 
 export function serializeDeviceActionInput(
@@ -106,17 +120,27 @@ function fieldLabel(name: string, schema: DeviceActionInputSchema): string {
   return schema.title || name
 }
 
-function containsUnsupportedContract(value: unknown): boolean {
-  if (Array.isArray(value)) return value.some(containsUnsupportedContract)
-  if (!value || typeof value !== 'object') return value === 'ResourceSlot'
-  const record = value as Record<string, unknown>
-  if (
-    record.$slot === 'ResourceSlot' ||
-    record.editor_control === 'material_port' ||
-    record.editor_control === 'site_selector' ||
-    record.implicit_passthrough === true
-  ) {
-    return true
+function findUnsupportedContract(
+  value: unknown
+): D1AS1UnsupportedReason | null {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const reason = findUnsupportedContract(item)
+      if (reason) return reason
+    }
+    return null
   }
-  return Object.values(record).some(containsUnsupportedContract)
+  if (!value || typeof value !== 'object') {
+    return value === 'ResourceSlot' ? 'resource_slot' : null
+  }
+  const record = value as Record<string, unknown>
+  if (record.$slot === 'ResourceSlot') return 'resource_slot'
+  if (record.editor_control === 'material_port') return 'material_port'
+  if (record.editor_control === 'site_selector') return 'site_selector'
+  if (record.implicit_passthrough === true) return 'implicit_passthrough'
+  for (const child of Object.values(record)) {
+    const reason = findUnsupportedContract(child)
+    if (reason) return reason
+  }
+  return null
 }

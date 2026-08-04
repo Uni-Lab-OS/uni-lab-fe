@@ -27,6 +27,7 @@ describe('device action Runtime availability', () => {
       <DeviceActionAvailability
         state={{
           kind: 'unavailable',
+          reason: 'workflow_required',
           message: '该动作包含物料语义，请在工作流中运行'
         }}
         onRun={() => {}}
@@ -34,8 +35,32 @@ describe('device action Runtime availability', () => {
     )
 
     expect(markup).toContain('请在工作流中运行')
+    expect(markup).toContain('title="该动作包含物料语义，请在工作流中运行"')
+    expect(markup).toContain('aria-describedby=')
     expect(markup).toContain('disabled')
   })
+
+  it.each([
+    ['edge_disconnected', 'Edge 未连接', 'Edge 当前未连接'],
+    ['device_offline', '设备离线', '设备当前离线'],
+    ['catalog_loading', '正在读取动作合同…', '正在读取动作合同目录…'],
+    ['catalog_error', '动作合同不可用', '动作合同目录读取失败：连接超时']
+  ] as const)(
+    '为 %s 直接显示具体状态，不误导为工作流限制',
+    (reason, label, message) => {
+      const markup = renderToStaticMarkup(
+        <DeviceActionAvailability
+          state={{ kind: 'unavailable', reason, message }}
+          onRun={() => {}}
+        />
+      )
+
+      expect(markup).toContain(label)
+      expect(markup).toContain(message)
+      expect(markup).not.toContain('请在工作流中运行')
+      expect(markup).toContain('disabled')
+    }
+  )
 
   it('separates HTTP acceptance from running and terminal result', () => {
     const pending = renderToStaticMarkup(

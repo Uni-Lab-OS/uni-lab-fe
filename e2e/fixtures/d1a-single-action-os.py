@@ -59,6 +59,7 @@ from typing import Annotated, TypedDict
 from pydantic import Field
 
 from unilabos.registry.decorators import action, device
+from unilabos.registry.placeholder_type import ResourceSlot
 
 
 class HoldResult(TypedDict):
@@ -73,6 +74,10 @@ class Instrument:
         self,
         duration_seconds: Annotated[int, Field(title="执行时长", ge=1, le=30)] = 3,
     ) -> HoldResult:
+        raise NotImplementedError
+
+    @action(description="需要工作流物料上下文", displayname="转移物料")
+    def move_sample(self, sample: ResourceSlot) -> None:
         raise NotImplementedError
 """.strip(),
         encoding="utf-8",
@@ -94,12 +99,12 @@ def _registry_snapshot(package_root: Path) -> tuple[dict[str, Any], dict[str, An
 class DriverBoundaryHost:
     """Deterministic physical-driver boundary; all runtime owners stay production."""
 
-    def __init__(self, action_definition: dict[str, Any]) -> None:
+    def __init__(self, action_definitions: dict[str, Any]) -> None:
         self.devices_names = {DEVICE_ID: "/devices"}
         self.device_machine_names = {DEVICE_ID: "D1A E2E Edge"}
         self._online_devices = {f"/devices/{DEVICE_ID}"}
         self._action_value_mappings = {
-            DEVICE_ID: {ACTION_NAME: copy.deepcopy(action_definition)}
+            DEVICE_ID: copy.deepcopy(action_definitions)
         }
         self._device_action_status: dict[str, Any] = {}
         self._subscribed_topics: set[str] = set()
@@ -179,10 +184,9 @@ def create_fixture_app(working_dir: Path):
     _write_package(package_root)
     device_snapshot, resource_snapshot = _registry_snapshot(package_root)
     owner = next(iter(device_snapshot.values()))
-    action_definition = copy.deepcopy(
-        owner["class"]["action_value_mappings"][ACTION_NAME]
-    )
-    action_definition["label"] = "单节点运行"
+    action_definitions = copy.deepcopy(owner["class"]["action_value_mappings"])
+    action_definitions[ACTION_NAME]["label"] = "单节点运行"
+    action_definitions["move_sample"]["label"] = "转移物料"
 
     BasicConfig.communication_protocol = "websocket"
     BasicConfig.machine_name = "D1A E2E Edge"
@@ -195,7 +199,7 @@ def create_fixture_app(working_dir: Path):
 
     client = WebSocketClient()
     CommunicationClientFactory._client_cache = client
-    host = DriverBoundaryHost(action_definition)
+    host = DriverBoundaryHost(action_definitions)
     HostNode.get_instance = classmethod(  # type: ignore[method-assign]
         lambda cls, timeout=None: host
     )
@@ -217,10 +221,20 @@ def create_fixture_app(working_dir: Path):
 
     from unilabos.app.web import server
 
-    return server.setup_server(
+    app = server.setup_server(
         registry_snapshot=device_snapshot,
         resource_registry_snapshot=resource_snapshot,
     )
+
+    @app.get("/api/v1/materials/graph")
+    async def empty_material_graph() -> dict[str, Any]:
+        return {"code": 0, "data": {"nodes": []}}
+
+    @app.get("/api/v1/material-shapes")
+    async def empty_material_shapes() -> dict[str, Any]:
+        return {"code": 0, "data": {"items": []}}
+
+    return app
 
 
 if __name__ == "__main__":

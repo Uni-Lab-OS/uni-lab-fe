@@ -6,6 +6,7 @@ import type {
 } from '@unilab/services'
 
 import {
+  getD1AS1UnsupportedReason,
   matchDeviceActionTemplate,
   serializeDeviceActionInput,
   supportsD1AS1
@@ -41,6 +42,22 @@ describe('device Action D1A preparation', () => {
     expect(supportsD1AS1(actionTemplate({
       valueSchema: { $slot: 'ResourceSlot', type: 'object' }
     }))).toBe(false)
+  })
+
+  it('reports the exact contract reason that requires Workflow execution', () => {
+    expect(getD1AS1UnsupportedReason(actionTemplate({
+      editorControl: 'material_port'
+    }))).toBe('material_port')
+    expect(getD1AS1UnsupportedReason(actionTemplate({
+      editorControl: 'site_selector'
+    }))).toBe('site_selector')
+    expect(getD1AS1UnsupportedReason(actionTemplate({
+      implicitPassthrough: true
+    }))).toBe('implicit_passthrough')
+    expect(getD1AS1UnsupportedReason(actionTemplate({
+      valueSchema: { $slot: 'ResourceSlot', type: 'object' }
+    }))).toBe('resource_slot')
+    expect(getD1AS1UnsupportedReason(actionTemplate())).toBeNull()
   })
 
   it('serializes the existing form without convenient coercion beyond its schema', () => {

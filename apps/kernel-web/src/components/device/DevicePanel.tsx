@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState
@@ -20,9 +21,10 @@ import { useWorkbench } from '../../context/WorkbenchContext'
 import type { ManagedDevice } from '../../data/deviceCatalog'
 import { useDevices } from '../../hooks/useDevices'
 import {
+  getD1AS1UnsupportedReason,
   matchDeviceActionTemplate,
   serializeDeviceActionInput,
-  supportsD1AS1,
+  type D1AS1UnsupportedReason,
   type DeviceActionArgumentDraft
 } from './deviceActionRun'
 import styles from './DevicePanel.module.scss'
@@ -945,31 +947,51 @@ function deviceActionReadiness({
   if (!canRunActionTask) {
     return {
       kind: 'unavailable',
-      message: '当前服务尚未启用正式单 Action Task，请在工作流中运行'
+      reason: 'workflow_required',
+      message: '当前服务未启用设备页单动作运行，请在工作流中运行'
     }
   }
-  if (connection !== 'connected' || !device.online) {
+  if (connection !== 'connected') {
     return {
       kind: 'unavailable',
-      message: '设备或 Edge 当前离线，恢复连接后才能运行'
+      reason: 'edge_disconnected',
+      message: 'Edge 当前未连接，恢复连接后才能运行'
+    }
+  }
+  if (!device.online) {
+    return {
+      kind: 'unavailable',
+      reason: 'device_offline',
+      message: '设备当前离线，设备上线后才能运行'
     }
   }
   if (catalogLoading) {
-    return { kind: 'unavailable', message: '正在读取 A1 Action 合同目录…' }
+    return {
+      kind: 'unavailable',
+      reason: 'catalog_loading',
+      message: '正在读取动作合同目录…'
+    }
   }
   if (catalogError) {
-    return { kind: 'unavailable', message: `Action 合同目录不可用：${catalogError}` }
+    return {
+      kind: 'unavailable',
+      reason: 'catalog_error',
+      message: `动作合同目录读取失败：${catalogError}`
+    }
   }
   if (!template) {
     return {
       kind: 'unavailable',
-      message: 'live Action 无法唯一匹配 A1 template，请在工作流中运行'
+      reason: 'workflow_required',
+      message: '该设备动作未唯一匹配到动作模板，请在工作流中运行'
     }
   }
-  if (!supportsD1AS1(template)) {
+  const unsupportedReason = getD1AS1UnsupportedReason(template)
+  if (unsupportedReason) {
     return {
       kind: 'unavailable',
-      message: '该动作包含物料或 Site 语义，请在工作流中运行'
+      reason: 'workflow_required',
+      message: workflowRequirementMessage(unsupportedReason)
     }
   }
   return {
@@ -1023,9 +1045,36 @@ function isTerminalDeviceActionTask(status: string): boolean {
   return ['succeeded', 'failed', 'canceled', 'timeout'].includes(status)
 }
 
+type DeviceActionUnavailableReason =
+  | 'workflow_required'
+  | 'edge_disconnected'
+  | 'device_offline'
+  | 'catalog_loading'
+  | 'catalog_error'
+
+function workflowRequirementMessage(
+  reason: D1AS1UnsupportedReason
+): string {
+  switch (reason) {
+    case 'material_port':
+      return '该动作需要工作流提供物料输入，请在工作流中运行'
+    case 'resource_slot':
+      return '该动作需要解析物料占位符（ResourceSlot），请在工作流中运行'
+    case 'site_selector':
+      return '该动作需要选择库位（Site），请在工作流中运行'
+    case 'implicit_passthrough':
+      return '该动作依赖工作流上下文中的隐式输入，请在工作流中运行'
+  }
+}
+
 export type DeviceActionRunState =
   | {
-      kind: 'ready' | 'unavailable' | 'submitting'
+      kind: 'ready' | 'submitting'
+      message: string
+    }
+  | {
+      kind: 'unavailable'
+      reason: DeviceActionUnavailableReason
       message: string
     }
   | {
@@ -1042,6 +1091,30 @@ export type DeviceActionRunState =
       error?: unknown[]
     }
 
+function deviceActionRunLabel(
+  state: DeviceActionRunState,
+  terminal: boolean
+): string {
+  if (state.kind === 'unavailable') {
+    switch (state.reason) {
+      case 'workflow_required':
+        return '请在工作流中运行'
+      case 'edge_disconnected':
+        return 'Edge 未连接'
+      case 'device_offline':
+        return '设备离线'
+      case 'catalog_loading':
+        return '正在读取动作合同…'
+      case 'catalog_error':
+        return '动作合同不可用'
+    }
+  }
+  if (state.kind === 'submitting') return '正在创建正式任务…'
+  if (state.kind === 'error' && state.retryable) return '重试同一请求'
+  if (terminal) return '再次运行'
+  return '运行此动作'
+}
+
 export function DeviceActionAvailability({
   state,
   onRun,
@@ -1052,6 +1125,7 @@ export function DeviceActionAvailability({
   onCancel?: (taskUuid: string) => void
 }): React.JSX.Element {
   const [copied, setCopied] = useState(false)
+  const messageId = useId()
   const ready = state.kind === 'ready' || (
     state.kind === 'error' && state.retryable
   )
@@ -1059,6 +1133,7 @@ export function DeviceActionAvailability({
     state.kind === 'failed' ||
     state.kind === 'canceled'
   const runnable = ready || terminal
+  const actionLabel = deviceActionRunLabel(state, terminal)
   const log = deviceActionExecutionLog(state)
   useEffect(() => {
     setCopied(false)
@@ -1069,22 +1144,20 @@ export function DeviceActionAvailability({
         className={`edge-device__debug-actions is-${state.kind}`}
         role={state.kind === 'failed' ? 'alert' : 'status'}
       >
-        <button
-          type="button"
-          className="edge-device__run-button"
-          disabled={!runnable}
-          onClick={onRun}
+        <span
+          className="edge-device__run-control"
+          title={state.kind === 'unavailable' ? state.message : undefined}
         >
-          {state.kind === 'unavailable'
-            ? '请在工作流中运行'
-            : state.kind === 'submitting'
-              ? '正在创建正式任务…'
-              : state.kind === 'error' && state.retryable
-                ? '重试同一请求'
-                : terminal
-                  ? '再次运行'
-                  : '运行此动作'}
-        </button>
+          <button
+            type="button"
+            className="edge-device__run-button"
+            disabled={!runnable}
+            aria-describedby={messageId}
+            onClick={onRun}
+          >
+            {actionLabel}
+          </button>
+        </span>
         {'taskUuid' in state &&
         (state.kind === 'accepted' || state.kind === 'running') &&
         onCancel ? (
@@ -1096,7 +1169,9 @@ export function DeviceActionAvailability({
             取消任务
           </button>
         ) : null}
-        <span>{state.message}</span>
+        <span id={messageId} className="edge-device__run-reason">
+          {state.message}
+        </span>
       </div>
       {'taskUuid' in state ? (
         <div className="edge-device__execution" aria-live="polite">

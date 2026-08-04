@@ -295,7 +295,38 @@ test('one device Action becomes a formal Task/Job and returns through the origin
       entry.path.includes('/workflow-node-templates/') &&
         entry.method === 'POST'
   )).toBe(false)
-  expect(websocketUrls).toEqual([])
+  expect(websocketUrls).toEqual([
+    `${os.url.replace(/^http/, 'ws')}/api/v1/ws/device_status`
+  ])
+
+  const materialActionButton = workspace.getByRole('button', {
+    name: '转移物料 动作节点'
+  })
+  await materialActionButton.click()
+  const workflowButton = debugSection.getByRole('button', {
+    name: '请在工作流中运行'
+  })
+  await expect(workflowButton).toBeDisabled()
+  await expect(workflowButton.locator('..')).toHaveAttribute(
+    'title',
+    '该动作需要工作流提供物料输入，请在工作流中运行'
+  )
+  await expect(debugSection).toContainText(
+    '该动作需要工作流提供物料输入'
+  )
+  await capture(
+    debugSection,
+    artifactDirectory,
+    screenshots,
+    '09-workflow-required-material-reason.png'
+  )
+  await page.setViewportSize({ width: 600, height: 900 })
+  await capture(
+    debugSection,
+    artifactDirectory,
+    screenshots,
+    '10-workflow-required-material-reason-narrow.png'
+  )
   expect(browserErrors).toEqual([])
   expect(screenshots.length).toBeGreaterThanOrEqual(5)
 
@@ -320,9 +351,10 @@ test('one device Action becomes a formal Task/Job and returns through the origin
       forbiddenRoutes: {
         legacyRuntimeRuns: 0,
         legacyRuntimeEvents: 0,
-        frontendDirectEdgeWebSocket: 0,
+        workflowTaskWebSocket: 0,
         systemWorkflowRead: 0
       },
+      allowedDeviceStatusWebSocket: websocketUrls.length,
       screenshots
     }, null, 2)}\n`
   )
