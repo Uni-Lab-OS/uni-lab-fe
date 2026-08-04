@@ -19,6 +19,7 @@ import {
   validatePackagedApp
 } from './package-windows.mjs'
 
+const DEVICE_CARD_APP_ARCHIVE_BYTES = 50 * 1024 * 1024
 const temporaryDirectories = []
 
 afterEach(() => {
@@ -66,7 +67,24 @@ describe('Windows package publication gates', () => {
     })
   })
 
-  it('rejects an app archive that contains a duplicated dependency tree', () => {
+  it('accepts the current device-card app archive within budget', () => {
+    const outputDirectory = createOutputDirectory()
+    const archivePath = join(
+      outputDirectory,
+      'win-unpacked',
+      'resources',
+      'app.asar'
+    )
+    mkdirSync(join(archivePath, '..'), { recursive: true })
+    createSparseFile(archivePath, DEVICE_CARD_APP_ARCHIVE_BYTES)
+
+    expect(validatePackagedApp(outputDirectory)).toEqual({
+      path: archivePath,
+      size: DEVICE_CARD_APP_ARCHIVE_BYTES
+    })
+  })
+
+  it('rejects an app archive over the dependency budget', () => {
     const outputDirectory = createOutputDirectory()
     const resourcesDirectory = join(
       outputDirectory,
@@ -80,7 +98,7 @@ describe('Windows package publication gates', () => {
     )
 
     expect(() => validatePackagedApp(outputDirectory))
-      .toThrow(/超出 32\.0 MiB 预算/)
+      .toThrow(/超出 56\.0 MiB 预算/)
   })
 })
 

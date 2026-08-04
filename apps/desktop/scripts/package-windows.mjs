@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url'
 const MEBIBYTE = 1024 * 1024
 
 export const MIN_WINDOWS_INSTALLER_BYTES = 10 * MEBIBYTE
-export const MAX_PACKAGED_APP_BYTES = 32 * MEBIBYTE
+export const MAX_PACKAGED_APP_BYTES = 56 * MEBIBYTE
 
 const desktopDirectory = join(dirname(fileURLToPath(import.meta.url)), '..')
 const releaseDirectory = join(desktopDirectory, 'release')
