@@ -101,7 +101,8 @@ function liveAction(): DeviceAction {
     currentJobId: null,
     schema: null,
     inputSchema: {},
-    outputSchema: {}
+    outputSchema: {},
+    riskLevel: 'normal'
   }
 }
 

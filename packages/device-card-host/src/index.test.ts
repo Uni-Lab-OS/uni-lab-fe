@@ -17,6 +17,7 @@ const record = {
     cardId: 'demo.card',
     cardVersion: '0.1.0',
     elementName: 'ulcard-demo',
+    contextAuthority: 'project-only' as const,
     manifest: {
       schemaVersion: 1 as const,
       id: 'demo.card',

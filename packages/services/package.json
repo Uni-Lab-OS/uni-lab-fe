@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.7",
+    "@unilab/device-card-sdk": "workspace:*",
     "@unilab/material": "workspace:*"
   },
   "peerDependencies": {

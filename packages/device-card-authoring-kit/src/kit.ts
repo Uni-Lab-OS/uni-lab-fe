@@ -291,6 +291,7 @@ function assertContext(
       !nonEmpty(action.label) ||
       !isRecord(action.inputSchema) ||
       !isRecord(action.outputSchema) ||
+      !isDeviceCardActionRiskLevel(action.riskLevel) ||
       actionNames.has(action.action)
     ) {
       throw new Error('Authoring Context 包含无效或重复的 Action。')
@@ -304,6 +305,10 @@ function assertContext(
     throw new Error('Authoring Context 包含无效媒体能力。')
   }
   stableValue(context)
+}
+
+function isDeviceCardActionRiskLevel(value: unknown): boolean {
+  return value === 'normal' || value === 'dangerous' || value === 'emergency'
 }
 
 function normalizeGeneratedAt(value?: string): string {

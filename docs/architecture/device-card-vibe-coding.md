@@ -571,6 +571,8 @@ interface DeviceCardAuthoringContext {
 - 媒体引用来自 OS Driver 声明的 Channel，不能是任意文件路径或 URL。
 - 无法解析的状态字段标记 `unresolved`。
 - `riskLevel` 由设备包/OS 决定，卡片不能降低。
+- 设备包通过 `@action(risk_level='normal' | 'dangerous' | 'emergency')`
+  声明风险；OS `/api/v1/devices` 必须以 `riskLevel` 投影，未知值失败关闭。
 - Authoring Context 必须版本化。
 - UI 只通过 `packages/services` 获取该投影。
 
@@ -1552,10 +1554,10 @@ Card call-action
 → Card Instance 绑定检查
 → Manifest 权限检查
 → 当前 Authoring Context 检查
-→ 参数 JSON Schema 检查
+→ Electron 主进程按当前 OS Action JSON Schema 检查参数
 → Host 风险确认
-→ services.laboratory.addJob
-→ OS 返回权威运行状态
+→ packages/services DeviceCardActionController 创建 Device Action Task
+→ device_action_task.changed SSE 失效通知后 REST rehydrate 权威终态
 → action-result 发回卡片
 ```
 
@@ -1592,6 +1594,8 @@ Card call-action
 - 使用 `services.laboratory`
 - 使用 DeviceStateHub
 - dangerous/emergency Action 由 Host 确认
+- 设备目录由 `device.catalog.changed` SSE 通知失效后重读 REST，UI 不定时轮询。
+- Action Task 不使用 250ms 轮询或前端假超时；只有 OS 终态能结束运行。
 
 ## 23. 工作台集成
 

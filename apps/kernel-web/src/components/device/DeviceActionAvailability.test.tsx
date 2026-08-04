@@ -118,7 +118,8 @@ describe('device Action lock controls', () => {
     currentJobId: 'job-active-1234567890',
     schema: null,
     inputSchema: {},
-    outputSchema: {}
+    outputSchema: {},
+    riskLevel: 'normal'
   }
 
   it('shows the existing holder and a discoverable manual unlock action', () => {

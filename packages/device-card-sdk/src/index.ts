@@ -16,6 +16,7 @@ export {
 
 export type {
   DeviceCardActionContract,
+  DeviceCardActionRiskLevel,
   DeviceCardActionRun,
   DeviceCardActionStatus,
   DeviceCardAuthoringContext,

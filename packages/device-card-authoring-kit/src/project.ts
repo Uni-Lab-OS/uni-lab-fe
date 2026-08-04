@@ -95,7 +95,8 @@ export function createExampleAuthoringContext(): DeviceCardAuthoringContext {
       action: 'start',
       label: '启动',
       inputSchema: {},
-      outputSchema: {}
+      outputSchema: {},
+      riskLevel: 'normal'
     }],
     stateSchema: {
       status: { type: 'string', source: 'driver', status: 'resolved' },

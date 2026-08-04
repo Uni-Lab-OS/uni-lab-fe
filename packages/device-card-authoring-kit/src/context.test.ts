@@ -14,7 +14,8 @@ const target = {
     action: 'set_position',
     label: 'Set position',
     inputSchema: { position: { type: 'number' } },
-    outputSchema: { accepted: { type: 'boolean' } }
+    outputSchema: { accepted: { type: 'boolean' } },
+    riskLevel: 'dangerous' as const
   }]
 }
 
@@ -26,15 +27,12 @@ describe('device card authoring context', () => {
       deviceId: 'robot-01',
       deviceTypeId: 'robot-arm',
       sampleState: {
-        current_position: 0,
-        accepted: false,
-        online: true
+        online: true,
+        actionBusy: { set_position: false }
       }
     })
-    expect(context.stateSchema.current_position).toMatchObject({
-      status: 'unresolved',
-      source: 'action-inferred'
-    })
+    expect(context.stateSchema.current_position).toBeUndefined()
+    expect(context.actions[0]?.riskLevel).toBe('dangerous')
     expect(summarizeDeviceCardAuthoringTarget(target))
       .toMatchObject({ contextAvailability: 'partial', actionCount: 1 })
   })
@@ -42,12 +40,32 @@ describe('device card authoring context', () => {
   it('keeps an explicit OS state schema authoritative', () => {
     const context = createDeviceCardAuthoringContext({
       ...target,
-      stateSchema: { temperature: { type: 'number', source: 'registry' } },
+      stateSchema: {
+        temperature: {
+          type: 'number',
+          source: 'driver',
+          status: 'resolved'
+        }
+      },
       sampleState: { temperature: 22 }
     })
 
     expect(context.stateSchema).toEqual({
-      temperature: { type: 'number', source: 'registry' }
+      temperature: {
+        type: 'number',
+        source: 'driver',
+        status: 'resolved'
+      },
+      online: {
+        type: 'boolean',
+        source: 'host',
+        status: 'resolved'
+      },
+      actionBusy: {
+        type: 'object',
+        source: 'host',
+        status: 'resolved'
+      }
     })
     expect(summarizeDeviceCardAuthoringTarget({
       ...target,

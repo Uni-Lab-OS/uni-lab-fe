@@ -14,12 +14,15 @@ import {
   installDeviceCardArchive,
   LocalDeviceCardAuthoringAutomation,
   listInstalledDeviceCards,
+  requiresDeviceCardActionConfirmation,
+  validateDeviceCardActionParams,
   verifyArtifactKey,
   type DeviceCardWorkspaceArtifact,
   type InstalledDeviceCardRecord
 } from '@unilab/device-card-host'
 import type {
   DeviceCardActionRun,
+  DeviceCardActionContract,
   DeviceCardAuthoringContext,
   DeviceCardAuthoringProfile,
   DeviceCardAuthoringSessionStatus,
@@ -50,11 +53,11 @@ interface RuntimeSession {
   record: RuntimeCardRecord
   context: DeviceCardRuntimeSnapshot
   config: JsonObject
+  actions: Map<string, DeviceCardActionContract>
 }
 
 interface PendingAction {
   resolve: (run: DeviceCardActionRun) => void
-  timer: ReturnType<typeof setTimeout>
 }
 
 export class DeviceCardManager {
@@ -286,7 +289,6 @@ export class DeviceCardManager {
     this.targetPort.destroy()
     void this.authoring.destroy()
     for (const pending of this.pendingActions.values()) {
-      clearTimeout(pending.timer)
       pending.resolve({
         requestId: '',
         action: '',
@@ -336,7 +338,7 @@ export class DeviceCardManager {
       const unavailable = unavailableDeviceCardCapabilities(
         record.metadata.manifest.permissions,
         {
-          actions: request.availableActions,
+          actions: request.availableActions?.map((action) => action.action),
           state: request.availableState,
           media: request.availableMedia
         }
@@ -381,7 +383,13 @@ export class DeviceCardManager {
         ),
         config: { ...(record.metadata.manifest.config?.defaults ?? {}) }
       },
-      config: { ...(record.metadata.manifest.config?.defaults ?? {}) }
+      config: { ...(record.metadata.manifest.config?.defaults ?? {}) },
+      actions: new Map(
+        (request.availableActions ?? []).map((action) => [
+          action.action,
+          structuredClone(action)
+        ])
+      )
     }
     this.sessions.set(view.webContents.id, session)
     this.activeView = view
@@ -446,8 +454,16 @@ export class DeviceCardManager {
   ): Promise<DeviceCardActionRun> {
     const session = this.runtimeSession(event)
     const action = typeof payload?.action === 'string' ? payload.action : ''
-    const params = isPlainRecord(payload?.params) ? payload.params : {}
     const requestId = randomUUID()
+    if (payload?.params !== undefined && !isPlainRecord(payload.params)) {
+      return {
+        requestId,
+        action,
+        status: 'REJECTED',
+        error: 'Action 参数必须是 JSON 对象。'
+      }
+    }
+    const params = (payload?.params ?? {}) as Record<string, unknown>
     if (!session.record.metadata.manifest.permissions.actions.includes(action)) {
       return {
         requestId,
@@ -462,6 +478,23 @@ export class DeviceCardManager {
         action,
         status: 'REJECTED',
         error: 'Action 参数超过 64 KiB。'
+      }
+    }
+    const actionContract = session.actions.get(action)
+    if (actionContract) {
+      const validation = validateDeviceCardActionParams(
+        actionContract.inputSchema,
+        params
+      )
+      if (!validation.valid) {
+        return {
+          requestId,
+          action,
+          status: 'REJECTED',
+          error: `Action 参数不符合当前 OS JSON Schema：${
+            validation.errors.join('；')
+          }`
+        }
       }
     }
     if (session.context.mode === 'mock') {
@@ -482,6 +515,27 @@ export class DeviceCardManager {
       }
     }
     const window = this.requireMainWindow()
+    if (!actionContract) {
+      return {
+        requestId,
+        action,
+        status: 'REJECTED',
+        error: '当前 OS 设备目录缺少 Action 权威合同。'
+      }
+    }
+    if (!await confirmDeviceCardAction(
+      window,
+      deviceId,
+      actionContract,
+      params
+    )) {
+      return {
+        requestId,
+        action,
+        status: 'CANCELLED',
+        error: '用户取消了危险设备 Action。'
+      }
+    }
     const request: DeviceCardHostActionRequest = {
       requestId,
       deviceId,
@@ -490,16 +544,8 @@ export class DeviceCardManager {
     }
     window.webContents.send('device-cards:actionRequest', request)
     return new Promise<DeviceCardActionRun>((resolveAction) => {
-      const timer = setTimeout(() => {
-        this.pendingActions.delete(requestId)
-        resolveAction({
-          requestId,
-          action,
-          status: 'TIMEOUT',
-          error: '主应用未在 120 秒内响应 Action 请求。'
-        })
-      }, 120_000)
-      this.pendingActions.set(requestId, { resolve: resolveAction, timer })
+      // 真实终态只由 OS Action Task 投影决定；窗口关闭时统一取消 pending。
+      this.pendingActions.set(requestId, { resolve: resolveAction })
     })
   }
 
@@ -520,7 +566,6 @@ export class DeviceCardManager {
     if (!run || typeof run.requestId !== 'string') return
     const pending = this.pendingActions.get(run.requestId)
     if (!pending) return
-    clearTimeout(pending.timer)
     this.pendingActions.delete(run.requestId)
     pending.resolve(run)
   }
@@ -632,7 +677,7 @@ function isOpenPreviewRequest(value: Record<string, unknown>): boolean {
     && (
       value.availableActions === undefined ||
       Array.isArray(value.availableActions) &&
-      value.availableActions.every((action) => typeof action === 'string')
+      value.availableActions.every(isDeviceCardActionContract)
     ) && (
       value.availableState === undefined ||
       Array.isArray(value.availableState) &&
@@ -658,7 +703,8 @@ function isAuthoringContext(
       typeof action.action === 'string' &&
       typeof action.label === 'string' &&
       isPlainRecord(action.inputSchema) &&
-      isPlainRecord(action.outputSchema)
+      isPlainRecord(action.outputSchema) &&
+      isDeviceCardRiskLevel(action.riskLevel)
     ) &&
     isPlainRecord(value.stateSchema) &&
     isPlainRecord(value.sampleState) &&
@@ -668,4 +714,47 @@ function isAuthoringContext(
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isDeviceCardActionContract(
+  value: unknown
+): value is DeviceCardActionContract {
+  return isPlainRecord(value) &&
+    typeof value.action === 'string' &&
+    value.action.length > 0 &&
+    typeof value.label === 'string' &&
+    isPlainRecord(value.inputSchema) &&
+    isPlainRecord(value.outputSchema) &&
+    isDeviceCardRiskLevel(value.riskLevel) &&
+    (value.busy === undefined || typeof value.busy === 'boolean')
+}
+
+function isDeviceCardRiskLevel(value: unknown): boolean {
+  return value === 'normal' || value === 'dangerous' || value === 'emergency'
+}
+
+async function confirmDeviceCardAction(
+  window: BrowserWindow,
+  deviceId: string,
+  contract: DeviceCardActionContract,
+  params: Record<string, unknown>
+): Promise<boolean> {
+  if (!requiresDeviceCardActionConfirmation(contract.riskLevel)) return true
+  const emergency = contract.riskLevel === 'emergency'
+  const result = await dialog.showMessageBox(window, {
+    type: emergency ? 'error' : 'warning',
+    title: emergency ? '确认紧急设备 Action' : '确认危险设备 Action',
+    message: `${contract.label}（${contract.action}）`,
+    detail: [
+      `目标设备：${deviceId}`,
+      `Edge 风险等级：${contract.riskLevel}`,
+      `参数：${JSON.stringify(params).slice(0, 2_000)}`,
+      '卡片代码不能降低该风险等级。只有确认现场安全后才可继续。'
+    ].join('\n'),
+    buttons: [emergency ? '确认并执行紧急 Action' : '确认并执行', '取消'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true
+  })
+  return result.response === 0
 }

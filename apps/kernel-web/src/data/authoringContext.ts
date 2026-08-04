@@ -26,6 +26,7 @@ export function createAuthoringTarget(
       label: action.label,
       inputSchema: action.inputSchema,
       outputSchema: action.outputSchema,
+      riskLevel: action.riskLevel,
       busy: action.isBusy
     })),
     stateSchema: device.stateSchema,

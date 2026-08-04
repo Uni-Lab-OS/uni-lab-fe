@@ -125,6 +125,13 @@ function assertTarget(target: DeviceCardAuthoringTarget): void {
     if (!action.action.trim() || names.has(action.action)) {
       throw new Error('目标设备包含无效或重复的 Action。')
     }
+    if (
+      action.riskLevel !== 'normal' &&
+      action.riskLevel !== 'dangerous' &&
+      action.riskLevel !== 'emergency'
+    ) {
+      throw new Error('目标设备包含无效的 Action 风险等级。')
+    }
     names.add(action.action)
   }
 }

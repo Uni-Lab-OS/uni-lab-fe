@@ -29,6 +29,12 @@ export {
 } from './workspace'
 
 export {
+  requiresDeviceCardActionConfirmation,
+  validateDeviceCardActionParams,
+  type DeviceCardActionValidationResult
+} from './runtimeActionSecurity'
+
+export {
   DeviceCardAuthoringError,
   LocalDeviceCardAuthoringAutomation,
   toDeviceCardAgentError,

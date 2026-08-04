@@ -369,9 +369,13 @@
 }
 
 .previewHeader {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
   padding: 0 4px 12px;
 
-  div {
+  > div:first-child {
     display: grid;
     gap: 3px;
   }
@@ -380,6 +384,59 @@
     color: var(--unilab-color-text-muted);
     font-size: 12px;
   }
+}
+
+.liveControls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.modeBadge {
+  padding: 4px 8px;
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-bg-subtle);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: 999px;
+  font-family: var(--unilab-font-mono);
+  font-size: 10px !important;
+  font-weight: 750;
+  letter-spacing: .08em;
+}
+
+.modeBadge[data-live='true'] {
+  color: var(--unilab-color-warning);
+  background: var(--unilab-color-warning-soft);
+  border-color: color-mix(
+    in srgb,
+    var(--unilab-color-warning) 35%,
+    transparent
+  );
+}
+
+.applyLive,
+.stopLive {
+  min-height: 34px;
+  padding: 0 12px;
+  color: #f8fffd;
+  background: var(--unilab-color-device);
+  border: 1px solid var(--unilab-color-device);
+  border-radius: var(--unilab-radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.stopLive {
+  color: var(--unilab-color-danger);
+  background: var(--unilab-color-danger-soft);
+  border-color: var(--unilab-color-danger);
+}
+
+.applyLive:disabled {
+  cursor: not-allowed;
+  opacity: .5;
 }
 
 .preview {

@@ -40,11 +40,17 @@ export interface DeviceCardDescriptor {
   title: string
 }
 
+export type DeviceCardActionRiskLevel =
+  | 'normal'
+  | 'dangerous'
+  | 'emergency'
+
 export interface DeviceCardActionContract {
   action: string
   label: string
   inputSchema: Record<string, unknown>
   outputSchema: Record<string, unknown>
+  riskLevel: DeviceCardActionRiskLevel
   busy?: boolean
 }
 
@@ -126,7 +132,7 @@ export interface OpenDeviceCardRequest {
   key: string
   bounds: DeviceCardBounds
   context: DeviceCardRuntimeSnapshot
-  availableActions?: string[]
+  availableActions?: DeviceCardActionContract[]
   availableState?: string[]
   availableMedia?: string[]
 }
@@ -157,7 +163,7 @@ export interface DeviceCardWorkspaceStatus {
 export interface OpenDeviceCardWorkspaceRequest {
   bounds: DeviceCardBounds
   context: DeviceCardRuntimeSnapshot
-  availableActions?: string[]
+  availableActions?: DeviceCardActionContract[]
   availableState?: string[]
   availableMedia?: string[]
 }

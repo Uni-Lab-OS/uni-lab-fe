@@ -6,8 +6,8 @@ import {
   useState
 } from 'react'
 import {
+  DeviceCardActionController,
   useServices,
-  type DeviceActionTaskView,
   type DeviceCatalogItem
 } from '@unilab/services'
 import { createDeviceCardAuthoringKit } from '@unilab/device-card-authoring-kit'
@@ -17,19 +17,26 @@ import {
 } from '@unilab/device-card-sdk'
 import type {
   DeviceCardActionRun,
+  DeviceCardActionContract,
   DeviceCardAgentEnvironmentInfo,
   DeviceCardAuthoringProfile,
-  DeviceCardHostActionRequest,
   DeviceCardRuntimeSnapshot,
   DeviceCardWorkspaceStatus,
   InstalledDeviceCard
 } from '@unilab/device-card-sdk'
 
-import { createAuthoringContext } from '../../data/authoringContext'
+import {
+  buildAuthoringSampleState,
+  createAuthoringContext
+} from '../../data/authoringContext'
 import { useDeviceStatus } from '../../hooks/useDeviceStatus'
-import { supportsD1AS1 } from '../device/deviceActionRun'
 import styles from './DeviceCardWorkbench.module.scss'
 import { deviceInstanceOptionLabel } from './presentation'
+import {
+  deviceCardActionContractSignature,
+  isDeviceCardLiveBinding,
+  type DeviceCardLiveBinding
+} from './runtimeBinding'
 import { buildDeviceCardRuntimeState } from './runtimeState'
 
 type WorkbenchNotice = {
@@ -44,10 +51,13 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   const { statusMap } = useDeviceStatus()
   const previewRef = useRef<HTMLDivElement | null>(null)
   const runtimeStateRef = useRef<Record<string, unknown>>({})
+  const devicesRef = useRef<DeviceCatalogItem[]>([])
   const [cards, setCards] = useState<InstalledDeviceCard[]>([])
   const [devices, setDevices] = useState<DeviceCatalogItem[]>([])
   const [selectedCardKey, setSelectedCardKey] = useState('')
   const [selectedDeviceId, setSelectedDeviceId] = useState('')
+  const [liveBinding, setLiveBinding] =
+    useState<DeviceCardLiveBinding | null>(null)
   const [authoringProfile, setAuthoringProfile] =
     useState<DeviceCardAuthoringProfile>('vue-web-component-v1')
   const [exportingKit, setExportingKit] = useState(false)
@@ -107,11 +117,13 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   }, [desktopApi, refresh])
 
   useEffect(() => {
-    const timer = globalThis.setInterval(() => {
-      void refreshDeviceCatalog()
-    }, 5_000)
-    return () => globalThis.clearInterval(timer)
-  }, [refreshDeviceCatalog])
+    const subscription = services.workflow.subscribeWorkflowRuntime((event) => {
+      if (event.event === 'device.catalog.changed') {
+        void refreshDeviceCatalog()
+      }
+    })
+    return () => subscription.dispose()
+  }, [refreshDeviceCatalog, services.workflow])
 
   useEffect(() => {
     if (!desktopApi) return
@@ -135,9 +147,13 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   const previewDeviceId = previewDevice?.deviceId ?? ''
   const previewDeviceTypeId = previewDevice?.deviceTypeId ?? ''
   const previewDeviceLabel = previewDevice?.label ?? ''
-  const previewActionSignature = (previewDevice?.actions ?? [])
-    .map((action) => action.actionName)
-    .join('\u0000')
+  const previewActionSignature = deviceCardActionContractSignature(
+    previewDevice?.actions ?? []
+  )
+  const previewActionContracts = useMemo<DeviceCardActionContract[]>(
+    () => JSON.parse(previewActionSignature) as DeviceCardActionContract[],
+    [previewActionSignature]
+  )
   const previewStateSignature = previewDevice
     ? deviceCardRealtimeStateKeys({
         ...(previewDevice.stateSchema ?? {}),
@@ -146,7 +162,16 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     : ''
   const previewFallbackDeviceTypeId = previewCard?.deviceTypes[0] ?? ''
   const previewCardTitle = previewCard?.title ?? ''
-  // 有兼容设备就 Live 绑定（含源码目录预览），与仪器单点同一条下发路径。
+  const previewId = workspaceCard
+    ? `workspace:${workspaceCard.sourceHash}`
+    : selectedCard
+      ? `installed:${selectedCard.key}`
+      : ''
+  const liveMode = isDeviceCardLiveBinding(
+    liveBinding,
+    previewId,
+    previewDeviceId
+  )
   const agentReady = Boolean(
     agentInfo?.bridge.enabled &&
     agentInfo.cli.installed &&
@@ -161,6 +186,18 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     )
   }, [devices])
 
+  devicesRef.current = devices
+
+  useEffect(() => {
+    if (
+      !liveBinding ||
+      isDeviceCardLiveBinding(liveBinding, previewId, previewDeviceId)
+    ) return
+    // 绑定失效时先关闭主进程 Live 会话，不给旧卡片留下调用窗口。
+    void desktopApi?.close()
+    setLiveBinding(null)
+  }, [desktopApi, liveBinding, previewDeviceId, previewId])
+
   const runtimeState = useMemo<Record<string, unknown>>(() => {
     if (!selectedDevice) return { status: 'idle', online: false }
     // Edge /api/v1/ws/device_status 真值；online / actionBusy 仍来自目录。
@@ -170,16 +207,23 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     () => (previewDevice ? runtimeState : { status: 'idle', online: false }),
     [previewDevice, runtimeState]
   )
-  runtimeStateRef.current = previewState
+  const previewMockState = useMemo<Record<string, unknown>>(
+    () => previewDevice
+      ? buildAuthoringSampleState(previewDevice, { online: false })
+      : { status: 'idle', online: false },
+    [previewDevice]
+  )
+  const activePreviewState = liveMode ? previewState : previewMockState
+  runtimeStateRef.current = activePreviewState
 
   useEffect(() => {
     if (!desktopApi || !previewCard || !previewRef.current) return
     const preview = previewRef.current
     let disposed = false
     const context: DeviceCardRuntimeSnapshot = {
-      mode: previewDeviceId ? 'live' : 'mock',
+      mode: liveMode ? 'live' : 'mock',
       device: {
-        deviceId: previewDeviceId || null,
+        deviceId: liveMode ? previewDeviceId : null,
         deviceTypeId:
           previewDeviceTypeId || previewFallbackDeviceTypeId,
         title: previewDeviceLabel || previewCardTitle
@@ -210,17 +254,15 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
           height: rect.height
         },
         context,
-        availableActions: previewDeviceId
-          ? previewActionSignature
-            ? previewActionSignature.split('\u0000')
-            : []
+        availableActions: previewDevice
+          ? previewActionContracts
           : undefined,
-        availableState: previewDeviceId
+        availableState: liveMode
           ? previewStateSignature
             ? previewStateSignature.split('\u0000')
             : []
           : undefined,
-        availableMedia: previewDeviceId ? [] : undefined
+        availableMedia: liveMode ? [] : undefined
       }
       const opening = workspaceActive
         ? desktopApi.workspace.preview(request)
@@ -243,12 +285,14 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
   }, [
     desktopApi,
     previewActionSignature,
+    previewActionContracts,
     previewCardTitle,
     previewDeviceId,
     previewDeviceLabel,
     previewDeviceTypeId,
     previewFallbackDeviceTypeId,
     previewStateSignature,
+    liveMode,
     selectedCard?.key,
     workspaceActive,
     workspaceCard?.sourceHash
@@ -256,15 +300,43 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
 
   useEffect(() => {
     if (!desktopApi || !previewCard) return
-    void desktopApi.updateState(previewState)
-  }, [desktopApi, previewCard, previewState])
+    void desktopApi.updateState(activePreviewState)
+  }, [activePreviewState, desktopApi, previewCard])
 
   useEffect(() => {
     if (!desktopApi) return
-    return desktopApi.onActionRequest((request) => {
-      void submitAction(request, services, devices, desktopApi.resolveAction)
+    const abortController = new AbortController()
+    const controller = new DeviceCardActionController({
+      workflow: services.workflow,
+      tasks: services.deviceActionTasks,
+      actionTasksSupported: services.capabilities.devices.runActionTask
     })
-  }, [desktopApi, devices, services])
+    const unsubscribe = desktopApi.onActionRequest((request) => {
+      const device = devicesRef.current.find(
+        (candidate) => candidate.deviceId === request.deviceId
+      )
+      const running = device
+        ? controller.execute(request, device, {
+            signal: abortController.signal
+          })
+        : Promise.resolve<DeviceCardActionRun>({
+            requestId: request.requestId,
+            action: request.action,
+            status: 'ERROR',
+            error: `未找到设备：${request.deviceId}`
+          })
+      void running.then(desktopApi.resolveAction)
+    })
+    return () => {
+      abortController.abort()
+      unsubscribe()
+    }
+  }, [
+    desktopApi,
+    services.capabilities.devices.runActionTask,
+    services.deviceActionTasks,
+    services.workflow
+  ])
 
   const openWorkspace = async (): Promise<void> => {
     if (!desktopApi || !selectedDevice) return
@@ -499,6 +571,34 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
     }
   }
 
+  const toggleLiveBinding = (): void => {
+    if (!previewCard || !previewDevice || !previewId) return
+    if (liveMode) {
+      void desktopApi?.close()
+      setLiveBinding(null)
+      setMessage({
+        kind: 'info',
+        text: '已退出 Live，卡片恢复为 Mock 预览，不能调用真实设备。'
+      })
+      return
+    }
+    if (!previewDevice.online) {
+      setMessage({
+        kind: 'warning',
+        text: `设备 ${previewDevice.deviceId} 当前离线，不能应用卡片。`
+      })
+      return
+    }
+    setLiveBinding({
+      previewId,
+      deviceId: previewDevice.deviceId
+    })
+    setMessage({
+      kind: 'warning',
+      text: `已明确应用到 ${previewDevice.deviceId}。Live 卡片可以调用该设备声明的 Action。`
+    })
+  }
+
   const previewDescription = (() => {
     if (workspace) {
       if (workspace.state !== 'ready') {
@@ -506,12 +606,15 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
           ? '正在检查修改，暂时显示上次成功版本'
           : '正在检查源码，通过后自动显示预览'
       }
-      return previewDevice
-        ? `开发预览 / 实时设备 ${previewDevice.deviceId}`
+      return liveMode && previewDevice
+        ? `开发预览 / Live 设备 ${previewDevice.deviceId}`
         : '开发预览 / Mock 模式'
     }
+    if (liveMode && previewDevice) {
+      return `已安装卡片 / Live 设备 ${previewDevice.deviceId}`
+    }
     if (previewDevice) {
-      return `已安装卡片 / 实时设备 ${previewDevice.deviceId}`
+      return `已安装卡片 / Mock 模式 / 可应用到 ${previewDevice.deviceId}`
     }
     return previewCard && selectedDevice
       ? `Mock 模式 / 不支持 ${selectedDevice.deviceTypeId}`
@@ -788,6 +891,24 @@ export default function DeviceCardWorkbench(): React.JSX.Element {
             <strong>{previewCard?.title ?? '卡片预览'}</strong>
             <span>{previewDescription}</span>
           </div>
+          {previewCard && previewDevice ? (
+            <div className={styles.liveControls}>
+              <span className={styles.modeBadge} data-live={liveMode}>
+                {liveMode ? 'LIVE' : 'MOCK'}
+              </span>
+              <button
+                type="button"
+                className={liveMode ? styles.stopLive : styles.applyLive}
+                disabled={!liveMode && !previewDevice.online}
+                aria-pressed={liveMode}
+                onClick={toggleLiveBinding}
+              >
+                {liveMode
+                  ? '退出 Live'
+                  : `应用到 ${previewDevice.deviceId}`}
+              </button>
+            </div>
+          ) : null}
         </header>
         <div ref={previewRef} className={styles.preview}>
           {!previewCard ? (
@@ -840,119 +961,4 @@ function agentStatusLabel(
   if (!info.cli.compatible) return '需更新'
   if (!info.bridge.enabled) return '未启用'
   return '已连接'
-}
-
-async function submitAction(
-  request: DeviceCardHostActionRequest,
-  services: ReturnType<typeof useServices>,
-  devices: DeviceCatalogItem[],
-  resolveAction: (run: DeviceCardActionRun) => Promise<void>
-): Promise<void> {
-  try {
-    if (!services.capabilities.devices.runActionTask) {
-      throw new Error('当前后端不支持设备单点 Action Task。')
-    }
-    const device = devices.find(
-      (candidate) => candidate.deviceId === request.deviceId
-    )
-    if (!device) throw new Error(`未找到设备：${request.deviceId}`)
-    if (!device.online) throw new Error(`设备已离线：${request.deviceId}`)
-    const action = device.actions.find(
-      (candidate) => candidate.actionName === request.action
-    )
-    if (!action) throw new Error(`设备未声明 Action：${request.action}`)
-
-    const catalog = await services.workflow.getWorkflowActionCatalog()
-    const templates = catalog.actionTemplates.filter((template) =>
-      template.name === action.actionName &&
-      template.actionType === action.typeName
-    )
-    if (templates.length !== 1) {
-      throw new Error(
-        templates.length === 0
-          ? `Action 缺少可执行模板：${request.action}`
-          : `Action 匹配到多个模板：${request.action}`
-      )
-    }
-    const template = templates[0]
-    if (!template || !supportsD1AS1(template)) {
-      throw new Error('Action 包含物料或 Site 语义，请在工作流中运行。')
-    }
-
-    const accepted = await services.deviceActionTasks.createDeviceActionTask({
-      authority_id: catalog.authorityId,
-      template_catalog_fingerprint: catalog.fingerprint,
-      workflow_node_template_uuid: template.uuid,
-      device_id: request.deviceId,
-      input: request.params,
-      idempotency_key: globalThis.crypto.randomUUID(),
-      description: '设备卡片单动作运行'
-    })
-    // Task 受理不等于动作成功；终态以 OS Action Task 投影为准。
-    const finished = isTerminalActionTask(accepted.status)
-      ? accepted
-      : await waitForActionTask(services.deviceActionTasks, accepted.task_uuid)
-    await resolveAction({
-      requestId: request.requestId,
-      action: request.action,
-      status: mapActionStatus(finished.status),
-      result: ({
-        taskUuid: finished.task_uuid,
-        jobUuid: finished.job_uuid,
-        status: finished.status,
-        output: finished.output
-      }) as DeviceCardActionRun['result'],
-      error: actionTaskError(finished)
-    })
-  } catch (error) {
-    await resolveAction({
-      requestId: request.requestId,
-      action: request.action,
-      status: 'ERROR',
-      error: error instanceof Error ? error.message : String(error)
-    })
-  }
-}
-
-async function waitForActionTask(
-  runtime: ReturnType<typeof useServices>['deviceActionTasks'],
-  taskUuid: string,
-  timeoutMs = 120_000
-): Promise<DeviceActionTaskView> {
-  const started = Date.now()
-  let status = 'accepted'
-  while (Date.now() - started < timeoutMs) {
-    const current = await runtime.getDeviceActionTask(taskUuid)
-    status = current.status
-    if (isTerminalActionTask(status)) return current
-    await new Promise((resolve) => setTimeout(resolve, 250))
-  }
-  throw new Error(`等待动作完成超时（${timeoutMs}ms），最后状态：${status}`)
-}
-
-function isTerminalActionTask(status: string): boolean {
-  return ['succeeded', 'failed', 'canceled', 'timeout'].includes(status)
-}
-
-function actionTaskError(task: DeviceActionTaskView): string | undefined {
-  if (task.status === 'succeeded') return undefined
-  if (task.status === 'canceled') return '设备动作已取消。'
-  if (task.status === 'timeout') return '设备动作执行超时。'
-  if (task.status !== 'failed') return undefined
-  const detail = task.error_info
-    .map((value) => typeof value === 'string' ? value : JSON.stringify(value))
-    .filter(Boolean)
-    .join('\n')
-  return detail || '设备动作执行失败。'
-}
-
-function mapActionStatus(
-  status: string
-): DeviceCardActionRun['status'] {
-  if (status === 'succeeded') return 'DONE'
-  if (status === 'failed') return 'ERROR'
-  if (status === 'canceled') return 'CANCELLED'
-  if (status === 'timeout') return 'TIMEOUT'
-  if (status === 'running') return 'RUNNING'
-  return 'ACCEPTED'
 }

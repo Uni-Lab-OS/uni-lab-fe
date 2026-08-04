@@ -32,6 +32,7 @@ describe('laboratory service', () => {
                     actionRef: 'pump-1.aspirate',
                     name: '吸液',
                     typeName: 'unilabos_msgs.action.Pump',
+                    riskLevel: 'dangerous',
                     inputSchema: {
                       volume: { type: 'number', default: 10 }
                     },
@@ -64,6 +65,7 @@ describe('laboratory service', () => {
             actionName: 'aspirate',
             actionRef: 'pump-1.aspirate',
             typeName: 'unilabos_msgs.action.Pump',
+            riskLevel: 'dangerous',
             isBusy: true,
             currentJobId: 'job-aspirate'
           })
@@ -84,6 +86,7 @@ describe('laboratory service', () => {
             actionRef: 'pump-1.aspirate',
             label: '吸液',
             typeName: 'unilabos_msgs.action.Pump',
+            riskLevel: 'dangerous',
             inputSchema: { volume: { type: 'number', default: 10 } },
             outputSchema: {},
             isBusy: true
@@ -205,6 +208,40 @@ describe('laboratory service', () => {
       goalDefault: { volume: 10 },
       actionType: 'unilabos_msgs.action.Pump',
       isBusy: true
+    })
+  })
+
+  it('fails closed when Edge reports an unknown Action risk level', async () => {
+    const service = createLaboratoryService(
+      fixtureHttp({
+        '/api/v1/devices': {
+          code: 0,
+          data: {
+            schemaVersion: 'device-catalog/v1',
+            items: [{
+              id: 'heater-1',
+              deviceKey: '/devices/heater-1',
+              namespace: '/devices',
+              name: '加热器',
+              online: true,
+              actions: [{
+                id: 'heat',
+                actionRef: 'heater-1.heat',
+                name: '加热',
+                typeName: 'UniLabJsonCommand',
+                riskLevel: 'critical',
+                inputSchema: {},
+                outputSchema: {}
+              }]
+            }]
+          }
+        }
+      }),
+      getDefaultBackend('local-python')
+    )
+
+    await expect(service.getDeviceCatalog()).rejects.toMatchObject({
+      code: 'INVALID_ACTION_RISK_LEVEL'
     })
   })
 

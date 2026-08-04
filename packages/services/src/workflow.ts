@@ -490,9 +490,18 @@ export interface DeviceActionTaskChangedEvent {
   }
 }
 
+export interface DeviceCatalogChangedEvent {
+  id: string
+  event: 'device.catalog.changed'
+  data: {
+    catalog_revision: number
+  }
+}
+
 export type WorkflowRuntimeInvalidationEvent =
   | WorkflowRuntimeChangedEvent
   | DeviceActionTaskChangedEvent
+  | DeviceCatalogChangedEvent
 
 export interface WorkflowRuntimeSubscriptionOptions {
   lastEventId?: string
@@ -884,7 +893,8 @@ export function createWorkflowRuntime(
             if (frame.id) cursor = frame.id
             if (
               frame.event !== 'workflow.runtime.changed' &&
-              frame.event !== 'device_action_task.changed'
+              frame.event !== 'device_action_task.changed' &&
+              frame.event !== 'device.catalog.changed'
             ) return
             if (frame.id && seenEventIds.has(frame.id)) return
             if (frame.id) {
@@ -896,7 +906,9 @@ export function createWorkflowRuntime(
             }
             const data = frame.event === 'workflow.runtime.changed'
               ? parseRuntimeChangedData(frame.data)
-              : parseDeviceActionTaskChangedData(frame.data)
+              : frame.event === 'device_action_task.changed'
+                ? parseDeviceActionTaskChangedData(frame.data)
+                : parseDeviceCatalogChangedData(frame.data)
             if (!data) {
               options.onError?.(
                 new Error('Workflow Runtime SSE 返回了无效事件')
@@ -1342,6 +1354,22 @@ function parseDeviceActionTaskChangedData(
       return null
     }
     return { task_uuid: data.task_uuid }
+  } catch {
+    return null
+  }
+}
+
+function parseDeviceCatalogChangedData(
+  value: string
+): DeviceCatalogChangedEvent['data'] | null {
+  try {
+    const data = JSON.parse(value) as Record<string, unknown>
+    if (
+      Object.keys(data).length !== 1 ||
+      !Number.isSafeInteger(data.catalog_revision) ||
+      (data.catalog_revision as number) < 1
+    ) return null
+    return { catalog_revision: data.catalog_revision as number }
   } catch {
     return null
   }

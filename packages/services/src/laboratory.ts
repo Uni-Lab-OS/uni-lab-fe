@@ -12,6 +12,7 @@
 import { requestData, type HttpClient } from './http'
 import { ServiceError } from './errors'
 import type { BackendConfig } from './backends'
+import type { DeviceCardActionRiskLevel } from '@unilab/device-card-sdk'
 
 export interface DeviceActionTarget {
   deviceId: string
@@ -38,6 +39,7 @@ export interface DeviceAction {
   schema: Record<string, unknown> | null
   inputSchema: Record<string, DeviceActionInputSchema>
   outputSchema: Record<string, DeviceActionInputSchema>
+  riskLevel: DeviceCardActionRiskLevel
 }
 
 export interface DeviceActionUnlockResult {
@@ -80,6 +82,7 @@ export interface DeviceCatalogAction {
   typeName: string
   inputSchema: Record<string, unknown>
   outputSchema: Record<string, unknown>
+  riskLevel: DeviceCardActionRiskLevel
   isBusy: boolean
 }
 
@@ -118,6 +121,7 @@ interface RuntimeActionTemplate {
   currentJobId: string | null
   inputSchema: Record<string, unknown>
   outputSchema: Record<string, unknown>
+  riskLevel: DeviceCardActionRiskLevel
 }
 
 interface RuntimeDeviceCatalogItem {
@@ -278,6 +282,7 @@ function mapDeviceCatalogItem(
             typeName: str(action.typeName),
             inputSchema: asRecord(action.inputSchema),
             outputSchema: asRecord(action.outputSchema),
+            riskLevel: actionRiskLevel(action.riskLevel),
             isBusy: Boolean(action.busy)
           }
         })
@@ -297,7 +302,8 @@ function mapDeviceAction(template: RuntimeActionTemplate): DeviceAction {
     currentJobId: template.currentJobId,
     schema,
     inputSchema: mapActionSchema(schema.properties),
-    outputSchema: mapActionSchema(template.outputSchema)
+    outputSchema: mapActionSchema(template.outputSchema),
+    riskLevel: template.riskLevel
   }
 }
 
@@ -362,7 +368,8 @@ async function getRuntimeDevices(
               isBusy: Boolean(action.busy),
               currentJobId: optionalString(action.currentJobId),
               inputSchema: asRecord(action.inputSchema),
-              outputSchema: asRecord(action.outputSchema)
+              outputSchema: asRecord(action.outputSchema),
+              riskLevel: actionRiskLevel(action.riskLevel)
             }
           ]
         })
@@ -434,6 +441,18 @@ function num(value: unknown): number {
 function optionalString(value: unknown): string | null {
   const valueString = str(value).trim()
   return valueString || null
+}
+
+function actionRiskLevel(value: unknown): DeviceCardActionRiskLevel {
+  if (value === undefined || value === null || value === '' || value === 'normal') {
+    return 'normal'
+  }
+  if (value === 'dangerous' || value === 'emergency') return value
+  throw new ServiceError({
+    code: 'INVALID_ACTION_RISK_LEVEL',
+    message: `Edge 返回了无效的 Action 风险等级：${String(value)}`,
+    retryable: false
+  })
 }
 
 function stringArray(value: unknown): string[] {
