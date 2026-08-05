@@ -32,7 +32,9 @@ const baseConfig: LocalRuntimeLaunchConfig = {
   edgeCommandMode: 'generated',
   customEdgeCommand: {
     executable: '',
-    args: []
+    workingDirectory: '',
+    args: [],
+    environment: []
   }
 }
 
@@ -64,7 +66,8 @@ describe('LocalRuntimeLauncher', () => {
     const footerMarkup = markup.match(/<footer[^>]*>.*?<\/footer>/s)?.[0] ?? ''
 
     expect(markup).toContain('PLC-Sim（可选）')
-    expect(markup).toContain('启动领域侧本地调试环境（以 sz_lab 为例）')
+    expect(markup).toContain('领域侧 Edge（以 sz_lab 为例）')
+    expect(markup).toContain('运行环境与 PLC-Sim')
     expect(markup).toContain('领域侧 Edge（以 sz_lab 为例）')
     expect(markup).toContain('领域项目根目录（可选，以 Uni-Lab-SZLab 为例）')
     expect(markup).toContain('留空时仅加载 Uni-Lab-OS 内置设备能力')
@@ -110,20 +113,26 @@ describe('LocalRuntimeLauncher', () => {
       edgeCommandMode: 'custom',
       customEdgeCommand: {
         executable: '{{python}}',
-        args: ['-m', 'unilabos.app.main', '--workspace', '{{workspace}}']
+        workingDirectory: '{{workspace}}',
+        args: ['-m', 'unilabos.app.main', '--workspace', '{{workspace}}'],
+        environment: [{ name: 'DEVICE_MODE', value: 'simulation' }]
       }
     }
 
     const markup = renderDialog(config, idleSnapshot)
 
-    expect(markup).toContain('选择启动程序，并按实际顺序填写参数')
-    expect(markup).toContain('启动程序')
-    expect(markup).toContain('启动参数')
+    expect(markup).toContain('领域项目根目录（自定义模式必填）')
+    expect(markup).toContain('结构化启动模板')
+    expect(markup).toContain('Windows / macOS / Linux')
+    expect(markup).toContain('Edge 可执行文件')
+    expect(markup).toContain('工作目录')
+    expect(markup).toContain('参数')
+    expect(markup).toContain('环境变量覆盖')
     expect(markup).toContain('每行一个参数')
     expect(markup).toContain('{{workspace}}')
-    expect(markup).toContain('填入默认命令')
-    expect(markup).toContain('高级设置')
-    expect(markup).toContain('占位符、命令预览与兼容说明')
+    expect(markup).toContain('DEVICE_MODE=simulation')
+    expect(markup).toContain('使用系统模板')
+    expect(markup).toContain('占位符与命令预览')
     expect(markup).toContain('最终命令预览')
     expect(markup).not.toMatch(/<details[^>]*\sopen(?:=|>)/)
     expect(markup).toContain('&quot;unilabos.app.main&quot;')
@@ -135,12 +144,18 @@ describe('LocalRuntimeLauncher', () => {
       ...baseConfig,
       szlabProjectPath: '',
       edgeCommandMode: 'custom',
-      customEdgeCommand: { executable: '', args: [] }
+      customEdgeCommand: {
+        executable: '',
+        workingDirectory: '',
+        args: [],
+        environment: []
+      }
     })
 
     expect(validation.valid).toBe(false)
     expect(validation.errors.szlabProjectPath).toContain('领域设备包')
     expect(validation.errors.customEdgeExecutable).toContain('可执行文件')
+    expect(validation.errors.customEdgeWorkingDirectory).toContain('工作目录')
   })
 
   /** 证明 v1/v2 路径配置迁移后继续使用系统生成的 Edge 启动计划。 */
@@ -158,7 +173,12 @@ describe('LocalRuntimeLauncher', () => {
       environmentPath: '/legacy/envs/unilab',
       simulatorProjectPath: '/legacy/PLC-Sim',
       edgeCommandMode: 'generated',
-      customEdgeCommand: { executable: '', args: [] }
+      customEdgeCommand: {
+        executable: '',
+        workingDirectory: '',
+        args: [],
+        environment: []
+      }
     })
   })
 

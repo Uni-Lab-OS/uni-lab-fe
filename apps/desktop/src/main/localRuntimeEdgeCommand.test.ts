@@ -22,6 +22,7 @@ describe('resolveLocalRuntimeEdgeCommand', () => {
   it('preserves argument boundaries while expanding controlled tokens', () => {
     const template: LocalRuntimeCustomEdgeCommand = {
       executable: '{{python}}',
+      workingDirectory: '{{workspace}}',
       args: [
         '-m',
         'unilabos.app.main',
@@ -30,7 +31,8 @@ describe('resolveLocalRuntimeEdgeCommand', () => {
         '  ',
         '--port',
         '{{edge_http_port}}'
-      ]
+      ],
+      environment: [{ name: 'DEVICE_MODE', value: 'sim-{{edge_http_port}}' }]
     }
 
     expect(resolveLocalRuntimeEdgeCommand(template, tokens, 'linux')).toEqual({
@@ -42,7 +44,9 @@ describe('resolveLocalRuntimeEdgeCommand', () => {
         'literal & | ; $ % !',
         '--port',
         '18003'
-      ]
+      ],
+      workingDirectory: tokens.workspace,
+      environment: [{ name: 'DEVICE_MODE', value: 'sim-18003' }]
     })
   })
 
@@ -55,10 +59,14 @@ describe('resolveLocalRuntimeEdgeCommand', () => {
 
     expect(resolveLocalRuntimeEdgeCommand({
       executable: '{{unilab}}',
-      args: ['--workspace', 'C:\\Lab Work\\SZLab', '--name="quoted"']
+      workingDirectory: 'C:\\Lab Work\\SZLab',
+      args: ['--workspace', 'C:\\Lab Work\\SZLab', '--name="quoted"'],
+      environment: [{ name: 'DEVICE_MODE', value: 'simulation' }]
     }, windowsTokens, 'win32')).toEqual({
       command: windowsTokens.unilab,
-      args: ['--workspace', 'C:\\Lab Work\\SZLab', '--name="quoted"']
+      args: ['--workspace', 'C:\\Lab Work\\SZLab', '--name="quoted"'],
+      workingDirectory: 'C:\\Lab Work\\SZLab',
+      environment: [{ name: 'DEVICE_MODE', value: 'simulation' }]
     })
   })
 
@@ -74,7 +82,9 @@ describe('resolveLocalRuntimeEdgeCommand', () => {
     (executable) => {
       expect(() => resolveLocalRuntimeEdgeCommand({
         executable,
-        args: []
+        workingDirectory: 'C:\\Lab Work\\SZLab',
+        args: [],
+        environment: []
       }, tokens, 'win32')).toThrow('Windows shell 或脚本')
     }
   )
@@ -83,11 +93,55 @@ describe('resolveLocalRuntimeEdgeCommand', () => {
   it('rejects unknown tokens and NUL characters', () => {
     expect(() => resolveLocalRuntimeEdgeCommand({
       executable: '{{unknown}}',
-      args: []
+      workingDirectory: '{{workspace}}',
+      args: [],
+      environment: []
     }, tokens, 'linux')).toThrow('未知占位符')
     expect(() => resolveLocalRuntimeEdgeCommand({
       executable: '{{python}}',
-      args: ['bad\0argument']
+      workingDirectory: '{{workspace}}',
+      args: ['bad\0argument'],
+      environment: []
     }, tokens, 'linux')).toThrow('NUL')
+  })
+
+  /** 证明工作目录必须绝对，并且环境变量不能覆盖启动器权威或保存敏感值。 */
+  it.each([
+    {
+      workingDirectory: 'relative/workspace',
+      environment: [] as LocalRuntimeCustomEdgeCommand['environment'],
+      error: '工作目录必须是绝对路径'
+    },
+    {
+      workingDirectory: '{{workspace}}',
+      environment: [{ name: 'ROS_DOMAIN_ID', value: '7' }],
+      error: '由 Edge 启动器托管'
+    },
+    {
+      workingDirectory: '{{workspace}}',
+      environment: [{ name: 'DEVICE_TOKEN', value: 'secret' }],
+      error: '敏感信息'
+    },
+    {
+      workingDirectory: 'C:\\Lab Work\\SZLab',
+      environment: [
+        { name: 'DEVICE_MODE', value: 'one' },
+        { name: 'device_mode', value: 'two' }
+      ],
+      error: '重复'
+    }
+  ])('rejects unsafe custom process fields: $error', ({
+    workingDirectory,
+    environment,
+    error
+  }) => {
+    expect(() => resolveLocalRuntimeEdgeCommand({
+      executable: error === '重复'
+        ? 'C:\\Program Files\\Uni Lab\\env\\python.exe'
+        : '{{python}}',
+      workingDirectory,
+      args: [],
+      environment
+    }, tokens, error === '重复' ? 'win32' : 'linux')).toThrow(error)
   })
 })

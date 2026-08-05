@@ -58,17 +58,20 @@
 产品界面仅展示 OPC UA 与领域侧 Edge，不把 CLI 内部 bridge 暴露为独立服务。
 
 挂载领域设备包后，Edge 可切换为“自定义命令”。自定义命令仍是 Electron 托管的
-结构化进程规范：用户分别填写可执行文件与逐行参数，主进程解析
+结构化进程规范：用户分别填写可执行文件、绝对工作目录、逐行参数和非敏感环境变量
+覆盖，主进程解析
 `{{unilab}}`、`{{python}}`、`{{workspace}}`、`{{graph}}`、`{{config}}`、
 `{{working_dir}}`、`{{edge_http_port}}` 和 `{{hostlink_port}}`，随后继续使用
-`shell: false` 直接启动。工作目录、Conda/PYTHONPATH、随机 `ROS_DOMAIN_ID`、运行
-数据库、HostLink 和可观测性环境变量仍由启动器管理；自定义进程也必须满足现有
+`shell: false` 直接启动。Conda/PYTHONPATH、随机 `ROS_DOMAIN_ID`、运行数据库、
+HostLink 和可观测性环境变量仍由启动器管理；用户变量不能覆盖这些名称，也不能把
+密码、令牌等敏感值保存在 renderer 的本地配置中。自定义进程仍必须满足现有
 `18003/18004` 端口和领域设备动作目录就绪门。
 
 Windows 自定义命令只接受绝对 `.exe` 路径，例如所选 Conda 环境中的
 `Scripts/unilab.exe` 或 `python.exe`。首版明确拒绝 `.cmd`、`.bat`、`.ps1`、
 `cmd.exe`、PowerShell 和自由 shell 字符串。每次启动任意自定义可执行文件前，
-Electron 主进程都会用原生对话框展示最终可执行文件、参数与工作目录并要求确认。
+Electron 主进程都会用原生对话框展示最终可执行文件、工作目录、参数与环境变量覆盖
+并要求确认。
 旧 v1/v2 本地配置迁移到 v3 后继续使用系统默认命令，不会冻结一份旧参数副本。
 
 启动前会校验项目结构、可执行文件和端口占用；任一进程启动失败或意外退出时，

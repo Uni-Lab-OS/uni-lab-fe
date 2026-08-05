@@ -46,12 +46,20 @@ export type LocalRuntimePathKind =
   | 'environment'
   | 'simulator'
   | 'edgeExecutable'
+  | 'edgeWorkingDirectory'
 
 export type LocalRuntimeEdgeCommandMode = 'generated' | 'custom'
 
+export interface LocalRuntimeEnvironmentVariable {
+  name: string
+  value: string
+}
+
 export interface LocalRuntimeCustomEdgeCommand {
   executable: string
+  workingDirectory: string
   args: string[]
+  environment: LocalRuntimeEnvironmentVariable[]
 }
 
 export interface LocalRuntimeCommandPreview {

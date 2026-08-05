@@ -141,7 +141,7 @@ describe('LocalRuntimeManager command plan', () => {
       '--skip_env_check',
       '--test_mode'
     ])
-    expect(plan.edge.env['ROS_DOMAIN_ID']).toMatch(/^(0[2-9]|[1-9]\d)$/)
+    expect(plan.edge.env['ROS_DOMAIN_ID']).toMatch(/^(?:[2-9]|[1-9]\d)$/)
     expect(plan.edge.env['UNILABOS_OBSERVABILITYCONFIG_ENABLED']).toBe('true')
     expect(plan.edge.env['UNILABOS_OBSERVABILITYCONFIG_PROJECT_NAME']).toBe(
       'uni-lab-electron'
@@ -165,8 +165,8 @@ describe('LocalRuntimeManager command plan', () => {
     )
   })
 
-  /** 证明每次 Edge 启动计划都重新取值，并覆盖 02 与 99 两个闭区间边界。 */
-  it('assigns a new two-digit ROS domain id for each Edge launch plan', async () => {
+  /** 证明每次 Edge 启动计划都重新取值，且不产生 C 整数解析会拒绝的前导零。 */
+  it('assigns a decimal ROS domain id for each Edge launch plan', async () => {
     const fixture = await createFixture('packages')
     const random = vi.spyOn(Math, 'random')
       .mockReturnValueOnce(0)
@@ -180,7 +180,7 @@ describe('LocalRuntimeManager command plan', () => {
         fixture.config
       )
 
-      expect(lowerBoundaryPlan.edge.env['ROS_DOMAIN_ID']).toBe('02')
+      expect(lowerBoundaryPlan.edge.env['ROS_DOMAIN_ID']).toBe('2')
       expect(upperBoundaryPlan.edge.env['ROS_DOMAIN_ID']).toBe('99')
     } finally {
       random.mockRestore()
@@ -195,6 +195,7 @@ describe('LocalRuntimeManager command plan', () => {
       edgeCommandMode: 'custom',
       customEdgeCommand: {
         executable: '{{python}}',
+        workingDirectory: '{{workspace}}',
         args: [
           '-m',
           'unilabos.app.main',
@@ -205,7 +206,8 @@ describe('LocalRuntimeManager command plan', () => {
           '{{edge_http_port}}',
           '--literal',
           'value with spaces & symbols'
-        ]
+        ],
+        environment: [{ name: 'DEVICE_MODE', value: 'simulation' }]
       }
     })
 
@@ -222,8 +224,9 @@ describe('LocalRuntimeManager command plan', () => {
       'value with spaces & symbols'
     ])
     expect(plan.edge.cwd).toBe(fixture.szlabRoot)
+    expect(plan.edge.env['DEVICE_MODE']).toBe('simulation')
     expect(plan.edge.env['UNILABOS_HOSTLINKCONFIG_PORT']).toBe('18004')
-    expect(plan.edge.env['ROS_DOMAIN_ID']).toMatch(/^(0[2-9]|[1-9]\d)$/)
+    expect(plan.edge.env['ROS_DOMAIN_ID']).toMatch(/^(?:[2-9]|[1-9]\d)$/)
   })
 
   it('supports the current root-level szlab_poly_studio layout', async () => {
@@ -430,7 +433,9 @@ async function createFixture(
       edgeCommandMode: 'generated',
       customEdgeCommand: {
         executable: '',
-        args: []
+        workingDirectory: '',
+        args: [],
+        environment: []
       }
     },
     graphPath,

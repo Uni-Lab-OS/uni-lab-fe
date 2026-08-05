@@ -784,6 +784,12 @@ async function resolveRuntimeConfig(
       'Edge 自定义可执行文件不存在或不可执行'
     )
   }
+  if (customEdgeCommand) {
+    await requireDirectory(
+      customEdgeCommand.workingDirectory,
+      'Edge 自定义工作目录不存在'
+    )
+  }
 
   return {
     platform,
@@ -873,18 +879,59 @@ function edgeSpec(config: ResolvedRuntimeConfig): LocalRuntimeSpawnSpec {
     '--skip_env_check',
     '--test_mode'
   ]
+  const customEnvironment = config.customEdgeCommand?.environment ?? []
+  const userExtendedEnvironment = mergeCustomEdgeEnvironment(
+    runtimeEnvironment(config),
+    customEnvironment,
+    config.platform
+  )
   return {
     command: config.customEdgeCommand?.command ?? config.unilabExecutable,
     args: config.customEdgeCommand?.args ?? generatedArgs,
-    cwd: config.szlabProjectPath || config.osProjectPath,
+    cwd: config.customEdgeCommand?.workingDirectory
+      ?? (config.szlabProjectPath || config.osProjectPath),
     env: {
-      ...runtimeEnvironment(config),
+      ...userExtendedEnvironment,
       UNILABOS_RUNTIME_DB: edgeRuntimeDatabasePath(config.runtimeDirectory),
       UNILABOS_OBSERVABILITYCONFIG_ENABLED: 'true',
       UNILABOS_OBSERVABILITYCONFIG_PROJECT_NAME: 'uni-lab-electron',
       UNILABOS_HOSTLINKCONFIG_PORT: String(LOCAL_RUNTIME_PORTS.hostLink),
       ROS_DOMAIN_ID: randomEdgeRosDomainId()
     }
+  }
+}
+
+/**
+ * 把用户声明的非敏感环境变量合并到 Conda 运行环境，同时处理 Windows 名称大小写。
+ *
+ * @param baseEnvironment 启动器构造的 Conda、PATH 与 PYTHONPATH 基线环境。
+ * @param overrides 已通过主进程安全校验的用户环境变量覆盖。
+ * @param platform 当前目标平台，用于 Windows 环境变量名称不区分大小写的规则。
+ * @returns 不含重复名称、可继续写入启动器权威变量的进程环境副本。
+ */
+function mergeCustomEdgeEnvironment(
+  baseEnvironment: NodeJS.ProcessEnv,
+  overrides: Array<{ name: string; value: string }>,
+  platform: NodeJS.Platform
+): NodeJS.ProcessEnv {
+  if (overrides.length === 0) return baseEnvironment
+  if (platform !== 'win32') {
+    return {
+      ...baseEnvironment,
+      ...Object.fromEntries(overrides.map(({ name, value }) => [name, value]))
+    }
+  }
+  const overrideNames = new Set(
+    overrides.map(({ name }) => name.toUpperCase())
+  )
+  const withoutShadowedNames = Object.fromEntries(
+    Object.entries(baseEnvironment).filter(
+      ([name]) => !overrideNames.has(name.toUpperCase())
+    )
+  )
+  return {
+    ...withoutShadowedNames,
+    ...Object.fromEntries(overrides.map(({ name, value }) => [name, value]))
   }
 }
 
@@ -899,14 +946,15 @@ function commandLooksLikePath(command: string): boolean {
 }
 
 /**
- * 为一次 Edge 启动生成 `02` 至 `99` 的两位 ROS 域编号。
+ * 为一次 Edge 启动生成 `2` 至 `99` 的 ROS 域编号。
  *
- * @returns 可直接写入 `ROS_DOMAIN_ID` 环境变量的两位字符串。
+ * @returns 可直接写入 `ROS_DOMAIN_ID` 环境变量的十进制字符串。
+ * @remarks ROS 2 底层按 C 整数解析该值，`08`/`09` 会因前导零被拒绝。
  */
 function randomEdgeRosDomainId(): string {
   const domainId = Math.floor(Math.random() * EDGE_ROS_DOMAIN_ID_COUNT)
     + EDGE_ROS_DOMAIN_ID_MIN
-  return twoDigits(domainId)
+  return String(domainId)
 }
 
 function edgeRuntimeDatabasePath(

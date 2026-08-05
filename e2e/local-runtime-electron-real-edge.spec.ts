@@ -71,6 +71,7 @@ test('starts a real Edge from a custom desktop command', async () => {
       edgeCommandMode: 'custom',
       customEdgeCommand: {
         executable: '{{unilab}}',
+        workingDirectory: '{{workspace}}',
         args: [
           '--workspace',
           '{{workspace}}',
@@ -90,7 +91,8 @@ test('starts a real Edge from a custom desktop command', async () => {
           '--disable_browser',
           '--skip_env_check',
           '--test_mode'
-        ]
+        ],
+        environment: [{ name: 'UNILAB_E2E_MODE', value: 'custom-template' }]
       }
     })
     await page.reload()
@@ -102,19 +104,25 @@ test('starts a real Edge from a custom desktop command', async () => {
       name: '启动本地环境'
     }).click()
     const runtimeDialog = page.getByRole('dialog', {
-      name: '启动领域侧本地调试环境（以 sz_lab 为例）'
+      name: '领域侧 Edge（以 sz_lab 为例）'
     })
     await expect(runtimeDialog).toBeVisible()
     await expect(runtimeDialog.getByRole('textbox', {
-      name: '领域项目根目录（可选，以 Uni-Lab-SZLab 为例）'
+      name: '领域项目根目录（自定义模式必填）'
     })).toHaveValue(domainProjectPath)
     await expect(runtimeDialog.getByRole('radio', {
       name: /自定义命令/
     })).toBeChecked()
     await expect(runtimeDialog.getByRole('textbox', {
-      name: '启动程序'
+      name: 'Edge 可执行文件'
     })).toHaveValue('{{unilab}}')
-    await runtimeDialog.getByRole('textbox', { name: '启动程序' })
+    await expect(runtimeDialog.getByRole('textbox', {
+      name: '工作目录'
+    })).toHaveValue('{{workspace}}')
+    await expect(runtimeDialog.getByRole('textbox', {
+      name: '环境变量覆盖'
+    })).toHaveValue('UNILAB_E2E_MODE=custom-template')
+    await runtimeDialog.getByRole('textbox', { name: 'Edge 可执行文件' })
       .scrollIntoViewIfNeeded()
     await capture(page, '02-domain-debugger-configured.png')
     await resizeMainWindow(electronApp, 800, 700)
@@ -302,7 +310,7 @@ test('starts a real Edge without a domain device package', async () => {
     const connectionBar = page.getByRole('group', { name: 'Edge 连接配置' })
     await connectionBar.getByRole('button', { name: '启动本地环境' }).click()
     const runtimeDialog = page.getByRole('dialog', {
-      name: '启动领域侧本地调试环境（以 sz_lab 为例）'
+      name: '领域侧 Edge（以 sz_lab 为例）'
     })
     await expect(runtimeDialog.getByRole('textbox', {
       name: '领域项目根目录（可选，以 Uni-Lab-SZLab 为例）'

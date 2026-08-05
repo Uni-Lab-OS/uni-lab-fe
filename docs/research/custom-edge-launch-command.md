@@ -33,14 +33,14 @@ spawn(executable, args, {
 
 ## 本次实现决策（Implementation Decision）
 
-本次交付采用更窄的首版接口：用户只覆盖 `executable + args[]`；`cwd`、Conda/PYTHONPATH、随机 `ROS_DOMAIN_ID`、运行数据库、可观测性、固定就绪端口和领域设备动作目录就绪门继续由 Electron 启动器管理。这样自定义命令不会悄然改变现有进程回收和“领域侧 Edge 已就绪”的判定语义。
+本次交付采用结构化首版接口：用户可覆盖 `executable + cwd + args[] + extraEnv[]`；Conda/PYTHONPATH、随机 `ROS_DOMAIN_ID`、运行数据库、可观测性、固定就绪端口和领域设备动作目录就绪门继续由 Electron 启动器管理。`cwd` 必须是已存在的绝对目录，环境变量不能覆盖启动器权威字段，也不能保存名称明显为密码、令牌或认证信息的值。这样自定义模板可以覆盖真实领域包启动差异，同时不改变现有进程回收和“领域侧 Edge 已就绪”的判定语义。
 
 - 配置 key 升级为 `unilab.local-runtime-launch-config.v3`；v1/v2 自动进入 `generated` 模式。
-- 自定义模式只在挂载领域设备包时可选，使用 `{{...}}` 闭集占位符。
-- renderer 提供可执行文件、逐行参数、占位符说明和仅展示的参数边界预览。
-- Electron 主进程重新校验 IPC schema、占位符、长度和可执行文件，并在每次启动前显示原生确认对话框。
+- 自定义模式要求挂载领域设备包，使用 `{{...}}` 闭集占位符；界面允许先切换模式，再通过必填校验引导补齐领域目录。
+- renderer 提供可执行文件、工作目录、逐行参数、逐行 `NAME=value` 环境变量、占位符说明和仅展示的参数边界预览。
+- Electron 主进程重新校验 IPC schema、占位符、长度、绝对工作目录、环境变量名称和可执行文件，并在每次启动前显示原生确认对话框。
 - Windows 只接受绝对 `.exe`，拒绝 `.cmd/.bat/.ps1`、`cmd.exe` 与 PowerShell。
-- 自定义工作目录、额外环境变量、就绪端口、持久批准 fingerprint 和多平台 profile 留待后续独立需求；本次不扩大这些权威接口。
+- 自定义就绪端口、持久批准 fingerprint、秘密存储和多平台 profile 留待后续独立需求；本次不扩大这些权威接口。
 
 ### 维护文件拆分设计
 
@@ -48,10 +48,10 @@ spawn(executable, args, {
 
 | 文件 | 当前行数 | 当前职责 | 本次决定 |
 | --- | ---: | --- | --- |
-| `apps/kernel-web/src/components/LocalRuntimeLauncher.tsx` | 1845 | 启动入口、配置弹窗、日志抽屉、存储迁移 | 本次只把新编辑器提取为独立组件；按下列 1–3 步继续拆分 |
-| `apps/kernel-web/src/components/LocalRuntimeLauncher.module.scss` | 1386 | 启动器、弹窗、日志与自定义命令样式 | 与 React seam 同步拆成三个 CSS module，避免选择器跨组件漂移 |
-| `apps/desktop/src/main/localRuntimeManager.ts` | 1307 | 启动计划、环境、就绪门、日志和进程生命周期 | 新命令解析已独立；后续按计划解析/日志 I/O seam 迁移 |
-| `apps/desktop/src/main/index.ts` | 957 | Electron 组合根、IPC 与安全确认 | 本次只加入窄 IPC；后续把本地运行 IPC 整体下沉 |
+| `apps/kernel-web/src/components/LocalRuntimeLauncher.tsx` | 1966 | 启动入口、配置弹窗、日志抽屉、存储迁移 | 本次只把新编辑器提取为独立组件；按下列 1–3 步继续拆分 |
+| `apps/kernel-web/src/components/LocalRuntimeLauncher.module.scss` | 1547 | 启动器、弹窗、日志与自定义命令样式 | 与 React seam 同步拆成三个 CSS module，避免选择器跨组件漂移 |
+| `apps/desktop/src/main/localRuntimeManager.ts` | 1355 | 启动计划、环境、就绪门、日志和进程生命周期 | 新命令解析已独立；后续按计划解析/日志 I/O seam 迁移 |
+| `apps/desktop/src/main/index.ts` | 987 | Electron 组合根、IPC 与安全确认 | 本次只加入窄 IPC；后续把本地运行 IPC 整体下沉 |
 
 这些文件均已超过 800 行，因此不能把“不拆分”作为长期状态；本次暂缓搬迁的具体原因是要让 Windows 行为修复与大规模纯移动保持可独立审查、可独立回滚。
 
@@ -199,8 +199,8 @@ interface LocalRuntimeLaunchConfigV3 {
 
 1. 经过平台规范化的父进程环境。
 2. 当前已有的 Conda 激活环境。
-3. launcher 管理的运行变量，例如运行数据库、观测配置、HostLink 端口和随机 ROS 域编号。
-4. 用户 `extraEnv`，但不能覆盖受保护键。
+3. 用户 `extraEnv`，但不能覆盖受保护键或保存敏感变量。
+4. launcher 管理的运行变量，例如运行数据库、观测配置、HostLink 端口和随机 ROS 域编号；这些字段最后写入并保持权威。
 
 受保护键至少包括：`PATH`、`PYTHONPATH`、所有 `CONDA_*`、`UNILABOS_RUNTIME_DB`、`UNILABOS_HOSTLINKCONFIG_PORT`。如果产品需要让用户固定 `ROS_DOMAIN_ID` 或改变观测开关，应增加有类型的专用字段并做范围/枚举校验，不应通过任意环境变量覆盖实现。
 

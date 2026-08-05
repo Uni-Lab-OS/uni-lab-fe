@@ -6,7 +6,8 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode
+  type ReactNode,
+  type SyntheticEvent
 } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -38,7 +39,9 @@ const EMPTY_CONFIG: LocalRuntimeLaunchConfig = {
   edgeCommandMode: 'generated',
   customEdgeCommand: {
     executable: '',
-    args: []
+    workingDirectory: '',
+    args: [],
+    environment: []
   }
 }
 const IDLE_SNAPSHOT: LocalRuntimeSnapshot = {
@@ -384,7 +387,7 @@ export default function LocalRuntimeLauncher({
   }
 
   /**
-   * 打开受控系统路径选择器，并把结果写入对应的平面路径或自定义命令字段。
+   * 打开受控系统路径选择器，并把结果写入对应的平面路径或自定义模板字段。
    *
    * @param kind 共享合同声明的路径类别。
    */
@@ -393,18 +396,30 @@ export default function LocalRuntimeLauncher({
     try {
       const path = await runtimeApi.selectPath(kind)
       if (!path) return
-      setConfig((current) => kind === 'edgeExecutable'
-        ? {
+      setConfig((current) => {
+        if (kind === 'edgeExecutable') {
+          return {
             ...current,
             customEdgeCommand: {
               ...current.customEdgeCommand,
               executable: path
             }
           }
-        : {
+        }
+        if (kind === 'edgeWorkingDirectory') {
+          return {
             ...current,
-            [pathField(kind)]: path
-          })
+            customEdgeCommand: {
+              ...current.customEdgeCommand,
+              workingDirectory: path
+            }
+          }
+        }
+        return {
+          ...current,
+          [pathField(kind)]: path
+        }
+      })
     } catch (error) {
       setLocalError(errorMessage(error))
     }
@@ -477,7 +492,9 @@ export default function LocalRuntimeLauncher({
         edgeCommandMode: 'custom',
         customEdgeCommand: {
           executable: preview.executable,
-          args: [...preview.args]
+          workingDirectory: preview.cwd,
+          args: [...preview.args],
+          environment: []
         }
       }))
     } catch (error) {
@@ -595,6 +612,20 @@ export function LocalRuntimeDialog({
     || simulatorTransitioning
     || edgeTransitioning
   const edgeDisabled = edgeActive || edgeTransitioning
+  const [runtimeAuxiliaryOpen, setRuntimeAuxiliaryOpen] = useState(
+    () => !config.environmentPath.trim() || simulatorActive
+  )
+
+  /**
+   * 同步原生 details 的展开状态，使配置变化时不会意外重置用户选择。
+   *
+   * @param event 运行环境折叠区的原生 toggle 事件。
+   */
+  const toggleRuntimeAuxiliary = (
+    event: SyntheticEvent<HTMLDetailsElement>
+  ): void => {
+    setRuntimeAuxiliaryOpen(event.currentTarget.open)
+  }
 
   return (
     <div className={styles.backdrop}>
@@ -608,14 +639,24 @@ export function LocalRuntimeDialog({
         <header className={styles.header}>
           <div>
             <h2 id="local-runtime-title">
-              启动领域侧本地调试环境（以 sz_lab 为例）
+              领域侧 Edge（以 sz_lab 为例）
             </h2>
             <p id="local-runtime-description">
-              分别启动 PLC-Sim 和领域侧 Edge，由你决定是否使用本地 PLC。
+              启动领域设备图、本地服务和 Edge 运行时。
             </p>
           </div>
           <div className={styles.headerActions}>
             {logControl}
+            <button
+              type="button"
+              className={edgeActive
+                ? styles.stopButton
+                : styles.primaryButton}
+              disabled={edgeTransitioning || simulatorTransitioning}
+              onClick={edgeActive ? onStopEdge : onStartEdge}
+            >
+              {edgeControlLabel(snapshot, edgeActive)}
+            </button>
             <button
               type="button"
               className={styles.closeButton}
@@ -629,98 +670,10 @@ export function LocalRuntimeDialog({
         </header>
 
         <div className={styles.body}>
-          <div className={styles.fields}>
-            <PathField
-              id="runtime-environment-path"
-              label="unilab Conda 环境目录"
-              value={config.environmentPath}
-              placeholder="自动识别，或选择 Conda 环境目录"
-              buttonLabel="选择目录"
-              disabled={environmentDisabled}
-              invalid={Boolean(
-                (simulatorSubmitted
-                  && simulatorValidation.errors.environmentPath)
-                || (edgeSubmitted
-                  && edgeValidation.errors.environmentPath)
-              )}
-              error={simulatorSubmitted
-                ? simulatorValidation.errors.environmentPath
-                : edgeSubmitted
-                  ? edgeValidation.errors.environmentPath
-                  : undefined}
-              autoFocus
-              onChoose={() => onChoosePath('environment')}
-            />
-          </div>
-
           <section
-            className={styles.serviceSection}
-            aria-labelledby="local-plc-title"
+            className={`${styles.serviceSection} ${styles.edgeServiceSection}`}
+            aria-labelledby="local-runtime-title"
           >
-            <header className={styles.serviceHeader}>
-              <div>
-                <h3 id="local-plc-title">PLC-Sim（可选）</h3>
-                <p>启动本地 OPC UA，监听 127.0.0.1:18765。</p>
-              </div>
-              <button
-                type="button"
-                className={simulatorActive
-                  ? styles.stopButton
-                  : styles.primaryButton}
-                disabled={simulatorTransitioning
-                  || edgeActive
-                  || edgeTransitioning}
-                onClick={simulatorActive
-                  ? onStopSimulator
-                  : onStartSimulator}
-              >
-                {simulatorControlLabel(snapshot, simulatorActive)}
-              </button>
-            </header>
-            <PathField
-              id="runtime-simulator-path"
-              label="PLC-Sim 项目根目录"
-              value={config.simulatorProjectPath}
-              placeholder="选择包含 OpcUaSim 的 PLC-Sim 项目根目录"
-              buttonLabel="选择目录"
-              disabled={simulatorDisabled}
-              invalid={simulatorSubmitted
-                && Boolean(simulatorValidation.errors.simulatorProjectPath)}
-              error={simulatorSubmitted
-                ? simulatorValidation.errors.simulatorProjectPath
-                : undefined}
-              editable
-              onValueChange={(simulatorProjectPath) => onChange({
-                ...config,
-                simulatorProjectPath
-              })}
-              onChoose={() => onChoosePath('simulator')}
-            />
-          </section>
-
-          <section
-            className={styles.serviceSection}
-            aria-labelledby="local-edge-title"
-          >
-            <header className={styles.serviceHeader}>
-              <div>
-                <h3 id="local-edge-title">
-                  领域侧 Edge（以 sz_lab 为例）
-                </h3>
-                <p>启动领域设备图、本地服务和 Edge 运行时。</p>
-              </div>
-              <button
-                type="button"
-                className={edgeActive
-                  ? styles.stopButton
-                  : styles.primaryButton}
-                disabled={edgeTransitioning || simulatorTransitioning}
-                onClick={edgeActive ? onStopEdge : onStartEdge}
-              >
-                {edgeControlLabel(snapshot, edgeActive)}
-              </button>
-            </header>
-
             {phoenixDependencyMissing ? (
               <PhoenixDependencyRecoveryNotice
                 osProjectPath={config.osProjectPath}
@@ -735,6 +688,53 @@ export function LocalRuntimeDialog({
             </div>
 
             <div className={styles.fields}>
+              <LocalRuntimeEdgeCommandEditor
+                config={config}
+                disabled={edgeDisabled}
+                submitted={edgeSubmitted}
+                executableError={edgeValidation.errors.customEdgeExecutable}
+                workingDirectoryError={
+                  edgeValidation.errors.customEdgeWorkingDirectory
+                }
+                environmentError={edgeValidation.errors.customEdgeEnvironment}
+                loadingGeneratedCommand={resolvingGeneratedEdgeCommand}
+                workspaceField={(
+                  <>
+                    <PathField
+                      id="runtime-szlab-path"
+                      label={config.edgeCommandMode === 'custom'
+                        ? '领域项目根目录（自定义模式必填）'
+                        : '领域项目根目录（可选，以 Uni-Lab-SZLab 为例）'}
+                      value={config.szlabProjectPath}
+                      placeholder="可留空，或选择领域项目根目录"
+                      buttonLabel="选择目录"
+                      disabled={edgeDisabled}
+                      invalid={edgeSubmitted
+                        && Boolean(edgeValidation.errors.szlabProjectPath)}
+                      error={edgeSubmitted
+                        ? edgeValidation.errors.szlabProjectPath
+                        : undefined}
+                      editable
+                      onValueChange={(szlabProjectPath) => onChange({
+                        ...config,
+                        szlabProjectPath
+                      })}
+                      onChoose={() => onChoosePath('szlab')}
+                    />
+                    <p className={styles.fieldHint}>
+                      {config.edgeCommandMode === 'custom'
+                        ? '用于校验领域设备动作是否完整上报；自定义模板仍需自行挂载该目录。'
+                        : '留空时仅加载 Uni-Lab-OS 内置设备能力；填写后同时校验领域设备动作上报。'}
+                    </p>
+                  </>
+                )}
+                onChange={onChange}
+                onChooseExecutable={() => onChoosePath('edgeExecutable')}
+                onChooseWorkingDirectory={() => (
+                  onChoosePath('edgeWorkingDirectory')
+                )}
+                onLoadGeneratedCommand={onLoadGeneratedEdgeCommand}
+              />
               <PathField
                 id="runtime-os-path"
                 label="Uni-Lab-OS 项目根目录"
@@ -755,28 +755,6 @@ export function LocalRuntimeDialog({
                 onChoose={() => onChoosePath('os')}
               />
               <PathField
-                id="runtime-szlab-path"
-                label="领域项目根目录（可选，以 Uni-Lab-SZLab 为例）"
-                value={config.szlabProjectPath}
-                placeholder="可留空，或选择领域项目根目录"
-                buttonLabel="选择目录"
-                disabled={edgeDisabled}
-                invalid={edgeSubmitted
-                  && Boolean(edgeValidation.errors.szlabProjectPath)}
-                error={edgeSubmitted
-                  ? edgeValidation.errors.szlabProjectPath
-                  : undefined}
-                editable
-                onValueChange={(szlabProjectPath) => onChange({
-                  ...config,
-                  szlabProjectPath
-                })}
-                onChoose={() => onChoosePath('szlab')}
-              />
-              <p className={styles.fieldHint}>
-                留空时仅加载 Uni-Lab-OS 内置设备能力；填写后同时加载该领域设备包。
-              </p>
-              <PathField
                 id="runtime-graph-path"
                 label="领域设备图 JSON（以 sz_lab 为例）"
                 value={config.graphPath}
@@ -790,18 +768,89 @@ export function LocalRuntimeDialog({
                   : undefined}
                 onChoose={() => onChoosePath('graph')}
               />
-              <LocalRuntimeEdgeCommandEditor
-                config={config}
-                disabled={edgeDisabled}
-                submitted={edgeSubmitted}
-                executableError={edgeValidation.errors.customEdgeExecutable}
-                loadingGeneratedCommand={resolvingGeneratedEdgeCommand}
-                onChange={onChange}
-                onChooseExecutable={() => onChoosePath('edgeExecutable')}
-                onLoadGeneratedCommand={onLoadGeneratedEdgeCommand}
-              />
             </div>
           </section>
+
+          <details
+            className={styles.runtimeAuxiliary}
+            open={runtimeAuxiliaryOpen}
+            onToggle={toggleRuntimeAuxiliary}
+          >
+            <summary>
+              <span>
+                <strong>运行环境与 PLC-Sim</strong>
+                <small>Conda 环境、可选本地 OPC UA</small>
+              </span>
+              <small>{simulatorActive ? 'PLC-Sim 运行中' : '按需设置'}</small>
+            </summary>
+            <div className={styles.runtimeAuxiliaryBody}>
+              <PathField
+                id="runtime-environment-path"
+                label="unilab Conda 环境目录"
+                value={config.environmentPath}
+                placeholder="自动识别，或选择 Conda 环境目录"
+                buttonLabel="选择目录"
+                disabled={environmentDisabled}
+                invalid={Boolean(
+                  (simulatorSubmitted
+                    && simulatorValidation.errors.environmentPath)
+                  || (edgeSubmitted
+                    && edgeValidation.errors.environmentPath)
+                )}
+                error={simulatorSubmitted
+                  ? simulatorValidation.errors.environmentPath
+                  : edgeSubmitted
+                    ? edgeValidation.errors.environmentPath
+                    : undefined}
+                onChoose={() => onChoosePath('environment')}
+              />
+
+              <section
+                className={styles.runtimeAuxiliaryService}
+                aria-labelledby="local-plc-title"
+              >
+                <header className={styles.serviceHeader}>
+                  <div>
+                    <h3 id="local-plc-title">PLC-Sim（可选）</h3>
+                    <p>启动本地 OPC UA，监听 127.0.0.1:18765。</p>
+                  </div>
+                  <button
+                    type="button"
+                    className={simulatorActive
+                      ? styles.stopButton
+                      : styles.primaryButton}
+                    disabled={simulatorTransitioning
+                      || edgeActive
+                      || edgeTransitioning}
+                    onClick={simulatorActive
+                      ? onStopSimulator
+                      : onStartSimulator}
+                  >
+                    {simulatorControlLabel(snapshot, simulatorActive)}
+                  </button>
+                </header>
+                <PathField
+                  id="runtime-simulator-path"
+                  label="PLC-Sim 项目根目录"
+                  value={config.simulatorProjectPath}
+                  placeholder="选择包含 OpcUaSim 的 PLC-Sim 项目根目录"
+                  buttonLabel="选择目录"
+                  disabled={simulatorDisabled}
+                  invalid={simulatorSubmitted
+                    && Boolean(simulatorValidation.errors.simulatorProjectPath)}
+                  error={simulatorSubmitted
+                    ? simulatorValidation.errors.simulatorProjectPath
+                    : undefined}
+                  editable
+                  onValueChange={(simulatorProjectPath) => onChange({
+                    ...config,
+                    simulatorProjectPath
+                  })}
+                  onChoose={() => onChoosePath('simulator')}
+                />
+              </section>
+            </div>
+          </details>
 
           <RuntimeStatus snapshot={snapshot} />
 
@@ -1555,6 +1604,8 @@ function ProcessState({
 
 type LocalRuntimeValidationField = keyof LocalRuntimeLaunchConfig
   | 'customEdgeExecutable'
+  | 'customEdgeWorkingDirectory'
+  | 'customEdgeEnvironment'
 
 interface ValidationResult {
   valid: boolean
@@ -1598,8 +1649,60 @@ export function validateEdgeConfig(
     if (!config.customEdgeCommand.executable.trim()) {
       errors.customEdgeExecutable = '请输入或选择 Edge 自定义可执行文件'
     }
+    if (!config.customEdgeCommand.workingDirectory.trim()) {
+      errors.customEdgeWorkingDirectory = '请输入或选择 Edge 自定义工作目录'
+    }
+    const environmentError = validateCustomEdgeEnvironment(
+      config.customEdgeCommand.environment
+    )
+    if (environmentError) errors.customEdgeEnvironment = environmentError
   }
   return { valid: Object.keys(errors).length === 0, errors }
+}
+
+/**
+ * 对环境变量编辑结果执行即时格式校验，主进程仍负责重复名和权威边界的最终判断。
+ *
+ * @param environment 用户逐行编辑后形成的环境变量名称和值。
+ * @returns 首个可行动错误；输入满足 renderer 约束时返回 undefined。
+ */
+function validateCustomEdgeEnvironment(
+  environment: LocalRuntimeLaunchConfig['customEdgeCommand']['environment']
+): string | undefined {
+  const seenNames = new Set<string>()
+  for (const entry of environment) {
+    const name = entry.name.trim()
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+      return `环境变量 ${name || '<空名称>'} 的名称格式无效`
+    }
+    const normalizedName = name.toUpperCase()
+    if (seenNames.has(normalizedName)) return `环境变量 ${name} 重复`
+    seenNames.add(normalizedName)
+    if (isLauncherManagedEnvironmentName(normalizedName)) {
+      return `环境变量 ${name} 由 Edge 启动器托管，不能覆盖`
+    }
+    if (/(?:^|_)(?:AUTH|COOKIE|KEY|PASS|PASSWORD|SECRET|TOKEN)(?:_|$)/i.test(name)) {
+      return `环境变量 ${name} 可能包含敏感信息，不能保存在本地启动配置中`
+    }
+  }
+  return undefined
+}
+
+/**
+ * 判断一个大写环境变量名是否属于启动器托管的 Conda、端口或运行事实。
+ *
+ * @param normalizedName 已转换为大写的环境变量名称。
+ * @returns 用户覆盖会破坏启动器权威边界时返回 true。
+ */
+function isLauncherManagedEnvironmentName(normalizedName: string): boolean {
+  return normalizedName === 'PATH'
+    || normalizedName === 'PYTHONPATH'
+    || normalizedName === 'PYTHONUNBUFFERED'
+    || normalizedName === 'ROS_DOMAIN_ID'
+    || normalizedName === 'UNILABOS_RUNTIME_DB'
+    || normalizedName === 'UNILABOS_HOSTLINKCONFIG_PORT'
+    || normalizedName.startsWith('CONDA_')
+    || normalizedName.startsWith('UNILABOS_OBSERVABILITYCONFIG_')
 }
 
 function launcherLabel(snapshot: LocalRuntimeSnapshot): string {
@@ -1646,13 +1749,16 @@ function isEdgeTransitioning(snapshot: LocalRuntimeSnapshot): boolean {
 }
 
 /**
- * 将普通路径类别映射到平面配置字段；嵌套的自定义 executable 由调用方单独处理。
+ * 将普通路径类别映射到平面配置字段；嵌套的自定义模板路径由调用方单独处理。
  *
  * @param kind 除自定义可执行文件之外的受控路径类别。
  * @returns 对应的本地运行配置字段名。
  */
 function pathField(
-  kind: Exclude<LocalRuntimePathKind, 'edgeExecutable'>
+  kind: Exclude<
+    LocalRuntimePathKind,
+    'edgeExecutable' | 'edgeWorkingDirectory'
+  >
 ): keyof LocalRuntimeLaunchConfig {
   if (kind === 'graph') return 'graphPath'
   if (kind === 'os') return 'osProjectPath'
@@ -1719,10 +1825,25 @@ export function normalizeStoredLocalRuntimeConfig(
       executable: typeof customEdgeCommand?.executable === 'string'
         ? customEdgeCommand.executable
         : '',
+      workingDirectory: typeof customEdgeCommand?.workingDirectory === 'string'
+        ? customEdgeCommand.workingDirectory
+        : parsed.edgeCommandMode === 'custom'
+          ? '{{workspace}}'
+          : '',
       args: Array.isArray(customEdgeCommand?.args)
         ? customEdgeCommand.args.filter(
             (argument): argument is string => typeof argument === 'string'
           )
+        : [],
+      environment: Array.isArray(customEdgeCommand?.environment)
+        ? customEdgeCommand.environment.flatMap((entry) => (
+            entry
+            && typeof entry === 'object'
+            && typeof entry.name === 'string'
+            && typeof entry.value === 'string'
+              ? [{ name: entry.name, value: entry.value }]
+              : []
+          ))
         : []
     }
   }

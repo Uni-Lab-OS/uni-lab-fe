@@ -727,7 +727,8 @@ function runtimePathDialogOptions(
     os: '选择 Uni-Lab-OS 项目根目录',
     szlab: '选择领域项目根目录（以 Uni-Lab-SZLab 为例）',
     environment: '选择 unilab Conda 环境目录',
-    simulator: '选择 PLC-Sim 项目根目录'
+    simulator: '选择 PLC-Sim 项目根目录',
+    edgeWorkingDirectory: '选择 Edge 自定义工作目录'
   }
   if (!(kind in titles)) throw new Error('不支持的本地运行时路径类型')
   return {
@@ -777,8 +778,8 @@ function parseRuntimeConfig(value: unknown): LocalRuntimeLaunchConfig {
  * 收窄用户自定义 Edge 命令，避免对象原型或非字符串参数跨越 preload seam。
  *
  * @param value IPC 载荷中的自定义命令候选值。
- * @returns 仅包含可执行文件文本和字符串参数副本的命令配置。
- * @throws 当候选不是普通对象、可执行文件不是字符串或参数不是字符串数组时抛出。
+ * @returns 仅包含可执行文件、工作目录、字符串参数和 name/value 环境变量副本的命令配置。
+ * @throws 当候选不是普通对象或任一结构化字段类型不正确时抛出。
  */
 function parseCustomEdgeCommand(
   value: unknown
@@ -787,16 +788,35 @@ function parseCustomEdgeCommand(
     throw new Error('Edge 自定义启动命令无效')
   }
   const candidate = value as Record<string, unknown>
+  const environment = candidate.environment
   if (
     typeof candidate.executable !== 'string'
+    || (candidate.workingDirectory !== undefined
+      && typeof candidate.workingDirectory !== 'string')
     || !Array.isArray(candidate.args)
     || !candidate.args.every((argument) => typeof argument === 'string')
+    || (environment !== undefined && (
+      !Array.isArray(environment)
+      || !environment.every((entry) => (
+        Boolean(entry)
+        && typeof entry === 'object'
+        && typeof (entry as Record<string, unknown>).name === 'string'
+        && typeof (entry as Record<string, unknown>).value === 'string'
+      ))
+    ))
   ) {
     throw new Error('Edge 自定义启动命令字段不完整')
   }
   return {
     executable: candidate.executable,
-    args: [...candidate.args]
+    workingDirectory: typeof candidate.workingDirectory === 'string'
+      ? candidate.workingDirectory
+      : '{{workspace}}',
+    args: [...candidate.args],
+    environment: (environment ?? []).map((entry) => ({
+      name: (entry as Record<string, string>).name,
+      value: (entry as Record<string, string>).value
+    }))
   }
 }
 
@@ -850,6 +870,16 @@ async function confirmCustomEdgeLaunch(
     ),
     ...(plan.edge.args.length > 24
       ? [`… 另有 ${plan.edge.args.length - 24} 项参数未展开显示`]
+      : []),
+    '',
+    '环境变量覆盖：',
+    ...(config.customEdgeCommand.environment.length > 0
+      ? config.customEdgeCommand.environment.slice(0, 16).map(
+          ({ name, value }) => `${name}=${truncateDialogValue(value)}`
+        )
+      : ['无']),
+    ...(config.customEdgeCommand.environment.length > 16
+      ? [`… 另有 ${config.customEdgeCommand.environment.length - 16} 项未展开显示`]
       : [])
   ]
   const result = await dialog.showMessageBox(mainWindow, {

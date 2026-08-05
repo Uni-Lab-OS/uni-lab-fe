@@ -79,8 +79,8 @@
 }
 
 .dialog {
-  width: min(700px, calc(100vw - 32px));
-  max-height: min(820px, calc(100vh - 32px));
+  width: min(960px, calc(100vw - 32px));
+  max-height: min(920px, calc(100vh - 32px));
   overflow: auto;
   color: var(--unilab-color-text);
   border-radius: var(--unilab-radius-lg);
@@ -168,6 +168,11 @@
   border-block-start: 1px solid var(--unilab-color-border);
 }
 
+.edgeServiceSection {
+  padding-block-start: 0;
+  border-block-start: 0;
+}
+
 .serviceHeader {
   display: flex;
   align-items: flex-start;
@@ -230,6 +235,61 @@
     font-size: 11px;
     line-height: 1.5;
   }
+}
+
+.runtimeAuxiliary {
+  overflow: hidden;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
+  background: var(--unilab-color-surface-subtle);
+
+  > summary {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 8px 12px;
+    color: var(--unilab-color-text);
+    cursor: pointer;
+
+    > span {
+      display: grid;
+      min-width: 0;
+      gap: 1px;
+    }
+
+    strong {
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    small {
+      color: var(--unilab-color-text-muted);
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--unilab-color-focus);
+      outline-offset: -3px;
+    }
+  }
+}
+
+.runtimeAuxiliaryBody {
+  display: grid;
+  gap: 16px;
+  padding: 14px 16px 16px;
+  border-block-start: 1px solid var(--unilab-color-border);
+  background: var(--unilab-color-surface);
+}
+
+.runtimeAuxiliaryService {
+  display: grid;
+  gap: 12px;
+  padding-block-start: 14px;
+  border-block-start: 1px solid var(--unilab-color-border);
 }
 
 .fields {
@@ -405,14 +465,14 @@
   min-width: 0;
   margin: 0;
   padding: 0;
-  gap: 10px;
+  gap: 16px;
   border: 0;
 
   > legend {
-    margin-block-end: 6px;
+    margin-block-end: 2px;
     padding: 0;
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
     line-height: 1.4;
   }
 }
@@ -420,34 +480,30 @@
 .commandModeControl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
+  background: var(--unilab-color-surface-subtle);
 
   > label {
-    display: flex;
+    position: relative;
+    display: grid;
     min-width: 0;
-    align-items: flex-start;
-    gap: 9px;
-    padding: 10px 12px;
+    min-height: 42px;
+    place-items: center;
+    padding: 8px 12px;
     color: var(--unilab-color-text-muted);
-    border: 1px solid var(--unilab-color-border);
+    border: 1px solid transparent;
     border-radius: var(--unilab-radius-control);
-    background: var(--unilab-color-surface);
+    background: transparent;
     cursor: pointer;
 
     &[data-active='true'] {
       color: var(--unilab-color-primary);
-      border-color: color-mix(
-        in srgb,
-        var(--unilab-color-primary) 55%,
-        var(--unilab-color-border-strong)
-      );
-      background: var(--unilab-color-primary-soft);
-    }
-
-    &[data-disabled='true'] {
-      color: var(--unilab-color-text-subtle);
-      background: var(--unilab-color-surface-subtle);
-      cursor: not-allowed;
+      border-color: var(--unilab-color-border-strong);
+      background: var(--unilab-color-surface);
+      box-shadow: 0 2px 8px rgb(15 23 42 / 6%);
     }
 
     &:focus-within {
@@ -456,14 +512,11 @@
     }
 
     input {
-      margin: 2px 0 0;
-      accent-color: var(--unilab-color-primary);
-    }
-
-    span {
-      display: grid;
-      min-width: 0;
-      gap: 2px;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
     }
 
     strong {
@@ -472,40 +525,93 @@
       line-height: 1.4;
     }
 
-    small {
-      color: var(--unilab-color-text-muted);
-      font-size: 11px;
-      line-height: 1.4;
-    }
   }
 }
 
-.commandModeHint {
-  margin: 0;
-  color: var(--unilab-color-text-muted);
-  font-size: 11px;
-  line-height: 1.45;
+.commandModeLabel {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  small {
+    color: currentColor;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+}
+
+.commandWorkspaceField {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
 }
 
 .customCommandPanel {
   display: grid;
   min-width: 0;
-  gap: 12px;
+  gap: 18px;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-lg);
+  background: var(--unilab-color-surface-subtle);
+
+  .pathEditor,
+  .commandArguments,
+  .commandEnvironment {
+    background: var(--unilab-color-surface);
+  }
 }
 
 .commandPanelHeader {
   display: flex;
   min-width: 0;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
 
-  > p {
+  > div:first-child {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+  }
+
+  strong {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  p {
     margin: 0;
     color: var(--unilab-color-text-muted);
     font-size: 11px;
     line-height: 1.45;
   }
+}
+
+.commandPanelActions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.commandPlatformTag {
+  padding: 3px 8px;
+  color: var(--unilab-color-primary);
+  border: 1px solid color-mix(
+    in srgb,
+    var(--unilab-color-primary) 42%,
+    var(--unilab-color-border)
+  );
+  border-radius: 999px;
+  background: var(--unilab-color-surface);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 .commandTemplateButton {
@@ -537,7 +643,8 @@
   }
 }
 
-.commandArguments {
+.commandArguments,
+.commandEnvironment {
   width: 100%;
   min-width: 0;
   resize: vertical;
@@ -565,6 +672,10 @@
     background: var(--unilab-color-surface-subtle);
     cursor: not-allowed;
   }
+}
+
+.commandEnvironment {
+  min-height: 78px;
 }
 
 .commandAdvanced {
@@ -664,6 +775,12 @@
     font: 11px/1.55 var(--unilab-font-mono);
     overflow-wrap: anywhere;
     white-space: pre-wrap;
+  }
+
+  > small {
+    color: var(--unilab-color-text-muted);
+    font: 10px/1.5 var(--unilab-font-mono);
+    overflow-wrap: anywhere;
   }
 }
 
@@ -1286,6 +1403,20 @@
     padding-inline: 16px;
   }
 
+  .header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .headerActions {
+    width: 100%;
+    flex-wrap: wrap;
+
+    .closeButton {
+      margin-inline-start: auto;
+    }
+  }
+
   .footer {
     flex-wrap: wrap;
     padding-inline: 16px;
@@ -1307,6 +1438,15 @@
   .commandPanelHeader {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .commandPanelActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .commandPlatformTag {
+    align-self: flex-start;
   }
 
   .commandTemplateButton {
