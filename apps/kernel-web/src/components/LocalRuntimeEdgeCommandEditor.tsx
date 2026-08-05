@@ -186,9 +186,6 @@ export default function LocalRuntimeEdgeCommandEditor({
               <p>主进程使用 shell: false 启动，并在执行前再次请求确认。</p>
             </div>
             <div className={styles.commandPanelActions}>
-              <span className={styles.commandPlatformTag}>
-                Windows / macOS / Linux
-              </span>
               <button
                 type="button"
                 className={styles.commandTemplateButton}
