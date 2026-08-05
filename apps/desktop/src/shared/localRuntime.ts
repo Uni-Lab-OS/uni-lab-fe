@@ -4,6 +4,20 @@ export type LocalRuntimePathKind =
   | 'szlab'
   | 'environment'
   | 'simulator'
+  | 'edgeExecutable'
+
+export type LocalRuntimeEdgeCommandMode = 'generated' | 'custom'
+
+export interface LocalRuntimeCustomEdgeCommand {
+  executable: string
+  args: string[]
+}
+
+export interface LocalRuntimeCommandPreview {
+  executable: string
+  args: string[]
+  cwd: string
+}
 
 export interface LocalRuntimeLaunchConfig {
   graphPath: string
@@ -11,6 +25,8 @@ export interface LocalRuntimeLaunchConfig {
   szlabProjectPath: string
   environmentPath: string
   simulatorProjectPath: string
+  edgeCommandMode: LocalRuntimeEdgeCommandMode
+  customEdgeCommand: LocalRuntimeCustomEdgeCommand
 }
 
 export type LocalRuntimeProcessKind = 'simulator' | 'bridge' | 'edge'

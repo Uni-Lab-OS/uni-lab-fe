@@ -10,7 +10,10 @@ const graphPath = process.env.UNILAB_E2E_GRAPH_PATH ?? ''
 const artifactDirectory = process.env.UNILAB_E2E_ARTIFACT_DIR
   ?? resolve('e2e-artifacts', 'local-debugger-real-edge')
 
-test('starts a real Edge from the desktop local debugger', async () => {
+/**
+ * 使用结构化自定义命令真实启动领域设备包与 Uni-Lab-OS，并验证健康、设备目录和重启链路。
+ */
+test('starts a real Edge from a custom desktop command', async () => {
   test.skip(
     !environmentPath || !osProjectPath || !domainProjectPath || !graphPath,
     '需要 UNILAB_E2E_CONDA_ENV、UNILAB_E2E_OS_ROOT、UNILAB_E2E_DOMAIN_ROOT 和 UNILAB_E2E_GRAPH_PATH'
@@ -29,6 +32,12 @@ test('starts a real Edge from the desktop local debugger', async () => {
   })
 
   try {
+    await electronApp.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => ({
+        response: 0,
+        checkboxChecked: false
+      })
+    })
     const page = await electronApp.firstWindow()
     const browserErrors: string[] = []
     page.on('console', (message) => {
@@ -50,7 +59,7 @@ test('starts a real Edge from the desktop local debugger', async () => {
 
     await page.evaluate((config) => {
       globalThis.localStorage.setItem(
-        'unilab.local-runtime-launch-config.v2',
+        'unilab.local-runtime-launch-config.v3',
         JSON.stringify(config)
       )
     }, {
@@ -58,7 +67,31 @@ test('starts a real Edge from the desktop local debugger', async () => {
       osProjectPath,
       szlabProjectPath: domainProjectPath,
       environmentPath,
-      simulatorProjectPath: ''
+      simulatorProjectPath: '',
+      edgeCommandMode: 'custom',
+      customEdgeCommand: {
+        executable: '{{unilab}}',
+        args: [
+          '--workspace',
+          '{{workspace}}',
+          '--graph',
+          '{{graph}}',
+          '--config',
+          '{{config}}',
+          '--working_dir',
+          '{{working_dir}}',
+          '--backend',
+          'ros',
+          '--app_bridges',
+          'fastapi',
+          '--edge_scheduler',
+          '--port',
+          '{{edge_http_port}}',
+          '--disable_browser',
+          '--skip_env_check',
+          '--test_mode'
+        ]
+      }
     })
     await page.reload()
 
@@ -75,7 +108,18 @@ test('starts a real Edge from the desktop local debugger', async () => {
     await expect(runtimeDialog.getByRole('textbox', {
       name: '领域项目根目录（可选，以 Uni-Lab-SZLab 为例）'
     })).toHaveValue(domainProjectPath)
+    await expect(runtimeDialog.getByRole('radio', {
+      name: /自定义命令/
+    })).toBeChecked()
+    await expect(runtimeDialog.getByRole('textbox', {
+      name: '启动程序'
+    })).toHaveValue('{{unilab}}')
+    await runtimeDialog.getByRole('textbox', { name: '启动程序' })
+      .scrollIntoViewIfNeeded()
     await capture(page, '02-domain-debugger-configured.png')
+    await resizeMainWindow(electronApp, 800, 700)
+    await capture(page, '02a-domain-debugger-compact.png')
+    await resizeMainWindow(electronApp, 1200, 800)
 
     await runtimeDialog.getByRole('button', { name: '启动 Edge' }).click()
     await expect(runtimeDialog.getByRole('status')).toContainText(
@@ -152,23 +196,21 @@ test('starts a real Edge from the desktop local debugger', async () => {
       element.scrollTop = 0
       element.dispatchEvent(new Event('scroll', { bubbles: true }))
     })
-    const rowsBeforeUserPausedFollow = await logOutput.locator('li').count()
+    const rowsBeforeUserPausedFollow = await formattedLogRowCount(logOutput)
     await appendHealthLogs(4)
+    await logDrawer.getByRole('button', { name: '刷新', exact: true }).click()
     await expect.poll(
-      () => logOutput.locator('li').count(),
+      () => formattedLogRowCount(logOutput),
       { timeout: 10_000 }
     ).toBeGreaterThan(rowsBeforeUserPausedFollow)
     expect(await logOutput.evaluate((element) => element.scrollTop)).toBe(0)
     await capture(page, '07a-edge-log-user-scroll-preserved.png')
 
-    await logOutput.evaluate((element) => {
-      element.scrollTop = element.scrollHeight
-      element.dispatchEvent(new Event('scroll', { bubbles: true }))
-    })
-    const rowsBeforeFollowResumed = await logOutput.locator('li').count()
+    await logDrawer.getByRole('button', { name: '继续跟随' }).click()
+    const rowsBeforeFollowResumed = await formattedLogRowCount(logOutput)
     await appendHealthLogs(4)
     await expect.poll(
-      () => logOutput.locator('li').count(),
+      () => formattedLogRowCount(logOutput),
       { timeout: 10_000 }
     ).toBeGreaterThan(rowsBeforeFollowResumed)
     await expect.poll(
@@ -211,6 +253,7 @@ test('starts a real Edge from the desktop local debugger', async () => {
   }
 })
 
+/** 验证旧版配置迁移后仍可仅加载 Uni-Lab-OS 内置设备能力。 */
 test('starts a real Edge without a domain device package', async () => {
   test.skip(
     !environmentPath || !osProjectPath,
@@ -303,6 +346,13 @@ test('starts a real Edge without a domain device package', async () => {
   }
 })
 
+/**
+ * 保存当前 Electron 页面全页截图。
+ *
+ * @param page Playwright 控制的 Electron 渲染页面。
+ * @param name 写入本次验收制品目录的文件名。
+ * @returns 截图落盘后完成。
+ */
 async function capture(
   page: import('@playwright/test').Page,
   name: string
@@ -313,6 +363,29 @@ async function capture(
   })
 }
 
+/**
+ * 调整 Electron 主窗口尺寸，用于同时验收标准桌面与最小受支持宽度布局。
+ *
+ * @param electronApp Playwright 控制的 Electron 应用。
+ * @param width 目标窗口宽度。
+ * @param height 目标窗口高度。
+ * @returns 主窗口调整完成后返回。
+ */
+async function resizeMainWindow(
+  electronApp: import('@playwright/test').ElectronApplication,
+  width: number,
+  height: number
+): Promise<void> {
+  await electronApp.evaluate(({ BrowserWindow }, size) => {
+    BrowserWindow.getAllWindows()[0]?.setSize(size.width, size.height)
+  }, { width, height })
+}
+
+/**
+ * 请求真实 Edge 设备目录并校验公开响应契约。
+ *
+ * @returns 已通过状态码、schema 与列表形状校验的设备目录。
+ */
 async function fetchDeviceCatalog(): Promise<{
   code: number
   data: {
@@ -339,6 +412,12 @@ async function fetchDeviceCatalog(): Promise<{
   }
 }
 
+/**
+ * 连续请求健康接口，以便验证运行日志的跟随滚动行为。
+ *
+ * @param count 需要追加的健康请求数量。
+ * @returns 所有请求均成功后完成。
+ */
 async function appendHealthLogs(count: number): Promise<void> {
   for (let index = 0; index < count; index += 1) {
     const response = await fetch('http://127.0.0.1:18003/api/v1/health')
@@ -346,6 +425,26 @@ async function appendHealthLogs(count: number): Promise<void> {
   }
 }
 
+/**
+ * 从虚拟化日志行的 aria-setsize 读取完整日志行数，而不是只统计当前渲染窗口。
+ *
+ * @param logOutput 格式化日志列表容器。
+ * @returns 当前完整日志行数；列表尚未渲染时返回 0。
+ */
+async function formattedLogRowCount(
+  logOutput: import('@playwright/test').Locator
+): Promise<number> {
+  const firstRow = logOutput.getByRole('listitem').first()
+  if (await firstRow.count() === 0) return 0
+  return Number(await firstRow.getAttribute('aria-setsize')) || 0
+}
+
+/**
+ * 判断设备目录条目是否来自领域设备包且至少暴露一个动作。
+ *
+ * @param value 未知形状的设备目录条目。
+ * @returns 条目不是宿主节点且动作列表非空时返回 true。
+ */
 function hasDomainDeviceAction(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false
   const item = value as { id?: unknown; actions?: unknown }

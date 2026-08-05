@@ -19,7 +19,10 @@ import {
 } from './deviceCardAgentBridge'
 import { DeviceCardAgentCliManager } from './deviceCardAgentCli'
 import { discoverDefaultCondaEnvironment } from './localRuntimeEnvironment'
-import { LocalRuntimeManager } from './localRuntimeManager'
+import {
+  LocalRuntimeManager,
+  resolveLocalRuntimeLaunchPlan
+} from './localRuntimeManager'
 import {
   createElectronObservability,
   resolveElectronObservabilityOptions
@@ -373,6 +376,10 @@ app.whenReady().then(async () => {
       () => discoverDefaultCondaEnvironment({ homeDirectory: homedir() })
     )
   })
+  ipcMain.handle(
+    'runtime:resolveGeneratedEdgeCommand',
+    handleResolveGeneratedEdgeCommand
+  )
   ipcMain.handle('runtime:startSimulator', async (event, payload: unknown) => {
     assertMainWindowSender(event)
     return electronObservability.run(
@@ -405,6 +412,7 @@ app.whenReady().then(async () => {
         electronObservability.record('electron.runtime.start_requested', {
           'runtime.target': 'edge'
         })
+        await confirmCustomEdgeLaunch(config)
         return requireRuntimeManager().startEdge(config)
       }
     )
@@ -665,8 +673,18 @@ function createMainObservability(): ReturnType<
   }
 }
 
+/**
+ * 校验 IPC 同时来自主窗口 webContents 与主 frame，阻止未来嵌入 frame 继承本地进程权限。
+ *
+ * @param event Electron 主进程收到的调用事件。
+ * @throws 当窗口、webContents 或 senderFrame 身份不匹配时抛出。
+ */
 function assertMainWindowSender(event: IpcMainInvokeEvent): void {
-  if (!mainWindow || event.sender !== mainWindow.webContents) {
+  if (
+    !mainWindow
+    || event.sender !== mainWindow.webContents
+    || event.senderFrame !== mainWindow.webContents.mainFrame
+  ) {
     throw new Error('拒绝来自未知窗口的本地运行时请求')
   }
 }
@@ -676,6 +694,13 @@ function requireRuntimeManager(): LocalRuntimeManager {
   return localRuntimeManager
 }
 
+/**
+ * 构造本地运行时受控路径选择器，确保渲染器只能请求已声明的文件或目录类型。
+ *
+ * @param kind 渲染器请求选择的本地运行时路径类别。
+ * @returns 与类别匹配的系统文件对话框配置。
+ * @throws 当类别不在共享闭集中时抛出。
+ */
 function runtimePathDialogOptions(
   kind: LocalRuntimePathKind
 ): Electron.OpenDialogOptions {
@@ -686,7 +711,19 @@ function runtimePathDialogOptions(
       properties: ['openFile']
     }
   }
-  const titles: Record<Exclude<LocalRuntimePathKind, 'graph'>, string> = {
+  if (kind === 'edgeExecutable') {
+    return {
+      title: '选择 Edge 自定义可执行文件',
+      ...(process.platform === 'win32'
+        ? { filters: [{ name: 'Windows 可执行文件', extensions: ['exe'] }] }
+        : {}),
+      properties: ['openFile']
+    }
+  }
+  const titles: Record<
+    Exclude<LocalRuntimePathKind, 'graph' | 'edgeExecutable'>,
+    string
+  > = {
     os: '选择 Uni-Lab-OS 项目根目录',
     szlab: '选择领域项目根目录（以 Uni-Lab-SZLab 为例）',
     environment: '选择 unilab Conda 环境目录',
@@ -694,11 +731,21 @@ function runtimePathDialogOptions(
   }
   if (!(kind in titles)) throw new Error('不支持的本地运行时路径类型')
   return {
-    title: titles[kind as Exclude<LocalRuntimePathKind, 'graph'>],
+    title: titles[kind as Exclude<
+      LocalRuntimePathKind,
+      'graph' | 'edgeExecutable'
+    >],
     properties: ['openDirectory']
   }
 }
 
+/**
+ * 校验并复制渲染器提交的本地运行配置，不信任 localStorage 或 IPC 载荷形状。
+ *
+ * @param value IPC 收到的未知配置值。
+ * @returns 字段完整且自定义参数逐项为字符串的启动配置。
+ * @throws 当字段缺失、模式非法或自定义命令结构无效时抛出。
+ */
 function parseRuntimeConfig(value: unknown): LocalRuntimeLaunchConfig {
   if (!value || typeof value !== 'object') {
     throw new Error('本地运行时启动配置无效')
@@ -709,17 +756,123 @@ function parseRuntimeConfig(value: unknown): LocalRuntimeLaunchConfig {
     typeof candidate.osProjectPath !== 'string' ||
     typeof candidate.szlabProjectPath !== 'string' ||
     typeof candidate.environmentPath !== 'string' ||
-    typeof candidate.simulatorProjectPath !== 'string'
+    typeof candidate.simulatorProjectPath !== 'string' ||
+    !['generated', 'custom'].includes(String(candidate.edgeCommandMode))
   ) {
     throw new Error('本地运行时启动配置字段不完整')
   }
+  const customEdgeCommand = parseCustomEdgeCommand(candidate.customEdgeCommand)
   return {
     graphPath: candidate.graphPath,
     osProjectPath: candidate.osProjectPath,
     szlabProjectPath: candidate.szlabProjectPath,
     environmentPath: candidate.environmentPath,
-    simulatorProjectPath: candidate.simulatorProjectPath
+    simulatorProjectPath: candidate.simulatorProjectPath,
+    edgeCommandMode: candidate.edgeCommandMode as 'generated' | 'custom',
+    customEdgeCommand
   }
+}
+
+/**
+ * 收窄用户自定义 Edge 命令，避免对象原型或非字符串参数跨越 preload seam。
+ *
+ * @param value IPC 载荷中的自定义命令候选值。
+ * @returns 仅包含可执行文件文本和字符串参数副本的命令配置。
+ * @throws 当候选不是普通对象、可执行文件不是字符串或参数不是字符串数组时抛出。
+ */
+function parseCustomEdgeCommand(
+  value: unknown
+): LocalRuntimeLaunchConfig['customEdgeCommand'] {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Edge 自定义启动命令无效')
+  }
+  const candidate = value as Record<string, unknown>
+  if (
+    typeof candidate.executable !== 'string'
+    || !Array.isArray(candidate.args)
+    || !candidate.args.every((argument) => typeof argument === 'string')
+  ) {
+    throw new Error('Edge 自定义启动命令字段不完整')
+  }
+  return {
+    executable: candidate.executable,
+    args: [...candidate.args]
+  }
+}
+
+/**
+ * 解析当前路径对应的系统生成式 Edge 命令，供用户显式复制后再编辑。
+ *
+ * @param event Electron 主进程收到的 IPC 调用事件。
+ * @param payload renderer 提交的未知本地运行配置。
+ * @returns 由主进程权威解析的 executable、argv 与工作目录预览。
+ * @throws 当发送方、配置、项目结构或默认可执行文件校验失败时抛出。
+ */
+async function handleResolveGeneratedEdgeCommand(
+  event: IpcMainInvokeEvent,
+  payload: unknown
+): Promise<{ executable: string; args: string[]; cwd: string }> {
+  assertMainWindowSender(event)
+  const config = parseRuntimeConfig(payload)
+  const plan = await resolveLocalRuntimeLaunchPlan({
+    ...config,
+    edgeCommandMode: 'generated'
+  })
+  return {
+    executable: plan.edge.command,
+    args: [...plan.edge.args],
+    cwd: plan.edge.cwd
+  }
+}
+
+/**
+ * 在每次执行任意自定义程序前显示主进程原生确认，renderer 不能伪造批准结果。
+ *
+ * @param config 已通过 IPC schema 校验的本地运行配置。
+ * @returns 用户批准系统默认命令或本次自定义启动时正常完成。
+ * @throws 当用户取消、自定义命令校验失败或窗口已销毁时抛出。
+ */
+async function confirmCustomEdgeLaunch(
+  config: LocalRuntimeLaunchConfig
+): Promise<void> {
+  if (config.edgeCommandMode !== 'custom') return
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    throw new Error('主窗口不可用，无法确认 Edge 自定义启动命令')
+  }
+  const plan = await resolveLocalRuntimeLaunchPlan(config)
+  const detailLines = [
+    `可执行文件：${plan.edge.command}`,
+    `工作目录：${plan.edge.cwd}`,
+    '',
+    '参数：',
+    ...plan.edge.args.slice(0, 24).map(
+      (argument, index) => `${index + 1}. ${truncateDialogValue(argument)}`
+    ),
+    ...(plan.edge.args.length > 24
+      ? [`… 另有 ${plan.edge.args.length - 24} 项参数未展开显示`]
+      : [])
+  ]
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    title: '确认自定义 Edge 启动命令',
+    message: '此配置将启动你指定的本地程序',
+    detail: detailLines.join('\n'),
+    buttons: ['允许本次启动', '取消'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true
+  })
+  if (result.response !== 0) throw new Error('已取消 Edge 自定义命令启动')
+}
+
+/**
+ * 限制原生确认对话框中单个参数的显示长度，防止超长 argv 淹没安全提示。
+ *
+ * @param value 已解析的单个命令参数。
+ * @returns 最多保留 300 个字符的诊断文本。
+ */
+function truncateDialogValue(value: string): string {
+  return value.length <= 300 ? value : `${value.slice(0, 300)}…`
 }
 
 /** 校验渲染器日志来源，只接受主进程固定映射的来源枚举。 */

@@ -21,16 +21,25 @@ import type {
   LocalRuntimeSnapshot
 } from '../types/electron'
 
+import LocalRuntimeEdgeCommandEditor from './LocalRuntimeEdgeCommandEditor'
 import styles from './LocalRuntimeLauncher.module.scss'
 
-const STORAGE_KEY = 'unilab.local-runtime-launch-config.v2'
-const LEGACY_STORAGE_KEY = 'unilab.local-runtime-launch-config.v1'
+const STORAGE_KEY = 'unilab.local-runtime-launch-config.v3'
+const LEGACY_STORAGE_KEYS = [
+  'unilab.local-runtime-launch-config.v2',
+  'unilab.local-runtime-launch-config.v1'
+] as const
 const EMPTY_CONFIG: LocalRuntimeLaunchConfig = {
   graphPath: '',
   osProjectPath: '',
   szlabProjectPath: '',
   environmentPath: '',
-  simulatorProjectPath: ''
+  simulatorProjectPath: '',
+  edgeCommandMode: 'generated',
+  customEdgeCommand: {
+    executable: '',
+    args: []
+  }
 }
 const IDLE_SNAPSHOT: LocalRuntimeSnapshot = {
   phase: 'idle',
@@ -237,6 +246,12 @@ export function LocalRuntimeLogLauncher({
   )
 }
 
+/**
+ * 组合桌面端本地调试入口、配置持久化和 PLC-Sim/领域侧 Edge 启停交互。
+ *
+ * @param props Electron 本地运行接口与启停通知回调。
+ * @returns 桌面环境中的启动按钮和按需渲染的配置弹窗；Web 环境返回 null。
+ */
 export default function LocalRuntimeLauncher({
   runtimeApi = desktopRuntimeApi(),
   onReady,
@@ -248,6 +263,8 @@ export default function LocalRuntimeLauncher({
   const [localError, setLocalError] = useState<string | null>(null)
   const [simulatorSubmitted, setSimulatorSubmitted] = useState(false)
   const [edgeSubmitted, setEdgeSubmitted] = useState(false)
+  const [resolvingGeneratedEdgeCommand, setResolvingGeneratedEdgeCommand] =
+    useState(false)
   const [dialogLogsOpen, setDialogLogsOpen] = useState(false)
   const [phoenixDependencyMissing, setPhoenixDependencyMissing] = useState(false)
   const readyNotificationSentRef = useRef(false)
@@ -366,15 +383,28 @@ export default function LocalRuntimeLauncher({
     setOpen(false)
   }
 
+  /**
+   * 打开受控系统路径选择器，并把结果写入对应的平面路径或自定义命令字段。
+   *
+   * @param kind 共享合同声明的路径类别。
+   */
   const choosePath = async (kind: LocalRuntimePathKind): Promise<void> => {
     setLocalError(null)
     try {
       const path = await runtimeApi.selectPath(kind)
       if (!path) return
-      setConfig((current) => ({
-        ...current,
-        [pathField(kind)]: path
-      }))
+      setConfig((current) => kind === 'edgeExecutable'
+        ? {
+            ...current,
+            customEdgeCommand: {
+              ...current.customEdgeCommand,
+              executable: path
+            }
+          }
+        : {
+            ...current,
+            [pathField(kind)]: path
+          })
     } catch (error) {
       setLocalError(errorMessage(error))
     }
@@ -422,6 +452,41 @@ export default function LocalRuntimeLauncher({
     }
   }
 
+  /**
+   * 请求 Electron 主进程解析当前系统默认 Edge 计划，并显式复制为可编辑自定义参数。
+   *
+   * @returns 解析成功后更新配置；路径无效或旧 preload 不支持时保留用户输入并显示错误。
+   */
+  const loadGeneratedEdgeCommand = async (): Promise<void> => {
+    setEdgeSubmitted(true)
+    setLocalError(null)
+    const generatedValidation = validateEdgeConfig({
+      ...config,
+      edgeCommandMode: 'generated'
+    })
+    if (!generatedValidation.valid) return
+    if (!runtimeApi.resolveGeneratedEdgeCommand) {
+      setLocalError('当前桌面端版本不支持解析系统默认 Edge 命令')
+      return
+    }
+    setResolvingGeneratedEdgeCommand(true)
+    try {
+      const preview = await runtimeApi.resolveGeneratedEdgeCommand(config)
+      setConfig((current) => ({
+        ...current,
+        edgeCommandMode: 'custom',
+        customEdgeCommand: {
+          executable: preview.executable,
+          args: [...preview.args]
+        }
+      }))
+    } catch (error) {
+      setLocalError(errorMessage(error))
+    } finally {
+      setResolvingGeneratedEdgeCommand(false)
+    }
+  }
+
   return (
     <>
       <button
@@ -443,6 +508,7 @@ export default function LocalRuntimeLauncher({
               error={localError ?? snapshot.error ?? null}
               simulatorSubmitted={simulatorSubmitted}
               edgeSubmitted={edgeSubmitted}
+              resolvingGeneratedEdgeCommand={resolvingGeneratedEdgeCommand}
               simulatorValidation={simulatorValidation}
               edgeValidation={edgeValidation}
               phoenixDependencyMissing={phoenixDependencyMissing}
@@ -453,6 +519,7 @@ export default function LocalRuntimeLauncher({
               onStopSimulator={() => void stopSimulator()}
               onStartEdge={() => void startEdge()}
               onStopEdge={() => void stopEdge()}
+              onLoadGeneratedEdgeCommand={loadGeneratedEdgeCommand}
               transitioning={transitioning}
               logControl={(
                 <LocalRuntimeLogLauncher
@@ -475,6 +542,7 @@ interface LocalRuntimeDialogProps {
   error: string | null
   simulatorSubmitted: boolean
   edgeSubmitted: boolean
+  resolvingGeneratedEdgeCommand: boolean
   simulatorValidation: ValidationResult
   edgeValidation: ValidationResult
   phoenixDependencyMissing?: boolean
@@ -486,15 +554,23 @@ interface LocalRuntimeDialogProps {
   onStopSimulator: () => void
   onStartEdge: () => void
   onStopEdge: () => void
+  onLoadGeneratedEdgeCommand: () => void
   logControl?: ReactNode
 }
 
+/**
+ * 呈现本地调试配置与两个独立服务的权威进程状态。
+ *
+ * @param props 当前配置、进程快照、校验结果和受控启停回调。
+ * @returns 可通过键盘操作的桌面端配置对话框。
+ */
 export function LocalRuntimeDialog({
   config,
   snapshot,
   error,
   simulatorSubmitted,
   edgeSubmitted,
+  resolvingGeneratedEdgeCommand,
   simulatorValidation,
   edgeValidation,
   phoenixDependencyMissing = false,
@@ -506,6 +582,7 @@ export function LocalRuntimeDialog({
   onStopSimulator,
   onStartEdge,
   onStopEdge,
+  onLoadGeneratedEdgeCommand,
   logControl
 }: LocalRuntimeDialogProps): React.JSX.Element {
   const simulatorTransitioning = isSimulatorTransitioning(snapshot)
@@ -712,6 +789,16 @@ export function LocalRuntimeDialog({
                   ? edgeValidation.errors.graphPath
                   : undefined}
                 onChoose={() => onChoosePath('graph')}
+              />
+              <LocalRuntimeEdgeCommandEditor
+                config={config}
+                disabled={edgeDisabled}
+                submitted={edgeSubmitted}
+                executableError={edgeValidation.errors.customEdgeExecutable}
+                loadingGeneratedCommand={resolvingGeneratedEdgeCommand}
+                onChange={onChange}
+                onChooseExecutable={() => onChoosePath('edgeExecutable')}
+                onLoadGeneratedCommand={onLoadGeneratedEdgeCommand}
               />
             </div>
           </section>
@@ -1466,9 +1553,12 @@ function ProcessState({
   )
 }
 
+type LocalRuntimeValidationField = keyof LocalRuntimeLaunchConfig
+  | 'customEdgeExecutable'
+
 interface ValidationResult {
   valid: boolean
-  errors: Partial<Record<keyof LocalRuntimeLaunchConfig, string>>
+  errors: Partial<Record<LocalRuntimeValidationField, string>>
 }
 
 export function validateSimulatorConfig(
@@ -1484,6 +1574,12 @@ export function validateSimulatorConfig(
   return { valid: Object.keys(errors).length === 0, errors }
 }
 
+/**
+ * 校验领域侧 Edge 启动所需路径与自定义命令的最小 renderer 输入。
+ *
+ * @param config 当前本地运行配置。
+ * @returns 各字段可直接展示的错误集合；主进程仍会执行权威文件与模板校验。
+ */
 export function validateEdgeConfig(
   config: LocalRuntimeLaunchConfig
 ): ValidationResult {
@@ -1494,6 +1590,14 @@ export function validateEdgeConfig(
   }
   if (!config.environmentPath.trim()) {
     errors.environmentPath = '请选择 unilab Conda 环境目录'
+  }
+  if (config.edgeCommandMode === 'custom') {
+    if (!config.szlabProjectPath.trim()) {
+      errors.szlabProjectPath = '自定义命令仅适用于已挂载领域设备包'
+    }
+    if (!config.customEdgeCommand.executable.trim()) {
+      errors.customEdgeExecutable = '请输入或选择 Edge 自定义可执行文件'
+    }
   }
   return { valid: Object.keys(errors).length === 0, errors }
 }
@@ -1541,8 +1645,14 @@ function isEdgeTransitioning(snapshot: LocalRuntimeSnapshot): boolean {
   ].includes(snapshot.phase)
 }
 
+/**
+ * 将普通路径类别映射到平面配置字段；嵌套的自定义 executable 由调用方单独处理。
+ *
+ * @param kind 除自定义可执行文件之外的受控路径类别。
+ * @returns 对应的本地运行配置字段名。
+ */
 function pathField(
-  kind: LocalRuntimePathKind
+  kind: Exclude<LocalRuntimePathKind, 'edgeExecutable'>
 ): keyof LocalRuntimeLaunchConfig {
   if (kind === 'graph') return 'graphPath'
   if (kind === 'os') return 'osProjectPath'
@@ -1551,31 +1661,70 @@ function pathField(
   return 'simulatorProjectPath'
 }
 
+/**
+ * 读取 renderer 本地偏好并把 v1/v2 路径配置迁移为默认生成式 Edge 启动模式。
+ *
+ * @returns 完整 v3 配置；存储缺失或损坏时返回安全默认值。
+ */
 function readStoredConfig(): LocalRuntimeLaunchConfig {
-  if (typeof globalThis.localStorage === 'undefined') return { ...EMPTY_CONFIG }
+  if (typeof globalThis.localStorage === 'undefined') {
+    return normalizeStoredLocalRuntimeConfig(null)
+  }
   try {
     const storedValue = globalThis.localStorage.getItem(STORAGE_KEY)
-      ?? globalThis.localStorage.getItem(LEGACY_STORAGE_KEY)
-    const parsed = JSON.parse(storedValue ?? 'null') as
-      Partial<LocalRuntimeLaunchConfig> | null
-    if (!parsed) return { ...EMPTY_CONFIG }
-    return {
-      graphPath: typeof parsed.graphPath === 'string' ? parsed.graphPath : '',
-      osProjectPath: typeof parsed.osProjectPath === 'string'
-        ? parsed.osProjectPath
-        : '',
-      szlabProjectPath: typeof parsed.szlabProjectPath === 'string'
-        ? parsed.szlabProjectPath
-        : '',
-      environmentPath: typeof parsed.environmentPath === 'string'
-        ? parsed.environmentPath
-        : '',
-      simulatorProjectPath: typeof parsed.simulatorProjectPath === 'string'
-        ? parsed.simulatorProjectPath
-        : ''
-    }
+      ?? LEGACY_STORAGE_KEYS
+        .map((key) => globalThis.localStorage.getItem(key))
+        .find((value) => value !== null)
+    return normalizeStoredLocalRuntimeConfig(JSON.parse(storedValue ?? 'null'))
   } catch {
-    return { ...EMPTY_CONFIG }
+    return normalizeStoredLocalRuntimeConfig(null)
+  }
+}
+
+/**
+ * 将未知 localStorage 值归一化为 v3 配置；旧版本没有命令字段时保持系统默认启动。
+ *
+ * @param value JSON 解析后的未知本地偏好。
+ * @returns 字段逐项收窄且嵌套对象独立复制的完整配置。
+ */
+export function normalizeStoredLocalRuntimeConfig(
+  value: unknown
+): LocalRuntimeLaunchConfig {
+  if (!value || typeof value !== 'object') {
+    return {
+      ...EMPTY_CONFIG,
+      customEdgeCommand: { ...EMPTY_CONFIG.customEdgeCommand }
+    }
+  }
+  const parsed = value as Partial<LocalRuntimeLaunchConfig>
+  const customEdgeCommand = parsed.customEdgeCommand
+  return {
+    graphPath: typeof parsed.graphPath === 'string' ? parsed.graphPath : '',
+    osProjectPath: typeof parsed.osProjectPath === 'string'
+      ? parsed.osProjectPath
+      : '',
+    szlabProjectPath: typeof parsed.szlabProjectPath === 'string'
+      ? parsed.szlabProjectPath
+      : '',
+    environmentPath: typeof parsed.environmentPath === 'string'
+      ? parsed.environmentPath
+      : '',
+    simulatorProjectPath: typeof parsed.simulatorProjectPath === 'string'
+      ? parsed.simulatorProjectPath
+      : '',
+    edgeCommandMode: parsed.edgeCommandMode === 'custom'
+      ? 'custom'
+      : 'generated',
+    customEdgeCommand: {
+      executable: typeof customEdgeCommand?.executable === 'string'
+        ? customEdgeCommand.executable
+        : '',
+      args: Array.isArray(customEdgeCommand?.args)
+        ? customEdgeCommand.args.filter(
+            (argument): argument is string => typeof argument === 'string'
+          )
+        : []
+    }
   }
 }
 

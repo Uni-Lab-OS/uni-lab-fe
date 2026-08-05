@@ -16,6 +16,7 @@ import type {
 } from '@unilab/device-card-sdk'
 import type {
   LocalRuntimeLaunchConfig,
+  LocalRuntimeCommandPreview,
   LocalRuntimeLogBatch,
   LocalRuntimeLogQuery,
   LocalRuntimeLogsSnapshot,
@@ -200,6 +201,10 @@ const api = {
       ipcRenderer.invoke('runtime:selectPath', kind),
     getDefaultEnvironmentPath: (): Promise<string | null> =>
       ipcRenderer.invoke('runtime:getDefaultEnvironmentPath'),
+    resolveGeneratedEdgeCommand: (
+      config: LocalRuntimeLaunchConfig
+    ): Promise<LocalRuntimeCommandPreview> =>
+      ipcRenderer.invoke('runtime:resolveGeneratedEdgeCommand', config),
     getSnapshot: (): Promise<LocalRuntimeSnapshot> =>
       ipcRenderer.invoke('runtime:getSnapshot'),
     startSimulator: (

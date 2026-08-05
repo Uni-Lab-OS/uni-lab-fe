@@ -400,6 +400,283 @@
   line-height: 1.45;
 }
 
+.commandEditor {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  gap: 10px;
+  border: 0;
+
+  > legend {
+    margin-block-end: 6px;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+}
+
+.commandModeControl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+
+  > label {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 10px 12px;
+    color: var(--unilab-color-text-muted);
+    border: 1px solid var(--unilab-color-border);
+    border-radius: var(--unilab-radius-control);
+    background: var(--unilab-color-surface);
+    cursor: pointer;
+
+    &[data-active='true'] {
+      color: var(--unilab-color-primary);
+      border-color: color-mix(
+        in srgb,
+        var(--unilab-color-primary) 55%,
+        var(--unilab-color-border-strong)
+      );
+      background: var(--unilab-color-primary-soft);
+    }
+
+    &[data-disabled='true'] {
+      color: var(--unilab-color-text-subtle);
+      background: var(--unilab-color-surface-subtle);
+      cursor: not-allowed;
+    }
+
+    &:focus-within {
+      outline: 2px solid var(--unilab-color-focus);
+      outline-offset: 1px;
+    }
+
+    input {
+      margin: 2px 0 0;
+      accent-color: var(--unilab-color-primary);
+    }
+
+    span {
+      display: grid;
+      min-width: 0;
+      gap: 2px;
+    }
+
+    strong {
+      color: inherit;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    small {
+      color: var(--unilab-color-text-muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+  }
+}
+
+.commandModeHint {
+  margin: 0;
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.customCommandPanel {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.commandPanelHeader {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  > p {
+    margin: 0;
+    color: var(--unilab-color-text-muted);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+}
+
+.commandTemplateButton {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding-inline: 10px;
+  color: var(--unilab-color-primary);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--unilab-color-primary);
+    background: var(--unilab-color-primary-soft);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--unilab-color-focus);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    color: var(--unilab-color-text-muted);
+    background: var(--unilab-color-surface-subtle);
+    cursor: not-allowed;
+  }
+}
+
+.commandArguments {
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+  padding: 9px 10px;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  outline: 0;
+  background: var(--unilab-color-surface);
+  font: 12px/1.55 var(--unilab-font-mono);
+  tab-size: 2;
+
+  &::placeholder {
+    color: var(--unilab-color-text-subtle);
+  }
+
+  &:focus {
+    border-color: var(--unilab-color-primary);
+    outline: 2px solid var(--unilab-color-focus);
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    color: var(--unilab-color-text-muted);
+    background: var(--unilab-color-surface-subtle);
+    cursor: not-allowed;
+  }
+}
+
+.commandAdvanced {
+  padding-top: 10px;
+  border-top: 1px solid var(--unilab-color-border);
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+
+  > summary {
+    display: grid;
+    width: fit-content;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    gap: 8px;
+    color: var(--unilab-color-text);
+    cursor: pointer;
+
+    > span {
+      font-weight: 600;
+    }
+
+    > small {
+      color: var(--unilab-color-text-muted);
+      font-size: 11px;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--unilab-color-focus);
+      outline-offset: 2px;
+    }
+  }
+}
+
+.commandAdvancedBody {
+  display: grid;
+  min-width: 0;
+  margin-top: 12px;
+  gap: 14px;
+}
+
+.commandTokens {
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+
+  > strong {
+    color: var(--unilab-color-text);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  dl {
+    display: grid;
+    margin: 10px 0 0;
+    gap: 7px;
+  }
+
+  dl > div {
+    display: grid;
+    grid-template-columns: minmax(130px, max-content) minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  dt,
+  dd {
+    min-width: 0;
+    margin: 0;
+  }
+
+  code {
+    color: var(--unilab-color-primary);
+    font-family: var(--unilab-font-mono);
+    overflow-wrap: anywhere;
+  }
+}
+
+.commandPreview {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+
+  > span {
+    color: var(--unilab-color-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  > code {
+    display: block;
+    min-width: 0;
+    max-height: 94px;
+    padding: 9px 10px;
+    overflow: auto;
+    color: var(--unilab-color-text);
+    border: 1px solid var(--unilab-color-border);
+    border-radius: var(--unilab-radius-sm);
+    background: var(--unilab-color-surface);
+    font: 11px/1.55 var(--unilab-font-mono);
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+}
+
+.commandCompatibilityNotes {
+  display: grid;
+  margin: 0;
+  padding-inline-start: 18px;
+  gap: 4px;
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .statusPanel {
   overflow: hidden;
   color: var(--unilab-color-text-muted);
@@ -1021,6 +1298,24 @@
     > button {
       width: 100%;
     }
+  }
+
+  .commandModeControl {
+    grid-template-columns: 1fr;
+  }
+
+  .commandPanelHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .commandTemplateButton {
+    width: 100%;
+  }
+
+  .commandTokens dl > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 
   .secondaryButton,

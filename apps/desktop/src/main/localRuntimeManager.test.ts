@@ -187,6 +187,45 @@ describe('LocalRuntimeManager command plan', () => {
     }
   })
 
+  /** 证明自定义命令只替换 executable/argv，启动器托管的 cwd 与运行环境保持不变。 */
+  it('resolves a structured custom Edge command inside the managed launch plan', async () => {
+    const fixture = await createFixture('packages')
+    const plan = await resolveLocalRuntimeLaunchPlan({
+      ...fixture.config,
+      edgeCommandMode: 'custom',
+      customEdgeCommand: {
+        executable: '{{python}}',
+        args: [
+          '-m',
+          'unilabos.app.main',
+          '--workspace',
+          '{{workspace}}',
+          '--graph={{graph}}',
+          '--port',
+          '{{edge_http_port}}',
+          '--literal',
+          'value with spaces & symbols'
+        ]
+      }
+    })
+
+    expect(plan.edge.command).toBe(fixture.python)
+    expect(plan.edge.args).toEqual([
+      '-m',
+      'unilabos.app.main',
+      '--workspace',
+      fixture.szlabRoot,
+      `--graph=${fixture.graphPath}`,
+      '--port',
+      '18003',
+      '--literal',
+      'value with spaces & symbols'
+    ])
+    expect(plan.edge.cwd).toBe(fixture.szlabRoot)
+    expect(plan.edge.env['UNILABOS_HOSTLINKCONFIG_PORT']).toBe('18004')
+    expect(plan.edge.env['ROS_DOMAIN_ID']).toMatch(/^(0[2-9]|[1-9]\d)$/)
+  })
+
   it('supports the current root-level szlab_poly_studio layout', async () => {
     const fixture = await createFixture('root')
     const plan = await resolveLocalRuntimeLaunchPlan(fixture.config)
@@ -296,6 +335,13 @@ describe('LocalRuntimeManager command plan', () => {
   })
 })
 
+/**
+ * 构造同时包含 OS、领域设备包、Conda 可执行文件和 PLC-Sim 的启动计划测试目录。
+ *
+ * @param layout 领域设备包使用 packages 或当前根级目录布局。
+ * @param platform 需要模拟的 Conda 可执行文件平台布局。
+ * @returns 可直接提交给启动计划解析器的路径配置和对应权威测试路径。
+ */
 async function createFixture(
   layout: 'packages' | 'root',
   platform: NodeJS.Platform = 'linux'
@@ -380,7 +426,12 @@ async function createFixture(
       osProjectPath: osRoot,
       szlabProjectPath: szlabRoot,
       environmentPath: environmentRoot,
-      simulatorProjectPath: simulatorRoot
+      simulatorProjectPath: simulatorRoot,
+      edgeCommandMode: 'generated',
+      customEdgeCommand: {
+        executable: '',
+        args: []
+      }
     },
     graphPath,
     osRoot,
