@@ -388,7 +388,6 @@
 
   &[data-phase='ready'],
   &[data-phase='simulator_ready'] {
-    color: var(--unilab-color-success);
     border-color: color-mix(
       in srgb,
       var(--unilab-color-success) 28%,
@@ -398,7 +397,6 @@
   }
 
   &[data-phase='failed'] {
-    color: var(--unilab-color-danger);
     border-color: color-mix(
       in srgb,
       var(--unilab-color-danger) 28%,
@@ -406,7 +404,6 @@
     );
     background: var(--unilab-color-danger-soft);
   }
-
 }
 
 .statusHeader {
@@ -420,13 +417,22 @@
     color: currentColor;
     font-size: 12px;
   }
+
+  .statusPanel[data-phase='ready'] &,
+  .statusPanel[data-phase='simulator_ready'] & {
+    color: var(--unilab-color-success);
+  }
+
+  .statusPanel[data-phase='failed'] & {
+    color: var(--unilab-color-danger);
+  }
 }
 
 .processGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-top: 1px solid currentColor;
-  border-top-color: color-mix(in srgb, currentColor 18%, transparent);
+  border-top: 1px solid var(--unilab-color-border);
+  background: var(--unilab-color-surface);
 }
 
 .processItem {
@@ -436,22 +442,32 @@
   justify-content: space-between;
   gap: 10px;
   padding: 9px 10px;
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-surface);
 
   & + & {
-    border-inline-start: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+    border-inline-start: 1px solid var(--unilab-color-border);
+  }
+
+  &[data-status='idle'] {
+    color: var(--unilab-color-text-muted);
+    background: var(--unilab-color-surface);
   }
 
   &[data-status='running'] {
     color: var(--unilab-color-success);
+    background: var(--unilab-color-success-soft);
   }
 
   &[data-status='starting'],
   &[data-status='stopping'] {
     color: var(--unilab-color-warning);
+    background: var(--unilab-color-warning-soft);
   }
 
   &[data-status='failed'] {
     color: var(--unilab-color-danger);
+    background: var(--unilab-color-danger-soft);
   }
 
   &[data-status='disabled'] {
@@ -628,8 +644,8 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   padding-inline: 12px;
-  border-bottom: 1px solid var(--unilab-color-border);
-  background: var(--unilab-color-surface-subtle);
+  border-bottom: 1px solid var(--unilab-color-code-border);
+  background: var(--unilab-color-code-header);
 
   button {
     position: relative;
@@ -640,7 +656,11 @@
     gap: 7px;
     height: 44px;
     padding-inline: 10px;
-    color: var(--unilab-color-text-muted);
+    color: color-mix(
+      in srgb,
+      var(--unilab-color-code-text) 78%,
+      var(--unilab-color-code-bg)
+    );
     border: 0;
     border-bottom: 2px solid transparent;
     background: transparent;
@@ -648,8 +668,8 @@
     cursor: pointer;
 
     &:hover {
-      color: var(--unilab-color-text);
-      background: var(--unilab-color-surface-muted);
+      color: var(--unilab-color-code-text);
+      background: var(--unilab-color-code-bg);
     }
 
     &:focus-visible {
@@ -658,9 +678,9 @@
     }
 
     &[aria-selected='true'] {
-      color: var(--unilab-color-primary);
-      border-bottom-color: var(--unilab-color-primary);
-      background: var(--unilab-color-surface);
+      color: var(--unilab-color-code-accent);
+      border-bottom-color: var(--unilab-color-code-accent);
+      background: var(--unilab-color-code-bg);
       font-weight: 600;
     }
 
@@ -679,7 +699,11 @@
       flex: 0 0 auto;
       align-items: center;
       gap: 4px;
-      color: var(--unilab-color-text-subtle);
+      color: color-mix(
+        in srgb,
+        var(--unilab-color-code-text) 78%,
+        var(--unilab-color-code-bg)
+      );
       font-size: 10px;
       font-weight: 500;
     }
@@ -700,7 +724,7 @@
   flex-direction: column;
   gap: var(--unilab-space-2);
   padding: var(--unilab-space-3);
-  background: var(--unilab-color-bg-subtle);
+  background: var(--unilab-color-code-bg);
 }
 
 .logOutput {
@@ -710,11 +734,11 @@
   margin: 0;
   padding: 14px;
   overflow: auto;
-  color: var(--unilab-color-text);
-  border: 1px solid var(--unilab-color-border);
+  color: var(--unilab-color-code-text);
+  border: 1px solid var(--unilab-color-code-border);
   border-radius: var(--unilab-radius-control);
-  background: var(--unilab-color-surface);
-  font: 11px/1.6 var(--unilab-font-mono);
+  background: var(--unilab-color-code-bg);
+  font: 12px/1.6 var(--unilab-font-mono);
   overflow-wrap: anywhere;
   tab-size: 2;
   white-space: pre-wrap;
@@ -726,11 +750,15 @@
   place-content: center;
   gap: 6px;
   min-height: 220px;
-  color: var(--unilab-color-text-muted);
+  color: color-mix(
+    in srgb,
+    var(--unilab-color-code-text) 78%,
+    var(--unilab-color-code-bg)
+  );
   text-align: center;
 
   strong {
-    color: var(--unilab-color-text);
+    color: var(--unilab-color-code-text);
     font-size: 13px;
   }
 
@@ -750,8 +778,9 @@
 }
 
 .logNotice {
-  color: var(--unilab-color-text-muted);
-  background: var(--unilab-color-surface-muted);
+  color: var(--unilab-color-code-text);
+  border: 1px solid var(--unilab-color-code-border);
+  background: var(--unilab-color-code-header);
 }
 
 .logError {
@@ -817,7 +846,7 @@
   }
 
   .processItem + .processItem {
-    border-block-start: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+    border-block-start: 1px solid var(--unilab-color-border);
     border-inline-start: 0;
   }
 

@@ -1,4 +1,27 @@
 /* CodeMirror owns its runtime classes; the local root bounds that interop. */
+.codeEditor {
+  color: var(--unilab-color-code-text);
+  background: var(--unilab-color-code-bg);
+}
+
+.header {
+  border-color: var(--unilab-color-code-border);
+  background: var(--unilab-color-code-header);
+}
+
+.title {
+  color: var(--unilab-color-code-text);
+}
+
+.language {
+  color: var(--unilab-color-code-accent);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-code-accent) 15%,
+    transparent
+  );
+}
+
 .codeEditor :global(.cm-workflow-line) {
   box-shadow: inset 3px 0 0 transparent;
 }

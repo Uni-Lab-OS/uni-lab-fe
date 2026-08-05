@@ -152,6 +152,36 @@ test.describe.serial('visible workflow debugger actions', () => {
     })
   })
 
+  test('successful node logs use the code editor surface', async ({ page }) => {
+    await openWorkflow(page, bridge.url)
+    await startDebug(page)
+    await expectPausedBefore(page, 'measure')
+
+    await clickAndExpectPause(page, '单步', 'branch')
+    const successfulNode = nodeRow(page, 'measure')
+    await expect(successfulNode).toHaveAttribute('data-node-state', 'success')
+    await successfulNode.click()
+
+    const logOutput = page.locator('.workflow-runtime__node-log pre')
+    const codeEditor = page.locator('.cm-editor').first()
+    await expect(logOutput).toBeVisible()
+    await expect(logOutput).toContainText('节点执行成功')
+
+    const logColors = await logOutput.evaluate((element) => {
+      const style = globalThis.getComputedStyle(element)
+      return [style.backgroundColor, style.color]
+    })
+    const editorColors = await codeEditor.evaluate((element) => {
+      const style = globalThis.getComputedStyle(element)
+      return [style.backgroundColor, style.color]
+    })
+    expect(logColors).toEqual(editorColors)
+
+    await page.getByRole('button', { name: '终止', exact: true }).click()
+    await expect(page.locator('.workflow-runtime__run-state'))
+      .toHaveText('整体：已取消')
+  })
+
   test('terminate cancels a paused run and records its explicit reason', async ({
     page,
     request

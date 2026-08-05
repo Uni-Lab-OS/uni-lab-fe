@@ -21,10 +21,10 @@ interface CodeEditorProps {
 // 代码编辑器容器:标题栏(文件名 + 语言 + dirty 标记)+ CodeMirror 挂载点
 export function CodeEditor({ title, editor, language }: CodeEditorProps): React.JSX.Element {
   return (
-    <div className={`${styles.codeEditor} flex h-full w-full flex-col bg-[#282c34]`}>
-      <div className="flex items-center gap-2.5 border-b border-[#1f2329] bg-[#21252b] px-3 py-1.5">
-        <span className="font-mono text-xs text-[#abb2bf]">{title}</span>
-        <span className="rounded-[10px] bg-[rgba(97,175,239,0.15)] px-2 py-px text-[10px] text-[#61afef]">
+    <div className={`${styles.codeEditor} flex h-full w-full flex-col`}>
+      <div className={`${styles.header} flex items-center gap-2.5 border-b px-3 py-1.5`}>
+        <span className={`${styles.title} font-mono text-xs`}>{title}</span>
+        <span className={`${styles.language} rounded-[10px] px-2 py-px text-[10px]`}>
           {language}
         </span>
         {editor.isDirty && (

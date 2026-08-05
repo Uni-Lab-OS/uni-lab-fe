@@ -245,9 +245,10 @@
 .workflow :global(.workflow-runtime__node-log) {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid var(--unilab-color-border);
+  color: var(--unilab-color-code-text);
+  border: 1px solid var(--unilab-color-code-border);
   border-radius: var(--unilab-radius-control);
-  background: var(--unilab-color-surface);
+  background: var(--unilab-color-code-bg);
 }
 
 .workflow :global(.workflow-runtime__node-log) header {
@@ -256,13 +257,18 @@
   justify-content: space-between;
   gap: var(--unilab-space-2);
   padding: 6px var(--unilab-space-2);
-  color: var(--unilab-color-text);
-  border-bottom: 1px solid var(--unilab-color-border);
+  color: var(--unilab-color-code-text);
+  border-bottom: 1px solid var(--unilab-color-code-border);
+  background: var(--unilab-color-code-header);
   font-size: 12px;
 }
 
 .workflow :global(.workflow-runtime__node-log) small {
-  color: var(--unilab-color-text-muted);
+  color: color-mix(
+    in srgb,
+    var(--unilab-color-code-text) 75%,
+    var(--unilab-color-code-bg)
+  );
   font-weight: 400;
   white-space: nowrap;
 }
@@ -272,10 +278,11 @@
   margin: 0;
   padding: var(--unilab-space-2);
   overflow: auto;
-  color: var(--unilab-color-text);
-  background: var(--unilab-color-surface-muted);
-  font: 12px/1.5 var(--unilab-font-mono);
+  color: var(--unilab-color-code-text);
+  background: var(--unilab-color-code-bg);
+  font: 12px/1.6 var(--unilab-font-mono);
   overflow-wrap: anywhere;
+  tab-size: 2;
   white-space: pre-wrap;
 }
 

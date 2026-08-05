@@ -14,6 +14,13 @@
   --unilab-color-text-muted: #6b7280;
   --unilab-color-text-subtle: #94a3b8;
 
+  /* Shared code and log surfaces (CodeMirror One Dark) */
+  --unilab-color-code-bg: #282c34;
+  --unilab-color-code-header: #21252b;
+  --unilab-color-code-border: #1f2329;
+  --unilab-color-code-text: #abb2bf;
+  --unilab-color-code-accent: #61afef;
+
   /* Interaction colors */
   --unilab-color-primary: #2563eb;
   --unilab-color-primary-hover: #1d4ed8;

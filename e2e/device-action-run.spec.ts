@@ -59,7 +59,8 @@ test.describe('Edge device Action single run', () => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     let createdRuns = 0
     let firstRunPolls = 0
-    const cancelledRuns: string[] = []
+    const createdRunBodies: Record<string, unknown>[] = []
+    const terminatedRuns: string[] = []
 
     await page.route('http://127.0.0.1:8014/**', async (route) => {
       const request = route.request()
@@ -112,6 +113,7 @@ test.describe('Edge device Action single run', () => {
       }
       if (path === '/api/v1/runtime/runs' && request.method() === 'POST') {
         createdRuns += 1
+        createdRunBodies.push(request.postDataJSON() as Record<string, unknown>)
         await route.fulfill({
           json: { id: `run-${createdRuns}`, status: 'pending' }
         })
@@ -178,7 +180,7 @@ test.describe('Edge device Action single run', () => {
         await route.fulfill({
           json: {
             id: 'run-2',
-            status: cancelledRuns.includes('run-2')
+            status: terminatedRuns.includes('run-2')
               ? 'cancelled'
               : 'running'
           }
@@ -194,11 +196,11 @@ test.describe('Edge device Action single run', () => {
               nodeType: 'action',
               deviceId: 'pump_1',
               actionName: 'aspirate',
-              state: cancelledRuns.includes('run-2')
+              state: terminatedRuns.includes('run-2')
                 ? 'cancelled'
                 : 'running',
-              result: cancelledRuns.includes('run-2')
-                ? { info: 'cancel acknowledged' }
+              result: terminatedRuns.includes('run-2')
+                ? { info: 'terminate acknowledged' }
                 : {},
               attempt: 1
             }]
@@ -213,12 +215,19 @@ test.describe('Edge device Action single run', () => {
         return
       }
       if (
-        path === '/api/v1/runtime/runs/run-2/cancel'
+        path === '/api/v1/runtime/runs/run-2/commands'
         && request.method() === 'POST'
       ) {
-        cancelledRuns.push('run-2')
+        expect(request.postDataJSON()).toEqual({
+          command: 'terminate',
+          payload: {}
+        })
+        terminatedRuns.push('run-2')
         await route.fulfill({
-          json: { id: 'run-2', status: 'cancel_requested' }
+          json: {
+            status: 'accepted',
+            debug: { status: 'terminated', stopReason: 'terminate' }
+          }
         })
         return
       }
@@ -312,9 +321,15 @@ test.describe('Edge device Action single run', () => {
     })
     await expect(terminate).toBeEnabled()
     await terminate.click()
-    await expect.poll(() => cancelledRuns).toContain('run-2')
+    await expect.poll(() => terminatedRuns).toContain('run-2')
+    expect(createdRunBodies[1]).toMatchObject({
+      debug: {
+        pause_on_start: false,
+        breakpoints: []
+      }
+    })
     await expect(detail.getByText('已停止', { exact: true })).toBeVisible()
     await expect(detail.getByLabel('Action 运行日志'))
-      .toContainText('cancel acknowledged')
+      .toContainText('terminate acknowledged')
   })
 })

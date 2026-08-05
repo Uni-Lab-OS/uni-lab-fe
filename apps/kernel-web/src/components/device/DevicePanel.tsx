@@ -250,7 +250,11 @@ export default function DevicePanel(): React.JSX.Element {
           format: 'workflow_revision_v2',
           revision
         },
-        client_request_id: requestId
+        client_request_id: requestId,
+        debug: {
+          pause_on_start: false,
+          breakpoints: []
+        }
       })
       if (generation !== pollGenerationRef.current) return
       setExecution((current) => ({
@@ -275,10 +279,13 @@ export default function DevicePanel(): React.JSX.Element {
     services.workflow
   ])
 
-  const cancelRun = useCallback(async (): Promise<void> => {
+  const terminateRun = useCallback(async (): Promise<void> => {
     if (!execution.run || !executionActive) return
     try {
-      const run = await services.workflow.cancelRun(execution.run.id)
+      const run = await services.workflow.command(
+        execution.run.id,
+        'terminate'
+      )
       setExecution((current) => ({ ...current, run, error: null }))
       const generation = pollGenerationRef.current
       await pollRun(run.id, generation)
@@ -371,7 +378,7 @@ export default function DevicePanel(): React.JSX.Element {
             onSelectAction={setSelectedActionRef}
             onArgumentChange={handleArgumentChange}
             onRun={() => void runAction()}
-            onCancel={() => void cancelRun()}
+            onTerminate={() => void terminateRun()}
           />
         ) : (
           <div className="device-empty device-empty--detail">
@@ -477,7 +484,7 @@ function DeviceWorkspace({
   onSelectAction,
   onArgumentChange,
   onRun,
-  onCancel
+  onTerminate
 }: {
   device: ManagedDevice
   selectedAction: DeviceAction | null
@@ -489,7 +496,7 @@ function DeviceWorkspace({
   onSelectAction: (actionRef: string) => void
   onArgumentChange: (name: string, value: string | boolean) => void
   onRun: () => void
-  onCancel: () => void
+  onTerminate: () => void
 }): React.JSX.Element {
   return (
     <div className="edge-device__workspace">
@@ -617,7 +624,7 @@ function DeviceWorkspace({
                   <button
                     type="button"
                     className="edge-device__cancel-button"
-                    onClick={onCancel}
+                    onClick={onTerminate}
                   >
                     终止
                   </button>
