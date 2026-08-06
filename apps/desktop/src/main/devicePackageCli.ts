@@ -158,6 +158,7 @@ export interface DeviceGraphStageRequest {
   definitionFqid: string
   instanceId: string
   instanceUuid: string
+  adoptExisting: boolean
   graphPath: string
   displayName: string
   configuration: Record<string, unknown>
@@ -269,7 +270,15 @@ export async function restoreDeviceGraphWithCli(
   return parseGraphMutationResult(result.stdout, 'graph_restored')
 }
 
-/** 执行新增或更新共享的封闭 argv 与 stdin 设备图变更合同。 */
+/**
+ * 执行新增或更新共享的封闭 argv 与 stdin 设备图变更合同。
+ *
+ * @param action 只允许新增或显式更新；遗留接管只附着于新增动作。
+ * @param config Main 已验证的 CLI、受管目录和固定 Backend 配置。
+ * @param request 已冻结的包、实例、接管意图、设备图和配置。
+ * @param commandRunner 可替换的无 shell 子进程执行端口。
+ * @returns 已复核实例身份的设备图原子变更结果。
+ */
 async function mutateDeviceGraphWithCli(
   action: 'add-device' | 'update-device',
   config: DevicePackageCliConfig,
@@ -287,6 +296,9 @@ async function mutateDeviceGraphWithCli(
     required(request.instanceId, '设备实例 ID'),
     '--instance-uuid',
     required(request.instanceUuid, '设备实例 UUID'),
+    ...(action === 'add-device' && request.adoptExisting
+      ? ['--adopt-existing']
+      : []),
     '--graph',
     required(request.graphPath, '设备图路径'),
     '--config-stdin',

@@ -76,6 +76,9 @@ test('browses the cloud device square through Electron Main', async () => {
     })
 
     await page.getByRole('button', { name: /凭据泵/ }).click()
+    const adoptExisting = page.getByRole('checkbox', { name: /接管同名旧设备/ })
+    await expect(adoptExisting).not.toBeChecked()
+    await expect(page.getByText(/已有不同 UUID 的节点仍不会被覆盖/)).toBeVisible()
     const passwordInput = page.getByLabel(/password/)
     await expect(passwordInput).toHaveAttribute('type', 'password')
     await expect(passwordInput).toHaveValue('')

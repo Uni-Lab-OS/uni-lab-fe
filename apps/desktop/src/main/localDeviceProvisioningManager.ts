@@ -270,7 +270,12 @@ export class LocalDeviceProvisioningManager {
     })
   }
 
-  /** 实现配置校验、实例去重、CLI 写图和 restart_required 状态推进。 */
+  /**
+   * 实现配置校验、实例去重、显式遗留接管和 CLI 原子写图。
+   *
+   * @param input Renderer 提交的接入身份、实例字段、接管布尔意图和驱动配置。
+   * @returns 写图成功后的 `restart_required` 记录，或带原阶段诊断的失败记录。
+   */
   private async configureInternal(
     input: ConfigureLocalDeviceProvisioningInput
   ): Promise<LocalDeviceProvisioning> {
@@ -294,7 +299,20 @@ export class LocalDeviceProvisioningManager {
         && candidate.status !== 'canceled'
       ))
       if (conflict) throw new Error(`本地设备实例 ID 已由 ${conflict.cloudDisplayName} 使用`)
+      // 写图前持久化同一候选设备的稳定 UUID，失败重试不得生成第二个本地身份。
       const instanceUuid = record.instanceUuid || randomUUID()
+      // 只保存非秘密配置；秘密仍只存在于本次 IPC 到 CLI stdin 的短生命周期内。
+      const persistentConfiguration = persistentDeviceConfiguration(
+        record.configurationSchema,
+        input.configuration
+      )
+      record = await this.save({
+        ...record,
+        configuration: persistentConfiguration,
+        instanceId: input.instanceId,
+        instanceUuid,
+        displayName: input.displayName
+      })
       const staged = await stageDeviceWithCli(devicePackageCliConfig(
         active.runtime,
         record.cloudEnvironment
@@ -303,19 +321,13 @@ export class LocalDeviceProvisioningManager {
         definitionFqid: record.definitionFqid,
         instanceId: input.instanceId,
         instanceUuid,
+        adoptExisting: input.adoptExisting,
         graphPath: record.graphPath,
         displayName: input.displayName,
         configuration: input.configuration
       })
       record = await this.transition({
         ...record,
-        configuration: persistentDeviceConfiguration(
-          record.configurationSchema,
-          input.configuration
-        ),
-        instanceId: input.instanceId,
-        instanceUuid,
-        displayName: input.displayName,
         graphFingerprint: staged.graphFingerprint,
         backupPath: staged.backupPath ?? record.backupPath
       }, 'graph_staged')

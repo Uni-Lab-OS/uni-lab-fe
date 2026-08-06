@@ -19,7 +19,16 @@ interface DeviceConfigurationFormProps {
   onCompleted: (record: LocalDeviceProvisioning) => void
 }
 
-/** 按 OS PackageCatalog Schema 生成严格类型的驱动初始化表单。 */
+/**
+ * 按 OS PackageCatalog Schema 生成严格类型的驱动初始化表单。
+ *
+ * @param api 只暴露稳定意图的 Electron 预加载接口。
+ * @param record 当前候选本地设备接入（LocalDeviceProvisioning）事实。
+ * @param disabled Main 正在执行写入时的交互门禁。
+ * @param onWorking 通知父视图更新工作状态的回调。
+ * @param onCompleted 写图成功后提交最新记录的回调。
+ * @returns 包含实例身份、显式遗留接管和驱动参数的 React 表单。
+ */
 export default function DeviceConfigurationForm({
   api,
   record,
@@ -33,14 +42,18 @@ export default function DeviceConfigurationForm({
   )
   const [instanceId, setInstanceId] = useState(record.instanceId || suggestedInstanceId(record))
   const [displayName, setDisplayName] = useState(record.displayName || record.cloudDisplayName)
+  // 接管意图只来自当前复选框，不根据失败消息或同名节点自动推断。
+  const [adoptExisting, setAdoptExisting] = useState(false)
   const [draft, setDraft] = useState<Record<string, string | boolean>>(() => (
     initialConfigurationDraft(fields, record.configuration)
   ))
   const [error, setError] = useState<string | null>(null)
 
+  // 切换接入记录时清除上一个记录的显式接管选择，避免意图跨设备泄漏。
   useEffect(() => {
     setInstanceId(record.instanceId || suggestedInstanceId(record))
     setDisplayName(record.displayName || record.cloudDisplayName)
+    setAdoptExisting(false)
     setDraft(initialConfigurationDraft(fields, record.configuration))
     setError(null)
   }, [fields, record])
@@ -50,7 +63,12 @@ export default function DeviceConfigurationForm({
     setDraft((current) => ({ ...current, [name]: value }))
   }
 
-  /** 校验表单并要求 OS CLI 原子写入当前设备图。 */
+  /**
+   * 校验表单并要求 OS CLI 原子写入当前设备图。
+   *
+   * @param event 当前表单提交事件，用于阻止浏览器默认导航。
+   * @returns 异步完成，不直接返回设备事实；成功结果经 `onCompleted` 上报。
+   */
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
     setError(null)
@@ -69,6 +87,7 @@ export default function DeviceConfigurationForm({
         provisioningId: record.provisioningId,
         instanceId: instanceId.trim(),
         displayName: displayName.trim(),
+        adoptExisting,
         configuration
       })
       if (updated.status === 'failed') {
@@ -97,7 +116,7 @@ export default function DeviceConfigurationForm({
             onChange={(event) => setInstanceId(event.target.value)}
             placeholder="local-pump-1"
           />
-          <small>写入设备图的稳定身份，同一设备图内不可重复。</small>
+          <small>新实例在同一设备图内不可重复；遗留节点需在下方显式确认接管。</small>
         </label>
         <label>
           <span>显示名称 <b>必填</b></span>
@@ -106,6 +125,22 @@ export default function DeviceConfigurationForm({
             disabled={disabled}
             onChange={(event) => setDisplayName(event.target.value)}
           />
+        </label>
+        <label className={styles.wideField}>
+          <span>接管同名旧设备 <em>可选</em></span>
+          <span className={styles.checkboxField}>
+            <input
+              type="checkbox"
+              checked={adoptExisting}
+              disabled={disabled}
+              onChange={(event) => setAdoptExisting(event.target.checked)}
+            />
+            为设备图中同 ID、同 definition 且尚无 UUID 的旧节点补齐稳定身份
+          </span>
+          <small>
+            接管会保留旧节点的位置、父子关系、连接、运行数据和扩展字段；已有不同
+            UUID 的节点仍不会被覆盖。
+          </small>
         </label>
         {fields.map((field) => (
           <label key={field.name} className={field.type === 'object' || field.type === 'array' ? styles.wideField : undefined}>

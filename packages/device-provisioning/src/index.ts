@@ -116,6 +116,7 @@ export interface ConfigureLocalDeviceProvisioningInput {
   provisioningId: string
   instanceId: string
   displayName: string
+  adoptExisting: boolean
   configuration: Record<string, unknown>
 }
 

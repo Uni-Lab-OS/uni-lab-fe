@@ -107,6 +107,7 @@ describe('LocalDeviceProvisioningManager', () => {
       provisioningId: downloaded.provisioningId,
       instanceId: 'local-pump-1',
       displayName: '本地泵 1',
+      adoptExisting: true,
       configuration: { endpoint: 'serial:///dev/ttyUSB0' }
     })
     const ready = await manager.activate(downloaded.provisioningId)
@@ -122,6 +123,7 @@ describe('LocalDeviceProvisioningManager', () => {
     expect(ports.stage.mock.calls[0]?.[1]).toMatchObject({
       graphPath: '/runtime/device-graph.json',
       definitionFqid: 'community.review_lab.pump',
+      adoptExisting: true,
       configuration: { endpoint: 'serial:///dev/ttyUSB0' }
     })
     expect(runtime.stopEdge).toHaveBeenCalledOnce()
@@ -129,6 +131,49 @@ describe('LocalDeviceProvisioningManager', () => {
     await expect(manager.list()).resolves.toEqual([
       expect.objectContaining({ status: 'ready' })
     ])
+  })
+
+  /** 验证遗留节点首次失败后保留非秘密意图，并以同一 UUID 显式接管重试。 */
+  it('保留待接管实例身份并复用 UUID 重试写图', async () => {
+    ports.stage
+      .mockRejectedValueOnce(new Error('同名设备实例缺少 UUID；请显式启用接管'))
+      .mockResolvedValueOnce(graphResult('graph_staged'))
+    const { manager } = await createManager()
+    const downloaded = await manager.start({
+      cloudEnvironment: 'test',
+      templateUuid
+    })
+
+    const failed = await manager.configure({
+      provisioningId: downloaded.provisioningId,
+      instanceId: 'legacy-pump',
+      displayName: '遗留泵',
+      adoptExisting: false,
+      configuration: { endpoint: 'serial:///dev/ttyUSB0' }
+    })
+
+    expect(failed).toMatchObject({
+      status: 'failed',
+      instanceId: 'legacy-pump',
+      displayName: '遗留泵',
+      configuration: { endpoint: 'serial:///dev/ttyUSB0' }
+    })
+    expect(failed.instanceUuid).toMatch(/^[0-9a-f-]{36}$/u)
+
+    const staged = await manager.configure({
+      provisioningId: downloaded.provisioningId,
+      instanceId: 'legacy-pump',
+      displayName: '遗留泵',
+      adoptExisting: true,
+      configuration: { endpoint: 'serial:///dev/ttyUSB0' }
+    })
+
+    expect(staged.status).toBe('restart_required')
+    expect(ports.stage.mock.calls[1]?.[1]).toMatchObject({
+      instanceId: 'legacy-pump',
+      instanceUuid: failed.instanceUuid,
+      adoptExisting: true
+    })
   })
 
   /** 验证 Main 只短暂转交秘密配置，不把它写入候选接入持久记录。 */
@@ -158,6 +203,7 @@ describe('LocalDeviceProvisioningManager', () => {
       provisioningId: downloaded.provisioningId,
       instanceId: 'local-pump-1',
       displayName: '本地泵 1',
+      adoptExisting: false,
       configuration: {
         endpoint: 'serial:///dev/ttyUSB0',
         password: 'device-password'
@@ -218,6 +264,7 @@ describe('LocalDeviceProvisioningManager', () => {
       provisioningId: downloaded.provisioningId,
       instanceId: 'local-pump-1',
       displayName: '本地泵 1',
+      adoptExisting: false,
       configuration: { endpoint: 'serial:///dev/ttyUSB0' }
     })
 
@@ -245,6 +292,7 @@ describe('LocalDeviceProvisioningManager', () => {
       provisioningId: downloaded.provisioningId,
       instanceId: 'local-pump-1',
       displayName: '本地泵 1',
+      adoptExisting: false,
       configuration: { endpoint: 'serial:///dev/ttyUSB0' }
     })
     await manager.activate(downloaded.provisioningId)

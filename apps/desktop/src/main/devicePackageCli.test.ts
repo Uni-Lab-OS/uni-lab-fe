@@ -109,6 +109,7 @@ describe('Electron Main 设备包 CLI 接口', () => {
       definitionFqid: request.definitionFqid,
       instanceId: 'local-pump-1',
       instanceUuid: 'd4517ba4-4ce4-4b10-8954-05e35158d595',
+      adoptExisting: true,
       graphPath: '/runtime/device-graph.json',
       displayName: '本地泵 1',
       configuration: { endpoint: 'serial:///dev/ttyUSB0' }
@@ -117,11 +118,24 @@ describe('Electron Main 设备包 CLI 接口', () => {
     expect(result.status).toBe('graph_staged')
     const command = runner.mock.calls[0]?.[0]
     expect(command?.args).toContain('--config-stdin')
+    expect(command?.args).toContain('--adopt-existing')
     expect(command?.args.join(' ')).not.toContain('ttyUSB0')
     expect(JSON.parse(command?.stdin ?? '')).toEqual({
       display_name: '本地泵 1',
       configuration: { endpoint: 'serial:///dev/ttyUSB0' }
     })
+
+    await stageDeviceWithCli(config, {
+      cacheKey: `community.review_lab@1.2.0#${digest}`,
+      definitionFqid: request.definitionFqid,
+      instanceId: 'local-pump-1',
+      instanceUuid: 'd4517ba4-4ce4-4b10-8954-05e35158d595',
+      adoptExisting: false,
+      graphPath: '/runtime/device-graph.json',
+      displayName: '本地泵 1',
+      configuration: { endpoint: 'serial:///dev/ttyUSB0' }
+    }, runner)
+    expect(runner.mock.calls[1]?.[0].args).not.toContain('--adopt-existing')
   })
 
   /** 验证移除与恢复沿用固定设备图身份且解析可恢复备份。 */

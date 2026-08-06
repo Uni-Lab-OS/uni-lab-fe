@@ -173,7 +173,12 @@ function parseSquareQuery(value: unknown): DeviceSquareListQuery {
   return query
 }
 
-/** 校验 Renderer 只提交接入身份、实例意图和 JSON 配置值。 */
+/**
+ * 校验 Renderer 只提交接入身份、显式遗留接管意图和 JSON 配置值。
+ *
+ * @param value 未受信任的 Renderer 配置载荷。
+ * @returns 可交给 Main 接入编排器的封闭配置请求。
+ */
 function parseConfiguration(value: unknown): ConfigureLocalDeviceProvisioningInput {
   const raw = record(value, '设备接入配置')
   const configuration = record(raw.configuration, 'configuration')
@@ -181,6 +186,7 @@ function parseConfiguration(value: unknown): ConfigureLocalDeviceProvisioningInp
     provisioningId: requiredString(raw.provisioningId, '接入 UUID'),
     instanceId: requiredString(raw.instanceId, '设备实例 ID'),
     displayName: requiredString(raw.displayName, '设备显示名称'),
+    adoptExisting: requiredBoolean(raw.adoptExisting, '接管同名旧设备'),
     configuration: structuredClone(configuration)
   }
 }
@@ -250,6 +256,18 @@ function requiredString(value: unknown, label: string): string {
     throw new Error(`${label}无效`)
   }
   return value.trim()
+}
+
+/**
+ * 读取 Renderer 显式提交的布尔意图，禁止字符串等模糊真值。
+ *
+ * @param value 未受信任的布尔字段值。
+ * @param label 只用于可行动错误的非秘密字段名称。
+ * @returns 经过严格类型检查的布尔值。
+ */
+function requiredBoolean(value: unknown, label: string): boolean {
+  if (typeof value !== 'boolean') throw new Error(`${label}必须是 boolean`)
+  return value
 }
 
 /**

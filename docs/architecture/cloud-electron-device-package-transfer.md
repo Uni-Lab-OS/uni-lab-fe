@@ -70,6 +70,7 @@ Electron “添加心愿单”
    - 实例名称和本地设备 ID；
    - 串口、IP、端口等驱动参数；
    - 要写入的设备图；
+   - 是否显式接管同 ID、同 definition 且 UUID 为空的遗留设备节点；
    - 是否需要重启当前 OS。
 5. 用户确认后，CLI 校验参数并原子更新设备图。
 6. 如果当前 OS 正在运行，Electron 明确提示并执行受控重启。
@@ -461,10 +462,21 @@ CLI:
 CLI -> Main: graph_staged + fingerprint + backup path
 ```
 
+调用 CLI 前，Main 先把用户确认的实例 ID、显示名称、生成的稳定 UUID 和脱敏后的
+非秘密配置写入候选本地设备接入（LocalDeviceProvisioning）记录。这样写图失败后的
+显式接管重试复用同一个 UUID；即使 OS 已完成原子写图而 Electron 随后异常，下一次
+重放也不会生成第二个设备身份。秘密参数仍不进入该记录。
+
 如果实例 ID 已存在：
 
 - 同一 provisioning 且内容一致时幂等成功；
-- 同 ID、不同 class 或配置时拒绝覆盖；
+- 同 ID、同 definition、UUID 为空的遗留节点只有在用户勾选“接管同名旧设备”且
+  CLI 收到 `--adopt-existing` 时才补齐请求 UUID；接管保留旧节点的位置、父子关系、
+  连接引用、运行数据和未知扩展字段，并更新用户确认的名称、配置和精确包缓存引用；
+- 同 ID、不同 definition，或已有非空 UUID 与请求不一致时始终拒绝覆盖；
+- 同 ID、同 UUID 但配置不同时仍拒绝普通新增；
+- 接管成功后的同身份、同包、同配置重放幂等成功，既有位置、拓扑、运行数据和扩展
+  字段不参与“是否同一接入声明”的比较，但也不会被重放修改；
 - 用户必须选择新 ID 或显式进入“更新设备配置”流程。
 
 ### 7.5 受控重启和就绪确认
@@ -535,6 +547,7 @@ unilab --working_dir <managed-working-dir> \
   --definition-fqid <community.namespace.device> \
   --instance-id <local-device-id> \
   --instance-uuid <electron-generated-uuid> \
+  [--adopt-existing] \
   --graph <device-graph.json> \
   --config-stdin \
   --json
@@ -554,6 +567,11 @@ stdin 只接受固定 Schema：
 ```
 
 CLI 必须同时校验退出码和最终 JSON。第一期不要求重新设计 NDJSON；Electron 可以按子进程阶段展示不定进度，最终状态以 JSON 和本地 OS 对账为准。
+
+`--adopt-existing` 是遗留兼容（Legacy Compatibility）的显式迁移开关，不是普通
+覆盖开关。它只对同 ID、同 definition、UUID 为空的设备图节点生效，并要求请求携带
+合法且未被其他节点使用的 UUID。开关缺失时，CLI 返回可行动诊断；旧节点已有非空
+UUID、definition 不同或请求 UUID 已被占用时，即使提供该开关也失败关闭。
 
 ### 8.3 上传接口不变，CLI 增加 stdin 凭据入口
 
@@ -636,6 +654,8 @@ stdin 是单个封闭 JSON 文档：
 - Artifact 摘要缺失或不匹配时不得缓存或写设备图。
 - 设备图路径必须等于当前 LocalRuntime 配置的 graphPath，Renderer 不能任意指定。
 - 配置值不得扩展成 Python 表达式、shell 参数或任意 module path。
+- 遗留设备节点身份接管必须由 Renderer 复选框、Main 布尔意图和 CLI
+  `--adopt-existing` 三层一致确认；不得根据错误文本自动覆盖，也不得改变已有非空 UUID。
 - 修改设备图前必须停止并确认没有正在执行的设备 Action；不能在物理动作运行中重启 OS。
 
 ## 11. 移除、更新与回滚
@@ -705,6 +725,7 @@ stdin 是单个封闭 JSON 文档：
 
 - 实现 `stage_device_instance` 深模块和 `package add-device`。
 - 实现参数、实例身份、Graph Schema 和重复节点校验。
+- 实现 UUID 为空的同定义遗留节点显式接管，并保留其拓扑、运行数据和扩展字段。
 - 实现同目录备份、fsync、原子替换、删除和恢复。
 - 用真实 OS 启动验证 graph -> Catalog -> registry -> driver instance 链路。
 
@@ -758,12 +779,12 @@ stdin 是单个封闭 JSON 文档：
 
 | 命令/范围 | 结果 |
 |---|---|
-| `Uni-Lab-OS: pytest tests/package_manager -q` | 79 passed |
-| `Uni-Lab-OS: pytest tests -q` | 2629 passed、7 skipped；68 条既有弃用/收集 warning，无失败 |
+| `Uni-Lab-OS: pytest tests/package_manager -q` | 85 passed |
+| `Uni-Lab-OS: pytest tests -q` | 2635 passed、7 skipped；68 条既有弃用/收集 warning，无失败 |
 | `uni-lab-fe: pnpm typecheck` | 20 个工作区项目全部通过 |
-| `uni-lab-fe: pnpm test` | 全部带测试脚本的工作区包通过；其中 services 119、kernel-web 63、desktop 92 |
+| `uni-lab-fe: pnpm test` | 全部带测试脚本的工作区包通过；其中 services 119、kernel-web 64、desktop 94 |
 | `uni-lab-fe: pnpm build:desktop` | 生产 Main、Preload、Renderer 构建通过 |
-| `xvfb-run -a env UNILAB_E2E_ELECTRON=1 pnpm exec playwright test e2e/device-square-electron.spec.ts` | 1 passed；覆盖生产 Electron Main/IPC、45 条设备完整分页、详情保持、旧包不可重试诊断及桌面/紧凑截图 |
+| `xvfb-run -a env UNILAB_E2E_ELECTRON=1 pnpm exec playwright test e2e/device-square-electron.spec.ts` | 1 passed；覆盖生产 Electron Main/IPC、45 条设备完整分页、详情保持、显式接管默认关闭、旧包不可重试诊断及桌面/紧凑截图 |
 
 本轮截图保存在 `e2e-artifacts/device-square-electron/`：
 
@@ -794,6 +815,8 @@ stdin 是单个封闭 JSON 文档：
 16. 上传 AK/SK 不进入 argv、`local_config.py`、持久状态、请求诊断和普通日志；非法 stdin 合同失败关闭且不回显秘密。
 17. 含 `password` 的当前 wheel 可以下载并显示密码框；写图后图文件和本地接入 Store 均不含明文，驱动构造时能从受管引用得到该值。
 18. 秘密文件缺失、权限过宽、引用损坏或符号链接替换时，OS 启动驱动失败关闭且错误不回显秘密。
+19. 同 ID、同 definition 且 UUID 为空的遗留节点在未确认接管时失败；确认后补齐稳定
+    UUID 并保留位置、父子关系、连接、运行数据和扩展字段；已有不同 UUID 始终拒绝覆盖。
 
 最终验收不是“文件已经下载”，而是：
 
