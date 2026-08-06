@@ -462,6 +462,19 @@ CLI:
 CLI -> Main: graph_staged + fingerprint + backup path
 ```
 
+备份身份按解析后的完整设备图语义计算，不按 JSON 缩进、空白或键顺序计算。
+如果同名备份已经存在且原始字节不同，OS 必须重新解析并确认设备图语义完全
+一致后才能复用；既有备份属于另一张图、内容损坏、无法读取或是符号链接时仍
+失败关闭，且不得覆盖备份或部分修改当前图。这保证编辑器只格式化 graph 后的
+接管重试不会误报“设备图备份身份冲突”，同时保留恢复链路的不可覆盖边界。
+
+打开设备接入工作区时，Renderer 先通过 Preload 读取
+`device-provisioning-ipc/v2` 能力合同，并确认 Main 明确声明
+`adoptExisting: true`。版本或功能不匹配时整个工作区失败关闭，
+不显示任何写图或上传入口，并提示完全退出后重启（macOS 需
+`Command+Q`，仅关闭窗口不会重启 Main）。这防止开发态 Renderer 热更新
+后仍连接旧 Main/Preload，从而将已勾选的接管意图静默丢失。
+
 调用 CLI 前，Main 先把用户确认的实例 ID、显示名称、生成的稳定 UUID 和脱敏后的
 非秘密配置写入候选本地设备接入（LocalDeviceProvisioning）记录。这样写图失败后的
 显式接管重试复用同一个 UUID；即使 OS 已完成原子写图而 Electron 随后异常，下一次
@@ -656,6 +669,9 @@ stdin 是单个封闭 JSON 文档：
 - 配置值不得扩展成 Python 表达式、shell 参数或任意 module path。
 - 遗留设备节点身份接管必须由 Renderer 复选框、Main 布尔意图和 CLI
   `--adopt-existing` 三层一致确认；不得根据错误文本自动覆盖，也不得改变已有非空 UUID。
+- Renderer 必须在首个设备接入请求前校验 Main/Preload 的
+  `device-provisioning-ipc/v2` 能力；能力缺失或版本不同时禁止操作，
+  不能将旧 Main 对未知字段的忽略当成兼容。
 - 修改设备图前必须停止并确认没有正在执行的设备 Action；不能在物理动作运行中重启 OS。
 
 ## 11. 移除、更新与回滚
@@ -771,7 +787,7 @@ stdin 是单个封闭 JSON 文档：
 | 设备图接入模块 | Schema、必填参数、重复 ID、原子写入、备份、恢复、删除和扩展字段保留 |
 | OS 启动集成 | cache -> sys.path -> Catalog -> registry -> driver import -> instance |
 | CLI 子进程 | stdin 设备配置/上传凭据、最终 JSON、退出码、取消和日志脱敏 |
-| Electron Main | 三环境固定映射、executable allowlist、`shell: false`、作业恢复、重启门禁和对账 |
+| Electron Main | 版本化 IPC 能力握手、三环境固定映射、executable allowlist、`shell: false`、作业恢复、重启门禁和对账 |
 | Electron UI | 环境切换、完整分页、搜索代次隔离、下载、配置、待重启、加载中、可运行、失败和移除 |
 | 跨仓 E2E | 广场 -> 添加心愿单 -> 配置 -> 重启 -> 在线 -> Action；Workspace -> 上传 -> 广场可见 |
 
@@ -779,12 +795,12 @@ stdin 是单个封闭 JSON 文档：
 
 | 命令/范围 | 结果 |
 |---|---|
-| `Uni-Lab-OS: pytest tests/package_manager -q` | 85 passed |
-| `Uni-Lab-OS: pytest tests -q` | 2635 passed、7 skipped；68 条既有弃用/收集 warning，无失败 |
+| `Uni-Lab-OS: pytest tests/package_manager -q` | 87 passed；含设备图语义相同备份复用与异图备份拒绝回归 |
+| `Uni-Lab-OS: pytest tests -q` | 2637 passed、7 skipped；68 条既有弃用/收集 warning，无失败 |
 | `uni-lab-fe: pnpm typecheck` | 20 个工作区项目全部通过 |
-| `uni-lab-fe: pnpm test` | 全部带测试脚本的工作区包通过；其中 services 119、kernel-web 64、desktop 94 |
+| `uni-lab-fe: pnpm test` | 全部带测试脚本的工作区包通过；其中 services 119、kernel-web 65、desktop 95 |
 | `uni-lab-fe: pnpm build:desktop` | 生产 Main、Preload、Renderer 构建通过 |
-| `xvfb-run -a env UNILAB_E2E_ELECTRON=1 pnpm exec playwright test e2e/device-square-electron.spec.ts` | 1 passed；覆盖生产 Electron Main/IPC、45 条设备完整分页、详情保持、显式接管默认关闭、旧包不可重试诊断及桌面/紧凑截图 |
+| `xvfb-run -a env UNILAB_E2E_ELECTRON=1 pnpm exec playwright test e2e/device-square-electron.spec.ts` | 1 passed；覆盖生产 Electron Main/Preload/Renderer v2 能力握手、45 条设备完整分页、详情保持、显式接管默认关闭、旧包不可重试诊断及桌面/紧凑截图 |
 
 本轮截图保存在 `e2e-artifacts/device-square-electron/`：
 
@@ -817,6 +833,11 @@ stdin 是单个封闭 JSON 文档：
 18. 秘密文件缺失、权限过宽、引用损坏或符号链接替换时，OS 启动驱动失败关闭且错误不回显秘密。
 19. 同 ID、同 definition 且 UUID 为空的遗留节点在未确认接管时失败；确认后补齐稳定
     UUID 并保留位置、父子关系、连接、运行数据和扩展字段；已有不同 UUID 始终拒绝覆盖。
+20. 新 Renderer 与旧 Main/Preload 混合运行时，设备接入工作区在任何 CLI
+    调用前失败关闭，显示完整重启指引；同版本组合则返回
+    `device-provisioning-ipc/v2` 且接管写图 argv 必须包含 `--adopt-existing`。
+21. 同一设备图仅改变 JSON 排版后再次写图时复用原备份并成功接入；同名备份
+    损坏、是符号链接或解析后属于不同设备图时仍失败关闭，且当前图保持不变。
 
 最终验收不是“文件已经下载”，而是：
 

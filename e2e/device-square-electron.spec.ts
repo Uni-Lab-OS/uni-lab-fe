@@ -39,6 +39,16 @@ test('browses the cloud device square through Electron Main', async () => {
       if (message.type() === 'error') browserErrors.push(message.text())
     })
 
+    // 能力合同证明本次 E2E 使用同一版本的 Main、Preload 与 Renderer。
+    const ipcContract = await page.evaluate(
+      /** @returns 真实 Preload 向当前 Main 查询到的设备接入能力。 */
+      async () => window.api?.deviceProvisioning?.getContract()
+    )
+    expect(ipcContract).toEqual({
+      schemaVersion: 'device-provisioning-ipc/v2',
+      features: { adoptExisting: true }
+    })
+
     await page.getByRole('button', { name: '设备广场' }).click()
     await expect(page.getByRole('heading', { name: '设备广场与本地接入' }))
       .toBeVisible()

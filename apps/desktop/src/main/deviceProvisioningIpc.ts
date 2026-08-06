@@ -1,4 +1,5 @@
 import {
+  DEVICE_PROVISIONING_IPC_CONTRACT,
   isCloudEnvironment,
   type CloudEnvironment,
   type ConfigureLocalDeviceProvisioningInput,
@@ -37,6 +38,20 @@ export function registerDeviceProvisioningIpc(
 ): void {
   const { ipcMain, manager, assertSender } = options
   const approvedPaths = new ApprovedDevicePackagePaths()
+
+  /**
+   * 向已通过 sender 门禁的 Renderer 公布当前 Main 设备接入能力。
+   *
+   * @param event Electron 提供的调用来源，用于防止非主渲染器读取合同。
+   * @returns 与当前 Main 代码同步发布的版本化能力合同。
+   */
+  const readContract = (
+    event: IpcMainInvokeEvent
+  ): typeof DEVICE_PROVISIONING_IPC_CONTRACT => {
+    assertSender(event)
+    return DEVICE_PROVISIONING_IPC_CONTRACT
+  }
+  ipcMain.handle('device-provisioning:contract', readContract)
   ipcMain.handle('device-provisioning:square:list', (event, payload: unknown) => {
     assertSender(event)
     const request = parseSquareListRequest(payload)

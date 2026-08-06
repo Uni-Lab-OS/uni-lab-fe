@@ -17,6 +17,7 @@ import type {
 import type {
   CloudEnvironment,
   ConfigureLocalDeviceProvisioningInput,
+  DeviceProvisioningIpcContract,
   DevicePackageDownloadSummary,
   DevicePackageInspection,
   DevicePackageUploadRequest,
@@ -179,6 +180,7 @@ export interface DesktopRuntimeApi {
 }
 
 export interface DesktopDeviceProvisioningApi {
+  getContract: () => Promise<DeviceProvisioningIpcContract>
   listCloudDevices: (
     cloudEnvironment: CloudEnvironment,
     query?: DeviceSquareListQuery

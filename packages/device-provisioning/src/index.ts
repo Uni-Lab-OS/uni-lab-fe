@@ -1,5 +1,20 @@
 /** 候选本地设备接入（LocalDeviceProvisioning）的跨进程稳定合同。 */
 
+export const DEVICE_PROVISIONING_IPC_SCHEMA_VERSION =
+  'device-provisioning-ipc/v2' as const
+
+export interface DeviceProvisioningIpcContract {
+  readonly schemaVersion: typeof DEVICE_PROVISIONING_IPC_SCHEMA_VERSION
+  readonly features: {
+    readonly adoptExisting: true
+  }
+}
+
+export const DEVICE_PROVISIONING_IPC_CONTRACT: DeviceProvisioningIpcContract = {
+  schemaVersion: DEVICE_PROVISIONING_IPC_SCHEMA_VERSION,
+  features: { adoptExisting: true }
+}
+
 export type CloudEnvironment = 'test' | 'uat' | 'production'
 
 export interface CloudEnvironmentOption {

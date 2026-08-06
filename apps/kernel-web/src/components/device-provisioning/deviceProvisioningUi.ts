@@ -1,6 +1,8 @@
-import type {
-  LocalDeviceProvisioning,
-  LocalDeviceProvisioningStatus
+import {
+  DEVICE_PROVISIONING_IPC_SCHEMA_VERSION,
+  type DeviceProvisioningIpcContract,
+  type LocalDeviceProvisioning,
+  type LocalDeviceProvisioningStatus
 } from '@unilab/device-provisioning'
 
 export type DeviceProvisioningApi = NonNullable<
@@ -31,6 +33,33 @@ export interface DeviceSquarePageCursor {
   loadedPage: number
   /** Backend 对当前筛选条件返回的权威总数。 */
   total: number
+}
+
+/**
+ * 确认当前 Electron Main 与 Renderer 使用同一设备接入 IPC 合同。
+ *
+ * @param value Main 经 Preload 返回的未受信能力对象。
+ * @returns 经严格校验且支持显式遗留接管的 v2 合同。
+ * @throws Main/Preload 未完整重启或不支持接管时抛出可行动诊断。
+ * @safety 能力不明时失败关闭，禁止将已勾选意图交给旧 Main 静默丢弃。
+ */
+export function assertDeviceProvisioningIpcContract(
+  value: unknown
+): DeviceProvisioningIpcContract {
+  const contract = record(value)
+  const features = record(contract.features)
+  if (
+    contract.schemaVersion !== DEVICE_PROVISIONING_IPC_SCHEMA_VERSION
+    || features.adoptExisting !== true
+  ) {
+    throw new Error(
+      'Electron 设备接入进程版本不一致，请完全退出并重新启动 Lab PC Client 后再试'
+    )
+  }
+  return {
+    schemaVersion: DEVICE_PROVISIONING_IPC_SCHEMA_VERSION,
+    features: { adoptExisting: true }
+  }
 }
 
 const STATUS_VIEW: Record<

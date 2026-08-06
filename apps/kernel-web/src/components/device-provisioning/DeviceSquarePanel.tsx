@@ -8,10 +8,14 @@ import {
 import CloudDeviceSquareView from './CloudDeviceSquareView'
 import DevicePackageUploadView from './DevicePackageUploadView'
 import LocalDeviceWishlistView from './LocalDeviceWishlistView'
-import type { DeviceProvisioningApi } from './deviceProvisioningUi'
+import {
+  assertDeviceProvisioningIpcContract,
+  type DeviceProvisioningApi
+} from './deviceProvisioningUi'
 import styles from './DeviceSquarePanel.module.scss'
 
 type DeviceProvisioningTab = 'square' | 'wishlist' | 'upload'
+type DeviceProvisioningContractState = 'checking' | 'ready' | 'failed'
 
 const TABS: ReadonlyArray<{
   id: DeviceProvisioningTab
@@ -34,10 +38,52 @@ export default function DeviceSquarePanel(): React.JSX.Element {
   const [cloudEnvironment, setCloudEnvironment] = useState<CloudEnvironment>('test')
   const [selectedProvisioningId, setSelectedProvisioningId] = useState<string | null>(null)
   const [recordsError, setRecordsError] = useState<string | null>(null)
+  const [contractState, setContractState] =
+    useState<DeviceProvisioningContractState>('checking')
+  const [contractError, setContractError] = useState<string | null>(null)
+
+  /**
+   * 在任何设备操作前启动一次 Main/Preload 合同校验。
+   *
+   * @returns 组件卸载时的取消回调，或在缺少 API 时无返回值。
+   */
+  useEffect(() => {
+    if (!api) return
+    let active = true
+
+    /**
+     * 读取 Main 能力并在任何业务 IPC 前失败关闭混合版本。
+     *
+     * @returns 校验完成后更新本组件的合同状态，无业务返回值。
+     */
+    const verifyContract = async (): Promise<void> => {
+      try {
+        const getContract = (api as Partial<DeviceProvisioningApi>).getContract
+        const contract = typeof getContract === 'function'
+          ? await getContract()
+          : undefined
+        assertDeviceProvisioningIpcContract(contract)
+        if (!active) return
+        setContractState('ready')
+        setContractError(null)
+      } catch (error) {
+        if (!active) return
+        setContractState('failed')
+        setContractError(error instanceof Error ? error.message : String(error))
+      }
+    }
+
+    void verifyContract()
+    /** @returns 无返回值；只阻止晚到的能力响应更改已卸载组件。 */
+    const cancelVerification = (): void => {
+      active = false
+    }
+    return cancelVerification
+  }, [api])
 
   /** 重新读取 Main 持久事实，并保持最近接入项可见。 */
   const refreshRecords = useCallback(async (): Promise<void> => {
-    if (!api) return
+    if (!api || contractState !== 'ready') return
     try {
       const records = await api.list()
       setItems(records)
@@ -50,15 +96,15 @@ export default function DeviceSquarePanel(): React.JSX.Element {
     } catch (error) {
       setRecordsError(error instanceof Error ? error.message : String(error))
     }
-  }, [api])
+  }, [api, contractState])
 
   useEffect(() => {
-    if (!api) return
+    if (!api || contractState !== 'ready') return
     void refreshRecords()
     return api.onChanged((records) => {
       setItems(records)
     })
-  }, [api, refreshRecords])
+  }, [api, contractState, refreshRecords])
 
   /** 新接入下载完成后切换到表单阶段，并锁定刚创建的持久记录。 */
   const handleProvisioningStarted = useCallback((record: LocalDeviceProvisioning) => {
@@ -81,6 +127,14 @@ export default function DeviceSquarePanel(): React.JSX.Element {
   )
 
   if (!api) return <DesktopOnlyNotice />
+  if (contractState !== 'ready') {
+    return (
+      <RuntimeContractNotice
+        checking={contractState === 'checking'}
+        error={contractError}
+      />
+    )
+  }
 
   return (
     <section className={styles.workspace} aria-label="设备包与本地设备接入">
@@ -162,6 +216,41 @@ export default function DeviceSquarePanel(): React.JSX.Element {
           />
         ) : null}
       </div>
+    </section>
+  )
+}
+
+/**
+ * 在设备接入 IPC 未确认时阻断写图与上传操作。
+ *
+ * @param props.checking 是否仍在等待 Main 返回版本化能力。
+ * @param props.error Main/Preload 版本不一致时的可行动诊断。
+ * @returns 不暴露任何设备操作入口的阻塞界面。
+ */
+function RuntimeContractNotice({
+  checking,
+  error
+}: {
+  checking: boolean
+  error: string | null
+}): React.JSX.Element {
+  return (
+    <section
+      className={styles.desktopOnly}
+      role={checking ? undefined : 'alert'}
+    >
+      <div aria-hidden="true" className={styles.desktopOnlyMark}>
+        {checking ? '…' : '!'}
+      </div>
+      <h1>{checking ? '正在核对 Electron 设备接入版本' : 'Electron 进程版本不一致'}</h1>
+      <p>
+        {checking
+          ? '确认 Main、Preload 与 Renderer 共用同一显式接管合同。'
+          : error}
+      </p>
+      {!checking ? (
+        <p>macOS 请使用 Command+Q 完全退出，不要只关闭窗口。</p>
+      ) : null}
     </section>
   )
 }

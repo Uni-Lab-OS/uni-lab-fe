@@ -35,6 +35,7 @@ import type {
 import type {
   CloudEnvironment,
   ConfigureLocalDeviceProvisioningInput,
+  DeviceProvisioningIpcContract,
   DevicePackageDownloadSummary,
   DevicePackageInspection,
   DevicePackageUploadRequest,
@@ -255,6 +256,9 @@ const api = {
     }
   },
   deviceProvisioning: {
+    /** @returns 当前 Main 公布的版本化设备接入能力合同。 */
+    getContract: (): Promise<DeviceProvisioningIpcContract> =>
+      ipcRenderer.invoke('device-provisioning:contract'),
     listCloudDevices: (
       cloudEnvironment: CloudEnvironment,
       query?: DeviceSquareListQuery

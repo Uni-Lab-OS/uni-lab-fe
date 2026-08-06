@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { LocalDeviceProvisioning } from '@unilab/device-provisioning'
 
 import {
+  assertDeviceProvisioningIpcContract,
   configurationFields,
   initialConfigurationDraft,
   mergeDeviceSquareItems,
@@ -13,6 +14,25 @@ import {
 
 /** 覆盖设备配置 Schema 和接入状态的 Renderer 纯投影。 */
 describe('设备接入界面投影', () => {
+  /** 验证新 Renderer 不会向缺少遗留接管能力的旧 Main 提交写图。 */
+  it('拒绝与旧 Electron Main 组成混合版本', () => {
+    expect(() => assertDeviceProvisioningIpcContract(undefined)).toThrow(
+      '完全退出并重新启动'
+    )
+    expect(() => assertDeviceProvisioningIpcContract({
+      schemaVersion: 'device-provisioning-ipc/v1',
+      features: { adoptExisting: false }
+    })).toThrow('完全退出并重新启动')
+
+    expect(assertDeviceProvisioningIpcContract({
+      schemaVersion: 'device-provisioning-ipc/v2',
+      features: { adoptExisting: true }
+    })).toEqual({
+      schemaVersion: 'device-provisioning-ipc/v2',
+      features: { adoptExisting: true }
+    })
+  })
+
   /** 验证字段顺序、必填合同与静态默认值来自 OS Schema。 */
   it('生成严格类型配置草稿并恢复 JSON 值', () => {
     const fields = configurationFields({
