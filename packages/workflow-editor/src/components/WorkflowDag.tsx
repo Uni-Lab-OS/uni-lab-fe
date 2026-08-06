@@ -84,6 +84,10 @@ interface WorkflowDagProps {
     targetNodeUuid: string
     targetHandleUuid: string
   }) => void
+  onDeleteRequest?: (selection: {
+    nodeUuids: string[]
+    edgeUuids: string[]
+  }) => void
 }
 
 // 注册自定义节点类型(在组件外定义,避免每次渲染重建)
@@ -113,7 +117,8 @@ export default function WorkflowDag({
   canvasMutationEnabled = false,
   nodePositionMutationEnabled = false,
   onNodePositionChange,
-  onConnectHandles
+  onConnectHandles,
+  onDeleteRequest
 }: WorkflowDagProps): React.JSX.Element {
   const [isBeautifying, setIsBeautifying] = useState(false)
   const [layoutStrategy, setLayoutStrategy] =
@@ -199,6 +204,7 @@ export default function WorkflowDag({
       const startNode = startNodeId === node.id
       return {
         ...node,
+        deletable: false,
         className: [
           node.className,
           `wf-flow-node--${status}`,
@@ -254,6 +260,7 @@ export default function WorkflowDag({
   const runtimeEdges = useMemo(
     () => flowEdges.map((edge) => ({
       ...edge,
+      deletable: false,
       className: [
         edge.className,
         beforeStartNodeIds.has(edge.source) ||
@@ -264,6 +271,50 @@ export default function WorkflowDag({
     })),
     [beforeStartNodeIds, flowEdges]
   )
+  const deletionSelection = useMemo(() => ({
+    nodeUuids: flowNodes
+      .filter((node) => node.selected)
+      .map((node) => node.id),
+    edgeUuids: flowEdges
+      .filter((edge) => edge.selected)
+      .map((edge) => edge.id)
+  }), [flowEdges, flowNodes])
+  const deletionDisabledReason = useMemo(() => {
+    if (!canvasMutationEnabled) {
+      return '代码模式下工作流画布只读；请切换到画布模式'
+    }
+    if (
+      deletionSelection.nodeUuids.length === 0 &&
+      deletionSelection.edgeUuids.length === 0
+    ) return '请先选择允许编辑的节点或连线'
+    for (const nodeUuid of deletionSelection.nodeUuids) {
+      const sourceNode = nodeById.get(nodeUuid)
+      if (sourceNode?.authoringReadOnly) {
+        return sourceNode.authoringReadOnlyReason ||
+          '复合工作流内部或系统节点只读，不能直接删除'
+      }
+    }
+    for (const edgeUuid of deletionSelection.edgeUuids) {
+      const edge = flowEdges.find((item) => item.id === edgeUuid)
+      if (!edge) continue
+      const sourceReason = nodeById.get(edge.source)?.authoringReadOnlyReason
+      const targetReason = nodeById.get(edge.target)?.authoringReadOnlyReason
+      if (sourceReason || targetReason) {
+        return '复合工作流内部或系统节点的连线只读，不能直接删除'
+      }
+    }
+    return null
+  }, [
+    canvasMutationEnabled,
+    deletionSelection,
+    flowEdges,
+    nodeById
+  ])
+  /** 请求创作层删除当前选中的规范化节点与连线。 */
+  const requestSelectedDeletion = useCallback((): void => {
+    if (deletionDisabledReason || !onDeleteRequest) return
+    onDeleteRequest(deletionSelection)
+  }, [deletionDisabledReason, deletionSelection, onDeleteRequest])
   const graphSignature = useMemo(
     () => JSON.stringify({
       nodes: flowNodes.map((node) => [
@@ -360,6 +411,18 @@ export default function WorkflowDag({
     <div
       ref={containerRef}
       className={styles.dag}
+      onKeyDownCapture={(event) => {
+        if (
+          event.key !== 'Delete' &&
+          event.key !== 'Backspace'
+        ) return
+        if (!onDeleteRequest) return
+        if (isTextEditingTarget(event.target)) return
+        if (deletionDisabledReason) return
+        event.preventDefault()
+        event.stopPropagation()
+        requestSelectedDeletion()
+      }}
       onKeyDown={(event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return
         const target = event.target
@@ -438,6 +501,18 @@ export default function WorkflowDag({
             className="workflow-runtime__layout-tools"
             aria-label="工作流布局工具"
           >
+            {onDeleteRequest && (
+              <WorkflowButton
+                type="button"
+                className="workflow-runtime__delete-selection"
+                disabled={Boolean(deletionDisabledReason)}
+                disabledReason={deletionDisabledReason || ''}
+                onClick={requestSelectedDeletion}
+              >
+                <span aria-hidden="true">⌫</span>
+                删除选中项
+              </WorkflowButton>
+            )}
             <select
               className="workflow-runtime__layout-strategy"
               aria-label="布局策略"
@@ -524,6 +599,18 @@ export default function WorkflowDag({
       </ReactFlow>
     </div>
   )
+}
+
+/**
+ * 判断删除快捷键是否发生在需要保留原生文本编辑行为的控件内。
+ *
+ * @param target 键盘事件当前目标。
+ * @returns 输入框、文本域、选择框或可编辑区域内返回 true。
+ */
+function isTextEditingTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest(
+    'input, textarea, select, [contenteditable="true"]'
+  ))
 }
 
 function nestedGroupStatus(

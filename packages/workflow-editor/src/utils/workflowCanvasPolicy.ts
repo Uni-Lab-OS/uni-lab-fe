@@ -30,7 +30,7 @@ export const CANVAS_EDIT_WORKFLOW_CANVAS = {
   nodesDraggable: true,
   nodesConnectable: false,
   edgesUpdatable: false,
-  deleteKeyCode: null,
+  deleteKeyCode: ['Delete', 'Backspace'] as string[],
   connectOnClick: false
 } as const
 

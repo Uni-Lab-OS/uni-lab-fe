@@ -20,6 +20,12 @@ import {
   workflowNodeVisualKind,
   type WorkflowNodeVisualKind
 } from './workflowNodeVisualKind'
+import { workflowNodeDeletionDisabledReason } from './workflowGraphDeletion'
+import {
+  handleTemplateIndex,
+  nodeTemplateIndex,
+  resourceTemplateIndex
+} from './persistentAuthoringProjectionIndexes'
 
 export function projectPersistentAuthoringGraph(
   graph: WorkflowAuthoringGraph,
@@ -28,93 +34,229 @@ export function projectPersistentAuthoringGraph(
     'resourceTemplates'
   > | null
 ): WorkflowStructure {
-  const resourceTemplateByUuid = new Map(
-    (materialSourceCatalog?.resourceTemplates ?? []).map((template) => [
-      template.uuid,
-      template
-    ])
+  const resourceTemplateByUuid = resourceTemplateIndex(materialSourceCatalog)
+  const templates = nodeTemplateIndex(graph)
+  const handlesByTemplate = handleTemplateIndex(graph)
+  const nodeByUuid = nodeIndex(graph)
+  const childrenByParent = childNodeIndex(graph, nodeByUuid)
+  const compositeByNode = compositeNodeIndex(graph, templates)
+  const { owningComposite, descendants } = graphHierarchyNavigation(
+    nodeByUuid,
+    childrenByParent,
+    compositeByNode
   )
-  const templates = new Map(
-    graph.node_templates.map((template) => [
-      String(template.uuid || ''),
-      template
-    ])
-  )
-  const handlesByTemplate = new Map<string, WorkflowNode['handles']>()
-  for (const handle of graph.handle_templates) {
-    const templateUuid = String(handle.workflow_node_template_uuid || '')
-    const ioType = String(handle.io_type || '')
-    if (!templateUuid || (ioType !== 'source' && ioType !== 'target')) continue
-    const handles = handlesByTemplate.get(templateUuid) ?? []
-    const metaData = isRecord(handle.meta_data) ? handle.meta_data : {}
-    const unilab = isRecord(metaData.unilab) ? metaData.unilab : {}
-    const valueSchema = isRecord(unilab.value_schema)
-      ? unilab.value_schema
-      : undefined
-    const handleKey = String(handle.handle_key || '')
-    const dataKey = typeof handle.data_key === 'string'
-      ? handle.data_key
-      : null
-    const displayName = String(handle.display_name || handleKey)
-    const schemaTitle = valueSchema
-      ? nullableString(valueSchema.title)
-      : null
-    const schemaDescription = valueSchema
-      ? nullableString(valueSchema.description)
-      : null
-    const title = nullableString(handle.title) ?? schemaTitle ?? (
-      displayName !== (dataKey || handleKey) ? displayName : null
-    )
-    const description = nullableString(handle.description) ?? schemaDescription
-    const allowlist = stringArrayOrNull(
-      unilab.allowed_resource_template_uuids
-    )
-    handles.push({
-      uuid: String(handle.uuid || ''),
-      handleKey,
-      displayName,
-      ...(title ? { title } : {}),
-      ...(description ? { description } : {}),
-      ioType,
-      ...(typeof handle.type === 'string'
-        ? { valueType: handle.type }
-        : {}),
-      ...(valueSchema ? { valueSchema } : {}),
-      ...(typeof handle.data_key === 'string' || handle.data_key === null
-        ? { dataKey: handle.data_key }
-        : {}),
-      ...(typeof unilab.editor_control === 'string' ||
-        unilab.editor_control === null
-        ? { editorControl: unilab.editor_control }
-        : {}),
-      ...(allowlist !== undefined
-        ? { allowedResourceTemplateUuids: allowlist }
-        : {}),
-      ...(typeof unilab.implicit_passthrough === 'boolean'
-        ? { implicitPassthrough: unilab.implicit_passthrough }
-        : {})
-    })
-    handlesByTemplate.set(templateUuid, handles)
+  const projectionContext: NodeProjectionContext = {
+    graph,
+    resourceTemplateByUuid,
+    templates,
+    handlesByTemplate,
+    nodeByUuid,
+    childrenByParent,
+    compositeByNode,
+    owningComposite,
+    descendants
   }
-  const nodeByUuid = new Map(
-    graph.nodes.map((node) => [String(node.uuid || ''), node])
+  const nodes = graph.nodes.map((node) =>
+    projectPersistentAuthoringNode(node, projectionContext)
   )
-  const childrenByParent = new Map<string, string[]>()
+  const links: WorkflowLink[] = graph.edges.map((edge) => {
+    const metaData = isRecord(edge.meta_data) ? edge.meta_data : {}
+    return {
+      id: String(edge.uuid),
+      source: String(edge.source_node_uuid),
+      target: String(edge.target_node_uuid),
+      type: 'control',
+      sourceHandleUuid: String(edge.source_handle_uuid || ''),
+      targetHandleUuid: String(edge.target_handle_uuid || ''),
+      branch: typeof metaData.branch === 'string'
+        ? metaData.branch
+        : null
+    }
+  })
+  return {
+    nodes,
+    links,
+    steps: graph.nodes.map((node) => ({
+      action: String(node.action_name || node.type || 'action'),
+      args: isRecord(node.param) ? node.param : {},
+      schema: null
+    })),
+    error: null
+  }
+}
+
+type AuthoringNode = WorkflowAuthoringGraph['nodes'][number]
+type AuthoringNodeTemplate = WorkflowAuthoringGraph['node_templates'][number]
+type MaterialSourceTemplate =
+  WorkflowMaterialSourceCatalogSnapshot['resourceTemplates'][number]
+
+interface NodeProjectionContext {
+  graph: WorkflowAuthoringGraph
+  resourceTemplateByUuid: Map<string, MaterialSourceTemplate>
+  templates: Map<string, AuthoringNodeTemplate>
+  handlesByTemplate: Map<string, WorkflowNode['handles']>
+  nodeByUuid: Map<string, AuthoringNode>
+  childrenByParent: Map<string, string[]>
+  compositeByNode: Map<string, PublishedWorkflowProjection>
+  owningComposite: (nodeUuid: string) => string | null
+  descendants: (nodeUuid: string) => string[]
+}
+
+function projectPersistentAuthoringNode(
+  node: AuthoringNode,
+  context: NodeProjectionContext
+): WorkflowNode {
+  const nodeUuid = String(node.uuid)
+  const templateUuid = String(node.workflow_node_template_uuid || '')
+  const template = context.templates.get(templateUuid)
+  const type = String(
+    node.type || template?.node_type || template?.type || 'action'
+  )
+  return {
+    ...projectNodeIdentity(node, template, type),
+    handles: context.handlesByTemplate.get(templateUuid) ?? [],
+    ...projectNodeParent(node, context.nodeByUuid),
+    ...projectNodeReadOnlyState(node),
+    ...projectCompositeState(nodeUuid, context),
+    ...projectMaterialSourceState(node, type, context.resourceTemplateByUuid),
+    ...nodePosition(node.pose)
+  }
+}
+
+function projectNodeIdentity(
+  node: AuthoringNode,
+  template: AuthoringNodeTemplate | undefined,
+  type: string
+): Pick<WorkflowNode, 'id' | 'name' | 'type' | 'className' | 'labNodeType'> {
+  return {
+    id: String(node.uuid),
+    name: String(
+      node.name || template?.display_name || template?.name || node.uuid
+    ),
+    type,
+    className: String(
+      node.action_type || node.action_name || template?.class || type
+    ),
+    labNodeType: type
+  }
+}
+
+function projectNodeParent(
+  node: AuthoringNode,
+  nodeByUuid: Map<string, AuthoringNode>
+): Pick<WorkflowNode, 'parentGroupId'> {
+  const parentUuid = nullableString(node.parent_uuid)
+  if (!parentUuid || !nodeByUuid.has(parentUuid)) return {}
+  return { parentGroupId: parentUuid }
+}
+
+function projectNodeReadOnlyState(
+  node: AuthoringNode
+): Pick<WorkflowNode, 'authoringReadOnly' | 'authoringReadOnlyReason'> {
+  const reason = workflowNodeDeletionDisabledReason(node)
+  if (!reason) return {}
+  return { authoringReadOnly: true, authoringReadOnlyReason: reason }
+}
+
+function projectCompositeState(
+  nodeUuid: string,
+  context: NodeProjectionContext
+): Pick<WorkflowNode,
+  | 'groupKind'
+  | 'childNodeIds'
+  | 'descendantNodeIds'
+  | 'collapsedByDefault'
+  | 'openChildWorkflowUuid'
+  | 'visualKind'
+  | 'compositeSignature'
+> {
+  const composite = context.compositeByNode.get(nodeUuid)
+  if (!composite) {
+    const ownerUuid = context.owningComposite(nodeUuid)
+    const owner = ownerUuid
+      ? context.compositeByNode.get(ownerUuid)
+      : undefined
+    return owner ? { openChildWorkflowUuid: owner.workflowUuid } : {}
+  }
+  return {
+    groupKind: 'subworkflow',
+    childNodeIds: [...(context.childrenByParent.get(nodeUuid) ?? [])],
+    descendantNodeIds: context.descendants(nodeUuid),
+    collapsedByDefault: true,
+    openChildWorkflowUuid: composite.workflowUuid,
+    ...(composite.visualKind ? { visualKind: composite.visualKind } : {}),
+    compositeSignature: [
+      String(context.graph.workflow.uuid || ''),
+      String(context.graph.workflow.revision ?? ''),
+      nodeUuid,
+      composite.contractDigest
+    ].join(':')
+  }
+}
+
+function projectMaterialSourceState(
+  node: AuthoringNode,
+  type: string,
+  resourceTemplateByUuid: Map<string, MaterialSourceTemplate>
+): Pick<WorkflowNode, 'materialSource'> {
+  if (type !== 'material_source') return {}
+  const param = isRecord(node.param) ? node.param : {}
+  const mount = isRecord(param.mount) ? param.mount : {}
+  const resourceTemplateUuid = String(param.resource_template_uuid || '')
+  const resourceTemplate = resourceTemplateByUuid.get(resourceTemplateUuid)
+  return {
+    materialSource: {
+      mode: String(param.mode || ''),
+      flowRole: String(param.flow_role || ''),
+      mountUuid: String(mount.uuid || ''),
+      resourceTemplateUuid,
+      ...(resourceTemplate?.shape ? { shape: resourceTemplate.shape } : {})
+    }
+  }
+}
+
+function nodeIndex(graph: WorkflowAuthoringGraph): Map<string, AuthoringNode> {
+  return new Map(graph.nodes.map((node) => [String(node.uuid || ''), node]))
+}
+
+function childNodeIndex(
+  graph: WorkflowAuthoringGraph,
+  nodeByUuid: Map<string, AuthoringNode>
+): Map<string, string[]> {
+  const index = new Map<string, string[]>()
   for (const node of graph.nodes) {
     const nodeUuid = String(node.uuid || '')
     const parentUuid = nullableString(node.parent_uuid)
     if (!nodeUuid || !parentUuid || !nodeByUuid.has(parentUuid)) continue
-    const children = childrenByParent.get(parentUuid) ?? []
+    const children = index.get(parentUuid) ?? []
     children.push(nodeUuid)
-    childrenByParent.set(parentUuid, children)
+    index.set(parentUuid, children)
   }
-  const compositeByNode = new Map<string, PublishedWorkflowProjection>()
+  return index
+}
+
+function compositeNodeIndex(
+  graph: WorkflowAuthoringGraph,
+  templates: Map<string, AuthoringNodeTemplate>
+): Map<string, PublishedWorkflowProjection> {
+  const index = new Map<string, PublishedWorkflowProjection>()
   for (const node of graph.nodes) {
     const nodeUuid = String(node.uuid || '')
     const templateUuid = String(node.workflow_node_template_uuid || '')
     const projection = publishedWorkflowProjection(templates.get(templateUuid))
-    if (nodeUuid && projection) compositeByNode.set(nodeUuid, projection)
+    if (nodeUuid && projection) index.set(nodeUuid, projection)
   }
+  return index
+}
+
+function graphHierarchyNavigation(
+  nodeByUuid: Map<string, AuthoringNode>,
+  childrenByParent: Map<string, string[]>,
+  compositeByNode: Map<string, PublishedWorkflowProjection>
+): {
+  owningComposite: (nodeUuid: string) => string | null
+  descendants: (nodeUuid: string) => string[]
+} {
   const owningComposite = (nodeUuid: string): string | null => {
     let current = nodeByUuid.get(nodeUuid)
     const visited = new Set<string>()
@@ -141,95 +283,7 @@ export function projectPersistentAuthoringGraph(
     visit(nodeUuid)
     return result
   }
-  const nodes: WorkflowNode[] = graph.nodes.map((node) => {
-    const nodeUuid = String(node.uuid)
-    const templateUuid = String(node.workflow_node_template_uuid || '')
-    const template = templates.get(templateUuid)
-    const composite = compositeByNode.get(nodeUuid)
-    const parentUuid = nullableString(node.parent_uuid)
-    const ownerUuid = composite ? nodeUuid : owningComposite(nodeUuid)
-    const owner = ownerUuid ? compositeByNode.get(ownerUuid) : undefined
-    const type = String(
-      node.type || template?.node_type || template?.type || 'action'
-    )
-    const position = nodePosition(node.pose)
-    const param = isRecord(node.param) ? node.param : {}
-    const mount = isRecord(param.mount) ? param.mount : {}
-    const resourceTemplateUuid = String(param.resource_template_uuid || '')
-    const resourceTemplate = resourceTemplateByUuid.get(resourceTemplateUuid)
-    return {
-      id: nodeUuid,
-      name: String(
-        node.name || template?.display_name || template?.name || node.uuid
-      ),
-      type,
-      className: String(
-        node.action_type || node.action_name || template?.class || type
-      ),
-      labNodeType: type,
-      handles: handlesByTemplate.get(templateUuid) ?? [],
-      ...(parentUuid && nodeByUuid.has(parentUuid)
-        ? { parentGroupId: parentUuid, authoringReadOnly: true }
-        : {}),
-      ...(composite
-        ? {
-            groupKind: 'subworkflow' as const,
-            childNodeIds: [...(childrenByParent.get(nodeUuid) ?? [])],
-            descendantNodeIds: descendants(nodeUuid),
-            collapsedByDefault: true,
-            openChildWorkflowUuid: composite.workflowUuid,
-            ...(composite.visualKind
-              ? { visualKind: composite.visualKind }
-              : {}),
-            compositeSignature: [
-              String(graph.workflow.uuid || ''),
-              String(graph.workflow.revision ?? ''),
-              nodeUuid,
-              composite.contractDigest
-            ].join(':')
-          }
-        : owner
-          ? { openChildWorkflowUuid: owner.workflowUuid }
-          : {}),
-      ...(type === 'material_source'
-        ? {
-            materialSource: {
-              mode: String(param.mode || ''),
-              flowRole: String(param.flow_role || ''),
-              mountUuid: String(mount.uuid || ''),
-              resourceTemplateUuid,
-              ...(resourceTemplate?.shape
-                ? { shape: resourceTemplate.shape }
-                : {})
-            }
-          }
-        : {}),
-      ...position
-    }
-  })
-  const links: WorkflowLink[] = graph.edges.map((edge) => {
-    const metaData = isRecord(edge.meta_data) ? edge.meta_data : {}
-    return {
-      source: String(edge.source_node_uuid),
-      target: String(edge.target_node_uuid),
-      type: 'control',
-      sourceHandleUuid: String(edge.source_handle_uuid || ''),
-      targetHandleUuid: String(edge.target_handle_uuid || ''),
-      branch: typeof metaData.branch === 'string'
-        ? metaData.branch
-        : null
-    }
-  })
-  return {
-    nodes,
-    links,
-    steps: graph.nodes.map((node) => ({
-      action: String(node.action_name || node.type || 'action'),
-      args: isRecord(node.param) ? node.param : {},
-      schema: null
-    })),
-    error: null
-  }
+  return { owningComposite, descendants }
 }
 
 /**
@@ -433,13 +487,6 @@ function finite(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value)
     ? value
     : undefined
-}
-
-function stringArrayOrNull(value: unknown): string[] | null | undefined {
-  if (value === null) return null
-  if (!Array.isArray(value)) return undefined
-  if (!value.every((item) => typeof item === 'string')) return undefined
-  return [...value]
 }
 
 function nullableString(value: unknown): string | null {

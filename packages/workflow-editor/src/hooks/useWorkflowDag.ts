@@ -256,7 +256,7 @@ function buildFlowElements(
       const sourceName = nodeNames.get(link.source) ?? link.source
       const targetName = nodeNames.get(link.target) ?? link.target
       return {
-        id: `e-${link.source}-${link.target}-${index}`,
+        id: link.id || `e-${link.source}-${link.target}-${index}`,
         source: link.source,
         target: link.target,
         sourceHandle: link.sourceHandleUuid || undefined,

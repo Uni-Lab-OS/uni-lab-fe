@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  CANVAS_EDIT_WORKFLOW_CANVAS,
   READ_ONLY_WORKFLOW_CANVAS,
   workflowCandidateMaterializationDecision,
   visibleReadOnlyEdgeChanges,
@@ -88,6 +89,16 @@ describe('read-only workflow canvas policy', () => {
         { id: 'edge-1', type: 'select', selected: true }
       ])
     ).toEqual([{ id: 'edge-1', type: 'select', selected: true }])
+  })
+})
+
+describe('editable workflow canvas deletion policy', () => {
+  /** 验证画布模式把两个标准删除键交给 ReactFlow 处理选中元素。 */
+  it('enables Delete and Backspace for selected canvas elements', () => {
+    expect(CANVAS_EDIT_WORKFLOW_CANVAS.deleteKeyCode).toEqual([
+      'Delete',
+      'Backspace'
+    ])
   })
 })
 

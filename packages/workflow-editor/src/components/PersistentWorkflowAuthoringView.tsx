@@ -46,6 +46,7 @@ export function PersistentWorkflowAuthoringView({
     codeProjection,
     completedTaskJobCount,
     connectTypedHandles,
+    deleteCanvasElements,
     debugBreakpoints,
     debugExecutionScope,
     diagnostics,
@@ -683,6 +684,7 @@ export function PersistentWorkflowAuthoringView({
                     onBeautify={beautifyCanvasLayout}
                     canvasMutationEnabled={policy.canvasMutationEnabled}
                     onConnectHandles={connectTypedHandles}
+                    onDeleteRequest={deleteCanvasElements}
                   />
                 </div>
                 {mode === 'canvas' && selectedNodeUuid && (
