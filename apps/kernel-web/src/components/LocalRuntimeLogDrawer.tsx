@@ -20,6 +20,7 @@ import {
   type LocalRuntimeLogLevel
 } from './localRuntimeLogFormatting'
 import { LOCAL_RUNTIME_LOG_MAX_LINES } from './localRuntimeLogModel'
+import { projectLocalRuntimeLogEntry } from './localRuntimePreconditionLogs'
 import styles from './LocalRuntimeLauncher.module.scss'
 
 export { detectPhoenixObservabilityDependencyIssue } from './localRuntimeLogFormatting'
@@ -107,9 +108,7 @@ export function LocalRuntimeLogDrawer({
   const drawerId = `local-runtime-log-drawer${idSuffix}`
   const titleId = `local-runtime-log-title${idSuffix}`
   const outputId = `local-runtime-log-output${idSuffix}`
-  const activeEntry = snapshot?.entries.find(
-    (entry) => entry.kind === activeKind
-  )
+  const activeEntry = projectLocalRuntimeLogEntry(snapshot, activeKind)
   const hasActiveOutput = Boolean(activeEntry?.available && activeEntry.content)
   const formattedRows = useMemo(
     () => formatLocalRuntimeLog(activeEntry?.content ?? ''),
@@ -359,9 +358,7 @@ export function LocalRuntimeLogDrawer({
 
         <div className={styles.logTabs} role="tablist" aria-label="日志来源">
           {LOG_TABS.map((tab) => {
-            const entry = snapshot?.entries.find(
-              (candidate) => candidate.kind === tab.kind
-            )
+            const entry = projectLocalRuntimeLogEntry(snapshot, tab.kind)
             const hasOutput = Boolean(entry?.available && entry.content)
             return (
               <button

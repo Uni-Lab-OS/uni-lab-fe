@@ -1,3 +1,8 @@
+import {
+  ACTION_FEEDBACK_LOG_MARKER,
+  parseMarkedPayload
+} from './localRuntimePreconditionLogs'
+
 export type LocalRuntimeLogLevel =
   | 'trace'
   | 'debug'
@@ -195,6 +200,9 @@ function isPythonTracebackChainSeparator(message: string): boolean {
 function formatLocalRuntimeLogLine(
   line: string
 ): FormattedLocalRuntimeLogRow {
+  const actionFeedback = formatActionFeedbackLogLine(line)
+  if (actionFeedback) return actionFeedback
+
   const launcher = line.match(/^\[launcher\]\s+(\S+)\s*(.*)$/)
   if (launcher) {
     return {
@@ -263,6 +271,108 @@ function formatLocalRuntimeLogLine(
   }
 
   return { time: '', level: 'plain', source: '', message: line }
+}
+
+/** 把固定结构化动作反馈转换为 PLC/运行日志的可读诊断行。 */
+function formatActionFeedbackLogLine(
+  line: string
+): FormattedLocalRuntimeLogRow | null {
+  if (!line.includes(ACTION_FEEDBACK_LOG_MARKER)) return null
+  const payload = parseMarkedPayload(line)
+  if (!payload) return null
+  const phase = textValue(payload.phase)
+  const diagnosticEvent = textValue(payload.diagnostic_event) || phase
+  const observedAt = textValue(payload.observed_at)
+  const effect = recordValue(payload.effect)
+  const eventLabel = actionFeedbackEventLabel(diagnosticEvent)
+  const fields = [
+    `工作流任务（WorkflowTask） ${textValue(payload.task_uuid) || '—'}`,
+    `作业（Job） ${textValue(payload.job_uuid) || '—'}`,
+    `派发效果（DispatchEffect） ${
+      textValue(effect?.identity) || textValue(payload.feedback_event_id) || '—'
+    }`
+  ]
+  if (payload.sensor !== undefined) {
+    fields.push(`变量 ${displayLogValue(payload.sensor)}`)
+  }
+  if (payload.position !== undefined) {
+    fields.push(`位置 ${displayLogValue(payload.position)}`)
+  }
+  if (payload.expected_value !== undefined) {
+    fields.push(`期望 ${displayLogValue(payload.expected_value)}`)
+  }
+  if (payload.actual_value !== undefined) {
+    fields.push(`实际 ${displayLogValue(payload.actual_value)}`)
+  }
+  if (payload.elapsed_s !== undefined && payload.timeout_s !== undefined) {
+    fields.push(
+      `已等待 ${displayLogValue(payload.elapsed_s)} 秒/` +
+      `${displayLogValue(payload.timeout_s)} 秒`
+    )
+  }
+  if (observedAt) fields.push(`时间 ${observedAt}`)
+
+  return {
+    time: compactLogTime(observedAt),
+    level: diagnosticEvent === 'timed_out' ? 'warning' :
+      phase === 'terminal' && textValue(payload.outcome) !== 'succeeded'
+        ? 'error'
+        : 'info',
+    source: phase === 'waiting_precondition'
+      ? 'PLC 前置诊断'
+      : 'PLC 阶段诊断',
+    message: [
+      `${diagnosticEvent || 'action_feedback'} · ${eventLabel}`,
+      ...fields
+    ].join(' · ')
+  }
+}
+
+function actionFeedbackEventLabel(event: string): string {
+  switch (event) {
+    case 'precondition_check_started':
+      return '请求已到达 PLC 网关'
+    case 'waiting':
+      return '正在等待前置传感器'
+    case 'satisfied':
+      return '前置传感器已满足'
+    case 'timed_out':
+      return '前置传感器等待超时'
+    case 'writing_parameters':
+      return '正在写入 PLC 参数'
+    case 'processing':
+      return 'PLC 正在加工'
+    case 'waiting_completion':
+      return '正在等待 PLC 完成信号'
+    case 'terminal':
+      return '动作已进入终态'
+    default:
+      return '设备动作阶段更新'
+  }
+}
+
+function textValue(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function displayLogValue(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    value === null
+  ) return String(value)
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
 }
 
 /**

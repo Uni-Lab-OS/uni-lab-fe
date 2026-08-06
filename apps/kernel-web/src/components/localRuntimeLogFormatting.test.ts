@@ -119,4 +119,66 @@ describe('localRuntimeLogFormatting', () => {
       'ValueError: invalid volume'
     ].join('\n'))
   })
+
+  it('格式化可关联 Task、Job、派发效果与 PLC 变量的前置诊断', () => {
+    const payload = {
+      phase: 'waiting_precondition',
+      diagnostic_event: 'waiting',
+      observed_at: '2026-08-06T04:00:05Z',
+      task_uuid: 'task-s04',
+      job_uuid: 'job-s04',
+      effect: { identity: 'job-s04:2', phase: 'waiting_precondition' },
+      sensor: '传感器状态_上位机[2].NO[10]',
+      position: 1,
+      expected_value: true,
+      actual_value: false,
+      elapsed_s: 5,
+      timeout_s: 300,
+      remaining_s: 295
+    }
+    const rows = formatLocalRuntimeLog(
+      `26-08-06 [12:00:05,000] [INFO] unilabos [UNILAB-ACTION-FEEDBACK] ${
+        JSON.stringify(payload)
+      } [publish_action_feedback:1] [unilabos.ros.action_feedback]`
+    )
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      time: '04:00:05Z',
+      level: 'info',
+      source: 'PLC 前置诊断'
+    })
+    expect(rows[0]?.message).toContain('waiting · 正在等待前置传感器')
+    expect(rows[0]?.message).toContain('工作流任务（WorkflowTask） task-s04')
+    expect(rows[0]?.message).toContain('作业（Job） job-s04')
+    expect(rows[0]?.message).toContain('派发效果（DispatchEffect） job-s04:2')
+    expect(rows[0]?.message).toContain('变量 传感器状态_上位机[2].NO[10]')
+    expect(rows[0]?.message).toContain('位置 1')
+    expect(rows[0]?.message).toContain('期望 true')
+    expect(rows[0]?.message).toContain('实际 false')
+    expect(rows[0]?.message).toContain('已等待 5 秒/300 秒')
+  })
+
+  it.each([
+    ['precondition_check_started', '请求已到达 PLC 网关', 'info'],
+    ['satisfied', '前置传感器已满足', 'info'],
+    ['timed_out', '前置传感器等待超时', 'warning']
+  ] as const)(
+    '格式化 %s 事件',
+    (diagnosticEvent, label, level) => {
+      const rows = formatLocalRuntimeLog(
+        `[UNILAB-ACTION-FEEDBACK] ${JSON.stringify({
+          phase: 'waiting_precondition',
+          diagnostic_event: diagnosticEvent,
+          observed_at: '2026-08-06T04:00:00Z',
+          task_uuid: 'task-s04',
+          job_uuid: 'job-s04',
+          effect: { identity: 'job-s04:1' }
+        })}`
+      )
+
+      expect(rows[0]?.message).toContain(`${diagnosticEvent} · ${label}`)
+      expect(rows[0]?.level).toBe(level)
+    }
+  )
 })
