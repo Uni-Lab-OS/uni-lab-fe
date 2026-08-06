@@ -21,6 +21,7 @@ import {
   matchDeviceActionTemplate,
   serializeDeviceActionInput
 } from './deviceActionRun'
+import { startDeviceActionTaskRecovery } from './deviceActionTaskRecovery'
 import styles from './DevicePanel.module.scss'
 import {
   ConnectionSummary,
@@ -91,7 +92,7 @@ export default function DevicePanel(): React.JSX.Element {
   const feedbackByTaskRef = useRef<Map<string, DeviceActionFeedbackState>>(
     new Map()
   )
-  const refreshByTaskRef = useRef<Map<string, Promise<void>>>(new Map())
+  const refreshByTaskRef = useRef<Map<string, Promise<boolean>>>(new Map())
   const canForceUnlock = services.capabilities.devices.forceUnlock
   const canRunActionTask = services.capabilities.devices.runActionTask
 
@@ -270,7 +271,7 @@ export default function DevicePanel(): React.JSX.Element {
   const refreshDeviceActionTask = useCallback(async (
     taskUuid: string,
     actionRef: string
-  ) => {
+  ): Promise<boolean> => {
     const view = await services.deviceActionTasks.getDeviceActionTask(taskUuid)
     const previous = feedbackByTaskRef.current.get(taskUuid) ?? {
       cursor: 0,
@@ -303,15 +304,17 @@ export default function DevicePanel(): React.JSX.Element {
         state: projectDeviceActionTask(view, feedback)
       }
     })
-    if (isTerminalDeviceActionTask(view.status)) {
+    const terminal = isTerminalDeviceActionTask(view.status)
+    if (terminal) {
       await refresh()
     }
+    return terminal
   }, [refresh, services.deviceActionTasks, services.workflow])
 
   const queueDeviceActionTaskRefresh = useCallback((
     taskUuid: string,
     actionRef: string
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     const previous = refreshByTaskRef.current.get(taskUuid) ?? Promise.resolve()
     const next = previous
       .catch(() => undefined)
@@ -326,23 +329,29 @@ export default function DevicePanel(): React.JSX.Element {
     return next
   }, [refreshDeviceActionTask])
 
-  const activeTaskUuid = runOperation?.state && 'taskUuid' in runOperation.state
+  const activeTaskUuid = runOperation?.state && (
+    runOperation.state.kind === 'accepted' ||
+    runOperation.state.kind === 'running'
+  ) && 'taskUuid' in runOperation.state
     ? runOperation.state.taskUuid
     : null
   useEffect(() => {
     if (!activeTaskUuid || !runOperation) return
     const actionRef = runOperation.actionRef
-    const subscription = services.workflow.subscribeWorkflowRuntime((event) => {
-      if (
-        event.event !== 'device_action_task.changed' ||
-        event.data.task_uuid !== activeTaskUuid
-      ) return
-      void queueDeviceActionTaskRefresh(activeTaskUuid, actionRef).catch((error) => {
+    const recovery = startDeviceActionTaskRecovery({
+      tasks: [{ taskUuid: activeTaskUuid, actionRef }],
+      subscribe: (listener, options) =>
+        services.workflow.subscribeWorkflowRuntime(listener, options),
+      read: (task) => queueDeviceActionTaskRefresh(
+        task.taskUuid,
+        task.actionRef
+      ),
+      onError: (task, error) => {
         setRunOperation((current) => {
           if (
             !current ||
             !('taskUuid' in current.state) ||
-            current.state.taskUuid !== activeTaskUuid
+            current.state.taskUuid !== task.taskUuid
           ) {
             return current
           }
@@ -356,9 +365,9 @@ export default function DevicePanel(): React.JSX.Element {
             }
           }
         })
-      })
+      }
     })
-    return () => subscription.dispose()
+    return () => recovery.dispose()
   }, [
     activeTaskUuid,
     queueDeviceActionTaskRefresh,
