@@ -7,6 +7,7 @@ import {
   DeviceLockControl,
   UnlockConfirmationDialog
 } from './DevicePanel'
+import { projectDeviceActionTask } from './DeviceActionAvailability'
 
 describe('device action Runtime availability', () => {
   it('re-enables the original run control only for a typed D1A Action', () => {
@@ -122,6 +123,57 @@ describe('device action Runtime availability', () => {
     expect(markup).toContain('Action 运行日志')
     expect(markup).toContain('&quot;events&quot;')
     expect(markup).toContain('&quot;progress&quot;: 0.5')
+  })
+
+  it('rehydrates the durable waiting phase into a material timer', () => {
+    const feedback = [{
+      uuid: '10000000-0000-4000-8000-000000000010',
+      create_time: '2026-08-06T04:00:05Z',
+      update_time: '2026-08-06T04:00:05Z',
+      meta_data: {},
+      workflow_node_job_uuid: '10000000-0000-4000-8000-000000000002',
+      sequence: 3,
+      feedback_type: 'action_phase',
+      data: {
+        phase: 'waiting_precondition',
+        position: 2,
+        sensor: 'S04.material_present.2',
+        expected_value: true,
+        actual_value: false,
+        elapsed_s: 5,
+        timeout_s: 300,
+        remaining_s: 295
+      },
+      observed_at: '2026-08-06T04:00:05Z',
+      received_at: '2026-08-06T04:00:05Z',
+      idempotency_key: 'd1a:job:job:3'
+    }]
+    const state = projectDeviceActionTask({
+      task_uuid: '10000000-0000-4000-8000-000000000001',
+      job_uuid: '10000000-0000-4000-8000-000000000002',
+      authority_id: 'catalog',
+      template_catalog_fingerprint: `sha256:${'a'.repeat(64)}`,
+      workflow_node_template_uuid: '10000000-0000-4000-8000-000000000003',
+      name: 'run_stirring',
+      display_name: '磁搅',
+      device_id: 'stirrer',
+      status: 'running',
+      control_status: 'active',
+      cleanup_status: 'none',
+      input: {},
+      output: {},
+      error_info: [],
+      job_status: 'running',
+      feedback_cursor: 3,
+      create_time: '2026-08-06T04:00:00Z',
+      update_time: '2026-08-06T04:00:05Z',
+      started_at: '2026-08-06T04:00:00Z',
+      finished_at: null
+    }, feedback)
+
+    expect(state.message).toBe('等待物料到位 · 位置 2 · 已等待 5 秒/300 秒')
+    if (!('feedback' in state)) throw new Error('expected projected feedback')
+    expect(state.feedback).toEqual(feedback)
   })
 })
 

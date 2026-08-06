@@ -94,7 +94,8 @@ export function projectDeviceActionTask(
       kind: 'running',
       message: view.status === 'canceling'
         ? '取消正在生效，等待设备终态'
-        : `设备正在执行 · Job ${view.job_status}`,
+        : actionPhaseMessage(feedback) ??
+          `设备正在执行 · 作业 ${view.job_status}`,
       ...projection
     }
   }
@@ -103,6 +104,44 @@ export function projectDeviceActionTask(
     message: '任务已接受，正在等待设备',
     ...projection
   }
+}
+
+function actionPhaseMessage(
+  feedback: readonly WorkflowNodeJobFeedback[]
+): string | null {
+  const data = [...feedback]
+    .sort((left, right) => right.sequence - left.sequence)[0]?.data
+  if (!data || typeof data.phase !== 'string') return null
+  const position = typeof data.position === 'number' ||
+    typeof data.position === 'string'
+    ? ` · 位置 ${String(data.position)}`
+    : ''
+  const elapsed = finiteNumber(data.elapsed_s)
+  const timeout = finiteNumber(data.timeout_s)
+  const timing = elapsed !== null && timeout !== null
+    ? ` · 已等待 ${formatSeconds(elapsed)}/${formatSeconds(timeout)}`
+    : ''
+  if (data.phase === 'waiting_precondition') {
+    return `等待物料到位${position}${timing}`
+  }
+  if (data.phase === 'writing_parameters') {
+    return `正在写入设备参数${position}`
+  }
+  if (data.phase === 'processing') {
+    return `设备正在加工${position}`
+  }
+  if (data.phase === 'waiting_completion') {
+    return `等待设备完成信号${position}${timing}`
+  }
+  return null
+}
+
+function finiteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function formatSeconds(value: number): string {
+  return `${Number.isInteger(value) ? value : value.toFixed(1)} 秒`
 }
 
 export function isTerminalDeviceActionTask(status: string): boolean {
