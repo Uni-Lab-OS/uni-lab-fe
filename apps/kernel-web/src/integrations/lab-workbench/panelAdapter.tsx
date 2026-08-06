@@ -40,6 +40,7 @@ import { workflowUuidFromPanelConfig } from './workflowSessions'
 export interface LabPanelScope {
   services: Services
   interaction: LabInteractionStore
+  workflowCatalogRequestRevision: number
   onWorkflowUnsavedChangesChange?: (
     sessionId: string,
     hasUnsavedChanges: boolean
@@ -227,6 +228,7 @@ function WorkflowRenderer(
           }`
         )
       }.v1`}
+      catalogRequestRevision={props.scope.workflowCatalogRequestRevision}
       onUnsavedChangesChange={(hasUnsavedChanges) => {
         props.scope.onWorkflowUnsavedChangesChange?.(
           props.panelInstance.id,
@@ -296,10 +298,16 @@ export function useLabPanelAdapter(
   onWorkflowUnsavedChangesChange?: (
     sessionId: string,
     hasUnsavedChanges: boolean
-  ) => void
+  ) => void,
+  workflowCatalogRequestRevision = 0
 ): PanelAppAdapter<LabPanelScope> {
   const services = useServices()
   const interaction = useLabInteractionStore()
+  const workflowCatalogRequestRevisionRef = useRef(
+    workflowCatalogRequestRevision
+  )
+  // 导航命令变化不能重建适配器，否则面板宿主会卸载并丢失本次命令。
+  workflowCatalogRequestRevisionRef.current = workflowCatalogRequestRevision
 
   return useMemo<PanelAppAdapter<LabPanelScope>>(
     () => ({
@@ -310,6 +318,8 @@ export function useLabPanelAdapter(
         resolve: () => ({
           services,
           interaction,
+          workflowCatalogRequestRevision:
+            workflowCatalogRequestRevisionRef.current,
           onWorkflowUnsavedChangesChange
         })
       },
@@ -338,6 +348,10 @@ export function useLabPanelAdapter(
         }
       }
     }),
-    [interaction, onWorkflowUnsavedChangesChange, services]
+    [
+      interaction,
+      onWorkflowUnsavedChangesChange,
+      services
+    ]
   )
 }

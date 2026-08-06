@@ -21,26 +21,31 @@ import { WorkflowDirtySessions } from './workflowSessions'
 
 export function LabPanelWorkspace({
   preset,
-  onWorkflowUnsavedChangesChange
+  onWorkflowUnsavedChangesChange,
+  workflowCatalogRequestRevision = 0
 }: {
   preset: LabPanelPreset
   onWorkflowUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void
+  workflowCatalogRequestRevision?: number
 }): React.JSX.Element {
   return (
     <LabPanelWorkspaceSession
       key={preset}
       preset={preset}
       onWorkflowUnsavedChangesChange={onWorkflowUnsavedChangesChange}
+      workflowCatalogRequestRevision={workflowCatalogRequestRevision}
     />
   )
 }
 
 function LabPanelWorkspaceSession({
   preset,
-  onWorkflowUnsavedChangesChange
+  onWorkflowUnsavedChangesChange,
+  workflowCatalogRequestRevision
 }: {
   preset: LabPanelPreset
   onWorkflowUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void
+  workflowCatalogRequestRevision: number
 }): React.JSX.Element {
   const parentDirtyCallback = useRef(onWorkflowUnsavedChangesChange)
   parentDirtyCallback.current = onWorkflowUnsavedChangesChange
@@ -56,7 +61,10 @@ function LabPanelWorkspaceSession({
   ) => {
     dirtySessions.current?.update(sessionId, hasUnsavedChanges)
   }, [])
-  const adapter = useLabPanelAdapter(handleWorkflowUnsavedChangesChange)
+  const adapter = useLabPanelAdapter(
+    handleWorkflowUnsavedChangesChange,
+    workflowCatalogRequestRevision
+  )
   const storageKey = `unilab.panel-layout.${preset}.v1`
   const [document, setDocument] = useState<PanelLayoutDocument>(
     () => panelPresetDocument(preset)

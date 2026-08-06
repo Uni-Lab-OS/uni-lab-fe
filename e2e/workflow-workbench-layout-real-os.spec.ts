@@ -129,6 +129,45 @@ test('编写模式只保留当前任务所需面板', async ({ page }, testInfo)
   expect(browserErrors).toEqual([])
 })
 
+test('再次点击工作流菜单返回工作流列表', async ({ page }) => {
+  test.setTimeout(90_000)
+  const activeWorkflowStorageKey = `unilab.workflow.active.${
+    encodeURIComponent(`local-python:${os.url}`)
+  }.v1`
+  await page.addInitScript(
+    ({ storageKey, workflowUuid }) => {
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({ version: 1, workflowId: workflowUuid })
+      )
+    },
+    {
+      storageKey: activeWorkflowStorageKey,
+      workflowUuid: os.workflowUuid
+    }
+  )
+
+  await page.goto(
+    `/?section=workflow&localOsUrl=${encodeURIComponent(os.url)}`
+  )
+  const navigation = page.getByRole('navigation', { name: '主导航' })
+  const workflowButton = navigation.getByRole('button', {
+    name: '工作流',
+    exact: true
+  })
+
+  await expect(page.getByText('完整控制流 DAG')).toBeVisible()
+  await workflowButton.click()
+
+  await expect(page.getByRole('heading', { name: '可用工作流' }))
+    .toBeVisible()
+  await expect(page.getByText('完整控制流 DAG')).toHaveCount(0)
+  await expect.poll(() => page.evaluate((storageKey) => {
+    const raw = localStorage.getItem(storageKey)
+    return raw ? JSON.parse(raw).workflowId : null
+  }, activeWorkflowStorageKey)).toBe('')
+})
+
 async function capture(
   page: Page,
   testInfo: TestInfo,

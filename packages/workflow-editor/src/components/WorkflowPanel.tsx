@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import type {
   WorkflowRuntimePort,
@@ -23,6 +23,7 @@ export interface WorkflowPanelProps {
   traceRuntime?: WorkflowTracePort
   resourceSlotOptionsPort?: WorkflowResourceSlotOptionsPort
   activeWorkflowStorageKey?: string
+  catalogRequestRevision?: number
   active?: boolean
   onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void
   onActiveWorkflowChange?: (workflowUuid: string | null) => void
@@ -44,6 +45,7 @@ export default function WorkflowPanel({
   traceRuntime,
   resourceSlotOptionsPort,
   activeWorkflowStorageKey,
+  catalogRequestRevision = 0,
   active = true,
   onUnsavedChangesChange,
   onActiveWorkflowChange,
@@ -54,10 +56,28 @@ export default function WorkflowPanel({
     string | null
   >(null)
   const [showCatalog, setShowCatalog] = useState(false)
+  const handledCatalogRequestRevision = useRef(catalogRequestRevision)
   const workflowUuid = showCatalog
     ? null
     : explicitWorkflowUuid || selectedWorkflowUuid ||
       readActiveWorkflowId(activeWorkflowStorageKey)
+
+  useEffect(() => {
+    if (
+      explicitWorkflowUuid ||
+      handledCatalogRequestRevision.current === catalogRequestRevision
+    ) {
+      return
+    }
+    handledCatalogRequestRevision.current = catalogRequestRevision
+    persistActiveWorkflowId(activeWorkflowStorageKey, '')
+    setSelectedWorkflowUuid(null)
+    setShowCatalog(true)
+  }, [
+    activeWorkflowStorageKey,
+    catalogRequestRevision,
+    explicitWorkflowUuid
+  ])
 
   useEffect(() => {
     const activeWorkflowUuid = workflowUuid && isWorkflowUuid(workflowUuid)

@@ -9,7 +9,7 @@
  * Human Review Status: [ ] Pending  [ ] Reviewed  [ ] Approved
  * ============================================================
  */
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useWorkbench } from '../context/WorkbenchContext';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -55,10 +55,17 @@ const NAV_ITEMS: readonly AppShellNavigationItem[] = [
 export default function AppShell(): React.JSX.Element {
   const { section, setSection } = useWorkbench();
   const { session, logout } = useAuth();
+  const [workflowCatalogRequestRevision, setWorkflowCatalogRequestRevision] =
+    useState(0);
   const handleNavigate = useCallback(
     (navigationId: string) => {
       const nextSection = navigationId as WorkbenchSection;
-      if (nextSection === section) return;
+      if (nextSection === section) {
+        if (nextSection === 'workflow') {
+          setWorkflowCatalogRequestRevision((revision) => revision + 1);
+        }
+        return;
+      }
       setSection(nextSection);
     },
     [section, setSection]
@@ -79,14 +86,21 @@ export default function AppShell(): React.JSX.Element {
       activeNavigationId={section}
       onNavigate={handleNavigate}
     >
-      <SectionView section={section} />
+      <SectionView
+        section={section}
+        workflowCatalogRequestRevision={workflowCatalogRequestRevision}
+      />
     </AppShellLayout>
   );
 }
 
 // 根据当前方向渲染对应面板
-function SectionView({ section }: {
+function SectionView({
+  section,
+  workflowCatalogRequestRevision
+}: {
   section: WorkbenchSection;
+  workflowCatalogRequestRevision: number;
 }): React.JSX.Element {
   if (section === 'device') return <DevicePanel />;
   if (section === 'cards') return <DeviceCardWorkbench />;
@@ -110,6 +124,7 @@ function SectionView({ section }: {
     <LabPanelWorkspace
       key="workflow-workspace"
       preset="workflow"
+      workflowCatalogRequestRevision={workflowCatalogRequestRevision}
     />
   );
 }
