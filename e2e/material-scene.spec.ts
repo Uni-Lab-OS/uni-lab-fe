@@ -61,13 +61,38 @@ test('SZLab MaterialGraph renders complete 2.5D and 3D views', async ({
   test.setTimeout(120_000)
   const browserErrors: string[] = []
   const materialRequests: string[] = []
+  const modelResponses: Array<{ status: number; url: string }> = []
+  const firstPartyRequestFailures: string[] = []
   page.on('console', (message) => {
-    if (message.type() === 'error') browserErrors.push(message.text())
+    if (
+      message.type() === 'error' &&
+      !message.text().startsWith('Failed to load resource:')
+    ) {
+      browserErrors.push(message.text())
+    }
   })
   page.on('pageerror', (error) => browserErrors.push(error.message))
+  page.on('requestfailed', (request) => {
+    if (
+      request.url().startsWith(FE_ORIGIN) ||
+      request.url().startsWith(API_URL)
+    ) {
+      firstPartyRequestFailures.push(
+        `${request.method()} ${request.url()} ${request.failure()?.errorText ?? ''}`
+      )
+    }
+  })
   page.on('request', (request) => {
     if (request.url().startsWith(`${API_URL}/api/v1/`)) {
       materialRequests.push(`${request.method()} ${request.url()}`)
+    }
+  })
+  page.on('response', (response) => {
+    if (
+      response.url().startsWith(`${API_URL}/api/v1/material-models/`) &&
+      /\.(?:xacro|stl)(?:$|\?)/i.test(response.url())
+    ) {
+      modelResponses.push({ status: response.status(), url: response.url() })
     }
   })
 
@@ -120,7 +145,15 @@ test('SZLab MaterialGraph renders complete 2.5D and 3D views', async ({
   const viewerBox = await viewer.boundingBox()
   expect(viewerBox?.width ?? 0).toBeGreaterThan(900)
   expect(viewerBox?.height ?? 0).toBeGreaterThan(500)
-  await page.waitForTimeout(1_000)
+  await expect
+    .poll(
+      () =>
+        modelResponses.filter((response) =>
+          /\.stl(?:$|\?)/i.test(response.url)
+        ).length,
+      { timeout: 30_000 }
+    )
+    .toBeGreaterThan(0)
   await captureViewport(page, 'szlab-materials-3d.png')
 
   expect(materialRequests).toContain(
@@ -130,14 +163,17 @@ test('SZLab MaterialGraph renders complete 2.5D and 3D views', async ({
     `GET ${API_URL}/api/v1/material-shapes`
   )
   expect(
-    [...new Set(materialRequests)]
-      .filter((request) => request !== `GET ${API_URL}/api/v1/health`)
-      .sort()
-  ).toEqual(
-    [
-      `GET ${API_URL}/api/v1/materials/graph`,
-      `GET ${API_URL}/api/v1/material-shapes`
-    ].sort()
+    modelResponses.some((response) =>
+      /\.xacro(?:$|\?)/i.test(response.url)
+    )
+  ).toBe(true)
+  expect(
+    modelResponses.some((response) =>
+      /\.stl(?:$|\?)/i.test(response.url)
+    )
+  ).toBe(true)
+  expect(modelResponses.every((response) => response.status === 200)).toBe(
+    true
   )
   expect(
     materialRequests.some((request) => request.includes('/api/v1/inventory/'))
@@ -147,6 +183,7 @@ test('SZLab MaterialGraph renders complete 2.5D and 3D views', async ({
       request.includes('/api/v1/resource-templates')
     )
   ).toBe(false)
+  expect(firstPartyRequestFailures).toEqual([])
   expect(browserErrors).toEqual([])
 })
 

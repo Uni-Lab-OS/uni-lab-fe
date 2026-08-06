@@ -1,7 +1,12 @@
 import { Mesh, type Material } from 'three'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { loadLabDeviceModel } from './modelRuntime'
+import {
+  buildDeviceXacro,
+  loadLabDeviceModel,
+  resolveModelDirectory,
+  shouldInstantiateXacro
+} from './modelRuntime'
 import { LabDeviceNodeSchema } from './schema'
 
 describe('Pascal model runtime', () => {
@@ -33,6 +38,43 @@ describe('Pascal model runtime', () => {
       (material as Material & { color: { getHexString(): string } }).color
         .getHexString()
     ).toBe('22c55e')
+  })
+
+  it('uses the projected macro and model directory for packaged Xacro', () => {
+    const source = buildDeviceXacro(
+      'http://127.0.0.1:8014/api/v1/material-models/szlab/device.xacro',
+      'mixer robot',
+      'szlab_mixer_robot',
+      'http://127.0.0.1:8014/api/v1/material-models/szlab/models'
+    )
+
+    expect(source).toContain('<xacro:szlab_mixer_robot')
+    expect(source).toContain(
+      'mesh_path="http://127.0.0.1:8014/api/v1/material-models/szlab/models"'
+    )
+  })
+
+  it('resolves a package-relative mesh directory against the Edge origin', () => {
+    expect(
+      resolveModelDirectory(
+        'http://127.0.0.1:8014/api/v1/material-models/szlab/models/device.xacro',
+        '/api/v1/material-models/szlab/models'
+      )
+    ).toBe('http://127.0.0.1:8014/api/v1/material-models/szlab/models')
+  })
+
+  it('instantiates declared macros from packaged resource Xacro files', () => {
+    expect(
+      shouldInstantiateXacro(
+        'http://127.0.0.1:8014/api/v1/material-models/szlab/resources/beaker/models/resource.xacro',
+        'szlab_beaker_500ml'
+      )
+    ).toBe(true)
+    expect(
+      shouldInstantiateXacro(
+        'http://127.0.0.1:8014/api/v1/material-models/szlab/resources/plain/models/resource.xacro'
+      )
+    ).toBe(false)
   })
 })
 

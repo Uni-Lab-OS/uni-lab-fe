@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import signal
 import uuid
 from pathlib import Path
 
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
+
+if not hasattr(signal, "SIGRTMAX"):
+    signal.SIGRTMAX = signal.SIGTERM
 
 from unilabos.app.scheduler.inventory import (
     InventoryService,
@@ -63,6 +67,7 @@ def main() -> None:
         working_dir=args.working_dir,
         resource_templates=templates,
         material_shapes=package_projection.shapes,
+        material_model_assets=package_projection.model_assets,
     )
     inventory.bootstrap_resource_graph(
         build_resource_graph_import(

@@ -169,11 +169,19 @@ function recoverAbsoluteUrl(url: string): string {
   return httpIndex >= 0 ? url.slice(httpIndex) : url
 }
 
-function buildDeviceXacro(modelPath: string, deviceName: string): string {
-  const macroName = modelPath.split('/').slice(-2)[0] || 'device'
-  const meshPath = modelPath.includes('/devices/')
-    ? modelPath.split('/devices/')[0]
-    : modelPath.split('/resources/')[0]
+export function buildDeviceXacro(
+  modelPath: string,
+  deviceName: string,
+  declaredMacro?: string,
+  declaredMeshPath?: string
+): string {
+  const macroName =
+    declaredMacro || modelPath.split('/').slice(-2)[0] || 'device'
+  const meshPath =
+    declaredMeshPath ||
+    (modelPath.includes('/devices/')
+      ? modelPath.split('/devices/')[0]
+      : modelPath.split('/resources/')[0])
 
   return `<?xml version="1.0" ?>
 <robot xmlns:xacro="http://ros.org/wiki/xacro" name="${deviceName}">
@@ -224,15 +232,15 @@ async function loadXacro(
   url: string,
   node: LabDeviceNode
 ): Promise<Object3D> {
-  const meshPath = url.includes('/devices/')
-    ? url.split('/devices/')[0]
-    : url.split('/resources/')[0]
+  const meshPath = resolveModelDirectory(url, node.model.meshDir)
   const yamlCache = await preloadXacroYaml(url, meshPath)
-  if (url.includes('/devices/')) {
+  if (shouldInstantiateXacro(url, node.model.macro)) {
     return parseXacro(
       buildDeviceXacro(
         url,
-        node.rosDeviceName || node.displayName || 'device'
+        node.rosDeviceName || node.displayName || 'device',
+        node.model.macro,
+        meshPath
       ),
       LoaderUtils.extractUrlBase(url),
       node.id,
@@ -268,6 +276,31 @@ async function loadXacro(
       }
     )
   })
+}
+
+export function shouldInstantiateXacro(
+  modelPath: string,
+  declaredMacro?: string
+): boolean {
+  return Boolean(declaredMacro) || modelPath.includes('/devices/')
+}
+
+export function resolveModelDirectory(
+  resolvedModelUrl: string,
+  declaredMeshDir?: string
+): string {
+  if (declaredMeshDir) {
+    try {
+      return new URL(declaredMeshDir, resolvedModelUrl)
+        .toString()
+        .replace(/\/$/, '')
+    } catch {
+      return declaredMeshDir.replace(/\/$/, '')
+    }
+  }
+  return resolvedModelUrl.includes('/devices/')
+    ? resolvedModelUrl.split('/devices/')[0]
+    : resolvedModelUrl.split('/resources/')[0]
 }
 
 const DEGREE_TAG = /!degrees\s+([-\d.]+)/g

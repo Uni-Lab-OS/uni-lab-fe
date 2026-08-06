@@ -20,6 +20,8 @@ describe('Material Aggregate / Pascal bridge', () => {
           dimensionsMm: [500, 700, 400],
           model: {
             path: '/assets/robot.xacro',
+            macro: 'szlab_mixer_robot',
+            meshDir: '/assets/robot/models',
             attachPoints: [{ link: 'tool0' }]
           }
         }
@@ -43,7 +45,9 @@ describe('Material Aggregate / Pascal bridge', () => {
     expectTupleCloseTo(node.position, [0.1, 0.3, -0.2])
     expect(node.model).toMatchObject({
       path: '/assets/robot.xacro',
-      format: 'xacro'
+      format: 'xacro',
+      macro: 'szlab_mixer_robot',
+      meshDir: '/assets/robot/models'
     })
     expect(node.model.attachPoints.map((point) => point.link)).toEqual([
       'tool0'
@@ -242,6 +246,7 @@ describe('Material Aggregate / Pascal bridge', () => {
     expectTupleCloseTo(node.position, [0.6, 0.3, -0.3])
     expect(sceneGraphToMaterialMoves(scene, [parent, child])).toEqual([])
   })
+
 })
 
 function aggregate(

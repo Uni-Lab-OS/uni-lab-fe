@@ -103,6 +103,7 @@ export const LabDeviceNodeSchema = BaseNode.extend({
       path: z.string().default(''),
       format: LabModelFormatSchema.default('gltf'),
       meshDir: z.string().optional(),
+      macro: z.string().optional(),
       ossDir: z.string().optional(),
       version: z.string().optional(),
       type: z.string().optional(),

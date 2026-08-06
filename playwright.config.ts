@@ -7,6 +7,7 @@ const baseURL =
   (materialCreateFixture
     ? 'http://127.0.0.1:4174'
     : 'http://127.0.0.1:4173')
+const browserChannel = process.env.UNILAB_E2E_BROWSER_CHANNEL
 
 export default defineConfig({
   testDir: './e2e',
@@ -17,6 +18,7 @@ export default defineConfig({
   },
   use: {
     baseURL,
+    ...(browserChannel ? { channel: browserChannel } : {}),
     headless: process.env.UNILAB_E2E_HEADED !== '1',
     viewport: { width: 1680, height: 1050 },
     colorScheme: 'light',

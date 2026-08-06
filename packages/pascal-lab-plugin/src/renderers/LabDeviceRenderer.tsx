@@ -79,6 +79,8 @@ function useLabModel(node: LabDeviceNode): {
   }, [
     node.id,
     node.model.format,
+    node.model.macro,
+    node.model.meshDir,
     node.model.ossDir,
     node.model.path,
     node.model.version

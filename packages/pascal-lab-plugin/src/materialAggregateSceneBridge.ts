@@ -50,6 +50,7 @@ export interface MaterialRenderingSnapshot {
     path: string
     format?: string
     meshDir?: string
+    macro?: string
     ossDir?: string
     version?: string
     type?: string
@@ -159,6 +160,7 @@ export function materialAggregatesToSceneGraph(
             rendering.model.format
           ),
           meshDir: rendering.model.meshDir,
+          macro: rendering.model.macro,
           ossDir: rendering.model.ossDir,
           version: rendering.model.version,
           type: rendering.model.type,
@@ -285,6 +287,7 @@ export function readMaterialRendering(
       path: stringValue(model.path ?? model.mesh),
       format: optionalString(model.format ?? model.model_type),
       meshDir: optionalString(model.meshDir ?? model.mesh),
+      macro: optionalString(model.macro),
       ossDir: optionalString(model.ossDir ?? model.oss_dir),
       version: optionalString(model.version),
       type: optionalString(model.type),
