@@ -13,6 +13,7 @@ import {
   diagnosticRange,
   draftSaveMessage,
   hasRunnableAppliedWorkflow,
+  isAuthoringConflict,
   isSameAuthoringVersion,
   isCurrentAuthoringInvalidation
 } from './persistentAuthoringSession'
@@ -122,6 +123,15 @@ describe('persistent Authoring session coordination', () => {
       throw new Error('conflict')
     })).rejects.toThrow('conflict')
     await expect(queue.run(async () => 'rehydrated')).resolves.toBe('rehydrated')
+  })
+
+  it('does not treat a cross-Workflow identity rejection as a CAS conflict', () => {
+    expect(isAuthoringConflict({ code: 'draft_hash_conflict' })).toBe(true)
+    expect(isAuthoringConflict({ code: 'conflict' })).toBe(true)
+    expect(isAuthoringConflict({
+      status: 409,
+      code: 'workflow_identity_mismatch'
+    })).toBe(false)
   })
 
   it('uses the frozen state messages and distinguishes Candidate from Applied Graph', () => {
