@@ -972,10 +972,21 @@ function strictAuthoringData<Value>(raw: unknown): Value {
     throw invalidAuthoringResponse()
   }
   const envelope = raw as Record<string, unknown>
-  if (
-    envelope.code !== 0 ||
-    !Object.prototype.hasOwnProperty.call(envelope, 'data')
-  ) {
+  if (envelope.code !== 0) {
+    if (!Number.isInteger(envelope.code)) throw invalidAuthoringResponse()
+    const problem = authoringRecord(envelope.error)
+    if (typeof problem.msg !== 'string' || !problem.msg) {
+      throw invalidAuthoringResponse()
+    }
+    throw new ServiceError({
+      code: typeof problem.code === 'string' && problem.code
+        ? problem.code
+        : envelope.code === 3003 ? 'conflict' : 'API_REQUEST_REJECTED',
+      message: problem.msg,
+      retryable: false
+    })
+  }
+  if (!Object.prototype.hasOwnProperty.call(envelope, 'data')) {
     throw invalidAuthoringResponse()
   }
   return envelope.data as Value

@@ -118,8 +118,9 @@ export function isSameAuthoringVersion(
 
 export function isAuthoringConflict(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false
-  const error = value as { status?: unknown; code?: unknown }
-  return error.status === 409 || [
+  const error = value as { code?: unknown }
+  return [
+    'conflict',
     'draft_hash_conflict',
     'workflow_revision_conflict',
     'candidate_hash_conflict',
