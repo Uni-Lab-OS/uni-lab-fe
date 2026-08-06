@@ -19,6 +19,7 @@ export interface ConfigurationField {
   name: string
   type: 'string' | 'integer' | 'number' | 'boolean' | 'object' | 'array'
   required: boolean
+  secret: boolean
   defaultValue: unknown
   annotation: string
 }
@@ -75,6 +76,7 @@ export function configurationFields(
       name,
       type: configurationType(property.type),
       required: required.has(name),
+      secret: property['x-unilab-secret'] === true,
       defaultValue: property.default,
       annotation: typeof property['x-python-annotation'] === 'string'
         ? property['x-python-annotation']
@@ -90,6 +92,10 @@ export function initialConfigurationDraft(
 ): Record<string, string | boolean> {
   const draft: Record<string, string | boolean> = {}
   for (const field of fields) {
+    if (field.secret) {
+      draft[field.name] = ''
+      continue
+    }
     const value = existing?.[field.name] ?? field.defaultValue
     if (field.type === 'boolean') {
       draft[field.name] = value === true

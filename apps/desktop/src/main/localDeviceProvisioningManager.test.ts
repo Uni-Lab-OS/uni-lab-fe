@@ -131,6 +131,50 @@ describe('LocalDeviceProvisioningManager', () => {
     ])
   })
 
+  /** 验证 Main 只短暂转交秘密配置，不把它写入候选接入持久记录。 */
+  it('写图后持久化非秘密配置并丢弃 password 明文', async () => {
+    ports.download.mockResolvedValue({
+      ...downloadResult(),
+      configurationSchema: {
+        type: 'object',
+        required: ['endpoint', 'password'],
+        properties: {
+          endpoint: { type: 'string' },
+          password: {
+            type: 'string',
+            writeOnly: true,
+            'x-unilab-secret': true
+          }
+        }
+      }
+    })
+    const { manager } = await createManager()
+    const downloaded = await manager.start({
+      cloudEnvironment: 'test',
+      templateUuid
+    })
+
+    await manager.configure({
+      provisioningId: downloaded.provisioningId,
+      instanceId: 'local-pump-1',
+      displayName: '本地泵 1',
+      configuration: {
+        endpoint: 'serial:///dev/ttyUSB0',
+        password: 'device-password'
+      }
+    })
+
+    expect(ports.stage.mock.calls[0]?.[1]?.configuration).toEqual({
+      endpoint: 'serial:///dev/ttyUSB0',
+      password: 'device-password'
+    })
+    await expect(manager.list()).resolves.toEqual([
+      expect.objectContaining({
+        configuration: { endpoint: 'serial:///dev/ttyUSB0' }
+      })
+    ])
+  })
+
   /** 验证旧包解析失败仍保留云端身份，并禁止无意义的自动重试。 */
   it('在旧设备包不兼容时保留设备详情与不可重试诊断', async () => {
     const incompatible = Object.assign(

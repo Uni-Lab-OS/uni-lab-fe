@@ -27,6 +27,7 @@ import {
   inspectDevicePackageWorkspace,
   uploadDevicePackageWorkspace
 } from './devicePackagePublishCli'
+import { persistentDeviceConfiguration } from './deviceConfigurationSecurity'
 import type { LocalRuntimeManager } from './localRuntimeManager'
 import {
   createCloudDeviceSquare,
@@ -308,7 +309,10 @@ export class LocalDeviceProvisioningManager {
       })
       record = await this.transition({
         ...record,
-        configuration: structuredClone(input.configuration),
+        configuration: persistentDeviceConfiguration(
+          record.configurationSchema,
+          input.configuration
+        ),
         instanceId: input.instanceId,
         instanceUuid,
         displayName: input.displayName,

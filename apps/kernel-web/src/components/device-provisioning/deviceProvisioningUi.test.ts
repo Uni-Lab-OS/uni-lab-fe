@@ -57,6 +57,27 @@ describe('设备接入界面投影', () => {
     })).toThrow('retries 必须是整数')
   })
 
+  /** 验证秘密字段只形成空密码草稿，不回填持久记录中的历史值。 */
+  it('把秘密配置投影为不回显的密码字段', () => {
+    const fields = configurationFields({
+      required: ['password'],
+      properties: {
+        password: {
+          type: 'string',
+          writeOnly: true,
+          'x-unilab-secret': true
+        }
+      }
+    })
+
+    expect(fields).toEqual([
+      expect.objectContaining({ name: 'password', secret: true })
+    ])
+    expect(initialConfigurationDraft(fields, {
+      password: 'must-not-be-restored'
+    })).toEqual({ password: '' })
+  })
+
   /** 验证可运行状态必须同时通过文字与成功色表达。 */
   it('区分缓存、待激活、可运行与失败状态', () => {
     expect(provisioningStatusView('package_cached')).toMatchObject({

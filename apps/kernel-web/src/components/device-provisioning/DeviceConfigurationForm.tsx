@@ -134,13 +134,21 @@ export default function DeviceConfigurationForm({
               />
             ) : (
               <input
-                type={field.type === 'integer' || field.type === 'number' ? 'number' : 'text'}
+                type={field.secret
+                  ? 'password'
+                  : field.type === 'integer' || field.type === 'number'
+                    ? 'number'
+                    : 'text'}
                 step={field.type === 'number' ? 'any' : undefined}
+                autoComplete={field.secret ? 'new-password' : undefined}
                 value={String(draft[field.name] ?? '')}
                 disabled={disabled}
                 onChange={(event) => updateField(field.name, event.target.value)}
               />
             )}
+            {field.secret ? (
+              <small>秘密仅用于本次写入；设备图和本地接入记录只保存安全引用。</small>
+            ) : null}
             {field.annotation ? <small>驱动注解：{field.annotation}</small> : null}
           </label>
         ))}

@@ -196,7 +196,7 @@ POST /api/v1/lab/square/copy_resource
 | 原始缺口 | 已交付实现 |
 |---|---|
 | CLI 无显式下载与写图命令 | 当前 OS 已实现 `package download/add-device/update-device/remove-device/restore-graph` |
-| 无配置 Schema | PackageCatalog 初始化参数已投影为严格 JSON Schema，秘密参数失败关闭 |
+| 无配置 Schema | PackageCatalog 初始化参数已投影为严格 JSON Schema；秘密参数使用 `writeOnly` 与 `x-unilab-secret` 合同 |
 | Electron 无接入编排 | Main 已实现候选 `LocalDeviceProvisioningManager`、原子 Store、最小 IPC 和 Renderer 页面 |
 | 设备图写入不安全 | OS 已实现配置校验、同目录备份、文件与目录 fsync、原子替换、恢复和幂等 |
 | 缓存版本可能漂移 | 设备图保存精确 `package_cache_key`，Runtime 按固定 release wheel 加载 |
@@ -442,7 +442,9 @@ Electron 根据 CLI 返回的 Schema 渲染表单。常见字段包括：
 - 本地数据目录；
 - 驱动明确声明的账号/密钥。
 
-敏感字段不能写入 Electron 普通日志或 CLI argv。当前设备图会持久化 `config`，而 OS 尚无稳定的 Keychain 引用合同，因此 MVP 只支持非秘密连接参数；被标记为秘密的字段必须阻止接入并提示“当前版本不支持安全持久化”，不能把密码明文写入设备图。安全引用能力应另立 OS/Electron 设计后再开放。
+敏感字段不能写入 Electron 普通日志、CLI argv、候选本地设备接入 Store 或设备图明文。PackageCatalog 中名称匹配 `password`、`secret`、`token`、`api_key` 等规则的字符串参数会投影为 `writeOnly: true` 与 `x-unilab-secret: true`；Renderer 使用不回显、不回填的密码输入框。Main 只在本次 IPC/CLI stdin 调用中持有明文，写图成功后只持久化非秘密配置。
+
+OS `package add-device/update-device` 把秘密写入当前 `working_dir/device-secrets/v1/` 的随机 0600 文件，设备图只保存封闭的 `device-secret-ref/v1` 引用。`initialize_device_from_dict` 在驱动构造边界解析引用，明文只进入短生命周期 `driver_params`，不回写 Resource 投影。引用缺失、损坏、权限过宽、所有者不匹配或被替换为符号链接时失败关闭。秘密更新会创建新引用；旧引用保留以支持既有设备图备份恢复。
 
 ### 7.4 原子写入设备图
 
@@ -513,6 +515,11 @@ unilab --working_dir <managed-working-dir> \
     "required": ["endpoint"],
     "properties": {
       "endpoint": {"type": "string"},
+      "password": {
+        "type": "string",
+        "writeOnly": true,
+        "x-unilab-secret": true
+      },
       "retries": {"type": "integer", "default": 3}
     }
   }
@@ -540,6 +547,7 @@ stdin 只接受固定 Schema：
   "display_name": "Local Pump 1",
   "configuration": {
     "endpoint": "serial:///dev/ttyUSB0",
+    "password": "本次 stdin 中的一次性明文",
     "retries": 3
   }
 }
@@ -621,6 +629,8 @@ stdin 是单个封闭 JSON 文档：
 - 云端环境只能从测试、UAT、正式三项固定映射选择，不能由 Renderer 注入 URL。
 - 上传 AK/SK 使用非持久化输入框，仅在一次 IPC/CLI 调用中使用；SK 在调用结束后立即清空。
 - AK/SK 不进入 argv、`local_config.py`、本地接入 Store、设备图、请求诊断文件或普通日志；`base64(ak:sk)` 同样按秘密处理。
+- 驱动秘密配置不进入 argv、候选本地设备接入 Store 或设备图明文；设备图只保存 `device-secret-ref/v1`，受管秘密文件在 POSIX 平台必须是当前用户所有且权限不宽于 0600。
+- 驱动构造前无法证明秘密引用可信时失败关闭；不得回退到图内明文或普通环境变量，也不得把 Catalog 中的秘密默认值投影到 Electron 表单或设备图。
 - stdin 凭据合同拒绝额外字段、空值、未知 schema 和超长值，错误正文不回显输入。
 - 下载初始 host 必须匹配受控 Backend Profile；限制重定向次数和响应大小。
 - Artifact 摘要缺失或不匹配时不得缓存或写设备图。
@@ -782,6 +792,8 @@ stdin 是单个封闭 JSON 文档：
 14. 上传仍只使用现有 storage token、OSS PUT 和 `/lab/resource`。
 15. 测试、UAT、正式环境的浏览、下载、接入和上传使用同一明确环境，接入重试不漂移。
 16. 上传 AK/SK 不进入 argv、`local_config.py`、持久状态、请求诊断和普通日志；非法 stdin 合同失败关闭且不回显秘密。
+17. 含 `password` 的当前 wheel 可以下载并显示密码框；写图后图文件和本地接入 Store 均不含明文，驱动构造时能从受管引用得到该值。
+18. 秘密文件缺失、权限过宽、引用损坏或符号链接替换时，OS 启动驱动失败关闭且错误不回显秘密。
 
 最终验收不是“文件已经下载”，而是：
 
@@ -808,7 +820,7 @@ stdin 是单个封闭 JSON 文档：
 8. 删除实例不立即清理共享包缓存或 Python 依赖。
 9. Electron 当前只使用一次性 AK/SK，不提供“记住凭据”；若以后增加，必须接入操作系统凭据库而不是明文文件。
 10. 旧 tar.gz 或缺少内嵌 PackageCatalog/摘要的历史设备包不能直接接入当前 OS，需要使用当前 CLI 重新构建上传。
-11. 当前设备图没有安全秘密引用合同，MVP 不支持需要持久账号/密码的驱动配置。
+11. 本地设备秘密存储依赖操作系统账户与文件权限隔离，当前不是系统 Keychain，也不承诺密文静态存储；需要更高合规等级时应把同一 `device-secret-ref/v1` 解析端口替换为系统凭据库实现。
 
 如果产品以后要求无重启热加载、跨电脑同步、稳定不可变发布或云端接入状态，再分别设计 OS 在线设备管理和 Backend 持久合同；本期不隐藏引入这些新能力。
 

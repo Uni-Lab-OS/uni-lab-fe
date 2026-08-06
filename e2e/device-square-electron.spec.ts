@@ -75,6 +75,18 @@ test('browses the cloud device square through Electron Main', async () => {
       fullPage: true
     })
 
+    await page.getByRole('button', { name: /凭据泵/ }).click()
+    const passwordInput = page.getByLabel(/password/)
+    await expect(passwordInput).toHaveAttribute('type', 'password')
+    await expect(passwordInput).toHaveValue('')
+    await expect(page.getByText(/设备图和本地接入记录只保存安全引用/))
+      .toBeVisible()
+    await passwordInput.fill('device-password')
+    await page.screenshot({
+      path: resolve(artifactDirectory, 'device-secret-configuration.png'),
+      fullPage: true
+    })
+
     await page.getByRole('button', { name: '上传设备包' }).click()
     await expect(page.getByRole('heading', { name: '检查 Package Workspace' }))
       .toBeVisible()
@@ -222,6 +234,44 @@ async function seedLegacyProvisioningRecord(configDirectory: string): Promise<vo
         },
         createdAt: '2026-08-06T00:00:00.000Z',
         updatedAt: '2026-08-06T00:00:00.000Z'
+      }, {
+        schemaVersion: 'local-device-provisioning/v1',
+        provisioningId: 'bf3ccdea-e124-4bc8-b7c0-1eceb73e6608',
+        cloudEnvironment: 'test',
+        templateUuid,
+        cloudDeviceName: 'credential-pump',
+        cloudDisplayName: '凭据泵',
+        packageName: 'review-lab',
+        packageVersion: '1.2.0',
+        artifactDigest,
+        catalogDigest,
+        definitionFqid: 'community.review_lab.pump',
+        cacheKey: `community.review_lab@1.2.0#${artifactDigest}`,
+        configurationSchema: {
+          type: 'object',
+          required: ['endpoint', 'password'],
+          properties: {
+            endpoint: { type: 'string' },
+            password: {
+              type: 'string',
+              writeOnly: true,
+              'x-unilab-secret': true
+            }
+          },
+          additionalProperties: false
+        },
+        configuration: { endpoint: 'serial:///dev/ttyUSB0' },
+        instanceId: '',
+        instanceUuid: '',
+        displayName: '凭据泵',
+        graphPath: '/runtime/device-graph.json',
+        graphFingerprint: '',
+        backupPath: '',
+        actionCount: 0,
+        status: 'configuration_required',
+        diagnostic: null,
+        createdAt: '2026-08-05T00:00:00.000Z',
+        updatedAt: '2026-08-05T00:00:00.000Z'
       }]
     }, null, 2) + '\n',
     'utf8'
