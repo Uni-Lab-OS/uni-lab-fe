@@ -4,6 +4,8 @@ import { resolve } from 'node:path'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
 const artifactDirectory = process.env.UNILAB_E2E_ARTIFACT_DIR
+// 浏览器实测可换行日志行高时允许的亚像素滚动修正。
+const LOG_SCROLL_POSITION_TOLERANCE_PX = 4
 
 test.beforeEach(async ({ page }) => {
   await installRuntimeApi(page)
@@ -43,6 +45,14 @@ test.beforeEach(async ({ page }) => {
   })
   await page.route('**/api/v1/material-shapes', async (route) => {
     await route.fulfill({ json: { code: 0, data: { items: [] } } })
+  })
+  // 关闭页面背景物料（Material）事件流（SSE），避免界面测试访问未启动的真实 Edge。
+  await page.route('**/api/v1/monitor/events?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream',
+      body: ''
+    })
   })
 })
 
@@ -278,8 +288,11 @@ test('用户查看历史时持续刷新并保持阅读位置', async ({
     () => logRowSetSize(logOutput),
     { timeout: 5_000 }
   ).toBeGreaterThan(rowsBeforePause)
-  expect(await logOutput.evaluate((element) => element.scrollTop))
-    .toBe(scrollTopBeforeRefresh)
+  const scrollTopAfterRefresh = await logOutput.evaluate(
+    (element) => element.scrollTop
+  )
+  expect(Math.abs(scrollTopAfterRefresh - scrollTopBeforeRefresh))
+    .toBeLessThanOrEqual(LOG_SCROLL_POSITION_TOLERANCE_PX)
   const newLogButton = logDrawer.getByRole('button', {
     name: '有新日志，回到底部'
   })
@@ -300,8 +313,11 @@ test('用户查看历史时持续刷新并保持阅读位置', async ({
       { timeout: 5_000 }
     ).toBeGreaterThan(rowsBeforeManualRefresh)
   }
-  expect(await logOutput.evaluate((element) => element.scrollTop))
-    .toBe(scrollTopWhileReading)
+  const scrollTopAfterManualRefresh = await logOutput.evaluate(
+    (element) => element.scrollTop
+  )
+  expect(Math.abs(scrollTopAfterManualRefresh - scrollTopWhileReading))
+    .toBeLessThanOrEqual(LOG_SCROLL_POSITION_TOLERANCE_PX)
   await capture(page, '04-manual-refresh-preserved-reading-position.png')
 
   await newLogButton.click()

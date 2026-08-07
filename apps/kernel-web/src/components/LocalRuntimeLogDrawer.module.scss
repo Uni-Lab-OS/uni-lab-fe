@@ -1,0 +1,405 @@
+.logDrawerLayer {
+  position: fixed;
+  z-index: 1300;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.logDrawerScrim {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: rgb(15 23 42 / 28%);
+  cursor: default;
+}
+
+.logDrawer {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  width: min(720px, calc(100vw - 48px));
+  height: 100%;
+  color: var(--unilab-color-text);
+  border-inline-start: 1px solid var(--unilab-color-border);
+  background: var(--unilab-color-surface);
+  box-shadow: -18px 0 48px rgb(15 23 42 / 18%);
+  animation: log-drawer-enter var(--unilab-motion-normal) ease-out;
+}
+
+.logDrawerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--unilab-space-4);
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--unilab-color-border);
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.4;
+  }
+
+  p {
+    margin: 4px 0 0;
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
+
+.logDrawerActions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--unilab-space-2);
+
+  > button {
+    height: 30px;
+  }
+}
+
+.logTabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding-inline: 12px;
+  border-bottom: 1px solid var(--unilab-color-border);
+  background: var(--unilab-color-surface-subtle);
+
+  button {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 44px;
+    padding-inline: 10px;
+    color: var(--unilab-color-text-muted);
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--unilab-color-text);
+      background: var(--unilab-color-surface-muted);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--unilab-color-focus);
+      outline-offset: -3px;
+    }
+
+    &[aria-selected='true'] {
+      color: var(--unilab-color-primary);
+      border-bottom-color: var(--unilab-color-primary);
+      background: var(--unilab-color-surface);
+      font-weight: 600;
+    }
+
+    &[data-available='true'] small::before {
+      background: var(--unilab-color-success);
+    }
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    small {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 4px;
+      color: var(--unilab-color-text-subtle);
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    small::before {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--unilab-color-border-strong);
+      content: '';
+    }
+  }
+}
+
+.logDrawerBody {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--unilab-space-2);
+  padding: var(--unilab-space-3);
+  background: var(--unilab-color-bg-subtle);
+}
+
+.logFilterBar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--unilab-space-3);
+  min-width: 0;
+}
+
+.logFilterControl {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--unilab-space-2);
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+
+  select {
+    min-width: 124px;
+    height: 30px;
+    padding-inline: 9px 28px;
+    color: var(--unilab-color-text);
+    border: 1px solid var(--unilab-color-border-strong);
+    border-radius: var(--unilab-radius-control);
+    background: var(--unilab-color-surface);
+    font: inherit;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--unilab-color-primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--unilab-color-focus);
+      outline-offset: 2px;
+    }
+  }
+}
+
+.logFilterCount {
+  overflow: hidden;
+  color: var(--unilab-color-text-subtle);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logFollowNotice {
+  display: flex;
+  min-height: 32px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  color: var(--unilab-color-primary);
+  border: 1px solid color-mix(
+    in srgb,
+    var(--unilab-color-primary) 28%,
+    var(--unilab-color-border)
+  );
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-primary-soft);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--unilab-color-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--unilab-color-focus);
+    outline-offset: 2px;
+  }
+}
+
+.logOutput {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  font: 11px/1.55 var(--unilab-font-mono);
+  list-style: none;
+  tab-size: 2;
+}
+
+.logVirtualSpace {
+  position: relative;
+  min-width: 0;
+}
+
+.logRow {
+  position: absolute;
+  inset: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(156px, auto) minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  min-height: 28px;
+  padding: 3px 4px;
+  box-sizing: border-box;
+  border-radius: 3px;
+
+  &:hover {
+    background: var(--unilab-color-surface-subtle);
+  }
+
+  &[data-level='warning'] {
+    color: var(--unilab-color-warning);
+  }
+
+  &[data-level='error'],
+  &[data-level='critical'] {
+    color: var(--unilab-color-danger);
+    background: var(--unilab-color-danger-soft);
+  }
+}
+
+.logRowMeta {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 82px 46px minmax(0, 1fr);
+  gap: 6px;
+  color: var(--unilab-color-text-subtle);
+
+  time,
+  > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  code {
+    color: inherit;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+}
+
+.logLevel {
+  color: currentColor;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.logMessage {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.logEmpty {
+  display: grid;
+  flex: 1;
+  place-content: center;
+  gap: 6px;
+  min-height: 220px;
+  color: var(--unilab-color-text-muted);
+  text-align: center;
+
+  strong {
+    color: var(--unilab-color-text);
+    font-size: 13px;
+  }
+
+  span {
+    font-size: 12px;
+  }
+
+  > button {
+    justify-self: center;
+    margin-block-start: var(--unilab-space-2);
+  }
+}
+
+.logNotice,
+.logError {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--unilab-radius-control);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.logNotice {
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-surface-muted);
+}
+
+.logError {
+  color: var(--unilab-color-danger);
+  background: var(--unilab-color-danger-soft);
+}
+
+@keyframes log-drawer-enter {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .logDrawer {
+    width: 100%;
+  }
+
+  .logDrawerScrim {
+    display: none;
+  }
+
+  .logDrawerHeader {
+    position: relative;
+    align-items: stretch;
+    flex-direction: column;
+    padding-inline: 16px 48px;
+  }
+
+  .logDrawerActions {
+    width: 100%;
+    flex-wrap: wrap;
+
+    > button:not([aria-label='关闭本地运行日志']) {
+      flex: 1 1 112px;
+    }
+
+    > [aria-label='关闭本地运行日志'] {
+      position: absolute;
+      top: 14px;
+      right: 12px;
+    }
+  }
+
+  .logTabs {
+    padding-inline: 4px;
+
+    button {
+      height: 52px;
+      flex-direction: column;
+      gap: 1px;
+      padding-inline: 4px;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logDrawer {
+    animation: none;
+  }
+}

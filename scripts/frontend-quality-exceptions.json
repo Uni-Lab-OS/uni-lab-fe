@@ -12,6 +12,12 @@
       "reason": "本地运行启动器（LocalRuntimeLauncher）集中维护 PLC-Sim 与领域侧 Edge 的配置持久化、权威进程快照、启停互锁及可访问对话框；本轮拆分已把日志读取、日志展示和 Edge 命令编辑迁出，保留的分支用于呈现同一运行会话的互斥状态。",
       "futureSplitBoundary": "补齐 PLC-Sim/Edge 交叉启停、路径校验和键盘焦点的交互特征测试后，将 LocalRuntimeDialog 与 PathField/RuntimeStatus 迁入 LocalRuntimeConfigurationDialog.tsx，并将启动器副作用抽取为 useLocalRuntimeLauncherSession。"
     },
+    "apps/kernel-web/src/components/LocalRuntimeLauncher.module.scss": {
+      "maxLines": 1250,
+      "maxFunctionComplexity": 25,
+      "reason": "本地运行启动器样式模块（LocalRuntimeLauncherStyles）集中维护同一个配置对话框的滚动边界、路径字段、命令编辑、运行状态和窄屏重排；日志抽屉样式已迁出，保留共享 CSS Module 可以避免启动器、配置对话框和命令编辑器产生不一致的字段与按钮状态。",
+      "futureSplitBoundary": "补齐自定义命令、校验错误和 PLC-Sim/Edge 交叉状态的视觉回归后，随 LocalRuntimeConfigurationDialog.tsx 抽取 LocalRuntimeConfigurationDialog.module.scss，并让 LocalRuntimeEdgeCommandEditor.tsx 独立拥有 LocalRuntimeEdgeCommandEditor.module.scss。"
+    },
     "apps/kernel-web/src/components/device-cards/DeviceCardWorkbenchView.tsx": {
       "maxLines": 500,
       "maxFunctionComplexity": 40,

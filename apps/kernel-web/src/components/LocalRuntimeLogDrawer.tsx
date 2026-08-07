@@ -20,7 +20,8 @@ import {
   type LocalRuntimeLogLevel
 } from './localRuntimeLogFormatting'
 import { LOCAL_RUNTIME_LOG_MAX_LINES } from './localRuntimeLogModel'
-import styles from './LocalRuntimeLauncher.module.scss'
+import styles from './LocalRuntimeLogDrawer.module.scss'
+import launcherStyles from './LocalRuntimeLauncher.module.scss'
 
 export { detectPhoenixObservabilityDependencyIssue } from './localRuntimeLogFormatting'
 
@@ -331,7 +332,7 @@ export function LocalRuntimeLogDrawer({
             {onOpenFile ? (
               <button
                 type="button"
-                className={styles.secondaryButton}
+                className={launcherStyles.secondaryButton}
                 title="在系统文件管理器中打开当前日志目录"
                 onClick={onOpenFile}
               >
@@ -340,7 +341,7 @@ export function LocalRuntimeLogDrawer({
             ) : null}
             <button
               type="button"
-              className={styles.secondaryButton}
+              className={launcherStyles.secondaryButton}
               disabled={loading}
               onClick={onRefresh}
             >
@@ -348,7 +349,7 @@ export function LocalRuntimeLogDrawer({
             </button>
             <button
               type="button"
-              className={styles.closeButton}
+              className={launcherStyles.closeButton}
               aria-label="关闭运行日志"
               onClick={onClose}
             >
@@ -418,7 +419,7 @@ export function LocalRuntimeLogDrawer({
                 </label>
                 <button
                   type="button"
-                  className={styles.secondaryButton}
+                  className={launcherStyles.secondaryButton}
                   onClick={() => void copyActiveLog()}
                   aria-live="polite"
                 >
@@ -510,7 +511,7 @@ export function LocalRuntimeLogDrawer({
                   <span>原始日志仍保留，可清除筛选继续查看。</span>
                   <button
                     type="button"
-                    className={styles.secondaryButton}
+                    className={launcherStyles.secondaryButton}
                     onClick={clearLevelFilter}
                   >
                     清除筛选
