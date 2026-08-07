@@ -1,13 +1,15 @@
-import type {
-  CloudEnvironment,
-  ConfigureLocalDeviceProvisioningInput,
-  DevicePackageDownloadSummary,
-  DevicePackageInspection,
-  DevicePackageUploadRequest,
-  DevicePackageUploadResult,
-  LocalDeviceProvisioning,
-  LocalDeviceProvisioningStatus,
-  StartLocalDeviceProvisioningInput
+import {
+  isRosDeviceInstanceId,
+  requireRosDeviceInstanceId,
+  type CloudEnvironment,
+  type ConfigureLocalDeviceProvisioningInput,
+  type DevicePackageDownloadSummary,
+  type DevicePackageInspection,
+  type DevicePackageUploadRequest,
+  type DevicePackageUploadResult,
+  type LocalDeviceProvisioning,
+  type LocalDeviceProvisioningStatus,
+  type StartLocalDeviceProvisioningInput
 } from '@unilab/device-provisioning'
 import {
   type DeviceSquareDetail,
@@ -87,9 +89,14 @@ export class LocalDeviceProvisioningManager {
     return createCloudDeviceSquare(environment).getDeviceDetail(templateUuid)
   }
 
-  /** 读取全部本地设备接入持久事实。 */
+  /**
+   * 读取全部本地设备接入持久事实，并回收进程中断留下的瞬时激活状态。
+   *
+   * @returns 已依据当前 Edge 和目标设备目录完成恢复的本地接入记录。
+   */
   list(): Promise<LocalDeviceProvisioning[]> {
-    return this.store.list()
+    if (this.operation) return this.store.list()
+    return this.exclusive(() => this.recoverInterruptedActivations())
   }
 
   /**
@@ -291,10 +298,11 @@ export class LocalDeviceProvisioningManager {
     }
     const active = this.assertRuntime(record)
     try {
+      const instanceId = requireRosDeviceInstanceId(input.instanceId)
       const conflict = (await this.store.list()).find((candidate) => (
         candidate.provisioningId !== record.provisioningId
         && candidate.graphPath === record.graphPath
-        && candidate.instanceId === input.instanceId
+        && candidate.instanceId === instanceId
         && candidate.status !== 'removed'
         && candidate.status !== 'canceled'
       ))
@@ -309,7 +317,7 @@ export class LocalDeviceProvisioningManager {
       record = await this.save({
         ...record,
         configuration: persistentConfiguration,
-        instanceId: input.instanceId,
+        instanceId,
         instanceUuid,
         displayName: input.displayName
       })
@@ -319,7 +327,7 @@ export class LocalDeviceProvisioningManager {
       ), {
         cacheKey: record.cacheKey,
         definitionFqid: record.definitionFqid,
-        instanceId: input.instanceId,
+        instanceId,
         instanceUuid,
         adoptExisting: input.adoptExisting,
         graphPath: record.graphPath,
@@ -474,6 +482,40 @@ export class LocalDeviceProvisioningManager {
     } catch (error) {
       return this.fail(record, record.status, error)
     }
+  }
+
+  /**
+   * 恢复 Electron Main 中断前持久化的 `activating`/`driver_ready` 瞬时状态。
+   *
+   * 合法实例在 Edge 在线时按 `/api/v1/devices` 重新对账，Edge 未运行时回到
+   * `restart_required`；历史非法实例 ID 不能安全重试写图，因此转为不可重试失败，
+   * 由用户移除旧图节点后重新接入。函数不会主动重启 Edge。
+   *
+   * @returns 不再包含无主瞬时激活状态的完整持久记录。
+   */
+  private async recoverInterruptedActivations(): Promise<LocalDeviceProvisioning[]> {
+    const records = await this.store.list()
+    for (const record of records) {
+      if (record.status !== 'activating' && record.status !== 'driver_ready') continue
+      if (!isRosDeviceInstanceId(record.instanceId)) {
+        const invalidIdentity = Object.assign(new Error(
+          '历史设备实例 ID 不符合 ROS 2 节点名规则；请先从本地移除该旧实例，再使用下划线 ID 重新添加'
+        ), { retryable: false as const })
+        await this.fail(record, record.status, invalidIdentity)
+        continue
+      }
+      try {
+        const active = this.assertRuntime(record)
+        if (!this.runtime.getSnapshot().edgeRunning) {
+          await this.transition(record, 'restart_required')
+          continue
+        }
+        await this.reconcileReady(record, active.runtime.localApiUrl)
+      } catch (error) {
+        await this.fail(record, record.status, error)
+      }
+    }
+    return this.store.list()
   }
 
   /** 从本地 `/api/v1/devices` 确认实例在线且至少一个 Action 合同可见。 */

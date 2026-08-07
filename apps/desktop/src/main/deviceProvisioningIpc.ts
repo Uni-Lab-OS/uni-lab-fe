@@ -1,6 +1,7 @@
 import {
   DEVICE_PROVISIONING_IPC_CONTRACT,
   isCloudEnvironment,
+  requireRosDeviceInstanceId,
   type CloudEnvironment,
   type ConfigureLocalDeviceProvisioningInput,
   type DevicePackageUploadRequest,
@@ -199,7 +200,9 @@ function parseConfiguration(value: unknown): ConfigureLocalDeviceProvisioningInp
   const configuration = record(raw.configuration, 'configuration')
   return {
     provisioningId: requiredString(raw.provisioningId, '接入 UUID'),
-    instanceId: requiredString(raw.instanceId, '设备实例 ID'),
+    instanceId: requireRosDeviceInstanceId(
+      requiredString(raw.instanceId, '设备实例 ID')
+    ),
     displayName: requiredString(raw.displayName, '设备显示名称'),
     adoptExisting: requiredBoolean(raw.adoptExisting, '接管同名旧设备'),
     configuration: structuredClone(configuration)

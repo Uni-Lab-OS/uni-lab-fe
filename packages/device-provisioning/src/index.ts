@@ -15,6 +15,42 @@ export const DEVICE_PROVISIONING_IPC_CONTRACT: DeviceProvisioningIpcContract = {
   features: { adoptExisting: true }
 }
 
+/** ROS 2 设备节点实例 ID 的跨进程统一格式，不允许横线、点或数字开头。 */
+export const ROS_DEVICE_INSTANCE_ID_PATTERN =
+  '[A-Za-z_][A-Za-z0-9_]{0,127}' as const
+
+const ROS_DEVICE_INSTANCE_ID = new RegExp(
+  `^${ROS_DEVICE_INSTANCE_ID_PATTERN}$`,
+  'u'
+)
+
+/**
+ * 判断未知值是否可直接作为 ROS 2 设备节点实例 ID。
+ *
+ * @param value Renderer、Main 持久记录或调用方提供的未知实例身份。
+ * @returns 仅在值满足 ROS 2 节点名字符、首字符和长度约束时返回 true。
+ */
+export function isRosDeviceInstanceId(value: unknown): value is string {
+  return typeof value === 'string' && ROS_DEVICE_INSTANCE_ID.test(value)
+}
+
+/**
+ * 校验并返回去除首尾空白后的 ROS 2 设备节点实例 ID。
+ *
+ * @param value 已由调用边界读取、但尚未验证 ROS 2 规则的字符串。
+ * @returns 可安全写入设备图并用于 `/api/v1/devices` 对账的实例 ID。
+ * @throws 值包含横线、点、其他非法字符、数字开头或超过 128 字符时抛出错误。
+ */
+export function requireRosDeviceInstanceId(value: string): string {
+  const normalized = value.trim()
+  if (!isRosDeviceInstanceId(normalized)) {
+    throw new Error(
+      '设备实例 ID 必须以字母或下划线开头，且只能包含字母、数字和下划线（最多 128 字符）'
+    )
+  }
+  return normalized
+}
+
 export type CloudEnvironment = 'test' | 'uat' | 'production'
 
 export interface CloudEnvironmentOption {

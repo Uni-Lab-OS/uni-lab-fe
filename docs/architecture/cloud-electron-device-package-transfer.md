@@ -207,7 +207,8 @@ POST /api/v1/lab/square/copy_resource
 | Electron 只显示设备第一页 | Renderer 依据 `total/page/page_size` 逐页加载、按模板 UUID 去重，并显示“已显示 N / total” |
 | 不可兼容旧包反复重试 | `ServiceError.retryable=false` 持久化到诊断，Main 拒绝自动重试，Renderer 隐藏重试按钮 |
 | 可选 object 的显式 `null` 被误判为类型错误 | FE 与 OS 统一遵循初始化 Schema：字段可选且默认值明确为 `null` 时，显式 `null` 与省略字段等价；其他类型错误仍失败关闭 |
-| 云端 FQID 生成的实例 ID 含 `-`，ROS 节点启动失败 | 建议实例 ID 统一规范为 `[A-Za-z0-9_]+`，非法字符替换为下划线，并在表单和 OS 启动前双重校验 |
+| 云端 FQID 生成的实例 ID 含 `-`，ROS 节点启动失败 | 实例 ID 统一规范为 `[A-Za-z_][A-Za-z0-9_]{0,127}`，非法字符替换为下划线，并由 Renderer、Electron Main/IPC 与 OS CLI 在写图前共同校验 |
+| Electron 中断后长期显示“激活中” | `activating`/`driver_ready` 只允许作为当前 Main 操作持有的瞬时状态；Main 重启后会按当前 Edge 和 `/api/v1/devices` 重新对账，或恢复为可重试/可移除的稳定状态 |
 
 首版仍明确采用受控重启，不承诺在线增加根设备。真实 UAT Cloud/OSS 已使用无硬件依赖的 SZLab mock 包完成闭环；物理仪器连接与业务 Action 仍属于部署环境验收项，不是新增 Backend 开发项。
 
@@ -301,6 +302,11 @@ removed -> restart_required -> activating -> driver_ready -> ready
 - 设备图写入成功不等于驱动已加载。
 - 当前 OS 进程完成重启不等于设备已就绪。
 - 只有目标实例出现在 `/api/v1/devices` 且 online/Action 合同满足时才能进入 `ready`。
+- `activating` 和 `driver_ready` 不是可跨进程无限保留的稳定状态。Electron Main
+  重启后，合法实例在 Edge 在线时重新执行设备与 Action 对账，Edge 未运行时回到
+  `restart_required`；对账失败进入带原阶段诊断的 `failed`。
+- 历史记录的实例 ID 不满足 ROS 2 节点名规则时，不再自动重启或重复写图，而是进入
+  不可重试 `failed`，提示用户先移除旧实例，再用下划线 ID 重新接入。
 
 ## 6. 目标模块与接口
 
@@ -486,6 +492,11 @@ CLI -> Main: graph_staged + fingerprint + backup path
 显式接管重试复用同一个 UUID；即使 OS 已完成原子写图而 Electron 随后异常，下一次
 重放也不会生成第二个设备身份。秘密参数仍不进入该记录。
 
+实例 ID 必须满足 ROS 2 节点名合同 `[A-Za-z_][A-Za-z0-9_]{0,127}`。Renderer
+在提交前给出即时错误，Main IPC 与编排器不信任 Renderer 并再次校验，OS
+`package add-device/update-device` 在读取缓存、创建备份或修改设备图前执行最终校验。
+删除命令仍允许按原始 ID 移除历史非法节点，保证旧记录有安全退出路径。
+
 如果实例 ID 已存在：
 
 - 同一 provisioning 且内容一致时幂等成功；
@@ -509,6 +520,14 @@ CLI -> Main: graph_staged + fingerprint + backup path
 5. Main 等待 OS health ready。
 6. Main 查询 `/api/v1/devices`，按本地实例 ID 查找设备。
 7. 找到实例、`online == true` 且 Action 合同可解码时进入 `ready`。
+
+如果 Electron Main 在第 2～7 步之间退出、重载或崩溃，下一次读取本地接入记录时：
+
+- Edge 已运行：直接重新读取 `/api/v1/devices`，目标实例及 Action 合同满足则恢复
+  `ready`，否则进入可诊断 `failed`；
+- Edge 未运行：恢复为 `restart_required`，等待用户再次确认受控重启；
+- 历史实例 ID 不符合 ROS 2 合同：进入不可重试 `failed`，保留“恢复设备图备份”和
+  “从本地移除”路径，不再永久显示“激活中”。
 
 如果启动或实例初始化失败：
 
@@ -794,25 +813,25 @@ stdin 是单个封闭 JSON 文档：
 |---|---|
 | Backend 兼容回归 | list/detail/packages、公开 `302`、storage token 和 `/lab/resource` 不变 |
 | Package 获取模块 | 摘要、Catalog、大小限制、definition 匹配、缓存命中和临时文件清理 |
-| 设备图接入模块 | Schema、必填参数、重复 ID、原子写入、备份、恢复、删除和扩展字段保留 |
+| 设备图接入模块 | Schema、必填参数、ROS 2 实例 ID、重复 ID、原子写入、备份、恢复、删除和扩展字段保留 |
 | OS 启动集成 | cache -> sys.path -> Catalog -> registry -> driver import -> instance |
 | CLI 子进程 | stdin 设备配置/上传凭据、最终 JSON、退出码、取消和日志脱敏 |
-| Electron Main | 版本化 IPC 能力握手、三环境固定映射、executable allowlist、`shell: false`、作业恢复、重启门禁和对账 |
+| Electron Main | 版本化 IPC 能力握手、三环境固定映射、executable allowlist、`shell: false`、瞬时激活状态恢复、重启门禁和 Action 对账 |
 | Electron UI | 环境切换、完整分页、搜索代次隔离、下载、配置、待重启、加载中、可运行、失败和移除 |
 | 跨仓 E2E | 广场 -> 添加心愿单 -> 配置 -> 重启 -> 在线 -> Action；Workspace -> 上传 -> 广场可见 |
 
-2026-08-06 当前自动化验证记录：
+截至 2026-08-07 的自动化验证记录：
 
 | 命令/范围 | 结果 |
 |---|---|
-| `Uni-Lab-OS: pytest tests/package_manager -q` | 87 passed；含设备图语义相同备份复用与异图备份拒绝回归 |
-| `Uni-Lab-OS: pytest tests -q` | 2637 passed、7 skipped；68 条既有弃用/收集 warning，无失败 |
+| `Uni-Lab-OS: pytest tests/package_manager -q` | 97 passed；含 ROS 2 实例 ID 写图前拒绝、设备图语义相同备份复用与异图备份拒绝回归 |
+| `Uni-Lab-OS: pytest tests -q` | 2647 passed、7 skipped；68 条既有弃用/收集 warning，无失败 |
 | `uni-lab-fe: pnpm typecheck` | 20 个工作区项目全部通过 |
-| `uni-lab-fe: pnpm test` | 全部带测试脚本的工作区包通过；其中 services 119、kernel-web 65、desktop 95 |
+| `uni-lab-fe: pnpm test` | 全部带测试脚本的工作区包通过；其中 services 119、kernel-web 67、desktop 97；覆盖遗留瞬时激活状态恢复 |
 | `uni-lab-fe: pnpm build:desktop` | 生产 Main、Preload、Renderer 构建通过 |
 | `xvfb-run -a env UNILAB_E2E_ELECTRON=1 pnpm exec playwright test e2e/device-square-electron.spec.ts` | 1 passed；覆盖生产 Electron Main/Preload/Renderer v2 能力握手、45 条设备完整分页、详情保持、显式接管默认关闭、旧包不可重试诊断及桌面/紧凑截图 |
 | `Uni-Lab-OS: pytest tests/package_manager/test_szlab_mock_package.py tests/package_manager/test_device_provisioning.py tests/package_manager/test_package_upload_auth.py -q` | 26 passed；覆盖可选 nullable 配置、mock Catalog、设备图写入、接入和 stdin 上传鉴权合同 |
-| `uni-lab-fe: pnpm --filter @unilab/kernel-web test` | 15 files、66 tests passed；覆盖 nullable 表单值与 ROS 安全实例 ID |
+| `uni-lab-fe: pnpm --filter @unilab/kernel-web test` | 15 files、67 tests passed；覆盖 nullable 表单值与 ROS 安全实例 ID |
 | `xvfb-run -a env UNILAB_E2E_ELECTRON=1 UNILAB_E2E_CONDA_ENV=... UNILAB_E2E_OS_ROOT=... pnpm exec playwright test e2e/device-square-uat-real-edge.spec.ts` | 1 passed；真实 UAT 设备广场、OSS 下载、写图、Edge health 和 4 个 Action 对账 |
 
 本轮截图保存在 `e2e-artifacts/device-square-electron/` 和
@@ -856,6 +875,9 @@ stdin 是单个封闭 JSON 文档：
     `device-provisioning-ipc/v2` 且接管写图 argv 必须包含 `--adopt-existing`。
 21. 同一设备图仅改变 JSON 排版后再次写图时复用原备份并成功接入；同名备份
     损坏、是符号链接或解析后属于不同设备图时仍失败关闭，且当前图保持不变。
+22. Electron Main 在 `activating`/`driver_ready` 阶段中断后，合法实例会按当前
+    Edge 与设备目录恢复为 `ready`、`restart_required` 或 `failed`，不得永久显示
+    “激活中”；历史横线 ID 变成不可重试失败，且 OS 对新横线 ID 在写图前拒绝。
 
 最终验收不是“文件已经下载”，而是：
 

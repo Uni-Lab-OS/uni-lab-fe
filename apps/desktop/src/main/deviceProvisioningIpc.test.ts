@@ -61,6 +61,15 @@ describe('Electron Main 设备接入 IPC', () => {
     expect(configure).toHaveBeenCalledWith(expect.objectContaining({
       adoptExisting: true
     }))
-    expect(assertSender).toHaveBeenCalledTimes(2)
+
+    expect(() => configureHandler?.({ sender: 'renderer' }, {
+      provisioningId: 'provisioning-1',
+      instanceId: 'szlab_mock-mock_s08_cap_station',
+      displayName: '非法旧实例',
+      adoptExisting: false,
+      configuration: { auto_connect: true }
+    })).toThrow('必须以字母或下划线开头')
+    expect(configure).toHaveBeenCalledTimes(1)
+    expect(assertSender).toHaveBeenCalledTimes(3)
   })
 })

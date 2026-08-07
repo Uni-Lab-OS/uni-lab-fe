@@ -105,7 +105,7 @@ describe('LocalDeviceProvisioningManager', () => {
     })
     const staged = await manager.configure({
       provisioningId: downloaded.provisioningId,
-      instanceId: 'local-pump-1',
+      instanceId: 'local_pump_1',
       displayName: '本地泵 1',
       adoptExisting: true,
       configuration: { endpoint: 'serial:///dev/ttyUSB0' }
@@ -117,7 +117,7 @@ describe('LocalDeviceProvisioningManager', () => {
     expect(staged.status).toBe('restart_required')
     expect(ready).toMatchObject({
       status: 'ready',
-      instanceId: 'local-pump-1',
+      instanceId: 'local_pump_1',
       actionCount: 1
     })
     expect(ports.stage.mock.calls[0]?.[1]).toMatchObject({
@@ -146,7 +146,7 @@ describe('LocalDeviceProvisioningManager', () => {
 
     const failed = await manager.configure({
       provisioningId: downloaded.provisioningId,
-      instanceId: 'legacy-pump',
+      instanceId: 'legacy_pump',
       displayName: '遗留泵',
       adoptExisting: false,
       configuration: { endpoint: 'serial:///dev/ttyUSB0' }
@@ -154,7 +154,7 @@ describe('LocalDeviceProvisioningManager', () => {
 
     expect(failed).toMatchObject({
       status: 'failed',
-      instanceId: 'legacy-pump',
+      instanceId: 'legacy_pump',
       displayName: '遗留泵',
       configuration: { endpoint: 'serial:///dev/ttyUSB0' }
     })
@@ -162,7 +162,7 @@ describe('LocalDeviceProvisioningManager', () => {
 
     const staged = await manager.configure({
       provisioningId: downloaded.provisioningId,
-      instanceId: 'legacy-pump',
+      instanceId: 'legacy_pump',
       displayName: '遗留泵',
       adoptExisting: true,
       configuration: { endpoint: 'serial:///dev/ttyUSB0' }
@@ -170,7 +170,7 @@ describe('LocalDeviceProvisioningManager', () => {
 
     expect(staged.status).toBe('restart_required')
     expect(ports.stage.mock.calls[1]?.[1]).toMatchObject({
-      instanceId: 'legacy-pump',
+      instanceId: 'legacy_pump',
       instanceUuid: failed.instanceUuid,
       adoptExisting: true
     })
@@ -201,7 +201,7 @@ describe('LocalDeviceProvisioningManager', () => {
 
     await manager.configure({
       provisioningId: downloaded.provisioningId,
-      instanceId: 'local-pump-1',
+      instanceId: 'local_pump_1',
       displayName: '本地泵 1',
       adoptExisting: false,
       configuration: {
@@ -262,7 +262,7 @@ describe('LocalDeviceProvisioningManager', () => {
     })
     await manager.configure({
       provisioningId: downloaded.provisioningId,
-      instanceId: 'local-pump-1',
+      instanceId: 'local_pump_1',
       displayName: '本地泵 1',
       adoptExisting: false,
       configuration: { endpoint: 'serial:///dev/ttyUSB0' }
@@ -290,7 +290,7 @@ describe('LocalDeviceProvisioningManager', () => {
     })
     await manager.configure({
       provisioningId: downloaded.provisioningId,
-      instanceId: 'local-pump-1',
+      instanceId: 'local_pump_1',
       displayName: '本地泵 1',
       adoptExisting: false,
       configuration: { endpoint: 'serial:///dev/ttyUSB0' }
@@ -324,22 +324,94 @@ describe('LocalDeviceProvisioningManager', () => {
     expect(recovered.cloudEnvironment).toBe('uat')
     expect(ports.squareEnvironments).toEqual(['uat', 'uat'])
   })
+
+  /** 验证 Main 重启后不会把非法实例身份的瞬时激活状态永久展示为进行中。 */
+  it('把中断前遗留的非法 activating 记录恢复为不可重试失败', async () => {
+    const { manager, runtime, statePath } = await createManager()
+    const downloaded = await manager.start({
+      cloudEnvironment: 'test',
+      templateUuid
+    })
+    const persistedStore = new LocalDeviceProvisioningStore(statePath)
+    await persistedStore.put({
+      ...downloaded,
+      instanceId: 'szlab_mock-mock_s08_cap_station',
+      instanceUuid: '90ac8814-bea3-4c19-9c56-907925f9b6fd',
+      graphFingerprint: `sha256:${'d'.repeat(64)}`,
+      status: 'activating',
+      diagnostic: null
+    })
+    const restartedManager = new LocalDeviceProvisioningManager(
+      new LocalDeviceProvisioningStore(statePath),
+      runtime as unknown as LocalRuntimeManager,
+      vi.fn()
+    )
+
+    const [recovered] = await restartedManager.list()
+
+    expect(recovered).toMatchObject({
+      status: 'failed',
+      instanceId: 'szlab_mock-mock_s08_cap_station',
+      diagnostic: {
+        stage: 'activating',
+        retryable: false
+      }
+    })
+    expect(recovered?.diagnostic?.message).toContain('实例 ID')
+    expect(ports.getOnlineDevices).not.toHaveBeenCalled()
+  })
+
+  /** 验证合法瞬时状态在 Main 重启后会以在线设备与 Action 权威投影恢复为可运行。 */
+  it('把中断前遗留的合法 activating 记录重新对账为 ready', async () => {
+    const { manager, runtime, statePath } = await createManager()
+    const downloaded = await manager.start({
+      cloudEnvironment: 'test',
+      templateUuid
+    })
+    const persistedStore = new LocalDeviceProvisioningStore(statePath)
+    await persistedStore.put({
+      ...downloaded,
+      instanceId: 'local_pump_1',
+      instanceUuid: '90ac8814-bea3-4c19-9c56-907925f9b6fd',
+      graphFingerprint: `sha256:${'d'.repeat(64)}`,
+      status: 'activating',
+      diagnostic: null
+    })
+    const restartedManager = new LocalDeviceProvisioningManager(
+      new LocalDeviceProvisioningStore(statePath),
+      runtime as unknown as LocalRuntimeManager,
+      vi.fn()
+    )
+
+    const [recovered] = await restartedManager.list()
+
+    expect(recovered).toMatchObject({
+      status: 'ready',
+      instanceId: 'local_pump_1',
+      actionCount: 1,
+      diagnostic: null
+    })
+    expect(ports.getOnlineDevices).toHaveBeenCalledOnce()
+    expect(runtime.startEdge).not.toHaveBeenCalled()
+  })
 })
 
-/** 创建带真实原子 Store 和可观察 Runtime 的接入编排器。 */
+/** 创建带真实原子 Store、持久路径和可观察 Runtime 的接入编排器。 */
 async function createManager(): Promise<{
   manager: LocalDeviceProvisioningManager
   runtime: ReturnType<typeof fakeRuntime>
+  statePath: string
 }> {
   const root = await mkdtemp(join(tmpdir(), 'unilab-provisioning-manager-'))
   temporaryDirectories.push(root)
   const runtime = fakeRuntime()
+  const statePath = join(root, 'state.json')
   const manager = new LocalDeviceProvisioningManager(
-    new LocalDeviceProvisioningStore(join(root, 'state.json')),
+    new LocalDeviceProvisioningStore(statePath),
     runtime as unknown as LocalRuntimeManager,
     vi.fn()
   )
-  return { manager, runtime }
+  return { manager, runtime, statePath }
 }
 
 /** 生成已成功启动一次且当前 Edge 正在运行的 Runtime 权威端口。 */
@@ -426,7 +498,7 @@ function downloadResult() {
 function graphResult(status: 'graph_staged' | 'removed' | 'graph_restored') {
   return {
     status,
-    instanceId: status === 'graph_restored' ? '' : 'local-pump-1',
+    instanceId: status === 'graph_restored' ? '' : 'local_pump_1',
     instanceUuid: status === 'graph_restored' ? '' : 'instance-uuid',
     definitionFqid: status === 'graph_restored' ? '' : 'community.review_lab.pump',
     graphFingerprint: `sha256:${'c'.repeat(64)}`,
@@ -438,10 +510,10 @@ function graphResult(status: 'graph_staged' | 'removed' | 'graph_restored') {
 /** 生成 `/api/v1/devices` 的在线设备与一个可忙碌 Action。 */
 function onlineDevice(isBusy: boolean) {
   return {
-    id: 'local-pump-1',
+    id: 'local_pump_1',
     online: true,
     actions: [{
-      actionRef: 'local-pump-1::run',
+      actionRef: 'local_pump_1::run',
       displayName: '运行',
       isBusy
     }]

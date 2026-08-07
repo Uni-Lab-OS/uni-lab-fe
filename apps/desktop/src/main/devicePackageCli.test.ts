@@ -107,7 +107,7 @@ describe('Electron Main 设备包 CLI 接口', () => {
     const result = await stageDeviceWithCli(config, {
       cacheKey: `community.review_lab@1.2.0#${digest}`,
       definitionFqid: request.definitionFqid,
-      instanceId: 'local-pump-1',
+      instanceId: 'local_pump_1',
       instanceUuid: 'd4517ba4-4ce4-4b10-8954-05e35158d595',
       adoptExisting: true,
       graphPath: '/runtime/device-graph.json',
@@ -128,7 +128,7 @@ describe('Electron Main 设备包 CLI 接口', () => {
     await stageDeviceWithCli(config, {
       cacheKey: `community.review_lab@1.2.0#${digest}`,
       definitionFqid: request.definitionFqid,
-      instanceId: 'local-pump-1',
+      instanceId: 'local_pump_1',
       instanceUuid: 'd4517ba4-4ce4-4b10-8954-05e35158d595',
       adoptExisting: false,
       graphPath: '/runtime/device-graph.json',
@@ -149,7 +149,7 @@ describe('Electron Main 设备包 CLI 接口', () => {
 
     await removeDeviceWithCli(config, {
       graphPath: '/runtime/device-graph.json',
-      instanceId: 'local-pump-1',
+      instanceId: 'local_pump_1',
       instanceUuid: 'd4517ba4-4ce4-4b10-8954-05e35158d595'
     }, runner)
     await restoreDeviceGraphWithCli(config, {
@@ -190,7 +190,7 @@ function graphMutationResult(
 ): Record<string, unknown> {
   return {
     status,
-    instance_id: status === 'graph_restored' ? '' : 'local-pump-1',
+    instance_id: status === 'graph_restored' ? '' : 'local_pump_1',
     instance_uuid: status === 'graph_restored'
       ? ''
       : 'd4517ba4-4ce4-4b10-8954-05e35158d595',

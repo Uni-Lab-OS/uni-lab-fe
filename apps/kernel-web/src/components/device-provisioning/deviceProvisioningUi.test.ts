@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { LocalDeviceProvisioning } from '@unilab/device-provisioning'
+import {
+  isRosDeviceInstanceId,
+  requireRosDeviceInstanceId,
+  type LocalDeviceProvisioning
+} from '@unilab/device-provisioning'
 
 import {
   assertDeviceProvisioningIpcContract,
@@ -145,6 +149,18 @@ describe('设备接入界面投影', () => {
       cloudDeviceName: 'community.review-lab.pump',
       cloudDisplayName: 'Review Pump'
     } as LocalDeviceProvisioning)).toBe('local_community_review_lab_pump')
+  })
+
+  /** 验证界面、Main 和 OS 共用的实例身份合同拒绝历史横线与数字开头。 */
+  it('严格校验 ROS 设备实例 ID', () => {
+    expect(isRosDeviceInstanceId('local_mock_s08')).toBe(true)
+    expect(isRosDeviceInstanceId('_local_mock_s08')).toBe(true)
+    expect(isRosDeviceInstanceId('szlab_mock-mock_s08')).toBe(false)
+    expect(isRosDeviceInstanceId('1_szlab_mock_s08')).toBe(false)
+    expect(() => requireRosDeviceInstanceId('  local_mock_s08  ')).not.toThrow()
+    expect(() => requireRosDeviceInstanceId('szlab_mock-mock_s08')).toThrow(
+      '必须以字母或下划线开头'
+    )
   })
 
   /** 验证云端设备分页按模板身份去重，并在未覆盖总数时请求下一页。 */

@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { LocalDeviceProvisioning } from '@unilab/device-provisioning'
+import {
+  requireRosDeviceInstanceId,
+  ROS_DEVICE_INSTANCE_ID_PATTERN,
+  type LocalDeviceProvisioning
+} from '@unilab/device-provisioning'
 
 import {
   configurationFields,
@@ -72,20 +76,17 @@ export default function DeviceConfigurationForm({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
     setError(null)
-    if (!instanceId.trim()) {
-      setError('设备实例 ID 不能为空')
-      return
-    }
     if (!displayName.trim()) {
       setError('设备显示名称不能为空')
       return
     }
     try {
+      const normalizedInstanceId = requireRosDeviceInstanceId(instanceId)
       const configuration = parseConfigurationDraft(fields, draft)
       onWorking(true)
       const updated = await api.configure({
         provisioningId: record.provisioningId,
-        instanceId: instanceId.trim(),
+        instanceId: normalizedInstanceId,
         displayName: displayName.trim(),
         adoptExisting,
         configuration
@@ -113,9 +114,9 @@ export default function DeviceConfigurationForm({
           <input
             value={instanceId}
             disabled={disabled}
-            pattern="[A-Za-z0-9_]+"
+            pattern={ROS_DEVICE_INSTANCE_ID_PATTERN}
             maxLength={128}
-            title="设备实例 ID 只能包含字母、数字和下划线"
+            title="设备实例 ID 必须以字母或下划线开头，且只能包含字母、数字和下划线"
             onChange={(event) => setInstanceId(event.target.value)}
             placeholder="local_pump_1"
           />
