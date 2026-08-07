@@ -37,7 +37,7 @@ describe('Cloud API 地址投影', () => {
       expect(cloudApiRootUrlForEnvironment('test'))
         .toBe('https://leap-lab.test.bohrium.com/api/v1')
       expect(cloudApiRootUrlForEnvironment('uat'))
-        .toBe('https://leap-lab.uat.bohrium.com/api/v1')
+        .toBe('https://uni-lab.uat.bohrium.com/api/v1')
       expect(cloudServiceBaseUrlForEnvironment('production'))
         .toBe('https://leap-lab.bohrium.com')
     } finally {

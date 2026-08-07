@@ -27,7 +27,7 @@
 7. Electron 受控重启当前 Uni-Lab-OS，使设备包、注册表和设备实例一起加载。
 8. Electron 从当前 OS 的 `/api/v1/devices` 查询到该实例在线且 Action 可见后，才显示“设备可运行”。
 
-设备广场读取、仅下载、添加心愿单和上传统一绑定用户明确选择的固定云端环境：测试环境 `leap-lab.test.bohrium.com`、UAT 环境 `leap-lab.uat.bohrium.com` 或正式环境 `leap-lab.bohrium.com`。本地设备接入记录持久化来源环境，重试始终回到原环境，不跟随页面后来切换。
+设备广场读取、仅下载、添加心愿单和上传统一绑定用户明确选择的固定云端环境：测试环境 `leap-lab.test.bohrium.com`、UAT 环境 `uni-lab.uat.bohrium.com` 或正式环境 `leap-lab.bohrium.com`。本地设备接入记录持久化来源环境，重试始终回到原环境，不跟随页面后来切换。
 
 ```text
 云端设备广场设备模板
@@ -206,8 +206,10 @@ POST /api/v1/lab/square/copy_resource
 | 旧包失败后显示“未命名设备” | Main 先持久化已校验云端详情，再解析包兼容性；失败记录保留设备名称、包名、版本和可用摘要 |
 | Electron 只显示设备第一页 | Renderer 依据 `total/page/page_size` 逐页加载、按模板 UUID 去重，并显示“已显示 N / total” |
 | 不可兼容旧包反复重试 | `ServiceError.retryable=false` 持久化到诊断，Main 拒绝自动重试，Renderer 隐藏重试按钮 |
+| 可选 object 的显式 `null` 被误判为类型错误 | FE 与 OS 统一遵循初始化 Schema：字段可选且默认值明确为 `null` 时，显式 `null` 与省略字段等价；其他类型错误仍失败关闭 |
+| 云端 FQID 生成的实例 ID 含 `-`，ROS 节点启动失败 | 建议实例 ID 统一规范为 `[A-Za-z0-9_]+`，非法字符替换为下划线，并在表单和 OS 启动前双重校验 |
 
-首版仍明确采用受控重启，不承诺在线增加根设备；真实 Cloud/OSS 和物理仪器属于部署环境验收项，不是新增 Backend 开发项。
+首版仍明确采用受控重启，不承诺在线增加根设备。真实 UAT Cloud/OSS 已使用无硬件依赖的 SZLab mock 包完成闭环；物理仪器连接与业务 Action 仍属于部署环境验收项，不是新增 Backend 开发项。
 
 ### 4.6 Electron 已有的可复用能力
 
@@ -433,6 +435,10 @@ CLI -> Main: package_cached + device descriptor
 - 建议实例 ID；
 - 是否需要用户配置。
 
+初始化 Schema 中“可选且默认值明确为 `null`”的 object 字段可以保持 `null`。FE
+不得强迫用户填写空对象，OS 也不得在写图时把同一值误判为类型错误；必填字段或没有
+nullable 默认合同的字段仍按原规则严格校验。
+
 ### 7.3 配置真实仪器
 
 Electron 根据 CLI 返回的 Schema 渲染表单。常见字段包括：
@@ -591,7 +597,7 @@ UUID、definition 不同或请求 UUID 已被占用时，即使提供该开关�
 ```bash
 unilab package inspect --path <workspace> --json
 unilab --working_dir <managed-working-dir> \
-  --addr https://leap-lab.uat.bohrium.com/api/v1 \
+  --addr https://uni-lab.uat.bohrium.com/api/v1 \
   package upload --path <workspace> --auth-stdin --json
 ```
 
@@ -759,7 +765,7 @@ stdin 是单个封闭 JSON 文档：
 
 退出条件：点击“添加心愿单”可以走到 `restart_required`，且设备图已安全写入。
 
-### P4：受控重启与可运行确认（已实现；真实设备待验收）
+### P4：受控重启与可运行确认（已实现；真实 UAT mock 已验收）
 
 - 接入现有 LocalRuntime stop/start/readiness。
 - 增加“运行中 Action 禁止重启”门禁。
@@ -768,7 +774,7 @@ stdin 是单个封闭 JSON 文档：
 
 退出条件：真实 Electron 中新增设备进入现有设备列表，并可以显式调用安全测试 Action。
 
-### P5：上传闭环与真实 E2E（代码已实现；真实 Cloud/OSS 待验收）
+### P5：上传闭环与真实 E2E（真实 UAT Cloud/OSS 已验收）
 
 - 接入现有 inspect/upload。
 - 用一次性 stdin AK/SK 替代 Electron 的 `local_config.py` 选择，不在 argv 或日志中暴露秘密。
@@ -776,7 +782,11 @@ stdin 是单个封闭 JSON 文档：
 - 覆盖真实 Backend、OSS、Conda、设备图和测试仪器。
 - 验证 Electron 与 Uni-Lab-Cloud 都能看到上传包。
 
-实现已完成，不再使用原工期估算；后续工作量取决于目标 Lab 凭据、云端数据兼容性和测试仪器可用性。
+实现已完成，不再使用原工期估算。2026-08-06 已在
+`https://uni-lab.uat.bohrium.com/api/v1` 上传并发布
+`community.unilab_szlab_mock@0.1.0`，随后通过 Electron 从同一 UAT 设备广场发现、
+下载、配置、写图并启动真实 Edge；后续工作量只取决于物理仪器和对应业务 Action
+的部署环境验收。
 
 ## 14. 测试矩阵与验收
 
@@ -801,15 +811,23 @@ stdin 是单个封闭 JSON 文档：
 | `uni-lab-fe: pnpm test` | 全部带测试脚本的工作区包通过；其中 services 119、kernel-web 65、desktop 95 |
 | `uni-lab-fe: pnpm build:desktop` | 生产 Main、Preload、Renderer 构建通过 |
 | `xvfb-run -a env UNILAB_E2E_ELECTRON=1 pnpm exec playwright test e2e/device-square-electron.spec.ts` | 1 passed；覆盖生产 Electron Main/Preload/Renderer v2 能力握手、45 条设备完整分页、详情保持、显式接管默认关闭、旧包不可重试诊断及桌面/紧凑截图 |
+| `Uni-Lab-OS: pytest tests/package_manager/test_szlab_mock_package.py tests/package_manager/test_device_provisioning.py tests/package_manager/test_package_upload_auth.py -q` | 26 passed；覆盖可选 nullable 配置、mock Catalog、设备图写入、接入和 stdin 上传鉴权合同 |
+| `uni-lab-fe: pnpm --filter @unilab/kernel-web test` | 15 files、66 tests passed；覆盖 nullable 表单值与 ROS 安全实例 ID |
+| `xvfb-run -a env UNILAB_E2E_ELECTRON=1 UNILAB_E2E_CONDA_ENV=... UNILAB_E2E_OS_ROOT=... pnpm exec playwright test e2e/device-square-uat-real-edge.spec.ts` | 1 passed；真实 UAT 设备广场、OSS 下载、写图、Edge health 和 4 个 Action 对账 |
 
-本轮截图保存在 `e2e-artifacts/device-square-electron/`：
+本轮截图保存在 `e2e-artifacts/device-square-electron/` 和
+`e2e-artifacts/device-square-uat-real-edge/`：
 
 - `device-square-desktop.png`：加载第二页后显示 `45 / 45`，右侧设备详情保持可见。
 - `device-square-legacy-package.png`：旧包保留“旧版分液器”名称、包版本和重新发布诊断，不提供无效重试按钮。
 - `device-square-compact.png`：紧凑窗口下列表与详情保持可操作。
 - `device-package-upload-desktop.png`：测试/UAT/正式环境选择、一次性 Lab AK/SK 和现有 CLI 上传入口；不再选择 `local_config.py`。
+- `device-square-uat-real-edge/05-uat-mock-edge-ready.png`：真实 UAT mock 包已加入本地、Edge 已连接、设备在线且 4 个 Action 可用。
 
-自动化使用兼容 Backend fixture 和虚拟设备目录，证明协议、IPC、状态机与界面链路；它不替代真实 Lab AK/SK、OSS、目标 Cloud 数据和物理仪器 Action 验收。
+常规自动化使用兼容 Backend fixture 和虚拟设备目录，证明协议、IPC、状态机与界面链路；
+`device-square-uat-real-edge.spec.ts` 额外覆盖真实 Lab 鉴权后已发布的 UAT 数据与真实 OSS，
+且测试代码、截图、设备图和日志均不保存 AK/SK。mock 驱动只证明运行合同，不替代物理
+仪器连接和真实业务 Action 验收。
 
 核心验收场景：
 

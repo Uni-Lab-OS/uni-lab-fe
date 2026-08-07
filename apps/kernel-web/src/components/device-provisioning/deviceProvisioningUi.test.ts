@@ -57,6 +57,26 @@ describe('设备接入界面投影', () => {
     })
   })
 
+  /** 验证设备包显式声明的可空 object 默认值可原样提交给 OS。 */
+  it('保留可选 object 字段的 null 默认值', () => {
+    const fields = configurationFields({
+      type: 'object',
+      properties: {
+        channel_map: {
+          type: 'object',
+          default: null,
+          'x-unilab-python-type': 'dict[str, str] | None'
+        }
+      }
+    })
+    const draft = initialConfigurationDraft(fields, null)
+
+    expect(draft).toEqual({ channel_map: 'null' })
+    expect(parseConfigurationDraft(fields, draft)).toEqual({
+      channel_map: null
+    })
+  })
+
   /** 验证首版不做字符串到错误类型的隐式容错。 */
   it('拒绝缺失必填值和非整数输入', () => {
     const fields = configurationFields({
@@ -115,12 +135,16 @@ describe('设备接入界面投影', () => {
     })
   })
 
-  /** 验证模板名称生成的本地建议 ID 不包含空格或标点。 */
-  it('生成稳定本地实例 ID 建议', () => {
+  /** 验证模板名称生成的本地建议 ID 可直接用作 ROS node name。 */
+  it('生成 ROS 安全的稳定本地实例 ID 建议', () => {
     expect(suggestedInstanceId({
       cloudDeviceName: 'Pump Controller V2',
       cloudDisplayName: '泵控制器'
-    } as LocalDeviceProvisioning)).toBe('local-pump-controller-v2')
+    } as LocalDeviceProvisioning)).toBe('local_pump_controller_v2')
+    expect(suggestedInstanceId({
+      cloudDeviceName: 'community.review-lab.pump',
+      cloudDisplayName: 'Review Pump'
+    } as LocalDeviceProvisioning)).toBe('local_community_review_lab_pump')
   })
 
   /** 验证云端设备分页按模板身份去重，并在未覆盖总数时请求下一页。 */

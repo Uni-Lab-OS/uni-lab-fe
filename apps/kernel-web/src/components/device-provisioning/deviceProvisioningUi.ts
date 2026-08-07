@@ -173,6 +173,10 @@ export function parseConfigurationDraft(
     }
     if (field.type === 'object' || field.type === 'array') {
       const parsed: unknown = JSON.parse(text)
+      if (parsed === null && !field.required && field.defaultValue === null) {
+        configuration[field.name] = null
+        continue
+      }
       if (
         (field.type === 'array' && !Array.isArray(parsed))
         || (field.type === 'object' && (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)))
@@ -187,15 +191,15 @@ export function parseConfigurationDraft(
   return configuration
 }
 
-/** 为云端模板生成可编辑、稳定且不含空格的本地实例 ID 建议。 */
+/** 为云端模板生成可编辑、稳定且符合 ROS node name 约束的本地实例 ID 建议。 */
 export function suggestedInstanceId(record: LocalDeviceProvisioning): string {
   const source = record.cloudDeviceName || record.cloudDisplayName || 'device'
   const normalized = source
     .normalize('NFKD')
     .toLowerCase()
-    .replace(/[^a-z0-9_-]+/gu, '-')
-    .replace(/^-+|-+$/gu, '')
-  return `local-${normalized || 'device'}`.slice(0, 80)
+    .replace(/[^a-z0-9_]+/gu, '_')
+    .replace(/^_+|_+$/gu, '')
+  return `local_${normalized || 'device'}`.slice(0, 80)
 }
 
 /**

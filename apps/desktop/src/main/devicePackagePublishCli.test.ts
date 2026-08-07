@@ -11,7 +11,7 @@ const config = {
   unilabExecutable: '/opt/unilab/bin/unilab',
   commandWorkingDirectory: '/workspace/Uni-Lab-OS',
   managedWorkingDirectory: '/runtime/unilabos_data',
-  backendBaseUrl: 'https://leap-lab.uat.bohrium.com/api/v1'
+  backendBaseUrl: 'https://uni-lab.uat.bohrium.com/api/v1'
 }
 
 /** 覆盖 Electron Main 对现有设备包 inspect/upload CLI 的严格投影。 */
@@ -74,7 +74,7 @@ describe('设备包发布 CLI Adapter', () => {
       '--working_dir',
       '/runtime/unilabos_data',
       '--addr',
-      'https://leap-lab.uat.bohrium.com/api/v1',
+      'https://uni-lab.uat.bohrium.com/api/v1',
       'package',
       'upload',
       '--path',

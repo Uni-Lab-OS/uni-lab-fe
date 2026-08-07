@@ -34,8 +34,8 @@ export const CLOUD_ENVIRONMENT_OPTIONS: readonly CloudEnvironmentOption[] = [
   {
     id: 'uat',
     label: 'UAT 环境',
-    host: 'leap-lab.uat.bohrium.com',
-    apiUrl: 'https://leap-lab.uat.bohrium.com/api/v1'
+    host: 'uni-lab.uat.bohrium.com',
+    apiUrl: 'https://uni-lab.uat.bohrium.com/api/v1'
   },
   {
     id: 'production',

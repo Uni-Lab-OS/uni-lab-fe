@@ -113,10 +113,13 @@ export default function DeviceConfigurationForm({
           <input
             value={instanceId}
             disabled={disabled}
+            pattern="[A-Za-z0-9_]+"
+            maxLength={128}
+            title="设备实例 ID 只能包含字母、数字和下划线"
             onChange={(event) => setInstanceId(event.target.value)}
-            placeholder="local-pump-1"
+            placeholder="local_pump_1"
           />
-          <small>新实例在同一设备图内不可重复；遗留节点需在下方显式确认接管。</small>
+          <small>仅使用字母、数字和下划线，且在同一设备图内不可重复；遗留节点需在下方显式确认接管。</small>
         </label>
         <label>
           <span>显示名称 <b>必填</b></span>
