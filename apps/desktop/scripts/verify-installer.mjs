@@ -20,7 +20,8 @@ assert.deepEqual(packageConfig.dependencies ?? {}, {
   '@arizeai/phoenix-otel': '2.1.0',
   '@unilab/device-card-agent-cli': 'workspace:*',
   '@unilab/device-card-host': 'workspace:*',
-  '@unilab/device-card-sdk': 'workspace:*'
+  '@unilab/device-card-sdk': 'workspace:*',
+  'electron-updater': '^6.8.9'
 })
 assert.equal(
   packageConfig.devDependencies?.['@unilab/kernel-web'],
@@ -61,6 +62,11 @@ assert.match(
 )
 assert.match(builderConfig, /electronLanguages:\s*\n\s*- zh-CN\s*\n\s*- en-US/)
 assert.match(builderConfig, /afterPack: scripts\/after-pack\.mjs/)
+assert.match(
+  builderConfig,
+  /publish:\s*\n\s*provider: generic\s*\n\s*url: \$\{env\.UNILAB_DESKTOP_UPDATE_URL\}/
+)
+assert.match(builderConfig, /mac:[\s\S]*?target:\s*\n\s*- dmg\s*\n\s*- zip/)
 assert.match(builderConfig, /nsis:[\s\S]*?oneClick: false/)
 assert.match(builderConfig, /nsis:[\s\S]*?perMachine: false/)
 assert.match(builderConfig, /nsis:[\s\S]*?include: build\/installer\.nsh/)

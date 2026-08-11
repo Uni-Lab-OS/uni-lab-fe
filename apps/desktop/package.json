@@ -1,6 +1,6 @@
 {
   "name": "@unilab/desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Electron wrapper for @unilab/kernel-web",
   "main": "./out/main/index.js",
@@ -22,7 +22,8 @@
     "@arizeai/phoenix-otel": "2.1.0",
     "@unilab/device-card-agent-cli": "workspace:*",
     "@unilab/device-card-host": "workspace:*",
-    "@unilab/device-card-sdk": "workspace:*"
+    "@unilab/device-card-sdk": "workspace:*",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.14",

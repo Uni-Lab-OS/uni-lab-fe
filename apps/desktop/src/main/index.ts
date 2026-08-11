@@ -8,7 +8,17 @@ import {
 import { join } from 'path'
 import { appendFileSync, existsSync } from 'node:fs'
 import { homedir } from 'node:os'
+import { autoUpdater } from 'electron-updater'
 import { registerAuthIpc } from './authIpc'
+import {
+  AppUpdateManager,
+  createElectronUpdaterAdapter
+} from './appUpdateManager'
+import {
+  confirmAppUpdateDownload,
+  confirmAppUpdateInstall
+} from './appUpdateDialogs'
+import { registerAppUpdateIpc } from './appUpdateIpc'
 import { createDesktopWindow } from './desktopWindow'
 import { DeviceCardManager } from './deviceCardManager'
 import { DeviceCardAgentEnvironment } from './deviceCardAgentEnvironment'
@@ -111,8 +121,10 @@ let mainWindow: BrowserWindow | null = null
 let localRuntimeManager: LocalRuntimeManager | null = null
 let quitCleanupStarted = false
 let quitCleanupFinished = false
+let quitCleanupPromise: Promise<void> | null = null
 let deviceCardManager: DeviceCardManager | null = null
 let deviceCardAgentEnvironment: DeviceCardAgentEnvironment | null = null
+let appUpdateManager: AppUpdateManager | null = null
 
 function createWindow(): void {
   mainWindow = createDesktopWindow({
@@ -202,6 +214,34 @@ app.whenReady().then(async () => {
     getMainWindow: () => mainWindow,
     assertSender: assertMainWindowSender
   })
+
+  appUpdateManager = new AppUpdateManager({
+    currentVersion: app.getVersion(),
+    enabled: app.isPackaged,
+    updater: createElectronUpdaterAdapter(autoUpdater),
+    log: logLine,
+    publish: (snapshot) => {
+      const window = mainWindow
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('app-update:state', snapshot)
+      }
+    },
+    confirmDownload: (snapshot) => confirmAppUpdateDownload(
+      () => mainWindow,
+      snapshot
+    ),
+    confirmInstall: (snapshot) => confirmAppUpdateInstall(
+      () => mainWindow,
+      snapshot
+    ),
+    beforeInstall: ensureQuitCleanup
+  })
+  registerAppUpdateIpc({
+    ipcMain,
+    manager: appUpdateManager,
+    assertSender: assertMainWindowSender
+  })
+  appUpdateManager.start()
 
   ipcMain.handle(
     'runtime:selectPath',
@@ -355,14 +395,24 @@ app.on('before-quit', (event) => {
   if (quitCleanupFinished) return
   event.preventDefault()
   if (quitCleanupStarted) return
-  quitCleanupStarted = true
-  void cleanupBeforeQuit().finally(() => {
-    quitCleanupFinished = true
+  void ensureQuitCleanup().finally(() => {
     app.quit()
   })
 })
 
+/** 对普通退出与更新安装复用一次且仅一次的宿主清理。 */
+function ensureQuitCleanup(): Promise<void> {
+  if (quitCleanupFinished) return Promise.resolve()
+  if (quitCleanupPromise) return quitCleanupPromise
+  quitCleanupStarted = true
+  quitCleanupPromise = cleanupBeforeQuit().finally(() => {
+    quitCleanupFinished = true
+  })
+  return quitCleanupPromise
+}
+
 async function cleanupBeforeQuit(): Promise<void> {
+  appUpdateManager?.dispose()
   try {
     deviceCardManager?.destroy()
   } catch (error) {

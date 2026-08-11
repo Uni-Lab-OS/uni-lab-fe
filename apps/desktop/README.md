@@ -18,6 +18,24 @@
 - 本地 `dev`/`preview` 使用 `build/icon.png` 作为窗口图标，并在 macOS 显式设置
   Dock 图标；安装包继续使用 `electron-builder.yml` 声明的 `icon.icns/icon.png`。
 
+## 桌面自动更新
+
+安装包使用 `electron-updater` 从 HTTPS generic provider 检查签名版本。开发态禁用；
+生产态启动 30 秒后检查，随后每四小时检查一次。发现版本后由原生对话框确认下载，
+下载完成后由用户选择重启安装。正常退出也允许安装已经下载的版本。
+
+打包前必须设置无凭据、无 query 的更新目录：
+
+```bash
+export UNILAB_DESKTOP_UPDATE_URL=https://updates.example.com/desktop/stable
+pnpm --filter @unilab/desktop package:win
+```
+
+Windows 发布目录必须同时包含 NSIS 安装包、`.blockmap` 和 `latest.yml`；macOS 必须
+包含 DMG、ZIP 和 `latest-mac.yml`。发布系统应先上传不可变安装产物，最后原子替换
+`latest*.yml`。macOS 正式更新包必须完成 Developer ID 签名与公证，Windows 正式包
+应使用固定发布者证书签名。
+
 ## 本地环境启动
 
 桌面端连接栏可选择以下路径，并分别启动或停止 PLC-Sim 与领域侧 Edge。当前

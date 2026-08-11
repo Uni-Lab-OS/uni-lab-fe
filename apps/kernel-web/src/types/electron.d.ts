@@ -268,8 +268,35 @@ export interface DesktopObservabilityApi {
   ) => Promise<TraceDetailResult>
 }
 
+export type AppUpdatePhase =
+  | 'disabled'
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+
+export interface AppUpdateSnapshot {
+  phase: AppUpdatePhase
+  currentVersion: string
+  availableVersion?: string
+  progressPercent?: number
+  checkedAt?: number
+  errorCode?: 'CHECK_FAILED' | 'DOWNLOAD_FAILED' | 'INSTALL_FAILED'
+}
+
+export interface DesktopAppUpdateApi {
+  getState: () => Promise<AppUpdateSnapshot>
+  check: () => Promise<AppUpdateSnapshot>
+  download: () => Promise<AppUpdateSnapshot>
+  restartAndInstall: () => Promise<AppUpdateSnapshot>
+  onState: (listener: (snapshot: AppUpdateSnapshot) => void) => () => void
+}
+
 interface DesktopApi {
   getVersion: () => Promise<string>
+  appUpdate?: DesktopAppUpdateApi
   auth: {
     getSession: () => Promise<AuthSession | null>
     login: () => Promise<AuthSession | null>

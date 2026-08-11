@@ -14,6 +14,7 @@ import {
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { requireDesktopUpdateUrl } from './update-publish.mjs'
 
 import {
   MAX_PACKAGED_APP_BYTES,
@@ -117,8 +118,10 @@ export function publishMacosArtifacts(outputDirectory, destinationDirectory) {
   mkdirSync(destinationDirectory, { recursive: true })
 
   const artifactNames = readdirSync(outputDirectory).filter((name) =>
-    /(?:\.dmg(?:\.blockmap)?|latest-mac\.yml)$/i.test(name)
+    /(?:\.dmg(?:\.blockmap)?|\.zip(?:\.blockmap)?|latest-mac\.yml)$/i.test(name)
   )
+  requireNamedArtifact(artifactNames, 'latest-mac.yml')
+  requireMatchingArtifact(artifactNames, /\.zip$/i, 'macOS ZIP')
   for (const name of artifactNames) {
     copyFileSync(join(outputDirectory, name), join(destinationDirectory, name))
   }
@@ -140,6 +143,7 @@ function runCli(entryPath, args) {
 }
 
 export function packageMacos() {
+  requireDesktopUpdateUrl()
   const outputDirectory = mkdtempSync(join(tmpdir(), 'unilab-macos-package-'))
   const { electronViteCli, electronBuilderCli } = resolvePackagingCliPaths()
 
@@ -159,6 +163,18 @@ export function packageMacos() {
     )
   } finally {
     rmSync(outputDirectory, { recursive: true, force: true })
+  }
+}
+
+function requireNamedArtifact(names, expected) {
+  if (!names.includes(expected)) {
+    throw new Error(`桌面更新产物缺少 ${expected}`)
+  }
+}
+
+function requireMatchingArtifact(names, pattern, label) {
+  if (!names.some((name) => pattern.test(name))) {
+    throw new Error(`桌面更新产物缺少 ${label}`)
   }
 }
 

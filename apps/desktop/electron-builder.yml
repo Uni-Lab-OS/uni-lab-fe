@@ -14,11 +14,15 @@ electronLanguages:
   - zh-CN
   - en-US
 afterPack: scripts/after-pack.mjs
+publish:
+  provider: generic
+  url: ${env.UNILAB_DESKTOP_UPDATE_URL}
 mac:
   category: public.app-category.developer-tools
   icon: build/icon.icns
   target:
     - dmg
+    - zip
   artifactName: ${productName}-${version}-${arch}.${ext}
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}

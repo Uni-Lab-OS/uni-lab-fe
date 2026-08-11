@@ -32,6 +32,7 @@ import type {
   TraceListQuery,
   TraceListResult
 } from '../shared/observability'
+import type { AppUpdateSnapshot } from '../shared/appUpdate'
 import type {
   CloudEnvironment,
   ConfigureLocalDeviceProvisioningInput,
@@ -90,6 +91,26 @@ export interface OpenFilePayload {
 
 const api = {
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
+  appUpdate: {
+    getState: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:getState'),
+    check: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:check'),
+    download: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:download'),
+    restartAndInstall: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:restartAndInstall'),
+    onState: (
+      listener: (snapshot: AppUpdateSnapshot) => void
+    ): (() => void) => {
+      const wrapped = (
+        _event: Electron.IpcRendererEvent,
+        snapshot: AppUpdateSnapshot
+      ): void => listener(snapshot)
+      ipcRenderer.on('app-update:state', wrapped)
+      return () => ipcRenderer.removeListener('app-update:state', wrapped)
+    }
+  },
   auth: {
     // 读取本地已保存的登录会话
     getSession: (): Promise<AuthSession | null> => ipcRenderer.invoke('auth:getSession'),

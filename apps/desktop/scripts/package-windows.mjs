@@ -14,6 +14,7 @@ import {
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { requireDesktopUpdateUrl } from './update-publish.mjs'
 
 const MEBIBYTE = 1024 * 1024
 
@@ -118,6 +119,8 @@ export function publishWindowsArtifacts(outputDirectory, destinationDirectory) {
   const artifactNames = readdirSync(outputDirectory).filter((name) =>
     /(?:-setup\.exe(?:\.blockmap)?|latest\.yml)$/i.test(name)
   )
+  requireNamedArtifact(artifactNames, 'latest.yml')
+  requireMatchingArtifact(artifactNames, /-setup\.exe\.blockmap$/i, 'Windows blockmap')
   for (const name of artifactNames) {
     copyFileSync(join(outputDirectory, name), join(destinationDirectory, name))
   }
@@ -139,6 +142,7 @@ function runCli(entryPath, args) {
 }
 
 export function packageWindows() {
+  requireDesktopUpdateUrl()
   const outputDirectory = mkdtempSync(join(tmpdir(), 'unilab-win-package-'))
   const { electronViteCli, electronBuilderCli } = resolvePackagingCliPaths()
 
@@ -161,6 +165,18 @@ export function packageWindows() {
     )
   } finally {
     rmSync(outputDirectory, { recursive: true, force: true })
+  }
+}
+
+function requireNamedArtifact(names, expected) {
+  if (!names.includes(expected)) {
+    throw new Error(`桌面更新产物缺少 ${expected}`)
+  }
+}
+
+function requireMatchingArtifact(names, pattern, label) {
+  if (!names.some((name) => pattern.test(name))) {
+    throw new Error(`桌面更新产物缺少 ${label}`)
   }
 }
 

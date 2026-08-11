@@ -1,10 +1,11 @@
 import { resolve } from 'path'
 import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 // kernel-web 是浏览器与 Electron 共同使用的唯一 renderer。
 export default defineConfig(({ mode }) => ({
-  plugins: [tailwindcss()],
+  plugins: [tailwindcss(), react()],
   // @pascal-app/* 以 Next.js 目标的 TS 源码分发，模块顶层直接读 process.env.*
   //（NODE_ENV / NEXT_PUBLIC_* 等），假设由 Next 在构建期替换。本 renderer 是纯 Vite，
   // 浏览器/Electron 无 process 全局。明确保留资源 CDN 配置，并让其他
