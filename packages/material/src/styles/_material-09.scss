@@ -1,0 +1,285 @@
+/* 物料配置编辑器：常用字段优先，高级 JSON 渐进披露。 */
+:where(.scope, .scope *):global(.material-inspector):has(
+    :global(.material-config-editor)
+  ) {
+  background: var(--unilab-color-bg-subtle);
+}
+
+:where(.scope, .scope *):global(.material-inspector__form) {
+  min-height: 100%;
+  flex: 1;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__scope-note) {
+  display: grid;
+  gap: 3px;
+  padding: 11px 12px;
+  color: var(--unilab-color-text);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-material-soft) 70%,
+    var(--unilab-color-surface)
+  );
+  border: 1px solid color-mix(
+    in srgb,
+    var(--unilab-color-material) 24%,
+    var(--unilab-color-border)
+  );
+  border-radius: var(--unilab-radius-md);
+}
+
+:where(.scope, .scope *):global(.material-config-editor__scope-note) strong {
+  color: var(--unilab-color-material);
+  font-size: 12px;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__scope-note) span {
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__group) {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  margin: 0;
+  padding: 14px;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
+}
+
+:where(.scope, .scope *):global(.material-config-editor__group) legend {
+  padding: 0 6px;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+:where(.scope, .scope *):global(.material-config-editor) {
+  overflow: hidden;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
+}
+
+:where(.scope, .scope *):global(.material-config-editor) > header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--unilab-color-bg-subtle);
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-config-editor) > header h3,
+:where(.scope, .scope *):global(.material-config-editor) > header p {
+  margin: 0;
+}
+
+:where(.scope, .scope *):global(.material-config-editor) > header h3 {
+  color: var(--unilab-color-text);
+  font-size: 12px;
+}
+
+:where(.scope, .scope *):global(.material-config-editor) > header p {
+  margin-top: 3px;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__mode) {
+  min-height: 28px;
+  flex: none;
+  padding: 0 8px;
+  color: var(--unilab-color-material);
+  background: var(--unilab-color-surface);
+  border: 1px solid color-mix(
+    in srgb,
+    var(--unilab-color-material) 28%,
+    var(--unilab-color-border)
+  );
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+  font: 650 10px/1 var(--unilab-font-sans);
+}
+
+:where(.scope, .scope *):global(.material-config-editor__mode):hover:not(:disabled) {
+  background: var(--unilab-color-material-soft);
+}
+
+:where(.scope, .scope *):global(.material-config-editor__mode):focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 2px;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__mode):disabled {
+  color: var(--unilab-color-text-subtle);
+  background: var(--unilab-color-bg-subtle);
+  border-color: var(--unilab-color-border);
+  cursor: not-allowed;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__fields) {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__field-title) {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__field-title) code,
+:where(.scope, .scope *):global(.material-config-editor__boolean) code,
+:where(.scope, .scope *):global(.material-config-editor__advanced-summary) code {
+  color: var(--unilab-color-text-subtle);
+  font-family: var(--unilab-font-mono);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__boolean) {
+  display: flex !important;
+  gap: 12px !important;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  background: var(--unilab-color-bg-subtle);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+}
+
+:where(.scope, .scope *):global(.material-config-editor__boolean) > span {
+  display: grid;
+  gap: 2px;
+}
+
+:where(.scope, .scope *):global(.material-inspector__form)
+  :global(.material-config-editor__boolean)
+  input[type='checkbox'] {
+  width: 34px;
+  height: 18px;
+  flex: 0 0 34px;
+  accent-color: var(--unilab-color-material);
+  cursor: pointer;
+}
+
+:where(.scope, .scope *):global(.material-inspector__form)
+  label
+  > small:global(.is-hint) {
+  color: var(--unilab-color-text-muted);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__empty) {
+  padding: 14px;
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-bg-subtle);
+  border: 1px dashed var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  text-align: center;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__advanced-summary) {
+  display: grid;
+  gap: 9px;
+  padding-top: 2px;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__advanced-summary) > div {
+  display: grid;
+  gap: 2px;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__advanced-summary) > div small {
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__advanced-summary) ul {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+  list-style: none;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__advanced-summary) li {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 10px;
+  background: var(--unilab-color-bg-subtle);
+}
+
+:where(.scope, .scope *):global(.material-config-editor__advanced-summary)
+  li
+  + li {
+  border-top: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-config-editor__advanced-summary) li span {
+  min-width: 0;
+  color: var(--unilab-color-text);
+  font-weight: 600;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__advanced-summary) li small {
+  flex: none;
+  color: var(--unilab-color-text-muted);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__json) {
+  padding: 14px;
+}
+
+:where(.scope, .scope *):global(.material-config-editor__revision-note) {
+  color: var(--unilab-color-text-muted) !important;
+  font-size: 10px;
+  line-height: 1.5 !important;
+}
+
+:where(.scope, .scope *):global(.material-inspector__form-actions)
+  button:global(.is-primary):disabled {
+  color: var(--unilab-color-text-subtle);
+  background: var(--unilab-color-surface-muted);
+  border-color: var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-inspector__form-actions) {
+  position: sticky;
+  z-index: 2;
+  bottom: -16px;
+  margin: auto -18px -16px;
+  padding: 12px 18px;
+  background: var(--unilab-color-surface);
+  border-top: 1px solid var(--unilab-color-border);
+  box-shadow: 0 -8px 20px rgb(15 23 42 / 6%);
+}
+
+@media (max-width: 640px) {
+  :where(.scope, .scope *):global(.material-config-editor) > header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :where(.scope, .scope *):global(.material-config-editor__mode) {
+    min-height: 34px;
+  }
+}

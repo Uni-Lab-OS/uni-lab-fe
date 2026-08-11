@@ -22,6 +22,8 @@ function verifiesDeviceStatusSubscriptionScope(): void {
     .toBe(false)
   expect(shouldSubscribeDeviceStatus({ ...connected, section: 'material' }))
     .toBe(false)
+  expect(shouldSubscribeDeviceStatus({ ...connected, section: 'reagent' }))
+    .toBe(false)
   expect(shouldSubscribeDeviceStatus({
     ...connected,
     section: 'device',

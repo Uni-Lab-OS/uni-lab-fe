@@ -49,6 +49,28 @@ interface DeviceCatalogEnvelope {
   }
 }
 
+interface DeviceActionRunEnvelope {
+  code: number
+  data: {
+    task: {
+      uuid: string
+      status: string
+      control_status: string
+      cleanup_status: string
+      error_info: unknown[]
+    }
+    job: {
+      uuid: string
+      workflow_task_uuid: string
+      status: string
+      return_info: Record<string, unknown>
+      error_info: unknown[]
+      feedback_sequence: number
+    }
+    created: boolean
+  }
+}
+
 let os: RunningOs
 
 test.beforeAll(async () => {
@@ -185,20 +207,19 @@ test('设备动作（DeviceAction）形成正式任务（Task）与作业（Job�
   )
 
   const acceptedResponsePromise = page.waitForResponse((response) =>
-    response.url() === `${os.url}/api/v1/device-action-tasks` &&
+    response.url() === `${os.url}/api/v1/device-action-runs` &&
     response.request().method() === 'POST'
   )
   await runButton.click()
   const acceptedResponse = await acceptedResponsePromise
   expect(acceptedResponse.status()).toBe(201)
-  const acceptedEnvelope = await acceptedResponse.json() as {
-    code: number
-    data: Record<string, unknown> & { task_uuid: string; job_uuid: string }
-  }
+  const acceptedEnvelope = await acceptedResponse.json() as DeviceActionRunEnvelope
   expect(acceptedEnvelope.code).toBe(0)
-  expect(acceptedEnvelope.data.status).toBe('pending')
-  assertNoSystemSource(acceptedEnvelope.data)
-  await expect(debugSection).toContainText('任务已接受')
+  expect(acceptedEnvelope.data.task.status).toBe('pending')
+  expect(acceptedEnvelope.data.job.workflow_task_uuid).toBe(
+    acceptedEnvelope.data.task.uuid
+  )
+  await expect(debugSection).toContainText('OS 已接受任务')
   await expect(debugSection.getByText('等待执行', { exact: true })).toBeVisible()
   await capture(page, artifactDirectory, screenshots, '03-durable-pending-accepted.png')
 
@@ -234,7 +255,7 @@ test('设备动作（DeviceAction）形成正式任务（Task）与作业（Job�
 
   await durationInput.fill('1')
   const rerunResponsePromise = page.waitForResponse((response) =>
-    response.url() === `${os.url}/api/v1/device-action-tasks` &&
+    response.url() === `${os.url}/api/v1/device-action-runs` &&
     response.request().method() === 'POST'
   )
   await rerunButton.click()
@@ -257,10 +278,10 @@ test('设备动作（DeviceAction）形成正式任务（Task）与作业（Job�
   }
   assertNoSystemSource(timeline)
   const acceptedTimelineEntry = timeline.completed.find(
-    (entry) => entry.job_id === acceptedEnvelope.data.job_uuid
+    (entry) => entry.job_id === acceptedEnvelope.data.job.uuid
   )
   expect(acceptedTimelineEntry).toBeDefined()
-  expect(acceptedTimelineEntry?.node_id).toBe(acceptedEnvelope.data.job_uuid)
+  expect(acceptedTimelineEntry?.node_id).toBe(acceptedEnvelope.data.job.uuid)
 
   const monitorResponse = await request.get(
     `${os.url}/api/v1/monitor/snapshot`
@@ -269,13 +290,13 @@ test('设备动作（DeviceAction）形成正式任务（Task）与作业（Job�
   const monitorSnapshot = await monitorResponse.json() as Record<string, unknown>
   assertNoSystemSource(monitorSnapshot)
   expect(JSON.stringify(monitorSnapshot)).toContain(
-    acceptedEnvelope.data.job_uuid
+    acceptedEnvelope.data.job.uuid
   )
   const schedulerWireChecks = {
     timeline: {
       path: '/api/v1/timeline',
       status: timelineResponse.status(),
-      publicJobUuid: acceptedEnvelope.data.job_uuid,
+      publicJobUuid: acceptedEnvelope.data.job.uuid,
       opaqueNodeIdentity: acceptedTimelineEntry?.node_id,
       internalSourceFields: 0
     },
@@ -289,7 +310,7 @@ test('设备动作（DeviceAction）形成正式任务（Task）与作业（Job�
 
   const browserPosts = browserRequests.filter(
     (entry) => entry.method === 'POST' &&
-      entry.path === '/api/v1/device-action-tasks'
+      entry.path === '/api/v1/device-action-runs'
   )
   expect(browserPosts).toHaveLength(2)
   for (const entry of browserPosts) assertNoSystemSource(entry.body)
@@ -325,8 +346,8 @@ test('设备动作（DeviceAction）形成正式任务（Task）与作业（Job�
       apiUrl: os.url,
       exactShas,
       task: {
-        taskUuid: acceptedEnvelope.data.task_uuid,
-        jobUuid: acceptedEnvelope.data.job_uuid
+        taskUuid: acceptedEnvelope.data.task.uuid,
+        jobUuid: acceptedEnvelope.data.job.uuid
       },
       schedulerWireChecks,
       browserRequests,
@@ -384,22 +405,20 @@ test('终止单动作任务后安全释放设备锁并允许再次运行', async
   await durationInput.fill('30')
 
   const acceptedResponsePromise = page.waitForResponse((response) =>
-    response.url() === `${os.url}/api/v1/device-action-tasks` &&
+    response.url() === `${os.url}/api/v1/device-action-runs` &&
     response.request().method() === 'POST'
   )
   await debugSection.getByRole('button', { name: '运行此动作' }).click()
   const acceptedResponse = await acceptedResponsePromise
   expect(acceptedResponse.status()).toBe(201)
-  const accepted = (await acceptedResponse.json() as {
-    data: { task_uuid: string; job_uuid: string }
-  }).data
+  const accepted = (await acceptedResponse.json() as DeviceActionRunEnvelope).data
   await expect(debugSection.getByText('执行中', { exact: true })).toBeVisible({
     timeout: 25_000
   })
   await expect(actionButton).toContainText('占用中')
 
   const cancelPath =
-    `/api/v1/workflow-tasks/${accepted.task_uuid}/commands`
+    `/api/v1/workflow-tasks/${accepted.task.uuid}/commands`
   const cancelResponsePromise = page.waitForResponse((response) =>
     new URL(response.url()).pathname === cancelPath &&
     response.request().method() === 'POST'
@@ -418,7 +437,7 @@ test('终止单动作任务后安全释放设备锁并允许再次运行', async
   await expect(actionButton).toContainText('空闲')
 
   const taskResponse = await request.get(
-    `${os.url}/api/v1/device-action-tasks/${accepted.task_uuid}`
+    `${os.url}/api/v1/workflow-tasks/${accepted.task.uuid}`
   )
   expect(taskResponse.ok(), await taskResponse.text()).toBe(true)
   const task = (await taskResponse.json() as {
@@ -438,7 +457,7 @@ test('终止单动作任务后安全释放设备锁并允许再次运行', async
     {
       data: {
         command: 'force_unlock',
-        expectedJobId: accepted.job_uuid,
+        expectedJobId: accepted.job.uuid,
         reason: 'operator_confirmed_device_safe'
       }
     }

@@ -1,0 +1,751 @@
+/* 资源模板 → 批次 → 实例：物料模块的主从目录与结构化类型配置。 */
+:where(.scope, .scope *):global(.material-catalog) {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--unilab-color-bg);
+  overflow: hidden;
+}
+
+:where(.scope, .scope *):global(.material-catalog__toolbar) {
+  display: flex;
+  min-height: 50px;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px;
+  background: var(--unilab-color-surface);
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-header) h4,
+:where(.scope, .scope *):global(.material-catalog__type-header) p,
+:where(.scope, .scope *):global(.material-catalog__instances-header) h4,
+:where(.scope, .scope *):global(.material-catalog__instances-header) p,
+:where(.scope, .scope *):global(.material-history) h3,
+:where(.scope, .scope *):global(.material-history) p {
+  margin: 0;
+}
+
+:where(.scope, .scope *):global(.material-catalog__flow-path) {
+  display: flex;
+  min-width: 0;
+  gap: 8px;
+  align-items: center;
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-catalog__flow-path) strong {
+  color: var(--unilab-color-text);
+  font-weight: 680;
+}
+
+:where(.scope, .scope *):global(.material-catalog__flow-path) span:not([aria-hidden]) {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:where(.scope, .scope *):global(.material-catalog__search) {
+  display: flex;
+  width: min(340px, 36vw);
+  height: 38px;
+  box-sizing: border-box;
+  gap: 8px;
+  align-items: center;
+  padding: 0 10px;
+  background: var(--unilab-color-bg-subtle);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+}
+
+:where(.scope, .scope *):global(.material-catalog__search):focus-within {
+  border-color: var(--unilab-color-material);
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 1px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__search) svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  fill: none;
+  stroke: var(--unilab-color-text-muted);
+  stroke-linecap: round;
+  stroke-width: 1.5;
+}
+
+:where(.scope, .scope *):global(.material-catalog__search) input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  color: var(--unilab-color-text);
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: 450 11px/1 var(--unilab-font-sans);
+}
+
+:where(.scope, .scope *):global(.material-catalog__mobile-path),
+:where(.scope, .scope *):global(.material-catalog__mobile-back) {
+  display: none;
+}
+
+:where(.scope, .scope *):global(.material-catalog__workspace) {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(240px, 280px) minmax(300px, 350px) minmax(420px, 1fr);
+  background: var(--unilab-color-surface);
+  overflow: hidden;
+}
+
+:where(.scope, .scope *):global(.material-catalog__workspace) > * {
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+:where(.scope, .scope *):global(.material-catalog__templates),
+:where(.scope, .scope *):global(.material-catalog__batches) {
+  border-right: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-catalog__templates) {
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-bg-subtle) 72%,
+    var(--unilab-color-surface)
+  );
+}
+
+:where(.scope, .scope *):global(.material-catalog__section-title) {
+  display: flex;
+  min-height: 42px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  color: var(--unilab-color-text-muted);
+  border-bottom: 1px solid var(--unilab-color-border);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+:where(.scope, .scope *):global(.material-catalog__section-title) small {
+  color: var(--unilab-color-text-subtle);
+  font-size: 11px;
+  font-weight: 550;
+}
+
+:where(.scope, .scope *):global(.material-catalog__templates) ul,
+:where(.scope, .scope *):global(.material-catalog__batch-list) {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+}
+
+:where(.scope, .scope *):global(.material-catalog__templates) li + li,
+:where(.scope, .scope *):global(.material-catalog__batch-list) li + li {
+  margin-top: 3px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__templates) li > button,
+:where(.scope, .scope *):global(.material-catalog__batch-list) li > button {
+  display: flex;
+  width: 100%;
+  min-height: 58px;
+  box-sizing: border-box;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 9px;
+  color: var(--unilab-color-text);
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--unilab-radius-md);
+  cursor: pointer;
+}
+
+:where(.scope, .scope *):global(.material-catalog__new-type) {
+  display: flex;
+  width: calc(100% - 16px);
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  margin: 10px 8px;
+  color: var(--unilab-color-material);
+  background: transparent;
+  border: 1px dashed color-mix(
+    in srgb,
+    var(--unilab-color-material) 34%,
+    var(--unilab-color-border)
+  );
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+  font: 650 12px/1 var(--unilab-font-sans);
+}
+
+:where(.scope, .scope *):global(.material-catalog__new-type):hover {
+  background: var(--unilab-color-material-soft);
+}
+
+:where(.scope, .scope *):global(.material-catalog__templates) li > button:hover,
+:where(.scope, .scope *):global(.material-catalog__batch-list) li > button:hover {
+  background: var(--unilab-color-surface);
+}
+
+:where(.scope, .scope *):global(.material-catalog__templates)
+  li > button[aria-current='true'],
+:where(.scope, .scope *):global(.material-catalog__batch-list)
+  li > button[aria-current='true'] {
+  color: var(--unilab-color-material);
+  background: var(--unilab-color-material-soft);
+  border-color: color-mix(
+    in srgb,
+    var(--unilab-color-material) 24%,
+    var(--unilab-color-border)
+  );
+}
+
+:where(.scope, .scope *):global(.material-catalog__templates) li > button:focus-visible,
+:where(.scope, .scope *):global(.material-catalog__batch-list) li > button:focus-visible,
+:where(.scope, .scope *):global(.material-catalog__instance-table) button:focus-visible,
+:where(.scope, .scope *):global(.material-catalog__configure-type):focus-visible,
+:where(.scope, .scope *):global(.material-catalog__empty) button:focus-visible,
+:where(.scope, .scope *):global(.material-type-draft) button:focus-visible,
+:where(.scope, .scope *):global(.material-type-draft) input:focus-visible,
+:where(.scope, .scope *):global(.material-type-draft) select:focus-visible,
+:where(.scope, .scope *):global(.material-type-draft) textarea:focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 2px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__template-mark),
+:where(.scope, .scope *):global(.material-catalog__batch-symbol),
+:where(.scope, .scope *):global(.material-catalog__type-icon),
+:where(.scope, .scope *):global(.material-catalog__instance-mark) {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--unilab-color-material);
+  background: var(--unilab-color-material-soft);
+  border-radius: var(--unilab-radius-control);
+}
+
+:where(.scope, .scope *):global(.material-catalog__template-mark) {
+  width: 34px;
+  height: 34px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__template-mark) svg,
+:where(.scope, .scope *):global(.material-catalog__batch-symbol) svg,
+:where(.scope, .scope *):global(.material-catalog__type-icon) svg,
+:where(.scope, .scope *):global(.material-catalog__instance-mark) svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.35;
+}
+
+:where(.scope, .scope *):global(.material-catalog__template-copy) {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__template-copy) strong,
+:where(.scope, .scope *):global(.material-catalog__batch-list) strong {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-catalog__template-copy) small,
+:where(.scope, .scope *):global(.material-catalog__batch-list) small {
+  overflow: hidden;
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-catalog__template-count) {
+  display: grid;
+  min-width: 28px;
+  gap: 1px;
+  justify-items: end;
+}
+
+:where(.scope, .scope *):global(.material-catalog__template-count) strong {
+  font: 680 12px/1 var(--unilab-font-mono);
+}
+
+:where(.scope, .scope *):global(.material-catalog__template-count) small {
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__batches) {
+  padding-bottom: 16px;
+  background: var(--unilab-color-surface);
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-header) {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-header) > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-icon) {
+  width: 42px;
+  height: 42px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-icon) svg {
+  width: 22px;
+  height: 22px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-header) > div > div {
+  min-width: 0;
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-header) h4,
+:where(.scope, .scope *):global(.material-catalog__instances-header) h4 {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-header) p,
+:where(.scope, .scope *):global(.material-catalog__instances-header) p {
+  display: -webkit-box;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-header) > button {
+  min-height: 36px;
+  flex: none;
+  padding: 0 11px;
+  color: var(--unilab-color-material);
+  background: var(--unilab-color-surface);
+  border: 1px solid color-mix(
+    in srgb,
+    var(--unilab-color-material) 35%,
+    var(--unilab-color-border)
+  );
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+  font: 650 12px/1 var(--unilab-font-sans);
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-header) > button:hover {
+  background: var(--unilab-color-material-soft);
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-facts) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-facts) > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding: 10px 11px;
+  border-right: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-facts) > div:last-child {
+  border-right: 0;
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-facts) span {
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__type-facts) strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-catalog__batch-list) {
+  padding: 10px 8px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__batch-list) li > button {
+  min-height: 62px;
+  background: var(--unilab-color-bg-subtle);
+  border-color: var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-catalog__batch-symbol) {
+  width: 34px;
+  height: 34px;
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-surface);
+}
+
+:where(.scope, .scope *):global(.material-catalog__batch-list) button > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__batch-list) button > span:last-child {
+  min-width: auto;
+  color: var(--unilab-color-text-subtle);
+  font-size: 18px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__batch-list)
+  button > span:last-child strong {
+  font-family: var(--unilab-font-mono);
+}
+
+:where(.scope, .scope *):global(.material-catalog__configure-type) {
+  display: flex;
+  width: calc(100% - 16px);
+  min-height: 38px;
+  box-sizing: border-box;
+  gap: 10px;
+  align-items: center;
+  margin: 4px 8px 0;
+  padding: 7px 10px;
+  color: var(--unilab-color-text);
+  text-align: left;
+  background: var(--unilab-color-surface);
+  border: 0;
+  border-top: 1px solid var(--unilab-color-border);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+:where(.scope, .scope *):global(.material-catalog__configure-type):hover {
+  background: var(--unilab-color-material-soft);
+}
+
+:where(.scope, .scope *):global(.material-catalog__configure-type) svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  fill: none;
+  stroke: var(--unilab-color-material);
+  stroke-linecap: round;
+  stroke-width: 1.35;
+}
+
+:where(.scope, .scope *):global(.material-catalog__configure-type) > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__configure-type) strong {
+  font-size: 12px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__configure-type) small {
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instances) {
+  padding: 18px;
+  background: var(--unilab-color-bg);
+}
+
+:where(.scope, .scope *):global(.material-catalog__instances-header) {
+  display: flex;
+  gap: 16px;
+  align-items: start;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__projection-badge),
+:where(.scope, .scope *):global(.material-catalog__registered-state) {
+  display: inline-flex;
+  min-height: 23px;
+  box-sizing: border-box;
+  align-items: center;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-catalog__projection-badge) {
+  color: color-mix(
+    in srgb,
+    var(--unilab-color-warning) 78%,
+    var(--unilab-color-text)
+  );
+  background: var(--unilab-color-warning-soft);
+}
+
+:where(.scope, .scope *):global(.material-catalog__registered-state) {
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-surface-muted);
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table-wrap) {
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-lg);
+  overflow: hidden;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table) {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 12px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table) th {
+  padding: 9px 11px;
+  color: var(--unilab-color-text-muted);
+  text-align: left;
+  background: var(--unilab-color-bg-subtle);
+  border-bottom: 1px solid var(--unilab-color-border);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table) th:first-child {
+  width: 34%;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table) th:nth-child(2) {
+  width: 27%;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table) td {
+  padding: 10px 11px;
+  overflow: hidden;
+  color: var(--unilab-color-text);
+  border-bottom: 1px solid var(--unilab-color-border);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table) tr:last-child td {
+  border-bottom: 0;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table)
+  tr[aria-selected='true'] td {
+  background: var(--unilab-color-material-soft);
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table) td:first-child button {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+  align-items: center;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-mark) {
+  width: 30px;
+  height: 30px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-mark) svg {
+  width: 16px;
+  height: 16px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table) td:first-child button > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table) td strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table) td small {
+  display: block;
+  overflow: hidden;
+  color: var(--unilab-color-text-muted);
+  font: 500 12px/1.4 var(--unilab-font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table) :global(.is-placed),
+:where(.scope, .scope *):global(.material-catalog__instance-table) :global(.is-unplaced) {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table) :global(.is-placed)::before,
+:where(.scope, .scope *):global(.material-catalog__instance-table) :global(.is-unplaced)::before {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  content: '';
+  border: 1px solid currentcolor;
+  border-radius: 50%;
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table) :global(.is-placed) {
+  color: var(--unilab-color-success);
+}
+
+:where(.scope, .scope *):global(.material-catalog__instance-table) :global(.is-unplaced) {
+  color: color-mix(
+    in srgb,
+    var(--unilab-color-warning) 78%,
+    var(--unilab-color-text)
+  );
+}
+
+:where(.scope, .scope *):global(.material-catalog__authority-note) {
+  display: flex;
+  gap: 8px;
+  align-items: start;
+  margin-top: 10px;
+  padding: 9px 10px;
+  color: color-mix(
+    in srgb,
+    var(--unilab-color-warning) 76%,
+    var(--unilab-color-text)
+  );
+  background: var(--unilab-color-warning-soft);
+  border: 1px solid color-mix(
+    in srgb,
+    var(--unilab-color-warning) 24%,
+    var(--unilab-color-border)
+  );
+  border-radius: var(--unilab-radius-control);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+:where(.scope, .scope *):global(.material-catalog__authority-note) svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-width: 1.4;
+}
+
+:where(.scope, .scope *):global(.material-catalog__authority-note) code {
+  font-family: var(--unilab-font-mono);
+}
+
+:where(.scope, .scope *):global(.material-catalog__empty) {
+  display: grid;
+  min-height: 220px;
+  box-sizing: border-box;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 24px;
+  color: var(--unilab-color-text-muted);
+  text-align: center;
+}
+
+:where(.scope, .scope *):global(.material-catalog__empty) > span {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 2px;
+  place-items: center;
+  color: var(--unilab-color-material);
+  background: var(--unilab-color-material-soft);
+  border-radius: var(--unilab-radius-md);
+}
+
+:where(.scope, .scope *):global(.material-catalog__empty) svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.25;
+}
+
+:where(.scope, .scope *):global(.material-catalog__empty) strong {
+  color: var(--unilab-color-text);
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.material-catalog__empty) small {
+  max-width: 34ch;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+:where(.scope, .scope *):global(.material-catalog__empty) button {
+  min-height: 34px;
+  margin-top: 6px;
+  padding: 0 10px;
+  color: var(--unilab-color-material);
+  background: var(--unilab-color-surface);
+  border: 1px solid color-mix(
+    in srgb,
+    var(--unilab-color-material) 30%,
+    var(--unilab-color-border)
+  );
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+  font: 650 12px/1 var(--unilab-font-sans);
+}

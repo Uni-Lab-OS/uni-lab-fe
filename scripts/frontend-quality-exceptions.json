@@ -11,6 +11,12 @@
       "maxFunctionComplexity": 25,
       "reason": "本地运行启动器样式模块（LocalRuntimeLauncherStyles）集中维护同一个配置对话框的滚动边界、路径字段、命令编辑、运行状态和窄屏重排；日志抽屉样式已迁出，保留共享 CSS Module 可以避免启动器、配置对话框和命令编辑器产生不一致的字段与按钮状态。",
       "futureSplitBoundary": "补齐自定义命令、校验错误和 PLC-Sim/Edge 交叉状态的视觉回归后，随 LocalRuntimeConfigurationDialog.tsx 抽取 LocalRuntimeConfigurationDialog.module.scss，并让 LocalRuntimeEdgeCommandEditor.tsx 独立拥有 LocalRuntimeEdgeCommandEditor.module.scss。"
+    },
+    "packages/material/src/styles/_material-12.scss": {
+      "maxLines": 1350,
+      "maxFunctionComplexity": 25,
+      "reason": "物料层级工作台样式深模块（MaterialCatalogWorkspaceStyles）集中维护资源模板、兼容批次投影、物料实例、使用记录边界与结构化类型草稿之间共享的三栏尺寸、状态语义和表面层级；窄屏重排已拆到 material-13，避免桌面与移动规则交错。",
+      "futureSplitBoundary": "正式物料批次服务与持久使用记录读模型接入后，将批次详情、使用记录和结构化类型草稿分别迁入各自样式模块，并以对应页面级视觉回归固定拆分边界。"
     }
   }
 }

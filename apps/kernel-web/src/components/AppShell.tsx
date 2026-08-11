@@ -5,7 +5,7 @@
  * Model: Claude Opus 4.8
  * Generation Date: 2026-07-22
  * Prompt Summary: 调试客户端统一外壳(顶栏 + 左侧导航 + 主区)
- * Context: 设备、物料与工作流共用框架
+ * Context: 设备、物料、试剂与工作流共用框架
  * Human Review Status: [ ] Pending  [ ] Reviewed  [ ] Approved
  * ============================================================
  */
@@ -22,6 +22,7 @@ import ErrorBoundary from './ErrorBoundary';
 import DevicePanel from './device/DevicePanel';
 import DeviceSquarePanel from './device-provisioning/DeviceSquarePanel';
 import DeviceCardWorkbench from './device-cards/DeviceCardWorkbench';
+import ReagentPanel from './reagent/ReagentPanel';
 import { LabPanelWorkspace } from '../integrations/lab-workbench/LabPanelWorkspace';
 import type { WorkbenchSection } from '../data/lab';
 
@@ -45,6 +46,11 @@ const MATERIAL_NAV_ITEM: AppShellNavigationItem = {
   label: '物料',
   icon: <MaterialIcon />
 };
+const REAGENT_NAV_ITEM: AppShellNavigationItem = {
+  id: 'reagent',
+  label: '试剂',
+  icon: <ReagentIcon />
+};
 const WORKFLOW_NAV_ITEM: AppShellNavigationItem = {
   id: 'workflow',
   label: '工作流',
@@ -55,6 +61,7 @@ const NAV_ITEMS: readonly AppShellNavigationItem[] = [
   DEVICE_SQUARE_NAV_ITEM,
   CARD_NAV_ITEM,
   MATERIAL_NAV_ITEM,
+  REAGENT_NAV_ITEM,
   WORKFLOW_NAV_ITEM
 ];
 
@@ -176,7 +183,11 @@ function VisitedSectionViews({
   );
 }
 
-// 根据当前方向渲染对应面板
+/**
+ * 根据当前一级模块渲染保持挂载的功能工作区。
+ * @param props 当前模块、工作流目录命令版本与未保存状态回调。
+ * @returns 仪器设备、物料、试剂或工作流的独立页面。
+ */
 function SectionView({
   section,
   workflowCatalogRequestRevision,
@@ -208,6 +219,7 @@ function SectionView({
       />
     );
   }
+  if (section === 'reagent') return <ReagentPanel />;
   if (section === 'scene') {
     // 3D 场景内部依赖 Pascal/WebGPU，运行时报错时用错误边界兜底，避免整页崩溃
     return (
@@ -257,6 +269,19 @@ function MaterialIcon(): React.JSX.Element {
     <svg aria-hidden="true" viewBox="0 0 20 20">
       <path d="m10 2.5 6.5 3.75v7.5L10 17.5l-6.5-3.75v-7.5L10 2.5Z" />
       <path d="m3.8 6.4 6.2 3.5 6.2-3.5M10 9.9v7.2" />
+    </svg>
+  );
+}
+
+/**
+ * 绘制独立试剂模块的烧瓶导航标识。
+ * @returns 不参与辅助技术命名的线性 SVG 图标。
+ */
+function ReagentIcon(): React.JSX.Element {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20">
+      <path d="M7 2.5h6M8.5 2.5v5l-4.6 7.4A1.7 1.7 0 0 0 5.35 17.5h9.3a1.7 1.7 0 0 0 1.45-2.6L11.5 7.5v-5" />
+      <path d="M6.2 13h7.6M7.4 10.8h5.2" />
     </svg>
   );
 }

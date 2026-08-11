@@ -1,0 +1,365 @@
+:where(.scope, .scope *):global(.material-ledger__table-wrap) {
+  max-width: 1320px;
+  margin: 0 auto;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-lg);
+  overflow: hidden;
+}
+
+:where(.scope, .scope *):global(.material-ledger__table) {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.material-ledger__table) th {
+  padding: 10px 12px;
+  color: var(--unilab-color-text-muted);
+  text-align: left;
+  background: var(--unilab-color-bg-subtle);
+  border-bottom: 1px solid var(--unilab-color-border);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+:where(.scope, .scope *):global(.material-ledger__table) th:first-child {
+  width: 23%;
+}
+
+:where(.scope, .scope *):global(.material-ledger__table) th:nth-child(2) {
+  width: 20%;
+}
+
+:where(.scope, .scope *):global(.material-ledger__table) th:nth-child(4) {
+  width: 22%;
+}
+
+:where(.scope, .scope *):global(.material-ledger__table) td {
+  padding: 10px 12px;
+  overflow: hidden;
+  color: var(--unilab-color-text);
+  border-bottom: 1px solid var(--unilab-color-border);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-ledger__table) tr:last-child td {
+  border-bottom: 0;
+}
+
+:where(.scope, .scope *):global(.material-ledger__table) tr[aria-selected='true'] td {
+  background: var(--unilab-color-material-soft);
+}
+
+:where(.scope, .scope *):global(.material-ledger__table) td button {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 3px;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+:where(.scope, .scope *):global(.material-ledger__table) td button:hover strong {
+  color: var(--unilab-color-material);
+}
+
+:where(.scope, .scope *):global(.material-ledger__table) td small {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--unilab-color-text-muted);
+  font: 500 9px/1.35 var(--unilab-font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-ledger__table) :global(.is-muted) {
+  color: var(--unilab-color-text-subtle);
+}
+
+:where(.scope, .scope *):global(.material-ledger__empty) {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 42px 16px;
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.material-ledger__empty) strong {
+  color: var(--unilab-color-text);
+  font-size: 12px;
+}
+
+:where(.scope, .scope *):global(.material-ledger) > footer {
+  max-width: 1320px;
+  margin: 9px auto 0;
+  color: var(--unilab-color-text-muted);
+  font: 500 9px/1.4 var(--unilab-font-mono);
+}
+
+:where(.scope, .scope *):global(.material-lots) > header > span {
+  color: var(--unilab-color-text-muted);
+  font: 600 10px/1.4 var(--unilab-font-mono);
+}
+
+:where(.scope, .scope *):global(.material-lots__groups) {
+  display: grid;
+  max-width: 1320px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+  margin: 0 auto;
+}
+
+:where(.scope, .scope *):global(.material-lots__group) {
+  min-width: 0;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-lg);
+  overflow: hidden;
+}
+
+:where(.scope, .scope *):global(.material-lots__group) > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--unilab-color-bg-subtle);
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-lots__group) > header > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+:where(.scope, .scope *):global(.material-lots__group) > header strong {
+  overflow: hidden;
+  font: 650 11px/1.4 var(--unilab-font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-lots__group) > header span,
+:where(.scope, .scope *):global(.material-lots__group) > header small {
+  color: var(--unilab-color-text-muted);
+  font-size: 9px;
+}
+
+:where(.scope, .scope *):global(.material-lots__group) ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.scope, .scope *):global(.material-lots__group) li + li {
+  border-top: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-lots__group) li[aria-current='true'] {
+  background: var(--unilab-color-material-soft);
+}
+
+:where(.scope, .scope *):global(.material-lots__group) button {
+  display: flex;
+  width: 100%;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+:where(.scope, .scope *):global(.material-lots__group) button:hover {
+  background: var(--unilab-color-bg-subtle);
+}
+
+:where(.scope, .scope *):global(.material-lots__group) button > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+:where(.scope, .scope *):global(.material-lots__group) button > span:last-child {
+  justify-items: end;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+}
+
+:where(.scope, .scope *):global(.material-lots__group) button strong {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-lots__group) button small {
+  color: var(--unilab-color-text-muted);
+  font: 500 9px/1.35 var(--unilab-font-mono);
+}
+
+@media (max-width: 1120px) {
+  :where(.scope, .scope *):global(.material-center__header) {
+    grid-template-columns: minmax(260px, 1fr) auto;
+    gap: 16px;
+  }
+
+  :where(.scope, .scope *):global(.material-center)
+    > :global(.material-template-launcher) {
+    top: 106px;
+  }
+}
+
+@media (max-width: 720px) {
+  :where(.scope, .scope *):global(.material-center__header) {
+    min-height: auto;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  :where(.scope, .scope *):global(.material-center__identity) {
+    justify-content: space-between;
+  }
+
+  :where(.scope, .scope *):global(.material-center__identity) p {
+    white-space: normal;
+  }
+
+  :where(.scope, .scope *):global(.material-center__summary) {
+    display: flex;
+    grid-column: auto;
+    grid-row: auto;
+    overflow-x: auto;
+  }
+
+  :where(.scope, .scope *):global(.material-center__summary) > div {
+    min-width: max-content;
+    padding: 0 9px;
+    border-right: 1px solid var(--unilab-color-border);
+    border-bottom: 0;
+  }
+
+  :where(.scope, .scope *):global(.material-center__summary) > div:last-child {
+    border-right: 0;
+  }
+
+  :where(.scope, .scope *):global(.material-center__views) {
+    min-height: 46px;
+    padding: 0 8px;
+    scroll-snap-type: x proximity;
+  }
+
+  :where(.scope, .scope *):global(.material-center__views) button {
+    min-width: 96px;
+    padding: 0 8px;
+    scroll-snap-align: start;
+  }
+
+  :where(.scope, .scope *):global(.material-center)
+    > :global(.material-template-launcher) {
+    top: 166px;
+    right: 10px;
+  }
+
+  :where(.scope, .scope *):global(.material-ledger),
+  :where(.scope, .scope *):global(.material-lots) {
+    padding: 16px 12px 24px;
+  }
+
+  :where(.scope, .scope *):global(.material-ledger__heading),
+  :where(.scope, .scope *):global(.material-lots) > header {
+    display: grid;
+    gap: 10px;
+  }
+
+  :where(.scope, .scope *):global(.material-ledger__search) {
+    width: 100%;
+  }
+
+  :where(.scope, .scope *):global(.material-ledger__notice) {
+    display: grid;
+    gap: 3px;
+  }
+
+  :where(.scope, .scope *):global(.material-ledger__table) thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  :where(.scope, .scope *):global(.material-ledger__table),
+  :where(.scope, .scope *):global(.material-ledger__table) tbody,
+  :where(.scope, .scope *):global(.material-ledger__table) tr,
+  :where(.scope, .scope *):global(.material-ledger__table) td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  :where(.scope, .scope *):global(.material-ledger__table) tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--unilab-color-border);
+  }
+
+  :where(.scope, .scope *):global(.material-ledger__table) tr:last-child {
+    border-bottom: 0;
+  }
+
+  :where(.scope, .scope *):global(.material-ledger__table) td {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+    padding: 7px 6px;
+    border: 0;
+    white-space: normal;
+  }
+
+  :where(.scope, .scope *):global(.material-ledger__table) td button {
+    min-height: 44px;
+  }
+
+  :where(.scope, .scope *):global(.material-ledger__table) td small,
+  :where(.scope, .scope *):global(.material-ledger__table) td::before {
+    font-size: 10px;
+  }
+
+  :where(.scope, .scope *):global(.material-ledger__table) td::before {
+    color: var(--unilab-color-text-muted);
+    content: attr(data-label);
+    font-size: 9px;
+    font-weight: 600;
+  }
+
+  :where(.scope, .scope *):global(.material-ledger__table) td:first-child {
+    grid-column: 1 / -1;
+  }
+
+  :where(.scope, .scope *):global(.material-lots__groups) {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.scope, .scope *):global(.material-center__actions) button {
+    translate: none !important;
+  }
+}

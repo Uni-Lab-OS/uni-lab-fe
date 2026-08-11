@@ -1,0 +1,115 @@
+/* 自定义物料类型向导的窄屏任务重排。 */
+@media (max-width: 720px) {
+  :where(.scope, .scope *):global(.material-type-draft) {
+    height: 100%;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft) > header {
+    min-height: 92px;
+    padding: 12px 14px;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__body) {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__body) > nav {
+    display: grid;
+    position: static;
+    flex: 0 0 auto;
+    grid-template-columns: repeat(4, minmax(84px, 1fr));
+    gap: 4px;
+    padding: 7px;
+    overflow-x: auto;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__body) > nav > button {
+    min-width: 84px;
+    min-height: 48px;
+    grid-template-columns: 22px minmax(0, 1fr);
+    grid-template-rows: 1fr;
+    column-gap: 6px;
+    padding: 6px 8px;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__body) > nav > button > span {
+    width: 21px;
+    height: 21px;
+    grid-row: auto;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__body) > nav > button > strong {
+    align-self: center;
+    font-size: 10px;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__body) > nav > button > small,
+  :where(.scope, .scope *):global(.material-type-draft__nav-note) {
+    display: none;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__body) > form {
+    flex: 1;
+    overflow: auto;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__body) > form > section:global(.material-type-draft__step) {
+    padding: 18px 14px 24px;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__step-header) {
+    margin-bottom: 14px;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__step-header) h4 {
+    font-size: 17px;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__split),
+  :where(.scope, .scope *):global(.material-type-draft__layout-workspace),
+  :where(.scope, .scope *):global(.material-type-draft__rules) {
+    grid-template-columns: 1fr;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__field-card-grid) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__field-card-grid) > label:global(.is-description),
+  :where(.scope, .scope *):global(.material-type-draft__field-card-grid) > label:global(.material-type-draft__required) {
+    grid-column: 1 / -1;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__preview) {
+    position: static;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__layout-settings) {
+    order: 1;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__grid-preview) {
+    order: 2;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__choice-grid) {
+    grid-template-columns: 1fr;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft) > footer {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    padding: 8px 10px;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft) > footer > div {
+    grid-column: 1 / -1;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft) > footer > button {
+    width: 100%;
+  }
+}

@@ -1,0 +1,385 @@
+/* 独立试剂创建页：试剂信息、批次和首个容器一次提交。 */
+:where(.scope, .scope *):global(.reagent-create) {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--unilab-color-bg-subtle);
+  overflow: hidden;
+}
+
+:where(.scope, .scope *):global(.reagent-task-header) {
+  display: flex;
+  min-height: 92px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: var(--unilab-color-surface);
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.reagent-task-header) nav {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  margin-bottom: 6px;
+  color: var(--unilab-color-text-subtle);
+  font-size: 10px;
+}
+
+:where(.scope, .scope *):global(.reagent-task-header) nav button {
+  min-height: 24px;
+  padding: 0;
+  color: var(--unilab-color-material);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+:where(.scope, .scope *):global(.reagent-task-header) h4,
+:where(.scope, .scope *):global(.reagent-task-header) p,
+:where(.scope, .scope *):global(.reagent-create__form) h5,
+:where(.scope, .scope *):global(.reagent-create__form) p,
+:where(.scope, .scope *):global(.reagent-create__summary) h5,
+:where(.scope, .scope *):global(.reagent-create__summary) p {
+  margin: 0;
+}
+
+:where(.scope, .scope *):global(.reagent-task-header) h4 {
+  font-size: 17px;
+  letter-spacing: -.015em;
+}
+
+:where(.scope, .scope *):global(.reagent-task-header) p {
+  margin-top: 4px;
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.reagent-task-header__boundary) {
+  padding: 7px 9px;
+  color: var(--unilab-color-warning);
+  background: var(--unilab-color-warning-soft);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 680;
+}
+
+:where(.scope, .scope *):global(.reagent-create) > form {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(620px, 1fr) minmax(260px, 310px);
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+:where(.scope, .scope *):global(.reagent-create__form) {
+  min-width: 0;
+  min-height: 0;
+  padding: 18px clamp(20px, 3vw, 42px) 28px;
+  overflow: auto;
+}
+
+:where(.scope, .scope *):global(.reagent-create__form) > section {
+  max-width: 920px;
+  padding: 18px 20px 20px;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-lg);
+}
+
+:where(.scope, .scope *):global(.reagent-create__form) > section + section {
+  margin-top: 14px;
+}
+
+:where(.scope, .scope *):global(.reagent-create__form) > section > header {
+  display: flex;
+  gap: 11px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+
+:where(.scope, .scope *):global(.reagent-create__form) > section > header > span {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  place-items: center;
+  color: #fff;
+  background: var(--unilab-color-material);
+  border-radius: 50%;
+  font: 700 10px/1 var(--unilab-font-mono, monospace);
+}
+
+:where(.scope, .scope *):global(.reagent-create__form) h5 {
+  font-size: 14px;
+}
+
+:where(.scope, .scope *):global(.reagent-create__form) p {
+  margin-top: 3px;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+}
+
+:where(.scope, .scope *):global(.reagent-field-grid) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
+}
+
+:where(.scope, .scope *):global(.reagent-field-grid) label,
+:where(.scope, .scope *):global(.reagent-hazards) {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+}
+
+:where(.scope, .scope *):global(.reagent-field-grid) label:global(.is-wide) {
+  grid-column: 1 / -1;
+}
+
+:where(.scope, .scope *):global(.reagent-field-grid) label > span:first-child {
+  font-weight: 600;
+}
+
+:where(.scope, .scope *):global(.reagent-field-grid) em {
+  color: var(--unilab-color-danger);
+  font-size: 9px;
+  font-style: normal;
+}
+
+:where(.scope, .scope *):global(.reagent-field-grid) input,
+:where(.scope, .scope *):global(.reagent-field-grid) select {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.reagent-quantity-field) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 94px;
+}
+
+:where(.scope, .scope *):global(.reagent-quantity-field) input {
+  border-radius: var(--unilab-radius-control) 0 0 var(--unilab-radius-control);
+}
+
+:where(.scope, .scope *):global(.reagent-quantity-field) select {
+  margin-left: -1px;
+  border-radius: 0 var(--unilab-radius-control) var(--unilab-radius-control) 0;
+}
+
+:where(.scope, .scope *):global(.reagent-hazards) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+:where(.scope, .scope *):global(.reagent-hazards) legend {
+  width: 100%;
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+
+:where(.scope, .scope *):global(.reagent-hazards) label {
+  display: flex;
+  min-height: 34px;
+  gap: 6px;
+  align-items: center;
+  padding: 0 9px;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-bg-subtle);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+}
+
+:where(.scope, .scope *):global(.reagent-create__summary) {
+  min-width: 0;
+  padding: 20px 18px;
+  background: var(--unilab-color-surface);
+  border-left: 1px solid var(--unilab-color-border);
+  overflow: auto;
+}
+
+:where(.scope, .scope *):global(.reagent-create__summary) h5 {
+  font-size: 13px;
+}
+
+:where(.scope, .scope *):global(.reagent-create__summary) ol {
+  margin: 15px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.scope, .scope *):global(.reagent-create__summary) li {
+  position: relative;
+  display: grid;
+  min-height: 58px;
+  grid-template-columns: 25px minmax(0, 1fr);
+  gap: 10px;
+}
+
+:where(.scope, .scope *):global(.reagent-create__summary) li:not(:last-child)::after {
+  position: absolute;
+  top: 25px;
+  bottom: 0;
+  left: 12px;
+  width: 1px;
+  background: var(--unilab-color-border-strong);
+  content: '';
+}
+
+:where(.scope, .scope *):global(.reagent-create__summary) li > span {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  z-index: 1;
+  place-items: center;
+  color: var(--unilab-color-material);
+  background: var(--unilab-color-material-soft);
+  border: 1px solid color-mix(in srgb, var(--unilab-color-material) 30%, var(--unilab-color-border));
+  border-radius: 50%;
+  font: 700 9px/1 var(--unilab-font-mono, monospace);
+}
+
+:where(.scope, .scope *):global(.reagent-create__summary) li > div {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  padding-top: 3px;
+}
+
+:where(.scope, .scope *):global(.reagent-create__summary) li strong {
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.reagent-create__summary) li small {
+  color: var(--unilab-color-text-muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+:where(.scope, .scope *):global(.reagent-boundary-note) {
+  margin-top: 12px;
+  padding: 12px;
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-warning-soft);
+  border-radius: var(--unilab-radius-md);
+}
+
+:where(.scope, .scope *):global(.reagent-boundary-note) strong {
+  color: var(--unilab-color-warning);
+  font-size: 10px;
+}
+
+:where(.scope, .scope *):global(.reagent-boundary-note) p {
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+:where(.scope, .scope *):global(.reagent-create) > form > footer {
+  display: flex;
+  min-height: 60px;
+  grid-column: 1 / -1;
+  gap: 9px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 9px 18px;
+  background: var(--unilab-color-surface);
+  border-top: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.reagent-create) > form > footer > div {
+  min-width: 0;
+  flex: 1;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+}
+
+:where(.scope, .scope *):global(.reagent-create) > form > footer button {
+  min-height: 38px;
+  padding: 0 13px;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+:where(.scope, .scope *):global(.reagent-create) > form > footer button:global(.is-primary) {
+  color: #fff;
+  background: var(--unilab-color-material);
+  border-color: var(--unilab-color-material);
+}
+
+:where(.scope, .scope *):global(.reagent-create) > form > footer button:disabled {
+  color: var(--unilab-color-text-subtle);
+  background: var(--unilab-color-bg-muted);
+  border-color: var(--unilab-color-border);
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  :where(.scope, .scope *):global(.reagent-create) > form {
+    display: block;
+    overflow: auto;
+  }
+
+  :where(.scope, .scope *):global(.reagent-create__form) {
+    overflow: visible;
+  }
+
+  :where(.scope, .scope *):global(.reagent-create__summary) {
+    display: none;
+  }
+
+  :where(.scope, .scope *):global(.reagent-create) > form > footer {
+    position: sticky;
+    bottom: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  :where(.scope, .scope *):global(.reagent-task-header) {
+    min-height: 104px;
+    padding: 11px 14px;
+  }
+
+  :where(.scope, .scope *):global(.reagent-task-header__boundary) {
+    display: none;
+  }
+
+  :where(.scope, .scope *):global(.reagent-create__form) {
+    padding: 12px;
+  }
+
+  :where(.scope, .scope *):global(.reagent-field-grid) {
+    grid-template-columns: 1fr;
+  }
+
+  :where(.scope, .scope *):global(.reagent-field-grid) label:global(.is-wide) {
+    grid-column: auto;
+  }
+}

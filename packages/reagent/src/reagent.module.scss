@@ -1,0 +1,17 @@
+@use './styles/reagent-01';
+@use './styles/reagent-02';
+@use './styles/reagent-03';
+@use './styles/reagent-04';
+
+.scope {
+  --unilab-color-reagent: #0e7490;
+  --unilab-color-reagent-soft: #ecfeff;
+  --unilab-color-material: var(--unilab-color-reagent);
+  --unilab-color-material-soft: var(--unilab-color-reagent-soft);
+
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+}

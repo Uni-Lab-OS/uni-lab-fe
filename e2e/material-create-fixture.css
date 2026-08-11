@@ -5,19 +5,29 @@
     Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --unilab-color-bg: #fff;
   --unilab-color-bg-subtle: #f7f9fc;
+  --unilab-color-bg-muted: #eef3f8;
   --unilab-color-border: #dce2ea;
   --unilab-color-border-strong: #c6ceda;
   --unilab-color-primary: #445ee8;
+  --unilab-color-focus: #93c5fd;
   --unilab-color-danger: #d13b45;
   --unilab-color-success: #168461;
-  --unilab-color-material-soft: #edf4ff;
+  --unilab-color-success-soft: #f0fdf4;
+  --unilab-color-warning: #d97706;
+  --unilab-color-warning-soft: #fff7ed;
+  --unilab-color-material: #7c3aed;
+  --unilab-color-material-soft: #f5f3ff;
   --unilab-color-surface: #fff;
+  --unilab-color-surface-muted: #edf2f7;
   --unilab-color-text: #172033;
   --unilab-color-text-muted: #687386;
+  --unilab-color-text-subtle: #94a3b8;
   --unilab-font-sans:
     Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --unilab-radius-sm: 6px;
+  --unilab-radius-control: 6px;
   --unilab-radius-md: 10px;
+  --unilab-radius-lg: 12px;
   --unilab-shadow-control: 0 3px 10px rgb(15 23 42 / 11%);
   --unilab-shadow-panel: 0 24px 70px rgb(22 32 51 / 18%);
 }
@@ -46,9 +56,110 @@ input {
 }
 
 .material-create-e2e-app {
+  display: grid;
   width: 100vw;
   height: 100vh;
+  grid-template-columns: 82px minmax(0, 1fr);
   overflow: hidden;
+}
+
+.fixture-module-nav {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 9px;
+  color: #cbd5e1;
+  background: #182232;
+  border-right: 1px solid #263348;
+}
+
+.fixture-module-nav > strong {
+  margin-bottom: 12px;
+  color: #f8fafc;
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-align: center;
+}
+
+.fixture-module-nav button {
+  display: grid;
+  min-height: 58px;
+  gap: 5px;
+  place-items: center;
+  padding: 7px 5px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.fixture-module-nav button > span {
+  font-size: 19px;
+  line-height: 1;
+}
+
+.fixture-module-nav button:hover {
+  color: #fff;
+  background: #243247;
+}
+
+.fixture-module-nav button[data-module='material'][aria-current='page'] {
+  color: #ede9fe;
+  background: #4c1d95;
+  border-color: #6d28d9;
+}
+
+.fixture-module-nav button[data-module='reagent'][aria-current='page'] {
+  color: #cffafe;
+  background: #164e63;
+  border-color: #0e7490;
+}
+
+.fixture-module-page {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .material-create-e2e-app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 60px;
+  }
+
+  .fixture-module-nav {
+    grid-row: 2;
+    min-width: 0;
+    flex-direction: row;
+    gap: 4px;
+    padding: 4px 6px;
+    background: #182232;
+    border-top: 1px solid #263348;
+    border-right: 0;
+  }
+
+  .fixture-module-nav > strong {
+    display: none;
+  }
+
+  .fixture-module-nav button {
+    min-width: 0;
+    min-height: 50px;
+    flex: 1 1 50%;
+    gap: 2px;
+    padding: 4px;
+  }
+
+  .fixture-module-nav button > span {
+    font-size: 16px;
+  }
+
+  .fixture-module-page {
+    grid-row: 1;
+  }
 }
 
 .material-dialog button.is-primary {

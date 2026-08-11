@@ -17,6 +17,10 @@ export default defineConfig({
         process.cwd(),
         'packages/material/src/index.ts'
       ),
+      '@unilab/reagent': resolve(
+        process.cwd(),
+        'packages/reagent/src/index.ts'
+      ),
       '@tanstack/react-query': resolve(
         process.cwd(),
         'packages/material/node_modules/@tanstack/react-query'

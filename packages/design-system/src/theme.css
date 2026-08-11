@@ -25,6 +25,8 @@
   --unilab-color-device-soft: #ecfdf5;
   --unilab-color-material: #7c3aed;
   --unilab-color-material-soft: #f5f3ff;
+  --unilab-color-reagent: #0e7490;
+  --unilab-color-reagent-soft: #ecfeff;
   --unilab-color-scene: #4f46e5;
   --unilab-color-scene-soft: #eef2ff;
   --unilab-color-workflow: #2563eb;
@@ -84,6 +86,7 @@
   --unilab-color-primary-soft: #172554;
   --unilab-color-device-soft: #063d38;
   --unilab-color-material-soft: #2e1065;
+  --unilab-color-reagent-soft: #083344;
   --unilab-color-scene-soft: #1e1b4b;
   --unilab-color-workflow-soft: #172554;
   --unilab-color-success-soft: #052e16;

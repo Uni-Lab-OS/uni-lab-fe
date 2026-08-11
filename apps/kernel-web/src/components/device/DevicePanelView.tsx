@@ -40,6 +40,7 @@ interface DevicePanelViewProps {
   refresh: () => Promise<void>
   onSelectDevice: (deviceId: string) => void
   onSelectAction: (actionRef: string) => void
+  onOpenRobotPoints: () => void
   onArgumentChange: (name: string, value: string | boolean) => void
   onRunAction: (
     action: DeviceAction,
@@ -76,6 +77,7 @@ export function DevicePanelView(props: DevicePanelViewProps): React.JSX.Element 
     refresh,
     onSelectDevice,
     onSelectAction,
+    onOpenRobotPoints,
     onArgumentChange,
     onRunAction,
     onCancelActionTask,
@@ -170,6 +172,7 @@ export function DevicePanelView(props: DevicePanelViewProps): React.JSX.Element 
               selectedActionRef={selectedActionRef}
               argumentDraft={argumentDraft}
               onSelectAction={onSelectAction}
+              onOpenRobotPoints={onOpenRobotPoints}
               onArgumentChange={onArgumentChange}
               actionTemplate={actionTemplate}
               actionCatalogLoading={actionCatalogLoading}

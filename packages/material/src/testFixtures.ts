@@ -55,6 +55,7 @@ export function materialGraphPort(
     attach: unsupported,
     detach: unsupported,
     updateSite: unsupported,
+    deleteSubtree: unsupported,
     getEdgeOperations: unsupported,
     ...overrides
   }

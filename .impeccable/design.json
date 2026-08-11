@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-28T10:02:14Z",
+  "generatedAt": "2026-08-10T09:26:06Z",
   "title": "Design System: Uni-Lab",
   "extensions": {
     "colorMeta": {
@@ -21,6 +21,12 @@
         "displayName": "物料紫",
         "canonical": "#7c3aed",
         "tonalRamp": ["#2e1065", "#4c1d95", "#6d28d9", "#7c3aed", "#8b5cf6", "#c4b5fd", "#ede9fe", "#f5f3ff"]
+      },
+      "reagent-teal": {
+        "role": "secondary",
+        "displayName": "试剂青",
+        "canonical": "#0e7490",
+        "tonalRamp": ["#083344", "#164e63", "#155e75", "#0e7490", "#0891b2", "#67e8f9", "#cffafe", "#ecfeff"]
       },
       "scene-indigo": {
         "role": "secondary",
@@ -282,6 +288,11 @@
         "section": "layout"
       },
       {
+        "name": "The Long Task Surface Rule",
+        "body": "需要连续多步编辑、反复校验或查看大量上下文的配置流程，应在所属模块内作为完整任务页面呈现，并保留模块页签或明确返回路径作为上级导航。模态框只承载短时确认、单一选择或必须阻断当前任务的交互，不承载长流程编辑。",
+        "section": "layout"
+      },
+      {
         "name": "The Flat-at-Rest Rule",
         "body": "静止的工作区、卡片和控制组默认无阴影；浮起必须对应真实层级或状态变化。",
         "section": "elevation"
@@ -290,6 +301,46 @@
         "name": "The Radius Has Hierarchy Rule",
         "body": "圆角随容器层级增加，但不能把所有元素都变成胶囊；状态是胶囊，控制是矩形，容器是柔和面板。",
         "section": "shapes"
+      },
+      {
+        "name": "The Structured Configuration Rule",
+        "body": "面向实验室操作用户的业务配置优先使用由结构定义驱动的字段、枚举、单位和即时校验；原始 JSON 只作为明确标注的高级或只读诊断入口，不能成为完成核心任务的必经路径。写入能力缺失时可以展示结构化预览，但必须禁用提交并说明权威接口缺口。",
+        "section": "components"
+      },
+      {
+        "name": "The Material Path Rule",
+        "body": "物料模块围绕“资源模板（ResourceTemplate）→批次分组→物料（Material）实例”的单一下钻路径组织；创建入口继承当前模板或批次上下文，避免重复选择。尚未接入权威服务的能力不占一级导航，只在相关任务位置以失败关闭状态说明缺口。",
+        "section": "components"
+      },
+      {
+        "name": "The Material Authority Boundary Rule",
+        "body": "创建物料（Material）只建立身份与配置，不代表已放置、可分配、已使用或已获得任务物料预留（TaskMaterialReservation）。画布坐标移动只调整空间投影，与服务端的稳定库位（Site）附着操作分离；兼容库位建议仅用于预选，最终结果必须由服务端权威事实重新校验。使用记录服务未接入时必须失败关闭并明示缺口。",
+        "section": "components"
+      },
+      {
+        "name": "The ResourceTemplate Authoring Rule",
+        "body": "自定义资源模板（ResourceTemplate）只定义物料（Material）实例的字段结构、内部容器位置和兼容边界；内部位置是模板结构，不是预先创建的空物料。兼容规则不得修改库位占用（SiteOccupancy）、任务物料预留（TaskMaterialReservation）或作业执行占用（JobExecutionClaim）。",
+        "section": "components"
+      },
+      {
+        "name": "The Reagent Catalog Boundary Rule",
+        "body": "ResourceTemplate 通过显式 catalogSection 决定进入物料还是试剂应用目录；未声明的旧模板保留在物料目录，不得使用名称或标签猜测分区，也不得创建第二套权威模型。",
+        "section": "components"
+      },
+      {
+        "name": "The Reagent Authority Boundary Rule",
+        "body": "每个具体试剂容器仍是具有稳定身份的 Material，当前位置仍由 Site/SiteOccupancy 投影提供；数量与履历是独立权威投影，详情履历只按稳定 reagentInfoId 关联。",
+        "section": "components"
+      },
+      {
+        "name": "The Reagent Fail-Closed Rule",
+        "body": "任一试剂专用投影或写端口缺失时，对应页面必须保留结构化界面、禁用依赖权威写入的操作并显示具体原因，不得将空集合、本地草稿或估算值伪装成真实业务数据。",
+        "section": "components"
+      },
+      {
+        "name": "The Reagent Scope Boundary Rule",
+        "body": "试剂模块不提供工作流调试或物料来源（MaterialSource）绑定入口；这些能力必须在各自的权威工作区中完成。",
+        "section": "components"
       }
     ],
     "dos": [

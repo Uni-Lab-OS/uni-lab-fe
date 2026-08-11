@@ -30,6 +30,7 @@ import {
   type DeviceActionRunState
 } from './DevicePanelSupport'
 import { DevicePanelView } from './DevicePanelView'
+import RobotPointWorkbench from '../robot-points/RobotPointWorkbench'
 import { useDeviceActionCatalog } from './useDeviceActionCatalog'
 import { useDeviceUnlock } from './useDeviceUnlock'
 import type {
@@ -61,6 +62,9 @@ export default function DevicePanel(): React.JSX.Element {
     refresh
   } = useDevices()
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
+  const [panelView, setPanelView] = useState<DevicePanelViewMode>(
+    readInitialDevicePanelView
+  )
   const [selectedActionRef, setSelectedActionRef] = useState<string | null>(null)
   const [argumentDraft, setArgumentDraft] = useState<ArgumentDraft>({})
   const [runOperation, setRunOperation] =
@@ -460,6 +464,19 @@ export default function DevicePanel(): React.JSX.Element {
     ? runOperation.actionRef
     : null
 
+  /** 从当前机械臂设备进入点位配置任务页。 */
+  const openRobotPoints = useCallback(() => {
+    setPanelView('robot-points')
+  }, [])
+  /** 从点位配置任务页返回 Edge 设备目录。 */
+  const closeRobotPoints = useCallback(() => {
+    setPanelView('catalog')
+  }, [])
+
+  if (panelView === 'robot-points') {
+    return <RobotPointWorkbench onBack={closeRobotPoints} />
+  }
+
   return (
     <DevicePanelView
       backend={backend}
@@ -484,6 +501,7 @@ export default function DevicePanel(): React.JSX.Element {
       refresh={refresh}
       onSelectDevice={setSelectedDeviceId}
       onSelectAction={setSelectedActionRef}
+      onOpenRobotPoints={openRobotPoints}
       onArgumentChange={handleArgumentChange}
       onRunAction={(action, template) => {
         if (selectedDevice) void handleRunAction(selectedDevice, action, template)
@@ -496,4 +514,19 @@ export default function DevicePanel(): React.JSX.Element {
       onConfirmUnlock={() => void unlock.confirmUnlock()}
     />
   )
+}
+
+type DevicePanelViewMode = 'catalog' | 'robot-points'
+
+/**
+ * 从稳定查询参数恢复设备模块的任务页，不接受未知视图。
+ *
+ * @returns Edge 设备目录或机械臂点位管理视图。
+ */
+function readInitialDevicePanelView(): DevicePanelViewMode {
+  if (typeof globalThis.location === 'undefined') return 'catalog'
+  return new URLSearchParams(globalThis.location.search).get('deviceView')
+    === 'robot-points'
+    ? 'robot-points'
+    : 'catalog'
 }

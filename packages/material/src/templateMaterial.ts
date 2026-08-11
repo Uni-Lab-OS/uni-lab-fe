@@ -11,6 +11,7 @@ export interface MaterialTemplateInput {
 
 export type MaterialTemplateKind = 'device' | 'resource'
 export type MaterialTemplateStatus = 'ready' | 'unresolved'
+export type MaterialTemplateCatalogSection = 'material' | 'reagent'
 
 export interface MaterialTemplateCreation {
   mode: 'dynamic-device' | 'resource-tree'
@@ -89,6 +90,8 @@ export interface MaterialTemplateSummary {
   displayName: string
   tags: readonly string[]
   categoryPath: readonly string[]
+  /** 应用目录分区；只决定入口归属，不改变 ResourceTemplate 或 Material 的权威语义。 */
+  catalogSection?: MaterialTemplateCatalogSection
   icon?: string
   description?: string
   status: MaterialTemplateStatus
@@ -138,6 +141,7 @@ export interface CreateMaterialDraftOptions {
   requestedName?: string
   placement?: MaterialDropIntent
   initialContents?: readonly InitialMaterialContentDraft[]
+  config?: Record<string, unknown>
 }
 
 export interface TemplateMaterialDraft {
@@ -146,8 +150,10 @@ export interface TemplateMaterialDraft {
 }
 
 /**
- * 创建传输无关草稿。模板几何和容器布局只描述结构，不会隐式初始化试剂、
- * 样品或孔位内容。
+ * 创建传输无关草稿；模板结构不会隐式初始化试剂、样品或孔位内容。
+ * @param template 用户选择的资源模板身份。
+ * @param options 实例名称、初始位置、内容和结构化配置。
+ * @returns 可提交的创建命令及实例名称校验结果。
  */
 export function createMaterialDraftFromTemplate(
   template: MaterialTemplateInput,
@@ -163,7 +169,10 @@ export function createMaterialDraftFromTemplate(
       templateId: template.uuid,
       name: nameValidation.value,
       placement: options.placement ?? { kind: 'unplaced' },
-      initialContents: structuredClone(options.initialContents ?? [])
+      initialContents: structuredClone(options.initialContents ?? []),
+      ...(options.config
+        ? { config: structuredClone(options.config) }
+        : {})
     },
     nameValidation
   }

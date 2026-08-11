@@ -286,10 +286,47 @@ composite_child_source_path = package_root / "workflows" / "composite_child.py"
 composite_parent_source_path = package_root / "workflows" / "composite_parent.py"
 
 def fixture_catalog_imports():
-    imports = _catalog_imports()
+    """发布动作模板与唯一的物料来源（MaterialSource）框架模板。"""
+    from unilabos.workflow.catalog import NodeTemplateImport
+    imports = tuple(_catalog_imports()) + (
+        NodeTemplateImport(
+            template={
+                "uuid": "20000000-0000-4000-8000-000000000090",
+                "description": "E2E framework-owned MaterialSource",
+                "meta_data": {"framework": "material_source"},
+                "resource_template_uuid": RESOURCE_TEMPLATE_UUID,
+                "name": "material_source",
+                "display_name": "物料来源",
+                "class": "unilabos.workflow.authoring:material_source",
+                "goal": {},
+                "goal_default": {},
+                "feedback": {},
+                "result": {},
+                "schema": None,
+                "type": "material_source",
+                "icon": None,
+                "header": None,
+                "footer": None,
+                "node_type": "material_source",
+            },
+            handles=(
+                {
+                    "uuid": "30000000-0000-4000-8000-000000000090",
+                    "description": "测试夹具解析出的物料",
+                    "meta_data": {"framework": "material_source"},
+                    "handle_key": "material",
+                    "io_type": "source",
+                    "display_name": "物料",
+                    "type": "ResourceSlot",
+                    "required": False,
+                    "data_source": "executor",
+                    "data_key": "material",
+                },
+            ),
+        ),
+    )
     if not composite_fixture:
         return imports
-    from unilabos.workflow.catalog import NodeTemplateImport
     from unilabos.workflow.handle_projection import structural_ready_handle
     return tuple(
         NodeTemplateImport(

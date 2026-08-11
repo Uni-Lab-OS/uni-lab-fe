@@ -1,4 +1,4 @@
-import { createStore, type StoreApi } from 'zustand/vanilla'
+import { createStore } from 'zustand/vanilla'
 
 import {
   buildMaterialGraphIndex,
@@ -10,24 +10,21 @@ import {
   createMaterialHistory,
   emptyAuthoringSnapshot
 } from './undo'
-import type { MaterialShapeLibrary } from './oblique/shapeSpec'
+import {
+  materialOperationErrorMessage,
+  EMPTY_MATERIAL_GRAPH_INDEX,
+  projectMaterialDeletion,
+  requireMaterialAggregate,
+  withSiteOccupancy,
+  zeroLabPose
+} from './storeProjection'
 import type {
   AttachMaterialCommand,
-  CreateMaterialInput,
-  CreateMaterialResult,
+  DeleteMaterialSubtreeResult,
   DetachMaterialCommand,
-  LabPose,
   MaterialAggregate,
-  MaterialEdgeOperation,
-  MaterialGraphIndex,
   MaterialId,
-  MaterialMovedEvent,
-  MaterialMutationResult,
-  MaterialPlacement,
   MaterialStoreDependencies,
-  SiteId,
-  UpdateMaterialConfigCommand,
-  UpdateMaterialSiteCommand
 } from './types'
 
 import type {
@@ -42,11 +39,6 @@ export type {
   MaterialStoreState,
   PendingMaterialCommand
 } from './storeTypes'
-
-const EMPTY_INDEX: MaterialGraphIndex = {
-  childrenByParentId: {},
-  siteOwnerById: {}
-}
 
 export function createMaterialStore(
   dependencies: MaterialStoreDependencies
@@ -86,7 +78,7 @@ export function createMaterialStore(
 
     const fail = (id: string, error: unknown): never => {
       finish(id)
-      set({ error: errorMessage(error) })
+      set({ error: materialOperationErrorMessage(error) })
       throw error
     }
 
@@ -106,9 +98,24 @@ export function createMaterialStore(
       if (recordHistory) history.record(authoringSnapshot(next))
     }
 
+    /**
+     * 将物料权威返回的子树删除结果原子投影到本地工作台。
+     * @param result 服务端确认的删除身份与受影响聚合。
+     * @returns 无返回值；非法或不完整结果会抛错且不修改本地投影。
+     */
+    const applyDeletion = (result: DeleteMaterialSubtreeResult): void => {
+      const next = projectMaterialDeletion(get().aggregatesById, result)
+      assertValidMaterialGraph(next)
+      set({
+        aggregatesById: next,
+        graphIndex: buildMaterialGraphIndex(next)
+      })
+      history.record(authoringSnapshot(next))
+    }
+
     return {
       aggregatesById: {},
-      graphIndex: EMPTY_INDEX,
+      graphIndex: EMPTY_MATERIAL_GRAPH_INDEX,
       edgeOperationsById: {},
       pendingCommandsById: {},
       dragPreviewByMaterialId: {},
@@ -234,14 +241,14 @@ export function createMaterialStore(
             kind: 'site',
             parentId: event.toParentId,
             siteId: refreshedTargetSite.id,
-            offsetPose: zeroPose()
+            offsetPose: zeroLabPose()
           }
         } else {
           nextMoving.placement = {
             kind: 'parent',
             parentId: event.toParentId,
             anchor: { kind: 'root' },
-            localPose: zeroPose()
+            localPose: zeroLabPose()
           }
         }
         nextMoving.revision = event.revision ?? nextMoving.revision + 1
@@ -290,7 +297,10 @@ export function createMaterialStore(
 
       updateConfig: async (materialId, patch) => {
         dependencies.requireCapability('material.updateConfig')
-        const aggregate = requireAggregate(get(), materialId)
+        const aggregate = requireMaterialAggregate(
+          get().aggregatesById,
+          materialId
+        )
         const commandId = begin('update-config', [materialId])
         try {
           const result = await dependencies.graph.updateConfig({
@@ -308,7 +318,10 @@ export function createMaterialStore(
 
       move: async (materialId, placement) => {
         dependencies.requireCapability('material.move')
-        const aggregate = requireAggregate(get(), materialId)
+        const aggregate = requireMaterialAggregate(
+          get().aggregatesById,
+          materialId
+        )
         const commandId = begin('move', [materialId])
         try {
           const result = await dependencies.graph.move({
@@ -331,8 +344,8 @@ export function createMaterialStore(
 
       attach: async (parentId, childId, siteId) => {
         dependencies.requireCapability('material.attach')
-        const parent = requireAggregate(get(), parentId)
-        const child = requireAggregate(get(), childId)
+        const parent = requireMaterialAggregate(get().aggregatesById, parentId)
+        const child = requireMaterialAggregate(get().aggregatesById, childId)
         const command: AttachMaterialCommand = {
           parentId,
           childId,
@@ -353,7 +366,7 @@ export function createMaterialStore(
 
       detach: async (childId) => {
         dependencies.requireCapability('material.detach')
-        const child = requireAggregate(get(), childId)
+        const child = requireMaterialAggregate(get().aggregatesById, childId)
         const parentId =
           child.placement.kind === 'parent' ||
           child.placement.kind === 'site'
@@ -362,7 +375,7 @@ export function createMaterialStore(
         if (!parentId) {
           throw new Error(`Material ${childId} is not attached`)
         }
-        const parent = requireAggregate(get(), parentId)
+        const parent = requireMaterialAggregate(get().aggregatesById, parentId)
         const command: DetachMaterialCommand = {
           parentId,
           childId,
@@ -382,7 +395,10 @@ export function createMaterialStore(
 
       updateSite: async (materialId, siteId, patch) => {
         dependencies.requireCapability('material.updateSite')
-        const aggregate = requireAggregate(get(), materialId)
+        const aggregate = requireMaterialAggregate(
+          get().aggregatesById,
+          materialId
+        )
         const commandId = begin('update-site', [materialId])
         try {
           const result = await dependencies.graph.updateSite({
@@ -392,6 +408,34 @@ export function createMaterialStore(
             patch
           })
           applyAggregates([result])
+          finish(commandId)
+          return result
+        } catch (error) {
+          return fail(commandId, error)
+        }
+      },
+
+      deleteSubtree: async (materialId) => {
+        dependencies.requireCapability('material.deleteSubtrees')
+        const aggregate = requireMaterialAggregate(
+          get().aggregatesById,
+          materialId
+        )
+        const commandId = begin('delete-subtree', [materialId])
+        try {
+          const result = await dependencies.graph.deleteSubtree({
+            materialId,
+            expectedRevision: aggregate.revision,
+            idempotencyKey:
+              dependencies.createIdempotencyKey?.() ??
+              `material-delete-${Date.now()}-${commandId}`
+          })
+          if (!result.deletedMaterialIds.includes(materialId)) {
+            throw new Error(
+              `Delete result is missing requested Material ${materialId}`
+            )
+          }
+          applyDeletion(result)
           finish(commandId)
           return result
         } catch (error) {
@@ -438,7 +482,7 @@ export function createMaterialStore(
         graphRevision = 0
         set({
           aggregatesById: {},
-          graphIndex: EMPTY_INDEX,
+          graphIndex: EMPTY_MATERIAL_GRAPH_INDEX,
           edgeOperationsById: {},
           pendingCommandsById: {},
           dragPreviewByMaterialId: {},
@@ -452,42 +496,4 @@ export function createMaterialStore(
   })
 
   return store
-}
-
-function requireAggregate(
-  state: MaterialStoreState,
-  materialId: MaterialId
-): MaterialAggregate {
-  const aggregate = state.aggregatesById[materialId]
-  if (!aggregate) throw new Error(`Unknown Material: ${materialId}`)
-  return aggregate
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Material operation failed'
-}
-
-/** 生成远端转运默认的零偏移位姿。 */
-function zeroPose(): LabPose {
-  return {
-    positionMm: [0, 0, 0],
-    rotationDegXYZ: [0, 0, 0]
-  }
-}
-/** 同步库位占用及其可选的视觉状态。 */
-function withSiteOccupancy(
-  site: MaterialAggregate['sites'][number],
-  occupiedMaterialIds: readonly MaterialId[]
-): MaterialAggregate['sites'][number] {
-  const occupied = occupiedMaterialIds.length > 0
-  return {
-    ...site,
-    occupiedMaterialIds,
-    visual: site.visual
-      ? {
-          state: occupied ? 'occupied' : 'empty',
-          fillFraction: occupied ? 1 : 0
-        }
-      : undefined
-  }
 }

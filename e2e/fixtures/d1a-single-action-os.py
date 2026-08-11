@@ -39,6 +39,7 @@ from unilabos.workflow.composition import (
 
 DEVICE_ID = "D1ADevice1"
 ACTION_NAME = "test_hold"
+DEVICE_MATERIAL_UUID = str(uuid5(NAMESPACE_URL, f"d1a-e2e:{DEVICE_ID}"))
 
 
 def _resource_template_uuid(source_fqid: str) -> str:
@@ -256,7 +257,7 @@ def create_fixture_app(working_dir: Path):
             "fingerprint": "sha256:" + "d" * 64,
             "materials": [
                 {
-                    "uuid": str(uuid5(NAMESPACE_URL, f"d1a-e2e:{DEVICE_ID}")),
+                    "uuid": DEVICE_MATERIAL_UUID,
                     "resource_template_uuid": _resource_template_uuid(
                         device_source_fqid
                     ),
@@ -294,6 +295,56 @@ def create_fixture_app(working_dir: Path):
         registry_snapshot=device_snapshot,
         resource_registry_snapshot=resource_snapshot,
     )
+    from unilabos.workflow.composition import get_device_action_task_service
+
+    device_action_tasks = get_device_action_task_service()
+    if device_action_tasks is None:
+        raise RuntimeError("D1A E2E device Action Task service is unavailable")
+
+    @app.post("/api/v1/device-action-runs")
+    async def create_backend_shaped_device_action_run(
+        request: Request,
+    ) -> JSONResponse:
+        """把当前 Backend DTO 适配到候选 OS 的正式单动作服务。
+
+        Args:
+            request: 前端提交的设备单动作运行（DeviceActionRun）请求。
+
+        Returns:
+            当前前端消费的标准工作流任务（WorkflowTask）与节点作业结果。
+
+        Raises:
+            设备物料或动作模板身份不一致时显式终止测试。
+
+        Safety:
+            适配仅改变测试 HTTP 外壳，持久化、调度与设备锁仍由正式 OS 服务负责。
+        """
+        body = await request.json()
+        if body.get("material_uuid") != DEVICE_MATERIAL_UUID:
+            raise RuntimeError("D1A E2E device material identity mismatch")
+        template_uuid = str(body.get("workflow_node_template_uuid") or "")
+        with device_action_tasks._template_catalog.snapshot(  # noqa: SLF001
+            device_action_tasks._authority  # noqa: SLF001
+        ) as snapshot:
+            fingerprint = snapshot.fingerprint
+        view = device_action_tasks.create(
+            authority_id=device_action_tasks._authority.authority_id,  # noqa: SLF001
+            template_catalog_fingerprint=fingerprint,
+            workflow_node_template_uuid=template_uuid,
+            device_id=DEVICE_ID,
+            input_value=dict(body.get("param") or {}),
+            idempotency_key=str(body.get("idempotency_key") or ""),
+            description=body.get("description"),
+        )
+        store = device_action_tasks._store  # noqa: SLF001
+        task = store.get_task(view["task_uuid"])
+        jobs = store.list_jobs(view["task_uuid"])
+        if len(jobs) != 1:
+            raise RuntimeError("D1A E2E run must create exactly one Job")
+        return JSONResponse(
+            {"code": 0, "data": {"task": task, "job": jobs[0], "created": True}},
+            status_code=201,
+        )
 
     @app.middleware("http")
     async def normalize_node_template_cursor(
@@ -315,10 +366,52 @@ def create_fixture_app(working_dir: Path):
         Safety:
             适配只存在于浏览器测试夹具，不改变 OS 仓库或生产动作执行链。
         """
+        path = request.url.path
+        task_prefix = "/api/v1/workflow-tasks/"
+        browser_headers = {
+            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+            "Access-Control-Allow-Credentials": "true",
+            "Vary": "Origin",
+        }
+        if request.method == "GET" and path.startswith(task_prefix):
+            suffix = path.removeprefix(task_prefix)
+            task_uuid, separator, child = suffix.partition("/")
+            store = device_action_tasks._store  # noqa: SLF001
+            if task_uuid and store.is_device_action_task(task_uuid):
+                if not separator:
+                    return JSONResponse(
+                        {"code": 0, "data": store.get_task(task_uuid)},
+                        headers=browser_headers,
+                    )
+                if child == "jobs":
+                    return JSONResponse(
+                        {"code": 0, "data": store.list_jobs(task_uuid)},
+                        headers=browser_headers,
+                    )
+
         response = await call_next(request)
         if (
+            request.method == "GET"
+            and path == "/api/v1/devices"
+            and response.status_code == 200
+        ):
+            body = b"".join([chunk async for chunk in response.body_iterator])
+            payload = json.loads(body)
+            for item in payload.get("data", {}).get("items", []):
+                if item.get("id") == DEVICE_ID:
+                    item["materialUuid"] = DEVICE_MATERIAL_UUID
+            return JSONResponse(
+                payload,
+                status_code=response.status_code,
+                headers={
+                    key: value
+                    for key, value in response.headers.items()
+                    if key.lower() != "content-length"
+                },
+            )
+        if (
             request.method != "GET"
-            or request.url.path != "/api/v1/workflow-node-templates"
+            or path != "/api/v1/workflow-node-templates"
             or response.status_code != 200
         ):
             return response

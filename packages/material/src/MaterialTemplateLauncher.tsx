@@ -7,11 +7,10 @@ import { MaterialTemplateLibrary } from './MaterialTemplateLibrary'
 import type {
   MaterialTemplateCatalogPort,
   MaterialTemplateDetail,
+  MaterialTemplateKind,
   TemplateMaterialDraft
 } from './templateMaterial'
 import type { MaterialScope } from './types'
-
-type TemplateKind = 'device' | 'resource'
 
 export interface MaterialTemplateLauncherProps {
   catalog: MaterialTemplateCatalogPort
@@ -20,6 +19,9 @@ export interface MaterialTemplateLauncherProps {
   readStatus: CapabilityStatus
   createStatus: CapabilityStatus
   existingNames: readonly string[]
+  activeKind?: MaterialTemplateKind | null
+  showTabs?: boolean
+  onActiveKindChange?: (kind: MaterialTemplateKind | null) => void
   onCreate: (
     template: MaterialTemplateDetail,
     draft: TemplateMaterialDraft
@@ -33,9 +35,29 @@ export function MaterialTemplateLauncher({
   readStatus,
   createStatus,
   existingNames,
+  activeKind: controlledActiveKind,
+  showTabs = true,
+  onActiveKindChange,
   onCreate
 }: MaterialTemplateLauncherProps): React.JSX.Element {
-  const [activeKind, setActiveKind] = useState<TemplateKind | null>(null)
+  const [uncontrolledActiveKind, setUncontrolledActiveKind] =
+    useState<MaterialTemplateKind | null>(null)
+  const activeKind =
+    controlledActiveKind === undefined
+      ? uncontrolledActiveKind
+      : controlledActiveKind
+
+  /**
+   * 同步受控或非受控的模板目录类型。
+   * @param kind 待打开的模板类型；null 表示关闭目录。
+   * @returns 无返回值。
+   */
+  const setActiveKind = (kind: MaterialTemplateKind | null): void => {
+    if (controlledActiveKind === undefined) {
+      setUncontrolledActiveKind(kind)
+    }
+    onActiveKindChange?.(kind)
+  }
   const scopeKey =
     scope.kind === 'singleton' ? 'singleton' : scope.laboratoryId
   const templates = useQuery({
@@ -63,7 +85,7 @@ export function MaterialTemplateLauncher({
           ).length
         }
       ] satisfies readonly {
-        kind: TemplateKind
+        kind: MaterialTemplateKind
         label: string
         count: number | undefined
       }[],
@@ -75,36 +97,36 @@ export function MaterialTemplateLauncher({
     <div
       className={materialScopeClassName('material-template-launcher')}
     >
-      <div
-        className="material-template-launcher__tabs"
-        aria-label="添加物料"
-        role="group"
-      >
-        {tabs.map((tab) => (
-          <button
-            key={tab.kind}
-            type="button"
-            aria-expanded={activeKind === tab.kind}
-            className={activeKind === tab.kind ? 'is-active' : undefined}
-            disabled={!readStatus.available}
-            title={
-              readStatus.available
-                ? `浏览${tab.label}模板`
-                : readStatus.reason
-            }
-            onClick={() =>
-              setActiveKind((current) =>
-                current === tab.kind ? null : tab.kind
-              )
-            }
-          >
-            <span>{tab.label}</span>
-            <small>
-              {readStatus.available ? tab.count ?? '…' : '—'}
-            </small>
-          </button>
-        ))}
-      </div>
+      {showTabs ? (
+        <div
+          className="material-template-launcher__tabs"
+          aria-label="添加物料"
+          role="group"
+        >
+          {tabs.map((tab) => (
+            <button
+              key={tab.kind}
+              type="button"
+              aria-expanded={activeKind === tab.kind}
+              className={activeKind === tab.kind ? 'is-active' : undefined}
+              disabled={!readStatus.available}
+              title={
+                readStatus.available
+                  ? `浏览${tab.label}模板`
+                  : readStatus.reason
+              }
+              onClick={() =>
+                setActiveKind(activeKind === tab.kind ? null : tab.kind)
+              }
+            >
+              <span>{tab.label}</span>
+              <small>
+                {readStatus.available ? tab.count ?? '…' : '—'}
+              </small>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {activeKind && activeTab ? (
         <>

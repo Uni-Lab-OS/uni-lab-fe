@@ -277,6 +277,59 @@ describe('material store', () => {
     ).toEqual(['vessel'])
   })
 
+  /** 证明删除仅在物料权威确认后原子移除子树并更新父库位占用。 */
+  it('applies an authoritative subtree deletion without leaving dangling occupancy', async () => {
+    const parent = materialAggregate('warehouse', {
+      sites: [materialSite('site-a', 'warehouse', 'A1', ['sample'])]
+    })
+    const child = materialAggregate('sample', {
+      placement: {
+        kind: 'site',
+        parentId: 'warehouse',
+        siteId: 'site-a',
+        offsetPose: {
+          positionMm: [0, 0, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      }
+    })
+    const updatedParent = materialAggregate('warehouse', {
+      revision: 2,
+      sites: [materialSite('site-a', 'warehouse', 'A1')]
+    })
+    const deleteSubtree = vi.fn(async () => ({
+      deletedMaterialIds: ['sample'],
+      aggregates: [updatedParent]
+    }))
+    const store = createMaterialStore({
+      scope: { kind: 'singleton' },
+      graph: materialGraphPort({
+        getGraph: async () => [parent, child],
+        deleteSubtree
+      }),
+      requireCapability: allowCapabilities(
+        'material.readGraph',
+        'material.deleteSubtrees'
+      ),
+      createIdempotencyKey: () => 'delete-sample-1'
+    })
+    await store.getState().loadGraph()
+
+    await store.getState().deleteSubtree('sample')
+
+    expect(deleteSubtree).toHaveBeenCalledWith({
+      materialId: 'sample',
+      expectedRevision: 1,
+      idempotencyKey: 'delete-sample-1'
+    })
+    expect(store.getState().aggregatesById.sample).toBeUndefined()
+    expect(
+      store.getState().aggregatesById.warehouse.sites[0]
+        .occupiedMaterialIds
+    ).toEqual([])
+    expect(store.getState().canUndo()).toBe(true)
+  })
+
   it('resets graph, previews and temporal history together', async () => {
     const initial = materialAggregate('robot')
     const moved = materialAggregate('robot', { revision: 2 })

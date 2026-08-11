@@ -240,6 +240,8 @@ export function createMaterialService(
       unavailableGraphOperation('material.detach'),
     updateSite: async (_command) =>
       unavailableGraphOperation('material.updateSite'),
+    deleteSubtree: async (_command) =>
+      unavailableGraphOperation('material.deleteSubtrees'),
     getEdgeOperations: async (_scope, _operationIds) =>
       unavailableGraphOperation('edge.provisioning')
   }

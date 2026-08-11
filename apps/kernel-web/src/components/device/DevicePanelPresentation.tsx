@@ -149,11 +149,7 @@ export function DeviceIcon({ device }: { device: ManagedDevice }): React.JSX.Ele
       </svg>
     )
   }
-  if (
-    text.includes('robot')
-    || text.includes('arm')
-    || text.includes('机械臂')
-  ) {
+  if (isRobotDevice(device)) {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M5 19h14M8 19v-3.5l3-1.5 1.2-4.1" />
@@ -168,6 +164,23 @@ export function DeviceIcon({ device }: { device: ManagedDevice }): React.JSX.Ele
       <path d="M8 9h8M8 13h5M17 13h.01" />
     </svg>
   )
+}
+
+/**
+ * 判断 Edge 设备目录项是否可进入机械臂点位配置任务页。
+ *
+ * @param device 当前设备目录投影。
+ * @returns 名称或稳定标识是否明确包含机械臂语义。
+ */
+export function isRobotDevice(device: ManagedDevice): boolean {
+  const searchableIdentity = [
+    device.id,
+    device.displayName,
+    device.machineName
+  ].join(' ').toLowerCase()
+  return searchableIdentity.includes('robot')
+    || searchableIdentity.includes('arm')
+    || searchableIdentity.includes('机械臂')
 }
 
 export function createArgumentDraft(

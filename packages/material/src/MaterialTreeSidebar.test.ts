@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { buildMaterialGraphIndex } from './rules'
 import { buildMaterialTree } from './MaterialTreeSidebar'
+import { filterMaterialTree } from './materialTreeQuery'
 import { materialAggregate } from './testFixtures'
 
 describe('buildMaterialTree', () => {
@@ -126,6 +127,48 @@ describe('buildMaterialTree', () => {
     expect(occupiedEntry.aggregate.material.name).toBe('样品瓶')
     expect(occupiedEntry.occupyingSite?.name).toBe('L1B1')
     expect(emptyEntry.site.name).toBe('L1A1')
+  })
+
+  /** 证明本地查询保留命中子物料的父路径，并支持库位名称。 */
+  it('filters by Material identity and Site while preserving ancestor context', () => {
+    const sample = materialAggregate('sample-42', {
+      placement: {
+        kind: 'site',
+        parentId: 'warehouse',
+        siteId: 'site-02',
+        offsetPose: {
+          positionMm: [0, 0, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      }
+    })
+    sample.material.name = '待检样品'
+    sample.material.code = 'SAMPLE-042'
+    const warehouse = materialAggregate('warehouse', {
+      sites: [
+        site('site-02', 'L1B1', ['sample-42']),
+        site('site-01', 'L1A1', [])
+      ]
+    })
+    const aggregatesById = { warehouse, 'sample-42': sample }
+    const tree = buildMaterialTree(
+      aggregatesById,
+      buildMaterialGraphIndex(aggregatesById).childrenByParentId
+    )
+
+    const materialResult = filterMaterialTree(tree, 'sample-042')
+    expect(materialResult).toHaveLength(1)
+    expect(materialResult[0].children).toHaveLength(1)
+    expect(materialResult[0].children[0].kind).toBe('material')
+
+    const siteResult = filterMaterialTree(tree, 'L1A1')
+    expect(siteResult).toHaveLength(1)
+    expect(siteResult[0].children).toHaveLength(1)
+    expect(siteResult[0].children[0].kind).toBe('empty-site')
+
+    const occupiedSiteResult = filterMaterialTree(tree, 'L1B1')
+    expect(occupiedSiteResult[0].children).toHaveLength(1)
+    expect(occupiedSiteResult[0].children[0].kind).toBe('material')
   })
 })
 

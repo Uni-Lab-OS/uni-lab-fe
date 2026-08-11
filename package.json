@@ -37,6 +37,7 @@
     "test:e2e:device-catalog": "playwright test e2e/device-catalog-real-os.spec.ts",
     "test:e2e:device-manual-unlock": "playwright test e2e/device-manual-unlock-real-os.spec.ts",
     "test:e2e:device-single-action": "playwright test e2e/device-single-action-real-os.spec.ts",
+    "test:e2e:robot-points": "node scripts/run-playwright-e2e.mjs --env UNILAB_E2E_ROBOT_POINTS=1 -- e2e/robot-point-management.spec.ts",
     "test:e2e:desktop-local-runtime": "node scripts/run-playwright-e2e.mjs --env UNILAB_E2E_ELECTRON=1 -- e2e/local-runtime-electron-real-edge.spec.ts"
   },
   "devDependencies": {

@@ -1,0 +1,752 @@
+/* 独立试剂模块：共享物料身份的业务导航、目录和信息检查器。 */
+:where(.scope, .scope *):global(.reagent-workspace) {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-bg);
+  overflow: hidden;
+}
+
+:where(.scope, .scope *):global(.reagent-workspace__header) {
+  display: flex;
+  min-height: 76px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: var(--unilab-color-surface);
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.reagent-workspace__header) h2,
+:where(.scope, .scope *):global(.reagent-workspace__header) p,
+:where(.scope, .scope *):global(.reagent-catalog__containers) h4,
+:where(.scope, .scope *):global(.reagent-catalog__containers) p {
+  margin: 0;
+}
+
+:where(.scope, .scope *):global(.reagent-workspace__header) h2 {
+  font-size: 18px;
+  letter-spacing: -.015em;
+}
+
+:where(.scope, .scope *):global(.reagent-workspace__header) p {
+  margin-top: 4px;
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+}
+
+:where(.scope, .scope *):global(.reagent-workspace__header) dl {
+  display: flex;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+}
+
+:where(.scope, .scope *):global(.reagent-workspace__header) dl > div {
+  min-width: 84px;
+  padding: 3px 16px;
+  border-left: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.reagent-workspace__header) dt {
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+}
+
+:where(.scope, .scope *):global(.reagent-workspace__header) dd {
+  margin: 3px 0 0;
+  color: var(--unilab-color-text);
+  font: 700 16px/1 var(--unilab-font-mono, monospace);
+}
+
+:where(.scope, .scope *):global(.reagent-workspace__content) {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog) {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__toolbar) {
+  display: grid;
+  min-height: 50px;
+  flex: 0 0 auto;
+  grid-template-columns: max-content minmax(300px, 1fr) max-content;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 14px;
+  background: var(--unilab-color-bg-subtle);
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.reagent-ledger__view-switch) {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--unilab-color-bg-muted);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+}
+
+:where(.scope, .scope *):global(.reagent-ledger__view-switch) button {
+  min-width: 76px;
+  min-height: 30px;
+  padding: 0 11px;
+  color: var(--unilab-color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--unilab-radius-control) - 2px);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 680;
+}
+
+:where(.scope, .scope *):global(.reagent-ledger__view-switch) button:hover,
+:where(.scope, .scope *):global(.reagent-ledger__view-switch) button[aria-selected='true'] {
+  color: var(--unilab-color-material);
+  background: var(--unilab-color-surface);
+}
+
+:where(.scope, .scope *):global(.reagent-ledger__panel) {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__toolbar) input,
+:where(.scope, .scope *):global(.reagent-operational__toolbar) input,
+:where(.scope, .scope *):global(.reagent-operational__toolbar) select,
+:where(.scope, .scope *):global(.reagent-info-inspector) input,
+:where(.scope, .scope *):global(.reagent-info-inspector) select,
+:where(.scope, .scope *):global(.reagent-info-inspector) textarea {
+  width: 100%;
+  min-height: 36px;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__toolbar) > button {
+  min-height: 36px;
+  padding: 0 13px;
+  color: #fff;
+  background: var(--unilab-color-material);
+  border: 1px solid var(--unilab-color-material);
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 680;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__workspace) {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(245px, 285px) minmax(600px, 1fr) minmax(290px, 330px);
+  background: var(--unilab-color-surface);
+  overflow: hidden;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__workspace) > * {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__identities) {
+  background: color-mix(in srgb, var(--unilab-color-bg-subtle) 72%, var(--unilab-color-surface));
+  border-right: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__identities) > header {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 13px;
+  color: var(--unilab-color-text-muted);
+  border-bottom: 1px solid var(--unilab-color-border);
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__identities) ul {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__identities) li + li {
+  margin-top: 3px;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__identities) li > button {
+  display: grid;
+  width: 100%;
+  min-height: 66px;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  color: var(--unilab-color-text);
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--unilab-radius-md);
+  cursor: pointer;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__identities) li > button:hover,
+:where(.scope, .scope *):global(.reagent-catalog__identities) li > button[aria-current='true'] {
+  background: var(--unilab-color-surface);
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__identities) li > button[aria-current='true'] {
+  border-color: color-mix(in srgb, var(--unilab-color-material) 30%, var(--unilab-color-border));
+}
+
+:where(.scope, .scope *):global(.reagent-identity-mark) {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  color: var(--unilab-color-material);
+  background: var(--unilab-color-material-soft);
+  border-radius: 50%;
+  font-size: 9px;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__identities) li > button > span:not(:first-child) {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__identities) li > button > span:last-child {
+  justify-items: end;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__identities) li strong {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__identities) li small {
+  overflow: hidden;
+  color: var(--unilab-color-text-muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__containers) {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__containers) > header {
+  display: flex;
+  min-height: 66px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__containers) h4 {
+  font-size: 15px;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__containers) p,
+:where(.scope, .scope *):global(.reagent-catalog__containers) > header > span {
+  margin-top: 4px;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__containers) > header > span {
+  padding: 5px 8px;
+  background: var(--unilab-color-bg-subtle);
+  border-radius: 999px;
+}
+
+:where(.scope, .scope *):global(.reagent-container-table-wrap) {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+:where(.scope, .scope *):global(.reagent-container-table),
+:where(.scope, .scope *):global(.reagent-storage__table-wrap) table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+:where(.scope, .scope *):global(.reagent-container-table) th,
+:where(.scope, .scope *):global(.reagent-container-table) td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--unilab-color-border);
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+:where(.scope, .scope *):global(.reagent-container-table) th {
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-bg-subtle);
+  font-size: 9px;
+  font-weight: 680;
+}
+
+:where(.scope, .scope *):global(.reagent-container-table) tbody tr[aria-selected='true'] {
+  background: var(--unilab-color-material-soft);
+}
+
+:where(.scope, .scope *):global(.reagent-container-table) button,
+:where(.scope, .scope *):global(.reagent-storage__table-wrap) td button {
+  display: grid;
+  width: 100%;
+  gap: 3px;
+  padding: 0;
+  color: var(--unilab-color-text);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+:where(.scope, .scope *):global(.reagent-container-table) td > strong,
+:where(.scope, .scope *):global(.reagent-container-table) button strong {
+  display: block;
+  font-size: 10px;
+}
+
+:where(.scope, .scope *):global(.reagent-container-table) td small,
+:where(.scope, .scope *):global(.reagent-container-table) button small {
+  display: block;
+  margin-top: 3px;
+  color: var(--unilab-color-text-muted);
+  font-size: 9px;
+}
+
+:where(.scope, .scope *):global(.reagent-level) {
+  display: block;
+  width: 74px;
+  height: 4px;
+  margin-top: 6px;
+  background: var(--unilab-color-bg-muted);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+:where(.scope, .scope *):global(.reagent-level) > span {
+  display: block;
+  height: 100%;
+  background: var(--unilab-color-material);
+}
+
+:where(.scope, .scope *):global(.reagent-catalog__containers) > footer {
+  padding: 9px 12px;
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-bg-subtle);
+  border-top: 1px solid var(--unilab-color-border);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector) {
+  min-height: 0;
+  overflow: auto;
+  background: var(--unilab-color-surface);
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector) > header {
+  display: flex;
+  min-height: 66px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 13px;
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector) > header > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector) > header small {
+  color: var(--unilab-color-material);
+  font-size: 9px;
+  font-weight: 680;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector) > header h4 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector) button {
+  min-height: 32px;
+  padding: 0 9px;
+  color: var(--unilab-color-material);
+  background: var(--unilab-color-surface);
+  border: 1px solid color-mix(in srgb, var(--unilab-color-material) 32%, var(--unilab-color-border));
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector__tabs) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 5px;
+  background: var(--unilab-color-bg-muted);
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector__tabs) button {
+  min-height: 34px;
+  color: var(--unilab-color-text-muted);
+  background: transparent;
+  border: 0;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector__tabs) button[aria-selected='true'] {
+  color: var(--unilab-color-material);
+  background: var(--unilab-color-surface);
+  box-shadow: var(--unilab-shadow-control);
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector__tabs) button:disabled {
+  color: var(--unilab-color-text-subtle);
+  cursor: not-allowed;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector) > div[role='tabpanel'] {
+  min-height: 0;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector__details),
+:where(.scope, .scope *):global(.reagent-info-inspector) form {
+  display: grid;
+  gap: 0;
+  padding: 8px 13px 18px;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector__details) dl {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 10px;
+  margin: 0;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--unilab-color-border);
+  font-size: 10px;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector__details) dt {
+  color: var(--unilab-color-text-muted);
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector__details) dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector__details) dd:global(.is-mono) {
+  font-family: var(--unilab-font-mono, monospace);
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector__hazards) {
+  display: grid;
+  gap: 7px;
+  padding: 11px 0;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector__hazards) div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector__hazards) strong {
+  padding: 4px 7px;
+  color: var(--unilab-color-danger);
+  background: color-mix(in srgb, var(--unilab-color-danger) 8%, var(--unilab-color-surface));
+  border-radius: 999px;
+  font-size: 9px;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector__details) > p {
+  margin: 6px 0 0;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector) form {
+  gap: 9px;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector) form label {
+  display: grid;
+  gap: 4px;
+  color: var(--unilab-color-text-muted);
+  font-size: 9px;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector) textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector__save-status) {
+  color: var(--unilab-color-text-muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+:where(.scope, .scope *):global(.reagent-info-inspector) form button:global(.is-primary) {
+  color: #fff;
+  background: var(--unilab-color-material);
+}
+
+:where(.scope, .scope *):global(.reagent-history-panel) > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 13px 9px;
+}
+
+:where(.scope, .scope *):global(.reagent-history-panel) > header > div {
+  display: grid;
+  gap: 3px;
+}
+
+:where(.scope, .scope *):global(.reagent-history-panel) > header strong {
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.reagent-history-panel) > header small,
+:where(.scope, .scope *):global(.reagent-history-panel) > header > span {
+  color: var(--unilab-color-text-muted);
+  font-size: 9px;
+}
+
+:where(.scope, .scope *):global(.reagent-history-panel__filter) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 0 13px 10px;
+  color: var(--unilab-color-text-muted);
+  font-size: 9px;
+}
+
+:where(.scope, .scope *):global(.reagent-history-panel__filter) select {
+  min-height: 34px;
+}
+
+:where(.scope, .scope *):global(.reagent-history__timeline) {
+  margin: 0;
+  padding: 0 13px 16px;
+  list-style: none;
+}
+
+:where(.scope, .scope *):global(.reagent-history__timeline) li {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: 8px;
+  padding: 12px 0;
+}
+
+:where(.scope, .scope *):global(.reagent-history__timeline) li + li {
+  border-top: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.reagent-history__event-mark) {
+  width: 8px;
+  height: 8px;
+  margin-top: 4px;
+  background: var(--unilab-color-material);
+  border: 2px solid var(--unilab-color-material-soft);
+  border-radius: 50%;
+}
+
+:where(.scope, .scope *):global(.reagent-history__timeline) li > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+:where(.scope, .scope *):global(.reagent-history__timeline) li > div > header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+:where(.scope, .scope *):global(.reagent-history__timeline) header strong {
+  font-size: 10px;
+}
+
+:where(.scope, .scope *):global(.reagent-history__timeline) header span {
+  color: var(--unilab-color-success);
+  font: 680 9px/1 var(--unilab-font-mono, monospace);
+}
+
+:where(.scope, .scope *):global(.reagent-history__timeline) header span[data-negative='true'] {
+  color: var(--unilab-color-warning);
+}
+
+:where(.scope, .scope *):global(.reagent-history__timeline) time,
+:where(.scope, .scope *):global(.reagent-history__timeline) p,
+:where(.scope, .scope *):global(.reagent-history__timeline) li > div > small {
+  margin: 0;
+  color: var(--unilab-color-text-muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+:where(.scope, .scope *):global(.reagent-history__timeline) time {
+  font-family: var(--unilab-font-mono, monospace);
+}
+
+:where(.scope, .scope *):global(.reagent-history-panel__empty) {
+  display: grid;
+  min-height: 170px;
+  gap: 5px;
+  place-content: center;
+  padding: 16px;
+  color: var(--unilab-color-text-muted);
+  text-align: center;
+}
+
+:where(.scope, .scope *):global(.reagent-history-panel__empty) strong {
+  color: var(--unilab-color-text);
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.reagent-history-panel__empty) small {
+  font-size: 9px;
+}
+
+:where(.scope, .scope *):global(.reagent-empty) {
+  display: grid;
+  min-height: 220px;
+  gap: 8px;
+  place-content: center;
+  justify-items: center;
+  padding: 20px;
+  color: var(--unilab-color-text-muted);
+  text-align: center;
+}
+
+:where(.scope, .scope *):global(.reagent-empty) > span {
+  color: var(--unilab-color-material);
+  font-size: 28px;
+}
+
+:where(.scope, .scope *):global(.reagent-empty) strong {
+  color: var(--unilab-color-text);
+  font-size: 12px;
+}
+
+:where(.scope, .scope *):global(.reagent-empty) small {
+  max-width: 240px;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+:where(.scope, .scope *):global(.reagent-workspace) button:focus-visible,
+:where(.scope, .scope *):global(.reagent-workspace) input:focus-visible,
+:where(.scope, .scope *):global(.reagent-workspace) select:focus-visible,
+:where(.scope, .scope *):global(.reagent-workspace) textarea:focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1100px) {
+  :where(.scope, .scope *):global(.reagent-workspace__header) dl {
+    display: none;
+  }
+
+  :where(.scope, .scope *):global(.reagent-catalog__workspace) {
+    grid-template-columns: 250px minmax(470px, 1fr);
+  }
+
+  :where(.scope, .scope *):global(.reagent-info-inspector) {
+    display: block;
+    border-top: 1px solid var(--unilab-color-border);
+  }
+}
+
+@media (max-width: 720px) {
+  :where(.scope, .scope *):global(.reagent-workspace__header) {
+    min-height: 72px;
+    padding: 10px 14px;
+  }
+
+  :where(.scope, .scope *):global(.reagent-catalog__toolbar) {
+    grid-template-columns: 1fr auto;
+  }
+
+  :where(.scope, .scope *):global(.reagent-catalog__toolbar) input {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  :where(.scope, .scope *):global(.reagent-catalog__workspace) {
+    display: block;
+    overflow: auto;
+  }
+
+  :where(.scope, .scope *):global(.reagent-operational) {
+    min-height: 520px;
+  }
+
+  :where(.scope, .scope *):global(.reagent-info-inspector) {
+    min-height: 560px;
+  }
+
+  :where(.scope, .scope *):global(.reagent-catalog__identities),
+  :where(.scope, .scope *):global(.reagent-catalog__containers) {
+    min-height: 320px;
+    border-right: 0;
+    border-bottom: 1px solid var(--unilab-color-border);
+  }
+}

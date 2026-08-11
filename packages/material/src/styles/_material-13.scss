@@ -1,0 +1,254 @@
+/* 物料层级工作台与结构化类型配置的窄屏重排。 */
+@media (max-width: 720px) {
+  :where(.scope, .scope *):global(.material-catalog) {
+    overflow: auto;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__toolbar) {
+    display: grid;
+    gap: 9px;
+    padding: 12px;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__search) {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__mobile-path) {
+    display: flex;
+    min-height: 42px;
+    box-sizing: border-box;
+    gap: 6px;
+    align-items: center;
+    padding: 6px 10px;
+    background: var(--unilab-color-surface);
+    border-bottom: 1px solid var(--unilab-color-border);
+    overflow-x: auto;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__mobile-path) button {
+    max-width: 160px;
+    min-height: 30px;
+    overflow: hidden;
+    color: var(--unilab-color-material);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font: 650 12px/1 var(--unilab-font-sans);
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__mobile-path) button:disabled {
+    color: var(--unilab-color-text-subtle);
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__mobile-path) span {
+    color: var(--unilab-color-text-subtle);
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__workspace) {
+    display: block;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__workspace) > * {
+    display: none;
+    width: 100%;
+    min-height: 420px;
+    border-right: 0;
+    overflow: visible;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog)[data-mobile-stage='templates']
+    [data-catalog-panel='templates'],
+  :where(.scope, .scope *):global(.material-catalog)[data-mobile-stage='batches']
+    [data-catalog-panel='batches'],
+  :where(.scope, .scope *):global(.material-catalog)[data-mobile-stage='instances']
+    [data-catalog-panel='instances'] {
+    display: block;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__mobile-back) {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    margin: 7px 10px 0;
+    padding: 0 4px;
+    color: var(--unilab-color-material);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font: 650 12px/1 var(--unilab-font-sans);
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__templates) li > button,
+  :where(.scope, .scope *):global(.material-catalog__batch-list) li > button {
+    min-height: 64px;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__type-facts) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__type-facts) > div {
+    border-right: 1px solid var(--unilab-color-border);
+    border-bottom: 0;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__type-facts) > div:last-child {
+    border-right: 0;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__instances) {
+    padding: 12px;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__instance-table) thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__instance-table),
+  :where(.scope, .scope *):global(.material-catalog__instance-table) tbody,
+  :where(.scope, .scope *):global(.material-catalog__instance-table) tr,
+  :where(.scope, .scope *):global(.material-catalog__instance-table) td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__instance-table) tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 10px;
+    border-bottom: 1px solid var(--unilab-color-border);
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__instance-table) td {
+    display: grid;
+    min-width: 0;
+    gap: 4px;
+    padding: 6px;
+    border: 0;
+    white-space: normal;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__instance-table) td::before {
+    color: var(--unilab-color-text-muted);
+    content: attr(data-label);
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__instance-table) td:first-child {
+    grid-column: 1 / -1;
+  }
+
+  :where(.scope, .scope *):global(.material-catalog__instance-table) td:first-child button {
+    min-height: 44px;
+  }
+
+  :where(.scope, .scope *):global(.material-history__scope) {
+    grid-template-columns: 1fr;
+  }
+
+  :where(.scope, .scope *):global(.material-history__scope) > span {
+    rotate: 90deg;
+    justify-self: center;
+  }
+
+  :where(.scope, .scope *):global(.material-history__timeline) > div {
+    grid-template-columns: 14px minmax(0, 1fr);
+  }
+
+  :where(.scope, .scope *):global(.material-history__timeline) small {
+    grid-column: 2;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft-backdrop) {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft) {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__body) {
+    display: block;
+    overflow: auto;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__body) > nav {
+    display: flex;
+    position: sticky;
+    z-index: 1;
+    top: 0;
+    gap: 2px;
+    padding: 6px;
+    border-right: 0;
+    border-bottom: 1px solid var(--unilab-color-border);
+    overflow-x: auto;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__body) > nav a {
+    min-width: max-content;
+    min-height: 38px;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__body) > form {
+    padding: 2px 14px 24px;
+    overflow: visible;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__field-grid),
+  :where(.scope, .scope *):global(.material-type-draft__choice-grid),
+  :where(.scope, .scope *):global(.material-type-draft__compatibility) {
+    grid-template-columns: 1fr;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__field-rows) > div {
+    grid-template-columns: 18px minmax(0, 1fr) 34px;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__field-rows) select,
+  :where(.scope, .scope *):global(.material-type-draft__field-rows) label {
+    grid-column: 2;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__field-rows) > div > button {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__grid-config) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft) > footer {
+    flex-wrap: wrap;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft) > footer > div {
+    min-width: 100%;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft) > footer > button {
+    min-height: 44px;
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.scope, .scope *):global(.material-type-draft__body) > form {
+    scroll-behavior: auto;
+  }
+}

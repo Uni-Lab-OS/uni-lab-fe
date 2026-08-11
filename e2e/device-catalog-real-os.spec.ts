@@ -118,8 +118,11 @@ test('existing device UI reads the Edge-owned catalog through the real OS API', 
     parameterSection.getByText('动作参数预览', { exact: true })
   ).toBeVisible()
   await expect(
-    parameterSection.getByRole('button', { name: '运行此动作' })
-  ).toBeEnabled()
+    parameterSection.getByRole('button', { name: '暂时无法运行' })
+  ).toBeDisabled()
+  await expect(parameterSection).toContainText(
+    '当前设备缺少运行标识，请刷新设备列表后重试'
+  )
   await parameterSection.screenshot({
     path: join(artifactDirectory, '05-action-parameter-form.png'),
     animations: 'disabled'

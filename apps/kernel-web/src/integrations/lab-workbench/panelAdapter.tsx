@@ -19,6 +19,7 @@ import {
   MaterialCapabilityNotice,
   MaterialWorkbench
 } from '@unilab/material'
+import { isNonReagentResourceTemplate } from '@unilab/reagent'
 import { useServices, type Services } from '@unilab/services'
 import {
   WorkflowPanel,
@@ -77,6 +78,11 @@ const storage: PanelStoragePort = {
   }
 }
 
+/**
+ * 将物料服务与交互选择接入独立物料工作台，并排除试剂专属目录模板。
+ * @param props 面板实例、应用服务作用域与可选统一空间视口标记。
+ * @returns 仅呈现普通物料业务入口的面板渲染结果。
+ */
 function MaterialRenderer(
   props: PanelRendererProps<LabPanelScope> & {
     unified?: boolean
@@ -117,10 +123,13 @@ function MaterialRenderer(
         readGraph: runtime.getStatus('material.readGraph'),
         create: runtime.getStatus('material.create'),
         updateConfig: runtime.getStatus('material.updateConfig'),
-        move: runtime.getStatus('material.move')
+        deleteSubtrees: runtime.getStatus('material.deleteSubtrees'),
+        move: runtime.getStatus('material.move'),
+        attach: runtime.getStatus('material.attach')
       }}
       selectedMaterialIds={selectedMaterialIds}
       highlightedMaterialIds={highlightedMaterialIds}
+      includeTemplate={isNonReagentResourceTemplate}
       onSelectionChange={(materialIds) => {
         props.scope.interaction.getState().selectMaterials(materialIds)
       }}

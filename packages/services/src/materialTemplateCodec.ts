@@ -40,6 +40,7 @@ function mapTemplateSummary(
     ),
     tags: templateStringArray(raw.tags),
     categoryPath: templateStringArray(raw.category_path),
+    catalogSection: mapTemplateCatalogSection(raw.catalog_section),
     icon: resolveAssetReference(apiUrl, optionalString(raw.icon)),
     description: optionalString(raw.description),
     status,
@@ -54,6 +55,20 @@ function mapTemplateSummary(
       reason: optionalString(creation.reason)
     }
   }
+}
+
+/**
+ * 解析 ResourceTemplate 的应用目录分区。
+ * @param value Edge 返回的 `catalog_section` 原始值。
+ * @returns 缺失时返回 `undefined`，否则返回封闭的物料或试剂目录标识。
+ * @throws {ServiceError} 已声明但不属于稳定枚举时拒绝整个模板响应，避免错误分流。
+ */
+function mapTemplateCatalogSection(
+  value: unknown
+): MaterialTemplateSummary['catalogSection'] {
+  if (value == null) return undefined
+  if (value === 'material' || value === 'reagent') return value
+  throw invalidTemplate('catalog_section must be material or reagent')
 }
 
 export function mapTemplateDetail(
@@ -315,5 +330,3 @@ function invalidTemplate(message: string): ServiceError {
     retryable: false
   })
 }
-
-

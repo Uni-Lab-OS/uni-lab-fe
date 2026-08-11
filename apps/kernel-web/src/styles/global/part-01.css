@@ -284,6 +284,11 @@ body {
   --nav-soft: var(--unilab-color-material-soft);
 }
 
+.app-shell__nav-button[data-navigation-id='reagent'] {
+  --nav-accent: var(--unilab-color-reagent);
+  --nav-soft: var(--unilab-color-reagent-soft);
+}
+
 .app-shell__nav-button[data-navigation-id='scene'] {
   --nav-accent: var(--unilab-color-scene);
   --nav-soft: var(--unilab-color-scene-soft);

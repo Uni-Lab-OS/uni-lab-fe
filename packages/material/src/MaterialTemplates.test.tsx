@@ -6,6 +6,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
 import { MaterialCreateDialog } from './MaterialCreateDialog'
+import {
+  MaterialInstanceCreatePage,
+  materialInstanceInitialConfig
+} from './MaterialInstanceCreatePage'
 import { MaterialTemplateCard } from './MaterialTemplateCard'
 import { MaterialTemplateLibrary } from './MaterialTemplateLibrary'
 import type {
@@ -48,6 +52,19 @@ const TEMPLATE: MaterialTemplateDetail = {
   configuration: { schema: {}, uiSchema: {} },
   assets: {}
 }
+
+/**
+ * 忽略只读渲染测试中的关闭动作。
+ * @returns 无返回值。
+ */
+const ignoreClose = (): void => undefined
+
+/**
+ * 忽略只读渲染测试中的物料实例创建草稿。
+ * @param _draft 组件生成但本测试不提交的物料实例草稿。
+ * @returns 无返回值。
+ */
+const ignoreCreate = (_draft: unknown): void => undefined
 
 describe('material template components', () => {
   it('renders a template card in the Uni-Lab component vocabulary', () => {
@@ -97,6 +114,33 @@ describe('material template components', () => {
     expect(markup).toContain('当前物料图中已存在同名物料')
     expect(markup).toContain('aria-invalid="true"')
     expect(markup).not.toContain('96 Well Plate 2')
+  })
+
+  /** 证明新建实例页面继承批次，同时不伪造已放置或可分配状态。 */
+  it('renders instance creation with inherited batch and unplaced truth', () => {
+    const markup = renderToStaticMarkup(
+      <MaterialInstanceCreatePage
+        template={TEMPLATE}
+        loadState="ready"
+        initialBatch="B-20260808"
+        existingNames={[]}
+        createStatus={{ available: true }}
+        onCancel={ignoreClose}
+        onCreate={ignoreCreate}
+      />
+    )
+
+    expect(markup).toContain('新建物料实例')
+    expect(markup).toContain('B-20260808')
+    expect(markup).toContain('暂不放置')
+    expect(markup).toContain('不表示该实例可分配、已预留或已被任务使用')
+  })
+
+  /** 证明批次和有效期只以规范化非空字段进入实例配置。 */
+  it('normalizes optional instance batch configuration', () => {
+    expect(materialInstanceInitialConfig('  B-20260808  ', '2027-08-08'))
+      .toEqual({ batch: 'B-20260808', expiresAt: '2027-08-08' })
+    expect(materialInstanceInitialConfig('  ', '')).toEqual({})
   })
 
   it('does not query an unsupported template catalog', () => {

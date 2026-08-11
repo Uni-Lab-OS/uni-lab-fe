@@ -9,8 +9,6 @@ import ReactFlow, {
   Background,
   Controls,
   MiniMap,
-  type Node,
-  type OnSelectionChangeFunc,
   type ReactFlowInstance
 } from 'reactflow'
 import 'reactflow/dist/style.css'
@@ -249,12 +247,6 @@ export function MaterialCanvas({
             // The store owns the actionable error and preview rollback.
           })
         }}
-        onSelectionChange={
-          ((selection) =>
-            publishSelection(
-              selection.nodes.map((node: Node) => node.id)
-            )) as OnSelectionChangeFunc
-        }
       >
         {!floorplanOverlay && <Background gap={24} size={1} />}
         {!floorplanOverlay && <MiniMap pannable zoomable />}

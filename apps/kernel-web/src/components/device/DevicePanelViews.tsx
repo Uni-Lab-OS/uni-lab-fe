@@ -16,6 +16,7 @@ import {
   DeviceIcon,
   Metric,
   formatTime,
+  isRobotDevice,
   type ArgumentDraft
 } from './DevicePanelPresentation'
 
@@ -121,6 +122,7 @@ export function DeviceWorkspace({
   selectedActionRef,
   argumentDraft,
   onSelectAction,
+  onOpenRobotPoints,
   onArgumentChange,
   actionTemplate,
   actionCatalogLoading,
@@ -140,6 +142,7 @@ export function DeviceWorkspace({
   selectedActionRef: string | null
   argumentDraft: ArgumentDraft
   onSelectAction: (actionRef: string) => void
+  onOpenRobotPoints: () => void
   onArgumentChange: (name: string, value: string | boolean) => void
   actionTemplate: WorkflowActionNodeTemplate | null
   actionCatalogLoading: boolean
@@ -172,6 +175,15 @@ export function DeviceWorkspace({
           </div>
           <p>{device.deviceKey || `${device.namespace}/${device.id}`}</p>
         </div>
+        {isRobotDevice(device) ? (
+          <button
+            type="button"
+            className="edge-device__refresh edge-device__point-config"
+            onClick={onOpenRobotPoints}
+          >
+            点位配置
+          </button>
+        ) : null}
         <div className="edge-device__identity-states">
           {lockedActionCount ? (
             <span className="edge-device__status-badge is-locked">

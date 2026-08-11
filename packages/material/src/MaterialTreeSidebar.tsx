@@ -6,7 +6,12 @@ import {
   type CSSProperties
 } from 'react'
 
+import type { CapabilityStatus } from './MaterialCapabilityNotice'
 import { useMaterialStore } from './MaterialStoreProvider'
+import {
+  countMaterialEntries,
+  filterMaterialTree
+} from './materialTreeQuery'
 import { materialScopeClassName } from './materialStyles'
 import type {
   MaterialAggregate,
@@ -18,6 +23,8 @@ import type {
 export interface MaterialTreeSidebarProps {
   selectedMaterialIds?: readonly MaterialId[]
   onSelectionChange?: (materialIds: readonly MaterialId[]) => void
+  catalogStatus?: CapabilityStatus
+  onRequestCreate?: () => void
 }
 
 export interface MaterialTreeEntry {
@@ -37,9 +44,12 @@ export type MaterialTreeNode = MaterialTreeEntry | MaterialTreeSiteEntry
 
 export function MaterialTreeSidebar({
   selectedMaterialIds = [],
-  onSelectionChange
+  onSelectionChange,
+  catalogStatus = { available: false, reason: '当前模板目录不可用' },
+  onRequestCreate
 }: MaterialTreeSidebarProps): React.JSX.Element {
   const [open, setOpen] = useState(true)
+  const [query, setQuery] = useState('')
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<MaterialId>>(
     new Set()
   )
@@ -50,6 +60,14 @@ export function MaterialTreeSidebar({
   const entries = useMemo(
     () => buildMaterialTree(aggregatesById, graphIndex.childrenByParentId),
     [aggregatesById, graphIndex.childrenByParentId]
+  )
+  const filteredEntries = useMemo(
+    () => filterMaterialTree(entries, query),
+    [entries, query]
+  )
+  const visibleMaterialCount = useMemo(
+    () => countMaterialEntries(filteredEntries),
+    [filteredEntries]
   )
   const selected = new Set(selectedMaterialIds)
 
@@ -94,19 +112,56 @@ export function MaterialTreeSidebar({
           <span>物料列表</span>
           <strong>({Object.keys(aggregatesById).length})</strong>
         </div>
-        <button
-          type="button"
-          aria-label="收起物料列表"
-          onClick={() => setOpen(false)}
-        >
-          <PanelCloseIcon />
-        </button>
+        <div className="material-tree-sidebar__header-actions">
+          <button
+            type="button"
+            className="material-tree-sidebar__create"
+            disabled={!catalogStatus.available}
+            title={
+              catalogStatus.available
+                ? '从资源模板新建物料'
+                : catalogStatus.reason
+            }
+            onClick={onRequestCreate}
+          >
+            <PlusIcon />
+            <span>新建</span>
+          </button>
+          <button
+            type="button"
+            aria-label="收起物料列表"
+            onClick={() => setOpen(false)}
+          >
+            <PanelCloseIcon />
+          </button>
+        </div>
       </header>
+      <div className="material-tree-sidebar__query">
+        <label>
+          <SearchIcon />
+          <input
+            type="search"
+            value={query}
+            aria-label="查询物料"
+            placeholder="名称、代码、UUID 或库位"
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        {query.trim() ? (
+          <small role="status">找到 {visibleMaterialCount} 个物料</small>
+        ) : !catalogStatus.available && catalogStatus.reason ? (
+          <small className="is-warning">
+            新建不可用：{catalogStatus.reason}
+          </small>
+        ) : null}
+      </div>
       <div className="material-tree-sidebar__tree" role="tree">
         {entries.length === 0 ? (
           <p>暂无物料</p>
+        ) : filteredEntries.length === 0 ? (
+          <p>没有匹配的物料或库位</p>
         ) : (
-          entries.map((entry) => (
+          filteredEntries.map((entry) => (
             <MaterialTreeRow
               key={entry.aggregate.material.id}
               depth={0}
@@ -359,6 +414,25 @@ function PanelCloseIcon(): React.JSX.Element {
     <svg aria-hidden="true" viewBox="0 0 18 18">
       <path d="M3 4.5h12M3 9h12M3 13.5h12M6 3v12" />
       <path d="m11 7-2 2 2 2" />
+    </svg>
+  )
+}
+
+/** 返回查询输入使用的线性图标。 */
+function SearchIcon(): React.JSX.Element {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 18 18">
+      <circle cx="8" cy="8" r="4.5" />
+      <path d="m11.5 11.5 3 3" />
+    </svg>
+  )
+}
+
+/** 返回新建物料动作使用的加号图标。 */
+function PlusIcon(): React.JSX.Element {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 18 18">
+      <path d="M9 4v10M4 9h10" />
     </svg>
   )
 }

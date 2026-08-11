@@ -325,6 +325,17 @@ export interface UndoCreateMaterialCommand {
   idempotencyKey: string
 }
 
+export interface DeleteMaterialSubtreeCommand {
+  materialId: MaterialId
+  expectedRevision: MaterialRevision
+  idempotencyKey: string
+}
+
+export interface DeleteMaterialSubtreeResult {
+  deletedMaterialIds: readonly MaterialId[]
+  aggregates: readonly MaterialAggregate[]
+}
+
 export interface MaterialMutationResult {
   aggregates: readonly MaterialAggregate[]
 }
@@ -372,6 +383,9 @@ export interface MaterialGraphPort {
   updateSite(
     command: UpdateMaterialSiteCommand
   ): Promise<MaterialAggregate>
+  deleteSubtree(
+    command: DeleteMaterialSubtreeCommand
+  ): Promise<DeleteMaterialSubtreeResult>
   getEdgeOperations(
     scope: MaterialScope,
     operationIds?: readonly string[]

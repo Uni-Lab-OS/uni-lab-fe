@@ -1,0 +1,443 @@
+/* 当前资源模板与批次上下文中的独立物料实例创建页面。 */
+:where(.scope, .scope *):global(.material-instance-create) {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 22px clamp(18px, 3vw, 44px) 36px;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-bg);
+  overflow: auto;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__header),
+:where(.scope, .scope *):global(.material-instance-create__layout),
+:where(.scope, .scope *):global(.material-instance-create__loading),
+:where(.scope, .scope *):global(.material-instance-create__load-error) {
+  width: min(1120px, 100%);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__header) {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  margin-bottom: 18px;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__header) > button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-self: start;
+  padding: 0 10px;
+  color: var(--unilab-color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+  font: 650 12px/1 var(--unilab-font-sans);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__header) > button:hover {
+  color: var(--unilab-color-material);
+  background: var(--unilab-color-material-soft);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__header) h3,
+:where(.scope, .scope *):global(.material-instance-create__header) p,
+:where(.scope, .scope *):global(.material-instance-create__form) h4,
+:where(.scope, .scope *):global(.material-instance-create__form) p,
+:where(.scope, .scope *):global(.material-instance-create__summary) h4,
+:where(.scope, .scope *):global(.material-instance-create__summary) p {
+  margin: 0;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__header) h3 {
+  font-size: 20px;
+  font-weight: 730;
+  letter-spacing: -.02em;
+  line-height: 1.3;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__header) p {
+  margin-top: 4px;
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__layout) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 18px;
+  align-items: start;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__form),
+:where(.scope, .scope *):global(.material-instance-create__summary) {
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-lg);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__form) > section {
+  padding: 20px 22px;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__form) > section + section {
+  border-top: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__form) section > header {
+  margin-bottom: 16px;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__form) h4,
+:where(.scope, .scope *):global(.material-instance-create__summary) h4 {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__form) section > header p {
+  margin-top: 3px;
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__fields) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px 14px;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__fields) label {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  color: var(--unilab-color-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__fields) label:global(.is-wide) {
+  grid-column: 1 / -1;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__fields) label span {
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__fields) label i {
+  color: var(--unilab-color-material);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 650;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__fields) input {
+  width: 100%;
+  height: 40px;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0 11px;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-bg-subtle);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  outline: 0;
+  font: 500 12px/1 var(--unilab-font-sans);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__fields) input:focus {
+  border-color: var(--unilab-color-material);
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 1px;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__fields) input[aria-invalid='true'] {
+  border-color: var(--unilab-color-danger);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__fields) small {
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+  font-weight: 450;
+  line-height: 1.45;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__fields) small:global(.is-error) {
+  color: var(--unilab-color-danger);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__batch-note) {
+  margin-top: 14px;
+  padding: 9px 10px;
+  color: color-mix(
+    in srgb,
+    var(--unilab-color-warning) 72%,
+    var(--unilab-color-text)
+  );
+  background: var(--unilab-color-warning-soft);
+  border-radius: var(--unilab-radius-control);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__placement) {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 11px;
+  align-items: center;
+  padding: 13px;
+  background: var(--unilab-color-material-soft);
+  border: 1px solid color-mix(
+    in srgb,
+    var(--unilab-color-material) 34%,
+    var(--unilab-color-border)
+  );
+  border-radius: var(--unilab-radius-control);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__placement) > span:first-child {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  color: #fff;
+  background: var(--unilab-color-material);
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__placement) div {
+  display: grid;
+  gap: 3px;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__placement) strong {
+  font-size: 12px;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__placement) small,
+:where(.scope, .scope *):global(.material-instance-create__placement) > span:last-child {
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__placement) > span:last-child {
+  color: var(--unilab-color-material);
+  font-weight: 650;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__disabled),
+:where(.scope, .scope *):global(.material-instance-create__error) {
+  margin: 0 22px 20px;
+  padding: 10px 12px;
+  border-radius: var(--unilab-radius-control);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__disabled) {
+  color: color-mix(
+    in srgb,
+    var(--unilab-color-warning) 72%,
+    var(--unilab-color-text)
+  );
+  background: var(--unilab-color-warning-soft);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__error) {
+  color: var(--unilab-color-danger);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-danger) 8%,
+    var(--unilab-color-surface)
+  );
+}
+
+:where(.scope, .scope *):global(.material-instance-create__summary) {
+  position: sticky;
+  top: 0;
+  padding: 18px;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__summary) > header {
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__summary) > header > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  color: var(--unilab-color-material);
+  background: var(--unilab-color-material-soft);
+  border-radius: var(--unilab-radius-md);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__summary) svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__summary) header p {
+  margin-top: 2px;
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__summary) dl {
+  margin: 0;
+  padding: 8px 0;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__summary) dl > div {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__summary) dt {
+  color: var(--unilab-color-text-muted);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__summary) dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: 620;
+  text-align: right;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__summary) > p {
+  padding: 11px;
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-bg-subtle);
+  border-radius: var(--unilab-radius-control);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__summary) > footer {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__summary) button {
+  min-height: 40px;
+  padding: 0 14px;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+  font: 650 12px/1 var(--unilab-font-sans);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__summary) button:global(.is-primary) {
+  color: #fff;
+  background: var(--unilab-color-material);
+  border-color: var(--unilab-color-material);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__summary) button:disabled {
+  color: var(--unilab-color-text-subtle);
+  background: var(--unilab-color-bg-subtle);
+  border-color: var(--unilab-color-border);
+  cursor: not-allowed;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__loading),
+:where(.scope, .scope *):global(.material-instance-create__load-error) {
+  display: grid;
+  min-height: 260px;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-lg);
+  font-size: 12px;
+  text-align: center;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__loading) > span {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--unilab-color-border-strong);
+  border-top-color: var(--unilab-color-material);
+  border-radius: 50%;
+  animation: material-instance-create-spin .8s linear infinite;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__load-error) p {
+  margin: 0;
+}
+
+@keyframes material-instance-create-spin {
+  to { rotate: 360deg; }
+}
+
+@media (max-width: 860px) {
+  :where(.scope, .scope *):global(.material-instance-create__header) {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  :where(.scope, .scope *):global(.material-instance-create__layout) {
+    grid-template-columns: 1fr;
+  }
+
+  :where(.scope, .scope *):global(.material-instance-create__summary) {
+    position: static;
+  }
+}
+
+@media (max-width: 560px) {
+  :where(.scope, .scope *):global(.material-instance-create) {
+    padding: 14px 12px 24px;
+  }
+
+  :where(.scope, .scope *):global(.material-instance-create__fields) {
+    grid-template-columns: 1fr;
+  }
+
+  :where(.scope, .scope *):global(.material-instance-create__fields) label:global(.is-wide) {
+    grid-column: auto;
+  }
+
+  :where(.scope, .scope *):global(.material-instance-create__form) > section {
+    padding: 17px 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.scope, .scope *):global(.material-instance-create__loading) > span {
+    animation: none;
+  }
+}

@@ -25,6 +25,7 @@ export function MaterialCreateDialog({
     template.displayName
   )
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const draft = useMemo(
     () =>
       createMaterialDraftFromTemplate(template, {
@@ -34,6 +35,10 @@ export function MaterialCreateDialog({
     [existingNames, requestedName, template]
   )
 
+  /**
+   * 提交模板派生的物料创建草稿，并保留失败原因供用户修正或重试。
+   * @returns 创建成功后结束；能力或名称无效时不调用服务端口。
+   */
   const submit = async (): Promise<void> => {
     if (
       !createStatus.available ||
@@ -42,9 +47,14 @@ export function MaterialCreateDialog({
     ) {
       return
     }
+    setSubmitError(null)
     setSubmitting(true)
     try {
       await onCreate(draft)
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : '物料创建失败，请稍后重试'
+      )
     } finally {
       setSubmitting(false)
     }
@@ -108,6 +118,11 @@ export function MaterialCreateDialog({
           {!createStatus.available ? (
             <p className="material-dialog__disabled">
               {createStatus.reason ?? '当前服务配置不支持创建物料'}
+            </p>
+          ) : null}
+          {submitError ? (
+            <p className="material-dialog__error" role="alert">
+              {submitError}
             </p>
           ) : null}
         </div>

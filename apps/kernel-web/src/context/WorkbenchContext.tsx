@@ -173,6 +173,10 @@ function hasExplicitBackendOverride(): boolean {
   }
 }
 
+/**
+ * 从受支持的查询参数恢复应用一级模块，未知值回退到仪器设备。
+ * @returns 当前浏览器请求指定的稳定工作台模块。
+ */
 function initialSection(): WorkbenchSection {
   if (typeof globalThis.location === 'undefined') return 'device'
   const section = new URLSearchParams(globalThis.location.search).get('section')
@@ -181,6 +185,7 @@ function initialSection(): WorkbenchSection {
     section === 'device-square' ||
     section === 'cards' ||
     section === 'material' ||
+    section === 'reagent' ||
     section === 'scene' ||
     section === 'workflow'
   ) {

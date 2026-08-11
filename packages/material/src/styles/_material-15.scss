@@ -1,0 +1,371 @@
+/* 新建实例后的稳定库位配置流程，以及属性抽屉中的下一步入口。 */
+:where(.scope, .scope *):global(.material-instance-create__flow) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 12px 0 0;
+  padding: 0;
+  color: var(--unilab-color-text-muted);
+  list-style: none;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__flow) li {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__flow) li > span {
+  display: grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  background: var(--unilab-color-bg-subtle);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: 50%;
+  font-size: 9px;
+}
+
+:where(.scope, .scope *):global(.material-instance-create__flow) li:global(.is-complete),
+:where(.scope, .scope *):global(.material-instance-create__flow) li[aria-current='step'] {
+  color: var(--unilab-color-material);
+}
+
+:where(.scope, .scope *):global(.material-instance-create__flow) li:global(.is-complete) > span,
+:where(.scope, .scope *):global(.material-instance-create__flow) li[aria-current='step'] > span {
+  color: #fff;
+  background: var(--unilab-color-material);
+  border-color: var(--unilab-color-material);
+}
+
+:where(.scope, .scope *):global(.material-inspector__next-step) {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 13px;
+  color: var(--unilab-color-text);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-material-soft) 62%,
+    var(--unilab-color-surface)
+  );
+  border: 1px solid color-mix(
+    in srgb,
+    var(--unilab-color-material) 22%,
+    var(--unilab-color-border)
+  );
+  border-radius: var(--unilab-radius-md);
+}
+
+:where(.scope, .scope *):global(.material-inspector__next-step) small {
+  color: var(--unilab-color-material);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+:where(.scope, .scope *):global(.material-inspector__next-step) strong {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+:where(.scope, .scope *):global(.material-inspector__next-step) p {
+  margin: 0;
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+:where(.scope, .scope *):global(.material-inspector__next-step) button {
+  min-height: 38px;
+  margin-top: 4px;
+  color: #fff;
+  background: var(--unilab-color-material);
+  border: 1px solid var(--unilab-color-material);
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+  font: 650 12px/1 var(--unilab-font-sans);
+}
+
+:where(.scope, .scope *):global(.material-inspector__next-step) button:focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 2px;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide) {
+  position: absolute;
+  z-index: 18;
+  top: 16px;
+  left: 272px;
+  display: grid;
+  width: min(390px, calc(100% - 560px));
+  min-width: 340px;
+  box-sizing: border-box;
+  color: var(--unilab-color-text);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-surface) 96%,
+    transparent
+  );
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-lg);
+  box-shadow: 0 18px 48px rgb(15 23 42 / 18%);
+  backdrop-filter: blur(14px);
+  overflow: hidden;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide) > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  padding: 15px 16px 13px;
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-placement-guide) > header > div {
+  display: grid;
+  gap: 3px;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide) > header small {
+  color: var(--unilab-color-material);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide) > header strong {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide) > header button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  padding: 0;
+  color: var(--unilab-color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+  font: 400 20px/1 var(--unilab-font-sans);
+}
+
+:where(.scope, .scope *):global(.material-placement-guide) > header button:hover {
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-bg-subtle);
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__current) {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin: 13px 16px 0;
+  padding: 10px 11px;
+  background: var(--unilab-color-bg-subtle);
+  border-radius: var(--unilab-radius-control);
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__current) > span {
+  width: 8px;
+  height: 8px;
+  background: var(--unilab-color-warning);
+  border-radius: 50%;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__current) > div {
+  display: grid;
+  gap: 2px;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__current) small {
+  color: var(--unilab-color-text-muted);
+  font-size: 9px;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__current) strong {
+  font-size: 12px;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__current) code {
+  max-width: 110px;
+  overflow: hidden;
+  color: var(--unilab-color-text-muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__steps) {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 12px 16px 6px;
+  list-style: none;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__steps) li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr);
+  gap: 10px;
+  min-height: 44px;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__steps) li:not(:last-child)::after {
+  position: absolute;
+  top: 24px;
+  bottom: 0;
+  left: 11px;
+  width: 1px;
+  background: var(--unilab-color-border-strong);
+  content: '';
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__steps) li > span {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  z-index: 1;
+  place-items: center;
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__steps) li:global(.is-complete) > span {
+  color: #fff;
+  background: var(--unilab-color-material);
+  border-color: var(--unilab-color-material);
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__steps) li > div {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding-bottom: 9px;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__steps) strong {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__steps) small {
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__target) {
+  display: grid;
+  gap: 6px;
+  padding: 0 16px 12px;
+  color: var(--unilab-color-text);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__target) select {
+  width: 100%;
+  height: 39px;
+  padding: 0 30px 0 10px;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  outline: 0;
+  font: 500 11px/1 var(--unilab-font-sans);
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__target) select:focus-visible {
+  border-color: var(--unilab-color-material);
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 1px;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__notice),
+:where(.scope, .scope *):global(.material-placement-guide__error) {
+  margin: 0 16px 12px;
+  padding: 9px 10px;
+  border-radius: var(--unilab-radius-control);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__notice) {
+  color: color-mix(
+    in srgb,
+    var(--unilab-color-warning) 72%,
+    var(--unilab-color-text)
+  );
+  background: var(--unilab-color-warning-soft);
+}
+
+:where(.scope, .scope *):global(.material-placement-guide__error) {
+  color: var(--unilab-color-danger);
+  background: var(--unilab-color-danger-soft);
+}
+
+:where(.scope, .scope *):global(.material-placement-guide) > footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px 15px;
+  background: var(--unilab-color-bg-subtle);
+  border-top: 1px solid var(--unilab-color-border);
+}
+
+:where(.scope, .scope *):global(.material-placement-guide) > footer small {
+  color: var(--unilab-color-text-muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+:where(.scope, .scope *):global(.material-placement-guide) > footer button {
+  min-height: 38px;
+  padding: 0 14px;
+  color: #fff;
+  background: var(--unilab-color-material);
+  border: 1px solid var(--unilab-color-material);
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+  font: 650 11px/1 var(--unilab-font-sans);
+}
+
+:where(.scope, .scope *):global(.material-placement-guide) > footer button:disabled {
+  color: var(--unilab-color-text-subtle);
+  background: var(--unilab-color-surface-muted);
+  border-color: var(--unilab-color-border);
+  cursor: not-allowed;
+}
+
+@media (max-width: 920px) {
+  :where(.scope, .scope *):global(.material-placement-guide) {
+    left: 220px;
+    width: min(360px, calc(100% - 244px));
+    min-width: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  :where(.scope, .scope *):global(.material-placement-guide) {
+    z-index: 95;
+    top: auto;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: auto;
+    max-height: calc(100% - 24px);
+    overflow: auto;
+  }
+}

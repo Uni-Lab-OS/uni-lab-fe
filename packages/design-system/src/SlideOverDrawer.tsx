@@ -12,6 +12,8 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 
+import './SlideOverDrawer.css'
+
 interface SlideOverDrawerProps {
   open: boolean
   title: ReactNode
@@ -23,7 +25,11 @@ interface SlideOverDrawerProps {
   size?: 'default' | 'medium' | 'wide'
 }
 
-// 右侧滑出抽屉:遮罩点击关闭,Esc 关闭,面板从右侧 translate-x 滑入
+/**
+ * 展示由设计系统自身携带布局样式的右侧任务抽屉。
+ * @param props 打开状态、标题、内容、可选底栏、尺寸与关闭回调。
+ * @returns 支持遮罩关闭、Escape、焦点循环及焦点恢复的模态抽屉。
+ */
 export function SlideOverDrawer({
   open,
   title,
@@ -91,34 +97,16 @@ export function SlideOverDrawer({
 
   return (
     <div
-      className={`fixed inset-0 overflow-hidden ${
-        open ? 'pointer-events-auto' : 'pointer-events-none'
-      }`}
-      style={{
-        zIndex: 1000,
-        visibility: open ? 'visible' : 'hidden',
-        transition: open ? 'none' : 'visibility 0s linear 300ms'
-      }}
+      className={`unilab-slide-over${open ? ' is-open' : ''}`}
       aria-hidden={!open}
     >
       <div
-        className={`absolute inset-0 bg-[rgba(15,23,42,0.35)] transition-opacity duration-300 ${
-          open ? 'opacity-100' : 'opacity-0'
-        }`}
+        className="unilab-slide-over__backdrop"
         onClick={onClose}
       />
       <div
         ref={dialogRef}
-        className={`absolute inset-y-0 right-0 flex ${
-          size === 'wide'
-            ? 'w-[min(1120px,96%)]'
-            : size === 'medium'
-              ? 'w-[min(860px,96%)]'
-              : 'w-[480px] max-w-[90%]'
-        } flex-col bg-[var(--unilab-color-surface)] shadow-[-8px_0_24px_rgba(15,23,42,0.18)] transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
-        style={{
-          transform: open ? 'translateX(0)' : 'translateX(100%)'
-        }}
+        className={`unilab-slide-over__panel unilab-slide-over__panel--${size}`}
         role="dialog"
         aria-modal="true"
         tabIndex={-1}
@@ -126,22 +114,22 @@ export function SlideOverDrawer({
           ariaLabel ?? (typeof title === 'string' ? title : undefined)
         }
       >
-        <header className="flex items-center justify-between border-b border-[var(--unilab-color-border)] bg-[var(--unilab-color-surface-subtle)] px-[18px] py-3.5">
-          <div className="text-[15px] font-semibold text-[var(--unilab-color-text)]">{title}</div>
+        <header className="unilab-slide-over__header">
+          <div className="unilab-slide-over__title">{title}</div>
           <button
             type="button"
-            className="h-8 w-8 cursor-pointer rounded-md border-0 bg-transparent text-xl leading-none text-[var(--unilab-color-text-muted)] transition-colors hover:bg-[var(--unilab-color-surface-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--unilab-color-focus)]"
+            className="unilab-slide-over__close"
             onClick={onClose}
             aria-label={closeLabel}
           >
             ×
           </button>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--unilab-color-bg-subtle)] px-[18px] py-4">
+        <div className="unilab-slide-over__content">
           {children}
         </div>
         {footer && (
-          <footer className="flex justify-end gap-2 border-t border-[var(--unilab-color-border)] bg-[var(--unilab-color-surface-subtle)] px-[18px] py-3">
+          <footer className="unilab-slide-over__footer">
             {footer}
           </footer>
         )}

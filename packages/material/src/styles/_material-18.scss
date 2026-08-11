@@ -1,0 +1,135 @@
+/* 自定义资源模板作为物料模块内正式工作页，而非覆盖上下文的模态框。 */
+:where(.scope, .scope *):global(.material-center__body)
+  > :global(.material-type-draft--embedded) {
+  min-width: 0;
+  flex: 1;
+}
+
+:where(.scope, .scope *):global(.material-type-draft--embedded) {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:where(.scope, .scope *):global(.material-type-draft--embedded) > header {
+  min-height: 86px;
+  padding: 14px 24px;
+  background: var(--unilab-color-surface);
+}
+
+:where(.scope, .scope *):global(.material-type-draft--embedded) > header nav {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  margin-bottom: 6px;
+  color: var(--unilab-color-text-subtle);
+  font-size: 10px;
+}
+
+:where(.scope, .scope *):global(.material-type-draft--embedded) > header nav button {
+  min-height: 24px;
+  padding: 0;
+  color: var(--unilab-color-material);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: 650 10px/1 var(--unilab-font-sans);
+}
+
+:where(.scope, .scope *):global(.material-type-draft--embedded) > header nav button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+:where(.scope, .scope *):global(.material-type-draft--embedded) > header nav button:focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 2px;
+}
+
+:where(.scope, .scope *):global(.material-type-draft--embedded) > header nav > span {
+  color: var(--unilab-color-text-subtle);
+  font-size: 10px;
+  font-weight: 550;
+}
+
+:where(.scope, .scope *):global(.material-type-draft--embedded) > header h3 {
+  font-size: 18px;
+}
+
+:where(.scope, .scope *):global(.material-type-draft__page-status) {
+  display: grid;
+  min-width: 112px;
+  gap: 3px;
+  justify-items: end;
+  padding: 9px 11px;
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-bg-subtle);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+}
+
+:where(.scope, .scope *):global(.material-type-draft__page-status) > span {
+  color: var(--unilab-color-warning);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+:where(.scope, .scope *):global(.material-type-draft__page-status) > strong {
+  color: var(--unilab-color-text);
+  font-size: 11px;
+}
+
+:where(.scope, .scope *):global(.material-type-draft--embedded)
+  :global(.material-type-draft__body) {
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: 218px minmax(0, 1fr);
+  border-bottom: 0;
+}
+
+:where(.scope, .scope *):global(.material-type-draft--embedded)
+  :global(.material-type-draft__body) > nav {
+  padding: 20px 14px;
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-bg-subtle) 88%,
+    var(--unilab-color-surface)
+  );
+}
+
+:where(.scope, .scope *):global(.material-type-draft--embedded)
+  :global(.material-type-draft__body) > form > section:global(.material-type-draft__step) {
+  padding: 24px clamp(24px, 3vw, 46px) 32px;
+}
+
+:where(.scope, .scope *):global(.material-type-draft--embedded)
+  :global(.material-type-draft__step-help) {
+  border-left: 0;
+}
+
+:where(.scope, .scope *):global(.material-type-draft--embedded) > footer {
+  min-height: 62px;
+  padding: 9px 20px;
+}
+
+@media (max-width: 720px) {
+  :where(.scope, .scope *):global(.material-type-draft--embedded) > header {
+    min-height: 100px;
+    padding: 12px 14px;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__page-status) {
+    min-width: auto;
+    padding: 7px 8px;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft__page-status) > span {
+    display: none;
+  }
+
+  :where(.scope, .scope *):global(.material-type-draft--embedded)
+    :global(.material-type-draft__body) > form > section:global(.material-type-draft__step) {
+    padding: 18px 14px 24px;
+  }
+}

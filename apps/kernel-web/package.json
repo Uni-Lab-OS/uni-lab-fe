@@ -19,6 +19,7 @@
     "@unilab/device-provisioning": "workspace:*",
     "@unilab/material": "workspace:*",
     "@unilab/pascal-lab-plugin": "workspace:*",
+    "@unilab/reagent": "workspace:*",
     "@unilab/services": "workspace:*",
     "@unilab/workbench-layout": "workspace:*",
     "@unilab/workflow-editor": "workspace:*",

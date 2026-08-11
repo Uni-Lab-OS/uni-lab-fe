@@ -670,18 +670,19 @@ test('kernel-web uses D-117 single edit authority through the real OS', async ({
     `/workflows/${os.workflowUuid}/authoring`
   ), { timeout: 15_000 }).toBeGreaterThan(aggregateGetsBeforeExternalEdit)
   const conflictDialog = page.getByRole('dialog', { name: '远端修改冲突' })
-  await expect(conflictDialog).toBeVisible()
+  await expect(conflictDialog).toHaveCount(0)
   await expect(editor).toContainText('= 6,')
-  await conflictDialog.getByRole('button', {
-    name: '查看差异并用本地重试'
-  }).click()
-  const conflictDiff = page.getByRole('dialog', { name: /完整 Python 差异/ })
-  await expect(conflictDiff.getByText('冲突重试检查')).toBeVisible()
-  await expect(conflictDiff.locator('pre').nth(0)).toContainText('= 5,')
-  await expect(conflictDiff.locator('pre').nth(1)).toContainText('= 6,')
-  await conflictDiff.getByRole('button', {
-    name: /接受完整差异并保存/
-  }).click()
+  const draftPutBeforeLocalWinsSave = countRequests(
+    authoringRequests,
+    'PUT',
+    `/workflows/${os.workflowUuid}/authoring/draft`
+  )
+  await saveWorkflowDraftOnly(page.locator('body'))
+  await expect.poll(() => countRequests(
+    authoringRequests,
+    'PUT',
+    `/workflows/${os.workflowUuid}/authoring/draft`
+  )).toBe(draftPutBeforeLocalWinsSave + 1)
   await expect(page.getByText(
     '草稿已保存，有尚未应用的工作流修改',
     { exact: true }

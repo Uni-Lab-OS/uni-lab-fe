@@ -4,6 +4,7 @@ import type { MaterialShapeLibrary } from './oblique/shapeSpec'
 import type {
   CreateMaterialInput,
   CreateMaterialResult,
+  DeleteMaterialSubtreeResult,
   LabPose,
   MaterialAggregate,
   MaterialEdgeOperation,
@@ -29,6 +30,7 @@ export interface PendingMaterialCommand {
     | 'attach'
     | 'detach'
     | 'update-site'
+    | 'delete-subtree'
     | 'undo'
     | 'redo'
   materialIds: readonly MaterialId[]
@@ -69,6 +71,9 @@ export interface MaterialStoreState {
     siteId: SiteId,
     patch: UpdateMaterialSiteCommand['patch']
   ) => Promise<MaterialAggregate>
+  deleteSubtree: (
+    materialId: MaterialId
+  ) => Promise<DeleteMaterialSubtreeResult>
   setDragPreview: (materialId: MaterialId, pose: LabPose) => void
   clearDragPreview: (materialId: MaterialId) => void
   undo: () => Promise<void>
@@ -80,4 +85,3 @@ export interface MaterialStoreState {
 }
 
 export type MaterialStore = StoreApi<MaterialStoreState>
-
