@@ -21,7 +21,8 @@ const installerInclude = readFileSync(
 )
 
 assert.deepEqual(packageConfig.dependencies ?? {}, {
-  '@unilab/device-card-host': 'workspace:*'
+  '@unilab/device-card-host': 'workspace:*',
+  'electron-updater': '^6.8.9'
 })
 assert.equal(
   packageConfig.devDependencies?.['@arizeai/phoenix-otel'],

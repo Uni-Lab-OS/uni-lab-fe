@@ -1,6 +1,6 @@
 {
   "name": "@unilab/workbench",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "author": "UniLab",
   "description": "UniLab 调试工作台（UniLab Workbench）desktop and browser application",

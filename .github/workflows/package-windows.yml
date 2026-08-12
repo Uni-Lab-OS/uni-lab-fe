@@ -29,6 +29,7 @@ env:
   MINIFORGE_VERSION: 26.3.2-3
   UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf
   UNILAB_RUNTIME_VERSION: 0.11.3
+  UNILAB_WORKBENCH_UPDATE_URL: ${{ vars.UNILAB_WORKBENCH_UPDATE_URL }}
 
 jobs:
   package-windows-x64:
@@ -207,12 +208,22 @@ jobs:
           Write-Host "Installer: $($installer.Name)"
           Write-Host "Size: $($installer.Length) bytes"
           $hash
+          if (-not (Test-Path apps/workbench/release-windows/latest.yml)) {
+            throw 'Missing latest.yml update metadata'
+          }
+          $blockmaps = @(Get-ChildItem apps/workbench/release-windows -File -Filter '*-setup.exe.blockmap')
+          if ($blockmaps.Count -ne 1) {
+            throw "Expected one Windows blockmap, found $($blockmaps.Count)"
+          }
 
-      - name: Upload Windows installer
+      - name: Upload Windows update bundle
         uses: actions/upload-artifact@v6
         with:
           name: UniLab-Workbench-windows-x64-${{ github.sha }}
-          path: apps/workbench/release-windows/*-setup.exe
+          path: |
+            apps/workbench/release-windows/*-setup.exe
+            apps/workbench/release-windows/*-setup.exe.blockmap
+            apps/workbench/release-windows/latest.yml
           if-no-files-found: error
           retention-days: 30
           # The NSIS EXE is already solid-compressed; recompressing it only

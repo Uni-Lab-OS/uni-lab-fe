@@ -15,7 +15,7 @@ import {
 } from './package-macos.mjs'
 
 describe('Workbench macOS distribution gate', () => {
-  it('publishes the formal UniLab Workbench identity at version 0.1.0', async () => {
+  it('publishes the formal UniLab Workbench identity at version 0.1.1', async () => {
     const packageManifest = JSON.parse(await readFile(
       new URL('../package.json', import.meta.url),
       'utf8'
@@ -37,7 +37,7 @@ describe('Workbench macOS distribution gate', () => {
       'utf8'
     )
 
-    assert.equal(packageManifest.version, '0.1.0')
+    assert.equal(packageManifest.version, '0.1.1')
     assert.match(packageManifest.description, /UniLab 调试工作台/u)
     assert.equal(packageManifest.theia.frontend.config.defaultLocale, 'zh-cn')
     assert.match(
@@ -48,6 +48,9 @@ describe('Workbench macOS distribution gate', () => {
     )
     assert.match(builderConfiguration, /^productName: UniLab Workbench$/mu)
     assert.match(builderConfiguration, /^appId: com\.bohrium\.unilab$/mu)
+    assert.match(builderConfiguration, /^publish:\n  provider: generic$/mu)
+    assert.match(builderConfiguration, /UNILAB_WORKBENCH_UPDATE_URL/u)
+    assert.match(builderConfiguration, /target: zip/u)
     assert.match(welcomeDocument, /<title>UniLab 调试工作台<\/title>/u)
     assert.match(welcomeDocument, /id="install-runtime"/u)
     assert.match(welcomeScript, /managedRuntime/u)
@@ -83,6 +86,17 @@ describe('Workbench macOS distribution gate', () => {
       packageManifest.scripts['package:mac:developer-id'],
       /--developer-id$/u
     )
+  })
+
+  it('builds the ZIP and copies complete macOS updater metadata', async () => {
+    const packagingScript = await readFile(
+      new URL('./package-macos.mjs', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(packagingScript, /'--mac',\s*'dmg',\s*'zip'/u)
+    assert.match(packagingScript, /selectMacosUpdateArtifacts/u)
+    assert.match(packagingScript, /requireWorkbenchUpdateUrl/u)
   })
 
   it('selects an imported Developer ID Application identity for the RC', () => {

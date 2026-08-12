@@ -14,7 +14,17 @@ import { appendFileSync, existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { autoUpdater } from 'electron-updater'
 import { readSession, clearSession, runOAuthLogin } from './authManager'
+import {
+  AppUpdateManager,
+  createElectronUpdaterAdapter
+} from './appUpdateManager'
+import {
+  confirmAppUpdateDownload,
+  confirmAppUpdateInstall
+} from './appUpdateDialogs'
+import { registerAppUpdateIpc } from './appUpdateIpc'
 import { DeviceCardManager } from './deviceCardManager'
 import {
   DeviceCardAgentBridge,
@@ -220,9 +230,11 @@ let localRuntimeManager: LocalRuntimeManager | null = null
 let devicePackageTrustStore: DevicePackageTrustStore | null = null
 let quitCleanupStarted = false
 let quitCleanupFinished = false
+let quitCleanupPromise: Promise<void> | null = null
 let deviceCardManager: DeviceCardManager | null = null
 let deviceCardAgentBridge: DeviceCardAgentBridge | null = null
 let deviceCardAgentCli: DeviceCardAgentCliManager | null = null
+let appUpdateManager: AppUpdateManager | null = null
 let rendererHasUnsavedChanges: boolean | null = null
 let workflowHasUnsavedChanges = false
 
@@ -439,6 +451,32 @@ app.whenReady().then(async () => {
     app.dock.setIcon(localAppIcon)
   }
   ipcMain.handle('app:getVersion', () => app.getVersion())
+  appUpdateManager = new AppUpdateManager({
+    currentVersion: app.getVersion(),
+    enabled: app.isPackaged && desktopSurface.kind === 'workbench',
+    updater: createElectronUpdaterAdapter(autoUpdater),
+    log: logLine,
+    publish: (snapshot) => {
+      const window = mainWindow
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('app-update:state', snapshot)
+      }
+    },
+    confirmDownload: (snapshot) => confirmAppUpdateDownload(
+      () => mainWindow,
+      snapshot
+    ),
+    confirmInstall: (snapshot) => confirmAppUpdateInstall(
+      () => mainWindow,
+      snapshot
+    ),
+    beforeInstall: ensureQuitCleanup
+  })
+  registerAppUpdateIpc({
+    ipcMain,
+    manager: appUpdateManager,
+    assertSender: assertMainWindowSender
+  })
   ipcMain.on('renderer:unsavedChanges', (event, value: unknown) => {
     try {
       assertMainWindowSender(event)
@@ -868,6 +906,7 @@ app.whenReady().then(async () => {
   )
 
   createWindow()
+  appUpdateManager.start()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -890,14 +929,24 @@ app.on('before-quit', (event) => {
   if (quitCleanupFinished) return
   event.preventDefault()
   if (quitCleanupStarted) return
-  quitCleanupStarted = true
-  void cleanupBeforeQuit().finally(() => {
-    quitCleanupFinished = true
+  void ensureQuitCleanup().finally(() => {
     app.quit()
   })
 })
 
+/** 对普通退出与更新安装复用一次且仅一次的 Workbench 宿主清理。 */
+function ensureQuitCleanup(): Promise<void> {
+  if (quitCleanupFinished) return Promise.resolve()
+  if (quitCleanupPromise) return quitCleanupPromise
+  quitCleanupStarted = true
+  quitCleanupPromise = cleanupBeforeQuit().finally(() => {
+    quitCleanupFinished = true
+  })
+  return quitCleanupPromise
+}
+
 async function cleanupBeforeQuit(): Promise<void> {
+  appUpdateManager?.dispose()
   try {
     deviceCardManager?.destroy()
   } catch (error) {

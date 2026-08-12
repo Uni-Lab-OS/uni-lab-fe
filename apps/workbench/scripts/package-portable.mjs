@@ -27,6 +27,10 @@ import {
   prepareBundledAgentPayload,
   validateBundledAgentPayload
 } from './agent-payload.mjs'
+import {
+  requireWorkbenchUpdateUrl,
+  selectPortableUpdateArtifacts
+} from './update-publish.mjs'
 
 const MEBIBYTE = 1024 * 1024
 const MIN_INSTALLER_BYTES = 50 * MEBIBYTE
@@ -65,6 +69,7 @@ export function packagePortableWorkbench(targetPlatform) {
       `Workbench 必须原生构建：当前 ${process.platform}/${process.arch}，目标 ${targetPlatform}`
     )
   }
+  const updateUrl = requireWorkbenchUpdateUrl()
 
   const packagingDirectory = join(workbenchDirectory, '.packaging')
   const runtimePayloadDirectory = join(packagingDirectory, 'runtime-installer')
@@ -146,7 +151,10 @@ export function packagePortableWorkbench(targetPlatform) {
         'cli.js'
       ),
       ...builderArgs
-    ], workbenchDirectory, process.env)
+    ], workbenchDirectory, {
+      ...process.env,
+      UNILAB_WORKBENCH_UPDATE_URL: updateUrl
+    })
 
     const resources = join(
       outputDirectory,
@@ -161,9 +169,13 @@ export function packagePortableWorkbench(targetPlatform) {
       descriptor.hostArchitecture
     )
     const installer = findInstaller(outputDirectory, targetPlatform)
+    const artifacts = selectPortableUpdateArtifacts(
+      readdirSync(outputDirectory),
+      targetPlatform
+    )
     rmSync(releaseDirectory, { recursive: true, force: true })
     mkdirSync(releaseDirectory, { recursive: true })
-    for (const name of artifactNames(outputDirectory, targetPlatform)) {
+    for (const name of artifacts) {
       copyFileSync(join(outputDirectory, name), join(releaseDirectory, name))
     }
     console.log(
@@ -380,13 +392,6 @@ function findInstaller(outputDirectory, targetPlatform) {
   }
   if (!actual.equals(expected)) throw new Error(`安装包文件头无效：${path}`)
   return { path, size }
-}
-
-function artifactNames(outputDirectory, targetPlatform) {
-  const matcher = targetPlatform === 'linux-64'
-    ? /(?:\.AppImage(?:\.blockmap)?|latest-linux\.yml)$/iu
-    : /-setup\.exe$/iu
-  return readdirSync(outputDirectory).filter(name => matcher.test(name))
 }
 
 function hasExpectedSha256(path, expected) {

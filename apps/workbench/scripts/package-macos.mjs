@@ -27,6 +27,10 @@ import {
   prepareBundledAgentPayload,
   validateBundledAgentPayload
 } from './agent-payload.mjs'
+import {
+  requireWorkbenchUpdateUrl,
+  selectMacosUpdateArtifacts
+} from './update-publish.mjs'
 import { removeDesktopDeploymentSelfLink } from './package-portable.mjs'
 
 const MEBIBYTE = 1024 * 1024
@@ -184,6 +188,7 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
     throw new Error('正式签名、Developer ID RC 与 ad-hoc 临时签名不能同时启用。')
   }
   if (signed) assertMacosSigningEnvironment()
+  const updateUrl = requireWorkbenchUpdateUrl()
   const developerIdIdentity = developerId
     ? findDeveloperIdIdentity()
     : undefined
@@ -242,12 +247,16 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
     const builderArgs = [
       '--mac',
       'dmg',
+      'zip',
       `--${targetArchitecture}`,
       '--publish',
       'never',
       `--config.directories.output=${outputDirectory}`
     ]
-    const builderEnvironment = { ...process.env }
+    const builderEnvironment = {
+      ...process.env,
+      UNILAB_WORKBENCH_UPDATE_URL: updateUrl
+    }
     if (!signed && !developerId) {
       builderEnvironment['CSC_IDENTITY_AUTO_DISCOVERY'] = 'false'
       builderArgs.push(
@@ -318,7 +327,7 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       )
     }
     if (adhoc) installer = signAndVerifyAdHocCandidate(installer.path)
-    publishInstaller(installer.path)
+    publishMacosArtifacts(outputDirectory)
     const distribution = signed
       ? 'signed/notarized'
       : developerId
@@ -423,9 +432,13 @@ function findInstaller(outputDirectory) {
   return validateMacosInstaller(installers[0])
 }
 
-function publishInstaller(installerPath) {
+function publishMacosArtifacts(outputDirectory) {
+  const names = selectMacosUpdateArtifacts(readdirSync(outputDirectory))
+  rmSync(releaseDirectory, { recursive: true, force: true })
   mkdirSync(releaseDirectory, { recursive: true })
-  copyFileSync(installerPath, join(releaseDirectory, basename(installerPath)))
+  for (const name of names) {
+    copyFileSync(join(outputDirectory, name), join(releaseDirectory, name))
+  }
 }
 
 function verifySignedAndNotarized(appPath, installerPath) {

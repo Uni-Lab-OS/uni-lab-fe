@@ -84,11 +84,17 @@ electronLanguages:
   - zh-CN
   - en-US
 afterPack: ../desktop/scripts/after-pack.mjs
+publish:
+  provider: generic
+  url: ${env.UNILAB_WORKBENCH_UPDATE_URL}
 mac:
   category: public.app-category.developer-tools
   icon: icon.icns
   target:
     - target: dmg
+      arch:
+        - arm64
+    - target: zip
       arch:
         - arm64
   artifactName: ${productName}-${version}-${arch}.${ext}
@@ -127,10 +133,10 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: always
   createStartMenuShortcut: true
-  # Workbench does not use electron-updater. Avoid differential block metadata
-  # and its elevate helper so the installer stays solid-compressed and smaller.
-  differentialPackage: false
-  packElevateHelper: false
+  # electron-updater uses blockmap for differential download and the helper
+  # for per-user NSIS installations that later need elevation.
+  differentialPackage: true
+  packElevateHelper: true
   multiLanguageInstaller: true
   installerLanguages:
     - zh_CN

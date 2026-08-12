@@ -110,7 +110,8 @@ describe('portable Workbench packaging contract', () => {
     )
 
     assert.deepEqual(Object.keys(desktopManifest.dependencies), [
-      '@unilab/device-card-host'
+      '@unilab/device-card-host',
+      'electron-updater'
     ])
     for (const bundledDependency of [
       '@arizeai/phoenix-otel',
@@ -402,9 +403,10 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /Filter 'aioncore\.exe'/u)
     assert.match(workflow, /Test-Path \(Join-Path \$_\.Directory\.FullName 'managed-resources'\)/u)
     assert.match(workflow, /bundled-aioncore\\windows-x64/u)
-    assert.match(workflow, /path: apps\/workbench\/release-windows\/\*-setup\.exe/u)
-    assert.doesNotMatch(workflow, /setup\.exe\.blockmap/u)
-    assert.doesNotMatch(workflow, /release-windows\/latest\.yml/u)
+    assert.match(workflow, /release-windows\/\*-setup\.exe/u)
+    assert.match(workflow, /release-windows\/\*-setup\.exe\.blockmap/u)
+    assert.match(workflow, /release-windows\/latest\.yml/u)
+    assert.match(workflow, /vars\.UNILAB_WORKBENCH_UPDATE_URL/u)
     assert.match(workflow, /actions\/upload-artifact@v6/u)
     assert.match(workflow, /compression-level: 0/u)
 
@@ -412,8 +414,10 @@ describe('portable Workbench packaging contract', () => {
       new URL('../electron-builder.yml', import.meta.url),
       'utf8'
     )
-    assert.match(builderConfiguration, /differentialPackage: false/u)
-    assert.match(builderConfiguration, /packElevateHelper: false/u)
+    assert.match(builderConfiguration, /differentialPackage: true/u)
+    assert.match(builderConfiguration, /packElevateHelper: true/u)
+    assert.match(builderConfiguration, /^publish:\n  provider: generic$/mu)
+    assert.match(builderConfiguration, /UNILAB_WORKBENCH_UPDATE_URL/u)
   })
 
   it('removes source maps from local Workbench plugins', async () => {

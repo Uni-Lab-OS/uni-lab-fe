@@ -205,6 +205,32 @@ The legacy Electron kernel surface does not depend on Theia. Its
 level `@unilab/local-environment` package for Conda/Python discovery and the
 validated PLC-Sim launch contract.
 
+## Desktop automatic updates
+
+Packaged Workbench applications use `electron-updater` with a build-time HTTPS
+generic provider. Development runs and the legacy Kernel Electron surface keep
+the updater disabled. Workbench checks 30 seconds after startup and every four
+hours afterwards, asks before downloading, and asks again before stopping the
+managed process tree and restarting into the installer.
+
+Every distributable build requires a credential-free update directory:
+
+```bash
+UNILAB_WORKBENCH_UPDATE_URL=https://updates.example.com/workbench/stable \
+pnpm --filter @unilab/workbench package:win
+```
+
+The same URL can serve all platforms. Publish the immutable Windows NSIS EXE
+and blockmap before atomically replacing `latest.yml`; publish the signed macOS
+ZIP and ZIP blockmap before `latest-mac.yml`; publish the AppImage and blockmap
+before `latest-linux.yml`. The HTTP service must support HTTPS, `GET`, `HEAD`,
+byte-range requests, stable public artifact URLs, and must not cache the
+`latest*.yml` metadata for long. Repository variable
+`UNILAB_WORKBENCH_UPDATE_URL` supplies the Windows packaging workflow; upload
+to the update service remains an explicit release/deployment step. Formal
+Windows artifacts must use the same trusted code-signing identity across
+versions; formal macOS artifacts must remain Developer ID signed and notarized.
+
 ## macOS distribution
 
 The formal macOS arm64 application packages the shared Electron shell, Theia
@@ -216,9 +242,11 @@ selections.
 
 ```bash
 # Local artifact and cold-start acceptance; intentionally unsigned.
+UNILAB_WORKBENCH_UPDATE_URL=https://updates.example.com/workbench/stable \
 pnpm --filter @unilab/workbench package:mac:unsigned
 
 # Local T14 release-candidate acceptance; ad-hoc signed and not notarized.
+UNILAB_WORKBENCH_UPDATE_URL=https://updates.example.com/workbench/stable \
 pnpm --filter @unilab/workbench package:mac:adhoc
 
 # Formal Developer ID release; fails closed unless every credential is present.
@@ -227,11 +255,13 @@ CSC_KEY_PASSWORD=... \
 APPLE_ID=... \
 APPLE_APP_SPECIFIC_PASSWORD=... \
 APPLE_TEAM_ID=... \
+UNILAB_WORKBENCH_UPDATE_URL=https://updates.example.com/workbench/stable \
 pnpm --filter @unilab/workbench package:mac
 ```
 
 The build verifies the pinned Node archive SHA-256, packaged native resources,
-and an executable backend HTTP smoke test before publishing the DMG. The formal
+and an executable backend HTTP smoke test before publishing the DMG, signed ZIP
+and update metadata. The formal
 path additionally requires `codesign --verify`, Gatekeeper assessment and
 stapled notarization for both the app and DMG. It never silently publishes an
 unsigned artifact. The distinctly named `rc-adhoc` artifact verifies the signed
