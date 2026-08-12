@@ -16,7 +16,7 @@ import {
   MAX_PORTABLE_INSTALLER_BYTES,
   PORTABLE_NODE_ARCHIVES,
   PORTABLE_NODE_VERSION,
-  removeDesktopDeploymentSelfLink,
+  pruneDesktopDeployment,
   resolveEsbuildBinary
 } from './package-portable.mjs'
 import {
@@ -100,6 +100,10 @@ describe('portable Workbench packaging contract', () => {
       new URL('../../desktop/package.json', import.meta.url),
       'utf8'
     ))
+    const deviceCardHostManifest = JSON.parse(await readFile(
+      new URL('../../../packages/device-card-host/package.json', import.meta.url),
+      'utf8'
+    ))
     const desktopConfiguration = await readFile(
       new URL('../../desktop/electron.vite.config.ts', import.meta.url),
       'utf8'
@@ -113,6 +117,14 @@ describe('portable Workbench packaging contract', () => {
       '@unilab/device-card-host',
       'electron-updater'
     ])
+    assert.deepEqual(deviceCardHostManifest.dependencies, {
+      esbuild: '0.21.5'
+    })
+    assert.deepEqual(deviceCardHostManifest.files, ['dist'])
+    assert.match(
+      deviceCardHostManifest.scripts.build,
+      /node build\.mjs/u
+    )
     for (const bundledDependency of [
       '@arizeai/phoenix-otel',
       '@unilab/local-environment'
@@ -160,8 +172,8 @@ describe('portable Workbench packaging contract', () => {
     )
   })
 
-  /** 验证打包前切断生产部署目录到源码工作区的递归复制链路。 */
-  it('removes the pnpm workspace self-link before electron-builder runs', async () => {
+  /** 验证打包前切断工作区链接并删除桌面端不可达的构建文件。 */
+  it('prunes the desktop deployment before electron-builder runs', async () => {
     const root = await mkdtemp(join(tmpdir(), 'unilab-desktop-deploy-'))
     const source = join(root, 'desktop-source')
     const deployment = join(root, 'deployment')
@@ -176,15 +188,108 @@ describe('portable Workbench packaging contract', () => {
     try {
       await mkdir(source, { recursive: true })
       await mkdir(join(selfLink, '..'), { recursive: true })
+      await mkdir(join(deployment, 'node_modules', '@esbuild', 'linux-x64'), {
+        recursive: true
+      })
+      await mkdir(join(deployment, 'node_modules', 'esbuild', 'bin'), {
+        recursive: true
+      })
+      await mkdir(join(deployment, 'node_modules', '.bin'), {
+        recursive: true
+      })
+      await mkdir(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist'
+      ), { recursive: true })
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@esbuild',
+        'linux-x64',
+        'esbuild'
+      ), 'native-copy')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        'esbuild',
+        'bin',
+        'esbuild'
+      ), 'native-launcher')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '.bin',
+        'esbuild.cmd'
+      ), 'windows-launcher')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.esm-browser.js'
+      ), 'browser-only')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.cjs.js'
+      ), 'runtime')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.d.ts'
+      ), 'types')
       await symlink(
         source,
         selfLink,
         process.platform === 'win32' ? 'junction' : 'dir'
       )
 
-      assert.equal(removeDesktopDeploymentSelfLink(deployment), true)
+      const metrics = pruneDesktopDeployment(deployment)
+      assert.equal(metrics.removedSelfLink, true)
+      assert.ok(metrics.removedFiles >= 1)
+      assert.ok(metrics.removedBytes >= 5)
       await assert.rejects(lstat(selfLink), error => error?.code === 'ENOENT')
-      assert.equal(removeDesktopDeploymentSelfLink(deployment), false)
+      for (const removed of [
+        join(deployment, 'node_modules', '@esbuild'),
+        join(deployment, 'node_modules', 'esbuild', 'bin'),
+        join(deployment, 'node_modules', '.bin', 'esbuild.cmd'),
+        join(
+          deployment,
+          'node_modules',
+          '@vue',
+          'compiler-sfc',
+          'dist',
+          'compiler-sfc.esm-browser.js'
+        ),
+        join(
+          deployment,
+          'node_modules',
+          '@vue',
+          'compiler-sfc',
+          'dist',
+          'compiler-sfc.d.ts'
+        )
+      ]) {
+        await assert.rejects(lstat(removed), error => error?.code === 'ENOENT')
+      }
+      assert.equal(await readFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.cjs.js'
+      ), 'utf8'), 'runtime')
 
       const packagingScript = await readFile(
         new URL('./package-portable.mjs', import.meta.url),
@@ -192,13 +297,13 @@ describe('portable Workbench packaging contract', () => {
       )
       assert.match(packagingScript, /'--config\.node-linker=hoisted'/u)
       const deployIndex = packagingScript.indexOf("'deploy'")
-      const removalIndex = packagingScript.indexOf(
-        'removeDesktopDeploymentSelfLink(desktopRuntimeDirectory)'
+      const pruneIndex = packagingScript.indexOf(
+        'pruneDesktopDeployment(desktopRuntimeDirectory)'
       )
       const builderIndex = packagingScript.indexOf("'electron-builder'")
       assert.ok(deployIndex >= 0)
-      assert.ok(deployIndex < removalIndex)
-      assert.ok(removalIndex < builderIndex)
+      assert.ok(deployIndex < pruneIndex)
+      assert.ok(pruneIndex < builderIndex)
     } finally {
       await rm(root, { recursive: true, force: true })
     }

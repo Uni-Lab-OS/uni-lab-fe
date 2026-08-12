@@ -297,13 +297,13 @@ describe('Workbench macOS distribution gate', () => {
 
     assert.match(packagingScript, /'--config\.node-linker=hoisted'/u)
     const deployIndex = packagingScript.indexOf("'deploy'")
-    const removalIndex = packagingScript.indexOf(
-      'removeDesktopDeploymentSelfLink(desktopRuntimeDirectory)'
+    const pruneIndex = packagingScript.indexOf(
+      'pruneDesktopDeployment(desktopRuntimeDirectory)'
     )
     const builderIndex = packagingScript.indexOf("'electron-builder'")
     assert.ok(deployIndex >= 0)
-    assert.ok(deployIndex < removalIndex)
-    assert.ok(removalIndex < builderIndex)
+    assert.ok(deployIndex < pruneIndex)
+    assert.ok(pruneIndex < builderIndex)
     assert.match(builderConfiguration, /^compression: normal$/mu)
     assert.match(builderConfiguration, /minimumSystemVersion: '13\.0'/u)
     assert.match(builderConfiguration, /^\s+format: ULFO$/mu)

@@ -31,7 +31,7 @@ import {
   requireWorkbenchUpdateUrl,
   selectMacosUpdateArtifacts
 } from './update-publish.mjs'
-import { removeDesktopDeploymentSelfLink } from './package-portable.mjs'
+import { pruneDesktopDeployment } from './package-portable.mjs'
 
 const MEBIBYTE = 1024 * 1024
 const MIN_INSTALLER_BYTES = 50 * MEBIBYTE
@@ -242,7 +242,10 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       '--prefer-offline',
       desktopRuntimeDirectory
     ], repositoryDirectory)
-    removeDesktopDeploymentSelfLink(desktopRuntimeDirectory)
+    const desktopMetrics = pruneDesktopDeployment(desktopRuntimeDirectory)
+    console.log(
+      `桌面端生产依赖已收敛：删除 ${desktopMetrics.removedFiles} 个构建文件，${desktopMetrics.removedBytes} bytes`
+    )
 
     const builderArgs = [
       '--mac',

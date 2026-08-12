@@ -10,6 +10,7 @@ import {
   writeFile
 } from 'node:fs/promises'
 import { dirname, extname, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import {
   build as esbuild,
@@ -50,6 +51,11 @@ export const DEVICE_CARD_BUILDER_VERSION = '0.1.0'
 const runtimeRequire = createRequire(
   typeof __filename === 'string' ? __filename : import.meta.url
 )
+const runtimeDirectory = dirname(
+  typeof __filename === 'string'
+    ? __filename
+    : fileURLToPath(import.meta.url)
+)
 const IMPORT_ALLOWLIST = new Set([
   '@unilab/device-card-sdk',
   '@unilab/device-card-sdk/react',
@@ -61,6 +67,17 @@ const IMPORT_ALLOWLIST = new Set([
   'react-dom/client',
   'vue'
 ])
+const PACKAGED_RUNTIME_FILES = Object.freeze({
+  '@unilab/device-card-sdk': 'unilab-device-card-sdk.js',
+  '@unilab/device-card-sdk/react': 'unilab-device-card-sdk-react.js',
+  '@unilab/device-card-sdk/vue': 'unilab-device-card-sdk-vue.js',
+  '@unilab/device-card-ui': 'unilab-device-card-ui.js',
+  '@unilab/device-card-ui/register': 'unilab-device-card-ui-register.js',
+  react: 'react.js',
+  'react/jsx-runtime': 'react-jsx-runtime.js',
+  'react-dom/client': 'react-dom-client.js',
+  vue: 'vue.js'
+})
 
 export async function buildDeviceCard(
   request: DeviceCardBuildRequest
@@ -150,7 +167,7 @@ export async function buildDeviceCard(
       outfile: resolve(outDir, 'entry.js'),
       platform: 'browser',
       plugins: [
-        importPolicyPlugin(projectDir),
+        importPolicyPlugin(projectDir, Boolean(request.development)),
         ...(manifest.authoringProfile === 'vue-web-component-v1'
           ? [vueSfcPlugin()]
           : []),
@@ -250,7 +267,15 @@ function wrapperSource(manifest: DeviceCardManifest, entry: string): string {
   `
 }
 
-function importPolicyPlugin(projectDir: string): Plugin {
+/**
+ * 限制设备卡源码可导入的模块，并解析对应模式的内置浏览器运行库。
+ * @param projectDir 设备卡源码根目录。
+ * @param development 是否使用开发态浏览器运行库。
+ */
+function importPolicyPlugin(
+  projectDir: string,
+  development: boolean
+): Plugin {
   return {
     name: 'unilab-import-policy',
     setup(build) {
@@ -268,7 +293,7 @@ function importPolicyPlugin(projectDir: string): Plugin {
           return undefined
         }
         if (IMPORT_ALLOWLIST.has(args.path)) {
-          return { path: unpackedAsarPath(runtimeRequire.resolve(args.path)) }
+          return { path: resolveRuntimeImport(args.path, development) }
         }
         return {
           errors: [{
@@ -278,6 +303,31 @@ function importPolicyPlugin(projectDir: string): Plugin {
       })
     }
   }
+}
+
+/**
+ * 优先解析宿主预编译的浏览器运行库；源码开发时回退到包管理器依赖。
+ * @param {string} specifier 设备卡白名单模块标识。
+ * @param {boolean} development 是否使用开发态浏览器运行库。
+ * @returns {string} 可由 esbuild 读取的模块绝对路径。
+ */
+function resolveRuntimeImport(
+  specifier: string,
+  development: boolean
+): string {
+  const packagedFile = PACKAGED_RUNTIME_FILES[
+    specifier as keyof typeof PACKAGED_RUNTIME_FILES
+  ]
+  if (packagedFile) {
+    const packagedPath = resolve(
+      runtimeDirectory,
+      'card-runtime',
+      development ? 'development' : 'production',
+      packagedFile
+    )
+    if (existsSync(packagedPath)) return unpackedAsarPath(packagedPath)
+  }
+  return unpackedAsarPath(runtimeRequire.resolve(specifier))
 }
 
 function asarModulePlugin(): Plugin {
