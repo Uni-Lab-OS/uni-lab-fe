@@ -1,9 +1,21 @@
 name: Package Windows Workbench
 
 on:
+  workflow_dispatch:
+    inputs:
+      compression:
+        description: electron-builder compression used for a non-publishing benchmark
+        required: true
+        default: both
+        type: choice
+        options:
+          - both
+          - normal
+          - maximum
   push:
     branches:
       - deploy-windows
+      - ci/desktop-packaging-optimization-v2
 
 permissions:
   # The deploy branch publishes the verified updater bundle to the pre-created
@@ -19,7 +31,10 @@ env:
   AIONUI_WINDOWS_SHA512: e8f503c5d39272ed7a16b192ee8d507bb835615c00f221fe33c083104b4f064dc15acf2fb42b1b17ab7cdee0de27d6f4e19a01eb2674bbb2177ffba015196bf9
   CONDA_STANDALONE_VERSION: 26.3.2.post1
   CONSTRUCTOR_VERSION: 3.16.1
+  ELECTRON_BUILDER_VERSION: 25.1.8
+  ELECTRON_VERSION: 33.4.11
   MINIFORGE_VERSION: 26.3.2-3
+  PORTABLE_NODE_VERSION: 24.14.0
   UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf
   UNILAB_RUNTIME_VERSION: 0.11.3
   WINDOWS_RELEASE_TAG: workbench-windows-stable
@@ -27,6 +42,12 @@ env:
 
 jobs:
   package-windows-x64:
+    strategy:
+      fail-fast: false
+      matrix:
+        compression: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.compression == 'both' && '["normal","maximum"]' || github.ref == 'refs/heads/ci/desktop-packaging-optimization-v2' && '["normal","maximum"]' || format('["{0}"]', github.event_name == 'workflow_dispatch' && inputs.compression || 'normal')) }}
+    env:
+      UNILAB_WORKBENCH_COMPRESSION: ${{ matrix.compression }}
     # Node-gyp 11 does not yet recognize the Visual Studio 18 toolchain that
     # may be selected by windows-latest. Keep the native drivelist build on the
     # VS 2022 image until the dependency toolchain is upgraded.
@@ -90,8 +111,24 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 22.21.1
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Resolve pnpm store
+        id: pnpm-store
+        run: |
+          $storePath = pnpm store path --silent
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to resolve the pnpm store path' }
+          "path=$storePath" >> $env:GITHUB_OUTPUT
+
+      # Prefix restore lets a lockfile update reuse all unchanged packages;
+      # the exact new graph is cached only after installation succeeds.
+      - name: Restore pnpm store
+        id: pnpm-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: windows-pnpm-store-v1-${{ runner.arch }}-pnpm-10.13.1-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            windows-pnpm-store-v1-${{ runner.arch }}-pnpm-10.13.1-
 
       - name: Install Workbench dependencies
         run: |
@@ -101,6 +138,13 @@ jobs:
           if (-not (Test-Path $windowsCaNative)) {
             throw "Windows CA native module was not built: $windowsCaNative"
           }
+
+      - name: Save pnpm store
+        if: steps.pnpm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       - name: Set up Constructor
         if: steps.runtime-cache.outputs.cache-hit != 'true'
@@ -146,8 +190,13 @@ jobs:
           path: |
             ~\AppData\Local\electron\Cache
             ~\AppData\Local\electron-builder\Cache
-            ~\.unilab-workbench\downloads
-          key: windows-electron-builder-v2-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'apps/workbench/scripts/package-portable.mjs') }}
+          key: windows-electron-builder-v3-${{ runner.arch }}-electron-${{ env.ELECTRON_VERSION }}-builder-${{ env.ELECTRON_BUILDER_VERSION }}
+
+      - name: Cache portable Node download
+        uses: actions/cache@v6
+        with:
+          path: ~\.unilab-workbench\downloads
+          key: windows-portable-node-v1-${{ runner.arch }}-${{ env.PORTABLE_NODE_VERSION }}
 
       - name: Select Windows Runtime
         run: |
@@ -241,7 +290,12 @@ jobs:
           key: windows-workbench-plugins-v1-${{ hashFiles('apps/workbench/package.json') }}
 
       - name: Build Windows x64 installer
-        run: pnpm --filter @unilab/workbench package:win
+        run: |
+          $buildStarted = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          pnpm --filter @unilab/workbench package:win
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to package Windows Workbench' }
+          $buildFinished = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          "WINDOWS_BUILD_SECONDS=$($buildFinished - $buildStarted)" >> $env:GITHUB_ENV
 
       - name: Verify installer
         run: |
@@ -256,6 +310,7 @@ jobs:
           $hash = Get-FileHash $installer.FullName -Algorithm SHA256
           Write-Host "Installer: $($installer.Name)"
           Write-Host "Size: $($installer.Length) bytes"
+          Write-Host "Compression: $env:UNILAB_WORKBENCH_COMPRESSION"
           $hash
           if (-not (Test-Path apps/workbench/release-windows/latest.yml)) {
             throw 'Missing latest.yml update metadata'
@@ -267,11 +322,25 @@ jobs:
           if ($blockmaps.Count -ne 1) {
             throw "Expected one Windows blockmap, found $($blockmaps.Count)"
           }
+          $sizeReport = Get-Content apps/workbench/release-windows/package-size-report.json -Raw | ConvertFrom-Json
+          if ($sizeReport.compression -ne $env:UNILAB_WORKBENCH_COMPRESSION) {
+            throw "Package report compression mismatch: $($sizeReport.compression)"
+          }
+          @"
+          ## Windows Workbench packaging benchmark
+
+          | Metric | Result |
+          | --- | ---: |
+          | Compression | $env:UNILAB_WORKBENCH_COMPRESSION |
+          | Build + packaging | $env:WINDOWS_BUILD_SECONDS s |
+          | Installer | $($installer.Length) bytes |
+          | Resources | $($sizeReport.totalBytes) bytes |
+          "@ >> $env:GITHUB_STEP_SUMMARY
 
       - name: Upload Windows update bundle
         uses: actions/upload-artifact@v6
         with:
-          name: UniLab-Workbench-windows-x64-${{ github.sha }}
+          name: UniLab-Workbench-windows-x64-${{ env.UNILAB_WORKBENCH_COMPRESSION }}-${{ github.sha }}
           path: |
             apps/workbench/release-windows/*-setup.exe
             apps/workbench/release-windows/*-setup.exe.blockmap
@@ -286,6 +355,7 @@ jobs:
       # Publish binaries first and metadata last. Existing clients keep reading
       # the previous latest.yml until the complete replacement is available.
       - name: Publish rolling Windows update release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/deploy-windows'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

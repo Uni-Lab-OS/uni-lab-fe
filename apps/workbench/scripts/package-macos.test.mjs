@@ -297,15 +297,76 @@ describe('Workbench macOS distribution gate', () => {
 
     assert.match(packagingScript, /'--config\.node-linker=hoisted'/u)
     const deployIndex = packagingScript.indexOf("'deploy'")
-    const removalIndex = packagingScript.indexOf(
-      'removeDesktopDeploymentSelfLink(desktopRuntimeDirectory)'
+    const pruneIndex = packagingScript.indexOf(
+      'pruneDesktopDeployment(desktopRuntimeDirectory)'
     )
     const builderIndex = packagingScript.indexOf("'electron-builder'")
     assert.ok(deployIndex >= 0)
-    assert.ok(deployIndex < removalIndex)
-    assert.ok(removalIndex < builderIndex)
+    assert.ok(deployIndex < pruneIndex)
+    assert.ok(pruneIndex < builderIndex)
+    assert.match(builderConfiguration, /^compression: normal$/mu)
     assert.match(builderConfiguration, /minimumSystemVersion: '13\.0'/u)
     assert.match(builderConfiguration, /^\s+format: ULFO$/mu)
     assert.match(builderConfiguration, /^\s+writeUpdateInfo: false$/mu)
+  })
+
+  /** 验证 macOS 基准工作流固定原生依赖并输出可比较的耗时与体积指标。 */
+  it('benchmarks the complete macOS arm64 build in GitHub Actions', async () => {
+    const workflow = await readFile(
+      new URL('../../../.github/workflows/package-macos.yml', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(workflow, /^name: Benchmark macOS Workbench Packaging$/mu)
+    assert.match(workflow, /^\s+runs-on: macos-14$/mu)
+    assert.match(workflow, /ci\/macos-packaging-benchmark/u)
+    assert.match(workflow, /ci\/desktop-packaging-optimization-v2/u)
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf/u
+    )
+    assert.match(workflow, /AIONUI_VERSION: 2\.1\.53/u)
+    assert.match(workflow, /AIONUI_MACOS_SHA512: [a-f0-9]{128}/u)
+    assert.match(workflow, /ELECTRON_VERSION: 33\.4\.11/u)
+    assert.match(workflow, /ELECTRON_BUILDER_VERSION: 25\.1\.8/u)
+    assert.match(
+      workflow,
+      new RegExp(`NODE_RUNTIME_VERSION: ${NODE_RUNTIME_VERSION}`, 'u')
+    )
+    assert.match(workflow, /--platform osx-arm64/u)
+    assert.match(workflow, /AionUi-\$AIONUI_VERSION-mac-arm64\.dmg/u)
+    assert.match(workflow, /Restore prepared macOS Agent payload/u)
+    assert.match(workflow, /aionui-prepared-macos-arm64-v2-/u)
+    assert.match(workflow, /-node-\$\{\{ env\.NODE_RUNTIME_VERSION \}\}-/u)
+    assert.match(workflow, /actions\/cache\/restore@v6/u)
+    assert.match(workflow, /actions\/cache\/save@v6/u)
+    assert.doesNotMatch(workflow, /cache: pnpm/u)
+    assert.match(workflow, /macos-pnpm-store-v1-/u)
+    assert.match(workflow, /restore-keys:/u)
+    assert.match(workflow, /name: Save pnpm store/u)
+    assert.match(workflow, /macos-electron-builder-v2-/u)
+    assert.match(workflow, /macos-portable-node-v1-/u)
+    assert.doesNotMatch(
+      workflow,
+      /aionui-prepared-macos-arm64-v2-[^\n]*package-macos\.mjs/u
+    )
+    assert.match(workflow, /\.ci-cache\/agent-payload/u)
+    assert.match(workflow, /Cache pinned Theia plugins/u)
+    assert.match(workflow, /apps\/workbench\/plugins/u)
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_INSTALLER=\$GITHUB_WORKSPACE\/\$runtime_source/u
+    )
+    assert.match(workflow, /build:desktop:production/u)
+    assert.match(workflow, /package-macos\.mjs --unsigned/u)
+    assert.match(workflow, /macos-packaging-metrics\.json/u)
+    assert.match(workflow, /hdiutil verify/u)
+    assert.match(workflow, /compression-level: 0/u)
+    const uploadSection = workflow.slice(
+      workflow.indexOf('name: Upload macOS update bundle and metrics')
+    )
+    assert.doesNotMatch(uploadSection, /release-macos\/\*\.dmg/u)
+    assert.match(uploadSection, /release-macos\/\*\.zip/u)
+    assert.match(uploadSection, /retention-days: 7/u)
   })
 })

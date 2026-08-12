@@ -11,6 +11,19 @@ const builderConfig = readFileSync(
 const packageConfig = JSON.parse(
   readFileSync(join(desktopDirectory, 'package.json'), 'utf8')
 )
+const deviceCardHostConfig = JSON.parse(
+  readFileSync(
+    join(
+      desktopDirectory,
+      '..',
+      '..',
+      'packages',
+      'device-card-host',
+      'package.json'
+    ),
+    'utf8'
+  )
+)
 const viteConfig = readFileSync(
   join(desktopDirectory, 'electron.vite.config.ts'),
   'utf8'
@@ -24,6 +37,14 @@ assert.deepEqual(packageConfig.dependencies ?? {}, {
   '@unilab/device-card-host': 'workspace:*',
   'electron-updater': '^6.8.9'
 })
+assert.deepEqual(deviceCardHostConfig.dependencies ?? {}, {
+  esbuild: '0.21.5'
+})
+assert.deepEqual(deviceCardHostConfig.files, ['dist'])
+assert.match(
+  deviceCardHostConfig.scripts.build,
+  /node build\.mjs/u
+)
 assert.equal(
   packageConfig.devDependencies?.['@arizeai/phoenix-otel'],
   '2.1.0'

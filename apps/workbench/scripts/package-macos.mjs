@@ -31,7 +31,7 @@ import {
   requireWorkbenchUpdateUrl,
   selectMacosUpdateArtifacts
 } from './update-publish.mjs'
-import { removeDesktopDeploymentSelfLink } from './package-portable.mjs'
+import { pruneDesktopDeployment } from './package-portable.mjs'
 
 const MEBIBYTE = 1024 * 1024
 const MIN_INSTALLER_BYTES = 50 * MEBIBYTE
@@ -164,6 +164,12 @@ export function validatePackagedWorkbench(
   return appPath
 }
 
+/**
+ * 在当前 macOS 主机上组装、签名并验证 Workbench 的 DMG 与 ZIP 发布介质。
+ * @param {{signed: boolean, adhoc?: boolean, developerId?: boolean}} options 签名与验收模式。
+ * @returns {void} 成功时把完整发布介质和更新元数据写入 release-macos。
+ * @throws {Error} 主机不受支持、签名材料缺失或任一发布合同校验失败时抛出。
+ */
 export function packageMacos({ signed, adhoc = false, developerId = false }) {
   if (process.platform !== 'darwin' || !['arm64', 'x64'].includes(process.arch)) {
     throw new Error(`macOS Workbench 不支持当前主机：${process.platform}/${process.arch}`)
@@ -242,7 +248,10 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       '--prefer-offline',
       desktopRuntimeDirectory
     ], repositoryDirectory)
-    removeDesktopDeploymentSelfLink(desktopRuntimeDirectory)
+    const desktopMetrics = pruneDesktopDeployment(desktopRuntimeDirectory)
+    console.log(
+      `桌面端生产依赖已收敛：删除 ${desktopMetrics.removedFiles} 个构建文件，${desktopMetrics.removedBytes} bytes`
+    )
 
     const builderArgs = [
       '--mac',

@@ -14,10 +14,12 @@ import { join } from 'node:path'
 
 import {
   MAX_PORTABLE_INSTALLER_BYTES,
+  PORTABLE_COMPRESSION_LEVELS,
   PORTABLE_NODE_ARCHIVES,
   PORTABLE_NODE_VERSION,
-  removeDesktopDeploymentSelfLink,
-  resolveEsbuildBinary
+  pruneDesktopDeployment,
+  resolveEsbuildBinary,
+  resolvePortableCompressionLevel
 } from './package-portable.mjs'
 import {
   MAX_PRODUCTION_LIB_BYTES,
@@ -38,6 +40,18 @@ describe('portable Workbench packaging contract', () => {
       assert.equal(descriptor.hostArchitecture, 'x64')
     }
     assert.equal(MAX_PORTABLE_INSTALLER_BYTES, 850 * 1024 * 1024)
+  })
+
+  /** 验证正式包默认使用 normal，并允许 CI 在同一提交上显式测量 maximum。 */
+  it('accepts only benchmarked portable compression levels', () => {
+    assert.deepEqual(PORTABLE_COMPRESSION_LEVELS, ['normal', 'maximum'])
+    assert.equal(resolvePortableCompressionLevel(undefined), 'normal')
+    assert.equal(resolvePortableCompressionLevel(' normal '), 'normal')
+    assert.equal(resolvePortableCompressionLevel('maximum'), 'maximum')
+    assert.throws(
+      () => resolvePortableCompressionLevel('store'),
+      /不支持的 Workbench 压缩级别/u
+    )
   })
 
   it('extracts the Windows Node runtime without PowerShell argument binding', async () => {
@@ -100,6 +114,10 @@ describe('portable Workbench packaging contract', () => {
       new URL('../../desktop/package.json', import.meta.url),
       'utf8'
     ))
+    const deviceCardHostManifest = JSON.parse(await readFile(
+      new URL('../../../packages/device-card-host/package.json', import.meta.url),
+      'utf8'
+    ))
     const desktopConfiguration = await readFile(
       new URL('../../desktop/electron.vite.config.ts', import.meta.url),
       'utf8'
@@ -113,6 +131,14 @@ describe('portable Workbench packaging contract', () => {
       '@unilab/device-card-host',
       'electron-updater'
     ])
+    assert.deepEqual(deviceCardHostManifest.dependencies, {
+      esbuild: '0.21.5'
+    })
+    assert.deepEqual(deviceCardHostManifest.files, ['dist'])
+    assert.match(
+      deviceCardHostManifest.scripts.build,
+      /node build\.mjs/u
+    )
     for (const bundledDependency of [
       '@arizeai/phoenix-otel',
       '@unilab/local-environment'
@@ -160,8 +186,8 @@ describe('portable Workbench packaging contract', () => {
     )
   })
 
-  /** 验证打包前切断生产部署目录到源码工作区的递归复制链路。 */
-  it('removes the pnpm workspace self-link before electron-builder runs', async () => {
+  /** 验证打包前切断工作区链接并删除桌面端不可达的构建文件。 */
+  it('prunes the desktop deployment before electron-builder runs', async () => {
     const root = await mkdtemp(join(tmpdir(), 'unilab-desktop-deploy-'))
     const source = join(root, 'desktop-source')
     const deployment = join(root, 'deployment')
@@ -176,15 +202,108 @@ describe('portable Workbench packaging contract', () => {
     try {
       await mkdir(source, { recursive: true })
       await mkdir(join(selfLink, '..'), { recursive: true })
+      await mkdir(join(deployment, 'node_modules', '@esbuild', 'linux-x64'), {
+        recursive: true
+      })
+      await mkdir(join(deployment, 'node_modules', 'esbuild', 'bin'), {
+        recursive: true
+      })
+      await mkdir(join(deployment, 'node_modules', '.bin'), {
+        recursive: true
+      })
+      await mkdir(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist'
+      ), { recursive: true })
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@esbuild',
+        'linux-x64',
+        'esbuild'
+      ), 'native-copy')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        'esbuild',
+        'bin',
+        'esbuild'
+      ), 'native-launcher')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '.bin',
+        'esbuild.cmd'
+      ), 'windows-launcher')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.esm-browser.js'
+      ), 'browser-only')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.cjs.js'
+      ), 'runtime')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.d.ts'
+      ), 'types')
       await symlink(
         source,
         selfLink,
         process.platform === 'win32' ? 'junction' : 'dir'
       )
 
-      assert.equal(removeDesktopDeploymentSelfLink(deployment), true)
+      const metrics = pruneDesktopDeployment(deployment)
+      assert.equal(metrics.removedSelfLink, true)
+      assert.ok(metrics.removedFiles >= 1)
+      assert.ok(metrics.removedBytes >= 5)
       await assert.rejects(lstat(selfLink), error => error?.code === 'ENOENT')
-      assert.equal(removeDesktopDeploymentSelfLink(deployment), false)
+      for (const removed of [
+        join(deployment, 'node_modules', '@esbuild'),
+        join(deployment, 'node_modules', 'esbuild', 'bin'),
+        join(deployment, 'node_modules', '.bin', 'esbuild.cmd'),
+        join(
+          deployment,
+          'node_modules',
+          '@vue',
+          'compiler-sfc',
+          'dist',
+          'compiler-sfc.esm-browser.js'
+        ),
+        join(
+          deployment,
+          'node_modules',
+          '@vue',
+          'compiler-sfc',
+          'dist',
+          'compiler-sfc.d.ts'
+        )
+      ]) {
+        await assert.rejects(lstat(removed), error => error?.code === 'ENOENT')
+      }
+      assert.equal(await readFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.cjs.js'
+      ), 'utf8'), 'runtime')
 
       const packagingScript = await readFile(
         new URL('./package-portable.mjs', import.meta.url),
@@ -192,18 +311,19 @@ describe('portable Workbench packaging contract', () => {
       )
       assert.match(packagingScript, /'--config\.node-linker=hoisted'/u)
       const deployIndex = packagingScript.indexOf("'deploy'")
-      const removalIndex = packagingScript.indexOf(
-        'removeDesktopDeploymentSelfLink(desktopRuntimeDirectory)'
+      const pruneIndex = packagingScript.indexOf(
+        'pruneDesktopDeployment(desktopRuntimeDirectory)'
       )
       const builderIndex = packagingScript.indexOf("'electron-builder'")
       assert.ok(deployIndex >= 0)
-      assert.ok(deployIndex < removalIndex)
-      assert.ok(removalIndex < builderIndex)
+      assert.ok(deployIndex < pruneIndex)
+      assert.ok(pruneIndex < builderIndex)
     } finally {
       await rm(root, { recursive: true, force: true })
     }
   })
 
+  /** 验证各平台安装包复用收敛后的生产构建与耗时可控的默认压缩。 */
   it('builds every installer from a bounded production Workbench bundle', async () => {
     const packageManifest = JSON.parse(await readFile(
       new URL('../package.json', import.meta.url),
@@ -239,7 +359,11 @@ describe('portable Workbench packaging contract', () => {
         /^pnpm build:desktop:production/u
       )
     }
-    assert.match(builderConfiguration, /^compression: maximum$/mu)
+    assert.match(builderConfiguration, /^compression: normal$/mu)
+    assert.match(
+      await readFile(new URL('./package-portable.mjs', import.meta.url), 'utf8'),
+      /`--config\.compression=\$\{compression\}`/u
+    )
     assert.equal(
       packageManifest.optionalDependencies['@vscode/windows-ca-certs'],
       '0.3.4'
@@ -374,13 +498,26 @@ describe('portable Workbench packaging contract', () => {
       workflow,
       /UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf/u
     )
-    assert.match(workflow, /cache: pnpm/u)
+    assert.doesNotMatch(workflow, /cache: pnpm/u)
     assert.match(workflow, /pnpm\/action-setup@v6/u)
     assert.match(workflow, /actions\/cache\/restore@v6/u)
     assert.match(workflow, /actions\/cache\/save@v6/u)
     assert.match(workflow, /cache-primary-key/u)
     assert.match(workflow, /branches:\n\s+- deploy-windows/u)
-    assert.doesNotMatch(workflow, /workflow_dispatch:/u)
+    assert.match(workflow, /ci\/desktop-packaging-optimization-v2/u)
+    assert.match(workflow, /workflow_dispatch:/u)
+    assert.match(workflow, /options:\n\s+- both\n\s+- normal\n\s+- maximum/u)
+    assert.match(workflow, /UNILAB_WORKBENCH_COMPRESSION:/u)
+    assert.match(workflow, /\["normal","maximum"\]/u)
+    assert.match(workflow, /ELECTRON_VERSION: 33\.4\.11/u)
+    assert.match(workflow, /ELECTRON_BUILDER_VERSION: 25\.1\.8/u)
+    assert.match(
+      workflow,
+      new RegExp(`PORTABLE_NODE_VERSION: ${PORTABLE_NODE_VERSION}`, 'u')
+    )
+    assert.match(workflow, /windows-pnpm-store-v1-/u)
+    assert.match(workflow, /restore-keys:/u)
+    assert.match(workflow, /name: Save pnpm store/u)
     assert.match(workflow, /windows-runtime-installer-v2-/u)
     assert.match(workflow, /dist\/constructor\/\*\.exe/u)
     const validateConfigIndex = workflow.indexOf(
@@ -396,7 +533,14 @@ describe('portable Workbench packaging contract', () => {
       workflow.slice(checkoutRuntimeIndex, checkoutRuntimeIndex + 180),
       /if: steps\.runtime-cache\.outputs\.cache-hit != 'true'/u
     )
-    assert.match(workflow, /windows-electron-builder-v2-/u)
+    assert.match(workflow, /windows-electron-builder-v3-/u)
+    assert.match(workflow, /electron-\$\{\{ env\.ELECTRON_VERSION \}\}/u)
+    assert.match(workflow, /builder-\$\{\{ env\.ELECTRON_BUILDER_VERSION \}\}/u)
+    assert.doesNotMatch(
+      workflow,
+      /windows-electron-builder-v3-[^\n]*hashFiles\('pnpm-lock\.yaml'/u
+    )
+    assert.match(workflow, /windows-portable-node-v1-/u)
     assert.match(workflow, /\.unilab-workbench\\downloads/u)
     assert.match(workflow, /aionui-prepared-windows-x64-v1-/u)
     assert.match(workflow, /validateBundledAgentPayload/u)
@@ -449,6 +593,10 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /Rolling release asset verification failed/u)
     assert.match(workflow, /actions\/upload-artifact@v6/u)
     assert.match(workflow, /compression-level: 0/u)
+    assert.match(
+      workflow,
+      /if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/deploy-windows'/u
+    )
 
     const builderConfiguration = await readFile(
       new URL('../electron-builder.yml', import.meta.url),

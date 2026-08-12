@@ -41,6 +41,7 @@ const MEBIBYTE = 1024 * 1024
 const MIN_INSTALLER_BYTES = 50 * MEBIBYTE
 export const MAX_PORTABLE_INSTALLER_BYTES = 850 * MEBIBYTE
 export const PORTABLE_NODE_VERSION = '24.14.0'
+export const PORTABLE_COMPRESSION_LEVELS = Object.freeze(['normal', 'maximum'])
 export const PORTABLE_NODE_ARCHIVES = Object.freeze({
   'linux-64': {
     hostPlatform: 'linux',
@@ -63,6 +64,12 @@ export const PORTABLE_NODE_ARCHIVES = Object.freeze({
 const workbenchDirectory = join(dirname(fileURLToPath(import.meta.url)), '..')
 const repositoryDirectory = resolve(workbenchDirectory, '../..')
 
+/**
+ * 构建当前主机对应的 portable Workbench，并生成可验证的安装器与更新元数据。
+ * @param {string} targetPlatform portable 目标平台标识。
+ * @returns {void} 成功时将安装器、更新元数据与体积报告写入发布目录。
+ * @throws {Error} 目标平台不匹配、资源不完整或安装器违反发布合同时抛出。
+ */
 export function packagePortableWorkbench(targetPlatform) {
   const descriptor = PORTABLE_NODE_ARCHIVES[targetPlatform]
   if (!descriptor) throw new Error(`不支持的 Workbench 平台：${targetPlatform}`)
@@ -75,6 +82,9 @@ export function packagePortableWorkbench(targetPlatform) {
     )
   }
   const updateUrl = requireWorkbenchUpdateUrl()
+  const compression = resolvePortableCompressionLevel(
+    process.env['UNILAB_WORKBENCH_COMPRESSION']
+  )
 
   const packagingDirectory = join(workbenchDirectory, '.packaging')
   const runtimePayloadDirectory = join(packagingDirectory, 'runtime-installer')
@@ -128,7 +138,10 @@ export function packagePortableWorkbench(targetPlatform) {
       process.env,
       { shell: process.platform === 'win32' }
     )
-    removeDesktopDeploymentSelfLink(desktopRuntimeDirectory)
+    const desktopMetrics = pruneDesktopDeployment(desktopRuntimeDirectory)
+    console.log(
+      `桌面端生产依赖已收敛：删除 ${desktopMetrics.removedFiles} 个构建文件，${desktopMetrics.removedBytes} bytes`
+    )
 
     const esbuildBinary = resolveEsbuildBinary(descriptor)
     mkdirSync(deviceCardBuilderDirectory, { recursive: true })
@@ -144,7 +157,8 @@ export function packagePortableWorkbench(targetPlatform) {
       '--x64',
       '--publish',
       'never',
-      `--config.directories.output=${outputDirectory}`
+      `--config.directories.output=${outputDirectory}`,
+      `--config.compression=${compression}`
     ]
     runCommand(process.execPath, [
       join(
@@ -190,6 +204,7 @@ export function packagePortableWorkbench(targetPlatform) {
       `${JSON.stringify({
         ...resourceReport,
         targetPlatform,
+        compression,
         installerBytes: installer.size
       }, null, 2)}\n`
     )
@@ -200,6 +215,22 @@ export function packagePortableWorkbench(targetPlatform) {
     rmSync(outputDirectory, { recursive: true, force: true })
     rmSync(packagingDirectory, { recursive: true, force: true })
   }
+}
+
+/**
+ * 解析 portable 安装包压缩级别，只接受经过 CI 基准验证的有限集合。
+ * @param {string | undefined} value 环境变量传入的候选压缩级别；省略时使用正式默认值。
+ * @returns {'normal' | 'maximum'} electron-builder 可接受的压缩级别。
+ * @throws {Error} 候选值不在允许集合中时抛出，避免静默生成不可比较的安装包。
+ */
+export function resolvePortableCompressionLevel(value) {
+  const compression = value?.trim() || 'normal'
+  if (!PORTABLE_COMPRESSION_LEVELS.includes(compression)) {
+    throw new Error(
+      `不支持的 Workbench 压缩级别：${compression}；仅支持 ${PORTABLE_COMPRESSION_LEVELS.join('、')}`
+    )
+  }
+  return compression
 }
 
 /**
@@ -222,6 +253,100 @@ export function removeDesktopDeploymentSelfLink(deploymentDirectory) {
   }
   rmSync(selfLink, { force: true })
   return true
+}
+
+/**
+ * 收敛桌面端生产依赖，只保留运行时可达文件与由独立路径提供的原生工具。
+ * @param {string} deploymentDirectory 桌面端生产依赖的部署目录。
+ * @returns {{removedSelfLink: boolean, removedFiles: number, removedBytes: number}} 裁剪结果。
+ */
+export function pruneDesktopDeployment(deploymentDirectory) {
+  const nodeModules = join(deploymentDirectory, 'node_modules')
+  if (!existsSync(nodeModules)) {
+    throw new Error(`桌面端生产依赖目录不存在：${nodeModules}`)
+  }
+  const removedSelfLink = removeDesktopDeploymentSelfLink(deploymentDirectory)
+  let removedFiles = 0
+  let removedBytes = 0
+  const executableDirectory = join(nodeModules, '.bin')
+  const esbuildLaunchers = existsSync(executableDirectory)
+    ? readdirSync(executableDirectory)
+      .filter((name) => name === 'esbuild' || name.startsWith('esbuild.'))
+      .map((name) => join(executableDirectory, name))
+    : []
+  for (const unreachablePath of [
+    join(nodeModules, '@esbuild'),
+    join(nodeModules, 'esbuild', 'bin'),
+    ...esbuildLaunchers,
+    join(
+      nodeModules,
+      '@vue',
+      'compiler-sfc',
+      'dist',
+      'compiler-sfc.esm-browser.js'
+    )
+  ]) {
+    const pathMetrics = removeDeploymentPath(unreachablePath)
+    removedFiles += pathMetrics.removedFiles
+    removedBytes += pathMetrics.removedBytes
+  }
+  const buildOnlyMetrics = pruneDesktopBuildOnlyFiles(nodeModules)
+  return {
+    removedSelfLink,
+    removedFiles: removedFiles + buildOnlyMetrics.removedFiles,
+    removedBytes: removedBytes + buildOnlyMetrics.removedBytes
+  }
+}
+
+/**
+ * 删除单个不可达路径，并统计其中实际移除的文件与字节。
+ * @param {string} path 待删除的文件、链接或目录。
+ * @returns {{removedFiles: number, removedBytes: number}} 删除统计。
+ */
+function removeDeploymentPath(path) {
+  let entry
+  try {
+    entry = lstatSync(path)
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { removedFiles: 0, removedBytes: 0 }
+    throw error
+  }
+  if (!entry.isDirectory() || entry.isSymbolicLink()) {
+    rmSync(path, { force: true })
+    return { removedFiles: 1, removedBytes: entry.size }
+  }
+  let removedFiles = 0
+  let removedBytes = 0
+  for (const child of readdirSync(path)) {
+    const childMetrics = removeDeploymentPath(join(path, child))
+    removedFiles += childMetrics.removedFiles
+    removedBytes += childMetrics.removedBytes
+  }
+  rmSync(path, { recursive: true, force: true })
+  return { removedFiles, removedBytes }
+}
+
+/**
+ * 递归删除生产运行时不读取的源码映射和类型声明。
+ * @param {string} directory 当前扫描目录。
+ * @returns {{removedFiles: number, removedBytes: number}} 删除的文件数与字节数。
+ */
+function pruneDesktopBuildOnlyFiles(directory) {
+  let removedFiles = 0
+  let removedBytes = 0
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const entryPath = join(directory, entry.name)
+    if (entry.isDirectory()) {
+      const childMetrics = pruneDesktopBuildOnlyFiles(entryPath)
+      removedFiles += childMetrics.removedFiles
+      removedBytes += childMetrics.removedBytes
+    } else if (/\.(?:map|d\.ts|d\.mts|d\.cts|flow|tsbuildinfo)$/u.test(entry.name)) {
+      removedBytes += lstatSync(entryPath).size
+      rmSync(entryPath, { force: true })
+      removedFiles += 1
+    }
+  }
+  return { removedFiles, removedBytes }
 }
 
 function prepareNodeRuntime(descriptor, destination, packagingDirectory) {
