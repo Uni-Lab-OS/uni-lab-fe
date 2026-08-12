@@ -328,6 +328,17 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(workflow, /AIONUI_MACOS_SHA512: [a-f0-9]{128}/u)
     assert.match(workflow, /--platform osx-arm64/u)
     assert.match(workflow, /AionUi-\$AIONUI_VERSION-mac-arm64\.dmg/u)
+    assert.match(workflow, /Restore prepared macOS Agent payload/u)
+    assert.match(workflow, /aionui-prepared-macos-arm64-v1-/u)
+    assert.match(workflow, /actions\/cache\/restore@v6/u)
+    assert.match(workflow, /actions\/cache\/save@v6/u)
+    assert.match(workflow, /\.ci-cache\/agent-payload/u)
+    assert.match(workflow, /Cache pinned Theia plugins/u)
+    assert.match(workflow, /apps\/workbench\/plugins/u)
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_INSTALLER=\$GITHUB_WORKSPACE\/\$runtime_source/u
+    )
     assert.match(workflow, /build:desktop:production/u)
     assert.match(workflow, /package-macos\.mjs --unsigned/u)
     assert.match(workflow, /macos-packaging-metrics\.json/u)

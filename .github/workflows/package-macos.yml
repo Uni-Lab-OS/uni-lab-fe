@@ -127,10 +127,7 @@ jobs:
           runtime_count="$(find .ci-cache/runtime -maxdepth 1 -type f -name '*.sh' | wc -l | tr -d ' ')"
           test "$runtime_count" = 1
           runtime_source="$(find .ci-cache/runtime -maxdepth 1 -type f -name '*.sh' -print -quit)"
-          runtime_installer="$RUNNER_TEMP/$(basename "$runtime_source")"
-          cp "$runtime_source" "$runtime_installer"
-          chmod +x "$runtime_installer"
-          echo "UNILAB_RUNTIME_INSTALLER=$runtime_installer" >> "$GITHUB_ENV"
+          echo "UNILAB_RUNTIME_INSTALLER=$GITHUB_WORKSPACE/$runtime_source" >> "$GITHUB_ENV"
           rm -rf .runtime-source
 
       - name: Cache Electron packaging toolchain
@@ -142,23 +139,21 @@ jobs:
             ~/Library/Caches/UniLab Workbench/downloads
           key: macos-electron-builder-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - name: Cache pinned AionUi distribution
-        id: agent-cache
-        uses: actions/cache@v6
+      - name: Restore prepared macOS Agent payload
+        id: agent-payload-cache
+        uses: actions/cache/restore@v6
         with:
-          path: .ci-cache/agent/AionUi-${{ env.AIONUI_VERSION }}-mac-arm64.dmg
-          key: aionui-macos-arm64-${{ env.AIONUI_VERSION }}-${{ env.AIONUI_MACOS_SHA512 }}
+          path: .ci-cache/agent-payload
+          key: aionui-prepared-macos-arm64-v1-${{ env.AIONUI_VERSION }}-${{ env.AIONUI_MACOS_SHA512 }}-${{ hashFiles('apps/workbench/scripts/agent-payload.mjs', 'apps/workbench/scripts/package-macos.mjs') }}
 
       - name: Download and verify pinned AionUi distribution
+        if: steps.agent-payload-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          agent_dmg=".ci-cache/agent/AionUi-$AIONUI_VERSION-mac-arm64.dmg"
-          mkdir -p "$(dirname "$agent_dmg")"
-          if [[ ! -f "$agent_dmg" ]]; then
-            curl --fail --location --retry 5 --retry-all-errors \
-              --output "$agent_dmg" \
-              "https://static.aionui.com/releases/$AIONUI_VERSION/AionUi-$AIONUI_VERSION-mac-arm64.dmg"
-          fi
+          agent_dmg="$RUNNER_TEMP/AionUi-$AIONUI_VERSION-mac-arm64.dmg"
+          curl --fail --location --retry 5 --retry-all-errors \
+            --output "$agent_dmg" \
+            "https://static.aionui.com/releases/$AIONUI_VERSION/AionUi-$AIONUI_VERSION-mac-arm64.dmg"
           actual_sha512="$(shasum -a 512 "$agent_dmg" | awk '{print $1}')"
           if [[ "$actual_sha512" != "$AIONUI_MACOS_SHA512" ]]; then
             echo "AionUi SHA-512 mismatch: expected $AIONUI_MACOS_SHA512, received $actual_sha512" >&2
@@ -166,12 +161,13 @@ jobs:
           fi
 
       - name: Prepare macOS Agent
+        if: steps.agent-payload-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          agent_dmg=".ci-cache/agent/AionUi-$AIONUI_VERSION-mac-arm64.dmg"
+          agent_dmg="$RUNNER_TEMP/AionUi-$AIONUI_VERSION-mac-arm64.dmg"
           mount_point="$RUNNER_TEMP/aionui-mount"
-          agent_output="$RUNNER_TEMP/aionui-resources"
-          mkdir -p "$mount_point" "$agent_output/bundled-aioncore/darwin-arm64"
+          agent_output="$GITHUB_WORKSPACE/.ci-cache/agent-payload"
+          mkdir -p "$mount_point"
           # 失败时也卸载只读镜像，避免占用后续打包所需磁盘空间。
           trap 'hdiutil detach "$mount_point" -force >/dev/null 2>&1 || true' EXIT
           hdiutil attach "$agent_dmg" -readonly -nobrowse -quiet -mountpoint "$mount_point"
@@ -182,11 +178,47 @@ jobs:
           agent_core="$(find "$agent_resources/bundled-aioncore" -type f -name aioncore -path '*darwin-arm64*' -print -quit)"
           test -n "$agent_core"
           test -d "$(dirname "$agent_core")/managed-resources"
-          ditto "$agent_resources/app.asar" "$agent_output/app.asar"
-          ditto "$(dirname "$agent_core")" "$agent_output/bundled-aioncore/darwin-arm64"
+
+          AGENT_SOURCE="$agent_resources" AGENT_OUTPUT="$agent_output" \
+            node --input-type=module <<'NODE'
+          import { prepareBundledAgentPayload } from './apps/workbench/scripts/agent-payload.mjs'
+          import { NODE_RUNTIME_VERSION } from './apps/workbench/scripts/package-macos.mjs'
+
+          prepareBundledAgentPayload(process.env.AGENT_OUTPUT, {
+            sourcePath: process.env.AGENT_SOURCE,
+            platform: 'darwin',
+            architecture: 'arm64',
+            // 启动器在成品中通过环境变量定位 Workbench 共享 Node，
+            // 缓存阶段只需写入固定版本，不绑定 CI 主机路径。
+            sharedNodeExecutable: process.execPath,
+            sharedNodeVersion: NODE_RUNTIME_VERSION
+          })
+          NODE
           hdiutil detach "$mount_point" -force
           trap - EXIT
+          rm -f "$agent_dmg"
+
+      - name: Save prepared macOS Agent payload
+        if: steps.agent-payload-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .ci-cache/agent-payload
+          key: ${{ steps.agent-payload-cache.outputs.cache-primary-key }}
+
+      - name: Select prepared macOS Agent payload
+        run: |
+          set -euo pipefail
+          agent_output="$GITHUB_WORKSPACE/.ci-cache/agent-payload"
+          test -f "$agent_output/app.asar"
+          test -f "$agent_output/payload.json"
+          test -x "$agent_output/bundled-aioncore/darwin-arm64/aioncore"
           echo "UNILAB_AGENT_DISTRIBUTION=$agent_output" >> "$GITHUB_ENV"
+
+      - name: Cache pinned Theia plugins
+        uses: actions/cache@v6
+        with:
+          path: apps/workbench/plugins
+          key: macos-workbench-plugins-v1-${{ hashFiles('apps/workbench/package.json') }}
 
       - name: Report disk before build
         run: |
