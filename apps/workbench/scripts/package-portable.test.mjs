@@ -434,6 +434,8 @@ describe('portable Workbench packaging contract', () => {
     const uploadMetadataIndex = workflow.indexOf('$metadata.FullName')
     assert.ok(uploadBinaryIndex >= 0)
     assert.ok(uploadBinaryIndex < uploadMetadataIndex)
+    assert.match(workflow, /HashSet\[string\]/u)
+    assert.match(workflow, /Rolling release asset verification failed/u)
     assert.match(workflow, /actions\/upload-artifact@v6/u)
     assert.match(workflow, /compression-level: 0/u)
 

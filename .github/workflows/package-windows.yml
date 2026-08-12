@@ -307,25 +307,44 @@ jobs:
           & gh release upload $env:WINDOWS_RELEASE_TAG $installer.FullName $blockmap.FullName `
             --repo $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Unable to upload Windows update binaries' }
-          & gh release upload $env:WINDOWS_RELEASE_TAG $metadata.FullName `
-            --repo $env:GITHUB_REPOSITORY --clobber
-          if ($LASTEXITCODE -ne 0) { throw 'Unable to publish Windows update metadata' }
 
           # Version changes rename the installer. Remove superseded assets only
-          # after latest.yml points at the complete new bundle.
-          $keepNames = @($installer.Name, $blockmap.Name, $metadata.Name)
+          # after the complete replacement binaries are available.
+          $keepBinaryNames = [System.Collections.Generic.HashSet[string]]::new(
+            [System.StringComparer]::OrdinalIgnoreCase
+          )
+          [void]$keepBinaryNames.Add([string]$installer.Name)
+          [void]$keepBinaryNames.Add([string]$blockmap.Name)
           $releaseJson = & gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:WINDOWS_RELEASE_TAG"
           if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect the published Windows release' }
           $release = $releaseJson | ConvertFrom-Json
           $staleAssets = @($release.assets | Where-Object {
-            $keepNames -notcontains $_.name -and (
-              $_.name -eq 'latest.yml' -or
-              $_.name -match '-setup\.exe(?:\.blockmap)?$'
-            )
+            -not $keepBinaryNames.Contains([string]$_.name) -and
+            $_.name -match '-setup\.exe(?:\.blockmap)?$'
           })
           foreach ($asset in $staleAssets) {
             & gh api --method DELETE "repos/$env:GITHUB_REPOSITORY/releases/assets/$($asset.id)" | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "Unable to remove stale release asset $($asset.name)" }
+          }
+
+          & gh release upload $env:WINDOWS_RELEASE_TAG $metadata.FullName `
+            --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to publish Windows update metadata' }
+
+          # Verify exact names and sizes before declaring deployment complete.
+          $releaseJson = & gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:WINDOWS_RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to verify the Windows release' }
+          $release = $releaseJson | ConvertFrom-Json
+          $expectedAssets = @{
+            ([string]$installer.Name) = [long]$installer.Length
+            ([string]$blockmap.Name) = [long]$blockmap.Length
+            ([string]$metadata.Name) = [long]$metadata.Length
+          }
+          foreach ($expected in $expectedAssets.GetEnumerator()) {
+            $published = @($release.assets | Where-Object { $_.name -eq $expected.Key })
+            if ($published.Count -ne 1 -or [long]$published[0].size -ne $expected.Value) {
+              throw "Rolling release asset verification failed: $($expected.Key)"
+            }
           }
 
           $releaseBody = @"
