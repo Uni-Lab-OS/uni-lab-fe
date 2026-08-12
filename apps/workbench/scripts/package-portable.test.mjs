@@ -456,6 +456,10 @@ describe('portable Workbench packaging contract', () => {
     )
     assert.match(builderConfiguration, /differentialPackage: true/u)
     assert.match(builderConfiguration, /packElevateHelper: true/u)
+    assert.match(
+      builderConfiguration,
+      /artifactName: UniLab\.Workbench-\$\{version\}-\$\{arch\}-setup\.\$\{ext\}/u
+    )
     assert.match(builderConfiguration, /^publish:\n  provider: generic$/mu)
     assert.match(builderConfiguration, /UNILAB_WORKBENCH_UPDATE_URL/u)
   })

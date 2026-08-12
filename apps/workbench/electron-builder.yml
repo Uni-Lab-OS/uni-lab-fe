@@ -126,7 +126,10 @@ win:
     - target: nsis
       arch:
         - x64
-  artifactName: ${productName}-${version}-${arch}-setup.${ext}
+  # GitHub Release normalizes spaces in asset names to periods. Generate the
+  # updater metadata with that safe name up front so latest.yml and the actual
+  # release asset always agree.
+  artifactName: UniLab.Workbench-${version}-${arch}-setup.${ext}
 nsis:
   oneClick: false
   perMachine: false
