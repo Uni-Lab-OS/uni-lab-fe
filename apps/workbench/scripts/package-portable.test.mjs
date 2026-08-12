@@ -204,6 +204,7 @@ describe('portable Workbench packaging contract', () => {
     }
   })
 
+  /** 验证各平台安装包复用收敛后的生产构建与耗时可控的默认压缩。 */
   it('builds every installer from a bounded production Workbench bundle', async () => {
     const packageManifest = JSON.parse(await readFile(
       new URL('../package.json', import.meta.url),
@@ -239,7 +240,7 @@ describe('portable Workbench packaging contract', () => {
         /^pnpm build:desktop:production/u
       )
     }
-    assert.match(builderConfiguration, /^compression: maximum$/mu)
+    assert.match(builderConfiguration, /^compression: normal$/mu)
     assert.equal(
       packageManifest.optionalDependencies['@vscode/windows-ca-certs'],
       '0.3.4'

@@ -304,6 +304,7 @@ describe('Workbench macOS distribution gate', () => {
     assert.ok(deployIndex >= 0)
     assert.ok(deployIndex < removalIndex)
     assert.ok(removalIndex < builderIndex)
+    assert.match(builderConfiguration, /^compression: normal$/mu)
     assert.match(builderConfiguration, /minimumSystemVersion: '13\.0'/u)
     assert.match(builderConfiguration, /^\s+format: ULFO$/mu)
     assert.match(builderConfiguration, /^\s+writeUpdateInfo: false$/mu)
