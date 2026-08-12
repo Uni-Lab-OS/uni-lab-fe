@@ -368,6 +368,7 @@ describe('portable Workbench packaging contract', () => {
     )
 
     assert.match(workflow, /runs-on: windows-2022/u)
+    assert.match(workflow, /permissions:\n(?:.|\n)*?contents: write/u)
     assert.match(workflow, /build\/Release\/crypt32\.node/u)
     assert.match(
       workflow,
@@ -418,7 +419,21 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /release-windows\/\*-setup\.exe\.blockmap/u)
     assert.match(workflow, /release-windows\/latest\.yml/u)
     assert.match(workflow, /release-windows\/package-size-report\.json/u)
-    assert.match(workflow, /vars\.UNILAB_WORKBENCH_UPDATE_URL/u)
+    assert.match(workflow, /WINDOWS_RELEASE_TAG: workbench-windows-stable/u)
+    assert.match(
+      workflow,
+      /releases\/download\/workbench-windows-stable/u
+    )
+    assert.doesNotMatch(workflow, /vars\.UNILAB_WORKBENCH_UPDATE_URL/u)
+    assert.match(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/u)
+    assert.match(workflow, /gh release upload/u)
+    assert.doesNotMatch(workflow, /gh release create/u)
+    const uploadBinaryIndex = workflow.indexOf(
+      '$installer.FullName $blockmap.FullName'
+    )
+    const uploadMetadataIndex = workflow.indexOf('$metadata.FullName')
+    assert.ok(uploadBinaryIndex >= 0)
+    assert.ok(uploadBinaryIndex < uploadMetadataIndex)
     assert.match(workflow, /actions\/upload-artifact@v6/u)
     assert.match(workflow, /compression-level: 0/u)
 

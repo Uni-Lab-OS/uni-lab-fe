@@ -225,11 +225,18 @@ and blockmap before atomically replacing `latest.yml`; publish the signed macOS
 ZIP and ZIP blockmap before `latest-mac.yml`; publish the AppImage and blockmap
 before `latest-linux.yml`. The HTTP service must support HTTPS, `GET`, `HEAD`,
 byte-range requests, stable public artifact URLs, and must not cache the
-`latest*.yml` metadata for long. Repository variable
-`UNILAB_WORKBENCH_UPDATE_URL` supplies the Windows packaging workflow; upload
-to the update service remains an explicit release/deployment step. Formal
-Windows artifacts must use the same trusted code-signing identity across
-versions; formal macOS artifacts must remain Developer ID signed and notarized.
+`latest*.yml` metadata for long.
+
+The `deploy-windows` branch uses the pre-created
+`workbench-windows-stable` rolling GitHub Release as its Windows update
+directory. Its workflow uploads the NSIS EXE and blockmap first, replaces
+`latest.yml` last, and then removes superseded Windows updater assets. This
+rolling channel deliberately does not replace the repository's Latest Release,
+which may belong to another product. The workflow's `GITHUB_TOKEN` only updates
+the existing release; bootstrapping or recreating that release requires an
+authorized maintainer token. Formal Windows artifacts must use the same trusted
+code-signing identity across versions; formal macOS artifacts must remain
+Developer ID signed and notarized.
 
 ## macOS distribution
 
