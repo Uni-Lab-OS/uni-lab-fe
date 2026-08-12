@@ -27,6 +27,7 @@ import {
   prepareBundledAgentPayload,
   validateBundledAgentPayload
 } from './agent-payload.mjs'
+import { removeDesktopDeploymentSelfLink } from './package-portable.mjs'
 
 const MEBIBYTE = 1024 * 1024
 const MIN_INSTALLER_BYTES = 50 * MEBIBYTE
@@ -227,6 +228,7 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
     copyFileSync(esbuildBinary, join(deviceCardBuilderDirectory, 'esbuild'))
     chmodSync(join(deviceCardBuilderDirectory, 'esbuild'), 0o755)
     runCommand('pnpm', [
+      '--config.node-linker=hoisted',
       '--filter',
       '@unilab/desktop',
       'deploy',
@@ -235,6 +237,7 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       '--prefer-offline',
       desktopRuntimeDirectory
     ], repositoryDirectory)
+    removeDesktopDeploymentSelfLink(desktopRuntimeDirectory)
 
     const builderArgs = [
       '--mac',

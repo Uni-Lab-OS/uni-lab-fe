@@ -269,4 +269,29 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(packagingScript, /'--prefer-offline'/u)
     assert.doesNotMatch(packagingScript, /\n\s*'--offline',?\n/u)
   })
+
+  /** 验证 macOS 在打包前收敛生产依赖，并使用系统兼容的快速 DMG 压缩。 */
+  it('bounds deployment copying and uses LZFSE DMG compression', async () => {
+    const packagingScript = await readFile(
+      new URL('./package-macos.mjs', import.meta.url),
+      'utf8'
+    )
+    const builderConfiguration = await readFile(
+      new URL('../electron-builder.yml', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(packagingScript, /'--config\.node-linker=hoisted'/u)
+    const deployIndex = packagingScript.indexOf("'deploy'")
+    const removalIndex = packagingScript.indexOf(
+      'removeDesktopDeploymentSelfLink(desktopRuntimeDirectory)'
+    )
+    const builderIndex = packagingScript.indexOf("'electron-builder'")
+    assert.ok(deployIndex >= 0)
+    assert.ok(deployIndex < removalIndex)
+    assert.ok(removalIndex < builderIndex)
+    assert.match(builderConfiguration, /minimumSystemVersion: '13\.0'/u)
+    assert.match(builderConfiguration, /^\s+format: ULFO$/mu)
+    assert.match(builderConfiguration, /^\s+writeUpdateInfo: false$/mu)
+  })
 })

@@ -100,6 +100,12 @@ mac:
   notarize: true
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
+  # macOS 13+ supports LZFSE. It avoids maximum compression's much slower UDBZ
+  # conversion while retaining a compressed, directly mountable disk image.
+  format: ULFO
+  # macOS updates use the ZIP blockmap referenced by latest-mac.yml.
+  # Avoid scanning the large DMG and publishing metadata the updater never reads.
+  writeUpdateInfo: false
 linux:
   category: Development
   icon: icon.png
