@@ -1,0 +1,322 @@
+name: Benchmark macOS Workbench Packaging
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ci/macos-packaging-benchmark
+    paths:
+      - .github/workflows/package-macos.yml
+      - apps/desktop/**
+      - apps/workbench/**
+      - packages/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AIONUI_MACOS_SHA512: 68ad39e6c877a623c7a27f0612e9299525fbc406f1aca96d4c85bed6c446c6632e77249d94cd6e0689c2e98c34faca395e64b37b7a92ed99e57b1abcbf95d867
+  AIONUI_VERSION: 2.1.53
+  CONSTRUCTOR_VERSION: 3.16.1
+  MICROMAMBA_VERSION: 2.8.1
+  MINIFORGE_VERSION: 26.3.2-3
+  UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf
+  UNILAB_RUNTIME_VERSION: 0.11.3
+  # 基准分支不发布更新；仅提供 electron-builder 生成 metadata 所需的合法地址。
+  UNILAB_WORKBENCH_UPDATE_URL: ${{ vars.UNILAB_WORKBENCH_UPDATE_URL || 'https://downloads.example.invalid/unilab-workbench' }}
+
+jobs:
+  package-macos-arm64:
+    # GitHub 的 macos-14 标准镜像为 Apple Silicon，可直接构建 arm64 原生依赖。
+    runs-on: macos-14
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - name: Start pipeline timer
+        run: echo "PIPELINE_STARTED_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Check out Workbench
+        uses: actions/checkout@v6
+
+      - name: Restore macOS Runtime
+        id: runtime-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .ci-cache/runtime/*.sh
+          key: macos-runtime-installer-v1-${{ runner.arch }}-${{ env.UNILAB_RUNTIME_VERSION }}-${{ env.UNILAB_RUNTIME_SOURCE_REF }}-miniforge-${{ env.MINIFORGE_VERSION }}-constructor-${{ env.CONSTRUCTOR_VERSION }}-micromamba-${{ env.MICROMAMBA_VERSION }}
+
+      - name: Check out Uni-Lab OS
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: Uni-Lab-OS/Uni-Lab-OS
+          # 固定 Constructor 定义所在提交，避免 Runtime 内容随默认分支漂移。
+          ref: ${{ env.UNILAB_RUNTIME_SOURCE_REF }}
+          path: .runtime-source
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.13.1
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.21.1
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install Workbench dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set up Constructor
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          miniforge-version: ${{ env.MINIFORGE_VERSION }}
+          use-mamba: true
+          activate-environment: constructor-build
+          auto-update-conda: false
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Build macOS arm64 Runtime
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        working-directory: .runtime-source
+        run: |
+          set -euo pipefail
+          test -f .conda/constructor/construct.yaml
+          mamba install -n constructor-build --override-channels -c conda-forge \
+            "constructor=$CONSTRUCTOR_VERSION" \
+            "micromamba=$MICROMAMBA_VERSION" \
+            -y
+          conda_exe="$(command -v micromamba)"
+          test -x "$conda_exe"
+          constructor .conda/constructor \
+            --platform osx-arm64 \
+            --conda-exe "$conda_exe" \
+            --output-dir dist/constructor
+
+          runtime_installer="$(find dist/constructor -maxdepth 1 -type f -name '*.sh' -print -quit)"
+          test -n "$runtime_installer"
+          mkdir -p ../.ci-cache/runtime
+          cp "$runtime_installer" ../.ci-cache/runtime/
+          mamba clean --all -y
+
+      - name: Save macOS Runtime
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .ci-cache/runtime/*.sh
+          key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
+
+      - name: Prepare macOS Runtime
+        run: |
+          set -euo pipefail
+          runtime_count="$(find .ci-cache/runtime -maxdepth 1 -type f -name '*.sh' | wc -l | tr -d ' ')"
+          test "$runtime_count" = 1
+          runtime_source="$(find .ci-cache/runtime -maxdepth 1 -type f -name '*.sh' -print -quit)"
+          runtime_installer="$RUNNER_TEMP/$(basename "$runtime_source")"
+          cp "$runtime_source" "$runtime_installer"
+          chmod +x "$runtime_installer"
+          echo "UNILAB_RUNTIME_INSTALLER=$runtime_installer" >> "$GITHUB_ENV"
+          rm -rf .runtime-source
+
+      - name: Cache Electron packaging toolchain
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            ~/Library/Caches/UniLab Workbench/downloads
+          key: macos-electron-builder-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Cache pinned AionUi distribution
+        id: agent-cache
+        uses: actions/cache@v6
+        with:
+          path: .ci-cache/agent/AionUi-${{ env.AIONUI_VERSION }}-mac-arm64.dmg
+          key: aionui-macos-arm64-${{ env.AIONUI_VERSION }}-${{ env.AIONUI_MACOS_SHA512 }}
+
+      - name: Download and verify pinned AionUi distribution
+        run: |
+          set -euo pipefail
+          agent_dmg=".ci-cache/agent/AionUi-$AIONUI_VERSION-mac-arm64.dmg"
+          mkdir -p "$(dirname "$agent_dmg")"
+          if [[ ! -f "$agent_dmg" ]]; then
+            curl --fail --location --retry 5 --retry-all-errors \
+              --output "$agent_dmg" \
+              "https://static.aionui.com/releases/$AIONUI_VERSION/AionUi-$AIONUI_VERSION-mac-arm64.dmg"
+          fi
+          actual_sha512="$(shasum -a 512 "$agent_dmg" | awk '{print $1}')"
+          if [[ "$actual_sha512" != "$AIONUI_MACOS_SHA512" ]]; then
+            echo "AionUi SHA-512 mismatch: expected $AIONUI_MACOS_SHA512, received $actual_sha512" >&2
+            exit 1
+          fi
+
+      - name: Prepare macOS Agent
+        run: |
+          set -euo pipefail
+          agent_dmg=".ci-cache/agent/AionUi-$AIONUI_VERSION-mac-arm64.dmg"
+          mount_point="$RUNNER_TEMP/aionui-mount"
+          agent_output="$RUNNER_TEMP/aionui-resources"
+          mkdir -p "$mount_point" "$agent_output/bundled-aioncore/darwin-arm64"
+          # 失败时也卸载只读镜像，避免占用后续打包所需磁盘空间。
+          trap 'hdiutil detach "$mount_point" -force >/dev/null 2>&1 || true' EXIT
+          hdiutil attach "$agent_dmg" -readonly -nobrowse -quiet -mountpoint "$mount_point"
+          agent_app="$(find "$mount_point" -maxdepth 1 -type d -name '*.app' -print -quit)"
+          test -n "$agent_app"
+          agent_resources="$agent_app/Contents/Resources"
+          test -f "$agent_resources/app.asar"
+          agent_core="$(find "$agent_resources/bundled-aioncore" -type f -name aioncore -path '*darwin-arm64*' -print -quit)"
+          test -n "$agent_core"
+          test -d "$(dirname "$agent_core")/managed-resources"
+          ditto "$agent_resources/app.asar" "$agent_output/app.asar"
+          ditto "$(dirname "$agent_core")" "$agent_output/bundled-aioncore/darwin-arm64"
+          hdiutil detach "$mount_point" -force
+          trap - EXIT
+          echo "UNILAB_AGENT_DISTRIBUTION=$agent_output" >> "$GITHUB_ENV"
+
+      - name: Report disk before build
+        run: |
+          df -h .
+          du -sh node_modules .ci-cache "$UNILAB_AGENT_DISTRIBUTION" "$UNILAB_RUNTIME_INSTALLER"
+
+      - name: Build production Workbench
+        run: |
+          set -euo pipefail
+          build_started="$(date +%s)"
+          /usr/bin/time -l -p pnpm --filter @unilab/workbench build:desktop:production \
+            2>&1 | tee "$RUNNER_TEMP/workbench-build.log"
+          build_finished="$(date +%s)"
+          echo "BUILD_SECONDS=$((build_finished - build_started))" >> "$GITHUB_ENV"
+
+      - name: Package unsigned macOS arm64 bundle
+        run: |
+          set -euo pipefail
+          package_started="$(date +%s)"
+          /usr/bin/time -l -p node apps/workbench/scripts/package-macos.mjs --unsigned \
+            2>&1 | tee "$RUNNER_TEMP/workbench-package.log"
+          package_finished="$(date +%s)"
+          echo "PACKAGE_SECONDS=$((package_finished - package_started))" >> "$GITHUB_ENV"
+
+      - name: Verify bundle and collect metrics
+        run: |
+          set -euo pipefail
+          release_directory="apps/workbench/release-macos"
+          dmg_path="$(find "$release_directory" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+          zip_path="$(find "$release_directory" -maxdepth 1 -type f -name '*.zip' -print -quit)"
+          blockmap_path="$(find "$release_directory" -maxdepth 1 -type f -name '*.zip.blockmap' -print -quit)"
+          test -n "$dmg_path"
+          test -n "$zip_path"
+          test -n "$blockmap_path"
+          test -f "$release_directory/latest-mac.yml"
+          hdiutil verify "$dmg_path"
+
+          verify_mount="$RUNNER_TEMP/workbench-dmg-mount"
+          mkdir -p "$verify_mount"
+          # 指标采集失败时也保证卸载成品镜像。
+          trap 'hdiutil detach "$verify_mount" -force >/dev/null 2>&1 || true' EXIT
+          hdiutil attach "$dmg_path" -readonly -nobrowse -quiet -mountpoint "$verify_mount"
+          packaged_app="$(find "$verify_mount" -maxdepth 1 -type d -name '*.app' -print -quit)"
+          test -n "$packaged_app"
+          installed_kib="$(du -sk "$packaged_app" | awk '{print $1}')"
+          resources_kib="$(du -sk "$packaged_app/Contents/Resources" | awk '{print $1}')"
+          hdiutil detach "$verify_mount" -force
+          trap - EXIT
+
+          dmg_bytes="$(stat -f '%z' "$dmg_path")"
+          zip_bytes="$(stat -f '%z' "$zip_path")"
+          blockmap_bytes="$(stat -f '%z' "$blockmap_path")"
+          installed_bytes="$((installed_kib * 1024))"
+          resources_bytes="$((resources_kib * 1024))"
+          pipeline_seconds="$(($(date +%s) - PIPELINE_STARTED_EPOCH))"
+          dmg_sha256="$(shasum -a 256 "$dmg_path" | awk '{print $1}')"
+          zip_sha256="$(shasum -a 256 "$zip_path" | awk '{print $1}')"
+
+          node - "$BUILD_SECONDS" "$PACKAGE_SECONDS" "$pipeline_seconds" \
+            "$dmg_path" "$dmg_bytes" "$dmg_sha256" \
+            "$zip_path" "$zip_bytes" "$zip_sha256" \
+            "$blockmap_bytes" "$installed_bytes" "$resources_bytes" <<'NODE'
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const values = process.argv.slice(2)
+          const metrics = {
+            schemaVersion: 1,
+            runner: 'macos-14 arm64',
+            commit: process.env.GITHUB_SHA,
+            seconds: {
+              productionBuild: Number(values[0]),
+              nativePackaging: Number(values[1]),
+              buildAndPackage: Number(values[0]) + Number(values[1]),
+              pipelineBeforeUpload: Number(values[2])
+            },
+            bytes: {
+              dmg: Number(values[4]),
+              zip: Number(values[7]),
+              zipBlockmap: Number(values[9]),
+              installedApplication: Number(values[10]),
+              applicationResources: Number(values[11])
+            },
+            sha256: {
+              dmg: values[5],
+              zip: values[8]
+            },
+            files: {
+              dmg: path.basename(values[3]),
+              zip: path.basename(values[6])
+            }
+          }
+          fs.writeFileSync(
+            'apps/workbench/release-macos/macos-packaging-metrics.json',
+            `${JSON.stringify(metrics, null, 2)}\n`
+          )
+          NODE
+
+          {
+            echo '## macOS Workbench packaging benchmark'
+            echo
+            echo '| Metric | Result |'
+            echo '| --- | ---: |'
+            echo "| Production build | ${BUILD_SECONDS}s |"
+            echo "| Native packaging | ${PACKAGE_SECONDS}s |"
+            echo "| Build + packaging | $((BUILD_SECONDS + PACKAGE_SECONDS))s |"
+            echo "| Pipeline before upload | ${pipeline_seconds}s |"
+            echo "| DMG | ${dmg_bytes} bytes |"
+            echo "| ZIP | ${zip_bytes} bytes |"
+            echo "| Installed application | ${installed_bytes} bytes |"
+            echo "| Application Resources | ${resources_bytes} bytes |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          cp "$RUNNER_TEMP/workbench-build.log" "$release_directory/"
+          cp "$RUNNER_TEMP/workbench-package.log" "$release_directory/"
+          cat "$release_directory/macos-packaging-metrics.json"
+          df -h .
+
+      - name: Upload macOS update bundle and metrics
+        uses: actions/upload-artifact@v6
+        with:
+          name: UniLab-Workbench-macos-arm64-${{ github.sha }}
+          path: |
+            apps/workbench/release-macos/*.dmg
+            apps/workbench/release-macos/*.zip
+            apps/workbench/release-macos/*.zip.blockmap
+            apps/workbench/release-macos/latest-mac.yml
+            apps/workbench/release-macos/macos-packaging-metrics.json
+            apps/workbench/release-macos/workbench-build.log
+            apps/workbench/release-macos/workbench-package.log
+          if-no-files-found: error
+          retention-days: 30
+          # DMG/ZIP 已压缩，上传阶段不重复压缩可显著缩短总耗时。
+          compression-level: 0
