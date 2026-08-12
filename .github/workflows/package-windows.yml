@@ -37,6 +37,27 @@ jobs:
       - name: Check out Workbench
         uses: actions/checkout@v6
 
+      # Fail before restoring multi-hundred-megabyte caches when the updater
+      # publishing contract has not been configured for this repository.
+      - name: Validate update publishing configuration
+        run: |
+          $rawUpdateUrl = $env:UNILAB_WORKBENCH_UPDATE_URL
+          if ([string]::IsNullOrWhiteSpace($rawUpdateUrl)) {
+            throw 'Missing repository Actions variable UNILAB_WORKBENCH_UPDATE_URL'
+          }
+          [Uri]$updateUri = $null
+          if (-not [Uri]::TryCreate($rawUpdateUrl.Trim(), [UriKind]::Absolute, [ref]$updateUri)) {
+            throw 'UNILAB_WORKBENCH_UPDATE_URL is not an absolute URL'
+          }
+          if (
+            $updateUri.Scheme -ne 'https' -or
+            -not [string]::IsNullOrEmpty($updateUri.UserInfo) -or
+            -not [string]::IsNullOrEmpty($updateUri.Query) -or
+            -not [string]::IsNullOrEmpty($updateUri.Fragment)
+          ) {
+            throw 'UNILAB_WORKBENCH_UPDATE_URL must be a credential-free HTTPS URL without query or fragment'
+          }
+
       - name: Restore Windows Runtime
         id: runtime-cache
         uses: actions/cache/restore@v6
@@ -122,16 +143,28 @@ jobs:
           path: |
             ~\AppData\Local\electron\Cache
             ~\AppData\Local\electron-builder\Cache
-          key: windows-electron-builder-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+            ~\.unilab-workbench\downloads
+          key: windows-electron-builder-v2-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'apps/workbench/scripts/package-portable.mjs') }}
 
-      - name: Prepare Windows Runtime and Agent
+      - name: Select Windows Runtime
         run: |
           $runtimes = @(Get-ChildItem .runtime-source/dist/constructor -File -Filter '*.exe')
           if ($runtimes.Count -ne 1) {
             throw "Expected one Uni-Lab Runtime installer, found $($runtimes.Count)"
           }
           $runtime = $runtimes[0]
+          "UNILAB_RUNTIME_INSTALLER=$($runtime.FullName)" >> $env:GITHUB_ENV
 
+      - name: Restore prepared Windows Agent payload
+        id: agent-payload-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .ci-cache/agent-runtime
+          key: aionui-prepared-windows-x64-v1-${{ env.AIONUI_VERSION }}-${{ env.AIONUI_WINDOWS_SHA512 }}-${{ hashFiles('apps/workbench/scripts/agent-payload.mjs') }}
+
+      - name: Download and prepare pinned Windows Agent payload
+        if: steps.agent-payload-cache.outputs.cache-hit != 'true'
+        run: |
           $agentInstaller = Join-Path $env:RUNNER_TEMP 'AionUi-win-x64.exe'
           $agentInstallerUrl = "https://static.aionui.com/releases/$env:AIONUI_VERSION/AionUi-$env:AIONUI_VERSION-win-x64.exe"
           curl.exe --fail --location --retry 5 --retry-all-errors --output $agentInstaller $agentInstallerUrl
@@ -179,8 +212,30 @@ jobs:
             throw "Unable to normalize the Windows Agent core: $normalizedExecutable"
           }
 
-          "UNILAB_RUNTIME_INSTALLER=$($runtime.FullName)" >> $env:GITHUB_ENV
-          "UNILAB_AGENT_DISTRIBUTION=$($agentResources.FullName)" >> $env:GITHUB_ENV
+          $env:AGENT_SOURCE = $agentResources.FullName
+          $env:AGENT_OUTPUT = Join-Path $env:GITHUB_WORKSPACE '.ci-cache\agent-runtime'
+          node --input-type=module -e "import { prepareBundledAgentPayload } from './apps/workbench/scripts/agent-payload.mjs'; prepareBundledAgentPayload(process.env.AGENT_OUTPUT, { sourcePath: process.env.AGENT_SOURCE, platform: 'win32', architecture: 'x64' })"
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to prepare the pinned Windows Agent payload' }
+
+      - name: Save prepared Windows Agent payload
+        if: steps.agent-payload-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .ci-cache/agent-runtime
+          key: ${{ steps.agent-payload-cache.outputs.cache-primary-key }}
+
+      - name: Select prepared Windows Agent payload
+        run: |
+          node --input-type=module -e "import { validateBundledAgentPayload } from './apps/workbench/scripts/agent-payload.mjs'; validateBundledAgentPayload('.ci-cache', 'win32', 'x64')"
+          if ($LASTEXITCODE -ne 0) { throw 'Prepared Windows Agent payload validation failed' }
+          $agentPayload = (Resolve-Path .ci-cache/agent-runtime).Path
+          "UNILAB_AGENT_DISTRIBUTION=$agentPayload" >> $env:GITHUB_ENV
+
+      - name: Cache pinned Theia plugins
+        uses: actions/cache@v6
+        with:
+          path: apps/workbench/plugins
+          key: windows-workbench-plugins-v1-${{ hashFiles('apps/workbench/package.json') }}
 
       - name: Build Windows x64 installer
         run: pnpm --filter @unilab/workbench package:win
@@ -202,6 +257,9 @@ jobs:
           if (-not (Test-Path apps/workbench/release-windows/latest.yml)) {
             throw 'Missing latest.yml update metadata'
           }
+          if (-not (Test-Path apps/workbench/release-windows/package-size-report.json)) {
+            throw 'Missing package-size-report.json'
+          }
           $blockmaps = @(Get-ChildItem apps/workbench/release-windows -File -Filter '*-setup.exe.blockmap')
           if ($blockmaps.Count -ne 1) {
             throw "Expected one Windows blockmap, found $($blockmaps.Count)"
@@ -215,6 +273,7 @@ jobs:
             apps/workbench/release-windows/*-setup.exe
             apps/workbench/release-windows/*-setup.exe.blockmap
             apps/workbench/release-windows/latest.yml
+            apps/workbench/release-windows/package-size-report.json
           if-no-files-found: error
           retention-days: 3
           # The NSIS EXE is already solid-compressed; recompressing it only

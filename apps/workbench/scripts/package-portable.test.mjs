@@ -378,17 +378,28 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /actions\/cache\/restore@v6/u)
     assert.match(workflow, /actions\/cache\/save@v6/u)
     assert.match(workflow, /cache-primary-key/u)
+    assert.match(workflow, /branches:\n\s+- deploy-windows/u)
+    assert.doesNotMatch(workflow, /workflow_dispatch:/u)
     assert.match(workflow, /windows-runtime-installer-v2-/u)
     assert.match(workflow, /dist\/constructor\/\*\.exe/u)
+    const validateConfigIndex = workflow.indexOf(
+      'name: Validate update publishing configuration'
+    )
     const restoreRuntimeIndex = workflow.indexOf('name: Restore Windows Runtime')
     const checkoutRuntimeIndex = workflow.indexOf('name: Check out Uni-Lab OS')
+    assert.ok(validateConfigIndex >= 0)
     assert.ok(restoreRuntimeIndex >= 0)
+    assert.ok(validateConfigIndex < restoreRuntimeIndex)
     assert.ok(restoreRuntimeIndex < checkoutRuntimeIndex)
     assert.match(
       workflow.slice(checkoutRuntimeIndex, checkoutRuntimeIndex + 180),
       /if: steps\.runtime-cache\.outputs\.cache-hit != 'true'/u
     )
-    assert.match(workflow, /windows-electron-builder-/u)
+    assert.match(workflow, /windows-electron-builder-v2-/u)
+    assert.match(workflow, /\.unilab-workbench\\downloads/u)
+    assert.match(workflow, /aionui-prepared-windows-x64-v1-/u)
+    assert.match(workflow, /validateBundledAgentPayload/u)
+    assert.match(workflow, /windows-workbench-plugins-v1-/u)
     assert.match(workflow, /MINIFORGE_VERSION: 26\.3\.2-3/u)
     assert.match(workflow, /AIONUI_WINDOWS_SHA512: [a-f0-9]{128}/u)
     assert.match(workflow, /Get-FileHash \$agentInstaller -Algorithm SHA512/u)
@@ -406,6 +417,7 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /release-windows\/\*-setup\.exe/u)
     assert.match(workflow, /release-windows\/\*-setup\.exe\.blockmap/u)
     assert.match(workflow, /release-windows\/latest\.yml/u)
+    assert.match(workflow, /release-windows\/package-size-report\.json/u)
     assert.match(workflow, /vars\.UNILAB_WORKBENCH_UPDATE_URL/u)
     assert.match(workflow, /actions\/upload-artifact@v6/u)
     assert.match(workflow, /compression-level: 0/u)

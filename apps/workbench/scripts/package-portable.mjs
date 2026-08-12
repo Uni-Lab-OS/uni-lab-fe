@@ -13,7 +13,8 @@ import {
   readSync,
   readdirSync,
   rmSync,
-  statSync
+  statSync,
+  writeFileSync
 } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -31,6 +32,10 @@ import {
   requireWorkbenchUpdateUrl,
   selectPortableUpdateArtifacts
 } from './update-publish.mjs'
+import {
+  createPackagedResourceReport,
+  logPackagedResourceReport
+} from './package-size-report.mjs'
 
 const MEBIBYTE = 1024 * 1024
 const MIN_INSTALLER_BYTES = 50 * MEBIBYTE
@@ -168,6 +173,8 @@ export function packagePortableWorkbench(targetPlatform) {
       descriptor.hostPlatform,
       descriptor.hostArchitecture
     )
+    const resourceReport = createPackagedResourceReport(resources)
+    logPackagedResourceReport(resourceReport)
     const installer = findInstaller(outputDirectory, targetPlatform)
     const artifacts = selectPortableUpdateArtifacts(
       readdirSync(outputDirectory),
@@ -178,6 +185,14 @@ export function packagePortableWorkbench(targetPlatform) {
     for (const name of artifacts) {
       copyFileSync(join(outputDirectory, name), join(releaseDirectory, name))
     }
+    writeFileSync(
+      join(releaseDirectory, 'package-size-report.json'),
+      `${JSON.stringify({
+        ...resourceReport,
+        targetPlatform,
+        installerBytes: installer.size
+      }, null, 2)}\n`
+    )
     console.log(
       `${targetPlatform} Workbench 安装包已发布：${join(releaseDirectory, basename(installer.path))}`
     )
