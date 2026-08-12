@@ -304,47 +304,73 @@ jobs:
           $installer = $installers[0]
           $blockmap = $blockmaps[0]
 
-          & gh release upload $env:WINDOWS_RELEASE_TAG $installer.FullName $blockmap.FullName `
+          # Convert FileInfo members to scalar values before passing them to
+          # native commands or collection predicates. This avoids PowerShell
+          # argument-mode member parsing around filenames that contain spaces.
+          $installerPath = [string]$installer.FullName
+          $installerName = [string]$installer.Name
+          $installerSize = [long]$installer.Length
+          $blockmapPath = [string]$blockmap.FullName
+          $blockmapName = [string]$blockmap.Name
+          $blockmapSize = [long]$blockmap.Length
+          $metadataPath = [string]$metadata.FullName
+          $metadataName = [string]$metadata.Name
+          $metadataSize = [long]$metadata.Length
+
+          & gh release upload $env:WINDOWS_RELEASE_TAG $installerPath $blockmapPath `
             --repo $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Unable to upload Windows update binaries' }
 
-          # Version changes rename the installer. Remove superseded assets only
-          # after the complete replacement binaries are available.
-          $keepBinaryNames = [System.Collections.Generic.HashSet[string]]::new(
-            [System.StringComparer]::OrdinalIgnoreCase
-          )
-          [void]$keepBinaryNames.Add([string]$installer.Name)
-          [void]$keepBinaryNames.Add([string]$blockmap.Name)
-          $releaseJson = & gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:WINDOWS_RELEASE_TAG"
-          if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect the published Windows release' }
-          $release = $releaseJson | ConvertFrom-Json
-          $staleAssets = @($release.assets | Where-Object {
-            -not $keepBinaryNames.Contains([string]$_.name) -and
-            $_.name -match '-setup\.exe(?:\.blockmap)?$'
-          })
-          foreach ($asset in $staleAssets) {
-            & gh api --method DELETE "repos/$env:GITHUB_REPOSITORY/releases/assets/$($asset.id)" | Out-Null
-            if ($LASTEXITCODE -ne 0) { throw "Unable to remove stale release asset $($asset.name)" }
-          }
-
-          & gh release upload $env:WINDOWS_RELEASE_TAG $metadata.FullName `
+          & gh release upload $env:WINDOWS_RELEASE_TAG $metadataPath `
             --repo $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Unable to publish Windows update metadata' }
 
           # Verify exact names and sizes before declaring deployment complete.
-          $releaseJson = & gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:WINDOWS_RELEASE_TAG"
-          if ($LASTEXITCODE -ne 0) { throw 'Unable to verify the Windows release' }
-          $release = $releaseJson | ConvertFrom-Json
-          $expectedAssets = @{
-            ([string]$installer.Name) = [long]$installer.Length
-            ([string]$blockmap.Name) = [long]$blockmap.Length
-            ([string]$metadata.Name) = [long]$metadata.Length
-          }
-          foreach ($expected in $expectedAssets.GetEnumerator()) {
-            $published = @($release.assets | Where-Object { $_.name -eq $expected.Key })
-            if ($published.Count -ne 1 -or [long]$published[0].size -ne $expected.Value) {
-              throw "Rolling release asset verification failed: $($expected.Key)"
+          $expectedAssets = @(
+            [PSCustomObject]@{ Name = $installerName; Size = $installerSize }
+            [PSCustomObject]@{ Name = $blockmapName; Size = $blockmapSize }
+            [PSCustomObject]@{ Name = $metadataName; Size = $metadataSize }
+          )
+          $release = $null
+          for ($attempt = 1; $attempt -le 5; $attempt++) {
+            $releaseJson = & gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:WINDOWS_RELEASE_TAG"
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to verify the Windows release' }
+            $release = $releaseJson | ConvertFrom-Json
+            $verificationErrors = @()
+            foreach ($expected in $expectedAssets) {
+              $expectedName = [string]$expected.Name
+              $expectedSize = [long]$expected.Size
+              $published = @($release.assets | Where-Object {
+                $publishedName = [string]$_.name
+                $publishedName -eq $expectedName
+              })
+              if ($published.Count -ne 1 -or [long]$published[0].size -ne $expectedSize) {
+                $verificationErrors += "$expectedName ($expectedSize bytes)"
+              }
             }
+            if ($verificationErrors.Count -eq 0) { break }
+            if ($attempt -eq 5) {
+              $actualAssets = @($release.assets | ForEach-Object {
+                "$([string]$_.name) ($([long]$_.size) bytes)"
+              })
+              throw "Rolling release asset verification failed. Expected: $($verificationErrors -join ', '). Actual: $($actualAssets -join ', ')"
+            }
+            Start-Sleep -Seconds 2
+          }
+
+          # Version changes rename the installer. Remove superseded binaries
+          # only after the new installer, blockmap, and metadata are verified.
+          $expectedNames = @($installerName, $blockmapName, $metadataName)
+          $staleAssets = @($release.assets | Where-Object {
+            $assetName = [string]$_.name
+            $assetName -match '-setup\.exe(?:\.blockmap)?$' -and
+            $expectedNames -notcontains $assetName
+          })
+          foreach ($asset in $staleAssets) {
+            $assetId = [long]$asset.id
+            $assetName = [string]$asset.name
+            & gh api --method DELETE "repos/$env:GITHUB_REPOSITORY/releases/assets/$assetId" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "Unable to remove stale release asset $assetName" }
           }
 
           $releaseBody = @"

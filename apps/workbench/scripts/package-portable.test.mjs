@@ -360,7 +360,7 @@ describe('portable Workbench packaging contract', () => {
     }
   })
 
-  /** 验证 Windows 原生流水线复用缓存、固定供应链输入并只上传安装器。 */
+  /** 验证 Windows 原生流水线复用缓存、固定供应链输入并发布完整更新包。 */
   it('builds the Windows installer on a native GitHub Actions runner', async () => {
     const workflow = await readFile(
       new URL('../../../.github/workflows/package-windows.yml', import.meta.url),
@@ -429,12 +429,23 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /gh release upload/u)
     assert.doesNotMatch(workflow, /gh release create/u)
     const uploadBinaryIndex = workflow.indexOf(
-      '$installer.FullName $blockmap.FullName'
+      '& gh release upload $env:WINDOWS_RELEASE_TAG $installerPath $blockmapPath'
     )
-    const uploadMetadataIndex = workflow.indexOf('$metadata.FullName')
+    const uploadMetadataIndex = workflow.indexOf(
+      '& gh release upload $env:WINDOWS_RELEASE_TAG $metadataPath'
+    )
+    const verifyReleaseIndex = workflow.indexOf(
+      '# Verify exact names and sizes before declaring deployment complete.'
+    )
+    const removeStaleIndex = workflow.indexOf(
+      '# Version changes rename the installer.'
+    )
     assert.ok(uploadBinaryIndex >= 0)
     assert.ok(uploadBinaryIndex < uploadMetadataIndex)
-    assert.match(workflow, /HashSet\[string\]/u)
+    assert.ok(uploadMetadataIndex < verifyReleaseIndex)
+    assert.ok(verifyReleaseIndex < removeStaleIndex)
+    assert.match(workflow, /\$installerName = \[string\]\$installer\.Name/u)
+    assert.match(workflow, /\$expectedNames -notcontains \$assetName/u)
     assert.match(workflow, /Rolling release asset verification failed/u)
     assert.match(workflow, /actions\/upload-artifact@v6/u)
     assert.match(workflow, /compression-level: 0/u)
