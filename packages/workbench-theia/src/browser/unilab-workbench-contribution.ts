@@ -7,7 +7,6 @@ import { Command } from '@theia/core/lib/common/command'
 import { inject, injectable } from '@theia/core/shared/inversify'
 import type { IDisposable } from '@theia/monaco-editor-core'
 
-import { openSelectedDomainActivity } from './domain-activity-navigation'
 import { registerPythonSyntaxHighlighting } from './python-monarch'
 import {
   DeviceDomainEntryWidget,
@@ -137,11 +136,6 @@ implements FrontendApplicationContribution {
     await app.shell.addWidget(workflow, { area: 'left', rank: 73 })
     await app.shell.addWidget(agent, { area: 'left', rank: 74 })
     const activityBar = app.shell.getTabBarFor(device)
-    const domainEntries = [device, material, workflow] as const
-    activityBar?.currentChanged.connect((_tabBar, event) => {
-      // 首次选择侧栏页签只负责打开真实领域工作面，不能停留在入口占用主空间。
-      openSelectedDomainActivity(event.currentTitle?.owner, domainEntries)
-    })
     for (const [index, widget] of [
       device,
       material,
@@ -150,7 +144,6 @@ implements FrontendApplicationContribution {
     ].entries()) {
       activityBar?.insertTab(index, widget.title)
     }
-    openSelectedDomainActivity(activityBar?.currentTitle?.owner, domainEntries)
     await app.shell.collapsePanel('left')
   }
 }

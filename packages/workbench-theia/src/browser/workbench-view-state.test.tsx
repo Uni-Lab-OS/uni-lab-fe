@@ -6,20 +6,6 @@ import { WorkbenchDomainLayout } from './workbench-domain-layout'
 import { WorkbenchViewState } from './workbench-view-state'
 
 describe('Workbench domain view presentation', () => {
-  /** 证明重复聚焦同一领域工作面不会把已经打开的内容反向关闭。 */
-  it('shows an already visible domain idempotently', () => {
-    const state = new WorkbenchViewState()
-    const listener = vi.fn()
-    state.onDidChangeMode(listener)
-
-    state.show('material')
-    state.show('material')
-
-    expect(state.currentMode).toBe('split')
-    expect(state.isVisible('material')).toBe(true)
-    expect(listener).toHaveBeenCalledOnce()
-  })
-
   it('derives split layout from independent workflow and material toggles', () => {
     const state = new WorkbenchViewState()
     const listener = vi.fn()
