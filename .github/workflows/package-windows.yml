@@ -229,7 +229,7 @@ jobs:
 
       - name: Select prepared Windows Agent payload
         run: |
-          node --input-type=module -e "import { validateBundledAgentPayload } from './apps/workbench/scripts/agent-payload.mjs'; validateBundledAgentPayload('.ci-cache', 'win32', 'x64')"
+          node --input-type=module -e "import { validateBundledAgentPayload } from './apps/workbench/scripts/agent-payload.mjs'; validateBundledAgentPayload('.ci-cache', 'win32', 'x64', 'prepared')"
           if ($LASTEXITCODE -ne 0) { throw 'Prepared Windows Agent payload validation failed' }
           $agentPayload = (Resolve-Path .ci-cache/agent-runtime).Path
           "UNILAB_AGENT_DISTRIBUTION=$agentPayload" >> $env:GITHUB_ENV

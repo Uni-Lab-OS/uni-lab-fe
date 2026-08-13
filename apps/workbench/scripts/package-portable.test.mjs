@@ -399,7 +399,10 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /windows-electron-builder-v2-/u)
     assert.match(workflow, /\.unilab-workbench\\downloads/u)
     assert.match(workflow, /aionui-prepared-windows-x64-v1-/u)
-    assert.match(workflow, /validateBundledAgentPayload/u)
+    assert.match(
+      workflow,
+      /validateBundledAgentPayload\('\.ci-cache', 'win32', 'x64', 'prepared'\)/u
+    )
     assert.match(workflow, /windows-workbench-plugins-v1-/u)
     const pluginCacheIndex = workflow.indexOf('name: Cache pinned Theia plugins')
     const selectVersionIndex = workflow.indexOf(
