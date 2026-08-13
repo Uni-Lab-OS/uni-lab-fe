@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   DeviceCardActionRun,
   DeviceCardBridge,
+  DeviceCardJointPreviewFrame,
   DeviceCardRuntimeSnapshot,
   JsonObject
 } from '@unilab/device-card-sdk'
@@ -43,6 +44,10 @@ const bridge: DeviceCardBridge = {
     ipcRenderer.invoke('device-card-runtime:callAction', { action, params }),
   saveConfig: (patch: JsonObject): Promise<JsonObject> =>
     ipcRenderer.invoke('device-card-runtime:saveConfig', patch),
+  setJointPreview: (
+    jointStates: Readonly<Record<string, number>>
+  ): Promise<DeviceCardJointPreviewFrame> =>
+    ipcRenderer.invoke('device-card-runtime:setJointPreview', jointStates),
   log: (level, message) => {
     ipcRenderer.send('device-card-runtime:log', { level, message })
   }

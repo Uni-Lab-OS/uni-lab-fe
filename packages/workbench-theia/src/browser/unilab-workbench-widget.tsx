@@ -39,6 +39,10 @@ import {
   type Services
 } from '@unilab/services'
 import {
+  activateSceneRuntimeScope,
+  sceneRuntimeScopeId
+} from '@unilab/scene-runtime'
+import {
   createWorkflowResourceSlotOptionsPort,
   WorkflowPanel,
   type WorkflowPanelRuntimeProjection
@@ -731,6 +735,13 @@ function WorkbenchSurface({
     name: '本地 UniLab OS',
     apiUrl: backendUrl
   }), [backendUrl])
+
+  useEffect(() => {
+    activateSceneRuntimeScope(sceneRuntimeScopeId(
+      services.backend.id,
+      services.backend.apiUrl
+    ))
+  }, [services.backend.apiUrl, services.backend.id])
 
   useEffect(() => () => materialStore.getState().reset(), [materialStore])
 

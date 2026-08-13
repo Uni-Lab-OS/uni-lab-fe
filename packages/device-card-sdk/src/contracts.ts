@@ -9,6 +9,9 @@ export type DeviceCardAuthoringProfile =
   | 'vue-web-component-v1'
   | 'react-web-component-v1'
 
+/** Manifest uiFeatures 中用于声明本地关节模型预览能力的稳定键。 */
+export const DEVICE_CARD_JOINT_PREVIEW_FEATURE = 'joint-preview'
+
 export interface DeviceCardPermissions {
   state: string[]
   actions: string[]
@@ -95,11 +98,24 @@ export type DeviceCardManifest = LegacyDeviceCardManifest | DeviceCardManifestV2
 
 export interface DeviceCardDescriptor {
   deviceId: string | null
+  /** 当前设备对应的 Material 实例；Mock 关节预览只能写入该实例。 */
+  materialId: string | null
   definitionFqid: string
   definition?: DeviceDefinitionReference
   /** @deprecated 使用 definitionFqid；该别名仅供 v1 卡片源码读取。 */
   deviceTypeId: string
   title: string
+}
+
+/**
+ * 卡片与 Host 之间的本地关节预览帧。数值统一采用 URDF/ROS SI 单位：
+ * revolute/continuous 为 rad，prismatic 为 m。
+ */
+export interface DeviceCardJointPreviewFrame {
+  materialId: string
+  jointStates: Readonly<Record<string, number>>
+  updatedAt: number
+  modelRevision?: string
 }
 
 export type DeviceCardActionRiskLevel =
@@ -149,6 +165,8 @@ export interface DeviceCardRuntimeSnapshot {
   device: DeviceCardDescriptor
   state: Record<string, unknown>
   config: JsonObject
+  /** 仅用于 Mock 视图恢复，不是设备实时反馈。 */
+  jointPreview?: DeviceCardJointPreviewFrame
   theme: 'light' | 'dark'
   locale: string
 }
@@ -183,6 +201,10 @@ export interface DeviceCardBridge {
     params?: Record<string, unknown>
   ) => Promise<DeviceCardActionRun>
   saveConfig: (patch: JsonObject) => Promise<JsonObject>
+  /** 更新当前 Material 的本地 Mock 姿态；Live 会话必须拒绝。 */
+  setJointPreview?: (
+    jointStates: Readonly<Record<string, number>>
+  ) => Promise<DeviceCardJointPreviewFrame>
   log: (level: 'info' | 'warn' | 'error', message: string) => void
 }
 

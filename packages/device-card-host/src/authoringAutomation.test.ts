@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 
@@ -74,6 +74,121 @@ describe('DeviceCardAuthoringAutomation interface', () => {
       projectDir,
       principal: 'agent'
     })).rejects.toMatchObject({ code: 'DIRECTORY_NOT_EMPTY' })
+  })
+
+  it('refreshes Host-owned SDK declarations when attaching a project', async () => {
+    const root = await temporaryRoot()
+    const projectDir = join(root, 'robot-card')
+    const automation = createAutomation(root)
+    const first = await automation.prepare({
+      mode: 'bootstrap',
+      deviceId: target.deviceId,
+      profile: 'vue-web-component-v1',
+      projectDir,
+      principal: 'agent'
+    })
+    await automation.close(first.session.sessionId)
+    const declarationPath = join(projectDir, '.unilab-card/sdk.d.ts')
+    await writeFile(declarationPath, 'stale declaration', 'utf8')
+
+    await automation.prepare({
+      mode: 'attach',
+      deviceId: target.deviceId,
+      profile: 'vue-web-component-v1',
+      projectDir,
+      principal: 'agent'
+    })
+
+    const declaration = await readFile(declarationPath, 'utf8')
+    expect(declaration).toContain('materialId: string | null')
+    expect(declaration).toContain('setJointPreview(')
+    await automation.destroy()
+  })
+
+  it('uses the existing manifest profile when attach omits profile', async () => {
+    const root = await temporaryRoot()
+    const projectDir = join(root, 'react-card')
+    const automation = createAutomation(root)
+    const first = await automation.prepare({
+      mode: 'bootstrap',
+      deviceId: target.deviceId,
+      profile: 'react-web-component-v1',
+      projectDir,
+      principal: 'agent'
+    })
+    await automation.close(first.session.sessionId)
+
+    const attached = await automation.prepare({
+      mode: 'attach',
+      deviceId: target.deviceId,
+      projectDir,
+      principal: 'agent'
+    })
+
+    expect(attached.session.profile).toBe('react-web-component-v1')
+    await automation.destroy()
+  })
+
+  it('rejects an explicit attach profile that differs from the manifest', async () => {
+    const root = await temporaryRoot()
+    const projectDir = join(root, 'react-card')
+    const automation = createAutomation(root)
+    const first = await automation.prepare({
+      mode: 'bootstrap',
+      deviceId: target.deviceId,
+      profile: 'react-web-component-v1',
+      projectDir,
+      principal: 'agent'
+    })
+    await automation.close(first.session.sessionId)
+    const declarationPath = join(projectDir, '.unilab-card/sdk.d.ts')
+    await writeFile(declarationPath, 'unchanged declaration', 'utf8')
+
+    await expect(automation.prepare({
+      mode: 'attach',
+      deviceId: target.deviceId,
+      profile: 'vue-web-component-v1',
+      projectDir,
+      principal: 'agent'
+    })).rejects.toMatchObject({
+      code: 'INVALID_ARGUMENT',
+      details: {
+        requestedProfile: 'vue-web-component-v1',
+        manifestProfile: 'react-web-component-v1'
+      }
+    })
+    expect(await readFile(declarationPath, 'utf8')).toBe('unchanged declaration')
+    await automation.destroy()
+  })
+
+  it('rejects attach when a Host-owned ancestor directory is a symlink', async () => {
+    const root = await temporaryRoot()
+    const projectDir = join(root, 'robot-card')
+    const externalDir = join(root, 'outside-authoring-files')
+    const automation = createAutomation(root)
+    const first = await automation.prepare({
+      mode: 'bootstrap',
+      deviceId: target.deviceId,
+      profile: 'vue-web-component-v1',
+      projectDir,
+      principal: 'agent'
+    })
+    await automation.close(first.session.sessionId)
+
+    await rm(join(projectDir, '.unilab-card'), { recursive: true, force: true })
+    await mkdir(externalDir)
+    await writeFile(join(externalDir, 'sdk.d.ts'), 'outside sentinel', 'utf8')
+    await symlink(externalDir, join(projectDir, '.unilab-card'), 'dir')
+
+    await expect(automation.prepare({
+      mode: 'attach',
+      deviceId: target.deviceId,
+      projectDir,
+      principal: 'agent'
+    })).rejects.toMatchObject({ code: 'DIRECTORY_OUTSIDE_GRANT' })
+    expect(await readFile(join(externalDir, 'sdk.d.ts'), 'utf8'))
+      .toBe('outside sentinel')
+    await automation.destroy()
   })
 
   it('keeps one active workspace and requires install approval', async () => {

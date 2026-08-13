@@ -4,7 +4,9 @@ import {
 } from '@pascal-app/core'
 import { useNodeEvents, useViewer } from '@pascal-app/viewer'
 import { Html } from '@react-three/drei'
+import { useFrame } from '@react-three/fiber'
 import { shouldShowMaterialLabelByDefault } from '@unilab/material/domain'
+import { getJointStateFrame } from '@unilab/scene-runtime'
 import {
   useEffect,
   useLayoutEffect,
@@ -29,6 +31,12 @@ import {
   loadLabDeviceModel
 } from '../modelRuntime'
 import { findLinkObject } from '../mounting'
+import {
+  applyJointStateToUrdfWithDiagnostics,
+  captureInitialJointState,
+  resetJointStateUrdf,
+  type UrdfJointApplicationResult
+} from '../jointStateRuntime'
 import type { LabDeviceNode } from '../schema'
 import { SiteBoundsRenderer } from './SiteBoundsRenderer'
 import { PASCAL_SCENE_HTML_Z_INDEX_RANGE } from './htmlLayer'
@@ -209,6 +217,12 @@ export default function LabDeviceRenderer({
     [number, number, number]
   >([0, Math.max(node.dimensions[1], 0.2) + 0.08, 0])
   const { object, error, loading } = useLabModel(node)
+  const appliedJointFrameRef = useRef<object | null>(null)
+  const jointDiagnosticRef = useRef({
+    lastLoggedAt: 0,
+    suppressed: 0,
+    lastProblem: ''
+  })
   const events = useCustomNodeEvents(node, node.type)
   const isSelected = useViewer((state) =>
     state.selection.selectedIds.includes(node.id as never)
@@ -223,6 +237,50 @@ export default function LabDeviceRenderer({
   )
 
   useRegistry(node.id, node.type, groupRef)
+
+  // 高频帧只在 render frame 中命令式读取；不让 React/Material 随关节更新。
+  useFrame(() => {
+    if (!object) return
+    const frame = getJointStateFrame(node.materialNodeId)
+    if (!frame) {
+      if (appliedJointFrameRef.current) {
+        resetJointStateUrdf(object)
+        console.info(
+          `[joint-preview] stage=pascal status=reset material=${jointDiagnosticToken(node.materialNodeId)}`
+        )
+      }
+      appliedJointFrameRef.current = null
+      return
+    }
+    if (frame === appliedJointFrameRef.current) return
+    captureInitialJointState(object)
+    const result = applyJointStateToUrdfWithDiagnostics(
+      object,
+      frame.jointStates
+    )
+    logJointApplicationDiagnostic(
+      node.materialNodeId,
+      result,
+      jointDiagnosticRef.current
+    )
+    appliedJointFrameRef.current = frame
+  })
+
+  useEffect(() => {
+    // 新模型加载后必须重放已存在的帧。
+    appliedJointFrameRef.current = null
+    jointDiagnosticRef.current = {
+      lastLoggedAt: 0,
+      suppressed: 0,
+      lastProblem: ''
+    }
+    if (object) {
+      const result = applyJointStateToUrdfWithDiagnostics(object, {})
+      console.info(
+        `[joint-preview] stage=pascal status=model_ready material=${jointDiagnosticToken(node.materialNodeId)} available=${result.availableCount}`
+      )
+    }
+  }, [node.materialNodeId, object])
 
   useEffect(() => {
     if (!groupRef.current) return
@@ -404,4 +462,49 @@ export default function LabDeviceRenderer({
       )}
     </group>
   )
+}
+
+function logJointApplicationDiagnostic(
+  materialId: string,
+  result: UrdfJointApplicationResult,
+  state: {
+    lastLoggedAt: number
+    suppressed: number
+    lastProblem: string
+  }
+): void {
+  const status = result.availableCount === 0
+    ? 'model_not_urdf'
+    : result.resolvedCount === 0
+      ? result.ambiguousCount > 0 ? 'ambiguous_match' : 'no_match'
+      : result.resolvedCount < result.inputCount
+        ? 'partial_match'
+        : result.applied ? 'applied' : 'unchanged'
+  const problem = [
+    'model_not_urdf',
+    'ambiguous_match',
+    'no_match',
+    'partial_match'
+  ].includes(status)
+    ? status
+    : ''
+  const now = Date.now()
+  if (
+    state.lastLoggedAt > 0
+    && now - state.lastLoggedAt < 1_000
+    && problem === state.lastProblem
+  ) {
+    state.suppressed += 1
+    return
+  }
+  const line = `[joint-preview] stage=pascal status=${status} material=${jointDiagnosticToken(materialId)} input=${result.inputCount} resolved=${result.resolvedCount} available=${result.availableCount} missing=${result.missingCount} ambiguous=${result.ambiguousCount}${state.suppressed ? ` suppressed=${state.suppressed}` : ''}`
+  if (problem) console.warn(line)
+  else console.info(line)
+  state.lastLoggedAt = now
+  state.suppressed = 0
+  state.lastProblem = problem
+}
+
+function jointDiagnosticToken(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_.:@-]+/gu, '_').slice(0, 160)
 }

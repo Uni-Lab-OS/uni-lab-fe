@@ -34,6 +34,7 @@ import {
   materializeProject,
   normalizeTimeout,
   publicInstalledRecord,
+  readExistingProjectProfile,
   requireReadyArtifact,
   requiredString,
   samePath,
@@ -70,10 +71,11 @@ implements DeviceCardAuthoringAutomation {
   ): Promise<DeviceCardAuthoringSessionStatus> {
     const deviceId = requiredString(input.deviceId, 'deviceId')
     const projectDir = resolve(requiredString(input.projectDir, 'projectDir'))
-    const profile = input.profile ?? 'vue-web-component-v1'
-    if (!DEVICE_CARD_AUTHORING_PROFILES.includes(profile)) {
+    const requestedProfile = input.profile
+    let profile: DeviceCardAuthoringProfile = requestedProfile ?? 'vue-web-component-v1'
+    if (requestedProfile && !DEVICE_CARD_AUTHORING_PROFILES.includes(requestedProfile)) {
       throw authoringError('INVALID_ARGUMENT', '不支持的卡片开发 Profile。', {
-        profile
+        profile: requestedProfile
       })
     }
     const target = await this.requireTarget(deviceId)
@@ -82,6 +84,20 @@ implements DeviceCardAuthoringAutomation {
     let activeToReplace: ActiveSession | null = null
     if (this.active) {
       if (samePath(this.active.session.projectDir, projectDir)) {
+        if (
+          input.mode === 'attach' &&
+          requestedProfile &&
+          requestedProfile !== this.active.session.profile
+        ) {
+          throw authoringError(
+            'INVALID_ARGUMENT',
+            '显式 Profile 与现有 card.manifest.json 不一致。',
+            {
+              requestedProfile,
+              manifestProfile: this.active.session.profile
+            }
+          )
+        }
         return this.snapshot(this.active)
       }
       if (!input.replace) {
@@ -115,7 +131,16 @@ implements DeviceCardAuthoringAutomation {
       await materializeProject(projectDir, context, profile)
     } else {
       await assertExistingProject(projectDir)
-      await writeCurrentContext(projectDir, context)
+      const manifestProfile = await readExistingProjectProfile(projectDir)
+      if (requestedProfile && requestedProfile !== manifestProfile) {
+        throw authoringError(
+          'INVALID_ARGUMENT',
+          '显式 Profile 与现有 card.manifest.json 不一致。',
+          { requestedProfile, manifestProfile }
+        )
+      }
+      profile = manifestProfile
+      await writeCurrentContext(projectDir, context, profile)
     }
 
     let record: ActiveSession | null = null

@@ -8,6 +8,7 @@ import type {
   OpenDeviceCardWorkspaceRequest
 } from '@unilab/device-card-sdk'
 import {
+  DEVICE_CARD_JOINT_PREVIEW_FEATURE,
   deviceCardTargetsDefinition,
   isDeviceDefinitionReference
 } from '@unilab/device-card-sdk'
@@ -27,6 +28,11 @@ export function assertDeviceCardRuntimeCapabilities(
   record: RuntimeCardRecord,
   request: OpenDeviceCardRequest | OpenDeviceCardWorkspaceRequest
 ): void {
+  if (request.context.jointPreview && !record.metadata.manifest.uiFeatures.includes(
+    DEVICE_CARD_JOINT_PREVIEW_FEATURE
+  )) {
+    throw new Error('卡片 Manifest 未声明 joint-preview 能力。')
+  }
   const definitionFqid = request.context.device.definitionFqid
   const packageCard = record.definitionTargets.length > 0
   const supported = packageCard
@@ -137,15 +143,23 @@ export function isOpenWorkspaceRequest(
 
 function isOpenPreviewRequest(value: Record<string, unknown>): boolean {
   const context = value.context
-  return isPlainRecord(value.bounds) &&
-    isPlainRecord(context) &&
-    (context.mode === 'mock' || context.mode === 'live') &&
-    isPlainRecord(context.device) &&
-    typeof context.device.definitionFqid === 'string' &&
-    typeof context.device.deviceTypeId === 'string' &&
-    isPlainRecord(context.state) &&
-    isPlainRecord(context.config)
-    && (
+  if (!isPlainRecord(value.bounds) || !isPlainRecord(context)) return false
+  if (
+    (context.mode !== 'mock' && context.mode !== 'live') ||
+    !isPlainRecord(context.device) ||
+    typeof context.device.definitionFqid !== 'string' ||
+    typeof context.device.deviceTypeId !== 'string' ||
+    !isNullableString(context.device.deviceId) ||
+    !isNullableString(context.device.materialId) ||
+    !isPlainRecord(context.state) ||
+    !isPlainRecord(context.config) ||
+    (context.theme !== 'light' && context.theme !== 'dark') ||
+    typeof context.locale !== 'string') return false
+  if (context.jointPreview !== undefined && (
+    context.mode !== 'mock' ||
+    !isJointPreviewFrame(context.jointPreview, context.device.materialId)
+  )) return false
+  return (
       value.availableActions === undefined ||
       Array.isArray(value.availableActions) &&
       value.availableActions.every(isDeviceCardActionContract)
@@ -158,6 +172,34 @@ function isOpenPreviewRequest(value: Record<string, unknown>): boolean {
       Array.isArray(value.availableMedia) &&
       value.availableMedia.every((key) => typeof key === 'string')
     )
+}
+
+function isJointPreviewFrame(
+  value: unknown,
+  materialId: unknown
+): boolean {
+  if (!isPlainRecord(value) ||
+    typeof value.materialId !== 'string' ||
+    value.materialId.length === 0 ||
+    value.materialId !== materialId ||
+    typeof value.updatedAt !== 'number' ||
+    !Number.isFinite(value.updatedAt) ||
+    value.updatedAt < 0 ||
+    !isPlainRecord(value.jointStates) ||
+    (value.modelRevision !== undefined &&
+      typeof value.modelRevision !== 'string')) return false
+  const entries = Object.entries(value.jointStates)
+  return entries.length > 0 && entries.length <= 128 && entries.every(
+    ([name, jointValue]) => name.trim().length > 0 &&
+      name.length <= 200 &&
+      typeof jointValue === 'number' &&
+      Number.isFinite(jointValue) &&
+      Math.abs(jointValue) <= 1_000_000
+  )
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string'
 }
 
 export function isAuthoringContext(

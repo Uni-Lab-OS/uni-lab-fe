@@ -9,6 +9,7 @@ import type {
   DeviceCardAuthoringTargetResponse,
   DeviceCardBounds,
   DeviceCardHostActionRequest,
+  DeviceCardJointPreviewFrame,
   DeviceCardWorkspaceStatus,
   InstalledDeviceCard,
   OpenDeviceCardRequest,
@@ -464,6 +465,9 @@ interface DesktopApi {
     resolveAction: (run: DeviceCardActionRun) => Promise<void>
     onActionRequest: (
       listener: (request: DeviceCardHostActionRequest) => void
+    ) => () => void
+    onJointPreview: (
+      listener: (frame: DeviceCardJointPreviewFrame) => void
     ) => () => void
   }
   runtime?: DesktopRuntimeApi

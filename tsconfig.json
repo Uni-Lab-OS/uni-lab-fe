@@ -12,6 +12,7 @@
     { "path": "./packages/code-editor" },
     { "path": "./packages/pascal-host" },
     { "path": "./packages/pascal-lab-plugin" },
+    { "path": "./packages/scene-runtime" },
     { "path": "./packages/testing" }
   ]
 }

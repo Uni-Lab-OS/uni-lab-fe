@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createDeviceCardAuthoringKit,
-  createExampleAuthoringContext
+  createExampleAuthoringContext,
+  DEVICE_CARD_UI_CATALOG
 } from './index'
 
 const generatedAt = '2026-07-31T00:00:00.000Z'
@@ -99,6 +100,25 @@ describe('createDeviceCardAuthoringKit', () => {
     expect(first.archive).toEqual(second.archive)
     expect(first.metadata.authoringContextDigest)
       .toBe(second.metadata.authoringContextDigest)
+  })
+
+  it('declares the additive Mock joint preview contract', async () => {
+    const result = await createDeviceCardAuthoringKit({
+      context: createExampleAuthoringContext(),
+      profile: 'vue-web-component-v1',
+      generatedAt
+    })
+    const entries = unzipSync(result.archive)
+    const declaration = new TextDecoder().decode(
+      entries[`${result.rootDirectory}/sdk/index.d.ts`]
+    )
+
+    expect(DEVICE_CARD_UI_CATALOG.features).toContain('joint-preview')
+    expect(declaration).toContain(
+      "DEVICE_CARD_JOINT_PREVIEW_FEATURE: 'joint-preview'"
+    )
+    expect(declaration).toContain('interface DeviceCardJointPreviewFrame')
+    expect(declaration).toContain('setJointPreview?(')
   })
 
   it('rejects invalid context instead of creating a misleading kit', async () => {

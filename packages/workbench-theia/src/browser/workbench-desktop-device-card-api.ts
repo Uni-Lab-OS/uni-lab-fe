@@ -8,6 +8,7 @@ import type {
   DeviceCardAuthoringTargetResponse,
   DeviceCardBounds,
   DeviceCardHostActionRequest,
+  DeviceCardJointPreviewFrame,
   DeviceCardWorkspaceStatus,
   InstalledDeviceCard,
   OpenDeviceCardRequest,
@@ -68,6 +69,9 @@ export interface WorkbenchDesktopDeviceCardApi {
   resolveAction(run: DeviceCardActionRun): Promise<void>
   onActionRequest(
     listener: (request: DeviceCardHostActionRequest) => void
+  ): () => void
+  onJointPreview(
+    listener: (frame: DeviceCardJointPreviewFrame) => void
   ): () => void
 }
 

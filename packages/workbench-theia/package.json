@@ -25,6 +25,7 @@
     "@unilab/material": "workspace:*",
     "@unilab/pascal-host": "workspace:*",
     "@unilab/pascal-lab-plugin": "workspace:*",
+    "@unilab/scene-runtime": "workspace:*",
     "@unilab/services": "workspace:*",
     "@unilab/workbench-session": "workspace:*",
     "@unilab/workflow-editor": "workspace:*",

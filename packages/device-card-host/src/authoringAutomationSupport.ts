@@ -9,6 +9,7 @@ import {
 } from '@unilab/device-card-authoring-kit'
 import {
   isDeviceDefinitionReference,
+  parseDeviceCardManifest,
   type DeviceCardAuthoringProfile,
   type DeviceCardAuthoringTarget,
   type DeviceCardAuthoringVersions,
@@ -105,21 +106,81 @@ export async function assertExistingProject(projectDir: string): Promise<void> {
   }
 }
 
-export async function writeCurrentContext(
-  projectDir: string,
-  context: ReturnType<typeof createDeviceCardAuthoringContext>
-): Promise<void> {
-  const path = resolve(projectDir, 'authoring-context.json')
-  if (!isInside(projectDir, path)) {
-    throw authoringError('DIRECTORY_OUTSIDE_GRANT', 'Context 路径越过授权目录。')
-  }
-  if (await exists(path) && (await lstat(path)).isSymbolicLink()) {
+/**
+ * 读取 attach 项目自己的 Authoring Profile。
+ *
+ * attach 不得使用新建项目的默认 Profile 猜测现有源码类型，否则可能用 Vue
+ * 声明刷新 React 或原生 Web Component 项目。
+ */
+export async function readExistingProjectProfile(
+  projectDir: string
+): Promise<DeviceCardAuthoringProfile> {
+  const manifestPath = resolve(projectDir, 'card.manifest.json')
+  try {
+    const info = await lstat(manifestPath)
+    if (info.isSymbolicLink() || !info.isFile()) {
+      throw authoringError(
+        'INVALID_ARGUMENT',
+        'card.manifest.json 必须是普通文件。'
+      )
+    }
+    const manifest = parseDeviceCardManifest(
+      JSON.parse(await readFile(manifestPath, 'utf8'))
+    )
+    return manifest.authoringProfile
+  } catch (error) {
+    if (error instanceof DeviceCardAuthoringError) throw error
     throw authoringError(
-      'DIRECTORY_OUTSIDE_GRANT',
-      'authoring-context.json 不能是符号链接。'
+      'INVALID_ARGUMENT',
+      '无法从 card.manifest.json 读取有效的 authoringProfile。',
+      { manifestPath },
+      error
     )
   }
-  await writeFile(path, `${JSON.stringify(context, null, 2)}\n`, 'utf8')
+}
+
+export async function writeCurrentContext(
+  projectDir: string,
+  context: ReturnType<typeof createDeviceCardAuthoringContext>,
+  profile: DeviceCardAuthoringProfile
+): Promise<void> {
+  // `.unilab-card` 中的声明由 Host 管理；attach 时随当前 SDK 一起刷新，
+  // 避免旧项目仍使用过期 Bridge 类型，但绝不覆盖用户维护的源码。
+  const generated = createDeviceCardProjectFiles(context, profile)
+  const declarationPaths = [
+    '.unilab-card/sdk.d.ts',
+    '.unilab-card/ui-elements.d.ts',
+    '.unilab-card/framework.d.ts',
+    '.unilab-card/vue-shim.d.ts'
+  ] as const
+  const writes = [
+    {
+      relativePath: 'authoring-context.json',
+      content: `${JSON.stringify(context, null, 2)}\n`
+    },
+    ...declarationPaths.map((relativePath) => ({
+      relativePath,
+      content: generated[relativePath] ?? ''
+    }))
+  ]
+
+  // 先完整预检再产生任何写入，避免恶意祖先 symlink 导致部分刷新。
+  for (const { relativePath } of writes) {
+    await assertSafeProjectWritePath(
+      projectDir,
+      resolve(projectDir, relativePath),
+      relativePath
+    )
+  }
+  for (const { relativePath } of writes) {
+    const destination = resolve(projectDir, relativePath)
+    await mkdir(dirname(destination), { recursive: true })
+    // mkdir 与 writeFile 之间再检查一次新建后的完整祖先链。
+    await assertSafeProjectWritePath(projectDir, destination, relativePath)
+  }
+  for (const { relativePath, content } of writes) {
+    await writeFile(resolve(projectDir, relativePath), content, 'utf8')
+  }
 }
 
 export function requireReadyArtifact(record: ActiveSession): DeviceCardWorkspaceArtifact {
@@ -189,6 +250,66 @@ function isInside(root: string, candidate: string): boolean {
     !pathFromRoot.startsWith('/') &&
     !pathFromRoot.startsWith('\\')
   )
+}
+
+/**
+ * 验证 Host-owned 文件从授权项目根到目标文件的现有路径组件都不是 symlink。
+ */
+async function assertSafeProjectWritePath(
+  projectDir: string,
+  destination: string,
+  relativePath: string
+): Promise<void> {
+  const root = resolve(projectDir)
+  const candidate = resolve(destination)
+  if (!isInside(root, candidate)) {
+    throw authoringError(
+      'DIRECTORY_OUTSIDE_GRANT',
+      `${relativePath} 路径越过授权目录。`
+    )
+  }
+
+  const rootInfo = await lstatIfExists(root)
+  if (!rootInfo || rootInfo.isSymbolicLink() || !rootInfo.isDirectory()) {
+    throw authoringError(
+      'DIRECTORY_OUTSIDE_GRANT',
+      '授权项目根必须是普通目录。',
+      { projectDir: root }
+    )
+  }
+
+  const segments = relative(root, candidate).split(/[\\/]/u).filter(Boolean)
+  let current = root
+  for (const segment of segments.slice(0, -1)) {
+    current = resolve(current, segment)
+    const info = await lstatIfExists(current)
+    if (!info) continue
+    if (info.isSymbolicLink() || !info.isDirectory()) {
+      throw authoringError(
+        'DIRECTORY_OUTSIDE_GRANT',
+        `${relativePath} 的祖先路径必须是普通目录。`,
+        { path: current }
+      )
+    }
+  }
+
+  const destinationInfo = await lstatIfExists(candidate)
+  if (destinationInfo?.isSymbolicLink()) {
+    throw authoringError(
+      'DIRECTORY_OUTSIDE_GRANT',
+      `${relativePath} 不能是符号链接。`,
+      { path: candidate }
+    )
+  }
+}
+
+async function lstatIfExists(path: string) {
+  try {
+    return await lstat(path)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
+  }
 }
 
 async function exists(path: string): Promise<boolean> {

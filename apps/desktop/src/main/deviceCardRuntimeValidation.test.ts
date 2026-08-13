@@ -4,9 +4,11 @@ import type {
   DeviceCardRuntimeSnapshot,
   DeviceDefinitionReference
 } from '@unilab/device-card-sdk'
+import { DEVICE_CARD_JOINT_PREVIEW_FEATURE } from '@unilab/device-card-sdk'
 
 import {
   assertDeviceCardRuntimeCapabilities,
+  isOpenRequest,
   type RuntimeCardRecord
 } from './deviceCardRuntimeValidation'
 
@@ -60,6 +62,60 @@ function rejectsLegacyLiveBinding(): void {
 function registerRuntimeValidationTests(): void {
   it('允许规范 v2 卡片绑定完整设备定义', verifiesPackageDefinitionLiveBinding)
   it('拒绝 v1 遗留卡片进入 Live', rejectsLegacyLiveBinding)
+  it('只接受绑定当前 Material 的 Mock 关节快照', () => {
+    const context = runtimeContext('mock')
+    context.jointPreview = {
+      materialId: 'material-robot',
+      jointStates: { cr7_joint_1: 0.5 },
+      updatedAt: 42
+    }
+    const request = {
+      key: 'robot.card:0.1.0:hash',
+      bounds: { x: 0, y: 0, width: 640, height: 480 },
+      context
+    }
+    expect(isOpenRequest(request)).toBe(true)
+    expect(isOpenRequest({
+      ...request,
+      context: {
+        ...context,
+        jointPreview: { ...context.jointPreview, materialId: 'other' }
+      }
+    })).toBe(false)
+    expect(isOpenRequest({
+      ...request,
+      context: { ...context, mode: 'live' }
+    })).toBe(false)
+    expect(isOpenRequest({
+      ...request,
+      context: {
+        ...context,
+        jointPreview: { ...context.jointPreview, updatedAt: -1 }
+      }
+    })).toBe(false)
+  })
+  it('要求 Manifest 明确声明 Mock 关节预览能力', () => {
+    const record = runtimeRecord()
+    const context = runtimeContext('mock')
+    context.jointPreview = {
+      materialId: 'material-robot',
+      jointStates: { cr7_joint_1: 0.5 },
+      updatedAt: 42
+    }
+    const request = {
+      key: 'robot.card:0.1.0:hash',
+      bounds: { x: 0, y: 0, width: 640, height: 480 },
+      context
+    }
+
+    expect(() => assertDeviceCardRuntimeCapabilities(record, request))
+      .toThrow('Manifest 未声明 joint-preview 能力')
+    record.metadata.manifest.uiFeatures.push(
+      DEVICE_CARD_JOINT_PREVIEW_FEATURE
+    )
+    expect(() => assertDeviceCardRuntimeCapabilities(record, request))
+      .not.toThrow()
+  })
 }
 
 describe('设备卡领域包运行时验证', registerRuntimeValidationTests)
@@ -106,6 +162,7 @@ function runtimeContext(mode: 'mock' | 'live'): DeviceCardRuntimeSnapshot {
     mode,
     device: {
       deviceId: mode === 'live' ? 'robot-1' : null,
+      materialId: 'material-robot',
       definitionFqid: current.fqid,
       definition: current,
       deviceTypeId: current.fqid,

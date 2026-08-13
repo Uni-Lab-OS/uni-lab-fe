@@ -21,10 +21,16 @@ import type {
   DeviceCardActionContract,
   DeviceCardAgentEnvironmentInfo,
   DeviceCardAuthoringProfile,
+  DeviceCardJointPreviewFrame,
   DeviceCardRuntimeSnapshot,
   DeviceCardWorkspaceStatus,
   InstalledDeviceCard
 } from '@unilab/device-card-sdk'
+import {
+  clearJointStateFrame,
+  getJointStateFrame,
+  publishJointStateFrame
+} from '@unilab/scene-runtime'
 
 import { buildAuthoringSampleState } from '../../data/authoringContext'
 import { useDeviceStatus } from '../../hooks/useDeviceStatus'
@@ -123,6 +129,32 @@ export function useDeviceCardWorkbench() {
     })
   }, [desktopApi])
 
+  useEffect(() => {
+    if (!desktopApi) return
+    let receivedSinceLog = 0
+    let lastLoggedAt = 0
+    console.info('[joint-preview] stage=workbench status=listener_ready surface=kernel')
+    return desktopApi.onJointPreview((frame) => {
+      try {
+        const accepted = publishJointStateFrame({ ...frame, source: 'mock' })
+        receivedSinceLog += 1
+        const now = Date.now()
+        if (lastLoggedAt === 0 || now - lastLoggedAt >= 1_000) {
+          console.info(
+            `[joint-preview] stage=workbench status=${accepted.updatedAt > frame.updatedAt ? 'stale' : 'published'} surface=kernel material=${jointPreviewDiagnosticToken(frame.materialId)} joints=${Object.keys(frame.jointStates).length} events=${receivedSinceLog}`
+          )
+          receivedSinceLog = 0
+          lastLoggedAt = now
+        }
+      } catch (error) {
+        console.error(
+          `[joint-preview] stage=workbench status=rejected surface=kernel material=${jointPreviewDiagnosticToken(frame.materialId)} reason=invalid_frame`,
+          error
+        )
+      }
+    })
+  }, [desktopApi])
+
   const selectedCard = cards.find((card) => card.key === selectedCardKey)
   const selectedDevice = devices.find(
     (device) => device.deviceId === selectedDeviceId
@@ -175,6 +207,12 @@ export function useDeviceCardWorkbench() {
     agentInfo.cli.installed &&
     agentInfo.cli.compatible
   )
+
+  useEffect(() => {
+    if (liveMode && previewDevice?.materialUuid) {
+      clearJointStateFrame(previewDevice.materialUuid)
+    }
+  }, [liveMode, previewDevice?.materialUuid])
 
   useEffect(() => {
     setSelectedDeviceId((current) =>
@@ -235,10 +273,25 @@ export function useDeviceCardWorkbench() {
     if (!desktopApi || !previewCard || !previewRef.current) return
     const preview = previewRef.current
     let disposed = false
+    const storedJointFrame = !liveMode && previewDevice?.materialUuid
+      ? getJointStateFrame(previewDevice.materialUuid)
+      : null
+    const jointPreview: DeviceCardJointPreviewFrame | undefined =
+      storedJointFrame
+        ? {
+            materialId: storedJointFrame.materialId,
+            jointStates: storedJointFrame.jointStates,
+            updatedAt: storedJointFrame.updatedAt,
+            ...(storedJointFrame.modelRevision
+              ? { modelRevision: storedJointFrame.modelRevision }
+              : {})
+          }
+        : undefined
     const context: DeviceCardRuntimeSnapshot = {
       mode: liveMode ? 'live' : 'mock',
       device: {
         deviceId: liveMode ? previewDeviceId : null,
+        materialId: previewDevice?.materialUuid ?? null,
         definitionFqid: previewDefinitionFqid,
         ...(previewDevice?.definition
           ? { definition: previewDevice.definition }
@@ -249,6 +302,7 @@ export function useDeviceCardWorkbench() {
       },
       state: runtimeStateRef.current,
       config: {},
+      ...(jointPreview ? { jointPreview } : {}),
       theme: 'light',
       locale: 'zh-CN'
     }
@@ -308,6 +362,7 @@ export function useDeviceCardWorkbench() {
     previewCardTitle,
     previewDeviceId,
     previewDeviceLabel,
+    previewDevice?.materialUuid,
     previewDeviceTypeId,
     previewFallbackDeviceTypeId,
     previewDefinitionFqid,
@@ -479,4 +534,8 @@ export function useDeviceCardWorkbench() {
     workspace,
     workspaceOperation: workspaceActions.workspaceOperation,
   }
+}
+
+function jointPreviewDiagnosticToken(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_.:@-]+/gu, '_').slice(0, 160)
 }

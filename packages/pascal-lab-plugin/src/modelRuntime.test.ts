@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   buildDeviceXacro,
+  createDeviceXacroLoader,
   loadLabDeviceModel,
   resolveModelDirectory,
   shouldInstantiateXacro
@@ -52,6 +53,19 @@ describe('Pascal model runtime', () => {
     expect(source).toContain(
       'mesh_path="http://127.0.0.1:8014/api/v1/material-models/lab/models"'
     )
+  })
+
+  it('eagerly resolves nested YAML-backed Xacro properties', () => {
+    const loader = createDeviceXacroLoader(new Map([
+      ['http://fixture.local/joint_limit.yaml', { joint_limits: {} }]
+    ]))
+
+    // xacro-parser 0.3.x otherwise leaves a chain such as
+    // load_yaml -> joint_limits -> joint -> lower deferred as strings. The
+    // final URDF then receives empty limits and clamps every joint to zero.
+    expect(
+      (loader as unknown as { localProperties?: boolean }).localProperties
+    ).toBe(false)
   })
 
   it('resolves a package-relative mesh directory against the Edge origin', () => {

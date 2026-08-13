@@ -7,6 +7,7 @@ import {
   type DeviceCardActionRun,
   type DeviceCardAgentEnvironmentInfo,
   type DeviceCardAuthoringProfile,
+  type DeviceCardJointPreviewFrame,
   type DeviceCardRuntimeSnapshot,
   type DeviceCardWorkspaceStatus,
   type InstalledDeviceCard
@@ -17,6 +18,11 @@ import {
   type DeviceStatus,
   type Services
 } from '@unilab/services'
+import {
+  clearJointStateFrame,
+  getJointStateFrame,
+  publishJointStateFrame
+} from '@unilab/scene-runtime'
 import {
   useCallback,
   useEffect,
@@ -194,6 +200,32 @@ export function useWorkbenchDeviceCards({
 
   useEffect(() => {
     if (!desktopApi) return
+    let receivedSinceLog = 0
+    let lastLoggedAt = 0
+    console.info('[joint-preview] stage=workbench status=listener_ready surface=theia')
+    return desktopApi.onJointPreview((frame) => {
+      try {
+        const accepted = publishJointStateFrame({ ...frame, source: 'mock' })
+        receivedSinceLog += 1
+        const now = Date.now()
+        if (lastLoggedAt === 0 || now - lastLoggedAt >= 1_000) {
+          console.info(
+            `[joint-preview] stage=workbench status=${accepted.updatedAt > frame.updatedAt ? 'stale' : 'published'} surface=theia material=${jointPreviewDiagnosticToken(frame.materialId)} joints=${Object.keys(frame.jointStates).length} events=${receivedSinceLog}`
+          )
+          receivedSinceLog = 0
+          lastLoggedAt = now
+        }
+      } catch (error) {
+        console.error(
+          `[joint-preview] stage=workbench status=rejected surface=theia material=${jointPreviewDiagnosticToken(frame.materialId)} reason=invalid_frame`,
+          error
+        )
+      }
+    })
+  }, [desktopApi])
+
+  useEffect(() => {
+    if (!desktopApi) return
     return desktopApi.authoring.onTargetRequest(request => {
       void services.laboratory.getDeviceCatalog().then(
         catalog => desktopApi.authoring.resolveTargetRequest({
@@ -237,6 +269,12 @@ export function useWorkbenchDeviceCards({
     previewId,
     previewDeviceId
   )
+
+  useEffect(() => {
+    if (liveMode && previewDevice?.materialUuid) {
+      clearJointStateFrame(previewDevice.materialUuid)
+    }
+  }, [liveMode, previewDevice?.materialUuid])
 
   useEffect(() => {
     setSelectedDeviceId(current => devices.some(device => device.deviceId === current)
@@ -335,10 +373,25 @@ export function useWorkbenchDeviceCards({
     observer.observe(preview)
     const frame = requestAnimationFrame(() => {
       const rect = preview.getBoundingClientRect()
+      const storedJointFrame = !liveMode && previewDevice?.materialUuid
+        ? getJointStateFrame(previewDevice.materialUuid)
+        : null
+      const jointPreview: DeviceCardJointPreviewFrame | undefined =
+        storedJointFrame
+          ? {
+              materialId: storedJointFrame.materialId,
+              jointStates: storedJointFrame.jointStates,
+              updatedAt: storedJointFrame.updatedAt,
+              ...(storedJointFrame.modelRevision
+                ? { modelRevision: storedJointFrame.modelRevision }
+                : {})
+            }
+          : undefined
       const context: DeviceCardRuntimeSnapshot = {
         mode: liveMode ? 'live' : 'mock',
         device: {
           deviceId: liveMode ? previewDeviceId : null,
+          materialId: previewDevice?.materialUuid ?? null,
           definitionFqid: previewDevice?.definitionFqid
             ?? previewCard.definitionFqids[0]
             ?? '',
@@ -354,6 +407,7 @@ export function useWorkbenchDeviceCards({
         },
         state: runtimeStateRef.current,
         config: {},
+        ...(jointPreview ? { jointPreview } : {}),
         theme: resolveWorkbenchDeviceCardTheme(),
         locale: 'zh-CN'
       }
@@ -539,6 +593,10 @@ export function useWorkbenchDeviceCards({
     toggleLiveBinding,
     workspace
   }
+}
+
+function jointPreviewDiagnosticToken(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_.:@-]+/gu, '_').slice(0, 160)
 }
 
 /**

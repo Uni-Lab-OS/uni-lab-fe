@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode
@@ -10,6 +11,10 @@ import {
   DEFAULT_BACKENDS,
   type BackendConfig
 } from '@unilab/services'
+import {
+  activateSceneRuntimeScope,
+  sceneRuntimeScopeId
+} from '@unilab/scene-runtime'
 
 import type {
   ConnectionStatus,
@@ -87,6 +92,13 @@ export function WorkbenchProvider({ children }: { children: ReactNode }): React.
   const [capabilityHealth, setCapabilityHealth] =
     useState<WorkbenchCapabilityHealth>(INITIAL_CAPABILITY_HEALTH)
   const [recoveryRevision, setRecoveryRevision] = useState(0)
+
+  useEffect(() => {
+    activateSceneRuntimeScope(sceneRuntimeScopeId(
+      backend.id,
+      backend.apiUrl
+    ))
+  }, [backend.apiUrl, backend.id])
 
   const selectBackend = useCallback((backendId: string) => {
     const next = resolveDefaultBackend(backendId, browserOrigin())

@@ -114,7 +114,7 @@ export const CARD_MANIFEST_SCHEMA = {
 export const DEVICE_CARD_UI_CATALOG = {
   schemaVersion: 'device-card-ui-catalog/v1',
   version: DEVICE_CARD_UI_CATALOG_VERSION,
-  features: ['core'],
+  features: ['core', 'joint-preview'],
   elements: [
     element('u-card', '卡片布局容器', [
       attribute('title', 'string'),
@@ -182,6 +182,7 @@ export const DEVICE_CARD_UI_CATALOG = {
 } as const
 
 export const SDK_DECLARATION = `declare module '@unilab/device-card-sdk' {
+  export const DEVICE_CARD_JOINT_PREVIEW_FEATURE: 'joint-preview'
   export type JsonPrimitive = string | number | boolean | null
   export type JsonValue =
     | JsonPrimitive
@@ -205,10 +206,17 @@ export const SDK_DECLARATION = `declare module '@unilab/device-card-sdk' {
       catalogDigest: string
     }
   }
+  export interface DeviceCardJointPreviewFrame {
+    materialId: string
+    jointStates: Readonly<Record<string, number>>
+    updatedAt: number
+    modelRevision?: string
+  }
   export interface DeviceCardRuntimeSnapshot {
     mode: 'mock' | 'live'
     device: {
       deviceId: string | null
+      materialId: string | null
       definitionFqid: string
       definition?: DeviceDefinitionReference
       /** @deprecated 使用 definitionFqid。 */
@@ -217,6 +225,7 @@ export const SDK_DECLARATION = `declare module '@unilab/device-card-sdk' {
     }
     state: Record<string, unknown>
     config: Record<string, JsonValue>
+    jointPreview?: DeviceCardJointPreviewFrame
     theme: 'light' | 'dark'
     locale: string
   }
@@ -248,6 +257,9 @@ export const SDK_DECLARATION = `declare module '@unilab/device-card-sdk' {
     saveConfig(
       patch: Record<string, JsonValue>
     ): Promise<Record<string, JsonValue>>
+    setJointPreview?(
+      jointStates: Readonly<Record<string, number>>
+    ): Promise<DeviceCardJointPreviewFrame>
     log(level: 'info' | 'warn' | 'error', message: string): void
   }
   export function getDeviceCardBridge(): DeviceCardBridge
@@ -259,34 +271,50 @@ export const SDK_DECLARATION = `declare module '@unilab/device-card-sdk' {
 declare module '@unilab/device-card-sdk/vue' {
   import type {
     DeviceCardActionRun,
+    DeviceCardJointPreviewFrame,
     DeviceCardRuntimeSnapshot
   } from '@unilab/device-card-sdk'
   export function useDeviceCard(options: {
     state: readonly string[]
   }): {
     state: Record<string, unknown>
-    context: Readonly<DeviceCardRuntimeSnapshot | null>
+    ready: Readonly<{ value: boolean }>
+    context: Readonly<{ value: DeviceCardRuntimeSnapshot | null }>
     callAction(
       action: string,
       params?: Record<string, unknown>
     ): Promise<DeviceCardActionRun>
+    saveConfig(
+      patch: Record<string, unknown>
+    ): Promise<Record<string, unknown>>
+    setJointPreview(
+      jointStates: Readonly<Record<string, number>>
+    ): Promise<DeviceCardJointPreviewFrame>
   }
 }
 
 declare module '@unilab/device-card-sdk/react' {
   import type {
     DeviceCardActionRun,
+    DeviceCardJointPreviewFrame,
     DeviceCardRuntimeSnapshot
   } from '@unilab/device-card-sdk'
   export function useDeviceCard(options: {
     state: readonly string[]
   }): {
     state: Record<string, unknown>
+    ready: boolean
     context: DeviceCardRuntimeSnapshot | null
     callAction(
       action: string,
       params?: Record<string, unknown>
     ): Promise<DeviceCardActionRun>
+    saveConfig(
+      patch: Record<string, unknown>
+    ): Promise<Record<string, unknown>>
+    setJointPreview(
+      jointStates: Readonly<Record<string, number>>
+    ): Promise<DeviceCardJointPreviewFrame>
   }
 }
 `

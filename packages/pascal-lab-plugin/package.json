@@ -14,6 +14,7 @@
     "@react-three/fiber": "9.4.0",
     "@unilab/material": "workspace:*",
     "@unilab/pascal-host": "workspace:*",
+    "@unilab/scene-runtime": "workspace:*",
     "js-yaml": "4.3.0",
     "three": "0.185.0",
     "urdf-loader": "0.12.6",

@@ -1585,6 +1585,28 @@ Card call-action
 - 模拟 Action 成功/失败
 - 显示卡片日志
 
+#### 22.2.1 关节模型预览
+
+带 Xacro/URDF 模型的设备可在 Mock 中提交完整关节快照：
+
+```ts
+await bridge.setJointPreview({
+  arm_base_joint: 0.85, // prismatic: m
+  cr7_joint_1: Math.PI / 2 // revolute/continuous: rad
+})
+```
+
+Host 把目标绑定到当前 Card Instance 的 `materialId`；卡片不能指定或切换目标
+Material。快照按 Material 保存在 `scene-runtime` 的应用级临时帧缓存中，由唯一
+Pascal 场景命令式更新已加载的 URDFRobot。它不写入 Material Graph、Panel 配置或
+磁盘，普通页面切换时保留，Profile/Endpoint 切换和应用退出时清除。
+
+- 每次调用提交完整快照，不把单关节 patch 冒充完整状态。
+- 只接受有限数值、受限数量和大小；模型关节名使用设备包定义的局部名称。
+- Xacro 实例化前缀由 Host 场景适配器解析，卡片不得猜接运行时前缀。
+- Live 必须拒绝该接口；它不是设备反馈，也不经过 Action/Services 控制通道。
+- 重新打开卡片时从 `context.jointPreview` 恢复 Mock 控件。
+
 ### 22.3 Live
 
 用户明确点击“应用到设备”后才进入 Live：

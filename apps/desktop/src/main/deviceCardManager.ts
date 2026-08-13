@@ -23,6 +23,7 @@ import type {
   DeviceCardAuthoringSessionStatus,
   DeviceCardAuthoringTargetResponse,
   DeviceCardBounds,
+  DeviceCardJointPreviewFrame,
   DeviceCardRuntimeSnapshot,
   DeviceCardWorkspaceStatus,
   InstalledDeviceCard,
@@ -30,11 +31,14 @@ import type {
   OpenDeviceCardRequest,
   OpenDeviceCardWorkspaceRequest
 } from '@unilab/device-card-sdk'
+import { DEVICE_CARD_JOINT_PREVIEW_FEATURE } from '@unilab/device-card-sdk'
 
 import { ElectronDeviceCardAuthoringApprovals } from './deviceCardAgentPermissions'
 import { RendererDeviceCardAuthoringTargetPort } from './deviceCardAuthoringTargets'
 import { DeviceCardVisibilityController } from './deviceCardVisibility'
 import { dispatchDeviceCardAction } from './deviceCardActionDispatch'
+import { createDeviceCardJointPreview } from './deviceCardJointPreview'
+import { LatestViewOpenCoordinator } from './latestViewOpenCoordinator'
 import {
   assertDeviceCardRuntimeCapabilities,
   filterAllowedState,
@@ -49,16 +53,28 @@ import {
 } from './deviceCardRuntimeValidation'
 
 type RuntimeSession = {
-  view: WebContentsView; record: RuntimeCardRecord; context: DeviceCardRuntimeSnapshot
-  config: JsonObject; actions: Map<string, DeviceCardActionContract>
+  view: WebContentsView
+  record: RuntimeCardRecord
+  context: DeviceCardRuntimeSnapshot
+  config: JsonObject
+  actions: Map<string, DeviceCardActionContract>
 }
 type PendingAction = { resolve: (run: DeviceCardActionRun) => void }
+type DiagnosticLevel = 'info' | 'warning' | 'error'
+
+interface JointPreviewDiagnosticState {
+  lastLoggedAt: number
+  suppressed: number
+}
 
 export class DeviceCardManager {
   private readonly sessions = new Map<number, RuntimeSession>()
   private readonly pendingActions = new Map<string, PendingAction>()
   private readonly visibility = new DeviceCardVisibilityController()
-  private activeView: WebContentsView | null = null
+  private readonly attachedViews = new Set<WebContentsView>()
+  private readonly jointPreviewDiagnostics =
+    new Map<string, JointPreviewDiagnosticState>()
+  private readonly openCoordinator: LatestViewOpenCoordinator<WebContentsView>
   private readonly targetPort: RendererDeviceCardAuthoringTargetPort
   readonly authoring: LocalDeviceCardAuthoringAutomation
 
@@ -69,6 +85,10 @@ export class DeviceCardManager {
     workspaceRoot: string
     log: (message: string) => void
   }) {
+    this.openCoordinator = new LatestViewOpenCoordinator({
+      activate: (view) => this.activateView(view),
+      dispose: (view) => this.disposeView(view)
+    })
     this.targetPort = new RendererDeviceCardAuthoringTargetPort(
       options.getMainWindow
     )
@@ -234,7 +254,7 @@ export class DeviceCardManager {
       'device-cards:updateBounds',
       (event, bounds: DeviceCardBounds) => {
         this.assertMainRenderer(event)
-        this.activeView?.setBounds(normalizeBounds(bounds))
+        this.openCoordinator.getActive()?.setBounds(normalizeBounds(bounds))
       }
     )
     ipcMain.handle(
@@ -277,6 +297,11 @@ export class DeviceCardManager {
     ipcMain.handle(
       'device-card-runtime:saveConfig',
       (event, patch: JsonObject) => this.saveConfig(event, patch)
+    )
+    ipcMain.handle(
+      'device-card-runtime:setJointPreview',
+      (event, jointStates: unknown) =>
+        this.setJointPreview(event, jointStates)
     )
     ipcMain.on(
       'device-card-runtime:log',
@@ -335,8 +360,11 @@ export class DeviceCardManager {
     request: OpenDeviceCardRequest | OpenDeviceCardWorkspaceRequest
   ): Promise<void> {
     assertDeviceCardRuntimeCapabilities(record, request)
-    this.closeActive()
-    const window = this.requireMainWindow()
+    this.requireMainWindow()
+    const diagnosticIdentity = cardDiagnosticIdentity(record)
+    this.runtimeDiagnostic(
+      `stage=open status=started ${diagnosticIdentity}`
+    )
     const partition = `unilab-card-${record.metadata.sourceHash.slice(0, 24)}`
     const view = new WebContentsView({
       webPreferences: {
@@ -367,8 +395,8 @@ export class DeviceCardManager {
         ])
       )
     }
-    this.sessions.set(view.webContents.id, session)
-    this.activeView = view
+    const viewId = view.webContents.id
+    this.sessions.set(viewId, session)
     const cardSession = view.webContents.session
     cardSession.setPermissionRequestHandler((_webContents, _permission, reply) => {
       reply(false)
@@ -380,17 +408,37 @@ export class DeviceCardManager {
     view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
     view.webContents.on('will-navigate', (event) => event.preventDefault())
     view.webContents.on('will-attach-webview', (event) => event.preventDefault())
-    view.webContents.on('destroyed', () => {
-      this.sessions.delete(view.webContents.id)
-      if (this.activeView === view) {
-        this.visibility.detach(view)
-        this.activeView = null
-      }
+    view.webContents.on('render-process-gone', (_event, details) => {
+      this.runtimeDiagnostic(
+        `stage=card-renderer status=gone reason=${diagnosticToken(details.reason)} ${diagnosticIdentity}`,
+        'error'
+      )
     })
-    window.contentView.addChildView(view)
-    this.visibility.attach(view)
+    view.webContents.on('destroyed', () => {
+      this.sessions.delete(viewId)
+      this.attachedViews.delete(view)
+      this.visibility.detach(view)
+      this.openCoordinator.forget(view)
+    })
     view.setBounds(normalizeBounds(request.bounds))
-    await view.webContents.loadFile(join(record.artifactDir, 'index.html'))
+    try {
+      const outcome = await this.openCoordinator.open(
+        view,
+        () => view.webContents.loadFile(join(record.artifactDir, 'index.html'))
+      )
+      this.runtimeDiagnostic(
+        `stage=open status=${outcome === 'committed' ? 'ready' : 'superseded'} ${diagnosticIdentity}`
+      )
+    } catch (error) {
+      const code = diagnosticErrorCode(error)
+      this.runtimeDiagnostic(
+        `stage=open status=failed code=${code} ${diagnosticIdentity}`,
+        'error'
+      )
+      throw new Error(
+        `卡片加载失败（${code}，${diagnosticIdentity}）。`
+      )
+    }
   }
 
   private async closeWorkspace(): Promise<void> {
@@ -401,20 +449,33 @@ export class DeviceCardManager {
   }
 
   private closeActive(): void {
-    const view = this.activeView
-    if (!view) return
+    this.openCoordinator.closeAll()
+  }
+
+  private activateView(view: WebContentsView): void {
+    const window = this.requireMainWindow()
+    window.contentView.addChildView(view)
+    this.attachedViews.add(view)
+    this.visibility.attach(view)
+  }
+
+  private disposeView(view: WebContentsView): void {
+    const viewId = view.webContents.id
     this.visibility.detach(view)
-    this.activeView = null
-    this.sessions.delete(view.webContents.id)
+    this.sessions.delete(viewId)
     const window = this.options.getMainWindow()
-    if (window && !window.isDestroyed()) {
+    if (
+      this.attachedViews.delete(view)
+      && window
+      && !window.isDestroyed()
+    ) {
       window.contentView.removeChildView(view)
     }
     if (!view.webContents.isDestroyed()) view.webContents.close()
   }
 
   private updateState(state: Record<string, unknown>): void {
-    const view = this.activeView
+    const view = this.openCoordinator.getActive()
     if (!view || view.webContents.isDestroyed() || !isPlainRecord(state)) return
     const session = this.sessions.get(view.webContents.id)
     if (!session) return
@@ -454,6 +515,83 @@ export class DeviceCardManager {
     session.config = { ...session.config, ...patch }
     session.context = { ...session.context, config: session.config }
     return { ...session.config }
+  }
+
+  private setJointPreview(
+    event: IpcMainInvokeEvent,
+    jointStates: unknown
+  ): DeviceCardJointPreviewFrame {
+    const session = this.runtimeSession(event)
+    if (!session.record.metadata.manifest.uiFeatures.includes(
+      DEVICE_CARD_JOINT_PREVIEW_FEATURE
+    )) {
+      this.logRejectedJointPreview(session, 'capability_missing')
+      throw new Error('卡片 Manifest 未声明 joint-preview 能力。')
+    }
+    let frame: DeviceCardJointPreviewFrame
+    try {
+      frame = createDeviceCardJointPreview(session.context, jointStates)
+    } catch (error) {
+      const reason = session.context.mode !== 'mock'
+        ? 'live_forbidden'
+        : session.context.device.materialId
+          ? 'invalid_payload'
+          : 'material_missing'
+      this.logRejectedJointPreview(session, reason)
+      throw error
+    }
+    session.context = { ...session.context, jointPreview: frame }
+    this.logAcceptedJointPreview(session, frame)
+    this.requireMainWindow().webContents.send(
+      'device-cards:jointPreview',
+      frame
+    )
+    return frame
+  }
+
+  private logRejectedJointPreview(
+    session: RuntimeSession,
+    reason: string
+  ): void {
+    this.runtimeDiagnostic(
+      `[joint-preview] stage=manager status=rejected reason=${diagnosticToken(reason)} material=${diagnosticToken(session.context.device.materialId ?? 'none')} artifact=${session.record.metadata.sourceHash.slice(0, 12)}`,
+      'warning'
+    )
+  }
+
+  private logAcceptedJointPreview(
+    session: RuntimeSession,
+    frame: DeviceCardJointPreviewFrame
+  ): void {
+    const artifact = session.record.metadata.sourceHash.slice(0, 12)
+    const key = `${artifact}:${frame.materialId}`
+    const now = Date.now()
+    const previous = this.jointPreviewDiagnostics.get(key)
+    if (previous && now - previous.lastLoggedAt < 1_000) {
+      previous.suppressed += 1
+      return
+    }
+    const suppressed = previous?.suppressed ?? 0
+    this.jointPreviewDiagnostics.set(key, {
+      lastLoggedAt: now,
+      suppressed: 0
+    })
+    this.runtimeDiagnostic(
+      `[joint-preview] stage=manager status=accepted material=${diagnosticToken(frame.materialId)} artifact=${artifact} joints=${Object.keys(frame.jointStates).length}${suppressed ? ` suppressed=${suppressed}` : ''}`
+    )
+  }
+
+  private runtimeDiagnostic(
+    message: string,
+    level: DiagnosticLevel = 'info'
+  ): void {
+    const line = message.startsWith('[joint-preview]')
+      ? message
+      : `[device-card-runtime] ${message}`
+    this.options.log(line)
+    if (level === 'error') console.error(line)
+    else if (level === 'warning') console.warn(line)
+    else console.info(line)
   }
 
   private resolveAction(run: DeviceCardActionRun): void {
@@ -497,4 +635,26 @@ export class DeviceCardManager {
     if (!window || window.isDestroyed()) return
     window.webContents.send('device-cards:workspaceStatus', status)
   }
+}
+
+function cardDiagnosticIdentity(record: RuntimeCardRecord): string {
+  return `card=${diagnosticToken(record.id)} version=${diagnosticToken(record.metadata.cardVersion)} artifact=${record.metadata.sourceHash.slice(0, 12)}`
+}
+
+function diagnosticErrorCode(error: unknown): string {
+  if (!error || typeof error !== 'object') return 'unknown'
+  const candidate = error as { code?: unknown; errno?: unknown }
+  if (typeof candidate.code === 'string' && candidate.code) {
+    return diagnosticToken(candidate.code)
+  }
+  if (typeof candidate.errno === 'number' && Number.isFinite(candidate.errno)) {
+    return `errno_${candidate.errno}`
+  }
+  return 'unknown'
+}
+
+function diagnosticToken(value: unknown): string {
+  return String(value ?? 'unknown')
+    .replace(/[^a-zA-Z0-9_.:@-]+/gu, '_')
+    .slice(0, 160) || 'unknown'
 }

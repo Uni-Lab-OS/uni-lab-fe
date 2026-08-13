@@ -9,6 +9,7 @@ import type {
   DeviceCardAuthoringTargetResponse,
   DeviceCardBounds,
   DeviceCardHostActionRequest,
+  DeviceCardJointPreviewFrame,
   DeviceCardWorkspaceStatus,
   InstalledDeviceCard,
   OpenDeviceCardRequest,
@@ -294,6 +295,19 @@ const api = {
       ipcRenderer.on('device-cards:actionRequest', wrapped)
       return () => ipcRenderer.removeListener(
         'device-cards:actionRequest',
+        wrapped
+      )
+    },
+    onJointPreview: (
+      listener: (frame: DeviceCardJointPreviewFrame) => void
+    ): (() => void) => {
+      const wrapped = (
+        _event: Electron.IpcRendererEvent,
+        frame: DeviceCardJointPreviewFrame
+      ): void => listener(frame)
+      ipcRenderer.on('device-cards:jointPreview', wrapped)
+      return () => ipcRenderer.removeListener(
+        'device-cards:jointPreview',
         wrapped
       )
     }

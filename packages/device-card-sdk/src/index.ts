@@ -1,4 +1,5 @@
 export { defineDeviceCard, getDeviceCardBridge } from './bridge'
+export { DEVICE_CARD_JOINT_PREVIEW_FEATURE } from './contracts'
 export {
   DEVICE_CARD_AGENT_PROTOCOL_VERSION,
   DEVICE_CARD_AGENT_RESULT_SCHEMA
@@ -51,6 +52,7 @@ export type {
   DevicePackageDistributionReference,
   DeviceCardBounds,
   DeviceCardHostActionRequest,
+  DeviceCardJointPreviewFrame,
   DeviceCardWorkspaceCard,
   DeviceCardWorkspaceState,
   DeviceCardWorkspaceStatus,

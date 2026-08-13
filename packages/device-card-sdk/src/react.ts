@@ -7,6 +7,7 @@ import {
 import { getDeviceCardBridge } from './bridge'
 import type {
   DeviceCardActionRun,
+  DeviceCardJointPreviewFrame,
   DeviceCardRuntimeSnapshot,
   JsonObject
 } from './contracts'
@@ -22,6 +23,9 @@ export function useDeviceCard(options: {
     params?: Record<string, unknown>
   ) => Promise<DeviceCardActionRun>
   saveConfig: (patch: JsonObject) => Promise<JsonObject>
+  setJointPreview: (
+    jointStates: Readonly<Record<string, number>>
+  ) => Promise<DeviceCardJointPreviewFrame>
 } {
   const [state, setState] = useState<Record<string, unknown>>({})
   const [context, setContext] =
@@ -60,5 +64,17 @@ export function useDeviceCard(options: {
     return getDeviceCardBridge().saveConfig(patch)
   }, [])
 
-  return { state, ready, context, callAction, saveConfig }
+  const setJointPreview = useCallback((
+    jointStates: Readonly<Record<string, number>>
+  ): Promise<DeviceCardJointPreviewFrame> => {
+    const bridge = getDeviceCardBridge()
+    if (!bridge.setJointPreview) {
+      return Promise.reject(new Error(
+        '当前 Device Card Host 不支持关节模型预览，请升级 Uni-Lab。'
+      ))
+    }
+    return bridge.setJointPreview(jointStates)
+  }, [])
+
+  return { state, ready, context, callAction, saveConfig, setJointPreview }
 }

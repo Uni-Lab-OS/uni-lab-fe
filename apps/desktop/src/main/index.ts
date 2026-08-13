@@ -278,6 +278,12 @@ function createWindow(): void {
   mainWindow.webContents.on(
     'console-message',
     (_e, level, message, line, sourceId) => {
+      if (message.startsWith('[joint-preview]')) {
+        const diagnostic = message.slice(0, 2_000)
+        // 关节链路诊断同时进入启动终端和本次会话日志；消息本身不含数值或路径。
+        console.info(`[renderer] ${diagnostic}`)
+        if (level < 2) logLine(`renderer ${diagnostic}`)
+      }
       if (level >= 2) {
         rendererConsoleLogLimiter.record(
           { level, message, line, sourceId },

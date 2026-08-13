@@ -203,10 +203,7 @@ function parseXacro(
   yamlCache: ReadonlyMap<string, unknown>
 ): Promise<Object3D> {
   return new Promise((resolve, reject) => {
-    const loader = new XacroLoader()
-    ;(loader as unknown as { fetchOptions?: RequestInit }).fetchOptions =
-      runtime.fetchOptions?.()
-    patchXacroLoadYaml(loader, yamlCache)
+    const loader = createDeviceXacroLoader(yamlCache)
     loader.parse(
       input,
       (document: Document) => {
@@ -249,10 +246,7 @@ async function loadXacro(
   }
 
   return new Promise((resolve, reject) => {
-    const loader = new XacroLoader()
-    ;(loader as unknown as { fetchOptions?: RequestInit }).fetchOptions =
-      runtime.fetchOptions?.()
-    patchXacroLoadYaml(loader, yamlCache)
+    const loader = createDeviceXacroLoader(yamlCache)
     loader.load(
       url,
       (document: Document) => {
@@ -360,6 +354,29 @@ function patchXacroLoadYaml(
         load_yaml: (path: string) => yamlCache.get(path) ?? {}
       }
     })
+}
+
+/**
+ * Create the single Xacro configuration used by both inline macro expansion
+ * and direct Xacro loading.
+ *
+ * xacro-parser 0.3 keeps macro-local properties lazy by default. A nested
+ * YAML chain such as load_yaml -> joint_limits -> joint -> lower would then
+ * reach the final URDF as an unevaluated string and produce empty limit
+ * attributes. Eager properties preserve the actual numeric limits.
+ */
+export function createDeviceXacroLoader(
+  yamlCache: ReadonlyMap<string, unknown>
+): XacroLoader {
+  const loader = new XacroLoader()
+  const loaderRuntime = loader as unknown as {
+    fetchOptions?: RequestInit
+    localProperties?: boolean
+  }
+  loaderRuntime.fetchOptions = runtime.fetchOptions?.()
+  if (yamlCache.size > 0) loaderRuntime.localProperties = false
+  patchXacroLoadYaml(loader, yamlCache)
+  return loader
 }
 
 async function loadUrdf(url: string, nodeId: string): Promise<Object3D> {

@@ -18,6 +18,7 @@ import {
   type Plugin
 } from 'esbuild'
 import {
+  DEVICE_CARD_JOINT_PREVIEW_FEATURE,
   deviceCardAuthoringDefinitionFqid,
   deviceCardManifestCompatibilityIds,
   parseDeviceCardManifest,
@@ -416,6 +417,7 @@ function mockHostSource(
   context?: DeviceCardBuildRequest['authoringContext']
 ): string {
   const state = context?.sampleState ?? {}
+  const materialId = context?.deviceId ?? 'mock-device'
   const definitionFqid = context
     ? deviceCardAuthoringDefinitionFqid(context)
     : deviceCardManifestCompatibilityIds(manifest)[0] ?? ''
@@ -426,6 +428,7 @@ function mockHostSource(
 if (!window.unilabCard) {
   let state = ${JSON.stringify(state)}
   let config = ${JSON.stringify(manifest.config?.defaults ?? {})}
+  let jointPreview
   const listeners = new Set()
   window.unilabCard = {
     async getContext() {
@@ -433,6 +436,7 @@ if (!window.unilabCard) {
         mode: 'mock',
         device: {
           deviceId: ${JSON.stringify(context?.deviceId ?? null)},
+          materialId: ${JSON.stringify(materialId)},
           definitionFqid: ${JSON.stringify(definitionFqid)},
           definition: ${JSON.stringify(definition)},
           deviceTypeId: ${JSON.stringify(definitionFqid)},
@@ -440,6 +444,7 @@ if (!window.unilabCard) {
         },
         state: { ...state },
         config: { ...config },
+        jointPreview,
         theme: 'light',
         locale: 'zh-CN'
       }
@@ -464,6 +469,31 @@ if (!window.unilabCard) {
     async saveConfig(patch) {
       config = { ...config, ...patch }
       return { ...config }
+    },
+    async setJointPreview(jointStates) {
+      if (!${JSON.stringify(manifest.uiFeatures)}.includes(${JSON.stringify(DEVICE_CARD_JOINT_PREVIEW_FEATURE)})) {
+        throw new Error('Manifest 未声明 joint-preview 能力。')
+      }
+      if (!jointStates || typeof jointStates !== 'object' || Array.isArray(jointStates)) {
+        throw new Error('关节预览必须是对象。')
+      }
+      const jointEntries = Object.entries(jointStates)
+      if (jointEntries.length === 0 || jointEntries.length > 128) {
+        throw new Error('关节预览必须包含 1 到 128 个关节。')
+      }
+      for (const [rawName, rawValue] of jointEntries) {
+        const name = rawName.trim()
+        if (!name || name.length > 200) throw new Error('关节名无效。')
+        if (typeof rawValue !== 'number' || !Number.isFinite(rawValue) || Math.abs(rawValue) > 1_000_000) {
+          throw new Error('关节 ' + name + ' 的数值无效。')
+        }
+      }
+      jointPreview = {
+        materialId: ${JSON.stringify(materialId)},
+        jointStates: Object.fromEntries(jointEntries),
+        updatedAt: Date.now()
+      }
+      return jointPreview
     },
     log(level, message) {
       console[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'info']('[device-card]', message)
