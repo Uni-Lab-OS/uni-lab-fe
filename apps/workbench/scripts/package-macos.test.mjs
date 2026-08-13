@@ -73,6 +73,18 @@ describe('Workbench macOS distribution gate', () => {
     )
   })
 
+  it('uses GitHub-safe formal artifact names that match update metadata', async () => {
+    const packagingScript = await readFile(
+      new URL('./package-macos.mjs', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(
+      packagingScript,
+      /if \(signed\) \{[^]*--config\.mac\.artifactName=UniLab\.Workbench-\$\{version\}-\$\{arch\}\.\$\{ext\}[^]*--config\.dmg\.artifactName=UniLab\.Workbench-\$\{version\}-\$\{arch\}\.\$\{ext\}/u
+    )
+  })
+
   it('submits and staples the DMG before formal notarization verification', async () => {
     const packagingScript = await readFile(
       new URL('./package-macos.mjs', import.meta.url),
@@ -441,6 +453,10 @@ describe('Workbench macOS distribution gate', () => {
       workflow.indexOf('name: Publish rolling macOS update release')
     )
     assert.match(publishSection, /refs\/heads\/deploy-mac/u)
+    assert.match(
+      publishSection,
+      /macOS release asset verification mismatch/u
+    )
     const binaryUploadIndex = publishSection.indexOf(
       '"${dmgs[0]}" "${zips[0]}" "${blockmaps[0]}"'
     )

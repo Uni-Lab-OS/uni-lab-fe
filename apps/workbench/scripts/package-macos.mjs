@@ -272,6 +272,14 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       ...process.env,
       UNILAB_WORKBENCH_UPDATE_URL: updateUrl
     }
+    if (signed) {
+      // GitHub Release 会把资产名中的空格规范化为点号。正式产物从源头使用
+      // 安全名称，保证 latest-mac.yml 的 path 与远端资产名逐字一致。
+      builderArgs.push(
+        '--config.mac.artifactName=UniLab.Workbench-${version}-${arch}.${ext}',
+        '--config.dmg.artifactName=UniLab.Workbench-${version}-${arch}.${ext}'
+      )
+    }
     if (!signed && !developerId) {
       builderEnvironment['CSC_IDENTITY_AUTO_DISCOVERY'] = 'false'
       builderArgs.push(

@@ -620,7 +620,18 @@ jobs:
             const matches = actual.filter(asset => asset.name === item.name)
             return matches.length !== 1 || matches[0].size !== item.size
           })
-          if (failures.length > 0) process.exit(1)
+          if (failures.length > 0) {
+            console.error(JSON.stringify({
+              message: 'macOS release asset verification mismatch',
+              failures,
+              actual: actual.map(asset => ({
+                name: asset.name,
+                size: asset.size,
+                state: asset.state
+              }))
+            }))
+            process.exit(1)
+          }
           NODE
             then
               break
