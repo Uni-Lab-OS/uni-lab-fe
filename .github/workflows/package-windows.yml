@@ -240,6 +240,50 @@ jobs:
           path: apps/workbench/plugins
           key: windows-workbench-plugins-v1-${{ hashFiles('apps/workbench/package.json') }}
 
+      # Read the authoritative rolling-channel version only after restoring
+      # caches whose keys must remain independent from the generated version.
+      # The package.json edit exists only on this runner and is never pushed.
+      - name: Select automatic Windows package version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseJson = & gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:WINDOWS_RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Rolling release $env:WINDOWS_RELEASE_TAG is missing; bootstrap it with an authorized maintainer token"
+          }
+          $release = $releaseJson | ConvertFrom-Json
+          $metadataAssets = @($release.assets | Where-Object {
+            [string]$_.name -eq 'latest.yml'
+          })
+          if ($metadataAssets.Count -gt 1) {
+            throw 'Rolling release contains more than one latest.yml asset'
+          }
+
+          $packagePath = 'apps/workbench/package.json'
+          if ($metadataAssets.Count -eq 1) {
+            $publishedMetadataPath = Join-Path $env:RUNNER_TEMP 'published-latest.yml'
+            $publishedMetadataUrl = [string]$metadataAssets[0].browser_download_url
+            curl.exe --fail --location --retry 5 --retry-all-errors `
+              --output $publishedMetadataPath $publishedMetadataUrl
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to download published latest.yml' }
+            node apps/workbench/scripts/prepare-package-version.mjs `
+              $packagePath $publishedMetadataPath
+          } elseif (@($release.assets).Count -eq 0) {
+            # An empty, pre-created release is the supported bootstrap state.
+            node apps/workbench/scripts/prepare-package-version.mjs $packagePath
+          } else {
+            throw 'Rolling release has assets but no latest.yml; refusing an ambiguous version downgrade'
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to select the Windows package version' }
+
+          $packageManifest = Get-Content $packagePath -Raw | ConvertFrom-Json
+          $packageVersion = [string]$packageManifest.version
+          if ($packageVersion -notmatch '^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$') {
+            throw "Generated Windows package version is invalid: $packageVersion"
+          }
+          "UNILAB_WORKBENCH_PACKAGE_VERSION=$packageVersion" >> $env:GITHUB_ENV
+          "### Windows package v$packageVersion" >> $env:GITHUB_STEP_SUMMARY
+
       - name: Build Windows x64 installer
         run: pnpm --filter @unilab/workbench package:win
 
@@ -260,6 +304,8 @@ jobs:
           if (-not (Test-Path apps/workbench/release-windows/latest.yml)) {
             throw 'Missing latest.yml update metadata'
           }
+          node --input-type=module -e "import { readFileSync } from 'node:fs'; import { readWorkbenchUpdateMetadataVersion } from './apps/workbench/scripts/update-publish.mjs'; const actual = readWorkbenchUpdateMetadataVersion(readFileSync('apps/workbench/release-windows/latest.yml', 'utf8')); if (actual !== process.env.UNILAB_WORKBENCH_PACKAGE_VERSION) throw new Error('latest.yml version mismatch: expected ' + process.env.UNILAB_WORKBENCH_PACKAGE_VERSION + ', received ' + actual)"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows update metadata version validation failed' }
           if (-not (Test-Path apps/workbench/release-windows/package-size-report.json)) {
             throw 'Missing package-size-report.json'
           }
@@ -377,6 +423,7 @@ jobs:
           deploy-windows 分支的滚动更新通道。
 
           当前提交：$env:GITHUB_SHA
+          发布版本：$env:UNILAB_WORKBENCH_PACKAGE_VERSION
           更新时间：$([DateTime]::UtcNow.ToString('u')) UTC
 
           安装包、blockmap 与 latest.yml 由 Package Windows Workbench 工作流维护；此 Release 不参与仓库 Latest Release 排序。
