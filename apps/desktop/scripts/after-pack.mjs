@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
-import { readdir, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { createHash } from 'node:crypto'
+import { readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const MACOS_ELECTRON_LANGUAGES = new Set([
@@ -60,6 +61,33 @@ export async function afterPack(context) {
   if (process.env[ADHOC_SIGNING_ENVIRONMENT] === '1') {
     adHocSignApplication(appPath)
   }
+}
+
+/**
+ * Electron Builder signs every bundled Windows executable after `afterPack`.
+ * Refresh the Runtime manifest at that exact boundary so it describes the
+ * signed Constructor bytes that are actually installed.
+ */
+export async function afterSign(context) {
+  if (context.electronPlatformName !== 'win32') return
+
+  const runtimeDirectory = join(
+    context.appOutDir,
+    'resources',
+    'runtime-installer'
+  )
+  const manifestPath = join(runtimeDirectory, 'manifest.json')
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+  if (
+    typeof manifest.installerFile !== 'string'
+    || basename(manifest.installerFile) !== manifest.installerFile
+  ) {
+    throw new Error('Windows Runtime manifest 缺少安全的 installerFile')
+  }
+
+  const installer = await readFile(join(runtimeDirectory, manifest.installerFile))
+  manifest.sha256 = createHash('sha256').update(installer).digest('hex')
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
 }
 
 export async function removePackagedDesktopSelfLink(appPath) {

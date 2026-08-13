@@ -404,6 +404,10 @@ describe('portable Workbench packaging contract', () => {
       builderConfiguration,
       /from: \.packaging\/node-runtime\/bin\/node/u
     )
+    assert.match(
+      builderConfiguration,
+      /afterSign: \.\.\/desktop\/scripts\/after-pack\.mjs/u
+    )
     assert.equal(
       packageManifest.optionalDependencies['@vscode/windows-ca-certs'],
       '0.3.4'
