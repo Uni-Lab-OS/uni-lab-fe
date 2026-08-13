@@ -119,6 +119,8 @@ async function startPackagedWorkbench() {
   process.env['UNILAB_DESKTOP_WELCOME_URL'] = welcomeUrl
   process.env['UNILAB_AGENT_ICON'] = resources.brandIcon
   process.env['UNILAB_AIONUI_APP'] = resources.agentRuntime
+  process.env['UNILAB_AIONUI_ASAR'] = resources.agentAsar
+  process.env['UNILAB_AIONCORE_PATH'] = resources.agentCore
   process.env['UNILAB_AGENT_NODE_BINARY'] = resources.nodeBinary
   process.env['UNILAB_WORKBENCH_SKILLS'] = resources.workspaceSkills
   process.env['ESBUILD_BINARY_PATH'] = resources.esbuildBinary
@@ -190,7 +192,9 @@ function resolvePackagedResources() {
   }
   const root = process.resourcesPath
   const workbench = path.join(root, 'workbench')
-  const agentRuntime = path.join(root, 'agent-runtime')
+  // These short packaged names keep the bundled Node/npm tree below the
+  // MAX_PATH limit used by NSIS file operations on Windows.
+  const agentRuntime = path.join(root, 'a')
   const agentTarget = resolveAgentCoreTarget()
   return {
     workbench,
@@ -215,7 +219,7 @@ function resolvePackagedResources() {
     agentAsar: path.join(agentRuntime, 'app.asar'),
     agentCore: path.join(
       agentRuntime,
-      'bundled-aioncore',
+      'c',
       agentTarget.directory,
       agentTarget.executable
     )
@@ -487,6 +491,8 @@ function workspaceChildEnvironment({
     UNILAB_DESKTOP_SURFACE: 'workbench',
     UNILAB_AGENT_ICON: resources.brandIcon,
     UNILAB_AIONUI_APP: resources.agentRuntime,
+    UNILAB_AIONUI_ASAR: resources.agentAsar,
+    UNILAB_AIONCORE_PATH: resources.agentCore,
     UNILAB_WORKBENCH_SKILLS: resources.workspaceSkills
   }
   if (osProject) environment.UNILAB_OS_PROJECT = osProject

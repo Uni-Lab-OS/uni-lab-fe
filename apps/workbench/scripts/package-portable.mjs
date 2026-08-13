@@ -220,7 +220,7 @@ export function removeDesktopDeploymentSelfLink(deploymentDirectory) {
   if (!lstatSync(selfLink).isSymbolicLink()) {
     throw new Error(`桌面端生产依赖中的工作区自链接不是符号链接：${selfLink}`)
   }
-  rmSync(selfLink, { force: true })
+  rmSync(selfLink, { recursive: true, force: true })
   return true
 }
 

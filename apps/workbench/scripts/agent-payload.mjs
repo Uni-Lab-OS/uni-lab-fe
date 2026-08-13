@@ -384,11 +384,11 @@ export function validateBundledAgentPayload(
   architecture = process.arch
 ) {
   const target = resolveAgentTarget(platform, architecture)
-  const root = join(resources, 'agent-runtime')
+  const root = join(resources, 'a')
   const archive = join(root, 'app.asar')
   const executable = join(
     root,
-    'bundled-aioncore',
+    'c',
     target.directory,
     target.executable
   )
@@ -411,7 +411,7 @@ export function validateBundledAgentPayload(
   for (const cli of EXTERNAL_ONLY_AGENT_CLIS) {
     const forbiddenPath = join(
       root,
-      'bundled-aioncore',
+      'c',
       target.directory,
       'managed-resources',
       'cli',
@@ -423,7 +423,7 @@ export function validateBundledAgentPayload(
   }
   validateManagedNodeLaunchers(join(
     root,
-    'bundled-aioncore',
+    'c',
     target.directory,
     'managed-resources'
   ), platform)

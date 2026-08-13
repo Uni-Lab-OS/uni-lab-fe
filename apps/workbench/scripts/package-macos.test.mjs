@@ -209,7 +209,9 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(builderConfiguration, /to: runtime-installer/u)
     assert.match(builderConfiguration, /to: default-workspace/u)
     assert.match(builderConfiguration, /\.packaging\/device-card-builder/u)
-    assert.match(builderConfiguration, /to: agent-runtime/u)
+    assert.match(builderConfiguration, /to: a\/app\.asar/u)
+    assert.match(builderConfiguration, /to: a\/payload\.json/u)
+    assert.match(builderConfiguration, /to: a\/c/u)
     assert.match(builderConfiguration, /to: workspace-skills/u)
   })
 
