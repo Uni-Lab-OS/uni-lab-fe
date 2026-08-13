@@ -233,8 +233,8 @@ async function loadXacro(
   node: LabDeviceNode
 ): Promise<Object3D> {
   const meshPath = resolveModelDirectory(url, node.model.meshDir)
-  const yamlCache = await preloadXacroYaml(url, meshPath)
-  if (shouldInstantiateXacro(url, node.model.macro)) {
+  const inspection = await inspectXacroEntry(url, meshPath)
+  if (shouldInstantiateXacro(url, node.model.macro, inspection.source)) {
     return parseXacro(
       buildDeviceXacro(
         url,
@@ -244,7 +244,7 @@ async function loadXacro(
       ),
       LoaderUtils.extractUrlBase(url),
       node.id,
-      yamlCache
+      inspection.yamlCache
     )
   }
 
@@ -252,7 +252,7 @@ async function loadXacro(
     const loader = new XacroLoader()
     ;(loader as unknown as { fetchOptions?: RequestInit }).fetchOptions =
       runtime.fetchOptions?.()
-    patchXacroLoadYaml(loader, yamlCache)
+    patchXacroLoadYaml(loader, inspection.yamlCache)
     loader.load(
       url,
       (document: Document) => {
@@ -280,9 +280,23 @@ async function loadXacro(
 
 export function shouldInstantiateXacro(
   modelPath: string,
-  declaredMacro?: string
+  declaredMacro?: string,
+  source?: string
 ): boolean {
-  return Boolean(declaredMacro) || modelPath.includes('/devices/')
+  if (declaredMacro) return true
+  if (source) return isXacroMacroLibrary(source)
+  return modelPath.includes('/devices/')
+}
+
+function isXacroMacroLibrary(source: string): boolean {
+  if (!/<xacro:macro\b/i.test(source)) return false
+  const withoutMacroBodies = source.replace(
+    /<xacro:macro\b[^>]*>[\s\S]*?<\/xacro:macro\s*>/gi,
+    ''
+  )
+  return !/<(?:link|joint|transmission|gazebo)\b|<xacro:(?!property\b|arg\b|include\b|macro\b)/i.test(
+    withoutMacroBodies
+  )
 }
 
 export function resolveModelDirectory(
@@ -305,14 +319,17 @@ export function resolveModelDirectory(
 
 const DEGREE_TAG = /!degrees\s+([-\d.]+)/g
 
-async function preloadXacroYaml(
+async function inspectXacroEntry(
   xacroUrl: string,
   meshPath: string
-): Promise<Map<string, unknown>> {
+): Promise<{
+  source: string | undefined
+  yamlCache: Map<string, unknown>
+}> {
   const cache = new Map<string, unknown>()
   try {
     const response = await fetch(xacroUrl, runtime.fetchOptions?.())
-    if (!response.ok) return cache
+    if (!response.ok) return { source: undefined, yamlCache: cache }
     const source = await response.text()
     const pattern =
       /xacro\.load_yaml\(\s*mesh_path\s*\+\s*['"]([^'"]+)['"]\s*\)/g
@@ -327,10 +344,11 @@ async function preloadXacroYaml(
       )
       cache.set(yamlUrl, jsYaml.load(yaml))
     }
+    return { source, yamlCache: cache }
   } catch {
     // YAML 只用于少数可动设备；入口加载器会报告真正的模型错误。
+    return { source: undefined, yamlCache: cache }
   }
-  return cache
 }
 
 function patchXacroLoadYaml(
