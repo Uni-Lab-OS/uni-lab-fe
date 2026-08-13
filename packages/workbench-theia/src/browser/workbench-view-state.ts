@@ -38,6 +38,28 @@ export class WorkbenchViewState {
     return this.deviceVisible
   }
 
+  /**
+   * 确保指定领域工作面可见，并在已经可见时保持幂等。
+   *
+   * @param domain 要在主工作区聚焦的工作流、物料或仪器设备领域。
+   * @returns 无返回值；仅在最终展示模式变化时发布一次事件。
+   */
+  show(domain: WorkbenchDomain): void {
+    const previousMode = this.currentMode
+    if (domain === 'device') {
+      this.deviceVisible = true
+    } else {
+      this.deviceVisible = false
+      if (domain === 'workflow') {
+        this.workflowVisible = true
+      } else {
+        this.materialVisible = true
+      }
+    }
+    const nextMode = this.currentMode
+    if (nextMode !== previousMode) this.changeEmitter.fire(nextMode)
+  }
+
   toggle(domain: WorkbenchDomain): void {
     const previousMode = this.currentMode
     if (domain === 'device') {

@@ -36,8 +36,13 @@ abstract class UniLabDomainEntryWidget extends ReactWidget {
     this.update()
   }
 
-  protected readonly open = (): void => {
-    this.viewState.toggle(this.entry.mode)
+  /**
+   * 在真实主工作区显示当前领域，并立即收起仅承担导航职责的 Theia 侧栏。
+   *
+   * @returns 无返回值；侧栏收起和主工作区聚焦由 ApplicationShell 异步完成。
+   */
+  readonly openInWorkbench = (): void => {
+    this.viewState.show(this.entry.mode)
     void this.shell.collapsePanel('left')
     void this.shell.activateWidget(UniLabWorkbenchWidget.ID)
   }
@@ -59,14 +64,14 @@ abstract class UniLabDomainEntryWidget extends ReactWidget {
       <DomainEntryPanel
         entry={this.entry}
         active={this.viewState.isVisible(this.entry.mode)}
-        onOpen={this.open}
+        onOpen={this.openInWorkbench}
       />
     )
   }
 
   protected override onActivateRequest(message: Message): void {
     super.onActivateRequest(message)
-    this.open()
+    this.openInWorkbench()
   }
 }
 
