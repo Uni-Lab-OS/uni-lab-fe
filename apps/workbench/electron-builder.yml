@@ -1,7 +1,9 @@
 appId: com.bohrium.unilab
 productName: UniLab Workbench
 copyright: Copyright © 2026 UniLab
-compression: maximum
+# electron-builder 明确说明 maximum 几乎不减小产物，却会增加构建时间。
+# normal 同时用于正式包与 CI，避免性能基准和发布配置分叉。
+compression: normal
 directories:
   output: release-macos
   buildResources: ../desktop/build
