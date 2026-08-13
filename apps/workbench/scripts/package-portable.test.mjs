@@ -396,6 +396,14 @@ describe('portable Workbench packaging contract', () => {
       await readFile(new URL('./package-portable.mjs', import.meta.url), 'utf8'),
       /`--config\.compression=\$\{compression\}`/u
     )
+    assert.match(
+      builderConfiguration,
+      /from: \.packaging\/node-runtime\s+to: node-runtime\s+filter:\s+- '\*\*\/\*'/u
+    )
+    assert.doesNotMatch(
+      builderConfiguration,
+      /from: \.packaging\/node-runtime\/bin\/node/u
+    )
     assert.equal(
       packageManifest.optionalDependencies['@vscode/windows-ca-certs'],
       '0.3.4'
@@ -629,6 +637,16 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /Name = 'baseline'; Profile = 'none'/u)
     assert.match(workflow, /Name = 'precompressed-exe'; Profile = 'exe'/u)
     assert.match(workflow, /precompressed-ab-metrics\.json/u)
+    assert.match(workflow, /New-SelfSignedCertificate/u)
+    assert.match(workflow, /-Type CodeSigningCert/u)
+    assert.match(workflow, /CSC_LINK=/u)
+    assert.match(workflow, /CSC_KEY_PASSWORD=/u)
+    assert.match(workflow, /Get-AuthenticodeSignature/u)
+    assert.match(workflow, /UNILAB_CI_CERTIFICATE_THUMBPRINT/u)
+    assert.match(
+      workflow,
+      /name: Remove temporary CI code-signing certificate\s+if: always\(\)/u
+    )
     assert.match(workflow, /UNILAB_RUNTIME_INSTALLER=/u)
     assert.match(workflow, /UNILAB_AGENT_DISTRIBUTION=/u)
     assert.match(workflow, /Filter 'aioncore\.exe'/u)

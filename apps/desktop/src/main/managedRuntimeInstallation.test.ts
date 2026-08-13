@@ -32,7 +32,7 @@ afterEach(async () => {
 })
 
 describe('ManagedRuntimeInstallation', () => {
-  it('keeps POSIX Constructor prefixes outside Application Support paths with spaces', () => {
+  it('keeps Constructor prefixes outside Electron paths with rejected characters', () => {
     const userDataDirectory = join(
       '/Users/lc',
       'Library',
@@ -55,7 +55,7 @@ describe('ManagedRuntimeInstallation', () => {
       platform: 'win32',
       homeDirectory: 'C:\\Users\\lc',
       userDataDirectory: 'C:\\Users\\lc\\AppData\\Roaming\\@unilab\\workbench'
-    })).toBe('C:\\Users\\lc\\AppData\\Roaming\\@unilab\\workbench')
+    })).toBe('C:\\Users\\lc\\.unilabos\\workbench')
   })
 
   it('verifies and installs the bundled Constructor payload once', async () => {

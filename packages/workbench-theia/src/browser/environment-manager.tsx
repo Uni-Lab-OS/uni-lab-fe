@@ -211,7 +211,7 @@ export function EnvironmentManager({
               ['来源', runtimeInstallation.managed ? '应用内置' : '现有环境'],
               ['环境', runtimeInstallation.environmentPath ?? '—']
             ]}
-            actions={[
+            actions={runtimeInstallation.bundled && [
               'not-installed',
               'failed'
             ].includes(runtimeInstallation.phase) ? (
