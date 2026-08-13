@@ -436,6 +436,16 @@ describe('portable Workbench packaging contract', () => {
       /conda run -n constructor-build constructor/u
     )
     assert.match(workflow, /pnpm --filter @unilab\/workbench package:win/u)
+    assert.match(workflow, /New-SelfSignedCertificate/u)
+    assert.match(workflow, /-Type CodeSigningCert/u)
+    assert.match(workflow, /CSC_LINK=/u)
+    assert.match(workflow, /CSC_KEY_PASSWORD=/u)
+    assert.match(workflow, /Get-AuthenticodeSignature/u)
+    assert.match(workflow, /UNILAB_CI_CERTIFICATE_THUMBPRINT/u)
+    assert.match(
+      workflow,
+      /name: Remove temporary CI code-signing certificate\s+if: always\(\)/u
+    )
     assert.match(workflow, /UNILAB_RUNTIME_INSTALLER=/u)
     assert.match(workflow, /UNILAB_AGENT_DISTRIBUTION=/u)
     assert.match(workflow, /Filter 'aioncore\.exe'/u)
