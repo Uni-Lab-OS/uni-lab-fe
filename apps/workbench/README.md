@@ -243,6 +243,16 @@ subsequent builds resume automatic patch increments. Formal Windows artifacts
 must use the same trusted code-signing identity across versions; formal macOS
 artifacts must remain Developer ID signed and notarized.
 
+The `deploy-mac` branch follows the same rolling-channel contract through the
+pre-created `workbench-macos-stable` GitHub Release. A push performs a full
+arm64 build, fails before dependency restoration unless all five signing
+secrets (`CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`,
+`APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID`) are configured, and
+increments the patch version from the published `latest-mac.yml`. The workflow
+uploads the notarized DMG, signed/notarized-app ZIP and blockmap before replacing
+`latest-mac.yml`, then removes superseded macOS binaries. It never creates the
+Release or pushes the runner-only version change back to Git.
+
 ### Desktop packaging CI modes
 
 The Windows workflow exposes three explicit modes. `quick` builds the
@@ -253,10 +263,12 @@ identical input to compare the baseline NSIS profile with the `.exe`
 pre-compressed-resource profile. The benchmark uploads only JSON measurements;
 both installers and blockmaps are still generated and verified on the runner.
 
-The macOS workflow exposes `quick` and `full`. Branch pushes use `quick`, while
-manual release qualification uses `full` to generate and verify both DMG and
-ZIP media. This keeps daily packaging validation representative without paying
-the compression and artifact-upload cost on every commit.
+The macOS workflow exposes `quick` and `full`. Optimization-branch pushes use
+unsigned `quick`, while `deploy-mac` pushes use signed `full` to generate,
+notarize, verify and publish both DMG and ZIP media. A manual full run on another
+branch remains an unsigned benchmark. This keeps daily packaging validation
+representative without paying the compression, notarization and artifact-upload
+cost on every commit.
 
 Both platform workflows first restore the pinned Runtime from the immutable
 `workbench-runtime-<version>-<source>` GitHub Release. If that release does not
@@ -296,11 +308,14 @@ pnpm --filter @unilab/workbench package:mac
 ```
 
 The build verifies the pinned Node archive SHA-256, packaged native resources,
-and an executable backend HTTP smoke test before publishing the DMG, signed ZIP
-and update metadata. The formal
-path additionally requires `codesign --verify`, Gatekeeper assessment and
-stapled notarization for both the app and DMG. It never silently publishes an
-unsigned artifact. The distinctly named `rc-adhoc` artifact verifies the signed
+and an executable backend HTTP smoke test before publishing the DMG, ZIP and
+update metadata. The formal path Developer ID signs and notarizes the app,
+submits the containing DMG for a separate notarization ticket, and requires
+`codesign --verify`, Gatekeeper assessment plus stapler validation for both
+media. The DMG container is notarized but intentionally not separately
+code-signed because electron-builder warns that DMG signing is unnecessary and
+can conflict with notarization. It never silently publishes an unsigned app.
+The distinctly named `rc-adhoc` artifact verifies the signed
 application bundle and installer shape for local T14 acceptance only; it does
 not claim Developer ID trust or replace the formal release.
 

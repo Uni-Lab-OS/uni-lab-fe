@@ -73,6 +73,27 @@ describe('Workbench macOS distribution gate', () => {
     )
   })
 
+  it('submits and staples the DMG before formal notarization verification', async () => {
+    const packagingScript = await readFile(
+      new URL('./package-macos.mjs', import.meta.url),
+      'utf8'
+    )
+
+    const submitIndex = packagingScript.indexOf("'notarytool'")
+    const stapleIndex = packagingScript.indexOf("['stapler', 'staple', installerPath]")
+    const notarizeIndex = packagingScript.indexOf(
+      'notarizeAndStapleDiskImage(installer.path)'
+    )
+    const verifyIndex = packagingScript.indexOf(
+      'verifySignedAndNotarized(appPath, installer.path)'
+    )
+    assert.ok(submitIndex >= 0)
+    assert.ok(submitIndex < stapleIndex)
+    assert.ok(notarizeIndex >= 0)
+    assert.ok(notarizeIndex < verifyIndex)
+    assert.match(packagingScript, /process\.env\['APPLE_APP_SPECIFIC_PASSWORD'\]/u)
+  })
+
   it('keeps the temporary ad-hoc acceptance build separate from formal release', async () => {
     const packageManifest = JSON.parse(await readFile(
       new URL('../package.json', import.meta.url),
@@ -315,19 +336,28 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(builderConfiguration, /^\s+writeUpdateInfo: false$/mu)
   })
 
-  /** 验证 macOS 基准工作流固定原生依赖并输出可比较的耗时与体积指标。 */
-  it('benchmarks the complete macOS arm64 build in GitHub Actions', async () => {
+  /** 验证 macOS 工作流固定依赖，并区分基准与正式滚动发布通道。 */
+  it('builds and publishes the macOS arm64 bundle in GitHub Actions', async () => {
     const workflow = await readFile(
       new URL('../../../.github/workflows/package-macos.yml', import.meta.url),
       'utf8'
     )
 
-    assert.match(workflow, /^name: Benchmark macOS Workbench Packaging$/mu)
+    assert.match(workflow, /^name: Package macOS Workbench$/mu)
     assert.match(workflow, /^\s+runs-on: macos-14$/mu)
+    assert.match(workflow, /branches:\n\s+- deploy-mac/u)
     assert.match(workflow, /ci\/macos-packaging-benchmark/u)
     assert.match(workflow, /ci\/desktop-packaging-optimization-v2/u)
     assert.match(workflow, /options:\n\s+- full\n\s+- quick/u)
     assert.match(workflow, /UNILAB_CI_PACKAGE_MODE:/u)
+    assert.match(workflow, /refs\/heads\/deploy-mac[^\n]*'full'/u)
+    assert.match(workflow, /UNILAB_CI_SIGNING_MODE:/u)
+    assert.match(workflow, /^\s+contents: write$/mu)
+    assert.match(workflow, /MACOS_RELEASE_TAG: workbench-macos-stable/u)
+    assert.match(
+      workflow,
+      /releases\/download\/workbench-macos-stable/u
+    )
     assert.match(
       workflow,
       /UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf/u
@@ -379,7 +409,11 @@ describe('Workbench macOS distribution gate', () => {
       /steps\.runtime-release\.outputs\.hit != 'true'.*steps\.runtime-cache\.outputs\.cache-hit != 'true'/su
     )
     assert.match(workflow, /build:desktop:production/u)
-    assert.match(workflow, /package-macos\.mjs --unsigned/u)
+    assert.match(workflow, /package-macos\.mjs "--\$UNILAB_CI_SIGNING_MODE"/u)
+    assert.match(workflow, /CSC_LINK: \$\{\{ secrets\.CSC_LINK \}\}/u)
+    assert.match(workflow, /APPLE_ID: \$\{\{ secrets\.APPLE_ID \}\}/u)
+    assert.match(workflow, /APPLE_TEAM_ID: \$\{\{ secrets\.APPLE_TEAM_ID \}\}/u)
+    assert.match(workflow, /prepare-package-version\.mjs/u)
     assert.match(
       workflow,
       /UNILAB_WORKBENCH_PACKAGE_MODE: \$\{\{ env\.UNILAB_CI_PACKAGE_MODE == 'quick' && 'directory' \|\| 'full' \}\}/u
@@ -388,11 +422,34 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(workflow, /macos-packaging-metrics\.json/u)
     assert.match(workflow, /hdiutil verify/u)
     assert.match(workflow, /compression-level: 0/u)
-    const uploadSection = workflow.slice(
-      workflow.indexOf('name: Upload macOS update bundle and metrics')
+    const unsignedUploadSection = workflow.slice(
+      workflow.indexOf('name: Upload unsigned macOS benchmark and metrics'),
+      workflow.indexOf('name: Upload signed macOS release bundle')
     )
-    assert.doesNotMatch(uploadSection, /release-macos\/\*\.dmg/u)
-    assert.match(uploadSection, /release-macos\/\*\.zip/u)
-    assert.match(uploadSection, /retention-days: 7/u)
+    assert.doesNotMatch(unsignedUploadSection, /release-macos\/\*\.dmg/u)
+    assert.match(unsignedUploadSection, /release-macos\/\*\.zip/u)
+    assert.match(unsignedUploadSection, /retention-days: 7/u)
+
+    const signedUploadSection = workflow.slice(
+      workflow.indexOf('name: Upload signed macOS release bundle'),
+      workflow.indexOf('name: Publish rolling macOS update release')
+    )
+    assert.match(signedUploadSection, /release-macos\/\*\.dmg/u)
+    assert.match(signedUploadSection, /retention-days: 3/u)
+
+    const publishSection = workflow.slice(
+      workflow.indexOf('name: Publish rolling macOS update release')
+    )
+    assert.match(publishSection, /refs\/heads\/deploy-mac/u)
+    const binaryUploadIndex = publishSection.indexOf(
+      '"${dmgs[0]}" "${zips[0]}" "${blockmaps[0]}"'
+    )
+    const metadataUploadIndex = publishSection.indexOf(
+      'gh release upload "$MACOS_RELEASE_TAG" "$metadata"'
+    )
+    assert.ok(binaryUploadIndex >= 0)
+    assert.ok(binaryUploadIndex < metadataUploadIndex)
+    assert.doesNotMatch(publishSection, /gh release create/u)
+    assert.doesNotMatch(workflow, /git push/u)
   })
 })

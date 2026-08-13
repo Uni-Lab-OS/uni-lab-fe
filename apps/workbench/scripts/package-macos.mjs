@@ -337,7 +337,10 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       return { mode: packageMode, applicationDirectory: appPath }
     }
     let installer = findInstaller(outputDirectory)
-    if (signed) verifySignedAndNotarized(appPath, installer.path)
+    if (signed) {
+      notarizeAndStapleDiskImage(installer.path)
+      verifySignedAndNotarized(appPath, installer.path)
+    }
     if (developerId) {
       installer = signAndVerifyDeveloperIdCandidate(
         appPath,
@@ -470,6 +473,27 @@ function verifySignedAndNotarized(appPath, installerPath) {
   runCommand('spctl', ['--assess', '--type', 'execute', '--verbose=2', appPath])
   runCommand('xcrun', ['stapler', 'validate', appPath])
   runCommand('xcrun', ['stapler', 'validate', installerPath])
+}
+
+/**
+ * 将包含已签名应用的 DMG 单独提交 Apple 公证，并把票据装订到镜像。
+ * electron-builder 会在生成发布介质前公证 .app，但不会替 DMG 完成该步骤。
+ * @param {string} installerPath 待公证的 DMG 路径。
+ */
+function notarizeAndStapleDiskImage(installerPath) {
+  runCommand('xcrun', [
+    'notarytool',
+    'submit',
+    installerPath,
+    '--apple-id',
+    process.env['APPLE_ID'],
+    '--password',
+    process.env['APPLE_APP_SPECIFIC_PASSWORD'],
+    '--team-id',
+    process.env['APPLE_TEAM_ID'],
+    '--wait'
+  ])
+  runCommand('xcrun', ['stapler', 'staple', installerPath])
 }
 
 function findDeveloperIdIdentity() {

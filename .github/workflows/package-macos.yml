@@ -1,4 +1,4 @@
-name: Benchmark macOS Workbench Packaging
+name: Package macOS Workbench
 
 on:
   workflow_dispatch:
@@ -13,6 +13,7 @@ on:
           - quick
   push:
     branches:
+      - deploy-mac
       - ci/macos-packaging-benchmark
       - ci/desktop-packaging-optimization-v2
     paths:
@@ -25,7 +26,8 @@ on:
       - pnpm-workspace.yaml
 
 permissions:
-  contents: read
+  # deploy-mac 将验收通过的更新介质发布到预创建的滚动 Release。
+  contents: write
 
 concurrency:
   group: package-macos-${{ github.ref }}
@@ -43,12 +45,15 @@ env:
   UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf
   UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-b09c0c048f6d
   UNILAB_RUNTIME_VERSION: 0.11.3
-  UNILAB_CI_PACKAGE_MODE: ${{ github.event_name == 'push' && 'quick' || inputs.mode }}
-  # 基准分支不发布更新；仅提供 electron-builder 生成 metadata 所需的合法地址。
-  UNILAB_WORKBENCH_UPDATE_URL: ${{ vars.UNILAB_WORKBENCH_UPDATE_URL || 'https://downloads.example.invalid/unilab-workbench' }}
+  MACOS_RELEASE_TAG: workbench-macos-stable
+  UNILAB_WORKBENCH_UPDATE_URL: https://github.com/${{ github.repository }}/releases/download/workbench-macos-stable
 
 jobs:
   package-macos-arm64:
+    env:
+      UNILAB_CI_PACKAGE_MODE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/deploy-mac' && 'full' || github.event_name == 'push' && 'quick' || inputs.mode }}
+      # deploy-mac 的完整构建必须正式签名；基准分支与 quick 模式保持 unsigned。
+      UNILAB_CI_SIGNING_MODE: ${{ github.ref == 'refs/heads/deploy-mac' && (github.event_name == 'push' || inputs.mode == 'full') && 'signed' || 'unsigned' }}
     # GitHub 的 macos-14 标准镜像为 Apple Silicon，可直接构建 arm64 原生依赖。
     runs-on: macos-14
     timeout-minutes: 120
@@ -62,6 +67,66 @@ jobs:
 
       - name: Check out Workbench
         uses: actions/checkout@v6
+
+      - name: Validate update publishing configuration
+        run: |
+          set -euo pipefail
+          node - "$UNILAB_WORKBENCH_UPDATE_URL" <<'NODE'
+          const rawUrl = process.argv[2]
+          let updateUrl
+          try {
+            updateUrl = new URL(rawUrl)
+          } catch {
+            throw new Error('UNILAB_WORKBENCH_UPDATE_URL is not an absolute URL')
+          }
+          if (
+            updateUrl.protocol !== 'https:' ||
+            updateUrl.username ||
+            updateUrl.password ||
+            updateUrl.search ||
+            updateUrl.hash
+          ) {
+            throw new Error(
+              'UNILAB_WORKBENCH_UPDATE_URL must be a credential-free HTTPS URL without query or fragment'
+            )
+          }
+          NODE
+
+      # 正式分支在下载大型依赖前失败关闭，避免缺少凭据时浪费 runner 时间。
+      - name: Validate macOS release signing configuration
+        if: env.UNILAB_CI_SIGNING_MODE == 'signed'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [[ -z "${!name:-}" ]]; then missing+=("$name"); fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing macOS release secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+
+          release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$MACOS_RELEASE_TAG")" || {
+            echo "Rolling release $MACOS_RELEASE_TAG is missing; bootstrap it with an authorized maintainer token" >&2
+            exit 1
+          }
+          RELEASE_JSON="$release_json" node <<'NODE'
+          const release = JSON.parse(process.env.RELEASE_JSON)
+          const metadata = release.assets.filter(asset => asset.name === 'latest-mac.yml')
+          if (metadata.length > 1) {
+            throw new Error('Rolling macOS release contains ambiguous latest-mac.yml assets')
+          }
+          if (metadata.length === 0 && release.assets.length > 0) {
+            throw new Error('Rolling macOS release has assets but no latest-mac.yml')
+          }
+          NODE
 
       - name: Restore versioned macOS Runtime release
         id: runtime-release
@@ -277,6 +342,59 @@ jobs:
           df -h .
           du -sh node_modules .ci-cache "$UNILAB_AGENT_DISTRIBUTION" "$UNILAB_RUNTIME_INSTALLER"
 
+      # 仅正式通道读取已发布版本。package.json 只在 runner 内修改，不会推回分支。
+      - name: Select automatic macOS package version
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'signed'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$MACOS_RELEASE_TAG")"
+          release_assets="$RUNNER_TEMP/macos-release-assets.json"
+          RELEASE_JSON="$release_json" node > "$release_assets" <<'NODE'
+          const release = JSON.parse(process.env.RELEASE_JSON)
+          process.stdout.write(JSON.stringify(release.assets))
+          NODE
+
+          metadata_count="$(node - "$release_assets" <<'NODE'
+          const fs = require('node:fs')
+          const assets = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
+          console.log(assets.filter(asset => asset.name === 'latest-mac.yml').length)
+          NODE
+          )"
+          asset_count="$(node - "$release_assets" <<'NODE'
+          const fs = require('node:fs')
+          console.log(JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).length)
+          NODE
+          )"
+          package_path="apps/workbench/package.json"
+          if [[ "$metadata_count" == 1 ]]; then
+            metadata_url="$(node - "$release_assets" <<'NODE'
+          const fs = require('node:fs')
+          const assets = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
+          console.log(assets.find(asset => asset.name === 'latest-mac.yml').browser_download_url)
+          NODE
+            )"
+            published_metadata="$RUNNER_TEMP/published-latest-mac.yml"
+            curl --fail --location --retry 5 --retry-all-errors \
+              --output "$published_metadata" "$metadata_url"
+            node apps/workbench/scripts/prepare-package-version.mjs \
+              "$package_path" "$published_metadata"
+          elif [[ "$asset_count" == 0 ]]; then
+            node apps/workbench/scripts/prepare-package-version.mjs "$package_path"
+          else
+            echo 'Rolling release has assets but no latest-mac.yml; refusing an ambiguous version downgrade' >&2
+            exit 1
+          fi
+
+          package_version="$(node -p "require('./apps/workbench/package.json').version")"
+          if [[ ! "$package_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Generated macOS package version is invalid: $package_version" >&2
+            exit 1
+          fi
+          echo "UNILAB_WORKBENCH_PACKAGE_VERSION=$package_version" >> "$GITHUB_ENV"
+          echo "### macOS package v$package_version" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Build production Workbench
         run: |
           set -euo pipefail
@@ -286,13 +404,18 @@ jobs:
           build_finished="$(date +%s)"
           echo "BUILD_SECONDS=$((build_finished - build_started))" >> "$GITHUB_ENV"
 
-      - name: Package unsigned macOS arm64 bundle
+      - name: Package macOS arm64 bundle
         env:
           UNILAB_WORKBENCH_PACKAGE_MODE: ${{ env.UNILAB_CI_PACKAGE_MODE == 'quick' && 'directory' || 'full' }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
           package_started="$(date +%s)"
-          /usr/bin/time -l -p node apps/workbench/scripts/package-macos.mjs --unsigned \
+          /usr/bin/time -l -p node apps/workbench/scripts/package-macos.mjs "--$UNILAB_CI_SIGNING_MODE" \
             2>&1 | tee "$RUNNER_TEMP/workbench-package.log"
           package_finished="$(date +%s)"
           echo "PACKAGE_SECONDS=$((package_finished - package_started))" >> "$GITHUB_ENV"
@@ -323,6 +446,9 @@ jobs:
           test -n "$blockmap_path"
           test -f "$release_directory/latest-mac.yml"
           hdiutil verify "$dmg_path"
+          if [[ "$UNILAB_CI_SIGNING_MODE" == signed ]]; then
+            node --input-type=module -e "import { readFileSync } from 'node:fs'; import { readWorkbenchUpdateMetadataVersion } from './apps/workbench/scripts/update-publish.mjs'; const actual = readWorkbenchUpdateMetadataVersion(readFileSync('apps/workbench/release-macos/latest-mac.yml', 'utf8')); if (actual !== process.env.UNILAB_WORKBENCH_PACKAGE_VERSION) throw new Error('latest-mac.yml version mismatch: expected ' + process.env.UNILAB_WORKBENCH_PACKAGE_VERSION + ', received ' + actual)"
+          fi
 
           verify_mount="$RUNNER_TEMP/workbench-dmg-mount"
           mkdir -p "$verify_mount"
@@ -348,7 +474,8 @@ jobs:
           node - "$BUILD_SECONDS" "$PACKAGE_SECONDS" "$pipeline_seconds" \
             "$dmg_path" "$dmg_bytes" "$dmg_sha256" \
             "$zip_path" "$zip_bytes" "$zip_sha256" \
-            "$blockmap_bytes" "$installed_bytes" "$resources_bytes" <<'NODE'
+            "$blockmap_bytes" "$installed_bytes" "$resources_bytes" \
+            "$UNILAB_CI_SIGNING_MODE" <<'NODE'
           const fs = require('node:fs')
           const path = require('node:path')
           const values = process.argv.slice(2)
@@ -356,6 +483,7 @@ jobs:
             schemaVersion: 1,
             runner: 'macos-14 arm64',
             commit: process.env.GITHUB_SHA,
+            distribution: values[12],
             seconds: {
               productionBuild: Number(values[0]),
               nativePackaging: Number(values[1]),
@@ -389,6 +517,7 @@ jobs:
             echo
             echo '| Metric | Result |'
             echo '| --- | ---: |'
+            echo "| Distribution | $UNILAB_CI_SIGNING_MODE |"
             echo "| Production build | ${BUILD_SECONDS}s |"
             echo "| Native packaging | ${PACKAGE_SECONDS}s |"
             echo "| Build + packaging | $((BUILD_SECONDS + PACKAGE_SECONDS))s |"
@@ -404,8 +533,8 @@ jobs:
           cat "$release_directory/macos-packaging-metrics.json"
           df -h .
 
-      - name: Upload macOS update bundle and metrics
-        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
+      - name: Upload unsigned macOS benchmark and metrics
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'unsigned'
         uses: actions/upload-artifact@v6
         with:
           name: UniLab-Workbench-macos-arm64-${{ github.sha }}
@@ -422,3 +551,115 @@ jobs:
           retention-days: 7
           # DMG/ZIP 已压缩，上传阶段不重复压缩可显著缩短总耗时。
           compression-level: 0
+
+      - name: Upload signed macOS release bundle
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'signed'
+        uses: actions/upload-artifact@v6
+        with:
+          name: UniLab-Workbench-macos-arm64-signed-${{ github.sha }}
+          path: |
+            apps/workbench/release-macos/*.dmg
+            apps/workbench/release-macos/*.zip
+            apps/workbench/release-macos/*.zip.blockmap
+            apps/workbench/release-macos/latest-mac.yml
+            apps/workbench/release-macos/macos-packaging-metrics.json
+            apps/workbench/release-macos/workbench-build.log
+            apps/workbench/release-macos/workbench-package.log
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+      # 先发布二进制，最后替换 metadata，避免客户端读到不完整的新版本。
+      - name: Publish rolling macOS update release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/deploy-mac' && env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'signed'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_directory="apps/workbench/release-macos"
+          shopt -s nullglob
+          dmgs=("$release_directory"/*.dmg)
+          zips=("$release_directory"/*.zip)
+          blockmaps=("$release_directory"/*.zip.blockmap)
+          metadata="$release_directory/latest-mac.yml"
+          if (( ${#dmgs[@]} != 1 || ${#zips[@]} != 1 || ${#blockmaps[@]} != 1 )) || [[ ! -f "$metadata" ]]; then
+            echo 'Rolling macOS release requires exactly one DMG, ZIP, ZIP blockmap and latest-mac.yml' >&2
+            exit 1
+          fi
+
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$MACOS_RELEASE_TAG" >/dev/null || {
+            echo "Rolling release $MACOS_RELEASE_TAG is missing; bootstrap it with an authorized maintainer token" >&2
+            exit 1
+          }
+
+          gh release upload "$MACOS_RELEASE_TAG" \
+            "${dmgs[0]}" "${zips[0]}" "${blockmaps[0]}" \
+            --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$MACOS_RELEASE_TAG" "$metadata" \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
+          expected_assets="$RUNNER_TEMP/macos-expected-assets.json"
+          node - "$expected_assets" "${dmgs[0]}" "${zips[0]}" "${blockmaps[0]}" "$metadata" <<'NODE'
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const [output, ...files] = process.argv.slice(2)
+          fs.writeFileSync(output, JSON.stringify(files.map(file => ({
+            name: path.basename(file),
+            size: fs.statSync(file).size
+          }))))
+          NODE
+
+          release_json=''
+          for attempt in 1 2 3 4 5; do
+            release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$MACOS_RELEASE_TAG")"
+            if RELEASE_JSON="$release_json" node - "$expected_assets" <<'NODE'
+          const fs = require('node:fs')
+          const expected = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
+          const actual = JSON.parse(process.env.RELEASE_JSON).assets
+          const failures = expected.filter(item => {
+            const matches = actual.filter(asset => asset.name === item.name)
+            return matches.length !== 1 || matches[0].size !== item.size
+          })
+          if (failures.length > 0) process.exit(1)
+          NODE
+            then
+              break
+            fi
+            if [[ "$attempt" == 5 ]]; then
+              echo 'Rolling macOS release asset verification failed' >&2
+              exit 1
+            fi
+            sleep 2
+          done
+
+          RELEASE_JSON="$release_json" EXPECTED_ASSETS="$expected_assets" node > "$RUNNER_TEMP/stale-macos-assets" <<'NODE'
+          const fs = require('node:fs')
+          const release = JSON.parse(process.env.RELEASE_JSON)
+          const expected = new Set(
+            JSON.parse(fs.readFileSync(process.env.EXPECTED_ASSETS, 'utf8')).map(item => item.name)
+          )
+          for (const asset of release.assets) {
+            if (/\.(?:dmg|zip|zip\.blockmap)$/u.test(asset.name) && !expected.has(asset.name)) {
+              console.log(`${asset.id}\t${asset.name}`)
+            }
+          }
+          NODE
+          while IFS=$'\t' read -r asset_id asset_name; do
+            [[ -z "$asset_id" ]] && continue
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id"
+            echo "Removed superseded macOS asset: $asset_name"
+          done < "$RUNNER_TEMP/stale-macos-assets"
+
+          release_id="$(RELEASE_JSON="$release_json" node -p "JSON.parse(process.env.RELEASE_JSON).id")"
+          release_body="$(cat <<EOF
+          deploy-mac 分支的滚动更新通道。
+
+          当前提交：$GITHUB_SHA
+          发布版本：$UNILAB_WORKBENCH_PACKAGE_VERSION
+          更新时间：$(date -u '+%Y-%m-%d %H:%M:%S') UTC
+
+          DMG、ZIP、blockmap 与 latest-mac.yml 由 Package macOS Workbench 工作流维护；此 Release 不参与仓库 Latest Release 排序。
+          EOF
+          )"
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$release_id" \
+            -f "body=$release_body" >/dev/null
