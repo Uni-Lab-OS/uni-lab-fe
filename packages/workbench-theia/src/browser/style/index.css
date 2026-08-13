@@ -2,6 +2,7 @@
 @import '@unilab/material/UnifiedMaterialViewport.css';
 @import './workbench-domain-navigation.css';
 @import './workbench-device-cards.css';
+@import './workbench-device-card-agent.css';
 
 .unilab-workbench {
   position: relative;

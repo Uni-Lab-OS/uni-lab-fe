@@ -1,5 +1,6 @@
 import { createDeviceCardAuthoringKit } from '@unilab/device-card-authoring-kit'
 import type {
+  DeviceCardAgentEnvironmentInfo,
   DeviceCardAuthoringProfile,
   DeviceCardWorkspaceStatus,
   InstalledDeviceCard
@@ -25,8 +26,12 @@ interface WorkbenchDeviceCardActionOptions {
   runtimeState: Record<string, unknown>
   authoringProfile: DeviceCardAuthoringProfile
   workspace: DeviceCardWorkspaceStatus | null
+  agentInfo: DeviceCardAgentEnvironmentInfo | null
+  agentReady: boolean
   refresh: () => Promise<InstalledDeviceCard[]>
   setWorkspace: Dispatch<SetStateAction<DeviceCardWorkspaceStatus | null>>
+  setAgentInfo: Dispatch<SetStateAction<DeviceCardAgentEnvironmentInfo | null>>
+  setAgentError: Dispatch<SetStateAction<string | null>>
   setSelectedCardKey: Dispatch<SetStateAction<string>>
   setMessage: Dispatch<SetStateAction<WorkbenchDeviceCardNotice | null>>
 }
@@ -47,8 +52,12 @@ export function useWorkbenchDeviceCardActions(
     runtimeState,
     authoringProfile,
     workspace,
+    agentInfo,
+    agentReady,
     refresh,
     setWorkspace,
+    setAgentInfo,
+    setAgentError,
     setSelectedCardKey,
     setMessage
   } = options
@@ -217,8 +226,98 @@ export function useWorkbenchDeviceCardActions(
     })
   }
 
+  /**
+   * 安装、更新或移除随 Workbench 分发的设备卡 Agent CLI。
+   *
+   * @returns 操作完成后更新 Agent 环境快照；失败时写入独立错误和通知。
+   */
+  const toggleAgentCli = async (): Promise<void> => {
+    if (!desktopApi || !agentInfo || operation !== null) return
+    setOperation('agent')
+    setMessage(null)
+    setAgentError(null)
+    try {
+      const next = agentInfo.cli.installed && agentInfo.cli.compatible
+        ? await desktopApi.agent.removeCli()
+        : await desktopApi.agent.installCli()
+      setAgentInfo(next)
+      setMessage({
+        kind: 'success',
+        text: next.cli.installed
+          ? `Agent CLI 已安装：${next.cli.installPath}`
+          : 'Agent CLI 已移除。'
+      })
+    } catch (error) {
+      setAgentError(error instanceof Error ? error.message : '更新 Agent CLI 失败')
+      setMessage(workbenchDeviceCardErrorNotice(error, '更新 Agent CLI 失败'))
+    } finally {
+      setOperation(null)
+    }
+  }
+
+  /**
+   * 启用或停用本机设备卡 Agent Bridge。
+   *
+   * @returns 操作完成后更新 Agent 环境快照；失败时保持当前能力事实。
+   */
+  const toggleAgentBridge = async (): Promise<void> => {
+    if (!desktopApi || !agentInfo || operation !== null) return
+    setOperation('agent')
+    setMessage(null)
+    setAgentError(null)
+    try {
+      const next = await desktopApi.agent.setBridgeEnabled(
+        !agentInfo.bridge.enabled
+      )
+      setAgentInfo(next)
+      setMessage({
+        kind: 'success',
+        text: next.bridge.enabled
+          ? 'AI 编程助手连接已启用。'
+          : 'AI 编程助手连接已停止。'
+      })
+    } catch (error) {
+      setAgentError(error instanceof Error ? error.message : '更新 AI 助手连接失败')
+      setMessage(workbenchDeviceCardErrorNotice(error, '更新 AI 助手连接失败'))
+    } finally {
+      setOperation(null)
+    }
+  }
+
+  /**
+   * 将当前源码工作区的受约束开发指令复制到系统剪贴板。
+   *
+   * @returns 复制完成后发布成功通知；剪贴板不可用时发布精确错误。
+   */
+  const copyAgentPrompt = async (): Promise<void> => {
+    if (
+      !workspace
+      || !agentInfo
+      || !agentReady
+      || operation !== null
+    ) return
+    setOperation('copy')
+    setMessage(null)
+    try {
+      const clipboard = globalThis.navigator?.clipboard
+      if (!clipboard) throw new Error('系统剪贴板不可用')
+      await clipboard.writeText(
+        buildWorkbenchDeviceCardAgentPrompt(workspace, agentInfo)
+      )
+      setMessage({ kind: 'success', text: 'AI 开发指令已复制。' })
+    } catch (error) {
+      setMessage(workbenchDeviceCardErrorNotice(
+        error,
+        '复制 AI 开发指令失败，请确认 Workbench 有剪贴板权限'
+      ))
+    } finally {
+      setOperation(null)
+    }
+  }
+
   return {
     closeWorkspace,
+    copyAgentPrompt,
     exportAuthoringKit,
     importCard,
     installWorkspace,
@@ -226,6 +325,45 @@ export function useWorkbenchDeviceCardActions(
     operation,
     prepareWorkspace,
     rebuildWorkspace,
-    revealWorkspace
+    revealWorkspace,
+    toggleAgentBridge,
+    toggleAgentCli
   }
+}
+
+/**
+ * 生成交给 AI 编程助手的设备卡开发指令。
+ *
+ * @param workspace 当前受 Electron 管理的设备卡源码工作区。
+ * @param agentInfo 本机 Agent CLI 命令与桥接能力快照。
+ * @returns 包含项目边界、安全约束和检查命令的可复制文本。
+ */
+export function buildWorkbenchDeviceCardAgentPrompt(
+  workspace: DeviceCardWorkspaceStatus,
+  agentInfo: DeviceCardAgentEnvironmentInfo
+): string {
+  const command = [
+    quoteWorkbenchCommand(agentInfo.cli.command),
+    'workspace status',
+    '--project',
+    quoteWorkbenchCommand(workspace.projectDir),
+    '--json'
+  ].join(' ')
+  return [
+    `请开发 ${workspace.projectDir} 中的 Uni-Lab 设备卡片。`,
+    '先完整阅读 AGENTS.md、CARD_SPEC.md、authoring-context.json、card.manifest.json 和 mock.json；仅按声明的设备能力修改 src，设计专业的实验室界面。禁止安装依赖、使用网络、Node.js 或未声明的状态和 Action。',
+    '只有 authoring-context.json 中经 SDK 判定为正式可订阅的 Driver/Host 状态键才能进入状态权限和实时面板；Action 输出以及 action-inferred、runtime-sample、unresolved 字段不是实时状态。',
+    '运行时只允许通过 Host Bridge 读取当前 deviceId 的状态并调用 Action，禁止直连设备或 WebSocket。Action 输入只是草稿，实时值必须等待设备上报；切换实例不得沿用旧值。处理离线、忙碌、失败、未上报及 Mock/Live 模式。',
+    `每次修改后运行：\n${command}\n失败时读取 .unilab-card/diagnostics.json 并修复到 ready。不要安装卡片或调用真实设备 Action。`
+  ].join('\n\n')
+}
+
+/**
+ * 为 Agent CLI 参数增加最小双引号转义。
+ *
+ * @param value CLI 路径或源码项目路径。
+ * @returns 可嵌入复制命令的双引号参数。
+ */
+function quoteWorkbenchCommand(value: string): string {
+  return `"${value.replaceAll('"', '\\"')}"`
 }

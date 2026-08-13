@@ -5,6 +5,7 @@ import {
   deviceCardSupportsDevice,
   type DeviceCardActionContract,
   type DeviceCardActionRun,
+  type DeviceCardAgentEnvironmentInfo,
   type DeviceCardAuthoringProfile,
   type DeviceCardRuntimeSnapshot,
   type DeviceCardWorkspaceStatus,
@@ -72,9 +73,18 @@ export function useWorkbenchDeviceCards({
     useState<DeviceCardAuthoringProfile>('vue-web-component-v1')
   const [workspace, setWorkspace] =
     useState<DeviceCardWorkspaceStatus | null>(null)
+  const [agentInfo, setAgentInfo] =
+    useState<DeviceCardAgentEnvironmentInfo | null>(null)
+  const [agentLoading, setAgentLoading] = useState(Boolean(desktopApi))
+  const [agentError, setAgentError] = useState<string | null>(null)
   const [message, setMessage] =
     useState<WorkbenchDeviceCardNotice | null>(null)
   const [loading, setLoading] = useState(Boolean(desktopApi))
+  const agentReady = Boolean(
+    agentInfo?.cli.installed
+    && agentInfo.cli.compatible
+    && agentInfo.bridge.enabled
+  )
   /** 读取 OS 的正式设备目录并保留当前有效选择。 */
   const refreshDeviceCatalog = useCallback(async (): Promise<DeviceCatalogItem[]> => {
     try {
@@ -121,12 +131,38 @@ export function useWorkbenchDeviceCards({
     }
   }, [desktopApi, refreshDeviceCatalog])
 
+  /**
+   * 独立刷新本机 Agent CLI 与 Bridge 状态，不阻塞卡片库。
+   *
+   * @returns 状态读取结束后更新 Agent 快照或独立错误。
+   */
+  const refreshAgentInfo = useCallback(async (): Promise<void> => {
+    if (!desktopApi) {
+      setAgentInfo(null)
+      setAgentLoading(false)
+      return
+    }
+    setAgentLoading(true)
+    setAgentError(null)
+    try {
+      setAgentInfo(await desktopApi.agent.getInfo())
+    } catch (error) {
+      setAgentInfo(null)
+      setAgentError(error instanceof Error
+        ? error.message
+        : '无法读取本机 Agent 环境。')
+    } finally {
+      setAgentLoading(false)
+    }
+  }, [desktopApi])
+
   useEffect(() => {
     void refresh()
+    void refreshAgentInfo()
     return () => {
       void desktopApi?.close()
     }
-  }, [desktopApi, refresh])
+  }, [desktopApi, refresh, refreshAgentInfo])
 
   useEffect(() => {
     const subscription = services.workflow.subscribeWorkflowRuntime(event => {
@@ -416,8 +452,12 @@ export function useWorkbenchDeviceCards({
     runtimeState,
     authoringProfile,
     workspace,
+    agentInfo,
+    agentReady,
     refresh,
     setWorkspace,
+    setAgentInfo,
+    setAgentError,
     setSelectedCardKey,
     setMessage
   })
@@ -468,6 +508,10 @@ export function useWorkbenchDeviceCards({
 
   return {
     ...actions,
+    agentError,
+    agentInfo,
+    agentLoading,
+    agentReady,
     authoringProfile,
     cards,
     desktopAvailable: Boolean(desktopApi),
@@ -488,6 +532,7 @@ export function useWorkbenchDeviceCards({
     previewRef,
     selectedCardKey,
     selectedDevice,
+    refreshAgentInfo,
     setAuthoringProfile,
     setSelectedCardKey,
     setSelectedDeviceId,

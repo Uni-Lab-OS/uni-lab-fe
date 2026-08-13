@@ -1,0 +1,76 @@
+.unilab-device-card-agent__state {
+  display: inline-flex;
+  min-height: 20px;
+  align-items: center;
+  padding: 0 7px;
+  color: var(--unilab-color-warning);
+  border: 1px solid color-mix(in srgb, var(--unilab-color-warning) 32%, var(--unilab-color-border));
+  border-radius: 999px;
+  background: var(--unilab-color-warning-soft);
+  font: 700 9px/1 var(--unilab-font-sans);
+}
+
+.unilab-device-card-agent__state[data-ready='true'] {
+  color: var(--unilab-color-success);
+  border-color: color-mix(in srgb, var(--unilab-color-success) 32%, var(--unilab-color-border));
+  background: var(--unilab-color-success-soft);
+}
+
+.unilab-device-card-agent__facts {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.unilab-device-card-agent__facts > div {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.unilab-device-card-agent__facts dt,
+.unilab-device-card-agent__facts dd {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.unilab-device-card-agent__facts dt {
+  color: var(--unilab-color-text-muted);
+}
+
+.unilab-device-card-agent__facts dd {
+  min-width: 0;
+  color: var(--unilab-color-text);
+  font-weight: 650;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.unilab-device-card-agent code {
+  display: inline;
+  color: var(--unilab-color-text);
+  font: 10px/1.45 var(--unilab-font-mono);
+  overflow-wrap: anywhere;
+}
+
+.unilab-device-card-agent__error {
+  display: grid;
+  gap: 8px;
+  padding: 9px 10px;
+  color: var(--unilab-color-danger);
+  border: 1px solid color-mix(in srgb, var(--unilab-color-danger) 28%, var(--unilab-color-border));
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-danger-soft);
+}
+
+.unilab-device-card-agent__error p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.unilab-device-card-workbench button.unilab-device-card-agent__copy {
+  width: 100%;
+}

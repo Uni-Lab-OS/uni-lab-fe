@@ -1,12 +1,18 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
+import type {
+  DeviceCardAgentEnvironmentInfo,
+  DeviceCardWorkspaceStatus
+} from '@unilab/device-card-sdk'
 import type { DeviceCatalogItem, DeviceStatus } from '@unilab/services'
 
 import {
+  WorkbenchDeviceCardAgentTools,
   WorkbenchDeviceModeSwitcher,
   buildWorkbenchDeviceCardAuthoringContext,
-  buildWorkbenchDeviceCardRuntimeState
+  buildWorkbenchDeviceCardRuntimeState,
+  buildWorkbenchDeviceCardAgentPrompt
 } from './workbench-device-cards'
 
 describe('Workbench 设备自定义卡片', () => {
@@ -57,7 +63,81 @@ describe('Workbench 设备自定义卡片', () => {
       pose: { x: 1, y: 2 }
     }))
   })
+
+  it('在 Workbench 公开 Agent CLI、桥接开关和复制指令入口', () => {
+    const markup = renderToStaticMarkup(
+      <WorkbenchDeviceCardAgentTools
+        info={agentInfo({ installed: false, compatible: false, enabled: false })}
+        loading={false}
+        error={null}
+        ready={false}
+        operation={null}
+        workspaceOpen
+        onRetry={vi.fn()}
+        onToggleCli={vi.fn()}
+        onToggleBridge={vi.fn()}
+        onCopyPrompt={vi.fn()}
+      />
+    )
+
+    expect(markup).toContain('Agent CLI')
+    expect(markup).toContain('安装 Agent CLI')
+    expect(markup).toContain('复制 AI 指令')
+  })
+
+  it('生成包含项目路径和受控检查命令的 AI 开发指令', () => {
+    const prompt = buildWorkbenchDeviceCardAgentPrompt(
+      workspace(),
+      agentInfo({ installed: true, compatible: true, enabled: true })
+    )
+
+    expect(prompt).toContain('/tmp/robot-card')
+    expect(prompt).toContain('workspace status')
+    expect(prompt).toContain('authoring-context.json')
+    expect(prompt).toContain('禁止直连设备或 WebSocket')
+  })
 })
+
+/**
+ * 构造 Workbench Agent 环境测试事实。
+ *
+ * @param input CLI 安装、兼容与 Bridge 启用状态。
+ * @returns 可直接传入 Agent 工具区的环境快照。
+ */
+function agentInfo(input: {
+  installed: boolean
+  compatible: boolean
+  enabled: boolean
+}): DeviceCardAgentEnvironmentInfo {
+  return {
+    bridge: { enabled: input.enabled, protocolVersion: 1 },
+    cli: {
+      installed: input.installed,
+      compatible: input.compatible,
+      installPath: '/home/test/.local/bin/unilab-card-agent',
+      onPath: true,
+      command: '/home/test/.local/bin/unilab-card-agent'
+    }
+  }
+}
+
+/**
+ * 构造复制 AI 开发指令所需的设备卡源码工作区。
+ *
+ * @returns 处于 ready 状态的固定源码工作区快照。
+ */
+function workspace(): DeviceCardWorkspaceStatus {
+  return {
+    schemaVersion: 'device-card-workspace-status/v1',
+    state: 'ready',
+    projectName: 'robot-card',
+    projectDir: '/tmp/robot-card',
+    revision: 1,
+    updatedAt: '2026-08-13T00:00:00.000Z',
+    diagnosticsPath: '/tmp/robot-card/.unilab-card/diagnostics.json',
+    diagnostics: []
+  }
+}
 
 /** 构造测试使用的设备目录条目。 */
 function device(): DeviceCatalogItem {

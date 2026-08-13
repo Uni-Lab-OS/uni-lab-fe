@@ -10,7 +10,14 @@ import {
   workbenchDeviceCardWorkspaceSummary,
   type WorkbenchDeviceMode
 } from './workbench-device-card-support'
+import { WorkbenchDeviceCardAgentTools } from './workbench-device-card-agent-tools'
 import { useWorkbenchDeviceCards } from './use-workbench-device-cards'
+
+export { WorkbenchDeviceCardAgentTools } from './workbench-device-card-agent-tools'
+
+export {
+  buildWorkbenchDeviceCardAgentPrompt
+} from './use-workbench-device-card-actions'
 
 export {
   buildWorkbenchDeviceCardAuthoringContext,
@@ -184,6 +191,18 @@ function WorkbenchDeviceCardPanel({
         ) : (
           <WorkbenchDeviceCardLibrary model={model} />
         )}
+        <WorkbenchDeviceCardAgentTools
+          info={model.agentInfo}
+          loading={model.agentLoading}
+          error={model.agentError}
+          ready={model.agentReady}
+          operation={model.operation}
+          workspaceOpen={Boolean(model.workspace)}
+          onRetry={model.refreshAgentInfo}
+          onToggleCli={model.toggleAgentCli}
+          onToggleBridge={model.toggleAgentBridge}
+          onCopyPrompt={model.copyAgentPrompt}
+        />
       </aside>
       <WorkbenchDeviceCardPreview model={model} />
     </section>

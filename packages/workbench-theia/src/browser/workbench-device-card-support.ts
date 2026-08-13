@@ -23,6 +23,8 @@ export type WorkbenchDeviceCardOperation =
   | 'install'
   | 'close'
   | 'export'
+  | 'agent'
+  | 'copy'
   | null
 
 export interface WorkbenchDeviceCardNotice {
