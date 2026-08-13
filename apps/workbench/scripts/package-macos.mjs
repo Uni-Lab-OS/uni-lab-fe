@@ -31,6 +31,7 @@ import {
   requireWorkbenchUpdateUrl,
   selectMacosUpdateArtifacts
 } from './update-publish.mjs'
+import { resolveWorkbenchPackageMode } from './packaging-mode.mjs'
 import { pruneDesktopDeployment } from './package-portable.mjs'
 
 const MEBIBYTE = 1024 * 1024
@@ -167,7 +168,7 @@ export function validatePackagedWorkbench(
 /**
  * 在当前 macOS 主机上组装、签名并验证 Workbench 的 DMG 与 ZIP 发布介质。
  * @param {{signed: boolean, adhoc?: boolean, developerId?: boolean}} options 签名与验收模式。
- * @returns {void} 成功时把完整发布介质和更新元数据写入 release-macos。
+ * @returns {{mode: string, applicationDirectory: string, releaseDirectory?: string}} 已校验的应用目录与可选发布目录。
  * @throws {Error} 主机不受支持、签名材料缺失或任一发布合同校验失败时抛出。
  */
 export function packageMacos({ signed, adhoc = false, developerId = false }) {
@@ -194,6 +195,12 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
     throw new Error('正式签名、Developer ID RC 与 ad-hoc 临时签名不能同时启用。')
   }
   if (signed) assertMacosSigningEnvironment()
+  const packageMode = resolveWorkbenchPackageMode(
+    process.env['UNILAB_WORKBENCH_PACKAGE_MODE']
+  )
+  if (packageMode === 'prepackaged') {
+    throw new Error('macOS 暂不支持从预构建应用目录生成发布介质。')
+  }
   const updateUrl = requireWorkbenchUpdateUrl()
   const developerIdIdentity = developerId
     ? findDeveloperIdIdentity()
@@ -255,8 +262,7 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
 
     const builderArgs = [
       '--mac',
-      'dmg',
-      'zip',
+      ...(packageMode === 'directory' ? ['--dir'] : ['dmg', 'zip']),
       `--${targetArchitecture}`,
       '--publish',
       'never',
@@ -326,6 +332,10 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       targetArchitecture
     )
     verifyPackagedLauncher(appPath)
+    if (packageMode === 'directory') {
+      console.log(`macOS Workbench 非压缩应用目录已通过校验：${appPath}`)
+      return { mode: packageMode, applicationDirectory: appPath }
+    }
     let installer = findInstaller(outputDirectory)
     if (signed) verifySignedAndNotarized(appPath, installer.path)
     if (developerId) {
@@ -345,6 +355,11 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
     console.log(
       `macOS ${distribution} 安装包已发布：${join(releaseDirectory, basename(installer.path))}（${formatMebibytes(installer.size)} MiB）`
     )
+    return {
+      mode: packageMode,
+      applicationDirectory: appPath,
+      releaseDirectory
+    }
   } finally {
     rmSync(outputDirectory, { recursive: true, force: true })
     rmSync(packagingDirectory, { recursive: true, force: true })

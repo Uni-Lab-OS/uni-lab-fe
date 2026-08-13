@@ -88,13 +88,18 @@ describe('Workbench macOS distribution gate', () => {
     )
   })
 
-  it('builds the ZIP and copies complete macOS updater metadata', async () => {
+  /** 验证完整模式生成两种介质，而快速模式只生成并校验应用目录。 */
+  it('separates full macOS media from directory validation', async () => {
     const packagingScript = await readFile(
       new URL('./package-macos.mjs', import.meta.url),
       'utf8'
     )
 
-    assert.match(packagingScript, /'--mac',\s*'dmg',\s*'zip'/u)
+    assert.match(
+      packagingScript,
+      /packageMode === 'directory' \? \['--dir'\] : \['dmg', 'zip'\]/u
+    )
+    assert.match(packagingScript, /macOS Workbench 非压缩应用目录已通过校验/u)
     assert.match(packagingScript, /selectMacosUpdateArtifacts/u)
     assert.match(packagingScript, /requireWorkbenchUpdateUrl/u)
   })
@@ -321,6 +326,8 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(workflow, /^\s+runs-on: macos-14$/mu)
     assert.match(workflow, /ci\/macos-packaging-benchmark/u)
     assert.match(workflow, /ci\/desktop-packaging-optimization-v2/u)
+    assert.match(workflow, /options:\n\s+- full\n\s+- quick/u)
+    assert.match(workflow, /UNILAB_CI_PACKAGE_MODE:/u)
     assert.match(
       workflow,
       /UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf/u
@@ -357,8 +364,27 @@ describe('Workbench macOS distribution gate', () => {
       workflow,
       /UNILAB_RUNTIME_INSTALLER=\$GITHUB_WORKSPACE\/\$runtime_source/u
     )
+    const releaseRestoreIndex = workflow.indexOf(
+      'name: Restore versioned macOS Runtime release'
+    )
+    const cacheRestoreIndex = workflow.indexOf(
+      'name: Restore macOS Runtime cache'
+    )
+    const runtimeCheckoutIndex = workflow.indexOf('name: Check out Uni-Lab OS')
+    assert.ok(releaseRestoreIndex >= 0)
+    assert.ok(releaseRestoreIndex < cacheRestoreIndex)
+    assert.ok(cacheRestoreIndex < runtimeCheckoutIndex)
+    assert.match(
+      workflow.slice(runtimeCheckoutIndex, runtimeCheckoutIndex + 240),
+      /steps\.runtime-release\.outputs\.hit != 'true'.*steps\.runtime-cache\.outputs\.cache-hit != 'true'/su
+    )
     assert.match(workflow, /build:desktop:production/u)
     assert.match(workflow, /package-macos\.mjs --unsigned/u)
+    assert.match(
+      workflow,
+      /UNILAB_WORKBENCH_PACKAGE_MODE: \$\{\{ env\.UNILAB_CI_PACKAGE_MODE == 'quick' && 'directory' \|\| 'full' \}\}/u
+    )
+    assert.match(workflow, /name: Report quick macOS validation/u)
     assert.match(workflow, /macos-packaging-metrics\.json/u)
     assert.match(workflow, /hdiutil verify/u)
     assert.match(workflow, /compression-level: 0/u)

@@ -1,0 +1,250 @@
+name: Publish Versioned Workbench Runtime
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: package-workbench-runtime-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CONDA_STANDALONE_VERSION: 26.3.2.post1
+  CONSTRUCTOR_VERSION: 3.16.1
+  MICROMAMBA_VERSION: 2.8.1
+  MINIFORGE_VERSION: 26.3.2-3
+  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-b09c0c048f6d
+  UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf
+  UNILAB_RUNTIME_VERSION: 0.11.3
+
+jobs:
+  build-windows-runtime:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Restore Windows Runtime cache
+        id: runtime-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .runtime-source/dist/constructor/*.exe
+          key: windows-runtime-installer-v2-${{ runner.arch }}-${{ env.UNILAB_RUNTIME_VERSION }}-${{ env.UNILAB_RUNTIME_SOURCE_REF }}-miniforge-${{ env.MINIFORGE_VERSION }}-constructor-${{ env.CONSTRUCTOR_VERSION }}-conda-${{ env.CONDA_STANDALONE_VERSION }}
+
+      - name: Check out Uni-Lab OS
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: Uni-Lab-OS/Uni-Lab-OS
+          ref: ${{ env.UNILAB_RUNTIME_SOURCE_REF }}
+          path: .runtime-source
+
+      - name: Set up Constructor
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          miniforge-version: ${{ env.MINIFORGE_VERSION }}
+          use-mamba: true
+          activate-environment: constructor-build
+          auto-update-conda: false
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Build Windows Runtime
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        working-directory: .runtime-source
+        run: |
+          if (-not (Test-Path .conda/constructor/construct.yaml)) {
+            throw 'The pinned Uni-Lab OS source does not contain its Constructor definition'
+          }
+          mamba install -n constructor-build --override-channels -c conda-forge `
+            "constructor=$env:CONSTRUCTOR_VERSION" `
+            "conda-standalone=$env:CONDA_STANDALONE_VERSION" -y
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to install Constructor' }
+
+          $condaExe = conda run -n constructor-build python -c "import os; from pathlib import Path; print(Path(os.environ['CONDA_PREFIX'], 'standalone_conda', 'conda.exe'))"
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to resolve standalone conda.exe' }
+          $condaExe = $condaExe.Trim()
+          conda run -n constructor-build constructor .conda/constructor `
+            --platform win-64 `
+            --conda-exe $condaExe `
+            --output-dir dist/constructor
+          if ($LASTEXITCODE -ne 0) { throw 'Constructor failed to build Windows Runtime' }
+
+      - name: Save Windows Runtime cache
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .runtime-source/dist/constructor/*.exe
+          key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
+
+      - name: Stage Windows Runtime release assets
+        run: |
+          $installers = @(Get-ChildItem .runtime-source/dist/constructor -File -Filter '*.exe')
+          if ($installers.Count -ne 1) {
+            throw "Expected one Windows Runtime installer, found $($installers.Count)"
+          }
+          $assetName = "Uni-Lab-OS-$env:UNILAB_RUNTIME_VERSION-win-64.exe"
+          New-Item -ItemType Directory -Path runtime-assets -Force | Out-Null
+          Copy-Item $installers[0].FullName "runtime-assets/$assetName"
+          $sha256 = (Get-FileHash "runtime-assets/$assetName" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$sha256  $assetName" | Set-Content "runtime-assets/$assetName.sha256" -NoNewline
+
+      - name: Upload Windows Runtime staging artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: workbench-runtime-windows-${{ env.UNILAB_RUNTIME_VERSION }}
+          path: runtime-assets/*
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  build-macos-runtime:
+    runs-on: macos-14
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - name: Restore macOS Runtime cache
+        id: runtime-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .ci-cache/runtime/*.sh
+          key: macos-runtime-installer-v1-${{ runner.arch }}-${{ env.UNILAB_RUNTIME_VERSION }}-${{ env.UNILAB_RUNTIME_SOURCE_REF }}-miniforge-${{ env.MINIFORGE_VERSION }}-constructor-${{ env.CONSTRUCTOR_VERSION }}-micromamba-${{ env.MICROMAMBA_VERSION }}
+
+      - name: Check out Uni-Lab OS
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: Uni-Lab-OS/Uni-Lab-OS
+          ref: ${{ env.UNILAB_RUNTIME_SOURCE_REF }}
+          path: .runtime-source
+
+      - name: Set up Constructor
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          miniforge-version: ${{ env.MINIFORGE_VERSION }}
+          use-mamba: true
+          activate-environment: constructor-build
+          auto-update-conda: false
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Build macOS arm64 Runtime
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        working-directory: .runtime-source
+        run: |
+          set -euo pipefail
+          test -f .conda/constructor/construct.yaml
+          mamba install -n constructor-build --override-channels -c conda-forge \
+            "constructor=$CONSTRUCTOR_VERSION" \
+            "micromamba=$MICROMAMBA_VERSION" \
+            -y
+          conda_exe="$(command -v micromamba)"
+          test -x "$conda_exe"
+          constructor .conda/constructor \
+            --platform osx-arm64 \
+            --conda-exe "$conda_exe" \
+            --output-dir dist/constructor
+          runtime_installer="$(find dist/constructor -maxdepth 1 -type f -name '*.sh' -print -quit)"
+          test -n "$runtime_installer"
+          mkdir -p ../.ci-cache/runtime
+          cp "$runtime_installer" ../.ci-cache/runtime/
+
+      - name: Save macOS Runtime cache
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .ci-cache/runtime/*.sh
+          key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
+
+      - name: Stage macOS Runtime release assets
+        run: |
+          set -euo pipefail
+          runtime_count="$(find .ci-cache/runtime -maxdepth 1 -type f -name '*.sh' | wc -l | tr -d ' ')"
+          test "$runtime_count" = 1
+          runtime_source="$(find .ci-cache/runtime -maxdepth 1 -type f -name '*.sh' -print -quit)"
+          asset_name="Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh"
+          mkdir -p runtime-assets
+          cp "$runtime_source" "runtime-assets/$asset_name"
+          shasum -a 256 "runtime-assets/$asset_name" | \
+            awk -v name="$asset_name" '{print $1 "  " name}' > "runtime-assets/$asset_name.sha256"
+
+      - name: Upload macOS Runtime staging artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: workbench-runtime-macos-${{ env.UNILAB_RUNTIME_VERSION }}
+          path: runtime-assets/*
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish-runtime-release:
+    needs:
+      - build-windows-runtime
+      - build-macos-runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Download Runtime staging artifacts
+        uses: actions/download-artifact@v6
+        with:
+          pattern: workbench-runtime-*-${{ env.UNILAB_RUNTIME_VERSION }}
+          path: runtime-assets
+          merge-multiple: true
+
+      - name: Verify Runtime staging assets
+        run: |
+          set -euo pipefail
+          expected=(
+            "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe"
+            "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256"
+            "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh"
+            "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256"
+          )
+          test "$(find runtime-assets -maxdepth 1 -type f | wc -l | tr -d ' ')" = 4
+          for name in "${expected[@]}"; do test -f "runtime-assets/$name"; done
+          (
+            cd runtime-assets
+            sha256sum --check "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256"
+            sha256sum --check "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256"
+          )
+
+      - name: Publish immutable Runtime release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$UNILAB_RUNTIME_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            remote_assets="$(gh release view "$UNILAB_RUNTIME_RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json assets \
+              --jq '.assets[].name' | sort)"
+            expected_assets="$(find runtime-assets -maxdepth 1 -type f -printf '%f\n' | sort)"
+            test "$remote_assets" = "$expected_assets"
+            verification_directory="$(mktemp -d)"
+            trap 'rm -rf "$verification_directory"' EXIT
+            gh release download "$UNILAB_RUNTIME_RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern '*.sha256' \
+              --dir "$verification_directory"
+            cmp runtime-assets/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256 \
+              "$verification_directory/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256"
+            cmp runtime-assets/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256 \
+              "$verification_directory/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256"
+            echo "Runtime release already exists with identical immutable checksums."
+            exit 0
+          fi
+
+          gh release create "$UNILAB_RUNTIME_RELEASE_TAG" \
+            runtime-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Workbench Runtime $UNILAB_RUNTIME_VERSION" \
+            --notes "Pinned Uni-Lab Runtime built from Uni-Lab-OS commit $UNILAB_RUNTIME_SOURCE_REF. Assets are immutable and verified through adjacent SHA-256 manifests."

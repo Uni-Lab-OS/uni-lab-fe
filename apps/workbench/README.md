@@ -243,6 +243,30 @@ subsequent builds resume automatic patch increments. Formal Windows artifacts
 must use the same trusted code-signing identity across versions; formal macOS
 artifacts must remain Developer ID signed and notarized.
 
+### Desktop packaging CI modes
+
+The Windows workflow exposes three explicit modes. `quick` builds the
+production Workbench once and validates the unpacked application without
+spending time on NSIS. `full` produces and verifies the complete rolling update
+bundle. `benchmark` prepares one unpacked Windows application, then reuses that
+identical input to compare the baseline NSIS profile with the `.exe`
+pre-compressed-resource profile. The benchmark uploads only JSON measurements;
+both installers and blockmaps are still generated and verified on the runner.
+
+The macOS workflow exposes `quick` and `full`. Branch pushes use `quick`, while
+manual release qualification uses `full` to generate and verify both DMG and
+ZIP media. This keeps daily packaging validation representative without paying
+the compression and artifact-upload cost on every commit.
+
+Both platform workflows first restore the pinned Runtime from the immutable
+`workbench-runtime-<version>-<source>` GitHub Release. If that release does not
+exist, they safely fall back to the content-addressed Actions cache and then to
+the pinned Uni-Lab OS source build. An authorized maintainer creates or verifies
+the immutable Runtime assets through the manually dispatched `Publish Versioned
+Workbench Runtime` workflow. Each large asset has an adjacent SHA-256 manifest,
+and packaging rejects a missing asset or digest mismatch instead of silently
+using it.
+
 ## macOS distribution
 
 The formal macOS arm64 application packages the shared Electron shell, Theia

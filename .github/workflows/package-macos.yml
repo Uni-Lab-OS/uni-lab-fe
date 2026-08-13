@@ -2,6 +2,15 @@ name: Benchmark macOS Workbench Packaging
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: quick validates unpacked output; full builds and verifies DMG plus ZIP
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - quick
   push:
     branches:
       - ci/macos-packaging-benchmark
@@ -32,7 +41,9 @@ env:
   MINIFORGE_VERSION: 26.3.2-3
   NODE_RUNTIME_VERSION: 24.14.0
   UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf
+  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-b09c0c048f6d
   UNILAB_RUNTIME_VERSION: 0.11.3
+  UNILAB_CI_PACKAGE_MODE: ${{ github.event_name == 'push' && 'quick' || inputs.mode }}
   # 基准分支不发布更新；仅提供 electron-builder 生成 metadata 所需的合法地址。
   UNILAB_WORKBENCH_UPDATE_URL: ${{ vars.UNILAB_WORKBENCH_UPDATE_URL || 'https://downloads.example.invalid/unilab-workbench' }}
 
@@ -52,15 +63,27 @@ jobs:
       - name: Check out Workbench
         uses: actions/checkout@v6
 
-      - name: Restore macOS Runtime
+      - name: Restore versioned macOS Runtime release
+        id: runtime-release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node apps/workbench/scripts/restore-runtime-release.mjs \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$UNILAB_RUNTIME_RELEASE_TAG" \
+            --asset "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh" \
+            --destination ".ci-cache/runtime/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh"
+
+      - name: Restore macOS Runtime cache
         id: runtime-cache
+        if: steps.runtime-release.outputs.hit != 'true'
         uses: actions/cache/restore@v6
         with:
           path: .ci-cache/runtime/*.sh
           key: macos-runtime-installer-v1-${{ runner.arch }}-${{ env.UNILAB_RUNTIME_VERSION }}-${{ env.UNILAB_RUNTIME_SOURCE_REF }}-miniforge-${{ env.MINIFORGE_VERSION }}-constructor-${{ env.CONSTRUCTOR_VERSION }}-micromamba-${{ env.MICROMAMBA_VERSION }}
 
       - name: Check out Uni-Lab OS
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
         uses: actions/checkout@v6
         with:
           repository: Uni-Lab-OS/Uni-Lab-OS
@@ -105,7 +128,7 @@ jobs:
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       - name: Set up Constructor
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
         uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: ${{ env.MINIFORGE_VERSION }}
@@ -116,7 +139,7 @@ jobs:
           channel-priority: strict
 
       - name: Build macOS arm64 Runtime
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
         working-directory: .runtime-source
         run: |
           set -euo pipefail
@@ -139,7 +162,7 @@ jobs:
           mamba clean --all -y
 
       - name: Save macOS Runtime
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           path: .ci-cache/runtime/*.sh
@@ -264,6 +287,8 @@ jobs:
           echo "BUILD_SECONDS=$((build_finished - build_started))" >> "$GITHUB_ENV"
 
       - name: Package unsigned macOS arm64 bundle
+        env:
+          UNILAB_WORKBENCH_PACKAGE_MODE: ${{ env.UNILAB_CI_PACKAGE_MODE == 'quick' && 'directory' || 'full' }}
         run: |
           set -euo pipefail
           package_started="$(date +%s)"
@@ -272,7 +297,21 @@ jobs:
           package_finished="$(date +%s)"
           echo "PACKAGE_SECONDS=$((package_finished - package_started))" >> "$GITHUB_ENV"
 
+      - name: Report quick macOS validation
+        if: env.UNILAB_CI_PACKAGE_MODE == 'quick'
+        run: |
+          {
+            echo '## macOS Workbench quick packaging validation'
+            echo
+            echo '| Metric | Result |'
+            echo '| --- | ---: |'
+            echo "| Production build | ${BUILD_SECONDS}s |"
+            echo "| Unpacked validation | ${PACKAGE_SECONDS}s |"
+            echo "| Build + validation | $((BUILD_SECONDS + PACKAGE_SECONDS))s |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Verify bundle and collect metrics
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         run: |
           set -euo pipefail
           release_directory="apps/workbench/release-macos"
@@ -366,6 +405,7 @@ jobs:
           df -h .
 
       - name: Upload macOS update bundle and metrics
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         uses: actions/upload-artifact@v6
         with:
           name: UniLab-Workbench-macos-arm64-${{ github.sha }}

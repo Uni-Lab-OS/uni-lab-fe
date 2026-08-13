@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
+  assertSafeChildDirectory,
   MAX_PORTABLE_INSTALLER_BYTES,
   PORTABLE_COMPRESSION_LEVELS,
   PORTABLE_NODE_ARCHIVES,
@@ -51,6 +52,37 @@ describe('portable Workbench packaging contract', () => {
     assert.throws(
       () => resolvePortableCompressionLevel('store'),
       /不支持的 Workbench 压缩级别/u
+    )
+  })
+
+  /** 验证 Windows A/B 能复用同一应用目录，并只切换已压缩资源配置。 */
+  it('supports directory and prepackaged Windows media modes', async () => {
+    const packagingScript = await readFile(
+      new URL('./package-portable.mjs', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(packagingScript, /packageMode === 'directory'/u)
+    assert.match(packagingScript, /builderArgs\.push\('--prepackaged'/u)
+    assert.match(
+      packagingScript,
+      /--config\.nsis\.preCompressedFileExtensions=/u
+    )
+    assert.match(packagingScript, /allowsOversizePackagingBenchmark\(\)/u)
+  })
+
+  /** 验证可递归清理的覆盖目录不能逃逸专用暂存范围。 */
+  it('confines reusable packaging output to a dedicated staging root', () => {
+    const stagingRoot = join(tmpdir(), 'unilab-packaging-staging')
+    const child = join(stagingRoot, 'windows')
+    assert.equal(assertSafeChildDirectory(child, stagingRoot, '测试目录'), child)
+    assert.throws(
+      () => assertSafeChildDirectory(stagingRoot, stagingRoot, '测试目录'),
+      /必须位于专用目录/u
+    )
+    assert.throws(
+      () => assertSafeChildDirectory(tmpdir(), stagingRoot, '测试目录'),
+      /必须位于专用目录/u
     )
   })
 
@@ -484,7 +516,7 @@ describe('portable Workbench packaging contract', () => {
     }
   })
 
-  /** 验证 Windows 原生流水线复用缓存、固定供应链输入并发布完整更新包。 */
+  /** 验证 Windows 原生流水线分流快速校验、正式发布与同源介质 A/B。 */
   it('builds the Windows installer on a native GitHub Actions runner', async () => {
     const workflow = await readFile(
       new URL('../../../.github/workflows/package-windows.yml', import.meta.url),
@@ -506,9 +538,14 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /branches:\n\s+- deploy-windows/u)
     assert.match(workflow, /ci\/desktop-packaging-optimization-v2/u)
     assert.match(workflow, /workflow_dispatch:/u)
-    assert.match(workflow, /options:\n\s+- both\n\s+- normal\n\s+- maximum/u)
+    assert.match(
+      workflow,
+      /options:\n\s+- benchmark\n\s+- quick\n\s+- full/u
+    )
+    assert.match(workflow, /options:\n\s+- normal\n\s+- maximum/u)
+    assert.match(workflow, /UNILAB_CI_PACKAGE_MODE:/u)
     assert.match(workflow, /UNILAB_WORKBENCH_COMPRESSION:/u)
-    assert.match(workflow, /\["normal","maximum"\]/u)
+    assert.doesNotMatch(workflow, /strategy:\n\s+matrix:/u)
     assert.match(workflow, /ELECTRON_VERSION: 33\.4\.11/u)
     assert.match(workflow, /ELECTRON_BUILDER_VERSION: 25\.1\.8/u)
     assert.match(
@@ -523,15 +560,22 @@ describe('portable Workbench packaging contract', () => {
     const validateConfigIndex = workflow.indexOf(
       'name: Validate update publishing configuration'
     )
-    const restoreRuntimeIndex = workflow.indexOf('name: Restore Windows Runtime')
+    const releaseRestoreIndex = workflow.indexOf(
+      'name: Restore versioned Windows Runtime release'
+    )
+    const restoreRuntimeIndex = workflow.indexOf(
+      'name: Restore Windows Runtime cache'
+    )
     const checkoutRuntimeIndex = workflow.indexOf('name: Check out Uni-Lab OS')
     assert.ok(validateConfigIndex >= 0)
+    assert.ok(releaseRestoreIndex >= 0)
     assert.ok(restoreRuntimeIndex >= 0)
-    assert.ok(validateConfigIndex < restoreRuntimeIndex)
+    assert.ok(validateConfigIndex < releaseRestoreIndex)
+    assert.ok(releaseRestoreIndex < restoreRuntimeIndex)
     assert.ok(restoreRuntimeIndex < checkoutRuntimeIndex)
     assert.match(
-      workflow.slice(checkoutRuntimeIndex, checkoutRuntimeIndex + 180),
-      /if: steps\.runtime-cache\.outputs\.cache-hit != 'true'/u
+      workflow.slice(checkoutRuntimeIndex, checkoutRuntimeIndex + 260),
+      /steps\.runtime-release\.outputs\.hit != 'true'.*steps\.runtime-cache\.outputs\.cache-hit != 'true'/su
     )
     assert.match(workflow, /windows-electron-builder-v3-/u)
     assert.match(workflow, /electron-\$\{\{ env\.ELECTRON_VERSION \}\}/u)
@@ -550,7 +594,7 @@ describe('portable Workbench packaging contract', () => {
       'name: Select automatic Windows package version'
     )
     const buildInstallerIndex = workflow.indexOf(
-      'name: Build Windows x64 installer'
+      'name: Build full Windows installer'
     )
     assert.ok(pluginCacheIndex >= 0)
     assert.ok(pluginCacheIndex < selectVersionIndex)
@@ -568,7 +612,20 @@ describe('portable Workbench packaging contract', () => {
       workflow,
       /conda run -n constructor-build constructor/u
     )
-    assert.match(workflow, /pnpm --filter @unilab\/workbench package:win/u)
+    assert.match(
+      workflow,
+      /node apps\/workbench\/scripts\/package-windows\.mjs/u
+    )
+    assert.equal(
+      workflow.match(/build:desktop:production/gu)?.length,
+      1
+    )
+    assert.match(workflow, /UNILAB_WORKBENCH_PACKAGE_MODE: directory/u)
+    assert.match(workflow, /UNILAB_WORKBENCH_PACKAGE_MODE: prepackaged/u)
+    assert.match(workflow, /UNILAB_WORKBENCH_PREPACKAGED_APP:/u)
+    assert.match(workflow, /Name = 'baseline'; Profile = 'none'/u)
+    assert.match(workflow, /Name = 'precompressed-exe'; Profile = 'exe'/u)
+    assert.match(workflow, /precompressed-ab-metrics\.json/u)
     assert.match(workflow, /UNILAB_RUNTIME_INSTALLER=/u)
     assert.match(workflow, /UNILAB_AGENT_DISTRIBUTION=/u)
     assert.match(workflow, /Filter 'aioncore\.exe'/u)
@@ -608,6 +665,13 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /Rolling release asset verification failed/u)
     assert.match(workflow, /actions\/upload-artifact@v6/u)
     assert.match(workflow, /compression-level: 0/u)
+    const abUploadSection = workflow.slice(
+      workflow.indexOf('name: Upload Windows precompressed-resource A/B'),
+      workflow.indexOf('name: Publish rolling Windows update release')
+    )
+    assert.match(abUploadSection, /package-size-report\.json/u)
+    assert.match(abUploadSection, /precompressed-ab-metrics\.json/u)
+    assert.doesNotMatch(abUploadSection, /\*-setup\.exe/u)
     assert.match(
       workflow,
       /if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/deploy-windows'/u

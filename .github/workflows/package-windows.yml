@@ -3,13 +3,21 @@ name: Package Windows Workbench
 on:
   workflow_dispatch:
     inputs:
-      compression:
-        description: electron-builder compression used for a non-publishing benchmark
+      mode:
+        description: quick validates unpacked output; full builds one installer; benchmark compares identical prepackaged input
         required: true
-        default: both
+        default: benchmark
         type: choice
         options:
-          - both
+          - benchmark
+          - quick
+          - full
+      compression:
+        description: electron-builder compression used by full mode
+        required: true
+        default: normal
+        type: choice
+        options:
           - normal
           - maximum
   push:
@@ -36,18 +44,16 @@ env:
   MINIFORGE_VERSION: 26.3.2-3
   PORTABLE_NODE_VERSION: 24.14.0
   UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf
+  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-b09c0c048f6d
   UNILAB_RUNTIME_VERSION: 0.11.3
   WINDOWS_RELEASE_TAG: workbench-windows-stable
   UNILAB_WORKBENCH_UPDATE_URL: https://github.com/${{ github.repository }}/releases/download/workbench-windows-stable
 
 jobs:
   package-windows-x64:
-    strategy:
-      fail-fast: false
-      matrix:
-        compression: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.compression == 'both' && '["normal","maximum"]' || github.ref == 'refs/heads/ci/desktop-packaging-optimization-v2' && '["normal","maximum"]' || format('["{0}"]', github.event_name == 'workflow_dispatch' && inputs.compression || 'normal')) }}
     env:
-      UNILAB_WORKBENCH_COMPRESSION: ${{ matrix.compression }}
+      UNILAB_CI_PACKAGE_MODE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/deploy-windows' && 'full' || github.event_name == 'push' && 'quick' || inputs.mode }}
+      UNILAB_WORKBENCH_COMPRESSION: ${{ github.event_name == 'workflow_dispatch' && inputs.compression || 'normal' }}
     # Node-gyp 11 does not yet recognize the Visual Studio 18 toolchain that
     # may be selected by windows-latest. Keep the native drivelist build on the
     # VS 2022 image until the dependency toolchain is upgraded.
@@ -82,8 +88,21 @@ jobs:
             throw 'UNILAB_WORKBENCH_UPDATE_URL must be a credential-free HTTPS URL without query or fragment'
           }
 
-      - name: Restore Windows Runtime
+      - name: Restore versioned Windows Runtime release
+        id: runtime-release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node apps/workbench/scripts/restore-runtime-release.mjs `
+            --repository $env:GITHUB_REPOSITORY `
+            --tag $env:UNILAB_RUNTIME_RELEASE_TAG `
+            --asset "Uni-Lab-OS-$env:UNILAB_RUNTIME_VERSION-win-64.exe" `
+            --destination ".runtime-source/dist/constructor/Uni-Lab-OS-$env:UNILAB_RUNTIME_VERSION-win-64.exe"
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to restore the versioned Windows Runtime release' }
+
+      - name: Restore Windows Runtime cache
         id: runtime-cache
+        if: steps.runtime-release.outputs.hit != 'true'
         uses: actions/cache/restore@v6
         with:
           # Constructor may leave intermediate output beside the installer.
@@ -92,7 +111,7 @@ jobs:
           key: windows-runtime-installer-v2-${{ runner.arch }}-${{ env.UNILAB_RUNTIME_VERSION }}-${{ env.UNILAB_RUNTIME_SOURCE_REF }}-miniforge-${{ env.MINIFORGE_VERSION }}-constructor-${{ env.CONSTRUCTOR_VERSION }}-conda-${{ env.CONDA_STANDALONE_VERSION }}
 
       - name: Check out Uni-Lab OS
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
         uses: actions/checkout@v6
         with:
           repository: Uni-Lab-OS/Uni-Lab-OS
@@ -147,7 +166,7 @@ jobs:
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       - name: Set up Constructor
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
         uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: ${{ env.MINIFORGE_VERSION }}
@@ -158,7 +177,7 @@ jobs:
           channel-priority: strict
 
       - name: Build Windows Runtime
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
         working-directory: .runtime-source
         run: |
           if (-not (Test-Path .conda/constructor/construct.yaml)) {
@@ -178,7 +197,7 @@ jobs:
       # Save immediately so a later packaging failure does not force the next
       # run to rebuild the deterministic Runtime installer again.
       - name: Save Windows Runtime
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           path: .runtime-source/dist/constructor/*.exe
@@ -293,6 +312,7 @@ jobs:
       # caches whose keys must remain independent from the generated version.
       # The package.json edit exists only on this runner and is never pushed.
       - name: Select automatic Windows package version
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -333,15 +353,113 @@ jobs:
           "UNILAB_WORKBENCH_PACKAGE_VERSION=$packageVersion" >> $env:GITHUB_ENV
           "### Windows package v$packageVersion" >> $env:GITHUB_STEP_SUMMARY
 
-      - name: Build Windows x64 installer
+      - name: Build production Workbench once
         run: |
           $buildStarted = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-          pnpm --filter @unilab/workbench package:win
-          if ($LASTEXITCODE -ne 0) { throw 'Unable to package Windows Workbench' }
+          pnpm --filter @unilab/workbench build:desktop:production
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to build the production Workbench' }
           $buildFinished = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-          "WINDOWS_BUILD_SECONDS=$($buildFinished - $buildStarted)" >> $env:GITHUB_ENV
+          "WINDOWS_PRODUCTION_BUILD_SECONDS=$($buildFinished - $buildStarted)" >> $env:GITHUB_ENV
+
+      - name: Validate unpacked Windows application
+        if: env.UNILAB_CI_PACKAGE_MODE == 'quick'
+        env:
+          UNILAB_WORKBENCH_PACKAGE_MODE: directory
+        run: |
+          $started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          node apps/workbench/scripts/package-windows.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to validate the unpacked Windows Workbench' }
+          $seconds = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $started
+          @"
+          ## Windows Workbench quick packaging validation
+
+          | Metric | Result |
+          | --- | ---: |
+          | Production build | $env:WINDOWS_PRODUCTION_BUILD_SECONDS s |
+          | Unpacked validation | $seconds s |
+          | Total build + validation | $([int]$env:WINDOWS_PRODUCTION_BUILD_SECONDS + $seconds) s |
+          "@ >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Build full Windows installer
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
+        env:
+          UNILAB_WORKBENCH_PACKAGE_MODE: full
+          UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE: none
+        run: |
+          $packageStarted = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          node apps/workbench/scripts/package-windows.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to package Windows Workbench' }
+          $packageFinished = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          "WINDOWS_PACKAGE_SECONDS=$($packageFinished - $packageStarted)" >> $env:GITHUB_ENV
+
+      - name: Prepare identical unpacked input for Windows A/B
+        if: env.UNILAB_CI_PACKAGE_MODE == 'benchmark'
+        env:
+          UNILAB_WORKBENCH_PACKAGE_MODE: directory
+          UNILAB_WORKBENCH_OUTPUT_DIRECTORY: ${{ github.workspace }}/.ci-prepackaged/windows
+        run: |
+          $started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          node apps/workbench/scripts/package-windows.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to prepare the Windows A/B input' }
+          $seconds = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $started
+          "WINDOWS_PREPACKAGED_SECONDS=$seconds" >> $env:GITHUB_ENV
+
+      - name: Build Windows precompressed-resource A/B
+        if: env.UNILAB_CI_PACKAGE_MODE == 'benchmark'
+        env:
+          UNILAB_WORKBENCH_ALLOW_OVERSIZE_BENCHMARK: '1'
+          UNILAB_WORKBENCH_COMPRESSION: normal
+          UNILAB_WORKBENCH_PACKAGE_MODE: prepackaged
+          UNILAB_WORKBENCH_PREPACKAGED_APP: ${{ github.workspace }}/.ci-prepackaged/windows/win-unpacked
+        run: |
+          $variants = @(
+            [PSCustomObject]@{ Name = 'baseline'; Profile = 'none' }
+            [PSCustomObject]@{ Name = 'precompressed-exe'; Profile = 'exe' }
+          )
+          $measurements = @()
+          foreach ($variant in $variants) {
+            $env:UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE = $variant.Profile
+            $env:UNILAB_WORKBENCH_RELEASE_DIRECTORY = "release-windows-$($variant.Name)"
+            $started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+            node apps/workbench/scripts/package-windows.mjs
+            if ($LASTEXITCODE -ne 0) {
+              throw "Unable to package Windows A/B variant $($variant.Name)"
+            }
+            $seconds = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $started
+            $reportPath = "apps/workbench/release-windows-$($variant.Name)/package-size-report.json"
+            $report = Get-Content $reportPath -Raw | ConvertFrom-Json
+            $measurements += [PSCustomObject]@{
+              name = $variant.Name
+              profile = $variant.Profile
+              installerSeconds = $seconds
+              installerBytes = [long]$report.installerBytes
+              resourcesBytes = [long]$report.totalBytes
+            }
+            @"
+          ### Windows A/B: $($variant.Name)
+
+          | Metric | Result |
+          | --- | ---: |
+          | Profile | $($variant.Profile) |
+          | Production build | $env:WINDOWS_PRODUCTION_BUILD_SECONDS s |
+          | Shared unpacked preparation | $env:WINDOWS_PREPACKAGED_SECONDS s |
+          | Installer from prepackaged input | $seconds s |
+          | Installer | $($report.installerBytes) bytes |
+          | Resources | $($report.totalBytes) bytes |
+
+          "@ >> $env:GITHUB_STEP_SUMMARY
+          }
+          [PSCustomObject]@{
+            schemaVersion = 1
+            commit = $env:GITHUB_SHA
+            productionBuildSeconds = [int]$env:WINDOWS_PRODUCTION_BUILD_SECONDS
+            sharedUnpackedPreparationSeconds = [int]$env:WINDOWS_PREPACKAGED_SECONDS
+            variants = $measurements
+          } | ConvertTo-Json -Depth 4 | Set-Content `
+            '.ci-prepackaged/windows/precompressed-ab-metrics.json'
 
       - name: Verify installer
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         run: |
           $installers = @(Get-ChildItem apps/workbench/release-windows -File -Filter '*-setup.exe')
           if ($installers.Count -ne 1) {
@@ -372,21 +490,51 @@ jobs:
           if ($sizeReport.compression -ne $env:UNILAB_WORKBENCH_COMPRESSION) {
             throw "Package report compression mismatch: $($sizeReport.compression)"
           }
+          if ($sizeReport.precompressedProfile -ne 'none') {
+            throw "Production package unexpectedly uses precompressed profile: $($sizeReport.precompressedProfile)"
+          }
           @"
           ## Windows Workbench packaging benchmark
 
           | Metric | Result |
           | --- | ---: |
           | Compression | $env:UNILAB_WORKBENCH_COMPRESSION |
-          | Build + packaging | $env:WINDOWS_BUILD_SECONDS s |
+          | Production build | $env:WINDOWS_PRODUCTION_BUILD_SECONDS s |
+          | Native packaging | $env:WINDOWS_PACKAGE_SECONDS s |
+          | Build + packaging | $([int]$env:WINDOWS_PRODUCTION_BUILD_SECONDS + [int]$env:WINDOWS_PACKAGE_SECONDS) s |
           | Installer | $($installer.Length) bytes |
           | Resources | $($sizeReport.totalBytes) bytes |
           "@ >> $env:GITHUB_STEP_SUMMARY
 
+      - name: Verify Windows precompressed-resource A/B
+        if: env.UNILAB_CI_PACKAGE_MODE == 'benchmark'
+        run: |
+          $expectations = @(
+            [PSCustomObject]@{ Name = 'baseline'; Profile = 'none' }
+            [PSCustomObject]@{ Name = 'precompressed-exe'; Profile = 'exe' }
+          )
+          foreach ($expectation in $expectations) {
+            $directory = "apps/workbench/release-windows-$($expectation.Name)"
+            $installers = @(Get-ChildItem $directory -File -Filter '*-setup.exe')
+            $blockmaps = @(Get-ChildItem $directory -File -Filter '*-setup.exe.blockmap')
+            if ($installers.Count -ne 1 -or $blockmaps.Count -ne 1) {
+              throw "Incomplete Windows A/B bundle: $($expectation.Name)"
+            }
+            $report = Get-Content "$directory/package-size-report.json" -Raw | ConvertFrom-Json
+            if (
+              $report.packageMode -ne 'prepackaged' -or
+              $report.precompressedProfile -ne $expectation.Profile -or
+              $report.installerBytes -ne $installers[0].Length
+            ) {
+              throw "Windows A/B report mismatch: $($expectation.Name)"
+            }
+          }
+
       - name: Upload Windows update bundle
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         uses: actions/upload-artifact@v6
         with:
-          name: UniLab-Workbench-windows-x64-${{ env.UNILAB_WORKBENCH_COMPRESSION }}-${{ github.sha }}
+          name: UniLab-Workbench-windows-x64-full-${{ env.UNILAB_WORKBENCH_COMPRESSION }}-${{ github.sha }}
           path: |
             apps/workbench/release-windows/*-setup.exe
             apps/workbench/release-windows/*-setup.exe.blockmap
@@ -398,10 +546,23 @@ jobs:
           # consumes runner CPU and produces no meaningful size reduction.
           compression-level: 0
 
+      - name: Upload Windows precompressed-resource A/B
+        if: env.UNILAB_CI_PACKAGE_MODE == 'benchmark'
+        uses: actions/upload-artifact@v6
+        with:
+          name: UniLab-Workbench-windows-x64-precompressed-ab-${{ github.sha }}
+          path: |
+            apps/workbench/release-windows-baseline/package-size-report.json
+            apps/workbench/release-windows-precompressed-exe/package-size-report.json
+            .ci-prepackaged/windows/precompressed-ab-metrics.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
+
       # Publish binaries first and metadata last. Existing clients keep reading
       # the previous latest.yml until the complete replacement is available.
       - name: Publish rolling Windows update release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/deploy-windows'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/deploy-windows' && env.UNILAB_CI_PACKAGE_MODE == 'full'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

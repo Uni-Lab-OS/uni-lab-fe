@@ -17,7 +17,7 @@ import {
   writeFileSync
 } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
@@ -36,6 +36,11 @@ import {
   createPackagedResourceReport,
   logPackagedResourceReport
 } from './package-size-report.mjs'
+import {
+  allowsOversizePackagingBenchmark,
+  resolveWindowsPrecompressedProfile,
+  resolveWorkbenchPackageMode
+} from './packaging-mode.mjs'
 
 const MEBIBYTE = 1024 * 1024
 const MIN_INSTALLER_BYTES = 50 * MEBIBYTE
@@ -67,7 +72,7 @@ const repositoryDirectory = resolve(workbenchDirectory, '../..')
 /**
  * 构建当前主机对应的 portable Workbench，并生成可验证的安装器与更新元数据。
  * @param {string} targetPlatform portable 目标平台标识。
- * @returns {void} 成功时将安装器、更新元数据与体积报告写入发布目录。
+ * @returns {{mode: string, applicationDirectory: string, releaseDirectory?: string}} 已校验的应用目录与可选发布目录。
  * @throws {Error} 目标平台不匹配、资源不完整或安装器违反发布合同时抛出。
  */
 export function packagePortableWorkbench(targetPlatform) {
@@ -82,9 +87,17 @@ export function packagePortableWorkbench(targetPlatform) {
     )
   }
   const updateUrl = requireWorkbenchUpdateUrl()
+  const packageMode = resolveWorkbenchPackageMode(
+    process.env['UNILAB_WORKBENCH_PACKAGE_MODE']
+  )
   const compression = resolvePortableCompressionLevel(
     process.env['UNILAB_WORKBENCH_COMPRESSION']
   )
+  const precompressedProfile = targetPlatform === 'win-64'
+    ? resolveWindowsPrecompressedProfile(
+      process.env['UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE']
+    )
+    : { name: 'none', extensions: [] }
 
   const packagingDirectory = join(workbenchDirectory, '.packaging')
   const runtimePayloadDirectory = join(packagingDirectory, 'runtime-installer')
@@ -95,71 +108,107 @@ export function packagePortableWorkbench(targetPlatform) {
     packagingDirectory,
     'device-card-builder'
   )
-  const releaseDirectory = join(
+  const releaseDirectory = assertSafeChildDirectory(
+    resolve(
+      workbenchDirectory,
+      process.env['UNILAB_WORKBENCH_RELEASE_DIRECTORY']
+        || (targetPlatform === 'linux-64' ? 'release-linux' : 'release-windows')
+    ),
     workbenchDirectory,
-    targetPlatform === 'linux-64' ? 'release-linux' : 'release-windows'
+    'Workbench 发布目录'
   )
-  const outputDirectory = mkdtempSync(join(
-    tmpdir(),
-    targetPlatform === 'linux-64'
-      ? 'unilab-workbench-linux-'
-      : 'unilab-workbench-windows-'
-  ))
+  const configuredOutputDirectory = process.env[
+    'UNILAB_WORKBENCH_OUTPUT_DIRECTORY'
+  ]
+  const outputDirectory = configuredOutputDirectory
+    ? assertSafeChildDirectory(
+      resolve(workbenchDirectory, configuredOutputDirectory),
+      join(repositoryDirectory, '.ci-prepackaged'),
+      'Workbench 基准输出目录'
+    )
+    : mkdtempSync(join(
+      tmpdir(),
+      targetPlatform === 'linux-64'
+        ? 'unilab-workbench-linux-'
+        : 'unilab-workbench-windows-'
+    ))
+  const keepOutputDirectory = Boolean(configuredOutputDirectory)
+  const prepackagedApplication = packageMode === 'prepackaged'
+    ? resolvePrepackagedApplication(targetPlatform)
+    : undefined
+  if (keepOutputDirectory) {
+    rmSync(outputDirectory, { recursive: true, force: true })
+    mkdirSync(outputDirectory, { recursive: true })
+  }
   rmSync(packagingDirectory, { recursive: true, force: true })
-  mkdirSync(packagingDirectory, { recursive: true })
+  if (packageMode !== 'prepackaged') {
+    mkdirSync(packagingDirectory, { recursive: true })
+  }
   try {
-    copyFileSync(
-      join(workbenchDirectory, 'package.json'),
-      join(packagingDirectory, 'workbench-package.json')
-    )
-    prepareRuntimePayloadFromEnvironment(
-      runtimePayloadDirectory,
-      targetPlatform
-    )
-    prepareBundledAgentPayload(agentPayloadDirectory, {
-      sourcePath: process.env['UNILAB_AGENT_DISTRIBUTION'],
-      platform: descriptor.hostPlatform,
-      architecture: descriptor.hostArchitecture
-    })
-    prepareNodeRuntime(descriptor, nodeRuntimeDirectory, packagingDirectory)
-    runCommand(
-      process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
-      [
-        '--config.node-linker=hoisted',
-        '--filter',
-        '@unilab/desktop',
-        'deploy',
-        '--prod',
-        '--legacy',
-        '--prefer-offline',
-        desktopRuntimeDirectory
-      ],
-      repositoryDirectory,
-      process.env,
-      { shell: process.platform === 'win32' }
-    )
-    const desktopMetrics = pruneDesktopDeployment(desktopRuntimeDirectory)
-    console.log(
-      `桌面端生产依赖已收敛：删除 ${desktopMetrics.removedFiles} 个构建文件，${desktopMetrics.removedBytes} bytes`
-    )
+    if (packageMode !== 'prepackaged') {
+      copyFileSync(
+        join(workbenchDirectory, 'package.json'),
+        join(packagingDirectory, 'workbench-package.json')
+      )
+      prepareRuntimePayloadFromEnvironment(
+        runtimePayloadDirectory,
+        targetPlatform
+      )
+      prepareBundledAgentPayload(agentPayloadDirectory, {
+        sourcePath: process.env['UNILAB_AGENT_DISTRIBUTION'],
+        platform: descriptor.hostPlatform,
+        architecture: descriptor.hostArchitecture
+      })
+      prepareNodeRuntime(descriptor, nodeRuntimeDirectory, packagingDirectory)
+      runCommand(
+        process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
+        [
+          '--config.node-linker=hoisted',
+          '--filter',
+          '@unilab/desktop',
+          'deploy',
+          '--prod',
+          '--legacy',
+          '--prefer-offline',
+          desktopRuntimeDirectory
+        ],
+        repositoryDirectory,
+        process.env,
+        { shell: process.platform === 'win32' }
+      )
+      const desktopMetrics = pruneDesktopDeployment(desktopRuntimeDirectory)
+      console.log(
+        `桌面端生产依赖已收敛：删除 ${desktopMetrics.removedFiles} 个构建文件，${desktopMetrics.removedBytes} bytes`
+      )
 
-    const esbuildBinary = resolveEsbuildBinary(descriptor)
-    mkdirSync(deviceCardBuilderDirectory, { recursive: true })
-    const packagedEsbuild = join(
-      deviceCardBuilderDirectory,
-      descriptor.hostPlatform === 'win32' ? 'esbuild.exe' : 'esbuild'
-    )
-    copyFileSync(esbuildBinary, packagedEsbuild)
-    if (descriptor.hostPlatform !== 'win32') chmodSync(packagedEsbuild, 0o755)
+      const esbuildBinary = resolveEsbuildBinary(descriptor)
+      mkdirSync(deviceCardBuilderDirectory, { recursive: true })
+      const packagedEsbuild = join(
+        deviceCardBuilderDirectory,
+        descriptor.hostPlatform === 'win32' ? 'esbuild.exe' : 'esbuild'
+      )
+      copyFileSync(esbuildBinary, packagedEsbuild)
+      if (descriptor.hostPlatform !== 'win32') chmodSync(packagedEsbuild, 0o755)
+    }
     const builderArgs = [
       targetPlatform === 'linux-64' ? '--linux' : '--win',
-      targetPlatform === 'linux-64' ? 'AppImage' : 'nsis',
+      ...(packageMode === 'directory'
+        ? ['--dir']
+        : [targetPlatform === 'linux-64' ? 'AppImage' : 'nsis']),
       '--x64',
       '--publish',
       'never',
       `--config.directories.output=${outputDirectory}`,
       `--config.compression=${compression}`
     ]
+    if (prepackagedApplication) {
+      builderArgs.push('--prepackaged', prepackagedApplication)
+    }
+    if (precompressedProfile.extensions.length > 0) {
+      builderArgs.push(
+        `--config.nsis.preCompressedFileExtensions=${precompressedProfile.extensions.join(',')}`
+      )
+    }
     runCommand(process.execPath, [
       join(
         workbenchDirectory,
@@ -175,11 +224,11 @@ export function packagePortableWorkbench(targetPlatform) {
       UNILAB_WORKBENCH_UPDATE_URL: updateUrl
     })
 
-    const resources = join(
+    const applicationDirectory = prepackagedApplication || join(
       outputDirectory,
-      targetPlatform === 'linux-64' ? 'linux-unpacked' : 'win-unpacked',
-      'resources'
+      targetPlatform === 'linux-64' ? 'linux-unpacked' : 'win-unpacked'
     )
+    const resources = join(applicationDirectory, 'resources')
     validatePackagedWorkbenchResources(resources, descriptor.nodeName)
     validatePackagedRuntimeResources(resources, targetPlatform)
     validateBundledAgentPayload(
@@ -189,7 +238,17 @@ export function packagePortableWorkbench(targetPlatform) {
     )
     const resourceReport = createPackagedResourceReport(resources)
     logPackagedResourceReport(resourceReport)
-    const installer = findInstaller(outputDirectory, targetPlatform)
+    if (packageMode === 'directory') {
+      console.log(
+        `${targetPlatform} Workbench 非压缩应用目录已通过校验：${applicationDirectory}`
+      )
+      return { mode: packageMode, applicationDirectory }
+    }
+    const installer = findInstaller(
+      outputDirectory,
+      targetPlatform,
+      allowsOversizePackagingBenchmark()
+    )
     const artifacts = selectPortableUpdateArtifacts(
       readdirSync(outputDirectory),
       targetPlatform
@@ -205,16 +264,64 @@ export function packagePortableWorkbench(targetPlatform) {
         ...resourceReport,
         targetPlatform,
         compression,
+        packageMode,
+        precompressedProfile: precompressedProfile.name,
+        preCompressedFileExtensions: precompressedProfile.extensions,
         installerBytes: installer.size
       }, null, 2)}\n`
     )
     console.log(
       `${targetPlatform} Workbench 安装包已发布：${join(releaseDirectory, basename(installer.path))}`
     )
+    return { mode: packageMode, applicationDirectory, releaseDirectory }
   } finally {
-    rmSync(outputDirectory, { recursive: true, force: true })
+    if (!keepOutputDirectory) {
+      rmSync(outputDirectory, { recursive: true, force: true })
+    }
     rmSync(packagingDirectory, { recursive: true, force: true })
   }
+}
+
+/**
+ * 将会被递归清理的目录限制在专用父目录内，阻止配置误删工作区或系统路径。
+ * @param {string} directory 待清理或重建的目录。
+ * @param {string} allowedRoot 允许范围的专用父目录。
+ * @param {string} label 错误消息中的目录用途。
+ * @returns {string} 已确认位于专用父目录内的绝对路径。
+ * @throws {Error} 目录等于父目录、逃逸父目录或使用不可比较路径时抛出。
+ */
+export function assertSafeChildDirectory(directory, allowedRoot, label) {
+  const relativePath = relative(resolve(allowedRoot), resolve(directory))
+  if (
+    relativePath.length === 0
+    || relativePath === '..'
+    || relativePath.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`)
+    || isAbsolute(relativePath)
+  ) {
+    throw new Error(`${label} 必须位于专用目录 ${resolve(allowedRoot)} 内。`)
+  }
+  return resolve(directory)
+}
+
+/**
+ * 解析并校验 electron-builder 复用的预构建应用目录。
+ * @param {string} targetPlatform portable 目标平台标识。
+ * @returns {string} 可直接生成介质的绝对应用目录。
+ * @throws {Error} 环境变量缺失、目录不存在或平台不支持时抛出。
+ */
+function resolvePrepackagedApplication(targetPlatform) {
+  if (targetPlatform !== 'win-64') {
+    throw new Error('预构建介质复用目前只支持 Windows x64。')
+  }
+  const configured = process.env['UNILAB_WORKBENCH_PREPACKAGED_APP']
+  if (!configured) {
+    throw new Error('预构建模式缺少 UNILAB_WORKBENCH_PREPACKAGED_APP。')
+  }
+  const applicationDirectory = resolve(workbenchDirectory, configured)
+  if (!existsSync(join(applicationDirectory, 'resources'))) {
+    throw new Error(`预构建 Workbench 应用目录无效：${applicationDirectory}`)
+  }
+  return applicationDirectory
 }
 
 /**
@@ -497,10 +604,11 @@ function validatePackagedWorkbenchResources(resources, nodeName) {
  * 查找并校验 portable Workbench 的唯一安装器及体积预算。
  * @param {string} outputDirectory electron-builder 的输出目录。
  * @param {string} targetPlatform portable 目标平台标识。
+ * @param {boolean} allowOversize 是否允许隔离基准临时超过正式体积预算。
  * @returns {{path: string, size: number}} 已通过文件头与体积校验的安装器。
  * @throws {Error} 安装器缺失、重复、不完整、超出预算或文件头无效时抛出。
  */
-function findInstaller(outputDirectory, targetPlatform) {
+function findInstaller(outputDirectory, targetPlatform, allowOversize = false) {
   const matcher = targetPlatform === 'linux-64'
     ? /\.AppImage$/iu
     : /-setup\.exe$/iu
@@ -515,7 +623,7 @@ function findInstaller(outputDirectory, targetPlatform) {
   if (size < MIN_INSTALLER_BYTES) {
     throw new Error(`Workbench 安装包不完整：${basename(path)} 仅 ${size} bytes`)
   }
-  if (size > MAX_PORTABLE_INSTALLER_BYTES) {
+  if (!allowOversize && size > MAX_PORTABLE_INSTALLER_BYTES) {
     throw new Error(
       `Workbench 安装包超出 850 MiB 预算：${basename(path)} 为 ${size} bytes`
     )
