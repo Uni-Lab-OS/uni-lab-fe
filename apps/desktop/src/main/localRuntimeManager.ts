@@ -70,6 +70,7 @@ type ActiveOperation = 'simulator' | 'edge' | 'all'
 
 export interface LocalRuntimeManagerOptions {
   managedRuntime?: ManagedRuntimePort
+  useManagedRuntime?: () => boolean
   managedWorkingRoot?: string
   waitForEdgeReadiness?: () => Promise<void>
   waitForSimulatorReadiness?: () => Promise<void>
@@ -132,7 +133,7 @@ export class LocalRuntimeManager {
 
   /** 返回托管安装包或源码开发环境的当前运行模式。 */
   getModeInfo(): Promise<LocalRuntimeModeInfo> {
-    return this.managedRuntime?.getModeInfo() ?? Promise.resolve({
+    return this.activeManagedRuntime()?.getModeInfo() ?? Promise.resolve({
       mode: 'development',
       label: '开发环境 Runtime',
       runtimeVersion: null
@@ -141,7 +142,7 @@ export class LocalRuntimeManager {
 
   /** 返回应用退出时是否应保留由持久 Supervisor 拥有的实验进程。 */
   persistsAfterAppQuit(): boolean {
-    return this.managedRuntime !== null
+    return this.activeManagedRuntime() !== null
   }
 
   getSnapshot(): LocalRuntimeSnapshot {
@@ -201,6 +202,7 @@ export class LocalRuntimeManager {
   async startSimulator(
     config: LocalRuntimeLaunchConfig
   ): Promise<LocalRuntimeSnapshot> {
+    const managedRuntime = this.activeManagedRuntime()
     this.beginOperation('simulator')
     if (this.simulatorIsRunning()) {
       this.activeOperation = null
@@ -211,14 +213,14 @@ export class LocalRuntimeManager {
 
     this.publishState(
       'validating_simulator',
-      this.managedRuntime
+      managedRuntime
         ? '正在检查 PLC-Sim 与内置 Runtime…'
         : '正在检查 PLC-Sim、Conda 环境并清理所需端口…'
     )
 
     try {
-      if (this.managedRuntime) {
-        await this.managedRuntime.startSimulator(
+      if (managedRuntime) {
+        await managedRuntime.startSimulator(
           config,
           this.ports,
           (phase, message) => this.publishState(phase, message)
@@ -279,6 +281,7 @@ export class LocalRuntimeManager {
   async startEdge(
     config: LocalRuntimeLaunchConfig
   ): Promise<LocalRuntimeSnapshot> {
+    const managedRuntime = this.activeManagedRuntime()
     this.beginOperation('edge')
     if (this.edgeIsRunning()) {
       this.activeOperation = null
@@ -289,14 +292,14 @@ export class LocalRuntimeManager {
 
     this.publishState(
       'validating_edge',
-      this.managedRuntime
+      managedRuntime
         ? '正在检查领域设备包与内置 Runtime…'
         : '正在检查 Edge 项目、Conda 环境并清理所需端口…'
     )
 
     try {
-      if (this.managedRuntime) {
-        await this.managedRuntime.startEdge(
+      if (managedRuntime) {
+        await managedRuntime.startEdge(
           config,
           this.ports,
           (phase, message) => this.publishState(phase, message)
@@ -402,7 +405,7 @@ export class LocalRuntimeManager {
       if (this.edgeIsRunning()) {
         this.publishState(
           'ready',
-          this.managedRuntime
+          this.activeManagedRuntime()
             ? '内置 Runtime 仍在运行'
             : '领域侧 Edge 仍在运行'
         )
@@ -665,5 +668,12 @@ export class LocalRuntimeManager {
     return Boolean(this.simulatorProcess) || Boolean(
       this.managedRuntime?.isSimulatorRunning()
     )
+  }
+
+  private activeManagedRuntime(): ManagedLocalRuntimeController | null {
+    if (!this.managedRuntime) return null
+    return this.options.useManagedRuntime?.() === false
+      ? null
+      : this.managedRuntime
   }
 }

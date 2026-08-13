@@ -240,6 +240,14 @@ describe('portable Workbench packaging contract', () => {
       )
     }
     assert.match(builderConfiguration, /^compression: maximum$/mu)
+    assert.match(
+      builderConfiguration,
+      /from: \.packaging\/node-runtime\s+to: node-runtime\s+filter:\s+- '\*\*\/\*'/u
+    )
+    assert.doesNotMatch(
+      builderConfiguration,
+      /from: \.packaging\/node-runtime\/bin\/node/u
+    )
     assert.equal(
       packageManifest.optionalDependencies['@vscode/windows-ca-certs'],
       '0.3.4'

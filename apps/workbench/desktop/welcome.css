@@ -353,6 +353,43 @@ h1 {
   background: #0b1117;
 }
 
+.runtime-panel__controls {
+  display: flex;
+  max-width: min(56vw, 680px);
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+  justify-content: flex-end;
+}
+
+.runtime-panel__selector {
+  display: grid;
+  min-width: 210px;
+  gap: 4px;
+}
+
+.runtime-panel__selector[hidden] {
+  display: none;
+}
+
+.runtime-panel__selector span {
+  color: var(--quiet);
+  font: 8px/1.2 "SFMono-Regular", Consolas, monospace;
+  letter-spacing: .1em;
+}
+
+.runtime-panel__selector select {
+  width: min(360px, 28vw);
+  min-width: 0;
+  height: 32px;
+  padding: 0 24px 0 9px;
+  overflow: hidden;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  background: var(--panel-raised);
+  text-overflow: ellipsis;
+}
+
 .runtime-panel[hidden] {
   display: none;
 }
@@ -647,6 +684,21 @@ h1 {
 
   .primary-actions {
     grid-template-columns: 1fr;
+  }
+
+  .runtime-panel {
+    grid-template-columns: 12px minmax(0, 1fr);
+  }
+
+  .runtime-panel__controls {
+    grid-column: 2;
+    max-width: 100%;
+    justify-content: flex-start;
+  }
+
+  .runtime-panel__selector,
+  .runtime-panel__selector select {
+    width: 100%;
   }
 
   .workspace-footer {

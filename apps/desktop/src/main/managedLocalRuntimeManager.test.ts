@@ -22,6 +22,20 @@ const logSessionId = createDiagnosticLogSessionId(
 
 /** 覆盖私有运行时（Runtime）与持久 Supervisor 的桌面控制合同。 */
 describe('LocalRuntimeManager managed Runtime', () => {
+  it('uses development mode while an external environment is selected', async () => {
+    const fixture = await createLocalRuntimeTestFixture('packages')
+    const manager = createManager(
+      fixture.szlabRoot,
+      managedRuntimePort({}),
+      { useManagedRuntime: () => false }
+    )
+
+    await expect(manager.getModeInfo()).resolves.toMatchObject({
+      mode: 'development'
+    })
+    expect(manager.persistsAfterAppQuit()).toBe(false)
+  })
+
   /** 证明托管 Edge 不依赖用户拉取 OS 源码或配置 Conda 路径。 */
   it('starts a workspace without Conda or OS source paths', async () => {
     const fixture = await createLocalRuntimeTestFixture('packages')

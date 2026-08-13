@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { createReadStream, createWriteStream, existsSync } from 'node:fs'
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import {
   createServer as createHttpServer,
   request as requestHttp,
@@ -378,7 +378,12 @@ export function managedLocalAgentAuthStatus(): ManagedLocalAgentAuthStatus {
   }
 }
 
-async function prepareRenderer(archive: string, dataDir: string): Promise<string> {
+export function normalizeAgentRendererArchiveEntry(entry: string): string {
+  const normalized = entry.replaceAll('\\', '/')
+  return normalized.startsWith('/') ? normalized : `/${normalized}`
+}
+
+export async function prepareRenderer(archive: string, dataDir: string): Promise<string> {
   const archiveStat = await stat(archive)
   const cacheKey = createHash('sha256')
     .update(`${archiveStat.size}:${archiveStat.mtimeMs}`)
@@ -388,23 +393,36 @@ async function prepareRenderer(archive: string, dataDir: string): Promise<string
   if (existsSync(marker) && existsSync(join(rendererDir, 'index.html'))) {
     return rendererDir
   }
+
+  await rm(rendererDir, { recursive: true, force: true })
   await mkdir(rendererDir, { recursive: true })
-  const prefix = '/out/renderer/'
-  for (const entry of asar.listPackage(archive, { isPack: false })) {
-    if (!entry.startsWith(prefix)) continue
-    const relativePath = entry.slice(prefix.length)
-    if (!relativePath) continue
-    const target = resolve(rendererDir, relativePath)
-    if (!target.startsWith(`${rendererDir}${sep}`)) continue
-    const info = asar.statFile(archive, entry.slice(1))
-    if ('files' in info) await mkdir(target, { recursive: true })
-    else {
-      await mkdir(dirname(target), { recursive: true })
-      await writeFile(target, asar.extractFile(archive, entry.slice(1)))
+  try {
+    const prefix = '/out/renderer/'
+    for (const sourceEntry of asar.listPackage(archive, { isPack: false })) {
+      const entry = normalizeAgentRendererArchiveEntry(sourceEntry)
+      if (!entry.startsWith(prefix)) continue
+      const relativePath = entry.slice(prefix.length)
+      if (!relativePath) continue
+      const target = resolve(rendererDir, relativePath)
+      if (!target.startsWith(`${rendererDir}${sep}`)) continue
+      const archiveEntry = sourceEntry.replace(/^[/\\]+/u, '')
+      const info = asar.statFile(archive, archiveEntry)
+      if ('files' in info) await mkdir(target, { recursive: true })
+      else {
+        await mkdir(dirname(target), { recursive: true })
+        await writeFile(target, asar.extractFile(archive, archiveEntry))
+      }
     }
+
+    if (!existsSync(join(rendererDir, 'index.html'))) {
+      throw new Error('UniLab Agent renderer archive is missing out/renderer/index.html')
+    }
+    await writeFile(marker, 'unilab-agent-renderer/v1\n', { mode: 0o600 })
+    return rendererDir
+  } catch (error) {
+    await rm(rendererDir, { recursive: true, force: true })
+    throw error
   }
-  await writeFile(marker, 'unilab-agent-renderer/v1\n', { mode: 0o600 })
-  return rendererDir
 }
 
 async function startRendererProxy(options: {

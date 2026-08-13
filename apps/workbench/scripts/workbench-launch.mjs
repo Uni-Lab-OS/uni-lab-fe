@@ -213,7 +213,9 @@ async function validWorkbenchPythonEnvironment(candidate, platform) {
       '-c',
       'from unilabos.app.main import main'
     ], {
-      timeout: 5_000,
+      // A cold UniLab import can take more than five seconds on Windows,
+      // especially while the Workbench TypeScript/esbuild watchers are busy.
+      timeout: 15_000,
       windowsHide: true
     })
     return resolved

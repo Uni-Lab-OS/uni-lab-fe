@@ -4,7 +4,6 @@ import {
   mkdtemp,
   realpath,
   rm,
-  symlink,
   writeFile
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -12,7 +11,11 @@ import { delimiter, dirname, join } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { discoverDefaultCondaEnvironment } from './localRuntimeEnvironment'
+import {
+  discoverCondaEnvironments,
+  discoverDefaultCondaEnvironment,
+  runtimeExecutablePaths
+} from './localRuntimeEnvironment'
 
 const temporaryDirectories: string[] = []
 
@@ -44,11 +47,8 @@ describe('discoverDefaultCondaEnvironment', () => {
     const pathEnvironment = await createEnvironment(
       join(fixture, 'custom', 'envs', 'lab-runtime')
     )
-    const pathDirectory = join(fixture, 'commands')
-    await mkdir(pathDirectory, { recursive: true })
-    await symlink(
-      join(pathEnvironment, 'bin', 'unilab'),
-      join(pathDirectory, 'unilab')
+    const pathDirectory = dirname(
+      runtimeExecutablePaths(pathEnvironment, process.platform).unilabExecutable
     )
 
     await expect(discoverDefaultCondaEnvironment({
@@ -95,6 +95,35 @@ describe('discoverDefaultCondaEnvironment', () => {
       homeDirectory: fixture
     })).resolves.toBeNull()
   })
+
+  it('enumerates differently named environments below a Conda envs root', async () => {
+    const fixture = await createFixture()
+    const root = join(fixture, 'miniforge3', 'envs')
+    const unilab = await createEnvironment(join(root, 'unilab'))
+    const szlab = await createEnvironment(join(root, 'szlab-unilab'))
+
+    await expect(discoverCondaEnvironments({
+      environment: { PATH: '' },
+      homeDirectory: fixture
+    })).resolves.toEqual(expect.arrayContaining([unilab, szlab]))
+  })
+
+  it('reads custom environment locations from the Conda registry', async () => {
+    const fixture = await createFixture()
+    const custom = await createEnvironment(
+      join(fixture, 'custom-disk', 'envs', 'unilab-production')
+    )
+    await mkdir(join(fixture, '.conda'), { recursive: true })
+    await writeFile(
+      join(fixture, '.conda', 'environments.txt'),
+      `${custom}\n`
+    )
+
+    await expect(discoverCondaEnvironments({
+      environment: { PATH: '' },
+      homeDirectory: fixture
+    })).resolves.toContain(custom)
+  })
 })
 
 async function createFixture(): Promise<string> {
@@ -107,7 +136,7 @@ async function createFixture(): Promise<string> {
 
 async function createEnvironment(
   environmentPath: string,
-  platform: NodeJS.Platform = 'linux'
+  platform: NodeJS.Platform = process.platform
 ): Promise<string> {
   const python = platform === 'win32'
     ? join(environmentPath, 'python.exe')

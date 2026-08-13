@@ -15,6 +15,9 @@ const runtimeIndicator = document.querySelector('#runtime-indicator')
 const runtimeTitle = document.querySelector('#runtime-title')
 const runtimeDetail = document.querySelector('#runtime-detail')
 const installRuntimeButton = document.querySelector('#install-runtime')
+const chooseRuntimeButton = document.querySelector('#choose-runtime')
+const runtimeSelector = document.querySelector('#runtime-selector')
+const runtimeSelectorLabel = document.querySelector('#runtime-selector-label')
 
 let snapshot = {
   phase: 'welcome',
@@ -25,6 +28,7 @@ let snapshot = {
 let switchingBootstrap = new URLSearchParams(location.search)
   .get('switching') === '1'
 let requestPending = switchingBootstrap
+let runtimeRequestPending = false
 let runtimeSnapshot = {
   phase: 'unavailable',
   bundled: false,
@@ -32,11 +36,48 @@ let runtimeSnapshot = {
   runtimeVersion: null,
   platform: null,
   environmentPath: null,
+  availableEnvironments: [],
   error: null
 }
 
+runtimeSelector.addEventListener('change', () => {
+  if (!runtimeApi || !runtimeSelector.value || runtimeRequestPending) return
+  runtimeRequestPending = true
+  render()
+  void runtimeApi.selectEnvironment(runtimeSelector.value).then(next => {
+    runtimeSnapshot = next
+    render()
+  }).catch(error => {
+    runtimeSnapshot = { ...runtimeSnapshot, error: messageOf(error) }
+    render()
+  }).finally(() => {
+    runtimeRequestPending = false
+    render()
+  })
+})
+
+chooseRuntimeButton.addEventListener('click', () => {
+  if (!runtimeApi || runtimeRequestPending
+    || runtimeSnapshot.phase === 'installing') return
+  runtimeRequestPending = true
+  render()
+  void runtimeApi.chooseEnvironment().then(next => {
+    runtimeSnapshot = next
+    render()
+  }).catch(error => {
+    runtimeSnapshot = { ...runtimeSnapshot, error: messageOf(error) }
+    render()
+  }).finally(() => {
+    runtimeRequestPending = false
+    render()
+  })
+})
+
 installRuntimeButton.addEventListener('click', () => {
-  if (!runtimeApi || runtimeSnapshot.phase === 'installing') return
+  if (!runtimeApi || runtimeRequestPending
+    || runtimeSnapshot.phase === 'installing') return
+  runtimeRequestPending = true
+  render()
   void runtimeApi.install().then(next => {
     runtimeSnapshot = next
     render()
@@ -46,6 +87,9 @@ installRuntimeButton.addEventListener('click', () => {
       phase: 'failed',
       error: messageOf(error)
     }
+    render()
+  }).finally(() => {
+    runtimeRequestPending = false
     render()
   })
 })
@@ -140,11 +184,13 @@ function render() {
   const busy = requestPending
     || snapshot.phase === 'starting'
     || snapshot.phase === 'stopping'
-  const runtimeBlocked = runtimeSnapshot.bundled && [
-    'not-installed',
-    'installing',
-    'failed'
-  ].includes(runtimeSnapshot.phase)
+  const runtimeBlocked = runtimeRequestPending || (
+    runtimeSnapshot.bundled && [
+      'not-installed',
+      'installing',
+      'failed'
+    ].includes(runtimeSnapshot.phase)
+  )
   openButton.disabled = busy || runtimeBlocked || !workspaceApi
   createButton.disabled = busy || runtimeBlocked || !workspaceApi
   statusPanel.hidden = !busy
@@ -162,19 +208,34 @@ function renderRuntime() {
   runtimePanel.hidden = runtimeSnapshot.phase === 'unavailable'
   runtimePanel.dataset.phase = runtimeSnapshot.phase
   runtimeIndicator.className = `runtime-panel__indicator is-${runtimeSnapshot.phase}`
-  installRuntimeButton.hidden = !['not-installed', 'failed'].includes(
-    runtimeSnapshot.phase
-  )
-  installRuntimeButton.disabled = runtimeSnapshot.phase === 'installing'
+  installRuntimeButton.hidden = !runtimeSnapshot.bundled
+    || !['not-installed', 'failed'].includes(runtimeSnapshot.phase)
+  installRuntimeButton.disabled = runtimeRequestPending
+    || runtimeSnapshot.phase === 'installing'
+  chooseRuntimeButton.disabled = runtimeRequestPending
+    || runtimeSnapshot.phase === 'installing'
+  const environments = runtimeSnapshot.availableEnvironments ?? []
+  runtimeSelector.replaceChildren(...environments.map(environment => {
+    const option = document.createElement('option')
+    option.value = environment.path
+    option.textContent = `${environment.label} — ${environment.path}`
+    return option
+  }))
+  runtimeSelector.value = runtimeSnapshot.environmentPath ?? ''
+  runtimeSelector.disabled = runtimeRequestPending
+    || runtimeSnapshot.phase === 'installing'
+  runtimeSelectorLabel.hidden = environments.length === 0
   if (runtimeSnapshot.phase === 'ready') {
     runtimeTitle.textContent = `内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''} 已就绪`
-    runtimeDetail.textContent = runtimeSnapshot.environmentPath ?? '应用私有环境'
+    runtimeDetail.textContent = runtimeSnapshot.error
+      ? `${runtimeSnapshot.environmentPath ?? '应用私有环境'}；提示：${runtimeSnapshot.error}`
+      : runtimeSnapshot.environmentPath ?? '应用私有环境'
     return
   }
   if (runtimeSnapshot.phase === 'external') {
     runtimeTitle.textContent = '已检测到现有 UniLab 环境'
     runtimeDetail.textContent = runtimeSnapshot.error
-      ? `${runtimeSnapshot.environmentPath ?? '系统环境'}；内置载荷异常：${runtimeSnapshot.error}`
+      ? `${runtimeSnapshot.environmentPath ?? '系统环境'}；提示：${runtimeSnapshot.error}`
       : runtimeSnapshot.environmentPath ?? '系统环境'
     return
   }
@@ -186,6 +247,11 @@ function renderRuntime() {
   if (runtimeSnapshot.phase === 'failed') {
     runtimeTitle.textContent = '内置 Runtime 安装或检查失败'
     runtimeDetail.textContent = runtimeSnapshot.error ?? '可重试安装或查看应用日志。'
+    return
+  }
+  if (runtimeSnapshot.error) {
+    runtimeTitle.textContent = '所选 UniLab 环境不可用'
+    runtimeDetail.textContent = runtimeSnapshot.error
     return
   }
   runtimeTitle.textContent = '没有检测到 UniLab 环境'

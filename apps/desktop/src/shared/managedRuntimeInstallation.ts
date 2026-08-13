@@ -13,12 +13,19 @@ export interface ManagedRuntimeInstallationSnapshot {
   runtimeVersion: string | null
   platform: string | null
   environmentPath: string | null
+  availableEnvironments: Array<{
+    kind: 'managed' | 'external'
+    label: string
+    path: string
+  }>
   error: string | null
 }
 
 export interface DesktopManagedRuntimeInstallationApi {
   getSnapshot: () => Promise<ManagedRuntimeInstallationSnapshot>
   install: () => Promise<ManagedRuntimeInstallationSnapshot>
+  selectEnvironment: (path: string) => Promise<ManagedRuntimeInstallationSnapshot>
+  chooseEnvironment: () => Promise<ManagedRuntimeInstallationSnapshot>
   onSnapshot: (
     listener: (snapshot: ManagedRuntimeInstallationSnapshot) => void
   ) => () => void
@@ -32,5 +39,6 @@ ManagedRuntimeInstallationSnapshot = Object.freeze({
   runtimeVersion: null,
   platform: null,
   environmentPath: null,
+  availableEnvironments: [],
   error: null
 })
