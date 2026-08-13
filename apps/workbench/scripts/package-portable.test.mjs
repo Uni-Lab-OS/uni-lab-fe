@@ -545,6 +545,21 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /aionui-prepared-windows-x64-v1-/u)
     assert.match(workflow, /validateBundledAgentPayload/u)
     assert.match(workflow, /windows-workbench-plugins-v1-/u)
+    const pluginCacheIndex = workflow.indexOf('name: Cache pinned Theia plugins')
+    const selectVersionIndex = workflow.indexOf(
+      'name: Select automatic Windows package version'
+    )
+    const buildInstallerIndex = workflow.indexOf(
+      'name: Build Windows x64 installer'
+    )
+    assert.ok(pluginCacheIndex >= 0)
+    assert.ok(pluginCacheIndex < selectVersionIndex)
+    assert.ok(selectVersionIndex < buildInstallerIndex)
+    assert.match(workflow, /prepare-package-version\.mjs/u)
+    assert.match(workflow, /UNILAB_WORKBENCH_PACKAGE_VERSION=/u)
+    assert.match(workflow, /readWorkbenchUpdateMetadataVersion/u)
+    assert.match(workflow, /发布版本：\$env:UNILAB_WORKBENCH_PACKAGE_VERSION/u)
+    assert.doesNotMatch(workflow, /git (?:commit|push)/u)
     assert.match(workflow, /MINIFORGE_VERSION: 26\.3\.2-3/u)
     assert.match(workflow, /AIONUI_WINDOWS_SHA512: [a-f0-9]{128}/u)
     assert.match(workflow, /Get-FileHash \$agentInstaller -Algorithm SHA512/u)

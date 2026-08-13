@@ -234,9 +234,14 @@ directory. Its workflow uploads the NSIS EXE and blockmap first, replaces
 rolling channel deliberately does not replace the repository's Latest Release,
 which may belong to another product. The workflow's `GITHUB_TOKEN` only updates
 the existing release; bootstrapping or recreating that release requires an
-authorized maintainer token. Formal Windows artifacts must use the same trusted
-code-signing identity across versions; formal macOS artifacts must remain
-Developer ID signed and notarized.
+authorized maintainer token. Every `deploy-windows` push reads the published
+`latest.yml` and increments its patch version in the runner-only package
+manifest. The generated version is never committed, so publishing cannot
+recursively trigger itself. To begin a new minor or major line, set a higher
+version in `apps/workbench/package.json`; that source version wins once, and
+subsequent builds resume automatic patch increments. Formal Windows artifacts
+must use the same trusted code-signing identity across versions; formal macOS
+artifacts must remain Developer ID signed and notarized.
 
 ## macOS distribution
 

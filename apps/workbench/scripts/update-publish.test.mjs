@@ -2,7 +2,10 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  parseStableWorkbenchVersion,
+  readWorkbenchUpdateMetadataVersion,
   requireWorkbenchUpdateUrl,
+  selectNextWorkbenchVersion,
   selectMacosUpdateArtifacts,
   selectPortableUpdateArtifacts
 } from './update-publish.mjs'
@@ -25,6 +28,37 @@ describe('Workbench update publish URL', () => {
       UNILAB_WORKBENCH_UPDATE_URL:
         'https://user:secret@updates.example.com/workbench/stable'
     }), /无凭据/u)
+  })
+
+  it('increments the published patch without rewriting the source version', () => {
+    assert.deepEqual(parseStableWorkbenchVersion('0.1.12'), [0, 1, 12])
+    assert.equal(selectNextWorkbenchVersion('0.1.1', '0.1.1'), '0.1.2')
+    assert.equal(selectNextWorkbenchVersion('0.1.1', '0.1.9'), '0.1.10')
+    assert.equal(selectNextWorkbenchVersion('0.2.0', '0.1.9'), '0.2.0')
+    assert.equal(selectNextWorkbenchVersion('1.0.0', '0.9.9'), '1.0.0')
+    assert.equal(selectNextWorkbenchVersion('0.9.9', '1.0.0'), '1.0.1')
+    assert.equal(selectNextWorkbenchVersion('0.1.1'), '0.1.1')
+  })
+
+  it('reads only stable versions from update metadata', () => {
+    assert.equal(readWorkbenchUpdateMetadataVersion([
+      'version: 0.1.9',
+      'files:',
+      '  - url: UniLab.Workbench-0.1.9-x64-setup.exe'
+    ].join('\n')), '0.1.9')
+    assert.equal(readWorkbenchUpdateMetadataVersion("version: '1.2.3'\n"), '1.2.3')
+    assert.throws(
+      () => readWorkbenchUpdateMetadataVersion('files: []\n'),
+      /缺少 version/u
+    )
+    assert.throws(
+      () => selectNextWorkbenchVersion('0.1.1-beta.1', '0.1.0'),
+      /稳定版本/u
+    )
+    assert.throws(
+      () => selectNextWorkbenchVersion('0.1.1', '0.1.0-beta.1'),
+      /稳定版本/u
+    )
   })
 
   it('selects a complete Windows update bundle and rejects missing blockmaps', () => {
