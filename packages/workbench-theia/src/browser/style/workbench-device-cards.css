@@ -1,0 +1,428 @@
+.unilab-workbench-device-shell {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--unilab-color-canvas);
+}
+
+.unilab-workbench-device-switcher {
+  z-index: 2;
+  display: flex;
+  min-height: 40px;
+  flex: 0 0 auto;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 6px 12px 0;
+  border-bottom: 1px solid var(--unilab-color-border);
+  background: var(--unilab-color-surface);
+}
+
+.unilab-workbench-device-switcher button {
+  position: relative;
+  min-height: 34px;
+  padding: 0 12px 7px;
+  color: var(--unilab-color-text-muted);
+  border: 0;
+  background: transparent;
+  font: 650 12px/1.2 var(--unilab-font-sans);
+  cursor: pointer;
+}
+
+.unilab-workbench-device-switcher button::after {
+  position: absolute;
+  right: 10px;
+  bottom: -1px;
+  left: 10px;
+  height: 2px;
+  content: '';
+  background: transparent;
+}
+
+.unilab-workbench-device-switcher button:hover {
+  color: var(--unilab-color-device);
+}
+
+.unilab-workbench-device-switcher button[aria-selected='true'] {
+  color: var(--unilab-color-device);
+}
+
+.unilab-workbench-device-switcher button[aria-selected='true']::after {
+  background: var(--unilab-color-device);
+}
+
+.unilab-workbench-device-switcher button:focus-visible,
+.unilab-device-card-workbench button:focus-visible,
+.unilab-device-card-workbench select:focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 1px;
+}
+
+.unilab-workbench-device-shell__panel {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.unilab-workbench-device-shell__panel[hidden] {
+  display: none;
+}
+
+.unilab-device-card-workbench {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(288px, 340px) minmax(0, 1fr);
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-canvas);
+  font-family: var(--unilab-font-sans);
+}
+
+.unilab-device-card-sidebar {
+  min-width: 0;
+  min-height: 0;
+  padding: 18px 16px 24px;
+  overflow: auto;
+  border-right: 1px solid var(--unilab-color-border);
+  background: var(--unilab-color-surface);
+}
+
+.unilab-device-card-sidebar__header {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+.unilab-device-card-sidebar__header > div,
+.unilab-device-card-section__heading,
+.unilab-device-card-preview-header,
+.unilab-device-card-live-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.unilab-device-card-sidebar h1,
+.unilab-device-card-sidebar h2,
+.unilab-device-card-sidebar p {
+  margin: 0;
+}
+
+.unilab-device-card-sidebar h1 {
+  color: var(--unilab-color-text);
+  font-size: 17px;
+  font-weight: 760;
+  letter-spacing: -.02em;
+}
+
+.unilab-device-card-sidebar h2 {
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.unilab-device-card-sidebar__header span,
+.unilab-device-card-section__heading > div > span {
+  color: var(--unilab-color-text-muted);
+  font: 600 10px/1.3 var(--unilab-font-sans);
+}
+
+.unilab-device-card-sidebar__header p,
+.unilab-device-card-section > p {
+  margin-top: 7px;
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.unilab-device-card-notice {
+  margin: 12px 0 0 !important;
+  padding: 9px 10px;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface-subtle);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.unilab-device-card-notice[data-kind='success'] {
+  color: var(--unilab-color-success);
+  border-color: color-mix(in srgb, var(--unilab-color-success) 30%, var(--unilab-color-border));
+  background: var(--unilab-color-success-soft);
+}
+
+.unilab-device-card-notice[data-kind='warning'] {
+  color: var(--unilab-color-warning);
+  border-color: color-mix(in srgb, var(--unilab-color-warning) 30%, var(--unilab-color-border));
+  background: var(--unilab-color-warning-soft);
+}
+
+.unilab-device-card-notice[data-kind='error'] {
+  color: var(--unilab-color-danger);
+  border-color: color-mix(in srgb, var(--unilab-color-danger) 30%, var(--unilab-color-border));
+  background: var(--unilab-color-danger-soft);
+}
+
+.unilab-device-card-section {
+  display: grid;
+  gap: 10px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+.unilab-device-card-section:last-child {
+  border-bottom: 0;
+}
+
+.unilab-device-card-section label {
+  display: grid;
+  gap: 5px;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.unilab-device-card-section select {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 28px 0 9px;
+  overflow: hidden;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  font: 11px/1.2 var(--unilab-font-sans);
+  text-overflow: ellipsis;
+}
+
+.unilab-device-card-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.unilab-device-card-workbench button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  font: 650 10px/1.2 var(--unilab-font-sans);
+  cursor: pointer;
+}
+
+.unilab-device-card-workbench button:hover:not(:disabled) {
+  color: var(--unilab-color-device);
+  border-color: var(--unilab-color-device);
+  background: var(--unilab-color-device-soft);
+}
+
+.unilab-device-card-workbench button.is-primary {
+  color: #fff;
+  border-color: var(--unilab-color-device);
+  background: var(--unilab-color-device);
+}
+
+.unilab-device-card-workbench button.is-primary:hover:not(:disabled) {
+  color: #fff;
+  background: color-mix(in srgb, var(--unilab-color-device) 88%, #000);
+}
+
+.unilab-device-card-workbench button.is-danger {
+  color: var(--unilab-color-danger);
+  border-color: var(--unilab-color-danger);
+  background: var(--unilab-color-danger-soft);
+}
+
+.unilab-device-card-workbench button.is-text {
+  width: fit-content;
+  min-height: 24px;
+  padding: 0;
+  color: var(--unilab-color-device);
+  border: 0;
+  background: transparent;
+}
+
+.unilab-device-card-workbench button:disabled,
+.unilab-device-card-workbench select:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.unilab-device-card-state,
+.unilab-device-card-mode {
+  display: inline-flex;
+  min-height: 20px;
+  align-items: center;
+  padding: 0 7px;
+  color: var(--unilab-color-device);
+  border: 1px solid color-mix(in srgb, var(--unilab-color-device) 32%, var(--unilab-color-border));
+  border-radius: 999px;
+  background: var(--unilab-color-device-soft);
+  font: 700 9px/1 var(--unilab-font-sans);
+}
+
+.unilab-device-card-state[data-state='error'],
+.unilab-device-card-mode[data-live='true'] {
+  color: var(--unilab-color-danger);
+  border-color: color-mix(in srgb, var(--unilab-color-danger) 35%, var(--unilab-color-border));
+  background: var(--unilab-color-danger-soft);
+}
+
+.unilab-device-card-state[data-state='building'] {
+  color: var(--unilab-color-warning);
+  border-color: color-mix(in srgb, var(--unilab-color-warning) 35%, var(--unilab-color-border));
+  background: var(--unilab-color-warning-soft);
+}
+
+.unilab-device-card-workspace__path {
+  display: block;
+  padding: 7px 8px;
+  overflow: hidden;
+  color: var(--unilab-color-text-muted);
+  border-radius: var(--unilab-radius-sm);
+  background: var(--unilab-color-surface-muted);
+  font: 10px/1.4 var(--unilab-font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unilab-device-card-diagnostics {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.unilab-device-card-diagnostics li {
+  display: grid;
+  gap: 2px;
+  padding: 7px 8px;
+  color: var(--unilab-color-warning);
+  border: 1px solid color-mix(in srgb, var(--unilab-color-warning) 28%, var(--unilab-color-border));
+  border-radius: var(--unilab-radius-sm);
+  background: var(--unilab-color-warning-soft);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.unilab-device-card-diagnostics li[data-severity='error'] {
+  color: var(--unilab-color-danger);
+  border-color: color-mix(in srgb, var(--unilab-color-danger) 28%, var(--unilab-color-border));
+  background: var(--unilab-color-danger-soft);
+}
+
+.unilab-device-card-preview-shell {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--unilab-color-canvas);
+}
+
+.unilab-device-card-preview-header {
+  min-height: 52px;
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--unilab-color-border);
+  background: var(--unilab-color-surface);
+}
+
+.unilab-device-card-preview-header > div:first-child {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 3px;
+}
+
+.unilab-device-card-live-controls {
+  flex: 0 0 auto;
+}
+
+.unilab-device-card-preview-header strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unilab-device-card-preview-header span:not(.unilab-device-card-mode) {
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+}
+
+.unilab-device-card-preview {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  margin: 12px;
+  overflow: hidden;
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-lg);
+  background: var(--unilab-color-surface);
+}
+
+.unilab-device-card-empty,
+.unilab-device-cards-unavailable {
+  display: grid;
+  height: 100%;
+  min-height: 220px;
+  place-content: center;
+  justify-items: center;
+  padding: 28px;
+  color: var(--unilab-color-text-muted);
+  text-align: center;
+}
+
+.unilab-device-card-empty .codicon,
+.unilab-device-cards-unavailable .codicon {
+  margin-bottom: 12px;
+  color: var(--unilab-color-device);
+  font-size: 28px;
+}
+
+.unilab-device-card-empty strong,
+.unilab-device-cards-unavailable h2 {
+  margin: 0;
+  color: var(--unilab-color-text);
+  font-size: 14px;
+}
+
+.unilab-device-card-empty p,
+.unilab-device-cards-unavailable p {
+  max-width: 60ch;
+  margin: 7px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+@media (max-width: 760px) {
+  .unilab-device-card-workbench {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+  }
+
+  .unilab-device-card-sidebar {
+    min-height: auto;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid var(--unilab-color-border);
+  }
+
+  .unilab-device-card-preview-shell {
+    min-height: 420px;
+  }
+}

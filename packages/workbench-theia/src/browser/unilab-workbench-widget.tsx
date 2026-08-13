@@ -16,10 +16,6 @@ import {
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
-  DeviceManagementPanel,
-  type DeviceManagementConnection
-} from '@unilab/device-management'
-import {
   MaterialCapabilityNotice,
   MaterialStoreProvider,
   MaterialWorkbench,
@@ -90,6 +86,7 @@ import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
 import { EnvironmentManager } from './environment-manager'
 import { createTheiaWorkflowIdeAdapter } from './theia-workflow-ide-adapter'
 import { WorkbenchDomainLayout } from './workbench-domain-layout'
+import { WorkbenchDeviceSurface } from './workbench-device-cards'
 import { WorkbenchSessionGate } from './workbench-session-gate'
 import {
   WorkbenchViewState,
@@ -722,7 +719,7 @@ function WorkbenchSurface({
     () => createWorkflowResourceSlotOptionsPort(services.materials, scope),
     [scope, services.materials]
   )
-  const deviceConnection: DeviceManagementConnection = session.phase === 'ready'
+  const deviceConnection = session.phase === 'ready'
     ? 'connected'
     : session.phase === 'failed'
       ? 'error'
@@ -836,11 +833,12 @@ function WorkbenchSurface({
       className="unilab-workbench__surface unilab-workbench__surface--device"
       aria-label="仪器设备窗口"
     >
-      <DeviceManagementPanel
+      <WorkbenchDeviceSurface
         services={services}
         backend={deviceBackend}
         backendEnabled={Boolean(backendUrl)}
         connection={deviceConnection}
+        active={viewMode === 'device'}
       />
     </section>
   )

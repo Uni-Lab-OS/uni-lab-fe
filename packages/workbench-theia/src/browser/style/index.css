@@ -1,6 +1,7 @@
 @import '@unilab/pascal-host/styles.css';
 @import '@unilab/material/UnifiedMaterialViewport.css';
 @import './workbench-domain-navigation.css';
+@import './workbench-device-cards.css';
 
 .unilab-workbench {
   position: relative;
