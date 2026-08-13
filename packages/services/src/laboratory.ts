@@ -12,7 +12,10 @@
 import { requestData, type HttpClient } from './http'
 import { ServiceError } from './errors'
 import type { BackendConfig } from './backends'
-import type { DeviceCardActionRiskLevel } from '@unilab/device-card-sdk'
+import type {
+  DeviceCardActionRiskLevel,
+  DeviceDefinitionReference
+} from '@unilab/device-card-sdk'
 import {
   loadBackendActionDevices,
   loadBackendActionSchema,
@@ -107,6 +110,10 @@ export interface DeviceCatalogAction {
 export interface DeviceCatalogItem {
   deviceId: string
   materialUuid: string
+  /** PackageCatalog 权威投影的规范设备定义；缺失时卡片开发与 Live 失败关闭。 */
+  definition: DeviceDefinitionReference | null
+  definitionFqid: string | null
+  /** @deprecated 只供设备管理兼容显示；设备卡片不得用它替代 definitionFqid。 */
   deviceTypeId: string
   deviceKey: string
   namespace: string

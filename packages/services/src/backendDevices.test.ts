@@ -19,6 +19,8 @@ describe('Backend 设备目录 adapter', () => {
     ).resolves.toEqual([{
       deviceId: 'material-pump',
       materialUuid: 'material-pump',
+      definition: null,
+      definitionFqid: null,
       deviceTypeId: 'template-pump',
       deviceKey: 'pump-01',
       namespace: 'edge-01',

@@ -165,7 +165,8 @@ async function saveCloudDeviceDetail(
     artifactDigest: textValue(packageInfo.artifact_digest ?? packageInfo.sha256),
     catalogDigest: textValue(packageInfo.catalog_digest),
     definitionFqid: textValue(
-      sourceRegistry.source_fqid ?? effectiveTemplate.source_fqid
+      sourceRegistry.package_definition_fqid ??
+        effectiveTemplate.package_definition_fqid
     ),
     displayName: record.displayName || displayName
   })

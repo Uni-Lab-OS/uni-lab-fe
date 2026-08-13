@@ -26,6 +26,11 @@ import type {
   DeviceCardWorkspaceState,
   DeviceCardWorkspaceStatus
 } from '@unilab/device-card-sdk'
+import {
+  deviceCardManifestDefinitionFqids,
+  deviceCardManifestLegacyDeviceTypes,
+  deviceCardManifestDefinitionTargets
+} from '@unilab/device-card-sdk'
 
 const WATCH_POLL_MS = 500
 const IGNORED_ROOTS = new Set(['.git', '.unilab-card', 'node_modules'])
@@ -304,11 +309,16 @@ class LocalDeviceCardWorkspace implements DeviceCardWorkspace {
 function workspaceCard(
   metadata: DeviceCardBuildMetadata
 ): DeviceCardWorkspaceCard {
+  const definitionFqids = deviceCardManifestDefinitionFqids(metadata.manifest)
+  const legacyDeviceTypes = deviceCardManifestLegacyDeviceTypes(metadata.manifest)
   return {
     id: metadata.cardId,
     version: metadata.cardVersion,
     title: metadata.manifest.title,
-    deviceTypes: [...metadata.manifest.deviceTypes],
+    definitionTargets: deviceCardManifestDefinitionTargets(metadata.manifest),
+    definitionFqids,
+    legacyDeviceTypes,
+    deviceTypes: definitionFqids.length > 0 ? definitionFqids : legacyDeviceTypes,
     authoringProfile: metadata.manifest.authoringProfile,
     sourceHash: metadata.sourceHash
   }

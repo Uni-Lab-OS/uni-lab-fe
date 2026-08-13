@@ -134,7 +134,7 @@ describe('LocalDeviceProvisioningManager', () => {
   /** 验证旧包解析失败仍保留云端身份，并禁止无意义的自动重试。 */
   it('在旧设备包不兼容时保留设备详情与不可重试诊断', async () => {
     const incompatible = Object.assign(
-      new Error('当前发布缺少 source_fqid，属于旧版设备包，请使用当前 CLI 重新发布'),
+      new Error('当前发布缺少 package_definition_fqid，属于旧版设备包，请使用当前 CLI 重新发布'),
       { code: 'DEVICE_PACKAGE_INCOMPATIBLE', retryable: false }
     )
     ports.resolvePackageCandidate.mockRejectedValue(incompatible)

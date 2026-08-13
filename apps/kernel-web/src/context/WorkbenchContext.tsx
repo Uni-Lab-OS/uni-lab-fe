@@ -223,10 +223,11 @@ function initialBackendEnabled(): boolean {
 function initialSection(): WorkbenchSection {
   if (typeof globalThis.location === 'undefined') return 'device'
   const section = new URLSearchParams(globalThis.location.search).get('section')
+  // 兼容旧的设备卡一级导航深链；卡片现已归入“仪器设备”。
+  if (section === 'cards') return 'device'
   if (
     section === 'device' ||
     section === 'device-square' ||
-    section === 'cards' ||
     section === 'material' ||
     section === 'scene' ||
     section === 'workflow'

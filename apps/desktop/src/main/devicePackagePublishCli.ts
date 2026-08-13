@@ -131,7 +131,7 @@ function definitionSummaries(value: unknown): Array<{
     const definition = record(item, 'definition')
     return {
       fqid: text(definition.fqid, 'definition.fqid'),
-      displayName: optionalText(definition.displayname)
+      displayName: optionalText(definition.title)
         || text(definition.id, 'definition.id')
     }
   })

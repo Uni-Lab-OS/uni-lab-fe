@@ -21,7 +21,6 @@ import UserMenu from './auth/UserMenu';
 import ErrorBoundary from './ErrorBoundary';
 import DevicePanel from './device/DevicePanel';
 import DeviceSquarePanel from './device-provisioning/DeviceSquarePanel';
-import DeviceCardWorkbench from './device-cards/DeviceCardWorkbench';
 import { LabPanelWorkspace } from '../integrations/lab-workbench/LabPanelWorkspace';
 import type { WorkbenchSection } from '../data/lab';
 import type { WorkflowCatalogState } from '@unilab/workflow-editor';
@@ -30,11 +29,6 @@ const DEVICE_NAV_ITEM: AppShellNavigationItem = {
   id: 'device',
   label: '仪器设备',
   icon: <DeviceIcon />
-};
-const CARD_NAV_ITEM: AppShellNavigationItem = {
-  id: 'cards',
-  label: '设备卡片',
-  icon: '▣'
 };
 const DEVICE_SQUARE_NAV_ITEM: AppShellNavigationItem = {
   id: 'device-square',
@@ -51,10 +45,9 @@ const WORKFLOW_NAV_ITEM: AppShellNavigationItem = {
   label: '工作流',
   icon: <WorkflowIcon />
 };
-const NAV_ITEMS: readonly AppShellNavigationItem[] = [
+export const APP_SHELL_NAV_ITEMS: readonly AppShellNavigationItem[] = [
   DEVICE_NAV_ITEM,
   DEVICE_SQUARE_NAV_ITEM,
-  CARD_NAV_ITEM,
   MATERIAL_NAV_ITEM,
   WORKFLOW_NAV_ITEM
 ];
@@ -124,7 +117,7 @@ export default function AppShell(): React.JSX.Element {
           ) : null}
         </>
       }
-      navigation={NAV_ITEMS}
+      navigation={APP_SHELL_NAV_ITEMS}
       activeNavigationId={section}
       onNavigate={handleNavigate}
     >
@@ -221,7 +214,6 @@ function SectionView({
 
   if (section === 'device') return <DevicePanel />;
   if (section === 'device-square') return <DeviceSquarePanel />;
-  if (section === 'cards') return <DeviceCardWorkbench />;
   if (section === 'material') {
     return (
       <>

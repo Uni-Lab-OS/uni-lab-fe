@@ -7,12 +7,17 @@ import type {
   OpenDeviceCardRequest,
   OpenDeviceCardWorkspaceRequest
 } from '@unilab/device-card-sdk'
+import {
+  deviceCardTargetsDefinition,
+  isDeviceDefinitionReference
+} from '@unilab/device-card-sdk'
 
 import { unavailableDeviceCardCapabilities } from './deviceCardRuntimeCapabilities'
 
 export interface RuntimeCardRecord {
   id: string
-  deviceTypes: string[]
+  definitionTargets: InstalledDeviceCard['definitionTargets']
+  legacyDeviceTypes: string[]
   artifactDir: string
   metadata: InstalledDeviceCardRecord['metadata']
 }
@@ -22,12 +27,23 @@ export function assertDeviceCardRuntimeCapabilities(
   record: RuntimeCardRecord,
   request: OpenDeviceCardRequest | OpenDeviceCardWorkspaceRequest
 ): void {
-  if (!record.deviceTypes.includes(request.context.device.deviceTypeId)) {
+  const definitionFqid = request.context.device.definitionFqid
+  const packageCard = record.definitionTargets.length > 0
+  const supported = packageCard
+    ? deviceCardTargetsDefinition(record.definitionTargets, definitionFqid)
+    : record.legacyDeviceTypes.includes(request.context.device.deviceTypeId)
+  if (!supported) {
     throw new Error(
-      `卡片不支持设备类型 ${request.context.device.deviceTypeId}。`
+      `卡片不支持设备定义 ${definitionFqid || request.context.device.deviceTypeId}。`
     )
   }
   if (request.context.mode !== 'live') return
+  if (!packageCard) {
+    throw new Error('v1 遗留卡片仅可用于 Mock；请按当前领域设备包重新生成卡片。')
+  }
+  if (!isDeviceDefinitionReference(request.context.device.definition)) {
+    throw new Error('当前设备缺少完整的 PackageCatalog definition 来源证据。')
+  }
   const unavailable = unavailableDeviceCardCapabilities(
     record.metadata.manifest.permissions,
     {
@@ -59,6 +75,9 @@ export function publicRecord(record: InstalledDeviceCardRecord): InstalledDevice
     id: record.id,
     version: record.version,
     title: record.title,
+    definitionTargets: structuredClone(record.definitionTargets),
+    definitionFqids: [...record.definitionFqids],
+    legacyDeviceTypes: [...record.legacyDeviceTypes],
     deviceTypes: record.deviceTypes,
     authoringProfile: record.authoringProfile,
     installedAt: record.installedAt
@@ -70,7 +89,12 @@ export function workspaceRuntimeRecord(
 ): RuntimeCardRecord {
   return {
     id: artifact.metadata.cardId,
-    deviceTypes: [...artifact.metadata.manifest.deviceTypes],
+    definitionTargets: artifact.metadata.manifest.schemaVersion === 2
+      ? structuredClone(artifact.metadata.manifest.targets)
+      : [],
+    legacyDeviceTypes: artifact.metadata.manifest.schemaVersion === 1
+      ? [...artifact.metadata.manifest.deviceTypes]
+      : [],
     artifactDir: artifact.artifactDir,
     metadata: artifact.metadata
   }
@@ -117,6 +141,7 @@ function isOpenPreviewRequest(value: Record<string, unknown>): boolean {
     isPlainRecord(context) &&
     (context.mode === 'mock' || context.mode === 'live') &&
     isPlainRecord(context.device) &&
+    typeof context.device.definitionFqid === 'string' &&
     typeof context.device.deviceTypeId === 'string' &&
     isPlainRecord(context.state) &&
     isPlainRecord(context.config)
@@ -139,7 +164,10 @@ export function isAuthoringContext(
   value: unknown
 ): value is DeviceCardAuthoringContext {
   return isPlainRecord(value) &&
-    value.schemaVersion === 'device-card-authoring-context/v1' &&
+    (
+      value.schemaVersion === 'device-card-authoring-context/v1' ||
+      value.schemaVersion === 'device-card-authoring-context/v2'
+    ) &&
     typeof value.deviceTypeId === 'string' &&
     value.deviceTypeId.length > 0 &&
     typeof value.title === 'string' &&
@@ -155,7 +183,13 @@ export function isAuthoringContext(
     isPlainRecord(value.stateSchema) &&
     isPlainRecord(value.sampleState) &&
     Array.isArray(value.media) &&
-    value.media.every((item) => typeof item === 'string')
+    value.media.every((item) => typeof item === 'string') &&
+    (
+      value.schemaVersion === 'device-card-authoring-context/v1' ||
+      isDeviceDefinitionReference(value.definition) &&
+      value.deviceTypeId === value.definition.fqid &&
+      typeof value.deviceId === 'string' && value.deviceId.length > 0
+    )
 }
 
 export function isPlainRecord(value: unknown): value is Record<string, unknown> {

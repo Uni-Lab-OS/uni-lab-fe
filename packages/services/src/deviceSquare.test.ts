@@ -86,7 +86,8 @@ describe('设备广场 service adapter', () => {
             catalog_digest: `sha256:${'b'.repeat(64)}`
           },
           source_registry: {
-            source_fqid: 'community.review_lab.pump'
+            source_fqid: 'review_lab.devices.pump:Pump',
+            package_definition_fqid: 'community.review_lab.pump'
           }
         }
       }
@@ -116,7 +117,8 @@ describe('设备广场 service adapter', () => {
             class_namespace: 'community.review_lab'
           },
           source_registry: {
-            source_fqid: 'community.review_lab.pump'
+            source_fqid: 'review_lab.devices.pump:Pump',
+            package_definition_fqid: 'community.review_lab.pump'
           }
         }
       }
@@ -131,7 +133,7 @@ describe('设备广场 service adapter', () => {
   })
 
   /** 验证旧发布身份缺失与真正的命名空间不匹配使用不同诊断。 */
-  it('把缺少 source_fqid 的旧发布识别为旧版设备包', async () => {
+  it('把缺少 package_definition_fqid 的旧发布识别为旧版设备包', async () => {
     const service = createDeviceSquareService(fixtureHttp({
       [`/api/v1/lab/square/detail/${templateUuid}`]: {
         code: 0,
@@ -145,7 +147,9 @@ describe('设备广场 service adapter', () => {
             artifact_digest: artifactDigest,
             catalog_digest: `sha256:${'b'.repeat(64)}`
           },
-          source_registry: {}
+          source_registry: {
+            source_fqid: 'review_lab.devices.pump:Pump'
+          }
         }
       }
     }))
@@ -154,7 +158,7 @@ describe('设备广场 service adapter', () => {
       service.resolvePackageCandidate(templateUuid)
     ).rejects.toMatchObject({
       code: 'DEVICE_PACKAGE_INCOMPATIBLE',
-      message: expect.stringContaining('缺少 source_fqid，属于旧版设备包'),
+      message: expect.stringContaining('缺少 package_definition_fqid，属于旧版设备包'),
       retryable: false
     })
   })

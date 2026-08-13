@@ -31,13 +31,15 @@ describe('laboratory service', () => {
         '/api/v1/devices': {
           code: 0,
           data: {
-            schemaVersion: 'device-catalog/v1',
+            schemaVersion: 'device-catalog/v2',
             source: 'edge',
             generatedAt: 123,
             items: [
               {
                 id: 'pump-1',
                 materialUuid: '10000000-0000-4000-8000-000000000001',
+                deviceTypeId: 'community.review_lab.pump',
+                definition: packageDefinition(),
                 deviceKey: '/cell/pump-1',
                 namespace: '/cell',
                 name: '蠕动泵',
@@ -93,7 +95,9 @@ describe('laboratory service', () => {
       {
         deviceId: 'pump-1',
         materialUuid: '10000000-0000-4000-8000-000000000001',
-        deviceTypeId: 'pump-1',
+        definition: packageDefinition(),
+        definitionFqid: 'community.review_lab.pump',
+        deviceTypeId: 'community.review_lab.pump',
         deviceKey: '/cell/pump-1',
         namespace: '/cell',
         label: '蠕动泵',
@@ -124,6 +128,64 @@ describe('laboratory service', () => {
         body: undefined
       }
     ])
+  })
+
+  it('缺少定义时不再把运行时实例 ID 回退成设备定义', async () => {
+    /** 证明 Core #147 的 runtime instance 与 definition identity 始终分离。 */
+    const service = createLaboratoryService(
+      fixtureHttp({
+        '/api/v1/devices': {
+          code: 0,
+          data: {
+            schemaVersion: 'device-catalog/v1',
+            items: [{
+              id: 'pump-1',
+              deviceKey: '/cell/pump-1',
+              namespace: '/cell',
+              name: '遗留泵',
+              online: false,
+              actions: []
+            }]
+          }
+        }
+      }),
+      getDefaultBackend('local-python')
+    )
+
+    await expect(service.getDeviceCatalog()).resolves.toEqual([
+      expect.objectContaining({
+        deviceId: 'pump-1',
+        definition: null,
+        definitionFqid: null,
+        deviceTypeId: ''
+      })
+    ])
+  })
+
+  it('拒绝不完整的设备定义来源证据', async () => {
+    /** 证明半结构化定义不会被静默接受或降级成规范领域设备包。 */
+    const service = createLaboratoryService(
+      fixtureHttp({
+        '/api/v1/devices': {
+          code: 0,
+          data: {
+            schemaVersion: 'device-catalog/v2',
+            items: [{
+              id: 'pump-1',
+              deviceTypeId: 'community.review_lab.pump',
+              definition: { fqid: 'community.review_lab.pump' },
+              actions: []
+            }]
+          }
+        }
+      }),
+      getDefaultBackend('local-python')
+    )
+
+    await expect(service.getDeviceCatalog()).rejects.toMatchObject({
+      code: 'INVALID_DEVICE_DEFINITION_PROVENANCE',
+      retryable: false
+    })
   })
 
   it('projects Action devices and schemas from the unified device catalog', async () => {
@@ -381,6 +443,32 @@ describe('laboratory service', () => {
     ])
   })
 })
+
+/** 返回一份与 Core #147 PackageCatalog v1 一致的设备定义来源证据。 */
+function packageDefinition(): Record<string, unknown> {
+  return {
+    fqid: 'community.review_lab.pump',
+    version: '1.0.0',
+    contentHash: `sha256:${'1'.repeat(64)}`,
+    sourceIdentity: 'review_lab.devices.pump:Pump',
+    title: '蠕动泵',
+    description: '测试设备定义',
+    category: ['liquid_handling'],
+    manufacturer: 'Uni-Lab',
+    packageCatalog: {
+      schemaVersion: '1',
+      distribution: {
+        name: 'review-lab',
+        normalizedName: 'review_lab',
+        version: '0.1.0'
+      },
+      importPackage: 'review_lab',
+      namespace: 'community.review_lab',
+      contentDigest: `sha256:${'2'.repeat(64)}`,
+      catalogDigest: `sha256:${'3'.repeat(64)}`
+    }
+  }
+}
 
 function fixtureHttp(
   responses: Record<string, unknown>,

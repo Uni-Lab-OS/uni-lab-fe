@@ -19,7 +19,7 @@ describe('createDeviceCardAuthoringKit', () => {
     const root = `${result.rootDirectory}/`
 
     expect(result.fileName).toBe(
-      'example_device.unilab-card-kit.zip'
+      'community.example_device.example_device.unilab-card-kit.zip'
     )
     expect(Object.keys(entries)).toEqual(expect.arrayContaining([
       `${root}README.md`,
@@ -51,7 +51,8 @@ describe('createDeviceCardAuthoringKit', () => {
     expect(metadata).toMatchObject({
       kitVersion: 1,
       generatedAt,
-      deviceTypeId: 'example_device',
+      definitionFqid: 'community.example_device.example_device',
+      deviceTypeId: 'community.example_device.example_device',
       authoringProfile: 'vue-web-component-v1',
       hostProtocolVersion: 1
     })
@@ -62,10 +63,14 @@ describe('createDeviceCardAuthoringKit', () => {
         entries[`${root}card-project/card.manifest.json`]
       )
     ) as {
-      deviceTypes: string[]
+      targets: Array<{ definitionFqid: string }>
       permissions: { state: string[]; actions: string[] }
     }
-    expect(manifest.deviceTypes).toEqual(['example_device'])
+    expect(manifest.targets).toEqual([
+      expect.objectContaining({
+        definitionFqid: 'community.example_device.example_device'
+      })
+    ])
     expect(manifest.permissions.state).toEqual(['status', 'temperature'])
     expect(manifest.permissions.actions).toEqual(['start'])
 

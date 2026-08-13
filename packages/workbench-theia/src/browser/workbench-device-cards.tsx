@@ -254,6 +254,11 @@ function WorkbenchDeviceCardLibrary({
       </section>
       <section className="unilab-device-card-section" aria-labelledby="device-card-development-title">
         <h2 id="device-card-development-title">源码开发</h2>
+        {model.selectedDevice && !model.selectedDevice.definition ? (
+          <p role="status">
+            此设备尚未投影 PackageCatalog 定义，只能管理设备，不能创建或运行新版卡片。
+          </p>
+        ) : null}
         <label>
           开发框架
           <select
@@ -271,14 +276,14 @@ function WorkbenchDeviceCardLibrary({
           <button
             type="button"
             className="is-primary"
-            disabled={!model.selectedDevice || model.operation !== null}
+            disabled={!model.selectedDevice?.definition || model.operation !== null}
             onClick={() => void model.prepareWorkspace()}
           >
             {model.operation === 'prepare' ? '创建中…' : '新建项目'}
           </button>
           <button
             type="button"
-            disabled={!model.selectedDevice || model.operation !== null}
+            disabled={!model.selectedDevice?.definition || model.operation !== null}
             onClick={() => void model.openWorkspace()}
           >
             {model.operation === 'open' ? '打开中…' : '打开项目'}
@@ -287,7 +292,7 @@ function WorkbenchDeviceCardLibrary({
         <button
           type="button"
           className="is-text"
-          disabled={!model.fileAvailable || !model.selectedDevice || model.operation !== null}
+          disabled={!model.fileAvailable || !model.selectedDevice?.definition || model.operation !== null}
           onClick={() => void model.exportAuthoringKit()}
         >
           {model.operation === 'export' ? '正在导出…' : '导出离线开发包'}

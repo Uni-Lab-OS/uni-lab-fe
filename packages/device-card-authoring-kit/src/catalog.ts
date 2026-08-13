@@ -4,7 +4,7 @@ export const DEVICE_CARD_UI_CATALOG_VERSION = '0.1.0'
 
 export const CARD_MANIFEST_SCHEMA = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
-  $id: 'https://unilab.local/schemas/device-card-manifest-v1.json',
+  $id: 'https://unilab.local/schemas/device-card-manifest-v2.json',
   title: 'Uni-Lab Device Card Manifest',
   type: 'object',
   additionalProperties: false,
@@ -13,7 +13,7 @@ export const CARD_MANIFEST_SCHEMA = {
     'id',
     'version',
     'title',
-    'deviceTypes',
+    'targets',
     'sdkVersion',
     'hostProtocolVersion',
     'authoringProfile',
@@ -22,7 +22,7 @@ export const CARD_MANIFEST_SCHEMA = {
     'permissions'
   ],
   properties: {
-    schemaVersion: { const: 1 },
+    schemaVersion: { const: 2 },
     id: {
       type: 'string',
       pattern: '^[a-z0-9](?:[a-z0-9._-]{1,126}[a-z0-9])?$'
@@ -32,11 +32,43 @@ export const CARD_MANIFEST_SCHEMA = {
       pattern: '^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$'
     },
     title: { type: 'string', minLength: 1 },
-    deviceTypes: {
+    targets: {
       type: 'array',
       minItems: 1,
-      uniqueItems: true,
-      items: { type: 'string', minLength: 1 }
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['definitionFqid', 'authoredAgainst'],
+        properties: {
+          definitionFqid: {
+            type: 'string',
+            pattern: '^community\\.[a-z_][a-z0-9_]*\\.[A-Za-z0-9_]+$'
+          },
+          authoredAgainst: {
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'definitionVersion',
+              'definitionContentHash',
+              'packageCatalogDigest'
+            ],
+            properties: {
+              definitionVersion: {
+                type: 'string',
+                minLength: 1
+              },
+              definitionContentHash: {
+                type: 'string',
+                pattern: '^sha256:[0-9a-f]{64}$'
+              },
+              packageCatalogDigest: {
+                type: 'string',
+                pattern: '^sha256:[0-9a-f]{64}$'
+              }
+            }
+          }
+        }
+      }
     },
     sdkVersion: { type: 'string', minLength: 1 },
     hostProtocolVersion: { const: 1 },
@@ -155,10 +187,31 @@ export const SDK_DECLARATION = `declare module '@unilab/device-card-sdk' {
     | JsonPrimitive
     | { [key: string]: JsonValue }
     | JsonValue[]
+  export interface DeviceDefinitionReference {
+    fqid: string
+    version: string
+    contentHash: string
+    sourceIdentity: string
+    title: string
+    description: string
+    category: string[]
+    manufacturer: string
+    packageCatalog: {
+      schemaVersion: '1'
+      distribution: { name: string; normalizedName: string; version: string }
+      importPackage: string
+      namespace: string
+      contentDigest: string
+      catalogDigest: string
+    }
+  }
   export interface DeviceCardRuntimeSnapshot {
     mode: 'mock' | 'live'
     device: {
       deviceId: string | null
+      definitionFqid: string
+      definition?: DeviceDefinitionReference
+      /** @deprecated 使用 definitionFqid。 */
       deviceTypeId: string
       title: string
     }
@@ -204,15 +257,15 @@ export const SDK_DECLARATION = `declare module '@unilab/device-card-sdk' {
 }
 
 declare module '@unilab/device-card-sdk/vue' {
-  import type { DeviceCardActionRun } from '@unilab/device-card-sdk'
+  import type {
+    DeviceCardActionRun,
+    DeviceCardRuntimeSnapshot
+  } from '@unilab/device-card-sdk'
   export function useDeviceCard(options: {
     state: readonly string[]
   }): {
     state: Record<string, unknown>
-    context: Readonly<{
-      mode: 'mock' | 'live'
-      device: { deviceId: string | null; deviceTypeId: string; title: string }
-    } | null>
+    context: Readonly<DeviceCardRuntimeSnapshot | null>
     callAction(
       action: string,
       params?: Record<string, unknown>

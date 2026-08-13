@@ -48,7 +48,8 @@ describe('Workbench 设备自定义卡片', () => {
     })
 
     expect(context.deviceId).toBe('robot-1')
-    expect(context.deviceTypeId).toBe('robot')
+    expect(context.schemaVersion).toBe('device-card-authoring-context/v2')
+    expect(context.deviceTypeId).toBe('community.robot_lab.robot')
     expect(context.actions).toEqual([
       expect.objectContaining({ action: 'move', label: '移动' })
     ])
@@ -63,7 +64,30 @@ function device(): DeviceCatalogItem {
   return {
     deviceId: 'robot-1',
     materialUuid: 'material-1',
-    deviceTypeId: 'robot',
+    definitionFqid: 'community.robot_lab.robot',
+    definition: {
+      fqid: 'community.robot_lab.robot',
+      version: '1.0.0',
+      contentHash: `sha256:${'1'.repeat(64)}`,
+      sourceIdentity: 'robot_lab.devices.robot:Robot',
+      title: '机械臂',
+      description: '机械臂设备定义',
+      category: ['robot'],
+      manufacturer: 'Uni-Lab',
+      packageCatalog: {
+        schemaVersion: '1',
+        distribution: {
+          name: 'robot-lab',
+          normalizedName: 'robot_lab',
+          version: '0.1.0'
+        },
+        importPackage: 'robot_lab',
+        namespace: 'community.robot_lab',
+        contentDigest: `sha256:${'2'.repeat(64)}`,
+        catalogDigest: `sha256:${'3'.repeat(64)}`
+      }
+    },
+    deviceTypeId: 'community.robot_lab.robot',
     deviceKey: 'robot-key',
     namespace: 'fixture',
     label: '机械臂 1',

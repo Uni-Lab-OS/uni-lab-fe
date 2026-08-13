@@ -21,6 +21,11 @@ import type {
   DeviceCardAuthoringContext,
   InstalledDeviceCard
 } from '@unilab/device-card-sdk'
+import {
+  deviceCardManifestDefinitionFqids,
+  deviceCardManifestLegacyDeviceTypes,
+  deviceCardManifestDefinitionTargets
+} from '@unilab/device-card-sdk'
 
 export {
   createDeviceCardWorkspace,
@@ -126,12 +131,18 @@ export async function readInstalledCard(
   if (metadata.schemaVersion !== 'device-card-artifact/v1') {
     throw new Error('不支持的卡片 Artifact schema。')
   }
+  const definitionTargets = deviceCardManifestDefinitionTargets(metadata.manifest)
+  const definitionFqids = deviceCardManifestDefinitionFqids(metadata.manifest)
+  const legacyDeviceTypes = deviceCardManifestLegacyDeviceTypes(metadata.manifest)
   return {
     key: artifactKey(metadata),
     id: metadata.cardId,
     version: metadata.cardVersion,
     title: metadata.manifest.title,
-    deviceTypes: metadata.manifest.deviceTypes,
+    definitionTargets,
+    definitionFqids,
+    legacyDeviceTypes,
+    deviceTypes: definitionFqids.length > 0 ? definitionFqids : legacyDeviceTypes,
     authoringProfile: metadata.manifest.authoringProfile,
     installedAt: metadata.builtAt,
     artifactDir: resolve(artifactDir),

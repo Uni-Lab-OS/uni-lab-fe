@@ -23,6 +23,20 @@ const VALID_MANIFEST = {
   }
 }
 
+const { deviceTypes: _legacyDeviceTypes, ...VALID_MANIFEST_BASE } = VALID_MANIFEST
+const VALID_PACKAGE_MANIFEST = {
+  ...VALID_MANIFEST_BASE,
+  schemaVersion: 2,
+  targets: [{
+    definitionFqid: 'community.szlab_poly_studio.szlab_mixer_robot',
+    authoredAgainst: {
+      definitionVersion: '1.0.0',
+      definitionContentHash: `sha256:${'1'.repeat(64)}`,
+      packageCatalogDigest: `sha256:${'2'.repeat(64)}`
+    }
+  }]
+} satisfies Record<string, unknown>
+
 describe('device card manifest', () => {
   it('accepts a valid Vue profile manifest', () => {
     expect(parseDeviceCardManifest(VALID_MANIFEST).id)
@@ -52,5 +66,44 @@ describe('device card manifest', () => {
     expect(diagnostics).toContainEqual(expect.objectContaining({
       code: 'manifest.permissions.state'
     }))
+  })
+
+  it('接受带规范设备定义与软件包目录证据的 v2 Manifest', () => {
+    /** 证明新卡片用 definition FQID 和 authored-against 摘要持久化目标。 */
+    const manifest = parseDeviceCardManifest(VALID_PACKAGE_MANIFEST)
+    expect(manifest.schemaVersion).toBe(2)
+    if (manifest.schemaVersion !== 2) throw new Error('预期 v2 Manifest')
+    expect(manifest.targets[0]?.definitionFqid)
+      .toBe('community.szlab_poly_studio.szlab_mixer_robot')
+  })
+
+  it('拒绝在 v2 Manifest 中回退到 deviceTypes', () => {
+    /** 证明新卡片不能用短类型或运行时实例身份绕过 definition FQID。 */
+    const diagnostics = validateDeviceCardManifest({
+      ...VALID_PACKAGE_MANIFEST,
+      targets: [],
+      deviceTypes: ['szlab_mixer_robot']
+    })
+    expect(diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'manifest.targets' }),
+      expect.objectContaining({ code: 'manifest.deviceTypes_legacy' })
+    ]))
+  })
+
+  it('拒绝缺少或伪造 authored-against 摘要的定义目标', () => {
+    /** 证明卡片生成证据不接受普通字符串或不完整摘要。 */
+    const diagnostics = validateDeviceCardManifest({
+      ...VALID_PACKAGE_MANIFEST,
+      targets: [{
+        definitionFqid: 'community.szlab_poly_studio.szlab_mixer_robot',
+        authoredAgainst: {
+          definitionVersion: '1.0.0',
+          definitionContentHash: 'not-a-digest',
+          packageCatalogDigest: ''
+        }
+      }]
+    })
+    expect(diagnostics.filter(item => item.code === 'manifest.definition_digest'))
+      .toHaveLength(2)
   })
 })

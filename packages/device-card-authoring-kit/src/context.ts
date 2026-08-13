@@ -5,9 +5,17 @@ import type {
 } from '@unilab/device-card-sdk'
 import {
   DEVICE_CARD_HOST_STATE_SCHEMA,
-  filterDeviceCardRealtimeStateSchema
+  filterDeviceCardRealtimeStateSchema,
+  isDeviceDefinitionReference
 } from '@unilab/device-card-sdk'
 
+/**
+ * 从领域设备包定义和当前实例能力生成 v2 开发上下文。
+ *
+ * @param target 带完整 PackageCatalog 来源的设备开发目标。
+ * @param runtimeState 当前实例遥测样例。
+ * @returns 可持久化到卡片项目的开发上下文。
+ */
 export function createDeviceCardAuthoringContext(
   target: DeviceCardAuthoringTarget,
   runtimeState: Record<string, unknown> = {}
@@ -16,8 +24,9 @@ export function createDeviceCardAuthoringContext(
   const stateSchema = buildFormalStateSchema(target.stateSchema)
   const sampleState = buildDeviceCardAuthoringSampleState(target, runtimeState)
   return {
-    schemaVersion: 'device-card-authoring-context/v1',
-    deviceTypeId: target.deviceTypeId,
+    schemaVersion: 'device-card-authoring-context/v2',
+    definition: structuredClone(target.definition),
+    deviceTypeId: target.definition.fqid,
     deviceId: target.deviceId,
     title: target.title,
     actions: target.actions.map((action) => structuredClone(action)),
@@ -26,11 +35,17 @@ export function createDeviceCardAuthoringContext(
     media: [...(target.media ?? [])]
   }
 }
+/**
+ * 汇总设备开发目标的身份和正式合同可用性。
+ *
+ * @param target 待展示的设备开发目标。
+ * @returns 不暴露运行时实现的 Agent 目标摘要。
+ */
 export function summarizeDeviceCardAuthoringTarget(
   target: DeviceCardAuthoringTarget
 ): DeviceCardAuthoringTargetSummary {
   const blocked = target.deviceId.trim().length === 0 ||
-    target.deviceTypeId.trim().length === 0
+    target.definition.fqid.trim().length === 0
   const suppliedSchema = target.stateSchema
   const suppliedKeys = Object.keys(suppliedSchema ?? {})
   const formalKeys = Object.keys(
@@ -40,7 +55,8 @@ export function summarizeDeviceCardAuthoringTarget(
     (suppliedKeys.length === 0 || formalKeys.length === suppliedKeys.length)
   return {
     deviceId: target.deviceId,
-    deviceTypeId: target.deviceTypeId,
+    definitionFqid: target.definition.fqid,
+    deviceTypeId: target.definition.fqid,
     title: target.title,
     online: target.online,
     actionCount: target.actions.length,
@@ -110,12 +126,18 @@ function buildSampleStateForSchema(
   )
 }
 
+/**
+ * 关闭式校验卡片开发目标的身份与动作合同。
+ *
+ * @param target 待校验的设备开发目标。
+ * @returns 无；不完整或重复声明时抛出错误。
+ */
 function assertTarget(target: DeviceCardAuthoringTarget): void {
   if (target.deviceId.trim().length === 0) {
     throw new Error('目标设备缺少稳定 Device ID。')
   }
-  if (target.deviceTypeId.trim().length === 0) {
-    throw new Error('目标设备缺少稳定 Device Type。')
+  if (!isDeviceDefinitionReference(target.definition)) {
+    throw new Error('目标设备缺少完整的 PackageCatalog definition 来源证据。')
   }
   if (target.title.trim().length === 0) {
     throw new Error('目标设备缺少显示名称。')

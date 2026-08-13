@@ -3,7 +3,10 @@ import type {
   DeviceCardAuthoringProfile,
   DeviceCardManifest
 } from '@unilab/device-card-sdk'
-import { deviceCardRealtimeStateKeys } from '@unilab/device-card-sdk'
+import {
+  createDeviceCardDefinitionTarget,
+  deviceCardRealtimeStateKeys
+} from '@unilab/device-card-sdk'
 
 import {
   DEVICE_CARD_SDK_VERSION,
@@ -18,18 +21,28 @@ import {
   isDeviceCardScalarStateDefinition
 } from './stateSelection'
 
+/**
+ * 为当前领域设备包定义生成一个 v2 设备卡源码项目。
+ *
+ * @param context Host 提供的 v2 设备卡开发上下文。
+ * @param profile 选定的前端开发 Profile。
+ * @returns 相对路径到确定性文本内容的项目文件映射。
+ */
 export function createDeviceCardProjectFiles(
   context: DeviceCardAuthoringContext,
   profile: DeviceCardAuthoringProfile
 ): DeviceCardProjectFiles {
+  if (context.schemaVersion !== 'device-card-authoring-context/v2') {
+    throw new Error('新建设备卡片必须使用 PackageCatalog Authoring Context v2。')
+  }
   const stateKeys = deviceCardRealtimeStateKeys(context.stateSchema)
   const actions = context.actions.map((action) => action.action).sort()
   const manifest: DeviceCardManifest = {
-    schemaVersion: 1,
-    id: `${safeIdentifier(context.deviceTypeId)}.card`,
+    schemaVersion: 2,
+    id: `${safeIdentifier(context.definition.fqid)}.card`,
     version: '0.1.0',
     title: `${context.title}自定义卡片`,
-    deviceTypes: [context.deviceTypeId],
+    targets: [createDeviceCardDefinitionTarget(context.definition)],
     sdkVersion: `^${DEVICE_CARD_SDK_VERSION}`,
     hostProtocolVersion: 1,
     authoringProfile: profile,
@@ -48,7 +61,7 @@ export function createDeviceCardProjectFiles(
   }
   return {
     'package.json': json({
-      name: `${safeIdentifier(context.deviceTypeId)}-device-card`,
+      name: `${safeIdentifier(context.definition.fqid)}-device-card`,
       version: '0.1.0',
       private: true,
       type: 'module',
@@ -85,10 +98,16 @@ export function createDeviceCardProjectFiles(
   }
 }
 
+/**
+ * 构造命令行和离线模板使用的完整示例开发上下文。
+ *
+ * @returns 带有效 FQID 与摘要格式的 v2 示例上下文。
+ */
 export function createExampleAuthoringContext(): DeviceCardAuthoringContext {
   return {
-    schemaVersion: 'device-card-authoring-context/v1',
-    deviceTypeId: 'example_device',
+    schemaVersion: 'device-card-authoring-context/v2',
+    definition: exampleDeviceDefinition(),
+    deviceTypeId: 'community.example_device.example_device',
     deviceId: 'example_device_1',
     title: '示例设备',
     actions: [{
@@ -107,6 +126,36 @@ export function createExampleAuthoringContext(): DeviceCardAuthoringContext {
       temperature: 24.6
     },
     media: []
+  }
+}
+
+/**
+ * 构造离线示例使用的完整领域设备包定义引用。
+ *
+ * @returns 只用于脚手架演示、摘要格式真实有效的 PackageCatalog 定义证据。
+ */
+function exampleDeviceDefinition() {
+  return {
+    fqid: 'community.example_device.example_device',
+    version: '1.0.0',
+    contentHash: `sha256:${'1'.repeat(64)}`,
+    sourceIdentity: 'example_device.devices.example:ExampleDevice',
+    title: '示例设备',
+    description: '离线脚手架示例',
+    category: ['example'],
+    manufacturer: 'Uni-Lab',
+    packageCatalog: {
+      schemaVersion: '1' as const,
+      distribution: {
+        name: 'example-device',
+        normalizedName: 'example_device',
+        version: '0.1.0'
+      },
+      importPackage: 'example_device',
+      namespace: 'community.example_device',
+      contentDigest: `sha256:${'2'.repeat(64)}`,
+      catalogDigest: `sha256:${'3'.repeat(64)}`
+    }
   }
 }
 

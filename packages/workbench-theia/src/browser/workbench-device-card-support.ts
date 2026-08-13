@@ -46,9 +46,14 @@ export function buildWorkbenchDeviceCardAuthoringTarget(
   device: DeviceCatalogItem,
   runtimeState: Record<string, unknown> = {}
 ): DeviceCardAuthoringTarget {
+  if (!device.definition) {
+    throw new Error(
+      `设备 ${device.deviceId} 缺少 PackageCatalog 设备定义，不能创建设备卡片。`
+    )
+  }
   const target: DeviceCardAuthoringTarget = {
     deviceId: device.deviceId,
-    deviceTypeId: device.deviceTypeId,
+    definition: device.definition,
     title: device.label,
     online: device.online,
     actions: device.actions.map(mapDeviceCardAction),

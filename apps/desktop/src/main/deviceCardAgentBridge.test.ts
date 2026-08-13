@@ -118,7 +118,8 @@ function fakeAutomation(): DeviceCardAuthoringAutomation {
   return {
     listTargets: vi.fn(async () => [{
       deviceId: 'robot-01',
-      deviceTypeId: 'robot-arm',
+      definitionFqid: 'community.robot_lab.robot_arm',
+      deviceTypeId: 'community.robot_lab.robot_arm',
       title: 'Robot',
       online: true,
       actionCount: 0,

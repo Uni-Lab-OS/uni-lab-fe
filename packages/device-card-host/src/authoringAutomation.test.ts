@@ -17,7 +17,7 @@ import {
 const roots: string[] = []
 const target: DeviceCardAuthoringTarget = {
   deviceId: 'robot-01',
-  deviceTypeId: 'robot-arm',
+  definition: packageDefinition(),
   title: 'Robot',
   online: true,
   actions: [],
@@ -52,7 +52,8 @@ describe('DeviceCardAuthoringAutomation interface', () => {
     ].every(isAbsolute)).toBe(true)
     expect(result.session).toMatchObject({
       deviceId: 'robot-01',
-      deviceTypeId: 'robot-arm',
+      definitionFqid: 'community.robot_lab.robot_arm',
+      deviceTypeId: 'community.robot_lab.robot_arm',
       previewMode: 'mock'
     })
 
@@ -178,9 +179,49 @@ function installedCard(): InstalledDeviceCard {
     id: 'robot.card',
     version: '0.1.0',
     title: 'Robot card',
-    deviceTypes: ['robot-arm'],
+    definitionTargets: [{
+      definitionFqid: target.definition.fqid,
+      authoredAgainst: {
+        definitionVersion: target.definition.version,
+        definitionContentHash: target.definition.contentHash,
+        packageCatalogDigest: target.definition.packageCatalog.catalogDigest
+      }
+    }],
+    definitionFqids: [target.definition.fqid],
+    legacyDeviceTypes: [],
+    deviceTypes: [target.definition.fqid],
     authoringProfile: 'web-component-lite-v1',
     installedAt: new Date().toISOString()
+  }
+}
+
+/**
+ * 构造符合 Core #147 的软件包设备定义测试夹具。
+ *
+ * @returns 携带 PackageCatalog 来源证据的规范设备定义。
+ */
+function packageDefinition(): DeviceCardAuthoringTarget['definition'] {
+  return {
+    fqid: 'community.robot_lab.robot_arm',
+    version: '1.0.0',
+    contentHash: `sha256:${'1'.repeat(64)}`,
+    sourceIdentity: 'robot_lab.devices.robot:RobotArm',
+    title: 'Robot arm',
+    description: 'Robot arm device',
+    category: ['robot'],
+    manufacturer: 'Uni-Lab',
+    packageCatalog: {
+      schemaVersion: '1',
+      distribution: {
+        name: 'robot-lab',
+        normalizedName: 'robot_lab',
+        version: '0.1.0'
+      },
+      importPackage: 'robot_lab',
+      namespace: 'community.robot_lab',
+      contentDigest: `sha256:${'2'.repeat(64)}`,
+      catalogDigest: `sha256:${'3'.repeat(64)}`
+    }
   }
 }
 

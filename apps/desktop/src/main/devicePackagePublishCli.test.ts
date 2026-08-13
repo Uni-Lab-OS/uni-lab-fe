@@ -102,7 +102,7 @@ function catalog(): Record<string, unknown> {
       devices: [{
         id: 'pump',
         fqid: 'community.review_lab.pump',
-        displayname: 'Pump'
+        title: 'Pump'
       }],
       resources: [],
       workflows: []

@@ -15,7 +15,45 @@ export interface DeviceCardPermissions {
   media: string[]
 }
 
-export interface DeviceCardManifest {
+export interface DevicePackageDistributionReference {
+  name: string
+  normalizedName: string
+  version: string
+}
+
+export interface DevicePackageCatalogReference {
+  schemaVersion: '1'
+  distribution: DevicePackageDistributionReference
+  importPackage: string
+  namespace: string
+  contentDigest: string
+  catalogDigest: string
+}
+
+export interface DeviceDefinitionReference {
+  fqid: string
+  version: string
+  contentHash: string
+  sourceIdentity: string
+  title: string
+  description: string
+  category: string[]
+  manufacturer: string
+  packageCatalog: DevicePackageCatalogReference
+}
+
+export interface DeviceCardAuthoredAgainst {
+  definitionVersion: string
+  definitionContentHash: string
+  packageCatalogDigest: string
+}
+
+export interface DeviceCardDefinitionTarget {
+  definitionFqid: string
+  authoredAgainst: DeviceCardAuthoredAgainst
+}
+
+export interface LegacyDeviceCardManifest {
   schemaVersion: 1
   id: string
   version: string
@@ -34,8 +72,32 @@ export interface DeviceCardManifest {
   }
 }
 
+export interface DeviceCardManifestV2 {
+  schemaVersion: 2
+  id: string
+  version: string
+  title: string
+  targets: DeviceCardDefinitionTarget[]
+  sdkVersion: string
+  hostProtocolVersion: 1
+  authoringProfile: DeviceCardAuthoringProfile
+  entry: string
+  uiFeatures: string[]
+  permissions: DeviceCardPermissions
+  config?: {
+    version: number
+    defaults: JsonObject
+    schema: JsonObject
+  }
+}
+
+export type DeviceCardManifest = LegacyDeviceCardManifest | DeviceCardManifestV2
+
 export interface DeviceCardDescriptor {
   deviceId: string | null
+  definitionFqid: string
+  definition?: DeviceDefinitionReference
+  /** @deprecated 使用 definitionFqid；该别名仅供 v1 卡片源码读取。 */
   deviceTypeId: string
   title: string
 }
@@ -54,7 +116,7 @@ export interface DeviceCardActionContract {
   busy?: boolean
 }
 
-export interface DeviceCardAuthoringContext {
+export interface LegacyDeviceCardAuthoringContext {
   schemaVersion: 'device-card-authoring-context/v1'
   deviceTypeId: string
   deviceId?: string
@@ -64,6 +126,23 @@ export interface DeviceCardAuthoringContext {
   sampleState: Record<string, unknown>
   media: string[]
 }
+
+export interface DeviceCardAuthoringContextV2 {
+  schemaVersion: 'device-card-authoring-context/v2'
+  definition: DeviceDefinitionReference
+  /** @deprecated 使用 definition.fqid；该别名只帮助旧工具显示目标。 */
+  deviceTypeId: string
+  deviceId: string
+  title: string
+  actions: DeviceCardActionContract[]
+  stateSchema: Record<string, unknown>
+  sampleState: Record<string, unknown>
+  media: string[]
+}
+
+export type DeviceCardAuthoringContext =
+  | LegacyDeviceCardAuthoringContext
+  | DeviceCardAuthoringContextV2
 
 export interface DeviceCardRuntimeSnapshot {
   mode: 'mock' | 'live'
@@ -116,6 +195,11 @@ export interface InstalledDeviceCard {
   id: string
   version: string
   title: string
+  definitionTargets: DeviceCardDefinitionTarget[]
+  definitionFqids: string[]
+  /** v1 Artifact 的显式遗留匹配输入；新卡片必须为空。 */
+  legacyDeviceTypes: string[]
+  /** @deprecated 使用 definitionFqids。 */
   deviceTypes: string[]
   authoringProfile: DeviceCardAuthoringProfile
   installedAt: string
@@ -143,6 +227,10 @@ export interface DeviceCardWorkspaceCard {
   id: string
   version: string
   title: string
+  definitionTargets: DeviceCardDefinitionTarget[]
+  definitionFqids: string[]
+  legacyDeviceTypes: string[]
+  /** @deprecated 使用 definitionFqids。 */
   deviceTypes: string[]
   authoringProfile: DeviceCardAuthoringProfile
   sourceHash: string

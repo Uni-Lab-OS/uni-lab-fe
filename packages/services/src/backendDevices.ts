@@ -37,6 +37,9 @@ export async function loadBackendDeviceCatalog(
   return (await loadBackendDevices(http)).map((device) => ({
     deviceId: device.id,
     materialUuid: device.id,
+    // Backend 当前只给出 ResourceTemplate UUID，不能冒充 PackageCatalog FQID。
+    definition: null,
+    definitionFqid: null,
     deviceTypeId: device.deviceTypeId,
     deviceKey: device.deviceKey,
     namespace: device.namespace,

@@ -5,9 +5,13 @@ import {
 } from 'fflate'
 import type {
   DeviceCardAuthoringContext,
+  DeviceCardAuthoringContextV2,
   DeviceCardAuthoringProfile
 } from '@unilab/device-card-sdk'
-import { deviceCardRealtimeStateKeys } from '@unilab/device-card-sdk'
+import {
+  deviceCardRealtimeStateKeys,
+  isDeviceDefinitionReference
+} from '@unilab/device-card-sdk'
 
 import {
   CARD_MANIFEST_SCHEMA,
@@ -36,6 +40,12 @@ const PROFILES: readonly DeviceCardAuthoringProfile[] = [
   'web-component-lite-v1'
 ]
 
+/**
+ * 生成绑定当前设备定义证据的确定性离线开发包。
+ *
+ * @param input v2 开发上下文、Profile 与可选生成时间。
+ * @returns 包含项目、SDK 快照和来源摘要的 ZIP 产物。
+ */
 export async function createDeviceCardAuthoringKit(
   input: CreateDeviceCardAuthoringKitInput
 ): Promise<GeneratedDeviceCardAuthoringKit> {
@@ -44,11 +54,14 @@ export async function createDeviceCardAuthoringKit(
     throw new Error(`不支持的卡片开发 Profile：${String(input.profile)}`)
   }
   const generatedAt = normalizeGeneratedAt(input.generatedAt)
-  const rootDirectory = `${safePathSegment(input.context.deviceTypeId)}.unilab-card-kit`
+  const rootDirectory = `${safePathSegment(input.context.definition.fqid)}.unilab-card-kit`
   const canonicalContext = stringifyStable(input.context)
   const metadata: DeviceCardAuthoringKitMetadata = {
     kitVersion: 1,
     generatedAt,
+    definitionFqid: input.context.definition.fqid,
+    definitionContentHash: input.context.definition.contentHash,
+    packageCatalogDigest: input.context.definition.packageCatalog.catalogDigest,
     deviceTypeId: input.context.deviceTypeId,
     ...(input.context.deviceId ? { deviceId: input.context.deviceId } : {}),
     authoringProfile: input.profile,
@@ -71,15 +84,23 @@ export async function createDeviceCardAuthoringKit(
     throw new Error('Authoring Kit ZIP 超过 10 MiB。')
   }
   return {
-    fileName: `${safePathSegment(input.context.deviceTypeId)}.unilab-card-kit.zip`,
+    fileName: `${safePathSegment(input.context.definition.fqid)}.unilab-card-kit.zip`,
     rootDirectory,
     archive,
     metadata
   }
 }
 
+/**
+ * 组装离线开发包内的全部规范文件和项目模板。
+ *
+ * @param context 完整 v2 开发上下文。
+ * @param profile 默认开发 Profile。
+ * @param metadata 开发包自身的版本与摘要元数据。
+ * @returns ZIP 相对路径到文本内容的映射。
+ */
 function kitFiles(
-  context: DeviceCardAuthoringContext,
+  context: DeviceCardAuthoringContextV2,
   profile: DeviceCardAuthoringProfile,
   metadata: DeviceCardAuthoringKitMetadata
 ): Record<string, string> {
@@ -132,12 +153,12 @@ function addProject(
 }
 
 function kitReadme(
-  context: DeviceCardAuthoringContext,
+  context: DeviceCardAuthoringContextV2,
   profile: DeviceCardAuthoringProfile
 ): string {
   return `# ${context.title} Authoring Kit
 
-这是设备类型 \`${context.deviceTypeId}\` 的完整 Uni-Lab 卡片创作资料包。
+这是设备定义 \`${context.definition.fqid}\` 的完整 Uni-Lab 卡片创作资料包。
 已选择开发 Profile：\`${profile}\`。
 
 ## 开始开发
@@ -145,7 +166,7 @@ function kitReadme(
 1. 进入 \`card-project/\`。
 2. 让本地 Coding Agent 先阅读 \`AGENTS.md\`、\`CARD_SPEC.md\` 和
    \`authoring-context.json\`。
-3. 在 Uni-Lab Electron 的“设备卡片”页打开 \`card-project/\` 源码目录。
+3. 在 Uni-Lab Electron 的“仪器设备 → 自定义卡片”页打开 \`card-project/\` 源码目录。
 4. 在本地编辑器中修改代码；Electron 自动检查并刷新 Mock 预览。
 5. Agent 读取 \`.unilab-card/diagnostics.json\` 修复错误。
 6. 在 Electron 中安装当前源码，或导出 \`.ulcard\`。
@@ -154,16 +175,16 @@ function kitReadme(
 \`examples/\` 包含状态、Action、层架和趋势图示例。
 
 Authoring Kit 只用于本地创作。Electron 会重新构建导入源码，并在 Live 打开时
-对照当前 OS 设备目录校验设备类型和 Action，不会信任 Kit 或本地构建产物。
+对照当前 OS 设备目录校验 definition FQID、来源漂移和 Action，不会信任 Kit 或本地构建产物。
 项目不依赖 \`@unilab/device-card-tooling\`，也不需要访问 npm Registry。
 `
 }
 
-function kitAgentRules(context: DeviceCardAuthoringContext): string {
+function kitAgentRules(context: DeviceCardAuthoringContextV2): string {
   const stateKeys = deviceCardRealtimeStateKeys(context.stateSchema)
   return `# Authoring Kit Agent Rules
 
-- 当前设备类型只能是 \`${context.deviceTypeId}\`。
+- 当前设备定义只能是 \`${context.definition.fqid}\`。
 - 默认工作目录是 \`card-project/\`，不要修改 Kit 根目录的规范文件和 SDK 快照。
 - 开始编码前必须读取 \`card-project/AGENTS.md\`、
   \`card-project/CARD_SPEC.md\`、\`authoring-context.json\` 和
@@ -175,14 +196,17 @@ function kitAgentRules(context: DeviceCardAuthoringContext): string {
 `
 }
 
-function kitCardSpec(context: DeviceCardAuthoringContext): string {
+function kitCardSpec(context: DeviceCardAuthoringContextV2): string {
   const stateKeys = deviceCardRealtimeStateKeys(context.stateSchema)
   return `# Device Definition Snapshot
 
 设备：${context.title}
 
-- Device Type ID: \`${context.deviceTypeId}\`
-- Device Instance ID: \`${context.deviceId ?? '未绑定'}\`
+- Definition FQID: \`${context.definition.fqid}\`
+- Definition Version: \`${context.definition.version}\`
+- Definition Content Hash: \`${context.definition.contentHash}\`
+- Package Catalog Digest: \`${context.definition.packageCatalog.catalogDigest}\`
+- Device Instance ID: \`${context.deviceId}\`
 - State Fields: \`authoring-context.json#stateSchema\`
 - Action List: \`authoring-context.json#actions\`
 - UI Catalog: \`ui-catalog.json\`
@@ -198,7 +222,7 @@ Action 输出只是该次调用结果。\`action-inferred\`、\`runtime-sample\`
 `
 }
 
-function statusExample(context: DeviceCardAuthoringContext): string {
+function statusExample(context: DeviceCardAuthoringContextV2): string {
   const key = deviceCardPresentationStateKeys(context.stateSchema)[0]
   if (!key) return actionExample(context)
   return `<script setup lang="ts">
@@ -211,7 +235,7 @@ const card = useDeviceCard({ state: [${JSON.stringify(key)}] })
 `
 }
 
-function actionExample(context: DeviceCardAuthoringContext): string {
+function actionExample(context: DeviceCardAuthoringContextV2): string {
   const action = context.actions[0]
   if (!action) {
     return '<template><u-card title="该设备没有已登记 Action" /></template>\n'
@@ -263,14 +287,15 @@ function profileDirectory(profile: DeviceCardAuthoringProfile): string {
 
 function assertContext(
   context: DeviceCardAuthoringContext
-): void {
+): asserts context is DeviceCardAuthoringContextV2 {
   if (
     !isRecord(context) ||
-    context.schemaVersion !== 'device-card-authoring-context/v1' ||
+    context.schemaVersion !== 'device-card-authoring-context/v2' ||
+    !isDeviceDefinitionReference(context.definition) ||
+    context.deviceTypeId !== context.definition.fqid ||
     !nonEmpty(context.deviceTypeId) ||
     !nonEmpty(context.title) ||
     (
-      context.deviceId !== undefined &&
       !nonEmpty(context.deviceId)
     ) ||
     !Array.isArray(context.actions) ||

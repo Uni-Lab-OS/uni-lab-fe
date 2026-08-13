@@ -16,8 +16,6 @@ function verifiesDeviceStatusSubscriptionScope(): void {
 
   expect(shouldSubscribeDeviceStatus({ ...connected, section: 'device' }))
     .toBe(true)
-  expect(shouldSubscribeDeviceStatus({ ...connected, section: 'cards' }))
-    .toBe(true)
   expect(shouldSubscribeDeviceStatus({ ...connected, section: 'workflow' }))
     .toBe(false)
   expect(shouldSubscribeDeviceStatus({ ...connected, section: 'material' }))

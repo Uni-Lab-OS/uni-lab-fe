@@ -124,7 +124,7 @@ function useDeviceStatusSubscription(): UseDeviceStatusResult {
  * 判定当前工作台是否需要旧设备状态 WebSocket。
  *
  * @param input 后端开关、连接状态、能力与当前工作台切面。
- * @returns 只有设备或设备卡片切面在能力就绪时返回 `true`。
+ * @returns 只有仪器设备切面在能力就绪时返回 `true`。
  * @throws 无；输入是前端已规范化的状态。
  */
 export function shouldSubscribeDeviceStatus(input: {
@@ -136,7 +136,7 @@ export function shouldSubscribeDeviceStatus(input: {
   return input.backendEnabled &&
     input.connection === 'connected' &&
     input.canSubscribeStatus &&
-    (input.section === 'device' || input.section === 'cards')
+    input.section === 'device'
 }
 
 // 在状态表中按设备的多种标识(uuid/deviceKey/nodeName)查找状态

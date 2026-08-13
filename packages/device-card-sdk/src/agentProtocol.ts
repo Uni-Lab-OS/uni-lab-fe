@@ -1,6 +1,7 @@
 import type {
   DeviceCardActionContract,
   DeviceCardAuthoringProfile,
+  DeviceDefinitionReference,
   DeviceCardWorkspaceStatus,
   InstalledDeviceCard
 } from './contracts'
@@ -16,7 +17,7 @@ export type DeviceCardAuthoringContextAvailability =
 
 export interface DeviceCardAuthoringTarget {
   deviceId: string
-  deviceTypeId: string
+  definition: DeviceDefinitionReference
   title: string
   online: boolean
   actions: DeviceCardActionContract[]
@@ -28,6 +29,8 @@ export interface DeviceCardAuthoringTarget {
 
 export interface DeviceCardAuthoringTargetSummary {
   deviceId: string
+  definitionFqid: string
+  /** @deprecated 使用 definitionFqid。 */
   deviceTypeId: string
   title: string
   online: boolean
@@ -65,6 +68,8 @@ export interface DeviceCardAuthoringSession {
   schemaVersion: 'device-card-authoring-session/v1'
   sessionId: string
   deviceId: string
+  definitionFqid: string
+  /** @deprecated 使用 definitionFqid。 */
   deviceTypeId: string
   profile: DeviceCardAuthoringProfile
   projectDir: string

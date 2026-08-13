@@ -23,7 +23,7 @@ export function DeviceCardAuthoringTargetConnector(): null {
         (devices) => authoring.resolveTargetRequest({
           requestId: request.requestId,
           ok: true,
-          targets: devices.map((device) => createAuthoringTarget(
+          targets: devices.filter(device => device.definition).map((device) => createAuthoringTarget(
             device,
             buildDeviceCardRuntimeState(device, statusMapRef.current)
           ))

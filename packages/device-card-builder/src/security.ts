@@ -1,6 +1,8 @@
 import { relative, resolve, sep } from 'node:path'
 
 import {
+  deviceCardAuthoringDefinitionFqid,
+  deviceCardTargetsDefinition,
   isDeviceCardRealtimeStateDefinition,
   type DeviceCardAuthoringContext,
   type DeviceCardDiagnostic,
@@ -65,6 +67,14 @@ export function scanSource(
   )
 }
 
+/**
+ * 对照 Host 开发上下文验证定义目标和最小能力权限。
+ *
+ * @param manifest 待构建的 v1 或 v2 Manifest。
+ * @param context Host 权威开发上下文；缺失时所有能力权限失败关闭。
+ * @param options 是否允许 v1 项目预览旧状态声明。
+ * @returns 定义来源或能力越权的结构化诊断。
+ */
 export function validatePermissionsAgainstContext(
   manifest: DeviceCardManifest,
   context?: DeviceCardAuthoringContext,
@@ -93,13 +103,38 @@ export function validatePermissionsAgainstContext(
     ]
   }
   const diagnostics: DeviceCardDiagnostic[] = []
-  if (!manifest.deviceTypes.includes(context.deviceTypeId)) {
+  const definitionFqid = deviceCardAuthoringDefinitionFqid(context)
+  const supportsDefinition = manifest.schemaVersion === 2
+    ? context.schemaVersion === 'device-card-authoring-context/v2' &&
+      deviceCardTargetsDefinition(manifest.targets, definitionFqid)
+    : manifest.deviceTypes.includes(definitionFqid)
+  if (!supportsDefinition) {
     diagnostics.push({
       severity: 'error',
-      code: 'context.device_type',
-      message: `卡片不支持设备类型 ${context.deviceTypeId}。`,
-      path: 'deviceTypes'
+      code: 'context.definition_fqid',
+      message: `卡片不支持设备定义 ${definitionFqid}。`,
+      path: manifest.schemaVersion === 2 ? 'targets' : 'deviceTypes'
     })
+  } else if (
+    manifest.schemaVersion === 2 &&
+    context.schemaVersion === 'device-card-authoring-context/v2'
+  ) {
+    const target = manifest.targets.find(
+      candidate => candidate.definitionFqid === context.definition.fqid
+    )
+    if (target && (
+      target.authoredAgainst.definitionVersion !== context.definition.version ||
+      target.authoredAgainst.definitionContentHash !== context.definition.contentHash ||
+      target.authoredAgainst.packageCatalogDigest !==
+        context.definition.packageCatalog.catalogDigest
+    )) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'context.definition_provenance',
+        message: '卡片 authored-against 证据与当前 Authoring Context 不一致。',
+        path: 'targets'
+      })
+    }
   }
   const actions = new Set(context.actions.map((action) => action.action))
   for (const action of manifest.permissions.actions) {

@@ -18,6 +18,8 @@ import {
   type Plugin
 } from 'esbuild'
 import {
+  deviceCardAuthoringDefinitionFqid,
+  deviceCardManifestCompatibilityIds,
   parseDeviceCardManifest,
   validateDeviceCardManifest,
   type DeviceCardAuthoringContext,
@@ -402,12 +404,24 @@ ${reload}
 `
 }
 
+/**
+ * 生成只暴露受控 Bridge 的卡片 Mock Host 脚本。
+ *
+ * @param manifest 已通过校验的设备卡 Manifest。
+ * @param context 可选的 Host 或项目开发上下文。
+ * @returns 内嵌规范 definition 身份和样例状态的浏览器脚本。
+ */
 function mockHostSource(
   manifest: DeviceCardManifest,
   context?: DeviceCardBuildRequest['authoringContext']
 ): string {
   const state = context?.sampleState ?? {}
-  const deviceTypeId = context?.deviceTypeId ?? manifest.deviceTypes[0] ?? ''
+  const definitionFqid = context
+    ? deviceCardAuthoringDefinitionFqid(context)
+    : deviceCardManifestCompatibilityIds(manifest)[0] ?? ''
+  const definition = context?.schemaVersion === 'device-card-authoring-context/v2'
+    ? context.definition
+    : undefined
   return `
 if (!window.unilabCard) {
   let state = ${JSON.stringify(state)}
@@ -419,7 +433,9 @@ if (!window.unilabCard) {
         mode: 'mock',
         device: {
           deviceId: ${JSON.stringify(context?.deviceId ?? null)},
-          deviceTypeId: ${JSON.stringify(deviceTypeId)},
+          definitionFqid: ${JSON.stringify(definitionFqid)},
+          definition: ${JSON.stringify(definition)},
+          deviceTypeId: ${JSON.stringify(definitionFqid)},
           title: ${JSON.stringify(context?.title ?? manifest.title)}
         },
         state: { ...state },

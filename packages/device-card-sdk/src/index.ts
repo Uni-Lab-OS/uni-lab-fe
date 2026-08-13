@@ -8,6 +8,20 @@ export {
   validateDeviceCardManifest
 } from './manifest'
 export {
+  createDeviceCardDefinitionTarget,
+  deviceCardAuthoringDefinitionFqid,
+  deviceCardManifestCompatibilityIds,
+  deviceCardDefinitionHasDrifted,
+  deviceCardManifestDefinitionFqids,
+  deviceCardManifestLegacyDeviceTypes,
+  deviceCardManifestDefinitionTargets,
+  deviceCardSupportsDevice,
+  deviceCardTargetsDefinition,
+  isDeviceDefinitionFqid,
+  isDeviceDefinitionReference,
+  isDevicePackageCatalogReference
+} from './domainPackage'
+export {
   DEVICE_CARD_HOST_STATE_SCHEMA,
   deviceCardRealtimeStateKeys,
   filterDeviceCardRealtimeStateSchema,
@@ -16,6 +30,8 @@ export {
 
 export type {
   DeviceCardActionContract,
+  DeviceCardAuthoredAgainst,
+  DeviceCardAuthoringContextV2,
   DeviceCardActionRiskLevel,
   DeviceCardActionRun,
   DeviceCardActionStatus,
@@ -23,17 +39,24 @@ export type {
   DeviceCardAuthoringProfile,
   DeviceCardBridge,
   DeviceCardDefinition,
+  DeviceCardDefinitionTarget,
   DeviceCardDescriptor,
   DeviceCardDiagnostic,
   DeviceCardManifest,
+  DeviceCardManifestV2,
   DeviceCardPermissions,
   DeviceCardRuntimeSnapshot,
+  DeviceDefinitionReference,
+  DevicePackageCatalogReference,
+  DevicePackageDistributionReference,
   DeviceCardBounds,
   DeviceCardHostActionRequest,
   DeviceCardWorkspaceCard,
   DeviceCardWorkspaceState,
   DeviceCardWorkspaceStatus,
   InstalledDeviceCard,
+  LegacyDeviceCardAuthoringContext,
+  LegacyDeviceCardManifest,
   JsonObject,
   JsonPrimitive,
   JsonValue,

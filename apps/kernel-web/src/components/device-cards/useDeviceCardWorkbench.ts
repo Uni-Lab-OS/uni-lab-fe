@@ -12,7 +12,9 @@ import {
 } from '@unilab/services'
 import {
   DEVICE_CARD_HOST_STATE_SCHEMA,
-  deviceCardRealtimeStateKeys
+  deviceCardDefinitionHasDrifted,
+  deviceCardRealtimeStateKeys,
+  deviceCardSupportsDevice
 } from '@unilab/device-card-sdk'
 import type {
   DeviceCardActionRun,
@@ -128,7 +130,9 @@ export function useDeviceCardWorkbench() {
   const workspaceCard = workspace?.card
   const workspaceActive = workspace !== null
   const previewCard = workspaceCard ?? selectedCard
-  const previewDevice = selectedDevice && previewCard?.deviceTypes.includes(
+  const previewDevice = selectedDevice && previewCard && deviceCardSupportsDevice(
+    previewCard,
+    selectedDevice.definitionFqid,
     selectedDevice.deviceTypeId
   )
     ? selectedDevice
@@ -149,7 +153,12 @@ export function useDeviceCardWorkbench() {
         ...DEVICE_CARD_HOST_STATE_SCHEMA
       }).join('\u0000')
     : ''
-  const previewFallbackDeviceTypeId = previewCard?.deviceTypes[0] ?? ''
+  const previewFallbackDeviceTypeId = previewCard?.legacyDeviceTypes[0]
+    ?? previewCard?.definitionFqids[0]
+    ?? ''
+  const previewDefinitionFqid = previewDevice?.definitionFqid
+    ?? previewCard?.definitionFqids[0]
+    ?? ''
   const previewCardTitle = previewCard?.title ?? ''
   const previewId = workspaceCard
     ? `workspace:${workspaceCard.sourceHash}`
@@ -174,6 +183,23 @@ export function useDeviceCardWorkbench() {
         : devices[0]?.deviceId ?? ''
     )
   }, [devices])
+
+  useEffect(() => {
+    if (!previewCard) return
+    setSelectedDeviceId(current => {
+      const currentDevice = devices.find(device => device.deviceId === current)
+      if (currentDevice && deviceCardSupportsDevice(
+        previewCard,
+        currentDevice.definitionFqid,
+        currentDevice.deviceTypeId
+      )) return current
+      return devices.find(device => deviceCardSupportsDevice(
+        previewCard,
+        device.definitionFqid,
+        device.deviceTypeId
+      ))?.deviceId ?? current
+    })
+  }, [devices, previewCard])
 
   devicesRef.current = devices
 
@@ -213,8 +239,12 @@ export function useDeviceCardWorkbench() {
       mode: liveMode ? 'live' : 'mock',
       device: {
         deviceId: liveMode ? previewDeviceId : null,
+        definitionFqid: previewDefinitionFqid,
+        ...(previewDevice?.definition
+          ? { definition: previewDevice.definition }
+          : {}),
         deviceTypeId:
-          previewDeviceTypeId || previewFallbackDeviceTypeId,
+          previewDefinitionFqid || previewDeviceTypeId || previewFallbackDeviceTypeId,
         title: previewDeviceLabel || previewCardTitle
       },
       state: runtimeStateRef.current,
@@ -280,6 +310,7 @@ export function useDeviceCardWorkbench() {
     previewDeviceLabel,
     previewDeviceTypeId,
     previewFallbackDeviceTypeId,
+    previewDefinitionFqid,
     previewStateSignature,
     liveMode,
     selectedCard?.key,
@@ -362,13 +393,31 @@ export function useDeviceCardWorkbench() {
       })
       return
     }
+    if (
+      previewCard.definitionTargets.length === 0 ||
+      !previewDevice.definition
+    ) {
+      setMessage({
+        kind: 'warning',
+        text: '该卡片或设备没有完整的领域设备包定义；v1 遗留卡片只能使用 Mock。'
+      })
+      return
+    }
+    const definitionTarget = previewCard.definitionTargets.find(
+      target => target.definitionFqid === previewDevice.definition?.fqid
+    )
+    const drifted = definitionTarget
+      ? deviceCardDefinitionHasDrifted(definitionTarget, previewDevice.definition)
+      : false
     setLiveBinding({
       previewId,
       deviceId: previewDevice.deviceId
     })
     setMessage({
       kind: 'warning',
-      text: `已明确应用到 ${previewDevice.deviceId}。Live 卡片可以调用该设备声明的 Action。`
+      text: drifted
+        ? `设备定义已更新，已按当前能力重新校验并应用到 ${previewDevice.deviceId}。`
+        : `已明确应用到 ${previewDevice.deviceId}。Live 卡片可以调用该设备声明的 Action。`
     })
   }
 
@@ -390,7 +439,9 @@ export function useDeviceCardWorkbench() {
       return `已安装卡片 / Mock 模式 / 可应用到 ${previewDevice.deviceId}`
     }
     return previewCard && selectedDevice
-      ? `Mock 模式 / 不支持 ${selectedDevice.deviceTypeId}`
+      ? `Mock 模式 / 不支持设备定义 ${
+          selectedDevice.definitionFqid ?? selectedDevice.deviceTypeId
+        }`
       : 'Mock 模式 / 未绑定设备'
   })()
 

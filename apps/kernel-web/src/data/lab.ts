@@ -14,7 +14,6 @@
 export type WorkbenchSection =
   | 'device'
   | 'device-square'
-  | 'cards'
   | 'material'
   | 'scene'
   | 'workflow'

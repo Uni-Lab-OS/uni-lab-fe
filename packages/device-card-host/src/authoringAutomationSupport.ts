@@ -7,7 +7,13 @@ import {
   createDeviceCardAuthoringContext,
   createDeviceCardProjectFiles
 } from '@unilab/device-card-authoring-kit'
-import type { DeviceCardAuthoringProfile, DeviceCardAuthoringTarget, DeviceCardAuthoringVersions, InstalledDeviceCard } from '@unilab/device-card-sdk'
+import {
+  isDeviceDefinitionReference,
+  type DeviceCardAuthoringProfile,
+  type DeviceCardAuthoringTarget,
+  type DeviceCardAuthoringVersions,
+  type InstalledDeviceCard
+} from '@unilab/device-card-sdk'
 import { DEVICE_CARD_BUILDER_VERSION } from '@unilab/device-card-builder'
 import type { ActiveSession } from './authoringAutomationTypes'
 import {
@@ -26,10 +32,10 @@ export function assertCreatableTarget(target: DeviceCardAuthoringTarget): void {
   if (!target.deviceId.trim()) {
     throw authoringError('DEVICE_ID_MISSING', '目标设备缺少稳定 Device ID。')
   }
-  if (!target.deviceTypeId.trim()) {
+  if (!isDeviceDefinitionReference(target.definition)) {
     throw authoringError(
       'DEVICE_TYPE_UNRESOLVED',
-      '目标设备缺少稳定 Device Type。'
+      '目标设备缺少完整的 PackageCatalog definition 来源证据。'
     )
   }
 }
@@ -136,6 +142,9 @@ export function publicInstalledRecord(record: InstalledDeviceCard): InstalledDev
     id: record.id,
     version: record.version,
     title: record.title,
+    definitionTargets: structuredClone(record.definitionTargets),
+    definitionFqids: [...record.definitionFqids],
+    legacyDeviceTypes: [...record.legacyDeviceTypes],
     deviceTypes: [...record.deviceTypes],
     authoringProfile: record.authoringProfile,
     installedAt: record.installedAt

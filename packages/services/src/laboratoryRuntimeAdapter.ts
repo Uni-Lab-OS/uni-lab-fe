@@ -1,4 +1,8 @@
-import type { DeviceCardActionRiskLevel } from '@unilab/device-card-sdk'
+import {
+  isDeviceDefinitionReference,
+  type DeviceCardActionRiskLevel,
+  type DeviceDefinitionReference
+} from '@unilab/device-card-sdk'
 
 import { ServiceError } from './errors'
 import { requestData, type HttpClient } from './http'
@@ -27,6 +31,7 @@ export interface RuntimeDeviceCatalogItem {
   id: string
   materialUuid: string
   deviceTypeId?: string
+  definition: DeviceDefinitionReference | null
   deviceKey: string
   namespace: string
   name: string
@@ -40,13 +45,22 @@ export function mapRuntimeDeviceCatalogItem(
   raw: Record<string, unknown>
 ): DeviceCatalogItem {
   const deviceId = runtimeString(raw.id)
+  const definition = runtimeDeviceDefinition(raw.definition)
+  const deviceTypeId = runtimeString(raw.deviceTypeId)
+  if (definition && deviceTypeId !== definition.fqid) {
+    throw new ServiceError({
+      code: 'DEVICE_DEFINITION_IDENTITY_MISMATCH',
+      message: `设备 ${deviceId || '<unknown>'} 的 Graph definition 与 PackageCatalog 身份不一致`,
+      retryable: false
+    })
+  }
   return {
     deviceId,
     materialUuid: runtimeString(raw.materialUuid),
-    // 新目录提供 Driver 类型；保留旧 Edge 的实例 id 回退。
-    deviceTypeId: runtimeString(
-      raw.deviceTypeId ?? raw.typeId ?? raw.className
-    ) || deviceId,
+    definition,
+    definitionFqid: definition?.fqid ?? null,
+    // 遗留设备管理只展示 Edge 明确给出的类型；绝不回退 runtime instance ID。
+    deviceTypeId,
     deviceKey: runtimeString(raw.deviceKey),
     namespace: runtimeString(raw.namespace),
     label: runtimeString(raw.name) || deviceId,
@@ -173,6 +187,7 @@ export async function getRuntimeDevices(
       id: deviceId,
       materialUuid: runtimeString(item.materialUuid),
       deviceTypeId: optionalRuntimeString(item.deviceTypeId) ?? undefined,
+      definition: runtimeDeviceDefinition(item.definition),
       deviceKey: runtimeString(item.deviceKey),
       namespace: runtimeString(item.namespace),
       name: runtimeString(item.name) || deviceId,
@@ -183,6 +198,24 @@ export async function getRuntimeDevices(
       actions
     }]
   })
+}
+
+/**
+ * 解码 Edge 投影的 PackageCatalog 设备定义来源证据。
+ *
+ * @param value `/api/v1/devices` item.definition 的未知 wire 值。
+ * @returns 完整且自洽时返回防御性副本；缺失或不完整时返回 null。
+ */
+function runtimeDeviceDefinition(value: unknown): DeviceDefinitionReference | null {
+  if (value == null) return null
+  if (!isDeviceDefinitionReference(value)) {
+    throw new ServiceError({
+      code: 'INVALID_DEVICE_DEFINITION_PROVENANCE',
+      message: '设备目录包含不完整或不自洽的 PackageCatalog definition 来源证据',
+      retryable: false
+    })
+  }
+  return structuredClone(value)
 }
 
 /** 把未知 wire 值转换为字符串，nullish 值归为空字符串。 */

@@ -214,11 +214,16 @@ function CardProjectCreation({
           </select>
         </label>
       </div>
+      {model.selectedDevice && !model.selectedDevice.definition ? (
+        <p className={styles.workspaceSummary} role="status">
+          此设备尚未投影 PackageCatalog 定义，只能管理设备，不能创建或运行新版卡片。
+        </p>
+      ) : null}
       <CardProjectActions model={model} />
       <button
         type="button"
         className={styles.textButton}
-        disabled={!model.selectedDevice || !model.fileAvailable ||
+        disabled={!model.selectedDevice?.definition || !model.fileAvailable ||
           model.exportingKit}
         onClick={() => void model.exportAuthoringKit()}
       >
@@ -238,7 +243,7 @@ function CardProjectActions({
     <div className={styles.creationActions}>
       <button
         type="button"
-        disabled={!model.selectedDevice || model.workspaceOperation !== null}
+        disabled={!model.selectedDevice?.definition || model.workspaceOperation !== null}
         aria-busy={model.workspaceOperation === 'prepare'}
         onClick={() => void model.prepareAgentProject()}
       >
@@ -247,7 +252,7 @@ function CardProjectActions({
       <button
         type="button"
         className={styles.secondary}
-        disabled={!model.selectedDevice || model.workspaceOperation !== null}
+        disabled={!model.selectedDevice?.definition || model.workspaceOperation !== null}
         aria-busy={model.workspaceOperation === 'open'}
         onClick={() => void model.openWorkspace()}
       >

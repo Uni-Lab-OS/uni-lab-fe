@@ -6,6 +6,10 @@ import type {
 export interface DeviceCardAuthoringKitMetadata {
   kitVersion: 1
   generatedAt: string
+  definitionFqid: string
+  definitionContentHash: string
+  packageCatalogDigest: string
+  /** @deprecated 使用 definitionFqid。 */
   deviceTypeId: string
   deviceId?: string
   authoringProfile: DeviceCardAuthoringProfile

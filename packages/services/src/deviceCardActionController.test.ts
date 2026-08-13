@@ -130,6 +130,8 @@ function device(): DeviceCatalogItem {
   return {
     deviceId: 'D1ADevice1',
     materialUuid: MATERIAL_UUID,
+    definition: null,
+    definitionFqid: null,
     deviceTypeId: 'd1a.simulator',
     deviceKey: '/devices/D1ADevice1',
     namespace: '/devices',

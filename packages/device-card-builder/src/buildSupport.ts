@@ -2,7 +2,12 @@ import { createHash } from 'node:crypto'
 import { readFile, readdir } from 'node:fs/promises'
 import { extname, relative, resolve } from 'node:path'
 import type { BuildFailure } from 'esbuild'
-import type { DeviceCardAuthoringContext, DeviceCardDiagnostic, DeviceCardManifest } from '@unilab/device-card-sdk'
+import {
+  isDeviceDefinitionReference,
+  type DeviceCardAuthoringContext,
+  type DeviceCardDiagnostic,
+  type DeviceCardManifest
+} from '@unilab/device-card-sdk'
 import { scanSource } from './security'
 
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.vue'])
@@ -85,11 +90,16 @@ export function elementNameFor(
   return `ulcard-${safeId}-${sourceHash.slice(0, 8)}`
 }
 
+/**
+ * 识别项目内可用于离线预览的 v1/v2 开发上下文。
+ *
+ * @param value 从项目 JSON 读取的未知值。
+ * @returns 公共字段完整且 v2 定义证据自洽时为 true。
+ */
 function isAuthoringContext(value: unknown): value is DeviceCardAuthoringContext {
   if (!value || typeof value !== 'object') return false
   const record = value as Record<string, unknown>
-  return (
-    record.schemaVersion === 'device-card-authoring-context/v1' &&
+  const common =
     typeof record.deviceTypeId === 'string' &&
     typeof record.title === 'string' &&
     Array.isArray(record.actions) &&
@@ -98,7 +108,12 @@ function isAuthoringContext(value: unknown): value is DeviceCardAuthoringContext
     !!record.sampleState &&
     typeof record.sampleState === 'object' &&
     Array.isArray(record.media)
-  )
+  if (!common) return false
+  if (record.schemaVersion === 'device-card-authoring-context/v1') return true
+  return record.schemaVersion === 'device-card-authoring-context/v2' &&
+    typeof record.deviceId === 'string' && record.deviceId.length > 0 &&
+    isDeviceDefinitionReference(record.definition) &&
+    record.deviceTypeId === record.definition.fqid
 }
 
 export async function readProjectAuthoringContext(

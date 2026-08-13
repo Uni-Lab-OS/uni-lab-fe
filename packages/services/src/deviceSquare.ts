@@ -232,7 +232,8 @@ function packageCandidateFromDetail(
     packageInfo.artifact_digest ?? packageInfo.sha256
   )
   const definitionFqid = str(
-    sourceRegistry.source_fqid ?? effectiveTemplate.source_fqid
+    sourceRegistry.package_definition_fqid ??
+      effectiveTemplate.package_definition_fqid
   )
   const catalogDigest = str(packageInfo.catalog_digest)
   if (!/^community\.[a-z_][a-z0-9_]*$/.test(classNamespace)) {
@@ -244,7 +245,7 @@ function packageCandidateFromDetail(
   if (!definitionFqid) {
     throw incompatiblePackage(
       detail.templateUuid,
-      '当前发布缺少 source_fqid，属于旧版设备包'
+      '当前发布缺少 package_definition_fqid，属于旧版设备包'
     )
   }
   if (
