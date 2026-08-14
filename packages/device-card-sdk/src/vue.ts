@@ -9,6 +9,7 @@ import { getDeviceCardBridge } from './bridge'
 import type {
   DeviceCardActionRun,
   DeviceCardJointPreviewFrame,
+  DeviceCardRobotCommissioningBridge,
   DeviceCardRuntimeSnapshot,
   JsonObject
 } from './contracts'
@@ -27,6 +28,7 @@ export function useDeviceCard(options: {
   setJointPreview: (
     jointStates: Readonly<Record<string, number>>
   ) => Promise<DeviceCardJointPreviewFrame>
+  robotCommissioning: DeviceCardRobotCommissioningBridge
 } {
   const bridge = getDeviceCardBridge()
   const state = reactive<Record<string, unknown>>({})
@@ -65,6 +67,23 @@ export function useDeviceCard(options: {
         ))
       }
       return bridge.setJointPreview(jointStates)
+    },
+    robotCommissioning: {
+      open: async () => commissioningBridge(bridge).open(),
+      snapshot: async () => commissioningBridge(bridge).snapshot(),
+      execute: async (command) => commissioningBridge(bridge).execute(command),
+      close: async () => commissioningBridge(bridge).close()
     }
   }
+}
+
+function commissioningBridge(
+  bridge: ReturnType<typeof getDeviceCardBridge>
+): DeviceCardRobotCommissioningBridge {
+  if (!bridge.robotCommissioning) {
+    throw new Error(
+      '当前 Device Card Host 不支持统一机械臂调试接口，请升级 Uni-Lab。'
+    )
+  }
+  return bridge.robotCommissioning
 }

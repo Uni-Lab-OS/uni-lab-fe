@@ -48,6 +48,25 @@ const bridge: DeviceCardBridge = {
     jointStates: Readonly<Record<string, number>>
   ): Promise<DeviceCardJointPreviewFrame> =>
     ipcRenderer.invoke('device-card-runtime:setJointPreview', jointStates),
+  robotCommissioning: {
+    open: () => ipcRenderer.invoke(
+      'device-card-runtime:robotCommissioning',
+      'open'
+    ),
+    snapshot: () => ipcRenderer.invoke(
+      'device-card-runtime:robotCommissioning',
+      'snapshot'
+    ),
+    execute: (command) => ipcRenderer.invoke(
+      'device-card-runtime:robotCommissioning',
+      'execute',
+      command
+    ),
+    close: () => ipcRenderer.invoke(
+      'device-card-runtime:robotCommissioning',
+      'close'
+    ),
+  },
   log: (level, message) => {
     ipcRenderer.send('device-card-runtime:log', { level, message })
   }

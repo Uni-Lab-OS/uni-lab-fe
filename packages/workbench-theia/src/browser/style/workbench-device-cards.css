@@ -83,6 +83,10 @@
   font-family: var(--unilab-font-sans);
 }
 
+.unilab-device-card-workbench.is-sidebar-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .unilab-device-card-sidebar {
   min-width: 0;
   min-height: 0;
@@ -339,11 +343,32 @@
   background: var(--unilab-color-surface);
 }
 
-.unilab-device-card-preview-header > div:first-child {
-  display: grid;
+.unilab-device-card-preview-heading {
+  display: flex;
   min-width: 0;
   flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.unilab-device-card-preview-heading > div {
+  display: grid;
+  min-width: 0;
   gap: 3px;
+}
+
+.unilab-device-card-workbench button.unilab-device-card-sidebar-toggle {
+  min-width: 118px;
+  flex: 0 0 auto;
+  justify-content: flex-start;
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-surface-subtle);
+}
+
+.unilab-device-card-workbench button.unilab-device-card-sidebar-toggle:hover:not(:disabled) {
+  color: var(--unilab-color-device);
+  border-color: var(--unilab-color-device);
+  background: var(--unilab-color-device-soft);
 }
 
 .unilab-device-card-live-controls {
@@ -424,5 +449,16 @@
 
   .unilab-device-card-preview-shell {
     min-height: 420px;
+  }
+
+  .unilab-device-card-workbench button.unilab-device-card-sidebar-toggle {
+    min-width: 30px;
+    width: 30px;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .unilab-device-card-sidebar-toggle .codicon {
+    font-size: 14px;
   }
 }

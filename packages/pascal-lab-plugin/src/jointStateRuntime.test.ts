@@ -52,10 +52,60 @@ describe('Pascal URDF joint runtime adapter', () => {
     })).toEqual({
       applied: true,
       availableCount: 3,
+      movableCount: 0,
       inputCount: 3,
       resolvedCount: 1,
+      exactCount: 0,
+      suffixCount: 1,
       missingCount: 1,
-      ambiguousCount: 1
+      ambiguousCount: 1,
+      requestedNonZeroCount: 3,
+      changedCount: 0,
+      degenerateLimitCount: 0,
+      availableDegenerateLimitCount: 0,
+      inputNameSample: ['arm_base_joint', 'joint_1', 'absent'],
+      resolvedNameSample: ['robot_arm_base_joint'],
+      availableNameSample: [
+        'robot_arm_base_joint',
+        'a_joint_1',
+        'b_joint_1'
+      ],
+      degenerateLimitNameSample: []
+    })
+  })
+
+  it('diagnoses a non-zero command clamped by degenerate URDF limits', () => {
+    const robot = urdfRobot(['robot_joint_1'])
+    robot.joints.robot_joint_1 = {
+      jointValue: [0],
+      jointType: 'revolute',
+      limit: { lower: 0, upper: 0 },
+      ignoreLimits: false
+    }
+    robot.setJointValues.mockImplementation((values) => {
+      const requested = values.robot_joint_1 as number
+      const joint = robot.joints.robot_joint_1
+      const next = Math.min(
+        joint.limit?.upper ?? requested,
+        Math.max(joint.limit?.lower ?? requested, requested)
+      )
+      const changed = joint.jointValue?.[0] !== next
+      joint.jointValue = [next]
+      return changed
+    })
+
+    expect(applyJointStateToUrdfWithDiagnostics(robot, {
+      joint_1: 0.5
+    })).toMatchObject({
+      applied: false,
+      inputCount: 1,
+      resolvedCount: 1,
+      suffixCount: 1,
+      requestedNonZeroCount: 1,
+      changedCount: 0,
+      degenerateLimitCount: 1,
+      availableDegenerateLimitCount: 1,
+      degenerateLimitNameSample: ['robot_joint_1']
     })
   })
 
@@ -70,7 +120,12 @@ describe('Pascal URDF joint runtime adapter', () => {
 })
 
 function urdfRobot(names: string[]): Object3D & {
-  joints: Record<string, { jointValue?: number[] }>
+  joints: Record<string, {
+    jointValue?: number[]
+    jointType?: string
+    limit?: { lower: number; upper: number }
+    ignoreLimits?: boolean
+  }>
   setJointValues: ReturnType<typeof vi.fn>
 } {
   return Object.assign(new Object3D(), {

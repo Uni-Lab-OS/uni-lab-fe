@@ -10,6 +10,18 @@ export interface JointStateFrame {
   modelRevision?: string
 }
 
+export interface DeviceJointStateInput {
+  deviceId: string
+  topologyDigest: string
+  observedAt: number
+  jointStates: Readonly<Record<string, number>>
+}
+
+export interface DeviceMaterialBinding {
+  deviceId: string
+  materialId: string
+}
+
 interface SceneRuntimeState {
   scopeId: string | null
   jointFrames: Readonly<Record<string, JointStateFrame>>
@@ -71,6 +83,31 @@ export function publishJointStateFrame(frame: JointStateFrame): JointStateFrame 
     }
   })
   return accepted
+}
+
+/**
+ * 把 OS 的设备关节帧投影到唯一场景物料。未知或重复设备绑定均失败关闭。
+ */
+export function publishDeviceJointStateFrame(
+  frame: DeviceJointStateInput,
+  bindings: readonly DeviceMaterialBinding[],
+  source: JointStateSource
+): JointStateFrame | null {
+  const deviceId = frame.deviceId.trim()
+  if (!deviceId) return null
+  const matches = bindings.filter(binding => binding.deviceId.trim() === deviceId)
+  if (matches.length !== 1) return null
+  const materialId = matches[0]?.materialId.trim()
+  if (!materialId) return null
+  return publishJointStateFrame({
+    materialId,
+    jointStates: frame.jointStates,
+    source,
+    updatedAt: frame.observedAt,
+    ...(frame.topologyDigest.trim()
+      ? { modelRevision: frame.topologyDigest.trim() }
+      : {})
+  })
 }
 
 export function getJointStateFrame(

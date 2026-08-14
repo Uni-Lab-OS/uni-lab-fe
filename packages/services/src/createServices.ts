@@ -31,6 +31,10 @@ import {
   createWorkflowRuntime,
   type WorkflowRuntimePort
 } from './workflow'
+import {
+  createRobotCommissioningService,
+  type RobotCommissioningService
+} from './robotCommissioning'
 
 export interface Services {
   backend: BackendConfig
@@ -42,6 +46,7 @@ export interface Services {
   materials: MaterialService
   realtime: RealtimeService
   workflow: WorkflowRuntimePort
+  robotCommissioning: RobotCommissioningService
   dispose: () => void
 }
 
@@ -88,6 +93,7 @@ export function createServices(options: CreateServicesOptions): Services {
     materials,
     realtime,
     workflow,
+    robotCommissioning: createRobotCommissioningService(http),
     dispose: () => {
       realtime.dispose()
       workflow.dispose()

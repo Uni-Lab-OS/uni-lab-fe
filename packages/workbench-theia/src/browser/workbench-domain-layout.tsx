@@ -48,7 +48,9 @@ export function WorkbenchDomainLayout({
     setBoundedPercent(workflowPercent + (event.key === 'ArrowLeft' ? -5 : 5))
   }, [setBoundedPercent, workflowPercent])
 
-  const splitStyle = mode === 'split'
+  const split = mode === 'split' || mode === 'device-material'
+  const primaryDomain = mode === 'device-material' ? 'device' : 'workflow'
+  const splitStyle = split
     ? {
         gridTemplateColumns:
           `minmax(0, ${workflowPercent}fr) 7px `
@@ -56,14 +58,15 @@ export function WorkbenchDomainLayout({
       }
     : undefined
   const workflowVisible = mode === 'workflow' || mode === 'split'
-  const materialVisible = mode === 'material' || mode === 'split'
-  const deviceVisible = mode === 'device'
+  const materialVisible = mode === 'material' || split
+  const deviceVisible = mode === 'device' || mode === 'device-material'
 
   return (
     <main
       ref={layoutRef}
       className={`unilab-workbench__domain-layout is-${mode}`}
       data-workbench-view={mode}
+      data-primary-domain={primaryDomain}
       style={splitStyle}
     >
       <div
@@ -75,13 +78,15 @@ export function WorkbenchDomainLayout({
       <div
         className="unilab-workbench__splitter"
         role="separator"
-        aria-label="调整工作流与物料窗口宽度"
+        aria-label={mode === 'device-material'
+          ? '调整仪器设备与物料窗口宽度'
+          : '调整工作流与物料窗口宽度'}
         aria-orientation="vertical"
         aria-valuemin={MIN_WORKFLOW_PERCENT}
         aria-valuemax={MAX_WORKFLOW_PERCENT}
         aria-valuenow={workflowPercent}
-        hidden={mode !== 'split'}
-        tabIndex={mode === 'split' ? 0 : -1}
+        hidden={!split}
+        tabIndex={split ? 0 : -1}
         onPointerDown={startResize}
         onKeyDown={resizeFromKeyboard}
       >

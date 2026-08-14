@@ -18,16 +18,26 @@ import {
   type HttpRequestTraceReporter
 } from './http'
 
-interface DeviceStatusMessage {
-  type: string
-  data: {
-    device_status?: Record<string, Record<string, unknown>>
-    device_status_timestamps?: Record<string, number | Record<string, unknown>>
-  }
+interface RealtimeMessage {
+  type?: unknown
+  action?: unknown
+  data?: unknown
+}
+
+export interface DeviceJointStateFrame {
+  deviceId: string
+  topologyDigest: string
+  bootId: string
+  sequence: number
+  observedAt: number
+  staleAfterSeconds: number
+  jointStates: Readonly<Record<string, number>>
 }
 
 export interface DeviceStatusHandlers {
   onDeviceStatus: (statuses: DeviceStatus[]) => void
+  /** 高频关节快照；调用方必须写入独立 scene runtime，不能进入 React 状态树。 */
+  onJointState?: (frame: DeviceJointStateFrame) => void
   onOpen?: () => void
   onClose?: () => void
   onError?: (error: string) => void
@@ -70,7 +80,11 @@ export function connectDeviceStatus(
       const tracedUrl = new URL(socketUrl)
       tracedUrl.searchParams.set('traceparent', requestTrace.traceparent)
       let traceReported = false
-      const nextSocket = new WebSocket(tracedUrl)
+      // Electron/Theia can expose a WebSocket-compatible constructor that only
+      // accepts the legacy string overload. Passing a URL object may establish
+      // TCP and still abort before the HTTP upgrade, producing an opaque retry
+      // loop. Normalize at this transport boundary for browser and desktop.
+      const nextSocket = new WebSocket(tracedUrl.toString())
       socket = nextSocket
       nextSocket.onopen = () => {
         reportHttpRequestTrace(traceRequest, finishHttpRequestTrace(
@@ -83,8 +97,18 @@ export function connectDeviceStatus(
       }
       nextSocket.onmessage = (event) => {
         const parsed = parseMessage(event.data)
-        if (!parsed || parsed.type !== 'device_status') return
-        handlers.onDeviceStatus(mapStatuses(parsed.data))
+        if (!parsed) return
+        if (parsed.type === 'device_status') {
+          handlers.onDeviceStatus(mapStatuses(parsed.data))
+          return
+        }
+        if (
+          parsed.type === 'push_joint_state'
+          || parsed.action === 'push_joint_state'
+        ) {
+          const frame = mapJointState(parsed.data)
+          if (frame) handlers.onJointState?.(frame)
+        }
       }
       nextSocket.onerror = () => {
         if (!traceReported) {
@@ -155,11 +179,11 @@ export function createRealtimeService(
 }
 
 // 解析消息文本为结构体;失败返回 null
-function parseMessage(raw: unknown): DeviceStatusMessage | null {
+function parseMessage(raw: unknown): RealtimeMessage | null {
   if (typeof raw !== 'string') return null
   try {
     const obj = JSON.parse(raw)
-    if (obj && typeof obj === 'object') return obj as DeviceStatusMessage
+    if (isRecord(obj)) return obj
     return null
   } catch {
     return null
@@ -167,14 +191,60 @@ function parseMessage(raw: unknown): DeviceStatusMessage | null {
 }
 
 // 将推送的 device_status 字典拍平为数组
-function mapStatuses(data: DeviceStatusMessage['data']): DeviceStatus[] {
-  const statusMap = data.device_status ?? {}
-  const timestamps = data.device_status_timestamps ?? {}
+function mapStatuses(data: unknown): DeviceStatus[] {
+  if (!isRecord(data)) return []
+  const statusMap = isRecord(data.device_status) ? data.device_status : {}
+  const timestamps = isRecord(data.device_status_timestamps)
+    ? data.device_status_timestamps
+    : {}
   return Object.entries(statusMap).map(([deviceId, status]) => ({
     deviceId,
-    status,
+    status: isRecord(status) ? status : {},
     timestamp: deviceTimestamp(timestamps[deviceId])
   }))
+}
+
+function mapJointState(data: unknown): DeviceJointStateFrame | null {
+  if (!isRecord(data) || !isRecord(data.joint_states)) return null
+  const deviceId = boundedString(data.device_id, 200)
+  const topologyDigest = boundedString(data.topology_digest, 200)
+  const bootId = boundedString(data.boot_id, 200)
+  const sequence = finiteNonNegativeInteger(data.sequence)
+  const observedAtSeconds = finiteNonNegativeNumber(data.observed_at)
+  const staleAfterSeconds = finiteNonNegativeNumber(data.stale_after_s)
+  if (
+    deviceId === null
+    || topologyDigest === null
+    || bootId === null
+    || sequence === null
+    || observedAtSeconds === null
+    || staleAfterSeconds === null
+  ) return null
+
+  const entries = Object.entries(data.joint_states)
+  if (entries.length === 0 || entries.length > 128) return null
+  const jointStates: Record<string, number> = {}
+  for (const [rawName, rawValue] of entries) {
+    const name = rawName.trim()
+    if (
+      !name
+      || name.length > 200
+      || typeof rawValue !== 'number'
+      || !Number.isFinite(rawValue)
+      || Math.abs(rawValue) > 1_000_000
+    ) return null
+    jointStates[name] = rawValue
+  }
+
+  return Object.freeze({
+    deviceId,
+    topologyDigest,
+    bootId,
+    sequence,
+    observedAt: Math.round(observedAtSeconds * 1_000),
+    staleAfterSeconds,
+    jointStates: Object.freeze(jointStates)
+  })
 }
 
 function deviceTimestamp(value: unknown): number {
@@ -191,4 +261,27 @@ function deviceTimestamp(value: unknown): number {
     if (nums.length > 0) return Math.max(...nums)
   }
   return 0
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function boundedString(value: unknown, maxLength: number): string | null {
+  if (typeof value !== 'string') return null
+  const normalized = value.trim()
+  return normalized && normalized.length <= maxLength ? normalized : null
+}
+
+function finiteNonNegativeNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? value
+    : null
+}
+
+function finiteNonNegativeInteger(value: unknown): number | null {
+  const normalized = finiteNonNegativeNumber(value)
+  return normalized !== null && Number.isSafeInteger(normalized)
+    ? normalized
+    : null
 }

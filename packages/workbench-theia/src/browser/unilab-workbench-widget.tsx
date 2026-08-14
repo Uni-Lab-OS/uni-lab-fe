@@ -703,10 +703,16 @@ function WorkbenchSurface({
   if (viewMode === 'workflow' || viewMode === 'split') {
     mountedDomains.current.add('workflow')
   }
-  if (viewMode === 'material' || viewMode === 'split') {
+  if (
+    viewMode === 'material'
+    || viewMode === 'split'
+    || viewMode === 'device-material'
+  ) {
     mountedDomains.current.add('material')
   }
-  if (viewMode === 'device') mountedDomains.current.add('device')
+  if (viewMode === 'device' || viewMode === 'device-material') {
+    mountedDomains.current.add('device')
+  }
   const query = new URLSearchParams(globalThis.location.search)
   const workflowUuid = query.get('workflowUuid') ?? undefined
   const services = useMemo(() => createWorkbenchServices(backendUrl), [backendUrl])
@@ -849,7 +855,7 @@ function WorkbenchSurface({
         backend={deviceBackend}
         backendEnabled={Boolean(backendUrl)}
         connection={deviceConnection}
-        active={viewMode === 'device'}
+        active={viewMode === 'device' || viewMode === 'device-material'}
       />
     </section>
   )
@@ -878,6 +884,8 @@ function WorkbenchSurface({
             <span className="unilab-workbench__view-mode">
               {viewMode === 'split'
                 ? '工作流 + 物料'
+                : viewMode === 'device-material'
+                  ? '仪器设备 + 物料模型'
                 : viewMode === 'workflow'
                   ? '工作流'
                   : viewMode === 'material'

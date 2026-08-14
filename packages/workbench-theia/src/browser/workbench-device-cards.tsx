@@ -155,6 +155,7 @@ function WorkbenchDeviceCardPanel({
   active: boolean
 }): React.JSX.Element {
   const model = useWorkbenchDeviceCards({ services, active })
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   if (!model.desktopAvailable) {
     return (
@@ -167,8 +168,15 @@ function WorkbenchDeviceCardPanel({
   }
 
   return (
-    <section className="unilab-device-card-workbench" aria-label="设备自定义卡片">
-      <aside className="unilab-device-card-sidebar">
+    <section
+      className={`unilab-device-card-workbench${sidebarCollapsed ? ' is-sidebar-collapsed' : ''}`}
+      aria-label="设备自定义卡片"
+    >
+      <aside
+        id="unilab-device-card-development-sidebar"
+        className="unilab-device-card-sidebar"
+        hidden={sidebarCollapsed}
+      >
         <header className="unilab-device-card-sidebar__header">
           <div>
             <h1>设备自定义卡片</h1>
@@ -204,7 +212,11 @@ function WorkbenchDeviceCardPanel({
           onCopyPrompt={model.copyAgentPrompt}
         />
       </aside>
-      <WorkbenchDeviceCardPreview model={model} />
+      <WorkbenchDeviceCardPreview
+        model={model}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={() => setSidebarCollapsed(value => !value)}
+      />
     </section>
   )
 }
@@ -397,16 +409,36 @@ function WorkbenchDeviceCardWorkspace({
  * @returns 占据剩余工作区的设备卡预览。
  */
 function WorkbenchDeviceCardPreview({
-  model
+  model,
+  sidebarCollapsed,
+  onToggleSidebar
 }: {
   model: WorkbenchDeviceCardModel
+  sidebarCollapsed: boolean
+  onToggleSidebar: () => void
 }): React.JSX.Element {
   return (
     <main className="unilab-device-card-preview-shell">
       <header className="unilab-device-card-preview-header">
-        <div>
-          <strong>{model.previewCard?.title ?? '卡片预览'}</strong>
-          <span>{model.previewDescription}</span>
+        <div className="unilab-device-card-preview-heading">
+          <button
+            type="button"
+            className="unilab-device-card-sidebar-toggle"
+            aria-expanded={!sidebarCollapsed}
+            aria-controls="unilab-device-card-development-sidebar"
+            title={sidebarCollapsed ? '展开设备卡片开发面板' : '收起设备卡片开发面板'}
+            onClick={onToggleSidebar}
+          >
+            <span
+              className={`codicon codicon-chevron-${sidebarCollapsed ? 'right' : 'left'}`}
+              aria-hidden="true"
+            />
+            {sidebarCollapsed ? '展开开发面板' : '收起开发面板'}
+          </button>
+          <div>
+            <strong>{model.previewCard?.title ?? '卡片预览'}</strong>
+            <span>{model.previewDescription}</span>
+          </div>
         </div>
         {model.previewCard && model.previewDevice ? (
           <div className="unilab-device-card-live-controls">

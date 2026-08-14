@@ -7,6 +7,7 @@ import {
 } from 'react'
 import {
   DeviceCardActionController,
+  DeviceCardRobotCommissioningController,
   useServices,
   type DeviceCatalogItem
 } from '@unilab/services'
@@ -29,6 +30,7 @@ import type {
 import {
   clearJointStateFrame,
   getJointStateFrame,
+  publishDeviceJointStateFrame,
   publishJointStateFrame
 } from '@unilab/scene-runtime'
 
@@ -49,7 +51,7 @@ export function useDeviceCardWorkbench() {
   const fileApi = window.api?.file
   const desktopAvailable = Boolean(desktopApi)
   const fileAvailable = Boolean(fileApi)
-  const { statusMap } = useDeviceStatus()
+  const { statusMap, subscribeJointState } = useDeviceStatus()
   const previewRef = useRef<HTMLDivElement | null>(null)
   const runtimeStateRef = useRef<Record<string, unknown>>({})
   const devicesRef = useRef<DeviceCatalogItem[]>([])
@@ -209,6 +211,38 @@ export function useDeviceCardWorkbench() {
   )
 
   useEffect(() => {
+    let receivedSinceLog = 0
+    let lastLoggedAt = 0
+    return subscribeJointState((frame) => {
+      try {
+        const accepted = publishDeviceJointStateFrame(
+          frame,
+          devicesRef.current.map(device => ({
+            deviceId: device.deviceId,
+            materialId: device.materialUuid
+          })),
+          liveMode ? 'live' : 'mock'
+        )
+        if (!accepted) return
+        receivedSinceLog += 1
+        const now = Date.now()
+        if (lastLoggedAt === 0 || now - lastLoggedAt >= 1_000) {
+          console.info(
+            `[joint-stream] stage=workbench status=published surface=kernel device=${jointPreviewDiagnosticToken(frame.deviceId)} material=${jointPreviewDiagnosticToken(accepted.materialId)} joints=${Object.keys(frame.jointStates).length} events=${receivedSinceLog}`
+          )
+          receivedSinceLog = 0
+          lastLoggedAt = now
+        }
+      } catch (error) {
+        console.error(
+          `[joint-stream] stage=workbench status=rejected surface=kernel device=${jointPreviewDiagnosticToken(frame.deviceId)} reason=invalid_frame`,
+          error
+        )
+      }
+    })
+  }, [liveMode, subscribeJointState])
+
+  useEffect(() => {
     if (liveMode && previewDevice?.materialUuid) {
       clearJointStateFrame(previewDevice.materialUuid)
     }
@@ -290,7 +324,8 @@ export function useDeviceCardWorkbench() {
     const context: DeviceCardRuntimeSnapshot = {
       mode: liveMode ? 'live' : 'mock',
       device: {
-        deviceId: liveMode ? previewDeviceId : null,
+        // Mock 也绑定当前 OS 设备实例；OS 会强制它只能打开 simulation Runtime。
+        deviceId: previewDeviceId || null,
         materialId: previewDevice?.materialUuid ?? null,
         definitionFqid: previewDefinitionFqid,
         ...(previewDevice?.definition
@@ -412,6 +447,29 @@ export function useDeviceCardWorkbench() {
     services.deviceActionTasks,
     services.workflow
   ])
+
+  useEffect(() => {
+    if (!desktopApi) return
+    const controller = new DeviceCardRobotCommissioningController(
+      services.robotCommissioning
+    )
+    const unsubscribe = desktopApi.onRobotCommissioningRequest((request) => {
+      void controller.execute(request)
+        .then(desktopApi.resolveRobotCommissioning)
+        .catch((error) => {
+          setMessage({
+            kind: 'error',
+            text: error instanceof Error
+              ? `回传机械臂调试结果失败：${error.message}`
+              : '回传机械臂调试结果失败。'
+          })
+        })
+    })
+    return () => {
+      unsubscribe()
+      void controller.dispose()
+    }
+  }, [desktopApi, services.robotCommissioning])
 
   const workspaceActions = useDeviceCardWorkspaceActions({
     desktopApi,

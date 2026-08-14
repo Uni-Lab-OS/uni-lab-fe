@@ -55,6 +55,7 @@ describe('Edge streaming transport tracing', () => {
       onclose: (() => void) | null = null
 
       constructor(url: string | URL) {
+        expect(typeof url).toBe('string')
         urls.push(String(url))
         queueMicrotask(() => this.onopen?.())
       }

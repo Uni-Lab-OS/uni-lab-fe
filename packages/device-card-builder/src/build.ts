@@ -495,6 +495,12 @@ if (!window.unilabCard) {
       }
       return jointPreview
     },
+    robotCommissioning: {
+      async open() { throw new Error('独立 Mock Host 不提供真实机械臂调试会话。') },
+      async snapshot() { throw new Error('独立 Mock Host 不提供真实机械臂调试快照。') },
+      async execute() { throw new Error('独立 Mock Host 不允许执行真实机械臂命令。') },
+      async close() {}
+    },
     log(level, message) {
       console[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'info']('[device-card]', message)
     }

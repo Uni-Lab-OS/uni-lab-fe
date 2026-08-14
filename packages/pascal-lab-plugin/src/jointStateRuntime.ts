@@ -1,11 +1,27 @@
 import type { Object3D } from 'three'
 
+interface UrdfJointLike {
+  jointValue?: number[]
+  jointType?: string
+  limit?: { lower: number; upper: number }
+  ignoreLimits?: boolean
+}
+
 interface UrdfRobotLike extends Object3D {
-  joints: Record<string, { jointValue?: number[] }>
+  joints: Record<string, UrdfJointLike>
   setJointValues(values: Record<string, number | number[]>): boolean
 }
 
 const INITIAL_JOINT_VALUES = Symbol('unilabInitialJointValues')
+const JOINT_DIAGNOSTIC_SAMPLE_LIMIT = 8
+const JOINT_VALUE_EPSILON = 1e-9
+const MOVABLE_JOINT_TYPES = new Set([
+  'continuous',
+  'floating',
+  'planar',
+  'prismatic',
+  'revolute'
+])
 
 interface UrdfRobotWithInitialValues extends UrdfRobotLike {
   [INITIAL_JOINT_VALUES]?: Readonly<Record<string, number | number[]>>
@@ -14,10 +30,21 @@ interface UrdfRobotWithInitialValues extends UrdfRobotLike {
 export interface UrdfJointApplicationResult {
   applied: boolean
   availableCount: number
+  movableCount: number
   inputCount: number
   resolvedCount: number
+  exactCount: number
+  suffixCount: number
   missingCount: number
   ambiguousCount: number
+  requestedNonZeroCount: number
+  changedCount: number
+  degenerateLimitCount: number
+  availableDegenerateLimitCount: number
+  inputNameSample: readonly string[]
+  resolvedNameSample: readonly string[]
+  availableNameSample: readonly string[]
+  degenerateLimitNameSample: readonly string[]
 }
 
 /**
@@ -48,39 +75,92 @@ export function applyJointStateToUrdfWithDiagnostics(
   jointStates: Readonly<Record<string, number>>
 ): UrdfJointApplicationResult {
   const robot = asUrdfRobot(object)
-  const inputCount = Object.keys(jointStates).length
+  const inputNames = Object.keys(jointStates)
+  const inputCount = inputNames.length
+  const requestedNonZeroCount = Object.values(jointStates).filter(
+    (value) => Math.abs(value) > JOINT_VALUE_EPSILON
+  ).length
   if (!robot) {
     return {
       applied: false,
       availableCount: 0,
+      movableCount: 0,
       inputCount,
       resolvedCount: 0,
+      exactCount: 0,
+      suffixCount: 0,
       missingCount: inputCount,
-      ambiguousCount: 0
+      ambiguousCount: 0,
+      requestedNonZeroCount,
+      changedCount: 0,
+      degenerateLimitCount: 0,
+      availableDegenerateLimitCount: 0,
+      inputNameSample: sampleJointNames(inputNames),
+      resolvedNameSample: [],
+      availableNameSample: [],
+      degenerateLimitNameSample: []
     }
   }
   const available = Object.keys(robot.joints)
+  const movable = available.filter((name) => isMovableJoint(robot.joints[name]))
+  const availableDegenerateLimitNames = movable.filter((name) => (
+    hasDegenerateLimit(robot.joints[name])
+  ))
   let missingCount = 0
   let ambiguousCount = 0
+  let exactCount = 0
+  let suffixCount = 0
   const resolved: Record<string, number> = {}
   for (const [localName, value] of Object.entries(jointStates)) {
     if (localName in robot.joints) {
       resolved[localName] = value
+      exactCount += 1
       continue
     }
     const matches = available.filter((name) => name.endsWith(`_${localName}`))
-    if (matches.length === 1) resolved[matches[0]] = value
+    if (matches.length === 1) {
+      resolved[matches[0]] = value
+      suffixCount += 1
+    }
     else if (matches.length > 1) ambiguousCount += 1
     else missingCount += 1
   }
-  const resolvedCount = Object.keys(resolved).length
+  const resolvedNames = Object.keys(resolved)
+  const resolvedCount = resolvedNames.length
+  const degenerateLimitNames = resolvedNames.filter((name) => (
+    hasDegenerateLimit(robot.joints[name])
+  ))
+  const beforeValues = new Map(resolvedNames.map((name) => [
+    name,
+    [...(robot.joints[name]?.jointValue ?? [])]
+  ]))
+  const applied = resolvedCount > 0 ? robot.setJointValues(resolved) : false
+  const changedCount = resolvedNames.filter((name) => (
+    jointValuesChanged(
+      beforeValues.get(name) ?? [],
+      robot.joints[name]?.jointValue ?? []
+    )
+  )).length
   return {
-    applied: resolvedCount > 0 ? robot.setJointValues(resolved) : false,
+    applied,
     availableCount: available.length,
+    movableCount: movable.length,
     inputCount,
     resolvedCount,
+    exactCount,
+    suffixCount,
     missingCount,
-    ambiguousCount
+    ambiguousCount,
+    requestedNonZeroCount,
+    changedCount,
+    degenerateLimitCount: degenerateLimitNames.length,
+    availableDegenerateLimitCount: availableDegenerateLimitNames.length,
+    inputNameSample: sampleJointNames(inputNames),
+    resolvedNameSample: sampleJointNames(resolvedNames),
+    availableNameSample: sampleJointNames(available),
+    degenerateLimitNameSample: sampleJointNames(
+      availableDegenerateLimitNames
+    )
   }
 }
 
@@ -122,4 +202,35 @@ function asUrdfRobot(object: Object3D): UrdfRobotLike | null {
   return candidate.joints && typeof candidate.setJointValues === 'function'
     ? candidate as UrdfRobotLike
     : null
+}
+
+function isMovableJoint(joint: UrdfJointLike | undefined): boolean {
+  return Boolean(joint?.jointType && MOVABLE_JOINT_TYPES.has(joint.jointType))
+}
+
+function hasDegenerateLimit(joint: UrdfJointLike | undefined): boolean {
+  if (
+    !joint
+    || joint.ignoreLimits
+    || !['prismatic', 'revolute'].includes(joint.jointType ?? '')
+  ) return false
+  const lower = joint.limit?.lower
+  const upper = joint.limit?.upper
+  return Number.isFinite(lower)
+    && Number.isFinite(upper)
+    && Math.abs((upper as number) - (lower as number)) <= JOINT_VALUE_EPSILON
+}
+
+function jointValuesChanged(
+  before: readonly number[],
+  after: readonly number[]
+): boolean {
+  if (before.length !== after.length) return true
+  return before.some((value, index) => (
+    Math.abs(value - (after[index] ?? value)) > JOINT_VALUE_EPSILON
+  ))
+}
+
+function sampleJointNames(names: readonly string[]): readonly string[] {
+  return names.slice(0, JOINT_DIAGNOSTIC_SAMPLE_LIMIT)
 }

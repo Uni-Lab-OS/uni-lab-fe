@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import { DeviceCardWorkbenchPreview } from './DeviceCardWorkbenchPreview'
 import { DeviceCardWorkbenchSidebar } from './DeviceCardWorkbenchSidebar'
 import styles from './DeviceCardWorkbench.module.scss'
@@ -19,12 +21,17 @@ export function DeviceCardWorkbenchView({
 }: {
   model: DeviceCardWorkbenchModel
 }): React.JSX.Element {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   if (!model.desktopAvailable) return <DesktopUnavailable />
 
   return (
-    <section className={styles.page}>
-      <DeviceCardWorkbenchSidebar model={model} />
-      <DeviceCardWorkbenchPreview model={model} />
+    <section className={`${styles.page} ${sidebarCollapsed ? styles.pageCollapsed : ''}`}>
+      {!sidebarCollapsed ? <DeviceCardWorkbenchSidebar model={model} /> : null}
+      <DeviceCardWorkbenchPreview
+        model={model}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={() => setSidebarCollapsed(value => !value)}
+      />
     </section>
   )
 }

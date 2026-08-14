@@ -277,10 +277,17 @@ export default function LabDeviceRenderer({
     if (object) {
       const result = applyJointStateToUrdfWithDiagnostics(object, {})
       console.info(
-        `[joint-preview] stage=pascal status=model_ready material=${jointDiagnosticToken(node.materialNodeId)} available=${result.availableCount}`
+        `[joint-preview] stage=pascal status=model_ready material=${jointDiagnosticToken(node.materialNodeId)} available=${result.availableCount} movable=${result.movableCount} zeroLimits=${result.availableDegenerateLimitCount}${formatJointNameSample('availableKeys', result.availableNameSample)}${formatJointNameSample('zeroLimitKeys', result.degenerateLimitNameSample)}`
       )
     }
   }, [node.materialNodeId, object])
+
+  useEffect(() => {
+    if (!error) return
+    console.warn(
+      `[joint-preview] stage=pascal status=model_load_failed material=${jointDiagnosticToken(node.materialNodeId)} format=${jointDiagnosticToken(node.model.format)} reason=${classifyModelLoadFailure(error)}`
+    )
+  }, [error, node.materialNodeId, node.model.format])
 
   useEffect(() => {
     if (!groupRef.current) return
@@ -479,12 +486,17 @@ function logJointApplicationDiagnostic(
       ? result.ambiguousCount > 0 ? 'ambiguous_match' : 'no_match'
       : result.resolvedCount < result.inputCount
         ? 'partial_match'
-        : result.applied ? 'applied' : 'unchanged'
+        : result.requestedNonZeroCount > 0
+          && result.changedCount === 0
+          && result.degenerateLimitCount > 0
+          ? 'blocked_by_limits'
+          : result.applied ? 'applied' : 'unchanged'
   const problem = [
     'model_not_urdf',
     'ambiguous_match',
     'no_match',
-    'partial_match'
+    'partial_match',
+    'blocked_by_limits'
   ].includes(status)
     ? status
     : ''
@@ -497,7 +509,12 @@ function logJointApplicationDiagnostic(
     state.suppressed += 1
     return
   }
-  const line = `[joint-preview] stage=pascal status=${status} material=${jointDiagnosticToken(materialId)} input=${result.inputCount} resolved=${result.resolvedCount} available=${result.availableCount} missing=${result.missingCount} ambiguous=${result.ambiguousCount}${state.suppressed ? ` suppressed=${state.suppressed}` : ''}`
+  const showMappingKeys = [
+    'ambiguous_match',
+    'no_match',
+    'partial_match'
+  ].includes(status)
+  const line = `[joint-preview] stage=pascal status=${status} material=${jointDiagnosticToken(materialId)} input=${result.inputCount} resolved=${result.resolvedCount} exact=${result.exactCount} suffix=${result.suffixCount} nonzero=${result.requestedNonZeroCount} changed=${result.changedCount} available=${result.availableCount} movable=${result.movableCount} missing=${result.missingCount} ambiguous=${result.ambiguousCount} zeroLimits=${result.degenerateLimitCount}${showMappingKeys ? formatJointNameSample('inputKeys', result.inputNameSample) : ''}${showMappingKeys ? formatJointNameSample('availableKeys', result.availableNameSample) : ''}${status === 'blocked_by_limits' ? formatJointNameSample('zeroLimitKeys', result.degenerateLimitNameSample) : ''}${state.suppressed ? ` suppressed=${state.suppressed}` : ''}`
   if (problem) console.warn(line)
   else console.info(line)
   state.lastLoggedAt = now
@@ -507,4 +524,20 @@ function logJointApplicationDiagnostic(
 
 function jointDiagnosticToken(value: string): string {
   return value.replace(/[^a-zA-Z0-9_.:@-]+/gu, '_').slice(0, 160)
+}
+
+function formatJointNameSample(
+  label: string,
+  names: readonly string[]
+): string {
+  if (names.length === 0) return ''
+  return ` ${label}=${names.map(jointDiagnosticToken).join(',')}`
+}
+
+function classifyModelLoadFailure(message: string): string {
+  if (/\b(?:fetch|http|network|404)\b/iu.test(message)) return 'fetch_failed'
+  if (/xacro/iu.test(message)) return 'xacro_parse_failed'
+  if (/urdf|xml/iu.test(message)) return 'urdf_parse_failed'
+  if (/mesh|stl|dae|obj|gltf|glb/iu.test(message)) return 'mesh_load_failed'
+  return 'load_failed'
 }

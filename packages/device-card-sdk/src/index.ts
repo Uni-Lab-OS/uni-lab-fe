@@ -1,5 +1,8 @@
 export { defineDeviceCard, getDeviceCardBridge } from './bridge'
-export { DEVICE_CARD_JOINT_PREVIEW_FEATURE } from './contracts'
+export {
+  DEVICE_CARD_JOINT_PREVIEW_FEATURE,
+  DEVICE_CARD_ROBOT_COMMISSIONING_FEATURE
+} from './contracts'
 export {
   DEVICE_CARD_AGENT_PROTOCOL_VERSION,
   DEVICE_CARD_AGENT_RESULT_SCHEMA
@@ -53,6 +56,12 @@ export type {
   DeviceCardBounds,
   DeviceCardHostActionRequest,
   DeviceCardJointPreviewFrame,
+  DeviceCardHostRobotCommissioningRequest,
+  DeviceCardRobotCommissioningBridge,
+  DeviceCardRobotCommissioningCommand,
+  DeviceCardRobotCommissioningCommandType,
+  DeviceCardRobotCommissioningOperation,
+  DeviceCardRobotCommissioningRun,
   DeviceCardWorkspaceCard,
   DeviceCardWorkspaceState,
   DeviceCardWorkspaceStatus,

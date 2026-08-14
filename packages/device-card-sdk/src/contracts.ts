@@ -12,6 +12,9 @@ export type DeviceCardAuthoringProfile =
 /** Manifest uiFeatures 中用于声明本地关节模型预览能力的稳定键。 */
 export const DEVICE_CARD_JOINT_PREVIEW_FEATURE = 'joint-preview'
 
+/** Manifest uiFeatures 中用于声明统一机械臂调试接口能力的稳定键。 */
+export const DEVICE_CARD_ROBOT_COMMISSIONING_FEATURE = 'robot-commissioning'
+
 export interface DeviceCardPermissions {
   state: string[]
   actions: string[]
@@ -118,6 +121,52 @@ export interface DeviceCardJointPreviewFrame {
   modelRevision?: string
 }
 
+export type DeviceCardRobotCommissioningCommandType =
+  | 'move_target'
+  | 'move_pose'
+  | 'tcp_jog'
+  | 'joint_jog'
+  | 'controlled_stop'
+
+/**
+ * 设备卡允许交给 Host 的统一机械臂调试命令。
+ *
+ * 卡片不提供 deviceId、sessionId、HardwareProfile 或后端类型；这些身份全部
+ * 由 Host 和 OS 当前 RuntimeBinding 注入，MoveIt/PLC/SDK 对卡片不可见。
+ */
+export interface DeviceCardRobotCommissioningCommand {
+  schema_version: 2
+  command_id: string
+  type: DeviceCardRobotCommissioningCommandType
+  motion_profile_ref?: string
+  velocity_scale?: number
+  acceleration_scale?: number
+  target_ref?: string
+  pose_input?: {
+    frame_ref: string
+    xyz_mm: [number, number, number]
+    rotation_xyz: [number, number, number]
+    angle_unit: 'degree' | 'radian'
+    rotation_order: 'xyz'
+  }
+  frame_ref?: string
+  axis?: 'x' | 'y' | 'z' | 'rx' | 'ry' | 'rz'
+  direction?: 'positive' | 'negative'
+  step_si?: number
+  joint_ref?: string
+  target_command_id?: string
+  reason?: string
+}
+
+export interface DeviceCardRobotCommissioningBridge {
+  open: () => Promise<JsonObject>
+  snapshot: () => Promise<JsonObject>
+  execute: (
+    command: DeviceCardRobotCommissioningCommand
+  ) => Promise<JsonObject>
+  close: () => Promise<void>
+}
+
 export type DeviceCardActionRiskLevel =
   | 'normal'
   | 'dangerous'
@@ -205,6 +254,8 @@ export interface DeviceCardBridge {
   setJointPreview?: (
     jointStates: Readonly<Record<string, number>>
   ) => Promise<DeviceCardJointPreviewFrame>
+  /** Mock/Live 共用的统一调试入口；部署模式与后端均由 Host/OS 决定。 */
+  robotCommissioning?: DeviceCardRobotCommissioningBridge
   log: (level: 'info' | 'warn' | 'error', message: string) => void
 }
 
@@ -283,6 +334,30 @@ export interface DeviceCardHostActionRequest {
   deviceId: string
   action: string
   params: Record<string, unknown>
+}
+
+export type DeviceCardRobotCommissioningOperation =
+  | 'open'
+  | 'snapshot'
+  | 'execute'
+  | 'close'
+
+/** Electron main 发给主 Renderer 的可信 Host 请求；卡片看不到这些身份。 */
+export interface DeviceCardHostRobotCommissioningRequest {
+  requestId: string
+  sessionKey: string
+  deviceId: string
+  /** Host 可信运行模式；Mock 必须由 OS 绑定到 simulation 部署。 */
+  runtimeMode: 'mock' | 'live'
+  operation: DeviceCardRobotCommissioningOperation
+  command?: DeviceCardRobotCommissioningCommand
+}
+
+export interface DeviceCardRobotCommissioningRun {
+  requestId: string
+  status: 'DONE' | 'ERROR' | 'CANCELLED' | 'REJECTED'
+  result?: JsonObject
+  error?: string
 }
 
 export interface DeviceCardDiagnostic {

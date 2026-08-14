@@ -9,7 +9,9 @@ import type {
   DeviceCardAuthoringTargetResponse,
   DeviceCardBounds,
   DeviceCardHostActionRequest,
+  DeviceCardHostRobotCommissioningRequest,
   DeviceCardJointPreviewFrame,
+  DeviceCardRobotCommissioningRun,
   DeviceCardWorkspaceStatus,
   InstalledDeviceCard,
   OpenDeviceCardRequest,
@@ -463,8 +465,14 @@ interface DesktopApi {
     updateState: (state: Record<string, unknown>) => Promise<void>
     close: () => Promise<void>
     resolveAction: (run: DeviceCardActionRun) => Promise<void>
+    resolveRobotCommissioning: (
+      run: DeviceCardRobotCommissioningRun
+    ) => Promise<void>
     onActionRequest: (
       listener: (request: DeviceCardHostActionRequest) => void
+    ) => () => void
+    onRobotCommissioningRequest: (
+      listener: (request: DeviceCardHostRobotCommissioningRequest) => void
     ) => () => void
     onJointPreview: (
       listener: (frame: DeviceCardJointPreviewFrame) => void

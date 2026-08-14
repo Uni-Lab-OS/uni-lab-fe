@@ -14,6 +14,7 @@ import {
 } from '@unilab/device-card-sdk'
 import {
   DeviceCardActionController,
+  DeviceCardRobotCommissioningController,
   type DeviceCatalogItem,
   type DeviceStatus,
   type Services
@@ -21,6 +22,7 @@ import {
 import {
   clearJointStateFrame,
   getJointStateFrame,
+  publishDeviceJointStateFrame,
   publishJointStateFrame
 } from '@unilab/scene-runtime'
 import {
@@ -67,6 +69,7 @@ export function useWorkbenchDeviceCards({
   const statusMapRef = useRef(new Map<string, DeviceStatus>())
   const runtimeStateRef = useRef<Record<string, unknown>>({})
   const devicesRef = useRef<DeviceCatalogItem[]>([])
+  const jointStateLiveModeRef = useRef(false)
   const [cards, setCards] = useState<InstalledDeviceCard[]>([])
   const [devices, setDevices] = useState<DeviceCatalogItem[]>([])
   const [statusMap, setStatusMap] =
@@ -179,19 +182,60 @@ export function useWorkbenchDeviceCards({
     return () => subscription.dispose()
   }, [refreshDeviceCatalog, services.workflow])
 
-  useEffect(() => services.realtime.subscribeDeviceStatus({
+  useEffect(() => {
+    const endpoint = realtimeEndpointDiagnostic(services.backend.realtimeUrl)
+    console.info(
+      `[device-status-stream] stage=workbench status=subscribing surface=theia endpoint=${endpoint}`
+    )
+    return services.realtime.subscribeDeviceStatus({
+    onOpen: () => {
+      console.info(
+        `[device-status-stream] stage=workbench status=open surface=theia endpoint=${endpoint}`
+      )
+    },
+    onClose: () => {
+      console.warn(
+        `[device-status-stream] stage=workbench status=closed surface=theia endpoint=${endpoint}`
+      )
+    },
     onDeviceStatus: statuses => {
       const next = new Map(statusMapRef.current)
       for (const status of statuses) next.set(status.deviceId, status)
       statusMapRef.current = next
       setStatusMap(next)
     },
+    onJointState: frame => {
+      try {
+        const accepted = publishDeviceJointStateFrame(
+          frame,
+          devicesRef.current.map(device => ({
+            deviceId: device.deviceId,
+            materialId: device.materialUuid
+          })),
+          jointStateLiveModeRef.current ? 'live' : 'mock'
+        )
+        logRealtimeJointFrame(
+          frame.deviceId,
+          accepted?.materialId ?? null,
+          Object.keys(frame.jointStates).length
+        )
+      } catch (error) {
+        console.error(
+          `[joint-stream] stage=workbench status=rejected surface=theia device=${jointPreviewDiagnosticToken(frame.deviceId)} reason=invalid_frame`,
+          error
+        )
+      }
+    },
     onError: error => {
+      console.error(
+        `[device-status-stream] stage=workbench status=error surface=theia endpoint=${endpoint}`
+      )
       setMessage(current => current?.kind === 'error'
         ? current
         : { kind: 'warning', text: `${error}，Live 状态可能暂时不更新。` })
     }
-  }), [services.realtime])
+    })
+  }, [services.backend.realtimeUrl, services.realtime])
 
   useEffect(() => {
     if (!desktopApi) return
@@ -269,6 +313,7 @@ export function useWorkbenchDeviceCards({
     previewId,
     previewDeviceId
   )
+  jointStateLiveModeRef.current = liveMode
 
   useEffect(() => {
     if (liveMode && previewDevice?.materialUuid) {
@@ -390,7 +435,8 @@ export function useWorkbenchDeviceCards({
       const context: DeviceCardRuntimeSnapshot = {
         mode: liveMode ? 'live' : 'mock',
         device: {
-          deviceId: liveMode ? previewDeviceId : null,
+          // Mock 也绑定当前 OS 设备实例；OS 会强制它只能打开 simulation Runtime。
+          deviceId: previewDeviceId || null,
           materialId: previewDevice?.materialUuid ?? null,
           definitionFqid: previewDevice?.definitionFqid
             ?? previewCard.definitionFqids[0]
@@ -499,6 +545,27 @@ export function useWorkbenchDeviceCards({
     services.workflow
   ])
 
+  useEffect(() => {
+    if (!desktopApi) return
+    const controller = new DeviceCardRobotCommissioningController(
+      services.robotCommissioning
+    )
+    const unsubscribe = desktopApi.onRobotCommissioningRequest(request => {
+      void controller.execute(request)
+        .then(run => desktopApi.resolveRobotCommissioning(run))
+        .catch(error => {
+          setMessage(workbenchDeviceCardErrorNotice(
+            error,
+            '回传机械臂调试结果失败'
+          ))
+        })
+    })
+    return () => {
+      unsubscribe()
+      void controller.dispose()
+    }
+  }, [desktopApi, services.robotCommissioning])
+
   const actions = useWorkbenchDeviceCardActions({
     desktopApi,
     fileApi: bridge.file,
@@ -597,6 +664,40 @@ export function useWorkbenchDeviceCards({
 
 function jointPreviewDiagnosticToken(value: string): string {
   return value.replace(/[^a-zA-Z0-9_.:@-]+/gu, '_').slice(0, 160)
+}
+
+let realtimeJointEventsSinceLog = 0
+let realtimeJointLastLoggedAt = 0
+
+function logRealtimeJointFrame(
+  deviceId: string,
+  materialId: string | null,
+  jointCount: number
+): void {
+  realtimeJointEventsSinceLog += 1
+  const now = Date.now()
+  if (realtimeJointLastLoggedAt !== 0 && now - realtimeJointLastLoggedAt < 1_000) {
+    return
+  }
+  const status = materialId ? 'published' : 'material_unmapped'
+  const material = materialId
+    ? jointPreviewDiagnosticToken(materialId)
+    : 'none'
+  console.info(
+    `[joint-stream] stage=workbench status=${status} surface=theia device=${jointPreviewDiagnosticToken(deviceId)} material=${material} joints=${jointCount} events=${realtimeJointEventsSinceLog}`
+  )
+  realtimeJointEventsSinceLog = 0
+  realtimeJointLastLoggedAt = now
+}
+
+function realtimeEndpointDiagnostic(rawUrl: string | undefined): string {
+  if (!rawUrl) return 'unset'
+  try {
+    const url = new URL(rawUrl)
+    return `${url.protocol}//${url.host}`
+  } catch {
+    return 'invalid'
+  }
 }
 
 /**

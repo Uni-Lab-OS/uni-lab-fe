@@ -183,6 +183,7 @@ export const DEVICE_CARD_UI_CATALOG = {
 
 export const SDK_DECLARATION = `declare module '@unilab/device-card-sdk' {
   export const DEVICE_CARD_JOINT_PREVIEW_FEATURE: 'joint-preview'
+  export const DEVICE_CARD_ROBOT_COMMISSIONING_FEATURE: 'robot-commissioning'
   export type JsonPrimitive = string | number | boolean | null
   export type JsonValue =
     | JsonPrimitive
@@ -211,6 +212,35 @@ export const SDK_DECLARATION = `declare module '@unilab/device-card-sdk' {
     jointStates: Readonly<Record<string, number>>
     updatedAt: number
     modelRevision?: string
+  }
+  export interface DeviceCardRobotCommissioningCommand {
+    schema_version: 2
+    command_id: string
+    type: 'move_target' | 'move_pose' | 'tcp_jog' | 'joint_jog' | 'controlled_stop'
+    motion_profile_ref?: string
+    velocity_scale?: number
+    acceleration_scale?: number
+    target_ref?: string
+    pose_input?: {
+      frame_ref: string
+      xyz_mm: [number, number, number]
+      rotation_xyz: [number, number, number]
+      angle_unit: 'degree' | 'radian'
+      rotation_order: 'xyz'
+    }
+    frame_ref?: string
+    axis?: 'x' | 'y' | 'z' | 'rx' | 'ry' | 'rz'
+    direction?: 'positive' | 'negative'
+    step_si?: number
+    joint_ref?: string
+    target_command_id?: string
+    reason?: string
+  }
+  export interface DeviceCardRobotCommissioningBridge {
+    open(): Promise<Record<string, JsonValue>>
+    snapshot(): Promise<Record<string, JsonValue>>
+    execute(command: DeviceCardRobotCommissioningCommand): Promise<Record<string, JsonValue>>
+    close(): Promise<void>
   }
   export interface DeviceCardRuntimeSnapshot {
     mode: 'mock' | 'live'
@@ -260,6 +290,7 @@ export const SDK_DECLARATION = `declare module '@unilab/device-card-sdk' {
     setJointPreview?(
       jointStates: Readonly<Record<string, number>>
     ): Promise<DeviceCardJointPreviewFrame>
+    robotCommissioning?: DeviceCardRobotCommissioningBridge
     log(level: 'info' | 'warn' | 'error', message: string): void
   }
   export function getDeviceCardBridge(): DeviceCardBridge
@@ -272,6 +303,7 @@ declare module '@unilab/device-card-sdk/vue' {
   import type {
     DeviceCardActionRun,
     DeviceCardJointPreviewFrame,
+    DeviceCardRobotCommissioningBridge,
     DeviceCardRuntimeSnapshot
   } from '@unilab/device-card-sdk'
   export function useDeviceCard(options: {
@@ -290,6 +322,7 @@ declare module '@unilab/device-card-sdk/vue' {
     setJointPreview(
       jointStates: Readonly<Record<string, number>>
     ): Promise<DeviceCardJointPreviewFrame>
+    robotCommissioning: DeviceCardRobotCommissioningBridge
   }
 }
 
@@ -297,6 +330,7 @@ declare module '@unilab/device-card-sdk/react' {
   import type {
     DeviceCardActionRun,
     DeviceCardJointPreviewFrame,
+    DeviceCardRobotCommissioningBridge,
     DeviceCardRuntimeSnapshot
   } from '@unilab/device-card-sdk'
   export function useDeviceCard(options: {
@@ -315,6 +349,7 @@ declare module '@unilab/device-card-sdk/react' {
     setJointPreview(
       jointStates: Readonly<Record<string, number>>
     ): Promise<DeviceCardJointPreviewFrame>
+    robotCommissioning: DeviceCardRobotCommissioningBridge
   }
 }
 `

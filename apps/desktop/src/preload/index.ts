@@ -9,7 +9,9 @@ import type {
   DeviceCardAuthoringTargetResponse,
   DeviceCardBounds,
   DeviceCardHostActionRequest,
+  DeviceCardHostRobotCommissioningRequest,
   DeviceCardJointPreviewFrame,
+  DeviceCardRobotCommissioningRun,
   DeviceCardWorkspaceStatus,
   InstalledDeviceCard,
   OpenDeviceCardRequest,
@@ -285,6 +287,12 @@ const api = {
     close: (): Promise<void> => ipcRenderer.invoke('device-cards:close'),
     resolveAction: (run: DeviceCardActionRun): Promise<void> =>
       ipcRenderer.invoke('device-cards:resolveAction', run),
+    resolveRobotCommissioning: (
+      run: DeviceCardRobotCommissioningRun
+    ): Promise<void> => ipcRenderer.invoke(
+      'device-cards:resolveRobotCommissioning',
+      run
+    ),
     onActionRequest: (
       listener: (request: DeviceCardHostActionRequest) => void
     ): (() => void) => {
@@ -295,6 +303,19 @@ const api = {
       ipcRenderer.on('device-cards:actionRequest', wrapped)
       return () => ipcRenderer.removeListener(
         'device-cards:actionRequest',
+        wrapped
+      )
+    },
+    onRobotCommissioningRequest: (
+      listener: (request: DeviceCardHostRobotCommissioningRequest) => void
+    ): (() => void) => {
+      const wrapped = (
+        _event: Electron.IpcRendererEvent,
+        request: DeviceCardHostRobotCommissioningRequest
+      ): void => listener(request)
+      ipcRenderer.on('device-cards:robotCommissioningRequest', wrapped)
+      return () => ipcRenderer.removeListener(
+        'device-cards:robotCommissioningRequest',
         wrapped
       )
     },

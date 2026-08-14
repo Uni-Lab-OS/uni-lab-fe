@@ -6,7 +6,12 @@ import type {
   WorkspacePackageMountProjection
 } from './index'
 
-/** Wait for the authoring surface contracts, independent of device connectivity. */
+/** Wait only for contracts required to enter the Workbench shell.
+ *
+ * Workflow catalogs are populated by Uni-Lab OS in the background and may
+ * temporarily return 503.  They must not keep device debugging, package
+ * authoring, or the Material scene behind the process-start gate.
+ */
 export async function waitForWorkbenchReadiness(
   backendUrl: string,
   child: ChildProcessWithoutNullStreams,
@@ -15,11 +20,6 @@ export async function waitForWorkbenchReadiness(
   const probes: Array<[string, (payload: unknown) => boolean]> = [
     ['/api/v1/health', isHealthReady],
     ['/api/v1/devices', isSuccessfulEnvelope],
-    ['/api/v1/workflow-node-templates', isSuccessfulEnvelope],
-    [
-      '/api/v1/workflow-node-templates?limit=100&node_type=material_source',
-      isMaterialSourceCatalogReady
-    ],
     ['/api/v1/resource-templates?limit=1', isResourceTemplateCatalogReady]
   ]
   for (const [path, accepts] of probes) {
@@ -186,21 +186,6 @@ function isHealthReady(payload: unknown): boolean {
 
 function isSuccessfulEnvelope(payload: unknown): boolean {
   return isRecord(payload) && payload['code'] === 0
-}
-
-function isMaterialSourceCatalogReady(payload: unknown): boolean {
-  if (!isRecord(payload) || payload['code'] !== 0 || !isRecord(payload['data'])) {
-    return false
-  }
-  const items = payload['data']['items']
-  return Array.isArray(items) && items.some(item => (
-    isRecord(item)
-    && item['node_type'] === 'material_source'
-    && nonEmptyString(item['uuid'])
-    && isRecord(item['resource_template'])
-    && nonEmptyString(item['resource_template']['uuid'])
-    && nonEmptyString(item['resource_template']['name'])
-  ))
 }
 
 function isResourceTemplateCatalogReady(payload: unknown): boolean {

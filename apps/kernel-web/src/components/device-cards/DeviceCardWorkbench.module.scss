@@ -8,6 +8,10 @@
   background: var(--unilab-color-bg-muted);
 }
 
+.pageCollapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -375,14 +379,58 @@
   justify-content: space-between;
   padding: 0 4px 12px;
 
-  > div:first-child {
+  .previewHeading {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .previewHeading > div {
     display: grid;
     gap: 3px;
+    min-width: 0;
   }
 
   span {
     color: var(--unilab-color-text-muted);
     font-size: 12px;
+  }
+}
+
+.sidebarToggle {
+  display: inline-flex;
+  min-width: 132px;
+  min-height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  padding: 0 10px;
+  color: var(--unilab-color-text-muted);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-md);
+  background: var(--unilab-color-surface);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 650;
+
+  &:hover {
+    color: var(--unilab-color-device);
+    border-color: var(--unilab-color-device);
+    background: var(--unilab-color-device-soft);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--unilab-color-focus);
+    outline-offset: 2px;
+  }
+
+  > span {
+    color: currentColor;
+    font-size: 18px;
+    line-height: 1;
   }
 }
 
@@ -475,6 +523,10 @@
     grid-template-columns: 320px minmax(0, 1fr);
   }
 
+  .page.pageCollapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .sidebar {
     padding: 20px;
   }
@@ -483,5 +535,20 @@
   .workspaceActions,
   .agentActions {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .sidebarToggle {
+    min-width: 34px;
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+    overflow: hidden;
+    color: transparent;
+
+    > span {
+      color: var(--unilab-color-text-muted);
+    }
   }
 }

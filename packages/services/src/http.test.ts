@@ -106,4 +106,34 @@ describe('createHttpClient tracing', () => {
       status: 401
     })
   })
+
+  it('uses a per-request timeout without leaking transport metadata to fetch', async () => {
+    vi.useFakeTimers()
+    let fetchInit: RequestInit | undefined
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      fetchInit = init
+      return await new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(new DOMException('aborted', 'AbortError'))
+        })
+      })
+    }) as typeof fetch
+    const client = createHttpClient({
+      backend: getDefaultBackend('local-python'),
+      fetcher
+    })
+
+    const request = client.request('/api/v1/robot-commissioning/robot/commands', {
+      method: 'POST',
+      timeoutMs: 25
+    })
+    const rejection = expect(request).rejects.toMatchObject({
+      code: 'HTTP_REQUEST_TIMEOUT'
+    })
+    await vi.advanceTimersByTimeAsync(25)
+
+    await rejection
+    expect(fetchInit).not.toHaveProperty('timeoutMs')
+    vi.useRealTimers()
+  })
 })

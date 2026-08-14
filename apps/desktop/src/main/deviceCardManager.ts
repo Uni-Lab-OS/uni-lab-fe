@@ -1,4 +1,5 @@
 import { basename, join, resolve } from 'node:path'
+import { randomUUID } from 'node:crypto'
 
 import {
   BrowserWindow,
@@ -24,6 +25,10 @@ import type {
   DeviceCardAuthoringTargetResponse,
   DeviceCardBounds,
   DeviceCardJointPreviewFrame,
+  DeviceCardHostRobotCommissioningRequest,
+  DeviceCardRobotCommissioningCommand,
+  DeviceCardRobotCommissioningOperation,
+  DeviceCardRobotCommissioningRun,
   DeviceCardRuntimeSnapshot,
   DeviceCardWorkspaceStatus,
   InstalledDeviceCard,
@@ -31,7 +36,10 @@ import type {
   OpenDeviceCardRequest,
   OpenDeviceCardWorkspaceRequest
 } from '@unilab/device-card-sdk'
-import { DEVICE_CARD_JOINT_PREVIEW_FEATURE } from '@unilab/device-card-sdk'
+import {
+  DEVICE_CARD_JOINT_PREVIEW_FEATURE,
+  DEVICE_CARD_ROBOT_COMMISSIONING_FEATURE
+} from '@unilab/device-card-sdk'
 
 import { ElectronDeviceCardAuthoringApprovals } from './deviceCardAgentPermissions'
 import { RendererDeviceCardAuthoringTargetPort } from './deviceCardAuthoringTargets'
@@ -58,8 +66,12 @@ type RuntimeSession = {
   context: DeviceCardRuntimeSnapshot
   config: JsonObject
   actions: Map<string, DeviceCardActionContract>
+  commissioningSessionKey: string
 }
 type PendingAction = { resolve: (run: DeviceCardActionRun) => void }
+type PendingCommissioning = {
+  resolve: (run: DeviceCardRobotCommissioningRun) => void
+}
 type DiagnosticLevel = 'info' | 'warning' | 'error'
 
 interface JointPreviewDiagnosticState {
@@ -70,6 +82,8 @@ interface JointPreviewDiagnosticState {
 export class DeviceCardManager {
   private readonly sessions = new Map<number, RuntimeSession>()
   private readonly pendingActions = new Map<string, PendingAction>()
+  private readonly pendingCommissioning =
+    new Map<string, PendingCommissioning>()
   private readonly visibility = new DeviceCardVisibilityController()
   private readonly attachedViews = new Set<WebContentsView>()
   private readonly jointPreviewDiagnostics =
@@ -286,6 +300,13 @@ export class DeviceCardManager {
       }
     )
     ipcMain.handle(
+      'device-cards:resolveRobotCommissioning',
+      (event, run: DeviceCardRobotCommissioningRun) => {
+        this.assertMainRenderer(event)
+        this.resolveRobotCommissioning(run)
+      }
+    )
+    ipcMain.handle(
       'device-card-runtime:getContext',
       (event) => this.runtimeSession(event).context
     )
@@ -302,6 +323,14 @@ export class DeviceCardManager {
       'device-card-runtime:setJointPreview',
       (event, jointStates: unknown) =>
         this.setJointPreview(event, jointStates)
+    )
+    ipcMain.handle(
+      'device-card-runtime:robotCommissioning',
+      (
+        event,
+        operation: DeviceCardRobotCommissioningOperation,
+        command?: DeviceCardRobotCommissioningCommand
+      ) => this.robotCommissioning(event, operation, command)
     )
     ipcMain.on(
       'device-card-runtime:log',
@@ -327,6 +356,14 @@ export class DeviceCardManager {
       })
     }
     this.pendingActions.clear()
+    for (const pending of this.pendingCommissioning.values()) {
+      pending.resolve({
+        requestId: '',
+        status: 'CANCELLED',
+        error: 'Electron 主窗口已关闭。'
+      })
+    }
+    this.pendingCommissioning.clear()
   }
 
   private async listPublic(): Promise<InstalledDeviceCard[]> {
@@ -393,7 +430,8 @@ export class DeviceCardManager {
           action.action,
           structuredClone(action)
         ])
-      )
+      ),
+      commissioningSessionKey: randomUUID()
     }
     const viewId = view.webContents.id
     this.sessions.set(viewId, session)
@@ -461,6 +499,27 @@ export class DeviceCardManager {
 
   private disposeView(view: WebContentsView): void {
     const viewId = view.webContents.id
+    const session = this.sessions.get(viewId)
+    if (
+      session?.context.device.deviceId
+      && session.record.metadata.manifest.uiFeatures.includes(
+        DEVICE_CARD_ROBOT_COMMISSIONING_FEATURE
+      )
+    ) {
+      const mainWindow = this.options.getMainWindow()
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(
+          'device-cards:robotCommissioningRequest',
+          {
+            requestId: randomUUID(),
+            sessionKey: session.commissioningSessionKey,
+            deviceId: session.context.device.deviceId,
+            runtimeMode: session.context.mode,
+            operation: 'close'
+          } satisfies DeviceCardHostRobotCommissioningRequest
+        )
+      }
+    }
     this.visibility.detach(view)
     this.sessions.delete(viewId)
     const window = this.options.getMainWindow()
@@ -549,6 +608,63 @@ export class DeviceCardManager {
     return frame
   }
 
+  private async robotCommissioning(
+    event: IpcMainInvokeEvent,
+    operation: DeviceCardRobotCommissioningOperation,
+    command?: DeviceCardRobotCommissioningCommand
+  ): Promise<JsonObject | void> {
+    const session = this.runtimeSession(event)
+    if (!session.record.metadata.manifest.uiFeatures.includes(
+      DEVICE_CARD_ROBOT_COMMISSIONING_FEATURE
+    )) {
+      throw new Error('卡片 Manifest 未声明 robot-commissioning 能力。')
+    }
+    const deviceId = session.context.device.deviceId
+    if (!deviceId) throw new Error('卡片没有绑定机械臂设备实例。')
+    if (!['open', 'snapshot', 'execute', 'close'].includes(operation)) {
+      throw new Error('机械臂调试操作无效。')
+    }
+    if (operation === 'execute') {
+      assertCommissioningCommand(command)
+      if (
+        command.type !== 'controlled_stop'
+        && !await confirmCommissioningCommand(
+          this.requireMainWindow(),
+          deviceId,
+          command,
+          session.context.mode
+        )
+      ) {
+        throw new Error('用户取消了机械臂调试命令。')
+      }
+    } else if (command !== undefined) {
+      throw new Error(`${operation} 不接受机械臂调试命令。`)
+    }
+    const requestId = randomUUID()
+    const request: DeviceCardHostRobotCommissioningRequest = {
+      requestId,
+      sessionKey: session.commissioningSessionKey,
+      deviceId,
+      runtimeMode: session.context.mode,
+      operation,
+      ...(command === undefined ? {} : { command })
+    }
+    // 先登记 pending，再通知主 Renderer。否则极快的 open/snapshot
+    // 响应可能在 Map 写入前返回，导致卡片永久等待。
+    const result = new Promise<DeviceCardRobotCommissioningRun>((resolve) => {
+      this.pendingCommissioning.set(requestId, { resolve })
+    })
+    this.requireMainWindow().webContents.send(
+      'device-cards:robotCommissioningRequest',
+      request
+    )
+    const run = await result
+    if (run.status !== 'DONE') {
+      throw new Error(run.error || `机械臂调试操作失败：${run.status}`)
+    }
+    return operation === 'close' ? undefined : (run.result ?? {})
+  }
+
   private logRejectedJointPreview(
     session: RuntimeSession,
     reason: string
@@ -599,6 +715,16 @@ export class DeviceCardManager {
     const pending = this.pendingActions.get(run.requestId)
     if (!pending) return
     this.pendingActions.delete(run.requestId)
+    pending.resolve(run)
+  }
+
+  private resolveRobotCommissioning(
+    run: DeviceCardRobotCommissioningRun
+  ): void {
+    if (!run || typeof run.requestId !== 'string') return
+    const pending = this.pendingCommissioning.get(run.requestId)
+    if (!pending) return
+    this.pendingCommissioning.delete(run.requestId)
     pending.resolve(run)
   }
 
@@ -657,4 +783,68 @@ function diagnosticToken(value: unknown): string {
   return String(value ?? 'unknown')
     .replace(/[^a-zA-Z0-9_.:@-]+/gu, '_')
     .slice(0, 160) || 'unknown'
+}
+
+function assertCommissioningCommand(
+  value: unknown
+): asserts value is DeviceCardRobotCommissioningCommand {
+  if (!isPlainRecord(value) || JSON.stringify(value).length > 64 * 1024) {
+    throw new Error('机械臂调试命令必须是小于 64 KiB 的 JSON 对象。')
+  }
+  const command = value as unknown as DeviceCardRobotCommissioningCommand
+  if (
+    command.schema_version !== 2
+    || typeof command.command_id !== 'string'
+    || !command.command_id.trim()
+    || command.command_id.length > 128
+    || ![
+      'move_target',
+      'move_pose',
+      'tcp_jog',
+      'joint_jog',
+      'controlled_stop'
+    ].includes(command.type)
+  ) {
+    throw new Error('机械臂调试命令身份或类型无效。')
+  }
+  assertFiniteJson(value)
+}
+
+function assertFiniteJson(value: unknown): void {
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    throw new Error('机械臂调试命令包含非有限数。')
+  }
+  if (Array.isArray(value)) {
+    value.forEach(assertFiniteJson)
+    return
+  }
+  if (isPlainRecord(value)) Object.values(value).forEach(assertFiniteJson)
+}
+
+async function confirmCommissioningCommand(
+  window: BrowserWindow,
+  deviceId: string,
+  command: DeviceCardRobotCommissioningCommand,
+  runtimeMode: 'mock' | 'live'
+): Promise<boolean> {
+  const modeLabel = runtimeMode === 'mock'
+    ? 'Mock（OS simulation，不连接真实端点）'
+    : 'Live（OS maintenance）'
+  const result = await dialog.showMessageBox(window, {
+    type: 'warning',
+    title: '确认机械臂调试运动',
+    message: `统一调试命令：${command.type}`,
+    detail: [
+      `目标设备：${deviceId}`,
+      `运行模式：${modeLabel}`,
+      `命令 ID：${command.command_id}`,
+      '该命令将由 OS 的 RobotCommissioning 会话执行；具体 MoveIt/PLC/SDK 后端由当前 HardwareProfile 决定。',
+      '确认机械臂工作区无人且现场安全后再继续。'
+    ].join('\n'),
+    buttons: ['确认并执行', '取消'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true
+  })
+  return result.response === 0
 }

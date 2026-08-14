@@ -3,9 +3,13 @@ import type { DeviceCardWorkbenchModel } from './DeviceCardWorkbenchView'
 
 /** 展示设备卡片的模拟或实时预览。 */
 export function DeviceCardWorkbenchPreview({
-  model
+  model,
+  sidebarCollapsed,
+  onToggleSidebar
 }: {
   model: DeviceCardWorkbenchModel
+  sidebarCollapsed: boolean
+  onToggleSidebar: () => void
 }): React.JSX.Element {
   const {
     liveMode,
@@ -20,9 +24,21 @@ export function DeviceCardWorkbenchPreview({
   return (
     <main className={styles.main}>
       <header className={styles.previewHeader}>
-        <div>
-          <strong>{previewCard?.title ?? '卡片预览'}</strong>
-          <span>{previewDescription}</span>
+        <div className={styles.previewHeading}>
+          <button
+            type="button"
+            className={styles.sidebarToggle}
+            aria-expanded={!sidebarCollapsed}
+            title={sidebarCollapsed ? '展开设备卡片开发面板' : '收起设备卡片开发面板'}
+            onClick={onToggleSidebar}
+          >
+            <span aria-hidden="true">{sidebarCollapsed ? '›' : '‹'}</span>
+            {sidebarCollapsed ? '展开开发面板' : '收起开发面板'}
+          </button>
+          <div>
+            <strong>{previewCard?.title ?? '卡片预览'}</strong>
+            <span>{previewDescription}</span>
+          </div>
         </div>
         {previewCard && previewDevice ? (
           <div className={styles.liveControls}>

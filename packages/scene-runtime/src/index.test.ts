@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   activateSceneRuntimeScope,
   getJointStateFrame,
+  publishDeviceJointStateFrame,
   publishJointStateFrame,
   subscribeJointStateFrame
 } from './index'
@@ -85,5 +86,31 @@ describe('scene runtime joint frames', () => {
       source: 'mock',
       updatedAt: Number.NaN
     })).toThrow('updatedAt 无效')
+  })
+
+  it('maps an OS device joint frame to its scene material without cross-device fallback', () => {
+    const frame = {
+      deviceId: 'robot',
+      topologyDigest: 'topology-v1',
+      observedAt: 100,
+      jointStates: { robot_joint_1: 0.5 }
+    }
+    expect(publishDeviceJointStateFrame(frame, [
+      { deviceId: 'rail', materialId: 'material-rail' },
+      { deviceId: 'robot', materialId: 'material-robot' }
+    ], 'mock')).toMatchObject({
+      materialId: 'material-robot',
+      source: 'mock',
+      modelRevision: 'topology-v1',
+      jointStates: { robot_joint_1: 0.5 }
+    })
+    expect(getJointStateFrame('material-robot')?.jointStates).toEqual({
+      robot_joint_1: 0.5
+    })
+    expect(publishDeviceJointStateFrame(
+      { ...frame, deviceId: 'unknown', observedAt: 200 },
+      [{ deviceId: 'robot', materialId: 'material-robot' }],
+      'mock'
+    )).toBeNull()
   })
 })

@@ -822,7 +822,7 @@ describe('managed local Workbench session', () => {
     expect(failed.identity?.logPath).toContain('/.unilabos/logs/workbench/')
   })
 
-  it('does not publish ready for an empty MaterialSource contract', async () => {
+  it('publishes shell readiness while the workflow catalog initializes in background', async () => {
     const fixture = await createFixture()
     const session = createManagedLocalWorkbenchSession({
       workspacePath: fixture.workspacePath,
@@ -831,18 +831,15 @@ describe('managed local Workbench session', () => {
       plcSimulatorOpcUaPort: fixture.plcSimulatorOpcUaPort,
       environment: {
         ...process.env,
-        UNILAB_FIXTURE_INVALID_MATERIAL_SOURCE_CATALOG: '1'
+        UNILAB_FIXTURE_WORKFLOW_INITIALIZING: '1'
       },
       readinessTimeoutMs: 1_500
     })
     sessions.push(session)
 
-    await expect(session.start()).rejects.toThrow(
-      'workflow-node-templates?limit=100&node_type=material_source'
-    )
-    expect(session.getSnapshot()).toMatchObject({
-      phase: 'failed',
-      diagnostic: { code: 'os_readiness_failed' }
+    await expect(session.start()).resolves.toMatchObject({
+      phase: 'ready',
+      diagnostic: null
     })
   })
 
@@ -1015,6 +1012,17 @@ const json = (response, body) => {
 }
 const server = http.createServer((request, response) => {
   if (request.url === '/api/v1/health') return json(response, { status: 'ok' })
+  if (
+    process.env.UNILAB_FIXTURE_WORKFLOW_INITIALIZING === '1'
+    && request.url?.startsWith('/api/v1/workflow-node-templates')
+  ) {
+    response.writeHead(503, { 'content-type': 'application/json' })
+    response.end(JSON.stringify({
+      code: 'workflow_runtime_initializing',
+      message: 'workflow catalog is still loading'
+    }))
+    return
+  }
   if (request.url === '/api/v1/workflow-node-templates') {
     return json(response, { code: 0, data: { items: [] } })
   }
@@ -1022,16 +1030,14 @@ const server = http.createServer((request, response) => {
     return json(response, {
       code: 0,
       data: {
-        items: process.env.UNILAB_FIXTURE_INVALID_MATERIAL_SOURCE_CATALOG === '1'
-          ? []
-          : [{
-              uuid: '21000000-0000-4000-8000-000000000001',
-              node_type: 'material_source',
-              resource_template: {
-                uuid: '31000000-0000-4000-8000-000000000001',
-                name: 'host_node'
-              }
-            }]
+        items: [{
+          uuid: '21000000-0000-4000-8000-000000000001',
+          node_type: 'material_source',
+          resource_template: {
+            uuid: '31000000-0000-4000-8000-000000000001',
+            name: 'host_node'
+          }
+        }]
       }
     })
   }

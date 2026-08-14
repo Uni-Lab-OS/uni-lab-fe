@@ -12,6 +12,7 @@
 import {
   createContext,
   createElement,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -20,7 +21,10 @@ import {
   type ReactElement,
   type ReactNode
 } from 'react'
-import { useServices } from '@unilab/services'
+import {
+  useServices,
+  type DeviceJointStateFrame
+} from '@unilab/services'
 import { useWorkbench } from '../context/WorkbenchContext'
 import type {
   ConnectionStatus,
@@ -35,6 +39,10 @@ export interface UseDeviceStatusResult {
   connected: boolean
   // 最近一次收到推送的时间戳(ms),无推送为 null
   lastUpdate: number | null
+  /** 命令式高频关节流；不得把帧复制进 React state。 */
+  subscribeJointState: (
+    listener: (frame: DeviceJointStateFrame) => void
+  ) => () => void
 }
 
 const DeviceStatusContext = createContext<UseDeviceStatusResult | null>(null)
@@ -71,6 +79,15 @@ function useDeviceStatusSubscription(): UseDeviceStatusResult {
   const [statusMap, setStatusMap] = useState<Map<string, DeviceStatus>>(new Map())
   const [connected, setConnected] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<number | null>(null)
+  const jointStateListenersRef = useRef(
+    new Set<(frame: DeviceJointStateFrame) => void>()
+  )
+  const subscribeJointState = useCallback((
+    listener: (frame: DeviceJointStateFrame) => void
+  ): (() => void) => {
+    jointStateListenersRef.current.add(listener)
+    return () => jointStateListenersRef.current.delete(listener)
+  }, [])
 
   // 用 ref 保存最新状态表,避免每条推送都重建订阅
   const mapRef = useRef<Map<string, DeviceStatus>>(new Map())
@@ -105,6 +122,9 @@ function useDeviceStatusSubscription(): UseDeviceStatusResult {
         mapRef.current = next
         setStatusMap(next)
         setLastUpdate(Date.now())
+      },
+      onJointState: (frame) => {
+        for (const listener of jointStateListenersRef.current) listener(frame)
       }
     })
 
@@ -115,8 +135,8 @@ function useDeviceStatusSubscription(): UseDeviceStatusResult {
   }, [canConnect, realtime])
 
   return useMemo(
-    () => ({ statusMap, connected, lastUpdate }),
-    [statusMap, connected, lastUpdate]
+    () => ({ statusMap, connected, lastUpdate, subscribeJointState }),
+    [statusMap, connected, lastUpdate, subscribeJointState]
   )
 }
 

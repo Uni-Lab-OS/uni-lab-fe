@@ -32,10 +32,21 @@ describe('Workbench domain view presentation', () => {
 
     state.toggle('material')
     state.toggle('device')
-    expect(state.currentMode).toBe('device')
+    expect(state.currentMode).toBe('device-material')
     state.toggle('device')
 
     expect(state.currentMode).toBe('split')
+  })
+
+  it('shows the instrument debugger and material model side by side', () => {
+    const state = new WorkbenchViewState()
+
+    state.toggle('material')
+    state.toggle('device')
+
+    expect(state.currentMode).toBe('device-material')
+    expect(state.isVisible('device')).toBe(true)
+    expect(state.isVisible('material')).toBe(true)
   })
 
   it('presents an instrument entry without nesting the other domains', () => {
@@ -108,5 +119,22 @@ describe('Workbench domain view presentation', () => {
     expect(markup).toContain('data-testid="device-surface"')
     expect(markup).toContain('data-testid="workflow-surface"')
     expect(markup).toContain('data-testid="material-surface"')
+  })
+
+  it('renders the instrument debugger beside the shared material model', () => {
+    const markup = renderToStaticMarkup(
+      <WorkbenchDomainLayout
+        mode="device-material"
+        workflow={<section data-testid="workflow-surface" />}
+        material={<section data-testid="material-surface" />}
+        device={<section data-testid="device-surface" />}
+      />
+    )
+
+    expect(markup).toContain('data-workbench-view="device-material"')
+    expect(markup).toContain('data-testid="device-surface"')
+    expect(markup).toContain('data-testid="material-surface"')
+    expect(markup).toContain('aria-label="调整仪器设备与物料窗口宽度"')
+    expect(markup).toContain('data-primary-domain="device"')
   })
 })

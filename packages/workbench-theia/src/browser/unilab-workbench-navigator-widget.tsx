@@ -19,6 +19,7 @@ abstract class UniLabDomainEntryWidget extends ReactWidget {
 
   protected abstract readonly entry: DomainEntryDefinition
   protected abstract readonly widgetId: string
+  protected abstract readonly navigationRank: number
 
   @postConstruct()
   protected init(): void {
@@ -37,9 +38,19 @@ abstract class UniLabDomainEntryWidget extends ReactWidget {
   }
 
   protected readonly open = (): void => {
-    this.viewState.toggle(this.entry.mode)
-    void this.shell.collapsePanel('left')
-    void this.shell.activateWidget(UniLabWorkbenchWidget.ID)
+    void this.openInWorkbench()
+  }
+
+  protected async openInWorkbench(): Promise<void> {
+    this.viewState.reveal(this.entry.mode)
+    if (this.shell.getAreaFor(this) !== 'left') {
+      await this.shell.addWidget(this, {
+        area: 'left',
+        rank: this.navigationRank
+      })
+    }
+    await this.shell.collapsePanel('left')
+    await this.shell.activateWidget(UniLabWorkbenchWidget.ID)
   }
 
   protected updateActivityPresentation(): void {
@@ -74,6 +85,7 @@ abstract class UniLabDomainEntryWidget extends ReactWidget {
 export class WorkflowDomainEntryWidget extends UniLabDomainEntryWidget {
   static readonly ID = 'unilab:workbench-navigator'
   protected readonly widgetId = WorkflowDomainEntryWidget.ID
+  protected readonly navigationRank = 73
   protected readonly entry: DomainEntryDefinition = {
     mode: 'workflow',
     label: '工作流',
@@ -88,6 +100,7 @@ export class WorkflowDomainEntryWidget extends UniLabDomainEntryWidget {
 export class MaterialDomainEntryWidget extends UniLabDomainEntryWidget {
   static readonly ID = 'unilab:material-navigation'
   protected readonly widgetId = MaterialDomainEntryWidget.ID
+  protected readonly navigationRank = 72
   protected readonly entry: DomainEntryDefinition = {
     mode: 'material',
     label: '物料',
@@ -102,6 +115,7 @@ export class MaterialDomainEntryWidget extends UniLabDomainEntryWidget {
 export class DeviceDomainEntryWidget extends UniLabDomainEntryWidget {
   static readonly ID = 'unilab:device-management-navigation'
   protected readonly widgetId = DeviceDomainEntryWidget.ID
+  protected readonly navigationRank = 71
   protected readonly entry: DomainEntryDefinition = {
     mode: 'device',
     label: '仪器设备',

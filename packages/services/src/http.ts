@@ -4,8 +4,13 @@ import { ServiceError } from './errors'
 export interface HttpClient {
   request: <ResponseValue>(
     path: string,
-    init?: RequestInit
+    init?: HttpRequestInit
   ) => Promise<ResponseValue>
+}
+
+/** 仅在 Services 传输边界消费的单请求选项，不会透传给 fetch。 */
+export interface HttpRequestInit extends RequestInit {
+  timeoutMs?: number
 }
 
 export interface ApiEnvelope<Value> {
@@ -65,23 +70,24 @@ export interface ActiveHttpRequestTrace {
  */
 export function createHttpClient(options: CreateHttpClientOptions): HttpClient {
   const fetcher = options.fetcher ?? fetch
-  const timeoutMs = options.timeoutMs ?? 8000
+  const defaultTimeoutMs = options.timeoutMs ?? 8000
 
   return {
     request: async <ResponseValue>(
       path: string,
-      init: RequestInit = {}
+      init: HttpRequestInit = {}
     ): Promise<ResponseValue> => {
+      const { timeoutMs = defaultTimeoutMs, ...requestInit } = init
       const controller = new AbortController()
       const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs)
       const token = await options.getAccessToken?.()
-      const headers = new Headers(init.headers)
+      const headers = new Headers(requestInit.headers)
       if (token) headers.set('Authorization', token)
       const requestUrl = endpoint(options.backend.apiUrl, path)
       const requestTrace = options.backend.serverKind === 'edge'
         ? createHttpRequestTrace(
             requestUrl,
-            init.method ?? 'GET',
+            requestInit.method ?? 'GET',
             'http'
           )
         : undefined
@@ -91,9 +97,9 @@ export function createHttpClient(options: CreateHttpClientOptions): HttpClient {
 
       try {
         const response = await fetcher(requestUrl, {
-          ...init,
+          ...requestInit,
           headers,
-          signal: init.signal ?? controller.signal
+          signal: requestInit.signal ?? controller.signal
         })
         statusCode = response.status
         if (!response.ok) {
@@ -129,7 +135,11 @@ export function createHttpClient(options: CreateHttpClientOptions): HttpClient {
                 : response.status >= 500
           })
         }
-        const result = (await response.json()) as ResponseValue
+        const result = (
+          response.status === 204
+            ? undefined
+            : await response.json()
+        ) as ResponseValue
         outcome = 'ok'
         return result
       } catch (error) {
