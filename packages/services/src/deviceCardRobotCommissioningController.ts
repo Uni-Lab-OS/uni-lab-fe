@@ -19,10 +19,40 @@ interface ActiveSession {
  */
 export class DeviceCardRobotCommissioningController {
   private readonly sessions = new Map<string, ActiveSession>()
+  private readonly deviceQueues = new Map<string, Promise<void>>()
+  private disposed = false
 
   constructor(private readonly service: RobotCommissioningService) {}
 
   async execute(
+    request: DeviceCardHostRobotCommissioningRequest
+  ): Promise<DeviceCardRobotCommissioningRun> {
+    if (this.disposed) {
+      return {
+        requestId: request.requestId,
+        status: 'CANCELLED',
+        error: '机械臂调试控制器已关闭。'
+      }
+    }
+    if (request.operation === 'open' || request.operation === 'close') {
+      return this.enqueue(request.deviceId, () => this.executeNow(request))
+    }
+    return this.executeNow(request)
+  }
+
+  async dispose(): Promise<void> {
+    this.disposed = true
+    await Promise.allSettled(this.deviceQueues.values())
+    const sessions = [...this.sessions.values()]
+    this.sessions.clear()
+    await Promise.allSettled(
+      sessions.map(({ deviceId, sessionId }) =>
+        this.service.close(deviceId, sessionId)
+      )
+    )
+  }
+
+  private async executeNow(
     request: DeviceCardHostRobotCommissioningRequest
   ): Promise<DeviceCardRobotCommissioningRun> {
     try {
@@ -37,14 +67,17 @@ export class DeviceCardRobotCommissioningController {
     }
   }
 
-  async dispose(): Promise<void> {
-    const sessions = [...this.sessions.values()]
-    this.sessions.clear()
-    await Promise.allSettled(
-      sessions.map(({ deviceId, sessionId }) =>
-        this.service.close(deviceId, sessionId)
-      )
-    )
+  private enqueue<T>(deviceId: string, operation: () => Promise<T>): Promise<T> {
+    const previous = this.deviceQueues.get(deviceId) ?? Promise.resolve()
+    const current = previous.then(operation, operation)
+    const tail = current.then(() => undefined, () => undefined)
+    this.deviceQueues.set(deviceId, tail)
+    void tail.finally(() => {
+      if (this.deviceQueues.get(deviceId) === tail) {
+        this.deviceQueues.delete(deviceId)
+      }
+    })
+    return current
   }
 
   private async dispatch(

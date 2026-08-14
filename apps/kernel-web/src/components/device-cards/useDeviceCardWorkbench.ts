@@ -204,6 +204,10 @@ export function useDeviceCardWorkbench() {
     previewId,
     previewDeviceId
   )
+  const previousJointBindingRef = useRef({
+    liveMode,
+    materialId: previewDevice?.materialUuid
+  })
   const agentReady = Boolean(
     agentInfo?.bridge.enabled &&
     agentInfo.cli.installed &&
@@ -243,9 +247,15 @@ export function useDeviceCardWorkbench() {
   }, [liveMode, subscribeJointState])
 
   useEffect(() => {
-    if (liveMode && previewDevice?.materialUuid) {
-      clearJointStateFrame(previewDevice.materialUuid)
+    const previous = previousJointBindingRef.current
+    const materialId = previewDevice?.materialUuid
+    if (liveMode || previous.liveMode !== liveMode) {
+      if (previous.materialId) clearJointStateFrame(previous.materialId)
+      if (materialId && materialId !== previous.materialId) {
+        clearJointStateFrame(materialId)
+      }
     }
+    previousJointBindingRef.current = { liveMode, materialId }
   }, [liveMode, previewDevice?.materialUuid])
 
   useEffect(() => {

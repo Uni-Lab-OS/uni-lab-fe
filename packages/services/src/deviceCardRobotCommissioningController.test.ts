@@ -104,4 +104,40 @@ describe('DeviceCardRobotCommissioningController', () => {
 
     expect(run).toMatchObject({ status: 'ERROR', error: 'simulation joint limit' })
   })
+
+  it('closes the previous device session before opening a replacement', async () => {
+    let releaseClose!: () => void
+    const closePending = new Promise<void>(resolve => {
+      releaseClose = resolve
+    })
+    const service = {
+      open: vi.fn()
+        .mockResolvedValueOnce({ session_id: 'old-session' })
+        .mockResolvedValueOnce({ session_id: 'new-session' }),
+      snapshot: vi.fn(),
+      execute: vi.fn(),
+      close: vi.fn().mockReturnValue(closePending)
+    }
+    const controller = new DeviceCardRobotCommissioningController(service)
+    await controller.execute({
+      requestId: 'open-old', sessionKey: 'old-key', deviceId: 'robot',
+      runtimeMode: 'mock', operation: 'open'
+    })
+
+    const closing = controller.execute({
+      requestId: 'close-old', sessionKey: 'old-key', deviceId: 'robot',
+      runtimeMode: 'mock', operation: 'close'
+    })
+    const opening = controller.execute({
+      requestId: 'open-new', sessionKey: 'new-key', deviceId: 'robot',
+      runtimeMode: 'mock', operation: 'open'
+    })
+    await vi.waitFor(() => expect(service.close).toHaveBeenCalledTimes(1))
+
+    expect(service.open).toHaveBeenCalledTimes(1)
+    releaseClose()
+    await expect(closing).resolves.toMatchObject({ status: 'DONE' })
+    await expect(opening).resolves.toMatchObject({ status: 'DONE' })
+    expect(service.open).toHaveBeenCalledTimes(2)
+  })
 })

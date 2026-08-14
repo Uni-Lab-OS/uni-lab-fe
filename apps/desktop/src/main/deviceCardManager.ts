@@ -71,8 +71,13 @@ type RuntimeSession = {
 type PendingAction = { resolve: (run: DeviceCardActionRun) => void }
 type PendingCommissioning = {
   resolve: (run: DeviceCardRobotCommissioningRun) => void
+  sessionKey: string
+  timeout: ReturnType<typeof setTimeout>
 }
 type DiagnosticLevel = 'info' | 'warning' | 'error'
+
+const COMMISSIONING_REQUEST_TIMEOUT_MS = 15_000
+const COMMISSIONING_EXECUTE_TIMEOUT_MS = 310_000
 
 interface JointPreviewDiagnosticState {
   lastLoggedAt: number
@@ -84,12 +89,14 @@ export class DeviceCardManager {
   private readonly pendingActions = new Map<string, PendingAction>()
   private readonly pendingCommissioning =
     new Map<string, PendingCommissioning>()
+  private readonly commissioningCloseBarriers = new Map<string, Promise<void>>()
   private readonly visibility = new DeviceCardVisibilityController()
   private readonly attachedViews = new Set<WebContentsView>()
   private readonly jointPreviewDiagnostics =
     new Map<string, JointPreviewDiagnosticState>()
   private readonly openCoordinator: LatestViewOpenCoordinator<WebContentsView>
   private readonly targetPort: RendererDeviceCardAuthoringTargetPort
+  private destroyed = false
   readonly authoring: LocalDeviceCardAuthoringAutomation
 
   constructor(private readonly options: {
@@ -344,6 +351,7 @@ export class DeviceCardManager {
   }
 
   destroy(): void {
+    this.destroyed = true
     this.closeActive()
     this.targetPort.destroy()
     void this.authoring.destroy()
@@ -357,6 +365,7 @@ export class DeviceCardManager {
     }
     this.pendingActions.clear()
     for (const pending of this.pendingCommissioning.values()) {
+      clearTimeout(pending.timeout)
       pending.resolve({
         requestId: '',
         status: 'CANCELLED',
@@ -364,6 +373,7 @@ export class DeviceCardManager {
       })
     }
     this.pendingCommissioning.clear()
+    this.commissioningCloseBarriers.clear()
   }
 
   private async listPublic(): Promise<InstalledDeviceCard[]> {
@@ -500,25 +510,21 @@ export class DeviceCardManager {
   private disposeView(view: WebContentsView): void {
     const viewId = view.webContents.id
     const session = this.sessions.get(viewId)
+    if (session) this.cancelCommissioningRequests(session.commissioningSessionKey)
     if (
-      session?.context.device.deviceId
+      !this.destroyed
+      && session?.context.device.deviceId
       && session.record.metadata.manifest.uiFeatures.includes(
         DEVICE_CARD_ROBOT_COMMISSIONING_FEATURE
       )
     ) {
-      const mainWindow = this.options.getMainWindow()
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send(
-          'device-cards:robotCommissioningRequest',
-          {
-            requestId: randomUUID(),
-            sessionKey: session.commissioningSessionKey,
-            deviceId: session.context.device.deviceId,
-            runtimeMode: session.context.mode,
-            operation: 'close'
-          } satisfies DeviceCardHostRobotCommissioningRequest
-        )
-      }
+      this.queueCommissioningClose({
+        requestId: randomUUID(),
+        sessionKey: session.commissioningSessionKey,
+        deviceId: session.context.device.deviceId,
+        runtimeMode: session.context.mode,
+        operation: 'close'
+      })
     }
     this.visibility.detach(view)
     this.sessions.delete(viewId)
@@ -649,20 +655,81 @@ export class DeviceCardManager {
       operation,
       ...(command === undefined ? {} : { command })
     }
-    // 先登记 pending，再通知主 Renderer。否则极快的 open/snapshot
-    // 响应可能在 Map 写入前返回，导致卡片永久等待。
-    const result = new Promise<DeviceCardRobotCommissioningRun>((resolve) => {
-      this.pendingCommissioning.set(requestId, { resolve })
-    })
-    this.requireMainWindow().webContents.send(
-      'device-cards:robotCommissioningRequest',
-      request
-    )
-    const run = await result
+    if (operation === 'open') {
+      await this.commissioningCloseBarriers.get(deviceId)
+    }
+    const run = await this.dispatchCommissioningRequest(request)
     if (run.status !== 'DONE') {
       throw new Error(run.error || `机械臂调试操作失败：${run.status}`)
     }
     return operation === 'close' ? undefined : (run.result ?? {})
+  }
+
+  private dispatchCommissioningRequest(
+    request: DeviceCardHostRobotCommissioningRequest
+  ): Promise<DeviceCardRobotCommissioningRun> {
+    const mainWindow = this.requireMainWindow()
+    // 先登记 pending，再通知主 Renderer。否则极快的 open/snapshot
+    // 响应可能在 Map 写入前返回，导致卡片永久等待。
+    const result = new Promise<DeviceCardRobotCommissioningRun>((resolve) => {
+      const timeout = setTimeout(() => {
+        const pending = this.pendingCommissioning.get(request.requestId)
+        if (!pending) return
+        this.pendingCommissioning.delete(request.requestId)
+        pending.resolve({
+          requestId: request.requestId,
+          status: 'ERROR',
+          error: request.operation === 'execute'
+            ? '等待机械臂执行结果超时。'
+            : `等待机械臂调试 ${request.operation} 响应超时。`
+        })
+      }, request.operation === 'execute'
+        ? COMMISSIONING_EXECUTE_TIMEOUT_MS
+        : COMMISSIONING_REQUEST_TIMEOUT_MS)
+      timeout.unref?.()
+      this.pendingCommissioning.set(request.requestId, {
+        resolve,
+        sessionKey: request.sessionKey,
+        timeout
+      })
+    })
+    mainWindow.webContents.send(
+      'device-cards:robotCommissioningRequest',
+      request
+    )
+    return result
+  }
+
+  private queueCommissioningClose(
+    request: DeviceCardHostRobotCommissioningRequest
+  ): void {
+    if (this.destroyed) return
+    const previous = this.commissioningCloseBarriers.get(request.deviceId)
+      ?? Promise.resolve()
+    const closing = previous
+      .catch(() => undefined)
+      .then(() => this.dispatchCommissioningRequest(request))
+      .then(run => {
+        if (run.status !== 'DONE') {
+          this.runtimeDiagnostic(
+            `stage=commissioning-close status=${run.status.toLowerCase()} device=${diagnosticToken(request.deviceId)}`,
+            'warning'
+          )
+        }
+      })
+      .catch(error => {
+        this.runtimeDiagnostic(
+          `stage=commissioning-close status=failed device=${diagnosticToken(request.deviceId)} code=${diagnosticErrorCode(error)}`,
+          'warning'
+        )
+      })
+    const barrier = closing.then(() => undefined)
+    this.commissioningCloseBarriers.set(request.deviceId, barrier)
+    void barrier.finally(() => {
+      if (this.commissioningCloseBarriers.get(request.deviceId) === barrier) {
+        this.commissioningCloseBarriers.delete(request.deviceId)
+      }
+    })
   }
 
   private logRejectedJointPreview(
@@ -725,7 +792,21 @@ export class DeviceCardManager {
     const pending = this.pendingCommissioning.get(run.requestId)
     if (!pending) return
     this.pendingCommissioning.delete(run.requestId)
+    clearTimeout(pending.timeout)
     pending.resolve(run)
+  }
+
+  private cancelCommissioningRequests(sessionKey: string): void {
+    for (const [requestId, pending] of this.pendingCommissioning) {
+      if (pending.sessionKey !== sessionKey) continue
+      this.pendingCommissioning.delete(requestId)
+      clearTimeout(pending.timeout)
+      pending.resolve({
+        requestId,
+        status: 'CANCELLED',
+        error: '机械臂调试卡片已关闭。'
+      })
+    }
   }
 
   private runtimeSession(
