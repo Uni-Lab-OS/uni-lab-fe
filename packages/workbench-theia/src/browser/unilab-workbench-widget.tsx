@@ -140,6 +140,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     phase: 'idle',
     message: '正在连接 Workbench Backend…',
     configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+    configuredSkipWorkflowSourceActivation: false,
     configuredRuntimeMode: 'normal',
     identity: null,
     agent: null,
@@ -195,6 +196,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         phase: 'failed',
         message: 'Workbench Backend 连接失败',
         configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+        configuredSkipWorkflowSourceActivation: false,
         configuredRuntimeMode: 'normal',
         identity: null,
         agent: null,
@@ -343,6 +345,20 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       void this.messages.error(`OS 模式切换失败：${message}`)
+      throw error
+    } finally {
+      await this.refreshSessionSnapshot()
+    }
+  }
+
+  protected readonly setSkipWorkflowSourceActivation = async (
+    enabled: boolean
+  ): Promise<void> => {
+    try {
+      await this.workbenchSession.setSkipWorkflowSourceActivation(enabled)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      void this.messages.error(`禁止重构工作流配置失败：${message}`)
       throw error
     } finally {
       await this.refreshSessionSnapshot()
@@ -586,6 +602,9 @@ export class UniLabWorkbenchWidget extends ReactWidget {
               onRestartSession={this.restartSession}
               onReadEnvironmentLog={this.readEnvironmentLog}
               onConfigureGraph={this.configureGraph}
+              onSetSkipWorkflowSourceActivation={
+                this.setSkipWorkflowSourceActivation
+              }
               onConfigurePlcSimulator={this.configurePlcSimulator}
               onRefreshPlcVariableTables={this.refreshPlcVariableTables}
               onStartPlcSimulator={this.startPlcSimulator}
@@ -612,6 +631,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         onRestartSession={this.restartSession}
         onReadEnvironmentLog={this.readEnvironmentLog}
         onConfigureGraph={this.configureGraph}
+        onSetSkipWorkflowSourceActivation={this.setSkipWorkflowSourceActivation}
         onConfigurePlcSimulator={this.configurePlcSimulator}
         onRefreshPlcVariableTables={this.refreshPlcVariableTables}
         onStartPlcSimulator={this.startPlcSimulator}
@@ -642,6 +662,7 @@ function WorkbenchSurface({
   onRestartSession,
   onReadEnvironmentLog,
   onConfigureGraph,
+  onSetSkipWorkflowSourceActivation,
   onConfigurePlcSimulator,
   onRefreshPlcVariableTables,
   onStartPlcSimulator,
@@ -662,6 +683,7 @@ function WorkbenchSurface({
   onRestartSession: () => Promise<void>
   onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>
   onConfigureGraph: (graphPath: string) => Promise<void>
+  onSetSkipWorkflowSourceActivation: (enabled: boolean) => Promise<void>
   onConfigurePlcSimulator: (
     configuration: WorkbenchPlcSimulatorConfiguration
   ) => Promise<void>
@@ -917,6 +939,7 @@ function WorkbenchSurface({
             onRestartSession={onRestartSession}
             onReadEnvironmentLog={onReadEnvironmentLog}
             onConfigureGraph={onConfigureGraph}
+            onSetSkipWorkflowSourceActivation={onSetSkipWorkflowSourceActivation}
             onConfigurePlcSimulator={onConfigurePlcSimulator}
             onRefreshPlcVariableTables={onRefreshPlcVariableTables}
             onStartPlcSimulator={onStartPlcSimulator}

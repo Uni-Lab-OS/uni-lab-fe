@@ -158,11 +158,19 @@ export interface DeviceCardRobotCommissioningCommand {
   reason?: string
 }
 
+export interface DeviceCardRobotCommissioningReviseRequest {
+  target_ref: string
+  joint_positions_si: number[]
+}
+
 export interface DeviceCardRobotCommissioningBridge {
   open: () => Promise<JsonObject>
   snapshot: () => Promise<JsonObject>
   execute: (
     command: DeviceCardRobotCommissioningCommand
+  ) => Promise<JsonObject>
+  revise: (
+    request: DeviceCardRobotCommissioningReviseRequest
   ) => Promise<JsonObject>
   close: () => Promise<void>
 }
@@ -340,6 +348,7 @@ export type DeviceCardRobotCommissioningOperation =
   | 'open'
   | 'snapshot'
   | 'execute'
+  | 'revise'
   | 'close'
 
 /** Electron main 发给主 Renderer 的可信 Host 请求；卡片看不到这些身份。 */
@@ -351,6 +360,7 @@ export interface DeviceCardHostRobotCommissioningRequest {
   runtimeMode: 'mock' | 'live'
   operation: DeviceCardRobotCommissioningOperation
   command?: DeviceCardRobotCommissioningCommand
+  revise?: DeviceCardRobotCommissioningReviseRequest
 }
 
 export interface DeviceCardRobotCommissioningRun {

@@ -8,6 +8,7 @@ import {
   createWorkbenchRendererUrl,
   discoverWorkbenchOsProject,
   discoverWorkbenchPythonEnvironment,
+  registeredCondaEnvironmentCandidates,
   resolveWorkbenchLaunchConfiguration,
   resolveWorkbenchLaunchMode,
   workbenchEnvironmentPathEntries
@@ -132,6 +133,26 @@ describe('Workbench launch contract', () => {
         homeDirectory: root,
         platform: 'darwin'
       }), await realpath(managed))
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('reads a Conda-registered environment outside standard locations', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'unilab-registered-env-'))
+    const registered = path.join(root, 'external-drive', 'envs', 'unilab')
+    try {
+      await createExecutableEnvironment(registered)
+      await mkdir(path.join(root, '.conda'), { recursive: true })
+      await writeFile(
+        path.join(root, '.conda', 'environments.txt'),
+        `${path.join(root, 'missing')}\n${registered}\n`
+      )
+
+      assert.deepEqual(
+        await registeredCondaEnvironmentCandidates(root),
+        [path.join(root, 'missing'), registered]
+      )
     } finally {
       await rm(root, { recursive: true, force: true })
     }

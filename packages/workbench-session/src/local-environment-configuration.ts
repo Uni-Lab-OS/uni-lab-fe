@@ -11,6 +11,7 @@ export interface LocalEnvironmentConfiguration {
   plcVariableTablePath: string | null
   plcHandshakeProfile: PersistedPlcHandshakeProfile | null
   runtimeMode: PersistedWorkbenchRuntimeMode | null
+  skipWorkflowSourceActivation: boolean | null
 }
 
 export interface WritableLocalEnvironmentConfiguration {
@@ -19,6 +20,7 @@ export interface WritableLocalEnvironmentConfiguration {
   plcVariableTablePath: string
   plcHandshakeProfile: PersistedPlcHandshakeProfile
   runtimeMode: PersistedWorkbenchRuntimeMode
+  skipWorkflowSourceActivation: boolean
 }
 
 /** Read the optional managed-local configuration and reject corrupt state. */
@@ -35,7 +37,8 @@ export async function readLocalEnvironmentConfiguration(
         plcSimulatorProjectPath: null,
         plcVariableTablePath: null,
         plcHandshakeProfile: null,
-        runtimeMode: null
+        runtimeMode: null,
+        skipWorkflowSourceActivation: null
       }
     }
     throw invalidLocalEnvironmentConfiguration(
@@ -81,7 +84,12 @@ export async function readLocalEnvironmentConfiguration(
       content['plcHandshakeProfile'],
       configurationPath
     ),
-    runtimeMode: persistedRuntimeMode(content['runtimeMode'], configurationPath)
+    runtimeMode: persistedRuntimeMode(content['runtimeMode'], configurationPath),
+    skipWorkflowSourceActivation: optionalBoolean(
+      content['skipWorkflowSourceActivation'],
+      configurationPath,
+      'skipWorkflowSourceActivation'
+    )
   }
 }
 
@@ -110,6 +118,19 @@ function optionalString(
 ): string | null {
   if (value === undefined || value === null) return null
   if (typeof value === 'string') return value
+  throw invalidLocalEnvironmentConfiguration(
+    configurationPath,
+    `本地环境配置 ${field} 无效`
+  )
+}
+
+function optionalBoolean(
+  value: unknown,
+  configurationPath: string,
+  field: string
+): boolean | null {
+  if (value === undefined || value === null) return null
+  if (typeof value === 'boolean') return value
   throw invalidLocalEnvironmentConfiguration(
     configurationPath,
     `本地环境配置 ${field} 无效`

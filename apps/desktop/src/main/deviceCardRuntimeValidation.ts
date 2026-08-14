@@ -3,6 +3,7 @@ import type {
   DeviceCardActionContract,
   DeviceCardAuthoringContext,
   DeviceCardBounds,
+  DeviceCardRuntimeSnapshot,
   InstalledDeviceCard,
   OpenDeviceCardRequest,
   OpenDeviceCardWorkspaceRequest
@@ -21,6 +22,20 @@ export interface RuntimeCardRecord {
   legacyDeviceTypes: string[]
   artifactDir: string
   metadata: InstalledDeviceCardRecord['metadata']
+}
+
+/**
+ * 为 OS RobotCommissioning owner 生成稳定 Host sessionKey。
+ *
+ * 同一卡片、同一设备实例、同一 Mock/Live 模式必须复用；视图重建不得换新
+ * UUID，否则会丢掉 OS 已占用的维护会话，后续 open 只会得到 409。
+ */
+export function robotCommissioningSessionKey(
+  record: Pick<RuntimeCardRecord, 'metadata'>,
+  context: Pick<DeviceCardRuntimeSnapshot, 'mode' | 'device'>
+): string {
+  const deviceId = context.device.deviceId ?? 'unbound'
+  return `${record.metadata.sourceHash}:${deviceId}:${context.mode}`
 }
 
 /** 确认设备卡支持当前设备类型和 Live 能力目录。 */
@@ -117,6 +132,21 @@ export function normalizeBounds(bounds: DeviceCardBounds): DeviceCardBounds {
     width: Math.max(1, Math.floor(bounds.width)),
     height: Math.max(1, Math.floor(bounds.height))
   }
+}
+
+export function normalizeBoundsForZoom(
+  bounds: DeviceCardBounds,
+  zoomFactor: number
+): DeviceCardBounds {
+  if (!Number.isFinite(zoomFactor) || zoomFactor <= 0) {
+    throw new Error('设备卡片视图 zoom factor 无效。')
+  }
+  return normalizeBounds({
+    x: bounds.x * zoomFactor,
+    y: bounds.y * zoomFactor,
+    width: bounds.width * zoomFactor,
+    height: bounds.height * zoomFactor
+  })
 }
 
 export function filterAllowedState(

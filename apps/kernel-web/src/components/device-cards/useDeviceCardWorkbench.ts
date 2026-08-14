@@ -8,6 +8,7 @@ import {
 import {
   DeviceCardActionController,
   DeviceCardRobotCommissioningController,
+  logRobotCommissioning,
   useServices,
   type DeviceCatalogItem
 } from '@unilab/services'
@@ -215,11 +216,9 @@ export function useDeviceCardWorkbench() {
   )
 
   useEffect(() => {
-    let receivedSinceLog = 0
-    let lastLoggedAt = 0
     return subscribeJointState((frame) => {
       try {
-        const accepted = publishDeviceJointStateFrame(
+        publishDeviceJointStateFrame(
           frame,
           devicesRef.current.map(device => ({
             deviceId: device.deviceId,
@@ -227,16 +226,6 @@ export function useDeviceCardWorkbench() {
           })),
           liveMode ? 'live' : 'mock'
         )
-        if (!accepted) return
-        receivedSinceLog += 1
-        const now = Date.now()
-        if (lastLoggedAt === 0 || now - lastLoggedAt >= 1_000) {
-          console.info(
-            `[joint-stream] stage=workbench status=published surface=kernel device=${jointPreviewDiagnosticToken(frame.deviceId)} material=${jointPreviewDiagnosticToken(accepted.materialId)} joints=${Object.keys(frame.jointStates).length} events=${receivedSinceLog}`
-          )
-          receivedSinceLog = 0
-          lastLoggedAt = now
-        }
       } catch (error) {
         console.error(
           `[joint-stream] stage=workbench status=rejected surface=kernel device=${jointPreviewDiagnosticToken(frame.deviceId)} reason=invalid_frame`,
@@ -464,9 +453,35 @@ export function useDeviceCardWorkbench() {
       services.robotCommissioning
     )
     const unsubscribe = desktopApi.onRobotCommissioningRequest((request) => {
+      logRobotCommissioning('workbench', {
+        status: 'received',
+        op: request.operation,
+        device: request.deviceId,
+        mode: request.runtimeMode,
+        command: request.command?.type,
+        commandId: request.command?.command_id,
+        surface: 'kernel'
+      })
       void controller.execute(request)
-        .then(desktopApi.resolveRobotCommissioning)
+        .then((run) => {
+          logRobotCommissioning('workbench', {
+            status: 'resolved',
+            op: request.operation,
+            device: request.deviceId,
+            runStatus: run.status,
+            error: run.error,
+            surface: 'kernel'
+          })
+          return desktopApi.resolveRobotCommissioning(run)
+        })
         .catch((error) => {
+          logRobotCommissioning('workbench', {
+            status: 'resolve_failed',
+            op: request.operation,
+            device: request.deviceId,
+            error: error instanceof Error ? error.message : 'resolve_failed',
+            surface: 'kernel'
+          })
           setMessage({
             kind: 'error',
             text: error instanceof Error

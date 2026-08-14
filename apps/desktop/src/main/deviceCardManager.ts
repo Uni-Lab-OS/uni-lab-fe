@@ -28,6 +28,7 @@ import type {
   DeviceCardHostRobotCommissioningRequest,
   DeviceCardRobotCommissioningCommand,
   DeviceCardRobotCommissioningOperation,
+  DeviceCardRobotCommissioningReviseRequest,
   DeviceCardRobotCommissioningRun,
   DeviceCardRuntimeSnapshot,
   DeviceCardWorkspaceStatus,
@@ -54,8 +55,9 @@ import {
   isOpenRequest,
   isOpenWorkspaceRequest,
   isPlainRecord,
-  normalizeBounds,
+  normalizeBoundsForZoom,
   publicRecord,
+  robotCommissioningSessionKey,
   workspaceRuntimeRecord,
   type RuntimeCardRecord
 } from './deviceCardRuntimeValidation'
@@ -76,7 +78,7 @@ type PendingCommissioning = {
 }
 type DiagnosticLevel = 'info' | 'warning' | 'error'
 
-const COMMISSIONING_REQUEST_TIMEOUT_MS = 15_000
+const COMMISSIONING_REQUEST_TIMEOUT_MS = 70_000
 const COMMISSIONING_EXECUTE_TIMEOUT_MS = 310_000
 
 interface JointPreviewDiagnosticState {
@@ -275,7 +277,8 @@ export class DeviceCardManager {
       'device-cards:updateBounds',
       (event, bounds: DeviceCardBounds) => {
         this.assertMainRenderer(event)
-        this.openCoordinator.getActive()?.setBounds(normalizeBounds(bounds))
+        const view = this.openCoordinator.getActive()
+        if (view) this.applyRendererGeometry(view, bounds)
       }
     )
     ipcMain.handle(
@@ -336,8 +339,9 @@ export class DeviceCardManager {
       (
         event,
         operation: DeviceCardRobotCommissioningOperation,
-        command?: DeviceCardRobotCommissioningCommand
-      ) => this.robotCommissioning(event, operation, command)
+        payload?: DeviceCardRobotCommissioningCommand
+          | DeviceCardRobotCommissioningReviseRequest
+      ) => this.robotCommissioning(event, operation, payload)
     )
     ipcMain.on(
       'device-card-runtime:log',
@@ -413,10 +417,12 @@ export class DeviceCardManager {
       `stage=open status=started ${diagnosticIdentity}`
     )
     const partition = `unilab-card-${record.metadata.sourceHash.slice(0, 24)}`
+    const zoomFactor = this.mainWindowZoomFactor()
     const view = new WebContentsView({
       webPreferences: {
         preload: resolve(this.options.preloadPath),
         partition,
+        zoomFactor,
         sandbox: true,
         contextIsolation: true,
         nodeIntegration: false,
@@ -441,7 +447,7 @@ export class DeviceCardManager {
           structuredClone(action)
         ])
       ),
-      commissioningSessionKey: randomUUID()
+      commissioningSessionKey: robotCommissioningSessionKey(record, request.context)
     }
     const viewId = view.webContents.id
     this.sessions.set(viewId, session)
@@ -468,7 +474,7 @@ export class DeviceCardManager {
       this.visibility.detach(view)
       this.openCoordinator.forget(view)
     })
-    view.setBounds(normalizeBounds(request.bounds))
+    view.setBounds(normalizeBoundsForZoom(request.bounds, zoomFactor))
     try {
       const outcome = await this.openCoordinator.open(
         view,
@@ -505,6 +511,19 @@ export class DeviceCardManager {
     window.contentView.addChildView(view)
     this.attachedViews.add(view)
     this.visibility.attach(view)
+  }
+
+  private applyRendererGeometry(
+    view: WebContentsView,
+    bounds: DeviceCardBounds
+  ): void {
+    const zoomFactor = this.mainWindowZoomFactor()
+    view.webContents.setZoomFactor(zoomFactor)
+    view.setBounds(normalizeBoundsForZoom(bounds, zoomFactor))
+  }
+
+  private mainWindowZoomFactor(): number {
+    return this.requireMainWindow().webContents.getZoomFactor()
   }
 
   private disposeView(view: WebContentsView): void {
@@ -617,52 +636,100 @@ export class DeviceCardManager {
   private async robotCommissioning(
     event: IpcMainInvokeEvent,
     operation: DeviceCardRobotCommissioningOperation,
-    command?: DeviceCardRobotCommissioningCommand
+    payload?: DeviceCardRobotCommissioningCommand
+      | DeviceCardRobotCommissioningReviseRequest
   ): Promise<JsonObject | void> {
+    const started = Date.now()
     const session = this.runtimeSession(event)
-    if (!session.record.metadata.manifest.uiFeatures.includes(
-      DEVICE_CARD_ROBOT_COMMISSIONING_FEATURE
-    )) {
-      throw new Error('卡片 Manifest 未声明 robot-commissioning 能力。')
-    }
     const deviceId = session.context.device.deviceId
-    if (!deviceId) throw new Error('卡片没有绑定机械臂设备实例。')
-    if (!['open', 'snapshot', 'execute', 'close'].includes(operation)) {
-      throw new Error('机械臂调试操作无效。')
-    }
-    if (operation === 'execute') {
-      assertCommissioningCommand(command)
-      if (
-        command.type !== 'controlled_stop'
-        && !await confirmCommissioningCommand(
+    this.runtimeDiagnostic(
+      `[commissioning] stage=manager status=started op=${diagnosticToken(operation)} device=${diagnosticToken(deviceId ?? 'none')} mode=${diagnosticToken(session.context.mode)} command=${diagnosticToken(
+        payload && 'type' in payload ? payload.type : 'none'
+      )}`
+    )
+    try {
+      if (!session.record.metadata.manifest.uiFeatures.includes(
+        DEVICE_CARD_ROBOT_COMMISSIONING_FEATURE
+      )) {
+        throw new Error('卡片 Manifest 未声明 robot-commissioning 能力。')
+      }
+      if (!deviceId) throw new Error('卡片没有绑定机械臂设备实例。')
+      if (!['open', 'snapshot', 'execute', 'revise', 'close'].includes(operation)) {
+        throw new Error('机械臂调试操作无效。')
+      }
+      let command: DeviceCardRobotCommissioningCommand | undefined
+      let revise: DeviceCardRobotCommissioningReviseRequest | undefined
+      if (operation === 'execute') {
+        assertCommissioningCommand(payload)
+        command = payload
+        if (
+          command.type !== 'controlled_stop'
+          && !await confirmCommissioningCommand(
+            this.requireMainWindow(),
+            deviceId,
+            command,
+            session.context.mode
+          )
+        ) {
+          this.runtimeDiagnostic(
+            `[commissioning] stage=manager status=cancelled op=execute device=${diagnosticToken(deviceId)} reason=user_confirm durationMs=${Date.now() - started}`,
+            'warning'
+          )
+          throw new Error('用户取消了机械臂调试命令。')
+        }
+      } else if (operation === 'revise') {
+        assertReviseRequest(payload)
+        revise = payload
+        if (!await confirmPointSetRevise(
           this.requireMainWindow(),
           deviceId,
-          command,
+          revise,
           session.context.mode
-        )
-      ) {
-        throw new Error('用户取消了机械臂调试命令。')
+        )) {
+          this.runtimeDiagnostic(
+            `[commissioning] stage=manager status=cancelled op=revise device=${diagnosticToken(deviceId)} reason=user_confirm durationMs=${Date.now() - started}`,
+            'warning'
+          )
+          throw new Error('用户取消了 PointSet 示教写回。')
+        }
+      } else if (payload !== undefined) {
+        throw new Error(`${operation} 不接受机械臂调试命令。`)
       }
-    } else if (command !== undefined) {
-      throw new Error(`${operation} 不接受机械臂调试命令。`)
+      const requestId = randomUUID()
+      const request: DeviceCardHostRobotCommissioningRequest = {
+        requestId,
+        sessionKey: session.commissioningSessionKey,
+        deviceId,
+        runtimeMode: session.context.mode,
+        operation,
+        ...(command === undefined ? {} : { command }),
+        ...(revise === undefined ? {} : { revise })
+      }
+      if (operation === 'open') {
+        await this.commissioningCloseBarriers.get(deviceId)
+      }
+      const run = await this.dispatchCommissioningRequest(request)
+      if (run.status !== 'DONE') {
+        this.runtimeDiagnostic(
+          `[commissioning] stage=manager status=error op=${diagnosticToken(operation)} device=${diagnosticToken(deviceId)} runStatus=${diagnosticToken(run.status)} error=${diagnosticToken(run.error)} durationMs=${Date.now() - started}`,
+          'error'
+        )
+        throw new Error(run.error || `机械臂调试操作失败：${run.status}`)
+      }
+      this.runtimeDiagnostic(
+        `[commissioning] stage=manager status=done op=${diagnosticToken(operation)} device=${diagnosticToken(deviceId)} durationMs=${Date.now() - started}`
+      )
+      return operation === 'close' ? undefined : (run.result ?? {})
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (!message.includes('用户取消')) {
+        this.runtimeDiagnostic(
+          `[commissioning] stage=manager status=failed op=${diagnosticToken(operation)} device=${diagnosticToken(deviceId ?? 'none')} error=${diagnosticToken(message)} durationMs=${Date.now() - started}`,
+          'error'
+        )
+      }
+      throw error
     }
-    const requestId = randomUUID()
-    const request: DeviceCardHostRobotCommissioningRequest = {
-      requestId,
-      sessionKey: session.commissioningSessionKey,
-      deviceId,
-      runtimeMode: session.context.mode,
-      operation,
-      ...(command === undefined ? {} : { command })
-    }
-    if (operation === 'open') {
-      await this.commissioningCloseBarriers.get(deviceId)
-    }
-    const run = await this.dispatchCommissioningRequest(request)
-    if (run.status !== 'DONE') {
-      throw new Error(run.error || `机械臂调试操作失败：${run.status}`)
-    }
-    return operation === 'close' ? undefined : (run.result ?? {})
   }
 
   private dispatchCommissioningRequest(
@@ -676,6 +743,14 @@ export class DeviceCardManager {
         const pending = this.pendingCommissioning.get(request.requestId)
         if (!pending) return
         this.pendingCommissioning.delete(request.requestId)
+        this.runtimeDiagnostic(
+          `[commissioning] stage=manager status=timeout op=${diagnosticToken(request.operation)} device=${diagnosticToken(request.deviceId)} durationMs=${
+            request.operation === 'execute'
+              ? COMMISSIONING_EXECUTE_TIMEOUT_MS
+              : COMMISSIONING_REQUEST_TIMEOUT_MS
+          }`,
+          'error'
+        )
         pending.resolve({
           requestId: request.requestId,
           status: 'ERROR',
@@ -712,14 +787,14 @@ export class DeviceCardManager {
       .then(run => {
         if (run.status !== 'DONE') {
           this.runtimeDiagnostic(
-            `stage=commissioning-close status=${run.status.toLowerCase()} device=${diagnosticToken(request.deviceId)}`,
+            `[commissioning] stage=close status=${run.status.toLowerCase()} device=${diagnosticToken(request.deviceId)}`,
             'warning'
           )
         }
       })
       .catch(error => {
         this.runtimeDiagnostic(
-          `stage=commissioning-close status=failed device=${diagnosticToken(request.deviceId)} code=${diagnosticErrorCode(error)}`,
+          `[commissioning] stage=close status=failed device=${diagnosticToken(request.deviceId)} code=${diagnosticErrorCode(error)}`,
           'warning'
         )
       })
@@ -768,7 +843,10 @@ export class DeviceCardManager {
     message: string,
     level: DiagnosticLevel = 'info'
   ): void {
-    const line = message.startsWith('[joint-preview]')
+    const line = (
+      message.startsWith('[joint-preview]')
+      || message.startsWith('[commissioning]')
+    )
       ? message
       : `[device-card-runtime] ${message}`
     this.options.log(line)
@@ -891,6 +969,28 @@ function assertCommissioningCommand(
   assertFiniteJson(value)
 }
 
+function assertReviseRequest(
+  value: unknown
+): asserts value is DeviceCardRobotCommissioningReviseRequest {
+  if (!isPlainRecord(value) || JSON.stringify(value).length > 64 * 1024) {
+    throw new Error('PointSet 示教写回必须是小于 64 KiB 的 JSON 对象。')
+  }
+  const request = value as DeviceCardRobotCommissioningReviseRequest
+  if (
+    typeof request.target_ref !== 'string'
+    || !request.target_ref.trim()
+    || request.target_ref.length > 256
+    || !Array.isArray(request.joint_positions_si)
+    || request.joint_positions_si.length === 0
+    || request.joint_positions_si.some(
+      item => typeof item !== 'number' || !Number.isFinite(item)
+    )
+  ) {
+    throw new Error('PointSet 示教写回缺少 target_ref 或关节 SI 数组。')
+  }
+  assertFiniteJson(value)
+}
+
 function assertFiniteJson(value: unknown): void {
   if (typeof value === 'number' && !Number.isFinite(value)) {
     throw new Error('机械臂调试命令包含非有限数。')
@@ -923,6 +1023,34 @@ async function confirmCommissioningCommand(
       '确认机械臂工作区无人且现场安全后再继续。'
     ].join('\n'),
     buttons: ['确认并执行', '取消'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true
+  })
+  return result.response === 0
+}
+
+async function confirmPointSetRevise(
+  window: BrowserWindow,
+  deviceId: string,
+  request: DeviceCardRobotCommissioningReviseRequest,
+  runtimeMode: 'mock' | 'live'
+): Promise<boolean> {
+  const modeLabel = runtimeMode === 'mock'
+    ? 'Mock（OS simulation）'
+    : 'Live（OS maintenance）'
+  const result = await dialog.showMessageBox(window, {
+    type: 'warning',
+    title: '确认写回 PointSet',
+    message: '把当前关节保存为作者层点位',
+    detail: [
+      `目标设备：${deviceId}`,
+      `运行模式：${modeLabel}`,
+      `target_ref：${request.target_ref}`,
+      'OS 将更新活动 PointSet YAML 并提升 revision；165 条接近派生点不会逐条写入。',
+      '确认工作区无人且该目标允许示教后再继续。'
+    ].join('\n'),
+    buttons: ['确认并保存', '取消'],
     defaultId: 1,
     cancelId: 1,
     noLink: true

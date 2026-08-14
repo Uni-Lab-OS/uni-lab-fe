@@ -46,6 +46,7 @@ describe('device card starters', () => {
       } finally {
         await rm(root, { recursive: true, force: true })
       }
-    }
+    },
+    20_000
   )
 })

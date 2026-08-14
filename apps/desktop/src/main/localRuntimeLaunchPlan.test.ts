@@ -58,6 +58,8 @@ describe('Local runtime launch plan', () => {
       '--port',
       '18003',
       '--disable_browser',
+      '--visual',
+      'rviz',
       '--skip_env_check'
     ])
     expect(plan.edge.args).not.toContain('--test_mode')
@@ -251,7 +253,9 @@ describe('Local runtime launch plan', () => {
       '--backend',
       'ros',
       '--app_bridges',
-      'fastapi'
+      'fastapi',
+      '--visual',
+      'rviz'
     ]))
     expect(plan.edge.env['PYTHONPATH']?.split(delimiter)[0]).toBe(fixture.osRoot)
     expect(plan.edge.env['PYTHONPATH']).not.toContain(fixture.szlabRoot)

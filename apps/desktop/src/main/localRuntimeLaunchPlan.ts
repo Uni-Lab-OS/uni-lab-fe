@@ -191,6 +191,8 @@ function edgeSpec(config: ResolvedRuntimeConfig): LocalRuntimeSpawnSpec {
     '--port',
     String(config.ports.edgeHttp),
     '--disable_browser',
+    '--visual',
+    'rviz',
     '--skip_env_check'
   ]
   const customEnvironment = config.customEdgeCommand?.environment ?? []

@@ -1,4 +1,4 @@
-import { relative, resolve, sep } from 'node:path'
+import { isAbsolute, relative, resolve, sep } from 'node:path'
 
 import {
   deviceCardAuthoringDefinitionFqid,
@@ -46,7 +46,7 @@ const FORBIDDEN_SOURCE: ReadonlyArray<{
   },
   {
     code: 'source.node_runtime',
-    pattern: /\b(?:process|require|module|Buffer|global)\b/,
+    pattern: /\b(?:process|require|module|Buffer|globalThis)\b/,
     message: '卡片不能访问 Node.js 运行时。'
   }
 ]
@@ -194,6 +194,26 @@ function isLegacyPreviewStateDefinition(value: unknown): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === 'object' && !Array.isArray(value)
+}
+
+/**
+ * 判断 candidate 是否落在 root 目录树内。
+ *
+ * Windows 上 `path.relative` 在跨盘符时返回目标绝对路径，而不是 `..`。
+ * 不能把这种结果当成“在项目内”，否则 Vue/React 框架文件会被当成卡片源码，
+ * 其内部 `@vue/*`、`scheduler` 导入会被白名单误拒。
+ *
+ * @param root 项目根目录。
+ * @param candidate 待判断路径。
+ * @returns 在 root 内（含 root 自身）时为 true。
+ */
+export function isPathInsideRoot(root: string, candidate: string): boolean {
+  const pathFromRoot = relative(resolve(root), resolve(candidate))
+  return pathFromRoot === '' || (
+    !isAbsolute(pathFromRoot) &&
+    pathFromRoot !== '..' &&
+    !pathFromRoot.startsWith(`..${sep}`)
+  )
 }
 
 export function assertInside(root: string, candidate: string): string {

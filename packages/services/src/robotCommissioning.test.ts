@@ -31,7 +31,12 @@ describe('RobotCommissioningService', () => {
       '"requested_deployment_mode":"simulation"'
     )
     expect(request.mock.calls[2][1].body).toContain('joint_jog')
+    expect(request.mock.calls[0][1].timeoutMs).toBe(60_000)
+    expect(request.mock.calls[1][1].timeoutMs).toBe(60_000)
     expect(request.mock.calls[2][1].timeoutMs).toBe(300_000)
-    expect(request.mock.calls[3][1]).toEqual({ method: 'DELETE' })
+    expect(request.mock.calls[3][1]).toEqual({
+      method: 'DELETE',
+      timeoutMs: 60_000
+    })
   })
 })

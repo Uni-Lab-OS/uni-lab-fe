@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import type {
   DeviceCardAuthoringContextV2,
   DeviceCardManifestV2
 } from '@unilab/device-card-sdk'
 
 import {
+  isPathInsideRoot,
   isSafeArchivePath,
   scanSource,
   validatePermissionsAgainstContext
@@ -25,10 +28,38 @@ describe('device card source policy', () => {
     )).toEqual([])
   })
 
+  it('does not treat PointSet global.arm.* refs as Node global', () => {
+    expect(scanSource(
+      "const home = catalog.find(point => point.target_ref === 'global.arm.home')",
+      'src/card.ts'
+    )).toEqual([])
+  })
+
+  it('still rejects Node globalThis', () => {
+    expect(scanSource('const g = globalThis.process', 'src/card.ts'))
+      .toContainEqual(expect.objectContaining({
+        code: 'source.node_runtime'
+      }))
+  })
+
   it('rejects unsafe archive paths', () => {
     expect(isSafeArchivePath('../escape.ts')).toBe(false)
     expect(isSafeArchivePath('/absolute.ts')).toBe(false)
     expect(isSafeArchivePath('src/card.ts')).toBe(true)
+  })
+
+  it('does not treat a sibling directory as inside the project', () => {
+    const projectDir = join(tmpdir(), 'unilab-card-project')
+    const frameworkFile = join(tmpdir(), 'node_modules', 'vue', 'index.js')
+
+    expect(isPathInsideRoot(projectDir, join(projectDir, 'src', 'card.vue'))).toBe(true)
+    expect(isPathInsideRoot(projectDir, frameworkFile)).toBe(false)
+  })
+
+  it('does not treat a different Windows drive as inside the project', () => {
+    if (process.platform !== 'win32') return
+    expect(isPathInsideRoot('C:\\tmp\\card-project', 'F:\\repo\\node_modules\\vue\\index.js'))
+      .toBe(false)
   })
 
   it('rejects v2 authored-against evidence from another package generation', () => {

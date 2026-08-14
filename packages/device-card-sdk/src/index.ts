@@ -61,6 +61,7 @@ export type {
   DeviceCardRobotCommissioningCommand,
   DeviceCardRobotCommissioningCommandType,
   DeviceCardRobotCommissioningOperation,
+  DeviceCardRobotCommissioningReviseRequest,
   DeviceCardRobotCommissioningRun,
   DeviceCardWorkspaceCard,
   DeviceCardWorkspaceState,

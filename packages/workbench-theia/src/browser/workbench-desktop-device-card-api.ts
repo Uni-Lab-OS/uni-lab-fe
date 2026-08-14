@@ -100,3 +100,18 @@ export function getWorkbenchDesktopCardBridge(): WorkbenchDesktopCardBridge {
     file: scope.api?.file
   }
 }
+
+/**
+ * Subscribes to articulated-model preview frames when the loaded Electron
+ * preload supports them. A running development window can temporarily expose
+ * the previous preload while Theia's browser bundle has already rebuilt; that
+ * version skew must disable only joint preview, not unmount the whole card UI.
+ */
+export function subscribeWorkbenchDeviceCardJointPreview(
+  api: Partial<Pick<WorkbenchDesktopDeviceCardApi, 'onJointPreview'>>,
+  listener: (frame: DeviceCardJointPreviewFrame) => void
+): () => void {
+  return typeof api.onJointPreview === 'function'
+    ? api.onJointPreview(listener)
+    : () => undefined
+}

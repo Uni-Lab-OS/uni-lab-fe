@@ -385,6 +385,28 @@ body.unilab-environment-manager-open .material-oblique-stack__label {
   font-size: 12px;
 }
 
+.unilab-environment-manager__skip-workflow {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 10px;
+  color: var(--unilab-color-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.unilab-environment-manager__skip-workflow input {
+  margin-top: 2px;
+}
+
+.unilab-environment-manager__skip-workflow small {
+  display: block;
+  margin-top: 2px;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+
 @media (max-width: 720px) {
   .unilab-environment-manager {
     right: 12px;

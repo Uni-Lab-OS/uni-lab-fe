@@ -173,6 +173,7 @@ export interface WorkbenchSessionSnapshot {
   phase: WorkbenchSessionPhase
   message: string
   configuredGraphPath: string
+  configuredSkipWorkflowSourceActivation: boolean
   configuredRuntimeMode: WorkbenchRuntimeMode
   identity: WorkbenchSessionIdentity | null
   agent: WorkbenchAgentIdentity | null
@@ -203,6 +204,7 @@ export interface ManagedLocalWorkbenchSessionOptions {
   plcSimulatorGuiPort?: number
   plcSimulatorOpcUaPort?: number
   runtimeMode?: WorkbenchRuntimeMode
+  skipWorkflowSourceActivation?: boolean
 }
 
 export interface WorkbenchSession {
@@ -223,6 +225,9 @@ export interface WorkbenchSession {
     maxBytes?: number
   ): Promise<string>
   configureGraph(graphPath: string): Promise<WorkbenchSessionSnapshot>
+  setSkipWorkflowSourceActivation(
+    enabled: boolean
+  ): Promise<WorkbenchSessionSnapshot>
   configurePlcSimulator(
     configuration: string | WorkbenchPlcSimulatorConfiguration
   ): Promise<WorkbenchSessionSnapshot>
@@ -281,6 +286,7 @@ class ManagedLocalWorkbenchSession implements WorkbenchSession {
   private selectedGraphPath: string
   private selectedPlcVariableTablePath: string
   private selectedPlcHandshakeProfile: WorkbenchPlcHandshakeProfile
+  private selectedSkipWorkflowSourceActivation: boolean
 
   constructor(private readonly options: ManagedLocalWorkbenchSessionOptions) {
     this.selectedMode = options.runtimeMode ?? 'normal'
@@ -288,10 +294,14 @@ class ManagedLocalWorkbenchSession implements WorkbenchSession {
       ?? join('deployment', 'graphs', 'szlab-local-debug.json')
     this.selectedPlcVariableTablePath = options.plcVariableTablePath ?? ''
     this.selectedPlcHandshakeProfile = options.plcHandshakeProfile ?? 'szlab'
+    this.selectedSkipWorkflowSourceActivation =
+      options.skipWorkflowSourceActivation ?? false
     this.snapshot = {
       phase: 'idle',
       message: '尚未启动 Uni-Lab OS',
       configuredGraphPath: this.selectedGraphPath,
+      configuredSkipWorkflowSourceActivation:
+        this.selectedSkipWorkflowSourceActivation,
       configuredRuntimeMode: this.selectedMode,
       identity: null,
       agent: null,
@@ -455,6 +465,24 @@ class ManagedLocalWorkbenchSession implements WorkbenchSession {
     return await this.refreshPlcVariableTables()
   }
 
+  async setSkipWorkflowSourceActivation(
+    enabled: boolean
+  ): Promise<WorkbenchSessionSnapshot> {
+    if (typeof enabled !== 'boolean') {
+      throw new Error('禁止重构工作流配置必须是布尔值')
+    }
+    await this.persistConfiguration({ skipWorkflowSourceActivation: enabled })
+    this.selectedSkipWorkflowSourceActivation = enabled
+    this.publish({
+      ...this.snapshot,
+      configuredSkipWorkflowSourceActivation: enabled,
+      message: enabled
+        ? '已禁止重构工作流；下次启动 OS 时生效'
+        : '已恢复启动时重构工作流'
+    })
+    return this.getSnapshot()
+  }
+
   async configurePlcSimulator(
     configuration: string | WorkbenchPlcSimulatorConfiguration
   ): Promise<WorkbenchSessionSnapshot> {
@@ -547,6 +575,7 @@ class ManagedLocalWorkbenchSession implements WorkbenchSession {
     plcVariableTablePath: string
     plcHandshakeProfile: WorkbenchPlcHandshakeProfile
     runtimeMode: WorkbenchRuntimeMode
+    skipWorkflowSourceActivation: boolean
   }> = {}): Promise<void> {
     await writeLocalEnvironmentConfiguration(this.options.workspacePath, {
       graphPath: overrides.graphPath ?? this.selectedGraphPath,
@@ -556,7 +585,9 @@ class ManagedLocalWorkbenchSession implements WorkbenchSession {
         ?? this.selectedPlcVariableTablePath,
       plcHandshakeProfile: overrides.plcHandshakeProfile
         ?? this.selectedPlcHandshakeProfile,
-      runtimeMode: overrides.runtimeMode ?? this.selectedMode
+      runtimeMode: overrides.runtimeMode ?? this.selectedMode,
+      skipWorkflowSourceActivation: overrides.skipWorkflowSourceActivation
+        ?? this.selectedSkipWorkflowSourceActivation
     })
   }
 
@@ -578,12 +609,18 @@ class ManagedLocalWorkbenchSession implements WorkbenchSession {
     this.selectedPlcHandshakeProfile = this.options.plcHandshakeProfile
       ?? localConfiguration.plcHandshakeProfile
       ?? this.selectedPlcHandshakeProfile
+    this.selectedSkipWorkflowSourceActivation =
+      this.options.skipWorkflowSourceActivation
+      ?? localConfiguration.skipWorkflowSourceActivation
+      ?? this.selectedSkipWorkflowSourceActivation
     const projectPath = this.options.plcSimulatorProjectPath
       ?? localConfiguration.plcSimulatorProjectPath
       ?? this.snapshot.plcSimulator.projectPath
     this.snapshot = {
       ...this.snapshot,
       configuredGraphPath: this.selectedGraphPath,
+      configuredSkipWorkflowSourceActivation:
+        this.selectedSkipWorkflowSourceActivation,
       configuredRuntimeMode: this.selectedMode,
       plcSimulator: {
         ...this.snapshot.plcSimulator,
@@ -959,7 +996,9 @@ class ManagedLocalWorkbenchSession implements WorkbenchSession {
       launch = await resolveWorkbenchLaunch(
         {
           ...this.options,
-          graphPath: this.selectedGraphPath
+          graphPath: this.selectedGraphPath,
+          skipWorkflowSourceActivation:
+            this.selectedSkipWorkflowSourceActivation
         },
         this.selectedMode
       )
@@ -1085,9 +1124,14 @@ class ManagedLocalWorkbenchSession implements WorkbenchSession {
   private publish(
     snapshot: Omit<
       WorkbenchSessionSnapshot,
-      'configuredGraphPath' | 'configuredRuntimeMode' | 'plcSimulator' | 'agent'
+      | 'configuredGraphPath'
+      | 'configuredSkipWorkflowSourceActivation'
+      | 'configuredRuntimeMode'
+      | 'plcSimulator'
+      | 'agent'
     > & {
       configuredGraphPath?: string
+      configuredSkipWorkflowSourceActivation?: boolean
       configuredRuntimeMode?: WorkbenchRuntimeMode
       plcSimulator?: WorkbenchPlcSimulatorSnapshot
       agent?: WorkbenchAgentIdentity | null
@@ -1105,6 +1149,9 @@ class ManagedLocalWorkbenchSession implements WorkbenchSession {
       } : null,
       configuredGraphPath:
         snapshot.configuredGraphPath ?? this.snapshot.configuredGraphPath,
+      configuredSkipWorkflowSourceActivation:
+        snapshot.configuredSkipWorkflowSourceActivation
+        ?? this.snapshot.configuredSkipWorkflowSourceActivation,
       configuredRuntimeMode:
         snapshot.configuredRuntimeMode ?? this.snapshot.configuredRuntimeMode,
       plcSimulator: snapshot.plcSimulator ?? this.snapshot.plcSimulator
@@ -1318,11 +1365,16 @@ async function resolveWorkbenchLaunch(
       '--port',
       String(backendPort),
       '--disable_browser',
+      '--visual',
+      'rviz',
       '--action_mode',
       mode === 'normal' ? 'real' : 'simulate',
       '--external_devices_only',
       '--ros_discovery_server',
-      'off'
+      'off',
+      ...(options.skipWorkflowSourceActivation
+        ? ['--skip_workflow_source_activation']
+        : [])
     ],
     cwd: workspacePath,
     environment: {
@@ -1748,6 +1800,7 @@ async function writeLocalEnvironmentConfiguration(
     plcVariableTablePath: string
     plcHandshakeProfile: WorkbenchPlcHandshakeProfile
     runtimeMode: WorkbenchRuntimeMode
+    skipWorkflowSourceActivation: boolean
   }
 ): Promise<void> {
   const resolvedWorkspacePath = await realpath(resolve(workspacePath))

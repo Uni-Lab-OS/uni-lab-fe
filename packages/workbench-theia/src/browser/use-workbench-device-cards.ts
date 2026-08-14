@@ -15,6 +15,7 @@ import {
 import {
   DeviceCardActionController,
   DeviceCardRobotCommissioningController,
+  logRobotCommissioning,
   type DeviceCatalogItem,
   type DeviceStatus,
   type Services
@@ -35,7 +36,8 @@ import {
 
 import { useWorkbenchDeviceCardActions } from './use-workbench-device-card-actions'
 import {
-  getWorkbenchDesktopCardBridge
+  getWorkbenchDesktopCardBridge,
+  subscribeWorkbenchDeviceCardJointPreview
 } from './workbench-desktop-device-card-api'
 import {
   buildWorkbenchDeviceCardAuthoringTarget,
@@ -206,18 +208,13 @@ export function useWorkbenchDeviceCards({
     },
     onJointState: frame => {
       try {
-        const accepted = publishDeviceJointStateFrame(
+        publishDeviceJointStateFrame(
           frame,
           devicesRef.current.map(device => ({
             deviceId: device.deviceId,
             materialId: device.materialUuid
           })),
           jointStateLiveModeRef.current ? 'live' : 'mock'
-        )
-        logRealtimeJointFrame(
-          frame.deviceId,
-          accepted?.materialId ?? null,
-          Object.keys(frame.jointStates).length
         )
       } catch (error) {
         console.error(
@@ -247,7 +244,7 @@ export function useWorkbenchDeviceCards({
     let receivedSinceLog = 0
     let lastLoggedAt = 0
     console.info('[joint-preview] stage=workbench status=listener_ready surface=theia')
-    return desktopApi.onJointPreview((frame) => {
+    return subscribeWorkbenchDeviceCardJointPreview(desktopApi, (frame) => {
       try {
         const accepted = publishJointStateFrame({ ...frame, source: 'mock' })
         receivedSinceLog += 1
@@ -561,9 +558,35 @@ export function useWorkbenchDeviceCards({
       services.robotCommissioning
     )
     const unsubscribe = desktopApi.onRobotCommissioningRequest(request => {
+      logRobotCommissioning('workbench', {
+        status: 'received',
+        op: request.operation,
+        device: request.deviceId,
+        mode: request.runtimeMode,
+        command: request.command?.type,
+        commandId: request.command?.command_id,
+        surface: 'theia'
+      })
       void controller.execute(request)
-        .then(run => desktopApi.resolveRobotCommissioning(run))
+        .then(run => {
+          logRobotCommissioning('workbench', {
+            status: 'resolved',
+            op: request.operation,
+            device: request.deviceId,
+            runStatus: run.status,
+            error: run.error,
+            surface: 'theia'
+          })
+          return desktopApi.resolveRobotCommissioning(run)
+        })
         .catch(error => {
+          logRobotCommissioning('workbench', {
+            status: 'resolve_failed',
+            op: request.operation,
+            device: request.deviceId,
+            error: error instanceof Error ? error.message : 'resolve_failed',
+            surface: 'theia'
+          })
           setMessage(workbenchDeviceCardErrorNotice(
             error,
             '回传机械臂调试结果失败'
@@ -674,30 +697,6 @@ export function useWorkbenchDeviceCards({
 
 function jointPreviewDiagnosticToken(value: string): string {
   return value.replace(/[^a-zA-Z0-9_.:@-]+/gu, '_').slice(0, 160)
-}
-
-let realtimeJointEventsSinceLog = 0
-let realtimeJointLastLoggedAt = 0
-
-function logRealtimeJointFrame(
-  deviceId: string,
-  materialId: string | null,
-  jointCount: number
-): void {
-  realtimeJointEventsSinceLog += 1
-  const now = Date.now()
-  if (realtimeJointLastLoggedAt !== 0 && now - realtimeJointLastLoggedAt < 1_000) {
-    return
-  }
-  const status = materialId ? 'published' : 'material_unmapped'
-  const material = materialId
-    ? jointPreviewDiagnosticToken(materialId)
-    : 'none'
-  console.info(
-    `[joint-stream] stage=workbench status=${status} surface=theia device=${jointPreviewDiagnosticToken(deviceId)} material=${material} joints=${jointCount} events=${realtimeJointEventsSinceLog}`
-  )
-  realtimeJointEventsSinceLog = 0
-  realtimeJointLastLoggedAt = now
 }
 
 function realtimeEndpointDiagnostic(rawUrl: string | undefined): string {

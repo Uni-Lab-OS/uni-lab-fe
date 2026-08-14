@@ -25,6 +25,7 @@ describe('WorkbenchSessionGate', () => {
           phase: 'failed',
           message: '等待 Uni-Lab OS 就绪超时',
           configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+          configuredSkipWorkflowSourceActivation: false,
           configuredRuntimeMode: 'normal',
           agent: null,
           identity: {
@@ -96,6 +97,7 @@ describe('WorkbenchSessionGate', () => {
           phase: 'starting',
           message: '正在校验工作区并启动 Uni-Lab OS…',
           configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+          configuredSkipWorkflowSourceActivation: false,
           configuredRuntimeMode: 'normal',
           agent: null,
           identity: null,

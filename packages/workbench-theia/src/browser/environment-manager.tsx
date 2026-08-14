@@ -27,6 +27,7 @@ export interface EnvironmentManagerProps {
   onRestartSession: () => Promise<void>
   onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>
   onConfigureGraph: (graphPath: string) => Promise<void>
+  onSetSkipWorkflowSourceActivation: (enabled: boolean) => Promise<void>
   onConfigurePlcSimulator: (
     configuration: WorkbenchPlcSimulatorConfiguration
   ) => Promise<void>
@@ -48,6 +49,7 @@ export function EnvironmentManager({
   onRestartSession,
   onReadEnvironmentLog,
   onConfigureGraph,
+  onSetSkipWorkflowSourceActivation,
   onConfigurePlcSimulator,
   onRefreshPlcVariableTables,
   onStartPlcSimulator,
@@ -256,6 +258,14 @@ export function EnvironmentManager({
                 onSetRuntimeMode={mode => run(
                   'switch-mode',
                   () => onSetRuntimeMode(mode)
+                )}
+              />
+              <SkipWorkflowSourceActivationControl
+                checked={session.configuredSkipWorkflowSourceActivation}
+                disabled={Boolean(busyAction)}
+                onChange={enabled => run(
+                  'skip-workflow-source-activation',
+                  () => onSetSkipWorkflowSourceActivation(enabled)
                 )}
               />
             </>
@@ -629,6 +639,33 @@ function remoteAccessMessage(snapshot: WorkbenchRemoteAccessSnapshot): string {
 function formatRemoteExpiry(expiresAt: number | null): string {
   if (!expiresAt) return '—'
   return new Date(expiresAt).toLocaleString()
+}
+
+export function SkipWorkflowSourceActivationControl({
+  checked,
+  disabled,
+  onChange
+}: {
+  checked: boolean
+  disabled: boolean
+  onChange: (checked: boolean) => Promise<void>
+}): React.JSX.Element {
+  return (
+    <label className="unilab-environment-manager__skip-workflow">
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={event => void onChange(event.currentTarget.checked)}
+      />
+      <span>
+        <strong>禁止重构工作流</strong>
+        <small>
+          勾选后启动 OS 时跳过工作流源码固定点激活；下次启动 OS 时生效。
+        </small>
+      </span>
+    </label>
+  )
 }
 
 export function RuntimeModeControl({

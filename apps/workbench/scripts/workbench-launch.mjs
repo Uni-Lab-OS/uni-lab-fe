@@ -1,5 +1,5 @@
 import { constants as fsConstants } from 'node:fs'
-import { access, realpath, stat } from 'node:fs/promises'
+import { access, readFile, realpath, stat } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
@@ -87,6 +87,9 @@ export async function discoverWorkbenchPythonEnvironment({
   homeDirectory = os.homedir(),
   platform = process.platform
 }) {
+  const registeredEnvironments = await registeredCondaEnvironmentCandidates(
+    homeDirectory
+  )
   const standardEnvironments = [
     path.join(homeDirectory, 'miniforge3', 'envs', 'unilab'),
     path.join(homeDirectory, 'mambaforge', 'envs', 'unilab'),
@@ -95,6 +98,16 @@ export async function discoverWorkbenchPythonEnvironment({
     path.join(homeDirectory, '.conda', 'envs', 'unilab'),
     path.join(homeDirectory, '.micromamba', 'envs', 'unilab')
   ]
+  const configuredEnvironmentRoots = (environment.CONDA_ENVS_PATH ?? '')
+    .split(path.delimiter)
+    .filter(Boolean)
+    .map(root => path.join(root, 'unilab'))
+  const registeredNamedEnvironments = registeredEnvironments.filter(
+    candidate => path.basename(candidate).toLowerCase() === 'unilab'
+  )
+  const registeredOtherEnvironments = registeredEnvironments.filter(
+    candidate => path.basename(candidate).toLowerCase() !== 'unilab'
+  )
   const activeEnvironment = environment.CONDA_DEFAULT_ENV !== 'base'
     ? environment.CONDA_PREFIX
     : null
@@ -102,7 +115,10 @@ export async function discoverWorkbenchPythonEnvironment({
     ? [selected]
     : [
         activeEnvironment,
+        ...configuredEnvironmentRoots,
         ...standardEnvironments,
+        ...registeredNamedEnvironments,
+        ...registeredOtherEnvironments,
         environment.CONDA_PREFIX,
         ...(environment.PATH ?? '')
           .split(path.delimiter)
@@ -128,6 +144,25 @@ export async function discoverWorkbenchPythonEnvironment({
   throw new Error(
     'No compatible Python environment found; use --python-env or activate the UniLab OS Conda environment'
   )
+}
+
+/**
+ * Reads Conda's per-user registry so environments remain discoverable when the
+ * Conda installation itself lives outside the user's home directory.
+ */
+export async function registeredCondaEnvironmentCandidates(homeDirectory) {
+  try {
+    const registry = await readFile(
+      path.join(homeDirectory, '.conda', 'environments.txt'),
+      'utf8'
+    )
+    return registry
+      .split(/\r?\n/u)
+      .map(candidate => candidate.trim())
+      .filter(Boolean)
+  } catch {
+    return []
+  }
 }
 
 /**

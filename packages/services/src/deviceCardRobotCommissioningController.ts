@@ -4,7 +4,10 @@ import type {
   JsonObject
 } from '@unilab/device-card-sdk'
 
-import type { RobotCommissioningService } from './robotCommissioning'
+import {
+  logRobotCommissioning,
+  type RobotCommissioningService
+} from './robotCommissioning'
 
 interface ActiveSession {
   deviceId: string
@@ -55,14 +58,41 @@ export class DeviceCardRobotCommissioningController {
   private async executeNow(
     request: DeviceCardHostRobotCommissioningRequest
   ): Promise<DeviceCardRobotCommissioningRun> {
+    const started = Date.now()
+    const hasSession = this.sessions.has(request.sessionKey)
+    logRobotCommissioning('controller', {
+      status: 'started',
+      op: request.operation,
+      device: request.deviceId,
+      mode: request.runtimeMode,
+      hasSession,
+      command: request.command?.type,
+      commandId: request.command?.command_id
+    })
     try {
       const result = await this.dispatch(request)
+      logRobotCommissioning('controller', {
+        status: 'done',
+        op: request.operation,
+        device: request.deviceId,
+        durationMs: Date.now() - started,
+        hasSession: this.sessions.has(request.sessionKey)
+      })
       return { requestId: request.requestId, status: 'DONE', result }
     } catch (error) {
+      const message = error instanceof Error ? error.message : '机械臂调试请求失败。'
+      logRobotCommissioning('controller', {
+        status: 'error',
+        op: request.operation,
+        device: request.deviceId,
+        durationMs: Date.now() - started,
+        hasSession,
+        error: message
+      })
       return {
         requestId: request.requestId,
         status: 'ERROR',
-        error: error instanceof Error ? error.message : '机械臂调试请求失败。'
+        error: message
       }
     }
   }

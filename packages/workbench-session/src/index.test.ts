@@ -327,6 +327,7 @@ describe('managed local Workbench session', () => {
       phase: 'idle',
       message: 'Uni-Lab OS 已停止',
       configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+      configuredSkipWorkflowSourceActivation: false,
       configuredRuntimeMode: 'normal',
       identity: null,
       agent: null,
@@ -682,6 +683,67 @@ describe('managed local Workbench session', () => {
     })
   })
 
+  it('persists skipWorkflowSourceActivation before the next OS launch', async () => {
+    const fixture = await createFixture()
+    const session = createManagedLocalWorkbenchSession({
+      workspacePath: fixture.workspacePath,
+      osProjectPath: fixture.osProjectPath,
+      environmentPath: fixture.environmentPath
+    })
+    sessions.push(session)
+
+    expect(session.getSnapshot().configuredSkipWorkflowSourceActivation)
+      .toBe(false)
+    await session.setSkipWorkflowSourceActivation(true)
+    expect(session.getSnapshot()).toMatchObject({
+      configuredSkipWorkflowSourceActivation: true,
+      phase: 'idle'
+    })
+    await expect(readFile(
+      join(fixture.workspacePath, '.unilabos', 'environment.local.json'),
+      'utf8'
+    )).resolves.toContain('"skipWorkflowSourceActivation": true')
+  })
+
+  it.skipIf(process.platform === 'win32')(
+    'passes skip_workflow_source_activation only when reconstruction is disabled',
+    async () => {
+    const fixture = await createFixture()
+    const argumentLogPath = join(fixture.workspacePath, 'unilab-args.json')
+    const session = createManagedLocalWorkbenchSession({
+      workspacePath: fixture.workspacePath,
+      osProjectPath: fixture.osProjectPath,
+      environmentPath: fixture.environmentPath,
+      plcSimulatorOpcUaPort: fixture.plcSimulatorOpcUaPort,
+      environment: {
+        ...process.env,
+        UNILAB_FIXTURE_ARGUMENT_LOG: argumentLogPath
+      },
+      readinessTimeoutMs: 5_000
+    })
+    sessions.push(session)
+
+    await session.start()
+    const defaultArguments = JSON.parse(
+      await readFile(argumentLogPath, 'utf8')
+    ) as string[]
+    expect(defaultArguments).not.toContain('--skip_workflow_source_activation')
+    expect(session.getSnapshot().configuredSkipWorkflowSourceActivation)
+      .toBe(false)
+
+    await session.stop()
+    await session.setSkipWorkflowSourceActivation(true)
+    await session.start()
+    const skippedArguments = JSON.parse(
+      await readFile(argumentLogPath, 'utf8')
+    ) as string[]
+    expect(skippedArguments).toContain('--skip_workflow_source_activation')
+    await expect(readFile(
+      join(fixture.workspacePath, '.unilabos', 'environment.local.json'),
+      'utf8'
+    )).resolves.toContain('"skipWorkflowSourceActivation": true')
+  })
+
   it('allows any Workspace graph and records its immutable launch generation', async () => {
     const fixture = await createFixture()
     const selectedGraphPath = join(
@@ -1001,9 +1063,14 @@ function fakeUnilabExecutable(): string {
   return `#!/usr/bin/env node
 const http = require('node:http')
 const fs = require('node:fs')
+const path = require('node:path')
 const args = process.argv.slice(2)
 const port = Number(args[args.indexOf('--port') + 1])
 const graphPath = args[args.indexOf('--graph') + 1]
+if (process.env.UNILAB_FIXTURE_ARGUMENT_LOG) {
+  fs.mkdirSync(path.dirname(process.env.UNILAB_FIXTURE_ARGUMENT_LOG), { recursive: true })
+  fs.writeFileSync(process.env.UNILAB_FIXTURE_ARGUMENT_LOG, JSON.stringify(args))
+}
 if (process.env.UNILAB_FIXTURE_EXIT_BEFORE_READY === '1') process.exit(17)
 let exitScheduled = false
 const json = (response, body) => {

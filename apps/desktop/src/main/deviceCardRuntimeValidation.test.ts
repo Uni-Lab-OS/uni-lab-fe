@@ -9,6 +9,8 @@ import { DEVICE_CARD_JOINT_PREVIEW_FEATURE } from '@unilab/device-card-sdk'
 import {
   assertDeviceCardRuntimeCapabilities,
   isOpenRequest,
+  normalizeBoundsForZoom,
+  robotCommissioningSessionKey,
   type RuntimeCardRecord
 } from './deviceCardRuntimeValidation'
 
@@ -60,8 +62,39 @@ function rejectsLegacyLiveBinding(): void {
  * @returns 无；断言失败时由 Vitest 报告。
  */
 function registerRuntimeValidationTests(): void {
+  it('converts renderer CSS bounds at non-default zoom', () => {
+    expect(normalizeBoundsForZoom(
+      { x: 600, y: 360, width: 1_200, height: 900 },
+      5 / 6
+    )).toEqual({ x: 500, y: 300, width: 1_000, height: 750 })
+  })
+  it('keeps renderer CSS bounds at default zoom', () => {
+    expect(normalizeBoundsForZoom(
+      { x: 600, y: 360, width: 1_200, height: 900 },
+      1
+    )).toEqual({ x: 600, y: 360, width: 1_200, height: 900 })
+  })
   it('允许规范 v2 卡片绑定完整设备定义', verifiesPackageDefinitionLiveBinding)
   it('拒绝 v1 遗留卡片进入 Live', rejectsLegacyLiveBinding)
+  it('同一卡片设备与模式复用稳定的机械臂调试 sessionKey', () => {
+    const record = runtimeRecord()
+    const mock = runtimeContext('mock')
+    mock.device.deviceId = 'robot'
+    const remount = runtimeContext('mock')
+    remount.device.deviceId = 'robot'
+    expect(robotCommissioningSessionKey(record, mock)).toBe(
+      'hash:robot:mock'
+    )
+    expect(robotCommissioningSessionKey(record, remount)).toBe(
+      robotCommissioningSessionKey(record, mock)
+    )
+    expect(robotCommissioningSessionKey(record, runtimeContext('live'))).toBe(
+      'hash:robot-1:live'
+    )
+    expect(robotCommissioningSessionKey(record, runtimeContext('mock'))).toBe(
+      'hash:unbound:mock'
+    )
+  })
   it('只接受绑定当前 Material 的 Mock 关节快照', () => {
     const context = runtimeContext('mock')
     context.jointPreview = {

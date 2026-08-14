@@ -236,10 +236,15 @@ export const SDK_DECLARATION = `declare module '@unilab/device-card-sdk' {
     target_command_id?: string
     reason?: string
   }
+  export interface DeviceCardRobotCommissioningReviseRequest {
+    target_ref: string
+    joint_positions_si: number[]
+  }
   export interface DeviceCardRobotCommissioningBridge {
     open(): Promise<Record<string, JsonValue>>
     snapshot(): Promise<Record<string, JsonValue>>
     execute(command: DeviceCardRobotCommissioningCommand): Promise<Record<string, JsonValue>>
+    revise(request: DeviceCardRobotCommissioningReviseRequest): Promise<Record<string, JsonValue>>
     close(): Promise<void>
   }
   export interface DeviceCardRuntimeSnapshot {

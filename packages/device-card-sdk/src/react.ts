@@ -82,6 +82,7 @@ export function useDeviceCard(options: {
     open: async () => commissioningBridge().open(),
     snapshot: async () => commissioningBridge().snapshot(),
     execute: async (command) => commissioningBridge().execute(command),
+    revise: async (request) => commissioningBridge().revise(request),
     close: async () => commissioningBridge().close()
   }
 

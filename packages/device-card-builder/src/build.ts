@@ -44,6 +44,7 @@ import type {
 } from './contracts'
 import {
   assertInside,
+  isPathInsideRoot,
   scanSource,
   validatePermissionsAgainstContext
 } from './security'
@@ -161,7 +162,7 @@ export async function buildDeviceCard(
       ],
       sourcemap: request.development ? 'inline' : false,
       stdin: {
-        contents: wrapperSource(manifest, entry),
+        contents: wrapperSource(manifest, projectDir, entry),
         loader: 'tsx',
         resolveDir: projectDir,
         sourcefile: 'unilab-card-wrapper.tsx'
@@ -213,8 +214,12 @@ export async function buildDeviceCard(
   return { ok: true, diagnostics, metadata, outDir }
 }
 
-function wrapperSource(manifest: DeviceCardManifest, entry: string): string {
-  const entrySpecifier = JSON.stringify(entry)
+function wrapperSource(
+  manifest: DeviceCardManifest,
+  projectDir: string,
+  entry: string
+): string {
+  const entrySpecifier = JSON.stringify(toRelativeImportSpecifier(projectDir, entry))
   if (manifest.authoringProfile === 'vue-web-component-v1') {
     return `
       import { defineCustomElement } from 'vue'
@@ -261,7 +266,7 @@ function importPolicyPlugin(projectDir: string): Plugin {
         if (
           args.importer &&
           args.importer !== 'unilab-card-wrapper.tsx' &&
-          !isInside(projectDir, args.importer)
+          !isPathInsideRoot(projectDir, args.importer)
         ) {
           return undefined
         }
@@ -281,6 +286,11 @@ function importPolicyPlugin(projectDir: string): Plugin {
       })
     }
   }
+}
+
+function toRelativeImportSpecifier(projectDir: string, entry: string): string {
+  const relativeEntry = relative(projectDir, entry).split('\\').join('/')
+  return relativeEntry.startsWith('.') ? relativeEntry : `./${relativeEntry}`
 }
 
 function asarModulePlugin(): Plugin {
@@ -345,12 +355,6 @@ function unpackedAsarPath(path: string): string {
   if (!path.includes(marker)) return path
   const unpacked = path.replace(marker, '.asar.unpacked/')
   return existsSync(unpacked) ? unpacked : path
-}
-
-function isInside(root: string, candidate: string): boolean {
-  const pathFromRoot = relative(resolve(root), resolve(candidate))
-  return pathFromRoot === '' ||
-    (!pathFromRoot.startsWith('..') && !pathFromRoot.startsWith('/'))
 }
 
 function hostDocument(
@@ -499,6 +503,7 @@ if (!window.unilabCard) {
       async open() { throw new Error('独立 Mock Host 不提供真实机械臂调试会话。') },
       async snapshot() { throw new Error('独立 Mock Host 不提供真实机械臂调试快照。') },
       async execute() { throw new Error('独立 Mock Host 不允许执行真实机械臂命令。') },
+      async revise() { throw new Error('独立 Mock Host 不允许写回 PointSet。') },
       async close() {}
     },
     log(level, message) {

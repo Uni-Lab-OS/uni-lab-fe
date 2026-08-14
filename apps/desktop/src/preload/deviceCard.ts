@@ -62,6 +62,11 @@ const bridge: DeviceCardBridge = {
       'execute',
       command
     ),
+    revise: (request) => ipcRenderer.invoke(
+      'device-card-runtime:robotCommissioning',
+      'revise',
+      request
+    ),
     close: () => ipcRenderer.invoke(
       'device-card-runtime:robotCommissioning',
       'close'

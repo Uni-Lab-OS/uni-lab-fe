@@ -90,6 +90,10 @@ implements WorkbenchSessionServer, BackendApplicationContribution {
     return this.session.configureGraph(graphPath)
   }
 
+  setSkipWorkflowSourceActivation(enabled: boolean) {
+    return this.session.setSkipWorkflowSourceActivation(enabled)
+  }
+
   configurePlcSimulator(
     configuration: Parameters<WorkbenchSession['configurePlcSimulator']>[0]
   ) {

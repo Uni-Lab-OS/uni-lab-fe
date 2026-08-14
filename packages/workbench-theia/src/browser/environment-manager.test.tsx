@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
-import { RuntimeModeControl } from './environment-manager'
+import {
+  RuntimeModeControl,
+  SkipWorkflowSourceActivationControl
+} from './environment-manager'
 
 describe('RuntimeModeControl', () => {
   it.each([
@@ -27,5 +30,20 @@ describe('RuntimeModeControl', () => {
     expect(markup).toContain('codicon-check')
     expect(markup).toContain(`aria-label="${otherLabel}"`)
     expect(markup).toContain('aria-pressed="false"')
+  })
+})
+
+describe('SkipWorkflowSourceActivationControl', () => {
+  it('exposes the skip-reconstruction opt-in', () => {
+    const markup = renderToStaticMarkup(
+      <SkipWorkflowSourceActivationControl
+        checked={false}
+        disabled={false}
+        onChange={vi.fn()}
+      />
+    )
+
+    expect(markup).toContain('禁止重构工作流')
+    expect(markup).toContain('跳过工作流源码固定点激活')
   })
 })
