@@ -102,12 +102,14 @@ export default function LabTableRenderer({
         sites={node.floorplanSnapshot?.sites ?? []}
         showSites={node.floorplanSnapshot?.showSites ?? true}
       />
-      <PascalModelLabel
-        sceneObjectId={node.id}
-        displayName={node.displayName}
-        position={[0, height + 0.08, 0]}
-        selected={isSelected}
-      />
+      {node.showLabel ? (
+        <PascalModelLabel
+          sceneObjectId={node.id}
+          displayName={node.displayName}
+          position={[0, height + 0.08, 0]}
+          selected={isSelected}
+        />
+      ) : null}
     </group>
   )
 }

@@ -156,6 +156,7 @@ export function materialAggregatesToSceneGraph(
       parentId: LEVEL_ID,
       materialNodeId: aggregate.material.id,
       displayName: aggregate.material.name,
+      showLabel: options.showMaterialLabels !== false,
       position: projected.position,
       rotation: projected.rotation,
       dimensions: rendering.dimensionsMm.map(

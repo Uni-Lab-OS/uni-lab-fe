@@ -106,6 +106,23 @@ describe('Material Aggregate / Pascal bridge', () => {
     expect(sceneGraphToMaterialMoves(scene, [robot])).toEqual([])
   })
 
+  it('projects the shared material-label intent without changing domain data', () => {
+    const robot = aggregate('robot')
+    const visibleScene = materialAggregatesToSceneGraph([robot])
+    const hiddenScene = materialAggregatesToSceneGraph([robot], {
+      showMaterialLabels: false
+    })
+    const visibleNode = visibleScene.nodes['lab-robot']
+    const hiddenNode = hiddenScene.nodes['lab-robot']
+
+    expect(isLabDeviceNode(visibleNode)).toBe(true)
+    expect(isLabDeviceNode(hiddenNode)).toBe(true)
+    if (!isLabDeviceNode(visibleNode) || !isLabDeviceNode(hiddenNode)) return
+    expect(visibleNode.showLabel).toBe(true)
+    expect(hiddenNode.showLabel).toBe(false)
+    expect(robot.material).not.toHaveProperty('showLabel')
+  })
+
   it('turns a world-space Pascal drag into a canonical placement command', () => {
     const robot = aggregate('robot', {
       placement: {

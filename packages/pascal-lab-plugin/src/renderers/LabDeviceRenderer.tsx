@@ -417,7 +417,7 @@ export default function LabDeviceRenderer({
         sites={node.floorplanSnapshot?.sites ?? []}
         showSites={node.floorplanSnapshot?.showSites ?? true}
       />
-      {(showPersistentTag || isHovered || isSelected) && (
+      {node.showLabel && (showPersistentTag || isHovered || isSelected) && (
         <ModelLabel
           node={node}
           position={labelPosition}
