@@ -102,6 +102,40 @@ export function getWorkbenchDesktopCardBridge(): WorkbenchDesktopCardBridge {
 }
 
 /**
+ * Hides the native device-card surface while a renderer-owned overlay is open.
+ *
+ * Electron WebContentsView instances are composited outside the DOM, so CSS
+ * z-index cannot place a React dialog above them. The returned cleanup restores
+ * visibility for this source without disturbing other blocking overlays.
+ *
+ * @param api Device-card preload capability, possibly absent or version-skewed.
+ * @param source Stable overlay identity used by the main-process visibility set.
+ * @returns Cleanup that removes only this overlay's occlusion.
+ */
+export function setWorkbenchDeviceCardSurfaceOccluded(
+  api: Partial<Pick<WorkbenchDesktopDeviceCardApi, 'setOccluded'>> | undefined,
+  source: string
+): () => void {
+  if (typeof api?.setOccluded !== 'function') return () => undefined
+
+  const apply = (occluded: boolean): void => {
+    try {
+      void api.setOccluded?.(source, occluded).catch(() => undefined)
+    } catch {
+      // A stale preload must not prevent the renderer-owned overlay from opening.
+    }
+  }
+
+  apply(true)
+  let restored = false
+  return () => {
+    if (restored) return
+    restored = true
+    apply(false)
+  }
+}
+
+/**
  * Subscribes to articulated-model preview frames when the loaded Electron
  * preload supports them. A running development window can temporarily expose
  * the previous preload while Theia's browser bundle has already rebuilt; that

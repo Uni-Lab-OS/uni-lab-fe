@@ -20,6 +20,10 @@ import {
   UNAVAILABLE_MANAGED_RUNTIME,
   type ManagedRuntimeInstallationSnapshot
 } from './desktop-managed-runtime'
+import {
+  getWorkbenchDesktopCardBridge,
+  setWorkbenchDeviceCardSurfaceOccluded
+} from './workbench-desktop-device-card-api'
 
 export interface EnvironmentManagerProps {
   session: WorkbenchSessionSnapshot
@@ -77,6 +81,10 @@ export function EnvironmentManager({
   const [operationError, setOperationError] = useState<string | null>(null)
   const remoteAccessApi = useMemo(desktopWorkbenchRemoteApi, [])
   const managedRuntimeApi = useMemo(desktopManagedRuntimeApi, [])
+  const deviceCardApi = useMemo(
+    () => getWorkbenchDesktopCardBridge().deviceCards,
+    []
+  )
   const [runtimeInstallation, setRuntimeInstallation] =
     useState<ManagedRuntimeInstallationSnapshot>(UNAVAILABLE_MANAGED_RUNTIME)
 
@@ -99,6 +107,10 @@ export function EnvironmentManager({
       document.body.classList.remove('unilab-environment-manager-open')
     }
   }, [])
+  useEffect(() => setWorkbenchDeviceCardSurfaceOccluded(
+    deviceCardApi,
+    'environment-manager'
+  ), [deviceCardApi])
   useEffect(() => {
     if (!managedRuntimeApi) return
     let active = true
