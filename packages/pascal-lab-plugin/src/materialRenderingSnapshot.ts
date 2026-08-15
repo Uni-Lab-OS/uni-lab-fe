@@ -27,6 +27,11 @@ export function readMaterialRendering(
     source.kind ?? source.type ?? source.resourceType,
     'custom'
   ).toLowerCase()
+  const materialKind = (
+    source.materialKind ?? source.material_kind
+  ) === 'resource'
+    ? 'resource'
+    : 'device'
 
   const dimensionsMm =
     vectorTuple(source.dimensionsMm ?? source.sizeMm) ??
@@ -41,6 +46,7 @@ export function readMaterialRendering(
 
   return {
     kind: kind === 'lab-table' || kind === 'workbench' ? 'table' : kind,
+    materialKind,
     dimensionsMm,
     footprintMm,
     scale: vectorTuple(source.scale) ?? [1, 1, 1],

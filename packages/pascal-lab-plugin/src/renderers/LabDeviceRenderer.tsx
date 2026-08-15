@@ -32,6 +32,7 @@ import { findLinkObject } from '../mounting'
 import type { LabDeviceNode } from '../schema'
 import { SiteBoundsRenderer } from './SiteBoundsRenderer'
 import { PASCAL_SCENE_HTML_Z_INDEX_RANGE } from './htmlLayer'
+import { generatedBoundingBoxCenter } from './generatedBoundingBox'
 
 export const MODEL_READY_EVENT = 'unilab:pascal-model-ready'
 
@@ -335,15 +336,10 @@ export default function LabDeviceRenderer({
     >
       {node.renderBody && !object && !deckSurfaceProvidedByParent && (
         <mesh
-          position={
-            isDeck
-              ? [
-                  node.dimensions[0] / 2,
-                  node.dimensions[1] / 2,
-                  -node.dimensions[2] / 2
-                ]
-              : [0, node.dimensions[1] / 2, 0]
-          }
+          position={generatedBoundingBoxCenter(
+            isDeck ? 'resource' : node.materialKind,
+            node.dimensions
+          )}
           castShadow
           receiveShadow
         >
@@ -370,6 +366,8 @@ export default function LabDeviceRenderer({
           ref={modelGroupRef}
           rotation={isZUp ? [-Math.PI / 2, 0, 0] : undefined}
         >
+          {/* model.position/rotation is the explicit model-to-resource datum;
+              the Material group and its Sites remain in resource space. */}
           <group
             position={node.model.position}
             rotation={node.model.rotation}
