@@ -249,7 +249,8 @@ interface ResolvedWorkbenchLaunch {
 }
 
 const LOOPBACK_HOST = '127.0.0.1'
-const DEFAULT_READINESS_TIMEOUT_MS = 90_000
+export const WORKBENCH_OS_READINESS_TIMEOUT_MS = 300_000
+const DEFAULT_PLC_SIMULATOR_READINESS_TIMEOUT_MS = 90_000
 const LOCAL_ENVIRONMENT_CONFIG = 'environment.local.json'
 
 /** Create the single managed OS lifecycle owned by one Workbench window. */
@@ -849,7 +850,8 @@ class ManagedLocalWorkbenchSession implements WorkbenchSession {
       await waitForLoopbackPort(
         plan.guiPort,
         child,
-        this.options.readinessTimeoutMs ?? DEFAULT_READINESS_TIMEOUT_MS
+        this.options.readinessTimeoutMs ??
+          DEFAULT_PLC_SIMULATOR_READINESS_TIMEOUT_MS
       )
       if (this.plcSimulatorStopRequested) return this.getSnapshot()
       await startPlcSimulatorServices({
@@ -858,7 +860,8 @@ class ManagedLocalWorkbenchSession implements WorkbenchSession {
         variableTablePath: resolvedVariableTablePath,
         handshakeProfile,
         child,
-        timeoutMs: this.options.readinessTimeoutMs ?? DEFAULT_READINESS_TIMEOUT_MS
+        timeoutMs: this.options.readinessTimeoutMs ??
+          DEFAULT_PLC_SIMULATOR_READINESS_TIMEOUT_MS
       })
       if (this.plcSimulatorStopRequested) return this.getSnapshot()
       this.publishPlcSimulator({
@@ -1063,7 +1066,7 @@ class ManagedLocalWorkbenchSession implements WorkbenchSession {
       launch.identity.packageMounts = await waitForWorkbenchReadiness(
         launch.identity.backendUrl,
         child,
-        this.options.readinessTimeoutMs ?? DEFAULT_READINESS_TIMEOUT_MS
+        this.options.readinessTimeoutMs ?? WORKBENCH_OS_READINESS_TIMEOUT_MS
       )
       if (this.stopRequested) return this.getSnapshot()
       launch.identity.agent = this.snapshot.agent

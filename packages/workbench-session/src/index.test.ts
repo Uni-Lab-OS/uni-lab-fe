@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   createManagedLocalWorkbenchSession,
   defaultPlcSimulatorProjectPath,
+  WORKBENCH_OS_READINESS_TIMEOUT_MS,
   type WorkbenchSession
 } from './index'
 
@@ -31,6 +32,10 @@ afterEach(async () => {
 })
 
 describe('managed local Workbench session', () => {
+  it('allows managed exact workflow composition to finish before readiness expires', () => {
+    expect(WORKBENCH_OS_READINESS_TIMEOUT_MS).toBe(300_000)
+  })
+
   it('pre-fills the conventional sibling PLC-Sim path for a new workspace', async () => {
     const fixture = await createFixture()
     expect(defaultPlcSimulatorProjectPath(fixture.workspacePath))
