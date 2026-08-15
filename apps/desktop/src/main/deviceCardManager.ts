@@ -49,6 +49,10 @@ import { dispatchDeviceCardAction } from './deviceCardActionDispatch'
 import { createDeviceCardJointPreview } from './deviceCardJointPreview'
 import { LatestViewOpenCoordinator } from './latestViewOpenCoordinator'
 import {
+  commissioningResponseTimeoutMs,
+  dispatchBestEffortCommissioningClose
+} from './deviceCardCommissioningLifecycle'
+import {
   assertDeviceCardRuntimeCapabilities,
   filterAllowedState,
   isAuthoringContext,
@@ -78,9 +82,6 @@ type PendingCommissioning = {
 }
 type DiagnosticLevel = 'info' | 'warning' | 'error'
 
-const COMMISSIONING_REQUEST_TIMEOUT_MS = 70_000
-const COMMISSIONING_EXECUTE_TIMEOUT_MS = 310_000
-
 interface JointPreviewDiagnosticState {
   lastLoggedAt: number
   suppressed: number
@@ -91,7 +92,6 @@ export class DeviceCardManager {
   private readonly pendingActions = new Map<string, PendingAction>()
   private readonly pendingCommissioning =
     new Map<string, PendingCommissioning>()
-  private readonly commissioningCloseBarriers = new Map<string, Promise<void>>()
   private readonly visibility = new DeviceCardVisibilityController()
   private readonly attachedViews = new Set<WebContentsView>()
   private readonly jointPreviewDiagnostics =
@@ -377,7 +377,6 @@ export class DeviceCardManager {
       })
     }
     this.pendingCommissioning.clear()
-    this.commissioningCloseBarriers.clear()
   }
 
   private async listPublic(): Promise<InstalledDeviceCard[]> {
@@ -705,9 +704,6 @@ export class DeviceCardManager {
         ...(command === undefined ? {} : { command }),
         ...(revise === undefined ? {} : { revise })
       }
-      if (operation === 'open') {
-        await this.commissioningCloseBarriers.get(deviceId)
-      }
       const run = await this.dispatchCommissioningRequest(request)
       if (run.status !== 'DONE') {
         this.runtimeDiagnostic(
@@ -736,6 +732,7 @@ export class DeviceCardManager {
     request: DeviceCardHostRobotCommissioningRequest
   ): Promise<DeviceCardRobotCommissioningRun> {
     const mainWindow = this.requireMainWindow()
+    const timeoutMs = commissioningResponseTimeoutMs(request.operation)
     // 先登记 pending，再通知主 Renderer。否则极快的 open/snapshot
     // 响应可能在 Map 写入前返回，导致卡片永久等待。
     const result = new Promise<DeviceCardRobotCommissioningRun>((resolve) => {
@@ -744,11 +741,7 @@ export class DeviceCardManager {
         if (!pending) return
         this.pendingCommissioning.delete(request.requestId)
         this.runtimeDiagnostic(
-          `[commissioning] stage=manager status=timeout op=${diagnosticToken(request.operation)} device=${diagnosticToken(request.deviceId)} durationMs=${
-            request.operation === 'execute'
-              ? COMMISSIONING_EXECUTE_TIMEOUT_MS
-              : COMMISSIONING_REQUEST_TIMEOUT_MS
-          }`,
+          `[commissioning] stage=manager status=timeout op=${diagnosticToken(request.operation)} device=${diagnosticToken(request.deviceId)} durationMs=${timeoutMs}`,
           'error'
         )
         pending.resolve({
@@ -758,9 +751,7 @@ export class DeviceCardManager {
             ? '等待机械臂执行结果超时。'
             : `等待机械臂调试 ${request.operation} 响应超时。`
         })
-      }, request.operation === 'execute'
-        ? COMMISSIONING_EXECUTE_TIMEOUT_MS
-        : COMMISSIONING_REQUEST_TIMEOUT_MS)
+      }, timeoutMs)
       timeout.unref?.()
       this.pendingCommissioning.set(request.requestId, {
         resolve,
@@ -779,32 +770,24 @@ export class DeviceCardManager {
     request: DeviceCardHostRobotCommissioningRequest
   ): void {
     if (this.destroyed) return
-    const previous = this.commissioningCloseBarriers.get(request.deviceId)
-      ?? Promise.resolve()
-    const closing = previous
-      .catch(() => undefined)
-      .then(() => this.dispatchCommissioningRequest(request))
-      .then(run => {
-        if (run.status !== 'DONE') {
+    dispatchBestEffortCommissioningClose(
+      () => this.dispatchCommissioningRequest(request),
+      result => {
+        if (result.status === 'rejected') {
           this.runtimeDiagnostic(
-            `[commissioning] stage=close status=${run.status.toLowerCase()} device=${diagnosticToken(request.deviceId)}`,
+            `[commissioning] stage=close status=failed device=${diagnosticToken(request.deviceId)} code=${diagnosticErrorCode(result.reason)}`,
+            'warning'
+          )
+          return
+        }
+        if (result.value.status !== 'DONE') {
+          this.runtimeDiagnostic(
+            `[commissioning] stage=close status=${result.value.status.toLowerCase()} device=${diagnosticToken(request.deviceId)}`,
             'warning'
           )
         }
-      })
-      .catch(error => {
-        this.runtimeDiagnostic(
-          `[commissioning] stage=close status=failed device=${diagnosticToken(request.deviceId)} code=${diagnosticErrorCode(error)}`,
-          'warning'
-        )
-      })
-    const barrier = closing.then(() => undefined)
-    this.commissioningCloseBarriers.set(request.deviceId, barrier)
-    void barrier.finally(() => {
-      if (this.commissioningCloseBarriers.get(request.deviceId) === barrier) {
-        this.commissioningCloseBarriers.delete(request.deviceId)
       }
-    })
+    )
   }
 
   private logRejectedJointPreview(
@@ -975,7 +958,7 @@ function assertReviseRequest(
   if (!isPlainRecord(value) || JSON.stringify(value).length > 64 * 1024) {
     throw new Error('PointSet 示教写回必须是小于 64 KiB 的 JSON 对象。')
   }
-  const request = value as DeviceCardRobotCommissioningReviseRequest
+  const request = value as unknown as DeviceCardRobotCommissioningReviseRequest
   if (
     typeof request.target_ref !== 'string'
     || !request.target_ref.trim()
