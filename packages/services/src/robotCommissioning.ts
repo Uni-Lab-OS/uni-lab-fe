@@ -14,7 +14,8 @@ export interface RobotCommissioningService {
   open(
     deviceId: string,
     ownerId: string,
-    deploymentMode: 'simulation' | 'maintenance'
+    deploymentMode: 'simulation' | 'maintenance',
+    signal?: AbortSignal
   ): Promise<JsonObject>
   snapshot(deviceId: string, sessionId: string): Promise<JsonObject>
   execute(
@@ -29,7 +30,7 @@ export function createRobotCommissioningService(
   http: HttpClient
 ): RobotCommissioningService {
   return {
-    open: (deviceId, ownerId, deploymentMode) => traced(
+    open: (deviceId, ownerId, deploymentMode, signal) => traced(
       {
         op: 'open',
         device: deviceId,
@@ -43,6 +44,7 @@ export function createRobotCommissioningService(
             owner_id: ownerId,
             requested_deployment_mode: deploymentMode
           }),
+          signal,
           timeoutMs: ROBOT_COMMISSIONING_SESSION_TIMEOUT_MS
         }
       )

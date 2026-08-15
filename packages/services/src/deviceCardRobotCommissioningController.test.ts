@@ -43,7 +43,8 @@ describe('DeviceCardRobotCommissioningController', () => {
     expect(service.open).toHaveBeenCalledWith(
       'robot',
       'device-card:host-key',
-      'simulation'
+      'simulation',
+      expect.any(AbortSignal)
     )
     const run = await controller.execute({
       requestId: '2',
@@ -138,6 +139,50 @@ describe('DeviceCardRobotCommissioningController', () => {
     releaseClose()
     await expect(closing).resolves.toMatchObject({ status: 'DONE' })
     await expect(opening).resolves.toMatchObject({ status: 'DONE' })
+    expect(service.open).toHaveBeenCalledTimes(2)
+  })
+
+  it('aborts a pending open when its card session closes', async () => {
+    let observedSignal: AbortSignal | undefined
+    const service = {
+      open: vi.fn()
+        .mockImplementationOnce((
+          _deviceId: string,
+          _ownerId: string,
+          _mode: 'simulation' | 'maintenance',
+          signal?: AbortSignal
+        ) => {
+          observedSignal = signal
+          return new Promise((_resolve, reject) => {
+            signal?.addEventListener('abort', () => reject(new Error('aborted')), {
+              once: true
+            })
+          })
+        })
+        .mockResolvedValueOnce({ session_id: 'new-session' }),
+      snapshot: vi.fn(),
+      execute: vi.fn(),
+      close: vi.fn()
+    }
+    const controller = new DeviceCardRobotCommissioningController(service)
+    const opening = controller.execute({
+      requestId: 'open-old', sessionKey: 'old-key', deviceId: 'robot',
+      runtimeMode: 'mock', operation: 'open'
+    })
+    await vi.waitFor(() => expect(service.open).toHaveBeenCalledTimes(1))
+
+    const closing = controller.execute({
+      requestId: 'close-old', sessionKey: 'old-key', deviceId: 'robot',
+      runtimeMode: 'mock', operation: 'close'
+    })
+
+    await vi.waitFor(() => expect(observedSignal?.aborted).toBe(true))
+    await expect(opening).resolves.toMatchObject({ status: 'ERROR' })
+    await expect(closing).resolves.toMatchObject({ status: 'DONE' })
+    await expect(controller.execute({
+      requestId: 'open-new', sessionKey: 'new-key', deviceId: 'robot',
+      runtimeMode: 'mock', operation: 'open'
+    })).resolves.toMatchObject({ status: 'DONE' })
     expect(service.open).toHaveBeenCalledTimes(2)
   })
 })

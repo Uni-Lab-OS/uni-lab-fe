@@ -15,6 +15,11 @@ interface ActiveSession {
   runtimeMode: 'mock' | 'live'
 }
 
+interface PendingOpen {
+  deviceId: string
+  controller: AbortController
+}
+
 /**
  * 主 Renderer 对 OS RobotCommissioning API 的会话适配器。
  *
@@ -23,6 +28,7 @@ interface ActiveSession {
 export class DeviceCardRobotCommissioningController {
   private readonly sessions = new Map<string, ActiveSession>()
   private readonly deviceQueues = new Map<string, Promise<void>>()
+  private readonly pendingOpens = new Map<string, PendingOpen>()
   private disposed = false
 
   constructor(private readonly service: RobotCommissioningService) {}
@@ -37,6 +43,15 @@ export class DeviceCardRobotCommissioningController {
         error: '机械臂调试控制器已关闭。'
       }
     }
+    if (request.operation === 'close') {
+      this.pendingOpens.get(request.sessionKey)?.controller.abort()
+    } else if (request.operation === 'open') {
+      for (const [sessionKey, pending] of this.pendingOpens) {
+        if (pending.deviceId === request.deviceId && sessionKey !== request.sessionKey) {
+          pending.controller.abort()
+        }
+      }
+    }
     if (request.operation === 'open' || request.operation === 'close') {
       return this.enqueue(request.deviceId, () => this.executeNow(request))
     }
@@ -45,6 +60,9 @@ export class DeviceCardRobotCommissioningController {
 
   async dispose(): Promise<void> {
     this.disposed = true
+    for (const pending of this.pendingOpens.values()) {
+      pending.controller.abort()
+    }
     await Promise.allSettled(this.deviceQueues.values())
     const sessions = [...this.sessions.values()]
     this.sessions.clear()
@@ -122,11 +140,22 @@ export class DeviceCardRobotCommissioningController {
     }
     if (request.operation === 'open') {
       if (active) return this.service.snapshot(active.deviceId, active.sessionId)
-      const context = await this.service.open(
-        request.deviceId,
-        `device-card:${request.sessionKey}`,
-        request.runtimeMode === 'mock' ? 'simulation' : 'maintenance'
-      )
+      const controller = new AbortController()
+      const pending: PendingOpen = { deviceId: request.deviceId, controller }
+      this.pendingOpens.set(request.sessionKey, pending)
+      let context: JsonObject
+      try {
+        context = await this.service.open(
+          request.deviceId,
+          `device-card:${request.sessionKey}`,
+          request.runtimeMode === 'mock' ? 'simulation' : 'maintenance',
+          controller.signal
+        )
+      } finally {
+        if (this.pendingOpens.get(request.sessionKey) === pending) {
+          this.pendingOpens.delete(request.sessionKey)
+        }
+      }
       const sessionId = context.session_id
       if (typeof sessionId !== 'string' || !sessionId) {
         throw new Error('OS 未返回有效机械臂调试 session_id。')
