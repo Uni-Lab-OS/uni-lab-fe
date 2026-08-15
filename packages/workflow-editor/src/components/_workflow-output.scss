@@ -307,6 +307,36 @@
   box-shadow: 0 0 0 1px #334155;
 }
 
+.workflow :global(.workflow-runtime__node-list)
+  button[data-node-state='running'] {
+  color: color-mix(
+    in srgb,
+    var(--unilab-color-warning) 82%,
+    var(--unilab-color-text)
+  );
+  border: 2px solid var(--unilab-color-warning);
+  background: var(--unilab-color-warning-soft);
+  box-shadow: 0 0 0 1px color-mix(
+    in srgb,
+    var(--unilab-color-warning) 48%,
+    transparent
+  );
+}
+
+.workflow :global(.workflow-runtime__node-list)
+  button[data-node-state='running']:hover {
+  border-color: color-mix(
+    in srgb,
+    var(--unilab-color-warning) 88%,
+    #7c2d12
+  );
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-warning-soft) 82%,
+    var(--unilab-color-warning)
+  );
+}
+
 .workflow :global(.workflow-runtime__node-list) button:global(.is-paused-before) {
   border-color: var(--unilab-color-paused);
   background: var(--unilab-color-paused-soft);

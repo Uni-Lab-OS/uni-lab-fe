@@ -30,7 +30,11 @@ import {
 } from '../modelRuntime'
 import { findLinkObject } from '../mounting'
 import type { LabDeviceNode } from '../schema'
-import { SiteBoundsRenderer } from './SiteBoundsRenderer'
+import {
+  isSiteBoundsPointerHit,
+  SiteBoundsRenderer,
+  siteBoundsOccupantSceneObjectId
+} from './SiteBoundsRenderer'
 import { PascalModelLabel } from './PascalModelLabel'
 import { PASCAL_SCENE_HTML_Z_INDEX_RANGE } from './htmlLayer'
 
@@ -330,6 +334,30 @@ export default function LabDeviceRenderer({
       scale={node.scale}
       visible={node.visible !== false}
       {...events}
+      onPointerDown={(event) => {
+        if (siteBoundsOccupantSceneObjectId(event.object)) {
+          event.stopPropagation()
+          return
+        }
+        if (!isSiteBoundsPointerHit(event.object)) {
+          events.onPointerDown(event)
+        }
+      }}
+      onPointerUp={(event) => {
+        const occupantSceneObjectId = siteBoundsOccupantSceneObjectId(
+          event.object
+        )
+        if (occupantSceneObjectId) {
+          event.stopPropagation()
+          useViewer.getState().setSelection({
+            selectedIds: [occupantSceneObjectId as never]
+          })
+          return
+        }
+        if (!isSiteBoundsPointerHit(event.object)) {
+          events.onPointerUp(event)
+        }
+      }}
       onPointerEnter={(event) => {
         setIsHovered(true)
         events.onPointerEnter(event)

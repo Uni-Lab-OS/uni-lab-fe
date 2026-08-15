@@ -30,6 +30,10 @@ async function openMaterial3dView(page: Page): Promise<void> {
     state: 'detached',
     timeout: 120_000
   })
+  const trustWorkspace = page.getByRole('button', {
+    name: /是，我信任此作者/
+  })
+  if (await trustWorkspace.isVisible()) await trustWorkspace.click()
 
   const materialTab = page.locator(
     '#shell-tab-unilab\\:material-navigation'

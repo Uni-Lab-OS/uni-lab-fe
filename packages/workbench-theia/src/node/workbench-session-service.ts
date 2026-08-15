@@ -2,6 +2,8 @@ import type { BackendApplicationContribution } from '@theia/core/lib/node'
 import { ILogger } from '@theia/core/lib/common/logger'
 import type { Disposable } from '@theia/core/lib/common/disposable'
 import { inject, injectable } from '@theia/core/shared/inversify'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { basename, dirname, extname, resolve } from 'node:path'
 import {
   createWorkspaceHostWorkbenchSession,
   type WorkbenchSession
@@ -23,6 +25,20 @@ interface PendingMaterialRendererRequest {
   resolve(response: MaterialRendererResponse): void
   reject(error: Error): void
   timeout: ReturnType<typeof setTimeout>
+}
+
+const ANSI_CONTROL_SEQUENCE = /\u001B(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001B\\))/g
+
+/** Convert a terminal-colored runtime log into plain text for the IDE editor. */
+export function sanitizeRuntimeLogForEditor(content: string): string {
+  return content.replace(ANSI_CONTROL_SEQUENCE, '')
+}
+
+/** Build a stable sibling path without replacing the diagnostic source log. */
+export function readableRuntimeLogPath(logPath: string): string {
+  const extension = extname(logPath)
+  const stem = basename(logPath, extension)
+  return resolve(dirname(logPath), '.readable', `${stem}.readable${extension || '.log'}`)
 }
 
 function createWorkbenchNodeSession(): WorkbenchNodeSession {
@@ -95,6 +111,29 @@ implements WorkbenchSessionServer, BackendApplicationContribution {
 
   getSnapshot() {
     return Promise.resolve(this.session.getSnapshot())
+  }
+
+  /**
+   * Materialize a safe, read-only editor copy of a session-owned log.
+   * The caller may only request one of the paths exposed by the current snapshot.
+   */
+  async prepareReadableLog(logPath: string): Promise<string> {
+    const snapshot = this.session.getSnapshot()
+    const allowedPaths = [
+      snapshot.identity?.logPath,
+      snapshot.edgeRuntime.logPath,
+      snapshot.plcSimulator.logPath,
+      snapshot.agent?.logPath
+    ].filter((candidate): candidate is string => Boolean(candidate))
+    const resolvedLogPath = resolve(logPath)
+    if (!allowedPaths.some(candidate => resolve(candidate) === resolvedLogPath)) {
+      throw new Error('只能打开当前 Workbench 会话生成的日志文件')
+    }
+    const readablePath = readableRuntimeLogPath(resolvedLogPath)
+    const content = await readFile(resolvedLogPath, 'utf8')
+    await mkdir(dirname(readablePath), { recursive: true })
+    await writeFile(readablePath, sanitizeRuntimeLogForEditor(content), 'utf8')
+    return readablePath
   }
 
   start() {

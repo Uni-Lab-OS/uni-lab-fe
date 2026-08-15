@@ -105,6 +105,7 @@ export interface WorkbenchSessionServer
 extends WorkbenchSessionRemoteOperations {
   setClient(client: WorkbenchSessionClient): void
   getSnapshot(): Promise<WorkbenchSessionSnapshot>
+  prepareReadableLog(logPath: string): Promise<string>
   completeMaterialRendererRequest(
     response: MaterialRendererResponse
   ): Promise<void>

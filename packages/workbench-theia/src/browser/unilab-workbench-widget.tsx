@@ -713,7 +713,8 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   /** 在 Workbench 主编辑区打开当前会话日志。 */
   protected readonly openSessionLog = async (logPath: string): Promise<void> => {
     if (!logPath) throw new Error('当前会话尚未生成日志文件')
-    const uri = URI.fromFilePath(logPath)
+    const readableLogPath = await this.workbenchSession.prepareReadableLog(logPath)
+    const uri = URI.fromFilePath(readableLogPath)
     const existing = this.editorManager.all.find(
       candidate => candidate.editor.uri.toString() === uri.toString()
     )
@@ -721,9 +722,25 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       await this.shell.activateWidget(existing.id)
       return
     }
-    await this.editorManager.open(uri, {
+    const widget = await this.editorManager.open(uri, {
       mode: 'activate',
       widgetOptions: { area: 'main', mode: 'split-right', ref: this }
+    })
+    const monacoEditor = widget.editor as typeof widget.editor & {
+      editor?: {
+        updateOptions(options: {
+          readOnly: boolean
+          minimap: { enabled: boolean }
+          wordWrap: 'off'
+          renderControlCharacters: boolean
+        }): void
+      }
+    }
+    monacoEditor.editor?.updateOptions({
+      readOnly: true,
+      minimap: { enabled: false },
+      wordWrap: 'off',
+      renderControlCharacters: false
     })
   }
 

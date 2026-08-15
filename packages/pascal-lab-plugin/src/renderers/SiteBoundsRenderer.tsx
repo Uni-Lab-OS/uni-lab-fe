@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   BoxGeometry,
   CylinderGeometry,
-  EdgesGeometry
+  EdgesGeometry,
+  type Object3D
 } from 'three'
 
 import type { LabFloorplanSite } from '../schema'
@@ -25,6 +26,45 @@ export type SiteBoundsGeometry =
       radius: number
       height: number
     }
+
+const SITE_BOUND_HIT_MARKER = 'unilabSiteBound'
+
+/**
+ * 判断射线是否命中了库位（Site）辅助几何，而非物料（Material）身体。
+ *
+ * @param object Three.js 射线返回的最内层场景对象。
+ * @returns 命中对象或其祖先属于库位辅助框时返回 true。
+ */
+export function isSiteBoundsPointerHit(object: Object3D): boolean {
+  let current: Object3D | null = object
+  while (current) {
+    if (current.userData[SITE_BOUND_HIT_MARKER] === true) return true
+    current = current.parent
+  }
+  return false
+}
+
+/**
+ * 读取库位（Site）辅助几何绑定的占用物料（Material）场景身份。
+ *
+ * @param object Three.js 射线返回的最内层场景对象。
+ * @returns 有唯一占用物料时返回 Pascal 场景 ID，否则返回 null。
+ */
+export function siteBoundsOccupantSceneObjectId(
+  object: Object3D
+): string | null {
+  let current: Object3D | null = object
+  while (current) {
+    if (current.userData[SITE_BOUND_HIT_MARKER] === true) {
+      const occupant = current.userData.occupantSceneObjectId
+      return typeof occupant === 'string' && occupant.length > 0
+        ? occupant
+        : null
+    }
+    current = current.parent
+  }
+  return null
+}
 
 /** Convert a lower-left Z-up Site box into a centered Pascal Y-up box. */
 export function siteBoundsTransform(
@@ -140,7 +180,12 @@ function SiteBound({
       name={`unilab-site-bound-${site.id}`}
       position={geometry.position}
       renderOrder={18}
-      userData={{ siteId: site.id, siteShape: geometry.kind }}
+      userData={{
+        [SITE_BOUND_HIT_MARKER]: true,
+        occupantSceneObjectId: site.occupantSceneObjectId,
+        siteId: site.id,
+        siteShape: geometry.kind
+      }}
       onPointerOver={(event) => {
         event.stopPropagation()
         onHover(site.id)
@@ -153,7 +198,7 @@ function SiteBound({
       <SiteGeometry geometry={geometry} />
       <meshBasicMaterial
         color="#bae6fd"
-        depthTest={false}
+        depthTest
         depthWrite={false}
         opacity={shown ? 0.24 : 0}
         transparent
@@ -162,7 +207,7 @@ function SiteBound({
         <lineSegments geometry={outlineGeometry} renderOrder={19}>
           <lineBasicMaterial
             color="#38bdf8"
-            depthTest={false}
+            depthTest
             depthWrite={false}
           />
         </lineSegments>

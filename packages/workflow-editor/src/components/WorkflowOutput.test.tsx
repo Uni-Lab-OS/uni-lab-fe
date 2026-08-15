@@ -17,6 +17,17 @@ import {
 function noop(): void {}
 
 describe('WorkflowOutput', () => {
+  it('highlights running node cards with a stronger orange border', () => {
+    const stylesheet = readFileSync(fileURLToPath(new URL(
+      './_workflow-output.scss',
+      import.meta.url
+    )), 'utf8')
+
+    expect(stylesheet).toMatch(
+      /button\[data-node-state='running'\]\s*\{[\s\S]*border:\s*2px solid var\(--unilab-color-warning\);[\s\S]*background:\s*var\(--unilab-color-warning-soft\);/u
+    )
+  })
+
   it('centers the node result status with its copy action', () => {
     const stylesheet = readFileSync(fileURLToPath(new URL(
       './_workflow-output.scss',
