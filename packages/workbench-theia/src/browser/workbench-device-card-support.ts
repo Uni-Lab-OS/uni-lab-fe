@@ -30,6 +30,42 @@ export type WorkbenchDeviceCardOperation =
 export interface WorkbenchDeviceCardNotice {
   kind: 'info' | 'success' | 'warning' | 'error'
   text: string
+  source?: 'device-status-stream'
+}
+
+/**
+ * 把设备状态流错误投影为只属于 Live 模式的用户提示。
+ *
+ * @param current 当前更高优先级或业务操作提示。
+ * @param error Realtime adapter 提供的可读错误。
+ * @param liveMode 当前卡片是否已明确绑定 Live 设备。
+ * @returns Mock 下保持原提示；Live 下保留已有错误或建立可恢复警告。
+ */
+export function workbenchDeviceStatusStreamErrorNotice(
+  current: WorkbenchDeviceCardNotice | null,
+  error: string,
+  liveMode: boolean
+): WorkbenchDeviceCardNotice | null {
+  if (!liveMode || current?.kind === 'error') {
+    return current
+  }
+  return {
+    kind: 'warning',
+    source: 'device-status-stream',
+    text: `${error}，Live 状态可能暂时不更新。`
+  }
+}
+
+/**
+ * 在设备状态流恢复后只清除该流自己创建的警告。
+ *
+ * @param current 当前用户提示。
+ * @returns 设备状态流警告返回 null，其他业务提示保持原对象。
+ */
+export function clearWorkbenchDeviceStatusStreamNotice(
+  current: WorkbenchDeviceCardNotice | null
+): WorkbenchDeviceCardNotice | null {
+  return current?.source === 'device-status-stream' ? null : current
 }
 
 export interface WorkbenchDeviceCardLiveBinding {

@@ -43,8 +43,10 @@ import {
   buildWorkbenchDeviceCardAuthoringTarget,
   buildWorkbenchDeviceCardRuntimeState,
   buildWorkbenchDeviceCardSampleState,
+  clearWorkbenchDeviceStatusStreamNotice,
   isWorkbenchDeviceCardLiveBinding,
   workbenchDeviceCardActionSignature,
+  workbenchDeviceStatusStreamErrorNotice,
   workbenchDeviceCardErrorNotice,
   type WorkbenchDeviceCardLiveBinding,
   type WorkbenchDeviceCardNotice
@@ -194,6 +196,7 @@ export function useWorkbenchDeviceCards({
       console.info(
         `[device-status-stream] stage=workbench status=open surface=theia endpoint=${endpoint}`
       )
+      setMessage(clearWorkbenchDeviceStatusStreamNotice)
     },
     onClose: () => {
       console.warn(
@@ -205,6 +208,7 @@ export function useWorkbenchDeviceCards({
       for (const status of statuses) next.set(status.deviceId, status)
       statusMapRef.current = next
       setStatusMap(next)
+      setMessage(clearWorkbenchDeviceStatusStreamNotice)
     },
     onJointState: frame => {
       try {
@@ -227,9 +231,11 @@ export function useWorkbenchDeviceCards({
       console.error(
         `[device-status-stream] stage=workbench status=error surface=theia endpoint=${endpoint}`
       )
-      setMessage(current => current?.kind === 'error'
-        ? current
-        : { kind: 'warning', text: `${error}，Live 状态可能暂时不更新。` })
+      setMessage(current => workbenchDeviceStatusStreamErrorNotice(
+        current,
+        error,
+        jointStateLiveModeRef.current
+      ))
     }
     })
   }, [services.backend.realtimeUrl, services.realtime])
@@ -327,6 +333,10 @@ export function useWorkbenchDeviceCards({
     }
     previousJointBindingRef.current = { liveMode, materialId }
   }, [liveMode, previewDevice?.materialUuid])
+
+  useEffect(() => {
+    if (!liveMode) setMessage(clearWorkbenchDeviceStatusStreamNotice)
+  }, [liveMode])
 
   useEffect(() => {
     setSelectedDeviceId(current => devices.some(device => device.deviceId === current)
