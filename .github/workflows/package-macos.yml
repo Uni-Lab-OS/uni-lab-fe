@@ -502,9 +502,8 @@ jobs:
           cat "$RUNNER_TEMP/macos-packaging-metrics.json"
           df -h .
 
-      # Keep small reports for every full build. Deploy pushes publish the
-      # verified DMG to the rolling release below, so they do not also retain a
-      # second ~630 MiB copy in Actions artifact storage.
+      # Keep small reports separate from the downloadable DMG so packaging
+      # diagnostics remain quick to inspect without downloading the installer.
       - name: Upload macOS packaging diagnostics
         if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         uses: actions/upload-artifact@v6
@@ -529,8 +528,8 @@ jobs:
           # DMG 已压缩，上传阶段不重复压缩可显著缩短总耗时。
           compression-level: 0
 
-      - name: Upload signed macOS release bundle when no rolling release is published
-        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'signed' && (github.event_name != 'push' || github.ref != 'refs/heads/deploy-mac')
+      - name: Upload signed macOS DMG
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'signed'
         uses: actions/upload-artifact@v6
         with:
           name: UniLab-Workbench-macos-arm64-signed-${{ github.sha }}

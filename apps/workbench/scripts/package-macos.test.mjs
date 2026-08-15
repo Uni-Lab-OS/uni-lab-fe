@@ -452,9 +452,7 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(diagnosticsUploadSection, /compression-level: 6/u)
     const unsignedUploadSection = workflow.slice(
       workflow.indexOf('name: Upload unsigned macOS DMG'),
-      workflow.indexOf(
-        'name: Upload signed macOS release bundle when no rolling release is published'
-      )
+      workflow.indexOf('name: Upload signed macOS DMG')
     )
     assert.match(unsignedUploadSection, /release-macos\/\*\.dmg/u)
     assert.doesNotMatch(unsignedUploadSection, /release-macos\/\*\.zip/u)
@@ -463,14 +461,12 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(unsignedUploadSection, /retention-days: 7/u)
 
     const signedUploadSection = workflow.slice(
-      workflow.indexOf(
-        'name: Upload signed macOS release bundle when no rolling release is published'
-      ),
+      workflow.indexOf('name: Upload signed macOS DMG'),
       workflow.indexOf('name: Publish rolling macOS DMG release')
     )
     assert.match(signedUploadSection, /release-macos\/\*\.dmg/u)
-    assert.match(signedUploadSection, /github\.event_name != 'push'/u)
-    assert.match(signedUploadSection, /refs\/heads\/deploy-mac/u)
+    assert.match(signedUploadSection, /UNILAB_CI_SIGNING_MODE == 'signed'/u)
+    assert.doesNotMatch(signedUploadSection, /github\.event_name != 'push'/u)
     assert.doesNotMatch(signedUploadSection, /release-macos\/\*\.zip/u)
     assert.doesNotMatch(signedUploadSection, /latest-mac\.yml/u)
     assert.doesNotMatch(signedUploadSection, /macos-packaging-metrics\.json/u)
