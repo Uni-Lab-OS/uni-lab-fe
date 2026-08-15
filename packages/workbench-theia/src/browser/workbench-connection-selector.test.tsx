@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createWorkbenchConnectionTargets } from './workbench-connection-profile'
 import {
   closeConnectionSelector,
+  closeConnectionSelectorOnOutsidePointer,
   WorkbenchConnectionSelector
 } from './workbench-connection-selector'
 
@@ -74,6 +75,22 @@ describe('WorkbenchConnectionSelector', () => {
 
     closeConnectionSelector(selector)
 
+    expect(selector.open).toBe(false)
+  })
+
+  /** 证明点击弹层外部会关闭选择器，且不会把弹层内部操作误判为外部点击。 */
+  it('closes on outside pointer interaction only', () => {
+    const insideTarget = {} as EventTarget
+    const outsideTarget = {} as EventTarget
+    const selector = {
+      open: true,
+      contains: (target: Node): boolean => target === insideTarget
+    }
+
+    closeConnectionSelectorOnOutsidePointer(selector, insideTarget)
+    expect(selector.open).toBe(true)
+
+    closeConnectionSelectorOnOutsidePointer(selector, outsideTarget)
     expect(selector.open).toBe(false)
   })
 })

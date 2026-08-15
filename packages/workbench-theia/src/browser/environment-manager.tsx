@@ -415,18 +415,6 @@ export function EnvironmentManager({
                 disabled={Boolean(busyAction) || !schedulerUrl.trim()}
                 onClick={() => void run('save-scheduler-target', saveSchedulerUrl)}
               >保存 Scheduler 地址</button>
-              {!schedulerAutomatic || session.configuredSchedulerUrl ? (
-                <button
-                  type="button"
-                  disabled={Boolean(busyAction)}
-                  onClick={() => void run('derive-scheduler-target', async () => {
-                    const derived = deriveSchedulerUrl(releaseBackendUrl)
-                    setSchedulerAutomatic(true)
-                    setSchedulerUrl(derived)
-                    await onSetSchedulerUrl(null)
-                  })}
-                >恢复自动推导</button>
-              ) : null}
               <button
                 type="button"
                 className="is-primary"

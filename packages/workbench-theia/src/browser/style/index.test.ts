@@ -155,6 +155,12 @@ describe('environment manager layering and responsive layout', () => {
       /body\.unilab-agent-panel-visible[\s\S]*?#theia-bottom-split-panel\s*\{[^}]*right:\s*420px !important/u
     )
     expect(domainNavigationStylesheet).toMatch(
+      /@media \(max-width:\s*720px\)[\s\S]*?body\.unilab-agent-panel-visible[\s\S]*?#theia-right-content-panel\s*\{[^}]*position:\s*absolute !important;[^}]*inset:\s*0 !important;[^}]*width:\s*100% !important;/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /@media \(max-width:\s*720px\)[\s\S]*?body\.unilab-agent-panel-visible[\s\S]*?#theia-bottom-split-panel\s*\{[^}]*visibility:\s*hidden !important;[^}]*pointer-events:\s*none !important;/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
       /#theia-left-right-split-panel\s*> #theia-bottom-split-panel\s*\{[^}]*right:\s*0 !important;[^}]*width:\s*auto !important/u
     )
     expect(domainNavigationStylesheet).not.toMatch(
@@ -185,6 +191,13 @@ describe('environment manager layering and responsive layout', () => {
     )
     expect(domainNavigationStylesheet).not.toMatch(
       /data-unilabdomain='robot-reagents'\]\s*\{\s*display:\s*none/u
+    )
+  })
+
+  /** UniLab 领域入口不得叠加 Lumino 遗留的 current 高亮。 */
+  it('uses the Workbench domain state as the only activity highlight', () => {
+    expect(domainNavigationStylesheet).toMatch(
+      /\.lm-TabBar-tab\.lm-mod-current\[data-unilabactive='false'\]:not\(:hover\)\s*\{[^}]*color:\s*var\(--theia-activityBar-inactiveForeground\) !important;[^}]*background:\s*transparent !important;[^}]*box-shadow:\s*none !important;/u
     )
   })
 

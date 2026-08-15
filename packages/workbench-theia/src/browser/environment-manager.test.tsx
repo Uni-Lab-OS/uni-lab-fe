@@ -33,6 +33,7 @@ describe('EnvironmentManager', () => {
     expect(markup).toContain('aria-label="Scheduler 目标地址"')
     expect(markup).toContain('value="http://127.0.0.1:8081"')
     expect(markup).toContain('Scheduler：自动推导')
+    expect(markup).not.toContain('恢复自动推导')
   })
 })
 

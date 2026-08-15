@@ -137,7 +137,7 @@ export function ReagentLibraryView({
                   </td>
                   <td data-label="CAS 号" className={uiClass.mono}>{info.cas ?? '—'}</td>
                   <td data-label="分子式" className={styles.reagentFormula}>{info.molecularFormula ?? '—'}</td>
-                  <td data-label="2D 结构"><MoleculeStructure2D name={info.name} smiles={info.smiles} /></td>
+                  <td data-label="2D 结构"><MoleculeStructure2D name={info.name} smiles={info.smiles} size="compact" /></td>
                   <td data-label="物性">
                     <div className={styles.reagentProperties}>
                       <strong>{info.molecularWeight == null ? '—' : `${info.molecularWeight.toLocaleString('zh-CN')} g/mol`}</strong>

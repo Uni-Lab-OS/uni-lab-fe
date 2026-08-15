@@ -119,6 +119,7 @@ describe('ReagentViews filters', () => {
     expect(markup).not.toContain('<th>分子量</th>')
     expect(markup).not.toContain('<th>常温形态</th>')
     expect(markup).toContain('data-smiles="CCO"')
+    expect(markup).toContain('data-size="compact"')
     expect(markup).not.toContain('<th>SMILES</th>')
   })
 })

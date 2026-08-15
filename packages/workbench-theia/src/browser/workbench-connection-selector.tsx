@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import type {
   WorkbenchConnectionMode,
@@ -39,6 +39,18 @@ export function WorkbenchConnectionSelector({
   const selectorRef = useRef<HTMLDetailsElement>(null)
   const selected = targets[selectedMode]
   const statusLabel = connectionStatusLabel(selectedMode, connection)
+
+  useEffect(() => {
+    const selector = selectorRef.current
+    if (!selector) return undefined
+
+    const handleOutsidePointerDown = (event: PointerEvent): void => {
+      closeConnectionSelectorOnOutsidePointer(selector, event.target)
+    }
+
+    document.addEventListener('pointerdown', handleOutsidePointerDown)
+    return () => document.removeEventListener('pointerdown', handleOutsidePointerDown)
+  }, [])
 
   /** 用户明确选择由常驻 Workspace Backend 持有后续任务权威。 */
   const selectLocal = useCallback((): void => {
@@ -120,6 +132,20 @@ export function closeConnectionSelector(
   selector: Pick<HTMLDetailsElement, 'open'> | null
 ): void {
   if (selector) selector.open = false
+}
+
+/**
+ * 点击连接选择器之外的区域时收起浮层，并保留外部控件原有的点击行为。
+ * @param selector 当前连接选择器详情元素；尚未挂载时允许为空。
+ * @param target 指针事件命中的节点；无法识别目标时按外部点击处理。
+ */
+export function closeConnectionSelectorOnOutsidePointer(
+  selector: Pick<HTMLDetailsElement, 'open' | 'contains'> | null,
+  target: EventTarget | null
+): void {
+  if (!selector?.open) return
+  if (target && selector.contains(target as Node)) return
+  selector.open = false
 }
 
 /**

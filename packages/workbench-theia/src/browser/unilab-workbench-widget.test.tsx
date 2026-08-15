@@ -4,10 +4,22 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   captureWorkbenchUiOperation,
   runAndRefreshWorkbenchOperation,
+  WorkbenchAuthorityLoading,
   WorkbenchSessionGate
 } from './workbench-session-gate'
 
 describe('WorkbenchSessionGate', () => {
+  it('shows Workspace Backend loading while switching from Backend', () => {
+    const markup = renderToStaticMarkup(
+      <WorkbenchAuthorityLoading mode="local" />
+    )
+
+    expect(markup).toContain('data-loading-kind="authority-switch"')
+    expect(markup).toContain('data-authority-target="local"')
+    expect(markup).toContain('正在切换到 Workspace Backend')
+    expect(markup).toContain('正在连接 Workspace Backend，并恢复本地工作流与设备数据…')
+  })
+
   it('turns a rejected UI operation into a visible error value', async () => {
     const errors: string[] = []
 

@@ -8,10 +8,12 @@ type RenderState = 'drawing' | 'ready' | 'invalid'
 /** 将后端返回的 SMILES 在浏览器本地绘制成紧凑的二维结构图。 */
 export function MoleculeStructure2D({
   name,
-  smiles
+  smiles,
+  size = 'default'
 }: {
   name: string
   smiles?: string
+  size?: 'default' | 'compact'
 }): React.JSX.Element {
   const svgRef = useRef<SVGSVGElement>(null)
   const [state, setState] = useState<RenderState>(smiles ? 'drawing' : 'invalid')
@@ -54,6 +56,7 @@ export function MoleculeStructure2D({
     <figure
       className={styles.moleculeStructure}
       data-state={state}
+      data-size={size}
       title={smiles}
       aria-label={smiles ? `${name} 的二维分子结构` : `${name} 暂无二维分子结构`}
     >

@@ -119,11 +119,11 @@
   min-width: 820px;
   table-layout: fixed;
 
-  th:nth-child(1) { width: 23%; }
+  th:nth-child(1) { width: 26%; }
   th:nth-child(2) { width: 13%; }
   th:nth-child(3) { width: 12%; }
-  th:nth-child(4) { width: 21%; }
-  th:nth-child(5) { width: 20%; }
+  th:nth-child(4) { width: 15%; }
+  th:nth-child(5) { width: 23%; }
 
   tbody tr {
     transition: background-color 140ms ease;
@@ -134,9 +134,9 @@
   }
 
   td {
-    height: 92px;
-    padding-top: 10px;
-    padding-bottom: 10px;
+    height: 78px;
+    padding-top: 8px;
+    padding-bottom: 8px;
     vertical-align: middle;
   }
 
@@ -763,6 +763,16 @@
     text-align: center;
     background: var(--unilab-color-bg-subtle);
     place-items: center;
+  }
+}
+
+.moleculeStructure[data-size='compact'] {
+  width: 104px;
+  height: 62px;
+
+  svg {
+    width: 104px;
+    height: 62px;
   }
 }
 

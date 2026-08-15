@@ -54,9 +54,10 @@ export class WorkbenchViewState {
 
   /** 判断一个领域入口当前是否在 Workbench 主区可见。 */
   isVisible(domain: WorkbenchDomain): boolean {
+    if (this.exclusiveDomain) return this.exclusiveDomain === domain
     if (domain === 'workflow') return this.workflowVisible
     if (domain === 'material') return this.materialVisible
-    return this.exclusiveDomain === domain
+    return false
   }
 
   /**
@@ -66,6 +67,9 @@ export class WorkbenchViewState {
    */
   toggle(domain: WorkbenchDomain): void {
     const previousMode = this.currentMode
+    // 主区必须始终保留至少一个活动领域。单视图下再次点击当前入口
+    // 只用于保持焦点，不能把唯一活动项关闭成 empty。
+    if (previousMode !== 'split' && this.isVisible(domain)) return
     if (domain !== 'workflow' && domain !== 'material') {
       this.exclusiveDomain = this.exclusiveDomain === domain ? null : domain
     } else {

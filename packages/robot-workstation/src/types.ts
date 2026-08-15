@@ -224,7 +224,7 @@ export interface ReagentContainerOption {
 
 export interface ReagentCreateCommand {
   materialId: string
-  cas: string
+  reagentInfoId: string
   physicalState: ReagentPhysicalState
   densityGPerMl?: number
   concentrationValue?: number

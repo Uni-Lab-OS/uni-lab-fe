@@ -107,6 +107,7 @@ import {
 } from './workbench-runtime-log-drawer'
 import {
   runAndRefreshWorkbenchOperation,
+  WorkbenchAuthorityLoading,
   WorkbenchSessionGate
 } from './workbench-session-gate'
 import {
@@ -776,6 +777,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
           onRetry={this.retrySession}
           onStop={this.stopWorkspaceBackend}
           launchMode={this.connectionSwitchingTo ?? this.connectionMode}
+          switchingTo={this.connectionSwitchingTo}
           connectionSelector={(
             <WorkbenchConnectionSelector
               targets={connectionTargets}
@@ -822,6 +824,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     return (
       <WorkbenchSurface
         connectionMode={this.connectionMode}
+        connectionSwitchingTo={this.connectionSwitchingTo}
         connectionTargets={connectionTargets}
         ideBridge={this.ideBridge}
         session={this.sessionSnapshot}
@@ -872,6 +875,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
  */
 function WorkbenchSurface({
   connectionMode,
+  connectionSwitchingTo,
   connectionTargets,
   ideBridge,
   session,
@@ -903,6 +907,7 @@ function WorkbenchSurface({
   onStopSession
 }: {
   connectionMode: WorkbenchConnectionMode
+  connectionSwitchingTo: WorkbenchConnectionMode | null
   connectionTargets: WorkbenchConnectionTargets
   ideBridge: WorkflowIdeBridge
   session: WorkbenchSessionSnapshot
@@ -1309,6 +1314,9 @@ function WorkbenchSurface({
             robotWorkstationSurface
           )}
         />
+        {connectionSwitchingTo ? (
+          <WorkbenchAuthorityLoading mode={connectionSwitchingTo} />
+        ) : null}
       </div>
     </QueryClientProvider>
   )

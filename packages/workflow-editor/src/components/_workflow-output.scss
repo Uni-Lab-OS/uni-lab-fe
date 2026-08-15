@@ -388,6 +388,12 @@
   margin: 0 var(--unilab-space-3) var(--unilab-space-2);
 }
 
+.workflow :global(.workflow-runtime__node-details.is-collapsed) {
+  min-height: auto;
+  flex: 0 0 auto;
+  grid-auto-rows: auto;
+}
+
 .workflow :global(.workflow-runtime__node-details)
   :global(.workflow-runtime__error-detail) {
   grid-column: 1 / -1;
@@ -449,6 +455,32 @@
   background: var(--unilab-color-surface);
   font: 500 11px/1 var(--unilab-font-sans);
   cursor: pointer;
+}
+
+.workflow :global(.workflow-runtime__node-detail-toggle) {
+  display: inline-flex;
+  height: 26px;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  color: var(--unilab-color-text-muted);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  font: 500 11px/1 var(--unilab-font-sans);
+  cursor: pointer;
+}
+
+.workflow :global(.workflow-runtime__node-detail-toggle):hover {
+  color: var(--unilab-color-primary);
+  border-color: var(--unilab-color-focus);
+  background: var(--unilab-color-workflow-soft);
+}
+
+.workflow :global(.workflow-runtime__node-detail-toggle):focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 1px;
 }
 
 .workflow :global(.workflow-runtime__node-detail-copy):hover {
@@ -560,6 +592,17 @@
   border: 1px solid var(--unilab-color-border);
   border-radius: var(--unilab-radius-control);
   background: var(--unilab-color-surface);
+}
+
+.workflow :global(.workflow-runtime__node-log.is-collapsed),
+.workflow :global(.workflow-runtime__node-result.is-collapsed) {
+  min-height: auto;
+  align-self: start;
+}
+
+.workflow :global(.workflow-runtime__node-log.is-collapsed) header,
+.workflow :global(.workflow-runtime__node-result.is-collapsed) > header {
+  border-bottom: 0;
 }
 
 .workflow :global(.workflow-runtime__node-log) header {

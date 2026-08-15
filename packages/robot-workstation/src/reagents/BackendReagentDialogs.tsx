@@ -16,7 +16,7 @@ import {
   ReagentDialogFrame,
   reagentDialogErrorMessage
 } from './ReagentDialogPrimitives'
-import { isValidCAS, optionalNumber, textValue } from './reagentFormValues'
+import { optionalNumber, textValue } from './reagentFormValues'
 import { CustomParameterFields } from './CustomParameterFields'
 import { QuantityUnitSelect, REAGENT_QUANTITY_UNITS } from './QuantityUnitSelect'
 
@@ -92,22 +92,7 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
     setError('')
     try {
       if (props.mode === 'create') {
-        await props.onSave({
-          materialId: values.materialId,
-          cas: values.cas,
-          physicalState: values.physicalState,
-          ...(values.densityGPerMl == null ? {} : { densityGPerMl: values.densityGPerMl }),
-          ...concentrationCommand(values),
-          quantity: values.quantity,
-          quantityUnit: values.quantityUnit,
-          metadata: {
-            supplier: values.supplier,
-            density_condition: values.densityCondition,
-            expires_on: values.expiresOn,
-            custom_parameters: customParameters
-          },
-          ...(values.description ? { description: values.description } : {})
-        })
+        await props.onSave(reagentCreateCommand(values, customParameters))
       } else {
         await props.onSave({
           id: props.item.id,
@@ -156,7 +141,6 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
                     onChange={selectReagentInfo}
                   />
                   <input type="hidden" name="reagentInfoId" value={selectedInfoId} />
-                  <input type="hidden" name="cas" value={selectedInfo?.cas ?? ''} />
                   <input type="hidden" name="physicalState" value={selectedInfo?.physicalState ?? 'unknown'} />
                 </div>
                 {selectedInfo ? (
@@ -618,10 +602,9 @@ export function BackendReagentDeleteDialog({
   )
 }
 
-interface EditorValues {
+export interface EditorValues {
   materialId: string
-  reagentInfoId?: string
-  cas: string
+  reagentInfoId: string
   physicalState: ReagentCreateCommand['physicalState']
   densityGPerMl?: number
   quantity: number
@@ -646,7 +629,6 @@ function reagentEditorValues(form: FormData): EditorValues {
   return {
     materialId: textValue(form, 'materialId'),
     reagentInfoId: textValue(form, 'reagentInfoId'),
-    cas: textValue(form, 'cas'),
     physicalState: (textValue(form, 'physicalState') || 'unknown') as EditorValues['physicalState'],
     ...(densityGPerMl == null ? {} : { densityGPerMl }),
     quantity: Number(form.get('quantity')),
@@ -663,7 +645,7 @@ function reagentEditorValues(form: FormData): EditorValues {
 /**
  * 校验 Backend 试剂创建和更新共同不变量。
  * @param values 规范化后的表单值。
- * @param mode 创建时额外校验容器和 CAS，编辑时保持既有身份。
+ * @param mode 创建时额外校验容器和既有试剂身份，编辑时保持既有身份。
  * @returns 第一个可行动错误；合法时返回 null。
  */
 export function validateReagentEditor(
@@ -671,8 +653,7 @@ export function validateReagentEditor(
   mode: 'create' | 'edit'
 ): string | null {
   if (mode === 'create' && !values.materialId) return '请选择空容器物料'
-  if (mode === 'create' && values.reagentInfoId === '') return '请选择试剂身份'
-  if (mode === 'create' && !isValidCAS(values.cas)) return '请输入校验位正确的 CAS 号'
+  if (mode === 'create' && !values.reagentInfoId) return '请选择试剂身份'
   if (!Number.isFinite(values.quantity) || values.quantity < 0) return '数量必须是大于等于零的有限数'
   if (!values.quantityUnit) return '计量单位不能为空'
   if (mode === 'create' && !REAGENT_QUANTITY_UNITS.some(unit => unit === values.quantityUnit)) {
@@ -688,6 +669,29 @@ export function validateReagentEditor(
     return '浓度必须是大于等于零的有限数'
   }
   return null
+}
+
+/** 将已校验表单转换为使用既有试剂身份 UUID 的库存创建命令。 */
+export function reagentCreateCommand(
+  values: EditorValues,
+  customParameters: readonly CustomParameter[]
+): ReagentCreateCommand {
+  return {
+    materialId: values.materialId,
+    reagentInfoId: values.reagentInfoId,
+    physicalState: values.physicalState,
+    ...(values.densityGPerMl == null ? {} : { densityGPerMl: values.densityGPerMl }),
+    ...concentrationCommand(values),
+    quantity: values.quantity,
+    quantityUnit: values.quantityUnit,
+    metadata: {
+      supplier: values.supplier,
+      density_condition: values.densityCondition,
+      expires_on: values.expiresOn,
+      custom_parameters: customParameters
+    },
+    ...(values.description ? { description: values.description } : {})
+  }
 }
 
 /** 按名称、条码或稳定 UUID 筛选空容器候选。 */

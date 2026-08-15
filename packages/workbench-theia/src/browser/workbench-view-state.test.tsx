@@ -33,9 +33,13 @@ describe('Workbench domain view presentation', () => {
     state.toggle('material')
     state.toggle('device')
     expect(state.currentMode).toBe('device')
+    expect(state.isVisible('device')).toBe(true)
+    expect(state.isVisible('workflow')).toBe(false)
+    expect(state.isVisible('material')).toBe(false)
     state.toggle('device')
 
-    expect(state.currentMode).toBe('split')
+    expect(state.currentMode).toBe('device')
+    expect(state.isVisible('device')).toBe(true)
   })
 
   it('opens each robot function as an exclusive Workbench surface', () => {
@@ -54,7 +58,31 @@ describe('Workbench domain view presentation', () => {
     expect(state.isVisible('robot-points')).toBe(true)
 
     state.toggle('robot-points')
-    expect(state.currentMode).toBe('split')
+    expect(state.currentMode).toBe('robot-points')
+  })
+
+  it('never deactivates the only active sidebar domain', () => {
+    const state = new WorkbenchViewState()
+    const listener = vi.fn()
+    state.onDidChangeMode(listener)
+
+    state.toggle('workflow')
+    expect(state.currentMode).toBe('workflow')
+
+    state.toggle('material')
+    state.toggle('workflow')
+    expect(state.currentMode).toBe('material')
+    state.toggle('material')
+    expect(state.currentMode).toBe('material')
+
+    state.toggle('device')
+    state.toggle('device')
+    expect(state.currentMode).toBe('device')
+    expect(listener.mock.calls).toEqual([
+      ['split'],
+      ['material'],
+      ['device']
+    ])
   })
 
   it('presents an instrument entry without nesting the other domains', () => {

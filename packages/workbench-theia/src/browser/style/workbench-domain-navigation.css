@@ -180,6 +180,29 @@ body.unilab-agent-panel-visible
 }
 
 /*
+ * 窄窗口无法同时容纳 420px Agent 与主工作区。此时让 Agent 接管完整
+ * 内容区，并暂停底层工作区的绘制与交互，避免工具栏被挤成一条“穿透”窄带。
+ */
+@media (max-width: 720px) {
+  body.unilab-agent-panel-visible
+    #theia-left-right-split-panel
+    > #theia-right-content-panel {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  body.unilab-agent-panel-visible
+    #theia-left-right-split-panel
+    > #theia-bottom-split-panel {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+}
+
+/*
  * 左侧活动栏展开的资源管理器、界面设置等面板必须浮在全尺寸主工作区之上。
  * 主 DockPanel 被拉伸至整个可用区域后会与侧栏内容发生几何重叠，因此在
  * 这里明确恢复侧栏的视觉层级，同时保留画布无空白边框的全屏布局。
@@ -218,6 +241,18 @@ body.unilab-agent-panel-visible
     transparent
   );
   box-shadow: inset 2px 0 var(--unilab-color-primary);
+}
+
+/*
+ * Lumino 会继续把最后展开过左侧面板的标签标记为 lm-mod-current。
+ * UniLab 入口只负责切换主工作区，因此其视觉选中态必须以业务状态为准，
+ * 否则从物料切到设备后会出现两个入口同时高亮。
+ */
+.theia-app-left
+  .lm-TabBar-tab.lm-mod-current[data-unilabactive='false']:not(:hover) {
+  color: var(--theia-activityBar-inactiveForeground) !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 /* 机械臂内部调试入口暂不对外展示；试剂管理是产品主入口。 */
