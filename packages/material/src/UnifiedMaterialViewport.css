@@ -1,3 +1,8 @@
+.lab-unified-viewport {
+  container-name: lab-unified-viewport;
+  container-type: inline-size;
+}
+
 .lab-viewport-controls {
   position: absolute;
   z-index: 80;
@@ -295,6 +300,47 @@
   background: #0ea5e9;
   box-shadow: 0 0 0 2px rgb(14 165 233 / 12%);
   transform: translateX(8px);
+}
+
+@container lab-unified-viewport (max-width: 720px) {
+  .lab-viewport-controls {
+    bottom: 10px;
+    display: grid;
+    width: min(360px, calc(100% - 20px));
+    gap: 6px;
+  }
+
+  .lab-view-mode-toggle,
+  .lab-site-layer-toggle,
+  .lab-material-role-filter {
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: stretch;
+  }
+
+  .lab-view-mode-toggle button,
+  .lab-site-layer-toggle button,
+  .lab-material-role-filter > summary {
+    min-width: 0;
+    min-height: 44px;
+    flex: 1 1 0;
+    justify-content: center;
+    padding-inline: 7px;
+  }
+
+  .lab-site-layer-toggle button span,
+  .lab-material-role-filter > summary span {
+    display: none;
+  }
+
+  .lab-material-role-filter > div {
+    right: 0;
+    left: 0;
+  }
+
+  .lab-material-role-filter > div button {
+    min-height: 44px;
+  }
 }
 
 @media (max-width: 720px) {

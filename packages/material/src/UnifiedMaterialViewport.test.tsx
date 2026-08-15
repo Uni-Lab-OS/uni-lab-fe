@@ -44,6 +44,42 @@ describe('UnifiedMaterialViewport', () => {
     )
   })
 
+  it('bounds shared controls to its own narrow viewport container', () => {
+    const styles = readFileSync(
+      new URL('./UnifiedMaterialViewport.css', import.meta.url),
+      'utf8'
+    )
+
+    expect(styles).toContain(`.lab-unified-viewport {
+  container-name: lab-unified-viewport;
+  container-type: inline-size;
+}`)
+    const containerQueryStart = styles.indexOf(
+      '@container lab-unified-viewport (max-width: 720px) {'
+    )
+    const viewportFallbackStart = styles.indexOf('@media (max-width: 720px) {')
+    expect(containerQueryStart).toBeGreaterThan(-1)
+    expect(viewportFallbackStart).toBeGreaterThan(containerQueryStart)
+    const narrowContainerStyles = styles.slice(
+      containerQueryStart,
+      viewportFallbackStart
+    )
+    expect(narrowContainerStyles).toContain(`.lab-viewport-controls {
+    bottom: 10px;
+    display: grid;
+    width: min(360px, calc(100% - 20px));`)
+    expect(narrowContainerStyles).toContain(`.lab-view-mode-toggle,
+  .lab-site-layer-toggle,
+  .lab-material-role-filter {
+    width: 100%;`)
+    expect(narrowContainerStyles).toContain(`.lab-view-mode-toggle button,
+  .lab-site-layer-toggle button,
+  .lab-material-role-filter > summary {
+    min-width: 0;
+    min-height: 44px;
+    flex: 1 1 0;`)
+  })
+
   it('publishes the persisted material-label layer intent to every view', () => {
     vi.stubGlobal('localStorage', {
       getItem: vi.fn((key: string) =>
