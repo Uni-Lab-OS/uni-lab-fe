@@ -50,7 +50,8 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(builderConfiguration, /^appId: com\.bohrium\.unilab$/mu)
     assert.match(builderConfiguration, /^publish:\n  provider: generic$/mu)
     assert.match(builderConfiguration, /UNILAB_WORKBENCH_UPDATE_URL/u)
-    assert.match(builderConfiguration, /target: zip/u)
+    assert.match(builderConfiguration, /target: dmg/u)
+    assert.doesNotMatch(builderConfiguration, /target: zip/u)
     assert.match(welcomeDocument, /<title>UniLab 调试工作台<\/title>/u)
     assert.match(welcomeDocument, /id="install-runtime"/u)
     assert.match(welcomeDocument, /id="choose-runtime"/u)
@@ -71,11 +72,11 @@ describe('Workbench macOS distribution gate', () => {
   it('never silently downgrades the formal release to unsigned', () => {
     assert.throws(
       () => assertMacosSigningEnvironment({}),
-      /CSC_LINK.*APPLE_TEAM_ID/
+      /CSC_LINK.*CSC_KEY_PASSWORD/
     )
   })
 
-  it('uses GitHub-safe formal artifact names that match update metadata', async () => {
+  it('uses a GitHub-safe formal DMG artifact name', async () => {
     const packagingScript = await readFile(
       new URL('./package-macos.mjs', import.meta.url),
       'utf8'
@@ -87,25 +88,20 @@ describe('Workbench macOS distribution gate', () => {
     )
   })
 
-  it('submits and staples the DMG before formal notarization verification', async () => {
+  it('keeps Developer ID signing while notarization is disabled', async () => {
     const packagingScript = await readFile(
       new URL('./package-macos.mjs', import.meta.url),
       'utf8'
     )
+    const builderConfiguration = await readFile(
+      new URL('../electron-builder.yml', import.meta.url),
+      'utf8'
+    )
 
-    const submitIndex = packagingScript.indexOf("'notarytool'")
-    const stapleIndex = packagingScript.indexOf("['stapler', 'staple', installerPath]")
-    const notarizeIndex = packagingScript.indexOf(
-      'notarizeAndStapleDiskImage(installer.path)'
-    )
-    const verifyIndex = packagingScript.indexOf(
-      'verifySignedAndNotarized(appPath, installer.path)'
-    )
-    assert.ok(submitIndex >= 0)
-    assert.ok(submitIndex < stapleIndex)
-    assert.ok(notarizeIndex >= 0)
-    assert.ok(notarizeIndex < verifyIndex)
-    assert.match(packagingScript, /process\.env\['APPLE_APP_SPECIFIC_PASSWORD'\]/u)
+    assert.match(builderConfiguration, /notarize: false/u)
+    assert.match(packagingScript, /verifySignedApplication\(appPath\)/u)
+    assert.match(packagingScript, /runCommand\('codesign'/u)
+    assert.doesNotMatch(packagingScript, /notarytool|stapler|APPLE_/u)
   })
 
   it('keeps the temporary ad-hoc acceptance build separate from formal release', async () => {
@@ -123,20 +119,28 @@ describe('Workbench macOS distribution gate', () => {
     )
   })
 
-  /** 验证完整模式生成两种介质，而快速模式只生成并校验应用目录。 */
+  /** 验证完整模式只生成 DMG，而快速模式只生成并校验应用目录。 */
   it('separates full macOS media from directory validation', async () => {
     const packagingScript = await readFile(
       new URL('./package-macos.mjs', import.meta.url),
       'utf8'
     )
+    const desktopMain = await readFile(
+      new URL('../../desktop/src/main/index.ts', import.meta.url),
+      'utf8'
+    )
 
     assert.match(
       packagingScript,
-      /packageMode === 'directory' \? \['--dir'\] : \['dmg', 'zip'\]/u
+      /packageMode === 'directory' \? \['--dir'\] : \['dmg'\]/u
     )
     assert.match(packagingScript, /macOS Workbench 非压缩应用目录已通过校验/u)
-    assert.match(packagingScript, /selectMacosUpdateArtifacts/u)
+    assert.match(packagingScript, /selectMacosDmgArtifacts/u)
     assert.match(packagingScript, /requireWorkbenchUpdateUrl/u)
+    assert.match(
+      desktopMain,
+      /desktopSurface\.kind === 'workbench'[\s\S]*process\.platform !== 'darwin'/u
+    )
   })
 
   it('selects an imported Developer ID Application identity for the RC', () => {
@@ -208,10 +212,7 @@ describe('Workbench macOS distribution gate', () => {
   it('accepts the complete electron-builder signing contract', () => {
     assert.doesNotThrow(() => assertMacosSigningEnvironment({
       CSC_LINK: '/secure/developer-id.p12',
-      CSC_KEY_PASSWORD: 'redacted',
-      APPLE_ID: 'release@example.com',
-      APPLE_APP_SPECIFIC_PASSWORD: 'redacted',
-      APPLE_TEAM_ID: 'TEAM123'
+      CSC_KEY_PASSWORD: 'redacted'
     }))
   })
 
@@ -429,8 +430,8 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(workflow, /build:desktop:production/u)
     assert.match(workflow, /package-macos\.mjs "--\$UNILAB_CI_SIGNING_MODE"/u)
     assert.match(workflow, /CSC_LINK: \$\{\{ secrets\.CSC_LINK \}\}/u)
-    assert.match(workflow, /APPLE_ID: \$\{\{ secrets\.APPLE_ID \}\}/u)
-    assert.match(workflow, /APPLE_TEAM_ID: \$\{\{ secrets\.APPLE_TEAM_ID \}\}/u)
+    assert.doesNotMatch(workflow, /APPLE_ID|APPLE_TEAM_ID|APPLE_APP_SPECIFIC_PASSWORD/u)
+    assert.doesNotMatch(workflow, /notarytool|stapler/u)
     assert.match(workflow, /prepare-package-version\.mjs/u)
     assert.match(
       workflow,
@@ -440,23 +441,43 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(workflow, /macos-packaging-metrics\.json/u)
     assert.match(workflow, /hdiutil verify/u)
     assert.match(workflow, /compression-level: 0/u)
-    const unsignedUploadSection = workflow.slice(
-      workflow.indexOf('name: Upload unsigned macOS benchmark and metrics'),
-      workflow.indexOf('name: Upload signed macOS release bundle')
+    const diagnosticsUploadSection = workflow.slice(
+      workflow.indexOf('name: Upload macOS packaging diagnostics'),
+      workflow.indexOf('name: Upload unsigned macOS DMG')
     )
-    assert.doesNotMatch(unsignedUploadSection, /release-macos\/\*\.dmg/u)
-    assert.match(unsignedUploadSection, /release-macos\/\*\.zip/u)
+    assert.match(diagnosticsUploadSection, /macos-packaging-metrics\.json/u)
+    assert.match(diagnosticsUploadSection, /runner\.temp/u)
+    assert.doesNotMatch(diagnosticsUploadSection, /release-macos\/\*\.dmg/u)
+    assert.doesNotMatch(diagnosticsUploadSection, /release-macos\/\*\.zip/u)
+    assert.match(diagnosticsUploadSection, /compression-level: 6/u)
+    const unsignedUploadSection = workflow.slice(
+      workflow.indexOf('name: Upload unsigned macOS DMG'),
+      workflow.indexOf(
+        'name: Upload signed macOS release bundle when no rolling release is published'
+      )
+    )
+    assert.match(unsignedUploadSection, /release-macos\/\*\.dmg/u)
+    assert.doesNotMatch(unsignedUploadSection, /release-macos\/\*\.zip/u)
+    assert.doesNotMatch(unsignedUploadSection, /latest-mac\.yml/u)
+    assert.doesNotMatch(unsignedUploadSection, /macos-packaging-metrics\.json/u)
     assert.match(unsignedUploadSection, /retention-days: 7/u)
 
     const signedUploadSection = workflow.slice(
-      workflow.indexOf('name: Upload signed macOS release bundle'),
-      workflow.indexOf('name: Publish rolling macOS update release')
+      workflow.indexOf(
+        'name: Upload signed macOS release bundle when no rolling release is published'
+      ),
+      workflow.indexOf('name: Publish rolling macOS DMG release')
     )
     assert.match(signedUploadSection, /release-macos\/\*\.dmg/u)
+    assert.match(signedUploadSection, /github\.event_name != 'push'/u)
+    assert.match(signedUploadSection, /refs\/heads\/deploy-mac/u)
+    assert.doesNotMatch(signedUploadSection, /release-macos\/\*\.zip/u)
+    assert.doesNotMatch(signedUploadSection, /latest-mac\.yml/u)
+    assert.doesNotMatch(signedUploadSection, /macos-packaging-metrics\.json/u)
     assert.match(signedUploadSection, /retention-days: 3/u)
 
     const publishSection = workflow.slice(
-      workflow.indexOf('name: Publish rolling macOS update release')
+      workflow.indexOf('name: Publish rolling macOS DMG release')
     )
     assert.match(publishSection, /refs\/heads\/deploy-mac/u)
     assert.match(
@@ -464,13 +485,12 @@ describe('Workbench macOS distribution gate', () => {
       /macOS release asset verification mismatch/u
     )
     const binaryUploadIndex = publishSection.indexOf(
-      '"${dmgs[0]}" "${zips[0]}" "${blockmaps[0]}"'
-    )
-    const metadataUploadIndex = publishSection.indexOf(
-      'gh release upload "$MACOS_RELEASE_TAG" "$metadata"'
+      'gh release upload "$MACOS_RELEASE_TAG" "${dmgs[0]}"'
     )
     assert.ok(binaryUploadIndex >= 0)
-    assert.ok(binaryUploadIndex < metadataUploadIndex)
+    assert.match(publishSection, /requires exactly one DMG/u)
+    assert.doesNotMatch(publishSection, /zips=|blockmaps=|metadata=/u)
+    assert.match(publishSection, /latest-mac\\\.yml/u)
     assert.doesNotMatch(publishSection, /gh release create/u)
     assert.doesNotMatch(workflow, /git push/u)
   })

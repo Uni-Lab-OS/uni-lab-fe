@@ -10,7 +10,7 @@ import {
 } from 'node:fs/promises'
 import { describe, it } from 'node:test'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import {
   assertSafeChildDirectory,
@@ -20,7 +20,8 @@ import {
   PORTABLE_NODE_VERSION,
   pruneDesktopDeployment,
   resolveEsbuildBinary,
-  resolvePortableCompressionLevel
+  resolvePortableCompressionLevel,
+  validatePackagedWorkbenchResources
 } from './package-portable.mjs'
 import {
   MAX_PRODUCTION_LIB_BYTES,
@@ -40,7 +41,44 @@ describe('portable Workbench packaging contract', () => {
       assert.match(descriptor.sha256, /^[a-f0-9]{64}$/u)
       assert.equal(descriptor.hostArchitecture, 'x64')
     }
-    assert.equal(MAX_PORTABLE_INSTALLER_BYTES, 850 * 1024 * 1024)
+    assert.equal(MAX_PORTABLE_INSTALLER_BYTES, 800 * 1024 * 1024)
+  })
+
+  /** 验证成品复用宿主内联的 Vue 编译器，不要求部署第二份编译器。 */
+  it('accepts the bundled Device Card Host without a duplicate Vue compiler', async () => {
+    const resources = await mkdtemp(join(tmpdir(), 'unilab-resources-'))
+    const requiredFiles = [
+      'app.asar',
+      'workbench/lib/backend/main.js',
+      'workbench/lib/frontend/index.html',
+      'node-runtime/bin/node',
+      'desktop/out/main/index.js',
+      'desktop/out/preload/index.js',
+      'desktop/node_modules/@unilab/device-card-host/dist/index.cjs',
+      `device-card-builder/${process.platform === 'win32' ? 'esbuild.exe' : 'esbuild'}`,
+      'device-card-agent/cli.mjs',
+      'workspace-skills/manifest.json',
+      'workspace-skills/add-device/SKILL.md',
+      'workspace-skills/add-resource/SKILL.md',
+      'workspace-skills/add-workstation/SKILL.md',
+      'workspace-skills/create-device-package/SKILL.md',
+      'workspace-skills/create-device-skill/SKILL.md',
+      'workspace-skills/unilab-domain-repo-builder/SKILL.md'
+    ]
+    try {
+      await mkdir(join(resources, 'workbench', 'plugins'), { recursive: true })
+      for (const relativePath of requiredFiles) {
+        const path = join(resources, relativePath)
+        await mkdir(dirname(path), { recursive: true })
+        await writeFile(path, 'fixture')
+      }
+
+      assert.doesNotThrow(() => {
+        validatePackagedWorkbenchResources(resources, 'node')
+      })
+    } finally {
+      await rm(resources, { recursive: true, force: true })
+    }
   })
 
   /** 验证正式包默认使用 normal，并允许 CI 在同一提交上显式测量 maximum。 */

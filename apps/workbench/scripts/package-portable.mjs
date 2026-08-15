@@ -44,7 +44,7 @@ import {
 
 const MEBIBYTE = 1024 * 1024
 const MIN_INSTALLER_BYTES = 50 * MEBIBYTE
-export const MAX_PORTABLE_INSTALLER_BYTES = 850 * MEBIBYTE
+export const MAX_PORTABLE_INSTALLER_BYTES = 800 * MEBIBYTE
 export const PORTABLE_NODE_VERSION = '24.14.0'
 export const PORTABLE_COMPRESSION_LEVELS = Object.freeze(['normal', 'maximum'])
 export const PORTABLE_NODE_ARCHIVES = Object.freeze({
@@ -552,7 +552,7 @@ export function resolveEsbuildBinary(descriptor) {
   return binary
 }
 
-function validatePackagedWorkbenchResources(resources, nodeName) {
+export function validatePackagedWorkbenchResources(resources, nodeName) {
   const required = [
     join(resources, 'app.asar'),
     join(resources, 'workbench', 'lib', 'backend', 'main.js'),
@@ -565,9 +565,10 @@ function validatePackagedWorkbenchResources(resources, nodeName) {
       resources,
       'desktop',
       'node_modules',
-      '@vue',
-      'compiler-sfc',
-      'package.json'
+      '@unilab',
+      'device-card-host',
+      'dist',
+      'index.cjs'
     ),
     join(
       resources,
@@ -633,7 +634,7 @@ function findInstaller(outputDirectory, targetPlatform, allowOversize = false) {
   }
   if (!allowOversize && size > MAX_PORTABLE_INSTALLER_BYTES) {
     throw new Error(
-      `Workbench 安装包超出 850 MiB 预算：${basename(path)} 为 ${size} bytes`
+      `Workbench 安装包超出 800 MiB 预算：${basename(path)} 为 ${size} bytes`
     )
   }
   const expected = targetPlatform === 'linux-64'

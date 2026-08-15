@@ -101,19 +101,11 @@ export function selectPortableUpdateArtifacts(names, targetPlatform) {
   return artifacts
 }
 
-/** 筛选并校验 macOS updater 使用的 ZIP、blockmap 与 metadata。 */
-export function selectMacosUpdateArtifacts(names) {
-  const artifacts = names.filter(name =>
-    /(?:\.dmg(?:\.blockmap)?|\.zip(?:\.blockmap)?|latest-mac\.yml)$/iu.test(name)
-  )
-  if (!artifacts.includes('latest-mac.yml')) {
-    throw new Error('Workbench 更新产物缺少 latest-mac.yml')
-  }
-  if (!artifacts.some(name => /\.zip$/iu.test(name))) {
-    throw new Error('Workbench 更新产物缺少 macOS ZIP')
-  }
-  if (!artifacts.some(name => /\.zip\.blockmap$/iu.test(name))) {
-    throw new Error('Workbench 更新产物缺少 macOS ZIP blockmap')
+/** 筛选并校验 macOS 当前唯一分发介质 DMG。 */
+export function selectMacosDmgArtifacts(names) {
+  const artifacts = names.filter(name => /\.dmg$/iu.test(name))
+  if (artifacts.length !== 1) {
+    throw new Error(`Workbench macOS 产物必须且只能包含 1 个 DMG，实际 ${artifacts.length} 个`)
   }
   return artifacts
 }

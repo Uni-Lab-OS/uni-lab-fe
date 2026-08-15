@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: quick validates unpacked output; full builds and verifies DMG plus ZIP
+        description: quick validates unpacked output; full builds and verifies the DMG
         required: true
         default: full
         type: choice
@@ -26,7 +26,7 @@ on:
       - pnpm-workspace.yaml
 
 permissions:
-  # deploy-mac 将验收通过的更新介质发布到预创建的滚动 Release。
+  # deploy-mac 将验收通过的 DMG 发布到预创建的滚动 Release。
   contents: write
 
 concurrency:
@@ -98,14 +98,11 @@ jobs:
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           missing=()
-          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+          for name in CSC_LINK CSC_KEY_PASSWORD; do
             if [[ -z "${!name:-}" ]]; then missing+=("$name"); fi
           done
           if (( ${#missing[@]} > 0 )); then
@@ -119,12 +116,11 @@ jobs:
           }
           RELEASE_JSON="$release_json" node <<'NODE'
           const release = JSON.parse(process.env.RELEASE_JSON)
-          const metadata = release.assets.filter(asset => asset.name === 'latest-mac.yml')
-          if (metadata.length > 1) {
-            throw new Error('Rolling macOS release contains ambiguous latest-mac.yml assets')
-          }
-          if (metadata.length === 0 && release.assets.length > 0) {
-            throw new Error('Rolling macOS release has assets but no latest-mac.yml')
+          const dmgs = release.assets.filter(asset =>
+            /^UniLab\.Workbench-\d+\.\d+\.\d+-arm64\.dmg$/u.test(asset.name)
+          )
+          if (dmgs.length > 1) {
+            throw new Error('Rolling macOS release contains ambiguous Workbench DMG assets')
           }
           NODE
 
@@ -356,35 +352,29 @@ jobs:
           process.stdout.write(JSON.stringify(release.assets))
           NODE
 
-          metadata_count="$(node - "$release_assets" <<'NODE'
+          published_version="$(node - "$release_assets" <<'NODE'
           const fs = require('node:fs')
           const assets = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
-          console.log(assets.filter(asset => asset.name === 'latest-mac.yml').length)
-          NODE
-          )"
-          asset_count="$(node - "$release_assets" <<'NODE'
-          const fs = require('node:fs')
-          console.log(JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).length)
+          const versions = assets.flatMap(asset => {
+            const match = asset.name.match(
+              /^UniLab\.Workbench-(\d+\.\d+\.\d+)-arm64\.dmg$/u
+            )
+            return match ? [match[1]] : []
+          })
+          if (versions.length > 1) {
+            throw new Error('Rolling macOS release contains ambiguous Workbench DMG versions')
+          }
+          process.stdout.write(versions[0] ?? '')
           NODE
           )"
           package_path="apps/workbench/package.json"
-          if [[ "$metadata_count" == 1 ]]; then
-            metadata_url="$(node - "$release_assets" <<'NODE'
-          const fs = require('node:fs')
-          const assets = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
-          console.log(assets.find(asset => asset.name === 'latest-mac.yml').browser_download_url)
-          NODE
-            )"
-            published_metadata="$RUNNER_TEMP/published-latest-mac.yml"
-            curl --fail --location --retry 5 --retry-all-errors \
-              --output "$published_metadata" "$metadata_url"
+          if [[ -n "$published_version" ]]; then
+            published_metadata="$RUNNER_TEMP/published-macos-version.yml"
+            printf 'version: %s\n' "$published_version" > "$published_metadata"
             node apps/workbench/scripts/prepare-package-version.mjs \
               "$package_path" "$published_metadata"
-          elif [[ "$asset_count" == 0 ]]; then
-            node apps/workbench/scripts/prepare-package-version.mjs "$package_path"
           else
-            echo 'Rolling release has assets but no latest-mac.yml; refusing an ambiguous version downgrade' >&2
-            exit 1
+            node apps/workbench/scripts/prepare-package-version.mjs "$package_path"
           fi
 
           package_version="$(node -p "require('./apps/workbench/package.json').version")"
@@ -409,9 +399,6 @@ jobs:
           UNILAB_WORKBENCH_PACKAGE_MODE: ${{ env.UNILAB_CI_PACKAGE_MODE == 'quick' && 'directory' || 'full' }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
           package_started="$(date +%s)"
@@ -439,16 +426,9 @@ jobs:
           set -euo pipefail
           release_directory="apps/workbench/release-macos"
           dmg_path="$(find "$release_directory" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
-          zip_path="$(find "$release_directory" -maxdepth 1 -type f -name '*.zip' -print -quit)"
-          blockmap_path="$(find "$release_directory" -maxdepth 1 -type f -name '*.zip.blockmap' -print -quit)"
           test -n "$dmg_path"
-          test -n "$zip_path"
-          test -n "$blockmap_path"
-          test -f "$release_directory/latest-mac.yml"
+          test "$(find "$release_directory" -maxdepth 1 -type f | wc -l | tr -d ' ')" = 1
           hdiutil verify "$dmg_path"
-          if [[ "$UNILAB_CI_SIGNING_MODE" == signed ]]; then
-            node --input-type=module -e "import { readFileSync } from 'node:fs'; import { readWorkbenchUpdateMetadataVersion } from './apps/workbench/scripts/update-publish.mjs'; const actual = readWorkbenchUpdateMetadataVersion(readFileSync('apps/workbench/release-macos/latest-mac.yml', 'utf8')); if (actual !== process.env.UNILAB_WORKBENCH_PACKAGE_VERSION) throw new Error('latest-mac.yml version mismatch: expected ' + process.env.UNILAB_WORKBENCH_PACKAGE_VERSION + ', received ' + actual)"
-          fi
 
           verify_mount="$RUNNER_TEMP/workbench-dmg-mount"
           mkdir -p "$verify_mount"
@@ -463,19 +443,15 @@ jobs:
           trap - EXIT
 
           dmg_bytes="$(stat -f '%z' "$dmg_path")"
-          zip_bytes="$(stat -f '%z' "$zip_path")"
-          blockmap_bytes="$(stat -f '%z' "$blockmap_path")"
           installed_bytes="$((installed_kib * 1024))"
           resources_bytes="$((resources_kib * 1024))"
           pipeline_seconds="$(($(date +%s) - PIPELINE_STARTED_EPOCH))"
           dmg_sha256="$(shasum -a 256 "$dmg_path" | awk '{print $1}')"
-          zip_sha256="$(shasum -a 256 "$zip_path" | awk '{print $1}')"
 
           node - "$BUILD_SECONDS" "$PACKAGE_SECONDS" "$pipeline_seconds" \
             "$dmg_path" "$dmg_bytes" "$dmg_sha256" \
-            "$zip_path" "$zip_bytes" "$zip_sha256" \
-            "$blockmap_bytes" "$installed_bytes" "$resources_bytes" \
-            "$UNILAB_CI_SIGNING_MODE" <<'NODE'
+            "$installed_bytes" "$resources_bytes" \
+            "$UNILAB_CI_SIGNING_MODE" "$RUNNER_TEMP/macos-packaging-metrics.json" <<'NODE'
           const fs = require('node:fs')
           const path = require('node:path')
           const values = process.argv.slice(2)
@@ -483,7 +459,7 @@ jobs:
             schemaVersion: 1,
             runner: 'macos-14 arm64',
             commit: process.env.GITHUB_SHA,
-            distribution: values[12],
+            distribution: values[8],
             seconds: {
               productionBuild: Number(values[0]),
               nativePackaging: Number(values[1]),
@@ -492,22 +468,18 @@ jobs:
             },
             bytes: {
               dmg: Number(values[4]),
-              zip: Number(values[7]),
-              zipBlockmap: Number(values[9]),
-              installedApplication: Number(values[10]),
-              applicationResources: Number(values[11])
+              installedApplication: Number(values[6]),
+              applicationResources: Number(values[7])
             },
             sha256: {
-              dmg: values[5],
-              zip: values[8]
+              dmg: values[5]
             },
             files: {
-              dmg: path.basename(values[3]),
-              zip: path.basename(values[6])
+              dmg: path.basename(values[3])
             }
           }
           fs.writeFileSync(
-            'apps/workbench/release-macos/macos-packaging-metrics.json',
+            values[9],
             `${JSON.stringify(metrics, null, 2)}\n`
           )
           NODE
@@ -523,54 +495,51 @@ jobs:
             echo "| Build + packaging | $((BUILD_SECONDS + PACKAGE_SECONDS))s |"
             echo "| Pipeline before upload | ${pipeline_seconds}s |"
             echo "| DMG | ${dmg_bytes} bytes |"
-            echo "| ZIP | ${zip_bytes} bytes |"
             echo "| Installed application | ${installed_bytes} bytes |"
             echo "| Application Resources | ${resources_bytes} bytes |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          cp "$RUNNER_TEMP/workbench-build.log" "$release_directory/"
-          cp "$RUNNER_TEMP/workbench-package.log" "$release_directory/"
-          cat "$release_directory/macos-packaging-metrics.json"
+          cat "$RUNNER_TEMP/macos-packaging-metrics.json"
           df -h .
 
-      - name: Upload unsigned macOS benchmark and metrics
+      # Keep small reports for every full build. Deploy pushes publish the
+      # verified DMG to the rolling release below, so they do not also retain a
+      # second ~630 MiB copy in Actions artifact storage.
+      - name: Upload macOS packaging diagnostics
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
+        uses: actions/upload-artifact@v6
+        with:
+          name: UniLab-Workbench-macos-arm64-diagnostics-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/macos-packaging-metrics.json
+            ${{ runner.temp }}/workbench-build.log
+            ${{ runner.temp }}/workbench-package.log
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
+
+      - name: Upload unsigned macOS DMG
         if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'unsigned'
         uses: actions/upload-artifact@v6
         with:
           name: UniLab-Workbench-macos-arm64-${{ github.sha }}
-          path: |
-            apps/workbench/release-macos/*.zip
-            apps/workbench/release-macos/*.zip.blockmap
-            apps/workbench/release-macos/latest-mac.yml
-            apps/workbench/release-macos/macos-packaging-metrics.json
-            apps/workbench/release-macos/workbench-build.log
-            apps/workbench/release-macos/workbench-package.log
+          path: apps/workbench/release-macos/*.dmg
           if-no-files-found: error
-          # 基准仍完整构建并校验 DMG，但只保留更新链路需要的 ZIP，
-          # 避免在 Actions 存储中重复保存两份约 630 MiB 的压缩介质。
           retention-days: 7
-          # DMG/ZIP 已压缩，上传阶段不重复压缩可显著缩短总耗时。
+          # DMG 已压缩，上传阶段不重复压缩可显著缩短总耗时。
           compression-level: 0
 
-      - name: Upload signed macOS release bundle
-        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'signed'
+      - name: Upload signed macOS release bundle when no rolling release is published
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'signed' && (github.event_name != 'push' || github.ref != 'refs/heads/deploy-mac')
         uses: actions/upload-artifact@v6
         with:
           name: UniLab-Workbench-macos-arm64-signed-${{ github.sha }}
-          path: |
-            apps/workbench/release-macos/*.dmg
-            apps/workbench/release-macos/*.zip
-            apps/workbench/release-macos/*.zip.blockmap
-            apps/workbench/release-macos/latest-mac.yml
-            apps/workbench/release-macos/macos-packaging-metrics.json
-            apps/workbench/release-macos/workbench-build.log
-            apps/workbench/release-macos/workbench-package.log
+          path: apps/workbench/release-macos/*.dmg
           if-no-files-found: error
           retention-days: 3
           compression-level: 0
 
-      # 先发布二进制，最后替换 metadata，避免客户端读到不完整的新版本。
-      - name: Publish rolling macOS update release
+      - name: Publish rolling macOS DMG release
         if: github.event_name == 'push' && github.ref == 'refs/heads/deploy-mac' && env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'signed'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -579,11 +548,8 @@ jobs:
           release_directory="apps/workbench/release-macos"
           shopt -s nullglob
           dmgs=("$release_directory"/*.dmg)
-          zips=("$release_directory"/*.zip)
-          blockmaps=("$release_directory"/*.zip.blockmap)
-          metadata="$release_directory/latest-mac.yml"
-          if (( ${#dmgs[@]} != 1 || ${#zips[@]} != 1 || ${#blockmaps[@]} != 1 )) || [[ ! -f "$metadata" ]]; then
-            echo 'Rolling macOS release requires exactly one DMG, ZIP, ZIP blockmap and latest-mac.yml' >&2
+          if (( ${#dmgs[@]} != 1 )); then
+            echo 'Rolling macOS release requires exactly one DMG' >&2
             exit 1
           fi
 
@@ -592,14 +558,11 @@ jobs:
             exit 1
           }
 
-          gh release upload "$MACOS_RELEASE_TAG" \
-            "${dmgs[0]}" "${zips[0]}" "${blockmaps[0]}" \
-            --repo "$GITHUB_REPOSITORY" --clobber
-          gh release upload "$MACOS_RELEASE_TAG" "$metadata" \
+          gh release upload "$MACOS_RELEASE_TAG" "${dmgs[0]}" \
             --repo "$GITHUB_REPOSITORY" --clobber
 
           expected_assets="$RUNNER_TEMP/macos-expected-assets.json"
-          node - "$expected_assets" "${dmgs[0]}" "${zips[0]}" "${blockmaps[0]}" "$metadata" <<'NODE'
+          node - "$expected_assets" "${dmgs[0]}" <<'NODE'
           const fs = require('node:fs')
           const path = require('node:path')
           const [output, ...files] = process.argv.slice(2)
@@ -650,7 +613,10 @@ jobs:
             JSON.parse(fs.readFileSync(process.env.EXPECTED_ASSETS, 'utf8')).map(item => item.name)
           )
           for (const asset of release.assets) {
-            if (/\.(?:dmg|zip|zip\.blockmap)$/u.test(asset.name) && !expected.has(asset.name)) {
+            if (
+              (/\.dmg$|\.zip(?:\.blockmap)?$|^latest-mac\.yml$/u.test(asset.name))
+              && !expected.has(asset.name)
+            ) {
               console.log(`${asset.id}\t${asset.name}`)
             }
           }
@@ -669,7 +635,7 @@ jobs:
           发布版本：$UNILAB_WORKBENCH_PACKAGE_VERSION
           更新时间：$(date -u '+%Y-%m-%d %H:%M:%S') UTC
 
-          DMG、ZIP、blockmap 与 latest-mac.yml 由 Package macOS Workbench 工作流维护；此 Release 不参与仓库 Latest Release 排序。
+          当前仅发布 Developer ID 签名、未公证的 DMG；ZIP 自动更新介质暂时停用。此 Release 不参与仓库 Latest Release 排序。
           EOF
           )"
           gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$release_id" \

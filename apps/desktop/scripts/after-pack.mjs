@@ -1,7 +1,10 @@
 import { spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { validatePackagedWorkbenchResources } from '../../workbench/scripts/package-portable.mjs'
 
 const MACOS_ELECTRON_LANGUAGES = new Set([
   'en.lproj',
@@ -15,10 +18,9 @@ const MACOS_ENTITLEMENTS = fileURLToPath(
 
 export async function afterPack(context) {
   if (context.electronPlatformName !== 'darwin') {
-    await removePackagedDesktopSelfLinkFromResources(join(
-      context.appOutDir,
-      'resources'
-    ))
+    const resources = join(context.appOutDir, 'resources')
+    await removePackagedDesktopSelfLinkFromResources(resources)
+    validateCopiedWorkbenchResources(resources, context.electronPlatformName)
     return
   }
 
@@ -56,10 +58,23 @@ export async function afterPack(context) {
   }))
 
   await removePackagedDesktopSelfLink(appPath)
+  validateCopiedWorkbenchResources(
+    join(appPath, 'Contents', 'Resources'),
+    context.electronPlatformName
+  )
 
   if (process.env[ADHOC_SIGNING_ENVIRONMENT] === '1') {
     adHocSignApplication(appPath)
   }
+}
+
+/** Fail before signing and compression when electron-builder copied a partial app. */
+function validateCopiedWorkbenchResources(resources, platform) {
+  if (!existsSync(join(resources, 'app.asar'))) return
+  validatePackagedWorkbenchResources(
+    resources,
+    platform === 'win32' ? 'node.exe' : 'node'
+  )
 }
 
 export async function removePackagedDesktopSelfLink(appPath) {

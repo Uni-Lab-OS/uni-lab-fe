@@ -29,10 +29,14 @@ import {
 } from './agent-payload.mjs'
 import {
   requireWorkbenchUpdateUrl,
-  selectMacosUpdateArtifacts
+  selectMacosDmgArtifacts
 } from './update-publish.mjs'
 import { resolveWorkbenchPackageMode } from './packaging-mode.mjs'
 import { pruneDesktopDeployment } from './package-portable.mjs'
+import {
+  createPackagedResourceReport,
+  logPackagedResourceReport
+} from './package-size-report.mjs'
 
 const MEBIBYTE = 1024 * 1024
 const MIN_INSTALLER_BYTES = 50 * MEBIBYTE
@@ -43,10 +47,7 @@ export const NODE_RUNTIME_SHA256_X64 =
   'f2879eb810e25993a0578e5d878930266fd2eafcffe9f2839b3d8db354d4879e'
 const REQUIRED_SIGNING_ENVIRONMENT = [
   'CSC_LINK',
-  'CSC_KEY_PASSWORD',
-  'APPLE_ID',
-  'APPLE_APP_SPECIFIC_PASSWORD',
-  'APPLE_TEAM_ID'
+  'CSC_KEY_PASSWORD'
 ]
 
 const workbenchDirectory = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -68,7 +69,7 @@ export function assertMacosSigningEnvironment(environment = process.env) {
   )
   if (missing.length > 0) {
     throw new Error(
-      `签名/公证凭据不完整，缺少：${missing.join(', ')}。正式 package:mac 不会降级为 unsigned。`
+      `签名凭据不完整，缺少：${missing.join(', ')}。正式 package:mac 不会降级为 unsigned。`
     )
   }
 }
@@ -141,7 +142,15 @@ export function validatePackagedWorkbench(
     join(resources, 'node-runtime', 'bin', 'node'),
     join(resources, 'desktop', 'out', 'main', 'index.js'),
     join(resources, 'desktop', 'out', 'preload', 'index.js'),
-    join(resources, 'desktop', 'node_modules', '@unilab', 'device-card-host'),
+    join(
+      resources,
+      'desktop',
+      'node_modules',
+      '@unilab',
+      'device-card-host',
+      'dist',
+      'index.cjs'
+    ),
     join(resources, 'device-card-builder', 'esbuild'),
     join(resources, 'device-card-agent', 'cli.mjs'),
     join(resources, 'workspace-skills', 'manifest.json'),
@@ -166,7 +175,7 @@ export function validatePackagedWorkbench(
 }
 
 /**
- * 在当前 macOS 主机上组装、签名并验证 Workbench 的 DMG 与 ZIP 发布介质。
+ * 在当前 macOS 主机上组装、签名并验证 Workbench 的 DMG 发布介质。
  * @param {{signed: boolean, adhoc?: boolean, developerId?: boolean}} options 签名与验收模式。
  * @returns {{mode: string, applicationDirectory: string, releaseDirectory?: string}} 已校验的应用目录与可选发布目录。
  * @throws {Error} 主机不受支持、签名材料缺失或任一发布合同校验失败时抛出。
@@ -262,7 +271,7 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
 
     const builderArgs = [
       '--mac',
-      ...(packageMode === 'directory' ? ['--dir'] : ['dmg', 'zip']),
+      ...(packageMode === 'directory' ? ['--dir'] : ['dmg']),
       `--${targetArchitecture}`,
       '--publish',
       'never',
@@ -273,8 +282,8 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       UNILAB_WORKBENCH_UPDATE_URL: updateUrl
     }
     if (signed) {
-      // GitHub Release 会把资产名中的空格规范化为点号。正式产物从源头使用
-      // 安全名称，保证 latest-mac.yml 的 path 与远端资产名逐字一致。
+      // GitHub Release 会把资产名中的空格规范化为点号，正式 DMG 从源头
+      // 使用安全名称，避免发布后名称发生变化。
       builderArgs.push(
         '--config.mac.artifactName=UniLab.Workbench-${version}-${arch}.${ext}',
         '--config.dmg.artifactName=UniLab.Workbench-${version}-${arch}.${ext}'
@@ -339,6 +348,10 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       'darwin',
       targetArchitecture
     )
+    const resourceReport = createPackagedResourceReport(
+      join(appPath, 'Contents', 'Resources')
+    )
+    logPackagedResourceReport(resourceReport)
     verifyPackagedLauncher(appPath)
     if (packageMode === 'directory') {
       console.log(`macOS Workbench 非压缩应用目录已通过校验：${appPath}`)
@@ -346,8 +359,7 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
     }
     let installer = findInstaller(outputDirectory)
     if (signed) {
-      notarizeAndStapleDiskImage(installer.path)
-      verifySignedAndNotarized(appPath, installer.path)
+      verifySignedApplication(appPath)
     }
     if (developerId) {
       installer = signAndVerifyDeveloperIdCandidate(
@@ -359,7 +371,7 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
     if (adhoc) installer = signAndVerifyAdHocCandidate(installer.path)
     publishMacosArtifacts(outputDirectory)
     const distribution = signed
-      ? 'signed/notarized'
+      ? 'Developer ID signed (not notarized)'
       : developerId
         ? 'RC Developer ID signed (not notarized)'
         : adhoc ? 'RC ad-hoc signed' : 'unsigned'
@@ -468,7 +480,7 @@ function findInstaller(outputDirectory) {
 }
 
 function publishMacosArtifacts(outputDirectory) {
-  const names = selectMacosUpdateArtifacts(readdirSync(outputDirectory))
+  const names = selectMacosDmgArtifacts(readdirSync(outputDirectory))
   rmSync(releaseDirectory, { recursive: true, force: true })
   mkdirSync(releaseDirectory, { recursive: true })
   for (const name of names) {
@@ -476,32 +488,8 @@ function publishMacosArtifacts(outputDirectory) {
   }
 }
 
-function verifySignedAndNotarized(appPath, installerPath) {
+function verifySignedApplication(appPath) {
   runCommand('codesign', ['--verify', '--deep', '--strict', '--verbose=2', appPath])
-  runCommand('spctl', ['--assess', '--type', 'execute', '--verbose=2', appPath])
-  runCommand('xcrun', ['stapler', 'validate', appPath])
-  runCommand('xcrun', ['stapler', 'validate', installerPath])
-}
-
-/**
- * 将包含已签名应用的 DMG 单独提交 Apple 公证，并把票据装订到镜像。
- * electron-builder 会在生成发布介质前公证 .app，但不会替 DMG 完成该步骤。
- * @param {string} installerPath 待公证的 DMG 路径。
- */
-function notarizeAndStapleDiskImage(installerPath) {
-  runCommand('xcrun', [
-    'notarytool',
-    'submit',
-    installerPath,
-    '--apple-id',
-    process.env['APPLE_ID'],
-    '--password',
-    process.env['APPLE_APP_SPECIFIC_PASSWORD'],
-    '--team-id',
-    process.env['APPLE_TEAM_ID'],
-    '--wait'
-  ])
-  runCommand('xcrun', ['stapler', 'staple', installerPath])
 }
 
 function findDeveloperIdIdentity() {
