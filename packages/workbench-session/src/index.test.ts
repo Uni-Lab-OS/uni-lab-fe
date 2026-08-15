@@ -687,6 +687,7 @@ describe('managed local Workbench session', () => {
 
   it('allows any Workspace graph and records its immutable launch generation', async () => {
     const fixture = await createFixture()
+    const argumentLogPath = join(fixture.workspacePath, 'unilab-args.json')
     const selectedGraphPath = join(
       fixture.workspacePath,
       'deployment',
@@ -710,7 +711,11 @@ describe('managed local Workbench session', () => {
       workspacePath: fixture.workspacePath,
       osProjectPath: fixture.osProjectPath,
       environmentPath: fixture.environmentPath,
-      readinessTimeoutMs: 5_000
+      readinessTimeoutMs: 5_000,
+      environment: {
+        ...process.env,
+        UNILAB_FIXTURE_ARGUMENT_LOG: argumentLogPath
+      }
     })
     sessions.push(session)
     await session.configureGraph('deployment/graphs/custom-real-device.json')
@@ -737,6 +742,13 @@ describe('managed local Workbench session', () => {
     )
     expect(manifest).toContain(selectedGraphPath)
     expect(manifest).toContain(ready.identity?.graphFingerprint)
+    const launchArguments = JSON.parse(
+      await readFile(argumentLogPath, 'utf8')
+    ) as string[]
+    expect(launchArguments).toContain('--resource_graph_source_id')
+    expect(launchArguments[
+      launchArguments.indexOf('--resource_graph_source_id') + 1
+    ]).toBe('custom-real-device.json')
     await expect(readFile(
       join(
         fixture.workspacePath,

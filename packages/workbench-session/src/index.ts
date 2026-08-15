@@ -1348,6 +1348,8 @@ async function resolveWorkbenchLaunch(
       workspacePath,
       '--graph',
       validatedGraphPath,
+      '--resource_graph_source_id',
+      basename(graphPath),
       '--config',
       localConfigPath,
       '--working_dir',
