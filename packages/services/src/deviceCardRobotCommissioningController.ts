@@ -85,7 +85,8 @@ export class DeviceCardRobotCommissioningController {
       mode: request.runtimeMode,
       hasSession,
       command: request.command?.type,
-      commandId: request.command?.command_id
+      commandId: request.command?.command_id,
+      target_ref: request.revise?.target_ref
     })
     try {
       const result = await this.dispatch(request)
@@ -183,6 +184,14 @@ export class DeviceCardRobotCommissioningController {
       )
       assertSuccessfulExecution(execution)
       return execution
+    }
+    if (request.operation === 'revise') {
+      if (!request.revise) throw new Error('PointSet 示教写回请求缺失。')
+      return this.service.revise(
+        active.deviceId,
+        active.sessionId,
+        request.revise
+      )
     }
     await this.service.close(active.deviceId, active.sessionId)
     this.sessions.delete(request.sessionKey)

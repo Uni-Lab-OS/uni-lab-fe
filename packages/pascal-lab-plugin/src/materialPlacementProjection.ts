@@ -51,10 +51,7 @@ export function projectPlacement(
   const parentSceneObjectId =
     sceneObjectIdByMaterialId[placement.parentId] ??
     `lab-${placement.parentId}`
-  const anchor =
-    placement.kind === 'parent'
-      ? placement.anchor
-      : findSite(aggregate, aggregatesById)?.anchor ?? { kind: 'root' }
+  const anchor = resolvePlacementAnchor(placement, aggregatesById)
   const localPose =
     placement.kind === 'parent'
       ? placement.localPose
@@ -104,10 +101,7 @@ export function placementFromSceneNode(
     }
   }
 
-  const anchor =
-    current.kind === 'parent'
-      ? current.anchor
-      : findSite(aggregate, aggregatesById)?.anchor ?? { kind: 'root' }
+  const anchor = resolvePlacementAnchor(current, aggregatesById)
   if (
     anchor.kind === 'root' &&
     !requiresLiveParenting(aggregate.material.id, aggregatesById)
@@ -204,6 +198,46 @@ export function resolveAggregateWorldPose(
   return pose
 }
 
+function resolvePlacementAnchor(
+  placement: MaterialPlacement,
+  aggregatesById: Readonly<Record<MaterialId, MaterialAggregate>>
+): MaterialAnchor {
+  if (placement.kind !== 'parent' && placement.kind !== 'site') {
+    return { kind: 'root' }
+  }
+  const declared: MaterialAnchor =
+    placement.kind === 'parent'
+      ? placement.anchor
+      : aggregatesById[placement.parentId]?.sites.find(
+          (site) => site.id === placement.siteId
+        )?.anchor ?? { kind: 'root' }
+  if (declared.kind === 'link') return declared
+  const mountLink = parentMountLinkFromConfig(
+    aggregatesById[placement.parentId]?.material.config
+  )
+  return mountLink
+    ? { kind: 'link', linkName: mountLink }
+    : declared
+}
+
+function parentMountLinkFromConfig(config: unknown): string | undefined {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    return undefined
+  }
+  const rendering = (config as { rendering?: unknown }).rendering
+  if (!rendering || typeof rendering !== 'object' || Array.isArray(rendering)) {
+    return undefined
+  }
+  const kinematics = (rendering as { kinematics?: unknown }).kinematics
+  if (!kinematics || typeof kinematics !== 'object' || Array.isArray(kinematics)) {
+    return undefined
+  }
+  const mountLink = (kinematics as { mount_link?: unknown }).mount_link
+  return typeof mountLink === 'string' && mountLink.trim()
+    ? mountLink.trim()
+    : undefined
+}
+
 /**
  * Link-anchored subtrees stay parented in Three so high-frequency joint
  * updates propagate without rebuilding Material Graph view state. Pure
@@ -222,10 +256,7 @@ function requiresLiveParenting(
   if (!placement || placement.kind === 'unplaced' || placement.kind === 'world') {
     return false
   }
-  const anchor =
-    placement.kind === 'parent'
-      ? placement.anchor
-      : findSite(aggregate, aggregatesById)?.anchor ?? { kind: 'root' }
+  const anchor = resolvePlacementAnchor(placement, aggregatesById)
   return (
     anchor.kind === 'link' ||
     requiresLiveParenting(placement.parentId, aggregatesById, visiting)
@@ -240,16 +271,7 @@ function placementRef(
     placement.kind === 'parent' || placement.kind === 'site'
       ? placement.parentId
       : null
-  const site =
-    placement.kind === 'site'
-      ? aggregatesById[placement.parentId]?.sites.find(
-          (candidate) => candidate.id === placement.siteId
-        )
-      : undefined
-  const anchor: MaterialAnchor =
-    placement.kind === 'parent'
-      ? placement.anchor
-      : site?.anchor ?? { kind: 'root' }
+  const anchor = resolvePlacementAnchor(placement, aggregatesById)
 
   return {
     kind: placement.kind,

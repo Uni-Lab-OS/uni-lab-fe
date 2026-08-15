@@ -148,14 +148,46 @@ export function findLinkObject(
   parentObject: Object3D,
   linkName: string
 ): Object3D | null {
-  const robot = parentObject as Object3D & {
-    links?: Record<string, Object3D>
-  }
-  if (robot.links?.[linkName]) return robot.links[linkName]
+  if (typeof parentObject.traverse !== 'function') return null
+  const direct = objectLinks(parentObject)?.[linkName]
+  if (direct) return direct
 
   let match: Object3D | null = null
   parentObject.traverse((object) => {
-    if (!match && object.name === linkName) match = object
+    if (match) return
+    const nested = objectLinks(object)?.[linkName]
+    if (nested) {
+      match = nested
+      return
+    }
+    if (object.name === linkName) match = object
   })
   return match
+}
+
+function objectLinks(
+  object: Object3D
+): Record<string, Object3D> | undefined {
+  const links = (object as Object3D & {
+    links?: Record<string, Object3D>
+  }).links
+  return links && typeof links === 'object' ? links : undefined
+}
+
+/**
+ * Keep a child group parented to a live URDF link so joint updates
+ * propagate like ROS TF. R3F may steal the parent back between frames.
+ */
+export function maintainLiveParent(
+  group: Object3D,
+  parentObject: Object3D | null,
+  parentLinkName: string | null | undefined
+): void {
+  if (!parentLinkName) return
+  if (!parentObject || typeof parentObject.traverse !== 'function') return
+  const linkObject = parentLinkName === '__root__'
+    ? parentObject
+    : findLinkObject(parentObject, parentLinkName)
+  if (!linkObject) return
+  if (group.parent !== linkObject) linkObject.add(group)
 }

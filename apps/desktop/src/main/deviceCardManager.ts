@@ -62,6 +62,7 @@ import {
   normalizeBoundsForZoom,
   publicRecord,
   robotCommissioningSessionKey,
+  shouldConfirmCommissioningExecute,
   workspaceRuntimeRecord,
   type RuntimeCardRecord
 } from './deviceCardRuntimeValidation'
@@ -73,6 +74,7 @@ type RuntimeSession = {
   config: JsonObject
   actions: Map<string, DeviceCardActionContract>
   commissioningSessionKey: string
+  jogArmed: boolean
 }
 type PendingAction = { resolve: (run: DeviceCardActionRun) => void }
 type PendingCommissioning = {
@@ -446,7 +448,8 @@ export class DeviceCardManager {
           structuredClone(action)
         ])
       ),
-      commissioningSessionKey: robotCommissioningSessionKey(record, request.context)
+      commissioningSessionKey: robotCommissioningSessionKey(record, request.context),
+      jogArmed: false
     }
     const viewId = view.webContents.id
     this.sessions.set(viewId, session)
@@ -662,7 +665,7 @@ export class DeviceCardManager {
         assertCommissioningCommand(payload)
         command = payload
         if (
-          command.type !== 'controlled_stop'
+          shouldConfirmCommissioningExecute(command.type, session.jogArmed)
           && !await confirmCommissioningCommand(
             this.requireMainWindow(),
             deviceId,
@@ -675,6 +678,9 @@ export class DeviceCardManager {
             'warning'
           )
           throw new Error('用户取消了机械臂调试命令。')
+        }
+        if (command.type === 'joint_jog' || command.type === 'tcp_jog') {
+          session.jogArmed = true
         }
       } else if (operation === 'revise') {
         assertReviseRequest(payload)
@@ -715,6 +721,7 @@ export class DeviceCardManager {
       this.runtimeDiagnostic(
         `[commissioning] stage=manager status=done op=${diagnosticToken(operation)} device=${diagnosticToken(deviceId)} durationMs=${Date.now() - started}`
       )
+      if (operation === 'close') session.jogArmed = false
       return operation === 'close' ? undefined : (run.result ?? {})
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -1003,7 +1010,9 @@ async function confirmCommissioningCommand(
       `运行模式：${modeLabel}`,
       `命令 ID：${command.command_id}`,
       '该命令将由 OS 的 RobotCommissioning 会话执行；具体 MoveIt/PLC/SDK 后端由当前 HardwareProfile 决定。',
-      '确认机械臂工作区无人且现场安全后再继续。'
+      command.type === 'joint_jog' || command.type === 'tcp_jog'
+        ? '本调试会话内后续关节/笛卡尔步进不再确认。去目标、回零和写回点位仍每次确认。'
+        : '确认机械臂工作区无人且现场安全后再继续。'
     ].join('\n'),
     buttons: ['确认并执行', '取消'],
     defaultId: 1,

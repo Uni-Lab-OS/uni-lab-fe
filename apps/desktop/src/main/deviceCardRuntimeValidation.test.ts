@@ -11,6 +11,7 @@ import {
   isOpenRequest,
   normalizeBoundsForZoom,
   robotCommissioningSessionKey,
+  shouldConfirmCommissioningExecute,
   type RuntimeCardRecord
 } from './deviceCardRuntimeValidation'
 
@@ -94,6 +95,18 @@ function registerRuntimeValidationTests(): void {
     expect(robotCommissioningSessionKey(record, runtimeContext('mock'))).toBe(
       'hash:unbound:mock'
     )
+  })
+  it('急停永不确认，关节和笛卡尔步进只在未武装时确认，去目标每次确认', () => {
+    expect(shouldConfirmCommissioningExecute('controlled_stop', false)).toBe(false)
+    expect(shouldConfirmCommissioningExecute('controlled_stop', true)).toBe(false)
+    expect(shouldConfirmCommissioningExecute('joint_jog', false)).toBe(true)
+    expect(shouldConfirmCommissioningExecute('joint_jog', true)).toBe(false)
+    expect(shouldConfirmCommissioningExecute('tcp_jog', false)).toBe(true)
+    expect(shouldConfirmCommissioningExecute('tcp_jog', true)).toBe(false)
+    expect(shouldConfirmCommissioningExecute('move_target', false)).toBe(true)
+    expect(shouldConfirmCommissioningExecute('move_target', true)).toBe(true)
+    expect(shouldConfirmCommissioningExecute('move_pose', false)).toBe(true)
+    expect(shouldConfirmCommissioningExecute('move_pose', true)).toBe(true)
   })
   it('只接受绑定当前 Material 的 Mock 关节快照', () => {
     const context = runtimeContext('mock')

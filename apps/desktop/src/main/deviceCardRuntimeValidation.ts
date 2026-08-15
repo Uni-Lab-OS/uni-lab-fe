@@ -3,6 +3,7 @@ import type {
   DeviceCardActionContract,
   DeviceCardAuthoringContext,
   DeviceCardBounds,
+  DeviceCardRobotCommissioningCommandType,
   DeviceCardRuntimeSnapshot,
   InstalledDeviceCard,
   OpenDeviceCardRequest,
@@ -36,6 +37,21 @@ export function robotCommissioningSessionKey(
 ): string {
   const deviceId = context.device.deviceId ?? 'unbound'
   return `${record.metadata.sourceHash}:${deviceId}:${context.mode}`
+}
+
+/**
+ * 决定 Host 是否弹出机械臂调试确认。确认权只在 Host，卡片不能跳过。
+ *
+ * `controlled_stop` 永不确认。`joint_jog` / `tcp_jog` 仅在当前调试会话尚未武装时确认一次。
+ * `move_target` / `move_pose` 每次确认。不写死步进幅度或轴数。
+ */
+export function shouldConfirmCommissioningExecute(
+  type: DeviceCardRobotCommissioningCommandType,
+  jogArmed: boolean
+): boolean {
+  if (type === 'controlled_stop') return false
+  if (type === 'joint_jog' || type === 'tcp_jog') return !jogArmed
+  return true
 }
 
 /** 确认设备卡支持当前设备类型和 Live 能力目录。 */

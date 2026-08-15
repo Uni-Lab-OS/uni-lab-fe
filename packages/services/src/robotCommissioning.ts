@@ -1,5 +1,6 @@
 import type {
   DeviceCardRobotCommissioningCommand,
+  DeviceCardRobotCommissioningReviseRequest,
   JsonObject
 } from '@unilab/device-card-sdk'
 
@@ -22,6 +23,11 @@ export interface RobotCommissioningService {
     deviceId: string,
     sessionId: string,
     command: DeviceCardRobotCommissioningCommand
+  ): Promise<JsonObject>
+  revise(
+    deviceId: string,
+    sessionId: string,
+    request: DeviceCardRobotCommissioningReviseRequest
   ): Promise<JsonObject>
   close(deviceId: string, sessionId: string): Promise<void>
 }
@@ -73,6 +79,24 @@ export function createRobotCommissioningService(
         {
           ...jsonRequest('POST', command),
           timeoutMs: ROBOT_COMMISSIONING_EXECUTION_TIMEOUT_MS
+        }
+      )
+    ),
+    revise: (deviceId, sessionId, request) => traced(
+      {
+        op: 'revise',
+        device: deviceId,
+        session: sessionId,
+        target_ref: request.target_ref
+      },
+      () => http.request(
+        `${base(deviceId)}/sessions/${encodeURIComponent(sessionId)}/targets`,
+        {
+          ...jsonRequest('POST', {
+            target_ref: request.target_ref,
+            joint_positions_si: request.joint_positions_si
+          }),
+          timeoutMs: ROBOT_COMMISSIONING_SESSION_TIMEOUT_MS
         }
       )
     ),
@@ -159,6 +183,9 @@ function httpResultShape(
     idle: record.idle === undefined ? undefined : Boolean(record.idle),
     resultState: resultRecord && typeof resultRecord.state === 'string'
       ? resultRecord.state
+      : undefined,
+    targetRevision: typeof record.target_revision === 'string'
+      ? record.target_revision
       : undefined,
     hasJoints: Array.isArray(joints) ? joints.length > 0 : undefined
   }

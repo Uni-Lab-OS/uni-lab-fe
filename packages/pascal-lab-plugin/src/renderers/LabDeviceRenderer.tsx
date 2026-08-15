@@ -30,7 +30,7 @@ import {
   disposeLabModel,
   loadLabDeviceModel
 } from '../modelRuntime'
-import { findLinkObject } from '../mounting'
+import { findLinkObject, maintainLiveParent } from '../mounting'
 import {
   applyJointStateToUrdfWithDiagnostics,
   captureInitialJointState,
@@ -40,6 +40,7 @@ import {
 import type { LabDeviceNode } from '../schema'
 import { SiteBoundsRenderer } from './SiteBoundsRenderer'
 import { PASCAL_SCENE_HTML_Z_INDEX_RANGE } from './htmlLayer'
+import { urdfModelDisplayRotation } from '../units'
 
 export const MODEL_READY_EVENT = 'unilab:pascal-model-ready'
 
@@ -227,8 +228,10 @@ export default function LabDeviceRenderer({
   const isSelected = useViewer((state) =>
     state.selection.selectedIds.includes(node.id as never)
   )
-  const isZUp =
-    node.model.format === 'xacro' || node.model.format === 'urdf'
+  const modelBasisRotation = urdfModelDisplayRotation(
+    node.model.format,
+    node.attach.parentLinkName
+  )
   const isDeck = node.deviceType.includes('deck')
   const deckSurfaceProvidedByParent =
     isDeck && Boolean(node.attach.parentDeviceId)
@@ -240,6 +243,13 @@ export default function LabDeviceRenderer({
 
   // 高频帧只在 render frame 中命令式读取；不让 React/Material 随关节更新。
   useFrame(() => {
+    const group = groupRef.current
+    const { parentDeviceId, parentLinkName } = node.attach
+    if (group && parentDeviceId) {
+      const parentObject = sceneRegistry.nodes.get(parentDeviceId) ?? null
+      maintainLiveParent(group, parentObject, parentLinkName)
+    }
+
     if (!object) return
     const frame = getJointStateFrame(node.materialNodeId)
     if (!frame) {
@@ -433,7 +443,7 @@ export default function LabDeviceRenderer({
       {node.renderBody && object && (
         <group
           ref={modelGroupRef}
-          rotation={isZUp ? [-Math.PI / 2, 0, 0] : undefined}
+          rotation={modelBasisRotation}
         >
           <group
             position={node.model.position}

@@ -76,6 +76,20 @@ export function labLinkPoseToThree(pose: LabPose): {
   }
 }
 
+/**
+ * World-placed URDF models need one Z-up → Pascal Y-up basis rotation.
+ * A child live-parented to a URDF link already sits inside that converted
+ * subtree (same as RViz TF); applying the basis again lays the model over.
+ */
+export function urdfModelDisplayRotation(
+  format: string,
+  parentLinkName: string | null | undefined
+): Vector3Tuple | undefined {
+  if (format !== 'xacro' && format !== 'urdf') return undefined
+  if (parentLinkName && parentLinkName !== '__root__') return undefined
+  return [-Math.PI / 2, 0, 0]
+}
+
 export function threePoseToLabLink(
   position: Vector3Tuple,
   rotation: Vector3Tuple

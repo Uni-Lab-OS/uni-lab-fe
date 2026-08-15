@@ -2,11 +2,13 @@ import {
   buildDeviceCardAuthoringSampleState,
   createDeviceCardAuthoringContext
 } from '@unilab/device-card-authoring-kit'
-import type {
-  DeviceCardActionContract,
-  DeviceCardAuthoringContext,
-  DeviceCardAuthoringTarget,
-  DeviceCardWorkspaceStatus
+import {
+  deviceCardSupportsDevice,
+  type DeviceCardActionContract,
+  type DeviceCardAuthoringContext,
+  type DeviceCardAuthoringTarget,
+  type DeviceCardDefinitionTarget,
+  type DeviceCardWorkspaceStatus
 } from '@unilab/device-card-sdk'
 import type {
   DeviceCatalogAction,
@@ -191,6 +193,46 @@ export function isWorkbenchDeviceCardLiveBinding(
     && binding.previewId === previewId
     && binding.deviceId === deviceId
   )
+}
+
+export interface WorkbenchDeviceCardCompatibility {
+  definitionTargets: readonly DeviceCardDefinitionTarget[]
+  legacyDeviceTypes: readonly string[]
+}
+
+/**
+ * 按卡片声明的设备定义 FQID 解析预览实例，不猜 instance id。
+ *
+ * 用户选中的目录条目若匹配卡片目标则使用它；选中不兼容实例时保持未绑定；
+ * 选择为空或已从目录消失时回退到第一个 FQID 匹配项。catalog 没有兼容设备时
+ * 返回 undefined，Host 不得伪造 materialId。
+ *
+ * @param card 当前预览卡片的规范目标和遗留类型。
+ * @param devices OS 设备目录。
+ * @param selectedDeviceId 用户当前选择的实例身份，空字符串表示尚未选择。
+ * @returns 可注入卡片上下文的目录条目，或未绑定。
+ */
+export function resolveWorkbenchDeviceCardPreviewDevice(
+  card: WorkbenchDeviceCardCompatibility | undefined,
+  devices: readonly DeviceCatalogItem[],
+  selectedDeviceId: string
+): DeviceCatalogItem | undefined {
+  if (!card) return undefined
+  const selected = devices.find(device => device.deviceId === selectedDeviceId)
+  if (selected) {
+    return deviceCardSupportsDevice(
+      card,
+      selected.definitionFqid,
+      selected.deviceTypeId
+    )
+      ? selected
+      : undefined
+  }
+  return devices.find(device => deviceCardSupportsDevice(
+    card,
+    device.definitionFqid,
+    device.deviceTypeId
+  ))
 }
 
 /**

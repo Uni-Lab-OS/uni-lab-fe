@@ -43,6 +43,15 @@ export function mapBackendMaterialGraph(
     }
   }
 
+  const parentConfigById = new Map<string, unknown>()
+  for (const node of nodes) {
+    const material = recordValue(node.material)
+    parentConfigById.set(
+      requiredString(material.uuid, 'material.uuid'),
+      material.config
+    )
+  }
+
   return nodes.map((node) => {
     const material = recordValue(node.material)
     const id = requiredString(material.uuid, 'material.uuid')
@@ -94,7 +103,8 @@ export function mapBackendMaterialGraph(
         material,
         position,
         node.current_site_uuid,
-        siteById
+        siteById,
+        parentConfigById
       ),
       sites,
       // Backend baseline deliberately does not expose Inventory.version. This
@@ -154,7 +164,8 @@ function mapBackendPlacement(
   siteById: ReadonlyMap<
     string,
     { ownerMaterialId: string; site: MaterialSite }
-  >
+  >,
+  parentConfigById: ReadonlyMap<string, unknown>
 ): MaterialPlacement {
   const siteId = optionalString(currentSiteUuid)
   if (siteId) {
@@ -173,14 +184,24 @@ function mapBackendPlacement(
 
   const pose = mapBackendPose(position, 'relative_position')
   const parentId = optionalString(material.parent_uuid)
+  const mountLink = parentMountLink(parentConfigById.get(parentId ?? ''))
   return parentId
     ? {
         kind: 'parent',
         parentId,
-        anchor: { kind: 'root' },
+        anchor: mountLink
+          ? { kind: 'link', linkName: mountLink }
+          : { kind: 'root' },
         localPose: pose
       }
     : { kind: 'world', pose }
+}
+
+function parentMountLink(config: unknown): string | undefined {
+  if (!isRecord(config) || !isRecord(config.rendering)) return undefined
+  if (!isRecord(config.rendering.kinematics)) return undefined
+  const mountLink = optionalString(config.rendering.kinematics.mount_link)
+  return mountLink?.trim() || undefined
 }
 
 function mapBackendSite(value: unknown): MaterialSite {

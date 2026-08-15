@@ -8,6 +8,7 @@ describe('DeviceCardRobotCommissioningController', () => {
       open: vi.fn(),
       snapshot: vi.fn(),
       execute: vi.fn(),
+      revise: vi.fn(),
       close: vi.fn()
     }
     const controller = new DeviceCardRobotCommissioningController(service)
@@ -29,6 +30,7 @@ describe('DeviceCardRobotCommissioningController', () => {
       open: vi.fn().mockResolvedValue({ session_id: 'os-session' }),
       snapshot: vi.fn().mockResolvedValue({ online: true }),
       execute: vi.fn().mockResolvedValue({ result: { state: 'succeeded' } }),
+      revise: vi.fn(),
       close: vi.fn().mockResolvedValue(undefined)
     }
     const controller = new DeviceCardRobotCommissioningController(service)
@@ -80,6 +82,7 @@ describe('DeviceCardRobotCommissioningController', () => {
       execute: vi.fn().mockResolvedValue({
         result: { state: 'rejected', message: 'simulation joint limit' }
       }),
+      revise: vi.fn(),
       close: vi.fn()
     }
     const controller = new DeviceCardRobotCommissioningController(service)
@@ -117,6 +120,7 @@ describe('DeviceCardRobotCommissioningController', () => {
         .mockResolvedValueOnce({ session_id: 'new-session' }),
       snapshot: vi.fn(),
       execute: vi.fn(),
+      revise: vi.fn(),
       close: vi.fn().mockReturnValue(closePending)
     }
     const controller = new DeviceCardRobotCommissioningController(service)
@@ -162,6 +166,7 @@ describe('DeviceCardRobotCommissioningController', () => {
         .mockResolvedValueOnce({ session_id: 'new-session' }),
       snapshot: vi.fn(),
       execute: vi.fn(),
+      revise: vi.fn(),
       close: vi.fn()
     }
     const controller = new DeviceCardRobotCommissioningController(service)
@@ -184,5 +189,83 @@ describe('DeviceCardRobotCommissioningController', () => {
       runtimeMode: 'mock', operation: 'open'
     })).resolves.toMatchObject({ status: 'DONE' })
     expect(service.open).toHaveBeenCalledTimes(2)
+  })
+
+  it('revises an authored target without closing the session', async () => {
+    const service = {
+      open: vi.fn().mockResolvedValue({ session_id: 'os-session' }),
+      snapshot: vi.fn(),
+      execute: vi.fn(),
+      revise: vi.fn().mockResolvedValue({
+        target_revision: 'ptlc-cr5-rail@3.1.1',
+        target_catalog: { target_ref: 'authored.standby' }
+      }),
+      close: vi.fn()
+    }
+    const controller = new DeviceCardRobotCommissioningController(service)
+    await controller.execute({
+      requestId: 'open',
+      sessionKey: 'host-key',
+      deviceId: 'robot',
+      runtimeMode: 'mock',
+      operation: 'open'
+    })
+
+    const run = await controller.execute({
+      requestId: 'revise-1',
+      sessionKey: 'host-key',
+      deviceId: 'robot',
+      runtimeMode: 'mock',
+      operation: 'revise',
+      revise: {
+        target_ref: 'authored.standby',
+        joint_positions_si: [0.1, 0.2]
+      }
+    })
+
+    expect(run.status).toBe('DONE')
+    expect(run.result).toEqual({
+      target_revision: 'ptlc-cr5-rail@3.1.1',
+      target_catalog: { target_ref: 'authored.standby' }
+    })
+    expect(service.revise).toHaveBeenCalledWith(
+      'robot',
+      'os-session',
+      {
+        target_ref: 'authored.standby',
+        joint_positions_si: [0.1, 0.2]
+      }
+    )
+    expect(service.close).not.toHaveBeenCalled()
+  })
+
+  it('rejects revise before the commissioning session is open', async () => {
+    const service = {
+      open: vi.fn(),
+      snapshot: vi.fn(),
+      execute: vi.fn(),
+      revise: vi.fn(),
+      close: vi.fn()
+    }
+    const controller = new DeviceCardRobotCommissioningController(service)
+
+    const run = await controller.execute({
+      requestId: 'revise-early',
+      sessionKey: 'host-key',
+      deviceId: 'robot',
+      runtimeMode: 'mock',
+      operation: 'revise',
+      revise: {
+        target_ref: 'authored.standby',
+        joint_positions_si: [0.1]
+      }
+    })
+
+    expect(run).toMatchObject({
+      status: 'ERROR',
+      error: '尚未打开机械臂调试会话。'
+    })
+    expect(service.revise).not.toHaveBeenCalled()
+    expect(service.close).not.toHaveBeenCalled()
   })
 })

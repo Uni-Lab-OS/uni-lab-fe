@@ -2,7 +2,6 @@ import {
   DEVICE_CARD_HOST_STATE_SCHEMA,
   deviceCardDefinitionHasDrifted,
   deviceCardRealtimeStateKeys,
-  deviceCardSupportsDevice,
   type DeviceCardActionContract,
   type DeviceCardActionRun,
   type DeviceCardAgentEnvironmentInfo,
@@ -45,6 +44,7 @@ import {
   buildWorkbenchDeviceCardSampleState,
   clearWorkbenchDeviceStatusStreamNotice,
   isWorkbenchDeviceCardLiveBinding,
+  resolveWorkbenchDeviceCardPreviewDevice,
   workbenchDeviceCardActionSignature,
   workbenchDeviceStatusStreamErrorNotice,
   workbenchDeviceCardErrorNotice,
@@ -295,16 +295,17 @@ export function useWorkbenchDeviceCards({
   }, [desktopApi, services.laboratory])
 
   const selectedCard = cards.find(card => card.key === selectedCardKey)
-  const selectedDevice = devices.find(device => device.deviceId === selectedDeviceId)
-    ?? devices[0]
   const workspaceCard = workspace?.card
   const workspaceActive = workspace !== null
   const previewCard = workspaceCard ?? selectedCard
-  const previewDevice = selectedDevice && previewCard && deviceCardSupportsDevice(
+  const previewDevice = resolveWorkbenchDeviceCardPreviewDevice(
     previewCard,
-    selectedDevice.definitionFqid,
-    selectedDevice.deviceTypeId
-  ) ? selectedDevice : undefined
+    devices,
+    selectedDeviceId
+  )
+  const selectedDevice = devices.find(device => device.deviceId === selectedDeviceId)
+    ?? previewDevice
+    ?? devices[0]
   const previewId = workspaceCard
     ? `workspace:${workspaceCard.sourceHash}`
     : selectedCard
@@ -339,27 +340,12 @@ export function useWorkbenchDeviceCards({
   }, [liveMode])
 
   useEffect(() => {
-    setSelectedDeviceId(current => devices.some(device => device.deviceId === current)
-      ? current
-      : devices[0]?.deviceId ?? '')
-  }, [devices])
-
-  useEffect(() => {
-    if (!previewCard) return
     setSelectedDeviceId(current => {
-      const currentDevice = devices.find(device => device.deviceId === current)
-      if (currentDevice && deviceCardSupportsDevice(
-        previewCard,
-        currentDevice.definitionFqid,
-        currentDevice.deviceTypeId
-      )) {
-        return current
-      }
-      return devices.find(device => deviceCardSupportsDevice(
-        previewCard,
-        device.definitionFqid,
-        device.deviceTypeId
-      ))?.deviceId ?? current
+      if (devices.some(device => device.deviceId === current)) return current
+      return resolveWorkbenchDeviceCardPreviewDevice(previewCard, devices, '')
+        ?.deviceId
+        ?? devices[0]?.deviceId
+        ?? ''
     })
   }, [devices, previewCard])
 
