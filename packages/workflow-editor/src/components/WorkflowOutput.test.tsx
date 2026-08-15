@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
@@ -14,6 +17,17 @@ import {
 function noop(): void {}
 
 describe('WorkflowOutput', () => {
+  it('keeps the node panel hidden when another output tab is active', () => {
+    const stylesheet = readFileSync(fileURLToPath(new URL(
+      './_workflow-output.scss',
+      import.meta.url
+    )), 'utf8')
+
+    expect(stylesheet).toMatch(
+      /#workflow-output-panel-nodes\)\[hidden\]\s*\{\s*display:\s*none;/u
+    )
+  })
+
   it('renders the Trace action beside runtime output controls when available', () => {
     const html = renderToStaticMarkup(
       <WorkflowOutput
@@ -356,6 +370,8 @@ describe('WorkflowOutput', () => {
       html.indexOf('id="workflow-output-panel-events"')
     )
     expect(nodePanel).toContain('aria-label="加热样品 运行日志"')
+    expect(nodePanel).toContain('aria-label="复制运行日志"')
+    expect(nodePanel).toContain('aria-label="复制运行结果"')
     expect(nodePanel).toContain('heater reached 80 C')
     expect(nodePanel).toContain('sample heating completed')
     expect(nodePanel).not.toContain('camera-only log')

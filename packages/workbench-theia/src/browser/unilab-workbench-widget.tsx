@@ -1,6 +1,10 @@
 import { EditorManager, EditorWidget } from '@theia/editor/lib/browser'
 import { FileService } from '@theia/filesystem/lib/browser/file-service'
 import { ApplicationShell, Message } from '@theia/core/lib/browser'
+import {
+  ConnectionStatus,
+  ConnectionStatusService
+} from '@theia/core/lib/browser/connection-status-service'
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget'
 import { MessageService } from '@theia/core/lib/common/message-service'
 import { URI } from '@theia/core/lib/common/uri'
@@ -145,6 +149,9 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   @inject(WorkbenchViewState)
   protected readonly viewState!: WorkbenchViewState
 
+  @inject(ConnectionStatusService)
+  protected readonly connectionStatus!: ConnectionStatusService
+
   protected editorListeners = new DisposableCollection()
   protected snapshot = createWorkflowIdeSyncState()
   protected ideAdapter!: WorkflowIdeHostAdapter
@@ -172,6 +179,8 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     initialWorkbenchConnectionMode()
   protected connectionSwitchingTo: WorkbenchConnectionMode | null = null
   protected connectionSwitchRevision = 0
+  protected connectionInterrupted = false
+  protected recoveryRevision = 0
   @postConstruct()
   protected init(): void {
     this.ideAdapter = createTheiaWorkflowIdeAdapter({
@@ -203,6 +212,17 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       this.update()
     }))
     this.toDispose.push(this.viewState.onDidChangeMode(() => this.update()))
+    this.toDispose.push(this.connectionStatus.onStatusChange(status => {
+      if (status === ConnectionStatus.OFFLINE) {
+        this.connectionInterrupted = true
+        return
+      }
+      if (!this.connectionInterrupted) return
+      this.connectionInterrupted = false
+      this.recoveryRevision += 1
+      void this.refreshSessionSnapshot()
+      this.update()
+    }))
     void this.refreshSessionSnapshot()
     this.observeCurrentEditor()
     this.update()
@@ -212,7 +232,8 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     try {
       this.sessionSnapshot = await this.workbenchSession.getSnapshot()
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
+      const rawMessage = error instanceof Error ? error.message : String(error)
+      const reconnecting = /reconnecting channel/i.test(rawMessage)
       this.sessionSnapshot = {
         phase: 'failed',
         message: 'Workbench Backend 连接失败',
@@ -225,8 +246,12 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         agent: null,
         diagnostic: {
           code: 'os_start_failed',
-          message,
-          recovery: '确认 Workbench Backend 正在运行后重新加载窗口'
+          message: reconnecting
+            ? '连接暂时中断，正在等待自动恢复。'
+            : rawMessage,
+          recovery: reconnecting
+            ? '网络恢复后页面会自动重新读取数据，无需手动刷新'
+            : '确认 Workbench Backend 正在运行后重试'
         },
         edgeRuntime: emptyEdgeRuntimeSnapshot(),
         plcSimulator: emptyPlcSimulatorSnapshot()
@@ -520,6 +545,16 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   ): Promise<void> => {
     if (mode === this.connectionMode) return
     if (this.connectionSwitchingTo) return
+    // The idle/failed gate is choosing what the next launch should use, not
+    // switching a live runtime.  Local Workspace Backend is intentionally
+    // offline before the first launch, so probing it here would reject a valid
+    // selection and leave the summary on the previously persisted mode.
+    if (this.sessionSnapshot.phase !== 'ready') {
+      this.connectionMode = mode
+      persistWorkbenchConnectionMode(mode)
+      this.update()
+      return
+    }
     if (this.lastReportedUnsavedChanges) {
       void this.messages.warn('请先保存当前工作流修改，再切换运行连接')
       return
@@ -709,6 +744,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
           snapshot={this.sessionSnapshot}
           onRetry={this.retrySession}
           onStop={this.stopWorkspaceBackend}
+          launchMode={this.connectionSwitchingTo ?? this.connectionMode}
           connectionSelector={(
             <WorkbenchConnectionSelector
               targets={connectionTargets}
@@ -758,6 +794,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         ideBridge={this.ideBridge}
         session={this.sessionSnapshot}
         sessionClient={this.workbenchSessionClient}
+        recoveryRevision={this.recoveryRevision}
         viewMode={this.viewState.currentMode}
         switchBlockedReason={this.lastReportedUnsavedChanges
           ? '请先保存当前工作流修改'
@@ -806,6 +843,7 @@ function WorkbenchSurface({
   ideBridge,
   session,
   sessionClient,
+  recoveryRevision,
   viewMode,
   switchBlockedReason,
   onConnectionModeChange,
@@ -835,6 +873,7 @@ function WorkbenchSurface({
   ideBridge: WorkflowIdeBridge
   session: WorkbenchSessionSnapshot
   sessionClient: WorkbenchSessionClientImpl
+  recoveryRevision: number
   viewMode: WorkbenchViewMode
   switchBlockedReason: string | null
   onConnectionModeChange: (mode: WorkbenchConnectionMode) => void
@@ -919,7 +958,11 @@ function WorkbenchSurface({
   const connectionRetry = connectionMode === 'backend'
     ? retryConnection
     : undefined
-  const workstationData = useRobotWorkstationData(services, viewMode)
+  const workstationData = useRobotWorkstationData(
+    services,
+    viewMode,
+    recoveryRevision
+  )
   const queryClient = useMemo(
     () => new QueryClient(),
     [selectedTarget.cacheKey]
@@ -940,6 +983,12 @@ function WorkbenchSurface({
   const deviceBackend = selectedTarget.backend
 
   useEffect(() => () => materialStore.getState().reset(), [materialStore])
+
+  useEffect(() => {
+    if (recoveryRevision === 0) return
+    materialStore.getState().reset()
+    void queryClient.invalidateQueries()
+  }, [materialStore, queryClient, recoveryRevision])
 
   useEffect(() => {
     reportWorkflowUnsavedChanges(false)
@@ -1014,6 +1063,7 @@ function WorkbenchSurface({
           encodeURIComponent(selectedTarget.sourceId)
         }.v1`}
         allowWorkflowSelection
+        recoveryRevision={recoveryRevision}
         hideEmbeddedCodeEditor
         ideBridge={ideBridge}
         onUnsavedChangesChange={(hasUnsavedChanges) => {

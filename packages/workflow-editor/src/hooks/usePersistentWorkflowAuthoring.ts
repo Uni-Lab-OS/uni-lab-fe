@@ -93,7 +93,8 @@ export function usePersistentWorkflowAuthoring({
   onSelectedWorkflowStepChange,
   onChooseWorkflow,
   ideBridge,
-  hideEmbeddedCodeEditor = false
+  hideEmbeddedCodeEditor = false,
+  recoveryRevision = 0
 }: PersistentWorkflowAuthoringOptions) {
   const [mode, setMode] = useState<WorkflowEditMode>(
     () => definitionPort.capabilities.sourceEditing ? 'code' : 'canvas'
@@ -435,6 +436,18 @@ export function usePersistentWorkflowAuthoring({
       .then((next) => {
         if (!active) return
         remotePending.current = false
+        const current = localState.current
+        if (recoveryRevision > 0 && isAuthoringSnapshotDirty(current)) {
+          if (!isSameAuthoringVersion(next, current.aggregate)) {
+            remotePending.current = true
+            setRemoteConflict(authoringRemoteConflict(next, current))
+            setMessage('连接已恢复；本地修改已保留，请比较后明确处理')
+          } else {
+            setError(null)
+            setMessage('连接已恢复；本地未保存修改已保留')
+          }
+          return
+        }
         installAggregate(next, authoringStateMessage(next))
       })
       .catch((loadError) => {
@@ -447,7 +460,7 @@ export function usePersistentWorkflowAuthoring({
     return () => {
       active = false
     }
-  }, [definitionPort, installAggregate, queue])
+  }, [definitionPort, installAggregate, queue, recoveryRevision])
 
   useEffect(
     /**

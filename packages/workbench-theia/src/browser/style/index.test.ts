@@ -113,6 +113,43 @@ describe('environment manager layering and responsive layout', () => {
     )
   })
 
+  /** 证明产品不保留 48px 右活动栏，主工作区始终铺到窗口边缘。 */
+  it('reclaims the right sidebar width for the main workbench', () => {
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-left-right-split-panel\s*\{[^}]*right:\s*0 !important;[^}]*width:\s*100% !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /\.theia-app-right\s*\{[^}]*display:\s*none !important/u
+    )
+    expect(domainNavigationStylesheet).not.toMatch(
+      /#theia-left-right-split-panel\s*> #theia-right-content-panel,\s*\.theia-app-right/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-left-right-split-panel\s*> #theia-right-content-panel\s*\{[^}]*display:\s*none !important;[^}]*min-width:\s*0 !important;[^}]*max-width:\s*0 !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /body\.unilab-agent-panel-visible[\s\S]*?#theia-right-content-panel\s*\{[^}]*display:\s*flex !important;[^}]*min-width:\s*420px !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /body\.unilab-agent-panel-visible[\s\S]*?#theia-bottom-split-panel\s*\{[^}]*right:\s*420px !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-left-right-split-panel\s*> #theia-bottom-split-panel\s*\{[^}]*right:\s*0 !important;[^}]*width:\s*auto !important/u
+    )
+    expect(domainNavigationStylesheet).not.toMatch(
+      /#theia-left-right-split-panel\s*> #theia-bottom-split-panel\s*\{[^}]*left:\s*48px !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-bottom-split-panel\s*> #theia-main-content-panel\s*\{[^}]*right:\s*0 !important;[^}]*width:\s*100% !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-main-content-panel\s*> \.lm-DockPanel-widget\s*\{[^}]*top:\s*0 !important;[^}]*left:\s*0 !important;[^}]*right:\s*0 !important;[^}]*width:\s*100% !important;[^}]*height:\s*100% !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-main-content-panel\s*> \.lm-TabBar\.theia-app-centers\.theia-app-main\s*\{[^}]*display:\s*none !important/u
+    )
+  })
+
   /** 证明 Theia 底部面板展开时，运行输出连同表头一起让出空间。 */
   it('hides embedded workflow output while the bottom panel is open', () => {
     expect(stylesheet).toMatch(
@@ -136,6 +173,19 @@ describe('environment manager layering and responsive layout', () => {
     expect(stylesheet).toContain('@media (max-width: 520px)')
     expect(stylesheet).toMatch(
       /@media \(max-width: 520px\)[\s\S]*\.unilab-workbench-connection__options\s*\{[\s\S]*grid-template-columns:\s*1fr/u
+    )
+  })
+
+  /** 左右侧栏同时打开时按工作台自身宽度换行，避免操作区被 Agent 覆盖。 */
+  it('wraps the workbench header by its own available width', () => {
+    expect(stylesheet).toMatch(
+      /\.unilab-workbench\s*\{[^}]*container-name:\s*unilab-workbench[^}]*container-type:\s*inline-size/u
+    )
+    expect(stylesheet).toMatch(
+      /@container unilab-workbench \(max-width: 900px\)[\s\S]*?\.unilab-workbench__bar\s*\{[^}]*flex-wrap:\s*wrap/u
+    )
+    expect(stylesheet).toMatch(
+      /@container unilab-workbench \(max-width: 560px\)[\s\S]*?\.unilab-workbench__controls nav\s*\{[^}]*overflow-x:\s*auto/u
     )
   })
 

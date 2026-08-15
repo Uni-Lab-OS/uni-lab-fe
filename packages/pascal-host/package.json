@@ -34,6 +34,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
+    "./selection-gesture": "./src/selectionGesture.ts",
     "./styles.css": "./dist/pascal.css",
     "./styles/source.css": "./src/styles/source.css"
   }

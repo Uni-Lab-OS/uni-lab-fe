@@ -76,7 +76,7 @@ export class WorkflowDomainEntryWidget extends UniLabDomainEntryWidget {
   protected readonly widgetId = WorkflowDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
     mode: 'workflow',
-    label: '工作流',
+    label: '工作',
     caption: '工作流 · 代码、画布与运行',
     description: '编辑工作流源码、观察 DAG，并与 IDE 代码位置双向联动。',
     iconClass: 'unilab-activity-icon--workflow',
@@ -104,7 +104,7 @@ export class DeviceDomainEntryWidget extends UniLabDomainEntryWidget {
   protected readonly widgetId = DeviceDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
     mode: 'device',
-    label: '仪器设备',
+    label: '设备',
     caption: '仪器设备 · 目录、参数与单动作运行',
     description: '读取当前运行连接的设备动作，填写参数并运行单动作调试任务。',
     iconClass: 'unilab-activity-icon--device',

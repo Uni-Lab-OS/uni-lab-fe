@@ -5,6 +5,7 @@ import type {
   MaterialShapeSpecPart,
   MaterialShapeUnits
 } from './shapeSpecTypes'
+import { resolveSiteFallbackMarkers } from './shapeSiteFallback'
 
 export * from './shapeSpecTypes'
 export {
@@ -20,22 +21,49 @@ interface UnitScale {
   z: number
   radial: number
 }
+
+/**
+ * 把一份公共 Shape 声明按物料实例外包展开为毫米图元。
+ * @param spec 已通过公共 wire 解析的外形声明。
+ * @param envelope 当前物料实例的毫米外包尺寸。
+ * @returns 按声明顺序展开且可直接渲染的只读图元集合。
+ */
 export function resolveShapePrimitives(
   spec: MaterialShapeSpec,
   envelope: MaterialShapeEnvelopeMm
 ): readonly MaterialShapePrimitive[] {
   const primitives: MaterialShapePrimitive[] = []
   for (const part of spec.parts) {
-    appendPart(primitives, part, spec.units, envelope, 0, 0)
+    appendPart(
+      primitives,
+      part,
+      spec.units,
+      envelope,
+      spec.envelopeMm,
+      0,
+      0
+    )
   }
   return primitives
 }
 
+/**
+ * 展开一条声明图元，并把结果追加到同一 Shape 输出集合。
+ * @param out 当前 Shape 的可变毫米图元集合。
+ * @param part 待解释的声明图元。
+ * @param shapeUnits Shape 根声明的默认单位。
+ * @param envelope 当前物料实例外包尺寸。
+ * @param canonicalEnvelope Shape 声明的可选标准外包，用于安全识别 XY 转置。
+ * @param offsetXMm 网格递归累积的 X 偏移。
+ * @param offsetYMm 网格递归累积的 Y 偏移。
+ * @returns 无；成功时只向 out 追加图元。
+ */
 function appendPart(
   out: MaterialShapePrimitive[],
   part: MaterialShapeSpecPart,
   shapeUnits: MaterialShapeUnits,
   envelope: MaterialShapeEnvelopeMm,
+  canonicalEnvelope: readonly [number, number, number] | undefined,
   offsetXMm: number,
   offsetYMm: number
 ): void {
@@ -142,11 +170,26 @@ function appendPart(
       return
     }
     case 'grid': {
-      appendGridPart(out, part, shapeUnits, envelope, scale, offsetXMm, offsetYMm)
+      appendGridPart(
+        out,
+        part,
+        shapeUnits,
+        envelope,
+        canonicalEnvelope,
+        scale,
+        offsetXMm,
+        offsetYMm
+      )
       return
     }
     case 'sites': {
-      appendSitePart(out, part, z)
+      appendSitePart(
+        out,
+        part,
+        z,
+        envelope,
+        canonicalEnvelope
+      )
       return
     }
     default:
@@ -154,12 +197,24 @@ function appendPart(
   }
 }
 
-/** 将网格声明递归展开为带相对偏移的毫米图元。 */
+/**
+ * 将网格声明递归展开为带相对偏移的毫米图元。
+ * @param out 当前 Shape 的可变毫米图元集合。
+ * @param part 已校验的 grid 声明。
+ * @param shapeUnits Shape 根声明的默认单位。
+ * @param envelope 当前物料实例外包尺寸。
+ * @param canonicalEnvelope Shape 声明的可选标准外包。
+ * @param scale 当前网格单位到毫米的缩放。
+ * @param offsetXMm 上层网格累积的 X 偏移。
+ * @param offsetYMm 上层网格累积的 Y 偏移。
+ * @returns 无；按行列顺序向 out 追加展开后的子图元。
+ */
 function appendGridPart(
   out: MaterialShapePrimitive[],
   part: MaterialShapeSpecPart,
   shapeUnits: MaterialShapeUnits,
   envelope: MaterialShapeEnvelopeMm,
+  canonicalEnvelope: readonly [number, number, number] | undefined,
   scale: UnitScale,
   offsetXMm: number,
   offsetYMm: number
@@ -174,6 +229,7 @@ function appendGridPart(
         part.part,
         part.units ?? shapeUnits,
         envelope,
+        canonicalEnvelope,
         offsetXMm + col * pitchX * scale.x,
         offsetYMm + row * pitchY * scale.y
       )
@@ -181,11 +237,21 @@ function appendGridPart(
   }
 }
 
-/** 把库位（Site）生成器声明投影成专用结构图元。 */
+/**
+ * 把库位（Site）生成器声明投影成专用结构图元。
+ * @param out 当前 Shape 的可变毫米图元集合。
+ * @param part 已校验的 sites 声明。
+ * @param z 当前 sites 图元的 Z 坐标换算函数。
+ * @param envelope 当前物料实例外包尺寸。
+ * @param canonicalEnvelope Shape 声明的可选标准外包。
+ * @returns 无；向 out 追加一个专用结构图元。
+ */
 function appendSitePart(
   out: MaterialShapePrimitive[],
   part: MaterialShapeSpecPart,
-  z: (value: number) => number
+  z: (value: number) => number,
+  envelope: MaterialShapeEnvelopeMm,
+  canonicalEnvelope: readonly [number, number, number] | undefined
 ): void {
   switch (part.generator) {
     case 'open-rack':
@@ -194,13 +260,20 @@ function appendSitePart(
     case 'stack-shelves':
       out.push({ kind: 'stack-shelves', shelfThicknessMm: part.shelfThicknessMm })
       return
-    case 'site-holes':
+    case 'site-holes': {
+      const fallbackMarkers = resolveSiteFallbackMarkers(
+        part.fallback,
+        envelope,
+        canonicalEnvelope
+      )
       out.push({
         kind: 'site-holes',
         plateTopZMm: optionalZ(part.plateTopZ, z),
-        collarTopZMm: optionalZ(part.collarTopZ, z)
+        collarTopZMm: optionalZ(part.collarTopZ, z),
+        ...(fallbackMarkers.length > 0 ? { fallbackMarkers } : {})
       })
       return
+    }
     default:
       out.push({ kind: 'site-markers' })
   }

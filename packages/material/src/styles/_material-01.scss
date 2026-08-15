@@ -220,10 +220,23 @@
 :where(.scope, .scope *):global(.material-tree-sidebar__reopen) {
   position: absolute;
   z-index: 90;
-  top: 16px;
+  top: 5px;
   left: 8px;
   color: var(--unilab-color-text);
-  background: transparent;
+  border: 1px solid var(--unilab-color-border);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-surface) 94%,
+    transparent
+  );
+  box-shadow: var(--unilab-shadow-control);
+}
+
+:where(.scope, .scope *):global(.material-workbench):has(
+    > :global(.material-tree-sidebar__reopen)
+  )
+  :global(.pascal-lab-toolbar) {
+  padding-left: 48px;
 }
 
 :where(.scope, .scope *):global(.material-workbench):has(

@@ -12,8 +12,25 @@ import {
   useEffect,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode
 } from 'react'
+
+import { exceedsSelectionDragThreshold } from './selectionGesture'
+
+const PASCAL_INTERACTION_LABELS: Readonly<Record<string, string>> = {
+  Pan: '平移',
+  Rotate: '旋转',
+  Zoom: '缩放'
+}
+
+/** 将 Pascal 内置的相机操作提示适配为工作台中文文案。 */
+function translatePascalInteractionLabels(root: HTMLElement): void {
+  root.querySelectorAll('span').forEach((label) => {
+    const translated = PASCAL_INTERACTION_LABELS[label.textContent?.trim() ?? '']
+    if (translated) label.textContent = translated
+  })
+}
 
 export interface PascalEditorHostProps {
   scene: SceneGraph
@@ -22,6 +39,8 @@ export interface PascalEditorHostProps {
   onDirty?: () => void
   onSave?: (scene: SceneGraph) => Promise<void> | void
   onSelectionChange?: (sceneObjectIds: readonly string[]) => void
+  /** 旋转或平移 3D 视角时撤销 Pascal 产生的临时节点选择。 */
+  suppressSelectionAfterPointerDrag?: boolean
   readOnly?: boolean
   toolbar?: ReactNode
   floorplanOverlay?: ReactNode
@@ -45,6 +64,7 @@ export function PascalEditorHost({
   onDirty,
   onSave,
   onSelectionChange,
+  suppressSelectionAfterPointerDrag = false,
   readOnly = false,
   toolbar,
   floorplanOverlay,
@@ -53,9 +73,22 @@ export function PascalEditorHost({
   showGrid,
   editorProps
 }: PascalEditorHostProps): React.JSX.Element {
+  const hostRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef(scene)
   const onSaveRef = useRef(onSave)
   const onSelectionChangeRef = useRef(onSelectionChange)
+  const suppressSelectionAfterPointerDragRef = useRef(
+    suppressSelectionAfterPointerDrag
+  )
+  const pointerGestureRef = useRef<{
+    pointerId: number
+    start: { x: number; y: number }
+    moved: boolean
+    previousSelectedIds: readonly string[]
+    pendingSelectedIds: readonly string[] | null
+  } | null>(null)
+  const suppressSelectionUntilRef = useRef(0)
+  const restoringSelectionRef = useRef(false)
   const [isPrepared, setIsPrepared] = useState(!prepare)
   const [hasLoadedScene, setHasLoadedScene] = useState(false)
   const [prepareError, setPrepareError] = useState<Error | null>(null)
@@ -63,6 +96,37 @@ export function PascalEditorHost({
   sceneRef.current = scene
   onSaveRef.current = onSave
   onSelectionChangeRef.current = onSelectionChange
+  suppressSelectionAfterPointerDragRef.current =
+    suppressSelectionAfterPointerDrag
+
+  useEffect(() => {
+    const root = hostRef.current
+    if (!root) return
+
+    translatePascalInteractionLabels(root)
+    const observer = new MutationObserver(() => {
+      translatePascalInteractionLabels(root)
+    })
+    observer.observe(root, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    })
+    return () => observer.disconnect()
+  }, [isPrepared])
+
+  const restoreViewerSelection = useCallback((
+    selectedIds: readonly string[]
+  ): void => {
+    restoringSelectionRef.current = true
+    try {
+      useViewer.getState().setSelection({
+        selectedIds: [...selectedIds] as never[]
+      })
+    } finally {
+      restoringSelectionRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!prepare) return
@@ -90,8 +154,63 @@ export function PascalEditorHost({
     return useViewer.subscribe((state, previousState) => {
       const selectedIds = state.selection.selectedIds
       if (selectedIds === previousState.selection.selectedIds) return
+      if (restoringSelectionRef.current) return
+      if (suppressSelectionAfterPointerDragRef.current) {
+        const gesture = pointerGestureRef.current
+        if (gesture) {
+          gesture.pendingSelectedIds = selectedIds
+          return
+        }
+        if (performance.now() <= suppressSelectionUntilRef.current) {
+          restoreViewerSelection(previousState.selection.selectedIds)
+          return
+        }
+      }
       onSelectionChangeRef.current?.(selectedIds)
     })
+  }, [restoreViewerSelection])
+
+  const handlePointerDownCapture = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>
+  ): void => {
+    if (!suppressSelectionAfterPointerDrag) return
+    pointerGestureRef.current = {
+      pointerId: event.pointerId,
+      start: { x: event.clientX, y: event.clientY },
+      moved: false,
+      previousSelectedIds: [...useViewer.getState().selection.selectedIds],
+      pendingSelectedIds: null
+    }
+  }, [suppressSelectionAfterPointerDrag])
+
+  const handlePointerMoveCapture = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>
+  ): void => {
+    const gesture = pointerGestureRef.current
+    if (!gesture || gesture.pointerId !== event.pointerId || gesture.moved) return
+    gesture.moved = exceedsSelectionDragThreshold(
+      gesture.start,
+      { x: event.clientX, y: event.clientY }
+    )
+  }, [])
+
+  const finishPointerGesture = useCallback((
+    event: ReactPointerEvent<HTMLDivElement>,
+    canceled = false
+  ): void => {
+    const gesture = pointerGestureRef.current
+    if (!gesture || gesture.pointerId !== event.pointerId) return
+    pointerGestureRef.current = null
+    if (gesture.moved || canceled) {
+      // Pascal may select on pointerdown, pointerup or the following click.
+      // Keep the guard alive through the click task, then restore the stable selection.
+      suppressSelectionUntilRef.current = performance.now() + 150
+      restoreViewerSelection(gesture.previousSelectedIds)
+      return
+    }
+    if (gesture.pendingSelectedIds) {
+      onSelectionChangeRef.current?.(gesture.pendingSelectedIds)
+    }
   }, [])
 
   useEffect(() => {
@@ -219,10 +338,15 @@ export function PascalEditorHost({
 
   return (
     <div
+      ref={hostRef}
       className={`pascal-editor-host${
         readOnly ? ' pascal-editor-host--read-only' : ''
       }`}
       data-pascal-scene-ready={isPrepared && hasLoadedScene}
+      onPointerDownCapture={handlePointerDownCapture}
+      onPointerMoveCapture={handlePointerMoveCapture}
+      onPointerUpCapture={finishPointerGesture}
+      onPointerCancelCapture={(event) => finishPointerGesture(event, true)}
     >
       {toolbar}
       <div className={toolbar ? 'pascal-lab-editor' : 'h-full'}>

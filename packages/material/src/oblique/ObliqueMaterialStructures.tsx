@@ -1,4 +1,5 @@
 import type { MaterialObliqueObject, ObliquePoint } from './projection'
+import type { MaterialShapeFallbackMarker } from './shapeSpec'
 import { ObliqueSite, ObliqueSiteLabel } from './ObliqueStackAndSites'
 import {
   applyAffinePoint,
@@ -133,19 +134,31 @@ function ShelfBoard({
 }
 
 /**
- * 孔板上的孔与孔里插着的东西（枪头）：孔位与占用状态都来自实例位点，
- * 声明只说"这里有一块孔板"。
+ * 绘制孔板上的孔与孔里插着的东西（枪头）。真实库位（Site）存在时只使用
+ * 权威点位与占用状态；集合为空时才显示模板声明的无身份内部标记。
+ * @param collarTopZMm 动态孔套的可选顶面高度。
+ * @param fallbackMarkers 无真实点位时可绘制的声明式内部标记。
+ * @param object 当前物料的 2.5D 投影对象。
+ * @param plateTopZMm 动态孔洞所在孔板的可选顶面高度。
+ * @returns 动态孔位或静态内部标记，两者不会同时出现。
  */
 export function ObliqueSiteHoles({
   collarTopZMm,
+  fallbackMarkers,
   object,
   plateTopZMm
 }: {
   collarTopZMm?: number
+  fallbackMarkers?: readonly MaterialShapeFallbackMarker[]
   object: MaterialObliqueObject
   plateTopZMm?: number
 }): React.JSX.Element {
   const holeSites = object.levels[0]?.sites ?? object.sites
+  if (holeSites.length === 0) {
+    return (
+      <ObliqueInternalMarkers markers={fallbackMarkers ?? []} object={object} />
+    )
+  }
   const plateTopZ =
     plateTopZMm ?? object.levels[0]?.zMm ?? object.heightMm * 0.83
   const collarTopZ = collarTopZMm ?? object.heightMm
@@ -191,6 +204,43 @@ export function ObliqueSiteHoles({
             />
           )
         })}
+    </>
+  )
+}
+
+/**
+ * 绘制不携带库位（Site）UUID、占用或交互语义的模板内部标记。
+ * @param markers 已按物料实例方向展开的毫米矩形集合。
+ * @param object 当前物料的 2.5D 投影对象。
+ * @returns 仅用于结构展示的 SVG 矩形集合。
+ */
+function ObliqueInternalMarkers({
+  markers,
+  object
+}: {
+  markers: readonly MaterialShapeFallbackMarker[]
+  object: MaterialObliqueObject
+}): React.JSX.Element {
+  return (
+    <>
+      {markers.map((marker, index) => (
+        <g
+          key={`internal-marker-${index}`}
+          transform={`matrix(${planeTransform(object, marker.zMm).join(' ')})`}
+        >
+          <rect
+            aria-hidden="true"
+            className={`material-oblique-part material-oblique-part--${marker.style} material-oblique-internal-marker`}
+            data-oblique-internal-marker
+            height={marker.depthMm}
+            rx={marker.radiusMm}
+            vectorEffect="non-scaling-stroke"
+            width={marker.widthMm}
+            x={marker.xMm}
+            y={marker.yMm}
+          />
+        </g>
+      ))}
     </>
   )
 }

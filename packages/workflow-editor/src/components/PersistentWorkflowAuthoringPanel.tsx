@@ -46,6 +46,7 @@ interface PersistentWorkflowAuthoringPanelProps {
   onChooseWorkflow?: () => void
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
+  recoveryRevision?: number
 }
 
 /**

@@ -145,6 +145,7 @@ export default function WorkflowPanel({
         onSelectedWorkflowStepChange={onSelectedWorkflowStepChange}
         ideBridge={ideBridge}
         hideEmbeddedCodeEditor={hideEmbeddedCodeEditor}
+        recoveryRevision={recoveryRevision}
         visibleMaterialRoles={visibleMaterialRoles}
         onVisibleMaterialRolesChange={onVisibleMaterialRolesChange}
         onChooseWorkflow={explicitWorkflowUuid && !allowWorkflowSelection

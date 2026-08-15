@@ -328,9 +328,15 @@ function WorkflowOutputBody({
               <article className="workflow-runtime__node-log">
                 <header>
                   <strong>{selectedNodeName} 运行日志</strong>
-                  {selectedNode.attempt > 0 && (
-                    <small>第 {selectedNode.attempt} 次尝试</small>
-                  )}
+                  <div className="workflow-runtime__node-detail-actions">
+                    {selectedNode.attempt > 0 && (
+                      <small>第 {selectedNode.attempt} 次尝试</small>
+                    )}
+                    <OutputCopyButton
+                      label="复制运行日志"
+                      text={selectedNodeLog}
+                    />
+                  </div>
                 </header>
                 <pre
                   aria-label={`${selectedNodeName} 运行日志`}
@@ -501,7 +507,13 @@ function WorkflowNodeResult({
           <strong>运行结果</strong>
           <small>节点执行返回</small>
         </div>
-        <span className={statusTone}>{statusLabel}</span>
+        <div className="workflow-runtime__node-detail-actions">
+          <span className={statusTone}>{statusLabel}</span>
+          <OutputCopyButton
+            label="复制运行结果"
+            text={JSON.stringify(result, null, 2)}
+          />
+        </div>
       </header>
       {summaryFields.length > 0 && (
         <dl>
@@ -517,6 +529,43 @@ function WorkflowNodeResult({
         <pre>{JSON.stringify(result, null, 2)}</pre>
       </div>
     </article>
+  )
+}
+
+/** 复制单侧运行详情，并用紧凑状态反馈避免额外提示层。 */
+function OutputCopyButton({
+  label,
+  text
+}: {
+  label: string
+  text: string
+}): React.JSX.Element {
+  const [copied, setCopied] = useState(false)
+
+  const copy = async (): Promise<void> => {
+    try {
+      await globalThis.navigator.clipboard.writeText(text)
+      setCopied(true)
+      globalThis.setTimeout(() => setCopied(false), 1600)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className="workflow-runtime__node-detail-copy"
+      aria-label={label}
+      title={copied ? '已复制' : label}
+      onClick={() => void copy()}
+    >
+      <span
+        className={`codicon codicon-${copied ? 'check' : 'copy'}`}
+        aria-hidden="true"
+      />
+      {copied ? '已复制' : '复制'}
+    </button>
   )
 }
 

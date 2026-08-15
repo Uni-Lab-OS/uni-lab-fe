@@ -65,6 +65,7 @@ export function WorkbenchSessionGate({
   snapshot,
   onRetry,
   onStop,
+  launchMode,
   connectionSelector,
   onOpenLog,
   onReadEnvironmentLog,
@@ -73,6 +74,7 @@ export function WorkbenchSessionGate({
   snapshot: WorkbenchSessionSnapshot
   onRetry: () => Promise<void>
   onStop: () => Promise<void>
+  launchMode?: 'local' | 'backend'
   connectionSelector?: React.ReactNode
   onOpenLog?: (path: string) => Promise<void>
   onReadEnvironmentLog?: (
@@ -92,12 +94,16 @@ export function WorkbenchSessionGate({
   const launchLoading = launchRequested
     || snapshot.phase === 'starting'
     || snapshot.phase === 'waiting'
-  const switchingToBackend = snapshot.configuredDomainMode === 'backend'
+  // 启动浮层描述的是用户本次选择的连接目标，而非工作区上一次保存的
+  // Domain 配置；两者在切换过程中恰好可能相反。
+  const switchingToBackend = (
+    launchMode ?? snapshot.configuredDomainMode
+  ) === 'backend'
   const launchTitle = switchingToBackend
-    ? '正在启动 Backend 模式'
+    ? '正在启动 Workspace'
     : '正在启动 Unilab 调试工作台'
   const launchMessage = switchingToBackend
-    ? '正在连接 Backend + Scheduler，并启动 Edge Runtime…'
+    ? '正在初始化工作区并连接 Backend…'
     : snapshot.message || '正在校验工作区并启动 Uni-Lab OS…'
   const launchCancelLabel = '取消启动'
 
