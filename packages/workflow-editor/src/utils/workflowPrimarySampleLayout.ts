@@ -107,13 +107,26 @@ export function layoutWorkflowPrimarySampleFlow(
     backboneIndexes
   )
   const rowByNode = new Map<string, number>()
+  const expandedDescendantBranchesByRow =
+    groupExpandedBackboneDescendantsByRow(
+      nodes,
+      backboneIndexes,
+      layerByNode,
+      nodeOrder
+    )
+  const expandedDescendantIds = new Set(
+    [...expandedDescendantBranchesByRow.values()]
+      .flat()
+      .flatMap((branch) => branch.nodes.map((node) => node.id))
+  )
   const secondaryBranchesByRow = groupSecondaryBranchesByBackboneRow(
     nodes,
     visibleLinks,
     traces,
     backboneIndexes,
     layerByNode,
-    nodeOrder
+    nodeOrder,
+    expandedDescendantIds
   )
   const showSupportingBranches =
     options.supportingMaterialPresentation !== 'reaction-formula'
@@ -181,8 +194,23 @@ export function layoutWorkflowPrimarySampleFlow(
           WORKFLOW_PRIMARY_SAMPLE_NODES_PER_ROW
         )
       : []
+    const expandedDescendantBands = packWorkflowSupportingBranches(
+      (expandedDescendantBranchesByRow.get(row) ?? []).map((branch) => ({
+        ...branch,
+        anchorX: positionByNode.get(
+          backboneNodeIds[branch.anchorIndex] ?? ''
+        )?.x
+      })),
+      ORIGIN_X,
+      WORKFLOW_PRIMARY_SAMPLE_COLUMN_GAP,
+      WORKFLOW_PRIMARY_SAMPLE_NODES_PER_ROW
+    )
+    const auxiliaryBands = [
+      ...secondaryBands,
+      ...expandedDescendantBands
+    ]
     let occupiedBottom = mainRowY
-    for (const branchNodes of secondaryBands) {
+    for (const branchNodes of auxiliaryBands) {
       const branchY = occupiedBottom
       const branchHeight = Math.max(
         SPECIAL_NODE_HEIGHT,
@@ -198,7 +226,7 @@ export function layoutWorkflowPrimarySampleFlow(
       }
       occupiedBottom = branchY + branchHeight + SUPPORTING_BRANCH_VERTICAL_GAP
     }
-    const resolvedMainRowY = secondaryBands.length > 0
+    const resolvedMainRowY = auxiliaryBands.length > 0
       ? occupiedBottom
       : mainRowY
     for (const nodeId of rowNodeIds) {
@@ -257,6 +285,76 @@ export function layoutWorkflowPrimarySampleFlow(
 }
 
 /**
+ * 将当前已展开、且锚定在主样品主干组合节点内的后代组织为局部布局带。
+ *
+ * 折叠投影不会包含这些后代，因此这里无需读取交互状态；只根据当前可见节点
+ * 与组合边界的后代目录布局。后代仍按真实依赖层与作者顺序排列，并复用辅助
+ * 支线的端口路由，使内部边获得非退化的正交主轴。
+ */
+function groupExpandedBackboneDescendantsByRow(
+  nodes: readonly WorkflowNode[],
+  backboneIndexes: ReadonlyMap<string, number>,
+  layerByNode: ReadonlyMap<string, number>,
+  nodeOrder: ReadonlyMap<string, number>
+): Map<number, WorkflowSupportingBranch[]> {
+  const visibleNodeIds = new Set(nodes.map((node) => node.id))
+  const nodeById = new Map(nodes.map((node) => [node.id, node]))
+  const assignedDescendants = new Set<string>()
+  const groups = nodes
+    .filter((node) =>
+      node.groupKind === 'subworkflow' && backboneIndexes.has(node.id)
+    )
+    .sort((left, right) =>
+      (left.descendantNodeIds?.length ?? 0) -
+        (right.descendantNodeIds?.length ?? 0) ||
+      (backboneIndexes.get(left.id) ?? 0) -
+        (backboneIndexes.get(right.id) ?? 0)
+    )
+  const assigned = new Map<number, WorkflowSupportingBranch[]>()
+
+  for (const group of groups) {
+    const anchorIndex = backboneIndexes.get(group.id)
+    if (anchorIndex === undefined) continue
+    const descendants = (group.descendantNodeIds ?? [])
+      .filter((nodeId) =>
+        visibleNodeIds.has(nodeId) &&
+        !backboneIndexes.has(nodeId) &&
+        !assignedDescendants.has(nodeId)
+      )
+      .map((nodeId) => nodeById.get(nodeId))
+      .filter((node): node is WorkflowNode => Boolean(node))
+      .sort((left, right) =>
+        (layerByNode.get(left.id) ?? 0) -
+          (layerByNode.get(right.id) ?? 0) ||
+        (nodeOrder.get(left.id) ?? 0) - (nodeOrder.get(right.id) ?? 0)
+      )
+    if (descendants.length === 0) continue
+    descendants.forEach((node) => assignedDescendants.add(node.id))
+    const row = Math.floor(
+      anchorIndex / WORKFLOW_PRIMARY_SAMPLE_NODES_PER_ROW
+    )
+    assigned.set(row, [
+      ...(assigned.get(row) ?? []),
+      {
+        nodes: descendants,
+        anchorIndex,
+        anchorColumn: workflowBackboneColumnForIndex(
+          anchorIndex,
+          WORKFLOW_PRIMARY_SAMPLE_NODES_PER_ROW
+        ),
+        order: Math.min(...descendants.map(
+          (node) => nodeOrder.get(node.id) ?? Number.MAX_SAFE_INTEGER
+        )),
+        flowDirection: 'into-primary',
+        anchorVisualKind: group.visualKind
+      }
+    ])
+  }
+
+  return assigned
+}
+
+/**
  * 提取第一条主样品物料链覆盖的节点并按拓扑层稳定排序。
  *
  * @param nodes 当前可见工作流节点。
@@ -312,7 +410,8 @@ function groupSecondaryBranchesByBackboneRow(
   traces: ReturnType<typeof projectMaterialTraces>,
   backboneIndexes: ReadonlyMap<string, number>,
   layerByNode: ReadonlyMap<string, number>,
-  nodeOrder: ReadonlyMap<string, number>
+  nodeOrder: ReadonlyMap<string, number>,
+  excludedNodeIds: ReadonlySet<string> = new Set()
 ): Map<number, WorkflowSupportingBranch[]> {
   const adjacency = new Map(nodes.map((node) => [node.id, [] as string[]]))
   links.forEach((link, index) => {
@@ -322,7 +421,11 @@ function groupSecondaryBranchesByBackboneRow(
     adjacency.get(link.target)?.push(link.source)
   })
   const secondaryNodeIds = new Set(
-    nodes.filter((node) => !backboneIndexes.has(node.id)).map((node) => node.id)
+    nodes
+      .filter((node) =>
+        !backboneIndexes.has(node.id) && !excludedNodeIds.has(node.id)
+      )
+      .map((node) => node.id)
   )
   const visited = new Set<string>()
   const assigned = new Map<number, WorkflowSupportingBranch[]>()

@@ -210,8 +210,13 @@ export function projectNestedWorkflow(
       .filter((node) => representative(node.id) !== node.id)
       .map((node) => node.id)
   )
-  const projectedLinks: WorkflowLink[] = []
-  const linkKeys = new Set<string>()
+  const linkProjections: Array<{
+    link: WorkflowLink
+    source: string
+    target: string
+    key: string
+    remapped: boolean
+  }> = []
   for (const link of links) {
     if (!nodeById.has(link.source) || !nodeById.has(link.target)) continue
     if (nativeGroupIds.has(link.source) || nativeGroupIds.has(link.target)) {
@@ -221,9 +226,37 @@ export function projectNestedWorkflow(
     const target = representative(link.target)
     if (source === target) continue
     const key = JSON.stringify([source, target, link.type, link.branch ?? null])
-    if (linkKeys.has(key)) continue
-    linkKeys.add(key)
-    projectedLinks.push({ ...link, source, target })
+    linkProjections.push({
+      link,
+      source,
+      target,
+      key,
+      remapped: source !== link.source || target !== link.target
+    })
+  }
+  // Parallel authoritative edges keep their edge/handle identities. Only edges
+  // whose endpoints were collapsed are visual aggregates; a real boundary edge
+  // wins over an aggregate with the same projected execution semantics.
+  const directLinkKeys = new Set(
+    linkProjections
+      .filter((projection) => !projection.remapped)
+      .map((projection) => projection.key)
+  )
+  const remappedLinkKeys = new Set<string>()
+  const projectedLinks: WorkflowLink[] = []
+  for (const projection of linkProjections) {
+    if (projection.remapped) {
+      if (
+        directLinkKeys.has(projection.key) ||
+        remappedLinkKeys.has(projection.key)
+      ) continue
+      remappedLinkKeys.add(projection.key)
+    }
+    projectedLinks.push({
+      ...projection.link,
+      source: projection.source,
+      target: projection.target
+    })
   }
   return {
     nodes: nodes.filter((node) =>

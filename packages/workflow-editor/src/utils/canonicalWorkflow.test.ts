@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import type { WorkflowLink, WorkflowNode } from './parseWorkflow'
 import {
   CONTROL_DAG_JSON,
   CONTROL_DAG_REVISION,
@@ -152,6 +153,68 @@ describe('Canonical workflow projection', () => {
     )).toBe('dose')
   })
 
+  it('preserves authoritative parallel edges when no endpoint is remapped', () => {
+    const nodes = [workflowNode('source'), workflowNode('target')]
+    const links: WorkflowLink[] = [
+      workflowLink('ready', 'source-ready', 'target-ready'),
+      workflowLink('material-a', 'source-material-a', 'target-material-a'),
+      workflowLink('material-b', 'source-material-b', 'target-material-b')
+    ]
+
+    const projected = projectNestedWorkflow(nodes, links, new Set())
+
+    expect(projected.links.map((link) => link.id)).toEqual([
+      'ready',
+      'material-a',
+      'material-b'
+    ])
+  })
+
+  it('deduplicates remapped collapsed edges but prefers a direct boundary edge', () => {
+    const nodes: WorkflowNode[] = [
+      workflowNode('outer', {
+        groupKind: 'subworkflow',
+        collapsedByDefault: true,
+        childNodeIds: ['inside-a', 'inside-b'],
+        descendantNodeIds: ['inside-a', 'inside-b']
+      }),
+      workflowNode('inside-a', { parentGroupId: 'outer' }),
+      workflowNode('inside-b', { parentGroupId: 'outer' }),
+      workflowNode('target')
+    ]
+    const links: WorkflowLink[] = [
+      {
+        ...workflowLink('mapped-a', 'inside-source', 'target-input'),
+        source: 'inside-a'
+      },
+      {
+        ...workflowLink('mapped-b', 'inside-source', 'target-input'),
+        source: 'inside-b'
+      },
+      workflowLink('direct', 'boundary-source', 'target-input', 'outer')
+    ]
+
+    const collapsedOnly = projectNestedWorkflow(
+      nodes,
+      links.slice(0, 2),
+      new Set()
+    )
+    expect(collapsedOnly.links).toEqual([
+      expect.objectContaining({ id: 'mapped-a', source: 'outer' })
+    ])
+
+    const projected = projectNestedWorkflow(nodes, links, new Set())
+
+    expect(projected.links).toEqual([
+      expect.objectContaining({
+        id: 'direct',
+        source: 'outer',
+        target: 'target',
+        sourceHandleUuid: 'boundary-source'
+      })
+    ])
+  })
+
   /**
    * 验证原生编写分组只保留成员节点，不作为工作流（Workflow）画布节点重复展示。
    */
@@ -172,6 +235,37 @@ describe('Canonical workflow projection', () => {
       .toEqual([['prepare', 'finish']])
   })
 })
+
+function workflowNode(
+  id: string,
+  overrides: Partial<WorkflowNode> = {}
+): WorkflowNode {
+  return {
+    id,
+    name: id,
+    type: 'action',
+    className: 'test.action',
+    labNodeType: 'action',
+    ...overrides
+  }
+}
+
+function workflowLink(
+  id: string,
+  sourceHandleUuid: string,
+  targetHandleUuid: string,
+  source = 'source',
+  target = 'target'
+): WorkflowLink {
+  return {
+    id,
+    source,
+    target,
+    type: 'control',
+    sourceHandleUuid,
+    targetHandleUuid
+  }
+}
 
 const NATIVE_GROUP_REVISION = {
   schema_version: '2',
