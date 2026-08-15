@@ -28,6 +28,28 @@ describe('SiteBoundsRenderer', () => {
     expect(transform.scale).toEqual([0.04, 0.06, 0.05])
   })
 
+  it('rotates the lower-corner offset and preserves Site yaw in 3D', () => {
+    const site = LabFloorplanSiteSchema.parse({
+      id: 'site-rotated',
+      key: 'rotated',
+      name: 'rotated',
+      positionMm: [100, 200, 300],
+      rotationDegXYZ: [0, 0, 90],
+      sizeMm: [40, 50, 60],
+      visible: true,
+      occupied: false,
+      visualState: 'empty'
+    })
+
+    const transform = siteBoundsTransform(site)
+    expect(transform.position[0]).toBeCloseTo(0.075)
+    expect(transform.position[1]).toBeCloseTo(0.33)
+    expect(transform.position[2]).toBeCloseTo(-0.22)
+    expect(transform.rotation[0]).toBeCloseTo(0)
+    expect(transform.rotation[1]).toBeCloseTo(Math.PI / 2)
+    expect(transform.rotation[2]).toBeCloseTo(0)
+  })
+
   it('uses a box for rectangle Sites and a cylinder for circle Sites', () => {
     const rectangle = LabFloorplanSiteSchema.parse({
       id: 'site-rectangle',

@@ -103,6 +103,7 @@ export function materialAggregatesToSceneGraph(
             kind: site.kind,
             shape: site.shape,
             positionMm: site.poseInAnchor.positionMm,
+            rotationDegXYZ: site.poseInAnchor.rotationDegXYZ,
             sizeMm: site.sizeMm,
             visible: site.visible !== false,
             occupied: site.occupiedMaterialIds.length > 0,

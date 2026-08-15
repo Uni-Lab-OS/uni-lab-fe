@@ -5,11 +5,14 @@ import {
   EdgesGeometry
 } from 'three'
 
+import { composePoses } from '@unilab/material/domain'
+
 import type { LabFloorplanSite } from '../schema'
 import { labPoseToPascal, MILLIMETERS_TO_METERS } from '../units'
 
 export interface SiteBoundsTransform {
   position: [number, number, number]
+  rotation: [number, number, number]
   scale: [number, number, number]
 }
 
@@ -17,11 +20,13 @@ export type SiteBoundsGeometry =
   | {
       kind: 'box'
       position: [number, number, number]
+      rotation: [number, number, number]
       size: [number, number, number]
     }
   | {
       kind: 'cylinder'
       position: [number, number, number]
+      rotation: [number, number, number]
       radius: number
       height: number
     }
@@ -31,17 +36,19 @@ export function siteBoundsTransform(
   site: LabFloorplanSite
 ): SiteBoundsTransform {
   const [widthMm, lengthMm, depthMm] = site.sizeMm
-  const [xMm, yMm, zMm] = site.positionMm
-  const centered = labPoseToPascal({
-    positionMm: [
-      xMm + widthMm / 2,
-      yMm + lengthMm / 2,
-      zMm + depthMm / 2
-    ],
-    rotationDegXYZ: [0, 0, 0]
-  })
+  const centered = labPoseToPascal(composePoses(
+    {
+      positionMm: site.positionMm,
+      rotationDegXYZ: site.rotationDegXYZ
+    },
+    {
+      positionMm: [widthMm / 2, lengthMm / 2, depthMm / 2],
+      rotationDegXYZ: [0, 0, 0]
+    }
+  ))
   return {
     position: centered.position,
+    rotation: centered.rotation,
     scale: [
       Math.max(widthMm * MILLIMETERS_TO_METERS, 0.001),
       Math.max(depthMm * MILLIMETERS_TO_METERS, 0.001),
@@ -53,16 +60,17 @@ export function siteBoundsTransform(
 export function siteBoundsGeometry(
   site: LabFloorplanSite
 ): SiteBoundsGeometry {
-  const { position, scale } = siteBoundsTransform(site)
+  const { position, rotation, scale } = siteBoundsTransform(site)
   if (site.shape === 'circle') {
     return {
       kind: 'cylinder',
       position,
+      rotation,
       radius: Math.min(scale[0], scale[2]) / 2,
       height: scale[1]
     }
   }
-  return { kind: 'box', position, size: scale }
+  return { kind: 'box', position, rotation, size: scale }
 }
 
 /**
@@ -125,7 +133,7 @@ function SiteBound({
 }): React.JSX.Element {
   const geometry = useMemo(
     () => siteBoundsGeometry(site),
-    [site.positionMm, site.shape, site.sizeMm]
+    [site.positionMm, site.rotationDegXYZ, site.shape, site.sizeMm]
   )
   const outlineGeometry = useMemo(
     () => createSiteOutlineGeometry(geometry),
@@ -139,6 +147,7 @@ function SiteBound({
     <mesh
       name={`unilab-site-bound-${site.id}`}
       position={geometry.position}
+      rotation={geometry.rotation}
       renderOrder={18}
       userData={{ siteId: site.id, siteShape: geometry.kind }}
       onPointerOver={(event) => {

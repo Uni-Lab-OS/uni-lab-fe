@@ -256,7 +256,7 @@ describe('Material Aggregate / Pascal bridge', () => {
       anchor: { kind: 'root' },
       poseInAnchor: {
         positionMm: [90, 80, 150],
-        rotationDegXYZ: [0, 0, 0]
+        rotationDegXYZ: [0, 0, 72]
       },
       sizeMm: [86, 86, 120],
       capacity: 1,
@@ -284,6 +284,9 @@ describe('Material Aggregate / Pascal bridge', () => {
     expect(node.floorplanSnapshot?.showSites).toBe(true)
     expect(node.floorplanSnapshot?.sites).toHaveLength(1)
     expect(node.floorplanSnapshot?.sites[0]?.occupied).toBe(false)
+    expect(node.floorplanSnapshot?.sites[0]?.rotationDegXYZ).toEqual([
+      0, 0, 72
+    ])
 
     const hoverOnlyScene = materialAggregatesToSceneGraph([warehouse], {
       showSites: false
@@ -586,7 +589,8 @@ function site(
   ownerMaterialId: string,
   id: string,
   key: string,
-  positionMm: readonly [number, number, number] = [0, 0, 0]
+  positionMm: readonly [number, number, number] = [0, 0, 0],
+  rotationDegXYZ: readonly [number, number, number] = [0, 0, 0]
 ): MaterialSite {
   return {
     id,
@@ -596,7 +600,7 @@ function site(
     anchor: { kind: 'root' },
     poseInAnchor: {
       positionMm,
-      rotationDegXYZ: [0, 0, 0]
+      rotationDegXYZ
     },
     sizeMm: [40, 40, 100],
     capacity: 1,
