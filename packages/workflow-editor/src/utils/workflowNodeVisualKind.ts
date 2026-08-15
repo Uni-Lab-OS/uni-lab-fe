@@ -9,7 +9,8 @@ const MATERIAL_TRANSFER_SYMBOLS = new Set([
   'material_transfer',
   's_z_lab_标准物料转运',
   'robot_a_material_transfer',
-  'robot_b_material_transfer'
+  'robot_b_material_transfer',
+  'robot_c_material_transfer'
 ])
 
 const MATERIAL_TRANSFER_DEFINITION_FQIDS = new Set([
@@ -17,7 +18,9 @@ const MATERIAL_TRANSFER_DEFINITION_FQIDS = new Set([
   'pylabrobot_unilab.workflows.material_transfer_robot_a.' +
     'robot_a_material_transfer',
   'pylabrobot_unilab.workflows.material_transfer_robot_b.' +
-    'robot_b_material_transfer'
+    'robot_b_material_transfer',
+  'pylabrobot_unilab.workflows.material_transfer_robot_c.' +
+    'robot_c_material_transfer'
 ])
 
 /**

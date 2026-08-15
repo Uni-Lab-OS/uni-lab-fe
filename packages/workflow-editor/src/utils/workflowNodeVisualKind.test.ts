@@ -14,6 +14,7 @@ describe('workflowNodeVisualKind', () => {
   it.each([
     { symbol: 'robot_a_material_transfer' },
     { symbol: 'robot_b_material_transfer' },
+    { symbol: 'robot_c_material_transfer' },
     {
       definitionFqid:
         'pylabrobot_unilab.workflows.material_transfer_robot_a.' +
@@ -23,6 +24,11 @@ describe('workflowNodeVisualKind', () => {
       definitionFqid:
         'pylabrobot_unilab.workflows.material_transfer_robot_b.' +
         'robot_b_material_transfer'
+    },
+    {
+      definitionFqid:
+        'pylabrobot_unilab.workflows.material_transfer_robot_c.' +
+        'robot_c_material_transfer'
     }
   ])('recognizes a uniquely prefixed standard material transfer symbol', (source) => {
     expect(workflowNodeVisualKind(source)).toBe('robot-transfer')
@@ -33,6 +39,7 @@ describe('workflowNodeVisualKind', () => {
     { definitionFqid: 'example.workflows.material_transfer' },
     { definitionFqid: 'community.pylabrobot_unilab.robot_a_material_transfer' },
     { definitionFqid: 'community.pylabrobot_unilab.robot_b_material_transfer' },
+    { definitionFqid: 'community.pylabrobot_unilab.robot_c_material_transfer' },
     { symbol: 'robot_a_material_transfer_preview' },
     { symbol: 's_z_lab_标准物料转运_preview' },
     { symbol: 'material_transfer_cleanup' },
