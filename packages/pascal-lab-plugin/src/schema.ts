@@ -103,6 +103,7 @@ export const LabDeviceNodeSchema = BaseNode.extend({
   rotation: Vector3Schema.default([0, 0, 0]),
   scale: Vector3Schema.default([1, 1, 1]),
   dimensions: Vector3Schema.default([0.6, 0.5, 0.6]),
+  materialKind: z.enum(['device', 'resource']).default('device'),
   renderBody: z.boolean().default(true),
   model: z
     .object({

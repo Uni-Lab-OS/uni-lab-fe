@@ -47,6 +47,7 @@ export interface MaterialTransferSceneRoute {
 
 export interface MaterialRenderingSnapshot {
   kind: string
+  materialKind: 'device' | 'resource'
   dimensionsMm: MaterialVector3Tuple
   footprintMm: readonly [number, number]
   scale: MaterialVector3Tuple

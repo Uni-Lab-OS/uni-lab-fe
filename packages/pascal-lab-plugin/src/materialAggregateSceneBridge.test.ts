@@ -15,6 +15,7 @@ import {
   isLabDeviceNode,
   isLabMaterialTransferLayerNode
 } from './schema'
+import { generatedBoundingBoxCenter } from './renderers/generatedBoundingBox'
 
 describe('Material Aggregate / Pascal bridge', () => {
   it('projects Backend floor-plane sizes into Pascal dimensions', () => {
@@ -90,6 +91,7 @@ describe('Material Aggregate / Pascal bridge', () => {
       macro: 'szlab_mixer_robot',
       meshDir: '/assets/robot/models'
     })
+    expect(node.materialKind).toBe('device')
     expect(node.model.attachPoints.map((point) => point.link)).toEqual([
       'tool0'
     ])
@@ -333,6 +335,96 @@ describe('Material Aggregate / Pascal bridge', () => {
     }
     expect(hoverOnlyNode.floorplanSnapshot?.showSites).toBe(false)
     expect(hoverOnlyNode.floorplanSnapshot?.sites).toHaveLength(1)
+  })
+
+  it('projects the backend resource identity for generated geometry', () => {
+    const carrier = aggregate('carrier', {
+      config: {
+        rendering: {
+          kind: 'warehouse',
+          material_kind: 'resource',
+          dimensionsMm: [265.52, 206, 180.96]
+        }
+      }
+    })
+
+    const scene = materialAggregatesToSceneGraph([carrier])
+    const node = scene.nodes['lab-carrier']
+    if (!isLabDeviceNode(node)) throw new Error('Expected lab device')
+
+    expect(node.materialKind).toBe('resource')
+  })
+
+  it('keeps a rotated resource datum on the node and offsets only its box', () => {
+    const resource = aggregate('rotated-resource', {
+      config: {
+        rendering: {
+          kind: 'warehouse',
+          material_kind: 'resource',
+          dimensionsMm: [265.52, 206, 180.96]
+        }
+      },
+      placement: {
+        kind: 'world',
+        pose: {
+          positionMm: [1000, 2000, 800],
+          rotationDegXYZ: [0, 0, 90]
+        }
+      }
+    })
+
+    const node = materialAggregatesToSceneGraph([resource]).nodes[
+      'lab-rotated-resource'
+    ]
+    if (!isLabDeviceNode(node)) throw new Error('Expected lab device')
+
+    expectTupleCloseTo(node.position, [1, 0.8, -2])
+    expectTupleCloseTo(node.rotation, [0, Math.PI / 2, 0])
+    expect(generatedBoundingBoxCenter(node.materialKind, node.dimensions)).toEqual([
+      0.13276, 0.103, -0.09048
+    ])
+  })
+
+  it('keeps a plate node on its Site lower corner under a rotated owner', () => {
+    const mountSite = site('rack', 'site-a', 'A', [100, 200, 0])
+    const rack = aggregate('rack', {
+      sites: [mountSite],
+      placement: {
+        kind: 'world',
+        pose: {
+          positionMm: [1000, 2000, 800],
+          rotationDegXYZ: [0, 0, 90]
+        }
+      }
+    })
+    const plate = aggregate('plate', {
+      config: {
+        rendering: {
+          kind: 'plate',
+          material_kind: 'resource',
+          dimensionsMm: [127.76, 14.4, 85.48]
+        }
+      },
+      placement: {
+        kind: 'site',
+        parentId: 'rack',
+        siteId: 'site-a',
+        offsetPose: {
+          positionMm: [0, 0, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      }
+    })
+
+    const node = materialAggregatesToSceneGraph([rack, plate]).nodes['lab-plate']
+    if (!isLabDeviceNode(node)) throw new Error('Expected lab device')
+
+    // The Material node remains at the rotated Site lower corner. The box
+    // receives its own half-size centre and cannot move the placement datum.
+    expectTupleCloseTo(node.position, [0.8, 0.8, -2.1])
+    expect(generatedBoundingBoxCenter(node.materialKind, node.dimensions)).toEqual([
+      0.06388, 0.0072, -0.04274
+    ])
   })
 
   it('links a colocated legacy child to its matching Site helper', () => {
