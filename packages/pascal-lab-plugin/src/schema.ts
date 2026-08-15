@@ -53,6 +53,7 @@ export const LabFloorplanSiteSchema = z.object({
   sizeMm: Vector3Schema,
   visible: z.boolean().default(true),
   occupied: z.boolean().default(false),
+  occupantSceneObjectId: z.string().optional(),
   visualState: z
     .enum(['empty', 'occupied', 'filled', 'tip-present'])
     .default('empty')

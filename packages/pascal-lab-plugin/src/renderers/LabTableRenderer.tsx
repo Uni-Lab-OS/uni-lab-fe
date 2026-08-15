@@ -5,7 +5,11 @@ import type { Group } from 'three'
 
 import type { LabTableNode } from '../schema'
 import { PascalModelLabel } from './PascalModelLabel'
-import { SiteBoundsRenderer } from './SiteBoundsRenderer'
+import {
+  isSiteBoundsPointerHit,
+  SiteBoundsRenderer,
+  siteBoundsOccupantSceneObjectId
+} from './SiteBoundsRenderer'
 
 const useCustomNodeEvents = useNodeEvents as unknown as (
   node: LabTableNode,
@@ -41,6 +45,30 @@ export default function LabTableRenderer({
       rotation={node.rotation}
       visible={node.visible !== false}
       {...events}
+      onPointerDown={(event) => {
+        if (siteBoundsOccupantSceneObjectId(event.object)) {
+          event.stopPropagation()
+          return
+        }
+        if (!isSiteBoundsPointerHit(event.object)) {
+          events.onPointerDown(event)
+        }
+      }}
+      onPointerUp={(event) => {
+        const occupantSceneObjectId = siteBoundsOccupantSceneObjectId(
+          event.object
+        )
+        if (occupantSceneObjectId) {
+          event.stopPropagation()
+          useViewer.getState().setSelection({
+            selectedIds: [occupantSceneObjectId as never]
+          })
+          return
+        }
+        if (!isSiteBoundsPointerHit(event.object)) {
+          events.onPointerUp(event)
+        }
+      }}
     >
       <mesh position={[0, height - 0.025, 0]} castShadow receiveShadow>
         <boxGeometry args={[width, 0.05, depth]} />

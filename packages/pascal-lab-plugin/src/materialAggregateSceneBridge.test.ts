@@ -279,6 +279,49 @@ describe('Material Aggregate / Pascal bridge', () => {
     expect(hoverOnlyNode.floorplanSnapshot?.sites).toHaveLength(1)
   })
 
+  it('links a colocated legacy child to its matching Site helper', () => {
+    const rackSite = site(
+      'tip-rack',
+      'site-l2c3',
+      'L2C3',
+      [6, 298, 260]
+    )
+    const rack = aggregate('tip-rack', {
+      sites: [{
+        ...rackSite,
+        sizeMm: [128, 86, 136],
+        allowedTemplateIds: ['template-tip-box']
+      }]
+    })
+    const tipBox = aggregate('tip-box', {
+      config: {
+        rendering: {
+          kind: 'tip_box',
+          dimensionsMm: [128, 136, 86]
+        }
+      },
+      placement: {
+        kind: 'parent',
+        parentId: 'tip-rack',
+        anchor: { kind: 'root' },
+        localPose: {
+          positionMm: [6, 298, 260],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      }
+    })
+
+    const scene = materialAggregatesToSceneGraph([rack, tipBox])
+    const node = scene.nodes['lab-tip-rack']
+    if (!isLabDeviceNode(node)) throw new Error('Expected lab device')
+
+    expect(node.floorplanSnapshot?.sites[0]).toMatchObject({
+      id: 'site-l2c3',
+      occupied: false,
+      occupantSceneObjectId: 'lab-tip-box'
+    })
+  })
+
   it('flattens a static root-anchored child into world space', () => {
     const parent = aggregate('table', {
       config: { rendering: { kind: 'table' } },

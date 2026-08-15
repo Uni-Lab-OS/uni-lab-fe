@@ -1,4 +1,9 @@
-import { shouldRenderSiteBounds, type MaterialAggregate, type MaterialId } from '@unilab/material/domain'
+import {
+  shouldRenderSiteBounds,
+  type MaterialAggregate,
+  type MaterialId,
+  type MaterialSite
+} from '@unilab/material/domain'
 import type { SceneGraph } from '@unilab/pascal-host'
 import {
   LabDeviceNodeSchema,
@@ -34,6 +39,76 @@ const SITE_ID = 'site_unilab'
 const BUILDING_ID = 'building_unilab'
 const LEVEL_ID = 'level_unilab'
 const MATERIAL_TRANSFER_LAYER_ID = 'lab-material-transfer-layer-unilab'
+
+/** 比较由 Backend/OS 提供的毫米坐标，容忍序列化产生的微小浮点误差。 */
+function sameMillimeterTuple(
+  left: readonly number[],
+  right: readonly number[]
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every(
+      (value, index) => Math.abs(value - (right[index] ?? 0)) <= 1e-6
+    )
+  )
+}
+
+/**
+ * 解析库位（Site）辅助框代表的物料（Material）场景身份。
+ *
+ * Backend 已返回占用关系时直接使用权威 UUID；旧图仅有父子相对位置时，
+ * 只有模板、位置、旋转和尺寸全部唯一匹配才做只读展示兼容。
+ */
+function resolveSiteOccupantSceneObjectId(
+  owner: MaterialAggregate,
+  site: MaterialSite,
+  aggregates: readonly MaterialAggregate[],
+  sceneObjectIdByMaterialId: Readonly<Record<MaterialId, string>>
+): string | undefined {
+  const declaredOccupants = site.occupiedMaterialIds
+    .map((materialId) => sceneObjectIdByMaterialId[materialId])
+    .filter((value): value is string => Boolean(value))
+  if (declaredOccupants.length === 1) return declaredOccupants[0]
+  if (declaredOccupants.length > 1 || site.anchor.kind !== 'root') {
+    return undefined
+  }
+
+  const compatibleChildren = aggregates.filter((candidate) => {
+    const placement = candidate.placement
+    if (placement.kind === 'site') {
+      return placement.parentId === owner.material.id &&
+        placement.siteId === site.id
+    }
+    if (
+      placement.kind !== 'parent' ||
+      placement.parentId !== owner.material.id ||
+      placement.anchor.kind !== 'root'
+    ) {
+      return false
+    }
+    if (
+      site.allowedTemplateIds.length > 0 &&
+      !site.allowedTemplateIds.includes(candidate.material.sourceTemplateId)
+    ) {
+      return false
+    }
+    const dimensionsMm = readMaterialRendering(candidate).dimensionsMm
+    return sameMillimeterTuple(
+      placement.localPose.positionMm,
+      site.poseInAnchor.positionMm
+    ) && sameMillimeterTuple(
+      placement.localPose.rotationDegXYZ,
+      site.poseInAnchor.rotationDegXYZ
+    ) && sameMillimeterTuple(
+      dimensionsMm,
+      [site.sizeMm[0], site.sizeMm[2], site.sizeMm[1]]
+    )
+  })
+  if (compatibleChildren.length !== 1) return undefined
+  return sceneObjectIdByMaterialId[
+    compatibleChildren[0]!.material.id
+  ]
+}
 
 /**
  * 把权威物料（Material）聚合投影为 Pascal 所有的场景状态。
@@ -105,6 +180,12 @@ export function materialAggregatesToSceneGraph(
             sizeMm: site.sizeMm,
             visible: site.visible !== false,
             occupied: site.occupiedMaterialIds.length > 0,
+            occupantSceneObjectId: resolveSiteOccupantSceneObjectId(
+              aggregate,
+              site,
+              aggregates,
+              sceneObjectIdByMaterialId
+            ),
             visualState: site.visual?.state ?? 'empty'
           }))
       }
