@@ -1,0 +1,26 @@
+appId: org.unilab.prototype.embedded-backend
+productName: Uni-Lab Embedded Backend Prototype
+executableName: unilab-embedded-backend-prototype
+electronVersion: 33.4.11
+directories:
+  output: ${env.UNILAB_PROTOTYPE_OUTPUT_DIR}
+files:
+  - electron-main.cjs
+  - renderer-probe.html
+extraResources:
+  - from: backend-payload
+    to: backend
+    filter:
+      - '**/*'
+asar: true
+npmRebuild: false
+mac:
+  target:
+    - dir
+win:
+  target:
+    - dir
+linux:
+  category: Development
+  target:
+    - dir

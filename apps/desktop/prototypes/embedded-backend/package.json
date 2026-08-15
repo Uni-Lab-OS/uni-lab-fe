@@ -1,0 +1,7 @@
+{
+  "name": "unilab-embedded-backend-prototype",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PROTOTYPE ONLY - verify a packaged Electron host can launch the Uni-Lab Go Backend",
+  "main": "electron-main.cjs"
+}
