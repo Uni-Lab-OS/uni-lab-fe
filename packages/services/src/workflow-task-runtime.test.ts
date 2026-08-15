@@ -342,10 +342,17 @@ describe('WorkflowTask runtime port', () => {
       'event: device.catalog.changed',
       'data: {"catalog_revision":7}',
       '',
+      'id: 46',
+      'event: workflow.definition.changed',
+      `data: ${JSON.stringify({
+        workflow_uuid: WORKFLOW_UUID,
+        workflow_revision: 9
+      })}`,
+      '',
       ''
     ].join('\n')))
 
-    await vi.waitFor(() => expect(invalidations).toHaveLength(4))
+    await vi.waitFor(() => expect(invalidations).toHaveLength(5))
     expect(invalidations).toEqual([
       {
         id: '42',
@@ -366,6 +373,11 @@ describe('WorkflowTask runtime port', () => {
         id: '45',
         event: 'device.catalog.changed',
         data: { catalog_revision: 7 }
+      },
+      {
+        id: '46',
+        event: 'workflow.definition.changed',
+        data: { workflow_uuid: WORKFLOW_UUID, workflow_revision: 9 }
       }
     ])
     expect(errors).toEqual([])

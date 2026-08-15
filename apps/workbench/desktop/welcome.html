@@ -71,7 +71,14 @@
               <strong id="runtime-title">正在检查 UniLab 环境</strong>
               <span id="runtime-detail">检查现有环境与安装包内置 Runtime…</span>
             </span>
-            <button id="install-runtime" type="button" hidden>安装内置 Runtime</button>
+            <div class="runtime-panel__controls">
+              <label id="runtime-selector-label" class="runtime-panel__selector" hidden>
+                <span>UniLab 环境</span>
+                <select id="runtime-selector" aria-label="选择 UniLab 环境"></select>
+              </label>
+              <button id="choose-runtime" type="button">选择已有环境</button>
+              <button id="install-runtime" type="button" hidden>安装内置 Runtime</button>
+            </div>
           </section>
 
           <section class="status-panel" id="status-panel" aria-live="polite" hidden>

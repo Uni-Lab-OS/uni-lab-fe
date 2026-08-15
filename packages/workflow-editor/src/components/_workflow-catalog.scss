@@ -30,18 +30,6 @@
   font-size: 12px;
 }
 
-.workflow :global(.workflow-runtime__catalog-header) > span {
-  display: grid;
-  min-width: 34px;
-  height: 34px;
-  place-items: center;
-  border-radius: 999px;
-  background: var(--unilab-color-workflow-soft);
-  color: var(--unilab-color-workflow);
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .workflow :global(.workflow-runtime__catalog-tools) {
   display: grid;
   grid-template-columns: minmax(180px, 360px) auto 1fr;
@@ -318,8 +306,7 @@
     font-size: 14px;
   }
 
-  .workflow :global(.workflow-runtime__catalog-header) p,
-  .workflow :global(.workflow-runtime__catalog-header) > span {
+  .workflow :global(.workflow-runtime__catalog-header) p {
     display: none;
   }
 
@@ -354,18 +341,6 @@
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.workflow :global(.workflow-runtime__catalog-header-actions) > span {
-  display: grid;
-  min-width: 34px;
-  height: 34px;
-  place-items: center;
-  color: var(--unilab-color-workflow);
-  border-radius: 999px;
-  background: var(--unilab-color-workflow-soft);
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .workflow :global(.workflow-runtime__catalog-header-actions) > button {
@@ -743,10 +718,6 @@
 }
 
 @media (max-width: 720px) {
-  .workflow :global(.workflow-runtime__catalog-header-actions) > span {
-    display: none;
-  }
-
   .workflow :global(.workflow-runtime__catalog-tools) {
     grid-template-columns: 1fr 1fr;
   }

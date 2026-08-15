@@ -1,3 +1,4 @@
+import type { Dirent } from 'node:fs'
 import { readdir, readFile, realpath, stat } from 'node:fs/promises'
 import { basename, extname, join, relative, resolve } from 'node:path'
 
@@ -11,6 +12,9 @@ export interface WorkbenchPlcVariableTableCandidate {
 
 const IGNORED_DIRECTORIES = new Set([
   '.git',
+  '.mypy_cache',
+  '.pytest_cache',
+  '.ruff_cache',
   '.unilabos',
   '.venv',
   'build',
@@ -33,7 +37,15 @@ export async function discoverWorkbenchPlcVariableTables(options: {
 
   async function visit(directory: string, depth: number): Promise<void> {
     if (depth > MAX_DEPTH || visitedFiles >= MAX_VISITED_FILES) return
-    const entries = await readdir(directory, { withFileTypes: true })
+    let entries: Dirent[]
+    try {
+      entries = await readdir(directory, { withFileTypes: true })
+    } catch (error) {
+      // The Workspace root must remain readable, but one tool-owned cache or
+      // restricted child directory must not prevent PLC-Sim CSV discovery.
+      if (depth === 0) throw error
+      return
+    }
     for (const entry of entries) {
       if (visitedFiles >= MAX_VISITED_FILES) break
       const path = join(directory, entry.name)

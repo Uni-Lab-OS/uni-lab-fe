@@ -35,8 +35,8 @@ import { useMaterialObliqueViewport } from './useMaterialObliqueViewport'
 export interface MaterialObliqueCanvasProps {
   aggregates: readonly MaterialAggregate[]
   /**
-   * 设备包声明的 2.5D 外形（Bridge 的 /api/v1/material-shapes）。缺省时所有
-   * 物料退回实心包围盒——画布本身不认识任何具体设备。
+   * 设备包声明、Backend 通过 `/api/v1/material-shapes` 提供的 2.5D 外形。
+   * 缺省时所有物料退回实心包围盒——画布本身不认识任何具体设备。
    */
   shapes?: MaterialShapeLibrary
   showSites?: boolean

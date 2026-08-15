@@ -155,9 +155,9 @@ test('设备动作（DeviceAction）形成正式任务（Task）与作业（Job�
   await page.goto(
     `/?section=device&localOsUrl=${encodeURIComponent(os.url)}`
   )
-  const panel = page.locator('.edge-device')
+  const panel = page.locator('[data-device-management="panel"]')
   const deviceList = page.getByRole('complementary', { name: 'Edge 设备列表' })
-  const workspace = page.locator('.edge-device__workspace')
+  const workspace = page.locator('[data-device-management="workspace"]')
   await expect(panel.getByText('Edge 已连接', { exact: true })).toBeVisible()
   const deviceButton = deviceList.getByRole('button', {
     name: new RegExp(DEVICE_ID)
@@ -170,11 +170,11 @@ test('设备动作（DeviceAction）形成正式任务（Task）与作业（Job�
   })
   await expect(actionButton).toContainText('占用中')
   await actionButton.click()
-  const debugSection = workspace.locator('.edge-device__debug-section')
+  const debugSection = workspace.locator('[data-device-management="debug-section"]')
   const runButton = debugSection.getByRole('button', { name: '运行此动作' })
   await expect(runButton).toBeEnabled()
   await expect(debugSection).toContainText('当前动作被占用')
-  const durationInput = debugSection.locator('.edge-device__field input').first()
+  const durationInput = debugSection.locator('[data-device-management="field"] input').first()
   await durationInput.fill('3')
   await capture(page, artifactDirectory, screenshots, '01-parameter-and-busy-holder.png')
   await capture(
@@ -370,7 +370,7 @@ test('终止单动作任务后安全释放设备锁并允许再次运行', async
   const deviceList = page.getByRole('complementary', {
     name: 'Edge 设备列表'
   })
-  const workspace = page.locator('.edge-device__workspace')
+  const workspace = page.locator('[data-device-management="workspace"]')
   const deviceButton = deviceList.getByRole('button', {
     name: new RegExp(DEVICE_ID)
   })
@@ -379,8 +379,8 @@ test('终止单动作任务后安全释放设备锁并允许再次运行', async
     name: '单节点运行 动作节点'
   })
   await actionButton.click()
-  const debugSection = workspace.locator('.edge-device__debug-section')
-  const durationInput = debugSection.locator('.edge-device__field input').first()
+  const debugSection = workspace.locator('[data-device-management="debug-section"]')
+  const durationInput = debugSection.locator('[data-device-management="field"] input').first()
   await durationInput.fill('30')
 
   const acceptedResponsePromise = page.waitForResponse((response) =>

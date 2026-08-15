@@ -60,11 +60,11 @@ test('existing device UI reads the Edge-owned catalog through the real OS API', 
     `/?section=device&localOsUrl=${encodeURIComponent(API_URL)}`
   )
 
-  const devicePanel = page.locator('.edge-device')
+  const devicePanel = page.locator('[data-device-management="panel"]')
   const deviceList = page.getByRole('complementary', {
     name: 'Edge 设备列表'
   })
-  const workspace = page.locator('.edge-device__workspace')
+  const workspace = page.locator('[data-device-management="workspace"]')
   await expect(
     devicePanel.getByText('Edge 已连接', { exact: true })
   ).toBeVisible()
@@ -89,7 +89,7 @@ test('existing device UI reads the Edge-owned catalog through the real OS API', 
   )).toBeVisible()
   await expect(workspace.getByText('在线', { exact: true })).toBeVisible()
   await expect(
-    workspace.locator('.edge-device__action-node').first()
+    workspace.locator('[data-device-management="action-node"]').first()
   ).toBeVisible()
 
   await page.screenshot({
@@ -101,19 +101,19 @@ test('existing device UI reads the Edge-owned catalog through the real OS API', 
     path: join(artifactDirectory, '02-edge-device-list.png'),
     animations: 'disabled'
   })
-  await workspace.locator('.edge-device__identity').screenshot({
+  await workspace.locator('[data-device-management="identity"]').screenshot({
     path: join(artifactDirectory, '03-device-identity-and-online-state.png'),
     animations: 'disabled'
   })
-  await workspace.locator('.edge-device__action-section').screenshot({
+  await workspace.locator('[data-device-management="action-section"]').screenshot({
     path: join(artifactDirectory, '04-edge-action-catalog.png'),
     animations: 'disabled'
   })
 
-  const actionNodes = workspace.locator('.edge-device__action-node')
+  const actionNodes = workspace.locator('[data-device-management="action-node"]')
   expect(await actionNodes.count()).toBeGreaterThan(0)
   await actionNodes.first().click()
-  const parameterSection = workspace.locator('.edge-device__debug-section')
+  const parameterSection = workspace.locator('[data-device-management="debug-section"]')
   await expect(
     parameterSection.getByText('动作参数预览', { exact: true })
   ).toBeVisible()

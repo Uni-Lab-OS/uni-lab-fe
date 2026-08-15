@@ -14,7 +14,13 @@ const MACOS_ENTITLEMENTS = fileURLToPath(
 )
 
 export async function afterPack(context) {
-  if (context.electronPlatformName !== 'darwin') return
+  if (context.electronPlatformName !== 'darwin') {
+    await removePackagedDesktopSelfLinkFromResources(join(
+      context.appOutDir,
+      'resources'
+    ))
+    return
+  }
 
   const appDirectory = (await readdir(context.appOutDir, {
     withFileTypes: true
@@ -57,17 +63,23 @@ export async function afterPack(context) {
 }
 
 export async function removePackagedDesktopSelfLink(appPath) {
-  await rm(join(
+  await removePackagedDesktopSelfLinkFromResources(join(
     appPath,
     'Contents',
-    'Resources',
+    'Resources'
+  ))
+}
+
+export async function removePackagedDesktopSelfLinkFromResources(resourcesPath) {
+  await rm(join(
+    resourcesPath,
     'desktop',
     'node_modules',
     '.pnpm',
     'node_modules',
     '@unilab',
     'desktop'
-  ), { force: true })
+  ), { recursive: true, force: true })
 }
 
 export function adHocSignApplication(appPath) {

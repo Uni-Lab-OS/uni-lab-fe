@@ -17,11 +17,12 @@ export const frameworkResourceTemplateUuid =
 export const fingerprint = `sha256:${'a'.repeat(64)}`
 /** OS 扩展目录权威（Authority）身份。 */
 export const authority = { authority_id: 'os-local', kind: 'local' }
-/** 默认节点模板目录的首个 UUID 游标请求。 */
-export const defaultCatalogPath = '/api/v1/workflow-node-templates?limit=100'
-/** 发布工作流（PublishedWorkflow）节点模板目录的首个 UUID 游标请求。 */
+/** 默认节点模板目录的首个 Backend 页码请求。 */
+export const defaultCatalogPath =
+  '/api/v1/workflow-node-templates?page=1&page_size=100'
+/** 发布工作流（PublishedWorkflow）节点模板目录的首个 Backend 页码请求。 */
 export const workflowCatalogPath =
-  '/api/v1/workflow-node-templates?limit=100&node_type=workflow'
+  '/api/v1/workflow-node-templates?page=1&page_size=100&node_type=workflow'
 
 /** 测试中最小化的 HTTP 响应信封。 */
 export interface Envelope {

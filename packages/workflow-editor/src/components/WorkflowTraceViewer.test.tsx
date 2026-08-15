@@ -6,6 +6,7 @@ import { WorkflowDebugger } from './WorkflowDebugger'
 import {
   WorkflowTraceViewer,
   listWorkflowRunTraces,
+  signozTraceUrl,
   traceMatchesWorkflowRun,
   workflowSpanSummaries,
   workflowTraceSummary
@@ -14,6 +15,40 @@ import {
 const RUN_ID = '01234567-89ab-cdef-0123-456789abcdef'
 
 describe('WorkflowTraceViewer', () => {
+  it('offers the local SigNoz UI as an external Trace destination', () => {
+    const runtime: WorkflowTracePort = {
+      listTraces: async () => ({
+        project_name: 'uni-lab-electron',
+        traces: [],
+        next_cursor: null
+      }),
+      getTrace: async (traceId) => ({
+        project_name: 'uni-lab-electron',
+        trace_id: traceId,
+        spans: [],
+        next_cursor: null
+      })
+    }
+    const html = renderToStaticMarkup(
+      <WorkflowTraceViewer
+        open
+        currentRunId={RUN_ID}
+        runtime={runtime}
+        onClose={() => {}}
+      />
+    )
+
+    expect(html).toContain('href="http://127.0.0.1:30080/trace"')
+    expect(html).toContain('target="_blank"')
+    expect(html).toContain('打开 SigNoz')
+  })
+
+  it('builds a SigNoz detail link for the selected trace', () => {
+    expect(signozTraceUrl('0123456789abcdef')).toBe(
+      'http://127.0.0.1:30080/trace/0123456789abcdef'
+    )
+  })
+
   it('associates a trace with the current workflow run identifier', () => {
     const trace = {
       trace_id: 'f'.repeat(32),

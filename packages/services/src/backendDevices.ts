@@ -1,5 +1,6 @@
 import type {
   DeviceAction,
+  DeviceActionInputSchema,
   DeviceActionSchema,
   DeviceActionTarget,
   DeviceCatalogItem,
@@ -7,6 +8,8 @@ import type {
 } from './laboratory'
 import { ServiceError } from './errors'
 import { requestData, type HttpClient } from './http'
+import { loadWorkflowActionCatalog } from './workflowActionCatalog'
+import type { WorkflowActionNodeTemplate } from './workflowActionCatalogTypes'
 
 interface BackendDevice {
   id: string
@@ -34,24 +37,29 @@ interface BackendDeviceAction {
 export async function loadBackendDeviceCatalog(
   http: HttpClient
 ): Promise<DeviceCatalogItem[]> {
-  return (await loadBackendDevices(http)).map((device) => ({
+  const { devices, templates } = await loadBackendDeviceContext(http)
+  return devices.map((device) => ({
     deviceId: device.id,
     materialUuid: device.id,
+    resourceTemplateUuid: device.deviceTypeId,
     deviceTypeId: device.deviceTypeId,
     deviceKey: device.deviceKey,
     namespace: device.namespace,
     label: device.label,
     online: device.online,
-    actions: device.actions.map((action) => ({
-      actionName: action.actionName,
-      actionRef: action.actionRef,
-      label: action.label,
-      typeName: action.typeName,
-      inputSchema: {},
-      outputSchema: {},
-      riskLevel: 'normal',
-      isBusy: false
-    }))
+    actions: device.actions.map((action) => {
+      const template = matchActionTemplate(device, action, templates)
+      return {
+        actionName: action.actionName,
+        actionRef: action.actionRef,
+        label: template?.displayName ?? action.label,
+        typeName: action.typeName,
+        inputSchema: templateInputSchema(template),
+        outputSchema: templateOutputSchema(template),
+        riskLevel: 'normal',
+        isBusy: false
+      }
+    })
   }))
 }
 
@@ -60,14 +68,19 @@ export async function loadBackendOnlineDevices(
   http: HttpClient,
   signal?: AbortSignal
 ): Promise<OnlineDevice[]> {
-  return (await loadBackendDevices(http, signal)).map((device) => ({
+  const { devices, templates } = await loadBackendDeviceContext(http, signal)
+  return devices.map((device) => ({
     id: device.id,
     materialUuid: device.id,
+    resourceTemplateUuid: device.deviceTypeId,
     deviceKey: device.deviceKey,
     namespace: device.namespace,
     machineName: device.label,
     online: device.online,
-    actions: device.actions.map(mapBackendDeviceAction)
+    actions: device.actions.map((action) => mapBackendDeviceAction(
+      action,
+      matchActionTemplate(device, action, templates)
+    ))
   }))
 }
 
@@ -85,9 +98,13 @@ export async function loadBackendDeviceActions(
   http: HttpClient,
   deviceId: string
 ): Promise<DeviceAction[]> {
-  const device = (await loadBackendDevices(http))
+  const { devices, templates } = await loadBackendDeviceContext(http)
+  const device = devices
     .find((candidate) => candidate.id === deviceId)
-  return (device?.actions ?? []).map(mapBackendDeviceAction)
+  return (device?.actions ?? []).map((action) => mapBackendDeviceAction(
+    action,
+    device ? matchActionTemplate(device, action, templates) : null
+  ))
 }
 
 /**
@@ -96,15 +113,18 @@ export async function loadBackendDeviceActions(
  * @param http 已绑定 Backend 权威地址的 HTTP 客户端。
  * @param deviceId 设备物料 UUID。
  * @param actionName Edge 为该设备实例声明的动作名。
- * @returns 当前只读目录可证明的空输入 schema 与精确动作类型；不推断模板参数。
+ * @returns 设备声明与节点模板唯一匹配后得到的输入 schema、默认值和动作类型。
  */
 export async function loadBackendActionSchema(
   http: HttpClient,
   deviceId: string,
   actionName: string
 ): Promise<DeviceActionSchema> {
-  const action = (await loadBackendDeviceActions(http, deviceId))
-    .find((candidate) => candidate.actionName === actionName)
+  const { devices, templates } = await loadBackendDeviceContext(http)
+  const device = devices.find((candidate) => candidate.id === deviceId)
+  const action = device?.actions.find(
+    (candidate) => candidate.actionName === actionName
+  )
   if (!action) {
     throw new ServiceError({
       code: 'ACTION_NOT_FOUND',
@@ -113,13 +133,39 @@ export async function loadBackendActionSchema(
       retryable: false
     })
   }
+  const template = device
+    ? matchActionTemplate(device, action, templates)
+    : null
+  if (!template) {
+    throw new ServiceError({
+      code: 'ACTION_TEMPLATE_NOT_FOUND',
+      message: `设备动作缺少唯一节点模板：${deviceId}.${actionName}`,
+      status: 409,
+      retryable: true
+    })
+  }
   return {
-    schema: action.schema ?? emptyInputSchema(),
-    goalDefault: {},
+    schema: template.schema,
+    goalDefault: template.goalDefault,
     actionType: action.typeName,
     isBusy: false,
     currentJobId: null
   }
+}
+
+/** 一次读取同一 Authority 的设备实例与动作模板，供正常产品界面组合。 */
+async function loadBackendDeviceContext(
+  http: HttpClient,
+  signal?: AbortSignal
+): Promise<{
+  devices: BackendDevice[]
+  templates: WorkflowActionNodeTemplate[]
+}> {
+  const [devices, catalog] = await Promise.all([
+    loadBackendDevices(http, signal),
+    loadWorkflowActionCatalog(http, signal)
+  ])
+  return { devices, templates: catalog.actionTemplates }
 }
 
 /** 解码 Backend `/devices` 数组，并把设备身份固定为 Material UUID。 */
@@ -170,20 +216,77 @@ function mapBackendDevice(raw: Record<string, unknown>): BackendDevice {
 }
 
 /** 把只读动作声明映射为设备卡片动作；运行能力由 capability 继续关闭。 */
-function mapBackendDeviceAction(action: BackendDeviceAction): DeviceAction {
+function mapBackendDeviceAction(
+  action: BackendDeviceAction,
+  template: WorkflowActionNodeTemplate | null
+): DeviceAction {
   return {
     actionName: action.actionName,
     actionRef: action.actionRef,
-    displayName: action.label,
-    label: action.label,
+    displayName: template?.displayName ?? action.label,
+    label: template?.displayName ?? action.label,
     typeName: action.typeName,
     isBusy: false,
     currentJobId: null,
-    schema: emptyInputSchema(),
-    inputSchema: {},
-    outputSchema: {},
+    schema: template?.schema ?? emptyInputSchema(),
+    inputSchema: templateInputSchema(template),
+    outputSchema: templateOutputSchema(template),
     riskLevel: 'normal'
   }
+}
+
+/** 按设备模板、动作名与动作类型唯一关联动作模板；冲突或缺失都失败关闭。 */
+function matchActionTemplate(
+  device: BackendDevice,
+  action: BackendDeviceAction,
+  templates: WorkflowActionNodeTemplate[]
+): WorkflowActionNodeTemplate | null {
+  const matches = templates.filter((template) =>
+    template.resourceTemplateUuid === device.deviceTypeId &&
+    template.name === action.actionName &&
+    template.actionType === action.typeName
+  )
+  return matches.length === 1 ? matches[0] ?? null : null
+}
+
+/** 从平面或类型化动作合同提取设备表单字段。 */
+function templateInputSchema(
+  template: WorkflowActionNodeTemplate | null
+): Record<string, DeviceActionInputSchema> {
+  if (!template) return {}
+  const properties = recordOrNull(template.schema.properties)
+  const goal = recordOrNull(properties?.goal)
+  const fields = recordOrNull(goal?.properties) ?? properties
+  return inputFields(fields)
+}
+
+/** 从类型化动作合同提取结果字段；平面 Backend 参数合同没有输出 schema。 */
+function templateOutputSchema(
+  template: WorkflowActionNodeTemplate | null
+): Record<string, DeviceActionInputSchema> {
+  if (!template) return {}
+  const properties = recordOrNull(template.schema.properties)
+  const result = recordOrNull(properties?.result)
+  return inputFields(recordOrNull(result?.properties))
+}
+
+/** 只保留普通对象形式的 JSON Schema 属性。 */
+function inputFields(
+  value: Record<string, unknown> | null
+): Record<string, DeviceActionInputSchema> {
+  if (!value) return {}
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([name, schema]) =>
+      isRecord(schema)
+        ? [[name, schema as DeviceActionInputSchema]]
+        : []
+    )
+  )
+}
+
+/** 收窄可选普通对象。 */
+function recordOrNull(value: unknown): Record<string, unknown> | null {
+  return isRecord(value) ? value : null
 }
 
 /** 返回明确的空对象输入 schema，避免把未知参数误报为可执行。 */

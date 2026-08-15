@@ -6,6 +6,7 @@ import {
   catalogResponses,
   defaultCatalogPath,
   detailData,
+  detailDataFor,
   fingerprint,
   fixtureHttp,
   frameworkCatalogResponses,
@@ -72,6 +73,14 @@ function registerActionCatalogTests(): void {
   it(
     'loads the persisted version 2 Action contract and canonical ready Handles',
     acceptsPersistedVersionTwoActionContract
+  )
+  it(
+    'loads the Backend flat device Action parameter schema without legacy Handles',
+    acceptsBackendFlatDeviceActionSchema
+  )
+  it(
+    '接受 Backend 省略 properties 的无参数设备动作 Schema',
+    acceptsBackendParameterlessDeviceActionSchema
   )
   it(
     'reads every page and excludes non-Action framework templates',
@@ -332,6 +341,93 @@ async function acceptsPersistedVersionTwoActionContract(): Promise<void> {
 }
 
 /**
+ * 证明 Backend 当前持久化的平面设备动作参数 Schema 可直接形成 D1A 参数合同。
+ *
+ * @returns 测试完成后的 Promise。
+ * @throws 平面参数、默认值或旧工作流连接点（Handle）被错误投影时使测试失败。
+ */
+async function acceptsBackendFlatDeviceActionSchema(): Promise<void> {
+  const responses = catalogResponses()
+  const detail = detailDataFor(responses, nodeUuid)
+  detail.template.schema = {
+    type: 'object',
+    properties: {
+      speed_rpm: {
+        type: 'integer',
+        title: '转速',
+        minimum: 100,
+        maximum: 1500
+      },
+      direction: {
+        type: 'string',
+        title: '方向',
+        enum: ['clockwise', 'counterclockwise']
+      }
+    },
+    required: ['speed_rpm'],
+    additionalProperties: false
+  }
+  detail.template.goal_default = {
+    speed_rpm: 600,
+    direction: 'clockwise'
+  }
+  detail.template.meta_data = { seed: 'internal-demo' }
+
+  const runtime = createWorkflowRuntime(
+    fixtureHttp(responses),
+    getDefaultBackend('local-go')
+  )
+
+  const catalog = await runtime.getWorkflowActionCatalog()
+
+  expect(catalog.actionTemplates).toEqual([
+    expect.objectContaining({
+      uuid: nodeUuid,
+      resourceTemplateUuid,
+      schema: detail.template.schema,
+      goalDefault: detail.template.goal_default,
+      handles: []
+    })
+  ])
+}
+
+/**
+ * 证明 Backend 的 EmptyIn 等无参数动作可使用省略 properties 的标准对象 Schema。
+ *
+ * @returns 测试完成后的 Promise。
+ * @throws 省略 properties 被误判为无效目录时使测试失败。
+ */
+async function acceptsBackendParameterlessDeviceActionSchema(): Promise<void> {
+  const responses = catalogResponses()
+  const detail = detailDataFor(responses, nodeUuid)
+  detail.template.schema = JSON.stringify({
+    type: 'object',
+    title: 'EmptyIn_Goal',
+    additionalProperties: true
+  })
+  detail.template.goal = {}
+  detail.template.goal_default = {}
+  const runtime = createWorkflowRuntime(
+    fixtureHttp(responses),
+    getDefaultBackend('local-go')
+  )
+
+  const catalog = await runtime.getWorkflowActionCatalog()
+
+  expect(catalog.actionTemplates).toEqual([
+    expect.objectContaining({
+      uuid: nodeUuid,
+      schema: {
+        type: 'object',
+        title: 'EmptyIn_Goal',
+        additionalProperties: true
+      },
+      goalDefault: {}
+    })
+  ])
+}
+
+/**
  * 证明默认目录沿 UUID 游标完整读取，同时框架节点不成为动作（Action）。
  *
  * @returns 测试完成后的 Promise。
@@ -361,7 +457,7 @@ async function verifiesCursorTraversalAndFrameworkExclusion(): Promise<void> {
   ;(first.data as Record<string, unknown>).next_cursor_uuid = frameworkNodeUuid
   /** 下一游标使用上一页最后一个节点模板 UUID，符合 Backend 合同。 */
   const secondCatalogPath =
-    `${defaultCatalogPath}&cursor_uuid=${frameworkNodeUuid}`
+    `/api/v1/workflow-node-templates?limit=100&cursor_uuid=${frameworkNodeUuid}`
   responses[secondCatalogPath] = {
     code: 0,
     data: {

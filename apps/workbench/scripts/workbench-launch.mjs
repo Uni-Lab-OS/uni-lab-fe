@@ -10,6 +10,16 @@ const execFileAsync = promisify(execFile)
 export const WORKBENCH_DESKTOP_FLAG = '--desktop'
 export const WORKBENCH_REMOTE_FLAG = '--remote'
 
+/**
+ * Keep the Theia backend out of the launcher's terminal process group.
+ * Otherwise one Ctrl+C reaches Theia directly and the launcher forwards a
+ * second signal, which can bypass async BackendApplicationContribution cleanup
+ * and orphan managed Workspace Backend / Edge Runtime children.
+ */
+export function isolateWorkbenchBackendProcessGroup(platform = process.platform) {
+  return platform !== 'win32'
+}
+
 const VALUE_FLAGS = new Map([
   ['--workspace', 'workspace'],
   ['--os-project', 'osProject'],
@@ -213,7 +223,9 @@ async function validWorkbenchPythonEnvironment(candidate, platform) {
       '-c',
       'from unilabos.app.main import main'
     ], {
-      timeout: 5_000,
+      // A cold UniLab import can take more than five seconds on Windows,
+      // especially while the Workbench TypeScript/esbuild watchers are busy.
+      timeout: 15_000,
       windowsHide: true
     })
     return resolved

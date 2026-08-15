@@ -63,6 +63,10 @@ async function createAgentArchiveFixture(sourceDirectory, archivePath) {
 }
 
 describe('bundled Workbench Agent payload', () => {
+  it('keeps the packaged Agent distribution at 2.1.53', () => {
+    assert.equal(PINNED_AGENT_DISTRIBUTION_VERSION, '2.1.53')
+  })
+
   /** 验证 Windows 与 POSIX 的 ASAR 清单路径收敛为同一归档路径。 */
   it('normalizes ASAR entry separators across packaging hosts', () => {
     assert.equal(

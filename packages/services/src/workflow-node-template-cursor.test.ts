@@ -48,6 +48,10 @@ function registerWorkflowNodeTemplateCursorTests(): void {
     acceptsOsPageMetadata
   )
   it(
+    '接受 Backend page/page_size/has_more 合同且不要求 total',
+    acceptsBackendNumberedMetadataWithoutTotal
+  )
+  it(
     'fails closed when cursor and page metadata are mixed',
     rejectsMixedPaginationMetadata
   )
@@ -77,10 +81,10 @@ describe(
  * @throws 游标字段、项目身份或请求路径不符合合同时由断言报告。
  */
 async function acceptsBackendCursorWithoutOsExtensions(): Promise<void> {
-  // 请求路径用于证明客户端只发送后端（Backend）规定的 limit/cursor_uuid 字段。
+  // 首次请求使用 Backend 页码；若旧服务返回游标，后续页仍可兼容推进。
   const requests: string[] = []
   const http = fixtureHttp({
-    '/api/v1/workflow-node-templates?limit=100': page(
+    '/api/v1/workflow-node-templates?page=1&page_size=100': page(
       [summary(firstUuid, 'mix')],
       true,
       firstUuid
@@ -97,7 +101,7 @@ async function acceptsBackendCursorWithoutOsExtensions(): Promise<void> {
   ])
   expect(catalog.generation).toBeNull()
   expect(requests).toEqual([
-    '/api/v1/workflow-node-templates?limit=100',
+    '/api/v1/workflow-node-templates?page=1&page_size=100',
     `/api/v1/workflow-node-templates?limit=100&cursor_uuid=${firstUuid}`
   ])
 }
@@ -110,7 +114,7 @@ async function acceptsBackendCursorWithoutOsExtensions(): Promise<void> {
  */
 async function rejectsRepeatedItemUuid(): Promise<void> {
   const http = fixtureHttp({
-    '/api/v1/workflow-node-templates?limit=100': page(
+    '/api/v1/workflow-node-templates?page=1&page_size=100': page(
       [summary(firstUuid, 'mix')],
       true,
       firstUuid
@@ -133,7 +137,7 @@ async function rejectsRepeatedItemUuid(): Promise<void> {
  */
 async function rejectsEmptyCursorAdvance(): Promise<void> {
   const http = fixtureHttp({
-    '/api/v1/workflow-node-templates?limit=100': page([], true, null)
+    '/api/v1/workflow-node-templates?page=1&page_size=100': page([], true, null)
   })
 
   await expect(loadWorkflowNodeTemplateCatalog(http)).rejects.toMatchObject({
@@ -152,7 +156,7 @@ async function rejectsRepeatedCursorAdvance(): Promise<void> {
   const secondPath =
     `/api/v1/workflow-node-templates?limit=100&cursor_uuid=${firstUuid}`
   const http = fixtureHttp({
-    '/api/v1/workflow-node-templates?limit=100': page(
+    '/api/v1/workflow-node-templates?page=1&page_size=100': page(
       [summary(firstUuid, 'mix')],
       true,
       firstUuid
@@ -182,7 +186,7 @@ async function acceptsCompatibleTotalMetadata(): Promise<void> {
   const data = response.data as Record<string, unknown>
   data.total = 1
   const http = fixtureHttp({
-    '/api/v1/workflow-node-templates?limit=100': response
+    '/api/v1/workflow-node-templates?page=1&page_size=100': response
   })
 
   const catalog = await loadWorkflowNodeTemplateCatalog(http)
@@ -203,7 +207,7 @@ async function rejectsInvalidTotalMetadata(): Promise<void> {
     const data = response.data as Record<string, unknown>
     data.total = invalidTotal
     const http = fixtureHttp({
-      '/api/v1/workflow-node-templates?limit=100': response
+      '/api/v1/workflow-node-templates?page=1&page_size=100': response
     })
 
     await expect(loadWorkflowNodeTemplateCatalog(http)).rejects.toMatchObject({
@@ -222,7 +226,7 @@ async function rejectsInvalidTotalMetadata(): Promise<void> {
 async function acceptsOsPageMetadata(): Promise<void> {
   const requests: string[] = []
   const http = fixtureHttp({
-    '/api/v1/workflow-node-templates?limit=100': numberedPage(
+    '/api/v1/workflow-node-templates?page=1&page_size=100': numberedPage(
       [summary(firstUuid, 'mix')], 1, 1, 2
     ),
     '/api/v1/workflow-node-templates?page=2&page_size=1': numberedPage(
@@ -234,7 +238,33 @@ async function acceptsOsPageMetadata(): Promise<void> {
 
   expect(catalog.items.map(readTemplateUuid)).toEqual([firstUuid, secondUuid])
   expect(requests).toEqual([
-    '/api/v1/workflow-node-templates?limit=100',
+    '/api/v1/workflow-node-templates?page=1&page_size=100',
+    '/api/v1/workflow-node-templates?page=2&page_size=1'
+  ])
+}
+
+/**
+ * 验证最新后端（Backend）节点模板目录只用 has_more 表示是否还有下一页。
+ *
+ * @returns Promise 完成时表示无 total 的两页目录已完整读取。
+ * @throws 若 has_more 被误判为游标字段或 total 仍为必填则由断言报告。
+ */
+async function acceptsBackendNumberedMetadataWithoutTotal(): Promise<void> {
+  const requests: string[] = []
+  const http = fixtureHttp({
+    '/api/v1/workflow-node-templates?page=1&page_size=100': numberedPage(
+      [summary(firstUuid, 'mix')], 1, 1, undefined, true
+    ),
+    '/api/v1/workflow-node-templates?page=2&page_size=1': numberedPage(
+      [summary(secondUuid, 'heat')], 2, 1, undefined, false
+    )
+  }, requests)
+
+  const catalog = await loadWorkflowNodeTemplateCatalog(http)
+
+  expect(catalog.items.map(readTemplateUuid)).toEqual([firstUuid, secondUuid])
+  expect(requests).toEqual([
+    '/api/v1/workflow-node-templates?page=1&page_size=100',
     '/api/v1/workflow-node-templates?page=2&page_size=1'
   ])
 }
@@ -251,8 +281,9 @@ async function rejectsMixedPaginationMetadata(): Promise<void> {
   const data = response.data as Record<string, unknown>
   data.page = 1
   data.page_size = 100
+  data.next_cursor_uuid = null
   const http = fixtureHttp({
-    '/api/v1/workflow-node-templates?limit=100': response
+    '/api/v1/workflow-node-templates?page=1&page_size=100': response
   })
 
   await expect(loadWorkflowNodeTemplateCatalog(http)).rejects.toMatchObject({
@@ -264,13 +295,13 @@ async function rejectsMixedPaginationMetadata(): Promise<void> {
 /**
  * 验证物料来源（MaterialSource）目录必须通过显式 node_type 筛选读取。
  *
- * @returns Promise 完成时表示请求未携带旧 page/page_size 字段。
+ * @returns Promise 完成时表示请求携带 Backend page/page_size 与显式筛选。
  * @throws 若请求路径偏离后端（Backend）合同则测试 HTTP fixture 抛错。
  */
 async function sendsExplicitMaterialSourceFilter(): Promise<void> {
   const requests: string[] = []
   const path =
-    '/api/v1/workflow-node-templates?limit=100&node_type=material_source'
+    '/api/v1/workflow-node-templates?page=1&page_size=100&node_type=material_source'
   const http = fixtureHttp({
     [path]: page([summary(firstUuid, 'material_source', 'material_source')],
       false,
@@ -327,7 +358,7 @@ function mergesDefaultAndPublishedWorkflowCatalogs(): void {
 async function verifiesOsGenerationAcrossListAndDetail(): Promise<void> {
   const generation = osGeneration()
   const http = fixtureHttp({
-    '/api/v1/workflow-node-templates?limit=100': page(
+    '/api/v1/workflow-node-templates?page=1&page_size=100': page(
       [summary(firstUuid, 'mix')],
       false,
       null,
@@ -425,14 +456,30 @@ function page(
   })
 }
 
-/** 构造当前 OS 使用的页码目录响应。 */
+/**
+ * 构造 OS 或 Backend 使用的页码目录响应。
+ *
+ * @param items 当前页节点模板摘要。
+ * @param pageNumber 当前页码。
+ * @param pageSize 服务端确认的页大小。
+ * @param total OS 可选总数。
+ * @param hasMore Backend 可选后续页标记。
+ * @returns 带统一外壳的页码响应 fixture。
+ */
 function numberedPage(
   items: Record<string, unknown>[],
   pageNumber: number,
   pageSize: number,
-  total: number
+  total: number | undefined,
+  hasMore?: boolean
 ): Record<string, unknown> {
-  return envelope({ items, page: pageNumber, page_size: pageSize, total })
+  return envelope({
+    items,
+    page: pageNumber,
+    page_size: pageSize,
+    ...(hasMore === undefined ? {} : { has_more: hasMore }),
+    ...(total === undefined ? {} : { total })
+  })
 }
 
 /**

@@ -53,7 +53,9 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(builderConfiguration, /target: zip/u)
     assert.match(welcomeDocument, /<title>UniLab 调试工作台<\/title>/u)
     assert.match(welcomeDocument, /id="install-runtime"/u)
+    assert.match(welcomeDocument, /id="choose-runtime"/u)
     assert.match(welcomeScript, /managedRuntime/u)
+    assert.match(welcomeScript, /chooseEnvironment/u)
     assert.match(welcomeScript, /unilab -h/u)
     assert.equal(
       theiaManifest.theiaExtensions[0].frontendPreload,
@@ -247,7 +249,9 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(builderConfiguration, /to: runtime-installer/u)
     assert.match(builderConfiguration, /to: default-workspace/u)
     assert.match(builderConfiguration, /\.packaging\/device-card-builder/u)
-    assert.match(builderConfiguration, /to: agent-runtime/u)
+    assert.match(builderConfiguration, /to: a\/app\.asar/u)
+    assert.match(builderConfiguration, /to: a\/payload\.json/u)
+    assert.match(builderConfiguration, /to: a\/c/u)
     assert.match(builderConfiguration, /to: workspace-skills/u)
   })
 
@@ -262,6 +266,8 @@ describe('Workbench macOS distribution gate', () => {
     ))
 
     assert.match(launcher, /resources\.agentRuntime/u)
+    assert.match(launcher, /UNILAB_AIONUI_VERSION/u)
+    assert.match(launcher, /payload\.json/u)
     assert.doesNotMatch(launcher, /UNILAB_AIONUI_APP.*\/Applications\/AionUi\.app/u)
     assert.equal(compatibility.components.agentRuntime, 'aioncore@2.1.53')
     assert.equal(

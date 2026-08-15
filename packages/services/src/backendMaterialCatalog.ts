@@ -7,16 +7,18 @@ import type {
 import { ServiceError } from './errors'
 import { requestData, type HttpClient } from './http'
 
-interface BackendCursorPage {
+interface BackendNumberedPage {
   items?: unknown
   has_more?: unknown
-  next_cursor_uuid?: unknown
+  page?: unknown
+  page_size?: unknown
 }
 
 const BACKEND_CATALOG_PAGE_SIZE = 100
+const BACKEND_CATALOG_PAGE_BUDGET = 100
 
 /**
- * 读取 Backend 的完整资源模板目录，并把 UUID 游标分页隐藏在 Service adapter 内。
+ * 读取 Backend 的完整资源模板目录，并把页码分页隐藏在 Service adapter 内。
  *
  * @param http 已绑定 Backend 权威地址的 HTTP 客户端。
  * @returns 前端统一的只读物料模板目录；revision 由当前目录内容稳定派生。
@@ -25,33 +27,70 @@ export async function loadBackendMaterialTemplateCatalog(
   http: HttpClient
 ): Promise<MaterialTemplateCatalog> {
   const rawItems: Record<string, unknown>[] = []
-  let cursor: string | null = null
+  let expectedPage = 1
+  let observedPageSize: number | null = null
 
-  do {
+  for (
+    let pageCount = 0;
+    pageCount < BACKEND_CATALOG_PAGE_BUDGET;
+    pageCount += 1
+  ) {
     const query = new URLSearchParams({
-      limit: String(BACKEND_CATALOG_PAGE_SIZE)
+      page: String(expectedPage),
+      page_size: String(BACKEND_CATALOG_PAGE_SIZE)
     })
-    if (cursor) query.set('cursor_uuid', cursor)
-    const page = await requestData<BackendCursorPage>(
+    const response = await requestData<BackendNumberedPage>(
       http,
       `/api/v1/resource-templates?${query.toString()}`
     )
-    const items = recordArray(page.items, 'resource template items')
+    const page = positiveInteger(response.page, 'page')
+    const pageSize = positiveInteger(response.page_size, 'page_size')
+    if (page !== expectedPage) throw invalidCatalog('page did not advance')
+    if (pageSize > BACKEND_CATALOG_PAGE_SIZE) {
+      throw invalidCatalog('page_size exceeds the client budget')
+    }
+    if (observedPageSize === null) observedPageSize = pageSize
+    else if (pageSize !== observedPageSize) {
+      throw invalidCatalog('page_size changed while traversing the catalog')
+    }
+    if (typeof response.has_more !== 'boolean') {
+      throw invalidCatalog('has_more must be a boolean')
+    }
+    const items = recordArray(response.items, 'resource template items')
+    if (items.length > pageSize) {
+      throw invalidCatalog('items exceed page_size')
+    }
     rawItems.push(...items)
 
-    if (page.has_more !== true) break
-    const nextCursor = optionalString(page.next_cursor_uuid)
-    if (!nextCursor || nextCursor === cursor) {
-      throw invalidCatalog('resource template cursor did not advance')
+    if (!response.has_more) {
+      const mappedItems = rawItems.map(mapBackendTemplateSummary)
+      ensureUniqueTemplateUuids(mappedItems)
+      return {
+        revision: contentFingerprint(mappedItems),
+        stale: false,
+        items: mappedItems
+      }
     }
-    cursor = nextCursor
-  } while (true)
+    if (items.length === 0) {
+      throw invalidCatalog('cannot advance from an empty page')
+    }
+    expectedPage += 1
+  }
 
-  const items = rawItems.map(mapBackendTemplateSummary)
-  return {
-    revision: contentFingerprint(items),
-    stale: false,
-    items
+  throw invalidCatalog('catalog exceeds the page budget')
+}
+
+/**
+ * 拒绝跨页重复的资源模板 UUID，避免同一稳定身份被覆盖。
+ *
+ * @param items 已解码的完整资源模板目录。
+ * @returns 无返回值；全部稳定身份唯一即完成。
+ */
+function ensureUniqueTemplateUuids(items: MaterialTemplateSummary[]): void {
+  const uuids = new Set<string>()
+  for (const item of items) {
+    if (uuids.has(item.uuid)) throw invalidCatalog('duplicate template UUID')
+    uuids.add(item.uuid)
   }
 }
 
@@ -162,6 +201,20 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string')
     : []
+}
+
+/**
+ * 读取 Backend 页码合同中的正安全整数。
+ *
+ * @param value 未信任的页码或页大小。
+ * @param field Backend wire 字段名。
+ * @returns 大于零的安全整数。
+ */
+function positiveInteger(value: unknown, field: string): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 1) {
+    throw invalidCatalog(`${field} must be a positive safe integer`)
+  }
+  return value as number
 }
 
 /** 把未知 JSON 值收敛为普通对象。 */

@@ -11,7 +11,15 @@ import {
   stat,
   writeFile
 } from 'node:fs/promises'
-import { basename, delimiter, dirname, join, resolve } from 'node:path'
+import {
+  basename,
+  delimiter,
+  dirname,
+  join,
+  posix,
+  resolve,
+  win32
+} from 'node:path'
 
 import type { LocalRuntimeModeInfo } from '../shared/localRuntime'
 
@@ -64,19 +72,19 @@ interface ManagedRuntimeInstallationOptions {
 }
 
 /**
- * Constructor on POSIX refuses installation prefixes containing whitespace.
- * Electron's macOS userData path always contains `Application Support`, so the
- * managed Runtime lives in the existing per-user UniLab state directory there.
- * Windows Constructor accepts the regular Electron userData destination.
+ * Constructor rejects several characters that may legally occur in Electron's
+ * userData path. In particular, the scoped package name makes the Workbench
+ * path contain `@unilab` on Windows. Keep the managed Runtime in the existing
+ * per-user UniLab state directory on every platform instead of coupling its
+ * prefix to Electron's application name.
  */
 export function resolveManagedRuntimeDataDirectory(options: {
   platform: NodeJS.Platform
   homeDirectory: string
   userDataDirectory: string
 }): string {
-  return options.platform === 'win32'
-    ? options.userDataDirectory
-    : join(options.homeDirectory, '.unilabos', 'workbench')
+  const platformPath = options.platform === 'win32' ? win32 : posix
+  return platformPath.join(options.homeDirectory, '.unilabos', 'workbench')
 }
 
 /**

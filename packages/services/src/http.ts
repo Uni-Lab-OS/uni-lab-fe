@@ -21,6 +21,10 @@ export interface ApiEnvelope<Value> {
   }
 }
 
+type ApiCommandEnvelope = Omit<ApiEnvelope<unknown>, 'data'> & {
+  data?: unknown
+}
+
 export interface CreateHttpClientOptions {
   backend: BackendConfig
   fetcher?: typeof fetch
@@ -231,6 +235,35 @@ export async function requestData<Value>(
   init?: RequestInit
 ): Promise<Value> {
   const envelope = await http.request<ApiEnvelope<Value>>(path, init)
+  assertSuccessfulEnvelope(envelope)
+  if (!Object.prototype.hasOwnProperty.call(envelope, 'data')) {
+    throw new ServiceError({
+      code: 'INVALID_API_RESPONSE',
+      message: '服务端响应缺少 data 字段',
+      retryable: false
+    })
+  }
+  return envelope.data
+}
+
+/**
+ * 校验没有返回资源主体的 Backend/Edge 命令响应。
+ * @param http 已绑定当前后端权威的 HTTP 客户端。
+ * @param path 公开命令 API 路径。
+ * @param init 请求方法、请求体和取消信号。
+ * @returns 服务端明确接受命令后完成；成功响应可以省略 data。
+ */
+export async function requestCommand(
+  http: HttpClient,
+  path: string,
+  init?: RequestInit
+): Promise<void> {
+  const envelope = await http.request<ApiCommandEnvelope>(path, init)
+  assertSuccessfulEnvelope(envelope)
+}
+
+/** 校验统一信封中的业务错误，不要求只读资源命令必须返回 data。 */
+function assertSuccessfulEnvelope(envelope: ApiCommandEnvelope): void {
   if (envelope.error) {
     throw new ServiceError({
       code: envelope.error.code || (
@@ -250,14 +283,6 @@ export async function requestData<Value>(
       retryable: false
     })
   }
-  if (!Object.prototype.hasOwnProperty.call(envelope, 'data')) {
-    throw new ServiceError({
-      code: 'INVALID_API_RESPONSE',
-      message: '服务端响应缺少 data 字段',
-      retryable: false
-    })
-  }
-  return envelope.data
 }
 
 function endpoint(baseUrl: string, path: string): string {

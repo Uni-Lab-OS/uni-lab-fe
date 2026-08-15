@@ -326,4 +326,24 @@ describe('WorkflowStartFlow', () => {
   it('规范化差异必须明确确认后保存', provesNormalizedSourceNeedsExplicitReview)
   it('无有效候选时停止在应用之前', provesInvalidDraftStopsBeforeApply)
   it('应用后修订竞态停止在任务输入之前', provesRevisionRaceStopsBeforeInput)
+
+  /** 环境未就绪只关闭运行入口，不改变工作流创作权威。 */
+  it('OS 未就绪时阻止本地运行链路', () => {
+    const flow = createWorkflowStartFlow()
+    const context = {
+      aggregate: authoringAggregate(),
+      dirty: true,
+      blockedReason: 'OS 尚未启动；请先在环境管理中启动 OS',
+      editMode: 'canvas' as const
+    }
+
+    expect(flow.snapshot(context)).toMatchObject({
+      disabled: true,
+      disabledReason: context.blockedReason
+    })
+    expect(flow.start(context)).toEqual({
+      kind: 'blocked',
+      message: context.blockedReason
+    })
+  })
 })

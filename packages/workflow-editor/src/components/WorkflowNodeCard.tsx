@@ -250,7 +250,7 @@ export default function WorkflowNodeCard({
             {workflowNodeStateLabel(data.kind, data.status || 'pending')}
           </span>
         )}
-        {allowsDebugMarkers && (data.onSetStart || data.onToggleBreakpoint) && (
+        {workflowNodeShowsMarkerActions(data) && (
           <span className="wf-node__marker-actions">
             {data.onSetStart && (
               <button
@@ -672,6 +672,18 @@ function handlePosition(
 
 export function workflowNodeAllowsDebugMarkers(kind?: string): boolean {
   return kind !== 'material_source'
+}
+
+/** 节点只要有任一可用的调试/编写动作，就展示其操作区。 */
+export function workflowNodeShowsMarkerActions(
+  data: Pick<
+    WorkflowNodeData,
+    'kind' | 'onSetStart' | 'onToggleBreakpoint' | 'onToggleDisabled'
+  >
+): boolean {
+  return workflowNodeAllowsDebugMarkers(data.kind) && Boolean(
+    data.onSetStart || data.onToggleBreakpoint || data.onToggleDisabled
+  )
 }
 
 export function workflowNodeShowsState(kind?: string, status?: string): boolean {

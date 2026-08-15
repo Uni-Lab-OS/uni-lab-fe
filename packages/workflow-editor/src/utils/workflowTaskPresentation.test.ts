@@ -50,6 +50,20 @@ describe('Workflow Task compact debugger presentation', () => {
     )).toEqual(['pause', 'cancel'])
   })
 
+  it('keeps only cancel visible while waiting for human intervention', () => {
+    const task = workflowTask({
+      status: 'running',
+      control_status: 'waiting_intervention'
+    })
+    const controls = workflowTaskControls(task, false)
+
+    expect(workflowTaskToolbarControls(task, controls).map(
+      (control) => control.command
+    )).toEqual(['cancel'])
+    expect(workflowTaskControlStatusLabel(task)).toBe('等待人工干预')
+    expect(workflowTaskVisualStatus(task)).toBe('intervention_required')
+  })
+
   it('shows resume, step and cancel only for a paused step task', () => {
     const task = workflowTask({
       status: 'running',

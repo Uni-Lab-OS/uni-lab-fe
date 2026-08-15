@@ -1,0 +1,28 @@
+{
+  "nodes": [
+    {
+      "id": "szlab_poly_plc",
+      "name": "SZLab PLC",
+      "children": [],
+      "parent": null,
+      "type": "device",
+      "class": "community.szlab_poly_studio.szlab_poly_plc",
+      "barcode": "PLC-SIM-EDGE-LOCAL",
+      "position": {
+        "x": 0,
+        "y": 1500,
+        "z": 0
+      },
+      "config": {
+        "url": "opc.tcp://127.0.0.1:4855/xuse_sim/",
+        "csv_path": "szlab_plc_0810.csv",
+        "auto_connect": true,
+        "opcua_node_id_prefix": "ns=4;s=上位机通讯|"
+      },
+      "data": {
+        "status": "Idle"
+      }
+    }
+  ],
+  "links": []
+}

@@ -198,7 +198,10 @@ export class ManagedLocalRuntimeController {
     )
     publish('waiting_edge', '工作流目录已就绪，正在等待领域设备动作上报…')
     await waitForLocalRuntimeHttp(
-      localRuntimeEdgeHttpUrl(ports.edgeHttp, '/api/v1/devices'),
+      localRuntimeEdgeHttpUrl(
+        ports.edgeHttp,
+        '/api/v1/authoring/device-catalog'
+      ),
       [],
       PROCESS_READY_TIMEOUT_MS,
       (payload) => isDeviceCatalogReady(payload, 'domain_actions')

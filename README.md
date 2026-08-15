@@ -17,7 +17,7 @@ pnpm dev
 
 ```bash
 pnpm workbench       # 正式 Uni-Lab Theia Workbench
-pnpm dev             # Vite kernel-web 开发入口
+pnpm dev             # 同样启动正式 Uni-Lab Theia Workbench
 pnpm typecheck       # 全工作区类型检查
 pnpm test            # 全工作区单元测试
 pnpm test:e2e:materials # 启动真实 OS 图场景并验证 2D/3D（Linux 需 Xvfb）
@@ -70,6 +70,9 @@ Python OS 和 Uni-Lab Cloud 三种默认配置。切换配置后会重新创建
 详细依赖规则、状态所有权和跨 panel 通信方式见
 [架构说明](docs/architecture.md)。迁移范围和当前进度见
 [迁移记录](docs/migration.md)。
+
+本地启动 Workbench、直连 Edge / OS，以及联调 Backend、Scheduler、mock Edge
+和 PLC-Sim 的完整步骤见[本地启动与真实联调指南](docs/local-workbench-integration.md)。
 
 设备包开发者使用本地 Coding Agent 创建 Vue/React/Web Component 卡片时，见
 [设备卡片 Agent 使用指南](docs/device-card-agent-authoring.md)。

@@ -21,6 +21,10 @@ export default defineConfig(({ mode }) => ({
     })],
     build: {
       rollupOptions: {
+        // The deployed Device Card Host already depends on compiler-sfc.
+        // Keep it external so Rollup does not hoist compiler-sfc's lazy,
+        // optional template-engine requires into desktop startup.
+        external: ['@vue/compiler-sfc'],
         input: {
           index: resolve(__dirname, 'src/main/index.ts')
         }

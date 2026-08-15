@@ -1,0 +1,300 @@
+@media (max-width: 1180px) {
+  .workspaceNavigationBar {
+    padding-inline: 14px;
+  }
+  .moduleNavigation button small {
+    display: none;
+  }
+  .debugGrid {
+    grid-template-columns: minmax(470px, 1.3fr) minmax(350px, 1fr);
+  }
+  .pointsGrid {
+    grid-template-columns: 280px minmax(560px, 1fr);
+  }
+}
+
+@media (max-width: 940px) {
+  .debugGrid,
+  .pointsGrid {
+    grid-template-columns: 1fr;
+  }
+  .siteCatalog {
+    min-height: auto;
+  }
+  .benchGrid {
+    grid-template-columns: 1fr;
+  }
+  .benchInspector {
+    border-top: 1px solid var(--unilab-color-border);
+    border-left: 0;
+  }
+  .benchCanvas,
+  .spaceProjection {
+    min-height: 460px;
+  }
+  .statusStrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .statusItem {
+    border-top: 0;
+    border-bottom: 1px solid var(--unilab-color-border);
+  }
+  .statusItem:nth-child(2n) {
+    border-right: 0;
+  }
+  .statusItem:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+  .fieldGridThree {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .workstation {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .workspaceNavigationBar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: grid;
+    padding: 8px 10px;
+  }
+
+  .workspaceBoundary {
+    display: grid;
+    grid-template-columns: 8px auto;
+    justify-self: start;
+    padding: 5px 8px;
+  }
+  .workspaceBoundary small {
+    display: none;
+  }
+  .moduleNavigation {
+    width: 100%;
+  }
+  .moduleNavigation button {
+    flex: 1 0 auto;
+    min-height: 42px;
+  }
+  .moduleNavigation button > svg {
+    width: 19px;
+    height: 19px;
+  }
+  .moduleNavigation button > span {
+    display: grid;
+    justify-items: center;
+  }
+  .moduleNavigation button strong {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .moduleNavigation button small {
+    display: none;
+  }
+  .moduleContent {
+    overflow: visible;
+  }
+  .poseGrid,
+  .fieldGridThree,
+  .dialogFields {
+    grid-template-columns: 1fr 1fr;
+  }
+  .jogControls > div {
+    grid-template-columns: 24px 1fr 1fr;
+  }
+  .jogControls output {
+    grid-column: 2 / -1;
+    text-align: left;
+  }
+  .workspacePreview figcaption {
+    display: grid;
+    gap: 3px;
+  }
+  .benchToolbar,
+  .reagentToolbar {
+    display: grid;
+  }
+  .reagentViewToolbar {
+    display: grid;
+  }
+  .reagentViewToolbar .searchField,
+  .reagentNavigation {
+    width: 100%;
+  }
+  .reagentNavigation button {
+    flex: 1;
+  }
+  .toolbarFilters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .toolbarFilters select {
+    width: 100%;
+  }
+  .reagentToolbar .searchField {
+    width: 100%;
+  }
+  .reagentStats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .reagentStats > div {
+    min-height: 54px;
+    padding: 7px;
+  }
+  .reagentStats > div > span:first-child {
+    width: 26px;
+    height: 26px;
+  }
+  .reagentStats > div > span:last-child {
+    gap: 1px;
+  }
+  .reagentStats strong {
+    font-size: 16px;
+  }
+  .reagentLedgerPanel {
+    overflow: visible;
+    background: transparent;
+    border: 0;
+  }
+  .reagentLedgerTable,
+  .reagentLibraryTable {
+    display: block;
+    min-width: 0;
+  }
+  .reagentLedgerTable thead,
+  .reagentLibraryTable thead {
+    display: none;
+  }
+  .reagentLedgerTable tbody,
+  .reagentLibraryTable tbody {
+    display: grid;
+    gap: 8px;
+  }
+  .reagentLedgerTable tr,
+  .reagentLibraryTable tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 12px;
+    padding: 12px;
+    background: var(--unilab-color-surface);
+    border: 1px solid var(--unilab-color-border);
+    border-radius: var(--unilab-radius-lg);
+  }
+  .reagentLedgerTable td,
+  .reagentLibraryTable td {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    padding: 0;
+    white-space: normal;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+  .reagentLedgerTable td::before,
+  .reagentLibraryTable td::before {
+    content: attr(data-label);
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+    font-weight: 550;
+  }
+  .reagentLedgerTable td:first-child,
+  .reagentLibraryTable td:first-child {
+    grid-column: 1 / -1;
+  }
+  .reagentLedgerTable td:last-child {
+    align-content: end;
+    justify-items: start;
+  }
+  .reagentLibraryActions {
+    grid-column: 1 / -1;
+    align-content: end;
+    justify-items: start;
+  }
+  .customParameterRow {
+    grid-template-columns: 1fr 1fr;
+  }
+  .reagentRecords dl {
+    grid-template-columns: 1fr 1fr;
+  }
+  .reagentIdentitySummary {
+    grid-template-columns: 1fr;
+  }
+  .formDialog {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: var(--unilab-radius-lg) var(--unilab-radius-lg) 0 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .statusStrip {
+    grid-template-columns: 1fr;
+  }
+  .statusItem {
+    border-right: 0;
+    border-bottom: 1px solid var(--unilab-color-border);
+  }
+  .statusItem:nth-child(n + 5) {
+    border-top: 0;
+  }
+  .statusItem:last-child {
+    border-bottom: 0;
+  }
+  .poseGrid,
+  .fieldGridThree,
+  .dialogFields {
+    grid-template-columns: 1fr;
+  }
+  .formSections {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+  .reagentContainerSelectPopup {
+    width: 100%;
+  }
+  .primaryActions {
+    grid-template-columns: 1fr;
+  }
+  .fileFooter {
+    grid-template-columns: 1fr;
+  }
+  .fileActions {
+    flex-wrap: wrap;
+  }
+  .segmentedControl {
+    width: 100%;
+    overflow-x: auto;
+  }
+  .segmentedControl button {
+    flex: 1 0 auto;
+  }
+  .toolbarFilters {
+    grid-template-columns: 1fr;
+  }
+  .detailList {
+    grid-template-columns: 1fr;
+  }
+  .reagentStats > div > span:first-child {
+    display: none;
+  }
+  .customParameterRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .moduleNavigation button,
+  .spatialSite,
+  .spatialSiteActive {
+    transition: none;
+  }
+}

@@ -4,10 +4,11 @@ import {
   useRef,
   useState,
   type KeyboardEventHandler,
-  type PointerEventHandler
+  type PointerEventHandler,
+  type RefObject
 } from 'react'
 
-export const MINIMUM_OUTPUT_HEIGHT = 40
+export const MINIMUM_OUTPUT_HEIGHT = 48
 const DEFAULT_OUTPUT_HEIGHT = 120
 const MAXIMUM_OUTPUT_HEIGHT = 720
 const MINIMUM_CANVAS_HEIGHT = 360
@@ -19,11 +20,17 @@ interface ResizeOrigin {
   pointerY: number
 }
 
+export interface WorkflowOutputSize {
+  preferredHeight: number
+  maximum: number
+}
+
 export interface ResizableWorkflowOutput {
   height: number
   minimum: number
   maximum: number
   resizing: boolean
+  panelRef: RefObject<HTMLDivElement | null>
   onPointerDown: PointerEventHandler<HTMLDivElement>
   onKeyDown: KeyboardEventHandler<HTMLDivElement>
   reset: () => void
@@ -70,7 +77,7 @@ export function workflowOutputAvailableHeight(
 }
 
 /**
- * 计算运行输出的动态上限，避免它把上方流程画布压缩成不可用的窄条。
+ * 计算运行输出的动态上限，避免它把上方工作流画布压缩成不可用的窄条。
  *
  * @param availableHeight 当前工作流视口的可用高度。
  * @returns 兼顾画布保留高度与输出占比的最大输出高度。
@@ -87,15 +94,70 @@ export function maximumWorkflowOutputHeight(availableHeight: number): number {
 }
 
 /**
+ * 在不丢失用户拖拽偏好的前提下，更新当前布局可达上限。
+ *
+ * @param current 用户偏好高度与当前上限。
+ * @param availableHeight 工作流视口当前可用高度。
+ * @returns 保留偏好高度、但具有新布局上限的尺寸状态。
+ */
+export function reconcileWorkflowOutputSize(
+  current: WorkflowOutputSize,
+  availableHeight: number
+): WorkflowOutputSize {
+  const maximum = maximumWorkflowOutputHeight(availableHeight)
+  return maximum === current.maximum
+    ? current
+    : { ...current, maximum }
+}
+
+/**
+ * 把用户偏好投影为当前视口真正可显示的输出高度。
+ *
+ * @param size 用户偏好高度与当前上限。
+ * @returns 始终位于最小值与当前上限之间的有效高度。
+ */
+export function effectiveWorkflowOutputHeight(
+  size: WorkflowOutputSize
+): number {
+  return Math.min(
+    size.maximum,
+    Math.max(MINIMUM_OUTPUT_HEIGHT, size.preferredHeight)
+  )
+}
+
+/**
  * 为运行输出提供指针、键盘和双击复位共用的确定性尺寸状态。
  *
  * @returns 可直接绑定到水平分隔条的状态和事件处理器。
  */
 export function useResizableWorkflowOutput(): ResizableWorkflowOutput {
-  const [height, setHeight] = useState(DEFAULT_OUTPUT_HEIGHT)
-  const [maximum, setMaximum] = useState(MAXIMUM_OUTPUT_HEIGHT)
+  const [size, setSize] = useState<WorkflowOutputSize>({
+    preferredHeight: DEFAULT_OUTPUT_HEIGHT,
+    maximum: MAXIMUM_OUTPUT_HEIGHT
+  })
   const [resizing, setResizing] = useState(false)
+  const panelRef = useRef<HTMLDivElement | null>(null)
   const resizeOrigin = useRef<ResizeOrigin | null>(null)
+  const height = effectiveWorkflowOutputHeight(size)
+
+  useEffect(() => {
+    const panel = panelRef.current
+    if (!panel) return
+    const viewport = panel.closest<HTMLElement>('.workflow-runtime')
+      ?? panel.parentElement
+    /** 将当前输出上限与 Theia 实际分配的主区高度对齐。 */
+    const reconcile = (): void => {
+      setSize((current) => reconcileWorkflowOutputSize(
+        current,
+        workflowOutputAvailableHeight(panel, globalThis.innerHeight)
+      ))
+    }
+    reconcile()
+    if (!viewport || typeof globalThis.ResizeObserver !== 'function') return
+    const observer = new globalThis.ResizeObserver(reconcile)
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     if (!resizing) return
@@ -104,13 +166,16 @@ export function useResizableWorkflowOutput(): ResizableWorkflowOutput {
     const handlePointerMove = (event: PointerEvent): void => {
       const origin = resizeOrigin.current
       if (!origin) return
-      setHeight(resizedWorkflowOutputHeight(
-        origin.height,
-        origin.pointerY,
-        event.clientY,
-        MINIMUM_OUTPUT_HEIGHT,
-        maximum
-      ))
+      setSize((current) => ({
+        ...current,
+        preferredHeight: resizedWorkflowOutputHeight(
+          origin.height,
+          origin.pointerY,
+          event.clientY,
+          MINIMUM_OUTPUT_HEIGHT,
+          current.maximum
+        )
+      }))
     }
     /** 结束一次全局拖拽，恢复页面选择和动画。 */
     const handlePointerUp = (): void => {
@@ -125,7 +190,7 @@ export function useResizableWorkflowOutput(): ResizableWorkflowOutput {
       globalThis.removeEventListener('pointerup', handlePointerUp)
       globalThis.removeEventListener('pointercancel', handlePointerUp)
     }
-  }, [maximum, resizing])
+  }, [resizing])
 
   /** 冻结当前布局上限并开始一次输出面板拖拽。 */
   const onPointerDown = useCallback<PointerEventHandler<HTMLDivElement>>((
@@ -143,8 +208,10 @@ export function useResizableWorkflowOutput(): ResizableWorkflowOutput {
       nextMaximum,
       Math.max(MINIMUM_OUTPUT_HEIGHT, currentHeight)
     )
-    setMaximum(nextMaximum)
-    setHeight(nextHeight)
+    setSize((current) => ({
+      ...current,
+      maximum: nextMaximum
+    }))
     resizeOrigin.current = {
       height: nextHeight,
       pointerY: event.clientY
@@ -155,26 +222,40 @@ export function useResizableWorkflowOutput(): ResizableWorkflowOutput {
 
   /** 让键盘用户用方向键、Home 和 End 调整同一分隔条。 */
   const onKeyDown = useCallback<KeyboardEventHandler<HTMLDivElement>>((event) => {
-    let nextHeight: number | null = null
-    if (event.key === 'ArrowUp') nextHeight = height + KEYBOARD_RESIZE_STEP
-    if (event.key === 'ArrowDown') nextHeight = height - KEYBOARD_RESIZE_STEP
-    if (event.key === 'Home') nextHeight = MINIMUM_OUTPUT_HEIGHT
-    if (event.key === 'End') nextHeight = maximum
-    if (nextHeight === null) return
-    setHeight(Math.min(maximum, Math.max(MINIMUM_OUTPUT_HEIGHT, nextHeight)))
+    if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return
+    const key = event.key
+    setSize((current) => {
+      const currentHeight = effectiveWorkflowOutputHeight(current)
+      let nextHeight = currentHeight
+      if (key === 'ArrowUp') nextHeight += KEYBOARD_RESIZE_STEP
+      if (key === 'ArrowDown') nextHeight -= KEYBOARD_RESIZE_STEP
+      if (key === 'Home') nextHeight = MINIMUM_OUTPUT_HEIGHT
+      if (key === 'End') nextHeight = current.maximum
+      return {
+        ...current,
+        preferredHeight: Math.min(
+          current.maximum,
+          Math.max(MINIMUM_OUTPUT_HEIGHT, nextHeight)
+        )
+      }
+    })
     event.preventDefault()
-  }, [height, maximum])
+  }, [])
 
   /** 把运行输出恢复到兼顾画布与日志的默认高度。 */
   const reset = useCallback((): void => {
-    setHeight(Math.min(maximum, DEFAULT_OUTPUT_HEIGHT))
-  }, [maximum])
+    setSize((current) => ({
+      ...current,
+      preferredHeight: DEFAULT_OUTPUT_HEIGHT
+    }))
+  }, [])
 
   return {
     height,
     minimum: MINIMUM_OUTPUT_HEIGHT,
-    maximum,
+    maximum: size.maximum,
     resizing,
+    panelRef,
     onPointerDown,
     onKeyDown,
     reset

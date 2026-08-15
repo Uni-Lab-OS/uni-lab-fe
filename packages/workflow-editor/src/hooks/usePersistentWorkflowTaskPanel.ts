@@ -1,5 +1,6 @@
 import type {
   WorkflowAuthoringAggregate,
+  WorkflowDefinitionPort,
   WorkflowRuntimePort,
   WorkflowTaskRunMode
 } from '@unilab/services'
@@ -7,6 +8,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { createWorkflowExecutionScope } from '../utils/canonicalWorkflow'
 import type { WorkflowStructure } from '../utils/parseWorkflow'
+import {
+  existingWorkflowPreflightFailureMessage
+} from '../utils/existingWorkflowRunProjection'
 import {
   errorMessage,
   workflowSourceMap
@@ -32,10 +36,7 @@ import {
   type WorkflowTaskInputFormState
 } from '../utils/workflowTaskInputForm'
 import { workflowTaskInputProblem } from '../utils/workflowTaskInputProblem'
-import {
-  projectWorkflowTaskEvents,
-  projectWorkflowTaskJob
-} from '../utils/workflowTaskOutputProjection'
+import { projectWorkflowTaskOutput } from '../utils/workflowTaskOutputProjection'
 import {
   loadWorkflowResourceSlotOptions,
   type WorkflowResourceSlotOptionsPort,
@@ -59,6 +60,7 @@ export type PersistentWorkflowRunMode = WorkflowTaskRunMode | 'debug'
 
 interface PersistentWorkflowTaskPanelOptions {
   runtime: WorkflowRuntimePort
+  definitionPort: WorkflowDefinitionPort
   workflowUuid: string
   aggregate: WorkflowAuthoringAggregate | null
   structure: WorkflowStructure
@@ -78,6 +80,7 @@ interface PersistentWorkflowTaskPanelOptions {
  */
 export function usePersistentWorkflowTaskPanel({
   runtime,
+  definitionPort,
   workflowUuid,
   aggregate,
   structure,
@@ -138,10 +141,16 @@ export function usePersistentWorkflowTaskPanel({
     !debugExecutionScope.startNodeId
   const task = taskRuntime.snapshot.task
   const taskJobs = taskRuntime.snapshot.jobs
-  const taskOutputNodes = useMemo(
-    () => taskJobs.map(projectWorkflowTaskJob),
-    [taskJobs]
+  const taskOutput = useMemo(
+    () => projectWorkflowTaskOutput({
+      task,
+      jobs: taskJobs,
+      feedback: taskRuntime.snapshot.feedback
+    }),
+    [task, taskJobs, taskRuntime.snapshot.feedback]
   )
+  const taskOutputNodes = taskOutput.nodes
+  const taskActivity = taskOutput.activity
   const failedTaskJobCount = useMemo(
     () => taskOutputNodes.filter((node) => node.state === 'failed').length,
     [taskOutputNodes]
@@ -162,18 +171,6 @@ export function usePersistentWorkflowTaskPanel({
       node.name || node.id
     ])),
     [structure.nodes]
-  )
-  const taskRuntimeEvents = useMemo(
-    () => projectWorkflowTaskEvents(
-      taskRuntime.snapshot.events,
-      taskRuntime.snapshot.feedback,
-      taskJobs
-    ),
-    [
-      taskJobs,
-      taskRuntime.snapshot.events,
-      taskRuntime.snapshot.feedback
-    ]
   )
   const taskNodeStates = useMemo(
     () => ({
@@ -376,9 +373,7 @@ export function usePersistentWorkflowTaskPanel({
     }
     runRuntime(async () => {
       try {
-        const latest = await queue.run(
-          () => runtime.getWorkflowAuthoring(workflowUuid)
-        )
+        const latest = await queue.run(() => definitionPort.read())
         await openTaskInputFormForAuthority(latest)
       } catch (openError) {
         setError(errorMessage(openError))
@@ -432,17 +427,28 @@ export function usePersistentWorkflowTaskPanel({
       try {
         const result = await submitWorkflowTaskInput({
           form: submittedForm,
-          readApplied: () => queue.run(
-            () => runtime.getWorkflowAuthoring(workflowUuid)
-          ),
+          readApplied: () => queue.run(() => definitionPort.read()),
           createTask: async (input) => {
             if (taskRunMode !== 'debug') {
+              const targetNodeUuid = taskRunMode === 'single_node'
+                ? debugExecutionScope.startNodeId ?? undefined
+                : undefined
+              const preflight = await definitionPort.preflightRun(
+                taskRunMode,
+                targetNodeUuid
+              )
+              if (
+                preflight &&
+                (preflight.status !== 'ready' || !preflight.can_run)
+              ) {
+                throw new Error(
+                  existingWorkflowPreflightFailureMessage(preflight)
+                )
+              }
               return taskRuntime.create(
                 taskRunMode,
                 input,
-                taskRunMode === 'single_node'
-                  ? debugExecutionScope.startNodeId ?? undefined
-                  : undefined
+                targetNodeUuid
               )
             }
             const preflight = await taskRuntime.preflightDebug(
@@ -626,7 +632,7 @@ export function usePersistentWorkflowTaskPanel({
     taskRunMode,
     singleNodeTargetMissing,
     taskRuntime,
-    taskRuntimeEvents,
+    taskActivity,
     toggleDebugBreakpoint,
     toggleDebugStartNode,
     traceViewerOpen,

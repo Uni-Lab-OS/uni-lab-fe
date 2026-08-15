@@ -19,6 +19,8 @@
   --unilab-color-primary-hover: #1d4ed8;
   --unilab-color-primary-soft: #eff6ff;
   --unilab-color-focus: #93c5fd;
+  --unilab-color-control: var(--unilab-color-primary);
+  --unilab-color-control-hover: var(--unilab-color-primary-hover);
 
   /* Module identity colors */
   --unilab-color-device: #0f766e;

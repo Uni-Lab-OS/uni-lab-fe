@@ -298,7 +298,8 @@ export function useDeviceCardWorkbench() {
     const controller = new DeviceCardActionController({
       workflow: services.workflow,
       tasks: services.deviceActionTasks,
-      actionTasksSupported: services.capabilities.devices.runActionTask
+      actionTasksSupported: services.capabilities.devices.runActionTask,
+      runtimeEventsSupported: services.capabilities.workflow.subscribeEvents
     })
     const unsubscribe = desktopApi.onActionRequest((request) => {
       const device = devicesRef.current.find(
@@ -323,6 +324,7 @@ export function useDeviceCardWorkbench() {
   }, [
     desktopApi,
     services.capabilities.devices.runActionTask,
+    services.capabilities.workflow.subscribeEvents,
     services.deviceActionTasks,
     services.workflow
   ])

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   MINIMUM_OUTPUT_HEIGHT,
+  effectiveWorkflowOutputHeight,
   maximumWorkflowOutputHeight,
+  reconcileWorkflowOutputSize,
   resizedWorkflowOutputHeight,
   workflowOutputAvailableHeight
 } from './useResizableWorkflowOutput'
@@ -25,6 +27,18 @@ describe('resizedWorkflowOutputHeight', () => {
   })
 })
 
+describe('maximumWorkflowOutputHeight', () => {
+  it('keeps at least 360px available for the workflow canvas', () => {
+    expect(maximumWorkflowOutputHeight(700)).toBe(340)
+    expect(maximumWorkflowOutputHeight(900)).toBe(495)
+  })
+
+  it('caps output growth on tall and short viewports', () => {
+    expect(maximumWorkflowOutputHeight(1_600)).toBe(720)
+    expect(maximumWorkflowOutputHeight(420)).toBe(60)
+  })
+})
+
 describe('workflowOutputAvailableHeight', () => {
   it('uses the whole workflow viewport instead of the short runtime wrapper', () => {
     const workflow = {
@@ -40,15 +54,41 @@ describe('workflowOutputAvailableHeight', () => {
     expect(workflowOutputAvailableHeight(panel, 900)).toBe(700)
   })
 })
+describe('reconcileWorkflowOutputSize', () => {
+  it('constrains the visible output when its workflow viewport shrinks', () => {
+    const constrained = reconcileWorkflowOutputSize({
+      preferredHeight: 340,
+      maximum: 340
+    }, 420)
 
-describe('maximumWorkflowOutputHeight', () => {
-  it('keeps at least 360px available for the workflow canvas', () => {
-    expect(maximumWorkflowOutputHeight(700)).toBe(340)
-    expect(maximumWorkflowOutputHeight(900)).toBe(495)
+    expect(constrained).toEqual({
+      preferredHeight: 340,
+      maximum: 60
+    })
+    expect(effectiveWorkflowOutputHeight(constrained)).toBe(60)
   })
 
-  it('caps output growth on tall and short viewports', () => {
-    expect(maximumWorkflowOutputHeight(1_600)).toBe(720)
-    expect(maximumWorkflowOutputHeight(420)).toBe(60)
+  it('restores the preferred output height when the viewport grows again', () => {
+    const constrained = reconcileWorkflowOutputSize({
+      preferredHeight: 340,
+      maximum: 60
+    }, 900)
+
+    expect(constrained).toEqual({
+      preferredHeight: 340,
+      maximum: 495
+    })
+    expect(effectiveWorkflowOutputHeight(constrained)).toBe(340)
+  })
+
+  it('never exposes a height outside the current reachable range', () => {
+    expect(effectiveWorkflowOutputHeight({
+      preferredHeight: 20,
+      maximum: 48
+    })).toBe(MINIMUM_OUTPUT_HEIGHT)
+    expect(effectiveWorkflowOutputHeight({
+      preferredHeight: 600,
+      maximum: 240
+    })).toBe(240)
   })
 })

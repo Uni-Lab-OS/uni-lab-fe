@@ -1,9 +1,5 @@
-import type { WorkflowLink, WorkflowNode } from './parseWorkflow'
-import type {
-  WorkflowNodePortLayout,
-  WorkflowNodePortSide
-} from './dagLayout'
-import { isResourceSlotHandle } from './workflowMaterialTrace'
+import type { WorkflowNode } from './parseWorkflow'
+import type { WorkflowNodePortLayout } from './dagLayout'
 
 export const WORKFLOW_SUPPORTING_BRANCH_NODE_GAP = 208
 export const WORKFLOW_SUPPORTING_BRANCH_MATERIAL_SOURCE_PITCH = 136
@@ -100,98 +96,6 @@ export function packWorkflowSupportingBranches(
   return bands.map(({ placements }) => placements.sort(
     (left, right) => left.x - right.x
   ))
-}
-
-/**
- * 让跨越上下带的转运物料边沿实际相对方位就近连接。
- *
- * 同一垂直带内仍使用东西侧 Handle；只有转运节点跨带接入物料流
- * （MaterialFlow）时才改用南北侧，避免从远侧横向绕出矩形回路。
- *
- * @param nodes 当前画布投影中的工作流（Workflow）节点。
- * @param links 当前可见工作流边。
- * @param positions 节点左上角画布坐标。
- * @param nodePorts 已由主干与辅助支线布局确定的物料端口方向。
- */
-export function routeWorkflowTransferPorts(
-  nodes: readonly WorkflowNode[],
-  links: readonly WorkflowLink[],
-  positions: ReadonlyMap<string, { x: number; y: number }>,
-  nodePorts: Map<string, WorkflowNodePortLayout>
-): void {
-  const nodeById = new Map(nodes.map((node) => [node.id, node]))
-  const handleByUuid = new Map(nodes.flatMap((node) =>
-    (node.handles ?? []).map((handle) => [handle.uuid, handle] as const)
-  ))
-  for (const link of links) {
-    const sourceNode = nodeById.get(link.source)
-    const targetNode = nodeById.get(link.target)
-    const sourcePosition = positions.get(link.source)
-    const targetPosition = positions.get(link.target)
-    const sourcePorts = nodePorts.get(link.source)
-    const targetPorts = nodePorts.get(link.target)
-    if (!sourcePosition || !targetPosition || !sourcePorts || !targetPorts) {
-      continue
-    }
-    const [sourceSide, targetSide] = facingPortSides(
-      sourcePosition,
-      targetPosition
-    )
-    if (linkUsesMaterialHandle(link, handleByUuid)) {
-      if (sourceNode?.visualKind === 'robot-transfer' &&
-        sourcePosition.y !== targetPosition.y) {
-        nodePorts.set(link.source, { ...sourcePorts, source: sourceSide })
-      }
-      if (targetNode?.visualKind === 'robot-transfer' &&
-        sourcePosition.y !== targetPosition.y) {
-        nodePorts.set(link.target, { ...targetPorts, target: targetSide })
-      }
-    }
-  }
-}
-
-/**
- * 根据一条边实际使用的逐 Handle 方位选择正交路由主轴。
- *
- * @param link 当前可见工作流边。
- * @param nodePorts 节点物料端口方位表。
- * @returns 任一端口位于南北侧时使用纵向路由，否则保持横向路由。
- */
-export function workflowEdgeDirectionForPorts(
-  link: WorkflowLink,
-  nodePorts: ReadonlyMap<string, WorkflowNodePortLayout>
-): 'TB' | 'LR' {
-  const sourcePorts = nodePorts.get(link.source)
-  const targetPorts = nodePorts.get(link.target)
-  const sourceSide = sourcePorts?.source
-  const targetSide = targetPorts?.target
-  return [sourceSide, targetSide].some((side) =>
-    side === 'top' || side === 'bottom'
-  ) ? 'TB' : 'LR'
-}
-
-/** 判断一条连线是否由物料占位符（ResourceSlot）Handle 承载。 */
-function linkUsesMaterialHandle(
-  link: WorkflowLink,
-  handleByUuid: ReadonlyMap<string, NonNullable<WorkflowNode['handles']>[number]>
-): boolean {
-  return [link.sourceHandleUuid, link.targetHandleUuid].some((uuid) => {
-    const handle = uuid ? handleByUuid.get(uuid) : undefined
-    return handle ? isResourceSlotHandle(handle) : false
-  })
-}
-
-/** 返回两个节点沿主位移轴互相面对的 source 与 target 端口。 */
-function facingPortSides(
-  source: { x: number; y: number },
-  target: { x: number; y: number }
-): [WorkflowNodePortSide, WorkflowNodePortSide] {
-  const deltaX = target.x - source.x
-  const deltaY = target.y - source.y
-  if (deltaY !== 0) {
-    return deltaY > 0 ? ['bottom', 'top'] : ['top', 'bottom']
-  }
-  return deltaX >= 0 ? ['right', 'left'] : ['left', 'right']
 }
 
 /**

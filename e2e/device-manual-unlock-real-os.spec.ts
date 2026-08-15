@@ -189,7 +189,7 @@ test('操作员识别并手动解除当前 OS 动作锁', async ({
   const deviceList = page.getByRole('complementary', {
     name: 'Edge 设备列表'
   })
-  const workspace = page.locator('.edge-device__workspace')
+  const workspace = page.locator('[data-device-management="workspace"]')
   const deviceButton = deviceList.getByRole('button', {
     name: new RegExp(DEVICE_ID)
   })
@@ -209,7 +209,7 @@ test('操作员识别并手动解除当前 OS 动作锁', async ({
   await expect(
     workspace.getByText('已锁定 · 1 个动作', { exact: true })
   ).toBeVisible()
-  await workspace.locator('.edge-device__identity').screenshot({
+  await workspace.locator('[data-device-management="identity"]').screenshot({
     path: join(artifactDirectory, '03-device-header-lock-state.png'),
     animations: 'disabled'
   })
@@ -219,7 +219,7 @@ test('操作员识别并手动解除当前 OS 动作锁', async ({
   })
   await expect(actionButton).toContainText('占用中')
   await actionButton.click()
-  await workspace.locator('.edge-device__action-section').screenshot({
+  await workspace.locator('[data-device-management="action-section"]').screenshot({
     path: join(artifactDirectory, '04-action-catalog-busy-state.png'),
     animations: 'disabled'
   })
@@ -264,7 +264,7 @@ test('操作员识别并手动解除当前 OS 动作锁', async ({
     fullPage: true,
     animations: 'disabled'
   })
-  await workspace.locator('.edge-device__debug-section').screenshot({
+  await workspace.locator('[data-device-management="debug-section"]').screenshot({
     path: join(artifactDirectory, '09-action-ready-after-refetch.png'),
     animations: 'disabled'
   })

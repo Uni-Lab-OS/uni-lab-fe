@@ -63,8 +63,15 @@ extraResources:
     to: runtime-installer
     filter:
       - '**/*'
-  - from: .packaging/agent-runtime
-    to: agent-runtime
+  # Keep these installed path segments deliberately short. The bundled Node/npm
+  # tree contains deep dependency paths and NSIS still uses MAX_PATH-sensitive
+  # file operations on supported Windows hosts.
+  - from: .packaging/agent-runtime/app.asar
+    to: a/app.asar
+  - from: .packaging/agent-runtime/payload.json
+    to: a/payload.json
+  - from: .packaging/agent-runtime/bundled-aioncore
+    to: a/c
     filter:
       - '**/*'
   - from: resources/workspace-skills

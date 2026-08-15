@@ -1,0 +1,32 @@
+{
+  "name": "PLC 仿真连接检查工作流",
+  "tags": [
+    "edge",
+    "plc-simulation"
+  ],
+  "description": "通过真实 Edge 调用 SZLab PLC OPC UA 仿真设备的连接检查动作。",
+  "meta_data": {
+    "source": "frontend-edge-plc-integration"
+  },
+  "nodes": [
+    {
+      "uuid": "91000000-0000-4000-8000-000000000010",
+      "template_name": "check_opcua_connection",
+      "resource_name": "community.szlab_poly_studio.szlab_poly_plc",
+      "device_name": "PLC-SIM-EDGE-LOCAL",
+      "name": "检查 PLC 仿真连接",
+      "type": "device_action",
+      "pose": {
+        "x": 320,
+        "y": 220
+      },
+      "param": {},
+      "execution_policy": {},
+      "disabled": false,
+      "minimized": false,
+      "meta_data": {}
+    }
+  ],
+  "edges": [],
+  "inventory_requirements": []
+}

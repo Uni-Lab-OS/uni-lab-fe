@@ -1,15 +1,138 @@
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
+
+import * as asar from '@electron/asar'
 
 import { describe, expect, it } from 'vitest'
 
 import {
+  MINIMUM_AIONUI_VERSION,
   ensureManagedLocalAgentDefaults,
   isProtectedAgentRequest,
   managedConversationRequestBody,
   managedLocalAgentAuthStatus,
   managedLocalBootstrapScript,
+  normalizeAgentRendererArchiveEntry,
+  isAgentDistributionVersionSupported,
+  prepareRenderer,
+  resolveManagedAgentDistribution,
   waitForManagedAgentApi
 } from './agent-sidecar'
+
+describe('Workbench Agent distribution compatibility', () => {
+  it('accepts stable Agent versions at or above the development baseline', () => {
+    expect(MINIMUM_AIONUI_VERSION).toBe('2.1.52')
+    expect(isAgentDistributionVersionSupported('2.1.51')).toBe(false)
+    expect(isAgentDistributionVersionSupported('2.1.52')).toBe(true)
+    expect(isAgentDistributionVersionSupported('2.1.53')).toBe(true)
+    expect(isAgentDistributionVersionSupported('2.2.0')).toBe(true)
+    expect(isAgentDistributionVersionSupported('3.0.0')).toBe(true)
+    expect(isAgentDistributionVersionSupported('2.1.52-beta.1')).toBe(false)
+    expect(isAgentDistributionVersionSupported('invalid')).toBe(false)
+  })
+})
+
+async function createRendererArchive(
+  root: string,
+  files: Record<string, string>
+): Promise<string> {
+  const source = join(root, 'source')
+  for (const [relativePath, contents] of Object.entries(files)) {
+    const target = join(source, relativePath)
+    await mkdir(dirname(target), { recursive: true })
+    await writeFile(target, contents)
+  }
+  const archive = join(root, 'agent.asar')
+  await asar.createPackage(source, archive)
+  return archive
+}
+
+describe('Workbench Agent renderer cache', () => {
+  it('normalizes Windows and POSIX archive entries', () => {
+    expect(normalizeAgentRendererArchiveEntry('\\out\\renderer\\index.html'))
+      .toBe('/out/renderer/index.html')
+    expect(normalizeAgentRendererArchiveEntry('/out/renderer/index.html'))
+      .toBe('/out/renderer/index.html')
+  })
+
+  it('extracts the renderer and repairs a stale marker-only cache', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'unilab-agent-renderer-'))
+    try {
+      const archive = await createRendererArchive(root, {
+        'out/renderer/index.html': '<main>UniLab Agent</main>',
+        'out/renderer/assets/index.js': 'window.agentReady = true'
+      })
+      const dataDir = join(root, 'data')
+      const rendererDir = await prepareRenderer(archive, dataDir)
+
+      await expect(readFile(join(rendererDir, 'index.html'), 'utf8'))
+        .resolves.toBe('<main>UniLab Agent</main>')
+      await expect(readFile(join(rendererDir, 'assets', 'index.js'), 'utf8'))
+        .resolves.toBe('window.agentReady = true')
+      await expect(readFile(join(rendererDir, '.ready'), 'utf8'))
+        .resolves.toBe('unilab-agent-renderer/v1\n')
+
+      await rm(join(rendererDir, 'index.html'), { force: true })
+      await expect(prepareRenderer(archive, dataDir)).resolves.toBe(rendererDir)
+      await expect(readFile(join(rendererDir, 'index.html'), 'utf8'))
+        .resolves.toBe('<main>UniLab Agent</main>')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('does not mark or retain an archive without a renderer entry point', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'unilab-agent-renderer-'))
+    try {
+      const archive = await createRendererArchive(root, {
+        'out/renderer/assets/index.js': 'window.agentReady = true'
+      })
+      const dataDir = join(root, 'data')
+
+      await expect(prepareRenderer(archive, dataDir))
+        .rejects.toThrow('missing out/renderer/index.html')
+      await expect(readdir(join(dataDir, 'renderer-cache')))
+        .resolves.toEqual([])
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('Workbench Agent distribution discovery', () => {
+  it.each([
+    ['win32', 'x64', 'windows-x64', 'aioncore.exe'],
+    ['darwin', 'arm64', 'darwin-arm64', 'aioncore']
+  ] as const)(
+    'finds a packaged short-path payload on %s/%s',
+    async (platform, architecture, targetDirectory, executable) => {
+      const root = await mkdtemp(join(tmpdir(), 'unilab-agent-discovery-'))
+      try {
+        const corePath = join(root, 'c', targetDirectory, executable)
+        await mkdir(dirname(corePath), { recursive: true })
+        await Promise.all([
+          writeFile(join(root, 'app.asar'), 'fixture'),
+          writeFile(corePath, 'fixture')
+        ])
+
+        expect(resolveManagedAgentDistribution({
+          environment: {},
+          platform,
+          architecture,
+          candidateAppPaths: [root]
+        })).toEqual({
+          appPath: root,
+          asarPath: join(root, 'app.asar'),
+          corePath
+        })
+      } finally {
+        await rm(root, { recursive: true, force: true })
+      }
+    }
+  )
+})
 
 describe('Workbench Agent private-state boundary', () => {
   it('rejects direct, encoded and traversal access to .unilabos', () => {

@@ -8,7 +8,7 @@ const DESCRIPTOR_NAME = 'unilab.acceptance.json'
 const SIMULATOR_HOST = '127.0.0.1'
 const SIMULATOR_PORT = 18_765
 const DEVICE_CATALOG_URL =
-  'http://127.0.0.1:18003/api/v1/devices'
+  'http://127.0.0.1:18003/api/v1/authoring/device-catalog'
 
 interface AcceptanceDescriptor {
   schemaVersion: 1

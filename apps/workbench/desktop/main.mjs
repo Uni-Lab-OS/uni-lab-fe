@@ -28,6 +28,7 @@ import { createRemoteWorkbenchController } from '../scripts/remote-controller.mj
 import {
   normalizeWorkbenchLaunchConfig,
   recentWorkspaceForPath,
+  requireWorkbenchWorkspace,
   recordRecentWorkspace
 } from '../scripts/workspace-recents.mjs'
 
@@ -83,6 +84,11 @@ async function startPackagedWorkbench() {
   const hasExplicitEnvironment = argumentsAfterExecutable.includes('--python-env')
     || Boolean(process.env['UNILAB_PYTHON_ENV']?.trim())
   const resources = resolvePackagedResources()
+  if (app.isPackaged) {
+    process.env['UNILAB_AIONUI_VERSION'] = await readPackagedAgentVersion(
+      resources.agentPayload
+    )
+  }
   await Promise.all([
     access(resources.backendMain),
     access(resources.desktopMain),
@@ -93,6 +99,7 @@ async function startPackagedWorkbench() {
     // archive file itself through the patched fs therefore returns ENOENT even
     // when the physical package exists; original-fs bypasses that interception.
     originalFsPromises.access(resources.agentAsar),
+    ...(app.isPackaged ? [access(resources.agentPayload)] : []),
     access(resources.agentCore),
     access(resources.workspaceSkills)
   ])
@@ -119,6 +126,8 @@ async function startPackagedWorkbench() {
   process.env['UNILAB_DESKTOP_WELCOME_URL'] = welcomeUrl
   process.env['UNILAB_AGENT_ICON'] = resources.brandIcon
   process.env['UNILAB_AIONUI_APP'] = resources.agentRuntime
+  process.env['UNILAB_AIONUI_ASAR'] = resources.agentAsar
+  process.env['UNILAB_AIONCORE_PATH'] = resources.agentCore
   process.env['UNILAB_AGENT_NODE_BINARY'] = resources.nodeBinary
   process.env['UNILAB_WORKBENCH_SKILLS'] = resources.workspaceSkills
   process.env['ESBUILD_BINARY_PATH'] = resources.esbuildBinary
@@ -177,6 +186,7 @@ function resolvePackagedResources() {
         'icon.png'
       ),
       agentRuntime,
+      agentPayload: path.join(agentResources, 'payload.json'),
       workspaceSkills: process.env['UNILAB_WORKBENCH_SKILLS']
         ?? path.join(workbench, 'resources', 'workspace-skills'),
       agentAsar: path.join(agentResources, 'app.asar'),
@@ -190,7 +200,9 @@ function resolvePackagedResources() {
   }
   const root = process.resourcesPath
   const workbench = path.join(root, 'workbench')
-  const agentRuntime = path.join(root, 'agent-runtime')
+  // These short packaged names keep the bundled Node/npm tree below the
+  // MAX_PATH limit used by NSIS file operations on Windows.
+  const agentRuntime = path.join(root, 'a')
   const agentTarget = resolveAgentCoreTarget()
   return {
     workbench,
@@ -211,15 +223,30 @@ function resolvePackagedResources() {
     ),
     brandIcon: path.join(root, 'branding', 'icon.png'),
     agentRuntime,
+    agentPayload: path.join(agentRuntime, 'payload.json'),
     workspaceSkills: path.join(root, 'workspace-skills'),
     agentAsar: path.join(agentRuntime, 'app.asar'),
     agentCore: path.join(
       agentRuntime,
-      'bundled-aioncore',
+      'c',
       agentTarget.directory,
       agentTarget.executable
     )
   }
+}
+
+async function readPackagedAgentVersion(payloadPath) {
+  let payload
+  try {
+    payload = JSON.parse(await readFile(payloadPath, 'utf8'))
+  } catch (error) {
+    throw new Error('UniLab Agent 打包版本清单无效', { cause: error })
+  }
+  const version = payload?.version
+  if (typeof version !== 'string' || !version.trim()) {
+    throw new Error('UniLab Agent 打包版本清单缺少 version')
+  }
+  return version.trim()
 }
 
 function resolveAgentCoreTarget() {
@@ -304,6 +331,7 @@ function createPackagedWorkspaceController(options) {
     try {
       const workspace = await validDirectory(workspaceCandidate)
       if (!workspace) throw new Error('所选工作区不存在或不可访问。')
+      await requireWorkbenchWorkspace(workspace)
       const recent = recentWorkspaceForPath(config, workspace)
       const pythonEnvironment = await selectPythonEnvironment({
         explicit: explicit.pythonEnvironment ?? options.explicitEnvironment ?? null,
@@ -487,6 +515,8 @@ function workspaceChildEnvironment({
     UNILAB_DESKTOP_SURFACE: 'workbench',
     UNILAB_AGENT_ICON: resources.brandIcon,
     UNILAB_AIONUI_APP: resources.agentRuntime,
+    UNILAB_AIONUI_ASAR: resources.agentAsar,
+    UNILAB_AIONCORE_PATH: resources.agentCore,
     UNILAB_WORKBENCH_SKILLS: resources.workspaceSkills
   }
   if (osProject) environment.UNILAB_OS_PROJECT = osProject

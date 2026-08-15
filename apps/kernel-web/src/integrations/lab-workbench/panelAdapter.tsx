@@ -295,6 +295,9 @@ function WorkflowRenderer(
       authoringStatus={props.scope.services.getCapabilityStatus(
         'workflow.authoring'
       )}
+      runStatus={props.scope.services.getCapabilityStatus(
+        'workflow.runTasks'
+      )}
       resourceSlotOptionsPort={resourceSlotOptionsPort}
       workflowUuid={workflowUuidFromPanelConfig(props.config) ?? undefined}
       active={panelVisible}

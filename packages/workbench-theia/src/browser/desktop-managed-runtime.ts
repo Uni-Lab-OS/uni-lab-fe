@@ -1,38 +1,14 @@
-export type ManagedRuntimeInstallationPhase =
-  | 'unavailable'
-  | 'external'
-  | 'not-installed'
-  | 'installing'
-  | 'ready'
-  | 'failed'
+import {
+  UNAVAILABLE_MANAGED_RUNTIME_INSTALLATION,
+  type ManagedRuntimeInstallationApi,
+  type ManagedRuntimeInstallationSnapshot
+} from '@unilab/services'
 
-export interface ManagedRuntimeInstallationSnapshot {
-  phase: ManagedRuntimeInstallationPhase
-  bundled: boolean
-  managed: boolean
-  runtimeVersion: string | null
-  platform: string | null
-  environmentPath: string | null
-  error: string | null
-}
+export type DesktopManagedRuntimeApi = ManagedRuntimeInstallationApi
+export type { ManagedRuntimeInstallationSnapshot }
 
-export interface DesktopManagedRuntimeApi {
-  getSnapshot: () => Promise<ManagedRuntimeInstallationSnapshot>
-  install: () => Promise<ManagedRuntimeInstallationSnapshot>
-  onSnapshot: (
-    listener: (snapshot: ManagedRuntimeInstallationSnapshot) => void
-  ) => () => void
-}
-
-export const UNAVAILABLE_MANAGED_RUNTIME: ManagedRuntimeInstallationSnapshot = {
-  phase: 'unavailable',
-  bundled: false,
-  managed: false,
-  runtimeVersion: null,
-  platform: null,
-  environmentPath: null,
-  error: null
-}
+export const UNAVAILABLE_MANAGED_RUNTIME =
+  UNAVAILABLE_MANAGED_RUNTIME_INSTALLATION
 
 export function desktopManagedRuntimeApi(): DesktopManagedRuntimeApi | null {
   return (globalThis as typeof globalThis & {

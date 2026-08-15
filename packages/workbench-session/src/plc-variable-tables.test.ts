@@ -61,4 +61,26 @@ describe('Workspace PLC variable-table discovery', () => {
       recommendation: 'configured'
     })
   })
+
+  it('ignores tool caches while discovering PLC variable tables', async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), 'unilab-plc-cache-'))
+    const tableDirectory = join(workspacePath, 'devices', 'plc')
+    const pytestCache = join(workspacePath, '.pytest_cache')
+    await Promise.all([
+      mkdir(tableDirectory, { recursive: true }),
+      mkdir(pytestCache, { recursive: true })
+    ])
+    await Promise.all([
+      writeFile(join(tableDirectory, 'variables.csv'), 'Name,DataType\nA,BOOLEAN\n'),
+      writeFile(join(pytestCache, 'plc_cache.csv'), 'Name,DataType\nB,BOOLEAN\n')
+    ])
+
+    const candidates = await discoverWorkbenchPlcVariableTables({
+      workspacePath
+    })
+
+    expect(candidates.map(candidate => candidate.name)).toEqual([
+      'variables.csv'
+    ])
+  })
 })

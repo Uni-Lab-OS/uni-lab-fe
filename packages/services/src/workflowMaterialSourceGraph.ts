@@ -25,8 +25,8 @@ export function projectWorkflowMaterialSourceGraph(
 ): WorkflowMaterialSourceGraphProjection {
   // 物料身份集合用于同时拒绝重复物料和悬空库位占用（SiteOccupancy）。
   const materialIds = new Set<string>()
-  // 资源模板身份集合只保存公共图明确给出的 UUID；显示名采用 UUID 稳定回退，不冒充模板名称。
-  const resourceTemplateIds = new Set<string>()
+  // 资源模板展示映射只接受公共图 adapter 已校验的 Backend 展示投影。
+  const resourceTemplateNames = new Map<string, string>()
   const materials: WorkflowMaterialSourceMaterial[] = []
 
   for (const aggregate of aggregates) {
@@ -44,7 +44,25 @@ export function projectWorkflowMaterialSourceGraph(
       aggregate.material.sourceTemplateId,
       `物料（Material）${materialUuid} 的资源模板（ResourceTemplate）UUID`
     )
-    resourceTemplateIds.add(resourceTemplateUuid)
+    const displayName = materialResourceTemplateDisplayName(
+      aggregate,
+      resourceTemplateUuid
+    )
+    const currentDisplayName = resourceTemplateNames.get(resourceTemplateUuid)
+    if (
+      currentDisplayName !== undefined &&
+      currentDisplayName !== resourceTemplateUuid &&
+      displayName !== undefined &&
+      currentDisplayName !== displayName
+    ) {
+      invalidGraph(
+        `资源模板（ResourceTemplate）${resourceTemplateUuid} 展示名称发生冲突`
+      )
+    }
+    resourceTemplateNames.set(
+      resourceTemplateUuid,
+      displayName ?? currentDisplayName ?? resourceTemplateUuid
+    )
     materials.push({
       uuid: materialUuid,
       name: nonEmptyString(
@@ -93,7 +111,9 @@ export function projectWorkflowMaterialSourceGraph(
         `库位（Site）${siteUuid} 允许的资源模板（ResourceTemplate）UUID 集合`
       ).sort(compareUuid)
       for (const resourceTemplateUuid of allowedResourceTemplateUuids) {
-        resourceTemplateIds.add(resourceTemplateUuid)
+        if (!resourceTemplateNames.has(resourceTemplateUuid)) {
+          resourceTemplateNames.set(resourceTemplateUuid, resourceTemplateUuid)
+        }
       }
       // 占用物料 UUID 表达当前库位占用（SiteOccupancy）；空数组明确投影为 null。
       const occupiedMaterialUuid = site.occupiedMaterialIds.length === 0
@@ -119,12 +139,53 @@ export function projectWorkflowMaterialSourceGraph(
   }
 
   return {
-    resourceTemplates: [...resourceTemplateIds]
-      .sort(compareUuid)
-      .map(resourceTemplateProjection),
+    resourceTemplates: [...resourceTemplateNames]
+      .sort(compareResourceTemplateEntry)
+      .map(([uuid, displayName]) => ({ uuid, displayName })),
     materials: materials.sort(compareMaterialByUuid),
     sites: sites.sort(compareSiteBySortOrderAndUuid)
   }
+}
+
+/**
+ * 按资源模板 UUID 比较展示映射条目。
+ *
+ * @param left 左侧 UUID/展示名条目。
+ * @param right 右侧 UUID/展示名条目。
+ * @returns UUID 字典序比较结果。
+ */
+function compareResourceTemplateEntry(
+  left: readonly [string, string],
+  right: readonly [string, string]
+): number {
+  return compareUuid(left[0], right[0])
+}
+
+/**
+ * 从公共物料配置读取 Backend 资源模板展示名，不从物料实例名称猜测。
+ *
+ * @param aggregate 已解码的物料聚合。
+ * @param expectedUuid 物料引用的资源模板稳定 UUID。
+ * @returns 展示摘要身份一致时返回非空展示名，否则返回 undefined。
+ */
+function materialResourceTemplateDisplayName(
+  aggregate: MaterialAggregate,
+  expectedUuid: string
+): string | undefined {
+  const candidate = aggregate.material.config.resourceTemplate
+  if (
+    candidate == null ||
+    typeof candidate !== 'object' ||
+    Array.isArray(candidate)
+  ) {
+    return undefined
+  }
+  const raw = candidate as Record<string, unknown>
+  if (raw.uuid !== expectedUuid || typeof raw.displayName !== 'string') {
+    return undefined
+  }
+  const displayName = raw.displayName.trim()
+  return displayName || undefined
 }
 
 /**
@@ -136,18 +197,6 @@ export function projectWorkflowMaterialSourceGraph(
  */
 function compareUuid(left: string, right: string): number {
   return left.localeCompare(right)
-}
-
-/**
- * 将资源模板 UUID 投影为工作流目录的稳定展示回退。
- *
- * @param uuid 公共物料图明确给出的资源模板 UUID。
- * @returns 显示名等于 UUID 的最小资源模板条目；不会用物料名称冒充模板名称。
- */
-function resourceTemplateProjection(
-  uuid: string
-): WorkflowMaterialSourceResourceTemplate {
-  return { uuid, displayName: uuid }
 }
 
 /**

@@ -28,6 +28,8 @@ export function workflowTaskToolbarControls(
 
   const commands = task?.status === 'admission_blocked'
     ? new Set<WorkflowTaskCommandType>(['cancel'])
+    : task?.control_status === 'waiting_intervention'
+      ? new Set<WorkflowTaskCommandType>(['cancel'])
     : task?.control_status === 'paused'
     ? task.run_mode === 'step'
       ? new Set<WorkflowTaskCommandType>(['resume', 'step', 'cancel'])
@@ -116,6 +118,9 @@ function workflowTaskCommandDisabledReason(
   if (task.status === 'admission_blocked') {
     return '任务正在等待物料准入，当前不能提交运行控制命令'
   }
+  if (task.control_status === 'waiting_intervention') {
+    return '任务正在等待人工干预，当前只能取消'
+  }
   if (command === 'pause') return '只有正在执行的任务可以暂停'
   if (command === 'resume') return '只有已经暂停的任务可以继续'
   if (command === 'step' && task.run_mode !== 'step') {
@@ -132,6 +137,9 @@ export function workflowTaskVisualStatus(task: WorkflowTask | null): string {
   if (task.status === 'failed' || task.status === 'timeout') return 'failed'
   if (task.status === 'admission_blocked') return 'admission_blocked'
   if (task.control_status === 'paused') return 'paused'
+  if (task.control_status === 'waiting_intervention') {
+    return 'intervention_required'
+  }
   if (task.control_status === 'waiting_reconciliation') return 'reconciling'
   return task.status
 }
@@ -145,6 +153,7 @@ export function workflowTaskControlStatusLabel(
   return {
     active: '控制可用',
     paused: '已暂停',
+    waiting_intervention: '等待人工干预',
     waiting_reconciliation: '等待状态核对'
   }[task.control_status]
 }

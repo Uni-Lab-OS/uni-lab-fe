@@ -6,6 +6,8 @@ import {
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import * as React from 'react'
 
+import { applyUniLabTheme } from './unilab-theme'
+
 @injectable()
 export class UniLabSettingsWidget extends ReactWidget {
   static readonly ID = 'unilab:settings'
@@ -22,13 +24,22 @@ export class UniLabSettingsWidget extends ReactWidget {
     this.title.closable = false
     this.title.iconClass = 'codicon codicon-settings-gear'
     this.node.classList.add('unilab-settings-widget')
-    this.toDispose.push(this.themeService.onDidColorThemeChange(() => this.update()))
+    this.syncTheme()
+    this.toDispose.push(this.themeService.onDidColorThemeChange(() => {
+      this.syncTheme()
+      this.update()
+    }))
     this.update()
+  }
+
+  protected syncTheme(): void {
+    applyUniLabTheme(this.themeService.getCurrentTheme().type)
   }
 
   /** 切换到用户选择的内置明暗主题并持久化。 */
   protected readonly setTheme = (themeId: string): void => {
     this.themeService.setCurrentTheme(themeId, true)
+    this.syncTheme()
     this.update()
   }
 

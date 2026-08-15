@@ -6,7 +6,7 @@
   "license": "MIT",
   "packageManager": "pnpm@10.13.1",
   "scripts": {
-    "dev": "pnpm --filter @unilab/kernel-web dev",
+    "dev": "pnpm run workbench",
     "dev:desktop": "pnpm --filter @unilab/desktop dev",
     "workbench": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/workbench build && pnpm --filter @unilab/workbench start",
     "workbench:desktop": "pnpm --filter @unilab/workbench desktop",
@@ -17,6 +17,7 @@
     "build:web": "pnpm --filter @unilab/kernel-web build",
     "build:desktop": "pnpm --filter @unilab/desktop build",
     "quality:frontend": "node scripts/check-frontend-quality.mjs",
+    "quality:styles": "node scripts/check-style-architecture.mjs",
     "card": "pnpm --filter @unilab/device-card-tooling build && node packages/device-card-tooling/dist/cli.mjs",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
@@ -43,7 +44,7 @@
     "test:e2e:device-manual-unlock": "playwright test e2e/device-manual-unlock-real-os.spec.ts",
     "test:e2e:device-single-action": "playwright test e2e/device-single-action-real-os.spec.ts",
     "test:e2e:desktop-local-runtime": "node scripts/run-playwright-e2e.mjs --env UNILAB_E2E_ELECTRON=1 -- e2e/local-runtime-electron-real-edge.spec.ts",
-    "test:e2e:workbench": "playwright test e2e/unilab-workbench.spec.ts"
+    "test:e2e:workbench": "playwright test e2e/unilab-workbench.spec.ts e2e/workbench-runtime-log-drawer.spec.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0",

@@ -36,6 +36,17 @@ export {
 export { preparePascalLabPlugin } from './plugin'
 export { buildLabFloorplan } from './floorplan'
 export {
+  inspectMaterialAggregateScene,
+  type MaterialSceneBounds,
+  type MaterialSceneInspection,
+  type MaterialSceneInspectionOptions,
+  type MaterialSceneSourceIdentity
+} from './materialSceneInspection'
+export {
+  readMaterialSceneRuntimeState,
+  type MaterialSceneRuntimeState
+} from './materialSceneRuntime'
+export {
   LabAttachPointSchema,
   LabDeviceNodeSchema,
   LabMaterialTransferLayerNodeSchema,

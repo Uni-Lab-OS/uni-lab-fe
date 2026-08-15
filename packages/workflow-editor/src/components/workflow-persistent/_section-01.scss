@@ -2,6 +2,8 @@
   container-type: inline-size;
 
   :global(.persistent-authoring__toolbar) {
+    position: relative;
+    z-index: 50;
     min-height: 44px;
     flex-wrap: nowrap;
     gap: var(--unilab-space-2);
@@ -54,8 +56,11 @@
   }
 
   :global(.persistent-authoring__debug-toolbar) {
+    position: relative;
+    z-index: 2;
     gap: 3px;
     margin-left: 0;
+    overflow: visible;
   }
 
   :global(.persistent-authoring__debug-icon),
@@ -74,6 +79,36 @@
     background: transparent;
     cursor: pointer;
     list-style: none;
+  }
+
+  :global(.persistent-authoring__debug-icon[data-tooltip])::before,
+  :global(.persistent-authoring__run-mode-menu) > summary[data-tooltip]::before {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 8px);
+    left: 50%;
+    width: max-content;
+    max-width: 220px;
+    padding: 5px 8px;
+    transform: translate(-50%, -3px);
+    pointer-events: none;
+    color: var(--unilab-color-surface);
+    border-radius: var(--unilab-radius-control);
+    background: var(--unilab-color-text);
+    box-shadow: var(--unilab-shadow-overlay);
+    content: attr(data-tooltip);
+    font: 500 11px/1.35 var(--unilab-font-sans);
+    opacity: 0;
+    transition: opacity 120ms ease, transform 120ms ease;
+    white-space: nowrap;
+  }
+
+  :global(.persistent-authoring__debug-icon[data-tooltip]):hover::before,
+  :global(.persistent-authoring__debug-icon[data-tooltip]):focus-visible::before,
+  :global(.persistent-authoring__run-mode-menu) > summary[data-tooltip]:hover::before,
+  :global(.persistent-authoring__run-mode-menu) > summary[data-tooltip]:focus-visible::before {
+    transform: translate(-50%, 0);
+    opacity: 1;
   }
 
   :global(.persistent-authoring__debug-icon):hover:not(:disabled),
@@ -145,7 +180,9 @@
     top: calc(100% + 6px);
     right: 0;
     display: grid;
-    min-width: 172px;
+    width: 184px;
+    max-width: calc(100cqw - 20px);
+    box-sizing: border-box;
     gap: 2px;
     padding: 5px;
     border: 1px solid var(--unilab-color-border);
@@ -168,6 +205,42 @@
     font: 500 12px/1 var(--unilab-font-sans);
     text-align: left;
     cursor: pointer;
+    white-space: nowrap;
+  }
+
+  @container workflow (max-width: 720px) {
+    :global(.persistent-authoring__toolbar) {
+      overflow: visible;
+    }
+
+    :global(.persistent-authoring__debug-toolbar) {
+      width: auto;
+      flex: 0 0 auto;
+      margin-left: auto;
+      padding-top: 0;
+      overflow: visible;
+    }
+
+    :global(.persistent-authoring__run-mode-menu) > div {
+      right: 0;
+      width: min(344px, calc(100cqw - 20px));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
+      padding: 6px;
+    }
+
+    :global(.persistent-authoring__run-mode-menu) > div button {
+      min-width: 0;
+      min-height: 38px;
+      padding-inline: 9px;
+    }
+  }
+
+  @container workflow (max-width: 420px) {
+    :global(.persistent-authoring__run-mode-menu) > div {
+      width: min(210px, calc(100cqw - 16px));
+      grid-template-columns: 1fr;
+    }
   }
 
   :global(.persistent-authoring__run-mode-menu) > div button:hover:not(:disabled),
@@ -386,6 +459,7 @@
     grid-template-columns: minmax(340px, 0.78fr) minmax(460px, 1.22fr);
     flex: 1;
     min-height: 0;
+    overflow: hidden;
     gap: 1px;
     background: var(--unilab-color-border);
   }
@@ -586,6 +660,8 @@
 
   :global(.persistent-authoring__canvas) {
     display: flex;
+    min-height: 0;
+    overflow: hidden;
     flex-direction: column;
   }
 

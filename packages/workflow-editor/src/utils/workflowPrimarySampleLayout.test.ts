@@ -551,6 +551,11 @@ describe('layoutWorkflowPrimarySampleFlow', () => {
     ]
 
     expect(new Set(handleAxes).size).toBe(1)
+    expect(result.nodePorts?.get('transfer')).toEqual({
+      target: 'left',
+      source: 'right'
+    })
+    expect(result.edgeDirections?.get(2)).toBe('LR')
   })
 })
 

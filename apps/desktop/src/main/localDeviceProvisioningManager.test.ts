@@ -34,7 +34,9 @@ vi.mock('./localDeviceProvisioningAdapters', () => ({
       listPackages: ports.listPackages
     }
   },
-  createLocalLaboratory: () => ({ getOnlineDevices: ports.getOnlineDevices }),
+  createLocalAuthoringLaboratory: () => ({
+    getOnlineDevices: ports.getOnlineDevices
+  }),
   devicePackageCliConfig: (runtime: unknown) => runtime,
   provisioningErrorMessage: (error: unknown) => (
     error instanceof Error ? error.message : String(error)
@@ -343,7 +345,7 @@ function graphResult(status: 'graph_staged' | 'removed' | 'graph_restored') {
   }
 }
 
-/** 生成 `/api/v1/devices` 的在线设备与一个可忙碌 Action。 */
+/** 生成本地 authoring 诊断目录的在线设备与一个可忙碌 Action。 */
 function onlineDevice(isBusy: boolean) {
   return {
     id: 'local-pump-1',

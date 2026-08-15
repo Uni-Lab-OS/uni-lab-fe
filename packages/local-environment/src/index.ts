@@ -1,11 +1,13 @@
+import { execFile } from 'node:child_process'
 import { constants as fsConstants } from 'node:fs'
-import { access, realpath } from 'node:fs/promises'
+import { access, readdir, readFile, realpath } from 'node:fs/promises'
 import {
-  basename,
   delimiter,
   dirname,
   join,
   normalize,
+  posix,
+  win32,
   resolve
 } from 'node:path'
 
@@ -28,12 +30,33 @@ export async function discoverDefaultCondaEnvironment({
   homeDirectory,
   platform = process.platform
 }: EnvironmentDiscoveryOptions): Promise<string | null> {
+  return (await discoverCondaEnvironments({
+    environment,
+    homeDirectory,
+    platform
+  }))[0] ?? null
+}
+
+/**
+ * Discover every usable Conda environment instead of assuming its name is
+ * `unilab`. Conda's registry and common `envs` roots cover custom names such
+ * as `szlab-unilab` even when a desktop launch does not inherit Conda's PATH.
+ */
+export async function discoverCondaEnvironments({
+  environment = process.env,
+  homeDirectory,
+  platform = process.platform
+}: EnvironmentDiscoveryOptions): Promise<string[]> {
+  const roots = environmentRootCandidates(environment, homeDirectory, platform)
   const candidates = [
     environment['CONDA_PREFIX'],
     ...await pathEnvironmentCandidates(environment['PATH'], platform),
-    ...namedEnvironmentCandidates(environment, homeDirectory, platform)
+    ...namedEnvironmentCandidates(environment, homeDirectory, platform),
+    ...await registeredEnvironmentCandidates(homeDirectory),
+    ...await childEnvironmentCandidates(roots)
   ]
   const visited = new Set<string>()
+  const discovered: string[] = []
 
   for (const candidate of candidates) {
     if (!candidate) continue
@@ -45,9 +68,11 @@ export async function discoverDefaultCondaEnvironment({
       normalizedCandidate,
       platform
     )
-    if (environmentPath) return environmentPath
+    if (environmentPath && !discovered.includes(environmentPath)) {
+      discovered.push(environmentPath)
+    }
   }
-  return null
+  return discovered
 }
 
 /**
@@ -114,6 +139,59 @@ function namedEnvironmentCandidates(
   ]
 }
 
+/** Return Conda roots whose direct children may be named environments. */
+function environmentRootCandidates(
+  environment: NodeJS.ProcessEnv,
+  homeDirectory: string,
+  platform: NodeJS.Platform
+): string[] {
+  const pathDelimiter = platform === 'win32' ? ';' : ':'
+  const configuredRoots = (environment['CONDA_ENVS_PATH'] ?? '')
+    .split(pathDelimiter)
+    .filter(Boolean)
+  const mambaRoot = environment['MAMBA_ROOT_PREFIX']
+  return [
+    ...configuredRoots,
+    ...(mambaRoot ? [join(mambaRoot, 'envs')] : []),
+    join(homeDirectory, 'miniforge3', 'envs'),
+    join(homeDirectory, 'mambaforge', 'envs'),
+    join(homeDirectory, 'miniconda3', 'envs'),
+    join(homeDirectory, 'anaconda3', 'envs'),
+    join(homeDirectory, '.conda', 'envs'),
+    join(homeDirectory, '.micromamba', 'envs'),
+    '/opt/homebrew/Caskroom/miniforge/base/envs',
+    '/opt/homebrew/Caskroom/miniconda/base/envs'
+  ]
+}
+
+/** Read Conda's per-user registry without requiring `conda` on PATH. */
+async function registeredEnvironmentCandidates(
+  homeDirectory: string
+): Promise<string[]> {
+  try {
+    return (await readFile(
+      join(homeDirectory, '.conda', 'environments.txt'),
+      'utf8'
+    )).split(/\r?\n/u).map(path => path.trim()).filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
+/** Enumerate named environments below known roots on Windows and POSIX. */
+async function childEnvironmentCandidates(roots: string[]): Promise<string[]> {
+  const children = await Promise.all(roots.map(async root => {
+    try {
+      return (await readdir(root, { withFileTypes: true }))
+        .filter(entry => entry.isDirectory() || entry.isSymbolicLink())
+        .map(entry => join(root, entry.name))
+    } catch {
+      return []
+    }
+  }))
+  return children.flat()
+}
+
 /**
  * 校验候选环境同时包含可执行的 Python 与 unilab。
  *
@@ -140,6 +218,83 @@ export async function validRuntimeEnvironment(
   } catch {
     return null
   }
+}
+
+export interface RuntimeEnvironmentValidationOptions {
+  platform?: NodeJS.Platform
+  timeoutMs?: number
+  inheritedEnvironment?: NodeJS.ProcessEnv
+  runCommand?: (
+    executable: string,
+    args: string[],
+    options: { environment: NodeJS.ProcessEnv; timeoutMs: number }
+  ) => Promise<void>
+}
+
+/**
+ * Require the selected environment to provide the actual OS and PLC imports,
+ * not merely executable filenames. This keeps failures on the selection page.
+ */
+export async function validateRuntimeEnvironment(
+  environmentPath: string,
+  options: RuntimeEnvironmentValidationOptions = {}
+): Promise<string> {
+  const platform = options.platform ?? process.platform
+  const resolved = await validRuntimeEnvironment(environmentPath, platform)
+  if (!resolved) {
+    throw new Error('所选目录不是可用的 UniLab 环境（缺少 Python 或 unilab）')
+  }
+  const executables = runtimeExecutablePaths(resolved, platform)
+  const environment = activatedCondaEnvironment(
+    resolved,
+    platform,
+    options.inheritedEnvironment
+  )
+  const timeoutMs = options.timeoutMs ?? 15_000
+  const runCommand = options.runCommand ?? runRuntimeValidationCommand
+  try {
+    await Promise.all([
+      runCommand(executables.unilabExecutable, ['-h'], {
+        environment,
+        timeoutMs
+      }),
+      runCommand(executables.pythonExecutable, [
+        '-c',
+        [
+          'from unilabos.app.main import main',
+          'from opcua import Client, ua',
+          'from fastapi import FastAPI',
+          'from pydantic import BaseModel',
+          'import uvicorn, yaml'
+        ].join('; ')
+      ], {
+        environment,
+        timeoutMs
+      })
+    ])
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error)
+    throw new Error(`所选 UniLab 环境依赖验证失败：${detail}`, { cause: error })
+  }
+  return resolved
+}
+
+function runRuntimeValidationCommand(
+  executable: string,
+  args: string[],
+  options: { environment: NodeJS.ProcessEnv; timeoutMs: number }
+): Promise<void> {
+  return new Promise((resolvePromise, reject) => {
+    execFile(executable, args, {
+      env: options.environment,
+      timeout: options.timeoutMs,
+      windowsHide: true,
+      maxBuffer: 4 * 1024 * 1024
+    }, error => {
+      if (error) reject(error)
+      else resolvePromise()
+    })
+  })
 }
 
 /**
@@ -186,11 +341,12 @@ export function activatedCondaEnvironment(
   platform: NodeJS.Platform,
   inheritedEnvironment: NodeJS.ProcessEnv = process.env
 ): NodeJS.ProcessEnv {
+  const platformPath = platform === 'win32' ? win32 : posix
   if (platform !== 'win32') {
     return {
       ...inheritedEnvironment,
       PATH: mergePathList([
-        join(environmentPath, 'bin'),
+        platformPath.join(environmentPath, 'bin'),
         environmentValue(inheritedEnvironment, 'PATH')
       ])
     }
@@ -203,7 +359,7 @@ export function activatedCondaEnvironment(
       ([key]) => !isWindowsCondaEnvironmentKey(key)
     )
   )
-  const environmentName = basename(environmentPath)
+  const environmentName = platformPath.basename(environmentPath)
   return {
     ...environment,
     CONDA_PREFIX: environmentPath,
@@ -212,11 +368,11 @@ export function activatedCondaEnvironment(
     CONDA_PROMPT_MODIFIER: `(${environmentName}) `,
     PATH: mergePathList([
       environmentPath,
-      join(environmentPath, 'Library', 'mingw-w64', 'bin'),
-      join(environmentPath, 'Library', 'usr', 'bin'),
-      join(environmentPath, 'Library', 'bin'),
-      join(environmentPath, 'Scripts'),
-      join(environmentPath, 'bin'),
+      platformPath.join(environmentPath, 'Library', 'mingw-w64', 'bin'),
+      platformPath.join(environmentPath, 'Library', 'usr', 'bin'),
+      platformPath.join(environmentPath, 'Library', 'bin'),
+      platformPath.join(environmentPath, 'Scripts'),
+      platformPath.join(environmentPath, 'bin'),
       inheritedPath
     ], ';')
   }
@@ -279,15 +435,20 @@ export function runtimeExecutablePaths(
   environmentPath: string,
   platform: NodeJS.Platform
 ): { pythonExecutable: string; unilabExecutable: string } {
+  const platformPath = platform === 'win32' ? win32 : posix
   if (platform === 'win32') {
     return {
-      pythonExecutable: join(environmentPath, 'python.exe'),
-      unilabExecutable: join(environmentPath, 'Scripts', 'unilab.exe')
+      pythonExecutable: platformPath.join(environmentPath, 'python.exe'),
+      unilabExecutable: platformPath.join(
+        environmentPath,
+        'Scripts',
+        'unilab.exe'
+      )
     }
   }
   return {
-    pythonExecutable: join(environmentPath, 'bin', 'python'),
-    unilabExecutable: join(environmentPath, 'bin', 'unilab')
+    pythonExecutable: platformPath.join(environmentPath, 'bin', 'python'),
+    unilabExecutable: platformPath.join(environmentPath, 'bin', 'unilab')
   }
 }
 

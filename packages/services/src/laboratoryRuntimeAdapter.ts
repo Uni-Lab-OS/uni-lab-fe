@@ -129,11 +129,11 @@ export function mapRuntimeResource(raw: Record<string, unknown>): ResourceNode {
 }
 
 /**
- * 从 Edge 公共设备目录读取并收窄运行设备。
+ * 从 Local Backend 的 authoring 诊断目录读取并收窄运行设备。
  *
  * @param http 服务使用的 HTTP Client。
  * @param signal 可选请求取消信号。
- * @returns 已过滤无身份/无引用动作的运行设备集合。
+ * @returns 已过滤无身份/无引用动作的本地 Driver 诊断设备集合。
  */
 export async function getRuntimeDevices(
   http: HttpClient,
@@ -141,7 +141,7 @@ export async function getRuntimeDevices(
 ): Promise<RuntimeDeviceCatalogItem[]> {
   const raw = await requestData<Record<string, unknown>>(
     http,
-    '/api/v1/devices',
+    '/api/v1/authoring/device-catalog',
     { signal }
   )
   const items = Array.isArray(raw.items) ? raw.items : []

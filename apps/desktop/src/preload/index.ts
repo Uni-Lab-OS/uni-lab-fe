@@ -184,6 +184,10 @@ const api = {
       ipcRenderer.invoke('managed-runtime:getSnapshot'),
     install: (): Promise<ManagedRuntimeInstallationSnapshot> =>
       ipcRenderer.invoke('managed-runtime:install'),
+    selectEnvironment: (path: string): Promise<ManagedRuntimeInstallationSnapshot> =>
+      ipcRenderer.invoke('managed-runtime:selectEnvironment', path),
+    chooseEnvironment: (): Promise<ManagedRuntimeInstallationSnapshot> =>
+      ipcRenderer.invoke('managed-runtime:chooseEnvironment'),
     onSnapshot: (
       listener: (snapshot: ManagedRuntimeInstallationSnapshot) => void
     ): (() => void) => {

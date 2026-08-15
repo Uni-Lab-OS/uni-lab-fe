@@ -16,11 +16,11 @@ describe('Edge device catalog', () => {
    */
   it('hides the system host node from the instrument device list', () => {
     expect(presentEdgeDevices([{
-      id: 'host_node',
+      id: '10000000-0000-4000-8000-000000000001',
       materialUuid: '10000000-0000-4000-8000-000000000001',
-      deviceKey: '/devices/host_node/host_node',
-      namespace: '/devices/host_node',
-      machineName: 'Local',
+      deviceKey: 'host_node',
+      namespace: '20000000-0000-4000-8000-000000000001',
+      machineName: 'host_node',
       online: true,
       actions: []
     }])).toEqual([])
@@ -33,7 +33,7 @@ describe('Edge device catalog', () => {
         materialUuid: '10000000-0000-4000-8000-000000000002',
         deviceKey: '/cell/robot',
         namespace: '/cell',
-        machineName: 'Edge A',
+        machineName: '机械臂',
         online: true,
         actions: []
       },
@@ -42,7 +42,7 @@ describe('Edge device catalog', () => {
         materialUuid: '10000000-0000-4000-8000-000000000003',
         deviceKey: '/cell/pump',
         namespace: '/cell',
-        machineName: 'Edge A',
+        machineName: '注射泵',
         online: true,
         actions: []
       }
@@ -50,14 +50,14 @@ describe('Edge device catalog', () => {
 
     expect(devices.map((device) => device.id)).toEqual(['robot', 'pump'])
     expect(devices[0]).toMatchObject({
-      displayName: 'robot',
-      displayDetail: 'Edge A',
+      displayName: '机械臂',
+      displayDetail: '',
       online: true,
       deviceKey: '/cell/robot'
     })
     expect(devices[1]).toMatchObject({
-      displayName: 'pump',
-      displayDetail: 'Edge A'
+      displayName: '注射泵',
+      displayDetail: ''
     })
   })
 })

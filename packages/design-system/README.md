@@ -1,13 +1,28 @@
 # Design System
 
-`@unilab/design-system` 是 Uni-Lab 视觉 token 和基础组件的唯一来源。业务 package
-应组合这些原语实现当前 `uni-lab-fe` 画风，主题切换也必须通过语义 token 完成。
+`@unilab/design-system` 是 Uni-Lab 视觉 token 和基础组件的唯一来源。基础组件采用
+shadcn/ui 的源码所有权模式、Radix 可访问性原语、CVA 变体和 `data-slot` 约定；业务
+package 应组合这些原语实现当前 `uni-lab-fe` 画风，主题切换也必须通过语义 token 完成。
 
 ## 文件导航
 
 - `src/theme.css`：颜色、间距、圆角、阴影和字体等语义 token。
+- `src/components/*`：Button、Input、NativeSelect、Textarea、Badge 和 Dialog 等
+  shadcn/ui 风格基础组件。
+- `src/lib/utils.ts`：合并调用方类名并消解 Tailwind 冲突的 `cn` 工具。
 - `src/SlideOverDrawer.tsx`：通用抽屉组件。
 - `src/index.ts`：公共导出。
+
+## 添加组件
+
+仓库根目录已为 `packages/design-system` 和 `apps/kernel-web` 配置 `components.json`。
+新增通用组件时从应用目录运行 shadcn CLI，让源码进入 design-system；提交前仍需按
+Uni-Lab token、中文可访问文案和现有平台边界复核生成结果。
+
+```bash
+cd apps/kernel-web
+pnpm dlx shadcn@latest add <component>
+```
 
 ## 主题规则
 

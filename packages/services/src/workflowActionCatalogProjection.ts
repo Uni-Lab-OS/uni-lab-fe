@@ -91,8 +91,13 @@ export function projectWorkflowExecutableTemplate(
     invalidCatalog()
   }
   const rawSchema = templateSchemaValue(template.schema)
-  const actionSchema = typedActionSchema(rawSchema) ??
+  const typedSchema = typedActionSchema(rawSchema) ??
     persistedActionContractSchema(template)
+  // Backend 当前把直接动作参数保存为平面 JSON Schema；只对设备动作节点接受该公开合同。
+  const flatSchema = typedSchema
+    ? null
+    : backendDeviceActionParameterSchema(rawSchema, summary.nodeType)
+  const actionSchema = typedSchema ?? flatSchema
   const workflowSchema = typedWorkflowSchema(rawSchema)
   if (actionSchema && workflowSchema) invalidCatalog()
   if (workflowSchema) {
@@ -114,7 +119,8 @@ export function projectWorkflowExecutableTemplate(
     schema: actionSchema,
     goal: recordValue(template.goal),
     goalDefault: recordValue(template.goal_default),
-    handles: projectHandles(recordArray(data.handles), uuid)
+    // 平面 Backend 参数 Schema 没有参数 Handle；旧工作流 Handle 不得冒充设备动作入参。
+    handles: flatSchema ? [] : projectHandles(recordArray(data.handles), uuid)
   }, template)
 }
 
@@ -387,6 +393,40 @@ function persistedActionContractSchema(
   const parsed = typedActionSchema(templateSchemaValue(contract))
   if (!parsed) invalidCatalog()
   return parsed
+}
+
+/**
+ * 读取 Backend 当前公开的平面设备动作参数 Schema。
+ *
+ * @param raw 未信任的模板 Schema。
+ * @param nodeType Backend 节点类型，用于限定设备动作边界。
+ * @returns 合法平面参数 Schema；非设备动作返回 null。
+ * @throws 设备动作显式提供但属性或必填集合非法时关闭失败。
+ */
+function backendDeviceActionParameterSchema(
+  raw: unknown,
+  nodeType: string
+): Record<string, unknown> | null {
+  if (!['device', 'device_action', 'resource_action', 'ilab'].includes(
+    nodeType.trim().toLowerCase()
+  )) return null
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const schema = raw as Record<string, unknown>
+  if (schema.type !== 'object') invalidCatalog()
+  // JSON Schema 允许省略 `properties` 来表达没有显式参数的对象动作。
+  // Backend 的 EmptyIn 动作（例如 get_version）会使用这种标准形态。
+  const properties = schema.properties === undefined
+    ? {}
+    : recordValue(schema.properties)
+  for (const [name, property] of Object.entries(properties)) {
+    if (!name) invalidCatalog()
+    recordValue(property)
+  }
+  const required = schema.required === undefined
+    ? []
+    : stringArray(schema.required)
+  if (required.some((name) => !(name in properties))) invalidCatalog()
+  return schema
 }
 
 /** 解析已发布工作流合同；参数是原始 schema，返回冻结合同投影或 null，闭合结构非法时关闭失败。 */

@@ -20,7 +20,7 @@ Profile 是一组完整连接配置，不是单个 base URL。它至少确定后
 | Profile | 已开放能力 | 说明 |
 |---|---|---|
 | `local-python` / edge | `material.readGraph`、`material.readTemplates` | OS 当前内存图只读投影；模板来自已构建 Registry |
-| `local-go` / backend | 设备目录、物料模板/物料图只读、工作流目录只读 | 写入、动作运行、工作流创作/运行和实时事件仍 fail closed |
+| `local-go` / backend | 设备目录、物料模板/物料图只读、工作流目录只读、运行预检、已有工作流任务运行、设备单动作正式任务 | 工作流创作与运行事件订阅仍 fail closed；任务状态通过 REST 手动补读 |
 | cloud | fail closed | 未来迁移；未实现能力不得显示为可用 |
 
 `local-python` / Edge 的连通性探测使用统一 v1 路径
@@ -88,6 +88,8 @@ schema 与强制解锁未形成完整端到端语义，因此不会因目录可�
 | Python → Canonical | `compilePythonWorkflow` | `POST /api/v1/authoring/compile` |
 | Canonical → Python | `generatePythonWorkflow` | `POST /api/v1/authoring/generate-python` |
 | 候选校验 | `validateAuthoringCandidate` | `POST /api/v1/authoring/validate` |
+| 正式运行准备 | `getWorkflowRunPreparation` | `GET /api/v1/workflows/{workflow_uuid}/graph` |
+| 正式运行预检 | `getWorkflowRunPreflight` | `GET /api/v1/workflows/{workflow_uuid}/run-preflight` |
 | 创建 Task | `createWorkflowTask` | `POST /api/v1/workflow-tasks` |
 | Task 列表/投影 | `listWorkflowTasks` / `getWorkflowTask` | `GET /api/v1/workflow-tasks` / `GET /api/v1/workflow-tasks/{task_uuid}` |
 | Task 的 Job 投影 | `listWorkflowTaskJobs` | `GET /api/v1/workflow-tasks/{task_uuid}/jobs` |
@@ -103,8 +105,10 @@ Runtime SSE 只消费 `workflow.runtime.changed`，事件体只有
 游标补读。
 
 Backend `/api/v1/workflows` 的 UUID 游标在 adapter 内转换为现有编号分页目录。
-Backend profile 目前只开放该只读目录；Python 创作与 WorkflowTask 运行能力在合同和
-事件恢复语义完整对齐前保持关闭。
+Backend profile 目前开放只读目录、只读工作流图、运行预检，以及 `normal`、`step`、
+`single_node` 三种正式工作流任务；`single_node` 必须明确提供已应用节点 UUID。Backend
+当前固定保存空任务输入，因此 adapter 只允许省略或传空对象，非空 `input` 会关闭失败。
+Python 创作与 Workflow Runtime 事件订阅在合同和恢复语义完整对齐前保持关闭。
 
 UI1D 已删除旧 `createRun`、`getRun`、Run node/event page、旧 debug command、
 `cancelRun`、Runtime WebSocket 和 polling fallback。旧

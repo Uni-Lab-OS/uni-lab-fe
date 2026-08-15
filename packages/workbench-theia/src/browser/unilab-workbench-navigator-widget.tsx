@@ -106,8 +106,64 @@ export class DeviceDomainEntryWidget extends UniLabDomainEntryWidget {
     mode: 'device',
     label: '仪器设备',
     caption: '仪器设备 · 目录、参数与单动作运行',
-    description: '读取 OS 上报的设备动作，填写参数并运行单动作调试任务。',
+    description: '读取当前运行连接的设备动作，填写参数并运行单动作调试任务。',
     iconClass: 'unilab-activity-icon--device',
     eyebrow: 'INSTRUMENTS'
+  }
+}
+
+@injectable()
+export class RobotDebugDomainEntryWidget extends UniLabDomainEntryWidget {
+  static readonly ID = 'unilab:robot-debug-navigation'
+  protected readonly widgetId = RobotDebugDomainEntryWidget.ID
+  protected readonly entry: DomainEntryDefinition = {
+    mode: 'robot-debug',
+    label: '动作调试',
+    caption: '动作调试 · 真实设备与单动作运行',
+    description: '读取当前运行连接的机械臂动作，并通过统一任务接口运行单动作调试。',
+    iconClass: 'unilab-activity-icon--robot-debug',
+    eyebrow: 'ROBOT DEBUG'
+  }
+}
+
+@injectable()
+export class RobotPointsDomainEntryWidget extends UniLabDomainEntryWidget {
+  static readonly ID = 'unilab:robot-points-navigation'
+  protected readonly widgetId = RobotPointsDomainEntryWidget.ID
+  protected readonly entry: DomainEntryDefinition = {
+    mode: 'robot-points',
+    label: '点位管理',
+    caption: '点位管理 · 机械臂控制点目录',
+    description: '读取后端发布的机械臂控制点；接口缺失时保持失败关闭。',
+    iconClass: 'unilab-activity-icon--robot-points',
+    eyebrow: 'ROBOT POINTS'
+  }
+}
+
+@injectable()
+export class RobotBenchDomainEntryWidget extends UniLabDomainEntryWidget {
+  static readonly ID = 'unilab:robot-bench-navigation'
+  protected readonly widgetId = RobotBenchDomainEntryWidget.ID
+  protected readonly entry: DomainEntryDefinition = {
+    mode: 'robot-bench',
+    label: '实验台',
+    caption: '实验台 · 库位与物料占用',
+    description: '从公共物料图查看实验台库位和真实逻辑占用关系。',
+    iconClass: 'unilab-activity-icon--robot-bench',
+    eyebrow: 'LAB BENCH'
+  }
+}
+
+@injectable()
+export class RobotReagentsDomainEntryWidget extends UniLabDomainEntryWidget {
+  static readonly ID = 'unilab:robot-reagents-navigation'
+  protected readonly widgetId = RobotReagentsDomainEntryWidget.ID
+  protected readonly entry: DomainEntryDefinition = {
+    mode: 'robot-reagents',
+    label: '试剂管理',
+    caption: '试剂管理 · 容器与库存批次',
+    description: '读取后端真实试剂容器或 OS 库存批次，不维护前端本地台账。',
+    iconClass: 'unilab-activity-icon--robot-reagents',
+    eyebrow: 'REAGENTS'
   }
 }

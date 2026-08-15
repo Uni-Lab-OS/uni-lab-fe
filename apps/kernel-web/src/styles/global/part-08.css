@@ -142,36 +142,6 @@
     font-size: 10px;
   }
 
-  .device-page {
-    flex-direction: column;
-  }
-
-  .device-page .section__list {
-    flex: 0 0 42%;
-    border-right: 0;
-    border-bottom: 1px solid var(--unilab-color-border);
-  }
-
-  .device-page .section__detail {
-    padding: var(--unilab-space-4);
-  }
-
-  .device-page.is-empty .section__list {
-    flex: 1;
-    border-bottom: 0;
-  }
-
-  .device-page.is-empty .section__detail {
-    display: none;
-  }
-
-  .section__list-head {
-    padding: 8px 10px;
-  }
-
-  .device-live {
-    font-size: 10px;
-  }
 
   .lab-panel-workspace--lab
     [data-split-direction='horizontal']

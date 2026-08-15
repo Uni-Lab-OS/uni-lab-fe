@@ -81,6 +81,9 @@ interface RegisteredWorkflowResourceTemplate {
   shape?: MaterialShapeSpec
 }
 
+const REGISTERED_TEMPLATE_PAGE_SIZE = 100
+const REGISTERED_TEMPLATE_PAGE_BUDGET = 100
+
 /**
  * 组合工作流物料来源（MaterialSource）框架模板与公共物料图（MaterialGraph）读模型。
  *
@@ -383,7 +386,7 @@ async function loadRegisteredMaterialSourceTemplates(
 }
 
 /**
- * 遍历已注册资源模板 UUID 游标目录。
+ * 遍历已注册资源模板目录，优先使用 Backend 页码合同并兼容旧 UUID 游标响应。
  *
  * @param http 正式资源模板接口的 HTTP 客户端。
  * @returns 保持服务端顺序且 UUID 无重复的资源模板记录。
@@ -395,14 +398,34 @@ async function loadRegisteredResourceTemplatePages(
   const templates: Record<string, unknown>[] = []
   const seen = new Set<string>()
   let cursorUuid: string | null = null
-  do {
-    const query = new URLSearchParams({ limit: '100' })
-    if (cursorUuid) query.set('cursor_uuid', cursorUuid)
-    const page = await requestData<Record<string, unknown>>(
+  let paginationMode: 'cursor' | 'numbered' | null = null
+  let numberedPage = 1
+  let numberedPageSize: number | null = null
+  for (
+    let pageCount = 0;
+    pageCount < REGISTERED_TEMPLATE_PAGE_BUDGET;
+    pageCount += 1
+  ) {
+    const query: URLSearchParams = paginationMode !== 'cursor'
+      ? new URLSearchParams({
+          page: String(numberedPage),
+          page_size: String(
+            numberedPageSize ?? REGISTERED_TEMPLATE_PAGE_SIZE
+          )
+        })
+      : new URLSearchParams({
+          limit: String(REGISTERED_TEMPLATE_PAGE_SIZE)
+        })
+    if (paginationMode === 'cursor' && cursorUuid) {
+      query.set('cursor_uuid', cursorUuid)
+    }
+    const response: Record<string, unknown> = await requestData<
+      Record<string, unknown>
+    >(
       http,
       `/api/v1/resource-templates?${query.toString()}`
     )
-    const items = recordArray(page.items)
+    const items = recordArray(response.items)
     for (const item of items) {
       const uuid = uuidString(item.uuid)
       if (seen.has(uuid)) {
@@ -411,13 +434,69 @@ async function loadRegisteredResourceTemplatePages(
       seen.add(uuid)
       templates.push(item)
     }
-    if (page.has_more !== true) return templates
-    const nextCursor = uuidString(page.next_cursor_uuid)
+    if (typeof response.has_more !== 'boolean') {
+      invalidCatalog('资源模板（ResourceTemplate）has_more 必须是布尔值')
+    }
+    const responseMode: 'cursor' | 'numbered' =
+      Object.prototype.hasOwnProperty.call(response, 'page') ||
+      Object.prototype.hasOwnProperty.call(response, 'page_size')
+      ? 'numbered'
+      : 'cursor'
+    if (paginationMode !== null && responseMode !== paginationMode) {
+      invalidCatalog('资源模板（ResourceTemplate）分页合同发生漂移')
+    }
+    paginationMode = responseMode
+
+    if (responseMode === 'numbered') {
+      const responsePage = positiveSafeInteger(response.page, '资源模板页码')
+      const responsePageSize = positiveSafeInteger(
+        response.page_size,
+        '资源模板页大小'
+      )
+      if (
+        responsePage !== numberedPage ||
+        responsePageSize > REGISTERED_TEMPLATE_PAGE_SIZE
+      ) {
+        invalidCatalog('资源模板（ResourceTemplate）页码未按请求推进')
+      }
+      if (numberedPageSize === null) numberedPageSize = responsePageSize
+      else if (responsePageSize !== numberedPageSize) {
+        invalidCatalog('资源模板（ResourceTemplate）页大小发生漂移')
+      }
+      if (items.length > responsePageSize) {
+        invalidCatalog('资源模板（ResourceTemplate）项目数超过页大小')
+      }
+      if (response.has_more !== true) return templates
+      if (items.length === 0) {
+        invalidCatalog('资源模板（ResourceTemplate）目录无法从空页推进')
+      }
+      numberedPage += 1
+      continue
+    }
+
+    if (response.has_more !== true) return templates
+    const nextCursor = uuidString(response.next_cursor_uuid)
     if (nextCursor === cursorUuid || items.length === 0) {
       invalidCatalog('资源模板（ResourceTemplate）目录分页提前终止')
     }
     cursorUuid = nextCursor
-  } while (true)
+  }
+  return invalidCatalog('资源模板（ResourceTemplate）目录超过分页预算')
+}
+
+/**
+ * 读取资源模板页码合同中的正安全整数。
+ *
+ * @param value 未信任分页值。
+ * @param label 中文诊断字段名。
+ * @returns 大于零的安全整数。
+ * @throws 值无效时抛出资源模板目录合同错误。
+ */
+function positiveSafeInteger(value: unknown, label: string): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 1) {
+    invalidCatalog(`${label}必须是正安全整数`)
+  }
+  return value as number
 }
 
 /**

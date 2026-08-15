@@ -143,7 +143,7 @@ test('本次运行输入使用单列表和用户态取值文案', async ({
   expect(browserErrors).toEqual([])
 })
 
-test('反馈保持事件流顺序并按需展开原始数据', async ({
+test('运行记录按权威时间排序并按需展开原始数据', async ({
   page
 }, testInfo) => {
   test.setTimeout(120_000)
@@ -197,12 +197,17 @@ test('反馈保持事件流顺序并按需展开原始数据', async ({
     idempotency_key: 'workflow-ui-feedback-1'
   }])
 
-  const eventTab = panel.getByRole('tab', { name: /事件流/ })
-  await expect(eventTab).toHaveText(/事件流\s*[1-9]/)
+  const eventTab = panel.getByRole('tab', { name: /运行记录/ })
+  await expect(eventTab).toHaveText(/运行记录\s*[1-9]/)
   await eventTab.click()
   const eventPanel = panel.locator('#workflow-output-panel-events')
   await expect(eventPanel.getByText('最新事件在前', { exact: true }))
     .toBeVisible()
+  const runningJob = eventPanel.locator('[data-event-kind="node.started"]')
+  await expect(runningJob).toHaveCount(1)
+  await expect(runningJob.locator('.workflow-runtime__activity-time b'))
+    .toHaveText('步骤 1')
+  await expect(runningJob).toHaveAttribute('data-event-time', /T/)
   const feedbackRaw = eventPanel.locator(
     '.workflow-runtime__event-raw pre'
   ).filter({ hasText: 'temperature_c' })

@@ -2,6 +2,8 @@ import type {
   WorkbenchEnvironmentLogKind,
   WorkbenchPlcHandshakeProfile,
   WorkbenchPlcSimulatorConfiguration,
+  WorkbenchReleaseReceipt,
+  WorkbenchReleaseTargetInspection,
   WorkbenchRuntimeMode,
   WorkbenchSessionSnapshot
 } from '@unilab/workbench-session'
@@ -25,8 +27,17 @@ export interface EnvironmentManagerProps {
   session: WorkbenchSessionSnapshot
   onClose: () => void
   onRestartSession: () => Promise<void>
+  onRebuildLocalData: () => Promise<void>
+  onInspectReleaseTarget: (
+    backendUrl: string
+  ) => Promise<WorkbenchReleaseTargetInspection>
+  onPublishRelease: (
+    backendUrl: string,
+    resetTarget?: boolean
+  ) => Promise<WorkbenchReleaseReceipt>
   onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>
   onConfigureGraph: (graphPath: string) => Promise<void>
+  onSetExternalDevicesOnly: (enabled: boolean) => Promise<void>
   onConfigurePlcSimulator: (
     configuration: WorkbenchPlcSimulatorConfiguration
   ) => Promise<void>
@@ -41,13 +52,44 @@ export interface EnvironmentManagerProps {
   onStopSession: () => Promise<void>
 }
 
+export interface EnvironmentOperationError {
+  title: string
+  message: string
+}
+
+/** Translate release authority failures into an actionable Workbench message. */
+export function describeEnvironmentOperationError(
+  action: string,
+  message: string
+): EnvironmentOperationError {
+  if (message.includes('WorkspaceRelease 只能从 Local Authority 构建')) {
+    const resetAndPublish = action === 'reset-and-publish-release'
+    return {
+      title: resetAndPublish
+        ? '当前模式无法清空并发布'
+        : '当前模式无法发布',
+      message: `当前工作区由 Backend 管理，不能在这里构建发布包。` +
+        `请切换到 Local 模式后，再执行“${resetAndPublish ? '清空并发布' : '发布、校验并切换'}”。` +
+        (resetAndPublish ? '目标 Backend 的数据尚未被清除。' : '')
+    }
+  }
+  return {
+    title: '环境操作失败',
+    message
+  }
+}
+
 /** Manage the local OS, PLC simulator and Agent from one visible surface. */
 export function EnvironmentManager({
   session,
   onClose,
   onRestartSession,
+  onRebuildLocalData,
+  onInspectReleaseTarget,
+  onPublishRelease,
   onReadEnvironmentLog,
   onConfigureGraph,
+  onSetExternalDevicesOnly,
   onConfigurePlcSimulator,
   onRefreshPlcVariableTables,
   onStartPlcSimulator,
@@ -60,6 +102,7 @@ export function EnvironmentManager({
   onStopSession
 }: EnvironmentManagerProps): React.JSX.Element {
   const identity = session.identity
+  const edgeRuntime = session.edgeRuntime
   const plcSimulator = session.plcSimulator
   const agent = session.agent ?? identity?.agent ?? null
   const [plcProjectPath, setPlcProjectPath] = useState(plcSimulator.projectPath)
@@ -72,7 +115,15 @@ export function EnvironmentManager({
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [logKind, setLogKind] = useState<WorkbenchEnvironmentLogKind>('os')
   const [logTail, setLogTail] = useState<string | null>(null)
-  const [operationError, setOperationError] = useState<string | null>(null)
+  const [operationError, setOperationError] =
+    useState<EnvironmentOperationError | null>(null)
+  const [releaseReceipt, setReleaseReceipt] =
+    useState<WorkbenchReleaseReceipt | null>(null)
+  const [releaseInspection, setReleaseInspection] =
+    useState<WorkbenchReleaseTargetInspection | null>(null)
+  const [releaseBackendUrl, setReleaseBackendUrl] = useState(
+    session.configuredBackendUrl ?? 'http://127.0.0.1:8080'
+  )
   const remoteAccessApi = useMemo(desktopWorkbenchRemoteApi, [])
   const managedRuntimeApi = useMemo(desktopManagedRuntimeApi, [])
   const [runtimeInstallation, setRuntimeInstallation] =
@@ -126,7 +177,9 @@ export function EnvironmentManager({
     setBusyAction(action)
     setOperationError(null)
     try {
-      await captureWorkbenchUiOperation(operation, setOperationError)
+      await captureWorkbenchUiOperation(operation, message => {
+        setOperationError(describeEnvironmentOperationError(action, message))
+      })
     } finally {
       setBusyAction(null)
     }
@@ -145,9 +198,8 @@ export function EnvironmentManager({
   const applyGraphPath = useCallback(async () => {
     await run('apply-graph', async () => {
       await onConfigureGraph(graphPath)
-      if (session.phase === 'ready') await onRestartSession()
     })
-  }, [graphPath, onConfigureGraph, onRestartSession, run, session.phase])
+  }, [graphPath, onConfigureGraph, run])
 
   const startPlcSimulator = useCallback(async () => {
     await run('start-plc', async () => {
@@ -194,8 +246,8 @@ export function EnvironmentManager({
 
       {operationError ? (
         <div className="unilab-workbench-session-diagnostic" role="alert">
-          <strong>环境操作失败</strong>
-          <p>{operationError}</p>
+          <strong>{operationError.title}</strong>
+          <p>{operationError.message}</p>
         </div>
       ) : null}
 
@@ -211,7 +263,7 @@ export function EnvironmentManager({
               ['来源', runtimeInstallation.managed ? '应用内置' : '现有环境'],
               ['环境', runtimeInstallation.environmentPath ?? '—']
             ]}
-            actions={[
+            actions={runtimeInstallation.bundled && [
               'not-installed',
               'failed'
             ].includes(runtimeInstallation.phase) ? (
@@ -226,17 +278,135 @@ export function EnvironmentManager({
           />
         ) : null}
         <EnvironmentStatusCard
-          name="OS"
-          order={2}
+          name="Workspace Backend"
+          order={1}
           phase={session.phase}
-          message={session.message}
+          message={session.diagnostic?.message ?? session.message}
           facts={[
             ['PID', String(identity?.pid ?? '—')],
-            ['设备图', identity?.graphPath ?? session.configuredGraphPath],
-            ['启动模式', (identity?.mode ?? session.configuredRuntimeMode) === 'dry-run'
+            ['Authority API', identity?.backendUrl ?? '—'],
+            ['Generation', identity?.generation ?? '—'],
+            ['本地数据', '可重建会话数据']
+          ]}
+          actions={(
+            <button
+              type="button"
+              disabled={Boolean(busyAction) || ![
+                'ready',
+                'failed'
+              ].includes(session.phase)}
+              onClick={() => {
+                const confirmed = globalThis.confirm(
+                  '重建 Workspace Backend 会清空本地调试库存、设备状态和工作流历史。继续？'
+                )
+                if (confirmed) {
+                  void run('rebuild-local-data', onRebuildLocalData)
+                }
+              }}
+            >重建本地数据</button>
+          )}
+        />
+        <EnvironmentStatusCard
+          name="发布到 Backend"
+          order={2}
+          phase={releaseReceipt ? 'ready' : 'idle'}
+          message={releaseReceipt
+            ? `已校验 ${releaseReceipt.counts.templates} 个模板、${releaseReceipt.counts.materials} 个物料、${releaseReceipt.counts.workflows} 个工作流`
+            : '从当前 Local Authority 构建不可变 Release，写入后回读校验'}
+          facts={[
+            ['Release', releaseReceipt?.releaseId ?? '—'],
+            ['状态', releaseReceipt?.verified ? '已验证并切换' : '等待发布']
+          ]}
+          content={(
+            <>
+              <label className="unilab-environment-manager__path unilab-environment-manager__backend-target">
+                <span>目标地址</span>
+                <input
+                  type="url"
+                  value={releaseBackendUrl}
+                  disabled={Boolean(busyAction)}
+                  placeholder="http://127.0.0.1:8080"
+                  aria-label="Backend 发布目标地址"
+                  onChange={event => {
+                    setReleaseBackendUrl(event.currentTarget.value)
+                    setReleaseInspection(null)
+                    setReleaseReceipt(null)
+                  }}
+                />
+              </label>
+              {releaseInspection ? (
+                <p className={`unilab-environment-manager__target-summary ${
+                  releaseInspection.empty ? 'is-empty' : 'is-occupied'
+                }`}>
+                  {releaseInspection.empty
+                    ? '目标为空，可以安全发布。'
+                    : `目标已有 ${releaseInspection.counts.templates} 个模板、` +
+                      `${releaseInspection.counts.materials} 个物料、` +
+                      `${releaseInspection.counts.workflows} 个工作流。`}
+                </p>
+              ) : null}
+            </>
+          )}
+          actions={(
+            <>
+              <button
+                type="button"
+                disabled={Boolean(busyAction) || !releaseBackendUrl.trim()}
+                onClick={() => void run('inspect-release-target', async () => {
+                  const backendUrl = normalizeBackendUrl(releaseBackendUrl)
+                  setReleaseBackendUrl(backendUrl)
+                  setReleaseInspection(await onInspectReleaseTarget(backendUrl))
+                })}
+              >检查目标数据</button>
+              <button
+                type="button"
+                className="is-primary"
+                disabled={Boolean(busyAction) || !releaseBackendUrl.trim()}
+                onClick={() => void run('publish-release', async () => {
+                  const backendUrl = normalizeBackendUrl(releaseBackendUrl)
+                  setReleaseBackendUrl(backendUrl)
+                  setReleaseReceipt(await onPublishRelease(backendUrl))
+                })}
+              >发布、校验并切换</button>
+              {releaseInspection && !releaseInspection.empty ? (
+                <button
+                  type="button"
+                  className="is-danger"
+                  disabled={Boolean(busyAction)}
+                  onClick={() => {
+                    const { templates, materials, workflows } =
+                      releaseInspection.counts
+                    const confirmed = globalThis.confirm(
+                      `将永久删除目标 Backend 的 ${templates} 个模板、` +
+                      `${materials} 个物料和 ${workflows} 个工作流，然后重新发布。` +
+                      '\n\n此操作不可撤销，确定继续吗？'
+                    )
+                    if (!confirmed) return
+                    void run('reset-and-publish-release', async () => {
+                      setReleaseReceipt(await onPublishRelease(
+                        releaseInspection.targetAddress,
+                        true
+                      ))
+                      setReleaseInspection(null)
+                    })
+                  }}
+                >清空并发布</button>
+              ) : null}
+            </>
+          )}
+        />
+        <EnvironmentStatusCard
+          name="OS"
+          order={3}
+          phase={edgeRuntime.phase}
+          message={edgeRuntime.diagnostic ?? edgeRuntime.message}
+          facts={[
+            ['PID', String(edgeRuntime.pid ?? '—')],
+            ['设备图', edgeRuntime.graphPath || session.configuredGraphPath],
+            ['启动模式', edgeRuntime.mode === 'dry-run'
               ? 'Dry-run'
               : '正常运行'],
-            ['API', identity?.backendUrl ?? '—'],
+            ['Authority API', identity?.backendUrl ?? '—'],
             ['Python', identity?.environmentPath ?? '—']
           ]}
           content={(
@@ -250,8 +420,16 @@ export function EnvironmentManager({
                   onChange={event => setGraphPath(event.currentTarget.value)}
                 />
               </label>
+              <ExternalDevicesOnlyControl
+                checked={session.configuredExternalDevicesOnly}
+                disabled={Boolean(busyAction)}
+                onChange={enabled => run(
+                  'external-devices-only',
+                  () => onSetExternalDevicesOnly(enabled)
+                )}
+              />
               <RuntimeModeControl
-                mode={identity?.mode ?? session.configuredRuntimeMode}
+                mode={edgeRuntime.mode ?? session.configuredRuntimeMode}
                 disabled={Boolean(busyAction)}
                 onSetRuntimeMode={mode => run(
                   'switch-mode',
@@ -264,14 +442,16 @@ export function EnvironmentManager({
             <>
               <button
                 type="button"
+                className="is-primary"
                 disabled={Boolean(busyAction) || !graphPath.trim()}
                 onClick={() => void applyGraphPath()}
-              >{session.phase === 'ready' ? '应用设备图并重启' : '保存设备图'}</button>
+              >{session.phase === 'ready' ? '应用设备图并重建本地数据' : '保存设备图'}</button>
               <button
                 type="button"
+                className="is-port-action"
                 disabled={Boolean(busyAction)}
                 onClick={() => void run('restart-os', onRestartSession)}
-              >{session.phase === 'ready' ? '重启 OS' : '启动 OS'}</button>
+              >{edgeRuntime.phase === 'ready' ? '重启 OS' : '启动 OS'}</button>
               <button
                 type="button"
                 className="is-danger"
@@ -292,7 +472,7 @@ export function EnvironmentManager({
 
         <EnvironmentStatusCard
           name="PLC-Sim"
-          order={1}
+          order={3}
           phase={plcSimulator.phase}
           message={plcSimulator.diagnostic ?? plcSimulator.message}
           facts={[
@@ -393,7 +573,7 @@ export function EnvironmentManager({
 
         <EnvironmentStatusCard
           name="Agent"
-          order={3}
+          order={4}
           phase={agent?.phase ?? 'idle'}
           message={agentStatusMessage(agent)}
           facts={[
@@ -438,6 +618,7 @@ export function EnvironmentManager({
           <strong>日志尾部</strong>
           <div role="group" aria-label="日志来源">
             {([
+              ['workspace-backend', 'Backend'],
               ['os', 'OS'],
               ['plc-sim', 'PLC-Sim'],
               ['agent', 'Agent']
@@ -472,6 +653,23 @@ export function EnvironmentManager({
   return typeof document === 'undefined'
     ? overlay
     : createPortal(overlay, document.body)
+}
+
+function normalizeBackendUrl(value: string): string {
+  const candidate = value.trim()
+  let url: URL
+  try {
+    url = new URL(candidate)
+  } catch {
+    throw new Error('请输入有效的 Backend 地址，例如 http://127.0.0.1:8080')
+  }
+  if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) {
+    throw new Error('Backend 地址仅支持 http 或 https')
+  }
+  if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('Backend 地址只需填写协议、IP（或主机名）和端口')
+  }
+  return url.origin
 }
 
 function agentStatusMessage(
@@ -557,7 +755,7 @@ function RemoteAccessCard({
   return (
     <EnvironmentStatusCard
       name="远程访问"
-      order={4}
+      order={5}
       phase={current.phase}
       message={copyStatus ?? remoteAccessMessage(current)}
       facts={[
@@ -631,6 +829,33 @@ function formatRemoteExpiry(expiresAt: number | null): string {
   return new Date(expiresAt).toLocaleString()
 }
 
+export function ExternalDevicesOnlyControl({
+  checked,
+  disabled,
+  onChange
+}: {
+  checked: boolean
+  disabled: boolean
+  onChange: (checked: boolean) => Promise<void>
+}): React.JSX.Element {
+  return (
+    <label className="unilab-environment-manager__external-devices-only">
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={event => void onChange(event.currentTarget.checked)}
+      />
+      <span>
+        <strong>仅加载外部设备包</strong>
+        <small>
+          取消勾选后同时加载 OS 内置 Registry；下次启动 OS 时生效。
+        </small>
+      </span>
+    </label>
+  )
+}
+
 export function RuntimeModeControl({
   mode,
   disabled,
@@ -652,6 +877,7 @@ export function RuntimeModeControl({
   const button = (
     value: WorkbenchRuntimeMode,
     label: string,
+    description: string,
     title?: string
   ): React.JSX.Element => {
     const selected = mode === value
@@ -668,16 +894,20 @@ export function RuntimeModeControl({
         {selected ? (
           <span className="codicon codicon-check" aria-hidden="true" />
         ) : null}
-        <span>{label}</span>
+        <span className="unilab-environment-manager__mode-copy">
+          <strong>{label}</strong>
+          <small>{description}</small>
+        </span>
       </button>
     )
   }
   return (
     <div className="unilab-environment-manager__mode" role="group" aria-label="OS 运行模式">
-      {button('normal', '正常运行')}
+      {button('normal', '正常运行', '真实执行设备动作')}
       {button(
         'dry-run',
         'Dry-run',
+        '仅模拟，不下发设备',
         '动作返回模拟成功；每次 OS 重启使用新的隔离运行数据库'
       )}
     </div>
@@ -713,7 +943,7 @@ function EnvironmentStatusCard({
           <strong>{name}</strong>
           <span>{phase}</span>
         </header>
-        <p>{message}</p>
+        <p className="unilab-environment-card__message">{message}</p>
         <dl>
           {facts.map(([label, value]) => (
             <React.Fragment key={label}>

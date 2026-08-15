@@ -2,6 +2,7 @@ import type { DeviceAction, DeviceActionInputSchema } from '@unilab/services'
 
 import type { ManagedDevice } from './deviceCatalog'
 import type { DeviceActionArgumentDraft } from './deviceActionRun'
+import { deviceClass } from './deviceStyles'
 
 export type ArgumentDraft = DeviceActionArgumentDraft
 
@@ -15,7 +16,7 @@ export function Metric({
   tone?: 'success' | 'warning' | 'muted'
 }): React.JSX.Element {
   return (
-    <span className={`edge-device__metric${tone ? ` is-${tone}` : ''}`}>
+    <span className={deviceClass('edge-device__metric', tone && `is-${tone}`)}>
       <small>{label}</small>
       <strong>{value}</strong>
     </span>
@@ -36,13 +37,13 @@ export function ActionParameterForm({
   const fields = Object.entries(action.inputSchema)
   if (!fields.length) {
     return (
-      <div className="edge-device__parameter-empty">
+      <div className={deviceClass('edge-device__parameter-empty')}>
         此动作不需要输入参数，可直接运行。
       </div>
     )
   }
   return (
-    <div className="edge-device__parameter-form">
+    <div className={deviceClass('edge-device__parameter-form')}>
       {fields.map(([name, schema]) => (
         <ActionField
           key={name}
@@ -73,7 +74,10 @@ function ActionField({
   const label = schema.title || name
   if (schema.type === 'boolean') {
     return (
-      <label className="edge-device__field edge-device__field--boolean">
+      <label
+        className={deviceClass('edge-device__field edge-device__field--boolean')}
+        data-device-management="field"
+      >
         <span>
           {label}
           {schema.required ? <em>必填</em> : null}
@@ -90,7 +94,10 @@ function ActionField({
   }
   const isStructured = schema.type === 'object' || schema.type === 'array'
   return (
-    <label className={`edge-device__field${isStructured ? ' is-wide' : ''}`}>
+    <label
+      className={deviceClass('edge-device__field', isStructured && 'is-wide')}
+      data-device-management="field"
+    >
       <span>
         {label}
         {schema.required ? <em>必填</em> : null}

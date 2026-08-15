@@ -76,7 +76,7 @@ test('Published child stays a boundary while its OS-owned graph expands locally'
     'utf8'
   )
   const catalogList = await readRawJson(
-    `${os.url}/api/v1/workflow-node-templates?limit=100`
+    `${os.url}/api/v1/workflow-node-templates?page=1&page_size=100`
   )
   const workflowCatalogList = await readRawJson(
     `${os.url}/api/v1/workflow-node-templates?node_type=workflow&page_size=100`

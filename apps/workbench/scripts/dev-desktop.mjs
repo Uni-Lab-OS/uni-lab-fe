@@ -10,16 +10,16 @@
  * the bundle finishes. Electron main/preload still need a full desktop rebuild.
  */
 import { spawn } from 'node:child_process'
-import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { theiaBuildEnvironment } from './theia-build-environment.mjs'
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const workbenchDirectory = path.resolve(scriptDirectory, '..')
 const workspaceRoot = path.resolve(workbenchDirectory, '../..')
-const workbenchRequire = createRequire(path.join(workbenchDirectory, 'package.json'))
-const theiaCli = workbenchRequire.resolve('@theia/cli/bin/theia.js')
 const startScript = path.join(scriptDirectory, 'start-workbench.mjs')
+const theiaBuildScript = path.join(scriptDirectory, 'run-theia-build.mjs')
 const productionBuildFlag = '--production-build'
 const productionBuild = process.argv.includes(productionBuildFlag)
 const forwardedArguments = process.argv.slice(2)
@@ -42,27 +42,30 @@ console.log(
   '[UniLab Workbench] Electron main/preload changes still need `pnpm workbench:desktop` restart'
 )
 
-start('workbench-theia', pnpmExecutable, [
+const extensionWatcher = start('workbench-theia', pnpmExecutable, [
   '--filter',
   '@unilab/workbench-theia',
   'watch'
 ], {
   cwd: workspaceRoot,
-  shell: process.platform === 'win32'
-})
-
-const bundleWatcher = start('theia-bundle', process.execPath, [
-  theiaCli,
-  'build',
-  '--watch',
-  '--mode',
-  watchMode
-], {
-  cwd: workbenchDirectory,
+  shell: process.platform === 'win32',
   stdio: ['inherit', 'pipe', 'pipe']
 })
 
 try {
+  await waitForOutput(extensionWatcher, [
+    'Found 0 errors. Watching for file changes.'
+  ])
+  const bundleWatcher = start('theia-bundle', process.execPath, [
+    theiaBuildScript,
+    '--watch',
+    '--mode',
+    watchMode
+  ], {
+    cwd: workbenchDirectory,
+    env: theiaBuildEnvironment(),
+    stdio: ['inherit', 'pipe', 'pipe']
+  })
   await waitForOutput(bundleWatcher, [
     '[watch/browser] Finished with 0 errors',
     '[watch/node] Finished with 0 errors'

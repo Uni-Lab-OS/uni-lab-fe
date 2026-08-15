@@ -107,13 +107,13 @@ test('a device with zero actions remains selectable without crashing', async ({
   })
 
   await deviceList.getByRole('button', { name: /empty_device/ }).click()
-  const workspace = page.locator('.edge-device__workspace')
+  const workspace = page.locator('[data-device-management="workspace"]')
   await expect(workspace.getByRole('heading', { name: 'empty_device' }))
     .toBeVisible()
   await expect(workspace).toContainText(
     'Edge 已上报该设备，但没有可调试的动作节点。'
   )
-  await expect(workspace.locator('.edge-device__action-node')).toHaveCount(0)
+  await expect(workspace.locator('[data-device-management="action-node"]')).toHaveCount(0)
   await expect(workspace.getByRole('button', { name: '运行此动作' }))
     .toBeDisabled()
   await expect(workspace).toContainText('该设备没有可运行的动作')
@@ -147,6 +147,6 @@ test('a device with zero actions remains selectable without crashing', async ({
  */
 function isExpectedMissingFixtureSocketError(message: string): boolean {
   return message.includes(
-    "WebSocket connection to 'ws://127.0.0.1:18003/api/v1/ws/device_status'"
+    "WebSocket connection to 'ws://127.0.0.1:18003/api/v1/ws/device_status"
   ) && message.includes('ERR_CONNECTION_REFUSED')
 }

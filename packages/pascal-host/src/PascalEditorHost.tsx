@@ -222,6 +222,7 @@ export function PascalEditorHost({
       className={`pascal-editor-host${
         readOnly ? ' pascal-editor-host--read-only' : ''
       }`}
+      data-pascal-scene-ready={isPrepared && hasLoadedScene}
     >
       {toolbar}
       <div className={toolbar ? 'pascal-lab-editor' : 'h-full'}>

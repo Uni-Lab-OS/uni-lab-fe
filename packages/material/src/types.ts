@@ -100,6 +100,12 @@ export interface Material {
   updatedAt: string
 }
 
+/** Backend 冻结在物料位置上的 2.5D 外形稳定身份。 */
+export interface MaterialShapeIdentity {
+  bundle: string
+  id: string
+}
+
 export interface MaterialSite {
   id: SiteId
   ownerMaterialId: MaterialId
@@ -128,6 +134,8 @@ export interface MaterialAggregate {
   placement: MaterialPlacement
   sites: readonly MaterialSite[]
   revision: MaterialRevision
+  /** 精确关联 `/api/v1/material-shapes`；旧图缺失时由渲染器走分类兼容。 */
+  shapeIdentity?: MaterialShapeIdentity
 }
 
 export type MaterialScope =
@@ -352,8 +360,8 @@ export interface MaterialGraphPort {
     onMove: (event: MaterialMovedEvent) => void
   ): MaterialMoveSubscription
   /**
-   * 2.5D 外形声明由设备包提供、Bridge 下发。老后端没有这个端点，所以是可选的：
-   * 取不到就退回实心包围盒。
+   * 2.5D 外形声明由设备包定义、Backend 通过 `/api/v1/material-shapes` 提供。
+   * 旧服务可能没有该端点，所以接口可选；取不到时视图退回实心包围盒。
    */
   getShapeLibrary?(): Promise<
     import('./oblique/shapeSpec').MaterialShapeLibrary
