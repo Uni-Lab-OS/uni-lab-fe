@@ -28,6 +28,7 @@ export interface ManagedRuntimeInstallationApi {
   selectEnvironment: (
     path: string
   ) => Promise<ManagedRuntimeInstallationSnapshot>
+  chooseEnvironment: () => Promise<ManagedRuntimeInstallationSnapshot>
   onSnapshot: (
     listener: (snapshot: ManagedRuntimeInstallationSnapshot) => void
   ) => () => void

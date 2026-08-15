@@ -174,48 +174,54 @@ describe('Local runtime launch plan', () => {
   })
 
   /** 验证 Windows 使用对应 Conda 可执行文件与唯一大写 PATH。 */
-  it('uses Windows Conda executables for PLC-Sim and Edge', async () => {
-    const inheritedWindowsPath = 'C:\\Windows\\System32'
-    vi.stubEnv('PATH', '')
-    vi.stubEnv('Path', inheritedWindowsPath)
-    const fixture = await createLocalRuntimeTestFixture('packages', 'win32')
-    const plan = await resolveLocalRuntimeLaunchPlan(fixture.config, 'win32')
-    const simulatorPlan = await resolveLocalSimulatorLaunchPlan(
-      fixture.config,
-      'win32'
-    )
-
-    expect(fixture.python).toBe(join(fixture.config.environmentPath, 'python.exe'))
-    expect(fixture.unilab).toBe(
-      join(fixture.config.environmentPath, 'Scripts', 'unilab.exe')
-    )
-    expect(simulatorPlan.simulator.command).toBe(fixture.python)
-    expect(plan.edge.command).toBe(fixture.unilab)
-    expect(plan.edge.env['PYTHONPATH']?.split(';').slice(0, 2)).toEqual([
-      fixture.osRoot,
-      fixture.szlabRoot
-    ])
-    const activatedPath = [
-      fixture.config.environmentPath,
-      join(fixture.config.environmentPath, 'Library', 'mingw-w64', 'bin'),
-      join(fixture.config.environmentPath, 'Library', 'usr', 'bin'),
-      join(fixture.config.environmentPath, 'Library', 'bin'),
-      join(fixture.config.environmentPath, 'Scripts'),
-      join(fixture.config.environmentPath, 'bin')
-    ]
-    for (const spec of [simulatorPlan.simulator, plan.edge]) {
-      expect(spec.env['CONDA_PREFIX']).toBe(fixture.config.environmentPath)
-      expect(spec.env['CONDA_DEFAULT_ENV']).toBe(
-        basename(fixture.config.environmentPath)
+  it.runIf(process.platform === 'win32')(
+    'uses Windows Conda executables for PLC-Sim and Edge',
+    async () => {
+      const inheritedWindowsPath = 'C:\\Windows\\System32'
+      vi.stubEnv('PATH', '')
+      vi.stubEnv('Path', inheritedWindowsPath)
+      const fixture = await createLocalRuntimeTestFixture('packages', 'win32')
+      const plan = await resolveLocalRuntimeLaunchPlan(fixture.config, 'win32')
+      const simulatorPlan = await resolveLocalSimulatorLaunchPlan(
+        fixture.config,
+        'win32'
       )
-      expect(spec.env['CONDA_SHLVL']).toBe('1')
-      expect(spec.env['PATH']?.split(';').slice(0, activatedPath.length))
-        .toEqual(activatedPath)
-      expect(spec.env['PATH']?.split(';').at(-1)).toBe(inheritedWindowsPath)
-      expect(Object.keys(spec.env).filter((key) => key.toLowerCase() === 'path'))
-        .toEqual(['PATH'])
+
+      expect(fixture.python).toBe(
+        join(fixture.config.environmentPath, 'python.exe')
+      )
+      expect(fixture.unilab).toBe(
+        join(fixture.config.environmentPath, 'Scripts', 'unilab.exe')
+      )
+      expect(simulatorPlan.simulator.command).toBe(fixture.python)
+      expect(plan.edge.command).toBe(fixture.unilab)
+      expect(plan.edge.env['PYTHONPATH']?.split(';').slice(0, 2)).toEqual([
+        fixture.osRoot,
+        fixture.szlabRoot
+      ])
+      const activatedPath = [
+        fixture.config.environmentPath,
+        join(fixture.config.environmentPath, 'Library', 'mingw-w64', 'bin'),
+        join(fixture.config.environmentPath, 'Library', 'usr', 'bin'),
+        join(fixture.config.environmentPath, 'Library', 'bin'),
+        join(fixture.config.environmentPath, 'Scripts'),
+        join(fixture.config.environmentPath, 'bin')
+      ]
+      for (const spec of [simulatorPlan.simulator, plan.edge]) {
+        expect(spec.env['CONDA_PREFIX']).toBe(fixture.config.environmentPath)
+        expect(spec.env['CONDA_DEFAULT_ENV']).toBe(
+          basename(fixture.config.environmentPath)
+        )
+        expect(spec.env['CONDA_SHLVL']).toBe('1')
+        expect(spec.env['PATH']?.split(';').slice(0, activatedPath.length))
+          .toEqual(activatedPath)
+        expect(spec.env['PATH']?.split(';').at(-1)).toBe(inheritedWindowsPath)
+        expect(Object.keys(spec.env).filter(
+          (key) => key.toLowerCase() === 'path'
+        )).toEqual(['PATH'])
+      }
     }
-  })
+  )
 
   /** 验证 PLC-Sim 计划不依赖边缘执行（Edge）项目路径。 */
   it('resolves PLC-Sim without requiring Edge project paths', async () => {
