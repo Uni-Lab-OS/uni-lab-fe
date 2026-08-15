@@ -50,6 +50,7 @@ export const LabFloorplanSiteSchema = z.object({
     .optional(),
   shape: z.enum(['circle', 'rectangle']).optional(),
   positionMm: Vector3Schema,
+  rotationDegXYZ: Vector3Schema.default([0, 0, 0]),
   sizeMm: Vector3Schema,
   visible: z.boolean().default(true),
   occupied: z.boolean().default(false),
