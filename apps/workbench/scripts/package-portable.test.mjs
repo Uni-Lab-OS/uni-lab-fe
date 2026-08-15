@@ -10,7 +10,7 @@ import {
 } from 'node:fs/promises'
 import { describe, it } from 'node:test'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import {
   assertSafeChildDirectory,
@@ -20,7 +20,8 @@ import {
   PORTABLE_NODE_VERSION,
   pruneDesktopDeployment,
   resolveEsbuildBinary,
-  resolvePortableCompressionLevel
+  resolvePortableCompressionLevel,
+  validatePackagedWorkbenchResources
 } from './package-portable.mjs'
 import {
   MAX_PRODUCTION_LIB_BYTES,
@@ -40,7 +41,7 @@ describe('portable Workbench packaging contract', () => {
       assert.match(descriptor.sha256, /^[a-f0-9]{64}$/u)
       assert.equal(descriptor.hostArchitecture, 'x64')
     }
-    assert.equal(MAX_PORTABLE_INSTALLER_BYTES, 850 * 1024 * 1024)
+    assert.equal(MAX_PORTABLE_INSTALLER_BYTES, 800 * 1024 * 1024)
   })
 
   /** 验证正式包默认使用 normal，并允许 CI 在同一提交上显式测量 maximum。 */
@@ -355,6 +356,43 @@ describe('portable Workbench packaging contract', () => {
     }
   })
 
+  /** 验证成品复用宿主内联的 Vue 编译器，不要求部署第二份编译器。 */
+  it('accepts the bundled Device Card Host without a duplicate Vue compiler', async () => {
+    const resources = await mkdtemp(join(tmpdir(), 'unilab-resources-'))
+    const requiredFiles = [
+      'app.asar',
+      'workbench/lib/backend/main.js',
+      'workbench/lib/frontend/index.html',
+      'node-runtime/bin/node',
+      'desktop/out/main/index.js',
+      'desktop/out/preload/index.js',
+      'desktop/node_modules/@unilab/device-card-host/dist/index.cjs',
+      `device-card-builder/${process.platform === 'win32' ? 'esbuild.exe' : 'esbuild'}`,
+      'device-card-agent/cli.mjs',
+      'workspace-skills/manifest.json',
+      'workspace-skills/add-device/SKILL.md',
+      'workspace-skills/add-resource/SKILL.md',
+      'workspace-skills/add-workstation/SKILL.md',
+      'workspace-skills/create-device-package/SKILL.md',
+      'workspace-skills/create-device-skill/SKILL.md',
+      'workspace-skills/unilab-domain-repo-builder/SKILL.md'
+    ]
+    try {
+      await mkdir(join(resources, 'workbench', 'plugins'), { recursive: true })
+      for (const relativePath of requiredFiles) {
+        const path = join(resources, relativePath)
+        await mkdir(dirname(path), { recursive: true })
+        await writeFile(path, 'fixture')
+      }
+
+      assert.doesNotThrow(() => {
+        validatePackagedWorkbenchResources(resources, 'node')
+      })
+    } finally {
+      await rm(resources, { recursive: true, force: true })
+    }
+  })
+
   /** 验证各平台安装包复用收敛后的生产构建与耗时可控的默认压缩。 */
   it('builds every installer from a bounded production Workbench bundle', async () => {
     const packageManifest = JSON.parse(await readFile(
@@ -620,6 +658,14 @@ describe('portable Workbench packaging contract', () => {
     assert.ok(pluginCacheIndex >= 0)
     assert.ok(pluginCacheIndex < selectVersionIndex)
     assert.ok(selectVersionIndex < buildInstallerIndex)
+    const fullInstallerSection = workflow.slice(
+      buildInstallerIndex,
+      workflow.indexOf('name: Prepare identical unpacked input for Windows A/B')
+    )
+    assert.match(
+      fullInstallerSection,
+      /UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE: exe/u
+    )
     assert.match(workflow, /prepare-package-version\.mjs/u)
     assert.match(workflow, /UNILAB_WORKBENCH_PACKAGE_VERSION=/u)
     assert.match(workflow, /readWorkbenchUpdateMetadataVersion/u)
@@ -646,6 +692,7 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /UNILAB_WORKBENCH_PREPACKAGED_APP:/u)
     assert.match(workflow, /Name = 'baseline'; Profile = 'none'/u)
     assert.match(workflow, /Name = 'precompressed-exe'; Profile = 'exe'/u)
+    assert.match(workflow, /\$sizeReport\.precompressedProfile -ne 'exe'/u)
     assert.match(workflow, /precompressed-ab-metrics\.json/u)
     assert.match(workflow, /New-SelfSignedCertificate/u)
     assert.match(workflow, /-Type CodeSigningCert/u)
@@ -662,8 +709,14 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /Filter 'aioncore\.exe'/u)
     assert.match(workflow, /Test-Path \(Join-Path \$_\.Directory\.FullName 'managed-resources'\)/u)
     assert.match(workflow, /bundled-aioncore\\windows-x64/u)
-    assert.match(workflow, /release-windows\/\*-setup\.exe/u)
-    assert.match(workflow, /release-windows\/\*-setup\.exe\.blockmap/u)
+    assert.match(
+      workflow,
+      /Get-ChildItem apps\/workbench\/release-windows -File -Filter '\*-setup\.exe'/u
+    )
+    assert.match(
+      workflow,
+      /Get-ChildItem apps\/workbench\/release-windows -File -Filter '\*-setup\.exe\.blockmap'/u
+    )
     assert.match(workflow, /release-windows\/latest\.yml/u)
     assert.match(workflow, /release-windows\/package-size-report\.json/u)
     assert.match(workflow, /WINDOWS_RELEASE_TAG: workbench-windows-stable/u)
@@ -695,7 +748,27 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /\$expectedNames -notcontains \$assetName/u)
     assert.match(workflow, /Rolling release asset verification failed/u)
     assert.match(workflow, /actions\/upload-artifact@v6/u)
-    assert.match(workflow, /compression-level: 0/u)
+    const diagnosticsUploadSection = workflow.slice(
+      workflow.indexOf('name: Upload Windows packaging diagnostics'),
+      workflow.indexOf(
+        'name: Upload Windows release bundle when no rolling release is published'
+      )
+    )
+    assert.match(diagnosticsUploadSection, /package-size-report\.json/u)
+    assert.doesNotMatch(diagnosticsUploadSection, /\*-setup\.exe/u)
+    assert.doesNotMatch(diagnosticsUploadSection, /latest\.yml/u)
+    assert.match(diagnosticsUploadSection, /compression-level: 6/u)
+    const fallbackBundleSection = workflow.slice(
+      workflow.indexOf(
+        'name: Upload Windows release bundle when no rolling release is published'
+      ),
+      workflow.indexOf('name: Upload Windows precompressed-resource A/B')
+    )
+    assert.match(fallbackBundleSection, /github\.event_name != 'push'/u)
+    assert.match(fallbackBundleSection, /refs\/heads\/deploy-windows/u)
+    assert.match(fallbackBundleSection, /\*-setup\.exe/u)
+    assert.match(fallbackBundleSection, /latest\.yml/u)
+    assert.match(fallbackBundleSection, /compression-level: 0/u)
     const abUploadSection = workflow.slice(
       workflow.indexOf('name: Upload Windows precompressed-resource A/B'),
       workflow.indexOf('name: Publish rolling Windows update release')

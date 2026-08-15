@@ -53,6 +53,17 @@ describe('desktop afterPack optimization', () => {
       appOutDir: outputDirectory
     })).resolves.toBeUndefined()
   })
+
+  it('rejects incomplete copied resources before native media is built', async () => {
+    const outputDirectory = createOutputDirectory()
+    mkdirSync(join(outputDirectory, 'resources'), { recursive: true })
+    mkdirSync(join(outputDirectory, 'resources', 'app.asar'))
+
+    await expect(afterPack({
+      electronPlatformName: 'win32',
+      appOutDir: outputDirectory
+    })).rejects.toThrow(/Workbench 安装包缺少运行资源/u)
+  })
 })
 
 function createOutputDirectory() {

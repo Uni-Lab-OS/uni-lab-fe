@@ -24,6 +24,17 @@ const deviceCardHostConfig = JSON.parse(
     'utf8'
   )
 )
+const deviceCardHostBuild = readFileSync(
+  join(
+    desktopDirectory,
+    '..',
+    '..',
+    'packages',
+    'device-card-host',
+    'build.mjs'
+  ),
+  'utf8'
+)
 const viteConfig = readFileSync(
   join(desktopDirectory, 'electron.vite.config.ts'),
   'utf8'
@@ -78,9 +89,13 @@ for (const bundledDependency of [
 ]) {
   assert.match(viteConfig, new RegExp(bundledDependency, 'u'))
 }
-assert.match(
+assert.doesNotMatch(
   viteConfig,
-  /external:\s*\[\s*['"]@vue\/compiler-sfc['"]\s*\]/u
+  /['"]@vue\/compiler-sfc['"]/u
+)
+assert.match(
+  deviceCardHostBuild,
+  /alias:\s*\{[^}]*['"]@vue\/compiler-sfc['"]:\s*['"]@vue\/compiler-sfc\/dist\/compiler-sfc\.esm-browser\.js['"]/su
 )
 assert.equal(
   packageConfig.scripts?.['package:win'],

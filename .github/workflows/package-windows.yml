@@ -27,7 +27,7 @@ on:
 
 permissions:
   # The deploy branch publishes the verified updater bundle to the pre-created
-  # rolling GitHub Release after retaining a short-lived Actions artifact.
+  # rolling GitHub Release after uploading the diagnostic metadata artifact.
   contents: write
 
 concurrency:
@@ -421,7 +421,9 @@ jobs:
         if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         env:
           UNILAB_WORKBENCH_PACKAGE_MODE: full
-          UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE: none
+          # CI A/B on 3062aec: EXE precompression saved 20,665,383 bytes
+          # with a statistically neutral 106s -> 107s packaging delta.
+          UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE: exe
         run: |
           $packageStarted = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
           node apps/workbench/scripts/package-windows.mjs
@@ -538,8 +540,8 @@ jobs:
           if ($sizeReport.compression -ne $env:UNILAB_WORKBENCH_COMPRESSION) {
             throw "Package report compression mismatch: $($sizeReport.compression)"
           }
-          if ($sizeReport.precompressedProfile -ne 'none') {
-            throw "Production package unexpectedly uses precompressed profile: $($sizeReport.precompressedProfile)"
+          if ($sizeReport.precompressedProfile -ne 'exe') {
+            throw "Production package does not use the benchmark winner: $($sizeReport.precompressedProfile)"
           }
           @"
           ## Windows Workbench packaging benchmark
@@ -591,20 +593,33 @@ jobs:
             Remove-Item $env:UNILAB_CI_CERTIFICATE_PATH -Force
           }
 
-      - name: Upload Windows update bundle
+      # The verified binaries are published immediately below to the rolling
+      # release. Keep Actions artifacts diagnostic-only to avoid retaining a
+      # second ~800 MB copy of every release.
+      - name: Upload Windows packaging diagnostics
         if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         uses: actions/upload-artifact@v6
         with:
-          name: UniLab-Workbench-windows-x64-full-${{ env.UNILAB_WORKBENCH_COMPRESSION }}-${{ github.sha }}
+          name: UniLab-Workbench-windows-x64-diagnostics-${{ github.sha }}
+          path: apps/workbench/release-windows/package-size-report.json
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
+
+      # Manual full builds and non-deploy branches do not publish the rolling
+      # release, so retain their installer for inspection. A deploy push skips
+      # this duplicate copy because the verified files are published below.
+      - name: Upload Windows release bundle when no rolling release is published
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && (github.event_name != 'push' || github.ref != 'refs/heads/deploy-windows')
+        uses: actions/upload-artifact@v6
+        with:
+          name: UniLab-Workbench-windows-x64-${{ github.sha }}
           path: |
             apps/workbench/release-windows/*-setup.exe
             apps/workbench/release-windows/*-setup.exe.blockmap
             apps/workbench/release-windows/latest.yml
-            apps/workbench/release-windows/package-size-report.json
           if-no-files-found: error
           retention-days: 3
-          # The NSIS EXE is already solid-compressed; recompressing it only
-          # consumes runner CPU and produces no meaningful size reduction.
           compression-level: 0
 
       - name: Upload Windows precompressed-resource A/B
