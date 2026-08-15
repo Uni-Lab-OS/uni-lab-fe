@@ -51,7 +51,12 @@ describe('workflow source navigation', () => {
         diagnostics: [],
         template_catalog_fingerprint: HASH,
       },
-      applied_source: null
+      applied_source: null,
+      topology_authoring: {
+        authority: 'python_source',
+        graph_mode: 'read_write',
+        graph_to_python: 'supported'
+      }
     } satisfies WorkflowAuthoringAggregate
 
     expect(projectWorkflowSourceNavigation(
@@ -81,7 +86,12 @@ describe('workflow source navigation', () => {
         diagnostics: []
       },
       candidate: null,
-      applied_source: null
+      applied_source: null,
+      topology_authoring: {
+        authority: 'python_source',
+        graph_mode: 'read_write',
+        graph_to_python: 'supported'
+      }
     } satisfies WorkflowAuthoringAggregate
 
     expect(projectWorkflowSourceNavigation(
@@ -128,7 +138,12 @@ describe('workflow source navigation', () => {
         }]
       },
       candidate: null,
-      applied_source: null
+      applied_source: null,
+      topology_authoring: {
+        authority: 'python_source',
+        graph_mode: 'read_write',
+        graph_to_python: 'supported'
+      }
     } satisfies WorkflowAuthoringAggregate
     const projection = {
       workflowUuid: aggregate.workflow_uuid,

@@ -12,9 +12,17 @@ import * as workflowCanvasPolicy from './workflowCanvasPolicy'
 type EditMode = 'code' | 'canvas'
 
 interface D117PolicyModule {
-  workflowAuthoringSurfacePolicy: (mode: EditMode) => {
+  workflowAuthoringSurfacePolicy: (
+    mode: EditMode,
+    topologyAuthoring: {
+      authority: 'python_source' | 'managed_exact_graph'
+      graph_mode: 'read_write' | 'read_only'
+      graph_to_python: 'supported' | 'unsupported'
+    }
+  ) => {
     pythonEditorReadOnly: boolean
     canvasMutationEnabled: boolean
+    authoringMutationEnabled: boolean
   }
   workflowAuthoringModeSwitchDecision: (input: {
     currentMode: EditMode
@@ -104,20 +112,46 @@ describe('editable workflow canvas deletion policy', () => {
 
 describe('D-117 single edit authority policy', () => {
   it('makes exactly one representation writable per Workflow session', () => {
-    expect(d117.workflowAuthoringSurfacePolicy('code')).toEqual({
+    const readWrite = {
+      authority: 'python_source' as const,
+      graph_mode: 'read_write' as const,
+      graph_to_python: 'supported' as const
+    }
+    expect(d117.workflowAuthoringSurfacePolicy('code', readWrite)).toEqual({
       pythonEditorReadOnly: false,
-      canvasMutationEnabled: false
+      canvasMutationEnabled: false,
+      authoringMutationEnabled: true
     })
-    expect(d117.workflowAuthoringSurfacePolicy('canvas')).toEqual({
+    expect(d117.workflowAuthoringSurfacePolicy('canvas', readWrite)).toEqual({
       pythonEditorReadOnly: true,
-      canvasMutationEnabled: true
+      canvasMutationEnabled: true,
+      authoringMutationEnabled: true
     })
 
     // Two Workflow sessions choose independently; there is no workspace lock.
-    const workflowA = d117.workflowAuthoringSurfacePolicy('canvas')
-    const workflowB = d117.workflowAuthoringSurfacePolicy('code')
+    const workflowA = d117.workflowAuthoringSurfacePolicy('canvas', readWrite)
+    const workflowB = d117.workflowAuthoringSurfacePolicy('code', readWrite)
     expect(workflowA.canvasMutationEnabled).toBe(true)
     expect(workflowB.pythonEditorReadOnly).toBe(false)
+  })
+
+  it('keeps both authoring surfaces read-only for a managed exact graph', () => {
+    const managedExact = {
+      authority: 'managed_exact_graph' as const,
+      graph_mode: 'read_only' as const,
+      graph_to_python: 'unsupported' as const
+    }
+
+    expect(d117.workflowAuthoringSurfacePolicy('code', managedExact)).toEqual({
+      pythonEditorReadOnly: true,
+      canvasMutationEnabled: false,
+      authoringMutationEnabled: false
+    })
+    expect(d117.workflowAuthoringSurfacePolicy('canvas', managedExact)).toEqual({
+      pythonEditorReadOnly: true,
+      canvasMutationEnabled: false,
+      authoringMutationEnabled: false
+    })
   })
 
   it('requires confirmation only when leaving a dirty writable surface', () => {

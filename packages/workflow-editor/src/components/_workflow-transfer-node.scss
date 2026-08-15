@@ -124,6 +124,28 @@
   font: 500 9px/13px var(--unilab-font-sans);
 }
 
+.workflow :global(.wf-node__robot-transfer-safety) {
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0 4px;
+  color: var(--unilab-color-warning-text, var(--unilab-color-warning));
+  border: 1px solid color-mix(
+    in srgb,
+    var(--unilab-color-warning) 42%,
+    transparent
+  );
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-warning) 10%,
+    transparent
+  );
+  font: 650 8px/12px var(--unilab-font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .workflow :global(.wf-node__robot-transfer-toggle) {
   display: inline-flex;
   min-width: 0;

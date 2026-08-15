@@ -408,6 +408,11 @@ function aggregate(options: {
     applied_graph: appliedGraph,
     draft: null,
     applied_source: null,
+    topology_authoring: {
+      authority: 'python_source',
+      graph_mode: 'read_write',
+      graph_to_python: 'supported'
+    },
     candidate: {
       candidate_hash: 'candidate-8',
       draft_hash: 'draft-8',

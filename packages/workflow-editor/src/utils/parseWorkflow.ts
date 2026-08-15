@@ -12,6 +12,25 @@
 import type { MaterialShapeSpec } from '@unilab/material'
 import type { WorkflowNodeVisualKind } from './workflowNodeVisualKind'
 
+export interface WorkflowMaterialTransferEndpoint {
+  device?: string
+  mountResource?: string
+  site?: string
+}
+
+export interface WorkflowMaterialTransferBlocker {
+  code: string
+  message?: string
+}
+
+/** OS-managed material-transfer safety context projected for canvas display. */
+export interface WorkflowMaterialTransferSafety {
+  hardwareExecutable: boolean
+  blockers: WorkflowMaterialTransferBlocker[]
+  source?: WorkflowMaterialTransferEndpoint
+  target?: WorkflowMaterialTransferEndpoint
+}
+
 export interface WorkflowNode {
   id: string
   /** OS Authoring 图中的静态禁用；保存后 Planner 不为它创建 Job。 */
@@ -50,6 +69,7 @@ export interface WorkflowNode {
     resourceTemplateUuid: string
     shape?: MaterialShapeSpec
   }
+  materialTransferSafety?: WorkflowMaterialTransferSafety
 }
 
 export interface WorkflowHandlePort {

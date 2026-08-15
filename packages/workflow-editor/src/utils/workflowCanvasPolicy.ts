@@ -9,6 +9,7 @@
  * Human Review Status: [ ] Pending  [ ] Reviewed  [ ] Approved
  * ============================================================
  */
+import type { WorkflowTopologyAuthoring } from '@unilab/services'
 import type { EdgeChange, NodeChange } from 'reactflow'
 
 export type WorkflowEditMode = 'code' | 'canvas'
@@ -16,6 +17,7 @@ export type WorkflowEditMode = 'code' | 'canvas'
 export interface WorkflowAuthoringSurfacePolicy {
   pythonEditorReadOnly: boolean
   canvasMutationEnabled: boolean
+  authoringMutationEnabled: boolean
 }
 
 export const READ_ONLY_WORKFLOW_CANVAS = {
@@ -35,16 +37,26 @@ export const CANVAS_EDIT_WORKFLOW_CANVAS = {
 } as const
 
 export function workflowAuthoringSurfacePolicy(
-  mode: WorkflowEditMode
+  mode: WorkflowEditMode,
+  topologyAuthoring: WorkflowTopologyAuthoring | null
 ): WorkflowAuthoringSurfacePolicy {
+  if (topologyAuthoring?.graph_mode !== 'read_write') {
+    return {
+      pythonEditorReadOnly: true,
+      canvasMutationEnabled: false,
+      authoringMutationEnabled: false
+    }
+  }
   return mode === 'code'
     ? {
         pythonEditorReadOnly: false,
-        canvasMutationEnabled: false
+        canvasMutationEnabled: false,
+        authoringMutationEnabled: true
       }
     : {
         pythonEditorReadOnly: true,
-        canvasMutationEnabled: true
+        canvasMutationEnabled: true,
+        authoringMutationEnabled: true
       }
 }
 

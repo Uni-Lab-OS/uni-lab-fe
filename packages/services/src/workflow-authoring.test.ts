@@ -60,6 +60,11 @@ interface AuthoringAggregate {
     candidate_hash: string
   } | null
   applied_source: Record<string, unknown> | null
+  topology_authoring: {
+    authority: 'python_source' | 'managed_exact_graph'
+    graph_mode: 'read_write' | 'read_only'
+    graph_to_python: 'supported' | 'unsupported'
+  }
 }
 
 interface AuthoringChangedEvent {
@@ -108,7 +113,12 @@ const aggregate: AuthoringAggregate = {
     draft_hash: HASH_A
   },
   candidate: { candidate_hash: HASH_B },
-  applied_source: null
+  applied_source: null,
+  topology_authoring: {
+    authority: 'python_source',
+    graph_mode: 'read_write',
+    graph_to_python: 'supported'
+  }
 }
 
 afterEach(() => {
@@ -234,6 +244,52 @@ describe('persistent workflow authoring port', () => {
     await expect(
       runtime.getWorkflowAuthoring(WORKFLOW_UUID)
     ).rejects.toMatchObject({ code: 'INVALID_API_RESPONSE' })
+  })
+
+  it.each([
+    ['missing topology authoring capability', undefined],
+    ['unknown topology authority', {
+      authority: 'bioyond_day1',
+      graph_mode: 'read_only',
+      graph_to_python: 'unsupported'
+    }],
+    ['inconsistent managed exact capability', {
+      authority: 'managed_exact_graph',
+      graph_mode: 'read_write',
+      graph_to_python: 'unsupported'
+    }]
+  ])('rejects %s', async (_label, topologyAuthoring) => {
+    const data = { ...aggregate } as Record<string, unknown>
+    if (topologyAuthoring === undefined) {
+      delete data.topology_authoring
+    } else {
+      data.topology_authoring = topologyAuthoring
+    }
+    const runtime = persistentPort(vi.fn().mockResolvedValue({
+      code: 0,
+      data
+    }))
+
+    await expect(runtime.getWorkflowAuthoring(WORKFLOW_UUID))
+      .rejects.toMatchObject({ code: 'INVALID_API_RESPONSE' })
+  })
+
+  it('accepts the managed exact read-only topology capability', async () => {
+    const managedExact = {
+      ...aggregate,
+      topology_authoring: {
+        authority: 'managed_exact_graph' as const,
+        graph_mode: 'read_only' as const,
+        graph_to_python: 'unsupported' as const
+      }
+    }
+    const runtime = persistentPort(vi.fn().mockResolvedValue({
+      code: 0,
+      data: managedExact
+    }))
+
+    await expect(runtime.getWorkflowAuthoring(WORKFLOW_UUID))
+      .resolves.toEqual(managedExact)
   })
 
   /** 证明产品 Edge 的工作流身份拒绝不会在严格解码时丢失细分错误。 */

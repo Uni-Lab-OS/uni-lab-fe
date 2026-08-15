@@ -34,6 +34,14 @@ export default function WorkflowTransferNode({
   structuralTargetHandles,
   structuralSourceHandles
 }: WorkflowTransferNodeProps): React.JSX.Element {
+  const transferSafety = data.materialTransferSafety
+  const virtualOnly = transferSafety?.hardwareExecutable === false
+  const blockerCodes = transferSafety?.blockers
+    .map((blocker) => blocker.code)
+    .join(',')
+  const blockerTitle = transferSafety?.blockers
+    .map((blocker) => blocker.message || blocker.code)
+    .join('；') || '当前转运尚未标定，仅支持虚拟执行'
   return (
     <div
       className={`${styles.node} wf-node wf-node--robot-transfer ${
@@ -45,6 +53,9 @@ export default function WorkflowTransferNode({
       data-workflow-layout-strategy={data.layoutStrategy}
       data-workflow-layout-direction={data.materialLaneDirection}
       data-workflow-node-description={data.description}
+      data-workflow-material-transfer-hardware-executable={transferSafety
+        ? String(transferSafety.hardwareExecutable)
+        : undefined}
       aria-label={data.description
         ? `${data.name || data.id}：${data.description}`
         : data.name || data.id}
@@ -97,6 +108,23 @@ export default function WorkflowTransferNode({
         <small title={materialPort.description}>
           {materialPort.label} · 机械臂转运
         </small>
+        {virtualOnly && (
+          <span
+            className="wf-node__robot-transfer-safety"
+            data-workflow-material-transfer-safety="virtual-only"
+            data-workflow-material-transfer-blockers={blockerCodes}
+            data-workflow-material-transfer-source-site={
+              transferSafety.source?.site
+            }
+            data-workflow-material-transfer-target-site={
+              transferSafety.target?.site
+            }
+            title={blockerTitle}
+            aria-label={`仅虚拟执行，未标定：${blockerTitle}`}
+          >
+            仅虚拟/未标定
+          </span>
+        )}
         {data.groupKind === 'subworkflow' && (
           <button
             type="button"

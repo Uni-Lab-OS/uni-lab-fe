@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type {
   WorkflowAuthoringAggregate,
@@ -18,7 +18,8 @@ import {
   isAuthoringConflict,
   isAuthoringSnapshotDirty,
   isSameAuthoringVersion,
-  isCurrentAuthoringInvalidation
+  isCurrentAuthoringInvalidation,
+  resolveWorkflowCanvasModeProjection
 } from './persistentAuthoringSession'
 
 /**
@@ -67,6 +68,11 @@ WorkflowAuthoringAggregate => ({
     template_catalog_fingerprint: `sha256:${'c'.repeat(64)}`
   },
   applied_source: null,
+  topology_authoring: {
+    authority: 'python_source',
+    graph_mode: 'read_write',
+    graph_to_python: 'supported'
+  },
   ...overrides
 })
 
@@ -244,6 +250,60 @@ describe('persistent Authoring session coordination', () => {
       .toBe('草稿已保存，但存在错误，修复后才能应用')
     expect(authoringProjection(aggregate()).kind).toBe('candidate')
     expect(authoringProjection(aggregate({ candidate: null })).kind).toBe('applied')
+  })
+
+  it('enters a managed exact canvas from the applied graph without graph-to-Python conversion', async () => {
+    const appliedGraph = {
+      ...emptyGraph(),
+      nodes: [{ uuid: 'exact-node', type: 'action' }]
+    }
+    const generate = vi.fn()
+    const authority = aggregate({
+      applied_graph: appliedGraph,
+      topology_authoring: {
+        authority: 'managed_exact_graph',
+        graph_mode: 'read_only',
+        graph_to_python: 'unsupported'
+      }
+    })
+
+    await expect(resolveWorkflowCanvasModeProjection({
+      aggregate: authority,
+      generate
+    })).resolves.toEqual({
+      graph: appliedGraph,
+      pythonSource: 'result = old()\n',
+      readOnly: true
+    })
+    expect(generate).not.toHaveBeenCalled()
+  })
+
+  it('preserves graph-to-Python conversion for a normal editable workflow', async () => {
+    const generatedGraph = {
+      ...emptyGraph(),
+      nodes: [{ uuid: 'generated-node', type: 'action' }]
+    }
+    const authority = aggregate()
+    const generate = vi.fn().mockResolvedValue({
+      diagnostics: [],
+      graph: generatedGraph,
+      normalized_python_source: 'result = generated()\n',
+      source_map: [],
+      changeset: null,
+      compiler_version: 'test',
+      template_catalog_fingerprint: `sha256:${'c'.repeat(64)}`
+    })
+
+    await expect(resolveWorkflowCanvasModeProjection({
+      aggregate: authority,
+      generate
+    })).resolves.toEqual({
+      graph: generatedGraph,
+      pythonSource: 'result = generated()\n',
+      readOnly: false
+    })
+    expect(generate).toHaveBeenCalledOnce()
+    expect(generate).toHaveBeenCalledWith(authority.candidate?.graph)
   })
 
   it('renders the nested diagnostic source range returned by OS', () => {

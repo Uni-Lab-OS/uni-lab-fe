@@ -35,6 +35,11 @@ function authoringAggregate(
     draft: null,
     candidate: null,
     applied_source: null,
+    topology_authoring: {
+      authority: 'python_source',
+      graph_mode: 'read_write',
+      graph_to_python: 'supported'
+    },
     ...overrides
   }
 }

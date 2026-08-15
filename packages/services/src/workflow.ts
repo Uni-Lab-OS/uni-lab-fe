@@ -79,6 +79,7 @@ export type {
   WorkflowAuthoringSubscriptionOptions,
   WorkflowAuthoringTransformResult,
   WorkflowAuthoringValidateRequest,
+  WorkflowTopologyAuthoring,
   WorkflowDocument,
   WorkflowDefinitionChange,
   WorkflowDefinitionChangeAction,

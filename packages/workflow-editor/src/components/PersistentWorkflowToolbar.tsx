@@ -37,6 +37,7 @@ export function PersistentWorkflowToolbar({
     mode,
     onChooseWorkflow,
     pendingMode,
+    policy,
     remoteConflict,
     requestMode,
     runRuntime,
@@ -67,6 +68,7 @@ export function PersistentWorkflowToolbar({
     busy ||
     runningEntryBusy ||
     !aggregate ||
+    !policy.authoringMutationEnabled ||
     fullSourceDiff ||
     pendingMode ||
     remoteConflict ||
@@ -187,6 +189,8 @@ export function PersistentWorkflowToolbar({
             ? '正在处理工作流，请稍后保存'
             : !aggregate
               ? '工作流尚未加载完成'
+              : !policy.authoringMutationEnabled
+                ? '受管精确拓扑由 OS 管理，只能查看'
               : fullSourceDiff || pendingMode || remoteConflict || taskInputForm
                 ? '请先完成当前工作流确认操作'
                 : '当前工作流不能保存'}

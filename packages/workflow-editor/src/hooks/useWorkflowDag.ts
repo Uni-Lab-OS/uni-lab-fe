@@ -263,6 +263,9 @@ function buildFlowElements(
   const backboneNodeIds = new Set(
     layout.primarySample?.backboneNodeIds ?? []
   )
+  const reactionFormulaVisibleNodeIds = reactionFormulaPresentation
+    ? visibleReactionFormulaNodes(sourceNodes, backboneNodeIds)
+    : null
   // `materialRoleByLineage` 让每条物料边以常数时间读取物料流角色。
   const materialRoleByLineage = new Map(
     materialTraces.lineages.map((lineage) => [
@@ -271,7 +274,7 @@ function buildFlowElements(
     ])
   )
   const visibleLayoutNodes = reactionFormulaPresentation
-    ? layout.nodes.filter((node) => backboneNodeIds.has(node.id))
+    ? layout.nodes.filter((node) => reactionFormulaVisibleNodeIds?.has(node.id))
     : layout.nodes
   const flowNodes: Node<WorkflowNodeData>[] = visibleLayoutNodes.map((node) => {
     const laneLayout = layout.swimlanes?.nodeLayouts.get(node.id)
@@ -307,6 +310,7 @@ function buildFlowElements(
         descendantCount: node.descendantNodeIds?.length,
         handles: node.handles,
         materialSource: node.materialSource,
+        materialTransferSafety: node.materialTransferSafety,
         traceAccent: node.type === 'material_source'
           ? materialTraces.materialSourceAccents.get(node.id) ??
             materialTraceAccent(node.id)
@@ -346,7 +350,10 @@ function buildFlowElements(
   const flowEdges = layout.links.flatMap((link, index) => {
     if (
       reactionFormulaPresentation &&
-      (!backboneNodeIds.has(link.source) || !backboneNodeIds.has(link.target))
+      (
+        !reactionFormulaVisibleNodeIds?.has(link.source) ||
+        !reactionFormulaVisibleNodeIds.has(link.target)
+      )
     ) return []
     return [buildWorkflowFlowEdge({
       link,
@@ -361,6 +368,28 @@ function buildFlowElements(
   })
 
   return { flowNodes, flowEdges }
+}
+
+/**
+ * 保留反应式主干，以及用户已经展开且边界位于主干上的复合工作流内部节点。
+ * 未展开的后代不在当前来源投影中，无关辅助物料支线也不会被重新加入。
+ */
+function visibleReactionFormulaNodes(
+  sourceNodes: readonly WorkflowNode[],
+  backboneNodeIds: ReadonlySet<string>
+): Set<string> {
+  const sourceNodeIds = new Set(sourceNodes.map((node) => node.id))
+  const visibleNodeIds = new Set(backboneNodeIds)
+  for (const node of sourceNodes) {
+    if (
+      node.groupKind !== 'subworkflow' ||
+      !backboneNodeIds.has(node.id)
+    ) continue
+    for (const descendantId of node.descendantNodeIds ?? []) {
+      if (sourceNodeIds.has(descendantId)) visibleNodeIds.add(descendantId)
+    }
+  }
+  return visibleNodeIds
 }
 
 /**

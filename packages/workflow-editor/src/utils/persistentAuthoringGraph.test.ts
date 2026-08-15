@@ -23,6 +23,60 @@ const graph: WorkflowAuthoringGraph = {
 }
 
 describe('persistent Authoring canvas graph edits', () => {
+  it('projects explicit material-transfer safety without inferring it for ordinary nodes', () => {
+    const projected = projectPersistentAuthoringGraph({
+      ...graph,
+      nodes: [
+        {
+          ...graph.nodes[0],
+          meta_data: {
+            bioyond: {
+              material_transfer: {
+                source: {
+                  device: 'plate_hotel',
+                  mount_resource: 'hotel-carrier',
+                  site: 'interaction_site'
+                },
+                target: {
+                  device: 'labeler',
+                  mount_resource: 'labeler-carrier',
+                  site: 'operator_slot_01'
+                },
+                hardware_executable: false,
+                blockers: [
+                  {
+                    code: 'uncalibrated_robot_route',
+                    message: 'RobotB 路线尚未标定'
+                  }
+                ]
+              }
+            }
+          }
+        },
+        graph.nodes[1]!
+      ]
+    })
+
+    expect(projected.nodes[0]?.materialTransferSafety).toEqual({
+      hardwareExecutable: false,
+      blockers: [{
+        code: 'uncalibrated_robot_route',
+        message: 'RobotB 路线尚未标定'
+      }],
+      source: {
+        device: 'plate_hotel',
+        mountResource: 'hotel-carrier',
+        site: 'interaction_site'
+      },
+      target: {
+        device: 'labeler',
+        mountResource: 'labeler-carrier',
+        site: 'operator_slot_01'
+      }
+    })
+    expect(projected.nodes[1]).not.toHaveProperty('materialTransferSafety')
+  })
+
   it('persists node disablement and projects a visible disabled marker', () => {
     const disabled = updatePersistentAuthoringNodeDisabled(graph, 'node-1', true)
     const projected = projectPersistentAuthoringGraph(disabled)

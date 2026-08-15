@@ -52,7 +52,8 @@ import {
   isAuthoringSnapshotDirty,
   isCurrentAuthoringInvalidation,
   isSameAuthoringVersion,
-  isTemplateCatalogConflict
+  isTemplateCatalogConflict,
+  resolveWorkflowCanvasModeProjection
 } from '../utils/persistentAuthoringSession'
 import {
   authoritativePython,
@@ -93,7 +94,10 @@ export function usePersistentWorkflowAuthoring({
     useState<WorkflowCodeProjection>('python')
   const [aggregate, setAggregate] =
     useState<WorkflowAuthoringAggregate | null>(null)
-  const policy = workflowAuthoringSurfacePolicy(mode)
+  const policy = workflowAuthoringSurfacePolicy(
+    mode,
+    aggregate?.topology_authoring ?? null
+  )
   const editor = useCodeMirror(
     '',
     'python',
@@ -205,6 +209,10 @@ export function usePersistentWorkflowAuthoring({
       const current = localState.current
       if (!current.aggregate) {
         setError('工作流编辑数据尚未就绪，无法导入文件')
+        return
+      }
+      if (current.aggregate.topology_authoring.graph_mode === 'read_only') {
+        setError('受管精确拓扑由 OS 管理，不能从编辑器导入或覆盖')
         return
       }
       if (current.codeDirty || current.canvasDirty) {
@@ -666,18 +674,22 @@ export function usePersistentWorkflowAuthoring({
     if (!aggregate) throw new Error('工作流编辑数据尚未就绪')
     setPendingPythonImport(null)
     if (nextMode === 'canvas') {
-      const sourceGraph = authoringProjection(aggregate).graph
-      const generated = await generateCanvasPython(sourceGraph)
+      const projection = await resolveWorkflowCanvasModeProjection({
+        aggregate,
+        generate: (sourceGraph) => generateCanvasPython(sourceGraph)
+      })
       setGraph(beautifyPersistentAuthoringGraph(
-        generated.graph || sourceGraph
+        projection.graph
       ))
-      editor.replaceContent(generated.normalized_python_source as string)
+      editor.replaceContent(projection.pythonSource)
       setCanvasDirty(false)
       setSelectedNodeUuid(null)
       setSelectedNodeName('')
       setSelectedNodeNameDirty(false)
       setMode('canvas')
-      setMessage('画布模式：Python 是 OS 生成的只读投影')
+      setMessage(projection.readOnly
+        ? '画布模式：受管精确拓扑由 OS 提供，仅供查看'
+        : '画布模式：Python 是 OS 生成的只读投影')
       return
     }
     setGraph(authoringProjection(aggregate).graph)
@@ -725,7 +737,7 @@ export function usePersistentWorkflowAuthoring({
    * @returns 不返回值；异步保存结果通过工作流编辑器状态呈现。
    */
   const saveDraft = (): void => {
-    if (!aggregate) return
+    if (!aggregate || !policy.authoringMutationEnabled) return
     if (remotePending.current) {
       void run(readRemoteConflict)
       return
@@ -947,6 +959,9 @@ export function usePersistentWorkflowAuthoring({
   const applyCandidateByHash = async (
     candidateHash: string
   ): Promise<WorkflowAuthoringApplyResponse> => {
+    if (!policy.authoringMutationEnabled) {
+      throw new Error('受管精确拓扑只能查看，不能从编辑器覆盖')
+    }
     try {
       const applied = await queue.run(
         () => runtime.applyWorkflowAuthoring(
@@ -1012,6 +1027,10 @@ export function usePersistentWorkflowAuthoring({
    * @returns 不返回值；异步应用结果通过工作流编辑器状态呈现。
    */
   const applyCandidate = (): void => {
+    if (!policy.authoringMutationEnabled) {
+      setError('受管精确拓扑只能查看，不能从编辑器覆盖')
+      return
+    }
     const candidate = aggregate?.candidate
     if (!candidate) {
       setError('当前没有可应用的服务器候选版本')
@@ -1106,6 +1125,9 @@ export function usePersistentWorkflowAuthoring({
        */
       saveDraft: async () => {
         if (!aggregate) throw new Error('工作流编辑数据尚未就绪')
+        if (!policy.authoringMutationEnabled) {
+          throw new Error('受管精确拓扑只能查看，不能从编辑器覆盖')
+        }
         if (mode === 'code') {
           try {
             const saved = await queue.run(
@@ -1164,6 +1186,9 @@ export function usePersistentWorkflowAuthoring({
        * @returns 保存后的权威聚合与恢复编辑模式。
        */
       saveReviewedSource: async (command) => {
+        if (!policy.authoringMutationEnabled) {
+          throw new Error('受管精确拓扑只能查看，不能从编辑器覆盖')
+        }
         try {
           const saved = await queue.run(
             () => runtime.saveWorkflowAuthoringDraft(

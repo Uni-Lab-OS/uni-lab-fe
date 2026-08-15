@@ -5,6 +5,8 @@ import type {
 
 import type {
   WorkflowLink,
+  WorkflowMaterialTransferEndpoint,
+  WorkflowMaterialTransferSafety,
   WorkflowNode,
   WorkflowStructure
 } from './parseWorkflow'
@@ -121,6 +123,7 @@ function projectPersistentAuthoringNode(
     ...projectNodeReadOnlyState(node, context.nodeByUuid),
     ...projectCompositeState(nodeUuid, context),
     ...projectMaterialSourceState(node, type, context.resourceTemplateByUuid),
+    ...projectMaterialTransferSafety(node),
     ...nodePosition(node.pose)
   }
 }
@@ -230,6 +233,61 @@ function projectMaterialSourceState(
       ...(resourceTemplate?.shape ? { shape: resourceTemplate.shape } : {})
     }
   }
+}
+
+/**
+ * Projects explicit OS-owned transfer safety metadata without inferring safety
+ * from action names, package ids, or visual presentation.
+ */
+function projectMaterialTransferSafety(
+  node: AuthoringNode
+): Pick<WorkflowNode, 'materialTransferSafety'> {
+  const metaData = isRecord(node.meta_data) ? node.meta_data : {}
+  const bioyond = isRecord(metaData.bioyond) ? metaData.bioyond : {}
+  const transfer = isRecord(bioyond.material_transfer)
+    ? bioyond.material_transfer
+    : null
+  if (!transfer || typeof transfer.hardware_executable !== 'boolean') return {}
+
+  const safety: WorkflowMaterialTransferSafety = {
+    hardwareExecutable: transfer.hardware_executable,
+    blockers: Array.isArray(transfer.blockers)
+      ? transfer.blockers.flatMap((value) => {
+          if (!isRecord(value) || !nullableString(value.code)) return []
+          const message = nullableString(value.message)
+          return [{
+            code: String(value.code),
+            ...(message ? { message } : {})
+          }]
+        })
+      : []
+  }
+  const source = materialTransferEndpoint(transfer.source)
+  const target = materialTransferEndpoint(transfer.target)
+  if (source) safety.source = source
+  if (target) safety.target = target
+  return { materialTransferSafety: safety }
+}
+
+function materialTransferEndpoint(
+  value: unknown
+): WorkflowMaterialTransferEndpoint | undefined {
+  if (!isRecord(value)) return undefined
+  const device = stringValue(value.device)
+  const mountResource = stringValue(value.mount_resource)
+  const site = stringValue(value.site)
+  if (device === undefined && mountResource === undefined && site === undefined) {
+    return undefined
+  }
+  return {
+    ...(device === undefined ? {} : { device }),
+    ...(mountResource === undefined ? {} : { mountResource }),
+    ...(site === undefined ? {} : { site })
+  }
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
 }
 
 function nodeIndex(graph: WorkflowAuthoringGraph): Map<string, AuthoringNode> {

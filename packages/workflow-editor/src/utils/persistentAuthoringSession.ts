@@ -1,7 +1,8 @@
 import type {
   WorkflowAuthoringAggregate,
   WorkflowAuthoringChangedEvent,
-  WorkflowAuthoringGraph
+  WorkflowAuthoringGraph,
+  WorkflowAuthoringTransformResult
 } from '@unilab/services'
 import { decodeWorkflowIoMetadata } from '@unilab/services'
 
@@ -165,9 +166,46 @@ export function draftSaveMessage(
 export function authoringProjection(
   aggregate: WorkflowAuthoringAggregate
 ): { kind: 'candidate' | 'applied'; graph: WorkflowAuthoringGraph } {
+  if (aggregate.topology_authoring.authority === 'managed_exact_graph') {
+    return { kind: 'applied', graph: aggregate.applied_graph }
+  }
   return aggregate.candidate
     ? { kind: 'candidate', graph: aggregate.candidate.graph }
     : { kind: 'applied', graph: aggregate.applied_graph }
+}
+
+/**
+ * 为画布模式解析一次权威图投影；不支持图转 Python 的受管精确拓扑绝不调用转换端口。
+ */
+export async function resolveWorkflowCanvasModeProjection(input: {
+  aggregate: WorkflowAuthoringAggregate
+  generate: (
+    graph: WorkflowAuthoringGraph
+  ) => Promise<WorkflowAuthoringTransformResult>
+}): Promise<{
+  graph: WorkflowAuthoringGraph
+  pythonSource: string
+  readOnly: boolean
+}> {
+  if (input.aggregate.topology_authoring.graph_to_python === 'unsupported') {
+    return {
+      graph: input.aggregate.applied_graph,
+      pythonSource: input.aggregate.draft?.python_source ||
+        input.aggregate.applied_source?.python_source ||
+        '',
+      readOnly: true
+    }
+  }
+  const projection = authoringProjection(input.aggregate)
+  const generated = await input.generate(projection.graph)
+  if (!generated.graph || !generated.normalized_python_source) {
+    throw new Error('OS 未返回完整的画布与 Python 数据')
+  }
+  return {
+    graph: generated.graph,
+    pythonSource: generated.normalized_python_source,
+    readOnly: false
+  }
 }
 
 export function isCurrentAuthoringInvalidation(

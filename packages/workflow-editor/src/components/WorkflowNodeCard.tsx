@@ -13,7 +13,10 @@ import { Handle, Position } from 'reactflow'
 import type { NodeProps } from 'reactflow'
 import type { CSSProperties } from 'react'
 import type { MaterialShapeSpec } from '@unilab/material'
-import type { WorkflowHandlePort } from '../utils/parseWorkflow'
+import type {
+  WorkflowHandlePort,
+  WorkflowMaterialTransferSafety
+} from '../utils/parseWorkflow'
 import type {
   WorkflowDagLayoutStrategy,
   WorkflowMaterialSwimlaneDirection
@@ -72,6 +75,7 @@ export interface WorkflowNodeData {
     resourceTemplateUuid: string
     shape?: MaterialShapeSpec
   }
+  materialTransferSafety?: WorkflowMaterialTransferSafety
   onSetStart?: (nodeId: string) => void
   onToggleBreakpoint?: (nodeId: string) => void
   onToggleDisabled?: (nodeId: string) => void

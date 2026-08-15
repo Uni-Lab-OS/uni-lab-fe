@@ -207,6 +207,18 @@ export interface WorkflowAppliedSource {
   update_time: string
 }
 
+export type WorkflowTopologyAuthoring =
+  | {
+      authority: 'python_source'
+      graph_mode: 'read_write'
+      graph_to_python: 'supported'
+    }
+  | {
+      authority: 'managed_exact_graph'
+      graph_mode: 'read_only'
+      graph_to_python: 'unsupported'
+    }
+
 export interface WorkflowAuthoringAggregate {
   workflow_uuid: string
   workflow_revision: number
@@ -215,6 +227,7 @@ export interface WorkflowAuthoringAggregate {
   draft: WorkflowAuthoringDraft | null
   candidate: WorkflowPersistentAuthoringCandidate | null
   applied_source: WorkflowAppliedSource | null
+  topology_authoring: WorkflowTopologyAuthoring
 }
 
 export interface WorkflowAuthoringDraftWriteRequest {

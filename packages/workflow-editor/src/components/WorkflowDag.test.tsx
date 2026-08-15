@@ -26,6 +26,7 @@ vi.mock('reactflow', () => ({
     fitViewOptions?: { maxZoom?: number }
   }>) => (
     <div
+      data-react-flow-root="true"
       data-delete-keys={JSON.stringify(deleteKeyCode)}
       data-node-deletable={String(nodes[0]?.deletable)}
       data-node-selection={nodes.map((node) => String(node.selected)).join(',')}
@@ -39,7 +40,9 @@ vi.mock('reactflow', () => ({
   Background: () => null,
   Controls: () => null,
   MiniMap: () => null,
-  Panel: ({ children }: PropsWithChildren) => <div>{children}</div>
+  Panel: ({ children }: PropsWithChildren) => (
+    <div data-react-flow-panel="true">{children}</div>
+  )
 }))
 
 vi.mock('../hooks/useWorkflowDag', () => ({
@@ -99,6 +102,45 @@ describe('WorkflowDag disabled beautify explanation', () => {
     )
     expect(stylesheet).toMatch(
       /workflowDisabledButtonTooltip[\s\S]*overflow-wrap:\s*anywhere/
+    )
+  })
+})
+
+describe('WorkflowDag reserved canvas toolbar', () => {
+  /**
+   * 画布工具栏必须占据 DAG 自己的布局行，不能作为 ReactFlow overlay 遮住节点。
+   * 只读画布仍需保留适应视图、物料筛选与布局控件。
+   */
+  it('renders the controls before the ReactFlow pane in a reserved grid row', () => {
+    const markup = renderToStaticMarkup(
+      <WorkflowDag
+        nodes={[workflowNode]}
+        links={[]}
+        canBeautify={false}
+        onNodeSelect={vi.fn()}
+      />
+    )
+    const toolbarIndex = markup.indexOf(
+      'class="workflow-runtime__toolbar-row"'
+    )
+    const reactFlowIndex = markup.indexOf('data-react-flow-root="true"')
+
+    expect(toolbarIndex).toBeGreaterThan(-1)
+    expect(reactFlowIndex).toBeGreaterThan(toolbarIndex)
+    expect(markup).not.toContain('data-react-flow-panel="true"')
+    expect(markup).toContain('aria-label="画布视图与布局工具"')
+    expect(markup).toContain('aria-label="适应完整工作流视图"')
+    expect(markup).toContain('aria-label="布局策略"')
+
+    const stylesheet = readFileSync(
+      new URL('./_workflow-foundations.scss', import.meta.url),
+      'utf8'
+    )
+    expect(stylesheet).toMatch(
+      /\.dag\s*\{[\s\S]*display:\s*grid[\s\S]*grid-template-rows:\s*auto minmax\(0,\s*1fr\)/
+    )
+    expect(stylesheet).toMatch(
+      /workflow-runtime__toolbar-row[\s\S]*position:\s*relative/
     )
   })
 })

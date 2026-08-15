@@ -91,11 +91,31 @@ export function decodeWorkflowAuthoringAggregate(
   try {
     const aggregate = authoringRecord(value)
     decodeWorkflowAuthoringGraph(aggregate.applied_graph)
+    decodeWorkflowTopologyAuthoring(aggregate.topology_authoring)
     return aggregate as unknown as WorkflowAuthoringAggregate
   } catch (error) {
     if (error instanceof ServiceError) throw error
     throw invalidAuthoringResponse()
   }
+}
+
+/** 校验工作流拓扑的创作权威与可写能力必须形成一个完整、已知的组合。 */
+function decodeWorkflowTopologyAuthoring(value: unknown): void {
+  const capability = authoringRecord(value)
+  requireExactAuthoringKeys(capability, [
+    'authority',
+    'graph_mode',
+    'graph_to_python'
+  ])
+  const pythonSource =
+    capability.authority === 'python_source' &&
+    capability.graph_mode === 'read_write' &&
+    capability.graph_to_python === 'supported'
+  const managedExactGraph =
+    capability.authority === 'managed_exact_graph' &&
+    capability.graph_mode === 'read_only' &&
+    capability.graph_to_python === 'unsupported'
+  if (!pythonSource && !managedExactGraph) throw invalidAuthoringResponse()
 }
 
 /** 校验创作转换结果，防止前端接纳不完整的候选图。 */

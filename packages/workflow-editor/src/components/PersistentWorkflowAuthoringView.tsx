@@ -36,6 +36,7 @@ export function PersistentWorkflowAuthoringView({
   const {
     actionCatalog,
     actionCatalogError,
+    aggregate,
     addMaterialSourceNode,
     addPublishedWorkflowNode,
     addTypedActionNode,
@@ -180,6 +181,9 @@ export function PersistentWorkflowAuthoringView({
         ? 'available'
         : 'unavailable'}
       data-workflow-ide-bridge={ideBridgeConnected ? 'connected' : 'missing'}
+      data-topology-authoring={
+        aggregate?.topology_authoring.authority ?? 'loading'
+      }
     >
       <PersistentWorkflowToolbar model={model} />
 
@@ -273,10 +277,14 @@ export function PersistentWorkflowAuthoringView({
                 </WorkflowButton>
               </div>
               <span title={codeProjection === 'python'
-                ? 'Python 草稿可编辑'
+                ? policy.authoringMutationEnabled
+                  ? 'Python 草稿可编辑'
+                  : '受管精确拓扑的 Python 仅供查看'
                 : 'JSON 是 OS 候选图的只读投影'}>
                 {codeProjection === 'python'
-                  ? 'Python 草稿 · 可编辑'
+                  ? policy.authoringMutationEnabled
+                    ? 'Python 草稿 · 可编辑'
+                    : '受管精确拓扑 · 只读'
                   : 'OS 候选图 · 只读'}
               </span>
             </div>
@@ -304,7 +312,9 @@ export function PersistentWorkflowAuthoringView({
             </div>
           </div>
           <p className="persistent-authoring__authority-note">
-            {mode === 'canvas'
+            {!policy.authoringMutationEnabled
+              ? '受管精确拓扑由 OS 提供；代码与画布仅供查看'
+              : mode === 'canvas'
               ? 'Python 是 OS 生成的只读投影'
               : codeProjection === 'json'
                 ? 'JSON 来自 OS 候选图，仅供查看；切换不会覆盖 Python 草稿'
@@ -326,7 +336,9 @@ export function PersistentWorkflowAuthoringView({
             <div className="persistent-authoring__stage-context">
               <span
                 className="persistent-authoring__projection-status"
-                title={projectionKind === 'candidate'
+                title={!policy.authoringMutationEnabled
+                  ? '当前画布直接展示 OS 已应用的受管精确拓扑，编辑器不会生成 Python 或覆盖拓扑'
+                  : projectionKind === 'candidate'
                   ? mode === 'code'
                     ? '当前画布是服务器候选版本的只读预览'
                     : '画布编辑区基于候选版本；保存时由 OS 生成完整 Python'
@@ -334,7 +346,9 @@ export function PersistentWorkflowAuthoringView({
                     ? '当前显示已应用版本；暂无待应用修改'
                     : '画布编辑区基于已应用版本；暂无待应用修改'}
               >
-                {projectionKind === 'candidate'
+                {!policy.authoringMutationEnabled
+                  ? '受管精确拓扑 · 只读'
+                  : projectionKind === 'candidate'
                   ? mode === 'code'
                     ? '候选版本 · 只读'
                     : '候选版本 · 待保存'
@@ -361,6 +375,8 @@ export function PersistentWorkflowAuthoringView({
                   disabledReason="工作流图尚未加载完成"
                   title={mode === 'code'
                     ? '当前为只读预览；切换到画布模式后可配置'
+                    : !policy.authoringMutationEnabled
+                      ? '受管精确拓扑仅允许查看输入与输出'
                     : '配置整个工作流的输入、输出与节点参数连接'}
                   onClick={() => setWorkflowIoOpen(true)}
                 >
@@ -385,7 +401,8 @@ export function PersistentWorkflowAuthoringView({
           ].filter(Boolean).join(' ')}>
             {graph ? (
               <>
-                {mode === 'canvas' && nodePaletteOpen && !compactCanvas && (
+                {mode === 'canvas' && policy.authoringMutationEnabled &&
+                  nodePaletteOpen && !compactCanvas && (
                   <WorkflowNodePalette
                     catalog={actionCatalog}
                     catalogError={actionCatalogError}
@@ -551,7 +568,9 @@ export function PersistentWorkflowAuthoringView({
                             className="workflow-runtime__primary"
                             onClick={() => setActionParametersOpen(true)}
                           >
-                            配置节点参数
+                            {policy.authoringMutationEnabled
+                              ? '配置节点参数'
+                              : '查看节点参数'}
                           </button>
                         </section>
                       )}
@@ -562,7 +581,9 @@ export function PersistentWorkflowAuthoringView({
                         </p>
                       )}
                     <p id="persistent-node-name-help">
-                      名称修改属于画布缓冲，接受完整 Python 差异后才会持久化。
+                      {policy.authoringMutationEnabled
+                        ? '名称修改属于画布缓冲，接受完整 Python 差异后才会持久化。'
+                        : '受管精确拓扑由 OS 提供，节点属性仅供查看。'}
                     </p>
                   </aside>
                 )}
