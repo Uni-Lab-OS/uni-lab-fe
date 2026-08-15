@@ -18,7 +18,7 @@ const AGENT_ENTRY: DomainEntryDefinition<'agent'> = {
   label: 'Agent',
   caption: 'Agent · 当前工作区会话',
   description: '打开当前工作区的 Coding Agent 会话，并保持内容面板位于右侧。',
-  iconClass: 'codicon codicon-sparkle',
+  iconClass: 'codicon codicon-hubot',
   eyebrow: 'AGENT'
 }
 
@@ -69,8 +69,12 @@ export class UniLabAgentNavigatorWidget extends ReactWidget {
       this.shell.isExpanded('right') &&
       tabBar.currentTitle === agent.title
     ) {
+      document.body.classList.remove('unilab-agent-panel-visible')
       await this.shell.collapsePanel('right')
     } else {
+      // 先恢复右侧容器的布局，否则 display:none 会让 Theia
+      // 无法完成 TabBar 激活，面板会保持“已打开但不可见”。
+      document.body.classList.add('unilab-agent-panel-visible')
       if (!tabBar) await this.shell.addWidget(agent, { area: 'right' })
       this.shell.expandPanel('right')
       await this.shell.activateWidget(UniLabAgentWidget.ID)

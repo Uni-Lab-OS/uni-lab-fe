@@ -92,7 +92,7 @@ export class WorkflowDomainEntryContribution
   constructor() {
     super({
       widgetId: WorkflowDomainEntryWidget.ID,
-      widgetName: '工作流',
+      widgetName: '工作',
       defaultWidgetOptions: { area: 'left', rank: 77 },
       toggleCommandId: OpenUniLabWorkflowView.id
     })
@@ -118,7 +118,7 @@ export class DeviceDomainEntryContribution
   constructor() {
     super({
       widgetId: DeviceDomainEntryWidget.ID,
-      widgetName: '仪器设备',
+      widgetName: '设备',
       defaultWidgetOptions: { area: 'left', rank: 71 },
       toggleCommandId: OpenUniLabDeviceView.id
     })
@@ -261,5 +261,9 @@ implements FrontendApplicationContribution {
       activityBar?.insertTab(index, widget.title)
     }
     await app.shell.collapsePanel('left')
+    await app.shell.collapsePanel('right')
+    globalThis.setTimeout(() => {
+      void app.shell.collapsePanel('right')
+    }, 100)
   }
 }

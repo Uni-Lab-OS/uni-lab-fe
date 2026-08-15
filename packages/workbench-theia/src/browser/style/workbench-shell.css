@@ -1,6 +1,8 @@
 .unilab-workbench {
   position: relative;
   display: flex;
+  container-name: unilab-workbench;
+  container-type: inline-size;
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -195,5 +197,62 @@
   .unilab-workbench__bar > .unilab-workbench__controls nav button {
     min-height: 40px;
     flex: 1 1 auto;
+  }
+}
+
+/* 左侧文件栏或右侧 Agent 会压缩主工作台；按组件自身宽度重排标题栏。 */
+@container unilab-workbench (max-width: 900px) {
+  .unilab-workbench__bar {
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 6px 12px;
+  }
+
+  .unilab-workbench__bar > .unilab-workbench__identity {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .unilab-workbench__bar > .unilab-workbench__controls {
+    width: 100%;
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+
+  .unilab-workbench__bar > .unilab-workbench__controls nav,
+  .unilab-workbench__bar > .unilab-workbench__controls nav button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
+
+@container unilab-workbench (max-width: 560px) {
+  .unilab-workbench__bar > .unilab-workbench__identity {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .unilab-workbench__identity > strong {
+    grid-row: auto;
+  }
+
+  .unilab-workbench__identity > span:not(.unilab-workbench__view-mode) {
+    display: none;
+  }
+
+  .unilab-workbench__bar > .unilab-workbench__controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .unilab-workbench-connection {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .unilab-workbench__bar > .unilab-workbench__controls nav {
+    width: 100%;
+    overflow-x: auto;
+    justify-content: flex-start;
+    scrollbar-width: thin;
   }
 }

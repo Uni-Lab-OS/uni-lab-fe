@@ -214,14 +214,65 @@ describe('WorkbenchSessionGate', () => {
             logPath: '/workspace/.unilabos/logs/plc-sim.log'
           }
         }}
+        launchMode="backend"
         onRetry={vi.fn()}
         onStop={vi.fn()}
         renderEnvironmentManager={() => null}
       />
     )
 
-    expect(markup).toContain('正在启动 Backend 模式')
-    expect(markup).toContain('正在连接 Backend + Scheduler，并启动 Edge Runtime…')
+    expect(markup).toContain('正在启动 Workspace')
+    expect(markup).toContain('正在初始化工作区并连接 Backend…')
     expect(markup).toContain('取消启动')
+  })
+
+  it('uses the selected launch target instead of stale domain configuration', () => {
+    const markup = renderToStaticMarkup(
+      <WorkbenchSessionGate
+        snapshot={{
+          phase: 'starting',
+          message: '正在启动 Workspace Backend...',
+          configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+          configuredExternalDevicesOnly: true,
+          configuredRuntimeMode: 'normal',
+          configuredDomainMode: 'backend',
+          configuredBackendUrl: 'http://127.0.0.1:8080',
+          agent: null,
+          identity: null,
+          diagnostic: null,
+          edgeRuntime: {
+            phase: 'idle',
+            message: 'Edge Runtime 尚未启动',
+            pid: null,
+            generation: null,
+            graphPath: 'deployment/graphs/szlab-local-debug.json',
+            mode: 'normal',
+            logPath: '',
+            diagnostic: null
+          },
+          plcSimulator: {
+            phase: 'idle',
+            message: 'PLC-Sim 未启动',
+            diagnostic: null,
+            projectPath: '/workspace/PLC-Sim',
+            variableTablePath: '/workspace/devices/plc/table.csv',
+            variableTableCandidates: [],
+            handshakeProfile: 'szlab',
+            guiUrl: 'http://127.0.0.1:8080',
+            opcUaUrl: 'opc.tcp://127.0.0.1:4840',
+            pid: null,
+            logPath: '/workspace/.unilabos/logs/plc-sim.log'
+          }
+        }}
+        launchMode="local"
+        onRetry={vi.fn()}
+        onStop={vi.fn()}
+        renderEnvironmentManager={() => null}
+      />
+    )
+
+    expect(markup).toContain('正在启动 Unilab 调试工作台')
+    expect(markup).toContain('正在启动 Workspace Backend...')
+    expect(markup).not.toContain('正在启动 Backend 模式')
   })
 })

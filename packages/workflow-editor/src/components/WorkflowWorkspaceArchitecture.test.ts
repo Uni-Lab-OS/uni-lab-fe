@@ -44,4 +44,32 @@ describe('Workflow workspace authority', () => {
     expect(componentSource('workflow.module.scss'))
       .toContain("@use './workflow-readonly-controls';")
   })
+
+  /** 窄分栏下运行操作与同步状态必须分行，不能覆盖工作流摘要。 */
+  it('wraps the persistent toolbar in a narrow workspace', () => {
+    const stylesheet = componentSource('workflow-persistent/_section-01.scss')
+    expect(stylesheet).toMatch(
+      /@container workflow \(max-width: 720px\)[\s\S]*?\.persistent-authoring__toolbar\)[^{]*\{[^}]*flex-wrap:\s*wrap/u
+    )
+    expect(stylesheet).toMatch(
+      /\.persistent-authoring__toolbar-message\)[^{]*\{[^}]*flex:\s*1 0 100%[^}]*order:\s*3/u
+    )
+    expect(componentSource('_workflow-canvas-ux.scss')).toMatch(
+      /@container workflow \(max-width: 720px\)[\s\S]*?\.workflow__toolbar\)[^{]*\{[^}]*height:\s*auto[^}]*flex-basis:\s*auto/u
+    )
+  })
+
+  /** 窄分栏下运行输出标签必须保持单行，并由标签容器承接横向滚动。 */
+  it('keeps output tabs readable in a narrow workspace', () => {
+    const outputStylesheet = componentSource('_workflow-output.scss')
+    expect(outputStylesheet).toMatch(
+      /\.workflow-runtime__output-tabs\)[^{]*\{[^}]*overflow-x:\s*auto[^}]*overflow-y:\s*hidden/u
+    )
+    expect(outputStylesheet).toMatch(
+      /\.workflow-runtime__output-tabs\) button[^{]*\{[^}]*white-space:\s*nowrap/u
+    )
+    expect(outputStylesheet).toMatch(
+      /@container workflow \(max-width: 720px\)[\s\S]*?\.workflow-runtime__output-tabs\) button[^{]*\{[^}]*min-width:\s*max-content[^}]*flex:\s*0 0 auto/u
+    )
+  })
 })

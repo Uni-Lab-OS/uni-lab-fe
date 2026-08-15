@@ -28,6 +28,7 @@ export interface PersistentWorkflowAuthoringOptions {
   onChooseWorkflow?: () => void
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
+  recoveryRevision?: number
 }
 
 export interface FullSourceDiff {

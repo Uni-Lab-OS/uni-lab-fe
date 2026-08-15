@@ -170,9 +170,9 @@ export function PersistentWorkflowToolbar({
             className="persistent-authoring__run-mode-menu"
           >
             <summary
-              aria-label={`选择运行模式，当前为${RUN_MODE_LABELS[taskRunMode]}`}
+              aria-label={`运行设置，当前为${RUN_MODE_LABELS[taskRunMode]}`}
               aria-disabled={runningEntryBusy}
-              title={`运行模式：${RUN_MODE_LABELS[taskRunMode]}`}
+              title={`运行设置：${RUN_MODE_LABELS[taskRunMode]}`}
               onClick={(event) => {
                 if (runningEntryBusy) event.preventDefault()
               }}
@@ -180,7 +180,6 @@ export function PersistentWorkflowToolbar({
               <WorkflowToolbarIcon
                 name={taskRunMode === 'step' ? 'step' : 'debug'}
               />
-              <span aria-hidden="true">⌄</span>
             </summary>
             <div role="menu" aria-label="任务运行模式">
               {(['normal', 'debug', 'step', 'single_node'] as const)

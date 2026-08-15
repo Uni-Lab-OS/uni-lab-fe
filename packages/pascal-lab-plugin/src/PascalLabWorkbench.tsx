@@ -356,6 +356,9 @@ export function PascalLabWorkbench({
           }}
           onSave={handleSave}
           onSelectionChange={handleSelectionChange}
+          suppressSelectionAfterPointerDrag={
+            viewMode === '3d' || viewMode === 'split'
+          }
         />
       </div>
       {viewMode === '2.5d' && (

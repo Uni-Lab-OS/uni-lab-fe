@@ -83,7 +83,7 @@ describe('RobotWorkstation', () => {
 
     expect(markup).toContain('真实乙醇')
     expect(markup).toContain('50 mL')
-    expect(markup).toContain('— / —')
+    expect(markup).not.toContain('可用 / 预留')
     expect(markup).not.toContain('本地演示')
   })
 

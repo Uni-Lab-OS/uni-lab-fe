@@ -6,6 +6,7 @@ import {
   reagentInfoParameterEntries,
   filterReagentInfos,
   filterReagentInventory,
+  ReagentLedgerView,
   ReagentLibraryView
 } from './ReagentViews'
 
@@ -42,6 +43,24 @@ describe('ReagentViews filters', () => {
       .toEqual(['info-2'])
     expect(filterReagentInfos(infos, 'C2H6O').map(info => info.id))
       .toEqual(['info-1'])
+  })
+
+  /** 证明台账将 CAS 与物料号拆列，并去除试剂量下方的可用/预留文案。 */
+  it('renders reagent identifiers as dedicated columns', () => {
+    const markup = renderToStaticMarkup(createElement(ReagentLedgerView, {
+      items: [{
+        id: 'reagent-1', name: '乙醇', cas: '64-17-5', lotLabel: 'MAT-024',
+        status: 'available' as const, totalQuantity: 500, unit: 'mL',
+        availableQuantity: 450, reservedQuantity: 50
+      }],
+      query: ''
+    }))
+
+    expect(markup).toContain('<th>CAS 号</th>')
+    expect(markup).toContain('<th>物料号</th>')
+    expect(markup).toContain('64-17-5')
+    expect(markup).toContain('MAT-024')
+    expect(markup).not.toContain('可用 / 预留')
   })
 
   /** 证明内部写入来源不会冒充自定义参数，用户参数仍按可读名称展示。 */

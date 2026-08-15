@@ -75,7 +75,6 @@ export default new ContainerModule((bind) => {
     .toService(UniLabBottomPanelContribution)
 
   bindViewContribution(bind, UniLabAgentContribution)
-  bind(FrontendApplicationContribution).toService(UniLabAgentContribution)
   bind(UniLabAgentWidget).toSelf()
   bind(WidgetFactory).toDynamicValue(context => ({
     id: UniLabAgentWidget.ID,

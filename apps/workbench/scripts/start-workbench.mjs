@@ -251,7 +251,13 @@ async function launchDesktop(rendererUrl) {
   }
   delete desktopEnvironment.ELECTRON_RUN_AS_NODE
   console.log(`[UniLab Workbench] desktop renderer: ${rendererUrl}`)
-  desktopShell = spawn(electronExecutable, [desktopRoot], {
+  const electronArguments = []
+  const remoteDebuggingPort = process.env.UNILAB_DESKTOP_REMOTE_DEBUGGING_PORT
+  if (remoteDebuggingPort) {
+    electronArguments.push(`--remote-debugging-port=${remoteDebuggingPort}`)
+  }
+  electronArguments.push(desktopRoot)
+  desktopShell = spawn(electronExecutable, electronArguments, {
     cwd: desktopRoot,
     env: desktopEnvironment,
     stdio: remoteController

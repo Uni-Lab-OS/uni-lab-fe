@@ -4,6 +4,7 @@ export {
   PascalEditorHost,
   type PascalEditorHostProps
 } from './PascalEditorHost'
+export { exceedsSelectionDragThreshold } from './selectionGesture'
 export type { EditorProps, SceneGraph } from '@pascal-app/editor'
 export type {
   PascalEditorInstance,

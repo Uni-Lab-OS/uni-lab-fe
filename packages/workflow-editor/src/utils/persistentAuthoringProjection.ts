@@ -91,7 +91,10 @@ export function workflowGraphJsonProjection(
 
 /** 把未知异常转换为可展示消息。 */
 export function errorMessage(value: unknown): string {
-  return value instanceof Error ? value.message : String(value)
+  const message = value instanceof Error ? value.message : String(value)
+  return /reconnecting channel/i.test(message)
+    ? '连接暂时中断，恢复后将自动重试。'
+    : message
 }
 
 /** 按动作句柄 schema 解析表单原始值。 */
