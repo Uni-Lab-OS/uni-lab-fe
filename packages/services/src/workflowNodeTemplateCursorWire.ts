@@ -13,6 +13,7 @@ const NUMBERED_LIST_FIELDS = new Set([
   'authority',
   'catalog_fingerprint',
   'items',
+  'has_more',
   'page',
   'page_size',
   'total'
@@ -26,9 +27,10 @@ export type CatalogPagination =
   }
   | {
     mode: 'numbered'
+    hasMore?: boolean
     page: number
     pageSize: number
-    total: number
+    total?: number
   }
 
 /** 构造当前 OS 页码合同的后续页路径。 */
@@ -70,7 +72,7 @@ export function catalogEnvelope(raw: unknown): Record<string, unknown> {
  * @throws 两套字段混合、字段缺失、类型无效或出现未知字段时关闭失败。
  */
 export function parseListPagination(data: Record<string, unknown>): CatalogPagination {
-  const hasCursorFields = ['has_more', 'next_cursor_uuid'].some((field) =>
+  const hasCursorFields = ['next_cursor_uuid'].some((field) =>
     Object.prototype.hasOwnProperty.call(data, field)
   )
   // `total` 也可作为 UUID 游标响应的兼容统计元数据，不能单独判定为页码合同。
@@ -89,26 +91,46 @@ export function parseListPagination(data: Record<string, unknown>): CatalogPagin
     )
   }
   const requiredFields = hasNumberedFields
-    ? ['items', 'page', 'page_size', 'total']
+    ? ['items', 'page', 'page_size']
     : ['items', 'has_more', 'next_cursor_uuid']
   for (const field of requiredFields) {
     if (!Object.prototype.hasOwnProperty.call(data, field)) invalidCatalog(
       `节点模板（WorkflowNodeTemplate）目录缺少 ${field}`
     )
   }
-  if (hasNumberedFields) return {
-    mode: 'numbered',
-    page: positiveInteger(data.page),
-    pageSize: positiveInteger(data.page_size),
-    total: nonNegativeInteger(data.total)
-  }
-  if (Object.prototype.hasOwnProperty.call(data, 'total')) {
-    // `total` 只兼容部署端的目录统计，不参与 UUID 游标推进或模板实体投影。
-    nonNegativeInteger(data.total)
+  if (hasNumberedFields) {
+    if (
+      !Object.prototype.hasOwnProperty.call(data, 'has_more') &&
+      !Object.prototype.hasOwnProperty.call(data, 'total')
+    ) invalidCatalog(
+      '节点模板（WorkflowNodeTemplate）页码目录必须包含 has_more 或 total'
+    )
+    if (
+      Object.prototype.hasOwnProperty.call(data, 'has_more') &&
+      typeof data.has_more !== 'boolean'
+    ) invalidCatalog(
+      '节点模板（WorkflowNodeTemplate）目录 has_more 必须是布尔值'
+    )
+    const total = Object.prototype.hasOwnProperty.call(data, 'total')
+      ? nonNegativeInteger(data.total)
+      : undefined
+    return {
+      mode: 'numbered',
+      ...(typeof data.has_more === 'boolean'
+        ? { hasMore: data.has_more }
+        : {}),
+      page: positiveInteger(data.page),
+      pageSize: positiveInteger(data.page_size),
+      ...(total === undefined ? {} : { total })
+    }
   }
   if (typeof data.has_more !== 'boolean') invalidCatalog(
     '节点模板（WorkflowNodeTemplate）目录 has_more 必须是布尔值'
   )
+  if (Object.prototype.hasOwnProperty.call(data, 'total')) {
+    // `total` 只兼容部署端的目录统计，不参与 UUID 游标推进或模板实体投影。
+    nonNegativeInteger(data.total)
+  }
   return {
     mode: 'cursor',
     hasMore: data.has_more,

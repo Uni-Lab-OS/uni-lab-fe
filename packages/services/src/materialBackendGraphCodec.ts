@@ -2,6 +2,7 @@ import type {
   LabPose,
   MaterialAggregate,
   MaterialPlacement,
+  MaterialShapeIdentity,
   MaterialSite
 } from '@unilab/material'
 
@@ -15,6 +16,12 @@ import {
   stringArray
 } from './materialCodecPrimitives'
 
+/**
+ * 把 Backend/OS 公共物料图解码为共享物料聚合。
+ *
+ * @param raw 未信任的公共物料图响应主体。
+ * @returns 已校验身份、库位占用、展示投影和修订号的物料聚合。
+ */
 export function mapBackendMaterialGraph(
   raw: Record<string, unknown>
 ): MaterialAggregate[] {
@@ -46,6 +53,11 @@ export function mapBackendMaterialGraph(
   return nodes.map((node) => {
     const material = recordValue(node.material)
     const id = requiredString(material.uuid, 'material.uuid')
+    const sourceTemplateId = requiredString(
+      material.resource_template_uuid,
+      'material.resource_template_uuid'
+    )
+    requiredString(material.type, 'material.type')
     const updateTime = requiredString(
       material.update_time,
       'material.update_time'
@@ -71,15 +83,17 @@ export function mapBackendMaterialGraph(
     const config = mapBackendMaterialConfig(
       material.config,
       position,
-      material.meta_data
+      material.meta_data,
+      mapBackendResourceTemplateDisplay(
+        node.resource_template,
+        sourceTemplateId
+      )
     )
+    const shapeIdentity = mapBackendShapeIdentity(position)
     return {
       material: {
         id,
-        sourceTemplateId: requiredString(
-          material.resource_template_uuid,
-          'material.resource_template_uuid'
-        ),
+        sourceTemplateId,
         code: optionalString(material.barcode) ?? '',
         name: requiredString(material.name, 'material.name'),
         description: optionalString(material.description),
@@ -97,11 +111,27 @@ export function mapBackendMaterialGraph(
         siteById
       ),
       sites,
-      // Backend baseline deliberately does not expose Inventory.version. This
-      // adapter-local token only drives the read-only FE store.
-      revision: adapterRevision(updateTime)
+      revision: materialRevision(material.revision),
+      ...(shapeIdentity ? { shapeIdentity } : {})
     }
   })
+}
+
+/**
+ * 读取 Backend 冻结在物料相对位置上的公共 2.5D 外形身份。
+ *
+ * @param position 可空的权威相对位置；旧数据可以没有 shape。
+ * @returns 同时具有 bundle 与 id 时返回精确身份，否则返回 undefined 并允许视图降级。
+ */
+function mapBackendShapeIdentity(
+  position: Record<string, unknown> | undefined
+): MaterialShapeIdentity | undefined {
+  if (!position || !isRecord(position.shape)) return undefined
+  // shapeBundle/shapeId 共同构成 Backend `/material-shapes` 的稳定去重键。
+  const shapeBundle = optionalString(position.shape.bundle)?.trim()
+  const shapeId = optionalString(position.shape.id)?.trim()
+  if (!shapeBundle || !shapeId) return undefined
+  return { bundle: shapeBundle, id: shapeId }
 }
 
 /**
@@ -109,12 +139,14 @@ export function mapBackendMaterialGraph(
  * @param value OS 返回的物料配置。
  * @param position 权威相对位置及物理外包尺寸；缺失时不编造尺寸。
  * @param metaData 仅用于保留资源图来源身份的物料元数据。
+ * @param resourceTemplate 后端（Backend）资源模板展示摘要的规范化投影。
  * @returns 保留业务配置并补齐 `rendering.kind` 与毫米尺寸的前端配置。
  */
 function mapBackendMaterialConfig(
   value: unknown,
   position: Record<string, unknown> | undefined,
-  metaData: unknown
+  metaData: unknown,
+  resourceTemplate: Record<string, unknown> | undefined
 ): Record<string, unknown> {
   const config = recordValue(value)
   const sourceIdentity = optionalString(
@@ -122,7 +154,8 @@ function mapBackendMaterialConfig(
   )
   const identifiedConfig = {
     ...config,
-    ...(sourceIdentity ? { sourceIdentity } : {})
+    ...(sourceIdentity ? { sourceIdentity } : {}),
+    ...(resourceTemplate ? { resourceTemplate } : {})
   }
   const rawRendering = isRecord(config.rendering)
     ? config.rendering
@@ -144,6 +177,40 @@ function mapBackendMaterialConfig(
         finiteGraphNumber(position.length, 'relative_position.length')
       ]
     }
+  }
+}
+
+/**
+ * 校验物料图节点携带的资源模板展示摘要。
+ *
+ * @param value 展示摘要 wire 值。
+ * @param expectedUuid 物料实例引用的资源模板稳定 UUID。
+ * @returns 使用前端命名的展示对象。
+ */
+function mapBackendResourceTemplateDisplay(
+  value: unknown,
+  expectedUuid: string
+): Record<string, unknown> {
+  const raw = recordValue(value)
+  const uuid = requiredString(raw.uuid, 'resource_template.uuid')
+  if (uuid !== expectedUuid) {
+    throw invalidGraph(
+      'resource_template.uuid does not match material.resource_template_uuid'
+    )
+  }
+  const icon = optionalString(raw.icon)
+  return {
+    uuid,
+    name: requiredString(raw.name, 'resource_template.name'),
+    displayName: requiredString(
+      raw.display_name,
+      'resource_template.display_name'
+    ),
+    resourceType: requiredString(
+      raw.resource_type,
+      'resource_template.resource_type'
+    ),
+    ...(icon ? { icon } : {})
   }
 }
 
@@ -260,15 +327,19 @@ function zeroPose(): LabPose {
   }
 }
 
-function adapterRevision(updateTime: string): number {
-  const parsed = Date.parse(updateTime)
-  if (Number.isFinite(parsed) && parsed > 0) return parsed
-  let hash = 2166136261
-  for (const character of updateTime) {
-    hash ^= character.codePointAt(0) ?? 0
-    hash = Math.imul(hash, 16777619)
+/**
+ * 读取物料（Material）权威修订号。
+ *
+ * @param value 公共图中的 material.revision。
+ * @returns 正安全整数修订号。
+ */
+function materialRevision(
+  value: unknown
+): number {
+  if (Number.isSafeInteger(value) && (value as number) > 0) {
+    return value as number
   }
-  return Math.max(1, hash >>> 0)
+  throw invalidGraph('material.revision must be a positive safe integer')
 }
 
 function optionalRecord(

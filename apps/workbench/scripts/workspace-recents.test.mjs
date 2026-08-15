@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import { describe, it } from 'node:test'
 
 import {
   MAX_RECENT_WORKSPACES,
   normalizeWorkbenchLaunchConfig,
   recentWorkspaceForPath,
+  requireWorkbenchWorkspace,
   recordRecentWorkspace,
   WORKBENCH_LAUNCH_CONFIG_VERSION
 } from './workspace-recents.mjs'
@@ -59,6 +63,31 @@ describe('Workbench recent Workspace configuration', () => {
       lastOpenedAt: new Date(0).toISOString()
     }])
   })
+
+  it('accepts only the domain root that contains local_config.py', async () => {
+    const parent = await mkdtemp(path.join(os.tmpdir(), 'unilab-workspace-'))
+    const workspace = path.join(parent, 'Uni-Lab-SZLab')
+    try {
+      await mkdir(path.join(workspace, 'deployment'), { recursive: true })
+      await writeFile(path.join(
+        workspace,
+        'deployment',
+        'local_config.py'
+      ), 'config = {}\n')
+
+      assert.equal(await requireWorkbenchWorkspace(workspace), workspace)
+      await assert.rejects(
+        requireWorkbenchWorkspace(parent),
+        error => {
+          assert.match(error.message, /设备图路径.*不会改变 Workspace/)
+          assert.match(error.message, new RegExp(escapeRegExp(workspace)))
+          return true
+        }
+      )
+    } finally {
+      await rm(parent, { recursive: true, force: true })
+    }
+  })
 })
 
 function recent(path, milliseconds) {
@@ -68,4 +97,8 @@ function recent(path, milliseconds) {
     osProject: null,
     lastOpenedAt: new Date(milliseconds).toISOString()
   }
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

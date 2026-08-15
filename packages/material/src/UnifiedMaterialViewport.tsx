@@ -19,6 +19,10 @@ export interface MaterialViewOptions {
   showMaterialTransfers: boolean
 }
 
+export interface MaterialViewportState extends MaterialViewOptions {
+  mode: MaterialViewMode
+}
+
 export interface MaterialRoleFilterOption {
   value: string
   label: string
@@ -28,6 +32,9 @@ export interface MaterialRoleFilterOption {
 
 export interface UnifiedMaterialViewportProps {
   renderView: (mode: MaterialViewMode, options: MaterialViewOptions) => ReactNode
+  /** 可选受控状态，供 Workbench renderer 自动化复用同一真实视口。 */
+  viewState?: MaterialViewportState
+  onViewStateChange?: (state: MaterialViewportState) => void
   visibleMaterialRoles?: readonly string[] | null
   materialRoleOptions?: readonly MaterialRoleFilterOption[]
   onVisibleMaterialRolesChange?: (
@@ -40,15 +47,24 @@ export interface UnifiedMaterialViewportProps {
  */
 export function UnifiedMaterialViewport({
   renderView,
+  viewState,
+  onViewStateChange,
   visibleMaterialRoles = null,
   materialRoleOptions = [],
   onVisibleMaterialRolesChange
 }: UnifiedMaterialViewportProps): React.JSX.Element {
-  const [mode, setMode] = useState<MaterialViewMode>(readStoredMode)
-  const [showSites, setShowSites] = useState(readStoredSiteLayer)
-  const [showMaterialTransfers, setShowMaterialTransfers] = useState(
-    readStoredMaterialTransferLayer
+  const [internalState, setInternalState] = useState<MaterialViewportState>(
+    readStoredMaterialViewportState
   )
+  const currentState = viewState ?? internalState
+  const { mode, showSites, showMaterialTransfers } = currentState
+  const updateState = (
+    update: (current: MaterialViewportState) => MaterialViewportState
+  ): void => {
+    const next = update(currentState)
+    if (!viewState) setInternalState(next)
+    onViewStateChange?.(next)
+  }
   const visibleMaterialRoleSet = new Set(
     visibleMaterialRoles ?? materialRoleOptions.map((option) => option.value)
   )
@@ -72,22 +88,25 @@ export function UnifiedMaterialViewport({
   }
 
   useEffect(() => {
+    if (viewState) return
     globalThis.localStorage?.setItem(STORAGE_KEY, mode)
-  }, [mode])
+  }, [mode, viewState])
 
   useEffect(() => {
+    if (viewState) return
     globalThis.localStorage?.setItem(
       SITE_LAYER_STORAGE_KEY,
       String(showSites)
     )
-  }, [showSites])
+  }, [showSites, viewState])
 
   useEffect(() => {
+    if (viewState) return
     globalThis.localStorage?.setItem(
       MATERIAL_TRANSFER_LAYER_STORAGE_KEY,
       String(showMaterialTransfers)
     )
-  }, [showMaterialTransfers])
+  }, [showMaterialTransfers, viewState])
 
   return (
     <div
@@ -111,25 +130,25 @@ export function UnifiedMaterialViewport({
             active={mode === '2d'}
             icon={<GridIcon />}
             label="2D"
-            onClick={() => setMode('2d')}
+            onClick={() => updateState(state => ({ ...state, mode: '2d' }))}
           />
           <ViewModeButton
             active={mode === '2.5d'}
             icon={<ObliqueIcon />}
             label="2.5D"
-            onClick={() => setMode('2.5d')}
+            onClick={() => updateState(state => ({ ...state, mode: '2.5d' }))}
           />
           <ViewModeButton
             active={mode === '3d'}
             icon={<CubeIcon />}
             label="3D"
-            onClick={() => setMode('3d')}
+            onClick={() => updateState(state => ({ ...state, mode: '3d' }))}
           />
           <ViewModeButton
             active={mode === 'split'}
             icon={<SplitIcon />}
             label="分屏"
-            onClick={() => setMode('split')}
+            onClick={() => updateState(state => ({ ...state, mode: 'split' }))}
           />
         </div>
         <div
@@ -142,7 +161,10 @@ export function UnifiedMaterialViewport({
             aria-label="库位和点位"
             aria-pressed={showSites}
             className={showSites ? 'is-active' : undefined}
-            onClick={() => setShowSites((visible) => !visible)}
+            onClick={() => updateState(state => ({
+              ...state,
+              showSites: !state.showSites
+            }))}
             title={showSites ? '隐藏库位和点位' : '显示库位和点位'}
           >
             <SiteLayerIcon />
@@ -156,7 +178,10 @@ export function UnifiedMaterialViewport({
             className={showMaterialTransfers
               ? 'is-active is-transfer'
               : undefined}
-            onClick={() => setShowMaterialTransfers((visible) => !visible)}
+            onClick={() => updateState(state => ({
+              ...state,
+              showMaterialTransfers: !state.showMaterialTransfers
+            }))}
             title={showMaterialTransfers
               ? '隐藏物料转运路线'
               : '显示物料转运路线'}
@@ -360,19 +385,43 @@ function TransferLayerIcon(): React.JSX.Element {
   )
 }
 
-function readStoredMode(): MaterialViewMode {
+export function readStoredMode(): MaterialViewMode {
   const value = globalThis.localStorage?.getItem(STORAGE_KEY)
   return value === '2d' || value === '2.5d' || value === '3d' || value === 'split'
     ? value
     : '2d'
 }
 
-function readStoredSiteLayer(): boolean {
+export function readStoredSiteLayer(): boolean {
   return globalThis.localStorage?.getItem(SITE_LAYER_STORAGE_KEY) !== 'false'
 }
 
-function readStoredMaterialTransferLayer(): boolean {
+export function readStoredMaterialTransferLayer(): boolean {
   return globalThis.localStorage?.getItem(
     MATERIAL_TRANSFER_LAYER_STORAGE_KEY
   ) !== 'false'
+}
+
+/** 读取用户上次选择的统一物料视图，不接触物料或场景权威。 */
+export function readStoredMaterialViewportState(): MaterialViewportState {
+  return {
+    mode: readStoredMode(),
+    showSites: readStoredSiteLayer(),
+    showMaterialTransfers: readStoredMaterialTransferLayer()
+  }
+}
+
+/** 持久化用户选择；自动化临时覆盖不会调用此函数。 */
+export function writeStoredMaterialViewportState(
+  state: MaterialViewportState
+): void {
+  globalThis.localStorage?.setItem(STORAGE_KEY, state.mode)
+  globalThis.localStorage?.setItem(
+    SITE_LAYER_STORAGE_KEY,
+    String(state.showSites)
+  )
+  globalThis.localStorage?.setItem(
+    MATERIAL_TRANSFER_LAYER_STORAGE_KEY,
+    String(state.showMaterialTransfers)
+  )
 }

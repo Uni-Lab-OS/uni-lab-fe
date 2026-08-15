@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   captureWorkbenchUiOperation,
+  runAndRefreshWorkbenchOperation,
   WorkbenchSessionGate
 } from './workbench-session-gate'
 
@@ -18,14 +19,33 @@ describe('WorkbenchSessionGate', () => {
     expect(errors).toEqual(['fixture operation failed'])
   })
 
+  it('refreshes the snapshot without swallowing an operation failure', async () => {
+    const refresh = vi.fn().mockResolvedValue(undefined)
+    const errors: string[] = []
+
+    await captureWorkbenchUiOperation(
+      () => runAndRefreshWorkbenchOperation(
+        async () => { throw new Error('local reset is blocked') },
+        refresh
+      ),
+      message => errors.push(message)
+    )
+
+    expect(refresh).toHaveBeenCalledOnce()
+    expect(errors).toEqual(['local reset is blocked'])
+  })
+
   it('keeps environment management reachable while OS readiness is blocked', () => {
     const markup = renderToStaticMarkup(
       <WorkbenchSessionGate
         snapshot={{
           phase: 'failed',
-          message: '等待 Uni-Lab OS 就绪超时',
+          message: 'PLC 连接失败，Uni-Lab OS 未就绪',
           configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+          configuredExternalDevicesOnly: true,
           configuredRuntimeMode: 'normal',
+          configuredDomainMode: 'local',
+          configuredBackendUrl: null,
           agent: null,
           identity: {
             workspacePath: '/workspace',
@@ -50,9 +70,19 @@ describe('WorkbenchSessionGate', () => {
             agent: null
           },
           diagnostic: {
-            code: 'os_readiness_failed',
-            message: 'http://127.0.0.1:18103/api/v1/devices 尚未就绪',
-            recovery: '启动 PLC-Sim 后重启 OS'
+            code: 'plc_connection_failed',
+            message: '无法解析 PLC 的 OPC UA 主机名，OS 设备目录未完成初始化。',
+            recovery: '检查设备图中的 PLC OPC UA 地址后重试'
+          },
+          edgeRuntime: {
+            phase: 'failed',
+            message: 'Edge Runtime 未就绪',
+            pid: null,
+            generation: null,
+            graphPath: '/workspace/deployment/graphs/szlab-local-debug.json',
+            mode: 'normal',
+            logPath: '/workspace/.unilabos/logs/workbench/edge.log',
+            diagnostic: '设备运行时未连接'
           },
           plcSimulator: {
             phase: 'idle',
@@ -70,6 +100,9 @@ describe('WorkbenchSessionGate', () => {
         }}
         onRetry={vi.fn()}
         onStop={vi.fn()}
+        connectionSelector={(
+          <section aria-label="运行连接选择">连接 Backend</section>
+        )}
         onOpenLog={vi.fn()}
         renderEnvironmentManager={onClose => (
           <section aria-label="环境管理">
@@ -82,9 +115,14 @@ describe('WorkbenchSessionGate', () => {
 
     expect(markup).toContain('环境管理')
     expect(markup).toContain('启动 PLC-Sim')
+    expect(markup).toContain('PLC 连接失败')
+    expect(markup).toContain('无法解析 PLC 的 OPC UA 主机名')
+    expect(markup).toContain('建议：')
+    expect(markup).toContain('诊断代码：plc_connection_failed')
     expect(markup).toContain('unilab-workbench-session-actions')
     expect(markup).toContain('class="is-primary"')
     expect(markup).toContain('codicon-settings-gear')
+    expect(markup).toContain('运行连接选择')
     expect(markup).toContain('在编辑器中打开日志文件')
     expect(markup).toContain('/workspace/.unilabos/logs/workbench/os.log')
   })
@@ -96,10 +134,23 @@ describe('WorkbenchSessionGate', () => {
           phase: 'starting',
           message: '正在校验工作区并启动 Uni-Lab OS…',
           configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+          configuredExternalDevicesOnly: true,
           configuredRuntimeMode: 'normal',
+          configuredDomainMode: 'local',
+          configuredBackendUrl: null,
           agent: null,
           identity: null,
           diagnostic: null,
+          edgeRuntime: {
+            phase: 'idle',
+            message: 'Edge Runtime 尚未启动',
+            pid: null,
+            generation: null,
+            graphPath: 'deployment/graphs/szlab-local-debug.json',
+            mode: 'normal',
+            logPath: '',
+            diagnostic: null
+          },
           plcSimulator: {
             phase: 'idle',
             message: 'PLC-Sim 未启动',
@@ -122,6 +173,55 @@ describe('WorkbenchSessionGate', () => {
 
     expect(markup).toContain('unilab-workbench-session-loading')
     expect(markup).toContain('正在启动 Unilab 调试工作台')
+    expect(markup).toContain('取消启动')
+  })
+
+  it('uses backend-specific copy while switching connections', () => {
+    const markup = renderToStaticMarkup(
+      <WorkbenchSessionGate
+        snapshot={{
+          phase: 'starting',
+          message: '正在启动 Workspace Backend...',
+          configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+          configuredExternalDevicesOnly: true,
+          configuredRuntimeMode: 'normal',
+          configuredDomainMode: 'backend',
+          configuredBackendUrl: 'http://127.0.0.1:8080',
+          agent: null,
+          identity: null,
+          diagnostic: null,
+          edgeRuntime: {
+            phase: 'idle',
+            message: 'Edge Runtime 尚未启动',
+            pid: null,
+            generation: null,
+            graphPath: 'deployment/graphs/szlab-local-debug.json',
+            mode: 'normal',
+            logPath: '',
+            diagnostic: null
+          },
+          plcSimulator: {
+            phase: 'idle',
+            message: 'PLC-Sim 未启动',
+            diagnostic: null,
+            projectPath: '/workspace/PLC-Sim',
+            variableTablePath: '/workspace/devices/plc/table.csv',
+            variableTableCandidates: [],
+            handshakeProfile: 'szlab',
+            guiUrl: 'http://127.0.0.1:8080',
+            opcUaUrl: 'opc.tcp://127.0.0.1:4840',
+            pid: null,
+            logPath: '/workspace/.unilabos/logs/plc-sim.log'
+          }
+        }}
+        onRetry={vi.fn()}
+        onStop={vi.fn()}
+        renderEnvironmentManager={() => null}
+      />
+    )
+
+    expect(markup).toContain('正在启动 Backend 模式')
+    expect(markup).toContain('正在连接 Backend + Scheduler，并启动 Edge Runtime…')
     expect(markup).toContain('取消启动')
   })
 })

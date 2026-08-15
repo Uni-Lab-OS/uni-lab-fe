@@ -1,0 +1,1075 @@
+.reagentViewToolbar {
+  display: flex;
+  gap: var(--unilab-space-3);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--unilab-space-3);
+
+  .searchField {
+    width: min(390px, 48%);
+  }
+}
+
+.reagentNavigation {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 3px;
+  padding: 3px;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
+
+  [role='option'] {
+    min-height: 32px;
+    padding: 0 13px;
+    color: var(--unilab-color-text-muted);
+    font: 600 13px var(--unilab-font-sans);
+    background: transparent;
+    border: 0;
+    border-radius: var(--unilab-radius-control);
+    cursor: pointer;
+  }
+  button[aria-selected='true'] {
+    color: var(--unilab-color-primary);
+    background: var(--unilab-color-primary-soft);
+    box-shadow: var(--unilab-shadow-control);
+  }
+  button:focus-visible {
+    outline: 3px solid var(--unilab-color-focus);
+    outline-offset: 1px;
+  }
+}
+
+.reagentStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--unilab-space-3);
+  margin-bottom: var(--unilab-space-3);
+
+  > div {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    min-height: 72px;
+    padding: 10px 12px;
+    background: var(--unilab-color-surface);
+    border: 1px solid var(--unilab-color-border);
+    border-radius: var(--unilab-radius-lg);
+  }
+
+  > div > span:first-child {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    color: var(--unilab-color-primary);
+    background: var(--unilab-color-primary-soft);
+    border-radius: var(--unilab-radius-control);
+  }
+  > div[data-tone='success'] > span:first-child {
+    color: var(--unilab-color-success);
+    background: var(--unilab-color-success-soft);
+  }
+  > div[data-tone='warning'] > span:first-child {
+    color: var(--unilab-color-warning);
+    background: var(--unilab-color-warning-soft);
+  }
+  svg {
+    width: 17px;
+    height: 17px;
+  }
+  > div > span:last-child {
+    display: grid;
+    gap: 4px;
+  }
+  small {
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+  }
+  strong {
+    font: 650 18px var(--unilab-font-mono);
+  }
+}
+
+.reagentStatus {
+  color: var(--unilab-color-primary);
+  background: var(--unilab-color-primary-soft);
+
+  > span {
+    width: 7px;
+    height: 7px;
+    background: currentColor;
+    border-radius: 50%;
+  }
+}
+.reagentStatus[data-tone='success'] {
+  color: #166534;
+  background: var(--unilab-color-success-soft);
+}
+.reagentStatus[data-tone='warning'] {
+  color: var(--unilab-color-warning);
+  background: var(--unilab-color-warning-soft);
+}
+.reagentStatus[data-tone='archived'] {
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-bg-muted);
+}
+
+.reagentLibraryTable {
+  min-width: 820px;
+  table-layout: fixed;
+
+  th:nth-child(1) { width: 23%; }
+  th:nth-child(2) { width: 13%; }
+  th:nth-child(3) { width: 12%; }
+  th:nth-child(4) { width: 21%; }
+  th:nth-child(5) { width: 20%; }
+
+  tbody tr {
+    transition: background-color 140ms ease;
+  }
+
+  tbody tr:hover {
+    background: color-mix(in srgb, var(--unilab-color-primary-soft) 42%, var(--unilab-color-surface));
+  }
+
+  td {
+    height: 92px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    vertical-align: middle;
+  }
+
+  td:first-child {
+    min-width: 170px;
+    white-space: normal;
+  }
+
+  .reagentLibraryActions {
+    width: 72px;
+  }
+
+  .reagentLibraryActions {
+    white-space: nowrap;
+  }
+}
+
+.reagentIdentityParameters {
+  display: -webkit-box !important;
+  max-width: 34ch;
+  overflow: hidden;
+  color: var(--unilab-color-primary) !important;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.reagentFormula {
+  font-family: var(--unilab-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.reagentProperties {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+
+  strong {
+    font-family: var(--unilab-font-mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  span {
+    display: inline-flex;
+    min-height: 22px;
+    align-items: center;
+    padding: 0 8px;
+    color: var(--unilab-color-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--unilab-color-bg-muted);
+    border-radius: 999px;
+  }
+}
+
+.feedbackLine {
+  margin: 10px 2px 0;
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+}
+
+.formDialog {
+  --unilab-color-control: var(--unilab-color-device);
+  --unilab-color-control-hover: #0b625c;
+
+  padding-bottom: 14px;
+}
+
+.formDialogWide {
+  width: min(900px, calc(100vw - 48px));
+}
+
+.dialogFields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 14px;
+
+  label {
+    align-content: start;
+  }
+
+  label > span:first-child {
+    font-family: var(--unilab-font-sans);
+
+    b {
+      color: var(--unilab-color-danger);
+      font-weight: 700;
+    }
+  }
+
+  label > small {
+    color: var(--unilab-color-text-muted);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 76px;
+    padding: 8px 9px;
+    color: var(--unilab-color-text);
+    font: 400 13px/1.5 var(--unilab-font-sans);
+    resize: vertical;
+    background: var(--unilab-color-surface);
+    border: 1px solid var(--unilab-color-border-strong);
+    border-radius: var(--unilab-radius-control);
+  }
+
+  textarea:focus {
+    border-color: var(--unilab-color-primary);
+    outline: 3px solid rgb(147 197 253 / 45%);
+  }
+}
+
+.dialogFieldWide {
+  grid-column: 1 / -1;
+}
+
+.formRequiredNote {
+  padding: 10px 14px 0;
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+  text-align: right;
+
+  span {
+    color: var(--unilab-color-danger);
+    font-weight: 700;
+  }
+}
+
+.formSections {
+  display: grid;
+  gap: 10px;
+  padding: 10px 14px 14px;
+}
+
+.formSection {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  background: color-mix(in srgb, var(--unilab-color-bg-subtle) 48%, var(--unilab-color-surface));
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
+
+  > legend {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: 10px;
+    padding: 0 5px;
+    color: var(--unilab-color-text);
+    font: 650 12px var(--unilab-font-sans);
+    background: var(--unilab-color-surface);
+
+    small {
+      color: var(--unilab-color-success);
+      font-size: 10px;
+      font-weight: 600;
+    }
+  }
+
+  .dialogFields {
+    padding: 8px 12px 12px;
+  }
+}
+
+.formAdvanced {
+  overflow: hidden;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
+
+  > summary {
+    position: relative;
+    min-height: 42px;
+    padding: 0 38px 0 12px;
+    color: var(--unilab-color-text);
+    font: 600 12px/42px var(--unilab-font-sans);
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::after {
+      position: absolute;
+      top: 50%;
+      right: 15px;
+      width: 7px;
+      height: 7px;
+      content: '';
+      border-right: 1.5px solid var(--unilab-color-text-muted);
+      border-bottom: 1.5px solid var(--unilab-color-text-muted);
+      transform: translateY(-65%) rotate(45deg);
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--unilab-color-focus);
+      outline-offset: -3px;
+    }
+  }
+
+  &[open] > summary {
+    border-bottom: 1px solid var(--unilab-color-border);
+
+    &::after {
+      transform: translateY(-30%) rotate(225deg);
+    }
+  }
+
+  > .dialogFields {
+    padding: 12px;
+  }
+}
+
+.lookupFeedback {
+  min-height: 16px;
+}
+
+.lookupFeedback[data-phase='success'] {
+  color: var(--unilab-color-success);
+}
+
+.lookupFeedback[data-phase='warning'] {
+  color: var(--unilab-color-warning);
+}
+
+.reagentContainerSelect {
+  position: relative;
+  min-width: 0;
+}
+
+.reagentContainerField {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+
+  > span:first-child {
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+    font-weight: 550;
+  }
+
+}
+
+.reagentQuantityField {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+
+  > span:first-child {
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+    font-weight: 550;
+
+    b {
+      color: var(--unilab-color-danger);
+      font-weight: 700;
+    }
+  }
+
+  > small {
+    color: var(--unilab-color-text-muted);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+}
+
+.reagentQuantityControl {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 104px;
+
+  > input {
+    border-radius: var(--unilab-radius-control) 0 0 var(--unilab-radius-control);
+  }
+}
+
+.quantityUnitSelect {
+  position: relative;
+  min-width: 0;
+}
+
+.quantityUnitSelectControl {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px 0 12px;
+  color: var(--unilab-color-text);
+  font: 650 13px var(--unilab-font-mono);
+  text-align: left;
+  background: var(--unilab-color-bg-subtle);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-left: 0;
+  border-radius: 0 var(--unilab-radius-control) var(--unilab-radius-control) 0;
+  cursor: pointer;
+
+  > span[data-placeholder='true'] {
+    color: var(--unilab-color-text-muted);
+    font-family: var(--unilab-font-sans);
+    font-weight: 450;
+  }
+
+  &:hover {
+    color: var(--unilab-color-primary);
+    background: var(--unilab-color-primary-soft);
+  }
+
+  &:focus-visible,
+  &[aria-expanded='true'] {
+    z-index: 1;
+    border-color: var(--unilab-color-primary);
+    outline: 3px solid rgb(147 197 253 / 35%);
+  }
+
+  &[aria-readonly='true'] {
+    padding-right: 12px;
+    color: var(--unilab-color-text-muted);
+    cursor: default;
+    background: var(--unilab-color-bg-muted);
+  }
+}
+
+.quantityUnitSelectPopup {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 7px);
+  right: 0;
+  width: 196px;
+  padding: 6px;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-md);
+  box-shadow: 0 14px 34px rgb(15 23 42 / 16%), 0 3px 10px rgb(15 23 42 / 8%);
+
+  &[data-placement='top'] {
+    top: auto;
+    bottom: calc(100% + 7px);
+  }
+
+  &[hidden] {
+    display: none;
+  }
+
+  [role='listbox'] {
+    display: grid;
+    gap: 6px;
+  }
+
+  [role='group'] {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3px;
+
+    > span {
+      grid-column: 1 / -1;
+      padding: 2px 5px;
+      color: var(--unilab-color-text-muted);
+      font-size: 10px;
+      font-weight: 650;
+      letter-spacing: 0.08em;
+    }
+  }
+
+  button {
+    display: grid;
+    min-height: 36px;
+    padding: 0;
+    color: var(--unilab-color-text);
+    background: transparent;
+    border: 0;
+    border-radius: calc(var(--unilab-radius-control) - 2px);
+    cursor: pointer;
+    place-items: center;
+  }
+
+  button:hover,
+  button:focus-visible,
+  button[data-highlighted='true'] {
+    color: var(--unilab-color-primary);
+    background: var(--unilab-color-primary-soft);
+    outline: 0;
+  }
+
+  button[aria-selected='true'] {
+    color: var(--unilab-color-primary);
+    background: var(--unilab-color-primary-soft);
+  }
+
+  strong {
+    font: 650 12px var(--unilab-font-mono);
+  }
+
+  b {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+}
+
+.reagentContainerSelectControl {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 36px 0 11px;
+  color: var(--unilab-color-text);
+  font: 500 13px var(--unilab-font-sans);
+  text-align: left;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--unilab-color-primary) 55%, var(--unilab-color-border-strong));
+  }
+
+  &:focus-visible,
+  &[aria-expanded='true'] {
+    border-color: var(--unilab-color-primary);
+    outline: 3px solid rgb(147 197 253 / 35%);
+  }
+
+  &:disabled {
+    color: var(--unilab-color-text-muted);
+    cursor: not-allowed;
+    background: var(--unilab-color-bg-muted);
+  }
+}
+
+.reagentContainerSelectValue,
+.reagentContainerSelectPlaceholder {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reagentContainerSelectPlaceholder {
+  color: var(--unilab-color-text-muted);
+  font-weight: 400;
+}
+
+.reagentContainerSelectArrow {
+  position: absolute;
+  top: 50%;
+  right: 13px;
+  width: 7px;
+  height: 7px;
+  pointer-events: none;
+  border-right: 1.5px solid var(--unilab-color-text-muted);
+  border-bottom: 1.5px solid var(--unilab-color-text-muted);
+  transform: translateY(-65%) rotate(45deg);
+}
+
+.reagentContainerSelectControl[aria-expanded='true'] .reagentContainerSelectArrow {
+  transform: translateY(-30%) rotate(225deg);
+}
+
+.physicalStateSelect {
+  position: relative;
+  min-width: 0;
+}
+
+.physicalStateSelectControl {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 36px 0 11px;
+  color: var(--unilab-color-text);
+  font: 500 13px var(--unilab-font-sans);
+  text-align: left;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--unilab-color-primary) 55%, var(--unilab-color-border-strong));
+  }
+
+  &:focus-visible,
+  &[aria-expanded='true'] {
+    border-color: var(--unilab-color-primary);
+    outline: 3px solid rgb(147 197 253 / 35%);
+  }
+}
+
+.physicalStateSelectValue {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+
+.physicalStateSelectValue i,
+.physicalStateSelectPopup i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  background: var(--unilab-color-text-muted);
+  border: 2px solid var(--unilab-color-surface);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--unilab-color-border-strong);
+}
+
+.physicalStateSelectValue i[data-state='liquid'],
+.physicalStateSelectPopup i[data-state='liquid'] {
+  background: #2563eb;
+}
+
+.physicalStateSelectValue i[data-state='solid'],
+.physicalStateSelectPopup i[data-state='solid'] {
+  background: #8b5cf6;
+}
+
+.physicalStateSelectValue i[data-state='gas'],
+.physicalStateSelectPopup i[data-state='gas'] {
+  background: #0891b2;
+}
+
+.physicalStateSelectPopup {
+  position: absolute;
+  z-index: 35;
+  top: calc(100% + 7px);
+  left: 0;
+  width: 100%;
+  min-width: 260px;
+  padding: 5px;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-md);
+  box-shadow: 0 14px 34px rgb(15 23 42 / 16%), 0 3px 10px rgb(15 23 42 / 8%);
+
+  &[data-placement='top'] {
+    top: auto;
+    bottom: calc(100% + 7px);
+  }
+
+  &[hidden] {
+    display: none;
+  }
+
+  [role='listbox'] {
+    display: grid;
+    gap: 2px;
+  }
+
+  button {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) 20px;
+    gap: 8px;
+    align-items: center;
+    min-height: 36px;
+    padding: 5px 9px;
+    color: var(--unilab-color-text);
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-radius: calc(var(--unilab-radius-control) - 2px);
+    cursor: pointer;
+  }
+
+  button:hover,
+  button:focus-visible,
+  button[data-highlighted='true'] {
+    color: var(--unilab-color-primary);
+    background: var(--unilab-color-primary-soft);
+    outline: 0;
+  }
+
+  strong {
+    font: 600 13px var(--unilab-font-sans);
+  }
+
+  b {
+    color: var(--unilab-color-primary);
+    text-align: center;
+  }
+}
+
+.moleculeStructure {
+  position: relative;
+  display: grid;
+  width: 136px;
+  height: 80px;
+  margin: 0;
+  overflow: hidden;
+  place-items: center;
+  background: #fff;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+
+  svg {
+    display: block;
+    width: 136px;
+    height: 80px;
+  }
+
+  span {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    padding: 8px;
+    color: var(--unilab-color-text-muted);
+    font: 500 12px var(--unilab-font-sans);
+    text-align: center;
+    background: var(--unilab-color-bg-subtle);
+    place-items: center;
+  }
+}
+
+.structurePreviewField {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+
+  > span {
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
+
+.reagentContainerSelectPopup {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 7px);
+  left: 0;
+  display: grid;
+  width: max(100%, 360px);
+  gap: 5px;
+  padding: 6px;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-md);
+  box-shadow: 0 12px 30px rgb(15 23 42 / 16%), 0 2px 8px rgb(15 23 42 / 8%);
+
+  &[hidden] {
+    display: none;
+  }
+
+  > input {
+    min-height: 36px;
+    padding: 0 10px;
+    font-family: var(--unilab-font-sans);
+    background: var(--unilab-color-bg-subtle);
+  }
+}
+
+.reagentContainerSelectMenu {
+  display: grid;
+  max-height: 208px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  button {
+    display: flex;
+    min-width: 0;
+    min-height: 48px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    color: var(--unilab-color-text);
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-radius: calc(var(--unilab-radius-control) - 2px);
+    cursor: pointer;
+  }
+
+  button:hover,
+  button:focus-visible,
+  button[aria-selected='true'] {
+    color: var(--unilab-color-primary);
+    background: var(--unilab-color-primary-soft);
+    outline: 0;
+  }
+
+  button > span {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+  }
+
+  strong,
+  small,
+  b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    font: 600 13px var(--unilab-font-sans);
+  }
+
+  b {
+    flex: 0 0 auto;
+    color: var(--unilab-color-primary);
+    font-size: 14px;
+  }
+
+  small,
+  p {
+    color: var(--unilab-color-text-muted);
+    font: 12px var(--unilab-font-mono);
+  }
+
+  p {
+    margin: 0;
+    padding: 12px 10px;
+    text-align: center;
+  }
+}
+
+.reagentIdentitySummary {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(100px, auto) minmax(0, 1fr) minmax(0, auto);
+  gap: 8px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--unilab-color-bg-subtle);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
+
+  span,
+  small {
+    min-width: 0;
+    color: var(--unilab-color-text-muted);
+    font: 12px var(--unilab-font-mono);
+    overflow-wrap: anywhere;
+  }
+
+  strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.customParameterFields {
+  display: grid;
+  gap: 8px;
+  margin: 0 12px 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--unilab-color-border);
+
+  label {
+    display: grid;
+    gap: 5px;
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+  }
+  input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 34px;
+    padding: 0 8px;
+    color: var(--unilab-color-text);
+    font: 500 13px var(--unilab-font-sans);
+    background: var(--unilab-color-surface);
+    border: 1px solid var(--unilab-color-border-strong);
+    border-radius: var(--unilab-radius-control);
+  }
+}
+
+.customParameterAddOnly {
+  display: flex;
+  padding: 0 12px 12px;
+}
+
+.customParameterHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  strong {
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
+
+.customParameterList {
+  display: grid;
+  gap: 7px;
+}
+
+.customParameterRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.9fr) minmax(160px, 1.3fr) 30px;
+  gap: 7px;
+  align-items: end;
+}
+
+.dialogError {
+  margin: 0 14px 10px;
+  color: var(--unilab-color-danger);
+  font-size: 12px;
+}
+
+.dialogErrorSummary {
+  margin: 8px 14px 0;
+  padding: 9px 11px;
+  color: var(--unilab-color-danger);
+  font-size: 12px;
+  line-height: 1.45;
+  background: var(--unilab-color-danger-soft);
+  border: 1px solid color-mix(in srgb, var(--unilab-color-danger) 30%, transparent);
+  border-radius: var(--unilab-radius-control);
+
+  &:focus-visible {
+    outline: 3px solid var(--unilab-color-focus);
+    outline-offset: 2px;
+  }
+}
+
+.deleteConfirmation {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+
+  label {
+    display: grid;
+    gap: 6px;
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+  }
+
+  input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 36px;
+    padding: 0 9px;
+    color: var(--unilab-color-text);
+    font: 500 13px var(--unilab-font-sans);
+    background: var(--unilab-color-surface);
+    border: 1px solid var(--unilab-color-border-strong);
+    border-radius: var(--unilab-radius-control);
+  }
+}
+
+.reagentHistoryPanel {
+  margin-top: var(--unilab-space-3);
+}
+
+.historyState {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  padding: 18px;
+  color: var(--unilab-color-text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.reagentRecords {
+  display: grid;
+  gap: 9px;
+  max-height: 60vh;
+  padding: 14px;
+  overflow: auto;
+
+  article {
+    display: grid;
+    gap: 9px;
+    padding: 11px;
+    background: var(--unilab-color-bg-subtle);
+    border: 1px solid var(--unilab-color-border);
+    border-radius: var(--unilab-radius-md);
+  }
+  article[data-result='execution_unknown'] {
+    background: var(--unilab-color-warning-soft);
+    border-color: #fed7aa;
+  }
+
+  article[data-result='remove'] {
+    background: var(--unilab-color-danger-soft);
+    border-color: #fecaca;
+  }
+  header,
+  footer {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header strong {
+    font-size: 13px;
+  }
+  header span {
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+    font-weight: 650;
+  }
+  dl {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+  }
+  dt {
+    color: var(--unilab-color-text-muted);
+    font-size: 11px;
+  }
+  dd {
+    margin: 3px 0 0;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+  time,
+  code {
+    color: var(--unilab-color-text-muted);
+    font: 11px var(--unilab-font-mono);
+  }
+}

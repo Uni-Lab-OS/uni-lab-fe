@@ -1,0 +1,367 @@
+.benchToolbar,
+.reagentToolbar {
+  display: flex;
+  gap: var(--unilab-space-3);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--unilab-space-3);
+  padding: 8px 10px;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-lg);
+}
+
+.toolbarFilters {
+  display: flex;
+  gap: 8px;
+
+  select {
+    min-height: 32px;
+    padding: 0 28px 0 9px;
+    color: var(--unilab-color-text);
+    font: 500 13px var(--unilab-font-sans);
+    background: var(--unilab-color-surface);
+    border: 1px solid var(--unilab-color-border-strong);
+    border-radius: var(--unilab-radius-control);
+  }
+}
+
+.benchGrid {
+  display: grid;
+  grid-template-columns: minmax(620px, 1fr) 288px;
+  min-height: 520px;
+  overflow: hidden;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-lg);
+}
+
+.benchCanvas {
+  min-width: 0;
+  overflow: auto;
+  background: var(--unilab-color-canvas);
+}
+
+.spaceProjection {
+  position: relative;
+  min-width: 620px;
+  min-height: 520px;
+  overflow: hidden;
+  background-color: var(--unilab-color-canvas);
+  background-image:
+    linear-gradient(var(--unilab-color-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--unilab-color-border) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.canvasHint {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.deviceZone {
+  position: absolute;
+  box-sizing: border-box;
+  padding: 36px 10px 10px;
+  background: rgb(255 255 255 / 46%);
+  border: 1px dashed var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-lg);
+
+  > h3 {
+    position: absolute;
+    top: 8px;
+    left: 10px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin: 0;
+    color: var(--unilab-color-text);
+    font-size: 12px;
+  }
+
+  > h3 svg {
+    width: 15px;
+    height: 15px;
+    color: var(--unilab-color-primary);
+  }
+  > h3 span {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+  }
+  > h3 small {
+    color: var(--unilab-color-text-muted);
+    font: 500 12px var(--unilab-font-mono);
+  }
+}
+
+.deviceSiteGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 8px;
+  height: 100%;
+  align-content: start;
+
+  > article {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+  }
+  > article[data-selected='true'] {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+.spatialSite,
+.spatialSiteActive {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  min-width: 115px;
+  min-height: 76px;
+  padding: 9px;
+  color: var(--unilab-color-text);
+  text-align: left;
+  background: rgb(255 255 255 / 92%);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-md);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgb(15 23 42 / 7%);
+  transform: translateY(0);
+  transition:
+    border-color var(--unilab-motion-fast),
+    transform var(--unilab-motion-fast);
+
+  > span:first-child {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  > span > strong {
+    font: 600 12px var(--unilab-font-mono);
+  }
+  > small {
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+  }
+  &:hover {
+    border-color: var(--unilab-color-primary);
+    transform: translateY(-2px);
+  }
+  &:focus-visible {
+    outline: 3px solid var(--unilab-color-focus);
+    outline-offset: 2px;
+  }
+}
+
+.spatialSiteActive {
+  border-color: var(--unilab-color-primary);
+  box-shadow: var(--unilab-shadow-selected);
+}
+
+.spatialMaterial {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 5px;
+  align-items: center;
+  margin-top: 2px;
+  padding: 5px;
+  color: var(--unilab-color-device);
+  text-align: left;
+  background: var(--unilab-color-device-soft);
+  border: 1px solid transparent;
+  border-radius: var(--unilab-radius-control);
+  cursor: pointer;
+
+  > svg {
+    width: 15px;
+    height: 15px;
+  }
+  > span {
+    display: grid;
+    min-width: 0;
+  }
+  strong,
+  small {
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  small {
+    color: var(--unilab-color-text-muted);
+    font-family: var(--unilab-font-mono);
+  }
+  &:hover,
+  &[data-selected='true'] {
+    border-color: var(--unilab-color-device);
+  }
+  &:focus-visible {
+    outline: 3px solid var(--unilab-color-focus);
+    outline-offset: 1px;
+  }
+}
+
+.benchInspector {
+  min-width: 0;
+  background: var(--unilab-color-surface);
+  border-left: 1px solid var(--unilab-color-border);
+
+  > header {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--unilab-color-border);
+
+    h2 {
+      margin: 0;
+      font-size: 13px;
+    }
+    p {
+      margin: 4px 0 0;
+      color: var(--unilab-color-text-muted);
+      font: 500 12px var(--unilab-font-mono);
+    }
+  }
+}
+
+.inspectorTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--unilab-color-border);
+
+  button {
+    min-height: 38px;
+    color: var(--unilab-color-text-muted);
+    font: 600 12px var(--unilab-font-sans);
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+  }
+  button[aria-pressed='true'] {
+    color: var(--unilab-color-primary);
+    border-bottom-color: var(--unilab-color-primary);
+  }
+  button:disabled {
+    opacity: 0.5;
+  }
+}
+
+.detailList {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 12px;
+  margin: 0;
+  padding: 15px 12px;
+
+  div {
+    min-width: 0;
+  }
+  dt {
+    margin-bottom: 5px;
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+  }
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+}
+
+.inspectorFootnote {
+  margin: 0 12px 12px;
+  padding-top: 10px;
+  font: 400 12px/1.5 var(--unilab-font-sans);
+  border-top: 1px solid var(--unilab-color-border);
+}
+
+.unknownReason {
+  grid-column: 1 / -1;
+  padding: 9px;
+  background: var(--unilab-color-warning-soft);
+  border: 1px solid #fed7aa;
+  border-radius: var(--unilab-radius-control);
+}
+
+.historyPanel {
+  padding: 12px;
+
+  ol {
+    display: grid;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  li {
+    display: grid;
+    gap: 5px;
+    padding: 9px;
+    background: var(--unilab-color-bg-subtle);
+    border: 1px solid var(--unilab-color-border);
+    border-radius: var(--unilab-radius-control);
+  }
+  li > span {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+  }
+  strong {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  time,
+  small {
+    color: var(--unilab-color-text-muted);
+    font: 11px/1.45 var(--unilab-font-mono);
+  }
+}
+
+.statusBadge {
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-bg-muted);
+}
+.statusBadge[data-status='empty'] {
+  color: #166534;
+  background: var(--unilab-color-success-soft);
+}
+.statusBadge[data-status='occupied'] {
+  color: var(--unilab-color-primary);
+  background: var(--unilab-color-primary-soft);
+}
+.statusBadge[data-status='unknown'] {
+  color: var(--unilab-color-warning);
+  background: var(--unilab-color-warning-soft);
+}
+
+.projectionDot {
+  width: 7px;
+  height: 7px;
+  background: var(--unilab-color-text-subtle);
+  border-radius: 50%;
+}
+.projectionDot[data-status='empty'] {
+  background: #166534;
+}
+.projectionDot[data-status='occupied'] {
+  background: var(--unilab-color-primary);
+}
+.projectionDot[data-status='unknown'] {
+  background: var(--unilab-color-warning);
+}

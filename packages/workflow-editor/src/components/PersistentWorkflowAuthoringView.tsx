@@ -9,6 +9,7 @@ import {
 import WorkflowDag from './WorkflowDag'
 import { WorkflowOutput } from './WorkflowOutput'
 import { WorkflowButton } from './WorkflowButton'
+import { WorkflowCanvasStageHeader } from './WorkflowCanvasStageHeader'
 import { MaterialSourceInspector } from './MaterialSourceInspector'
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
 import { PersistentWorkflowOverlays } from './PersistentWorkflowOverlays'
@@ -39,19 +40,25 @@ export function PersistentWorkflowAuthoringView({
     addMaterialSourceNode,
     addPublishedWorkflowNode,
     addTypedActionNode,
+    authorityLabel,
     beautifyCanvasLayout,
     busy,
     candidateIo,
+    canvasMutationEnabled,
+    canvasSaveHint,
     codeProjection,
     completedTaskJobCount,
     connectTypedHandles,
     deleteCanvasElements,
     debugBreakpoints,
     debugExecutionScope,
+    definitionEditingAvailable,
+    definitionEditingDisabledReason,
     diagnostics,
     editor,
     effectiveMaterialSourceCatalog,
     error,
+    executionBlockedReason,
     graph,
     ideBridgeConnected,
     jsonProjectionEditor,
@@ -95,8 +102,11 @@ export function PersistentWorkflowAuthoringView({
     setSelectedNodeName,
     setSelectedNodeNameDirty,
     setSelectedNodeUuid,
+    setTraceViewerOpen,
     setWorkflowIoOpen,
     sourceSelectedNodeUuid,
+    sourceEditingAvailable,
+    sourceEditingDisabledReason,
     sourceProjection,
     structure,
     task,
@@ -105,7 +115,8 @@ export function PersistentWorkflowAuthoringView({
     taskNodeStates,
     taskOutputNodes,
     taskRuntime,
-    taskRuntimeEvents,
+    taskActivity,
+    traceRuntime,
     toggleDebugBreakpoint,
     toggleDebugStartNode,
     toggleNodeDisabled,
@@ -182,6 +193,13 @@ export function PersistentWorkflowAuthoringView({
       data-workflow-ide-bridge={ideBridgeConnected ? 'connected' : 'missing'}
     >
       <PersistentWorkflowToolbar model={model} />
+
+      {executionBlockedReason && (
+        <div className="workflow-runtime__problem" role="status">
+          <strong>工作流运行暂不可用</strong>
+          <span>{executionBlockedReason}</span>
+        </div>
+      )}
 
       {error && (
         <div className="workflow-runtime__problem" role="alert">
@@ -304,11 +322,13 @@ export function PersistentWorkflowAuthoringView({
             </div>
           </div>
           <p className="persistent-authoring__authority-note">
-            {mode === 'canvas'
-              ? 'Python 是 OS 生成的只读投影'
-              : codeProjection === 'json'
-                ? 'JSON 来自 OS 候选图，仅供查看；切换不会覆盖 Python 草稿'
-                : 'Python 草稿可编辑；保存时校验草稿哈希与工作流版本'}
+            {!sourceEditingAvailable
+              ? sourceEditingDisabledReason
+              : mode === 'canvas'
+                ? 'Python 是 OS 生成的只读投影'
+                : codeProjection === 'json'
+                  ? 'JSON 来自 OS 候选图，仅供查看；切换不会覆盖 Python 草稿'
+                  : 'Python 草稿可编辑；保存时校验草稿哈希与工作流版本'}
           </p>
         </section>
 
@@ -316,33 +336,35 @@ export function PersistentWorkflowAuthoringView({
           className="persistent-authoring__pane persistent-authoring__canvas"
           aria-label="工作流画布"
         >
-          <header className="persistent-authoring__stage-header">
-            <div>
-              <strong>{workflowName || '完整控制流 DAG'}</strong>
-              <span>
-                {structure.nodes.length} 个节点 · {structure.links.length} 条边
-              </span>
-            </div>
-            <div className="persistent-authoring__stage-context">
-              <span
-                className="persistent-authoring__projection-status"
-                title={projectionKind === 'candidate'
-                  ? mode === 'code'
-                    ? '当前画布是服务器候选版本的只读预览'
-                    : '画布编辑区基于候选版本；保存时由 OS 生成完整 Python'
-                  : mode === 'code'
-                    ? '当前显示已应用版本；暂无待应用修改'
-                    : '画布编辑区基于已应用版本；暂无待应用修改'}
-              >
-                {projectionKind === 'candidate'
-                  ? mode === 'code'
-                    ? '候选版本 · 只读'
-                    : '候选版本 · 待保存'
-                  : mode === 'code'
-                    ? '已应用版本 · 只读'
-                    : '已应用版本 · 可编辑'}
-              </span>
-              <div className="persistent-authoring__stage-tools">
+          <WorkflowCanvasStageHeader
+            title={workflowName || '完整控制流 DAG'}
+            nodeCount={structure.nodes.length}
+            linkCount={structure.links.length}
+            projectionTitle={authorityLabel === 'Backend'
+              ? definitionEditingAvailable
+                ? '画布可编辑并直接保存；工作区代码修改不生效'
+                : definitionEditingDisabledReason ??
+                  '当前 Backend 工作流定义只读'
+              : projectionKind === 'candidate'
+              ? mode === 'code'
+                ? '当前画布是服务器候选版本的只读预览'
+                : '画布编辑区基于候选版本；保存时由 OS 生成完整 Python'
+              : mode === 'code'
+                ? '当前显示已应用版本；暂无待应用修改'
+                : '画布编辑区基于已应用版本；暂无待应用修改'}
+            projectionLabel={authorityLabel === 'Backend'
+              ? definitionEditingAvailable
+                ? 'Backend 定义 · 已同步'
+                : 'Backend 定义 · 只读'
+              : projectionKind === 'candidate'
+              ? mode === 'code'
+                ? '候选版本 · 只读'
+                : '候选版本 · 待保存'
+              : mode === 'code'
+                ? '已应用版本 · 只读'
+                : '已应用版本 · 可编辑'}
+            tools={(
+              <>
                 {mode === 'canvas' && !compactCanvas && (
                   <button
                     type="button"
@@ -370,9 +392,9 @@ export function PersistentWorkflowAuthoringView({
                     {' · '}输出 {candidateIo?.output_contract.outputs.length ?? 0}
                   </strong>
                 </WorkflowButton>
-              </div>
-            </div>
-          </header>
+              </>
+            )}
+          />
           <div className={[
             'persistent-authoring__canvas-body',
             mode === 'code' ? 'is-code-mode' : '',
@@ -390,7 +412,7 @@ export function PersistentWorkflowAuthoringView({
                     catalog={actionCatalog}
                     catalogError={actionCatalogError}
                     busy={busy}
-                    canvasMutationEnabled={policy.canvasMutationEnabled}
+                    canvasMutationEnabled={canvasMutationEnabled}
                     graphAvailable={Boolean(graph)}
                     materialSourceCatalogAvailable={Boolean(
                       effectiveMaterialSourceCatalog
@@ -431,16 +453,16 @@ export function PersistentWorkflowAuthoringView({
                     pausedBeforeNodeId={pausedBeforeNodeId}
                     canBeautify={
                       !busy &&
-                      policy.canvasMutationEnabled &&
+                      canvasMutationEnabled &&
                       structure.nodes.length > 0
                     }
                     beautifyDisabledReason={busy
                       ? '正在处理工作流，请稍后美化布局'
-                      : !policy.canvasMutationEnabled
+                      : !canvasMutationEnabled
                         ? '当前模式只允许查看工作流画布'
                         : '工作流图尚未加载完成'}
                     onBeautify={beautifyCanvasLayout}
-                    canvasMutationEnabled={policy.canvasMutationEnabled}
+                    canvasMutationEnabled={canvasMutationEnabled}
                     onConnectHandles={connectTypedHandles}
                     onDeleteRequest={deleteCanvasElements}
                     visibleMaterialRoles={visibleMaterialRoles}
@@ -486,16 +508,14 @@ export function PersistentWorkflowAuthoringView({
                       <input
                         value={selectedNodeName}
                         disabled={
-                          busy || !policy.canvasMutationEnabled ||
+                          busy || !canvasMutationEnabled ||
                           selectedNodeIsInternal
                         }
                         aria-describedby="persistent-node-name-help"
                         onChange={(event) => {
                           setSelectedNodeName(event.target.value)
                           setSelectedNodeNameDirty(true)
-                          setMessage(
-                            '画布缓冲已修改；保存前将生成完整 Python 差异'
-                          )
+                          setMessage(canvasSaveHint)
                         }}
                       />
                     </label>
@@ -508,7 +528,7 @@ export function PersistentWorkflowAuthoringView({
                             )
                           }
                           editable={
-                            !busy && policy.canvasMutationEnabled &&
+                            !busy && canvasMutationEnabled &&
                             !materialSourceCatalogLoading &&
                             !materialSourceAuthorityBlocked
                           }
@@ -562,14 +582,14 @@ export function PersistentWorkflowAuthoringView({
                         </p>
                       )}
                     <p id="persistent-node-name-help">
-                      名称修改属于画布缓冲，接受完整 Python 差异后才会持久化。
+                      {canvasSaveHint}
                     </p>
                   </aside>
                 )}
               </>
             ) : (
               <p className="persistent-authoring__empty">
-                正在读取 OS 工作流编辑数据…
+                正在读取 {authorityLabel} 工作流编辑数据…
               </p>
             )}
           </div>
@@ -645,7 +665,7 @@ export function PersistentWorkflowAuthoringView({
           expectedNodeCount={taskJobs.length}
           nodes={taskOutputNodes}
           nodeNames={taskNodeNames}
-          events={taskRuntimeEvents}
+          activity={taskActivity}
           error={taskRuntime.snapshot.error}
           selectedNode={selectedTaskNode}
           selectedNodeId={selectedJobNodeUuid}
@@ -657,6 +677,9 @@ export function PersistentWorkflowAuthoringView({
           onTabChange={setOutputTab}
           onNodeSelect={handleRuntimeNodeSelect}
           onClearError={taskRuntime.clearError}
+          onTraceOpen={traceRuntime
+            ? () => setTraceViewerOpen(true)
+            : undefined}
         />
       </section>
 

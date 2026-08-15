@@ -358,7 +358,10 @@ export class LocalRuntimeManager {
           : '工作流目录已就绪，正在等待设备运行时…'
       )
       await waitForLocalRuntimeHttp(
-        localRuntimeEdgeHttpUrl(plan.ports.edgeHttp, '/api/v1/devices'),
+        localRuntimeEdgeHttpUrl(
+          plan.ports.edgeHttp,
+          '/api/v1/authoring/device-catalog'
+        ),
         managedLocalRuntimeChildren([
           ['simulator', this.simulatorProcess],
           ['edge', this.edgeProcess]

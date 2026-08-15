@@ -168,6 +168,13 @@
   box-shadow: inset 2px 0 var(--unilab-color-primary);
 }
 
+/* 机械臂动作调试、点位管理和实验台入口暂不对用户开放。 */
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-debug'],
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-points'],
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-bench'] {
+  display: none;
+}
+
 .unilab-activity-icon {
   display: block;
   width: 22px;
@@ -180,6 +187,22 @@
 
 .unilab-activity-icon--device {
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2.5' y='3' width='15' height='14' rx='2'/%3E%3Crect x='5' y='6' width='6' height='4' rx='.75'/%3E%3Ccircle cx='14.25' cy='8' r='1.25'/%3E%3Cpath d='M5 13.5h5.5M13 13.5h1.5'/%3E%3C/svg%3E");
+}
+
+.unilab-activity-icon--robot-debug {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 17.5h15M6 17.5v-3l2.5-1.5.8-4 3-1.8 2 2-2.5 3.2-.8 3.1'/%3E%3Ccircle cx='10' cy='7.5' r='1.7'/%3E%3Cpath d='m14.3 9.2 2-2'/%3E%3C/svg%3E");
+}
+
+.unilab-activity-icon--robot-points {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='10' cy='8' r='4.5'/%3E%3Ccircle cx='10' cy='8' r='1.5'/%3E%3Cpath d='M10 2v2M10 12v6M4 8H2M18 8h-2M7 17h6'/%3E%3C/svg%3E");
+}
+
+.unilab-activity-icon--robot-bench {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 6.5h15v4h-15zM4 10.5v7M16 10.5v7M7 10.5v3h6v-3'/%3E%3Cpath d='M5 3h3v3.5M12 3h3v3.5'/%3E%3C/svg%3E");
+}
+
+.unilab-activity-icon--robot-reagents {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 2.5h6M8 2.5v5l-4 7A2 2 0 0 0 5.7 17.5h8.6a2 2 0 0 0 1.7-3l-4-7v-5'/%3E%3Cpath d='M6.5 12h7'/%3E%3C/svg%3E");
 }
 
 .unilab-activity-icon--material {

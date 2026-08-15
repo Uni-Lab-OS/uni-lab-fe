@@ -18,6 +18,11 @@ import type {
 } from './types'
 
 export type MaterialLoadState = 'idle' | 'loading' | 'ready' | 'error'
+export type MaterialShapeLibraryState =
+  | 'idle'
+  | 'loading'
+  | 'ready'
+  | 'unavailable'
 
 export interface PendingMaterialCommand {
   id: string
@@ -45,6 +50,8 @@ export interface MaterialStoreState {
   error: string | null
   /** 设备包声明的 2.5D 外形；后端不提供时为空表，视图退回实心包围盒。 */
   shapeLibrary: MaterialShapeLibrary
+  /** 区分外形仍在读取与服务未提供声明，避免把加载过程误报成降级。 */
+  shapeLibraryState: MaterialShapeLibraryState
 
   loadGraph: () => Promise<void>
   /** 将一条服务端物料移动事件增量投影到当前页面，不重新读取完整物料图。 */

@@ -6,7 +6,7 @@ import { createWorkflowRuntime } from './workflow'
 
 describe('workflow catalog port', () => {
   it('lists the workflows exposed by the current OS backend', async () => {
-    const page = {
+    const rawPage = {
       items: [{
         uuid: '335da2e9-024b-562f-8bf8-35dba0b52a90',
         name: '堆栈、S05 与 S06 联调',
@@ -16,11 +16,11 @@ describe('workflow catalog port', () => {
         create_time: '2026-08-02T08:10:22Z',
         update_time: '2026-08-02T08:10:22Z'
       }],
-      total: 1,
+      has_more: false,
       page: 1,
       page_size: 100
     }
-    const request = vi.fn().mockResolvedValue({ code: 0, data: page })
+    const request = vi.fn().mockResolvedValue({ code: 0, data: rawPage })
     const runtime = createWorkflowRuntime(
       mockHttp(request),
       getDefaultBackend('local-python')
@@ -29,7 +29,12 @@ describe('workflow catalog port', () => {
     await expect(runtime.listWorkflows({
       page: 1,
       page_size: 100
-    })).resolves.toEqual(page)
+    })).resolves.toEqual({
+      items: rawPage.items,
+      total: 1,
+      page: 1,
+      page_size: 100
+    })
 
     expect(request).toHaveBeenCalledWith(
       '/api/v1/workflows?page=1&page_size=100',

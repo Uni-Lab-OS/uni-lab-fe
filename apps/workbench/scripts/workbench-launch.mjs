@@ -10,6 +10,16 @@ const execFileAsync = promisify(execFile)
 export const WORKBENCH_DESKTOP_FLAG = '--desktop'
 export const WORKBENCH_REMOTE_FLAG = '--remote'
 
+/**
+ * Keep the Theia backend out of the launcher's terminal process group.
+ * Otherwise one Ctrl+C reaches Theia directly and the launcher forwards a
+ * second signal, which can bypass async BackendApplicationContribution cleanup
+ * and orphan managed Workspace Backend / Edge Runtime children.
+ */
+export function isolateWorkbenchBackendProcessGroup(platform = process.platform) {
+  return platform !== 'win32'
+}
+
 const VALUE_FLAGS = new Map([
   ['--workspace', 'workspace'],
   ['--os-project', 'osProject'],

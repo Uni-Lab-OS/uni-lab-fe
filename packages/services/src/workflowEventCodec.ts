@@ -4,6 +4,7 @@ import type {
 import type {
   DeviceActionTaskChangedEvent,
   DeviceCatalogChangedEvent,
+  WorkflowDefinitionChangedEvent,
   WorkflowRuntimeChangedEvent
 } from './workflowTaskContracts'
 
@@ -29,6 +30,28 @@ export function parseAuthoringChangedData(
       workflow_revision: data.workflow_revision,
       draft_hash: data.draft_hash,
       candidate_hash: data.candidate_hash
+    }
+  } catch {
+    return null
+  }
+}
+
+/** 解码 Backend 工作流定义 revision 失效事件。 */
+export function parseWorkflowDefinitionChangedData(
+  value: string
+): WorkflowDefinitionChangedEvent['data'] | null {
+  try {
+    const data = JSON.parse(value) as Record<string, unknown>
+    if (
+      Object.keys(data).length !== 2 ||
+      typeof data.workflow_uuid !== 'string' ||
+      data.workflow_uuid.trim() === '' ||
+      !Number.isSafeInteger(data.workflow_revision) ||
+      (data.workflow_revision as number) < 1
+    ) return null
+    return {
+      workflow_uuid: data.workflow_uuid,
+      workflow_revision: data.workflow_revision as number
     }
   } catch {
     return null

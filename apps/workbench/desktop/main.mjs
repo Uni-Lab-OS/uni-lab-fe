@@ -28,6 +28,7 @@ import { createRemoteWorkbenchController } from '../scripts/remote-controller.mj
 import {
   normalizeWorkbenchLaunchConfig,
   recentWorkspaceForPath,
+  requireWorkbenchWorkspace,
   recordRecentWorkspace
 } from '../scripts/workspace-recents.mjs'
 
@@ -83,6 +84,11 @@ async function startPackagedWorkbench() {
   const hasExplicitEnvironment = argumentsAfterExecutable.includes('--python-env')
     || Boolean(process.env['UNILAB_PYTHON_ENV']?.trim())
   const resources = resolvePackagedResources()
+  if (app.isPackaged) {
+    process.env['UNILAB_AIONUI_VERSION'] = await readPackagedAgentVersion(
+      resources.agentPayload
+    )
+  }
   await Promise.all([
     access(resources.backendMain),
     access(resources.desktopMain),
@@ -93,6 +99,7 @@ async function startPackagedWorkbench() {
     // archive file itself through the patched fs therefore returns ENOENT even
     // when the physical package exists; original-fs bypasses that interception.
     originalFsPromises.access(resources.agentAsar),
+    ...(app.isPackaged ? [access(resources.agentPayload)] : []),
     access(resources.agentCore),
     access(resources.workspaceSkills)
   ])
@@ -179,6 +186,7 @@ function resolvePackagedResources() {
         'icon.png'
       ),
       agentRuntime,
+      agentPayload: path.join(agentResources, 'payload.json'),
       workspaceSkills: process.env['UNILAB_WORKBENCH_SKILLS']
         ?? path.join(workbench, 'resources', 'workspace-skills'),
       agentAsar: path.join(agentResources, 'app.asar'),
@@ -215,6 +223,7 @@ function resolvePackagedResources() {
     ),
     brandIcon: path.join(root, 'branding', 'icon.png'),
     agentRuntime,
+    agentPayload: path.join(agentRuntime, 'payload.json'),
     workspaceSkills: path.join(root, 'workspace-skills'),
     agentAsar: path.join(agentRuntime, 'app.asar'),
     agentCore: path.join(
@@ -224,6 +233,20 @@ function resolvePackagedResources() {
       agentTarget.executable
     )
   }
+}
+
+async function readPackagedAgentVersion(payloadPath) {
+  let payload
+  try {
+    payload = JSON.parse(await readFile(payloadPath, 'utf8'))
+  } catch (error) {
+    throw new Error('UniLab Agent 打包版本清单无效', { cause: error })
+  }
+  const version = payload?.version
+  if (typeof version !== 'string' || !version.trim()) {
+    throw new Error('UniLab Agent 打包版本清单缺少 version')
+  }
+  return version.trim()
 }
 
 function resolveAgentCoreTarget() {
@@ -308,6 +331,7 @@ function createPackagedWorkspaceController(options) {
     try {
       const workspace = await validDirectory(workspaceCandidate)
       if (!workspace) throw new Error('所选工作区不存在或不可访问。')
+      await requireWorkbenchWorkspace(workspace)
       const recent = recentWorkspaceForPath(config, workspace)
       const pythonEnvironment = await selectPythonEnvironment({
         explicit: explicit.pythonEnvironment ?? options.explicitEnvironment ?? null,

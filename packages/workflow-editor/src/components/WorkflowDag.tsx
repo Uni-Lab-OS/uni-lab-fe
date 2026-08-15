@@ -179,6 +179,11 @@ export default function WorkflowDag({
     ? localVisibleMaterialRoles
     : visibleMaterialRoles
   const flowInstanceRef = useRef<ReactFlowInstance | null>(null)
+  const nodeDragOriginRef = useRef<{
+    id: string
+    x: number
+    y: number
+  } | null>(null)
   const beautifyTimerRef = useRef<
     ReturnType<typeof globalThis.setTimeout> | null
   >(null)
@@ -692,8 +697,22 @@ export default function WorkflowDag({
           )
           onNodeSelect(node.id)
         }}
+        onNodeDragStart={(_event, node: Node<WorkflowNodeData>) => {
+          nodeDragOriginRef.current = {
+            id: node.id,
+            x: node.position.x,
+            y: node.position.y
+          }
+        }}
         onNodeDragStop={(_event, node: Node<WorkflowNodeData>) => {
           if (!nodePositionMutationEnabled) return
+          const origin = nodeDragOriginRef.current
+          nodeDragOriginRef.current = null
+          if (
+            !origin ||
+            origin.id !== node.id ||
+            (origin.x === node.position.x && origin.y === node.position.y)
+          ) return
           onNodePositionChange?.(node.id, node.position)
         }}
         onNodeContextMenu={(event, node: Node<WorkflowNodeData>) => {

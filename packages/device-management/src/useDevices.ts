@@ -9,13 +9,14 @@
  * Human Review Status: [ ] Pending  [ ] Reviewed  [ ] Approved
  * ============================================================
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Services } from '@unilab/services'
 import {
   presentEdgeDevices,
   type ManagedDevice
 } from './deviceCatalog'
 import type { DeviceManagementConnection } from './types'
+import { deviceCatalogRecoveryDelay } from './deviceCatalogRecovery'
 
 interface UseDevicesResult {
   devices: ManagedDevice[]
@@ -41,6 +42,7 @@ export function useDevices({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<number | null>(null)
+  const recoveryAttemptRef = useRef(0)
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     if (!backendEnabled) {
@@ -74,7 +76,8 @@ export function useDevices({
     }
   }, [backendEnabled, canListActions, client, services])
 
-  // Edge 连通后立即刷新，并低频同步设备上线与动作忙闲变化。
+  // Edge 连通后只读取一次完整设备目录。动作运行状态由当前 active 动作节点的
+  // Task recovery 单独补读，避免定时请求 /devices 时轮询所有设备的动作节点。
   useEffect(() => {
     if (!isOnline) {
       if (connection === 'error' || connection === 'disconnected') {
@@ -85,14 +88,34 @@ export function useDevices({
     }
     const controller = new AbortController()
     void refresh(controller.signal)
-    const timer = globalThis.setInterval(() => {
-      void refresh(controller.signal)
-    }, 5_000)
     return () => {
       controller.abort()
-      globalThis.clearInterval(timer)
     }
   }, [connection, isOnline, refresh])
+
+  // Workspace Backend may become ready before its Edge has registered device
+  // bindings. Recover that bounded startup window automatically; once any
+  // device is dispatchable, avoid polling the full device/action catalog.
+  useEffect(() => {
+    const delay = deviceCatalogRecoveryDelay({
+      attempt: recoveryAttemptRef.current,
+      backendEnabled,
+      connection,
+      lastUpdated,
+      devices
+    })
+    if (delay === null) {
+      if (!isOnline || devices.some(device => device.online)) {
+        recoveryAttemptRef.current = 0
+      }
+      return
+    }
+    const timer = globalThis.setTimeout(() => {
+      recoveryAttemptRef.current += 1
+      void refresh()
+    }, delay)
+    return () => globalThis.clearTimeout(timer)
+  }, [backendEnabled, connection, devices, isOnline, lastUpdated, refresh])
 
   return { devices, loading, error, lastUpdated, refresh }
 }

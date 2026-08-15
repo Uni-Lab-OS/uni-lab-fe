@@ -76,8 +76,8 @@
     "yargs": "17.7.3"
   },
   "scripts": {
-    "build": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/pascal-host build:styles && theia download:plugins && theia build --mode development",
-    "build:production": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/pascal-host build:styles && theia download:plugins && theia build --mode production && node scripts/prune-production-output.mjs",
+    "build": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/pascal-host build:styles && theia download:plugins && node scripts/run-theia-build.mjs --mode development",
+    "build:production": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/pascal-host build:styles && theia download:plugins && node scripts/run-theia-build.mjs --mode production && node scripts/prune-production-output.mjs",
     "build:desktop": "pnpm --filter @unilab/desktop build:workbench-shell && pnpm build:production && pnpm build:desktop-launcher",
     "build:desktop:development": "pnpm --filter @unilab/desktop build:workbench-shell && pnpm build && pnpm build:desktop-launcher",
     "build:desktop:production": "pnpm build:desktop",
@@ -92,6 +92,7 @@
     "start:desktop-remote": "node scripts/start-workbench.mjs --desktop --remote",
     "start:remote": "node scripts/start-workbench.mjs --remote",
     "start:theia-only": "theia start \"${THEIA_WORKSPACE:-../..}\" --hostname 127.0.0.1 --port ${THEIA_PORT:-3100} --plugins=local-dir:plugins",
+    "start:headless-renderer": "node scripts/headless-renderer.mjs",
     "package:mac": "pnpm build:desktop:production && node scripts/package-macos.mjs --signed",
     "package:mac:developer-id": "pnpm build:desktop:production && node scripts/package-macos.mjs --developer-id",
     "package:mac:adhoc": "pnpm build:desktop:production && node scripts/package-macos.mjs --adhoc",
@@ -99,7 +100,7 @@
     "package:linux": "pnpm build:desktop:production && node scripts/package-linux.mjs",
     "package:win": "pnpm build:desktop:production && node scripts/package-windows.mjs",
     "test": "node --test scripts/*.test.mjs",
-    "watch": "theia build --watch --mode development"
+    "watch": "node scripts/run-theia-build.mjs --watch --mode development"
   },
   "theia": {
     "target": "browser",

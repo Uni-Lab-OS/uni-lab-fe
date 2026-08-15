@@ -1,7 +1,14 @@
-import type { WorkbenchSessionSnapshot } from '@unilab/workbench-session'
+import type {
+  WorkbenchEnvironmentLogKind,
+  WorkbenchSessionSnapshot
+} from '@unilab/workbench-session'
 import * as React from 'react'
 
 import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
+import {
+  WorkbenchRuntimeLogLauncher,
+  workbenchRuntimeLogPaths
+} from './workbench-runtime-log-drawer'
 
 export async function captureWorkbenchUiOperation(
   operation: () => Promise<void>,
@@ -14,22 +21,67 @@ export async function captureWorkbenchUiOperation(
   }
 }
 
+function opensEnvironmentManager(snapshot: WorkbenchSessionSnapshot): boolean {
+  return snapshot.phase === 'failed'
+    && (
+      snapshot.diagnostic?.code === 'os_readiness_failed'
+      || snapshot.diagnostic?.code === 'plc_connection_failed'
+    )
+}
+
+function diagnosticTitle(
+  code: NonNullable<WorkbenchSessionSnapshot['diagnostic']>['code']
+): string {
+  switch (code) {
+    case 'invalid_workspace': return 'Workspace 校验失败'
+    case 'invalid_os_project': return 'Uni-Lab OS 项目不可用'
+    case 'python_environment_not_found': return 'Python 环境不可用'
+    case 'port_conflict': return '端口不可用'
+    case 'plc_connection_failed': return 'PLC 连接失败'
+    case 'os_readiness_failed': return 'Uni-Lab OS 尚未就绪'
+    case 'os_exited': return 'Uni-Lab OS 已退出'
+    case 'os_start_failed': return 'Uni-Lab OS 未能启动'
+  }
+}
+
+export async function runAndRefreshWorkbenchOperation(
+  operation: () => Promise<void>,
+  refresh: () => Promise<void>
+): Promise<void> {
+  try {
+    await operation()
+  } catch (error) {
+    try {
+      await refresh()
+    } catch {
+      // Preserve the actionable operation error if the follow-up refresh fails.
+    }
+    throw error
+  }
+  await refresh()
+}
+
 export function WorkbenchSessionGate({
   snapshot,
   onRetry,
   onStop,
+  connectionSelector,
   onOpenLog,
+  onReadEnvironmentLog,
   renderEnvironmentManager
 }: {
   snapshot: WorkbenchSessionSnapshot
   onRetry: () => Promise<void>
   onStop: () => Promise<void>
+  connectionSelector?: React.ReactNode
   onOpenLog?: (path: string) => Promise<void>
+  onReadEnvironmentLog?: (
+    kind: WorkbenchEnvironmentLogKind
+  ) => Promise<string>
   renderEnvironmentManager: (onClose: () => void) => React.ReactNode
 }): React.JSX.Element {
   const [environmentOpen, setEnvironmentOpen] = React.useState(
-    snapshot.phase === 'failed'
-    && snapshot.diagnostic?.code === 'os_readiness_failed'
+    opensEnvironmentManager(snapshot)
   )
   const [operationError, setOperationError] = React.useState<string | null>(null)
   const [launchRequested, setLaunchRequested] = React.useState(false)
@@ -40,6 +92,14 @@ export function WorkbenchSessionGate({
   const launchLoading = launchRequested
     || snapshot.phase === 'starting'
     || snapshot.phase === 'waiting'
+  const switchingToBackend = snapshot.configuredDomainMode === 'backend'
+  const launchTitle = switchingToBackend
+    ? '正在启动 Backend 模式'
+    : '正在启动 Unilab 调试工作台'
+  const launchMessage = switchingToBackend
+    ? '正在连接 Backend + Scheduler，并启动 Edge Runtime…'
+    : snapshot.message || '正在校验工作区并启动 Uni-Lab OS…'
+  const launchCancelLabel = '取消启动'
 
   const start = React.useCallback(async () => {
     setLaunchRequested(true)
@@ -56,10 +116,7 @@ export function WorkbenchSessionGate({
   }, [onStop, run])
 
   React.useEffect(() => {
-    if (
-      snapshot.phase === 'failed'
-      && snapshot.diagnostic?.code === 'os_readiness_failed'
-    ) {
+    if (opensEnvironmentManager(snapshot)) {
       setEnvironmentOpen(true)
     }
   }, [snapshot.diagnostic?.code, snapshot.phase])
@@ -72,6 +129,7 @@ export function WorkbenchSessionGate({
         </span>
         <h2>Unilab 调试工作台</h2>
         <p>{snapshot.message}</p>
+        {connectionSelector}
         {snapshot.identity ? (
           <dl>
             <dt>Workspace</dt>
@@ -103,9 +161,13 @@ export function WorkbenchSessionGate({
         ) : null}
         {snapshot.diagnostic ? (
           <div className="unilab-workbench-session-diagnostic" role="alert">
-            <strong>{snapshot.diagnostic.code}</strong>
+            <strong>{diagnosticTitle(snapshot.diagnostic.code)}</strong>
             <p>{snapshot.diagnostic.message}</p>
-            <p>{snapshot.diagnostic.recovery}</p>
+            <p className="unilab-workbench-session-diagnostic__recovery">
+              <span>建议：</span>
+              {snapshot.diagnostic.recovery}
+            </p>
+            <code>诊断代码：{snapshot.diagnostic.code}</code>
           </div>
         ) : null}
         {operationError ? (
@@ -145,6 +207,13 @@ export function WorkbenchSessionGate({
               <span className="codicon codicon-settings-gear" aria-hidden="true" />
               环境管理
             </button>
+            {onReadEnvironmentLog ? (
+              <WorkbenchRuntimeLogLauncher
+                onReadLog={onReadEnvironmentLog}
+                logPaths={workbenchRuntimeLogPaths(snapshot)}
+                onOpenLog={onOpenLog}
+              />
+            ) : null}
           </div>
           <DesktopWorkspaceSwitchButton />
         </footer>
@@ -157,17 +226,17 @@ export function WorkbenchSessionGate({
           className="unilab-workbench-session-loading"
           role="status"
           aria-live="assertive"
-          aria-label="正在启动 Unilab 调试工作台"
+          aria-label={launchTitle}
         >
           <div className="unilab-workbench-session-loading__content">
             <span
               className="unilab-workbench-session-loading__spinner"
               aria-hidden="true"
             />
-            <strong>正在启动 Unilab 调试工作台</strong>
-            <p>{snapshot.message || '正在校验工作区并启动 Uni-Lab OS…'}</p>
+            <strong>{launchTitle}</strong>
+            <p>{launchMessage}</p>
             <button type="button" onClick={() => void stop()}>
-              取消启动
+              {launchCancelLabel}
             </button>
           </div>
         </div>

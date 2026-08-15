@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WorkflowRuntimeInvalidationEvent } from '@unilab/services'
 
 import {
+  shouldRecoverActiveDeviceActionTask,
   startDeviceActionTaskRecovery,
   type DeviceActionTaskRecoveryEnvironment
 } from './deviceActionTaskRecovery'
@@ -9,6 +10,7 @@ import {
 interface FakeSubscription {
   listener: (event: WorkflowRuntimeInvalidationEvent) => void
   onOpen: () => void
+  onError: (error: Error) => void
 }
 
 function createEnvironment(): DeviceActionTaskRecoveryEnvironment & {
@@ -38,13 +40,17 @@ function createEnvironment(): DeviceActionTaskRecoveryEnvironment & {
   }
 }
 
+/** 构造可控的全局 SSE 订阅端口；返回事件注入器和订阅函数。 */
 function createSubscriptionPort(): {
   emit: FakeSubscription
-  subscribe: Parameters<typeof startDeviceActionTaskRecovery>[0]['subscribe']
+  subscribe: NonNullable<
+    Parameters<typeof startDeviceActionTaskRecovery>[0]['subscribe']
+  >
 } {
   const emit: FakeSubscription = {
     listener: () => undefined,
-    onOpen: () => undefined
+    onOpen: () => undefined,
+    onError: () => undefined
   }
   return {
     emit,
@@ -54,6 +60,7 @@ function createSubscriptionPort(): {
         lastEventId: '',
         reconnected: true
       })
+      emit.onError = (error) => options.onError?.(error)
       return { dispose: vi.fn() }
     }
   }
@@ -74,7 +81,9 @@ describe('device Action Task REST rehydrate recovery', () => {
   it('rehydrates a device action after the standard workflow runtime event', async () => {
     const environment = createEnvironment()
     const subscription = createSubscriptionPort()
-    const read = vi.fn(async () => false)
+    const read = vi.fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true)
     const recovery = startDeviceActionTaskRecovery({
       tasks: [{ taskUuid: 'task-1', actionRef: 'action-1' }],
       environment,
@@ -91,6 +100,55 @@ describe('device Action Task REST rehydrate recovery', () => {
     })
     await flushMicrotasks()
 
+    expect(read).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(read).toHaveBeenCalledTimes(2)
+    recovery.dispose()
+  })
+
+  it('keeps a REST watchdog when the runtime event stream drops a terminal event', async () => {
+    const environment = createEnvironment()
+    const subscription = createSubscriptionPort()
+    const read = vi.fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true)
+    const recovery = startDeviceActionTaskRecovery({
+      tasks: [{ taskUuid: 'task-1', actionRef: 'action-1' }],
+      environment,
+      subscribe: subscription.subscribe,
+      read,
+      pollIntervalMs: 1_000
+    })
+    await flushMicrotasks()
+    expect(read).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(read).toHaveBeenCalledTimes(2)
+
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(read).toHaveBeenCalledTimes(2)
+    recovery.dispose()
+  })
+
+  /** 证明 Backend 未声明运行事件能力时，恢复器仍能通过有界 REST 补读确认终态。 */
+  it('rehydrates without a runtime event subscription', async () => {
+    const environment = createEnvironment()
+    const read = vi.fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true)
+    const recovery = startDeviceActionTaskRecovery({
+      tasks: [{ taskUuid: 'task-1', actionRef: 'action-1' }],
+      environment,
+      read,
+      pollIntervalMs: 1_000
+    })
+    await flushMicrotasks()
+    expect(read).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(read).toHaveBeenCalledTimes(2)
+
+    await vi.advanceTimersByTimeAsync(10_000)
     expect(read).toHaveBeenCalledTimes(2)
     recovery.dispose()
   })
@@ -123,7 +181,7 @@ describe('device Action Task REST rehydrate recovery', () => {
     expect(read).toHaveBeenCalledTimes(1)
 
     resolveRead?.(true)
-    await vi.runAllTimersAsync()
+    await flushMicrotasks()
     expect(read).toHaveBeenCalledTimes(1)
     recovery.dispose()
   })
@@ -180,7 +238,6 @@ describe('device Action Task REST rehydrate recovery', () => {
 
   it('backs off failed REST reads and stops polling terminal tasks', async () => {
     const environment = createEnvironment()
-    const subscription = createSubscriptionPort()
     const read = vi.fn()
       .mockRejectedValueOnce(new Error('offline'))
       .mockResolvedValueOnce(false)
@@ -189,7 +246,6 @@ describe('device Action Task REST rehydrate recovery', () => {
     const recovery = startDeviceActionTaskRecovery({
       tasks: [{ taskUuid: 'task-1', actionRef: 'action-1' }],
       environment,
-      subscribe: subscription.subscribe,
       read,
       onError,
       pollIntervalMs: 1_000,
@@ -208,5 +264,30 @@ describe('device Action Task REST rehydrate recovery', () => {
     await vi.advanceTimersByTimeAsync(10_000)
     expect(read).toHaveBeenCalledTimes(3)
     recovery.dispose()
+  })
+})
+
+describe('active device action polling selection', () => {
+  it('only enables recovery for the action node active in the frontend', () => {
+    expect(shouldRecoverActiveDeviceActionTask(
+      'device.move',
+      'device.move',
+      'task-1'
+    )).toBe(true)
+    expect(shouldRecoverActiveDeviceActionTask(
+      'device.stop',
+      'device.move',
+      'task-1'
+    )).toBe(false)
+    expect(shouldRecoverActiveDeviceActionTask(
+      null,
+      'device.move',
+      'task-1'
+    )).toBe(false)
+    expect(shouldRecoverActiveDeviceActionTask(
+      'device.move',
+      'device.move',
+      null
+    )).toBe(false)
   })
 })

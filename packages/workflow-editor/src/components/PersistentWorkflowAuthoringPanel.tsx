@@ -1,5 +1,10 @@
-import type { WorkflowRuntimePort } from '@unilab/services'
-import { useEffect } from 'react'
+import {
+  createWorkflowDefinitionPort,
+  type CapabilityStatus,
+  type WorkflowDefinitionAuthority,
+  type WorkflowRuntimePort
+} from '@unilab/services'
+import { useEffect, useMemo } from 'react'
 
 import type { WorkflowTracePort } from '../traceRuntime'
 import type { WorkflowPanelRuntimeProjection } from '../workflowPanelProjection'
@@ -22,10 +27,13 @@ export type {
 
 interface PersistentWorkflowAuthoringPanelProps {
   runtime: WorkflowRuntimePort
+  definitionAuthority?: WorkflowDefinitionAuthority
+  definitionEditingStatus?: CapabilityStatus
   workflowUuid: string
   workflowName?: string
   traceRuntime?: WorkflowTracePort
   resourceSlotOptionsPort?: WorkflowResourceSlotOptionsPort
+  executionStatus?: CapabilityStatus
   onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void
   onWorkflowRuntimeProjectionChange?: (
     projection: WorkflowPanelRuntimeProjection | null
@@ -46,8 +54,19 @@ interface PersistentWorkflowAuthoringPanelProps {
 export function PersistentWorkflowAuthoringPanel(
   props: PersistentWorkflowAuthoringPanelProps
 ): React.JSX.Element {
+  const definitionPort = useMemo(
+    () => createWorkflowDefinitionPort(
+      props.runtime,
+      props.definitionAuthority ?? 'workspace',
+      props.workflowUuid
+    ),
+    [props.definitionAuthority, props.runtime, props.workflowUuid]
+  )
   const model = usePersistentWorkflowAuthoring(
-    props satisfies PersistentWorkflowAuthoringOptions
+    {
+      ...props,
+      definitionPort
+    } satisfies PersistentWorkflowAuthoringOptions
   )
   const onDiagnosticsChange = props.ideBridge?.onDiagnosticsChange
   useEffect(() => {

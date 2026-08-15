@@ -10,13 +10,8 @@ import {
   isDecorativeDeckRail,
   shouldRenderSiteBounds
 } from '../sitePresentation'
-import {
-  resolveShapePrimitives,
-  resolveShapeSpec,
-  type MaterialShapeLibrary,
-  type MaterialShapePrimitive,
-  type MaterialShapeSpec
-} from './shapeSpec'
+import type { MaterialShapeLibrary } from './shapeSpec'
+import { resolveMaterialObliqueShape } from './shapeResolution'
 
 export const OBLIQUE_ANGLE_DEG = 45
 export const OBLIQUE_DEPTH_SCALE = 0.5
@@ -181,11 +176,13 @@ function materialToObliqueObject(
   const logicalMount =
     config.logical_mount === true || config.logicalMount === true
   const declaredLevels = buildSlotLevels(sites)
-  const resolved = resolveShape(shapes, visual.kind, declaredLevels, {
-    widthMm,
-    depthMm,
-    heightMm
-  })
+  const resolved = resolveMaterialObliqueShape(
+    shapes,
+    aggregate.shapeIdentity,
+    visual.kind,
+    declaredLevels,
+    { widthMm, depthMm, heightMm }
+  )
   const renderStyle: MaterialObliqueRenderStyle = resolved ? 'spec' : 'solid'
   const usesLevels =
     resolved?.primitives.some(
@@ -304,43 +301,6 @@ function sceneDiagnostics(
       (object) => object.fidelity === 'inferred'
     ).length,
     invalidObjectCount
-  }
-}
-
-interface ResolvedShape {
-  spec: MaterialShapeSpec
-  shape: MaterialObliqueShape
-  primitives: readonly MaterialShapePrimitive[]
-}
-
-/**
- * 按物料 category 查外形声明。敞口层架只有一层位点时退回实心包围盒——单层的
- * 「层架」画成柜体反而看不清里面站着什么。
- */
-function resolveShape(
-  shapes: MaterialShapeLibrary | undefined,
-  kind: string,
-  levels: readonly MaterialObliqueLevel[],
-  envelope: { widthMm: number; depthMm: number; heightMm: number }
-): ResolvedShape | undefined {
-  const spec = resolveShapeSpec(shapes, kind)
-  if (!spec) return undefined
-  const primitives = resolveShapePrimitives(spec, envelope)
-  if (primitives.length === 0) return undefined
-  const needsRack = primitives.some(
-    (primitive) => primitive.kind === 'open-rack'
-  )
-  if (needsRack && levels.length === 1) return undefined
-
-  return {
-    spec,
-    primitives,
-    shape: {
-      id: spec.id,
-      bundle: spec.bundle,
-      primitives,
-      shadow: spec.shadow
-    }
   }
 }
 

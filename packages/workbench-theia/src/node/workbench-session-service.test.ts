@@ -8,10 +8,14 @@ import type { WorkbenchSessionClient } from '../common/workbench-session-protoco
 import { WorkbenchSessionService } from './workbench-session-service'
 
 describe('WorkbenchSessionService', () => {
-  it('starts the Workspace Agent when the backend opens, before OS startup', async () => {
+  it('starts Workspace Backend and Agent when the Theia backend opens', async () => {
     const startAgent = vi.fn().mockResolvedValue(snapshot('idle', null))
+    const startWorkspaceBackend = vi.fn().mockResolvedValue(
+      snapshot('ready', 41)
+    )
     const session = {
       startAgent,
+      startWorkspaceBackend,
       refreshPlcVariableTables: vi.fn().mockResolvedValue(snapshot('idle', null))
     } as unknown as WorkbenchSession
     const service = new WorkbenchSessionService()
@@ -19,6 +23,7 @@ describe('WorkbenchSessionService', () => {
 
     service.onStart()
     await vi.waitFor(() => expect(startAgent).toHaveBeenCalledOnce())
+    expect(startWorkspaceBackend).toHaveBeenCalledOnce()
   })
 
   it('publishes one managed session snapshot to every connected renderer', () => {
@@ -60,7 +65,8 @@ describe('WorkbenchSessionService', () => {
     const service = new WorkbenchSessionService()
     Object.assign(service, { session })
     const renderer = {
-      onDidChange: vi.fn().mockRejectedValue(new Error('acknowledgement failed'))
+      onDidChange: vi.fn().mockRejectedValue(new Error('acknowledgement failed')),
+      onMaterialRendererRequest: vi.fn()
     }
 
     service.setClient(renderer)
@@ -69,10 +75,44 @@ describe('WorkbenchSessionService', () => {
 
     expect(renderer.onDidChange).toHaveBeenLastCalledWith(restarted)
   })
+
+  it('routes automation only to the latest connected renderer', async () => {
+    const session = {
+      getSnapshot: () => snapshot('ready', 59682),
+      onDidChange: () => ({ dispose: vi.fn() })
+    } as unknown as WorkbenchSession
+    const service = new WorkbenchSessionService()
+    Object.assign(service, { session })
+    const first = client()
+    const second = client()
+    vi.mocked(second.onMaterialRendererRequest).mockImplementation(request => {
+      void service.completeMaterialRendererRequest({
+        schemaVersion: 'unilab-material-renderer/v1',
+        requestId: request.requestId,
+        ok: true,
+        result: { nodes: [] }
+      })
+    })
+
+    service.setClient(first)
+    service.setClient(second)
+    const response = await service.requestMaterialRenderer({
+      requestId: 'request-1',
+      kind: 'inspect',
+      options: {}
+    })
+
+    expect(first.onMaterialRendererRequest).not.toHaveBeenCalled()
+    expect(second.onMaterialRendererRequest).toHaveBeenCalledOnce()
+    expect(response.ok).toBe(true)
+  })
 })
 
 function client(): WorkbenchSessionClient {
-  return { onDidChange: vi.fn() }
+  return {
+    onDidChange: vi.fn(),
+    onMaterialRendererRequest: vi.fn()
+  }
 }
 
 function snapshot(
@@ -83,7 +123,10 @@ function snapshot(
     phase,
     message: phase,
     configuredGraphPath: 'deployment/graphs/szlab-plc-sim-local.json',
+    configuredExternalDevicesOnly: true,
     configuredRuntimeMode: 'normal',
+    configuredDomainMode: 'local',
+    configuredBackendUrl: null,
     agent: null,
     identity: pid === null ? null : {
       workspacePath: '/workspace',
@@ -101,6 +144,16 @@ function snapshot(
       agent: null
     },
     diagnostic: null,
+    edgeRuntime: {
+      phase: pid === null ? 'idle' : 'ready',
+      message: pid === null ? 'idle' : 'ready',
+      pid,
+      generation: pid === null ? null : 'edge-generation',
+      graphPath: '/workspace/deployment/graphs/szlab-plc-sim-local.json',
+      mode: 'normal',
+      logPath: pid === null ? '' : '/edge-log',
+      diagnostic: null
+    },
     plcSimulator: {
       phase: 'idle',
       message: 'idle',

@@ -1,0 +1,304 @@
+.workflow :global(.workflow-runtime__run-settings) > div {
+  width: min(620px, calc(100cqw - 20px));
+  padding: 0;
+}
+
+.workflow :global(.workflow-runtime__existing-run-setup) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, .72fr);
+  gap: 12px;
+  padding: 12px;
+  cursor: default;
+}
+
+.workflow :global(.workflow-runtime__existing-run-mode) {
+  grid-column: 1 / -1;
+}
+
+.workflow :global(.workflow-runtime__existing-run-mode),
+.workflow :global(.workflow-runtime__existing-run-target),
+.workflow :global(.workflow-runtime__existing-run-preflight) {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.workflow :global(.workflow-runtime__existing-run-mode) > strong,
+.workflow :global(.workflow-runtime__existing-run-target) > label,
+.workflow :global(.workflow-runtime__existing-run-preflight) > span {
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.workflow :global(.workflow-runtime__existing-run-mode) fieldset {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.workflow :global(.workflow-runtime__existing-run-mode) label {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.workflow :global(.workflow-runtime__existing-run-mode) input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.workflow :global(.workflow-runtime__existing-run-mode) label > span {
+  display: grid;
+  min-height: 52px;
+  gap: 3px;
+  padding: 8px 10px;
+  color: var(--unilab-color-text-muted);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface-subtle);
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight summary) {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 8px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight summary::-webkit-details-marker) {
+  display: none;
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight summary > span:first-child) {
+  grid-column: 1;
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight summary > strong) {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight summary > .codicon) {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  color: var(--unilab-color-warning);
+  transition: transform var(--unilab-motion-fast) ease-out;
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight[open] summary > .codicon) {
+  transform: rotate(180deg);
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight ul) {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  margin: 8px 0 4px;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--unilab-color-border);
+  list-style: none;
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight li) {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  color: var(--unilab-color-danger);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight li > strong) {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight li > span) {
+  min-width: 0;
+  color: var(--unilab-color-text-muted);
+  font: 10px/1.4 var(--unilab-font-mono);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight li > pre) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  max-height: 180px;
+  margin: 2px 0 0;
+  padding: 6px;
+  overflow: auto;
+  color: var(--unilab-color-text-muted);
+  border-radius: var(--unilab-radius-sm);
+  background: var(--unilab-color-canvas);
+  font: 10px/1.45 var(--unilab-font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.workflow :global(.workflow-runtime__existing-run-mode) b {
+  color: var(--unilab-color-text);
+  font-size: 12px;
+}
+
+.workflow :global(.workflow-runtime__existing-run-mode) small {
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+}
+
+.workflow :global(.workflow-runtime__existing-run-mode) input:checked + span {
+  color: var(--unilab-color-workflow);
+  border-color: var(--unilab-color-workflow);
+  background: var(--unilab-color-workflow-soft);
+}
+
+.workflow :global(.workflow-runtime__existing-run-mode) input:focus-visible + span,
+.workflow :global(.workflow-runtime__existing-run-target) select:focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 2px;
+}
+
+.workflow :global(.workflow-runtime__existing-run-mode) fieldset:disabled label,
+.workflow :global(.workflow-runtime__existing-run-target) select:disabled {
+  opacity: .56;
+  cursor: not-allowed;
+}
+
+.workflow :global(.workflow-runtime__existing-run-target) select {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 32px 0 10px;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  font: 12px/1.3 var(--unilab-font-sans);
+}
+
+.workflow :global(.workflow-runtime__existing-run-target) small {
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+}
+
+.workflow :global(.workflow-runtime__existing-run-target) small.is-error {
+  color: var(--unilab-color-danger);
+}
+
+.workflow :global(.workflow-runtime__existing-run-target) small button,
+.workflow :global(.workflow-runtime__existing-run-preflight) button {
+  margin-left: 6px;
+  padding: 0;
+  color: var(--unilab-color-workflow);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight) {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 58px;
+  align-content: center;
+  padding: 8px 10px;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface-subtle);
+  overflow-x: hidden;
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight) strong {
+  overflow: hidden;
+  color: var(--unilab-color-warning);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight.is-ready) {
+  border-color: var(--unilab-color-success);
+  background: var(--unilab-color-success-soft);
+}
+
+.workflow :global(.workflow-runtime__existing-run-preflight.is-ready) strong {
+  color: var(--unilab-color-success);
+}
+
+.workflow :global(.workflow-runtime__existing-canvas-state) {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--unilab-space-2);
+  margin: 0;
+  padding: var(--unilab-space-6);
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-canvas);
+  font-size: 12px;
+  text-align: center;
+}
+
+.workflow :global(.workflow-runtime__existing-canvas-state.is-error) strong {
+  color: var(--unilab-color-danger);
+  font-size: 13px;
+}
+
+.workflow :global(.workflow-runtime__existing-canvas-state.is-error) span {
+  max-width: 68ch;
+  color: var(--unilab-color-text-muted);
+  line-height: 1.5;
+}
+
+.workflow :global(.workflow-runtime__existing-canvas-state.is-error) button {
+  min-height: 32px;
+  padding: 0 var(--unilab-space-3);
+  color: var(--unilab-color-workflow);
+  border: 1px solid var(--unilab-color-workflow);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@container (max-width: 720px) {
+  .workflow :global(.persistent-authoring__toolbar) {
+    flex-wrap: wrap;
+  }
+
+  .workflow :global(.persistent-authoring__toolbar-message) {
+    order: 3;
+    flex-basis: 100%;
+    text-align: left;
+  }
+
+  .workflow :global(.workflow-runtime__existing-run-setup) {
+    grid-template-columns: 1fr;
+  }
+
+  .workflow :global(.workflow-runtime__existing-run-mode) {
+    grid-column: auto;
+  }
+
+  .workflow :global(.workflow-runtime__existing-run-mode) fieldset {
+    grid-template-columns: 1fr;
+  }
+}

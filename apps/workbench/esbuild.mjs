@@ -70,6 +70,19 @@ browserOptions.plugins.push({
     },
 });
 
+// drivelist 12.0.2 does not publish a Windows N-API prebuild. Requiring its
+// missing native binding would crash the complete Theia backend during boot,
+// although Theia only needs mount points from it. Keep the native package on
+// macOS/Linux and use a narrow, pure-Node drive-root provider on Windows.
+if (process.platform === 'win32') {
+    nodeOptions.alias = {
+        ...nodeOptions.alias,
+        drivelist: fileURLToPath(
+            new URL('./scripts/drivelist-windows-shim.cjs', import.meta.url)
+        ),
+    };
+}
+
 const browserContext = await esbuild.context(browserOptions);
 const nodeContext = await esbuild.context(nodeOptions);
 

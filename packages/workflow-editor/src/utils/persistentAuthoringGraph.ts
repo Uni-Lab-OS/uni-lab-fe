@@ -260,7 +260,10 @@ function compositeNodeIndex(
   for (const node of graph.nodes) {
     const nodeUuid = String(node.uuid || '')
     const templateUuid = String(node.workflow_node_template_uuid || '')
-    const projection = publishedWorkflowProjection(templates.get(templateUuid))
+    const projection = publishedWorkflowProjection(
+      templates.get(templateUuid),
+      node
+    )
     if (nodeUuid && projection) index.set(nodeUuid, projection)
   }
   return index
@@ -380,25 +383,50 @@ interface PublishedWorkflowProjection {
  * @throws 不抛异常；非对象或非兼容合同都按不可用模板关闭失败。
  */
 function publishedWorkflowProjection(
-  template: Record<string, unknown> | undefined
+  template: Record<string, unknown> | undefined,
+  node?: Record<string, unknown>
 ): PublishedWorkflowProjection | null {
   if (!template) return null
   const schema = workflowTemplateSchema(template.schema)
-  const contract = isRecord(schema['x-unilabos-workflow-contract'])
-    ? schema['x-unilabos-workflow-contract']
-    : null
-  if (!contract || contract.version !== 1) return null
-  const workflowUuid = nullableString(contract.workflow_uuid)
-  const contractDigest = nullableString(contract.contract_digest)
-  if (!workflowUuid || !contractDigest) return null
-  const metaData = isRecord(template.meta_data) ? template.meta_data : {}
-  const unilab = isRecord(metaData.unilab) ? metaData.unilab : {}
-  const source = isRecord(unilab.workflow_source)
-    ? unilab.workflow_source
+  const templateMetaData = isRecord(template.meta_data)
+    ? template.meta_data
+    : {}
+  const templateUnilab = isRecord(templateMetaData.unilab)
+    ? templateMetaData.unilab
+    : {}
+  const nodeMetaData = isRecord(node?.meta_data) ? node.meta_data : {}
+  const nodeUnilab = isRecord(nodeMetaData.unilab) ? nodeMetaData.unilab : {}
+  const contracts = [
+    schema['x-unilabos-workflow-contract'],
+    templateUnilab.workflow_contract,
+    nodeUnilab.composite
+  ].filter(isRecord).filter((contract) => contract.version === 1)
+  const identities = contracts.map((contract) => ({
+    workflowUuid: nullableString(
+      contract.workflow_uuid ?? contract.child_workflow_uuid
+    ),
+    contractDigest: nullableString(contract.contract_digest)
+  })).filter((identity): identity is {
+    workflowUuid: string
+    contractDigest: string
+  } => Boolean(identity.workflowUuid && identity.contractDigest))
+  if (identities.length === 0) return null
+  const [{ workflowUuid, contractDigest }] = identities
+  if (identities.some((identity) =>
+    identity.workflowUuid !== workflowUuid ||
+    identity.contractDigest !== contractDigest
+  )) return null
+  const templateSource = isRecord(templateUnilab.workflow_source)
+    ? templateUnilab.workflow_source
+    : {}
+  const nodeSource = isRecord(nodeUnilab.workflow_source)
+    ? nodeUnilab.workflow_source
     : {}
   const visualKind = workflowNodeVisualKind({
-    symbol: nullableString(source.symbol),
-    definitionFqid: nullableString(source.definition_fqid)
+    symbol: nullableString(templateSource.symbol) ??
+      nullableString(nodeSource.symbol),
+    definitionFqid: nullableString(templateSource.definition_fqid) ??
+      nullableString(nodeSource.definition_fqid)
   })
   return {
     workflowUuid,

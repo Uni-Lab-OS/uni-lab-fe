@@ -107,7 +107,7 @@
   transform: none;
 }
 
-/* 横向蛇形默认由东西两侧进出；局部转运执行顺序可按几何关系使用南北侧。 */
+/* 横向蛇形的物料与执行顺序 Handle 始终由东西两侧进出。 */
 .workflow
   :global([data-workflow-layout-strategy='primary-sample-serpentine'][data-workflow-layout-direction='horizontal'])
   :global(.wf-node__material-port)

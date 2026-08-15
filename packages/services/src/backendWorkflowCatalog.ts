@@ -6,19 +6,21 @@ import type {
 import { ServiceError } from './errors'
 import { requestData, type HttpClient } from './http'
 
-interface BackendCursorPage {
+interface BackendNumberedPage {
   items?: unknown
   has_more?: unknown
-  next_cursor_uuid?: unknown
+  page?: unknown
+  page_size?: unknown
 }
 
 const BACKEND_WORKFLOW_PAGE_SIZE = 100
+const BACKEND_WORKFLOW_PAGE_BUDGET = 100
 
 /**
- * 读取 Backend UUID 游标目录，并保留前端现有编号分页端口。
+ * 读取 Backend 页码目录，并保留前端现有编号分页端口。
  *
  * @param http 已绑定 Backend 权威地址的 HTTP 客户端。
- * @param query 前端目录页码和每页数量；adapter 在完整游标结果上切片。
+ * @param query 前端目录页码和每页数量；adapter 在完整 Backend 结果上切片。
  * @returns 可供只读工作流目录展示的编号分页结果。
  */
 export async function loadBackendWorkflowPage(
@@ -26,25 +28,65 @@ export async function loadBackendWorkflowPage(
   query: WorkflowListQuery = {}
 ): Promise<WorkflowPage> {
   const allWorkflows: WorkflowSummary[] = []
-  let cursor: string | null = null
+  const workflowUuids = new Set<string>()
+  let expectedPage = 1
+  let observedPageSize: number | null = null
 
-  do {
+  for (
+    let pageCount = 0;
+    pageCount < BACKEND_WORKFLOW_PAGE_BUDGET;
+    pageCount += 1
+  ) {
     const search = new URLSearchParams({
-      limit: String(BACKEND_WORKFLOW_PAGE_SIZE)
+      page: String(expectedPage),
+      page_size: String(BACKEND_WORKFLOW_PAGE_SIZE)
     })
-    if (cursor) search.set('cursor_uuid', cursor)
-    const response = await requestData<BackendCursorPage>(
+    const response = await requestData<BackendNumberedPage>(
       http,
       `/api/v1/workflows?${search.toString()}`
     )
-    allWorkflows.push(...recordArray(response.items).map(mapWorkflowSummary))
-    if (response.has_more !== true) break
-    const nextCursor = optionalString(response.next_cursor_uuid)
-    if (!nextCursor || nextCursor === cursor) {
-      throw invalidWorkflowCatalog('workflow cursor did not advance')
+    const responsePage = strictPositiveInteger(response.page, 'page')
+    const responsePageSize = strictPositiveInteger(
+      response.page_size,
+      'page_size'
+    )
+    if (responsePage !== expectedPage) {
+      throw invalidWorkflowCatalog('workflow page did not advance')
     }
-    cursor = nextCursor
-  } while (true)
+    if (responsePageSize > BACKEND_WORKFLOW_PAGE_SIZE) {
+      throw invalidWorkflowCatalog(
+        'workflow page_size exceeds the client budget'
+      )
+    }
+    if (observedPageSize === null) observedPageSize = responsePageSize
+    else if (responsePageSize !== observedPageSize) {
+      throw invalidWorkflowCatalog('workflow page_size changed while traversing')
+    }
+    if (typeof response.has_more !== 'boolean') {
+      throw invalidWorkflowCatalog('workflow has_more must be a boolean')
+    }
+    const pageItems = recordArray(response.items).map(mapWorkflowSummary)
+    if (pageItems.length > responsePageSize) {
+      throw invalidWorkflowCatalog('workflow items exceed page_size')
+    }
+    for (const workflow of pageItems) {
+      if (workflowUuids.has(workflow.uuid)) {
+        throw invalidWorkflowCatalog('duplicate workflow UUID')
+      }
+      workflowUuids.add(workflow.uuid)
+      allWorkflows.push(workflow)
+    }
+    if (!response.has_more) break
+    if (pageItems.length === 0) {
+      throw invalidWorkflowCatalog(
+        'workflow catalog cannot advance from an empty page'
+      )
+    }
+    expectedPage += 1
+    if (pageCount === BACKEND_WORKFLOW_PAGE_BUDGET - 1) {
+      throw invalidWorkflowCatalog('workflow catalog exceeds the page budget')
+    }
+  }
 
   const page = positiveInteger(query.page, 1)
   const pageSize = positiveInteger(query.page_size, 20)
@@ -89,6 +131,20 @@ function positiveInteger(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0
     ? value
     : fallback
+}
+
+/**
+ * 读取 Backend 页码合同中的正安全整数，异常时关闭失败。
+ *
+ * @param value 未信任的页码或页大小。
+ * @param field Backend wire 字段名。
+ * @returns 大于零的安全整数。
+ */
+function strictPositiveInteger(value: unknown, field: string): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 1) {
+    throw invalidWorkflowCatalog(`${field} must be a positive safe integer`)
+  }
+  return value as number
 }
 
 /** 读取 Backend 非负整数修订号。 */

@@ -1,0 +1,33 @@
+{
+  "name": "@unilab/robot-workstation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": [
+    "**/*.css",
+    "**/*.scss"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@unilab/design-system": "workspace:*",
+    "smiles-drawer": "2.4.1"
+  }
+}

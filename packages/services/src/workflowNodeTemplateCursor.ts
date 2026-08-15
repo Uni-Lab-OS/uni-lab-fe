@@ -16,23 +16,6 @@ const PAGE_LIMIT = 100
 const PAGE_BUDGET = 100
 const ITEM_BUDGET = PAGE_LIMIT * PAGE_BUDGET
 const DETAIL_REQUEST_BATCH_SIZE = 8
-const CURSOR_LIST_FIELDS = new Set([
-  'authority',
-  'catalog_fingerprint',
-  'items',
-  'has_more',
-  'next_cursor_uuid',
-  'total'
-])
-const NUMBERED_LIST_FIELDS = new Set([
-  'authority',
-  'catalog_fingerprint',
-  'items',
-  'page',
-  'page_size',
-  'total'
-])
-
 type CatalogPagination =
   | {
     mode: 'cursor'
@@ -41,9 +24,10 @@ type CatalogPagination =
   }
   | {
     mode: 'numbered'
+    hasMore?: boolean
     page: number
     pageSize: number
-    total: number
+    total?: number
   }
 
 interface NumberedPaginationState {
@@ -78,7 +62,7 @@ export interface WorkflowNodeTemplateDetailEntry {
 }
 
 /**
- * 通过后端（Backend）UUID 游标或当前 OS 页码合同读取完整节点模板目录。
+ * 通过 Backend 页码合同读取完整节点模板目录，并兼容旧 UUID 游标响应。
  *
  * @param http 节点模板 API 使用的 HTTP 客户端。
  * @param query 可选 node_type 筛选和取消信号；分页选择由响应合同决定。
@@ -105,7 +89,7 @@ export async function loadWorkflowNodeTemplateCatalog(
   }
 
   for (let pageCount = 0; pageCount < PAGE_BUDGET; pageCount += 1) {
-    const path = paginationMode === 'numbered'
+    const path = paginationMode !== 'cursor'
       ? workflowNodeTemplateNumberedListPath(
         query.nodeType,
         numberedState.page,
@@ -186,7 +170,15 @@ function advanceCursorPagination(
   return nextCursorUuid
 }
 
-/** 校验页码目录的稳定元数据，并在仍有后续页时推进请求页码。 */
+/**
+ * 校验页码目录的稳定元数据，并在仍有后续页时推进请求页码。
+ *
+ * @param pagination 当前 Backend/OS 页码响应元数据。
+ * @param state 跨页保存的请求页码、页大小与可选总数。
+ * @param pageItemCount 当前页项目数。
+ * @param collectedItemCount 已收集项目总数。
+ * @returns true 表示目录完成，false 表示调用方应读取下一页。
+ */
 function advanceNumberedPagination(
   pagination: Extract<CatalogPagination, { mode: 'numbered' }>,
   state: NumberedPaginationState,
@@ -203,19 +195,34 @@ function advanceNumberedPagination(
   else if (pagination.pageSize !== state.pageSize) invalidCatalog(
     '节点模板（WorkflowNodeTemplate）目录页大小发生漂移'
   )
-  if (state.total === null) state.total = pagination.total
-  else if (pagination.total !== state.total) invalidCatalog(
-    '节点模板（WorkflowNodeTemplate）目录总数发生漂移'
+  if (pagination.total !== undefined) {
+    if (state.total === null) state.total = pagination.total
+    else if (pagination.total !== state.total) invalidCatalog(
+      '节点模板（WorkflowNodeTemplate）目录总数发生漂移'
+    )
+  } else if (state.total !== null) invalidCatalog(
+    '节点模板（WorkflowNodeTemplate）目录 total 在后续页缺失'
   )
-  if (state.total > ITEM_BUDGET || pageItemCount > state.pageSize) {
+  if ((state.total ?? 0) > ITEM_BUDGET || pageItemCount > state.pageSize) {
     invalidCatalog('节点模板（WorkflowNodeTemplate）目录超过项目预算')
   }
-  if (collectedItemCount > state.total) invalidCatalog(
+  if (state.total !== null && collectedItemCount > state.total) invalidCatalog(
     '节点模板（WorkflowNodeTemplate）目录项目数超过 total'
   )
-  if (collectedItemCount === state.total) return true
-  if (pageItemCount === 0 || pageItemCount < state.pageSize) {
-    invalidCatalog('节点模板（WorkflowNodeTemplate）目录无法从短页推进')
+  const hasMore = pagination.hasMore ?? (
+    state.total !== null && collectedItemCount < state.total
+  )
+  if (!hasMore) {
+    if (state.total !== null && collectedItemCount !== state.total) {
+      invalidCatalog('节点模板（WorkflowNodeTemplate）目录项目数与 total 不一致')
+    }
+    return true
+  }
+  if (state.total !== null && collectedItemCount >= state.total) {
+    invalidCatalog('节点模板（WorkflowNodeTemplate）目录 has_more 与 total 冲突')
+  }
+  if (pageItemCount === 0) {
+    invalidCatalog('节点模板（WorkflowNodeTemplate）目录无法从空页推进')
   }
   state.page += 1
   return false
@@ -335,15 +342,18 @@ export function parseWorkflowNodeTemplateDetail(
  *
  * @param nodeType 可选的显式节点类型筛选。
  * @param cursorUuid 上一页给出的 UUID 游标。
- * @returns 只含 limit、node_type 和 cursor_uuid 的稳定相对路径。
+ * @returns 首次请求使用 Backend page/page_size；旧游标响应的后续页使用 cursor_uuid。
  * @throws nodeType 为空白时关闭失败；cursorUuid 已由调用方校验。
  */
 function workflowNodeTemplateListPath(
   nodeType: string | undefined,
   cursorUuid: string | null
 ): string {
+  if (cursorUuid === null) {
+    return workflowNodeTemplateNumberedListPath(nodeType, 1, PAGE_LIMIT)
+  }
   const query = new URLSearchParams({ limit: String(PAGE_LIMIT) })
-  if (cursorUuid) query.set('cursor_uuid', cursorUuid)
+  query.set('cursor_uuid', cursorUuid)
   if (nodeType !== undefined) {
     const normalizedNodeType = nodeType.trim()
     if (!normalizedNodeType) invalidCatalog(

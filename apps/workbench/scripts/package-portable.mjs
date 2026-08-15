@@ -563,6 +563,14 @@ function validatePackagedWorkbenchResources(resources, nodeName) {
     join(resources, 'desktop', 'out', 'preload', 'index.js'),
     join(
       resources,
+      'desktop',
+      'node_modules',
+      '@vue',
+      'compiler-sfc',
+      'package.json'
+    ),
+    join(
+      resources,
       'device-card-builder',
       process.platform === 'win32' ? 'esbuild.exe' : 'esbuild'
     ),

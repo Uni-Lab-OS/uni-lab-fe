@@ -22,6 +22,7 @@ interface DeviceCardActionControllerPorts {
   tasks: DeviceActionTaskRuntimePort
   randomUuid?: () => string
   actionTasksSupported?: boolean
+  runtimeEventsSupported?: boolean
 }
 
 interface ExecuteOptions {
@@ -32,7 +33,7 @@ export class DeviceCardActionController {
   private readonly randomUuid: () => string
 
   /**
-   * 绑定工作流运行时（WorkflowRuntime）、设备动作任务和 UUID 生成端口。
+   * 绑定工作流运行时（Workflow Runtime）、设备动作任务、能力状态和 UUID 生成端口。
    *
    * @param ports 设备单点动作所需的可替换服务端口。
    */
@@ -56,7 +57,7 @@ export class DeviceCardActionController {
   ): Promise<DeviceCardActionRun> {
     // `taskUuid` 是服务端接受后用于补读和事件筛选的任务稳定身份。
     let taskUuid = ''
-    // `retryTimer/retryDelay` 只控制 REST 补读，不产生新的物理执行尝试。
+    // `retryTimer/retryDelay` 只控制权威 REST 补读，不产生新的物理执行尝试。
     let retryTimer: ReturnType<typeof globalThis.setTimeout> | null = null
     let retryDelay = 1_000
     let terminalResolve: ((task: DeviceActionTaskView) => void) | undefined
@@ -87,6 +88,7 @@ export class DeviceCardActionController {
         retryDelay = 1_000
         clearRetry()
         if (isTerminalActionTask(current.status)) terminalResolve?.(current)
+        else scheduleReadRetry()
       } catch {
         // 补读失败不是设备动作失败；保持 SSE 等待并仅重试 REST rehydrate。
         scheduleReadRetry()
@@ -95,18 +97,23 @@ export class DeviceCardActionController {
     const queueRefresh = (): void => {
       refreshQueue = refreshQueue.then(refresh, refresh)
     }
-    const subscription = this.ports.workflow.subscribeWorkflowRuntime(
-      (event) => {
-        if (
-          runtimeEventTaskUuid(event) === taskUuid
-        ) queueRefresh()
-      },
-      {
-        onOpen: ({ reconnected }) => {
-          if (reconnected && taskUuid) queueRefresh()
-        }
+    let subscription = { dispose: (): void => undefined }
+    if (this.ports.runtimeEventsSupported !== false) {
+      try {
+        subscription = this.ports.workflow.subscribeWorkflowRuntime(
+          (event) => {
+            if (runtimeEventTaskUuid(event) === taskUuid) queueRefresh()
+          },
+          {
+            onOpen: ({ reconnected }) => {
+              if (reconnected && taskUuid) queueRefresh()
+            }
+          }
+        )
+      } catch {
+        // 实时事件不可用时继续使用 REST 补读；任务终态仍由 Backend 权威确认。
       }
-    )
+    }
     const abort = (): void => terminalReject?.(
       new Error('设备卡片已退出 Live，停止等待 Action Task。')
     )
@@ -124,7 +131,11 @@ export class DeviceCardActionController {
       const catalog = await this.ports.workflow.getWorkflowActionCatalog()
       const matches = catalog.actionTemplates.filter((template) =>
         template.name === action.actionName &&
-        template.actionType === action.typeName
+        template.actionType === action.typeName &&
+        (
+          device.resourceTemplateUuid === undefined ||
+          template.resourceTemplateUuid === device.resourceTemplateUuid
+        )
       )
       if (matches.length !== 1) {
         throw new Error(

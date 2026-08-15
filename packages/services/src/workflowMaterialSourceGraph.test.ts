@@ -78,6 +78,15 @@ function projectsPublicGraphFactsInStableOrder(): void {
     sampleTemplateUuid,
     'Assay plate'
   )
+  // 展示摘要由 Backend 物料图 adapter 校验后放入 config，不从实例名反推模板名。
+  mountAggregate.material.config.resourceTemplate = {
+    uuid: mountTemplateUuid,
+    displayName: 'Deck'
+  }
+  occupiedAggregate.material.config.resourceTemplate = {
+    uuid: sampleTemplateUuid,
+    displayName: 'Plate96'
+  }
 
   const projection = projectWorkflowMaterialSourceGraph([
     occupiedAggregate,
@@ -86,8 +95,8 @@ function projectsPublicGraphFactsInStableOrder(): void {
 
   expect(projection).toEqual({
     resourceTemplates: [
-      { uuid: mountTemplateUuid, displayName: mountTemplateUuid },
-      { uuid: sampleTemplateUuid, displayName: sampleTemplateUuid }
+      { uuid: mountTemplateUuid, displayName: 'Deck' },
+      { uuid: sampleTemplateUuid, displayName: 'Plate96' }
     ],
     materials: [
       {

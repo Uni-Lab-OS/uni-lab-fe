@@ -28,6 +28,10 @@ import {
   type MaterialService
 } from './materials'
 import {
+  createInventoryReadPort,
+  type InventoryPort
+} from './inventory'
+import {
   createWorkflowRuntime,
   type WorkflowRuntimePort
 } from './workflow'
@@ -40,6 +44,7 @@ export interface Services {
   deviceActionTasks: DeviceActionTaskRuntimePort
   deviceSquare: DeviceSquareService
   materials: MaterialService
+  inventory: InventoryPort
   realtime: RealtimeService
   workflow: WorkflowRuntimePort
   dispose: () => void
@@ -86,6 +91,7 @@ export function createServices(options: CreateServicesOptions): Services {
     deviceActionTasks: createDeviceActionTaskRuntime(http),
     deviceSquare: createDeviceSquareService(http),
     materials,
+    inventory: createInventoryReadPort(http, options.backend),
     realtime,
     workflow,
     dispose: () => {

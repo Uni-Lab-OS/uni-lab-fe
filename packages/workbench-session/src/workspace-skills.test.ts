@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -86,6 +86,26 @@ describe('managed Workspace skills', () => {
       customizedSkill,
       'notes.md'
     ), 'utf8')).resolves.toBe('user-owned\n')
+  })
+
+  it('prefers a complete bundled payload over an incomplete OS skill set', async () => {
+    const fixture = await createFixture()
+    const bundledSource = join(fixture.root, 'resources', 'workspace-skills')
+    const osProject = join(fixture.root, 'os-project')
+    const osSkills = join(osProject, '.cursor', 'skills')
+    await cp(fixture.sourcePath, bundledSource, { recursive: true })
+    await mkdir(join(osSkills, 'add-device'), { recursive: true })
+    await writeFile(join(osSkills, 'add-device', 'SKILL.md'), [
+      '---',
+      'name: add-device',
+      'description: incomplete legacy payload',
+      '---',
+      ''
+    ].join('\n'))
+
+    expect(resolveManagedWorkspaceSkillSource({
+      UNILAB_OS_PROJECT: osProject
+    }, fixture.root)).toBe(bundledSource)
   })
 })
 

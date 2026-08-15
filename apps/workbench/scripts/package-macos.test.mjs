@@ -228,6 +228,8 @@ describe('Workbench macOS distribution gate', () => {
     ))
 
     assert.match(launcher, /resources\.agentRuntime/u)
+    assert.match(launcher, /UNILAB_AIONUI_VERSION/u)
+    assert.match(launcher, /payload\.json/u)
     assert.doesNotMatch(launcher, /UNILAB_AIONUI_APP.*\/Applications\/AionUi\.app/u)
     assert.equal(compatibility.components.agentRuntime, 'aioncore@2.1.53')
     assert.equal(

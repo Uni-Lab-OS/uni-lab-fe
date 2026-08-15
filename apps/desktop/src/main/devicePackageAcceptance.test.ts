@@ -57,7 +57,7 @@ describe('device package acceptance', () => {
     })
     expect(canConnect).toHaveBeenCalledWith('127.0.0.1', 18_765)
     expect(fetchJson).toHaveBeenCalledWith(
-      'http://127.0.0.1:18003/api/v1/devices'
+      'http://127.0.0.1:18003/api/v1/authoring/device-catalog'
     )
   })
 

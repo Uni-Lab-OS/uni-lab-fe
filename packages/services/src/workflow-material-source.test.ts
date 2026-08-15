@@ -31,7 +31,7 @@ const secondSiteUuid = '71000000-0000-4000-8000-000000000001'
 // 目录指纹冻结工作流模板目录的权威版本。
 const fingerprint = `sha256:${'b'.repeat(64)}`
 const materialSourceCatalogPath =
-  '/api/v1/workflow-node-templates?limit=100&node_type=material_source'
+  '/api/v1/workflow-node-templates?page=1&page_size=100&node_type=material_source'
 
 /** 构造 OS 发布的 MaterialSource 闭合参数与库位选择器 Schema。 */
 function materialSourceSchema(): Record<string, unknown> {
@@ -269,9 +269,9 @@ async function loadsMaterialSourceCatalogInPublicGraphOrder(): Promise<void> {
     expect(requests).toEqual([
       materialSourceCatalogPath,
       `/api/v1/workflow-node-templates/${frameworkTemplateUuid}`,
-      '/api/v1/resource-templates?limit=100',
+      '/api/v1/resource-templates?page=1&page_size=100',
       '/api/v1/material-shapes',
-      `/api/v1/resource-templates?limit=100&cursor_uuid=${mountTemplateUuid}`
+      '/api/v1/resource-templates?page=2&page_size=1'
     ])
 }
 
@@ -371,7 +371,7 @@ function responses(): Record<string, unknown> {
         }]
       }
     },
-    '/api/v1/resource-templates?limit=100': {
+    '/api/v1/resource-templates?page=1&page_size=100': {
       code: 0,
       data: {
         items: [{
@@ -382,10 +382,11 @@ function responses(): Record<string, unknown> {
           tags: []
         }],
         has_more: true,
-        next_cursor_uuid: mountTemplateUuid
+        page: 1,
+        page_size: 1
       }
     },
-    [`/api/v1/resource-templates?limit=100&cursor_uuid=${mountTemplateUuid}`]: {
+    '/api/v1/resource-templates?page=2&page_size=1': {
       code: 0,
       data: {
         items: [{
@@ -397,7 +398,8 @@ function responses(): Record<string, unknown> {
           tags: []
         }],
         has_more: false,
-        next_cursor_uuid: null
+        page: 2,
+        page_size: 1
       }
     },
     '/api/v1/material-shapes': {

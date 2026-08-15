@@ -48,11 +48,13 @@ export type {
 export type MaterialService = MaterialTemplateCatalogPort & MaterialGraphPort
 
 /**
- * 外形声明按后端地址缓存：它是设备包的静态资产，一次会话内不会变，而 2.5D
- * 视图每次挂载都要用。
+ * 创建统一物料服务，把部署差异收敛在 Backend/OS adapter 内。
+ *
+ * @param http 已绑定当前服务地址的 HTTP 客户端。
+ * @param backend 当前服务 Profile 与能力来源。
+ * @param capabilities 已探测的服务能力集合。
+ * @returns 组件唯一依赖的物料模板与物料图端口。
  */
-const shapeLibraryByApiUrl = new Map<string, Promise<MaterialShapeLibrary>>()
-
 export function createMaterialService(
   http: HttpClient,
   backend: BackendConfig,
@@ -118,6 +120,7 @@ export function createMaterialService(
       return mapTemplateDetail(response, backend.apiUrl)
     },
 
+    /** 读取公共物料图；Local 与 Backend 必须发布同一权威 Material.revision。 */
     getGraph: async (scope) => {
       requireReadGraph()
       assertSingletonScope(scope)
@@ -214,22 +217,18 @@ export function createMaterialService(
       )
     },
 
-    getShapeLibrary: async () => {
-      const cached = shapeLibraryByApiUrl.get(backend.apiUrl)
-      if (cached) return cached
-      const pending = requestData<{ items?: unknown }>(
+    /**
+     * 读取当前已生成物料的公共 2.5D 外形目录。
+     * 无参数；返回已校验外形数组，旧服务缺少端点或请求失败时返回空数组以诚实降级。
+     */
+    getShapeLibrary: async () =>
+      requestData<{ items?: unknown }>(
         http,
         '/api/v1/material-shapes'
       )
         .then((response) => parseShapeLibrary(response.items))
-        .catch(() => {
-          // 老后端没有这个端点，2.5D 退回实心包围盒即可；下次挂载再试。
-          shapeLibraryByApiUrl.delete(backend.apiUrl)
-          return [] as MaterialShapeLibrary
-        })
-      shapeLibraryByApiUrl.set(backend.apiUrl, pending)
-      return pending
-    },
+        // 目录来自当前物料快照而非静态模板；不做跨刷新永久缓存。
+        .catch(() => [] as MaterialShapeLibrary),
 
     updateConfig: async (_command) =>
       unavailableGraphOperation('material.updateConfig'),

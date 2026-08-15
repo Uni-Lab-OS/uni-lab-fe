@@ -1,3 +1,4 @@
+import { emitter } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import {
   PascalEditorHost,
@@ -49,6 +50,16 @@ export interface PascalLabWorkbenchProps {
   showMaterialTransfers?: boolean
   materialTransferProjectionError?: string | null
   viewMode?: '2d' | '2.5d' | '3d' | 'split'
+  /** Agent 截图使用的显式相机预设；普通交互仍由工具栏维护。 */
+  cameraPreset?: SceneCameraView
+  cameraRequestRevision?: number
+  /** 复用 Pascal WebGPU 离屏管线的宿主截图请求。 */
+  captureRequest?: {
+    revision: number
+    width: number
+    height: number
+  } | null
+  onCaptureReady?: (blob: Blob) => void
   projectId?: string
   modelRuntime?: LabModelRuntime
   editable?: boolean
@@ -75,6 +86,10 @@ export function PascalLabWorkbench({
   showMaterialTransfers = true,
   materialTransferProjectionError = null,
   viewMode = '3d',
+  cameraPreset,
+  cameraRequestRevision = 0,
+  captureRequest = null,
+  onCaptureReady,
   projectId = 'unilab-local-scene',
   modelRuntime,
   editable = false,
@@ -87,6 +102,30 @@ export function PascalLabWorkbench({
     revision: number
     view: SceneCameraView
   }>({ revision: 0, view: 'default' })
+  useEffect(() => {
+    if (!cameraPreset) return
+    useViewer.getState().setCameraMode(
+      cameraPreset === 'top' ? 'orthographic' : 'perspective'
+    )
+    setCameraRequest(({ revision }) => ({
+      revision: Math.max(revision + 1, cameraRequestRevision),
+      view: cameraPreset
+    }))
+  }, [cameraPreset, cameraRequestRevision])
+  useEffect(() => {
+    if (!captureRequest || !onCaptureReady) return
+    const frame = requestAnimationFrame(() => {
+      emitter.emit('camera-controls:generate-thumbnail', {
+        projectId,
+        captureMode: 'standard',
+        standardSize: {
+          w: captureRequest.width,
+          h: captureRequest.height
+        }
+      })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [captureRequest, onCaptureReady, projectId])
   const scene = useMemo(
     () =>
       materialAggregatesToSceneGraph(aggregates, {
@@ -309,6 +348,9 @@ export function PascalLabWorkbench({
             />
           }
           toolbar={toolbar}
+          editorProps={{
+            onThumbnailCapture: (blob) => onCaptureReady?.(blob)
+          }}
           onDirty={() => {
             if (editable) setSaveStatus('dirty')
           }}

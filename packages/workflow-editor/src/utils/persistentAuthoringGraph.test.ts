@@ -303,6 +303,67 @@ describe('C1 persistent Composite hierarchy', () => {
     expect(byId.get('inner')).not.toHaveProperty('visualKind')
   })
 
+  it('projects Backend-native workflow contracts and node source provenance', () => {
+    const source = compositeGraph()
+    source.node_templates = source.node_templates.map((template) =>
+      template.uuid === 'outer-template'
+        ? {
+            uuid: 'outer-template',
+            type: 'workflow',
+            node_type: 'workflow',
+            name: 'workflow:workflow-child-outer:r3',
+            schema: JSON.stringify({
+              type: 'object',
+              properties: { resource: { type: 'object' } }
+            }),
+            meta_data: {
+              unilab: {
+                workflow_contract: {
+                  version: 1,
+                  workflow_uuid: 'workflow-child-outer',
+                  workflow_revision: 3,
+                  source_hash: 'sha256:applied-source',
+                  contract_digest: 'sha256:outer-contract'
+                }
+              }
+            }
+          }
+        : template
+    )
+    source.nodes = source.nodes.map((node) => node.uuid === 'outer'
+      ? {
+          ...node,
+          meta_data: {
+            unilab: {
+              composite: {
+                version: 1,
+                child_workflow_uuid: 'workflow-child-outer',
+                child_workflow_revision: 3,
+                child_source_hash: 'sha256:applied-source',
+                contract_digest: 'sha256:outer-contract'
+              },
+              workflow_source: {
+                symbol: 's_z_lab_标准物料转运',
+                definition_fqid:
+                  'szlab_poly_studio.workflows.material_transfer.s_z_lab_标准物料转运'
+              }
+            }
+          }
+        }
+      : node)
+
+    const projected = projectPersistentAuthoringGraph(source)
+    const outer = projected.nodes.find((node) => node.id === 'outer')
+
+    expect(outer).toEqual(expect.objectContaining({
+      groupKind: 'subworkflow',
+      childNodeIds: ['outer-action', 'inner'],
+      collapsedByDefault: true,
+      openChildWorkflowUuid: 'workflow-child-outer',
+      visualKind: 'robot-transfer'
+    }))
+  })
+
   it('uses OS parent_uuid and Published templates as the hierarchy authority', () => {
     const projected = projectPersistentAuthoringGraph(compositeGraph())
     const byId = new Map(projected.nodes.map((node) => [node.id, node]))

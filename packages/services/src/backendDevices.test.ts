@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import {
+  catalogResponses,
+  resourceTemplateUuid
+} from './workflow-action-catalog.fixtures'
 import type { HttpClient } from './http'
 import {
   loadBackendActionSchema,
@@ -7,30 +11,32 @@ import {
   loadBackendOnlineDevices
 } from './backendDevices'
 
-describe('Backend 设备目录 adapter', () => {
-  it('以设备物料 UUID 为设备身份并保留 Edge 绑定身份', async () => {
-    const request = vi.fn().mockResolvedValue({
-      code: 0,
-      data: [rawBackendDevice()]
-    })
+const materialUuid = '50000000-0000-4000-8000-000000000001'
 
-    await expect(
-      loadBackendDeviceCatalog(mockHttp(request))
-    ).resolves.toEqual([{
-      deviceId: 'material-pump',
-      materialUuid: 'material-pump',
-      deviceTypeId: 'template-pump',
+describe('Backend 设备目录 adapter', () => {
+  /** 证明 DeviceOverview 负责实例身份，WorkflowNodeTemplate 负责动作参数合同。 */
+  it('组合设备实例、Edge 绑定与动作模板 schema', async () => {
+    const { http, request } = fixture()
+
+    await expect(loadBackendDeviceCatalog(http)).resolves.toEqual([{
+      deviceId: materialUuid,
+      materialUuid,
+      resourceTemplateUuid,
+      deviceTypeId: resourceTemplateUuid,
       deviceKey: 'pump-01',
       namespace: 'edge-01',
       label: '主泵',
       online: true,
       actions: [{
-        actionName: 'dispense',
-        actionRef: 'material-pump.dispense',
-        label: 'dispense',
-        typeName: 'device_action',
-        inputSchema: {},
-        outputSchema: {},
+        actionName: 'transfer.sample.v1',
+        actionRef: `${materialUuid}.transfer.sample.v1`,
+        label: '转移样品',
+        typeName: 'UniLabJsonCommand',
+        inputSchema: {
+          sample: { $slot: 'ResourceSlot' },
+          mode: { type: 'string', enum: ['safe', 'fast'], default: 'safe' }
+        },
+        outputSchema: { sample: { $slot: 'ResourceSlot' } },
         riskLevel: 'normal',
         isBusy: false
       }]
@@ -40,89 +46,114 @@ describe('Backend 设备目录 adapter', () => {
     })
   })
 
-  it('用 dispatchable 表达 Backend 可调度在线状态', async () => {
-    const request = vi.fn().mockResolvedValue({
-      code: 0,
-      data: [{ ...rawBackendDevice(), dispatchable: false }]
-    })
+  /** 证明两种 Authority 都只用 dispatchable 表达当前可调度状态。 */
+  it('用 dispatchable 表达可调度在线状态', async () => {
+    const { http } = fixture({ dispatchable: false })
 
-    await expect(
-      loadBackendOnlineDevices(mockHttp(request))
-    ).resolves.toMatchObject([{
-      id: 'material-pump',
-      materialUuid: 'material-pump',
+    await expect(loadBackendOnlineDevices(http)).resolves.toMatchObject([{
+      id: materialUuid,
+      materialUuid,
+      resourceTemplateUuid,
       online: false,
       actions: [{
-        actionName: 'dispense',
-        schema: { type: 'object', properties: {} },
+        actionName: 'transfer.sample.v1',
+        displayName: '转移样品',
+        schema: expect.objectContaining({ type: 'object' }),
         currentJobId: null
       }]
     }])
   })
 
-  it('不推断 Backend 未在设备目录声明的动作输入参数', async () => {
-    const request = vi.fn().mockResolvedValue({
-      code: 0,
-      data: [rawBackendDevice()]
-    })
+  it('从唯一匹配的节点模板读取 Action schema 与默认值', async () => {
+    const { http } = fixture()
 
     await expect(loadBackendActionSchema(
-      mockHttp(request),
-      'material-pump',
-      'dispense'
-    )).resolves.toEqual({
-      schema: { type: 'object', properties: {} },
-      goalDefault: {},
-      actionType: 'device_action',
+      http,
+      materialUuid,
+      'transfer.sample.v1'
+    )).resolves.toMatchObject({
+      schema: expect.objectContaining({
+        'x-unilabos-action-contract': expect.objectContaining({ version: 1 })
+      }),
+      goalDefault: { mode: 'safe' },
+      actionType: 'UniLabJsonCommand',
       isBusy: false,
       currentJobId: null
     })
   })
 
-  it('拒绝缺失设备物料身份的 Backend 响应', async () => {
-    const request = vi.fn().mockResolvedValue({
+  it('拒绝缺失设备物料身份的 DeviceOverview', async () => {
+    const responses = fixtureResponses()
+    responses['/api/v1/devices'] = {
       code: 0,
       data: [{
-        ...rawBackendDevice(),
-        material: { resource_template_uuid: 'template-pump' }
+        ...rawDevice(),
+        material: { resource_template_uuid: resourceTemplateUuid }
       }]
-    })
+    }
 
     await expect(
-      loadBackendDeviceCatalog(mockHttp(request))
-    ).rejects.toMatchObject({
-      code: 'INVALID_BACKEND_DEVICE_CATALOG'
-    })
+      loadBackendDeviceCatalog(mockHttp(responses).http)
+    ).rejects.toMatchObject({ code: 'INVALID_BACKEND_DEVICE_CATALOG' })
   })
 })
 
+/** 构造一组同 Authority 的设备与动作模板响应。 */
+function fixture(overrides: Record<string, unknown> = {}): {
+  http: HttpClient
+  request: ReturnType<typeof vi.fn>
+} {
+  const responses = fixtureResponses()
+  responses['/api/v1/devices'] = {
+    code: 0,
+    data: [{ ...rawDevice(), ...overrides }]
+  }
+  return mockHttp(responses)
+}
+
+function fixtureResponses(): Record<string, unknown> {
+  return {
+    ...catalogResponses(),
+    '/api/v1/devices': { code: 0, data: [rawDevice()] }
+  }
+}
+
 /** 返回一条符合 Backend DeviceOverview 合同的测试记录。 */
-function rawBackendDevice(): Record<string, unknown> {
+function rawDevice(): Record<string, unknown> {
   return {
     binding: {
-      uuid: 'binding-pump',
+      uuid: '60000000-0000-4000-8000-000000000001',
       edge_uuid: 'edge-01',
-      material_uuid: 'material-pump',
+      material_uuid: materialUuid,
       local_id: 'pump-01',
       name: 'Pump 01'
     },
     material: {
-      uuid: 'material-pump',
-      resource_template_uuid: 'template-pump',
+      uuid: materialUuid,
+      resource_template_uuid: resourceTemplateUuid,
       name: '主泵'
     },
     edge_status: 'online',
     dispatchable: true,
-    actions: [{ name: 'dispense', type: 'device_action' }]
+    actions: [{ name: 'transfer.sample.v1', type: 'UniLabJsonCommand' }]
   }
 }
 
-/**
- * 创建 Backend 设备 adapter 使用的 HTTP 测试替身。
- *
- * @param request Vitest 请求桩。
- * @returns 只包含 request 边界的 HttpClient。
- */
-function mockHttp(request: ReturnType<typeof vi.fn>): HttpClient {
-  return { request }
+/** 创建按路径返回冻结 fixture 的 HTTP 客户端。 */
+function mockHttp(responses: Record<string, unknown>): {
+  http: HttpClient
+  request: ReturnType<typeof vi.fn>
+} {
+  const request = vi.fn()
+  const http: HttpClient = {
+    request: async <ResponseValue>(
+      path: string,
+      init?: RequestInit
+    ): Promise<ResponseValue> => {
+      request(path, init)
+      if (!(path in responses)) throw new Error(`Unexpected request: ${path}`)
+      return responses[path] as ResponseValue
+    }
+  }
+  return { http, request }
 }

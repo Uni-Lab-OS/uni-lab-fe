@@ -49,6 +49,31 @@ function registerWorkflowTaskControllerTests(): void {
     })
   })
 
+  it('hydrates over REST when the selected Backend has no runtime SSE', async () => {
+    const task = workflowTask()
+    const runtime = runtimePort({
+      subscribeWorkflowRuntime: vi.fn(() => {
+        throw new Error('workflow.subscribeEvents is unavailable')
+      }),
+      listWorkflowTasks: vi.fn(async () => ({
+        items: [task], total: 1, page: 1, page_size: 1
+      })),
+      getWorkflowTask: vi.fn(async () => task),
+      listWorkflowTaskJobs: vi.fn(async () => [])
+    })
+    const controller = new WorkflowTaskController(runtime, task.workflow_uuid)
+
+    await controller.start()
+
+    expect(runtime.listWorkflowTasks).toHaveBeenCalledOnce()
+    expect(controller.getSnapshot()).toMatchObject({
+      loading: false,
+      task,
+      realtimeStatus: 'reconnecting',
+      realtimeError: expect.stringContaining('请手动刷新')
+    })
+  })
+
   it('retains the previous coherent bundle when either REST projection fails', async () => {
     const firstTask = workflowTask()
     const firstJobs = [workflowJob()]
@@ -328,6 +353,7 @@ function registerWorkflowTaskControllerTests(): void {
       lastCommand: accepted,
       task: { control_status: 'active' }
     })
+    expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(2)
 
     authoritative = { ...initial, control_status: 'paused' }
     expect(onInvalidate).not.toBeNull()

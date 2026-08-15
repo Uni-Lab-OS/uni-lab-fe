@@ -8,10 +8,17 @@ import {
   createWorkbenchRendererUrl,
   discoverWorkbenchOsProject,
   discoverWorkbenchPythonEnvironment,
+  isolateWorkbenchBackendProcessGroup,
   resolveWorkbenchLaunchConfiguration,
   resolveWorkbenchLaunchMode,
   workbenchEnvironmentPathEntries
 } from './workbench-launch.mjs'
+
+it('isolates the Theia backend process group on POSIX', () => {
+  assert.equal(isolateWorkbenchBackendProcessGroup('darwin'), true)
+  assert.equal(isolateWorkbenchBackendProcessGroup('linux'), true)
+  assert.equal(isolateWorkbenchBackendProcessGroup('win32'), false)
+})
 
 describe('Workbench launch contract', () => {
   it('keeps browser mode as the default and accepts desktop explicitly', () => {

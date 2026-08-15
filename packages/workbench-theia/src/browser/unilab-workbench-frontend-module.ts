@@ -17,6 +17,10 @@ import {
 import {
   DeviceDomainEntryContribution,
   MaterialDomainEntryContribution,
+  RobotBenchDomainEntryContribution,
+  RobotDebugDomainEntryContribution,
+  RobotPointsDomainEntryContribution,
+  RobotReagentsDomainEntryContribution,
   UniLabDomainNavigationInitializer,
   UniLabWorkbenchContribution,
   WorkflowDomainEntryContribution
@@ -24,6 +28,10 @@ import {
 import {
   DeviceDomainEntryWidget,
   MaterialDomainEntryWidget,
+  RobotBenchDomainEntryWidget,
+  RobotDebugDomainEntryWidget,
+  RobotPointsDomainEntryWidget,
+  RobotReagentsDomainEntryWidget,
   WorkflowDomainEntryWidget
 } from './unilab-workbench-navigator-widget'
 import { UniLabWorkbenchWidget } from './unilab-workbench-widget'
@@ -36,6 +44,7 @@ import {
 } from './unilab-agent-contribution'
 import { UniLabAgentNavigatorWidget } from './unilab-agent-navigator-widget'
 import { UniLabAgentWidget } from './unilab-agent-widget'
+import { UniLabBottomPanelContribution } from './unilab-bottom-panel-contribution'
 import { UniLabSettingsContribution } from './unilab-settings-contribution'
 import { UniLabSettingsWidget } from './unilab-settings-widget'
 import '../../src/browser/style/index.css'
@@ -48,13 +57,22 @@ export default new ContainerModule((bind) => {
   )
   bind(WorkbenchSessionClientImpl).toSelf().inSingletonScope()
   bind(WorkbenchSessionClient).toService(WorkbenchSessionClientImpl)
-  bind(WorkbenchSessionServer).toDynamicValue(context =>
-    WebSocketConnectionProvider.createProxy(
+  bind(WorkbenchSessionServer).toDynamicValue(context => {
+    const client = context.container.get<WorkbenchSessionClientImpl>(
+      WorkbenchSessionClientImpl
+    )
+    const server = WebSocketConnectionProvider.createProxy<WorkbenchSessionServer>(
       context.container,
       WORKBENCH_SESSION_PATH,
-      context.container.get(WorkbenchSessionClient)
+      client
     )
-  ).inSingletonScope()
+    client.setServer(server)
+    return server
+  }).inSingletonScope()
+
+  bind(UniLabBottomPanelContribution).toSelf().inSingletonScope()
+  bind(FrontendApplicationContribution)
+    .toService(UniLabBottomPanelContribution)
 
   bindViewContribution(bind, UniLabAgentContribution)
   bind(FrontendApplicationContribution).toService(UniLabAgentContribution)
@@ -108,6 +126,34 @@ export default new ContainerModule((bind) => {
   bind(WidgetFactory).toDynamicValue((context) => ({
     id: DeviceDomainEntryWidget.ID,
     createWidget: () => context.container.get(DeviceDomainEntryWidget)
+  })).inSingletonScope()
+
+  bindViewContribution(bind, RobotDebugDomainEntryContribution)
+  bind(RobotDebugDomainEntryWidget).toSelf()
+  bind(WidgetFactory).toDynamicValue(context => ({
+    id: RobotDebugDomainEntryWidget.ID,
+    createWidget: () => context.container.get(RobotDebugDomainEntryWidget)
+  })).inSingletonScope()
+
+  bindViewContribution(bind, RobotPointsDomainEntryContribution)
+  bind(RobotPointsDomainEntryWidget).toSelf()
+  bind(WidgetFactory).toDynamicValue(context => ({
+    id: RobotPointsDomainEntryWidget.ID,
+    createWidget: () => context.container.get(RobotPointsDomainEntryWidget)
+  })).inSingletonScope()
+
+  bindViewContribution(bind, RobotBenchDomainEntryContribution)
+  bind(RobotBenchDomainEntryWidget).toSelf()
+  bind(WidgetFactory).toDynamicValue(context => ({
+    id: RobotBenchDomainEntryWidget.ID,
+    createWidget: () => context.container.get(RobotBenchDomainEntryWidget)
+  })).inSingletonScope()
+
+  bindViewContribution(bind, RobotReagentsDomainEntryContribution)
+  bind(RobotReagentsDomainEntryWidget).toSelf()
+  bind(WidgetFactory).toDynamicValue(context => ({
+    id: RobotReagentsDomainEntryWidget.ID,
+    createWidget: () => context.container.get(RobotReagentsDomainEntryWidget)
   })).inSingletonScope()
 
   bind(UniLabDomainNavigationInitializer).toSelf().inSingletonScope()

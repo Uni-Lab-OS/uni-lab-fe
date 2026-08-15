@@ -1,0 +1,200 @@
+.searchField {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+
+  svg {
+    position: absolute;
+    left: 10px;
+    width: 16px;
+    height: 16px;
+    color: var(--unilab-color-text-muted);
+    pointer-events: none;
+  }
+  input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 36px;
+    padding: 0 10px 0 34px;
+    color: var(--unilab-color-text);
+    font: 400 13px var(--unilab-font-sans);
+    background: var(--unilab-color-surface);
+    border: 1px solid var(--unilab-color-border-strong);
+    border-radius: var(--unilab-radius-control);
+  }
+}
+
+.poseGrid,
+.fieldGridThree,
+.dialogFields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+
+  label {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+  }
+  label > span:first-child {
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+    font-weight: 550;
+  }
+  input,
+  select {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 36px;
+    padding: 0 9px;
+    color: var(--unilab-color-text);
+    font: 500 13px var(--unilab-font-mono);
+    background: var(--unilab-color-surface);
+    border: 1px solid var(--unilab-color-border-strong);
+    border-radius: var(--unilab-radius-control);
+  }
+
+  input:focus,
+  select:focus {
+    border-color: var(--unilab-color-primary);
+    outline: 3px solid rgb(147 197 253 / 45%);
+  }
+}
+
+.unitField {
+  position: relative;
+  display: block;
+
+  input {
+    padding-right: 32px;
+  }
+  small {
+    position: absolute;
+    top: 50%;
+    right: 9px;
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+    transform: translateY(-50%);
+  }
+}
+
+.segmentedControl {
+  display: flex;
+  align-items: center;
+  padding: 3px;
+  background: var(--unilab-color-bg-muted);
+  border-radius: var(--unilab-radius-md);
+
+  button {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    min-height: 30px;
+    padding: 0 10px;
+    color: var(--unilab-color-text-muted);
+    font: 600 12px var(--unilab-font-sans);
+    background: transparent;
+    border: 0;
+    border-radius: var(--unilab-radius-control);
+    cursor: pointer;
+  }
+
+  svg {
+    width: 15px;
+    height: 15px;
+  }
+  button[aria-pressed='true'] {
+    color: var(--unilab-color-primary);
+    background: var(--unilab-color-surface);
+    box-shadow: var(--unilab-shadow-control);
+  }
+  button:focus-visible {
+    outline: 3px solid var(--unilab-color-focus);
+    outline-offset: 1px;
+  }
+}
+
+.dataTable {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  color: var(--unilab-color-text);
+  font-size: 13px;
+
+  th {
+    padding: 9px 10px;
+    color: var(--unilab-color-text-muted);
+    font-weight: 550;
+    text-align: left;
+    white-space: nowrap;
+    background: var(--unilab-color-bg-subtle);
+    border-bottom: 1px solid var(--unilab-color-border);
+  }
+
+  td {
+    padding: 10px;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--unilab-color-border);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  tbody tr[data-selected='true'] {
+    background: var(--unilab-color-primary-soft);
+  }
+  tbody tr[data-archived='true'] {
+    color: var(--unilab-color-text-muted);
+    background: var(--unilab-color-bg-subtle);
+    opacity: 0.72;
+  }
+  td > strong,
+  td > small {
+    display: block;
+  }
+  td > small {
+    margin-top: 3px;
+    color: var(--unilab-color-text-muted);
+  }
+  td > button {
+    display: grid;
+    gap: 2px;
+    padding: 0;
+    color: inherit;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+  }
+  td > button small {
+    color: var(--unilab-color-text-muted);
+  }
+}
+
+.emptyState {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 260px;
+  padding: 24px;
+  color: var(--unilab-color-text-muted);
+  text-align: center;
+
+  > svg {
+    width: 34px;
+    height: 34px;
+    color: var(--unilab-color-text-subtle);
+  }
+  h3 {
+    margin: 12px 0 4px;
+    color: var(--unilab-color-text);
+    font-size: 13px;
+  }
+  p {
+    max-width: 44ch;
+    margin: 0 0 14px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+}

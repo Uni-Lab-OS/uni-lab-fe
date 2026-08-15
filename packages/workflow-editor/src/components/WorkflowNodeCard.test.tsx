@@ -8,6 +8,7 @@ import {
   workflowNodeAllowsDebugMarkers,
   workflowNodeHoverText,
   workflowNodeKindLabel,
+  workflowNodeShowsMarkerActions,
   workflowNodeShowsState,
   workflowNodeStateLabel
 } from './WorkflowNodeCard'
@@ -27,6 +28,17 @@ describe('MaterialSource node semantics', () => {
 })
 
 describe('Action node presentation', () => {
+  it('shows Backend node actions when disable is the only available edit', () => {
+    expect(workflowNodeShowsMarkerActions({
+      kind: 'action',
+      onToggleDisabled: () => undefined
+    })).toBe(true)
+    expect(workflowNodeShowsMarkerActions({
+      kind: 'material_source',
+      onToggleDisabled: () => undefined
+    })).toBe(false)
+  })
+
   it('uses the OS action description as the node hover explanation', () => {
     expect(workflowNodeHoverText({
       id: 'dose-node',

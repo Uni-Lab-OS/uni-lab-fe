@@ -222,6 +222,26 @@ describe('material store', () => {
     expect(store.getState().loadState).toBe('ready')
   })
 
+  /** 证明外形声明缺失会形成明确降级状态，而不是假装仍在加载。 */
+  it('records an unavailable shape library independently from the graph', async () => {
+    const store = createMaterialStore({
+      scope: { kind: 'singleton' },
+      graph: materialGraphPort({
+        getGraph: async () => [materialAggregate('robot')],
+        getShapeLibrary: async () => []
+      }),
+      requireCapability: allowCapabilities('material.readGraph')
+    })
+
+    await store.getState().loadGraph()
+
+    expect(store.getState()).toMatchObject({
+      loadState: 'ready',
+      shapeLibrary: [],
+      shapeLibraryState: 'unavailable'
+    })
+  })
+
   it('projects one SSE material move without reloading the full graph', async () => {
     const source = materialAggregate('warehouse-1', {
       sites: [materialSite('source-site', 'warehouse-1', 'L1B1', ['vessel'])]
@@ -303,7 +323,9 @@ describe('material store', () => {
     expect(store.getState()).toMatchObject({
       aggregatesById: {},
       dragPreviewByMaterialId: {},
-      loadState: 'idle'
+      loadState: 'idle',
+      shapeLibrary: [],
+      shapeLibraryState: 'idle'
     })
     expect(store.getState().canUndo()).toBe(false)
   })

@@ -4,21 +4,28 @@ import { WorkbenchLaunchError } from './launch-error'
 
 export type PersistedWorkbenchRuntimeMode = 'normal' | 'dry-run'
 export type PersistedPlcHandshakeProfile = 'szlab' | 'xuse'
+export type PersistedWorkbenchDomainMode = 'local' | 'backend'
 
 export interface LocalEnvironmentConfiguration {
   graphPath: string | null
+  externalDevicesOnly: boolean | null
   plcSimulatorProjectPath: string | null
   plcVariableTablePath: string | null
   plcHandshakeProfile: PersistedPlcHandshakeProfile | null
   runtimeMode: PersistedWorkbenchRuntimeMode | null
+  domainMode: PersistedWorkbenchDomainMode | null
+  backendUrl: string | null
 }
 
 export interface WritableLocalEnvironmentConfiguration {
   graphPath: string
+  externalDevicesOnly: boolean
   plcSimulatorProjectPath: string
   plcVariableTablePath: string
   plcHandshakeProfile: PersistedPlcHandshakeProfile
   runtimeMode: PersistedWorkbenchRuntimeMode
+  domainMode: PersistedWorkbenchDomainMode
+  backendUrl: string | null
 }
 
 /** Read the optional managed-local configuration and reject corrupt state. */
@@ -32,10 +39,13 @@ export async function readLocalEnvironmentConfiguration(
     if (isRecord(error) && error['code'] === 'ENOENT') {
       return {
         graphPath: null,
+        externalDevicesOnly: null,
         plcSimulatorProjectPath: null,
         plcVariableTablePath: null,
         plcHandshakeProfile: null,
-        runtimeMode: null
+        runtimeMode: null,
+        domainMode: null,
+        backendUrl: null
       }
     }
     throw invalidLocalEnvironmentConfiguration(
@@ -75,14 +85,38 @@ export async function readLocalEnvironmentConfiguration(
   )
   return {
     graphPath,
+    externalDevicesOnly: optionalBoolean(
+      content['externalDevicesOnly'],
+      configurationPath,
+      'externalDevicesOnly'
+    ),
     plcSimulatorProjectPath,
     plcVariableTablePath,
     plcHandshakeProfile: persistedPlcHandshakeProfile(
       content['plcHandshakeProfile'],
       configurationPath
     ),
-    runtimeMode: persistedRuntimeMode(content['runtimeMode'], configurationPath)
+    runtimeMode: persistedRuntimeMode(content['runtimeMode'], configurationPath),
+    domainMode: persistedDomainMode(content['domainMode'], configurationPath),
+    backendUrl: optionalString(
+      content['backendUrl'],
+      configurationPath,
+      'backendUrl'
+    )
   }
+}
+
+function optionalBoolean(
+  value: unknown,
+  configurationPath: string,
+  field: string
+): boolean | null {
+  if (value === undefined || value === null) return null
+  if (typeof value === 'boolean') return value
+  throw invalidLocalEnvironmentConfiguration(
+    configurationPath,
+    `本地环境配置 ${field} 无效`
+  )
 }
 
 /** Atomically replace the managed-local configuration after validation. */
@@ -138,6 +172,18 @@ function persistedPlcHandshakeProfile(
   throw invalidLocalEnvironmentConfiguration(
     configurationPath,
     '本地环境配置 plcHandshakeProfile 无效'
+  )
+}
+
+function persistedDomainMode(
+  value: unknown,
+  configurationPath: string
+): PersistedWorkbenchDomainMode | null {
+  if (value === 'local' || value === 'backend') return value
+  if (value === undefined || value === null) return null
+  throw invalidLocalEnvironmentConfiguration(
+    configurationPath,
+    '本地环境配置 domainMode 无效'
   )
 }
 

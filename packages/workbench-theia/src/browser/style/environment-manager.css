@@ -1,0 +1,393 @@
+.unilab-environment-manager__overlay {
+  position: fixed;
+  z-index: 2147483000;
+  inset: 0;
+  isolation: isolate;
+  pointer-events: none;
+}
+
+.unilab-environment-manager__backdrop {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: color-mix(in srgb, var(--unilab-color-canvas) 8%, transparent);
+  cursor: default;
+  pointer-events: auto;
+}
+
+.unilab-environment-manager {
+  position: absolute;
+  z-index: 1;
+  top: 52px;
+  right: 56px;
+  bottom: 12px;
+  display: flex;
+  width: min(480px, calc(100% - 68px));
+  min-width: 0;
+  max-width: calc(100% - 68px);
+  box-sizing: border-box;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: auto;
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: 10px;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-surface);
+  box-shadow: 0 18px 48px color-mix(in srgb, #10151c 24%, transparent);
+}
+
+/* Drei HTML annotations use a separately transformed portal layer. Suppress
+ * them while the application drawer is open so GPU compositing cannot place
+ * scene labels above environment management. */
+body.unilab-environment-manager-open .pascal-model-label,
+body.unilab-environment-manager-open .pascal-transfer-site-label,
+body.unilab-environment-manager-open .pascal-transfer-executor,
+body.unilab-environment-manager-open .material-flow-node__physical-label,
+body.unilab-environment-manager-open .material-oblique-site__label,
+body.unilab-environment-manager-open .material-oblique-stack__label {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.unilab-environment-manager__header {
+  display: flex;
+  min-height: 52px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 8px 16px;
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+.unilab-environment-manager__header > div {
+  display: grid;
+  gap: 1px;
+}
+
+.unilab-environment-manager__eyebrow {
+  color: var(--unilab-color-text-muted);
+  font: 600 9px/1.2 var(--unilab-font-mono);
+  letter-spacing: 0.12em;
+}
+
+.unilab-environment-manager__header button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-content: center;
+  padding: 0;
+  color: var(--unilab-color-text-muted);
+  border: 0;
+  border-radius: var(--unilab-radius-control);
+  background: transparent;
+  cursor: pointer;
+}
+
+.unilab-environment-manager__header button:hover {
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-surface-subtle);
+}
+
+.unilab-environment-manager__rail {
+  position: relative;
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0;
+  padding: 8px 14px 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.unilab-environment-manager__rail::before {
+  position: absolute;
+  top: 27px;
+  bottom: 27px;
+  left: 22px;
+  width: 1px;
+  background: var(--unilab-color-border-strong);
+  content: '';
+}
+
+.unilab-environment-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 17px minmax(0, 1fr);
+  gap: 9px;
+  padding: 10px 0 12px;
+}
+
+.unilab-environment-card + .unilab-environment-card {
+  border-top: 1px solid var(--unilab-color-border);
+}
+
+.unilab-environment-card__dot {
+  z-index: 1;
+  width: 8px;
+  height: 8px;
+  margin: 5px 0 0 4px;
+  border-radius: 50%;
+  background: var(--unilab-color-text-muted);
+  box-shadow: 0 0 0 3px var(--unilab-color-surface);
+}
+
+.unilab-environment-card__body {
+  min-width: 0;
+}
+
+.unilab-environment-card__body > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.unilab-environment-card__body > header > span {
+  color: var(--unilab-color-text-muted);
+  font: 600 10px/1 var(--unilab-font-mono);
+  text-transform: uppercase;
+}
+
+.unilab-environment-card__body > p {
+  margin: 4px 0 10px;
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.unilab-environment-card__message::before {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin: 0 6px 2px 1px;
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+  opacity: .65;
+}
+
+.unilab-environment-card[data-phase='failed'] .unilab-environment-card__body > p {
+  color: var(--unilab-color-danger);
+}
+
+.unilab-environment-card dl {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 3px 8px;
+  margin: 0 0 9px;
+  font: 10px/1.45 var(--unilab-font-mono);
+}
+
+.unilab-environment-card dt {
+  color: var(--unilab-color-text-muted);
+}
+
+.unilab-environment-card dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.unilab-environment-manager__path {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 9px;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+}
+
+.unilab-environment-manager__path input,
+.unilab-environment-manager__path select {
+  min-width: 0;
+  height: 27px;
+  padding: 0 8px;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-canvas);
+  font: 10px/1 var(--unilab-font-mono);
+}
+
+.unilab-environment-manager__backend-target {
+  grid-template-columns: 58px minmax(0, 1fr);
+  margin-top: 8px;
+}
+
+.unilab-environment-manager__target-summary {
+  margin: -2px 0 9px 66px;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.unilab-environment-manager__target-summary.is-empty {
+  color: var(--unilab-color-success);
+}
+
+.unilab-environment-manager__target-summary.is-occupied {
+  color: var(--unilab-color-danger);
+}
+
+.unilab-environment-manager__mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 3px;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-canvas);
+}
+
+.unilab-environment-manager__mode button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--unilab-radius-control) - 2px);
+  color: var(--unilab-color-text-muted);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.unilab-environment-manager__mode-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.unilab-environment-manager__mode-copy strong {
+  font: 650 11px/1.15 var(--unilab-font-sans);
+}
+
+.unilab-environment-manager__mode-copy small {
+  color: var(--unilab-color-text-muted);
+  font: 500 9px/1.2 var(--unilab-font-sans);
+}
+
+.unilab-environment-manager__mode button.is-active {
+  color: var(--unilab-color-primary);
+  border-color: color-mix(in srgb, var(--unilab-color-primary) 42%, transparent);
+  background: var(--unilab-color-primary-soft);
+  box-shadow:
+    inset 3px 0 0 var(--unilab-color-primary),
+    var(--unilab-shadow-control);
+}
+
+.unilab-environment-manager__mode button.is-active .codicon {
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .unilab-environment-manager {
+    right: 12px;
+    bottom: 8px;
+    left: 12px;
+    width: auto;
+    max-width: none;
+  }
+}
+
+.unilab-environment-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.unilab-environment-card__actions button,
+.unilab-environment-manager__logs button {
+  min-height: 28px;
+  padding: 5px 10px;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  font: 600 10px/1.2 var(--unilab-font-sans);
+  cursor: pointer;
+}
+
+.unilab-environment-card__actions button.is-primary {
+  color: #fff;
+  border-color: var(--unilab-color-primary);
+  background: var(--unilab-color-primary);
+}
+
+.unilab-environment-card__actions button.is-port-action {
+  border-style: dashed;
+}
+
+.unilab-environment-card__actions button:hover,
+.unilab-environment-manager__logs button:hover,
+.unilab-environment-manager__logs button.is-active {
+  color: var(--unilab-color-primary);
+  border-color: var(--unilab-color-focus);
+  background: var(--unilab-color-primary-soft);
+}
+
+.unilab-environment-card__actions button.is-primary:hover {
+  color: #fff;
+  border-color: var(--unilab-color-primary);
+  background: var(--unilab-color-primary);
+}
+
+.unilab-environment-card__actions button.is-danger:hover {
+  color: var(--unilab-color-danger);
+  border-color: var(--unilab-color-danger);
+  background: color-mix(in srgb, var(--unilab-color-danger) 8%, transparent);
+}
+
+.unilab-environment-manager button:disabled,
+.unilab-environment-manager input:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.unilab-environment-manager__logs {
+  flex: 0 0 auto;
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--unilab-color-border);
+  background: var(--unilab-color-surface-subtle);
+}
+
+.unilab-environment-manager__logs > header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.unilab-environment-manager__logs [role='group'] {
+  display: flex;
+  gap: 4px;
+}
+
+.unilab-environment-manager__logs p {
+  margin: 8px 0 0;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+}
+
+.unilab-environment-manager__logs pre {
+  max-height: 150px;
+  margin: 8px 0 0;
+  padding: 8px;
+  overflow: auto;
+  color: var(--unilab-color-text-muted);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: 5px;
+  background: var(--unilab-color-canvas);
+  font: 10px/1.45 var(--unilab-font-mono);
+  white-space: pre-wrap;
+}

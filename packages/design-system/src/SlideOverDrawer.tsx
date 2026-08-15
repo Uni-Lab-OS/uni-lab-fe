@@ -11,6 +11,9 @@
  */
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
+import { XIcon } from 'lucide-react'
+
+import { Button } from './components/button'
 
 interface SlideOverDrawerProps {
   open: boolean
@@ -128,14 +131,14 @@ export function SlideOverDrawer({
       >
         <header className="flex items-center justify-between border-b border-[var(--unilab-color-border)] bg-[var(--unilab-color-surface-subtle)] px-[18px] py-3.5">
           <div className="text-[15px] font-semibold text-[var(--unilab-color-text)]">{title}</div>
-          <button
-            type="button"
-            className="h-8 w-8 cursor-pointer rounded-md border-0 bg-transparent text-xl leading-none text-[var(--unilab-color-text-muted)] transition-colors hover:bg-[var(--unilab-color-surface-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--unilab-color-focus)]"
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={onClose}
             aria-label={closeLabel}
           >
-            ×
-          </button>
+            <XIcon className="size-4" />
+          </Button>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--unilab-color-bg-subtle)] px-[18px] py-4">
           {children}

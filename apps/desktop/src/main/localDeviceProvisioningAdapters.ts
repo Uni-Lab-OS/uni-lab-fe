@@ -5,7 +5,7 @@ import {
 import {
   createDeviceSquareService,
   createHttpClient,
-  createLaboratoryService,
+  createLocalAuthoringLaboratoryService,
   type BackendConfig,
   type DeviceSquareService
 } from '@unilab/services'
@@ -49,7 +49,7 @@ export function createCloudDeviceSquare(
  * @returns 以本机 Edge 为唯一事实源的实验室服务。
  * @safety 调用方必须使用 Runtime 权威地址，不接受 Renderer 提供的远端地址。
  */
-export function createLocalLaboratory(apiUrl: string) {
+export function createLocalAuthoringLaboratory(apiUrl: string) {
   const backend: BackendConfig = {
     id: 'local-device-provisioning-runtime',
     name: '本地设备接入运行时',
@@ -59,7 +59,7 @@ export function createLocalLaboratory(apiUrl: string) {
     serverKind: 'edge',
     workspaceMode: 'singleton'
   }
-  return createLaboratoryService(createHttpClient({ backend }), backend)
+  return createLocalAuthoringLaboratoryService(createHttpClient({ backend }))
 }
 
 /**

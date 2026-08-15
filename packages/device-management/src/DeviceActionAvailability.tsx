@@ -7,10 +7,21 @@ import type {
 } from '@unilab/services'
 
 import type { ManagedDevice } from './deviceCatalog'
-import { supportsD1AS1 } from './deviceActionRun'
+import {
+  projectDeviceActionInputSchema,
+  supportsD1AS1
+} from './deviceActionRun'
 import { shortIdentifier } from './devicePanelFormat'
+import { deviceClass } from './deviceStyles'
 import styles from './DevicePanel.module.scss'
 
+/**
+ * 计算设备单动作调试（D1A）的前端就绪性，不把按钮可点击误当作调度准入。
+ *
+ * @param input 动作、设备、模板、连接和目录读取状态。
+ * @returns 可运行状态或带稳定原因的关闭状态。
+ * @safety 参数合同、设备身份或物料/库位边界无法证明安全时关闭失败。
+ */
 export function deviceActionReadiness({
   action,
   device,
@@ -77,11 +88,18 @@ export function deviceActionReadiness({
       message: '该动作会影响物料或库位，请在工作流中运行'
     }
   }
+  if (projectDeviceActionInputSchema(template) === null) {
+    return {
+      kind: 'unavailable',
+      reason: 'contract_invalid',
+      message: '动作参数合同不完整，请刷新动作目录或检查动作模板'
+    }
+  }
   return {
     kind: 'ready',
     message: action.isBusy
-      ? '当前动作被占用；提交后由 OS durable admission 排队'
-      : '参数将提交为正式 WorkflowTask / WorkflowNodeJob'
+      ? '当前动作被占用；提交后由调度器（Scheduler）按权威占用状态处理'
+      : '参数将提交为正式工作流任务（WorkflowTask）和作业（Job）'
   }
 }
 
@@ -174,6 +192,22 @@ export type DeviceActionRunState =
       error?: unknown[]
     }
 
+/**
+ * 读取仍需恢复的设备单动作任务（WorkflowTask）稳定 UUID。
+ *
+ * @param operation 当前动作引用与运行状态；尚未创建任务时可为空。
+ * @returns 等待、运行或收尾任务 UUID；其他状态返回 null。
+ */
+export function activeDeviceActionTaskUuid(operation: {
+  actionRef: string
+  state: DeviceActionRunState
+} | null): string | null {
+  if (!operation || !('taskUuid' in operation.state)) return null
+  return ['accepted', 'running', 'finishing'].includes(operation.state.kind)
+    ? operation.state.taskUuid
+    : null
+}
+
 /** 单动作入口关闭时的稳定原因，用于避免把基础设施错误误报成工作流约束。 */
 export type DeviceActionUnavailableReason =
   | 'workflow_required'
@@ -182,6 +216,7 @@ export type DeviceActionUnavailableReason =
   | 'catalog_loading'
   | 'catalog_error'
   | 'template_unmatched'
+  | 'contract_invalid'
   | 'no_actions'
 
 /**
@@ -215,7 +250,8 @@ export function DeviceActionAvailability({
   onCancel?: (taskUuid: string) => void
   disabledRunLabel?: string
 }): React.JSX.Element {
-  const [copied, setCopied] = useState(false)
+  const [logCopied, setLogCopied] = useState(false)
+  const [taskIdCopied, setTaskIdCopied] = useState(false)
   const ready = state.kind === 'ready' || (
     state.kind === 'error' && state.retryable
   )
@@ -224,18 +260,22 @@ export function DeviceActionAvailability({
     state.kind === 'canceled'
   const runnable = ready || terminal
   const log = deviceActionExecutionLog(state)
+  const taskUuid = 'taskUuid' in state ? state.taskUuid : null
   useEffect(() => {
-    setCopied(false)
+    setLogCopied(false)
   }, [log])
+  useEffect(() => {
+    setTaskIdCopied(false)
+  }, [taskUuid])
   return (
     <>
       <div
-        className={`edge-device__debug-actions is-${state.kind}`}
+        className={deviceClass('edge-device__debug-actions', `is-${state.kind}`)}
         role={state.kind === 'failed' || state.kind === 'error' ? 'alert' : 'status'}
       >
         <button
           type="button"
-          className="edge-device__run-button"
+          className={deviceClass('edge-device__run-button')}
           disabled={!runnable}
           onClick={onRun}
         >
@@ -254,7 +294,7 @@ export function DeviceActionAvailability({
         onCancel ? (
           <button
             type="button"
-            className="edge-device__cancel-button"
+            className={deviceClass('edge-device__cancel-button')}
             onClick={() => onCancel(state.taskUuid)}
           >
             取消任务
@@ -263,30 +303,41 @@ export function DeviceActionAvailability({
         <span>{userFacingActionMessage(state.message)}</span>
       </div>
       {'taskUuid' in state ? (
-        <div className="edge-device__execution" aria-live="polite">
-          <div className="edge-device__execution-head">
-            <span className={`edge-device__execution-state ${
-              deviceActionExecutionPresentation(state.kind).tone
-            }`}>
+        <div className={deviceClass('edge-device__execution')} aria-live="polite">
+          <div className={deviceClass('edge-device__execution-head')}>
+            <span className={deviceClass('edge-device__execution-state', deviceActionExecutionPresentation(state.kind).tone)}>
               <span aria-hidden="true" />
               {deviceActionExecutionPresentation(state.kind).label}
             </span>
             <span className={styles.executionTools}>
-              <code title={state.taskUuid}>
-                Task {shortIdentifier(state.taskUuid)}
-              </code>
+              <button
+                type="button"
+                className={styles.taskIdButton}
+                data-copied={taskIdCopied}
+                title={taskIdCopied ? 'Task ID 已复制' : `复制完整 Task ID：${state.taskUuid}`}
+                aria-label={taskIdCopied ? 'Task ID 已复制' : '复制完整 Task ID'}
+                onClick={() => {
+                  void copyDeviceActionTaskId(state.taskUuid).then(() => {
+                    setTaskIdCopied(true)
+                  })
+                }}
+              >
+                <code>
+                  {taskIdCopied ? 'Task ID 已复制' : `Task ${shortIdentifier(state.taskUuid)}`}
+                </code>
+              </button>
               {log ? (
                 <button
                   type="button"
                   className={styles.copyButton}
-                  data-copied={copied}
+                  data-copied={logCopied}
                   onClick={() => {
                     void navigator.clipboard.writeText(log).then(() => {
-                      setCopied(true)
+                      setLogCopied(true)
                     })
                   }}
                 >
-                  {copied ? '已复制' : '复制'}
+                  {logCopied ? '已复制' : '复制'}
                 </button>
               ) : null}
             </span>
@@ -300,6 +351,14 @@ export function DeviceActionAvailability({
       ) : null}
     </>
   )
+}
+
+/** 将完整动作任务 UUID 写入剪贴板，不复制界面上的缩略文本。 */
+export function copyDeviceActionTaskId(
+  taskUuid: string,
+  clipboard: Pick<Clipboard, 'writeText'> = navigator.clipboard
+): Promise<void> {
+  return clipboard.writeText(taskUuid)
 }
 
 /** 把旧版本或上游错误中的内部术语转换为用户可理解的动作信息。 */
@@ -328,6 +387,8 @@ function unavailableRunLabel(reason: DeviceActionUnavailableReason): string {
       return '暂时无法运行'
     case 'template_unmatched':
       return '暂时无法运行'
+    case 'contract_invalid':
+      return '参数合同不可用'
     case 'no_actions':
       return '运行此动作'
   }

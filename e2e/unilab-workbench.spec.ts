@@ -105,11 +105,15 @@ test.describe('UniLab Workbench real-system contract', () => {
     const unilabActivityTabs = page.locator(
       '.theia-app-left .lm-TabBar-tab[data-unilabgroup="true"]:not([id$="-hidden"])'
     )
-    await expect(unilabActivityTabs).toHaveCount(4)
+    await expect(unilabActivityTabs).toHaveCount(8)
     await expect.poll(async () => unilabActivityTabs.evaluateAll(tabs =>
       tabs.map(tab => tab.id)
     )).toEqual([
       'shell-tab-unilab:device-management-navigation',
+      'shell-tab-unilab:robot-debug-navigation',
+      'shell-tab-unilab:robot-points-navigation',
+      'shell-tab-unilab:robot-bench-navigation',
+      'shell-tab-unilab:robot-reagents-navigation',
       'shell-tab-unilab:material-navigation',
       'shell-tab-unilab:workbench-navigator',
       'shell-tab-unilab:agent-navigation'
@@ -339,6 +343,111 @@ test.describe('UniLab Workbench real-system contract', () => {
     await separator.focus()
     await page.keyboard.press('ArrowRight')
     await expect(separator).toHaveAttribute('aria-valuenow', '60')
+  })
+
+  test('hides workflow output while the terminal panel is open', async ({
+    page
+  }) => {
+    test.setTimeout(120_000)
+    await page.goto(workbenchUrl!)
+    await page.getByRole('button', {
+      name: '打开工作流 SZLab 单样品原子流程（无 S07 扫码）'
+    }).click()
+
+    const output = page.locator('.workflow-runtime__results')
+    const outputHeader = output.locator('.workflow-runtime__output-header')
+    const outputBody = output.locator('.workflow-runtime__output-body')
+    const graph = page.locator('.persistent-authoring__graph-stage')
+    const outputResizer = output.locator('.workflow-runtime__output-resizer')
+    await expect(output).toBeVisible()
+    await expect(outputHeader).toBeVisible()
+    await expect(outputBody).toBeVisible()
+    await expect(outputResizer).toBeVisible()
+    await expect(graph).toBeVisible({ timeout: 90_000 })
+    const resizerBox = await outputResizer.boundingBox()
+    expect(resizerBox).not.toBeNull()
+    await page.mouse.move(
+      resizerBox!.x + resizerBox!.width / 2,
+      resizerBox!.y + resizerBox!.height / 2
+    )
+    await page.mouse.down()
+    await page.mouse.move(
+      resizerBox!.x + resizerBox!.width / 2,
+      resizerBox!.y - 500,
+      { steps: 10 }
+    )
+    await page.mouse.up()
+    const preferredHeight = Number(
+      await outputResizer.getAttribute('aria-valuenow')
+    )
+    const preferredRenderedHeight = (await output.boundingBox())!.height
+    expect(preferredHeight).toBeGreaterThan(120)
+
+    await page.getByText('终端', { exact: true }).click()
+    await page.getByText('新建终端', { exact: true }).click()
+    const bottomPanel = page.locator('#theia-bottom-content-panel')
+    await expect(bottomPanel).toBeVisible()
+    await expect(output).toBeHidden()
+    await expect(outputHeader).toBeHidden()
+    await expect(outputBody).toBeHidden()
+    await expect(outputResizer).toBeHidden()
+
+    await page.locator('#status-bar-bottom-panel-toggle').click()
+    await expect(bottomPanel).toBeHidden()
+    await expect(output).toBeVisible()
+    await expect(outputHeader).toBeVisible()
+    await expect(outputBody).toBeVisible()
+    await expect(outputResizer).toBeVisible()
+    await expect.poll(async () => Number(
+      await outputResizer.getAttribute('aria-valuenow')
+    )).toBe(preferredHeight)
+    await expect.poll(async () => Math.round(
+      (await output.boundingBox())?.height ?? -1
+    )).toBe(Math.round(preferredRenderedHeight))
+  })
+
+  test('reopens an empty bottom panel with a terminal', async ({ page }) => {
+    test.setTimeout(120_000)
+    await page.goto(workbenchUrl!)
+
+    const bottomPanel = page.locator('#theia-bottom-content-panel')
+    const bottomPanelToggle = page.locator('#status-bar-bottom-panel-toggle')
+    const bottomTabs = bottomPanel.locator('.lm-TabBar-tab')
+
+    await page.getByText('终端', { exact: true }).click()
+    await page.getByText('新建终端', { exact: true }).click()
+    await expect(bottomPanel).toBeVisible()
+    await expect(
+      bottomPanel.locator('.terminal-container:visible')
+    ).toBeVisible()
+
+    for (let remaining = await bottomTabs.count(); remaining > 0;) {
+      const closeButtons = bottomPanel.locator(
+        '.lm-TabBar-tabCloseIcon:visible'
+      )
+      expect(await closeButtons.count()).toBeGreaterThan(0)
+      await closeButtons.last().click()
+      await expect(bottomTabs).toHaveCount(remaining - 1)
+      remaining -= 1
+    }
+
+    await expect(bottomPanel).toBeHidden()
+    await bottomPanelToggle.click()
+
+    await expect(bottomPanel).toBeVisible()
+    await expect(bottomTabs).toHaveCount(1)
+    await expect(
+      bottomPanel.locator('.terminal-container:visible')
+    ).toBeVisible()
+
+    await bottomPanelToggle.click()
+    await expect(bottomPanel).toBeHidden()
+    await bottomPanelToggle.click()
+    await expect(bottomPanel).toBeVisible()
+    await expect(bottomTabs).toHaveCount(1)
+    await expect(
+      bottomPanel.locator('.terminal-container:visible')
+    ).toBeVisible()
   })
 
   test('preserves the 3D camera and device picking across outer layout resize', async ({

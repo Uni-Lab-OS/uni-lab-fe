@@ -1,6 +1,7 @@
 import type { DeviceAction, WorkflowActionNodeTemplate } from '@unilab/services'
 
 import type { ManagedDevice } from './deviceCatalog'
+import { deviceClass } from './deviceStyles'
 import type { DeviceManagementConnection } from './types'
 import {
   DeviceActionAvailability,
@@ -44,8 +45,8 @@ export function ConnectionSummary({
           ? 'Edge 连接失败'
           : 'Edge 未连接'
   return (
-    <div className="edge-device__connection">
-      <span className={`edge-device__connection-state ${state}`}>
+    <div className={deviceClass('edge-device__connection')}>
+      <span className={deviceClass('edge-device__connection-state', state)}>
         <span aria-hidden="true" />
         {label}
       </span>
@@ -74,35 +75,31 @@ export function DeviceListItem({
     <li>
       <button
         type="button"
-        className={`device-list__item edge-device__device-item${
-          selected ? ' is-active' : ''
-        }`}
+        className={deviceClass('edge-device__device-item', selected && 'is-active')}
         aria-pressed={selected}
         onClick={() => onSelect(device.id)}
       >
-        <span className="edge-device__device-icon">
+        <span className={deviceClass('edge-device__device-icon')}>
           <DeviceIcon device={device} />
         </span>
-        <span className="edge-device__device-copy">
-          <span className="device-list__row">
+        <span className={deviceClass('edge-device__device-copy')}>
+          <span className={deviceClass('device-list__row')}>
             <span
-              className={`device-list__status ${
-                device.online ? 'is-online' : 'is-offline'
-              }`}
+              className={deviceClass('device-list__status', device.online ? 'is-online' : 'is-offline')}
             />
-            <span className="device-list__name">{device.displayName}</span>
+            <span className={deviceClass('device-list__name')}>{device.displayName}</span>
             {lockedActionCount ? (
-              <span className="edge-device__list-lock">
+              <span className={deviceClass('edge-device__list-lock')}>
                 已锁定
               </span>
             ) : null}
           </span>
-          <span className="device-list__key">
-            {device.displayDetail} · {device.actions.length} 个动作
+          <span className={deviceClass('device-list__key')}>
+            {device.actions.length} 个动作
             {lockedActionCount ? ` · ${lockedActionCount} 个占用` : ''}
           </span>
         </span>
-        <span className="edge-device__chevron" aria-hidden="true">›</span>
+        <span className={deviceClass('edge-device__chevron')} aria-hidden="true">›</span>
       </button>
     </li>
   )
@@ -162,39 +159,37 @@ export function DeviceWorkspace({
     (action) => action.isBusy
   ).length
   return (
-    <div className="edge-device__workspace">
-      <header className="edge-device__identity">
-        <span className="edge-device__identity-icon">
+    <div className={deviceClass('edge-device__workspace')} data-device-management="workspace">
+      <header className={deviceClass('edge-device__identity')} data-device-management="identity">
+        <span className={deviceClass('edge-device__identity-icon')}>
           <DeviceIcon device={device} />
         </span>
         <div>
-          <div className="edge-device__identity-title">
+          <div className={deviceClass('edge-device__identity-title')}>
             <h2>{device.displayName}</h2>
           </div>
           <p>{device.deviceKey || `${device.namespace}/${device.id}`}</p>
         </div>
-        <div className="edge-device__identity-states">
+        <div className={deviceClass('edge-device__identity-states')}>
           {lockedActionCount ? (
-            <span className="edge-device__status-badge is-locked">
+            <span className={deviceClass('edge-device__status-badge is-locked')}>
               已锁定 · {lockedActionCount} 个动作
             </span>
           ) : null}
           <span
-            className={`edge-device__status-badge ${
-              device.online ? 'is-online' : 'is-offline'
-            }`}
+            className={deviceClass('edge-device__status-badge', device.online ? 'is-online' : 'is-offline')}
           >
             {device.online ? '在线' : '离线'}
           </span>
         </div>
       </header>
 
-      <div className="edge-device__metrics" aria-label="设备目录信息">
+      <div className={deviceClass('edge-device__metrics')} aria-label="设备目录信息">
         <Metric
-          label="上报 Edge"
+          label="设备名称"
           value={device.machineName}
         />
-        <Metric label="命名空间" value={device.namespace || '—'} />
+        <Metric label="Edge 身份" value={device.namespace || '—'} />
         <Metric label="动作节点" value={`${device.actions.length}`} />
         <Metric
           label="当前状态"
@@ -207,9 +202,9 @@ export function DeviceWorkspace({
         />
       </div>
 
-      <div className="edge-device__content">
-        <section className="edge-device__action-section">
-          <div className="edge-device__section-heading">
+      <div className={deviceClass('edge-device__content')}>
+        <section className={deviceClass('edge-device__action-section')} data-device-management="action-section">
+          <div className={deviceClass('edge-device__section-heading')}>
             <div>
               <span>动作目录</span>
               <h3>Edge 上报的动作节点</h3>
@@ -217,14 +212,13 @@ export function DeviceWorkspace({
             <small>{device.actions.length} 个</small>
           </div>
           {device.actions.length ? (
-            <div className="edge-device__action-list">
+            <div className={deviceClass('edge-device__action-list')}>
               {device.actions.map((action, index) => (
                 <button
                   key={action.actionRef}
                   type="button"
-                  className={`edge-device__action-node${
-                    action.actionRef === selectedActionRef ? ' is-active' : ''
-                  }`}
+                  className={deviceClass('edge-device__action-node', action.actionRef === selectedActionRef && 'is-active')}
+                  data-device-management="action-node"
                   aria-pressed={action.actionRef === selectedActionRef}
                   aria-label={`${action.displayName} 动作节点`}
                   title={action.displayName}
@@ -234,17 +228,15 @@ export function DeviceWorkspace({
                   }
                   onClick={() => onSelectAction(action.actionRef)}
                 >
-                  <span className="edge-device__node-index">
+                  <span className={deviceClass('edge-device__node-index')}>
                     {String(index + 1).padStart(2, '0')}
                   </span>
-                  <span className="edge-device__node-copy">
+                  <span className={deviceClass('edge-device__node-copy')}>
                     <strong>{action.displayName}</strong>
                     <code>{action.actionRef}</code>
                   </span>
                   <span
-                    className={`edge-device__node-state ${
-                      action.isBusy ? 'is-busy' : 'is-ready'
-                    }`}
+                    className={deviceClass('edge-device__node-state', action.isBusy ? 'is-busy' : 'is-ready')}
                   >
                     {action.isBusy ? '占用中' : '空闲'}
                   </span>
@@ -252,16 +244,16 @@ export function DeviceWorkspace({
               ))}
             </div>
           ) : (
-            <div className="edge-device__no-actions">
+            <div className={deviceClass('edge-device__no-actions')}>
               Edge 已上报该设备，但没有可调试的动作节点。
             </div>
           )}
         </section>
 
-        <section className="edge-device__debug-section">
+        <section className={deviceClass('edge-device__debug-section')} data-device-management="debug-section">
           {selectedAction ? (
             <>
-              <div className="edge-device__section-heading">
+              <div className={deviceClass('edge-device__section-heading')}>
                 <div>
                   <span>动作参数预览</span>
                   <h3 title={selectedAction.displayName}>
@@ -316,7 +308,7 @@ export function DeviceWorkspace({
               onRun={ignoreUnavailableDeviceActionRun}
             />
           ) : (
-            <div className="edge-device__no-actions">
+            <div className={deviceClass('edge-device__no-actions')}>
               选择一个动作节点后配置参数并运行。
             </div>
           )}

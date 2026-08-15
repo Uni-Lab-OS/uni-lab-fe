@@ -1,0 +1,356 @@
+.pointsGrid {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.72fr) minmax(640px, 1.5fr);
+  gap: var(--unilab-space-3);
+  align-items: start;
+}
+
+.siteCatalog {
+  min-height: 430px;
+}
+.siteCatalog .searchField {
+  margin: 9px;
+}
+
+.siteCategoryList {
+  border-top: 1px solid var(--unilab-color-border);
+
+  details + details {
+    border-top: 1px solid var(--unilab-color-border);
+  }
+  summary {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+    font-weight: 650;
+    cursor: pointer;
+    background: var(--unilab-color-bg-subtle);
+  }
+  summary span {
+    font: 600 11px var(--unilab-font-mono);
+  }
+}
+
+.siteList {
+  display: grid;
+
+  > button {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 9px;
+    align-items: center;
+    min-height: 65px;
+    padding: 8px 10px;
+    color: var(--unilab-color-text);
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--unilab-color-border);
+    cursor: pointer;
+  }
+
+  > button:first-child {
+    border-top: 0;
+  }
+  > button:hover {
+    background: var(--unilab-color-bg-subtle);
+  }
+  > button:focus-visible {
+    outline: 3px solid var(--unilab-color-focus);
+    outline-offset: -3px;
+  }
+  > button > span:nth-child(2) {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+  strong {
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  small {
+    overflow: hidden;
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.siteList .siteActive {
+  background: var(--unilab-color-primary-soft);
+  box-shadow: inset 3px 0 0 var(--unilab-color-primary);
+}
+
+.siteIcon,
+.pointTypeIcon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  color: var(--unilab-color-primary);
+  background: var(--unilab-color-primary-soft);
+  border-radius: var(--unilab-radius-control);
+
+  svg {
+    width: 17px;
+    height: 17px;
+  }
+}
+
+.pointTabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(112px, 1fr));
+  min-width: 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--unilab-color-border);
+
+  > button {
+    position: relative;
+    display: grid;
+    justify-items: start;
+    min-width: 112px;
+    min-height: 74px;
+    padding: 9px 10px;
+    color: var(--unilab-color-text);
+    text-align: left;
+    background: var(--unilab-color-bg-subtle);
+    border: 0;
+    border-right: 1px solid var(--unilab-color-border);
+    cursor: pointer;
+  }
+
+  > button:last-child {
+    border-right: 0;
+  }
+  > button[aria-selected='true'] {
+    background: var(--unilab-color-primary-soft);
+    box-shadow: inset 0 3px 0 var(--unilab-color-primary);
+  }
+  > button:focus-visible {
+    outline: 3px solid var(--unilab-color-focus);
+    outline-offset: -3px;
+  }
+  .pointTypeIcon {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    width: 25px;
+    height: 25px;
+  }
+  strong {
+    max-width: 96px;
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  small {
+    max-width: 104px;
+    margin: 3px 0 7px;
+    overflow: hidden;
+    color: var(--unilab-color-text-muted);
+    font: 500 12px var(--unilab-font-mono);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.pointEditor {
+  padding: 12px;
+}
+
+.pointEditor .poseGrid {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--unilab-color-border);
+}
+
+.editorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.fileFooter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 0 12px 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--unilab-color-border);
+
+  > div:first-child {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    min-width: 0;
+  }
+  > div:first-child > svg {
+    flex: 0 0 auto;
+    width: 17px;
+    height: 17px;
+    color: var(--unilab-color-primary);
+  }
+  > div:first-child > span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+  strong {
+    font: 600 12px var(--unilab-font-mono);
+  }
+  small {
+    overflow: hidden;
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  > p {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+  }
+}
+
+.fileActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.formDialog {
+  width: min(780px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-surface);
+  border-radius: var(--unilab-radius-lg);
+  box-shadow: var(--unilab-shadow-panel);
+}
+
+.jsonDialog pre {
+  box-sizing: border-box;
+  max-height: 65vh;
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  color: var(--unilab-color-text);
+  font: 12px/1.6 var(--unilab-font-mono);
+  background: var(--unilab-color-canvas);
+}
+
+.versionHistory {
+  grid-column: 1 / -1;
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+
+  summary {
+    width: fit-content;
+    cursor: pointer;
+  }
+  ol {
+    display: grid;
+    gap: 6px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  li {
+    display: grid;
+    grid-template-columns: 42px minmax(160px, 1fr) 150px 126px;
+    gap: 8px;
+    align-items: center;
+  }
+  li strong {
+    color: var(--unilab-color-text);
+  }
+  li code {
+    font: 11px var(--unilab-font-mono);
+  }
+}
+
+.dialogChoiceList {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+
+  > button {
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    color: var(--unilab-color-text);
+    text-align: left;
+    background: var(--unilab-color-bg-subtle);
+    border: 1px solid var(--unilab-color-border);
+    border-radius: var(--unilab-radius-control);
+    cursor: pointer;
+  }
+  > button:hover {
+    border-color: var(--unilab-color-primary);
+  }
+  > button:focus-visible {
+    outline: 3px solid var(--unilab-color-focus);
+    outline-offset: 2px;
+  }
+  small,
+  p {
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+  }
+}
+
+.dialogSingleField {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+
+  textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 90px;
+    padding: 9px;
+    color: var(--unilab-color-text);
+    font: 13px/1.5 var(--unilab-font-sans);
+    resize: vertical;
+    background: var(--unilab-color-surface);
+    border: 1px solid var(--unilab-color-border-strong);
+    border-radius: var(--unilab-radius-control);
+  }
+  textarea:focus {
+    border-color: var(--unilab-color-primary);
+    outline: 3px solid var(--unilab-color-focus);
+  }
+}
+
+.pointJsonPreview {
+  box-sizing: border-box;
+  max-height: 65vh;
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  color: var(--unilab-color-text);
+  font: 12px/1.6 var(--unilab-font-mono);
+  background: var(--unilab-color-canvas);
+}
+
+.formError {
+  margin: 10px 0 0;
+  color: var(--unilab-color-danger);
+  font-size: 12px;
+}

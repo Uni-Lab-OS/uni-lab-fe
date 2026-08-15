@@ -38,6 +38,7 @@ import type {
 
 export type {
   MaterialLoadState,
+  MaterialShapeLibraryState,
   MaterialStore,
   MaterialStoreState,
   PendingMaterialCommand
@@ -115,7 +116,7 @@ export function createMaterialStore(
       creationOperationByMaterialId: {},
       loadState: 'idle',
       error: null,
-      shapeLibrary: [],
+      shapeLibrary: [], shapeLibraryState: 'idle',
 
       loadGraph: async () => {
         if (
@@ -142,7 +143,8 @@ export function createMaterialStore(
             aggregatesById: byId,
             graphIndex: buildMaterialGraphIndex(byId),
             loadState: 'ready',
-            error: null
+            error: null,
+            shapeLibrary: [], shapeLibraryState: 'loading'
           })
           graphRevision = aggregates[0]?.revision ?? 0
           history.reset(authoringSnapshot(byId))
@@ -151,9 +153,11 @@ export function createMaterialStore(
           try {
             const shapeLibrary =
               (await dependencies.graph.getShapeLibrary?.()) ?? []
-            if (shapeLibrary.length > 0) set({ shapeLibrary })
+            set({ shapeLibrary, shapeLibraryState: shapeLibrary.length > 0
+              ? 'ready'
+              : 'unavailable' })
           } catch {
-            set({ shapeLibrary: [] })
+            set({ shapeLibrary: [], shapeLibraryState: 'unavailable' })
           }
         } catch (error) {
           set({ loadState: 'error' })
@@ -444,7 +448,8 @@ export function createMaterialStore(
           dragPreviewByMaterialId: {},
           creationOperationByMaterialId: {},
           loadState: 'idle',
-          error: null
+          error: null,
+          shapeLibrary: [], shapeLibraryState: 'idle'
         })
         history.reset(emptyAuthoringSnapshot())
       }

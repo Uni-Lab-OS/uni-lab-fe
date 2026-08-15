@@ -141,7 +141,8 @@
   gap: var(--unilab-space-2);
 }
 
-.workflow :global(.workflow-runtime__trace-header-actions) button {
+.workflow :global(.workflow-runtime__trace-header-actions) button,
+.workflow :global(.workflow-runtime__trace-header-actions) a {
   display: inline-flex;
   height: 34px;
   align-items: center;
@@ -151,9 +152,11 @@
   border-radius: var(--unilab-radius-control);
   background: var(--unilab-color-surface);
   cursor: pointer;
+  text-decoration: none;
 }
 
-.workflow :global(.workflow-runtime__trace-header-actions) button:hover:not(:disabled) {
+.workflow :global(.workflow-runtime__trace-header-actions) button:hover:not(:disabled),
+.workflow :global(.workflow-runtime__trace-header-actions) a:hover {
   color: var(--unilab-color-primary);
   border-color: var(--unilab-color-focus);
   background: var(--unilab-color-primary-soft);
@@ -164,7 +167,8 @@
   cursor: wait;
 }
 
-.workflow :global(.workflow-runtime__trace-refresh) {
+.workflow :global(.workflow-runtime__trace-refresh),
+.workflow :global(.workflow-runtime__trace-signoz) {
   gap: 5px;
   padding: 0 10px;
   font: 600 12px/1 var(--unilab-font-sans);

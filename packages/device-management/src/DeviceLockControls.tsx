@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { DeviceAction } from '@unilab/services'
 
 import { shortIdentifier } from './devicePanelFormat'
+import { deviceClass } from './deviceStyles'
 
 export interface UnlockIntent {
   deviceId: string
@@ -35,7 +36,7 @@ export function DeviceLockControl({
   if (!action.isBusy) {
     return currentOperation?.state === 'success' ? (
       <div
-        className="edge-device__lock-result is-success"
+        className={deviceClass('edge-device__lock-result is-success')}
         role="status"
       >
         <strong>动作锁已释放</strong>
@@ -46,9 +47,9 @@ export function DeviceLockControl({
 
   const pending = currentOperation?.state === 'pending'
   return (
-    <div className="edge-device__lock-panel" aria-label="设备动作锁状态">
-      <div className="edge-device__lock-copy">
-        <span className="edge-device__lock-icon" aria-hidden="true">
+    <div className={deviceClass('edge-device__lock-panel')} aria-label="设备动作锁状态">
+      <div className={deviceClass('edge-device__lock-copy')}>
+        <span className={deviceClass('edge-device__lock-icon')} aria-hidden="true">
           <LockIcon />
         </span>
         <div>
@@ -68,7 +69,7 @@ export function DeviceLockControl({
       {canForceUnlock && action.currentJobId ? (
         <button
           type="button"
-          className="edge-device__unlock-button"
+          className={deviceClass('edge-device__unlock-button')}
           disabled={pending}
           onClick={onRequestUnlock}
         >
@@ -77,7 +78,7 @@ export function DeviceLockControl({
       ) : null}
       {currentOperation ? (
         <div
-          className={`edge-device__lock-result is-${currentOperation.state}`}
+          className={deviceClass('edge-device__lock-result', `is-${currentOperation.state}`)}
           role={currentOperation.state === 'error' ? 'alert' : 'status'}
         >
           <span>{currentOperation.message}</span>
@@ -112,20 +113,20 @@ export function UnlockConfirmationDialog({
 
   return (
     <div
-      className="edge-device__unlock-layer"
+      className={deviceClass('edge-device__unlock-layer')}
       onKeyDown={(event) => {
         if (event.key === 'Escape' && !pending) onCancel()
       }}
     >
       <section
-        className="edge-device__unlock-dialog"
+        className={deviceClass('edge-device__unlock-dialog')}
         role="dialog"
         aria-modal="true"
         aria-labelledby="device-unlock-title"
         aria-describedby="device-unlock-description"
       >
         <header>
-          <span className="edge-device__unlock-dialog-icon" aria-hidden="true">
+          <span className={deviceClass('edge-device__unlock-dialog-icon')} aria-hidden="true">
             <LockIcon />
           </span>
           <div>
@@ -133,12 +134,12 @@ export function UnlockConfirmationDialog({
             <p>{intent.deviceName} · {intent.actionLabel}</p>
           </div>
         </header>
-        <div className="edge-device__unlock-dialog-body">
+        <div className={deviceClass('edge-device__unlock-dialog-body')}>
           <p id="device-unlock-description">
             手动解锁不会证明物理动作已自然结束。OS 会请求取消当前动作，
             并释放该 Action 的当前与排队 Job。
           </p>
-          <div className="edge-device__unlock-warning" role="note">
+          <div className={deviceClass('edge-device__unlock-warning')} role="note">
             只有在现场确认设备已经停止、无人仍在操作、相关工作流不会继续下发动作时，
             才能继续。
           </div>
@@ -152,7 +153,7 @@ export function UnlockConfirmationDialog({
               <dd><code>{intent.expectedJobId}</code></dd>
             </div>
           </dl>
-          <label className="edge-device__unlock-confirmation">
+          <label className={deviceClass('edge-device__unlock-confirmation')}>
             <input
               ref={confirmationRef}
               type="checkbox"
@@ -163,7 +164,7 @@ export function UnlockConfirmationDialog({
             <span>我已确认设备处于安全状态，并理解此操作会取消关联 Job。</span>
           </label>
           {currentOperation?.state === 'error' ? (
-            <p className="edge-device__unlock-dialog-error" role="alert">
+            <p className={deviceClass('edge-device__unlock-dialog-error')} role="alert">
               {currentOperation.message}。请刷新设备状态，确认 holder 后再重试。
             </p>
           ) : null}
@@ -171,7 +172,7 @@ export function UnlockConfirmationDialog({
         <footer>
           <button
             type="button"
-            className="edge-device__unlock-cancel"
+            className={deviceClass('edge-device__unlock-cancel')}
             disabled={pending}
             onClick={onCancel}
           >
@@ -179,7 +180,7 @@ export function UnlockConfirmationDialog({
           </button>
           <button
             type="button"
-            className="edge-device__unlock-confirm"
+            className={deviceClass('edge-device__unlock-confirm')}
             disabled={!confirmed || pending}
             onClick={onConfirm}
           >

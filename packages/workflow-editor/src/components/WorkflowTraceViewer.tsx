@@ -16,6 +16,8 @@ import type {
 
 type TraceScope = 'current' | 'recent'
 
+const LOCAL_SIGNOZ_URL = 'http://127.0.0.1:30080'
+
 interface WorkflowTraceViewerProps {
   open: boolean
   currentRunId: string | null
@@ -247,6 +249,18 @@ export function WorkflowTraceViewer({
             </div>
           </div>
           <div className="workflow-runtime__trace-header-actions">
+            <a
+              className="workflow-runtime__trace-signoz"
+              href={signozTraceUrl(selectedTraceId)}
+              target="_blank"
+              rel="noreferrer"
+              title={selectedTraceId
+                ? '在 SigNoz 中查看当前选中的 Trace'
+                : '打开 SigNoz Trace 列表'}
+            >
+              <ExternalLinkGlyph />
+              {selectedTraceId ? '在 SigNoz 查看' : '打开 SigNoz'}
+            </a>
             <WorkflowButton
               type="button"
               className="workflow-runtime__trace-refresh"
@@ -814,6 +828,22 @@ function RefreshGlyph(): React.JSX.Element {
     <svg viewBox="0 0 20 20" aria-hidden="true">
       <path d="M15.8 7.2A6.2 6.2 0 1 0 16 12" />
       <path d="M12.7 7.2h3.1V4.1" />
+    </svg>
+  )
+}
+
+export function signozTraceUrl(traceId: string | null): string {
+  return traceId
+    ? `${LOCAL_SIGNOZ_URL}/trace/${encodeURIComponent(traceId)}`
+    : `${LOCAL_SIGNOZ_URL}/trace`
+}
+
+function ExternalLinkGlyph(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14 5h5v5" />
+      <path d="m19 5-8 8" />
+      <path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" />
     </svg>
   )
 }

@@ -10,22 +10,28 @@ import type {
 export async function waitForWorkbenchReadiness(
   backendUrl: string,
   child: ChildProcessWithoutNullStreams,
-  timeoutMs: number
+  timeoutMs: number,
+  startupFailure?: () => WorkbenchLaunchError | null
 ): Promise<WorkspacePackageMountProjection> {
   const probes: Array<[string, (payload: unknown) => boolean]> = [
     ['/api/v1/health', isHealthReady],
     ['/api/v1/devices', isSuccessfulEnvelope],
     ['/api/v1/workflow-node-templates', isSuccessfulEnvelope],
     [
-      '/api/v1/workflow-node-templates?limit=100&node_type=material_source',
+      '/api/v1/workflow-node-templates?page=1&page_size=100&node_type=material_source',
       isMaterialSourceCatalogReady
     ],
-    ['/api/v1/resource-templates?limit=1', isResourceTemplateCatalogReady]
+    [
+      '/api/v1/resource-templates?page=1&page_size=1',
+      isResourceTemplateCatalogReady
+    ]
   ]
+  const deadline = Date.now() + timeoutMs
   for (const [path, accepts] of probes) {
-    const deadline = Date.now() + timeoutMs
     let ready = false
     while (Date.now() < deadline) {
+      const detectedFailure = startupFailure?.()
+      if (detectedFailure) throw detectedFailure
       if (child.exitCode !== null || child.signalCode !== null) {
         throw new WorkbenchLaunchError(
           'os_readiness_failed',
@@ -58,7 +64,8 @@ export async function waitForWorkbenchReadiness(
     backendUrl,
     child,
     '/api/v1/workspace/package-mounts',
-    timeoutMs
+    deadline,
+    startupFailure
   )
   return parseWorkspacePackageMountProjection(mountPayload)
 }
@@ -67,10 +74,12 @@ async function fetchWorkbenchReadinessPayload(
   backendUrl: string,
   child: ChildProcessWithoutNullStreams,
   path: string,
-  timeoutMs: number
+  deadline: number,
+  startupFailure?: () => WorkbenchLaunchError | null
 ): Promise<unknown> {
-  const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
+    const detectedFailure = startupFailure?.()
+    if (detectedFailure) throw detectedFailure
     if (child.exitCode !== null || child.signalCode !== null) {
       throw new WorkbenchLaunchError(
         'os_readiness_failed',

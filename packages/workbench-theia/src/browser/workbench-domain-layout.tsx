@@ -1,21 +1,31 @@
 import * as React from 'react'
 import { useCallback, useRef, useState } from 'react'
 
-import type { WorkbenchViewMode } from './workbench-view-state'
+import {
+  isRobotWorkbenchViewMode,
+  type WorkbenchViewMode
+} from './workbench-view-state'
 
 const MIN_WORKFLOW_PERCENT = 30
 const MAX_WORKFLOW_PERCENT = 70
 
+/**
+ * 组合 Workbench 的领域主区，并只在工作流与物料同时可见时提供分隔器。
+ * @param props 当前模式及已经按需挂载的领域界面。
+ * @returns 复用同一主区、不会创建第二侧栏的 Workbench 布局。
+ */
 export function WorkbenchDomainLayout({
   mode,
   workflow,
   material,
-  device
+  device,
+  robotWorkstation
 }: {
   mode: WorkbenchViewMode
   workflow: React.ReactNode
   material: React.ReactNode
   device: React.ReactNode
+  robotWorkstation: React.ReactNode
 }): React.JSX.Element {
   const layoutRef = useRef<HTMLDivElement>(null)
   const [workflowPercent, setWorkflowPercent] = useState(55)
@@ -58,6 +68,7 @@ export function WorkbenchDomainLayout({
   const workflowVisible = mode === 'workflow' || mode === 'split'
   const materialVisible = mode === 'material' || mode === 'split'
   const deviceVisible = mode === 'device'
+  const robotWorkstationVisible = isRobotWorkbenchViewMode(mode)
 
   return (
     <main
@@ -98,6 +109,12 @@ export function WorkbenchDomainLayout({
         hidden={!deviceVisible}
       >
         {device}
+      </div>
+      <div
+        className="unilab-workbench__domain-slot is-robot-workstation"
+        hidden={!robotWorkstationVisible}
+      >
+        {robotWorkstation}
       </div>
     </main>
   )

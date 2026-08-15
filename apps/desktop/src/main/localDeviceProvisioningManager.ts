@@ -30,7 +30,7 @@ import {
 import type { LocalRuntimeManager } from './localRuntimeManager'
 import {
   createCloudDeviceSquare,
-  createLocalLaboratory,
+  createLocalAuthoringLaboratory,
   confirmPublishedDevicePackage,
   devicePackageCliConfig,
   provisioningErrorMessage,
@@ -374,12 +374,12 @@ export class LocalDeviceProvisioningManager {
     )
   }
 
-  /** 从本地 `/api/v1/devices` 确认实例在线且至少一个 Action 合同可见。 */
+  /** 从本地 authoring 诊断目录确认实例在线且至少一个 Action 合同可见。 */
   private async reconcileReady(
     record: LocalDeviceProvisioning,
     apiUrl: string
   ): Promise<LocalDeviceProvisioning> {
-    const devices = await createLocalLaboratory(apiUrl).getOnlineDevices()
+    const devices = await createLocalAuthoringLaboratory(apiUrl).getOnlineDevices()
     const device = devices.find((candidate) => candidate.id === record.instanceId)
     if (!device?.online) throw new Error('OS 已启动，但目标设备实例未在线')
     record = await this.transition(record, 'driver_ready')
@@ -387,12 +387,12 @@ export class LocalDeviceProvisioningManager {
     return this.transition({ ...record, actionCount: device.actions.length }, 'ready')
   }
 
-  /** 从本地 `/api/v1/devices` 确认已移除实例不再出现在权威设备目录。 */
+  /** 从本地 authoring 诊断目录确认已移除实例不再出现在 Driver 目录。 */
   private async reconcileRemoved(
     record: LocalDeviceProvisioning,
     apiUrl: string
   ): Promise<void> {
-    const devices = await createLocalLaboratory(apiUrl).getOnlineDevices()
+    const devices = await createLocalAuthoringLaboratory(apiUrl).getOnlineDevices()
     if (devices.some((candidate) => candidate.id === record.instanceId)) {
       throw new Error('OS 已重启，但已移除的设备实例仍然在线')
     }
@@ -401,7 +401,7 @@ export class LocalDeviceProvisioningManager {
   /** 在停止/重启前拒绝任何已忙碌 Action，避免中断未知物理执行。 */
   private async assertNoBusyActions(apiUrl: string, deviceId?: string): Promise<void> {
     if (!this.runtime.getSnapshot().edgeRunning) return
-    const devices = await createLocalLaboratory(apiUrl).getOnlineDevices()
+    const devices = await createLocalAuthoringLaboratory(apiUrl).getOnlineDevices()
     const busy = devices.flatMap((device) => device.actions.map((action) => ({
       device,
       action

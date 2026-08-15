@@ -1,4 +1,5 @@
 export {
+  activeDeviceActionTaskUuid,
   DeviceActionAvailability,
   deviceActionReadiness,
   isTerminalDeviceActionTask,

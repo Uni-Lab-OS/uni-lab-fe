@@ -9,7 +9,17 @@ import {
 import { assertCapability, ServiceError } from './errors'
 import type { HttpClient } from './http'
 import type { HttpRequestTraceReporter } from './http'
+import {
+  backendWorkflowTaskCreateBody,
+  loadBackendWorkflowNodeJobFeedback,
+  loadBackendWorkflowRunPreflight,
+  loadBackendWorkflowRunPreparation
+} from './backendWorkflowRuntime'
 import { loadBackendWorkflowPage } from './backendWorkflowCatalog'
+import {
+  loadBackendEditableWorkflowGraph,
+  saveBackendEditableWorkflowGraph
+} from './backendWorkflowGraph'
 import {
   loadWorkflowActionCatalog
 } from './workflowActionCatalog'
@@ -25,6 +35,7 @@ import {
   parseAuthoringChangedData,
   parseDeviceActionTaskChangedData,
   parseDeviceCatalogChangedData,
+  parseWorkflowDefinitionChangedData,
   parseRuntimeChangedData
 } from './workflowEventCodec'
 import {
@@ -32,7 +43,6 @@ import {
 } from './workflowMaterialSource'
 import {
   workflowEventsUrl,
-  workflowListPath,
   workflowNodeJobFeedbackPath,
   workflowTaskListPath
 } from './workflowPaths'
@@ -92,6 +102,7 @@ export type {
   WorkflowValidationIssue,
   WorkflowValidationResult
 } from './workflowAuthoringContracts'
+export type { BackendWorkflowGraph } from './backendWorkflowGraph'
 export type {
   WorkflowInputContract,
   WorkflowInputDescriptor,
@@ -124,6 +135,7 @@ export type {
   DeviceActionTaskChangedEvent,
   DeviceCatalogChangedEvent,
   WorkflowEventSubscription,
+  WorkflowInventoryBinding,
   WorkflowNodeJob,
   WorkflowNodeJobFeedback,
   WorkflowNodeJobFeedbackPage,
@@ -131,6 +143,12 @@ export type {
   WorkflowNodeJobStatus,
   WorkflowRuntimeChangedEvent,
   WorkflowRuntimeInvalidationEvent,
+  WorkflowRunNodeOption,
+  WorkflowRunPreflightCheck,
+  WorkflowRunPreflightCheckStatus,
+  WorkflowRunPreflightReport,
+  WorkflowRunPreflightStatus,
+  WorkflowRunPreparation,
   WorkflowRuntimeSubscriptionOptions,
   WorkflowTask,
   WorkflowTaskCleanupStatus,
@@ -243,9 +261,7 @@ export function createWorkflowRuntime(
     getWorkflowMaterialSourceCatalog,
     listWorkflows: async (query = {}) => {
       requireWorkflowCapability('workflow.readDefinitions')
-      return backend.serverKind === 'backend'
-        ? loadBackendWorkflowPage(http, query)
-        : strictRuntimeData(await http.request(workflowListPath(query)))
+      return loadBackendWorkflowPage(http, query)
     },
     createWorkflowDefinition: (body) => authoringRequest(
       '/api/v1/workflows',
@@ -371,11 +387,36 @@ export function createWorkflowRuntime(
           candidate
         })
       }),
+    getBackendWorkflowGraph: (workflowUuid) => {
+      requireWorkflowCapability('workflow.editDefinitions')
+      return loadBackendEditableWorkflowGraph(http, workflowUuid)
+    },
+    saveBackendWorkflowGraph: (workflowUuid, graph) => {
+      requireWorkflowCapability('workflow.editDefinitions')
+      return saveBackendEditableWorkflowGraph(http, workflowUuid, graph)
+    },
+    getWorkflowRunPreparation: (workflowUuid) => {
+      requireWorkflowCapability('workflow.readDefinitions')
+      return loadBackendWorkflowRunPreparation(http, workflowUuid)
+    },
+    getWorkflowRunPreflight: (workflowUuid, runMode, targetNodeUuid) => {
+      requireWorkflowCapability('workflow.runTasks')
+      return loadBackendWorkflowRunPreflight(
+        http,
+        workflowUuid,
+        runMode,
+        targetNodeUuid
+      )
+    },
     createWorkflowTask: (body) =>
       runtimeRequest('/api/v1/workflow-tasks', {
         method: 'POST',
         headers: jsonHeaders(),
-        body: JSON.stringify(body)
+        body: JSON.stringify(
+          backend.serverKind === 'backend'
+            ? backendWorkflowTaskCreateBody(body)
+            : body
+        )
       }),
     createDebugWorkflowTask: (body) =>
       runtimeRequest('/api/v1/debug/workflow-tasks', {
@@ -425,8 +466,12 @@ export function createWorkflowRuntime(
       runtimeRequest(
         `/api/v1/workflow-node-jobs/${encodeURIComponent(jobUuid)}`
       ),
-    listWorkflowNodeJobFeedback: (jobUuid, query = {}) =>
-      runtimeRequest(workflowNodeJobFeedbackPath(jobUuid, query)),
+    listWorkflowNodeJobFeedback: (jobUuid, query = {}) => {
+      requireWorkflowCapability('workflow.runTasks')
+      return backend.serverKind === 'backend'
+        ? loadBackendWorkflowNodeJobFeedback(http, jobUuid, query)
+        : runtimeRequest(workflowNodeJobFeedbackPath(jobUuid, query))
+    },
     subscribeWorkflowRuntime: (onInvalidate, options = {}) => {
       requireWorkflowCapability('workflow.subscribeEvents')
       return subscribeWorkflowRuntime(
@@ -488,13 +533,16 @@ function parseRuntimeFrame(
   if (
     frame.event !== 'workflow.runtime.changed' &&
     frame.event !== 'device_action_task.changed' &&
-    frame.event !== 'device.catalog.changed'
+    frame.event !== 'device.catalog.changed' &&
+    frame.event !== 'workflow.definition.changed'
   ) return null
   const data = frame.event === 'workflow.runtime.changed'
     ? parseRuntimeChangedData(frame.data)
     : frame.event === 'device_action_task.changed'
       ? parseDeviceActionTaskChangedData(frame.data)
-      : parseDeviceCatalogChangedData(frame.data)
+      : frame.event === 'device.catalog.changed'
+        ? parseDeviceCatalogChangedData(frame.data)
+        : parseWorkflowDefinitionChangedData(frame.data)
   if (!data) {
     options.onError?.(new Error('Workflow Runtime SSE 返回了无效事件'))
     return null
@@ -510,7 +558,8 @@ function parseRuntimeFrame(
 function isRuntimeFrame(frame: WorkflowSseFrame): boolean {
   return frame.event === 'workflow.runtime.changed' ||
     frame.event === 'device_action_task.changed' ||
-    frame.event === 'device.catalog.changed'
+    frame.event === 'device.catalog.changed' ||
+    frame.event === 'workflow.definition.changed'
 }
 
 /** 解包兼容接口中可选的 data envelope。 */

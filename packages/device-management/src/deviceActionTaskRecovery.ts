@@ -17,7 +17,7 @@ export interface DeviceActionTaskRecoveryEnvironment {
 
 interface DeviceActionTaskRecoveryOptions {
   tasks: ActiveDeviceActionTask[]
-  subscribe: (
+  subscribe?: (
     listener: (event: WorkflowRuntimeInvalidationEvent) => void,
     options: WorkflowRuntimeSubscriptionOptions
   ) => WorkflowEventSubscription
@@ -38,12 +38,25 @@ interface ActiveTaskState {
 const DEFAULT_POLL_INTERVAL_MS = 5_000
 const DEFAULT_MAX_BACKOFF_MS = 30_000
 
+/** 仅允许当前前端 active 的动作节点启动任务状态补读。 */
+export function shouldRecoverActiveDeviceActionTask(
+  selectedActionRef: string | null,
+  runningActionRef: string | null,
+  taskUuid: string | null
+): boolean {
+  return Boolean(
+    taskUuid &&
+    runningActionRef &&
+    selectedActionRef === runningActionRef
+  )
+}
+
 /**
  * 启动设备动作任务的 REST 状态复原（Rehydrate）协调器。
  *
  * @param options 活动任务、事件订阅、权威 REST 补读与浏览器环境端口。
  * @returns 可幂等释放的协调器句柄。
- * @safety SSE 仅触发失效补读；任务终态始终由 REST 投影判定。
+ * @safety SSE 仅触发失效补读；低频 REST watchdog 覆盖通知丢失，任务终态始终由 REST 投影判定。
  */
 export function startDeviceActionTaskRecovery(
   options: DeviceActionTaskRecoveryOptions
@@ -128,17 +141,31 @@ export function startDeviceActionTaskRecovery(
     else pausePolling()
   })
   const removeFocusListener = environment.onFocus(rehydrateAll)
-  const runtimeSubscription = options.subscribe(
-    (event) => {
-      const taskUuid = runtimeEventTaskUuid(event)
-      if (!taskUuid) return
-      const state = active.get(taskUuid)
-      if (state) requestRead(state)
-    },
-    {
-      onOpen: rehydrateAll
+  let runtimeSubscription: WorkflowEventSubscription | null = null
+  if (options.subscribe) {
+    try {
+      runtimeSubscription = options.subscribe(
+        (event) => {
+          const taskUuid = runtimeEventTaskUuid(event)
+          if (!taskUuid) return
+          const state = active.get(taskUuid)
+          if (state) requestRead(state)
+        },
+        {
+          onOpen: () => {
+            rehydrateAll()
+          },
+          onError: (error) => {
+            const firstActiveTask = active.values().next().value?.task
+            if (firstActiveTask) options.onError?.(firstActiveTask, error)
+            for (const state of active.values()) schedule(state)
+          }
+        }
+      )
+    } catch {
+      // 当前 Backend 的事件能力可能关闭；REST watchdog 仍会继续补读。
     }
-  )
+  }
 
   // 先建立订阅，再立即补读，关闭“首次 GET → SSE 订阅”之间的终态丢失窗口。
   rehydrateAll()
@@ -147,7 +174,7 @@ export function startDeviceActionTaskRecovery(
     dispose: () => {
       if (disposed) return
       disposed = true
-      runtimeSubscription.dispose()
+      runtimeSubscription?.dispose()
       removeVisibilityListener()
       removeFocusListener()
       pausePolling()

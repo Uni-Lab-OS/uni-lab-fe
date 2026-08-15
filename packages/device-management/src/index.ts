@@ -1,6 +1,4 @@
 import './DevicePanel.module.scss'
-import './DeviceManagement.css'
-import './DeviceManagementActions.css'
 
 export { default as DeviceManagementPanel } from './DevicePanel'
 export type {

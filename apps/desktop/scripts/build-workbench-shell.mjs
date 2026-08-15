@@ -1,4 +1,4 @@
-import { access, rm } from 'node:fs/promises'
+import { access, readFile, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -22,3 +22,15 @@ await Promise.all([
   access(join(outputDirectory, 'preload', 'index.js')),
   access(join(outputDirectory, 'preload', 'deviceCard.js'))
 ])
+
+const mainSource = await readFile(
+  join(outputDirectory, 'main', 'index.js'),
+  'utf8'
+)
+for (const optionalTemplateEngine of ['velocityjs', 'dustjs-linkedin']) {
+  if (mainSource.includes(`require("${optionalTemplateEngine}")`)) {
+    throw new Error(
+      `Workbench 主进程错误绑定了可选模板引擎：${optionalTemplateEngine}`
+    )
+  }
+}

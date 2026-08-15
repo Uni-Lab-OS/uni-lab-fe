@@ -44,7 +44,7 @@ export class UniLabAgentNavigationContribution
     super({
       widgetId: UniLabAgentNavigatorWidget.ID,
       widgetName: 'Agent',
-      defaultWidgetOptions: { area: 'left', rank: 74 },
+      defaultWidgetOptions: { area: 'left', rank: 78 },
       toggleCommandId: OpenUniLabAgentNavigation.id
     })
   }

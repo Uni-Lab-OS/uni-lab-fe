@@ -50,20 +50,28 @@ export function resolveManagedWorkspaceSkillSource(
   const explicit = environment['UNILAB_WORKBENCH_SKILLS']?.trim()
   if (explicit) return resolve(explicit)
 
-  const osProject = environment['UNILAB_OS_PROJECT']?.trim()
-  if (osProject) {
-    const osSkills = join(resolve(osProject), '.cursor', 'skills')
-    if (existsSync(osSkills)) return osSkills
-  }
-
   const bundledDevelopmentSkills = join(
     resolve(currentDirectory),
     'resources',
     'workspace-skills'
   )
-  return existsSync(bundledDevelopmentSkills)
-    ? bundledDevelopmentSkills
-    : null
+  if (isCompleteManagedWorkspaceSkillSource(bundledDevelopmentSkills)) {
+    return bundledDevelopmentSkills
+  }
+
+  const osProject = environment['UNILAB_OS_PROJECT']?.trim()
+  if (osProject) {
+    const osSkills = join(resolve(osProject), '.cursor', 'skills')
+    if (isCompleteManagedWorkspaceSkillSource(osSkills)) return osSkills
+  }
+
+  return null
+}
+
+function isCompleteManagedWorkspaceSkillSource(sourceDirectory: string): boolean {
+  return MANAGED_WORKSPACE_SKILL_NAMES.every(name =>
+    existsSync(join(sourceDirectory, name, 'SKILL.md'))
+  )
 }
 
 /**

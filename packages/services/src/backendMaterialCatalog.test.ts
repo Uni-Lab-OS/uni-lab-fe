@@ -7,7 +7,8 @@ import {
 } from './backendMaterialCatalog'
 
 describe('Backend 资源模板目录 adapter', () => {
-  it('沿 UUID 游标读取完整目录并保持物料创建关闭', async () => {
+  /** 验证 Backend 页码目录会完整遍历，并保持物料创建能力关闭。 */
+  it('沿页码读取完整目录并保持物料创建关闭', async () => {
     const request = vi.fn()
       .mockResolvedValueOnce({
         code: 0,
@@ -20,7 +21,8 @@ describe('Backend 资源模板目录 adapter', () => {
             tags: ['liquid']
           }],
           has_more: true,
-          next_cursor_uuid: 'template-device'
+          page: 1,
+          page_size: 100
         }
       })
       .mockResolvedValueOnce({
@@ -34,7 +36,8 @@ describe('Backend 资源模板目录 adapter', () => {
             tags: ['plate']
           }],
           has_more: false,
-          next_cursor_uuid: null
+          page: 2,
+          page_size: 100
         }
       })
 
@@ -58,8 +61,13 @@ describe('Backend 资源模板目录 adapter', () => {
       ]
     })
     expect(request).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/resource-templates?page=1&page_size=100',
+      undefined
+    )
+    expect(request).toHaveBeenNthCalledWith(
       2,
-      '/api/v1/resource-templates?limit=100&cursor_uuid=template-device',
+      '/api/v1/resource-templates?page=2&page_size=100',
       undefined
     )
   })
@@ -97,13 +105,15 @@ describe('Backend 资源模板目录 adapter', () => {
     })
   })
 
-  it('拒绝没有推进的 Backend 游标，避免无限分页', async () => {
+  /** 验证 Backend 返回错误页码时关闭失败，避免重复读取同一页。 */
+  it('拒绝没有推进的 Backend 页码', async () => {
     const request = vi.fn().mockResolvedValue({
       code: 0,
       data: {
         items: [],
         has_more: true,
-        next_cursor_uuid: null
+        page: 2,
+        page_size: 100
       }
     })
 

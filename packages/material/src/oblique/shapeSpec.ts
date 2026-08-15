@@ -10,7 +10,8 @@ export * from './shapeSpecTypes'
 export {
   normalizeShapeCategory,
   parseShapeLibrary,
-  resolveShapeSpec
+  resolveShapeSpec,
+  resolveShapeSpecByIdentity
 } from './shapeSpecParser'
 
 interface UnitScale {

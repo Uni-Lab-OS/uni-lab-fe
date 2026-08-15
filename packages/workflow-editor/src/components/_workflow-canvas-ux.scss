@@ -69,6 +69,19 @@
       white-space: nowrap;
     }
 
+    :global(.workflow-runtime__existing-canvas)
+      :global(.persistent-authoring__stage-context) {
+      flex: 1 1 auto;
+    }
+
+    :global(.workflow-runtime__existing-canvas)
+      :global(.persistent-authoring__stage-header) p {
+      width: clamp(420px, 46vw, 720px);
+      max-width: none;
+      overflow-wrap: anywhere;
+      white-space: normal;
+    }
+
     :global(.persistent-authoring__panel-toggle) {
       min-height: 30px;
     }
@@ -355,6 +368,11 @@
 
       :global(.persistent-authoring__stage-header) {
         gap: 5px;
+      }
+
+      :global(.workflow-runtime__existing-canvas)
+        :global(.persistent-authoring__stage-header) p {
+        width: min(100%, 420px);
       }
 
       :global(.persistent-authoring__stage-tools) {

@@ -86,6 +86,29 @@ export function resolveShapeSpec(
   return bestScore >= 0 ? best : undefined
 }
 
+/**
+ * 按 Backend 公共外形的复合稳定身份精确选择声明。
+ *
+ * @param library `/api/v1/material-shapes` 解析后的外形目录。
+ * @param bundle 物料快照声明的设备包身份。
+ * @param id 物料快照声明的包内外形身份。
+ * @returns 复合身份完全一致的外形；目录缺失或未命中时返回 undefined。
+ */
+export function resolveShapeSpecByIdentity(
+  library: MaterialShapeLibrary | undefined,
+  bundle: string,
+  id: string
+): MaterialShapeSpec | undefined {
+  if (!library || library.length === 0) return undefined
+  const normalizedBundle = bundle.trim()
+  const normalizedId = id.trim()
+  if (!normalizedBundle || !normalizedId) return undefined
+  return library.find(
+    (spec) =>
+      spec.bundle === normalizedBundle && spec.id === normalizedId
+  )
+}
+
 export function parseShapeLibrary(raw: unknown): MaterialShapeLibrary {
   if (!Array.isArray(raw)) return []
   const specs: MaterialShapeSpec[] = []

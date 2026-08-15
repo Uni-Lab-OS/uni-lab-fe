@@ -78,6 +78,10 @@ for (const bundledDependency of [
 ]) {
   assert.match(viteConfig, new RegExp(bundledDependency, 'u'))
 }
+assert.match(
+  viteConfig,
+  /external:\s*\[\s*['"]@vue\/compiler-sfc['"]\s*\]/u
+)
 assert.equal(
   packageConfig.scripts?.['package:win'],
   'node scripts/package-windows.mjs'

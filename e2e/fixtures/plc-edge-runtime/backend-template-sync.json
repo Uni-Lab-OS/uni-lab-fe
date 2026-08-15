@@ -1,0 +1,89 @@
+{
+  "resources": [
+    {
+      "id": "community.szlab_poly_studio.szlab_poly_plc",
+      "display_name": "SZLab PLC 仿真设备",
+      "registry_type": "device",
+      "model": {},
+      "class": {
+        "module": "szlab_poly_studio.devices.szlab_poly_plc.device",
+        "type": "python",
+        "action_value_mappings": {
+          "check_opcua_connection": {
+            "display_name": "检查 OPC UA 仿真连接",
+            "type": "UniLabJsonCommand",
+            "node_type": "device_action",
+            "goal": {},
+            "goal_default": {},
+            "feedback": {},
+            "result": {},
+            "schema": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": false
+            },
+            "handles": {
+              "input": [],
+              "output": []
+            }
+          },
+          "write_variable_action": {
+            "display_name": "写入 PLC 仿真变量",
+            "type": "UniLabJsonCommand",
+            "node_type": "device_action",
+            "goal": {
+              "variable_name": "variable_name",
+              "value": "value"
+            },
+            "goal_default": {},
+            "feedback": {},
+            "result": {},
+            "schema": {
+              "type": "object",
+              "properties": {
+                "variable_name": {
+                  "type": "string",
+                  "title": "变量名"
+                },
+                "value": {
+                  "type": "string",
+                  "title": "写入值"
+                }
+              },
+              "required": [
+                "variable_name",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "handles": {
+              "input": [],
+              "output": []
+            }
+          }
+        }
+      },
+      "handles": [],
+      "category": [
+        "plc",
+        "opcua",
+        "simulation"
+      ],
+      "config_info": [
+        {
+          "id": "szlab_poly_plc",
+          "type": "device",
+          "config": {
+            "simulator": "127.0.0.1:4855",
+            "transport": "opcua"
+          },
+          "data": {
+            "status": "ready"
+          }
+        }
+      ],
+      "scene": [],
+      "device_params": {}
+    }
+  ]
+}

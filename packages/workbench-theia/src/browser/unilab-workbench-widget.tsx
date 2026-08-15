@@ -20,27 +20,18 @@ import {
   type DeviceManagementConnection
 } from '@unilab/device-management'
 import {
-  MaterialCapabilityNotice,
   MaterialStoreProvider,
   MaterialWorkbench,
-  UnifiedMaterialViewport,
   createMaterialStore,
-  useMaterialStore,
-  useMaterialStoreApi,
   type MaterialId,
-  type MaterialStore,
-  type MaterialWorkbenchViewportProps
+  type MaterialStore
 } from '@unilab/material'
-import type {
-  MaterialSceneMove,
-  MaterialTransferSceneRoute
-} from '@unilab/pascal-lab-plugin'
-import { ensurePascalRendererDefaults } from '@unilab/pascal-host'
 import {
-  assertCapability,
-  createServices,
-  getDefaultBackend,
-  type Services
+  RobotWorkstation,
+  type WorkstationModule
+} from '@unilab/robot-workstation'
+import {
+  assertCapability
 } from '@unilab/services'
 import {
   createWorkflowResourceSlotOptionsPort,
@@ -61,12 +52,13 @@ import {
 import type {
   WorkbenchEnvironmentLogKind,
   WorkbenchPlcSimulatorConfiguration,
+  WorkbenchReleaseReceipt,
+  WorkbenchReleaseTargetInspection,
   WorkbenchRuntimeMode,
   WorkbenchSessionSnapshot
 } from '@unilab/workbench-session'
 import * as React from 'react'
 import {
-  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -74,25 +66,48 @@ import {
   useState
 } from 'react'
 
-ensurePascalRendererDefaults()
-
-const PascalLabWorkbench = React.lazy(async () => {
-  const module = await import('@unilab/pascal-lab-plugin')
-  return { default: module.PascalLabWorkbench }
-})
-
 import {
   WorkbenchSessionClient,
   WorkbenchSessionServer
 } from '../common/workbench-session-protocol'
 import { WorkbenchSessionClientImpl } from './workbench-session-client'
+import { desktopWorkflowTraceRuntime } from './desktop-workflow-trace-runtime'
 import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
 import { EnvironmentManager } from './environment-manager'
 import { createTheiaWorkflowIdeAdapter } from './theia-workflow-ide-adapter'
+import {
+  createWorkbenchConnectionTargets,
+  createWorkbenchServices,
+  type WorkbenchConnectionMode,
+  type WorkbenchConnectionTargets
+} from './workbench-connection-profile'
+import { preflightWorkbenchRuntimeAuthority } from './workbench-domain-authority'
+import {
+  WorkbenchConnectionSelector,
+  type WorkbenchConnectionState
+} from './workbench-connection-selector'
+import {
+  currentBrowserOrigin,
+  initialWorkbenchConnectionMode,
+  persistWorkbenchConnectionMode,
+  sessionConnectionState,
+  useBackendConnectionState
+} from './workbench-connection-runtime'
+import { useRobotWorkstationData } from './robot-workstation-data'
 import { WorkbenchDomainLayout } from './workbench-domain-layout'
-import { WorkbenchSessionGate } from './workbench-session-gate'
+import { WorkbenchMaterialViewport } from './workbench-material-viewport'
+import { workflowExecutionStatusForConnection } from './workbench-execution-readiness'
+import {
+  WorkbenchRuntimeLogLauncher,
+  workbenchRuntimeLogPaths
+} from './workbench-runtime-log-drawer'
+import {
+  runAndRefreshWorkbenchOperation,
+  WorkbenchSessionGate
+} from './workbench-session-gate'
 import {
   WorkbenchViewState,
+  isRobotWorkbenchViewMode,
   type WorkbenchViewMode
 } from './workbench-view-state'
 import { hasWorkbenchUnsavedChanges } from './workbench-unsaved-changes'
@@ -139,16 +154,24 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     phase: 'idle',
     message: '正在连接 Workbench Backend…',
     configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+    configuredExternalDevicesOnly: true,
     configuredRuntimeMode: 'normal',
+    configuredDomainMode: 'local',
+    configuredBackendUrl: null,
     identity: null,
     agent: null,
     diagnostic: null,
+    edgeRuntime: emptyEdgeRuntimeSnapshot(),
     plcSimulator: emptyPlcSimulatorSnapshot()
   }
   protected sourceSaveHandler: SourceSaveHandler | null = null
   protected lastAutomaticSourceSync: string | null = null
   protected workflowPanelDirty = false
   protected lastReportedUnsavedChanges: boolean | null = null
+  protected connectionMode: WorkbenchConnectionMode =
+    initialWorkbenchConnectionMode()
+  protected connectionSwitchingTo: WorkbenchConnectionMode | null = null
+  protected connectionSwitchRevision = 0
   @postConstruct()
   protected init(): void {
     this.ideAdapter = createTheiaWorkflowIdeAdapter({
@@ -194,7 +217,10 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         phase: 'failed',
         message: 'Workbench Backend 连接失败',
         configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+        configuredExternalDevicesOnly: true,
         configuredRuntimeMode: 'normal',
+        configuredDomainMode: 'local',
+        configuredBackendUrl: null,
         identity: null,
         agent: null,
         diagnostic: {
@@ -202,6 +228,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
           message,
           recovery: '确认 Workbench Backend 正在运行后重新加载窗口'
         },
+        edgeRuntime: emptyEdgeRuntimeSnapshot(),
         plcSimulator: emptyPlcSimulatorSnapshot()
       }
     }
@@ -213,7 +240,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
 
   protected readonly retrySession = async (): Promise<void> => {
     try {
-      await this.workbenchSession.start()
+      await this.workbenchSession.startWorkspaceBackend()
     } catch {
       // The backend publishes the actionable failed snapshot before rejecting.
     }
@@ -225,6 +252,11 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     await this.refreshSessionSnapshot()
   }
 
+  protected readonly stopWorkspaceBackend = async (): Promise<void> => {
+    await this.workbenchSession.stopWorkspaceBackend()
+    await this.refreshSessionSnapshot()
+  }
+
   protected readonly restartSession = async (): Promise<void> => {
     try {
       await this.workbenchSession.restart()
@@ -232,6 +264,47 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       // The backend publishes the actionable failed snapshot before rejecting.
     }
     await this.refreshSessionSnapshot()
+  }
+
+  protected readonly rebuildLocalData = async (): Promise<void> => {
+    await runAndRefreshWorkbenchOperation(
+      () => this.workbenchSession.rebuildLocalData().then(() => undefined),
+      () => this.refreshSessionSnapshot()
+    )
+  }
+
+  protected readonly publishRelease = async (
+    backendUrl: string,
+    resetTarget = false
+  ): Promise<WorkbenchReleaseReceipt> => {
+    if (this.lastReportedUnsavedChanges) {
+      throw new Error('请先保存当前工作流修改，再发布 WorkspaceRelease')
+    }
+    try {
+      const receipt = await this.workbenchSession.publishRelease({
+        activate: true,
+        backendUrl,
+        resetTarget
+      })
+      this.sessionSnapshot = await this.workbenchSession.getSnapshot()
+      if (receipt.activated) {
+        this.connectionMode = 'backend'
+        persistWorkbenchConnectionMode('backend')
+      }
+      void this.messages.info(
+        `发布并校验完成：${receipt.counts.templates} 个模板、` +
+        `${receipt.counts.materials} 个物料、${receipt.counts.workflows} 个工作流`
+      )
+      return receipt
+    } finally {
+      await this.refreshSessionSnapshot()
+    }
+  }
+
+  protected readonly inspectReleaseTarget = async (
+    backendUrl: string
+  ): Promise<WorkbenchReleaseTargetInspection> => {
+    return await this.workbenchSession.inspectReleaseTarget(backendUrl)
   }
 
   protected readonly readEnvironmentLog = async (
@@ -273,6 +346,20 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       void this.messages.error(`设备图配置失败：${message}`)
+      throw error
+    } finally {
+      await this.refreshSessionSnapshot()
+    }
+  }
+
+  protected readonly setExternalDevicesOnly = async (
+    enabled: boolean
+  ): Promise<void> => {
+    try {
+      await this.workbenchSession.setExternalDevicesOnly(enabled)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      void this.messages.error(`设备目录加载范围配置失败：${message}`)
       throw error
     } finally {
       await this.refreshSessionSnapshot()
@@ -424,6 +511,47 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     this.reportUnsavedChanges()
   }
 
+  /**
+   * 切换后续界面请求使用的连接。这是纯客户端路由选择，
+   * 两个方向都不改变或重启 OS/Edge 运行权威。
+   */
+  protected readonly setConnectionMode = async (
+    mode: WorkbenchConnectionMode
+  ): Promise<void> => {
+    if (mode === this.connectionMode) return
+    if (this.connectionSwitchingTo) return
+    if (this.lastReportedUnsavedChanges) {
+      void this.messages.warn('请先保存当前工作流修改，再切换运行连接')
+      return
+    }
+    const revision = ++this.connectionSwitchRevision
+    this.connectionSwitchingTo = mode
+    this.update()
+    const targets = createWorkbenchConnectionTargets({
+      managedLocalUrl: this.sessionSnapshot.identity?.backendUrl,
+      browserOrigin: currentBrowserOrigin()
+    })
+    try {
+      await preflightWorkbenchRuntimeAuthority(targets[mode])
+      if (revision !== this.connectionSwitchRevision) return
+      this.connectionMode = mode
+      persistWorkbenchConnectionMode(mode)
+      void this.messages.info(
+        mode === 'backend'
+          ? '已切换到 Backend：画布直接保存远端工作流，本地代码不再联动画布'
+          : '已切换到本地：工作区代码与画布恢复双向联动'
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      void this.messages.error(`运行连接未切换：${message}`)
+    } finally {
+      if (revision === this.connectionSwitchRevision) {
+        this.connectionSwitchingTo = null
+        this.update()
+      }
+    }
+  }
+
   protected reportUnsavedChanges(): void {
     const hasUnsavedChanges = hasWorkbenchUnsavedChanges(
       this.workflowPanelDirty,
@@ -568,6 +696,10 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   }
 
   protected override render(): React.ReactElement {
+    const connectionTargets = createWorkbenchConnectionTargets({
+      managedLocalUrl: this.sessionSnapshot.identity?.backendUrl,
+      browserOrigin: currentBrowserOrigin()
+    })
     if (
       this.sessionSnapshot.phase !== 'ready'
       || !this.sessionSnapshot.identity
@@ -576,15 +708,34 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         <WorkbenchSessionGate
           snapshot={this.sessionSnapshot}
           onRetry={this.retrySession}
-          onStop={this.stopSession}
+          onStop={this.stopWorkspaceBackend}
+          connectionSelector={(
+            <WorkbenchConnectionSelector
+              targets={connectionTargets}
+              selectedMode={this.connectionMode}
+              connection={sessionConnectionState(this.sessionSnapshot.phase)}
+              switchBlockedReason={this.lastReportedUnsavedChanges
+                ? '请先保存当前工作流修改'
+                : this.connectionSwitchingTo
+                  ? '正在验证目标 Authority'
+                : null}
+              defaultOpen
+              onSelect={this.setConnectionMode}
+            />
+          )}
           onOpenLog={this.openSessionLog}
+          onReadEnvironmentLog={this.readEnvironmentLog}
           renderEnvironmentManager={onClose => (
             <EnvironmentManager
               session={this.sessionSnapshot}
               onClose={onClose}
               onRestartSession={this.restartSession}
+              onRebuildLocalData={this.rebuildLocalData}
+              onInspectReleaseTarget={this.inspectReleaseTarget}
+              onPublishRelease={this.publishRelease}
               onReadEnvironmentLog={this.readEnvironmentLog}
               onConfigureGraph={this.configureGraph}
+              onSetExternalDevicesOnly={this.setExternalDevicesOnly}
               onConfigurePlcSimulator={this.configurePlcSimulator}
               onRefreshPlcVariableTables={this.refreshPlcVariableTables}
               onStartPlcSimulator={this.startPlcSimulator}
@@ -602,15 +753,28 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     }
     return (
       <WorkbenchSurface
-        backendUrl={this.sessionSnapshot.identity.backendUrl}
+        connectionMode={this.connectionMode}
+        connectionTargets={connectionTargets}
         ideBridge={this.ideBridge}
         session={this.sessionSnapshot}
+        sessionClient={this.workbenchSessionClient}
         viewMode={this.viewState.currentMode}
+        switchBlockedReason={this.lastReportedUnsavedChanges
+          ? '请先保存当前工作流修改'
+          : this.connectionSwitchingTo
+            ? '正在验证目标 Authority'
+          : null}
+        onConnectionModeChange={this.setConnectionMode}
         onSourceSaveHandlerChange={this.registerSourceSaveHandler}
         onUnsavedChangesChange={this.setWorkflowPanelDirty}
         onRestartSession={this.restartSession}
+        onRebuildLocalData={this.rebuildLocalData}
+        onInspectReleaseTarget={this.inspectReleaseTarget}
+        onPublishRelease={this.publishRelease}
         onReadEnvironmentLog={this.readEnvironmentLog}
+        onOpenLog={this.openSessionLog}
         onConfigureGraph={this.configureGraph}
+        onSetExternalDevicesOnly={this.setExternalDevicesOnly}
         onConfigurePlcSimulator={this.configurePlcSimulator}
         onRefreshPlcVariableTables={this.refreshPlcVariableTables}
         onStartPlcSimulator={this.startPlcSimulator}
@@ -631,16 +795,30 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   }
 }
 
+/**
+ * 在 Workbench 主区组合工作流、物料、仪器设备与机械臂工作站界面。
+ * @param props 当前 OS 会话、领域视图模式及由 Workbench 持有的运行控制回调。
+ * @returns 共用一个 Theia 主区且不创建业务侧边栏的领域工作台。
+ */
 function WorkbenchSurface({
-  backendUrl,
+  connectionMode,
+  connectionTargets,
   ideBridge,
   session,
+  sessionClient,
   viewMode,
+  switchBlockedReason,
+  onConnectionModeChange,
   onSourceSaveHandlerChange,
   onUnsavedChangesChange,
   onRestartSession,
+  onRebuildLocalData,
+  onInspectReleaseTarget,
+  onPublishRelease,
   onReadEnvironmentLog,
+  onOpenLog,
   onConfigureGraph,
+  onSetExternalDevicesOnly,
   onConfigurePlcSimulator,
   onRefreshPlcVariableTables,
   onStartPlcSimulator,
@@ -652,15 +830,29 @@ function WorkbenchSurface({
   onSetRuntimeMode,
   onStopSession
 }: {
-  backendUrl: string
+  connectionMode: WorkbenchConnectionMode
+  connectionTargets: WorkbenchConnectionTargets
   ideBridge: WorkflowIdeBridge
   session: WorkbenchSessionSnapshot
+  sessionClient: WorkbenchSessionClientImpl
   viewMode: WorkbenchViewMode
+  switchBlockedReason: string | null
+  onConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onSourceSaveHandlerChange: (handler: SourceSaveHandler | null) => void
   onUnsavedChangesChange: (hasUnsavedChanges: boolean) => void
   onRestartSession: () => Promise<void>
+  onRebuildLocalData: () => Promise<void>
+  onInspectReleaseTarget: (
+    backendUrl: string
+  ) => Promise<WorkbenchReleaseTargetInspection>
+  onPublishRelease: (
+    backendUrl: string,
+    resetTarget?: boolean
+  ) => Promise<WorkbenchReleaseReceipt>
   onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>
+  onOpenLog: (path: string) => Promise<void>
   onConfigureGraph: (graphPath: string) => Promise<void>
+  onSetExternalDevicesOnly: (enabled: boolean) => Promise<void>
   onConfigurePlcSimulator: (
     configuration: WorkbenchPlcSimulatorConfiguration
   ) => Promise<void>
@@ -696,20 +888,42 @@ function WorkbenchSurface({
     },
     []
   )
-  const mountedDomains = useRef(new Set<'workflow' | 'material' | 'device'>([
+  const mountedDomains = useRef(new Set<
+    'workflow' | 'material' | 'device' | 'robot-workstation'
+  >([
     'workflow'
   ]))
-  if (viewMode === 'workflow' || viewMode === 'split') {
-    mountedDomains.current.add('workflow')
-  }
-  if (viewMode === 'material' || viewMode === 'split') {
-    mountedDomains.current.add('material')
-  }
-  if (viewMode === 'device') mountedDomains.current.add('device')
+  recordMountedWorkbenchDomains(mountedDomains.current, viewMode)
   const query = new URLSearchParams(globalThis.location.search)
   const workflowUuid = query.get('workflowUuid') ?? undefined
-  const services = useMemo(() => createWorkbenchServices(backendUrl), [backendUrl])
-  const queryClient = useMemo(() => new QueryClient(), [])
+  const selectedTarget = connectionTargets[connectionMode]
+  const services = useMemo(
+    () => createWorkbenchServices(selectedTarget),
+    [selectedTarget.cacheKey]
+  )
+  const [connectionProbeRevision, setConnectionProbeRevision] = useState(0)
+  const backendConnection = useBackendConnectionState(
+    connectionMode,
+    services,
+    connectionProbeRevision
+  )
+  const connection = workbenchConnectionState(
+    connectionMode,
+    session.phase,
+    backendConnection
+  )
+  /** 重新执行当前 Backend 健康探测，不创建或推进任何工作流任务。 */
+  const retryConnection = useCallback((): void => {
+    setConnectionProbeRevision((revision) => revision + 1)
+  }, [])
+  const connectionRetry = connectionMode === 'backend'
+    ? retryConnection
+    : undefined
+  const workstationData = useRobotWorkstationData(services, viewMode)
+  const queryClient = useMemo(
+    () => new QueryClient(),
+    [selectedTarget.cacheKey]
+  )
   const scope = useMemo(() => ({ kind: 'singleton' } as const), [])
   const materialStore = useMemo<MaterialStore>(() => createMaterialStore({
     scope,
@@ -722,18 +936,8 @@ function WorkbenchSurface({
     () => createWorkflowResourceSlotOptionsPort(services.materials, scope),
     [scope, services.materials]
   )
-  const deviceConnection: DeviceManagementConnection = session.phase === 'ready'
-    ? 'connected'
-    : session.phase === 'failed'
-      ? 'error'
-      : session.phase === 'idle'
-        ? 'disconnected'
-        : 'connecting'
-  const deviceBackend = useMemo(() => ({
-    id: 'managed-local-os',
-    name: '本地 UniLab OS',
-    apiUrl: backendUrl
-  }), [backendUrl])
+  const deviceConnection: DeviceManagementConnection = connection
+  const deviceBackend = selectedTarget.backend
 
   useEffect(() => () => materialStore.getState().reset(), [materialStore])
 
@@ -761,9 +965,11 @@ function WorkbenchSurface({
   }, [services, workflowUuid])
 
   useEffect(() => {
-    onSourceSaveHandlerChange(synchronizeSavedSource)
+    onSourceSaveHandlerChange(
+      connectionMode === 'local' ? synchronizeSavedSource : null
+    )
     return () => onSourceSaveHandlerChange(null)
-  }, [onSourceSaveHandlerChange, synchronizeSavedSource])
+  }, [connectionMode, onSourceSaveHandlerChange, synchronizeSavedSource])
 
   const highlightedMaterialIds = useMemo(() => {
     const route = runtimeProjection?.materialTransferRoutes.find(
@@ -775,6 +981,8 @@ function WorkbenchSurface({
     ].filter((value): value is string => Boolean(value))
   }, [runtimeProjection, selectedWorkflowNode])
 
+  const workflowRunStatus = services.getCapabilityStatus('workflow.runTasks')
+
   const workflowSurface = (
     <section
       className="unilab-workbench__surface unilab-workbench__surface--workflow"
@@ -782,9 +990,29 @@ function WorkbenchSurface({
     >
       <WorkflowPanel
         runtime={services.workflow}
+        traceRuntime={desktopWorkflowTraceRuntime(
+          typeof window === 'undefined' ? undefined : window
+        )}
+        authoringStatus={services.getCapabilityStatus(
+          connectionMode === 'backend'
+            ? 'workflow.editDefinitions'
+            : 'workflow.authoring'
+        )}
+        definitionEditingMode={connectionMode === 'backend'
+          ? 'backend'
+          : 'workspace'}
+        runStatus={workflowRunStatus}
+        executionStatus={workflowExecutionStatusForConnection(
+          connectionMode,
+          session.edgeRuntime,
+          workflowRunStatus
+        )}
         resourceSlotOptionsPort={resourceSlotOptionsPort}
-        active={viewMode === 'workflow' || viewMode === 'split'}
+        active={isWorkflowWorkbenchView(viewMode)}
         workflowUuid={workflowUuid}
+        activeWorkflowStorageKey={`unilab.workflow.active.${
+          encodeURIComponent(selectedTarget.sourceId)
+        }.v1`}
         allowWorkflowSelection
         hideEmbeddedCodeEditor
         ideBridge={ideBridge}
@@ -805,7 +1033,7 @@ function WorkbenchSurface({
       <MaterialStoreProvider store={materialStore}>
         <MaterialWorkbench
           catalog={services.materials}
-          profileId={`workbench:${backendUrl}`}
+          profileId={`workbench:${selectedTarget.cacheKey}`}
           scope={scope}
           capabilities={{
             readTemplates: services.getCapabilityStatus(
@@ -822,7 +1050,17 @@ function WorkbenchSurface({
           renderViewport={(viewportProps) => (
             <WorkbenchMaterialViewport
               {...viewportProps}
-              backendUrl={backendUrl}
+              backendUrl={selectedTarget.backend.apiUrl}
+              sourceIdentity={{
+                sourceId: selectedTarget.sourceId,
+                authority: connectionMode,
+                workspacePath: session.identity?.workspacePath ?? '',
+                backendUrl: selectedTarget.backend.apiUrl,
+                rendererGeneration: `${globalThis.location.origin}:${
+                  session.identity?.generation ?? 'unknown'
+                }`
+              }}
+              sessionClient={sessionClient}
               runtimeProjection={runtimeProjection}
               selectedWorkflowNode={selectedWorkflowNode}
             />
@@ -839,8 +1077,35 @@ function WorkbenchSurface({
       <DeviceManagementPanel
         services={services}
         backend={deviceBackend}
-        backendEnabled={Boolean(backendUrl)}
+        backendEnabled={Boolean(selectedTarget.backend.apiUrl)}
         connection={deviceConnection}
+      />
+    </section>
+  )
+  const robotWorkstationSurface = (
+    <section
+      className="unilab-workbench__surface unilab-workbench__surface--robot-workstation"
+      aria-label="机械臂工作站窗口"
+    >
+      <RobotWorkstation
+        module={workstationModule(viewMode)}
+        actionContent={viewMode === 'robot-debug' ? (
+          <DeviceManagementPanel
+            services={services}
+            backend={deviceBackend}
+            backendEnabled={Boolean(selectedTarget.backend.apiUrl)}
+            connection={deviceConnection}
+          />
+        ) : undefined}
+        pointStatus={workstationData.pointStatus}
+        benchSnapshot={workstationData.benchSnapshot}
+        benchStatus={workstationData.benchStatus}
+        reagentItems={workstationData.reagentItems}
+        reagentStatus={workstationData.reagentStatus}
+        reagentInfos={workstationData.reagentInfos}
+        reagentInfoStatus={workstationData.reagentInfoStatus}
+        reagentManagement={workstationData.reagentManagement}
+        reagentInfoManagement={workstationData.reagentInfoManagement}
       />
     </section>
   )
@@ -855,51 +1120,73 @@ function WorkbenchSurface({
         }
         data-session-generation={session.identity?.generation ?? ''}
         data-session-mode={session.identity?.mode ?? ''}
+        data-workspace-backend-phase={session.phase}
+        data-edge-runtime-phase={session.edgeRuntime.phase}
+        data-plc-simulator-phase={session.plcSimulator.phase}
         data-workspace-graph-fingerprint={session.identity?.graphFingerprint ?? ''}
         data-package-catalog-revision={
           session.identity?.packageMounts?.catalogRevision ?? ''
         }
+        data-connection-mode={connectionMode}
+        data-authority-profile={selectedTarget.authorityProfile}
+        data-authority-source-id={selectedTarget.sourceId}
+        data-workspace-authoring-source-id={selectedTarget.authoringSourceId}
+        data-backend-id={selectedTarget.backend.id}
+        data-backend-api-url={selectedTarget.backend.apiUrl}
       >
         <header className="unilab-workbench__bar">
-          <div>
+          <div className="unilab-workbench__identity">
             <strong>Unilab 调试工作台</strong>
             <span>
-              OS PID {session.identity?.pid} · {session.identity?.mode} · {backendUrl}
+              {session.identity
+                ? `Workspace Backend PID ${session.identity.pid} · ${session.identity.mode} · ${session.identity.backendUrl}`
+                : 'Workspace Backend 尚未启动'}
             </span>
             <span className="unilab-workbench__view-mode">
-              {viewMode === 'split'
-                ? '工作流 + 物料'
-                : viewMode === 'workflow'
-                  ? '工作流'
-                  : viewMode === 'material'
-                    ? '物料'
-                    : viewMode === 'device'
-                      ? '仪器设备'
-                      : '未打开面板'}
+              {workbenchViewLabel(viewMode)}
             </span>
           </div>
-          <nav aria-label="调试工作台页面">
-            <button
-              className={environmentOpen ? 'is-active' : ''}
-              aria-expanded={environmentOpen}
-              onClick={() => setEnvironmentOpen(value => !value)}
-            >
-              <span
-                className={`unilab-environment-trigger__status is-${session.phase}`}
-                aria-hidden="true"
+          <div className="unilab-workbench__controls">
+            <WorkbenchConnectionSelector
+              targets={connectionTargets}
+              selectedMode={connectionMode}
+              connection={connection}
+              switchBlockedReason={switchBlockedReason}
+              onRetry={connectionRetry}
+              onSelect={onConnectionModeChange}
+            />
+            <nav aria-label="调试工作台页面">
+              <WorkbenchRuntimeLogLauncher
+                onReadLog={onReadEnvironmentLog}
+                logPaths={workbenchRuntimeLogPaths(session)}
+                onOpenLog={onOpenLog}
               />
-              环境管理
-            </button>
-            <DesktopWorkspaceSwitchButton />
-          </nav>
+              <button
+                className={environmentOpen ? 'is-active' : ''}
+                aria-expanded={environmentOpen}
+                onClick={() => setEnvironmentOpen(value => !value)}
+              >
+                <span
+                  className={`unilab-environment-trigger__status is-${session.phase}`}
+                  aria-hidden="true"
+                />
+                环境管理
+              </button>
+              <DesktopWorkspaceSwitchButton />
+            </nav>
+          </div>
         </header>
         {environmentOpen ? (
           <EnvironmentManager
             session={session}
             onClose={() => setEnvironmentOpen(false)}
             onRestartSession={onRestartSession}
+            onRebuildLocalData={onRebuildLocalData}
+            onInspectReleaseTarget={onInspectReleaseTarget}
+            onPublishRelease={onPublishRelease}
             onReadEnvironmentLog={onReadEnvironmentLog}
             onConfigureGraph={onConfigureGraph}
+            onSetExternalDevicesOnly={onSetExternalDevicesOnly}
             onConfigurePlcSimulator={onConfigurePlcSimulator}
             onRefreshPlcVariableTables={onRefreshPlcVariableTables}
             onStartPlcSimulator={onStartPlcSimulator}
@@ -913,133 +1200,108 @@ function WorkbenchSurface({
           />
         ) : null}
         <WorkbenchDomainLayout
+          key={selectedTarget.cacheKey}
           mode={viewMode}
-          workflow={mountedDomains.current.has('workflow')
-            ? workflowSurface
-            : null}
-          material={mountedDomains.current.has('material')
-            ? materialSurface
-            : null}
-          device={mountedDomains.current.has('device')
-            ? deviceSurface
-            : null}
+          workflow={mountedSurface(
+            mountedDomains.current,
+            'workflow',
+            workflowSurface
+          )}
+          material={mountedSurface(
+            mountedDomains.current,
+            'material',
+            materialSurface
+          )}
+          device={mountedSurface(
+            mountedDomains.current,
+            'device',
+            deviceSurface
+          )}
+          robotWorkstation={mountedSurface(
+            mountedDomains.current,
+            'robot-workstation',
+            robotWorkstationSurface
+          )}
         />
       </div>
     </QueryClientProvider>
   )
 }
 
-function WorkbenchMaterialViewport({
-  backendUrl,
-  runtimeProjection,
-  selectedWorkflowNode,
-  readStatus,
-  moveStatus,
-  selectedMaterialIds,
-  highlightedMaterialIds,
-  onSelectionChange
-}: MaterialWorkbenchViewportProps & {
-  backendUrl: string
-  runtimeProjection: WorkflowPanelRuntimeProjection | null
-  selectedWorkflowNode: string | null
-}): React.JSX.Element {
-  const store = useMaterialStoreApi()
-  const aggregatesById = useMaterialStore((state) => state.aggregatesById)
-  const shapeLibrary = useMaterialStore((state) => state.shapeLibrary)
-  const loadState = useMaterialStore((state) => state.loadState)
-  const aggregates = useMemo(
-    () => Object.values(aggregatesById),
-    [aggregatesById]
-  )
-  const materialTransferRoutes = useMemo<MaterialTransferSceneRoute[]>(
-    () => (runtimeProjection?.materialTransferRoutes ?? []).map((route) => ({
-      ...route,
-      selected: route.workflowNodeUuid === selectedWorkflowNode
-    })),
-    [runtimeProjection, selectedWorkflowNode]
-  )
-  const modelRuntime = useMemo(() => ({
-    resolveUrl: (model: { path: string }) => {
-      if (!model.path || /^https?:\/\//u.test(model.path)) return model.path
-      return new URL(
-        model.path,
-        `${backendUrl.replace(/\/+$/u, '')}/`
-      ).toString()
-    }
-  }), [backendUrl])
+type WorkbenchMountedDomain =
+  | 'workflow'
+  | 'material'
+  | 'device'
+  | 'robot-workstation'
 
-  useEffect(() => {
-    if (!readStatus.available || loadState !== 'idle') return
-    void store.getState().loadGraph()
-  }, [loadState, readStatus.available, store])
-
-  const applyMoves = useCallback(async (
-    moves: readonly MaterialSceneMove[]
-  ): Promise<void> => {
-    for (const move of moves) {
-      await store.getState().move(move.materialId, move.placement)
-    }
-  }, [store])
-
-  if (!readStatus.available) {
-    return (
-      <MaterialCapabilityNotice
-        title="物料场景不可用"
-        status={readStatus}
-      />
-    )
-  }
-
-  if (loadState === 'idle' || loadState === 'loading') {
-    return <div className="unilab-workbench-material-loading">正在加载物料场景…</div>
-  }
-
-  return (
-    <UnifiedMaterialViewport
-      renderView={(viewMode, { showSites, showMaterialTransfers }) => (
-        <Suspense
-          fallback={(
-            <div className="unilab-workbench-material-loading">
-              正在加载 {viewMode === '3d' || viewMode === 'split'
-                ? '3D'
-                : viewMode} 物料视图…
-            </div>
-          )}
-        >
-          <PascalLabWorkbench
-            aggregates={aggregates}
-            shapes={shapeLibrary}
-            showSites={showSites}
-            showMaterialTransfers={showMaterialTransfers}
-            materialTransferRoutes={materialTransferRoutes}
-            materialTransferProjectionError={null}
-            viewMode={viewMode}
-            projectId={`unilab-workbench-${new URL(backendUrl).port}`}
-            editable={moveStatus.available}
-            selectedMaterialIds={selectedMaterialIds}
-            highlightedMaterialIds={highlightedMaterialIds}
-            modelRuntime={modelRuntime}
-            onMaterialMoves={(moves) => void applyMoves(moves)}
-            onSelectionChange={(materialIds) => {
-              onSelectionChange?.(materialIds)
-            }}
-          />
-        </Suspense>
-      )}
-    />
-  )
+/** 记录已经访问过的领域表面，使切换活动栏时保留面板本地状态。 */
+function recordMountedWorkbenchDomains(
+  mountedDomains: Set<WorkbenchMountedDomain>,
+  mode: WorkbenchViewMode
+): void {
+  if (isWorkflowWorkbenchView(mode)) mountedDomains.add('workflow')
+  if (mode === 'material' || mode === 'split') mountedDomains.add('material')
+  if (mode === 'device') mountedDomains.add('device')
+  if (isRobotWorkbenchViewMode(mode)) mountedDomains.add('robot-workstation')
 }
 
-function createWorkbenchServices(backendUrl: string): Services {
-  const backend = getDefaultBackend('local-python')
-  const url = backendUrl.replace(/\/$/, '')
-  return createServices({
-    backend: {
-      ...backend,
-      apiUrl: url,
-      realtimeUrl: url.replace(/^http/, 'ws')
-    }
-  })
+/** 返回工作流表面在当前 Workbench 领域模式下是否拥有可见权。 */
+function isWorkflowWorkbenchView(mode: WorkbenchViewMode): boolean {
+  return mode === 'workflow' || mode === 'split'
+}
+
+/** 选择当前调度权威对应的连接事实来源。 */
+function workbenchConnectionState(
+  mode: WorkbenchConnectionMode,
+  sessionPhase: WorkbenchSessionSnapshot['phase'],
+  backendConnection: WorkbenchConnectionState
+): WorkbenchConnectionState {
+  return mode === 'local'
+    ? sessionConnectionState(sessionPhase)
+    : backendConnection
+}
+
+/** 只为已经访问过的领域返回表面，避免无关模块抢占运行状态。 */
+function mountedSurface(
+  mountedDomains: Set<WorkbenchMountedDomain>,
+  domain: WorkbenchMountedDomain,
+  surface: React.ReactNode
+): React.ReactNode {
+  return mountedDomains.has(domain) ? surface : null
+}
+
+/** 返回 Workbench 标题栏使用的当前领域短名称。 */
+function workbenchViewLabel(mode: WorkbenchViewMode): string {
+  if (mode === 'split') return '工作流 + 物料'
+  if (mode === 'workflow') return '工作流'
+  if (mode === 'material') return '物料'
+  if (mode === 'device') return '仪器设备'
+  if (isRobotWorkbenchViewMode(mode)) return workstationViewLabel(mode)
+  return '未打开面板'
+}
+
+/**
+ * 将 Workbench 机械臂活动栏模式映射为无二级导航的功能模块。
+ * @param mode 当前主区模式；非机械臂模式仅用于未展示表面的稳定预渲染。
+ * @returns 机械臂工作站包接受的模块标识。
+ */
+function workstationModule(mode: WorkbenchViewMode): WorkstationModule {
+  if (mode === 'robot-points') return 'points'
+  if (mode === 'robot-bench') return 'bench'
+  if (mode === 'robot-reagents') return 'reagents'
+  return 'debug'
+}
+
+/**
+ * 返回机械臂活动栏模式对应的中文主区标题。
+ * @param mode 已由类型守卫确认的机械臂模式。
+ * @returns 当前功能入口的短标题。
+ */
+function workstationViewLabel(mode: `robot-${string}`): string {
+  if (mode === 'robot-debug') return '动作调试'
+  if (mode === 'robot-points') return '点位管理'
+  if (mode === 'robot-bench') return '实验台'
+  return '试剂管理'
 }
 
 function publishDesktopUnsavedChanges(hasUnsavedChanges: boolean): void {
@@ -1071,6 +1333,19 @@ function emptyPlcSimulatorSnapshot(): WorkbenchSessionSnapshot['plcSimulator'] {
     pid: null,
     guiUrl: '',
     opcUaUrl: '',
+    logPath: '',
+    diagnostic: null
+  }
+}
+
+function emptyEdgeRuntimeSnapshot(): WorkbenchSessionSnapshot['edgeRuntime'] {
+  return {
+    phase: 'idle',
+    message: 'Edge Runtime 尚未启动',
+    pid: null,
+    generation: null,
+    graphPath: 'deployment/graphs/szlab-local-debug.json',
+    mode: 'normal',
     logPath: '',
     diagnostic: null
   }

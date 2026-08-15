@@ -36,6 +36,12 @@
       "reason": "本地运行启动器（LocalRuntimeLauncher）集中维护 PLC-Sim 与领域侧 Edge 的配置持久化、权威进程快照、启停互锁及可访问对话框；本轮拆分已把日志读取、日志展示和 Edge 命令编辑迁出，保留的分支用于呈现同一运行会话的互斥状态。",
       "futureSplitBoundary": "补齐 PLC-Sim/Edge 交叉启停、路径校验和键盘焦点的交互特征测试后，将 LocalRuntimeDialog 与 PathField/RuntimeStatus 迁入 LocalRuntimeConfigurationDialog.tsx，并将启动器副作用抽取为 useLocalRuntimeLauncherSession。"
     },
+    "packages/device-management/src/DeviceActionAvailability.tsx": {
+      "maxLines": 500,
+      "maxFunctionComplexity": 30,
+      "reason": "设备动作可运行性（DeviceActionAvailability）在一个关闭失败投影内合并设备在线态、Edge 能力、动作合同和物料/库位前置条件，确保仪器设备面板只呈现一个权威的禁用原因。",
+      "futureSplitBoundary": "补齐在线、合同缺失、物料缺失和执行占用的组合矩阵后，将纯判定迁入 deviceActionAvailabilityPolicy.ts，组件只渲染状态与操作。"
+    },
     "packages/device-card-agent-cli/src/args.ts": {
       "maxLines": 500,
       "maxFunctionComplexity": 30,
@@ -48,23 +54,35 @@
       "reason": "设备卡片创作自动化在同一会话边界内排序工作区创建、文件监听、重建、安装与预览通知，集中持有 watcher 和构建身份可避免旧构建覆盖新源码。",
       "futureSplitBoundary": "补齐 watcher 重连、连续保存和构建失败恢复的时序测试后，将文件监听迁入 DeviceCardWorkspaceWatcher，将构建安装队列迁入 DeviceCardBuildCoordinator。"
     },
+    "packages/robot-workstation/src/modules/ReagentModule.tsx": {
+      "maxLines": 500,
+      "maxFunctionComplexity": 35,
+      "reason": "试剂模块（ReagentModule）在一个交互边界组合试剂库存、选中态、增删编辑和拖放目标，使三维工作站与列表共享同一试剂身份。",
+      "futureSplitBoundary": "补齐试剂选择、拖放和删除确认的交互测试后，将 ReagentList 与 ReagentActions 分离，根组件仅保留选择状态编排。"
+    },
+    "packages/robot-workstation/src/reagents/BackendReagentDialogs.tsx": {
+      "maxLines": 500,
+      "maxFunctionComplexity": 35,
+      "reason": "后端试剂编辑对话框（BackendReagentEditorDialog）在单一表单事务内维护模板、体积、位置和提交错误，避免部分字段在不同弹窗分别落库。",
+      "futureSplitBoundary": "补齐创建与编辑的字段校验矩阵后，将 ReagentIdentityFields 和 ReagentLocationFields 抽为无状态表单区块。"
+    },
     "packages/workflow-editor/src/components/PersistentWorkflowAuthoringView.tsx": {
       "maxLines": 700,
-      "maxFunctionComplexity": 75,
-      "reason": "工作流编排视图（WorkflowAuthoringView）只保留代码、画布和运行栏的同屏可访问性布局；工具栏及抽屉/冲突覆盖层已拆出，剩余分支主要对应互斥呈现状态。",
-      "futureSplitBoundary": "为代码/画布双模式补齐视觉回归后，抽取 PersistentWorkflowWorkbench，使根视图只组合状态提示、工作台与运行栏。"
+      "maxFunctionComplexity": 95,
+      "reason": "工作流编排视图（WorkflowAuthoringView）是 Local 与 Backend 定义权威共用的唯一代码/画布/运行栏布局边界；工具栏、抽屉和权威 Adapter 已拆出，剩余分支只呈现同一模型的互斥状态。",
+      "futureSplitBoundary": "完成 Local/Backend 同图视觉回归后，抽取 PersistentWorkflowWorkbench 与 PersistentWorkflowRuntimePanel，使根视图只组合状态提示和三块工作区。"
     },
     "packages/workflow-editor/src/components/PersistentWorkflowToolbar.tsx": {
       "maxLines": 400,
-      "maxFunctionComplexity": 35,
-      "reason": "工作流工具栏（WorkflowToolbar）集中维护互斥编辑模式、运行模式和单一开始入口的键盘/可访问性呈现，不拥有工作流事实或持久化副作用。",
+      "maxFunctionComplexity": 45,
+      "reason": "工作流工具栏（WorkflowToolbar）集中维护两种定义权威下的互斥编辑模式、运行模式和单一开始入口的键盘/可访问性呈现，不拥有工作流事实或持久化副作用。",
       "futureSplitBoundary": "为运行模式分段控件补齐独立交互测试后，抽取 WorkflowRunModeControl，并把保存菜单抽取为 WorkflowDraftMenu。"
     },
     "packages/workflow-editor/src/hooks/usePersistentWorkflowAuthoring.ts": {
-      "maxLines": 1250,
+      "maxLines": 1400,
       "maxFunctionComplexity": 80,
-      "reason": "工作流编排会话（WorkflowAuthoringSession）保留双重 CAS、外部失效补读、草稿规范化、候选应用和本地缓冲连续性的单一事务顺序；目录、画布节点编辑和运行入口状态机均已拆出。",
-      "futureSplitBoundary": "为外部失效与冲突重试补齐独立状态机测试后，将远端同步与双 CAS 冲突处理抽取到 usePersistentWorkflowAuthoritySync。"
+      "reason": "工作流编排会话（WorkflowAuthoringSession）保留 Local 双重 CAS、Backend 图修订 CAS、外部失效补读和本地缓冲连续性的单一事务顺序；Authority 差异已收口到 WorkflowDefinitionPort，目录、节点编辑和运行入口状态机均已拆出。",
+      "futureSplitBoundary": "为 Local/Backend 外部失效与冲突重试补齐独立状态机测试后，将远端同步和定义文档安装抽取到 useWorkflowDefinitionAuthoritySync。"
     },
     "packages/material/src/oblique/ObliqueMaterialObject.tsx": {
       "maxLines": 900,
@@ -72,17 +90,29 @@
       "reason": "物料斜二测对象（ObliqueMaterialObject）作为单一声明式形状解释器维护 SVG 图元的绘制顺序和遮挡语义。",
       "futureSplitBoundary": "先用 SVG 绘制顺序快照固定开架与车床图元，再将它们抽取到 oblique-primitives/openRack.tsx 和 oblique-primitives/lathe.tsx。"
     },
-    "packages/workbench-session/src/index.ts": {
-      "maxLines": 1490,
+    "packages/workbench-session/src/agent-sidecar.ts": {
+      "maxLines": 850,
       "maxFunctionComplexity": 25,
-      "reason": "工作台环境会话（WorkbenchSession）是 managed-local OS、PLC-Sim 与 Agent 的唯一 Node 生命周期权威；Interface 集中保证 OS 独立停止、应用退出统一清理、同代 Workspace 身份和有界日志读取，避免浏览器、Theia 与 Electron 各自管理同一进程。",
-      "futureSplitBoundary": "在 PLC-Sim 真实仓库与 Windows 进程树验收完成后，将 PLC-Sim 配置持久化、启动就绪和日志读取抽取为 ManagedPlcSimulatorSidecar；index.ts 只保留 OS/Agent/PLC 会话编排与公开 Interface。"
+      "reason": "Agent Sidecar 在一个受管会话边界内收窄外部 CLI 发现、认证继承、工作区身份、进程树清理和日志流；集中持有子进程可避免多个 UI 入口重复启动同一 Agent。",
+      "futureSplitBoundary": "补齐 Codex/Claude CLI 退出、认证缺失和 Windows 进程树矩阵后，将 CLI 发现迁入 agentCliDiscovery.ts，将日志缓冲迁入 sidecarLogBuffer.ts。"
+    },
+    "packages/workbench-session/src/workspace-host-session.ts": {
+      "maxLines": 1050,
+      "maxFunctionComplexity": 25,
+      "reason": "Workspace Host 会话 Adapter 是前端唯一生命周期控制面，统一提交 OS、PLC-Sim、Agent、Authority 和远程访问命令并订阅权威快照；它不直接拥有任何被控进程。",
+      "futureSplitBoundary": "补齐所有命令的合同测试和断线重连矩阵后，将 wire codec 迁入 workspaceHostProtocol.ts，将快照订阅迁入 WorkspaceHostSnapshotChannel。"
     },
     "packages/workbench-theia/src/browser/unilab-workbench-widget.tsx": {
-      "maxLines": 1150,
+      "maxLines": 1350,
       "maxFunctionComplexity": 25,
       "reason": "UniLab 调试工作台的 Theia 宿主（UniLabWorkbenchHost）集中组合 Monaco/文件服务双向联动、Workflow/Material 互切和同一 WorkbenchSession 环境投影；不创建第二份工作流或进程权威，环境面板仅调用窄化 RPC Interface。",
       "futureSplitBoundary": "环境面板补齐独立组件交互测试后迁入 environment-manager/EnvironmentManager.tsx，并将 Material viewport 适配迁入 WorkbenchMaterialViewport.tsx，使宿主只保留 Theia IDE bridge 与顶层 surface 组合。"
+    },
+    "packages/workbench-theia/src/browser/environment-manager.tsx": {
+      "maxLines": 850,
+      "maxFunctionComplexity": 65,
+      "reason": "环境管理器（EnvironmentManager）在一个控制面内投影 Workspace Host 的 OS、PLC-Sim、Agent、Authority、安装环境和远程访问快照；所有按钮只提交窄命令，不拥有本地进程。",
+      "futureSplitBoundary": "补齐 Authority 切换不重启 Workspace Backend 与安装状态交互测试后，将 RemoteAccessCard、RuntimeModeControl 和 EnvironmentStatusCard 分别迁入独立组件文件。"
     },
     "packages/material/src/oblique/shapeSpec.ts": {
       "maxLines": 700,
@@ -133,19 +163,19 @@
       "futureSplitBoundary": "补齐搜索、空态、删除失败和日志抽屉交互后，将筛选栏迁入 WorkflowCatalogFilters，将卡片操作迁入 WorkflowCatalogCardActions。"
     },
     "packages/workflow-editor/src/components/WorkflowNodeCard.tsx": {
-      "maxLines": 650,
-      "maxFunctionComplexity": 45,
+      "maxLines": 800,
+      "maxFunctionComplexity": 50,
       "reason": "工作流节点卡（WorkflowNodeCard）在一个渲染边界内组合节点类型、端口、物料转运（MaterialTransfer）、执行状态和选择态，确保画布节点拥有稳定尺寸与连接锚点。",
       "futureSplitBoundary": "补齐节点类型、端口数量和运行状态的尺寸快照后，将状态徽标迁入 WorkflowNodeStatusBadge，将端口列表迁入 WorkflowNodePorts。"
     },
     "packages/workflow-editor/src/components/WorkflowOutput.tsx": {
-      "maxLines": 700,
+      "maxLines": 900,
       "maxFunctionComplexity": 30,
       "reason": "工作流输出（WorkflowOutput）统一呈现结构化值、文件、物料（Material）、错误和运行中占位，保持相同结果在任务面板与调试器中的语义一致。",
       "futureSplitBoundary": "补齐每类输出载荷的展示与下载测试后，将结构化值迁入 WorkflowStructuredOutput，将文件和物料结果迁入各自 presenter。"
     },
     "packages/workflow-editor/src/components/WorkflowTraceViewer.tsx": {
-      "maxLines": 850,
+      "maxLines": 900,
       "maxFunctionComplexity": 25,
       "reason": "工作流链路查看器（WorkflowTraceViewer）在单一时间轴边界内同步筛选 span、层级、耗时和详情选择，集中投影避免列表与详情读取不同快照。",
       "futureSplitBoundary": "补齐嵌套 span、筛选和选中态的交互测试后，将时间轴迁入 WorkflowTraceTimeline，将详情面板迁入 WorkflowTraceDetail。"
@@ -161,6 +191,18 @@
       "maxFunctionComplexity": 25,
       "reason": "工作流舞台样式集中维护画布节点、边、选中态、运行态和响应式布局的层叠顺序，当前共享选择器依赖同一 React Flow DOM 结构。",
       "futureSplitBoundary": "补齐节点、边、调试覆盖层和窄屏布局的视觉回归后，将 node、edge、runtime-overlay 三组选择器迁入独立 SCSS partial。"
+    },
+    "packages/workflow-editor/src/components/WorkflowDag.tsx": {
+      "maxLines": 1000,
+      "maxFunctionComplexity": 25,
+      "reason": "工作流 DAG（WorkflowDag）是 React Flow 的唯一适配边界，集中维护受控节点、边、布局方向、视口测量、选择/删除和运行态覆盖层，避免画布交互状态分散到节点组件。",
+      "futureSplitBoundary": "补齐横向、纵向、蛇形和转运组合的视口回归后，将节点/边投影迁入 useWorkflowDagProjection，将交互命令迁入 useWorkflowDagCommands。"
+    },
+    "packages/workflow-editor/src/components/workflow-persistent/_section-01.scss": {
+      "maxLines": 950,
+      "maxFunctionComplexity": 25,
+      "reason": "持久工作流工作区首段样式维护工具栏、代码/画布分栏和响应式折叠的同一层叠上下文，选择器共享固定的 persistent-authoring DOM 合同。",
+      "futureSplitBoundary": "完成 Local/Backend 画布与窄屏截图基线后，按 toolbar、workbench 和 responsive 三个可视边界拆成独立 partial。"
     },
     "packages/workflow-editor/src/utils/workflowActionCatalog.ts": {
       "maxLines": 1000,

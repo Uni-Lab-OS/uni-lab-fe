@@ -3,263 +3,95 @@ import { describe, expect, it } from 'vitest'
 import type { HttpClient } from './http'
 import { createLaboratoryService } from './laboratory'
 import { getDefaultBackend } from './backends'
+import {
+  catalogResponses,
+  resourceTemplateUuid
+} from './workflow-action-catalog.fixtures'
+
+const materialUuid = '50000000-0000-4000-8000-000000000001'
 
 describe('laboratory service', () => {
-  it('uses the Backend root health route', async () => {
+  /** 验证 Backend 与 Local Backend 都统一通过 v1 健康检查路径探测连接。 */
+  it('uses the Backend v1 health route', async () => {
     const requests: Array<{ path: string; method?: string; body?: string }> = []
     const service = createLaboratoryService(
-      fixtureHttp({ '/health': { status: 'ok' } }, requests),
+      fixtureHttp({ '/api/v1/health': { status: 'ok' } }, requests),
       getDefaultBackend('local-go')
     )
 
     await expect(service.ping()).resolves.toBe(true)
     expect(requests).toEqual([{
-      path: '/health',
+      path: '/api/v1/health',
       method: undefined,
       body: undefined
     }])
   })
 
-  it('preserves Edge device metadata from the unified device catalog', async () => {
-    const requests: Array<{
-      path: string
-      method?: string
-      body?: string
-    }> = []
-    const http = fixtureHttp(
-      {
-        '/api/v1/devices': {
-          code: 0,
-          data: {
-            schemaVersion: 'device-catalog/v1',
-            source: 'edge',
-            generatedAt: 123,
-            items: [
-              {
-                id: 'pump-1',
-                materialUuid: '10000000-0000-4000-8000-000000000001',
-                deviceKey: '/cell/pump-1',
-                namespace: '/cell',
-                name: '蠕动泵',
-                online: false,
-                actions: [
-                  {
-                    id: 'aspirate',
-                    actionRef: 'pump-1.aspirate',
-                    name: '吸液',
-                    typeName: 'unilabos_msgs.action.Pump',
-                    riskLevel: 'dangerous',
-                    inputSchema: {
-                      volume: { type: 'number', default: 10 }
-                    },
-                    outputSchema: {},
-                    busy: true,
-                    currentJobId: 'job-aspirate'
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      },
-      requests
-    )
-    const service = createLaboratoryService(
-      http,
-      getDefaultBackend('local-python')
-    )
+  it.each(['local-python', 'local-go'])(
+    'uses DeviceOverview plus WorkflowNodeTemplate for %s',
+    async (backendId) => {
+      const service = createLaboratoryService(
+        fixtureHttp(sharedDeviceResponses()),
+        getDefaultBackend(backendId)
+      )
 
-    await expect(service.getOnlineDevices()).resolves.toEqual([
-      {
-        id: 'pump-1',
-        materialUuid: '10000000-0000-4000-8000-000000000001',
-        deviceKey: '/cell/pump-1',
-        namespace: '/cell',
-        machineName: '蠕动泵',
-        online: false,
-        actions: [
-          expect.objectContaining({
-            actionName: 'aspirate',
-            actionRef: 'pump-1.aspirate',
-            typeName: 'unilabos_msgs.action.Pump',
-            riskLevel: 'dangerous',
-            isBusy: true,
-            currentJobId: 'job-aspirate'
-          })
-        ]
-      }
-    ])
-    await expect(service.getDeviceCatalog()).resolves.toEqual([
-      {
-        deviceId: 'pump-1',
-        materialUuid: '10000000-0000-4000-8000-000000000001',
-        deviceTypeId: 'pump-1',
-        deviceKey: '/cell/pump-1',
-        namespace: '/cell',
-        label: '蠕动泵',
-        online: false,
-        actions: [
-          {
-            actionName: 'aspirate',
-            actionRef: 'pump-1.aspirate',
-            label: '吸液',
-            typeName: 'unilabos_msgs.action.Pump',
-            riskLevel: 'dangerous',
-            inputSchema: { volume: { type: 'number', default: 10 } },
-            outputSchema: {},
-            isBusy: true
-          }
-        ]
-      }
-    ])
-    expect(requests).toEqual([
-      {
-        path: '/api/v1/devices',
-        method: undefined,
-        body: undefined
-      },
-      {
-        path: '/api/v1/devices',
-        method: undefined,
-        body: undefined
-      }
-    ])
-  })
-
-  it('projects Action devices and schemas from the unified device catalog', async () => {
-    const http = fixtureHttp({
-      '/api/v1/devices': {
-        code: 0,
-        data: {
-          schemaVersion: 'device-catalog/v1',
-          source: 'edge',
-          generatedAt: 123,
-          items: [
-            {
-              id: 'pump-1',
-              deviceKey: '/cell/pump-1',
-              namespace: '/cell',
-              name: '蠕动泵',
-              online: true,
-              actions: [
-                {
-                  id: 'aspirate',
-                  actionRef: 'pump-1.aspirate',
-                  name: '吸液',
-                  typeName: 'unilabos_msgs.action.Pump',
-                  inputSchema: {
-                    volume: { type: 'number', default: 10 }
-                  },
-                  outputSchema: {},
-                  busy: true
-                },
-                {
-                  id: 'dispense',
-                  actionRef: 'pump-1.dispense',
-                  name: '排液',
-                  typeName: 'unilabos_msgs.action.Pump',
-                  inputSchema: {
-                    volume: { type: 'number', default: 2 }
-                  },
-                  outputSchema: {},
-                  busy: false
-                }
-              ]
-            }
-          ]
-        }
-      }
-    })
-    const service = createLaboratoryService(
-      http,
-      getDefaultBackend('local-python')
-    )
-
-    await expect(service.getActionDevices()).resolves.toEqual([
-      { deviceId: 'pump-1', label: 'pump-1' }
-    ])
-    await expect(service.getDeviceActions('pump-1')).resolves.toMatchObject([
-      {
-        actionName: 'aspirate',
-        actionRef: 'pump-1.aspirate',
-        displayName: '吸液',
-        label: '吸液',
-        typeName: 'unilabos_msgs.action.Pump',
-        isBusy: true,
-        currentJobId: null,
-        schema: {
-          type: 'object',
-          properties: {
-            volume: { type: 'number', default: 10 }
-          }
-        }
-      },
-      {
-        actionName: 'dispense',
-        actionRef: 'pump-1.dispense',
-        displayName: '排液',
-        label: '排液',
-        typeName: 'unilabos_msgs.action.Pump',
-        isBusy: false,
-        currentJobId: null,
-        schema: {
-          type: 'object',
-          properties: {
-            volume: { type: 'number', default: 2 }
-          }
-        }
-      }
-    ])
-    await expect(service.getOnlineDevices()).resolves.toMatchObject([
-      {
-        id: 'pump-1',
+      await expect(service.getOnlineDevices()).resolves.toMatchObject([{
+        id: materialUuid,
+        materialUuid,
+        resourceTemplateUuid,
+        deviceKey: 'pump-01',
+        namespace: 'edge-01',
+        machineName: '主泵',
         online: true,
-        actions: [
-          { actionRef: 'pump-1.aspirate' },
-          { actionRef: 'pump-1.dispense' }
-        ]
-      }
-    ])
-    await expect(
-      service.getActionSchema('pump-1', 'aspirate')
-    ).resolves.toMatchObject({
-      goalDefault: { volume: 10 },
-      actionType: 'unilabos_msgs.action.Pump',
-      isBusy: true
-    })
-  })
+        actions: [{
+          actionName: 'transfer.sample.v1',
+          actionRef: `${materialUuid}.transfer.sample.v1`,
+          displayName: '转移样品',
+          typeName: 'UniLabJsonCommand',
+          inputSchema: {
+            sample: { $slot: 'ResourceSlot' },
+            mode: { type: 'string', enum: ['safe', 'fast'], default: 'safe' }
+          }
+        }]
+      }])
+      await expect(service.getDeviceCatalog()).resolves.toMatchObject([{
+        deviceId: materialUuid,
+        resourceTemplateUuid,
+        actions: [{
+          label: '转移样品',
+          outputSchema: { sample: { $slot: 'ResourceSlot' } }
+        }]
+      }])
+      await expect(service.getActionDevices()).resolves.toEqual([
+        { deviceId: materialUuid, label: '主泵' }
+      ])
+      await expect(service.getDeviceActions(materialUuid)).resolves.toMatchObject([
+        { actionName: 'transfer.sample.v1', schema: { type: 'object' } }
+      ])
+      await expect(
+        service.getActionSchema(materialUuid, 'transfer.sample.v1')
+      ).resolves.toMatchObject({
+        goalDefault: { mode: 'safe' },
+        actionType: 'UniLabJsonCommand',
+        isBusy: false
+      })
+    }
+  )
 
-  it('fails closed when Edge reports an unknown Action risk level', async () => {
+  it('fails closed when Local returns a non-DeviceOverview catalog', async () => {
     const service = createLaboratoryService(
       fixtureHttp({
+        ...catalogResponses(),
         '/api/v1/devices': {
           code: 0,
-          data: {
-            schemaVersion: 'device-catalog/v1',
-            items: [{
-              id: 'heater-1',
-              deviceKey: '/devices/heater-1',
-              namespace: '/devices',
-              name: '加热器',
-              online: true,
-              actions: [{
-                id: 'heat',
-                actionRef: 'heater-1.heat',
-                name: '加热',
-                typeName: 'UniLabJsonCommand',
-                riskLevel: 'critical',
-                inputSchema: {},
-                outputSchema: {}
-              }]
-            }]
-          }
+          data: { schemaVersion: 'device-catalog/v1', items: [] }
         }
       }),
       getDefaultBackend('local-python')
     )
 
     await expect(service.getDeviceCatalog()).rejects.toMatchObject({
-      code: 'INVALID_ACTION_RISK_LEVEL'
+      code: 'INVALID_BACKEND_DEVICE_CATALOG'
     })
   })
 
@@ -269,89 +101,54 @@ describe('laboratory service', () => {
       getDefaultBackend('local-python')
     )
 
-    for (const retiredMethod of [
-      'addJob',
-      'getJobStatus',
-      'cancelJob'
-    ]) {
+    for (const retiredMethod of ['addJob', 'getJobStatus', 'cancelJob']) {
       expect(retiredMethod in service).toBe(false)
     }
   })
 
   it('uses the holder token for an operator-confirmed Action unlock', async () => {
-    const requests: Array<{
-      path: string
-      method?: string
-      body?: string
-    }> = []
+    const requests: Array<{ path: string; method?: string; body?: string }> = []
     const service = createLaboratoryService(
-      fixtureHttp(
-        {
-          '/api/v1/devices/robot%201/actions/move%2Fsafe/commands': {
-            code: 0,
-            data: {
-              status: 'unlocked',
-              deviceId: 'robot 1',
-              actionName: 'move/safe',
-              releasedJobIds: ['job-active', 'job-queued'],
-              cancelRequestedJobIds: ['job-active']
-            }
+      fixtureHttp({
+        '/api/v1/devices/robot%201/actions/move%2Fsafe/commands': {
+          code: 0,
+          data: {
+            status: 'unlocked',
+            deviceId: 'robot 1',
+            actionName: 'move/safe',
+            releasedJobIds: ['job-active', 'job-queued'],
+            cancelRequestedJobIds: ['job-active']
           }
-        },
-        requests
-      ),
+        }
+      }, requests),
       getDefaultBackend('local-python')
     )
 
-    await expect(
-      service.forceUnlockDeviceAction({
-        deviceId: 'robot 1',
-        actionName: 'move/safe',
-        expectedJobId: 'job-active'
-      })
-    ).resolves.toEqual({
+    await expect(service.forceUnlockDeviceAction({
+      deviceId: 'robot 1',
+      actionName: 'move/safe',
+      expectedJobId: 'job-active'
+    })).resolves.toEqual({
       status: 'unlocked',
       deviceId: 'robot 1',
       actionName: 'move/safe',
       releasedJobIds: ['job-active', 'job-queued'],
       cancelRequestedJobIds: ['job-active']
     })
-    expect(requests).toEqual([
-      {
-        path: '/api/v1/devices/robot%201/actions/move%2Fsafe/commands',
-        method: 'POST',
-        body: JSON.stringify({
-          command: 'force_unlock',
-          expectedJobId: 'job-active',
-          reason: 'operator_confirmed_device_safe'
-        })
-      }
-    ])
+    expect(requests).toEqual([{
+      path: '/api/v1/devices/robot%201/actions/move%2Fsafe/commands',
+      method: 'POST',
+      body: JSON.stringify({
+        command: 'force_unlock',
+        expectedJobId: 'job-active',
+        reason: 'operator_confirmed_device_safe'
+      })
+    }])
   })
 
-  it('probes the production Edge/OS through its unified v1 health route', async () => {
-    const requests: Array<{
-      path: string
-      method?: string
-      body?: string
-    }> = []
-    const service = createLaboratoryService(
-      fixtureHttp({ '/api/v1/health': { status: 'ok' } }, requests),
-      getDefaultBackend('local-python')
-    )
-
-    await expect(service.ping()).resolves.toBe(true)
-    expect(requests).toEqual([
-      {
-        path: '/api/v1/health',
-        method: undefined,
-        body: undefined
-      }
-    ])
-  })
-
-  it('forwards caller cancellation to managed health and device reads', async () => {
+  it('forwards caller cancellation to every shared catalog read', async () => {
     const controller = new AbortController()
+    const responses = sharedDeviceResponses()
     const observedSignals: Array<AbortSignal | null> = []
     const http: HttpClient = {
       request: async <ResponseValue>(
@@ -359,12 +156,9 @@ describe('laboratory service', () => {
         init?: RequestInit
       ): Promise<ResponseValue> => {
         observedSignals.push(init?.signal ?? null)
-        return (path === '/api/v1/health'
-          ? { status: 'ok' }
-          : {
-              code: 0,
-              data: { schemaVersion: 'device-catalog/v1', items: [] }
-            }) as ResponseValue
+        if (path === '/api/v1/health') return { status: 'ok' } as ResponseValue
+        if (!(path in responses)) throw new Error(`Unexpected request: ${path}`)
+        return responses[path] as ResponseValue
       }
     }
     const service = createLaboratoryService(
@@ -375,20 +169,41 @@ describe('laboratory service', () => {
     await service.ping(controller.signal)
     await service.getOnlineDevices(controller.signal)
 
-    expect(observedSignals).toEqual([
-      controller.signal,
-      controller.signal
-    ])
+    expect(observedSignals.length).toBeGreaterThan(2)
+    expect(new Set(observedSignals)).toEqual(new Set([controller.signal]))
   })
 })
 
+/** 构造与两种 Authority 共用的设备和动作模板响应。 */
+function sharedDeviceResponses(): Record<string, unknown> {
+  return {
+    ...catalogResponses(),
+    '/api/v1/devices': {
+      code: 0,
+      data: [{
+        binding: {
+          uuid: '60000000-0000-4000-8000-000000000001',
+          edge_uuid: 'edge-01',
+          material_uuid: materialUuid,
+          local_id: 'pump-01',
+          name: 'Pump 01'
+        },
+        material: {
+          uuid: materialUuid,
+          resource_template_uuid: resourceTemplateUuid,
+          name: '主泵'
+        },
+        edge_status: 'online',
+        dispatchable: true,
+        actions: [{ name: 'transfer.sample.v1', type: 'UniLabJsonCommand' }]
+      }]
+    }
+  }
+}
+
 function fixtureHttp(
   responses: Record<string, unknown>,
-  requests: Array<{
-    path: string
-    method?: string
-    body?: string
-  }> = []
+  requests: Array<{ path: string; method?: string; body?: string }> = []
 ): HttpClient {
   return {
     request: async <ResponseValue>(

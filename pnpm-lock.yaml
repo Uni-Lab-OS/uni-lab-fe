@@ -453,6 +453,25 @@ importers:
         version: 5.9.3
 
   packages/design-system:
+    dependencies:
+      '@radix-ui/react-dialog':
+        specifier: ^1.1.23
+        version: 1.1.23(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@radix-ui/react-slot':
+        specifier: ^1.3.3
+        version: 1.3.3(@types/react@19.2.17)(react@19.2.8)
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-react:
+        specifier: ^1.31.0
+        version: 1.31.0(react@19.2.8)
+      tailwind-merge:
+        specifier: ^3.6.0
+        version: 3.6.0
     devDependencies:
       '@types/react':
         specifier: ^19.2.7
@@ -858,6 +877,34 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@22.20.1)(less@3.13.1)(lightningcss@1.30.1)(sass-embedded@1.97.3)(sass@1.102.0)(terser@5.49.2)
 
+  packages/robot-workstation:
+    dependencies:
+      '@unilab/design-system':
+        specifier: workspace:*
+        version: link:../design-system
+      smiles-drawer:
+        specifier: 2.4.1
+        version: 2.4.1
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.7
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      react:
+        specifier: ^19.2.1
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.2.1
+        version: 19.2.8(react@19.2.8)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.20.1)(less@3.13.1)(lightningcss@1.30.1)(sass-embedded@1.97.3)(sass@1.102.0)(terser@5.49.2)
+
   packages/services:
     dependencies:
       '@tanstack/react-query':
@@ -959,6 +1006,9 @@ importers:
       '@theia/monaco-editor-core':
         specifier: 1.108.201
         version: 1.108.201
+      '@theia/terminal':
+        specifier: 1.74.1
+        version: 1.74.1(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
       '@theia/workspace':
         specifier: 1.74.1
         version: 1.74.1(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
@@ -977,6 +1027,9 @@ importers:
       '@unilab/pascal-lab-plugin':
         specifier: workspace:*
         version: link:../pascal-lab-plugin
+      '@unilab/robot-workstation':
+        specifier: workspace:*
+        version: link:../robot-workstation
       '@unilab/services':
         specifier: workspace:*
         version: link:../services
@@ -989,6 +1042,9 @@ importers:
       '@unilab/workflow-ide-bridge':
         specifier: workspace:*
         version: link:../workflow-ide-bridge
+      html-to-image:
+        specifier: 1.11.13
+        version: 1.11.13
       react:
         specifier: ^19.2.1
         version: 19.2.8
@@ -4747,6 +4803,9 @@ packages:
     resolution: {integrity: sha512-+IxzY9BZOQd/XuYPRmrvEVjF/nqj5kgT4kEq7VofrDoM1MxoRjEWkrCC3EtLi59TVawxTAn+orJwFQcrqEN1+g==}
     engines: {node: '>=18'}
 
+  chroma-js@2.6.0:
+    resolution: {integrity: sha512-BLHvCB9s8Z1EV4ethr6xnkl/P2YRFOGqfgvuMG/MyCbZPrTA+NeiByY6XvgF0zP4/2deU2CXnWyMa3zu1LqQ3A==}
+
   chrome-trace-event@1.0.4:
     resolution: {integrity: sha512-rNjApaLzuwaOTjCiT8lSDdGN1APCiqkChLMJxJPWLunPAt5fy8xgU9/jNOchV84wfIxrA0lRQB7oCT8jrn/wrQ==}
     engines: {node: '>=6.0'}
@@ -5923,6 +5982,9 @@ packages:
     resolution: {integrity: sha512-oWv4T4yJ52iKrufjnyZPkrN0CH3QnrUqdB6In1g5Fe1mia8GmF36gnfNySxoZtxD5+NmYw1EElVXiBk93UeskA==}
     engines: {node: '>=12'}
 
+  html-to-image@1.11.13:
+    resolution: {integrity: sha512-cuOPoI7WApyhBElTTb9oqsawRvZ0rHhaHwghRLlTuffoD1B2aDemlCruLeZrUIIdvG7gs9xeELEPm6PhuASqrg==}
+
   html2canvas@1.4.1:
     resolution: {integrity: sha512-fPU6BHNpsyIhr8yyMpTLLxAbkaK8ArIBcmZIRiBLiDhjeqvXolaEmDGmELFuX9I4xDcaKKcJl+TKZLqruBbmWA==}
     engines: {node: '>=8.0.0'}
@@ -6579,6 +6641,11 @@ packages:
 
   lucide-react@1.26.0:
     resolution: {integrity: sha512-raglYVR2+VkMfJL158krjVmE+rV5ST2lzA/KQm1FRSjMHT4MnWaegHxoVEpmc2So3nOEhp9oGejJwAPX8MoAjg==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  lucide-react@1.31.0:
+    resolution: {integrity: sha512-G8u2eEtoHUnUa9f8lbvqDhCiORMnYLdUEo06EEG9MQvHQrInKcX3Pa2TH39MM5qyzRcWETxB0+aOwAPI1g1kEg==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
@@ -8093,6 +8160,9 @@ packages:
   smart-buffer@4.2.0:
     resolution: {integrity: sha512-94hK0Hh8rPqQl2xXc3HsaBoOXKV20MToPkcXvwbISWLEs+64sBq5kFgn2kJDHb1Pry9yrP0dxrCI9RRci7RXKg==}
     engines: {node: '>= 6.0.0', npm: '>= 3.0.0'}
+
+  smiles-drawer@2.4.1:
+    resolution: {integrity: sha512-kJeD91Bp8EwLTQouq4az7hn5zUYdIaLQoyFt8XlsqriugPiZOdBFADJMUnfqDYpyu3XK9SFpBgTuDtczpbSUbA==}
 
   socket.io-adapter@2.5.8:
     resolution: {integrity: sha512-6Oy52pbg+kvdCVvjcN+FnY7BvxZ7cIHNScbvztT/It5d0vbwoJoVZmF2gjJmnV0/4WlXRfG15zc45ySk9Ah8bw==}
@@ -14348,6 +14418,8 @@ snapshots:
 
   chownr@3.0.0: {}
 
+  chroma-js@2.6.0: {}
+
   chrome-trace-event@1.0.4: {}
 
   chromium-bidi@16.0.1(devtools-protocol@0.0.1624250):
@@ -15689,6 +15761,8 @@ snapshots:
     dependencies:
       whatwg-encoding: 2.0.0
 
+  html-to-image@1.11.13: {}
+
   html2canvas@1.4.1:
     dependencies:
       css-line-break: 2.1.0
@@ -16305,6 +16379,10 @@ snapshots:
   lru-cache@7.18.3: {}
 
   lucide-react@1.26.0(react@19.2.8):
+    dependencies:
+      react: 19.2.8
+
+  lucide-react@1.31.0(react@19.2.8):
     dependencies:
       react: 19.2.8
 
@@ -17865,6 +17943,10 @@ snapshots:
       is-fullwidth-code-point: 3.0.0
 
   smart-buffer@4.2.0: {}
+
+  smiles-drawer@2.4.1:
+    dependencies:
+      chroma-js: 2.6.0
 
   socket.io-adapter@2.5.8:
     dependencies:
