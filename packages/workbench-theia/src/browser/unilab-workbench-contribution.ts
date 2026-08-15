@@ -57,7 +57,7 @@ export const OpenRobotBenchView: Command = {
 
 export const OpenRobotReagentsView: Command = {
   id: 'unilab.workbench.robot-reagents.open',
-  label: '打开试剂管理'
+  label: '打开试剂'
 }
 
 @injectable()
@@ -170,7 +170,7 @@ export class RobotReagentsDomainEntryContribution
   constructor() {
     super({
       widgetId: RobotReagentsDomainEntryWidget.ID,
-      widgetName: '试剂管理',
+      widgetName: '试剂',
       defaultWidgetOptions: { area: 'left', rank: 75 },
       toggleCommandId: OpenRobotReagentsView.id
     })

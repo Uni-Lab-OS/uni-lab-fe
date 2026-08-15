@@ -127,6 +127,7 @@ function snapshot(
     configuredRuntimeMode: 'normal',
     configuredDomainMode: 'local',
     configuredBackendUrl: null,
+    configuredSchedulerUrl: null,
     agent: null,
     identity: pid === null ? null : {
       workspacePath: '/workspace',

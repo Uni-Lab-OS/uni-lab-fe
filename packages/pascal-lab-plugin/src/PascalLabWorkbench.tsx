@@ -17,6 +17,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from 'react'
 
@@ -181,6 +182,22 @@ export function PascalLabWorkbench({
     () => materialIdsToSceneObjectIds(scene, highlightedMaterialIds),
     [highlightedMaterialIds, scene]
   )
+  const reportedMaterialIdsRef = useRef<readonly string[]>(
+    selectedMaterialIds
+  )
+  reportedMaterialIdsRef.current = selectedMaterialIds
+
+  const reportSelectionChange = useCallback((
+    materialIds: readonly string[],
+    sceneObjectIds: readonly string[]
+  ): void => {
+    if (sameIds(reportedMaterialIdsRef.current, materialIds)) return
+    // Pascal 在 pointerup 和随后 click 中可能连续发出同一选中结果。
+    // 先同步 ref，避免 React 批处理提交前重复刷新整个工作台。
+    reportedMaterialIdsRef.current = [...materialIds]
+    onSelectionChange?.(materialIds, sceneObjectIds)
+  }, [onSelectionChange])
+
   useEffect(() => {
     const state = useViewer.getState()
     if (!sameIds(state.selection.selectedIds, selectedSceneObjectIds)) {
@@ -227,9 +244,9 @@ export function PascalLabWorkbench({
           ? [node.materialNodeId]
           : []
       })
-      onSelectionChange?.(materialIds, sceneObjectIds)
+      reportSelectionChange(materialIds, sceneObjectIds)
     },
-    [onSelectionChange, scene.nodes]
+    [reportSelectionChange, scene.nodes]
   )
 
   const statusLabel = useMemo(() => {
@@ -340,7 +357,7 @@ export function PascalLabWorkbench({
               selectedMaterialIds={selectedMaterialIds}
               highlightedMaterialIds={highlightedMaterialIds}
               onSelectionChange={(materialIds) => {
-                onSelectionChange?.(
+                reportSelectionChange(
                   materialIds,
                   materialIdsToSceneObjectIds(scene, materialIds)
                 )
@@ -373,7 +390,7 @@ export function PascalLabWorkbench({
             selectedMaterialIds={selectedMaterialIds}
             highlightedMaterialIds={highlightedMaterialIds}
             onSelectionChange={(materialIds) => {
-              onSelectionChange?.(
+              reportSelectionChange(
                 materialIds,
                 materialIdsToSceneObjectIds(scene, materialIds)
               )

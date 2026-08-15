@@ -62,6 +62,15 @@ export async function preflightWorkbenchRuntimeAuthority(
         `${target.title} 未通过 /api/v1/health 就绪检查`
       )
     }
+    try {
+      await candidate.workflow.listWorkflows({ page: 1, page_size: 1 })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      throw new WorkbenchAuthorityUnavailableError(
+        target.mode,
+        `${target.title} 工作流目录不可用：${message}`
+      )
+    }
   } finally {
     candidate.dispose()
   }

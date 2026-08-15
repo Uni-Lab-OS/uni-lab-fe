@@ -72,8 +72,8 @@ describe('WorkflowPanel Runtime entry', () => {
     expect(markup).not.toContain('workflow-runtime__authoring')
   })
 
-  /** Backend 模式启用直接画布保存，但不暴露工作区代码投影。 */
-  it('opens an editable Backend canvas without enabling code mode', () => {
+  /** Backend 模式启用直接画布保存，并开放只读 JSON 代码投影。 */
+  it('opens an editable Backend canvas with a read-only code mode', () => {
     const markup = renderToStaticMarkup(
       <WorkflowPanel
         runtime={{} as WorkflowRuntimePort}
@@ -87,7 +87,7 @@ describe('WorkflowPanel Runtime entry', () => {
     expect(markup).toContain('Backend 定义 · 已同步')
     expect(markup).toContain('画布可编辑并直接保存')
     expect(markup).toContain('aria-label="保存工作流"')
-    expect(markup).toContain('工作区代码修改不生效')
+    expect(markup).toContain('Backend 代码视图为只读')
   })
 
   /** Backend 画布的编辑权与 Edge 运行就绪状态必须解耦。 */

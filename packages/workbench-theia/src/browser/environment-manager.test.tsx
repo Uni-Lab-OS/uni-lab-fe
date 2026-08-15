@@ -3,10 +3,12 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  deriveSchedulerUrl,
   describeEnvironmentOperationError,
   EnvironmentManager,
   type EnvironmentManagerProps,
   ExternalDevicesOnlyControl,
+  normalizeSchedulerUrl,
   RuntimeModeControl
 } from './environment-manager'
 
@@ -20,6 +22,34 @@ describe('EnvironmentManager', () => {
       '<button type="button">重建本地数据</button>'
     )
     expect(markup).toContain('本地数据损坏')
+  })
+
+  it('shows Backend and derived Scheduler targets together', () => {
+    const markup = renderToStaticMarkup(
+      <EnvironmentManager {...environmentManagerProps(failedSession())} />
+    )
+
+    expect(markup).toContain('aria-label="Backend 发布目标地址"')
+    expect(markup).toContain('aria-label="Scheduler 目标地址"')
+    expect(markup).toContain('value="http://127.0.0.1:8081"')
+    expect(markup).toContain('Scheduler：自动推导')
+  })
+})
+
+describe('Scheduler target addressing', () => {
+  it('derives the adjacent Scheduler port and preserves ingress origins', () => {
+    expect(deriveSchedulerUrl('http://127.0.0.1:30053'))
+      .toBe('http://127.0.0.1:30054')
+    expect(deriveSchedulerUrl('https://backend.example.test'))
+      .toBe('https://backend.example.test')
+  })
+
+  it('normalizes explicit Scheduler origins and rejects routes', () => {
+    expect(normalizeSchedulerUrl('http://127.0.0.1:30054/'))
+      .toBe('http://127.0.0.1:30054')
+    expect(() => normalizeSchedulerUrl(
+      'http://127.0.0.1:30054/api/v1'
+    )).toThrow('Scheduler 地址只需填写')
   })
 })
 
@@ -97,6 +127,7 @@ function failedSession(): WorkbenchSessionSnapshot {
     configuredRuntimeMode: 'normal',
     configuredDomainMode: 'local',
     configuredBackendUrl: 'http://127.0.0.1:8080',
+    configuredSchedulerUrl: null,
     identity: null,
     agent: null,
     diagnostic: {
@@ -163,6 +194,7 @@ function environmentManagerProps(
     onStopAgent: complete,
     onRestartAgent: complete,
     onSetRuntimeMode: complete,
+    onSetSchedulerUrl: complete,
     onStopSession: complete
   }
 }

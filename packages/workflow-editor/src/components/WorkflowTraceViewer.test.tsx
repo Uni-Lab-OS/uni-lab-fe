@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
+
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
@@ -15,6 +18,20 @@ import {
 const RUN_ID = '01234567-89ab-cdef-0123-456789abcdef'
 
 describe('WorkflowTraceViewer', () => {
+  it('keeps the modal above material viewport labels and controls', async () => {
+    const stylesheet = await readFile(
+      fileURLToPath(new URL('./_workflow-trace.scss', import.meta.url)),
+      'utf8'
+    )
+    const overlayRule = stylesheet.match(
+      /\.workflow\s+:global\(\.workflow-runtime__trace-overlay\)\s*\{([^}]*)\}/u
+    )?.[1]
+    const zIndex = Number(overlayRule?.match(/z-index:\s*(\d+)/u)?.[1])
+
+    expect(overlayRule).toMatch(/position:\s*fixed/u)
+    expect(zIndex).toBeGreaterThan(1000)
+  })
+
   it('offers the local SigNoz UI as an external Trace destination', () => {
     const runtime: WorkflowTracePort = {
       listTraces: async () => ({

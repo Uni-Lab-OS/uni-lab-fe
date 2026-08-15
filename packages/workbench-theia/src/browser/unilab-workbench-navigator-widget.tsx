@@ -76,7 +76,7 @@ export class WorkflowDomainEntryWidget extends UniLabDomainEntryWidget {
   protected readonly widgetId = WorkflowDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
     mode: 'workflow',
-    label: '工作',
+    label: '工作流',
     caption: '工作流 · 代码、画布与运行',
     description: '编辑工作流源码、观察 DAG，并与 IDE 代码位置双向联动。',
     iconClass: 'unilab-activity-icon--workflow',
@@ -160,8 +160,8 @@ export class RobotReagentsDomainEntryWidget extends UniLabDomainEntryWidget {
   protected readonly widgetId = RobotReagentsDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
     mode: 'robot-reagents',
-    label: '试剂管理',
-    caption: '试剂管理 · 容器与库存批次',
+    label: '试剂',
+    caption: '试剂 · 容器与库存批次',
     description: '读取后端真实试剂容器或 OS 库存批次，不维护前端本地台账。',
     iconClass: 'unilab-activity-icon--robot-reagents',
     eyebrow: 'REAGENTS'

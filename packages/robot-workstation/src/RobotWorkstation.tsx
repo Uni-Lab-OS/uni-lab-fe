@@ -80,5 +80,5 @@ function moduleLabel(module: RobotWorkstationProps['module']): string {
   if (module === 'debug') return '机械臂动作调试'
   if (module === 'points') return '机械臂点位管理'
   if (module === 'bench') return '实验台'
-  return '试剂管理'
+  return '试剂'
 }

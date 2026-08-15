@@ -17,6 +17,17 @@ import {
 function noop(): void {}
 
 describe('WorkflowOutput', () => {
+  it('centers the node result status with its copy action', () => {
+    const stylesheet = readFileSync(fileURLToPath(new URL(
+      './_workflow-output.scss',
+      import.meta.url
+    )), 'utf8')
+
+    expect(stylesheet).toMatch(
+      /node-result\) > header\s*> :global\(\.workflow-runtime__node-detail-actions\)\s*\{\s*align-items:\s*center;/u
+    )
+  })
+
   it('keeps the node panel hidden when another output tab is active', () => {
     const stylesheet = readFileSync(fileURLToPath(new URL(
       './_workflow-output.scss',

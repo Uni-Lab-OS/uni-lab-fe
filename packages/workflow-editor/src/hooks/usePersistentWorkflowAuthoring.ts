@@ -100,7 +100,9 @@ export function usePersistentWorkflowAuthoring({
     () => definitionPort.capabilities.sourceEditing ? 'code' : 'canvas'
   )
   const [codeProjection, setCodeProjection] =
-    useState<WorkflowCodeProjection>('python')
+    useState<WorkflowCodeProjection>(
+      () => definitionPort.capabilities.sourceEditing ? 'python' : 'json'
+    )
   const [aggregate, setAggregate] =
     useState<WorkflowAuthoringAggregate | null>(null)
   const policy = workflowAuthoringSurfacePolicy(mode)
@@ -709,7 +711,7 @@ export function usePersistentWorkflowAuthoring({
     nextMode: WorkflowEditMode
   ): Promise<void> => {
     if (!aggregate) throw new Error('工作流编辑数据尚未就绪')
-    if (nextMode === 'code' && !definitionPort.capabilities.sourceEditing) {
+    if (nextMode === 'code' && !definitionPort.capabilities.codeViewing) {
       throw new Error(
         definitionPort.capabilities.sourceEditingDisabledReason ??
         '当前数据源不支持代码模式'
@@ -718,27 +720,40 @@ export function usePersistentWorkflowAuthoring({
     setPendingPythonImport(null)
     if (nextMode === 'canvas') {
       const sourceGraph = authoringProjection(aggregate).graph
-      const generated = await generateCanvasPython(sourceGraph)
-      setGraph(beautifyPersistentAuthoringGraph(
-        generated.graph || sourceGraph
-      ))
-      editor.replaceContent(generated.normalized_python_source as string)
+      if (definitionPort.capabilities.sourceEditing) {
+        const generated = await generateCanvasPython(sourceGraph)
+        setGraph(beautifyPersistentAuthoringGraph(
+          generated.graph || sourceGraph
+        ))
+        editor.replaceContent(generated.normalized_python_source as string)
+      } else {
+        setGraph(beautifyPersistentAuthoringGraph(sourceGraph))
+      }
       setCanvasDirty(false)
       setSelectedNodeUuid(null)
       setSelectedNodeName('')
       setSelectedNodeNameDirty(false)
       setMode('canvas')
-      setMessage('画布模式：Python 是 OS 生成的只读投影')
+      setMessage(definitionPort.capabilities.sourceEditing
+        ? '画布模式：Python 是 OS 生成的只读投影'
+        : 'Backend 画布模式：修改后可保存到 Backend')
       return
     }
     setGraph(authoringProjection(aggregate).graph)
-    editor.replaceContent(authoritativePython(aggregate))
+    if (definitionPort.capabilities.sourceEditing) {
+      editor.replaceContent(authoritativePython(aggregate))
+      setCodeProjection('python')
+    } else {
+      setCodeProjection('json')
+    }
     setCanvasDirty(false)
     setSelectedNodeUuid(null)
     setSelectedNodeName('')
     setSelectedNodeNameDirty(false)
     setMode('code')
-    setMessage(authoringStateMessage(aggregate))
+    setMessage(definitionPort.capabilities.sourceEditing
+      ? authoringStateMessage(aggregate)
+      : 'Backend 工作流 JSON 代码视图（只读）')
   }, [aggregate, definitionPort, editor.replaceContent, generateCanvasPython])
 
   /**
@@ -749,7 +764,7 @@ export function usePersistentWorkflowAuthoring({
    */
   const requestMode = (nextMode: WorkflowEditMode): void => {
     if (busy || !aggregate) return
-    if (nextMode === 'code' && !definitionPort.capabilities.sourceEditing) {
+    if (nextMode === 'code' && !definitionPort.capabilities.codeViewing) {
       setError(
         definitionPort.capabilities.sourceEditingDisabledReason ??
         '当前数据源不支持代码模式'
@@ -1343,6 +1358,7 @@ export function usePersistentWorkflowAuthoring({
       ideBridge?.onRevealPackageSource?.({ sourceUri })
     },
     sourceProjection, traceRuntime, workflowIoOpen, workflowUuid,
+    codeViewingAvailable: definitionPort.capabilities.codeViewing,
     sourceEditingAvailable: definitionPort.capabilities.sourceEditing,
     sourceEditingDisabledReason:
       definitionPort.capabilities.sourceEditingDisabledReason,

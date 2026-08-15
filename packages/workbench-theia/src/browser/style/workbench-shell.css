@@ -256,3 +256,14 @@
     scrollbar-width: thin;
   }
 }
+
+/* Temporary messages belong at the top center; keep the notification center unchanged. */
+.theia-notifications-container.theia-notification-toasts {
+  position: fixed;
+  top: 16px;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  width: min(500px, calc(100vw - 32px));
+  transform: translateX(-50%);
+}

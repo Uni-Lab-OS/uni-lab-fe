@@ -30,6 +30,8 @@ export function readMaterialRendering(
 
   const dimensionsMm =
     vectorTuple(source.dimensionsMm ?? source.sizeMm) ??
+    vectorTuple(config.dimensionsMm ?? config.sizeMm) ??
+    readBackendDimensions(config) ??
     [
       finiteNumber(size.width, kind === 'table' ? 1500 : 600),
       finiteNumber(size.height, kind === 'table' ? 900 : 500),
@@ -59,6 +61,23 @@ export function readMaterialRendering(
       instances: readModelInstances(model, aggregate)
     }
   }
+}
+
+/**
+ * The Backend material API describes its Z-up scene as X/Y/Z, where X and Y
+ * form the floor plane and Z is height. Pascal uses X/Y/Z as width, height and
+ * depth, so the two horizontal axes must be projected as X/Z.
+ */
+function readBackendDimensions(
+  config: Record<string, unknown>
+): MaterialRenderingSnapshot['dimensionsMm'] | undefined {
+  const sizeX = optionalNumber(config.size_x ?? config.sizeX)
+  const sizeY = optionalNumber(config.size_y ?? config.sizeY)
+  const sizeZ = optionalNumber(config.size_z ?? config.sizeZ)
+
+  return sizeX == null || sizeY == null || sizeZ == null
+    ? undefined
+    : [sizeX, sizeZ, sizeY]
 }
 
 function readModelInstances(

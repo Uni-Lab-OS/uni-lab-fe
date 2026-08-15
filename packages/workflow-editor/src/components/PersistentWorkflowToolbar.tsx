@@ -54,6 +54,7 @@ export function PersistentWorkflowToolbar({
     setTaskRunMode,
     setTraceViewerOpen,
     singleNodeTargetMissing,
+    codeViewingAvailable,
     sourceEditingAvailable,
     sourceEditingDisabledReason,
     startWorkflow,
@@ -69,6 +70,7 @@ export function PersistentWorkflowToolbar({
   const runModeMenuRef = useRef<HTMLDetailsElement | null>(null)
   const currentAuthorityLabel = authorityLabel ?? 'OS'
   const canEditDefinition = definitionEditingAvailable !== false
+  const canViewCode = codeViewingAvailable !== false
   const canEditSource = sourceEditingAvailable !== false
   const canDebugLaunch = debugLaunchAvailable !== false
   const runningEntryBusy = runtimeBusy || workflowStartBusy
@@ -133,8 +135,8 @@ export function PersistentWorkflowToolbar({
         : '请先保存当前可写内容'}
       codeMode={{
         active: mode === 'code',
-        disabled: modeSwitchDisabled || !canEditSource,
-        disabledReason: !canEditSource
+        disabled: modeSwitchDisabled || !canViewCode,
+        disabledReason: !canViewCode
           ? sourceEditingDisabledReason ?? '当前数据源不支持代码模式'
           : modeSwitchDisabledReason,
         onSelect: () => requestMode('code')
@@ -156,7 +158,9 @@ export function PersistentWorkflowToolbar({
           : !aggregate
             ? '工作流尚未加载完成'
             : !dirty
-              ? `${currentAuthorityLabel} 画布没有待保存修改`
+              ? mode === 'code' && !canEditSource
+                ? `${currentAuthorityLabel} 代码视图为只读；请切回画布模式修改`
+                : `${currentAuthorityLabel} 画布没有待保存修改`
             : fullSourceDiff || pendingMode || remoteConflict || taskInputForm
               ? '请先完成当前工作流确认操作'
               : '当前工作流不能保存',

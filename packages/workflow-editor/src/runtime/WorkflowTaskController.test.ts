@@ -49,8 +49,10 @@ function registerWorkflowTaskControllerTests(): void {
     })
   })
 
-  it('hydrates over REST when the selected Backend has no runtime SSE', async () => {
+  it('keeps active task status updated when runtime SSE is unavailable', async () => {
+    vi.useFakeTimers()
     const task = workflowTask()
+    let status: WorkflowTask['status'] = 'running'
     const runtime = runtimePort({
       subscribeWorkflowRuntime: vi.fn(() => {
         throw new Error('workflow.subscribeEvents is unavailable')
@@ -58,7 +60,7 @@ function registerWorkflowTaskControllerTests(): void {
       listWorkflowTasks: vi.fn(async () => ({
         items: [task], total: 1, page: 1, page_size: 1
       })),
-      getWorkflowTask: vi.fn(async () => task),
+      getWorkflowTask: vi.fn(async () => ({ ...task, status })),
       listWorkflowTaskJobs: vi.fn(async () => [])
     })
     const controller = new WorkflowTaskController(runtime, task.workflow_uuid)
@@ -68,10 +70,22 @@ function registerWorkflowTaskControllerTests(): void {
     expect(runtime.listWorkflowTasks).toHaveBeenCalledOnce()
     expect(controller.getSnapshot()).toMatchObject({
       loading: false,
-      task,
+      task: { ...task, status: 'running' },
       realtimeStatus: 'reconnecting',
-      realtimeError: expect.stringContaining('请手动刷新')
+      realtimeError: expect.stringContaining('定时自动更新')
     })
+
+    status = 'succeeded'
+    await vi.advanceTimersByTimeAsync(2_000)
+
+    expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(2)
+    expect(controller.getSnapshot().task?.status).toBe('succeeded')
+
+    await vi.advanceTimersByTimeAsync(4_000)
+    expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(2)
+
+    controller.dispose()
+    vi.useRealTimers()
   })
 
   it('retains the previous coherent bundle when either REST projection fails', async () => {

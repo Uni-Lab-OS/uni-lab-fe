@@ -34,6 +34,8 @@ export function MaterialInspector({
       ariaLabel="物料属性"
       closeLabel="关闭物料属性"
       onClose={onClose}
+      modal={false}
+      animated={false}
     >
       <aside
         className={materialScopeClassName('material-inspector')}

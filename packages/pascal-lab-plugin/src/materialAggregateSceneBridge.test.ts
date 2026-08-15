@@ -10,12 +10,48 @@ import {
   projectMaterialTransferSceneLayer,
   sceneGraphToMaterialMoves
 } from './materialAggregateSceneBridge'
+import { readMaterialRendering } from './materialRenderingSnapshot'
 import {
   isLabDeviceNode,
   isLabMaterialTransferLayerNode
 } from './schema'
 
 describe('Material Aggregate / Pascal bridge', () => {
+  it('projects Backend floor-plane sizes into Pascal dimensions', () => {
+    const deck = aggregate('deck', {
+      config: {
+        size_x: 3634,
+        size_y: 1674,
+        size_z: 20
+      }
+    })
+
+    const rendering = readMaterialRendering(deck)
+
+    expect(rendering.dimensionsMm).toEqual([3634, 20, 1674])
+    expect(rendering.footprintMm).toEqual([3634, 1674])
+  })
+
+  it('keeps explicit rendering dimensions ahead of Backend size fields', () => {
+    const deck = aggregate('deck', {
+      config: {
+        size_x: 3634,
+        size_y: 1674,
+        size_z: 20,
+        rendering: {
+          kind: 'deck',
+          dimensionsMm: [1000, 50, 800]
+        }
+      }
+    })
+
+    expect(readMaterialRendering(deck).dimensionsMm).toEqual([
+      1000,
+      50,
+      800
+    ])
+  })
+
   it('projects the instance rendering snapshot without copying the entity', () => {
     const robot = aggregate('robot', {
       config: {

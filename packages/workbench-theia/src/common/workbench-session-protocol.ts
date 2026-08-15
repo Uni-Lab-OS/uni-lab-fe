@@ -96,6 +96,7 @@ type WorkbenchSessionRemoteOperations = Pick<
   | 'releaseEnvironmentPorts'
   | 'setRuntimeMode'
   | 'setDomainAuthority'
+  | 'setSchedulerUrl'
   | 'publishRelease'
   | 'inspectReleaseTarget'
 >

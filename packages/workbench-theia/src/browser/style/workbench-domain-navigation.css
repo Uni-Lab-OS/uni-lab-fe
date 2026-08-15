@@ -220,11 +220,10 @@ body.unilab-agent-panel-visible
   box-shadow: inset 2px 0 var(--unilab-color-primary);
 }
 
-/* 产品活动栏只保留设备、物料、工作、Agent、文件、设置六个入口。 */
+/* 机械臂内部调试入口暂不对外展示；试剂管理是产品主入口。 */
 .theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-debug'],
 .theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-points'],
-.theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-bench'],
-.theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-reagents'] {
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-bench'] {
   display: none;
 }
 

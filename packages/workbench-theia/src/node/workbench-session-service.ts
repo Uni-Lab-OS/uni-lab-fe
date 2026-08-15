@@ -34,7 +34,8 @@ function createWorkbenchNodeSession(): WorkbenchNodeSession {
     agentAppPath: process.env['UNILAB_AIONUI_APP'],
     agentBrandIconPath: process.env['UNILAB_AGENT_ICON'],
     plcSimulatorProjectPath: process.env['UNILAB_PLC_SIM_PROJECT'],
-    backendAuthorityUrl: process.env['UNILAB_BACKEND_PROXY_TARGET']
+    backendAuthorityUrl: process.env['UNILAB_BACKEND_PROXY_TARGET'],
+    schedulerAuthorityUrl: process.env['UNILAB_SCHEDULER_PROXY_TARGET']
   })
 }
 
@@ -183,6 +184,12 @@ implements WorkbenchSessionServer, BackendApplicationContribution {
     mode: Parameters<WorkbenchSession['setDomainAuthority']>[0]
   ) {
     return this.session.setDomainAuthority(mode)
+  }
+
+  setSchedulerUrl(
+    url: Parameters<WorkbenchSession['setSchedulerUrl']>[0]
+  ) {
+    return this.session.setSchedulerUrl(url)
   }
 
   publishRelease(

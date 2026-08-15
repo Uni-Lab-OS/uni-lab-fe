@@ -15,6 +15,7 @@ export interface LocalEnvironmentConfiguration {
   runtimeMode: PersistedWorkbenchRuntimeMode | null
   domainMode: PersistedWorkbenchDomainMode | null
   backendUrl: string | null
+  schedulerUrl: string | null
 }
 
 export interface WritableLocalEnvironmentConfiguration {
@@ -26,6 +27,7 @@ export interface WritableLocalEnvironmentConfiguration {
   runtimeMode: PersistedWorkbenchRuntimeMode
   domainMode: PersistedWorkbenchDomainMode
   backendUrl: string | null
+  schedulerUrl: string | null
 }
 
 /** Read the optional managed-local configuration and reject corrupt state. */
@@ -45,7 +47,8 @@ export async function readLocalEnvironmentConfiguration(
         plcHandshakeProfile: null,
         runtimeMode: null,
         domainMode: null,
-        backendUrl: null
+        backendUrl: null,
+        schedulerUrl: null
       }
     }
     throw invalidLocalEnvironmentConfiguration(
@@ -102,6 +105,11 @@ export async function readLocalEnvironmentConfiguration(
       content['backendUrl'],
       configurationPath,
       'backendUrl'
+    ),
+    schedulerUrl: optionalString(
+      content['schedulerUrl'],
+      configurationPath,
+      'schedulerUrl'
     )
   }
 }

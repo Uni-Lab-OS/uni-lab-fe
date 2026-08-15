@@ -40,15 +40,39 @@ describe('Workbench contextual Domain Authority', () => {
     expect(selected).toBe('backend')
     expect(dispose).toHaveBeenCalledOnce()
   })
+
+  /** 健康接口不能掩盖缺失的工作流目录，避免选择器进入不可用的本地模式。 */
+  it('rejects a target whose workflow catalog cannot be read', async () => {
+    const dispose = vi.fn()
+    const candidate = candidateServices({
+      healthy: true,
+      dispose,
+      workflowError: new Error('HTTP 404: Not Found')
+    })
+
+    await expect(preflightWorkbenchRuntimeAuthority(
+      targets.local,
+      () => candidate
+    )).rejects.toThrow('工作流目录不可用')
+
+    expect(dispose).toHaveBeenCalledOnce()
+  })
 })
 
 function candidateServices(options: {
   healthy: boolean
   dispose: () => void
+  workflowError?: Error
 }): Services {
   return {
     getCapabilityStatus: () => ({ available: true }),
     laboratory: { ping: async () => options.healthy },
+    workflow: {
+      listWorkflows: async () => {
+        if (options.workflowError) throw options.workflowError
+        return { items: [], page: 1, page_size: 1, total: 0 }
+      }
+    },
     dispose: options.dispose
   } as unknown as Services
 }

@@ -429,6 +429,13 @@
   gap: var(--unilab-space-2);
 }
 
+// Override the more specific generic header group baseline alignment so the
+// status text and its adjacent action button share one visual center line.
+.workflow :global(.workflow-runtime__node-result) > header
+  > :global(.workflow-runtime__node-detail-actions) {
+  align-items: center;
+}
+
 .workflow :global(.workflow-runtime__node-detail-copy) {
   display: inline-flex;
   height: 26px;

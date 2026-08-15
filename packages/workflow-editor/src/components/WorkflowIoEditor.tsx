@@ -161,7 +161,7 @@ export function WorkflowIoEditor({
                   <summary className="persistent-authoring__io-editor-row-heading">
                     <span className="persistent-authoring__io-editor-identity">
                       <span aria-hidden="true">◇</span>
-                      <code>{descriptor.name}</code>
+                      <ParameterIdentity descriptor={descriptor} />
                     </span>
                     <span className="persistent-authoring__io-editor-type">
                       {schemaSummary(descriptor.schema)}
@@ -417,7 +417,7 @@ export function WorkflowIoEditor({
                     <summary className="persistent-authoring__io-editor-row-heading">
                       <span className="persistent-authoring__io-editor-identity">
                         <span aria-hidden="true">◇</span>
-                        <code>{descriptor.name}</code>
+                        <ParameterIdentity descriptor={descriptor} />
                       </span>
                       <span className="persistent-authoring__io-editor-type">
                         {schemaSummary(descriptor.schema)}
@@ -637,6 +637,39 @@ function IoGroup({
       <h3>{title}</h3>
       {children}
     </section>
+  )
+}
+
+const WORKFLOW_PARAMETER_LABELS: Readonly<Record<string, string>> = {
+  sample_id: '样品编号',
+  target_powder_mass_g: '目标粉末质量（g）',
+  volume_pump_1: '1 号泵体积',
+  volume_pump_2: '2 号泵体积',
+  pipette_volume_raw: '移液体积（原始值）',
+  product_vial: '成品样品瓶',
+  used_beaker: '已使用烧杯',
+  coarse_powder_cartridge: '粗粉料筒',
+  fine_powder_cartridge: '细粉料筒',
+  photo_path: '照片路径',
+  inspection_result: '检测结果',
+  commanded_powder_mass_g: '指令粉末质量（g）',
+  message: '运行消息'
+}
+
+function ParameterIdentity({
+  descriptor
+}: {
+  descriptor: Pick<WorkflowInputDescriptor, 'name' | 'title'>
+}): React.JSX.Element {
+  const displayName = descriptor.title?.trim() ||
+    WORKFLOW_PARAMETER_LABELS[descriptor.name]
+  return (
+    <span className="persistent-authoring__io-editor-identity-text">
+      {displayName && displayName !== descriptor.name && (
+        <strong title={displayName}>{displayName}</strong>
+      )}
+      <code title={descriptor.name}>{descriptor.name}</code>
+    </span>
   )
 }
 

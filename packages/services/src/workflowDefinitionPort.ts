@@ -17,6 +17,7 @@ export type WorkflowDefinitionAuthority = 'workspace' | 'backend'
 export interface WorkflowDefinitionCapabilities {
   authority: WorkflowDefinitionAuthority
   label: 'OS' | 'Backend'
+  codeViewing: boolean
   sourceEditing: boolean
   directGraphSaving: boolean
   debugLaunch: boolean
@@ -71,6 +72,7 @@ function workspaceDefinitionPort(
     capabilities: {
       authority: 'workspace',
       label: 'OS',
+      codeViewing: true,
       sourceEditing: true,
       directGraphSaving: false,
       debugLaunch: true,
@@ -100,11 +102,12 @@ function backendDefinitionPort(
     capabilities: {
       authority: 'backend',
       label: 'Backend',
+      codeViewing: true,
       sourceEditing: false,
       directGraphSaving: true,
       debugLaunch: false,
       sourceEditingDisabledReason:
-        'Backend Authority 下仅前端画布可保存；工作区代码修改不生效'
+        'Backend 代码视图为只读；如需修改，请切回画布模式'
     },
     read: async () => backendAggregate(
       await runtime.getBackendWorkflowGraph(workflowUuid)

@@ -49,6 +49,7 @@ export interface EnvironmentManagerProps {
   onStopAgent: () => Promise<void>
   onRestartAgent: () => Promise<void>
   onSetRuntimeMode: (mode: WorkbenchRuntimeMode) => Promise<void>
+  onSetSchedulerUrl: (url: string | null) => Promise<void>
   onStopSession: () => Promise<void>
 }
 
@@ -99,6 +100,7 @@ export function EnvironmentManager({
   onStopAgent,
   onRestartAgent,
   onSetRuntimeMode,
+  onSetSchedulerUrl,
   onStopSession
 }: EnvironmentManagerProps): React.JSX.Element {
   const identity = session.identity
@@ -124,6 +126,15 @@ export function EnvironmentManager({
   const [releaseBackendUrl, setReleaseBackendUrl] = useState(
     session.configuredBackendUrl ?? 'http://127.0.0.1:8080'
   )
+  const [schedulerAutomatic, setSchedulerAutomatic] = useState(
+    session.configuredSchedulerUrl === null
+  )
+  const [schedulerUrl, setSchedulerUrl] = useState(
+    session.configuredSchedulerUrl
+      ?? deriveSchedulerUrl(
+        session.configuredBackendUrl ?? 'http://127.0.0.1:8080'
+      )
+  )
   const remoteAccessApi = useMemo(desktopWorkbenchRemoteApi, [])
   const managedRuntimeApi = useMemo(desktopManagedRuntimeApi, [])
   const [runtimeInstallation, setRuntimeInstallation] =
@@ -141,6 +152,13 @@ export function EnvironmentManager({
   useEffect(() => setGraphPath(session.configuredGraphPath), [
     session.configuredGraphPath
   ])
+  useEffect(() => {
+    const configured = session.configuredSchedulerUrl
+    setSchedulerAutomatic(configured === null)
+    setSchedulerUrl(configured ?? deriveSchedulerUrl(
+      releaseBackendUrl
+    ))
+  }, [session.configuredBackendUrl, session.configuredSchedulerUrl])
   useEffect(() => {
     if (typeof document === 'undefined') return undefined
     document.body.classList.add('unilab-environment-manager-open')
@@ -200,6 +218,16 @@ export function EnvironmentManager({
       await onConfigureGraph(graphPath)
     })
   }, [graphPath, onConfigureGraph, run])
+
+  const saveSchedulerUrl = useCallback(async () => {
+    if (schedulerAutomatic) {
+      await onSetSchedulerUrl(null)
+      return
+    }
+    const normalized = normalizeSchedulerUrl(schedulerUrl)
+    setSchedulerUrl(normalized)
+    await onSetSchedulerUrl(normalized)
+  }, [onSetSchedulerUrl, schedulerAutomatic, schedulerUrl])
 
   const startPlcSimulator = useCallback(async () => {
     await run('start-plc', async () => {
@@ -319,21 +347,44 @@ export function EnvironmentManager({
           ]}
           content={(
             <>
-              <label className="unilab-environment-manager__path unilab-environment-manager__backend-target">
-                <span>目标地址</span>
-                <input
-                  type="url"
-                  value={releaseBackendUrl}
-                  disabled={Boolean(busyAction)}
-                  placeholder="http://127.0.0.1:8080"
-                  aria-label="Backend 发布目标地址"
-                  onChange={event => {
-                    setReleaseBackendUrl(event.currentTarget.value)
-                    setReleaseInspection(null)
-                    setReleaseReceipt(null)
-                  }}
-                />
-              </label>
+              <div className="unilab-environment-manager__backend-targets">
+                <label className="unilab-environment-manager__path unilab-environment-manager__backend-target">
+                  <span>Backend</span>
+                  <input
+                    type="url"
+                    value={releaseBackendUrl}
+                    disabled={Boolean(busyAction)}
+                    placeholder="http://127.0.0.1:8080"
+                    aria-label="Backend 发布目标地址"
+                    onChange={event => {
+                      const value = event.currentTarget.value
+                      setReleaseBackendUrl(value)
+                      if (schedulerAutomatic) {
+                        setSchedulerUrl(deriveSchedulerUrl(value))
+                      }
+                      setReleaseInspection(null)
+                      setReleaseReceipt(null)
+                    }}
+                  />
+                </label>
+                <label className="unilab-environment-manager__path unilab-environment-manager__backend-target">
+                  <span>Scheduler</span>
+                  <input
+                    type="url"
+                    value={schedulerUrl}
+                    disabled={Boolean(busyAction)}
+                    placeholder="http://127.0.0.1:8081"
+                    aria-label="Scheduler 目标地址"
+                    onChange={event => {
+                      setSchedulerAutomatic(false)
+                      setSchedulerUrl(event.currentTarget.value)
+                    }}
+                  />
+                </label>
+              </div>
+              <p className="unilab-environment-manager__scheduler-mode">
+                Scheduler：{schedulerAutomatic ? '自动推导' : '自定义地址'}
+              </p>
               {releaseInspection ? (
                 <p className={`unilab-environment-manager__target-summary ${
                   releaseInspection.empty ? 'is-empty' : 'is-occupied'
@@ -355,9 +406,27 @@ export function EnvironmentManager({
                 onClick={() => void run('inspect-release-target', async () => {
                   const backendUrl = normalizeBackendUrl(releaseBackendUrl)
                   setReleaseBackendUrl(backendUrl)
+                  await saveSchedulerUrl()
                   setReleaseInspection(await onInspectReleaseTarget(backendUrl))
                 })}
               >检查目标数据</button>
+              <button
+                type="button"
+                disabled={Boolean(busyAction) || !schedulerUrl.trim()}
+                onClick={() => void run('save-scheduler-target', saveSchedulerUrl)}
+              >保存 Scheduler 地址</button>
+              {!schedulerAutomatic || session.configuredSchedulerUrl ? (
+                <button
+                  type="button"
+                  disabled={Boolean(busyAction)}
+                  onClick={() => void run('derive-scheduler-target', async () => {
+                    const derived = deriveSchedulerUrl(releaseBackendUrl)
+                    setSchedulerAutomatic(true)
+                    setSchedulerUrl(derived)
+                    await onSetSchedulerUrl(null)
+                  })}
+                >恢复自动推导</button>
+              ) : null}
               <button
                 type="button"
                 className="is-primary"
@@ -365,6 +434,7 @@ export function EnvironmentManager({
                 onClick={() => void run('publish-release', async () => {
                   const backendUrl = normalizeBackendUrl(releaseBackendUrl)
                   setReleaseBackendUrl(backendUrl)
+                  await saveSchedulerUrl()
                   setReleaseReceipt(await onPublishRelease(backendUrl))
                 })}
               >发布、校验并切换</button>
@@ -655,7 +725,7 @@ export function EnvironmentManager({
     : createPortal(overlay, document.body)
 }
 
-function normalizeBackendUrl(value: string): string {
+export function normalizeBackendUrl(value: string): string {
   const candidate = value.trim()
   let url: URL
   try {
@@ -670,6 +740,41 @@ function normalizeBackendUrl(value: string): string {
     throw new Error('Backend 地址只需填写协议、IP（或主机名）和端口')
   }
   return url.origin
+}
+
+export function normalizeSchedulerUrl(value: string): string {
+  const candidate = value.trim()
+  let url: URL
+  try {
+    url = new URL(candidate)
+  } catch {
+    throw new Error('请输入有效的 Scheduler 地址，例如 http://127.0.0.1:8081')
+  }
+  if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) {
+    throw new Error('Scheduler 地址仅支持 http 或 https')
+  }
+  if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('Scheduler 地址只需填写协议、IP（或主机名）和端口')
+  }
+  return url.origin
+}
+
+export function deriveSchedulerUrl(backendUrl: string): string {
+  try {
+    const backend = new URL(backendUrl.trim())
+    if (!['http:', 'https:'].includes(backend.protocol) || !backend.hostname) return ''
+    if (backend.port) {
+      const port = Number(backend.port)
+      if (!Number.isInteger(port) || port >= 65_535) return ''
+      backend.port = String(port + 1)
+    }
+    backend.pathname = '/'
+    backend.search = ''
+    backend.hash = ''
+    return backend.origin
+  } catch {
+    return ''
+  }
 }
 
 function agentStatusMessage(

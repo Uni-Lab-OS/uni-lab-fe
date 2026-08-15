@@ -34,6 +34,14 @@ export interface WorkflowTaskRuntimeSnapshot {
 
 type WorkflowTaskRuntimeListener = () => void
 
+const ACTIVE_TASK_REFRESH_INTERVAL_MS = 2_000
+const TERMINAL_TASK_STATUSES = new Set<WorkflowTask['status']>([
+  'succeeded',
+  'failed',
+  'canceled',
+  'timeout'
+])
+
 export class WorkflowTaskController {
   private readonly listeners = new Set<WorkflowTaskRuntimeListener>()
   private snapshot: WorkflowTaskRuntimeSnapshot = {
@@ -60,6 +68,8 @@ export class WorkflowTaskController {
   private commandSequence = 0
   private queuedTaskUuid: string | null | undefined
   private refreshInFlight: Promise<void> | null = null
+  private activeRefreshTimer: ReturnType<typeof globalThis.setTimeout> | null =
+    null
 
   constructor(
     private readonly runtime: WorkflowRuntimePort,
@@ -98,7 +108,7 @@ export class WorkflowTaskController {
     } catch (error) {
       this.install({
         realtimeStatus: 'reconnecting',
-        realtimeError: `自动更新未启用，请手动刷新：${errorMessage(error)}`
+        realtimeError: `实时通知未启用，执行中任务将定时自动更新：${errorMessage(error)}`
       })
     }
     await this.requestRefresh(null)
@@ -247,6 +257,7 @@ export class WorkflowTaskController {
   dispose(): void {
     if (!this.active) return
     this.active = false
+    this.clearActiveRefreshTimer()
     this.subscription?.dispose()
     this.subscription = null
     this.listeners.clear()
@@ -333,7 +344,36 @@ export class WorkflowTaskController {
         projectionError: errorMessage(error),
         projectionStale: this.snapshot.task !== null
       })
+    } finally {
+      this.scheduleActiveRefresh()
     }
+  }
+
+  /**
+   * 为仍在执行的任务安排一次兜底补读。
+   *
+   * SSE 负责低延迟失效通知；该定时器只保证事件遗漏或连接重建期间状态仍能
+   * 收敛。每次补读后重新安排，避免慢请求形成并发轮询；终态或释放时停止。
+   */
+  private scheduleActiveRefresh(): void {
+    this.clearActiveRefreshTimer()
+    const task = this.snapshot.task
+    if (
+      !this.active ||
+      !task ||
+      TERMINAL_TASK_STATUSES.has(task.status)
+    ) return
+    this.activeRefreshTimer = globalThis.setTimeout(() => {
+      this.activeRefreshTimer = null
+      void this.requestRefresh(task.uuid)
+    }, ACTIVE_TASK_REFRESH_INTERVAL_MS)
+    this.activeRefreshTimer.unref?.()
+  }
+
+  private clearActiveRefreshTimer(): void {
+    if (this.activeRefreshTimer === null) return
+    globalThis.clearTimeout(this.activeRefreshTimer)
+    this.activeRefreshTimer = null
   }
 
   private async hydrateFeedback(

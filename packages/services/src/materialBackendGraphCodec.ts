@@ -57,7 +57,7 @@ export function mapBackendMaterialGraph(
       material.resource_template_uuid,
       'material.resource_template_uuid'
     )
-    requiredString(material.type, 'material.type')
+    const materialType = requiredString(material.type, 'material.type')
     const updateTime = requiredString(
       material.update_time,
       'material.update_time'
@@ -82,6 +82,7 @@ export function mapBackendMaterialGraph(
 
     const config = mapBackendMaterialConfig(
       material.config,
+      materialType,
       position,
       material.meta_data,
       mapBackendResourceTemplateDisplay(
@@ -137,6 +138,7 @@ function mapBackendShapeIdentity(
 /**
  * 把 OS 物料（Material）配置规范化为三个视图共享的实例渲染快照。
  * @param value OS 返回的物料配置。
+ * @param materialType OS 返回的物料实例类型，仅为台面补齐稳定渲染语义。
  * @param position 权威相对位置及物理外包尺寸；缺失时不编造尺寸。
  * @param metaData 仅用于保留资源图来源身份的物料元数据。
  * @param resourceTemplate 后端（Backend）资源模板展示摘要的规范化投影。
@@ -144,6 +146,7 @@ function mapBackendShapeIdentity(
  */
 function mapBackendMaterialConfig(
   value: unknown,
+  materialType: string,
   position: Record<string, unknown> | undefined,
   metaData: unknown,
   resourceTemplate: Record<string, unknown> | undefined
@@ -170,7 +173,7 @@ function mapBackendMaterialConfig(
         optionalString(rawRendering.type) ??
         optionalString(config.category) ??
         optionalString(config.type) ??
-        'custom',
+        (materialType === 'deck' ? 'deck' : 'custom'),
       dimensionsMm: [
         finiteGraphNumber(position.width, 'relative_position.width'),
         finiteGraphNumber(position.depth, 'relative_position.depth'),

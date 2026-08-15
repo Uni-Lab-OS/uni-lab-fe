@@ -120,7 +120,7 @@ export function ReagentModule({
   return (
     <div className={uiClass.modulePage} data-testid="workstation-reagents">
       <ModuleHeader
-        title="试剂管理"
+        title="试剂"
         description="维护试剂身份与库存实例；预留、扣减和位置变化由系统统一记录。"
         actions={(
           <>
@@ -156,7 +156,7 @@ export function ReagentModule({
       />
 
       <div className={styles.reagentViewToolbar}>
-        <nav className={styles.reagentNavigation} aria-label="试剂管理功能" role="tablist">
+        <nav className={styles.reagentNavigation} aria-label="试剂功能" role="tablist">
           <Button
             variant="ghost"
             size="sm"

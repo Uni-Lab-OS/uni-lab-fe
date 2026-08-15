@@ -57,7 +57,8 @@
 
 .workflow :global(.workflow-runtime__trace-overlay) {
   position: fixed;
-  z-index: 60;
+  /* Keep the modal above Pascal and material viewport labels/controls (<= 90). */
+  z-index: 1200;
   inset: 0;
   display: flex;
   justify-content: flex-end;

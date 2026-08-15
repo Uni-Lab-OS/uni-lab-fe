@@ -306,11 +306,12 @@
 
   :global(.persistent-authoring__io-editor-row-heading) {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 92px 66px auto;
+    grid-template-columns: minmax(180px, 2fr) minmax(92px, 0.75fr)
+      minmax(76px, 0.65fr) auto;
     min-height: 40px;
     align-items: center;
     gap: 8px;
-    padding: 0 8px 0 10px;
+    padding: 7px 8px 7px 10px;
     list-style: none;
     cursor: pointer;
   }
@@ -341,7 +342,7 @@
   :global(.persistent-authoring__io-editor-identity) {
     display: flex;
     min-width: 0;
-    align-items: center;
+    align-items: flex-start;
     gap: 6px;
   }
 
@@ -350,13 +351,38 @@
     font-size: 13px;
   }
 
-  :global(.persistent-authoring__io-editor-identity) code {
-    overflow: hidden;
+  :global(.persistent-authoring__io-editor-identity-text) {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  :global(.persistent-authoring__io-editor-identity-text) strong {
+    min-width: 0;
     color: var(--unilab-color-text);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  :global(.persistent-authoring__io-editor-identity) code {
+    min-width: 0;
+    color: var(--unilab-color-text-muted);
     font-size: 11px;
     font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  @container workflow (max-width: 720px) {
+    :global(.persistent-authoring__io-editor-identity-text) {
+      display: grid;
+      align-items: initial;
+      gap: 1px;
+    }
   }
 
   :global(.persistent-authoring__io-editor-type),

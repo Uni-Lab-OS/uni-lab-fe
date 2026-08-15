@@ -80,12 +80,10 @@ export function PersistentWorkflowAuthoringView({
     runtimeBusy,
     selectCanvasNode,
     selectedActionEditor,
-    selectedActionProjection,
     selectedActionTemplate,
     selectedIsMaterialSource,
     selectedJobNodeUuid,
     selectedMaterialSourceEditor,
-    selectedMaterialSourceProjection,
     selectedNodeIsInternal,
     selectedNodeName,
     selectedNodeUuid,
@@ -174,6 +172,10 @@ export function PersistentWorkflowAuthoringView({
     completed: '已完成',
     stopped: '已停止'
   }
+  const selectedNodeDescription = selectedNodeUuid
+    ? structure.nodes.find((node) => node.id === selectedNodeUuid)
+      ?.description?.trim()
+    : ''
 
   return (
     <div
@@ -274,7 +276,9 @@ export function PersistentWorkflowAuthoringView({
                   type="button"
                   className={codeProjection === 'python' ? 'is-active' : ''}
                   aria-pressed={codeProjection === 'python'}
-                  disabledReason="Python 草稿视图始终可用"
+                  disabled={!sourceEditingAvailable}
+                  disabledReason={sourceEditingDisabledReason ??
+                    '当前数据源没有可编辑的 Python 草稿'}
                   onClick={() => setCodeProjection('python')}
                 >
                   Python
@@ -292,10 +296,10 @@ export function PersistentWorkflowAuthoringView({
               </div>
               <span title={codeProjection === 'python'
                 ? 'Python 草稿可编辑'
-                : 'JSON 是 OS 候选图的只读投影'}>
+                : `${authorityLabel} 工作流图的只读投影`}>
                 {codeProjection === 'python'
                   ? 'Python 草稿 · 可编辑'
-                  : 'OS 候选图 · 只读'}
+                  : `${authorityLabel} 工作流 JSON · 只读`}
               </span>
             </div>
           )}
@@ -323,7 +327,7 @@ export function PersistentWorkflowAuthoringView({
           </div>
           <p className="persistent-authoring__authority-note">
             {!sourceEditingAvailable
-              ? sourceEditingDisabledReason
+              ? 'Backend 代码视图为只读；如需修改，请切回画布模式'
               : mode === 'canvas'
                 ? 'Python 是 OS 生成的只读投影'
                 : codeProjection === 'json'
@@ -342,7 +346,7 @@ export function PersistentWorkflowAuthoringView({
             linkCount={structure.links.length}
             projectionTitle={authorityLabel === 'Backend'
               ? definitionEditingAvailable
-                ? '画布可编辑并直接保存；工作区代码修改不生效'
+                ? '画布可编辑并直接保存；代码模式提供只读 JSON 视图'
                 : definitionEditingDisabledReason ??
                   '当前 Backend 工作流定义只读'
               : projectionKind === 'candidate'
@@ -511,7 +515,7 @@ export function PersistentWorkflowAuthoringView({
                           busy || !canvasMutationEnabled ||
                           selectedNodeIsInternal
                         }
-                        aria-describedby="persistent-node-name-help"
+                        aria-describedby="persistent-node-description"
                         onChange={(event) => {
                           setSelectedNodeName(event.target.value)
                           setSelectedNodeNameDirty(true)
@@ -519,6 +523,14 @@ export function PersistentWorkflowAuthoringView({
                         }}
                       />
                     </label>
+                    <section
+                      id="persistent-node-description"
+                      className="persistent-authoring__node-description"
+                      aria-label="节点说明"
+                    >
+                      <strong>节点说明</strong>
+                      <p>{selectedNodeDescription || '当前节点暂无描述'}</p>
+                    </section>
                       {selectedMaterialSourceEditor && (
                         <MaterialSourceInspector
                           editor={selectedMaterialSourceEditor}
@@ -542,12 +554,6 @@ export function PersistentWorkflowAuthoringView({
                           )}
                           onRevealSource={revealPackageSource}
                         />
-                      )}
-                      {selectedMaterialSourceProjection.error && (
-                        <p role="alert">
-                          物料来源选择读取失败：
-                          {selectedMaterialSourceProjection.error}
-                        </p>
                       )}
                       {selectedActionEditor && (
                         <section
@@ -575,15 +581,6 @@ export function PersistentWorkflowAuthoringView({
                           </button>
                         </section>
                       )}
-                      {selectedActionProjection.error && (
-                        <p role="alert">
-                          操作模板或端口读取失败：
-                          {selectedActionProjection.error}
-                        </p>
-                      )}
-                    <p id="persistent-node-name-help">
-                      {canvasSaveHint}
-                    </p>
                   </aside>
                 )}
               </>

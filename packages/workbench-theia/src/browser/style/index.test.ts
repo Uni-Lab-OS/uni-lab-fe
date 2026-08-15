@@ -5,6 +5,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 let stylesheet = ''
 let domainNavigationStylesheet = ''
+let navigatorSource = ''
 
 /** 读取 Workbench 主样式与领域导航样式，供结构性回归断言复用。 */
 beforeAll(async () => {
@@ -15,7 +16,8 @@ beforeAll(async () => {
     environment,
     surfaces,
     aionui,
-    navigation
+    navigation,
+    navigator
   ] = await Promise.all([
     readFile(fileURLToPath(new URL('./workbench-shell.css', import.meta.url)), 'utf8'),
     readFile(
@@ -32,6 +34,10 @@ beforeAll(async () => {
     readFile(
       fileURLToPath(new URL('./workbench-domain-navigation.css', import.meta.url)),
       'utf8'
+    ),
+    readFile(
+      fileURLToPath(new URL('../unilab-workbench-navigator-widget.tsx', import.meta.url)),
+      'utf8'
     )
   ])
   stylesheet = [
@@ -43,6 +49,7 @@ beforeAll(async () => {
     aionui
   ].join('\n')
   domainNavigationStylesheet = navigation
+  navigatorSource = navigator
 })
 
 describe('environment manager layering and responsive layout', () => {
@@ -106,6 +113,20 @@ describe('environment manager layering and responsive layout', () => {
     expect(icon).toMatch(/flex:\s*0 0 14px/u)
   })
 
+  /** 临时错误与状态提示应出现在窗口顶部水平中央。 */
+  it('centers notification toasts at the top of the window', () => {
+    const rule = cssRule(
+      '.theia-notifications-container.theia-notification-toasts'
+    )
+
+    expect(rule).toMatch(/position:\s*fixed/u)
+    expect(rule).toMatch(/top:\s*16px/u)
+    expect(rule).toMatch(/bottom:\s*auto/u)
+    expect(rule).toMatch(/left:\s*50%/u)
+    expect(rule).toMatch(/transform:\s*translateX\(-50%\)/u)
+    expect(rule).toMatch(/width:\s*min\(500px, calc\(100vw - 32px\)\)/u)
+  })
+
   /** 证明大纲不再占用 Workbench 右侧产品导航入口。 */
   it('removes the outline entry from the right product navigation', () => {
     expect(domainNavigationStylesheet).toMatch(
@@ -161,6 +182,26 @@ describe('environment manager layering and responsive layout', () => {
   it('hides the three internal robot navigation entries', () => {
     expect(domainNavigationStylesheet).toMatch(
       /data-unilabdomain='robot-debug'[\s\S]*data-unilabdomain='robot-points'[\s\S]*data-unilabdomain='robot-bench'[\s\S]*display:\s*none/u
+    )
+    expect(domainNavigationStylesheet).not.toMatch(
+      /data-unilabdomain='robot-reagents'\]\s*\{\s*display:\s*none/u
+    )
+  })
+
+  /** 工作流是产品领域名，活动栏不得缩写成“工作”。 */
+  it('keeps the complete workflow navigation label', () => {
+    expect(navigatorSource).toMatch(
+      /mode:\s*'workflow',[\s\S]*?label:\s*'工作流'/u
+    )
+  })
+
+  /** 试剂领域的产品文案统一使用“试剂”。 */
+  it('uses the concise reagent navigation label', () => {
+    expect(navigatorSource).toMatch(
+      /mode:\s*'robot-reagents',[\s\S]*?label:\s*'试剂'/u
+    )
+    expect(navigatorSource).not.toMatch(
+      /mode:\s*'robot-reagents',[\s\S]*?label:\s*'试剂管理'/u
     )
   })
   /** 证明运行连接选择采用扁平分段控件，并在窄屏重排而不是横向压缩。 */

@@ -347,6 +347,18 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
     })
   }
 
+  async setSchedulerUrl(url: string | null): Promise<WorkbenchSessionSnapshot> {
+    const normalized = url?.trim() || null
+    if (this.snapshot.configuredSchedulerUrl === normalized) {
+      return this.getSnapshot()
+    }
+    const reconnectEdge = this.host?.components.edge.phase === 'ready'
+      && this.snapshot.configuredDomainMode === 'backend'
+    await this.updateConfiguration({ schedulerUrl: normalized })
+    if (reconnectEdge) await this.run('os.restart')
+    return this.getSnapshot()
+  }
+
   async publishRelease(
     options: {
       activate?: boolean
@@ -620,12 +632,16 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
     const backendUrl = this.options.backendAuthorityUrl
       ?? configuration.backendUrl
       ?? this.snapshot.configuredBackendUrl
+    const schedulerUrl = this.options.schedulerAuthorityUrl
+      ?? configuration.schedulerUrl
+      ?? this.snapshot.configuredSchedulerUrl
     this.publish({
       configuredGraphPath: graphPath,
       configuredExternalDevicesOnly: externalDevicesOnly,
       configuredRuntimeMode: mode,
       configuredDomainMode: domainMode,
       configuredBackendUrl: backendUrl,
+      configuredSchedulerUrl: schedulerUrl,
       edgeRuntime: {
         ...this.snapshot.edgeRuntime,
         graphPath,
@@ -887,6 +903,12 @@ function projectSnapshot(
     ?? previous.configuredDomainMode
   const backendUrl = stringValue(configuration['backendUrl'])
     ?? previous.configuredBackendUrl
+  const schedulerUrl = Object.prototype.hasOwnProperty.call(
+    configuration,
+    'schedulerUrl'
+  )
+    ? stringValue(configuration['schedulerUrl'])
+    : previous.configuredSchedulerUrl
   const backendPhase = workbenchPhase(backend.phase)
   const identity = backend.pid && backend.generation && backend.address
     ? {
@@ -916,6 +938,7 @@ function projectSnapshot(
     configuredRuntimeMode: mode,
     configuredDomainMode: domainMode,
     configuredBackendUrl: backendUrl,
+    configuredSchedulerUrl: schedulerUrl,
     identity,
     agent: previous.agent,
     diagnostic: componentDiagnostic(backend),
@@ -974,6 +997,7 @@ function initialSnapshot(
     configuredRuntimeMode: mode,
     configuredDomainMode: options.domainMode ?? 'local',
     configuredBackendUrl: options.backendAuthorityUrl ?? null,
+    configuredSchedulerUrl: options.schedulerAuthorityUrl ?? null,
     identity: null,
     agent: null,
     diagnostic: null,

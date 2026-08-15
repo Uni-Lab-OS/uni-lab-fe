@@ -36,6 +36,17 @@ describe('Workflow workspace authority', () => {
     )).toBe(false)
   })
 
+  /** 属性面板只展示选中节点的说明，不得用保存或投影错误充当描述。 */
+  it('renders the selected node description in the inspector', () => {
+    const view = componentSource('PersistentWorkflowAuthoringView.tsx')
+
+    expect(view).toContain('selectedNodeDescription')
+    expect(view).toContain('节点说明')
+    expect(view).toContain('当前节点暂无描述')
+    expect(view).not.toContain('操作模板或端口读取失败：')
+    expect(view).not.toMatch(/<p id="persistent-node-name-help">/u)
+  })
+
   /** Backend 只读控件可以有适配样式，但不得恢复独立页面壳。 */
   it('removes the Backend-only workspace shell stylesheet', () => {
     expect(existsSync(
@@ -70,6 +81,19 @@ describe('Workflow workspace authority', () => {
     )
     expect(outputStylesheet).toMatch(
       /@container workflow \(max-width: 720px\)[\s\S]*?\.workflow-runtime__output-tabs\) button[^{]*\{[^}]*min-width:\s*max-content[^}]*flex:\s*0 0 auto/u
+    )
+  })
+
+  /** 单工作流宽屏保持单行；工作流与物料分栏变窄后才上下排列参数名称。 */
+  it('stacks translated parameter names only in a narrow workflow pane', () => {
+    const stylesheet = componentSource(
+      'workflow-persistent/_section-04.scss'
+    )
+    expect(stylesheet).toMatch(
+      /\.persistent-authoring__io-editor-identity-text\)[^{]*\{[^}]*display:\s*flex/u
+    )
+    expect(stylesheet).toMatch(
+      /@container workflow \(max-width: 720px\)[\s\S]*?\.persistent-authoring__io-editor-identity-text\)[^{]*\{[^}]*display:\s*grid/u
     )
   })
 })

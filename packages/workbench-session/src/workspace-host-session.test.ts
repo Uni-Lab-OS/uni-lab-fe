@@ -236,6 +236,27 @@ describe('Workspace Host Workbench adapter', () => {
       })
     }, { timeout: 2_000 })
 
+    const commandsBeforeSchedulerChange = receivedCommands.length
+    const customScheduler = await session.setSchedulerUrl(
+      'http://127.0.0.1:39081'
+    )
+    expect(receivedCommands.slice(commandsBeforeSchedulerChange)).toEqual([
+      'configuration.update',
+      'os.restart'
+    ])
+    expect(receivedParameters.get('configuration.update')).toEqual({
+      schedulerUrl: 'http://127.0.0.1:39081'
+    })
+    expect(customScheduler.configuredSchedulerUrl).toBe(
+      'http://127.0.0.1:39081'
+    )
+
+    const automaticScheduler = await session.setSchedulerUrl(null)
+    expect(receivedParameters.get('configuration.update')).toEqual({
+      schedulerUrl: null
+    })
+    expect(automaticScheduler.configuredSchedulerUrl).toBeNull()
+
     await session.unregisterRenderer()
     expect(receivedCommands.at(-1)).toBe('renderer.detach')
     expect(snapshot.components.renderer.phase).toBe('idle')
@@ -512,7 +533,8 @@ function hostSnapshot(workspacePath: string) {
       externalDevicesOnly: true,
       runtimeMode: 'normal',
       domainMode: 'local',
-      backendUrl: null as string | null
+      backendUrl: null as string | null,
+      schedulerUrl: null as string | null
     },
     components: {
       backend: component('backend'),
