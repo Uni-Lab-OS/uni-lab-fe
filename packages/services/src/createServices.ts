@@ -49,6 +49,7 @@ export interface CreateServicesOptions {
   backend: BackendConfig
   fetcher?: CreateHttpClientOptions['fetcher']
   getAccessToken?: CreateHttpClientOptions['getAccessToken']
+  timeoutMs?: CreateHttpClientOptions['timeoutMs']
   traceRequest?: CreateHttpClientOptions['traceRequest']
 }
 

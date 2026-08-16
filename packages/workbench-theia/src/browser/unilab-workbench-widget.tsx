@@ -90,6 +90,7 @@ import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
 import { EnvironmentManager } from './environment-manager'
 import { createTheiaWorkflowIdeAdapter } from './theia-workflow-ide-adapter'
 import { WorkbenchDomainLayout } from './workbench-domain-layout'
+import { useWorkbenchMaterialGraphLoad } from './workbench-material-graph-load'
 import { WorkbenchSessionGate } from './workbench-session-gate'
 import {
   WorkbenchViewState,
@@ -989,10 +990,7 @@ function WorkbenchMaterialViewport({
     }
   }), [backendUrl])
 
-  useEffect(() => {
-    if (!readStatus.available || loadState !== 'idle') return
-    void store.getState().loadGraph()
-  }, [loadState, readStatus.available, store])
+  useWorkbenchMaterialGraphLoad(store, readStatus.available, loadState)
 
   const applyMoves = useCallback(async (
     moves: readonly MaterialSceneMove[]
@@ -1064,7 +1062,8 @@ function createWorkbenchServices(backendUrl: string): Services {
       ...backend,
       apiUrl: url,
       realtimeUrl: url.replace(/^http/, 'ws')
-    }
+    },
+    timeoutMs: 30_000
   })
 }
 

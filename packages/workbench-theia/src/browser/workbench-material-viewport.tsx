@@ -12,7 +12,9 @@ import type {
 import { ensurePascalRendererDefaults } from '@unilab/pascal-host'
 import type { WorkflowPanelRuntimeProjection } from '@unilab/workflow-editor'
 import * as React from 'react'
-import { Suspense, useCallback, useEffect, useMemo } from 'react'
+import { Suspense, useCallback, useMemo } from 'react'
+
+import { useWorkbenchMaterialGraphLoad } from './workbench-material-graph-load'
 
 ensurePascalRendererDefaults()
 
@@ -62,10 +64,7 @@ export function WorkbenchMaterialViewport({
     }
   }), [backendUrl])
 
-  useEffect(() => {
-    if (!readStatus.available || loadState !== 'idle') return
-    void store.getState().loadGraph()
-  }, [loadState, readStatus.available, store])
+  useWorkbenchMaterialGraphLoad(store, readStatus.available, loadState)
 
   /** 依次向 OS 提交物料移动，保留存储端的修订冲突语义。 */
   const applyMoves = useCallback(async (
