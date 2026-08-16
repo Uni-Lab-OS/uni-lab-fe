@@ -116,4 +116,36 @@ describe('Backend reagent editor validation', () => {
     expect(filterReagentContainers(containers, 'MATERIAL-ALPHA')).toEqual([containers[0]])
     expect(filterReagentContainers(containers, '  ')).toEqual(containers)
   })
+
+  /** 证明编辑库存试剂时会在更多信息中回填并允许维护既有自定义参数。 */
+  it('restores custom parameters while editing inventory', () => {
+    const markup = renderToStaticMarkup(
+      createElement(BackendReagentEditorDialog, {
+        mode: 'edit',
+        item: {
+          id: 'reagent-1',
+          materialId: 'material-1',
+          name: '乙醇',
+          totalQuantity: 500,
+          unit: 'mL',
+          revision: 3,
+          status: 'available',
+          metadata: {
+            supplier: '测试供应商',
+            custom_parameters: [{ name: '纯度', value: '色谱纯' }]
+          }
+        },
+        containers: [],
+        occupiedMaterialIds: new Set<string>(),
+        onSave: async () => {},
+        onClose: () => {}
+      })
+    )
+
+    expect(markup).toContain('<summary>更多信息</summary>')
+    expect(markup).toContain('aria-label="自定义参数"')
+    expect(markup).toContain('value="纯度"')
+    expect(markup).toContain('value="色谱纯"')
+    expect(markup).toContain('添加参数')
+  })
 })

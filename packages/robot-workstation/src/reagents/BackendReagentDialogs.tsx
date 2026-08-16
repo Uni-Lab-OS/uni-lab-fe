@@ -19,6 +19,11 @@ import {
 import { isValidCAS, optionalNumber, textValue } from './reagentFormValues'
 import { CustomParameterFields } from './CustomParameterFields'
 import { QuantityUnitSelect, REAGENT_QUANTITY_UNITS } from './QuantityUnitSelect'
+import {
+  mergeReagentInfoMetadata,
+  reagentInfoCustomParameters,
+  validateCustomParameters
+} from './ReagentInfoDialogs'
 
 type EditorProps = {
   containers: readonly ReagentContainerOption[]
@@ -58,10 +63,17 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
     initial?.densityGPerMl == null ? '' : String(initial.densityGPerMl)
   )
   const [quantityUnit, setQuantityUnit] = useState(initial?.unit ?? '')
+  const initialCustomParameters = reagentInfoCustomParameters(initial?.metadata)
   const [advancedOpen, setAdvancedOpen] = useState(
-    props.mode === 'edit' && Boolean(initial?.concentrationValue != null || initial?.description)
+    props.mode === 'edit' && Boolean(
+      initial?.concentrationValue != null ||
+      initial?.description ||
+      initialCustomParameters.length > 0
+    )
   )
-  const [customParameters, setCustomParameters] = useState<CustomParameter[]>([])
+  const [customParameters, setCustomParameters] = useState<CustomParameter[]>(
+    initialCustomParameters
+  )
   const selectedInfo = props.infos?.find(info => info.id === selectedInfoId)
 
   /** 切换试剂身份时只带入参考密度，不替用户猜测计量单位。 */
@@ -83,7 +95,8 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
     if (submitting) return
     const form = new FormData(event.currentTarget)
     const values = reagentEditorValues(form)
-    const validationError = validateReagentEditor(values, props.mode)
+    const validationError = validateReagentEditor(values, props.mode) ??
+      validateCustomParameters(customParameters)
     if (validationError) {
       reportError(validationError)
       return
@@ -92,6 +105,11 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
     setError('')
     try {
       if (props.mode === 'create') {
+        const metadata = mergeReagentInfoMetadata({
+          supplier: values.supplier,
+          density_condition: values.densityCondition,
+          expires_on: values.expiresOn
+        }, customParameters)
         await props.onSave({
           materialId: values.materialId,
           cas: values.cas,
@@ -100,15 +118,11 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
           ...concentrationCommand(values),
           quantity: values.quantity,
           quantityUnit: values.quantityUnit,
-          metadata: {
-            supplier: values.supplier,
-            density_condition: values.densityCondition,
-            expires_on: values.expiresOn,
-            custom_parameters: customParameters
-          },
+          metadata: metadata ?? {},
           ...(values.description ? { description: values.description } : {})
         })
       } else {
+        const metadata = mergeReagentInfoMetadata(props.item.metadata, customParameters)
         await props.onSave({
           id: props.item.id,
           quantity: values.quantity,
@@ -116,7 +130,7 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
           expectedRevision: props.item.revision ?? 0,
           ...concentrationCommand(values),
           ...(values.description ? { description: values.description } : {}),
-          ...(props.item.metadata ? { metadata: props.item.metadata } : {})
+          ...(metadata ? { metadata } : {})
         })
       }
     } catch (submitError) {
@@ -274,9 +288,7 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
                 <Textarea name="description" rows={3} maxLength={1000} defaultValue={initial?.description ?? ''} />
               </label>
             </div>
-            {props.mode === 'create' ? (
-              <CustomParameterFields value={customParameters} onChange={setCustomParameters} />
-            ) : null}
+            <CustomParameterFields value={customParameters} onChange={setCustomParameters} />
           </details>
         </div>
         {noAvailableContainer ? (
