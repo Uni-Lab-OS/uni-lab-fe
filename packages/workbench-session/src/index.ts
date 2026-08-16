@@ -249,7 +249,7 @@ interface ResolvedWorkbenchLaunch {
 }
 
 const LOOPBACK_HOST = '127.0.0.1'
-export const WORKBENCH_OS_READINESS_TIMEOUT_MS = 300_000
+export const WORKBENCH_OS_READINESS_TIMEOUT_MS = 600_000
 const DEFAULT_PLC_SIMULATOR_READINESS_TIMEOUT_MS = 90_000
 const LOCAL_ENVIRONMENT_CONFIG = 'environment.local.json'
 

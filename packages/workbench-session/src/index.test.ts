@@ -33,7 +33,7 @@ afterEach(async () => {
 
 describe('managed local Workbench session', () => {
   it('allows managed exact workflow composition to finish before readiness expires', () => {
-    expect(WORKBENCH_OS_READINESS_TIMEOUT_MS).toBe(300_000)
+    expect(WORKBENCH_OS_READINESS_TIMEOUT_MS).toBe(600_000)
   })
 
   it('pre-fills the conventional sibling PLC-Sim path for a new workspace', async () => {
