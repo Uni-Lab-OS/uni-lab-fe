@@ -19,7 +19,8 @@ import {
   isAuthoringSnapshotDirty,
   isSameAuthoringVersion,
   isCurrentAuthoringInvalidation,
-  resolveWorkflowCanvasModeProjection
+  resolveWorkflowCanvasModeProjection,
+  workflowCanvasModeProjectionInstallPolicy
 } from './persistentAuthoringSession'
 
 /**
@@ -78,6 +79,21 @@ WorkflowAuthoringAggregate => ({
 
 describe('persistent Authoring session coordination', () => {
   it('工作流身份拒绝不会重复提交已接受差异', classifiesIdentityMismatchAsNonRetryable)
+
+  it('reuses the installed managed exact projection when entering canvas mode', () => {
+    expect(workflowCanvasModeProjectionInstallPolicy({
+      readOnly: true,
+      graphInstalled: true
+    })).toEqual({ replaceGraph: false, replacePython: false })
+    expect(workflowCanvasModeProjectionInstallPolicy({
+      readOnly: true,
+      graphInstalled: false
+    })).toEqual({ replaceGraph: true, replacePython: false })
+    expect(workflowCanvasModeProjectionInstallPolicy({
+      readOnly: false,
+      graphInstalled: true
+    })).toEqual({ replaceGraph: true, replacePython: true })
+  })
 
   it('冻结本地修改为远端冲突快照', () => {
     const local = {

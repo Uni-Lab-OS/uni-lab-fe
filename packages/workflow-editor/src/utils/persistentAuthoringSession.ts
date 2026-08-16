@@ -18,6 +18,26 @@ export interface AuthoringLocalSnapshot {
 }
 
 /**
+ * 决定进入画布模式时是否需要重新安装图与 Python 投影。
+ *
+ * 受管精确拓扑在聚合安装阶段已完成只读图、源码与画布布局投影。模式切换只改变
+ * 可见表面；重新复制大型图会无意义地触发 JSON、ReactFlow 与 CodeMirror 全量更新。
+ * 普通可编辑工作流仍使用服务端新生成的图与 Python，保持原有单编辑权语义。
+ */
+export function workflowCanvasModeProjectionInstallPolicy(input: {
+  readOnly: boolean
+  graphInstalled: boolean
+}): { replaceGraph: boolean; replacePython: boolean } {
+  if (input.readOnly) {
+    return {
+      replaceGraph: !input.graphInstalled,
+      replacePython: false
+    }
+  }
+  return { replaceGraph: true, replacePython: true }
+}
+
+/**
  * 判断本地工作流创作快照是否包含尚未保存的修改。
  *
  * @param snapshot 当前代码或画布编辑快照。

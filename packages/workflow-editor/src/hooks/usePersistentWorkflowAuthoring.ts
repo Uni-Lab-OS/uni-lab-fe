@@ -53,7 +53,8 @@ import {
   isCurrentAuthoringInvalidation,
   isSameAuthoringVersion,
   isTemplateCatalogConflict,
-  resolveWorkflowCanvasModeProjection
+  resolveWorkflowCanvasModeProjection,
+  workflowCanvasModeProjectionInstallPolicy
 } from '../utils/persistentAuthoringSession'
 import {
   authoritativePython,
@@ -678,10 +679,18 @@ export function usePersistentWorkflowAuthoring({
         aggregate,
         generate: (sourceGraph) => generateCanvasPython(sourceGraph)
       })
-      setGraph(beautifyPersistentAuthoringGraph(
-        projection.graph
-      ))
-      editor.replaceContent(projection.pythonSource)
+      const installPolicy = workflowCanvasModeProjectionInstallPolicy({
+        readOnly: projection.readOnly,
+        graphInstalled: graph !== null
+      })
+      if (installPolicy.replaceGraph) {
+        setGraph(projection.readOnly
+          ? projection.graph
+          : beautifyPersistentAuthoringGraph(projection.graph))
+      }
+      if (installPolicy.replacePython) {
+        editor.replaceContent(projection.pythonSource)
+      }
       setCanvasDirty(false)
       setSelectedNodeUuid(null)
       setSelectedNodeName('')
@@ -700,7 +709,7 @@ export function usePersistentWorkflowAuthoring({
     setSelectedNodeNameDirty(false)
     setMode('code')
     setMessage(authoringStateMessage(aggregate))
-  }, [aggregate, editor.replaceContent, generateCanvasPython])
+  }, [aggregate, editor.replaceContent, generateCanvasPython, graph])
 
   const requestMode = (nextMode: WorkflowEditMode): void => {
     const decision = workflowAuthoringModeSwitchDecision({
