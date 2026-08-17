@@ -295,16 +295,6 @@ function createWindow(): void {
           right: 0 !important;
           width: 100% !important;
         }
-        #theia-main-content-panel > .lm-DockPanel-widget {
-          top: 0 !important;
-          left: 0 !important;
-          right: 0 !important;
-          width: 100% !important;
-          height: 100% !important;
-        }
-        #theia-main-content-panel > .lm-TabBar.theia-app-centers.theia-app-main {
-          display: none !important;
-        }
       `)
     })
   }

@@ -202,11 +202,7 @@ body.unilab-agent-panel-visible
   }
 }
 
-/*
- * 左侧活动栏展开的资源管理器、界面设置等面板必须浮在全尺寸主工作区之上。
- * 主 DockPanel 被拉伸至整个可用区域后会与侧栏内容发生几何重叠，因此在
- * 这里明确恢复侧栏的视觉层级，同时保留画布无空白边框的全屏布局。
- */
+/* 左侧活动栏展开的资源管理器、界面设置等面板浮在主工作区之上。 */
 #theia-left-content-panel {
   z-index: 20 !important;
 }
@@ -219,18 +215,6 @@ body.unilab-agent-panel-visible
 #theia-bottom-split-panel > #theia-main-content-panel {
   right: 0 !important;
   width: 100% !important;
-}
-
-#theia-main-content-panel > .lm-DockPanel-widget {
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-}
-
-#theia-main-content-panel > .lm-TabBar.theia-app-centers.theia-app-main {
-  display: none !important;
 }
 
 .theia-app-left .lm-TabBar-tab[data-unilabactive='true'] {
