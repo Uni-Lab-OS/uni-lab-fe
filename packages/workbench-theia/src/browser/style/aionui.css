@@ -29,6 +29,7 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
+  box-sizing: border-box;
   flex-direction: column;
   overflow: hidden;
   color: var(--theia-foreground);

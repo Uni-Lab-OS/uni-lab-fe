@@ -53,6 +53,13 @@ beforeAll(async () => {
 })
 
 describe('environment manager layering and responsive layout', () => {
+  /** Agent 根视图必须把 padding 计入面板宽度，不能向主区额外溢出 48px。 */
+  it('keeps the Agent surface inside its allocated panel width', () => {
+    expect(stylesheet).toMatch(
+      /\.unilab-aionui\s*\{[^}]*width:\s*100%[^}]*box-sizing:\s*border-box/u
+    )
+  })
+
   it('owns the viewport above every material canvas overlay', () => {
     const overlay = cssRule('.unilab-environment-manager__overlay')
     const panel = cssRule('.unilab-environment-manager')
@@ -152,6 +159,9 @@ describe('environment manager layering and responsive layout', () => {
       /body\.unilab-agent-panel-visible[\s\S]*?#theia-right-content-panel\s*\{[^}]*display:\s*flex !important;[^}]*min-width:\s*420px !important/u
     )
     expect(domainNavigationStylesheet).toMatch(
+      /body\.unilab-agent-panel-visible[\s\S]*?#theia-right-content-panel[\s\S]*?> \.lm-BoxPanel\s*\{[^}]*left:\s*0 !important;[^}]*right:\s*0 !important;[^}]*width:\s*auto !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
       /body\.unilab-agent-panel-visible[\s\S]*?#theia-bottom-split-panel\s*\{[^}]*right:\s*420px !important/u
     )
     expect(domainNavigationStylesheet).toMatch(
@@ -168,6 +178,12 @@ describe('environment manager layering and responsive layout', () => {
     )
     expect(domainNavigationStylesheet).toMatch(
       /#theia-bottom-split-panel\s*> #theia-main-content-panel\s*\{[^}]*right:\s*0 !important;[^}]*width:\s*100% !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-main-content-panel[\s\S]*?> \[id='unilab:authoring-workbench'\]\.lm-DockPanel-widget\s*\{[^}]*right:\s*0 !important;[^}]*width:\s*auto !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-main-content-panel[\s\S]*?> \.lm-TabBar\.theia-app-main:has\([\s\S]*?\[id='shell-tab-unilab:authoring-workbench'\][\s\S]*?\)\s*\{[^}]*right:\s*0 !important;[^}]*width:\s*auto !important/u
     )
     expect(domainNavigationStylesheet).not.toMatch(
       /#theia-main-content-panel\s*> \.lm-DockPanel-widget\s*\{/u
@@ -236,7 +252,7 @@ describe('environment manager layering and responsive layout', () => {
       /\.unilab-workbench\s*\{[^}]*container-name:\s*unilab-workbench[^}]*container-type:\s*inline-size/u
     )
     expect(stylesheet).toMatch(
-      /@container unilab-workbench \(max-width: 900px\)[\s\S]*?\.unilab-workbench__bar\s*\{[^}]*flex-wrap:\s*wrap/u
+      /@container unilab-workbench \(max-width: 1100px\)[\s\S]*?\.unilab-workbench__bar\s*\{[^}]*flex-wrap:\s*wrap/u
     )
     expect(stylesheet).toMatch(
       /@container unilab-workbench \(max-width: 560px\)[\s\S]*?\.unilab-workbench__controls nav\s*\{[^}]*overflow-x:\s*auto/u

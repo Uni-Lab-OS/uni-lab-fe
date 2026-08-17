@@ -201,7 +201,7 @@
 }
 
 /* 左侧文件栏或右侧 Agent 会压缩主工作台；按组件自身宽度重排标题栏。 */
-@container unilab-workbench (max-width: 900px) {
+@container unilab-workbench (max-width: 1100px) {
   .unilab-workbench__bar {
     flex-wrap: wrap;
     align-items: stretch;

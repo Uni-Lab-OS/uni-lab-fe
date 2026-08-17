@@ -170,6 +170,18 @@ body.unilab-agent-panel-visible
 }
 
 /*
+ * 隐藏 48px 右活动栏后，Lumino 仍会给右侧内容包装层写入 left:-48px，
+ * 使 Agent 提前覆盖主工作区。让包装层严格填充已经预留的 420px 面板。
+ */
+body.unilab-agent-panel-visible
+  #theia-right-content-panel
+  > .lm-BoxPanel {
+  left: 0 !important;
+  right: 0 !important;
+  width: auto !important;
+}
+
+/*
  * Agent 展开后为它保留实际布局宽度。否则 Pascal 的 WebGL/HTML
  * 标注层仍按全宽视口排版，视觉上会穿进右侧 Agent 内容。
  */
@@ -215,6 +227,30 @@ body.unilab-agent-panel-visible
 #theia-bottom-split-panel > #theia-main-content-panel {
   right: 0 !important;
   width: 100% !important;
+}
+
+/*
+ * 右侧 Agent 展开或收起时，外层 DockPanel 会改变可用宽度，但 Lumino 可能
+ * 仍给当前 Workbench 保留变化前的内联宽度。只校正产品工作台这个确定的
+ * 主区 Widget，避免重新覆盖编辑器、欢迎页等其他 DockPanel 子项的布局。
+ */
+#theia-main-content-panel
+  > [id='unilab:authoring-workbench'].lm-DockPanel-widget {
+  right: 0 !important;
+  width: auto !important;
+}
+
+/*
+ * 与 Workbench Widget 配套校正它所在的主标签栏。Agent 收起后 Lumino
+ * 可能仍保留展开态的内联宽度，导致标签栏右侧缺一段；:has 将影响范围
+ * 限定在确实承载产品工作台标签的 TabBar，不干扰编辑器分栏。
+ */
+#theia-main-content-panel
+  > .lm-TabBar.theia-app-main:has(
+    .lm-TabBar-content > [id='shell-tab-unilab:authoring-workbench']
+  ) {
+  right: 0 !important;
+  width: auto !important;
 }
 
 .theia-app-left .lm-TabBar-tab[data-unilabactive='true'] {
