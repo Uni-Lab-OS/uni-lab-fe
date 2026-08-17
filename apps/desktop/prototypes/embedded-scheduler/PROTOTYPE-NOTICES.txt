@@ -1,0 +1,14 @@
+PROTOTYPE — NOT A REDISTRIBUTABLE RELEASE
+
+This throwaway Linux x64 probe stages:
+
+- PostgreSQL 14 files from the host distribution. PostgreSQL is distributed
+  under the PostgreSQL License. A production package must carry the exact
+  distro/source notices for every staged file.
+- TimescaleDB 2.19.3 built from the official release tag with APACHE_ONLY=1.
+  The source is https://github.com/timescale/timescaledb at commit
+  95861e123bd439ed3c04dc5eeb86fef841bdf93b under Apache-2.0 for this build.
+- Uni-Lab Backend built from the commit recorded in runtime/manifest.json.
+
+The prototype intentionally does not satisfy a production SBOM, third-party
+notice, vulnerability scan, code-signing, or update-policy gate.

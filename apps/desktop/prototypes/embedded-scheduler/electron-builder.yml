@@ -1,0 +1,27 @@
+appId: org.unilab.prototype.embedded-scheduler
+productName: Uni-Lab Embedded Scheduler Prototype
+executableName: unilab-embedded-scheduler-prototype
+electronVersion: 33.4.11
+directories:
+  output: ${env.UNILAB_PROTOTYPE_OUTPUT_DIR}
+files:
+  - electron-main.cjs
+  - electron-processes.cjs
+  - renderer-probe.html
+extraResources:
+  - from: runtime-payload
+    to: runtime
+    filter:
+      - '**/*'
+asar: true
+npmRebuild: false
+mac:
+  target:
+    - dir
+win:
+  target:
+    - dir
+linux:
+  category: Development
+  target:
+    - dir
