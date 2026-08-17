@@ -54,3 +54,17 @@ export function injectWorkbenchPreloadShell(html) {
   }
   return html.replace(link, `${link}\n  ${PRELOAD_STYLE}`)
 }
+
+export function enableWorkbenchModuleEntry(html) {
+  const classicEntry = '<script type="text/javascript" src="./bundle.js" charset="utf-8"></script>'
+  const moduleEntry = '<script type="module" src="./bundle.js" charset="utf-8"></script>'
+  if (html.includes(moduleEntry)) return html
+  if (!html.includes(classicEntry)) {
+    throw new Error('Theia frontend index.html 缺少 bundle.js 入口')
+  }
+  return html.replace(classicEntry, moduleEntry)
+}
+
+export function prepareWorkbenchFrontendHtml(html) {
+  return enableWorkbenchModuleEntry(injectWorkbenchPreloadShell(html))
+}

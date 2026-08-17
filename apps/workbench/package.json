@@ -77,7 +77,7 @@
   },
   "scripts": {
     "build": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/pascal-host build:styles && theia download:plugins && node scripts/run-theia-build.mjs --mode development",
-    "build:production": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/pascal-host build:styles && theia download:plugins && node scripts/run-theia-build.mjs --mode production && node scripts/prune-production-output.mjs",
+    "build:production": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/pascal-host build:styles && theia download:plugins && node scripts/run-theia-build.mjs --mode production && node scripts/check-workbench-frontend-bundles.mjs && node scripts/prune-production-output.mjs",
     "build:desktop": "pnpm --filter @unilab/desktop build:workbench-shell && pnpm build:production && pnpm build:desktop-launcher",
     "build:desktop:development": "pnpm --filter @unilab/desktop build:workbench-shell && pnpm build && pnpm build:desktop-launcher",
     "build:desktop:production": "pnpm build:desktop",

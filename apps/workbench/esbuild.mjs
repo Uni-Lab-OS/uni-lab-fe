@@ -8,10 +8,14 @@ import { nodeOptions } from './gen-esbuild.node.mjs';
 import esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
 import { sassPlugin } from 'esbuild-sass-plugin';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import { injectWorkbenchPreloadShell } from './scripts/preload-shell.mjs';
+import {
+    createApplicationPartitionEntryPoints,
+    createWorkbenchBrowserBuildOptions,
+} from './scripts/browser-build-layout.mjs';
+import { prepareWorkbenchFrontendHtml } from './scripts/preload-shell.mjs';
 
 const sharedShimPath = name => fileURLToPath(
     new URL(`../../packages/pascal-host/src/shims/${name}.tsx`, import.meta.url)
@@ -64,7 +68,7 @@ browserOptions.plugins.push({
                 new URL('./lib/frontend/index.html', import.meta.url)
             );
             const source = await readFile(indexPath, 'utf8');
-            const injected = injectWorkbenchPreloadShell(source);
+            const injected = prepareWorkbenchFrontendHtml(source);
             if (injected !== source) await writeFile(indexPath, injected);
         });
     },
@@ -83,19 +87,53 @@ if (process.platform === 'win32') {
     };
 }
 
-const browserContext = await esbuild.context(browserOptions);
+const chunksDirectory = fileURLToPath(
+    new URL('./lib/frontend/chunks', import.meta.url)
+);
+const partitionSeedsDirectory = fileURLToPath(
+    new URL('./lib/frontend/partition-seeds', import.meta.url)
+);
+await rm(chunksDirectory, { recursive: true, force: true });
+await rm(partitionSeedsDirectory, { recursive: true, force: true });
+
+const generatedApplicationSources = await Promise.all(
+    ['bundle', 'secondary-window'].map(name => readFile(browserOptions.entryPoints[name], 'utf8'))
+);
+const partitionEntryPoints = createApplicationPartitionEntryPoints(
+    generatedApplicationSources
+);
+
+const {
+    application: browserApplicationOptions,
+    workers: browserWorkerOptions,
+} = createWorkbenchBrowserBuildOptions(browserOptions, partitionEntryPoints);
+browserApplicationOptions.plugins.push({
+    name: 'unilab-remove-partition-seed-entries',
+    setup(build) {
+        build.onEnd(async result => {
+            if (result.errors.length === 0) {
+                await rm(partitionSeedsDirectory, { recursive: true, force: true });
+            }
+        });
+    },
+});
+const browserApplicationContext = await esbuild.context(browserApplicationOptions);
+const browserWorkerContext = await esbuild.context(browserWorkerOptions);
 const nodeContext = await esbuild.context(nodeOptions);
 
 
 if (watch) {
     await Promise.all([
-        browserContext.watch(),
+        browserApplicationContext.watch(),
+        browserWorkerContext.watch(),
         nodeContext.watch(),
     ]);
 } else {
     try {
-        await browserContext.rebuild();
-        await browserContext.dispose();
+        await browserApplicationContext.rebuild();
+        await browserApplicationContext.dispose();
+        await browserWorkerContext.rebuild();
+        await browserWorkerContext.dispose();
         await nodeContext.rebuild();
         await nodeContext.dispose();
     } catch {
