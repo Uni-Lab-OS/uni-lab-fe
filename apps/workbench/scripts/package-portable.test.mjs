@@ -21,6 +21,7 @@ import {
   pruneDesktopDeployment,
   resolveEsbuildBinary,
   resolvePortableCompressionLevel,
+  validateWindowsInstallerListing,
   validatePackagedWorkbenchResources
 } from './package-portable.mjs'
 import {
@@ -53,6 +54,30 @@ describe('portable Workbench packaging contract', () => {
     assert.throws(
       () => resolvePortableCompressionLevel('store'),
       /不支持的 Workbench 压缩级别/u
+    )
+  })
+
+  /** 验证最终 NSIS 技术清单必须包含安装根目录的桌面主程序。 */
+  it('rejects a Windows installer without its desktop executable', () => {
+    assert.doesNotThrow(() => validateWindowsInstallerListing([
+      'Path = C:\\build\\UniLab.Workbench-setup.exe',
+      'Type = Nsis',
+      'Path = resources',
+      'Path = UniLab Workbench.exe'
+    ].join('\r\n')))
+    assert.throws(
+      () => validateWindowsInstallerListing([
+        'Path = C:\\build\\UniLab.Workbench-setup.exe',
+        'Type = Nsis',
+        'Path = resources\\app.asar'
+      ].join('\r\n')),
+      /Windows 安装包缺少桌面主程序/u
+    )
+    assert.throws(
+      () => validateWindowsInstallerListing(
+        'Path = resources\\UniLab Workbench.exe'
+      ),
+      /Windows 安装包缺少桌面主程序/u
     )
   })
 
@@ -578,6 +603,10 @@ describe('portable Workbench packaging contract', () => {
       new URL('../../../.github/workflows/package-windows.yml', import.meta.url),
       'utf8'
     )
+    const packagingScript = await readFile(
+      new URL('./package-portable.mjs', import.meta.url),
+      'utf8'
+    )
 
     assert.match(workflow, /runs-on: windows-2022/u)
     assert.match(workflow, /permissions:\n(?:.|\n)*?contents: write/u)
@@ -664,7 +693,11 @@ describe('portable Workbench packaging contract', () => {
     )
     assert.match(
       fullInstallerSection,
-      /UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE: exe/u
+      /UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE: none/u
+    )
+    assert.match(
+      packagingScript,
+      /validateWindowsInstallerArchive\(installer\.path\)/u
     )
     assert.match(workflow, /prepare-package-version\.mjs/u)
     assert.match(workflow, /UNILAB_WORKBENCH_PACKAGE_VERSION=/u)
@@ -692,7 +725,7 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /UNILAB_WORKBENCH_PREPACKAGED_APP:/u)
     assert.match(workflow, /Name = 'baseline'; Profile = 'none'/u)
     assert.match(workflow, /Name = 'precompressed-exe'; Profile = 'exe'/u)
-    assert.match(workflow, /\$sizeReport\.precompressedProfile -ne 'exe'/u)
+    assert.match(workflow, /\$sizeReport\.precompressedProfile -ne 'none'/u)
     assert.match(workflow, /precompressed-ab-metrics\.json/u)
     assert.match(workflow, /New-SelfSignedCertificate/u)
     assert.match(workflow, /-Type CodeSigningCert/u)

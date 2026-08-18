@@ -421,9 +421,10 @@ jobs:
         if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         env:
           UNILAB_WORKBENCH_PACKAGE_MODE: full
-          # CI A/B on 3062aec: EXE precompression saved 20,665,383 bytes
-          # with a statistically neutral 106s -> 107s packaging delta.
-          UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE: exe
+          # electron-builder excludes matching files from the application
+          # archive but only restores matches below resources/. Precompressing
+          # EXE files therefore drops the root UniLab Workbench.exe.
+          UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE: none
         run: |
           $packageStarted = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
           node apps/workbench/scripts/package-windows.mjs
@@ -540,8 +541,8 @@ jobs:
           if ($sizeReport.compression -ne $env:UNILAB_WORKBENCH_COMPRESSION) {
             throw "Package report compression mismatch: $($sizeReport.compression)"
           }
-          if ($sizeReport.precompressedProfile -ne 'exe') {
-            throw "Production package does not use the benchmark winner: $($sizeReport.precompressedProfile)"
+          if ($sizeReport.precompressedProfile -ne 'none') {
+            throw "Production package uses an unsafe precompressed profile: $($sizeReport.precompressedProfile)"
           }
           @"
           ## Windows Workbench packaging benchmark
