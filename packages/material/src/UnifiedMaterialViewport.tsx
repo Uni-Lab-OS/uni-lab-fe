@@ -131,9 +131,7 @@ export function UnifiedMaterialViewport({
         <aside className="lab-3d-operation-guide" aria-label="3D 操作说明">
           <strong>3D 操作</strong>
           <span>左键选择物料</span>
-          <span>拖拽旋转视角</span>
-          <span>滚轮缩放</span>
-          <span>右键拖拽平移</span>
+          <span>右键旋转视角</span>
         </aside>
       ) : null}
       <div className="lab-viewport-controls">

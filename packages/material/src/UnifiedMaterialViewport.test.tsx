@@ -41,7 +41,7 @@ describe('UnifiedMaterialViewport', () => {
     )
   })
 
-  /** 证明 3D 模式展示选择、旋转、缩放和平移的常驻操作说明。 */
+  /** 证明 3D 模式只展示准确的左键选择与右键旋转说明。 */
   it('shows an operation guide only when a 3D scene is visible', () => {
     const threeDimensionalMarkup = renderToStaticMarkup(
       <UnifiedMaterialViewport
@@ -63,12 +63,25 @@ describe('UnifiedMaterialViewport', () => {
         renderView={() => <div>scene</div>}
       />
     )
+    const splitMarkup = renderToStaticMarkup(
+      <UnifiedMaterialViewport
+        viewState={{
+          mode: 'split',
+          showSites: true,
+          showMaterialTransfers: true
+        }}
+        renderView={() => <div>scene</div>}
+      />
+    )
 
-    expect(threeDimensionalMarkup).toContain('aria-label="3D 操作说明"')
-    expect(threeDimensionalMarkup).toContain('左键选择物料')
-    expect(threeDimensionalMarkup).toContain('拖拽旋转视角')
-    expect(threeDimensionalMarkup).toContain('滚轮缩放')
-    expect(threeDimensionalMarkup).toContain('右键拖拽平移')
+    for (const markup of [threeDimensionalMarkup, splitMarkup]) {
+      expect(markup).toContain('aria-label="3D 操作说明"')
+      expect(markup).toContain('左键选择物料')
+      expect(markup).toContain('右键旋转视角')
+      expect(markup).not.toContain('拖拽旋转视角')
+      expect(markup).not.toContain('滚轮缩放')
+      expect(markup).not.toContain('右键拖拽平移')
+    }
     expect(twoDimensionalMarkup).not.toContain('aria-label="3D 操作说明"')
   })
 
