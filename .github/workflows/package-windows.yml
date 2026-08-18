@@ -593,18 +593,6 @@ jobs:
             Remove-Item $env:UNILAB_CI_CERTIFICATE_PATH -Force
           }
 
-      # Keep the compact report separate so it remains quick to inspect even
-      # when the installer artifact is large.
-      - name: Upload Windows packaging diagnostics
-        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
-        uses: actions/upload-artifact@v6
-        with:
-          name: UniLab-Workbench-windows-x64-diagnostics-${{ github.sha }}
-          path: apps/workbench/release-windows/package-size-report.json
-          if-no-files-found: error
-          retention-days: 14
-          compression-level: 6
-
       # Actions Artifacts only need the directly installable executable. Keep
       # updater metadata in the rolling release published below.
       - name: Upload Windows installer

@@ -748,14 +748,11 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /\$expectedNames -notcontains \$assetName/u)
     assert.match(workflow, /Rolling release asset verification failed/u)
     assert.match(workflow, /actions\/upload-artifact@v6/u)
-    const diagnosticsUploadSection = workflow.slice(
-      workflow.indexOf('name: Upload Windows packaging diagnostics'),
-      workflow.indexOf('name: Upload Windows installer')
+    assert.doesNotMatch(workflow, /Upload Windows packaging diagnostics/u)
+    assert.doesNotMatch(
+      workflow,
+      /UniLab-Workbench-windows-x64-diagnostics/u
     )
-    assert.match(diagnosticsUploadSection, /package-size-report\.json/u)
-    assert.doesNotMatch(diagnosticsUploadSection, /\*-setup\.exe/u)
-    assert.doesNotMatch(diagnosticsUploadSection, /latest\.yml/u)
-    assert.match(diagnosticsUploadSection, /compression-level: 6/u)
     const installerUploadSection = workflow.slice(
       workflow.indexOf('name: Upload Windows installer'),
       workflow.indexOf('name: Upload Windows precompressed-resource A/B')
