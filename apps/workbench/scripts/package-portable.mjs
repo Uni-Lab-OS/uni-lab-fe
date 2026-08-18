@@ -672,6 +672,11 @@ export function validateWindowsInstallerListing(listing) {
   }
 }
 
+/** 生成只查询桌面主程序的 7-Zip 参数，避免完整清单超过进程缓冲区。 */
+export function createWindowsInstallerAuditArguments(installerPath) {
+  return ['l', '-slt', installerPath, WINDOWS_MAIN_EXECUTABLE]
+}
+
 /**
  * 列出最终 NSIS 安装器内容，防止外层文件有效但内层主程序缺失。
  * @param {string} installerPath NSIS 安装器路径。
@@ -679,11 +684,15 @@ export function validateWindowsInstallerListing(listing) {
  */
 export function validateWindowsInstallerArchive(installerPath) {
   const sevenZipCommand = process.platform === 'win32' ? '7z.exe' : '7z'
-  const result = spawnSync(sevenZipCommand, ['l', '-slt', installerPath], {
-    encoding: 'utf8',
-    maxBuffer: 16 * MEBIBYTE,
-    windowsHide: true
-  })
+  const result = spawnSync(
+    sevenZipCommand,
+    createWindowsInstallerAuditArguments(installerPath),
+    {
+      encoding: 'utf8',
+      maxBuffer: 16 * MEBIBYTE,
+      windowsHide: true
+    }
+  )
   if (result.error) {
     throw new Error(`无法读取 Windows 安装包内容：${result.error.message}`)
   }

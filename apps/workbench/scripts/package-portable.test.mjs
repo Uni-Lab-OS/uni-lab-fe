@@ -14,6 +14,7 @@ import { dirname, join } from 'node:path'
 
 import {
   assertSafeChildDirectory,
+  createWindowsInstallerAuditArguments,
   MAX_PORTABLE_INSTALLER_BYTES,
   PORTABLE_COMPRESSION_LEVELS,
   PORTABLE_NODE_ARCHIVES,
@@ -57,11 +58,15 @@ describe('portable Workbench packaging contract', () => {
     )
   })
 
-  /** 验证最终 NSIS 技术清单必须包含安装根目录的桌面主程序。 */
+  /** 验证最终 NSIS 技术清单只查询并必须包含安装根目录的桌面主程序。 */
   it('rejects a Windows installer without its desktop executable', () => {
+    assert.deepEqual(createWindowsInstallerAuditArguments('setup.exe'), [
+      'l',
+      '-slt',
+      'setup.exe',
+      'UniLab Workbench.exe'
+    ])
     assert.doesNotThrow(() => validateWindowsInstallerListing([
-      'Path = C:\\build\\UniLab.Workbench-setup.exe',
-      'Type = Nsis',
       'Path = resources',
       'Path = UniLab Workbench.exe'
     ].join('\r\n')))
