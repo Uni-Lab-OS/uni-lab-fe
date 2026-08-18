@@ -20,6 +20,7 @@ import {
   PORTABLE_NODE_ARCHIVES,
   PORTABLE_NODE_VERSION,
   pruneDesktopDeployment,
+  resolveElectronBuilderSevenZipCommand,
   resolveEsbuildBinary,
   resolvePortableCompressionLevel,
   validateWindowsInstallerListing,
@@ -60,6 +61,10 @@ describe('portable Workbench packaging contract', () => {
 
   /** 验证最终 NSIS 技术清单只查询并必须包含安装根目录的桌面主程序。 */
   it('rejects a Windows installer without its desktop executable', () => {
+    assert.match(
+      resolveElectronBuilderSevenZipCommand(),
+      /[/\\]7za(?:\.exe)?$/u
+    )
     assert.deepEqual(createWindowsInstallerAuditArguments('setup.exe'), [
       'l',
       '-slt',
