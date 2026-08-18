@@ -113,6 +113,8 @@ mac:
   notarize: true
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
+  # 在 electron-builder 临时签名钥匙串释放前签署 DMG 容器。
+  sign: true
   # macOS 13+ supports LZFSE. It avoids maximum compression's much slower UDBZ
   # conversion while retaining a compressed, directly mountable disk image.
   format: ULFO

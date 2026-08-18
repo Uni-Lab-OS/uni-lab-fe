@@ -99,6 +99,7 @@ describe('Workbench macOS distribution gate', () => {
     )
 
     assert.match(builderConfiguration, /notarize: true/u)
+    assert.match(builderConfiguration, /dmg:[^]*sign: true/u)
     assert.match(packagingScript, /notarizeAndStapleDiskImage\(installer\.path\)/u)
     assert.match(packagingScript, /verifySignedAndNotarized\(appPath, installer\.path\)/u)
     assert.match(packagingScript, /runCommand\('codesign'/u)
