@@ -764,6 +764,12 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /release-windows\/package-size-report\.json/u)
     assert.match(workflow, /WINDOWS_RELEASE_TAG: workbench-windows-stable/u)
     assert.match(workflow, /tzutil\.exe \/s "China Standard Time"/u)
+    assert.match(
+      workflow,
+      /FindSystemTimeZoneById\('China Standard Time'\)/u
+    )
+    assert.match(workflow, /ConvertTimeFromUtc\(\s*\[DateTime\]::UtcNow/u)
+    assert.match(workflow, /' \+08:00'/u)
     assert.match(workflow, /BUILD_STARTED_AT_CST=/u)
     assert.match(workflow, /更新时间：\$env:BUILD_STARTED_AT_CST（UTC\+08:00）/u)
     assert.match(

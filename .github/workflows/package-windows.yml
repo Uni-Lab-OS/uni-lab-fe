@@ -68,7 +68,17 @@ jobs:
         run: |
           tzutil.exe /s "China Standard Time"
           if ($LASTEXITCODE -ne 0) { throw 'Unable to set the Windows build timezone' }
-          $buildStartedAt = Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'
+          $currentTimeZone = (tzutil.exe /g).Trim()
+          if ($currentTimeZone -ne 'China Standard Time') {
+            throw "Unexpected Windows build timezone: $currentTimeZone"
+          }
+          # PowerShell caches TimeZoneInfo.Local before tzutil changes the host.
+          # Convert UTC explicitly so the release never labels a UTC value as UTC+8.
+          $chinaTimeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById('China Standard Time')
+          $buildStartedAt = [System.TimeZoneInfo]::ConvertTimeFromUtc(
+            [DateTime]::UtcNow,
+            $chinaTimeZone
+          ).ToString('yyyy-MM-dd HH:mm:ss') + ' +08:00'
           "BUILD_STARTED_AT_CST=$buildStartedAt" >> $env:GITHUB_ENV
           Write-Host "Windows build time (UTC+08:00): $buildStartedAt"
 
