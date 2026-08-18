@@ -605,17 +605,14 @@ jobs:
           retention-days: 14
           compression-level: 6
 
-      # Every full build must expose an installable package in Actions Artifacts.
-      # These files are already compressed, so store them without recompression.
-      - name: Upload Windows release bundle
+      # Actions Artifacts only need the directly installable executable. Keep
+      # updater metadata in the rolling release published below.
+      - name: Upload Windows installer
         if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         uses: actions/upload-artifact@v6
         with:
           name: UniLab-Workbench-windows-x64-${{ github.sha }}
-          path: |
-            apps/workbench/release-windows/*-setup.exe
-            apps/workbench/release-windows/*-setup.exe.blockmap
-            apps/workbench/release-windows/latest.yml
+          path: apps/workbench/release-windows/*-setup.exe
           if-no-files-found: error
           retention-days: 3
           compression-level: 0

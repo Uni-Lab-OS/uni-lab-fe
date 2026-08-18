@@ -750,26 +750,26 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /actions\/upload-artifact@v6/u)
     const diagnosticsUploadSection = workflow.slice(
       workflow.indexOf('name: Upload Windows packaging diagnostics'),
-      workflow.indexOf('name: Upload Windows release bundle')
+      workflow.indexOf('name: Upload Windows installer')
     )
     assert.match(diagnosticsUploadSection, /package-size-report\.json/u)
     assert.doesNotMatch(diagnosticsUploadSection, /\*-setup\.exe/u)
     assert.doesNotMatch(diagnosticsUploadSection, /latest\.yml/u)
     assert.match(diagnosticsUploadSection, /compression-level: 6/u)
-    const releaseBundleSection = workflow.slice(
-      workflow.indexOf('name: Upload Windows release bundle'),
+    const installerUploadSection = workflow.slice(
+      workflow.indexOf('name: Upload Windows installer'),
       workflow.indexOf('name: Upload Windows precompressed-resource A/B')
     )
     assert.match(
-      releaseBundleSection,
+      installerUploadSection,
       /if: env\.UNILAB_CI_PACKAGE_MODE == 'full'/u
     )
-    assert.doesNotMatch(releaseBundleSection, /github\.event_name/u)
-    assert.doesNotMatch(releaseBundleSection, /github\.ref/u)
-    assert.match(releaseBundleSection, /\*-setup\.exe/u)
-    assert.match(releaseBundleSection, /\*-setup\.exe\.blockmap/u)
-    assert.match(releaseBundleSection, /latest\.yml/u)
-    assert.match(releaseBundleSection, /compression-level: 0/u)
+    assert.doesNotMatch(installerUploadSection, /github\.event_name/u)
+    assert.doesNotMatch(installerUploadSection, /github\.ref/u)
+    assert.match(installerUploadSection, /\*-setup\.exe/u)
+    assert.doesNotMatch(installerUploadSection, /\*-setup\.exe\.blockmap/u)
+    assert.doesNotMatch(installerUploadSection, /latest\.yml/u)
+    assert.match(installerUploadSection, /compression-level: 0/u)
     const abUploadSection = workflow.slice(
       workflow.indexOf('name: Upload Windows precompressed-resource A/B'),
       workflow.indexOf('name: Publish rolling Windows update release')
