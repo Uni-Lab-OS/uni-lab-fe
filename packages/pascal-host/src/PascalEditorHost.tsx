@@ -60,6 +60,8 @@ export interface PascalEditorHostProps {
   toolbar?: ReactNode
   floorplanOverlay?: ReactNode
   editorViewMode?: '2d' | '3d' | 'split'
+  /** 画布被其他视图完全覆盖时暂停 Pascal 连续帧循环。 */
+  renderPaused?: boolean
   sceneTheme?: string
   showGrid?: boolean
   editorProps?: Omit<
@@ -84,6 +86,7 @@ export function PascalEditorHost({
   toolbar,
   floorplanOverlay,
   editorViewMode,
+  renderPaused = false,
   sceneTheme,
   showGrid,
   editorProps
@@ -235,6 +238,19 @@ export function PascalEditorHost({
   }, [isPrepared, readOnly])
 
   useEffect(() => {
+    const viewer = useViewer.getState()
+    if (viewer.renderPaused !== renderPaused) {
+      viewer.setRenderPaused(renderPaused)
+    }
+    return () => {
+      const current = useViewer.getState()
+      if (renderPaused && current.renderPaused) {
+        current.setRenderPaused(false)
+      }
+    }
+  }, [renderPaused])
+
+  useEffect(() => {
     if (!editorViewMode) return
     const applyViewMode = (): void => {
       useEditor.getState().setViewMode(editorViewMode)
@@ -357,6 +373,7 @@ export function PascalEditorHost({
       className={`pascal-editor-host${
         readOnly ? ' pascal-editor-host--read-only' : ''
       }`}
+      data-pascal-render-paused={renderPaused}
       data-pascal-scene-ready={isPrepared && hasLoadedScene}
       onPointerDownCapture={handlePointerDownCapture}
       onPointerMoveCapture={handlePointerMoveCapture}

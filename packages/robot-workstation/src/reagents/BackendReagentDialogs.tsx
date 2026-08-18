@@ -219,8 +219,12 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
                   <Input name="supplier" maxLength={255} />
                 </label>
                 <label>
-                  <span>有效期</span>
-                  <Input name="expiresOn" type="date" />
+                  <span>生产日期（有效期开始）</span>
+                  <Input name="productionDate" type="date" />
+                </label>
+                <label>
+                  <span>截止日期（有效期结束）</span>
+                  <Input name="expiryDate" type="date" />
                 </label>
               </div>
             </fieldset>
@@ -614,7 +618,8 @@ export interface EditorValues {
   description?: string
   supplier?: string
   densityCondition?: string
-  expiresOn?: string
+  productionDate?: string
+  expiryDate?: string
 }
 
 /** 从浏览器 FormData 读取试剂表单值，空数值保持 undefined。 */
@@ -625,7 +630,8 @@ function reagentEditorValues(form: FormData): EditorValues {
   const concentrationUnit = textValue(form, 'concentrationUnit')
   const supplier = textValue(form, 'supplier')
   const densityCondition = textValue(form, 'densityCondition')
-  const expiresOn = textValue(form, 'expiresOn')
+  const productionDate = textValue(form, 'productionDate')
+  const expiryDate = textValue(form, 'expiryDate')
   return {
     materialId: textValue(form, 'materialId'),
     reagentInfoId: textValue(form, 'reagentInfoId'),
@@ -638,7 +644,8 @@ function reagentEditorValues(form: FormData): EditorValues {
     ...(description ? { description } : {}),
     ...(supplier ? { supplier } : {}),
     ...(densityCondition ? { densityCondition } : {}),
-    ...(expiresOn ? { expiresOn } : {})
+    ...(productionDate ? { productionDate } : {}),
+    ...(expiryDate ? { expiryDate } : {})
   }
 }
 
@@ -668,6 +675,13 @@ export function validateReagentEditor(
   if (values.concentrationValue != null && (!Number.isFinite(values.concentrationValue) || values.concentrationValue < 0)) {
     return '浓度必须是大于等于零的有限数'
   }
+  if (
+    values.productionDate &&
+    values.expiryDate &&
+    values.expiryDate < values.productionDate
+  ) {
+    return '截止日期不能早于生产日期'
+  }
   return null
 }
 
@@ -687,7 +701,8 @@ export function reagentCreateCommand(
     metadata: {
       supplier: values.supplier,
       density_condition: values.densityCondition,
-      expires_on: values.expiresOn,
+      production_date: values.productionDate,
+      expiry_date: values.expiryDate,
       custom_parameters: customParameters
     },
     ...(values.description ? { description: values.description } : {})

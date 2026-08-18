@@ -36,6 +36,7 @@ import {
   materialIdsToSceneObjectIds
 } from './materialSceneSelection'
 import { preparePascalLabPlugin } from './plugin'
+import { shouldPausePascalRendering } from './renderActivity'
 import {
   isLabDeviceNode,
   type LabMaterialTransferLayerNode,
@@ -353,6 +354,7 @@ export function PascalLabWorkbench({
           prepare={prepare}
           readOnly={!editable}
           editorViewMode={pascalViewMode}
+          renderPaused={shouldPausePascalRendering(viewMode)}
           sceneTheme="studio"
           showGrid
           floorplanOverlay={
