@@ -750,25 +750,26 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /actions\/upload-artifact@v6/u)
     const diagnosticsUploadSection = workflow.slice(
       workflow.indexOf('name: Upload Windows packaging diagnostics'),
-      workflow.indexOf(
-        'name: Upload Windows release bundle when no rolling release is published'
-      )
+      workflow.indexOf('name: Upload Windows release bundle')
     )
     assert.match(diagnosticsUploadSection, /package-size-report\.json/u)
     assert.doesNotMatch(diagnosticsUploadSection, /\*-setup\.exe/u)
     assert.doesNotMatch(diagnosticsUploadSection, /latest\.yml/u)
     assert.match(diagnosticsUploadSection, /compression-level: 6/u)
-    const fallbackBundleSection = workflow.slice(
-      workflow.indexOf(
-        'name: Upload Windows release bundle when no rolling release is published'
-      ),
+    const releaseBundleSection = workflow.slice(
+      workflow.indexOf('name: Upload Windows release bundle'),
       workflow.indexOf('name: Upload Windows precompressed-resource A/B')
     )
-    assert.match(fallbackBundleSection, /github\.event_name != 'push'/u)
-    assert.match(fallbackBundleSection, /refs\/heads\/deploy-windows/u)
-    assert.match(fallbackBundleSection, /\*-setup\.exe/u)
-    assert.match(fallbackBundleSection, /latest\.yml/u)
-    assert.match(fallbackBundleSection, /compression-level: 0/u)
+    assert.match(
+      releaseBundleSection,
+      /if: env\.UNILAB_CI_PACKAGE_MODE == 'full'/u
+    )
+    assert.doesNotMatch(releaseBundleSection, /github\.event_name/u)
+    assert.doesNotMatch(releaseBundleSection, /github\.ref/u)
+    assert.match(releaseBundleSection, /\*-setup\.exe/u)
+    assert.match(releaseBundleSection, /\*-setup\.exe\.blockmap/u)
+    assert.match(releaseBundleSection, /latest\.yml/u)
+    assert.match(releaseBundleSection, /compression-level: 0/u)
     const abUploadSection = workflow.slice(
       workflow.indexOf('name: Upload Windows precompressed-resource A/B'),
       workflow.indexOf('name: Publish rolling Windows update release')

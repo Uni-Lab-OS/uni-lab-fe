@@ -593,9 +593,8 @@ jobs:
             Remove-Item $env:UNILAB_CI_CERTIFICATE_PATH -Force
           }
 
-      # The verified binaries are published immediately below to the rolling
-      # release. Keep Actions artifacts diagnostic-only to avoid retaining a
-      # second ~800 MB copy of every release.
+      # Keep the compact report separate so it remains quick to inspect even
+      # when the installer artifact is large.
       - name: Upload Windows packaging diagnostics
         if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         uses: actions/upload-artifact@v6
@@ -606,11 +605,10 @@ jobs:
           retention-days: 14
           compression-level: 6
 
-      # Manual full builds and non-deploy branches do not publish the rolling
-      # release, so retain their installer for inspection. A deploy push skips
-      # this duplicate copy because the verified files are published below.
-      - name: Upload Windows release bundle when no rolling release is published
-        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && (github.event_name != 'push' || github.ref != 'refs/heads/deploy-windows')
+      # Every full build must expose an installable package in Actions Artifacts.
+      # These files are already compressed, so store them without recompression.
+      - name: Upload Windows release bundle
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         uses: actions/upload-artifact@v6
         with:
           name: UniLab-Workbench-windows-x64-${{ github.sha }}
