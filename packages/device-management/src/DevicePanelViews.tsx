@@ -1,4 +1,8 @@
-import type { DeviceAction, WorkflowActionNodeTemplate } from '@unilab/services'
+import type {
+  DeviceAction,
+  DeviceExecutionOccupancy,
+  WorkflowActionNodeTemplate
+} from '@unilab/services'
 
 import type { ManagedDevice } from './deviceCatalog'
 import { deviceClass } from './deviceStyles'
@@ -20,6 +24,7 @@ import {
   formatTime,
   type ArgumentDraft
 } from './DevicePanelPresentation'
+import { shortIdentifier } from './devicePanelFormat'
 
 export function ConnectionSummary({
   connection,
@@ -59,6 +64,12 @@ export function ConnectionSummary({
   )
 }
 
+/**
+ * 渲染一个设备列表项，并分别呈现连接、派发与可用占用事实。
+ *
+ * @param props 当前设备、选中状态和选择回调。
+ * @returns 可访问的设备选择按钮。
+ */
 export function DeviceListItem({
   device,
   selected,
@@ -68,15 +79,18 @@ export function DeviceListItem({
   selected: boolean
   onSelect: (deviceId: string) => void
 }): React.JSX.Element {
-  const lockedActionCount = device.actions.filter(
+  const busyActionCount = device.actions.filter(
     (action) => action.isBusy
   ).length
+  const occupancy = device.executionOccupancies?.[0] ?? null
+  const edgeLabel = edgeStatusLabel(device.edgeStatus)
   return (
     <li>
       <button
         type="button"
         className={deviceClass('edge-device__device-item', selected && 'is-active')}
         aria-pressed={selected}
+        aria-label={`${device.displayName}，${edgeLabel}，${device.dispatchable ? '可调度' : '派发受阻'}${occupancy ? '，存在执行占用' : ''}`}
         onClick={() => onSelect(device.id)}
       >
         <span className={deviceClass('edge-device__device-icon')}>
@@ -85,18 +99,30 @@ export function DeviceListItem({
         <span className={deviceClass('edge-device__device-copy')}>
           <span className={deviceClass('device-list__row')}>
             <span
-              className={deviceClass('device-list__status', device.online ? 'is-online' : 'is-offline')}
+              className={deviceClass('device-list__status', edgeStatusClass(device.edgeStatus))}
+              aria-hidden="true"
             />
             <span className={deviceClass('device-list__name')}>{device.displayName}</span>
-            {lockedActionCount ? (
+            {!device.dispatchable && device.edgeStatus === 'online' ? (
+              <span className={deviceClass('edge-device__list-lock is-blocked')}>
+                派发受阻
+              </span>
+            ) : null}
+            {occupancy ? (
+              <span className={deviceClass('edge-device__list-lock', occupancy.state === 'uncertain' && 'is-uncertain')}>
+                执行占用
+              </span>
+            ) : null}
+            {!occupancy && busyActionCount ? (
               <span className={deviceClass('edge-device__list-lock')}>
-                已锁定
+                动作占用
               </span>
             ) : null}
           </span>
           <span className={deviceClass('device-list__key')}>
-            {device.actions.length} 个动作
-            {lockedActionCount ? ` · ${lockedActionCount} 个占用` : ''}
+            {edgeLabel} · {device.actions.length} 个动作
+            {occupancy ? ` · Job ${shortIdentifier(occupancy.workflowNodeJobUuid)}` : ''}
+            {!occupancy && busyActionCount ? ` · ${busyActionCount} 个动作占用` : ''}
           </span>
         </span>
         <span className={deviceClass('edge-device__chevron')} aria-hidden="true">›</span>
@@ -155,9 +181,13 @@ export function DeviceWorkspace({
   unlockOperation: UnlockOperation | null
   onRequestUnlock: (device: ManagedDevice, action: DeviceAction) => void
 }): React.JSX.Element {
-  const lockedActionCount = device.actions.filter(
+  const busyActionCount = device.actions.filter(
     (action) => action.isBusy
   ).length
+  const occupancy = device.executionOccupancies?.[0] ?? null
+  const schedulingStatus = device.edgeStatus !== 'online'
+    ? '等待 Edge 连接'
+    : device.dispatchable ? '可调度' : '派发受阻'
   return (
     <div className={deviceClass('edge-device__workspace')} data-device-management="workspace">
       <header className={deviceClass('edge-device__identity')} data-device-management="identity">
@@ -171,15 +201,28 @@ export function DeviceWorkspace({
           <p>{device.deviceKey || `${device.namespace}/${device.id}`}</p>
         </div>
         <div className={deviceClass('edge-device__identity-states')}>
-          {lockedActionCount ? (
+          {busyActionCount ? (
             <span className={deviceClass('edge-device__status-badge is-locked')}>
-              已锁定 · {lockedActionCount} 个动作
+              动作占用 · {busyActionCount} 个
+            </span>
+          ) : null}
+          {occupancy ? (
+            <span className={deviceClass(
+              'edge-device__status-badge is-locked',
+              occupancy.state === 'uncertain' && 'is-uncertain'
+            )}>
+              执行占用 · Job {shortIdentifier(occupancy.workflowNodeJobUuid)}
+            </span>
+          ) : null}
+          {!device.dispatchable && device.edgeStatus === 'online' ? (
+            <span className={deviceClass('edge-device__status-badge is-blocked')}>
+              派发受阻
             </span>
           ) : null}
           <span
-            className={deviceClass('edge-device__status-badge', device.online ? 'is-online' : 'is-offline')}
+            className={deviceClass('edge-device__status-badge', edgeStatusClass(device.edgeStatus))}
           >
-            {device.online ? '在线' : '离线'}
+            {edgeStatusLabel(device.edgeStatus)}
           </span>
         </div>
       </header>
@@ -190,15 +233,25 @@ export function DeviceWorkspace({
           value={device.machineName}
         />
         <Metric label="Edge 身份" value={device.namespace || '—'} />
-        <Metric label="动作节点" value={`${device.actions.length}`} />
         <Metric
-          label="当前状态"
-          value={lockedActionCount
-            ? `${lockedActionCount} 个动作占用`
-            : device.online ? '可编排' : '不可用'}
-          tone={lockedActionCount
-            ? 'warning'
-            : device.online ? 'success' : 'muted'}
+          label="调度状态"
+          value={schedulingStatus}
+          tone={device.dispatchable
+            ? 'success'
+            : device.edgeStatus === 'online' ? 'warning' : 'muted'}
+        />
+        <Metric
+          label="执行占用"
+          value={occupancy
+            ? `${occupancyStateLabel(occupancy.state)} · Job ${shortIdentifier(occupancy.workflowNodeJobUuid)}`
+            : busyActionCount
+              ? `${busyActionCount} 个动作占用`
+              : device.edgeStatus !== 'online'
+                ? '等待 Edge 连接'
+                : device.executionOccupancies === null
+                  ? '—'
+                  : '空闲'}
+          tone={occupancy || busyActionCount ? 'warning' : 'muted'}
         />
       </div>
 
@@ -235,11 +288,33 @@ export function DeviceWorkspace({
                     <strong>{action.displayName}</strong>
                     <code>{action.actionRef}</code>
                   </span>
-                  <span
-                    className={deviceClass('edge-device__node-state', action.isBusy ? 'is-busy' : 'is-ready')}
-                  >
-                    {action.isBusy ? '占用中' : '空闲'}
-                  </span>
+                  {action.isBusy ||
+                  occupancy ||
+                  device.edgeStatus !== 'online' ||
+                  action.busyStatusKnown !== false ||
+                  device.executionOccupancies !== null ? (
+                    <span
+                      title={device.edgeStatus !== 'online'
+                        ? 'Edge 连接后读取动作占用状态'
+                        : undefined}
+                      className={deviceClass(
+                        'edge-device__node-state',
+                        action.isBusy || occupancy
+                          ? 'is-busy'
+                          : device.edgeStatus !== 'online'
+                            ? 'is-unknown'
+                            : 'is-ready'
+                      )}
+                    >
+                      {action.isBusy
+                        ? '动作占用'
+                        : occupancy
+                          ? '设备占用'
+                          : device.edgeStatus !== 'online'
+                            ? '等待连接'
+                            : '空闲'}
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -262,6 +337,9 @@ export function DeviceWorkspace({
                 </div>
                 <code>{selectedAction.actionName}</code>
               </div>
+              <DeviceExecutionOccupancySummary
+                occupancies={device.executionOccupancies}
+              />
               <DeviceLockControl
                 action={selectedAction}
                 canForceUnlock={canForceUnlock}
@@ -316,4 +394,67 @@ export function DeviceWorkspace({
       </div>
     </div>
   )
+}
+
+/**
+ * 展示设备级执行占用持有者；不提供手动解锁，避免越过物理结算边界。
+ *
+ * @param props Authority 明确返回的设备执行占用摘要；null 表示未提供。
+ * @returns 有占用时返回状态区域，否则不渲染。
+ */
+export function DeviceExecutionOccupancySummary({
+  occupancies
+}: {
+  occupancies: DeviceExecutionOccupancy[] | null
+}): React.JSX.Element | null {
+  const occupancy = occupancies?.[0]
+  if (!occupancy) return null
+  const uncertain = occupancy.state === 'uncertain'
+  return (
+    <div
+      className={deviceClass(
+        'edge-device__occupancy-panel',
+        uncertain && 'is-uncertain'
+      )}
+      role={uncertain ? 'alert' : 'status'}
+    >
+      <div className={deviceClass('edge-device__occupancy-copy')}>
+        <strong>{occupancyStateLabel(occupancy.state)}</strong>
+        <p>
+          {uncertain
+            ? '设备执行结果尚未确认，需要完成安全核验后才能释放占用。'
+            : '设备正在处理既有作业；新任务仍可提交，并由调度器等待执行占用。'}
+        </p>
+      </div>
+      <code title={occupancy.workflowNodeJobUuid}>
+        Job {shortIdentifier(occupancy.workflowNodeJobUuid)}
+      </code>
+      {occupancies.length > 1 ? (
+        <small>另有 {occupancies.length - 1} 条占用摘要</small>
+      ) : null}
+    </div>
+  )
+}
+
+/** 返回 Edge 连接状态的用户可见标签。 */
+function edgeStatusLabel(status: ManagedDevice['edgeStatus']): string {
+  if (status === 'online') return '在线'
+  if (status === 'registered') return '已注册，未连接'
+  return '离线'
+}
+
+/** 返回 Edge 连接状态对应的既有状态样式。 */
+function edgeStatusClass(status: ManagedDevice['edgeStatus']): string {
+  if (status === 'online') return 'is-online'
+  if (status === 'registered') return 'is-pending'
+  return 'is-offline'
+}
+
+/** 返回设备执行占用状态的中文说明。 */
+function occupancyStateLabel(
+  state: DeviceExecutionOccupancy['state']
+): string {
+  if (state === 'reserved') return '已预备占用'
+  if (state === 'running') return '运行中占用'
+  return '不确定占用'
 }

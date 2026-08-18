@@ -1,3 +1,4 @@
+import { useDismissibleDetails } from '@unilab/design-system/hooks'
 import {
   Component,
   useEffect,
@@ -44,6 +45,11 @@ export interface UnifiedMaterialViewportProps {
 
 /**
  * 共享物料视图壳。它只拥有视图与图层意图，不拥有 Material Graph 或渲染状态。
+ *
+ * @param props 受控视图、物料角色目录与变更回调。
+ * @returns 统一的 2D、2.5D、3D 和分屏物料工作台。
+ * @throws 不主动抛错；视图渲染异常由局部错误边界降级。
+ * @safety 视图壳只记录显示意图，不修改物料（Material）领域数据。
  */
 export function UnifiedMaterialViewport({
   renderView,
@@ -53,6 +59,7 @@ export function UnifiedMaterialViewport({
   materialRoleOptions = [],
   onVisibleMaterialRolesChange
 }: UnifiedMaterialViewportProps): React.JSX.Element {
+  const materialRoleMenuRef = useDismissibleDetails()
   const [internalState, setInternalState] = useState<MaterialViewportState>(
     readStoredMaterialViewportState
   )
@@ -120,6 +127,13 @@ export function UnifiedMaterialViewport({
           {renderView(mode, { showSites, showMaterialTransfers })}
         </MaterialViewErrorBoundary>
       </div>
+      {mode === '3d' || mode === 'split' ? (
+        <aside className="lab-3d-operation-guide" aria-label="3D 操作说明">
+          <strong>3D 操作</strong>
+          <span>左键选择物料</span>
+          <span>右键旋转视角</span>
+        </aside>
+      ) : null}
       <div className="lab-viewport-controls">
         <div
           aria-label="实验室视图"
@@ -192,7 +206,10 @@ export function UnifiedMaterialViewport({
           </button>
         </div>
         {materialRoleOptions.length > 0 && onVisibleMaterialRolesChange && (
-          <details className="lab-material-role-filter">
+          <details
+            ref={materialRoleMenuRef}
+            className="lab-material-role-filter"
+          >
             <summary aria-label={`物料节点可见性：${
               allMaterialRolesVisible
                 ? '全部物料'

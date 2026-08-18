@@ -187,6 +187,9 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
   }
 
   startAgent(): Promise<WorkbenchSessionSnapshot> {
+    if (this.options.enableAgent === false) {
+      return Promise.resolve(this.getSnapshot())
+    }
     if (this.agent?.identity.phase === 'ready') {
       return Promise.resolve(this.getSnapshot())
     }
@@ -317,11 +320,10 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
     if (mode !== 'normal' && mode !== 'dry-run') {
       throw new Error(`不支持的 OS 运行模式：${String(mode)}`)
     }
-    const wasBackendReady = this.host?.components.backend.phase === 'ready'
-    const wasEdgeReady = this.host?.components.edge.phase === 'ready'
     await this.updateConfiguration({ runtimeMode: mode })
-    if (wasBackendReady) await this.run('local.reset-state')
-    if (wasEdgeReady) await this.run('os.start')
+    // 运行模式是下一次 OS 启动所使用的配置。切换选项不能隐式重建本地
+    // 数据或重启正在工作的 OS，否则一个轻量 UI 选择会变成最长 120 秒的
+    // 阻塞操作，并可能打断仍在收敛的任务事实。
     return this.getSnapshot()
   }
 

@@ -20,8 +20,7 @@ import {
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
-  DeviceManagementPanel,
-  type DeviceManagementConnection
+  DeviceManagementPanel
 } from '@unilab/device-management'
 import {
   MaterialStoreProvider,
@@ -76,6 +75,7 @@ import {
 } from '../common/workbench-session-protocol'
 import { WorkbenchSessionClientImpl } from './workbench-session-client'
 import { desktopWorkflowTraceRuntime } from './desktop-workflow-trace-runtime'
+import { desktopWorkspaceApi } from './desktop-workspace'
 import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
 import { EnvironmentManager } from './environment-manager'
 import { createTheiaWorkflowIdeAdapter } from './theia-workflow-ide-adapter'
@@ -100,6 +100,7 @@ import {
 import { useRobotWorkstationData } from './robot-workstation-data'
 import { WorkbenchDomainLayout } from './workbench-domain-layout'
 import { WorkbenchMaterialViewport } from './workbench-material-viewport'
+import { workbenchDeviceConnection } from './workbench-device-connection'
 import { workflowExecutionStatusForConnection } from './workbench-execution-readiness'
 import {
   WorkbenchRuntimeLogLauncher,
@@ -337,6 +338,29 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       return receipt
     } finally {
       await this.refreshSessionSnapshot()
+    }
+  }
+
+  /** 重启 PLC-Sim，并用当前设备图重建目标 Backend 的物料与库位状态。 */
+  protected readonly resetWorkflowEnvironment = async (
+    backendUrl: string
+  ): Promise<void> => {
+    if (this.lastReportedUnsavedChanges) {
+      throw new Error('请先保存当前工作流修改，再复位运行环境')
+    }
+    try {
+      await this.workbenchSession.stopPlcSimulator()
+      await this.workbenchSession.startPlcSimulator()
+      await this.publishRelease(backendUrl, true)
+      this.recoveryRevision += 1
+      void this.messages.info('运行环境已复位，可以重新运行工作流')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      void this.messages.error(`运行环境复位失败：${message}`)
+      throw error
+    } finally {
+      await this.refreshSessionSnapshot()
+      this.update()
     }
   }
 
@@ -710,7 +734,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     widget.editor.revealRange({ start, end })
   }
 
-  /** 在 Workbench 主编辑区打开当前会话日志。 */
+  /** 在 Workbench 同一主标签组打开日志，避免分栏与固定工作台层叠。 */
   protected readonly openSessionLog = async (logPath: string): Promise<void> => {
     if (!logPath) throw new Error('当前会话尚未生成日志文件')
     const readableLogPath = await this.workbenchSession.prepareReadableLog(logPath)
@@ -719,13 +743,14 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       candidate => candidate.editor.uri.toString() === uri.toString()
     )
     if (existing) {
-      await this.shell.activateWidget(existing.id)
+      await this.shell.closeWidget(existing.id, { save: false })
       return
     }
     const widget = await this.editorManager.open(uri, {
       mode: 'activate',
-      widgetOptions: { area: 'main', mode: 'split-right', ref: this }
+      widgetOptions: { area: 'main', mode: 'tab-after', ref: this }
     })
+    widget.title.closable = true
     const monacoEditor = widget.editor as typeof widget.editor & {
       editor?: {
         updateOptions(options: {
@@ -860,6 +885,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         onRebuildLocalData={this.rebuildLocalData}
         onInspectReleaseTarget={this.inspectReleaseTarget}
         onPublishRelease={this.publishRelease}
+        onResetWorkflowEnvironment={this.resetWorkflowEnvironment}
         onReadEnvironmentLog={this.readEnvironmentLog}
         onOpenLog={this.openSessionLog}
         onConfigureGraph={this.configureGraph}
@@ -907,6 +933,7 @@ function WorkbenchSurface({
   onRebuildLocalData,
   onInspectReleaseTarget,
   onPublishRelease,
+  onResetWorkflowEnvironment,
   onReadEnvironmentLog,
   onOpenLog,
   onConfigureGraph,
@@ -944,6 +971,7 @@ function WorkbenchSurface({
     backendUrl: string,
     resetTarget?: boolean
   ) => Promise<WorkbenchReleaseReceipt>
+  onResetWorkflowEnvironment: (backendUrl: string) => Promise<void>
   onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>
   onOpenLog: (path: string) => Promise<void>
   onConfigureGraph: (graphPath: string) => Promise<void>
@@ -969,6 +997,7 @@ function WorkbenchSurface({
   const [selectedMaterialIds, setSelectedMaterialIds] =
     useState<readonly MaterialId[]>([])
   const [environmentOpen, setEnvironmentOpen] = useState(false)
+  const [environmentResetBusy, setEnvironmentResetBusy] = useState(false)
   const reportWorkflowUnsavedChanges = useCallback(
     (hasUnsavedChanges: boolean): void => {
       const desktopApi = (
@@ -997,16 +1026,22 @@ function WorkbenchSurface({
     () => createWorkbenchServices(selectedTarget),
     [selectedTarget.cacheKey]
   )
+  const backendProbeServices = useMemo(
+    () => connectionMode === 'backend'
+      ? services
+      : createWorkbenchServices(connectionTargets.backend),
+    [connectionMode, connectionTargets.backend.cacheKey, services]
+  )
   const [connectionProbeRevision, setConnectionProbeRevision] = useState(0)
-  const backendConnection = useBackendConnectionState(
-    connectionMode,
-    services,
+  const backendTargetConnection = useBackendConnectionState(
+    'backend',
+    backendProbeServices,
     connectionProbeRevision
   )
   const connection = workbenchConnectionState(
     connectionMode,
     session.phase,
-    backendConnection
+    backendTargetConnection
   )
   /** 重新执行当前 Backend 健康探测，不创建或推进任何工作流任务。 */
   const retryConnection = useCallback((): void => {
@@ -1036,7 +1071,11 @@ function WorkbenchSurface({
     () => createWorkflowResourceSlotOptionsPort(services.materials, scope),
     [scope, services.materials]
   )
-  const deviceConnection: DeviceManagementConnection = connection
+  const deviceConnection = workbenchDeviceConnection(
+    connectionMode,
+    connection,
+    session.edgeRuntime.phase
+  )
   const deviceBackend = selectedTarget.backend
 
   useEffect(() => () => materialStore.getState().reset(), [materialStore])
@@ -1056,6 +1095,10 @@ function WorkbenchSurface({
     queryClient.clear()
     services.dispose()
   }, [queryClient, services])
+
+  useEffect(() => () => {
+    if (backendProbeServices !== services) backendProbeServices.dispose()
+  }, [backendProbeServices, services])
 
   const synchronizeSavedSource = useCallback(async (pythonSource: string) => {
     if (!workflowUuid) return
@@ -1088,6 +1131,16 @@ function WorkbenchSurface({
   }, [runtimeProjection, selectedWorkflowNode])
 
   const workflowRunStatus = services.getCapabilityStatus('workflow.runTasks')
+  const resetWorkflowEnvironment = useCallback(async (): Promise<void> => {
+    setEnvironmentResetBusy(true)
+    try {
+      await onResetWorkflowEnvironment(selectedTarget.backend.apiUrl)
+    } catch {
+      // 宿主已展示可操作的失败消息；这里只负责结束按钮忙碌态。
+    } finally {
+      setEnvironmentResetBusy(false)
+    }
+  }, [onResetWorkflowEnvironment, selectedTarget.backend.apiUrl])
 
   const workflowSurface = (
     <section
@@ -1121,7 +1174,9 @@ function WorkbenchSurface({
         }.v1`}
         allowWorkflowSelection
         recoveryRevision={recoveryRevision}
-        hideEmbeddedCodeEditor={connectionMode === 'local'}
+        hideEmbeddedCodeEditor={
+          connectionMode === 'local' && desktopWorkspaceApi() !== null
+        }
         ideBridge={ideBridge}
         onUnsavedChangesChange={(hasUnsavedChanges) => {
           onUnsavedChangesChange(hasUnsavedChanges)
@@ -1129,6 +1184,8 @@ function WorkbenchSurface({
         }}
         onSelectedWorkflowStepChange={setSelectedWorkflowNode}
         onWorkflowRuntimeProjectionChange={setRuntimeProjection}
+        onResetEnvironment={resetWorkflowEnvironment}
+        environmentResetBusy={environmentResetBusy}
       />
     </section>
   )
@@ -1258,6 +1315,10 @@ function WorkbenchSurface({
               targets={connectionTargets}
               selectedMode={connectionMode}
               connection={connection}
+              targetConnections={{
+                local: sessionConnectionState(session.phase),
+                backend: backendTargetConnection
+              }}
               switchBlockedReason={switchBlockedReason}
               onRetry={connectionRetry}
               onSelect={onConnectionModeChange}
@@ -1351,8 +1412,12 @@ function recordMountedWorkbenchDomains(
   mode: WorkbenchViewMode
 ): void {
   if (isWorkflowWorkbenchView(mode)) mountedDomains.add('workflow')
-  if (mode === 'material' || mode === 'split') mountedDomains.add('material')
-  if (mode === 'device') mountedDomains.add('device')
+  if (
+    mode === 'material' || mode === 'split' || mode === 'device-material'
+  ) mountedDomains.add('material')
+  if (mode === 'device' || mode === 'device-material') {
+    mountedDomains.add('device')
+  }
   if (isRobotWorkbenchViewMode(mode)) mountedDomains.add('robot-workstation')
 }
 
@@ -1384,6 +1449,7 @@ function mountedSurface(
 /** 返回 Workbench 标题栏使用的当前领域短名称。 */
 function workbenchViewLabel(mode: WorkbenchViewMode): string {
   if (mode === 'split') return '工作流 + 物料'
+  if (mode === 'device-material') return '仪器设备 + 物料'
   if (mode === 'workflow') return '工作流'
   if (mode === 'material') return '物料'
   if (mode === 'device') return '仪器设备'

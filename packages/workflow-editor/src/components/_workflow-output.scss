@@ -281,6 +281,15 @@
   overflow: auto;
 }
 
+// 详情全部折叠后，把释放出的高度交还节点列表，避免在列表与标题栏之间
+// 留下不可用的空白区域，同时维持用户拖拽设置的运行输出总高度。
+.workflow
+  :global(#workflow-output-panel-nodes.is-node-details-collapsed)
+  :global(.workflow-runtime__node-list) {
+  max-height: none;
+  flex: 1 1 auto;
+}
+
 .workflow :global(.workflow-runtime__node-list) button {
   display: grid;
   grid-template-columns: 8px minmax(0, 1fr) auto;

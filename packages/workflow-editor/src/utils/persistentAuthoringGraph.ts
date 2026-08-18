@@ -313,6 +313,8 @@ function graphHierarchyNavigation(
  * @param strategy 用户选择的工作流（Workflow）画布布局策略。
  * @param swimlaneDirection 物料泳道策略当前选中的流向。
  * @returns 新的工作流编写图；原图及其节点不会被修改。
+ * @throws 不主动抛错；不完整的拓扑由布局器的容错规则处理。
+ * @safety 只写回可编辑节点的平面坐标，组合工作流私有节点姿态保持不变。
  */
 export function beautifyPersistentAuthoringGraph(
   graph: WorkflowAuthoringGraph,
@@ -322,6 +324,11 @@ export function beautifyPersistentAuthoringGraph(
     DEFAULT_WORKFLOW_MATERIAL_SWIMLANE_DIRECTION
 ): WorkflowAuthoringGraph {
   const structure = projectPersistentAuthoringGraph(graph)
+  const editableNodeUuids = new Set(
+    structure.nodes
+      .filter((node) => !node.authoringReadOnly)
+      .map((node) => node.id)
+  )
   // 六边形物料来源比动作条更高；上移一小段可保证第一条物料流明确向下。
   const materialSourceNodeIds = new Set(
     structure.nodes
@@ -340,12 +347,14 @@ export function beautifyPersistentAuthoringGraph(
           preserveExistingPositions: false
         })
   const positionByNodeUuid = new Map(
-    layout.nodes.map((node) => [node.id, {
-      x: node.x,
-      y: materialSourceNodeIds.has(node.id) && layout.direction === 'vertical'
-        ? node.y - 24
-        : node.y
-    }])
+    layout.nodes
+      .filter((node) => editableNodeUuids.has(node.id))
+      .map((node) => [node.id, {
+        x: node.x,
+        y: materialSourceNodeIds.has(node.id) && layout.direction === 'vertical'
+          ? node.y - 24
+          : node.y
+      }])
   )
   return {
     ...graph,

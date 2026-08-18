@@ -42,7 +42,31 @@ export interface OnlineDevice {
   namespace: string
   machineName: string
   online: boolean
+  /** Edge 连接事实；旧服务未返回时由 adapter 从 online 兼容恢复。 */
+  edgeStatus?: DeviceEdgeStatus
+  /** 当前调度器是否允许向设备派发新作业。 */
+  dispatchable?: boolean
+  /** 在线但不可派发时的权威安全阻断原因。 */
+  dispatchBlockReason?: string | null
+  /** 当前设备级执行占用摘要；null/undefined 表示当前服务未提供该投影。 */
+  executionOccupancies?: DeviceExecutionOccupancy[] | null
   actions: DeviceAction[]
+}
+
+export type DeviceEdgeStatus = 'registered' | 'online' | 'offline'
+
+export type DeviceExecutionOccupancyState =
+  | 'reserved'
+  | 'running'
+  | 'uncertain'
+
+export interface DeviceExecutionOccupancy {
+  leaseUuid: string | null
+  workflowTaskUuid: string | null
+  workflowNodeJobUuid: string
+  state: DeviceExecutionOccupancyState
+  actionName: string | null
+  acquiredAt: string | null
 }
 
 export interface DeviceAction {
@@ -52,6 +76,8 @@ export interface DeviceAction {
   label: string
   typeName: string
   isBusy: boolean
+  /** 当前 Authority 是否明确提供动作占用状态；省略表示旧调用方已有可靠状态。 */
+  busyStatusKnown?: boolean
   currentJobId: string | null
   schema: Record<string, unknown> | null
   inputSchema: Record<string, DeviceActionInputSchema>
@@ -113,6 +139,10 @@ export interface DeviceCatalogItem {
   namespace: string
   label: string
   online: boolean
+  edgeStatus?: DeviceEdgeStatus
+  dispatchable?: boolean
+  dispatchBlockReason?: string | null
+  executionOccupancies?: DeviceExecutionOccupancy[] | null
   /** Formal Driver/Host property contract. Runtime samples never extend it. */
   stateSchema?: Record<string, unknown>
   actions: DeviceCatalogAction[]
@@ -131,6 +161,13 @@ export interface ResourceNode {
   children: ResourceNode[]
 }
 
+/**
+ * 创建统一实验室服务，服务端差异只在 adapter 内收敛。
+ *
+ * @param http 已绑定所选服务地址的 HTTP 客户端。
+ * @param backend 当前 Backend/Edge Profile 与能力身份。
+ * @returns 供产品界面使用的统一实验室服务端口。
+ */
 export function createLaboratoryService(
   http: HttpClient,
   backend: BackendConfig
@@ -151,22 +188,27 @@ export function createLaboratoryService(
     },
 
     async getDeviceCatalog(): Promise<DeviceCatalogItem[]> {
-      return loadBackendDeviceCatalog(http)
+      return loadBackendDeviceCatalog(http, backend.serverKind)
     },
 
     async getOnlineDevices(signal?: AbortSignal): Promise<OnlineDevice[]> {
-      return loadBackendOnlineDevices(http, signal)
+      return loadBackendOnlineDevices(http, signal, backend.serverKind)
     },
 
     async getDeviceActions(deviceId: string): Promise<DeviceAction[]> {
-      return loadBackendDeviceActions(http, deviceId)
+      return loadBackendDeviceActions(http, deviceId, backend.serverKind)
     },
 
     async getActionSchema(
       deviceId: string,
       actionName: string
     ): Promise<DeviceActionSchema> {
-      return loadBackendActionSchema(http, deviceId, actionName)
+      return loadBackendActionSchema(
+        http,
+        deviceId,
+        actionName,
+        backend.serverKind
+      )
     },
 
     async forceUnlockDeviceAction(input: {

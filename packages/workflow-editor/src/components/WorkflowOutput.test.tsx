@@ -39,6 +39,20 @@ describe('WorkflowOutput', () => {
     )
   })
 
+  it('reclaims detail height for the node list when details are collapsed', () => {
+    const stylesheet = readFileSync(fileURLToPath(new URL(
+      './_workflow-output.scss',
+      import.meta.url
+    )), 'utf8')
+
+    expect(stylesheet).toMatch(
+      /workflow-output-panel-nodes\.is-node-details-collapsed\)[\s\S]*workflow-runtime__node-list\)[\s\S]*max-height:\s*none;[\s\S]*flex:\s*1 1 auto;/u
+    )
+    expect(stylesheet).not.toMatch(
+      /workflow-runtime__node-details\.is-collapsed\)\s*\{[^}]*margin-top:\s*auto;/u
+    )
+  })
+
   it('keeps the node panel hidden when another output tab is active', () => {
     const stylesheet = readFileSync(fileURLToPath(new URL(
       './_workflow-output.scss',

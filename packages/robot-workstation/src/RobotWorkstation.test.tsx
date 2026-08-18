@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
@@ -109,13 +111,13 @@ describe('RobotWorkstation', () => {
       />
     )
 
-    expect(markup).toContain('登记库存')
+    expect(markup).toContain('试剂入库')
     expect(markup).toContain('编辑 乙醇')
     expect(markup).toContain('查看 乙醇 历史')
     expect(markup).not.toContain('试剂身份、数量、修订与历史由 Go Backend 持久化')
   })
 
-  /** 证明真实试剂管理清晰区分库存试剂与试剂身份，并展示权威基础化学信息。 */
+  /** 证明真实试剂管理清晰区分试剂库存与试剂目录，并展示权威基础化学信息。 */
   it('renders separate ledger and authoritative reagent library views', () => {
     const markup = renderToStaticMarkup(
       <RobotWorkstation
@@ -136,15 +138,16 @@ describe('RobotWorkstation', () => {
       />
     )
 
-    expect(markup).toContain('库存试剂')
-    expect(markup).toContain('试剂身份')
+    expect(markup).toContain('试剂库存')
+    expect(markup).toContain('试剂目录')
     expect(markup).toContain('64-17-5')
     expect(markup).toContain('C2H6O')
     expect(markup).toContain('46.07 g/mol')
     expect(markup).toContain('阴凉通风')
-    expect(markup).not.toContain('新建试剂身份')
+    expect(markup).not.toContain('新增试剂目录')
   })
 
+  /** 证明目录已有试剂时，空库存主操作直接引导试剂入库。 */
   it('uses registration as the empty-ledger action when the reagent library has entries', () => {
     const markup = renderToStaticMarkup(
       <RobotWorkstation
@@ -167,10 +170,11 @@ describe('RobotWorkstation', () => {
       />
     )
 
-    expect(markup).toMatch(/data-testid="reagent-empty-primary"[^>]*>登记库存<\/button>/)
+    expect(markup).toMatch(/data-testid="reagent-empty-primary"[^>]*>试剂入库<\/button>/)
     expect(markup).not.toContain('>重新读取</button>')
   })
 
+  /** 证明目录为空时，空库存主操作先引导新增试剂目录。 */
   it('uses reagent creation as the empty-ledger action when the reagent library is empty', () => {
     const markup = renderToStaticMarkup(
       <RobotWorkstation
@@ -188,7 +192,44 @@ describe('RobotWorkstation', () => {
       />
     )
 
-    expect(markup).toMatch(/data-testid="reagent-empty-primary"[^>]*>新建试剂身份<\/button>/)
+    expect(markup).toMatch(/data-testid="reagent-empty-primary"[^>]*>新增试剂目录<\/button>/)
     expect(markup).not.toContain('>重新读取</button>')
+  })
+
+  /** 证明试剂模块使用“试剂库存 / 试剂目录 / 试剂入库”的产品术语。 */
+  it('uses the requested reagent inventory and catalog terminology', () => {
+    const markup = renderToStaticMarkup(
+      <RobotWorkstation
+        module="reagents"
+        reagentStatus={{ phase: 'ready', message: '已同步' }}
+        reagentItems={[]}
+        reagentInfoStatus={{ phase: 'ready', message: '已同步' }}
+        reagentInfos={[]}
+        reagentManagement={{
+          containers: [],
+          containerStatus: { phase: 'ready', message: '已同步' },
+          create: async () => undefined,
+          update: async () => undefined,
+          delete: async () => undefined,
+          readHistory: async () => []
+        }}
+        reagentInfoManagement={{
+          lookupByCAS: async cas => ({ cas, status: 'not_found' }),
+          create: async () => undefined,
+          update: async () => undefined,
+          delete: async () => undefined
+        }}
+      />
+    )
+    const moduleSource = readFileSync(
+      new URL('./modules/ReagentModule.tsx', import.meta.url),
+      'utf8'
+    )
+
+    expect(markup).toContain('试剂库存')
+    expect(markup).toContain('试剂目录')
+    expect(markup).toContain('试剂入库')
+    expect(markup).toContain('新增试剂目录')
+    expect(moduleSource).toMatch(/<WorkstationIcon name="plus"\s*\/>\s*新增试剂/s)
   })
 })

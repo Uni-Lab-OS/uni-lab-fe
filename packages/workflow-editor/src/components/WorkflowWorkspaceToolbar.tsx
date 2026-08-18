@@ -14,6 +14,7 @@ export interface WorkflowWorkspaceModeControl {
   active: boolean
   disabled: boolean
   disabledReason: string
+  visible?: boolean
   onSelect?: () => void
 }
 
@@ -27,6 +28,7 @@ export interface WorkflowWorkspaceSaveControl {
 
 interface WorkflowWorkspaceToolbarProps {
   task: WorkflowTask | null
+  historicalTask?: boolean
   message: string
   onChooseWorkflow?: () => void
   navigationDisabled?: boolean
@@ -45,6 +47,7 @@ interface WorkflowWorkspaceToolbarProps {
  */
 export function WorkflowWorkspaceToolbar({
   task,
+  historicalTask = false,
   message,
   onChooseWorkflow,
   navigationDisabled = false,
@@ -54,7 +57,7 @@ export function WorkflowWorkspaceToolbar({
   save,
   children
 }: WorkflowWorkspaceToolbarProps): React.JSX.Element {
-  const liveTask = workflowTaskIsLive(task)
+  const liveTask = workflowTaskIsLive(task) && !historicalTask
   const visualStatus = liveTask ? workflowTaskVisualStatus(task) : 'disabled'
 
   return (
@@ -79,16 +82,18 @@ export function WorkflowWorkspaceToolbar({
           role="group"
           aria-label="工作流单编辑权模式"
         >
-          <WorkflowButton
-            type="button"
-            className={codeMode.active ? 'is-active' : ''}
-            aria-pressed={codeMode.active}
-            disabled={codeMode.disabled}
-            disabledReason={codeMode.disabledReason}
-            onClick={codeMode.onSelect}
-          >
-            代码模式
-          </WorkflowButton>
+          {codeMode.visible !== false ? (
+            <WorkflowButton
+              type="button"
+              className={codeMode.active ? 'is-active' : ''}
+              aria-pressed={codeMode.active}
+              disabled={codeMode.disabled}
+              disabledReason={codeMode.disabledReason}
+              onClick={codeMode.onSelect}
+            >
+              代码模式
+            </WorkflowButton>
+          ) : null}
           <WorkflowButton
             type="button"
             className={canvasMode.active ? 'is-active' : ''}
@@ -115,7 +120,16 @@ export function WorkflowWorkspaceToolbar({
         className="workflow__toolbar-actions persistent-authoring__debug-toolbar"
         aria-label="工作流调试工具栏"
       >
-        {liveTask && task ? (
+        {historicalTask && task ? (
+          <span
+            className="persistent-authoring__task-status is-disabled"
+            title={`OS 当前未连接；上次记录：${workflowTaskStatusLabel(task.status)}`}
+            data-task-status="historical"
+          >
+            <i aria-hidden="true" />
+            历史执行
+          </span>
+        ) : liveTask && task ? (
           <span
             className={`persistent-authoring__task-status is-${visualStatus}`}
             title={`${workflowTaskControlStatusLabel(task)}；任务：${workflowTaskStatusLabel(task.status)}`}

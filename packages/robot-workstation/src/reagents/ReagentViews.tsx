@@ -35,13 +35,13 @@ export function ReagentLedgerView({
   const totals = summarizeReagentInventory(items)
   return (
     <>
-      <div className={styles.reagentStats} aria-label="库存试剂摘要">
-        <ReagentStat icon="flask" label="库存试剂" value={totals.count} tone="info" />
+      <div className={styles.reagentStats} aria-label="试剂库存摘要">
+        <ReagentStat icon="flask" label="试剂库存" value={totals.count} tone="info" />
         <ReagentStat icon="shield" label="可用" value={totals.available} tone="success" />
         <ReagentStat icon="point" label="预留中" value={totals.reserved} tone="warning" />
       </div>
       <div className={`${uiClass.panel} ${uiClass.tableScroll} ${styles.reagentLedgerPanel}`}>
-        <table className={`${styles.dataTable} ${styles.reagentLedgerTable}`} aria-label="库存试剂">
+        <table className={`${styles.dataTable} ${styles.reagentLedgerTable}`} aria-label="试剂库存">
           <thead>
             <tr>
               <th>试剂名称</th>
@@ -86,7 +86,7 @@ export function ReagentLedgerView({
               </tr>
             ))}
             {visibleItems.length === 0 ? (
-              <tr><td colSpan={actions ? 11 : 10}><div className={uiClass.compactEmptyState}>没有符合搜索条件的库存试剂</div></td></tr>
+              <tr><td colSpan={actions ? 11 : 10}><div className={uiClass.compactEmptyState}>没有符合搜索条件的试剂库存</div></td></tr>
             ) : null}
           </tbody>
         </table>

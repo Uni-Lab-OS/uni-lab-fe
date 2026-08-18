@@ -174,9 +174,15 @@ function VisitedSectionViews({
     });
   }, [section]);
 
+  // 当前面板必须在本次渲染中同步出现。若只等 effect 更新 visited，
+  // 旧面板会先被 hidden，新面板下一帧才挂载，首次导航时主区会整帧空白。
+  const renderedSections = visited.has(section)
+    ? visited
+    : new Set([...visited, section]);
+
   return (
     <>
-      {([...visited] as WorkbenchSection[]).map((visitedSection) => (
+      {([...renderedSections] as WorkbenchSection[]).map((visitedSection) => (
         <div
           key={visitedSection}
           hidden={visitedSection !== section}

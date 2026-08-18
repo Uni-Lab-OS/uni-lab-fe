@@ -72,6 +72,29 @@ describe('ExternalDevicesOnlyControl', () => {
 })
 
 describe('describeEnvironmentOperationError', () => {
+  /**
+   * 验证 Backend 连接拒绝会转换为可执行的恢复提示，并保留原始技术信息供诊断。
+   *
+   * @returns 无返回值；断言错误标题、恢复步骤和技术详情三者保持分离。
+   * @throws 当底层连接异常继续直接暴露给用户，或技术信息丢失时由断言报告。
+   * @safety 只调用纯错误映射函数，不发起网络请求或修改运行环境。
+   */
+  it('turns Backend connection refusal into an actionable recovery prompt', () => {
+    const technicalDetail =
+      'Backend Authority 预检失败: /api/v1/health: ' +
+      '<urlopen error [Errno 61] Connection refused>'
+
+    expect(describeEnvironmentOperationError(
+      'inspect-release-target',
+      technicalDetail
+    )).toEqual({
+      title: '无法连接 Backend',
+      message: '无法访问目标 Backend。请先启动 Backend，并确认环境管理中的 ' +
+        'Backend 地址和端口正确，然后重试。',
+      technicalDetail
+    })
+  })
+
   it('explains why reset-and-publish is unavailable in Backend mode', () => {
     expect(describeEnvironmentOperationError(
       'reset-and-publish-release',

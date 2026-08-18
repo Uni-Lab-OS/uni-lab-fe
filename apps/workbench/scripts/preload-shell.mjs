@@ -15,9 +15,9 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: 16px;
   box-sizing: border-box;
-  background: #f4f7fc;
+  background: #f6f8fc;
   color: #1f2937;
   font: 600 18px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0.01em;
@@ -26,16 +26,22 @@ html, body {
 }
 .theia-preload::before {
   content: "UniLab 调试工作台";
+  order: 2;
 }
 .theia-preload::after {
-  content: "";
-  width: 28px;
-  height: 28px;
+  content: "" !important;
+  order: 1;
+  display: block;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
   box-sizing: border-box;
-  border: 3px solid rgba(37, 99, 235, 0.18);
+  border: 3px solid rgba(37, 99, 235, 0.16);
   border-top-color: #2563eb;
   border-radius: 50%;
-  animation: unilab-workbench-preload-spin 800ms linear infinite;
+  color: transparent !important;
+  font: 0/0 sans-serif !important;
+  animation: unilab-workbench-preload-spin 760ms linear infinite !important;
 }
 .theia-preload.theia-hidden {
   opacity: 0;
@@ -43,6 +49,11 @@ html, body {
 }
 @keyframes unilab-workbench-preload-spin {
   to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theia-preload::after {
+    animation-duration: 1.5s !important;
+  }
 }
 </style>`
 

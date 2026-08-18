@@ -124,6 +124,48 @@ describe('persistent Authoring canvas graph edits', () => {
     })
   })
 
+  /**
+   * 验证应用布局不会改写组合工作流内部私有节点的姿态。
+   *
+   * @returns 无返回值；断言可编辑节点重排且私有节点保持原坐标。
+   * @throws 布局写回越过只读边界时由 Vitest 抛出。
+   * @safety 仅使用内存工作流图，不保存或执行任何动作。
+   */
+  it('keeps composite private node poses immutable during beautify', () => {
+    const source: WorkflowAuthoringGraph = {
+      ...graph,
+      nodes: [
+        {
+          ...graph.nodes[0],
+          pose: { position: { x: 940, y: 720, z: 12 } }
+        },
+        {
+          ...graph.nodes[1],
+          pose: { position: { x: 80, y: 40, z: 18 } }
+        },
+        {
+          uuid: 'private-child',
+          name: 'private_child',
+          parent_uuid: 'node-1',
+          pose: { position: { x: 620, y: 410, z: 21 } },
+          param: {}
+        }
+      ],
+      edges: [{
+        uuid: 'edge-1',
+        source_node_uuid: 'node-1',
+        target_node_uuid: 'node-2',
+        source_handle_uuid: 'source-handle',
+        target_handle_uuid: 'target-handle'
+      }]
+    }
+
+    const updated = beautifyPersistentAuthoringGraph(source)
+
+    expect(updated.nodes[0]?.pose).not.toEqual(source.nodes[0]?.pose)
+    expect(updated.nodes[2]?.pose).toEqual(source.nodes[2]?.pose)
+  })
+
   it('projects real Handle UUIDs into ReactFlow nodes and edges', () => {
     const projected = projectPersistentAuthoringGraph({
       ...graph,

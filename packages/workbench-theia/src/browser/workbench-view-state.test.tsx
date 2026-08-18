@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 
 import { DomainEntryPanel } from './domain-entry-panel'
@@ -27,19 +28,43 @@ describe('Workbench domain view presentation', () => {
     expect(state.isVisible('material')).toBe(false)
   })
 
-  it('toggles instruments without discarding the authoring panel selection', () => {
+  it('allows instruments and materials to share the Workbench main area', () => {
     const state = new WorkbenchViewState()
 
     state.toggle('material')
     state.toggle('device')
-    expect(state.currentMode).toBe('device')
+    expect(state.currentMode).toBe('device-material')
     expect(state.isVisible('device')).toBe(true)
     expect(state.isVisible('workflow')).toBe(false)
-    expect(state.isVisible('material')).toBe(false)
+    expect(state.isVisible('material')).toBe(true)
     state.toggle('device')
 
+    expect(state.currentMode).toBe('material')
+    expect(state.isVisible('device')).toBe(false)
+    expect(state.isVisible('material')).toBe(true)
+  })
+
+  it('lets either side of the instrument and material split remain open', () => {
+    const state = new WorkbenchViewState()
+    const listener = vi.fn()
+    state.onDidChangeMode(listener)
+
+    state.toggle('material')
+    expect(state.currentMode).toBe('split')
+
+    state.toggle('device')
+    expect(state.currentMode).toBe('device-material')
+
+    state.toggle('material')
     expect(state.currentMode).toBe('device')
+    expect(state.isVisible('material')).toBe(false)
+    expect(state.isVisible('workflow')).toBe(false)
     expect(state.isVisible('device')).toBe(true)
+    expect(listener.mock.calls).toEqual([
+      ['split'],
+      ['device-material'],
+      ['device']
+    ])
   })
 
   it('opens each robot function as an exclusive Workbench surface', () => {
@@ -77,11 +102,12 @@ describe('Workbench domain view presentation', () => {
 
     state.toggle('device')
     state.toggle('device')
-    expect(state.currentMode).toBe('device')
+    expect(state.currentMode).toBe('material')
     expect(listener.mock.calls).toEqual([
       ['split'],
       ['material'],
-      ['device']
+      ['device-material'],
+      ['material']
     ])
   })
 
@@ -125,7 +151,7 @@ describe('Workbench domain view presentation', () => {
     expect(markup).toContain('aria-valuenow="55"')
   })
 
-  it('keeps inactive domains mounted but hidden in a single-view layout', () => {
+  it('keeps inactive domains mounted, sized and non-interactive', () => {
     const markup = renderToStaticMarkup(
       <WorkbenchDomainLayout
         mode="material"
@@ -141,7 +167,13 @@ describe('Workbench domain view presentation', () => {
     expect(markup).toContain('data-testid="device-surface"')
     expect(markup).toContain('data-testid="robot-workstation-surface"')
     expect(markup).toContain('role="separator"')
-    expect(markup).toContain('hidden=""')
+    expect(markup).toContain(
+      'class="unilab-workbench__domain-slot is-workflow is-inactive"'
+    )
+    expect(markup).toContain('aria-hidden="true" inert=""')
+    expect(markup).toContain(
+      'class="unilab-workbench__domain-slot is-material"'
+    )
   })
 
   it('mounts the shared instrument panel as a first-class domain', () => {
@@ -159,6 +191,38 @@ describe('Workbench domain view presentation', () => {
     expect(markup).toContain('data-testid="device-surface"')
     expect(markup).toContain('data-testid="workflow-surface"')
     expect(markup).toContain('data-testid="material-surface"')
+  })
+
+  it('renders instruments and materials with an accessible splitter', () => {
+    const markup = renderToStaticMarkup(
+      <WorkbenchDomainLayout
+        mode="device-material"
+        workflow={<section data-testid="workflow-surface" />}
+        material={<section data-testid="material-surface" />}
+        device={<section data-testid="device-surface" />}
+        robotWorkstation={<section data-testid="robot-workstation-surface" />}
+      />
+    )
+
+    expect(markup).toContain('data-workbench-view="device-material"')
+    expect(markup).toContain('data-testid="device-surface"')
+    expect(markup).toContain('data-testid="material-surface"')
+    expect(markup).toContain('aria-label="调整仪器设备与物料窗口宽度"')
+    expect(markup).toContain('aria-valuenow="55"')
+  })
+
+  it('keeps graph hosts measurable and collapses the secondary pane when narrow', () => {
+    const stylesheet = readFileSync(
+      new URL('./style/workbench-domain-navigation.css', import.meta.url),
+      'utf8'
+    )
+
+    expect(stylesheet).toMatch(
+      /\.unilab-workbench__domain-layout\s*\{[^}]*min-width:\s*1px;[^}]*min-height:\s*1px;/s
+    )
+    expect(stylesheet).toMatch(
+      /@container unilab-workbench \(max-width: 900px\)[\s\S]*\.unilab-workbench__domain-slot\.is-material[\s\S]*display:\s*none;/
+    )
   })
 
   it('mounts the mechanical-arm modules inside the Workbench main area', () => {

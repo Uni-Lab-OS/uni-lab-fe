@@ -26,6 +26,22 @@ afterEach(async () => {
 })
 
 describe('Workspace Host Workbench adapter', () => {
+  it('does not launch the managed agent when agent support is disabled', async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), 'unilab-host-agent-off-'))
+    roots.push(workspacePath)
+    const agentStarter = vi.fn()
+    const session = createWorkspaceHostWorkbenchSession({
+      workspacePath,
+      enableAgent: false,
+      agentStarter
+    })
+
+    const snapshot = await session.startAgent()
+
+    expect(agentStarter).not.toHaveBeenCalled()
+    expect(snapshot.agent).toBeNull()
+  })
+
   /**
    * 验证适配器会提交已认证命令、投影 Host 状态，并将“仅加载外部设备包”配置更新回传为最新会话快照。
    */
@@ -161,6 +177,16 @@ describe('Workspace Host Workbench adapter', () => {
     expect(receivedCommands.at(-1)).toBe('configuration.update')
     expect(allDevices.configuredExternalDevicesOnly).toBe(false)
     expect(snapshot.configuration.externalDevicesOnly).toBe(false)
+
+    const commandsBeforeRuntimeModeChange = receivedCommands.length
+    const dryRun = await session.setRuntimeMode('dry-run')
+    expect(receivedCommands.slice(commandsBeforeRuntimeModeChange)).toEqual([
+      'configuration.update'
+    ])
+    expect(receivedParameters.get('configuration.update')).toEqual({
+      runtimeMode: 'dry-run'
+    })
+    expect(dryRun.configuredRuntimeMode).toBe('dry-run')
 
     await expect(session.inspectReleaseTarget('http://192.168.1.20:9000'))
       .resolves.toEqual({

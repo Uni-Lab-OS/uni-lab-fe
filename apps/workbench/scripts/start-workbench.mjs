@@ -19,13 +19,14 @@ import { stopManagedSessionProcesses } from './managed-session-cleanup.mjs'
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const workspaceRoot = path.resolve(scriptDirectory, '../../..')
 const desktopRoot = path.join(workspaceRoot, 'apps', 'desktop')
-const workbenchRequire = createRequire(path.join(
+const theiaBackend = path.join(
   workspaceRoot,
   'apps',
   'workbench',
-  'package.json'
-))
-const theiaCli = workbenchRequire.resolve('@theia/cli/bin/theia.js')
+  'lib',
+  'backend',
+  'main.js'
+)
 const launch = resolveWorkbenchLaunchConfiguration(process.argv.slice(2))
 const launchMode = launch.mode
 const desktopEnabled = launchMode === 'desktop' || launchMode === 'desktop-remote'
@@ -138,8 +139,7 @@ if (process.platform !== 'win32' && process.env.SHELL?.endsWith('/zsh')) {
 }
 
 const theia = spawn(process.execPath, [
-  theiaCli,
-  'start',
+  theiaBackend,
   workspace,
   '--hostname',
   '127.0.0.1',
@@ -193,6 +193,9 @@ const stop = signal => {
 process.on('SIGINT', () => void stop('SIGINT'))
 process.on('SIGTERM', () => void stop('SIGTERM'))
 theia.once('exit', (code, signal) => {
+  console.error(
+    `[UniLab Workbench] Theia exited code=${code ?? 'null'} signal=${signal ?? 'null'}`
+  )
   const finalize = async () => {
     await closeRemoteAccess()
     await stopManagedSessionProcesses({
@@ -275,6 +278,9 @@ async function launchDesktop(rendererUrl) {
     stop('SIGTERM')
   })
   desktopShell.once('exit', (code, signal) => {
+    console.error(
+      `[UniLab Workbench] Electron exited code=${code ?? 'null'} signal=${signal ?? 'null'}`
+    )
     if (!stopping) {
       void stop('SIGTERM')
     }

@@ -500,9 +500,12 @@ describe('layoutWorkflowPrimarySampleFlow', () => {
     const second: WorkflowNode = {
       ...sampleAction('second', true),
       handles: [
-        resourceSlotHandle('second-catalyst-input', 'catalyst', 'target'),
         resourceSlotHandle('second-reagent-input', 'reagent', 'target'),
+        // 模拟真实 S09：输出声明穿插在输入之间。渲染层仍会先展示全部输入，
+        // 因此布局也必须按“输入优先”计算主样品卡片行号。
+        resourceSlotHandle('second-catalyst-output', 'catalyst', 'source'),
         resourceSlotHandle('second-input', 'sample', 'target'),
+        resourceSlotHandle('second-catalyst-input', 'catalyst', 'target'),
         resourceSlotHandle('second-output', 'sample', 'source')
       ]
     }
@@ -545,8 +548,8 @@ describe('layoutWorkflowPrimarySampleFlow', () => {
     const yByNode = new Map(result.nodes.map((node) => [node.id, node.y ?? 0]))
     const handleAxes = [
       (yByNode.get('primary-source') ?? 0) + 92,
-      (yByNode.get('first') ?? 0) + 63,
-      (yByNode.get('second') ?? 0) + 125,
+      (yByNode.get('first') ?? 0) + 64,
+      (yByNode.get('second') ?? 0) + 95,
       (yByNode.get('transfer') ?? 0) + 90
     ]
 

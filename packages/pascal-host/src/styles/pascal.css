@@ -69,6 +69,85 @@
   display: none;
 }
 
+/*
+ * 3D 只保留最常用的右键旋转与滚轮缩放提示。操作卡片使用紧凑的
+ * 双列布局，避免遮挡场景，也不再让关闭按钮形成第三个视觉分区。
+ */
+.pascal-editor-host section[aria-label='3D 视角操作提示'] {
+  width: 140px;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px 8px 12px;
+  border-color: color-mix(
+    in srgb,
+    var(--unilab-color-border-strong) 54%,
+    transparent
+  );
+  border-radius: 12px;
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-surface) 94%,
+    transparent
+  );
+  box-shadow: 0 8px 24px rgb(15 23 42 / 12%);
+}
+
+.pascal-editor-host .unilab-camera-controls-hint-anchor,
+.pascal-editor-host div:has(> section[aria-label='3D 视角操作提示']) {
+  z-index: 80;
+  right: auto;
+  left: 12px;
+  transform: none;
+}
+
+.pascal-editor-host
+  section[aria-label='3D 视角操作提示']
+  > div:first-child {
+  grid-template-columns: repeat(2, minmax(40px, 1fr));
+  align-items: center;
+}
+
+.pascal-editor-host
+  section[aria-label='3D 视角操作提示']
+  > div:first-child
+  > div:first-child {
+  display: none;
+}
+
+.pascal-editor-host
+  section[aria-label='3D 视角操作提示']
+  > div:first-child
+  > div {
+  gap: 4px;
+  padding-inline: 4px;
+}
+
+.pascal-editor-host
+  section[aria-label='3D 视角操作提示']
+  > button[aria-label='关闭操作提示'] {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: var(--unilab-color-bg-subtle);
+}
+
+.pascal-editor-host
+  section[aria-label='3D 视角操作提示']
+  > button[aria-label='关闭操作提示']:hover {
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-border);
+}
+
+.pascal-editor-host
+  section[aria-label='3D 视角操作提示']
+  > button[aria-label='关闭操作提示']:focus-visible {
+  outline: 2px solid var(--unilab-color-primary);
+  outline-offset: 2px;
+}
+
 .pascal-lab-toolbar {
   position: relative;
   z-index: 30;

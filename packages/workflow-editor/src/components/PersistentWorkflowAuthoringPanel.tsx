@@ -47,6 +47,8 @@ interface PersistentWorkflowAuthoringPanelProps {
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
   recoveryRevision?: number
+  onResetEnvironment?: () => Promise<void>
+  environmentResetBusy?: boolean
 }
 
 /**
@@ -84,6 +86,8 @@ export function PersistentWorkflowAuthoringPanel(
       visibleMaterialRoles={props.visibleMaterialRoles}
       onVisibleMaterialRolesChange={props.onVisibleMaterialRolesChange}
       hideEmbeddedCodeEditor={props.hideEmbeddedCodeEditor}
+      onResetEnvironment={props.onResetEnvironment}
+      environmentResetBusy={props.environmentResetBusy}
     />
   )
 }

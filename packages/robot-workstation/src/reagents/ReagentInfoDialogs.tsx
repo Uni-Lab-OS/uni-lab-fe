@@ -188,10 +188,10 @@ export function ReagentInfoEditorDialog(props: EditorProps): React.JSX.Element {
 
   return (
     <ReagentDialogFrame
-      title={props.mode === 'create' ? '新建试剂身份' : `编辑身份 · ${props.item.name}`}
+      title={props.mode === 'create' ? '新增试剂目录' : `编辑试剂 · ${props.item.name}`}
       description={props.mode === 'create'
         ? '输入 CAS 可自动补全化学信息；无 CAS 的自配物质可直接填写名称。'
-        : '修改共享化学身份，不会改动库存数量和容器信息。'}
+        : '修改共享试剂信息，不会改动库存数量和容器信息。'}
       busy={submitting}
       wide
       onClose={props.onClose}
@@ -201,7 +201,7 @@ export function ReagentInfoEditorDialog(props: EditorProps): React.JSX.Element {
         {error ? <p ref={errorRef} tabIndex={-1} className={styles.dialogErrorSummary} role="alert">{error}</p> : null}
         <div className={styles.formSections}>
           <fieldset className={styles.formSection}>
-            <legend>核心身份</legend>
+            <legend>试剂信息</legend>
             <div className={styles.dialogFields}>
               <label>
                 <span>CAS 号</span>
@@ -289,7 +289,7 @@ export function ReagentInfoEditorDialog(props: EditorProps): React.JSX.Element {
         </div>
         <ReagentDialogActions
           onClose={props.onClose}
-          submitLabel={submitting ? '正在保存…' : props.mode === 'create' ? '创建身份' : '保存修改'}
+          submitLabel={submitting ? '正在保存…' : props.mode === 'create' ? '创建' : '保存修改'}
           disabled={submitting || lookupFeedback?.phase === 'loading' || Boolean(lookupFeedback?.blocksSubmit)}
           cancelDisabled={submitting}
         />
@@ -399,7 +399,7 @@ export function mergeLookupFields(
 
 /** 已登记 CAS 阻止重复创建；其他降级状态仍允许用户手工录入。 */
 function compoundLookupFallback(status: ReagentInfoLookupResult['status']): string {
-  if (status === 'registered') return '该 CAS 已登记，请直接选择现有试剂身份。'
+  if (status === 'registered') return '该 CAS 已登记，请直接选择现有试剂目录项。'
   if (status === 'not_found') return 'PubChem 未收录该 CAS，请手工填写化学信息。'
   return 'PubChem 暂时不可用，请手工填写化学信息。'
 }

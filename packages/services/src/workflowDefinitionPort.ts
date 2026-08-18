@@ -102,12 +102,12 @@ function backendDefinitionPort(
     capabilities: {
       authority: 'backend',
       label: 'Backend',
-      codeViewing: true,
+      codeViewing: false,
       sourceEditing: false,
       directGraphSaving: true,
       debugLaunch: false,
       sourceEditingDisabledReason:
-        'Backend 代码视图为只读；如需修改，请切回画布模式'
+        '正式 Backend 仅支持画布模式'
     },
     read: async () => backendAggregate(
       await runtime.getBackendWorkflowGraph(workflowUuid)

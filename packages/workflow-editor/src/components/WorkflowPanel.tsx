@@ -56,6 +56,8 @@ export interface WorkflowPanelProps {
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
   allowWorkflowSelection?: boolean
+  onResetEnvironment?: () => Promise<void>
+  environmentResetBusy?: boolean
 }
 
 /**
@@ -86,7 +88,9 @@ export default function WorkflowPanel({
   onVisibleMaterialRolesChange,
   ideBridge,
   hideEmbeddedCodeEditor = false,
-  allowWorkflowSelection = false
+  allowWorkflowSelection = false,
+  onResetEnvironment,
+  environmentResetBusy = false
 }: WorkflowPanelProps): React.JSX.Element {
   const [selectedWorkflowUuid, setSelectedWorkflowUuid] = useState<
     string | null
@@ -154,6 +158,8 @@ export default function WorkflowPanel({
               persistActiveWorkflowId(activeWorkflowStorageKey, '')
               setShowCatalog(true)
             }}
+        onResetEnvironment={onResetEnvironment}
+        environmentResetBusy={environmentResetBusy}
       />
     )
   }

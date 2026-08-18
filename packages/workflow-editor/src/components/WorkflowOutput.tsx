@@ -303,7 +303,10 @@ function WorkflowOutputBody({
     <div className="workflow-runtime__output-body">
       <section
         id="workflow-output-panel-nodes"
-        className="workflow-runtime__output-panel"
+        className={[
+          'workflow-runtime__output-panel',
+          allNodeDetailsCollapsed ? 'is-node-details-collapsed' : ''
+        ].filter(Boolean).join(' ')}
         role="tabpanel"
         aria-labelledby="workflow-output-tab-nodes"
         tabIndex={0}

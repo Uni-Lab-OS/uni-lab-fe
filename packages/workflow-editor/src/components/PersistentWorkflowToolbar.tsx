@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useDismissibleDetails } from '@unilab/design-system/hooks'
+import { useEffect, useMemo } from 'react'
 
 import {
   workflowTaskIsLive,
@@ -14,6 +15,8 @@ import {
 
 interface PersistentWorkflowToolbarProps {
   model: PersistentWorkflowAuthoringModel
+  onResetEnvironment?: () => Promise<void>
+  environmentResetBusy?: boolean
 }
 
 const RUN_MODE_LABELS = {
@@ -28,9 +31,13 @@ const RUN_MODE_LABELS = {
  *
  * @param props 当前工作流定义权威来源的统一编写模型。
  * @returns 根据加载、编辑和任务状态统一约束的工具栏。
+ * @throws 不主动抛错；工作流命令异常由上层编写模型处理。
+ * @safety 仅通过注入命令修改工作流；菜单关闭不改变运行模式。
  */
 export function PersistentWorkflowToolbar({
-  model
+  model,
+  onResetEnvironment,
+  environmentResetBusy = false
 }: PersistentWorkflowToolbarProps): React.JSX.Element {
   const {
     aggregate,
@@ -59,6 +66,7 @@ export function PersistentWorkflowToolbar({
     sourceEditingDisabledReason,
     startWorkflow,
     task,
+    taskHistorical,
     taskControls,
     taskInputForm,
     taskRunMode,
@@ -67,7 +75,7 @@ export function PersistentWorkflowToolbar({
     workflowStartBusy,
     workflowStartPresentation
   } = model
-  const runModeMenuRef = useRef<HTMLDetailsElement | null>(null)
+  const runModeMenuRef = useDismissibleDetails()
   const currentAuthorityLabel = authorityLabel ?? 'OS'
   const canEditDefinition = definitionEditingAvailable !== false
   const canViewCode = codeViewingAvailable !== false
@@ -78,10 +86,10 @@ export function PersistentWorkflowToolbar({
   const modeSwitchDisabledReason = busy
     ? '正在读取或处理工作流，请稍后切换编辑模式'
     : '工作流尚未加载完成'
-  const liveTask = workflowTaskIsLive(task)
+  const liveTask = workflowTaskIsLive(task) && !taskHistorical
   const compactTaskControls = useMemo(
-    () => workflowTaskToolbarControls(task, taskControls),
-    [task, taskControls]
+    () => workflowTaskToolbarControls(taskHistorical ? null : task, taskControls),
+    [task, taskControls, taskHistorical]
   )
   const saveDisabled = Boolean(
     !dirty ||
@@ -127,6 +135,7 @@ export function PersistentWorkflowToolbar({
   return (
     <WorkflowWorkspaceToolbar
       task={task}
+      historicalTask={taskHistorical}
       message={message}
       onChooseWorkflow={onChooseWorkflow}
       navigationDisabled={busy || dirty}
@@ -136,6 +145,7 @@ export function PersistentWorkflowToolbar({
       codeMode={{
         active: mode === 'code',
         disabled: modeSwitchDisabled || !canViewCode,
+        visible: canViewCode,
         disabledReason: !canViewCode
           ? sourceEditingDisabledReason ?? '当前数据源不支持代码模式'
           : modeSwitchDisabledReason,
@@ -241,6 +251,42 @@ export function PersistentWorkflowToolbar({
             <WorkflowToolbarIcon name="play" />
           </WorkflowButton>
         )}
+
+        <WorkflowButton
+          type="button"
+          className="persistent-authoring__debug-icon"
+          aria-label="复位运行环境"
+          disabled={
+            !onResetEnvironment ||
+            busy ||
+            runningEntryBusy ||
+            liveTask ||
+            environmentResetBusy ||
+            dirty
+          }
+          disabledReason={!onResetEnvironment
+            ? '当前宿主不支持复位运行环境'
+            : liveTask
+              ? '工作流运行期间不能复位环境'
+              : environmentResetBusy || runningEntryBusy
+                ? '正在处理运行环境，请稍候'
+                : dirty
+                  ? '请先保存当前工作流修改'
+                  : busy
+                    ? '正在处理工作流编写操作，请稍候'
+                    : '当前运行环境暂时不能复位'}
+          title={environmentResetBusy
+            ? '正在复位运行环境'
+            : '复位 PLC 与 Backend 物料状态'}
+          onClick={() => {
+            if (!onResetEnvironment || !globalThis.confirm(
+              '确定复位运行环境吗？\n\n将重启 PLC-Sim，并使用当前设备图清空并重建 Backend 物料与库位状态。'
+            )) return
+            void onResetEnvironment()
+          }}
+        >
+          <WorkflowToolbarIcon name="refresh" />
+        </WorkflowButton>
 
         {liveTask && !taskRuntime.snapshot.debug && (
           <WorkflowDebugControls

@@ -16,6 +16,10 @@ interface WorkbenchConnectionSelectorProps {
   targets: WorkbenchConnectionTargets
   selectedMode: WorkbenchConnectionMode
   connection: WorkbenchConnectionState
+  targetConnections?: Partial<Record<
+    WorkbenchConnectionMode,
+    WorkbenchConnectionState
+  >>
   switchBlockedReason?: string | null
   defaultOpen?: boolean
   onSelect: (mode: WorkbenchConnectionMode) => void
@@ -31,6 +35,7 @@ export function WorkbenchConnectionSelector({
   targets,
   selectedMode,
   connection,
+  targetConnections,
   switchBlockedReason,
   defaultOpen = false,
   onSelect,
@@ -93,13 +98,23 @@ export function WorkbenchConnectionSelector({
           <ConnectionOption
             target={targets.local}
             selected={selectedMode === 'local'}
-            disabled={selectedMode !== 'local' && Boolean(switchBlockedReason)}
+            connection={targetConnections?.local}
+            disabled={selectedMode !== 'local' && (
+              Boolean(switchBlockedReason) ||
+              targetConnections?.local === 'error' ||
+              targetConnections?.local === 'disconnected'
+            )}
             onSelect={selectLocal}
           />
           <ConnectionOption
             target={targets.backend}
             selected={selectedMode === 'backend'}
-            disabled={selectedMode !== 'backend' && Boolean(switchBlockedReason)}
+            connection={targetConnections?.backend}
+            disabled={selectedMode !== 'backend' && (
+              Boolean(switchBlockedReason) ||
+              targetConnections?.backend === 'error' ||
+              targetConnections?.backend === 'disconnected'
+            )}
             onSelect={selectBackend}
           />
         </div>
@@ -156,11 +171,13 @@ export function closeConnectionSelectorOnOutsidePointer(
 function ConnectionOption({
   target,
   selected,
+  connection,
   disabled,
   onSelect
 }: {
   target: WorkbenchConnectionTargets[WorkbenchConnectionMode]
   selected: boolean
+  connection?: WorkbenchConnectionState
   disabled: boolean
   onSelect: () => void
 }): React.JSX.Element {
@@ -180,6 +197,15 @@ function ConnectionOption({
       </span>
       <span>{target.description}</span>
       <code>{target.endpointLabel}</code>
+      {connection ? (
+        <small className={`is-${connection}`}>
+          {connection === 'connected'
+            ? '可用'
+            : connection === 'connecting'
+              ? '检测中…'
+              : '当前不可用'}
+        </small>
+      ) : null}
     </button>
   )
 }

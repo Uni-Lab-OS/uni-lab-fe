@@ -8,7 +8,10 @@ import { PersistentWorkflowToolbar } from './PersistentWorkflowToolbar'
 describe('PersistentWorkflowToolbar', () => {
   it('keeps navigation and edit mode on one compact debugger toolbar', () => {
     const html = renderToStaticMarkup(
-      <PersistentWorkflowToolbar model={toolbarModel()} />
+      <PersistentWorkflowToolbar
+        model={toolbarModel()}
+        onResetEnvironment={async () => {}}
+      />
     )
 
     expect(html).toContain('工作流列表')
@@ -16,6 +19,10 @@ describe('PersistentWorkflowToolbar', () => {
     expect(html).toContain('画布模式')
     expect(html).toContain('aria-label="保存工作流"')
     expect(html).toContain('aria-label="开始运行"')
+    expect(html).toContain('aria-label="复位运行环境"')
+    expect(html.indexOf('aria-label="开始运行"')).toBeLessThan(
+      html.indexOf('aria-label="复位运行环境"')
+    )
     expect(html).toContain('正常运行')
     expect(html).toContain('运行设置，当前为正常运行')
     expect(html).toContain('任务运行模式')
@@ -27,6 +34,38 @@ describe('PersistentWorkflowToolbar', () => {
     expect(html).not.toContain('导入 Python')
     expect(html).not.toContain('导入 JSON')
     expect(html).not.toContain('更多工作流操作')
+  })
+
+  it('disables environment reset while the reset operation is busy', () => {
+    const html = renderToStaticMarkup(
+      <PersistentWorkflowToolbar
+        model={toolbarModel()}
+        onResetEnvironment={async () => {}}
+        environmentResetBusy
+      />
+    )
+
+    expect(html).toMatch(
+      /<button[^>]*aria-label="复位运行环境"[^>]*disabled=""[^>]*data-disabled-reason="正在处理运行环境，请稍候"/
+    )
+  })
+
+  it('hides code mode when the current authority does not allow code viewing', () => {
+    const html = renderToStaticMarkup(
+      <PersistentWorkflowToolbar
+        model={{
+          ...toolbarModel(),
+          aggregate: {} as PersistentWorkflowAuthoringModel['aggregate'],
+          authorityLabel: 'Backend',
+          codeViewingAvailable: false,
+          sourceEditingAvailable: false,
+          sourceEditingDisabledReason: '正式 Backend 仅支持画布模式'
+        }}
+      />
+    )
+
+    expect(html).not.toContain('代码模式')
+    expect(html).toContain('画布模式')
   })
 
   /** 证明 OS 工作流编写聚合返回前，两个编辑模式入口均不可误触。 */

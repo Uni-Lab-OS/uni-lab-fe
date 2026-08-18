@@ -189,7 +189,7 @@ export function WorkbenchSessionGate({
                 {onOpenLog ? (
                   <button
                     type="button"
-                    title="在编辑器中打开日志文件"
+                    title="在编辑器中打开日志文件；再次点击关闭"
                     onClick={() => void run(
                       () => onOpenLog(snapshot.identity?.logPath ?? '')
                     )}

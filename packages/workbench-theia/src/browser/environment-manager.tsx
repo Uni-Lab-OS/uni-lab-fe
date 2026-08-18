@@ -56,9 +56,18 @@ export interface EnvironmentManagerProps {
 export interface EnvironmentOperationError {
   title: string
   message: string
+  technicalDetail?: string
 }
 
-/** Translate release authority failures into an actionable Workbench message. */
+/**
+ * 将环境操作异常转换为面向操作者的恢复提示。
+ *
+ * @param action 正在执行的环境操作标识，用于限定错误所属的业务入口。
+ * @param message 下层服务返回的原始诊断文本。
+ * @returns 分离用户提示与可选技术详情的错误展示模型。
+ * @throws 不抛出异常；无法分类的错误保留原始文本作为用户消息。
+ * @safety 只做确定性的字符串分类，不发起请求或改变环境状态。
+ */
 export function describeEnvironmentOperationError(
   action: string,
   message: string
@@ -72,6 +81,21 @@ export function describeEnvironmentOperationError(
       message: `当前工作区由 Backend 管理，不能在这里构建发布包。` +
         `请切换到 Local 模式后，再执行“${resetAndPublish ? '清空并发布' : '发布、校验并切换'}”。` +
         (resetAndPublish ? '目标 Backend 的数据尚未被清除。' : '')
+    }
+  }
+  const targetsBackend = [
+    'inspect-release-target',
+    'publish-release',
+    'reset-and-publish-release'
+  ].includes(action)
+  const connectionUnavailable = /(?:connection refused|econnrefused|urlopen error|failed to fetch|fetch failed|networkerror)/i
+    .test(message)
+  if (targetsBackend && connectionUnavailable) {
+    return {
+      title: '无法连接 Backend',
+      message: '无法访问目标 Backend。请先启动 Backend，并确认环境管理中的 ' +
+        'Backend 地址和端口正确，然后重试。',
+      technicalDetail: message
     }
   }
   return {
@@ -276,6 +300,12 @@ export function EnvironmentManager({
         <div className="unilab-workbench-session-diagnostic" role="alert">
           <strong>{operationError.title}</strong>
           <p>{operationError.message}</p>
+          {operationError.technicalDetail ? (
+            <details>
+              <summary>技术信息</summary>
+              <code>{operationError.technicalDetail}</code>
+            </details>
+          ) : null}
         </div>
       ) : null}
 
@@ -507,9 +537,16 @@ export function EnvironmentManager({
               <button
                 type="button"
                 className="is-port-action"
+                aria-busy={busyAction === 'restart-os'}
                 disabled={Boolean(busyAction)}
                 onClick={() => void run('restart-os', onRestartSession)}
-              >{edgeRuntime.phase === 'ready' ? '重启 OS' : '启动 OS'}</button>
+              >{busyAction === 'restart-os'
+                  ? edgeRuntime.phase === 'ready'
+                    ? '正在重启 OS…'
+                    : '正在启动 OS…'
+                  : edgeRuntime.phase === 'ready'
+                    ? '重启 OS'
+                    : '启动 OS'}</button>
               <button
                 type="button"
                 className="is-danger"
@@ -961,9 +998,9 @@ export function RuntimeModeControl({
   const select = (next: WorkbenchRuntimeMode): void => {
     if (mode === next) return
     const confirmed = next === 'normal'
-      ? globalThis.confirm('关闭 Dry-run 并以正常动作路径重启 OS？')
+      ? globalThis.confirm('关闭 Dry-run？新模式将在下次启动 OS 时生效，当前 OS 不会重启。')
       : globalThis.confirm(
-          '启用 Dry-run 将以 --action_mode simulate 重启 OS，动作不会发送给设备。确认继续？'
+          '启用 Dry-run？新模式将在下次启动 OS 时生效，当前 OS 不会重启。'
         )
     if (confirmed) void onSetRuntimeMode(next)
   }
@@ -1000,8 +1037,8 @@ export function RuntimeModeControl({
       {button(
         'dry-run',
         'Dry-run',
-        '仅模拟，不下发设备',
-        '动作返回模拟成功；每次 OS 重启使用新的隔离运行数据库'
+        '仅模拟，不下发设备；下次启动生效',
+        '动作返回模拟成功；切换模式不会重启 OS 或重建本地数据'
       )}
     </div>
   )

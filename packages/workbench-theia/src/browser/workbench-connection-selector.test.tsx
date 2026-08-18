@@ -69,6 +69,21 @@ describe('WorkbenchConnectionSelector', () => {
     expect(markup).toContain('data-authority-profile="backend_controlled"')
   })
 
+  it('disables an unavailable unselected Backend target', () => {
+    const markup = renderToStaticMarkup(
+      <WorkbenchConnectionSelector
+        targets={targets}
+        selectedMode="local"
+        connection="connected"
+        targetConnections={{ local: 'connected', backend: 'error' }}
+        onSelect={vi.fn()}
+      />
+    )
+
+    expect(markup).toContain('当前不可用')
+    expect(markup).toMatch(/<button[^>]*aria-pressed="false"[^>]*disabled=""/)
+  })
+
   /** 证明完成连接选择后会关闭详情浮层，避免遮挡工作流运行按钮。 */
   it('closes the native selector after a target is chosen', () => {
     const selector = { open: true }

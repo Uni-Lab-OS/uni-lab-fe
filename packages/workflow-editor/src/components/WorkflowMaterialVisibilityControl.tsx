@@ -1,3 +1,4 @@
+import { useDismissibleDetails } from '@unilab/design-system/hooks'
 import type { ChangeEvent } from 'react'
 
 import type { WorkflowMaterialRoleOption } from '../utils/workflowMaterialTrace'
@@ -17,6 +18,8 @@ interface WorkflowMaterialVisibilityControlProps {
  *
  * @param props 角色目录、当前可见角色、主样品锁定状态与可见性变更入口。
  * @returns 支持键盘操作的多选物料（Material）可见性菜单。
+ * @throws 不主动抛错；可见性回调异常由宿主处理。
+ * @safety 至少保留一种物料角色，收起菜单不改变过滤结果。
  */
 export default function WorkflowMaterialVisibilityControl({
   options,
@@ -24,6 +27,7 @@ export default function WorkflowMaterialVisibilityControl({
   primarySampleLocked,
   onVisibleMaterialRolesChange
 }: WorkflowMaterialVisibilityControlProps): React.JSX.Element {
+  const menuRef = useDismissibleDetails()
   const visibleRoleSet = new Set(
     visibleMaterialRoles ?? options.map((option) => option.value)
   )
@@ -62,6 +66,7 @@ export default function WorkflowMaterialVisibilityControl({
 
   return (
     <details
+      ref={menuRef}
       className="workflow-runtime__material-role-filter"
       data-filter-active={!allVisible}
     >

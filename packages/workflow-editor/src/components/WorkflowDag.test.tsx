@@ -61,9 +61,15 @@ vi.mock('../hooks/useWorkflowDag', () => ({
   })
 }))
 
-describe('WorkflowDag disabled beautify explanation', () => {
-  /** 证明禁用原因只通过统一按钮说明暴露，不生成原生 title。 */
-  it('uses one complete accessible tooltip instead of the native title', () => {
+describe('WorkflowDag control explanations', () => {
+  /**
+   * 证明布局应用入口在禁用态下同样不会泄漏到可访问树或提示层。
+   *
+   * @returns 无返回值；断言按钮及其禁用原因均不渲染。
+   * @throws 隐藏入口仍残留可访问标记时由 Vitest 抛出。
+   * @safety 仅检查静态标记，不修改工作流（Workflow）。
+   */
+  it('keeps the hidden layout action out of disabled explanations', () => {
     const markup = renderToStaticMarkup(
       <WorkflowDag
         nodes={[workflowNode]}
@@ -73,12 +79,13 @@ describe('WorkflowDag disabled beautify explanation', () => {
       />
     )
     expect(markup).not.toContain('title="请先完成当前 Python 编译"')
-    expect(markup).toContain(
+    expect(markup).not.toContain(
       'aria-description="请先完成当前 Python 编译"'
     )
-    expect(markup).toContain(
+    expect(markup).not.toContain(
       'data-disabled-reason="请先完成当前 Python 编译"'
     )
+    expect(markup).not.toContain('workflow-runtime__beautify')
   })
 
   /** 证明统一提示限制视口宽度，并允许长文案完整换行。 */
@@ -305,6 +312,12 @@ describe('WorkflowDag material handles and execution signals', () => {
     expect(swimlaneStylesheet).toMatch(
       /layout-direction='horizontal'[\s\S]*flex-direction:\s*column/
     )
+    expect(swimlaneStylesheet).toMatch(
+      /wf-node--material-source\[data-workflow-layout-direction='horizontal'\][\s\S]*height:\s*126px;[\s\S]*max-height:\s*126px;/
+    )
+    expect(swimlaneStylesheet).toMatch(
+      /wf-node--material-source\[data-workflow-layout-direction='horizontal'\][\s\S]*material-source-label[\s\S]*height:\s*53px;[\s\S]*align-content:\s*start;/
+    )
     expect(transferStylesheet).toMatch(
       /robot-transfer-visual[\s\S]*color:\s*var\(--unilab-color-text\)[\s\S]*background:\s*var\(--unilab-color-text\)/
     )
@@ -313,6 +326,9 @@ describe('WorkflowDag material handles and execution signals', () => {
     )
     expect(transferStylesheet).toMatch(
       /wf-node--robot-transfer[\s\S]*flex-direction:\s*row-reverse/
+    )
+    expect(transferStylesheet).toMatch(
+      /layout-direction='horizontal'[\s\S]*robot-transfer-copy[\s\S]*justify-items:\s*center;[\s\S]*text-align:\s*center;/
     )
     expect(transferStylesheet).toMatch(
       /layout-direction='horizontal'[\s\S]*flex-direction:\s*column-reverse/
@@ -382,12 +398,26 @@ describe('WorkflowDag host sizing', () => {
     expect(stylesheet).not.toMatch(
       /persistent-authoring__graph-stage[\s\S]{0,160}\n\s+height:\s*260px/
     )
+
+    const foundations = readFileSync(
+      new URL('./_workflow-foundations.scss', import.meta.url),
+      'utf8'
+    )
+    expect(foundations).toMatch(
+      /\.dag\s*\{[^}]*min-width:\s*1px;[^}]*min-height:\s*1px;/s
+    )
   })
 })
 
 describe('WorkflowDag canvas controls', () => {
-  /** 证明画布按钮按任务分组，并把布局提交保持为唯一主操作。 */
-  it('groups view actions separately from material and layout controls', () => {
+  /**
+   * 证明画布按钮按任务分组，并暂时隐藏会写回工作流草稿的布局应用入口。
+   *
+   * @returns 无返回值；断言布局选择器保留且“应用布局”按钮不进入可操作界面。
+   * @throws 布局应用入口重新渲染时由 Vitest 抛出。
+   * @safety 仅检查服务端静态标记，不写入工作流（Workflow）草稿。
+   */
+  it('groups view actions while hiding the layout apply action', () => {
     const markup = renderToStaticMarkup(
       <WorkflowDag
         nodes={[
@@ -407,8 +437,9 @@ describe('WorkflowDag canvas controls', () => {
     expect(markup).toContain('aria-label="视图与选择"')
     expect(markup).toContain('aria-label="物料筛选与布局"')
     expect(markup).toContain('workflow-runtime__canvas-button')
-    expect(markup).toContain('workflow-runtime__beautify')
-    expect(markup).toContain('aria-busy="false"')
+    expect(markup).toContain('aria-label="布局策略"')
+    expect(markup).not.toContain('workflow-runtime__beautify')
+    expect(markup).not.toContain('应用布局')
     expect(markup).toContain(
       'data-workflow-layout-direction="horizontal"'
     )

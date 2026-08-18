@@ -307,14 +307,14 @@ function createWindow(): void {
           right: 0 !important;
           width: 100% !important;
         }
-        #theia-main-content-panel > .lm-DockPanel-widget {
+        #theia-main-content-panel:not(:has(.lm-TabBar-tab.lm-mod-closable)) > .lm-DockPanel-widget {
           top: 0 !important;
           left: 0 !important;
           right: 0 !important;
           width: 100% !important;
           height: 100% !important;
         }
-        #theia-main-content-panel > .lm-TabBar.theia-app-centers.theia-app-main {
+        #theia-main-content-panel > .lm-TabBar.theia-app-centers.theia-app-main:not(:has(.lm-TabBar-tab.lm-mod-closable)) {
           display: none !important;
         }
       `)
@@ -1550,6 +1550,7 @@ async function getDeviceCardAgentEnvironmentInfo() {
 }
 
 async function readAgentBridgeEnabled(agentRoot: string): Promise<boolean> {
+  if (process.env['UNILAB_AGENT_ENABLED'] === '0') return false
   try {
     const settings = JSON.parse(
       await readFile(join(agentRoot, 'settings.json'), 'utf8')

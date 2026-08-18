@@ -85,6 +85,18 @@ describe('device Action D1A preparation', () => {
     expect(supportsD1AS1(actionTemplate({
       valueSchema: { $slot: 'ResourceSlot', type: 'object' }
     }))).toBe(false)
+    expect(supportsD1AS1({
+      ...flatActionTemplate(),
+      schema: {
+        type: 'object',
+        properties: {
+          resource: {
+            type: 'object',
+            'x-unilabos-material-lock': true
+          }
+        }
+      }
+    })).toBe(false)
   })
 
   /** 证明动作合同的 goal、目标连接点和 goal_default 能生成无猜测的参数表单。 */
@@ -144,6 +156,45 @@ describe('device Action D1A preparation', () => {
       }
     })
     expect(supportsD1AS1(template)).toBe(true)
+  })
+
+  /** 证明 S09 使用的 JSON Schema nullable 类型数组不会被误报为参数合同不可用。 */
+  it('projects nullable type arrays from the S09 parameter schema', () => {
+    const template = {
+      ...flatActionTemplate(),
+      schema: {
+        type: 'object',
+        properties: {
+          read_balance_after_done: {
+            type: ['boolean', 'null'],
+            default: null
+          },
+          liquid_steps: {
+            type: ['array', 'null'],
+            items: { type: 'object', additionalProperties: true },
+            default: null
+          }
+        },
+        required: [],
+        additionalProperties: false
+      },
+      goalDefault: {}
+    }
+
+    expect(projectDeviceActionInputSchema(template)).toEqual({
+      read_balance_after_done: {
+        type: 'boolean',
+        title: 'read_balance_after_done',
+        required: false,
+        default: null
+      },
+      liquid_steps: {
+        type: 'array',
+        title: 'liquid_steps',
+        required: false,
+        default: null
+      }
+    })
   })
 
   /** 证明参数序列化只执行 Schema 明确允许的类型转换。 */

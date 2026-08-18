@@ -22,6 +22,8 @@ const AGENT_ENTRY: DomainEntryDefinition<'agent'> = {
   eyebrow: 'AGENT'
 }
 
+const AGENT_PANEL_WIDTH_PROPERTY = '--unilab-agent-panel-width'
+
 @injectable()
 export class UniLabAgentNavigatorWidget extends ReactWidget {
   static readonly ID = 'unilab:agent-navigation'
@@ -31,6 +33,8 @@ export class UniLabAgentNavigatorWidget extends ReactWidget {
 
   @inject(WidgetManager)
   protected readonly widgetManager!: WidgetManager
+
+  protected agentPanelResizeObserver: ResizeObserver | undefined
 
   @postConstruct()
   protected init(): void {
@@ -48,6 +52,9 @@ export class UniLabAgentNavigatorWidget extends ReactWidget {
       this.updateActivityPresentation()
       this.update()
     }))
+    this.toDispose.push({
+      dispose: () => this.stopTrackingAgentPanelWidth()
+    })
     this.updateActivityPresentation()
     this.update()
   }
@@ -70,6 +77,7 @@ export class UniLabAgentNavigatorWidget extends ReactWidget {
       tabBar.currentTitle === agent.title
     ) {
       document.body.classList.remove('unilab-agent-panel-visible')
+      this.stopTrackingAgentPanelWidth()
       await this.shell.collapsePanel('right')
     } else {
       // 先恢复右侧容器的布局，否则 display:none 会让 Theia
@@ -78,9 +86,37 @@ export class UniLabAgentNavigatorWidget extends ReactWidget {
       if (!tabBar) await this.shell.addWidget(agent, { area: 'right' })
       this.shell.expandPanel('right')
       await this.shell.activateWidget(UniLabAgentWidget.ID)
+      this.trackAgentPanelWidth()
     }
     this.updateActivityPresentation()
     this.update()
+  }
+
+  /** Keep the material workspace inset equal to the restored/resized Agent panel. */
+  protected trackAgentPanelWidth(): void {
+    const panel = document.getElementById('theia-right-content-panel')
+    if (!panel) return
+    this.stopTrackingAgentPanelWidth(false)
+    const publishWidth = (): void => {
+      const width = Math.ceil(panel.getBoundingClientRect().width)
+      if (width > 0) {
+        document.body.style.setProperty(
+          AGENT_PANEL_WIDTH_PROPERTY,
+          `${width}px`
+        )
+      }
+    }
+    this.agentPanelResizeObserver = new ResizeObserver(publishWidth)
+    this.agentPanelResizeObserver.observe(panel)
+    publishWidth()
+  }
+
+  protected stopTrackingAgentPanelWidth(clearProperty = true): void {
+    this.agentPanelResizeObserver?.disconnect()
+    this.agentPanelResizeObserver = undefined
+    if (clearProperty) {
+      document.body.style.removeProperty(AGENT_PANEL_WIDTH_PROPERTY)
+    }
   }
 
   protected updateActivityPresentation(): void {

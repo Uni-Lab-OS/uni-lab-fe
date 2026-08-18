@@ -137,6 +137,8 @@
 }
 
 .edge-device__connection-state.is-pending,
+.device-list__status.is-pending,
+.edge-device__status-badge.is-pending,
 .edge-device__status-badge.is-locked,
 .edge-device__metric.is-warning strong,
 .edge-device__node-state.is-busy,
@@ -149,6 +151,11 @@
 .edge-device__connection small {
   color: var(--unilab-color-text-subtle);
   font: 500 10px/1.4 var(--unilab-font-mono);
+}
+
+.edge-device__node-state.is-unknown {
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-surface-muted);
 }
 
 .edge-device .device-list {
@@ -235,6 +242,8 @@
 }
 
 .device-list__name {
+  min-width: 0;
+  flex: 1 1 auto;
   font-size: 13px;
   font-weight: 650;
 }
@@ -264,6 +273,14 @@
 .edge-device__node-state.is-busy,
 .edge-device__status-badge.is-locked {
   background: var(--unilab-color-warning-soft);
+}
+
+.edge-device__list-lock.is-blocked,
+.edge-device__status-badge.is-blocked,
+.edge-device__list-lock.is-uncertain,
+.edge-device__status-badge.is-uncertain {
+  color: var(--unilab-color-danger);
+  background: var(--unilab-color-danger-soft);
 }
 
 .edge-device__node-state.is-ready,

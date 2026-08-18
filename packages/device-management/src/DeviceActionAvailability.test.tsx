@@ -43,6 +43,10 @@ describe('device action Runtime availability', () => {
         namespace: '/devices',
         machineName: '本地',
         online: true,
+        edgeStatus: 'online',
+        dispatchable: true,
+        dispatchBlockReason: null,
+        executionOccupancies: [],
         actions: [actionFixture()],
         displayName: '一号泵',
         displayDetail: '本地'
@@ -58,6 +62,38 @@ describe('device action Runtime availability', () => {
       kind: 'unavailable',
       reason: 'device_identity_missing',
       message: '当前设备缺少运行标识，请刷新设备列表后重试'
+    })
+  })
+
+  it('distinguishes an online dispatch block from an offline device', () => {
+    const state = deviceActionReadiness({
+      action: actionFixture(),
+      device: {
+        id: 'pump-1',
+        materialUuid: '10000000-0000-4000-8000-000000000001',
+        deviceKey: '/devices/pump-1',
+        namespace: '/devices',
+        machineName: '本地',
+        online: true,
+        edgeStatus: 'online',
+        dispatchable: false,
+        dispatchBlockReason: 'unresolved_unknown_command:workflow-node-job:old-job',
+        executionOccupancies: [],
+        actions: [actionFixture()],
+        displayName: '一号泵',
+        displayDetail: '本地'
+      },
+      template: null,
+      canRunActionTask: true,
+      connection: 'connected',
+      catalogLoading: false,
+      catalogError: null
+    })
+
+    expect(state).toEqual({
+      kind: 'unavailable',
+      reason: 'dispatch_blocked',
+      message: '设备在线，但存在未确认的历史命令；完成安全核验后才能运行'
     })
   })
 

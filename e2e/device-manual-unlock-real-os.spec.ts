@@ -207,7 +207,7 @@ test('操作员识别并手动解除当前 OS 动作锁', async ({
 
   await deviceButton.click()
   await expect(
-    workspace.getByText('已锁定 · 1 个动作', { exact: true })
+    workspace.getByText('动作占用 · 1 个', { exact: true })
   ).toBeVisible()
   await workspace.locator('[data-device-management="identity"]').screenshot({
     path: join(artifactDirectory, '03-device-header-lock-state.png'),
@@ -217,7 +217,7 @@ test('操作员识别并手动解除当前 OS 动作锁', async ({
   const actionButton = workspace.getByRole('button', {
     name: `${ACTION_LABEL} 动作节点`
   })
-  await expect(actionButton).toContainText('占用中')
+  await expect(actionButton).toContainText('动作占用')
   await actionButton.click()
   await workspace.locator('[data-device-management="action-section"]').screenshot({
     path: join(artifactDirectory, '04-action-catalog-busy-state.png'),
@@ -289,7 +289,7 @@ test('操作员识别并手动解除当前 OS 动作锁', async ({
     return action?.busy ? action.currentJobId : null
   }).toBe(REUSE_JOB_ID)
   await deviceList.getByRole('button', { name: '刷新' }).click()
-  await expect(actionButton).toContainText('占用中')
+  await expect(actionButton).toContainText('动作占用')
   await page.screenshot({
     path: join(artifactDirectory, '10-new-holder-after-unlock.png'),
     fullPage: true,

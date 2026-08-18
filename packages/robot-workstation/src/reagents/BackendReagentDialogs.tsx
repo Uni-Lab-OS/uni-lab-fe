@@ -64,7 +64,7 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
   const [customParameters, setCustomParameters] = useState<CustomParameter[]>([])
   const selectedInfo = props.infos?.find(info => info.id === selectedInfoId)
 
-  /** 切换试剂身份时只带入参考密度，不替用户猜测计量单位。 */
+  /** 切换试剂目录项时只带入参考密度，不替用户猜测计量单位。 */
   function selectReagentInfo(infoId: string): void {
     const nextInfo = props.infos?.find(info => info.id === infoId)
     setSelectedInfoId(infoId)
@@ -113,9 +113,9 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
   const noAvailableContainer = props.mode === 'create' && availableContainers.length === 0
   return (
     <ReagentDialogFrame
-      title={props.mode === 'create' ? '登记库存试剂' : `编辑库存 · ${props.item.name}`}
+      title={props.mode === 'create' ? '试剂入库登记' : `编辑库存 · ${props.item.name}`}
       description={props.mode === 'create'
-        ? '将已有试剂身份装入一个空容器，并登记初始库存。'
+        ? '从试剂目录选择试剂并装入一个试剂容器，登记初始库存。'
         : `修订 ${props.item.revision ?? '未知'} · 容器 ${props.item.lotLabel ?? props.item.materialId ?? '未知'}`}
       busy={submitting}
       wide={props.mode === 'create'}
@@ -127,14 +127,14 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
         <div className={styles.formSections}>
           {props.mode === 'create' ? (
             <fieldset className={styles.formSection}>
-              <legend>身份与容器</legend>
+              <legend>试剂与容器</legend>
               <div className={styles.dialogFields}>
                 <div className={styles.reagentContainerField}>
-                  <span>空容器 <b aria-hidden="true">*</b></span>
+                  <span>试剂容器 <b aria-hidden="true">*</b></span>
                   <ContainerSearchSelect containers={availableContainers} disabled={noAvailableContainer} />
                 </div>
                 <div className={styles.reagentContainerField}>
-                  <span>试剂身份 <b aria-hidden="true">*</b></span>
+                  <span>试剂名称 <b aria-hidden="true">*</b></span>
                   <ReagentInfoSearchSelect
                     infos={props.infos ?? []}
                     value={selectedInfoId}
@@ -156,7 +156,7 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
             <div className={styles.reagentIdentitySummary}>
               <span>{props.item.cas ?? 'CAS 未提供'}</span>
               <strong>{props.item.name}</strong>
-              <small>{props.item.molecularFormula ?? props.item.reagentInfoId ?? '化学身份未完整返回'}</small>
+              <small>{props.item.molecularFormula ?? props.item.reagentInfoId ?? '试剂信息未完整返回'}</small>
             </div>
           )}
 
@@ -265,7 +265,7 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
         </div>
         {noAvailableContainer ? (
           <p className={styles.dialogError} role="alert">
-            没有可选容器物料。请先在物料模块创建带 container 标签的空容器。
+            没有可选试剂容器。请先在物料模块创建带 container 标签的试剂容器。
           </p>
         ) : null}
         <ReagentDialogActions
@@ -279,7 +279,7 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
   )
 }
 
-/** 使用独立触发器与搜索浮层完成空容器选择。 */
+/** 使用独立触发器与搜索浮层完成试剂容器选择。 */
 function ContainerSearchSelect({
   containers,
   disabled
@@ -340,7 +340,7 @@ function ContainerSearchSelect({
         }}
       >
         <span className={selected ? styles.reagentContainerSelectValue : styles.reagentContainerSelectPlaceholder}>
-          {selected ? reagentContainerLabel(selected) : '请选择空容器物料'}
+          {selected ? reagentContainerLabel(selected) : '请选择试剂容器'}
         </span>
         <span aria-hidden="true" className={styles.reagentContainerSelectArrow} />
       </Button>
@@ -353,7 +353,7 @@ function ContainerSearchSelect({
           type="search"
           value={query}
           placeholder="搜索名称、条码或 UUID"
-          aria-label="搜索空容器物料"
+          aria-label="搜索试剂容器"
           aria-autocomplete="list"
           aria-controls={listboxId}
           role="combobox"
@@ -387,7 +387,7 @@ function ContainerSearchSelect({
               {container.id === selectedId ? <b aria-hidden="true">✓</b> : null}
             </Button>
           )) : (
-            <p>没有匹配的空容器物料</p>
+            <p>没有匹配的试剂容器</p>
           )}
         </div>
       </div>
@@ -395,7 +395,7 @@ function ContainerSearchSelect({
   )
 }
 
-/** 使用名称、CAS 和别名搜索试剂身份，避免长目录退化为原生下拉框。 */
+/** 使用名称、CAS 和别名搜索试剂目录，避免长目录退化为原生下拉框。 */
 function ReagentInfoSearchSelect({
   infos,
   value,
@@ -438,7 +438,7 @@ function ReagentInfoSearchSelect({
         variant="outline"
         className={styles.reagentContainerSelectControl}
         role="combobox"
-        aria-label="选择试剂身份"
+        aria-label="选择试剂名称"
         aria-haspopup="listbox"
         aria-controls={listboxId}
         aria-expanded={open}
@@ -454,7 +454,7 @@ function ReagentInfoSearchSelect({
         }}
       >
         <span className={selected ? styles.reagentContainerSelectValue : styles.reagentContainerSelectPlaceholder}>
-          {selected ? reagentInfoLabel(selected) : infos.length === 0 ? '暂无可选试剂身份' : '请选择试剂身份'}
+          {selected ? reagentInfoLabel(selected) : infos.length === 0 ? '暂无可选试剂名称' : '请选择试剂名称'}
         </span>
         <span aria-hidden="true" className={styles.reagentContainerSelectArrow} />
       </Button>
@@ -464,7 +464,7 @@ function ReagentInfoSearchSelect({
           type="search"
           value={query}
           placeholder="搜索名称、CAS、别名或分子式"
-          aria-label="搜索试剂身份"
+          aria-label="搜索试剂名称"
           aria-autocomplete="list"
           aria-controls={listboxId}
           role="combobox"
@@ -498,7 +498,7 @@ function ReagentInfoSearchSelect({
               {info.id === value ? <b aria-hidden="true">✓</b> : null}
             </Button>
           )) : (
-            <p>没有匹配的试剂身份</p>
+            <p>没有匹配的试剂名称</p>
           )}
         </div>
       </div>
@@ -510,7 +510,7 @@ function reagentContainerLabel(container: ReagentContainerOption): string {
   return `${container.name} · ${container.barcode || container.id}`
 }
 
-/** 按名称、CAS、别名和分子式筛选试剂身份。 */
+/** 按名称、CAS、别名和分子式筛选试剂目录。 */
 function filterReagentInfos(
   infos: readonly ReagentInfoProjection[],
   query: string
@@ -645,15 +645,15 @@ function reagentEditorValues(form: FormData): EditorValues {
 /**
  * 校验 Backend 试剂创建和更新共同不变量。
  * @param values 规范化后的表单值。
- * @param mode 创建时额外校验容器和既有试剂身份，编辑时保持既有身份。
+ * @param mode 创建时额外校验容器和既有试剂目录项，编辑时保持既有目录关联。
  * @returns 第一个可行动错误；合法时返回 null。
  */
 export function validateReagentEditor(
   values: EditorValues,
   mode: 'create' | 'edit'
 ): string | null {
-  if (mode === 'create' && !values.materialId) return '请选择空容器物料'
-  if (mode === 'create' && !values.reagentInfoId) return '请选择试剂身份'
+  if (mode === 'create' && !values.materialId) return '请选择试剂容器'
+  if (mode === 'create' && !values.reagentInfoId) return '请选择试剂名称'
   if (!Number.isFinite(values.quantity) || values.quantity < 0) return '数量必须是大于等于零的有限数'
   if (!values.quantityUnit) return '计量单位不能为空'
   if (mode === 'create' && !REAGENT_QUANTITY_UNITS.some(unit => unit === values.quantityUnit)) {
@@ -671,7 +671,7 @@ export function validateReagentEditor(
   return null
 }
 
-/** 将已校验表单转换为使用既有试剂身份 UUID 的库存创建命令。 */
+/** 将已校验表单转换为使用既有试剂目录 UUID 的库存创建命令。 */
 export function reagentCreateCommand(
   values: EditorValues,
   customParameters: readonly CustomParameter[]
@@ -694,7 +694,7 @@ export function reagentCreateCommand(
   }
 }
 
-/** 按名称、条码或稳定 UUID 筛选空容器候选。 */
+/** 按名称、条码或稳定 UUID 筛选试剂容器候选。 */
 export function filterReagentContainers(
   containers: readonly ReagentContainerOption[],
   query: string

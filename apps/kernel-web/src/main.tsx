@@ -1,5 +1,5 @@
 import ReactDOM from 'react-dom/client'
-import { ensurePascalRendererDefaults } from '@unilab/pascal-host'
+import { ensurePascalRendererDefaults } from '@unilab/pascal-host/renderer-features'
 import App from './App'
 import '@unilab/design-system/theme.css'
 import './styles/global.css'
