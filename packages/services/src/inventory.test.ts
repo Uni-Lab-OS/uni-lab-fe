@@ -275,6 +275,38 @@ describe('inventory read port', () => {
     })
   })
 
+  /** 既有无 CAS 身份使用 UUID 创建库存，且请求不能同时携带 cas。 */
+  it('creates a Backend reagent by reagent_info_uuid without cas', async () => {
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path === '/api/v1/reagents' && init?.method === 'POST') {
+        return { code: 0, data: { uuid: 'reagent-demo-1', revision: 1 } }
+      }
+      throw new Error(`unexpected request ${init?.method ?? 'GET'} ${path}`)
+    })
+    const port = createInventoryReadPort(
+      { request } as HttpClient,
+      getDefaultBackend('local-go')
+    )
+
+    await expect(port.createReagent({
+      materialId: 'material-bottle',
+      reagentInfoId: '11111111-1111-4111-8111-111111111111',
+      physicalState: 'unknown',
+      quantity: 1,
+      quantityUnit: 'g'
+    })).resolves.toEqual({ id: 'reagent-demo-1', revision: 1 })
+
+    const body = JSON.parse(String(request.mock.calls[0]?.[1]?.body)) as Record<string, unknown>
+    expect(body).toMatchObject({
+      material_uuid: 'material-bottle',
+      reagent_info_uuid: '11111111-1111-4111-8111-111111111111',
+      physical_state: 'unknown',
+      quantity: 1,
+      quantity_unit: 'g'
+    })
+    expect(body).not.toHaveProperty('cas')
+  })
+
   /** 证明试剂历史只接受 Backend 的 reagent 台账主体并保留任务追踪字段。 */
   it('maps immutable Backend reagent history', async () => {
     const request = vi.fn(async () => ({

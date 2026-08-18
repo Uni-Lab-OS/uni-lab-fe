@@ -84,6 +84,32 @@ describe('工作流（Workflow）3D 物料转运投影', () => {
     expect(projectWorkflowMaterialTransferRoutes(graph)).toHaveLength(1)
   })
 
+  it('从 Backend 发布节点读取标准转运来源身份', () => {
+    const graph = transferGraph()
+    const node = graph.nodes[0]
+    const template = graph.node_templates[0]
+    if (!node || !template) throw new Error('测试夹具缺少标准物料转运节点')
+    node.meta_data = {
+      unilab: {
+        workflow_source: {
+          symbol: 's_z_lab_标准物料转运',
+          definition_fqid:
+            'szlab_poly_studio.workflows.material_transfer.s_z_lab_标准物料转运'
+        }
+      }
+    }
+    template.meta_data = {
+      unilab: {
+        workflow_contract: {
+          workflow_uuid: 'published-transfer-workflow',
+          workflow_revision: 9
+        }
+      }
+    }
+
+    expect(projectWorkflowMaterialTransferRoutes(graph)).toHaveLength(1)
+  })
+
   it('按复合节点的子作业聚合权威运行状态', () => {
     const graph = transferGraph()
     graph.nodes.push({

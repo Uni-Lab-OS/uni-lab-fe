@@ -75,6 +75,23 @@ describe('ReagentInfoDialogs validation', () => {
     expect(markup).toContain('type="hidden" name="inchiKey"')
   })
 
+  /** 证明新增试剂目录窗口采用验收指定的标题、分组和提交文案。 */
+  it('uses the requested reagent catalog dialog terminology', () => {
+    const markup = renderToStaticMarkup(createElement(ReagentInfoEditorDialog, {
+      mode: 'create',
+      onLookup: vi.fn(),
+      onSave: vi.fn(),
+      onClose: vi.fn()
+    }))
+
+    expect(markup).toContain('新增试剂目录')
+    expect(markup).toContain('<legend>试剂信息</legend>')
+    expect(markup).toMatch(/<button[^>]*type="submit"[^>]*>创建<\/button>/)
+    expect(markup).not.toContain('新建试剂身份')
+    expect(markup).not.toContain('<legend>核心身份</legend>')
+    expect(markup).not.toContain('创建身份')
+  })
+
   /** 证明名称不会被浏览器误判为联系人姓名，物态由工作台自定义列表提供但仍参与 FormData。 */
   it('avoids contact-name autofill and renders an accessible physical state listbox', () => {
     const markup = renderToStaticMarkup(createElement(ReagentInfoEditorDialog, {

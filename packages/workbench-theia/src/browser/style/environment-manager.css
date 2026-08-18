@@ -24,7 +24,7 @@
   right: 56px;
   bottom: 12px;
   display: flex;
-  width: min(480px, calc(100% - 68px));
+  width: min(600px, calc(100% - 68px));
   min-width: 0;
   max-width: calc(100% - 68px);
   box-sizing: border-box;
@@ -218,8 +218,22 @@ body.unilab-environment-manager-open .material-oblique-stack__label {
 }
 
 .unilab-environment-manager__backend-target {
-  grid-template-columns: 58px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 5px;
   margin-top: 8px;
+}
+
+.unilab-environment-manager__backend-targets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.unilab-environment-manager__scheduler-mode {
+  margin: -2px 0 9px;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
 }
 
 .unilab-environment-manager__target-summary {
@@ -296,6 +310,11 @@ body.unilab-environment-manager-open .material-oblique-stack__label {
     left: 12px;
     width: auto;
     max-width: none;
+  }
+
+  .unilab-environment-manager__backend-targets {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
   }
 }
 

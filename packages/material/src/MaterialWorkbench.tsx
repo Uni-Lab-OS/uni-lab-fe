@@ -106,13 +106,11 @@ export function MaterialWorkbench({
           await store.getState().createMaterial(draft.createInput)
         }}
       />
-      {inspectedMaterialId ? (
-        <MaterialInspector
-          materialId={inspectedMaterialId}
-          updateStatus={capabilities.updateConfig}
-          onClose={() => onSelectionChange?.([])}
-        />
-      ) : null}
+      <MaterialInspector
+        materialId={inspectedMaterialId}
+        updateStatus={capabilities.updateConfig}
+        onClose={() => onSelectionChange?.([])}
+      />
     </div>
   )
 }

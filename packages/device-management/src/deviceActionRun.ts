@@ -341,11 +341,27 @@ function inputType(schema: Record<string, unknown>): string | null {
     }
   }
   const candidates = [schema, ...alternatives]
-  const supported = candidates
-    .map((candidate) => candidate.type)
-    .filter((value): value is string =>
-      typeof value === 'string' && value !== 'null'
-    )
+  const declared = candidates.flatMap((candidate) => {
+    if (typeof candidate.type === 'string') return [candidate.type]
+    if (
+      Array.isArray(candidate.type) &&
+      candidate.type.every((value) => typeof value === 'string')
+    ) {
+      return candidate.type as string[]
+    }
+    return []
+  })
+  const allowed = new Set([
+    'string',
+    'number',
+    'integer',
+    'boolean',
+    'array',
+    'object',
+    'null'
+  ])
+  if (declared.some((value) => !allowed.has(value))) return null
+  const supported = declared.filter((value) => value !== 'null')
   const unique = [...new Set(supported)]
   return unique.length === 1 && [
     'string',
@@ -471,6 +487,7 @@ function containsUnsupportedContract(value: unknown): boolean {
   const record = value as Record<string, unknown>
   if (
     record.$slot === 'ResourceSlot' ||
+    record['x-unilabos-material-lock'] === true ||
     record.editor_control === 'material_port' ||
     record.editor_control === 'site_selector' ||
     record.implicit_passthrough === true

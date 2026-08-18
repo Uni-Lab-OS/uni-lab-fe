@@ -1,14 +1,33 @@
 import { describe, expect, it } from 'vitest'
+import { Group, Mesh } from 'three'
 
 import { LabFloorplanSiteSchema } from '../schema'
 import {
   createSiteOutlineGeometry,
+  isSiteBoundsPointerHit,
   selectRenderableSiteBounds,
+  siteBoundsOccupantSceneObjectId,
   siteBoundsGeometry,
   siteBoundsTransform
 } from './SiteBoundsRenderer'
 
 describe('SiteBoundsRenderer', () => {
+  it('recognizes nested Site helper geometry without classifying material bodies', () => {
+    const materialBody = new Mesh()
+    const siteBound = new Group()
+    const siteOutline = new Mesh()
+    siteBound.userData.unilabSiteBound = true
+    siteBound.userData.occupantSceneObjectId = 'lab-tip-box'
+    siteBound.add(siteOutline)
+
+    expect(isSiteBoundsPointerHit(siteOutline)).toBe(true)
+    expect(isSiteBoundsPointerHit(materialBody)).toBe(false)
+    expect(siteBoundsOccupantSceneObjectId(siteOutline)).toBe(
+      'lab-tip-box'
+    )
+    expect(siteBoundsOccupantSceneObjectId(materialBody)).toBeNull()
+  })
+
   it('centers a Site-sized box in Pascal Y-up metres', () => {
     const site = LabFloorplanSiteSchema.parse({
       id: 'site-a',

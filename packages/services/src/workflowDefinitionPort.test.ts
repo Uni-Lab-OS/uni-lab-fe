@@ -31,6 +31,7 @@ describe('WorkflowDefinitionPort', () => {
     await expect(port.read()).resolves.toBe(authoring)
     expect(port.capabilities).toMatchObject({
       authority: 'workspace',
+      codeViewing: true,
       sourceEditing: true,
       directGraphSaving: false,
       debugLaunch: true
@@ -77,9 +78,11 @@ describe('WorkflowDefinitionPort', () => {
     expect(result.workflow_revision).toBe(9)
     expect(port.capabilities).toMatchObject({
       authority: 'backend',
+      codeViewing: false,
       sourceEditing: false,
       directGraphSaving: true,
-      debugLaunch: false
+      debugLaunch: false,
+      sourceEditingDisabledReason: '正式 Backend 仅支持画布模式'
     })
   })
 

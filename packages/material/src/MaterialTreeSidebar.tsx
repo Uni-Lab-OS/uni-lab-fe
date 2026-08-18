@@ -168,6 +168,25 @@ export function MaterialTreeSidebar({
           </button>
         ) : null}
       </label>
+      <div
+        className="material-tree-sidebar__legend"
+        aria-label="库位状态说明"
+      >
+        <span>
+          <i
+            className="material-tree-sidebar__site-status is-occupied"
+            aria-hidden="true"
+          />
+          已占用
+        </span>
+        <span>
+          <i
+            className="material-tree-sidebar__site-status is-empty"
+            aria-hidden="true"
+          />
+          未占用
+        </span>
+      </div>
       <div className="material-tree-sidebar__tree" role="tree">
         {filteredEntries.length === 0 ? (
           <p role="status">

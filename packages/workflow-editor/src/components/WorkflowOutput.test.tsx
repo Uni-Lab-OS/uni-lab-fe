@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
@@ -14,6 +17,53 @@ import {
 function noop(): void {}
 
 describe('WorkflowOutput', () => {
+  it('highlights running node cards with a stronger orange border', () => {
+    const stylesheet = readFileSync(fileURLToPath(new URL(
+      './_workflow-output.scss',
+      import.meta.url
+    )), 'utf8')
+
+    expect(stylesheet).toMatch(
+      /button\[data-node-state='running'\]\s*\{[\s\S]*border:\s*2px solid var\(--unilab-color-warning\);[\s\S]*background:\s*var\(--unilab-color-warning-soft\);/u
+    )
+  })
+
+  it('centers the node result status with its copy action', () => {
+    const stylesheet = readFileSync(fileURLToPath(new URL(
+      './_workflow-output.scss',
+      import.meta.url
+    )), 'utf8')
+
+    expect(stylesheet).toMatch(
+      /node-result\) > header\s*> :global\(\.workflow-runtime__node-detail-actions\)\s*\{\s*align-items:\s*center;/u
+    )
+  })
+
+  it('reclaims detail height for the node list when details are collapsed', () => {
+    const stylesheet = readFileSync(fileURLToPath(new URL(
+      './_workflow-output.scss',
+      import.meta.url
+    )), 'utf8')
+
+    expect(stylesheet).toMatch(
+      /workflow-output-panel-nodes\.is-node-details-collapsed\)[\s\S]*workflow-runtime__node-list\)[\s\S]*max-height:\s*none;[\s\S]*flex:\s*1 1 auto;/u
+    )
+    expect(stylesheet).not.toMatch(
+      /workflow-runtime__node-details\.is-collapsed\)\s*\{[^}]*margin-top:\s*auto;/u
+    )
+  })
+
+  it('keeps the node panel hidden when another output tab is active', () => {
+    const stylesheet = readFileSync(fileURLToPath(new URL(
+      './_workflow-output.scss',
+      import.meta.url
+    )), 'utf8')
+
+    expect(stylesheet).toMatch(
+      /#workflow-output-panel-nodes\)\[hidden\]\s*\{\s*display:\s*none;/u
+    )
+  })
+
   it('renders the Trace action beside runtime output controls when available', () => {
     const html = renderToStaticMarkup(
       <WorkflowOutput
@@ -356,6 +406,11 @@ describe('WorkflowOutput', () => {
       html.indexOf('id="workflow-output-panel-events"')
     )
     expect(nodePanel).toContain('aria-label="加热样品 运行日志"')
+    expect(nodePanel).toContain('aria-label="复制运行日志"')
+    expect(nodePanel).toContain('aria-label="复制运行结果"')
+    expect(nodePanel).toContain('aria-label="隐藏运行日志"')
+    expect(nodePanel).toContain('aria-label="隐藏运行结果"')
+    expect(nodePanel).toContain('aria-expanded="true"')
     expect(nodePanel).toContain('heater reached 80 C')
     expect(nodePanel).toContain('sample heating completed')
     expect(nodePanel).not.toContain('camera-only log')

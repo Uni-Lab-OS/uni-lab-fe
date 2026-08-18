@@ -119,9 +119,12 @@
 
 .workflow :global(.workflow-runtime__output-tabs) {
   display: flex;
+  min-width: 0;
   align-self: center;
   gap: 4px;
   height: 32px;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 2px;
   border: 1px solid var(--unilab-color-border);
   border-radius: calc(var(--unilab-radius-md) + 2px);
@@ -131,6 +134,7 @@
     var(--unilab-color-surface-muted)
   );
   box-shadow: inset 0 1px 2px rgb(15 23 42 / 4%);
+  scrollbar-width: thin;
 }
 
 .workflow :global(.workflow-runtime__output-tabs) button {
@@ -150,6 +154,7 @@
   background: transparent;
   font-size: 12px;
   font-weight: 550;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -204,7 +209,8 @@
 
 @container workflow (max-width: 720px) {
   .workflow :global(.workflow-runtime__output-tabs) button {
-    min-width: 0;
+    min-width: max-content;
+    flex: 0 0 auto;
     padding-inline: 9px;
   }
 }
@@ -255,11 +261,33 @@
   display: none;
 }
 
+.workflow :global(#workflow-output-panel-nodes) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workflow :global(#workflow-output-panel-nodes)[hidden] {
+  display: none;
+}
+
 .workflow :global(.workflow-runtime__node-list) {
   display: grid;
+  max-height: 40%;
+  flex: 0 0 auto;
   grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
   gap: 10px;
   padding: var(--unilab-space-2) var(--unilab-space-3);
+  overflow: auto;
+}
+
+// 详情全部折叠后，把释放出的高度交还节点列表，避免在列表与标题栏之间
+// 留下不可用的空白区域，同时维持用户拖拽设置的运行输出总高度。
+.workflow
+  :global(#workflow-output-panel-nodes.is-node-details-collapsed)
+  :global(.workflow-runtime__node-list) {
+  max-height: none;
+  flex: 1 1 auto;
 }
 
 .workflow :global(.workflow-runtime__node-list) button {
@@ -286,6 +314,36 @@
 .workflow :global(.workflow-runtime__node-list) button:global(.is-selected) {
   border-color: #334155;
   box-shadow: 0 0 0 1px #334155;
+}
+
+.workflow :global(.workflow-runtime__node-list)
+  button[data-node-state='running'] {
+  color: color-mix(
+    in srgb,
+    var(--unilab-color-warning) 82%,
+    var(--unilab-color-text)
+  );
+  border: 2px solid var(--unilab-color-warning);
+  background: var(--unilab-color-warning-soft);
+  box-shadow: 0 0 0 1px color-mix(
+    in srgb,
+    var(--unilab-color-warning) 48%,
+    transparent
+  );
+}
+
+.workflow :global(.workflow-runtime__node-list)
+  button[data-node-state='running']:hover {
+  border-color: color-mix(
+    in srgb,
+    var(--unilab-color-warning) 88%,
+    #7c2d12
+  );
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-warning-soft) 82%,
+    var(--unilab-color-warning)
+  );
 }
 
 .workflow :global(.workflow-runtime__node-list) button:global(.is-paused-before) {
@@ -359,11 +417,20 @@
 
 .workflow :global(.workflow-runtime__node-details) {
   display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
+  grid-auto-rows: minmax(0, 1fr);
+  align-items: stretch;
   min-width: 0;
   gap: var(--unilab-space-2);
   margin: 0 var(--unilab-space-3) var(--unilab-space-2);
+}
+
+.workflow :global(.workflow-runtime__node-details.is-collapsed) {
+  min-height: auto;
+  flex: 0 0 auto;
+  grid-auto-rows: auto;
 }
 
 .workflow :global(.workflow-runtime__node-details)
@@ -373,6 +440,9 @@
 }
 
 .workflow :global(.workflow-runtime__node-result) {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
   min-width: 0;
   overflow: hidden;
   color: var(--unilab-color-text);
@@ -395,6 +465,72 @@
   align-items: baseline;
   gap: var(--unilab-space-2);
   min-width: 0;
+}
+
+.workflow :global(.workflow-runtime__node-detail-actions) {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--unilab-space-2);
+}
+
+// Override the more specific generic header group baseline alignment so the
+// status text and its adjacent action button share one visual center line.
+.workflow :global(.workflow-runtime__node-result) > header
+  > :global(.workflow-runtime__node-detail-actions) {
+  align-items: center;
+}
+
+.workflow :global(.workflow-runtime__node-detail-copy) {
+  display: inline-flex;
+  height: 26px;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  color: var(--unilab-color-text-muted);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  font: 500 11px/1 var(--unilab-font-sans);
+  cursor: pointer;
+}
+
+.workflow :global(.workflow-runtime__node-detail-toggle) {
+  display: inline-flex;
+  height: 26px;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  color: var(--unilab-color-text-muted);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  font: 500 11px/1 var(--unilab-font-sans);
+  cursor: pointer;
+}
+
+.workflow :global(.workflow-runtime__node-detail-toggle):hover {
+  color: var(--unilab-color-primary);
+  border-color: var(--unilab-color-focus);
+  background: var(--unilab-color-workflow-soft);
+}
+
+.workflow :global(.workflow-runtime__node-detail-toggle):focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 1px;
+}
+
+.workflow :global(.workflow-runtime__node-detail-copy):hover {
+  color: var(--unilab-color-primary);
+  border-color: var(--unilab-color-focus);
+  background: var(--unilab-color-workflow-soft);
+}
+
+.workflow :global(.workflow-runtime__node-detail-copy):focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 1px;
 }
 
 .workflow :global(.workflow-runtime__node-result) header strong {
@@ -456,11 +592,16 @@
 }
 
 .workflow :global(.workflow-runtime__node-result-raw) {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
   border-top: 1px solid var(--unilab-color-border);
 }
 
 .workflow :global(.workflow-runtime__node-result-raw) pre {
-  max-height: 160px;
+  width: 100%;
+  max-height: none;
+  flex: 1 1 auto;
   margin: 0;
   padding: var(--unilab-space-2) var(--unilab-space-3);
   overflow: auto;
@@ -482,11 +623,25 @@
 }
 
 .workflow :global(.workflow-runtime__node-log) {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--unilab-color-border);
   border-radius: var(--unilab-radius-control);
   background: var(--unilab-color-surface);
+}
+
+.workflow :global(.workflow-runtime__node-log.is-collapsed),
+.workflow :global(.workflow-runtime__node-result.is-collapsed) {
+  min-height: auto;
+  align-self: start;
+}
+
+.workflow :global(.workflow-runtime__node-log.is-collapsed) header,
+.workflow :global(.workflow-runtime__node-result.is-collapsed) > header {
+  border-bottom: 0;
 }
 
 .workflow :global(.workflow-runtime__node-log) header {
@@ -507,7 +662,8 @@
 }
 
 .workflow :global(.workflow-runtime__node-log) pre {
-  max-height: 120px;
+  max-height: none;
+  flex: 1 1 auto;
   margin: 0;
   padding: var(--unilab-space-2);
   overflow: auto;

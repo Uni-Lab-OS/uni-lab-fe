@@ -280,6 +280,46 @@ function createWindow(): void {
       new Error(desc)
     )
   })
+  if (desktopSurface.kind === 'workbench') {
+    mainWindow.webContents.on('dom-ready', () => {
+      const window = mainWindow
+      if (!window || window.isDestroyed()) return
+      void window.webContents.insertCSS(`
+        #theia-left-right-split-panel {
+          right: 0 !important;
+          width: 100% !important;
+        }
+        .theia-app-right {
+          display: none !important;
+        }
+        #theia-left-right-split-panel > #theia-right-content-panel.theia-mod-collapsed {
+          min-width: 0 !important;
+          max-width: 0 !important;
+        }
+        #theia-left-right-split-panel:has(> #theia-right-content-panel.theia-mod-collapsed) > #theia-bottom-split-panel {
+          right: 0 !important;
+          width: auto !important;
+        }
+        #theia-left-content-panel {
+          z-index: 20 !important;
+        }
+        #theia-bottom-split-panel > #theia-main-content-panel {
+          right: 0 !important;
+          width: 100% !important;
+        }
+        #theia-main-content-panel:not(:has(.lm-TabBar-tab.lm-mod-closable)) > .lm-DockPanel-widget {
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+        }
+        #theia-main-content-panel > .lm-TabBar.theia-app-centers.theia-app-main:not(:has(.lm-TabBar-tab.lm-mod-closable)) {
+          display: none !important;
+        }
+      `)
+    })
+  }
   mainWindow.webContents.on('render-process-gone', (_e, details) => {
     logLine(`renderer 进程退出: ${JSON.stringify(details)}`)
     electronObservability.record(
@@ -1507,6 +1547,7 @@ async function getDeviceCardAgentEnvironmentInfo() {
 }
 
 async function readAgentBridgeEnabled(agentRoot: string): Promise<boolean> {
+  if (process.env['UNILAB_AGENT_ENABLED'] === '0') return false
   try {
     const settings = JSON.parse(
       await readFile(join(agentRoot, 'settings.json'), 'utf8')

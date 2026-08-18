@@ -36,6 +36,17 @@ describe('Workflow workspace authority', () => {
     )).toBe(false)
   })
 
+  /** 属性面板只展示选中节点的说明，不得用保存或投影错误充当描述。 */
+  it('renders the selected node description in the inspector', () => {
+    const view = componentSource('PersistentWorkflowAuthoringView.tsx')
+
+    expect(view).toContain('selectedNodeDescription')
+    expect(view).toContain('节点说明')
+    expect(view).toContain('当前节点暂无描述')
+    expect(view).not.toContain('操作模板或端口读取失败：')
+    expect(view).not.toMatch(/<p id="persistent-node-name-help">/u)
+  })
+
   /** Backend 只读控件可以有适配样式，但不得恢复独立页面壳。 */
   it('removes the Backend-only workspace shell stylesheet', () => {
     expect(existsSync(
@@ -43,5 +54,46 @@ describe('Workflow workspace authority', () => {
     )).toBe(false)
     expect(componentSource('workflow.module.scss'))
       .toContain("@use './workflow-readonly-controls';")
+  })
+
+  /** 窄分栏下运行操作与同步状态必须分行，不能覆盖工作流摘要。 */
+  it('wraps the persistent toolbar in a narrow workspace', () => {
+    const stylesheet = componentSource('workflow-persistent/_section-01.scss')
+    expect(stylesheet).toMatch(
+      /@container workflow \(max-width: 720px\)[\s\S]*?\.persistent-authoring__toolbar\)[^{]*\{[^}]*flex-wrap:\s*wrap/u
+    )
+    expect(stylesheet).toMatch(
+      /\.persistent-authoring__toolbar-message\)[^{]*\{[^}]*flex:\s*1 0 100%[^}]*order:\s*3/u
+    )
+    expect(componentSource('_workflow-canvas-ux.scss')).toMatch(
+      /@container workflow \(max-width: 720px\)[\s\S]*?\.workflow__toolbar\)[^{]*\{[^}]*height:\s*auto[^}]*flex-basis:\s*auto/u
+    )
+  })
+
+  /** 窄分栏下运行输出标签必须保持单行，并由标签容器承接横向滚动。 */
+  it('keeps output tabs readable in a narrow workspace', () => {
+    const outputStylesheet = componentSource('_workflow-output.scss')
+    expect(outputStylesheet).toMatch(
+      /\.workflow-runtime__output-tabs\)[^{]*\{[^}]*overflow-x:\s*auto[^}]*overflow-y:\s*hidden/u
+    )
+    expect(outputStylesheet).toMatch(
+      /\.workflow-runtime__output-tabs\) button[^{]*\{[^}]*white-space:\s*nowrap/u
+    )
+    expect(outputStylesheet).toMatch(
+      /@container workflow \(max-width: 720px\)[\s\S]*?\.workflow-runtime__output-tabs\) button[^{]*\{[^}]*min-width:\s*max-content[^}]*flex:\s*0 0 auto/u
+    )
+  })
+
+  /** 单工作流宽屏保持单行；工作流与物料分栏变窄后才上下排列参数名称。 */
+  it('stacks translated parameter names only in a narrow workflow pane', () => {
+    const stylesheet = componentSource(
+      'workflow-persistent/_section-04.scss'
+    )
+    expect(stylesheet).toMatch(
+      /\.persistent-authoring__io-editor-identity-text\)[^{]*\{[^}]*display:\s*flex/u
+    )
+    expect(stylesheet).toMatch(
+      /@container workflow \(max-width: 720px\)[\s\S]*?\.persistent-authoring__io-editor-identity-text\)[^{]*\{[^}]*display:\s*grid/u
+    )
   })
 })

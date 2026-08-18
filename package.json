@@ -15,6 +15,8 @@
     "workbench:remote": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/workbench build && pnpm --filter @unilab/workbench start:remote",
     "build": "pnpm -r --if-present build",
     "build:web": "pnpm --filter @unilab/kernel-web build",
+    "check:web:bundle-size": "pnpm --filter @unilab/kernel-web check:bundle-size",
+    "test:web:deployment": "pnpm --filter @unilab/kernel-web test:deployment",
     "build:desktop": "pnpm --filter @unilab/desktop build",
     "quality:frontend": "node scripts/check-frontend-quality.mjs",
     "quality:styles": "node scripts/check-style-architecture.mjs",

@@ -31,7 +31,7 @@ const SPECIAL_NODE_HEIGHT = 126
 const COMPACT_ACTION_NODE_WIDTH = 184
 const HORIZONTAL_MATERIAL_SOURCE_WIDTH = 112
 const HORIZONTAL_TRANSFER_NODE_WIDTH = 120
-const PRIMARY_SAMPLE_ACTION_FIRST_HANDLE_AXIS = 63
+const PRIMARY_SAMPLE_ACTION_FIRST_HANDLE_AXIS = 64
 const PRIMARY_SAMPLE_ACTION_HANDLE_PITCH = 31
 const PRIMARY_SAMPLE_MATERIAL_SOURCE_HANDLE_AXIS = 92
 const PRIMARY_SAMPLE_TRANSFER_HANDLE_AXIS = 90
@@ -613,7 +613,16 @@ function primarySampleHandleAxis(
   const roleByHandle = traces.handleRolesByNode.get(node.id)
   const accentByVariable = new Map<string, string>()
   const roleByVariable = new Map<string, string>()
-  const resourceHandles = node.handles?.filter(isResourceSlotHandle) ?? []
+  // WorkflowNodeCard 会先投影全部输入 Handle，再投影全部输出 Handle；布局必须
+  // 使用同一顺序合并卡片，否则穿插声明的输出会把主样品行号算错一格。
+  const resourceHandles = [
+    ...(node.handles?.filter((handle) =>
+      isResourceSlotHandle(handle) && handle.ioType === 'target'
+    ) ?? []),
+    ...(node.handles?.filter((handle) =>
+      isResourceSlotHandle(handle) && handle.ioType === 'source'
+    ) ?? [])
+  ]
   for (const handle of resourceHandles) {
     const variableName = handle.dataKey?.trim() || handle.handleKey
     const accent = accentByHandle?.get(handle.uuid)

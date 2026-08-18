@@ -345,6 +345,52 @@ test.describe('UniLab Workbench real-system contract', () => {
     await expect(separator).toHaveAttribute('aria-valuenow', '60')
   })
 
+  test('keeps material overlays behind the Agent panel', async ({ page }) => {
+    await page.setViewportSize({ width: 1630, height: 1090 })
+    await page.goto(workbenchUrl!)
+    await expect(page.locator('[id="unilab:authoring-workbench"]')).toBeVisible()
+
+    const materialNavigation = page.locator(
+      '[id="shell-tab-unilab:material-navigation"]'
+    )
+    const agentNavigation = page.locator(
+      '[id="shell-tab-unilab:agent-navigation"]'
+    )
+    const agentPanel = page.locator('[id="unilab:agent"]')
+    const materialLauncher = page.locator(
+      'button[title="浏览仪器设备模板"]'
+    )
+
+    if (!await materialLauncher.isVisible()) await materialNavigation.click()
+    if (!await agentPanel.isVisible()) await agentNavigation.click()
+    await expect(materialLauncher).toBeVisible()
+    await expect(agentPanel).toBeVisible()
+
+    const layering = await page.evaluate(() => {
+      const launcher = document.querySelector<HTMLElement>(
+        'button[title="浏览仪器设备模板"]'
+      )
+      const agent = document.getElementById('unilab:agent')
+      if (!launcher || !agent) throw new Error('layout probe is not ready')
+
+      const launcherRect = launcher.getBoundingClientRect()
+      const agentRect = agent.getBoundingClientRect()
+      const overlap = launcherRect.right > agentRect.left
+      const probeX = overlap
+        ? Math.max(launcherRect.left, agentRect.left) + 1
+        : agentRect.left + 1
+      const probeY = launcherRect.top + launcherRect.height / 2
+      const topElement = document.elementsFromPoint(probeX, probeY)[0]
+
+      return {
+        overlap,
+        topElementOwnedByAgent: Boolean(topElement?.closest('#unilab\\:agent'))
+      }
+    })
+
+    expect(layering.topElementOwnedByAgent).toBe(true)
+  })
+
   test('hides workflow output while the terminal panel is open', async ({
     page
   }) => {

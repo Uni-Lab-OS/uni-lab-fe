@@ -5,6 +5,8 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 let stylesheet = ''
 let domainNavigationStylesheet = ''
+let navigatorSource = ''
+let agentNavigatorSource = ''
 
 /** 读取 Workbench 主样式与领域导航样式，供结构性回归断言复用。 */
 beforeAll(async () => {
@@ -15,7 +17,9 @@ beforeAll(async () => {
     environment,
     surfaces,
     aionui,
-    navigation
+    navigation,
+    navigator,
+    agentNavigator
   ] = await Promise.all([
     readFile(fileURLToPath(new URL('./workbench-shell.css', import.meta.url)), 'utf8'),
     readFile(
@@ -32,6 +36,14 @@ beforeAll(async () => {
     readFile(
       fileURLToPath(new URL('./workbench-domain-navigation.css', import.meta.url)),
       'utf8'
+    ),
+    readFile(
+      fileURLToPath(new URL('../unilab-workbench-navigator-widget.tsx', import.meta.url)),
+      'utf8'
+    ),
+    readFile(
+      fileURLToPath(new URL('../unilab-agent-navigator-widget.tsx', import.meta.url)),
+      'utf8'
     )
   ])
   stylesheet = [
@@ -43,6 +55,8 @@ beforeAll(async () => {
     aionui
   ].join('\n')
   domainNavigationStylesheet = navigation
+  navigatorSource = navigator
+  agentNavigatorSource = agentNavigator
 })
 
 describe('environment manager layering and responsive layout', () => {
@@ -106,10 +120,86 @@ describe('environment manager layering and responsive layout', () => {
     expect(icon).toMatch(/flex:\s*0 0 14px/u)
   })
 
+  /** 临时错误与状态提示应出现在窗口顶部水平中央。 */
+  it('centers notification toasts at the top of the window', () => {
+    const rule = cssRule(
+      '.theia-notifications-container.theia-notification-toasts'
+    )
+
+    expect(rule).toMatch(/position:\s*fixed/u)
+    expect(rule).toMatch(/top:\s*16px/u)
+    expect(rule).toMatch(/bottom:\s*auto/u)
+    expect(rule).toMatch(/left:\s*50%/u)
+    expect(rule).toMatch(/transform:\s*translateX\(-50%\)/u)
+    expect(rule).toMatch(/width:\s*min\(500px, calc\(100vw - 32px\)\)/u)
+  })
+
   /** 证明大纲不再占用 Workbench 右侧产品导航入口。 */
   it('removes the outline entry from the right product navigation', () => {
     expect(domainNavigationStylesheet).toMatch(
       /\.theia-app-right\s+\.lm-TabBar-tab\[id='shell-tab-outline-view'\]\s*\{[^}]*display:\s*none/u
+    )
+  })
+
+  /** 证明产品不保留 48px 右活动栏，主工作区始终铺到窗口边缘。 */
+  it('reclaims the right sidebar width for the main workbench', () => {
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-left-right-split-panel\s*\{[^}]*right:\s*0 !important;[^}]*width:\s*100% !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /\.theia-app-right\s*\{[^}]*display:\s*none !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /body\.unilab-agent-panel-visible[\s\S]*?#theia-right-content-panel\s*> \.theia-app-sidebar-container\s*\{[^}]*display:\s*none !important;[^}]*width:\s*0 !important;[^}]*min-width:\s*0 !important;[^}]*max-width:\s*0 !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /body\.unilab-agent-panel-visible[\s\S]*?#theia-right-content-panel\s*> \.lm-BoxPanel-child:not\(\.theia-app-sidebar-container\)\s*\{[^}]*left:\s*0 !important;[^}]*right:\s*0 !important;[^}]*width:\s*100% !important/u
+    )
+    expect(domainNavigationStylesheet).not.toMatch(
+      /#theia-left-right-split-panel\s*> #theia-right-content-panel,\s*\.theia-app-right/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-left-right-split-panel\s*> #theia-right-content-panel\s*\{[^}]*display:\s*none !important;[^}]*min-width:\s*0 !important;[^}]*max-width:\s*0 !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /body\.unilab-agent-panel-visible[\s\S]*?#theia-right-content-panel\s*\{[^}]*display:\s*flex !important;[^}]*min-width:\s*420px !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /body\.unilab-agent-panel-visible[\s\S]*?#theia-bottom-split-panel\s*\{[^}]*right:\s*var\(--unilab-agent-panel-width, 420px\) !important/u
+    )
+    expect(agentNavigatorSource).toContain('new ResizeObserver(publishWidth)')
+    expect(agentNavigatorSource).toContain("getBoundingClientRect().width")
+    expect(agentNavigatorSource).toContain("'--unilab-agent-panel-width'")
+    expect(domainNavigationStylesheet).toMatch(
+      /@media \(max-width:\s*720px\)[\s\S]*?body\.unilab-agent-panel-visible[\s\S]*?#theia-right-content-panel\s*\{[^}]*position:\s*absolute !important;[^}]*inset:\s*0 !important;[^}]*width:\s*100% !important;/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /@media \(max-width:\s*720px\)[\s\S]*?body\.unilab-agent-panel-visible[\s\S]*?#theia-bottom-split-panel\s*\{[^}]*visibility:\s*hidden !important;[^}]*pointer-events:\s*none !important;/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-left-right-split-panel\s*> #theia-bottom-split-panel\s*\{[^}]*right:\s*0 !important;[^}]*width:\s*auto !important/u
+    )
+    expect(domainNavigationStylesheet).not.toMatch(
+      /#theia-left-right-split-panel\s*> #theia-bottom-split-panel\s*\{[^}]*left:\s*48px !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-bottom-split-panel\s*> #theia-main-content-panel\s*\{[^}]*right:\s*0 !important;[^}]*width:\s*100% !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-main-content-panel:not\([\s\S]*?:has\(\.lm-TabBar-tab\.lm-mod-closable\)[\s\S]*?\)\s*> \.lm-DockPanel-widget\s*\{[^}]*top:\s*0 !important;[^}]*left:\s*0 !important;[^}]*right:\s*0 !important;[^}]*width:\s*100% !important;[^}]*height:\s*100% !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-main-content-panel[\s\S]*?> \.lm-TabBar\.theia-app-centers\.theia-app-main:not\([\s\S]*?:has\(\.lm-TabBar-tab\.lm-mod-closable\)[\s\S]*?\)\s*\{[^}]*display:\s*none !important/u
+    )
+  })
+
+  /** 设备与物料分栏必须占据同一网格行，避免设备被自动排到第二行。 */
+  it('keeps instrument and material split surfaces on one row', () => {
+    expect(domainNavigationStylesheet).toMatch(
+      /is-device-material \.is-device\s*\{[^}]*grid-column:\s*1;[^}]*grid-row:\s*1;/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /is-device-material \.is-material\s*\{[^}]*grid-column:\s*3;[^}]*grid-row:\s*1;/u
     )
   })
 
@@ -125,6 +215,33 @@ describe('environment manager layering and responsive layout', () => {
     expect(domainNavigationStylesheet).toMatch(
       /data-unilabdomain='robot-debug'[\s\S]*data-unilabdomain='robot-points'[\s\S]*data-unilabdomain='robot-bench'[\s\S]*display:\s*none/u
     )
+    expect(domainNavigationStylesheet).not.toMatch(
+      /data-unilabdomain='robot-reagents'\]\s*\{\s*display:\s*none/u
+    )
+  })
+
+  /** UniLab 领域入口不得叠加 Lumino 遗留的 current 高亮。 */
+  it('uses the Workbench domain state as the only activity highlight', () => {
+    expect(domainNavigationStylesheet).toMatch(
+      /\.lm-TabBar-tab\.lm-mod-current\[data-unilabactive='false'\]:not\(:hover\)\s*\{[^}]*color:\s*var\(--theia-activityBar-inactiveForeground\) !important;[^}]*background:\s*transparent !important;[^}]*box-shadow:\s*none !important;/u
+    )
+  })
+
+  /** 工作流是产品领域名，活动栏不得缩写成“工作”。 */
+  it('keeps the complete workflow navigation label', () => {
+    expect(navigatorSource).toMatch(
+      /mode:\s*'workflow',[\s\S]*?label:\s*'工作流'/u
+    )
+  })
+
+  /** 试剂领域的产品文案统一使用“试剂”。 */
+  it('uses the concise reagent navigation label', () => {
+    expect(navigatorSource).toMatch(
+      /mode:\s*'robot-reagents',[\s\S]*?label:\s*'试剂'/u
+    )
+    expect(navigatorSource).not.toMatch(
+      /mode:\s*'robot-reagents',[\s\S]*?label:\s*'试剂管理'/u
+    )
   })
   /** 证明运行连接选择采用扁平分段控件，并在窄屏重排而不是横向压缩。 */
   it('keeps the authority choices readable and responsive', () => {
@@ -136,6 +253,19 @@ describe('environment manager layering and responsive layout', () => {
     expect(stylesheet).toContain('@media (max-width: 520px)')
     expect(stylesheet).toMatch(
       /@media \(max-width: 520px\)[\s\S]*\.unilab-workbench-connection__options\s*\{[\s\S]*grid-template-columns:\s*1fr/u
+    )
+  })
+
+  /** 左右侧栏同时打开时按工作台自身宽度换行，避免操作区被 Agent 覆盖。 */
+  it('wraps the workbench header by its own available width', () => {
+    expect(stylesheet).toMatch(
+      /\.unilab-workbench\s*\{[^}]*container-name:\s*unilab-workbench[^}]*container-type:\s*inline-size/u
+    )
+    expect(stylesheet).toMatch(
+      /@container unilab-workbench \(max-width: 900px\)[\s\S]*?\.unilab-workbench__bar\s*\{[^}]*flex-wrap:\s*wrap/u
+    )
+    expect(stylesheet).toMatch(
+      /@container unilab-workbench \(max-width: 560px\)[\s\S]*?\.unilab-workbench__controls nav\s*\{[^}]*overflow-x:\s*auto/u
     )
   })
 

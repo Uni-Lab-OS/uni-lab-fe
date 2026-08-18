@@ -1,6 +1,7 @@
 import { resolve } from 'path'
 import { defineConfig } from 'vite'
 import tailwindcss from '@tailwindcss/vite'
+import { webChunkName } from './build/webChunks'
 
 const LOCAL_BACKEND_PROXY_PREFIX = '/__unilab_backend'
 const LOCAL_BACKEND_PROXY_TARGET = process.env.UNILAB_BACKEND_PROXY_TARGET ??
@@ -95,6 +96,20 @@ export default defineConfig(({ mode }) => ({
         __dirname,
         '../../packages/pascal-host/src/shims/next-link.tsx'
       )
+    }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Keep long-lived framework/feature payloads independently cacheable.
+        // SceneWorkbench remains a dynamic entry; this additionally prevents its
+        // large graphics dependencies from falling back into the application chunk.
+        manualChunks: webChunkName,
+        // A named chunk owns only modules matched above. Pulling each module's
+        // transitive dependencies into the same chunk can move Rollup helpers
+        // shared with the app entry into a lazy 3D chunk and make it eager again.
+        onlyExplicitManualChunks: true
+      }
     }
   }
 }))

@@ -70,10 +70,75 @@ async function mapsMaterialCategoryToRenderingKind(): Promise<void> {
   ])
 }
 
+/** 验证无渲染配置的 Backend 台面仍保留左下角原点语义。 */
+async function mapsDeckMaterialTypeToRenderingKind(): Promise<void> {
+  const { http } = mockHttp({
+    data: {
+      nodes: [{
+        material: {
+          uuid: 'material-deck',
+          resource_template_uuid: 'template-deck',
+          type: 'deck',
+          revision: 1,
+          class: 'community.szlab.deck',
+          barcode: '',
+          name: 'SZLab 聚合物工作站台面',
+          create_time: '2026-08-15T00:00:00Z',
+          update_time: '2026-08-15T00:00:00Z',
+          meta_data: { source_node_id: 'szlab_poly_deck' },
+          config: { setup: false },
+          data: {}
+        },
+        relative_position: rawBackendPosition(
+          'position-deck',
+          'material-deck',
+          [0, 0, 20],
+          [3634, 1674, 20]
+        ),
+        sites: [],
+        current_site_uuid: null,
+        handles: [],
+        resource_template: {
+          uuid: 'template-deck',
+          name: 'community.szlab.deck',
+          display_name: 'SZLab 聚合物工作站台面',
+          resource_type: 'deck'
+        }
+      }]
+    }
+  })
+  const backend = getDefaultBackend('local-python')
+  const service = createMaterialService(
+    http,
+    backend,
+    resolveServerCapabilities(backend)
+  )
+
+  await expect(
+    service.getGraph({ kind: 'singleton' })
+  ).resolves.toEqual([
+    expect.objectContaining({
+      material: expect.objectContaining({
+        config: expect.objectContaining({
+          rendering: {
+            kind: 'deck',
+            dimensionsMm: [3634, 20, 1674]
+          }
+        })
+      })
+    })
+  ])
+}
+
 describe('material template adapter', () => {
   it(
     'uses the material category when the rendering kind is absent',
     mapsMaterialCategoryToRenderingKind
+  )
+
+  it(
+    'uses the deck material type when rendering metadata is absent',
+    mapsDeckMaterialTypeToRenderingKind
   )
 
   it('reads the complete Edge catalog without a fake laboratory ID', async () => {

@@ -20,12 +20,24 @@ describe('WorkflowWorkspaceToolbar runtime status', () => {
     expect(html).toContain('正在取消')
     expect(html).not.toContain('data-task-status="idle"')
   })
+
+  it('marks a non-terminal snapshot as historical when OS is unavailable', () => {
+    const html = renderToolbar(
+      workflowTask({ status: 'running' }),
+      true
+    )
+
+    expect(html).toContain('data-task-status="historical"')
+    expect(html).toContain('历史执行')
+    expect(html).not.toContain('data-task-status="running"')
+  })
 })
 
-function renderToolbar(task: WorkflowTask): string {
+function renderToolbar(task: WorkflowTask, historicalTask = false): string {
   return renderToStaticMarkup(
     <WorkflowWorkspaceToolbar
       task={task}
+      historicalTask={historicalTask}
       message=""
       codeMode={{ active: false, disabled: true, disabledReason: '' }}
       canvasMode={{ active: true, disabled: false, disabledReason: '' }}

@@ -244,7 +244,7 @@ export function WorkbenchRuntimeLogViewer({
                 onClick={onOpenFile}
               >
                 <span className="codicon codicon-go-to-file" aria-hidden="true" />
-                打开日志文件
+                打开日志文件（再次点击关闭）
               </button>
             ) : null}
             <button

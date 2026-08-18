@@ -35,16 +35,18 @@ export function ReagentLedgerView({
   const totals = summarizeReagentInventory(items)
   return (
     <>
-      <div className={styles.reagentStats} aria-label="库存试剂摘要">
-        <ReagentStat icon="flask" label="库存试剂" value={totals.count} tone="info" />
+      <div className={styles.reagentStats} aria-label="试剂库存摘要">
+        <ReagentStat icon="flask" label="试剂库存" value={totals.count} tone="info" />
         <ReagentStat icon="shield" label="可用" value={totals.available} tone="success" />
         <ReagentStat icon="point" label="预留中" value={totals.reserved} tone="warning" />
       </div>
       <div className={`${uiClass.panel} ${uiClass.tableScroll} ${styles.reagentLedgerPanel}`}>
-        <table className={`${styles.dataTable} ${styles.reagentLedgerTable}`} aria-label="库存试剂">
+        <table className={`${styles.dataTable} ${styles.reagentLedgerTable}`} aria-label="试剂库存">
           <thead>
             <tr>
               <th>试剂名称</th>
+              <th>CAS 号</th>
+              <th>物料号</th>
               <th>试剂量</th>
               <th>状态</th>
               <th>库位</th>
@@ -60,11 +62,11 @@ export function ReagentLedgerView({
               <tr key={item.id}>
                 <td data-label="试剂名称">
                   <strong>{item.name}</strong>
-                  <small>{[item.cas, item.lotLabel].filter(Boolean).join(' · ') || '—'}</small>
                 </td>
+                <td data-label="CAS 号" className={uiClass.mono}>{item.cas ?? '—'}</td>
+                <td data-label="物料号" className={uiClass.mono}>{item.lotLabel ?? '—'}</td>
                 <td data-label="试剂量">
                   <strong>{formatQuantity(item.totalQuantity, item.unit)}</strong>
-                  <small>可用 / 预留：{formatAvailability(item)}</small>
                 </td>
                 <td data-label="状态"><InventoryStatus status={item.status} /></td>
                 <td data-label="库位">{item.siteLabel ?? '—'}</td>
@@ -84,7 +86,7 @@ export function ReagentLedgerView({
               </tr>
             ))}
             {visibleItems.length === 0 ? (
-              <tr><td colSpan={actions ? 9 : 8}><div className={uiClass.compactEmptyState}>没有符合搜索条件的库存试剂</div></td></tr>
+              <tr><td colSpan={actions ? 11 : 10}><div className={uiClass.compactEmptyState}>没有符合搜索条件的试剂库存</div></td></tr>
             ) : null}
           </tbody>
         </table>
@@ -135,7 +137,7 @@ export function ReagentLibraryView({
                   </td>
                   <td data-label="CAS 号" className={uiClass.mono}>{info.cas ?? '—'}</td>
                   <td data-label="分子式" className={styles.reagentFormula}>{info.molecularFormula ?? '—'}</td>
-                  <td data-label="2D 结构"><MoleculeStructure2D name={info.name} smiles={info.smiles} /></td>
+                  <td data-label="2D 结构"><MoleculeStructure2D name={info.name} smiles={info.smiles} size="compact" /></td>
                   <td data-label="物性">
                     <div className={styles.reagentProperties}>
                       <strong>{info.molecularWeight == null ? '—' : `${info.molecularWeight.toLocaleString('zh-CN')} g/mol`}</strong>

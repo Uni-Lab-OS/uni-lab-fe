@@ -49,7 +49,8 @@ const POINT_STATUS: WorkstationDataStatus = {
  */
 export function useRobotWorkstationData(
   services: Services,
-  viewMode: WorkbenchViewMode
+  viewMode: WorkbenchViewMode,
+  recoveryRevision = 0
 ): RobotWorkstationData {
   const [benchSnapshot, setBenchSnapshot] = useState<BenchSnapshot>()
   const [benchStatus, setBenchStatus] = useState<WorkstationDataStatus>({
@@ -141,7 +142,7 @@ export function useRobotWorkstationData(
       }
     )
     return () => controller.abort()
-  }, [benchRevision, retryBench, services.materials, viewMode])
+  }, [benchRevision, recoveryRevision, retryBench, services.materials, viewMode])
 
   useEffect(() => {
     if (viewMode !== 'robot-reagents') return
@@ -177,7 +178,7 @@ export function useRobotWorkstationData(
       }
     )
     return () => controller.abort()
-  }, [reagentRevision, retryReagents, services, viewMode])
+  }, [reagentRevision, recoveryRevision, retryReagents, services, viewMode])
 
   useEffect(() => {
     if (viewMode !== 'robot-reagents') return
@@ -213,7 +214,7 @@ export function useRobotWorkstationData(
       }
     )
     return () => controller.abort()
-  }, [reagentRevision, retryReagents, services, viewMode])
+  }, [reagentRevision, recoveryRevision, retryReagents, services, viewMode])
 
   useEffect(() => {
     if (viewMode !== 'robot-reagents') return
@@ -262,7 +263,7 @@ export function useRobotWorkstationData(
       }
     )
     return () => controller.abort()
-  }, [services, viewMode])
+  }, [recoveryRevision, services, viewMode])
 
   const reagentManagement = useMemo<ReagentManagement | undefined>(() => {
     const requiredCapabilities = [
@@ -477,5 +478,8 @@ function formatMillimeter(value: number): string {
 
 /** 将未知异常转换为用户可恢复的中文接口错误。 */
 function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback
+  const message = error instanceof Error ? error.message : ''
+  return /reconnecting channel/i.test(message)
+    ? '连接暂时中断，恢复后将自动重试。'
+    : message || fallback
 }

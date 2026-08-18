@@ -9,14 +9,17 @@
 }
 
 .unilab-workbench__domain-layout {
+  position: relative;
   display: flex;
-  min-width: 0;
-  min-height: 0;
+  /* React Flow 在 Theia 恢复布局的首帧会读取这里的尺寸。 */
+  min-width: 1px;
+  min-height: 1px;
   flex: 1 1 auto;
   overflow: hidden;
 }
 
-.unilab-workbench__domain-layout.is-split {
+.unilab-workbench__domain-layout.is-split,
+.unilab-workbench__domain-layout.is-device-material {
   display: grid;
   align-items: stretch;
 }
@@ -29,9 +32,23 @@
   overflow: hidden;
 }
 
-.unilab-workbench__domain-slot[hidden],
 .unilab-workbench__splitter[hidden] {
   display: none !important;
+}
+
+/*
+ * 已访问的领域保持完整尺寸，避免 React Flow、3D 场景和设备面板在
+ * display:none 与可见之间切换时先读到 0×0 容器，造成一帧或多帧白屏。
+ * inert + aria-hidden 负责隔离焦点与辅助技术，绝对定位则不参与当前布局。
+ */
+.unilab-workbench__domain-slot.is-inactive {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  min-width: 1px;
+  min-height: 1px;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .unilab-workbench__domain-slot > .unilab-workbench__surface {
@@ -39,14 +56,60 @@
   height: 100%;
 }
 
+.unilab-workbench__domain-layout.is-split .is-workflow,
+.unilab-workbench__domain-layout.is-device-material .is-device {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.unilab-workbench__domain-layout.is-split .unilab-workbench__splitter,
+.unilab-workbench__domain-layout.is-device-material
+  .unilab-workbench__splitter {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.unilab-workbench__domain-layout.is-split .is-material,
+.unilab-workbench__domain-layout.is-device-material .is-material {
+  grid-column: 3;
+  grid-row: 1;
+}
+
 .unilab-workbench__domain-layout.is-split
-  .unilab-workbench__surface--workflow {
+  .unilab-workbench__surface--workflow,
+.unilab-workbench__domain-layout.is-device-material
+  .unilab-workbench__surface--device {
   box-shadow: inset -1px 0 var(--unilab-color-border);
 }
 
 .unilab-workbench__domain-layout.is-split
+  .unilab-workbench__surface--material,
+.unilab-workbench__domain-layout.is-device-material
   .unilab-workbench__surface--material {
   box-shadow: inset 1px 0 var(--unilab-color-border);
+}
+
+/*
+ * 被文件栏或 Agent 压窄后，双领域分栏已经没有足够空间容纳各自的
+ * 工具栏和画布。保留用户最后打开的主领域（工作流或设备），把物料
+ * 伴随视图收起；恢复宽度后自动回到原分栏，不改动领域选择状态。
+ */
+@container unilab-workbench (max-width: 900px) {
+  .unilab-workbench__domain-layout.is-split,
+  .unilab-workbench__domain-layout.is-device-material {
+    display: flex;
+  }
+
+  .unilab-workbench__domain-layout.is-split
+    > .unilab-workbench__splitter,
+  .unilab-workbench__domain-layout.is-device-material
+    > .unilab-workbench__splitter,
+  .unilab-workbench__domain-layout.is-split
+    > .unilab-workbench__domain-slot.is-material,
+  .unilab-workbench__domain-layout.is-device-material
+    > .unilab-workbench__domain-slot.is-material {
+    display: none;
+  }
 }
 
 .unilab-workbench__splitter {
@@ -138,24 +201,127 @@
   display: none;
 }
 
-.theia-app-left .lm-TabBar-tab[id='shell-tab-explorer-view-container'] {
-  margin-top: 27px;
-  overflow: visible;
-  border-top-color: var(--unilab-color-border-strong);
+/* 产品导航统一位于左侧，不保留 Theia 默认的 48px 右活动栏。 */
+#theia-left-right-split-panel {
+  right: 0 !important;
+  width: 100% !important;
 }
 
-.theia-app-left
-  .lm-TabBar-tab[id='shell-tab-explorer-view-container']::before {
-  position: absolute;
-  top: -20px;
-  left: 0;
-  width: 100%;
-  color: var(--theia-descriptionForeground);
-  content: 'IDE';
-  font: 600 8px/1 var(--unilab-font-mono);
-  letter-spacing: 0.12em;
-  text-align: center;
-  pointer-events: none;
+.theia-app-right {
+  display: none !important;
+}
+
+/*
+ * Lumino keeps the hidden right activity bar's 48px BoxPanel child in its
+ * geometry even when the tab bar itself is display:none. Without reclaiming
+ * that child, the 420px Agent Dock is laid out from -48px and overlaps the
+ * material canvas, where high-z-index scene controls can cover the Agent.
+ */
+body.unilab-agent-panel-visible
+  #theia-right-content-panel
+  > .theia-app-sidebar-container {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+}
+
+body.unilab-agent-panel-visible
+  #theia-right-content-panel
+  > .lm-BoxPanel-child:not(.theia-app-sidebar-container) {
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+}
+
+/*
+ * 布局恢复可能在启动时重新展开空的右面板。只有用户真正打开
+ * Agent 时才让它参与布局，其余时候完全不占用工作区宽度。
+ */
+#theia-left-right-split-panel > #theia-right-content-panel {
+  display: none !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+}
+
+body.unilab-agent-panel-visible
+  #theia-left-right-split-panel
+  > #theia-right-content-panel {
+  display: flex !important;
+  min-width: 420px !important;
+  max-width: none !important;
+  z-index: 30 !important;
+  isolation: isolate;
+  background: var(--theia-editor-background);
+}
+
+/*
+ * Agent 展开后为它保留实际布局宽度。否则 Pascal 的 WebGL/HTML
+ * 标注层仍按全宽视口排版，视觉上会穿进右侧 Agent 内容。
+ */
+body.unilab-agent-panel-visible
+  #theia-left-right-split-panel
+  > #theia-bottom-split-panel {
+  right: var(--unilab-agent-panel-width, 420px) !important;
+}
+
+/*
+ * 窄窗口无法同时容纳 420px Agent 与主工作区。此时让 Agent 接管完整
+ * 内容区，并暂停底层工作区的绘制与交互，避免工具栏被挤成一条“穿透”窄带。
+ */
+@media (max-width: 720px) {
+  body.unilab-agent-panel-visible
+    #theia-left-right-split-panel
+    > #theia-right-content-panel {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  body.unilab-agent-panel-visible
+    #theia-left-right-split-panel
+    > #theia-bottom-split-panel {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+}
+
+/*
+ * 左侧活动栏展开的资源管理器、界面设置等面板必须浮在全尺寸主工作区之上。
+ * 主 DockPanel 被拉伸至整个可用区域后会与侧栏内容发生几何重叠，因此在
+ * 这里明确恢复侧栏的视觉层级，同时保留画布无空白边框的全屏布局。
+ */
+#theia-left-content-panel {
+  z-index: 20 !important;
+}
+
+#theia-left-right-split-panel > #theia-bottom-split-panel {
+  right: 0 !important;
+  width: auto !important;
+}
+
+#theia-bottom-split-panel > #theia-main-content-panel {
+  right: 0 !important;
+  width: 100% !important;
+}
+
+#theia-main-content-panel:not(
+  :has(.lm-TabBar-tab.lm-mod-closable)
+) > .lm-DockPanel-widget {
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+#theia-main-content-panel
+  > .lm-TabBar.theia-app-centers.theia-app-main:not(
+    :has(.lm-TabBar-tab.lm-mod-closable)
+  ) {
+  display: none !important;
 }
 
 .theia-app-left .lm-TabBar-tab[data-unilabactive='true'] {
@@ -168,11 +334,80 @@
   box-shadow: inset 2px 0 var(--unilab-color-primary);
 }
 
-/* 机械臂动作调试、点位管理和实验台入口暂不对用户开放。 */
+/*
+ * Lumino 会继续把最后展开过左侧面板的标签标记为 lm-mod-current。
+ * UniLab 入口只负责切换主工作区，因此其视觉选中态必须以业务状态为准，
+ * 否则从物料切到设备后会出现两个入口同时高亮。
+ */
+.theia-app-left
+  .lm-TabBar-tab.lm-mod-current[data-unilabactive='false']:not(:hover) {
+  color: var(--theia-activityBar-inactiveForeground) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* 机械臂内部调试入口暂不对外展示；试剂管理是产品主入口。 */
 .theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-debug'],
 .theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-points'],
 .theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-bench'] {
   display: none;
+}
+
+/* 活动栏文案常驻在图标下方，不依赖悬浮提示。 */
+#theia-left-content-panel .theia-app-left .lm-TabBar-tab {
+  height: 62px !important;
+}
+
+#theia-left-content-panel
+  .theia-app-left
+  .lm-TabBar-tab
+  > .theia-tab-icon-label {
+  display: grid;
+  width: 48px;
+  height: 58px;
+  grid-template-rows: 34px 16px;
+  align-content: center;
+  justify-items: center;
+}
+
+#theia-left-content-panel
+  .theia-app-left
+  .lm-TabBar-tab
+  .lm-TabBar-tabIcon {
+  width: 48px;
+  height: 34px;
+}
+
+#theia-left-content-panel
+  .theia-app-left
+  .lm-TabBar-tab
+  .lm-TabBar-tabLabel {
+  position: static !important;
+  display: block !important;
+  width: 48px !important;
+  height: 16px !important;
+  overflow: visible;
+  transform: none !important;
+  color: currentColor;
+  font: 500 10px/16px var(--unilab-font-sans);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Theia 原生资源管理器仍使用内部名称，产品活动栏固定展示“文件”。 */
+#theia-left-content-panel
+  .theia-app-left
+  .lm-TabBar-tab[id='shell-tab-explorer-view-container']
+  .lm-TabBar-tabLabel {
+  font-size: 0;
+}
+
+#theia-left-content-panel
+  .theia-app-left
+  .lm-TabBar-tab[id='shell-tab-explorer-view-container']
+  .lm-TabBar-tabLabel::after {
+  content: '文件';
+  font: 500 10px/16px var(--unilab-font-sans);
 }
 
 .unilab-activity-icon {
@@ -186,7 +421,7 @@
 }
 
 .unilab-activity-icon--device {
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2.5' y='3' width='15' height='14' rx='2'/%3E%3Crect x='5' y='6' width='6' height='4' rx='.75'/%3E%3Ccircle cx='14.25' cy='8' r='1.25'/%3E%3Cpath d='M5 13.5h5.5M13 13.5h1.5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 39h22M17 39v-6h14v6'/%3E%3Ccircle cx='19' cy='29' r='4'/%3E%3Cpath d='m21.8 26.2 7.3-8.2'/%3E%3Ccircle cx='31' cy='16' r='3.5'/%3E%3Cpath d='m28.6 13.5-5.3-5.2M20.7 6h6v4.7M34 16l4.2 3.4M38.2 19.4 41 17M38.2 19.4l.7 3.7'/%3E%3C/svg%3E");
 }
 
 .unilab-activity-icon--robot-debug {

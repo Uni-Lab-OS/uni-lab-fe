@@ -49,6 +49,7 @@ describe('WorkflowPanel Runtime entry', () => {
           reason: 'Backend 未实现工作流创作'
         }}
         runStatus={{ available: true }}
+        onResetEnvironment={async () => {}}
       />
     )
 
@@ -56,11 +57,13 @@ describe('WorkflowPanel Runtime entry', () => {
     expect(markup).toContain('persistent-authoring__canvas')
     expect(markup).toContain('Backend 定义 · 只读')
     expect(markup).toContain('正在读取 Backend 工作流图')
-    expect(markup).toContain('正常运行')
-    expect(markup).toContain('单步模式')
-    expect(markup).toContain('单节点调试')
+    expect(markup).toContain('aria-label="开始运行"')
+    expect(markup).toContain('aria-label="复位运行环境"')
+    expect(markup).toContain('运行设置，当前为正常运行')
+    expect(markup).toContain('任务运行模式')
+    expect(markup).not.toContain('⌄')
     expect(markup).toContain('persistent-authoring__toolbar-navigation')
-    expect(markup).toContain('代码模式')
+    expect(markup).not.toContain('代码模式')
     expect(markup).toContain('画布模式')
     expect(markup).toContain('Backend 未实现工作流创作')
     expect(markup).toContain('>运行输出<')
@@ -71,8 +74,8 @@ describe('WorkflowPanel Runtime entry', () => {
     expect(markup).not.toContain('workflow-runtime__authoring')
   })
 
-  /** Backend 模式启用直接画布保存，但不暴露工作区代码投影。 */
-  it('opens an editable Backend canvas without enabling code mode', () => {
+  /** Backend 模式启用直接画布保存，并关闭代码投影入口。 */
+  it('opens an editable Backend canvas without code mode', () => {
     const markup = renderToStaticMarkup(
       <WorkflowPanel
         runtime={{} as WorkflowRuntimePort}
@@ -84,9 +87,11 @@ describe('WorkflowPanel Runtime entry', () => {
     )
 
     expect(markup).toContain('Backend 定义 · 已同步')
-    expect(markup).toContain('画布可编辑并直接保存')
+    expect(markup).toContain('正式 Backend 仅支持画布编辑')
     expect(markup).toContain('aria-label="保存工作流"')
-    expect(markup).toContain('工作区代码修改不生效')
+    expect(markup).not.toContain('代码模式')
+    expect(markup).not.toContain('工作流代码视图')
+    expect(markup).not.toContain('Backend 代码视图为只读')
   })
 
   /** Backend 画布的编辑权与 Edge 运行就绪状态必须解耦。 */

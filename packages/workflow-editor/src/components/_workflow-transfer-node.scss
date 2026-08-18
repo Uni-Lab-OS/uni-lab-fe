@@ -112,6 +112,14 @@
   :global(.wf-node__robot-transfer-copy) {
   width: 120px;
   align-self: stretch;
+  justify-items: center;
+  text-align: center;
+}
+
+.workflow
+  :global(.wf-node--robot-transfer[data-workflow-layout-direction='horizontal'])
+  :global(.wf-node__robot-transfer-toggle) {
+  justify-self: center;
 }
 
 .workflow :global(.wf-node__robot-transfer-copy) strong {

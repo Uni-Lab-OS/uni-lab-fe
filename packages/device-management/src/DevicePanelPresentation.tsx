@@ -18,7 +18,7 @@ export function Metric({
   return (
     <span className={deviceClass('edge-device__metric', tone && `is-${tone}`)}>
       <small>{label}</small>
-      <strong>{value}</strong>
+      <strong title={value}>{value}</strong>
     </span>
   )
 }

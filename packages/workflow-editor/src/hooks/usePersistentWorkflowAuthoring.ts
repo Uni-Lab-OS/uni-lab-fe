@@ -71,6 +71,7 @@ import { usePersistentWorkflowStartFlow } from './usePersistentWorkflowStartFlow
 import { usePersistentWorkflowTaskPanel } from './usePersistentWorkflowTaskPanel'
 import { useWorkflowIdeSourceProjection } from './useWorkflowIdeSourceProjection'
 import { useWorkflowPanelRuntimeProjection } from './useWorkflowPanelRuntimeProjection'
+import { workflowTaskIsLive } from '../utils/workflowTaskPresentation'
 
 export type { PersistentWorkflowAuthoringOptions } from './persistentWorkflowAuthoringTypes'
 
@@ -93,13 +94,16 @@ export function usePersistentWorkflowAuthoring({
   onSelectedWorkflowStepChange,
   onChooseWorkflow,
   ideBridge,
-  hideEmbeddedCodeEditor = false
+  hideEmbeddedCodeEditor = false,
+  recoveryRevision = 0
 }: PersistentWorkflowAuthoringOptions) {
   const [mode, setMode] = useState<WorkflowEditMode>(
     () => definitionPort.capabilities.sourceEditing ? 'code' : 'canvas'
   )
   const [codeProjection, setCodeProjection] =
-    useState<WorkflowCodeProjection>('python')
+    useState<WorkflowCodeProjection>(
+      () => definitionPort.capabilities.sourceEditing ? 'python' : 'json'
+    )
   const [aggregate, setAggregate] =
     useState<WorkflowAuthoringAggregate | null>(null)
   const policy = workflowAuthoringSurfacePolicy(mode)
@@ -212,6 +216,15 @@ export function usePersistentWorkflowAuthoring({
     selectedNodeName,
     selectedNodeNameDirty
   }
+
+  useEffect(() => {
+    if (definitionPort.capabilities.codeViewing || mode === 'canvas') return
+    setMode('canvas')
+    setCodeProjection('json')
+    setPendingMode(null)
+    setPendingPythonImport(null)
+    setMessage('正式 Backend 仅支持画布模式')
+  }, [definitionPort, mode])
 
   const fileUpload = useWorkflowFileUpload({
     onLoaded: ({ content, fileName }) => {
@@ -353,6 +366,9 @@ export function usePersistentWorkflowAuthoring({
   const dirty = mode === 'code'
     ? editor.isDirty
     : canvasDirty || selectedNodeNameDirty
+  const executionBlockedReason = executionStatus?.available === false
+    ? executionStatus.reason || 'OS 未就绪；请先在环境管理中启动 OS'
+    : null
   const taskPanel = usePersistentWorkflowTaskPanel({
     runtime,
     definitionPort,
@@ -366,6 +382,9 @@ export function usePersistentWorkflowAuthoring({
     setMessage,
     setError
   })
+  const taskHistorical = Boolean(
+    executionBlockedReason && workflowTaskIsLive(taskPanel.task)
+  )
   useWorkflowPanelRuntimeProjection({
     aggregate,
     runtimeSnapshot: taskPanel.taskRuntime.snapshot,
@@ -435,6 +454,18 @@ export function usePersistentWorkflowAuthoring({
       .then((next) => {
         if (!active) return
         remotePending.current = false
+        const current = localState.current
+        if (recoveryRevision > 0 && isAuthoringSnapshotDirty(current)) {
+          if (!isSameAuthoringVersion(next, current.aggregate)) {
+            remotePending.current = true
+            setRemoteConflict(authoringRemoteConflict(next, current))
+            setMessage('连接已恢复；本地修改已保留，请比较后明确处理')
+          } else {
+            setError(null)
+            setMessage('连接已恢复；本地未保存修改已保留')
+          }
+          return
+        }
         installAggregate(next, authoringStateMessage(next))
       })
       .catch((loadError) => {
@@ -447,7 +478,7 @@ export function usePersistentWorkflowAuthoring({
     return () => {
       active = false
     }
-  }, [definitionPort, installAggregate, queue])
+  }, [definitionPort, installAggregate, queue, recoveryRevision])
 
   useEffect(
     /**
@@ -696,7 +727,7 @@ export function usePersistentWorkflowAuthoring({
     nextMode: WorkflowEditMode
   ): Promise<void> => {
     if (!aggregate) throw new Error('工作流编辑数据尚未就绪')
-    if (nextMode === 'code' && !definitionPort.capabilities.sourceEditing) {
+    if (nextMode === 'code' && !definitionPort.capabilities.codeViewing) {
       throw new Error(
         definitionPort.capabilities.sourceEditingDisabledReason ??
         '当前数据源不支持代码模式'
@@ -705,27 +736,40 @@ export function usePersistentWorkflowAuthoring({
     setPendingPythonImport(null)
     if (nextMode === 'canvas') {
       const sourceGraph = authoringProjection(aggregate).graph
-      const generated = await generateCanvasPython(sourceGraph)
-      setGraph(beautifyPersistentAuthoringGraph(
-        generated.graph || sourceGraph
-      ))
-      editor.replaceContent(generated.normalized_python_source as string)
+      if (definitionPort.capabilities.sourceEditing) {
+        const generated = await generateCanvasPython(sourceGraph)
+        setGraph(beautifyPersistentAuthoringGraph(
+          generated.graph || sourceGraph
+        ))
+        editor.replaceContent(generated.normalized_python_source as string)
+      } else {
+        setGraph(beautifyPersistentAuthoringGraph(sourceGraph))
+      }
       setCanvasDirty(false)
       setSelectedNodeUuid(null)
       setSelectedNodeName('')
       setSelectedNodeNameDirty(false)
       setMode('canvas')
-      setMessage('画布模式：Python 是 OS 生成的只读投影')
+      setMessage(definitionPort.capabilities.sourceEditing
+        ? '画布模式：Python 是 OS 生成的只读投影'
+        : 'Backend 画布模式：修改后可保存到 Backend')
       return
     }
     setGraph(authoringProjection(aggregate).graph)
-    editor.replaceContent(authoritativePython(aggregate))
+    if (definitionPort.capabilities.sourceEditing) {
+      editor.replaceContent(authoritativePython(aggregate))
+      setCodeProjection('python')
+    } else {
+      setCodeProjection('json')
+    }
     setCanvasDirty(false)
     setSelectedNodeUuid(null)
     setSelectedNodeName('')
     setSelectedNodeNameDirty(false)
     setMode('code')
-    setMessage(authoringStateMessage(aggregate))
+    setMessage(definitionPort.capabilities.sourceEditing
+      ? authoringStateMessage(aggregate)
+      : 'Backend 工作流 JSON 代码视图（只读）')
   }, [aggregate, definitionPort, editor.replaceContent, generateCanvasPython])
 
   /**
@@ -736,7 +780,7 @@ export function usePersistentWorkflowAuthoring({
    */
   const requestMode = (nextMode: WorkflowEditMode): void => {
     if (busy || !aggregate) return
-    if (nextMode === 'code' && !definitionPort.capabilities.sourceEditing) {
+    if (nextMode === 'code' && !definitionPort.capabilities.codeViewing) {
       setError(
         definitionPort.capabilities.sourceEditingDisabledReason ??
         '当前数据源不支持代码模式'
@@ -1150,9 +1194,6 @@ export function usePersistentWorkflowAuthoring({
     taskPanel.refreshResourceSlotOptions
   ])
 
-  const executionBlockedReason = executionStatus?.available === false
-    ? executionStatus.reason || 'OS 未就绪；请先在环境管理中启动 OS'
-    : null
   const workflowStart = usePersistentWorkflowStartFlow({
     context: {
       aggregate,
@@ -1312,7 +1353,7 @@ export function usePersistentWorkflowAuthoring({
     debugLaunchAvailable: definitionPort.capabilities.debugLaunch,
     definitionEditingAvailable: definitionEditingStatus?.available !== false,
     definitionEditingDisabledReason: definitionEditingStatus?.reason ?? null,
-    executionBlockedReason,
+    executionBlockedReason, taskHistorical,
     dirty, discardAndSwitch, editor, effectiveMaterialSourceCatalog, error,
     fileUpload, fullSourceDiff, graph, jsonProjectionEditor,
     materialSourceAuthorityBlocked, materialSourceCatalogError,
@@ -1330,6 +1371,7 @@ export function usePersistentWorkflowAuthoring({
       ideBridge?.onRevealPackageSource?.({ sourceUri })
     },
     sourceProjection, traceRuntime, workflowIoOpen, workflowUuid,
+    codeViewingAvailable: definitionPort.capabilities.codeViewing,
     sourceEditingAvailable: definitionPort.capabilities.sourceEditing,
     sourceEditingDisabledReason:
       definitionPort.capabilities.sourceEditingDisabledReason,

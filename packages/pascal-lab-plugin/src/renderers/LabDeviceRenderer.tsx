@@ -30,7 +30,12 @@ import {
 } from '../modelRuntime'
 import { findLinkObject } from '../mounting'
 import type { LabDeviceNode } from '../schema'
-import { SiteBoundsRenderer } from './SiteBoundsRenderer'
+import {
+  isSiteBoundsPointerHit,
+  SiteBoundsRenderer,
+  siteBoundsOccupantSceneObjectId
+} from './SiteBoundsRenderer'
+import { PascalModelLabel } from './PascalModelLabel'
 import { PASCAL_SCENE_HTML_Z_INDEX_RANGE } from './htmlLayer'
 
 export const MODEL_READY_EVENT = 'unilab:pascal-model-ready'
@@ -98,6 +103,12 @@ function useLabModel(node: LabDeviceNode): {
   return { object, error, loading }
 }
 
+/**
+ * 把设备物料（Material）的稳定场景身份与可点击标签关联。
+ *
+ * @param props 设备节点、标签坐标与选中状态。
+ * @returns 精确选中该设备物料的 Pascal 标签。
+ */
 function ModelLabel({
   node,
   position,
@@ -108,19 +119,12 @@ function ModelLabel({
   selected: boolean
 }): React.JSX.Element {
   return (
-    <Html
+    <PascalModelLabel
+      sceneObjectId={node.id}
+      displayName={node.displayName}
       position={position}
-      center
-      zIndexRange={PASCAL_SCENE_HTML_Z_INDEX_RANGE}
-    >
-      <div
-        className={`pascal-model-label${
-          selected ? ' is-selected' : ''
-        }`}
-      >
-        {node.displayName}
-      </div>
-    </Html>
+      selected={selected}
+    />
   )
 }
 
@@ -195,6 +199,12 @@ function SiteInstanceRenderer({
   )
 }
 
+/**
+ * 渲染可拾取的设备场景对象、库位（Site）与精确选择标签。
+ *
+ * @param props 设备节点，包含稳定身份、模型、尺寸和库位快照。
+ * @returns 能将标签选择同步到物料（Material）检查器的 Pascal 设备节点。
+ */
 export default function LabDeviceRenderer({
   node
 }: {
@@ -324,6 +334,30 @@ export default function LabDeviceRenderer({
       scale={node.scale}
       visible={node.visible !== false}
       {...events}
+      onPointerDown={(event) => {
+        if (siteBoundsOccupantSceneObjectId(event.object)) {
+          event.stopPropagation()
+          return
+        }
+        if (!isSiteBoundsPointerHit(event.object)) {
+          events.onPointerDown(event)
+        }
+      }}
+      onPointerUp={(event) => {
+        const occupantSceneObjectId = siteBoundsOccupantSceneObjectId(
+          event.object
+        )
+        if (occupantSceneObjectId) {
+          event.stopPropagation()
+          useViewer.getState().setSelection({
+            selectedIds: [occupantSceneObjectId as never]
+          })
+          return
+        }
+        if (!isSiteBoundsPointerHit(event.object)) {
+          events.onPointerUp(event)
+        }
+      }}
       onPointerEnter={(event) => {
         setIsHovered(true)
         events.onPointerEnter(event)
@@ -396,8 +430,12 @@ export default function LabDeviceRenderer({
           center
           distanceFactor={6}
           zIndexRange={PASCAL_SCENE_HTML_Z_INDEX_RANGE}
+          style={{ pointerEvents: 'none' }}
         >
-          <div className="pascal-model-label" title={error}>
+          <div
+            className="pascal-model-label pascal-model-label--status"
+            title={error}
+          >
             模型加载失败，已使用占位体
           </div>
         </Html>

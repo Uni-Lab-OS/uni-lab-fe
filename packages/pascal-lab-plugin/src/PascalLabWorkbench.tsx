@@ -17,6 +17,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from 'react'
 
@@ -30,6 +31,10 @@ import {
   configureLabModelRuntime,
   type LabModelRuntime
 } from './modelRuntime'
+import {
+  indexMaterialSceneObjects,
+  materialIdsToSceneObjectIds
+} from './materialSceneSelection'
 import { preparePascalLabPlugin } from './plugin'
 import {
   isLabDeviceNode,
@@ -77,6 +82,8 @@ export interface PascalLabWorkbenchProps {
  *
  * @param props 物料聚合、形状、视图开关、选择和移动回调。
  * @returns 不拥有物料位置权威的 Pascal 实验室工作台。
+ * @throws 不主动抛错；插件初始化异常在局部错误状态中展示。
+ * @safety 选择与高亮只更新视图投影，物料位置仅通过注入的移动命令提交。
  */
 export function PascalLabWorkbench({
   aggregates,
@@ -172,15 +179,41 @@ export function PascalLabWorkbench({
     })),
     [transferLayer]
   )
+  const materialSceneSelectionIndex = useMemo(
+    () => indexMaterialSceneObjects(scene),
+    [scene]
+  )
 
   const selectedSceneObjectIds = useMemo(
-    () => materialIdsToSceneObjectIds(scene, selectedMaterialIds),
-    [scene, selectedMaterialIds]
+    () => materialIdsToSceneObjectIds(
+      materialSceneSelectionIndex,
+      selectedMaterialIds
+    ),
+    [materialSceneSelectionIndex, selectedMaterialIds]
   )
   const highlightedSceneObjectIds = useMemo(
-    () => materialIdsToSceneObjectIds(scene, highlightedMaterialIds),
-    [highlightedMaterialIds, scene]
+    () => materialIdsToSceneObjectIds(
+      materialSceneSelectionIndex,
+      highlightedMaterialIds
+    ),
+    [highlightedMaterialIds, materialSceneSelectionIndex]
   )
+  const reportedMaterialIdsRef = useRef<readonly string[]>(
+    selectedMaterialIds
+  )
+  reportedMaterialIdsRef.current = selectedMaterialIds
+
+  const reportSelectionChange = useCallback((
+    materialIds: readonly string[],
+    sceneObjectIds: readonly string[]
+  ): void => {
+    if (sameIds(reportedMaterialIdsRef.current, materialIds)) return
+    // Pascal 在 pointerup 和随后 click 中可能连续发出同一选中结果。
+    // 先同步 ref，避免 React 批处理提交前重复刷新整个工作台。
+    reportedMaterialIdsRef.current = [...materialIds]
+    onSelectionChange?.(materialIds, sceneObjectIds)
+  }, [onSelectionChange])
+
   useEffect(() => {
     const state = useViewer.getState()
     if (!sameIds(state.selection.selectedIds, selectedSceneObjectIds)) {
@@ -227,9 +260,9 @@ export function PascalLabWorkbench({
           ? [node.materialNodeId]
           : []
       })
-      onSelectionChange?.(materialIds, sceneObjectIds)
+      reportSelectionChange(materialIds, sceneObjectIds)
     },
-    [onSelectionChange, scene.nodes]
+    [reportSelectionChange, scene.nodes]
   )
 
   const statusLabel = useMemo(() => {
@@ -340,9 +373,12 @@ export function PascalLabWorkbench({
               selectedMaterialIds={selectedMaterialIds}
               highlightedMaterialIds={highlightedMaterialIds}
               onSelectionChange={(materialIds) => {
-                onSelectionChange?.(
+                reportSelectionChange(
                   materialIds,
-                  materialIdsToSceneObjectIds(scene, materialIds)
+                  materialIdsToSceneObjectIds(
+                    materialSceneSelectionIndex,
+                    materialIds
+                  )
                 )
               }}
             />
@@ -356,6 +392,9 @@ export function PascalLabWorkbench({
           }}
           onSave={handleSave}
           onSelectionChange={handleSelectionChange}
+          suppressSelectionAfterPointerDrag={
+            viewMode === '3d' || viewMode === 'split'
+          }
         />
       </div>
       {viewMode === '2.5d' && (
@@ -370,28 +409,18 @@ export function PascalLabWorkbench({
             selectedMaterialIds={selectedMaterialIds}
             highlightedMaterialIds={highlightedMaterialIds}
             onSelectionChange={(materialIds) => {
-              onSelectionChange?.(
+              reportSelectionChange(
                 materialIds,
-                materialIdsToSceneObjectIds(scene, materialIds)
+                materialIdsToSceneObjectIds(
+                  materialSceneSelectionIndex,
+                  materialIds
+                )
               )
             }}
           />
         </div>
       )}
     </div>
-  )
-}
-
-function materialIdsToSceneObjectIds(
-  scene: SceneGraph,
-  materialIds: readonly string[]
-): string[] {
-  const wanted = new Set(materialIds)
-  return Object.values(scene.nodes).flatMap((node) =>
-    (isLabDeviceNode(node) || isLabTableNode(node)) &&
-    wanted.has(node.materialNodeId)
-      ? [node.id]
-      : []
   )
 }
 

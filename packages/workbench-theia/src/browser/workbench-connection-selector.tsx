@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import type {
   WorkbenchConnectionMode,
@@ -16,6 +16,10 @@ interface WorkbenchConnectionSelectorProps {
   targets: WorkbenchConnectionTargets
   selectedMode: WorkbenchConnectionMode
   connection: WorkbenchConnectionState
+  targetConnections?: Partial<Record<
+    WorkbenchConnectionMode,
+    WorkbenchConnectionState
+  >>
   switchBlockedReason?: string | null
   defaultOpen?: boolean
   onSelect: (mode: WorkbenchConnectionMode) => void
@@ -31,6 +35,7 @@ export function WorkbenchConnectionSelector({
   targets,
   selectedMode,
   connection,
+  targetConnections,
   switchBlockedReason,
   defaultOpen = false,
   onSelect,
@@ -39,6 +44,18 @@ export function WorkbenchConnectionSelector({
   const selectorRef = useRef<HTMLDetailsElement>(null)
   const selected = targets[selectedMode]
   const statusLabel = connectionStatusLabel(selectedMode, connection)
+
+  useEffect(() => {
+    const selector = selectorRef.current
+    if (!selector) return undefined
+
+    const handleOutsidePointerDown = (event: PointerEvent): void => {
+      closeConnectionSelectorOnOutsidePointer(selector, event.target)
+    }
+
+    document.addEventListener('pointerdown', handleOutsidePointerDown)
+    return () => document.removeEventListener('pointerdown', handleOutsidePointerDown)
+  }, [])
 
   /** 用户明确选择由常驻 Workspace Backend 持有后续任务权威。 */
   const selectLocal = useCallback((): void => {
@@ -81,13 +98,23 @@ export function WorkbenchConnectionSelector({
           <ConnectionOption
             target={targets.local}
             selected={selectedMode === 'local'}
-            disabled={selectedMode !== 'local' && Boolean(switchBlockedReason)}
+            connection={targetConnections?.local}
+            disabled={selectedMode !== 'local' && (
+              Boolean(switchBlockedReason) ||
+              targetConnections?.local === 'error' ||
+              targetConnections?.local === 'disconnected'
+            )}
             onSelect={selectLocal}
           />
           <ConnectionOption
             target={targets.backend}
             selected={selectedMode === 'backend'}
-            disabled={selectedMode !== 'backend' && Boolean(switchBlockedReason)}
+            connection={targetConnections?.backend}
+            disabled={selectedMode !== 'backend' && (
+              Boolean(switchBlockedReason) ||
+              targetConnections?.backend === 'error' ||
+              targetConnections?.backend === 'disconnected'
+            )}
             onSelect={selectBackend}
           />
         </div>
@@ -123,6 +150,20 @@ export function closeConnectionSelector(
 }
 
 /**
+ * 点击连接选择器之外的区域时收起浮层，并保留外部控件原有的点击行为。
+ * @param selector 当前连接选择器详情元素；尚未挂载时允许为空。
+ * @param target 指针事件命中的节点；无法识别目标时按外部点击处理。
+ */
+export function closeConnectionSelectorOnOutsidePointer(
+  selector: Pick<HTMLDetailsElement, 'open' | 'contains'> | null,
+  target: EventTarget | null
+): void {
+  if (!selector?.open) return
+  if (target && selector.contains(target as Node)) return
+  selector.open = false
+}
+
+/**
  * 呈现单个连接目标及其调度权威，不把选中颜色当成唯一状态证据。
  * @param props 目标说明、当前选择、切换门禁和选择回调。
  * @returns 具有 aria-pressed 语义的互斥操作按钮。
@@ -130,11 +171,13 @@ export function closeConnectionSelector(
 function ConnectionOption({
   target,
   selected,
+  connection,
   disabled,
   onSelect
 }: {
   target: WorkbenchConnectionTargets[WorkbenchConnectionMode]
   selected: boolean
+  connection?: WorkbenchConnectionState
   disabled: boolean
   onSelect: () => void
 }): React.JSX.Element {
@@ -154,6 +197,15 @@ function ConnectionOption({
       </span>
       <span>{target.description}</span>
       <code>{target.endpointLabel}</code>
+      {connection ? (
+        <small className={`is-${connection}`}>
+          {connection === 'connected'
+            ? '可用'
+            : connection === 'connecting'
+              ? '检测中…'
+              : '当前不可用'}
+        </small>
+      ) : null}
     </button>
   )
 }

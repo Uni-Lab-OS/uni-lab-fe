@@ -48,7 +48,27 @@ Electron 只加载本应用。禁止再创建一套 desktop renderer，也禁止
 pnpm --filter @unilab/kernel-web typecheck
 pnpm --filter @unilab/kernel-web test
 pnpm --filter @unilab/kernel-web build
+pnpm test:web:deployment
 ```
+
+## Web 部署
+
+完整的构建、Docker、Kubernetes、Backend 代理、发布验证和回滚说明见
+[`../../docs/deployment/frontend-web.md`](../../docs/deployment/frontend-web.md)。
+
+生产产物输出到 `apps/kernel-web/dist`。静态服务器必须把未知页面路径回退到
+`index.html`，并只对带内容哈希的 `/assets/` 资源设置长期不可变缓存。
+
+仓库提供可直接部署的 Nginx 镜像：
+
+```bash
+docker build -f deploy/web/Dockerfile -t unilab-web .
+docker run --rm -p 8080:8080 \
+  -e UNILAB_BACKEND_ORIGIN=http://host.docker.internal:8080 \
+  unilab-web
+```
+
+容器健康检查入口为 `/healthz`。部署回归会验证首页、入口 JS/CSS 与 SPA 深层路径。
 
 涉及物料视图时，还要用真实 OS Profile 验证 2D、2.5D、3D 和 split 共享同一选择与
 Material Graph。

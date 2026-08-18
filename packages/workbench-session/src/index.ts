@@ -171,6 +171,7 @@ export interface WorkbenchSessionSnapshot {
   configuredRuntimeMode: WorkbenchRuntimeMode
   configuredDomainMode: WorkbenchDomainMode
   configuredBackendUrl: string | null
+  configuredSchedulerUrl: string | null
   identity: WorkbenchSessionIdentity | null
   agent: WorkbenchAgentIdentity | null
   diagnostic: WorkbenchSessionDiagnostic | null
@@ -205,6 +206,7 @@ export interface ManagedLocalWorkbenchSessionOptions {
   runtimeMode?: WorkbenchRuntimeMode
   domainMode?: WorkbenchDomainMode
   backendAuthorityUrl?: string
+  schedulerAuthorityUrl?: string
 }
 
 /**
@@ -246,6 +248,7 @@ export interface WorkbenchSession {
   ): Promise<WorkbenchSessionSnapshot>
   setRuntimeMode(mode: WorkbenchRuntimeMode): Promise<WorkbenchSessionSnapshot>
   setDomainAuthority(mode: WorkbenchDomainMode): Promise<WorkbenchSessionSnapshot>
+  setSchedulerUrl(url: string | null): Promise<WorkbenchSessionSnapshot>
   publishRelease(options?: {
     activate?: boolean
     backendUrl?: string

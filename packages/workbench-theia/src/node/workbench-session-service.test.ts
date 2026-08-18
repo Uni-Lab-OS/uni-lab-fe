@@ -5,7 +5,11 @@ import type {
 import { describe, expect, it, vi } from 'vitest'
 
 import type { WorkbenchSessionClient } from '../common/workbench-session-protocol'
-import { WorkbenchSessionService } from './workbench-session-service'
+import {
+  readableRuntimeLogPath,
+  sanitizeRuntimeLogForEditor,
+  WorkbenchSessionService
+} from './workbench-session-service'
 
 describe('WorkbenchSessionService', () => {
   it('starts Workspace Backend and Agent when the Theia backend opens', async () => {
@@ -106,6 +110,18 @@ describe('WorkbenchSessionService', () => {
     expect(second.onMaterialRendererRequest).toHaveBeenCalledOnce()
     expect(response.ok).toBe(true)
   })
+
+  it('removes terminal control sequences without changing log lines', () => {
+    const raw = '\u001b[34m[INFO]\u001b[0m ready\n\u001b]0;runtime\u0007next line'
+
+    expect(sanitizeRuntimeLogForEditor(raw)).toBe('[INFO] ready\nnext line')
+  })
+
+  it('uses a separate readable file beside the source log', () => {
+    expect(readableRuntimeLogPath('/workspace/logs/os.log')).toBe(
+      '/workspace/logs/.readable/os.readable.log'
+    )
+  })
 })
 
 function client(): WorkbenchSessionClient {
@@ -127,6 +143,7 @@ function snapshot(
     configuredRuntimeMode: 'normal',
     configuredDomainMode: 'local',
     configuredBackendUrl: null,
+    configuredSchedulerUrl: null,
     agent: null,
     identity: pid === null ? null : {
       workspacePath: '/workspace',

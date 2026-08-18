@@ -77,6 +77,20 @@ describe('Action node presentation', () => {
       left: '36px',
       edgeInset: '3px'
     })).toEqual({ left: '36px', top: '3px' })
+    expect(sequenceHandlePosition(Position.Right, {
+      left: '36px',
+      edgeInset: '3px',
+      top: 'calc(100% - 36px)'
+    })).toEqual({
+      top: 'calc(100% - 36px)'
+    })
+    expect(sequenceHandlePosition(Position.Left, {
+      left: '36px',
+      edgeInset: '3px',
+      top: 'calc(100% - 36px)'
+    })).toEqual({
+      top: 'calc(100% - 36px)'
+    })
   })
 
   it('hides the idle pending state but keeps meaningful execution states', () => {

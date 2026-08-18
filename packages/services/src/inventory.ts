@@ -114,9 +114,8 @@ export interface ReagentInfoUpdateInput extends ReagentInfoCreateInput {
   id: string
 }
 
-export interface ReagentCreateInput {
+interface ReagentCreateBaseInput {
   materialId: string
-  cas: string
   physicalState?: ReagentPhysicalState
   densityGPerMl?: number
   concentrationValue?: number
@@ -128,6 +127,12 @@ export interface ReagentCreateInput {
   description?: string
   metadata?: Record<string, unknown>
 }
+
+/** 创建库存时必须且只能使用一种试剂身份定位方式。 */
+export type ReagentCreateInput = ReagentCreateBaseInput & (
+  | { reagentInfoId: string; cas?: never }
+  | { cas: string; reagentInfoId?: never }
+)
 
 export interface ReagentUpdateInput {
   id: string

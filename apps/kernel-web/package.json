@@ -4,9 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && node scripts/check-web-bundle-size.mjs",
+    "check:bundle-size": "node scripts/check-web-bundle-size.mjs",
+    "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:deployment": "node scripts/regress-web-deployment.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.2",

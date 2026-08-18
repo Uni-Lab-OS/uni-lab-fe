@@ -49,15 +49,25 @@ export interface EnvironmentManagerProps {
   onStopAgent: () => Promise<void>
   onRestartAgent: () => Promise<void>
   onSetRuntimeMode: (mode: WorkbenchRuntimeMode) => Promise<void>
+  onSetSchedulerUrl: (url: string | null) => Promise<void>
   onStopSession: () => Promise<void>
 }
 
 export interface EnvironmentOperationError {
   title: string
   message: string
+  technicalDetail?: string
 }
 
-/** Translate release authority failures into an actionable Workbench message. */
+/**
+ * 将环境操作异常转换为面向操作者的恢复提示。
+ *
+ * @param action 正在执行的环境操作标识，用于限定错误所属的业务入口。
+ * @param message 下层服务返回的原始诊断文本。
+ * @returns 分离用户提示与可选技术详情的错误展示模型。
+ * @throws 不抛出异常；无法分类的错误保留原始文本作为用户消息。
+ * @safety 只做确定性的字符串分类，不发起请求或改变环境状态。
+ */
 export function describeEnvironmentOperationError(
   action: string,
   message: string
@@ -71,6 +81,21 @@ export function describeEnvironmentOperationError(
       message: `当前工作区由 Backend 管理，不能在这里构建发布包。` +
         `请切换到 Local 模式后，再执行“${resetAndPublish ? '清空并发布' : '发布、校验并切换'}”。` +
         (resetAndPublish ? '目标 Backend 的数据尚未被清除。' : '')
+    }
+  }
+  const targetsBackend = [
+    'inspect-release-target',
+    'publish-release',
+    'reset-and-publish-release'
+  ].includes(action)
+  const connectionUnavailable = /(?:connection refused|econnrefused|urlopen error|failed to fetch|fetch failed|networkerror)/i
+    .test(message)
+  if (targetsBackend && connectionUnavailable) {
+    return {
+      title: '无法连接 Backend',
+      message: '无法访问目标 Backend。请先启动 Backend，并确认环境管理中的 ' +
+        'Backend 地址和端口正确，然后重试。',
+      technicalDetail: message
     }
   }
   return {
@@ -99,6 +124,7 @@ export function EnvironmentManager({
   onStopAgent,
   onRestartAgent,
   onSetRuntimeMode,
+  onSetSchedulerUrl,
   onStopSession
 }: EnvironmentManagerProps): React.JSX.Element {
   const identity = session.identity
@@ -124,6 +150,15 @@ export function EnvironmentManager({
   const [releaseBackendUrl, setReleaseBackendUrl] = useState(
     session.configuredBackendUrl ?? 'http://127.0.0.1:8080'
   )
+  const [schedulerAutomatic, setSchedulerAutomatic] = useState(
+    session.configuredSchedulerUrl === null
+  )
+  const [schedulerUrl, setSchedulerUrl] = useState(
+    session.configuredSchedulerUrl
+      ?? deriveSchedulerUrl(
+        session.configuredBackendUrl ?? 'http://127.0.0.1:8080'
+      )
+  )
   const remoteAccessApi = useMemo(desktopWorkbenchRemoteApi, [])
   const managedRuntimeApi = useMemo(desktopManagedRuntimeApi, [])
   const [runtimeInstallation, setRuntimeInstallation] =
@@ -141,6 +176,13 @@ export function EnvironmentManager({
   useEffect(() => setGraphPath(session.configuredGraphPath), [
     session.configuredGraphPath
   ])
+  useEffect(() => {
+    const configured = session.configuredSchedulerUrl
+    setSchedulerAutomatic(configured === null)
+    setSchedulerUrl(configured ?? deriveSchedulerUrl(
+      releaseBackendUrl
+    ))
+  }, [session.configuredBackendUrl, session.configuredSchedulerUrl])
   useEffect(() => {
     if (typeof document === 'undefined') return undefined
     document.body.classList.add('unilab-environment-manager-open')
@@ -201,6 +243,16 @@ export function EnvironmentManager({
     })
   }, [graphPath, onConfigureGraph, run])
 
+  const saveSchedulerUrl = useCallback(async () => {
+    if (schedulerAutomatic) {
+      await onSetSchedulerUrl(null)
+      return
+    }
+    const normalized = normalizeSchedulerUrl(schedulerUrl)
+    setSchedulerUrl(normalized)
+    await onSetSchedulerUrl(normalized)
+  }, [onSetSchedulerUrl, schedulerAutomatic, schedulerUrl])
+
   const startPlcSimulator = useCallback(async () => {
     await run('start-plc', async () => {
       await onConfigurePlcSimulator(plcConfiguration())
@@ -248,6 +300,12 @@ export function EnvironmentManager({
         <div className="unilab-workbench-session-diagnostic" role="alert">
           <strong>{operationError.title}</strong>
           <p>{operationError.message}</p>
+          {operationError.technicalDetail ? (
+            <details>
+              <summary>技术信息</summary>
+              <code>{operationError.technicalDetail}</code>
+            </details>
+          ) : null}
         </div>
       ) : null}
 
@@ -319,21 +377,44 @@ export function EnvironmentManager({
           ]}
           content={(
             <>
-              <label className="unilab-environment-manager__path unilab-environment-manager__backend-target">
-                <span>目标地址</span>
-                <input
-                  type="url"
-                  value={releaseBackendUrl}
-                  disabled={Boolean(busyAction)}
-                  placeholder="http://127.0.0.1:8080"
-                  aria-label="Backend 发布目标地址"
-                  onChange={event => {
-                    setReleaseBackendUrl(event.currentTarget.value)
-                    setReleaseInspection(null)
-                    setReleaseReceipt(null)
-                  }}
-                />
-              </label>
+              <div className="unilab-environment-manager__backend-targets">
+                <label className="unilab-environment-manager__path unilab-environment-manager__backend-target">
+                  <span>Backend</span>
+                  <input
+                    type="url"
+                    value={releaseBackendUrl}
+                    disabled={Boolean(busyAction)}
+                    placeholder="http://127.0.0.1:8080"
+                    aria-label="Backend 发布目标地址"
+                    onChange={event => {
+                      const value = event.currentTarget.value
+                      setReleaseBackendUrl(value)
+                      if (schedulerAutomatic) {
+                        setSchedulerUrl(deriveSchedulerUrl(value))
+                      }
+                      setReleaseInspection(null)
+                      setReleaseReceipt(null)
+                    }}
+                  />
+                </label>
+                <label className="unilab-environment-manager__path unilab-environment-manager__backend-target">
+                  <span>Scheduler</span>
+                  <input
+                    type="url"
+                    value={schedulerUrl}
+                    disabled={Boolean(busyAction)}
+                    placeholder="http://127.0.0.1:8081"
+                    aria-label="Scheduler 目标地址"
+                    onChange={event => {
+                      setSchedulerAutomatic(false)
+                      setSchedulerUrl(event.currentTarget.value)
+                    }}
+                  />
+                </label>
+              </div>
+              <p className="unilab-environment-manager__scheduler-mode">
+                Scheduler：{schedulerAutomatic ? '自动推导' : '自定义地址'}
+              </p>
               {releaseInspection ? (
                 <p className={`unilab-environment-manager__target-summary ${
                   releaseInspection.empty ? 'is-empty' : 'is-occupied'
@@ -355,9 +436,15 @@ export function EnvironmentManager({
                 onClick={() => void run('inspect-release-target', async () => {
                   const backendUrl = normalizeBackendUrl(releaseBackendUrl)
                   setReleaseBackendUrl(backendUrl)
+                  await saveSchedulerUrl()
                   setReleaseInspection(await onInspectReleaseTarget(backendUrl))
                 })}
               >检查目标数据</button>
+              <button
+                type="button"
+                disabled={Boolean(busyAction) || !schedulerUrl.trim()}
+                onClick={() => void run('save-scheduler-target', saveSchedulerUrl)}
+              >保存 Scheduler 地址</button>
               <button
                 type="button"
                 className="is-primary"
@@ -365,6 +452,7 @@ export function EnvironmentManager({
                 onClick={() => void run('publish-release', async () => {
                   const backendUrl = normalizeBackendUrl(releaseBackendUrl)
                   setReleaseBackendUrl(backendUrl)
+                  await saveSchedulerUrl()
                   setReleaseReceipt(await onPublishRelease(backendUrl))
                 })}
               >发布、校验并切换</button>
@@ -449,9 +537,16 @@ export function EnvironmentManager({
               <button
                 type="button"
                 className="is-port-action"
+                aria-busy={busyAction === 'restart-os'}
                 disabled={Boolean(busyAction)}
                 onClick={() => void run('restart-os', onRestartSession)}
-              >{edgeRuntime.phase === 'ready' ? '重启 OS' : '启动 OS'}</button>
+              >{busyAction === 'restart-os'
+                  ? edgeRuntime.phase === 'ready'
+                    ? '正在重启 OS…'
+                    : '正在启动 OS…'
+                  : edgeRuntime.phase === 'ready'
+                    ? '重启 OS'
+                    : '启动 OS'}</button>
               <button
                 type="button"
                 className="is-danger"
@@ -655,7 +750,7 @@ export function EnvironmentManager({
     : createPortal(overlay, document.body)
 }
 
-function normalizeBackendUrl(value: string): string {
+export function normalizeBackendUrl(value: string): string {
   const candidate = value.trim()
   let url: URL
   try {
@@ -670,6 +765,41 @@ function normalizeBackendUrl(value: string): string {
     throw new Error('Backend 地址只需填写协议、IP（或主机名）和端口')
   }
   return url.origin
+}
+
+export function normalizeSchedulerUrl(value: string): string {
+  const candidate = value.trim()
+  let url: URL
+  try {
+    url = new URL(candidate)
+  } catch {
+    throw new Error('请输入有效的 Scheduler 地址，例如 http://127.0.0.1:8081')
+  }
+  if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) {
+    throw new Error('Scheduler 地址仅支持 http 或 https')
+  }
+  if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('Scheduler 地址只需填写协议、IP（或主机名）和端口')
+  }
+  return url.origin
+}
+
+export function deriveSchedulerUrl(backendUrl: string): string {
+  try {
+    const backend = new URL(backendUrl.trim())
+    if (!['http:', 'https:'].includes(backend.protocol) || !backend.hostname) return ''
+    if (backend.port) {
+      const port = Number(backend.port)
+      if (!Number.isInteger(port) || port >= 65_535) return ''
+      backend.port = String(port + 1)
+    }
+    backend.pathname = '/'
+    backend.search = ''
+    backend.hash = ''
+    return backend.origin
+  } catch {
+    return ''
+  }
 }
 
 function agentStatusMessage(
@@ -868,9 +998,9 @@ export function RuntimeModeControl({
   const select = (next: WorkbenchRuntimeMode): void => {
     if (mode === next) return
     const confirmed = next === 'normal'
-      ? globalThis.confirm('关闭 Dry-run 并以正常动作路径重启 OS？')
+      ? globalThis.confirm('关闭 Dry-run？新模式将在下次启动 OS 时生效，当前 OS 不会重启。')
       : globalThis.confirm(
-          '启用 Dry-run 将以 --action_mode simulate 重启 OS，动作不会发送给设备。确认继续？'
+          '启用 Dry-run？新模式将在下次启动 OS 时生效，当前 OS 不会重启。'
         )
     if (confirmed) void onSetRuntimeMode(next)
   }
@@ -907,8 +1037,8 @@ export function RuntimeModeControl({
       {button(
         'dry-run',
         'Dry-run',
-        '仅模拟，不下发设备',
-        '动作返回模拟成功；每次 OS 重启使用新的隔离运行数据库'
+        '仅模拟，不下发设备；下次启动生效',
+        '动作返回模拟成功；切换模式不会重启 OS 或重建本地数据'
       )}
     </div>
   )

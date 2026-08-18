@@ -24,6 +24,13 @@ interface SlideOverDrawerProps {
   ariaLabel?: string
   closeLabel?: string
   size?: 'default' | 'medium' | 'wide'
+  /**
+   * 模态抽屉会遮罩页面、接管焦点并限制 Tab 键范围。检查器一类需要和
+   * 页面内容并行交互的面板应关闭此项。
+   */
+  modal?: boolean
+  /** 是否启用抽屉和遮罩的 300ms 过渡动画。 */
+  animated?: boolean
 }
 
 // 右侧滑出抽屉:遮罩点击关闭,Esc 关闭,面板从右侧 translate-x 滑入
@@ -35,10 +42,17 @@ export function SlideOverDrawer({
   footer,
   ariaLabel,
   closeLabel = '关闭',
-  size = 'default'
+  size = 'default',
+  modal = true,
+  animated = true
 }: SlideOverDrawerProps): React.JSX.Element {
   const dialogRef = useRef<HTMLDivElement | null>(null)
   const onCloseRef = useRef(onClose)
+  const sizeClass = size === 'wide'
+    ? 'w-[min(1120px,96%)]'
+    : size === 'medium'
+      ? 'w-[min(860px,96%)]'
+      : 'w-[480px] max-w-[90%]'
 
   useEffect(() => {
     onCloseRef.current = onClose
@@ -47,7 +61,7 @@ export function SlideOverDrawer({
   // 打开时监听 Esc 关闭
   useEffect(() => {
     if (!open) return
-    const returnFocus = document.activeElement instanceof HTMLElement
+    const returnFocus = modal && document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null
     const handleKey = (event: KeyboardEvent): void => {
@@ -55,7 +69,7 @@ export function SlideOverDrawer({
         onCloseRef.current()
         return
       }
-      if (event.key !== 'Tab' || !dialogRef.current) return
+      if (!modal || event.key !== 'Tab' || !dialogRef.current) return
       const focusable = Array.from(
         dialogRef.current.querySelectorAll<HTMLElement>(
           'button:not([disabled]), input:not([disabled]), ' +
@@ -79,51 +93,64 @@ export function SlideOverDrawer({
       }
     }
     window.addEventListener('keydown', handleKey)
-    requestAnimationFrame(() => {
-      const initialFocus = dialogRef.current?.querySelector<HTMLElement>(
-        'input:not([disabled]), select:not([disabled]), ' +
-        'textarea:not([disabled]), button:not([disabled])'
-      )
-      ;(initialFocus ?? dialogRef.current)?.focus({ preventScroll: true })
-    })
+    const focusFrame = modal
+      ? requestAnimationFrame(() => {
+          const initialFocus = dialogRef.current?.querySelector<HTMLElement>(
+            'input:not([disabled]), select:not([disabled]), ' +
+            'textarea:not([disabled]), button:not([disabled])'
+          )
+          ;(initialFocus ?? dialogRef.current)?.focus({ preventScroll: true })
+        })
+      : null
     return () => {
       window.removeEventListener('keydown', handleKey)
+      if (focusFrame !== null) cancelAnimationFrame(focusFrame)
       returnFocus?.focus({ preventScroll: true })
     }
-  }, [open])
+  }, [modal, open])
 
   return (
     <div
-      className={`fixed inset-0 overflow-hidden ${
-        open ? 'pointer-events-auto' : 'pointer-events-none'
+      className={`${
+        modal
+          ? 'fixed inset-0 overflow-hidden'
+          : `fixed inset-y-0 right-0 overflow-hidden ${sizeClass}`
+      } ${
+        open && modal ? 'pointer-events-auto' : 'pointer-events-none'
       }`}
       style={{
         zIndex: 1000,
         visibility: open ? 'visible' : 'hidden',
-        transition: open ? 'none' : 'visibility 0s linear 300ms'
+        transition: open || !animated
+          ? 'none'
+          : 'visibility 0s linear 300ms'
       }}
       aria-hidden={!open}
+      data-slide-over-mode={modal ? 'modal' : 'modeless'}
     >
-      <div
-        className={`absolute inset-0 bg-[rgba(15,23,42,0.35)] transition-opacity duration-300 ${
-          open ? 'opacity-100' : 'opacity-0'
-        }`}
-        onClick={onClose}
-      />
+      {modal && (
+        <div
+          className={`absolute inset-0 bg-[rgba(15,23,42,0.35)] ${
+            animated ? 'transition-opacity duration-300' : ''
+          } ${open ? 'opacity-100' : 'opacity-0'}`}
+          onClick={onClose}
+          data-slide-over-backdrop
+        />
+      )}
       <div
         ref={dialogRef}
         className={`absolute inset-y-0 right-0 flex ${
-          size === 'wide'
-            ? 'w-[min(1120px,96%)]'
-            : size === 'medium'
-              ? 'w-[min(860px,96%)]'
-              : 'w-[480px] max-w-[90%]'
-        } flex-col bg-[var(--unilab-color-surface)] shadow-[-8px_0_24px_rgba(15,23,42,0.18)] transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
+          modal ? sizeClass : 'w-full'
+        } pointer-events-auto flex-col bg-[var(--unilab-color-surface)] shadow-[-8px_0_24px_rgba(15,23,42,0.18)] ${
+          animated
+            ? 'transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]'
+            : ''
+        }`}
         style={{
           transform: open ? 'translateX(0)' : 'translateX(100%)'
         }}
         role="dialog"
-        aria-modal="true"
+        aria-modal={modal || undefined}
         tabIndex={-1}
         aria-label={
           ariaLabel ?? (typeof title === 'string' ? title : undefined)

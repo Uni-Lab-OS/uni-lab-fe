@@ -104,7 +104,7 @@ export class DeviceDomainEntryWidget extends UniLabDomainEntryWidget {
   protected readonly widgetId = DeviceDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
     mode: 'device',
-    label: '仪器设备',
+    label: '设备',
     caption: '仪器设备 · 目录、参数与单动作运行',
     description: '读取当前运行连接的设备动作，填写参数并运行单动作调试任务。',
     iconClass: 'unilab-activity-icon--device',
@@ -160,8 +160,8 @@ export class RobotReagentsDomainEntryWidget extends UniLabDomainEntryWidget {
   protected readonly widgetId = RobotReagentsDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
     mode: 'robot-reagents',
-    label: '试剂管理',
-    caption: '试剂管理 · 容器与库存批次',
+    label: '试剂',
+    caption: '试剂 · 容器与库存批次',
     description: '读取后端真实试剂容器或 OS 库存批次，不维护前端本地台账。',
     iconClass: 'unilab-activity-icon--robot-reagents',
     eyebrow: 'REAGENTS'

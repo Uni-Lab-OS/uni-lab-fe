@@ -31,6 +31,8 @@ describe('WorkflowIoEditor', () => {
     expect(markup).toMatch(/id="workflow-io-panel-output"[^>]*hidden=""/)
     expect(text).toContain('count')
     expect(text).toContain('report')
+    expect(markup).toContain('<code title="count">count</code>')
+    expect(markup).toContain('<code title="report">report</code>')
     expect(markup).toContain(`data-workflow-node-uuid="${targetNodeUuid}"`)
     expect(markup).toContain(`data-workflow-node-uuid="${sourceNodeUuid}"`)
     expect(markup).toContain(
@@ -55,6 +57,46 @@ describe('WorkflowIoEditor', () => {
     expect(implicitMarkup).toContain('aria-readonly="true"')
     expect(implicitMarkup).toMatch(/disabled=""|disabled(?=[ >])/)
     expect(visibleText(implicitMarkup)).toMatch(/系统生成|OS 管理/i)
+  })
+
+  it('shows translated labels while preserving complete parameter names', () => {
+    const translatedGraph = withIoDescriptors(
+      [
+        {
+          name: 'sample_id',
+          schema: { type: 'string' },
+          required: false
+        },
+        {
+          name: 'custom_parameter_with_a_long_name',
+          title: '自定义参数',
+          schema: { type: 'number' },
+          required: true
+        }
+      ],
+      [{
+        name: 'inspection_result',
+        schema: { type: 'string' },
+        implicit: false
+      }]
+    )
+    const markup = renderToStaticMarkup(
+      <WorkflowIoEditor
+        graph={translatedGraph}
+        editable
+        onGraphChange={() => {}}
+      />
+    )
+
+    expect(inputMarkup(markup, 'sample_id')).toContain('样品编号')
+    expect(inputMarkup(markup, 'sample_id')).toContain(
+      '<code title="sample_id">sample_id</code>'
+    )
+    expect(inputMarkup(markup, 'custom_parameter_with_a_long_name'))
+      .toContain('自定义参数')
+    expect(inputMarkup(markup, 'custom_parameter_with_a_long_name'))
+      .toContain('custom_parameter_with_a_long_name')
+    expect(outputMarkup(markup, 'inspection_result')).toContain('检测结果')
   })
 
   it('renders editable closed-v1 controls without losing recursive schema', () => {

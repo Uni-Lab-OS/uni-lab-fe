@@ -564,6 +564,11 @@
   color: var(--unilab-color-text-muted);
 }
 
+.unilab-workbench-session-loading[data-loading-kind='authority-switch']
+  .unilab-workbench-session-loading__content p {
+  margin-bottom: 0;
+}
+
 .unilab-workbench-session-loading__content button {
   min-height: 34px;
   padding: 7px 16px;

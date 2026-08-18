@@ -355,6 +355,17 @@
     }
   }
 
+  @container workflow (max-width: 720px) {
+    &:global(.persistent-authoring--canvas) {
+      :global(.workflow__toolbar) {
+        height: auto;
+        min-height: 52px;
+        flex-basis: auto;
+      }
+
+    }
+  }
+
   @container workflow (max-width: 620px) {
     &:global(.persistent-authoring--canvas) {
       :global(.persistent-authoring__projection-status) {

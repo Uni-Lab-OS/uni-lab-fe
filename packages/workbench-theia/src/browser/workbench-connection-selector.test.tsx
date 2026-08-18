@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createWorkbenchConnectionTargets } from './workbench-connection-profile'
 import {
   closeConnectionSelector,
+  closeConnectionSelectorOnOutsidePointer,
   WorkbenchConnectionSelector
 } from './workbench-connection-selector'
 
@@ -68,12 +69,43 @@ describe('WorkbenchConnectionSelector', () => {
     expect(markup).toContain('data-authority-profile="backend_controlled"')
   })
 
+  it('disables an unavailable unselected Backend target', () => {
+    const markup = renderToStaticMarkup(
+      <WorkbenchConnectionSelector
+        targets={targets}
+        selectedMode="local"
+        connection="connected"
+        targetConnections={{ local: 'connected', backend: 'error' }}
+        onSelect={vi.fn()}
+      />
+    )
+
+    expect(markup).toContain('当前不可用')
+    expect(markup).toMatch(/<button[^>]*aria-pressed="false"[^>]*disabled=""/)
+  })
+
   /** 证明完成连接选择后会关闭详情浮层，避免遮挡工作流运行按钮。 */
   it('closes the native selector after a target is chosen', () => {
     const selector = { open: true }
 
     closeConnectionSelector(selector)
 
+    expect(selector.open).toBe(false)
+  })
+
+  /** 证明点击弹层外部会关闭选择器，且不会把弹层内部操作误判为外部点击。 */
+  it('closes on outside pointer interaction only', () => {
+    const insideTarget = {} as EventTarget
+    const outsideTarget = {} as EventTarget
+    const selector = {
+      open: true,
+      contains: (target: Node): boolean => target === insideTarget
+    }
+
+    closeConnectionSelectorOnOutsidePointer(selector, insideTarget)
+    expect(selector.open).toBe(true)
+
+    closeConnectionSelectorOnOutsidePointer(selector, outsideTarget)
     expect(selector.open).toBe(false)
   })
 })

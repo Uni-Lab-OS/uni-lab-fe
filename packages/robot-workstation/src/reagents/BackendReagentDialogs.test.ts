@@ -5,26 +5,24 @@ import { describe, expect, it } from 'vitest'
 import {
   BackendReagentEditorDialog,
   filterReagentContainers,
+  reagentCreateCommand,
   validateReagentEditor
 } from './BackendReagentDialogs'
 
 describe('Backend reagent editor validation', () => {
-  /** 证明创建必须使用校验位正确的 CAS，避免向外部化合物查询发送明显无效身份。 */
-  it('validates the CAS checksum for Backend creation', () => {
+  /** 证明既有 UUID 目录项没有 CAS 时仍可办理试剂入库。 */
+  it('accepts a selected reagent identity without CAS', () => {
     const base = {
       materialId: 'material-1',
-      cas: '64-17-5',
-      physicalState: 'liquid' as const,
-      quantity: 100,
-      quantityUnit: 'mL'
+      reagentInfoId: '11111111-1111-4111-8111-111111111111',
+      physicalState: 'unknown' as const,
+      quantity: 1,
+      quantityUnit: 'g'
     }
 
     expect(validateReagentEditor(base, 'create')).toBeNull()
-    expect(validateReagentEditor({ ...base, cas: '64-17-6' }, 'create')).toBe(
-      '请输入校验位正确的 CAS 号'
-    )
     expect(validateReagentEditor({ ...base, reagentInfoId: '' }, 'create')).toBe(
-      '请选择试剂身份'
+      '请选择试剂名称'
     )
     expect(validateReagentEditor({ ...base, quantityUnit: 'mol' }, 'create')).toBe(
       '请选择 Backend 支持的计量单位'
@@ -35,7 +33,7 @@ describe('Backend reagent editor validation', () => {
   it('rejects partial concentration and negative quantity', () => {
     const base = {
       materialId: 'material-1',
-      cas: '64-17-5',
+      reagentInfoId: '11111111-1111-4111-8111-111111111111',
       physicalState: 'liquid' as const,
       quantity: 100,
       quantityUnit: 'mL'
@@ -50,7 +48,7 @@ describe('Backend reagent editor validation', () => {
     )
   })
 
-  /** 创建窗口要求用户显式选择尚未承载试剂的空容器物料。 */
+  /** 创建窗口要求用户显式选择尚未承载试剂的试剂容器。 */
   it('renders an explicit empty-container material selector', () => {
     const markup = renderToStaticMarkup(
       createElement(BackendReagentEditorDialog, {
@@ -61,12 +59,10 @@ describe('Backend reagent editor validation', () => {
         ],
         infos: [
           {
-            id: 'info-ethanol',
-            name: '乙醇',
+            id: '11111111-1111-4111-8111-111111111111',
+            name: 'demo-1',
             aliases: [],
-            cas: '64-17-5',
-            physicalState: 'liquid',
-            densityGPerMl: 0.786
+            physicalState: 'unknown'
           }
         ],
         occupiedMaterialIds: new Set(['occupied-1']),
@@ -75,18 +71,19 @@ describe('Backend reagent editor validation', () => {
       })
     )
 
-    expect(markup).toContain('空容器物料')
-    expect(markup).toContain('请选择空容器物料')
+    expect(markup).toContain('试剂容器')
+    expect(markup).toContain('请选择试剂容器')
     expect(markup).toContain('搜索名称、条码或 UUID')
     expect(markup).toContain('role="combobox"')
     expect(markup).toContain('role="listbox"')
     expect(markup).toContain('空试剂瓶')
     expect(markup).toContain('BOT-001')
     expect(markup).not.toContain('已用试剂瓶')
-    expect(markup).toContain('试剂身份')
-    expect(markup).toContain('乙醇')
-    expect(markup).toContain('64-17-5')
-    expect(markup).toContain('请选择试剂身份')
+    expect(markup).toContain('试剂名称')
+    expect(markup).toContain('demo-1')
+    expect(markup).toContain('请选择试剂名称')
+    expect(markup).toContain('name="reagentInfoId"')
+    expect(markup).not.toContain('name="cas"')
     expect(markup).toContain('密度（g/mL）')
     expect(markup).not.toContain('密度条件')
     expect(markup).toContain('供应商')
@@ -103,6 +100,55 @@ describe('Backend reagent editor validation', () => {
     expect(markup).not.toContain('mol</')
     expect(markup).not.toMatch(/name="quantityUnit"[^>]*value="mL"/)
     expect(markup).not.toMatch(/name="expiresOn"[^>]*value=/)
+  })
+
+  /** 证明试剂入库登记窗口采用“试剂与容器 / 试剂容器 / 试剂名称”术语。 */
+  it('uses the requested reagent stock-in terminology', () => {
+    const markup = renderToStaticMarkup(
+      createElement(BackendReagentEditorDialog, {
+        mode: 'create',
+        containers: [
+          { id: 'empty-1', name: '试剂瓶', barcode: 'BOT-001', templateId: 'container-1' }
+        ],
+        infos: [
+          {
+            id: '11111111-1111-4111-8111-111111111111',
+            name: '乙醇',
+            aliases: [],
+            physicalState: 'liquid'
+          }
+        ],
+        occupiedMaterialIds: new Set<string>(),
+        onSave: async () => undefined,
+        onClose: () => undefined
+      })
+    )
+
+    expect(markup).toContain('试剂入库登记')
+    expect(markup).toContain('<legend>试剂与容器</legend>')
+    expect(markup).toContain('试剂容器')
+    expect(markup).toContain('试剂名称')
+    expect(markup).not.toContain('登记库存试剂')
+    expect(markup).not.toContain('<legend>身份与容器</legend>')
+  })
+
+  /** 证明表单命令保留身份 UUID，不再退化或复制为 CAS。 */
+  it('passes reagentInfoId through the create command', () => {
+    const command = reagentCreateCommand({
+      materialId: 'material-1',
+      reagentInfoId: '11111111-1111-4111-8111-111111111111',
+      physicalState: 'unknown',
+      quantity: 1,
+      quantityUnit: 'g'
+    }, [])
+
+    expect(command).toMatchObject({
+      materialId: 'material-1',
+      reagentInfoId: '11111111-1111-4111-8111-111111111111',
+      quantity: 1,
+      quantityUnit: 'g'
+    })
+    expect(command).not.toHaveProperty('cas')
   })
 
   it('按物料名称、条码和 UUID 搜索空容器', () => {

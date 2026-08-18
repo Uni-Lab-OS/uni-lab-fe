@@ -118,6 +118,8 @@ const WORKFLOW_FIT_VIEW_OPTIONS = {
   minZoom: 0.2,
   maxZoom: 1.35
 } as const
+// 暂停暴露会把画布布局写回工作流（Workflow）草稿的入口；保留实现便于后续恢复。
+const WORKFLOW_LAYOUT_APPLY_ACTION_VISIBLE = false
 
 /**
  * 渲染工作流拓扑、运行状态、物料流句柄及可选的画布编辑控制。
@@ -838,38 +840,42 @@ export default function WorkflowDag({
                   ))}
                 </div>
               )}
-              <WorkflowButton
-                type="button"
-                className="workflow-runtime__beautify"
-                disabled={!canBeautify || isBeautifying}
-                disabledReason={isBeautifying
-                  ? '正在应用工作流布局，请稍候'
-                  : beautifyDisabledReason}
-                aria-busy={isBeautifying}
-                aria-label={layoutStrategy === 'material-swimlanes'
-                  ? `应用${workflowMaterialSwimlaneDirectionLabel(
-                      swimlaneDirection
-                    )}物料泳道布局`
-                  : `应用${workflowDagLayoutStrategyLabel(layoutStrategy)}布局`}
-                title={
-                  canBeautify
-                    ? WORKFLOW_DAG_LAYOUT_STRATEGIES.find(
-                        (strategy) => strategy.value === layoutStrategy
-                      )?.description
-                    : beautifyDisabledReason
-                }
-                onClick={handleBeautify}
-              >
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  fill="none"
+              {WORKFLOW_LAYOUT_APPLY_ACTION_VISIBLE && (
+                <WorkflowButton
+                  type="button"
+                  className="workflow-runtime__beautify"
+                  disabled={!canBeautify || isBeautifying}
+                  disabledReason={isBeautifying
+                    ? '正在应用工作流布局，请稍候'
+                    : beautifyDisabledReason}
+                  aria-busy={isBeautifying}
+                  aria-label={layoutStrategy === 'material-swimlanes'
+                    ? `应用${workflowMaterialSwimlaneDirectionLabel(
+                        swimlaneDirection
+                      )}物料泳道布局`
+                    : `应用${workflowDagLayoutStrategyLabel(
+                        layoutStrategy
+                      )}布局`}
+                  title={
+                    canBeautify
+                      ? WORKFLOW_DAG_LAYOUT_STRATEGIES.find(
+                          (strategy) => strategy.value === layoutStrategy
+                        )?.description
+                      : beautifyDisabledReason
+                  }
+                  onClick={handleBeautify}
                 >
-                  <path d="M5 6h14M5 12h9M5 18h6" />
-                  <path d="m15.5 15.5 2 2 3-4" />
-                </svg>
-                <span>{isBeautifying ? '正在应用' : '应用布局'}</span>
-              </WorkflowButton>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path d="M5 6h14M5 12h9M5 18h6" />
+                    <path d="m15.5 15.5 2 2 3-4" />
+                  </svg>
+                  <span>{isBeautifying ? '正在应用' : '应用布局'}</span>
+                </WorkflowButton>
+              )}
             </div>
           </div>
         </Panel>

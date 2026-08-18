@@ -130,6 +130,15 @@ line:where(.scope, .scope *):global(.material-oblique-part--post) {
   pointer-events: none;
 }
 
+/* 模板声明的内部点阵只表达结构，不携带库位（Site）身份或交互语义。 */
+:where(.scope, .scope *):global(.material-oblique-internal-marker) {
+  fill: rgb(147 197 253 / 32%);
+  stroke: rgb(59 130 246 / 78%);
+  stroke-dasharray: 3 2;
+  stroke-width: 0.9;
+  pointer-events: none;
+}
+
 :where(.scope, .scope *):global(.material-oblique-hole__collar) {
   fill: rgb(148 163 184 / 62%);
   stroke: rgb(120 132 154 / 60%);

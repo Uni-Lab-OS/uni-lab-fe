@@ -284,11 +284,29 @@ function WorkflowOutputBody({
   onNodeSelect: (nodeId: string) => void
   onClearError: () => void
 }): React.JSX.Element {
+  const [nodeLogExpanded, setNodeLogExpanded] = useState(true)
+  const [nodeResultExpanded, setNodeResultExpanded] = useState(true)
+
+  useEffect(() => {
+    setNodeLogExpanded(true)
+    setNodeResultExpanded(true)
+  }, [selectedNodeId])
+
+  const hasCollapsibleNodeDetails = Boolean(selectedNodeLog) ||
+    selectedNodeHasResult
+  const allNodeDetailsCollapsed = !selectedNodeFailure &&
+    hasCollapsibleNodeDetails &&
+    (!selectedNodeLog || !nodeLogExpanded) &&
+    (!selectedNodeHasResult || !nodeResultExpanded)
+
   return (
     <div className="workflow-runtime__output-body">
       <section
         id="workflow-output-panel-nodes"
-        className="workflow-runtime__output-panel"
+        className={[
+          'workflow-runtime__output-panel',
+          allNodeDetailsCollapsed ? 'is-node-details-collapsed' : ''
+        ].filter(Boolean).join(' ')}
         role="tabpanel"
         aria-labelledby="workflow-output-tab-nodes"
         tabIndex={0}
@@ -304,7 +322,12 @@ function WorkflowOutputBody({
         {selectedNode && (
           selectedNodeFailure || selectedNodeLog || selectedNodeHasResult
         ) && (
-          <div className="workflow-runtime__node-details">
+          <div
+            className={[
+              'workflow-runtime__node-details',
+              allNodeDetailsCollapsed ? 'is-collapsed' : ''
+            ].filter(Boolean).join(' ')}
+          >
             {selectedNodeFailure && (
               <article
                 className="workflow-runtime__error-detail workflow-runtime__node-error"
@@ -325,24 +348,44 @@ function WorkflowOutputBody({
               </article>
             )}
             {selectedNodeLog && (
-              <article className="workflow-runtime__node-log">
+              <article
+                className={[
+                  'workflow-runtime__node-log',
+                  nodeLogExpanded ? '' : 'is-collapsed'
+                ].filter(Boolean).join(' ')}
+              >
                 <header>
                   <strong>{selectedNodeName} 运行日志</strong>
-                  {selectedNode.attempt > 0 && (
-                    <small>第 {selectedNode.attempt} 次尝试</small>
-                  )}
+                  <div className="workflow-runtime__node-detail-actions">
+                    {selectedNode.attempt > 0 && (
+                      <small>第 {selectedNode.attempt} 次尝试</small>
+                    )}
+                    <OutputCopyButton
+                      label="复制运行日志"
+                      text={selectedNodeLog}
+                    />
+                    <OutputVisibilityButton
+                      label="运行日志"
+                      expanded={nodeLogExpanded}
+                      onExpandedChange={setNodeLogExpanded}
+                    />
+                  </div>
                 </header>
-                <pre
-                  aria-label={`${selectedNodeName} 运行日志`}
-                >
-                  {selectedNodeLog}
-                </pre>
+                {nodeLogExpanded && (
+                  <pre
+                    aria-label={`${selectedNodeName} 运行日志`}
+                  >
+                    {selectedNodeLog}
+                  </pre>
+                )}
               </article>
             )}
             {selectedNodeHasResult && (
               <WorkflowNodeResult
                 nodeName={selectedNodeName}
                 result={selectedNode.result}
+                expanded={nodeResultExpanded}
+                onExpandedChange={setNodeResultExpanded}
               />
             )}
           </div>
@@ -470,10 +513,14 @@ const NODE_RESULT_STATUS_LABELS: Readonly<Record<string, string>> = {
 /** 将节点任务的技术响应整理为可扫读摘要，同时保留完整原始数据。 */
 function WorkflowNodeResult({
   nodeName,
-  result
+  result,
+  expanded,
+  onExpandedChange
 }: {
   nodeName: string
   result: Record<string, unknown>
+  expanded: boolean
+  onExpandedChange: (expanded: boolean) => void
 }): React.JSX.Element {
   const rawStatus = typeof result.status === 'string'
     ? result.status.toLowerCase()
@@ -493,7 +540,10 @@ function WorkflowNodeResult({
 
   return (
     <article
-      className="workflow-runtime__node-result"
+      className={[
+        'workflow-runtime__node-result',
+        expanded ? '' : 'is-collapsed'
+      ].filter(Boolean).join(' ')}
       aria-label={`${nodeName} 节点结果`}
     >
       <header>
@@ -501,9 +551,20 @@ function WorkflowNodeResult({
           <strong>运行结果</strong>
           <small>节点执行返回</small>
         </div>
-        <span className={statusTone}>{statusLabel}</span>
+        <div className="workflow-runtime__node-detail-actions">
+          <span className={statusTone}>{statusLabel}</span>
+          <OutputCopyButton
+            label="复制运行结果"
+            text={JSON.stringify(result, null, 2)}
+          />
+          <OutputVisibilityButton
+            label="运行结果"
+            expanded={expanded}
+            onExpandedChange={onExpandedChange}
+          />
+        </div>
       </header>
-      {summaryFields.length > 0 && (
+      {expanded && summaryFields.length > 0 && (
         <dl>
           {summaryFields.map(({ field, label, value }) => (
             <div key={field}>
@@ -513,10 +574,79 @@ function WorkflowNodeResult({
           ))}
         </dl>
       )}
-      <div className="workflow-runtime__node-result-raw">
-        <pre>{JSON.stringify(result, null, 2)}</pre>
-      </div>
+      {expanded && (
+        <div className="workflow-runtime__node-result-raw">
+          <pre>{JSON.stringify(result, null, 2)}</pre>
+        </div>
+      )}
     </article>
+  )
+}
+
+/** 切换单个节点详情面板的内容可见性，同时保留可操作的标题栏。 */
+function OutputVisibilityButton({
+  label,
+  expanded,
+  onExpandedChange
+}: {
+  label: string
+  expanded: boolean
+  onExpandedChange: (expanded: boolean) => void
+}): React.JSX.Element {
+  const actionLabel = expanded ? `隐藏${label}` : `显示${label}`
+
+  return (
+    <button
+      type="button"
+      className="workflow-runtime__node-detail-toggle"
+      aria-expanded={expanded}
+      aria-label={actionLabel}
+      title={actionLabel}
+      onClick={() => onExpandedChange(!expanded)}
+    >
+      <span
+        className={`codicon codicon-chevron-${expanded ? 'down' : 'right'}`}
+        aria-hidden="true"
+      />
+      {expanded ? '隐藏' : '显示'}
+    </button>
+  )
+}
+
+/** 复制单侧运行详情，并用紧凑状态反馈避免额外提示层。 */
+function OutputCopyButton({
+  label,
+  text
+}: {
+  label: string
+  text: string
+}): React.JSX.Element {
+  const [copied, setCopied] = useState(false)
+
+  const copy = async (): Promise<void> => {
+    try {
+      await globalThis.navigator.clipboard.writeText(text)
+      setCopied(true)
+      globalThis.setTimeout(() => setCopied(false), 1600)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className="workflow-runtime__node-detail-copy"
+      aria-label={label}
+      title={copied ? '已复制' : label}
+      onClick={() => void copy()}
+    >
+      <span
+        className={`codicon codicon-${copied ? 'check' : 'copy'}`}
+        aria-hidden="true"
+      />
+      {copied ? '已复制' : '复制'}
+    </button>
   )
 }
 

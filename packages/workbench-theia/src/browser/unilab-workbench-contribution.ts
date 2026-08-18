@@ -57,7 +57,7 @@ export const OpenRobotBenchView: Command = {
 
 export const OpenRobotReagentsView: Command = {
   id: 'unilab.workbench.robot-reagents.open',
-  label: '打开试剂管理'
+  label: '打开试剂'
 }
 
 @injectable()
@@ -92,7 +92,7 @@ export class WorkflowDomainEntryContribution
   constructor() {
     super({
       widgetId: WorkflowDomainEntryWidget.ID,
-      widgetName: '工作流',
+      widgetName: '工作',
       defaultWidgetOptions: { area: 'left', rank: 77 },
       toggleCommandId: OpenUniLabWorkflowView.id
     })
@@ -118,7 +118,7 @@ export class DeviceDomainEntryContribution
   constructor() {
     super({
       widgetId: DeviceDomainEntryWidget.ID,
-      widgetName: '仪器设备',
+      widgetName: '设备',
       defaultWidgetOptions: { area: 'left', rank: 71 },
       toggleCommandId: OpenUniLabDeviceView.id
     })
@@ -170,7 +170,7 @@ export class RobotReagentsDomainEntryContribution
   constructor() {
     super({
       widgetId: RobotReagentsDomainEntryWidget.ID,
-      widgetName: '试剂管理',
+      widgetName: '试剂',
       defaultWidgetOptions: { area: 'left', rank: 75 },
       toggleCommandId: OpenRobotReagentsView.id
     })
@@ -261,5 +261,9 @@ implements FrontendApplicationContribution {
       activityBar?.insertTab(index, widget.title)
     }
     await app.shell.collapsePanel('left')
+    await app.shell.collapsePanel('right')
+    globalThis.setTimeout(() => {
+      void app.shell.collapsePanel('right')
+    }, 100)
   }
 }

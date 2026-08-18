@@ -1,6 +1,14 @@
-import type { OnlineDevice } from '@unilab/services'
+import type {
+  DeviceEdgeStatus,
+  DeviceExecutionOccupancy,
+  OnlineDevice
+} from '@unilab/services'
 
 export interface ManagedDevice extends OnlineDevice {
+  edgeStatus: DeviceEdgeStatus
+  dispatchable: boolean
+  dispatchBlockReason: string | null
+  executionOccupancies: DeviceExecutionOccupancy[] | null
   displayName: string
   displayDetail: string
 }
@@ -22,9 +30,19 @@ export function presentEdgeDevices(
       device.deviceKey !== 'host_node' &&
       !device.deviceKey.endsWith('/host_node')
     ))
-    .map((device) => ({
-      ...device,
-      displayName: device.machineName,
-      displayDetail: ''
-    }))
+    .map((device) => {
+      const edgeStatus = device.edgeStatus ?? (
+        device.online ? 'online' : 'offline'
+      )
+      return {
+        ...device,
+        online: edgeStatus === 'online',
+        edgeStatus,
+        dispatchable: device.dispatchable ?? device.online,
+        dispatchBlockReason: device.dispatchBlockReason ?? null,
+        executionOccupancies: device.executionOccupancies ?? null,
+        displayName: device.machineName,
+        displayDetail: ''
+      }
+    })
 }

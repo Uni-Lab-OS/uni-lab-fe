@@ -236,12 +236,22 @@ function isTransferNode(
   const template = templateByUuid.get(
     stringValue(node.workflow_node_template_uuid)
   )
-  const metaData = recordValue(template?.meta_data)
-  const unilab = recordValue(metaData.unilab)
-  const source = recordValue(unilab.workflow_source)
+  // Workspace authoring graphs publish the source identity on the template,
+  // while Backend release graphs preserve it on the concrete composite node.
+  // Both are authoritative publication boundaries and must project identically.
+  const nodeSource = recordValue(
+    recordValue(recordValue(node.meta_data).unilab).workflow_source
+  )
+  const templateSource = recordValue(
+    recordValue(recordValue(template?.meta_data).unilab).workflow_source
+  )
   return workflowNodeVisualKind({
-    symbol: optionalString(source.symbol),
-    definitionFqid: optionalString(source.definition_fqid)
+    symbol:
+      optionalString(nodeSource.symbol) ??
+      optionalString(templateSource.symbol),
+    definitionFqid:
+      optionalString(nodeSource.definition_fqid) ??
+      optionalString(templateSource.definition_fqid)
   }) === 'robot-transfer'
 }
 

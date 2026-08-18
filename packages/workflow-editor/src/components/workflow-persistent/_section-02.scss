@@ -199,6 +199,20 @@
     line-height: 1.45;
   }
 
+  :global(.persistent-authoring__node-description) {
+    display: grid;
+    gap: 5px;
+    padding: 10px 11px;
+    border: 1px solid var(--unilab-color-border);
+    border-radius: var(--unilab-radius-control);
+    background: var(--unilab-color-surface-muted);
+  }
+
+  :global(.persistent-authoring__node-description) strong {
+    color: var(--unilab-color-text);
+    font-size: 11px;
+  }
+
   :global(.persistent-authoring__material-source-inspector) {
     display: grid;
     gap: 0;

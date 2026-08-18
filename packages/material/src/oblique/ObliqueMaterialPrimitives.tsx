@@ -45,6 +45,13 @@ export function ObliqueSpecBody({
   )
 }
 
+/**
+ * 绘制一条已经求解为毫米坐标的通用 Shape 图元。
+ * @param object 当前物料的 2.5D 投影对象。
+ * @param primitive 待绘制的已求解图元。
+ * @param showSites 是否展示库位（Site）及其内部结构层。
+ * @returns 对应 SVG 节点；被显示开关抑制的图元返回 null。
+ */
 function ObliquePrimitiveNode({
   object,
   primitive,
@@ -155,6 +162,7 @@ function ObliquePrimitiveNode({
       return (
         <ObliqueSiteHoles
           collarTopZMm={primitive.collarTopZMm}
+          fallbackMarkers={primitive.fallbackMarkers}
           object={object}
           plateTopZMm={primitive.plateTopZMm}
         />

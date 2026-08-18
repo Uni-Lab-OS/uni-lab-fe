@@ -39,6 +39,9 @@ export function deviceActionReadiness({
   catalogLoading: boolean
   catalogError: string | null
 }): DeviceActionRunState {
+  const edgeStatus = device.edgeStatus ?? (
+    device.online ? 'online' : 'offline'
+  )
   if (!canRunActionTask) {
     return {
       kind: 'unavailable',
@@ -46,11 +49,20 @@ export function deviceActionReadiness({
       message: '当前环境暂不支持单动作运行，请在工作流中运行'
     }
   }
-  if (connection !== 'connected' || !device.online) {
+  if (connection !== 'connected' || edgeStatus !== 'online') {
     return {
       kind: 'unavailable',
       reason: 'device_offline',
-      message: '设备或 Edge 当前离线，恢复连接后才能运行'
+      message: edgeStatus === 'registered'
+        ? '设备已注册，但 Edge 尚未建立连接'
+        : '设备或 Edge 当前离线，恢复连接后才能运行'
+    }
+  }
+  if (!(device.dispatchable ?? device.online)) {
+    return {
+      kind: 'unavailable',
+      reason: 'dispatch_blocked',
+      message: dispatchBlockMessage(device.dispatchBlockReason)
     }
   }
   if (!device.materialUuid) {
@@ -97,10 +109,23 @@ export function deviceActionReadiness({
   }
   return {
     kind: 'ready',
-    message: action.isBusy
-      ? '当前动作被占用；提交后由调度器（Scheduler）按权威占用状态处理'
-      : '参数将提交为正式工作流任务（WorkflowTask）和作业（Job）'
+    message: device.executionOccupancies?.[0]
+      ? `设备正由 Job ${shortIdentifier(device.executionOccupancies[0].workflowNodeJobUuid)} 占用；提交后等待调度器（Scheduler）取得执行占用`
+      : action.isBusy
+        ? '当前动作被占用；提交后由调度器（Scheduler）按权威占用状态处理'
+        : device.executionOccupancies === null &&
+            action.busyStatusKnown === false
+          ? '当前服务未提供占用明细；提交时由调度器（Scheduler）进行权威准入'
+          : '参数将提交为正式工作流任务（WorkflowTask）和作业（Job）'
   }
+}
+
+/** 把派发安全阻断原因翻译成设备页可行动说明，不泄漏 wire 细节。 */
+function dispatchBlockMessage(reason: string | null): string {
+  if (reason?.startsWith('unresolved_unknown_command:')) {
+    return '设备在线，但存在未确认的历史命令；完成安全核验后才能运行'
+  }
+  return '设备在线，但当前被安全策略阻止派发；完成设备核验后再试'
 }
 
 export function projectDeviceActionTask(
@@ -212,6 +237,7 @@ export function activeDeviceActionTaskUuid(operation: {
 export type DeviceActionUnavailableReason =
   | 'workflow_required'
   | 'device_offline'
+  | 'dispatch_blocked'
   | 'device_identity_missing'
   | 'catalog_loading'
   | 'catalog_error'
@@ -379,6 +405,8 @@ function unavailableRunLabel(reason: DeviceActionUnavailableReason): string {
       return '请在工作流中运行'
     case 'device_offline':
       return '设备离线'
+    case 'dispatch_blocked':
+      return '派发受阻'
     case 'device_identity_missing':
       return '暂时无法运行'
     case 'catalog_loading':

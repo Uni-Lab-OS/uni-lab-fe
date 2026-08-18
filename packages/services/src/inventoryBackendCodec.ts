@@ -158,7 +158,7 @@ export async function loadBackendReagents(
 }
 
 /**
- * 构造 Backend 创建试剂的 JSON body，成对发送浓度字段且不伪造空值。
+ * 构造 Backend 创建试剂的 JSON body，身份字段严格二选一且不伪造空值。
  * @param input 已由产品表单校验的创建输入。
  * @returns 与 Go Backend reagentCreateRequest 对齐的普通对象。
  */
@@ -167,7 +167,9 @@ export function reagentCreateBody(
 ): Record<string, unknown> {
   return {
     material_uuid: input.materialId,
-    cas: input.cas,
+    ...('reagentInfoId' in input
+      ? { reagent_info_uuid: input.reagentInfoId }
+      : { cas: input.cas }),
     physical_state: input.physicalState ?? 'unknown',
     quantity: input.quantity,
     quantity_unit: input.quantityUnit,

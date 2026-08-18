@@ -29,6 +29,7 @@ export type MaterialShapeStyle =
 export type MaterialShapeUnits = 'mm' | 'ratio'
 export type MaterialShapeShadow = 'box' | 'round' | 'none'
 export type MaterialShapeSort = 'center' | 'rear-edge'
+export type MaterialShapeFallbackOrientation = 'match-envelope'
 export type MaterialShapeGenerator =
   | 'open-rack'
   | 'stack-shelves'
@@ -69,6 +70,8 @@ export interface MaterialShapeSpecPart {
   count?: readonly number[]
   pitch?: readonly number[]
   part?: MaterialShapeSpecPart
+  orientation?: MaterialShapeFallbackOrientation
+  fallback?: MaterialShapeSpecPart
   generator?: MaterialShapeGenerator
   boardThicknessMm?: number
   shelfThicknessMm?: number
@@ -91,6 +94,17 @@ export interface MaterialShapeSpec {
 }
 
 export type MaterialShapeLibrary = readonly MaterialShapeSpec[]
+
+/** 无真实库位（Site）时可绘制的内部结构标记，不携带任何库存身份或占用语义。 */
+export interface MaterialShapeFallbackMarker {
+  style: MaterialShapeStyle
+  xMm: number
+  yMm: number
+  widthMm: number
+  depthMm: number
+  zMm: number
+  radiusMm: number
+}
 
 /** 求解后的图元：坐标已是物料本地 mm，画布只管画。 */
 export type MaterialShapePrimitive =
@@ -156,7 +170,12 @@ export type MaterialShapePrimitive =
     }
   | { kind: 'open-rack'; boardThicknessMm?: number }
   | { kind: 'stack-shelves'; shelfThicknessMm?: number }
-  | { kind: 'site-holes'; plateTopZMm?: number; collarTopZMm?: number }
+  | {
+      kind: 'site-holes'
+      plateTopZMm?: number
+      collarTopZMm?: number
+      fallbackMarkers?: readonly MaterialShapeFallbackMarker[]
+    }
   | { kind: 'site-markers' }
 
 export interface MaterialShapeEnvelopeMm {

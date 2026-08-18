@@ -59,7 +59,7 @@
     position: relative;
     z-index: 2;
     gap: 3px;
-    margin-left: 0;
+    margin-left: auto;
     overflow: visible;
   }
 
@@ -162,12 +162,6 @@
     display: none;
   }
 
-  :global(.persistent-authoring__run-mode-menu) > summary > span {
-    margin-left: -3px;
-    color: var(--unilab-color-text-subtle);
-    font-size: 9px;
-  }
-
   :global(.persistent-authoring__run-mode-menu[open]) > summary {
     color: var(--unilab-color-workflow);
     border-color: var(--unilab-color-focus);
@@ -210,7 +204,15 @@
 
   @container workflow (max-width: 720px) {
     :global(.persistent-authoring__toolbar) {
+      flex-wrap: wrap;
       overflow: visible;
+    }
+
+    :global(.persistent-authoring__toolbar-message) {
+      width: 100%;
+      flex: 1 0 100%;
+      order: 3;
+      text-align: left;
     }
 
     :global(.persistent-authoring__debug-toolbar) {

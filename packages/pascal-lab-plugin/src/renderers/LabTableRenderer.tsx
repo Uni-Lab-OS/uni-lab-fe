@@ -1,18 +1,27 @@
 import { useRegistry } from '@pascal-app/core'
 import { useNodeEvents, useViewer } from '@pascal-app/viewer'
-import { Html } from '@react-three/drei'
 import { useRef } from 'react'
 import type { Group } from 'three'
 
 import type { LabTableNode } from '../schema'
-import { SiteBoundsRenderer } from './SiteBoundsRenderer'
-import { PASCAL_SCENE_HTML_Z_INDEX_RANGE } from './htmlLayer'
+import { PascalModelLabel } from './PascalModelLabel'
+import {
+  isSiteBoundsPointerHit,
+  SiteBoundsRenderer,
+  siteBoundsOccupantSceneObjectId
+} from './SiteBoundsRenderer'
 
 const useCustomNodeEvents = useNodeEvents as unknown as (
   node: LabTableNode,
   type: string
 ) => ReturnType<typeof useNodeEvents>
 
+/**
+ * 渲染可拾取的实验台场景对象及其物料（Material）标签。
+ *
+ * @param props 实验台节点，包含稳定身份、尺寸与库位（Site）快照。
+ * @returns 可由模型或标签精确选中的 Pascal 实验台节点。
+ */
 export default function LabTableRenderer({
   node
 }: {
@@ -36,6 +45,30 @@ export default function LabTableRenderer({
       rotation={node.rotation}
       visible={node.visible !== false}
       {...events}
+      onPointerDown={(event) => {
+        if (siteBoundsOccupantSceneObjectId(event.object)) {
+          event.stopPropagation()
+          return
+        }
+        if (!isSiteBoundsPointerHit(event.object)) {
+          events.onPointerDown(event)
+        }
+      }}
+      onPointerUp={(event) => {
+        const occupantSceneObjectId = siteBoundsOccupantSceneObjectId(
+          event.object
+        )
+        if (occupantSceneObjectId) {
+          event.stopPropagation()
+          useViewer.getState().setSelection({
+            selectedIds: [occupantSceneObjectId as never]
+          })
+          return
+        }
+        if (!isSiteBoundsPointerHit(event.object)) {
+          events.onPointerUp(event)
+        }
+      }}
     >
       <mesh position={[0, height - 0.025, 0]} castShadow receiveShadow>
         <boxGeometry args={[width, 0.05, depth]} />
@@ -69,19 +102,12 @@ export default function LabTableRenderer({
         sites={node.floorplanSnapshot?.sites ?? []}
         showSites={node.floorplanSnapshot?.showSites ?? true}
       />
-      <Html
+      <PascalModelLabel
+        sceneObjectId={node.id}
+        displayName={node.displayName}
         position={[0, height + 0.08, 0]}
-        center
-        zIndexRange={PASCAL_SCENE_HTML_Z_INDEX_RANGE}
-      >
-        <div
-          className={`pascal-model-label${
-            isSelected ? ' is-selected' : ''
-          }`}
-        >
-          {node.displayName}
-        </div>
-      </Html>
+        selected={isSelected}
+      />
     </group>
   )
 }

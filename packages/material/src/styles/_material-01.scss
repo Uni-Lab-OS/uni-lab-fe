@@ -194,6 +194,28 @@
   background: var(--unilab-color-bg-subtle);
 }
 
+:where(.scope, .scope *):global(.material-tree-sidebar__legend) {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin: 0 10px;
+  padding: 7px 2px 8px;
+  color: var(--unilab-color-text-muted);
+  border-bottom: 1px solid var(--unilab-color-border);
+  font: 550 11px/1 var(--unilab-font-sans);
+}
+
+:where(.scope, .scope *):global(.material-tree-sidebar__legend) > span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+:where(.scope, .scope *):global(.material-tree-sidebar__legend)
+  :global(.material-tree-sidebar__site-status) {
+  margin-left: 0;
+}
+
 :where(.scope, .scope *):global(.material-tree-sidebar__visually-hidden) {
   position: absolute;
   width: 1px;
@@ -220,10 +242,23 @@
 :where(.scope, .scope *):global(.material-tree-sidebar__reopen) {
   position: absolute;
   z-index: 90;
-  top: 16px;
+  top: 5px;
   left: 8px;
   color: var(--unilab-color-text);
-  background: transparent;
+  border: 1px solid var(--unilab-color-border);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-surface) 94%,
+    transparent
+  );
+  box-shadow: var(--unilab-shadow-control);
+}
+
+:where(.scope, .scope *):global(.material-workbench):has(
+    > :global(.material-tree-sidebar__reopen)
+  )
+  :global(.pascal-lab-toolbar) {
+  padding-left: 48px;
 }
 
 :where(.scope, .scope *):global(.material-workbench):has(
