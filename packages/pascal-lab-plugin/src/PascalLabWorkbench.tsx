@@ -31,6 +31,7 @@ import {
   configureLabModelRuntime,
   type LabModelRuntime
 } from './modelRuntime'
+import { shouldPausePascalRendering } from './renderActivity'
 import { preparePascalLabPlugin } from './plugin'
 import {
   isLabDeviceNode,
@@ -337,6 +338,7 @@ export function PascalLabWorkbench({
           prepare={prepare}
           readOnly={!editable}
           editorViewMode={pascalViewMode}
+          renderPaused={shouldPausePascalRendering(viewMode)}
           sceneTheme="studio"
           showGrid
           floorplanOverlay={
