@@ -445,7 +445,8 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(workflow, /xcrun stapler validate/u)
     assert.match(workflow, /^\s+TZ: Asia\/Shanghai$/mu)
     assert.match(workflow, /BUILD_STARTED_AT_CST=/u)
-    assert.match(workflow, /更新时间：\$BUILD_STARTED_AT_CST（UTC\+08:00）/u)
+    assert.match(workflow, /\$\{rawTimezoneOffset:0:3\}:\$\{rawTimezoneOffset:3:2\}/u)
+    assert.match(workflow, /更新时间：\$\{BUILD_STARTED_AT_CST\}（UTC\+08:00）/u)
     assert.match(workflow, /prepare-package-version\.mjs/u)
     assert.match(
       workflow,

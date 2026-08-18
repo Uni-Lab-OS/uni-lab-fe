@@ -66,7 +66,8 @@ jobs:
       - name: Start pipeline timer
         run: |
           echo "PIPELINE_STARTED_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
-          build_started_at_cst="$(date '+%Y-%m-%d %H:%M:%S %z')"
+          rawTimezoneOffset="$(date '+%z')"
+          build_started_at_cst="$(date '+%Y-%m-%d %H:%M:%S') ${rawTimezoneOffset:0:3}:${rawTimezoneOffset:3:2}"
           echo "BUILD_STARTED_AT_CST=$build_started_at_cst" >> "$GITHUB_ENV"
           echo "macOS build time (UTC+08:00): $build_started_at_cst"
 
@@ -653,7 +654,7 @@ jobs:
 
           当前提交：$GITHUB_SHA
           发布版本：$UNILAB_WORKBENCH_PACKAGE_VERSION
-          更新时间：$BUILD_STARTED_AT_CST（UTC+08:00）
+          更新时间：${BUILD_STARTED_AT_CST}（UTC+08:00）
 
           当前仅发布 Developer ID 签名并经 Apple 公证的 DMG；ZIP 自动更新介质暂时停用。此 Release 不参与仓库 Latest Release 排序。
           EOF
