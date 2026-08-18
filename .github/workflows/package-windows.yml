@@ -64,6 +64,14 @@ jobs:
         shell: pwsh
 
     steps:
+      - name: Set China Standard Time build timezone
+        run: |
+          tzutil.exe /s "China Standard Time"
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to set the Windows build timezone' }
+          $buildStartedAt = Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'
+          "BUILD_STARTED_AT_CST=$buildStartedAt" >> $env:GITHUB_ENV
+          Write-Host "Windows build time (UTC+08:00): $buildStartedAt"
+
       - name: Check out Workbench
         uses: actions/checkout@v6
 
@@ -549,6 +557,7 @@ jobs:
 
           | Metric | Result |
           | --- | ---: |
+          | Build started (UTC+08:00) | $env:BUILD_STARTED_AT_CST |
           | Compression | $env:UNILAB_WORKBENCH_COMPRESSION |
           | Production build | $env:WINDOWS_PRODUCTION_BUILD_SECONDS s |
           | Native packaging | $env:WINDOWS_PACKAGE_SECONDS s |
@@ -715,7 +724,7 @@ jobs:
 
           当前提交：$env:GITHUB_SHA
           发布版本：$env:UNILAB_WORKBENCH_PACKAGE_VERSION
-          更新时间：$([DateTime]::UtcNow.ToString('u')) UTC
+          更新时间：$env:BUILD_STARTED_AT_CST（UTC+08:00）
 
           安装包、blockmap 与 latest.yml 由 Package Windows Workbench 工作流维护；此 Release 不参与仓库 Latest Release 排序。
           "@
