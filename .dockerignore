@@ -1,0 +1,12 @@
+.git
+.github
+.runtime
+.turbo
+**/node_modules
+apps/*/lib
+packages/*/lib
+**/dist
+**/coverage
+**/.cache
+**/.DS_Store
+apps/workbench/plugins

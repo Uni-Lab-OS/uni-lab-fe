@@ -19,6 +19,21 @@ Conda location contains both Python and the `unilab` CLI. An explicitly selected
 environment is authoritative: if it becomes invalid, Workbench fails closed and
 does not silently switch environments.
 
+### Docker 本地部署
+
+Docker 运行 Theia Workbench，并把 Backend Authority 转发到宿主机服务。
+Linux 容器不执行宿主机的 macOS Conda/OS 环境，因此该部署用于 Backend
+模式；本地调试模式仍使用上面的原生启动方式。
+
+```bash
+export UNILAB_WORKSPACE=/absolute/path/to/workspace
+docker compose -f apps/workbench/compose.yaml up --build -d
+```
+
+默认地址为 `http://127.0.0.1:3100`，默认 Backend 地址为宿主机的
+`http://127.0.0.1:30053`。可通过 `UNILAB_BACKEND_PROXY_TARGET` 和
+`UNILAB_SCHEDULER_PROXY_TARGET` 覆盖容器内的目标地址。
+
 Workbench resolves an optional OS source checkout through that interpreter's
 `unilabos` import location. An editable install therefore maps to its real
 checkout regardless of where the Workspace lives; an ordinary wheel install

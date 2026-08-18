@@ -1,0 +1,25 @@
+services:
+  workbench:
+    image: unilab-workbench:esm-splitting
+    build:
+      context: ../..
+      dockerfile: apps/workbench/Dockerfile
+    container_name: unilab-workbench-local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3100"
+    environment:
+      THEIA_WORKSPACE: /workspace
+      UNILAB_AGENT_ENABLED: "0"
+      UNILAB_BACKEND_PROXY_TARGET: ${UNILAB_BACKEND_PROXY_TARGET:-http://host.docker.internal:30053}
+      UNILAB_SCHEDULER_PROXY_TARGET: ${UNILAB_SCHEDULER_PROXY_TARGET:-http://host.docker.internal:8081}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - type: bind
+        source: ${UNILAB_WORKSPACE:?Set UNILAB_WORKSPACE to an absolute Workspace path}
+        target: /workspace
+      - unilab-workbench-home:/home/node
+
+volumes:
+  unilab-workbench-home:

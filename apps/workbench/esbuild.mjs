@@ -78,7 +78,14 @@ browserOptions.plugins.push({
 // missing native binding would crash the complete Theia backend during boot,
 // although Theia only needs mount points from it. Keep the native package on
 // macOS/Linux and use a narrow, pure-Node drive-root provider on Windows.
-if (process.platform === 'win32') {
+if (process.env.UNILAB_CONTAINER_BUILD === '1') {
+    nodeOptions.alias = {
+        ...nodeOptions.alias,
+        drivelist: fileURLToPath(
+            new URL('./scripts/drivelist-container-shim.cjs', import.meta.url)
+        ),
+    };
+} else if (process.platform === 'win32') {
     nodeOptions.alias = {
         ...nodeOptions.alias,
         drivelist: fileURLToPath(
