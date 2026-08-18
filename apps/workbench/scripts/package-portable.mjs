@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { createRequire } from 'node:module'
 import {
   closeSync,
   chmodSync,
@@ -11,6 +12,7 @@ import {
   openSync,
   readFileSync,
   readSync,
+  realpathSync,
   readdirSync,
   rmSync,
   statSync,
@@ -677,13 +679,26 @@ export function createWindowsInstallerAuditArguments(installerPath) {
   return ['l', '-slt', installerPath, WINDOWS_MAIN_EXECUTABLE]
 }
 
+/** 解析 Electron Builder 实际使用的 7za，避免系统 7-Zip 误读 NSIS。 */
+export function resolveElectronBuilderSevenZipCommand() {
+  const requireFromElectronBuilder = createRequire(realpathSync(join(
+    workbenchDirectory,
+    'node_modules',
+    'electron-builder',
+    'package.json'
+  )))
+  const builderUtilEntry = requireFromElectronBuilder.resolve('builder-util')
+  const requireFromBuilderUtil = createRequire(builderUtilEntry)
+  return requireFromBuilderUtil('7zip-bin').path7za
+}
+
 /**
  * 列出最终 NSIS 安装器内容，防止外层文件有效但内层主程序缺失。
  * @param {string} installerPath NSIS 安装器路径。
  * @throws {Error} 7-Zip 无法读取安装器或主程序缺失时抛出。
  */
 export function validateWindowsInstallerArchive(installerPath) {
-  const sevenZipCommand = process.platform === 'win32' ? '7z.exe' : '7z'
+  const sevenZipCommand = resolveElectronBuilderSevenZipCommand()
   const result = spawnSync(
     sevenZipCommand,
     createWindowsInstallerAuditArguments(installerPath),
