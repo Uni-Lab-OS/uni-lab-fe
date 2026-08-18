@@ -391,6 +391,45 @@ test.describe('UniLab Workbench real-system contract', () => {
     expect(layering.topElementOwnedByAgent).toBe(true)
   })
 
+  test('keeps the material workspace visible after cancelling workflow with Agent open', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 820 })
+    await page.goto(workbenchUrl!)
+    await expect(page.locator('[id="unilab:authoring-workbench"]')).toBeVisible()
+
+    const workflowNavigation = page.locator(
+      '[id="shell-tab-unilab:workbench-navigator"]'
+    )
+    const materialNavigation = page.locator(
+      '[id="shell-tab-unilab:material-navigation"]'
+    )
+    const agentNavigation = page.locator(
+      '[id="shell-tab-unilab:agent-navigation"]'
+    )
+    const agentPanel = page.locator('[id="unilab:agent"]')
+    const main = page.locator('main[data-workbench-view]')
+
+    await expect(main).toHaveAttribute('data-workbench-view', 'workflow')
+    await agentNavigation.click()
+    await expect(agentPanel).toBeVisible()
+    await expect(agentNavigation).toHaveAttribute('data-unilabactive', 'true')
+
+    await materialNavigation.click()
+    await expect(main).toHaveAttribute('data-workbench-view', 'split')
+    await workflowNavigation.click()
+    await expect(main).toHaveAttribute('data-workbench-view', 'material')
+
+    // 单视图下再次点击物料只恢复焦点，不能把唯一主区关闭成白屏。
+    await materialNavigation.click()
+    await expect(main).toHaveAttribute('data-workbench-view', 'material')
+    await expect(page.getByRole('region', { name: '物料窗口' })).toBeVisible()
+    await expect(page.getByRole('region', { name: '工作流窗口' })).toBeHidden()
+    await expect(main.locator('.unilab-workbench__domain-slot:visible'))
+      .toHaveCount(1)
+    await expect(agentPanel).toBeVisible()
+  })
+
   test('hides workflow output while the terminal panel is open', async ({
     page
   }) => {

@@ -14,6 +14,7 @@ import { dirname, join } from 'node:path'
 
 import {
   assertSafeChildDirectory,
+  createWindowsInstallerAuditArguments,
   MAX_PORTABLE_INSTALLER_BYTES,
   PORTABLE_COMPRESSION_LEVELS,
   PORTABLE_NODE_ARCHIVES,
@@ -21,7 +22,8 @@ import {
   pruneDesktopDeployment,
   resolveEsbuildBinary,
   resolvePortableCompressionLevel,
-  validatePackagedWorkbenchResources
+  validatePackagedWorkbenchResources,
+  validateWindowsInstallerListing
 } from './package-portable.mjs'
 import {
   MAX_PRODUCTION_LIB_BYTES,
@@ -121,6 +123,34 @@ describe('portable Workbench packaging contract', () => {
     assert.throws(
       () => assertSafeChildDirectory(tmpdir(), stagingRoot, '测试目录'),
       /必须位于专用目录/u
+    )
+  })
+
+  /** 验证最终 NSIS 技术清单只查询并必须包含安装根目录的桌面主程序。 */
+  it('rejects a Windows installer without its desktop executable', () => {
+    assert.deepEqual(createWindowsInstallerAuditArguments('setup.exe'), [
+      'l',
+      '-slt',
+      'setup.exe',
+      'UniLab Workbench.exe'
+    ])
+    assert.doesNotThrow(() => validateWindowsInstallerListing([
+      'Path = resources',
+      'Path = UniLab Workbench.exe'
+    ].join('\r\n')))
+    assert.throws(
+      () => validateWindowsInstallerListing([
+        'Path = C:\\build\\UniLab.Workbench-setup.exe',
+        'Type = Nsis',
+        'Path = resources\\app.asar'
+      ].join('\r\n')),
+      /Windows 安装包缺少桌面主程序/u
+    )
+    assert.throws(
+      () => validateWindowsInstallerListing(
+        'Path = resources\\UniLab Workbench.exe'
+      ),
+      /Windows 安装包缺少桌面主程序/u
     )
   })
 
@@ -574,6 +604,10 @@ describe('portable Workbench packaging contract', () => {
       new URL('../../../.github/workflows/package-windows.yml', import.meta.url),
       'utf8'
     )
+    const packagingScript = await readFile(
+      new URL('./package-portable.mjs', import.meta.url),
+      'utf8'
+    )
 
     assert.match(workflow, /runs-on: windows-2022/u)
     assert.match(workflow, /permissions:\n(?:.|\n)*?contents: write/u)
@@ -678,6 +712,10 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /Name = 'baseline'; Profile = 'none'/u)
     assert.match(workflow, /Name = 'precompressed-exe'; Profile = 'exe'/u)
     assert.match(workflow, /precompressed-ab-metrics\.json/u)
+    assert.match(
+      packagingScript,
+      /validateWindowsInstallerArchive\(installer\.path\)/u
+    )
     assert.match(workflow, /UNILAB_RUNTIME_INSTALLER=/u)
     assert.match(workflow, /UNILAB_AGENT_DISTRIBUTION=/u)
     assert.match(workflow, /Filter 'aioncore\.exe'/u)

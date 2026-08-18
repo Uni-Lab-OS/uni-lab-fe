@@ -59,9 +59,16 @@ export class UniLabAgentNavigatorWidget extends ReactWidget {
     this.update()
   }
 
+  /**
+   * 产品 CSS 会隐藏 Theia 右活动栏，Lumino 因而可能将容器标记为折叠；
+   * Agent 是否打开应以产品展示状态和当前页签为准。
+   */
   protected isAgentVisible(): boolean {
+    if (!document.body.classList.contains('unilab-agent-panel-visible')) {
+      return false
+    }
     const agent = this.shell.getWidgetById(UniLabAgentWidget.ID)
-    if (!agent || !this.shell.isExpanded('right')) return false
+    if (!agent) return false
     return this.shell.getTabBarFor(agent)?.currentTitle === agent.title
   }
 
@@ -71,11 +78,7 @@ export class UniLabAgentNavigatorWidget extends ReactWidget {
       UniLabAgentWidget.ID
     )
     const tabBar = this.shell.getTabBarFor(agent)
-    if (
-      tabBar &&
-      this.shell.isExpanded('right') &&
-      tabBar.currentTitle === agent.title
-    ) {
+    if (this.isAgentVisible()) {
       document.body.classList.remove('unilab-agent-panel-visible')
       this.stopTrackingAgentPanelWidth()
       await this.shell.collapsePanel('right')

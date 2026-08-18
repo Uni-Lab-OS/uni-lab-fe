@@ -263,7 +263,10 @@ implements FrontendApplicationContribution {
     await app.shell.collapsePanel('left')
     await app.shell.collapsePanel('right')
     globalThis.setTimeout(() => {
-      void app.shell.collapsePanel('right')
+      // 只清理由布局恢复产生的右栏，不能覆盖用户刚刚打开的 Agent。
+      if (!document.body.classList.contains('unilab-agent-panel-visible')) {
+        void app.shell.collapsePanel('right')
+      }
     }, 100)
   }
 }
