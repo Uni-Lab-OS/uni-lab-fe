@@ -170,6 +170,12 @@ describe('environment manager layering and responsive layout', () => {
     expect(agentNavigatorSource).toContain('new ResizeObserver(publishWidth)')
     expect(agentNavigatorSource).toContain("getBoundingClientRect().width")
     expect(agentNavigatorSource).toContain("'--unilab-agent-panel-width'")
+    expect(agentNavigatorSource).toContain(
+      'this.shell.rightPanelHandler.container.show()'
+    )
+    expect(agentNavigatorSource).toContain(
+      'this.shell.rightPanelHandler.container.hide()'
+    )
     expect(domainNavigationStylesheet).toMatch(
       /@media \(max-width:\s*720px\)[\s\S]*?body\.unilab-agent-panel-visible[\s\S]*?#theia-right-content-panel\s*\{[^}]*position:\s*absolute !important;[^}]*inset:\s*0 !important;[^}]*width:\s*100% !important;/u
     )

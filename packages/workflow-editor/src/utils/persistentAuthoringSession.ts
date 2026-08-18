@@ -1,4 +1,5 @@
 import type {
+  WorkflowDefinitionInvalidation,
   WorkflowAuthoringAggregate,
   WorkflowAuthoringChangedEvent,
   WorkflowAuthoringGraph
@@ -171,14 +172,28 @@ export function authoringProjection(
 }
 
 export function isCurrentAuthoringInvalidation(
-  event: WorkflowAuthoringChangedEvent,
+  event: WorkflowAuthoringChangedEvent | WorkflowDefinitionInvalidation,
   aggregate: WorkflowAuthoringAggregate | null
 ): boolean {
   if (!aggregate) return false
-  return event.data.workflow_uuid === aggregate.workflow_uuid &&
-    event.data.workflow_revision === aggregate.workflow_revision &&
-    event.data.draft_hash === (aggregate.draft?.draft_hash ?? null) &&
-    event.data.candidate_hash === (aggregate.candidate?.candidate_hash ?? null)
+  const identity = 'data' in event
+    ? {
+        workflowUuid: event.data.workflow_uuid,
+        revision: event.data.workflow_revision,
+        draftHash: event.data.draft_hash,
+        candidateHash: event.data.candidate_hash
+      }
+    : event
+  if (
+    identity.workflowUuid !== aggregate.workflow_uuid ||
+    identity.revision !== aggregate.workflow_revision
+  ) return false
+  if (
+    identity.draftHash === undefined ||
+    identity.candidateHash === undefined
+  ) return true
+  return identity.draftHash === (aggregate.draft?.draft_hash ?? null) &&
+    identity.candidateHash === (aggregate.candidate?.candidate_hash ?? null)
 }
 
 export function isSameAuthoringVersion(

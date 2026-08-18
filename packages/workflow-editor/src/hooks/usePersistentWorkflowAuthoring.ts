@@ -4,7 +4,8 @@ import type {
   WorkflowAuthoringAggregate,
   WorkflowAuthoringApplyResponse,
   WorkflowAuthoringGraph,
-  WorkflowAuthoringTransformResult
+  WorkflowAuthoringTransformResult,
+  WorkflowDefinitionInvalidation
 } from '@unilab/services'
 import {
   useCallback,
@@ -48,6 +49,7 @@ import {
   catalogConflictDecision,
   draftSaveMessage,
   isAuthoringConflict,
+  isCurrentAuthoringInvalidation,
   isAuthoringSnapshotDirty,
   isSameAuthoringVersion,
   isTemplateCatalogConflict
@@ -537,13 +539,10 @@ export function usePersistentWorkflowAuthoring({
 
       /** 把匹配当前工作流的 SSE 失效通知转换为一次 REST 权威刷新。 */
       const handleAuthoringInvalidation = (
-        event: { revision: number | null }
+        event: WorkflowDefinitionInvalidation
       ): void => {
         const current = localState.current
-        if (
-          event.revision !== null &&
-          event.revision === current.aggregate?.workflow_revision
-        ) return
+        if (isCurrentAuthoringInvalidation(event, current.aggregate)) return
         remotePending.current = true
         void refreshFromAuthority()
       }
