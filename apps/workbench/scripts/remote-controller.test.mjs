@@ -12,6 +12,7 @@ const configuration = accessUrlFile => ({
   publicOrigin: null,
   tlsCertificatePath: null,
   tlsKeyPath: null,
+  authenticationRequired: true,
   tokenTtlMs: 60_000,
   accessUrlFile
 })

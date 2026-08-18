@@ -141,6 +141,33 @@ describe('remote Workbench authentication facade', () => {
       publicOrigin: 'http://workbench.example.test:8443'
     }), /requires --tls-cert and --tls-key/)
   })
+
+  it('allows direct HTTP and WebSocket access when authentication is disabled', async () => {
+    const workspace = await fixtureWorkspace()
+    const backend = createServer((request, response) => response.end(request.url))
+    backend.on('upgrade', (_request, socket) => {
+      socket.end(
+        'HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\nworkbench-ready'
+      )
+    })
+    const backendPort = await listen(backend)
+    cleanups.push(() => closeServer(backend))
+    const facade = await startRemoteWorkbenchFacade({
+      backendPort,
+      workspacePath: workspace,
+      host: '127.0.0.1',
+      port: 0,
+      rendererPath: '/?backend=local-go',
+      authenticationRequired: false
+    })
+    cleanups.push(() => facade.close())
+
+    assert.equal(facade.accessUrl, `${facade.origin}/?backend=local-go`)
+    const direct = await fetch(`${facade.origin}/private`)
+    assert.equal(direct.status, 200)
+    assert.equal(await direct.text(), '/private')
+    assert.match(await rawUpgrade(facade.origin), /^HTTP\/1\.1 101/u)
+  })
 })
 
 async function createSession(facade) {
@@ -170,7 +197,7 @@ async function rawUpgrade(origin, cookie) {
         'GET /services HTTP/1.1',
         `Host: ${target.host}`,
         `Origin: ${target.origin}`,
-        `Cookie: ${cookie}`,
+        ...(cookie ? [`Cookie: ${cookie}`] : []),
         'Connection: Upgrade',
         'Upgrade: websocket',
         'Sec-WebSocket-Version: 13',

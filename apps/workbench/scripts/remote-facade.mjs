@@ -26,6 +26,7 @@ const CLOSE_TIMEOUT_MS = 5_000
  */
 export async function startRemoteWorkbenchFacade(options) {
   assertBackendPort(options.backendPort)
+  const authenticationRequired = options.authenticationRequired ?? true
   const host = options.host ?? '127.0.0.1'
   const requestedPort = options.port ?? 0
   const tls = await resolveTls(options)
@@ -78,14 +79,16 @@ export async function startRemoteWorkbenchFacade(options) {
       rejectUpgrade(socket, 403, 'invalid_origin')
       return
     }
-    const authentication = authenticateRequest(
-      request,
-      authority,
-      cookieName
-    )
-    if (!authentication.valid) {
-      rejectUpgrade(socket, 401, authentication.code)
-      return
+    if (authenticationRequired) {
+      const authentication = authenticateRequest(
+        request,
+        authority,
+        cookieName
+      )
+      if (!authentication.valid) {
+        rejectUpgrade(socket, 401, authentication.code)
+        return
+      }
     }
     proxyUpgrade(request, socket, head, {
       backendPort: options.backendPort,
@@ -127,8 +130,10 @@ export async function startRemoteWorkbenchFacade(options) {
       now: options.dateNow,
       processAlive: options.processAlive
     })
-    const accessUrl = new URL(AUTH_PATH, publicOrigin)
-    accessUrl.hash = `token=${authority.token}`
+    const accessUrl = authenticationRequired
+      ? new URL(AUTH_PATH, publicOrigin)
+      : new URL(options.rendererPath ?? '/', publicOrigin)
+    if (authenticationRequired) accessUrl.hash = `token=${authority.token}`
     options.log?.(
       `remote facade ready pid=${authority.identity.pid} port=${address.port} generation=${authority.identity.generation}`
     )
@@ -196,16 +201,18 @@ export async function startRemoteWorkbenchFacade(options) {
       return
     }
 
-    const authentication = authenticateRequest(
-      request,
-      authority,
-      cookieName
-    )
-    if (!authentication.valid) {
-      sendJson(response, 401, { error: authentication.code }, {
-        'www-authenticate': 'UniLab-Workbench'
-      })
-      return
+    if (authenticationRequired) {
+      const authentication = authenticateRequest(
+        request,
+        authority,
+        cookieName
+      )
+      if (!authentication.valid) {
+        sendJson(response, 401, { error: authentication.code }, {
+          'www-authenticate': 'UniLab-Workbench'
+        })
+        return
+      }
     }
     if (request.method !== 'GET' && request.method !== 'HEAD'
       && request.headers.origin !== publicOrigin.origin) {

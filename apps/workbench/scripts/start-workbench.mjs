@@ -43,7 +43,8 @@ const remoteConfiguration = launch.remote ?? (
     : null
 )
 
-if (launchMode === 'remote' && !launch.remote.accessUrlFile
+if (launchMode === 'remote' && launch.remote.authenticationRequired
+  && !launch.remote.accessUrlFile
   && !process.stdout.isTTY) {
   throw new Error(
     'Headless remote Workbench requires --access-url-file for secret delivery'
@@ -300,11 +301,11 @@ async function launchRemote(rendererUrl) {
     console.log(
       `[UniLab Workbench] remote access URL written to ${remoteConfiguration.accessUrlFile}`
     )
-  } else if (desktopEnabled) {
+  } else if (desktopEnabled && remoteConfiguration.authenticationRequired) {
     console.log('[UniLab Workbench] remote access URL available in 环境管理')
   } else {
     process.stdout.write(
-      `[UniLab Workbench] remote access URL (secret): ${snapshot.accessUrl}\n`
+      `[UniLab Workbench] remote access URL${remoteConfiguration.authenticationRequired ? ' (secret)' : ''}: ${snapshot.accessUrl}\n`
     )
   }
   console.log(`[UniLab Workbench] remote origin: ${snapshot.origin}`)

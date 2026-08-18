@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 let stylesheet = ''
 let domainNavigationStylesheet = ''
 let navigatorSource = ''
+let agentNavigatorSource = ''
 
 /** 读取 Workbench 主样式与领域导航样式，供结构性回归断言复用。 */
 beforeAll(async () => {
@@ -17,7 +18,8 @@ beforeAll(async () => {
     surfaces,
     aionui,
     navigation,
-    navigator
+    navigator,
+    agentNavigator
   ] = await Promise.all([
     readFile(fileURLToPath(new URL('./workbench-shell.css', import.meta.url)), 'utf8'),
     readFile(
@@ -38,6 +40,10 @@ beforeAll(async () => {
     readFile(
       fileURLToPath(new URL('../unilab-workbench-navigator-widget.tsx', import.meta.url)),
       'utf8'
+    ),
+    readFile(
+      fileURLToPath(new URL('../unilab-agent-navigator-widget.tsx', import.meta.url)),
+      'utf8'
     )
   ])
   stylesheet = [
@@ -50,6 +56,7 @@ beforeAll(async () => {
   ].join('\n')
   domainNavigationStylesheet = navigation
   navigatorSource = navigator
+  agentNavigatorSource = agentNavigator
 })
 
 describe('environment manager layering and responsive layout', () => {
@@ -152,8 +159,11 @@ describe('environment manager layering and responsive layout', () => {
       /body\.unilab-agent-panel-visible[\s\S]*?#theia-right-content-panel\s*\{[^}]*display:\s*flex !important;[^}]*min-width:\s*420px !important/u
     )
     expect(domainNavigationStylesheet).toMatch(
-      /body\.unilab-agent-panel-visible[\s\S]*?#theia-bottom-split-panel\s*\{[^}]*right:\s*420px !important/u
+      /body\.unilab-agent-panel-visible[\s\S]*?#theia-bottom-split-panel\s*\{[^}]*right:\s*var\(--unilab-agent-panel-width, 420px\) !important/u
     )
+    expect(agentNavigatorSource).toContain('new ResizeObserver(publishWidth)')
+    expect(agentNavigatorSource).toContain("getBoundingClientRect().width")
+    expect(agentNavigatorSource).toContain("'--unilab-agent-panel-width'")
     expect(domainNavigationStylesheet).toMatch(
       /@media \(max-width:\s*720px\)[\s\S]*?body\.unilab-agent-panel-visible[\s\S]*?#theia-right-content-panel\s*\{[^}]*position:\s*absolute !important;[^}]*inset:\s*0 !important;[^}]*width:\s*100% !important;/u
     )

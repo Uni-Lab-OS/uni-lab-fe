@@ -68,6 +68,7 @@ export function createRemoteWorkbenchController({
         publicOrigin: configuration.publicOrigin,
         tlsCertificatePath: configuration.tlsCertificatePath,
         tlsKeyPath: configuration.tlsKeyPath,
+        authenticationRequired: configuration.authenticationRequired,
         tokenTtlMs: configuration.tokenTtlMs,
         rendererPath: `${renderer.pathname}${renderer.search}${renderer.hash}`,
         log

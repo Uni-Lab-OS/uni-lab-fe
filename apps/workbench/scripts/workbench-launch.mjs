@@ -31,6 +31,7 @@ const VALUE_FLAGS = new Map([
   ['--public-origin', 'publicOrigin'],
   ['--tls-cert', 'tlsCertificatePath'],
   ['--tls-key', 'tlsKeyPath'],
+  ['--remote-auth-mode', 'remoteAuthMode'],
   ['--token-ttl-seconds', 'tokenTtlSeconds'],
   ['--access-url-file', 'accessUrlFile']
 ])
@@ -41,6 +42,7 @@ const REMOTE_VALUE_KEYS = new Set([
   'publicOrigin',
   'tlsCertificatePath',
   'tlsKeyPath',
+  'remoteAuthMode',
   'tokenTtlSeconds',
   'accessUrlFile'
 ])
@@ -275,6 +277,14 @@ function resolveRemoteConfiguration({
   currentDirectory,
   backendPort
 }) {
+  const authenticationMode = values.remoteAuthMode
+    ?? environment.UNILAB_REMOTE_AUTH_MODE
+    ?? 'required'
+  if (!['required', 'disabled'].includes(authenticationMode)) {
+    throw new Error(
+      `Remote Workbench auth mode must be required or disabled: ${authenticationMode}`
+    )
+  }
   const rawPort = values.remotePort
     ?? environment.UNILAB_REMOTE_PORT
     ?? String(backendPort + 1)
@@ -313,6 +323,7 @@ function resolveRemoteConfiguration({
     tlsKeyPath: pathValue(
       values.tlsKeyPath ?? environment.UNILAB_REMOTE_TLS_KEY
     ),
+    authenticationRequired: authenticationMode === 'required',
     tokenTtlMs: tokenTtlSeconds * 1_000,
     accessUrlFile: pathValue(
       values.accessUrlFile ?? environment.UNILAB_REMOTE_ACCESS_URL_FILE

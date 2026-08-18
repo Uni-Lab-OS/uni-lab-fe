@@ -69,6 +69,7 @@ describe('Workbench launch contract', () => {
       '--public-origin', 'https://workbench.example.test',
       '--tls-cert', './tls/cert.pem',
       '--tls-key', './tls/key.pem',
+      '--remote-auth-mode', 'disabled',
       '--token-ttl-seconds', '3600',
       '--access-url-file', '../run/workbench.url'
     ], {}, '/srv/unilab'), {
@@ -84,6 +85,7 @@ describe('Workbench launch contract', () => {
         publicOrigin: 'https://workbench.example.test',
         tlsCertificatePath: '/srv/unilab/tls/cert.pem',
         tlsKeyPath: '/srv/unilab/tls/key.pem',
+        authenticationRequired: false,
         tokenTtlMs: 3_600_000,
         accessUrlFile: '/srv/run/workbench.url'
       }
@@ -100,6 +102,12 @@ describe('Workbench launch contract', () => {
         '--remote', '--port', '3110', '--remote-port', '3110'
       ]),
       /must differ/
+    )
+    assert.throws(
+      () => resolveWorkbenchLaunchConfiguration([
+        '--remote', '--remote-auth-mode', 'optional'
+      ]),
+      /must be required or disabled/
     )
   })
 

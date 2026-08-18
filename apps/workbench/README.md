@@ -80,6 +80,7 @@ pnpm --filter @unilab/workbench start:remote -- \
   --public-origin https://workbench.example.com:8443 \
   --tls-cert /etc/unilab/tls/fullchain.pem \
   --tls-key /etc/unilab/tls/private-key.pem \
+  --remote-auth-mode disabled \
   --access-url-file /run/unilab-workbench/access.url
 ```
 
@@ -117,6 +118,7 @@ UNILAB_REMOTE_PORT=8443
 UNILAB_REMOTE_PUBLIC_ORIGIN=https://workbench.example.com:8443
 UNILAB_REMOTE_TLS_CERT=/etc/unilab/tls/fullchain.pem
 UNILAB_REMOTE_TLS_KEY=/etc/unilab/tls/private-key.pem
+UNILAB_REMOTE_AUTH_MODE=disabled
 UNILAB_REMOTE_ACCESS_URL_FILE=/run/unilab-workbench/access.url
 ```
 
@@ -124,6 +126,12 @@ Do not add a capability token to this file. Workbench generates it on every
 start and writes the complete secret URL only to the configured access URL
 file. The service account must be able to write that file; only the operator
 who delivers the URL to the browser should be able to read it.
+
+Set `UNILAB_REMOTE_AUTH_MODE=disabled` only for a deployment whose network or
+upstream gateway already defines the access boundary. In this mode the facade
+publishes the ordinary Workbench URL and does not require a token or session
+cookie. Host, Origin and HTTPS checks remain active. Omit the variable (or set
+it to `required`) to retain capability authentication.
 
 - Linux installs `linux/unilab-workbench.service` and a root-controlled
   `/etc/unilab/workbench.env`, then enables the systemd unit.

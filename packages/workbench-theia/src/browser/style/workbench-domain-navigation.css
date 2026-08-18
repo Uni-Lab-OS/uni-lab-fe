@@ -213,7 +213,7 @@ body.unilab-agent-panel-visible
 body.unilab-agent-panel-visible
   #theia-left-right-split-panel
   > #theia-bottom-split-panel {
-  right: 420px !important;
+  right: var(--unilab-agent-panel-width, 420px) !important;
 }
 
 /*
