@@ -4,6 +4,10 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const componentDirectory = fileURLToPath(new URL('.', import.meta.url))
+const authoringHookPath = fileURLToPath(new URL(
+  '../hooks/usePersistentWorkflowAuthoring.ts',
+  import.meta.url
+))
 
 /** 读取工作流视图源码，验证 OS 与 Backend 是否经过同一个工作区 seam。 */
 function componentSource(name: string): string {
@@ -34,6 +38,16 @@ describe('Workflow workspace authority', () => {
     expect(existsSync(
       `${componentDirectory}/ExistingWorkflowCanvas.tsx`
     )).toBe(false)
+  })
+
+  /** 候选图可在 revision 不变时变化；代码保存事件必须比较完整身份后补读。 */
+  it('refreshes the canvas when saved code changes candidate nodes', () => {
+    const source = readFileSync(authoringHookPath, 'utf8')
+
+    expect(source).toContain('isCurrentAuthoringInvalidation')
+    expect(source).toMatch(
+      /if \(isCurrentAuthoringInvalidation\(event, current\.aggregate\)\) return/u
+    )
   })
 
   /** 属性面板只展示选中节点的说明，不得用保存或投影错误充当描述。 */
