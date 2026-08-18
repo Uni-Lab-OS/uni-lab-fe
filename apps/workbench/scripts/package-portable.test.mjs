@@ -59,6 +59,37 @@ describe('portable Workbench packaging contract', () => {
     )
   })
 
+  /** 验证 Windows A/B 能复用同一应用目录，并只切换已压缩资源配置。 */
+  it('supports directory and prepackaged Windows media modes', async () => {
+    const packagingScript = await readFile(
+      new URL('./package-portable.mjs', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(packagingScript, /packageMode === 'directory'/u)
+    assert.match(packagingScript, /builderArgs\.push\('--prepackaged'/u)
+    assert.match(
+      packagingScript,
+      /--config\.nsis\.preCompressedFileExtensions=/u
+    )
+    assert.match(packagingScript, /allowsOversizePackagingBenchmark\(\)/u)
+  })
+
+  /** 验证可递归清理的覆盖目录不能逃逸专用暂存范围。 */
+  it('confines reusable packaging output to a dedicated staging root', () => {
+    const stagingRoot = join(tmpdir(), 'unilab-packaging-staging')
+    const child = join(stagingRoot, 'windows')
+    assert.equal(assertSafeChildDirectory(child, stagingRoot, '测试目录'), child)
+    assert.throws(
+      () => assertSafeChildDirectory(stagingRoot, stagingRoot, '测试目录'),
+      /必须位于专用目录/u
+    )
+    assert.throws(
+      () => assertSafeChildDirectory(tmpdir(), stagingRoot, '测试目录'),
+      /必须位于专用目录/u
+    )
+  })
+
   /** 验证最终 NSIS 技术清单只查询并必须包含安装根目录的桌面主程序。 */
   it('rejects a Windows installer without its desktop executable', () => {
     assert.match(
@@ -88,37 +119,6 @@ describe('portable Workbench packaging contract', () => {
         'Path = resources\\UniLab Workbench.exe'
       ),
       /Windows 安装包缺少桌面主程序/u
-    )
-  })
-
-  /** 验证 Windows A/B 能复用同一应用目录，并只切换已压缩资源配置。 */
-  it('supports directory and prepackaged Windows media modes', async () => {
-    const packagingScript = await readFile(
-      new URL('./package-portable.mjs', import.meta.url),
-      'utf8'
-    )
-
-    assert.match(packagingScript, /packageMode === 'directory'/u)
-    assert.match(packagingScript, /builderArgs\.push\('--prepackaged'/u)
-    assert.match(
-      packagingScript,
-      /--config\.nsis\.preCompressedFileExtensions=/u
-    )
-    assert.match(packagingScript, /allowsOversizePackagingBenchmark\(\)/u)
-  })
-
-  /** 验证可递归清理的覆盖目录不能逃逸专用暂存范围。 */
-  it('confines reusable packaging output to a dedicated staging root', () => {
-    const stagingRoot = join(tmpdir(), 'unilab-packaging-staging')
-    const child = join(stagingRoot, 'windows')
-    assert.equal(assertSafeChildDirectory(child, stagingRoot, '测试目录'), child)
-    assert.throws(
-      () => assertSafeChildDirectory(stagingRoot, stagingRoot, '测试目录'),
-      /必须位于专用目录/u
-    )
-    assert.throws(
-      () => assertSafeChildDirectory(tmpdir(), stagingRoot, '测试目录'),
-      /必须位于专用目录/u
     )
   })
 
