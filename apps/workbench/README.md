@@ -23,7 +23,8 @@ does not silently switch environments.
 
 Docker 运行 Theia Workbench，并把 Backend Authority 转发到宿主机服务。
 Linux 容器不执行宿主机的 macOS Conda/OS 环境，因此该部署用于 Backend
-模式；本地调试模式仍使用上面的原生启动方式。
+模式，并默认直接进入 Backend Authority；本地调试模式仍使用上面的原生
+启动方式。容器仅预置信任挂载点 `file:///workspace`，不会扩大到其他目录。
 
 ```bash
 export UNILAB_WORKSPACE=/absolute/path/to/workspace

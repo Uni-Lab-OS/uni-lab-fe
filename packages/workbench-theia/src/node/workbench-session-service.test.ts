@@ -6,12 +6,44 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { WorkbenchSessionClient } from '../common/workbench-session-protocol'
 import {
+  configuredWorkbenchDomainMode,
   readableRuntimeLogPath,
   sanitizeRuntimeLogForEditor,
+  workspaceBackendAutostartEnabled,
   WorkbenchSessionService
 } from './workbench-session-service'
 
 describe('WorkbenchSessionService', () => {
+  it('selects backend-only container startup without guessing other values', () => {
+    expect(configuredWorkbenchDomainMode({
+      UNILAB_WORKBENCH_DOMAIN_MODE: 'backend'
+    })).toBe('backend')
+    expect(configuredWorkbenchDomainMode({
+      UNILAB_WORKBENCH_DOMAIN_MODE: 'unexpected'
+    })).toBe('local')
+    expect(workspaceBackendAutostartEnabled({
+      UNILAB_WORKSPACE_BACKEND_ENABLED: '0'
+    })).toBe(false)
+  })
+
+  it('does not launch local Python services in backend-only mode', async () => {
+    const startAgent = vi.fn().mockResolvedValue(snapshot('idle', null))
+    const startWorkspaceBackend = vi.fn().mockResolvedValue(snapshot('ready', 41))
+    const refreshPlcVariableTables = vi.fn().mockResolvedValue(snapshot('idle', null))
+    const session = {
+      startAgent,
+      startWorkspaceBackend,
+      refreshPlcVariableTables
+    } as unknown as WorkbenchSession
+    const service = new WorkbenchSessionService()
+    Object.assign(service, { session, workspaceBackendEnabled: false })
+
+    service.onStart()
+    await vi.waitFor(() => expect(startAgent).toHaveBeenCalledOnce())
+    expect(startWorkspaceBackend).not.toHaveBeenCalled()
+    expect(refreshPlcVariableTables).not.toHaveBeenCalled()
+  })
+
   it('starts Workspace Backend and Agent when the Theia backend opens', async () => {
     const startAgent = vi.fn().mockResolvedValue(snapshot('idle', null))
     const startWorkspaceBackend = vi.fn().mockResolvedValue(

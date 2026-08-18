@@ -158,6 +158,14 @@ export default function WorkflowPanel({
               persistActiveWorkflowId(activeWorkflowStorageKey, '')
               setShowCatalog(true)
             }}
+        onWorkflowUnavailable={allowWorkflowSelection && !explicitWorkflowUuid
+          ? () => {
+              persistActiveWorkflowId(activeWorkflowStorageKey, '')
+              setSelectedWorkflowUuid(null)
+              setSelectedWorkflowName('')
+              setShowCatalog(true)
+            }
+          : undefined}
         onResetEnvironment={onResetEnvironment}
         environmentResetBusy={environmentResetBusy}
       />

@@ -94,6 +94,7 @@ import {
   currentBrowserOrigin,
   initialWorkbenchConnectionMode,
   persistWorkbenchConnectionMode,
+  requiresWorkspaceSessionGate,
   sessionConnectionState,
   useBackendConnectionState
 } from './workbench-connection-runtime'
@@ -808,10 +809,10 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       managedLocalUrl: this.sessionSnapshot.identity?.backendUrl,
       browserOrigin: currentBrowserOrigin()
     })
-    if (
-      this.sessionSnapshot.phase !== 'ready'
-      || !this.sessionSnapshot.identity
-    ) {
+    if (requiresWorkspaceSessionGate(
+      this.connectionMode,
+      this.sessionSnapshot
+    )) {
       return (
         <WorkbenchSessionGate
           snapshot={this.sessionSnapshot}

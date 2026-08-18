@@ -44,6 +44,7 @@ interface PersistentWorkflowAuthoringPanelProps {
     visibleMaterialRoles: readonly string[] | null
   ) => void
   onChooseWorkflow?: () => void
+  onWorkflowUnavailable?: (workflowUuid: string) => void
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
   recoveryRevision?: number

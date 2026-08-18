@@ -26,6 +26,7 @@ export interface PersistentWorkflowAuthoringOptions {
   ) => void
   onSelectedWorkflowStepChange?: (workflowNodeUuid: string | null) => void
   onChooseWorkflow?: () => void
+  onWorkflowUnavailable?: (workflowUuid: string) => void
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
   recoveryRevision?: number

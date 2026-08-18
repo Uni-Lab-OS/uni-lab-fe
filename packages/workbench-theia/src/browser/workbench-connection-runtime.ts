@@ -93,6 +93,16 @@ export function sessionConnectionState(
   return 'connecting'
 }
 
+/** Backend-only deployments can render remote domains without a local Workspace Host identity. */
+export function requiresWorkspaceSessionGate(
+  mode: WorkbenchConnectionMode,
+  snapshot: Pick<WorkbenchSessionSnapshot, 'phase' | 'identity'>
+): boolean {
+  return mode === 'local' && (
+    snapshot.phase !== 'ready' || !snapshot.identity
+  )
+}
+
 /**
  * 从 URL 和浏览器偏好解析 Workbench 初始运行连接。
  * @returns 显式查询优先且未知值失败关闭后的连接模式。

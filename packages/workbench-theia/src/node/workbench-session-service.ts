@@ -6,6 +6,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, resolve } from 'node:path'
 import {
   createWorkspaceHostWorkbenchSession,
+  type WorkbenchDomainMode,
   type WorkbenchSession
 } from '@unilab/workbench-session'
 
@@ -41,6 +42,22 @@ export function readableRuntimeLogPath(logPath: string): string {
   return resolve(dirname(logPath), '.readable', `${stem}.readable${extension || '.log'}`)
 }
 
+/** Resolve the authority selected by the hosting process without accepting arbitrary values. */
+export function configuredWorkbenchDomainMode(
+  environment: NodeJS.ProcessEnv = process.env
+): WorkbenchDomainMode {
+  return environment['UNILAB_WORKBENCH_DOMAIN_MODE'] === 'backend'
+    ? 'backend'
+    : 'local'
+}
+
+/** Docker's backend-only surface must not try to launch a host Python runtime. */
+export function workspaceBackendAutostartEnabled(
+  environment: NodeJS.ProcessEnv = process.env
+): boolean {
+  return environment['UNILAB_WORKSPACE_BACKEND_ENABLED'] !== '0'
+}
+
 function createWorkbenchNodeSession(): WorkbenchNodeSession {
   return createWorkspaceHostWorkbenchSession({
     workspacePath: process.env['THEIA_WORKSPACE'] ?? '',
@@ -50,6 +67,7 @@ function createWorkbenchNodeSession(): WorkbenchNodeSession {
     agentAppPath: process.env['UNILAB_AIONUI_APP'],
     agentBrandIconPath: process.env['UNILAB_AGENT_ICON'],
     plcSimulatorProjectPath: process.env['UNILAB_PLC_SIM_PROJECT'],
+    domainMode: configuredWorkbenchDomainMode(),
     backendAuthorityUrl: process.env['UNILAB_BACKEND_PROXY_TARGET'],
     schedulerAuthorityUrl: process.env['UNILAB_SCHEDULER_PROXY_TARGET']
   })
@@ -65,6 +83,7 @@ implements WorkbenchSessionServer, BackendApplicationContribution {
   private readonly clients = new Set<WorkbenchSessionClient>()
   private readonly rendererManagedByHost =
     process.env['UNILAB_RENDERER_MANAGED_HEADLESS'] === '1'
+  private readonly workspaceBackendEnabled = workspaceBackendAutostartEnabled()
   private activeRendererClient: WorkbenchSessionClient | null = null
   private readonly pendingRendererRequests = new Map<
     string,
@@ -78,15 +97,19 @@ implements WorkbenchSessionServer, BackendApplicationContribution {
         this.logger.warn('Workspace renderer registration failed', error)
       })
     }
-    void this.session.startWorkspaceBackend().catch(error => {
-      this.logger.warn('Workspace Backend startup failed', error)
-    })
+    if (this.workspaceBackendEnabled) {
+      void this.session.startWorkspaceBackend().catch(error => {
+        this.logger.warn('Workspace Backend startup failed', error)
+      })
+    }
     void this.session.startAgent().catch(error => {
       this.logger.warn('Workspace Agent startup failed', error)
     })
-    void this.session.refreshPlcVariableTables().catch(error => {
-      this.logger.warn('Workspace PLC variable-table discovery failed', error)
-    })
+    if (this.workspaceBackendEnabled) {
+      void this.session.refreshPlcVariableTables().catch(error => {
+        this.logger.warn('Workspace PLC variable-table discovery failed', error)
+      })
+    }
   }
 
   async onStop(): Promise<void> {

@@ -92,6 +92,7 @@ export function usePersistentWorkflowAuthoring({
   onWorkflowRuntimeProjectionChange,
   onSelectedWorkflowStepChange,
   onChooseWorkflow,
+  onWorkflowUnavailable,
   ideBridge,
   hideEmbeddedCodeEditor = false,
   recoveryRevision = 0
@@ -463,6 +464,10 @@ export function usePersistentWorkflowAuthoring({
       })
       .catch((loadError) => {
         if (!active) return
+        if (isMissingWorkflowError(loadError)) {
+          onWorkflowUnavailable?.(workflowUuid)
+          return
+        }
         setError(errorMessage(loadError))
       })
       .finally(() => {
@@ -471,7 +476,14 @@ export function usePersistentWorkflowAuthoring({
     return () => {
       active = false
     }
-  }, [definitionPort, installAggregate, queue, recoveryRevision])
+  }, [
+    definitionPort,
+    installAggregate,
+    onWorkflowUnavailable,
+    queue,
+    recoveryRevision,
+    workflowUuid
+  ])
 
   useEffect(
     /**
@@ -1375,4 +1387,10 @@ export function usePersistentWorkflowAuthoring({
     ...taskPanel,
     ...workflowStart
   }
+}
+
+/** Identify a stale workflow identity without treating transport failures as deletion. */
+export function isMissingWorkflowError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /(?:workflow[^\n]*not found|工作流[^\n]*不存在)/iu.test(message)
 }

@@ -31,9 +31,19 @@ describe('Workbench Docker deployment', () => {
 
   it('publishes only loopback and requires an explicit Workspace mount', async () => {
     const compose = await readFile(new URL('compose.yaml', directory), 'utf8')
+    const settings = JSON.parse(await readFile(
+      new URL('docker-settings.json', directory),
+      'utf8'
+    ))
 
     assert.match(compose, /127\.0\.0\.1:3100:3100/)
     assert.match(compose, /UNILAB_WORKSPACE:\?Set UNILAB_WORKSPACE/)
     assert.match(compose, /host\.docker\.internal:30053/)
+    assert.match(compose, /UNILAB_WORKBENCH_DOMAIN_MODE: backend/)
+    assert.match(compose, /UNILAB_WORKSPACE_BACKEND_ENABLED: "0"/)
+    assert.match(compose, /docker-settings\.json/)
+    assert.deepEqual(settings['security.workspace.trust.trustedFolders'], [
+      'file:///workspace'
+    ])
   })
 })

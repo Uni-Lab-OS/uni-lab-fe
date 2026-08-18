@@ -2,12 +2,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   monitorBackendConnection,
+  requiresWorkspaceSessionGate,
   sessionConnectionState
 } from './workbench-connection-runtime'
 
 afterEach(() => vi.useRealTimers())
 
 describe('Workbench connection runtime projection', () => {
+  it('renders backend-only deployments without a local Workspace Host', () => {
+    const unavailable = { phase: 'idle' as const, identity: null }
+
+    expect(requiresWorkspaceSessionGate('backend', unavailable)).toBe(false)
+    expect(requiresWorkspaceSessionGate('local', unavailable)).toBe(true)
+  })
+
   /** 证明托管 OS 生命周期只投影传输健康，不伪造调度或任务状态。 */
   it('maps managed session phases to connection states', () => {
     expect(sessionConnectionState('ready')).toBe('connected')
