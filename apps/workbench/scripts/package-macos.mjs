@@ -47,7 +47,10 @@ export const NODE_RUNTIME_SHA256_X64 =
   'f2879eb810e25993a0578e5d878930266fd2eafcffe9f2839b3d8db354d4879e'
 const REQUIRED_SIGNING_ENVIRONMENT = [
   'CSC_LINK',
-  'CSC_KEY_PASSWORD'
+  'CSC_KEY_PASSWORD',
+  'APPLE_ID',
+  'APPLE_APP_SPECIFIC_PASSWORD',
+  'APPLE_TEAM_ID'
 ]
 
 const workbenchDirectory = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -359,7 +362,9 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
     }
     let installer = findInstaller(outputDirectory)
     if (signed) {
-      verifySignedApplication(appPath)
+      notarizeAndStapleDiskImage(installer.path)
+      installer = findInstaller(outputDirectory)
+      verifySignedAndNotarized(appPath, installer.path)
     }
     if (developerId) {
       installer = signAndVerifyDeveloperIdCandidate(
@@ -371,7 +376,7 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
     if (adhoc) installer = signAndVerifyAdHocCandidate(installer.path)
     publishMacosArtifacts(outputDirectory)
     const distribution = signed
-      ? 'Developer ID signed (not notarized)'
+      ? 'Developer ID signed and Apple notarized'
       : developerId
         ? 'RC Developer ID signed (not notarized)'
         : adhoc ? 'RC ad-hoc signed' : 'unsigned'
@@ -488,8 +493,48 @@ function publishMacosArtifacts(outputDirectory) {
   }
 }
 
-function verifySignedApplication(appPath) {
-  runCommand('codesign', ['--verify', '--deep', '--strict', '--verbose=2', appPath])
+function notarizeAndStapleDiskImage(installerPath) {
+  runCommand('xcrun', [
+    'notarytool',
+    'submit',
+    installerPath,
+    '--apple-id',
+    process.env['APPLE_ID'],
+    '--password',
+    process.env['APPLE_APP_SPECIFIC_PASSWORD'],
+    '--team-id',
+    process.env['APPLE_TEAM_ID'],
+    '--wait'
+  ])
+  runCommand('xcrun', ['stapler', 'staple', installerPath])
+}
+
+function verifySignedAndNotarized(appPath, installerPath) {
+  runCommand('codesign', [
+    '--verify',
+    '--deep',
+    '--strict',
+    '--verbose=2',
+    appPath
+  ])
+  runCommand('spctl', [
+    '--assess',
+    '--type',
+    'execute',
+    '--verbose=2',
+    appPath
+  ])
+  runCommand('xcrun', ['stapler', 'validate', appPath])
+  runCommand('xcrun', ['stapler', 'validate', installerPath])
+  runCommand('spctl', [
+    '--assess',
+    '--type',
+    'open',
+    '--context',
+    'context:primary-signature',
+    '--verbose=2',
+    installerPath
+  ])
 }
 
 function findDeveloperIdIdentity() {

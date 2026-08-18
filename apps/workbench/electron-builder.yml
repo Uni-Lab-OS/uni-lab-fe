@@ -109,8 +109,8 @@ mac:
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
-  # 当前导出包仅做 Developer ID 签名，暂不提交 Apple 公证。
-  notarize: false
+  # 正式包由 electron-builder 公证并装订应用；DMG 在生成后单独公证并装订。
+  notarize: true
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
   # macOS 13+ supports LZFSE. It avoids maximum compression's much slower UDBZ

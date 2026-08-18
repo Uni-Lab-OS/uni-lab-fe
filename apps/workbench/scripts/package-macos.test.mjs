@@ -72,7 +72,7 @@ describe('Workbench macOS distribution gate', () => {
   it('never silently downgrades the formal release to unsigned', () => {
     assert.throws(
       () => assertMacosSigningEnvironment({}),
-      /CSC_LINK.*CSC_KEY_PASSWORD/
+      /CSC_LINK.*CSC_KEY_PASSWORD.*APPLE_ID.*APPLE_APP_SPECIFIC_PASSWORD.*APPLE_TEAM_ID/
     )
   })
 
@@ -88,7 +88,7 @@ describe('Workbench macOS distribution gate', () => {
     )
   })
 
-  it('keeps Developer ID signing while notarization is disabled', async () => {
+  it('requires Developer ID signing and Apple notarization for formal DMGs', async () => {
     const packagingScript = await readFile(
       new URL('./package-macos.mjs', import.meta.url),
       'utf8'
@@ -98,10 +98,15 @@ describe('Workbench macOS distribution gate', () => {
       'utf8'
     )
 
-    assert.match(builderConfiguration, /notarize: false/u)
-    assert.match(packagingScript, /verifySignedApplication\(appPath\)/u)
+    assert.match(builderConfiguration, /notarize: true/u)
+    assert.match(packagingScript, /notarizeAndStapleDiskImage\(installer\.path\)/u)
+    assert.match(packagingScript, /verifySignedAndNotarized\(appPath, installer\.path\)/u)
     assert.match(packagingScript, /runCommand\('codesign'/u)
-    assert.doesNotMatch(packagingScript, /notarytool|stapler|APPLE_/u)
+    assert.match(packagingScript, /'notarytool',\s*'submit'/u)
+    assert.match(packagingScript, /'--wait'/u)
+    assert.match(packagingScript, /'stapler', 'staple'/u)
+    assert.match(packagingScript, /'stapler', 'validate'/u)
+    assert.match(packagingScript, /runCommand\('spctl'/u)
   })
 
   it('keeps the temporary ad-hoc acceptance build separate from formal release', async () => {
@@ -212,7 +217,10 @@ describe('Workbench macOS distribution gate', () => {
   it('accepts the complete electron-builder signing contract', () => {
     assert.doesNotThrow(() => assertMacosSigningEnvironment({
       CSC_LINK: '/secure/developer-id.p12',
-      CSC_KEY_PASSWORD: 'redacted'
+      CSC_KEY_PASSWORD: 'redacted',
+      APPLE_ID: 'release@example.com',
+      APPLE_APP_SPECIFIC_PASSWORD: 'redacted',
+      APPLE_TEAM_ID: 'TEAM123456'
     }))
   })
 
@@ -430,8 +438,13 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(workflow, /build:desktop:production/u)
     assert.match(workflow, /package-macos\.mjs "--\$UNILAB_CI_SIGNING_MODE"/u)
     assert.match(workflow, /CSC_LINK: \$\{\{ secrets\.CSC_LINK \}\}/u)
-    assert.doesNotMatch(workflow, /APPLE_ID|APPLE_TEAM_ID|APPLE_APP_SPECIFIC_PASSWORD/u)
-    assert.doesNotMatch(workflow, /notarytool|stapler/u)
+    assert.match(workflow, /APPLE_ID: \$\{\{ secrets\.APPLE_ID \}\}/u)
+    assert.match(workflow, /APPLE_APP_SPECIFIC_PASSWORD: \$\{\{ secrets\.APPLE_APP_SPECIFIC_PASSWORD \}\}/u)
+    assert.match(workflow, /APPLE_TEAM_ID: \$\{\{ secrets\.APPLE_TEAM_ID \}\}/u)
+    assert.match(workflow, /xcrun stapler validate/u)
+    assert.match(workflow, /^\s+TZ: Asia\/Shanghai$/mu)
+    assert.match(workflow, /BUILD_STARTED_AT_CST=/u)
+    assert.match(workflow, /更新时间：\$BUILD_STARTED_AT_CST（UTC\+08:00）/u)
     assert.match(workflow, /prepare-package-version\.mjs/u)
     assert.match(
       workflow,

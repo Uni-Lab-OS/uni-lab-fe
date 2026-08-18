@@ -34,6 +34,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  TZ: Asia/Shanghai
   AIONUI_MACOS_SHA512: 68ad39e6c877a623c7a27f0612e9299525fbc406f1aca96d4c85bed6c446c6632e77249d94cd6e0689c2e98c34faca395e64b37b7a92ed99e57b1abcbf95d867
   AIONUI_VERSION: 2.1.53
   CONSTRUCTOR_VERSION: 3.16.1
@@ -63,7 +64,11 @@ jobs:
 
     steps:
       - name: Start pipeline timer
-        run: echo "PIPELINE_STARTED_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+        run: |
+          echo "PIPELINE_STARTED_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+          build_started_at_cst="$(date '+%Y-%m-%d %H:%M:%S %z')"
+          echo "BUILD_STARTED_AT_CST=$build_started_at_cst" >> "$GITHUB_ENV"
+          echo "macOS build time (UTC+08:00): $build_started_at_cst"
 
       - name: Check out Workbench
         uses: actions/checkout@v6
@@ -98,11 +103,14 @@ jobs:
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           missing=()
-          for name in CSC_LINK CSC_KEY_PASSWORD; do
+          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
             if [[ -z "${!name:-}" ]]; then missing+=("$name"); fi
           done
           if (( ${#missing[@]} > 0 )); then
@@ -399,6 +407,9 @@ jobs:
           UNILAB_WORKBENCH_PACKAGE_MODE: ${{ env.UNILAB_CI_PACKAGE_MODE == 'quick' && 'directory' || 'full' }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
           package_started="$(date +%s)"
@@ -429,6 +440,10 @@ jobs:
           test -n "$dmg_path"
           test "$(find "$release_directory" -maxdepth 1 -type f | wc -l | tr -d ' ')" = 1
           hdiutil verify "$dmg_path"
+          if [[ "$UNILAB_CI_SIGNING_MODE" == 'signed' ]]; then
+            xcrun stapler validate "$dmg_path"
+            spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg_path"
+          fi
 
           verify_mount="$RUNNER_TEMP/workbench-dmg-mount"
           mkdir -p "$verify_mount"
@@ -437,6 +452,11 @@ jobs:
           hdiutil attach "$dmg_path" -readonly -nobrowse -quiet -mountpoint "$verify_mount"
           packaged_app="$(find "$verify_mount" -maxdepth 1 -type d -name '*.app' -print -quit)"
           test -n "$packaged_app"
+          if [[ "$UNILAB_CI_SIGNING_MODE" == 'signed' ]]; then
+            codesign --verify --deep --strict --verbose=2 "$packaged_app"
+            spctl --assess --type execute --verbose=2 "$packaged_app"
+            xcrun stapler validate "$packaged_app"
+          fi
           installed_kib="$(du -sk "$packaged_app" | awk '{print $1}')"
           resources_kib="$(du -sk "$packaged_app/Contents/Resources" | awk '{print $1}')"
           hdiutil detach "$verify_mount" -force
@@ -489,6 +509,7 @@ jobs:
             echo
             echo '| Metric | Result |'
             echo '| --- | ---: |'
+            echo "| Build started (UTC+08:00) | $BUILD_STARTED_AT_CST |"
             echo "| Distribution | $UNILAB_CI_SIGNING_MODE |"
             echo "| Production build | ${BUILD_SECONDS}s |"
             echo "| Native packaging | ${PACKAGE_SECONDS}s |"
@@ -632,9 +653,9 @@ jobs:
 
           当前提交：$GITHUB_SHA
           发布版本：$UNILAB_WORKBENCH_PACKAGE_VERSION
-          更新时间：$(date -u '+%Y-%m-%d %H:%M:%S') UTC
+          更新时间：$BUILD_STARTED_AT_CST（UTC+08:00）
 
-          当前仅发布 Developer ID 签名、未公证的 DMG；ZIP 自动更新介质暂时停用。此 Release 不参与仓库 Latest Release 排序。
+          当前仅发布 Developer ID 签名并经 Apple 公证的 DMG；ZIP 自动更新介质暂时停用。此 Release 不参与仓库 Latest Release 排序。
           EOF
           )"
           gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$release_id" \
