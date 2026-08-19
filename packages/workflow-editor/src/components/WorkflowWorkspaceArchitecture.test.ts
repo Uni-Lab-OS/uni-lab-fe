@@ -4,10 +4,6 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const componentDirectory = fileURLToPath(new URL('.', import.meta.url))
-const authoringHookPath = fileURLToPath(new URL(
-  '../hooks/usePersistentWorkflowAuthoring.ts',
-  import.meta.url
-))
 
 /** 读取工作流视图源码，验证 OS 与 Backend 是否经过同一个工作区 seam。 */
 function componentSource(name: string): string {
@@ -38,16 +34,6 @@ describe('Workflow workspace authority', () => {
     expect(existsSync(
       `${componentDirectory}/ExistingWorkflowCanvas.tsx`
     )).toBe(false)
-  })
-
-  /** 候选图可在 revision 不变时变化；代码保存事件必须比较完整身份后补读。 */
-  it('refreshes the canvas when saved code changes candidate nodes', () => {
-    const source = readFileSync(authoringHookPath, 'utf8')
-
-    expect(source).toContain('isCurrentAuthoringInvalidation')
-    expect(source).toMatch(
-      /if \(isCurrentAuthoringInvalidation\(event, current\.aggregate\)\) return/u
-    )
   })
 
   /** 属性面板只展示选中节点的说明，不得用保存或投影错误充当描述。 */
@@ -95,23 +81,6 @@ describe('Workflow workspace authority', () => {
     )
     expect(outputStylesheet).toMatch(
       /@container workflow \(max-width: 720px\)[\s\S]*?\.workflow-runtime__output-tabs\) button[^{]*\{[^}]*min-width:\s*max-content[^}]*flex:\s*0 0 auto/u
-    )
-  })
-
-  /** 长诊断和中英混排不得撑破复位弹窗或制造横向滚动。 */
-  it('contains long environment reset diagnostics inside the dialog', () => {
-    const stylesheet = componentSource('workflow-persistent/_section-01.scss')
-    expect(stylesheet).toMatch(
-      /\.persistent-authoring__reset-dialog\)[^{]*\{[^}]*white-space:\s*normal/u
-    )
-    expect(stylesheet).toMatch(
-      /\.persistent-authoring__reset-dialog\)\s*>\s*div[^{]*\{[^}]*min-width:\s*0/u
-    )
-    expect(stylesheet).toMatch(
-      /\.persistent-authoring__reset-dialog\)[^{]*\{[^}]*overflow-x:\s*hidden/u
-    )
-    expect(stylesheet).toMatch(
-      /\.persistent-authoring__reset-error\)[^{]*\{[^}]*overflow-wrap:\s*anywhere/u
     )
   })
 

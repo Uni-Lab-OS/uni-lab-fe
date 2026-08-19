@@ -75,6 +75,7 @@ import {
 } from '../common/workbench-session-protocol'
 import { WorkbenchSessionClientImpl } from './workbench-session-client'
 import { desktopWorkflowTraceRuntime } from './desktop-workflow-trace-runtime'
+import { desktopWorkspaceApi } from './desktop-workspace'
 import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
 import { EnvironmentManager } from './environment-manager'
 import { createTheiaWorkflowIdeAdapter } from './theia-workflow-ide-adapter'
@@ -340,7 +341,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     }
   }
 
-  /** 由 Workspace Host 协调当前 OS 基线、Backend PG 对齐与 PLC-Sim 复位。 */
+  /** 重启 PLC-Sim，并用当前设备图重建目标 Backend 的物料与库位状态。 */
   protected readonly resetWorkflowEnvironment = async (
     backendUrl: string
   ): Promise<void> => {
@@ -348,7 +349,9 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       throw new Error('请先保存当前工作流修改，再复位运行环境')
     }
     try {
-      await this.workbenchSession.resetWorkflowEnvironment(backendUrl)
+      await this.workbenchSession.stopPlcSimulator()
+      await this.workbenchSession.startPlcSimulator()
+      await this.publishRelease(backendUrl, true)
       this.recoveryRevision += 1
       void this.messages.info('运行环境已复位，可以重新运行工作流')
     } catch (error) {
@@ -1018,9 +1021,6 @@ function WorkbenchSurface({
   recordMountedWorkbenchDomains(mountedDomains.current, viewMode)
   const query = new URLSearchParams(globalThis.location.search)
   const workflowUuid = query.get('workflowUuid') ?? undefined
-  const [activeWorkflowUuid, setActiveWorkflowUuid] = useState<string | null>(
-    workflowUuid ?? null
-  )
   const selectedTarget = connectionTargets[connectionMode]
   const services = useMemo(
     () => createWorkbenchServices(selectedTarget),
@@ -1101,17 +1101,17 @@ function WorkbenchSurface({
   }, [backendProbeServices, services])
 
   const synchronizeSavedSource = useCallback(async (pythonSource: string) => {
-    if (!activeWorkflowUuid) return
+    if (!workflowUuid) return
     try {
       await synchronizeSavedWorkflowSource(
         services.workflow,
-        activeWorkflowUuid,
+        workflowUuid,
         pythonSource
       )
     } catch (error) {
       throw error
     }
-  }, [activeWorkflowUuid, services])
+  }, [services, workflowUuid])
 
   useEffect(() => {
     onSourceSaveHandlerChange(
@@ -1135,6 +1135,8 @@ function WorkbenchSurface({
     setEnvironmentResetBusy(true)
     try {
       await onResetWorkflowEnvironment(selectedTarget.backend.apiUrl)
+    } catch {
+      // 宿主已展示可操作的失败消息；这里只负责结束按钮忙碌态。
     } finally {
       setEnvironmentResetBusy(false)
     }
@@ -1172,18 +1174,18 @@ function WorkbenchSurface({
         }.v1`}
         allowWorkflowSelection
         recoveryRevision={recoveryRevision}
-        hideEmbeddedCodeEditor={connectionMode === 'local'}
+        hideEmbeddedCodeEditor={
+          connectionMode === 'local' && desktopWorkspaceApi() !== null
+        }
         ideBridge={ideBridge}
         onUnsavedChangesChange={(hasUnsavedChanges) => {
           onUnsavedChangesChange(hasUnsavedChanges)
           reportWorkflowUnsavedChanges(hasUnsavedChanges)
         }}
         onSelectedWorkflowStepChange={setSelectedWorkflowNode}
-        onActiveWorkflowChange={setActiveWorkflowUuid}
         onWorkflowRuntimeProjectionChange={setRuntimeProjection}
         onResetEnvironment={resetWorkflowEnvironment}
         environmentResetBusy={environmentResetBusy}
-        environmentResetProgress={session.environmentReset}
       />
     </section>
   )

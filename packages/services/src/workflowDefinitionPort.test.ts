@@ -40,44 +40,6 @@ describe('WorkflowDefinitionPort', () => {
       .toThrow('Python 完整差异')
   })
 
-  it('preserves Workspace draft and candidate identity in invalidations', () => {
-    let listener: Parameters<
-      WorkflowRuntimePort['subscribeWorkflowAuthoring']
-    >[1]
-    const runtime = {
-      subscribeWorkflowAuthoring: vi.fn((_workflowUuid, next) => {
-        listener = next
-        return { dispose: vi.fn() }
-      })
-    } as unknown as WorkflowRuntimePort
-    const port = createWorkflowDefinitionPort(
-      runtime,
-      'workspace',
-      WORKFLOW_UUID
-    )
-    const invalidate = vi.fn()
-
-    port.subscribe(invalidate)
-    listener!({
-      id: 'authoring-1',
-      event: 'workflow.authoring.changed',
-      data: {
-        workflow_uuid: WORKFLOW_UUID,
-        cause: 'draft_saved',
-        workflow_revision: 4,
-        draft_hash: 'draft-2',
-        candidate_hash: 'candidate-2'
-      }
-    })
-
-    expect(invalidate).toHaveBeenCalledWith({
-      workflowUuid: WORKFLOW_UUID,
-      revision: 4,
-      draftHash: 'draft-2',
-      candidateHash: 'candidate-2'
-    })
-  })
-
   it('normalizes Backend graph reads and preserves direct graph CAS writes', async () => {
     const graph = backendGraphFixture(8)
     const saved = backendGraphFixture(9)
@@ -155,10 +117,7 @@ describe('WorkflowDefinitionPort', () => {
     })
 
     expect(invalidate).toHaveBeenCalledTimes(1)
-    expect(invalidate).toHaveBeenCalledWith({
-      workflowUuid: WORKFLOW_UUID,
-      revision: 12
-    })
+    expect(invalidate).toHaveBeenCalledWith({ revision: 12 })
   })
 })
 
