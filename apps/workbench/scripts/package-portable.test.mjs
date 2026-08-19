@@ -784,10 +784,21 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /precompressed-ab-metrics\.json/u)
     assert.match(workflow, /New-SelfSignedCertificate/u)
     assert.match(workflow, /-Type CodeSigningCert/u)
+    assert.match(workflow, /WINDOWS_CSC_LINK/u)
+    assert.match(workflow, /WINDOWS_CSC_KEY_PASSWORD/u)
+    assert.match(workflow, /WINDOWS_CSC_SHA1/u)
     assert.match(workflow, /CSC_LINK=/u)
     assert.match(workflow, /CSC_KEY_PASSWORD=/u)
     assert.match(workflow, /Get-AuthenticodeSignature/u)
-    assert.match(workflow, /UNILAB_CI_CERTIFICATE_THUMBPRINT/u)
+    assert.match(workflow, /UNILAB_EXPECTED_CERTIFICATE_THUMBPRINT/u)
+    const temporaryCertificateSection = workflow.slice(
+      workflow.indexOf('name: Create temporary CI code-signing certificate'),
+      workflow.indexOf('name: Build full Windows installer')
+    )
+    assert.match(
+      temporaryCertificateSection,
+      /UNILAB_WORKBENCH_RELEASE_CHANNEL == 'test'/u
+    )
     assert.match(
       workflow,
       /name: Remove temporary CI code-signing certificate\s+if: always\(\)/u

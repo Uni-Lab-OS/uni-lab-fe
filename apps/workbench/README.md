@@ -240,6 +240,11 @@ verification. These rolling channels never replace the repository's Latest
 Release. Their `GITHUB_TOKEN` only updates existing releases; bootstrapping or
 recreating a release requires an authorized maintainer token.
 
+The Windows production workflow fails closed unless
+`WINDOWS_CSC_LINK`, `WINDOWS_CSC_KEY_PASSWORD`, and `WINDOWS_CSC_SHA1` provide a
+stable Authenticode identity. The ephemeral self-signed certificate is restricted
+to the Windows test branch and can never satisfy the production signer check.
+
 `deploy-windows-test` builds only the Windows `test` package and
 `deploy-mac-test` builds only the signed and notarized macOS `test` package.
 Their filenames and Actions Artifact names include `Test`/`test`. They use the
