@@ -209,6 +209,10 @@ implements WorkbenchSessionServer, BackendApplicationContribution {
     return this.session.stopPlcSimulator()
   }
 
+  resetWorkflowEnvironment(backendUrl?: string) {
+    return this.session.resetWorkflowEnvironment(backendUrl)
+  }
+
   releaseEnvironmentPorts(
     target: Parameters<WorkbenchSession['releaseEnvironmentPorts']>[0]
   ) {

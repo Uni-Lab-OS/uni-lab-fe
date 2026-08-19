@@ -25,6 +25,7 @@ import { launchWorkspaceHostProcess } from './workspace-host-launch'
 import type {
   ManagedLocalWorkbenchSessionOptions,
   WorkbenchDomainMode,
+  WorkbenchEnvironmentResetSnapshot,
   WorkbenchEnvironmentLogKind,
   WorkbenchPlcHandshakeProfile,
   WorkbenchPlcSimulatorConfiguration,
@@ -75,6 +76,13 @@ interface WorkspaceHostSnapshot {
     edge: HostComponent
     plc: HostComponent
     renderer: HostComponent
+  }
+  workflowEnvironmentReset?: {
+    phase?: unknown
+    message?: unknown
+    baselineFingerprint?: unknown
+    receiptUuid?: unknown
+    error?: unknown
   }
 }
 
@@ -304,6 +312,14 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
 
   async stopPlcSimulator(): Promise<WorkbenchSessionSnapshot> {
     return await this.run('plc.stop')
+  }
+
+  async resetWorkflowEnvironment(
+    backendUrl?: string
+  ): Promise<WorkbenchSessionSnapshot> {
+    const target = backendUrl?.trim() || this.resolveBackendAuthorityUrl()
+    if (!target) throw new Error('未配置 Backend Authority 地址')
+    return await this.run('workflow.environment-reset', { backendUrl: target })
   }
 
   async releaseEnvironmentPorts(
@@ -699,7 +715,8 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
         : change.identity,
       agent: change.agent === undefined ? this.snapshot.agent : change.agent,
       edgeRuntime: change.edgeRuntime ?? this.snapshot.edgeRuntime,
-      plcSimulator: change.plcSimulator ?? this.snapshot.plcSimulator
+      plcSimulator: change.plcSimulator ?? this.snapshot.plcSimulator,
+      environmentReset: change.environmentReset ?? this.snapshot.environmentReset
     }
     this.emit()
   }
@@ -973,7 +990,17 @@ function projectSnapshot(
       opcUaUrl: stringValue(plc.metadata?.['opcUaUrl']) ?? '',
       logPath: plc.logPath ?? '',
       diagnostic: plc.diagnostic
-    }
+    },
+    environmentReset: environmentResetSnapshot(
+      host.workflowEnvironmentReset,
+      previous.environmentReset ?? {
+        phase: 'idle',
+        message: '运行前环境尚未复位',
+        baselineFingerprint: null,
+        receiptUuid: null,
+        error: null
+      }
+    )
   }
 }
 
@@ -1025,7 +1052,39 @@ function initialSnapshot(
       opcUaUrl: '',
       logPath: '',
       diagnostic: null
+    },
+    environmentReset: {
+      phase: 'idle',
+      message: '运行前环境尚未复位',
+      baselineFingerprint: null,
+      receiptUuid: null,
+      error: null
     }
+  }
+}
+
+function environmentResetSnapshot(
+  value: WorkspaceHostSnapshot['workflowEnvironmentReset'],
+  previous: WorkbenchEnvironmentResetSnapshot
+): WorkbenchEnvironmentResetSnapshot {
+  const allowed = new Set<WorkbenchEnvironmentResetSnapshot['phase']>([
+    'idle', 'validating', 'reconciling', 'resetting-plc',
+    'verifying', 'succeeded', 'failed'
+  ])
+  const phase = typeof value?.phase === 'string' && allowed.has(
+    value.phase as WorkbenchEnvironmentResetSnapshot['phase']
+  )
+    ? value.phase as WorkbenchEnvironmentResetSnapshot['phase']
+    : previous.phase
+  const error = isRecord(value?.error)
+    ? value.error as WorkbenchEnvironmentResetSnapshot['error']
+    : null
+  return {
+    phase,
+    message: stringValue(value?.message) ?? previous.message,
+    baselineFingerprint: stringValue(value?.baselineFingerprint),
+    receiptUuid: stringValue(value?.receiptUuid),
+    error
   }
 }
 

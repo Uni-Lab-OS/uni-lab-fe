@@ -154,6 +154,143 @@
     flex: 0 0 auto;
   }
 
+  :global(.persistent-authoring__reset-dialog-backdrop) {
+    position: fixed;
+    z-index: 1200;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgb(15 23 42 / 52%);
+    backdrop-filter: blur(3px);
+  }
+
+  :global(.persistent-authoring__reset-dialog) {
+    display: grid;
+    width: min(600px, calc(100vw - 32px));
+    max-width: 100%;
+    max-height: calc(100vh - 48px);
+    box-sizing: border-box;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 14px;
+    padding: 22px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    color: var(--unilab-color-text);
+    border: 1px solid var(--unilab-color-border-strong);
+    border-radius: var(--unilab-radius-lg);
+    background: var(--unilab-color-surface);
+    box-shadow: var(--unilab-shadow-overlay);
+    white-space: normal;
+  }
+
+  :global(.persistent-authoring__reset-dialog) > div {
+    min-width: 0;
+  }
+
+  :global(.persistent-authoring__reset-dialog-icon) {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    color: var(--unilab-color-warning);
+    border-radius: var(--unilab-radius-md);
+    background: color-mix(in srgb, var(--unilab-color-warning) 12%, transparent);
+  }
+
+  :global(.persistent-authoring__reset-dialog-eyebrow) {
+    margin: 0 0 4px;
+    color: var(--unilab-color-warning);
+    font: 700 10px/1.2 var(--unilab-font-sans);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  :global(.persistent-authoring__reset-dialog h2) {
+    margin: 0 0 10px;
+    font: 650 18px/1.3 var(--unilab-font-sans);
+  }
+
+  :global(.persistent-authoring__reset-dialog p) {
+    margin: 0;
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  :global(.persistent-authoring__reset-dialog-guardrail) {
+    margin-top: 10px !important;
+    padding: 9px 10px;
+    border: 1px solid color-mix(in srgb, var(--unilab-color-warning) 24%, transparent);
+    background: var(--unilab-color-surface-subtle);
+  }
+
+  :global(.persistent-authoring__reset-progress) {
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 9px 10px;
+    border: 1px solid var(--unilab-color-border);
+    border-radius: var(--unilab-radius-control);
+    background: var(--unilab-color-surface-subtle);
+  }
+
+  :global(.persistent-authoring__reset-progress) > span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--unilab-color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--unilab-color-primary) 14%, transparent);
+  }
+
+  :global(.persistent-authoring__reset-progress.is-failed) > span {
+    background: var(--unilab-color-danger);
+  }
+
+  :global(.persistent-authoring__reset-progress.is-succeeded) > span {
+    background: var(--unilab-color-success);
+  }
+
+  :global(.persistent-authoring__reset-error) {
+    margin-top: 10px !important;
+    color: var(--unilab-color-danger) !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  :global(.persistent-authoring__reset-dialog footer) {
+    display: flex;
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 4px;
+  }
+
+  :global(.persistent-authoring__reset-dialog footer button) {
+    min-height: 34px;
+    padding: 0 14px;
+    border: 1px solid var(--unilab-color-border-strong);
+    border-radius: var(--unilab-radius-control);
+    background: var(--unilab-color-surface);
+    cursor: pointer;
+  }
+
+  :global(.persistent-authoring__reset-dialog footer button.is-danger) {
+    color: #fff;
+    border-color: var(--unilab-color-danger);
+    background: var(--unilab-color-danger);
+  }
+
+  :global(.persistent-authoring__reset-dialog footer button:disabled) {
+    cursor: not-allowed;
+    opacity: .55;
+  }
+
   :global(.persistent-authoring__run-mode-menu) {
     position: relative;
   }

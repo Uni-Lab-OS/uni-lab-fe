@@ -1,11 +1,12 @@
 import { useDismissibleDetails } from '@unilab/design-system/hooks'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   workflowTaskIsLive,
   workflowTaskToolbarControls
 } from '../utils/workflowTaskPresentation'
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
+import type { EnvironmentResetProgress } from './WorkflowPanel'
 import { WorkflowButton } from './WorkflowButton'
 import { WorkflowDebugControls } from './WorkflowDebugger'
 import {
@@ -17,6 +18,7 @@ interface PersistentWorkflowToolbarProps {
   model: PersistentWorkflowAuthoringModel
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
+  environmentResetProgress?: EnvironmentResetProgress
 }
 
 const RUN_MODE_LABELS = {
@@ -37,7 +39,8 @@ const RUN_MODE_LABELS = {
 export function PersistentWorkflowToolbar({
   model,
   onResetEnvironment,
-  environmentResetBusy = false
+  environmentResetBusy = false,
+  environmentResetProgress
 }: PersistentWorkflowToolbarProps): React.JSX.Element {
   const {
     aggregate,
@@ -76,6 +79,10 @@ export function PersistentWorkflowToolbar({
     workflowStartPresentation
   } = model
   const runModeMenuRef = useDismissibleDetails()
+  const [resetDialogOpen, setResetDialogOpen] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
+  const [resetAttempted, setResetAttempted] = useState(false)
+  const resetDialogRef = useRef<HTMLElement>(null)
   const currentAuthorityLabel = authorityLabel ?? 'OS'
   const canEditDefinition = definitionEditingAvailable !== false
   const canViewCode = codeViewingAvailable !== false
@@ -118,6 +125,10 @@ export function PersistentWorkflowToolbar({
     return () => document.removeEventListener('keydown', handleSaveShortcut)
   }, [saveDisabled, saveDraft])
 
+  useEffect(() => {
+    if (resetDialogOpen) resetDialogRef.current?.focus()
+  }, [resetDialogOpen])
+
   const chooseRunMode = (runMode: typeof taskRunMode): void => {
     runModeMenuRef.current?.removeAttribute('open')
     if (runMode === 'single_node') {
@@ -132,6 +143,17 @@ export function PersistentWorkflowToolbar({
     : taskRunMode === 'debug'
       ? '调试启动'
     : workflowStartPresentation.label
+  const resetComplete = resetAttempted && environmentResetProgress?.phase === 'succeeded'
+  const confirmEnvironmentReset = async (): Promise<void> => {
+    if (!onResetEnvironment || environmentResetBusy) return
+    setResetError(null)
+    setResetAttempted(true)
+    try {
+      await onResetEnvironment()
+    } catch (error) {
+      setResetError(error instanceof Error ? error.message : String(error))
+    }
+  }
   return (
     <WorkflowWorkspaceToolbar
       task={task}
@@ -226,32 +248,6 @@ export function PersistentWorkflowToolbar({
           </details>
         )}
 
-        {!liveTask && (
-          <WorkflowButton
-            type="button"
-            className="persistent-authoring__debug-icon is-start"
-            aria-label={startLabel}
-            disabled={
-              busy ||
-              runningEntryBusy ||
-              singleNodeTargetMissing ||
-              workflowStartPresentation.disabled
-            }
-            disabledReason={busy
-              ? '正在处理工作流编写操作，请稍候'
-              : runningEntryBusy
-                ? '正在处理上一项工作流任务操作，请稍候'
-                : singleNodeTargetMissing
-                  ? '请先在画布节点上设置起始点'
-                  : workflowStartPresentation.disabledReason ??
-                    '工作流尚未就绪'}
-            title={`${startLabel} · ${RUN_MODE_LABELS[taskRunMode]}`}
-            onClick={startWorkflow}
-          >
-            <WorkflowToolbarIcon name="play" />
-          </WorkflowButton>
-        )}
-
         <WorkflowButton
           type="button"
           className="persistent-authoring__debug-icon"
@@ -279,14 +275,112 @@ export function PersistentWorkflowToolbar({
             ? '正在复位运行环境'
             : '复位 PLC 与 Backend 物料状态'}
           onClick={() => {
-            if (!onResetEnvironment || !globalThis.confirm(
-              '确定复位运行环境吗？\n\n将重启 PLC-Sim，并使用当前设备图清空并重建 Backend 物料与库位状态。'
-            )) return
-            void onResetEnvironment()
+            setResetError(null)
+            setResetAttempted(false)
+            setResetDialogOpen(true)
           }}
         >
           <WorkflowToolbarIcon name="refresh" />
         </WorkflowButton>
+
+        {!liveTask && (
+          <WorkflowButton
+            type="button"
+            className="persistent-authoring__debug-icon is-start"
+            aria-label={startLabel}
+            disabled={
+              busy ||
+              runningEntryBusy ||
+              environmentResetBusy ||
+              singleNodeTargetMissing ||
+              workflowStartPresentation.disabled
+            }
+            disabledReason={busy
+              ? '正在处理工作流编写操作，请稍候'
+              : environmentResetBusy
+                ? '运行前环境正在复位，请等待安全校验完成'
+              : runningEntryBusy
+                ? '正在处理上一项工作流任务操作，请稍候'
+                : singleNodeTargetMissing
+                  ? '请先在画布节点上设置起始点'
+                  : workflowStartPresentation.disabledReason ??
+                    '工作流尚未就绪'}
+            title={`${startLabel} · ${RUN_MODE_LABELS[taskRunMode]}`}
+            onClick={startWorkflow}
+          >
+            <WorkflowToolbarIcon name="play" />
+          </WorkflowButton>
+        )}
+
+        {resetDialogOpen && (
+          <div className="persistent-authoring__reset-dialog-backdrop">
+            <section
+              ref={resetDialogRef}
+              className="persistent-authoring__reset-dialog"
+              role="alertdialog"
+              aria-modal="true"
+              tabIndex={-1}
+              aria-labelledby="workflow-reset-title"
+              aria-describedby="workflow-reset-description"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape' && !environmentResetBusy) {
+                  setResetDialogOpen(false)
+                }
+              }}
+            >
+              <div className="persistent-authoring__reset-dialog-icon" aria-hidden="true">
+                <WorkflowToolbarIcon name="refresh" />
+              </div>
+              <div>
+                <p className="persistent-authoring__reset-dialog-eyebrow">运行前安全检查</p>
+                <h2 id="workflow-reset-title">复位工作流运行环境？</h2>
+                <p id="workflow-reset-description">
+                  系统将读取当前 OS 实际 selected graph，通过 Backend 正式 API 增量对齐 PG
+                  物料与 Site 占用并生成 ledger，再按当前 CSV 与握手配置复位 PLC-Sim。
+                </p>
+                <p className="persistent-authoring__reset-dialog-guardrail">
+                  检测到活动任务、锁、预留、未消费结果或基线歧义时，操作会拒绝执行，不会清空 Backend。
+                </p>
+                {(environmentResetBusy || resetAttempted) && !resetError && (
+                  <div
+                    className={`persistent-authoring__reset-progress is-${environmentResetProgress?.phase ?? 'validating'}`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <span aria-hidden="true" />
+                    <p>{environmentResetProgress?.message ?? '正在准备运行前复位…'}</p>
+                  </div>
+                )}
+                {resetError && (
+                  <p className="persistent-authoring__reset-error" role="alert">
+                    {resetError}
+                  </p>
+                )}
+              </div>
+              <footer>
+                <WorkflowButton
+                  type="button"
+                  disabled={environmentResetBusy}
+                  disabledReason="复位进行中，完成安全确认前不能关闭"
+                  onClick={() => setResetDialogOpen(false)}
+                >
+                  {resetComplete || resetError ? '关闭' : '取消'}
+                </WorkflowButton>
+                {!resetComplete && (
+                  <WorkflowButton
+                    type="button"
+                    className="is-danger"
+                    disabled={environmentResetBusy}
+                    disabledReason="运行前复位正在执行"
+                    onClick={() => { void confirmEnvironmentReset() }}
+                  >
+                    {environmentResetBusy ? '正在复位…' : resetError ? '重试复位' : '确认复位'}
+                  </WorkflowButton>
+                )}
+              </footer>
+            </section>
+          </div>
+        )}
 
         {liveTask && !taskRuntime.snapshot.debug && (
           <WorkflowDebugControls

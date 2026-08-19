@@ -20,8 +20,8 @@ describe('PersistentWorkflowToolbar', () => {
     expect(html).toContain('aria-label="保存工作流"')
     expect(html).toContain('aria-label="开始运行"')
     expect(html).toContain('aria-label="复位运行环境"')
-    expect(html.indexOf('aria-label="开始运行"')).toBeLessThan(
-      html.indexOf('aria-label="复位运行环境"')
+    expect(html.indexOf('aria-label="复位运行环境"')).toBeLessThan(
+      html.indexOf('aria-label="开始运行"')
     )
     expect(html).toContain('正常运行')
     expect(html).toContain('运行设置，当前为正常运行')
@@ -47,6 +47,9 @@ describe('PersistentWorkflowToolbar', () => {
 
     expect(html).toMatch(
       /<button[^>]*aria-label="复位运行环境"[^>]*disabled=""[^>]*data-disabled-reason="正在处理运行环境，请稍候"/
+    )
+    expect(html).toMatch(
+      /<button[^>]*aria-label="开始运行"[^>]*disabled=""[^>]*data-disabled-reason="运行前环境正在复位，请等待安全校验完成"/
     )
   })
 

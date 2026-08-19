@@ -340,7 +340,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     }
   }
 
-  /** 重启 PLC-Sim，并用当前设备图重建目标 Backend 的物料与库位状态。 */
+  /** 由 Workspace Host 协调当前 OS 基线、Backend PG 对齐与 PLC-Sim 复位。 */
   protected readonly resetWorkflowEnvironment = async (
     backendUrl: string
   ): Promise<void> => {
@@ -348,9 +348,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       throw new Error('请先保存当前工作流修改，再复位运行环境')
     }
     try {
-      await this.workbenchSession.stopPlcSimulator()
-      await this.workbenchSession.startPlcSimulator()
-      await this.publishRelease(backendUrl, true)
+      await this.workbenchSession.resetWorkflowEnvironment(backendUrl)
       this.recoveryRevision += 1
       void this.messages.info('运行环境已复位，可以重新运行工作流')
     } catch (error) {
@@ -1137,8 +1135,6 @@ function WorkbenchSurface({
     setEnvironmentResetBusy(true)
     try {
       await onResetWorkflowEnvironment(selectedTarget.backend.apiUrl)
-    } catch {
-      // 宿主已展示可操作的失败消息；这里只负责结束按钮忙碌态。
     } finally {
       setEnvironmentResetBusy(false)
     }
@@ -1187,6 +1183,7 @@ function WorkbenchSurface({
         onWorkflowRuntimeProjectionChange={setRuntimeProjection}
         onResetEnvironment={resetWorkflowEnvironment}
         environmentResetBusy={environmentResetBusy}
+        environmentResetProgress={session.environmentReset}
       />
     </section>
   )

@@ -14,6 +14,7 @@ import { MaterialSourceInspector } from './MaterialSourceInspector'
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
 import { PersistentWorkflowOverlays } from './PersistentWorkflowOverlays'
 import { PersistentWorkflowToolbar } from './PersistentWorkflowToolbar'
+import type { EnvironmentResetProgress } from './WorkflowPanel'
 import { WorkflowNodePalette } from './WorkflowNodePalette'
 import styles from './workflow.module.scss'
 
@@ -26,7 +27,8 @@ export function PersistentWorkflowAuthoringView({
   onVisibleMaterialRolesChange,
   hideEmbeddedCodeEditor = false,
   onResetEnvironment,
-  environmentResetBusy = false
+  environmentResetBusy = false,
+  environmentResetProgress
 }: {
   model: PersistentWorkflowAuthoringModel
   workflowName?: string
@@ -37,6 +39,7 @@ export function PersistentWorkflowAuthoringView({
   hideEmbeddedCodeEditor?: boolean
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
+  environmentResetProgress?: EnvironmentResetProgress
 }): React.JSX.Element {
   const {
     actionCatalog,
@@ -224,6 +227,7 @@ export function PersistentWorkflowAuthoringView({
         model={model}
         onResetEnvironment={onResetEnvironment}
         environmentResetBusy={environmentResetBusy}
+        environmentResetProgress={environmentResetProgress}
       />
 
       {executionBlockedReason && (

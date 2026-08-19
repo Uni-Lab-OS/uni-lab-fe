@@ -58,6 +58,12 @@ export interface WorkflowPanelProps {
   allowWorkflowSelection?: boolean
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
+  environmentResetProgress?: EnvironmentResetProgress
+}
+
+export interface EnvironmentResetProgress {
+  phase: 'idle' | 'validating' | 'reconciling' | 'resetting-plc' | 'verifying' | 'succeeded' | 'failed'
+  message: string
 }
 
 /**
@@ -90,7 +96,8 @@ export default function WorkflowPanel({
   hideEmbeddedCodeEditor = false,
   allowWorkflowSelection = false,
   onResetEnvironment,
-  environmentResetBusy = false
+  environmentResetBusy = false,
+  environmentResetProgress
 }: WorkflowPanelProps): React.JSX.Element {
   const [selectedWorkflowUuid, setSelectedWorkflowUuid] = useState<
     string | null
@@ -160,6 +167,7 @@ export default function WorkflowPanel({
             }}
         onResetEnvironment={onResetEnvironment}
         environmentResetBusy={environmentResetBusy}
+        environmentResetProgress={environmentResetProgress}
       />
     )
   }

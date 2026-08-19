@@ -16,6 +16,7 @@ import type { WorkflowResourceSlotOptionsPort } from '../utils/workflowResourceS
 import type { WorkflowIdeBridge } from '../utils/workflowSourceNavigation'
 import { projectWorkflowIdeDiagnostics } from '../utils/workflowSourceNavigation'
 import { PersistentWorkflowAuthoringView } from './PersistentWorkflowAuthoringView'
+import type { EnvironmentResetProgress } from './WorkflowPanel'
 
 export {
   filterMaterialSourceSites,
@@ -49,6 +50,7 @@ interface PersistentWorkflowAuthoringPanelProps {
   recoveryRevision?: number
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
+  environmentResetProgress?: EnvironmentResetProgress
 }
 
 /**
@@ -88,6 +90,7 @@ export function PersistentWorkflowAuthoringPanel(
       hideEmbeddedCodeEditor={props.hideEmbeddedCodeEditor}
       onResetEnvironment={props.onResetEnvironment}
       environmentResetBusy={props.environmentResetBusy}
+      environmentResetProgress={props.environmentResetProgress}
     />
   )
 }
