@@ -411,33 +411,10 @@ jobs:
           | Total build + validation | $([int]$env:WINDOWS_PRODUCTION_BUILD_SECONDS + $seconds) s |
           "@ >> $env:GITHUB_STEP_SUMMARY
 
-      - name: Configure stable production Windows code-signing certificate
-        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
-        env:
-          PRODUCTION_CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
-          PRODUCTION_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
-          PRODUCTION_CSC_SHA1: ${{ secrets.WINDOWS_CSC_SHA1 }}
-        run: |
-          if (
-            [string]::IsNullOrWhiteSpace($env:PRODUCTION_CSC_LINK) -or
-            [string]::IsNullOrWhiteSpace($env:PRODUCTION_CSC_KEY_PASSWORD) -or
-            [string]::IsNullOrWhiteSpace($env:PRODUCTION_CSC_SHA1)
-          ) {
-            throw 'Production Windows signing requires WINDOWS_CSC_LINK, WINDOWS_CSC_KEY_PASSWORD and WINDOWS_CSC_SHA1 secrets'
-          }
-          $thumbprint = $env:PRODUCTION_CSC_SHA1.Replace(' ', '').ToUpperInvariant()
-          if ($thumbprint -notmatch '^[A-F0-9]{40}$') {
-            throw 'WINDOWS_CSC_SHA1 must be a 40-character SHA-1 certificate thumbprint'
-          }
-          "CSC_LINK=$env:PRODUCTION_CSC_LINK" >> $env:GITHUB_ENV
-          "CSC_KEY_PASSWORD=$env:PRODUCTION_CSC_KEY_PASSWORD" >> $env:GITHUB_ENV
-          "UNILAB_EXPECTED_CERTIFICATE_THUMBPRINT=$thumbprint" >> $env:GITHUB_ENV
-
-      # This certificate validates the Authenticode packaging path for test
-      # packages only. It is not trusted by Windows clients and is never used
-      # by the main production channel.
+      # Temporary bridge for all full Windows packages until a stable trusted
+      # production certificate is configured. Windows clients do not trust it.
       - name: Create temporary CI code-signing certificate
-        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'test'
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         run: |
           $passwordBytes = [Security.Cryptography.RandomNumberGenerator]::GetBytes(32)
           $password = [Convert]::ToBase64String($passwordBytes)

@@ -23,7 +23,7 @@ tags: [infrastructure, ci, electron, release, update]
 - **REQ-005**: 测试包默认连接 Bohrium 测试登录/API，生产包默认连接 Bohrium 正式登录/API；两者必须由同一个编译期发布通道选择。
 - **SEC-001**: 测试包必须在 Electron 主进程编译期关闭更新能力，不能依赖运行时环境变量或仅依赖 CI 不上传元数据。
 - **SEC-002**: GitHub Release 上传步骤和正式版本递增步骤必须以 `UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'` 为必要条件。
-- **SEC-003**: Windows 生产包必须使用稳定证书 secrets；临时自签名证书只允许 `test` 通道使用。
+- **SEC-003**: Windows 所有完整构建暂时使用当次 CI 生成的临时自签名证书，并必须校验安装包签名证书与当次证书指纹完全一致。
 - **CON-001**: macOS 测试包继续使用现有 Developer ID 签名和 Apple 公证材料，以保证测试安装行为与生产包一致。
 - **CON-002**: Windows 与 macOS 生产更新继续复用既有稳定 Release tag 和下载 URL，不创建第二套生产更新源。
 - **GUD-001**: 正式发布必须先上传安装二进制与 blockmap，最后替换更新元数据，避免客户端观察到不完整版本。
@@ -73,7 +73,7 @@ tags: [infrastructure, ci, electron, release, update]
 - **DEP-002**: macOS Actions secrets：`CSC_LINK`、`CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`。
 - **DEP-003**: 预创建的 GitHub Releases：`workbench-windows-stable` 与 `workbench-macos-stable`。
 - **DEP-004**: `electron-builder` 的 generic provider、NSIS、DMG、ZIP 与 blockmap 生成能力。
-- **DEP-005**: Windows 生产签名 secrets：`WINDOWS_CSC_LINK`、`WINDOWS_CSC_KEY_PASSWORD`、`WINDOWS_CSC_SHA1`。
+- **DEP-005**: Windows runner 必须支持 `New-SelfSignedCertificate`、`Export-PfxCertificate` 与 Authenticode 签名校验。
 
 ## 5. Files
 
@@ -99,6 +99,7 @@ tags: [infrastructure, ci, electron, release, update]
 - **RISK-001**: 两个工作流都监听 `main` 会同时占用 Windows 与 macOS runner；通过平台独立 concurrency group 隔离，任一平台失败不取消另一平台。
 - **RISK-002**: 测试分支如果缺少 macOS secrets 将无法生成可安装的 signed 测试包；该失败应保持显式，不能静默降级为 unsigned。
 - **RISK-003**: 测试包与生产包仍共享应用数据目录和应用标识，只保证文件及发布通道可区分；并行安装隔离不属于本次范围。
+- **RISK-004**: Windows 生产包当前使用每次构建变化的临时自签名证书，不具备稳定发布者身份且可能触发 SmartScreen；正式大规模分发前必须替换为稳定可信证书。
 - **ASSUMPTION-001**: `main` 是受保护生产分支，只有已评审代码能够合入。
 - **ASSUMPTION-002**: 两个测试分支从同一个已验证实现提交创建，并通过后续合并持续同步业务代码。
 

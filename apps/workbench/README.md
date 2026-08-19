@@ -240,10 +240,11 @@ verification. These rolling channels never replace the repository's Latest
 Release. Their `GITHUB_TOKEN` only updates existing releases; bootstrapping or
 recreating a release requires an authorized maintainer token.
 
-The Windows production workflow fails closed unless
-`WINDOWS_CSC_LINK`, `WINDOWS_CSC_KEY_PASSWORD`, and `WINDOWS_CSC_SHA1` provide a
-stable Authenticode identity. The ephemeral self-signed certificate is restricted
-to the Windows test branch and can never satisfy the production signer check.
+Windows production and test workflows currently generate a new ephemeral
+self-signed Authenticode certificate for each full CI build. The workflow verifies
+the installer against that exact certificate thumbprint, but Windows clients do
+not trust the identity and may show SmartScreen warnings. This is an interim
+bridge only; replace it with a stable trusted certificate before general release.
 
 `deploy-windows-test` builds only the Windows `test` package and
 `deploy-mac-test` builds only the signed and notarized macOS `test` package.

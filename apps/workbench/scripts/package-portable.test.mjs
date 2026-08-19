@@ -784,9 +784,6 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /precompressed-ab-metrics\.json/u)
     assert.match(workflow, /New-SelfSignedCertificate/u)
     assert.match(workflow, /-Type CodeSigningCert/u)
-    assert.match(workflow, /WINDOWS_CSC_LINK/u)
-    assert.match(workflow, /WINDOWS_CSC_KEY_PASSWORD/u)
-    assert.match(workflow, /WINDOWS_CSC_SHA1/u)
     assert.match(workflow, /CSC_LINK=/u)
     assert.match(workflow, /CSC_KEY_PASSWORD=/u)
     assert.match(workflow, /Get-AuthenticodeSignature/u)
@@ -797,7 +794,11 @@ describe('portable Workbench packaging contract', () => {
     )
     assert.match(
       temporaryCertificateSection,
-      /UNILAB_WORKBENCH_RELEASE_CHANNEL == 'test'/u
+      /if: env\.UNILAB_CI_PACKAGE_MODE == 'full'/u
+    )
+    assert.doesNotMatch(
+      temporaryCertificateSection,
+      /UNILAB_WORKBENCH_RELEASE_CHANNEL/u
     )
     assert.match(
       workflow,
