@@ -12,6 +12,10 @@ export {
 export { WorkflowIoSummary } from './components/WorkflowIoSummary'
 export { WorkflowIoEditor } from './components/WorkflowIoEditor'
 export { WorkflowTaskInputForm } from './components/WorkflowTaskInputForm'
+export {
+  WorkflowTaskList,
+  type WorkflowTaskListProps
+} from './components/WorkflowTaskList'
 export { DebugLaunchInputForm } from './components/DebugLaunchInputForm'
 export {
   buildDebugLaunchOverrides,
