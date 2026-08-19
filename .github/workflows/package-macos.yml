@@ -1,0 +1,208 @@
+name: Package macOS Workbench
+run-name: 生物领域包Workbench macOS测试｜${{ github.ref_name }}｜${{ github.sha }}
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/dev-model-runtime-validation-fix
+    paths:
+      - .github/workflows/package-macos.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AIONUI_VERSION: 2.1.53
+  AIONUI_MACOS_SHA512: 68ad39e6c877a623c7a27f0612e9299525fbc406f1aca96d4c85bed6c446c6632e77249d94cd6e0689c2e98c34faca395e64b37b7a92ed99e57b1abcbf95d867
+  UNILAB_OS_SOURCE_REF: f329e4cf3e935d985299e572c5a4a5b476321e9b
+  UNILAB_RUNTIME_VERSION: 0.11.3
+  UNILAB_RUNTIME_SOURCE_PACKAGE_VERSION: 0.11.3.20260819
+
+jobs:
+  package-macos-arm64:
+    runs-on: macos-14
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - name: Check out Workbench
+        uses: actions/checkout@v6
+
+      - name: Check out Uni-Lab OS
+        uses: actions/checkout@v6
+        with:
+          repository: Uni-Lab-OS/Uni-Lab-OS
+          ref: ${{ env.UNILAB_OS_SOURCE_REF }}
+          path: .runtime-source
+
+      - name: Verify pinned source revisions
+        run: |
+          set -euo pipefail
+          os_revision="$(git -C .runtime-source rev-parse HEAD)"
+          test "$os_revision" = "$UNILAB_OS_SOURCE_REF"
+
+      - name: Validate macOS signing configuration
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [[ -z "${!name:-}" ]]; then missing+=("$name"); fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing macOS signing secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.21.1
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+          run_install: false
+
+      - name: Install Workbench dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set up Constructor
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          miniforge-version: latest
+          use-mamba: true
+          activate-environment: constructor-build
+          auto-update-conda: false
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Build macOS arm64 Runtime
+        working-directory: .runtime-source
+        run: |
+          set -euo pipefail
+          test -f .conda/constructor/construct.yaml
+          mamba install -n constructor-build --override-channels -c conda-forge \
+            constructor=3.16.1 micromamba=2.8.1 rattler-build -y
+
+          recipe_path='.conda/base/recipe.yaml'
+          published_version="  version: $UNILAB_RUNTIME_VERSION"
+          source_version="  version: $UNILAB_RUNTIME_SOURCE_PACKAGE_VERSION"
+          grep -F "$published_version" "$recipe_path"
+          sed -i '' "s/$published_version/$source_version/" "$recipe_path"
+
+          rattler-build build -r .conda/environment/recipe.yaml \
+            --target-platform osx-arm64 \
+            -c uni-lab -c robostack-staging -c conda-forge \
+            --output-dir output
+          rattler-build build -r .conda/vendor/rfc8785/recipe.yaml \
+            --target-platform osx-arm64 -c conda-forge \
+            --output-dir output
+          rattler-build build -r .conda/vendor/msgcenterpy/recipe.yaml \
+            --target-platform osx-arm64 -c conda-forge --channel ./output \
+            --output-dir output
+          rattler-build build -r .conda/vendor/pylabrobot/recipe.yaml \
+            --target-platform osx-arm64 -c conda-forge --channel ./output \
+            --output-dir output
+          rattler-build build -r .conda/base/recipe.yaml \
+            --target-platform osx-arm64 \
+            -c uni-lab -c robostack-staging -c conda-forge \
+            --channel ./output --output-dir output
+
+          local_channel="$(python -c 'from pathlib import Path; print(Path("output").resolve().as_uri())')"
+          export UNILABOS_INSTALLER_CHANNEL="$local_channel"
+          export UNILABOS_INSTALLER_PACKAGE='unilabos'
+          export UNILABOS_INSTALLER_VERSION="$UNILAB_RUNTIME_SOURCE_PACKAGE_VERSION"
+          constructor .conda/constructor \
+            --platform osx-arm64 \
+            --conda-exe "$(command -v micromamba)" \
+            --output-dir dist/constructor
+
+          runtime_installer="$(find dist/constructor -maxdepth 1 -type f -name '*.sh' -print -quit)"
+          test -n "$runtime_installer"
+          echo "UNILAB_RUNTIME_INSTALLER=$GITHUB_WORKSPACE/.runtime-source/$runtime_installer" >> "$GITHUB_ENV"
+
+      - name: Prepare macOS Agent
+        run: |
+          set -euo pipefail
+          agent_dmg="$RUNNER_TEMP/AionUi-$AIONUI_VERSION-mac-arm64.dmg"
+          curl --fail --location --retry 5 --retry-all-errors \
+            --output "$agent_dmg" \
+            "https://static.aionui.com/releases/$AIONUI_VERSION/AionUi-$AIONUI_VERSION-mac-arm64.dmg"
+          actual_sha512="$(shasum -a 512 "$agent_dmg" | awk '{print $1}')"
+          test "$actual_sha512" = "$AIONUI_MACOS_SHA512"
+
+          mount_point="$RUNNER_TEMP/aionui-mount"
+          agent_output="$RUNNER_TEMP/aionui-resources"
+          mkdir -p "$mount_point"
+          trap 'hdiutil detach "$mount_point" -force >/dev/null 2>&1 || true' EXIT
+          hdiutil attach "$agent_dmg" -readonly -nobrowse -quiet -mountpoint "$mount_point"
+          agent_app="$(find "$mount_point" -maxdepth 1 -type d -name '*.app' -print -quit)"
+          test -n "$agent_app"
+          agent_resources="$agent_app/Contents/Resources"
+          test -f "$agent_resources/app.asar"
+          test -x "$agent_resources/bundled-aioncore/darwin-arm64/aioncore"
+          ditto "$agent_resources" "$agent_output"
+          hdiutil detach "$mount_point" -force
+          trap - EXIT
+
+          test -f "$agent_output/app.asar"
+          test -x "$agent_output/bundled-aioncore/darwin-arm64/aioncore"
+          echo "UNILAB_AGENT_DISTRIBUTION=$agent_output" >> "$GITHUB_ENV"
+
+      - name: Build signed and notarized macOS DMG
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm --filter @unilab/workbench package:mac
+
+      - name: Verify macOS DMG
+        run: |
+          set -euo pipefail
+          release_directory='apps/workbench/release-macos'
+          dmg_count="$(find "$release_directory" -maxdepth 1 -type f -name '*.dmg' | wc -l | tr -d ' ')"
+          test "$dmg_count" = 1
+          dmg_path="$(find "$release_directory" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+          hdiutil verify "$dmg_path"
+          xcrun stapler validate "$dmg_path"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg_path"
+          shasum -a 256 "$dmg_path"
+
+      - name: Describe macOS test package
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## 生物领域包 Workbench macOS 测试
+
+          - 源分支：\`${{ github.ref_name }}\`
+          - FE 提交：\`${{ github.sha }}\`
+          - Uni-Lab OS 提交：\`$UNILAB_OS_SOURCE_REF\`
+          - Agent：AionUI \`$AIONUI_VERSION\`
+          - 领域代码：不内置；用户安装后自行选择和修改外部 workspace
+          - 交付位置：本次 Actions Run 的 Artifact
+          - 发布限制：仅生成测试 DMG，不生成热更新、不上传、不修改任何 stable Release
+          EOF
+
+      - name: Upload macOS DMG
+        uses: actions/upload-artifact@v6
+        with:
+          name: 生物领域包Workbench macOS测试
+          path: apps/workbench/release-macos/*.dmg
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

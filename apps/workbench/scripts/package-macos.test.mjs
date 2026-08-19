@@ -269,4 +269,39 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(packagingScript, /'--prefer-offline'/u)
     assert.doesNotMatch(packagingScript, /\n\s*'--offline',?\n/u)
   })
+
+  it('builds the current branch macOS test DMG without release access', async () => {
+    const workflow = await readFile(
+      new URL('../../../.github/workflows/package-macos.yml', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(
+      workflow,
+      /run-name: 生物领域包Workbench macOS测试/u
+    )
+    assert.match(workflow, /^  workflow_dispatch:$/mu)
+    assert.match(
+      workflow,
+      /push:\s+branches:\s+- codex\/dev-model-runtime-validation-fix\s+paths:\s+- \.github\/workflows\/package-macos\.yml/u
+    )
+    assert.match(workflow, /permissions:\s+contents: read/u)
+    assert.doesNotMatch(workflow, /contents: write/u)
+    assert.match(workflow, /runs-on: macos-14/u)
+    assert.match(workflow, /AIONUI_VERSION: 2\.1\.53/u)
+    assert.match(
+      workflow,
+      /UNILAB_OS_SOURCE_REF: f329e4cf3e935d985299e572c5a4a5b476321e9b/u
+    )
+    assert.match(workflow, /package:mac/u)
+    assert.match(
+      workflow,
+      /name: 生物领域包Workbench macOS测试/u
+    )
+    assert.match(workflow, /actions\/upload-artifact@v6/u)
+    assert.doesNotMatch(
+      workflow,
+      /gh release|latest-mac\.yml|\.zip\.blockmap/u
+    )
+  })
 })
