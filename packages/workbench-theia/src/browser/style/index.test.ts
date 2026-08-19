@@ -240,6 +240,13 @@ describe('environment manager layering and responsive layout', () => {
     )
   })
 
+  /** 工作流任务使用独立活动栏入口，避免与工作流编排目录混淆。 */
+  it('exposes a dedicated workflow Task navigation entry', () => {
+    expect(navigatorSource).toMatch(
+      /mode:\s*'workflow-tasks',[\s\S]*?label:\s*'工作流任务'/u
+    )
+  })
+
   /** 试剂领域的产品文案统一使用“试剂”。 */
   it('uses the concise reagent navigation label', () => {
     expect(navigatorSource).toMatch(

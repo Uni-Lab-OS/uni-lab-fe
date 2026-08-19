@@ -24,7 +24,11 @@ import DeviceSquarePanel from './device-provisioning/DeviceSquarePanel';
 import DeviceCardWorkbench from './device-cards/DeviceCardWorkbench';
 import { LabPanelWorkspace } from '../integrations/lab-workbench/LabPanelWorkspace';
 import type { WorkbenchSection } from '../data/lab';
-import type { WorkflowCatalogState } from '@unilab/workflow-editor';
+import { useServices } from '@unilab/services';
+import {
+  WorkflowTaskList,
+  type WorkflowCatalogState
+} from '@unilab/workflow-editor';
 
 const DEVICE_NAV_ITEM: AppShellNavigationItem = {
   id: 'device',
@@ -51,12 +55,18 @@ const WORKFLOW_NAV_ITEM: AppShellNavigationItem = {
   label: '工作流',
   icon: <WorkflowIcon />
 };
+const WORKFLOW_TASK_NAV_ITEM: AppShellNavigationItem = {
+  id: 'workflow-tasks',
+  label: '工作流任务',
+  icon: <WorkflowTaskIcon />
+};
 const NAV_ITEMS: readonly AppShellNavigationItem[] = [
   DEVICE_NAV_ITEM,
   DEVICE_SQUARE_NAV_ITEM,
   CARD_NAV_ITEM,
   MATERIAL_NAV_ITEM,
-  WORKFLOW_NAV_ITEM
+  WORKFLOW_NAV_ITEM,
+  WORKFLOW_TASK_NAV_ITEM
 ];
 
 // 统一外壳:顶栏 + 左侧导航 + 主区
@@ -190,6 +200,7 @@ function VisitedSectionViews({
         >
           <SectionView
             section={visitedSection}
+            active={visitedSection === section}
             workflowCatalogRequestRevision={workflowCatalogRequestRevision}
             recoveryRevision={recoveryRevision}
             onWorkflowCatalogStateChange={onWorkflowCatalogStateChange}
@@ -204,12 +215,14 @@ function VisitedSectionViews({
 // 根据当前方向渲染对应面板
 function SectionView({
   section,
+  active,
   workflowCatalogRequestRevision,
   recoveryRevision,
   onWorkflowCatalogStateChange,
   onWorkflowUnsavedChangesChange
 }: {
   section: WorkbenchSection;
+  active: boolean;
   workflowCatalogRequestRevision: number;
   recoveryRevision: number;
   onWorkflowCatalogStateChange: (state: WorkflowCatalogState) => void;
@@ -218,6 +231,7 @@ function SectionView({
     hasUnsavedChanges: boolean
   ) => void;
 }): React.JSX.Element {
+  const services = useServices();
   const handleWorkflowUnsavedChangesChange = useCallback(
     (hasUnsavedChanges: boolean) => {
       onWorkflowUnsavedChangesChange(section, hasUnsavedChanges);
@@ -228,6 +242,15 @@ function SectionView({
   if (section === 'device') return <DevicePanel />;
   if (section === 'device-square') return <DeviceSquarePanel />;
   if (section === 'cards') return <DeviceCardWorkbench />;
+  if (section === 'workflow-tasks') {
+    return (
+      <WorkflowTaskList
+        runtime={services.workflow}
+        active={active}
+        recoveryRevision={recoveryRevision}
+      />
+    );
+  }
   if (section === 'material') {
     return (
       <>
@@ -319,6 +342,18 @@ function WorkflowIcon(): React.JSX.Element {
       <rect x="12.5" y="2.5" width="5" height="4" rx="1" />
       <rect x="7.5" y="13.5" width="5" height="4" rx="1" />
       <path d="M5 6.5V9h5v4.5M15 6.5V9h-5" />
+    </svg>
+  );
+}
+
+function WorkflowTaskIcon(): React.JSX.Element {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20">
+      <rect x="3" y="2.5" width="14" height="15" rx="2" />
+      <path d="M6.5 6h7M6.5 10h7M6.5 14h4" />
+      <circle cx="5" cy="6" r=".5" fill="currentColor" stroke="none" />
+      <circle cx="5" cy="10" r=".5" fill="currentColor" stroke="none" />
+      <circle cx="5" cy="14" r=".5" fill="currentColor" stroke="none" />
     </svg>
   );
 }
