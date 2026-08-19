@@ -4,13 +4,13 @@ version: 1.0
 date_created: 2026-08-19
 last_updated: 2026-08-19
 owner: UniLab Frontend Team
-status: 'In progress'
+status: 'Completed'
 tags: [infrastructure, ci, electron, release, update]
 ---
 
 # Introduction
 
-![Status: In progress](https://img.shields.io/badge/status-In%20progress-yellow)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 本方案将 Windows 与 macOS 桌面构建统一为两个明确通道：`main` 生成生产包并维护滚动热更新，`deploy-windows-test` 与 `deploy-mac-test` 生成可安装测试包但永久禁用热更新。
 
@@ -36,9 +36,9 @@ tags: [infrastructure, ci, electron, release, update]
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-001 | 在 `apps/workbench/scripts/packaging-mode.mjs` 增加 `resolveWorkbenchReleaseChannel`，只接受 `production` 与 `test`。 |  |  |
-| TASK-002 | 在 `apps/desktop/electron.vite.config.ts` 将发布通道编译为 `__UNILAB_WORKBENCH_RELEASE_CHANNEL__`，在 `apps/desktop/src/main/index.ts` 仅为 `production` 启用 `AppUpdateManager`，并由 `apps/desktop/src/main/authConfig.ts` 选择同通道登录/API。依赖 TASK-001 的通道值合同。 |  |  |
-| TASK-003 | 在 `apps/workbench/scripts/package-portable.mjs` 与 `apps/workbench/scripts/package-macos.mjs` 为测试通道生成包含 `Test` 的安装介质文件名。依赖 TASK-001。 |  |  |
+| TASK-001 | 在 `apps/workbench/scripts/packaging-mode.mjs` 增加 `resolveWorkbenchReleaseChannel`，只接受 `production` 与 `test`。 | ✅ | 2026-08-19 |
+| TASK-002 | 在 `apps/desktop/electron.vite.config.ts` 将发布通道编译为 `__UNILAB_WORKBENCH_RELEASE_CHANNEL__`，在 `apps/desktop/src/main/index.ts` 仅为 `production` 启用 `AppUpdateManager`，并由 `apps/desktop/src/main/authConfig.ts` 选择同通道登录/API。依赖 TASK-001 的通道值合同。 | ✅ | 2026-08-19 |
+| TASK-003 | 在 `apps/workbench/scripts/package-portable.mjs` 与 `apps/workbench/scripts/package-macos.mjs` 为测试通道生成包含 `Test` 的安装介质文件名。依赖 TASK-001。 | ✅ | 2026-08-19 |
 
 ### Implementation Phase 2
 
@@ -46,9 +46,9 @@ tags: [infrastructure, ci, electron, release, update]
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-004 | 修改 `.github/workflows/package-windows.yml`：`main` 和 `deploy-windows-test` push 均执行 full，只有 `main` 读取正式版本并发布滚动更新。 |  |  |
-| TASK-005 | 修改 `.github/workflows/package-macos.yml`：`main` 和 `deploy-mac-test` push 均执行 signed full，只有 `main` 读取正式版本并发布滚动更新。 |  |  |
-| TASK-006 | 修改两个工作流的 Artifact 名称、步骤摘要与 Release 描述，使生产和测试通道可直接辨认。依赖 TASK-004 与 TASK-005。 |  |  |
+| TASK-004 | 修改 `.github/workflows/package-windows.yml`：`main` 和 `deploy-windows-test` push 均执行 full，只有 `main` 读取正式版本并发布滚动更新。 | ✅ | 2026-08-19 |
+| TASK-005 | 修改 `.github/workflows/package-macos.yml`：`main` 和 `deploy-mac-test` push 均执行 signed full，只有 `main` 读取正式版本并发布滚动更新。 | ✅ | 2026-08-19 |
+| TASK-006 | 修改两个工作流的 Artifact 名称、步骤摘要与 Release 描述，使生产和测试通道可直接辨认。依赖 TASK-004 与 TASK-005。 | ✅ | 2026-08-19 |
 
 ### Implementation Phase 3
 
@@ -56,9 +56,9 @@ tags: [infrastructure, ci, electron, release, update]
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-007 | 从包含本方案实现的同一提交创建 `deploy-windows-test` 与 `deploy-mac-test` 本地分支。 |  |  |
-| TASK-008 | 执行仓库类型检查、桌面与 Workbench 单元测试、YAML 解析、工作流 Shell 语法检查及方案标识符唯一性检查。 |  |  |
-| TASK-009 | 更新本文件为 `Completed`，填写所有任务完成日期并提交实现。依赖 TASK-001 至 TASK-008。 |  |  |
+| TASK-007 | 从包含本方案实现的同一提交创建 `deploy-windows-test` 与 `deploy-mac-test` 本地分支。 | ✅ | 2026-08-19 |
+| TASK-008 | 执行仓库类型检查、桌面与 Workbench 单元测试、YAML 解析、工作流 Shell 语法检查及方案标识符唯一性检查。 | ✅ | 2026-08-19 |
+| TASK-009 | 更新本文件为 `Completed`，填写所有任务完成日期并提交实现。依赖 TASK-001 至 TASK-008。 | ✅ | 2026-08-19 |
 
 ## 3. Alternatives
 
