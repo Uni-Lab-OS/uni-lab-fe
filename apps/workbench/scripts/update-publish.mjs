@@ -101,11 +101,25 @@ export function selectPortableUpdateArtifacts(names, targetPlatform) {
   return artifacts
 }
 
-/** 筛选并校验 macOS 当前唯一分发介质 DMG。 */
-export function selectMacosDmgArtifacts(names) {
-  const artifacts = names.filter(name => /\.dmg$/iu.test(name))
-  if (artifacts.length !== 1) {
-    throw new Error(`Workbench macOS 产物必须且只能包含 1 个 DMG，实际 ${artifacts.length} 个`)
+/** 筛选并校验 macOS 手动安装介质与自动更新原子发布集合。 */
+export function selectMacosUpdateArtifacts(names) {
+  const artifacts = names.filter(name =>
+    /(?:\.dmg|\.zip(?:\.blockmap)?|latest-mac\.yml)$/iu.test(name)
+  )
+  const dmgs = artifacts.filter(name => /\.dmg$/iu.test(name))
+  const zips = artifacts.filter(name => /\.zip$/iu.test(name))
+  const blockmaps = artifacts.filter(name => /\.zip\.blockmap$/iu.test(name))
+  if (dmgs.length !== 1) {
+    throw new Error(`Workbench macOS 更新产物必须且只能包含 1 个 DMG，实际 ${dmgs.length} 个`)
+  }
+  if (zips.length !== 1) {
+    throw new Error(`Workbench macOS 更新产物必须且只能包含 1 个 ZIP，实际 ${zips.length} 个`)
+  }
+  if (blockmaps.length !== 1) {
+    throw new Error(`Workbench macOS 更新产物必须且只能包含 1 个 ZIP blockmap，实际 ${blockmaps.length} 个`)
+  }
+  if (!artifacts.includes('latest-mac.yml')) {
+    throw new Error('Workbench macOS 更新产物缺少 latest-mac.yml')
   }
   return artifacts
 }

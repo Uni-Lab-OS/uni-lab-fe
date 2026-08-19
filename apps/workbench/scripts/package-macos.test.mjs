@@ -51,7 +51,7 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(builderConfiguration, /^publish:\n  provider: generic$/mu)
     assert.match(builderConfiguration, /UNILAB_WORKBENCH_UPDATE_URL/u)
     assert.match(builderConfiguration, /target: dmg/u)
-    assert.doesNotMatch(builderConfiguration, /target: zip/u)
+    assert.match(builderConfiguration, /target: zip/u)
     assert.match(welcomeDocument, /<title>UniLab 调试工作台<\/title>/u)
     assert.match(welcomeDocument, /id="install-runtime"/u)
     assert.match(welcomeDocument, /id="choose-runtime"/u)
@@ -76,7 +76,7 @@ describe('Workbench macOS distribution gate', () => {
     )
   })
 
-  it('uses a GitHub-safe formal DMG artifact name', async () => {
+  it('uses GitHub-safe formal DMG and ZIP artifact names', async () => {
     const packagingScript = await readFile(
       new URL('./package-macos.mjs', import.meta.url),
       'utf8'
@@ -125,8 +125,8 @@ describe('Workbench macOS distribution gate', () => {
     )
   })
 
-  /** 验证完整模式只生成 DMG，而快速模式只生成并校验应用目录。 */
-  it('separates full macOS media from directory validation', async () => {
+  /** 验证完整模式生成安装与更新介质，快速模式只校验应用目录。 */
+  it('separates full macOS update media from directory validation', async () => {
     const packagingScript = await readFile(
       new URL('./package-macos.mjs', import.meta.url),
       'utf8'
@@ -138,15 +138,16 @@ describe('Workbench macOS distribution gate', () => {
 
     assert.match(
       packagingScript,
-      /packageMode === 'directory' \? \['--dir'\] : \['dmg'\]/u
+      /packageMode === 'directory' \? \['--dir'\] : \['dmg', 'zip'\]/u
     )
     assert.match(packagingScript, /macOS Workbench 非压缩应用目录已通过校验/u)
-    assert.match(packagingScript, /selectMacosDmgArtifacts/u)
+    assert.match(packagingScript, /selectMacosUpdateArtifacts/u)
     assert.match(packagingScript, /requireWorkbenchUpdateUrl/u)
     assert.match(
       desktopMain,
-      /desktopSurface\.kind === 'workbench'[\s\S]*process\.platform !== 'darwin'/u
+      /enabled: app\.isPackaged && desktopSurface\.kind === 'workbench'/u
     )
+    assert.doesNotMatch(desktopMain, /process\.platform !== 'darwin'/u)
   })
 
   it('selects an imported Developer ID Application identity for the RC', () => {
@@ -458,7 +459,7 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(workflow, /compression-level: 0/u)
     const diagnosticsUploadSection = workflow.slice(
       workflow.indexOf('name: Upload macOS packaging diagnostics'),
-      workflow.indexOf('name: Upload unsigned macOS DMG')
+      workflow.indexOf('name: Upload unsigned macOS update bundle')
     )
     assert.match(diagnosticsUploadSection, /macos-packaging-metrics\.json/u)
     assert.match(diagnosticsUploadSection, /runner\.temp/u)
@@ -466,29 +467,31 @@ describe('Workbench macOS distribution gate', () => {
     assert.doesNotMatch(diagnosticsUploadSection, /release-macos\/\*\.zip/u)
     assert.match(diagnosticsUploadSection, /compression-level: 6/u)
     const unsignedUploadSection = workflow.slice(
-      workflow.indexOf('name: Upload unsigned macOS DMG'),
-      workflow.indexOf('name: Upload signed macOS DMG')
+      workflow.indexOf('name: Upload unsigned macOS update bundle'),
+      workflow.indexOf('name: Upload signed macOS update bundle')
     )
     assert.match(unsignedUploadSection, /release-macos\/\*\.dmg/u)
-    assert.doesNotMatch(unsignedUploadSection, /release-macos\/\*\.zip/u)
-    assert.doesNotMatch(unsignedUploadSection, /latest-mac\.yml/u)
+    assert.match(unsignedUploadSection, /release-macos\/\*\.zip/u)
+    assert.match(unsignedUploadSection, /release-macos\/\*\.zip\.blockmap/u)
+    assert.match(unsignedUploadSection, /latest-mac\.yml/u)
     assert.doesNotMatch(unsignedUploadSection, /macos-packaging-metrics\.json/u)
     assert.match(unsignedUploadSection, /retention-days: 7/u)
 
     const signedUploadSection = workflow.slice(
-      workflow.indexOf('name: Upload signed macOS DMG'),
-      workflow.indexOf('name: Publish rolling macOS DMG release')
+      workflow.indexOf('name: Upload signed macOS update bundle'),
+      workflow.indexOf('name: Publish rolling macOS update release')
     )
     assert.match(signedUploadSection, /release-macos\/\*\.dmg/u)
     assert.match(signedUploadSection, /UNILAB_CI_SIGNING_MODE == 'signed'/u)
     assert.doesNotMatch(signedUploadSection, /github\.event_name != 'push'/u)
-    assert.doesNotMatch(signedUploadSection, /release-macos\/\*\.zip/u)
-    assert.doesNotMatch(signedUploadSection, /latest-mac\.yml/u)
+    assert.match(signedUploadSection, /release-macos\/\*\.zip/u)
+    assert.match(signedUploadSection, /release-macos\/\*\.zip\.blockmap/u)
+    assert.match(signedUploadSection, /latest-mac\.yml/u)
     assert.doesNotMatch(signedUploadSection, /macos-packaging-metrics\.json/u)
     assert.match(signedUploadSection, /retention-days: 3/u)
 
     const publishSection = workflow.slice(
-      workflow.indexOf('name: Publish rolling macOS DMG release')
+      workflow.indexOf('name: Publish rolling macOS update release')
     )
     assert.match(publishSection, /refs\/heads\/deploy-mac/u)
     assert.match(
@@ -496,11 +499,15 @@ describe('Workbench macOS distribution gate', () => {
       /macOS release asset verification mismatch/u
     )
     const binaryUploadIndex = publishSection.indexOf(
-      'gh release upload "$MACOS_RELEASE_TAG" "${dmgs[0]}"'
+      'gh release upload "$MACOS_RELEASE_TAG" \\'
+    )
+    const metadataUploadIndex = publishSection.indexOf(
+      'gh release upload "$MACOS_RELEASE_TAG" "$metadata"'
     )
     assert.ok(binaryUploadIndex >= 0)
-    assert.match(publishSection, /requires exactly one DMG/u)
-    assert.doesNotMatch(publishSection, /zips=|blockmaps=|metadata=/u)
+    assert.ok(metadataUploadIndex > binaryUploadIndex)
+    assert.match(publishSection, /requires exactly one DMG, ZIP, ZIP blockmap and latest-mac\.yml/u)
+    assert.match(publishSection, /zips=|blockmaps=|metadata=/u)
     assert.match(publishSection, /latest-mac\\\.yml/u)
     assert.doesNotMatch(publishSection, /gh release create/u)
     assert.doesNotMatch(workflow, /git push/u)

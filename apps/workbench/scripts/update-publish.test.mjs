@@ -6,7 +6,7 @@ import {
   readWorkbenchUpdateMetadataVersion,
   requireWorkbenchUpdateUrl,
   selectNextWorkbenchVersion,
-  selectMacosDmgArtifacts,
+  selectMacosUpdateArtifacts,
   selectPortableUpdateArtifacts
 } from './update-publish.mjs'
 
@@ -75,7 +75,7 @@ describe('Workbench update publish URL', () => {
     ], 'win-64'), /blockmap/u)
   })
 
-  it('selects the Linux update bundle and the sole macOS DMG', () => {
+  it('selects complete Linux and macOS update bundles', () => {
     assert.deepEqual(selectPortableUpdateArtifacts([
       'UniLab Workbench-0.1.1-x64.AppImage',
       'UniLab Workbench-0.1.1-x64.AppImage.blockmap',
@@ -85,18 +85,23 @@ describe('Workbench update publish URL', () => {
       'UniLab Workbench-0.1.1-x64.AppImage.blockmap',
       'latest-linux.yml'
     ])
-    assert.deepEqual(selectMacosDmgArtifacts([
+    const macosArtifacts = [
       'UniLab Workbench-0.1.1-arm64.dmg',
       'UniLab Workbench-0.1.1-arm64.zip',
       'UniLab Workbench-0.1.1-arm64.zip.blockmap',
       'latest-mac.yml'
-    ]), [
-      'UniLab Workbench-0.1.1-arm64.dmg'
-    ])
-    assert.throws(() => selectMacosDmgArtifacts([]), /只能包含 1 个 DMG/u)
-    assert.throws(() => selectMacosDmgArtifacts([
-      'UniLab Workbench-0.1.1-arm64.dmg',
-      'UniLab Workbench-0.1.2-arm64.dmg'
-    ]), /实际 2 个/u)
+    ]
+    assert.deepEqual(selectMacosUpdateArtifacts(macosArtifacts), macosArtifacts)
+    assert.throws(() => selectMacosUpdateArtifacts([]), /1 个 DMG/u)
+    assert.throws(() => selectMacosUpdateArtifacts([
+      macosArtifacts[0],
+      macosArtifacts[1],
+      macosArtifacts[3]
+    ]), /ZIP blockmap/u)
+    assert.throws(() => selectMacosUpdateArtifacts([
+      macosArtifacts[0],
+      macosArtifacts[1],
+      macosArtifacts[2]
+    ]), /latest-mac\.yml/u)
   })
 })

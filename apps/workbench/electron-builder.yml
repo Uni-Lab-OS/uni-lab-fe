@@ -103,6 +103,9 @@ mac:
     - target: dmg
       arch:
         - arm64
+    - target: zip
+      arch:
+        - arm64
   artifactName: ${productName}-${version}-${arch}.${ext}
   minimumSystemVersion: '13.0'
   hardenedRuntime: true
@@ -118,7 +121,7 @@ dmg:
   # macOS 13+ supports LZFSE. It avoids maximum compression's much slower UDBZ
   # conversion while retaining a compressed, directly mountable disk image.
   format: ULFO
-  # 当前 macOS 仅分发手动安装 DMG，不生成 updater metadata。
+  # 自动更新使用 ZIP 对应的 latest-mac.yml；DMG 只作为手动安装介质。
   writeUpdateInfo: false
 linux:
   category: Development

@@ -497,10 +497,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('app:getVersion', () => app.getVersion())
   appUpdateManager = new AppUpdateManager({
     currentVersion: app.getVersion(),
-    // macOS 当前仅分发 DMG，不生成 electron-updater 所需的 ZIP metadata。
-    enabled: app.isPackaged
-      && desktopSurface.kind === 'workbench'
-      && process.platform !== 'darwin',
+    enabled: app.isPackaged && desktopSurface.kind === 'workbench',
     updater: createElectronUpdaterAdapter(autoUpdater),
     log: logLine,
     publish: (snapshot) => {

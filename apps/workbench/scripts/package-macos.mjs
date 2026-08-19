@@ -29,7 +29,7 @@ import {
 } from './agent-payload.mjs'
 import {
   requireWorkbenchUpdateUrl,
-  selectMacosDmgArtifacts
+  selectMacosUpdateArtifacts
 } from './update-publish.mjs'
 import { resolveWorkbenchPackageMode } from './packaging-mode.mjs'
 import { pruneDesktopDeployment } from './package-portable.mjs'
@@ -274,7 +274,7 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
 
     const builderArgs = [
       '--mac',
-      ...(packageMode === 'directory' ? ['--dir'] : ['dmg']),
+      ...(packageMode === 'directory' ? ['--dir'] : ['dmg', 'zip']),
       `--${targetArchitecture}`,
       '--publish',
       'never',
@@ -285,8 +285,8 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       UNILAB_WORKBENCH_UPDATE_URL: updateUrl
     }
     if (signed) {
-      // GitHub Release 会把资产名中的空格规范化为点号，正式 DMG 从源头
-      // 使用安全名称，避免发布后名称发生变化。
+      // GitHub Release 会把资产名中的空格规范化为点号，正式 DMG/ZIP
+      // 从源头使用安全名称，确保 latest-mac.yml 指向真实发布资产。
       builderArgs.push(
         '--config.mac.artifactName=UniLab.Workbench-${version}-${arch}.${ext}',
         '--config.dmg.artifactName=UniLab.Workbench-${version}-${arch}.${ext}'
@@ -485,7 +485,7 @@ function findInstaller(outputDirectory) {
 }
 
 function publishMacosArtifacts(outputDirectory) {
-  const names = selectMacosDmgArtifacts(readdirSync(outputDirectory))
+  const names = selectMacosUpdateArtifacts(readdirSync(outputDirectory))
   rmSync(releaseDirectory, { recursive: true, force: true })
   mkdirSync(releaseDirectory, { recursive: true })
   for (const name of names) {
