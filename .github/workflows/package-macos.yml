@@ -530,7 +530,7 @@ jobs:
         if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         uses: actions/upload-artifact@v6
         with:
-          name: UniLab-Workbench-macos-arm64-diagnostics-${{ github.sha }}
+          name: UniLab-Workbench-macos-arm64-diagnostics-${{ env.UNILAB_WORKBENCH_PACKAGE_VERSION }}
           path: |
             ${{ runner.temp }}/macos-packaging-metrics.json
             ${{ runner.temp }}/workbench-build.log
@@ -543,7 +543,7 @@ jobs:
         if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'unsigned'
         uses: actions/upload-artifact@v6
         with:
-          name: UniLab-Workbench-macos-arm64-${{ github.sha }}
+          name: UniLab-Workbench-macos-arm64-${{ env.UNILAB_WORKBENCH_PACKAGE_VERSION }}
           path: apps/workbench/release-macos/*.dmg
           if-no-files-found: error
           retention-days: 7
@@ -554,7 +554,7 @@ jobs:
         if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'signed'
         uses: actions/upload-artifact@v6
         with:
-          name: UniLab-Workbench-macos-arm64-signed-${{ github.sha }}
+          name: UniLab-Workbench-macos-arm64-signed-${{ env.UNILAB_WORKBENCH_PACKAGE_VERSION }}
           path: apps/workbench/release-macos/*.dmg
           if-no-files-found: error
           retention-days: 3
