@@ -188,16 +188,6 @@ describe('Workspace Host Workbench adapter', () => {
     })
     expect(dryRun.configuredRuntimeMode).toBe('dry-run')
 
-    const reset = await session.resetWorkflowEnvironment()
-    expect(receivedCommands.at(-1)).toBe('workflow.environment-reset')
-    expect(receivedParameters.get('workflow.environment-reset')).toEqual({
-      backendUrl: 'http://127.0.0.1:8080'
-    })
-    expect(reset.environmentReset).toMatchObject({
-      phase: 'succeeded',
-      message: '运行前环境已复位'
-    })
-
     await expect(session.inspectReleaseTarget('http://192.168.1.20:9000'))
       .resolves.toEqual({
         targetAddress: 'http://192.168.1.20:9000',
@@ -577,13 +567,6 @@ function hostSnapshot(workspacePath: string) {
       edge: component('edge'),
       plc: component('plc'),
       renderer: component('renderer')
-    },
-    workflowEnvironmentReset: {
-      phase: 'idle',
-      message: '运行前环境尚未复位',
-      baselineFingerprint: null as string | null,
-      receiptUuid: null as string | null,
-      error: null as Record<string, unknown> | null
     }
   }
 }
@@ -653,14 +636,6 @@ function applyCommand(
   } else if (command === 'release.publish' && parameters['activate'] === true) {
     snapshot.configuration.domainMode = 'backend'
     snapshot.configuration.backendUrl = String(parameters['backendUrl'])
-  } else if (command === 'workflow.environment-reset') {
-    snapshot.workflowEnvironmentReset = {
-      phase: 'succeeded',
-      message: '运行前环境已复位',
-      baselineFingerprint: 'sha256:baseline',
-      receiptUuid: '74000000-0000-4000-8000-000000000001',
-      error: null
-    }
   }
   snapshot.revision += 1
   snapshot.eventCursor += 1

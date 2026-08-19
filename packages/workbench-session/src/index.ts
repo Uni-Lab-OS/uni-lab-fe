@@ -140,23 +140,6 @@ export interface WorkbenchEdgeRuntimeSnapshot {
   diagnostic: string | null
 }
 
-export type WorkbenchEnvironmentResetPhase =
-  | 'idle'
-  | 'validating'
-  | 'reconciling'
-  | 'resetting-plc'
-  | 'verifying'
-  | 'succeeded'
-  | 'failed'
-
-export interface WorkbenchEnvironmentResetSnapshot {
-  phase: WorkbenchEnvironmentResetPhase
-  message: string
-  baselineFingerprint: string | null
-  receiptUuid: string | null
-  error: { code?: string; message?: string; details?: unknown } | null
-}
-
 export interface WorkspacePackageMount {
   packageId: string
   distributionName: string
@@ -194,7 +177,6 @@ export interface WorkbenchSessionSnapshot {
   diagnostic: WorkbenchSessionDiagnostic | null
   edgeRuntime: WorkbenchEdgeRuntimeSnapshot
   plcSimulator: WorkbenchPlcSimulatorSnapshot
-  environmentReset?: WorkbenchEnvironmentResetSnapshot
 }
 
 /** Configuration accepted by the single production Workspace Host adapter. */
@@ -261,7 +243,6 @@ export interface WorkbenchSession {
   refreshPlcVariableTables(): Promise<WorkbenchSessionSnapshot>
   startPlcSimulator(): Promise<WorkbenchSessionSnapshot>
   stopPlcSimulator(): Promise<WorkbenchSessionSnapshot>
-  resetWorkflowEnvironment(backendUrl?: string): Promise<WorkbenchSessionSnapshot>
   releaseEnvironmentPorts(
     target: 'os' | 'plc-sim'
   ): Promise<WorkbenchSessionSnapshot>

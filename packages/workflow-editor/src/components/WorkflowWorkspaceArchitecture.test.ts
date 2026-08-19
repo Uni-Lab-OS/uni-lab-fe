@@ -98,23 +98,6 @@ describe('Workflow workspace authority', () => {
     )
   })
 
-  /** 长诊断和中英混排不得撑破复位弹窗或制造横向滚动。 */
-  it('contains long environment reset diagnostics inside the dialog', () => {
-    const stylesheet = componentSource('workflow-persistent/_section-01.scss')
-    expect(stylesheet).toMatch(
-      /\.persistent-authoring__reset-dialog\)[^{]*\{[^}]*white-space:\s*normal/u
-    )
-    expect(stylesheet).toMatch(
-      /\.persistent-authoring__reset-dialog\)\s*>\s*div[^{]*\{[^}]*min-width:\s*0/u
-    )
-    expect(stylesheet).toMatch(
-      /\.persistent-authoring__reset-dialog\)[^{]*\{[^}]*overflow-x:\s*hidden/u
-    )
-    expect(stylesheet).toMatch(
-      /\.persistent-authoring__reset-error\)[^{]*\{[^}]*overflow-wrap:\s*anywhere/u
-    )
-  })
-
   /** 单工作流宽屏保持单行；工作流与物料分栏变窄后才上下排列参数名称。 */
   it('stacks translated parameter names only in a narrow workflow pane', () => {
     const stylesheet = componentSource(
