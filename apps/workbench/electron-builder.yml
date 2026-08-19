@@ -38,8 +38,10 @@ extraResources:
     filter:
       - '**/*'
       - '!**/*.map'
-  - from: .packaging/node-runtime/bin/node
-    to: node-runtime/bin/node
+  - from: .packaging/node-runtime
+    to: node-runtime
+    filter:
+      - '**/*'
   - from: .packaging/device-card-builder
     to: device-card-builder
   - from: ../../packages/device-card-agent-cli/dist/cli.mjs

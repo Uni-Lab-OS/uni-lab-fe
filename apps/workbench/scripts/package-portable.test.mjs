@@ -81,6 +81,22 @@ describe('portable Workbench packaging contract', () => {
     assert.doesNotMatch(packagingScript, /\n\s*'--offline',?\n/u)
   })
 
+  it('packages the platform-specific portable Node executable', async () => {
+    const builderConfiguration = await readFile(
+      new URL('../electron-builder.yml', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(
+      builderConfiguration,
+      /from: \.packaging\/node-runtime\s+to: node-runtime/u
+    )
+    assert.doesNotMatch(
+      builderConfiguration,
+      /from: \.packaging\/node-runtime\/bin\/node(?:\s|$)/u
+    )
+  })
+
   it('builds every installer from a bounded production Workbench bundle', async () => {
     const packageManifest = JSON.parse(await readFile(
       new URL('../package.json', import.meta.url),
@@ -239,8 +255,9 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /build\/Release\/crypt32\.node/u)
     assert.match(
       workflow,
-      /ref: b09c0c048f6de1e5027deb1733da439598c577cf/u
+      /UNILAB_OS_SOURCE_REF: f329e4cf3e935d985299e572c5a4a5b476321e9b/u
     )
+    assert.match(workflow, /ref: \$\{\{ env\.UNILAB_OS_SOURCE_REF \}\}/u)
     assert.match(workflow, /Test-Path \.conda\/constructor\/construct\.yaml/u)
     assert.match(
       workflow,
