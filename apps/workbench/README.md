@@ -207,15 +207,19 @@ validated PLC-Sim launch contract.
 
 ## Desktop automatic updates
 
-Packaged Workbench applications use `electron-updater` with a build-time HTTPS
-generic provider. Development runs and the legacy Kernel Electron surface keep
-the updater disabled. Workbench checks 30 seconds after startup and every four
-hours afterwards, asks before downloading, and asks again before stopping the
-managed process tree and restarting into the installer.
+Production Workbench applications use `electron-updater` with a build-time
+HTTPS generic provider. The release channel is compiled into Electron main from
+`UNILAB_WORKBENCH_RELEASE_CHANNEL=production|test`; test packages, development
+runs and the legacy Kernel Electron surface keep the updater disabled. A
+production Workbench checks 30 seconds after startup and every four hours
+afterwards, asks before downloading, and asks again before stopping the managed
+process tree and restarting into the installer. An omitted channel defaults to
+`test`, so only an explicit production build can enable updates.
 
 Every distributable build requires a credential-free update directory:
 
 ```bash
+UNILAB_WORKBENCH_RELEASE_CHANNEL=production \
 UNILAB_WORKBENCH_UPDATE_URL=https://updates.example.com/workbench/stable \
 pnpm --filter @unilab/workbench package:win
 ```
@@ -227,31 +231,25 @@ before `latest-linux.yml`. The HTTP service must support HTTPS, `GET`, `HEAD`,
 byte-range requests, stable public artifact URLs, and must not cache the
 `latest*.yml` metadata for long.
 
-The `deploy-windows` branch uses the pre-created
-`workbench-windows-stable` rolling GitHub Release as its Windows update
-directory. Its workflow uploads the NSIS EXE and blockmap first, replaces
-`latest.yml` last, and then removes superseded Windows updater assets. This
-rolling channel deliberately does not replace the repository's Latest Release,
-which may belong to another product. The workflow's `GITHUB_TOKEN` only updates
-the existing release; bootstrapping or recreating that release requires an
-authorized maintainer token. Every `deploy-windows` push reads the published
-`latest.yml` and increments its patch version in the runner-only package
-manifest. The generated version is never committed, so publishing cannot
-recursively trigger itself. To begin a new minor or major line, set a higher
-version in `apps/workbench/package.json`; that source version wins once, and
-subsequent builds resume automatic patch increments. Formal Windows artifacts
-must use the same trusted code-signing identity across versions; formal macOS
-artifacts must remain Developer ID signed and notarized.
+Every push to `main` runs both platform workflows in the `production` channel.
+Windows uses the pre-created `workbench-windows-stable` rolling GitHub Release;
+macOS uses `workbench-macos-stable`. Each workflow reads its published metadata,
+increments the patch version only in the runner, uploads binaries and blockmaps
+first, replaces metadata last, and removes superseded updater assets only after
+verification. These rolling channels never replace the repository's Latest
+Release. Their `GITHUB_TOKEN` only updates existing releases; bootstrapping or
+recreating a release requires an authorized maintainer token.
 
-The `deploy-mac` branch follows the same rolling-channel contract through the
-pre-created `workbench-macos-stable` GitHub Release. A push performs a full
-arm64 build, fails before dependency restoration unless all five signing
-secrets (`CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`,
-`APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID`) are configured, and
-increments the patch version from the published `latest-mac.yml`. The workflow
-uploads the notarized DMG, signed/notarized-app ZIP and blockmap before replacing
-`latest-mac.yml`, then removes superseded macOS binaries. It never creates the
-Release or pushes the runner-only version change back to Git.
+`deploy-windows-test` builds only the Windows `test` package and
+`deploy-mac-test` builds only the signed and notarized macOS `test` package.
+Their filenames and Actions Artifact names include `Test`/`test`. They use the
+source package version, never read or increment production Release metadata,
+never upload to a rolling Release, and carry a compile-time-disabled updater.
+The same compiled channel selects `platform.test.bohrium.com` and
+`leap-lab.test.bohrium.com` for test packages, while production packages select
+`platform.bohrium.com` and `leap-lab.bohrium.com`.
+Merging either test branch into `main` changes the same commit to the production
+channel because the channel is derived from the protected target branch.
 
 ### Desktop packaging CI modes
 
@@ -263,12 +261,11 @@ identical input to compare the baseline NSIS profile with the `.exe`
 pre-compressed-resource profile. The benchmark uploads only JSON measurements;
 both installers and blockmaps are still generated and verified on the runner.
 
-The macOS workflow exposes `quick` and `full`. Optimization-branch pushes use
-unsigned `quick`, while `deploy-mac` pushes use signed `full` to generate,
-notarize, verify and publish both DMG and ZIP media. A manual full run on another
-branch remains an unsigned benchmark. This keeps daily packaging validation
-representative without paying the compression, notarization and artifact-upload
-cost on every commit.
+The macOS workflow exposes `quick` and `full`. Pushes to `main` and
+`deploy-mac-test` use signed `full` to generate, notarize and verify both DMG and
+ZIP media. Only `main` publishes the ZIP update set; the test branch retains the
+bundle solely as a short-lived Actions Artifact. A manual quick run remains an
+unsigned validation path.
 
 Both platform workflows first restore the pinned Runtime from the immutable
 `workbench-runtime-<version>-<source>` GitHub Release. If that release does not
@@ -290,10 +287,12 @@ selections.
 
 ```bash
 # Local artifact and cold-start acceptance; intentionally unsigned.
+UNILAB_WORKBENCH_RELEASE_CHANNEL=test \
 UNILAB_WORKBENCH_UPDATE_URL=https://updates.example.com/workbench/stable \
 pnpm --filter @unilab/workbench package:mac:unsigned
 
 # Local T14 release-candidate acceptance; ad-hoc signed and not notarized.
+UNILAB_WORKBENCH_RELEASE_CHANNEL=test \
 UNILAB_WORKBENCH_UPDATE_URL=https://updates.example.com/workbench/stable \
 pnpm --filter @unilab/workbench package:mac:adhoc
 
@@ -303,6 +302,7 @@ CSC_KEY_PASSWORD=... \
 APPLE_ID=... \
 APPLE_APP_SPECIFIC_PASSWORD=... \
 APPLE_TEAM_ID=... \
+UNILAB_WORKBENCH_RELEASE_CHANNEL=production \
 UNILAB_WORKBENCH_UPDATE_URL=https://updates.example.com/workbench/stable \
 pnpm --filter @unilab/workbench package:mac
 ```

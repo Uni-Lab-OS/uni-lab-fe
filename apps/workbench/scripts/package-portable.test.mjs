@@ -109,6 +109,11 @@ describe('portable Workbench packaging contract', () => {
       packagingScript,
       /--config\.nsis\.preCompressedFileExtensions=/u
     )
+    assert.match(
+      packagingScript,
+      /--config\.win\.artifactName=UniLab\.Workbench\.Test-/u
+    )
+    assert.match(packagingScript, /resolveWorkbenchReleaseChannel/u)
     assert.match(packagingScript, /allowsOversizePackagingBenchmark\(\)/u)
   })
 
@@ -644,7 +649,7 @@ describe('portable Workbench packaging contract', () => {
     }
   })
 
-  /** 验证 Windows 原生流水线分流快速校验、正式发布与同源介质 A/B。 */
+  /** 验证 Windows 原生流水线分流 main 生产包、测试包与同源介质 A/B。 */
   it('builds the Windows installer on a native GitHub Actions runner', async () => {
     const workflow = await readFile(
       new URL('../../../.github/workflows/package-windows.yml', import.meta.url),
@@ -667,8 +672,8 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /actions\/cache\/restore@v6/u)
     assert.match(workflow, /actions\/cache\/save@v6/u)
     assert.match(workflow, /cache-primary-key/u)
-    assert.match(workflow, /branches:\n\s+- deploy-windows/u)
-    assert.match(workflow, /ci\/desktop-packaging-optimization-v2/u)
+    assert.match(workflow, /branches:\n\s+- main\n\s+- deploy-windows-test/u)
+    assert.doesNotMatch(workflow, /ci\/desktop-packaging-optimization-v2/u)
     assert.match(workflow, /workflow_dispatch:/u)
     assert.match(
       workflow,
@@ -677,6 +682,8 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /options:\n\s+- normal\n\s+- maximum/u)
     assert.match(workflow, /UNILAB_CI_PACKAGE_MODE:/u)
     assert.match(workflow, /UNILAB_WORKBENCH_COMPRESSION:/u)
+    assert.match(workflow, /UNILAB_WORKBENCH_RELEASE_CHANNEL:/u)
+    assert.match(workflow, /refs\/heads\/main' && 'production' \|\| 'test'/u)
     assert.doesNotMatch(workflow, /strategy:\n\s+matrix:/u)
     assert.match(workflow, /ELECTRON_VERSION: 33\.4\.11/u)
     assert.match(workflow, /ELECTRON_BUILDER_VERSION: 25\.1\.8/u)
@@ -747,6 +754,7 @@ describe('portable Workbench packaging contract', () => {
       /validateWindowsInstallerArchive\(installer\.path\)/u
     )
     assert.match(workflow, /prepare-package-version\.mjs/u)
+    assert.match(workflow, /name: Select test Windows package version/u)
     assert.match(workflow, /UNILAB_WORKBENCH_PACKAGE_VERSION=/u)
     assert.match(workflow, /readWorkbenchUpdateMetadataVersion/u)
     assert.match(workflow, /发布版本：\$env:UNILAB_WORKBENCH_PACKAGE_VERSION/u)
@@ -853,6 +861,8 @@ describe('portable Workbench packaging contract', () => {
     assert.doesNotMatch(installerUploadSection, /github\.event_name/u)
     assert.doesNotMatch(installerUploadSection, /github\.ref/u)
     assert.match(installerUploadSection, /\*-setup\.exe/u)
+    assert.match(installerUploadSection, /UNILAB_WORKBENCH_RELEASE_CHANNEL/u)
+    assert.match(installerUploadSection, /github\.run_number/u)
     assert.doesNotMatch(installerUploadSection, /\*-setup\.exe\.blockmap/u)
     assert.doesNotMatch(installerUploadSection, /latest\.yml/u)
     assert.match(installerUploadSection, /compression-level: 0/u)
@@ -865,7 +875,7 @@ describe('portable Workbench packaging contract', () => {
     assert.doesNotMatch(abUploadSection, /\*-setup\.exe/u)
     assert.match(
       workflow,
-      /if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/deploy-windows'/u
+      /if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'[^\n]*UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'/u
     )
 
     const builderConfiguration = await readFile(

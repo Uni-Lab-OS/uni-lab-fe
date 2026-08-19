@@ -31,7 +31,10 @@ import {
   requireWorkbenchUpdateUrl,
   selectMacosUpdateArtifacts
 } from './update-publish.mjs'
-import { resolveWorkbenchPackageMode } from './packaging-mode.mjs'
+import {
+  resolveWorkbenchPackageMode,
+  resolveWorkbenchReleaseChannel
+} from './packaging-mode.mjs'
 import { pruneDesktopDeployment } from './package-portable.mjs'
 import {
   createPackagedResourceReport,
@@ -213,6 +216,9 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
   if (packageMode === 'prepackaged') {
     throw new Error('macOS 暂不支持从预构建应用目录生成发布介质。')
   }
+  const releaseChannel = resolveWorkbenchReleaseChannel(
+    process.env['UNILAB_WORKBENCH_RELEASE_CHANNEL']
+  )
   const updateUrl = requireWorkbenchUpdateUrl()
   const developerIdIdentity = developerId
     ? findDeveloperIdIdentity()
@@ -287,9 +293,12 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
     if (signed) {
       // GitHub Release 会把资产名中的空格规范化为点号，正式 DMG/ZIP
       // 从源头使用安全名称，确保 latest-mac.yml 指向真实发布资产。
+      const artifactName = releaseChannel === 'test'
+        ? 'UniLab.Workbench.Test-${version}-${arch}.${ext}'
+        : 'UniLab.Workbench-${version}-${arch}.${ext}'
       builderArgs.push(
-        '--config.mac.artifactName=UniLab.Workbench-${version}-${arch}.${ext}',
-        '--config.dmg.artifactName=UniLab.Workbench-${version}-${arch}.${ext}'
+        `--config.mac.artifactName=${artifactName}`,
+        `--config.dmg.artifactName=${artifactName}`
       )
     }
     if (!signed && !developerId) {

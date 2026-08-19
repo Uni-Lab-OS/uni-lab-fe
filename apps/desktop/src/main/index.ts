@@ -76,6 +76,7 @@ import {
   shouldQuitWhenAllDesktopWindowsClose
 } from './desktopSurface'
 import { RendererConsoleLogLimiter } from './rendererConsoleLogLimiter'
+import { shouldEnableWorkbenchUpdates } from './releaseChannel'
 import { cleanupPackagedWorkbench, configurePackagedDeviceCardBuilder } from './packagedRuntime'
 import { isWorkbenchWorkspaceNavigationAllowed, registerWorkbenchRemoteAccessIpc, workbenchUnloadPrompt } from './workbenchRemoteIpc'
 
@@ -497,7 +498,11 @@ app.whenReady().then(async () => {
   ipcMain.handle('app:getVersion', () => app.getVersion())
   appUpdateManager = new AppUpdateManager({
     currentVersion: app.getVersion(),
-    enabled: app.isPackaged && desktopSurface.kind === 'workbench',
+    enabled: shouldEnableWorkbenchUpdates({
+      isPackaged: app.isPackaged,
+      releaseChannel: __UNILAB_WORKBENCH_RELEASE_CHANNEL__,
+      surfaceKind: desktopSurface.kind
+    }),
     updater: createElectronUpdaterAdapter(autoUpdater),
     log: logLine,
     publish: (snapshot) => {

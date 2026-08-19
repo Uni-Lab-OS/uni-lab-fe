@@ -40,6 +40,7 @@ import {
 } from './package-size-report.mjs'
 import {
   allowsOversizePackagingBenchmark,
+  resolveWorkbenchReleaseChannel,
   resolveWindowsPrecompressedProfile,
   resolveWorkbenchPackageMode
 } from './packaging-mode.mjs'
@@ -92,6 +93,9 @@ export function packagePortableWorkbench(targetPlatform) {
   const updateUrl = requireWorkbenchUpdateUrl()
   const packageMode = resolveWorkbenchPackageMode(
     process.env['UNILAB_WORKBENCH_PACKAGE_MODE']
+  )
+  const releaseChannel = resolveWorkbenchReleaseChannel(
+    process.env['UNILAB_WORKBENCH_RELEASE_CHANNEL']
   )
   const compression = resolvePortableCompressionLevel(
     process.env['UNILAB_WORKBENCH_COMPRESSION']
@@ -212,6 +216,11 @@ export function packagePortableWorkbench(targetPlatform) {
         `--config.nsis.preCompressedFileExtensions=${precompressedProfile.extensions.join(',')}`
       )
     }
+    if (targetPlatform === 'win-64' && releaseChannel === 'test') {
+      builderArgs.push(
+        '--config.win.artifactName=UniLab.Workbench.Test-${version}-${arch}-setup.${ext}'
+      )
+    }
     runCommand(process.execPath, [
       join(
         workbenchDirectory,
@@ -269,6 +278,7 @@ export function packagePortableWorkbench(targetPlatform) {
       `${JSON.stringify({
         ...resourceReport,
         targetPlatform,
+        releaseChannel,
         compression,
         packageMode,
         precompressedProfile: precompressedProfile.name,

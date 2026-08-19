@@ -5,8 +5,10 @@ import {
   allowsOversizePackagingBenchmark,
   resolveWindowsPrecompressedProfile,
   resolveWorkbenchPackageMode,
+  resolveWorkbenchReleaseChannel,
   WINDOWS_PRECOMPRESSED_PROFILES,
-  WORKBENCH_PACKAGE_MODES
+  WORKBENCH_PACKAGE_MODES,
+  WORKBENCH_RELEASE_CHANNELS
 } from './packaging-mode.mjs'
 
 describe('Workbench packaging modes', () => {
@@ -23,6 +25,17 @@ describe('Workbench packaging modes', () => {
     assert.throws(
       () => resolveWorkbenchPackageMode('benchmark'),
       /不支持的 Workbench 介质生成模式/u
+    )
+  })
+
+  /** 验证发布通道只允许生产与测试，缺省值按测试包失败关闭。 */
+  it('accepts only production and test release channels', () => {
+    assert.deepEqual(WORKBENCH_RELEASE_CHANNELS, ['production', 'test'])
+    assert.equal(resolveWorkbenchReleaseChannel(undefined), 'test')
+    assert.equal(resolveWorkbenchReleaseChannel(' test '), 'test')
+    assert.throws(
+      () => resolveWorkbenchReleaseChannel('staging'),
+      /不支持的 Workbench 发布通道/u
     )
   })
 

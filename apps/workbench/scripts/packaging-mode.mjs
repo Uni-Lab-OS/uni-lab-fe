@@ -4,6 +4,11 @@ export const WORKBENCH_PACKAGE_MODES = Object.freeze([
   'prepackaged'
 ])
 
+export const WORKBENCH_RELEASE_CHANNELS = Object.freeze([
+  'production',
+  'test'
+])
+
 export const WINDOWS_PRECOMPRESSED_PROFILES = Object.freeze({
   none: Object.freeze([]),
   exe: Object.freeze(['.exe'])
@@ -23,6 +28,22 @@ export function resolveWorkbenchPackageMode(value) {
     )
   }
   return mode
+}
+
+/**
+ * 解析桌面发布通道，使测试包与生产更新通道保持显式隔离。
+ * @param {string | undefined} value 环境变量传入的候选通道。
+ * @returns {'production' | 'test'} 已校验的发布通道。
+ * @throws {Error} 候选通道不在受支持集合中时抛出。
+ */
+export function resolveWorkbenchReleaseChannel(value) {
+  const channel = value?.trim() || 'test'
+  if (!WORKBENCH_RELEASE_CHANNELS.includes(channel)) {
+    throw new Error(
+      `不支持的 Workbench 发布通道：${channel}；仅支持 ${WORKBENCH_RELEASE_CHANNELS.join('、')}`
+    )
+  }
+  return channel
 }
 
 /**

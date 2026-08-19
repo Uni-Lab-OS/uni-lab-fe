@@ -22,12 +22,12 @@ on:
           - maximum
   push:
     branches:
-      - deploy-windows
-      - ci/desktop-packaging-optimization-v2
+      - main
+      - deploy-windows-test
 
 permissions:
-  # The deploy branch publishes the verified updater bundle to the pre-created
-  # rolling GitHub Release after uploading the diagnostic metadata artifact.
+  # Only main publishes the verified production updater bundle. The test branch
+  # needs contents:write only because permissions are workflow-scoped.
   contents: write
 
 concurrency:
@@ -52,8 +52,9 @@ env:
 jobs:
   package-windows-x64:
     env:
-      UNILAB_CI_PACKAGE_MODE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/deploy-windows' && 'full' || github.event_name == 'push' && 'quick' || inputs.mode }}
+      UNILAB_CI_PACKAGE_MODE: ${{ github.event_name == 'push' && 'full' || inputs.mode }}
       UNILAB_WORKBENCH_COMPRESSION: ${{ github.event_name == 'workflow_dispatch' && inputs.compression || 'normal' }}
+      UNILAB_WORKBENCH_RELEASE_CHANNEL: ${{ github.ref == 'refs/heads/main' && 'production' || 'test' }}
     # Node-gyp 11 does not yet recognize the Visual Studio 18 toolchain that
     # may be selected by windows-latest. Keep the native drivelist build on the
     # VS 2022 image until the dependency toolchain is upgraded.
@@ -88,6 +89,7 @@ jobs:
       # Fail before restoring multi-hundred-megabyte caches when the updater
       # publishing contract has not been configured for this repository.
       - name: Validate update publishing configuration
+        if: env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
         run: |
           $rawUpdateUrl = $env:UNILAB_WORKBENCH_UPDATE_URL
           if ([string]::IsNullOrWhiteSpace($rawUpdateUrl)) {
@@ -330,7 +332,7 @@ jobs:
       # caches whose keys must remain independent from the generated version.
       # The package.json edit exists only on this runner and is never pushed.
       - name: Select automatic Windows package version
-        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -370,6 +372,17 @@ jobs:
           }
           "UNILAB_WORKBENCH_PACKAGE_VERSION=$packageVersion" >> $env:GITHUB_ENV
           "### Windows package v$packageVersion" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Select test Windows package version
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'test'
+        run: |
+          $packageManifest = Get-Content apps/workbench/package.json -Raw | ConvertFrom-Json
+          $packageVersion = [string]$packageManifest.version
+          if ($packageVersion -notmatch '^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$') {
+            throw "Test Windows package version is invalid: $packageVersion"
+          }
+          "UNILAB_WORKBENCH_PACKAGE_VERSION=$packageVersion" >> $env:GITHUB_ENV
+          "### Windows test package v$packageVersion (run $env:GITHUB_RUN_NUMBER)" >> $env:GITHUB_STEP_SUMMARY
 
       - name: Build production Workbench once
         run: |
@@ -619,7 +632,7 @@ jobs:
         if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         uses: actions/upload-artifact@v6
         with:
-          name: UniLab-Workbench-windows-x64-${{ env.UNILAB_WORKBENCH_PACKAGE_VERSION }}
+          name: UniLab-Workbench-windows-x64-${{ env.UNILAB_WORKBENCH_RELEASE_CHANNEL }}-${{ env.UNILAB_WORKBENCH_PACKAGE_VERSION }}-${{ github.run_number }}
           path: apps/workbench/release-windows/*-setup.exe
           if-no-files-found: error
           retention-days: 3
@@ -641,7 +654,7 @@ jobs:
       # Publish binaries first and metadata last. Existing clients keep reading
       # the previous latest.yml until the complete replacement is available.
       - name: Publish rolling Windows update release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/deploy-windows' && env.UNILAB_CI_PACKAGE_MODE == 'full'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -730,7 +743,7 @@ jobs:
           }
 
           $releaseBody = @"
-          deploy-windows 分支的滚动更新通道。
+          main 分支的 Windows 生产滚动更新通道。
 
           当前提交：$env:GITHUB_SHA
           发布版本：$env:UNILAB_WORKBENCH_PACKAGE_VERSION
