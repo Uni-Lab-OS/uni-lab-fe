@@ -57,7 +57,7 @@ const WORKFLOW_NAV_ITEM: AppShellNavigationItem = {
 };
 const WORKFLOW_TASK_NAV_ITEM: AppShellNavigationItem = {
   id: 'workflow-tasks',
-  label: '工作流任务',
+  label: '任务列表',
   icon: <WorkflowTaskIcon />
 };
 const NAV_ITEMS: readonly AppShellNavigationItem[] = [

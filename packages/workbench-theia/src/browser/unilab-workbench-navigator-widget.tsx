@@ -90,7 +90,7 @@ export class WorkflowTasksDomainEntryWidget extends UniLabDomainEntryWidget {
   protected readonly widgetId = WorkflowTasksDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
     mode: 'workflow-tasks',
-    label: '工作流任务',
+    label: '任务列表',
     caption: '工作流任务 · 运行队列与状态',
     description: '读取 Backend 已持久化的任务列表，核对运行、控制与清理状态。',
     iconClass: 'unilab-activity-icon--workflow-tasks',

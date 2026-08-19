@@ -119,7 +119,10 @@
   min-width: 0;
   min-height: 0;
   flex: 1;
-  grid-template-columns: minmax(300px, 30%) minmax(0, 1fr);
+  grid-template-columns:
+    minmax(300px, var(--workflow-task-queue-width))
+    7px
+    minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -127,8 +130,48 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  border-right: 1px solid var(--unilab-color-border);
   background: var(--unilab-color-surface-subtle);
+}
+
+.workflow :global(.workflow-task-list__splitter) {
+  position: relative;
+  z-index: 1;
+  width: 7px;
+  min-height: 0;
+  border: 0;
+  border-inline: 1px solid transparent;
+  background: var(--unilab-color-border);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.workflow :global(.workflow-task-list__splitter)::after {
+  position: absolute;
+  inset: 0 -3px;
+  content: '';
+}
+
+.workflow :global(.workflow-task-list__splitter) > span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 36px;
+  border-radius: var(--unilab-radius-pill);
+  background: var(--unilab-color-text-muted);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity 120ms ease;
+}
+
+.workflow :global(.workflow-task-list__splitter):hover > span,
+.workflow :global(.workflow-task-list__splitter):focus-visible > span {
+  opacity: 0.65;
+}
+
+.workflow :global(.workflow-task-list__splitter):focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: -2px;
 }
 
 .workflow :global(.workflow-task-list__queue) ol {
@@ -151,7 +194,7 @@
   width: 100%;
   min-width: 0;
   min-height: 78px;
-  grid-template-columns: 94px minmax(0, 1fr) max-content;
+  grid-template-columns: 94px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   padding: 13px 16px;
@@ -205,12 +248,6 @@
 .workflow :global(.workflow-task-list__identity) time {
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.workflow :global(.workflow-task-list__mode) {
-  color: var(--unilab-color-text-muted);
-  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -350,6 +387,10 @@
     border-bottom: 1px solid var(--unilab-color-border);
   }
 
+  .workflow :global(.workflow-task-list__splitter) {
+    display: none;
+  }
+
   .workflow :global(.workflow-task-list__workflow) {
     min-height: 640px;
     flex: 0 0 auto;
@@ -376,10 +417,6 @@
 
   .workflow :global(.workflow-task-list__queue) li > button {
     grid-template-columns: 90px minmax(0, 1fr);
-  }
-
-  .workflow :global(.workflow-task-list__mode) {
-    display: none;
   }
 
   .workflow :global(.workflow-task-list__workflow-context) {

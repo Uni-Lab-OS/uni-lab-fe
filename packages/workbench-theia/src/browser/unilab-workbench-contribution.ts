@@ -283,6 +283,7 @@ implements FrontendApplicationContribution {
       robotReagents,
       material,
       workflow,
+      workflowTasks,
       agent
     ].entries()) {
       activityBar?.insertTab(index, widget.title)

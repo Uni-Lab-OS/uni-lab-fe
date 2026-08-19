@@ -16,6 +16,7 @@ import {
 
 interface PersistentWorkflowToolbarProps {
   model: PersistentWorkflowAuthoringModel
+  hideRuntimeControls?: boolean
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
   environmentResetProgress?: EnvironmentResetProgress
@@ -38,6 +39,7 @@ const RUN_MODE_LABELS = {
  */
 export function PersistentWorkflowToolbar({
   model,
+  hideRuntimeControls = false,
   onResetEnvironment,
   environmentResetBusy = false,
   environmentResetProgress
@@ -199,6 +201,7 @@ export function PersistentWorkflowToolbar({
         title: '保存工作流（Ctrl+S）',
         onSave: saveDraft
       }}
+      hideActions={hideRuntimeControls}
     >
         {!liveTask && (
           <details

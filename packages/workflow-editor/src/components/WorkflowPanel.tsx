@@ -56,6 +56,7 @@ export interface WorkflowPanelProps {
   ) => void
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
+  hideRuntimeControls?: boolean
   allowWorkflowSelection?: boolean
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
@@ -96,6 +97,7 @@ export default function WorkflowPanel({
   onVisibleMaterialRolesChange,
   ideBridge,
   hideEmbeddedCodeEditor = false,
+  hideRuntimeControls = false,
   allowWorkflowSelection = false,
   onResetEnvironment,
   environmentResetBusy = false,
@@ -158,6 +160,7 @@ export default function WorkflowPanel({
         onSelectedWorkflowStepChange={onSelectedWorkflowStepChange}
         ideBridge={ideBridge}
         hideEmbeddedCodeEditor={hideEmbeddedCodeEditor}
+        hideRuntimeControls={hideRuntimeControls}
         recoveryRevision={recoveryRevision}
         visibleMaterialRoles={visibleMaterialRoles}
         onVisibleMaterialRolesChange={onVisibleMaterialRolesChange}

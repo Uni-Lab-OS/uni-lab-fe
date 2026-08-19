@@ -3,7 +3,10 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent
 } from 'react'
 
 import type {
@@ -18,7 +21,6 @@ import {
   shortWorkflowTaskId,
   visibleWorkflowTasks,
   workflowTaskDisplayName,
-  workflowTaskRunModeLabel,
   type WorkflowTaskListFilter
 } from '../utils/workflowTaskListProjection'
 import { workflowTaskStatusLabel } from '../utils/workflowTaskPresentation'
@@ -29,6 +31,9 @@ import styles from './workflow.module.scss'
 
 const TASK_PAGE_SIZE = 100
 const DEFAULT_POLL_INTERVAL_MS = 5_000
+const DEFAULT_TASK_QUEUE_PERCENT = 38
+const MIN_TASK_QUEUE_PERCENT = 30
+const MAX_TASK_QUEUE_PERCENT = 70
 
 export interface WorkflowTaskListProps {
   runtime: WorkflowRuntimePort
@@ -62,7 +67,50 @@ export function WorkflowTaskList({
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [taskQueuePercent, setTaskQueuePercent] = useState(
+    DEFAULT_TASK_QUEUE_PERCENT
+  )
   const requestRevision = useRef(0)
+  const workspaceRef = useRef<HTMLDivElement>(null)
+
+  const setBoundedTaskQueuePercent = useCallback((value: number) => {
+    setTaskQueuePercent(Math.min(
+      MAX_TASK_QUEUE_PERCENT,
+      Math.max(MIN_TASK_QUEUE_PERCENT, value)
+    ))
+  }, [])
+  const resizeTaskQueueFromPointer = useCallback((clientX: number) => {
+    const bounds = workspaceRef.current?.getBoundingClientRect()
+    if (!bounds || bounds.width <= 0) return
+    setBoundedTaskQueuePercent(
+      ((clientX - bounds.left) / bounds.width) * 100
+    )
+  }, [setBoundedTaskQueuePercent])
+  const startTaskQueueResize = useCallback((event: ReactPointerEvent) => {
+    event.preventDefault()
+    const move = (moveEvent: PointerEvent) => {
+      resizeTaskQueueFromPointer(moveEvent.clientX)
+    }
+    const stop = () => {
+      globalThis.removeEventListener('pointermove', move)
+      globalThis.removeEventListener('pointerup', stop)
+    }
+    globalThis.addEventListener('pointermove', move)
+    globalThis.addEventListener('pointerup', stop, { once: true })
+  }, [resizeTaskQueueFromPointer])
+  const resizeTaskQueueFromKeyboard = useCallback((
+    event: ReactKeyboardEvent
+  ) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    event.preventDefault()
+    setBoundedTaskQueuePercent(
+      taskQueuePercent + (event.key === 'ArrowLeft' ? -5 : 5)
+    )
+  }, [setBoundedTaskQueuePercent, taskQueuePercent])
+
+  const workspaceStyle = {
+    '--workflow-task-queue-width': `${taskQueuePercent}%`
+  } as CSSProperties
 
   const loadTasks = useCallback(async (background = false): Promise<void> => {
     const revision = ++requestRevision.current
@@ -188,7 +236,11 @@ export function WorkflowTaskList({
             : '从工作流工作台启动一次运行后，任务会显示在这里。'}
         />
       ) : (
-        <div className="workflow-task-list__workspace">
+        <div
+          ref={workspaceRef}
+          className="workflow-task-list__workspace"
+          style={workspaceStyle}
+        >
           <section className="workflow-task-list__queue" aria-label="任务队列">
             <ol>
               {visibleTasks.map((task) => (
@@ -210,14 +262,25 @@ export function WorkflowTaskList({
                         </time>
                       </span>
                     </span>
-                    <span className="workflow-task-list__mode">
-                      {workflowTaskRunModeLabel(task.run_mode)}
-                    </span>
                   </button>
                 </li>
               ))}
             </ol>
           </section>
+          <div
+            className="workflow-task-list__splitter"
+            role="separator"
+            aria-label="调整任务列表与任务详情宽度"
+            aria-orientation="vertical"
+            aria-valuemin={MIN_TASK_QUEUE_PERCENT}
+            aria-valuemax={MAX_TASK_QUEUE_PERCENT}
+            aria-valuenow={taskQueuePercent}
+            tabIndex={0}
+            onPointerDown={startTaskQueueResize}
+            onKeyDown={resizeTaskQueueFromKeyboard}
+          >
+            <span aria-hidden="true" />
+          </div>
           {selectedTask ? (
             <TaskWorkflowPane
               key={selectedTask.uuid}
@@ -329,7 +392,6 @@ function TaskWorkflowPane({
             <time dateTime={task.create_time}>
               {formatWorkflowTaskDate(task.create_time)}
             </time>
-            <span>{workflowTaskRunModeLabel(task.run_mode)}</span>
           </p>
         </div>
         <TaskStatus status={task.status} />
@@ -351,6 +413,7 @@ function TaskWorkflowPane({
             reason: '当前显示已创建任务；请在工作流工作台启动新任务'
           }}
           hideEmbeddedCodeEditor
+          hideRuntimeControls
           allowWorkflowSelection={false}
         />
       </div>
