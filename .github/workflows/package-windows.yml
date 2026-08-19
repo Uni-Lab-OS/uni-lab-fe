@@ -1,4 +1,5 @@
 name: Package Windows Workbench
+run-name: 生物领域包Workbench windows测试｜${{ github.ref_name }}｜${{ github.sha }}
 
 on:
   workflow_dispatch:
@@ -23,7 +24,9 @@ concurrency:
 
 env:
   AIONUI_VERSION: 2.1.53
+  UNILAB_OS_SOURCE_REF: f329e4cf3e935d985299e572c5a4a5b476321e9b
   UNILAB_RUNTIME_VERSION: 0.11.3
+  UNILAB_RUNTIME_SOURCE_PACKAGE_VERSION: 0.11.3.20260819
 
 jobs:
   package-windows-x64:
@@ -44,10 +47,15 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: Uni-Lab-OS/Uni-Lab-OS
-          # v0.11.3 predates the Constructor definition. Pin the later runtime
-          # packaging fix whose source version remains 0.11.3.
-          ref: b09c0c048f6de1e5027deb1733da439598c577cf
+          ref: ${{ env.UNILAB_OS_SOURCE_REF }}
           path: .runtime-source
+
+      - name: Verify pinned source revisions
+        run: |
+          $osRevision = (git -C .runtime-source rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $osRevision -ne $env:UNILAB_OS_SOURCE_REF) {
+            throw "Uni-Lab OS revision mismatch: $osRevision"
+          }
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -85,14 +93,39 @@ jobs:
           if (-not (Test-Path .conda/constructor/construct.yaml)) {
             throw 'The pinned Uni-Lab OS source does not contain its Constructor definition'
           }
-          mamba install -n constructor-build --override-channels -c conda-forge constructor=3.16.1 conda-standalone=26.3.2.post1 -y
-          if ($LASTEXITCODE -ne 0) { throw 'Unable to install Constructor' }
+          mamba install -n constructor-build --override-channels -c conda-forge constructor=3.16.1 conda-standalone=26.3.2.post1 rattler-build -y
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to install Runtime build tools' }
+
+          $recipePath = '.conda/base/recipe.yaml'
+          $recipe = Get-Content $recipePath -Raw
+          $publishedVersion = "  version: $env:UNILAB_RUNTIME_VERSION"
+          $sourceVersion = "  version: $env:UNILAB_RUNTIME_SOURCE_PACKAGE_VERSION"
+          if (-not $recipe.Contains($publishedVersion)) {
+            throw "Unable to locate the Uni-Lab OS package version in $recipePath"
+          }
+          $recipe.Replace($publishedVersion, $sourceVersion) |
+            Set-Content $recipePath -Encoding utf8NoBOM
+
+          conda run -n constructor-build rattler-build build -r .conda/environment/recipe.yaml --target-platform win-64 -c uni-lab -c robostack-staging -c conda-forge --output-dir output
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to build unilabos-env' }
+          conda run -n constructor-build rattler-build build -r .conda/vendor/rfc8785/recipe.yaml --target-platform win-64 -c conda-forge --output-dir output
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to build rfc8785' }
+          conda run -n constructor-build rattler-build build -r .conda/vendor/msgcenterpy/recipe.yaml --target-platform win-64 -c conda-forge --channel ./output --output-dir output
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to build msgcenterpy' }
+          conda run -n constructor-build rattler-build build -r .conda/vendor/pylabrobot/recipe.yaml --target-platform win-64 -c conda-forge --channel ./output --output-dir output
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to build pylabrobot' }
+          conda run -n constructor-build rattler-build build -r .conda/base/recipe.yaml --target-platform win-64 -c uni-lab -c robostack-staging -c conda-forge --channel ./output --output-dir output
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to build the current Uni-Lab OS checkout' }
 
           $condaExe = conda run -n constructor-build python -c "import os; from pathlib import Path; print(Path(os.environ['CONDA_PREFIX'], 'standalone_conda', 'conda.exe'))"
           if ($LASTEXITCODE -ne 0) { throw 'Unable to resolve standalone conda.exe' }
           $condaExe = $condaExe.Trim()
           if (-not (Test-Path $condaExe)) { throw "Standalone conda.exe was not found: $condaExe" }
 
+          $localChannel = [Uri]::new((Resolve-Path output).Path).AbsoluteUri
+          $env:UNILABOS_INSTALLER_CHANNEL = $localChannel
+          $env:UNILABOS_INSTALLER_PACKAGE = 'unilabos'
+          $env:UNILABOS_INSTALLER_VERSION = $env:UNILAB_RUNTIME_SOURCE_PACKAGE_VERSION
           conda run -n constructor-build constructor .conda/constructor --platform win-64 --conda-exe $condaExe --output-dir dist/constructor
           if ($LASTEXITCODE -ne 0) { throw 'Constructor failed to build the Windows Runtime' }
 
@@ -158,10 +191,23 @@ jobs:
           if ($header[0] -ne 0x4d -or $header[1] -ne 0x5a) { throw 'Installer is not a PE executable' }
           Get-FileHash $installer.FullName -Algorithm SHA256
 
+      - name: Describe Windows test package
+        run: |
+          @"
+          ## 生物领域包 Workbench Windows 测试
+
+          - 源分支：`${{ github.ref_name }}`
+          - FE 提交：`${{ github.sha }}`
+          - Uni-Lab OS 提交：`$env:UNILAB_OS_SOURCE_REF`
+          - 领域代码：不内置；用户安装后自行选择和修改外部 workspace
+          - 交付位置：本次 Actions Run 的 Artifact
+          - 发布限制：仅生成测试 EXE，不上传、不修改任何 stable Release
+          "@ >> $env:GITHUB_STEP_SUMMARY
+
       - name: Upload Windows installer
         uses: actions/upload-artifact@v6
         with:
-          name: UniLab-Workbench-windows-x64-${{ github.sha }}
+          name: 生物领域包Workbench windows测试
           path: |
             apps/workbench/release-windows/*-setup.exe
             apps/workbench/release-windows/*-setup.exe.blockmap
