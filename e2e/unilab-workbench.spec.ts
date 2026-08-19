@@ -345,6 +345,92 @@ test.describe('UniLab Workbench real-system contract', () => {
     await expect(separator).toHaveAttribute('aria-valuenow', '60')
   })
 
+  test('reclaims the Agent width after closing it beside workflow source', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 820 })
+    await page.goto(workbenchUrl!)
+    await expect(page.locator('[data-package-mount-count="1"]')).toBeVisible()
+
+    await page.getByRole('button', { name: /打开工作流/u }).first().click()
+    await expect(page.getByRole('button', {
+      name: '代码模式',
+      exact: true,
+      pressed: true
+    })).toBeVisible()
+    await expect(page.getByRole('region', { name: '工作流代码视图' }))
+      .toBeVisible()
+
+    await page.keyboard.press('Control+P')
+    const quickInput = page.locator('.quick-input-widget input').first()
+    await expect(quickInput).toBeVisible()
+    await quickInput.fill('szlab_poly_studio/workflows/s06_robot.py')
+    await page.getByRole('option', { name: /s06_robot\.py/u }).click()
+    await expect(page.locator('.monaco-editor .view-line').first()).toBeVisible()
+
+    const agentNavigation = page.locator(
+      '[id="shell-tab-unilab:agent-navigation"]'
+    )
+    const agentPanel = page.locator('[id="unilab:agent"]')
+    await agentNavigation.click()
+    await expect(agentPanel).toBeVisible()
+    await expect(page.locator('body')).toHaveClass(/unilab-agent-panel-visible/u)
+
+    await agentNavigation.click()
+    await expect(agentPanel).toBeHidden()
+    await expect(page.locator('body')).not.toHaveClass(
+      /unilab-agent-panel-visible/u
+    )
+
+    await expect.poll(async () => page.evaluate(() => {
+      const shell = document.getElementById('theia-left-right-split-panel')
+      const bottom = document.getElementById('theia-bottom-split-panel')
+      const main = document.getElementById('theia-main-content-panel')
+      const right = document.getElementById('theia-right-content-panel')
+      const editor = document.querySelector<HTMLElement>(
+        '.monaco-editor:has(.view-line)'
+      )
+      const editorWidget = editor?.closest<HTMLElement>(
+        '.theia-editor.lm-DockPanel-widget'
+      )
+      if (!shell || !bottom || !main || !right || !editor || !editorWidget) {
+        return null
+      }
+      const shellRect = shell.getBoundingClientRect()
+      const bottomRect = bottom.getBoundingClientRect()
+      const mainRect = main.getBoundingClientRect()
+      const editorRect = editor.getBoundingClientRect()
+      const visibleDockWidgets = main.querySelectorAll(
+        ':scope > .lm-DockPanel-widget:not(.lm-mod-hidden)'
+      )
+      return {
+        bottomRightGap: Math.round(shellRect.right - bottomRect.right),
+        mainRightGap: Math.round(shellRect.right - mainRect.right),
+        editorWidgetRightGap: Math.round(
+          mainRect.right - editorWidget.getBoundingClientRect().right
+        ),
+        editorRightGap: Math.round(mainRect.right - editorRect.right),
+        visibleDockWidgetCount: visibleDockWidgets.length,
+        singleEditorRuleMatches: editorWidget.matches(
+          'body:not(.unilab-agent-panel-visible) ' +
+          '#theia-main-content-panel:not(:has(' +
+          '> .lm-DockPanel-widget:not(.lm-mod-hidden) ' +
+          '~ .lm-DockPanel-widget:not(.lm-mod-hidden))) ' +
+          '> .theia-editor.lm-DockPanel-widget:not(.lm-mod-hidden)'
+        ),
+        rightPanelDisplay: getComputedStyle(right).display
+      }
+    })).toEqual({
+      bottomRightGap: 0,
+      mainRightGap: 0,
+      editorWidgetRightGap: 0,
+      editorRightGap: 0,
+      visibleDockWidgetCount: 1,
+      singleEditorRuleMatches: true,
+      rightPanelDisplay: 'none'
+    })
+  })
+
   test('keeps material overlays behind the Agent panel', async ({ page }) => {
     await page.setViewportSize({ width: 1630, height: 1090 })
     await page.goto(workbenchUrl!)
