@@ -251,6 +251,10 @@ bridge only; replace it with a stable trusted certificate before general release
 Their filenames and Actions Artifact names include `Test`/`test`. They use the
 source package version, never read or increment production Release metadata,
 never upload to a rolling Release, and carry a compile-time-disabled updater.
+The macOS test build generates only a DMG. Both macOS branches expose only the
+DMG through Actions Artifacts; `main` still keeps its signed ZIP, blockmap, and
+`latest-mac.yml` exclusively in `workbench-macos-stable` because those internal
+assets are required by macOS automatic updates.
 The same compiled channel selects `platform.test.bohrium.com` and
 `leap-lab.test.bohrium.com` for test packages, while production packages select
 `platform.bohrium.com` and `leap-lab.bohrium.com`.

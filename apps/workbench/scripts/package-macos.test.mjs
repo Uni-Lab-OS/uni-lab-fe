@@ -11,7 +11,8 @@ import {
   NODE_RUNTIME_SHA256,
   NODE_RUNTIME_SHA256_X64,
   NODE_RUNTIME_VERSION,
-  parseDeveloperIdIdentity
+  parseDeveloperIdIdentity,
+  selectMacosReleaseArtifacts
 } from './package-macos.mjs'
 
 describe('Workbench macOS distribution gate', () => {
@@ -76,7 +77,7 @@ describe('Workbench macOS distribution gate', () => {
     )
   })
 
-  it('uses GitHub-safe formal DMG and ZIP artifact names', async () => {
+  it('uses GitHub-safe macOS artifact names', async () => {
     const packagingScript = await readFile(
       new URL('./package-macos.mjs', import.meta.url),
       'utf8'
@@ -91,6 +92,27 @@ describe('Workbench macOS distribution gate', () => {
       /UniLab\.Workbench\.Test-\$\{version\}-\$\{arch\}\.\$\{ext\}/u
     )
     assert.match(packagingScript, /resolveWorkbenchReleaseChannel/u)
+  })
+
+  it('keeps test delivery DMG-only while retaining production update media', () => {
+    const artifacts = [
+      'UniLab.Workbench-0.1.2-arm64.dmg',
+      'UniLab.Workbench-0.1.2-arm64.zip',
+      'UniLab.Workbench-0.1.2-arm64.zip.blockmap',
+      'latest-mac.yml'
+    ]
+    assert.deepEqual(
+      selectMacosReleaseArtifacts(artifacts, 'test'),
+      [artifacts[0]]
+    )
+    assert.deepEqual(
+      selectMacosReleaseArtifacts(artifacts, 'production'),
+      artifacts
+    )
+    assert.throws(
+      () => selectMacosReleaseArtifacts([], 'test'),
+      /1 个 DMG/u
+    )
   })
 
   it('requires Developer ID signing and Apple notarization for formal DMGs', async () => {
@@ -130,7 +152,7 @@ describe('Workbench macOS distribution gate', () => {
     )
   })
 
-  /** 验证完整模式生成安装与更新介质，快速模式只校验应用目录。 */
+  /** 验证测试通道只生成 DMG，生产通道保留热更新介质。 */
   it('separates full macOS update media from directory validation', async () => {
     const packagingScript = await readFile(
       new URL('./package-macos.mjs', import.meta.url),
@@ -147,7 +169,7 @@ describe('Workbench macOS distribution gate', () => {
 
     assert.match(
       packagingScript,
-      /packageMode === 'directory' \? \['--dir'\] : \['dmg', 'zip'\]/u
+      /releaseChannel === 'production'[^]*\? \['dmg', 'zip'\][^]*: \['dmg'\]/u
     )
     assert.match(packagingScript, /macOS Workbench 非压缩应用目录已通过校验/u)
     assert.match(packagingScript, /selectMacosUpdateArtifacts/u)
@@ -469,36 +491,26 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(workflow, /macos-packaging-metrics\.json/u)
     assert.match(workflow, /hdiutil verify/u)
     assert.match(workflow, /compression-level: 0/u)
-    const diagnosticsUploadSection = workflow.slice(
-      workflow.indexOf('name: Upload macOS packaging diagnostics'),
-      workflow.indexOf('name: Upload unsigned macOS update bundle')
-    )
-    assert.match(diagnosticsUploadSection, /macos-packaging-metrics\.json/u)
-    assert.match(diagnosticsUploadSection, /runner\.temp/u)
-    assert.doesNotMatch(diagnosticsUploadSection, /release-macos\/\*\.dmg/u)
-    assert.doesNotMatch(diagnosticsUploadSection, /release-macos\/\*\.zip/u)
-    assert.match(diagnosticsUploadSection, /compression-level: 6/u)
+    assert.doesNotMatch(workflow, /name: Upload macOS packaging diagnostics/u)
     const unsignedUploadSection = workflow.slice(
-      workflow.indexOf('name: Upload unsigned macOS update bundle'),
-      workflow.indexOf('name: Upload signed macOS bundle')
+      workflow.indexOf('name: Upload unsigned macOS DMG'),
+      workflow.indexOf('name: Upload signed macOS DMG')
     )
     assert.match(unsignedUploadSection, /release-macos\/\*\.dmg/u)
-    assert.match(unsignedUploadSection, /release-macos\/\*\.zip/u)
-    assert.match(unsignedUploadSection, /release-macos\/\*\.zip\.blockmap/u)
-    assert.match(unsignedUploadSection, /latest-mac\.yml/u)
+    assert.doesNotMatch(unsignedUploadSection, /release-macos\/\*\.zip/u)
+    assert.doesNotMatch(unsignedUploadSection, /latest-mac\.yml/u)
     assert.doesNotMatch(unsignedUploadSection, /macos-packaging-metrics\.json/u)
     assert.match(unsignedUploadSection, /retention-days: 7/u)
 
     const signedUploadSection = workflow.slice(
-      workflow.indexOf('name: Upload signed macOS bundle'),
-      workflow.indexOf('name: Publish rolling macOS update release')
+      workflow.indexOf('name: Upload signed macOS DMG'),
+      workflow.indexOf('# Publish the signed app archives')
     )
     assert.match(signedUploadSection, /release-macos\/\*\.dmg/u)
     assert.match(signedUploadSection, /UNILAB_CI_SIGNING_MODE == 'signed'/u)
     assert.doesNotMatch(signedUploadSection, /github\.event_name != 'push'/u)
-    assert.match(signedUploadSection, /release-macos\/\*\.zip/u)
-    assert.match(signedUploadSection, /release-macos\/\*\.zip\.blockmap/u)
-    assert.match(signedUploadSection, /latest-mac\.yml/u)
+    assert.doesNotMatch(signedUploadSection, /release-macos\/\*\.zip/u)
+    assert.doesNotMatch(signedUploadSection, /latest-mac\.yml/u)
     assert.match(signedUploadSection, /UNILAB_WORKBENCH_RELEASE_CHANNEL/u)
     assert.match(signedUploadSection, /github\.run_number/u)
     assert.doesNotMatch(signedUploadSection, /macos-packaging-metrics\.json/u)

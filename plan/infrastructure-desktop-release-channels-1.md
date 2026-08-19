@@ -21,6 +21,7 @@ tags: [infrastructure, ci, electron, release, update]
 - **REQ-003**: 生产包必须启用 Electron 自动更新，并分别使用 `workbench-windows-stable` 与 `workbench-macos-stable` 滚动 Release。
 - **REQ-004**: 测试包文件名与 Actions Artifact 名称必须包含 `Test` 或 `test`，不能与生产包混淆。
 - **REQ-005**: 测试包默认连接 Bohrium 测试登录/API，生产包默认连接 Bohrium 正式登录/API；两者必须由同一个编译期发布通道选择。
+- **REQ-006**: macOS 测试通道只生成 DMG，生产与测试 Actions Artifact 都只交付 DMG；生产滚动 Release 仍保留自动更新必需的 ZIP、blockmap 与 `latest-mac.yml`。
 - **SEC-001**: 测试包必须在 Electron 主进程编译期关闭更新能力，不能依赖运行时环境变量或仅依赖 CI 不上传元数据。
 - **SEC-002**: GitHub Release 上传步骤和正式版本递增步骤必须以 `UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'` 为必要条件。
 - **SEC-003**: Windows 所有完整构建暂时使用当次 CI 生成的临时自签名证书，并必须校验安装包签名证书与当次证书指纹完全一致。
@@ -48,8 +49,8 @@ tags: [infrastructure, ci, electron, release, update]
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
 | TASK-004 | 修改 `.github/workflows/package-windows.yml`：`main` 和 `deploy-windows-test` push 均执行 full，只有 `main` 读取正式版本并发布滚动更新。 | ✅ | 2026-08-19 |
-| TASK-005 | 修改 `.github/workflows/package-macos.yml`：`main` 和 `deploy-mac-test` push 均执行 signed full，只有 `main` 读取正式版本并发布滚动更新。 | ✅ | 2026-08-19 |
-| TASK-006 | 修改两个工作流的 Artifact 名称、步骤摘要与 Release 描述，使生产和测试通道可直接辨认。依赖 TASK-004 与 TASK-005。 | ✅ | 2026-08-19 |
+| TASK-005 | 修改 `.github/workflows/package-macos.yml`：`main` 和 `deploy-mac-test` push 均执行 signed full，只有 `main` 生成并发布 ZIP 自动更新介质。 | ✅ | 2026-08-19 |
+| TASK-006 | 修改两个工作流的 Artifact 名称、步骤摘要与 Release 描述，使生产和测试通道可直接辨认；macOS Actions Artifact 只包含 DMG。依赖 TASK-004 与 TASK-005。 | ✅ | 2026-08-19 |
 
 ### Implementation Phase 3
 

@@ -278,9 +278,14 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       `桌面端生产依赖已收敛：删除 ${desktopMetrics.removedFiles} 个构建文件，${desktopMetrics.removedBytes} bytes`
     )
 
+    const builderTargets = packageMode === 'directory'
+      ? ['--dir']
+      : releaseChannel === 'production'
+        ? ['dmg', 'zip']
+        : ['dmg']
     const builderArgs = [
       '--mac',
-      ...(packageMode === 'directory' ? ['--dir'] : ['dmg', 'zip']),
+      ...builderTargets,
       `--${targetArchitecture}`,
       '--publish',
       'never',
@@ -291,7 +296,7 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       UNILAB_WORKBENCH_UPDATE_URL: updateUrl
     }
     if (signed) {
-      // GitHub Release 会把资产名中的空格规范化为点号，正式 DMG/ZIP
+      // GitHub Release 会把资产名中的空格规范化为点号，生产更新介质
       // 从源头使用安全名称，确保 latest-mac.yml 指向真实发布资产。
       const artifactName = releaseChannel === 'test'
         ? 'UniLab.Workbench.Test-${version}-${arch}.${ext}'
@@ -383,7 +388,7 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       )
     }
     if (adhoc) installer = signAndVerifyAdHocCandidate(installer.path)
-    publishMacosArtifacts(outputDirectory)
+    publishMacosArtifacts(outputDirectory, releaseChannel)
     const distribution = signed
       ? 'Developer ID signed and Apple notarized'
       : developerId
@@ -493,8 +498,24 @@ function findInstaller(outputDirectory) {
   return validateMacosInstaller(installers[0])
 }
 
-function publishMacosArtifacts(outputDirectory) {
-  const names = selectMacosUpdateArtifacts(readdirSync(outputDirectory))
+export function selectMacosReleaseArtifacts(names, releaseChannel) {
+  if (releaseChannel === 'production') {
+    return selectMacosUpdateArtifacts(names)
+  }
+  const dmgs = names.filter(name => /\.dmg$/iu.test(name))
+  if (dmgs.length !== 1) {
+    throw new Error(
+      `Workbench macOS 测试产物必须且只能包含 1 个 DMG，实际 ${dmgs.length} 个`
+    )
+  }
+  return dmgs
+}
+
+function publishMacosArtifacts(outputDirectory, releaseChannel) {
+  const names = selectMacosReleaseArtifacts(
+    readdirSync(outputDirectory),
+    releaseChannel
+  )
   rmSync(releaseDirectory, { recursive: true, force: true })
   mkdirSync(releaseDirectory, { recursive: true })
   for (const name of names) {
