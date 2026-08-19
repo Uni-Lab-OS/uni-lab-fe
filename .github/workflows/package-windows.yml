@@ -619,7 +619,7 @@ jobs:
         if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         uses: actions/upload-artifact@v6
         with:
-          name: UniLab-Workbench-windows-x64-${{ github.sha }}
+          name: UniLab-Workbench-windows-x64-${{ env.UNILAB_WORKBENCH_PACKAGE_VERSION }}
           path: apps/workbench/release-windows/*-setup.exe
           if-no-files-found: error
           retention-days: 3
