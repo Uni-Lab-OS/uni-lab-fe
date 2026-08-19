@@ -428,6 +428,43 @@ describe('portable Workbench packaging contract', () => {
     }
   })
 
+  /** 验证成品复用宿主内联的 Vue 编译器，不要求部署第二份编译器。 */
+  it('accepts the bundled Device Card Host without a duplicate Vue compiler', async () => {
+    const resources = await mkdtemp(join(tmpdir(), 'unilab-resources-'))
+    const requiredFiles = [
+      'app.asar',
+      'workbench/lib/backend/main.js',
+      'workbench/lib/frontend/index.html',
+      'node-runtime/bin/node',
+      'desktop/out/main/index.js',
+      'desktop/out/preload/index.js',
+      'desktop/node_modules/@unilab/device-card-host/dist/index.cjs',
+      `device-card-builder/${process.platform === 'win32' ? 'esbuild.exe' : 'esbuild'}`,
+      'device-card-agent/cli.mjs',
+      'workspace-skills/manifest.json',
+      'workspace-skills/add-device/SKILL.md',
+      'workspace-skills/add-resource/SKILL.md',
+      'workspace-skills/add-workstation/SKILL.md',
+      'workspace-skills/create-device-package/SKILL.md',
+      'workspace-skills/create-device-skill/SKILL.md',
+      'workspace-skills/unilab-domain-repo-builder/SKILL.md'
+    ]
+    try {
+      await mkdir(join(resources, 'workbench', 'plugins'), { recursive: true })
+      for (const relativePath of requiredFiles) {
+        const path = join(resources, relativePath)
+        await mkdir(dirname(path), { recursive: true })
+        await writeFile(path, 'fixture')
+      }
+
+      assert.doesNotThrow(() => {
+        validatePackagedWorkbenchResources(resources, 'node')
+      })
+    } finally {
+      await rm(resources, { recursive: true, force: true })
+    }
+  })
+
   /** 验证各平台安装包复用收敛后的生产构建与耗时可控的默认压缩。 */
   it('builds every installer from a bounded production Workbench bundle', async () => {
     const packageManifest = JSON.parse(await readFile(
@@ -482,6 +519,10 @@ describe('portable Workbench packaging contract', () => {
     assert.doesNotMatch(
       builderConfiguration,
       /from: \.packaging\/node-runtime\/bin\/node/u
+    )
+    assert.match(
+      builderConfiguration,
+      /afterSign: \.\.\/desktop\/scripts\/after-pack\.mjs/u
     )
     assert.equal(
       packageManifest.optionalDependencies['@vscode/windows-ca-certs'],
@@ -678,7 +719,10 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /windows-portable-node-v1-/u)
     assert.match(workflow, /\.unilab-workbench\\downloads/u)
     assert.match(workflow, /aionui-prepared-windows-x64-v1-/u)
-    assert.match(workflow, /validateBundledAgentPayload/u)
+    assert.match(
+      workflow,
+      /validateBundledAgentPayload\('\.ci-cache', 'win32', 'x64', 'prepared'\)/u
+    )
     assert.match(workflow, /windows-workbench-plugins-v1-/u)
     const pluginCacheIndex = workflow.indexOf('name: Cache pinned Theia plugins')
     const selectVersionIndex = workflow.indexOf(
@@ -690,6 +734,18 @@ describe('portable Workbench packaging contract', () => {
     assert.ok(pluginCacheIndex >= 0)
     assert.ok(pluginCacheIndex < selectVersionIndex)
     assert.ok(selectVersionIndex < buildInstallerIndex)
+    const fullInstallerSection = workflow.slice(
+      buildInstallerIndex,
+      workflow.indexOf('name: Prepare identical unpacked input for Windows A/B')
+    )
+    assert.match(
+      fullInstallerSection,
+      /UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE: none/u
+    )
+    assert.match(
+      packagingScript,
+      /validateWindowsInstallerArchive\(installer\.path\)/u
+    )
     assert.match(workflow, /prepare-package-version\.mjs/u)
     assert.match(workflow, /UNILAB_WORKBENCH_PACKAGE_VERSION=/u)
     assert.match(workflow, /readWorkbenchUpdateMetadataVersion/u)
@@ -716,21 +772,43 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /UNILAB_WORKBENCH_PREPACKAGED_APP:/u)
     assert.match(workflow, /Name = 'baseline'; Profile = 'none'/u)
     assert.match(workflow, /Name = 'precompressed-exe'; Profile = 'exe'/u)
+    assert.match(workflow, /\$sizeReport\.precompressedProfile -ne 'none'/u)
     assert.match(workflow, /precompressed-ab-metrics\.json/u)
+    assert.match(workflow, /New-SelfSignedCertificate/u)
+    assert.match(workflow, /-Type CodeSigningCert/u)
+    assert.match(workflow, /CSC_LINK=/u)
+    assert.match(workflow, /CSC_KEY_PASSWORD=/u)
+    assert.match(workflow, /Get-AuthenticodeSignature/u)
+    assert.match(workflow, /UNILAB_CI_CERTIFICATE_THUMBPRINT/u)
     assert.match(
-      packagingScript,
-      /validateWindowsInstallerArchive\(installer\.path\)/u
+      workflow,
+      /name: Remove temporary CI code-signing certificate\s+if: always\(\)/u
     )
     assert.match(workflow, /UNILAB_RUNTIME_INSTALLER=/u)
     assert.match(workflow, /UNILAB_AGENT_DISTRIBUTION=/u)
     assert.match(workflow, /Filter 'aioncore\.exe'/u)
     assert.match(workflow, /Test-Path \(Join-Path \$_\.Directory\.FullName 'managed-resources'\)/u)
     assert.match(workflow, /bundled-aioncore\\windows-x64/u)
-    assert.match(workflow, /release-windows\/\*-setup\.exe/u)
-    assert.match(workflow, /release-windows\/\*-setup\.exe\.blockmap/u)
+    assert.match(
+      workflow,
+      /Get-ChildItem apps\/workbench\/release-windows -File -Filter '\*-setup\.exe'/u
+    )
+    assert.match(
+      workflow,
+      /Get-ChildItem apps\/workbench\/release-windows -File -Filter '\*-setup\.exe\.blockmap'/u
+    )
     assert.match(workflow, /release-windows\/latest\.yml/u)
     assert.match(workflow, /release-windows\/package-size-report\.json/u)
     assert.match(workflow, /WINDOWS_RELEASE_TAG: workbench-windows-stable/u)
+    assert.match(workflow, /tzutil\.exe \/s "China Standard Time"/u)
+    assert.match(
+      workflow,
+      /FindSystemTimeZoneById\('China Standard Time'\)/u
+    )
+    assert.match(workflow, /ConvertTimeFromUtc\(\s*\[DateTime\]::UtcNow/u)
+    assert.match(workflow, /' \+08:00'/u)
+    assert.match(workflow, /BUILD_STARTED_AT_CST=/u)
+    assert.match(workflow, /更新时间：\$env:BUILD_STARTED_AT_CST（UTC\+08:00）/u)
     assert.match(
       workflow,
       /releases\/download\/workbench-windows-stable/u
@@ -759,7 +837,25 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /\$expectedNames -notcontains \$assetName/u)
     assert.match(workflow, /Rolling release asset verification failed/u)
     assert.match(workflow, /actions\/upload-artifact@v6/u)
-    assert.match(workflow, /compression-level: 0/u)
+    assert.doesNotMatch(workflow, /Upload Windows packaging diagnostics/u)
+    assert.doesNotMatch(
+      workflow,
+      /UniLab-Workbench-windows-x64-diagnostics/u
+    )
+    const installerUploadSection = workflow.slice(
+      workflow.indexOf('name: Upload Windows installer'),
+      workflow.indexOf('name: Upload Windows precompressed-resource A/B')
+    )
+    assert.match(
+      installerUploadSection,
+      /if: env\.UNILAB_CI_PACKAGE_MODE == 'full'/u
+    )
+    assert.doesNotMatch(installerUploadSection, /github\.event_name/u)
+    assert.doesNotMatch(installerUploadSection, /github\.ref/u)
+    assert.match(installerUploadSection, /\*-setup\.exe/u)
+    assert.doesNotMatch(installerUploadSection, /\*-setup\.exe\.blockmap/u)
+    assert.doesNotMatch(installerUploadSection, /latest\.yml/u)
+    assert.match(installerUploadSection, /compression-level: 0/u)
     const abUploadSection = workflow.slice(
       workflow.indexOf('name: Upload Windows precompressed-resource A/B'),
       workflow.indexOf('name: Publish rolling Windows update release')

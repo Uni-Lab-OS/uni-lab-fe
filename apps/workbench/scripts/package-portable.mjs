@@ -252,7 +252,7 @@ export function packagePortableWorkbench(targetPlatform) {
       targetPlatform,
       allowsOversizePackagingBenchmark()
     )
-    if (targetPlatform === 'win-64') {
+    if (targetPlatform === 'win-64' && packageMode === 'full') {
       validateWindowsInstallerArchive(installer.path)
     }
     const artifacts = selectPortableUpdateArtifacts(

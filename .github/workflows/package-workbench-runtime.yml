@@ -233,9 +233,9 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --pattern '*.sha256' \
               --dir "$verification_directory"
-            cmp runtime-assets/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256 \
+            cmp "runtime-assets/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256" \
               "$verification_directory/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256"
-            cmp runtime-assets/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256 \
+            cmp "runtime-assets/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256" \
               "$verification_directory/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256"
             echo "Runtime release already exists with identical immutable checksums."
             exit 0

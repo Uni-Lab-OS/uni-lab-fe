@@ -27,7 +27,7 @@ on:
 
 permissions:
   # The deploy branch publishes the verified updater bundle to the pre-created
-  # rolling GitHub Release after retaining a short-lived Actions artifact.
+  # rolling GitHub Release after uploading the diagnostic metadata artifact.
   contents: write
 
 concurrency:
@@ -64,6 +64,24 @@ jobs:
         shell: pwsh
 
     steps:
+      - name: Set China Standard Time build timezone
+        run: |
+          tzutil.exe /s "China Standard Time"
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to set the Windows build timezone' }
+          $currentTimeZone = (tzutil.exe /g).Trim()
+          if ($currentTimeZone -ne 'China Standard Time') {
+            throw "Unexpected Windows build timezone: $currentTimeZone"
+          }
+          # PowerShell caches TimeZoneInfo.Local before tzutil changes the host.
+          # Convert UTC explicitly so the release never labels a UTC value as UTC+8.
+          $chinaTimeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById('China Standard Time')
+          $buildStartedAt = [System.TimeZoneInfo]::ConvertTimeFromUtc(
+            [DateTime]::UtcNow,
+            $chinaTimeZone
+          ).ToString('yyyy-MM-dd HH:mm:ss') + ' +08:00'
+          "BUILD_STARTED_AT_CST=$buildStartedAt" >> $env:GITHUB_ENV
+          Write-Host "Windows build time (UTC+08:00): $buildStartedAt"
+
       - name: Check out Workbench
         uses: actions/checkout@v6
 
@@ -297,7 +315,7 @@ jobs:
 
       - name: Select prepared Windows Agent payload
         run: |
-          node --input-type=module -e "import { validateBundledAgentPayload } from './apps/workbench/scripts/agent-payload.mjs'; validateBundledAgentPayload('.ci-cache', 'win32', 'x64')"
+          node --input-type=module -e "import { validateBundledAgentPayload } from './apps/workbench/scripts/agent-payload.mjs'; validateBundledAgentPayload('.ci-cache', 'win32', 'x64', 'prepared')"
           if ($LASTEXITCODE -ne 0) { throw 'Prepared Windows Agent payload validation failed' }
           $agentPayload = (Resolve-Path .ci-cache/agent-runtime).Path
           "UNILAB_AGENT_DISTRIBUTION=$agentPayload" >> $env:GITHUB_ENV
@@ -380,10 +398,50 @@ jobs:
           | Total build + validation | $([int]$env:WINDOWS_PRODUCTION_BUILD_SECONDS + $seconds) s |
           "@ >> $env:GITHUB_STEP_SUMMARY
 
+      # This certificate validates the Authenticode packaging path only. It is
+      # generated on the ephemeral runner, is not trusted by Windows clients,
+      # and must never be presented as a production publisher identity.
+      - name: Create temporary CI code-signing certificate
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
+        run: |
+          $passwordBytes = [Security.Cryptography.RandomNumberGenerator]::GetBytes(32)
+          $password = [Convert]::ToBase64String($passwordBytes)
+          Write-Output "::add-mask::$password"
+          $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
+          $certificate = New-SelfSignedCertificate `
+            -Type CodeSigningCert `
+            -Subject "CN=UniLab CI Temporary $env:GITHUB_RUN_ID" `
+            -CertStoreLocation 'Cert:\CurrentUser\My' `
+            -KeyAlgorithm RSA `
+            -KeyLength 3072 `
+            -HashAlgorithm SHA256 `
+            -KeyExportPolicy Exportable `
+            -NotAfter (Get-Date).AddDays(2)
+          if (-not $certificate.HasPrivateKey) {
+            throw 'Temporary CI signing certificate has no private key'
+          }
+
+          $certificatePath = Join-Path $env:RUNNER_TEMP 'unilab-ci-signing.pfx'
+          Export-PfxCertificate `
+            -Cert $certificate `
+            -FilePath $certificatePath `
+            -Password $securePassword | Out-Null
+          if (-not (Test-Path $certificatePath)) {
+            throw 'Unable to export the temporary CI signing certificate'
+          }
+
+          "CSC_LINK=$certificatePath" >> $env:GITHUB_ENV
+          "CSC_KEY_PASSWORD=$password" >> $env:GITHUB_ENV
+          "UNILAB_CI_CERTIFICATE_PATH=$certificatePath" >> $env:GITHUB_ENV
+          "UNILAB_CI_CERTIFICATE_THUMBPRINT=$($certificate.Thumbprint)" >> $env:GITHUB_ENV
+
       - name: Build full Windows installer
         if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         env:
           UNILAB_WORKBENCH_PACKAGE_MODE: full
+          # electron-builder excludes matching files from the application
+          # archive but only restores matches below resources/. Precompressing
+          # EXE files therefore drops the root UniLab Workbench.exe.
           UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE: none
         run: |
           $packageStarted = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
@@ -474,6 +532,17 @@ jobs:
           Write-Host "Size: $($installer.Length) bytes"
           Write-Host "Compression: $env:UNILAB_WORKBENCH_COMPRESSION"
           $hash
+          $signature = Get-AuthenticodeSignature $installer.FullName
+          if (
+            -not $signature.SignerCertificate -or
+            $signature.Status -eq [System.Management.Automation.SignatureStatus]::NotSigned
+          ) {
+            throw "Installer has no Authenticode signature: $($signature.StatusMessage)"
+          }
+          if ($signature.SignerCertificate.Thumbprint -ne $env:UNILAB_CI_CERTIFICATE_THUMBPRINT) {
+            throw "Installer was signed by an unexpected certificate: $($signature.SignerCertificate.Thumbprint)"
+          }
+          Write-Host "Temporary CI signature: $($signature.SignerCertificate.Subject) ($($signature.Status))"
           if (-not (Test-Path apps/workbench/release-windows/latest.yml)) {
             throw 'Missing latest.yml update metadata'
           }
@@ -491,13 +560,14 @@ jobs:
             throw "Package report compression mismatch: $($sizeReport.compression)"
           }
           if ($sizeReport.precompressedProfile -ne 'none') {
-            throw "Production package unexpectedly uses precompressed profile: $($sizeReport.precompressedProfile)"
+            throw "Production package uses an unsafe precompressed profile: $($sizeReport.precompressedProfile)"
           }
           @"
           ## Windows Workbench packaging benchmark
 
           | Metric | Result |
           | --- | ---: |
+          | Build started (UTC+08:00) | $env:BUILD_STARTED_AT_CST |
           | Compression | $env:UNILAB_WORKBENCH_COMPRESSION |
           | Production build | $env:WINDOWS_PRODUCTION_BUILD_SECONDS s |
           | Native packaging | $env:WINDOWS_PACKAGE_SECONDS s |
@@ -530,20 +600,29 @@ jobs:
             }
           }
 
-      - name: Upload Windows update bundle
+      - name: Remove temporary CI code-signing certificate
+        if: always()
+        run: |
+          if ($env:UNILAB_CI_CERTIFICATE_THUMBPRINT) {
+            $certificateStorePath = "Cert:\CurrentUser\My\$env:UNILAB_CI_CERTIFICATE_THUMBPRINT"
+            if (Test-Path $certificateStorePath) {
+              Remove-Item $certificateStorePath -Force
+            }
+          }
+          if ($env:UNILAB_CI_CERTIFICATE_PATH -and (Test-Path $env:UNILAB_CI_CERTIFICATE_PATH)) {
+            Remove-Item $env:UNILAB_CI_CERTIFICATE_PATH -Force
+          }
+
+      # Actions Artifacts only need the directly installable executable. Keep
+      # updater metadata in the rolling release published below.
+      - name: Upload Windows installer
         if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         uses: actions/upload-artifact@v6
         with:
-          name: UniLab-Workbench-windows-x64-full-${{ env.UNILAB_WORKBENCH_COMPRESSION }}-${{ github.sha }}
-          path: |
-            apps/workbench/release-windows/*-setup.exe
-            apps/workbench/release-windows/*-setup.exe.blockmap
-            apps/workbench/release-windows/latest.yml
-            apps/workbench/release-windows/package-size-report.json
+          name: UniLab-Workbench-windows-x64-${{ env.UNILAB_WORKBENCH_PACKAGE_VERSION }}
+          path: apps/workbench/release-windows/*-setup.exe
           if-no-files-found: error
           retention-days: 3
-          # The NSIS EXE is already solid-compressed; recompressing it only
-          # consumes runner CPU and produces no meaningful size reduction.
           compression-level: 0
 
       - name: Upload Windows precompressed-resource A/B
@@ -655,7 +734,7 @@ jobs:
 
           当前提交：$env:GITHUB_SHA
           发布版本：$env:UNILAB_WORKBENCH_PACKAGE_VERSION
-          更新时间：$([DateTime]::UtcNow.ToString('u')) UTC
+          更新时间：$env:BUILD_STARTED_AT_CST（UTC+08:00）
 
           安装包、blockmap 与 latest.yml 由 Package Windows Workbench 工作流维护；此 Release 不参与仓库 Latest Release 排序。
           "@

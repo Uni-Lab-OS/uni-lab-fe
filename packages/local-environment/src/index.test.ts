@@ -67,6 +67,10 @@ describe('Runtime environment validation', () => {
       pythonExecutable: 'C:\\envs\\unilab\\python.exe',
       unilabExecutable: 'C:\\envs\\unilab\\Scripts\\unilab.exe'
     })
+    expect(runtimeExecutablePaths('/tmp/envs/unilab', 'win32')).toEqual({
+      pythonExecutable: '/tmp/envs/unilab/python.exe',
+      unilabExecutable: '/tmp/envs/unilab/Scripts/unilab.exe'
+    })
     expect(runtimeExecutablePaths('/opt/envs/unilab', 'darwin')).toEqual({
       pythonExecutable: '/opt/envs/unilab/bin/python',
       unilabExecutable: '/opt/envs/unilab/bin/unilab'
