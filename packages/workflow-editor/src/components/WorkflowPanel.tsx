@@ -32,6 +32,7 @@ export {
 export interface WorkflowPanelProps {
   runtime: WorkflowRuntimePort
   workflowUuid?: string
+  workflowName?: string
   traceRuntime?: WorkflowTracePort
   resourceSlotOptionsPort?: WorkflowResourceSlotOptionsPort
   activeWorkflowStorageKey?: string
@@ -75,6 +76,7 @@ export interface EnvironmentResetProgress {
 export default function WorkflowPanel({
   runtime,
   workflowUuid: explicitWorkflowUuid,
+  workflowName: explicitWorkflowName,
   traceRuntime,
   resourceSlotOptionsPort,
   activeWorkflowStorageKey,
@@ -145,7 +147,7 @@ export default function WorkflowPanel({
         definitionAuthority={definitionAuthority}
         definitionEditingStatus={authoringStatus}
         workflowUuid={workflowUuid}
-        workflowName={selectedWorkflowName}
+        workflowName={selectedWorkflowName || explicitWorkflowName}
         traceRuntime={traceRuntime}
         resourceSlotOptionsPort={resourceSlotOptionsPort}
         executionStatus={executionStatus}

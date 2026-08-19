@@ -17,14 +17,14 @@ import {
   formatWorkflowTaskDate,
   shortWorkflowTaskId,
   visibleWorkflowTasks,
-  workflowTaskCleanupStatusLabel,
-  workflowTaskControlStatusLabelForList,
   workflowTaskDisplayName,
   workflowTaskRunModeLabel,
   type WorkflowTaskListFilter
 } from '../utils/workflowTaskListProjection'
 import { workflowTaskStatusLabel } from '../utils/workflowTaskPresentation'
+import { createWorkflowTaskViewRuntime } from '../utils/workflowTaskViewRuntime'
 import { WorkflowButton } from './WorkflowButton'
+import WorkflowPanel from './WorkflowPanel'
 import styles from './workflow.module.scss'
 
 const TASK_PAGE_SIZE = 100
@@ -218,7 +218,18 @@ export function WorkflowTaskList({
               ))}
             </ol>
           </section>
-          <TaskDetail task={selectedTask} workflowNames={workflowNames} />
+          {selectedTask ? (
+            <TaskWorkflowPane
+              key={selectedTask.uuid}
+              runtime={runtime}
+              task={selectedTask}
+              workflowName={workflowTaskDisplayName(
+                selectedTask,
+                workflowNames
+              )}
+              active={active}
+            />
+          ) : null}
         </div>
       )}
     </div>
@@ -278,76 +289,71 @@ function TaskStatus({
   )
 }
 
-/** 渲染当前选中任务的 Backend 权威摘要。 */
-function TaskDetail({
+/**
+ * 在任务列表右侧展示该任务创建时冻结的工作流（Workflow）界面。
+ *
+ * @param runtime Backend 权威工作流端口，用于持续补读选中任务的状态。
+ * @param task 当前任务；任务 UUID 固定运行投影，快照固定工作流定义版本。
+ * @param workflowName 由工作流目录或任务快照解析出的界面名称。
+ * @param active 当前任务列表是否可见，用于约束嵌入工作流面板的发布权。
+ * @returns 左侧任务选择对应的只读工作流画布与运行投影。
+ */
+function TaskWorkflowPane({
+  runtime,
   task,
-  workflowNames
+  workflowName,
+  active
 }: {
-  task: WorkflowTask | null
-  workflowNames: ReadonlyMap<string, string>
+  runtime: WorkflowRuntimePort
+  task: WorkflowTask
+  workflowName: string
+  active: boolean
 }): React.JSX.Element {
-  if (!task) {
-    return (
-      <section className="workflow-task-list__detail" aria-label="任务详情">
-        <TaskListState title="请选择一个工作流任务" />
-      </section>
-    )
-  }
+  // 初次选中的任务保留冻结快照；同一任务后续刷新只更新运行状态。
+  const [frozenTask] = useState(task)
+  const taskViewRuntime = useMemo(
+    () => createWorkflowTaskViewRuntime(runtime, frozenTask),
+    [frozenTask, runtime]
+  )
+
   return (
-    <section className="workflow-task-list__detail" aria-label="任务详情">
-      <header>
+    <section
+      className="workflow-task-list__workflow"
+      aria-label="任务对应工作流"
+    >
+      <header className="workflow-task-list__workflow-context">
         <div>
-          <h3>{workflowTaskDisplayName(task, workflowNames)}</h3>
-          <code title={task.uuid}>{task.uuid}</code>
+          <h3>{workflowName}</h3>
+          <p>
+            <code title={task.uuid}>Task {shortWorkflowTaskId(task.uuid)}</code>
+            <time dateTime={task.create_time}>
+              {formatWorkflowTaskDate(task.create_time)}
+            </time>
+            <span>{workflowTaskRunModeLabel(task.run_mode)}</span>
+          </p>
         </div>
         <TaskStatus status={task.status} />
       </header>
-      {task.attention_reason ? (
-        <p className="workflow-task-list__attention" role="alert">
-          <strong>任务需要关注</strong>
-          <span>{task.attention_reason}</span>
-        </p>
-      ) : null}
-      <dl>
-        <div>
-          <dt>运行模式</dt>
-          <dd>{workflowTaskRunModeLabel(task.run_mode)}</dd>
-        </div>
-        <div>
-          <dt>控制状态</dt>
-          <dd>{workflowTaskControlStatusLabelForList(task.control_status)}</dd>
-        </div>
-        <div>
-          <dt>清理状态</dt>
-          <dd>{workflowTaskCleanupStatusLabel(task.cleanup_status)}</dd>
-        </div>
-        <div>
-          <dt>创建时间</dt>
-          <dd>{formatWorkflowTaskDate(task.create_time)}</dd>
-        </div>
-        <div>
-          <dt>开始时间</dt>
-          <dd>{formatWorkflowTaskDate(task.started_at)}</dd>
-        </div>
-        <div>
-          <dt>结束时间</dt>
-          <dd>{formatWorkflowTaskDate(task.finished_at)}</dd>
-        </div>
-        <div className="is-wide">
-          <dt>工作流 UUID</dt>
-          <dd><code>{task.workflow_uuid}</code></dd>
-        </div>
-        <div className="is-wide">
-          <dt>任务说明</dt>
-          <dd>{task.description?.trim() || 'Backend 未提供任务说明'}</dd>
-        </div>
-      </dl>
-      {task.error_info.length > 0 ? (
-        <details className="workflow-task-list__errors">
-          <summary>错误信息（{task.error_info.length}）</summary>
-          <pre>{JSON.stringify(task.error_info, null, 2)}</pre>
-        </details>
-      ) : null}
+      <div className="workflow-task-list__workflow-panel">
+        <WorkflowPanel
+          runtime={taskViewRuntime}
+          workflowUuid={task.workflow_uuid}
+          workflowName={workflowName}
+          active={active}
+          definitionEditingMode="backend"
+          authoringStatus={{
+            available: false,
+            reason: '工作流任务视图展示创建时冻结的工作流，不允许修改定义'
+          }}
+          runStatus={{ available: true }}
+          executionStatus={{
+            available: false,
+            reason: '当前显示已创建任务；请在工作流工作台启动新任务'
+          }}
+          hideEmbeddedCodeEditor
+          allowWorkflowSelection={false}
+        />
+      </div>
     </section>
   )
 }
