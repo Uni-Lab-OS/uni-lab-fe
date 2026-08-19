@@ -75,6 +75,7 @@ import {
 } from '../common/workbench-session-protocol'
 import { WorkbenchSessionClientImpl } from './workbench-session-client'
 import { desktopWorkflowTraceRuntime } from './desktop-workflow-trace-runtime'
+import { desktopWorkspaceApi } from './desktop-workspace'
 import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
 import { EnvironmentManager } from './environment-manager'
 import { createTheiaWorkflowIdeAdapter } from './theia-workflow-ide-adapter'
@@ -1020,9 +1021,6 @@ function WorkbenchSurface({
   recordMountedWorkbenchDomains(mountedDomains.current, viewMode)
   const query = new URLSearchParams(globalThis.location.search)
   const workflowUuid = query.get('workflowUuid') ?? undefined
-  const [activeWorkflowUuid, setActiveWorkflowUuid] = useState<string | null>(
-    workflowUuid ?? null
-  )
   const selectedTarget = connectionTargets[connectionMode]
   const services = useMemo(
     () => createWorkbenchServices(selectedTarget),
@@ -1103,17 +1101,17 @@ function WorkbenchSurface({
   }, [backendProbeServices, services])
 
   const synchronizeSavedSource = useCallback(async (pythonSource: string) => {
-    if (!activeWorkflowUuid) return
+    if (!workflowUuid) return
     try {
       await synchronizeSavedWorkflowSource(
         services.workflow,
-        activeWorkflowUuid,
+        workflowUuid,
         pythonSource
       )
     } catch (error) {
       throw error
     }
-  }, [activeWorkflowUuid, services])
+  }, [services, workflowUuid])
 
   useEffect(() => {
     onSourceSaveHandlerChange(
@@ -1176,14 +1174,15 @@ function WorkbenchSurface({
         }.v1`}
         allowWorkflowSelection
         recoveryRevision={recoveryRevision}
-        hideEmbeddedCodeEditor={connectionMode === 'local'}
+        hideEmbeddedCodeEditor={
+          connectionMode === 'local' && desktopWorkspaceApi() !== null
+        }
         ideBridge={ideBridge}
         onUnsavedChangesChange={(hasUnsavedChanges) => {
           onUnsavedChangesChange(hasUnsavedChanges)
           reportWorkflowUnsavedChanges(hasUnsavedChanges)
         }}
         onSelectedWorkflowStepChange={setSelectedWorkflowNode}
-        onActiveWorkflowChange={setActiveWorkflowUuid}
         onWorkflowRuntimeProjectionChange={setRuntimeProjection}
         onResetEnvironment={resetWorkflowEnvironment}
         environmentResetBusy={environmentResetBusy}

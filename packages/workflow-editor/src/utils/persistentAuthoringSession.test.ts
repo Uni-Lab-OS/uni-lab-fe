@@ -279,50 +279,6 @@ describe('persistent Authoring session coordination', () => {
     }, current)).toBe(false)
   })
 
-  it('refreshes a new candidate graph even when workflow revision is unchanged', () => {
-    const current = aggregate({
-      candidate: {
-        ...aggregate().candidate!,
-        graph: {
-          ...emptyGraph(),
-          nodes: [{ uuid: 'node-1', name: 'first', param: {} }]
-        }
-      }
-    })
-    const changedDraftHash = `sha256:${'d'.repeat(64)}`
-    const changedCandidateHash = `sha256:${'e'.repeat(64)}`
-    const changed = aggregate({
-      draft: {
-        ...current.draft!,
-        python_source: 'first = step()\nsecond = step()\n',
-        draft_hash: changedDraftHash
-      },
-      candidate: {
-        ...current.candidate!,
-        draft_hash: changedDraftHash,
-        candidate_hash: changedCandidateHash,
-        normalized_python_source: 'first = step()\nsecond = step()\n',
-        graph: {
-          ...emptyGraph(),
-          nodes: [
-            { uuid: 'node-1', name: 'first', param: {} },
-            { uuid: 'node-2', name: 'second', param: {} }
-          ]
-        }
-      }
-    })
-
-    expect(isCurrentAuthoringInvalidation({
-      workflowUuid: current.workflow_uuid,
-      revision: current.workflow_revision,
-      draftHash: changedDraftHash,
-      candidateHash: changedCandidateHash
-    }, current)).toBe(false)
-    expect(isSameAuthoringVersion(changed, current)).toBe(false)
-    expect(authoringProjection(changed).graph.nodes.map(node => node.uuid))
-      .toEqual(['node-1', 'node-2'])
-  })
-
   it('discards a queued self-invalidation after its response aggregate is installed', () => {
     const installed = aggregate({ state: 'applied' })
 

@@ -391,59 +391,6 @@ test.describe('UniLab Workbench real-system contract', () => {
     expect(layering.topElementOwnedByAgent).toBe(true)
   })
 
-  test('expands the workflow source editor after closing Agent', async ({
-    page
-  }) => {
-    await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto(workbenchUrl!)
-    await page.locator(
-      'button.workflow-runtime__catalog-card-main'
-    ).first().click()
-
-    const codeMode = page.getByRole('button', {
-      name: '代码模式',
-      exact: true
-    })
-    await expect(codeMode).toBeVisible({ timeout: 30_000 })
-    if (await codeMode.getAttribute('aria-pressed') !== 'true') {
-      await codeMode.click()
-    }
-    const workflowNode = page.locator('.react-flow__node').first()
-    if (await workflowNode.isVisible()) await workflowNode.click()
-
-    const editor = page.locator(
-      '.monaco-editor:visible, .cm-editor:visible'
-    ).first()
-    const agentNavigation = page.locator(
-      '[id="shell-tab-unilab:agent-navigation"]'
-    )
-    await expect(editor).toBeVisible()
-    await agentNavigation.click()
-    await expect(page.locator('body')).toHaveClass(
-      /unilab-agent-panel-visible/
-    )
-    await agentNavigation.click()
-    await expect(page.locator('body')).not.toHaveClass(
-      /unilab-agent-panel-visible/
-    )
-
-    await expect.poll(async () => page.evaluate(() => {
-      const outer = document.getElementById('theia-left-right-split-panel')
-        ?.getBoundingClientRect()
-      const layoutTarget = Array.from(document.querySelectorAll(
-        '.monaco-editor'
-      )).find((element) => {
-        const bounds = element.getBoundingClientRect()
-        return bounds.width > 0 && bounds.height > 0
-      })?.getBoundingClientRect() ?? document.getElementById(
-        'theia-bottom-split-panel'
-      )?.getBoundingClientRect()
-      return outer && layoutTarget
-        ? Math.abs(Math.round(outer.right - layoutTarget.right))
-        : 10_000
-    })).toBeLessThanOrEqual(2)
-  })
-
   test('keeps the material workspace visible after cancelling workflow with Agent open', async ({
     page
   }) => {

@@ -79,18 +79,13 @@ export class UniLabAgentNavigatorWidget extends ReactWidget {
     )
     const tabBar = this.shell.getTabBarFor(agent)
     if (this.isAgentVisible()) {
-      // 先让 Lumino 收起右侧 Dock，再隐藏产品右栏。若 CSS 先把容器
-      // display:none，SplitPanel 会继续为它保留旧宽度，内部编辑器因而
-      // 停在 Agent 原来的左边界，形成白区。
-      await this.shell.collapsePanel('right')
-      this.shell.rightPanelHandler.container.hide()
       document.body.classList.remove('unilab-agent-panel-visible')
       this.stopTrackingAgentPanelWidth()
+      await this.shell.collapsePanel('right')
     } else {
       // 先恢复右侧容器的布局，否则 display:none 会让 Theia
       // 无法完成 TabBar 激活，面板会保持“已打开但不可见”。
       document.body.classList.add('unilab-agent-panel-visible')
-      this.shell.rightPanelHandler.container.show()
       if (!tabBar) await this.shell.addWidget(agent, { area: 'right' })
       this.shell.expandPanel('right')
       await this.shell.activateWidget(UniLabAgentWidget.ID)
