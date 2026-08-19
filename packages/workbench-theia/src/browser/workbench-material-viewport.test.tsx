@@ -17,7 +17,7 @@ describe('Workbench material viewport layer controls', () => {
       'utf8'
     )
 
-    expect(source).toContain('timeoutMs: 30_000')
+    expect(source).toContain('timeoutMs: 120_000')
   })
 
   it('allows one bounded recovery after an initial graph load failure', () => {

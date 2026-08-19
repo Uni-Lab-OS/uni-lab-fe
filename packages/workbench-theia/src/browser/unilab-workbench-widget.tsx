@@ -1063,7 +1063,7 @@ function createWorkbenchServices(backendUrl: string): Services {
       apiUrl: url,
       realtimeUrl: url.replace(/^http/, 'ws')
     },
-    timeoutMs: 30_000
+    timeoutMs: 120_000
   })
 }
 
