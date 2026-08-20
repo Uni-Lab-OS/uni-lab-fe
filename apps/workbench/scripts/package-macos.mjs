@@ -423,7 +423,41 @@ function verifySignedAndNotarized(appPath, installerPath) {
   runCommand('codesign', ['--verify', '--deep', '--strict', '--verbose=2', appPath])
   runCommand('spctl', ['--assess', '--type', 'execute', '--verbose=2', appPath])
   runCommand('xcrun', ['stapler', 'validate', appPath])
+  notarizeInstaller(installerPath)
   runCommand('xcrun', ['stapler', 'validate', installerPath])
+}
+
+export function notarizeInstaller(
+  installerPath,
+  environment = process.env,
+  commandRunner = runCommand
+) {
+  const credentials = {
+    APPLE_ID: environment['APPLE_ID']?.trim(),
+    APPLE_APP_SPECIFIC_PASSWORD:
+      environment['APPLE_APP_SPECIFIC_PASSWORD']?.trim(),
+    APPLE_TEAM_ID: environment['APPLE_TEAM_ID']?.trim()
+  }
+  const missing = Object.entries(credentials)
+    .filter(([, value]) => !value)
+    .map(([name]) => name)
+  if (missing.length > 0) {
+    throw new Error(`DMG 公证凭据不完整，缺少：${missing.join(', ')}`)
+  }
+
+  commandRunner('xcrun', [
+    'notarytool',
+    'submit',
+    installerPath,
+    '--apple-id',
+    credentials.APPLE_ID,
+    '--password',
+    credentials.APPLE_APP_SPECIFIC_PASSWORD,
+    '--team-id',
+    credentials.APPLE_TEAM_ID,
+    '--wait'
+  ])
+  commandRunner('xcrun', ['stapler', 'staple', installerPath])
 }
 
 function findDeveloperIdIdentity() {

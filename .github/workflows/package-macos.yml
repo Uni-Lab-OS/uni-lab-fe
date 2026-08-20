@@ -80,10 +80,10 @@ jobs:
       - name: Install Workbench dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify bounded macOS signing traversal
+      - name: Verify macOS packaging safeguards
         run: >-
           node --test
-          --test-name-pattern='bounds macOS signing traversal under a low file descriptor limit'
+          --test-name-pattern='bounds macOS signing traversal under a low file descriptor limit|submits and staples the DMG before validating its notarization ticket'
           apps/workbench/scripts/package-macos.test.mjs
 
       - name: Set up Constructor

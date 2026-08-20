@@ -13,6 +13,7 @@ import {
   NODE_RUNTIME_SHA256,
   NODE_RUNTIME_SHA256_X64,
   NODE_RUNTIME_VERSION,
+  notarizeInstaller,
   parseDeveloperIdIdentity
 } from './package-macos.mjs'
 
@@ -163,6 +164,35 @@ describe('Workbench macOS distribution gate', () => {
     }))
   })
 
+  it('submits and staples the DMG before validating its notarization ticket', () => {
+    const calls = []
+    notarizeInstaller('/tmp/UniLab Workbench.dmg', {
+      APPLE_ID: 'release@example.com',
+      APPLE_APP_SPECIFIC_PASSWORD: 'app-password',
+      APPLE_TEAM_ID: 'TEAM123'
+    }, (command, args) => calls.push([command, args]))
+
+    assert.deepEqual(calls, [
+      ['xcrun', [
+        'notarytool',
+        'submit',
+        '/tmp/UniLab Workbench.dmg',
+        '--apple-id',
+        'release@example.com',
+        '--password',
+        'app-password',
+        '--team-id',
+        'TEAM123',
+        '--wait'
+      ]],
+      ['xcrun', [
+        'stapler',
+        'staple',
+        '/tmp/UniLab Workbench.dmg'
+      ]]
+    ])
+  })
+
   it('pins the portable backend runtime and its supply-chain digest', () => {
     assert.equal(NODE_RUNTIME_VERSION, '24.14.0')
     assert.match(NODE_RUNTIME_SHA256, /^[a-f0-9]{64}$/u)
@@ -296,7 +326,7 @@ describe('Workbench macOS distribution gate', () => {
       /UNILAB_OS_SOURCE_REF: f329e4cf3e935d985299e572c5a4a5b476321e9b/u
     )
     assert.match(workflow, /package:mac/u)
-    assert.match(workflow, /Verify bounded macOS signing traversal/u)
+    assert.match(workflow, /Verify macOS packaging safeguards/u)
     assert.match(
       workflow,
       /name: 生物领域包Workbench macOS测试/u
