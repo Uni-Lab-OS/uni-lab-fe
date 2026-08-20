@@ -80,6 +80,12 @@ jobs:
       - name: Install Workbench dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify bounded macOS signing traversal
+        run: >-
+          node --test
+          --test-name-pattern='bounds macOS signing traversal under a low file descriptor limit'
+          apps/workbench/scripts/package-macos.test.mjs
+
       - name: Set up Constructor
         uses: conda-incubator/setup-miniconda@v4
         with:

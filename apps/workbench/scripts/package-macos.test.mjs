@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { lstat, mkdir, mkdtemp, readFile, rm, symlink } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
 import { describe, it } from 'node:test'
@@ -294,6 +296,7 @@ describe('Workbench macOS distribution gate', () => {
       /UNILAB_OS_SOURCE_REF: f329e4cf3e935d985299e572c5a4a5b476321e9b/u
     )
     assert.match(workflow, /package:mac/u)
+    assert.match(workflow, /Verify bounded macOS signing traversal/u)
     assert.match(
       workflow,
       /name: 生物领域包Workbench macOS测试/u
@@ -315,5 +318,56 @@ describe('Workbench macOS distribution gate', () => {
       workflow,
       /Build signed and notarized macOS DMG[^]*?ulimit -S -n 65536[^]*?package:mac/u
     )
+  })
+
+  it('bounds macOS signing traversal under a low file descriptor limit', async () => {
+    const requireFromTest = createRequire(import.meta.url)
+    const electronBuilderEntry = requireFromTest.resolve('electron-builder')
+    const osxSignEntry = createRequire(electronBuilderEntry).resolve(
+      '@electron/osx-sign'
+    )
+    const probe = [
+      "const Module = require('node:module')",
+      'const originalLoad = Module._load',
+      'const children = Array.from({ length: 96 }, (_, index) => `file-${index}`)',
+      'let activeDescriptors = 0',
+      'Module._load = function (request) {',
+      "  if (request === 'fs-extra') return {",
+      '    readdir: async () => children,',
+      '    stat: async () => ({',
+      '      isFile: () => true,',
+      '      isDirectory: () => false,',
+      '      isSymbolicLink: () => false',
+      '    }),',
+      '    remove: async () => undefined',
+      '  }',
+      "  if (request === 'isbinaryfile') return {",
+      '    isBinaryFile: async () => {',
+      '      activeDescriptors += 1',
+      '      if (activeDescriptors > 64) {',
+      "        const error = new Error('too many open files')",
+      "        error.code = 'EMFILE'",
+      '        throw error',
+      '      }',
+      '      await new Promise(resolve => setTimeout(resolve, 2))',
+      '      activeDescriptors -= 1',
+      '      return false',
+      '    }',
+      '  }',
+      '  return originalLoad.apply(this, arguments)',
+      '}',
+      'const { walkAsync } = require(process.argv[1])',
+      "walkAsync('/simulated-app/Contents')",
+      "  .then(() => process.stdout.write('walk-ok\\n'))",
+      '  .catch(error => { console.error(error); process.exitCode = 1 })'
+    ].join('\n')
+    const result = spawnSync(process.execPath, [
+      '-e',
+      probe,
+      osxSignEntry
+    ], { encoding: 'utf8' })
+
+    assert.equal(result.status, 0, result.stderr || result.stdout)
+    assert.match(result.stdout, /walk-ok/u)
   })
 })
