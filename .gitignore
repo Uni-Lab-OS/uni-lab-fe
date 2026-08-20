@@ -9,6 +9,7 @@ dist/
 *.tsbuildinfo
 test-results/
 playwright-report/
+e2e-artifacts/
 .codegraph/
 .unilabos/
 apps/workbench/.unilabos/
