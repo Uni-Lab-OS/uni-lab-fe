@@ -77,7 +77,10 @@ import { WorkbenchSessionClientImpl } from './workbench-session-client'
 import { desktopWorkflowTraceRuntime } from './desktop-workflow-trace-runtime'
 import { desktopWorkspaceApi } from './desktop-workspace'
 import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
-import { workbenchAuthorityScopeKey } from './workbench-authority-scope'
+import {
+  WorkbenchAuthorityScopeBoundary,
+  workbenchAuthorityScopeKey
+} from './workbench-authority-scope'
 import { EnvironmentManager } from './environment-manager'
 import { createTheiaWorkflowIdeAdapter } from './theia-workflow-ide-adapter'
 import {
@@ -1373,30 +1376,31 @@ function WorkbenchSurface({
             onStopSession={onStopSession}
           />
         ) : null}
-        <WorkbenchDomainLayout
-          key={authorityScopeKey}
-          mode={viewMode}
-          workflow={mountedSurface(
-            mountedDomains.current,
-            'workflow',
-            workflowSurface
-          )}
-          material={mountedSurface(
-            mountedDomains.current,
-            'material',
-            materialSurface
-          )}
-          device={mountedSurface(
-            mountedDomains.current,
-            'device',
-            deviceSurface
-          )}
-          robotWorkstation={mountedSurface(
-            mountedDomains.current,
-            'robot-workstation',
-            robotWorkstationSurface
-          )}
-        />
+        <WorkbenchAuthorityScopeBoundary scopeKey={authorityScopeKey}>
+          <WorkbenchDomainLayout
+            mode={viewMode}
+            workflow={mountedSurface(
+              mountedDomains.current,
+              'workflow',
+              workflowSurface
+            )}
+            material={mountedSurface(
+              mountedDomains.current,
+              'material',
+              materialSurface
+            )}
+            device={mountedSurface(
+              mountedDomains.current,
+              'device',
+              deviceSurface
+            )}
+            robotWorkstation={mountedSurface(
+              mountedDomains.current,
+              'robot-workstation',
+              robotWorkstationSurface
+            )}
+          />
+        </WorkbenchAuthorityScopeBoundary>
         {connectionSwitchingTo ? (
           <WorkbenchAuthorityLoading mode={connectionSwitchingTo} />
         ) : null}

@@ -1,0 +1,49 @@
+@import '../packages/design-system/src/theme.css';
+@import '../packages/workbench-theia/src/browser/style/environment-manager.css';
+
+:root {
+  color: var(--unilab-color-text, #172033);
+  background: var(--unilab-color-bg-subtle, #f4f6f9);
+  font-family: Inter, system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+.new-unresolved-fixture {
+  display: grid;
+  gap: 24px;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24px;
+}
+
+.new-unresolved-fixture > section {
+  padding: 18px;
+  background: var(--unilab-color-surface, #fff);
+  border: 1px solid var(--unilab-color-border, #d9dee8);
+  border-radius: 12px;
+}
+
+.new-unresolved-fixture [aria-label='试剂分页'] {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 12px;
+}
+
+.new-unresolved-fixture button {
+  min-height: 32px;
+}
+
+.workspace-scope-fixture {
+  max-width: 720px;
+}
+
+.workspace-scope-fixture output,
+.workspace-scope-fixture [role='status'] {
+  display: block;
+  margin: 14px 0;
+}
