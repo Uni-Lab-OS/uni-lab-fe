@@ -143,6 +143,18 @@ export function WorkbenchSessionGate({
     ? '正在初始化工作区并连接 Backend…'
     : snapshot.message || '正在校验工作区并启动 Uni-Lab OS…'
   const launchCancelLabel = '取消启动'
+  const workflowProgress = (
+    snapshot.phase === 'starting' || snapshot.phase === 'waiting'
+  ) && snapshot.workflowLoadingProgress?.total
+    ? snapshot.workflowLoadingProgress
+    : null
+  const workflowProgressPercent = workflowProgress
+    ? Math.round(workflowProgress.loaded / workflowProgress.total * 100)
+    : 0
+  const showWorkflowProgress = !switchingToBackend
+  const workflowProgressText = workflowProgress
+    ? `已加载 ${workflowProgress.loaded} / ${workflowProgress.total} 个工作流`
+    : '正在初始化后端并发现工作流…'
 
   const start = React.useCallback(async () => {
     setLaunchRequested(true)
@@ -280,6 +292,32 @@ export function WorkbenchSessionGate({
             />
             <strong>{launchTitle}</strong>
             <p>{launchMessage}</p>
+            {showWorkflowProgress ? (
+              <div
+                className={[
+                  'unilab-workbench-session-loading__progress',
+                  workflowProgress ? '' : 'is-indeterminate'
+                ].filter(Boolean).join(' ')}
+                role="progressbar"
+                aria-label="工作流加载进度"
+                aria-valuemin={workflowProgress ? 0 : undefined}
+                aria-valuemax={workflowProgress?.total}
+                aria-valuenow={workflowProgress?.loaded}
+                aria-valuetext={workflowProgressText}
+              >
+                <span
+                  className="unilab-workbench-session-loading__progress-track"
+                  aria-hidden="true"
+                >
+                  <span
+                    style={workflowProgress
+                      ? { width: `${workflowProgressPercent}%` }
+                      : undefined}
+                  />
+                </span>
+                <span>{workflowProgressText}</span>
+              </div>
+            ) : null}
             <button type="button" onClick={() => void stop()}>
               {launchCancelLabel}
             </button>
