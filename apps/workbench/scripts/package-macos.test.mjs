@@ -164,8 +164,17 @@ describe('Workbench macOS distribution gate', () => {
     }))
   })
 
-  it('submits and staples the DMG before validating its notarization ticket', () => {
+  it('signs, submits, and staples the DMG before validation', async () => {
+    const builderConfiguration = await readFile(
+      new URL('../electron-builder.yml', import.meta.url),
+      'utf8'
+    )
     const calls = []
+
+    assert.match(
+      builderConfiguration,
+      /^dmg:\n(?:(?: {2}.*)?\n)*? {2}sign: true$/mu
+    )
     notarizeInstaller('/tmp/UniLab Workbench.dmg', {
       APPLE_ID: 'release@example.com',
       APPLE_APP_SPECIFIC_PASSWORD: 'app-password',

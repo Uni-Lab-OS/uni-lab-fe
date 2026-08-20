@@ -83,7 +83,7 @@ jobs:
       - name: Verify macOS packaging safeguards
         run: >-
           node --test
-          --test-name-pattern='bounds macOS signing traversal under a low file descriptor limit|submits and staples the DMG before validating its notarization ticket'
+          --test-name-pattern='bounds macOS signing traversal under a low file descriptor limit|signs, submits, and staples the DMG before validation'
           apps/workbench/scripts/package-macos.test.mjs
 
       - name: Set up Constructor

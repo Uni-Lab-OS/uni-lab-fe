@@ -89,6 +89,7 @@ mac:
   notarize: true
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
+  sign: true
 linux:
   category: Development
   icon: icon.png
