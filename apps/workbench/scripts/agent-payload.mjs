@@ -1,6 +1,5 @@
 import {
   chmodSync,
-  copyFileSync,
   cpSync,
   existsSync,
   lstatSync,
@@ -13,13 +12,20 @@ import {
   writeFileSync
 } from 'node:fs'
 import { spawnSync } from 'node:child_process'
-import { basename, dirname, join, relative, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import * as asar from '@electron/asar'
 
 export const PINNED_AGENT_DISTRIBUTION_VERSION = '2.1.53'
 export const EXTERNAL_ONLY_AGENT_CLIS = ['codex', 'claude']
 export const SHARED_AGENT_NODE_ENV = 'UNILAB_AGENT_NODE_BINARY'
+
+const AGENT_RENDERER_PREFIX = '/out/renderer/'
+
+export function normalizeAgentArchiveEntry(entry) {
+  return entry.replaceAll('\\', '/')
+}
 
 export function resolveAgentTarget(platform, architecture) {
   const key = `${platform}/${architecture}`
@@ -67,7 +73,7 @@ export function prepareBundledAgentPayload(destination, options = {}) {
 
   rmSync(destination, { recursive: true, force: true })
   mkdirSync(join(destination, 'bundled-aioncore'), { recursive: true })
-  copyFileSync(archive, join(destination, 'app.asar'))
+  createRendererOnlyAgentArchive(archive, join(destination, 'app.asar'))
   cpSync(
     nativeSource,
     join(destination, 'bundled-aioncore', target.directory),
@@ -117,6 +123,7 @@ export function prepareBundledAgentPayload(destination, options = {}) {
     architecture,
     targetDirectory: target.directory,
     executable: target.executable,
+    archiveScope: 'renderer-only',
     bundledClis: [],
     externalClis: EXTERNAL_ONLY_AGENT_CLIS
   }, null, 2)}\n`)
@@ -132,6 +139,88 @@ export function prepareBundledAgentPayload(destination, options = {}) {
       target.executable
     )
   }
+}
+
+export function createRendererOnlyAgentArchive(
+  sourceArchive,
+  destinationArchive
+) {
+  const stagingDirectory = resolve(
+    dirname(destinationArchive),
+    '.agent-renderer-archive'
+  )
+  rmSync(stagingDirectory, { recursive: true, force: true })
+  mkdirSync(stagingDirectory, { recursive: true })
+  try {
+    const entries = asar.listPackage(sourceArchive).map(source => ({
+      source,
+      normalized: normalizeAgentArchiveEntry(source)
+    }))
+    if (!entries.some(entry =>
+      entry.normalized === '/out/renderer/index.html'
+    )) {
+      throw new Error('Agent app.asar 缺少 out/renderer/index.html')
+    }
+    const selectedEntries = entries.filter(entry =>
+      entry.normalized === '/package.json'
+      || entry.normalized.startsWith(AGENT_RENDERER_PREFIX)
+    )
+    for (const entry of selectedEntries) {
+      const relativePath = entry.normalized.slice(1)
+      const sourcePath = entry.source.slice(1)
+      const destination = resolve(stagingDirectory, relativePath)
+      if (
+        destination !== stagingDirectory
+        && !destination.startsWith(`${stagingDirectory}${sep}`)
+      ) {
+        throw new Error(`Agent 渲染器归档路径越界：${entry.normalized}`)
+      }
+      const info = asar.statFile(sourceArchive, sourcePath)
+      if ('files' in info) {
+        mkdirSync(destination, { recursive: true })
+      } else {
+        mkdirSync(dirname(destination), { recursive: true })
+        writeFileSync(destination, asar.extractFile(sourceArchive, sourcePath))
+      }
+    }
+
+    const asarCli = fileURLToPath(import.meta.resolve('@electron/asar/bin/asar.js'))
+    const result = spawnSync(process.execPath, [
+      asarCli,
+      'pack',
+      stagingDirectory,
+      destinationArchive
+    ], { encoding: 'utf8' })
+    if (result.error || result.status !== 0) {
+      const detail = result.error?.message || result.stderr || result.stdout
+      throw new Error(`Agent 渲染器归档打包失败：${detail}`)
+    }
+    return validateAgentRendererArchive(destinationArchive)
+  } finally {
+    rmSync(stagingDirectory, { recursive: true, force: true })
+  }
+}
+
+export function validateAgentRendererArchive(archive) {
+  const entries = asar.listPackage(archive).map(normalizeAgentArchiveEntry)
+  const required = ['/package.json', '/out/renderer/index.html']
+  const missing = required.filter(entry => !entries.includes(entry))
+  if (!entries.some(entry => entry.startsWith('/out/renderer/assets/'))) {
+    missing.push('/out/renderer/assets/*')
+  }
+  if (missing.length > 0) {
+    throw new Error(`Agent 渲染器归档缺少运行文件：${missing.join(', ')}`)
+  }
+  const allowedDirectories = new Set(['/out', '/out/renderer'])
+  const forbidden = entries.filter(entry =>
+    entry !== '/package.json'
+    && !allowedDirectories.has(entry)
+    && !entry.startsWith(AGENT_RENDERER_PREFIX)
+  )
+  if (forbidden.length > 0) {
+    throw new Error(`Agent 渲染器归档误含不可达文件：${forbidden[0]}`)
+  }
+  return { path: archive, entries: entries.length }
 }
 
 /** Reuse Workbench's signed Node binary while retaining Agent's npm modules. */
@@ -262,6 +351,14 @@ export function validateBundledAgentPayload(
   const version = readAgentDistributionVersion(archive)
   if (version !== PINNED_AGENT_DISTRIBUTION_VERSION) {
     throw new Error(`Workbench Agent 版本错误：${version}`)
+  }
+  validateAgentRendererArchive(archive)
+  const payloadManifest = JSON.parse(readFileSync(
+    join(root, 'payload.json'),
+    'utf8'
+  ))
+  if (payloadManifest.archiveScope !== 'renderer-only') {
+    throw new Error('Workbench Agent 载荷未声明 renderer-only 归档范围')
   }
   for (const cli of EXTERNAL_ONLY_AGENT_CLIS) {
     const forbiddenPath = join(

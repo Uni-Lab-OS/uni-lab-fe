@@ -20,11 +20,53 @@ import {
   EXTERNAL_ONLY_AGENT_CLIS,
   PINNED_AGENT_DISTRIBUTION_VERSION,
   SHARED_AGENT_NODE_ENV,
+  normalizeAgentArchiveEntry,
   prepareBundledAgentPayload,
   resolveAgentTarget
 } from './agent-payload.mjs'
 
+async function createAgentArchiveFixture(sourceDirectory, archivePath) {
+  await mkdir(join(sourceDirectory, 'out', 'renderer', 'assets'), {
+    recursive: true
+  })
+  await mkdir(join(sourceDirectory, 'out', 'main'), { recursive: true })
+  await mkdir(join(sourceDirectory, 'node_modules', 'unused'), {
+    recursive: true
+  })
+  await writeFile(join(sourceDirectory, 'package.json'), JSON.stringify({
+    version: PINNED_AGENT_DISTRIBUTION_VERSION
+  }))
+  await writeFile(
+    join(sourceDirectory, 'out', 'renderer', 'index.html'),
+    '<div id="root"></div>'
+  )
+  await writeFile(
+    join(sourceDirectory, 'out', 'renderer', 'assets', 'index.js'),
+    'globalThis.__agentRenderer = true'
+  )
+  await writeFile(
+    join(sourceDirectory, 'out', 'main', 'index.js'),
+    'unreachable-electron-main'
+  )
+  await writeFile(
+    join(sourceDirectory, 'node_modules', 'unused', 'index.js'),
+    'unreachable-dependency'
+  )
+  await asar.createPackage(sourceDirectory, archivePath)
+}
+
 describe('bundled Workbench Agent payload', () => {
+  it('normalizes ASAR entry separators across packaging hosts', () => {
+    assert.equal(
+      normalizeAgentArchiveEntry('\\out\\renderer\\index.html'),
+      '/out/renderer/index.html'
+    )
+    assert.equal(
+      normalizeAgentArchiveEntry('/out/renderer/index.html'),
+      '/out/renderer/index.html'
+    )
+  })
+
   it('stages the pinned renderer and matching native aioncore', async () => {
     const root = await mkdtemp(join(tmpdir(), 'unilab-agent-payload-'))
     const source = join(root, 'AionUi.app', 'Contents', 'Resources')
@@ -54,11 +96,7 @@ describe('bundled Workbench Agent payload', () => {
         '2.1.215',
         'darwin-arm64'
       ), { recursive: true })
-      await mkdir(asarSource, { recursive: true })
-      await writeFile(join(asarSource, 'package.json'), JSON.stringify({
-        version: PINNED_AGENT_DISTRIBUTION_VERSION
-      }))
-      await asar.createPackage(asarSource, join(source, 'app.asar'))
+      await createAgentArchiveFixture(asarSource, join(source, 'app.asar'))
       await writeFile(
         join(source, 'bundled-aioncore', 'darwin-arm64', 'aioncore'),
         'agent-binary'
@@ -121,6 +159,11 @@ describe('bundled Workbench Agent payload', () => {
         ),
         true
       )
+      const packagedEntries = asar.listPackage(join(destination, 'app.asar'))
+      assert.ok(packagedEntries.includes('/out/renderer/index.html'))
+      assert.ok(packagedEntries.includes('/out/renderer/assets/index.js'))
+      assert.ok(!packagedEntries.includes('/out/main/index.js'))
+      assert.ok(!packagedEntries.includes('/node_modules/unused/index.js'))
       assert.equal(
         await readFile(
           join(destination, 'bundled-aioncore', 'darwin-arm64', 'aioncore'),
@@ -173,6 +216,7 @@ describe('bundled Workbench Agent payload', () => {
       ))
       assert.deepEqual(payloadManifest.bundledClis, [])
       assert.deepEqual(payloadManifest.externalClis, EXTERNAL_ONLY_AGENT_CLIS)
+      assert.equal(payloadManifest.archiveScope, 'renderer-only')
       if (process.platform === 'darwin') {
         const attributes = spawnSync('xattr', [
           join(destination, 'bundled-aioncore', 'darwin-arm64', 'aioncore')
@@ -224,11 +268,7 @@ describe('bundled Workbench Agent payload', () => {
       await mkdir(join(nodeRoot, 'lib', 'node_modules', 'npm', 'lib'), {
         recursive: true
       })
-      await mkdir(asarSource, { recursive: true })
-      await writeFile(join(asarSource, 'package.json'), JSON.stringify({
-        version: PINNED_AGENT_DISTRIBUTION_VERSION
-      }))
-      await asar.createPackage(asarSource, join(source, 'app.asar'))
+      await createAgentArchiveFixture(asarSource, join(source, 'app.asar'))
       await writeFile(join(nativeRoot, 'aioncore'), 'agent-binary')
       await writeFile(join(
         nativeRoot,

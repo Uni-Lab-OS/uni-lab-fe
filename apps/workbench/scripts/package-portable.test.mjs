@@ -1,12 +1,21 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile
+} from 'node:fs/promises'
 import { describe, it } from 'node:test'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
   PORTABLE_NODE_ARCHIVES,
-  PORTABLE_NODE_VERSION
+  PORTABLE_NODE_VERSION,
+  pruneDesktopDeployment
 } from './package-portable.mjs'
 import {
   MAX_PRODUCTION_LIB_BYTES,
@@ -132,7 +141,7 @@ describe('portable Workbench packaging contract', () => {
         /^pnpm build:desktop:production/u
       )
     }
-    assert.match(builderConfiguration, /^compression: maximum$/mu)
+    assert.match(builderConfiguration, /^compression: normal$/mu)
     assert.equal(
       packageManifest.optionalDependencies['@vscode/windows-ca-certs'],
       '0.3.4'
@@ -152,6 +161,154 @@ describe('portable Workbench packaging contract', () => {
       builderConfiguration,
       /from: \.packaging\/desktop-runtime\/node_modules[^]*?'!\*\*\/\*\.map'/u
     )
+    for (const exclusion of [
+      "'!**/*.d.ts'",
+      "'!**/*.d.mts'",
+      "'!**/*.d.cts'",
+      "'!**/*.flow'",
+      "'!**/*.tsbuildinfo'",
+      "'!**/.bin/esbuild*'",
+      "'!**/@esbuild/**'",
+      "'!**/esbuild/bin/**'"
+    ]) {
+      assert.ok(builderConfiguration.includes(exclusion))
+    }
+  })
+
+  it('prunes the desktop deployment before electron-builder runs', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'unilab-desktop-deploy-'))
+    const source = join(root, 'desktop-source')
+    const deployment = join(root, 'deployment')
+    const selfLink = join(
+      deployment,
+      'node_modules',
+      '.pnpm',
+      'node_modules',
+      '@unilab',
+      'desktop'
+    )
+    try {
+      await mkdir(source, { recursive: true })
+      await mkdir(join(selfLink, '..'), { recursive: true })
+      await mkdir(join(deployment, 'node_modules', '@esbuild', 'win32-x64'), {
+        recursive: true
+      })
+      await mkdir(join(deployment, 'node_modules', 'esbuild', 'bin'), {
+        recursive: true
+      })
+      await mkdir(join(deployment, 'node_modules', '.bin'), {
+        recursive: true
+      })
+      await mkdir(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist'
+      ), { recursive: true })
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@esbuild',
+        'win32-x64',
+        'esbuild.exe'
+      ), 'native-copy')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        'esbuild',
+        'bin',
+        'esbuild.exe'
+      ), 'native-launcher')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '.bin',
+        'esbuild.cmd'
+      ), 'windows-launcher')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.esm-browser.js'
+      ), 'browser-only')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.cjs.js'
+      ), 'runtime')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.d.ts'
+      ), 'types')
+      await symlink(
+        source,
+        selfLink,
+        process.platform === 'win32' ? 'junction' : 'dir'
+      )
+
+      const metrics = pruneDesktopDeployment(deployment)
+      assert.equal(metrics.removedSelfLink, true)
+      assert.ok(metrics.removedFiles >= 1)
+      assert.ok(metrics.removedBytes >= 5)
+      await assert.rejects(lstat(selfLink), error => error?.code === 'ENOENT')
+      for (const removed of [
+        join(deployment, 'node_modules', '@esbuild'),
+        join(deployment, 'node_modules', 'esbuild', 'bin'),
+        join(deployment, 'node_modules', '.bin', 'esbuild.cmd'),
+        join(
+          deployment,
+          'node_modules',
+          '@vue',
+          'compiler-sfc',
+          'dist',
+          'compiler-sfc.esm-browser.js'
+        ),
+        join(
+          deployment,
+          'node_modules',
+          '@vue',
+          'compiler-sfc',
+          'dist',
+          'compiler-sfc.d.ts'
+        )
+      ]) {
+        await assert.rejects(lstat(removed), error => error?.code === 'ENOENT')
+      }
+      assert.equal(await readFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.cjs.js'
+      ), 'utf8'), 'runtime')
+
+      const packagingScript = await readFile(
+        new URL('./package-portable.mjs', import.meta.url),
+        'utf8'
+      )
+      assert.match(packagingScript, /'--config\.node-linker=hoisted'/u)
+      const deployIndex = packagingScript.indexOf("'deploy'")
+      const pruneIndex = packagingScript.indexOf(
+        'pruneDesktopDeployment(desktopRuntimeDirectory)'
+      )
+      const builderIndex = packagingScript.indexOf("'electron-builder'")
+      assert.ok(deployIndex >= 0)
+      assert.ok(deployIndex < pruneIndex)
+      assert.ok(pruneIndex < builderIndex)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
 
   it('uses the optimized production shell for pnpm workbench:desktop', async () => {
@@ -269,6 +426,8 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /Filter 'aioncore\.exe'/u)
     assert.match(workflow, /Test-Path \(Join-Path \$_\.Directory\.FullName 'managed-resources'\)/u)
     assert.match(workflow, /bundled-aioncore\\windows-x64/u)
+    assert.match(workflow, /WINDOWS_INSTALLER_BYTES=/u)
+    assert.match(workflow, /仅记录，不设体积门禁/u)
     assert.match(workflow, /actions\/upload-artifact@v6/u)
   })
 

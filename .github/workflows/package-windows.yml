@@ -189,6 +189,8 @@ jobs:
           $stream = [System.IO.File]::OpenRead($installer.FullName)
           try { $header = @($stream.ReadByte(), $stream.ReadByte()) } finally { $stream.Dispose() }
           if ($header[0] -ne 0x4d -or $header[1] -ne 0x5a) { throw 'Installer is not a PE executable' }
+          "WINDOWS_INSTALLER_BYTES=$($installer.Length)" >> $env:GITHUB_ENV
+          Write-Host "Windows installer size: $($installer.Length) bytes"
           Get-FileHash $installer.FullName -Algorithm SHA256
 
       - name: Describe Windows test package
@@ -200,6 +202,7 @@ jobs:
           - FE 提交：`${{ github.sha }}`
           - Uni-Lab OS 提交：`$env:UNILAB_OS_SOURCE_REF`
           - 领域代码：不内置；用户安装后自行选择和修改外部 workspace
+          - EXE 大小：`$env:WINDOWS_INSTALLER_BYTES bytes`（仅记录，不设体积门禁）
           - 交付位置：本次 Actions Run 的 Artifact
           - 发布限制：仅生成测试 EXE，不上传、不修改任何 stable Release
           "@ >> $env:GITHUB_STEP_SUMMARY

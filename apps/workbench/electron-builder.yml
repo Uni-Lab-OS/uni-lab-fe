@@ -1,7 +1,7 @@
 appId: com.bohrium.unilab
 productName: UniLab Workbench
 copyright: Copyright © 2026 UniLab
-compression: maximum
+compression: normal
 directories:
   output: release-macos
   buildResources: ../desktop/build
@@ -38,6 +38,14 @@ extraResources:
     filter:
       - '**/*'
       - '!**/*.map'
+      - '!**/*.d.ts'
+      - '!**/*.d.mts'
+      - '!**/*.d.cts'
+      - '!**/*.flow'
+      - '!**/*.tsbuildinfo'
+      - '!**/.bin/esbuild*'
+      - '!**/@esbuild/**'
+      - '!**/esbuild/bin/**'
   - from: .packaging/node-runtime
     to: node-runtime
     filter:

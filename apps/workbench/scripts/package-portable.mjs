@@ -5,6 +5,7 @@ import {
   chmodSync,
   copyFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   openSync,
@@ -103,6 +104,7 @@ export function packagePortableWorkbench(targetPlatform) {
     runCommand(
       process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
       [
+        '--config.node-linker=hoisted',
         '--filter',
         '@unilab/desktop',
         'deploy',
@@ -114,6 +116,10 @@ export function packagePortableWorkbench(targetPlatform) {
       repositoryDirectory,
       process.env,
       { shell: process.platform === 'win32' }
+    )
+    const desktopMetrics = pruneDesktopDeployment(desktopRuntimeDirectory)
+    console.log(
+      `桌面端生产依赖已收敛：删除 ${desktopMetrics.removedFiles} 个构建文件，${desktopMetrics.removedBytes} bytes`
     )
 
     const esbuildBinary = resolveEsbuildBinary(descriptor)
@@ -168,6 +174,102 @@ export function packagePortableWorkbench(targetPlatform) {
     rmSync(outputDirectory, { recursive: true, force: true })
     rmSync(packagingDirectory, { recursive: true, force: true })
   }
+}
+
+export function removeDesktopDeploymentSelfLink(deploymentDirectory) {
+  const selfLink = join(
+    deploymentDirectory,
+    'node_modules',
+    '.pnpm',
+    'node_modules',
+    '@unilab',
+    'desktop'
+  )
+  if (!existsSync(selfLink)) return false
+  if (!lstatSync(selfLink).isSymbolicLink()) {
+    throw new Error(`桌面端生产依赖中的工作区自链接不是符号链接：${selfLink}`)
+  }
+  rmSync(selfLink, { recursive: true, force: true })
+  return true
+}
+
+export function pruneDesktopDeployment(deploymentDirectory) {
+  const nodeModules = join(deploymentDirectory, 'node_modules')
+  if (!existsSync(nodeModules)) {
+    throw new Error(`桌面端生产依赖目录不存在：${nodeModules}`)
+  }
+  const removedSelfLink = removeDesktopDeploymentSelfLink(deploymentDirectory)
+  let removedFiles = 0
+  let removedBytes = 0
+  const executableDirectory = join(nodeModules, '.bin')
+  const esbuildLaunchers = existsSync(executableDirectory)
+    ? readdirSync(executableDirectory)
+      .filter(name => name === 'esbuild' || name.startsWith('esbuild.'))
+      .map(name => join(executableDirectory, name))
+    : []
+  for (const unreachablePath of [
+    join(nodeModules, '@esbuild'),
+    join(nodeModules, 'esbuild', 'bin'),
+    ...esbuildLaunchers,
+    join(
+      nodeModules,
+      '@vue',
+      'compiler-sfc',
+      'dist',
+      'compiler-sfc.esm-browser.js'
+    )
+  ]) {
+    const pathMetrics = removeDeploymentPath(unreachablePath)
+    removedFiles += pathMetrics.removedFiles
+    removedBytes += pathMetrics.removedBytes
+  }
+  const buildOnlyMetrics = pruneDesktopBuildOnlyFiles(nodeModules)
+  return {
+    removedSelfLink,
+    removedFiles: removedFiles + buildOnlyMetrics.removedFiles,
+    removedBytes: removedBytes + buildOnlyMetrics.removedBytes
+  }
+}
+
+function removeDeploymentPath(path) {
+  let entry
+  try {
+    entry = lstatSync(path)
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { removedFiles: 0, removedBytes: 0 }
+    throw error
+  }
+  if (!entry.isDirectory() || entry.isSymbolicLink()) {
+    rmSync(path, { force: true })
+    return { removedFiles: 1, removedBytes: entry.size }
+  }
+  let removedFiles = 0
+  let removedBytes = 0
+  for (const child of readdirSync(path)) {
+    const childMetrics = removeDeploymentPath(join(path, child))
+    removedFiles += childMetrics.removedFiles
+    removedBytes += childMetrics.removedBytes
+  }
+  rmSync(path, { recursive: true, force: true })
+  return { removedFiles, removedBytes }
+}
+
+function pruneDesktopBuildOnlyFiles(directory) {
+  let removedFiles = 0
+  let removedBytes = 0
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const entryPath = join(directory, entry.name)
+    if (entry.isDirectory()) {
+      const childMetrics = pruneDesktopBuildOnlyFiles(entryPath)
+      removedFiles += childMetrics.removedFiles
+      removedBytes += childMetrics.removedBytes
+    } else if (/\.(?:map|d\.ts|d\.mts|d\.cts|flow|tsbuildinfo)$/u.test(entry.name)) {
+      removedBytes += lstatSync(entryPath).size
+      rmSync(entryPath, { force: true })
+      removedFiles += 1
+    }
+  }
+  return { removedFiles, removedBytes }
 }
 
 function prepareNodeRuntime(descriptor, destination, packagingDirectory) {
