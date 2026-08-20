@@ -23,6 +23,10 @@ import {
   workflowTaskDisplayName,
   type WorkflowTaskListFilter
 } from '../utils/workflowTaskListProjection'
+import {
+  mergeWorkflowTaskPage,
+  subscribeWorkflowTaskListUpdates
+} from '../utils/workflowTaskListRuntime'
 import { workflowTaskStatusLabel } from '../utils/workflowTaskPresentation'
 import { createWorkflowTaskViewRuntime } from '../utils/workflowTaskViewRuntime'
 import { WorkflowButton } from './WorkflowButton'
@@ -30,7 +34,6 @@ import WorkflowPanel from './WorkflowPanel'
 import styles from './workflow.module.scss'
 
 const TASK_PAGE_SIZE = 100
-const DEFAULT_POLL_INTERVAL_MS = 5_000
 const DEFAULT_TASK_QUEUE_PERCENT = 38
 const MIN_TASK_QUEUE_PERCENT = 30
 const MAX_TASK_QUEUE_PERCENT = 70
@@ -39,7 +42,6 @@ export interface WorkflowTaskListProps {
   runtime: WorkflowRuntimePort
   active?: boolean
   recoveryRevision?: number
-  pollIntervalMs?: number
 }
 
 /**
@@ -51,8 +53,7 @@ export interface WorkflowTaskListProps {
 export function WorkflowTaskList({
   runtime,
   active = true,
-  recoveryRevision = 0,
-  pollIntervalMs = DEFAULT_POLL_INTERVAL_MS
+  recoveryRevision = 0
 }: WorkflowTaskListProps): React.JSX.Element {
   const [taskPage, setTaskPage] = useState<WorkflowTaskPage>({
     items: [],
@@ -67,6 +68,7 @@ export function WorkflowTaskList({
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [realtimeError, setRealtimeError] = useState<string | null>(null)
   const [taskQueuePercent, setTaskQueuePercent] = useState(
     DEFAULT_TASK_QUEUE_PERCENT
   )
@@ -146,13 +148,47 @@ export function WorkflowTaskList({
     void loadTasks(false)
   }, [active, loadTasks, recoveryRevision])
 
+  /**
+   * 安装服务器发送事件（SSE）失效后补读的单个权威任务。
+   *
+   * @param task Backend 返回的最新工作流任务状态。
+   * @returns 无返回值；并行兄弟任务保持在当前列表页中。
+   */
+  const installRealtimeTask = useCallback((task: WorkflowTask): void => {
+    setTaskPage((current) => mergeWorkflowTaskPage(current, task))
+    setSelectedTaskUuid((current) => current ?? task.uuid)
+  }, [])
+
+  /** 清除已恢复的任务状态实时连接错误。 */
+  const markRealtimeConnected = useCallback((): void => {
+    setRealtimeError(null)
+  }, [])
+
+  /**
+   * 保留最近一次权威投影，并展示实时状态补读错误。
+   *
+   * @param message 可行动的连接或任务补读错误。
+   * @returns 无返回值；操作者仍可使用手动刷新恢复。
+   */
+  const installRealtimeError = useCallback((message: string): void => {
+    setRealtimeError(message)
+  }, [])
+
   useEffect(() => {
-    if (!active || pollIntervalMs <= 0) return
-    const timer = globalThis.setInterval(() => {
-      void loadTasks(true)
-    }, pollIntervalMs)
-    return () => globalThis.clearInterval(timer)
-  }, [active, loadTasks, pollIntervalMs])
+    if (!active) return
+    const subscription = subscribeWorkflowTaskListUpdates(runtime, {
+      onTask: installRealtimeTask,
+      onOpen: markRealtimeConnected,
+      onError: installRealtimeError
+    })
+    return () => subscription.dispose()
+  }, [
+    active,
+    installRealtimeError,
+    installRealtimeTask,
+    markRealtimeConnected,
+    runtime
+  ])
 
   const visibleTasks = useMemo(
     () => visibleWorkflowTasks(taskPage.items, workflows, query, filter),
@@ -177,7 +213,13 @@ export function WorkflowTaskList({
       <header className="workflow-task-list__header">
         <div>
           <h2>工作流任务</h2>
-          <p>读取 Backend 已持久化的任务状态；运行中任务每 5 秒自动核对。</p>
+          <p
+            className={realtimeError ? 'is-error' : undefined}
+            role={realtimeError ? 'alert' : undefined}
+          >
+            {realtimeError ??
+              '读取 Backend 已持久化的任务状态；运行变化会实时补读。'}
+          </p>
         </div>
         <WorkflowButton
           type="button"
