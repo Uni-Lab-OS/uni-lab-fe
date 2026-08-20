@@ -304,4 +304,16 @@ describe('Workbench macOS distribution gate', () => {
       /gh release|latest-mac\.yml|\.zip\.blockmap/u
     )
   })
+
+  it('raises the macOS file descriptor limit before signing the packaged app', async () => {
+    const workflow = await readFile(
+      new URL('../../../.github/workflows/package-macos.yml', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(
+      workflow,
+      /Build signed and notarized macOS DMG[^]*?ulimit -S -n 65536[^]*?package:mac/u
+    )
+  })
 })

@@ -170,7 +170,12 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm --filter @unilab/workbench package:mac
+        run: |
+          set -euo pipefail
+          echo "macOS open-file limits before signing: soft=$(ulimit -Sn) hard=$(ulimit -Hn)"
+          ulimit -S -n 65536
+          echo "macOS open-file limit for signing: soft=$(ulimit -Sn)"
+          pnpm --filter @unilab/workbench package:mac
 
       - name: Verify macOS DMG
         run: |
