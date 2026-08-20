@@ -13,7 +13,6 @@ describe('WorkflowTaskList', () => {
     const markup = renderToStaticMarkup(
       <WorkflowTaskList
         runtime={{} as WorkflowRuntimePort}
-        pollIntervalMs={0}
       />
     )
 
@@ -21,6 +20,7 @@ describe('WorkflowTaskList', () => {
     expect(markup).toContain('搜索工作流、Task UUID 或状态')
     expect(markup).toContain('正在读取工作流任务')
     expect(markup).toContain('aria-label="工作流任务状态"')
+    expect(markup).toContain('运行变化会实时补读')
   })
 
   it('supports resizing the task detail pane without showing run mode copy', () => {
