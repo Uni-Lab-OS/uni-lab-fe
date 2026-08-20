@@ -232,8 +232,9 @@ export interface RuntimeEnvironmentValidationOptions {
 }
 
 /**
- * Require the selected environment to provide the actual OS and PLC imports,
- * not merely executable filenames. This keeps failures on the selection page.
+ * Require the selected environment to provide the Workspace Host plus the
+ * actual OS and PLC imports, not merely executable filenames. This keeps
+ * compatibility failures on the selection page.
  */
 export async function validateRuntimeEnvironment(
   environmentPath: string,
@@ -262,6 +263,7 @@ export async function validateRuntimeEnvironment(
         '-c',
         [
           'from unilabos.app.main import main',
+          'import unilabos.workspace_host.host',
           'from opcua import Client, ua',
           'from fastapi import FastAPI',
           'from pydantic import BaseModel',

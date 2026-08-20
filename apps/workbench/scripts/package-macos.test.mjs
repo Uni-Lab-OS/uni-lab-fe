@@ -423,7 +423,7 @@ describe('Workbench macOS distribution gate', () => {
     )
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf/u
+      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-6fcb80a-f7e78e7-b09c0c0/u
     )
     assert.match(workflow, /AIONUI_VERSION: 2\.1\.53/u)
     assert.match(workflow, /AIONUI_MACOS_SHA512: [a-f0-9]{128}/u)
@@ -433,7 +433,6 @@ describe('Workbench macOS distribution gate', () => {
       workflow,
       new RegExp(`NODE_RUNTIME_VERSION: ${NODE_RUNTIME_VERSION}`, 'u')
     )
-    assert.match(workflow, /--platform osx-arm64/u)
     assert.match(workflow, /AionUi-\$AIONUI_VERSION-mac-arm64\.dmg/u)
     assert.match(workflow, /Restore prepared macOS Agent payload/u)
     assert.match(workflow, /aionui-prepared-macos-arm64-v2-/u)
@@ -460,17 +459,19 @@ describe('Workbench macOS distribution gate', () => {
     const releaseRestoreIndex = workflow.indexOf(
       'name: Restore versioned macOS Runtime release'
     )
-    const cacheRestoreIndex = workflow.indexOf(
-      'name: Restore macOS Runtime cache'
+    const requireRuntimeIndex = workflow.indexOf(
+      'name: Require versioned macOS Runtime release'
     )
-    const runtimeCheckoutIndex = workflow.indexOf('name: Check out Uni-Lab OS')
     assert.ok(releaseRestoreIndex >= 0)
-    assert.ok(releaseRestoreIndex < cacheRestoreIndex)
-    assert.ok(cacheRestoreIndex < runtimeCheckoutIndex)
+    assert.ok(requireRuntimeIndex >= 0)
+    assert.ok(releaseRestoreIndex < requireRuntimeIndex)
     assert.match(
-      workflow.slice(runtimeCheckoutIndex, runtimeCheckoutIndex + 240),
-      /steps\.runtime-release\.outputs\.hit != 'true'.*steps\.runtime-cache\.outputs\.cache-hit != 'true'/su
+      workflow.slice(requireRuntimeIndex, requireRuntimeIndex + 240),
+      /steps\.runtime-release\.outputs\.hit != 'true'/su
     )
+    assert.doesNotMatch(workflow, /name: Restore macOS Runtime cache/u)
+    assert.doesNotMatch(workflow, /name: Check out Uni-Lab OS/u)
+    assert.doesNotMatch(workflow, /name: Build macOS arm64 Runtime/u)
     assert.match(workflow, /build:desktop:production/u)
     assert.match(workflow, /package-macos\.mjs "--\$UNILAB_CI_SIGNING_MODE"/u)
     assert.match(workflow, /CSC_LINK: \$\{\{ secrets\.CSC_LINK \}\}/u)
