@@ -40,6 +40,10 @@
   font-size: 12px;
 }
 
+.workflow :global(.workflow-task-list__header) p.is-error {
+  color: var(--unilab-color-danger);
+}
+
 .workflow :global(.workflow-task-list__header) button,
 .workflow :global(.workflow-task-list__state) button {
   display: inline-flex;
