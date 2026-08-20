@@ -30,7 +30,8 @@ import {
   RobotWorkstation
 } from '@unilab/robot-workstation'
 import {
-  assertCapability
+  assertCapability,
+  type CapabilityStatus
 } from '@unilab/services'
 import {
   createWorkflowResourceSlotOptionsPort,
@@ -52,7 +53,6 @@ import type {
   WorkbenchEnvironmentLogKind,
   WorkbenchPlcSimulatorConfiguration,
   WorkbenchReleaseReceipt,
-  WorkbenchReleaseTargetInspection,
   WorkbenchRuntimeMode,
   WorkbenchSessionSnapshot
 } from '@unilab/workbench-session'
@@ -83,8 +83,14 @@ import {
 import { preflightWorkbenchRuntimeAuthority } from './workbench-domain-authority'
 import { WorkbenchConnectionSelector } from './workbench-connection-selector'
 import {
+  transitionWorkbenchAuthority,
+  type WorkbenchAuthorityTransitionPhase
+} from './workbench-authority-transition'
+import {
   currentBrowserOrigin,
+  initialWorkbenchAuthorityWarning,
   initialWorkbenchConnectionMode,
+  persistWorkbenchAuthorityWarning,
   persistWorkbenchConnectionMode,
   sessionConnectionState,
   useBackendConnectionState
@@ -120,6 +126,11 @@ import {
 import { hasWorkbenchUnsavedChanges } from './workbench-unsaved-changes'
 
 type SourceSaveHandler = (pythonSource: string) => Promise<void>
+type PrepareAuthoritySwitchHandler = () => Promise<void>
+const BACKEND_DEFINITION_READ_ONLY: CapabilityStatus = {
+  available: false,
+  reason: 'Backend 发布内容只读；请切换到 Workspace 修改并重新同步'
+}
 
 @injectable()
 export class UniLabWorkbenchWidget extends ReactWidget {
@@ -176,12 +187,21 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     plcSimulator: emptyPlcSimulatorSnapshot()
   }
   protected sourceSaveHandler: SourceSaveHandler | null = null
+  protected pendingSourceSync: Promise<void> | null = null
+  protected prepareAuthoritySwitchHandler: PrepareAuthoritySwitchHandler | null = null
   protected lastAutomaticSourceSync: string | null = null
   protected workflowPanelDirty = false
   protected lastReportedUnsavedChanges: boolean | null = null
   protected connectionMode: WorkbenchConnectionMode =
     initialWorkbenchConnectionMode()
   protected connectionSwitchingTo: WorkbenchConnectionMode | null = null
+  protected connectionTransitionPhase: WorkbenchAuthorityTransitionPhase | null = null
+  protected connectionTransitionFailure: {
+    target: WorkbenchConnectionMode
+    message: string
+    canForce: boolean
+  } | null = null
+  protected authorityWarning: string | null = initialWorkbenchAuthorityWarning()
   protected connectionSwitchRevision = 0
   protected connectionInterrupted = false
   protected recoveryRevision = 0
@@ -318,14 +338,12 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     backendUrl: string,
     resetTarget = false
   ): Promise<WorkbenchReleaseReceipt> => {
-    if (this.lastReportedUnsavedChanges) {
-      throw new Error('请先保存当前工作流修改，再发布 WorkspaceRelease')
-    }
     try {
       const receipt = await this.workbenchSession.publishRelease({
         activate: true,
         backendUrl,
-        resetTarget
+        resetTarget,
+        replaceTarget: !resetTarget
       })
       this.sessionSnapshot = await this.workbenchSession.getSnapshot()
       if (receipt.activated) {
@@ -363,12 +381,6 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       await this.refreshSessionSnapshot()
       this.update()
     }
-  }
-
-  protected readonly inspectReleaseTarget = async (
-    backendUrl: string
-  ): Promise<WorkbenchReleaseTargetInspection> => {
-    return await this.workbenchSession.inspectReleaseTarget(backendUrl)
   }
 
   protected readonly readEnvironmentLog = async (
@@ -499,20 +511,6 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     }
   }
 
-  protected readonly setSchedulerUrl = async (
-    url: string | null
-  ): Promise<void> => {
-    try {
-      await this.workbenchSession.setSchedulerUrl(url)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      void this.messages.error(`Scheduler 地址保存失败：${message}`)
-      throw error
-    } finally {
-      await this.refreshSessionSnapshot()
-    }
-  }
-
   protected observeCurrentEditor(render = true): void {
     this.editorListeners.dispose()
     this.editorListeners = new DisposableCollection()
@@ -568,9 +566,13 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       this.sourceSaveHandler
     ) {
       const pythonSource = editorWidget.editor.document.getText()
-      void this.sourceSaveHandler(pythonSource).catch(error => {
+      const pending = this.sourceSaveHandler(pythonSource)
+      this.pendingSourceSync = pending
+      void pending.catch(error => {
         const message = error instanceof Error ? error.message : String(error)
         void this.messages.error(`工作流源码同步失败：${message}`)
+      }).finally(() => {
+        if (this.pendingSourceSync === pending) this.pendingSourceSync = null
       })
     }
   }
@@ -589,45 +591,102 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     this.reportUnsavedChanges()
   }
 
+  protected readonly registerPrepareAuthoritySwitchHandler = (
+    handler: PrepareAuthoritySwitchHandler | null
+  ): void => {
+    this.prepareAuthoritySwitchHandler = handler
+  }
+
+  protected async saveWorkspaceForAuthorityTransition(): Promise<void> {
+    await this.shell.saveAll()
+    // Theia 的 dirty -> clean 事件会在 saveAll 中触发源码同步；让该回调先入队。
+    await Promise.resolve()
+    if (this.pendingSourceSync) await this.pendingSourceSync
+    if (this.prepareAuthoritySwitchHandler) {
+      await this.prepareAuthoritySwitchHandler()
+    }
+  }
+
   /**
    * 原子切换后续界面请求和 Workspace Host 的真实运行权威。
    * 已有任务仍由原调度权威收敛；新请求只在目标工作流目录通过预检后开放。
    */
   protected readonly setConnectionMode = async (
-    mode: WorkbenchConnectionMode
+    mode: WorkbenchConnectionMode,
+    force = false
   ): Promise<void> => {
     if (
       mode === this.connectionMode
       && mode === this.sessionSnapshot.configuredDomainMode
     ) return
     if (this.connectionSwitchingTo) return
-    if (this.lastReportedUnsavedChanges) {
-      void this.messages.warn('请先保存当前工作流修改，再切换运行连接')
-      return
-    }
     const revision = ++this.connectionSwitchRevision
     this.connectionSwitchingTo = mode
+    this.connectionTransitionFailure = null
     this.update()
     try {
-      const session = await this.workbenchSession.setDomainAuthority(mode)
-      if (revision !== this.connectionSwitchRevision) return
-      this.sessionSnapshot = session
-      const targets = createWorkbenchConnectionTargets({
-        managedLocalUrl: session.identity?.backendUrl,
-        browserOrigin: currentBrowserOrigin()
+      await transitionWorkbenchAuthority({
+        from: this.connectionMode,
+        to: mode,
+        force,
+        operations: {
+          saveWorkspace: () => this.saveWorkspaceForAuthorityTransition(),
+          publishAndActivateBackend: async () => {
+            const backendUrl = createWorkbenchConnectionTargets({
+              managedLocalUrl: this.sessionSnapshot.identity?.backendUrl,
+              browserOrigin: currentBrowserOrigin()
+            }).backend.backend.apiUrl
+            await this.publishRelease(backendUrl)
+          },
+          switchAuthority: async (target, options) => {
+            this.sessionSnapshot = await this.workbenchSession
+              .setDomainAuthority(target, options)
+          },
+          verifyAuthority: async target => {
+            const targets = createWorkbenchConnectionTargets({
+              managedLocalUrl: this.sessionSnapshot.identity?.backendUrl,
+              browserOrigin: currentBrowserOrigin()
+            })
+            await preflightWorkbenchRuntimeAuthority(targets[target])
+          }
+        },
+        onPhase: phase => {
+          if (revision !== this.connectionSwitchRevision) return
+          this.connectionTransitionPhase = phase
+          this.update()
+        }
       })
-      await preflightWorkbenchRuntimeAuthority(targets[mode])
       if (revision !== this.connectionSwitchRevision) return
       this.connectionMode = mode
       persistWorkbenchConnectionMode(mode)
+      this.authorityWarning = force
+        ? `已强制切换到 ${mode === 'backend' ? 'Backend' : 'Workspace Backend'}；` +
+          '当前内容未同步或连接未经验证'
+        : null
+      persistWorkbenchAuthorityWarning(this.authorityWarning)
       void this.messages.info(
-        mode === 'backend'
-          ? '已切换到 Backend：画布直接保存远端工作流，本地代码不再联动画布'
-          : '已切换到本地：工作区代码与画布恢复双向联动'
+        force
+          ? this.authorityWarning ?? '已强制切换运行权威'
+          : mode === 'backend'
+            ? 'Workspace 定义已同步并校验；Backend 以只读方式运行'
+            : '已切换到 Workspace Backend；本地创作已恢复'
       )
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       const committed = this.sessionSnapshot.configuredDomainMode === mode
+      const safetyBlocked = /(?:活动|进行中|running|pending|canceling).*(?:任务|task)|(?:任务|task).*(?:活动|进行中|running|pending|canceling)/i
+        .test(message)
+      this.connectionTransitionFailure = {
+        target: mode,
+        message,
+        canForce: !force && !committed && !safetyBlocked
+      }
+      if (committed) {
+        this.authorityWarning =
+          `已切换到 ${mode === 'backend' ? 'Backend' : 'Workspace Backend'}；` +
+          '目标工作流接口复检失败'
+        persistWorkbenchAuthorityWarning(this.authorityWarning)
+      }
       void this.messages.error(
         committed
           ? `运行权威已切换，但工作流接口未就绪：${message}`
@@ -636,6 +695,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     } finally {
       if (revision === this.connectionSwitchRevision) {
         this.connectionSwitchingTo = null
+        this.connectionTransitionPhase = null
         await this.refreshSessionSnapshot()
         this.connectionMode = this.sessionSnapshot.configuredDomainMode
         persistWorkbenchConnectionMode(this.connectionMode)
@@ -643,6 +703,10 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       }
     }
   }
+
+  protected readonly forceConnectionMode = async (
+    mode: WorkbenchConnectionMode
+  ): Promise<void> => this.setConnectionMode(mode, true)
 
   protected reportUnsavedChanges(): void {
     const hasUnsavedChanges = hasWorkbenchUnsavedChanges(
@@ -826,13 +890,13 @@ export class UniLabWorkbenchWidget extends ReactWidget {
               targets={connectionTargets}
               selectedMode={this.connectionMode}
               connection={sessionConnectionState(this.sessionSnapshot.phase)}
-              switchBlockedReason={this.lastReportedUnsavedChanges
-                ? '请先保存当前工作流修改'
-                : this.connectionSwitchingTo
-                  ? '正在验证目标 Authority'
-                : null}
+              switchBlockedReason={null}
+              transitionPhase={this.connectionTransitionPhase}
+              transitionFailure={this.connectionTransitionFailure}
+              authorityWarning={this.authorityWarning}
               defaultOpen
               onSelect={this.setConnectionMode}
+              onForceSelect={this.forceConnectionMode}
             />
           )}
           onOpenLog={this.openSessionLog}
@@ -843,8 +907,6 @@ export class UniLabWorkbenchWidget extends ReactWidget {
               onClose={onClose}
               onRestartSession={this.restartSession}
               onRebuildLocalData={this.rebuildLocalData}
-              onInspectReleaseTarget={this.inspectReleaseTarget}
-              onPublishRelease={this.publishRelease}
               onReadEnvironmentLog={this.readEnvironmentLog}
               onConfigureGraph={this.configureGraph}
               onSetExternalDevicesOnly={this.setExternalDevicesOnly}
@@ -857,7 +919,6 @@ export class UniLabWorkbenchWidget extends ReactWidget {
               onStopAgent={this.stopAgent}
               onRestartAgent={this.restartAgent}
               onSetRuntimeMode={this.setRuntimeMode}
-              onSetSchedulerUrl={this.setSchedulerUrl}
               onStopSession={this.stopSession}
             />
           )}
@@ -868,24 +929,25 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       <WorkbenchSurface
         connectionMode={this.connectionMode}
         connectionSwitchingTo={this.connectionSwitchingTo}
+        connectionTransitionPhase={this.connectionTransitionPhase}
+        connectionTransitionFailure={this.connectionTransitionFailure}
+        authorityWarning={this.authorityWarning}
         connectionTargets={connectionTargets}
         ideBridge={this.ideBridge}
         session={this.sessionSnapshot}
         sessionClient={this.workbenchSessionClient}
         recoveryRevision={this.recoveryRevision}
         viewMode={this.viewState.currentMode}
-        switchBlockedReason={this.lastReportedUnsavedChanges
-          ? '请先保存当前工作流修改'
-          : this.connectionSwitchingTo
-            ? '正在验证目标 Authority'
-          : null}
+        switchBlockedReason={null}
         onConnectionModeChange={this.setConnectionMode}
+        onForceConnectionModeChange={this.forceConnectionMode}
         onSourceSaveHandlerChange={this.registerSourceSaveHandler}
         onUnsavedChangesChange={this.setWorkflowPanelDirty}
+        onPrepareAuthoritySwitchChange={
+          this.registerPrepareAuthoritySwitchHandler
+        }
         onRestartSession={this.restartSession}
         onRebuildLocalData={this.rebuildLocalData}
-        onInspectReleaseTarget={this.inspectReleaseTarget}
-        onPublishRelease={this.publishRelease}
         onResetWorkflowEnvironment={this.resetWorkflowEnvironment}
         onReadEnvironmentLog={this.readEnvironmentLog}
         onOpenLog={this.openSessionLog}
@@ -900,7 +962,6 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         onStopAgent={this.stopAgent}
         onRestartAgent={this.restartAgent}
         onSetRuntimeMode={this.setRuntimeMode}
-        onSetSchedulerUrl={this.setSchedulerUrl}
         onStopSession={this.stopSession}
       />
     )
@@ -920,6 +981,9 @@ export class UniLabWorkbenchWidget extends ReactWidget {
 function WorkbenchSurface({
   connectionMode,
   connectionSwitchingTo,
+  connectionTransitionPhase,
+  connectionTransitionFailure,
+  authorityWarning,
   connectionTargets,
   ideBridge,
   session,
@@ -928,12 +992,12 @@ function WorkbenchSurface({
   viewMode,
   switchBlockedReason,
   onConnectionModeChange,
+  onForceConnectionModeChange,
   onSourceSaveHandlerChange,
   onUnsavedChangesChange,
+  onPrepareAuthoritySwitchChange,
   onRestartSession,
   onRebuildLocalData,
-  onInspectReleaseTarget,
-  onPublishRelease,
   onResetWorkflowEnvironment,
   onReadEnvironmentLog,
   onOpenLog,
@@ -948,7 +1012,6 @@ function WorkbenchSurface({
   onStopAgent,
   onRestartAgent,
   onSetRuntimeMode,
-  onSetSchedulerUrl,
   onStopSession
 }: WorkbenchSurfaceProps): React.JSX.Element {
   const [selectedWorkflowNode, setSelectedWorkflowNode] =
@@ -1111,11 +1174,9 @@ function WorkbenchSurface({
         traceRuntime={desktopWorkflowTraceRuntime(
           typeof window === 'undefined' ? undefined : window
         )}
-        authoringStatus={services.getCapabilityStatus(
-          connectionMode === 'backend'
-            ? 'workflow.editDefinitions'
-            : 'workflow.authoring'
-        )}
+        authoringStatus={connectionMode === 'backend'
+          ? BACKEND_DEFINITION_READ_ONLY
+          : services.getCapabilityStatus('workflow.authoring')}
         definitionEditingMode={connectionMode === 'backend'
           ? 'backend'
           : 'workspace'}
@@ -1141,6 +1202,7 @@ function WorkbenchSurface({
           onUnsavedChangesChange(hasUnsavedChanges)
           reportWorkflowUnsavedChanges(hasUnsavedChanges)
         }}
+        onPrepareAuthoritySwitchChange={onPrepareAuthoritySwitchChange}
         onSelectedWorkflowStepChange={setSelectedWorkflowNode}
         onWorkflowRuntimeProjectionChange={setRuntimeProjection}
         onResetEnvironment={resetWorkflowEnvironment}
@@ -1175,9 +1237,15 @@ function WorkbenchSurface({
               'material.readTemplates'
             ),
             readGraph: services.getCapabilityStatus('material.readGraph'),
-            create: services.getCapabilityStatus('material.create'),
-            updateConfig: services.getCapabilityStatus('material.updateConfig'),
-            move: services.getCapabilityStatus('material.move')
+            create: connectionMode === 'backend'
+              ? BACKEND_DEFINITION_READ_ONLY
+              : services.getCapabilityStatus('material.create'),
+            updateConfig: connectionMode === 'backend'
+              ? BACKEND_DEFINITION_READ_ONLY
+              : services.getCapabilityStatus('material.updateConfig'),
+            move: connectionMode === 'backend'
+              ? BACKEND_DEFINITION_READ_ONLY
+              : services.getCapabilityStatus('material.move')
           }}
           selectedMaterialIds={selectedMaterialIds}
           highlightedMaterialIds={highlightedMaterialIds}
@@ -1277,9 +1345,13 @@ function WorkbenchSurface({
           connection={connection}
           backendConnection={backendTargetConnection}
           switchBlockedReason={switchBlockedReason}
+          transitionPhase={connectionTransitionPhase}
+          transitionFailure={connectionTransitionFailure}
+          authorityWarning={authorityWarning}
           connectionRetry={connectionRetry}
           environmentOpen={environmentOpen}
           onConnectionModeChange={onConnectionModeChange}
+          onForceConnectionModeChange={onForceConnectionModeChange}
           onToggleEnvironment={() => setEnvironmentOpen(value => !value)}
           onReadEnvironmentLog={onReadEnvironmentLog}
           onOpenLog={onOpenLog}
@@ -1290,8 +1362,6 @@ function WorkbenchSurface({
             onClose={() => setEnvironmentOpen(false)}
             onRestartSession={onRestartSession}
             onRebuildLocalData={onRebuildLocalData}
-            onInspectReleaseTarget={onInspectReleaseTarget}
-            onPublishRelease={onPublishRelease}
             onReadEnvironmentLog={onReadEnvironmentLog}
             onConfigureGraph={onConfigureGraph}
             onSetExternalDevicesOnly={onSetExternalDevicesOnly}
@@ -1304,7 +1374,6 @@ function WorkbenchSurface({
             onStopAgent={onStopAgent}
             onRestartAgent={onRestartAgent}
             onSetRuntimeMode={onSetRuntimeMode}
-            onSetSchedulerUrl={onSetSchedulerUrl}
             onStopSession={onStopSession}
           />
         ) : null}

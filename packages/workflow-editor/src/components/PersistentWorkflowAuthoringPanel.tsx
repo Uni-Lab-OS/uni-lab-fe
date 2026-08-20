@@ -35,6 +35,9 @@ interface PersistentWorkflowAuthoringPanelProps {
   resourceSlotOptionsPort?: WorkflowResourceSlotOptionsPort
   executionStatus?: CapabilityStatus
   onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void
+  onPrepareAuthoritySwitchChange?: (
+    handler: (() => Promise<void>) | null
+  ) => void
   onWorkflowRuntimeProjectionChange?: (
     projection: WorkflowPanelRuntimeProjection | null
   ) => void
@@ -80,6 +83,10 @@ export function PersistentWorkflowAuthoringPanel(
     ))
     return () => onDiagnosticsChange?.([])
   }, [model.aggregate, model.sourceProjection, onDiagnosticsChange])
+  useEffect(() => {
+    props.onPrepareAuthoritySwitchChange?.(model.prepareWorkflowDefinition)
+    return () => props.onPrepareAuthoritySwitchChange?.(null)
+  }, [model.prepareWorkflowDefinition, props.onPrepareAuthoritySwitchChange])
   return (
     <PersistentWorkflowAuthoringView
       model={model}

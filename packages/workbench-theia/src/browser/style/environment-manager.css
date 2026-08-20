@@ -217,39 +217,6 @@ body.unilab-environment-manager-open .material-oblique-stack__label {
   font: 10px/1 var(--unilab-font-mono);
 }
 
-.unilab-environment-manager__backend-target {
-  grid-template-columns: minmax(0, 1fr);
-  align-items: stretch;
-  gap: 5px;
-  margin-top: 8px;
-}
-
-.unilab-environment-manager__backend-targets {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.unilab-environment-manager__scheduler-mode {
-  margin: -2px 0 9px;
-  color: var(--unilab-color-text-muted);
-  font-size: 10px;
-}
-
-.unilab-environment-manager__target-summary {
-  margin: -2px 0 9px 66px;
-  font-size: 10px;
-  line-height: 1.45;
-}
-
-.unilab-environment-manager__target-summary.is-empty {
-  color: var(--unilab-color-success);
-}
-
-.unilab-environment-manager__target-summary.is-occupied {
-  color: var(--unilab-color-danger);
-}
-
 .unilab-environment-manager__mode {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -312,10 +279,6 @@ body.unilab-environment-manager-open .material-oblique-stack__label {
     max-width: none;
   }
 
-  .unilab-environment-manager__backend-targets {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-  }
 }
 
 .unilab-environment-card__actions {

@@ -2,8 +2,6 @@ import type {
   WorkbenchEnvironmentLogKind,
   WorkbenchPlcHandshakeProfile,
   WorkbenchPlcSimulatorConfiguration,
-  WorkbenchReleaseReceipt,
-  WorkbenchReleaseTargetInspection,
   WorkbenchRuntimeMode,
   WorkbenchSessionSnapshot
 } from '@unilab/workbench-session'
@@ -28,13 +26,6 @@ export interface EnvironmentManagerProps {
   onClose: () => void
   onRestartSession: () => Promise<void>
   onRebuildLocalData: () => Promise<void>
-  onInspectReleaseTarget: (
-    backendUrl: string
-  ) => Promise<WorkbenchReleaseTargetInspection>
-  onPublishRelease: (
-    backendUrl: string,
-    resetTarget?: boolean
-  ) => Promise<WorkbenchReleaseReceipt>
   onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>
   onConfigureGraph: (graphPath: string) => Promise<void>
   onSetExternalDevicesOnly: (enabled: boolean) => Promise<void>
@@ -49,7 +40,6 @@ export interface EnvironmentManagerProps {
   onStopAgent: () => Promise<void>
   onRestartAgent: () => Promise<void>
   onSetRuntimeMode: (mode: WorkbenchRuntimeMode) => Promise<void>
-  onSetSchedulerUrl: (url: string | null) => Promise<void>
   onStopSession: () => Promise<void>
 }
 
@@ -69,35 +59,9 @@ export interface EnvironmentOperationError {
  * @safety 只做确定性的字符串分类，不发起请求或改变环境状态。
  */
 export function describeEnvironmentOperationError(
-  action: string,
+  _action: string,
   message: string
 ): EnvironmentOperationError {
-  if (message.includes('WorkspaceRelease 只能从 Local Authority 构建')) {
-    const resetAndPublish = action === 'reset-and-publish-release'
-    return {
-      title: resetAndPublish
-        ? '当前模式无法清空并发布'
-        : '当前模式无法发布',
-      message: `当前工作区由 Backend 管理，不能在这里构建发布包。` +
-        `请切换到 Local 模式后，再执行“${resetAndPublish ? '清空并发布' : '发布、校验并切换'}”。` +
-        (resetAndPublish ? '目标 Backend 的数据尚未被清除。' : '')
-    }
-  }
-  const targetsBackend = [
-    'inspect-release-target',
-    'publish-release',
-    'reset-and-publish-release'
-  ].includes(action)
-  const connectionUnavailable = /(?:connection refused|econnrefused|urlopen error|failed to fetch|fetch failed|networkerror)/i
-    .test(message)
-  if (targetsBackend && connectionUnavailable) {
-    return {
-      title: '无法连接 Backend',
-      message: '无法访问目标 Backend。请先启动 Backend，并确认环境管理中的 ' +
-        'Backend 地址和端口正确，然后重试。',
-      technicalDetail: message
-    }
-  }
   return {
     title: '环境操作失败',
     message
@@ -110,8 +74,6 @@ export function EnvironmentManager({
   onClose,
   onRestartSession,
   onRebuildLocalData,
-  onInspectReleaseTarget,
-  onPublishRelease,
   onReadEnvironmentLog,
   onConfigureGraph,
   onSetExternalDevicesOnly,
@@ -124,7 +86,6 @@ export function EnvironmentManager({
   onStopAgent,
   onRestartAgent,
   onSetRuntimeMode,
-  onSetSchedulerUrl,
   onStopSession
 }: EnvironmentManagerProps): React.JSX.Element {
   const identity = session.identity
@@ -143,22 +104,6 @@ export function EnvironmentManager({
   const [logTail, setLogTail] = useState<string | null>(null)
   const [operationError, setOperationError] =
     useState<EnvironmentOperationError | null>(null)
-  const [releaseReceipt, setReleaseReceipt] =
-    useState<WorkbenchReleaseReceipt | null>(null)
-  const [releaseInspection, setReleaseInspection] =
-    useState<WorkbenchReleaseTargetInspection | null>(null)
-  const [releaseBackendUrl, setReleaseBackendUrl] = useState(
-    session.configuredBackendUrl ?? 'http://127.0.0.1:8080'
-  )
-  const [schedulerAutomatic, setSchedulerAutomatic] = useState(
-    session.configuredSchedulerUrl === null
-  )
-  const [schedulerUrl, setSchedulerUrl] = useState(
-    session.configuredSchedulerUrl
-      ?? deriveSchedulerUrl(
-        session.configuredBackendUrl ?? 'http://127.0.0.1:8080'
-      )
-  )
   const remoteAccessApi = useMemo(desktopWorkbenchRemoteApi, [])
   const managedRuntimeApi = useMemo(desktopManagedRuntimeApi, [])
   const [runtimeInstallation, setRuntimeInstallation] =
@@ -176,13 +121,6 @@ export function EnvironmentManager({
   useEffect(() => setGraphPath(session.configuredGraphPath), [
     session.configuredGraphPath
   ])
-  useEffect(() => {
-    const configured = session.configuredSchedulerUrl
-    setSchedulerAutomatic(configured === null)
-    setSchedulerUrl(configured ?? deriveSchedulerUrl(
-      releaseBackendUrl
-    ))
-  }, [session.configuredBackendUrl, session.configuredSchedulerUrl])
   useEffect(() => {
     if (typeof document === 'undefined') return undefined
     document.body.classList.add('unilab-environment-manager-open')
@@ -242,16 +180,6 @@ export function EnvironmentManager({
       await onConfigureGraph(graphPath)
     })
   }, [graphPath, onConfigureGraph, run])
-
-  const saveSchedulerUrl = useCallback(async () => {
-    if (schedulerAutomatic) {
-      await onSetSchedulerUrl(null)
-      return
-    }
-    const normalized = normalizeSchedulerUrl(schedulerUrl)
-    setSchedulerUrl(normalized)
-    await onSetSchedulerUrl(normalized)
-  }, [onSetSchedulerUrl, schedulerAutomatic, schedulerUrl])
 
   const startPlcSimulator = useCallback(async () => {
     await run('start-plc', async () => {
@@ -362,125 +290,6 @@ export function EnvironmentManager({
                 }
               }}
             >重建本地数据</button>
-          )}
-        />
-        <EnvironmentStatusCard
-          name="发布到 Backend"
-          order={2}
-          phase={releaseReceipt ? 'ready' : 'idle'}
-          message={releaseReceipt
-            ? `已校验 ${releaseReceipt.counts.templates} 个模板、${releaseReceipt.counts.materials} 个物料、${releaseReceipt.counts.workflows} 个工作流`
-            : '从当前 Local Authority 构建不可变 Release，写入后回读校验'}
-          facts={[
-            ['Release', releaseReceipt?.releaseId ?? '—'],
-            ['状态', releaseReceipt?.verified ? '已验证并切换' : '等待发布']
-          ]}
-          content={(
-            <>
-              <div className="unilab-environment-manager__backend-targets">
-                <label className="unilab-environment-manager__path unilab-environment-manager__backend-target">
-                  <span>Backend</span>
-                  <input
-                    type="url"
-                    value={releaseBackendUrl}
-                    disabled={Boolean(busyAction)}
-                    placeholder="http://127.0.0.1:8080"
-                    aria-label="Backend 发布目标地址"
-                    onChange={event => {
-                      const value = event.currentTarget.value
-                      setReleaseBackendUrl(value)
-                      if (schedulerAutomatic) {
-                        setSchedulerUrl(deriveSchedulerUrl(value))
-                      }
-                      setReleaseInspection(null)
-                      setReleaseReceipt(null)
-                    }}
-                  />
-                </label>
-                <label className="unilab-environment-manager__path unilab-environment-manager__backend-target">
-                  <span>Scheduler</span>
-                  <input
-                    type="url"
-                    value={schedulerUrl}
-                    disabled={Boolean(busyAction)}
-                    placeholder="http://127.0.0.1:8081"
-                    aria-label="Scheduler 目标地址"
-                    onChange={event => {
-                      setSchedulerAutomatic(false)
-                      setSchedulerUrl(event.currentTarget.value)
-                    }}
-                  />
-                </label>
-              </div>
-              <p className="unilab-environment-manager__scheduler-mode">
-                Scheduler：{schedulerAutomatic ? '自动推导' : '自定义地址'}
-              </p>
-              {releaseInspection ? (
-                <p className={`unilab-environment-manager__target-summary ${
-                  releaseInspection.empty ? 'is-empty' : 'is-occupied'
-                }`}>
-                  {releaseInspection.empty
-                    ? '目标为空，可以安全发布。'
-                    : `目标已有 ${releaseInspection.counts.templates} 个模板、` +
-                      `${releaseInspection.counts.materials} 个物料、` +
-                      `${releaseInspection.counts.workflows} 个工作流。`}
-                </p>
-              ) : null}
-            </>
-          )}
-          actions={(
-            <>
-              <button
-                type="button"
-                disabled={Boolean(busyAction) || !releaseBackendUrl.trim()}
-                onClick={() => void run('inspect-release-target', async () => {
-                  const backendUrl = normalizeBackendUrl(releaseBackendUrl)
-                  setReleaseBackendUrl(backendUrl)
-                  await saveSchedulerUrl()
-                  setReleaseInspection(await onInspectReleaseTarget(backendUrl))
-                })}
-              >检查目标数据</button>
-              <button
-                type="button"
-                disabled={Boolean(busyAction) || !schedulerUrl.trim()}
-                onClick={() => void run('save-scheduler-target', saveSchedulerUrl)}
-              >保存 Scheduler 地址</button>
-              <button
-                type="button"
-                className="is-primary"
-                disabled={Boolean(busyAction) || !releaseBackendUrl.trim()}
-                onClick={() => void run('publish-release', async () => {
-                  const backendUrl = normalizeBackendUrl(releaseBackendUrl)
-                  setReleaseBackendUrl(backendUrl)
-                  await saveSchedulerUrl()
-                  setReleaseReceipt(await onPublishRelease(backendUrl))
-                })}
-              >发布、校验并切换</button>
-              {releaseInspection && !releaseInspection.empty ? (
-                <button
-                  type="button"
-                  className="is-danger"
-                  disabled={Boolean(busyAction)}
-                  onClick={() => {
-                    const { templates, materials, workflows } =
-                      releaseInspection.counts
-                    const confirmed = globalThis.confirm(
-                      `将永久删除目标 Backend 的 ${templates} 个模板、` +
-                      `${materials} 个物料和 ${workflows} 个工作流，然后重新发布。` +
-                      '\n\n此操作不可撤销，确定继续吗？'
-                    )
-                    if (!confirmed) return
-                    void run('reset-and-publish-release', async () => {
-                      setReleaseReceipt(await onPublishRelease(
-                        releaseInspection.targetAddress,
-                        true
-                      ))
-                      setReleaseInspection(null)
-                    })
-                  }}
-                >清空并发布</button>
-              ) : null}
-            </>
           )}
         />
         <EnvironmentStatusCard
@@ -748,58 +557,6 @@ export function EnvironmentManager({
   return typeof document === 'undefined'
     ? overlay
     : createPortal(overlay, document.body)
-}
-
-export function normalizeBackendUrl(value: string): string {
-  const candidate = value.trim()
-  let url: URL
-  try {
-    url = new URL(candidate)
-  } catch {
-    throw new Error('请输入有效的 Backend 地址，例如 http://127.0.0.1:8080')
-  }
-  if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) {
-    throw new Error('Backend 地址仅支持 http 或 https')
-  }
-  if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
-    throw new Error('Backend 地址只需填写协议、IP（或主机名）和端口')
-  }
-  return url.origin
-}
-
-export function normalizeSchedulerUrl(value: string): string {
-  const candidate = value.trim()
-  let url: URL
-  try {
-    url = new URL(candidate)
-  } catch {
-    throw new Error('请输入有效的 Scheduler 地址，例如 http://127.0.0.1:8081')
-  }
-  if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) {
-    throw new Error('Scheduler 地址仅支持 http 或 https')
-  }
-  if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
-    throw new Error('Scheduler 地址只需填写协议、IP（或主机名）和端口')
-  }
-  return url.origin
-}
-
-export function deriveSchedulerUrl(backendUrl: string): string {
-  try {
-    const backend = new URL(backendUrl.trim())
-    if (!['http:', 'https:'].includes(backend.protocol) || !backend.hostname) return ''
-    if (backend.port) {
-      const port = Number(backend.port)
-      if (!Number.isInteger(port) || port >= 65_535) return ''
-      backend.port = String(port + 1)
-    }
-    backend.pathname = '/'
-    backend.search = ''
-    backend.hash = ''
-    return backend.origin
-  } catch {
-    return ''
-  }
 }
 
 function agentStatusMessage(

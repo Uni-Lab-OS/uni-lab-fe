@@ -247,12 +247,16 @@ export interface WorkbenchSession {
     target: 'os' | 'plc-sim'
   ): Promise<WorkbenchSessionSnapshot>
   setRuntimeMode(mode: WorkbenchRuntimeMode): Promise<WorkbenchSessionSnapshot>
-  setDomainAuthority(mode: WorkbenchDomainMode): Promise<WorkbenchSessionSnapshot>
+  setDomainAuthority(
+    mode: WorkbenchDomainMode,
+    options?: { force?: boolean }
+  ): Promise<WorkbenchSessionSnapshot>
   setSchedulerUrl(url: string | null): Promise<WorkbenchSessionSnapshot>
   publishRelease(options?: {
     activate?: boolean
     backendUrl?: string
     resetTarget?: boolean
+    replaceTarget?: boolean
   }): Promise<WorkbenchReleaseReceipt>
   inspectReleaseTarget(
     backendUrl: string

@@ -11,6 +11,8 @@ import {
 import type { WorkbenchConnectionState } from './workbench-connection-selector'
 
 const BACKEND_CONNECTION_PROBE_INTERVAL_MS = 3_000
+const AUTHORITY_WARNING_STORAGE_KEY =
+  'unilab.workbench.authority-warning.v1'
 
 type BackendPing = (signal: AbortSignal) => Promise<boolean>
 
@@ -129,6 +131,28 @@ export function persistWorkbenchConnectionMode(
     )
   } catch {
     // 当前 ReactWidget 已持有本次选择，因此存储失败可以安全降级。
+  }
+}
+
+/** 读取强制切换留下的未验证状态；正常同步成功前始终保留。 */
+export function initialWorkbenchAuthorityWarning(): string | null {
+  try {
+    return globalThis.localStorage?.getItem(AUTHORITY_WARNING_STORAGE_KEY) ?? null
+  } catch {
+    return null
+  }
+}
+
+/** 持久化或清除强制切换警告，不把它误当成 Backend 运行事实。 */
+export function persistWorkbenchAuthorityWarning(message: string | null): void {
+  try {
+    if (message) {
+      globalThis.localStorage?.setItem(AUTHORITY_WARNING_STORAGE_KEY, message)
+    } else {
+      globalThis.localStorage?.removeItem(AUTHORITY_WARNING_STORAGE_KEY)
+    }
+  } catch {
+    // 警告仍由当前 ReactWidget 持有；存储不可用时安全降级。
   }
 }
 

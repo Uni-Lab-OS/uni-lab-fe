@@ -216,6 +216,19 @@ describe('Workspace Host Workbench adapter', () => {
       counts: { templates: 3, materials: 2, workflows: 1 }
     })
 
+    await session.publishRelease({
+      activate: false,
+      backendUrl: 'http://192.168.1.20:9000',
+      replaceTarget: true
+    })
+    expect(receivedReleaseParameters).toMatchObject({
+      backendUrl: 'http://192.168.1.20:9000',
+      activate: false,
+      verify: true,
+      resetTarget: false,
+      replaceTarget: true
+    })
+
     const workspaceBackendIdentity = session.getSnapshot().identity
     const switched = await session.setDomainAuthority('backend')
     expect(receivedCommands.at(-1)).toBe('authority.switch')
@@ -229,6 +242,14 @@ describe('Workspace Host Workbench adapter', () => {
       configuredBackendUrl: 'http://127.0.0.1:8080'
     })
     expect(switched.identity).toEqual(workspaceBackendIdentity)
+
+    await session.setDomainAuthority('local', { force: true })
+    expect(receivedParameters.get('authority.switch')).toMatchObject({
+      mode: 'local',
+      bootstrap: false,
+      force: true
+    })
+    await session.setDomainAuthority('backend')
 
     const commandsBeforeBackendPublish = receivedCommands.length
     await session.publishRelease({

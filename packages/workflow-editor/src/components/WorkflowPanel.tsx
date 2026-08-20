@@ -44,6 +44,9 @@ export interface WorkflowPanelProps {
   runStatus?: CapabilityStatus
   executionStatus?: CapabilityStatus
   onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void
+  onPrepareAuthoritySwitchChange?: (
+    handler: (() => Promise<void>) | null
+  ) => void
   onActiveWorkflowChange?: (workflowUuid: string | null) => void
   onWorkflowRuntimeProjectionChange?: (
     projection: WorkflowPanelRuntimeProjection | null
@@ -83,6 +86,7 @@ export default function WorkflowPanel({
   runStatus,
   executionStatus,
   onUnsavedChangesChange,
+  onPrepareAuthoritySwitchChange,
   onActiveWorkflowChange,
   onWorkflowRuntimeProjectionChange,
   onSelectedWorkflowStepChange,
@@ -110,6 +114,10 @@ export default function WorkflowPanel({
     : (allowWorkflowSelection ? selectedWorkflowUuid : null) ||
       explicitWorkflowUuid || selectedWorkflowUuid ||
       readActiveWorkflowId(activeWorkflowStorageKey)
+
+  useEffect(() => {
+    if (!workflowUuid) onPrepareAuthoritySwitchChange?.(null)
+  }, [onPrepareAuthoritySwitchChange, workflowUuid])
 
   useEffect(() => {
     if (
@@ -147,6 +155,7 @@ export default function WorkflowPanel({
         resourceSlotOptionsPort={resourceSlotOptionsPort}
         executionStatus={executionStatus}
         onUnsavedChangesChange={onUnsavedChangesChange}
+        onPrepareAuthoritySwitchChange={onPrepareAuthoritySwitchChange}
         onWorkflowRuntimeProjectionChange={active
           ? onWorkflowRuntimeProjectionChange
           : undefined}

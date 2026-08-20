@@ -1,10 +1,14 @@
 import * as React from 'react'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type {
   WorkbenchConnectionMode,
   WorkbenchConnectionTargets
 } from './workbench-connection-profile'
+import {
+  workbenchAuthorityTransitionLabel,
+  type WorkbenchAuthorityTransitionPhase
+} from './workbench-authority-transition'
 
 export type WorkbenchConnectionState =
   | 'connected'
@@ -21,8 +25,16 @@ interface WorkbenchConnectionSelectorProps {
     WorkbenchConnectionState
   >>
   switchBlockedReason?: string | null
+  transitionPhase?: WorkbenchAuthorityTransitionPhase | null
+  transitionFailure?: {
+    target: WorkbenchConnectionMode
+    message: string
+    canForce: boolean
+  } | null
+  authorityWarning?: string | null
   defaultOpen?: boolean
   onSelect: (mode: WorkbenchConnectionMode) => void
+  onForceSelect?: (mode: WorkbenchConnectionMode) => void
   onRetry?: () => void
 }
 
@@ -37,11 +49,17 @@ export function WorkbenchConnectionSelector({
   connection,
   targetConnections,
   switchBlockedReason,
+  transitionPhase,
+  transitionFailure,
+  authorityWarning,
   defaultOpen = false,
   onSelect,
+  onForceSelect,
   onRetry
 }: WorkbenchConnectionSelectorProps): React.JSX.Element {
   const selectorRef = useRef<HTMLDetailsElement>(null)
+  const requestedMode = useRef<WorkbenchConnectionMode | null>(null)
+  const [open, setOpen] = useState(defaultOpen)
   const selected = targets[selectedMode]
   const statusLabel = connectionStatusLabel(selectedMode, connection)
 
@@ -50,24 +68,34 @@ export function WorkbenchConnectionSelector({
     if (!selector) return undefined
 
     const handleOutsidePointerDown = (event: PointerEvent): void => {
-      closeConnectionSelectorOnOutsidePointer(selector, event.target)
+      if (selector.open && !selector.contains(event.target as Node)) {
+        setOpen(false)
+      }
     }
 
     document.addEventListener('pointerdown', handleOutsidePointerDown)
     return () => document.removeEventListener('pointerdown', handleOutsidePointerDown)
   }, [])
 
+  useEffect(() => {
+    if (requestedMode.current !== selectedMode) return
+    requestedMode.current = null
+    setOpen(false)
+  }, [selectedMode])
+
   /** 用户明确选择由常驻 Workspace Backend 持有后续任务权威。 */
   const selectLocal = useCallback((): void => {
+    requestedMode.current = 'local'
     onSelect('local')
-    closeConnectionSelector(selectorRef.current)
   }, [onSelect])
 
   /** 用户明确选择由 Backend 持有后续任务权威。 */
   const selectBackend = useCallback((): void => {
+    requestedMode.current = 'backend'
     onSelect('backend')
-    closeConnectionSelector(selectorRef.current)
   }, [onSelect])
+
+  const busy = Boolean(transitionPhase)
 
   return (
     <details
@@ -75,20 +103,24 @@ export function WorkbenchConnectionSelector({
       className="unilab-workbench-connection"
       data-connection-state={connection}
       data-authority-profile={selected.authorityProfile}
-      open={defaultOpen}
+      data-authority-warning={authorityWarning ? 'true' : 'false'}
+      open={open}
+      onToggle={event => setOpen(event.currentTarget.open)}
     >
       <summary aria-label={`运行连接：${statusLabel}`}>
         <span className="unilab-workbench-connection__status" aria-hidden="true" />
         <span className="unilab-workbench-connection__summary-copy">
           <strong>{selected.title}</strong>
-          <small>{statusLabel}</small>
+          <small>{transitionPhase
+            ? workbenchAuthorityTransitionLabel(transitionPhase)
+            : authorityWarning ?? statusLabel}</small>
         </span>
         <span className="codicon codicon-chevron-down" aria-hidden="true" />
       </summary>
       <div className="unilab-workbench-connection__popover">
         <header>
           <strong>选择运行连接</strong>
-          <p>一个任务只由创建它的调度权威继续推进。</p>
+          <p>选择 Backend 时会自动保存、替换定义并验证；Backend 内容只读。</p>
         </header>
         <div
           className="unilab-workbench-connection__options"
@@ -100,9 +132,7 @@ export function WorkbenchConnectionSelector({
             selected={selectedMode === 'local'}
             connection={targetConnections?.local}
             disabled={selectedMode !== 'local' && (
-              Boolean(switchBlockedReason) ||
-              targetConnections?.local === 'error' ||
-              targetConnections?.local === 'disconnected'
+              Boolean(switchBlockedReason) || busy
             )}
             onSelect={selectLocal}
           />
@@ -111,19 +141,41 @@ export function WorkbenchConnectionSelector({
             selected={selectedMode === 'backend'}
             connection={targetConnections?.backend}
             disabled={selectedMode !== 'backend' && (
-              Boolean(switchBlockedReason) ||
-              targetConnections?.backend === 'error' ||
-              targetConnections?.backend === 'disconnected'
+              Boolean(switchBlockedReason) || busy
             )}
             onSelect={selectBackend}
           />
         </div>
         <p className="unilab-workbench-connection__safety-note">
-          切换只影响后续新建任务；已有任务不会迁移或被另一调度器接管。
+          当前环境存在活动任务时禁止切换；已有任务不会迁移或被另一调度器接管。
         </p>
+        {transitionPhase ? (
+          <p className="unilab-workbench-connection__progress" role="status">
+            {workbenchAuthorityTransitionLabel(transitionPhase)}
+          </p>
+        ) : null}
         {switchBlockedReason ? (
           <p className="unilab-workbench-connection__blocked" role="alert">
             {switchBlockedReason}
+          </p>
+        ) : null}
+        {transitionFailure ? (
+          <div className="unilab-workbench-connection__transition-error" role="alert">
+            <span>
+              <strong>未切换到 {targets[transitionFailure.target].title}</strong>
+              <small>{transitionFailure.message}</small>
+            </span>
+            {transitionFailure.canForce && onForceSelect ? (
+              <button
+                type="button"
+                onClick={() => onForceSelect(transitionFailure.target)}
+              >仍然强制切换</button>
+            ) : null}
+          </div>
+        ) : null}
+        {authorityWarning ? (
+          <p className="unilab-workbench-connection__warning" role="alert">
+            {authorityWarning}
           </p>
         ) : null}
         {connection === 'error' ? (

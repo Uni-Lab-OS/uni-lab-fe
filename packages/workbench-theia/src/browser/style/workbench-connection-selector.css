@@ -64,6 +64,11 @@
   background: var(--unilab-color-warning);
 }
 
+.unilab-workbench-connection[data-authority-warning='true']
+  .unilab-workbench-connection__status {
+  background: var(--unilab-color-warning);
+}
+
 .unilab-workbench-connection[data-connection-state='error']
   .unilab-workbench-connection__status,
 .unilab-workbench-connection[data-connection-state='disconnected']
@@ -154,7 +159,8 @@
 }
 
 .unilab-workbench-connection__options > button:focus-visible,
-.unilab-workbench-connection__recovery button:focus-visible {
+.unilab-workbench-connection__recovery button:focus-visible,
+.unilab-workbench-connection__transition-error button:focus-visible {
   outline: 2px solid var(--unilab-color-focus);
   outline-offset: 1px;
 }
@@ -206,7 +212,9 @@
 }
 
 .unilab-workbench-connection__safety-note,
-.unilab-workbench-connection__blocked {
+.unilab-workbench-connection__blocked,
+.unilab-workbench-connection__progress,
+.unilab-workbench-connection__warning {
   margin: 0;
   color: var(--unilab-color-text-muted);
   font-size: 10px;
@@ -215,6 +223,58 @@
 
 .unilab-workbench-connection__blocked {
   color: var(--unilab-color-warning);
+}
+
+.unilab-workbench-connection__progress {
+  color: var(--unilab-color-primary);
+}
+
+.unilab-workbench-connection__warning {
+  color: var(--unilab-color-warning);
+}
+
+.unilab-workbench-connection__transition-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  color: var(--unilab-color-danger);
+  border: 1px solid color-mix(
+    in srgb,
+    var(--unilab-color-danger) 28%,
+    var(--unilab-color-border)
+  );
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-danger-soft);
+}
+
+.unilab-workbench-connection__transition-error > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.unilab-workbench-connection__transition-error strong,
+.unilab-workbench-connection__transition-error small {
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.unilab-workbench-connection__transition-error small {
+  color: color-mix(in srgb, currentColor 82%, var(--unilab-color-text));
+}
+
+.unilab-workbench-connection__transition-error button {
+  min-height: 28px;
+  flex: 0 0 auto;
+  padding: 0 9px;
+  color: var(--unilab-color-danger);
+  border: 1px solid currentColor;
+  border-radius: var(--unilab-radius-sm);
+  background: var(--unilab-color-surface);
+  font-weight: 650;
+  cursor: pointer;
 }
 
 .unilab-workbench-connection__recovery {

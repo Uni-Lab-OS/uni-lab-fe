@@ -220,9 +220,10 @@ implements WorkbenchSessionServer, BackendApplicationContribution {
   }
 
   setDomainAuthority(
-    mode: Parameters<WorkbenchSession['setDomainAuthority']>[0]
+    mode: Parameters<WorkbenchSession['setDomainAuthority']>[0],
+    options?: Parameters<WorkbenchSession['setDomainAuthority']>[1]
   ) {
-    return this.session.setDomainAuthority(mode)
+    return this.session.setDomainAuthority(mode, options)
   }
 
   setSchedulerUrl(

@@ -9,6 +9,7 @@ import type {
   WorkbenchConnectionMode,
   WorkbenchConnectionTargets
 } from './workbench-connection-profile'
+import type { WorkbenchAuthorityTransitionPhase } from './workbench-authority-transition'
 import { sessionConnectionState } from './workbench-connection-runtime'
 import {
   WorkbenchConnectionSelector,
@@ -29,9 +30,17 @@ export interface WorkbenchHeaderProps {
   connection: WorkbenchConnectionState
   backendConnection: WorkbenchConnectionState
   switchBlockedReason: string | null
+  transitionPhase: WorkbenchAuthorityTransitionPhase | null
+  transitionFailure: {
+    target: WorkbenchConnectionMode
+    message: string
+    canForce: boolean
+  } | null
+  authorityWarning: string | null
   connectionRetry?: () => void
   environmentOpen: boolean
   onConnectionModeChange: (mode: WorkbenchConnectionMode) => void
+  onForceConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onToggleEnvironment: () => void
   onReadEnvironmentLog: (
     kind: WorkbenchEnvironmentLogKind
@@ -53,9 +62,13 @@ export function WorkbenchHeader({
   connection,
   backendConnection,
   switchBlockedReason,
+  transitionPhase,
+  transitionFailure,
+  authorityWarning,
   connectionRetry,
   environmentOpen,
   onConnectionModeChange,
+  onForceConnectionModeChange,
   onToggleEnvironment,
   onReadEnvironmentLog,
   onOpenLog
@@ -83,8 +96,12 @@ export function WorkbenchHeader({
             backend: backendConnection
           }}
           switchBlockedReason={switchBlockedReason}
+          transitionPhase={transitionPhase}
+          transitionFailure={transitionFailure}
+          authorityWarning={authorityWarning}
           onRetry={connectionRetry}
           onSelect={onConnectionModeChange}
+          onForceSelect={onForceConnectionModeChange}
         />
         <nav aria-label="调试工作台页面">
           <WorkbenchRuntimeLogLauncher

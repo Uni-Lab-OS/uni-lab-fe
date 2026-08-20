@@ -43,9 +43,7 @@ export async function preflightWorkbenchRuntimeAuthority(
   try {
     const required = [
       ...REQUIRED_RUNTIME_CAPABILITIES,
-      target.mode === 'backend'
-        ? 'workflow.editDefinitions'
-        : 'workflow.authoring'
+      ...(target.mode === 'local' ? ['workflow.authoring' as const] : [])
     ] satisfies ServerCapability[]
     const missing = required.filter(
       capability => !candidate.getCapabilityStatus(capability).available

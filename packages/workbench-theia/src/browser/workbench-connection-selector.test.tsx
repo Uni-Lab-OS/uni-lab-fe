@@ -30,24 +30,25 @@ describe('WorkbenchConnectionSelector', () => {
     expect(markup).toContain('Backend + Scheduler')
     expect(markup).toContain('本地调度')
     expect(markup).toContain('后端控制')
-    expect(markup).toContain('只影响后续新建任务')
+    expect(markup).toContain('存在活动任务时禁止切换')
+    expect(markup).toContain('自动保存、替换定义并验证')
     expect(markup).toContain('aria-pressed="true"')
     expect(markup).toContain('data-authority-profile="local_scheduler"')
   })
 
-  /** 证明存在未保存创作内容时，另一调度权威不可被误触切换。 */
-  it('fails closed while authoring changes are unsaved', () => {
+  /** 证明真正的安全门禁会禁用另一调度权威。 */
+  it('fails closed while an authority safety condition is active', () => {
     const markup = renderToStaticMarkup(
       <WorkbenchConnectionSelector
         targets={targets}
         selectedMode="local"
         connection="connected"
-        switchBlockedReason="请先保存当前工作流修改"
+        switchBlockedReason="当前环境存在活动任务，结束后才能切换"
         onSelect={vi.fn()}
       />
     )
 
-    expect(markup).toContain('请先保存当前工作流修改')
+    expect(markup).toContain('当前环境存在活动任务，结束后才能切换')
     expect(markup).toContain('disabled=""')
   })
 
@@ -69,7 +70,7 @@ describe('WorkbenchConnectionSelector', () => {
     expect(markup).toContain('data-authority-profile="backend_controlled"')
   })
 
-  it('disables an unavailable unselected Backend target', () => {
+  it('keeps an unavailable Backend selectable so the normal attempt can fail visibly', () => {
     const markup = renderToStaticMarkup(
       <WorkbenchConnectionSelector
         targets={targets}
@@ -81,7 +82,28 @@ describe('WorkbenchConnectionSelector', () => {
     )
 
     expect(markup).toContain('当前不可用')
-    expect(markup).toMatch(/<button[^>]*aria-pressed="false"[^>]*disabled=""/)
+    expect(markup).toMatch(/<button[^>]*aria-pressed="false"/)
+    expect(markup).not.toMatch(/<button[^>]*aria-pressed="false"[^>]*disabled=""/)
+  })
+
+  it('offers force only after a normal transition failure allows it', () => {
+    const markup = renderToStaticMarkup(
+      <WorkbenchConnectionSelector
+        targets={targets}
+        selectedMode="local"
+        connection="connected"
+        transitionFailure={{
+          target: 'backend',
+          message: 'Backend 当前不可用',
+          canForce: true
+        }}
+        onForceSelect={vi.fn()}
+        onSelect={vi.fn()}
+      />
+    )
+
+    expect(markup).toContain('未切换到 Backend + Scheduler')
+    expect(markup).toContain('仍然强制切换')
   })
 
   /** 证明完成连接选择后会关闭详情浮层，避免遮挡工作流运行按钮。 */

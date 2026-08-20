@@ -9,8 +9,6 @@ import type {
 import type {
   WorkbenchEnvironmentLogKind,
   WorkbenchPlcSimulatorConfiguration,
-  WorkbenchReleaseReceipt,
-  WorkbenchReleaseTargetInspection,
   WorkbenchRuntimeMode,
   WorkbenchSessionSnapshot
 } from '@unilab/workbench-session'
@@ -20,6 +18,7 @@ import type {
   WorkbenchConnectionMode,
   WorkbenchConnectionTargets
 } from './workbench-connection-profile'
+import type { WorkbenchAuthorityTransitionPhase } from './workbench-authority-transition'
 import {
   sessionConnectionState
 } from './workbench-connection-runtime'
@@ -41,6 +40,13 @@ export type WorkbenchMountedDomain =
 export interface WorkbenchSurfaceProps {
   connectionMode: WorkbenchConnectionMode
   connectionSwitchingTo: WorkbenchConnectionMode | null
+  connectionTransitionPhase: WorkbenchAuthorityTransitionPhase | null
+  connectionTransitionFailure: {
+    target: WorkbenchConnectionMode
+    message: string
+    canForce: boolean
+  } | null
+  authorityWarning: string | null
   connectionTargets: WorkbenchConnectionTargets
   ideBridge: WorkflowIdeBridge
   session: WorkbenchSessionSnapshot
@@ -49,19 +55,16 @@ export interface WorkbenchSurfaceProps {
   viewMode: WorkbenchViewMode
   switchBlockedReason: string | null
   onConnectionModeChange: (mode: WorkbenchConnectionMode) => void
+  onForceConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onSourceSaveHandlerChange: (
     handler: ((pythonSource: string) => Promise<void>) | null
   ) => void
   onUnsavedChangesChange: (hasUnsavedChanges: boolean) => void
+  onPrepareAuthoritySwitchChange: (
+    handler: (() => Promise<void>) | null
+  ) => void
   onRestartSession: () => Promise<void>
   onRebuildLocalData: () => Promise<void>
-  onInspectReleaseTarget: (
-    backendUrl: string
-  ) => Promise<WorkbenchReleaseTargetInspection>
-  onPublishRelease: (
-    backendUrl: string,
-    resetTarget?: boolean
-  ) => Promise<WorkbenchReleaseReceipt>
   onResetWorkflowEnvironment: (backendUrl: string) => Promise<void>
   onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>
   onOpenLog: (path: string) => Promise<void>
@@ -78,7 +81,6 @@ export interface WorkbenchSurfaceProps {
   onStopAgent: () => Promise<void>
   onRestartAgent: () => Promise<void>
   onSetRuntimeMode: (mode: WorkbenchRuntimeMode) => Promise<void>
-  onSetSchedulerUrl: (url: string | null) => Promise<void>
   onStopSession: () => Promise<void>
 }
 
