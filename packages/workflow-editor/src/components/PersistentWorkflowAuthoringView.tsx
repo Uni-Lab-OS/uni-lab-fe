@@ -25,6 +25,7 @@ export function PersistentWorkflowAuthoringView({
   visibleMaterialRoles,
   onVisibleMaterialRolesChange,
   hideEmbeddedCodeEditor = false,
+  hideRuntimeControls = false,
   onResetEnvironment,
   environmentResetBusy = false
 }: {
@@ -35,6 +36,7 @@ export function PersistentWorkflowAuthoringView({
     visibleMaterialRoles: readonly string[] | null
   ) => void
   hideEmbeddedCodeEditor?: boolean
+  hideRuntimeControls?: boolean
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
 }): React.JSX.Element {
@@ -220,13 +222,15 @@ export function PersistentWorkflowAuthoringView({
         : 'unavailable'}
       data-workflow-ide-bridge={ideBridgeConnected ? 'connected' : 'missing'}
     >
-      <PersistentWorkflowToolbar
-        model={model}
-        onResetEnvironment={onResetEnvironment}
-        environmentResetBusy={environmentResetBusy}
-      />
+      {!hideRuntimeControls ? (
+        <PersistentWorkflowToolbar
+          model={model}
+          onResetEnvironment={onResetEnvironment}
+          environmentResetBusy={environmentResetBusy}
+        />
+      ) : null}
 
-      {executionBlockedReason && (
+      {!hideRuntimeControls && executionBlockedReason && (
         <div className="workflow-runtime__problem" role="status">
           <strong>工作流运行暂不可用</strong>
           <span>{executionBlockedReason}</span>
@@ -372,65 +376,69 @@ export function PersistentWorkflowAuthoringView({
           className="persistent-authoring__pane persistent-authoring__canvas"
           aria-label="工作流画布"
         >
-          <WorkflowCanvasStageHeader
-            title={workflowName || '完整控制流 DAG'}
-            nodeCount={structure.nodes.length}
-            linkCount={structure.links.length}
-            projectionTitle={authorityLabel === 'Backend'
-              ? definitionEditingAvailable
-                ? '正式 Backend 仅支持画布编辑，修改后可直接保存'
-                : definitionEditingDisabledReason ??
-                  '当前 Backend 工作流定义只读'
-              : projectionKind === 'candidate'
-              ? mode === 'code'
-                ? '当前画布是服务器候选版本的只读预览'
-                : '画布编辑区基于候选版本；保存时由 OS 生成完整 Python'
-              : mode === 'code'
-                ? '当前显示已应用版本；暂无待应用修改'
-                : '画布编辑区基于已应用版本；暂无待应用修改'}
-            projectionLabel={authorityLabel === 'Backend'
-              ? definitionEditingAvailable
-                ? 'Backend 定义 · 已同步'
-                : 'Backend 定义 · 只读'
-              : projectionKind === 'candidate'
-              ? mode === 'code'
-                ? '候选版本 · 只读'
-                : '候选版本 · 待保存'
-              : mode === 'code'
-                ? '已应用版本 · 只读'
-                : '已应用版本 · 可编辑'}
-            tools={(
-              <>
-                {mode === 'canvas' && !compactCanvas && (
-                  <button
+          {!hideRuntimeControls && (
+            <WorkflowCanvasStageHeader
+              title={workflowName || '完整控制流 DAG'}
+              nodeCount={structure.nodes.length}
+              linkCount={structure.links.length}
+              projectionTitle={authorityLabel === 'Backend'
+                ? definitionEditingAvailable
+                  ? '正式 Backend 仅支持画布编辑，修改后可直接保存'
+                  : definitionEditingDisabledReason ??
+                    '当前 Backend 工作流定义只读'
+                : projectionKind === 'candidate'
+                ? mode === 'code'
+                  ? '当前画布是服务器候选版本的只读预览'
+                  : '画布编辑区基于候选版本；保存时由 OS 生成完整 Python'
+                : mode === 'code'
+                  ? '当前显示已应用版本；暂无待应用修改'
+                  : '画布编辑区基于已应用版本；暂无待应用修改'}
+              projectionLabel={authorityLabel === 'Backend'
+                ? definitionEditingAvailable
+                  ? 'Backend 定义 · 已同步'
+                  : 'Backend 定义 · 只读'
+                : projectionKind === 'candidate'
+                ? mode === 'code'
+                  ? '候选版本 · 只读'
+                  : '候选版本 · 待保存'
+                : mode === 'code'
+                  ? '已应用版本 · 只读'
+                  : '已应用版本 · 可编辑'}
+              tools={(
+                <>
+                  {mode === 'canvas' &&
+                    !compactCanvas &&
+                    canvasMutationEnabled && (
+                    <button
+                      type="button"
+                      className="persistent-authoring__panel-toggle"
+                      aria-controls="persistent-authoring-node-palette"
+                      aria-pressed={nodePaletteOpen}
+                      onClick={() => setNodePaletteOpen((open) => !open)}
+                    >
+                      {nodePaletteOpen ? '隐藏节点库' : '显示节点库'}
+                    </button>
+                  )}
+                  <WorkflowButton
                     type="button"
-                    className="persistent-authoring__panel-toggle"
-                    aria-controls="persistent-authoring-node-palette"
-                    aria-pressed={nodePaletteOpen}
-                    onClick={() => setNodePaletteOpen((open) => !open)}
+                    className="persistent-authoring__io-trigger"
+                    disabled={!graph}
+                    disabledReason="工作流图尚未加载完成"
+                    title={mode === 'code'
+                      ? '当前为只读预览；切换到画布模式后可配置'
+                      : '配置整个工作流的输入、输出与节点参数连接'}
+                    onClick={() => setWorkflowIoOpen(true)}
                   >
-                    {nodePaletteOpen ? '隐藏节点库' : '显示节点库'}
-                  </button>
-                )}
-                <WorkflowButton
-                  type="button"
-                  className="persistent-authoring__io-trigger"
-                  disabled={!graph}
-                  disabledReason="工作流图尚未加载完成"
-                  title={mode === 'code'
-                    ? '当前为只读预览；切换到画布模式后可配置'
-                    : '配置整个工作流的输入、输出与节点参数连接'}
-                  onClick={() => setWorkflowIoOpen(true)}
-                >
-                  <span>输入与输出</span>
-                  <strong>
-                    输入 {candidateIo?.input_contract.parameters.length ?? 0}
-                    {' · '}输出 {candidateIo?.output_contract.outputs.length ?? 0}
-                  </strong>
-                </WorkflowButton>
-              </>
-            )}
-          />
+                    <span>输入与输出</span>
+                    <strong>
+                      输入 {candidateIo?.input_contract.parameters.length ?? 0}
+                      {' · '}输出 {candidateIo?.output_contract.outputs.length ?? 0}
+                    </strong>
+                  </WorkflowButton>
+                </>
+              )}
+            />
+          )}
           <div className={[
             'persistent-authoring__canvas-body',
             mode === 'code' ? 'is-code-mode' : '',
@@ -505,7 +513,9 @@ export function PersistentWorkflowAuthoringView({
                     onBeautify={beautifyCanvasLayout}
                     canvasMutationEnabled={canvasMutationEnabled}
                     onConnectHandles={connectTypedHandles}
-                    onDeleteRequest={deleteCanvasElements}
+                    onDeleteRequest={canvasMutationEnabled
+                      ? deleteCanvasElements
+                      : undefined}
                     visibleMaterialRoles={visibleMaterialRoles}
                     onVisibleMaterialRolesChange={
                       onVisibleMaterialRolesChange

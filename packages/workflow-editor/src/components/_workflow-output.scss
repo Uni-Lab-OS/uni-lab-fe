@@ -288,6 +288,14 @@
   :global(.workflow-runtime__node-list) {
   max-height: none;
   flex: 1 1 auto;
+  grid-auto-rows: 54px;
+  align-content: start;
+}
+
+.workflow
+  :global(#workflow-output-panel-nodes.is-node-details-collapsed)
+  :global(.workflow-runtime__node-list) button {
+  height: 54px;
 }
 
 .workflow :global(.workflow-runtime__node-list) button {

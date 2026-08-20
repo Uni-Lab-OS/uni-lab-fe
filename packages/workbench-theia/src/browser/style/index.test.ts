@@ -189,6 +189,9 @@ describe('environment manager layering and responsive layout', () => {
       /#theia-main-content-panel:not\([\s\S]*?:has\(\.lm-TabBar-tab\.lm-mod-closable\)[\s\S]*?\)\s*> \.lm-DockPanel-widget\s*\{[^}]*top:\s*0 !important;[^}]*left:\s*0 !important;[^}]*right:\s*0 !important;[^}]*width:\s*100% !important;[^}]*height:\s*100% !important/u
     )
     expect(domainNavigationStylesheet).toMatch(
+      /body:not\(\.unilab-agent-panel-visible\)[\s\S]*?#theia-main-content-panel:not\([\s\S]*?:has\([\s\S]*?> \.lm-DockPanel-widget:not\(\.lm-mod-hidden\)[\s\S]*?~ \.lm-DockPanel-widget:not\(\.lm-mod-hidden\)[\s\S]*?\)[\s\S]*?\)[\s\S]*?> \.theia-editor\.lm-DockPanel-widget:not\(\.lm-mod-hidden\)[\s\S]*?> \.monaco-editor\s*\{[^}]*width:\s*100% !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
       /#theia-main-content-panel[\s\S]*?> \.lm-TabBar\.theia-app-centers\.theia-app-main:not\([\s\S]*?:has\(\.lm-TabBar-tab\.lm-mod-closable\)[\s\S]*?\)\s*\{[^}]*display:\s*none !important/u
     )
   })
@@ -231,6 +234,13 @@ describe('environment manager layering and responsive layout', () => {
   it('keeps the complete workflow navigation label', () => {
     expect(navigatorSource).toMatch(
       /mode:\s*'workflow',[\s\S]*?label:\s*'工作流'/u
+    )
+  })
+
+  /** 工作流任务使用独立活动栏入口，避免与工作流编排目录混淆。 */
+  it('exposes a dedicated workflow Task navigation entry', () => {
+    expect(navigatorSource).toMatch(
+      /mode:\s*'workflow-tasks',[\s\S]*?label:\s*'任务列表'/u
     )
   })
 

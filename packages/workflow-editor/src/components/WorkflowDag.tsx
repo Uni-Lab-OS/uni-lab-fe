@@ -795,7 +795,8 @@ export default function WorkflowDag({
                   }
                 />
               )}
-              {layoutStrategy === 'primary-sample-serpentine' && (
+              {layoutStrategy === 'primary-sample-serpentine' &&
+                materialRoleOptions.length > 0 && (
                 <WorkflowSupportingMaterialPresentationControl
                   value={supportingMaterialPresentation}
                   onChange={setSupportingMaterialPresentation}
@@ -816,7 +817,8 @@ export default function WorkflowDag({
                   ))}
                 </select>
               </label>
-              {layoutStrategy === 'material-swimlanes' && (
+              {layoutStrategy === 'material-swimlanes' &&
+                materialRoleOptions.length > 0 && (
                 <div
                   className="workflow-runtime__swimlane-direction"
                   role="group"
