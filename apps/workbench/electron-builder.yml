@@ -1,7 +1,9 @@
 appId: com.bohrium.unilab
 productName: UniLab Workbench
 copyright: Copyright © 2026 UniLab
-compression: maximum
+# electron-builder 明确说明 maximum 几乎不减小产物，却会增加构建时间。
+# normal 同时用于正式包与 CI，避免性能基准和发布配置分叉。
+compression: normal
 directories:
   output: release-macos
   buildResources: ../desktop/build
@@ -91,11 +93,18 @@ electronLanguages:
   - zh-CN
   - en-US
 afterPack: ../desktop/scripts/after-pack.mjs
+afterSign: ../desktop/scripts/after-pack.mjs
+publish:
+  provider: generic
+  url: ${env.UNILAB_WORKBENCH_UPDATE_URL}
 mac:
   category: public.app-category.developer-tools
   icon: icon.icns
   target:
     - target: dmg
+      arch:
+        - arm64
+    - target: zip
       arch:
         - arm64
   artifactName: ${productName}-${version}-${arch}.${ext}
@@ -104,9 +113,17 @@ mac:
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
+  # 正式包由 electron-builder 公证并装订应用；DMG 在生成后单独公证并装订。
   notarize: true
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
+  # 在 electron-builder 临时签名钥匙串释放前签署 DMG 容器。
+  sign: true
+  # macOS 13+ supports LZFSE. It avoids maximum compression's much slower UDBZ
+  # conversion while retaining a compressed, directly mountable disk image.
+  format: ULFO
+  # 自动更新使用 ZIP 对应的 latest-mac.yml；DMG 只作为手动安装介质。
+  writeUpdateInfo: false
 linux:
   category: Development
   icon: icon.png
@@ -121,17 +138,20 @@ win:
     - target: nsis
       arch:
         - x64
-  artifactName: ${productName}-${version}-${arch}-setup.${ext}
+  # GitHub Release normalizes spaces in asset names to periods. Generate the
+  # updater metadata with that safe name up front so latest.yml and the actual
+  # release asset always agree.
+  artifactName: UniLab.Workbench-${version}-${arch}-setup.${ext}
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: always
   createStartMenuShortcut: true
-  # Workbench does not use electron-updater. Avoid differential block metadata
-  # and its elevate helper so the installer stays solid-compressed and smaller.
-  differentialPackage: false
-  packElevateHelper: false
+  # electron-updater uses blockmap for differential download and the helper
+  # for per-user NSIS installations that later need elevation.
+  differentialPackage: true
+  packElevateHelper: true
   multiLanguageInstaller: true
   installerLanguages:
     - zh_CN

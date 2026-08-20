@@ -63,8 +63,11 @@ describe('Cross-platform remote Workbench services', () => {
     assert.match(definitions, /UNILAB_REMOTE_ACCESS_URL_FILE/u)
   })
 
-  it('starts the Theia CLI through the pinned Node process on every OS', () => {
-    assert.match(commonLauncher, /resolve\('@theia\/cli\/bin\/theia\.js'\)/u)
+  it('starts the built Theia backend through the pinned Node process on every OS', () => {
+    assert.match(
+      commonLauncher,
+      /'apps',\s*'workbench',\s*'lib',\s*'backend',\s*'main\.js'/u
+    )
     assert.match(commonLauncher, /spawn\(process\.execPath, \[/u)
   })
 })

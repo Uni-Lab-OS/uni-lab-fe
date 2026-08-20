@@ -375,20 +375,33 @@ exec "$launcher_dir/node" "$launcher_dir/${targetFromLauncher}" "$@"
  * @param {string} resources Workbench 成品的 resources 目录。
  * @param {string} platform 目标操作系统平台。
  * @param {string} architecture 目标 CPU 架构。
+ * @param {'packaged' | 'prepared'} layout 待校验的是安装后短路径还是准备态缓存布局。
  * @returns {{root: string, archive: string, executable: string, version: string}} 校验通过的 Agent 资源路径与版本。
  * @throws {Error} 任一运行资源缺失、版本错误、载荷范围错误或启动器不可执行时抛出。
  */
 export function validateBundledAgentPayload(
   resources,
   platform = process.platform,
-  architecture = process.arch
+  architecture = process.arch,
+  layout = 'packaged'
 ) {
   const target = resolveAgentTarget(platform, architecture)
-  const root = join(resources, 'a')
+  const layouts = {
+    packaged: { root: join(resources, 'a'), coreDirectory: 'c' },
+    prepared: {
+      root: join(resources, 'agent-runtime'),
+      coreDirectory: 'bundled-aioncore'
+    }
+  }
+  const selectedLayout = layouts[layout]
+  if (!selectedLayout) {
+    throw new Error(`未知 Workbench Agent 载荷布局：${layout}`)
+  }
+  const { root, coreDirectory } = selectedLayout
   const archive = join(root, 'app.asar')
   const executable = join(
     root,
-    'c',
+    coreDirectory,
     target.directory,
     target.executable
   )
@@ -411,7 +424,7 @@ export function validateBundledAgentPayload(
   for (const cli of EXTERNAL_ONLY_AGENT_CLIS) {
     const forbiddenPath = join(
       root,
-      'c',
+      coreDirectory,
       target.directory,
       'managed-resources',
       'cli',
@@ -423,7 +436,7 @@ export function validateBundledAgentPayload(
   }
   validateManagedNodeLaunchers(join(
     root,
-    'c',
+    coreDirectory,
     target.directory,
     'managed-resources'
   ), platform)

@@ -27,6 +27,19 @@ import {
   prepareBundledAgentPayload,
   validateBundledAgentPayload
 } from './agent-payload.mjs'
+import {
+  requireWorkbenchUpdateUrl,
+  selectMacosUpdateArtifacts
+} from './update-publish.mjs'
+import {
+  resolveWorkbenchPackageMode,
+  resolveWorkbenchReleaseChannel
+} from './packaging-mode.mjs'
+import { pruneDesktopDeployment } from './package-portable.mjs'
+import {
+  createPackagedResourceReport,
+  logPackagedResourceReport
+} from './package-size-report.mjs'
 
 const MEBIBYTE = 1024 * 1024
 const MIN_INSTALLER_BYTES = 50 * MEBIBYTE
@@ -62,7 +75,7 @@ export function assertMacosSigningEnvironment(environment = process.env) {
   )
   if (missing.length > 0) {
     throw new Error(
-      `签名/公证凭据不完整，缺少：${missing.join(', ')}。正式 package:mac 不会降级为 unsigned。`
+      `签名凭据不完整，缺少：${missing.join(', ')}。正式 package:mac 不会降级为 unsigned。`
     )
   }
 }
@@ -135,7 +148,15 @@ export function validatePackagedWorkbench(
     join(resources, 'node-runtime', 'bin', 'node'),
     join(resources, 'desktop', 'out', 'main', 'index.js'),
     join(resources, 'desktop', 'out', 'preload', 'index.js'),
-    join(resources, 'desktop', 'node_modules', '@unilab', 'device-card-host'),
+    join(
+      resources,
+      'desktop',
+      'node_modules',
+      '@unilab',
+      'device-card-host',
+      'dist',
+      'index.cjs'
+    ),
     join(resources, 'device-card-builder', 'esbuild'),
     join(resources, 'device-card-agent', 'cli.mjs'),
     join(resources, 'workspace-skills', 'manifest.json'),
@@ -159,6 +180,12 @@ export function validatePackagedWorkbench(
   return appPath
 }
 
+/**
+ * 在当前 macOS 主机上组装、签名并验证 Workbench 的 DMG 发布介质。
+ * @param {{signed: boolean, adhoc?: boolean, developerId?: boolean}} options 签名与验收模式。
+ * @returns {{mode: string, applicationDirectory: string, releaseDirectory?: string}} 已校验的应用目录与可选发布目录。
+ * @throws {Error} 主机不受支持、签名材料缺失或任一发布合同校验失败时抛出。
+ */
 export function packageMacos({ signed, adhoc = false, developerId = false }) {
   if (process.platform !== 'darwin' || !['arm64', 'x64'].includes(process.arch)) {
     throw new Error(`macOS Workbench 不支持当前主机：${process.platform}/${process.arch}`)
@@ -183,6 +210,16 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
     throw new Error('正式签名、Developer ID RC 与 ad-hoc 临时签名不能同时启用。')
   }
   if (signed) assertMacosSigningEnvironment()
+  const packageMode = resolveWorkbenchPackageMode(
+    process.env['UNILAB_WORKBENCH_PACKAGE_MODE']
+  )
+  if (packageMode === 'prepackaged') {
+    throw new Error('macOS 暂不支持从预构建应用目录生成发布介质。')
+  }
+  const releaseChannel = resolveWorkbenchReleaseChannel(
+    process.env['UNILAB_WORKBENCH_RELEASE_CHANNEL']
+  )
+  const updateUrl = requireWorkbenchUpdateUrl()
   const developerIdIdentity = developerId
     ? findDeveloperIdIdentity()
     : undefined
@@ -227,6 +264,7 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
     copyFileSync(esbuildBinary, join(deviceCardBuilderDirectory, 'esbuild'))
     chmodSync(join(deviceCardBuilderDirectory, 'esbuild'), 0o755)
     runCommand('pnpm', [
+      '--config.node-linker=hoisted',
       '--filter',
       '@unilab/desktop',
       'deploy',
@@ -235,16 +273,39 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       '--prefer-offline',
       desktopRuntimeDirectory
     ], repositoryDirectory)
+    const desktopMetrics = pruneDesktopDeployment(desktopRuntimeDirectory)
+    console.log(
+      `桌面端生产依赖已收敛：删除 ${desktopMetrics.removedFiles} 个构建文件，${desktopMetrics.removedBytes} bytes`
+    )
 
+    const builderTargets = packageMode === 'directory'
+      ? ['--dir']
+      : releaseChannel === 'production'
+        ? ['dmg', 'zip']
+        : ['dmg']
     const builderArgs = [
       '--mac',
-      'dmg',
+      ...builderTargets,
       `--${targetArchitecture}`,
       '--publish',
       'never',
       `--config.directories.output=${outputDirectory}`
     ]
-    const builderEnvironment = { ...process.env }
+    const builderEnvironment = {
+      ...process.env,
+      UNILAB_WORKBENCH_UPDATE_URL: updateUrl
+    }
+    if (signed) {
+      // GitHub Release 会把资产名中的空格规范化为点号，生产更新介质
+      // 从源头使用安全名称，确保 latest-mac.yml 指向真实发布资产。
+      const artifactName = releaseChannel === 'test'
+        ? 'UniLab.Workbench.Test-${version}-${arch}.${ext}'
+        : 'UniLab.Workbench-${version}-${arch}.${ext}'
+      builderArgs.push(
+        `--config.mac.artifactName=${artifactName}`,
+        `--config.dmg.artifactName=${artifactName}`
+      )
+    }
     if (!signed && !developerId) {
       builderEnvironment['CSC_IDENTITY_AUTO_DISCOVERY'] = 'false'
       builderArgs.push(
@@ -304,9 +365,21 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       'darwin',
       targetArchitecture
     )
+    const resourceReport = createPackagedResourceReport(
+      join(appPath, 'Contents', 'Resources')
+    )
+    logPackagedResourceReport(resourceReport)
     verifyPackagedLauncher(appPath)
+    if (packageMode === 'directory') {
+      console.log(`macOS Workbench 非压缩应用目录已通过校验：${appPath}`)
+      return { mode: packageMode, applicationDirectory: appPath }
+    }
     let installer = findInstaller(outputDirectory)
-    if (signed) verifySignedAndNotarized(appPath, installer.path)
+    if (signed) {
+      notarizeAndStapleDiskImage(installer.path)
+      installer = findInstaller(outputDirectory)
+      verifySignedAndNotarized(appPath, installer.path)
+    }
     if (developerId) {
       installer = signAndVerifyDeveloperIdCandidate(
         appPath,
@@ -315,15 +388,20 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       )
     }
     if (adhoc) installer = signAndVerifyAdHocCandidate(installer.path)
-    publishInstaller(installer.path)
+    publishMacosArtifacts(outputDirectory, releaseChannel)
     const distribution = signed
-      ? 'signed/notarized'
+      ? 'Developer ID signed and Apple notarized'
       : developerId
         ? 'RC Developer ID signed (not notarized)'
         : adhoc ? 'RC ad-hoc signed' : 'unsigned'
     console.log(
       `macOS ${distribution} 安装包已发布：${join(releaseDirectory, basename(installer.path))}（${formatMebibytes(installer.size)} MiB）`
     )
+    return {
+      mode: packageMode,
+      applicationDirectory: appPath,
+      releaseDirectory
+    }
   } finally {
     rmSync(outputDirectory, { recursive: true, force: true })
     rmSync(packagingDirectory, { recursive: true, force: true })
@@ -420,16 +498,73 @@ function findInstaller(outputDirectory) {
   return validateMacosInstaller(installers[0])
 }
 
-function publishInstaller(installerPath) {
+export function selectMacosReleaseArtifacts(names, releaseChannel) {
+  if (releaseChannel === 'production') {
+    return selectMacosUpdateArtifacts(names)
+  }
+  const dmgs = names.filter(name => /\.dmg$/iu.test(name))
+  if (dmgs.length !== 1) {
+    throw new Error(
+      `Workbench macOS 测试产物必须且只能包含 1 个 DMG，实际 ${dmgs.length} 个`
+    )
+  }
+  return dmgs
+}
+
+function publishMacosArtifacts(outputDirectory, releaseChannel) {
+  const names = selectMacosReleaseArtifacts(
+    readdirSync(outputDirectory),
+    releaseChannel
+  )
+  rmSync(releaseDirectory, { recursive: true, force: true })
   mkdirSync(releaseDirectory, { recursive: true })
-  copyFileSync(installerPath, join(releaseDirectory, basename(installerPath)))
+  for (const name of names) {
+    copyFileSync(join(outputDirectory, name), join(releaseDirectory, name))
+  }
+}
+
+function notarizeAndStapleDiskImage(installerPath) {
+  runCommand('xcrun', [
+    'notarytool',
+    'submit',
+    installerPath,
+    '--apple-id',
+    process.env['APPLE_ID'],
+    '--password',
+    process.env['APPLE_APP_SPECIFIC_PASSWORD'],
+    '--team-id',
+    process.env['APPLE_TEAM_ID'],
+    '--wait'
+  ])
+  runCommand('xcrun', ['stapler', 'staple', installerPath])
 }
 
 function verifySignedAndNotarized(appPath, installerPath) {
-  runCommand('codesign', ['--verify', '--deep', '--strict', '--verbose=2', appPath])
-  runCommand('spctl', ['--assess', '--type', 'execute', '--verbose=2', appPath])
+  runCommand('codesign', [
+    '--verify',
+    '--deep',
+    '--strict',
+    '--verbose=2',
+    appPath
+  ])
+  runCommand('spctl', [
+    '--assess',
+    '--type',
+    'execute',
+    '--verbose=2',
+    appPath
+  ])
   runCommand('xcrun', ['stapler', 'validate', appPath])
   runCommand('xcrun', ['stapler', 'validate', installerPath])
+  runCommand('spctl', [
+    '--assess',
+    '--type',
+    'open',
+    '--context',
+    'context:primary-signature',
+    '--verbose=2',
+    installerPath
+  ])
 }
 
 function findDeveloperIdIdentity() {

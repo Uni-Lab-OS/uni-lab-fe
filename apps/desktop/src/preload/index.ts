@@ -35,6 +35,10 @@ import type {
   TraceListResult
 } from '../shared/observability'
 import type {
+  AppUpdateSnapshot,
+  DesktopAppUpdateApi
+} from '../shared/appUpdate'
+import type {
   CloudEnvironment,
   ConfigureLocalDeviceProvisioningInput,
   DevicePackageDownloadSummary,
@@ -105,6 +109,26 @@ export interface OpenFilePayload {
 
 const api = {
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
+  appUpdate: {
+    getState: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:getState'),
+    check: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:check'),
+    download: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:download'),
+    restartAndInstall: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:restartAndInstall'),
+    onState: (
+      listener: (snapshot: AppUpdateSnapshot) => void
+    ): (() => void) => {
+      const wrapped = (
+        _event: Electron.IpcRendererEvent,
+        snapshot: AppUpdateSnapshot
+      ): void => listener(snapshot)
+      ipcRenderer.on('app-update:state', wrapped)
+      return () => ipcRenderer.removeListener('app-update:state', wrapped)
+    }
+  } satisfies DesktopAppUpdateApi,
   unsavedChanges: {
     /** 向主进程发布工作台聚合后的未保存状态。 */
     set: (hasUnsavedChanges: boolean): void => {

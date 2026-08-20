@@ -34,6 +34,9 @@ importers:
       '@unilab/device-card-host':
         specifier: workspace:*
         version: link:../../packages/device-card-host
+      electron-updater:
+        specifier: ^6.8.9
+        version: 6.8.9
     devDependencies:
       '@arizeai/phoenix-otel':
         specifier: 2.1.0
@@ -560,6 +563,13 @@ importers:
 
   packages/device-card-host:
     dependencies:
+      esbuild:
+        specifier: 0.21.5
+        version: 0.21.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
       '@unilab/device-card-authoring-kit':
         specifier: workspace:*
         version: link:../device-card-authoring-kit
@@ -578,28 +588,21 @@ importers:
       ajv:
         specifier: 8.17.1
         version: 8.17.1
-      esbuild:
-        specifier: 0.21.5
-        version: 0.21.5
       react:
         specifier: ^19.2.1
         version: 19.2.8
       react-dom:
         specifier: ^19.2.1
         version: 19.2.8(react@19.2.8)
-      vue:
-        specifier: ^3.5.12
-        version: 3.5.40(typescript@5.9.3)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.20.1
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
       vitest:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@22.20.1)(less@3.13.1)(lightningcss@1.30.1)(sass-embedded@1.97.3)(sass@1.102.0)(terser@5.49.2)
+      vue:
+        specifier: ^3.5.12
+        version: 3.5.40(typescript@5.9.3)
 
   packages/device-card-sdk:
     devDependencies:
@@ -4666,6 +4669,10 @@ packages:
     resolution: {integrity: sha512-6p/gfG1RJSQeIbz8TK5aPNkoztgY1q5TgmGFMAXcY8itsGW6Y2ld1ALsZ5UJn8rog7hKF3zHx5iQbNQ8uLcRlw==}
     engines: {node: '>=12.0.0'}
 
+  builder-util-runtime@9.7.0:
+    resolution: {integrity: sha512-g/kR520giAFYkSXTzcmF3kqQq7wi8F6N6SzeDgZrqTBN+VHdmgWOyTdD1yD7AATDId/yXLvuP34CxW46/BwCdw==}
+    engines: {node: '>=12.0.0'}
+
   builder-util@25.1.7:
     resolution: {integrity: sha512-7jPjzBwEGRbwNcep0gGNpLXG9P94VA3CPAZQCzxkFXiV2GMQKlziMbY//rXPI7WKfhsvGgFXjTcXdBEwgXw9ww==}
 
@@ -5334,6 +5341,9 @@ packages:
 
   electron-to-chromium@1.5.396:
     resolution: {integrity: sha512-yHiw2Y3C3H9U6TMbOfoWK/BPreiOPXRfTWPBwQBoZG6/8TB6eOPnsy5oaRYuatR7Fw2SJ4kKforgufeo7fq0EQ==}
+
+  electron-updater@6.8.9:
+    resolution: {integrity: sha512-ZhVxM9iGONUpZGI1FxdMRgJjUFXi7AYGVa5PwKlO1tV1/4zDxQmfKpXOHVztKrd6L9rLcFjERvi1Mf2vxyTkig==}
 
   electron-vite@2.3.0:
     resolution: {integrity: sha512-lsN2FymgJlp4k6MrcsphGqZQ9fKRdJKasoaiwIrAewN1tapYI/KINLdfEL7n10LuF0pPSNf/IqjzZbB5VINctg==}
@@ -6548,11 +6558,18 @@ packages:
   lodash.debounce@4.0.8:
     resolution: {integrity: sha512-FT1yDzDYEoYWhnSGnpE/4Kj1fLZkDFyqRb7fNt6FdYOSxlUWAtp42Eh6Wb0rGIv/m9Bgo7x4GhQbm5Ys4SG5ow==}
 
+  lodash.escaperegexp@4.1.2:
+    resolution: {integrity: sha512-TM9YBvyC84ZxE3rgfefxUWiQKLilstD6k7PTGt6wfbtXF8ixIJLOL3VYyV/z+ZiPLsVxAsKAFVwWlWeb2Y8Yyw==}
+
   lodash.includes@4.3.0:
     resolution: {integrity: sha512-W3Bx6mdkRTGtlJISOvVD/lbqjTlPPUDTMnlXZFnVwi9NKJ6tiAk6LVdlhZMm17VZisqhKcgzpO5Wz91PCt5b0w==}
 
   lodash.isboolean@3.0.3:
     resolution: {integrity: sha512-Bz5mupy2SVbPHURB98VAcw+aHh4vRV5IPNhILUCsOzRmsTmSQ17jIuqopAentWoehktxGd9e/hbIXq980/1QJg==}
+
+  lodash.isequal@4.5.0:
+    resolution: {integrity: sha512-pDo3lu8Jhfjqls6GkMgpahsF9kCyayhgykjyLMNFTKWrpVdAQtYyB4muAMWozBB4ig/dtWAmsMxLEI8wuz+DYQ==}
+    deprecated: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
 
   lodash.isinteger@4.0.4:
     resolution: {integrity: sha512-DBwtEWN2caHQ9/imiNeEA5ys1JoRtRfY3d7V9wkqtbycnAmTvRRmbHKDV4a0EYc678/dia0jrte4tjYwVBaZUA==}
@@ -8018,6 +8035,11 @@ packages:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
     hasBin: true
 
+  semver@7.7.4:
+    resolution: {integrity: sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==}
+    engines: {node: '>=10'}
+    hasBin: true
+
   semver@7.8.5:
     resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
     engines: {node: '>=10'}
@@ -8469,6 +8491,9 @@ packages:
 
   through@2.3.8:
     resolution: {integrity: sha512-w89qg7PI8wAdvX60bMDP+bFoD5Dvhm9oLheFp5O4a2QF0cSBGsBX4qZmadPMvVqlLJBBci+WqGGOAPvcDeNSVg==}
+
+  tiny-typed-emitter@2.1.0:
+    resolution: {integrity: sha512-qVtvMxeXbVej0cQWKqVSSAHmKZEHAvxdF8HEUBFWts8h+xEo5m/lEiPakuyZ3BnCBjOD8i24kzNOiOLLgsSxhA==}
 
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
@@ -14186,6 +14211,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  builder-util-runtime@9.7.0:
+    dependencies:
+      debug: 4.4.3(supports-color@8.1.1)
+      sax: 1.6.1
+    transitivePeerDependencies:
+      - supports-color
+
   builder-util@25.1.7:
     dependencies:
       7zip-bin: 5.2.0
@@ -14933,6 +14965,19 @@ snapshots:
       - supports-color
 
   electron-to-chromium@1.5.396: {}
+
+  electron-updater@6.8.9:
+    dependencies:
+      builder-util-runtime: 9.7.0
+      fs-extra: 10.1.0
+      js-yaml: 4.3.0
+      lazy-val: 1.0.5
+      lodash.escaperegexp: 4.1.2
+      lodash.isequal: 4.5.0
+      semver: 7.7.4
+      tiny-typed-emitter: 2.1.0
+    transitivePeerDependencies:
+      - supports-color
 
   electron-vite@2.3.0(vite@5.4.21(@types/node@22.20.1)(less@3.13.1)(lightningcss@1.30.1)(sass-embedded@1.97.3)(sass@1.102.0)(terser@5.49.2)):
     dependencies:
@@ -16266,9 +16311,13 @@ snapshots:
 
   lodash.debounce@4.0.8: {}
 
+  lodash.escaperegexp@4.1.2: {}
+
   lodash.includes@4.3.0: {}
 
   lodash.isboolean@3.0.3: {}
+
+  lodash.isequal@4.5.0: {}
 
   lodash.isinteger@4.0.4: {}
 
@@ -17734,6 +17783,8 @@ snapshots:
 
   semver@6.3.1: {}
 
+  semver@7.7.4: {}
+
   semver@7.8.5: {}
 
   send@0.19.2:
@@ -18299,6 +18350,8 @@ snapshots:
   three@0.185.0: {}
 
   through@2.3.8: {}
+
+  tiny-typed-emitter@2.1.0: {}
 
   tinybench@2.9.0: {}
 

@@ -75,7 +75,12 @@ import {
 } from '../common/workbench-session-protocol'
 import { WorkbenchSessionClientImpl } from './workbench-session-client'
 import { desktopWorkflowTraceRuntime } from './desktop-workflow-trace-runtime'
+import { desktopWorkspaceApi } from './desktop-workspace'
 import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
+import {
+  WorkbenchAuthorityScopeBoundary,
+  workbenchAuthorityScopeKey
+} from './workbench-authority-scope'
 import { EnvironmentManager } from './environment-manager'
 import { createTheiaWorkflowIdeAdapter } from './theia-workflow-ide-adapter'
 import {
@@ -1020,10 +1025,11 @@ function WorkbenchSurface({
   recordMountedWorkbenchDomains(mountedDomains.current, viewMode)
   const query = new URLSearchParams(globalThis.location.search)
   const workflowUuid = query.get('workflowUuid') ?? undefined
-  const [activeWorkflowUuid, setActiveWorkflowUuid] = useState<string | null>(
-    workflowUuid ?? null
-  )
   const selectedTarget = connectionTargets[connectionMode]
+  const authorityScopeKey = workbenchAuthorityScopeKey(
+    selectedTarget.cacheKey,
+    session.identity?.workspacePath
+  )
   const services = useMemo(
     () => createWorkbenchServices(selectedTarget),
     [selectedTarget.cacheKey]
@@ -1103,17 +1109,17 @@ function WorkbenchSurface({
   }, [backendProbeServices, services])
 
   const synchronizeSavedSource = useCallback(async (pythonSource: string) => {
-    if (!activeWorkflowUuid) return
+    if (!workflowUuid) return
     try {
       await synchronizeSavedWorkflowSource(
         services.workflow,
-        activeWorkflowUuid,
+        workflowUuid,
         pythonSource
       )
     } catch (error) {
       throw error
     }
-  }, [activeWorkflowUuid, services])
+  }, [services, workflowUuid])
 
   useEffect(() => {
     onSourceSaveHandlerChange(
@@ -1172,18 +1178,19 @@ function WorkbenchSurface({
         active={isWorkflowWorkbenchView(viewMode)}
         workflowUuid={workflowUuid}
         activeWorkflowStorageKey={`unilab.workflow.active.${
-          encodeURIComponent(selectedTarget.sourceId)
+          encodeURIComponent(authorityScopeKey)
         }.v1`}
         allowWorkflowSelection
         recoveryRevision={recoveryRevision}
-        hideEmbeddedCodeEditor={connectionMode === 'local'}
+        hideEmbeddedCodeEditor={
+          connectionMode === 'local' && desktopWorkspaceApi() !== null
+        }
         ideBridge={ideBridge}
         onUnsavedChangesChange={(hasUnsavedChanges) => {
           onUnsavedChangesChange(hasUnsavedChanges)
           reportWorkflowUnsavedChanges(hasUnsavedChanges)
         }}
         onSelectedWorkflowStepChange={setSelectedWorkflowNode}
-        onActiveWorkflowChange={setActiveWorkflowUuid}
         onWorkflowRuntimeProjectionChange={setRuntimeProjection}
         onResetEnvironment={resetWorkflowEnvironment}
         environmentResetBusy={environmentResetBusy}
@@ -1369,30 +1376,31 @@ function WorkbenchSurface({
             onStopSession={onStopSession}
           />
         ) : null}
-        <WorkbenchDomainLayout
-          key={selectedTarget.cacheKey}
-          mode={viewMode}
-          workflow={mountedSurface(
-            mountedDomains.current,
-            'workflow',
-            workflowSurface
-          )}
-          material={mountedSurface(
-            mountedDomains.current,
-            'material',
-            materialSurface
-          )}
-          device={mountedSurface(
-            mountedDomains.current,
-            'device',
-            deviceSurface
-          )}
-          robotWorkstation={mountedSurface(
-            mountedDomains.current,
-            'robot-workstation',
-            robotWorkstationSurface
-          )}
-        />
+        <WorkbenchAuthorityScopeBoundary scopeKey={authorityScopeKey}>
+          <WorkbenchDomainLayout
+            mode={viewMode}
+            workflow={mountedSurface(
+              mountedDomains.current,
+              'workflow',
+              workflowSurface
+            )}
+            material={mountedSurface(
+              mountedDomains.current,
+              'material',
+              materialSurface
+            )}
+            device={mountedSurface(
+              mountedDomains.current,
+              'device',
+              deviceSurface
+            )}
+            robotWorkstation={mountedSurface(
+              mountedDomains.current,
+              'robot-workstation',
+              robotWorkstationSurface
+            )}
+          />
+        </WorkbenchAuthorityScopeBoundary>
         {connectionSwitchingTo ? (
           <WorkbenchAuthorityLoading mode={connectionSwitchingTo} />
         ) : null}

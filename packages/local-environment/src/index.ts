@@ -341,7 +341,7 @@ export function activatedCondaEnvironment(
   platform: NodeJS.Platform,
   inheritedEnvironment: NodeJS.ProcessEnv = process.env
 ): NodeJS.ProcessEnv {
-  const platformPath = platform === 'win32' ? win32 : posix
+  const platformPath = runtimePathApi(environmentPath, platform)
   if (platform !== 'win32') {
     return {
       ...inheritedEnvironment,
@@ -435,7 +435,7 @@ export function runtimeExecutablePaths(
   environmentPath: string,
   platform: NodeJS.Platform
 ): { pythonExecutable: string; unilabExecutable: string } {
-  const platformPath = platform === 'win32' ? win32 : posix
+  const platformPath = runtimePathApi(environmentPath, platform)
   if (platform === 'win32') {
     return {
       pythonExecutable: platformPath.join(environmentPath, 'python.exe'),
@@ -450,6 +450,20 @@ export function runtimeExecutablePaths(
     pythonExecutable: platformPath.join(environmentPath, 'bin', 'python'),
     unilabExecutable: platformPath.join(environmentPath, 'bin', 'unilab')
   }
+}
+
+/**
+ * Keep host filesystem paths usable when tests exercise a foreign target while
+ * still emitting native Windows paths for drive-letter and UNC environments.
+ */
+function runtimePathApi(environmentPath: string, platform: NodeJS.Platform) {
+  if (
+    platform === 'win32' &&
+    /^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/])/u.test(environmentPath)
+  ) {
+    return win32
+  }
+  return posix
 }
 
 /**

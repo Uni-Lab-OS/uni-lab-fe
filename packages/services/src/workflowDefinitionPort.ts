@@ -25,10 +25,7 @@ export interface WorkflowDefinitionCapabilities {
 }
 
 export interface WorkflowDefinitionInvalidation {
-  workflowUuid: string
   revision: number | null
-  draftHash?: string | null
-  candidateHash?: string | null
 }
 
 export interface WorkflowDefinitionSubscriptionOptions {
@@ -90,10 +87,7 @@ function workspaceDefinitionPort(
       runtime.subscribeWorkflowAuthoring(
         workflowUuid,
         (event) => onInvalidate({
-          workflowUuid: event.data.workflow_uuid,
-          revision: event.data.workflow_revision,
-          draftHash: event.data.draft_hash,
-          candidateHash: event.data.candidate_hash
+          revision: event.data.workflow_revision
         }),
         options satisfies WorkflowAuthoringSubscriptionOptions
       )
@@ -135,10 +129,7 @@ function backendDefinitionPort(
         if (
           event.event === 'workflow.definition.changed' &&
           event.data.workflow_uuid === workflowUuid
-        ) onInvalidate({
-          workflowUuid: event.data.workflow_uuid,
-          revision: event.data.workflow_revision
-        })
+        ) onInvalidate({ revision: event.data.workflow_revision })
       }, options)
   }
 }

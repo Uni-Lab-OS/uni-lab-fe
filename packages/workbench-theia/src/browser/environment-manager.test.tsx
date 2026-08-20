@@ -35,6 +35,24 @@ describe('EnvironmentManager', () => {
     expect(markup).toContain('Scheduler：自动推导')
     expect(markup).not.toContain('恢复自动推导')
   })
+
+  /** PLC-Sim 已就绪时仍应允许更换 Windows 变量表，保存动作负责受控重启。 */
+  it('keeps the PLC variable table editable while the simulator is ready', () => {
+    const session = failedSession()
+    session.plcSimulator = {
+      ...session.plcSimulator,
+      phase: 'ready',
+      variableTablePath: 'C:\\PLC-Sim\\variables.csv'
+    }
+    const markup = renderToStaticMarkup(
+      <EnvironmentManager {...environmentManagerProps(session)} />
+    )
+
+    expect(markup).toContain('aria-label="PLC 变量表路径"')
+    expect(markup).not.toMatch(
+      /aria-label="PLC 变量表路径"[^>]*disabled/
+    )
+  })
 })
 
 describe('Scheduler target addressing', () => {

@@ -592,8 +592,9 @@ export function EnvironmentManager({
                 <span>变量表</span>
                 <input
                   list="unilab-plc-variable-tables"
+                  aria-label="PLC 变量表路径"
                   value={plcVariableTablePath}
-                  disabled={plcSimulator.phase !== 'idle' && plcSimulator.phase !== 'failed'}
+                  disabled={Boolean(busyAction) || !plcConfigurationEditable(plcSimulator.phase)}
                   placeholder="从当前项目推荐 CSV，或填写本地路径"
                   onChange={event => setPlcVariableTablePath(event.currentTarget.value)}
                 />
@@ -782,6 +783,13 @@ export function normalizeSchedulerUrl(value: string): string {
     throw new Error('Scheduler 地址只需填写协议、IP（或主机名）和端口')
   }
   return url.origin
+}
+
+/** PLC 就绪态支持修改配置，保存后由会话层执行受控重启。 */
+export function plcConfigurationEditable(
+  phase: WorkbenchSessionSnapshot['plcSimulator']['phase']
+): boolean {
+  return phase === 'idle' || phase === 'failed' || phase === 'ready'
 }
 
 export function deriveSchedulerUrl(backendUrl: string): string {
