@@ -69,3 +69,19 @@ test('同端口切换工作区会清除旧工作流加载状态', async ({ page 
     fullPage: true
   })
 })
+
+test('发布页面提交完整目标并显示 18 个工作流已校验', async ({ page }) => {
+  await page.goto('/new-unresolved-page-fixture.html?case=release')
+  const dialog = page.getByRole('dialog', { name: '环境管理' })
+
+  await dialog.getByRole('button', { name: '发布、校验并切换' }).click()
+  await expect(page.getByTestId('release-submitted')).toHaveText(
+    'http://127.0.0.1:8080|reset=false'
+  )
+  await expect(dialog).toContainText('已校验 57 个模板、132 个物料、18 个工作流')
+  await expect(dialog).toContainText('已验证并切换')
+  await page.screenshot({
+    path: resolve(artifactDirectory, '04-release-verified.png'),
+    fullPage: true
+  })
+})

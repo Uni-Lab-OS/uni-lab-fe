@@ -19,7 +19,9 @@ import './new-unresolved-page-fixture.css'
 const fixtureCase = new URLSearchParams(location.search).get('case')
 
 function NewUnresolvedPageFixture(): React.JSX.Element {
-  if (fixtureCase === 'plc') return <PlcConfigurationFixture />
+  if (fixtureCase === 'plc' || fixtureCase === 'release') {
+    return <EnvironmentPageFixture />
+  }
   if (fixtureCase === 'workspace') return <WorkspaceScopeFixture />
   return <ReagentPaginationFixture />
 }
@@ -52,14 +54,26 @@ function ReagentPaginationFixture(): React.JSX.Element {
   )
 }
 
-function PlcConfigurationFixture(): React.JSX.Element {
+function EnvironmentPageFixture(): React.JSX.Element {
   const [savedPath, setSavedPath] = useState('')
-  const props = environmentManagerProps(async configuration => {
-    setSavedPath(configuration.variableTablePath)
-  })
+  const [publishedTarget, setPublishedTarget] = useState('')
+  const props = environmentManagerProps(
+    async configuration => setSavedPath(configuration.variableTablePath),
+    async (backendUrl, resetTarget) => {
+      setPublishedTarget(`${backendUrl}|reset=${Boolean(resetTarget)}`)
+      return {
+        releaseId: 'sha256:fixture-release',
+        targetAddress: backendUrl,
+        verified: true,
+        activated: true,
+        counts: { templates: 57, materials: 132, workflows: 18 }
+      }
+    }
+  )
   return (
     <main className="new-unresolved-fixture">
       <output data-testid="plc-saved">{savedPath}</output>
+      <output data-testid="release-submitted">{publishedTarget}</output>
       <EnvironmentManager {...props} />
     </main>
   )
@@ -102,7 +116,8 @@ function WorkflowLoadingProbe(): React.JSX.Element {
 }
 
 function environmentManagerProps(
-  onConfigurePlcSimulator: EnvironmentManagerProps['onConfigurePlcSimulator']
+  onConfigurePlcSimulator: EnvironmentManagerProps['onConfigurePlcSimulator'],
+  onPublishRelease: EnvironmentManagerProps['onPublishRelease']
 ): EnvironmentManagerProps {
   const complete = async (): Promise<void> => undefined
   return {
@@ -115,13 +130,7 @@ function environmentManagerProps(
       empty: true,
       counts: { templates: 0, materials: 0, workflows: 0 }
     }),
-    onPublishRelease: async backendUrl => ({
-      releaseId: 'sha256:fixture',
-      targetAddress: backendUrl,
-      verified: true,
-      activated: true,
-      counts: { templates: 0, materials: 0, workflows: 0 }
-    }),
+    onPublishRelease,
     onReadEnvironmentLog: async () => '',
     onConfigureGraph: complete,
     onSetExternalDevicesOnly: complete,
