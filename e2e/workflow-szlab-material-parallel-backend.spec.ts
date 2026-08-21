@@ -17,6 +17,7 @@ const WORKFLOW_NAME = 'SZLab 单样品全流程（物料感知）'
 const RESUME_FIRST_TASK_UUID = process.env.UNILAB_E2E_FIRST_TASK_UUID
 const RESUME_SECOND_TASK_UUID = process.env.UNILAB_E2E_SECOND_TASK_UUID
 const SHARED_SOURCE_UUIDS = new Set([
+  'bf46be1e-2743-4fac-864c-bfbc41df3fd9',
   '70fa686c-4f15-43b9-851f-7080949de0ec',
   '9c7e0a7c-8b6a-448a-a910-84c4fd628e74'
 ])
@@ -65,11 +66,11 @@ interface WorkflowGraphWire {
 }
 
 /**
- * 通过 Workbench 的 Backend 模式创建或复用两个同工作流任务，并验证共享来源、独占阻塞和任务工作流回看。
+ * 通过 Workbench 的 Backend 模式创建或复用两个同工作流任务，并验证固定来源共享、可移动物料隔离和任务工作流回看。
  *
  * @param page 真实 Chromium 页面；所有运行与状态请求都经 Workbench Backend 代理。
- * @returns 生成四张截图与一份 API 证据文件；无业务返回值。
- * @throws Backend 图、任务状态、物料策略或右侧冻结工作流界面不符合合同时失败。
+ * @returns 生成四张截图与一份双任务并行运行 API 证据文件；无业务返回值。
+ * @throws Backend 图、并行任务状态、物料分配或右侧冻结工作流界面不符合合同时失败。
  * @safety Edge 使用 Workbench 托管的 Dry-run，只注册设备动作目录，不初始化或操作真实设备。
  */
 test('Backend 模式展示物料感知工作流的并行任务状态', async ({ page }) => {
@@ -191,7 +192,7 @@ test('Backend 模式展示物料感知工作流的并行任务状态', async ({ 
   await expect.poll(
     () => workflowTaskStatus(page, secondTask.uuid),
     { timeout: 45_000, intervals: [200, 500, 1_000] }
-  ).toBe('pending')
+  ).toBe('running')
   const firstJobs = await readBackend<WorkflowJobWire[]>(
     page,
     `/api/v1/workflow-tasks/${firstTask.uuid}/jobs`
@@ -209,11 +210,29 @@ test('Backend 模式展示物料感知工作流的并行任务状态', async ({ 
   expect(firstSourceJobs).toHaveLength(8)
   expect(firstSourceJobs.every((job) => job.status === 'succeeded')).toBe(true)
   expect(secondSourceJobs).toHaveLength(8)
-  expect(secondSourceJobs.every((job) => job.status === 'pending')).toBe(true)
-  expect(firstSourceJobs.filter((job) => (
-    job.param.custody_policy === 'shared_source' &&
-    Boolean(job.return_info?.material?.uuid)
-  ))).toHaveLength(2)
+  expect(secondSourceJobs.every((job) => job.status === 'succeeded')).toBe(true)
+  const firstSharedMaterialUuids = firstSourceJobs.filter((job) => (
+    job.param.custody_policy === 'shared_source'
+  )).map((job) => job.return_info?.material?.uuid).sort()
+  const secondSharedMaterialUuids = secondSourceJobs.filter((job) => (
+    job.param.custody_policy === 'shared_source'
+  )).map((job) => job.return_info?.material?.uuid).sort()
+  expect(firstSharedMaterialUuids).toHaveLength(3)
+  expect(secondSharedMaterialUuids).toEqual(firstSharedMaterialUuids)
+  expect(firstSharedMaterialUuids.every(Boolean)).toBe(true)
+  const firstExclusiveMaterialUuids = firstSourceJobs.filter((job) => (
+    job.param.custody_policy === 'task_exclusive'
+  )).map((job) => job.return_info?.material?.uuid)
+  const secondExclusiveMaterialUuids = secondSourceJobs.filter((job) => (
+    job.param.custody_policy === 'task_exclusive'
+  )).map((job) => job.return_info?.material?.uuid)
+  expect(firstExclusiveMaterialUuids).toHaveLength(5)
+  expect(secondExclusiveMaterialUuids).toHaveLength(5)
+  expect(firstExclusiveMaterialUuids.every(Boolean)).toBe(true)
+  expect(secondExclusiveMaterialUuids.every(Boolean)).toBe(true)
+  expect(secondExclusiveMaterialUuids.filter((materialUuid) => (
+    firstExclusiveMaterialUuids.includes(materialUuid)
+  ))).toEqual([])
 
   const taskNavigation = page.getByRole('listitem').filter({
     hasText: '任务列表'
@@ -224,12 +243,15 @@ test('Backend 模式展示物料感知工作流的并行任务状态', async ({ 
   await expect(page.getByRole('heading', { name: '工作流任务', exact: true }))
     .toBeVisible()
   const queue = page.getByRole('region', { name: '任务队列' })
-  await expect(queue.locator('li')).toHaveCount(2)
-  await expect(queue.getByText('运行中', { exact: true })).toHaveCount(1)
-  await expect(queue.getByText('等待执行', { exact: true })).toHaveCount(1)
-  await clickMounted(queue.locator('button').filter({
+  const firstTaskButton = queue.locator('button').filter({
     hasText: firstTask.uuid.slice(-8)
-  }))
+  })
+  const secondTaskButton = queue.locator('button').filter({
+    hasText: secondTask.uuid.slice(-8)
+  })
+  await expect(firstTaskButton).toContainText('运行中')
+  await expect(secondTaskButton).toContainText('运行中')
+  await clickMounted(firstTaskButton)
   const taskWorkflow = page.getByRole('region', { name: '任务对应工作流' })
   await expect(taskWorkflow.getByText(
     `Task ${firstTask.uuid.slice(-8)}`,
@@ -241,9 +263,7 @@ test('Backend 模式展示物料感知工作流的并行任务状态', async ({ 
     animations: 'disabled'
   })
 
-  await clickMounted(queue.locator('button').filter({
-    hasText: secondTask.uuid.slice(-8)
-  }))
+  await clickMounted(secondTaskButton)
   await expect(taskWorkflow.getByRole('heading', {
     name: WORKFLOW_NAME,
     exact: true
@@ -258,12 +278,18 @@ test('Backend 模式展示物料感知工作流的并行任务状态', async ({ 
     animations: 'disabled'
   })
 
+  const firstTaskDetail = await readBackend<WorkflowTaskWire>(
+    page,
+    `/api/v1/workflow-tasks/${firstTask.uuid}`
+  )
   const secondTaskDetail = await readBackend<WorkflowTaskWire>(
     page,
     `/api/v1/workflow-tasks/${secondTask.uuid}`
   )
-  expect(secondTaskDetail.wait_reason?.blocking_task_uuid).toBe(firstTask.uuid)
-  expect(secondTaskDetail.wait_reason?.material_uuids?.length).toBeGreaterThan(0)
+  expect(firstTaskDetail.status).toBe('running')
+  expect(secondTaskDetail.status).toBe('running')
+  expect(secondTaskDetail.wait_reason?.blocking_task_uuid).toBeUndefined()
+  expect(secondTaskDetail.wait_reason?.material_uuids).toBeUndefined()
   expect(browserErrors).toEqual([])
   expect(backendRequests.filter((request) => (
     request.status >= 400 && request.path !== '/api/v1/material-shapes'
@@ -276,9 +302,19 @@ test('Backend 模式展示物料感知工作流的并行任务状态', async ({ 
       generatedAt: new Date().toISOString(),
       authorityProfile: 'backend_controlled',
       workflow: graph.workflow,
-      tasks: { first: firstTask, second: secondTaskDetail },
+      tasks: { first: firstTaskDetail, second: secondTaskDetail },
       jobs: { first: firstJobs, second: secondJobs },
       sharedSources,
+      materialAllocation: {
+        shared: {
+          first: firstSharedMaterialUuids,
+          second: secondSharedMaterialUuids
+        },
+        taskExclusive: {
+          first: firstExclusiveMaterialUuids,
+          second: secondExclusiveMaterialUuids
+        }
+      },
       browserErrors,
       backendRequests,
       screenshots: [
