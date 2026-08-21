@@ -173,6 +173,8 @@ test('Backend 模式展示物料感知工作流的并行任务状态', async ({ 
   ).toBe('running')
   const rerunButton = panel.getByRole('button', { name: '再次运行', exact: true })
   await expect(rerunButton).toBeEnabled()
+  await rerunButton.hover()
+  await page.waitForTimeout(500)
   await page.screenshot({
     path: join(artifactDirectory, '02-running-rerun-enabled.png'),
     fullPage: true,
