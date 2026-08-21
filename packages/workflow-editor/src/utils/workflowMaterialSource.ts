@@ -16,6 +16,9 @@ export type MaterialSourceFlowRole =
   | 'reagent'
   | 'consumable'
 export type MaterialSourceSiteScope = 'all' | 'fixed' | 'candidates'
+export type MaterialSourceCustodyPolicy =
+  | 'task_exclusive'
+  | 'shared_source'
 
 export interface MaterialSourceSelectorUpdate {
   mode: MaterialSourceMode
@@ -26,6 +29,7 @@ export interface MaterialSourceSelectorUpdate {
   fixedSiteUuid?: string | null
   candidateSiteUuids?: readonly string[]
   flowRole: MaterialSourceFlowRole
+  custodyPolicy: MaterialSourceCustodyPolicy
 }
 
 export interface MaterialSourceEditorProjection {
@@ -39,6 +43,8 @@ export interface MaterialSourceEditorProjection {
   fixedSiteUuid: string | null
   candidateSiteUuids: string[]
   flowRole: MaterialSourceFlowRole
+  custodyPolicy: MaterialSourceCustodyPolicy
+  sharedSourceBlockedReason: string | null
   resourceTemplates: WorkflowMaterialSourceResourceTemplate[]
   mounts: WorkflowMaterialSourceMaterial[]
   fixedMaterials: WorkflowMaterialSourceMaterial[]
@@ -87,7 +93,8 @@ export function createMaterialSourceNode(
           material_uuid: null,
           site: null,
           slot_range: null,
-          flow_role: 'primary_sample'
+          flow_role: 'primary_sample',
+          custody_policy: 'task_exclusive'
         },
         execution_policy: {},
         disabled: false,
@@ -155,6 +162,12 @@ export function projectMaterialSourceEditor(
     throw new Error('新建物料模式不能携带固定物料')
   }
   const flowRole = materialSourceFlowRole(param.flow_role)
+  // 升级前已保存的七字段选择器明确沿用原有任务全程独占语义；下一次更新会
+  // 写回完整八字段合同，绝不把旧工作流静默改成可共享来源。
+  const custodyPolicy = materialSourceCustodyPolicy(
+    param.custody_policy ?? 'task_exclusive'
+  )
+  const movementAction = sharedSourceMovementAction(graph, nodeUuid)
   const sites = compatibleSites(catalog, mountUuid, resourceTemplateUuid)
   const staleReferences: string[] = []
   if (!catalog.resourceTemplates.some((item) =>
@@ -189,6 +202,10 @@ export function projectMaterialSourceEditor(
     fixedSiteUuid,
     candidateSiteUuids,
     flowRole,
+    custodyPolicy,
+    sharedSourceBlockedReason: movementAction
+      ? `共享来源不能流入 ${movementAction} 物料移动动作`
+      : null,
     resourceTemplates: catalog.resourceTemplates,
     mounts: materialSourceMounts(catalog),
     fixedMaterials: catalog.materials.filter((item) =>
@@ -245,6 +262,12 @@ export function updateMaterialSourceSelector(
       '固定物料'
     )
   }
+  const movementAction = update.custodyPolicy === 'shared_source'
+    ? sharedSourceMovementAction(graph, nodeUuid)
+    : null
+  if (movementAction) {
+    throw new Error(`共享来源不能流入 ${movementAction} 物料移动动作`)
+  }
   return {
     ...graph,
     nodes: graph.nodes.map((node) => node.uuid !== nodeUuid
@@ -260,7 +283,8 @@ export function updateMaterialSourceSelector(
             slot_range: candidateSiteUuids.length > 0
               ? candidateSiteUuids
               : null,
-            flow_role: update.flowRole
+            flow_role: update.flowRole,
+            custody_policy: update.custodyPolicy
           }
         })
   }
@@ -389,15 +413,17 @@ function assertClosedSelector(param: Record<string, unknown>): void {
     'material_uuid',
     'site',
     'slot_range',
-    'flow_role'
+    'flow_role',
+    'custody_policy'
   ])
+  const required = [...allowed].filter((key) => key !== 'custody_policy')
   if (
     Object.keys(param).some((key) => !allowed.has(key)) ||
     Object.keys(param).some((key) => !Object.prototype.hasOwnProperty.call(
       param,
       key
     )) ||
-    [...allowed].some((key) => !Object.prototype.hasOwnProperty.call(param, key))
+    required.some((key) => !Object.prototype.hasOwnProperty.call(param, key))
   ) throw new Error('物料来源选择器字段不符合闭合规范')
 }
 
@@ -416,6 +442,60 @@ function materialSourceFlowRole(value: unknown): MaterialSourceFlowRole {
     value !== 'consumable'
   ) throw new Error('物料来源角色不在闭合目录中')
   return value
+}
+
+/** 把未知输入收窄为物料保管策略（MaterialCustodyPolicy）闭集。 */
+function materialSourceCustodyPolicy(
+  value: unknown
+): MaterialSourceCustodyPolicy {
+  if (value !== 'task_exclusive' && value !== 'shared_source') {
+    throw new Error('物料保管策略不在闭合目录中')
+  }
+  return value
+}
+
+/**
+ * 查找从一个物料来源沿物料占位符（ResourceSlot）可达的移动动作。
+ *
+ * @param graph 当前候选工作流图；只读取节点、端口与连线。
+ * @param sourceNodeUuid 物料来源节点稳定 UUID。
+ * @returns 首个可达的 ``pick``/``place``/``transfer_resource`` 动作名，或无冲突时
+ * 返回 ``null``。
+ * @throws 无；结构不完整的边由 OS Authoring 校验另行诊断，本函数不猜测类型。
+ */
+function sharedSourceMovementAction(
+  graph: WorkflowAuthoringGraph,
+  sourceNodeUuid: string
+): string | null {
+  const movementActions = new Set(['pick', 'place', 'transfer_resource'])
+  const handleTypeByUuid = new Map(
+    graph.handle_templates.map((handle) => [
+      String(handle.uuid || ''),
+      String(handle.type || '')
+    ])
+  )
+  const nodeByUuid = new Map(
+    graph.nodes.map((node) => [String(node.uuid || ''), node])
+  )
+  const pending = [sourceNodeUuid]
+  const visited = new Set<string>()
+  while (pending.length > 0) {
+    const current = pending.shift()
+    if (!current || visited.has(current)) continue
+    visited.add(current)
+    for (const edge of graph.edges) {
+      if (String(edge.source_node_uuid || '') !== current) continue
+      if (
+        handleTypeByUuid.get(String(edge.source_handle_uuid || '')) !== 'ResourceSlot' ||
+        handleTypeByUuid.get(String(edge.target_handle_uuid || '')) !== 'ResourceSlot'
+      ) continue
+      const targetUuid = String(edge.target_node_uuid || '')
+      const actionName = String(nodeByUuid.get(targetUuid)?.action_name || '')
+      if (movementActions.has(actionName)) return actionName
+      if (!visited.has(targetUuid)) pending.push(targetUuid)
+    }
+  }
+  return null
 }
 
 function recordValue(value: unknown, label: string): Record<string, unknown> {

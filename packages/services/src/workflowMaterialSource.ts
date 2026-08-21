@@ -204,7 +204,8 @@ const MATERIAL_SOURCE_PARAMETER_KEYS = [
   'material_uuid',
   'site',
   'slot_range',
-  'flow_role'
+  'flow_role',
+  'custody_policy'
 ] as const
 
 /**
@@ -232,6 +233,7 @@ function materialSourceTemplateSchema(
   const slotRange = recordValue(properties.slot_range)
   const slotItem = recordValue(slotRange.items)
   const flowRole = recordValue(properties.flow_role)
+  const custodyPolicy = recordValue(properties.custody_policy)
   if (
     schema.type !== 'object' ||
     schema.additionalProperties !== false ||
@@ -268,6 +270,11 @@ function materialSourceTemplateSchema(
       'aliquot_sample',
       'reagent',
       'consumable'
+    ]) ||
+    custodyPolicy.type !== 'string' ||
+    !sameStringSet(custodyPolicy.enum, [
+      'task_exclusive',
+      'shared_source'
     ])
   ) invalidCatalog('物料来源（MaterialSource）参数 Schema 无效')
   return structuredClone(schema)
