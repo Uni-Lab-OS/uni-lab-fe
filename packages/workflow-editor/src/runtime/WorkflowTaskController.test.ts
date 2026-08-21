@@ -88,6 +88,110 @@ function registerWorkflowTaskControllerTests(): void {
     vi.useRealTimers()
   })
 
+  it('backs off disconnected Runtime reads through the fixed request budget', async () => {
+    vi.useFakeTimers()
+    const task = workflowTask()
+    const runtime = runtimePort({
+      subscribeWorkflowRuntime: vi.fn(() => {
+        throw new Error('stream unavailable')
+      }),
+      listWorkflowTasks: vi.fn(async () => ({
+        items: [task], total: 1, page: 1, page_size: 1
+      })),
+      getWorkflowTask: vi.fn(async () => task),
+      listWorkflowTaskJobs: vi.fn(async () => [])
+    })
+    const controller = new WorkflowTaskController(runtime, task.workflow_uuid)
+    await controller.start()
+
+    for (const [delay, expectedReads] of [
+      [2_000, 2],
+      [5_000, 3],
+      [10_000, 4],
+      [30_000, 5],
+      [30_000, 6]
+    ] as const) {
+      await vi.advanceTimersByTimeAsync(delay - 1)
+      expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(expectedReads - 1)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(expectedReads)
+    }
+
+    controller.dispose()
+    vi.useRealTimers()
+  })
+
+  it('does not poll an active Task while Runtime SSE is live', async () => {
+    vi.useFakeTimers()
+    const task = workflowTask()
+    let subscriptionOptions: Parameters<
+      WorkflowRuntimePort['subscribeWorkflowRuntime']
+    >[1]
+    const runtime = runtimePort({
+      subscribeWorkflowRuntime: vi.fn((_listener, options) => {
+        subscriptionOptions = options
+        return { dispose: vi.fn() }
+      }),
+      listWorkflowTasks: vi.fn(async () => ({
+        items: [task], total: 1, page: 1, page_size: 1
+      })),
+      getWorkflowTask: vi.fn(async () => task),
+      listWorkflowTaskJobs: vi.fn(async () => [])
+    })
+    const controller = new WorkflowTaskController(runtime, task.workflow_uuid)
+
+    await controller.start()
+    subscriptionOptions?.onOpen?.({
+      lastEventId: 'runtime-live',
+      reconnected: false
+    })
+    await vi.waitFor(() => {
+      expect(controller.getSnapshot().realtimeStatus).toBe('live')
+      expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(2)
+    })
+
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(2)
+    expect(runtime.listWorkflowTaskJobs).toHaveBeenCalledTimes(2)
+
+    controller.dispose()
+    vi.useRealTimers()
+  })
+
+  it('pauses Runtime reads while its Desktop surface is hidden and rehydrates on resume', async () => {
+    vi.useFakeTimers()
+    const task = workflowTask()
+    const disposeSubscription = vi.fn()
+    const runtime = runtimePort({
+      subscribeWorkflowRuntime: vi.fn(() => ({
+        dispose: disposeSubscription
+      })),
+      listWorkflowTasks: vi.fn(async () => ({
+        items: [task], total: 1, page: 1, page_size: 1
+      })),
+      getWorkflowTask: vi.fn(async () => task),
+      listWorkflowTaskJobs: vi.fn(async () => [])
+    })
+    const controller = new WorkflowTaskController(runtime, task.workflow_uuid)
+
+    await controller.start()
+    controller.setActive(false)
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(disposeSubscription).toHaveBeenCalledOnce()
+    expect(runtime.getWorkflowTask).toHaveBeenCalledOnce()
+
+    controller.setActive(true)
+    await vi.waitFor(() => {
+      expect(runtime.subscribeWorkflowRuntime).toHaveBeenCalledTimes(2)
+      expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(2)
+    })
+
+    controller.dispose()
+    vi.useRealTimers()
+  })
+
   it('retains the previous coherent bundle when either REST projection fails', async () => {
     const firstTask = workflowTask()
     const firstJobs = [workflowJob()]
