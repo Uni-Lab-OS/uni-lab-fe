@@ -336,6 +336,9 @@ export function projectWorkflowIoBindingOptions(
       parameter: name
     }))
   for (const node of graph.nodes) {
+    // Group nodes only describe canvas hierarchy. They do not own a published
+    // Workflow Node template or any bindable Handles.
+    if (node.type === 'group') continue
     const nodeUuid = requiredString(node.uuid, 'Workflow Node UUID')
     const templateUuid = requiredString(
       node.workflow_node_template_uuid,
