@@ -75,6 +75,10 @@ body.unilab-environment-manager-open .material-oblique-stack__label {
   letter-spacing: -0.01em;
 }
 
+.unilab-environment-manager__header h2:focus {
+  outline: none;
+}
+
 .unilab-environment-manager__header p {
   margin-top: 2px;
   color: var(--unilab-color-text-muted);
