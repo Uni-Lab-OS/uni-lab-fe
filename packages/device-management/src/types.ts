@@ -17,4 +17,5 @@ export interface DeviceManagementPanelProps {
   backend: DeviceManagementBackend
   connection: DeviceManagementConnection
   backendEnabled?: boolean
+  active?: boolean
 }
