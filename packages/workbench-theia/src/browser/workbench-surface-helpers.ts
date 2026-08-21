@@ -45,6 +45,7 @@ export interface WorkbenchSurfaceProps {
     target: WorkbenchConnectionMode
     message: string
     canForce: boolean
+    canCancelTasks?: boolean
   } | null
   authorityWarning: string | null
   connectionTargets: WorkbenchConnectionTargets
@@ -56,6 +57,7 @@ export interface WorkbenchSurfaceProps {
   switchBlockedReason: string | null
   onConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onForceConnectionModeChange: (mode: WorkbenchConnectionMode) => void
+  onCancelTasksAndConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onSourceSaveHandlerChange: (
     handler: ((pythonSource: string) => Promise<void>) | null
   ) => void

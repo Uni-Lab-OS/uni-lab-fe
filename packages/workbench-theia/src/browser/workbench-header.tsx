@@ -35,12 +35,14 @@ export interface WorkbenchHeaderProps {
     target: WorkbenchConnectionMode
     message: string
     canForce: boolean
+    canCancelTasks?: boolean
   } | null
   authorityWarning: string | null
   connectionRetry?: () => void
   environmentOpen: boolean
   onConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onForceConnectionModeChange: (mode: WorkbenchConnectionMode) => void
+  onCancelTasksAndConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onToggleEnvironment: () => void
   onReadEnvironmentLog: (
     kind: WorkbenchEnvironmentLogKind
@@ -69,6 +71,7 @@ export function WorkbenchHeader({
   environmentOpen,
   onConnectionModeChange,
   onForceConnectionModeChange,
+  onCancelTasksAndConnectionModeChange,
   onToggleEnvironment,
   onReadEnvironmentLog,
   onOpenLog
@@ -102,6 +105,7 @@ export function WorkbenchHeader({
           onRetry={connectionRetry}
           onSelect={onConnectionModeChange}
           onForceSelect={onForceConnectionModeChange}
+          onCancelTasksAndSelect={onCancelTasksAndConnectionModeChange}
         />
         <nav aria-label="调试工作台页面">
           <WorkbenchRuntimeLogLauncher

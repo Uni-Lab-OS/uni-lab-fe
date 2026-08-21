@@ -111,7 +111,7 @@ export function createWorkbenchConnectionTargets(
       sourceId: `runtime:backend:${backendUrl}`,
       authoringSourceId,
       title: 'Backend + Scheduler',
-      description: 'Backend 持有任务与作业权威，已注册 Edge 只负责执行。',
+      description: 'Backend 负责管理任务与作业，已注册 Edge 只负责执行。',
       endpointLabel: WORKBENCH_BACKEND_PROXY_PREFIX,
       cacheKey: `runtime:backend:${backendUrl}`,
       backend

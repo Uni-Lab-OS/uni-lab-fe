@@ -30,7 +30,7 @@ describe('WorkbenchConnectionSelector', () => {
     expect(markup).toContain('Backend + Scheduler')
     expect(markup).toContain('本地调度')
     expect(markup).toContain('后端控制')
-    expect(markup).toContain('存在活动任务时禁止切换')
+    expect(markup).toContain('切换运行环境前，需要先结束当前环境中的活动任务')
     expect(markup).toContain('自动保存、替换定义并验证')
     expect(markup).toContain('aria-pressed="true"')
     expect(markup).toContain('data-authority-profile="local_scheduler"')
@@ -104,6 +104,28 @@ describe('WorkbenchConnectionSelector', () => {
 
     expect(markup).toContain('未切换到 Backend + Scheduler')
     expect(markup).toContain('仍然强制切换')
+  })
+
+  it('offers cancel tasks and switch for an active-task conflict', () => {
+    const markup = renderToStaticMarkup(
+      <WorkbenchConnectionSelector
+        targets={targets}
+        selectedMode="local"
+        connection="connected"
+        transitionFailure={{
+          target: 'backend',
+          message: '当前环境存在活动任务。你可以先取消任务，再继续切换。',
+          canForce: false,
+          canCancelTasks: true
+        }}
+        onCancelTasksAndSelect={vi.fn()}
+        onSelect={vi.fn()}
+      />
+    )
+
+    expect(markup).toContain('取消任务并切换')
+    expect(markup).not.toContain('仍然强制切换')
+    expect(markup).not.toContain('权威')
   })
 
   /** 证明完成连接选择后会关闭详情浮层，避免遮挡工作流运行按钮。 */

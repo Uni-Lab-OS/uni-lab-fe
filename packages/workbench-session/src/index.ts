@@ -60,6 +60,7 @@ export interface WorkbenchReleaseReceipt {
   targetAddress: string
   verified: true
   activated: boolean
+  overwrittenConflicts?: number
   counts: {
     templates: number
     materials: number
@@ -255,7 +256,7 @@ export interface WorkbenchSession {
   setRuntimeMode(mode: WorkbenchRuntimeMode): Promise<WorkbenchSessionSnapshot>
   setDomainAuthority(
     mode: WorkbenchDomainMode,
-    options?: { force?: boolean }
+    options?: { force?: boolean; cancelActiveTasks?: boolean }
   ): Promise<WorkbenchSessionSnapshot>
   setSchedulerUrl(url: string | null): Promise<WorkbenchSessionSnapshot>
   publishRelease(options?: {
@@ -263,6 +264,8 @@ export interface WorkbenchSession {
     backendUrl?: string
     resetTarget?: boolean
     replaceTarget?: boolean
+    cancelActiveTasks?: boolean
+    cancelTargetActiveTasks?: boolean
   }): Promise<WorkbenchReleaseReceipt>
   inspectReleaseTarget(
     backendUrl: string

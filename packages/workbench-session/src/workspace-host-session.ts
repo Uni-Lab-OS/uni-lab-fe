@@ -339,7 +339,7 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
 
   async setDomainAuthority(
     mode: WorkbenchDomainMode,
-    options: { force?: boolean } = {}
+    options: { force?: boolean; cancelActiveTasks?: boolean } = {}
   ): Promise<WorkbenchSessionSnapshot> {
     if (mode !== 'local' && mode !== 'backend') {
       throw new Error(`不支持的 Domain Authority：${String(mode)}`)
@@ -357,7 +357,8 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
       mode,
       backendUrl,
       bootstrap: false,
-      ...(options.force === true ? { force: true } : {})
+      ...(options.force === true ? { force: true } : {}),
+      ...(options.cancelActiveTasks === true ? { cancelActiveTasks: true } : {})
     })
   }
 
@@ -379,6 +380,8 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
       backendUrl?: string
       resetTarget?: boolean
       replaceTarget?: boolean
+      cancelActiveTasks?: boolean
+      cancelTargetActiveTasks?: boolean
     } = {}
   ): Promise<WorkbenchReleaseReceipt> {
     const backendUrl = options.backendUrl?.trim()
@@ -410,6 +413,12 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
           verify: true,
           resetTarget: options.resetTarget === true,
           ...(options.replaceTarget === true ? { replaceTarget: true } : {}),
+          ...(options.cancelActiveTasks === true
+            ? { cancelActiveTasks: true }
+            : {}),
+          ...(options.cancelTargetActiveTasks === true
+            ? { cancelTargetActiveTasks: true }
+            : {}),
           confirmation: options.resetTarget === true ? 'CLEAR_BACKEND' : undefined
         }
       }

@@ -30,11 +30,13 @@ interface WorkbenchConnectionSelectorProps {
     target: WorkbenchConnectionMode
     message: string
     canForce: boolean
+    canCancelTasks?: boolean
   } | null
   authorityWarning?: string | null
   defaultOpen?: boolean
   onSelect: (mode: WorkbenchConnectionMode) => void
   onForceSelect?: (mode: WorkbenchConnectionMode) => void
+  onCancelTasksAndSelect?: (mode: WorkbenchConnectionMode) => void
   onRetry?: () => void
 }
 
@@ -55,6 +57,7 @@ export function WorkbenchConnectionSelector({
   defaultOpen = false,
   onSelect,
   onForceSelect,
+  onCancelTasksAndSelect,
   onRetry
 }: WorkbenchConnectionSelectorProps): React.JSX.Element {
   const selectorRef = useRef<HTMLDetailsElement>(null)
@@ -125,7 +128,7 @@ export function WorkbenchConnectionSelector({
         <div
           className="unilab-workbench-connection__options"
           role="group"
-          aria-label="选择调度权威"
+          aria-label="选择运行环境"
         >
           <ConnectionOption
             target={targets.local}
@@ -147,7 +150,7 @@ export function WorkbenchConnectionSelector({
           />
         </div>
         <p className="unilab-workbench-connection__safety-note">
-          当前环境存在活动任务时禁止切换；已有任务不会迁移或被另一调度器接管。
+          切换运行环境前，需要先结束当前环境中的活动任务。
         </p>
         {transitionPhase ? (
           <p className="unilab-workbench-connection__progress" role="status">
@@ -170,6 +173,12 @@ export function WorkbenchConnectionSelector({
                 type="button"
                 onClick={() => onForceSelect(transitionFailure.target)}
               >仍然强制切换</button>
+            ) : null}
+            {transitionFailure.canCancelTasks && onCancelTasksAndSelect ? (
+              <button
+                type="button"
+                onClick={() => onCancelTasksAndSelect(transitionFailure.target)}
+              >取消任务并切换</button>
             ) : null}
           </div>
         ) : null}

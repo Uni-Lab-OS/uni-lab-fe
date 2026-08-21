@@ -3,6 +3,7 @@ import type { WorkbenchConnectionMode } from './workbench-connection-profile'
 export type WorkbenchAuthorityTransitionPhase =
   | 'saving'
   | 'publishing'
+  | 'canceling'
   | 'verifying'
   | 'switching'
 
@@ -11,7 +12,7 @@ export interface WorkbenchAuthorityTransitionOperations {
   publishAndActivateBackend: () => Promise<void>
   switchAuthority: (
     mode: WorkbenchConnectionMode,
-    options?: { force?: boolean }
+    options?: { force?: boolean; cancelActiveTasks?: boolean }
   ) => Promise<void>
   verifyAuthority: (mode: WorkbenchConnectionMode) => Promise<void>
 }
@@ -27,16 +28,25 @@ export async function transitionWorkbenchAuthority({
   from,
   to,
   force = false,
+  cancelActiveTasks = false,
   operations,
   onPhase
 }: {
   from: WorkbenchConnectionMode
   to: WorkbenchConnectionMode
   force?: boolean
+  cancelActiveTasks?: boolean
   operations: WorkbenchAuthorityTransitionOperations
   onPhase: (phase: WorkbenchAuthorityTransitionPhase) => void
 }): Promise<void> {
   if (from === to) return
+  if (cancelActiveTasks && from !== 'local') {
+    onPhase('canceling')
+    await operations.switchAuthority(to, { cancelActiveTasks: true })
+    onPhase('verifying')
+    await operations.verifyAuthority(to)
+    return
+  }
   if (force) {
     onPhase('switching')
     await operations.switchAuthority(to, { force: true })
@@ -62,6 +72,7 @@ export function workbenchAuthorityTransitionLabel(
 ): string {
   if (phase === 'saving') return '正在保存 Workspace 修改…'
   if (phase === 'publishing') return '正在替换 Backend 定义…'
+  if (phase === 'canceling') return '正在取消任务并切换…'
   if (phase === 'verifying') return '正在验证目标环境…'
-  return '正在切换运行权威…'
+  return '正在切换运行环境…'
 }

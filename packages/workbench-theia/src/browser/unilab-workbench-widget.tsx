@@ -124,6 +124,7 @@ import {
   type WorkbenchSurfaceProps
 } from './workbench-surface-helpers'
 import { hasWorkbenchUnsavedChanges } from './workbench-unsaved-changes'
+import { workbenchUserErrorMessage } from './workbench-user-error'
 
 type SourceSaveHandler = (pythonSource: string) => Promise<void>
 type PrepareAuthoritySwitchHandler = () => Promise<void>
@@ -200,6 +201,8 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     target: WorkbenchConnectionMode
     message: string
     canForce: boolean
+    canCancelTasks: boolean
+    cancellationScope?: 'current' | 'target'
   } | null = null
   protected authorityWarning: string | null = initialWorkbenchAuthorityWarning()
   protected connectionSwitchRevision = 0
@@ -335,15 +338,19 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   }
 
   protected readonly publishRelease = async (
-    backendUrl: string,
-    resetTarget = false
+    backendUrl?: string,
+    resetTarget = false,
+    cancelTargetActiveTasks = false,
+    cancelActiveTasks = false
   ): Promise<WorkbenchReleaseReceipt> => {
     try {
       const receipt = await this.workbenchSession.publishRelease({
         activate: true,
-        backendUrl,
+        ...(backendUrl ? { backendUrl } : {}),
         resetTarget,
-        replaceTarget: !resetTarget
+        replaceTarget: !resetTarget,
+        cancelTargetActiveTasks,
+        cancelActiveTasks
       })
       this.sessionSnapshot = await this.workbenchSession.getSnapshot()
       if (receipt.activated) {
@@ -351,6 +358,9 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         persistWorkbenchConnectionMode('backend')
       }
       void this.messages.info(
+        (receipt.overwrittenConflicts
+          ? `检测到 ${receipt.overwrittenConflicts} 条 Backend 物料更新记录冲突，已覆盖；`
+          : '') +
         `发布并校验完成：${receipt.counts.templates} 个模板、` +
         `${receipt.counts.materials} 个物料、${receipt.counts.workflows} 个工作流`
       )
@@ -613,7 +623,9 @@ export class UniLabWorkbenchWidget extends ReactWidget {
    */
   protected readonly setConnectionMode = async (
     mode: WorkbenchConnectionMode,
-    force = false
+    force = false,
+    cancelActiveTasks = false,
+    cancelTargetActiveTasks = false
   ): Promise<void> => {
     if (
       mode === this.connectionMode
@@ -629,14 +641,16 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         from: this.connectionMode,
         to: mode,
         force,
+        cancelActiveTasks,
         operations: {
           saveWorkspace: () => this.saveWorkspaceForAuthorityTransition(),
           publishAndActivateBackend: async () => {
-            const backendUrl = createWorkbenchConnectionTargets({
-              managedLocalUrl: this.sessionSnapshot.identity?.backendUrl,
-              browserOrigin: currentBrowserOrigin()
-            }).backend.backend.apiUrl
-            await this.publishRelease(backendUrl)
+            await this.publishRelease(
+              undefined,
+              false,
+              cancelTargetActiveTasks,
+              cancelActiveTasks
+            )
           },
           switchAuthority: async (target, options) => {
             this.sessionSnapshot = await this.workbenchSession
@@ -666,20 +680,25 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       persistWorkbenchAuthorityWarning(this.authorityWarning)
       void this.messages.info(
         force
-          ? this.authorityWarning ?? '已强制切换运行权威'
+          ? this.authorityWarning ?? '已强制切换运行环境'
           : mode === 'backend'
             ? 'Workspace 定义已同步并校验；Backend 以只读方式运行'
             : '已切换到 Workspace Backend；本地创作已恢复'
       )
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      const userMessage = workbenchUserErrorMessage(error)
       const committed = this.sessionSnapshot.configuredDomainMode === mode
       const safetyBlocked = /(?:活动|进行中|running|pending|canceling).*(?:任务|task)|(?:任务|task).*(?:活动|进行中|running|pending|canceling)/i
         .test(message)
+      const activeTasksBlocked = message.includes('[authority_tasks_active]')
+      const targetTasksBlocked = message.includes('[release_target_busy]')
       this.connectionTransitionFailure = {
         target: mode,
-        message,
-        canForce: !force && !committed && !safetyBlocked
+        message: userMessage,
+        canForce: !force && !committed && !safetyBlocked,
+        canCancelTasks: !committed && (activeTasksBlocked || targetTasksBlocked),
+        cancellationScope: targetTasksBlocked ? 'target' : 'current'
       }
       if (committed) {
         this.authorityWarning =
@@ -689,8 +708,10 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       }
       void this.messages.error(
         committed
-          ? `运行权威已切换，但工作流接口未就绪：${message}`
-          : `运行连接未切换：${message}`
+          ? `运行环境已切换，但工作流接口未就绪：${userMessage}`
+          : activeTasksBlocked
+            ? '运行环境未切换：当前存在活动任务'
+            : `运行连接未切换，已恢复到原环境：${userMessage}`
       )
     } finally {
       if (revision === this.connectionSwitchRevision) {
@@ -707,6 +728,17 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   protected readonly forceConnectionMode = async (
     mode: WorkbenchConnectionMode
   ): Promise<void> => this.setConnectionMode(mode, true)
+
+  protected readonly cancelTasksAndSetConnectionMode = async (
+    mode: WorkbenchConnectionMode
+  ): Promise<void> => {
+    return this.setConnectionMode(
+      mode,
+      false,
+      true,
+      true
+    )
+  }
 
   protected reportUnsavedChanges(): void {
     const hasUnsavedChanges = hasWorkbenchUnsavedChanges(
@@ -897,6 +929,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
               defaultOpen
               onSelect={this.setConnectionMode}
               onForceSelect={this.forceConnectionMode}
+              onCancelTasksAndSelect={this.cancelTasksAndSetConnectionMode}
             />
           )}
           onOpenLog={this.openSessionLog}
@@ -941,6 +974,9 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         switchBlockedReason={null}
         onConnectionModeChange={this.setConnectionMode}
         onForceConnectionModeChange={this.forceConnectionMode}
+        onCancelTasksAndConnectionModeChange={
+          this.cancelTasksAndSetConnectionMode
+        }
         onSourceSaveHandlerChange={this.registerSourceSaveHandler}
         onUnsavedChangesChange={this.setWorkflowPanelDirty}
         onPrepareAuthoritySwitchChange={
@@ -993,6 +1029,7 @@ function WorkbenchSurface({
   switchBlockedReason,
   onConnectionModeChange,
   onForceConnectionModeChange,
+  onCancelTasksAndConnectionModeChange,
   onSourceSaveHandlerChange,
   onUnsavedChangesChange,
   onPrepareAuthoritySwitchChange,
@@ -1352,6 +1389,9 @@ function WorkbenchSurface({
           environmentOpen={environmentOpen}
           onConnectionModeChange={onConnectionModeChange}
           onForceConnectionModeChange={onForceConnectionModeChange}
+          onCancelTasksAndConnectionModeChange={
+            onCancelTasksAndConnectionModeChange
+          }
           onToggleEnvironment={() => setEnvironmentOpen(value => !value)}
           onReadEnvironmentLog={onReadEnvironmentLog}
           onOpenLog={onOpenLog}
