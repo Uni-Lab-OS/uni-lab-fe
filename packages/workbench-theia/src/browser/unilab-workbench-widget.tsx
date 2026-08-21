@@ -86,6 +86,7 @@ import {
 } from './workbench-connection-profile'
 import { preflightWorkbenchRuntimeAuthority } from './workbench-domain-authority'
 import { WorkbenchConnectionSelector } from './workbench-connection-selector'
+import { authoritySurfaceSnapshot } from './workbench-authority-surface'
 import {
   currentBrowserOrigin,
   initialWorkbenchConnectionMode,
@@ -186,6 +187,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   protected connectionMode: WorkbenchConnectionMode =
     initialWorkbenchConnectionMode()
   protected connectionSwitchingTo: WorkbenchConnectionMode | null = null
+  protected connectionSwitchSurface: WorkbenchSessionSnapshot | null = null
   protected connectionSwitchRevision = 0
   protected connectionInterrupted = false
   protected recoveryRevision = 0
@@ -610,6 +612,10 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       return
     }
     const revision = ++this.connectionSwitchRevision
+    this.connectionSwitchSurface =
+      this.sessionSnapshot.phase === 'ready' && this.sessionSnapshot.identity
+        ? this.sessionSnapshot
+        : null
     this.connectionSwitchingTo = mode
     this.update()
     try {
@@ -639,10 +645,11 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       )
     } finally {
       if (revision === this.connectionSwitchRevision) {
-        this.connectionSwitchingTo = null
         await this.refreshSessionSnapshot()
         this.connectionMode = this.sessionSnapshot.configuredDomainMode
         persistWorkbenchConnectionMode(this.connectionMode)
+        this.connectionSwitchingTo = null
+        this.connectionSwitchSurface = null
         this.update()
       }
     }
@@ -810,17 +817,22 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   }
 
   protected override render(): React.ReactElement {
+    const surfaceSnapshot = authoritySurfaceSnapshot(
+      this.sessionSnapshot,
+      this.connectionSwitchSurface,
+      Boolean(this.connectionSwitchingTo)
+    )
     const connectionTargets = createWorkbenchConnectionTargets({
-      managedLocalUrl: this.sessionSnapshot.identity?.backendUrl,
+      managedLocalUrl: surfaceSnapshot.identity?.backendUrl,
       browserOrigin: currentBrowserOrigin()
     })
     if (
-      this.sessionSnapshot.phase !== 'ready'
-      || !this.sessionSnapshot.identity
+      surfaceSnapshot.phase !== 'ready'
+      || !surfaceSnapshot.identity
     ) {
       return (
         <WorkbenchSessionGate
-          snapshot={this.sessionSnapshot}
+          snapshot={surfaceSnapshot}
           onRetry={this.retrySession}
           onStop={this.stopWorkspaceBackend}
           launchMode={this.connectionSwitchingTo ?? this.connectionMode}
@@ -829,7 +841,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
             <WorkbenchConnectionSelector
               targets={connectionTargets}
               selectedMode={this.connectionMode}
-              connection={sessionConnectionState(this.sessionSnapshot.phase)}
+              connection={sessionConnectionState(surfaceSnapshot.phase)}
               switchBlockedReason={this.lastReportedUnsavedChanges
                 ? '请先保存当前工作流修改'
                 : this.connectionSwitchingTo
@@ -843,7 +855,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
           onReadEnvironmentLog={this.readEnvironmentLog}
           renderEnvironmentManager={onClose => (
             <EnvironmentManager
-              session={this.sessionSnapshot}
+              session={surfaceSnapshot}
               onClose={onClose}
               onRestartSession={this.restartSession}
               onRebuildLocalData={this.rebuildLocalData}
@@ -874,7 +886,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         connectionSwitchingTo={this.connectionSwitchingTo}
         connectionTargets={connectionTargets}
         ideBridge={this.ideBridge}
-        session={this.sessionSnapshot}
+        session={surfaceSnapshot}
         sessionClient={this.workbenchSessionClient}
         recoveryRevision={this.recoveryRevision}
         viewMode={this.viewState.currentMode}
