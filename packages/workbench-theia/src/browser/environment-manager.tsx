@@ -74,7 +74,7 @@ interface EnvironmentFeedback {
   message: string
 }
 
-/** 管理本地执行、PLC 与诊断；运行连接切换由顶部选择器单独负责。 */
+/** 管理本地调试设置、可选 PLC 模拟器与诊断。 */
 export function EnvironmentManager({
   session,
   onClose,
@@ -131,6 +131,7 @@ export function EnvironmentManager({
     session,
     managedRuntimeApi ? runtimeInstallation : null
   )
+  const debugPhase = localDebugPhase(session)
   const graphDirty = graphPath.trim() !== session.configuredGraphPath.trim()
   const plcDirty = (
     plcProjectPath.trim() !== plcSimulator.projectPath.trim()
@@ -358,7 +359,7 @@ export function EnvironmentManager({
         type="button"
         tabIndex={-1}
         className="unilab-environment-manager__backdrop"
-        aria-label="关闭本地运行与诊断"
+        aria-label="关闭本地调试设置"
         onClick={onClose}
       />
       <section
@@ -373,11 +374,11 @@ export function EnvironmentManager({
         <header className="unilab-environment-manager__header">
           <div>
             <h2 ref={dialogTitleRef} id={dialogTitleId} tabIndex={-1}>
-              本地运行与诊断
+              本地调试设置
             </h2>
-            <p>运行连接切换在工作台顶部完成；这里仅管理本地执行。</p>
+            <p>查看调试状态，必要时调整设备或 PLC 配置。</p>
           </div>
-          <button type="button" aria-label="关闭本地运行与诊断" onClick={onClose}>
+          <button type="button" aria-label="关闭本地调试设置" onClick={onClose}>
             <span className="codicon codicon-close" aria-hidden="true" />
           </button>
         </header>
@@ -399,13 +400,13 @@ export function EnvironmentManager({
             aria-labelledby={`${dialogTitleId}-advanced`}
           >
             <header>
-              <h3 id={`${dialogTitleId}-advanced`}>高级设置与诊断</h3>
-              <p>只在配置设备、接入 PLC 或排查故障时展开。</p>
+              <h3 id={`${dialogTitleId}-advanced`}>设置与排障</h3>
+              <p>一般无需修改；配置设备、使用 PLC 或排查问题时展开。</p>
             </header>
 
             <EnvironmentDisclosure
-              title="本地执行"
-              summary={environmentPhaseLabel(edgeRuntime.phase)}
+              title="调试设置"
+              summary={environmentPhaseLabel(debugPhase)}
               tone={serviceTone(session.phase, edgeRuntime.phase)}
               open={openSections.has('local')}
               busy={isBusy(
@@ -421,22 +422,19 @@ export function EnvironmentManager({
               onOpenChange={open => setSectionOpen('local', open)}
             >
               <div className="unilab-environment-manager__services">
-                {managedRuntimeApi ? (
+                {managedRuntimeApi && showRuntimeInstallationStatus(
+                  runtimeInstallation
+                ) ? (
                   <EnvironmentServiceStatus
-                    name="应用运行环境"
+                    name="应用组件"
                     phase={runtimeInstallation.phase}
                     message={runtimeInstallationMessage(runtimeInstallation)}
                   />
                 ) : null}
                 <EnvironmentServiceStatus
-                  name="Workspace 服务"
-                  phase={session.phase}
-                  message={session.diagnostic?.message ?? session.message}
-                />
-                <EnvironmentServiceStatus
-                  name="本地执行服务"
-                  phase={edgeRuntime.phase}
-                  message={edgeRuntime.diagnostic ?? edgeRuntime.message}
+                  name="本地调试"
+                  phase={debugPhase}
+                  message={localDebugMessage(session)}
                 />
               </div>
 
@@ -448,14 +446,14 @@ export function EnvironmentManager({
                       type="button"
                       disabled={isBusy('install-runtime')}
                       onClick={() => runRecommendedAction('install-runtime')}
-                    >{isBusy('install-runtime') ? '正在安装…' : '安装运行环境'}</button>
+                    >{isBusy('install-runtime') ? '正在安装…' : '安装调试组件'}</button>
                   </div>
                 ) : null}
 
               <div className="unilab-environment-manager__settings-group">
                 <header>
-                  <strong>运行方式</strong>
-                  <span>切换后在下次启动本地执行时生效</span>
+                  <strong>设备动作</strong>
+                  <span>下次开始本地调试时生效</span>
                 </header>
                 <RuntimeModeControl
                   mode={edgeRuntime.mode ?? session.configuredRuntimeMode}
@@ -463,7 +461,7 @@ export function EnvironmentManager({
                   onSetRuntimeMode={mode => run(
                     'switch-mode',
                     () => onSetRuntimeMode(mode),
-                    `已保存${mode === 'dry-run' ? '模拟运行' : '真实运行'}模式；下次启动生效。`
+                    `已选择${mode === 'dry-run' ? '仅模拟流程' : '控制真实设备'}；下次开始调试时生效。`
                   )}
                 />
               </div>
@@ -509,26 +507,26 @@ export function EnvironmentManager({
                 >{isBusy('restart-os')
                     ? '正在启动…'
                     : edgeRuntime.phase === 'ready'
-                      ? '重新启动本地执行'
-                      : '启动本地执行'}</button>
+                      ? '重新启动本地调试'
+                      : '启动本地调试'}</button>
               </div>
 
               <EnvironmentTechnicalDetails facts={[
                 ['Workspace PID', String(identity?.pid ?? '—')],
-                ['本地执行 PID', String(edgeRuntime.pid ?? '—')],
+                ['执行器 PID', String(edgeRuntime.pid ?? '—')],
                 ['服务地址', identity?.backendUrl ?? '—'],
                 ['Generation', edgeRuntime.generation ?? identity?.generation ?? '—'],
-                ['运行环境', identity?.environmentPath ?? runtimeInstallation.environmentPath ?? '—'],
+                ['应用组件', identity?.environmentPath ?? runtimeInstallation.environmentPath ?? '—'],
                 ['设备配置', edgeRuntime.graphPath || session.configuredGraphPath]
               ]} />
 
-              <EnvironmentMaintenance title="本地执行维修">
+              <EnvironmentMaintenance title="调试维修">
                 <button
                   type="button"
                   className="is-danger"
                   disabled={isBusy('stop-os')}
                   onClick={() => void run('stop-os', onStopSession)}
-                >停止本地执行</button>
+                >停止本地调试</button>
                 <button
                   type="button"
                   className="is-danger"
@@ -540,7 +538,7 @@ export function EnvironmentManager({
                   className="is-port-action"
                   disabled={isBusy('release-os-ports')}
                   onClick={() => {
-                    if (!globalThis.confirm('将停止占用本地执行端口的进程。继续？')) return
+                    if (!globalThis.confirm('将停止占用本地调试端口的进程。继续？')) return
                     void run(
                       'release-os-ports',
                       () => onReleaseEnvironmentPorts('os')
@@ -551,9 +549,9 @@ export function EnvironmentManager({
             </EnvironmentDisclosure>
 
             <EnvironmentDisclosure
-              title="PLC 与设备"
+              title="PLC 模拟器"
               summary={plcSimulator.phase === 'idle'
-                ? '按需启用'
+                ? '可选'
                 : environmentPhaseLabel(plcSimulator.phase)}
               tone={serviceTone(plcSimulator.phase)}
               open={openSections.has('plc')}
@@ -567,9 +565,11 @@ export function EnvironmentManager({
               onOpenChange={open => setSectionOpen('plc', open)}
             >
               <EnvironmentServiceStatus
-                name="PLC 模拟环境"
+                name="PLC 模拟器"
                 phase={plcSimulator.phase}
-                message={plcSimulator.diagnostic ?? plcSimulator.message}
+                message={plcSimulator.phase === 'idle'
+                  ? '仅在工作流需要 PLC 时启用。'
+                  : plcSimulator.diagnostic ?? plcSimulator.message}
               />
               <div className="unilab-environment-manager__settings-group">
                 <label className="unilab-environment-manager__path">
@@ -668,7 +668,7 @@ export function EnvironmentManager({
             </EnvironmentDisclosure>
 
             <EnvironmentDisclosure
-              title="工作区工具与共享"
+              title="工具与远程访问"
               summary={agent?.phase === 'failed' ? '需要处理' : '按需启用'}
               tone={serviceTone(agent?.phase ?? 'idle')}
               open={openSections.has('tools')}
@@ -712,7 +712,7 @@ export function EnvironmentManager({
             </EnvironmentDisclosure>
 
             <EnvironmentDisclosure
-              title="诊断日志"
+              title="日志"
               summary={operationError ? '查看失败详情' : '按需读取'}
               tone={operationError ? 'attention' : 'idle'}
               open={openSections.has('diagnostics')}
@@ -730,9 +730,9 @@ export function EnvironmentManager({
                       setLogTail(null)
                     }}
                   >
-                    <option value="workspace-backend">Workspace 服务</option>
-                    <option value="os">本地执行</option>
-                    <option value="plc-sim">PLC-Sim</option>
+                    <option value="workspace-backend">工作区数据</option>
+                    <option value="os">设备执行</option>
+                    <option value="plc-sim">PLC 模拟器</option>
                     <option value="agent">工作区助手</option>
                   </select>
                 </label>
@@ -1074,8 +1074,8 @@ export function RuntimeModeControl({
 }): React.JSX.Element {
   const select = (next: WorkbenchRuntimeMode): void => {
     if (mode === next) return
-    const label = next === 'normal' ? '真实运行' : '模拟运行'
-    if (globalThis.confirm(`切换到${label}？新模式将在下次启动本地执行时生效。`)) {
+    const label = next === 'normal' ? '控制真实设备' : '仅模拟流程'
+    if (globalThis.confirm(`切换到“${label}”？下次开始本地调试时生效。`)) {
       void onSetRuntimeMode(next)
     }
   }
@@ -1106,10 +1106,10 @@ export function RuntimeModeControl({
     <div
       className="unilab-environment-manager__mode"
       role="group"
-      aria-label="本地执行运行方式"
+      aria-label="本地调试的设备动作"
     >
-      {button('normal', '真实运行', '向已连接设备下发动作')}
-      {button('dry-run', '模拟运行', '完整运行流程，但不下发设备动作')}
+      {button('normal', '控制真实设备', '向已连接设备下发动作')}
+      {button('dry-run', '仅模拟流程', '完整执行工作流，但不控制设备')}
     </div>
   )
 }
@@ -1168,6 +1168,42 @@ function serviceTone(...phases: Array<string | undefined>): string {
   return 'idle'
 }
 
+/** 将两个内部进程折叠为用户只需判断一次的本地调试状态。 */
+function localDebugPhase(session: WorkbenchSessionSnapshot): string {
+  const phases = [session.phase, session.edgeRuntime.phase]
+  if (phases.includes('failed')) return 'failed'
+  if (phases.some(phase => [
+    'validating',
+    'starting',
+    'waiting',
+    'installing',
+    'stopping'
+  ].includes(phase))) return phases.find(phase => phase !== 'ready') ?? 'starting'
+  if (phases.every(phase => phase === 'ready')) return 'ready'
+  return 'idle'
+}
+
+function localDebugMessage(session: WorkbenchSessionSnapshot): string {
+  const phase = localDebugPhase(session)
+  if (phase === 'ready') return '工作流和设备动作已经准备好。'
+  if (phase === 'failed') {
+    return session.diagnostic?.message
+      ?? session.edgeRuntime.diagnostic
+      ?? '本地调试尚未准备好；请查看日志后重试。'
+  }
+  if (['validating', 'starting', 'waiting', 'installing'].includes(phase)) {
+    return '正在准备工作流和设备连接…'
+  }
+  if (phase === 'stopping') return '正在停止本地调试…'
+  return '开始本地调试时会自动启动。'
+}
+
+function showRuntimeInstallationStatus(
+  snapshot: ManagedRuntimeInstallationSnapshot
+): boolean {
+  return !['ready', 'external', 'unavailable'].includes(snapshot.phase)
+}
+
 function agentStatusMessage(
   agent: WorkbenchSessionSnapshot['agent']
 ): string {
@@ -1182,16 +1218,16 @@ function agentStatusMessage(
 function runtimeInstallationMessage(
   snapshot: ManagedRuntimeInstallationSnapshot
 ): string {
-  if (snapshot.phase === 'ready') return '应用运行环境已经通过验证。'
+  if (snapshot.phase === 'ready') return '应用组件已经通过验证。'
   if (snapshot.phase === 'external') {
     return snapshot.error
-      ? '正在使用现有运行环境；应用内置环境需要修复。'
-      : '正在使用已安装的运行环境。'
+      ? '正在使用现有组件；应用内置组件需要修复。'
+      : '正在使用已安装的应用组件。'
   }
   if (snapshot.phase === 'installing') return '正在离线安装并验证，请勿退出应用。'
-  if (snapshot.phase === 'not-installed') return '尚未检测到可用运行环境。'
-  if (snapshot.phase === 'failed') return '运行环境安装或检查失败。'
-  return '当前入口不提供本机运行环境安装能力。'
+  if (snapshot.phase === 'not-installed') return '尚未检测到本地调试组件。'
+  if (snapshot.phase === 'failed') return '调试组件安装或检查失败。'
+  return '当前入口不提供本机组件安装能力。'
 }
 
 function pendingRemoteSnapshot(): WorkbenchRemoteAccessSnapshot {

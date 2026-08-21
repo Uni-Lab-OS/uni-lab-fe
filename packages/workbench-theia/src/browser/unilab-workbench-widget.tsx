@@ -677,16 +677,16 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       this.connectionMode = mode
       persistWorkbenchConnectionMode(mode)
       this.authorityWarning = force
-        ? `已强制切换到 ${mode === 'backend' ? 'Backend' : 'Workspace Backend'}；` +
+        ? `已强制切换到 ${mode === 'backend' ? 'Backend + Scheduler' : '本地调试'}；` +
           '当前内容未同步或连接未经验证'
         : null
       persistWorkbenchAuthorityWarning(this.authorityWarning)
       void this.messages.info(
         force
-          ? this.authorityWarning ?? '已强制切换运行环境'
+          ? this.authorityWarning ?? '已强制切换调试方式'
           : mode === 'backend'
             ? 'Workspace 定义已同步并校验；Backend 以只读方式运行'
-            : '已切换到 Workspace Backend；本地创作已恢复'
+            : '已切换到本地调试；当前工作区可以继续编辑'
       )
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -705,16 +705,16 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       }
       if (committed) {
         this.authorityWarning =
-          `已切换到 ${mode === 'backend' ? 'Backend' : 'Workspace Backend'}；` +
+          `已切换到 ${mode === 'backend' ? 'Backend + Scheduler' : '本地调试'}；` +
           '目标工作流接口复检失败'
         persistWorkbenchAuthorityWarning(this.authorityWarning)
       }
       void this.messages.error(
         committed
-          ? `运行环境已切换，但工作流接口未就绪：${userMessage}`
+          ? `调试方式已切换，但工作流接口未就绪：${userMessage}`
           : activeTasksBlocked
-            ? '运行环境未切换：当前存在活动任务'
-            : `运行连接未切换，已恢复到原环境：${userMessage}`
+            ? '调试方式未切换：当前存在活动任务'
+            : `调试方式未切换，已恢复到原方式：${userMessage}`
       )
     } finally {
       if (revision === this.connectionSwitchRevision) {

@@ -20,16 +20,16 @@ describe('EnvironmentManager', () => {
       <EnvironmentManager {...environmentManagerProps(failedSession())} />
     )
 
-    expect(markup).toContain('本地环境需要处理')
+    expect(markup).toContain('开始调试前需要处理')
     expect(markup).toContain('本地数据损坏')
     expect(markup).toContain('data-recommended-action="true"')
     expect(markup).toContain('重建本地数据')
     expect(markup).toContain('查看相关日志')
     expect(markup).toMatch(
-      /<details class="unilab-environment-section"[^>]*open=""[^>]*>[^]*?<strong>本地执行<\/strong>/u
+      /<details class="unilab-environment-section"[^>]*open=""[^>]*>[^]*?<strong>调试设置<\/strong>/u
     )
     expect(markup).toMatch(
-      /<details class="unilab-environment-section"[^>]*open=""[^>]*>[^]*?<strong>诊断日志<\/strong>/u
+      /<details class="unilab-environment-section"[^>]*open=""[^>]*>[^]*?<strong>日志<\/strong>/u
     )
   })
 
@@ -38,11 +38,26 @@ describe('EnvironmentManager', () => {
       <EnvironmentManager {...environmentManagerProps(readySession())} />
     )
 
-    expect(markup).toContain('本地环境可运行')
-    expect(markup).toContain('真实运行 · 会向设备下发动作')
+    expect(markup).toContain('可以开始本地调试')
+    expect(markup).toContain('会控制设备')
     expect(markup).not.toContain('data-recommended-action="true"')
     expect(markup).not.toContain('open=""')
-    expect(markup).toContain('高级设置与诊断')
+    expect(markup).toContain('设置与排障')
+  })
+
+  it('hides process topology behind one local-debug concept', () => {
+    const markup = renderToStaticMarkup(
+      <EnvironmentManager {...environmentManagerProps(readySession())} />
+    )
+
+    expect(markup).toContain('本地调试')
+    expect(markup).not.toContain('本地调试服务')
+    expect(markup).toContain('PLC 模拟器')
+    expect(markup).toContain('可选')
+    expect(markup).not.toContain('Workspace 服务')
+    expect(markup).not.toContain('本地执行服务')
+    expect(markup).not.toContain('PLC 与设备')
+    expect(markup).not.toContain('本地运行')
   })
 
   it('keeps publication and Scheduler addressing out of environment controls', () => {
@@ -77,8 +92,8 @@ describe('ExternalDevicesOnlyControl', () => {
 describe('describeEnvironmentOperationError', () => {
   it('keeps unexpected errors available for diagnosis', () => {
     expect(describeEnvironmentOperationError('restart-os', '端口被占用')).toEqual({
-      title: '本地执行未能启动',
-      message: '请查看当前诊断和本地执行日志；若端口被占用，再使用维修操作。',
+      title: '本地调试未能启动',
+      message: '请查看当前诊断和调试日志；若端口被占用，再使用维修操作。',
       technicalDetail: '端口被占用'
     })
   })
@@ -89,7 +104,7 @@ describe('environment overview', () => {
     const failed = failedSession()
     expect(localEnvironmentTone(failed)).toBe('attention')
     expect(deriveEnvironmentOverview(failed, null)).toMatchObject({
-      title: '本地环境需要处理',
+      title: '开始调试前需要处理',
       recommendedAction: 'rebuild-local-data',
       recommendedActionLabel: '重建本地数据',
       logKind: 'os'
@@ -97,16 +112,28 @@ describe('environment overview', () => {
 
     expect(deriveEnvironmentOverview(readySession(), null)).toMatchObject({
       tone: 'ready',
-      title: '本地环境可运行',
+      title: '可以开始本地调试',
       recommendedAction: null
+    })
+
+    const withOptionalPlcFailure = readySession()
+    withOptionalPlcFailure.plcSimulator = {
+      ...withOptionalPlcFailure.plcSimulator,
+      phase: 'failed',
+      diagnostic: 'PLC 模拟器未启动'
+    }
+    expect(localEnvironmentTone(withOptionalPlcFailure)).toBe('ready')
+    expect(deriveEnvironmentOverview(withOptionalPlcFailure, null)).toMatchObject({
+      tone: 'ready',
+      title: '可以开始本地调试'
     })
   })
 })
 
 describe('RuntimeModeControl', () => {
   it.each([
-    ['normal', '真实运行', '模拟运行'],
-    ['dry-run', '模拟运行', '真实运行']
+    ['normal', '控制真实设备', '仅模拟流程'],
+    ['dry-run', '仅模拟流程', '控制真实设备']
   ] as const)('exposes %s as the unambiguous selected mode', (
     mode,
     selectedLabel,

@@ -399,11 +399,11 @@
     flex-wrap: wrap;
   }
 
-  .unilab-runtime-log-drawer__header-actions > button:not([aria-label='关闭本地运行日志']) {
+  .unilab-runtime-log-drawer__header-actions > button:not([aria-label='关闭本地调试日志']) {
     flex: 1 1 112px;
   }
 
-  .unilab-runtime-log-drawer__header-actions > [aria-label='关闭本地运行日志'] {
+  .unilab-runtime-log-drawer__header-actions > [aria-label='关闭本地调试日志'] {
     position: absolute;
     top: 14px;
     right: 12px;

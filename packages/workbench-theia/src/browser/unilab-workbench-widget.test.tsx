@@ -9,15 +9,15 @@ import {
 } from './workbench-session-gate'
 
 describe('WorkbenchSessionGate', () => {
-  it('shows Workspace Backend loading while switching from Backend', () => {
+  it('shows local debugging while switching from Backend', () => {
     const markup = renderToStaticMarkup(
       <WorkbenchAuthorityLoading mode="local" />
     )
 
     expect(markup).toContain('data-loading-kind="authority-switch"')
     expect(markup).toContain('data-authority-target="local"')
-    expect(markup).toContain('正在切换到 Workspace Backend')
-    expect(markup).toContain('正在连接 Workspace Backend，并恢复本地工作流与设备数据…')
+    expect(markup).toContain('正在切换到本地调试')
+    expect(markup).toContain('正在恢复本地工作流与设备数据…')
   })
 
   it('turns a rejected UI operation into a visible error value', async () => {
@@ -114,11 +114,11 @@ describe('WorkbenchSessionGate', () => {
         onRetry={vi.fn()}
         onStop={vi.fn()}
         connectionSelector={(
-          <section aria-label="运行连接选择">连接 Backend</section>
+          <section aria-label="选择调试方式">连接 Backend</section>
         )}
         onOpenLog={vi.fn()}
         renderEnvironmentManager={onClose => (
-          <section aria-label="本地运行与诊断">
+          <section aria-label="本地调试设置">
             <button onClick={onClose}>关闭</button>
             <button>启动 PLC-Sim</button>
           </section>
@@ -126,7 +126,7 @@ describe('WorkbenchSessionGate', () => {
       />
     )
 
-    expect(markup).toContain('本地运行与诊断')
+    expect(markup).toContain('调试设置')
     expect(markup).toContain('<summary>技术详情</summary>')
     expect(markup).toContain('启动 PLC-Sim')
     expect(markup).toContain('PLC 连接失败')
@@ -137,7 +137,7 @@ describe('WorkbenchSessionGate', () => {
     expect(markup).toContain('unilab-workbench-session-actions')
     expect(markup).toContain('class="is-primary"')
     expect(markup).toContain('codicon-settings-gear')
-    expect(markup).toContain('运行连接选择')
+    expect(markup).toContain('选择调试方式')
     expect(markup).toContain('在编辑器中打开日志文件')
     expect(markup).toContain('/workspace/.unilabos/logs/workbench/os.log')
   })
@@ -298,10 +298,11 @@ describe('WorkbenchSessionGate', () => {
     )
 
     expect(markup).toContain('正在启动 Unilab 调试工作台')
-    expect(markup).toContain('正在启动 Workspace Backend...')
+    expect(markup).toContain('正在准备工作流和设备连接…')
     expect(markup).toContain('role="progressbar"')
     expect(markup).toContain('is-indeterminate')
-    expect(markup).toContain('正在初始化后端并发现工作流…')
+    expect(markup).toContain('正在准备工作流…')
+    expect(markup).not.toContain('Workspace Backend')
     expect(markup).not.toContain('aria-valuenow')
     expect(markup).not.toContain('正在启动 Backend 模式')
   })

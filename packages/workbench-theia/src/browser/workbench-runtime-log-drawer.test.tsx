@@ -24,13 +24,14 @@ describe('WorkbenchRuntimeLogLauncher', () => {
       />
     )
 
-    expect(markup).toContain('本地运行日志')
+    expect(markup).toContain('本地调试日志')
     expect(markup).toContain('role="dialog"')
-    expect(markup).toContain('Workspace Backend')
-    expect(markup).toContain('PLC-Sim')
-    expect(markup).toContain('Agent')
+    expect(markup).toContain('工作区数据')
+    expect(markup).toContain('设备执行')
+    expect(markup).toContain('PLC 模拟器')
+    expect(markup).toContain('工作区助手')
     expect(markup).toContain('打开日志文件')
-    expect(markup).toContain('关闭本地运行日志')
+    expect(markup).toContain('关闭本地调试日志')
     expect(markup).toContain('当前日志文件的最新输出')
   })
 

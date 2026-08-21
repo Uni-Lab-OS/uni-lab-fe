@@ -56,19 +56,17 @@ export function environmentPhaseLabel(phase: string): string {
   }
 }
 
-/** 为标题栏提供面向任务的本地环境状态，而不是单个进程状态。 */
+/** 为标题栏提供面向任务的本地调试状态，而不是单个进程状态。 */
 export function localEnvironmentTone(
   session: WorkbenchSessionSnapshot
 ): EnvironmentOverviewTone {
   if (
     session.phase === 'failed'
     || session.edgeRuntime.phase === 'failed'
-    || session.plcSimulator.phase === 'failed'
   ) return 'attention'
   if (
     isBusyPhase(session.phase)
     || isBusyPhase(session.edgeRuntime.phase)
-    || isBusyPhase(session.plcSimulator.phase)
   ) return 'busy'
   if (session.phase === 'ready' && session.edgeRuntime.phase === 'ready') {
     return 'ready'
@@ -76,7 +74,7 @@ export function localEnvironmentTone(
   return 'idle'
 }
 
-/** 汇总用户真正需要判断的可运行性、运行方式和下一步操作。 */
+/** 汇总用户真正需要判断的可调试性、设备动作和下一步操作。 */
 export function deriveEnvironmentOverview(
   session: WorkbenchSessionSnapshot,
   runtime: ManagedRuntimeInstallationSnapshot | null
@@ -84,21 +82,20 @@ export function deriveEnvironmentOverview(
   const tone = localEnvironmentTone(session)
   const mode = session.edgeRuntime.mode ?? session.configuredRuntimeMode
   const modeLabel = mode === 'dry-run'
-    ? '模拟运行 · 不下发设备动作'
-    : '真实运行 · 会向设备下发动作'
+    ? '不会控制设备 · 模拟'
+    : '会控制设备'
   const runtimeIssue = Boolean(
     runtime
     && runtime.phase !== 'unavailable'
     && ['not-installed', 'failed'].includes(runtime.phase)
   )
   const sessionIssue = session.phase === 'failed'
-  const edgeIssue = session.edgeRuntime.phase === 'failed' && !sessionIssue
+  const edgeIssue = session.edgeRuntime.phase === 'failed'
   const plcIssue = session.plcSimulator.phase === 'failed'
   const agentIssue = session.agent?.phase === 'failed'
   const issueCount = [
     runtimeIssue,
-    sessionIssue,
-    edgeIssue,
+    sessionIssue || edgeIssue,
     plcIssue,
     agentIssue
   ].filter(Boolean).length
@@ -106,12 +103,12 @@ export function deriveEnvironmentOverview(
   if (runtimeIssue && session.phase !== 'ready') {
     return {
       tone: 'attention',
-      title: '本地运行环境尚未准备好',
-      message: runtime?.error ?? '需要先安装或修复应用运行环境。',
+      title: '本地调试组件需要安装',
+      message: runtime?.error ?? '安装应用组件后即可开始本地调试。',
       modeLabel,
       issueCount,
       recommendedAction: 'install-runtime',
-      recommendedActionLabel: '安装运行环境',
+      recommendedActionLabel: '安装调试组件',
       logKind: 'workspace-backend'
     }
   }
@@ -120,12 +117,12 @@ export function deriveEnvironmentOverview(
     const rebuild = session.diagnostic?.recovery.includes('重建') === true
     return {
       tone: 'attention',
-      title: '本地环境需要处理',
-      message: session.diagnostic?.message ?? session.message,
+      title: '开始调试前需要处理',
+      message: localDebugIssueMessage(session),
       modeLabel,
       issueCount,
       recommendedAction: rebuild ? 'rebuild-local-data' : 'restart-os',
-      recommendedActionLabel: rebuild ? '重建本地数据' : '重新启动本地执行',
+      recommendedActionLabel: rebuild ? '重建本地数据' : '重新启动本地调试',
       logKind: session.diagnostic?.code === 'plc_connection_failed'
         ? 'plc-sim'
         : 'os'
@@ -135,34 +132,21 @@ export function deriveEnvironmentOverview(
   if (edgeIssue) {
     return {
       tone: 'attention',
-      title: '本地执行服务需要处理',
-      message: session.edgeRuntime.diagnostic ?? session.edgeRuntime.message,
+      title: '开始调试前需要处理',
+      message: localDebugIssueMessage(session),
       modeLabel,
       issueCount,
       recommendedAction: 'restart-os',
-      recommendedActionLabel: '重新启动本地执行',
+      recommendedActionLabel: '重新启动本地调试',
       logKind: 'os'
-    }
-  }
-
-  if (plcIssue) {
-    return {
-      tone: 'attention',
-      title: 'PLC 模拟环境需要处理',
-      message: session.plcSimulator.diagnostic ?? session.plcSimulator.message,
-      modeLabel,
-      issueCount,
-      recommendedAction: 'start-plc',
-      recommendedActionLabel: '重新启动 PLC-Sim',
-      logKind: 'plc-sim'
     }
   }
 
   if (tone === 'busy') {
     return {
       tone,
-      title: '正在准备本地环境',
-      message: busyEnvironmentMessage(session),
+      title: '正在准备本地调试',
+      message: busyEnvironmentMessage(),
       modeLabel,
       issueCount,
       recommendedAction: null,
@@ -174,10 +158,10 @@ export function deriveEnvironmentOverview(
   if (tone === 'ready') {
     return {
       tone,
-      title: '本地环境可运行',
+      title: '可以开始本地调试',
       message: mode === 'dry-run'
-        ? '工作流会完整运行，但不会向设备下发动作。'
-        : '本地执行服务已就绪；运行工作流会向已连接设备下发动作。',
+        ? '工作流会完整执行，但不会控制设备。'
+        : '工作流和设备已准备好；开始后会控制已连接设备。',
       modeLabel,
       issueCount,
       recommendedAction: null,
@@ -188,12 +172,12 @@ export function deriveEnvironmentOverview(
 
   return {
     tone: 'idle',
-    title: '本地环境尚未启动',
-    message: '启动本地执行后即可调试工作流。',
+    title: '本地调试尚未启动',
+    message: '需要时启动，即可在当前工作区调试工作流。',
     modeLabel,
     issueCount,
     recommendedAction: 'restart-os',
-    recommendedActionLabel: '启动本地执行',
+    recommendedActionLabel: '启动本地调试',
     logKind: 'os'
   }
 }
@@ -205,8 +189,8 @@ export function describeEnvironmentOperationError(
 ): EnvironmentOperationError {
   const known: Record<string, Omit<EnvironmentOperationError, 'technicalDetail'>> = {
     'install-runtime': {
-      title: '运行环境安装失败',
-      message: '未能准备本地运行环境。请检查安装包完整性后重试。'
+      title: '调试组件安装失败',
+      message: '未能准备本地调试组件。请检查安装包完整性后重试。'
     },
     'save-graph': {
       title: '设备配置未保存',
@@ -214,19 +198,19 @@ export function describeEnvironmentOperationError(
     },
     'rebuild-local-data': {
       title: '本地数据重建失败',
-      message: '原有本地数据未被确认替换。请查看本地执行日志后重试。'
+      message: '原有本地数据未被确认替换。请查看调试日志后重试。'
     },
     'restart-os': {
-      title: '本地执行未能启动',
-      message: '请查看当前诊断和本地执行日志；若端口被占用，再使用维修操作。'
+      title: '本地调试未能启动',
+      message: '请查看当前诊断和调试日志；若端口被占用，再使用维修操作。'
     },
     'stop-os': {
-      title: '本地执行未能停止',
-      message: '服务可能仍在运行。请查看本地执行日志后重试。'
+      title: '本地调试未能停止',
+      message: '服务可能仍在工作。请查看调试日志后重试。'
     },
     'release-os-ports': {
       title: '本地端口仍被占用',
-      message: '未能释放本地执行端口。请确认没有其他工作区正在使用这些端口。'
+      message: '未能释放本地调试端口。请确认没有其他工作区正在使用这些端口。'
     },
     'start-plc': {
       title: 'PLC-Sim 未能启动',
@@ -269,12 +253,12 @@ export function describeEnvironmentOperationError(
 
 export function environmentOperationSuccess(action: string): string | null {
   switch (action) {
-    case 'install-runtime': return '运行环境已安装并通过验证。'
+    case 'install-runtime': return '本地调试组件已安装并通过验证。'
     case 'save-graph': return '设备配置已保存；下次重建本地数据时生效。'
     case 'rebuild-local-data': return '本地数据已重建，可以重新启动或运行工作流。'
-    case 'restart-os': return '本地执行已启动并刷新状态。'
-    case 'stop-os': return '本地执行已停止。'
-    case 'release-os-ports': return '本地执行端口已释放。'
+    case 'restart-os': return '本地调试已启动。'
+    case 'stop-os': return '本地调试已停止。'
+    case 'release-os-ports': return '本地调试端口已释放。'
     case 'save-plc': return 'PLC 配置已保存。'
     case 'start-plc': return 'PLC-Sim 已启动。'
     case 'stop-plc': return 'PLC-Sim 已停止。'
@@ -292,8 +276,12 @@ function isBusyPhase(phase: WorkbenchSessionPhase | string): boolean {
     .includes(phase)
 }
 
-function busyEnvironmentMessage(session: WorkbenchSessionSnapshot): string {
-  if (isBusyPhase(session.edgeRuntime.phase)) return session.edgeRuntime.message
-  if (isBusyPhase(session.plcSimulator.phase)) return session.plcSimulator.message
-  return session.message
+function busyEnvironmentMessage(): string {
+  return '正在准备工作流和设备连接…'
+}
+
+function localDebugIssueMessage(session: WorkbenchSessionSnapshot): string {
+  return session.diagnostic?.message
+    ?? session.edgeRuntime.diagnostic
+    ?? '本地调试尚未准备好；请查看调试日志后重试。'
 }

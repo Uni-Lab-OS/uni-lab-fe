@@ -140,7 +140,7 @@
 .unilab-workbench-connection__options > button {
   display: grid;
   min-width: 0;
-  min-height: 116px;
+  min-height: 92px;
   align-content: start;
   gap: 7px;
   padding: 10px;
@@ -201,14 +201,6 @@
   color: var(--unilab-color-text-muted);
   font-size: 10px;
   line-height: 1.45;
-}
-
-.unilab-workbench-connection__options code {
-  overflow: hidden;
-  color: var(--unilab-color-text-muted);
-  font: 9px/1.4 var(--unilab-font-mono);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .unilab-workbench-connection__safety-note,

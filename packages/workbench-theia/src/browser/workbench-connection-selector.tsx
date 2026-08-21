@@ -110,7 +110,7 @@ export function WorkbenchConnectionSelector({
       open={open}
       onToggle={event => setOpen(event.currentTarget.open)}
     >
-      <summary aria-label={`运行连接：${statusLabel}`}>
+      <summary aria-label={`当前调试方式：${statusLabel}`}>
         <span className="unilab-workbench-connection__status" aria-hidden="true" />
         <span className="unilab-workbench-connection__summary-copy">
           <strong>{selected.title}</strong>
@@ -122,13 +122,13 @@ export function WorkbenchConnectionSelector({
       </summary>
       <div className="unilab-workbench-connection__popover">
         <header>
-          <strong>选择运行连接</strong>
+          <strong>选择调试方式</strong>
           <p>选择 Backend 时会自动保存、替换定义并验证；Backend 内容只读。</p>
         </header>
         <div
           className="unilab-workbench-connection__options"
           role="group"
-          aria-label="选择运行环境"
+          aria-label="选择调试方式"
         >
           <ConnectionOption
             target={targets.local}
@@ -150,7 +150,7 @@ export function WorkbenchConnectionSelector({
           />
         </div>
         <p className="unilab-workbench-connection__safety-note">
-          切换运行环境前，需要先结束当前环境中的活动任务。
+          切换前，需要先结束当前方式中的活动任务。
         </p>
         {transitionPhase ? (
           <p className="unilab-workbench-connection__progress" role="status">
@@ -189,7 +189,7 @@ export function WorkbenchConnectionSelector({
         ) : null}
         {connection === 'error' ? (
           <div className="unilab-workbench-connection__recovery" role="alert">
-            <span>{statusLabel}，请检查目标进程和地址。</span>
+            <span>{statusLabel}，请确认对应服务可用后重试。</span>
             {onRetry ? (
               <button type="button" onClick={onRetry}>重试连接</button>
             ) : null}
@@ -253,11 +253,10 @@ function ConnectionOption({
       <span className="unilab-workbench-connection__option-title">
         <strong>{target.title}</strong>
         <small>{target.authorityProfile === 'local_scheduler'
-          ? '本地调度'
-          : '后端控制'}</small>
+          ? '当前工作区'
+          : '服务器'}</small>
       </span>
       <span>{target.description}</span>
-      <code>{target.endpointLabel}</code>
       {connection ? (
         <small className={`is-${connection}`}>
           {connection === 'connected'
@@ -281,9 +280,10 @@ function connectionStatusLabel(
   mode: WorkbenchConnectionMode,
   state: WorkbenchConnectionState
 ): string {
-  const target = mode === 'backend' ? 'Backend' : 'Workspace Backend'
-  if (state === 'connected') return `${target} 已连接`
-  if (state === 'connecting') return `正在连接 ${target}`
-  if (state === 'error') return `${target} 连接失败`
-  return `${target} 未连接`
+  const target = mode === 'backend' ? 'Backend' : '本地调试'
+  const separator = mode === 'backend' ? ' ' : ''
+  if (state === 'connected') return `${target}${separator}可用`
+  if (state === 'connecting') return `正在连接${separator}${target}`
+  if (state === 'error') return `${target}${separator}不可用`
+  return `${target}${separator}未连接`
 }

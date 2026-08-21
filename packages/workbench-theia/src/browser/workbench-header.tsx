@@ -85,7 +85,7 @@ export function WorkbenchHeader({
       <div className="unilab-workbench__identity">
         <strong>Unilab 调试工作台</strong>
         <span>
-          {environmentLabel} · {runtimeMode === 'dry-run' ? '模拟运行' : '真实运行'}
+          {environmentLabel} · {runtimeMode === 'dry-run' ? '不控制设备' : '会控制设备'}
         </span>
         <span className="unilab-workbench__view-mode">
           {workbenchViewLabel(viewMode)}
@@ -118,14 +118,14 @@ export function WorkbenchHeader({
           <button
             className={environmentOpen ? 'is-active' : ''}
             aria-expanded={environmentOpen}
-            aria-label={`本地运行与诊断：${environmentLabel}`}
+            aria-label={`调试设置：${environmentLabel}`}
             onClick={onToggleEnvironment}
           >
             <span
               className={`unilab-environment-trigger__status is-${environmentTone}`}
               aria-hidden="true"
             />
-            本地运行
+            调试设置
           </button>
           <DesktopWorkspaceSwitchButton />
         </nav>
@@ -137,8 +137,8 @@ export function WorkbenchHeader({
 function localEnvironmentStatusLabel(
   tone: ReturnType<typeof localEnvironmentTone>
 ): string {
-  if (tone === 'ready') return '本地环境可运行'
-  if (tone === 'attention') return '本地环境需要处理'
-  if (tone === 'busy') return '正在准备本地环境'
-  return '本地环境尚未启动'
+  if (tone === 'ready') return '本地调试可用'
+  if (tone === 'attention') return '本地调试需处理'
+  if (tone === 'busy') return '正在准备本地调试'
+  return '本地调试未启动'
 }

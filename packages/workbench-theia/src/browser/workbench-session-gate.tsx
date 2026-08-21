@@ -6,6 +6,7 @@ import * as React from 'react'
 
 import type { WorkbenchConnectionMode } from './workbench-connection-profile'
 import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
+import { environmentPhaseLabel } from './environment-manager-model'
 import {
   WorkbenchRuntimeLogLauncher,
   workbenchRuntimeLogPaths
@@ -70,10 +71,10 @@ export function WorkbenchAuthorityLoading({
 }): React.JSX.Element {
   const workspaceBackend = mode === 'local'
   const title = workspaceBackend
-    ? '正在切换到 Workspace Backend'
+    ? '正在切换到本地调试'
     : '正在切换到 Backend'
   const message = workspaceBackend
-    ? '正在连接 Workspace Backend，并恢复本地工作流与设备数据…'
+    ? '正在恢复本地工作流与设备数据…'
     : '正在验证 Backend 与 Scheduler，并加载远端工作流数据…'
   return (
     <div
@@ -141,7 +142,7 @@ export function WorkbenchSessionGate({
     : '正在启动 Unilab 调试工作台'
   const launchMessage = switchingToBackend
     ? '正在初始化工作区并连接 Backend…'
-    : snapshot.message || '正在校验工作区并启动 Uni-Lab OS…'
+    : sessionGateMessage(snapshot)
   const launchCancelLabel = '取消启动'
   const workflowProgress = (
     snapshot.phase === 'starting' || snapshot.phase === 'waiting'
@@ -154,7 +155,7 @@ export function WorkbenchSessionGate({
   const showWorkflowProgress = !switchingToBackend
   const workflowProgressText = workflowProgress
     ? `已加载 ${workflowProgress.loaded} / ${workflowProgress.total} 个工作流`
-    : '正在初始化后端并发现工作流…'
+    : '正在准备工作流…'
 
   const start = React.useCallback(async () => {
     setLaunchRequested(true)
@@ -180,10 +181,10 @@ export function WorkbenchSessionGate({
     <div className="unilab-workbench unilab-workbench-session-gate">
       <section className="unilab-workbench-session-card" aria-live="polite">
         <span className={`unilab-workbench-session-phase is-${snapshot.phase}`}>
-          {snapshot.phase}
+          {environmentPhaseLabel(snapshot.phase)}
         </span>
         <h2>Unilab 调试工作台</h2>
-        <p>{snapshot.message}</p>
+        <p>{sessionGateMessage(snapshot)}</p>
         {connectionSelector}
         {snapshot.identity ? (
           <details className="unilab-workbench-session-technical">
@@ -266,7 +267,7 @@ export function WorkbenchSessionGate({
               onClick={() => setEnvironmentOpen(value => !value)}
             >
               <span className="codicon codicon-settings-gear" aria-hidden="true" />
-              本地运行与诊断
+              调试设置
             </button>
             {onReadEnvironmentLog ? (
               <WorkbenchRuntimeLogLauncher
@@ -332,4 +333,16 @@ export function WorkbenchSessionGate({
       ) : null}
     </div>
   )
+}
+
+function sessionGateMessage(snapshot: WorkbenchSessionSnapshot): string {
+  if (snapshot.diagnostic?.message) return snapshot.diagnostic.message
+  if (snapshot.phase === 'idle') return '需要时开始本地调试。'
+  if (snapshot.phase === 'failed') return '本地调试未能启动，请查看建议后重试。'
+  if (snapshot.phase === 'stopping') return '正在停止本地调试…'
+  if (snapshot.phase === 'starting' || snapshot.phase === 'validating') {
+    return '正在准备工作流和设备连接…'
+  }
+  if (snapshot.phase === 'waiting') return '正在等待本地调试就绪…'
+  return snapshot.message
 }

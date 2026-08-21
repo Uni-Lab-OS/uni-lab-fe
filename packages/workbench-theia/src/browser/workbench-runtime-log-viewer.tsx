@@ -23,10 +23,10 @@ export const WORKBENCH_RUNTIME_LOG_SOURCES: ReadonlyArray<{
   kind: WorkbenchEnvironmentLogKind
   label: string
 }> = [
-  { kind: 'workspace-backend', label: 'Workspace Backend' },
-  { kind: 'os', label: 'OS' },
-  { kind: 'plc-sim', label: 'PLC-Sim' },
-  { kind: 'agent', label: 'Agent' }
+  { kind: 'workspace-backend', label: '工作区数据' },
+  { kind: 'os', label: '设备执行' },
+  { kind: 'plc-sim', label: 'PLC 模拟器' },
+  { kind: 'agent', label: '工作区助手' }
 ]
 
 export type WorkbenchRuntimeLogContent = Partial<Record<
@@ -226,7 +226,7 @@ export function WorkbenchRuntimeLogViewer({
       >
         <header className="unilab-runtime-log-drawer__header">
           <div>
-            <h2 id={titleId}>本地运行日志</h2>
+            <h2 id={titleId}>本地调试日志</h2>
             <p>
               {following
                 ? `显示当前日志文件的最新输出，每 ${refreshIntervalMs / 1_000} 秒刷新。`
@@ -255,7 +255,7 @@ export function WorkbenchRuntimeLogViewer({
               <span className="codicon codicon-refresh" aria-hidden="true" />
               {loading ? '刷新中…' : '刷新'}
             </button>
-            <button type="button" aria-label="关闭本地运行日志" onClick={onClose}>
+            <button type="button" aria-label="关闭本地调试日志" onClick={onClose}>
               <span className="codicon codicon-close" aria-hidden="true" />
             </button>
           </div>

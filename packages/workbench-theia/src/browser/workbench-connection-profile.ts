@@ -100,7 +100,7 @@ export function createWorkbenchConnectionTargets(
       sourceId: `runtime:local:${localUrl}`,
       authoringSourceId,
       title: '本地调试',
-      description: '常驻 Workspace Backend 持有本地物料、工作流与任务事实。',
+      description: '直接调试当前工作区，工作流和设备数据保留在本机。',
       endpointLabel: localUrl,
       cacheKey: `runtime:local:${localUrl}`,
       backend: localBackend
@@ -111,7 +111,7 @@ export function createWorkbenchConnectionTargets(
       sourceId: `runtime:backend:${backendUrl}`,
       authoringSourceId,
       title: 'Backend + Scheduler',
-      description: 'Backend 负责管理任务与作业，已注册 Edge 只负责执行。',
+      description: '由 Backend 管理任务和作业，并交给已连接设备执行。',
       endpointLabel: WORKBENCH_BACKEND_PROXY_PREFIX,
       cacheKey: `runtime:backend:${backendUrl}`,
       backend

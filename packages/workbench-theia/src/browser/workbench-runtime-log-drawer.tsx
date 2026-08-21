@@ -260,7 +260,7 @@ export function WorkbenchRuntimeLogLauncher({
         onClick={openDrawer}
       >
         <span className="codicon codicon-output" aria-hidden="true" />
-        运行日志
+        调试日志
       </button>
       {drawer && typeof document !== 'undefined'
         ? createPortal(drawer, document.body)

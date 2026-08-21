@@ -73,6 +73,6 @@ export function workbenchAuthorityTransitionLabel(
   if (phase === 'saving') return '正在保存 Workspace 修改…'
   if (phase === 'publishing') return '正在替换 Backend 定义…'
   if (phase === 'canceling') return '正在取消任务并切换…'
-  if (phase === 'verifying') return '正在验证目标环境…'
-  return '正在切换运行环境…'
+  if (phase === 'verifying') return '正在验证目标方式…'
+  return '正在切换调试方式…'
 }

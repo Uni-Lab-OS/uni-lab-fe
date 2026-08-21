@@ -26,12 +26,14 @@ describe('WorkbenchConnectionSelector', () => {
     )
 
     expect(markup).toContain('本地调试')
-    expect(markup).toContain('Workspace Backend 已连接')
+    expect(markup).toContain('本地调试可用')
     expect(markup).toContain('Backend + Scheduler')
-    expect(markup).toContain('本地调度')
-    expect(markup).toContain('后端控制')
-    expect(markup).toContain('切换运行环境前，需要先结束当前环境中的活动任务')
+    expect(markup).toContain('当前工作区')
+    expect(markup).toContain('服务器')
+    expect(markup).toContain('切换前，需要先结束当前方式中的活动任务')
+    expect(markup).toContain('选择调试方式')
     expect(markup).toContain('自动保存、替换定义并验证')
+    expect(markup).not.toContain('Workspace Backend')
     expect(markup).toContain('aria-pressed="true"')
     expect(markup).toContain('data-authority-profile="local_scheduler"')
   })
@@ -64,7 +66,7 @@ describe('WorkbenchConnectionSelector', () => {
       />
     )
 
-    expect(markup).toContain('Backend 连接失败')
+    expect(markup).toContain('Backend 不可用')
     expect(markup).toContain('重试连接')
     expect(markup).toContain('role="alert"')
     expect(markup).toContain('data-authority-profile="backend_controlled"')
