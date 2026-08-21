@@ -126,7 +126,8 @@ describe('WorkbenchSessionGate', () => {
       />
     )
 
-    expect(markup).toContain('调试设置')
+    expect(markup).toContain('环境管理')
+    expect(markup).toContain('日志')
     expect(markup).toContain('<summary>技术详情</summary>')
     expect(markup).toContain('启动 PLC-Sim')
     expect(markup).toContain('PLC 连接失败')

@@ -37,6 +37,7 @@ export interface WorkbenchHeaderProps {
   onConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onForceConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onCancelTasksAndConnectionModeChange: (mode: WorkbenchConnectionMode) => void
+  onOpenLog: (path: string) => void
   onToggleEnvironment: () => void
 }
 
@@ -62,6 +63,7 @@ export function WorkbenchHeader({
   onConnectionModeChange,
   onForceConnectionModeChange,
   onCancelTasksAndConnectionModeChange,
+  onOpenLog,
   onToggleEnvironment
 }: WorkbenchHeaderProps): React.JSX.Element {
   const environmentTone = localEnvironmentTone(session)
@@ -98,16 +100,25 @@ export function WorkbenchHeader({
         />
         <nav aria-label="调试工作台页面">
           <button
+            type="button"
+            onClick={() => onOpenLog(
+              session.edgeRuntime.logPath || session.identity?.logPath || ''
+            )}
+          >
+            <span className="codicon codicon-output" aria-hidden="true" />
+            日志
+          </button>
+          <button
             className={environmentOpen ? 'is-active' : ''}
             aria-expanded={environmentOpen}
-            aria-label={`调试设置：${environmentLabel}`}
+            aria-label={`环境管理：${environmentLabel}`}
             onClick={onToggleEnvironment}
           >
             <span
               className={`unilab-environment-trigger__status is-${environmentTone}`}
               aria-hidden="true"
             />
-            调试设置
+            环境管理
           </button>
           <DesktopWorkspaceSwitchButton />
         </nav>

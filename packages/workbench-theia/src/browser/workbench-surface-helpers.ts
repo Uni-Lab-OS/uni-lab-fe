@@ -58,6 +58,7 @@ export interface WorkbenchSurfaceProps {
   onConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onForceConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onCancelTasksAndConnectionModeChange: (mode: WorkbenchConnectionMode) => void
+  onOpenLog: (path: string) => Promise<void>
   onSourceSaveHandlerChange: (
     handler: ((pythonSource: string) => Promise<void>) | null
   ) => void

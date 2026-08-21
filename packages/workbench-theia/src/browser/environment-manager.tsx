@@ -17,11 +17,6 @@ import {
 import { createPortal } from 'react-dom'
 
 import {
-  desktopWorkbenchRemoteApi,
-  type DesktopWorkbenchRemoteApi,
-  type WorkbenchRemoteAccessSnapshot
-} from './desktop-remote-access'
-import {
   desktopManagedRuntimeApi,
   UNAVAILABLE_MANAGED_RUNTIME,
   type ManagedRuntimeInstallationSnapshot
@@ -68,7 +63,7 @@ export interface EnvironmentManagerProps {
   onStopSession: () => Promise<void>
 }
 
-type EnvironmentSectionId = 'local' | 'plc' | 'tools' | 'diagnostics'
+type EnvironmentSectionId = 'local' | 'plc'
 
 interface EnvironmentFeedback {
   message: string
@@ -80,7 +75,6 @@ export function EnvironmentManager({
   onClose,
   onRestartSession,
   onRebuildLocalData,
-  onReadEnvironmentLog,
   onConfigureGraph,
   onSetExternalDevicesOnly,
   onConfigurePlcSimulator,
@@ -88,16 +82,12 @@ export function EnvironmentManager({
   onStartPlcSimulator,
   onStopPlcSimulator,
   onReleaseEnvironmentPorts,
-  onStartAgent,
-  onStopAgent,
-  onRestartAgent,
   onSetRuntimeMode,
   onStopSession
 }: EnvironmentManagerProps): React.JSX.Element {
   const identity = session.identity
   const edgeRuntime = session.edgeRuntime
   const plcSimulator = session.plcSimulator
-  const agent = session.agent ?? identity?.agent ?? null
   const dialogRef = useRef<HTMLElement>(null)
   const dialogTitleRef = useRef<HTMLHeadingElement>(null)
   const dialogTitleId = useId()
@@ -111,15 +101,10 @@ export function EnvironmentManager({
   const [busyActions, setBusyActions] = useState<ReadonlySet<string>>(
     () => new Set()
   )
-  const [logKind, setLogKind] = useState<WorkbenchEnvironmentLogKind>(
-    defaultEnvironmentLogKind(session)
-  )
-  const [logTail, setLogTail] = useState<string | null>(null)
   const [operationError, setOperationError] =
     useState<EnvironmentOperationError | null>(null)
   const [operationFeedback, setOperationFeedback] =
     useState<EnvironmentFeedback | null>(null)
-  const remoteAccessApi = useMemo(desktopWorkbenchRemoteApi, [])
   const managedRuntimeApi = useMemo(desktopManagedRuntimeApi, [])
   const [runtimeInstallation, setRuntimeInstallation] =
     useState<ManagedRuntimeInstallationSnapshot>(UNAVAILABLE_MANAGED_RUNTIME)
@@ -186,17 +171,14 @@ export function EnvironmentManager({
     const needsLocal = session.phase === 'failed'
       || edgeRuntime.phase === 'failed'
     const needsPlc = plcSimulator.phase === 'failed'
-    const needsTools = agent?.phase === 'failed'
-    if (!needsLocal && !needsPlc && !needsTools) return
+    if (!needsLocal && !needsPlc) return
     setOpenSections(current => {
       const next = new Set(current)
       if (needsLocal) next.add('local')
       if (needsPlc) next.add('plc')
-      if (needsTools) next.add('tools')
-      next.add('diagnostics')
       return next
     })
-  }, [agent?.phase, edgeRuntime.phase, plcSimulator.phase, session.phase])
+  }, [edgeRuntime.phase, plcSimulator.phase, session.phase])
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined
@@ -291,20 +273,6 @@ export function EnvironmentManager({
     })
   }, [onConfigurePlcSimulator, onStartPlcSimulator, plcConfiguration, plcDirty, run])
 
-  const readSelectedLog = useCallback(async (
-    kind: WorkbenchEnvironmentLogKind = logKind
-  ): Promise<void> => {
-    await run('read-log', async () => {
-      setLogTail(await onReadEnvironmentLog(kind))
-    }, null)
-  }, [logKind, onReadEnvironmentLog, run])
-
-  const openRelatedDiagnostics = useCallback((): void => {
-    setLogKind(overview.logKind)
-    setSectionOpen('diagnostics', true)
-    void readSelectedLog(overview.logKind)
-  }, [overview.logKind, readSelectedLog, setSectionOpen])
-
   const runRecommendedAction = useCallback((
     action: EnvironmentRecommendedAction
   ): void => {
@@ -392,7 +360,6 @@ export function EnvironmentManager({
             operationError={operationError}
             operationFeedback={operationFeedback}
             onRecommendedAction={runRecommendedAction}
-            onOpenDiagnostics={openRelatedDiagnostics}
           />
 
           <section
@@ -645,7 +612,7 @@ export function EnvironmentManager({
                 ['OPC UA', plcSimulator.opcUaUrl || '—'],
                 ['变量表路径', plcSimulator.variableTablePath || '—']
               ]} />
-              <EnvironmentMaintenance title="PLC-Sim 维修">
+              <div className="unilab-environment-manager__section-actions">
                 <button
                   type="button"
                   className="is-danger"
@@ -664,92 +631,9 @@ export function EnvironmentManager({
                     )
                   }}
                 >释放占用端口</button>
-              </EnvironmentMaintenance>
-            </EnvironmentDisclosure>
-
-            <EnvironmentDisclosure
-              title="工具与远程访问"
-              summary={agent?.phase === 'failed' ? '需要处理' : '按需启用'}
-              tone={serviceTone(agent?.phase ?? 'idle')}
-              open={openSections.has('tools')}
-              busy={isBusy('start-agent', 'restart-agent', 'stop-agent')}
-              onOpenChange={open => setSectionOpen('tools', open)}
-            >
-              <EnvironmentServiceStatus
-                name="工作区助手"
-                phase={agent?.phase ?? 'idle'}
-                message={agentStatusMessage(agent)}
-                actions={agent?.phase === 'ready' ? (
-                  <>
-                    <button
-                      type="button"
-                      disabled={isBusy('restart-agent')}
-                      onClick={() => void run('restart-agent', onRestartAgent)}
-                    >重启助手</button>
-                    <button
-                      type="button"
-                      className="is-danger"
-                      disabled={isBusy('stop-agent')}
-                      onClick={() => void run('stop-agent', onStopAgent)}
-                    >停止助手</button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={isBusy('start-agent')
-                      || agent?.phase === 'starting'
-                      || agent?.phase === 'stopping'}
-                    onClick={() => void run('start-agent', onStartAgent)}
-                  >{agent?.phase === 'failed' ? '重试启动助手' : '启动工作区助手'}</button>
-                )}
-              />
-              <EnvironmentTechnicalDetails facts={[
-                ['助手 PID', String(agent?.pid ?? '—')],
-                ['工作目录', agent?.workDir ?? identity?.workspacePath ?? '—'],
-                ['数据目录', agent?.dataDir ?? '—']
-              ]} />
-              {remoteAccessApi ? <RemoteAccessPanel api={remoteAccessApi} /> : null}
-            </EnvironmentDisclosure>
-
-            <EnvironmentDisclosure
-              title="日志"
-              summary={operationError ? '查看失败详情' : '按需读取'}
-              tone={operationError ? 'attention' : 'idle'}
-              open={openSections.has('diagnostics')}
-              busy={isBusy('read-log')}
-              onOpenChange={open => setSectionOpen('diagnostics', open)}
-            >
-              <div className="unilab-environment-manager__log-controls">
-                <label>
-                  <span>日志来源</span>
-                  <select
-                    value={logKind}
-                    disabled={isBusy('read-log')}
-                    onChange={event => {
-                      setLogKind(event.currentTarget.value as WorkbenchEnvironmentLogKind)
-                      setLogTail(null)
-                    }}
-                  >
-                    <option value="workspace-backend">工作区数据</option>
-                    <option value="os">设备执行</option>
-                    <option value="plc-sim">PLC 模拟器</option>
-                    <option value="agent">工作区助手</option>
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  disabled={isBusy('read-log')}
-                  onClick={() => void readSelectedLog()}
-                >{isBusy('read-log') ? '正在读取…' : '读取日志'}</button>
               </div>
-              {logTail !== null ? (
-                <pre data-testid="environment-log-tail">{logTail || '暂无日志'}</pre>
-              ) : (
-                <p className="unilab-environment-manager__empty-log">
-                  选择与问题相关的服务后读取最近日志。
-                </p>
-              )}
             </EnvironmentDisclosure>
+
           </section>
         </div>
       </section>
@@ -766,15 +650,13 @@ function EnvironmentOverviewPanel({
   busy,
   operationError,
   operationFeedback,
-  onRecommendedAction,
-  onOpenDiagnostics
+  onRecommendedAction
 }: {
   overview: EnvironmentOverview
   busy: boolean
   operationError: EnvironmentOperationError | null
   operationFeedback: EnvironmentFeedback | null
   onRecommendedAction: (action: EnvironmentRecommendedAction) => void
-  onOpenDiagnostics: () => void
 }): React.JSX.Element {
   return (
     <section
@@ -808,9 +690,6 @@ function EnvironmentOverviewPanel({
             disabled={busy}
             onClick={() => onRecommendedAction(overview.recommendedAction)}
           >{busy ? '正在处理…' : overview.recommendedActionLabel}</button>
-          <button type="button" className="is-quiet" onClick={onOpenDiagnostics}>
-            查看相关日志
-          </button>
         </div>
       ) : null}
       {operationFeedback ? (
@@ -944,100 +823,6 @@ function EnvironmentMaintenance({
   )
 }
 
-function RemoteAccessPanel({
-  api
-}: {
-  api: DesktopWorkbenchRemoteApi
-}): React.JSX.Element {
-  const [snapshot, setSnapshot] = useState<WorkbenchRemoteAccessSnapshot | null>(
-    null
-  )
-  const [busy, setBusy] = useState(false)
-  const [copyStatus, setCopyStatus] = useState<string | null>(null)
-
-  useEffect(() => {
-    let active = true
-    void api.getSnapshot().then(value => {
-      if (active) setSnapshot(value)
-    }).catch(error => {
-      if (active) setSnapshot(failedRemoteSnapshot(error))
-    })
-    return () => { active = false }
-  }, [api])
-
-  const update = useCallback(async (
-    operation: () => Promise<WorkbenchRemoteAccessSnapshot>
-  ) => {
-    setBusy(true)
-    setCopyStatus(null)
-    try {
-      setSnapshot(await operation())
-    } catch (error) {
-      setSnapshot(failedRemoteSnapshot(error))
-    } finally {
-      setBusy(false)
-    }
-  }, [])
-
-  const copyAccessUrl = useCallback(async () => {
-    if (!snapshot?.accessUrl) return
-    try {
-      await navigator.clipboard.writeText(snapshot.accessUrl)
-      setCopyStatus('访问链接已复制；请通过安全渠道发送。')
-    } catch {
-      setCopyStatus('无法写入剪贴板，请重新开启远程访问后再试。')
-    }
-  }, [snapshot?.accessUrl])
-
-  const current = snapshot ?? pendingRemoteSnapshot()
-  const transitioning = current.phase === 'starting' || current.phase === 'stopping'
-  return (
-    <div className="unilab-environment-remote-access">
-      <EnvironmentServiceStatus
-        name="远程访问"
-        phase={current.phase}
-        message={copyStatus ?? remoteAccessMessage(current)}
-        actions={current.phase === 'ready' ? (
-          <>
-            <button
-              type="button"
-              disabled={busy || !current.accessUrl}
-              onClick={() => void copyAccessUrl()}
-            >复制访问链接</button>
-            <button
-              type="button"
-              className="is-danger"
-              disabled={busy}
-              onClick={() => void update(api.stop)}
-            >停止共享</button>
-          </>
-        ) : (
-          <button
-            type="button"
-            disabled={busy || transitioning || current.phase === 'unavailable'}
-            onClick={() => void update(api.start)}
-          >允许远程访问</button>
-        )}
-      />
-      {current.error ? (
-        <EnvironmentTechnicalDetails facts={[
-          ['错误详情', current.error],
-          ['入口地址', current.origin ?? '—'],
-          ['Generation', current.generation ?? '—'],
-          ['有效期', formatRemoteExpiry(current.expiresAt)]
-        ]} />
-      ) : current.phase === 'ready' ? (
-        <EnvironmentTechnicalDetails facts={[
-          ['入口地址', current.origin ?? '—'],
-          ['PID', String(current.pid ?? '—')],
-          ['Generation', current.generation ?? '—'],
-          ['有效期', formatRemoteExpiry(current.expiresAt)]
-        ]} />
-      ) : null}
-    </div>
-  )
-}
-
 export function ExternalDevicesOnlyControl({
   checked,
   disabled,
@@ -1130,22 +915,11 @@ function initialOpenSections(
   const sections = new Set<EnvironmentSectionId>()
   if (session.phase === 'failed' || session.edgeRuntime.phase === 'failed') {
     sections.add('local')
-    sections.add('diagnostics')
   }
   if (session.plcSimulator.phase === 'failed') {
     sections.add('plc')
-    sections.add('diagnostics')
   }
-  if (session.agent?.phase === 'failed') sections.add('tools')
   return sections
-}
-
-function defaultEnvironmentLogKind(
-  session: WorkbenchSessionSnapshot
-): WorkbenchEnvironmentLogKind {
-  if (session.diagnostic?.code === 'plc_connection_failed') return 'plc-sim'
-  if (session.phase === 'failed' || session.edgeRuntime.phase === 'failed') return 'os'
-  return 'workspace-backend'
 }
 
 function overviewIcon(tone: EnvironmentOverview['tone']): string {
@@ -1204,17 +978,6 @@ function showRuntimeInstallationStatus(
   return !['ready', 'external', 'unavailable'].includes(snapshot.phase)
 }
 
-function agentStatusMessage(
-  agent: WorkbenchSessionSnapshot['agent']
-): string {
-  if (!agent) return '仅在需要工作区自动化助手时启动。'
-  if (agent.diagnostic) return agent.diagnostic
-  if (agent.phase === 'starting') return '正在启动工作区助手…'
-  if (agent.phase === 'stopping') return '正在停止工作区助手…'
-  if (agent.phase === 'ready') return '工作区助手已就绪。'
-  return '工作区助手启动失败；请查看助手日志。'
-}
-
 function runtimeInstallationMessage(
   snapshot: ManagedRuntimeInstallationSnapshot
 ): string {
@@ -1228,38 +991,4 @@ function runtimeInstallationMessage(
   if (snapshot.phase === 'not-installed') return '尚未检测到本地调试组件。'
   if (snapshot.phase === 'failed') return '调试组件安装或检查失败。'
   return '当前入口不提供本机组件安装能力。'
-}
-
-function pendingRemoteSnapshot(): WorkbenchRemoteAccessSnapshot {
-  return {
-    phase: 'starting',
-    origin: null,
-    accessUrl: null,
-    pid: null,
-    generation: null,
-    expiresAt: null,
-    error: null
-  }
-}
-
-function failedRemoteSnapshot(error: unknown): WorkbenchRemoteAccessSnapshot {
-  return {
-    ...pendingRemoteSnapshot(),
-    phase: 'failed',
-    error: error instanceof Error ? error.message : String(error)
-  }
-}
-
-function remoteAccessMessage(snapshot: WorkbenchRemoteAccessSnapshot): string {
-  if (snapshot.phase === 'ready') return '远程浏览器正在共享当前工作台会话。'
-  if (snapshot.phase === 'starting') return '正在建立安全访问链接…'
-  if (snapshot.phase === 'stopping') return '正在撤销访问链接…'
-  if (snapshot.phase === 'failed') return '远程访问未能开启，请查看技术详情后重试。'
-  if (snapshot.phase === 'unavailable') return '当前不是受支持的桌面工作台。'
-  return '默认关闭；本地服务仅接受本机连接。'
-}
-
-function formatRemoteExpiry(expiresAt: number | null): string {
-  if (!expiresAt) return '—'
-  return new Date(expiresAt).toLocaleString()
 }

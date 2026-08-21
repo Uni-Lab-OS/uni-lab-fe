@@ -979,6 +979,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         onCancelTasksAndConnectionModeChange={
           this.cancelTasksAndSetConnectionMode
         }
+        onOpenLog={this.openSessionLog}
         onSourceSaveHandlerChange={this.registerSourceSaveHandler}
         onUnsavedChangesChange={this.setWorkflowPanelDirty}
         onPrepareAuthoritySwitchChange={
@@ -1031,6 +1032,7 @@ function WorkbenchSurface({
   onConnectionModeChange,
   onForceConnectionModeChange,
   onCancelTasksAndConnectionModeChange,
+  onOpenLog,
   onSourceSaveHandlerChange,
   onUnsavedChangesChange,
   onPrepareAuthoritySwitchChange,
@@ -1392,6 +1394,7 @@ function WorkbenchSurface({
           onCancelTasksAndConnectionModeChange={
             onCancelTasksAndConnectionModeChange
           }
+          onOpenLog={onOpenLog}
           onToggleEnvironment={() => setEnvironmentOpen(value => !value)}
         />
         {environmentOpen ? (

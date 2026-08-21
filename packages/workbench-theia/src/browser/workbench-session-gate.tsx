@@ -256,7 +256,7 @@ export function WorkbenchSessionGate({
               onClick={() => setEnvironmentOpen(value => !value)}
             >
               <span className="codicon codicon-settings-gear" aria-hidden="true" />
-              调试设置
+              环境管理
             </button>
           </div>
           <DesktopWorkspaceSwitchButton />

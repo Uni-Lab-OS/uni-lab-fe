@@ -24,13 +24,12 @@ describe('EnvironmentManager', () => {
     expect(markup).toContain('本地数据损坏')
     expect(markup).toContain('data-recommended-action="true"')
     expect(markup).toContain('重建本地数据')
-    expect(markup).toContain('查看相关日志')
+    expect(markup).not.toContain('查看相关日志')
     expect(markup).toMatch(
       /<details class="unilab-environment-section"[^>]*open=""[^>]*>[^]*?<strong>调试设置<\/strong>/u
     )
-    expect(markup).toMatch(
-      /<details class="unilab-environment-section"[^>]*open=""[^>]*>[^]*?<strong>日志<\/strong>/u
-    )
+    expect(markup).not.toContain('工具与远程访问')
+    expect(markup).not.toMatch(/<strong>日志<\/strong>/u)
   })
 
   it('keeps a ready environment concise until advanced settings are opened', () => {
@@ -54,6 +53,7 @@ describe('EnvironmentManager', () => {
     expect(markup).not.toContain('本地调试服务')
     expect(markup).toContain('PLC 模拟器')
     expect(markup).toContain('可选')
+    expect(markup).not.toContain('PLC-Sim 维修')
     expect(markup).not.toContain('Workspace 服务')
     expect(markup).not.toContain('本地执行服务')
     expect(markup).not.toContain('PLC 与设备')
