@@ -345,6 +345,58 @@ test.describe('UniLab Workbench real-system contract', () => {
     await expect(separator).toHaveAttribute('aria-valuenow', '60')
   })
 
+  test('pauses workflow and device runtime reads on hidden Desktop surfaces', async ({
+    page
+  }) => {
+    test.setTimeout(90_000)
+    const apiRequests: string[] = []
+    const pageErrors: string[] = []
+    page.on('request', request => {
+      const path = desktopApiPath(request.url())
+      if (path) apiRequests.push(path)
+    })
+    page.on('pageerror', error => pageErrors.push(error.message))
+
+    await page.goto(workbenchUrl!)
+    await expect(page.locator('[data-package-mount-count="1"]')).toBeVisible()
+    await page.locator('.workflow-runtime__catalog-card-main').first().click()
+    await expect(page.locator('.persistent-authoring__canvas')).toBeVisible()
+    await page.waitForTimeout(5_000)
+
+    apiRequests.length = 0
+    await page.waitForTimeout(12_000)
+    expect(apiRequests.filter(isWorkflowRuntimePath)).toEqual([])
+
+    await page.locator(
+      '[id="shell-tab-unilab:device-management-navigation"]'
+    ).click()
+    await expect(page.locator('main[data-workbench-view]')).toHaveAttribute(
+      'data-workbench-view',
+      'device'
+    )
+    await page.waitForTimeout(1_000)
+    expect(apiRequests.filter(isActionCatalogPath)).toEqual([])
+
+    apiRequests.length = 0
+    await page.waitForTimeout(12_000)
+    expect(apiRequests.filter(isWorkflowRuntimePath)).toEqual([])
+
+    await page.locator(
+      '[id="shell-tab-unilab:workbench-navigator"]'
+    ).click()
+    await expect(page.locator('main[data-workbench-view]')).toHaveAttribute(
+      'data-workbench-view',
+      'workflow'
+    )
+    await page.waitForTimeout(1_000)
+
+    apiRequests.length = 0
+    await page.waitForTimeout(12_000)
+    expect(apiRequests.filter(isDeviceHeavyPath)).toEqual([])
+    expect(apiRequests.filter(isWorkflowRuntimePath)).toEqual([])
+    expect(pageErrors).toEqual([])
+  })
+
   test('keeps material overlays behind the Agent panel', async ({ page }) => {
     await page.setViewportSize({ width: 1630, height: 1090 })
     await page.goto(workbenchUrl!)
@@ -612,3 +664,24 @@ test.describe('UniLab Workbench real-system contract', () => {
     )).toHaveCount(1)
   })
 })
+
+function desktopApiPath(requestUrl: string): string | null {
+  const url = new URL(requestUrl)
+  const path = url.pathname.replace(/^\/__unilab_(?:local|backend)/u, '')
+  return path.startsWith('/api/v1/') ? `${path}${url.search}` : null
+}
+
+function isWorkflowRuntimePath(path: string): boolean {
+  return path.includes('/workflow-tasks') ||
+    path.includes('/workflow-node-jobs')
+}
+
+function isActionCatalogPath(path: string): boolean {
+  return path.startsWith('/api/v1/workflow-node-templates')
+}
+
+function isDeviceHeavyPath(path: string): boolean {
+  return path === '/api/v1/devices' ||
+    path === '/api/v1/actions' ||
+    isActionCatalogPath(path)
+}

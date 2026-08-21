@@ -1243,6 +1243,7 @@ function WorkbenchSurface({
         backend={deviceBackend}
         backendEnabled={Boolean(selectedTarget.backend.apiUrl)}
         connection={deviceConnection}
+        active={viewMode === 'device' || viewMode === 'device-material'}
       />
     </section>
   )
@@ -1259,6 +1260,7 @@ function WorkbenchSurface({
             backend={deviceBackend}
             backendEnabled={Boolean(selectedTarget.backend.apiUrl)}
             connection={deviceConnection}
+            active={viewMode === 'robot-debug'}
           />
         ) : undefined}
         pointStatus={workstationData.pointStatus}

@@ -135,6 +135,7 @@ export default function WorkflowPanel({
       <PersistentWorkflowAuthoringPanel
         key={`${workflowUuid}:${definitionAuthority}`}
         runtime={runtime}
+        active={active}
         definitionAuthority={definitionAuthority}
         definitionEditingStatus={authoringStatus}
         workflowUuid={workflowUuid}

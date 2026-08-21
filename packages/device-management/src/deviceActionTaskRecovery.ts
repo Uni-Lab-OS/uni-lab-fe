@@ -26,11 +26,13 @@ interface DeviceActionTaskRecoveryOptions {
   environment?: DeviceActionTaskRecoveryEnvironment
   pollIntervalMs?: number
   maxBackoffMs?: number
+  fallbackDelaysMs?: readonly number[]
 }
 
 interface ActiveTaskState {
   task: ActiveDeviceActionTask
   retryDelayMs: number
+  fallbackDelayIndex: number
   timer: ReturnType<typeof globalThis.setTimeout> | null
   inFlight: Promise<void> | null
 }
@@ -56,7 +58,7 @@ export function shouldRecoverActiveDeviceActionTask(
  *
  * @param options 活动任务、事件订阅、权威 REST 补读与浏览器环境端口。
  * @returns 可幂等释放的协调器句柄。
- * @safety SSE 仅触发失效补读；低频 REST watchdog 覆盖通知丢失，任务终态始终由 REST 投影判定。
+ * @safety SSE 在线时仅按失效事件补读；断线时启用 REST watchdog，任务终态始终由 REST 投影判定。
  */
 export function startDeviceActionTaskRecovery(
   options: DeviceActionTaskRecoveryOptions
@@ -70,15 +72,20 @@ export function startDeviceActionTaskRecovery(
     pollIntervalMs,
     options.maxBackoffMs ?? DEFAULT_MAX_BACKOFF_MS
   )
+  const fallbackDelaysMs = options.fallbackDelaysMs?.length
+    ? options.fallbackDelaysMs.map((delay) => Math.max(1, delay))
+    : null
   const active = new Map<string, ActiveTaskState>(
     options.tasks.map((task) => [task.taskUuid, {
       task,
       retryDelayMs: pollIntervalMs,
+      fallbackDelayIndex: 0,
       timer: null,
       inFlight: null
     }])
   )
   let disposed = false
+  let realtimeLive = false
 
   const clearTimer = (state: ActiveTaskState): void => {
     if (state.timer !== null) globalThis.clearTimeout(state.timer)
@@ -91,12 +98,20 @@ export function startDeviceActionTaskRecovery(
       state.timer !== null ||
       state.inFlight !== null ||
       !active.has(state.task.taskUuid) ||
+      realtimeLive ||
       !environment.isVisible()
     ) return
+    const delay = fallbackDelaysMs
+      ? fallbackDelaysMs[Math.min(
+          state.fallbackDelayIndex,
+          fallbackDelaysMs.length - 1
+        )]
+      : state.retryDelayMs
     state.timer = globalThis.setTimeout(() => {
       state.timer = null
+      if (fallbackDelaysMs) state.fallbackDelayIndex += 1
       requestRead(state)
-    }, state.retryDelayMs)
+    }, delay)
   }
 
   const requestRead = (state: ActiveTaskState): void => {
@@ -108,17 +123,19 @@ export function startDeviceActionTaskRecovery(
     clearTimer(state)
     state.inFlight = options.read(state.task)
       .then((terminal) => {
-        state.retryDelayMs = pollIntervalMs
+        if (!fallbackDelaysMs) state.retryDelayMs = pollIntervalMs
         if (terminal) {
           active.delete(state.task.taskUuid)
           clearTimer(state)
         }
       })
       .catch((error: unknown) => {
-        state.retryDelayMs = Math.min(
-          Math.max(pollIntervalMs, state.retryDelayMs * 2),
-          maxBackoffMs
-        )
+        if (!fallbackDelaysMs) {
+          state.retryDelayMs = Math.min(
+            Math.max(pollIntervalMs, state.retryDelayMs * 2),
+            maxBackoffMs
+          )
+        }
         options.onError?.(state.task, error)
       })
       .finally(() => {
@@ -153,12 +170,19 @@ export function startDeviceActionTaskRecovery(
         },
         {
           onOpen: () => {
+            realtimeLive = true
+            pausePolling()
             rehydrateAll()
           },
           onError: (error) => {
+            realtimeLive = false
             const firstActiveTask = active.values().next().value?.task
             if (firstActiveTask) options.onError?.(firstActiveTask, error)
-            for (const state of active.values()) schedule(state)
+            for (const state of active.values()) {
+              state.fallbackDelayIndex = 0
+              state.retryDelayMs = pollIntervalMs
+              schedule(state)
+            }
           }
         }
       )

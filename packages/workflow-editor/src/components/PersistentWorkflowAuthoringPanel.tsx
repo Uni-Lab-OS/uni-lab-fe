@@ -27,6 +27,7 @@ export type {
 
 interface PersistentWorkflowAuthoringPanelProps {
   runtime: WorkflowRuntimePort
+  active?: boolean
   definitionAuthority?: WorkflowDefinitionAuthority
   definitionEditingStatus?: CapabilityStatus
   workflowUuid: string
