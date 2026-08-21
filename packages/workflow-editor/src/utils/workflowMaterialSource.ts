@@ -468,34 +468,164 @@ function sharedSourceMovementAction(
   sourceNodeUuid: string
 ): string | null {
   const movementActions = new Set(['pick', 'place', 'transfer_resource'])
-  const handleTypeByUuid = new Map(
-    graph.handle_templates.map((handle) => [
-      String(handle.uuid || ''),
-      String(handle.type || '')
-    ])
-  )
+  const handleByUuid = new Map(graph.handle_templates.map((handle) => [
+    String(handle.uuid || ''),
+    handle
+  ]))
   const nodeByUuid = new Map(
     graph.nodes.map((node) => [String(node.uuid || ''), node])
   )
-  const pending = [sourceNodeUuid]
+  const compositeSourceBridges = materialCompositeSourceBridges(graph)
+  const pending: Array<{ nodeUuid: string; handleUuid: string }> = []
+  const enqueueOutgoing = (nodeUuid: string, handleUuid: string): void => {
+    if (String(handleByUuid.get(handleUuid)?.type || '') !== 'ResourceSlot') return
+    const sourceEndpoints = [
+      { nodeUuid, handleUuid },
+      ...(compositeSourceBridges.get(`${nodeUuid}:${handleUuid}`) ?? [])
+    ]
+    for (const source of sourceEndpoints) {
+      for (const edge of graph.edges) {
+        if (
+          String(edge.source_node_uuid || '') !== source.nodeUuid ||
+          String(edge.source_handle_uuid || '') !== source.handleUuid
+        ) continue
+        pending.push({
+          nodeUuid: String(edge.target_node_uuid || ''),
+          handleUuid: String(edge.target_handle_uuid || '')
+        })
+      }
+    }
+  }
+  for (const edge of graph.edges) {
+    if (String(edge.source_node_uuid || '') !== sourceNodeUuid) continue
+    enqueueOutgoing(sourceNodeUuid, String(edge.source_handle_uuid || ''))
+  }
   const visited = new Set<string>()
   while (pending.length > 0) {
     const current = pending.shift()
-    if (!current || visited.has(current)) continue
-    visited.add(current)
-    for (const edge of graph.edges) {
-      if (String(edge.source_node_uuid || '') !== current) continue
-      if (
-        handleTypeByUuid.get(String(edge.source_handle_uuid || '')) !== 'ResourceSlot' ||
-        handleTypeByUuid.get(String(edge.target_handle_uuid || '')) !== 'ResourceSlot'
-      ) continue
-      const targetUuid = String(edge.target_node_uuid || '')
-      const actionName = String(nodeByUuid.get(targetUuid)?.action_name || '')
-      if (movementActions.has(actionName)) return actionName
-      if (!visited.has(targetUuid)) pending.push(targetUuid)
+    if (!current) continue
+    const currentIdentity = `${current.nodeUuid}:${current.handleUuid}`
+    if (visited.has(currentIdentity)) continue
+    visited.add(currentIdentity)
+    if (String(handleByUuid.get(current.handleUuid)?.type || '') !== 'ResourceSlot') {
+      continue
     }
+    const targetNode = nodeByUuid.get(current.nodeUuid)
+    const actionName = String(targetNode?.action_name || '')
+    if (movementActions.has(actionName)) return actionName
+    if (!targetNode) continue
+    pending.push(...materialCompositeTargetArrivals(
+      targetNode,
+      current.handleUuid,
+      handleByUuid
+    ))
+    for (const handleUuid of materialPassThroughSourceHandles(
+      graph,
+      targetNode,
+      current.handleUuid,
+      handleByUuid
+    )) enqueueOutgoing(current.nodeUuid, handleUuid)
   }
   return null
+}
+
+/** 把复合工作流外部物料输入映射到其冻结子图中的真实输入。 */
+function materialCompositeTargetArrivals(
+  node: WorkflowAuthoringGraph['nodes'][number],
+  targetHandleUuid: string,
+  handleByUuid: Map<string, WorkflowAuthoringGraph['handle_templates'][number]>
+): Array<{ nodeUuid: string; handleUuid: string }> {
+  const unilab = nestedRecord(node.meta_data, 'unilab')
+  const composite = nestedRecord(unilab, 'composite')
+  const targetMappings = nestedRecord(composite, 'target_mappings')
+  const mappings = targetMappings?.[targetHandleUuid]
+  if (!Array.isArray(mappings)) return []
+  return mappings.flatMap((value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+    const mapping = value as Record<string, unknown>
+    const nodeUuid = String(mapping.workflow_node_uuid || '')
+    const handleUuid = String(mapping.target_handle_uuid || '')
+    if (
+      !nodeUuid ||
+      handleByUuid.get(handleUuid)?.io_type !== 'target' ||
+      handleByUuid.get(handleUuid)?.type !== 'ResourceSlot'
+    ) return []
+    return [{ nodeUuid, handleUuid }]
+  })
+}
+
+/** 建立冻结子图物料输出到复合工作流外部输出的反向桥接索引。 */
+function materialCompositeSourceBridges(
+  graph: WorkflowAuthoringGraph
+): Map<string, Array<{ nodeUuid: string; handleUuid: string }>> {
+  const bridges = new Map<
+    string,
+    Array<{ nodeUuid: string; handleUuid: string }>
+  >()
+  for (const node of graph.nodes) {
+    const unilab = nestedRecord(node.meta_data, 'unilab')
+    const composite = nestedRecord(unilab, 'composite')
+    const sourceMappings = nestedRecord(composite, 'source_mappings')
+    for (const [outputHandleUuid, value] of Object.entries(sourceMappings ?? {})) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) continue
+      const mapping = value as Record<string, unknown>
+      if (mapping.kind !== 'node_output') continue
+      const childNodeUuid = String(mapping.workflow_node_uuid || '')
+      const childHandleUuid = String(mapping.source_handle_uuid || '')
+      if (!childNodeUuid || !childHandleUuid) continue
+      const key = `${childNodeUuid}:${childHandleUuid}`
+      const endpoints = bridges.get(key) ?? []
+      endpoints.push({
+        nodeUuid: String(node.uuid || ''),
+        handleUuid: outputHandleUuid
+      })
+      bridges.set(key, endpoints)
+    }
+  }
+  return bridges
+}
+
+/**
+ * 解析一个动作输入所对应的同一物料输出，避免把多物料动作的其他输出串入血缘。
+ */
+function materialPassThroughSourceHandles(
+  graph: WorkflowAuthoringGraph,
+  node: WorkflowAuthoringGraph['nodes'][number],
+  targetHandleUuid: string,
+  handleByUuid: Map<string, WorkflowAuthoringGraph['handle_templates'][number]>
+): string[] {
+  const unilab = nestedRecord(node.meta_data, 'unilab')
+  const mappings = nestedRecord(unilab, 'material_passthrough_handles')
+  const explicit = Object.entries(mappings ?? {})
+    .filter(([, inputHandleUuid]) => inputHandleUuid === targetHandleUuid)
+    .map(([outputHandleUuid]) => outputHandleUuid)
+    .filter((outputHandleUuid) => {
+      const handle = handleByUuid.get(outputHandleUuid)
+      return handle?.io_type === 'source' && handle.type === 'ResourceSlot'
+    })
+  if (explicit.length > 0) return explicit
+
+  const target = handleByUuid.get(targetHandleUuid)
+  if (!target) return []
+  return graph.handle_templates
+    .filter((handle) =>
+      handle.workflow_node_template_uuid === node.workflow_node_template_uuid &&
+      handle.io_type === 'source' &&
+      handle.type === 'ResourceSlot' &&
+      handle.handle_key === target.handle_key
+    )
+    .map((handle) => String(handle.uuid || ''))
+    .filter(Boolean)
+}
+
+function nestedRecord(
+  value: unknown,
+  key: string
+): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const nested = (value as Record<string, unknown>)[key]
+  if (!nested || typeof nested !== 'object' || Array.isArray(nested)) return null
+  return nested as Record<string, unknown>
 }
 
 function recordValue(value: unknown, label: string): Record<string, unknown> {
