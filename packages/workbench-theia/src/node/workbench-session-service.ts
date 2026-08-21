@@ -183,8 +183,11 @@ implements WorkbenchSessionServer, BackendApplicationContribution {
     return this.session.readEnvironmentLog(kind, maxBytes)
   }
 
-  configureGraph(graphPath: string) {
-    return this.session.configureGraph(graphPath)
+  configureGraph(
+    graphPath: Parameters<WorkbenchSession['configureGraph']>[0],
+    options?: Parameters<WorkbenchSession['configureGraph']>[1]
+  ) {
+    return this.session.configureGraph(graphPath, options)
   }
 
   setExternalDevicesOnly(enabled: boolean) {

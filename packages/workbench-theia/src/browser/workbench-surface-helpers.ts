@@ -70,7 +70,10 @@ export interface WorkbenchSurfaceProps {
   onResetWorkflowEnvironment: (backendUrl: string) => Promise<void>
   onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>
   onOpenLog: (path: string) => Promise<void>
-  onConfigureGraph: (graphPath: string) => Promise<void>
+  onConfigureGraph: (
+    graphPath: string,
+    options?: { applyNow?: boolean }
+  ) => Promise<void>
   onSetExternalDevicesOnly: (enabled: boolean) => Promise<void>
   onConfigurePlcSimulator: (
     configuration: WorkbenchPlcSimulatorConfiguration

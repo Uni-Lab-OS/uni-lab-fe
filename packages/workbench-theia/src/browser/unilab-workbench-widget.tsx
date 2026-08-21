@@ -426,9 +426,12 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     }
   }
 
-  protected readonly configureGraph = async (graphPath: string): Promise<void> => {
+  protected readonly configureGraph = async (
+    graphPath: string,
+    options?: { applyNow?: boolean }
+  ): Promise<void> => {
     try {
-      await this.workbenchSession.configureGraph(graphPath)
+      await this.workbenchSession.configureGraph(graphPath, options)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       void this.messages.error(`设备图配置失败：${message}`)

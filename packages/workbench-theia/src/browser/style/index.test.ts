@@ -90,17 +90,17 @@ describe('environment manager layering and responsive layout', () => {
     expect(rule).toMatch(/inset 3px 0 0 var\(--unilab-color-primary\)/u)
   })
 
-  it('keeps OS actions in a left-to-right flow while preserving their visual hierarchy', () => {
-    const primary = cssRule('.unilab-environment-card__actions button.is-primary')
-    const port = cssRule('.unilab-environment-card__actions button.is-port-action')
+  it('keeps recommended and destructive actions visually distinct', () => {
+    const primary = cssRule('.unilab-environment-manager button.is-primary')
+    const danger = cssRule('.unilab-environment-manager button.is-danger')
 
     expect(primary).toMatch(/background:\s*var\(--unilab-color-primary\)/u)
-    expect(port).not.toMatch(/margin-left:\s*auto/u)
-    expect(port).toMatch(/border-style:\s*dashed/u)
+    expect(danger).toMatch(/color:\s*var\(--unilab-color-danger\)/u)
+    expect(danger).toMatch(/background:\s*var\(--unilab-color-danger-soft\)/u)
   })
 
   it('shows complete paths instead of silently truncating runtime facts', () => {
-    const rule = cssRule('.unilab-environment-card dd')
+    const rule = cssRule('.unilab-environment-technical dd')
 
     expect(rule).toMatch(/overflow-wrap:\s*anywhere/u)
     expect(rule).toMatch(/white-space:\s*normal/u)

@@ -241,12 +241,17 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
     return await this.readHostLog(component, maxBytes)
   }
 
-  async configureGraph(graphPath: string): Promise<WorkbenchSessionSnapshot> {
+  async configureGraph(
+    graphPath: string,
+    options: { applyNow?: boolean } = {}
+  ): Promise<WorkbenchSessionSnapshot> {
     const wasBackendReady = this.host?.components.backend.phase === 'ready'
     const wasEdgeReady = this.host?.components.edge.phase === 'ready'
     await this.updateConfiguration({ graphPath })
-    if (wasBackendReady) await this.run('local.reset-state')
-    if (wasEdgeReady) await this.run('os.start')
+    if (options.applyNow !== false) {
+      if (wasBackendReady) await this.run('local.reset-state')
+      if (wasEdgeReady) await this.run('os.start')
+    }
     return this.getSnapshot()
   }
 

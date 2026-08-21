@@ -5,6 +5,7 @@ import type {
 import * as React from 'react'
 
 import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
+import { localEnvironmentTone } from './environment-manager-model'
 import type {
   WorkbenchConnectionMode,
   WorkbenchConnectionTargets
@@ -76,14 +77,15 @@ export function WorkbenchHeader({
   onReadEnvironmentLog,
   onOpenLog
 }: WorkbenchHeaderProps): React.JSX.Element {
+  const environmentTone = localEnvironmentTone(session)
+  const environmentLabel = localEnvironmentStatusLabel(environmentTone)
+  const runtimeMode = session.edgeRuntime.mode ?? session.configuredRuntimeMode
   return (
     <header className="unilab-workbench__bar">
       <div className="unilab-workbench__identity">
         <strong>Unilab 调试工作台</strong>
         <span>
-          {session.identity
-            ? `Workspace Backend PID ${session.identity.pid} · ${session.identity.mode} · ${session.identity.backendUrl}`
-            : 'Workspace Backend 尚未启动'}
+          {environmentLabel} · {runtimeMode === 'dry-run' ? '模拟运行' : '真实运行'}
         </span>
         <span className="unilab-workbench__view-mode">
           {workbenchViewLabel(viewMode)}
@@ -116,17 +118,27 @@ export function WorkbenchHeader({
           <button
             className={environmentOpen ? 'is-active' : ''}
             aria-expanded={environmentOpen}
+            aria-label={`本地运行与诊断：${environmentLabel}`}
             onClick={onToggleEnvironment}
           >
             <span
-              className={`unilab-environment-trigger__status is-${session.phase}`}
+              className={`unilab-environment-trigger__status is-${environmentTone}`}
               aria-hidden="true"
             />
-            环境管理
+            本地运行
           </button>
           <DesktopWorkspaceSwitchButton />
         </nav>
       </div>
     </header>
   )
+}
+
+function localEnvironmentStatusLabel(
+  tone: ReturnType<typeof localEnvironmentTone>
+): string {
+  if (tone === 'ready') return '本地环境可运行'
+  if (tone === 'attention') return '本地环境需要处理'
+  if (tone === 'busy') return '正在准备本地环境'
+  return '本地环境尚未启动'
 }

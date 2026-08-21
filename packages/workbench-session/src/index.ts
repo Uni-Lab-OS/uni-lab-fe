@@ -107,6 +107,11 @@ export interface WorkbenchPlcSimulatorConfiguration {
   handshakeProfile: WorkbenchPlcHandshakeProfile
 }
 
+export interface WorkbenchConfigureGraphOptions {
+  /** 立即重建本地数据并重新启动正在运行的 OS；省略时保持既有行为。 */
+  applyNow?: boolean
+}
+
 export type WorkbenchPlcSimulatorPhase =
   | 'idle'
   | 'validating'
@@ -242,7 +247,10 @@ export interface WorkbenchSession {
     kind: WorkbenchEnvironmentLogKind,
     maxBytes?: number
   ): Promise<string>
-  configureGraph(graphPath: string): Promise<WorkbenchSessionSnapshot>
+  configureGraph(
+    graphPath: string,
+    options?: WorkbenchConfigureGraphOptions
+  ): Promise<WorkbenchSessionSnapshot>
   setExternalDevicesOnly(enabled: boolean): Promise<WorkbenchSessionSnapshot>
   configurePlcSimulator(
     configuration: string | WorkbenchPlcSimulatorConfiguration

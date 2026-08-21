@@ -189,6 +189,19 @@ describe('Workspace Host Workbench adapter', () => {
     })
     expect(dryRun.configuredRuntimeMode).toBe('dry-run')
 
+    const commandsBeforeGraphSave = receivedCommands.length
+    const graphSaved = await session.configureGraph(
+      'deployment/graphs/next.json',
+      { applyNow: false }
+    )
+    expect(receivedCommands.slice(commandsBeforeGraphSave)).toEqual([
+      'configuration.update'
+    ])
+    expect(receivedParameters.get('configuration.update')).toEqual({
+      graphPath: 'deployment/graphs/next.json'
+    })
+    expect(graphSaved.configuredGraphPath).toBe('deployment/graphs/next.json')
+
     await expect(session.inspectReleaseTarget('http://192.168.1.20:9000'))
       .resolves.toEqual({
         targetAddress: 'http://192.168.1.20:9000',

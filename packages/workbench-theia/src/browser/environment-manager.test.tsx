@@ -9,17 +9,40 @@ import {
   ExternalDevicesOnlyControl,
   RuntimeModeControl
 } from './environment-manager'
+import {
+  deriveEnvironmentOverview,
+  localEnvironmentTone
+} from './environment-manager-model'
 
 describe('EnvironmentManager', () => {
-  it('keeps local data recovery available when Workspace Backend has failed', () => {
+  it('turns a local failure into one recommended recovery action', () => {
     const markup = renderToStaticMarkup(
       <EnvironmentManager {...environmentManagerProps(failedSession())} />
     )
 
-    expect(markup).toContain(
-      '<button type="button">重建本地数据</button>'
-    )
+    expect(markup).toContain('本地环境需要处理')
     expect(markup).toContain('本地数据损坏')
+    expect(markup).toContain('data-recommended-action="true"')
+    expect(markup).toContain('重建本地数据')
+    expect(markup).toContain('查看相关日志')
+    expect(markup).toMatch(
+      /<details class="unilab-environment-section"[^>]*open=""[^>]*>[^]*?<strong>本地执行<\/strong>/u
+    )
+    expect(markup).toMatch(
+      /<details class="unilab-environment-section"[^>]*open=""[^>]*>[^]*?<strong>诊断日志<\/strong>/u
+    )
+  })
+
+  it('keeps a ready environment concise until advanced settings are opened', () => {
+    const markup = renderToStaticMarkup(
+      <EnvironmentManager {...environmentManagerProps(readySession())} />
+    )
+
+    expect(markup).toContain('本地环境可运行')
+    expect(markup).toContain('真实运行 · 会向设备下发动作')
+    expect(markup).not.toContain('data-recommended-action="true"')
+    expect(markup).not.toContain('open=""')
+    expect(markup).toContain('高级设置与诊断')
   })
 
   it('keeps publication and Scheduler addressing out of environment controls', () => {
@@ -46,24 +69,44 @@ describe('ExternalDevicesOnlyControl', () => {
 
     expect(markup).toContain('type="checkbox"')
     expect(markup).toContain('checked=""')
-    expect(markup).toContain('仅加载外部设备包')
-    expect(markup).toContain('同时加载 OS 内置 Registry')
+    expect(markup).toContain('只使用工作区设备包')
+    expect(markup).toContain('关闭后还会加载 OS 内置设备目录')
   })
 })
 
 describe('describeEnvironmentOperationError', () => {
   it('keeps unexpected errors available for diagnosis', () => {
     expect(describeEnvironmentOperationError('restart-os', '端口被占用')).toEqual({
-      title: '环境操作失败',
-      message: '端口被占用'
+      title: '本地执行未能启动',
+      message: '请查看当前诊断和本地执行日志；若端口被占用，再使用维修操作。',
+      technicalDetail: '端口被占用'
+    })
+  })
+})
+
+describe('environment overview', () => {
+  it('derives one task-facing result from the component graph', () => {
+    const failed = failedSession()
+    expect(localEnvironmentTone(failed)).toBe('attention')
+    expect(deriveEnvironmentOverview(failed, null)).toMatchObject({
+      title: '本地环境需要处理',
+      recommendedAction: 'rebuild-local-data',
+      recommendedActionLabel: '重建本地数据',
+      logKind: 'os'
+    })
+
+    expect(deriveEnvironmentOverview(readySession(), null)).toMatchObject({
+      tone: 'ready',
+      title: '本地环境可运行',
+      recommendedAction: null
     })
   })
 })
 
 describe('RuntimeModeControl', () => {
   it.each([
-    ['normal', '正常运行', 'Dry-run'],
-    ['dry-run', 'Dry-run', '正常运行']
+    ['normal', '真实运行', '模拟运行'],
+    ['dry-run', '模拟运行', '真实运行']
   ] as const)('exposes %s as the unambiguous selected mode', (
     mode,
     selectedLabel,
@@ -126,6 +169,45 @@ function failedSession(): WorkbenchSessionSnapshot {
       opcUaUrl: '',
       logPath: '',
       diagnostic: null
+    }
+  }
+}
+
+function readySession(): WorkbenchSessionSnapshot {
+  const session = failedSession()
+  return {
+    ...session,
+    phase: 'ready',
+    message: 'Workspace 服务已就绪',
+    identity: {
+      workspacePath: '/workspace',
+      osProjectPath: '/os',
+      osRuntimeSource: 'checkout',
+      environmentPath: '/python',
+      graphPath: '/workspace/deployment/graphs/fixture.json',
+      graphFingerprint: 'fixture',
+      mode: 'normal',
+      pid: 41,
+      generation: 'generation',
+      backendUrl: 'http://127.0.0.1:18103',
+      logPath: '/workspace/.unilabos/logs/workbench/os.log',
+      packageMounts: {
+        schemaVersion: 'workspace-package-mounts/v1',
+        editablePackageId: 'fixture',
+        dependencyRevision: 'dependencies',
+        catalogRevision: 'catalog',
+        mountRevision: 'mounts',
+        items: []
+      },
+      agent: null
+    },
+    diagnostic: null,
+    edgeRuntime: {
+      ...session.edgeRuntime,
+      phase: 'ready',
+      message: '本地执行已就绪',
+      pid: 42,
+      generation: 'edge-generation'
     }
   }
 }

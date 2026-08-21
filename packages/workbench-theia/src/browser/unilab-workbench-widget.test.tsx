@@ -118,7 +118,7 @@ describe('WorkbenchSessionGate', () => {
         )}
         onOpenLog={vi.fn()}
         renderEnvironmentManager={onClose => (
-          <section aria-label="环境管理">
+          <section aria-label="本地运行与诊断">
             <button onClick={onClose}>关闭</button>
             <button>启动 PLC-Sim</button>
           </section>
@@ -126,11 +126,13 @@ describe('WorkbenchSessionGate', () => {
       />
     )
 
-    expect(markup).toContain('环境管理')
+    expect(markup).toContain('本地运行与诊断')
+    expect(markup).toContain('<summary>技术详情</summary>')
     expect(markup).toContain('启动 PLC-Sim')
     expect(markup).toContain('PLC 连接失败')
     expect(markup).toContain('无法解析 PLC 的 OPC UA 主机名')
     expect(markup).toContain('建议：')
+    expect(markup).toContain('<summary>技术信息</summary>')
     expect(markup).toContain('诊断代码：plc_connection_failed')
     expect(markup).toContain('unilab-workbench-session-actions')
     expect(markup).toContain('class="is-primary"')

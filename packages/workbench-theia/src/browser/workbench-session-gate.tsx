@@ -186,33 +186,36 @@ export function WorkbenchSessionGate({
         <p>{snapshot.message}</p>
         {connectionSelector}
         {snapshot.identity ? (
-          <dl>
-            <dt>Workspace</dt>
-            <dd>{snapshot.identity.workspacePath}</dd>
-            <dt>OS PID</dt>
-            <dd>{snapshot.identity.pid || '—'}</dd>
-            <dt>Generation</dt>
-            <dd>{snapshot.identity.generation}</dd>
-            <dt>Backend</dt>
-            <dd>{snapshot.identity.backendUrl}</dd>
-            <div className="unilab-workbench-session-log">
-              <dt>Log</dt>
-              <dd>
-                {onOpenLog ? (
-                  <button
-                    type="button"
-                    title="在编辑器中打开日志文件；再次点击关闭"
-                    onClick={() => void run(
-                      () => onOpenLog(snapshot.identity?.logPath ?? '')
-                    )}
-                  >
-                    <span className="codicon codicon-go-to-file" aria-hidden="true" />
-                    <span>{snapshot.identity.logPath}</span>
-                  </button>
-                ) : snapshot.identity.logPath}
-              </dd>
-            </div>
-          </dl>
+          <details className="unilab-workbench-session-technical">
+            <summary>技术详情</summary>
+            <dl>
+              <dt>Workspace</dt>
+              <dd>{snapshot.identity.workspacePath}</dd>
+              <dt>OS PID</dt>
+              <dd>{snapshot.identity.pid || '—'}</dd>
+              <dt>Generation</dt>
+              <dd>{snapshot.identity.generation}</dd>
+              <dt>Backend</dt>
+              <dd>{snapshot.identity.backendUrl}</dd>
+              <div className="unilab-workbench-session-log">
+                <dt>Log</dt>
+                <dd>
+                  {onOpenLog ? (
+                    <button
+                      type="button"
+                      title="在编辑器中打开日志文件；再次点击关闭"
+                      onClick={() => void run(
+                        () => onOpenLog(snapshot.identity?.logPath ?? '')
+                      )}
+                    >
+                      <span className="codicon codicon-go-to-file" aria-hidden="true" />
+                      <span>{snapshot.identity.logPath}</span>
+                    </button>
+                  ) : snapshot.identity.logPath}
+                </dd>
+              </div>
+            </dl>
+          </details>
         ) : null}
         {snapshot.diagnostic ? (
           <div className="unilab-workbench-session-diagnostic" role="alert">
@@ -222,7 +225,10 @@ export function WorkbenchSessionGate({
               <span>建议：</span>
               {snapshot.diagnostic.recovery}
             </p>
-            <code>诊断代码：{snapshot.diagnostic.code}</code>
+            <details className="unilab-workbench-session-diagnostic__technical">
+              <summary>技术信息</summary>
+              <code>诊断代码：{snapshot.diagnostic.code}</code>
+            </details>
           </div>
         ) : null}
         {operationError ? (
@@ -260,7 +266,7 @@ export function WorkbenchSessionGate({
               onClick={() => setEnvironmentOpen(value => !value)}
             >
               <span className="codicon codicon-settings-gear" aria-hidden="true" />
-              环境管理
+              本地运行与诊断
             </button>
             {onReadEnvironmentLog ? (
               <WorkbenchRuntimeLogLauncher

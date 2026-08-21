@@ -6,10 +6,16 @@ import type {
   WorkbenchSessionSnapshot
 } from '@unilab/workbench-session'
 import * as React from 'react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
 import { createPortal } from 'react-dom'
 
-import { captureWorkbenchUiOperation } from './workbench-session-gate'
 import {
   desktopWorkbenchRemoteApi,
   type DesktopWorkbenchRemoteApi,
@@ -20,6 +26,22 @@ import {
   UNAVAILABLE_MANAGED_RUNTIME,
   type ManagedRuntimeInstallationSnapshot
 } from './desktop-managed-runtime'
+import {
+  deriveEnvironmentOverview,
+  describeEnvironmentOperationError,
+  environmentOperationSuccess,
+  environmentPhaseLabel,
+  type EnvironmentOperationError,
+  type EnvironmentOverview,
+  type EnvironmentRecommendedAction
+} from './environment-manager-model'
+
+export {
+  describeEnvironmentOperationError
+} from './environment-manager-model'
+export type {
+  EnvironmentOperationError
+} from './environment-manager-model'
 
 export interface EnvironmentManagerProps {
   session: WorkbenchSessionSnapshot
@@ -27,7 +49,10 @@ export interface EnvironmentManagerProps {
   onRestartSession: () => Promise<void>
   onRebuildLocalData: () => Promise<void>
   onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>
-  onConfigureGraph: (graphPath: string) => Promise<void>
+  onConfigureGraph: (
+    graphPath: string,
+    options?: { applyNow?: boolean }
+  ) => Promise<void>
   onSetExternalDevicesOnly: (enabled: boolean) => Promise<void>
   onConfigurePlcSimulator: (
     configuration: WorkbenchPlcSimulatorConfiguration
@@ -43,32 +68,13 @@ export interface EnvironmentManagerProps {
   onStopSession: () => Promise<void>
 }
 
-export interface EnvironmentOperationError {
-  title: string
+type EnvironmentSectionId = 'local' | 'plc' | 'tools' | 'diagnostics'
+
+interface EnvironmentFeedback {
   message: string
-  technicalDetail?: string
 }
 
-/**
- * 将环境操作异常转换为面向操作者的恢复提示。
- *
- * @param action 正在执行的环境操作标识，用于限定错误所属的业务入口。
- * @param message 下层服务返回的原始诊断文本。
- * @returns 分离用户提示与可选技术详情的错误展示模型。
- * @throws 不抛出异常；无法分类的错误保留原始文本作为用户消息。
- * @safety 只做确定性的字符串分类，不发起请求或改变环境状态。
- */
-export function describeEnvironmentOperationError(
-  _action: string,
-  message: string
-): EnvironmentOperationError {
-  return {
-    title: '环境操作失败',
-    message
-  }
-}
-
-/** Manage the local OS, PLC simulator and Agent from one visible surface. */
+/** 管理本地执行、PLC 与诊断；运行连接切换由顶部选择器单独负责。 */
 export function EnvironmentManager({
   session,
   onClose,
@@ -92,6 +98,9 @@ export function EnvironmentManager({
   const edgeRuntime = session.edgeRuntime
   const plcSimulator = session.plcSimulator
   const agent = session.agent ?? identity?.agent ?? null
+  const dialogRef = useRef<HTMLElement>(null)
+  const dialogTitleRef = useRef<HTMLHeadingElement>(null)
+  const dialogTitleId = useId()
   const [plcProjectPath, setPlcProjectPath] = useState(plcSimulator.projectPath)
   const [plcVariableTablePath, setPlcVariableTablePath] = useState(
     plcSimulator.variableTablePath
@@ -99,15 +108,35 @@ export function EnvironmentManager({
   const [plcHandshakeProfile, setPlcHandshakeProfile] =
     useState<WorkbenchPlcHandshakeProfile>(plcSimulator.handshakeProfile)
   const [graphPath, setGraphPath] = useState(session.configuredGraphPath)
-  const [busyAction, setBusyAction] = useState<string | null>(null)
-  const [logKind, setLogKind] = useState<WorkbenchEnvironmentLogKind>('os')
+  const [busyActions, setBusyActions] = useState<ReadonlySet<string>>(
+    () => new Set()
+  )
+  const [logKind, setLogKind] = useState<WorkbenchEnvironmentLogKind>(
+    defaultEnvironmentLogKind(session)
+  )
   const [logTail, setLogTail] = useState<string | null>(null)
   const [operationError, setOperationError] =
     useState<EnvironmentOperationError | null>(null)
+  const [operationFeedback, setOperationFeedback] =
+    useState<EnvironmentFeedback | null>(null)
   const remoteAccessApi = useMemo(desktopWorkbenchRemoteApi, [])
   const managedRuntimeApi = useMemo(desktopManagedRuntimeApi, [])
   const [runtimeInstallation, setRuntimeInstallation] =
     useState<ManagedRuntimeInstallationSnapshot>(UNAVAILABLE_MANAGED_RUNTIME)
+  const [openSections, setOpenSections] = useState<ReadonlySet<EnvironmentSectionId>>(
+    () => initialOpenSections(session)
+  )
+
+  const overview = deriveEnvironmentOverview(
+    session,
+    managedRuntimeApi ? runtimeInstallation : null
+  )
+  const graphDirty = graphPath.trim() !== session.configuredGraphPath.trim()
+  const plcDirty = (
+    plcProjectPath.trim() !== plcSimulator.projectPath.trim()
+    || plcVariableTablePath.trim() !== plcSimulator.variableTablePath.trim()
+    || plcHandshakeProfile !== plcSimulator.handshakeProfile
+  )
 
   useEffect(() => setPlcProjectPath(plcSimulator.projectPath), [
     plcSimulator.projectPath
@@ -121,6 +150,7 @@ export function EnvironmentManager({
   useEffect(() => setGraphPath(session.configuredGraphPath), [
     session.configuredGraphPath
   ])
+
   useEffect(() => {
     if (typeof document === 'undefined') return undefined
     document.body.classList.add('unilab-environment-manager-open')
@@ -128,6 +158,7 @@ export function EnvironmentManager({
       document.body.classList.remove('unilab-environment-manager-open')
     }
   }, [])
+
   useEffect(() => {
     if (!managedRuntimeApi) return
     let active = true
@@ -150,18 +181,77 @@ export function EnvironmentManager({
     }
   }, [managedRuntimeApi])
 
+  useEffect(() => {
+    const needsLocal = session.phase === 'failed'
+      || edgeRuntime.phase === 'failed'
+    const needsPlc = plcSimulator.phase === 'failed'
+    const needsTools = agent?.phase === 'failed'
+    if (!needsLocal && !needsPlc && !needsTools) return
+    setOpenSections(current => {
+      const next = new Set(current)
+      if (needsLocal) next.add('local')
+      if (needsPlc) next.add('plc')
+      if (needsTools) next.add('tools')
+      next.add('diagnostics')
+      return next
+    })
+  }, [agent?.phase, edgeRuntime.phase, plcSimulator.phase, session.phase])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined
+    const previouslyFocused = document.activeElement
+    const frame = requestAnimationFrame(() => {
+      const recommended = dialogRef.current?.querySelector<HTMLElement>(
+        '[data-recommended-action="true"]'
+      )
+      ;(recommended ?? dialogTitleRef.current)?.focus({ preventScroll: true })
+    })
+    return () => {
+      cancelAnimationFrame(frame)
+      if (previouslyFocused instanceof HTMLElement) {
+        previouslyFocused.focus({ preventScroll: true })
+      }
+    }
+  }, [])
+
+  const setSectionOpen = useCallback((
+    section: EnvironmentSectionId,
+    open: boolean
+  ): void => {
+    setOpenSections(current => {
+      const next = new Set(current)
+      if (open) next.add(section)
+      else next.delete(section)
+      return next
+    })
+  }, [])
+
+  const isBusy = useCallback((...actions: string[]): boolean => (
+    actions.some(action => busyActions.has(action))
+  ), [busyActions])
+
   const run = useCallback(async (
     action: string,
-    operation: () => Promise<void>
-  ) => {
-    setBusyAction(action)
+    operation: () => Promise<void>,
+    successMessage = environmentOperationSuccess(action)
+  ): Promise<void> => {
+    setBusyActions(current => new Set(current).add(action))
     setOperationError(null)
+    setOperationFeedback(null)
     try {
-      await captureWorkbenchUiOperation(operation, message => {
-        setOperationError(describeEnvironmentOperationError(action, message))
-      })
+      await operation()
+      if (successMessage) setOperationFeedback({ message: successMessage })
+    } catch (error) {
+      setOperationError(describeEnvironmentOperationError(
+        action,
+        error instanceof Error ? error.message : String(error)
+      ))
     } finally {
-      setBusyAction(null)
+      setBusyActions(current => {
+        const next = new Set(current)
+        next.delete(action)
+        return next
+      })
     }
   }, [])
 
@@ -171,386 +261,498 @@ export function EnvironmentManager({
     handshakeProfile: plcHandshakeProfile
   }), [plcHandshakeProfile, plcProjectPath, plcVariableTablePath])
 
-  const savePlcConfiguration = useCallback(async () => {
+  const savePlcConfiguration = useCallback(async (): Promise<void> => {
+    if (
+      plcSimulator.phase === 'ready'
+      && !globalThis.confirm('保存 PLC 配置会重新启动 PLC-Sim。继续？')
+    ) return
     await run('save-plc', () => onConfigurePlcSimulator(plcConfiguration()))
-  }, [onConfigurePlcSimulator, plcConfiguration, run])
+  }, [onConfigurePlcSimulator, plcConfiguration, plcSimulator.phase, run])
 
-  const applyGraphPath = useCallback(async () => {
-    await run('apply-graph', async () => {
-      await onConfigureGraph(graphPath)
-    })
+  const saveGraphConfiguration = useCallback(async (): Promise<void> => {
+    await run(
+      'save-graph',
+      () => onConfigureGraph(graphPath.trim(), { applyNow: false })
+    )
   }, [graphPath, onConfigureGraph, run])
 
-  const startPlcSimulator = useCallback(async () => {
+  const rebuildLocalData = useCallback(async (): Promise<void> => {
+    const confirmed = globalThis.confirm(
+      '重建本地数据会清空本地调试库存、设备状态和工作流历史；工作区定义不会删除。继续？'
+    )
+    if (confirmed) await run('rebuild-local-data', onRebuildLocalData)
+  }, [onRebuildLocalData, run])
+
+  const startPlcSimulator = useCallback(async (): Promise<void> => {
     await run('start-plc', async () => {
-      await onConfigurePlcSimulator(plcConfiguration())
+      if (plcDirty) await onConfigurePlcSimulator(plcConfiguration())
       await onStartPlcSimulator()
     })
-  }, [
-    onConfigurePlcSimulator,
-    onStartPlcSimulator,
-    plcConfiguration,
-    run
-  ])
+  }, [onConfigurePlcSimulator, onStartPlcSimulator, plcConfiguration, plcDirty, run])
 
-  const readSelectedLog = useCallback(async () => {
+  const readSelectedLog = useCallback(async (
+    kind: WorkbenchEnvironmentLogKind = logKind
+  ): Promise<void> => {
     await run('read-log', async () => {
-      setLogTail(await onReadEnvironmentLog(logKind))
-    })
+      setLogTail(await onReadEnvironmentLog(kind))
+    }, null)
   }, [logKind, onReadEnvironmentLog, run])
+
+  const openRelatedDiagnostics = useCallback((): void => {
+    setLogKind(overview.logKind)
+    setSectionOpen('diagnostics', true)
+    void readSelectedLog(overview.logKind)
+  }, [overview.logKind, readSelectedLog, setSectionOpen])
+
+  const runRecommendedAction = useCallback((
+    action: EnvironmentRecommendedAction
+  ): void => {
+    if (action === 'install-runtime' && managedRuntimeApi) {
+      void run('install-runtime', async () => {
+        setRuntimeInstallation(await managedRuntimeApi.install())
+      })
+      return
+    }
+    if (action === 'rebuild-local-data') {
+      void rebuildLocalData()
+      return
+    }
+    if (action === 'start-plc') {
+      void startPlcSimulator()
+      return
+    }
+    if (action === 'restart-os') {
+      void run('restart-os', onRestartSession)
+    }
+  }, [managedRuntimeApi, onRestartSession, rebuildLocalData, run, startPlcSimulator])
+
+  const handleDialogKeyDown = useCallback((
+    event: React.KeyboardEvent<HTMLElement>
+  ): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      onClose()
+      return
+    }
+    if (event.key !== 'Tab') return
+    const focusable = visibleFocusableElements(event.currentTarget)
+    if (focusable.length === 0) {
+      event.preventDefault()
+      dialogTitleRef.current?.focus()
+      return
+    }
+    const first = focusable[0]
+    const last = focusable.at(-1)
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last?.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first?.focus()
+    }
+  }, [onClose])
 
   const overlay = (
     <div className="unilab-environment-manager__overlay">
       <button
         type="button"
+        tabIndex={-1}
         className="unilab-environment-manager__backdrop"
-        aria-label="关闭环境管理"
+        aria-label="关闭本地运行与诊断"
         onClick={onClose}
       />
       <section
+        ref={dialogRef}
         className="unilab-environment-manager"
         role="dialog"
         aria-modal="true"
-        aria-label="环境管理"
+        aria-labelledby={dialogTitleId}
         data-testid="environment-manager"
+        onKeyDown={handleDialogKeyDown}
       >
-      <header className="unilab-environment-manager__header">
-        <div>
-          <span className="unilab-environment-manager__eyebrow">MANAGED LOCAL</span>
-          <strong>环境管理</strong>
-        </div>
-        <button type="button" aria-label="关闭环境管理" onClick={onClose}>
-          <span className="codicon codicon-close" />
-        </button>
-      </header>
+        <header className="unilab-environment-manager__header">
+          <div>
+            <h2 ref={dialogTitleRef} id={dialogTitleId} tabIndex={-1}>
+              本地运行与诊断
+            </h2>
+            <p>运行连接切换在工作台顶部完成；这里仅管理本地执行。</p>
+          </div>
+          <button type="button" aria-label="关闭本地运行与诊断" onClick={onClose}>
+            <span className="codicon codicon-close" aria-hidden="true" />
+          </button>
+        </header>
 
-      {operationError ? (
-        <div className="unilab-workbench-session-diagnostic" role="alert">
-          <strong>{operationError.title}</strong>
-          <p>{operationError.message}</p>
-          {operationError.technicalDetail ? (
-            <details>
-              <summary>技术信息</summary>
-              <code>{operationError.technicalDetail}</code>
-            </details>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div className="unilab-environment-manager__rail" aria-label="本地环境状态链">
-        {managedRuntimeApi ? (
-          <EnvironmentStatusCard
-            name="UniLab Runtime"
-            phase={runtimeInstallation.phase}
-            message={runtimeInstallationMessage(runtimeInstallation)}
-            facts={[
-              ['版本', runtimeInstallation.runtimeVersion ?? '—'],
-              ['平台', runtimeInstallation.platform ?? '—'],
-              ['来源', runtimeInstallation.managed ? '应用内置' : '现有环境'],
-              ['环境', runtimeInstallation.environmentPath ?? '—']
-            ]}
-            actions={runtimeInstallation.bundled && [
-              'not-installed',
-              'failed'
-            ].includes(runtimeInstallation.phase) ? (
-              <button
-                type="button"
-                disabled={Boolean(busyAction)}
-                onClick={() => void run('install-runtime', async () => {
-                  setRuntimeInstallation(await managedRuntimeApi.install())
-                })}
-              >安装内置 Runtime</button>
-            ) : undefined}
+        <div className="unilab-environment-manager__rail">
+          <EnvironmentOverviewPanel
+            overview={overview}
+            busy={overview.recommendedAction
+              ? isBusy(overview.recommendedAction, 'restart-os', 'start-plc')
+              : false}
+            operationError={operationError}
+            operationFeedback={operationFeedback}
+            onRecommendedAction={runRecommendedAction}
+            onOpenDiagnostics={openRelatedDiagnostics}
           />
-        ) : null}
-        <EnvironmentStatusCard
-          name="Workspace Backend"
-          order={1}
-          phase={session.phase}
-          message={session.diagnostic?.message ?? session.message}
-          facts={[
-            ['PID', String(identity?.pid ?? '—')],
-            ['Authority API', identity?.backendUrl ?? '—'],
-            ['Generation', identity?.generation ?? '—'],
-            ['本地数据', '可重建会话数据']
-          ]}
-          actions={(
-            <button
-              type="button"
-              disabled={Boolean(busyAction) || ![
-                'ready',
-                'failed'
-              ].includes(session.phase)}
-              onClick={() => {
-                const confirmed = globalThis.confirm(
-                  '重建 Workspace Backend 会清空本地调试库存、设备状态和工作流历史。继续？'
-                )
-                if (confirmed) {
-                  void run('rebuild-local-data', onRebuildLocalData)
-                }
-              }}
-            >重建本地数据</button>
-          )}
-        />
-        <EnvironmentStatusCard
-          name="OS"
-          order={3}
-          phase={edgeRuntime.phase}
-          message={edgeRuntime.diagnostic ?? edgeRuntime.message}
-          facts={[
-            ['PID', String(edgeRuntime.pid ?? '—')],
-            ['设备图', edgeRuntime.graphPath || session.configuredGraphPath],
-            ['启动模式', edgeRuntime.mode === 'dry-run'
-              ? 'Dry-run'
-              : '正常运行'],
-            ['Authority API', identity?.backendUrl ?? '—'],
-            ['Python', identity?.environmentPath ?? '—']
-          ]}
-          content={(
-            <>
-              <label className="unilab-environment-manager__path">
-                <span>设备图路径</span>
-                <input
-                  value={graphPath}
-                  disabled={Boolean(busyAction)}
-                  placeholder="deployment/graphs/example.json"
-                  onChange={event => setGraphPath(event.currentTarget.value)}
-                />
-              </label>
-              <ExternalDevicesOnlyControl
-                checked={session.configuredExternalDevicesOnly}
-                disabled={Boolean(busyAction)}
-                onChange={enabled => run(
-                  'external-devices-only',
-                  () => onSetExternalDevicesOnly(enabled)
-                )}
-              />
-              <RuntimeModeControl
-                mode={edgeRuntime.mode ?? session.configuredRuntimeMode}
-                disabled={Boolean(busyAction)}
-                onSetRuntimeMode={mode => run(
-                  'switch-mode',
-                  () => onSetRuntimeMode(mode)
-                )}
-              />
-            </>
-          )}
-          actions={(
-            <>
-              <button
-                type="button"
-                className="is-primary"
-                disabled={Boolean(busyAction) || !graphPath.trim()}
-                onClick={() => void applyGraphPath()}
-              >{session.phase === 'ready' ? '应用设备图并重建本地数据' : '保存设备图'}</button>
-              <button
-                type="button"
-                className="is-port-action"
-                aria-busy={busyAction === 'restart-os'}
-                disabled={Boolean(busyAction)}
-                onClick={() => void run('restart-os', onRestartSession)}
-              >{busyAction === 'restart-os'
-                  ? edgeRuntime.phase === 'ready'
-                    ? '正在重启 OS…'
-                    : '正在启动 OS…'
-                  : edgeRuntime.phase === 'ready'
-                    ? '重启 OS'
-                    : '启动 OS'}</button>
-              <button
-                type="button"
-                className="is-danger"
-                disabled={Boolean(busyAction)}
-                onClick={() => void run('stop-os', onStopSession)}
-              >停止 OS</button>
-              <button
-                type="button"
-                disabled={Boolean(busyAction)}
-                onClick={() => {
-                  if (!globalThis.confirm('将停止占用 OS 本地端口的进程，确定继续吗？')) return
-                  void run('release-os-ports', () => onReleaseEnvironmentPorts('os'))
-                }}
-              >释放端口</button>
-            </>
-          )}
-        />
 
-        <EnvironmentStatusCard
-          name="PLC-Sim"
-          order={3}
-          phase={plcSimulator.phase}
-          message={plcSimulator.diagnostic ?? plcSimulator.message}
-          facts={[
-            ['PID', String(plcSimulator.pid ?? '—')],
-            ['变量表', plcSimulator.variableTablePath || '—'],
-            ['握手器', plcSimulator.handshakeProfile === 'szlab' ? 'SZLab' : 'XUSE'],
-            ['GUI', plcSimulator.guiUrl],
-            ['OPC UA', plcSimulator.opcUaUrl]
-          ]}
-          content={(
-            <>
-              <label className="unilab-environment-manager__path">
-                <span>项目目录</span>
-                <input
-                  value={plcProjectPath}
-                  disabled={plcSimulator.phase !== 'idle' && plcSimulator.phase !== 'failed'}
-                  placeholder="/path/to/PLC-Sim"
-                  onChange={event => setPlcProjectPath(event.currentTarget.value)}
+          <section
+            className="unilab-environment-manager__advanced"
+            aria-labelledby={`${dialogTitleId}-advanced`}
+          >
+            <header>
+              <h3 id={`${dialogTitleId}-advanced`}>高级设置与诊断</h3>
+              <p>只在配置设备、接入 PLC 或排查故障时展开。</p>
+            </header>
+
+            <EnvironmentDisclosure
+              title="本地执行"
+              summary={environmentPhaseLabel(edgeRuntime.phase)}
+              tone={serviceTone(session.phase, edgeRuntime.phase)}
+              open={openSections.has('local')}
+              busy={isBusy(
+                'install-runtime',
+                'save-graph',
+                'restart-os',
+                'stop-os',
+                'rebuild-local-data',
+                'release-os-ports',
+                'switch-mode',
+                'external-devices-only'
+              )}
+              onOpenChange={open => setSectionOpen('local', open)}
+            >
+              <div className="unilab-environment-manager__services">
+                {managedRuntimeApi ? (
+                  <EnvironmentServiceStatus
+                    name="应用运行环境"
+                    phase={runtimeInstallation.phase}
+                    message={runtimeInstallationMessage(runtimeInstallation)}
+                  />
+                ) : null}
+                <EnvironmentServiceStatus
+                  name="Workspace 服务"
+                  phase={session.phase}
+                  message={session.diagnostic?.message ?? session.message}
                 />
-              </label>
-              <label className="unilab-environment-manager__path">
-                <span>变量表</span>
-                <input
-                  list="unilab-plc-variable-tables"
-                  value={plcVariableTablePath}
-                  disabled={plcSimulator.phase !== 'idle' && plcSimulator.phase !== 'failed'}
-                  placeholder="从当前项目推荐 CSV，或填写本地路径"
-                  onChange={event => setPlcVariableTablePath(event.currentTarget.value)}
+                <EnvironmentServiceStatus
+                  name="本地执行服务"
+                  phase={edgeRuntime.phase}
+                  message={edgeRuntime.diagnostic ?? edgeRuntime.message}
                 />
-                <datalist id="unilab-plc-variable-tables">
-                  {plcSimulator.variableTableCandidates.map(candidate => (
-                    <option key={candidate.path} value={candidate.path}>
-                      {candidate.recommended ? '推荐 · ' : ''}{candidate.relativePath}
-                    </option>
-                  ))}
-                </datalist>
-              </label>
-              <label className="unilab-environment-manager__path">
-                <span>握手器</span>
-                <select
-                  value={plcHandshakeProfile}
-                  disabled={plcSimulator.phase !== 'idle' && plcSimulator.phase !== 'failed'}
-                  onChange={event => setPlcHandshakeProfile(
-                    event.currentTarget.value as WorkbenchPlcHandshakeProfile
+              </div>
+
+              {managedRuntimeApi
+                && runtimeInstallation.bundled
+                && ['not-installed', 'failed'].includes(runtimeInstallation.phase) ? (
+                  <div className="unilab-environment-manager__inline-action">
+                    <button
+                      type="button"
+                      disabled={isBusy('install-runtime')}
+                      onClick={() => runRecommendedAction('install-runtime')}
+                    >{isBusy('install-runtime') ? '正在安装…' : '安装运行环境'}</button>
+                  </div>
+                ) : null}
+
+              <div className="unilab-environment-manager__settings-group">
+                <header>
+                  <strong>运行方式</strong>
+                  <span>切换后在下次启动本地执行时生效</span>
+                </header>
+                <RuntimeModeControl
+                  mode={edgeRuntime.mode ?? session.configuredRuntimeMode}
+                  disabled={isBusy('switch-mode')}
+                  onSetRuntimeMode={mode => run(
+                    'switch-mode',
+                    () => onSetRuntimeMode(mode),
+                    `已保存${mode === 'dry-run' ? '模拟运行' : '真实运行'}模式；下次启动生效。`
                   )}
-                >
-                  <option value="szlab">SZLab</option>
-                  <option value="xuse">XUSE 通用</option>
-                </select>
-              </label>
-            </>
-          )}
-          actions={(
-            <>
-              <button
-                type="button"
-                disabled={
-                  Boolean(busyAction)
-                  || !plcProjectPath.trim()
-                  || !plcVariableTablePath.trim()
-                  || plcSimulator.phase === 'ready'
-                }
-                onClick={() => void startPlcSimulator()}
-              >启动 PLC-Sim</button>
-              <button
-                type="button"
-                disabled={Boolean(busyAction) || plcSimulator.phase !== 'ready'}
-                onClick={() => void run('stop-plc', onStopPlcSimulator)}
-              >停止</button>
-              <button
-                type="button"
-                disabled={
-                  Boolean(busyAction)
-                  || (
-                    plcProjectPath.trim() === plcSimulator.projectPath
-                    && plcVariableTablePath.trim() === plcSimulator.variableTablePath
-                    && plcHandshakeProfile === plcSimulator.handshakeProfile
-                  )
-                }
-                onClick={() => void savePlcConfiguration()}
-              >保存配置</button>
-              <button
-                type="button"
-                disabled={Boolean(busyAction) || plcSimulator.phase === 'ready'}
-                onClick={() => void run('refresh-plc-tables', onRefreshPlcVariableTables)}
-              >刷新 CSV 推荐</button>
-              <button
-                type="button"
-                disabled={Boolean(busyAction)}
-                onClick={() => {
-                  if (!globalThis.confirm('将停止占用 PLC-Sim 18765、4855 端口的进程，确定继续吗？')) return
-                  void run('release-plc-ports', () => onReleaseEnvironmentPorts('plc-sim'))
-                }}
-              >释放端口</button>
-            </>
-          )}
-        />
+                />
+              </div>
 
-        <EnvironmentStatusCard
-          name="Agent"
-          order={4}
-          phase={agent?.phase ?? 'idle'}
-          message={agentStatusMessage(agent)}
-          facts={[
-            ['PID', String(agent?.pid ?? '—')],
-            ['Workdir', agent?.workDir ?? identity?.workspacePath ?? '—'],
-            ['Data', agent?.dataDir ?? '—']
-          ]}
-          actions={(
-            <>
-              {agent?.phase === 'ready' ? (
-                <>
+              <div className="unilab-environment-manager__settings-group">
+                <header>
+                  <strong>设备配置</strong>
+                  <span>保存不会重建数据</span>
+                </header>
+                <label className="unilab-environment-manager__path">
+                  <span>配置文件</span>
+                  <input
+                    value={graphPath}
+                    disabled={isBusy('save-graph')}
+                    placeholder="deployment/graphs/example.json"
+                    onChange={event => setGraphPath(event.currentTarget.value)}
+                  />
+                </label>
+                <ExternalDevicesOnlyControl
+                  checked={session.configuredExternalDevicesOnly}
+                  disabled={isBusy('external-devices-only')}
+                  onChange={enabled => run(
+                    'external-devices-only',
+                    () => onSetExternalDevicesOnly(enabled),
+                    '设备目录加载范围已保存；下次启动生效。'
+                  )}
+                />
+                <div className="unilab-environment-manager__section-actions">
                   <button
                     type="button"
-                    disabled={Boolean(busyAction)}
-                    onClick={() => void run('restart-agent', onRestartAgent)}
-                  >重启</button>
-                  <button
-                    type="button"
-                    disabled={Boolean(busyAction)}
-                    onClick={() => void run('stop-agent', onStopAgent)}
-                  >停止</button>
-                </>
-              ) : (
+                    disabled={isBusy('save-graph') || !graphDirty || !graphPath.trim()}
+                    onClick={() => void saveGraphConfiguration()}
+                  >{isBusy('save-graph') ? '正在保存…' : '保存设备配置'}</button>
+                </div>
+              </div>
+
+              <div className="unilab-environment-manager__section-actions">
                 <button
                   type="button"
-                  disabled={Boolean(busyAction)
-                    || agent?.phase === 'starting'
-                    || agent?.phase === 'stopping'}
-                  onClick={() => void run('start-agent', onStartAgent)}
-                >{agent?.phase === 'failed' ? '重试' : '启动 Agent'}</button>
-              )}
-            </>
-          )}
-        />
-        {remoteAccessApi ? (
-          <RemoteAccessCard api={remoteAccessApi} />
-        ) : null}
-      </div>
+                  className="is-primary"
+                  disabled={isBusy('restart-os')}
+                  onClick={() => void run('restart-os', onRestartSession)}
+                >{isBusy('restart-os')
+                    ? '正在启动…'
+                    : edgeRuntime.phase === 'ready'
+                      ? '重新启动本地执行'
+                      : '启动本地执行'}</button>
+              </div>
 
-      <section className="unilab-environment-manager__logs">
-        <header>
-          <strong>日志尾部</strong>
-          <div role="group" aria-label="日志来源">
-            {([
-              ['workspace-backend', 'Backend'],
-              ['os', 'OS'],
-              ['plc-sim', 'PLC-Sim'],
-              ['agent', 'Agent']
-            ] as const).map(([kind, label]) => (
-              <button
-                key={kind}
-                type="button"
-                className={logKind === kind ? 'is-active' : ''}
-                onClick={() => {
-                  setLogKind(kind)
-                  setLogTail(null)
-                }}
-              >{label}</button>
-            ))}
-          </div>
-          <button
-            type="button"
-            disabled={Boolean(busyAction)}
-            onClick={() => void readSelectedLog()}
-          >刷新</button>
-        </header>
-        {logTail !== null ? (
-          <pre data-testid="environment-log-tail">{logTail || '暂无日志'}</pre>
-        ) : (
-          <p>选择来源后点击“刷新”。</p>
-        )}
+              <EnvironmentTechnicalDetails facts={[
+                ['Workspace PID', String(identity?.pid ?? '—')],
+                ['本地执行 PID', String(edgeRuntime.pid ?? '—')],
+                ['服务地址', identity?.backendUrl ?? '—'],
+                ['Generation', edgeRuntime.generation ?? identity?.generation ?? '—'],
+                ['运行环境', identity?.environmentPath ?? runtimeInstallation.environmentPath ?? '—'],
+                ['设备配置', edgeRuntime.graphPath || session.configuredGraphPath]
+              ]} />
+
+              <EnvironmentMaintenance title="本地执行维修">
+                <button
+                  type="button"
+                  className="is-danger"
+                  disabled={isBusy('stop-os')}
+                  onClick={() => void run('stop-os', onStopSession)}
+                >停止本地执行</button>
+                <button
+                  type="button"
+                  className="is-danger"
+                  disabled={isBusy('rebuild-local-data')}
+                  onClick={() => void rebuildLocalData()}
+                >重建本地数据</button>
+                <button
+                  type="button"
+                  className="is-port-action"
+                  disabled={isBusy('release-os-ports')}
+                  onClick={() => {
+                    if (!globalThis.confirm('将停止占用本地执行端口的进程。继续？')) return
+                    void run(
+                      'release-os-ports',
+                      () => onReleaseEnvironmentPorts('os')
+                    )
+                  }}
+                >释放占用端口</button>
+              </EnvironmentMaintenance>
+            </EnvironmentDisclosure>
+
+            <EnvironmentDisclosure
+              title="PLC 与设备"
+              summary={plcSimulator.phase === 'idle'
+                ? '按需启用'
+                : environmentPhaseLabel(plcSimulator.phase)}
+              tone={serviceTone(plcSimulator.phase)}
+              open={openSections.has('plc')}
+              busy={isBusy(
+                'save-plc',
+                'start-plc',
+                'stop-plc',
+                'refresh-plc-tables',
+                'release-plc-ports'
+              )}
+              onOpenChange={open => setSectionOpen('plc', open)}
+            >
+              <EnvironmentServiceStatus
+                name="PLC 模拟环境"
+                phase={plcSimulator.phase}
+                message={plcSimulator.diagnostic ?? plcSimulator.message}
+              />
+              <div className="unilab-environment-manager__settings-group">
+                <label className="unilab-environment-manager__path">
+                  <span>项目目录</span>
+                  <input
+                    value={plcProjectPath}
+                    disabled={isBusy('save-plc', 'start-plc')}
+                    placeholder="/path/to/PLC-Sim"
+                    onChange={event => setPlcProjectPath(event.currentTarget.value)}
+                  />
+                </label>
+                <label className="unilab-environment-manager__path">
+                  <span>变量表</span>
+                  <input
+                    list="unilab-plc-variable-tables"
+                    value={plcVariableTablePath}
+                    disabled={isBusy('save-plc', 'start-plc')}
+                    placeholder="选择推荐 CSV，或填写本地路径"
+                    onChange={event => setPlcVariableTablePath(event.currentTarget.value)}
+                  />
+                  <datalist id="unilab-plc-variable-tables">
+                    {plcSimulator.variableTableCandidates.map(candidate => (
+                      <option key={candidate.path} value={candidate.path}>
+                        {candidate.recommended ? '推荐 · ' : ''}{candidate.relativePath}
+                      </option>
+                    ))}
+                  </datalist>
+                </label>
+                <label className="unilab-environment-manager__path">
+                  <span>通信规则</span>
+                  <select
+                    value={plcHandshakeProfile}
+                    disabled={isBusy('save-plc', 'start-plc')}
+                    onChange={event => setPlcHandshakeProfile(
+                      event.currentTarget.value as WorkbenchPlcHandshakeProfile
+                    )}
+                  >
+                    <option value="szlab">SZLab</option>
+                    <option value="xuse">XUSE 通用</option>
+                  </select>
+                </label>
+              </div>
+              <div className="unilab-environment-manager__section-actions">
+                <button
+                  type="button"
+                  className="is-primary"
+                  disabled={
+                    isBusy('start-plc')
+                    || !plcProjectPath.trim()
+                    || !plcVariableTablePath.trim()
+                    || plcSimulator.phase === 'ready'
+                  }
+                  onClick={() => void startPlcSimulator()}
+                >{isBusy('start-plc') ? '正在启动…' : '启动 PLC-Sim'}</button>
+                <button
+                  type="button"
+                  disabled={isBusy('save-plc') || !plcDirty}
+                  onClick={() => void savePlcConfiguration()}
+                >{plcSimulator.phase === 'ready' ? '保存并重启' : '保存配置'}</button>
+                <button
+                  type="button"
+                  className="is-quiet"
+                  disabled={isBusy('refresh-plc-tables') || plcSimulator.phase === 'ready'}
+                  onClick={() => void run(
+                    'refresh-plc-tables',
+                    onRefreshPlcVariableTables
+                  )}
+                >更新变量表推荐</button>
+              </div>
+              <EnvironmentTechnicalDetails facts={[
+                ['PID', String(plcSimulator.pid ?? '—')],
+                ['界面地址', plcSimulator.guiUrl || '—'],
+                ['OPC UA', plcSimulator.opcUaUrl || '—'],
+                ['变量表路径', plcSimulator.variableTablePath || '—']
+              ]} />
+              <EnvironmentMaintenance title="PLC-Sim 维修">
+                <button
+                  type="button"
+                  className="is-danger"
+                  disabled={isBusy('stop-plc') || plcSimulator.phase !== 'ready'}
+                  onClick={() => void run('stop-plc', onStopPlcSimulator)}
+                >停止 PLC-Sim</button>
+                <button
+                  type="button"
+                  className="is-port-action"
+                  disabled={isBusy('release-plc-ports')}
+                  onClick={() => {
+                    if (!globalThis.confirm('将停止占用 PLC-Sim 18765、4855 端口的进程。继续？')) return
+                    void run(
+                      'release-plc-ports',
+                      () => onReleaseEnvironmentPorts('plc-sim')
+                    )
+                  }}
+                >释放占用端口</button>
+              </EnvironmentMaintenance>
+            </EnvironmentDisclosure>
+
+            <EnvironmentDisclosure
+              title="工作区工具与共享"
+              summary={agent?.phase === 'failed' ? '需要处理' : '按需启用'}
+              tone={serviceTone(agent?.phase ?? 'idle')}
+              open={openSections.has('tools')}
+              busy={isBusy('start-agent', 'restart-agent', 'stop-agent')}
+              onOpenChange={open => setSectionOpen('tools', open)}
+            >
+              <EnvironmentServiceStatus
+                name="工作区助手"
+                phase={agent?.phase ?? 'idle'}
+                message={agentStatusMessage(agent)}
+                actions={agent?.phase === 'ready' ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={isBusy('restart-agent')}
+                      onClick={() => void run('restart-agent', onRestartAgent)}
+                    >重启助手</button>
+                    <button
+                      type="button"
+                      className="is-danger"
+                      disabled={isBusy('stop-agent')}
+                      onClick={() => void run('stop-agent', onStopAgent)}
+                    >停止助手</button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isBusy('start-agent')
+                      || agent?.phase === 'starting'
+                      || agent?.phase === 'stopping'}
+                    onClick={() => void run('start-agent', onStartAgent)}
+                  >{agent?.phase === 'failed' ? '重试启动助手' : '启动工作区助手'}</button>
+                )}
+              />
+              <EnvironmentTechnicalDetails facts={[
+                ['助手 PID', String(agent?.pid ?? '—')],
+                ['工作目录', agent?.workDir ?? identity?.workspacePath ?? '—'],
+                ['数据目录', agent?.dataDir ?? '—']
+              ]} />
+              {remoteAccessApi ? <RemoteAccessPanel api={remoteAccessApi} /> : null}
+            </EnvironmentDisclosure>
+
+            <EnvironmentDisclosure
+              title="诊断日志"
+              summary={operationError ? '查看失败详情' : '按需读取'}
+              tone={operationError ? 'attention' : 'idle'}
+              open={openSections.has('diagnostics')}
+              busy={isBusy('read-log')}
+              onOpenChange={open => setSectionOpen('diagnostics', open)}
+            >
+              <div className="unilab-environment-manager__log-controls">
+                <label>
+                  <span>日志来源</span>
+                  <select
+                    value={logKind}
+                    disabled={isBusy('read-log')}
+                    onChange={event => {
+                      setLogKind(event.currentTarget.value as WorkbenchEnvironmentLogKind)
+                      setLogTail(null)
+                    }}
+                  >
+                    <option value="workspace-backend">Workspace 服务</option>
+                    <option value="os">本地执行</option>
+                    <option value="plc-sim">PLC-Sim</option>
+                    <option value="agent">工作区助手</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  disabled={isBusy('read-log')}
+                  onClick={() => void readSelectedLog()}
+                >{isBusy('read-log') ? '正在读取…' : '读取日志'}</button>
+              </div>
+              {logTail !== null ? (
+                <pre data-testid="environment-log-tail">{logTail || '暂无日志'}</pre>
+              ) : (
+                <p className="unilab-environment-manager__empty-log">
+                  选择与问题相关的服务后读取最近日志。
+                </p>
+              )}
+            </EnvironmentDisclosure>
+          </section>
+        </div>
       </section>
-    </section>
     </div>
   )
 
@@ -559,39 +761,190 @@ export function EnvironmentManager({
     : createPortal(overlay, document.body)
 }
 
-function agentStatusMessage(
-  agent: WorkbenchSessionSnapshot['agent']
-): string {
-  if (!agent) return '工作区 Agent 尚未启动'
-  if (agent.diagnostic) return agent.diagnostic
-  if (agent.phase === 'starting') return '正在启动工作区 Agent…'
-  if (agent.phase === 'stopping') return '正在停止工作区 Agent…'
-  if (agent.phase === 'ready') return '工作区 Agent 已就绪'
-  return '工作区 Agent 启动失败'
+function EnvironmentOverviewPanel({
+  overview,
+  busy,
+  operationError,
+  operationFeedback,
+  onRecommendedAction,
+  onOpenDiagnostics
+}: {
+  overview: EnvironmentOverview
+  busy: boolean
+  operationError: EnvironmentOperationError | null
+  operationFeedback: EnvironmentFeedback | null
+  onRecommendedAction: (action: EnvironmentRecommendedAction) => void
+  onOpenDiagnostics: () => void
+}): React.JSX.Element {
+  return (
+    <section
+      className="unilab-environment-overview"
+      data-tone={overview.tone}
+      aria-live="polite"
+    >
+      <header>
+        <span className="unilab-environment-overview__icon" aria-hidden="true">
+          <span className={`codicon ${overviewIcon(overview.tone)}`} />
+        </span>
+        <div>
+          <h3>{overview.title}</h3>
+          <p>{overview.message}</p>
+        </div>
+        <span className="unilab-environment-overview__mode">
+          {overview.modeLabel}
+        </span>
+      </header>
+      {overview.issueCount > 1 ? (
+        <p className="unilab-environment-overview__issue-count">
+          另有 {overview.issueCount - 1} 项高级组件需要处理
+        </p>
+      ) : null}
+      {overview.recommendedAction && overview.recommendedActionLabel ? (
+        <div className="unilab-environment-overview__actions">
+          <button
+            type="button"
+            className="is-primary"
+            data-recommended-action="true"
+            disabled={busy}
+            onClick={() => onRecommendedAction(overview.recommendedAction)}
+          >{busy ? '正在处理…' : overview.recommendedActionLabel}</button>
+          <button type="button" className="is-quiet" onClick={onOpenDiagnostics}>
+            查看相关日志
+          </button>
+        </div>
+      ) : null}
+      {operationFeedback ? (
+        <div className="unilab-environment-notice is-success" role="status">
+          <span className="codicon codicon-check" aria-hidden="true" />
+          <p>{operationFeedback.message}</p>
+        </div>
+      ) : null}
+      {operationError ? (
+        <div className="unilab-environment-notice is-error" role="alert">
+          <span className="codicon codicon-warning" aria-hidden="true" />
+          <div>
+            <strong>{operationError.title}</strong>
+            <p>{operationError.message}</p>
+            {operationError.technicalDetail ? (
+              <details>
+                <summary>技术信息</summary>
+                <code>{operationError.technicalDetail}</code>
+              </details>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  )
 }
 
-function runtimeInstallationMessage(
-  snapshot: ManagedRuntimeInstallationSnapshot
-): string {
-  if (snapshot.phase === 'ready') {
-    return '应用私有 Runtime 已通过 unilab -h 验证；新工作区会自动使用。'
-  }
-  if (snapshot.phase === 'external') {
-    return snapshot.error
-      ? `当前使用现有 UniLab 环境；内置载荷异常：${snapshot.error}`
-      : '当前使用已安装的 UniLab 环境。'
-  }
-  if (snapshot.phase === 'installing') return '正在离线安装并验证，请勿退出应用。'
-  if (snapshot.phase === 'not-installed') {
-    return '没有检测到 unilab；可从安装包离线安装应用私有 Runtime。'
-  }
-  if (snapshot.phase === 'failed') {
-    return snapshot.error ?? 'Runtime 安装或检查失败。'
-  }
-  return '浏览器访问不提供本机 Runtime 安装能力。'
+function EnvironmentDisclosure({
+  title,
+  summary,
+  tone,
+  open,
+  busy,
+  onOpenChange,
+  children
+}: {
+  title: string
+  summary: string
+  tone: string
+  open: boolean
+  busy: boolean
+  onOpenChange: (open: boolean) => void
+  children: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <details
+      className="unilab-environment-section"
+      data-tone={tone}
+      open={open}
+      aria-busy={busy}
+      onToggle={event => onOpenChange(event.currentTarget.open)}
+    >
+      <summary>
+        <span className="unilab-environment-section__status" aria-hidden="true" />
+        <strong>{title}</strong>
+        <span>{busy ? '正在处理…' : summary}</span>
+        <span className="codicon codicon-chevron-down" aria-hidden="true" />
+      </summary>
+      <div className="unilab-environment-section__content">{children}</div>
+    </details>
+  )
 }
 
-function RemoteAccessCard({
+function EnvironmentServiceStatus({
+  name,
+  phase,
+  message,
+  actions
+}: {
+  name: string
+  phase: string
+  message: string
+  actions?: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <div className="unilab-environment-service" data-tone={serviceTone(phase)}>
+      <span className="unilab-environment-service__status" aria-hidden="true" />
+      <div>
+        <header>
+          <strong>{name}</strong>
+          <span>{environmentPhaseLabel(phase)}</span>
+        </header>
+        <p>{message}</p>
+        {actions ? (
+          <div className="unilab-environment-manager__section-actions">
+            {actions}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function EnvironmentTechnicalDetails({
+  facts
+}: {
+  facts: Array<[string, string]>
+}): React.JSX.Element {
+  return (
+    <details className="unilab-environment-technical">
+      <summary>技术详情</summary>
+      <dl>
+        {facts.map(([label, value]) => (
+          <React.Fragment key={label}>
+            <dt>{label}</dt>
+            <dd title={value}>{value}</dd>
+          </React.Fragment>
+        ))}
+      </dl>
+    </details>
+  )
+}
+
+function EnvironmentMaintenance({
+  title,
+  children
+}: {
+  title: string
+  children: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <div className="unilab-environment-maintenance">
+      <header>
+        <strong>{title}</strong>
+        <span>仅在停止服务或排查端口冲突时使用</span>
+      </header>
+      <div className="unilab-environment-manager__section-actions">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function RemoteAccessPanel({
   api
 }: {
   api: DesktopWorkbenchRemoteApi
@@ -630,54 +983,215 @@ function RemoteAccessCard({
     if (!snapshot?.accessUrl) return
     try {
       await navigator.clipboard.writeText(snapshot.accessUrl)
-      setCopyStatus('访问链接已复制；请按凭据安全传递。')
+      setCopyStatus('访问链接已复制；请通过安全渠道发送。')
     } catch {
       setCopyStatus('无法写入剪贴板，请重新开启远程访问后再试。')
     }
   }, [snapshot?.accessUrl])
 
   const current = snapshot ?? pendingRemoteSnapshot()
-  const transitioning = current.phase === 'starting'
-    || current.phase === 'stopping'
+  const transitioning = current.phase === 'starting' || current.phase === 'stopping'
   return (
-    <EnvironmentStatusCard
-      name="远程访问"
-      order={5}
-      phase={current.phase}
-      message={copyStatus ?? remoteAccessMessage(current)}
-      facts={[
-        ['入口', current.origin ?? '—'],
-        ['PID', String(current.pid ?? '—')],
-        ['Generation', current.generation ?? '—'],
-        ['有效期', formatRemoteExpiry(current.expiresAt)]
-      ]}
-      actions={(
-        <>
-          {current.phase === 'ready' ? (
-            <>
-              <button
-                type="button"
-                disabled={busy || !current.accessUrl}
-                onClick={() => void copyAccessUrl()}
-              >复制访问链接</button>
-              <button
-                type="button"
-                className="is-danger"
-                disabled={busy}
-                onClick={() => void update(api.stop)}
-              >停止共享</button>
-            </>
-          ) : (
+    <div className="unilab-environment-remote-access">
+      <EnvironmentServiceStatus
+        name="远程访问"
+        phase={current.phase}
+        message={copyStatus ?? remoteAccessMessage(current)}
+        actions={current.phase === 'ready' ? (
+          <>
             <button
               type="button"
-              disabled={busy || transitioning || current.phase === 'unavailable'}
-              onClick={() => void update(api.start)}
-            >允许远程访问</button>
-          )}
-        </>
-      )}
-    />
+              disabled={busy || !current.accessUrl}
+              onClick={() => void copyAccessUrl()}
+            >复制访问链接</button>
+            <button
+              type="button"
+              className="is-danger"
+              disabled={busy}
+              onClick={() => void update(api.stop)}
+            >停止共享</button>
+          </>
+        ) : (
+          <button
+            type="button"
+            disabled={busy || transitioning || current.phase === 'unavailable'}
+            onClick={() => void update(api.start)}
+          >允许远程访问</button>
+        )}
+      />
+      {current.error ? (
+        <EnvironmentTechnicalDetails facts={[
+          ['错误详情', current.error],
+          ['入口地址', current.origin ?? '—'],
+          ['Generation', current.generation ?? '—'],
+          ['有效期', formatRemoteExpiry(current.expiresAt)]
+        ]} />
+      ) : current.phase === 'ready' ? (
+        <EnvironmentTechnicalDetails facts={[
+          ['入口地址', current.origin ?? '—'],
+          ['PID', String(current.pid ?? '—')],
+          ['Generation', current.generation ?? '—'],
+          ['有效期', formatRemoteExpiry(current.expiresAt)]
+        ]} />
+      ) : null}
+    </div>
   )
+}
+
+export function ExternalDevicesOnlyControl({
+  checked,
+  disabled,
+  onChange
+}: {
+  checked: boolean
+  disabled: boolean
+  onChange: (checked: boolean) => Promise<void>
+}): React.JSX.Element {
+  return (
+    <label className="unilab-environment-manager__external-devices-only">
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={event => void onChange(event.currentTarget.checked)}
+      />
+      <span>
+        <strong>只使用工作区设备包</strong>
+        <small>关闭后还会加载 OS 内置设备目录；下次启动生效。</small>
+      </span>
+    </label>
+  )
+}
+
+export function RuntimeModeControl({
+  mode,
+  disabled,
+  onSetRuntimeMode
+}: {
+  mode: WorkbenchRuntimeMode | undefined
+  disabled: boolean
+  onSetRuntimeMode: (mode: WorkbenchRuntimeMode) => Promise<void>
+}): React.JSX.Element {
+  const select = (next: WorkbenchRuntimeMode): void => {
+    if (mode === next) return
+    const label = next === 'normal' ? '真实运行' : '模拟运行'
+    if (globalThis.confirm(`切换到${label}？新模式将在下次启动本地执行时生效。`)) {
+      void onSetRuntimeMode(next)
+    }
+  }
+  const button = (
+    value: WorkbenchRuntimeMode,
+    label: string,
+    description: string
+  ): React.JSX.Element => {
+    const selected = mode === value
+    return (
+      <button
+        type="button"
+        className={selected ? 'is-active' : ''}
+        aria-label={selected ? `${label}（当前）` : label}
+        aria-pressed={selected}
+        disabled={disabled}
+        onClick={() => select(value)}
+      >
+        {selected ? <span className="codicon codicon-check" aria-hidden="true" /> : null}
+        <span className="unilab-environment-manager__mode-copy">
+          <strong>{label}</strong>
+          <small>{description}</small>
+        </span>
+      </button>
+    )
+  }
+  return (
+    <div
+      className="unilab-environment-manager__mode"
+      role="group"
+      aria-label="本地执行运行方式"
+    >
+      {button('normal', '真实运行', '向已连接设备下发动作')}
+      {button('dry-run', '模拟运行', '完整运行流程，但不下发设备动作')}
+    </div>
+  )
+}
+
+function visibleFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>([
+    'button:not([disabled]):not([tabindex="-1"])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    'summary',
+    '[tabindex]:not([tabindex="-1"])'
+  ].join(','))).filter(element => element.getClientRects().length > 0)
+}
+
+function initialOpenSections(
+  session: WorkbenchSessionSnapshot
+): ReadonlySet<EnvironmentSectionId> {
+  const sections = new Set<EnvironmentSectionId>()
+  if (session.phase === 'failed' || session.edgeRuntime.phase === 'failed') {
+    sections.add('local')
+    sections.add('diagnostics')
+  }
+  if (session.plcSimulator.phase === 'failed') {
+    sections.add('plc')
+    sections.add('diagnostics')
+  }
+  if (session.agent?.phase === 'failed') sections.add('tools')
+  return sections
+}
+
+function defaultEnvironmentLogKind(
+  session: WorkbenchSessionSnapshot
+): WorkbenchEnvironmentLogKind {
+  if (session.diagnostic?.code === 'plc_connection_failed') return 'plc-sim'
+  if (session.phase === 'failed' || session.edgeRuntime.phase === 'failed') return 'os'
+  return 'workspace-backend'
+}
+
+function overviewIcon(tone: EnvironmentOverview['tone']): string {
+  if (tone === 'ready') return 'codicon-check'
+  if (tone === 'attention') return 'codicon-warning'
+  if (tone === 'busy') return 'codicon-sync'
+  return 'codicon-circle-outline'
+}
+
+function serviceTone(...phases: Array<string | undefined>): string {
+  if (phases.some(phase => phase === 'failed')) return 'attention'
+  if (phases.some(phase => [
+    'validating',
+    'starting',
+    'waiting',
+    'installing',
+    'stopping'
+  ].includes(phase ?? ''))) return 'busy'
+  if (phases.some(phase => phase === 'ready' || phase === 'external')) return 'ready'
+  return 'idle'
+}
+
+function agentStatusMessage(
+  agent: WorkbenchSessionSnapshot['agent']
+): string {
+  if (!agent) return '仅在需要工作区自动化助手时启动。'
+  if (agent.diagnostic) return agent.diagnostic
+  if (agent.phase === 'starting') return '正在启动工作区助手…'
+  if (agent.phase === 'stopping') return '正在停止工作区助手…'
+  if (agent.phase === 'ready') return '工作区助手已就绪。'
+  return '工作区助手启动失败；请查看助手日志。'
+}
+
+function runtimeInstallationMessage(
+  snapshot: ManagedRuntimeInstallationSnapshot
+): string {
+  if (snapshot.phase === 'ready') return '应用运行环境已经通过验证。'
+  if (snapshot.phase === 'external') {
+    return snapshot.error
+      ? '正在使用现有运行环境；应用内置环境需要修复。'
+      : '正在使用已安装的运行环境。'
+  }
+  if (snapshot.phase === 'installing') return '正在离线安装并验证，请勿退出应用。'
+  if (snapshot.phase === 'not-installed') return '尚未检测到可用运行环境。'
+  if (snapshot.phase === 'failed') return '运行环境安装或检查失败。'
+  return '当前入口不提供本机运行环境安装能力。'
 }
 
 function pendingRemoteSnapshot(): WorkbenchRemoteAccessSnapshot {
@@ -701,147 +1215,15 @@ function failedRemoteSnapshot(error: unknown): WorkbenchRemoteAccessSnapshot {
 }
 
 function remoteAccessMessage(snapshot: WorkbenchRemoteAccessSnapshot): string {
-  if (snapshot.phase === 'ready') {
-    return '本地 Electron 与远程浏览器正在共享同一个 WorkbenchSession。'
-  }
-  if (snapshot.phase === 'starting') return '正在建立鉴权浏览器门面…'
-  if (snapshot.phase === 'stopping') return '正在撤销访问链接并关闭远程连接…'
-  if (snapshot.phase === 'failed') return snapshot.error ?? '远程访问启动失败。'
-  if (snapshot.phase === 'unavailable') return '当前不是受支持的桌面 Workbench。'
-  return '关闭；Theia 与 OS 仍只接受本机连接。'
+  if (snapshot.phase === 'ready') return '远程浏览器正在共享当前工作台会话。'
+  if (snapshot.phase === 'starting') return '正在建立安全访问链接…'
+  if (snapshot.phase === 'stopping') return '正在撤销访问链接…'
+  if (snapshot.phase === 'failed') return '远程访问未能开启，请查看技术详情后重试。'
+  if (snapshot.phase === 'unavailable') return '当前不是受支持的桌面工作台。'
+  return '默认关闭；本地服务仅接受本机连接。'
 }
 
 function formatRemoteExpiry(expiresAt: number | null): string {
   if (!expiresAt) return '—'
   return new Date(expiresAt).toLocaleString()
-}
-
-export function ExternalDevicesOnlyControl({
-  checked,
-  disabled,
-  onChange
-}: {
-  checked: boolean
-  disabled: boolean
-  onChange: (checked: boolean) => Promise<void>
-}): React.JSX.Element {
-  return (
-    <label className="unilab-environment-manager__external-devices-only">
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={event => void onChange(event.currentTarget.checked)}
-      />
-      <span>
-        <strong>仅加载外部设备包</strong>
-        <small>
-          取消勾选后同时加载 OS 内置 Registry；下次启动 OS 时生效。
-        </small>
-      </span>
-    </label>
-  )
-}
-
-export function RuntimeModeControl({
-  mode,
-  disabled,
-  onSetRuntimeMode
-}: {
-  mode: WorkbenchRuntimeMode | undefined
-  disabled: boolean
-  onSetRuntimeMode: (mode: WorkbenchRuntimeMode) => Promise<void>
-}): React.JSX.Element {
-  const select = (next: WorkbenchRuntimeMode): void => {
-    if (mode === next) return
-    const confirmed = next === 'normal'
-      ? globalThis.confirm('关闭 Dry-run？新模式将在下次启动 OS 时生效，当前 OS 不会重启。')
-      : globalThis.confirm(
-          '启用 Dry-run？新模式将在下次启动 OS 时生效，当前 OS 不会重启。'
-        )
-    if (confirmed) void onSetRuntimeMode(next)
-  }
-  const button = (
-    value: WorkbenchRuntimeMode,
-    label: string,
-    description: string,
-    title?: string
-  ): React.JSX.Element => {
-    const selected = mode === value
-    return (
-      <button
-        type="button"
-        className={selected ? 'is-active' : ''}
-        aria-label={selected ? `${label}（当前）` : label}
-        aria-pressed={selected}
-        disabled={disabled}
-        title={title}
-        onClick={() => select(value)}
-      >
-        {selected ? (
-          <span className="codicon codicon-check" aria-hidden="true" />
-        ) : null}
-        <span className="unilab-environment-manager__mode-copy">
-          <strong>{label}</strong>
-          <small>{description}</small>
-        </span>
-      </button>
-    )
-  }
-  return (
-    <div className="unilab-environment-manager__mode" role="group" aria-label="OS 运行模式">
-      {button('normal', '正常运行', '真实执行设备动作')}
-      {button(
-        'dry-run',
-        'Dry-run',
-        '仅模拟，不下发设备；下次启动生效',
-        '动作返回模拟成功；切换模式不会重启 OS 或重建本地数据'
-      )}
-    </div>
-  )
-}
-
-function EnvironmentStatusCard({
-  name,
-  order,
-  phase,
-  message,
-  facts,
-  content,
-  actions
-}: {
-  name: string
-  order?: number
-  phase: string
-  message: string
-  facts: Array<[string, string]>
-  content?: React.ReactNode
-  actions?: React.ReactNode
-}): React.JSX.Element {
-  return (
-    <article
-      className="unilab-environment-card"
-      data-phase={phase}
-      style={order === undefined ? undefined : { order }}
-    >
-      <span className={`unilab-environment-card__dot is-${phase}`} aria-hidden="true" />
-      <div className="unilab-environment-card__body">
-        <header>
-          <strong>{name}</strong>
-          <span>{phase}</span>
-        </header>
-        <p className="unilab-environment-card__message">{message}</p>
-        <dl>
-          {facts.map(([label, value]) => (
-            <React.Fragment key={label}>
-              <dt>{label}</dt>
-              <dd title={value}>{value}</dd>
-            </React.Fragment>
-          ))}
-        </dl>
-        {content}
-        {actions ? <div className="unilab-environment-card__actions">{actions}</div> : null}
-      </div>
-    </article>
-  )
 }
