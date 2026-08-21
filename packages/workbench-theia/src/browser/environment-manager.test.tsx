@@ -9,6 +9,7 @@ import {
   type EnvironmentManagerProps,
   ExternalDevicesOnlyControl,
   normalizeSchedulerUrl,
+  resolveGraphPathSelection,
   RuntimeModeControl
 } from './environment-manager'
 
@@ -34,6 +35,81 @@ describe('EnvironmentManager', () => {
     expect(markup).toContain('value="http://127.0.0.1:8081"')
     expect(markup).toContain('Scheduler：自动推导')
     expect(markup).not.toContain('恢复自动推导')
+  })
+
+  it('uses only declared graph candidates and marks the package default', () => {
+    const markup = renderToStaticMarkup(
+      <EnvironmentManager
+        {...environmentManagerProps({
+          ...failedSession(),
+          graphDeclaration: {
+            defaultGraphPath: 'deployment/graphs/package-default.json',
+            candidates: [
+              'deployment/graphs/package-default.json',
+              'deployment/graphs/alternate.json'
+            ]
+          }
+        })}
+      />
+    )
+
+    expect(markup).toContain('<select aria-label="设备图路径"')
+    expect(markup).toContain(
+      'deployment/graphs/package-default.json（包默认）'
+    )
+    expect(markup).toContain('value="deployment/graphs/alternate.json"')
+    expect(markup).not.toContain('<input aria-label="设备图路径"')
+  })
+
+  it('keeps the legacy free-text graph input without a declaration', () => {
+    const markup = renderToStaticMarkup(
+      <EnvironmentManager {...environmentManagerProps(failedSession())} />
+    )
+
+    expect(markup).toContain('<input aria-label="设备图路径"')
+    expect(markup).not.toContain('<select aria-label="设备图路径"')
+  })
+
+  it('disables graph changes for a malformed Host declaration', () => {
+    const markup = renderToStaticMarkup(
+      <EnvironmentManager
+        {...environmentManagerProps({
+          ...failedSession(),
+          graphDeclaration: {
+            defaultGraphPath: null,
+            candidates: []
+          }
+        })}
+      />
+    )
+
+    expect(markup).toContain('aria-invalid="true"')
+    expect(markup).toContain('启动图声明无效')
+    expect(markup).not.toContain('<input aria-label="设备图路径"')
+  })
+})
+
+describe('graph path selection', () => {
+  const declaration = {
+    defaultGraphPath: 'deployment/graphs/package-default.json',
+    candidates: [
+      'deployment/graphs/package-default.json',
+      'deployment/graphs/alternate.json'
+    ]
+  } as const
+
+  it('preserves a persisted candidate for configureGraph', () => {
+    expect(resolveGraphPathSelection(
+      'deployment/graphs/alternate.json',
+      declaration
+    )).toBe('deployment/graphs/alternate.json')
+  })
+
+  it('uses the declared default when the current path is not a candidate', () => {
+    expect(resolveGraphPathSelection(
+      'deployment/graphs/legacy.json',
+      declaration
+    )).toBe('deployment/graphs/package-default.json')
   })
 })
 
@@ -147,6 +223,7 @@ function failedSession(): WorkbenchSessionSnapshot {
     phase: 'failed',
     message: 'Workspace Backend 运行失败',
     configuredGraphPath: 'deployment/graphs/fixture.json',
+    graphDeclaration: null,
     configuredExternalDevicesOnly: true,
     configuredRuntimeMode: 'normal',
     configuredDomainMode: 'local',

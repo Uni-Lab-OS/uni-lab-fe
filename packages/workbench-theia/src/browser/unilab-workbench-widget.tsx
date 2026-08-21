@@ -162,7 +162,8 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   protected sessionSnapshot: WorkbenchSessionSnapshot = {
     phase: 'idle',
     message: '正在连接 Workbench Backend…',
-    configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+    configuredGraphPath: '',
+    graphDeclaration: null,
     configuredExternalDevicesOnly: true,
     configuredRuntimeMode: 'normal',
     configuredDomainMode: 'local',
@@ -251,7 +252,8 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       this.sessionSnapshot = {
         phase: 'failed',
         message: 'Workbench Backend 连接失败',
-        configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+        configuredGraphPath: '',
+        graphDeclaration: null,
         configuredExternalDevicesOnly: true,
         configuredRuntimeMode: 'normal',
         configuredDomainMode: 'local',
@@ -1521,7 +1523,7 @@ function emptyEdgeRuntimeSnapshot(): WorkbenchSessionSnapshot['edgeRuntime'] {
     message: 'Edge Runtime 尚未启动',
     pid: null,
     generation: null,
-    graphPath: 'deployment/graphs/szlab-local-debug.json',
+    graphPath: '',
     mode: 'normal',
     logPath: '',
     diagnostic: null
