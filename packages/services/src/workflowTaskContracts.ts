@@ -40,6 +40,7 @@ export interface WorkflowRunNodeOption {
 export interface WorkflowRunMaterialSourceOption {
   mode: string
   flow_role: string
+  custody_policy: 'task_exclusive' | 'shared_source'
   mount_uuid: string
   resource_template_uuid: string
 }
