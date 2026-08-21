@@ -163,6 +163,11 @@ export interface WorkspacePackageMountProjection {
   items: readonly WorkspacePackageMount[]
 }
 
+export interface WorkbenchWorkflowLoadingProgress {
+  loaded: number
+  total: number
+}
+
 export interface WorkbenchSessionSnapshot {
   phase: WorkbenchSessionPhase
   message: string
@@ -175,6 +180,7 @@ export interface WorkbenchSessionSnapshot {
   identity: WorkbenchSessionIdentity | null
   agent: WorkbenchAgentIdentity | null
   diagnostic: WorkbenchSessionDiagnostic | null
+  workflowLoadingProgress?: WorkbenchWorkflowLoadingProgress | null
   edgeRuntime: WorkbenchEdgeRuntimeSnapshot
   plcSimulator: WorkbenchPlcSimulatorSnapshot
 }

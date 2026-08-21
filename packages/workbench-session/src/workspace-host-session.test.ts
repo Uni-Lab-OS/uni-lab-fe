@@ -164,6 +164,7 @@ describe('Workspace Host Workbench adapter', () => {
     expect(backend).toMatchObject({
       phase: 'ready',
       configuredExternalDevicesOnly: true,
+      workflowLoadingProgress: { loaded: 19, total: 19 },
       identity: {
         workspacePath,
         pid: 4101,
@@ -312,6 +313,90 @@ describe('Workspace Host Workbench adapter', () => {
       '[local_reset_state_blocked] 存在活动工作流或尚未收敛的 Edge 事实；本地状态未重建；'
       + '阻断项：local-edge-authority/edge-job/fixture-job，状态 unknown，未确认命令 fixture-command'
     )
+  })
+
+  /** 编译高负载期间的单次轮询中断不得把仍在运行的 Host 误判为死亡。 */
+  it('retries a transient operation polling transport failure', async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), 'unilab-host-retry-'))
+    roots.push(workspacePath)
+    const token = 'fixture-token'
+    const snapshot = hostSnapshot(workspacePath)
+    let operationId: string | null = null
+    let operationPolls = 0
+    const server = createServer(async (request, response) => {
+      if (request.headers.authorization !== `Bearer ${token}`) {
+        sendJson(response, 401, { error: { message: 'unauthorized' } })
+        return
+      }
+      const url = new URL(request.url ?? '/', 'http://127.0.0.1')
+      if (request.method === 'GET' && url.pathname === '/v1/snapshot') {
+        sendJson(response, 200, snapshot)
+        return
+      }
+      if (request.method === 'POST' && url.pathname === '/v1/operations') {
+        const body = JSON.parse(await readBody(request)) as {
+          operationId: string
+        }
+        operationId = body.operationId
+        snapshot.components.backend = component('backend', { phase: 'starting' })
+        sendJson(response, 202, {
+          operationId,
+          phase: 'running',
+          result: null,
+          error: null
+        })
+        return
+      }
+      const requestedId = url.pathname.match(/^\/v1\/operations\/(.+)$/)?.[1]
+      if (
+        request.method === 'GET'
+        && requestedId
+        && decodeURIComponent(requestedId) === operationId
+      ) {
+        operationPolls += 1
+        if (operationPolls === 1) {
+          request.socket.destroy()
+          return
+        }
+        snapshot.components.backend = component('backend', {
+          phase: 'ready',
+          pid: 4101,
+          address: 'http://127.0.0.1:42001',
+          generation: 'backend-generation'
+        })
+        snapshot.revision += 1
+        snapshot.eventCursor += 1
+        sendJson(response, 200, {
+          operationId,
+          phase: 'succeeded',
+          result: { revision: snapshot.revision },
+          error: null
+        })
+        return
+      }
+      sendJson(response, 404, { error: { message: 'not found' } })
+    })
+    servers.push(server)
+    await listen(server)
+    snapshot.host.endpoint = serverEndpoint(server)
+
+    const runtime = join(workspacePath, '.unilabos', 'runtime', 'workbench')
+    await mkdir(runtime, { recursive: true })
+    await Promise.all([
+      writeFile(join(runtime, 'session.json'), JSON.stringify(snapshot)),
+      writeFile(join(runtime, 'host.token'), token)
+    ])
+
+    const session = createWorkspaceHostWorkbenchSession({
+      workspacePath,
+      readinessTimeoutMs: 5_000
+    })
+
+    await expect(session.startWorkspaceBackend()).resolves.toMatchObject({
+      phase: 'ready',
+      identity: { pid: 4101 }
+    })
+    expect(operationPolls).toBe(2)
   })
 
   it('accepts a restarted Workspace Host snapshot with the same revision', async () => {
@@ -502,13 +587,24 @@ describe('Workspace Host Workbench adapter', () => {
       await writeFile(join(runtime, 'session.json'), JSON.stringify(replacement))
     })
 
-    const session = createWorkspaceHostWorkbenchSession({ workspacePath })
+    const session = createWorkspaceHostWorkbenchSession({
+      workspacePath,
+      readinessTimeoutMs: 12_345
+    })
     const snapshots = await Promise.all([
       session.startWorkspaceBackend(),
       session.startWorkspaceBackend()
     ])
 
     expect(launchWorkspaceHostProcess).toHaveBeenCalledOnce()
+    expect(launchWorkspaceHostProcess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        args: expect.arrayContaining([
+          '--readiness-timeout',
+          '12.345'
+        ])
+      })
+    )
     expect(snapshots).toHaveLength(2)
     for (const snapshot of snapshots) {
       expect(snapshot).toMatchObject({
@@ -634,7 +730,8 @@ function applyCommand(
       capabilities: ['authoring', 'inventory', 'workflow-run'],
       metadata: {
         graphPath: 'deployment/graphs/fixture.json',
-        graphFingerprint: 'fixture-fingerprint'
+        graphFingerprint: 'fixture-fingerprint',
+        workflowProgress: { loaded: 19, total: 19 }
       }
     })
   } else if (command === 'renderer.attach') {

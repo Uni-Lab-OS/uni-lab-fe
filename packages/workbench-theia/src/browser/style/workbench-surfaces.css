@@ -564,6 +564,38 @@
   color: var(--unilab-color-text-muted);
 }
 
+.unilab-workbench-session-loading__progress {
+  display: grid;
+  width: 100%;
+  gap: 8px;
+  margin: -6px 0 22px;
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+}
+
+.unilab-workbench-session-loading__progress-track {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--unilab-color-primary-soft);
+}
+
+.unilab-workbench-session-loading__progress-track > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--unilab-color-primary);
+  transition: width .2s ease;
+}
+
+.unilab-workbench-session-loading__progress.is-indeterminate
+  .unilab-workbench-session-loading__progress-track > span {
+  width: 32%;
+  animation: unilab-session-loading-progress 1.2s ease-in-out infinite;
+}
+
 .unilab-workbench-session-loading[data-loading-kind='authority-switch']
   .unilab-workbench-session-loading__content p {
   margin-bottom: 0;
@@ -583,9 +615,25 @@
   to { transform: rotate(360deg); }
 }
 
+@keyframes unilab-session-loading-progress {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(320%); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .unilab-workbench-session-loading__spinner {
     animation-duration: 1.6s;
+  }
+
+  .unilab-workbench-session-loading__progress-track > span {
+    transition: none;
+  }
+
+  .unilab-workbench-session-loading__progress.is-indeterminate
+    .unilab-workbench-session-loading__progress-track > span {
+    width: 100%;
+    animation: none;
+    opacity: .6;
   }
 }
 
