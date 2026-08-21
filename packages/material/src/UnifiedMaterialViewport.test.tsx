@@ -74,7 +74,8 @@ describe('UnifiedMaterialViewport', () => {
         viewState={{
           mode: '3d',
           showSites: true,
-          showMaterialTransfers: true
+          showMaterialTransfers: true,
+          showMaterialLabels: true
         }}
         renderView={() => <div>scene</div>}
       />
@@ -84,7 +85,8 @@ describe('UnifiedMaterialViewport', () => {
         viewState={{
           mode: '2d',
           showSites: true,
-          showMaterialTransfers: true
+          showMaterialTransfers: true,
+          showMaterialLabels: true
         }}
         renderView={() => <div>scene</div>}
       />
@@ -94,7 +96,8 @@ describe('UnifiedMaterialViewport', () => {
         viewState={{
           mode: 'split',
           showSites: true,
-          showMaterialTransfers: true
+          showMaterialTransfers: true,
+          showMaterialLabels: true
         }}
         renderView={() => <div>scene</div>}
       />
