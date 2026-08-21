@@ -77,6 +77,7 @@ import {
 } from './desktopSurface'
 import { RendererConsoleLogLimiter } from './rendererConsoleLogLimiter'
 import { shouldEnableWorkbenchUpdates } from './releaseChannel'
+import { resolveAppUpdateProgressBarValue } from '../shared/appUpdate'
 import { cleanupPackagedWorkbench, configurePackagedDeviceCardBuilder } from './packagedRuntime'
 import { isWorkbenchWorkspaceNavigationAllowed, registerWorkbenchRemoteAccessIpc, workbenchUnloadPrompt } from './workbenchRemoteIpc'
 
@@ -508,6 +509,7 @@ app.whenReady().then(async () => {
     publish: (snapshot) => {
       const window = mainWindow
       if (window && !window.isDestroyed()) {
+        window.setProgressBar(resolveAppUpdateProgressBarValue(snapshot))
         window.webContents.send('app-update:state', snapshot)
       }
     },

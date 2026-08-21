@@ -221,6 +221,14 @@ export function packagePortableWorkbench(targetPlatform) {
         '--config.win.artifactName=UniLab.Workbench.Test-${version}-${arch}-setup.${ext}'
       )
     }
+    if (targetPlatform === 'win-64' && releaseChannel === 'update-test') {
+      builderArgs.push(
+        '--config.win.artifactName=UniLab.Workbench.UpdateTest-${version}-${arch}-setup.${ext}',
+        // Windows CI 每次生成新的临时证书。仅隔离测试通道省略
+        // app-update.yml publisherName，允许验证更新链路；生产仍强制校验。
+        '--config.win.verifyUpdateCodeSignature=false'
+      )
+    }
     runCommand(process.execPath, [
       join(
         workbenchDirectory,

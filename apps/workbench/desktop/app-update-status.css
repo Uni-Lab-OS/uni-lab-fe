@@ -1,0 +1,178 @@
+.unilab-app-update-status {
+  --update-accent: var(--unilab-color-primary, #60a5fa);
+  position: fixed;
+  inset-inline-end: 16px;
+  inset-block-end: 36px;
+  z-index: 10000;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "indicator copy action"
+    ". progress progress";
+  gap: 10px 12px;
+  width: min(380px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 14px 16px;
+  color: var(--unilab-color-text, #f8fafc);
+  border: 1px solid var(--unilab-color-border, #334155);
+  border-radius: var(--unilab-radius-lg, 12px);
+  background: var(--unilab-color-surface, #111827);
+  box-shadow: var(--unilab-shadow-panel, 0 12px 32px rgb(0 0 0 / 28%));
+  font: 13px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.unilab-app-update-status[hidden] {
+  display: none;
+}
+
+.unilab-app-update-status[data-tone="active"] {
+  --update-accent: var(--unilab-color-warning, #f59e0b);
+}
+
+.unilab-app-update-status[data-tone="success"] {
+  --update-accent: var(--unilab-color-success, #22c55e);
+}
+
+.unilab-app-update-status[data-tone="error"] {
+  --update-accent: var(--unilab-color-danger, #ef4444);
+}
+
+.unilab-app-update-status__indicator {
+  grid-area: indicator;
+  align-self: start;
+  width: 8px;
+  height: 8px;
+  margin-block-start: 5px;
+  border-radius: 50%;
+  background: var(--update-accent);
+}
+
+.unilab-app-update-status[data-tone="active"] .unilab-app-update-status__indicator {
+  animation: unilab-update-pulse 1.8s ease-out infinite;
+}
+
+.unilab-app-update-status__copy {
+  grid-area: copy;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.unilab-app-update-status__title,
+.unilab-app-update-status__detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.unilab-app-update-status__title {
+  color: inherit;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.unilab-app-update-status__detail {
+  color: var(--unilab-color-text-muted, #cbd5e1);
+  font-size: 12px;
+}
+
+.unilab-app-update-status__action {
+  grid-area: action;
+  align-self: center;
+  min-height: 30px;
+  padding: 5px 10px;
+  color: #fff;
+  border: 1px solid var(--unilab-color-control, #2563eb);
+  border-radius: var(--unilab-radius-control, 6px);
+  background: var(--unilab-color-control, #2563eb);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.unilab-app-update-status__action:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.unilab-app-update-status__action:focus-visible {
+  outline: 2px solid var(--unilab-color-text, #f8fafc);
+  outline-offset: 2px;
+}
+
+.unilab-app-update-status__action:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.unilab-app-update-status__progress-row {
+  grid-area: progress;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 10px;
+}
+
+.unilab-app-update-status__progress-row[hidden] {
+  display: none;
+}
+
+.unilab-app-update-status__progress {
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 3px;
+  background: var(--unilab-color-surface-muted, #334155);
+  accent-color: var(--update-accent);
+}
+
+.unilab-app-update-status__progress::-webkit-progress-bar {
+  border-radius: 3px;
+  background: var(--unilab-color-surface-muted, #334155);
+}
+
+.unilab-app-update-status__progress::-webkit-progress-value {
+  border-radius: 3px;
+  background: var(--update-accent);
+}
+
+.unilab-app-update-status__progress-text {
+  color: var(--unilab-color-text-muted, #cbd5e1);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+@keyframes unilab-update-pulse {
+  0%, 100% { opacity: 1; }
+  55% { opacity: 0.45; }
+}
+
+@media (max-width: 520px) {
+  .unilab-app-update-status {
+    inset-inline: 12px;
+    inset-block-end: 24px;
+    width: auto;
+    grid-template-columns: 10px minmax(0, 1fr);
+    grid-template-areas:
+      "indicator copy"
+      ". progress"
+      ". action";
+  }
+
+  .unilab-app-update-status__action {
+    justify-self: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .unilab-app-update-status__indicator {
+    animation: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .unilab-app-update-status,
+  .unilab-app-update-status__action {
+    border-color: CanvasText;
+  }
+}

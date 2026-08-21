@@ -67,6 +67,7 @@ import type {
   DesktopManagedRuntimeInstallationApi,
   ManagedRuntimeInstallationSnapshot
 } from '../shared/managedRuntimeInstallation'
+import { installAppUpdateStatus } from './appUpdateStatus'
 
 // 登录会话结构(与主进程 authManager.AuthSession 保持一致)
 export interface AuthUserInfo {
@@ -472,5 +473,7 @@ if (process.contextIsolated) {
 } else {
   ;(globalThis as unknown as { api: Api }).api = api
 }
+
+installAppUpdateStatus(api.appUpdate)
 
 export type Api = typeof api

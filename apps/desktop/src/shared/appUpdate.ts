@@ -30,3 +30,18 @@ export interface DesktopAppUpdateApi {
   restartAndInstall(): Promise<AppUpdateSnapshot>
   onState(listener: (snapshot: AppUpdateSnapshot) => void): () => void
 }
+
+/**
+ * 将下载快照转换成 Electron Dock/任务栏接受的进度值。
+ *
+ * 非下载状态返回 -1，用于立即移除已经完成或失效的系统进度显示。
+ */
+export function resolveAppUpdateProgressBarValue(
+  snapshot: AppUpdateSnapshot
+): number {
+  if (snapshot.phase !== 'downloading') return -1
+  const percent = Number.isFinite(snapshot.progressPercent)
+    ? snapshot.progressPercent ?? 0
+    : 0
+  return Math.min(100, Math.max(0, percent)) / 100
+}

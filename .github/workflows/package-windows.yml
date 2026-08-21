@@ -24,10 +24,11 @@ on:
     branches:
       - main
       - deploy-windows-test
+      - deploy-hot-update-test
 
 permissions:
-  # Only main publishes the verified production updater bundle. The test branch
-  # needs contents:write only because permissions are workflow-scoped.
+  # main publishes production; deploy-hot-update-test publishes only to its
+  # isolated rolling release. Ordinary test packages never publish metadata.
   contents: write
 
 concurrency:
@@ -46,15 +47,15 @@ env:
   UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf
   UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-b09c0c048f6d
   UNILAB_RUNTIME_VERSION: 0.11.3
-  WINDOWS_RELEASE_TAG: workbench-windows-stable
-  UNILAB_WORKBENCH_UPDATE_URL: https://github.com/${{ github.repository }}/releases/download/workbench-windows-stable
+  WINDOWS_RELEASE_TAG: ${{ github.ref == 'refs/heads/deploy-hot-update-test' && 'workbench-windows-hot-update-test' || 'workbench-windows-stable' }}
+  UNILAB_WORKBENCH_UPDATE_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/deploy-hot-update-test' && 'workbench-windows-hot-update-test' || 'workbench-windows-stable' }}
 
 jobs:
   package-windows-x64:
     env:
       UNILAB_CI_PACKAGE_MODE: ${{ github.event_name == 'push' && 'full' || inputs.mode }}
       UNILAB_WORKBENCH_COMPRESSION: ${{ github.event_name == 'workflow_dispatch' && inputs.compression || 'normal' }}
-      UNILAB_WORKBENCH_RELEASE_CHANNEL: ${{ github.ref == 'refs/heads/main' && 'production' || 'test' }}
+      UNILAB_WORKBENCH_RELEASE_CHANNEL: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/deploy-hot-update-test' && 'update-test' || 'test' }}
     # Node-gyp 11 does not yet recognize the Visual Studio 18 toolchain that
     # may be selected by windows-latest. Keep the native drivelist build on the
     # VS 2022 image until the dependency toolchain is upgraded.
@@ -86,10 +87,25 @@ jobs:
       - name: Check out Workbench
         uses: actions/checkout@v6
 
+      - name: Bootstrap isolated Windows hot-update release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/deploy-hot-update-test'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:WINDOWS_RELEASE_TAG" *> $null
+          if ($LASTEXITCODE -eq 0) { return }
+          & gh release create $env:WINDOWS_RELEASE_TAG `
+            --repo $env:GITHUB_REPOSITORY `
+            --target $env:GITHUB_SHA `
+            --title 'Workbench Windows 热更新测试' `
+            --notes 'deploy-hot-update-test 分支的隔离滚动更新源，不用于生产安装。' `
+            --prerelease
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to bootstrap isolated Windows update release' }
+
       # Fail before restoring multi-hundred-megabyte caches when the updater
       # publishing contract has not been configured for this repository.
       - name: Validate update publishing configuration
-        if: env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
+        if: env.UNILAB_WORKBENCH_RELEASE_CHANNEL != 'test'
         run: |
           $rawUpdateUrl = $env:UNILAB_WORKBENCH_UPDATE_URL
           if ([string]::IsNullOrWhiteSpace($rawUpdateUrl)) {
@@ -332,7 +348,7 @@ jobs:
       # caches whose keys must remain independent from the generated version.
       # The package.json edit exists only on this runner and is never pushed.
       - name: Select automatic Windows package version
-        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL != 'test'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -653,7 +669,7 @@ jobs:
       # Publish binaries first and metadata last. Existing clients keep reading
       # the previous latest.yml until the complete replacement is available.
       - name: Publish rolling Windows update release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/deploy-hot-update-test') && env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL != 'test'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -741,8 +757,13 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Unable to remove stale release asset $assetName" }
           }
 
+          $releaseChannelDescription = if ($env:GITHUB_REF -eq 'refs/heads/deploy-hot-update-test') {
+            'deploy-hot-update-test 分支的 Windows 隔离热更新测试通道。'
+          } else {
+            'main 分支的 Windows 生产滚动更新通道。'
+          }
           $releaseBody = @"
-          main 分支的 Windows 生产滚动更新通道。
+          $releaseChannelDescription
 
           当前提交：$env:GITHUB_SHA
           发布版本：$env:UNILAB_WORKBENCH_PACKAGE_VERSION

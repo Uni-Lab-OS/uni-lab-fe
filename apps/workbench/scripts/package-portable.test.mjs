@@ -113,6 +113,14 @@ describe('portable Workbench packaging contract', () => {
       packagingScript,
       /--config\.win\.artifactName=UniLab\.Workbench\.Test-/u
     )
+    assert.match(
+      packagingScript,
+      /--config\.win\.artifactName=UniLab\.Workbench\.UpdateTest-/u
+    )
+    assert.match(
+      packagingScript,
+      /--config\.win\.verifyUpdateCodeSignature=false/u
+    )
     assert.match(packagingScript, /resolveWorkbenchReleaseChannel/u)
     assert.match(packagingScript, /allowsOversizePackagingBenchmark\(\)/u)
   })
@@ -649,7 +657,7 @@ describe('portable Workbench packaging contract', () => {
     }
   })
 
-  /** 验证 Windows 原生流水线分流 main 生产包、测试包与同源介质 A/B。 */
+  /** 验证 Windows 原生流水线分流生产、普通测试、热更新测试与介质 A/B。 */
   it('builds the Windows installer on a native GitHub Actions runner', async () => {
     const workflow = await readFile(
       new URL('../../../.github/workflows/package-windows.yml', import.meta.url),
@@ -672,7 +680,10 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /actions\/cache\/restore@v6/u)
     assert.match(workflow, /actions\/cache\/save@v6/u)
     assert.match(workflow, /cache-primary-key/u)
-    assert.match(workflow, /branches:\n\s+- main\n\s+- deploy-windows-test/u)
+    assert.match(
+      workflow,
+      /branches:\n\s+- main\n\s+- deploy-windows-test\n\s+- deploy-hot-update-test/u
+    )
     assert.doesNotMatch(workflow, /ci\/desktop-packaging-optimization-v2/u)
     assert.match(workflow, /workflow_dispatch:/u)
     assert.match(
@@ -683,7 +694,7 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /UNILAB_CI_PACKAGE_MODE:/u)
     assert.match(workflow, /UNILAB_WORKBENCH_COMPRESSION:/u)
     assert.match(workflow, /UNILAB_WORKBENCH_RELEASE_CHANNEL:/u)
-    assert.match(workflow, /refs\/heads\/main' && 'production' \|\| 'test'/u)
+    assert.match(workflow, /'update-test' \|\| 'test'/u)
     assert.doesNotMatch(workflow, /strategy:\n\s+matrix:/u)
     assert.match(workflow, /ELECTRON_VERSION: 33\.4\.11/u)
     assert.match(workflow, /ELECTRON_BUILDER_VERSION: 25\.1\.8/u)
@@ -819,7 +830,7 @@ describe('portable Workbench packaging contract', () => {
     )
     assert.match(workflow, /release-windows\/latest\.yml/u)
     assert.match(workflow, /release-windows\/package-size-report\.json/u)
-    assert.match(workflow, /WINDOWS_RELEASE_TAG: workbench-windows-stable/u)
+    assert.match(workflow, /workbench-windows-hot-update-test/u)
     assert.match(workflow, /tzutil\.exe \/s "China Standard Time"/u)
     assert.match(
       workflow,
@@ -829,14 +840,19 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /' \+08:00'/u)
     assert.match(workflow, /BUILD_STARTED_AT_CST=/u)
     assert.match(workflow, /更新时间：\$env:BUILD_STARTED_AT_CST（UTC\+08:00）/u)
-    assert.match(
-      workflow,
-      /releases\/download\/workbench-windows-stable/u
-    )
+    assert.match(workflow, /releases\/download\/\$\{\{/u)
+    assert.match(workflow, /workbench-windows-stable/u)
+    assert.match(workflow, /workbench-windows-hot-update-test/u)
     assert.doesNotMatch(workflow, /vars\.UNILAB_WORKBENCH_UPDATE_URL/u)
     assert.match(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/u)
     assert.match(workflow, /gh release upload/u)
-    assert.doesNotMatch(workflow, /gh release create/u)
+    const bootstrapSection = workflow.slice(
+      workflow.indexOf('name: Bootstrap isolated Windows hot-update release'),
+      workflow.indexOf('name: Validate update publishing configuration')
+    )
+    assert.match(bootstrapSection, /refs\/heads\/deploy-hot-update-test/u)
+    assert.match(bootstrapSection, /gh release create/u)
+    assert.match(bootstrapSection, /--prerelease/u)
     const uploadBinaryIndex = workflow.indexOf(
       '& gh release upload $env:WINDOWS_RELEASE_TAG $installerPath $blockmapPath'
     )
@@ -887,7 +903,7 @@ describe('portable Workbench packaging contract', () => {
     assert.doesNotMatch(abUploadSection, /\*-setup\.exe/u)
     assert.match(
       workflow,
-      /if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'[^\n]*UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'/u
+      /if: github\.event_name == 'push'[^\n]*refs\/heads\/main[^\n]*refs\/heads\/deploy-hot-update-test[^\n]*UNILAB_WORKBENCH_RELEASE_CHANNEL != 'test'/u
     )
 
     const builderConfiguration = await readFile(
