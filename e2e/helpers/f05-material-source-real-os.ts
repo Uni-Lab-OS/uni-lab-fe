@@ -63,11 +63,7 @@ export interface F05MaterialSourceRealOs {
   ) => { workflow_id: string; reserved_nodes: string[] }
   releaseWorkflowReservation: (
     workflowTaskUuid: string
-  ) => {
-    workflow_id: string
-    released_nodes: string[]
-    released_bindings: string[]
-  }
+  ) => { workflow_id: string; released_nodes: string[] }
   stop: () => Promise<void>
 }
 
@@ -174,11 +170,15 @@ export async function startF05MaterialSourceRealOs(): Promise<F05MaterialSourceR
     '--graph', join(workspaceDirectory, 'graph.json'),
     '--config', join(workspaceDirectory, 'local_config.py'),
     '--working_dir', workingDirectory,
-    '--preserve_runtime_databases',
+    '--edge_inventory_db', join(workingDirectory, 'inventory.db'),
+    '--edge_device_state_db', join(workingDirectory, 'device_state.db'),
+    '--edge_workflow_history_db', join(workingDirectory, 'workflow_history.db'),
     '--backend', 'ros',
     '--app_bridges', 'fastapi',
     '--port', String(port),
     '--disable_browser',
+    '--skip_env_check',
+    '--test_mode',
     '--external_devices_only'
   ]
   const output = new ProcessOutputCollector()
@@ -253,11 +253,7 @@ export async function startF05MaterialSourceRealOs(): Promise<F05MaterialSourceR
    */
   function releaseWorkflowReservation(
     workflowTaskUuid: string
-  ): {
-    workflow_id: string
-    released_nodes: string[]
-    released_bindings: string[]
-  } {
+  ): { workflow_id: string; released_nodes: string[] } {
     return runReservationRelease({
       python,
       script: reservationControlScript,

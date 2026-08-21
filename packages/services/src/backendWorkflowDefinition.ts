@@ -113,8 +113,7 @@ function decodeBackendMaterialSource(
     !nonEmptyString(selector.mode) ||
     !nonEmptyString(selector.resource_template_uuid) ||
     !nonEmptyString(mount.uuid) ||
-    !nonEmptyString(selector.flow_role) ||
-    !materialCustodyPolicy(selector.custody_policy)
+    !nonEmptyString(selector.flow_role)
   ) {
     throw invalidBackendRunPreparation(
       `invalid material source selector at node index ${nodeIndex}`
@@ -124,16 +123,8 @@ function decodeBackendMaterialSource(
     mode: selector.mode,
     resource_template_uuid: selector.resource_template_uuid,
     mount_uuid: mount.uuid,
-    flow_role: selector.flow_role,
-    custody_policy: selector.custody_policy
+    flow_role: selector.flow_role
   }
-}
-
-/** 校验 Backend 物料保管策略（MaterialCustodyPolicy）的精确线值。 */
-function materialCustodyPolicy(
-  value: unknown
-): value is 'task_exclusive' | 'shared_source' {
-  return value === 'task_exclusive' || value === 'shared_source'
 }
 
 /** 严格解码 Backend 端口模板并按节点模板身份建立只读索引。 */

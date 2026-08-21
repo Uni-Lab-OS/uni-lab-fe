@@ -84,10 +84,6 @@ function materialSourceSchema(): Record<string, unknown> {
           'reagent',
           'consumable'
         ]
-      },
-      custody_policy: {
-        type: 'string',
-        enum: ['task_exclusive', 'shared_source']
       }
     },
     required: [
@@ -97,8 +93,7 @@ function materialSourceSchema(): Record<string, unknown> {
       'material_uuid',
       'site',
       'slot_range',
-      'flow_role',
-      'custody_policy'
+      'flow_role'
     ],
     additionalProperties: false
   }

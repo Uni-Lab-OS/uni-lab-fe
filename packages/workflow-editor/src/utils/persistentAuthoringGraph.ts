@@ -225,7 +225,6 @@ function projectMaterialSourceState(
     materialSource: {
       mode: String(param.mode || ''),
       flowRole: String(param.flow_role || ''),
-      custodyPolicy: String(param.custody_policy || 'task_exclusive'),
       mountUuid: String(mount.uuid || ''),
       resourceTemplateUuid,
       ...(resourceTemplate?.shape ? { shape: resourceTemplate.shape } : {})

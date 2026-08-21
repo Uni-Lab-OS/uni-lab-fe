@@ -350,8 +350,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
       candidateSiteUuids: patch.candidateSiteUuids ?? (
         changingTemplate || changingMount ? [] : editorProjection.candidateSiteUuids
       ),
-      flowRole: patch.flowRole ?? editorProjection.flowRole,
-      custodyPolicy: patch.custodyPolicy ?? editorProjection.custodyPolicy
+      flowRole: patch.flowRole ?? editorProjection.flowRole
     }
     try {
       const updated = updateMaterialSourceSelector(

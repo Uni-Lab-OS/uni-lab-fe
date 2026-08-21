@@ -46,7 +46,6 @@ export interface WorkflowNode {
   materialSource?: {
     mode: string
     flowRole: string
-    custodyPolicy?: string
     mountUuid: string
     resourceTemplateUuid: string
     shape?: MaterialShapeSpec

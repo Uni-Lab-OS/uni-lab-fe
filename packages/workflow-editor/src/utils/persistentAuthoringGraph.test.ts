@@ -23,30 +23,6 @@ const graph: WorkflowAuthoringGraph = {
 }
 
 describe('persistent Authoring canvas graph edits', () => {
-  /** 画布投影必须保留物料来源（MaterialSource）的保管策略中文语义入口。 */
-  it('把物料保管策略投影到画布节点', () => {
-    const projected = projectPersistentAuthoringGraph({
-      ...graph,
-      nodes: [{
-        uuid: 'shared-reagent-source',
-        name: 'shared_reagent',
-        type: 'material_source',
-        param: {
-          mode: 'existing',
-          flow_role: 'reagent',
-          custody_policy: 'shared_source',
-          mount: { uuid: 'mount-1' },
-          resource_template_uuid: 'reagent-template'
-        }
-      }]
-    })
-
-    expect(projected.nodes[0]?.materialSource).toMatchObject({
-      flowRole: 'reagent',
-      custodyPolicy: 'shared_source'
-    })
-  })
-
   it('persists node disablement and projects a visible disabled marker', () => {
     const disabled = updatePersistentAuthoringNodeDisabled(graph, 'node-1', true)
     const projected = projectPersistentAuthoringGraph(disabled)

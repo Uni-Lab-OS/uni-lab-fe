@@ -42,7 +42,7 @@ export default function WorkflowMaterialSourceNode({
   const sourceDescription = data.materialSource
     ? `${flowRoleLabel(data.materialSource.flowRole)} · ${
         data.materialSource.mode === 'create_new' ? '新建物料' : '已有物料'
-      } · ${custodyPolicyLabel(data.materialSource.custodyPolicy)}`
+      }`
     : '物料来源'
   return (
     <div
@@ -175,9 +175,4 @@ function flowRoleLabel(flowRole: string): string {
     reagent: '试剂',
     consumable: '耗材'
   }[flowRole] || flowRole
-}
-
-/** 将物料保管策略（MaterialCustodyPolicy）转换为画布紧凑中文标签。 */
-function custodyPolicyLabel(custodyPolicy: string | undefined): string {
-  return custodyPolicy === 'shared_source' ? '动作互斥共享' : '任务独占'
 }
