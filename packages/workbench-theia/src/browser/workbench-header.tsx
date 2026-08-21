@@ -1,7 +1,4 @@
-import type {
-  WorkbenchEnvironmentLogKind,
-  WorkbenchSessionSnapshot
-} from '@unilab/workbench-session'
+import type { WorkbenchSessionSnapshot } from '@unilab/workbench-session'
 import * as React from 'react'
 
 import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
@@ -16,10 +13,6 @@ import {
   WorkbenchConnectionSelector,
   type WorkbenchConnectionState
 } from './workbench-connection-selector'
-import {
-  WorkbenchRuntimeLogLauncher,
-  workbenchRuntimeLogPaths
-} from './workbench-runtime-log-drawer'
 import { workbenchViewLabel } from './workbench-surface-helpers'
 import type { WorkbenchViewMode } from './workbench-view-state'
 
@@ -45,16 +38,12 @@ export interface WorkbenchHeaderProps {
   onForceConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onCancelTasksAndConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onToggleEnvironment: () => void
-  onReadEnvironmentLog: (
-    kind: WorkbenchEnvironmentLogKind
-  ) => Promise<string>
-  onOpenLog: (path: string) => Promise<void>
 }
 
 /**
  * 渲染 Workbench 会话身份、连接权威和环境操作入口。
  *
- * @param props 当前会话投影、连接选择和日志控制端口。
+ * @param props 当前会话投影、连接选择和调试设置控制端口。
  * @returns 不拥有领域状态的稳定 Workbench 顶栏。
  */
 export function WorkbenchHeader({
@@ -73,9 +62,7 @@ export function WorkbenchHeader({
   onConnectionModeChange,
   onForceConnectionModeChange,
   onCancelTasksAndConnectionModeChange,
-  onToggleEnvironment,
-  onReadEnvironmentLog,
-  onOpenLog
+  onToggleEnvironment
 }: WorkbenchHeaderProps): React.JSX.Element {
   const environmentTone = localEnvironmentTone(session)
   const environmentLabel = localEnvironmentStatusLabel(environmentTone)
@@ -110,11 +97,6 @@ export function WorkbenchHeader({
           onCancelTasksAndSelect={onCancelTasksAndConnectionModeChange}
         />
         <nav aria-label="调试工作台页面">
-          <WorkbenchRuntimeLogLauncher
-            onReadLog={onReadEnvironmentLog}
-            logPaths={workbenchRuntimeLogPaths(session)}
-            onOpenLog={onOpenLog}
-          />
           <button
             className={environmentOpen ? 'is-active' : ''}
             aria-expanded={environmentOpen}

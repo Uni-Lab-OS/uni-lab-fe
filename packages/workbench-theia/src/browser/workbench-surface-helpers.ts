@@ -69,7 +69,6 @@ export interface WorkbenchSurfaceProps {
   onRebuildLocalData: () => Promise<void>
   onResetWorkflowEnvironment: (backendUrl: string) => Promise<void>
   onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>
-  onOpenLog: (path: string) => Promise<void>
   onConfigureGraph: (
     graphPath: string,
     options?: { applyNow?: boolean }

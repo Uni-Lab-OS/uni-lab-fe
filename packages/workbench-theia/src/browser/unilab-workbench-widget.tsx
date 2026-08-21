@@ -936,7 +936,6 @@ export class UniLabWorkbenchWidget extends ReactWidget {
             />
           )}
           onOpenLog={this.openSessionLog}
-          onReadEnvironmentLog={this.readEnvironmentLog}
           renderEnvironmentManager={onClose => (
             <EnvironmentManager
               session={this.sessionSnapshot}
@@ -989,7 +988,6 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         onRebuildLocalData={this.rebuildLocalData}
         onResetWorkflowEnvironment={this.resetWorkflowEnvironment}
         onReadEnvironmentLog={this.readEnvironmentLog}
-        onOpenLog={this.openSessionLog}
         onConfigureGraph={this.configureGraph}
         onSetExternalDevicesOnly={this.setExternalDevicesOnly}
         onConfigurePlcSimulator={this.configurePlcSimulator}
@@ -1040,7 +1038,6 @@ function WorkbenchSurface({
   onRebuildLocalData,
   onResetWorkflowEnvironment,
   onReadEnvironmentLog,
-  onOpenLog,
   onConfigureGraph,
   onSetExternalDevicesOnly,
   onConfigurePlcSimulator,
@@ -1396,8 +1393,6 @@ function WorkbenchSurface({
             onCancelTasksAndConnectionModeChange
           }
           onToggleEnvironment={() => setEnvironmentOpen(value => !value)}
-          onReadEnvironmentLog={onReadEnvironmentLog}
-          onOpenLog={onOpenLog}
         />
         {environmentOpen ? (
           <EnvironmentManager

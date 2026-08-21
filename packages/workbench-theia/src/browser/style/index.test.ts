@@ -13,7 +13,6 @@ beforeAll(async () => {
   const [
     shell,
     connection,
-    runtimeLogs,
     environment,
     surfaces,
     aionui,
@@ -24,10 +23,6 @@ beforeAll(async () => {
     readFile(fileURLToPath(new URL('./workbench-shell.css', import.meta.url)), 'utf8'),
     readFile(
       fileURLToPath(new URL('./workbench-connection-selector.css', import.meta.url)),
-      'utf8'
-    ),
-    readFile(
-      fileURLToPath(new URL('./workbench-runtime-log-drawer.css', import.meta.url)),
       'utf8'
     ),
     readFile(fileURLToPath(new URL('./environment-manager.css', import.meta.url)), 'utf8'),
@@ -49,7 +44,6 @@ beforeAll(async () => {
   stylesheet = [
     shell,
     connection,
-    runtimeLogs,
     environment,
     surfaces,
     aionui
@@ -279,19 +273,6 @@ describe('environment manager layering and responsive layout', () => {
     )
   })
 
-  /** 证明运行日志抽屉占满可用高度，并在窄屏切换为整屏而非溢出。 */
-  it('keeps the runtime log drawer usable across desktop and narrow screens', () => {
-    const drawer = cssRule('.unilab-runtime-log-drawer')
-    const output = cssRule('.unilab-runtime-log-drawer__output')
-
-    expect(drawer).toMatch(/position:\s*relative/u)
-    expect(drawer).toMatch(/grid-template-rows:[\s\S]*minmax\(0, 1fr\)/u)
-    expect(output).toMatch(/min-height:\s*0/u)
-    expect(output).toMatch(/overflow:\s*auto/u)
-    expect(stylesheet).toMatch(
-      /@media \(max-width: 720px\)[\s\S]*\.unilab-runtime-log-drawer\s*\{[\s\S]*width:\s*100%/u
-    )
-  })
 })
 
 function cssRule(selector: string): string {
