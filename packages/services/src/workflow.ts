@@ -231,8 +231,8 @@ export function createWorkflowRuntime(
   ): Promise<Value> => {
     requireWorkflowCapability('workflow.authoring')
     return strictAuthoringData<Value>(
-      await http.request<unknown>(path, init)
-    )
+    await http.request<unknown>(path, init)
+  )
   }
 
   /** 严格读取工作流运行（Workflow Runtime）接口。 */
@@ -242,8 +242,8 @@ export function createWorkflowRuntime(
   ): Promise<Value> => {
     requireWorkflowCapability('workflow.runTasks')
     return strictRuntimeData<Value>(
-      await http.request<unknown>(path, init)
-    )
+    await http.request<unknown>(path, init)
+  )
   }
 
   /** 校验当前服务端已完整实现指定工作流语义。 */
@@ -329,17 +329,17 @@ export function createWorkflowRuntime(
     generateWorkflowAuthoringPython: async (body) =>
       decodeWorkflowAuthoringTransform(await authoringRequest(
         '/api/v1/authoring/generate-python', {
-          method: 'POST',
-          headers: jsonHeaders(),
-          body: JSON.stringify(body)
+        method: 'POST',
+        headers: jsonHeaders(),
+        body: JSON.stringify(body)
         }
       )),
     validateWorkflowAuthoring: async (body) =>
       decodeWorkflowAuthoringTransform(await authoringRequest(
         '/api/v1/authoring/validate', {
-          method: 'POST',
-          headers: jsonHeaders(),
-          body: JSON.stringify(body)
+        method: 'POST',
+        headers: jsonHeaders(),
+        body: JSON.stringify(body)
         }
       )),
     getWorkflow: (workflowId) =>
@@ -531,27 +531,27 @@ function parseRuntimeFrame(
   frame: WorkflowSseFrame,
   options: WorkflowRuntimeSubscriptionOptions
 ): WorkflowRuntimeInvalidationEvent | null {
-  if (
-    frame.event !== 'workflow.runtime.changed' &&
+            if (
+              frame.event !== 'workflow.runtime.changed' &&
     frame.event !== 'device_action_task.changed' &&
     frame.event !== 'device.catalog.changed' &&
     frame.event !== 'workflow.definition.changed'
   ) return null
-  const data = frame.event === 'workflow.runtime.changed'
-    ? parseRuntimeChangedData(frame.data)
+            const data = frame.event === 'workflow.runtime.changed'
+              ? parseRuntimeChangedData(frame.data)
     : frame.event === 'device_action_task.changed'
       ? parseDeviceActionTaskChangedData(frame.data)
       : frame.event === 'device.catalog.changed'
         ? parseDeviceCatalogChangedData(frame.data)
         : parseWorkflowDefinitionChangedData(frame.data)
-  if (!data) {
+            if (!data) {
     options.onError?.(new Error('Workflow Runtime SSE 返回了无效事件'))
     return null
   }
   return {
-    id: frame.id,
-    event: frame.event,
-    data
+              id: frame.id,
+              event: frame.event,
+              data
   } as WorkflowRuntimeInvalidationEvent
 }
 

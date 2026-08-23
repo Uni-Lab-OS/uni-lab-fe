@@ -104,9 +104,9 @@ export async function loadWorkflowMaterialSourceCatalog(
   const candidates: Record<string, unknown>[] = []
   for (const summary of catalog.items) {
     if (
-      summary.name === 'material_source' &&
-      summary.type === 'material_source' &&
-      summary.node_type === 'material_source'
+    summary.name === 'material_source' &&
+    summary.type === 'material_source' &&
+    summary.node_type === 'material_source'
     ) candidates.push(summary)
   }
   if (candidates.length !== 1) {
@@ -120,7 +120,7 @@ export async function loadWorkflowMaterialSourceCatalog(
   const summaryResourceUuid = uuidString(summaryResource.uuid)
   const detail = parseWorkflowNodeTemplateDetail(
     await http.request<unknown>(
-      `/api/v1/workflow-node-templates/${encodeURIComponent(summaryUuid)}`
+    `/api/v1/workflow-node-templates/${encodeURIComponent(summaryUuid)}`
     ),
     catalog.generation
   )

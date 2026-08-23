@@ -58,7 +58,7 @@ for (const bundledDependency of [
 }
 assert.match(
   viteConfig,
-  /external:\s*\[\s*['"]@vue\/compiler-sfc['"]\s*\]/u
+  /external:\s*\[\s*['"]esbuild['"]\s*,\s*['"]@vue\/compiler-sfc['"]\s*\]/u
 )
 assert.equal(
   packageConfig.scripts?.['package:win'],

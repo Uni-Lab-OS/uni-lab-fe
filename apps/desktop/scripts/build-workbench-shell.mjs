@@ -34,3 +34,6 @@ for (const optionalTemplateEngine of ['velocityjs', 'dustjs-linkedin']) {
     )
   }
 }
+if (mainSource.includes('The esbuild JavaScript API cannot be bundled')) {
+  throw new Error('Workbench 主进程把 esbuild API 打进了产物，设备卡片无法构建')
+}

@@ -21,10 +21,9 @@ export default defineConfig(({ mode }) => ({
     })],
     build: {
       rollupOptions: {
-        // The deployed Device Card Host already depends on compiler-sfc.
-        // Keep it external so Rollup does not hoist compiler-sfc's lazy,
-        // optional template-engine requires into desktop startup.
-        external: ['@vue/compiler-sfc'],
+        // Device Card Host 与 pTLC 卡片同一套构建器：esbuild 和 compiler-sfc
+        // 必须以外置包运行，不能打进 out/main/index.js。
+        external: ['esbuild', '@vue/compiler-sfc'],
         input: {
           index: resolve(__dirname, 'src/main/index.ts')
         }

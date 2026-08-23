@@ -27,6 +27,10 @@ export async function verifyBrowserBundle(frontendDirectory) {
     javascriptFiles(frontendDirectory),
   ])
 
+  if (!bundle.includes('containerModule.default?.registry ? containerModule.default : containerModule.default?.default')) {
+    throw new Error('Workbench bundle.js is missing Theia ContainerModule CommonJS/ESM normalization')
+  }
+
   if (!index.includes('<script type="module" src="./bundle.js" charset="utf-8"></script>')) {
     throw new Error('Workbench index.html 未使用模块化 bundle.js 入口')
   }
