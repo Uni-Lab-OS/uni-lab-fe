@@ -609,6 +609,14 @@ describe('portable Workbench packaging contract', () => {
       /dev-desktop\.mjs$/u
     )
     assert.equal(
+      rootManifest.scripts['workbench:desktop:welcome:development'],
+      'pnpm --filter @unilab/workbench desktop:welcome:development'
+    )
+    assert.match(
+      workbenchManifest.scripts['desktop:welcome:development'],
+      /dev-desktop\.mjs --welcome$/u
+    )
+    assert.equal(
       desktopManifest.scripts['build:workbench-shell'],
       'node scripts/build-workbench-shell.mjs'
     )
@@ -626,6 +634,8 @@ describe('portable Workbench packaging contract', () => {
       /\[watch\/browser\] Finished with 0 errors/u
     )
     assert.match(desktopWatch, /\[watch\/node\] Finished with 0 errors/u)
+    assert.match(desktopWatch, /workbenchRequire\('electron'\)/u)
+    assert.match(desktopWatch, /if \(welcome\)/u)
   })
 
   it('removes source maps and rejects an oversized production lib', async () => {
