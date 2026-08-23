@@ -162,7 +162,6 @@ export function materialAggregatesToSceneGraph(
       dimensions: rendering.dimensionsMm.map(
         (value) => Math.max(value / 1000, 0.01)
       ) as Vector3Tuple,
-      materialKind: rendering.materialKind,
       placementRef: projected.placementRef,
       floorplanSnapshot: {
         kind: rendering.kind,

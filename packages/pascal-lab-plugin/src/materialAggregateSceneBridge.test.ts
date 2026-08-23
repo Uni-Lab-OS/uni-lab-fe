@@ -63,6 +63,8 @@ describe('Material Aggregate / Pascal bridge', () => {
             path: '/assets/robot.xacro',
             macro: 'szlab_mixer_robot',
             meshDir: '/assets/robot/models',
+            position: [0.01, 0.02, 0.03],
+            rotation: [0.1, 0.2, 0.3],
             attachPoints: [{ link: 'tool0' }]
           }
         }
@@ -89,9 +91,11 @@ describe('Material Aggregate / Pascal bridge', () => {
       path: '/assets/robot.xacro',
       format: 'xacro',
       macro: 'szlab_mixer_robot',
-      meshDir: '/assets/robot/models'
+      meshDir: '/assets/robot/models',
+      position: [0.01, 0.02, 0.03],
+      rotation: [0.1, 0.2, 0.3]
     })
-    expect(node.materialKind).toBe('device')
+    expect(node).not.toHaveProperty('materialKind')
     expect(node.model.attachPoints.map((point) => point.link)).toEqual([
       'tool0'
     ])
@@ -337,7 +341,7 @@ describe('Material Aggregate / Pascal bridge', () => {
     expect(hoverOnlyNode.floorplanSnapshot?.sites).toHaveLength(1)
   })
 
-  it('projects the backend resource identity for generated geometry', () => {
+  it('does not project a rendering-only material_kind split', () => {
     const carrier = aggregate('carrier', {
       config: {
         rendering: {
@@ -352,7 +356,7 @@ describe('Material Aggregate / Pascal bridge', () => {
     const node = scene.nodes['lab-carrier']
     if (!isLabDeviceNode(node)) throw new Error('Expected lab device')
 
-    expect(node.materialKind).toBe('resource')
+    expect(node).not.toHaveProperty('materialKind')
   })
 
   it('keeps a rotated resource datum on the node and offsets only its box', () => {
@@ -380,7 +384,7 @@ describe('Material Aggregate / Pascal bridge', () => {
 
     expectTupleCloseTo(node.position, [1, 0.8, -2])
     expectTupleCloseTo(node.rotation, [0, Math.PI / 2, 0])
-    expect(generatedBoundingBoxCenter(node.materialKind, node.dimensions)).toEqual([
+    expect(generatedBoundingBoxCenter(node.dimensions)).toEqual([
       0.13276, 0.103, -0.09048
     ])
   })
@@ -422,7 +426,7 @@ describe('Material Aggregate / Pascal bridge', () => {
     // The Material node remains at the rotated Site lower corner. The box
     // receives its own half-size centre and cannot move the placement datum.
     expectTupleCloseTo(node.position, [0.8, 0.8, -2.1])
-    expect(generatedBoundingBoxCenter(node.materialKind, node.dimensions)).toEqual([
+    expect(generatedBoundingBoxCenter(node.dimensions)).toEqual([
       0.06388, 0.0072, -0.04274
     ])
   })

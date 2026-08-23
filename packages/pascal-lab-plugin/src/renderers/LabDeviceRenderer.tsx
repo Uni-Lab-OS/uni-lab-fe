@@ -370,10 +370,7 @@ export default function LabDeviceRenderer({
     >
       {node.renderBody && !object && !deckSurfaceProvidedByParent && (
         <mesh
-          position={generatedBoundingBoxCenter(
-            isDeck ? 'resource' : node.materialKind,
-            node.dimensions
-          )}
+          position={generatedBoundingBoxCenter(node.dimensions)}
           castShadow
           receiveShadow
         >

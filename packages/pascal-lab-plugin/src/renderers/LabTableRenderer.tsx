@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import type { Group } from 'three'
 
 import type { LabTableNode } from '../schema'
+import { generatedBoundingBoxCenter } from './generatedBoundingBox'
 import { PascalModelLabel } from './PascalModelLabel'
 import {
   isSiteBoundsPointerHit,
@@ -34,6 +35,7 @@ export default function LabTableRenderer({
     state.selection.selectedIds.includes(node.id as never)
   )
   const [width, height, depth] = node.dimensions
+  const [centerX, , centerZ] = generatedBoundingBoxCenter(node.dimensions)
   const legHeight = Math.max(height - 0.05, 0.05)
   const legInset = 0.05
 
@@ -70,7 +72,11 @@ export default function LabTableRenderer({
         }
       }}
     >
-      <mesh position={[0, height - 0.025, 0]} castShadow receiveShadow>
+      <mesh
+        position={[centerX, height - 0.025, centerZ]}
+        castShadow
+        receiveShadow
+      >
         <boxGeometry args={[width, 0.05, depth]} />
         <meshStandardMaterial
           color={isSelected ? '#4dabf7' : '#8b7355'}
@@ -79,10 +85,10 @@ export default function LabTableRenderer({
         />
       </mesh>
       {[
-        [-width / 2 + legInset, legHeight / 2, -depth / 2 + legInset],
-        [width / 2 - legInset, legHeight / 2, -depth / 2 + legInset],
-        [-width / 2 + legInset, legHeight / 2, depth / 2 - legInset],
-        [width / 2 - legInset, legHeight / 2, depth / 2 - legInset]
+        [legInset, legHeight / 2, -depth + legInset],
+        [width - legInset, legHeight / 2, -depth + legInset],
+        [legInset, legHeight / 2, -legInset],
+        [width - legInset, legHeight / 2, -legInset]
       ].map((position, index) => (
         <mesh
           key={index}
@@ -106,7 +112,7 @@ export default function LabTableRenderer({
         <PascalModelLabel
           sceneObjectId={node.id}
           displayName={node.displayName}
-          position={[0, height + 0.08, 0]}
+          position={[centerX, height + 0.08, centerZ]}
           selected={isSelected}
         />
       ) : null}
