@@ -209,12 +209,13 @@ validated PLC-Sim launch contract.
 
 Production Workbench applications use `electron-updater` with a build-time
 HTTPS generic provider. The release channel is compiled into Electron main from
-`UNILAB_WORKBENCH_RELEASE_CHANNEL=production|test`; test packages, development
-runs and the legacy Kernel Electron surface keep the updater disabled. A
-production Workbench checks 30 seconds after startup and every four hours
-afterwards, asks before downloading, and asks again before stopping the managed
-process tree and restarting into the installer. An omitted channel defaults to
-`test`, so only an explicit production build can enable updates.
+`UNILAB_WORKBENCH_RELEASE_CHANNEL=production|update-test|test`; ordinary test
+packages, development runs and the legacy Kernel Electron surface keep the
+updater disabled. A production or isolated update-test Workbench checks 30
+seconds after startup and every four hours afterwards. Download and restart are
+triggered explicitly from the in-app update status; ordinary app exit does not
+silently install a downloaded version. An omitted channel defaults to `test`,
+so only an explicit update-capable build can enable updates.
 
 Every distributable build requires a credential-free update directory:
 

@@ -20,10 +20,6 @@ import {
   AppUpdateManager,
   createElectronUpdaterAdapter
 } from './appUpdateManager'
-import {
-  confirmAppUpdateDownload,
-  confirmAppUpdateInstall
-} from './appUpdateDialogs'
 import { registerAppUpdateIpc } from './appUpdateIpc'
 import { DeviceCardManager } from './deviceCardManager'
 import {
@@ -513,14 +509,6 @@ app.whenReady().then(async () => {
         window.webContents.send('app-update:state', snapshot)
       }
     },
-    confirmDownload: (snapshot) => confirmAppUpdateDownload(
-      () => mainWindow,
-      snapshot
-    ),
-    confirmInstall: (snapshot) => confirmAppUpdateInstall(
-      () => mainWindow,
-      snapshot
-    ),
     beforeInstall: ensureQuitCleanup
   })
   registerAppUpdateIpc({

@@ -42,7 +42,7 @@ interface AppUpdateManagerOptions {
 /**
  * 管理 Workbench 更新的完整生命周期，并只暴露稳定快照和受控命令。
  *
- * 下载与立即安装都需要用户确认；已下载版本也可以在正常退出时安装。
+ * 下载与立即安装由渲染器显式触发；普通退出不会静默安装已下载版本。
  */
 export class AppUpdateManager {
   private snapshot: AppUpdateSnapshot
@@ -145,7 +145,13 @@ export class AppUpdateManager {
       await this.options.updater.download()
     } catch (error) {
       this.options.log(`Workbench 更新下载失败: ${safeErrorMessage(error)}`)
-      this.setFailure('DOWNLOAD_FAILED')
+      // electron-updater 的 macOS 实现会先派发 update-downloaded，再等待
+      // Squirrel.Mac 取走 ZIP。该 Promise 可能在状态已经前进后才拒绝；此时
+      // 不能把 downloaded/安装状态倒退成 DOWNLOAD_FAILED，否则确认安装会
+      // 因状态守卫直接返回。
+      if (this.getSnapshot().phase === 'downloading') {
+        this.setFailure('DOWNLOAD_FAILED')
+      }
     }
     return this.getSnapshot()
   }
@@ -230,7 +236,11 @@ export function createElectronUpdaterAdapter(
   return {
     configure() {
       updater.autoDownload = false
-      updater.autoInstallOnAppQuit = true
+      // macOS 在 true 时会在 electron-updater 的 preliminary
+      // update-downloaded 事件后立即启动原生 Squirrel 下载。若原生阶段在
+      // 用户确认前失败，后续 quitAndInstall 不会重试。显式安装模式让
+      // quitAndInstall 在用户点击后启动该阶段，并等待原生 ready 事件退出。
+      updater.autoInstallOnAppQuit = false
       updater.allowDowngrade = false
       updater.disableWebInstaller = true
     },

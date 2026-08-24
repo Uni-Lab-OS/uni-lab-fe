@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   AppUpdateManager,
+  createElectronUpdaterAdapter,
   type AppUpdaterAdapter
 } from './appUpdateManager'
 
@@ -43,6 +44,24 @@ afterEach(() => {
 })
 
 describe('AppUpdateManager', () => {
+  it('configures an explicit install so macOS native update starts after confirmation', () => {
+    const updater = {
+      autoDownload: true,
+      autoInstallOnAppQuit: true,
+      allowDowngrade: true,
+      disableWebInstaller: false
+    }
+
+    createElectronUpdaterAdapter(updater as never).configure()
+
+    expect(updater).toMatchObject({
+      autoDownload: false,
+      autoInstallOnAppQuit: false,
+      allowDowngrade: false,
+      disableWebInstaller: true
+    })
+  })
+
   it('keeps development and legacy surfaces disabled without touching the updater', async () => {
     const updater = new RecordingUpdater()
     const manager = createManager(updater, { enabled: false })
@@ -180,6 +199,34 @@ describe('AppUpdateManager', () => {
     expect(manager.getSnapshot().phase).toBe('downloaded')
     manager.dispose()
   })
+
+  it('keeps a downloaded update installable when the download promise rejects after the downloaded event', async () => {
+    const updater = new RecordingUpdater()
+    const downloadRequest = deferred<void>()
+    const installConfirmation = deferred<boolean>()
+    updater.download = vi.fn(() => downloadRequest.promise)
+    const manager = createManager(updater, {
+      confirmInstall: vi.fn(() => installConfirmation.promise)
+    })
+    manager.start()
+    updater.handlers?.available('0.2.0')
+
+    const downloading = manager.download()
+    updater.handlers?.downloaded('0.2.0')
+    await flushMicrotasks()
+    downloadRequest.reject(new Error('download promise rejected after completion'))
+    await downloading
+
+    expect(manager.getSnapshot()).toMatchObject({
+      phase: 'downloaded',
+      availableVersion: '0.2.0',
+      progressPercent: 100
+    })
+    installConfirmation.resolve(true)
+    await flushMicrotasks()
+    expect(updater.installCount).toBe(1)
+    manager.dispose()
+  })
 })
 
 function createManager(
@@ -201,4 +248,18 @@ async function flushMicrotasks(): Promise<void> {
   await Promise.resolve()
   await Promise.resolve()
   await Promise.resolve()
+}
+
+function deferred<T>(): {
+  promise: Promise<T>
+  resolve: (value: T) => void
+  reject: (reason: unknown) => void
+} {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
 }
