@@ -11,6 +11,7 @@
     "workbench": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/workbench build && pnpm --filter @unilab/workbench start",
     "workbench:desktop": "pnpm --filter @unilab/workbench desktop",
     "workbench:desktop:development": "pnpm --filter @unilab/workbench desktop:development",
+    "workbench:desktop:welcome:development": "pnpm --filter @unilab/workbench desktop:welcome:development",
     "workbench:desktop-remote": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/workbench build && pnpm --filter @unilab/workbench start:desktop-remote",
     "workbench:remote": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/workbench build && pnpm --filter @unilab/workbench start:remote",
     "build": "pnpm -r --if-present build",

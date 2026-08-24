@@ -168,7 +168,8 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   protected sessionSnapshot: WorkbenchSessionSnapshot = {
     phase: 'idle',
     message: '正在连接 Workbench Backend…',
-    configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+    configuredGraphPath: '',
+    graphDeclaration: null,
     configuredExternalDevicesOnly: true,
     configuredRuntimeMode: 'normal',
     configuredDomainMode: 'local',
@@ -258,7 +259,8 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       this.sessionSnapshot = {
         phase: 'failed',
         message: 'Workbench Backend 连接失败',
-        configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+        configuredGraphPath: '',
+        graphDeclaration: null,
         configuredExternalDevicesOnly: true,
         configuredRuntimeMode: 'normal',
         configuredDomainMode: 'local',
