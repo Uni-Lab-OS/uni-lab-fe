@@ -6,12 +6,12 @@ on:
       mode:
         description: quick validates unpacked output; full builds one installer; benchmark compares identical prepackaged input
         required: true
-        default: benchmark
+        default: full
         type: choice
         options:
-          - benchmark
-          - quick
           - full
+          - quick
+          - benchmark
       compression:
         description: electron-builder compression used by full mode
         required: true
@@ -22,7 +22,6 @@ on:
           - maximum
   push:
     branches:
-      - main
       - deploy-windows-test
 
 permissions:
@@ -631,7 +630,7 @@ jobs:
         if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         uses: actions/upload-artifact@v6
         with:
-          name: UniLab-Workbench-windows-x64-${{ env.UNILAB_WORKBENCH_RELEASE_CHANNEL }}-${{ env.UNILAB_WORKBENCH_PACKAGE_VERSION }}-${{ github.run_number }}
+          name: UniLab-Workbench-windows-x64-${{ env.UNILAB_WORKBENCH_RELEASE_CHANNEL }}-${{ env.UNILAB_WORKBENCH_PACKAGE_VERSION }}
           path: apps/workbench/release-windows/*-setup.exe
           if-no-files-found: error
           retention-days: 3
@@ -653,7 +652,7 @@ jobs:
       # Publish binaries first and metadata last. Existing clients keep reading
       # the previous latest.yml until the complete replacement is available.
       - name: Publish rolling Windows update release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

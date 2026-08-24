@@ -405,7 +405,8 @@ describe('Workbench macOS distribution gate', () => {
 
     assert.match(workflow, /^name: Package macOS Workbench$/mu)
     assert.match(workflow, /^\s+runs-on: macos-14$/mu)
-    assert.match(workflow, /branches:\n\s+- main\n\s+- deploy-mac-test/u)
+    assert.match(workflow, /push:\n\s+branches:\n\s+- deploy-mac-test/u)
+    assert.doesNotMatch(workflow, /push:\n\s+branches:\n(?:\s+- [^\n]+\n)*\s+- main/u)
     assert.doesNotMatch(workflow, /ci\/macos-packaging-benchmark/u)
     assert.doesNotMatch(workflow, /ci\/desktop-packaging-optimization-v2/u)
     assert.match(workflow, /options:\n\s+- full\n\s+- quick/u)
@@ -512,13 +513,18 @@ describe('Workbench macOS distribution gate', () => {
     assert.doesNotMatch(signedUploadSection, /release-macos\/\*\.zip/u)
     assert.doesNotMatch(signedUploadSection, /latest-mac\.yml/u)
     assert.match(signedUploadSection, /UNILAB_WORKBENCH_RELEASE_CHANNEL/u)
-    assert.match(signedUploadSection, /github\.run_number/u)
+    assert.match(
+      signedUploadSection,
+      /name: UniLab-Workbench-macos-arm64-\$\{\{ env\.UNILAB_WORKBENCH_RELEASE_CHANNEL \}\}-\$\{\{ env\.UNILAB_WORKBENCH_PACKAGE_VERSION \}\}\n/u
+    )
+    assert.doesNotMatch(signedUploadSection, /github\.run_number/u)
     assert.doesNotMatch(signedUploadSection, /macos-packaging-metrics\.json/u)
     assert.match(signedUploadSection, /retention-days: 3/u)
 
     const publishSection = workflow.slice(
       workflow.indexOf('name: Publish rolling macOS update release')
     )
+    assert.match(publishSection, /github\.event_name == 'workflow_dispatch'/u)
     assert.match(publishSection, /refs\/heads\/main/u)
     assert.match(publishSection, /UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'/u)
     assert.match(

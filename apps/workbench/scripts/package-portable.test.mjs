@@ -672,12 +672,13 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /actions\/cache\/restore@v6/u)
     assert.match(workflow, /actions\/cache\/save@v6/u)
     assert.match(workflow, /cache-primary-key/u)
-    assert.match(workflow, /branches:\n\s+- main\n\s+- deploy-windows-test/u)
+    assert.match(workflow, /push:\n\s+branches:\n\s+- deploy-windows-test/u)
+    assert.doesNotMatch(workflow, /push:\n\s+branches:\n(?:\s+- [^\n]+\n)*\s+- main/u)
     assert.doesNotMatch(workflow, /ci\/desktop-packaging-optimization-v2/u)
     assert.match(workflow, /workflow_dispatch:/u)
     assert.match(
       workflow,
-      /options:\n\s+- benchmark\n\s+- quick\n\s+- full/u
+      /default: full\n\s+type: choice\n\s+options:\n\s+- full\n\s+- quick\n\s+- benchmark/u
     )
     assert.match(workflow, /options:\n\s+- normal\n\s+- maximum/u)
     assert.match(workflow, /UNILAB_CI_PACKAGE_MODE:/u)
@@ -874,7 +875,11 @@ describe('portable Workbench packaging contract', () => {
     assert.doesNotMatch(installerUploadSection, /github\.ref/u)
     assert.match(installerUploadSection, /\*-setup\.exe/u)
     assert.match(installerUploadSection, /UNILAB_WORKBENCH_RELEASE_CHANNEL/u)
-    assert.match(installerUploadSection, /github\.run_number/u)
+    assert.match(
+      installerUploadSection,
+      /name: UniLab-Workbench-windows-x64-\$\{\{ env\.UNILAB_WORKBENCH_RELEASE_CHANNEL \}\}-\$\{\{ env\.UNILAB_WORKBENCH_PACKAGE_VERSION \}\}\n/u
+    )
+    assert.doesNotMatch(installerUploadSection, /github\.run_number/u)
     assert.doesNotMatch(installerUploadSection, /\*-setup\.exe\.blockmap/u)
     assert.doesNotMatch(installerUploadSection, /latest\.yml/u)
     assert.match(installerUploadSection, /compression-level: 0/u)
@@ -887,7 +892,7 @@ describe('portable Workbench packaging contract', () => {
     assert.doesNotMatch(abUploadSection, /\*-setup\.exe/u)
     assert.match(
       workflow,
-      /if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'[^\n]*UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'/u
+      /if: github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'[^\n]*UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'/u
     )
 
     const builderConfiguration = await readFile(

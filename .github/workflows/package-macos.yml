@@ -13,7 +13,6 @@ on:
           - quick
   push:
     branches:
-      - main
       - deploy-mac-test
 
 permissions:
@@ -604,7 +603,7 @@ jobs:
         if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'signed'
         uses: actions/upload-artifact@v6
         with:
-          name: UniLab-Workbench-macos-arm64-${{ env.UNILAB_WORKBENCH_RELEASE_CHANNEL }}-${{ env.UNILAB_WORKBENCH_PACKAGE_VERSION }}-${{ github.run_number }}
+          name: UniLab-Workbench-macos-arm64-${{ env.UNILAB_WORKBENCH_RELEASE_CHANNEL }}-${{ env.UNILAB_WORKBENCH_PACKAGE_VERSION }}
           path: apps/workbench/release-macos/*.dmg
           if-no-files-found: error
           retention-days: 3
@@ -614,7 +613,7 @@ jobs:
       # clients keep reading the previous metadata until the replacement bundle
       # is completely available.
       - name: Publish rolling macOS update release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'signed' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'signed' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
