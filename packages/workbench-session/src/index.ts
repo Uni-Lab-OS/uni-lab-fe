@@ -168,10 +168,22 @@ export interface WorkbenchWorkflowLoadingProgress {
   total: number
 }
 
+/**
+ * Package-declared startup graph choices projected by Workspace Host.
+ *
+ * The renderer may use this projection to constrain selection, but it does
+ * not discover package files or decide which graph is authoritative.
+ */
+export interface WorkbenchGraphDeclaration {
+  readonly defaultGraphPath: string | null
+  readonly candidates: readonly string[] | null
+}
+
 export interface WorkbenchSessionSnapshot {
   phase: WorkbenchSessionPhase
   message: string
   configuredGraphPath: string
+  graphDeclaration: WorkbenchGraphDeclaration | null
   configuredExternalDevicesOnly: boolean
   configuredRuntimeMode: WorkbenchRuntimeMode
   configuredDomainMode: WorkbenchDomainMode
