@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
 import { WorkflowTaskList } from './WorkflowTaskList'
+import { WorkflowTaskListFailure } from './WorkflowTaskListErrorBoundary'
 
 describe('WorkflowTaskList', () => {
   /** 首帧应立即提供任务页身份、筛选入口与诚实的加载状态。 */
@@ -60,7 +61,7 @@ describe('WorkflowTaskList', () => {
     )), 'utf8')
 
     expect(source).toContain(
-      "kind={taskPage.items.length > 0 ? 'filtered' : 'empty'}"
+      "kind={workflowTaskItemCount > 0 ? 'filtered' : 'empty'}"
     )
     expect(source).toContain('还没有工作流任务')
     expect(source).toContain('前往“工作流”选择流程并启动运行。')
@@ -71,5 +72,27 @@ describe('WorkflowTaskList', () => {
     expect(stateSource).toContain('aria-hidden="true"')
     expect(stylesheet).toContain('workflow-task-list__state-visual')
     expect(stylesheet).toContain('@media (prefers-reduced-motion: reduce)')
+  })
+
+  it('limits the page to workflow executions and installs a render fallback', () => {
+    const source = readFileSync(fileURLToPath(new URL(
+      './WorkflowTaskList.tsx',
+      import.meta.url
+    )), 'utf8')
+    const boundarySource = readFileSync(fileURLToPath(new URL(
+      './WorkflowTaskListErrorBoundary.tsx',
+      import.meta.url
+    )), 'utf8')
+
+    expect(source).toContain("execution_kind: 'workflow'")
+    expect(source).toContain('isWorkflowExecutionTask')
+    expect(source).toContain('<WorkflowTaskListErrorBoundary')
+    expect(boundarySource).toContain('static getDerivedStateFromError')
+    const failureMarkup = renderToStaticMarkup(
+      <WorkflowTaskListFailure onRetry={() => undefined} />
+    )
+    expect(failureMarkup).toContain('工作流任务列表显示异常')
+    expect(failureMarkup).toContain('重新加载任务列表')
+    expect(failureMarkup).toContain('role="alert"')
   })
 })

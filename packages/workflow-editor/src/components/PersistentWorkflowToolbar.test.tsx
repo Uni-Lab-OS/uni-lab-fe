@@ -163,6 +163,7 @@ function workflowTask(status: WorkflowTask['status']): WorkflowTask {
     create_time: '2026-08-20T08:00:00Z',
     update_time: '2026-08-20T08:00:00Z',
     meta_data: {},
+    execution_kind: 'workflow',
     workflow_uuid: '10000000-0000-4000-8000-000000000001',
     status,
     workflow_snapshot: {},

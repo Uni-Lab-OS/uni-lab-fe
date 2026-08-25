@@ -160,6 +160,8 @@ export type {
   WorkflowTaskCommandType,
   WorkflowTaskControlStatus,
   WorkflowTaskCreateRequest,
+  WorkflowTaskExecutionKind,
+  WorkflowExecutionTask,
   WorkflowTaskListQuery,
   WorkflowTaskPage,
   WorkflowTaskRunMode,

@@ -1,7 +1,7 @@
 import type {
   BackendWorkflowGraph,
-  WorkflowRuntimePort,
-  WorkflowTask
+  WorkflowExecutionTask,
+  WorkflowRuntimePort
 } from '@unilab/services'
 
 /**
@@ -14,7 +14,7 @@ import type {
  */
 export function createWorkflowTaskViewRuntime(
   runtime: WorkflowRuntimePort,
-  task: WorkflowTask
+  task: WorkflowExecutionTask
 ): WorkflowRuntimePort {
   // 任务 UUID 界定运行状态的唯一读取范围，不能被同工作流的新任务替换。
   const taskUuid = task.uuid
@@ -61,7 +61,7 @@ export function createWorkflowTaskViewRuntime(
  * @throws 快照不是该任务所属工作流的完整图时抛出可行动错误。
  */
 export function workflowTaskSnapshotGraph(
-  task: WorkflowTask
+  task: WorkflowExecutionTask
 ): BackendWorkflowGraph {
   // 冻结快照是任务执行的定义权威，不能改为读取工作流当前版本。
   const snapshot = task.workflow_snapshot

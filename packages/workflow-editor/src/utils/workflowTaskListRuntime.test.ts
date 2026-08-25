@@ -1,4 +1,5 @@
 import type {
+  WorkflowExecutionTask,
   WorkflowRuntimeInvalidationEvent,
   WorkflowRuntimePort,
   WorkflowTask,
@@ -72,12 +73,13 @@ describe('工作流任务列表实时状态', () => {
 function workflowTask(
   status: WorkflowTask['status'],
   uuid = TASK_UUID
-): WorkflowTask {
+): WorkflowExecutionTask {
   return {
     uuid,
     create_time: '2026-08-20T08:00:00Z',
     update_time: '2026-08-20T08:00:00Z',
     meta_data: {},
+    execution_kind: 'workflow',
     workflow_uuid: WORKFLOW_UUID,
     status,
     workflow_snapshot: {},

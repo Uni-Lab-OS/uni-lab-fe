@@ -10,6 +10,7 @@ import {
 } from 'react'
 
 import type {
+  WorkflowExecutionTask,
   WorkflowRuntimePort,
   WorkflowSummary,
   WorkflowTask,
@@ -18,6 +19,7 @@ import type {
 
 import {
   formatWorkflowTaskDate,
+  isWorkflowExecutionTask,
   shortWorkflowTaskId,
   visibleWorkflowTasks,
   workflowTaskDisplayName,
@@ -31,6 +33,7 @@ import { workflowTaskStatusLabel } from '../utils/workflowTaskPresentation'
 import { createWorkflowTaskViewRuntime } from '../utils/workflowTaskViewRuntime'
 import { WorkflowButton } from './WorkflowButton'
 import WorkflowPanel from './WorkflowPanel'
+import { WorkflowTaskListErrorBoundary } from './WorkflowTaskListErrorBoundary'
 import { TaskListState } from './WorkflowTaskListState'
 import styles from './workflow.module.scss'
 
@@ -52,6 +55,23 @@ export interface WorkflowTaskListProps {
  * @returns 可搜索、筛选、刷新并检查任务状态的列表—详情工作区。
  */
 export function WorkflowTaskList({
+  runtime,
+  active = true,
+  recoveryRevision = 0
+}: WorkflowTaskListProps): React.JSX.Element {
+  return (
+    <WorkflowTaskListErrorBoundary resetKey={recoveryRevision}>
+      <WorkflowTaskListContent
+        runtime={runtime}
+        active={active}
+        recoveryRevision={recoveryRevision}
+      />
+    </WorkflowTaskListErrorBoundary>
+  )
+}
+
+/** 承载任务列表状态；外层错误边界保证单条异常数据不会卸载整个面板。 */
+function WorkflowTaskListContent({
   runtime,
   active = true,
   recoveryRevision = 0
@@ -122,16 +142,22 @@ export function WorkflowTaskList({
     setError(null)
     try {
       const [nextPage, workflowPage] = await Promise.all([
-        runtime.listWorkflowTasks({ page: 1, page_size: TASK_PAGE_SIZE }),
+        runtime.listWorkflowTasks({
+          page: 1,
+          page_size: TASK_PAGE_SIZE,
+          execution_kind: 'workflow'
+        }),
         runtime.listWorkflows({ page: 1, page_size: TASK_PAGE_SIZE })
       ])
       if (requestRevision.current !== revision) return
       setTaskPage(nextPage)
       setWorkflows(workflowPage.items)
       setSelectedTaskUuid((current) =>
-        current && nextPage.items.some((task) => task.uuid === current)
+        current && nextPage.items.some((task) =>
+          isWorkflowExecutionTask(task) && task.uuid === current
+        )
           ? current
-          : nextPage.items[0]?.uuid ?? null
+          : nextPage.items.find(isWorkflowExecutionTask)?.uuid ?? null
       )
     } catch (reason: unknown) {
       if (requestRevision.current !== revision) return
@@ -156,6 +182,7 @@ export function WorkflowTaskList({
    * @returns 无返回值；并行兄弟任务保持在当前列表页中。
    */
   const installRealtimeTask = useCallback((task: WorkflowTask): void => {
+    if (!isWorkflowExecutionTask(task)) return
     setTaskPage((current) => mergeWorkflowTaskPage(current, task))
     setSelectedTaskUuid((current) => current ?? task.uuid)
   }, [])
@@ -194,6 +221,10 @@ export function WorkflowTaskList({
   const visibleTasks = useMemo(
     () => visibleWorkflowTasks(taskPage.items, workflows, query, filter),
     [filter, query, taskPage.items, workflows]
+  )
+  const workflowTaskItemCount = useMemo(
+    () => taskPage.items.filter(isWorkflowExecutionTask).length,
+    [taskPage.items]
   )
   const selectedTask = visibleTasks.find(
     (task) => task.uuid === selectedTaskUuid
@@ -278,20 +309,20 @@ export function WorkflowTaskList({
         />
       ) : visibleTasks.length === 0 ? (
         <TaskListState
-          kind={taskPage.items.length > 0 ? 'filtered' : 'empty'}
-          title={taskPage.items.length > 0
+          kind={workflowTaskItemCount > 0 ? 'filtered' : 'empty'}
+          title={workflowTaskItemCount > 0
             ? '没有匹配的任务'
             : '还没有工作流任务'}
-          detail={taskPage.items.length > 0
+          detail={workflowTaskItemCount > 0
             ? '当前搜索词或状态筛选下没有结果。'
             : '运行工作流后，任务状态和对应的工作流快照会显示在这里。'}
-          hint={taskPage.items.length > 0
+          hint={workflowTaskItemCount > 0
             ? undefined
             : '前往“工作流”选择流程并启动运行。'}
-          actionLabel={taskPage.items.length > 0
+          actionLabel={workflowTaskItemCount > 0
             ? '清除搜索与筛选'
             : undefined}
-          onAction={taskPage.items.length > 0
+          onAction={workflowTaskItemCount > 0
             ? () => {
                 setQuery('')
                 setFilter('all')
@@ -405,7 +436,7 @@ function TaskWorkflowPane({
   active
 }: {
   runtime: WorkflowRuntimePort
-  task: WorkflowTask
+  task: WorkflowExecutionTask
   workflowName: string
   active: boolean
 }): React.JSX.Element {
