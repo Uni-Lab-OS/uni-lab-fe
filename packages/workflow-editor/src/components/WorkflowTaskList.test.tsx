@@ -44,4 +44,32 @@ describe('WorkflowTaskList', () => {
       /workflow-task-list__splitter\)[\s\S]*cursor:\s*col-resize;/u
     )
   })
+
+  it('provides distinct, accessible empty and filtered fallback states', () => {
+    const source = readFileSync(fileURLToPath(new URL(
+      './WorkflowTaskList.tsx',
+      import.meta.url
+    )), 'utf8')
+    const stylesheet = readFileSync(fileURLToPath(new URL(
+      './_workflow-task-list-state.scss',
+      import.meta.url
+    )), 'utf8')
+    const stateSource = readFileSync(fileURLToPath(new URL(
+      './WorkflowTaskListState.tsx',
+      import.meta.url
+    )), 'utf8')
+
+    expect(source).toContain(
+      "kind={taskPage.items.length > 0 ? 'filtered' : 'empty'}"
+    )
+    expect(source).toContain('还没有工作流任务')
+    expect(source).toContain('前往“工作流”选择流程并启动运行。')
+    expect(source).toContain('清除搜索与筛选')
+    expect(stateSource).toContain(
+      "aria-live={error ? 'assertive' : 'polite'}"
+    )
+    expect(stateSource).toContain('aria-hidden="true"')
+    expect(stylesheet).toContain('workflow-task-list__state-visual')
+    expect(stylesheet).toContain('@media (prefers-reduced-motion: reduce)')
+  })
 })

@@ -345,29 +345,6 @@
   overflow: hidden;
 }
 
-.workflow :global(.workflow-task-list__state) {
-  display: flex;
-  min-height: 180px;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 8px;
-  padding: 28px;
-  color: var(--unilab-color-text-muted);
-  text-align: center;
-}
-
-.workflow :global(.workflow-task-list__state) span {
-  max-width: 640px;
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-
-.workflow :global(.workflow-task-list__state.is-error) {
-  color: var(--unilab-color-danger);
-}
-
 @container (max-width: 760px) {
   .workflow :global(.workflow-task-list__tools) {
     grid-template-columns: 1fr auto;
