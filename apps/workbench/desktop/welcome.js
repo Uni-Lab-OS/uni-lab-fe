@@ -25,9 +25,11 @@ let snapshot = {
   recentWorkspaces: [],
   error: null
 }
-let switchingBootstrap = new URLSearchParams(location.search)
-  .get('switching') === '1'
-let requestPending = switchingBootstrap
+const bootstrapSearch = new URLSearchParams(location.search)
+let switchingBootstrap = bootstrapSearch.get('switching') === '1'
+let selectDirectoryBootstrap = bootstrapSearch.get('selectDirectory') === '1'
+let requestPending = switchingBootstrap || selectDirectoryBootstrap
+let bootstrappedDirectorySelection = false
 let runtimeRequestPending = false
 let runtimeSnapshot = {
   phase: 'unavailable',
@@ -124,24 +126,37 @@ if (!workspaceApi) {
   }
   render()
 } else {
-  workspaceApi.onSnapshot((next) => {
-    if (switchingBootstrap) {
-      history.replaceState(null, '', location.pathname)
-    }
-    switchingBootstrap = false
-    requestPending = false
-    snapshot = next
-    render()
-  })
-  workspaceApi.getSnapshot().then((next) => {
-    if (!switchingBootstrap) requestPending = false
-    snapshot = next
-    render()
-  }).catch((error) => {
+  workspaceApi.onSnapshot(handleBootstrapSnapshot)
+  workspaceApi.getSnapshot().then(handleBootstrapSnapshot).catch((error) => {
     requestPending = false
     snapshot = { ...snapshot, phase: 'failed', error: messageOf(error) }
     render()
   })
+  render()
+}
+
+function handleBootstrapSnapshot(next) {
+  snapshot = next
+  if (switchingBootstrap || selectDirectoryBootstrap) {
+    history.replaceState(null, '', location.pathname)
+  }
+  switchingBootstrap = false
+  if (selectDirectoryBootstrap) {
+    selectDirectoryBootstrap = false
+    bootstrappedDirectorySelection = true
+    requestPending = false
+    void runOperation(
+      () => workspaceApi?.openDirectory(),
+      '正在打开工作区',
+      '校验目录、Python 环境与本地服务…'
+    )
+    return
+  }
+  if (bootstrappedDirectorySelection) {
+    render()
+    return
+  }
+  requestPending = false
   render()
 }
 
