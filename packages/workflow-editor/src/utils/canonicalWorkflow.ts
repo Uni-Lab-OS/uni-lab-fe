@@ -220,7 +220,14 @@ export function projectNestedWorkflow(
     const source = representative(link.source)
     const target = representative(link.target)
     if (source === target) continue
-    const key = JSON.stringify([source, target, link.type, link.branch ?? null])
+    const key = JSON.stringify([
+      source,
+      link.sourceHandleUuid ?? null,
+      target,
+      link.targetHandleUuid ?? null,
+      link.type,
+      link.branch ?? null
+    ])
     if (linkKeys.has(key)) continue
     linkKeys.add(key)
     projectedLinks.push({ ...link, source, target })

@@ -437,6 +437,57 @@ describe('layoutWorkflowPrimarySampleFlow', () => {
     expect(x.get('open-vial')).toBeLessThan(x.get('pick') ?? 0)
   })
 
+  /** 纯控制准备链应作为一条局部支线展示，而不是叠成多个互相重合的伪物料支线。 */
+  it('keeps a pure control chain together before its primary attachment', () => {
+    const primaryOutput = resourceSlotHandle(
+      'primary-output',
+      'sample',
+      'source'
+    )
+    const source = materialSource(
+      'primary-source',
+      '主样品',
+      'primary_sample',
+      primaryOutput
+    )
+    const step = sampleAction('step', false)
+    const controlNodes: WorkflowNode[] = [
+      'initialize',
+      'prepare-device',
+      'ready-check'
+    ].map((id) => ({
+      id,
+      name: id,
+      type: 'action',
+      className: 'Action',
+      labNodeType: 'Action'
+    }))
+    const links = [
+      materialLink('primary-source', primaryOutput.uuid, 'step', 'step-input'),
+      readyLink('initialize', 'prepare-device'),
+      readyLink('prepare-device', 'ready-check'),
+      readyLink('ready-check', 'step')
+    ]
+
+    const result = layoutWorkflowPrimarySampleFlow(
+      [source, ...controlNodes, step],
+      links
+    )
+    const position = new Map(result.nodes.map((node) => [
+      node.id,
+      { x: node.x ?? 0, y: node.y ?? 0 }
+    ]))
+    const chain = ['initialize', 'prepare-device', 'ready-check']
+
+    expect(new Set(chain.map((id) => position.get(id)?.y)).size).toBe(1)
+    expect(position.get('initialize')?.x)
+      .toBeLessThan(position.get('prepare-device')?.x ?? 0)
+    expect(position.get('prepare-device')?.x)
+      .toBeLessThan(position.get('ready-check')?.x ?? 0)
+    expect(position.get('ready-check')?.x)
+      .toBeLessThan(position.get('step')?.x ?? 0)
+  })
+
   /** 验证主干中转运节点与前后动作的主轴间距均压缩为普通列距的一半。 */
   it('halves both adjacent gaps around a robot transfer', () => {
     const primaryOutput = resourceSlotHandle(
