@@ -92,6 +92,21 @@ export function MaterialSourceInspector({
           </select>
         </label>
         <label>
+          保管策略
+          <select
+            aria-label="保管策略"
+            value={editor.custodyPolicy}
+            disabled={!editable}
+            onChange={(event) => onChange({
+              custodyPolicy: event.target.value as
+                MaterialSourceSelectorUpdate['custodyPolicy']
+            })}
+          >
+            <option value="task_exclusive">任务全程独占</option>
+            <option value="shared_source">动作期间共享</option>
+          </select>
+        </label>
+        <label>
           资源模板
           <select
             aria-label="资源模板"

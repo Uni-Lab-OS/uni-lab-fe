@@ -15,6 +15,7 @@ export type MaterialSourceFlowRole =
   | 'aliquot_sample'
   | 'reagent'
   | 'consumable'
+export type MaterialSourceCustodyPolicy = 'task_exclusive' | 'shared_source'
 export type MaterialSourceSiteScope = 'all' | 'fixed' | 'candidates'
 
 export interface MaterialSourceSelectorUpdate {
@@ -26,6 +27,7 @@ export interface MaterialSourceSelectorUpdate {
   fixedSiteUuid?: string | null
   candidateSiteUuids?: readonly string[]
   flowRole: MaterialSourceFlowRole
+  custodyPolicy: MaterialSourceCustodyPolicy
 }
 
 export interface MaterialSourceEditorProjection {
@@ -39,6 +41,7 @@ export interface MaterialSourceEditorProjection {
   fixedSiteUuid: string | null
   candidateSiteUuids: string[]
   flowRole: MaterialSourceFlowRole
+  custodyPolicy: MaterialSourceCustodyPolicy
   resourceTemplates: WorkflowMaterialSourceResourceTemplate[]
   mounts: WorkflowMaterialSourceMaterial[]
   fixedMaterials: WorkflowMaterialSourceMaterial[]
@@ -87,7 +90,8 @@ export function createMaterialSourceNode(
           material_uuid: null,
           site: null,
           slot_range: null,
-          flow_role: 'primary_sample'
+          flow_role: 'primary_sample',
+          custody_policy: 'task_exclusive'
         },
         execution_policy: {},
         disabled: false,
@@ -155,6 +159,9 @@ export function projectMaterialSourceEditor(
     throw new Error('新建物料模式不能携带固定物料')
   }
   const flowRole = materialSourceFlowRole(param.flow_role)
+  const custodyPolicy = materialSourceCustodyPolicy(
+    param.custody_policy ?? 'task_exclusive'
+  )
   const sites = compatibleSites(catalog, mountUuid, resourceTemplateUuid)
   const staleReferences: string[] = []
   if (!catalog.resourceTemplates.some((item) =>
@@ -189,6 +196,7 @@ export function projectMaterialSourceEditor(
     fixedSiteUuid,
     candidateSiteUuids,
     flowRole,
+    custodyPolicy,
     resourceTemplates: catalog.resourceTemplates,
     mounts: materialSourceMounts(catalog),
     fixedMaterials: catalog.materials.filter((item) =>
@@ -260,7 +268,8 @@ export function updateMaterialSourceSelector(
             slot_range: candidateSiteUuids.length > 0
               ? candidateSiteUuids
               : null,
-            flow_role: update.flowRole
+            flow_role: update.flowRole,
+            custody_policy: update.custodyPolicy
           }
         })
   }
@@ -389,7 +398,8 @@ function assertClosedSelector(param: Record<string, unknown>): void {
     'material_uuid',
     'site',
     'slot_range',
-    'flow_role'
+    'flow_role',
+    'custody_policy'
   ])
   if (
     Object.keys(param).some((key) => !allowed.has(key)) ||
@@ -397,7 +407,8 @@ function assertClosedSelector(param: Record<string, unknown>): void {
       param,
       key
     )) ||
-    [...allowed].some((key) => !Object.prototype.hasOwnProperty.call(param, key))
+    [...allowed].some((key) => key !== 'custody_policy' &&
+      !Object.prototype.hasOwnProperty.call(param, key))
   ) throw new Error('物料来源选择器字段不符合闭合规范')
 }
 
@@ -415,6 +426,22 @@ function materialSourceFlowRole(value: unknown): MaterialSourceFlowRole {
     value !== 'reagent' &&
     value !== 'consumable'
   ) throw new Error('物料来源角色不在闭合目录中')
+  return value
+}
+
+/**
+ * 校验物料来源（MaterialSource）的保管策略（MaterialCustodyPolicy）闭集。
+ *
+ * @param value 工作流节点参数中待校验的 wire 值。
+ * @returns 规范的任务全程独占或动作期间共享策略。
+ * @throws 值不属于规范闭集时关闭失败，避免保存无法由 OS 执行的工作流图。
+ */
+function materialSourceCustodyPolicy(
+  value: unknown
+): MaterialSourceCustodyPolicy {
+  if (value !== 'task_exclusive' && value !== 'shared_source') {
+    throw new Error('物料来源保管策略不在闭合目录中')
+  }
   return value
 }
 

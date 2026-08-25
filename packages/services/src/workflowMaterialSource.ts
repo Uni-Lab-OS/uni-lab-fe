@@ -204,8 +204,12 @@ const MATERIAL_SOURCE_PARAMETER_KEYS = [
   'material_uuid',
   'site',
   'slot_range',
-  'flow_role'
+  'flow_role',
+  'custody_policy'
 ] as const
+
+const LEGACY_MATERIAL_SOURCE_PARAMETER_KEYS =
+  MATERIAL_SOURCE_PARAMETER_KEYS.filter((key) => key !== 'custody_policy')
 
 /**
  * 解析并校验 OS 发布的 MaterialSource 闭合选择器 Schema。
@@ -232,11 +236,21 @@ function materialSourceTemplateSchema(
   const slotRange = recordValue(properties.slot_range)
   const slotItem = recordValue(slotRange.items)
   const flowRole = recordValue(properties.flow_role)
+  const hasCustodyPolicy = Object.prototype.hasOwnProperty.call(
+    properties,
+    'custody_policy'
+  )
+  const custodyPolicy = hasCustodyPolicy
+    ? recordValue(properties.custody_policy)
+    : null
+  const parameterKeys = hasCustodyPolicy
+    ? MATERIAL_SOURCE_PARAMETER_KEYS
+    : LEGACY_MATERIAL_SOURCE_PARAMETER_KEYS
   if (
     schema.type !== 'object' ||
     schema.additionalProperties !== false ||
-    !sameStringSet(Object.keys(properties), MATERIAL_SOURCE_PARAMETER_KEYS) ||
-    !sameStringSet(schema.required, MATERIAL_SOURCE_PARAMETER_KEYS) ||
+    !sameStringSet(Object.keys(properties), parameterKeys) ||
+    !sameStringSet(schema.required, parameterKeys) ||
     mode.type !== 'string' ||
     !sameStringSet(mode.enum, ['existing', 'create_new']) ||
     resourceTemplate.type !== 'string' ||
@@ -268,7 +282,11 @@ function materialSourceTemplateSchema(
       'aliquot_sample',
       'reagent',
       'consumable'
-    ])
+    ]) ||
+    (custodyPolicy !== null && (
+      custodyPolicy.type !== 'string' ||
+      !sameStringSet(custodyPolicy.enum, ['task_exclusive', 'shared_source'])
+    ))
   ) invalidCatalog('物料来源（MaterialSource）参数 Schema 无效')
   return structuredClone(schema)
 }

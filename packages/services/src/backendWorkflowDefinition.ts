@@ -96,12 +96,12 @@ function decodeBackendRunNode(
 }
 
 /**
- * 严格保留 Backend 物料来源（MaterialSource）的谱系角色与挂载身份。
+ * 严格保留 Backend 物料来源（MaterialSource）的谱系角色、挂载身份和保管策略。
  *
  * @param value 工作流节点 `param` 中的权威物料来源选择器。
  * @param nodeIndex 节点在 Backend 工作流定义数组中的位置，用于错误定位。
- * @returns 共享画布建立主样品与辅助物料谱系所需的只读字段。
- * @throws 选择器缺少模式、物料模板、挂载 UUID 或流角色时关闭失败。
+ * @returns 共享画布建立物料谱系并呈现保管策略所需的只读字段；旧图默认任务全程独占。
+ * @throws 选择器缺少模式、物料模板、挂载 UUID、流角色或保管策略非法时关闭失败。
  */
 function decodeBackendMaterialSource(
   value: unknown,
@@ -109,11 +109,16 @@ function decodeBackendMaterialSource(
 ): NonNullable<WorkflowRunNodeOption['material_source']> {
   const selector = asRecord(value)
   const mount = asRecord(selector.mount)
+  // `custodyPolicy` 是工作流任务（WorkflowTask）准入时使用的保管策略；旧图采用安全默认值。
+  const custodyPolicy = selector.custody_policy === undefined
+    ? 'task_exclusive'
+    : selector.custody_policy
   if (
     !nonEmptyString(selector.mode) ||
     !nonEmptyString(selector.resource_template_uuid) ||
     !nonEmptyString(mount.uuid) ||
-    !nonEmptyString(selector.flow_role)
+    !nonEmptyString(selector.flow_role) ||
+    (custodyPolicy !== 'task_exclusive' && custodyPolicy !== 'shared_source')
   ) {
     throw invalidBackendRunPreparation(
       `invalid material source selector at node index ${nodeIndex}`
@@ -123,7 +128,8 @@ function decodeBackendMaterialSource(
     mode: selector.mode,
     resource_template_uuid: selector.resource_template_uuid,
     mount_uuid: mount.uuid,
-    flow_role: selector.flow_role
+    flow_role: selector.flow_role,
+    custody_policy: custodyPolicy
   }
 }
 

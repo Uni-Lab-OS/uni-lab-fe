@@ -84,6 +84,10 @@ function materialSourceSchema(): Record<string, unknown> {
           'reagent',
           'consumable'
         ]
+      },
+      custody_policy: {
+        type: 'string',
+        enum: ['task_exclusive', 'shared_source']
       }
     },
     required: [
@@ -93,7 +97,8 @@ function materialSourceSchema(): Record<string, unknown> {
       'material_uuid',
       'site',
       'slot_range',
-      'flow_role'
+      'flow_role',
+      'custody_policy'
     ],
     additionalProperties: false
   }
@@ -127,7 +132,7 @@ describe(
 /**
  * 验证框架模板（ScaffoldTemplate）的物料来源选择器 Schema 及失败关闭边界。
  *
- * @returns Promise 完成时表示 JSON 文本被解析保留，旧 Edge 空 Schema 仍可兼容。
+ * @returns Promise 完成时表示新保管策略与旧 Edge Schema 均可兼容。
  * @throws 若 Schema 解析、投影或错误边界失效，则由 Vitest 断言失败。
  */
 async function validatesPublishedMaterialSourceSchema(): Promise<void> {
@@ -145,6 +150,18 @@ async function validatesPublishedMaterialSourceSchema(): Promise<void> {
   const snapshot = await runtime.getWorkflowMaterialSourceCatalog()
   expect(snapshot.template.uuid).toBe(frameworkTemplateUuid)
   expect(snapshot.template.schema).toEqual(materialSourceSchema())
+
+  // `legacySchema` 证明既有工作流未发布保管策略时仍按任务全程独占兼容读取。
+  const legacySchema = materialSourceSchema() as {
+    properties: Record<string, unknown>
+    required: string[]
+  }
+  delete legacySchema.properties.custody_policy
+  legacySchema.required = legacySchema.required.filter(
+    (key) => key !== 'custody_policy'
+  )
+  detailTemplate.schema = JSON.stringify(legacySchema)
+  await expect(runtime.getWorkflowMaterialSourceCatalog()).resolves
 
   // 旧 Edge 尚未发布选择器 Schema 时保持兼容，但非空错误 Schema 仍失败关闭。
   detailTemplate.schema = null

@@ -63,7 +63,8 @@ function registerMaterialSourceClosedSelectorTests(): void {
           material_uuid: null,
           site: null,
           slot_range: null,
-          flow_role: 'primary_sample'
+          flow_role: 'primary_sample',
+          custody_policy: 'task_exclusive'
         }
       })
     ])
@@ -101,6 +102,19 @@ function registerMaterialSourceClosedSelectorTests(): void {
     })
   })
 
+  it('旧版选择器缺少保管策略时默认任务全程独占', () => {
+    const graph = createMaterialSourceNode(catalog(), emptyGraph(), {
+      nodeUuid,
+      name: 'assay_plate'
+    })
+    // `legacyParam` 模拟升级前尚未持久化保管策略的物料来源（MaterialSource）节点参数。
+    const legacyParam = graph.nodes[0].param as Record<string, unknown>
+    delete legacyParam.custody_policy
+
+    expect(projectMaterialSourceEditor(catalog(), graph, nodeUuid))
+      .toMatchObject({ custodyPolicy: 'task_exclusive' })
+  })
+
   it(
     '库位（Site）保留 sort_order/UUID 业务顺序并规范化候选 UUID 持久化',
     preservesCatalogSiteOrder
@@ -119,7 +133,8 @@ function registerMaterialSourceClosedSelectorTests(): void {
       siteScope: 'fixed',
       fixedSiteUuid: earlySiteUuid,
       candidateSiteUuids: [lateSiteUuid],
-      flowRole: 'consumable'
+      flowRole: 'consumable',
+      custodyPolicy: 'shared_source'
     })
 
     expect(updated.nodes[0].param).toMatchObject({
@@ -127,7 +142,8 @@ function registerMaterialSourceClosedSelectorTests(): void {
       material_uuid: null,
       site: earlySiteUuid,
       slot_range: null,
-      flow_role: 'consumable'
+      flow_role: 'consumable',
+      custody_policy: 'shared_source'
     })
   })
 
@@ -306,7 +322,8 @@ function preservesCatalogSiteOrder(): void {
     fixedMaterialUuid,
     siteScope: 'candidates',
     candidateSiteUuids: [earlySiteUuid, lateSiteUuid],
-    flowRole: 'reagent'
+    flowRole: 'reagent',
+    custodyPolicy: 'task_exclusive'
   })
   const projection = projectMaterialSourceEditor(
     catalog(),
@@ -325,7 +342,8 @@ function preservesCatalogSiteOrder(): void {
     material_uuid: fixedMaterialUuid,
     site: null,
     slot_range: [lateSiteUuid, earlySiteUuid].sort(),
-    flow_role: 'reagent'
+    flow_role: 'reagent',
+    custody_policy: 'task_exclusive'
   })
 }
 
