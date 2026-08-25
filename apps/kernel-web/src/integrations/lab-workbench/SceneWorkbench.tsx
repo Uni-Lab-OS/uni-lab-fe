@@ -10,12 +10,19 @@ import {
 } from '@unilab/pascal-lab-plugin'
 import {
   activateSceneRuntimeScope,
+  publishKinematicAttachmentFrame,
   publishJointStateFrame,
+  replaceKinematicAttachmentSnapshot,
   replaceJointStateSnapshot,
   sceneRuntimeScopeId,
+  type KinematicAttachmentFrameInput,
   type JointStateFrameInput
 } from '@unilab/scene-runtime'
-import { useServices, type DeviceJointStateFrame } from '@unilab/services'
+import {
+  useServices,
+  type DeviceJointStateFrame,
+  type DeviceKinematicAttachmentFrame
+} from '@unilab/services'
 import { useEffect, useMemo } from 'react'
 
 import { useWorkbench } from '../../context/WorkbenchContext'
@@ -108,20 +115,49 @@ export function SceneWorkbench({
 
   useEffect(() => {
     activateSceneRuntimeScope(sceneRuntimeScopeId(backend.id, backend.apiUrl))
-    if (!services.capabilities.realtime.subscribeJointState) return
-    const project = (frame: DeviceJointStateFrame): JointStateFrameInput => ({
+    if (loadState !== 'ready') return
+    const dispose: Array<() => void> = []
+    const projectJoint = (frame: DeviceJointStateFrame): JointStateFrameInput => ({
       ...frame,
       source: 'live'
     })
-    return services.realtime.subscribeJointState({
-      onJointState: frame => publishJointStateFrame(project(frame)),
-      onSnapshot: frames => replaceJointStateSnapshot(frames.map(project))
-    })
+    if (services.capabilities.realtime.subscribeJointState) {
+      dispose.push(services.realtime.subscribeJointState({
+        onJointState: frame => publishJointStateFrame(projectJoint(frame)),
+        onSnapshot: frames => replaceJointStateSnapshot(frames.map(projectJoint))
+      }))
+    }
+    const projectAttachment = (
+      frame: DeviceKinematicAttachmentFrame
+    ): KinematicAttachmentFrameInput | null => {
+      const aggregate = store.getState().aggregatesById[frame.childRef]
+      return aggregate
+        ? { ...frame, materialRevision: aggregate.revision }
+        : null
+    }
+    if (services.capabilities.realtime.subscribeKinematicAttachment) {
+      dispose.push(services.realtime.subscribeKinematicAttachment({
+        onAttachment: frame => {
+          const projected = projectAttachment(frame)
+          if (projected) publishKinematicAttachmentFrame(projected)
+        },
+        onSnapshot: frames => replaceKinematicAttachmentSnapshot(
+          frames.flatMap(frame => {
+            const projected = projectAttachment(frame)
+            return projected ? [projected] : []
+          })
+        )
+      }))
+    }
+    return () => dispose.forEach(close => close())
   }, [
     backend.apiUrl,
     backend.id,
+    loadState,
     services.capabilities.realtime.subscribeJointState,
-    services.realtime
+    services.capabilities.realtime.subscribeKinematicAttachment,
+    services.realtime,
+    store
   ])
 
   useEffect(() => {

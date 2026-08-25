@@ -20,6 +20,32 @@ export interface DeviceJointStateFrame {
   jointStates: Readonly<Record<string, number>>
 }
 
+export interface DeviceKinematicAttachmentFrame {
+  carrierMaterialId: string
+  deviceId: string
+  kind: 'tool' | 'material_payload'
+  childRef: string
+  parentRef: string
+  anchor: { kind: 'root' } | { kind: 'link'; linkName: string }
+  localPose: {
+    xyzM: readonly [number, number, number]
+    orientationXyzw: readonly [number, number, number, number]
+  }
+  state: 'attached' | 'detached' | 'detaching' | 'uncertain'
+  evidence: 'observed' | 'controller_confirmed' | 'none'
+  attachmentGeneration: number
+  contextDigest: string
+  bootId: string
+  sequence: number
+  acceptedRef: string
+  observedAt: number
+  staleAfterSeconds: number
+  stale: boolean
+  source: string
+  commandRef?: string
+  jobRef?: string
+}
+
 export interface DeviceStatusHandlers {
   onDeviceStatus: (statuses: DeviceStatus[]) => void
   /** 兼容订阅入口；新消费者优先使用独立关节状态（JointState）订阅。 */
@@ -37,10 +63,18 @@ export interface JointStateHandlers {
   onError?: (error: string) => void
 }
 
+export interface KinematicAttachmentHandlers {
+  onAttachment: (frame: DeviceKinematicAttachmentFrame) => void
+  onSnapshot?: (frames: readonly DeviceKinematicAttachmentFrame[]) => void
+  onOpen?: () => void
+  onClose?: () => void
+  onError?: (error: string) => void
+}
+
 interface DeviceTelemetryEvent {
   material_uuid: string
   local_device_id: string
-  telemetry_type: 'device_properties' | 'joint_state'
+  telemetry_type: 'device_properties' | 'joint_state' | 'kinematic_attachment'
   boot_id: string
   sequence: number
   accepted_ref: string
@@ -157,6 +191,9 @@ export function connectDeviceTelemetry(
 export interface RealtimeService {
   subscribeDeviceStatus: (handlers: DeviceStatusHandlers) => () => void
   subscribeJointState: (handlers: JointStateHandlers) => () => void
+  subscribeKinematicAttachment: (
+    handlers: KinematicAttachmentHandlers
+  ) => () => void
   dispose: () => void
 }
 
@@ -170,8 +207,10 @@ export function createRealtimeService(
 ): RealtimeService {
   const statusSubscribers = new Set<DeviceStatusHandlers>()
   const jointSubscribers = new Set<JointStateHandlers>()
+  const attachmentSubscribers = new Set<KinematicAttachmentHandlers>()
   const statuses = new Map<string, DeviceStatus>()
   const jointFrames = new Map<string, DeviceJointStateFrame>()
+  const attachmentFrames = new Map<string, DeviceKinematicAttachmentFrame>()
   const baseUrl = backend.realtimeUrl || backend.apiUrl
   let closeConnection: (() => void) | null = null
   let connected = false
@@ -190,39 +229,54 @@ export function createRealtimeService(
       broadcastStatuses()
       return
     }
-    const frame = mapJointState(event)
+    if (event.telemetry_type === 'joint_state') {
+      const frame = mapJointState(event)
+      if (!frame) return
+      jointFrames.set(frame.materialId, frame)
+      for (const subscriber of statusSubscribers) subscriber.onJointState?.(frame)
+      for (const subscriber of jointSubscribers) subscriber.onJointState(frame)
+      return
+    }
+    const frame = mapKinematicAttachment(event)
     if (!frame) return
-    jointFrames.set(frame.materialId, frame)
-    for (const subscriber of statusSubscribers) subscriber.onJointState?.(frame)
-    for (const subscriber of jointSubscribers) subscriber.onJointState(frame)
+    attachmentFrames.set(frame.childRef, frame)
+    for (const subscriber of attachmentSubscribers) subscriber.onAttachment(frame)
   }
   const ensureConnection = (): void => {
-    if (closeConnection || statusSubscribers.size + jointSubscribers.size === 0) return
+    if (closeConnection ||
+        statusSubscribers.size + jointSubscribers.size + attachmentSubscribers.size === 0) return
     closeConnection = connectDeviceTelemetry(baseUrl, {
       onOpen: () => {
         connected = true
         for (const subscriber of statusSubscribers) subscriber.onOpen?.()
         for (const subscriber of jointSubscribers) subscriber.onOpen?.()
+        for (const subscriber of attachmentSubscribers) subscriber.onOpen?.()
       },
       onClose: () => {
         connected = false
         for (const subscriber of statusSubscribers) subscriber.onClose?.()
         for (const subscriber of jointSubscribers) subscriber.onClose?.()
+        for (const subscriber of attachmentSubscribers) subscriber.onClose?.()
       },
       onError: (error) => {
         for (const subscriber of statusSubscribers) subscriber.onError?.(error)
         for (const subscriber of jointSubscribers) subscriber.onError?.(error)
+        for (const subscriber of attachmentSubscribers) subscriber.onError?.(error)
       },
       onSnapshot: (items) => {
         statuses.clear()
         jointFrames.clear()
+        attachmentFrames.clear()
         for (const item of items) {
           if (item.telemetry_type === 'device_properties') {
             const status = mapDeviceStatus(item)
             if (status) statuses.set(status.deviceId, status)
-          } else {
+          } else if (item.telemetry_type === 'joint_state') {
             const frame = mapJointState(item)
             if (frame) jointFrames.set(frame.materialId, frame)
+          } else {
+            const frame = mapKinematicAttachment(item)
+            if (frame) attachmentFrames.set(frame.childRef, frame)
           }
         }
         broadcastStatuses()
@@ -234,17 +288,23 @@ export function createRealtimeService(
           if (subscriber.onSnapshot) subscriber.onSnapshot(frameSnapshot)
           else for (const frame of frameSnapshot) subscriber.onJointState(frame)
         }
+        const attachmentSnapshot = [...attachmentFrames.values()]
+        for (const subscriber of attachmentSubscribers) {
+          if (subscriber.onSnapshot) subscriber.onSnapshot(attachmentSnapshot)
+          else for (const frame of attachmentSnapshot) subscriber.onAttachment(frame)
+        }
       },
       onChanged: publishEvent
     }, backend.serverKind === 'edge' ? _traceRequest : undefined)
   }
   const releaseConnectionIfUnused = (): void => {
-    if (statusSubscribers.size + jointSubscribers.size > 0) return
+    if (statusSubscribers.size + jointSubscribers.size + attachmentSubscribers.size > 0) return
     closeConnection?.()
     closeConnection = null
     connected = false
     statuses.clear()
     jointFrames.clear()
+    attachmentFrames.clear()
   }
 
   return {
@@ -271,14 +331,28 @@ export function createRealtimeService(
         releaseConnectionIfUnused()
       }
     },
+    subscribeKinematicAttachment: (handlers) => {
+      attachmentSubscribers.add(handlers)
+      if (connected) handlers.onOpen?.()
+      const snapshot = [...attachmentFrames.values()]
+      if (handlers.onSnapshot) handlers.onSnapshot(snapshot)
+      else for (const frame of snapshot) handlers.onAttachment(frame)
+      ensureConnection()
+      return () => {
+        attachmentSubscribers.delete(handlers)
+        releaseConnectionIfUnused()
+      }
+    },
     dispose: () => {
       closeConnection?.()
       closeConnection = null
       connected = false
       statusSubscribers.clear()
       jointSubscribers.clear()
+      attachmentSubscribers.clear()
       statuses.clear()
       jointFrames.clear()
+      attachmentFrames.clear()
     }
   }
 }
@@ -290,12 +364,14 @@ function parseTelemetryEvent(value: unknown): DeviceTelemetryEvent | null {
   ] as const
   if (!isExactRecord(value, keys)) return null
   if (!boundedText(value.material_uuid, 200) || !boundedText(value.local_device_id, 200)) return null
-  if (value.telemetry_type !== 'device_properties' && value.telemetry_type !== 'joint_state') return null
+  if (value.telemetry_type !== 'device_properties' &&
+      value.telemetry_type !== 'joint_state' &&
+      value.telemetry_type !== 'kinematic_attachment') return null
   if (!boundedText(value.boot_id, 128) || !boundedText(value.accepted_ref, 80)) return null
   if (!positiveInteger(value.sequence) || !timestamp(value.observed_at)) return null
   if (typeof value.stale !== 'boolean' || !isRecord(value.data)) return null
   if (value.telemetry_type === 'device_properties' && value.stale_after_s !== null) return null
-  if (value.telemetry_type === 'joint_state' && !finiteNumber(value.stale_after_s)) return null
+  if (value.telemetry_type !== 'device_properties' && !finiteNumber(value.stale_after_s)) return null
   return value as unknown as DeviceTelemetryEvent
 }
 
@@ -342,6 +418,95 @@ function mapJointState(event: DeviceTelemetryEvent): DeviceJointStateFrame | nul
   })
 }
 
+function mapKinematicAttachment(
+  event: DeviceTelemetryEvent
+): DeviceKinematicAttachmentFrame | null {
+  const required = [
+    'schema_version', 'kind', 'child_ref', 'parent_ref', 'anchor',
+    'local_pose', 'state', 'evidence', 'attachment_generation', 'source',
+    'source_boot_id', 'monotonic_sequence', 'context_digest'
+  ] as const
+  const optional = ['command_ref', 'job_ref'] as const
+  if (!hasExactRequiredAndOptional(event.data, required, optional)) return null
+  if (event.data.schema_version !== 1 ||
+      (event.data.kind !== 'tool' && event.data.kind !== 'material_payload') ||
+      !boundedText(event.data.child_ref, 255) ||
+      !boundedText(event.data.parent_ref, 255) ||
+      !boundedText(event.data.source, 255) ||
+      event.data.source_boot_id !== event.boot_id ||
+      event.data.monotonic_sequence !== event.sequence ||
+      !positiveInteger(event.data.attachment_generation) ||
+      typeof event.data.context_digest !== 'string' ||
+      !/^[0-9a-f]{64}$/u.test(event.data.context_digest)) return null
+  const states = ['attached', 'detached', 'detaching', 'uncertain'] as const
+  const evidences = ['observed', 'controller_confirmed', 'none'] as const
+  if (!states.includes(event.data.state as typeof states[number]) ||
+      !evidences.includes(event.data.evidence as typeof evidences[number]) ||
+      ((event.data.state === 'uncertain') !== (event.data.evidence === 'none'))) return null
+  const anchor = parseAttachmentAnchor(event.data.anchor)
+  const localPose = parseAttachmentPose(event.data.local_pose)
+  if (!anchor || !localPose) return null
+  for (const field of optional) {
+    if (field in event.data && !boundedText(event.data[field], 255)) return null
+  }
+  return Object.freeze({
+    carrierMaterialId: event.material_uuid,
+    deviceId: event.local_device_id,
+    kind: event.data.kind,
+    childRef: event.data.child_ref,
+    parentRef: event.data.parent_ref,
+    anchor,
+    localPose,
+    state: event.data.state as DeviceKinematicAttachmentFrame['state'],
+    evidence: event.data.evidence as DeviceKinematicAttachmentFrame['evidence'],
+    attachmentGeneration: event.data.attachment_generation,
+    contextDigest: event.data.context_digest,
+    bootId: event.boot_id,
+    sequence: event.sequence,
+    acceptedRef: event.accepted_ref,
+    observedAt: Date.parse(event.observed_at),
+    staleAfterSeconds: event.stale_after_s as number,
+    stale: event.stale,
+    source: event.data.source,
+    ...(typeof event.data.command_ref === 'string'
+      ? { commandRef: event.data.command_ref }
+      : {}),
+    ...(typeof event.data.job_ref === 'string'
+      ? { jobRef: event.data.job_ref }
+      : {})
+  })
+}
+
+function parseAttachmentAnchor(
+  value: unknown
+): DeviceKinematicAttachmentFrame['anchor'] | null {
+  if (isExactRecord(value, ['kind']) && value.kind === 'root') {
+    return Object.freeze({ kind: 'root' })
+  }
+  if (isExactRecord(value, ['kind', 'link_name']) &&
+      value.kind === 'link' && boundedText(value.link_name, 255)) {
+    return Object.freeze({ kind: 'link', linkName: value.link_name })
+  }
+  return null
+}
+
+function parseAttachmentPose(
+  value: unknown
+): DeviceKinematicAttachmentFrame['localPose'] | null {
+  if (!isExactRecord(value, ['xyz_m', 'orientation_xyzw']) ||
+      !finiteTuple(value.xyz_m, 3) || !finiteTuple(value.orientation_xyzw, 4)) return null
+  const norm = Math.sqrt(value.orientation_xyzw.reduce(
+    (sum, component) => sum + component * component, 0
+  ))
+  if (norm <= 1e-12) return null
+  return Object.freeze({
+    xyzM: Object.freeze([...value.xyz_m]) as readonly [number, number, number],
+    orientationXyzw: Object.freeze(
+      value.orientation_xyzw.map(component => component / norm)
+    ) as readonly [number, number, number, number]
+  })
+}
+
 function parseJsonEvent(event: Event): unknown {
   if (!(event instanceof MessageEvent) || typeof event.data !== 'string') return null
   try { return JSON.parse(event.data) as unknown } catch { return null }
@@ -357,6 +522,19 @@ function isExactRecord<const K extends readonly string[]>(
 ): value is Record<K[number], unknown> {
   return isRecord(value) && Object.keys(value).length === keys.length &&
     keys.every(key => Object.prototype.hasOwnProperty.call(value, key))
+}
+
+function hasExactRequiredAndOptional<
+  const R extends readonly string[],
+  const O extends readonly string[]
+>(value: unknown, required: R, optional: O): value is Record<R[number] | O[number], unknown> {
+  if (!isRecord(value) || required.some(key => !(key in value))) return false
+  const allowed = new Set<string>([...required, ...optional])
+  return Object.keys(value).every(key => allowed.has(key))
+}
+
+function finiteTuple(value: unknown, size: number): value is number[] {
+  return Array.isArray(value) && value.length === size && value.every(finiteNumber)
 }
 
 function boundedText(value: unknown, maximum: number): value is string {

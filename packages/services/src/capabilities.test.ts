@@ -38,7 +38,8 @@ describe('server capability matrix', () => {
           'workflow.runTasks',
           'workflow.subscribeEvents',
           'inventory.readReagents',
-          'realtime.subscribeJointState'
+          'realtime.subscribeJointState',
+          'realtime.subscribeKinematicAttachment'
         ]
         const localGoCapabilities = [
           'devices.listOnline',

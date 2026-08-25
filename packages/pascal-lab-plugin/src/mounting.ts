@@ -1,5 +1,6 @@
 import {
   Euler,
+  Group,
   Matrix4,
   Quaternion,
   Vector3,
@@ -7,6 +8,7 @@ import {
 } from 'three'
 
 import type { LabPose } from '@unilab/material/domain'
+import type { LabAttachPoint } from './schema'
 import {
   METERS_TO_MILLIMETERS
 } from './units'
@@ -158,4 +160,31 @@ export function findLinkObject(
     if (!match && object.name === linkName) match = object
   })
   return match
+}
+
+const VIRTUAL_ATTACH_POINT = 'unilabVirtualAttachPoint'
+
+/**
+ * 给没有 link 拓扑的 STL/GLB 设备创建稳定虚拟 frame。
+ * 若模型本身已含同名 URDF/GLTF 节点则直接复用，不创建第二个锚点。
+ */
+export function syncVirtualAttachPointFrames(
+  root: Object3D,
+  attachPoints: readonly LabAttachPoint[]
+): void {
+  const expected = new Set(attachPoints.map(point => point.link))
+  for (const child of [...root.children]) {
+    if (child.userData[VIRTUAL_ATTACH_POINT] === true &&
+        !expected.has(child.name)) root.remove(child)
+  }
+  for (const point of attachPoints) {
+    const existing = findLinkObject(root, point.link)
+    if (existing && existing.userData[VIRTUAL_ATTACH_POINT] !== true) continue
+    const frame = existing ?? new Group()
+    frame.name = point.link
+    frame.userData[VIRTUAL_ATTACH_POINT] = true
+    frame.position.set(...(point.position ?? [0, 0, 0]))
+    frame.rotation.set(...(point.rotation ?? [0, 0, 0]), 'XYZ')
+    if (!existing) root.add(frame)
+  }
 }

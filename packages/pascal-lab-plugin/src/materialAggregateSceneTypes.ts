@@ -16,6 +16,8 @@ export interface MaterialSceneProjectionOptions {
   showMaterialLabels?: boolean
   showMaterialTransfers?: boolean
   materialTransferRoutes?: readonly MaterialTransferSceneRoute[]
+  /** 只读运行时覆盖；不得写回 Material store。 */
+  runtimePlacementByMaterialId?: Readonly<Record<MaterialId, MaterialPlacement>>
 }
 
 export interface MaterialTransferSceneEndpoint {

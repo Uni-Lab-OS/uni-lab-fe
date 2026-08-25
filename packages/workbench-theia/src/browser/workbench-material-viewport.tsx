@@ -18,12 +18,16 @@ import type {
 import { ensurePascalRendererDefaults } from '@unilab/pascal-host'
 import {
   activateSceneRuntimeScope,
+  publishKinematicAttachmentFrame,
   publishJointStateFrame,
+  replaceKinematicAttachmentSnapshot,
   replaceJointStateSnapshot,
+  type KinematicAttachmentFrameInput,
   type JointStateFrameInput
 } from '@unilab/scene-runtime'
 import type {
   DeviceJointStateFrame,
+  DeviceKinematicAttachmentFrame,
   RealtimeService
 } from '@unilab/services'
 import type { WorkflowPanelRuntimeProjection } from '@unilab/workflow-editor'
@@ -155,16 +159,40 @@ export function WorkbenchMaterialViewport({
 
   useEffect(() => {
     activateSceneRuntimeScope(runtimeScopeId)
-    if (!realtimeEnabled) return
-    const project = (frame: DeviceJointStateFrame): JointStateFrameInput => ({
+    if (!realtimeEnabled || loadState !== 'ready') return
+    const projectJoint = (frame: DeviceJointStateFrame): JointStateFrameInput => ({
       ...frame,
       source: 'live'
     })
-    return realtime.subscribeJointState({
-      onJointState: frame => publishJointStateFrame(project(frame)),
-      onSnapshot: frames => replaceJointStateSnapshot(frames.map(project))
+    const closeJoint = realtime.subscribeJointState({
+      onJointState: frame => publishJointStateFrame(projectJoint(frame)),
+      onSnapshot: frames => replaceJointStateSnapshot(frames.map(projectJoint))
     })
-  }, [realtime, realtimeEnabled, runtimeScopeId])
+    const projectAttachment = (
+      frame: DeviceKinematicAttachmentFrame
+    ): KinematicAttachmentFrameInput | null => {
+      const aggregate = store.getState().aggregatesById[frame.childRef]
+      return aggregate
+        ? { ...frame, materialRevision: aggregate.revision }
+        : null
+    }
+    const closeAttachment = realtime.subscribeKinematicAttachment({
+      onAttachment: frame => {
+        const projected = projectAttachment(frame)
+        if (projected) publishKinematicAttachmentFrame(projected)
+      },
+      onSnapshot: frames => replaceKinematicAttachmentSnapshot(
+        frames.flatMap(frame => {
+          const projected = projectAttachment(frame)
+          return projected ? [projected] : []
+        })
+      )
+    })
+    return () => {
+      closeAttachment()
+      closeJoint()
+    }
+  }, [loadState, realtime, realtimeEnabled, runtimeScopeId, store])
 
   const inspectScene = useCallback(async (
     options: MaterialRendererOptions

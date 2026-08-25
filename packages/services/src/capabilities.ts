@@ -45,6 +45,7 @@ export interface ServerCapabilities {
   }
   realtime: {
     subscribeJointState: boolean
+    subscribeKinematicAttachment: boolean
     pushJointState: boolean
     setJointState: boolean
     jointControlLease: boolean
@@ -89,6 +90,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'inventory.deleteReagent',
   'inventory.readReagentHistory',
   'realtime.subscribeJointState',
+  'realtime.subscribeKinematicAttachment',
   'realtime.pushJointState',
   'realtime.setJointState',
   'realtime.jointControlLease',
@@ -202,6 +204,7 @@ function unavailableCapabilities(): ServerCapabilities {
     },
     realtime: {
       subscribeJointState: false,
+      subscribeKinematicAttachment: false,
       pushJointState: false,
       setJointState: false,
       jointControlLease: false
@@ -247,6 +250,7 @@ function localPythonCapabilities(): ServerCapabilities {
   // 本地后端（Local Backend）把 Edge 短通知投影为统一设备遥测 SSE。
   capabilities.devices.subscribeStatus = true
   capabilities.realtime.subscribeJointState = true
+  capabilities.realtime.subscribeKinematicAttachment = true
   capabilities.material.readGraph = true
   capabilities.workflow.readDefinitions = true
   capabilities.workflow.authoring = true

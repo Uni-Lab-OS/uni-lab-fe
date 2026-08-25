@@ -4,7 +4,9 @@ import { Group, Vector3 } from 'three'
 import {
   calculateHorizontalSnapDistance,
   calculateLocalMountPose,
-  findNearestHorizontalMountMatch
+  findLinkObject,
+  findNearestHorizontalMountMatch,
+  syncVirtualAttachPointFrames
 } from './mounting'
 
 describe('lab mounting', () => {
@@ -59,5 +61,22 @@ describe('lab mounting', () => {
     })
 
     expect(result?.parentNode.id).toBe('near')
+  })
+
+  it('为 mesh 创建 grasp_frame，但不覆盖真实模型 link', () => {
+    const root = new Group()
+    syncVirtualAttachPointFrames(root, [{
+      link: 'grasp_frame',
+      position: [0, 0, 0.12],
+      rotation: [0, 0, 0]
+    }])
+    expect(findLinkObject(root, 'grasp_frame')?.position.z).toBeCloseTo(0.12)
+
+    const real = new Group()
+    real.name = 'tool0'
+    root.add(real)
+    syncVirtualAttachPointFrames(root, [{ link: 'tool0', position: [1, 2, 3] }])
+    expect(findLinkObject(root, 'tool0')).toBe(real)
+    expect(real.position.toArray()).toEqual([0, 0, 0])
   })
 })

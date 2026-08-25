@@ -14,10 +14,15 @@ import type {
   MaterialShapeLibrary
 } from '@unilab/material/domain'
 import {
+  getKinematicAttachmentFrames,
+  subscribeKinematicAttachmentFrames
+} from '@unilab/scene-runtime'
+import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
+  useSyncExternalStore,
   useState
 } from 'react'
 
@@ -31,6 +36,7 @@ import {
   configureLabModelRuntime,
   type LabModelRuntime
 } from './modelRuntime'
+import { attachmentFramesToRuntimePlacements } from './kinematicAttachmentOverlay'
 import {
   indexMaterialSceneObjects,
   materialIdsToSceneObjectIds
@@ -112,6 +118,15 @@ export function PascalLabWorkbench({
   onMaterialMoves,
   onSelectionChange
 }: PascalLabWorkbenchProps): React.JSX.Element {
+  const attachmentFrames = useSyncExternalStore(
+    subscribeKinematicAttachmentFrames,
+    getKinematicAttachmentFrames,
+    getKinematicAttachmentFrames
+  )
+  const runtimePlacementByMaterialId = useMemo(
+    () => attachmentFramesToRuntimePlacements(attachmentFrames, aggregates),
+    [aggregates, attachmentFrames]
+  )
   const [cameraRequest, setCameraRequest] = useState<{
     revision: number
     view: SceneCameraView
@@ -155,13 +170,15 @@ export function PascalLabWorkbench({
         showSites,
         showMaterialLabels,
         showMaterialTransfers,
-        materialTransferRoutes
+        materialTransferRoutes,
+        runtimePlacementByMaterialId
       }),
     [
       aggregates,
       cameraRequest,
       cameraFocus,
       materialTransferRoutes,
+      runtimePlacementByMaterialId,
       showMaterialTransfers,
       showMaterialLabels,
       showSites
@@ -262,11 +279,15 @@ export function PascalLabWorkbench({
       }
       setSaveStatus('saving')
       onMaterialMoves?.(
-        sceneGraphToMaterialMoves(scene, aggregates)
+        sceneGraphToMaterialMoves(
+          scene,
+          aggregates,
+          runtimePlacementByMaterialId
+        )
       )
       setSaveStatus('saved')
     },
-    [aggregates, editable, onMaterialMoves]
+    [aggregates, editable, onMaterialMoves, runtimePlacementByMaterialId]
   )
 
   const handleSelectionChange = useCallback(

@@ -31,7 +31,7 @@ import {
   loadLabDeviceModel,
   resolveModelFrameRotation
 } from '../modelRuntime'
-import { findLinkObject } from '../mounting'
+import { findLinkObject, syncVirtualAttachPointFrames } from '../mounting'
 import {
   applyJointStateToUrdf,
   captureInitialJointState,
@@ -277,6 +277,11 @@ export default function LabDeviceRenderer({
     if (!groupRef.current) return
     originalParentRef.current ??= groupRef.current.parent
   })
+
+  useEffect(() => {
+    if (!object || !groupRef.current) return
+    syncVirtualAttachPointFrames(groupRef.current, node.model.attachPoints)
+  }, [node.model.attachPoints, object])
 
   useEffect(() => {
     if (!object) return

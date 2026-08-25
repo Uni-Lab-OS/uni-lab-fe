@@ -46,6 +46,33 @@ function telemetry(overrides: Record<string, unknown> = {}): Record<string, unkn
   }
 }
 
+function attachmentTelemetry(): Record<string, unknown> {
+  return telemetry({
+    telemetry_type: 'kinematic_attachment',
+    boot_id: 'robot-boot-1',
+    sequence: 7,
+    stale_after_s: 2,
+    data: {
+      schema_version: 1,
+      kind: 'material_payload',
+      child_ref: 'material-beaker',
+      parent_ref: 'material-gripper',
+      anchor: { kind: 'link', link_name: 'grasp_frame' },
+      local_pose: {
+        xyz_m: [0, 0, 0.08],
+        orientation_xyzw: [0, 0, 0, 2]
+      },
+      state: 'attached',
+      evidence: 'controller_confirmed',
+      attachment_generation: 3,
+      source: 'robot-runtime',
+      source_boot_id: 'robot-boot-1',
+      monotonic_sequence: 7,
+      context_digest: 'b'.repeat(64)
+    }
+  })
+}
+
 afterEach(() => {
   FakeEventSource.instances = []
   vi.unstubAllGlobals()
@@ -64,10 +91,33 @@ describe('统一设备遥测（DeviceTelemetry）SSE', () => {
     const service = createRealtimeService(getDefaultBackend('local-python'))
     const closeStatus = service.subscribeDeviceStatus({ onDeviceStatus: vi.fn() })
     const closeJoint = service.subscribeJointState({ onJointState: vi.fn() })
+    const closeAttachment = service.subscribeKinematicAttachment({
+      onAttachment: vi.fn()
+    })
     expect(FakeEventSource.instances).toHaveLength(1)
     closeStatus()
     closeJoint()
+    closeAttachment()
     expect(FakeEventSource.instances[0]?.readyState).toBe(FakeEventSource.CLOSED)
+  })
+
+  it('严格解析工具/物料附着并归一化四元数', () => {
+    vi.stubGlobal('EventSource', FakeEventSource)
+    const service = createRealtimeService(getDefaultBackend('local-python'))
+    const onAttachment = vi.fn()
+    service.subscribeKinematicAttachment({ onAttachment })
+    FakeEventSource.instances[0]?.send(
+      'device.telemetry.changed', attachmentTelemetry()
+    )
+    expect(onAttachment).toHaveBeenCalledWith(expect.objectContaining({
+      childRef: 'material-beaker',
+      parentRef: 'material-gripper',
+      evidence: 'controller_confirmed',
+      localPose: {
+        xyzM: [0, 0, 0.08],
+        orientationXyzw: [0, 0, 0, 1]
+      }
+    }))
   })
 
   it('严格投影属性和关节快照并给迟到订阅者重放', () => {

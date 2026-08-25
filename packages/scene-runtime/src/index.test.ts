@@ -2,10 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   activateSceneRuntimeScope,
+  getKinematicAttachmentFrames,
   getJointStateFrame,
+  publishKinematicAttachmentFrame,
   publishJointStateFrame,
   replaceJointStateSnapshot,
   subscribeJointStateFrame,
+  type KinematicAttachmentFrameInput,
   type JointStateFrameInput
 } from './index'
 
@@ -24,6 +27,36 @@ function frame(overrides: Partial<JointStateFrameInput> = {}): JointStateFrameIn
     stale: false,
     jointStates: { robot_joint_1: 0.25 },
     source: 'live',
+    ...overrides
+  }
+}
+
+function attachment(
+  overrides: Partial<KinematicAttachmentFrameInput> = {}
+): KinematicAttachmentFrameInput {
+  return {
+    carrierMaterialId: 'material-robot',
+    deviceId: 'robot',
+    kind: 'material_payload',
+    childRef: 'material-beaker',
+    parentRef: 'material-gripper',
+    anchor: { kind: 'link', linkName: 'grasp_frame' },
+    localPose: {
+      xyzM: [0, 0, 0.08],
+      orientationXyzw: [0, 0, 0, 2]
+    },
+    state: 'attached',
+    evidence: 'observed',
+    attachmentGeneration: 3,
+    contextDigest: digest,
+    bootId: 'robot-boot-1',
+    sequence: 1,
+    acceptedRef: 'sha256:attachment-1',
+    observedAt: 1000,
+    staleAfterSeconds: 2,
+    stale: false,
+    source: 'robot-runtime',
+    materialRevision: 7,
     ...overrides
   }
 }
@@ -73,5 +106,55 @@ describe('场景运行时（SceneRuntime）关节帧', () => {
       .toThrow('SHA-256')
     expect(() => publishJointStateFrame(frame({ jointStates: { joint_1: NaN } })))
       .toThrow('无效名称或数值')
+  })
+})
+
+describe('场景运行时（SceneRuntime）运动学附着', () => {
+  beforeEach(() => activateSceneRuntimeScope(`attachment-${crypto.randomUUID()}`))
+
+  it('按 childRef 维护单一 latest 并归一化四元数', () => {
+    publishKinematicAttachmentFrame(attachment())
+    publishKinematicAttachmentFrame(attachment({
+      sequence: 2,
+      acceptedRef: 'sha256:attachment-2',
+      state: 'uncertain',
+      evidence: 'none'
+    }))
+    const frame = getKinematicAttachmentFrames()['material-beaker']
+    expect(frame?.sequence).toBe(2)
+    expect(frame?.localPose.orientationXyzw).toEqual([0, 0, 0, 1])
+    expect(frame?.state).toBe('uncertain')
+    expect(frame?.materialRevisionAtAttach).toBe(7)
+  })
+
+  it('同一轮释放保留抓取时 revision，新一轮 attached 才重置', () => {
+    publishKinematicAttachmentFrame(attachment({ materialRevision: 7 }))
+    publishKinematicAttachmentFrame(attachment({
+      sequence: 2,
+      acceptedRef: 'sha256:detached',
+      state: 'detached',
+      materialRevision: 8
+    }))
+    expect(getKinematicAttachmentFrames()['material-beaker']
+      ?.materialRevisionAtAttach).toBe(7)
+    publishKinematicAttachmentFrame(attachment({
+      sequence: 3,
+      acceptedRef: 'sha256:reattached',
+      state: 'attached',
+      materialRevision: 9
+    }))
+    expect(getKinematicAttachmentFrames()['material-beaker']
+      ?.materialRevisionAtAttach).toBe(9)
+  })
+
+  it('拒绝把无证据状态伪装成确定附着', () => {
+    expect(() => publishKinematicAttachmentFrame(attachment({ evidence: 'none' })))
+      .toThrow('必须同时出现')
+  })
+
+  it('scope 切换同时清除关节与附着 latest', () => {
+    publishKinematicAttachmentFrame(attachment())
+    activateSceneRuntimeScope('attachment-other')
+    expect(getKinematicAttachmentFrames()).toEqual({})
   })
 })

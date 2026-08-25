@@ -2,6 +2,7 @@ import {
   shouldRenderSiteBounds,
   type MaterialAggregate,
   type MaterialId,
+  type MaterialPlacement,
   type MaterialSite
 } from '@unilab/material/domain'
 import type { SceneGraph } from '@unilab/pascal-host'
@@ -118,11 +119,15 @@ export function materialAggregatesToSceneGraph(
   aggregates: readonly MaterialAggregate[],
   options: MaterialSceneProjectionOptions = {}
 ): SceneGraph {
+  const effectiveAggregates = aggregates.map((aggregate) => {
+    const placement = options.runtimePlacementByMaterialId?.[aggregate.material.id]
+    return placement ? { ...aggregate, placement } : aggregate
+  })
   const aggregatesById = Object.fromEntries(
-    aggregates.map((aggregate) => [aggregate.material.id, aggregate])
+    effectiveAggregates.map((aggregate) => [aggregate.material.id, aggregate])
   )
   const sceneObjectIdByMaterialId = Object.fromEntries(
-    aggregates.map((aggregate) => [
+    effectiveAggregates.map((aggregate) => [
       aggregate.material.id,
       materialSceneObjectId(aggregate)
     ])
@@ -136,7 +141,7 @@ export function materialAggregatesToSceneGraph(
         aggregates,
         options.materialTransferRoutes ?? []
       )
-  for (const aggregate of aggregates) {
+  for (const aggregate of effectiveAggregates) {
     const id = sceneObjectIdByMaterialId[aggregate.material.id]
     const rendering = readMaterialRendering(aggregate)
     const materialConfig = readRecord(aggregate.material.config)
@@ -187,7 +192,7 @@ export function materialAggregatesToSceneGraph(
             occupantSceneObjectId: resolveSiteOccupantSceneObjectId(
               aggregate,
               site,
-              aggregates,
+              effectiveAggregates,
               sceneObjectIdByMaterialId
             ),
             visualState: site.visual?.state ?? 'empty'
@@ -312,7 +317,8 @@ export function materialAggregatesToSceneGraph(
 
 export function sceneGraphToMaterialMoves(
   scene: SceneGraph,
-  aggregates: readonly MaterialAggregate[]
+  aggregates: readonly MaterialAggregate[],
+  runtimePlacementByMaterialId: Readonly<Record<MaterialId, MaterialPlacement>> = {}
 ): MaterialSceneMove[] {
   const aggregatesById = Object.fromEntries(
     aggregates.map((aggregate) => [aggregate.material.id, aggregate])
@@ -323,6 +329,7 @@ export function sceneGraphToMaterialMoves(
     if (!isLabDeviceNode(value) && !isLabTableNode(value)) continue
     const aggregate = aggregatesById[value.materialNodeId]
     if (!aggregate) continue
+    if (runtimePlacementByMaterialId[aggregate.material.id]) continue
 
     const placement = placementFromSceneNode(
       value.position,
