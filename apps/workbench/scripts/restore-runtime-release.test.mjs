@@ -145,12 +145,30 @@ describe('versioned Runtime release restore', () => {
     assert.doesNotMatch(workflow, /^\s+push:$/mu)
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-b09c0c048f6d/u
+      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-6fcb80a-f7e78e7-b09c0c0/u
+    )
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_SOURCE_REF: 6fcb80aa80282b238de713113377ba8c979adbd7/u
+    )
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_OPCUA_FIX_REF: f7e78e7e9fcc47ed24f4b6affeaa82dcc8de49f2/u
+    )
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_BUILD_PIN_REF: b09c0c048f6de1e5027deb1733da439598c577cf/u
     )
     assert.match(workflow, /runs-on: windows-2022/u)
     assert.match(workflow, /runs-on: macos-14/u)
     assert.match(workflow, /actions\/cache\/restore@v6/u)
     assert.match(workflow, /actions\/cache\/save@v6/u)
+    assert.match(workflow, /rattler-build/u)
+    assert.match(workflow, /\.conda\/vendor\/opcua\/recipe\.yaml/u)
+    assert.match(workflow, /\.conda\/base\/recipe\.yaml/u)
+    assert.match(workflow, /UNILABOS_INSTALLER_CHANNEL/u)
+    assert.match(workflow, /import opcua; import unilabos\.workspace_host\.host/u)
+    assert.match(workflow, /unilab-supervisor/u)
     assert.match(workflow, /Uni-Lab-OS-\$env:UNILAB_RUNTIME_VERSION-win-64\.exe/u)
     assert.match(workflow, /Uni-Lab-OS-\$UNILAB_RUNTIME_VERSION-osx-arm64\.sh/u)
     assert.match(workflow, /sha256sum --check/u)

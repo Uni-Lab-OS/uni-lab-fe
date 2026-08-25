@@ -413,8 +413,9 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(workflow, /^\s+runs-on: macos-14$/mu)
     assert.match(
       workflow,
-      /branches:\n\s+- main\n\s+- deploy-mac-test\n\s+- deploy-hot-update-test/u
+      /push:\n\s+branches:\n\s+- deploy-mac-test\n\s+- deploy-hot-update-test/u
     )
+    assert.doesNotMatch(workflow, /push:\n\s+branches:\n(?:\s+- [^\n]+\n)*\s+- main/u)
     assert.doesNotMatch(workflow, /ci\/macos-packaging-benchmark/u)
     assert.doesNotMatch(workflow, /ci\/desktop-packaging-optimization-v2/u)
     assert.match(workflow, /options:\n\s+- full\n\s+- quick/u)
@@ -432,7 +433,7 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(workflow, /workbench-macos-hot-update-test/u)
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf/u
+      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-6fcb80a-f7e78e7-b09c0c0/u
     )
     assert.match(workflow, /AIONUI_VERSION: 2\.1\.53/u)
     assert.match(workflow, /AIONUI_MACOS_SHA512: [a-f0-9]{128}/u)
@@ -442,7 +443,6 @@ describe('Workbench macOS distribution gate', () => {
       workflow,
       new RegExp(`NODE_RUNTIME_VERSION: ${NODE_RUNTIME_VERSION}`, 'u')
     )
-    assert.match(workflow, /--platform osx-arm64/u)
     assert.match(workflow, /AionUi-\$AIONUI_VERSION-mac-arm64\.dmg/u)
     assert.match(workflow, /Restore prepared macOS Agent payload/u)
     assert.match(workflow, /aionui-prepared-macos-arm64-v2-/u)
@@ -469,17 +469,19 @@ describe('Workbench macOS distribution gate', () => {
     const releaseRestoreIndex = workflow.indexOf(
       'name: Restore versioned macOS Runtime release'
     )
-    const cacheRestoreIndex = workflow.indexOf(
-      'name: Restore macOS Runtime cache'
+    const requireRuntimeIndex = workflow.indexOf(
+      'name: Require versioned macOS Runtime release'
     )
-    const runtimeCheckoutIndex = workflow.indexOf('name: Check out Uni-Lab OS')
     assert.ok(releaseRestoreIndex >= 0)
-    assert.ok(releaseRestoreIndex < cacheRestoreIndex)
-    assert.ok(cacheRestoreIndex < runtimeCheckoutIndex)
+    assert.ok(requireRuntimeIndex >= 0)
+    assert.ok(releaseRestoreIndex < requireRuntimeIndex)
     assert.match(
-      workflow.slice(runtimeCheckoutIndex, runtimeCheckoutIndex + 240),
-      /steps\.runtime-release\.outputs\.hit != 'true'.*steps\.runtime-cache\.outputs\.cache-hit != 'true'/su
+      workflow.slice(requireRuntimeIndex, requireRuntimeIndex + 240),
+      /steps\.runtime-release\.outputs\.hit != 'true'/su
     )
+    assert.doesNotMatch(workflow, /name: Restore macOS Runtime cache/u)
+    assert.doesNotMatch(workflow, /name: Check out Uni-Lab OS/u)
+    assert.doesNotMatch(workflow, /name: Build macOS arm64 Runtime/u)
     assert.match(workflow, /build:desktop:production/u)
     assert.match(workflow, /package-macos\.mjs "--\$UNILAB_CI_SIGNING_MODE"/u)
     assert.match(workflow, /CSC_LINK: \$\{\{ secrets\.CSC_LINK \}\}/u)
@@ -521,16 +523,25 @@ describe('Workbench macOS distribution gate', () => {
     assert.doesNotMatch(signedUploadSection, /release-macos\/\*\.zip/u)
     assert.doesNotMatch(signedUploadSection, /latest-mac\.yml/u)
     assert.match(signedUploadSection, /UNILAB_WORKBENCH_RELEASE_CHANNEL/u)
-    assert.match(signedUploadSection, /github\.run_number/u)
+    assert.match(
+      signedUploadSection,
+      /name: UniLab-Workbench-macos-arm64-\$\{\{ env\.UNILAB_WORKBENCH_RELEASE_CHANNEL \}\}-\$\{\{ env\.UNILAB_WORKBENCH_PACKAGE_VERSION \}\}\n/u
+    )
+    assert.doesNotMatch(signedUploadSection, /github\.run_number/u)
     assert.doesNotMatch(signedUploadSection, /macos-packaging-metrics\.json/u)
     assert.match(signedUploadSection, /retention-days: 3/u)
 
     const publishSection = workflow.slice(
       workflow.indexOf('name: Publish rolling macOS update release')
     )
-    assert.match(publishSection, /refs\/heads\/main/u)
-    assert.match(publishSection, /refs\/heads\/deploy-hot-update-test/u)
-    assert.match(publishSection, /UNILAB_WORKBENCH_RELEASE_CHANNEL != 'test'/u)
+    assert.match(
+      publishSection,
+      /github\.event_name == 'workflow_dispatch'[^\n]*refs\/heads\/main[^\n]*UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'/u
+    )
+    assert.match(
+      publishSection,
+      /github\.event_name == 'push'[^\n]*refs\/heads\/deploy-hot-update-test[^\n]*UNILAB_WORKBENCH_RELEASE_CHANNEL == 'update-test'/u
+    )
     assert.match(
       publishSection,
       /macOS release asset verification mismatch/u

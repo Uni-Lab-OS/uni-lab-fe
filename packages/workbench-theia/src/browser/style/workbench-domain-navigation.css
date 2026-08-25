@@ -317,6 +317,37 @@ body.unilab-agent-panel-visible
   height: 100% !important;
 }
 
+/*
+ * Agent 收起时 Lumino 会先恢复主 DockPanel，但已打开的单个编辑器
+ * 仍可能保留 Agent 展开时签发的内联宽度，在右侧留下一整块空白。
+ * 只在当前没有 Agent 且 Dock 内仅有一个可见编辑器时恢复全宽；
+ * 多个可见 Dock 子项代表 IDE 分屏，必须保留 Lumino 计算的各自尺寸。
+ */
+body:not(.unilab-agent-panel-visible)
+  #theia-main-content-panel:not(
+    :has(
+      > .lm-DockPanel-widget:not(.lm-mod-hidden)
+        ~ .lm-DockPanel-widget:not(.lm-mod-hidden)
+    )
+  )
+  > .theia-editor.lm-DockPanel-widget:not(.lm-mod-hidden) {
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+}
+
+body:not(.unilab-agent-panel-visible)
+  #theia-main-content-panel:not(
+    :has(
+      > .lm-DockPanel-widget:not(.lm-mod-hidden)
+        ~ .lm-DockPanel-widget:not(.lm-mod-hidden)
+    )
+  )
+  > .theia-editor.lm-DockPanel-widget:not(.lm-mod-hidden)
+  > .monaco-editor {
+  width: 100% !important;
+}
+
 #theia-main-content-panel
   > .lm-TabBar.theia-app-centers.theia-app-main:not(
     :has(.lm-TabBar-tab.lm-mod-closable)
