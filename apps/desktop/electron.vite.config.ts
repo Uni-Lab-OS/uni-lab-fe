@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 const workbenchReleaseChannel =
   process.env['UNILAB_WORKBENCH_RELEASE_CHANNEL']?.trim() || 'test'
 
-if (!['production', 'test'].includes(workbenchReleaseChannel)) {
+if (!['production', 'update-test', 'test'].includes(workbenchReleaseChannel)) {
   throw new Error(
     `Unsupported UNILAB_WORKBENCH_RELEASE_CHANNEL: ${workbenchReleaseChannel}`
   )
