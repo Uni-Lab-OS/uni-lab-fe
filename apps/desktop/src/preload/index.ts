@@ -117,6 +117,10 @@ const api = {
       ipcRenderer.invoke('app-update:check'),
     download: (): Promise<AppUpdateSnapshot> =>
       ipcRenderer.invoke('app-update:download'),
+    pauseDownload: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:pauseDownload'),
+    resumeDownload: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:resumeDownload'),
     restartAndInstall: (): Promise<AppUpdateSnapshot> =>
       ipcRenderer.invoke('app-update:restartAndInstall'),
     onState: (

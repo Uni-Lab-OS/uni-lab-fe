@@ -4,6 +4,7 @@ export type AppUpdatePhase =
   | 'checking'
   | 'available'
   | 'downloading'
+  | 'paused'
   | 'downloaded'
   | 'error'
 
@@ -28,6 +29,8 @@ export interface DesktopAppUpdateApi {
   getState(): Promise<AppUpdateSnapshot>
   check(): Promise<AppUpdateSnapshot>
   download(): Promise<AppUpdateSnapshot>
+  pauseDownload(): Promise<AppUpdateSnapshot>
+  resumeDownload(): Promise<AppUpdateSnapshot>
   restartAndInstall(): Promise<AppUpdateSnapshot>
   onState(listener: (snapshot: AppUpdateSnapshot) => void): () => void
 }
@@ -40,7 +43,7 @@ export interface DesktopAppUpdateApi {
 export function resolveAppUpdateProgressBarValue(
   snapshot: AppUpdateSnapshot
 ): number {
-  if (snapshot.phase !== 'downloading') return -1
+  if (!['downloading', 'paused'].includes(snapshot.phase)) return -1
   const percent = Number.isFinite(snapshot.progressPercent)
     ? snapshot.progressPercent ?? 0
     : 0

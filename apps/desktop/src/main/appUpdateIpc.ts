@@ -21,6 +21,14 @@ export function registerAppUpdateIpc(options: {
     assertSender(event)
     return manager.download()
   })
+  ipcMain.handle('app-update:pauseDownload', async (event) => {
+    assertSender(event)
+    return manager.pauseDownload()
+  })
+  ipcMain.handle('app-update:resumeDownload', async (event) => {
+    assertSender(event)
+    return manager.resumeDownload()
+  })
   ipcMain.handle('app-update:restartAndInstall', async (event) => {
     assertSender(event)
     return manager.restartAndInstall()

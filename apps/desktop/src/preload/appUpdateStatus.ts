@@ -8,6 +8,8 @@ import type {
 export type AppUpdateStatusAction =
   | 'check'
   | 'download'
+  | 'pauseDownload'
+  | 'resumeDownload'
   | 'restartAndInstall'
 
 export interface AppUpdateStatusViewModel {
@@ -68,6 +70,24 @@ export function createAppUpdateStatusViewModel(
         title: `正在下载${version}`,
         detail: '下载完成后可选择重启并安装。',
         progressPercent: normalizeProgress(snapshot.progressPercent),
+        action: {
+          command: 'pauseDownload',
+          label: pending ? '正在暂停…' : '⏸ 暂停'
+        },
+        pending
+      }
+    case 'paused':
+      return {
+        visible: true,
+        phase: snapshot.phase,
+        tone: 'active',
+        title: `下载已暂停${version}`,
+        detail: '已下载内容会保留，可以从当前进度继续。',
+        progressPercent: normalizeProgress(snapshot.progressPercent),
+        action: {
+          command: 'resumeDownload',
+          label: pending ? '正在继续…' : '▶ 继续下载'
+        },
         pending
       }
     case 'downloaded':
@@ -248,6 +268,7 @@ class DomAppUpdateStatusView implements AppUpdateStatusView {
   private readonly progress: HTMLProgressElement
   private readonly progressText: HTMLOutputElement
   private readonly actionButton: HTMLButtonElement
+  private readonly progressActionButton: HTMLButtonElement
   private action: AppUpdateStatusAction | null = null
   private actionListener: ((action: AppUpdateStatusAction) => void) | null = null
 
@@ -277,7 +298,16 @@ class DomAppUpdateStatusView implements AppUpdateStatusView {
     this.progress.max = 100
     this.progressText = document.createElement('output')
     this.progressText.className = 'unilab-app-update-status__progress-text'
-    this.progressRow.append(this.progress, this.progressText)
+    this.progressActionButton = document.createElement('button')
+    this.progressActionButton.className =
+      'unilab-app-update-status__progress-action'
+    this.progressActionButton.type = 'button'
+    this.progressActionButton.addEventListener('click', this.handleAction)
+    this.progressRow.append(
+      this.progress,
+      this.progressText,
+      this.progressActionButton
+    )
 
     this.actionButton = document.createElement('button')
     this.actionButton.className = 'unilab-app-update-status__action'
@@ -315,9 +345,12 @@ class DomAppUpdateStatusView implements AppUpdateStatusView {
     }
 
     this.action = model.action?.command ?? null
-    this.actionButton.hidden = !model.action
+    this.actionButton.hidden = !model.action || hasProgress
     this.actionButton.disabled = model.pending
     this.actionButton.textContent = model.action?.label ?? ''
+    this.progressActionButton.hidden = !model.action || !hasProgress
+    this.progressActionButton.disabled = model.pending
+    this.progressActionButton.textContent = model.action?.label ?? ''
   }
 
   onAction(listener: (action: AppUpdateStatusAction) => void): () => void {
@@ -329,6 +362,7 @@ class DomAppUpdateStatusView implements AppUpdateStatusView {
 
   dispose(): void {
     this.actionButton.removeEventListener('click', this.handleAction)
+    this.progressActionButton.removeEventListener('click', this.handleAction)
     this.root.remove()
     this.actionListener = null
   }
@@ -353,6 +387,9 @@ function errorCodeForAction(
   action: AppUpdateStatusAction
 ): AppUpdateErrorCode {
   if (action === 'download') return 'DOWNLOAD_FAILED'
+  if (action === 'pauseDownload' || action === 'resumeDownload') {
+    return 'DOWNLOAD_FAILED'
+  }
   if (action === 'restartAndInstall') return 'INSTALL_FAILED'
   return 'CHECK_FAILED'
 }

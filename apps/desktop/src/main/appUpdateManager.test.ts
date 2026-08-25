@@ -10,6 +10,8 @@ class RecordingUpdater implements AppUpdaterAdapter {
   configured = false
   checkCount = 0
   downloadCount = 0
+  pauseCount = 0
+  resumeCount = 0
   installCount = 0
   handlers: Parameters<AppUpdaterAdapter['subscribe']>[0] | null = null
 
@@ -32,6 +34,16 @@ class RecordingUpdater implements AppUpdaterAdapter {
 
   async download(): Promise<void> {
     this.downloadCount += 1
+  }
+
+  pause(): boolean {
+    this.pauseCount += 1
+    return true
+  }
+
+  resume(): boolean {
+    this.resumeCount += 1
+    return true
   }
 
   install(): void {
@@ -114,6 +126,44 @@ describe('AppUpdateManager', () => {
     expect(updater.installCount).toBe(1)
     expect(snapshots).toContain('available')
     expect(snapshots).toContain('downloaded')
+    manager.dispose()
+  })
+
+  it('pauses and resumes the active transfer without starting another download', async () => {
+    const updater = new RecordingUpdater()
+    const downloadRequest = deferred<void>()
+    updater.download = vi.fn(() => downloadRequest.promise)
+    const manager = createManager(updater)
+    manager.start()
+    updater.handlers?.available('0.2.0')
+
+    await expect(manager.download()).resolves.toMatchObject({
+      phase: 'downloading',
+      progressPercent: 0
+    })
+    expect(updater.download).toHaveBeenCalledOnce()
+
+    await expect(manager.pauseDownload()).resolves.toMatchObject({
+      phase: 'paused',
+      progressPercent: 0
+    })
+    updater.handlers?.progress(42.3)
+    expect(manager.getSnapshot()).toMatchObject({
+      phase: 'paused',
+      progressPercent: 42.3
+    })
+
+    await expect(manager.resumeDownload()).resolves.toMatchObject({
+      phase: 'downloading',
+      progressPercent: 42.3
+    })
+    expect(updater.pauseCount).toBe(1)
+    expect(updater.resumeCount).toBe(1)
+    expect(updater.download).toHaveBeenCalledOnce()
+
+    downloadRequest.resolve()
+    await flushMicrotasks()
+    updater.handlers?.downloaded('0.2.0')
     manager.dispose()
   })
 
@@ -211,6 +261,13 @@ describe('AppUpdateManager', () => {
     await manager.check()
     expect(updater.checkCount).toBe(0)
     expect(manager.getSnapshot().phase).toBe('downloading')
+
+    await manager.pauseDownload()
+    await manager.check()
+    expect(updater.checkCount).toBe(0)
+    expect(manager.getSnapshot().phase).toBe('paused')
+
+    await manager.resumeDownload()
 
     updater.handlers?.downloaded('0.2.0')
     await manager.check()

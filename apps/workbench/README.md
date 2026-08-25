@@ -217,6 +217,11 @@ triggered explicitly from the in-app update status; ordinary app exit does not
 silently install a downloaded version. An omitted channel defaults to `test`,
 so only an explicit update-capable build can enable updates.
 
+While an update is downloading, the progress row exposes explicit pause and
+resume controls. Pausing applies backpressure to the existing updater response
+stream, so the pending file and checksum state remain intact; resuming continues
+that same transfer instead of starting a second download.
+
 On macOS, the application must be copied out of the mounted DMG before an
 update can replace it. A Workbench launched from `/Volumes` rejects the install
 command before process cleanup and tells the user to copy it to `/Applications`.

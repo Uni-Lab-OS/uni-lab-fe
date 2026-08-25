@@ -60,7 +60,20 @@ describe('createAppUpdateStatusViewModel', () => {
     }))).toMatchObject({
       visible: true,
       tone: 'active',
+      progressPercent: 42.34,
+      action: { command: 'pauseDownload', label: '⏸ 暂停' }
+    })
+
+    expect(createAppUpdateStatusViewModel(snapshot({
+      phase: 'paused',
+      availableVersion: '0.2.0',
       progressPercent: 42.34
+    }))).toMatchObject({
+      visible: true,
+      tone: 'active',
+      title: '下载已暂停 0.2.0',
+      progressPercent: 42.34,
+      action: { command: 'resumeDownload', label: '▶ 继续下载' }
     })
 
     expect(createAppUpdateStatusViewModel(snapshot({
@@ -189,6 +202,35 @@ describe('AppUpdateStatusController', () => {
     })
     controller.dispose()
   })
+
+  it('routes pause and resume controls through the trusted update API', async () => {
+    const harness = createApiHarness(Promise.resolve(snapshot({
+      phase: 'downloading',
+      availableVersion: '0.2.0',
+      progressPercent: 38
+    })))
+    const view = new RecordingView()
+    const controller = new AppUpdateStatusController(harness.api, view)
+    controller.start()
+    await flushMicrotasks()
+
+    view.act('pauseDownload')
+    await flushMicrotasks()
+    expect(harness.api.pauseDownload).toHaveBeenCalledOnce()
+    expect(view.latest()).toMatchObject({
+      phase: 'paused',
+      action: { command: 'resumeDownload', label: '▶ 继续下载' }
+    })
+
+    view.act('resumeDownload')
+    await flushMicrotasks()
+    expect(harness.api.resumeDownload).toHaveBeenCalledOnce()
+    expect(view.latest()).toMatchObject({
+      phase: 'downloading',
+      action: { command: 'pauseDownload', label: '⏸ 暂停' }
+    })
+    controller.dispose()
+  })
 })
 
 function createApiHarness(initialState: Promise<AppUpdateSnapshot>): {
@@ -200,6 +242,14 @@ function createApiHarness(initialState: Promise<AppUpdateSnapshot>): {
     getState: vi.fn(() => initialState),
     check: vi.fn(async () => snapshot({ phase: 'idle' })),
     download: vi.fn(async () => snapshot({ phase: 'downloading' })),
+    pauseDownload: vi.fn(async () => snapshot({
+      phase: 'paused',
+      progressPercent: 38
+    })),
+    resumeDownload: vi.fn(async () => snapshot({
+      phase: 'downloading',
+      progressPercent: 38
+    })),
     restartAndInstall: vi.fn(async () => snapshot({ phase: 'downloaded' })),
     onState: (nextListener) => {
       listener = nextListener

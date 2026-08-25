@@ -11,6 +11,10 @@ describe('resolveAppUpdateProgressBarValue', () => {
       phase: 'downloading',
       progressPercent: 42.3
     }))).toBeCloseTo(0.423)
+    expect(resolveAppUpdateProgressBarValue(snapshot({
+      phase: 'paused',
+      progressPercent: 42.3
+    }))).toBeCloseTo(0.423)
   })
 
   it('clamps invalid download progress values', () => {

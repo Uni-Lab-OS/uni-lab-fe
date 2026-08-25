@@ -75,8 +75,8 @@
   font-size: 12px;
 }
 
-.unilab-app-update-status__action {
-  grid-area: action;
+.unilab-app-update-status__action,
+.unilab-app-update-status__progress-action {
   align-self: center;
   min-height: 30px;
   padding: 5px 10px;
@@ -90,16 +90,23 @@
   cursor: pointer;
 }
 
-.unilab-app-update-status__action:hover:not(:disabled) {
+.unilab-app-update-status__action {
+  grid-area: action;
+}
+
+.unilab-app-update-status__action:hover:not(:disabled),
+.unilab-app-update-status__progress-action:hover:not(:disabled) {
   filter: brightness(0.92);
 }
 
-.unilab-app-update-status__action:focus-visible {
+.unilab-app-update-status__action:focus-visible,
+.unilab-app-update-status__progress-action:focus-visible {
   outline: 2px solid var(--unilab-color-text, #f8fafc);
   outline-offset: 2px;
 }
 
-.unilab-app-update-status__action:disabled {
+.unilab-app-update-status__action:disabled,
+.unilab-app-update-status__progress-action:disabled {
   cursor: wait;
   opacity: 0.68;
 }
@@ -107,9 +114,19 @@
 .unilab-app-update-status__progress-row {
   grid-area: progress;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px;
+  grid-template-columns: minmax(0, 1fr) 42px auto;
   align-items: center;
   gap: 10px;
+}
+
+.unilab-app-update-status__progress-action {
+  min-height: 28px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+
+.unilab-app-update-status__progress-action[hidden] {
+  display: none;
 }
 
 .unilab-app-update-status__progress-row[hidden] {
@@ -162,6 +179,10 @@
   .unilab-app-update-status__action {
     justify-self: start;
   }
+
+  .unilab-app-update-status__progress-row {
+    grid-template-columns: minmax(0, 1fr) 38px auto;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -172,7 +193,8 @@
 
 @media (forced-colors: active) {
   .unilab-app-update-status,
-  .unilab-app-update-status__action {
+  .unilab-app-update-status__action,
+  .unilab-app-update-status__progress-action {
     border-color: CanvasText;
   }
 }
