@@ -72,7 +72,8 @@ function registerWorkflowTaskControllerTests(): void {
       loading: false,
       task: { ...task, status: 'running' },
       realtimeStatus: 'reconnecting',
-      realtimeError: expect.stringContaining('定时自动更新')
+      realtimeError: '工作流仍可正常执行；执行期间前端会定时读取最新状态。' +
+        '如需恢复实时更新，请确认 Backend 已启用工作流运行事件。'
     })
 
     status = 'succeeded'
@@ -382,6 +383,61 @@ function registerWorkflowTaskControllerTests(): void {
     await vi.waitFor(() => {
       expect(controller.getSnapshot().task?.control_status).toBe('paused')
     })
+  })
+
+  it('reconciles accepted cancellation when Runtime SSE is unavailable', async () => {
+    vi.useFakeTimers()
+    const initial: WorkflowTask = {
+      ...workflowTask(),
+      status: 'running'
+    }
+    let authoritative: WorkflowTask = initial
+    const accepted: WorkflowTaskCommand = {
+      ...workflowCommand(initial.uuid),
+      type: 'cancel'
+    }
+    const runtime = runtimePort({
+      subscribeWorkflowRuntime: vi.fn(() => {
+        throw new Error('workflow.subscribeEvents is unavailable')
+      }),
+      listWorkflowTasks: vi.fn(async () => ({
+        items: [initial], total: 1, page: 1, page_size: 1
+      })),
+      getWorkflowTask: vi.fn(async () => authoritative),
+      listWorkflowTaskJobs: vi.fn(async () => []),
+      commandWorkflowTask: vi.fn(async () => accepted)
+    })
+    const controller = new WorkflowTaskController(
+      runtime,
+      initial.workflow_uuid
+    )
+
+    try {
+      await controller.start()
+
+      await controller.command('cancel')
+      expect(controller.getSnapshot().task?.status).toBe('running')
+      expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(2)
+
+      authoritative = {
+        ...initial,
+        status: 'canceled',
+        cleanup_status: 'settled'
+      }
+      await vi.advanceTimersByTimeAsync(2_000)
+
+      expect(controller.getSnapshot().task).toMatchObject({
+        status: 'canceled',
+        cleanup_status: 'settled'
+      })
+      expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(3)
+
+      await vi.advanceTimersByTimeAsync(30_000)
+      expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(3)
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
   })
 
   it('does not replace a newer Task with a delayed invalidation for an older Task', async () => {

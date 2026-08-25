@@ -1,4 +1,5 @@
 import type { BackendWorkflowGraph } from './backendWorkflowGraph'
+import { UnsupportedCapabilityError } from './errors'
 import type {
   WorkflowAuthoringAggregate,
   WorkflowAuthoringGraph,
@@ -124,13 +125,22 @@ function backendDefinitionPort(
         runMode,
         targetNodeUuid
       ),
-    subscribe: (onInvalidate, options = {}) =>
-      runtime.subscribeWorkflowRuntime((event) => {
+    subscribe: (onInvalidate, options = {}) => {
+      try {
+        return runtime.subscribeWorkflowRuntime((event) => {
+          if (
+            event.event === 'workflow.definition.changed' &&
+            event.data.workflow_uuid === workflowUuid
+          ) onInvalidate({ revision: event.data.workflow_revision })
+        }, options)
+      } catch (error) {
         if (
-          event.event === 'workflow.definition.changed' &&
-          event.data.workflow_uuid === workflowUuid
-        ) onInvalidate({ revision: event.data.workflow_revision })
-      }, options)
+          error instanceof UnsupportedCapabilityError &&
+          error.capability === 'workflow.subscribeEvents'
+        ) return { dispose: () => undefined }
+        throw error
+      }
+    }
   }
 }
 
