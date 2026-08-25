@@ -14,9 +14,10 @@ on:
   push:
     branches:
       - deploy-mac-test
+      - deploy-hot-update-test
 
 permissions:
-  # 只有 main 将验收通过的 DMG 与内部 ZIP 更新介质发布到生产滚动 Release。
+  # main 发布生产源；deploy-hot-update-test 只发布到隔离测试源。
   contents: write
 
 concurrency:
@@ -32,16 +33,16 @@ env:
   NODE_RUNTIME_VERSION: 24.14.0
   UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-6fcb80a-f7e78e7-b09c0c0
   UNILAB_RUNTIME_VERSION: 0.11.3
-  MACOS_RELEASE_TAG: workbench-macos-stable
-  UNILAB_WORKBENCH_UPDATE_URL: https://github.com/${{ github.repository }}/releases/download/workbench-macos-stable
+  MACOS_RELEASE_TAG: ${{ github.ref == 'refs/heads/deploy-hot-update-test' && 'workbench-macos-hot-update-test' || 'workbench-macos-stable' }}
+  UNILAB_WORKBENCH_UPDATE_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/deploy-hot-update-test' && 'workbench-macos-hot-update-test' || 'workbench-macos-stable' }}
 
 jobs:
   package-macos-arm64:
     env:
       UNILAB_CI_PACKAGE_MODE: ${{ github.event_name == 'push' && 'full' || inputs.mode }}
-      # main 与测试分支的完整构建都必须签名公证；手动 quick 保持 unsigned。
-      UNILAB_CI_SIGNING_MODE: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/deploy-mac-test') && (github.event_name == 'push' || inputs.mode == 'full') && 'signed' || 'unsigned' }}
-      UNILAB_WORKBENCH_RELEASE_CHANNEL: ${{ github.ref == 'refs/heads/main' && 'production' || 'test' }}
+      # main、普通测试和热更新测试的完整构建都必须签名公证；手动 quick 保持 unsigned。
+      UNILAB_CI_SIGNING_MODE: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/deploy-mac-test' || github.ref == 'refs/heads/deploy-hot-update-test') && (github.event_name == 'push' || inputs.mode == 'full') && 'signed' || 'unsigned' }}
+      UNILAB_WORKBENCH_RELEASE_CHANNEL: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/deploy-hot-update-test' && 'update-test' || 'test' }}
     # GitHub 的 macos-14 标准镜像为 Apple Silicon，可直接构建 arm64 原生依赖。
     runs-on: macos-14
     timeout-minutes: 120
@@ -61,8 +62,24 @@ jobs:
       - name: Check out Workbench
         uses: actions/checkout@v6
 
+      - name: Bootstrap isolated macOS hot-update release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/deploy-hot-update-test'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh api "repos/$GITHUB_REPOSITORY/releases/tags/$MACOS_RELEASE_TAG" >/dev/null 2>&1; then
+            exit 0
+          fi
+          gh release create "$MACOS_RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title 'Workbench macOS 热更新测试' \
+            --notes 'deploy-hot-update-test 分支的隔离滚动更新源，不用于生产安装。' \
+            --prerelease
+
       - name: Validate update publishing configuration
-        if: env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
+        if: env.UNILAB_WORKBENCH_RELEASE_CHANNEL != 'test'
         run: |
           set -euo pipefail
           node - "$UNILAB_WORKBENCH_UPDATE_URL" <<'NODE'
@@ -106,8 +123,8 @@ jobs:
             exit 1
           fi
 
-      - name: Validate production macOS release configuration
-        if: env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
+      - name: Validate macOS update release configuration
+        if: env.UNILAB_WORKBENCH_RELEASE_CHANNEL != 'test'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -295,9 +312,9 @@ jobs:
           df -h .
           du -sh node_modules .ci-cache "$UNILAB_AGENT_DISTRIBUTION" "$UNILAB_RUNTIME_INSTALLER"
 
-      # 仅正式通道读取已发布版本。package.json 只在 runner 内修改，不会推回分支。
+      # 自动更新通道读取各自隔离 Release 的已发布版本。package.json 只在 runner 内修改。
       - name: Select automatic macOS package version
-        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL != 'test'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -431,7 +448,7 @@ jobs:
           test -n "$dmg_path"
           hdiutil verify "$dmg_path"
           zip_bytes=0
-          if [[ "$UNILAB_WORKBENCH_RELEASE_CHANNEL" == 'production' ]]; then
+          if [[ "$UNILAB_WORKBENCH_RELEASE_CHANNEL" != 'test' ]]; then
             zip_path="$(find "$release_directory" -maxdepth 1 -type f -name '*.zip' -print -quit)"
             blockmap_path="$(find "$release_directory" -maxdepth 1 -type f -name '*.zip.blockmap' -print -quit)"
             metadata_path="$release_directory/latest-mac.yml"
@@ -522,7 +539,7 @@ jobs:
             echo "| Build + packaging | $((BUILD_SECONDS + PACKAGE_SECONDS))s |"
             echo "| Pipeline before upload | ${pipeline_seconds}s |"
             echo "| DMG | ${dmg_bytes} bytes |"
-            if [[ "$UNILAB_WORKBENCH_RELEASE_CHANNEL" == 'production' ]]; then
+            if [[ "$UNILAB_WORKBENCH_RELEASE_CHANNEL" != 'test' ]]; then
               echo "| Internal ZIP updater | ${zip_bytes} bytes |"
             fi
             echo "| Installed application | ${installed_bytes} bytes |"
@@ -557,7 +574,7 @@ jobs:
       # clients keep reading the previous metadata until the replacement bundle
       # is completely available.
       - name: Publish rolling macOS update release
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'signed' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_CI_SIGNING_MODE == 'signed' && ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production') || (github.event_name == 'push' && github.ref == 'refs/heads/deploy-hot-update-test' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'update-test'))
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -652,8 +669,13 @@ jobs:
           done < "$RUNNER_TEMP/stale-macos-assets"
 
           release_id="$(RELEASE_JSON="$release_json" node -p "JSON.parse(process.env.RELEASE_JSON).id")"
+          if [[ "$GITHUB_REF" == 'refs/heads/deploy-hot-update-test' ]]; then
+            release_channel_description='deploy-hot-update-test 分支的 macOS 隔离热更新测试通道。'
+          else
+            release_channel_description='main 分支的 macOS 生产滚动更新通道。'
+          fi
           release_body="$(cat <<EOF
-          main 分支的 macOS 生产滚动更新通道。
+          ${release_channel_description}
 
           当前提交：$GITHUB_SHA
           发布版本：$UNILAB_WORKBENCH_PACKAGE_VERSION

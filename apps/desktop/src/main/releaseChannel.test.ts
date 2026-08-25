@@ -3,10 +3,15 @@ import { describe, expect, it } from 'vitest'
 import { shouldEnableWorkbenchUpdates } from './releaseChannel'
 
 describe('Workbench release channel', () => {
-  it('enables updates only for packaged production Workbench builds', () => {
+  it('enables updates only for packaged production or isolated update-test builds', () => {
     expect(shouldEnableWorkbenchUpdates({
       isPackaged: true,
       releaseChannel: 'production',
+      surfaceKind: 'workbench'
+    })).toBe(true)
+    expect(shouldEnableWorkbenchUpdates({
+      isPackaged: true,
+      releaseChannel: 'update-test',
       surfaceKind: 'workbench'
     })).toBe(true)
     expect(shouldEnableWorkbenchUpdates({
