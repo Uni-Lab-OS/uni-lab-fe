@@ -48,6 +48,7 @@ export function PersistentWorkflowToolbar({
     definitionEditingDisabledReason,
     dirty,
     fullSourceDiff,
+    ideSourceDirty,
     message,
     mode,
     onChooseWorkflow,
@@ -87,12 +88,13 @@ export function PersistentWorkflowToolbar({
     ? '正在读取或处理工作流，请稍后切换编辑模式'
     : '工作流尚未加载完成'
   const liveTask = workflowTaskIsLive(task) && !taskHistorical
+  const saveDirty = mode === 'code' ? ideSourceDirty || dirty : dirty
   const compactTaskControls = useMemo(
     () => workflowTaskToolbarControls(taskHistorical ? null : task, taskControls),
     [task, taskControls, taskHistorical]
   )
   const saveDisabled = Boolean(
-    !dirty ||
+    !saveDirty ||
     !canEditDefinition ||
     busy ||
     runningEntryBusy ||
@@ -158,7 +160,7 @@ export function PersistentWorkflowToolbar({
         onSelect: () => requestMode('canvas')
       }}
       save={{
-        dirty,
+        dirty: saveDirty,
         disabled: saveDisabled,
         disabledReason: busy || runningEntryBusy
           ? '正在处理工作流，请稍后保存'
@@ -167,7 +169,7 @@ export function PersistentWorkflowToolbar({
               `${currentAuthorityLabel} 未提供工作流定义写能力`
           : !aggregate
             ? '工作流尚未加载完成'
-            : !dirty
+            : !saveDirty
               ? mode === 'code' && !canEditSource
                 ? `${currentAuthorityLabel} 代码视图为只读；请切回画布模式修改`
                 : `${currentAuthorityLabel} 画布没有待保存修改`

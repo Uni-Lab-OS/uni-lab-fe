@@ -55,12 +55,32 @@ export interface WorkflowSourceProjection {
   sourceMap: readonly WorkflowSourceMapEntry[]
 }
 
+/** The complete source saved by an IDE, signed with its registered workflow identity. */
+export interface WorkflowIdeSavedSource {
+  workflowUuid: string
+  sourceUri: string
+  sourceVersion: string
+  pythonSource: string
+}
+
+export interface WorkflowIdeSubscription {
+  dispose(): void
+}
+
 /** Workflow React surface 与任意 IDE 宿主之间唯一需要实现的端口。 */
 export interface WorkflowIdeBridge {
   /** 外部编辑器当前光标；宿主在文件 dirty 时应传 null。 */
   sourcePosition?: WorkflowSourcePosition | null
   /** Current exact package source identity, including non-Workflow files. */
   activeSourceUri?: string | null
+  /** True only when the exact registered workflow source tab is dirty. */
+  activeWorkflowSourceDirty?: boolean
+  /** Ask the IDE host to save the exact active registered workflow source. */
+  saveActiveWorkflowSource?: () => Promise<void>
+  /** Receive complete sources after the IDE has durably saved them. */
+  subscribeSavedWorkflowSource?: (
+    listener: (source: WorkflowIdeSavedSource) => void
+  ) => WorkflowIdeSubscription
   onRevealSourceLocation?: (location: WorkflowSourceLocation) => void
   onRevealPackageSource?: (location: PackageSourceLocation) => void
   onSourceProjectionChange?: (
@@ -91,7 +111,21 @@ export interface WorkflowPackageMount {
   readOnly: boolean
 }
 
-export interface WorkflowSavedSourceRuntime {
+export interface WorkflowSavedSourceAggregate {
+  workflow_revision: number
+  draft: {
+    python_source: string
+    draft_hash: string
+  } | null
+  candidate: {
+    draft_hash: string
+    normalized_python_source: string
+  } | null
+}
+
+export interface WorkflowSavedSourceRuntime<
+  TAggregate extends WorkflowSavedSourceAggregate = WorkflowSavedSourceAggregate
+> {
   getWorkflowAuthoring: (workflowUuid: string) => Promise<{
     workflow_revision: number
     draft: {
@@ -106,24 +140,15 @@ export interface WorkflowSavedSourceRuntime {
       expected_draft_hash: string | null
       expected_workflow_revision: number
     }
-  ) => Promise<{
-    workflow_revision: number
-    draft: {
-      python_source: string
-      draft_hash: string
-    } | null
-    candidate: {
-      draft_hash: string
-      normalized_python_source: string
-    } | null
-  }>
+  ) => Promise<TAggregate>
 }
 
-export type WorkflowSavedSourceSyncResult =
-  | 'compiled'
-  | 'normalized'
-  | 'source-changed'
-  | 'source-unavailable'
+export type WorkflowSavedSourceSyncResult<
+  TAggregate extends WorkflowSavedSourceAggregate = WorkflowSavedSourceAggregate
+> =
+  | { kind: 'compiled'; aggregate: TAggregate }
+  | { kind: 'source-changed' }
+  | { kind: 'source-unavailable' }
 
 export type WorkflowIdeMappingStatus =
   | 'active'
@@ -173,6 +198,7 @@ export interface WorkflowIdeHostPort {
   replaceDiagnostics: (
     diagnostics: readonly WorkflowIdeResolvedDiagnostic[]
   ) => void | Promise<void>
+  saveActiveWorkflowSource?: () => Promise<void>
   reportError?: (message: string) => void
 }
 
@@ -194,6 +220,9 @@ export class WorkflowIdeHostAdapter {
   private packageMounts: readonly WorkflowPackageMount[] = []
   private sourceDiagnostics: readonly WorkflowIdeDiagnostic[] = []
   private diagnostics: readonly WorkflowIdeResolvedDiagnostic[] = []
+  private readonly savedSourceListeners = new Set<
+    (source: WorkflowIdeSavedSource) => void
+  >()
 
   constructor(
     private readonly host: WorkflowIdeHostPort,
@@ -204,6 +233,16 @@ export class WorkflowIdeHostAdapter {
     this.bridge = {
       sourcePosition: null,
       activeSourceUri: null,
+      activeWorkflowSourceDirty: false,
+      ...(host.saveActiveWorkflowSource
+        ? { saveActiveWorkflowSource: () => host.saveActiveWorkflowSource!() }
+        : {}),
+      subscribeSavedWorkflowSource: listener => {
+        this.savedSourceListeners.add(listener)
+        return {
+          dispose: () => { this.savedSourceListeners.delete(listener) }
+        }
+      },
       onRevealSourceLocation: location => {
         void this.revealSource(location).catch(error => this.report(error))
       },
@@ -260,6 +299,37 @@ export class WorkflowIdeHostAdapter {
     this.refreshBridgeContext()
   }
 
+  /** Publish a save only when the active tab still matches the OS registration. */
+  acceptSavedWorkflowSource(pythonSource: string): boolean {
+    if (
+      !this.sync.currentUri ||
+      this.sync.currentUri !== this.sync.resolvedSourceUri ||
+      this.sync.dirty
+    ) return false
+    return this.acceptProjectedWorkflowSource(pythonSource)
+  }
+
+  /** Publish an exact projected file read, including initial map compilation. */
+  acceptProjectedWorkflowSource(pythonSource: string): boolean {
+    const projection = this.sync.sourceProjection
+    if (
+      !projection ||
+      !this.sync.resolvedSourceUri ||
+      (
+        this.sync.currentUri === this.sync.resolvedSourceUri &&
+        this.sync.dirty
+      )
+    ) return false
+    const savedSource: WorkflowIdeSavedSource = {
+      workflowUuid: projection.workflowUuid,
+      sourceUri: projection.sourceUri,
+      sourceVersion: projection.sourceVersion,
+      pythonSource
+    }
+    for (const listener of this.savedSourceListeners) listener(savedSource)
+    return true
+  }
+
   async acceptDiagnostics(
     diagnostics: readonly WorkflowIdeDiagnostic[]
   ): Promise<void> {
@@ -281,6 +351,7 @@ export class WorkflowIdeHostAdapter {
   }
 
   async dispose(): Promise<void> {
+    this.savedSourceListeners.clear()
     this.sourceDiagnostics = []
     this.diagnostics = []
     await this.host.replaceDiagnostics([])
@@ -301,6 +372,11 @@ export class WorkflowIdeHostAdapter {
     this.bridge.activeSourceUri = this.sync.currentUri
       ? packageSourceUriForResolvedUri(this.sync.currentUri, this.packageMounts)
       : null
+    this.bridge.activeWorkflowSourceDirty = Boolean(
+      this.sync.dirty &&
+      this.sync.currentUri &&
+      this.sync.currentUri === this.sync.resolvedSourceUri
+    )
     this.publishSnapshot()
   }
 
@@ -485,33 +561,24 @@ export function packageSourceUriForResolvedUri(
  * IDE 文件保存后，用 OS 刚观测到的哈希做一次同内容 CAS，以签发新候选和
  * source map。若保存后又有外部编辑发生，绝不覆盖更新内容。
  */
-export async function synchronizeSavedWorkflowSource(
-  runtime: WorkflowSavedSourceRuntime,
+export async function synchronizeSavedWorkflowSource<
+  TAggregate extends WorkflowSavedSourceAggregate
+>(
+  runtime: WorkflowSavedSourceRuntime<TAggregate>,
   workflowUuid: string,
   pythonSource: string
-): Promise<WorkflowSavedSourceSyncResult> {
+): Promise<WorkflowSavedSourceSyncResult<TAggregate>> {
   const current = await runtime.getWorkflowAuthoring(workflowUuid)
-  if (!current.draft) return 'source-unavailable'
-  if (current.draft.python_source !== pythonSource) return 'source-changed'
+  if (!current.draft) return { kind: 'source-unavailable' }
+  if (current.draft.python_source !== pythonSource) {
+    return { kind: 'source-changed' }
+  }
   const compiled = await runtime.saveWorkflowAuthoringDraft(workflowUuid, {
     python_source: pythonSource,
     expected_draft_hash: current.draft.draft_hash,
     expected_workflow_revision: current.workflow_revision
   })
-  const normalizedSource = compiled.candidate?.normalized_python_source
-  if (
-    !compiled.draft ||
-    !compiled.candidate ||
-    compiled.candidate.draft_hash !== compiled.draft.draft_hash ||
-    !normalizedSource ||
-    normalizedSource === pythonSource
-  ) return 'compiled'
-  await runtime.saveWorkflowAuthoringDraft(workflowUuid, {
-    python_source: normalizedSource,
-    expected_draft_hash: compiled.draft.draft_hash,
-    expected_workflow_revision: compiled.workflow_revision
-  })
-  return 'normalized'
+  return { kind: 'compiled', aggregate: compiled }
 }
 
 /** 把画布节点身份解析为 OS 签发的精确源码范围。 */

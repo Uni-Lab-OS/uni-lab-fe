@@ -112,6 +112,74 @@ describe('workflow IDE bridge', () => {
     ])
   })
 
+  it('publishes an IDE save with the workflow identity registered for that exact file', async () => {
+    let hostSaveCount = 0
+    const savedSources: unknown[] = []
+    const adapter = new WorkflowIdeHostAdapter({
+      revealSource: async () => {},
+      replaceDiagnostics: () => {},
+      saveActiveWorkflowSource: async () => { hostSaveCount += 1 }
+    })
+    adapter.setPackageMounts([{
+      packageId: 'szlab_poly_studio',
+      packageRootUri: 'file:///workspace/szlab_poly_studio',
+      editable: true,
+      readOnly: false
+    }])
+    adapter.acceptSourceProjection(projection)
+    adapter.acceptEditor({
+      currentUri: 'file:///workspace/szlab_poly_studio/workflows/s06_robot.py',
+      dirty: true,
+      cursor: { line: 19, column: 8 }
+    })
+    const subscription = adapter.bridge.subscribeSavedWorkflowSource?.(
+      source => { savedSources.push(source) }
+    )
+
+    expect(adapter.bridge.activeWorkflowSourceDirty).toBe(true)
+    await adapter.bridge.saveActiveWorkflowSource?.()
+    expect(hostSaveCount).toBe(1)
+
+    adapter.acceptEditor({
+      currentUri: 'file:///workspace/szlab_poly_studio/workflows/s06_robot.py',
+      dirty: false,
+      cursor: { line: 19, column: 8 }
+    })
+    expect(adapter.acceptSavedWorkflowSource('value = 2\n')).toBe(true)
+    expect(savedSources).toEqual([{
+      workflowUuid: 'workflow-1',
+      sourceUri: projection.sourceUri,
+      sourceVersion: 'v1',
+      pythonSource: 'value = 2\n'
+    }])
+
+    subscription?.dispose()
+    expect(adapter.acceptSavedWorkflowSource('value = 3\n')).toBe(true)
+    expect(savedSources).toHaveLength(1)
+  })
+
+  it('rejects a saved-source event from a tab other than the registered workflow file', () => {
+    const adapter = new WorkflowIdeHostAdapter({
+      revealSource: async () => {},
+      replaceDiagnostics: () => {}
+    })
+    adapter.setPackageMounts([{
+      packageId: 'szlab_poly_studio',
+      packageRootUri: 'file:///workspace/szlab_poly_studio',
+      editable: true,
+      readOnly: false
+    }])
+    adapter.acceptSourceProjection(projection)
+    adapter.acceptEditor({
+      currentUri: 'file:///workspace/szlab_poly_studio/notes.py',
+      dirty: false,
+      cursor: null
+    })
+
+    expect(adapter.acceptSavedWorkflowSource('value = 2\n')).toBe(false)
+    expect(adapter.bridge.activeWorkflowSourceDirty).toBe(false)
+  })
+
   it('maps nodes and source positions using the same OS projection', () => {
     expect(workflowSourceLocationForNode(projection, 'node-1')).toMatchObject({
       sourceUri: projection.sourceUri,
@@ -278,7 +346,10 @@ describe('workflow IDE bridge', () => {
       }
     }, 'workflow-1', 'value = 2\n')
 
-    expect(result).toBe('compiled')
+    expect(result).toEqual({
+      kind: 'compiled',
+      aggregate: expect.objectContaining({ workflow_revision: 7 })
+    })
     expect(writes).toEqual([{
       workflowUuid: 'workflow-1',
       request: {
@@ -289,23 +360,16 @@ describe('workflow IDE bridge', () => {
     }])
   })
 
-  it('materializes OS-normalized source so its source map matches the IDE file', async () => {
+  it('returns OS-normalized source for editor review without a second write', async () => {
     const writes: unknown[] = []
-    const snapshots = [{
+    const compiled = {
       workflow_revision: 7,
       draft: { python_source: 'value=2\n', draft_hash: 'draft-raw' },
       candidate: {
         draft_hash: 'draft-raw',
         normalized_python_source: 'value = 2\n'
       }
-    }, {
-      workflow_revision: 7,
-      draft: { python_source: 'value = 2\n', draft_hash: 'draft-normalized' },
-      candidate: {
-        draft_hash: 'draft-normalized',
-        normalized_python_source: 'value = 2\n'
-      }
-    }]
+    }
     const result = await synchronizeSavedWorkflowSource({
       getWorkflowAuthoring: async () => ({
         workflow_revision: 7,
@@ -313,29 +377,19 @@ describe('workflow IDE bridge', () => {
       }),
       saveWorkflowAuthoringDraft: async (workflowUuid, request) => {
         writes.push({ workflowUuid, request })
-        return snapshots.shift()!
+        return compiled
       }
     }, 'workflow-1', 'value=2\n')
 
-    expect(result).toBe('normalized')
-    expect(writes).toEqual([
-      {
-        workflowUuid: 'workflow-1',
-        request: {
-          python_source: 'value=2\n',
-          expected_draft_hash: 'draft-raw',
-          expected_workflow_revision: 7
-        }
-      },
-      {
-        workflowUuid: 'workflow-1',
-        request: {
-          python_source: 'value = 2\n',
-          expected_draft_hash: 'draft-raw',
-          expected_workflow_revision: 7
-        }
+    expect(result).toEqual({ kind: 'compiled', aggregate: compiled })
+    expect(writes).toEqual([{
+      workflowUuid: 'workflow-1',
+      request: {
+        python_source: 'value=2\n',
+        expected_draft_hash: 'draft-raw',
+        expected_workflow_revision: 7
       }
-    ])
+    }])
   })
 
   it('never overwrites a source changed again after the IDE save', async () => {
@@ -351,7 +405,7 @@ describe('workflow IDE bridge', () => {
       }
     }, 'workflow-1', 'value = 2\n')
 
-    expect(result).toBe('source-changed')
+    expect(result).toEqual({ kind: 'source-changed' })
     expect(wrote).toBe(false)
   })
 })
