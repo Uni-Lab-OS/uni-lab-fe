@@ -23,6 +23,50 @@ const revision: WorkflowRevision = {
 }
 
 describe('workflow authoring adapters', () => {
+  it('keeps explicit dependency authoring syntax inside the OS boundary', async () => {
+    const pythonSource = [
+      'a = reactor.prepare(sample=sample_a)',
+      'b = reactor.prepare(sample=sample_b, depends_on=[])',
+      'c = reactor.analyze(sample=a.sample, depends_on=[a, b])'
+    ].join('\n')
+    const candidate = {
+      revision_id: 'authoring-code-explicit-dependencies',
+      parent_revision_id: 'rev-1',
+      canonical_ir: revision,
+      python_source: pythonSource,
+      normalized_python_source: pythonSource,
+      diagnostics: []
+    }
+    const request = vi.fn().mockResolvedValue({
+      base_revision_id: 'rev-1',
+      candidate,
+      diagnostics: []
+    })
+    const runtime = createWorkflowRuntime(
+      mockHttp(request),
+      getDefaultBackend('local-python')
+    )
+
+    const result = await runtime.compilePythonWorkflow(
+      'rev-1',
+      pythonSource,
+      'workflows/explicit.py'
+    )
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/v1/authoring/compile',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          base_revision_id: 'rev-1',
+          python_source: pythonSource,
+          source_uri: 'workflows/explicit.py'
+        })
+      })
+    )
+    expect(result.candidate?.normalized_python_source).toBe(pythonSource)
+  })
+
   it('uses the OS authoring boundary for JSON and Python conversion', async () => {
     const candidate = {
       revision_id: 'authoring-code-1',
