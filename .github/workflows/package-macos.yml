@@ -27,14 +27,10 @@ env:
   TZ: Asia/Shanghai
   AIONUI_MACOS_SHA512: 68ad39e6c877a623c7a27f0612e9299525fbc406f1aca96d4c85bed6c446c6632e77249d94cd6e0689c2e98c34faca395e64b37b7a92ed99e57b1abcbf95d867
   AIONUI_VERSION: 2.1.53
-  CONSTRUCTOR_VERSION: 3.16.1
   ELECTRON_BUILDER_VERSION: 25.1.8
   ELECTRON_VERSION: 33.4.11
-  MICROMAMBA_VERSION: 2.8.1
-  MINIFORGE_VERSION: 26.3.2-3
   NODE_RUNTIME_VERSION: 24.14.0
-  UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf
-  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-b09c0c048f6d
+  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-6fcb80a-f7e78e7-b09c0c0
   UNILAB_RUNTIME_VERSION: 0.11.3
   MACOS_RELEASE_TAG: workbench-macos-stable
   UNILAB_WORKBENCH_UPDATE_URL: https://github.com/${{ github.repository }}/releases/download/workbench-macos-stable
@@ -148,22 +144,12 @@ jobs:
             --asset "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh" \
             --destination ".ci-cache/runtime/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh"
 
-      - name: Restore macOS Runtime cache
-        id: runtime-cache
+      - name: Require versioned macOS Runtime release
         if: steps.runtime-release.outputs.hit != 'true'
-        uses: actions/cache/restore@v6
-        with:
-          path: .ci-cache/runtime/*.sh
-          key: macos-runtime-installer-v1-${{ runner.arch }}-${{ env.UNILAB_RUNTIME_VERSION }}-${{ env.UNILAB_RUNTIME_SOURCE_REF }}-miniforge-${{ env.MINIFORGE_VERSION }}-constructor-${{ env.CONSTRUCTOR_VERSION }}-micromamba-${{ env.MICROMAMBA_VERSION }}
-
-      - name: Check out Uni-Lab OS
-        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@v6
-        with:
-          repository: Uni-Lab-OS/Uni-Lab-OS
-          # 固定 Constructor 定义所在提交，避免 Runtime 内容随默认分支漂移。
-          ref: ${{ env.UNILAB_RUNTIME_SOURCE_REF }}
-          path: .runtime-source
+        run: |
+          echo "Required verified Runtime release is missing: $UNILAB_RUNTIME_RELEASE_TAG" >&2
+          echo "Run the Publish Versioned Workbench Runtime workflow before packaging Workbench." >&2
+          exit 1
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
@@ -201,47 +187,6 @@ jobs:
           path: ${{ steps.pnpm-store.outputs.path }}
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
-      - name: Set up Constructor
-        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
-        uses: conda-incubator/setup-miniconda@v4
-        with:
-          miniforge-version: ${{ env.MINIFORGE_VERSION }}
-          use-mamba: true
-          activate-environment: constructor-build
-          auto-update-conda: false
-          channels: conda-forge
-          channel-priority: strict
-
-      - name: Build macOS arm64 Runtime
-        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
-        working-directory: .runtime-source
-        run: |
-          set -euo pipefail
-          test -f .conda/constructor/construct.yaml
-          mamba install -n constructor-build --override-channels -c conda-forge \
-            "constructor=$CONSTRUCTOR_VERSION" \
-            "micromamba=$MICROMAMBA_VERSION" \
-            -y
-          conda_exe="$(command -v micromamba)"
-          test -x "$conda_exe"
-          constructor .conda/constructor \
-            --platform osx-arm64 \
-            --conda-exe "$conda_exe" \
-            --output-dir dist/constructor
-
-          runtime_installer="$(find dist/constructor -maxdepth 1 -type f -name '*.sh' -print -quit)"
-          test -n "$runtime_installer"
-          mkdir -p ../.ci-cache/runtime
-          cp "$runtime_installer" ../.ci-cache/runtime/
-          mamba clean --all -y
-
-      - name: Save macOS Runtime
-        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: .ci-cache/runtime/*.sh
-          key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
-
       - name: Prepare macOS Runtime
         run: |
           set -euo pipefail
@@ -249,7 +194,6 @@ jobs:
           test "$runtime_count" = 1
           runtime_source="$(find .ci-cache/runtime -maxdepth 1 -type f -name '*.sh' -print -quit)"
           echo "UNILAB_RUNTIME_INSTALLER=$GITHUB_WORKSPACE/$runtime_source" >> "$GITHUB_ENV"
-          rm -rf .runtime-source
 
       - name: Cache Electron packaging toolchain
         uses: actions/cache@v6

@@ -36,14 +36,10 @@ concurrency:
 env:
   AIONUI_VERSION: 2.1.53
   AIONUI_WINDOWS_SHA512: e8f503c5d39272ed7a16b192ee8d507bb835615c00f221fe33c083104b4f064dc15acf2fb42b1b17ab7cdee0de27d6f4e19a01eb2674bbb2177ffba015196bf9
-  CONDA_STANDALONE_VERSION: 26.3.2.post1
-  CONSTRUCTOR_VERSION: 3.16.1
   ELECTRON_BUILDER_VERSION: 25.1.8
   ELECTRON_VERSION: 33.4.11
-  MINIFORGE_VERSION: 26.3.2-3
   PORTABLE_NODE_VERSION: 24.14.0
-  UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf
-  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-b09c0c048f6d
+  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-6fcb80a-f7e78e7-b09c0c0
   UNILAB_RUNTIME_VERSION: 0.11.3
   WINDOWS_RELEASE_TAG: workbench-windows-stable
   UNILAB_WORKBENCH_UPDATE_URL: https://github.com/${{ github.repository }}/releases/download/workbench-windows-stable
@@ -119,25 +115,11 @@ jobs:
             --destination ".runtime-source/dist/constructor/Uni-Lab-OS-$env:UNILAB_RUNTIME_VERSION-win-64.exe"
           if ($LASTEXITCODE -ne 0) { throw 'Unable to restore the versioned Windows Runtime release' }
 
-      - name: Restore Windows Runtime cache
-        id: runtime-cache
+      - name: Require versioned Windows Runtime release
         if: steps.runtime-release.outputs.hit != 'true'
-        uses: actions/cache/restore@v6
-        with:
-          # Constructor may leave intermediate output beside the installer.
-          # Cache only the distributable EXE under a content-addressed key.
-          path: .runtime-source/dist/constructor/*.exe
-          key: windows-runtime-installer-v2-${{ runner.arch }}-${{ env.UNILAB_RUNTIME_VERSION }}-${{ env.UNILAB_RUNTIME_SOURCE_REF }}-miniforge-${{ env.MINIFORGE_VERSION }}-constructor-${{ env.CONSTRUCTOR_VERSION }}-conda-${{ env.CONDA_STANDALONE_VERSION }}
-
-      - name: Check out Uni-Lab OS
-        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@v6
-        with:
-          repository: Uni-Lab-OS/Uni-Lab-OS
-          # v0.11.3 predates the Constructor definition. Pin the later runtime
-          # packaging fix whose source version remains 0.11.3.
-          ref: ${{ env.UNILAB_RUNTIME_SOURCE_REF }}
-          path: .runtime-source
+        run: |
+          Write-Error "Required verified Runtime release is missing: $env:UNILAB_RUNTIME_RELEASE_TAG"
+          throw 'Run the Publish Versioned Workbench Runtime workflow before packaging Workbench.'
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
@@ -183,44 +165,6 @@ jobs:
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
-
-      - name: Set up Constructor
-        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
-        uses: conda-incubator/setup-miniconda@v4
-        with:
-          miniforge-version: ${{ env.MINIFORGE_VERSION }}
-          use-mamba: true
-          activate-environment: constructor-build
-          auto-update-conda: false
-          channels: conda-forge
-          channel-priority: strict
-
-      - name: Build Windows Runtime
-        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
-        working-directory: .runtime-source
-        run: |
-          if (-not (Test-Path .conda/constructor/construct.yaml)) {
-            throw 'The pinned Uni-Lab OS source does not contain its Constructor definition'
-          }
-          mamba install -n constructor-build --override-channels -c conda-forge "constructor=$env:CONSTRUCTOR_VERSION" "conda-standalone=$env:CONDA_STANDALONE_VERSION" -y
-          if ($LASTEXITCODE -ne 0) { throw 'Unable to install Constructor' }
-
-          $condaExe = conda run -n constructor-build python -c "import os; from pathlib import Path; print(Path(os.environ['CONDA_PREFIX'], 'standalone_conda', 'conda.exe'))"
-          if ($LASTEXITCODE -ne 0) { throw 'Unable to resolve standalone conda.exe' }
-          $condaExe = $condaExe.Trim()
-          if (-not (Test-Path $condaExe)) { throw "Standalone conda.exe was not found: $condaExe" }
-
-          conda run -n constructor-build constructor .conda/constructor --platform win-64 --conda-exe $condaExe --output-dir dist/constructor
-          if ($LASTEXITCODE -ne 0) { throw 'Constructor failed to build the Windows Runtime' }
-
-      # Save immediately so a later packaging failure does not force the next
-      # run to rebuild the deterministic Runtime installer again.
-      - name: Save Windows Runtime
-        if: steps.runtime-release.outputs.hit != 'true' && steps.runtime-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: .runtime-source/dist/constructor/*.exe
-          key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
 
       - name: Cache Electron packaging toolchain
         uses: actions/cache@v6
