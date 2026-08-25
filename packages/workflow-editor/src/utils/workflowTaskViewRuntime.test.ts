@@ -1,7 +1,7 @@
 import type {
+  WorkflowExecutionTask,
   WorkflowRuntimeInvalidationEvent,
-  WorkflowRuntimePort,
-  WorkflowTask
+  WorkflowRuntimePort
 } from '@unilab/services'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -88,13 +88,14 @@ describe('workflowTaskViewRuntime', () => {
  *
  * @returns UUID、生命周期状态与快照均稳定的工作流任务。
  */
-function workflowTask(): WorkflowTask {
+function workflowTask(): WorkflowExecutionTask {
   return {
     uuid: TASK_UUID,
     create_time: '2026-08-19T12:00:00+08:00',
     update_time: '2026-08-19T12:00:00+08:00',
     description: '冻结快照测试任务',
     meta_data: {},
+    execution_kind: 'workflow',
     workflow_uuid: WORKFLOW_UUID,
     status: 'pending',
     workflow_snapshot: {

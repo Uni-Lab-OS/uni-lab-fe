@@ -1,4 +1,5 @@
 import type {
+  WorkflowExecutionTask,
   WorkflowSummary,
   WorkflowTask
 } from '@unilab/services'
@@ -36,12 +37,13 @@ export function visibleWorkflowTasks(
   workflows: readonly WorkflowSummary[],
   query: string,
   filter: WorkflowTaskListFilter
-): WorkflowTask[] {
+): WorkflowExecutionTask[] {
   const workflowNames = new Map(
     workflows.map((workflow) => [workflow.uuid, workflow.name])
   )
   const normalizedQuery = query.trim().toLocaleLowerCase()
   return [...tasks]
+    .filter(isWorkflowExecutionTask)
     .filter((task) => {
       if (!workflowTaskMatchesFilter(task, filter)) return false
       if (!normalizedQuery) return true
@@ -63,7 +65,7 @@ export function visibleWorkflowTasks(
 
 /** 返回任务所属工作流的用户可见名称，不猜测缺失的领域事实。 */
 export function workflowTaskDisplayName(
-  task: WorkflowTask,
+  task: WorkflowExecutionTask,
   workflowNames: ReadonlyMap<string, string>
 ): string {
   const catalogName = workflowNames.get(task.workflow_uuid)?.trim()
@@ -73,6 +75,15 @@ export function workflowTaskDisplayName(
   const snapshotName = firstText(snapshotWorkflow, ['name', 'display_name'])
     ?? firstText(snapshot, ['name', 'display_name'])
   return snapshotName ?? `工作流 ${shortWorkflowTaskId(task.workflow_uuid)}`
+}
+
+/** 判断统一任务资源是否属于当前页面支持的完整工作流运行。 */
+export function isWorkflowExecutionTask(
+  task: WorkflowTask
+): task is WorkflowExecutionTask {
+  return task.execution_kind === 'workflow'
+    && typeof task.workflow_uuid === 'string'
+    && task.workflow_uuid.trim().length > 0
 }
 
 /** 返回工作流任务 UUID 的稳定短显示形式。 */

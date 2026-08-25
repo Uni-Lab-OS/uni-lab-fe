@@ -18,6 +18,11 @@ export type WorkflowTaskStatus =
 
 export type WorkflowTaskRunMode = 'normal' | 'step' | 'single_node'
 
+/** 区分完整工作流运行与直接设备单动作运行。 */
+export type WorkflowTaskExecutionKind =
+  | 'workflow'
+  | 'ad_hoc_device_action'
+
 /** 工作流正式运行前可供操作者选择的已应用节点。 */
 export interface WorkflowRunNodeOption {
   workflow_node_uuid: string
@@ -287,6 +292,7 @@ export interface DebugWorkflowTaskCommand {
 export interface WorkflowTaskListQuery {
   page?: number
   page_size?: number
+  execution_kind?: WorkflowTaskExecutionKind
   workflow_uuid?: string
   status?: WorkflowTaskStatus
   cleanup_status?: WorkflowTaskCleanupStatus
@@ -298,7 +304,8 @@ export interface WorkflowTask {
   update_time: string
   description?: string
   meta_data: Record<string, unknown>
-  workflow_uuid: string
+  execution_kind: WorkflowTaskExecutionKind
+  workflow_uuid: string | null
   status: WorkflowTaskStatus
   workflow_snapshot: Record<string, unknown>
   execution_plan: Record<string, unknown>
@@ -316,6 +323,12 @@ export interface WorkflowTask {
   reconciliation_resume_control_status?: 'active' | 'paused'
   started_at?: string
   finished_at?: string
+}
+
+/** 拥有稳定工作流身份、可进入工作流列表与详情画布的任务。 */
+export type WorkflowExecutionTask = WorkflowTask & {
+  execution_kind: 'workflow'
+  workflow_uuid: string
 }
 
 export interface WorkflowTaskPage {

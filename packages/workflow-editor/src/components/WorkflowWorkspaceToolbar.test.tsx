@@ -1,4 +1,4 @@
-import type { WorkflowTask } from '@unilab/services'
+import type { WorkflowExecutionTask, WorkflowTask } from '@unilab/services'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
@@ -67,12 +67,15 @@ function renderToolbar(task: WorkflowTask, historicalTask = false): string {
   )
 }
 
-function workflowTask(override: Partial<WorkflowTask>): WorkflowTask {
+function workflowTask(
+  override: Partial<WorkflowExecutionTask>
+): WorkflowExecutionTask {
   return {
     uuid: '10000000-0000-4000-8000-000000000001',
     create_time: '2026-08-13T00:00:00Z',
     update_time: '2026-08-13T00:00:00Z',
     meta_data: {},
+    execution_kind: 'workflow',
     workflow_uuid: '20000000-0000-4000-8000-000000000001',
     status: 'pending',
     workflow_snapshot: {},
