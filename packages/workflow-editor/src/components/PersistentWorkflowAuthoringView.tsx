@@ -204,6 +204,10 @@ export function PersistentWorkflowAuthoringView({
     ? structure.nodes.find((node) => node.id === selectedNodeUuid)
       ?.description?.trim()
     : ''
+  const realtimeFallbackOnly = taskRuntime.snapshot.realtimeError !== null &&
+    taskRuntime.snapshot.actionError === null &&
+    taskRuntime.snapshot.projectionError === null &&
+    taskRuntime.snapshot.feedbackError === null
 
   return (
     <div
@@ -247,7 +251,9 @@ export function PersistentWorkflowAuthoringView({
       {taskRuntime.snapshot.error && (
         <div className="workflow-runtime__problem" role="alert">
           <strong>
-            {workflowRuntimeProblemHeading(taskRuntime.snapshot.actionError)}
+            {realtimeFallbackOnly
+              ? '实时通知不可用，已启用定时刷新'
+              : workflowRuntimeProblemHeading(taskRuntime.snapshot.actionError)}
           </strong>
           <span>
             {taskRuntime.snapshot.projectionStale
@@ -263,7 +269,7 @@ export function PersistentWorkflowAuthoringView({
               disabledReason="正在补读工作流任务状态，请稍候"
               onClick={() => runRuntime(() => taskRuntime.refresh())}
             >
-              重试状态读取
+              {realtimeFallbackOnly ? '立即刷新状态' : '重试状态读取'}
             </WorkflowButton>
           )}
           <button type="button" onClick={taskRuntime.clearError}>关闭</button>

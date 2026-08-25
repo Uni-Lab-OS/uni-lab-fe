@@ -72,7 +72,8 @@ function registerWorkflowTaskControllerTests(): void {
       loading: false,
       task: { ...task, status: 'running' },
       realtimeStatus: 'reconnecting',
-      realtimeError: expect.stringContaining('定时自动更新')
+      realtimeError: '工作流仍可正常执行；执行期间前端会定时读取最新状态。' +
+        '如需恢复实时更新，请确认 Backend 已启用工作流运行事件。'
     })
 
     status = 'succeeded'
