@@ -11,6 +11,7 @@ export type AppUpdateErrorCode =
   | 'CHECK_FAILED'
   | 'DOWNLOAD_FAILED'
   | 'INSTALL_FAILED'
+  | 'INSTALL_FROM_DISK_IMAGE'
 
 /** Renderer 可观察的 Workbench 更新快照；不暴露下载地址、本地路径或底层异常。 */
 export interface AppUpdateSnapshot {

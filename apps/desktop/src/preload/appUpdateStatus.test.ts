@@ -96,6 +96,18 @@ describe('createAppUpdateStatusViewModel', () => {
       action: { command: 'check', label: '重新检查' }
     })
   })
+
+  it('explains that a macOS app launched from a DMG must be installed first', () => {
+    expect(createAppUpdateStatusViewModel(snapshot({
+      phase: 'error',
+      errorCode: 'INSTALL_FROM_DISK_IMAGE'
+    }))).toMatchObject({
+      visible: true,
+      tone: 'error',
+      title: '更新未完成',
+      detail: '请先退出应用，将 UniLab Workbench 拖入“应用程序”文件夹，从“应用程序”重新打开后再更新。'
+    })
+  })
 })
 
 describe('AppUpdateStatusController', () => {

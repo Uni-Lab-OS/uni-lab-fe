@@ -34,6 +34,7 @@ interface AppUpdateManagerOptions {
   publish?: (snapshot: AppUpdateSnapshot) => void
   confirmDownload?: (snapshot: AppUpdateSnapshot) => Promise<boolean>
   confirmInstall?: (snapshot: AppUpdateSnapshot) => Promise<boolean>
+  validateInstall?: () => AppUpdateErrorCode | undefined
   beforeInstall?: () => Promise<void>
   initialCheckDelayMs?: number
   checkIntervalMs?: number
@@ -159,6 +160,11 @@ export class AppUpdateManager {
   /** 完成宿主清理后重启安装，仅接受已下载状态。 */
   async restartAndInstall(): Promise<AppUpdateSnapshot> {
     if (this.snapshot.phase !== 'downloaded') return this.getSnapshot()
+    const installBlocker = this.options.validateInstall?.()
+    if (installBlocker) {
+      this.options.log(`Workbench 更新安装受阻: ${installBlocker}`)
+      return this.setFailure(installBlocker)
+    }
     try {
       await this.options.beforeInstall?.()
       this.options.updater.install()

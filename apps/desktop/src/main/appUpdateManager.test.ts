@@ -117,6 +117,25 @@ describe('AppUpdateManager', () => {
     manager.dispose()
   })
 
+  it('rejects an invalid install location before cleanup or updater launch', async () => {
+    const updater = new RecordingUpdater()
+    const beforeInstall = vi.fn(async () => undefined)
+    const manager = createManager(updater, {
+      validateInstall: () => 'INSTALL_FROM_DISK_IMAGE',
+      beforeInstall
+    })
+    manager.start()
+    updater.handlers?.downloaded('0.2.0')
+
+    await expect(manager.restartAndInstall()).resolves.toMatchObject({
+      phase: 'error',
+      errorCode: 'INSTALL_FROM_DISK_IMAGE'
+    })
+    expect(beforeInstall).not.toHaveBeenCalled()
+    expect(updater.installCount).toBe(0)
+    manager.dispose()
+  })
+
   it('can ask for download and installation without exposing the updater', async () => {
     const updater = new RecordingUpdater()
     const confirmDownload = vi.fn(async () => true)

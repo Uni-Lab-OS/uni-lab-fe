@@ -217,6 +217,10 @@ triggered explicitly from the in-app update status; ordinary app exit does not
 silently install a downloaded version. An omitted channel defaults to `test`,
 so only an explicit update-capable build can enable updates.
 
+On macOS, the application must be copied out of the mounted DMG before an
+update can replace it. A Workbench launched from `/Volumes` rejects the install
+command before process cleanup and tells the user to copy it to `/Applications`.
+
 Every distributable build requires a credential-free update directory:
 
 ```bash

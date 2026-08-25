@@ -33,7 +33,8 @@ export interface AppUpdateStatusView {
 const ERROR_DETAILS: Record<AppUpdateErrorCode, string> = {
   CHECK_FAILED: '检查更新失败，请确认网络连接后重试。',
   DOWNLOAD_FAILED: '下载更新失败，请重新检查后再试。',
-  INSTALL_FAILED: '未能启动安装，请重新检查后再试。'
+  INSTALL_FAILED: '未能启动安装，请重新检查后再试。',
+  INSTALL_FROM_DISK_IMAGE: '请先退出应用，将 UniLab Workbench 拖入“应用程序”文件夹，从“应用程序”重新打开后再更新。'
 }
 
 /** 将主进程快照投影为稳定、无底层错误细节的界面文案。 */
