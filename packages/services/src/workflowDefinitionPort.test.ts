@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { BackendWorkflowGraph } from './backendWorkflowGraph'
+import { UnsupportedCapabilityError } from './errors'
 import { createWorkflowDefinitionPort } from './workflowDefinitionPort'
 import type { WorkflowRuntimePort } from './workflowPort'
 
@@ -118,6 +119,27 @@ describe('WorkflowDefinitionPort', () => {
 
     expect(invalidate).toHaveBeenCalledTimes(1)
     expect(invalidate).toHaveBeenCalledWith({ revision: 12 })
+  })
+
+  it('keeps Backend authoring usable when Runtime SSE is unavailable', () => {
+    const runtime = {
+      subscribeWorkflowRuntime: vi.fn(() => {
+        throw new UnsupportedCapabilityError(
+          'workflow.subscribeEvents',
+          'Backend Runtime SSE 尚未完整对齐'
+        )
+      })
+    } as unknown as WorkflowRuntimePort
+    const port = createWorkflowDefinitionPort(
+      runtime,
+      'backend',
+      WORKFLOW_UUID
+    )
+
+    const subscription = port.subscribe(vi.fn())
+
+    expect(subscription).toEqual({ dispose: expect.any(Function) })
+    expect(() => subscription.dispose()).not.toThrow()
   })
 })
 
