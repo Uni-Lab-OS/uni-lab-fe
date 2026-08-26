@@ -30,19 +30,16 @@ export async function restoreVersionedRuntime({
 }) {
   validateInputs({ repository, tag, assetName, destination })
   const headers = githubHeaders(token)
-  const releaseResponse = await fetchImpl(
-    `https://api.github.com/repos/${repository}/releases/tags/${encodeURIComponent(tag)}`,
-    { headers }
-  )
-  if (releaseResponse.status === 404) {
+  const release = await readReleaseByTag({
+    repository,
+    tag,
+    token,
+    headers,
+    fetchImpl
+  })
+  if (!release) {
     return { restored: false, reason: 'missing-release' }
   }
-  if (!releaseResponse.ok) {
-    throw new Error(
-      `读取 Runtime Release 失败：HTTP ${releaseResponse.status}`
-    )
-  }
-  const release = await releaseResponse.json()
   const checksumName = `${assetName}.sha256`
   const installerAsset = findReleaseAsset(release.assets, assetName)
   const checksumAsset = findReleaseAsset(release.assets, checksumName)
@@ -73,6 +70,51 @@ export async function restoreVersionedRuntime({
   } finally {
     rmSync(temporaryDestination, { force: true })
   }
+}
+
+/**
+ * 按精确 tag 读取 Runtime Release；鉴权调用在标签接口隐藏 Draft 时回退到列表。
+ * @param {{repository: string, tag: string, token?: string, headers: Record<string, string>, fetchImpl: typeof fetch}} options 查询参数。
+ * @returns {Promise<Record<string, unknown> | undefined>} Release 元数据或未找到。
+ * @throws {Error} GitHub API 失败或返回重复 tag 时抛出。
+ */
+async function readReleaseByTag({
+  repository,
+  tag,
+  token,
+  headers,
+  fetchImpl
+}) {
+  const apiRoot = `https://api.github.com/repos/${repository}`
+  const releaseResponse = await fetchImpl(
+    `${apiRoot}/releases/tags/${encodeURIComponent(tag)}`,
+    { headers }
+  )
+  if (releaseResponse.ok) return releaseResponse.json()
+  if (releaseResponse.status !== 404) {
+    throw new Error(
+      `读取 Runtime Release 失败：HTTP ${releaseResponse.status}`
+    )
+  }
+  if (typeof token !== 'string' || token.trim().length === 0) return undefined
+
+  const releasesResponse = await fetchImpl(
+    `${apiRoot}/releases?per_page=100`,
+    { headers }
+  )
+  if (!releasesResponse.ok) {
+    throw new Error(
+      `读取 Draft Runtime Release 失败：HTTP ${releasesResponse.status}`
+    )
+  }
+  const releases = await releasesResponse.json()
+  const matches = Array.isArray(releases)
+    ? releases.filter(release => release?.tag_name === tag)
+    : []
+  if (matches.length > 1) {
+    throw new Error(`Runtime Release tag 重复：${tag}`)
+  }
+  return matches[0]
 }
 
 /**

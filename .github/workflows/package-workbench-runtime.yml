@@ -341,19 +341,64 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if gh release view "$UNILAB_RUNTIME_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            remote_assets="$(gh release view "$UNILAB_RUNTIME_RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --json assets \
-              --jq '.assets[].name' | sort)"
+          releases_json="$(gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "repos/$GITHUB_REPOSITORY/releases?per_page=100")"
+          release_id="$(RELEASES_JSON="$releases_json" node <<'NODE'
+          const releases = JSON.parse(process.env.RELEASES_JSON)
+          const matches = releases.filter(
+            release => release.tag_name === process.env.UNILAB_RUNTIME_RELEASE_TAG
+          )
+          if (matches.length > 1) {
+            throw new Error(
+              `Runtime Release tag is not unique: ${process.env.UNILAB_RUNTIME_RELEASE_TAG}`
+            )
+          }
+          if (matches.length === 1) process.stdout.write(String(matches[0].id))
+          NODE
+          )"
+          if [[ -n "$release_id" ]]; then
+            remote_assets="$(RELEASES_JSON="$releases_json" node <<'NODE'
+          const releases = JSON.parse(process.env.RELEASES_JSON)
+          const release = releases.find(
+            candidate => candidate.tag_name === process.env.UNILAB_RUNTIME_RELEASE_TAG
+          )
+          process.stdout.write(
+            release.assets.map(asset => asset.name).sort().join('\n')
+          )
+          NODE
+          )"
             expected_assets="$(find runtime-assets -maxdepth 1 -type f -printf '%f\n' | sort)"
             test "$remote_assets" = "$expected_assets"
             verification_directory="$(mktemp -d)"
             trap 'rm -rf "$verification_directory"' EXIT
-            gh release download "$UNILAB_RUNTIME_RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --pattern '*.sha256' \
-              --dir "$verification_directory"
+            checksum_names=(
+              "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256"
+              "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256"
+            )
+            for asset_name in "${checksum_names[@]}"; do
+              asset_id="$(RELEASES_JSON="$releases_json" ASSET_NAME="$asset_name" node <<'NODE'
+          const releases = JSON.parse(process.env.RELEASES_JSON)
+          const release = releases.find(
+            candidate => candidate.tag_name === process.env.UNILAB_RUNTIME_RELEASE_TAG
+          )
+          const matches = release.assets.filter(
+            asset => asset.name === process.env.ASSET_NAME
+          )
+          if (matches.length !== 1) {
+            throw new Error(
+              `Runtime Release asset is not unique: ${process.env.ASSET_NAME}`
+            )
+          }
+          process.stdout.write(String(matches[0].id))
+          NODE
+              )"
+              gh api \
+                -H 'Accept: application/octet-stream' \
+                "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id" \
+                > "$verification_directory/$asset_name"
+            done
             cmp "runtime-assets/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256" \
               "$verification_directory/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256"
             cmp "runtime-assets/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256" \
@@ -366,6 +411,7 @@ jobs:
             runtime-assets/* \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
+            --draft \
             --prerelease \
             --title "Workbench Runtime $UNILAB_RUNTIME_VERSION" \
             --notes "Pinned Uni-Lab Runtime composed from Uni-Lab-OS base $UNILAB_RUNTIME_SOURCE_REF with fixes $UNILAB_RUNTIME_OPCUA_FIX_REF and $UNILAB_RUNTIME_BUILD_PIN_REF. Assets pass the Workbench Runtime smoke contract and are immutable through adjacent SHA-256 manifests."
