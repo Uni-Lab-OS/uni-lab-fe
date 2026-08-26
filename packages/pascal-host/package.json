@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build:styles": "vite build --config vite.styles.config.ts",
+    "test": "node --test src/styles/pascal.test.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
