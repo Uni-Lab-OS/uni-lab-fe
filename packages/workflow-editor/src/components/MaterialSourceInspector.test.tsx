@@ -51,6 +51,10 @@ function rendersClosedSelectorInPublicGraphOrder(): void {
   expect(markup).toContain('物料来源属性')
   expect(markup).toContain('等待物料')
   expect(markup).toContain('物料角色')
+  expect(markup).toContain('物料保管')
+  expect(markup).toContain('任务全程独占')
+  expect(markup).toContain('共享来源（动作期间互斥）')
+  expect(markup).toContain('可让多个工作流任务同时绑定该来源')
   expect(markup).toContain('资源模板')
   expect(markup).toContain('在代码中打开资源模板')
   expect(markup).toContain('已有物料')
@@ -109,6 +113,8 @@ function editor(): MaterialSourceEditorProjection {
     fixedSiteUuid: null,
     candidateSiteUuids: ['70000000-0000-4000-8000-000000000001'],
     flowRole: 'primary_sample',
+    custodyPolicy: 'shared_source',
+    sharedSourceBlockedReason: null,
     resourceTemplates: [{
       uuid: '60000000-0000-4000-8000-000000000001',
       displayName: '384 Well Plate',

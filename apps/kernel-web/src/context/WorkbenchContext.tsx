@@ -229,7 +229,8 @@ function initialSection(): WorkbenchSection {
     section === 'cards' ||
     section === 'material' ||
     section === 'scene' ||
-    section === 'workflow'
+    section === 'workflow' ||
+    section === 'workflow-tasks'
   ) {
     return section
   }

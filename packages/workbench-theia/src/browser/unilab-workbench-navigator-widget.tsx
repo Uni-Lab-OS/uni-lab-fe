@@ -85,6 +85,20 @@ export class WorkflowDomainEntryWidget extends UniLabDomainEntryWidget {
 }
 
 @injectable()
+export class WorkflowTasksDomainEntryWidget extends UniLabDomainEntryWidget {
+  static readonly ID = 'unilab:workflow-tasks-navigation'
+  protected readonly widgetId = WorkflowTasksDomainEntryWidget.ID
+  protected readonly entry: DomainEntryDefinition = {
+    mode: 'workflow-tasks',
+    label: '任务列表',
+    caption: '工作流任务 · 运行队列与状态',
+    description: '读取 Backend 已持久化的任务列表，核对运行、控制与清理状态。',
+    iconClass: 'unilab-activity-icon--workflow-tasks',
+    eyebrow: 'WORKFLOW TASKS'
+  }
+}
+
+@injectable()
 export class MaterialDomainEntryWidget extends UniLabDomainEntryWidget {
   static readonly ID = 'unilab:material-navigation'
   protected readonly widgetId = MaterialDomainEntryWidget.ID

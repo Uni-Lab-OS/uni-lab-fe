@@ -36,6 +36,34 @@ describe('Workflow workspace authority', () => {
     )).toBe(false)
   })
 
+  /** 任务详情只隐藏编辑/运行工具条，画布筛选与布局控件仍需用于查看冻结快照。 */
+  it('keeps canvas view controls in the task detail workspace', () => {
+    const taskList = componentSource('WorkflowTaskList.tsx')
+    const authoringView = componentSource('PersistentWorkflowAuthoringView.tsx')
+    const dag = componentSource('WorkflowDag.tsx')
+
+    expect(taskList).toContain('hideRuntimeControls')
+    expect(authoringView).toMatch(
+      /!hideRuntimeControls\s*\?\s*\(\s*<PersistentWorkflowToolbar/u
+    )
+    expect(authoringView).toMatch(
+      /!hideRuntimeControls\s*&&\s*\(\s*<WorkflowCanvasStageHeader/u
+    )
+    expect(authoringView).toContain('<WorkflowDag')
+    expect(authoringView).not.toMatch(
+      /!hideRuntimeControls[\s\S]{0,120}<WorkflowDag/u
+    )
+    expect(authoringView).toMatch(
+      /onDeleteRequest=\{canvasMutationEnabled\s*\?\s*deleteCanvasElements\s*:\s*undefined\}/u
+    )
+    expect(authoringView).toMatch(
+      /!compactCanvas\s*&&\s*canvasMutationEnabled\s*&&\s*\(\s*<button[\s\S]{0,500}\{nodePaletteOpen \? '隐藏节点库' : '显示节点库'\}/u
+    )
+    expect(dag).toContain('aria-label="物料筛选与布局"')
+    expect(dag).toContain('<WorkflowMaterialVisibilityControl')
+    expect(dag).toContain('<WorkflowSupportingMaterialPresentationControl')
+  })
+
   /** 属性面板只展示选中节点的说明，不得用保存或投影错误充当描述。 */
   it('renders the selected node description in the inspector', () => {
     const view = componentSource('PersistentWorkflowAuthoringView.tsx')

@@ -12,6 +12,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 import { injectWorkbenchPreloadShell } from './scripts/preload-shell.mjs';
+import { copyWorkbenchDracoAssets } from './scripts/draco-assets.mjs';
 
 const sharedShimPath = name => fileURLToPath(
     new URL(`../../packages/pascal-host/src/shims/${name}.tsx`, import.meta.url)
@@ -56,7 +57,7 @@ browserOptions.plugins.push(
     }),
 );
 browserOptions.plugins.push({
-    name: 'unilab-workbench-preload-shell',
+    name: 'unilab-workbench-runtime-assets',
     setup(build) {
         build.onEnd(async result => {
             if (result.errors.length > 0) return;
@@ -66,6 +67,7 @@ browserOptions.plugins.push({
             const source = await readFile(indexPath, 'utf8');
             const injected = injectWorkbenchPreloadShell(source);
             if (injected !== source) await writeFile(indexPath, injected);
+            await copyWorkbenchDracoAssets();
         });
     },
 });

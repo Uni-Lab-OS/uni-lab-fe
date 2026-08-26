@@ -49,6 +49,7 @@ export function MaterialSourceInspector({
   const selectedResourceTemplate = editor.resourceTemplates.find(
     template => template.uuid === editor.resourceTemplateUuid
   )
+  const custodyDescriptionId = `material-custody-${editor.nodeUuid}`
   useEffect(() => setSiteQuery(''), [editor.nodeUuid])
   return (
     <section
@@ -91,6 +92,43 @@ export function MaterialSourceInspector({
             <option value="consumable">耗材</option>
           </select>
         </label>
+        <label>
+          物料保管
+          <select
+            aria-label="物料保管"
+            aria-describedby={custodyDescriptionId}
+            value={editor.custodyPolicy}
+            disabled={!editable}
+            onChange={(event) => onChange({
+              custodyPolicy: event.target.value as MaterialSourceSelectorUpdate['custodyPolicy']
+            })}
+          >
+            <option value="task_exclusive">任务全程独占</option>
+            <option
+              value="shared_source"
+              disabled={Boolean(editor.sharedSourceBlockedReason)}
+            >
+              共享来源（动作期间互斥）
+            </option>
+          </select>
+        </label>
+        <p
+          id={custodyDescriptionId}
+          className="persistent-authoring__custody-policy-note"
+          data-custody-policy={editor.custodyPolicy}
+        >
+          {editor.custodyPolicy === 'shared_source'
+            ? '可让多个工作流任务同时绑定该来源；每个设备动作仍按物料 UUID 互斥执行。'
+            : '当前任务从准入到终态独占绑定物料；其他任务会等待释放。'}
+        </p>
+        {editor.sharedSourceBlockedReason && (
+          <p
+            className="persistent-authoring__custody-policy-warning"
+            role="alert"
+          >
+            {editor.sharedSourceBlockedReason}；请保持任务全程独占。
+          </p>
+        )}
         <label>
           资源模板
           <select

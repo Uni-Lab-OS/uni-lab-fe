@@ -80,7 +80,8 @@ export default function DevicePanel({
   services,
   backend,
   connection,
-  backendEnabled = true
+  backendEnabled = true,
+  active = true
 }: DeviceManagementPanelProps): React.JSX.Element {
   const {
     devices,
@@ -88,7 +89,7 @@ export default function DevicePanel({
     error,
     lastUpdated,
     refresh
-  } = useDevices({ services, backendEnabled, connection })
+  } = useDevices({ services, backendEnabled, connection, active })
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
   const [selectedActionRef, setSelectedActionRef] = useState<string | null>(null)
   const [argumentDraft, setArgumentDraft] = useState<ArgumentDraft>({})
@@ -165,13 +166,17 @@ export default function DevicePanel({
     ]
   )
   const loadActionCatalog = useCallback(async (
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    refresh = false
   ): Promise<boolean> => {
-    if (!canRunActionTask || connection !== 'connected') return false
+    if (!active || !canRunActionTask || connection !== 'connected') return false
     setActionCatalogLoading(true)
     setActionCatalogError(null)
     try {
-      const catalog = await services.workflow.getWorkflowActionCatalog(signal)
+      const catalog = await services.workflow.getWorkflowActionCatalog(
+        signal,
+        { refresh }
+      )
       if (signal?.aborted) return false
       setActionCatalog(catalog)
       return true
@@ -185,9 +190,10 @@ export default function DevicePanel({
     } finally {
       if (!signal?.aborted) setActionCatalogLoading(false)
     }
-  }, [canRunActionTask, connection, services.workflow])
+  }, [active, canRunActionTask, connection, services.workflow])
 
   useEffect(() => {
+    if (!active) return
     if (!canRunActionTask || connection !== 'connected') {
       setActionCatalog(null)
       setActionCatalogError(null)
@@ -196,7 +202,7 @@ export default function DevicePanel({
     }
     const controller = new AbortController()
     const recovery = startDeviceActionCatalogRecovery({
-      load: () => loadActionCatalog(controller.signal)
+      load: (refresh) => loadActionCatalog(controller.signal, refresh)
     })
     actionCatalogRecoveryRef.current = recovery
     return () => {
@@ -206,7 +212,14 @@ export default function DevicePanel({
         actionCatalogRecoveryRef.current = null
       }
     }
-  }, [backend.apiUrl, backend.id, canRunActionTask, connection, loadActionCatalog])
+  }, [
+    active,
+    backend.apiUrl,
+    backend.id,
+    canRunActionTask,
+    connection,
+    loadActionCatalog
+  ])
 
   useEffect(() => {
     if (!devices.length) {
@@ -368,7 +381,12 @@ export default function DevicePanel({
     activeTaskUuid
   )
   useEffect(() => {
-    if (!activeTaskIsVisible || !activeTaskUuid || !runOperation) return
+    if (
+      !active ||
+      !activeTaskIsVisible ||
+      !activeTaskUuid ||
+      !runOperation
+    ) return
     const actionRef = runOperation.actionRef
     const recovery = startDeviceActionTaskRecovery({
       tasks: [{ taskUuid: activeTaskUuid, actionRef }],
@@ -400,10 +418,11 @@ export default function DevicePanel({
           }
         })
       },
-      pollIntervalMs: 1_000
+      fallbackDelaysMs: [2_000, 5_000, 10_000, 30_000]
     })
     return () => recovery.dispose()
   }, [
+    active,
     activeTaskIsVisible,
     activeTaskUuid,
     queueDeviceActionTaskRefresh,

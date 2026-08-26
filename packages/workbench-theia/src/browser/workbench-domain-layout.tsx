@@ -17,12 +17,14 @@ const MAX_PRIMARY_PERCENT = 70
 export function WorkbenchDomainLayout({
   mode,
   workflow,
+  workflowTasks,
   material,
   device,
   robotWorkstation
 }: {
   mode: WorkbenchViewMode
   workflow: React.ReactNode
+  workflowTasks: React.ReactNode
   material: React.ReactNode
   device: React.ReactNode
   robotWorkstation: React.ReactNode
@@ -67,6 +69,7 @@ export function WorkbenchDomainLayout({
       }
     : undefined
   const workflowVisible = mode === 'workflow' || mode === 'split'
+  const workflowTasksVisible = mode === 'workflow-tasks'
   const materialVisible = mode === 'material' || mode === 'split' ||
     mode === 'device-material'
   const deviceVisible = mode === 'device' || mode === 'device-material'
@@ -87,6 +90,15 @@ export function WorkbenchDomainLayout({
         inert={!workflowVisible}
       >
         {workflow}
+      </div>
+      <div
+        className={`unilab-workbench__domain-slot is-workflow-tasks${
+          workflowTasksVisible ? '' : ' is-inactive'
+        }`}
+        aria-hidden={!workflowTasksVisible}
+        inert={!workflowTasksVisible}
+      >
+        {workflowTasks}
       </div>
       <div
         className="unilab-workbench__splitter"

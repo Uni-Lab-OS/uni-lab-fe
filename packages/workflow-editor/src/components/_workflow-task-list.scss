@@ -1,0 +1,406 @@
+.workflow:global(.workflow-task-list) {
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-canvas);
+  container-type: inline-size;
+}
+
+.workflow :global(.workflow-task-list__header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--unilab-space-4);
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--unilab-color-border);
+  background: var(--unilab-color-surface);
+}
+
+.workflow :global(.workflow-task-list__header) h2,
+.workflow :global(.workflow-task-list__header) p,
+.workflow :global(.workflow-task-list__workflow-context) h3,
+.workflow :global(.workflow-task-list__workflow-context) p {
+  margin: 0;
+}
+
+.workflow :global(.workflow-task-list__header) h2 {
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.workflow :global(.workflow-task-list__header) p {
+  margin-top: 4px;
+  color: var(--unilab-color-text-muted);
+  font-size: 12px;
+}
+
+.workflow :global(.workflow-task-list__header) p.is-error {
+  color: var(--unilab-color-danger);
+}
+
+.workflow :global(.workflow-task-list__header) button,
+.workflow :global(.workflow-task-list__state) button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  cursor: pointer;
+  font: 600 12px/1 var(--unilab-font-sans);
+}
+
+.workflow :global(.workflow-task-list__header) button:disabled {
+  cursor: default;
+  opacity: .55;
+}
+
+.workflow :global(.workflow-task-list__tools) {
+  display: grid;
+  grid-template-columns: minmax(200px, 360px) auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 24px;
+  border-bottom: 1px solid var(--unilab-color-border);
+  background: var(--unilab-color-surface-subtle);
+}
+
+.workflow :global(.workflow-task-list__tools) input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 36px;
+  padding: 0 11px;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  font: 12px/1 var(--unilab-font-sans);
+}
+
+.workflow :global(.workflow-task-list__tools) > div {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+}
+
+.workflow :global(.workflow-task-list__tools) button {
+  min-height: 28px;
+  padding: 0 9px;
+  color: var(--unilab-color-text-muted);
+  border: 0;
+  border-radius: var(--unilab-radius-sm);
+  background: transparent;
+  cursor: pointer;
+  font: 600 11px/1 var(--unilab-font-sans);
+}
+
+.workflow :global(.workflow-task-list__tools) button[aria-pressed='true'] {
+  color: var(--unilab-color-primary);
+  background: var(--unilab-color-primary-soft);
+  box-shadow: var(--unilab-shadow-control);
+}
+
+.workflow :global(.workflow-task-list__tools) > span {
+  justify-self: end;
+  color: var(--unilab-color-text-muted);
+  font: 600 11px/1 var(--unilab-font-mono);
+}
+
+.workflow :global(.workflow-task-list__workspace) {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns:
+    minmax(300px, var(--workflow-task-queue-width))
+    7px
+    minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.workflow :global(.workflow-task-list__queue) {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--unilab-color-surface-subtle);
+}
+
+.workflow :global(.workflow-task-list__splitter) {
+  position: relative;
+  z-index: 1;
+  width: 7px;
+  min-height: 0;
+  border: 0;
+  border-inline: 1px solid transparent;
+  background: var(--unilab-color-border);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.workflow :global(.workflow-task-list__splitter)::after {
+  position: absolute;
+  inset: 0 -3px;
+  content: '';
+}
+
+.workflow :global(.workflow-task-list__splitter) > span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 36px;
+  border-radius: var(--unilab-radius-pill);
+  background: var(--unilab-color-text-muted);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity 120ms ease;
+}
+
+.workflow :global(.workflow-task-list__splitter):hover > span,
+.workflow :global(.workflow-task-list__splitter):focus-visible > span {
+  opacity: 0.65;
+}
+
+.workflow :global(.workflow-task-list__splitter):focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: -2px;
+}
+
+.workflow :global(.workflow-task-list__queue) ol {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--unilab-color-border);
+}
+
+.workflow :global(.workflow-task-list__queue) li {
+  min-width: 0;
+  background: var(--unilab-color-surface);
+}
+
+.workflow :global(.workflow-task-list__queue) li > button {
+  display: grid;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 78px;
+  grid-template-columns: 94px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  color: var(--unilab-color-text);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.workflow :global(.workflow-task-list__queue) li > button:hover {
+  background: var(--unilab-color-primary-soft);
+}
+
+.workflow :global(.workflow-task-list__queue) li > button[aria-current='true'] {
+  background: var(--unilab-color-primary-soft);
+  box-shadow: inset 2px 0 var(--unilab-color-primary);
+}
+
+.workflow :global(.workflow-task-list__header) button:focus-visible,
+.workflow :global(.workflow-task-list__tools) button:focus-visible,
+.workflow :global(.workflow-task-list__tools) input:focus-visible,
+.workflow :global(.workflow-task-list__queue) button:focus-visible,
+.workflow :global(.workflow-task-list__state) button:focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 2px;
+}
+
+.workflow :global(.workflow-task-list__identity) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.workflow :global(.workflow-task-list__identity) strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow :global(.workflow-task-list__identity) > span {
+  display: flex;
+  min-width: 0;
+  gap: 10px;
+  color: var(--unilab-color-text-muted);
+  font: 500 10px/1.4 var(--unilab-font-mono);
+}
+
+.workflow :global(.workflow-task-list__identity) time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow :global(.workflow-task-list__status) {
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  color: var(--unilab-color-warning);
+  border-radius: var(--unilab-radius-pill);
+  background: var(--unilab-color-warning-soft);
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.workflow :global(.workflow-task-list__status) i {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.workflow :global(.workflow-task-list__status[data-status='succeeded']) {
+  color: var(--unilab-color-success);
+  background: var(--unilab-color-success-soft);
+}
+
+.workflow :global(.workflow-task-list__status[data-status='failed']),
+.workflow :global(.workflow-task-list__status[data-status='canceled']),
+.workflow :global(.workflow-task-list__status[data-status='timeout']) {
+  color: var(--unilab-color-danger);
+  background: var(--unilab-color-danger-soft);
+}
+
+.workflow :global(.workflow-task-list__workflow) {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--unilab-color-surface);
+}
+
+.workflow :global(.workflow-task-list__workflow-context) {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--unilab-color-border);
+  background: var(--unilab-color-surface-subtle);
+}
+
+.workflow :global(.workflow-task-list__workflow-context) > div {
+  min-width: 0;
+}
+
+.workflow :global(.workflow-task-list__workflow-context) h3 {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow :global(.workflow-task-list__workflow-context) p {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  color: var(--unilab-color-text-muted);
+  font: 500 10px/1.4 var(--unilab-font-mono);
+}
+
+.workflow :global(.workflow-task-list__workflow-context) p > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow :global(.workflow-task-list__workflow-panel) {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+@container (max-width: 760px) {
+  .workflow :global(.workflow-task-list__tools) {
+    grid-template-columns: 1fr auto;
+  }
+
+  .workflow :global(.workflow-task-list__tools) > div {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .workflow :global(.workflow-task-list__workspace) {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+  }
+
+  .workflow :global(.workflow-task-list__queue) {
+    max-height: 260px;
+    flex: 0 0 auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--unilab-color-border);
+  }
+
+  .workflow :global(.workflow-task-list__splitter) {
+    display: none;
+  }
+
+  .workflow :global(.workflow-task-list__workflow) {
+    min-height: 640px;
+    flex: 0 0 auto;
+  }
+}
+
+@container (max-width: 520px) {
+  .workflow :global(.workflow-task-list__header) {
+    align-items: flex-start;
+    padding-inline: 16px;
+  }
+
+  .workflow :global(.workflow-task-list__header) p {
+    display: none;
+  }
+
+  .workflow :global(.workflow-task-list__tools) {
+    padding-inline: 16px;
+  }
+
+  .workflow :global(.workflow-task-list__tools) > div {
+    overflow-x: auto;
+  }
+
+  .workflow :global(.workflow-task-list__queue) li > button {
+    grid-template-columns: 90px minmax(0, 1fr);
+  }
+
+  .workflow :global(.workflow-task-list__workflow-context) {
+    align-items: flex-start;
+  }
+}

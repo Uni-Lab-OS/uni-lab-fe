@@ -34,7 +34,7 @@ export interface WorkflowTaskRuntimeSnapshot {
 
 type WorkflowTaskRuntimeListener = () => void
 
-const ACTIVE_TASK_REFRESH_INTERVAL_MS = 2_000
+const FALLBACK_REFRESH_DELAYS_MS = [2_000, 5_000, 10_000, 30_000] as const
 const TERMINAL_TASK_STATUSES = new Set<WorkflowTask['status']>([
   'succeeded',
   'failed',
@@ -65,6 +65,9 @@ export class WorkflowTaskController {
   private subscription: WorkflowEventSubscription | null = null
   private started = false
   private active = true
+  private surfaceActive: boolean
+  private realtimeLive = false
+  private fallbackRefreshAttempt = 0
   private commandSequence = 0
   private queuedTaskUuid: string | null | undefined
   private refreshInFlight: Promise<void> | null = null
@@ -73,8 +76,11 @@ export class WorkflowTaskController {
 
   constructor(
     private readonly runtime: WorkflowRuntimePort,
-    private readonly workflowUuid: string
-  ) {}
+    private readonly workflowUuid: string,
+    initialActive = true
+  ) {
+    this.surfaceActive = initialActive
+  }
 
   getSnapshot = (): WorkflowTaskRuntimeSnapshot => this.snapshot
 
@@ -86,6 +92,36 @@ export class WorkflowTaskController {
   async start(): Promise<void> {
     if (this.started || !this.active) return
     this.started = true
+    if (!this.surfaceActive) return
+    this.connectRealtime()
+    await this.requestRefresh(null)
+  }
+
+  /**
+   * 暂停或恢复当前 Desktop 业务面的运行时读请求。
+   *
+   * 隐藏时释放 SSE、取消兜底补读；恢复时重建 SSE 并立即补读一次权威状态。
+   */
+  setActive(active: boolean): void {
+    if (!this.active || this.surfaceActive === active) return
+    this.surfaceActive = active
+    if (!active) {
+      this.realtimeLive = false
+      this.queuedTaskUuid = undefined
+      this.clearActiveRefreshTimer()
+      this.subscription?.dispose()
+      this.subscription = null
+      return
+    }
+    if (!this.started) return
+    this.fallbackRefreshAttempt = 0
+    this.install({ realtimeStatus: 'connecting', realtimeError: null })
+    this.connectRealtime()
+    void this.requestRefresh(this.snapshot.task?.uuid ?? null)
+  }
+
+  private connectRealtime(): void {
+    if (!this.active || !this.surfaceActive || this.subscription) return
     try {
       this.subscription = this.runtime.subscribeWorkflowRuntime(
         (event) => {
@@ -94,25 +130,34 @@ export class WorkflowTaskController {
         },
         {
           onOpen: () => {
+            if (!this.active || !this.surfaceActive) return
+            this.realtimeLive = true
+            this.fallbackRefreshAttempt = 0
+            this.clearActiveRefreshTimer()
             this.install({ realtimeStatus: 'live', realtimeError: null })
             void this.requestRefresh(this.snapshot.task?.uuid ?? null)
           },
           onError: (error) => {
+            if (!this.active || !this.surfaceActive) return
+            this.realtimeLive = false
+            this.fallbackRefreshAttempt = 0
             this.install({
               realtimeStatus: 'reconnecting',
               realtimeError: `Runtime 实时同步中断：${error.message}`
             })
+            this.scheduleActiveRefresh()
           }
         }
       )
     } catch (error) {
+      this.realtimeLive = false
+      this.fallbackRefreshAttempt = 0
       this.install({
         realtimeStatus: 'reconnecting',
         realtimeError: '工作流仍可正常执行；执行期间前端会定时读取最新状态。' +
           '如需恢复实时更新，请确认 Backend 已启用工作流运行事件。'
       })
     }
-    await this.requestRefresh(null)
   }
 
   async refresh(): Promise<void> {
@@ -258,6 +303,9 @@ export class WorkflowTaskController {
   dispose(): void {
     if (!this.active) return
     this.active = false
+    this.surfaceActive = false
+    this.realtimeLive = false
+    this.queuedTaskUuid = undefined
     this.clearActiveRefreshTimer()
     this.subscription?.dispose()
     this.subscription = null
@@ -265,7 +313,7 @@ export class WorkflowTaskController {
   }
 
   private requestRefresh(taskUuid: string | null): Promise<void> {
-    if (!this.active) return Promise.resolve()
+    if (!this.active || !this.surfaceActive) return Promise.resolve()
     this.queuedTaskUuid = taskUuid
     if (this.refreshInFlight) return this.refreshInFlight
     this.refreshInFlight = this.drainRefreshQueue().finally(() => {
@@ -275,7 +323,11 @@ export class WorkflowTaskController {
   }
 
   private async drainRefreshQueue(): Promise<void> {
-    while (this.active && this.queuedTaskUuid !== undefined) {
+    while (
+      this.active &&
+      this.surfaceActive &&
+      this.queuedTaskUuid !== undefined
+    ) {
       const taskUuid = this.queuedTaskUuid
       this.queuedTaskUuid = undefined
       await this.hydrate(taskUuid)
@@ -297,7 +349,7 @@ export class WorkflowTaskController {
           page: 1,
           page_size: 1
         })
-        if (!this.active) return
+        if (!this.active || !this.surfaceActive) return
         taskUuid = page.items[0]?.uuid ?? null
         if (taskUuid === null) {
           this.install({
@@ -319,7 +371,11 @@ export class WorkflowTaskController {
         this.runtime.getWorkflowTask(taskUuid),
         this.runtime.listWorkflowTaskJobs(taskUuid)
       ])
-      if (!this.active || task.workflow_uuid !== this.workflowUuid) return
+      if (
+        !this.active ||
+        !this.surfaceActive ||
+        task.workflow_uuid !== this.workflowUuid
+      ) return
       if (isOlderDifferentTask(this.snapshot.task, task)) return
       const sortedJobs = [...jobs].sort(
         (left, right) => left.topological_index - right.topological_index
@@ -353,21 +409,28 @@ export class WorkflowTaskController {
   /**
    * 为仍在执行的任务安排一次兜底补读。
    *
-   * SSE 负责低延迟失效通知；该定时器只保证事件遗漏或连接重建期间状态仍能
-   * 收敛。每次补读后重新安排，避免慢请求形成并发轮询；终态或释放时停止。
+   * SSE 负责在线期间的低延迟失效通知；该定时器仅在连接不可用时按退避间隔
+   * 保证状态最终收敛。每次补读后重新安排，避免慢请求形成并发轮询。
    */
   private scheduleActiveRefresh(): void {
     this.clearActiveRefreshTimer()
     const task = this.snapshot.task
     if (
       !this.active ||
+      !this.surfaceActive ||
+      this.realtimeLive ||
       !task ||
       TERMINAL_TASK_STATUSES.has(task.status)
     ) return
+    const delay = FALLBACK_REFRESH_DELAYS_MS[Math.min(
+      this.fallbackRefreshAttempt,
+      FALLBACK_REFRESH_DELAYS_MS.length - 1
+    )]
     this.activeRefreshTimer = globalThis.setTimeout(() => {
       this.activeRefreshTimer = null
+      this.fallbackRefreshAttempt += 1
       void this.requestRefresh(task.uuid)
-    }, ACTIVE_TASK_REFRESH_INTERVAL_MS)
+    }, delay)
     this.activeRefreshTimer.unref?.()
   }
 
