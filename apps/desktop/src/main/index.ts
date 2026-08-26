@@ -501,7 +501,7 @@ app.whenReady().then(async () => {
       releaseChannel: __UNILAB_WORKBENCH_RELEASE_CHANNEL__,
       surfaceKind: desktopSurface.kind
     }),
-    updater: createElectronUpdaterAdapter(autoUpdater),
+    updater: createElectronUpdaterAdapter(autoUpdater, logLine),
     log: logLine,
     publish: (snapshot) => {
       const window = mainWindow

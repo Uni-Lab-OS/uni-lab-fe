@@ -1,3 +1,5 @@
+import { EventEmitter } from 'node:events'
+
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -57,14 +59,21 @@ afterEach(() => {
 
 describe('AppUpdateManager', () => {
   it('configures an explicit install so macOS native update starts after confirmation', () => {
+    const log = vi.fn()
     const updater = {
       autoDownload: true,
       autoInstallOnAppQuit: true,
       allowDowngrade: true,
-      disableWebInstaller: false
+      disableWebInstaller: false,
+      logger: null as null | {
+        info(message?: unknown): void
+        warn(message?: unknown): void
+        error(message?: unknown): void
+        debug?(message: string): void
+      }
     }
 
-    createElectronUpdaterAdapter(updater as never).configure()
+    createElectronUpdaterAdapter(updater as never, log).configure()
 
     expect(updater).toMatchObject({
       autoDownload: false,
@@ -72,6 +81,59 @@ describe('AppUpdateManager', () => {
       allowDowngrade: false,
       disableWebInstaller: true
     })
+    expect(updater.logger).not.toBeNull()
+    expect(updater.logger?.debug).toBeUndefined()
+  })
+
+  it('writes differential mode and exact transfer metrics to the main log', async () => {
+    const events = new EventEmitter()
+    const log = vi.fn()
+    const updater = {
+      autoDownload: true,
+      autoInstallOnAppQuit: true,
+      allowDowngrade: true,
+      disableWebInstaller: false,
+      logger: null as null | {
+        info(message?: unknown): void
+        warn(message?: unknown): void
+        error(message?: unknown): void
+      },
+      on: events.on.bind(events),
+      off: events.off.bind(events),
+      downloadUpdate: vi.fn(async () => []),
+      quitAndInstall: vi.fn()
+    }
+    const adapter = createElectronUpdaterAdapter(updater as never, log)
+    adapter.configure()
+    const unsubscribe = adapter.subscribe({
+      checking: vi.fn(),
+      available: vi.fn(),
+      notAvailable: vi.fn(),
+      progress: vi.fn(),
+      downloaded: vi.fn(),
+      error: vi.fn()
+    })
+
+    events.emit('update-available', {
+      version: '0.1.24',
+      files: [{ size: 665_157_321 }]
+    })
+    await adapter.download()
+    updater.logger?.info('Full: 634.34 MB, To download: 12.00 MB (2%)')
+    updater.logger?.info('Differential download: https://updates.example/0.1.24.zip')
+    events.emit('download-progress', {
+      percent: 100,
+      total: 12_582_912,
+      transferred: 12_582_912,
+      delta: 1_024,
+      bytesPerSecond: 1_024
+    })
+    events.emit('update-downloaded', { version: '0.1.24' })
+
+    expect(log.mock.calls.map(([message]) => message)).toContain(
+      'Workbench 更新下载完成: version=0.1.24 mode=differential packageBytes=665157321 transferredBytes=12582912 plannedTransferBytes=12582912 savedBytes=652574409 savedPercent=98.1'
+    )
+    unsubscribe()
   })
 
   it('keeps development and legacy surfaces disabled without touching the updater', async () => {

@@ -8,6 +8,7 @@ import {
   bindElectronUpdaterDownloadPause,
   type ElectronUpdaterDownloadPauseController
 } from './electronUpdaterDownloadPause'
+import { createElectronUpdaterDiagnostics } from './electronUpdaterDiagnostics'
 
 const DEFAULT_INITIAL_CHECK_DELAY_MS = 30_000
 const DEFAULT_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1_000
@@ -293,11 +294,14 @@ export class AppUpdateManager {
 
 /** 将 electron-updater 包装为更新模块内部使用的窄 adapter。 */
 export function createElectronUpdaterAdapter(
-  updater: AppUpdater
+  updater: AppUpdater,
+  log: (message: string) => void
 ): AppUpdaterAdapter {
   let pauseController: ElectronUpdaterDownloadPauseController | null = null
+  const diagnostics = createElectronUpdaterDiagnostics(log)
   return {
     configure() {
+      updater.logger = diagnostics.logger
       updater.autoDownload = false
       // macOS 在 true 时会在 electron-updater 的 preliminary
       // update-downloaded 事件后立即启动原生 Squirrel 下载。若原生阶段在
@@ -314,10 +318,19 @@ export function createElectronUpdaterAdapter(
     },
     subscribe(handlers) {
       const checking = (): void => handlers.checking()
-      const available = (info: UpdateInfo): void => handlers.available(info.version)
+      const available = (info: UpdateInfo): void => {
+        diagnostics.available(info.version, resolveUpdatePackageBytes(info))
+        handlers.available(info.version)
+      }
       const notAvailable = (): void => handlers.notAvailable()
-      const progress = (info: ProgressInfo): void => handlers.progress(info.percent)
-      const downloaded = (info: UpdateInfo): void => handlers.downloaded(info.version)
+      const progress = (info: ProgressInfo): void => {
+        diagnostics.progress(info)
+        handlers.progress(info.percent)
+      }
+      const downloaded = (info: UpdateInfo): void => {
+        diagnostics.completed(info.version)
+        handlers.downloaded(info.version)
+      }
       const error = (value: Error): void => handlers.error(value)
       updater.on('checking-for-update', checking)
       updater.on('update-available', available)
@@ -338,6 +351,7 @@ export function createElectronUpdaterAdapter(
       await updater.checkForUpdates()
     },
     async download() {
+      diagnostics.started()
       await updater.downloadUpdate()
     },
     pause() {
@@ -354,6 +368,15 @@ export function createElectronUpdaterAdapter(
       pauseController = null
     }
   }
+}
+
+function resolveUpdatePackageBytes(info: UpdateInfo): number | undefined {
+  const sizes = info.files
+    .map((file) => file.size)
+    .filter((size): size is number => (
+      typeof size === 'number' && Number.isFinite(size) && size >= 0
+    ))
+  return sizes.length > 0 ? Math.max(...sizes) : undefined
 }
 
 function normalizePercent(value: number): number {

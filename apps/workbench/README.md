@@ -233,6 +233,14 @@ resume controls. Pausing applies backpressure to the existing updater response
 stream, so the pending file and checksum state remain intact; resuming continues
 that same transfer instead of starting a second download.
 
+The desktop main-process diagnostic log records the updater's effective
+download mode without enabling its verbose block-plan debug output. Search for
+`Workbench 更新下载模式` to distinguish `mode=differential` from `mode=full`
+and its fallback reason. `Workbench 更新下载完成` records the complete package
+bytes, transferred artifact bytes, planned transfer bytes, saved bytes and the
+saved percentage. Update URLs are reduced to origin plus pathname before they
+reach the log, so credentials and query tokens are never persisted.
+
 On macOS, the application must be copied out of the mounted DMG before an
 update can replace it. A Workbench launched from `/Volumes` rejects the install
 command before process cleanup and tells the user to copy it to `/Applications`.
