@@ -75,7 +75,8 @@ import { desktopWorkspaceApi } from './desktop-workspace'
 import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
 import {
   WorkbenchAuthorityScopeBoundary,
-  workbenchAuthorityScopeKey
+  workbenchSessionScopeKey,
+  workbenchWorkspaceScopeKey
 } from './workbench-authority-scope'
 import { EnvironmentManager } from './environment-manager'
 import { createTheiaWorkflowIdeAdapter } from './theia-workflow-ide-adapter'
@@ -999,9 +1000,14 @@ function WorkbenchSurface({
   const query = new URLSearchParams(globalThis.location.search)
   const workflowUuid = query.get('workflowUuid') ?? undefined
   const selectedTarget = connectionTargets[connectionMode]
-  const authorityScopeKey = workbenchAuthorityScopeKey(
+  const workspaceScopeKey = workbenchWorkspaceScopeKey(
     selectedTarget.cacheKey,
     session.identity?.workspacePath
+  )
+  const sessionScopeKey = workbenchSessionScopeKey(
+    selectedTarget.cacheKey,
+    session.identity?.workspacePath,
+    session.identity?.generation
   )
   const services = useMemo(
     () => createWorkbenchServices(selectedTarget),
@@ -1151,7 +1157,7 @@ function WorkbenchSurface({
         active={isWorkflowWorkbenchView(viewMode)}
         workflowUuid={workflowUuid}
         activeWorkflowStorageKey={`unilab.workflow.active.${
-          encodeURIComponent(authorityScopeKey)
+          encodeURIComponent(workspaceScopeKey)
         }.v1`}
         allowWorkflowSelection
         recoveryRevision={recoveryRevision}
@@ -1332,7 +1338,7 @@ function WorkbenchSurface({
             onStopSession={onStopSession}
           />
         ) : null}
-        <WorkbenchAuthorityScopeBoundary scopeKey={authorityScopeKey}>
+        <WorkbenchAuthorityScopeBoundary scopeKey={sessionScopeKey}>
           <WorkbenchDomainLayout
             mode={viewMode}
             workflow={mountedSurface(
