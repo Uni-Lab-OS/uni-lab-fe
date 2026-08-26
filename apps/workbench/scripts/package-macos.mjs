@@ -33,7 +33,8 @@ import {
 } from './update-publish.mjs'
 import {
   resolveWorkbenchPackageMode,
-  resolveWorkbenchReleaseChannel
+  resolveWorkbenchReleaseChannel,
+  supportsWorkbenchUpdates
 } from './packaging-mode.mjs'
 import { pruneDesktopDeployment } from './package-portable.mjs'
 import {
@@ -280,7 +281,7 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
 
     const builderTargets = packageMode === 'directory'
       ? ['--dir']
-      : releaseChannel === 'production'
+      : supportsWorkbenchUpdates(releaseChannel)
         ? ['dmg', 'zip']
         : ['dmg']
     const builderArgs = [
@@ -300,7 +301,9 @@ export function packageMacos({ signed, adhoc = false, developerId = false }) {
       // 从源头使用安全名称，确保 latest-mac.yml 指向真实发布资产。
       const artifactName = releaseChannel === 'test'
         ? 'UniLab.Workbench.Test-${version}-${arch}.${ext}'
-        : 'UniLab.Workbench-${version}-${arch}.${ext}'
+        : releaseChannel === 'update-test'
+          ? 'UniLab.Workbench.UpdateTest-${version}-${arch}.${ext}'
+          : 'UniLab.Workbench-${version}-${arch}.${ext}'
       builderArgs.push(
         `--config.mac.artifactName=${artifactName}`,
         `--config.dmg.artifactName=${artifactName}`
@@ -499,7 +502,7 @@ function findInstaller(outputDirectory) {
 }
 
 export function selectMacosReleaseArtifacts(names, releaseChannel) {
-  if (releaseChannel === 'production') {
+  if (supportsWorkbenchUpdates(releaseChannel)) {
     return selectMacosUpdateArtifacts(names)
   }
   const dmgs = names.filter(name => /\.dmg$/iu.test(name))

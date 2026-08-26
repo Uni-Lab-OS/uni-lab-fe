@@ -16,6 +16,11 @@ describe('Cloud API 地址投影', () => {
       SITE_URL: 'https://leap-lab.test.bohrium.com/leap-lab',
       API_URL: 'https://leap-lab.test.bohrium.com/api/v1'
     })
+    expect(desktopAuthDefaults('update-test')).toEqual({
+      OAUTH_URL: 'https://platform.test.bohrium.com',
+      SITE_URL: 'https://leap-lab.test.bohrium.com/leap-lab',
+      API_URL: 'https://leap-lab.test.bohrium.com/api/v1'
+    })
     expect(desktopAuthDefaults('production')).toEqual({
       OAUTH_URL: 'https://platform.bohrium.com',
       SITE_URL: 'https://leap-lab.bohrium.com/leap-lab',

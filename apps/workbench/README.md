@@ -220,12 +220,22 @@ validated PLC-Sim launch contract.
 
 Production Workbench applications use `electron-updater` with a build-time
 HTTPS generic provider. The release channel is compiled into Electron main from
-`UNILAB_WORKBENCH_RELEASE_CHANNEL=production|test`; test packages, development
-runs and the legacy Kernel Electron surface keep the updater disabled. A
-production Workbench checks 30 seconds after startup and every four hours
-afterwards, asks before downloading, and asks again before stopping the managed
-process tree and restarting into the installer. An omitted channel defaults to
-`test`, so only an explicit production build can enable updates.
+`UNILAB_WORKBENCH_RELEASE_CHANNEL=production|update-test|test`; ordinary test
+packages, development runs and the legacy Kernel Electron surface keep the
+updater disabled. A production or isolated update-test Workbench checks 30
+seconds after startup and every four hours afterwards. Download and restart are
+triggered explicitly from the in-app update status; ordinary app exit does not
+silently install a downloaded version. An omitted channel defaults to `test`,
+so only an explicit update-capable build can enable updates.
+
+While an update is downloading, the progress row exposes explicit pause and
+resume controls. Pausing applies backpressure to the existing updater response
+stream, so the pending file and checksum state remain intact; resuming continues
+that same transfer instead of starting a second download.
+
+On macOS, the application must be copied out of the mounted DMG before an
+update can replace it. A Workbench launched from `/Volumes` rejects the install
+command before process cleanup and tells the user to copy it to `/Applications`.
 
 Every distributable build requires a credential-free update directory:
 
