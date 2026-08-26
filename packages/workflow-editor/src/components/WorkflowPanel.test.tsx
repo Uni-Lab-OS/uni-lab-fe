@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
@@ -176,6 +178,21 @@ describe('WorkflowPanel Runtime entry', () => {
 
   it('reserves the canvas by collapsing auxiliary panels on narrow workspaces', () => {
     expect(COMPACT_WORKFLOW_CANVAS_WIDTH).toBe(1024)
+  })
+
+  /** 隐藏工作流页时保留最后一次路线投影，供物料 3D 页面继续展示联动线路。 */
+  it('keeps publishing the runtime projection while the workflow surface is hidden', () => {
+    const source = readFileSync(
+      new URL('./WorkflowPanel.tsx', import.meta.url),
+      'utf8'
+    )
+
+    expect(source).toContain(
+      'onWorkflowRuntimeProjectionChange={onWorkflowRuntimeProjectionChange}'
+    )
+    expect(source).not.toMatch(
+      /onWorkflowRuntimeProjectionChange=\{active\s*\?/u
+    )
   })
 })
 

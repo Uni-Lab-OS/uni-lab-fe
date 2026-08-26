@@ -216,7 +216,20 @@
   .unilab-workbench__bar > .unilab-workbench__controls {
     width: 100%;
     flex: 1 1 100%;
+    flex-wrap: wrap;
     justify-content: flex-end;
+  }
+
+  .unilab-workbench__bar > .unilab-workbench__controls
+    > .unilab-workbench-connection {
+    min-width: 196px;
+    flex: 1 1 196px;
+  }
+
+  .unilab-workbench__bar > .unilab-workbench__controls nav {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
   }
 
   .unilab-workbench__bar > .unilab-workbench__controls nav,
@@ -254,6 +267,11 @@
     overflow-x: auto;
     justify-content: flex-start;
     scrollbar-width: thin;
+  }
+
+  .unilab-workbench__bar > .unilab-workbench__controls nav button {
+    min-width: 0;
+    flex: 1 1 0;
   }
 }
 

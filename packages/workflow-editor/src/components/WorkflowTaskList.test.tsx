@@ -1,12 +1,16 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-import type { WorkflowRuntimePort } from '@unilab/services'
+import type {
+  WorkflowExecutionTask,
+  WorkflowRuntimePort
+} from '@unilab/services'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
 import { WorkflowTaskList } from './WorkflowTaskList'
 import { WorkflowTaskListFailure } from './WorkflowTaskListErrorBoundary'
+import { WorkflowTaskQueueControls } from './WorkflowTaskQueueControls'
 
 describe('WorkflowTaskList', () => {
   /** 首帧应立即提供任务页身份、筛选入口与诚实的加载状态。 */
@@ -95,4 +99,54 @@ describe('WorkflowTaskList', () => {
     expect(failureMarkup).toContain('重新加载任务列表')
     expect(failureMarkup).toContain('role="alert"')
   })
+
+  /** 已进入队列的任务仍应按 Backend 权威状态提供暂停或继续入口。 */
+  it('exposes pause and resume controls for queued workflow tasks', () => {
+    const runtime = {} as WorkflowRuntimePort
+    const activeTask = workflowExecutionTask({
+      status: 'running',
+      control_status: 'active'
+    })
+    const pausedTask = workflowExecutionTask({
+      status: 'running',
+      control_status: 'paused'
+    })
+
+    expect(renderToStaticMarkup(
+      <WorkflowTaskQueueControls
+        runtime={runtime}
+        task={activeTask}
+        onReconcile={async () => undefined}
+      />
+    )).toContain('暂停')
+    expect(renderToStaticMarkup(
+      <WorkflowTaskQueueControls
+        runtime={runtime}
+        task={pausedTask}
+        onReconcile={async () => undefined}
+      />
+    )).toContain('继续')
+  })
 })
+
+function workflowExecutionTask(
+  patch: Partial<WorkflowExecutionTask>
+): WorkflowExecutionTask {
+  return {
+    uuid: 'task-1',
+    create_time: '2026-08-26T00:00:00Z',
+    update_time: '2026-08-26T00:00:00Z',
+    meta_data: {},
+    execution_kind: 'workflow',
+    workflow_uuid: 'workflow-1',
+    status: 'running',
+    workflow_snapshot: {},
+    execution_plan: {},
+    run_mode: 'normal',
+    control_status: 'active',
+    cleanup_status: 'pending',
+    trace_context: {},
+    error_info: [],
+    ...patch
+  }
+}

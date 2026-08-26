@@ -525,6 +525,24 @@ describe('WorkflowDag canvas controls', () => {
     )
     expect(edgeSource).toMatch(/data-workflow-edge-kind=/)
   })
+
+  /** 悬浮反馈只改变可见连线，不得把透明交互热区变成新的命中边界。 */
+  it('keeps the invisible edge interaction path stable while hovering', () => {
+    const stylesheet = readFileSync(
+      new URL('./_workflow-stage.scss', import.meta.url),
+      'utf8'
+    )
+
+    expect(stylesheet).toMatch(
+      /react-flow__edge\):hover\s+:global\(\.react-flow__edge-path\)/u
+    )
+    expect(stylesheet).not.toMatch(
+      /react-flow__edge\):hover path/u
+    )
+    expect(stylesheet).toMatch(
+      /react-flow__edge-interaction\)[^}]*stroke:\s*transparent/u
+    )
+  })
 })
 
 const workflowNode: WorkflowNode = {
