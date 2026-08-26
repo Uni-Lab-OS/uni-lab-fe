@@ -70,6 +70,10 @@ import { usePersistentWorkflowCatalogs } from './usePersistentWorkflowCatalogs'
 import { usePersistentWorkflowStartFlow } from './usePersistentWorkflowStartFlow'
 import { usePersistentWorkflowTaskPanel } from './usePersistentWorkflowTaskPanel'
 import { useWorkflowIdeSourceProjection } from './useWorkflowIdeSourceProjection'
+import {
+  useWorkflowIdeSavedSource,
+  workflowSourceNormalizationDiff
+} from './useWorkflowIdeSavedSource'
 import { useWorkflowPanelRuntimeProjection } from './useWorkflowPanelRuntimeProjection'
 import { workflowTaskIsLive } from '../utils/workflowTaskPresentation'
 
@@ -195,6 +199,9 @@ export function usePersistentWorkflowAuthoring({
   }
   const queue = operationQueue.current
   const remotePending = useRef(false)
+  const markRemoteSynchronized = useCallback(() => {
+    remotePending.current = false
+  }, [])
   const localState = useRef({
     mode,
     codeDirty: editor.isDirty,
@@ -364,8 +371,11 @@ export function usePersistentWorkflowAuthoring({
     () => projectMaterialTraces(structure.nodes, structure.links),
     [structure.links, structure.nodes]
   )
+  const ideSourceDirty = Boolean(
+    hideEmbeddedCodeEditor && ideBridge?.activeWorkflowSourceDirty
+  )
   const dirty = mode === 'code'
-    ? editor.isDirty
+    ? hideEmbeddedCodeEditor ? ideSourceDirty : editor.isDirty
     : canvasDirty || selectedNodeNameDirty
   const executionBlockedReason = executionStatus?.available === false
     ? executionStatus.reason || 'OS 未就绪；请先在环境管理中启动 OS'
@@ -609,6 +619,13 @@ export function usePersistentWorkflowAuthoring({
     setMessage('远端状态已补读；本地内容保持不变，请比较后明确处理')
   }, [definitionPort, installAggregate, queue])
 
+  useWorkflowIdeSavedSource({
+    enabled: hideEmbeddedCodeEditor,
+    ideBridge, workflowUuid, runtime, localState, queue, run, installAggregate,
+    onSynchronized: markRemoteSynchronized,
+    readRemoteConflict, setError, setMessage, setFullSourceDiff
+  })
+
   const generateCanvasPython = useCallback(async (
     sourceGraph: WorkflowAuthoringGraph,
     authority: WorkflowAuthoringAggregate = aggregate as WorkflowAuthoringAggregate
@@ -829,6 +846,15 @@ export function usePersistentWorkflowAuthoring({
       return
     }
     if (mode === 'code') {
+      if (hideEmbeddedCodeEditor) {
+        const saveIdeSource = ideBridge?.saveActiveWorkflowSource
+        if (!saveIdeSource) {
+          setError('当前 IDE 宿主未提供工作流源码保存能力')
+          return
+        }
+        void run(saveIdeSource)
+        return
+      }
       void run(async () => {
         try {
           const saved = await queue.run(
@@ -842,22 +868,9 @@ export function usePersistentWorkflowAuthoring({
             )
           )
           installAggregate(saved, draftSaveMessage(saved))
-          const materialization = saved.candidate && saved.draft
-            ? workflowCandidateMaterializationDecision({
-                draftPython: saved.draft.python_source,
-                normalizedPython: saved.candidate.normalized_python_source
-              })
-            : null
-          if (materialization?.kind === 'review_normalized_source') {
-            setFullSourceDiff({
-              before: materialization.before,
-              after: materialization.after,
-              expectedDraftHash: saved.draft?.draft_hash ?? null,
-              expectedWorkflowRevision: saved.workflow_revision,
-              reason: 'source_normalization',
-              resumeMode: 'code',
-              applyAfterSave: false
-            })
+          const normalizationDiff = workflowSourceNormalizationDiff(saved, 'code')
+          if (normalizationDiff) {
+            setFullSourceDiff(normalizationDiff)
             setMessage(
               pendingPythonImport
                 ? `${pendingPythonImport} 已保存；请接受 OS 规范化 Python 后再应用`
@@ -1369,6 +1382,7 @@ export function usePersistentWorkflowAuthoring({
     setPendingMode, setRemoteConflict, setSelectedNodeName,
     setSelectedNodeNameDirty, setSelectedNodeUuid, setWorkflowIoOpen, structure,
     ideBridgeConnected: Boolean(ideBridge?.onSourceProjectionChange),
+    ideSourceDirty,
     revealPackageSource: (sourceUri: string) => {
       ideBridge?.onRevealPackageSource?.({ sourceUri })
     },

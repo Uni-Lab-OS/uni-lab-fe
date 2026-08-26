@@ -40,7 +40,6 @@ import {
 } from '@unilab/workflow-editor'
 import {
   createWorkflowIdeSyncState,
-  synchronizeSavedWorkflowSource,
   WorkflowIdeHostAdapter,
   type WorkflowIdeBridge,
   type WorkflowIdeSyncState,
@@ -125,8 +124,6 @@ import {
 } from './workbench-surface-helpers'
 import { hasWorkbenchUnsavedChanges } from './workbench-unsaved-changes'
 
-type SourceSaveHandler = (pythonSource: string) => Promise<void>
-
 @injectable()
 export class UniLabWorkbenchWidget extends ReactWidget {
   // This persisted identity predates the formal product name. Keep it stable so
@@ -182,7 +179,6 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     edgeRuntime: emptyEdgeRuntimeSnapshot(),
     plcSimulator: emptyPlcSimulatorSnapshot()
   }
-  protected sourceSaveHandler: SourceSaveHandler | null = null
   protected lastAutomaticSourceSync: string | null = null
   protected workflowPanelDirty = false
   protected lastReportedUnsavedChanges: boolean | null = null
@@ -198,6 +194,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     this.ideAdapter = createTheiaWorkflowIdeAdapter({
       revealSource: location => this.revealResolvedSource(location),
       replaceDiagnostics: diagnostics => this.replaceDiagnostics(diagnostics),
+      saveActiveWorkflowSource: () => this.saveActiveWorkflowSource(),
       reportError: message => { void this.messages.error(message) }
     })
     this.ideBridge = this.ideAdapter.bridge
@@ -573,22 +570,23 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       previous.currentUri === currentUri &&
       previous.dirty &&
       !dirty &&
-      currentUri === previous.resolvedSourceUri &&
-      this.sourceSaveHandler
+      currentUri === previous.resolvedSourceUri
     ) {
       const pythonSource = editorWidget.editor.document.getText()
-      void this.sourceSaveHandler(pythonSource).catch(error => {
-        const message = error instanceof Error ? error.message : String(error)
-        void this.messages.error(`工作流源码同步失败：${message}`)
-      })
+      this.ideAdapter.acceptSavedWorkflowSource(pythonSource)
     }
   }
 
-  protected readonly registerSourceSaveHandler = (
-    handler: SourceSaveHandler | null
-  ): void => {
-    this.sourceSaveHandler = handler
-    if (handler) void this.synchronizeUnmappedSource()
+  protected readonly saveActiveWorkflowSource = async (): Promise<void> => {
+    const editorWidget = this.editorManager.currentEditor
+    if (
+      !editorWidget ||
+      !this.snapshot.resolvedSourceUri ||
+      editorWidget.editor.uri.toString() !== this.snapshot.resolvedSourceUri
+    ) {
+      throw new Error('当前标签不是已注册工作流的 Python 源码')
+    }
+    await editorWidget.editor.document.save()
   }
 
   protected readonly setWorkflowPanelDirty = (
@@ -697,10 +695,8 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   protected async synchronizeUnmappedSource(): Promise<void> {
     const projection = this.snapshot.sourceProjection
     const resolvedSourceUri = this.snapshot.resolvedSourceUri
-    const handler = this.sourceSaveHandler
     if (
       !projection || projection.mappingAvailable || !resolvedSourceUri ||
-      !handler ||
       (
         this.snapshot.currentUri === resolvedSourceUri &&
         this.snapshot.dirty
@@ -711,7 +707,9 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     this.lastAutomaticSourceSync = attempt
     try {
       const source = await this.fileService.read(new URI(resolvedSourceUri))
-      await handler(source.value)
+      if (!this.ideAdapter.acceptProjectedWorkflowSource(source.value)) {
+        throw new Error('当前文件与工作流源码注册关系不一致')
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       void this.messages.error(`工作流源码补编译失败：${message}`)
@@ -899,7 +897,6 @@ export class UniLabWorkbenchWidget extends ReactWidget {
             ? '正在验证目标 Authority'
           : null}
         onConnectionModeChange={this.setConnectionMode}
-        onSourceSaveHandlerChange={this.registerSourceSaveHandler}
         onUnsavedChangesChange={this.setWorkflowPanelDirty}
         onRestartSession={this.restartSession}
         onRebuildLocalData={this.rebuildLocalData}
@@ -947,7 +944,6 @@ function WorkbenchSurface({
   viewMode,
   switchBlockedReason,
   onConnectionModeChange,
-  onSourceSaveHandlerChange,
   onUnsavedChangesChange,
   onRestartSession,
   onRebuildLocalData,
@@ -1086,26 +1082,6 @@ function WorkbenchSurface({
   useEffect(() => () => {
     if (backendProbeServices !== services) backendProbeServices.dispose()
   }, [backendProbeServices, services])
-
-  const synchronizeSavedSource = useCallback(async (pythonSource: string) => {
-    if (!workflowUuid) return
-    try {
-      await synchronizeSavedWorkflowSource(
-        services.workflow,
-        workflowUuid,
-        pythonSource
-      )
-    } catch (error) {
-      throw error
-    }
-  }, [services, workflowUuid])
-
-  useEffect(() => {
-    onSourceSaveHandlerChange(
-      connectionMode === 'local' ? synchronizeSavedSource : null
-    )
-    return () => onSourceSaveHandlerChange(null)
-  }, [connectionMode, onSourceSaveHandlerChange, synchronizeSavedSource])
 
   const highlightedMaterialIds = useMemo(() => {
     const route = runtimeProjection?.materialTransferRoutes.find(

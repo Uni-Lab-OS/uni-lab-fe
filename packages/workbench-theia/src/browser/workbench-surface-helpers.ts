@@ -49,9 +49,6 @@ export interface WorkbenchSurfaceProps {
   viewMode: WorkbenchViewMode
   switchBlockedReason: string | null
   onConnectionModeChange: (mode: WorkbenchConnectionMode) => void
-  onSourceSaveHandlerChange: (
-    handler: ((pythonSource: string) => Promise<void>) | null
-  ) => void
   onUnsavedChangesChange: (hasUnsavedChanges: boolean) => void
   onRestartSession: () => Promise<void>
   onRebuildLocalData: () => Promise<void>

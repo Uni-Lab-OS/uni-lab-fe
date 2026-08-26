@@ -92,6 +92,23 @@ describe('PersistentWorkflowToolbar', () => {
     expect(html).toContain('运行中')
   })
 
+  it('enables the shared save button for a dirty registered Theia source', () => {
+    const html = renderToStaticMarkup(
+      <PersistentWorkflowToolbar
+        model={{
+          ...toolbarModel(),
+          aggregate: {} as PersistentWorkflowAuthoringModel['aggregate'],
+          mode: 'code',
+          ideSourceDirty: true
+        }}
+      />
+    )
+
+    expect(html).toMatch(
+      /<button[^>]*aria-label="保存工作流"(?![^>]*disabled=)[^>]*>/
+    )
+  })
+
   /** 证明 OS 工作流编写聚合返回前，两个编辑模式入口均不可误触。 */
   it('keeps edit mode unavailable until the OS authoring aggregate loads', () => {
     const html = renderToStaticMarkup(
