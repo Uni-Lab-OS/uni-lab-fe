@@ -277,6 +277,12 @@ describe('environment manager layering and responsive layout', () => {
     expect(stylesheet).toMatch(
       /@container unilab-workbench \(max-width: 560px\)[\s\S]*?\.unilab-workbench__controls nav\s*\{[^}]*overflow-x:\s*auto/u
     )
+    expect(stylesheet).toMatch(
+      /@container unilab-workbench \(max-width: 900px\)[\s\S]*?\.unilab-workbench__controls\s*\{[^}]*flex-wrap:\s*wrap/u
+    )
+    expect(stylesheet).toMatch(
+      /@container unilab-workbench \(max-width: 900px\)[\s\S]*?\.unilab-workbench__controls nav\s*\{[^}]*max-width:\s*100%[^}]*overflow-x:\s*auto/u
+    )
   })
 
   /** 证明运行日志抽屉占满可用高度，并在窄屏切换为整屏而非溢出。 */

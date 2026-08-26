@@ -33,6 +33,7 @@ import { workflowTaskStatusLabel } from '../utils/workflowTaskPresentation'
 import { createWorkflowTaskViewRuntime } from '../utils/workflowTaskViewRuntime'
 import { WorkflowButton } from './WorkflowButton'
 import WorkflowPanel from './WorkflowPanel'
+import { WorkflowTaskQueueControls } from './WorkflowTaskQueueControls'
 import { WorkflowTaskListErrorBoundary } from './WorkflowTaskListErrorBoundary'
 import { TaskListState } from './WorkflowTaskListState'
 import styles from './workflow.module.scss'
@@ -385,6 +386,7 @@ function WorkflowTaskListContent({
                 workflowNames
               )}
               active={active}
+              onReconcile={() => loadTasks(true)}
             />
           ) : null}
         </div>
@@ -433,12 +435,14 @@ function TaskWorkflowPane({
   runtime,
   task,
   workflowName,
-  active
+  active,
+  onReconcile
 }: {
   runtime: WorkflowRuntimePort
   task: WorkflowExecutionTask
   workflowName: string
   active: boolean
+  onReconcile: () => Promise<void>
 }): React.JSX.Element {
   // 初次选中的任务保留冻结快照；同一任务后续刷新只更新运行状态。
   const [frozenTask] = useState(task)
@@ -462,7 +466,14 @@ function TaskWorkflowPane({
             </time>
           </p>
         </div>
-        <TaskStatus status={task.status} />
+        <div className="workflow-task-list__workflow-actions">
+          <TaskStatus status={task.status} />
+          <WorkflowTaskQueueControls
+            runtime={runtime}
+            task={task}
+            onReconcile={onReconcile}
+          />
+        </div>
       </header>
       <div className="workflow-task-list__workflow-panel">
         <WorkflowPanel

@@ -11,6 +11,14 @@ export function workbenchWorkspaceScopeKey(
   return `${targetCacheKey}::${workspaceIdentity}`
 }
 
+/** 保留既有 authority 命名，供独立测试夹具和外部调用继续使用。 */
+export function workbenchAuthorityScopeKey(
+  targetCacheKey: string,
+  workspacePath: string | null | undefined
+): string {
+  return workbenchWorkspaceScopeKey(targetCacheKey, workspacePath)
+}
+
 /**
  * 生成当前会话状态域；同一路径重启后也必须重建在途的领域状态。
  */
@@ -26,9 +34,6 @@ export function workbenchSessionScopeKey(
   const sessionGeneration = generation?.trim() || 'generation-pending'
   return `${workspaceScope}::${sessionGeneration}`
 }
-
-/** 保留既有公开名称，供发布页回归夹具复用持久工作区状态域。 */
-export const workbenchAuthorityScopeKey = workbenchWorkspaceScopeKey
 
 /** 在 authority 状态域改变时重建工作台领域子树，清除旧工作流的在途状态。 */
 export function WorkbenchAuthorityScopeBoundary({

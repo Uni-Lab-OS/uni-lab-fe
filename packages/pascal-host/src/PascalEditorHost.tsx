@@ -18,35 +18,6 @@ import {
 
 import { exceedsSelectionDragThreshold } from './selectionGesture'
 
-const PASCAL_INTERACTION_LABELS: Readonly<Record<string, string>> = {
-  Pan: '平移',
-  Rotate: '右键',
-  Zoom: '缩放',
-  Dismiss: '关闭'
-}
-
-/** 将 Pascal 内置的相机操作提示适配为工作台中文文案。 */
-function translatePascalInteractionLabels(root: HTMLElement): void {
-  root.querySelectorAll('span').forEach((label) => {
-    const translated = PASCAL_INTERACTION_LABELS[label.textContent?.trim() ?? '']
-    if (translated) label.textContent = translated
-  })
-
-  root.querySelectorAll<HTMLElement>(
-    'section[aria-label="Camera controls hint"]'
-  ).forEach((hint) => {
-    hint.setAttribute('aria-label', '3D 视角操作提示')
-    hint.parentElement?.classList.add(
-      'unilab-camera-controls-hint-anchor'
-    )
-    const dismiss = hint.querySelector<HTMLButtonElement>(
-      'button[aria-label="Dismiss camera controls hint"]'
-    )
-    dismiss?.setAttribute('aria-label', '关闭操作提示')
-    dismiss?.setAttribute('title', '关闭')
-  })
-}
-
 export interface PascalEditorHostProps {
   scene: SceneGraph
   projectId?: string
@@ -116,22 +87,6 @@ export function PascalEditorHost({
   onSelectionChangeRef.current = onSelectionChange
   suppressSelectionAfterPointerDragRef.current =
     suppressSelectionAfterPointerDrag
-
-  useEffect(() => {
-    const root = hostRef.current
-    if (!root) return
-
-    translatePascalInteractionLabels(root)
-    const observer = new MutationObserver(() => {
-      translatePascalInteractionLabels(root)
-    })
-    observer.observe(root, {
-      childList: true,
-      characterData: true,
-      subtree: true
-    })
-    return () => observer.disconnect()
-  }, [isPrepared])
 
   const restoreViewerSelection = useCallback((
     selectedIds: readonly string[]

@@ -45,4 +45,13 @@ describe('Workbench authority scope', () => {
       'generation-a'
     ))
   })
+
+  it('keeps the existing authority key compatible with workspace scope', () => {
+    const target = 'local:http://127.0.0.1:18103'
+    const workspace = 'C:\\Users\\tester\\workspace-a'
+
+    expect(workbenchAuthorityScopeKey(target, workspace)).toBe(
+      workbenchWorkspaceScopeKey(target, workspace)
+    )
+  })
 })
