@@ -218,7 +218,6 @@ function localGoCapabilities(): ServerCapabilities {
   capabilities.workflow.readDefinitions = true
   capabilities.workflow.editDefinitions = true
   capabilities.workflow.runTasks = true
-  capabilities.workflow.subscribeEvents = true
   capabilities.reagentInfo.read = true
   capabilities.reagentInfo.create = true
   capabilities.reagentInfo.update = true

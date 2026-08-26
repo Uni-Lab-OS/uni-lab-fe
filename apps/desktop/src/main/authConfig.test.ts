@@ -4,11 +4,30 @@ import {
   cloudApiRootUrl,
   cloudApiRootUrlForEnvironment,
   cloudServiceBaseUrl,
-  cloudServiceBaseUrlForEnvironment
+  cloudServiceBaseUrlForEnvironment,
+  desktopAuthDefaults
 } from './authConfig'
 
 /** 覆盖 Cloud HTTP service 与 OS CLI 对同一配置地址的不同投影。 */
 describe('Cloud API 地址投影', () => {
+  it('按桌面发布通道冻结测试与生产登录环境', () => {
+    expect(desktopAuthDefaults('test')).toEqual({
+      OAUTH_URL: 'https://platform.test.bohrium.com',
+      SITE_URL: 'https://leap-lab.test.bohrium.com/leap-lab',
+      API_URL: 'https://leap-lab.test.bohrium.com/api/v1'
+    })
+    expect(desktopAuthDefaults('update-test')).toEqual({
+      OAUTH_URL: 'https://platform.test.bohrium.com',
+      SITE_URL: 'https://leap-lab.test.bohrium.com/leap-lab',
+      API_URL: 'https://leap-lab.test.bohrium.com/api/v1'
+    })
+    expect(desktopAuthDefaults('production')).toEqual({
+      OAUTH_URL: 'https://platform.bohrium.com',
+      SITE_URL: 'https://leap-lab.bohrium.com/leap-lab',
+      API_URL: 'https://leap-lab.bohrium.com/api/v1'
+    })
+  })
+
   /** 验证已带 `/api/v1` 的配置不会在 services 请求中重复路径。 */
   it('区分 service base 与 CLI API root', () => {
     expect(cloudServiceBaseUrl('https://cloud.example/api/v1'))

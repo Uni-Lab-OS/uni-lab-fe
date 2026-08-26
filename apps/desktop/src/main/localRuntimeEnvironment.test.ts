@@ -73,19 +73,22 @@ describe('discoverDefaultCondaEnvironment', () => {
     })).resolves.toBe(expected)
   })
 
-  it('discovers a Windows Conda environment from Scripts on PATH', async () => {
-    const fixture = await createFixture()
-    const expected = await createEnvironment(
-      join(fixture, 'miniforge3', 'envs', 'unilab'),
-      'win32'
-    )
+  it.runIf(process.platform === 'win32')(
+    'discovers a Windows Conda environment from Scripts on PATH',
+    async () => {
+      const fixture = await createFixture()
+      const expected = await createEnvironment(
+        join(fixture, 'miniforge3', 'envs', 'unilab'),
+        'win32'
+      )
 
-    await expect(discoverDefaultCondaEnvironment({
-      environment: { PATH: join(expected, 'Scripts') },
-      homeDirectory: fixture,
-      platform: 'win32'
-    })).resolves.toBe(expected)
-  })
+      await expect(discoverDefaultCondaEnvironment({
+        environment: { PATH: join(expected, 'Scripts') },
+        homeDirectory: fixture,
+        platform: 'win32'
+      })).resolves.toBe(expected)
+    }
+  )
 
   it('returns null when no compatible environment exists', async () => {
     const fixture = await createFixture()

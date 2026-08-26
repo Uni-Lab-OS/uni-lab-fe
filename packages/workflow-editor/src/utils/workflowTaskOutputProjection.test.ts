@@ -1,17 +1,18 @@
 import type {
+  WorkflowExecutionTask,
   WorkflowNodeJob,
-  WorkflowNodeJobFeedback,
-  WorkflowTask
+  WorkflowNodeJobFeedback
 } from '@unilab/services'
 import { describe, expect, it } from 'vitest'
 
 import { projectWorkflowTaskOutput } from './workflowTaskOutputProjection'
 
-const task: WorkflowTask = {
+const task: WorkflowExecutionTask = {
   uuid: 'task-1',
   create_time: '2026-08-03T06:00:00Z',
   update_time: '2026-08-03T06:00:04Z',
   meta_data: {},
+  execution_kind: 'workflow',
   workflow_uuid: 'workflow-1',
   status: 'succeeded',
   workflow_snapshot: {},

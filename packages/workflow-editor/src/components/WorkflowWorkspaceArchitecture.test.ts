@@ -4,10 +4,6 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const componentDirectory = fileURLToPath(new URL('.', import.meta.url))
-const authoringHookPath = fileURLToPath(new URL(
-  '../hooks/usePersistentWorkflowAuthoring.ts',
-  import.meta.url
-))
 
 /** 读取工作流视图源码，验证 OS 与 Backend 是否经过同一个工作区 seam。 */
 function componentSource(name: string): string {
@@ -40,14 +36,32 @@ describe('Workflow workspace authority', () => {
     )).toBe(false)
   })
 
-  /** 候选图可在 revision 不变时变化；代码保存事件必须比较完整身份后补读。 */
-  it('refreshes the canvas when saved code changes candidate nodes', () => {
-    const source = readFileSync(authoringHookPath, 'utf8')
+  /** 任务详情只隐藏编辑/运行工具条，画布筛选与布局控件仍需用于查看冻结快照。 */
+  it('keeps canvas view controls in the task detail workspace', () => {
+    const taskList = componentSource('WorkflowTaskList.tsx')
+    const authoringView = componentSource('PersistentWorkflowAuthoringView.tsx')
+    const dag = componentSource('WorkflowDag.tsx')
 
-    expect(source).toContain('isCurrentAuthoringInvalidation')
-    expect(source).toMatch(
-      /if \(isCurrentAuthoringInvalidation\(event, current\.aggregate\)\) return/u
+    expect(taskList).toContain('hideRuntimeControls')
+    expect(authoringView).toMatch(
+      /!hideRuntimeControls\s*\?\s*\(\s*<PersistentWorkflowToolbar/u
     )
+    expect(authoringView).toMatch(
+      /!hideRuntimeControls\s*&&\s*\(\s*<WorkflowCanvasStageHeader/u
+    )
+    expect(authoringView).toContain('<WorkflowDag')
+    expect(authoringView).not.toMatch(
+      /!hideRuntimeControls[\s\S]{0,120}<WorkflowDag/u
+    )
+    expect(authoringView).toMatch(
+      /onDeleteRequest=\{canvasMutationEnabled\s*\?\s*deleteCanvasElements\s*:\s*undefined\}/u
+    )
+    expect(authoringView).toMatch(
+      /!compactCanvas\s*&&\s*canvasMutationEnabled\s*&&\s*\(\s*<button[\s\S]{0,500}\{nodePaletteOpen \? '隐藏节点库' : '显示节点库'\}/u
+    )
+    expect(dag).toContain('aria-label="物料筛选与布局"')
+    expect(dag).toContain('<WorkflowMaterialVisibilityControl')
+    expect(dag).toContain('<WorkflowSupportingMaterialPresentationControl')
   })
 
   /** 属性面板只展示选中节点的说明，不得用保存或投影错误充当描述。 */

@@ -23,7 +23,8 @@ import {
   SHARED_AGENT_NODE_ENV,
   normalizeAgentArchiveEntry,
   prepareBundledAgentPayload,
-  resolveAgentTarget
+  resolveAgentTarget,
+  validateBundledAgentPayload
 } from './agent-payload.mjs'
 
 /**
@@ -264,7 +265,7 @@ describe('bundled Workbench Agent payload', () => {
   it('keeps bundled npm and npx executable after package symlinks are materialized', async () => {
     const root = await mkdtemp(join(tmpdir(), 'unilab-agent-node-launchers-'))
     const source = join(root, 'AionUi.app', 'Contents', 'Resources')
-    const destination = join(root, 'payload')
+    const destination = join(root, 'agent-runtime')
     const asarSource = join(root, 'asar-source')
     const nativeRoot = join(
       source,
@@ -347,6 +348,14 @@ describe('bundled Workbench Agent payload', () => {
 
       const previousSharedNode = process.env[SHARED_AGENT_NODE_ENV]
       process.env[SHARED_AGENT_NODE_ENV] = process.execPath
+
+      const validated = validateBundledAgentPayload(
+        root,
+        'darwin',
+        'arm64',
+        'prepared'
+      )
+      assert.equal(validated.root, destination)
 
       await assert.rejects(lstat(join(
         destination,

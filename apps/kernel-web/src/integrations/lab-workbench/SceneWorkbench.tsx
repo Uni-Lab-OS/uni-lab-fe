@@ -24,10 +24,12 @@ import { supportsWebGl } from './webGlCapability'
  */
 export function SceneWorkbench({
   showSites = true,
+  showMaterialLabels = true,
   showMaterialTransfers = true,
   viewMode = '3d'
 }: {
   showSites?: boolean
+  showMaterialLabels?: boolean
   showMaterialTransfers?: boolean
   viewMode?: LabViewMode
 }): React.JSX.Element {
@@ -149,6 +151,7 @@ export function SceneWorkbench({
       aggregates={aggregates}
       shapes={shapeLibrary}
       showSites={showSites}
+      showMaterialLabels={showMaterialLabels}
       showMaterialTransfers={showMaterialTransfers}
       materialTransferRoutes={materialTransferRoutes}
       materialTransferProjectionError={null}

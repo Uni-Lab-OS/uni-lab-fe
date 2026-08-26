@@ -288,6 +288,40 @@ describe('Workflow I/O authoring', () => {
       .not.toMatch(/label|data_key|ordinal/)
   })
 
+  it('ignores visual group nodes without a Workflow Node template UUID', () => {
+    const graph = addWorkflowInput(emptyIoGraph(), input('count'))
+    graph.nodes.push({
+      uuid: '40000000-0000-4000-8000-000000000004',
+      type: 'group',
+      name: '只用于画布编组'
+    })
+
+    expect(projectWorkflowIoBindingOptions(graph)).toEqual({
+      inputTargets: [{
+        workflowNodeUuid: targetNodeUuid,
+        targetHandleUuid
+      }],
+      outputSources: [
+        { kind: 'workflow_input', parameter: 'count' },
+        {
+          kind: 'node_output',
+          workflowNodeUuid: sourceNodeUuid,
+          sourceHandleUuid
+        },
+        {
+          kind: 'node_output',
+          workflowNodeUuid: sourceNodeUuid,
+          sourceHandleUuid: resourceSourceHandleUuid
+        },
+        {
+          kind: 'node_output',
+          workflowNodeUuid: otherNodeUuid,
+          sourceHandleUuid: foreignSourceHandleUuid
+        }
+      ]
+    })
+  })
+
   it('preserves the complete closed v1 schema while editing a descriptor', () => {
     const schemas: WorkflowValueSchema[] = [
       {

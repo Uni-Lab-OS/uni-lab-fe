@@ -152,6 +152,17 @@ To exercise the packaged launcher in development without starting a Workspace:
 pnpm --filter @unilab/workbench desktop:welcome
 ```
 
+To keep the welcome-based Workspace launcher while rebuilding Workbench source
+changes, run:
+
+```bash
+pnpm workbench:desktop:welcome:development
+```
+
+The TypeScript and Theia bundle watchers stay active after a Workspace is
+selected. Refresh the Electron window after a successful bundle rebuild.
+Electron main/preload changes still require restarting this command.
+
 An explicit `--workspace` or `THEIA_WORKSPACE` remains the automation-compatible
 direct-launch path and bypasses the welcome surface after successful validation.
 
@@ -205,6 +216,97 @@ The legacy Electron kernel surface does not depend on Theia. Its
 level `@unilab/local-environment` package for Conda/Python discovery and the
 validated PLC-Sim launch contract.
 
+## Desktop automatic updates
+
+Production Workbench applications use `electron-updater` with a build-time
+HTTPS generic provider. The release channel is compiled into Electron main from
+`UNILAB_WORKBENCH_RELEASE_CHANNEL=production|update-test|test`; ordinary test
+packages, development runs and the legacy Kernel Electron surface keep the
+updater disabled. A production or isolated update-test Workbench checks 30
+seconds after startup and every four hours afterwards. Download and restart are
+triggered explicitly from the in-app update status; ordinary app exit does not
+silently install a downloaded version. An omitted channel defaults to `test`,
+so only an explicit update-capable build can enable updates.
+
+While an update is downloading, the progress row exposes explicit pause and
+resume controls. Pausing applies backpressure to the existing updater response
+stream, so the pending file and checksum state remain intact; resuming continues
+that same transfer instead of starting a second download.
+
+On macOS, the application must be copied out of the mounted DMG before an
+update can replace it. A Workbench launched from `/Volumes` rejects the install
+command before process cleanup and tells the user to copy it to `/Applications`.
+
+Every distributable build requires a credential-free update directory:
+
+```bash
+UNILAB_WORKBENCH_RELEASE_CHANNEL=production \
+UNILAB_WORKBENCH_UPDATE_URL=https://updates.example.com/workbench/stable \
+pnpm --filter @unilab/workbench package:win
+```
+
+The same URL can serve all platforms. Publish the immutable Windows NSIS EXE
+and blockmap before atomically replacing `latest.yml`; publish the signed macOS
+ZIP and ZIP blockmap before `latest-mac.yml`; publish the AppImage and blockmap
+before `latest-linux.yml`. The HTTP service must support HTTPS, `GET`, `HEAD`,
+byte-range requests, stable public artifact URLs, and must not cache the
+`latest*.yml` metadata for long.
+
+Every push to `main` runs both platform workflows in the `production` channel.
+Windows uses the pre-created `workbench-windows-stable` rolling GitHub Release;
+macOS uses `workbench-macos-stable`. Each workflow reads its published metadata,
+increments the patch version only in the runner, uploads binaries and blockmaps
+first, replaces metadata last, and removes superseded updater assets only after
+verification. These rolling channels never replace the repository's Latest
+Release. Their `GITHUB_TOKEN` only updates existing releases; bootstrapping or
+recreating a release requires an authorized maintainer token.
+
+Windows production and test workflows currently generate a new ephemeral
+self-signed Authenticode certificate for each full CI build. The workflow verifies
+the installer against that exact certificate thumbprint, but Windows clients do
+not trust the identity and may show SmartScreen warnings. This is an interim
+bridge only; replace it with a stable trusted certificate before general release.
+
+`deploy-windows-test` builds only the Windows `test` package and
+`deploy-mac-test` builds only the signed and notarized macOS `test` package.
+Their filenames and Actions Artifact names include `Test`/`test`. They use the
+source package version, never read or increment production Release metadata,
+never upload to a rolling Release, and carry a compile-time-disabled updater.
+The macOS test build generates only a DMG. Both macOS branches expose only the
+DMG through Actions Artifacts; `main` still keeps its signed ZIP, blockmap, and
+`latest-mac.yml` exclusively in `workbench-macos-stable` because those internal
+assets are required by macOS automatic updates.
+The same compiled channel selects `platform.test.bohrium.com` and
+`leap-lab.test.bohrium.com` for test packages, while production packages select
+`platform.bohrium.com` and `leap-lab.bohrium.com`.
+Merging either test branch into `main` changes the same commit to the production
+channel because the channel is derived from the protected target branch.
+
+### Desktop packaging CI modes
+
+The Windows workflow exposes three explicit modes. `quick` builds the
+production Workbench once and validates the unpacked application without
+spending time on NSIS. `full` produces and verifies the complete rolling update
+bundle. `benchmark` prepares one unpacked Windows application, then reuses that
+identical input to compare the baseline NSIS profile with the `.exe`
+pre-compressed-resource profile. The benchmark uploads only JSON measurements;
+both installers and blockmaps are still generated and verified on the runner.
+
+The macOS workflow exposes `quick` and `full`. Pushes to `main` and
+`deploy-mac-test` use signed `full` to generate, notarize and verify both DMG and
+ZIP media. Only `main` publishes the ZIP update set; the test branch retains the
+bundle solely as a short-lived Actions Artifact. A manual quick run remains an
+unsigned validation path.
+
+Both platform workflows first restore the pinned Runtime from the immutable
+`workbench-runtime-<version>-<source>` GitHub Release. If that release does not
+exist, they safely fall back to the content-addressed Actions cache and then to
+the pinned Uni-Lab OS source build. An authorized maintainer creates or verifies
+the immutable Runtime assets through the manually dispatched `Publish Versioned
+Workbench Runtime` workflow. Each large asset has an adjacent SHA-256 manifest,
+and packaging rejects a missing asset or digest mismatch instead of silently
+using it.
+
 ## macOS distribution
 
 The formal macOS arm64 application packages the shared Electron shell, Theia
@@ -216,9 +318,13 @@ selections.
 
 ```bash
 # Local artifact and cold-start acceptance; intentionally unsigned.
+UNILAB_WORKBENCH_RELEASE_CHANNEL=test \
+UNILAB_WORKBENCH_UPDATE_URL=https://updates.example.com/workbench/stable \
 pnpm --filter @unilab/workbench package:mac:unsigned
 
 # Local T14 release-candidate acceptance; ad-hoc signed and not notarized.
+UNILAB_WORKBENCH_RELEASE_CHANNEL=test \
+UNILAB_WORKBENCH_UPDATE_URL=https://updates.example.com/workbench/stable \
 pnpm --filter @unilab/workbench package:mac:adhoc
 
 # Formal Developer ID release; fails closed unless every credential is present.
@@ -227,14 +333,20 @@ CSC_KEY_PASSWORD=... \
 APPLE_ID=... \
 APPLE_APP_SPECIFIC_PASSWORD=... \
 APPLE_TEAM_ID=... \
+UNILAB_WORKBENCH_RELEASE_CHANNEL=production \
+UNILAB_WORKBENCH_UPDATE_URL=https://updates.example.com/workbench/stable \
 pnpm --filter @unilab/workbench package:mac
 ```
 
 The build verifies the pinned Node archive SHA-256, packaged native resources,
-and an executable backend HTTP smoke test before publishing the DMG. The formal
-path additionally requires `codesign --verify`, Gatekeeper assessment and
-stapled notarization for both the app and DMG. It never silently publishes an
-unsigned artifact. The distinctly named `rc-adhoc` artifact verifies the signed
+and an executable backend HTTP smoke test before publishing the DMG, ZIP and
+update metadata. The formal path Developer ID signs and notarizes the app,
+submits the containing DMG for a separate notarization ticket, and requires
+`codesign --verify`, Gatekeeper assessment plus stapler validation for both
+media. The DMG container is notarized but intentionally not separately
+code-signed because electron-builder warns that DMG signing is unnecessary and
+can conflict with notarization. It never silently publishes an unsigned app.
+The distinctly named `rc-adhoc` artifact verifies the signed
 application bundle and installer shape for local T14 acceptance only; it does
 not claim Developer ID trust or replace the formal release.
 

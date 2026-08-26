@@ -74,6 +74,21 @@ describe('WorkflowPanel Runtime entry', () => {
     expect(markup).not.toContain('workflow-runtime__authoring')
   })
 
+  /** 固定工作流入口必须把调用方提供的名称传给对应画布。 */
+  it('labels a fixed workflow canvas with its explicit workflow name', () => {
+    const markup = renderToStaticMarkup(
+      <WorkflowPanel
+        runtime={{} as WorkflowRuntimePort}
+        workflowUuid="10000000-0000-4000-8000-000000000001"
+        workflowName="任务冻结流程"
+        authoringStatus={{ available: false, reason: '任务快照只读' }}
+        runStatus={{ available: true }}
+      />
+    )
+
+    expect(markup).toContain('任务冻结流程')
+  })
+
   /** Backend 模式启用直接画布保存，并关闭代码投影入口。 */
   it('opens an editable Backend canvas without code mode', () => {
     const markup = renderToStaticMarkup(
@@ -113,6 +128,27 @@ describe('WorkflowPanel Runtime entry', () => {
     expect(markup).toContain('Backend 定义 · 已同步')
     expect(markup).toContain('aria-label="保存工作流"')
     expect(markup).toContain('OS 尚未启动；请先在环境管理中启动 OS')
+  })
+
+  it('hides the complete toolbar and execution hint in a Task list snapshot', () => {
+    const markup = renderToStaticMarkup(
+      <WorkflowPanel
+        runtime={{} as WorkflowRuntimePort}
+        workflowUuid="10000000-0000-4000-8000-000000000001"
+        workflowName="任务冻结流程"
+        definitionEditingMode="backend"
+        authoringStatus={{ available: false, reason: '任务快照只读' }}
+        runStatus={{ available: true }}
+        executionStatus={{
+          available: false,
+          reason: '当前显示已创建任务；请在工作流工作台启动新任务'
+        }}
+        hideRuntimeControls
+      />
+    )
+
+    expect(markup).not.toContain('persistent-authoring__toolbar')
+    expect(markup).not.toContain('当前显示已创建任务')
   })
 
   it('groups catalog entries by station first and declared purpose second', () => {

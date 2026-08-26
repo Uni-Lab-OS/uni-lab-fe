@@ -54,6 +54,7 @@ describe('WorkbenchSessionGate', () => {
           phase: 'failed',
           message: 'PLC 连接失败，Uni-Lab OS 未就绪',
           configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+          graphDeclaration: null,
           configuredExternalDevicesOnly: true,
           configuredRuntimeMode: 'normal',
           configuredDomainMode: 'local',
@@ -147,6 +148,7 @@ describe('WorkbenchSessionGate', () => {
           phase: 'starting',
           message: '正在校验工作区并启动 Uni-Lab OS…',
           configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+          graphDeclaration: null,
           configuredExternalDevicesOnly: true,
           configuredRuntimeMode: 'normal',
           configuredDomainMode: 'local',
@@ -155,6 +157,7 @@ describe('WorkbenchSessionGate', () => {
           agent: null,
           identity: null,
           diagnostic: null,
+          workflowLoadingProgress: { loaded: 7, total: 19 },
           edgeRuntime: {
             phase: 'idle',
             message: 'Edge Runtime 尚未启动',
@@ -187,6 +190,12 @@ describe('WorkbenchSessionGate', () => {
 
     expect(markup).toContain('unilab-workbench-session-loading')
     expect(markup).toContain('正在启动 Unilab 调试工作台')
+    expect(markup).toContain('role="progressbar"')
+    expect(markup).toContain('aria-valuenow="7"')
+    expect(markup).toContain('aria-valuemax="19"')
+    expect(markup).toContain('已加载 7 / 19 个工作流')
+    expect(markup).toContain('width:37%')
+    expect(markup).not.toContain('is-indeterminate')
     expect(markup).toContain('取消启动')
   })
 
@@ -197,6 +206,7 @@ describe('WorkbenchSessionGate', () => {
           phase: 'starting',
           message: '正在启动 Workspace Backend...',
           configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+          graphDeclaration: null,
           configuredExternalDevicesOnly: true,
           configuredRuntimeMode: 'normal',
           configuredDomainMode: 'backend',
@@ -238,6 +248,7 @@ describe('WorkbenchSessionGate', () => {
 
     expect(markup).toContain('正在启动 Workspace')
     expect(markup).toContain('正在初始化工作区并连接 Backend…')
+    expect(markup).not.toContain('工作流加载进度')
     expect(markup).toContain('取消启动')
   })
 
@@ -248,6 +259,7 @@ describe('WorkbenchSessionGate', () => {
           phase: 'starting',
           message: '正在启动 Workspace Backend...',
           configuredGraphPath: 'deployment/graphs/szlab-local-debug.json',
+          graphDeclaration: null,
           configuredExternalDevicesOnly: true,
           configuredRuntimeMode: 'normal',
           configuredDomainMode: 'backend',
@@ -289,6 +301,10 @@ describe('WorkbenchSessionGate', () => {
 
     expect(markup).toContain('正在启动 Unilab 调试工作台')
     expect(markup).toContain('正在启动 Workspace Backend...')
+    expect(markup).toContain('role="progressbar"')
+    expect(markup).toContain('is-indeterminate')
+    expect(markup).toContain('正在初始化后端并发现工作流…')
+    expect(markup).not.toContain('aria-valuenow')
     expect(markup).not.toContain('正在启动 Backend 模式')
   })
 })

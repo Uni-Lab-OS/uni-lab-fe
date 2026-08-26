@@ -53,7 +53,8 @@ import type {
  */
 export interface WorkflowRuntimePort {
   getWorkflowActionCatalog: (
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    options?: { refresh?: boolean }
   ) => Promise<WorkflowActionCatalogSnapshot>
   getWorkflowMaterialSourceCatalog: () =>
     Promise<WorkflowMaterialSourceCatalogSnapshot>

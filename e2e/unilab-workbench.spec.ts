@@ -345,6 +345,144 @@ test.describe('UniLab Workbench real-system contract', () => {
     await expect(separator).toHaveAttribute('aria-valuenow', '60')
   })
 
+  test('reclaims the Agent width after closing it beside workflow source', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 820 })
+    await page.goto(workbenchUrl!)
+    await expect(page.locator('[data-package-mount-count="1"]')).toBeVisible()
+
+    await page.getByRole('button', { name: /打开工作流/u }).first().click()
+    await expect(page.getByRole('button', {
+      name: '代码模式',
+      exact: true,
+      pressed: true
+    })).toBeVisible()
+    await expect(page.getByRole('region', { name: '工作流代码视图' }))
+      .toBeVisible()
+
+    await page.keyboard.press('Control+P')
+    const quickInput = page.locator('.quick-input-widget input').first()
+    await expect(quickInput).toBeVisible()
+    await quickInput.fill('szlab_poly_studio/workflows/s06_robot.py')
+    await page.getByRole('option', { name: /s06_robot\.py/u }).click()
+    await expect(page.locator('.monaco-editor .view-line').first()).toBeVisible()
+
+    const agentNavigation = page.locator(
+      '[id="shell-tab-unilab:agent-navigation"]'
+    )
+    const agentPanel = page.locator('[id="unilab:agent"]')
+    await agentNavigation.click()
+    await expect(agentPanel).toBeVisible()
+    await expect(page.locator('body')).toHaveClass(/unilab-agent-panel-visible/u)
+
+    await agentNavigation.click()
+    await expect(agentPanel).toBeHidden()
+    await expect(page.locator('body')).not.toHaveClass(
+      /unilab-agent-panel-visible/u
+    )
+
+    await expect.poll(async () => page.evaluate(() => {
+      const shell = document.getElementById('theia-left-right-split-panel')
+      const bottom = document.getElementById('theia-bottom-split-panel')
+      const main = document.getElementById('theia-main-content-panel')
+      const right = document.getElementById('theia-right-content-panel')
+      const editor = document.querySelector<HTMLElement>(
+        '.monaco-editor:has(.view-line)'
+      )
+      const editorWidget = editor?.closest<HTMLElement>(
+        '.theia-editor.lm-DockPanel-widget'
+      )
+      if (!shell || !bottom || !main || !right || !editor || !editorWidget) {
+        return null
+      }
+      const shellRect = shell.getBoundingClientRect()
+      const bottomRect = bottom.getBoundingClientRect()
+      const mainRect = main.getBoundingClientRect()
+      const editorRect = editor.getBoundingClientRect()
+      const visibleDockWidgets = main.querySelectorAll(
+        ':scope > .lm-DockPanel-widget:not(.lm-mod-hidden)'
+      )
+      return {
+        bottomRightGap: Math.round(shellRect.right - bottomRect.right),
+        mainRightGap: Math.round(shellRect.right - mainRect.right),
+        editorWidgetRightGap: Math.round(
+          mainRect.right - editorWidget.getBoundingClientRect().right
+        ),
+        editorRightGap: Math.round(mainRect.right - editorRect.right),
+        visibleDockWidgetCount: visibleDockWidgets.length,
+        singleEditorRuleMatches: editorWidget.matches(
+          'body:not(.unilab-agent-panel-visible) ' +
+          '#theia-main-content-panel:not(:has(' +
+          '> .lm-DockPanel-widget:not(.lm-mod-hidden) ' +
+          '~ .lm-DockPanel-widget:not(.lm-mod-hidden))) ' +
+          '> .theia-editor.lm-DockPanel-widget:not(.lm-mod-hidden)'
+        ),
+        rightPanelDisplay: getComputedStyle(right).display
+      }
+    })).toEqual({
+      bottomRightGap: 0,
+      mainRightGap: 0,
+      editorWidgetRightGap: 0,
+      editorRightGap: 0,
+      visibleDockWidgetCount: 1,
+      singleEditorRuleMatches: true,
+      rightPanelDisplay: 'none'
+    })
+  })
+
+  test('pauses workflow and device runtime reads on hidden Desktop surfaces', async ({
+    page
+  }) => {
+    test.setTimeout(90_000)
+    const apiRequests: string[] = []
+    const pageErrors: string[] = []
+    page.on('request', request => {
+      const path = desktopApiPath(request.url())
+      if (path) apiRequests.push(path)
+    })
+    page.on('pageerror', error => pageErrors.push(error.message))
+
+    await page.goto(workbenchUrl!)
+    await expect(page.locator('[data-package-mount-count="1"]')).toBeVisible()
+    await page.locator('.workflow-runtime__catalog-card-main').first().click()
+    await expect(page.locator('.persistent-authoring__canvas')).toBeVisible()
+    await page.waitForTimeout(5_000)
+
+    apiRequests.length = 0
+    await page.waitForTimeout(12_000)
+    expect(apiRequests.filter(isWorkflowRuntimePath)).toEqual([])
+
+    await page.locator(
+      '[id="shell-tab-unilab:device-management-navigation"]'
+    ).click()
+    await expect(page.locator('main[data-workbench-view]')).toHaveAttribute(
+      'data-workbench-view',
+      'device'
+    )
+    await page.waitForTimeout(1_000)
+    expect(apiRequests.filter(isActionCatalogPath)).toEqual([])
+
+    apiRequests.length = 0
+    await page.waitForTimeout(12_000)
+    expect(apiRequests.filter(isWorkflowRuntimePath)).toEqual([])
+
+    await page.locator(
+      '[id="shell-tab-unilab:workbench-navigator"]'
+    ).click()
+    await expect(page.locator('main[data-workbench-view]')).toHaveAttribute(
+      'data-workbench-view',
+      'workflow'
+    )
+    await page.waitForTimeout(1_000)
+
+    apiRequests.length = 0
+    await page.waitForTimeout(12_000)
+    expect(apiRequests.filter(isDeviceHeavyPath)).toEqual([])
+    expect(apiRequests.filter(isWorkflowRuntimePath)).toEqual([])
+    expect(pageErrors).toEqual([])
+  })
+
   test('keeps material overlays behind the Agent panel', async ({ page }) => {
     await page.setViewportSize({ width: 1630, height: 1090 })
     await page.goto(workbenchUrl!)
@@ -389,59 +527,6 @@ test.describe('UniLab Workbench real-system contract', () => {
     })
 
     expect(layering.topElementOwnedByAgent).toBe(true)
-  })
-
-  test('expands the workflow source editor after closing Agent', async ({
-    page
-  }) => {
-    await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto(workbenchUrl!)
-    await page.locator(
-      'button.workflow-runtime__catalog-card-main'
-    ).first().click()
-
-    const codeMode = page.getByRole('button', {
-      name: '代码模式',
-      exact: true
-    })
-    await expect(codeMode).toBeVisible({ timeout: 30_000 })
-    if (await codeMode.getAttribute('aria-pressed') !== 'true') {
-      await codeMode.click()
-    }
-    const workflowNode = page.locator('.react-flow__node').first()
-    if (await workflowNode.isVisible()) await workflowNode.click()
-
-    const editor = page.locator(
-      '.monaco-editor:visible, .cm-editor:visible'
-    ).first()
-    const agentNavigation = page.locator(
-      '[id="shell-tab-unilab:agent-navigation"]'
-    )
-    await expect(editor).toBeVisible()
-    await agentNavigation.click()
-    await expect(page.locator('body')).toHaveClass(
-      /unilab-agent-panel-visible/
-    )
-    await agentNavigation.click()
-    await expect(page.locator('body')).not.toHaveClass(
-      /unilab-agent-panel-visible/
-    )
-
-    await expect.poll(async () => page.evaluate(() => {
-      const outer = document.getElementById('theia-left-right-split-panel')
-        ?.getBoundingClientRect()
-      const layoutTarget = Array.from(document.querySelectorAll(
-        '.monaco-editor'
-      )).find((element) => {
-        const bounds = element.getBoundingClientRect()
-        return bounds.width > 0 && bounds.height > 0
-      })?.getBoundingClientRect() ?? document.getElementById(
-        'theia-bottom-split-panel'
-      )?.getBoundingClientRect()
-      return outer && layoutTarget
-        ? Math.abs(Math.round(outer.right - layoutTarget.right))
-        : 10_000
-    })).toBeLessThanOrEqual(2)
   })
 
   test('keeps the material workspace visible after cancelling workflow with Agent open', async ({
@@ -665,3 +750,24 @@ test.describe('UniLab Workbench real-system contract', () => {
     )).toHaveCount(1)
   })
 })
+
+function desktopApiPath(requestUrl: string): string | null {
+  const url = new URL(requestUrl)
+  const path = url.pathname.replace(/^\/__unilab_(?:local|backend)/u, '')
+  return path.startsWith('/api/v1/') ? `${path}${url.search}` : null
+}
+
+function isWorkflowRuntimePath(path: string): boolean {
+  return path.includes('/workflow-tasks') ||
+    path.includes('/workflow-node-jobs')
+}
+
+function isActionCatalogPath(path: string): boolean {
+  return path.startsWith('/api/v1/workflow-node-templates')
+}
+
+function isDeviceHeavyPath(path: string): boolean {
+  return path === '/api/v1/devices' ||
+    path === '/api/v1/actions' ||
+    isActionCatalogPath(path)
+}

@@ -11,6 +11,30 @@ const builderConfig = readFileSync(
 const packageConfig = JSON.parse(
   readFileSync(join(desktopDirectory, 'package.json'), 'utf8')
 )
+const deviceCardHostConfig = JSON.parse(
+  readFileSync(
+    join(
+      desktopDirectory,
+      '..',
+      '..',
+      'packages',
+      'device-card-host',
+      'package.json'
+    ),
+    'utf8'
+  )
+)
+const deviceCardHostBuild = readFileSync(
+  join(
+    desktopDirectory,
+    '..',
+    '..',
+    'packages',
+    'device-card-host',
+    'build.mjs'
+  ),
+  'utf8'
+)
 const viteConfig = readFileSync(
   join(desktopDirectory, 'electron.vite.config.ts'),
   'utf8'
@@ -21,8 +45,17 @@ const installerInclude = readFileSync(
 )
 
 assert.deepEqual(packageConfig.dependencies ?? {}, {
-  '@unilab/device-card-host': 'workspace:*'
+  '@unilab/device-card-host': 'workspace:*',
+  'electron-updater': '6.8.9'
 })
+assert.deepEqual(deviceCardHostConfig.dependencies ?? {}, {
+  esbuild: '0.21.5'
+})
+assert.deepEqual(deviceCardHostConfig.files, ['dist'])
+assert.match(
+  deviceCardHostConfig.scripts.build,
+  /node build\.mjs/u
+)
 assert.equal(
   packageConfig.devDependencies?.['@arizeai/phoenix-otel'],
   '2.1.0'
@@ -56,9 +89,13 @@ for (const bundledDependency of [
 ]) {
   assert.match(viteConfig, new RegExp(bundledDependency, 'u'))
 }
-assert.match(
+assert.doesNotMatch(
   viteConfig,
-  /external:\s*\[\s*['"]@vue\/compiler-sfc['"]\s*\]/u
+  /['"]@vue\/compiler-sfc['"]/u
+)
+assert.match(
+  deviceCardHostBuild,
+  /alias:\s*\{[^}]*['"]@vue\/compiler-sfc['"]:\s*['"]@vue\/compiler-sfc\/dist\/compiler-sfc\.esm-browser\.js['"]/su
 )
 assert.equal(
   packageConfig.scripts?.['package:win'],

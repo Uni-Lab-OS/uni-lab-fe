@@ -1,6 +1,6 @@
 {
   "name": "@unilab/workbench",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "author": "UniLab",
   "description": "UniLab 调试工作台（UniLab Workbench）desktop and browser application",
@@ -84,6 +84,7 @@
     "build:desktop-launcher": "node scripts/build-desktop-launcher.mjs",
     "desktop": "pnpm build:desktop && node scripts/dev-desktop.mjs --production-build",
     "desktop:development": "pnpm build:desktop:development && node scripts/dev-desktop.mjs",
+    "desktop:welcome:development": "pnpm build:desktop:development && node scripts/dev-desktop.mjs --welcome",
     "desktop:once": "pnpm build:desktop && pnpm start:desktop",
     "desktop:welcome": "pnpm build:desktop && pnpm start:desktop-welcome",
     "start": "node scripts/start-workbench.mjs",

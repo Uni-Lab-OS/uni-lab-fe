@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { BackendWorkflowGraph } from './backendWorkflowGraph'
+import { UnsupportedCapabilityError } from './errors'
 import { createWorkflowDefinitionPort } from './workflowDefinitionPort'
 import type { WorkflowRuntimePort } from './workflowPort'
 
@@ -38,44 +39,6 @@ describe('WorkflowDefinitionPort', () => {
     })
     await expect(port.saveGraph(authoring.applied_graph)).rejects
       .toThrow('Python 完整差异')
-  })
-
-  it('preserves Workspace draft and candidate identity in invalidations', () => {
-    let listener: Parameters<
-      WorkflowRuntimePort['subscribeWorkflowAuthoring']
-    >[1]
-    const runtime = {
-      subscribeWorkflowAuthoring: vi.fn((_workflowUuid, next) => {
-        listener = next
-        return { dispose: vi.fn() }
-      })
-    } as unknown as WorkflowRuntimePort
-    const port = createWorkflowDefinitionPort(
-      runtime,
-      'workspace',
-      WORKFLOW_UUID
-    )
-    const invalidate = vi.fn()
-
-    port.subscribe(invalidate)
-    listener!({
-      id: 'authoring-1',
-      event: 'workflow.authoring.changed',
-      data: {
-        workflow_uuid: WORKFLOW_UUID,
-        cause: 'draft_saved',
-        workflow_revision: 4,
-        draft_hash: 'draft-2',
-        candidate_hash: 'candidate-2'
-      }
-    })
-
-    expect(invalidate).toHaveBeenCalledWith({
-      workflowUuid: WORKFLOW_UUID,
-      revision: 4,
-      draftHash: 'draft-2',
-      candidateHash: 'candidate-2'
-    })
   })
 
   it('normalizes Backend graph reads and preserves direct graph CAS writes', async () => {
@@ -155,10 +118,28 @@ describe('WorkflowDefinitionPort', () => {
     })
 
     expect(invalidate).toHaveBeenCalledTimes(1)
-    expect(invalidate).toHaveBeenCalledWith({
-      workflowUuid: WORKFLOW_UUID,
-      revision: 12
-    })
+    expect(invalidate).toHaveBeenCalledWith({ revision: 12 })
+  })
+
+  it('keeps Backend authoring usable when Runtime SSE is unavailable', () => {
+    const runtime = {
+      subscribeWorkflowRuntime: vi.fn(() => {
+        throw new UnsupportedCapabilityError(
+          'workflow.subscribeEvents',
+          'Backend Runtime SSE 尚未完整对齐'
+        )
+      })
+    } as unknown as WorkflowRuntimePort
+    const port = createWorkflowDefinitionPort(
+      runtime,
+      'backend',
+      WORKFLOW_UUID
+    )
+
+    const subscription = port.subscribe(vi.fn())
+
+    expect(subscription).toEqual({ dispose: expect.any(Function) })
+    expect(() => subscription.dispose()).not.toThrow()
   })
 })
 

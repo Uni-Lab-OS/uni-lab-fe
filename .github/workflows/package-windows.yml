@@ -1,12 +1,34 @@
 name: Package Windows Workbench
 
 on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: quick validates unpacked output; full builds one installer; benchmark compares identical prepackaged input
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - quick
+          - benchmark
+      compression:
+        description: electron-builder compression used by full mode
+        required: true
+        default: normal
+        type: choice
+        options:
+          - normal
+          - maximum
   push:
     branches:
-      - deploy-windows
+      - deploy-windows-test
+      - deploy-hot-update-test
 
 permissions:
-  contents: read
+  # main publishes production; deploy-hot-update-test publishes only to its
+  # isolated rolling release. Ordinary test packages never publish metadata.
+  contents: write
 
 concurrency:
   group: package-windows-${{ github.ref }}
@@ -15,14 +37,20 @@ concurrency:
 env:
   AIONUI_VERSION: 2.1.53
   AIONUI_WINDOWS_SHA512: e8f503c5d39272ed7a16b192ee8d507bb835615c00f221fe33c083104b4f064dc15acf2fb42b1b17ab7cdee0de27d6f4e19a01eb2674bbb2177ffba015196bf9
-  CONDA_STANDALONE_VERSION: 26.3.2.post1
-  CONSTRUCTOR_VERSION: 3.16.1
-  MINIFORGE_VERSION: 26.3.2-3
-  UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf
+  ELECTRON_BUILDER_VERSION: 25.1.8
+  ELECTRON_VERSION: 33.4.11
+  PORTABLE_NODE_VERSION: 24.14.0
+  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-6fcb80a-f7e78e7-b09c0c0
   UNILAB_RUNTIME_VERSION: 0.11.3
+  WINDOWS_RELEASE_TAG: ${{ github.ref == 'refs/heads/deploy-hot-update-test' && 'workbench-windows-hot-update-test' || 'workbench-windows-stable' }}
+  UNILAB_WORKBENCH_UPDATE_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/deploy-hot-update-test' && 'workbench-windows-hot-update-test' || 'workbench-windows-stable' }}
 
 jobs:
   package-windows-x64:
+    env:
+      UNILAB_CI_PACKAGE_MODE: ${{ github.event_name == 'push' && 'full' || inputs.mode }}
+      UNILAB_WORKBENCH_COMPRESSION: ${{ github.event_name == 'workflow_dispatch' && inputs.compression || 'normal' }}
+      UNILAB_WORKBENCH_RELEASE_CHANNEL: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/deploy-hot-update-test' && 'update-test' || 'test' }}
     # Node-gyp 11 does not yet recognize the Visual Studio 18 toolchain that
     # may be selected by windows-latest. Keep the native drivelist build on the
     # VS 2022 image until the dependency toolchain is upgraded.
@@ -33,27 +61,81 @@ jobs:
         shell: pwsh
 
     steps:
+      - name: Set China Standard Time build timezone
+        run: |
+          tzutil.exe /s "China Standard Time"
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to set the Windows build timezone' }
+          $currentTimeZone = (tzutil.exe /g).Trim()
+          if ($currentTimeZone -ne 'China Standard Time') {
+            throw "Unexpected Windows build timezone: $currentTimeZone"
+          }
+          # PowerShell caches TimeZoneInfo.Local before tzutil changes the host.
+          # Convert UTC explicitly so the release never labels a UTC value as UTC+8.
+          $chinaTimeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById('China Standard Time')
+          $buildStartedAt = [System.TimeZoneInfo]::ConvertTimeFromUtc(
+            [DateTime]::UtcNow,
+            $chinaTimeZone
+          ).ToString('yyyy-MM-dd HH:mm:ss') + ' +08:00'
+          "BUILD_STARTED_AT_CST=$buildStartedAt" >> $env:GITHUB_ENV
+          Write-Host "Windows build time (UTC+08:00): $buildStartedAt"
+
       - name: Check out Workbench
         uses: actions/checkout@v6
 
-      - name: Restore Windows Runtime
-        id: runtime-cache
-        uses: actions/cache/restore@v6
-        with:
-          # Constructor may leave intermediate output beside the installer.
-          # Cache only the distributable EXE under a content-addressed key.
-          path: .runtime-source/dist/constructor/*.exe
-          key: windows-runtime-installer-v2-${{ runner.arch }}-${{ env.UNILAB_RUNTIME_VERSION }}-${{ env.UNILAB_RUNTIME_SOURCE_REF }}-miniforge-${{ env.MINIFORGE_VERSION }}-constructor-${{ env.CONSTRUCTOR_VERSION }}-conda-${{ env.CONDA_STANDALONE_VERSION }}
+      - name: Bootstrap isolated Windows hot-update release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/deploy-hot-update-test'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:WINDOWS_RELEASE_TAG" *> $null
+          if ($LASTEXITCODE -eq 0) { return }
+          & gh release create $env:WINDOWS_RELEASE_TAG `
+            --repo $env:GITHUB_REPOSITORY `
+            --target $env:GITHUB_SHA `
+            --title 'Workbench Windows 热更新测试' `
+            --notes 'deploy-hot-update-test 分支的隔离滚动更新源，不用于生产安装。' `
+            --prerelease
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to bootstrap isolated Windows update release' }
 
-      - name: Check out Uni-Lab OS
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@v6
-        with:
-          repository: Uni-Lab-OS/Uni-Lab-OS
-          # v0.11.3 predates the Constructor definition. Pin the later runtime
-          # packaging fix whose source version remains 0.11.3.
-          ref: ${{ env.UNILAB_RUNTIME_SOURCE_REF }}
-          path: .runtime-source
+      # Fail before restoring multi-hundred-megabyte caches when the updater
+      # publishing contract has not been configured for this repository.
+      - name: Validate update publishing configuration
+        if: env.UNILAB_WORKBENCH_RELEASE_CHANNEL != 'test'
+        run: |
+          $rawUpdateUrl = $env:UNILAB_WORKBENCH_UPDATE_URL
+          if ([string]::IsNullOrWhiteSpace($rawUpdateUrl)) {
+            throw 'Missing repository Actions variable UNILAB_WORKBENCH_UPDATE_URL'
+          }
+          [Uri]$updateUri = $null
+          if (-not [Uri]::TryCreate($rawUpdateUrl.Trim(), [UriKind]::Absolute, [ref]$updateUri)) {
+            throw 'UNILAB_WORKBENCH_UPDATE_URL is not an absolute URL'
+          }
+          if (
+            $updateUri.Scheme -ne 'https' -or
+            -not [string]::IsNullOrEmpty($updateUri.UserInfo) -or
+            -not [string]::IsNullOrEmpty($updateUri.Query) -or
+            -not [string]::IsNullOrEmpty($updateUri.Fragment)
+          ) {
+            throw 'UNILAB_WORKBENCH_UPDATE_URL must be a credential-free HTTPS URL without query or fragment'
+          }
+
+      - name: Restore versioned Windows Runtime release
+        id: runtime-release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node apps/workbench/scripts/restore-runtime-release.mjs `
+            --repository $env:GITHUB_REPOSITORY `
+            --tag $env:UNILAB_RUNTIME_RELEASE_TAG `
+            --asset "Uni-Lab-OS-$env:UNILAB_RUNTIME_VERSION-win-64.exe" `
+            --destination ".runtime-source/dist/constructor/Uni-Lab-OS-$env:UNILAB_RUNTIME_VERSION-win-64.exe"
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to restore the versioned Windows Runtime release' }
+
+      - name: Require versioned Windows Runtime release
+        if: steps.runtime-release.outputs.hit != 'true'
+        run: |
+          Write-Error "Required verified Runtime release is missing: $env:UNILAB_RUNTIME_RELEASE_TAG"
+          throw 'Run the Publish Versioned Workbench Runtime workflow before packaging Workbench.'
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
@@ -65,8 +147,24 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 22.21.1
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Resolve pnpm store
+        id: pnpm-store
+        run: |
+          $storePath = pnpm store path --silent
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to resolve the pnpm store path' }
+          "path=$storePath" >> $env:GITHUB_OUTPUT
+
+      # Prefix restore lets a lockfile update reuse all unchanged packages;
+      # the exact new graph is cached only after installation succeeds.
+      - name: Restore pnpm store
+        id: pnpm-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: windows-pnpm-store-v1-${{ runner.arch }}-pnpm-10.13.1-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            windows-pnpm-store-v1-${{ runner.arch }}-pnpm-10.13.1-
 
       - name: Install Workbench dependencies
         run: |
@@ -77,43 +175,12 @@ jobs:
             throw "Windows CA native module was not built: $windowsCaNative"
           }
 
-      - name: Set up Constructor
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
-        uses: conda-incubator/setup-miniconda@v4
-        with:
-          miniforge-version: ${{ env.MINIFORGE_VERSION }}
-          use-mamba: true
-          activate-environment: constructor-build
-          auto-update-conda: false
-          channels: conda-forge
-          channel-priority: strict
-
-      - name: Build Windows Runtime
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
-        working-directory: .runtime-source
-        run: |
-          if (-not (Test-Path .conda/constructor/construct.yaml)) {
-            throw 'The pinned Uni-Lab OS source does not contain its Constructor definition'
-          }
-          mamba install -n constructor-build --override-channels -c conda-forge "constructor=$env:CONSTRUCTOR_VERSION" "conda-standalone=$env:CONDA_STANDALONE_VERSION" -y
-          if ($LASTEXITCODE -ne 0) { throw 'Unable to install Constructor' }
-
-          $condaExe = conda run -n constructor-build python -c "import os; from pathlib import Path; print(Path(os.environ['CONDA_PREFIX'], 'standalone_conda', 'conda.exe'))"
-          if ($LASTEXITCODE -ne 0) { throw 'Unable to resolve standalone conda.exe' }
-          $condaExe = $condaExe.Trim()
-          if (-not (Test-Path $condaExe)) { throw "Standalone conda.exe was not found: $condaExe" }
-
-          conda run -n constructor-build constructor .conda/constructor --platform win-64 --conda-exe $condaExe --output-dir dist/constructor
-          if ($LASTEXITCODE -ne 0) { throw 'Constructor failed to build the Windows Runtime' }
-
-      # Save immediately so a later packaging failure does not force the next
-      # run to rebuild the deterministic Runtime installer again.
-      - name: Save Windows Runtime
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
+      - name: Save pnpm store
+        if: steps.pnpm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
-          path: .runtime-source/dist/constructor/*.exe
-          key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       - name: Cache Electron packaging toolchain
         uses: actions/cache@v6
@@ -121,16 +188,33 @@ jobs:
           path: |
             ~\AppData\Local\electron\Cache
             ~\AppData\Local\electron-builder\Cache
-          key: windows-electron-builder-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          key: windows-electron-builder-v3-${{ runner.arch }}-electron-${{ env.ELECTRON_VERSION }}-builder-${{ env.ELECTRON_BUILDER_VERSION }}
 
-      - name: Prepare Windows Runtime and Agent
+      - name: Cache portable Node download
+        uses: actions/cache@v6
+        with:
+          path: ~\.unilab-workbench\downloads
+          key: windows-portable-node-v1-${{ runner.arch }}-${{ env.PORTABLE_NODE_VERSION }}
+
+      - name: Select Windows Runtime
         run: |
           $runtimes = @(Get-ChildItem .runtime-source/dist/constructor -File -Filter '*.exe')
           if ($runtimes.Count -ne 1) {
             throw "Expected one Uni-Lab Runtime installer, found $($runtimes.Count)"
           }
           $runtime = $runtimes[0]
+          "UNILAB_RUNTIME_INSTALLER=$($runtime.FullName)" >> $env:GITHUB_ENV
 
+      - name: Restore prepared Windows Agent payload
+        id: agent-payload-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .ci-cache/agent-runtime
+          key: aionui-prepared-windows-x64-v1-${{ env.AIONUI_VERSION }}-${{ env.AIONUI_WINDOWS_SHA512 }}-${{ hashFiles('apps/workbench/scripts/agent-payload.mjs') }}
+
+      - name: Download and prepare pinned Windows Agent payload
+        if: steps.agent-payload-cache.outputs.cache-hit != 'true'
+        run: |
           $agentInstaller = Join-Path $env:RUNNER_TEMP 'AionUi-win-x64.exe'
           $agentInstallerUrl = "https://static.aionui.com/releases/$env:AIONUI_VERSION/AionUi-$env:AIONUI_VERSION-win-x64.exe"
           curl.exe --fail --location --retry 5 --retry-all-errors --output $agentInstaller $agentInstallerUrl
@@ -178,13 +262,233 @@ jobs:
             throw "Unable to normalize the Windows Agent core: $normalizedExecutable"
           }
 
-          "UNILAB_RUNTIME_INSTALLER=$($runtime.FullName)" >> $env:GITHUB_ENV
-          "UNILAB_AGENT_DISTRIBUTION=$($agentResources.FullName)" >> $env:GITHUB_ENV
+          $env:AGENT_SOURCE = $agentResources.FullName
+          $env:AGENT_OUTPUT = Join-Path $env:GITHUB_WORKSPACE '.ci-cache\agent-runtime'
+          node --input-type=module -e "import { prepareBundledAgentPayload } from './apps/workbench/scripts/agent-payload.mjs'; prepareBundledAgentPayload(process.env.AGENT_OUTPUT, { sourcePath: process.env.AGENT_SOURCE, platform: 'win32', architecture: 'x64' })"
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to prepare the pinned Windows Agent payload' }
 
-      - name: Build Windows x64 installer
-        run: pnpm --filter @unilab/workbench package:win
+      - name: Save prepared Windows Agent payload
+        if: steps.agent-payload-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .ci-cache/agent-runtime
+          key: ${{ steps.agent-payload-cache.outputs.cache-primary-key }}
+
+      - name: Select prepared Windows Agent payload
+        run: |
+          node --input-type=module -e "import { validateBundledAgentPayload } from './apps/workbench/scripts/agent-payload.mjs'; validateBundledAgentPayload('.ci-cache', 'win32', 'x64', 'prepared')"
+          if ($LASTEXITCODE -ne 0) { throw 'Prepared Windows Agent payload validation failed' }
+          $agentPayload = (Resolve-Path .ci-cache/agent-runtime).Path
+          "UNILAB_AGENT_DISTRIBUTION=$agentPayload" >> $env:GITHUB_ENV
+
+      - name: Cache pinned Theia plugins
+        uses: actions/cache@v6
+        with:
+          path: apps/workbench/plugins
+          key: windows-workbench-plugins-v1-${{ hashFiles('apps/workbench/package.json') }}
+
+      # Read the authoritative rolling-channel version only after restoring
+      # caches whose keys must remain independent from the generated version.
+      # The package.json edit exists only on this runner and is never pushed.
+      - name: Select automatic Windows package version
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL != 'test'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseJson = & gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:WINDOWS_RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Rolling release $env:WINDOWS_RELEASE_TAG is missing; bootstrap it with an authorized maintainer token"
+          }
+          $release = $releaseJson | ConvertFrom-Json
+          $metadataAssets = @($release.assets | Where-Object {
+            [string]$_.name -eq 'latest.yml'
+          })
+          if ($metadataAssets.Count -gt 1) {
+            throw 'Rolling release contains more than one latest.yml asset'
+          }
+
+          $packagePath = 'apps/workbench/package.json'
+          if ($metadataAssets.Count -eq 1) {
+            $publishedMetadataPath = Join-Path $env:RUNNER_TEMP 'published-latest.yml'
+            $publishedMetadataUrl = [string]$metadataAssets[0].browser_download_url
+            curl.exe --fail --location --retry 5 --retry-all-errors `
+              --output $publishedMetadataPath $publishedMetadataUrl
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to download published latest.yml' }
+            node apps/workbench/scripts/prepare-package-version.mjs `
+              $packagePath $publishedMetadataPath
+          } elseif (@($release.assets).Count -eq 0) {
+            # An empty, pre-created release is the supported bootstrap state.
+            node apps/workbench/scripts/prepare-package-version.mjs $packagePath
+          } else {
+            throw 'Rolling release has assets but no latest.yml; refusing an ambiguous version downgrade'
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to select the Windows package version' }
+
+          $packageManifest = Get-Content $packagePath -Raw | ConvertFrom-Json
+          $packageVersion = [string]$packageManifest.version
+          if ($packageVersion -notmatch '^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$') {
+            throw "Generated Windows package version is invalid: $packageVersion"
+          }
+          "UNILAB_WORKBENCH_PACKAGE_VERSION=$packageVersion" >> $env:GITHUB_ENV
+          "### Windows package v$packageVersion" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Select test Windows package version
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'test'
+        run: |
+          $packageManifest = Get-Content apps/workbench/package.json -Raw | ConvertFrom-Json
+          $packageVersion = [string]$packageManifest.version
+          if ($packageVersion -notmatch '^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$') {
+            throw "Test Windows package version is invalid: $packageVersion"
+          }
+          "UNILAB_WORKBENCH_PACKAGE_VERSION=$packageVersion" >> $env:GITHUB_ENV
+          "### Windows test package v$packageVersion (run $env:GITHUB_RUN_NUMBER)" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Build production Workbench once
+        run: |
+          $buildStarted = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          pnpm --filter @unilab/workbench build:desktop:production
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to build the production Workbench' }
+          $buildFinished = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          "WINDOWS_PRODUCTION_BUILD_SECONDS=$($buildFinished - $buildStarted)" >> $env:GITHUB_ENV
+
+      - name: Validate unpacked Windows application
+        if: env.UNILAB_CI_PACKAGE_MODE == 'quick'
+        env:
+          UNILAB_WORKBENCH_PACKAGE_MODE: directory
+        run: |
+          $started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          node apps/workbench/scripts/package-windows.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to validate the unpacked Windows Workbench' }
+          $seconds = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $started
+          @"
+          ## Windows Workbench quick packaging validation
+
+          | Metric | Result |
+          | --- | ---: |
+          | Production build | $env:WINDOWS_PRODUCTION_BUILD_SECONDS s |
+          | Unpacked validation | $seconds s |
+          | Total build + validation | $([int]$env:WINDOWS_PRODUCTION_BUILD_SECONDS + $seconds) s |
+          "@ >> $env:GITHUB_STEP_SUMMARY
+
+      # Temporary bridge for all full Windows packages until a stable trusted
+      # production certificate is configured. Windows clients do not trust it.
+      - name: Create temporary CI code-signing certificate
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
+        run: |
+          $passwordBytes = [Security.Cryptography.RandomNumberGenerator]::GetBytes(32)
+          $password = [Convert]::ToBase64String($passwordBytes)
+          Write-Output "::add-mask::$password"
+          $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
+          $certificate = New-SelfSignedCertificate `
+            -Type CodeSigningCert `
+            -Subject "CN=UniLab CI Temporary $env:GITHUB_RUN_ID" `
+            -CertStoreLocation 'Cert:\CurrentUser\My' `
+            -KeyAlgorithm RSA `
+            -KeyLength 3072 `
+            -HashAlgorithm SHA256 `
+            -KeyExportPolicy Exportable `
+            -NotAfter (Get-Date).AddDays(2)
+          if (-not $certificate.HasPrivateKey) {
+            throw 'Temporary CI signing certificate has no private key'
+          }
+
+          $certificatePath = Join-Path $env:RUNNER_TEMP 'unilab-ci-signing.pfx'
+          Export-PfxCertificate `
+            -Cert $certificate `
+            -FilePath $certificatePath `
+            -Password $securePassword | Out-Null
+          if (-not (Test-Path $certificatePath)) {
+            throw 'Unable to export the temporary CI signing certificate'
+          }
+
+          "CSC_LINK=$certificatePath" >> $env:GITHUB_ENV
+          "CSC_KEY_PASSWORD=$password" >> $env:GITHUB_ENV
+          "UNILAB_CI_CERTIFICATE_PATH=$certificatePath" >> $env:GITHUB_ENV
+          "UNILAB_EXPECTED_CERTIFICATE_THUMBPRINT=$($certificate.Thumbprint)" >> $env:GITHUB_ENV
+
+      - name: Build full Windows installer
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
+        env:
+          UNILAB_WORKBENCH_PACKAGE_MODE: full
+          # electron-builder excludes matching files from the application
+          # archive but only restores matches below resources/. Precompressing
+          # EXE files therefore drops the root UniLab Workbench.exe.
+          UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE: none
+        run: |
+          $packageStarted = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          node apps/workbench/scripts/package-windows.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to package Windows Workbench' }
+          $packageFinished = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          "WINDOWS_PACKAGE_SECONDS=$($packageFinished - $packageStarted)" >> $env:GITHUB_ENV
+
+      - name: Prepare identical unpacked input for Windows A/B
+        if: env.UNILAB_CI_PACKAGE_MODE == 'benchmark'
+        env:
+          UNILAB_WORKBENCH_PACKAGE_MODE: directory
+          UNILAB_WORKBENCH_OUTPUT_DIRECTORY: ${{ github.workspace }}/.ci-prepackaged/windows
+        run: |
+          $started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          node apps/workbench/scripts/package-windows.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to prepare the Windows A/B input' }
+          $seconds = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $started
+          "WINDOWS_PREPACKAGED_SECONDS=$seconds" >> $env:GITHUB_ENV
+
+      - name: Build Windows precompressed-resource A/B
+        if: env.UNILAB_CI_PACKAGE_MODE == 'benchmark'
+        env:
+          UNILAB_WORKBENCH_ALLOW_OVERSIZE_BENCHMARK: '1'
+          UNILAB_WORKBENCH_COMPRESSION: normal
+          UNILAB_WORKBENCH_PACKAGE_MODE: prepackaged
+          UNILAB_WORKBENCH_PREPACKAGED_APP: ${{ github.workspace }}/.ci-prepackaged/windows/win-unpacked
+        run: |
+          $variants = @(
+            [PSCustomObject]@{ Name = 'baseline'; Profile = 'none' }
+            [PSCustomObject]@{ Name = 'precompressed-exe'; Profile = 'exe' }
+          )
+          $measurements = @()
+          foreach ($variant in $variants) {
+            $env:UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE = $variant.Profile
+            $env:UNILAB_WORKBENCH_RELEASE_DIRECTORY = "release-windows-$($variant.Name)"
+            $started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+            node apps/workbench/scripts/package-windows.mjs
+            if ($LASTEXITCODE -ne 0) {
+              throw "Unable to package Windows A/B variant $($variant.Name)"
+            }
+            $seconds = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $started
+            $reportPath = "apps/workbench/release-windows-$($variant.Name)/package-size-report.json"
+            $report = Get-Content $reportPath -Raw | ConvertFrom-Json
+            $measurements += [PSCustomObject]@{
+              name = $variant.Name
+              profile = $variant.Profile
+              installerSeconds = $seconds
+              installerBytes = [long]$report.installerBytes
+              resourcesBytes = [long]$report.totalBytes
+            }
+            @"
+          ### Windows A/B: $($variant.Name)
+
+          | Metric | Result |
+          | --- | ---: |
+          | Profile | $($variant.Profile) |
+          | Production build | $env:WINDOWS_PRODUCTION_BUILD_SECONDS s |
+          | Shared unpacked preparation | $env:WINDOWS_PREPACKAGED_SECONDS s |
+          | Installer from prepackaged input | $seconds s |
+          | Installer | $($report.installerBytes) bytes |
+          | Resources | $($report.totalBytes) bytes |
+
+          "@ >> $env:GITHUB_STEP_SUMMARY
+          }
+          [PSCustomObject]@{
+            schemaVersion = 1
+            commit = $env:GITHUB_SHA
+            productionBuildSeconds = [int]$env:WINDOWS_PRODUCTION_BUILD_SECONDS
+            sharedUnpackedPreparationSeconds = [int]$env:WINDOWS_PREPACKAGED_SECONDS
+            variants = $measurements
+          } | ConvertTo-Json -Depth 4 | Set-Content `
+            '.ci-prepackaged/windows/precompressed-ab-metrics.json'
 
       - name: Verify installer
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         run: |
           $installers = @(Get-ChildItem apps/workbench/release-windows -File -Filter '*-setup.exe')
           if ($installers.Count -ne 1) {
@@ -197,15 +501,219 @@ jobs:
           $hash = Get-FileHash $installer.FullName -Algorithm SHA256
           Write-Host "Installer: $($installer.Name)"
           Write-Host "Size: $($installer.Length) bytes"
+          Write-Host "Compression: $env:UNILAB_WORKBENCH_COMPRESSION"
           $hash
+          $signature = Get-AuthenticodeSignature $installer.FullName
+          if (
+            -not $signature.SignerCertificate -or
+            $signature.Status -eq [System.Management.Automation.SignatureStatus]::NotSigned
+          ) {
+            throw "Installer has no Authenticode signature: $($signature.StatusMessage)"
+          }
+          if ($signature.SignerCertificate.Thumbprint -ne $env:UNILAB_EXPECTED_CERTIFICATE_THUMBPRINT) {
+            throw "Installer was signed by an unexpected certificate: $($signature.SignerCertificate.Thumbprint)"
+          }
+          Write-Host "Temporary CI signature: $($signature.SignerCertificate.Subject) ($($signature.Status))"
+          if (-not (Test-Path apps/workbench/release-windows/latest.yml)) {
+            throw 'Missing latest.yml update metadata'
+          }
+          node --input-type=module -e "import { readFileSync } from 'node:fs'; import { readWorkbenchUpdateMetadataVersion } from './apps/workbench/scripts/update-publish.mjs'; const actual = readWorkbenchUpdateMetadataVersion(readFileSync('apps/workbench/release-windows/latest.yml', 'utf8')); if (actual !== process.env.UNILAB_WORKBENCH_PACKAGE_VERSION) throw new Error('latest.yml version mismatch: expected ' + process.env.UNILAB_WORKBENCH_PACKAGE_VERSION + ', received ' + actual)"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows update metadata version validation failed' }
+          if (-not (Test-Path apps/workbench/release-windows/package-size-report.json)) {
+            throw 'Missing package-size-report.json'
+          }
+          $blockmaps = @(Get-ChildItem apps/workbench/release-windows -File -Filter '*-setup.exe.blockmap')
+          if ($blockmaps.Count -ne 1) {
+            throw "Expected one Windows blockmap, found $($blockmaps.Count)"
+          }
+          $sizeReport = Get-Content apps/workbench/release-windows/package-size-report.json -Raw | ConvertFrom-Json
+          if ($sizeReport.compression -ne $env:UNILAB_WORKBENCH_COMPRESSION) {
+            throw "Package report compression mismatch: $($sizeReport.compression)"
+          }
+          if ($sizeReport.precompressedProfile -ne 'none') {
+            throw "Production package uses an unsafe precompressed profile: $($sizeReport.precompressedProfile)"
+          }
+          @"
+          ## Windows Workbench packaging benchmark
 
+          | Metric | Result |
+          | --- | ---: |
+          | Build started (UTC+08:00) | $env:BUILD_STARTED_AT_CST |
+          | Compression | $env:UNILAB_WORKBENCH_COMPRESSION |
+          | Production build | $env:WINDOWS_PRODUCTION_BUILD_SECONDS s |
+          | Native packaging | $env:WINDOWS_PACKAGE_SECONDS s |
+          | Build + packaging | $([int]$env:WINDOWS_PRODUCTION_BUILD_SECONDS + [int]$env:WINDOWS_PACKAGE_SECONDS) s |
+          | Installer | $($installer.Length) bytes |
+          | Resources | $($sizeReport.totalBytes) bytes |
+          "@ >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Verify Windows precompressed-resource A/B
+        if: env.UNILAB_CI_PACKAGE_MODE == 'benchmark'
+        run: |
+          $expectations = @(
+            [PSCustomObject]@{ Name = 'baseline'; Profile = 'none' }
+            [PSCustomObject]@{ Name = 'precompressed-exe'; Profile = 'exe' }
+          )
+          foreach ($expectation in $expectations) {
+            $directory = "apps/workbench/release-windows-$($expectation.Name)"
+            $installers = @(Get-ChildItem $directory -File -Filter '*-setup.exe')
+            $blockmaps = @(Get-ChildItem $directory -File -Filter '*-setup.exe.blockmap')
+            if ($installers.Count -ne 1 -or $blockmaps.Count -ne 1) {
+              throw "Incomplete Windows A/B bundle: $($expectation.Name)"
+            }
+            $report = Get-Content "$directory/package-size-report.json" -Raw | ConvertFrom-Json
+            if (
+              $report.packageMode -ne 'prepackaged' -or
+              $report.precompressedProfile -ne $expectation.Profile -or
+              $report.installerBytes -ne $installers[0].Length
+            ) {
+              throw "Windows A/B report mismatch: $($expectation.Name)"
+            }
+          }
+
+      - name: Remove temporary CI code-signing certificate
+        if: always()
+        run: |
+          if ($env:UNILAB_EXPECTED_CERTIFICATE_THUMBPRINT) {
+            $certificateStorePath = "Cert:\CurrentUser\My\$env:UNILAB_EXPECTED_CERTIFICATE_THUMBPRINT"
+            if (Test-Path $certificateStorePath) {
+              Remove-Item $certificateStorePath -Force
+            }
+          }
+          if ($env:UNILAB_CI_CERTIFICATE_PATH -and (Test-Path $env:UNILAB_CI_CERTIFICATE_PATH)) {
+            Remove-Item $env:UNILAB_CI_CERTIFICATE_PATH -Force
+          }
+
+      # Actions Artifacts only need the directly installable executable. Keep
+      # updater metadata in the rolling release published below.
       - name: Upload Windows installer
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full'
         uses: actions/upload-artifact@v6
         with:
-          name: UniLab-Workbench-windows-x64-${{ github.sha }}
+          name: UniLab-Workbench-windows-x64-${{ env.UNILAB_WORKBENCH_RELEASE_CHANNEL }}-${{ env.UNILAB_WORKBENCH_PACKAGE_VERSION }}
           path: apps/workbench/release-windows/*-setup.exe
           if-no-files-found: error
           retention-days: 3
-          # The NSIS EXE is already solid-compressed; recompressing it only
-          # consumes runner CPU and produces no meaningful size reduction.
           compression-level: 0
+
+      - name: Upload Windows precompressed-resource A/B
+        if: env.UNILAB_CI_PACKAGE_MODE == 'benchmark'
+        uses: actions/upload-artifact@v6
+        with:
+          name: UniLab-Workbench-windows-x64-precompressed-ab-${{ github.sha }}
+          path: |
+            apps/workbench/release-windows-baseline/package-size-report.json
+            apps/workbench/release-windows-precompressed-exe/package-size-report.json
+            .ci-prepackaged/windows/precompressed-ab-metrics.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
+
+      # Publish binaries first and metadata last. Existing clients keep reading
+      # the previous latest.yml until the complete replacement is available.
+      - name: Publish rolling Windows update release
+        if: env.UNILAB_CI_PACKAGE_MODE == 'full' && ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production') || (github.event_name == 'push' && github.ref == 'refs/heads/deploy-hot-update-test' && env.UNILAB_WORKBENCH_RELEASE_CHANNEL == 'update-test'))
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseJson = & gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:WINDOWS_RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Rolling release $env:WINDOWS_RELEASE_TAG is missing; bootstrap it with an authorized maintainer token"
+          }
+          $release = $releaseJson | ConvertFrom-Json
+
+          $installers = @(Get-ChildItem apps/workbench/release-windows -File -Filter '*-setup.exe')
+          $blockmaps = @(Get-ChildItem apps/workbench/release-windows -File -Filter '*-setup.exe.blockmap')
+          $metadata = Get-Item apps/workbench/release-windows/latest.yml
+          if ($installers.Count -ne 1 -or $blockmaps.Count -ne 1) {
+            throw 'Rolling release requires exactly one installer and one blockmap'
+          }
+          $installer = $installers[0]
+          $blockmap = $blockmaps[0]
+
+          # Convert FileInfo members to scalar values before passing them to
+          # native commands or collection predicates. This avoids PowerShell
+          # argument-mode member parsing around filenames that contain spaces.
+          $installerPath = [string]$installer.FullName
+          $installerName = [string]$installer.Name
+          $installerSize = [long]$installer.Length
+          $blockmapPath = [string]$blockmap.FullName
+          $blockmapName = [string]$blockmap.Name
+          $blockmapSize = [long]$blockmap.Length
+          $metadataPath = [string]$metadata.FullName
+          $metadataName = [string]$metadata.Name
+          $metadataSize = [long]$metadata.Length
+
+          & gh release upload $env:WINDOWS_RELEASE_TAG $installerPath $blockmapPath `
+            --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to upload Windows update binaries' }
+
+          & gh release upload $env:WINDOWS_RELEASE_TAG $metadataPath `
+            --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to publish Windows update metadata' }
+
+          # Verify exact names and sizes before declaring deployment complete.
+          $expectedAssets = @(
+            [PSCustomObject]@{ Name = $installerName; Size = $installerSize }
+            [PSCustomObject]@{ Name = $blockmapName; Size = $blockmapSize }
+            [PSCustomObject]@{ Name = $metadataName; Size = $metadataSize }
+          )
+          $release = $null
+          for ($attempt = 1; $attempt -le 5; $attempt++) {
+            $releaseJson = & gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:WINDOWS_RELEASE_TAG"
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to verify the Windows release' }
+            $release = $releaseJson | ConvertFrom-Json
+            $verificationErrors = @()
+            foreach ($expected in $expectedAssets) {
+              $expectedName = [string]$expected.Name
+              $expectedSize = [long]$expected.Size
+              $published = @($release.assets | Where-Object {
+                $publishedName = [string]$_.name
+                $publishedName -eq $expectedName
+              })
+              if ($published.Count -ne 1 -or [long]$published[0].size -ne $expectedSize) {
+                $verificationErrors += "$expectedName ($expectedSize bytes)"
+              }
+            }
+            if ($verificationErrors.Count -eq 0) { break }
+            if ($attempt -eq 5) {
+              $actualAssets = @($release.assets | ForEach-Object {
+                "$([string]$_.name) ($([long]$_.size) bytes)"
+              })
+              throw "Rolling release asset verification failed. Expected: $($verificationErrors -join ', '). Actual: $($actualAssets -join ', ')"
+            }
+            Start-Sleep -Seconds 2
+          }
+
+          # Version changes rename the installer. Remove superseded binaries
+          # only after the new installer, blockmap, and metadata are verified.
+          $expectedNames = @($installerName, $blockmapName, $metadataName)
+          $staleAssets = @($release.assets | Where-Object {
+            $assetName = [string]$_.name
+            $assetName -match '-setup\.exe(?:\.blockmap)?$' -and
+            $expectedNames -notcontains $assetName
+          })
+          foreach ($asset in $staleAssets) {
+            $assetId = [long]$asset.id
+            $assetName = [string]$asset.name
+            & gh api --method DELETE "repos/$env:GITHUB_REPOSITORY/releases/assets/$assetId" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "Unable to remove stale release asset $assetName" }
+          }
+
+          $releaseChannelDescription = if ($env:GITHUB_REF -eq 'refs/heads/deploy-hot-update-test') {
+            'deploy-hot-update-test 分支的 Windows 隔离热更新测试通道。'
+          } else {
+            'main 分支的 Windows 生产滚动更新通道。'
+          }
+          $releaseBody = @"
+          $releaseChannelDescription
+
+          当前提交：$env:GITHUB_SHA
+          发布版本：$env:UNILAB_WORKBENCH_PACKAGE_VERSION
+          更新时间：$env:BUILD_STARTED_AT_CST（UTC+08:00）
+
+          安装包、blockmap 与 latest.yml 由 Package Windows Workbench 工作流维护；此 Release 不参与仓库 Latest Release 排序。
+          "@
+          & gh api --method PATCH "repos/$env:GITHUB_REPOSITORY/releases/$($release.id)" `
+            -f "body=$releaseBody" | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to update the rolling release description' }

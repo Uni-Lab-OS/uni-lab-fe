@@ -10,16 +10,20 @@ import {
 } from 'node:fs/promises'
 import { describe, it } from 'node:test'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import {
+  assertSafeChildDirectory,
   createWindowsInstallerAuditArguments,
   MAX_PORTABLE_INSTALLER_BYTES,
+  PORTABLE_COMPRESSION_LEVELS,
   PORTABLE_NODE_ARCHIVES,
   PORTABLE_NODE_VERSION,
-  removeDesktopDeploymentSelfLink,
+  pruneDesktopDeployment,
   resolveElectronBuilderSevenZipCommand,
   resolveEsbuildBinary,
+  resolvePortableCompressionLevel,
+  validatePackagedWorkbenchResources,
   validateWindowsInstallerListing
 } from './package-portable.mjs'
 import {
@@ -40,7 +44,100 @@ describe('portable Workbench packaging contract', () => {
       assert.match(descriptor.sha256, /^[a-f0-9]{64}$/u)
       assert.equal(descriptor.hostArchitecture, 'x64')
     }
-    assert.equal(MAX_PORTABLE_INSTALLER_BYTES, 850 * 1024 * 1024)
+    assert.equal(MAX_PORTABLE_INSTALLER_BYTES, 800 * 1024 * 1024)
+  })
+
+  /** 验证成品复用宿主内联的 Vue 编译器，不要求部署第二份编译器。 */
+  it('accepts the bundled Device Card Host without a duplicate Vue compiler', async () => {
+    const resources = await mkdtemp(join(tmpdir(), 'unilab-resources-'))
+    const requiredFiles = [
+      'app.asar',
+      'workbench/lib/backend/main.js',
+      'workbench/lib/frontend/index.html',
+      'node-runtime/bin/node',
+      'desktop/out/main/index.js',
+      'desktop/out/preload/index.js',
+      'desktop/node_modules/@unilab/device-card-host/dist/index.cjs',
+      `device-card-builder/${process.platform === 'win32' ? 'esbuild.exe' : 'esbuild'}`,
+      'device-card-agent/cli.mjs',
+      'workspace-skills/manifest.json',
+      'workspace-skills/add-device/SKILL.md',
+      'workspace-skills/add-resource/SKILL.md',
+      'workspace-skills/add-workstation/SKILL.md',
+      'workspace-skills/create-device-package/SKILL.md',
+      'workspace-skills/create-device-skill/SKILL.md',
+      'workspace-skills/unilab-domain-repo-builder/SKILL.md'
+    ]
+    try {
+      await mkdir(join(resources, 'workbench', 'plugins'), { recursive: true })
+      for (const relativePath of requiredFiles) {
+        const path = join(resources, relativePath)
+        await mkdir(dirname(path), { recursive: true })
+        await writeFile(path, 'fixture')
+      }
+
+      assert.doesNotThrow(() => {
+        validatePackagedWorkbenchResources(resources, 'node')
+      })
+    } finally {
+      await rm(resources, { recursive: true, force: true })
+    }
+  })
+
+  /** 验证正式包默认使用 normal，并允许 CI 在同一提交上显式测量 maximum。 */
+  it('accepts only benchmarked portable compression levels', () => {
+    assert.deepEqual(PORTABLE_COMPRESSION_LEVELS, ['normal', 'maximum'])
+    assert.equal(resolvePortableCompressionLevel(undefined), 'normal')
+    assert.equal(resolvePortableCompressionLevel(' normal '), 'normal')
+    assert.equal(resolvePortableCompressionLevel('maximum'), 'maximum')
+    assert.throws(
+      () => resolvePortableCompressionLevel('store'),
+      /不支持的 Workbench 压缩级别/u
+    )
+  })
+
+  /** 验证 Windows A/B 能复用同一应用目录，并只切换已压缩资源配置。 */
+  it('supports directory and prepackaged Windows media modes', async () => {
+    const packagingScript = await readFile(
+      new URL('./package-portable.mjs', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(packagingScript, /packageMode === 'directory'/u)
+    assert.match(packagingScript, /builderArgs\.push\('--prepackaged'/u)
+    assert.match(
+      packagingScript,
+      /--config\.nsis\.preCompressedFileExtensions=/u
+    )
+    assert.match(
+      packagingScript,
+      /--config\.win\.artifactName=UniLab\.Workbench\.Test-/u
+    )
+    assert.match(
+      packagingScript,
+      /--config\.win\.artifactName=UniLab\.Workbench\.UpdateTest-/u
+    )
+    assert.match(
+      packagingScript,
+      /--config\.win\.verifyUpdateCodeSignature=false/u
+    )
+    assert.match(packagingScript, /resolveWorkbenchReleaseChannel/u)
+    assert.match(packagingScript, /allowsOversizePackagingBenchmark\(\)/u)
+  })
+
+  /** 验证可递归清理的覆盖目录不能逃逸专用暂存范围。 */
+  it('confines reusable packaging output to a dedicated staging root', () => {
+    const stagingRoot = join(tmpdir(), 'unilab-packaging-staging')
+    const child = join(stagingRoot, 'windows')
+    assert.equal(assertSafeChildDirectory(child, stagingRoot, '测试目录'), child)
+    assert.throws(
+      () => assertSafeChildDirectory(stagingRoot, stagingRoot, '测试目录'),
+      /必须位于专用目录/u
+    )
+    assert.throws(
+      () => assertSafeChildDirectory(tmpdir(), stagingRoot, '测试目录'),
+      /必须位于专用目录/u
+    )
   })
 
   /** 验证最终 NSIS 技术清单只查询并必须包含安装根目录的桌面主程序。 */
@@ -135,6 +232,10 @@ describe('portable Workbench packaging contract', () => {
       new URL('../../desktop/package.json', import.meta.url),
       'utf8'
     ))
+    const deviceCardHostManifest = JSON.parse(await readFile(
+      new URL('../../../packages/device-card-host/package.json', import.meta.url),
+      'utf8'
+    ))
     const desktopConfiguration = await readFile(
       new URL('../../desktop/electron.vite.config.ts', import.meta.url),
       'utf8'
@@ -145,8 +246,17 @@ describe('portable Workbench packaging contract', () => {
     )
 
     assert.deepEqual(Object.keys(desktopManifest.dependencies), [
-      '@unilab/device-card-host'
+      '@unilab/device-card-host',
+      'electron-updater'
     ])
+    assert.deepEqual(deviceCardHostManifest.dependencies, {
+      esbuild: '0.21.5'
+    })
+    assert.deepEqual(deviceCardHostManifest.files, ['dist'])
+    assert.match(
+      deviceCardHostManifest.scripts.build,
+      /node build\.mjs/u
+    )
     for (const bundledDependency of [
       '@arizeai/phoenix-otel',
       '@unilab/local-environment'
@@ -194,8 +304,8 @@ describe('portable Workbench packaging contract', () => {
     )
   })
 
-  /** 验证打包前切断生产部署目录到源码工作区的递归复制链路。 */
-  it('removes the pnpm workspace self-link before electron-builder runs', async () => {
+  /** 验证打包前切断工作区链接并删除桌面端不可达的构建文件。 */
+  it('prunes the desktop deployment before electron-builder runs', async () => {
     const root = await mkdtemp(join(tmpdir(), 'unilab-desktop-deploy-'))
     const source = join(root, 'desktop-source')
     const deployment = join(root, 'deployment')
@@ -210,15 +320,108 @@ describe('portable Workbench packaging contract', () => {
     try {
       await mkdir(source, { recursive: true })
       await mkdir(join(selfLink, '..'), { recursive: true })
+      await mkdir(join(deployment, 'node_modules', '@esbuild', 'linux-x64'), {
+        recursive: true
+      })
+      await mkdir(join(deployment, 'node_modules', 'esbuild', 'bin'), {
+        recursive: true
+      })
+      await mkdir(join(deployment, 'node_modules', '.bin'), {
+        recursive: true
+      })
+      await mkdir(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist'
+      ), { recursive: true })
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@esbuild',
+        'linux-x64',
+        'esbuild'
+      ), 'native-copy')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        'esbuild',
+        'bin',
+        'esbuild'
+      ), 'native-launcher')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '.bin',
+        'esbuild.cmd'
+      ), 'windows-launcher')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.esm-browser.js'
+      ), 'browser-only')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.cjs.js'
+      ), 'runtime')
+      await writeFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.d.ts'
+      ), 'types')
       await symlink(
         source,
         selfLink,
         process.platform === 'win32' ? 'junction' : 'dir'
       )
 
-      assert.equal(removeDesktopDeploymentSelfLink(deployment), true)
+      const metrics = pruneDesktopDeployment(deployment)
+      assert.equal(metrics.removedSelfLink, true)
+      assert.ok(metrics.removedFiles >= 1)
+      assert.ok(metrics.removedBytes >= 5)
       await assert.rejects(lstat(selfLink), error => error?.code === 'ENOENT')
-      assert.equal(removeDesktopDeploymentSelfLink(deployment), false)
+      for (const removed of [
+        join(deployment, 'node_modules', '@esbuild'),
+        join(deployment, 'node_modules', 'esbuild', 'bin'),
+        join(deployment, 'node_modules', '.bin', 'esbuild.cmd'),
+        join(
+          deployment,
+          'node_modules',
+          '@vue',
+          'compiler-sfc',
+          'dist',
+          'compiler-sfc.esm-browser.js'
+        ),
+        join(
+          deployment,
+          'node_modules',
+          '@vue',
+          'compiler-sfc',
+          'dist',
+          'compiler-sfc.d.ts'
+        )
+      ]) {
+        await assert.rejects(lstat(removed), error => error?.code === 'ENOENT')
+      }
+      assert.equal(await readFile(join(
+        deployment,
+        'node_modules',
+        '@vue',
+        'compiler-sfc',
+        'dist',
+        'compiler-sfc.cjs.js'
+      ), 'utf8'), 'runtime')
 
       const packagingScript = await readFile(
         new URL('./package-portable.mjs', import.meta.url),
@@ -226,18 +429,56 @@ describe('portable Workbench packaging contract', () => {
       )
       assert.match(packagingScript, /'--config\.node-linker=hoisted'/u)
       const deployIndex = packagingScript.indexOf("'deploy'")
-      const removalIndex = packagingScript.indexOf(
-        'removeDesktopDeploymentSelfLink(desktopRuntimeDirectory)'
+      const pruneIndex = packagingScript.indexOf(
+        'pruneDesktopDeployment(desktopRuntimeDirectory)'
       )
       const builderIndex = packagingScript.indexOf("'electron-builder'")
       assert.ok(deployIndex >= 0)
-      assert.ok(deployIndex < removalIndex)
-      assert.ok(removalIndex < builderIndex)
+      assert.ok(deployIndex < pruneIndex)
+      assert.ok(pruneIndex < builderIndex)
     } finally {
       await rm(root, { recursive: true, force: true })
     }
   })
 
+  /** 验证成品复用宿主内联的 Vue 编译器，不要求部署第二份编译器。 */
+  it('accepts the bundled Device Card Host without a duplicate Vue compiler', async () => {
+    const resources = await mkdtemp(join(tmpdir(), 'unilab-resources-'))
+    const requiredFiles = [
+      'app.asar',
+      'workbench/lib/backend/main.js',
+      'workbench/lib/frontend/index.html',
+      'node-runtime/bin/node',
+      'desktop/out/main/index.js',
+      'desktop/out/preload/index.js',
+      'desktop/node_modules/@unilab/device-card-host/dist/index.cjs',
+      `device-card-builder/${process.platform === 'win32' ? 'esbuild.exe' : 'esbuild'}`,
+      'device-card-agent/cli.mjs',
+      'workspace-skills/manifest.json',
+      'workspace-skills/add-device/SKILL.md',
+      'workspace-skills/add-resource/SKILL.md',
+      'workspace-skills/add-workstation/SKILL.md',
+      'workspace-skills/create-device-package/SKILL.md',
+      'workspace-skills/create-device-skill/SKILL.md',
+      'workspace-skills/unilab-domain-repo-builder/SKILL.md'
+    ]
+    try {
+      await mkdir(join(resources, 'workbench', 'plugins'), { recursive: true })
+      for (const relativePath of requiredFiles) {
+        const path = join(resources, relativePath)
+        await mkdir(dirname(path), { recursive: true })
+        await writeFile(path, 'fixture')
+      }
+
+      assert.doesNotThrow(() => {
+        validatePackagedWorkbenchResources(resources, 'node')
+      })
+    } finally {
+      await rm(resources, { recursive: true, force: true })
+    }
+  })
+
+  /** 验证各平台安装包复用收敛后的生产构建与耗时可控的默认压缩。 */
   it('builds every installer from a bounded production Workbench bundle', async () => {
     const packageManifest = JSON.parse(await readFile(
       new URL('../package.json', import.meta.url),
@@ -279,7 +520,11 @@ describe('portable Workbench packaging contract', () => {
         /^pnpm build:desktop:production/u
       )
     }
-    assert.match(builderConfiguration, /^compression: maximum$/mu)
+    assert.match(builderConfiguration, /^compression: normal$/mu)
+    assert.match(
+      await readFile(new URL('./package-portable.mjs', import.meta.url), 'utf8'),
+      /`--config\.compression=\$\{compression\}`/u
+    )
     assert.match(
       builderConfiguration,
       /from: \.packaging\/node-runtime\s+to: node-runtime\s+filter:\s+- '\*\*\/\*'/u
@@ -287,6 +532,10 @@ describe('portable Workbench packaging contract', () => {
     assert.doesNotMatch(
       builderConfiguration,
       /from: \.packaging\/node-runtime\/bin\/node/u
+    )
+    assert.match(
+      builderConfiguration,
+      /afterSign: \.\.\/desktop\/scripts\/after-pack\.mjs/u
     )
     assert.equal(
       packageManifest.optionalDependencies['@vscode/windows-ca-certs'],
@@ -368,6 +617,14 @@ describe('portable Workbench packaging contract', () => {
       /dev-desktop\.mjs$/u
     )
     assert.equal(
+      rootManifest.scripts['workbench:desktop:welcome:development'],
+      'pnpm --filter @unilab/workbench desktop:welcome:development'
+    )
+    assert.match(
+      workbenchManifest.scripts['desktop:welcome:development'],
+      /dev-desktop\.mjs --welcome$/u
+    )
+    assert.equal(
       desktopManifest.scripts['build:workbench-shell'],
       'node scripts/build-workbench-shell.mjs'
     )
@@ -385,6 +642,8 @@ describe('portable Workbench packaging contract', () => {
       /\[watch\/browser\] Finished with 0 errors/u
     )
     assert.match(desktopWatch, /\[watch\/node\] Finished with 0 errors/u)
+    assert.match(desktopWatch, /workbenchRequire\('electron'\)/u)
+    assert.match(desktopWatch, /if \(welcome\)/u)
   })
 
   it('removes source maps and rejects an oversized production lib', async () => {
@@ -408,7 +667,7 @@ describe('portable Workbench packaging contract', () => {
     }
   })
 
-  /** 验证 Windows 原生流水线复用缓存、固定供应链输入并只上传安装器。 */
+  /** 验证 Windows 原生流水线分流生产、普通测试、热更新测试与介质 A/B。 */
   it('builds the Windows installer on a native GitHub Actions runner', async () => {
     const workflow = await readFile(
       new URL('../../../.github/workflows/package-windows.yml', import.meta.url),
@@ -420,57 +679,264 @@ describe('portable Workbench packaging contract', () => {
     )
 
     assert.match(workflow, /runs-on: windows-2022/u)
+    assert.match(workflow, /permissions:\n(?:.|\n)*?contents: write/u)
     assert.match(workflow, /build\/Release\/crypt32\.node/u)
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf/u
+      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-6fcb80a-f7e78e7-b09c0c0/u
     )
-    assert.match(workflow, /cache: pnpm/u)
+    assert.doesNotMatch(workflow, /cache: pnpm/u)
     assert.match(workflow, /pnpm\/action-setup@v6/u)
     assert.match(workflow, /actions\/cache\/restore@v6/u)
     assert.match(workflow, /actions\/cache\/save@v6/u)
     assert.match(workflow, /cache-primary-key/u)
-    assert.match(workflow, /windows-runtime-installer-v2-/u)
-    assert.match(workflow, /dist\/constructor\/\*\.exe/u)
-    const restoreRuntimeIndex = workflow.indexOf('name: Restore Windows Runtime')
-    const checkoutRuntimeIndex = workflow.indexOf('name: Check out Uni-Lab OS')
-    assert.ok(restoreRuntimeIndex >= 0)
-    assert.ok(restoreRuntimeIndex < checkoutRuntimeIndex)
-    assert.match(
-      workflow.slice(checkoutRuntimeIndex, checkoutRuntimeIndex + 180),
-      /if: steps\.runtime-cache\.outputs\.cache-hit != 'true'/u
-    )
-    assert.match(workflow, /windows-electron-builder-/u)
-    assert.match(workflow, /MINIFORGE_VERSION: 26\.3\.2-3/u)
-    assert.match(workflow, /AIONUI_WINDOWS_SHA512: [a-f0-9]{128}/u)
-    assert.match(workflow, /Get-FileHash \$agentInstaller -Algorithm SHA512/u)
-    assert.match(workflow, /Test-Path \.conda\/constructor\/construct\.yaml/u)
     assert.match(
       workflow,
-      /conda run -n constructor-build constructor/u
+      /push:\n\s+branches:\n\s+- deploy-windows-test\n\s+- deploy-hot-update-test/u
     )
-    assert.match(workflow, /pnpm --filter @unilab\/workbench package:win/u)
+    assert.doesNotMatch(workflow, /push:\n\s+branches:\n(?:\s+- [^\n]+\n)*\s+- main/u)
+    assert.doesNotMatch(workflow, /ci\/desktop-packaging-optimization-v2/u)
+    assert.match(workflow, /workflow_dispatch:/u)
+    assert.match(
+      workflow,
+      /default: full\n\s+type: choice\n\s+options:\n\s+- full\n\s+- quick\n\s+- benchmark/u
+    )
+    assert.match(workflow, /options:\n\s+- normal\n\s+- maximum/u)
+    assert.match(workflow, /UNILAB_CI_PACKAGE_MODE:/u)
+    assert.match(workflow, /UNILAB_WORKBENCH_COMPRESSION:/u)
+    assert.match(workflow, /UNILAB_WORKBENCH_RELEASE_CHANNEL:/u)
+    assert.match(workflow, /'update-test' \|\| 'test'/u)
+    assert.doesNotMatch(workflow, /strategy:\n\s+matrix:/u)
+    assert.match(workflow, /ELECTRON_VERSION: 33\.4\.11/u)
+    assert.match(workflow, /ELECTRON_BUILDER_VERSION: 25\.1\.8/u)
+    assert.match(
+      workflow,
+      new RegExp(`PORTABLE_NODE_VERSION: ${PORTABLE_NODE_VERSION}`, 'u')
+    )
+    assert.match(workflow, /windows-pnpm-store-v1-/u)
+    assert.match(workflow, /restore-keys:/u)
+    assert.match(workflow, /name: Save pnpm store/u)
+    assert.match(
+      workflow,
+      /destination "\.runtime-source\/dist\/constructor\/Uni-Lab-OS-\$env:UNILAB_RUNTIME_VERSION-win-64\.exe"/u
+    )
+    const validateConfigIndex = workflow.indexOf(
+      'name: Validate update publishing configuration'
+    )
+    const releaseRestoreIndex = workflow.indexOf(
+      'name: Restore versioned Windows Runtime release'
+    )
+    const requireRuntimeIndex = workflow.indexOf(
+      'name: Require versioned Windows Runtime release'
+    )
+    assert.ok(validateConfigIndex >= 0)
+    assert.ok(releaseRestoreIndex >= 0)
+    assert.ok(requireRuntimeIndex >= 0)
+    assert.ok(validateConfigIndex < releaseRestoreIndex)
+    assert.ok(releaseRestoreIndex < requireRuntimeIndex)
+    assert.match(
+      workflow.slice(requireRuntimeIndex, requireRuntimeIndex + 260),
+      /steps\.runtime-release\.outputs\.hit != 'true'/su
+    )
+    assert.doesNotMatch(workflow, /name: Restore Windows Runtime cache/u)
+    assert.doesNotMatch(workflow, /name: Check out Uni-Lab OS/u)
+    assert.doesNotMatch(workflow, /name: Build Windows Runtime/u)
+    assert.match(workflow, /windows-electron-builder-v3-/u)
+    assert.match(workflow, /electron-\$\{\{ env\.ELECTRON_VERSION \}\}/u)
+    assert.match(workflow, /builder-\$\{\{ env\.ELECTRON_BUILDER_VERSION \}\}/u)
+    assert.doesNotMatch(
+      workflow,
+      /windows-electron-builder-v3-[^\n]*hashFiles\('pnpm-lock\.yaml'/u
+    )
+    assert.match(workflow, /windows-portable-node-v1-/u)
+    assert.match(workflow, /\.unilab-workbench\\downloads/u)
+    assert.match(workflow, /aionui-prepared-windows-x64-v1-/u)
+    assert.match(
+      workflow,
+      /validateBundledAgentPayload\('\.ci-cache', 'win32', 'x64', 'prepared'\)/u
+    )
+    assert.match(workflow, /windows-workbench-plugins-v1-/u)
+    const pluginCacheIndex = workflow.indexOf('name: Cache pinned Theia plugins')
+    const selectVersionIndex = workflow.indexOf(
+      'name: Select automatic Windows package version'
+    )
+    const buildInstallerIndex = workflow.indexOf(
+      'name: Build full Windows installer'
+    )
+    assert.ok(pluginCacheIndex >= 0)
+    assert.ok(pluginCacheIndex < selectVersionIndex)
+    assert.ok(selectVersionIndex < buildInstallerIndex)
+    const fullInstallerSection = workflow.slice(
+      buildInstallerIndex,
+      workflow.indexOf('name: Prepare identical unpacked input for Windows A/B')
+    )
+    assert.match(
+      fullInstallerSection,
+      /UNILAB_WORKBENCH_PRECOMPRESSED_PROFILE: none/u
+    )
     assert.match(
       packagingScript,
       /validateWindowsInstallerArchive\(installer\.path\)/u
+    )
+    assert.match(workflow, /prepare-package-version\.mjs/u)
+    assert.match(workflow, /name: Select test Windows package version/u)
+    assert.match(workflow, /UNILAB_WORKBENCH_PACKAGE_VERSION=/u)
+    assert.match(workflow, /readWorkbenchUpdateMetadataVersion/u)
+    assert.match(workflow, /发布版本：\$env:UNILAB_WORKBENCH_PACKAGE_VERSION/u)
+    assert.doesNotMatch(workflow, /git (?:commit|push)/u)
+    assert.match(workflow, /AIONUI_WINDOWS_SHA512: [a-f0-9]{128}/u)
+    assert.match(workflow, /Get-FileHash \$agentInstaller -Algorithm SHA512/u)
+    assert.match(
+      workflow,
+      /node apps\/workbench\/scripts\/package-windows\.mjs/u
+    )
+    assert.equal(
+      workflow.match(/build:desktop:production/gu)?.length,
+      1
+    )
+    assert.match(workflow, /UNILAB_WORKBENCH_PACKAGE_MODE: directory/u)
+    assert.match(workflow, /UNILAB_WORKBENCH_PACKAGE_MODE: prepackaged/u)
+    assert.match(workflow, /UNILAB_WORKBENCH_PREPACKAGED_APP:/u)
+    assert.match(workflow, /Name = 'baseline'; Profile = 'none'/u)
+    assert.match(workflow, /Name = 'precompressed-exe'; Profile = 'exe'/u)
+    assert.match(workflow, /\$sizeReport\.precompressedProfile -ne 'none'/u)
+    assert.match(workflow, /precompressed-ab-metrics\.json/u)
+    assert.match(workflow, /New-SelfSignedCertificate/u)
+    assert.match(workflow, /-Type CodeSigningCert/u)
+    assert.match(workflow, /CSC_LINK=/u)
+    assert.match(workflow, /CSC_KEY_PASSWORD=/u)
+    assert.match(workflow, /Get-AuthenticodeSignature/u)
+    assert.match(workflow, /UNILAB_EXPECTED_CERTIFICATE_THUMBPRINT/u)
+    const temporaryCertificateSection = workflow.slice(
+      workflow.indexOf('name: Create temporary CI code-signing certificate'),
+      workflow.indexOf('name: Build full Windows installer')
+    )
+    assert.match(
+      temporaryCertificateSection,
+      /if: env\.UNILAB_CI_PACKAGE_MODE == 'full'/u
+    )
+    assert.doesNotMatch(
+      temporaryCertificateSection,
+      /UNILAB_WORKBENCH_RELEASE_CHANNEL/u
+    )
+    assert.match(
+      workflow,
+      /name: Remove temporary CI code-signing certificate\s+if: always\(\)/u
     )
     assert.match(workflow, /UNILAB_RUNTIME_INSTALLER=/u)
     assert.match(workflow, /UNILAB_AGENT_DISTRIBUTION=/u)
     assert.match(workflow, /Filter 'aioncore\.exe'/u)
     assert.match(workflow, /Test-Path \(Join-Path \$_\.Directory\.FullName 'managed-resources'\)/u)
     assert.match(workflow, /bundled-aioncore\\windows-x64/u)
-    assert.match(workflow, /path: apps\/workbench\/release-windows\/\*-setup\.exe/u)
-    assert.doesNotMatch(workflow, /setup\.exe\.blockmap/u)
-    assert.doesNotMatch(workflow, /release-windows\/latest\.yml/u)
+    assert.match(
+      workflow,
+      /Get-ChildItem apps\/workbench\/release-windows -File -Filter '\*-setup\.exe'/u
+    )
+    assert.match(
+      workflow,
+      /Get-ChildItem apps\/workbench\/release-windows -File -Filter '\*-setup\.exe\.blockmap'/u
+    )
+    assert.match(workflow, /release-windows\/latest\.yml/u)
+    assert.match(workflow, /release-windows\/package-size-report\.json/u)
+    assert.match(workflow, /workbench-windows-hot-update-test/u)
+    assert.match(workflow, /tzutil\.exe \/s "China Standard Time"/u)
+    assert.match(
+      workflow,
+      /FindSystemTimeZoneById\('China Standard Time'\)/u
+    )
+    assert.match(workflow, /ConvertTimeFromUtc\(\s*\[DateTime\]::UtcNow/u)
+    assert.match(workflow, /' \+08:00'/u)
+    assert.match(workflow, /BUILD_STARTED_AT_CST=/u)
+    assert.match(workflow, /更新时间：\$env:BUILD_STARTED_AT_CST（UTC\+08:00）/u)
+    assert.match(workflow, /releases\/download\/\$\{\{/u)
+    assert.match(workflow, /workbench-windows-stable/u)
+    assert.match(workflow, /workbench-windows-hot-update-test/u)
+    assert.doesNotMatch(workflow, /vars\.UNILAB_WORKBENCH_UPDATE_URL/u)
+    assert.match(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/u)
+    assert.match(workflow, /gh release upload/u)
+    const bootstrapSection = workflow.slice(
+      workflow.indexOf('name: Bootstrap isolated Windows hot-update release'),
+      workflow.indexOf('name: Validate update publishing configuration')
+    )
+    assert.match(bootstrapSection, /refs\/heads\/deploy-hot-update-test/u)
+    assert.match(bootstrapSection, /gh release create/u)
+    assert.match(bootstrapSection, /--prerelease/u)
+    const uploadBinaryIndex = workflow.indexOf(
+      '& gh release upload $env:WINDOWS_RELEASE_TAG $installerPath $blockmapPath'
+    )
+    const uploadMetadataIndex = workflow.indexOf(
+      '& gh release upload $env:WINDOWS_RELEASE_TAG $metadataPath'
+    )
+    const verifyReleaseIndex = workflow.indexOf(
+      '# Verify exact names and sizes before declaring deployment complete.'
+    )
+    const removeStaleIndex = workflow.indexOf(
+      '# Version changes rename the installer.'
+    )
+    assert.ok(uploadBinaryIndex >= 0)
+    assert.ok(uploadBinaryIndex < uploadMetadataIndex)
+    assert.ok(uploadMetadataIndex < verifyReleaseIndex)
+    assert.ok(verifyReleaseIndex < removeStaleIndex)
+    assert.match(workflow, /\$installerName = \[string\]\$installer\.Name/u)
+    assert.match(workflow, /\$expectedNames -notcontains \$assetName/u)
+    assert.match(workflow, /Rolling release asset verification failed/u)
     assert.match(workflow, /actions\/upload-artifact@v6/u)
-    assert.match(workflow, /compression-level: 0/u)
+    assert.doesNotMatch(workflow, /Upload Windows packaging diagnostics/u)
+    assert.doesNotMatch(
+      workflow,
+      /UniLab-Workbench-windows-x64-diagnostics/u
+    )
+    const installerUploadSection = workflow.slice(
+      workflow.indexOf('name: Upload Windows installer'),
+      workflow.indexOf('name: Upload Windows precompressed-resource A/B')
+    )
+    assert.match(
+      installerUploadSection,
+      /if: env\.UNILAB_CI_PACKAGE_MODE == 'full'/u
+    )
+    assert.doesNotMatch(installerUploadSection, /github\.event_name/u)
+    assert.doesNotMatch(installerUploadSection, /github\.ref/u)
+    assert.match(installerUploadSection, /\*-setup\.exe/u)
+    assert.match(installerUploadSection, /UNILAB_WORKBENCH_RELEASE_CHANNEL/u)
+    assert.match(
+      installerUploadSection,
+      /name: UniLab-Workbench-windows-x64-\$\{\{ env\.UNILAB_WORKBENCH_RELEASE_CHANNEL \}\}-\$\{\{ env\.UNILAB_WORKBENCH_PACKAGE_VERSION \}\}\n/u
+    )
+    assert.doesNotMatch(installerUploadSection, /github\.run_number/u)
+    assert.doesNotMatch(installerUploadSection, /\*-setup\.exe\.blockmap/u)
+    assert.doesNotMatch(installerUploadSection, /latest\.yml/u)
+    assert.match(installerUploadSection, /compression-level: 0/u)
+    const abUploadSection = workflow.slice(
+      workflow.indexOf('name: Upload Windows precompressed-resource A/B'),
+      workflow.indexOf('name: Publish rolling Windows update release')
+    )
+    assert.match(abUploadSection, /package-size-report\.json/u)
+    assert.match(abUploadSection, /precompressed-ab-metrics\.json/u)
+    assert.doesNotMatch(abUploadSection, /\*-setup\.exe/u)
+    const publishReleaseSection = workflow.slice(
+      workflow.indexOf('name: Publish rolling Windows update release')
+    )
+    assert.match(
+      publishReleaseSection,
+      /github\.event_name == 'workflow_dispatch'[^\n]*refs\/heads\/main[^\n]*UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'/u
+    )
+    assert.match(
+      publishReleaseSection,
+      /github\.event_name == 'push'[^\n]*refs\/heads\/deploy-hot-update-test[^\n]*UNILAB_WORKBENCH_RELEASE_CHANNEL == 'update-test'/u
+    )
 
     const builderConfiguration = await readFile(
       new URL('../electron-builder.yml', import.meta.url),
       'utf8'
     )
-    assert.match(builderConfiguration, /differentialPackage: false/u)
-    assert.match(builderConfiguration, /packElevateHelper: false/u)
+    assert.match(builderConfiguration, /differentialPackage: true/u)
+    assert.match(builderConfiguration, /packElevateHelper: true/u)
+    assert.match(
+      builderConfiguration,
+      /artifactName: UniLab\.Workbench-\$\{version\}-\$\{arch\}-setup\.\$\{ext\}/u
+    )
+    assert.match(builderConfiguration, /^publish:\n  provider: generic$/mu)
+    assert.match(builderConfiguration, /UNILAB_WORKBENCH_UPDATE_URL/u)
   })
 
   it('removes source maps from local Workbench plugins', async () => {

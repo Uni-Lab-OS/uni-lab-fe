@@ -20,6 +20,7 @@ export function workflowTaskListPath(query: WorkflowTaskListQuery): string {
   for (const key of [
     'page',
     'page_size',
+    'execution_kind',
     'workflow_uuid',
     'status',
     'cleanup_status'

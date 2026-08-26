@@ -14,7 +14,14 @@ import { appendFileSync, existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { autoUpdater } from 'electron-updater'
 import { readSession, clearSession, runOAuthLogin } from './authManager'
+import {
+  AppUpdateManager,
+  createElectronUpdaterAdapter
+} from './appUpdateManager'
+import { resolveAppUpdateInstallBlocker } from './appUpdateInstallLocation'
+import { registerAppUpdateIpc } from './appUpdateIpc'
 import { DeviceCardManager } from './deviceCardManager'
 import {
   DeviceCardAgentBridge,
@@ -66,6 +73,8 @@ import {
   shouldQuitWhenAllDesktopWindowsClose
 } from './desktopSurface'
 import { RendererConsoleLogLimiter } from './rendererConsoleLogLimiter'
+import { shouldEnableWorkbenchUpdates } from './releaseChannel'
+import { resolveAppUpdateProgressBarValue } from '../shared/appUpdate'
 import { cleanupPackagedWorkbench, configurePackagedDeviceCardBuilder } from './packagedRuntime'
 import { isWorkbenchWorkspaceNavigationAllowed, registerWorkbenchRemoteAccessIpc, workbenchUnloadPrompt } from './workbenchRemoteIpc'
 
@@ -224,9 +233,11 @@ let localRuntimeManager: LocalRuntimeManager | null = null
 let devicePackageTrustStore: DevicePackageTrustStore | null = null
 let quitCleanupStarted = false
 let quitCleanupFinished = false
+let quitCleanupPromise: Promise<void> | null = null
 let deviceCardManager: DeviceCardManager | null = null
 let deviceCardAgentBridge: DeviceCardAgentBridge | null = null
 let deviceCardAgentCli: DeviceCardAgentCliManager | null = null
+let appUpdateManager: AppUpdateManager | null = null
 let rendererHasUnsavedChanges: boolean | null = null
 let workflowHasUnsavedChanges = false
 
@@ -483,6 +494,33 @@ app.whenReady().then(async () => {
     app.dock.setIcon(localAppIcon)
   }
   ipcMain.handle('app:getVersion', () => app.getVersion())
+  appUpdateManager = new AppUpdateManager({
+    currentVersion: app.getVersion(),
+    enabled: shouldEnableWorkbenchUpdates({
+      isPackaged: app.isPackaged,
+      releaseChannel: __UNILAB_WORKBENCH_RELEASE_CHANNEL__,
+      surfaceKind: desktopSurface.kind
+    }),
+    updater: createElectronUpdaterAdapter(autoUpdater),
+    log: logLine,
+    publish: (snapshot) => {
+      const window = mainWindow
+      if (window && !window.isDestroyed()) {
+        window.setProgressBar(resolveAppUpdateProgressBarValue(snapshot))
+        window.webContents.send('app-update:state', snapshot)
+      }
+    },
+    validateInstall: () => resolveAppUpdateInstallBlocker({
+      platform: process.platform,
+      executablePath: process.execPath
+    }),
+    beforeInstall: ensureQuitCleanup
+  })
+  registerAppUpdateIpc({
+    ipcMain,
+    manager: appUpdateManager,
+    assertSender: assertMainWindowSender
+  })
   ipcMain.on('renderer:unsavedChanges', (event, value: unknown) => {
     try {
       assertMainWindowSender(event)
@@ -932,6 +970,7 @@ app.whenReady().then(async () => {
   )
 
   createWindow()
+  appUpdateManager.start()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -954,12 +993,27 @@ app.on('before-quit', (event) => {
   if (quitCleanupFinished) return
   event.preventDefault()
   if (quitCleanupStarted) return
-  quitCleanupStarted = true
-  void cleanupBeforeQuit().finally(() => {
-    quitCleanupFinished = true
+  void ensureQuitCleanup().finally(() => {
     app.quit()
   })
 })
+
+// 安装启动失败时应用会继续运行，因此清理阶段不能提前解绑 updater 错误。
+// 只在 Electron 确认即将退出后释放更新监听和定时器。
+app.on('will-quit', () => {
+  appUpdateManager?.dispose()
+})
+
+/** 对普通退出与更新安装复用一次且仅一次的 Workbench 宿主清理。 */
+function ensureQuitCleanup(): Promise<void> {
+  if (quitCleanupFinished) return Promise.resolve()
+  if (quitCleanupPromise) return quitCleanupPromise
+  quitCleanupStarted = true
+  quitCleanupPromise = cleanupBeforeQuit().finally(() => {
+    quitCleanupFinished = true
+  })
+  return quitCleanupPromise
+}
 
 async function cleanupBeforeQuit(): Promise<void> {
   try {

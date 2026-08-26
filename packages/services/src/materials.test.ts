@@ -370,7 +370,11 @@ describe('material template adapter', () => {
                 uuid: 'site-a1',
                 material_uuid: 'material-root',
                 name: 'A1',
-                meta_data: { key: 'deck-A1', kind: 'deck-slot' },
+                meta_data: {
+                  key: 'deck-A1',
+                  kind: 'deck-slot',
+                  rotation_deg_xyz: [0, 0, 72]
+                },
                 create_time: '2026-07-26T00:00:00Z',
                 update_time: '2026-07-26T00:00:00Z',
                 sort_order: 0,
@@ -473,7 +477,7 @@ describe('material template adapter', () => {
             occupiedMaterialIds: ['material-vessel'],
             poseInAnchor: {
               positionMm: [10, 20, 30],
-              rotationDegXYZ: [0, 0, 0]
+              rotationDegXYZ: [0, 0, 72]
             }
           })
         ],

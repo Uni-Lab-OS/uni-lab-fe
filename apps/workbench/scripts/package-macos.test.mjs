@@ -11,11 +11,12 @@ import {
   NODE_RUNTIME_SHA256,
   NODE_RUNTIME_SHA256_X64,
   NODE_RUNTIME_VERSION,
-  parseDeveloperIdIdentity
+  parseDeveloperIdIdentity,
+  selectMacosReleaseArtifacts
 } from './package-macos.mjs'
 
 describe('Workbench macOS distribution gate', () => {
-  it('publishes the formal UniLab Workbench identity at version 0.1.0', async () => {
+  it('publishes the formal UniLab Workbench identity at version 0.1.1', async () => {
     const packageManifest = JSON.parse(await readFile(
       new URL('../package.json', import.meta.url),
       'utf8'
@@ -37,7 +38,7 @@ describe('Workbench macOS distribution gate', () => {
       'utf8'
     )
 
-    assert.equal(packageManifest.version, '0.1.0')
+    assert.equal(packageManifest.version, '0.1.1')
     assert.match(packageManifest.description, /UniLab 调试工作台/u)
     assert.equal(packageManifest.theia.frontend.config.defaultLocale, 'zh-cn')
     assert.match(
@@ -48,6 +49,10 @@ describe('Workbench macOS distribution gate', () => {
     )
     assert.match(builderConfiguration, /^productName: UniLab Workbench$/mu)
     assert.match(builderConfiguration, /^appId: com\.bohrium\.unilab$/mu)
+    assert.match(builderConfiguration, /^publish:\n  provider: generic$/mu)
+    assert.match(builderConfiguration, /UNILAB_WORKBENCH_UPDATE_URL/u)
+    assert.match(builderConfiguration, /target: dmg/u)
+    assert.match(builderConfiguration, /target: zip/u)
     assert.match(welcomeDocument, /<title>UniLab 调试工作台<\/title>/u)
     assert.match(welcomeDocument, /id="install-runtime"/u)
     assert.match(welcomeDocument, /id="choose-runtime"/u)
@@ -68,8 +73,76 @@ describe('Workbench macOS distribution gate', () => {
   it('never silently downgrades the formal release to unsigned', () => {
     assert.throws(
       () => assertMacosSigningEnvironment({}),
-      /CSC_LINK.*APPLE_TEAM_ID/
+      /CSC_LINK.*CSC_KEY_PASSWORD.*APPLE_ID.*APPLE_APP_SPECIFIC_PASSWORD.*APPLE_TEAM_ID/
     )
+  })
+
+  it('uses GitHub-safe macOS artifact names', async () => {
+    const packagingScript = await readFile(
+      new URL('./package-macos.mjs', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(
+      packagingScript,
+      /UniLab\.Workbench-\$\{version\}-\$\{arch\}\.\$\{ext\}/u
+    )
+    assert.match(
+      packagingScript,
+      /UniLab\.Workbench\.Test-\$\{version\}-\$\{arch\}\.\$\{ext\}/u
+    )
+    assert.match(
+      packagingScript,
+      /UniLab\.Workbench\.UpdateTest-\$\{version\}-\$\{arch\}\.\$\{ext\}/u
+    )
+    assert.match(packagingScript, /resolveWorkbenchReleaseChannel/u)
+  })
+
+  it('keeps ordinary tests DMG-only and retains isolated update media', () => {
+    const artifacts = [
+      'UniLab.Workbench-0.1.2-arm64.dmg',
+      'UniLab.Workbench-0.1.2-arm64.zip',
+      'UniLab.Workbench-0.1.2-arm64.zip.blockmap',
+      'latest-mac.yml'
+    ]
+    assert.deepEqual(
+      selectMacosReleaseArtifacts(artifacts, 'test'),
+      [artifacts[0]]
+    )
+    assert.deepEqual(
+      selectMacosReleaseArtifacts(artifacts, 'production'),
+      artifacts
+    )
+    assert.deepEqual(
+      selectMacosReleaseArtifacts(artifacts, 'update-test'),
+      artifacts
+    )
+    assert.throws(
+      () => selectMacosReleaseArtifacts([], 'test'),
+      /1 个 DMG/u
+    )
+  })
+
+  it('requires Developer ID signing and Apple notarization for formal DMGs', async () => {
+    const packagingScript = await readFile(
+      new URL('./package-macos.mjs', import.meta.url),
+      'utf8'
+    )
+    const builderConfiguration = await readFile(
+      new URL('../electron-builder.yml', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(builderConfiguration, /notarize: true/u)
+    assert.match(builderConfiguration, /dmg:[^]*sign: true/u)
+    assert.match(packagingScript, /notarizeAndStapleDiskImage\(installer\.path\)/u)
+    assert.match(packagingScript, /verifySignedAndNotarized\(appPath, installer\.path\)/u)
+    assert.match(packagingScript, /runCommand\('codesign'/u)
+    assert.match(packagingScript, /'notarytool',\s*'submit'/u)
+    assert.match(packagingScript, /'--wait'/u)
+    assert.match(packagingScript, /'stapler', 'staple'/u)
+    assert.match(packagingScript, /'stapler', 'validate'/u)
+    assert.match(packagingScript, /runCommand\('spctl'/u)
   })
 
   it('keeps the temporary ad-hoc acceptance build separate from formal release', async () => {
@@ -85,6 +158,32 @@ describe('Workbench macOS distribution gate', () => {
       packageManifest.scripts['package:mac:developer-id'],
       /--developer-id$/u
     )
+  })
+
+  /** 验证测试通道只生成 DMG，生产通道保留热更新介质。 */
+  it('separates full macOS update media from directory validation', async () => {
+    const packagingScript = await readFile(
+      new URL('./package-macos.mjs', import.meta.url),
+      'utf8'
+    )
+    const desktopMain = await readFile(
+      new URL('../../desktop/src/main/index.ts', import.meta.url),
+      'utf8'
+    )
+    const desktopBuildConfig = await readFile(
+      new URL('../../desktop/electron.vite.config.ts', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(packagingScript, /supportsWorkbenchUpdates\(releaseChannel\)/u)
+    assert.match(packagingScript, /macOS Workbench 非压缩应用目录已通过校验/u)
+    assert.match(packagingScript, /selectMacosUpdateArtifacts/u)
+    assert.match(packagingScript, /requireWorkbenchUpdateUrl/u)
+    assert.match(desktopMain, /enabled: shouldEnableWorkbenchUpdates\(/u)
+    assert.match(desktopMain, /__UNILAB_WORKBENCH_RELEASE_CHANNEL__/u)
+    assert.match(desktopBuildConfig, /UNILAB_WORKBENCH_RELEASE_CHANNEL/u)
+    assert.match(desktopBuildConfig, /__UNILAB_WORKBENCH_RELEASE_CHANNEL__/u)
+    assert.doesNotMatch(desktopMain, /process\.platform !== 'darwin'/u)
   })
 
   it('selects an imported Developer ID Application identity for the RC', () => {
@@ -159,7 +258,7 @@ describe('Workbench macOS distribution gate', () => {
       CSC_KEY_PASSWORD: 'redacted',
       APPLE_ID: 'release@example.com',
       APPLE_APP_SPECIFIC_PASSWORD: 'redacted',
-      APPLE_TEAM_ID: 'TEAM123'
+      APPLE_TEAM_ID: 'TEAM123456'
     }))
   })
 
@@ -192,6 +291,7 @@ describe('Workbench macOS distribution gate', () => {
 
     assert.match(builderConfiguration, /desktop\/welcome\.html/u)
     assert.match(builderConfiguration, /desktop\/welcome\.css/u)
+    assert.match(builderConfiguration, /desktop\/app-update-status\.css/u)
     assert.match(builderConfiguration, /desktop\/welcome\.js/u)
     assert.match(builderConfiguration, /\.packaging\/runtime-installer/u)
     assert.match(builderConfiguration, /to: runtime-installer/u)
@@ -274,5 +374,197 @@ describe('Workbench macOS distribution gate', () => {
 
     assert.match(packagingScript, /'--prefer-offline'/u)
     assert.doesNotMatch(packagingScript, /\n\s*'--offline',?\n/u)
+  })
+
+  /** 验证 macOS 在打包前收敛生产依赖，并使用系统兼容的快速 DMG 压缩。 */
+  it('bounds deployment copying and uses LZFSE DMG compression', async () => {
+    const packagingScript = await readFile(
+      new URL('./package-macos.mjs', import.meta.url),
+      'utf8'
+    )
+    const builderConfiguration = await readFile(
+      new URL('../electron-builder.yml', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(packagingScript, /'--config\.node-linker=hoisted'/u)
+    const deployIndex = packagingScript.indexOf("'deploy'")
+    const pruneIndex = packagingScript.indexOf(
+      'pruneDesktopDeployment(desktopRuntimeDirectory)'
+    )
+    const builderIndex = packagingScript.indexOf("'electron-builder'")
+    assert.ok(deployIndex >= 0)
+    assert.ok(deployIndex < pruneIndex)
+    assert.ok(pruneIndex < builderIndex)
+    assert.match(builderConfiguration, /^compression: normal$/mu)
+    assert.match(builderConfiguration, /minimumSystemVersion: '13\.0'/u)
+    assert.match(builderConfiguration, /^\s+format: ULFO$/mu)
+    assert.match(builderConfiguration, /^\s+writeUpdateInfo: false$/mu)
+  })
+
+  /** 验证 macOS 工作流隔离生产、普通测试与热更新测试通道。 */
+  it('builds and publishes the macOS arm64 bundle in GitHub Actions', async () => {
+    const workflow = await readFile(
+      new URL('../../../.github/workflows/package-macos.yml', import.meta.url),
+      'utf8'
+    )
+
+    assert.match(workflow, /^name: Package macOS Workbench$/mu)
+    assert.match(workflow, /^\s+runs-on: macos-14$/mu)
+    assert.match(
+      workflow,
+      /push:\n\s+branches:\n\s+- deploy-mac-test\n\s+- deploy-hot-update-test/u
+    )
+    assert.doesNotMatch(workflow, /push:\n\s+branches:\n(?:\s+- [^\n]+\n)*\s+- main/u)
+    assert.doesNotMatch(workflow, /ci\/macos-packaging-benchmark/u)
+    assert.doesNotMatch(workflow, /ci\/desktop-packaging-optimization-v2/u)
+    assert.match(workflow, /options:\n\s+- full\n\s+- quick/u)
+    assert.match(workflow, /UNILAB_CI_PACKAGE_MODE:/u)
+    assert.match(workflow, /github\.event_name == 'push' && 'full'/u)
+    assert.match(workflow, /UNILAB_CI_SIGNING_MODE:/u)
+    assert.match(workflow, /refs\/heads\/deploy-mac-test/u)
+    assert.match(workflow, /refs\/heads\/deploy-hot-update-test/u)
+    assert.match(workflow, /UNILAB_WORKBENCH_RELEASE_CHANNEL:/u)
+    assert.match(workflow, /'update-test' \|\| 'test'/u)
+    assert.match(workflow, /^\s+contents: write$/mu)
+    assert.match(workflow, /workbench-macos-hot-update-test/u)
+    assert.match(workflow, /releases\/download\/\$\{\{/u)
+    assert.match(workflow, /workbench-macos-stable/u)
+    assert.match(workflow, /workbench-macos-hot-update-test/u)
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-6fcb80a-f7e78e7-b09c0c0/u
+    )
+    assert.match(workflow, /AIONUI_VERSION: 2\.1\.53/u)
+    assert.match(workflow, /AIONUI_MACOS_SHA512: [a-f0-9]{128}/u)
+    assert.match(workflow, /ELECTRON_VERSION: 33\.4\.11/u)
+    assert.match(workflow, /ELECTRON_BUILDER_VERSION: 25\.1\.8/u)
+    assert.match(
+      workflow,
+      new RegExp(`NODE_RUNTIME_VERSION: ${NODE_RUNTIME_VERSION}`, 'u')
+    )
+    assert.match(workflow, /AionUi-\$AIONUI_VERSION-mac-arm64\.dmg/u)
+    assert.match(workflow, /Restore prepared macOS Agent payload/u)
+    assert.match(workflow, /aionui-prepared-macos-arm64-v2-/u)
+    assert.match(workflow, /-node-\$\{\{ env\.NODE_RUNTIME_VERSION \}\}-/u)
+    assert.match(workflow, /actions\/cache\/restore@v6/u)
+    assert.match(workflow, /actions\/cache\/save@v6/u)
+    assert.doesNotMatch(workflow, /cache: pnpm/u)
+    assert.match(workflow, /macos-pnpm-store-v1-/u)
+    assert.match(workflow, /restore-keys:/u)
+    assert.match(workflow, /name: Save pnpm store/u)
+    assert.match(workflow, /macos-electron-builder-v2-/u)
+    assert.match(workflow, /macos-portable-node-v1-/u)
+    assert.doesNotMatch(
+      workflow,
+      /aionui-prepared-macos-arm64-v2-[^\n]*package-macos\.mjs/u
+    )
+    assert.match(workflow, /\.ci-cache\/agent-payload/u)
+    assert.match(workflow, /Cache pinned Theia plugins/u)
+    assert.match(workflow, /apps\/workbench\/plugins/u)
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_INSTALLER=\$GITHUB_WORKSPACE\/\$runtime_source/u
+    )
+    const releaseRestoreIndex = workflow.indexOf(
+      'name: Restore versioned macOS Runtime release'
+    )
+    const requireRuntimeIndex = workflow.indexOf(
+      'name: Require versioned macOS Runtime release'
+    )
+    assert.ok(releaseRestoreIndex >= 0)
+    assert.ok(requireRuntimeIndex >= 0)
+    assert.ok(releaseRestoreIndex < requireRuntimeIndex)
+    assert.match(
+      workflow.slice(requireRuntimeIndex, requireRuntimeIndex + 240),
+      /steps\.runtime-release\.outputs\.hit != 'true'/su
+    )
+    assert.doesNotMatch(workflow, /name: Restore macOS Runtime cache/u)
+    assert.doesNotMatch(workflow, /name: Check out Uni-Lab OS/u)
+    assert.doesNotMatch(workflow, /name: Build macOS arm64 Runtime/u)
+    assert.match(workflow, /build:desktop:production/u)
+    assert.match(workflow, /package-macos\.mjs "--\$UNILAB_CI_SIGNING_MODE"/u)
+    assert.match(workflow, /CSC_LINK: \$\{\{ secrets\.CSC_LINK \}\}/u)
+    assert.match(workflow, /APPLE_ID: \$\{\{ secrets\.APPLE_ID \}\}/u)
+    assert.match(workflow, /APPLE_APP_SPECIFIC_PASSWORD: \$\{\{ secrets\.APPLE_APP_SPECIFIC_PASSWORD \}\}/u)
+    assert.match(workflow, /APPLE_TEAM_ID: \$\{\{ secrets\.APPLE_TEAM_ID \}\}/u)
+    assert.match(workflow, /xcrun stapler validate/u)
+    assert.match(workflow, /^\s+TZ: Asia\/Shanghai$/mu)
+    assert.match(workflow, /BUILD_STARTED_AT_CST=/u)
+    assert.match(workflow, /\$\{rawTimezoneOffset:0:3\}:\$\{rawTimezoneOffset:3:2\}/u)
+    assert.match(workflow, /更新时间：\$\{BUILD_STARTED_AT_CST\}（UTC\+08:00）/u)
+    assert.match(workflow, /prepare-package-version\.mjs/u)
+    assert.match(
+      workflow,
+      /UNILAB_WORKBENCH_PACKAGE_MODE: \$\{\{ env\.UNILAB_CI_PACKAGE_MODE == 'quick' && 'directory' \|\| 'full' \}\}/u
+    )
+    assert.match(workflow, /name: Report quick macOS validation/u)
+    assert.match(workflow, /macos-packaging-metrics\.json/u)
+    assert.match(workflow, /hdiutil verify/u)
+    assert.match(workflow, /compression-level: 0/u)
+    assert.doesNotMatch(workflow, /name: Upload macOS packaging diagnostics/u)
+    const unsignedUploadSection = workflow.slice(
+      workflow.indexOf('name: Upload unsigned macOS DMG'),
+      workflow.indexOf('name: Upload signed macOS DMG')
+    )
+    assert.match(unsignedUploadSection, /release-macos\/\*\.dmg/u)
+    assert.doesNotMatch(unsignedUploadSection, /release-macos\/\*\.zip/u)
+    assert.doesNotMatch(unsignedUploadSection, /latest-mac\.yml/u)
+    assert.doesNotMatch(unsignedUploadSection, /macos-packaging-metrics\.json/u)
+    assert.match(unsignedUploadSection, /retention-days: 7/u)
+
+    const signedUploadSection = workflow.slice(
+      workflow.indexOf('name: Upload signed macOS DMG'),
+      workflow.indexOf('# Publish the signed app archives')
+    )
+    assert.match(signedUploadSection, /release-macos\/\*\.dmg/u)
+    assert.match(signedUploadSection, /UNILAB_CI_SIGNING_MODE == 'signed'/u)
+    assert.doesNotMatch(signedUploadSection, /github\.event_name != 'push'/u)
+    assert.doesNotMatch(signedUploadSection, /release-macos\/\*\.zip/u)
+    assert.doesNotMatch(signedUploadSection, /latest-mac\.yml/u)
+    assert.match(signedUploadSection, /UNILAB_WORKBENCH_RELEASE_CHANNEL/u)
+    assert.match(
+      signedUploadSection,
+      /name: UniLab-Workbench-macos-arm64-\$\{\{ env\.UNILAB_WORKBENCH_RELEASE_CHANNEL \}\}-\$\{\{ env\.UNILAB_WORKBENCH_PACKAGE_VERSION \}\}\n/u
+    )
+    assert.doesNotMatch(signedUploadSection, /github\.run_number/u)
+    assert.doesNotMatch(signedUploadSection, /macos-packaging-metrics\.json/u)
+    assert.match(signedUploadSection, /retention-days: 3/u)
+
+    const publishSection = workflow.slice(
+      workflow.indexOf('name: Publish rolling macOS update release')
+    )
+    assert.match(
+      publishSection,
+      /github\.event_name == 'workflow_dispatch'[^\n]*refs\/heads\/main[^\n]*UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'/u
+    )
+    assert.match(
+      publishSection,
+      /github\.event_name == 'push'[^\n]*refs\/heads\/deploy-hot-update-test[^\n]*UNILAB_WORKBENCH_RELEASE_CHANNEL == 'update-test'/u
+    )
+    assert.match(
+      publishSection,
+      /macOS release asset verification mismatch/u
+    )
+    const binaryUploadIndex = publishSection.indexOf(
+      'gh release upload "$MACOS_RELEASE_TAG" \\'
+    )
+    const metadataUploadIndex = publishSection.indexOf(
+      'gh release upload "$MACOS_RELEASE_TAG" "$metadata"'
+    )
+    assert.ok(binaryUploadIndex >= 0)
+    assert.ok(metadataUploadIndex > binaryUploadIndex)
+    assert.match(publishSection, /requires exactly one DMG, ZIP, ZIP blockmap and latest-mac\.yml/u)
+    assert.match(publishSection, /zips=|blockmaps=|metadata=/u)
+    assert.match(publishSection, /latest-mac\\\.yml/u)
+    assert.doesNotMatch(publishSection, /gh release create/u)
+    const bootstrapSection = workflow.slice(
+      workflow.indexOf('name: Bootstrap isolated macOS hot-update release'),
+      workflow.indexOf('name: Validate update publishing configuration')
+    )
+    assert.match(bootstrapSection, /refs\/heads\/deploy-hot-update-test/u)
+    assert.match(bootstrapSection, /gh release create/u)
+    assert.match(bootstrapSection, /--prerelease/u)
+    assert.doesNotMatch(workflow, /git push/u)
   })
 })

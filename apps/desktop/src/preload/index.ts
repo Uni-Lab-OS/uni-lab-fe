@@ -35,6 +35,10 @@ import type {
   TraceListResult
 } from '../shared/observability'
 import type {
+  AppUpdateSnapshot,
+  DesktopAppUpdateApi
+} from '../shared/appUpdate'
+import type {
   CloudEnvironment,
   ConfigureLocalDeviceProvisioningInput,
   DevicePackageDownloadSummary,
@@ -63,6 +67,7 @@ import type {
   DesktopManagedRuntimeInstallationApi,
   ManagedRuntimeInstallationSnapshot
 } from '../shared/managedRuntimeInstallation'
+import { installAppUpdateStatus } from './appUpdateStatus'
 
 // 登录会话结构(与主进程 authManager.AuthSession 保持一致)
 export interface AuthUserInfo {
@@ -105,6 +110,30 @@ export interface OpenFilePayload {
 
 const api = {
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
+  appUpdate: {
+    getState: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:getState'),
+    check: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:check'),
+    download: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:download'),
+    pauseDownload: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:pauseDownload'),
+    resumeDownload: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:resumeDownload'),
+    restartAndInstall: (): Promise<AppUpdateSnapshot> =>
+      ipcRenderer.invoke('app-update:restartAndInstall'),
+    onState: (
+      listener: (snapshot: AppUpdateSnapshot) => void
+    ): (() => void) => {
+      const wrapped = (
+        _event: Electron.IpcRendererEvent,
+        snapshot: AppUpdateSnapshot
+      ): void => listener(snapshot)
+      ipcRenderer.on('app-update:state', wrapped)
+      return () => ipcRenderer.removeListener('app-update:state', wrapped)
+    }
+  } satisfies DesktopAppUpdateApi,
   unsavedChanges: {
     /** 向主进程发布工作台聚合后的未保存状态。 */
     set: (hasUnsavedChanges: boolean): void => {
@@ -448,5 +477,7 @@ if (process.contextIsolated) {
 } else {
   ;(globalThis as unknown as { api: Api }).api = api
 }
+
+installAppUpdateStatus(api.appUpdate)
 
 export type Api = typeof api

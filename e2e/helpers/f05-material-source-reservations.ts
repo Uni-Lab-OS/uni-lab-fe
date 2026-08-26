@@ -57,7 +57,11 @@ export function runReservationReserve(input: ReservationCommandInput & {
  */
 export function runReservationRelease(
   input: ReservationCommandInput
-): { workflow_id: string; released_nodes: string[] } {
+): {
+  workflow_id: string
+  released_nodes: string[]
+  released_bindings: string[]
+} {
   const stdout = execFileSync(input.python, [
     input.script,
     'release',
@@ -71,17 +75,21 @@ export function runReservationRelease(
   const result = JSON.parse(lines.at(-1) || 'null') as {
     workflow_id?: unknown
     released_nodes?: unknown
+    released_bindings?: unknown
   } | null
   if (
     !result || result.workflow_id !== input.workflowTaskUuid ||
     !Array.isArray(result.released_nodes) ||
-    containsNonString(result.released_nodes)
+    containsNonString(result.released_nodes) ||
+    !Array.isArray(result.released_bindings) ||
+    containsNonString(result.released_bindings)
   ) {
     throw new Error(`短期预留释放结果无效：${JSON.stringify(result)}`)
   }
   return {
     workflow_id: result.workflow_id,
-    released_nodes: result.released_nodes as string[]
+    released_nodes: result.released_nodes as string[],
+    released_bindings: result.released_bindings as string[]
   }
 }
 

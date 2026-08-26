@@ -1,7 +1,11 @@
 import { spawnSync } from 'node:child_process'
-import { readdir, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { createHash } from 'node:crypto'
+import { existsSync } from 'node:fs'
+import { readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { validatePackagedWorkbenchResources } from '../../workbench/scripts/package-portable.mjs'
 
 const MACOS_ELECTRON_LANGUAGES = new Set([
   'en.lproj',
@@ -15,10 +19,9 @@ const MACOS_ENTITLEMENTS = fileURLToPath(
 
 export async function afterPack(context) {
   if (context.electronPlatformName !== 'darwin') {
-    await removePackagedDesktopSelfLinkFromResources(join(
-      context.appOutDir,
-      'resources'
-    ))
+    const resources = join(context.appOutDir, 'resources')
+    await removePackagedDesktopSelfLinkFromResources(resources)
+    validateCopiedWorkbenchResources(resources, context.electronPlatformName)
     return
   }
 
@@ -56,10 +59,50 @@ export async function afterPack(context) {
   }))
 
   await removePackagedDesktopSelfLink(appPath)
+  validateCopiedWorkbenchResources(
+    join(appPath, 'Contents', 'Resources'),
+    context.electronPlatformName
+  )
 
   if (process.env[ADHOC_SIGNING_ENVIRONMENT] === '1') {
     adHocSignApplication(appPath)
   }
+}
+
+/** Fail before signing and compression when electron-builder copied a partial app. */
+function validateCopiedWorkbenchResources(resources, platform) {
+  if (!existsSync(join(resources, 'app.asar'))) return
+  validatePackagedWorkbenchResources(
+    resources,
+    platform === 'win32' ? 'node.exe' : 'node'
+  )
+}
+
+/**
+ * Electron Builder signs every bundled Windows executable after `afterPack`.
+ * Refresh the Runtime manifest at that exact boundary so it describes the
+ * signed Constructor bytes that are actually installed.
+ */
+export async function afterSign(context) {
+  if (context.electronPlatformName !== 'win32') return
+
+  const runtimeDirectory = join(
+    context.appOutDir,
+    'resources',
+    'runtime-installer'
+  )
+  const manifestPath = join(runtimeDirectory, 'manifest.json')
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+  if (
+    typeof manifest.installerFile !== 'string'
+    || basename(manifest.installerFile) !== manifest.installerFile
+  ) {
+    throw new Error('Windows Runtime manifest 缺少安全的 installerFile')
+  }
+
+  const installer = await readFile(join(runtimeDirectory, manifest.installerFile))
+  manifest.sha256 = createHash('sha256').update(installer).digest('hex')
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
 }
 
 export async function removePackagedDesktopSelfLink(appPath) {

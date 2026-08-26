@@ -23,7 +23,8 @@
     "test": "vitest run && node scripts/verify-icons.mjs && node scripts/verify-installer.mjs"
   },
   "dependencies": {
-    "@unilab/device-card-host": "workspace:*"
+    "@unilab/device-card-host": "workspace:*",
+    "electron-updater": "6.8.9"
   },
   "devDependencies": {
     "@arizeai/phoenix-otel": "2.1.0",
@@ -31,9 +32,9 @@
     "@types/node": "^22.10.0",
     "@unilab/device-card-agent-cli": "workspace:*",
     "@unilab/device-card-sdk": "workspace:*",
-    "@unilab/local-environment": "workspace:*",
     "@unilab/device-provisioning": "workspace:*",
     "@unilab/kernel-web": "workspace:*",
+    "@unilab/local-environment": "workspace:*",
     "@unilab/services": "workspace:*",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^33.2.0",

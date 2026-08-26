@@ -3,6 +3,15 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+const workbenchReleaseChannel =
+  process.env['UNILAB_WORKBENCH_RELEASE_CHANNEL']?.trim() || 'test'
+
+if (!['production', 'update-test', 'test'].includes(workbenchReleaseChannel)) {
+  throw new Error(
+    `Unsupported UNILAB_WORKBENCH_RELEASE_CHANNEL: ${workbenchReleaseChannel}`
+  )
+}
+
 /**
  * 根据桌面运行模式生成 Electron 主进程、预加载脚本与可选渲染器配置。
  * @param mode electron-vite 传入的构建模式。
@@ -21,14 +30,18 @@ export default defineConfig(({ mode }) => ({
     })],
     build: {
       rollupOptions: {
-        // The deployed Device Card Host already depends on compiler-sfc.
-        // Keep it external so Rollup does not hoist compiler-sfc's lazy,
-        // optional template-engine requires into desktop startup.
-        external: ['@vue/compiler-sfc'],
         input: {
           index: resolve(__dirname, 'src/main/index.ts')
         }
       }
+    },
+    define: {
+      __UNILAB_WORKBENCH_RELEASE_CHANNEL__: JSON.stringify(
+        workbenchReleaseChannel
+      ),
+      'process.env.UNILAB_WORKBENCH_RELEASE_CHANNEL': JSON.stringify(
+        workbenchReleaseChannel
+      )
     }
   },
   preload: {

@@ -67,6 +67,10 @@ describe('Runtime environment validation', () => {
       pythonExecutable: 'C:\\envs\\unilab\\python.exe',
       unilabExecutable: 'C:\\envs\\unilab\\Scripts\\unilab.exe'
     })
+    expect(runtimeExecutablePaths('/tmp/envs/unilab', 'win32')).toEqual({
+      pythonExecutable: '/tmp/envs/unilab/python.exe',
+      unilabExecutable: '/tmp/envs/unilab/Scripts/unilab.exe'
+    })
     expect(runtimeExecutablePaths('/opt/envs/unilab', 'darwin')).toEqual({
       pythonExecutable: '/opt/envs/unilab/bin/python',
       unilabExecutable: '/opt/envs/unilab/bin/unilab'
@@ -116,6 +120,7 @@ describe('Runtime environment validation', () => {
           '-c',
           [
             'from unilabos.app.main import main',
+            'import unilabos.workspace_host.host',
             'from opcua import Client, ua',
             'from fastapi import FastAPI',
             'from pydantic import BaseModel',

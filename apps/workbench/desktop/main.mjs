@@ -25,6 +25,7 @@ import {
   workbenchEnvironmentPathEntries
 } from '../scripts/workbench-launch.mjs'
 import { createRemoteWorkbenchController } from '../scripts/remote-controller.mjs'
+import { showWorkspaceDirectoryDialog } from '../scripts/workspace-dialog.mjs'
 import {
   normalizeWorkbenchLaunchConfig,
   recentWorkspaceForPath,
@@ -302,12 +303,10 @@ function createPackagedWorkspaceController(options) {
   }
 
   async function chooseAndOpen(kind) {
-    const selection = await dialog.showOpenDialog({
-      title: kind === 'create' ? '新建 UniLab 工作区' : '打开 UniLab 工作区',
-      buttonLabel: kind === 'create' ? '创建并打开' : '打开',
-      properties: kind === 'create'
-        ? ['openDirectory', 'createDirectory', 'promptToCreate']
-        : ['openDirectory', 'createDirectory']
+    const selection = await showWorkspaceDirectoryDialog({
+      dialog,
+      BrowserWindow,
+      kind
     })
     if (selection.canceled || selection.filePaths.length !== 1) return null
     return activateWorkspace(selection.filePaths[0])

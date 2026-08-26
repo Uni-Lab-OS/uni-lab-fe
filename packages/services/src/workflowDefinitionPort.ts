@@ -1,4 +1,5 @@
 import type { BackendWorkflowGraph } from './backendWorkflowGraph'
+import { UnsupportedCapabilityError } from './errors'
 import type {
   WorkflowAuthoringAggregate,
   WorkflowAuthoringGraph,
@@ -25,10 +26,7 @@ export interface WorkflowDefinitionCapabilities {
 }
 
 export interface WorkflowDefinitionInvalidation {
-  workflowUuid: string
   revision: number | null
-  draftHash?: string | null
-  candidateHash?: string | null
 }
 
 export interface WorkflowDefinitionSubscriptionOptions {
@@ -90,10 +88,7 @@ function workspaceDefinitionPort(
       runtime.subscribeWorkflowAuthoring(
         workflowUuid,
         (event) => onInvalidate({
-          workflowUuid: event.data.workflow_uuid,
-          revision: event.data.workflow_revision,
-          draftHash: event.data.draft_hash,
-          candidateHash: event.data.candidate_hash
+          revision: event.data.workflow_revision
         }),
         options satisfies WorkflowAuthoringSubscriptionOptions
       )
@@ -130,16 +125,22 @@ function backendDefinitionPort(
         runMode,
         targetNodeUuid
       ),
-    subscribe: (onInvalidate, options = {}) =>
-      runtime.subscribeWorkflowRuntime((event) => {
+    subscribe: (onInvalidate, options = {}) => {
+      try {
+        return runtime.subscribeWorkflowRuntime((event) => {
+          if (
+            event.event === 'workflow.definition.changed' &&
+            event.data.workflow_uuid === workflowUuid
+          ) onInvalidate({ revision: event.data.workflow_revision })
+        }, options)
+      } catch (error) {
         if (
-          event.event === 'workflow.definition.changed' &&
-          event.data.workflow_uuid === workflowUuid
-        ) onInvalidate({
-          workflowUuid: event.data.workflow_uuid,
-          revision: event.data.workflow_revision
-        })
-      }, options)
+          error instanceof UnsupportedCapabilityError &&
+          error.capability === 'workflow.subscribeEvents'
+        ) return { dispose: () => undefined }
+        throw error
+      }
+    }
   }
 }
 
