@@ -70,6 +70,12 @@ describe('Workbench material viewport layer controls', () => {
     )
 
     expect(source).toContain('<WorkbenchMaterialViewport')
+    expect(source).toContain(
+      'attachmentRealtimeEnabled={'
+    )
+    expect(source).toContain(
+      'services.capabilities.realtime.subscribeKinematicAttachment'
+    )
   })
 
   it('does not show the 2.5D fallback notice over pure 3D controls', async () => {

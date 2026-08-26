@@ -112,6 +112,34 @@ function resolveSiteOccupantSceneObjectId(
 }
 
 /**
+ * 在场景投影中移除正在随机构运动的物料占用。
+ *
+ * Inventory 仍是业务归属的唯一真相；运行时附着只覆盖 3D 展示。因此这里不修改
+ * Store，也不伪造库存迁移，只让源 Site 在 attach 到 detach 期间显示为空。
+ */
+function projectRuntimeSiteOccupancy(
+  site: MaterialSite,
+  runtimeMaterialIds: ReadonlySet<MaterialId>
+): MaterialSite {
+  const occupiedMaterialIds = site.occupiedMaterialIds.filter(
+    (materialId) => !runtimeMaterialIds.has(materialId)
+  )
+  if (occupiedMaterialIds.length === site.occupiedMaterialIds.length) {
+    return site
+  }
+  if (occupiedMaterialIds.length > 0) {
+    return { ...site, occupiedMaterialIds }
+  }
+  return {
+    ...site,
+    occupiedMaterialIds,
+    visual: site.visual
+      ? { state: 'empty', fillFraction: 0 }
+      : undefined
+  }
+}
+
+/**
  * 把权威物料（Material）聚合投影为 Pascal 所有的场景状态。
  * `material.config.rendering` 优先承载实例渲染快照；直接配置字段仅用于迁移兼容。
  */
@@ -119,9 +147,25 @@ export function materialAggregatesToSceneGraph(
   aggregates: readonly MaterialAggregate[],
   options: MaterialSceneProjectionOptions = {}
 ): SceneGraph {
+  const runtimeMaterialIds = new Set<MaterialId>(
+    Object.keys(options.runtimePlacementByMaterialId ?? {})
+  )
   const effectiveAggregates = aggregates.map((aggregate) => {
     const placement = options.runtimePlacementByMaterialId?.[aggregate.material.id]
-    return placement ? { ...aggregate, placement } : aggregate
+    const sites = runtimeMaterialIds.size > 0
+      ? aggregate.sites.map((site) =>
+          projectRuntimeSiteOccupancy(site, runtimeMaterialIds)
+        )
+      : aggregate.sites
+    const sitesChanged = sites.some(
+      (site, index) => site !== aggregate.sites[index]
+    )
+    if (!placement && !sitesChanged) return aggregate
+    return {
+      ...aggregate,
+      ...(placement ? { placement } : {}),
+      ...(sitesChanged ? { sites } : {})
+    }
   })
   const aggregatesById = Object.fromEntries(
     effectiveAggregates.map((aggregate) => [aggregate.material.id, aggregate])

@@ -67,15 +67,15 @@ describe('lab mounting', () => {
     const root = new Group()
     syncVirtualAttachPointFrames(root, [{
       link: 'grasp_frame',
-      position: [0, 0, 0.12],
+      position: [0, 0, 120],
       rotation: [0, 0, 0]
     }])
-    expect(findLinkObject(root, 'grasp_frame')?.position.z).toBeCloseTo(0.12)
+    expect(findLinkObject(root, 'grasp_frame')?.position.y).toBeCloseTo(0.12)
 
     const real = new Group()
     real.name = 'tool0'
     root.add(real)
-    syncVirtualAttachPointFrames(root, [{ link: 'tool0', position: [1, 2, 3] }])
+    syncVirtualAttachPointFrames(root, [{ link: 'tool0', position: [1000, 2000, 3000] }])
     expect(findLinkObject(root, 'tool0')).toBe(real)
     expect(real.position.toArray()).toEqual([0, 0, 0])
   })

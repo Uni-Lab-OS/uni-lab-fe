@@ -1214,8 +1214,11 @@ function WorkbenchSurface({
               {...viewportProps}
               backendUrl={selectedTarget.backend.apiUrl}
               realtime={services.realtime}
-              realtimeEnabled={
+              jointRealtimeEnabled={
                 services.capabilities.realtime.subscribeJointState
+              }
+              attachmentRealtimeEnabled={
+                services.capabilities.realtime.subscribeKinematicAttachment
               }
               runtimeScopeId={selectedTarget.sourceId}
               sourceIdentity={{

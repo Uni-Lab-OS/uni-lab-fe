@@ -68,7 +68,8 @@ const PascalLabWorkbench = React.lazy(async () => {
 export function WorkbenchMaterialViewport({
   backendUrl,
   realtime,
-  realtimeEnabled,
+  jointRealtimeEnabled,
+  attachmentRealtimeEnabled,
   runtimeScopeId,
   sourceIdentity,
   sessionClient,
@@ -83,7 +84,8 @@ export function WorkbenchMaterialViewport({
 }: MaterialWorkbenchViewportProps & {
   backendUrl: string
   realtime: RealtimeService
-  realtimeEnabled: boolean
+  jointRealtimeEnabled: boolean
+  attachmentRealtimeEnabled: boolean
   runtimeScopeId: string
   sourceIdentity: MaterialSceneSourceIdentity
   sessionClient: WorkbenchSessionClientImpl
@@ -159,15 +161,18 @@ export function WorkbenchMaterialViewport({
 
   useEffect(() => {
     activateSceneRuntimeScope(runtimeScopeId)
-    if (!realtimeEnabled || loadState !== 'ready') return
+    if (loadState !== 'ready' ||
+        (!jointRealtimeEnabled && !attachmentRealtimeEnabled)) return
     const projectJoint = (frame: DeviceJointStateFrame): JointStateFrameInput => ({
       ...frame,
       source: 'live'
     })
-    const closeJoint = realtime.subscribeJointState({
-      onJointState: frame => publishJointStateFrame(projectJoint(frame)),
-      onSnapshot: frames => replaceJointStateSnapshot(frames.map(projectJoint))
-    })
+    const closeJoint = jointRealtimeEnabled
+      ? realtime.subscribeJointState({
+          onJointState: frame => publishJointStateFrame(projectJoint(frame)),
+          onSnapshot: frames => replaceJointStateSnapshot(frames.map(projectJoint))
+        })
+      : () => undefined
     const projectAttachment = (
       frame: DeviceKinematicAttachmentFrame
     ): KinematicAttachmentFrameInput | null => {
@@ -176,23 +181,32 @@ export function WorkbenchMaterialViewport({
         ? { ...frame, materialRevision: aggregate.revision }
         : null
     }
-    const closeAttachment = realtime.subscribeKinematicAttachment({
-      onAttachment: frame => {
-        const projected = projectAttachment(frame)
-        if (projected) publishKinematicAttachmentFrame(projected)
-      },
-      onSnapshot: frames => replaceKinematicAttachmentSnapshot(
-        frames.flatMap(frame => {
-          const projected = projectAttachment(frame)
-          return projected ? [projected] : []
+    const closeAttachment = attachmentRealtimeEnabled
+      ? realtime.subscribeKinematicAttachment({
+          onAttachment: frame => {
+            const projected = projectAttachment(frame)
+            if (projected) publishKinematicAttachmentFrame(projected)
+          },
+          onSnapshot: frames => replaceKinematicAttachmentSnapshot(
+            frames.flatMap(frame => {
+              const projected = projectAttachment(frame)
+              return projected ? [projected] : []
+            })
+          )
         })
-      )
-    })
+      : () => undefined
     return () => {
       closeAttachment()
       closeJoint()
     }
-  }, [loadState, realtime, realtimeEnabled, runtimeScopeId, store])
+  }, [
+    attachmentRealtimeEnabled,
+    jointRealtimeEnabled,
+    loadState,
+    realtime,
+    runtimeScopeId,
+    store
+  ])
 
   const inspectScene = useCallback(async (
     options: MaterialRendererOptions

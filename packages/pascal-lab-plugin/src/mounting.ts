@@ -10,6 +10,7 @@ import {
 import type { LabPose } from '@unilab/material/domain'
 import type { LabAttachPoint } from './schema'
 import {
+  labPoseToPascal,
   METERS_TO_MILLIMETERS
 } from './units'
 
@@ -183,8 +184,12 @@ export function syncVirtualAttachPointFrames(
     const frame = existing ?? new Group()
     frame.name = point.link
     frame.userData[VIRTUAL_ATTACH_POINT] = true
-    frame.position.set(...(point.position ?? [0, 0, 0]))
-    frame.rotation.set(...(point.rotation ?? [0, 0, 0]), 'XYZ')
+    const pose = labPoseToPascal({
+      positionMm: point.position ?? [0, 0, 0],
+      rotationDegXYZ: point.rotation ?? [0, 0, 0]
+    })
+    frame.position.set(...pose.position)
+    frame.rotation.set(...pose.rotation, 'XYZ')
     if (!existing) root.add(frame)
   }
 }

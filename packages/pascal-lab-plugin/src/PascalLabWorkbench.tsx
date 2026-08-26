@@ -37,6 +37,7 @@ import {
   type LabModelRuntime
 } from './modelRuntime'
 import { attachmentFramesToRuntimePlacements } from './kinematicAttachmentOverlay'
+import { installMaterialSceneRuntimeInspection } from './materialSceneRuntime'
 import {
   indexMaterialSceneObjects,
   materialIdsToSceneObjectIds
@@ -118,6 +119,7 @@ export function PascalLabWorkbench({
   onMaterialMoves,
   onSelectionChange
 }: PascalLabWorkbenchProps): React.JSX.Element {
+  useEffect(() => installMaterialSceneRuntimeInspection(), [])
   const attachmentFrames = useSyncExternalStore(
     subscribeKinematicAttachmentFrames,
     getKinematicAttachmentFrames,

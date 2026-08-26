@@ -140,6 +140,57 @@ describe('Material Aggregate / Pascal bridge', () => {
     expect(sceneGraphToMaterialMoves(scene, [robot])).toEqual([])
   })
 
+  it('projects a carried material out of its authoritative source Site', () => {
+    const warehouseSite: MaterialSite = {
+      ...site('warehouse', 'site-source', 'source'),
+      occupiedMaterialIds: ['payload'],
+      visual: { state: 'occupied', fillFraction: 1 }
+    }
+    const warehouse = aggregate('warehouse', { sites: [warehouseSite] })
+    const robot = aggregate('robot')
+    const payload = aggregate('payload', {
+      placement: {
+        kind: 'site',
+        parentId: 'warehouse',
+        siteId: 'site-source',
+        offsetPose: {
+          positionMm: [0, 0, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      }
+    })
+
+    const scene = materialAggregatesToSceneGraph(
+      [warehouse, robot, payload],
+      {
+        runtimePlacementByMaterialId: {
+          payload: {
+            kind: 'parent',
+            parentId: 'robot',
+            anchor: { kind: 'root' },
+            localPose: {
+              positionMm: [0, 0, 0],
+              rotationDegXYZ: [0, 0, 0]
+            }
+          }
+        }
+      }
+    )
+    const warehouseNode = scene.nodes['lab-warehouse']
+    if (!isLabDeviceNode(warehouseNode)) {
+      throw new Error('Expected warehouse lab device')
+    }
+
+    expect(warehouseNode.floorplanSnapshot?.sites[0]).toMatchObject({
+      id: 'site-source',
+      occupied: false,
+      visualState: 'empty'
+    })
+    expect(
+      warehouseNode.floorplanSnapshot?.sites[0]?.occupantSceneObjectId
+    ).toBeUndefined()
+  })
+
   it('projects the shared material-label intent without changing domain data', () => {
     const robot = aggregate('robot')
     const visibleScene = materialAggregatesToSceneGraph([robot])

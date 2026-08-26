@@ -8,7 +8,9 @@ import { Euler, Quaternion } from 'three'
 
 /**
  * 把 format-free 附着 latest 投影成现有 MaterialPlacement 运行时覆盖。
- * stale/uncertain 保持最后姿态；detached 不覆盖，物料图仍是最终库位权威。
+ * stale/uncertain/detaching 保持最后姿态；detached 立即撤销覆盖，物料图中的
+ * 当前库位（Site）重新成为渲染权威。同库位放回不会产生库存 revision，不能
+ * 把 revision 增加误当成解除附着的必要证据。
  */
 export function attachmentFramesToRuntimePlacements(
   frames: Readonly<Record<string, KinematicAttachmentFrame>>,
@@ -23,8 +25,7 @@ export function attachmentFramesToRuntimePlacements(
     const child = frame ? aggregateById.get(frame.childRef) : undefined
     if (!frame || !child || !aggregateById.has(frame.parentRef) ||
         frame.childRef === frame.parentRef) continue
-    if (frame.state === 'detached' &&
-        child.revision > frame.materialRevisionAtAttach) continue
+    if (frame.state === 'detached') continue
     const placement: MaterialPlacement = {
       kind: 'parent',
       parentId: frame.parentRef,

@@ -43,7 +43,12 @@ export {
   type MaterialSceneSourceIdentity
 } from './materialSceneInspection'
 export {
+  inspectMaterialSceneObject,
+  installMaterialSceneRuntimeInspection,
+  MATERIAL_SCENE_INSPECTION_REQUEST,
+  MATERIAL_SCENE_INSPECTION_RESPONSE,
   readMaterialSceneRuntimeState,
+  type MaterialSceneRuntimeNodeState,
   type MaterialSceneRuntimeState
 } from './materialSceneRuntime'
 export {

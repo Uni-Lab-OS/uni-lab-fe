@@ -4,9 +4,12 @@ import {
 } from '@pascal-app/core'
 import { useNodeEvents, useViewer } from '@pascal-app/viewer'
 import { Html } from '@react-three/drei'
-import { useFrame } from '@react-three/fiber'
+import { useThree } from '@react-three/fiber'
 import { shouldShowMaterialLabelByDefault } from '@unilab/material/domain'
-import { getJointStateFrame } from '@unilab/scene-runtime'
+import {
+  getJointStateFrame,
+  subscribeJointStateFrame
+} from '@unilab/scene-runtime'
 import {
   useEffect,
   useLayoutEffect,
@@ -229,7 +232,7 @@ export default function LabDeviceRenderer({
   >([0, Math.max(node.dimensions[1], 0.2) + 0.08, 0])
   const { object, error, loading } = useLabModel(node)
   const appliedJointFrameRef = useRef<object | null>(null)
-  const lastJointApplySecondsRef = useRef(0)
+  const invalidate = useThree(state => state.invalidate)
   const events = useCustomNodeEvents(node, node.type)
   const isSelected = useViewer((state) =>
     state.selection.selectedIds.includes(node.id as never)
@@ -248,29 +251,36 @@ export default function LabDeviceRenderer({
 
   useRegistry(node.id, node.type, groupRef)
 
-  // 高频关节状态（JointState）只在 Three render frame 中命令式读取。
-  useFrame(({ clock }) => {
-    if (!object || !node.kinematics) return
-    const frame = getJointStateFrame(node.materialNodeId)
-    if (!frame) {
-      if (appliedJointFrameRef.current) resetJointStateUrdf(object)
-      appliedJointFrameRef.current = null
-      return
+  // 设备自己的 latest 到达时直接命令式写入 URDF，再只唤醒一帧出图。不能依赖
+  // Pascal demand frame 轮询，否则外部状态已更新时 Three joint 仍可能保持旧值。
+  useEffect(() => {
+    const kinematics = node.kinematics
+    if (!object || !kinematics) return
+    const applyLatest = (): void => {
+      const frame = getJointStateFrame(node.materialNodeId)
+      if (!frame) {
+        if (appliedJointFrameRef.current) {
+          resetJointStateUrdf(object)
+          invalidate()
+        }
+        appliedJointFrameRef.current = null
+        return
+      }
+      if (frame === appliedJointFrameRef.current || frame.stale ||
+          !matchesKinematicContract(kinematics, frame)) return
+      captureInitialJointState(object)
+      if (applyJointStateToUrdf(object, frame.jointStates)) {
+        appliedJointFrameRef.current = frame
+        invalidate()
+      }
     }
-    if (frame === appliedJointFrameRef.current || frame.stale) return
-    if (!matchesKinematicContract(node.kinematics, frame)) return
-    if (clock.elapsedTime - lastJointApplySecondsRef.current < 0.1) return
-    captureInitialJointState(object)
-    if (applyJointStateToUrdf(object, frame.jointStates)) {
-      appliedJointFrameRef.current = frame
-      lastJointApplySecondsRef.current = clock.elapsedTime
-    }
-  })
+    applyLatest()
+    return subscribeJointStateFrame(node.materialNodeId, applyLatest)
+  }, [invalidate, node.kinematics, node.materialNodeId, object])
 
   useEffect(() => {
     // 模型实例变化后必须重新应用当前 latest，不能沿用旧对象引用。
     appliedJointFrameRef.current = null
-    lastJointApplySecondsRef.current = 0
   }, [object, node.materialNodeId])
 
   useEffect(() => {

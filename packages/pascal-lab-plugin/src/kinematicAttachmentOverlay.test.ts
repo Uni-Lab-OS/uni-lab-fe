@@ -62,7 +62,7 @@ describe('运动学附着 MaterialPlacement 运行时覆盖', () => {
     })
   })
 
-  it('stale/uncertain 保持姿态，detached 等待新物料 revision 后交还', () => {
+  it('stale/uncertain 保持姿态，detached 立即交还当前库存库位', () => {
     const aggregates = [aggregate('robot'), aggregate('payload')]
     expect(attachmentFramesToRuntimePlacements({
       payload: frame('payload', 'robot', {
@@ -71,10 +71,6 @@ describe('运动学附着 MaterialPlacement 运行时覆盖', () => {
     }, aggregates).payload).toBeDefined()
     expect(attachmentFramesToRuntimePlacements({
       payload: frame('payload', 'robot', { state: 'detached' })
-    }, aggregates).payload).toBeDefined()
-    expect(attachmentFramesToRuntimePlacements({
-      payload: frame('payload', 'robot', { state: 'detached' })
-    }, [aggregate('robot'), { ...aggregate('payload'), revision: 2 }])
-      .payload).toBeUndefined()
+    }, aggregates).payload).toBeUndefined()
   })
 })
