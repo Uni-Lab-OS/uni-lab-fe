@@ -351,13 +351,19 @@ export interface MaterialMoveSubscription {
   dispose(): void
 }
 
+export interface MaterialMoveSubscriptionOptions {
+  /** SSE 重连无法证明增量连续时，要求调用方重新读取权威 Material 图。 */
+  onResyncRequired?(): void
+}
+
 export interface MaterialGraphPort {
   getGraph(scope: MaterialScope): Promise<readonly MaterialAggregate[]>
   /**
    * 物料移动通知用于增量更新当前页面；只在页面初次加载时读取完整物料图。
    */
   subscribeMoves?(
-    onMove: (event: MaterialMovedEvent) => void
+    onMove: (event: MaterialMovedEvent) => void,
+    options?: MaterialMoveSubscriptionOptions
   ): MaterialMoveSubscription
   /**
    * 2.5D 外形声明由设备包定义、Backend 通过 `/api/v1/material-shapes` 提供。
@@ -388,6 +394,7 @@ export interface MaterialGraphPort {
 
 export type MaterialCapability =
   | 'material.readGraph'
+  | 'material.subscribeMoves'
   | 'material.create'
   | 'material.updateConfig'
   | 'material.updateSite'

@@ -12,6 +12,7 @@ export interface ServerCapabilities {
   material: {
     readTemplates: boolean
     readGraph: boolean
+    subscribeMoves: boolean
     create: boolean
     updateConfig: boolean
     updateSite: boolean
@@ -65,6 +66,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'devices.manualExclusive',
   'material.readTemplates',
   'material.readGraph',
+  'material.subscribeMoves',
   'material.create',
   'material.updateConfig',
   'material.updateSite',
@@ -171,6 +173,7 @@ function unavailableCapabilities(): ServerCapabilities {
     material: {
       readTemplates: false,
       readGraph: false,
+      subscribeMoves: false,
       create: false,
       updateConfig: false,
       updateSite: false,
@@ -252,6 +255,7 @@ function localPythonCapabilities(): ServerCapabilities {
   capabilities.realtime.subscribeJointState = true
   capabilities.realtime.subscribeKinematicAttachment = true
   capabilities.material.readGraph = true
+  capabilities.material.subscribeMoves = true
   capabilities.workflow.readDefinitions = true
   capabilities.workflow.authoring = true
   capabilities.workflow.runTasks = true

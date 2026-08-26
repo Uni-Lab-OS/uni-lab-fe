@@ -547,12 +547,12 @@ describe('material template adapter', () => {
     )
   })
 
-  it('maps instance.moved SSE frames to one material move notification', () => {
+  it('maps the canonical parent-changed frame to one material move notification', () => {
     const listeners = new Map<string, (event: MessageEvent<string>) => void>()
     const close = vi.fn()
     const EventSourceMock = vi.fn(function (url: string) {
       expect(url).toBe(
-        'http://127.0.0.1:18003/api/v1/monitor/events?channels=material&backlog=0'
+        'http://127.0.0.1:18003/api/v1/monitor/events?channels=material&backlog=200'
       )
       return {
         addEventListener: (
@@ -572,21 +572,26 @@ describe('material template adapter', () => {
         resolveServerCapabilities(backend)
       )
       const onMove = vi.fn()
+      const onResyncRequired = vi.fn()
 
-      const subscription = service.subscribeMoves?.(onMove)
+      const subscription = service.subscribeMoves?.(onMove, {
+        onResyncRequired
+      })
+      listeners.get('open')?.({} as MessageEvent<string>)
+      listeners.get('open')?.({} as MessageEvent<string>)
       listeners.get('material')?.({
         data: JSON.stringify({
           seq: 42,
           channel: 'material',
-          type: 'instance.moved',
+          type: 'instance.parent_changed',
           data: {
             aggregate_id: 'material-1',
             version: 7,
             payload: {
               from_parent: 'warehouse-1',
               from_slot: 'L1B1',
-              to_parent: 'station-7',
-              to_slot: 'S0721'
+              parent_uuid: 'station-7',
+              slot_id: 'S0721'
             }
           }
         }),
@@ -602,9 +607,30 @@ describe('material template adapter', () => {
         toParentId: 'station-7',
         toSite: 'S0721'
       })
+      expect(onResyncRequired).toHaveBeenCalledOnce()
       subscription?.dispose()
       expect(close).toHaveBeenCalledTimes(1)
+      expect(listeners.has('open')).toBe(false)
       expect(listeners.has('material')).toBe(false)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('does not open the OS Material stream for a Backend without that capability', () => {
+    const EventSourceMock = vi.fn()
+    vi.stubGlobal('EventSource', EventSourceMock)
+    try {
+      const backend = getDefaultBackend('local-go')
+      const service = createMaterialService(
+        mockHttp(undefined).http,
+        backend,
+        resolveServerCapabilities(backend)
+      )
+
+      service.subscribeMoves?.(vi.fn())
+
+      expect(EventSourceMock).not.toHaveBeenCalled()
     } finally {
       vi.unstubAllGlobals()
     }

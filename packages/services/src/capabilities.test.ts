@@ -33,6 +33,7 @@ describe('server capability matrix', () => {
           'devices.runActionTask',
           'devices.manualExclusive',
           'material.readGraph',
+          'material.subscribeMoves',
           'workflow.readDefinitions',
           'workflow.authoring',
           'workflow.runTasks',

@@ -97,6 +97,7 @@ import {
 import { useRobotWorkstationData } from './robot-workstation-data'
 import { WorkbenchDomainLayout } from './workbench-domain-layout'
 import { WorkbenchDeviceSurface } from './workbench-device-surface'
+import { subscribeWorkbenchMaterialMoves } from './workbench-material-graph-load'
 import { WorkbenchMaterialViewport } from './workbench-material-viewport'
 import { workflowExecutionStatusForConnection } from './workbench-execution-readiness'
 import {
@@ -1083,6 +1084,12 @@ function WorkbenchSurface({
   const deviceBackend = selectedTarget.backend
 
   useEffect(() => () => materialStore.getState().reset(), [materialStore])
+
+  useEffect(() => subscribeWorkbenchMaterialMoves(
+    materialStore,
+    services.materials,
+    services.getCapabilityStatus('material.subscribeMoves').available
+  ), [materialStore, services])
 
   useEffect(() => {
     if (recoveryRevision === 0) return
