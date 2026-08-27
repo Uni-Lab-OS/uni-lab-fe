@@ -6,6 +6,7 @@ import {
   resolveWindowsPrecompressedProfile,
   resolveWorkbenchPackageMode,
   resolveWorkbenchReleaseChannel,
+  supportsWorkbenchUpdates,
   WINDOWS_PRECOMPRESSED_PROFILES,
   WORKBENCH_PACKAGE_MODES,
   WORKBENCH_RELEASE_CHANNELS
@@ -28,11 +29,19 @@ describe('Workbench packaging modes', () => {
     )
   })
 
-  /** 验证发布通道只允许生产与测试，缺省值按测试包失败关闭。 */
-  it('accepts only production and test release channels', () => {
-    assert.deepEqual(WORKBENCH_RELEASE_CHANNELS, ['production', 'test'])
+  /** 验证热更新测试通道与普通测试包显式分离，缺省值仍失败关闭。 */
+  it('accepts isolated update-test release channels', () => {
+    assert.deepEqual(WORKBENCH_RELEASE_CHANNELS, [
+      'production',
+      'update-test',
+      'test'
+    ])
     assert.equal(resolveWorkbenchReleaseChannel(undefined), 'test')
     assert.equal(resolveWorkbenchReleaseChannel(' test '), 'test')
+    assert.equal(resolveWorkbenchReleaseChannel('update-test'), 'update-test')
+    assert.equal(supportsWorkbenchUpdates('production'), true)
+    assert.equal(supportsWorkbenchUpdates('update-test'), true)
+    assert.equal(supportsWorkbenchUpdates('test'), false)
     assert.throws(
       () => resolveWorkbenchReleaseChannel('staging'),
       /不支持的 Workbench 发布通道/u

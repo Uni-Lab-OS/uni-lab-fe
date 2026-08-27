@@ -10,6 +10,7 @@
  * the bundle finishes. Electron main/preload still need a full desktop rebuild.
  */
 import { spawn } from 'node:child_process'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -21,9 +22,11 @@ const workspaceRoot = path.resolve(workbenchDirectory, '../..')
 const startScript = path.join(scriptDirectory, 'start-workbench.mjs')
 const theiaBuildScript = path.join(scriptDirectory, 'run-theia-build.mjs')
 const productionBuildFlag = '--production-build'
+const welcomeFlag = '--welcome'
 const productionBuild = process.argv.includes(productionBuildFlag)
+const welcome = process.argv.includes(welcomeFlag)
 const forwardedArguments = process.argv.slice(2)
-  .filter(argument => argument !== productionBuildFlag)
+  .filter(argument => ![productionBuildFlag, welcomeFlag].includes(argument))
 const watchMode = productionBuild ? 'production' : 'development'
 const pnpmExecutable = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 
@@ -71,13 +74,29 @@ try {
     '[watch/node] Finished with 0 errors'
   ])
   if (!stopping) {
-    start('desktop', process.execPath, [
-      startScript,
-      '--desktop',
-      ...forwardedArguments
-    ], {
-      cwd: workbenchDirectory
-    })
+    if (welcome) {
+      const workbenchRequire = createRequire(
+        path.join(workbenchDirectory, 'package.json')
+      )
+      const electronExecutable = workbenchRequire('electron')
+      const desktopEnvironment = { ...process.env }
+      delete desktopEnvironment.ELECTRON_RUN_AS_NODE
+      start('desktop', electronExecutable, [
+        workbenchDirectory,
+        ...forwardedArguments
+      ], {
+        cwd: workbenchDirectory,
+        env: desktopEnvironment
+      })
+    } else {
+      start('desktop', process.execPath, [
+        startScript,
+        '--desktop',
+        ...forwardedArguments
+      ], {
+        cwd: workbenchDirectory
+      })
+    }
   }
 } catch (error) {
   if (!stopping) {

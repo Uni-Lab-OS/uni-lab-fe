@@ -4,6 +4,10 @@ import type {
   AppUpdateErrorCode,
   AppUpdateSnapshot
 } from '../shared/appUpdate'
+import {
+  bindElectronUpdaterDownloadPause,
+  type ElectronUpdaterDownloadPauseController
+} from './electronUpdaterDownloadPause'
 
 const DEFAULT_INITIAL_CHECK_DELAY_MS = 30_000
 const DEFAULT_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1_000
@@ -23,7 +27,10 @@ export interface AppUpdaterAdapter {
   subscribe(handlers: AppUpdaterHandlers): () => void
   check(): Promise<void>
   download(): Promise<void>
+  pause(): boolean
+  resume(): boolean
   install(): void
+  dispose?(): void
 }
 
 interface AppUpdateManagerOptions {
@@ -34,6 +41,7 @@ interface AppUpdateManagerOptions {
   publish?: (snapshot: AppUpdateSnapshot) => void
   confirmDownload?: (snapshot: AppUpdateSnapshot) => Promise<boolean>
   confirmInstall?: (snapshot: AppUpdateSnapshot) => Promise<boolean>
+  validateInstall?: () => AppUpdateErrorCode | undefined
   beforeInstall?: () => Promise<void>
   initialCheckDelayMs?: number
   checkIntervalMs?: number
@@ -42,7 +50,7 @@ interface AppUpdateManagerOptions {
 /**
  * 管理 Workbench 更新的完整生命周期，并只暴露稳定快照和受控命令。
  *
- * 下载与立即安装都需要用户确认；已下载版本也可以在正常退出时安装。
+ * 下载与立即安装由渲染器显式触发；普通退出不会静默安装已下载版本。
  */
 export class AppUpdateManager {
   private snapshot: AppUpdateSnapshot
@@ -84,7 +92,7 @@ export class AppUpdateManager {
         checkedAt: Date.now()
       }),
       progress: (percent) => this.setSnapshot({
-        phase: 'downloading',
+        phase: this.snapshot.phase === 'paused' ? 'paused' : 'downloading',
         progressPercent: normalizePercent(percent)
       }),
       downloaded: (version) => {
@@ -124,7 +132,9 @@ export class AppUpdateManager {
   /** 发起一次幂等检查；开发态和非 Workbench 安装包安全返回 disabled。 */
   async check(): Promise<AppUpdateSnapshot> {
     if (!this.options.enabled || this.disposed) return this.getSnapshot()
-    if (['checking', 'downloading', 'downloaded'].includes(this.snapshot.phase)) {
+    if (['checking', 'downloading', 'paused', 'downloaded'].includes(
+      this.snapshot.phase
+    )) {
       return this.getSnapshot()
     }
     this.setSnapshot({ phase: 'checking' })
@@ -142,17 +152,62 @@ export class AppUpdateManager {
     if (this.snapshot.phase !== 'available') return this.getSnapshot()
     this.setSnapshot({ phase: 'downloading', progressPercent: 0 })
     try {
-      await this.options.updater.download()
+      const downloadTask = this.options.updater.download()
+      void downloadTask.catch((error: unknown) => {
+        this.handleDownloadFailure(error)
+      })
     } catch (error) {
-      this.options.log(`Workbench 更新下载失败: ${safeErrorMessage(error)}`)
-      this.setFailure('DOWNLOAD_FAILED')
+      this.handleDownloadFailure(error)
     }
     return this.getSnapshot()
+  }
+
+  /** 原地暂停当前响应流，保留已写入临时文件和摘要校验状态。 */
+  async pauseDownload(): Promise<AppUpdateSnapshot> {
+    if (this.snapshot.phase !== 'downloading') return this.getSnapshot()
+    try {
+      if (!this.options.updater.pause()) {
+        this.options.log('Workbench 更新暂停失败: 下载器不支持暂停')
+        return this.getSnapshot()
+      }
+      this.options.log('Workbench 更新下载已暂停')
+      return this.setSnapshot({
+        phase: 'paused',
+        progressPercent: this.snapshot.progressPercent ?? 0
+      })
+    } catch (error) {
+      this.options.log(`Workbench 更新暂停失败: ${safeErrorMessage(error)}`)
+      return this.getSnapshot()
+    }
+  }
+
+  /** 继续同一个下载响应流，不创建第二个下载任务。 */
+  async resumeDownload(): Promise<AppUpdateSnapshot> {
+    if (this.snapshot.phase !== 'paused') return this.getSnapshot()
+    try {
+      if (!this.options.updater.resume()) {
+        this.options.log('Workbench 更新继续失败: 下载器不支持继续')
+        return this.getSnapshot()
+      }
+      this.options.log('Workbench 更新下载已继续')
+      return this.setSnapshot({
+        phase: 'downloading',
+        progressPercent: this.snapshot.progressPercent ?? 0
+      })
+    } catch (error) {
+      this.options.log(`Workbench 更新继续失败: ${safeErrorMessage(error)}`)
+      return this.getSnapshot()
+    }
   }
 
   /** 完成宿主清理后重启安装，仅接受已下载状态。 */
   async restartAndInstall(): Promise<AppUpdateSnapshot> {
     if (this.snapshot.phase !== 'downloaded') return this.getSnapshot()
+    const installBlocker = this.options.validateInstall?.()
+    if (installBlocker) {
+      this.options.log(`Workbench 更新安装受阻: ${installBlocker}`)
+      return this.setFailure(installBlocker)
+    }
     try {
       await this.options.beforeInstall?.()
       this.options.updater.install()
@@ -173,6 +228,7 @@ export class AppUpdateManager {
     if (this.periodicCheckTimer) clearInterval(this.periodicCheckTimer)
     this.initialCheckTimer = null
     this.periodicCheckTimer = null
+    this.options.updater.dispose?.()
   }
 
   private async offerDownload(snapshot: AppUpdateSnapshot): Promise<void> {
@@ -199,12 +255,24 @@ export class AppUpdateManager {
     return this.setSnapshot({ phase: 'error', errorCode })
   }
 
+  private handleDownloadFailure(error: unknown): void {
+    this.options.log(`Workbench 更新下载失败: ${safeErrorMessage(error)}`)
+    // electron-updater 的 macOS 实现会先派发 update-downloaded，再等待
+    // Squirrel.Mac 取走 ZIP。该 Promise 可能在状态已经前进后才拒绝；此时
+    // 不能把 downloaded/安装状态倒退成 DOWNLOAD_FAILED，否则确认安装会
+    // 因状态守卫直接返回。
+    if (['downloading', 'paused'].includes(this.getSnapshot().phase)) {
+      this.setFailure('DOWNLOAD_FAILED')
+    }
+  }
+
   private setSnapshot(
     change: Partial<AppUpdateSnapshot> & Pick<AppUpdateSnapshot, 'phase'>
   ): AppUpdateSnapshot {
     const keepsAvailableVersion = [
       'available',
       'downloading',
+      'paused',
       'downloaded'
     ].includes(change.phase)
     this.snapshot = {
@@ -227,12 +295,22 @@ export class AppUpdateManager {
 export function createElectronUpdaterAdapter(
   updater: AppUpdater
 ): AppUpdaterAdapter {
+  let pauseController: ElectronUpdaterDownloadPauseController | null = null
   return {
     configure() {
       updater.autoDownload = false
-      updater.autoInstallOnAppQuit = true
+      // macOS 在 true 时会在 electron-updater 的 preliminary
+      // update-downloaded 事件后立即启动原生 Squirrel 下载。若原生阶段在
+      // 用户确认前失败，后续 quitAndInstall 不会重试。显式安装模式让
+      // quitAndInstall 在用户点击后启动该阶段，并等待原生 ready 事件退出。
+      updater.autoInstallOnAppQuit = false
       updater.allowDowngrade = false
       updater.disableWebInstaller = true
+      pauseController ??= bindElectronUpdaterDownloadPause(
+        updater as unknown as Parameters<
+          typeof bindElectronUpdaterDownloadPause
+        >[0]
+      )
     },
     subscribe(handlers) {
       const checking = (): void => handlers.checking()
@@ -262,8 +340,18 @@ export function createElectronUpdaterAdapter(
     async download() {
       await updater.downloadUpdate()
     },
+    pause() {
+      return pauseController?.pause() ?? false
+    },
+    resume() {
+      return pauseController?.resume() ?? false
+    },
     install() {
       updater.quitAndInstall(false, true)
+    },
+    dispose() {
+      pauseController?.dispose()
+      pauseController = null
     }
   }
 }
@@ -274,7 +362,7 @@ function normalizePercent(value: number): number {
 }
 
 function errorCodeForPhase(phase: AppUpdateSnapshot['phase']): AppUpdateErrorCode {
-  if (phase === 'downloading') return 'DOWNLOAD_FAILED'
+  if (phase === 'downloading' || phase === 'paused') return 'DOWNLOAD_FAILED'
   if (phase === 'downloaded') return 'INSTALL_FAILED'
   return 'CHECK_FAILED'
 }

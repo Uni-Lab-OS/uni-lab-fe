@@ -23,6 +23,9 @@ import {
 import {
   loadWorkflowActionCatalog
 } from './workflowActionCatalog'
+import type {
+  WorkflowActionCatalogStore
+} from './workflowActionCatalogStore'
 import {
   decodeWorkflowAuthoringAggregate,
   decodeWorkflowAuthoringTransform,
@@ -157,6 +160,8 @@ export type {
   WorkflowTaskCommandType,
   WorkflowTaskControlStatus,
   WorkflowTaskCreateRequest,
+  WorkflowTaskExecutionKind,
+  WorkflowExecutionTask,
   WorkflowTaskListQuery,
   WorkflowTaskPage,
   WorkflowTaskRunMode,
@@ -167,6 +172,8 @@ export type {
 
 /** 工作流运行时（Workflow Runtime）从组合根接收的公开服务依赖。 */
 export interface WorkflowRuntimeDependencies {
+  /** 当前 Authority 下设备与工作流共用的动作目录快照。 */
+  actionCatalog?: WorkflowActionCatalogStore
   /** 公共物料图端口是工作流物料来源（MaterialSource）目录唯一允许使用的物料读边界。 */
   materialGraph?: Pick<MaterialGraphPort, 'getGraph'>
   traceRequest?: HttpRequestTraceReporter
@@ -254,9 +261,12 @@ export function createWorkflowRuntime(
   }
 
   const port: WorkflowRuntimePort = {
-    getWorkflowActionCatalog: (signal) => {
+    getWorkflowActionCatalog: (signal, options) => {
       requireWorkflowCapability('workflow.readDefinitions')
-      return loadWorkflowActionCatalog(http, signal)
+      return (options?.refresh
+        ? dependencies.actionCatalog?.refresh(signal)
+        : dependencies.actionCatalog?.read(signal)) ??
+        loadWorkflowActionCatalog(http, signal)
     },
     getWorkflowMaterialSourceCatalog,
     listWorkflows: async (query = {}) => {
@@ -477,7 +487,13 @@ export function createWorkflowRuntime(
       return subscribeWorkflowRuntime(
         sseTransport,
         subscriptions,
-        onInvalidate,
+        (event) => {
+          if (
+            event.event === 'device.catalog.changed' ||
+            event.event === 'workflow.definition.changed'
+          ) dependencies.actionCatalog?.invalidate()
+          onInvalidate(event)
+        },
         options
       )
     },

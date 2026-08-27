@@ -48,6 +48,22 @@ describe('Backend reagent editor validation', () => {
     )
   })
 
+  it('拒绝早于生产日期的截止日期', () => {
+    const base = {
+      materialId: 'material-1',
+      reagentInfoId: '11111111-1111-4111-8111-111111111111',
+      physicalState: 'liquid' as const,
+      quantity: 100,
+      quantityUnit: 'mL'
+    }
+
+    expect(validateReagentEditor({
+      ...base,
+      productionDate: '2026-08-18',
+      expiryDate: '2026-08-17'
+    }, 'create')).toBe('截止日期不能早于生产日期')
+  })
+
   /** 创建窗口要求用户显式选择尚未承载试剂的试剂容器。 */
   it('renders an explicit empty-container material selector', () => {
     const markup = renderToStaticMarkup(
@@ -87,7 +103,10 @@ describe('Backend reagent editor validation', () => {
     expect(markup).toContain('密度（g/mL）')
     expect(markup).not.toContain('密度条件')
     expect(markup).toContain('供应商')
-    expect(markup).toContain('有效期')
+    expect(markup).toContain('生产日期')
+    expect(markup).toContain('截止日期')
+    expect(markup).toContain('name="productionDate"')
+    expect(markup).toContain('name="expiryDate"')
     expect(markup).toContain('更多信息')
     expect(markup).toContain('添加自定义参数')
     expect(markup).not.toContain('暂无自定义参数')
@@ -99,7 +118,8 @@ describe('Backend reagent editor validation', () => {
     }
     expect(markup).not.toContain('mol</')
     expect(markup).not.toMatch(/name="quantityUnit"[^>]*value="mL"/)
-    expect(markup).not.toMatch(/name="expiresOn"[^>]*value=/)
+    expect(markup).not.toMatch(/name="productionDate"[^>]*value=/)
+    expect(markup).not.toMatch(/name="expiryDate"[^>]*value=/)
   })
 
   /** 证明试剂入库登记窗口采用“试剂与容器 / 试剂容器 / 试剂名称”术语。 */
@@ -149,6 +169,24 @@ describe('Backend reagent editor validation', () => {
       quantityUnit: 'g'
     })
     expect(command).not.toHaveProperty('cas')
+  })
+
+  it('将生产日期和截止日期写入 Backend 批次元数据', () => {
+    const command = reagentCreateCommand({
+      materialId: 'material-1',
+      reagentInfoId: '11111111-1111-4111-8111-111111111111',
+      physicalState: 'liquid',
+      quantity: 500,
+      quantityUnit: 'mL',
+      productionDate: '2026-08-01',
+      expiryDate: '2027-08-01'
+    }, [])
+
+    expect(command.metadata).toMatchObject({
+      production_date: '2026-08-01',
+      expiry_date: '2027-08-01'
+    })
+    expect(command.metadata).not.toHaveProperty('expires_on')
   })
 
   it('按物料名称、条码和 UUID 搜索空容器', () => {

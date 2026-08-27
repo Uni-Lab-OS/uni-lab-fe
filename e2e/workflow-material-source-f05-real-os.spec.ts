@@ -70,7 +70,11 @@ interface WorkflowJobWire {
   executor_kind: string
   status: string
   return_info: {
-    material?: { uuid?: string; resource_template_uuid?: string }
+    material?: {
+      uuid?: string
+      resource_template_uuid?: string
+      custody_policy?: string
+    }
   }
 }
 
@@ -366,13 +370,14 @@ async function runF05MaterialSourceAcceptance(
   )
   assertMaterialSourceResolutionJob(firstRuntime.job, existingMaterialUuid)
 
-  // 成功终态不会自动释放可能已经被真实流程使用的物料。这个夹具只有来源节点、
-  // 没有下游动作，因此先通过同一生产 InventoryService 显式清理首个任务预留，
-  // 再建立测试占用；第二个任务的等待不依赖资源泄漏或错误的成功终态假设。
+  // 成功终态已经由协调器释放本任务的物料预留与冻结绑定；通过同一生产
+  // InventoryService 再次释放必须保持幂等空结果。随后建立独立测试占用，使
+  // 第二个任务的等待不依赖资源泄漏或错误的终态假设。
   const firstReleaseResult = os.releaseWorkflowReservation(firstTaskUuid)
   expect(firstReleaseResult).toEqual({
     workflow_id: firstTaskUuid,
-    released_nodes: [os.sourceNodeUuid]
+    released_nodes: [],
+    released_bindings: []
   })
   const fixtureReserveResult = os.reserveWorkflowMaterial(
     FIXTURE_HOLDER_TASK_UUID,
@@ -414,7 +419,8 @@ async function runF05MaterialSourceAcceptance(
   const releaseResult = os.releaseWorkflowReservation(FIXTURE_HOLDER_TASK_UUID)
   expect(releaseResult).toEqual({
     workflow_id: FIXTURE_HOLDER_TASK_UUID,
-    released_nodes: [os.sourceNodeUuid]
+    released_nodes: [os.sourceNodeUuid],
+    released_bindings: []
   })
   const admittedReschedule = await page.evaluate(requestJsonInBrowser, {
     url: `${os.url}/api/v1/reschedule`,
@@ -631,4 +637,5 @@ function assertMaterialSourceResolutionJob(
   expect(job.workflow_node_uuid).toBe(os.sourceNodeUuid)
   expect(job.executor_kind).toBe('material_source')
   expect(job.return_info.material?.uuid).toBe(materialUuid)
+  expect(job.return_info.material?.custody_policy).toBe('task_exclusive')
 }

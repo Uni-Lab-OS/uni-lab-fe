@@ -153,7 +153,8 @@ describe('Backend 工作流运行 adapter', () => {
             material_uuid: null,
             site: null,
             slot_range: null,
-            flow_role: 'primary_sample'
+            flow_role: 'primary_sample',
+            custody_policy: 'shared_source'
           }
         }],
         edges: [],
@@ -180,7 +181,8 @@ describe('Backend 工作流运行 adapter', () => {
           mode: 'existing',
           resource_template_uuid: RESOURCE_TEMPLATE_UUID,
           mount_uuid: MOUNT_UUID,
-          flow_role: 'primary_sample'
+          flow_role: 'primary_sample',
+          custody_policy: 'shared_source'
         },
         handles: [{
           uuid: SOURCE_HANDLE_UUID,

@@ -18,6 +18,7 @@ export type WorkbenchSection =
   | 'material'
   | 'scene'
   | 'workflow'
+  | 'workflow-tasks'
 
 // 后端连接状态
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error'

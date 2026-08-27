@@ -40,9 +40,12 @@ export function desktopAuthDefaults(
   }
 }
 
-const releaseChannel = process.env.UNILAB_WORKBENCH_RELEASE_CHANNEL === 'production'
+const configuredReleaseChannel = process.env.UNILAB_WORKBENCH_RELEASE_CHANNEL
+const releaseChannel: WorkbenchReleaseChannel = configuredReleaseChannel === 'production'
   ? 'production'
-  : 'test'
+  : configuredReleaseChannel === 'update-test'
+    ? 'update-test'
+    : 'test'
 const defaultAuthConfig = desktopAuthDefaults(releaseChannel)
 
 // 与 web 端保持一致的鉴权配置；本地运行仍允许通过环境变量覆盖。

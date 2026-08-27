@@ -159,6 +159,7 @@ describe('WorkflowTask runtime port', () => {
     await expect(runtime.listWorkflowTasks({
       page: 2,
       page_size: 5,
+      execution_kind: 'workflow',
       workflow_uuid: WORKFLOW_UUID,
       status: 'running',
       cleanup_status: 'requires_attention'
@@ -168,6 +169,7 @@ describe('WorkflowTask runtime port', () => {
       `/api/v1/workflow-tasks?${new URLSearchParams({
         page: '2',
         page_size: '5',
+        execution_kind: 'workflow',
         workflow_uuid: WORKFLOW_UUID,
         status: 'running',
         cleanup_status: 'requires_attention'

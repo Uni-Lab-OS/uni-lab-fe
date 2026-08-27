@@ -76,8 +76,8 @@ describe('Backend 工作流目录 adapter', () => {
     })
   })
 
-  /** Backend 隔离源码创作，同时开放画布、任务与可恢复事件流。 */
-  it('在 Backend 模式关闭源码创作，但开放任务运行与事件订阅', async () => {
+  /** Backend 隔离源码创作与未对齐事件流，同时开放画布和任务运行。 */
+  it('在 Backend 模式关闭源码创作与事件订阅，但开放任务运行', async () => {
     const request = vi.fn().mockResolvedValue({
       code: 0,
       data: {
@@ -111,14 +111,17 @@ describe('Backend 工作流目录 adapter', () => {
         })
       })
     )
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
-      new ReadableStream(),
-      { status: 200, headers: { 'Content-Type': 'text/event-stream' } }
-    )))
-    const subscription = runtime.subscribeWorkflowRuntime(() => undefined)
-    subscription.dispose()
+    let subscriptionError: unknown
+    try {
+      runtime.subscribeWorkflowRuntime(() => undefined)
+    } catch (error) {
+      subscriptionError = error
+    }
+    expect(subscriptionError).toMatchObject({
+      code: 'UNSUPPORTED_CAPABILITY',
+      capability: 'workflow.subscribeEvents'
+    })
     runtime.dispose()
-    vi.unstubAllGlobals()
   })
 })
 

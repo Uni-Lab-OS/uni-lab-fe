@@ -1,6 +1,9 @@
 import type { DesktopSurfaceKind } from './desktopSurface'
 
-export type WorkbenchReleaseChannel = 'production' | 'test'
+export type WorkbenchReleaseChannel =
+  | 'production'
+  | 'update-test'
+  | 'test'
 
 export interface WorkbenchUpdateEligibility {
   isPackaged: boolean
@@ -9,12 +12,12 @@ export interface WorkbenchUpdateEligibility {
 }
 
 /**
- * 自动更新只属于已打包的生产 Workbench；测试介质必须永久失败关闭。
+ * 自动更新只属于已打包的生产 Workbench 或隔离热更新测试包。
  */
 export function shouldEnableWorkbenchUpdates(
   eligibility: WorkbenchUpdateEligibility
 ): boolean {
   return eligibility.isPackaged
-    && eligibility.releaseChannel === 'production'
+    && ['production', 'update-test'].includes(eligibility.releaseChannel)
     && eligibility.surfaceKind === 'workbench'
 }

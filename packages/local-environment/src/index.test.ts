@@ -120,6 +120,7 @@ describe('Runtime environment validation', () => {
           '-c',
           [
             'from unilabos.app.main import main',
+            'import unilabos.workspace_host.host',
             'from opcua import Client, ua',
             'from fastapi import FastAPI',
             'from pydantic import BaseModel',

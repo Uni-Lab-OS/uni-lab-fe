@@ -1,6 +1,7 @@
 import type {
   DebugLaunchOverride,
   DebugWorkflowTaskPreflight,
+  WorkflowExecutionTask,
   WorkflowNodeJob,
   WorkflowNodeJobFeedback,
   WorkflowRuntimeChangedEvent,
@@ -72,7 +73,8 @@ function registerWorkflowTaskControllerTests(): void {
       loading: false,
       task: { ...task, status: 'running' },
       realtimeStatus: 'reconnecting',
-      realtimeError: expect.stringContaining('定时自动更新')
+      realtimeError: '工作流仍可正常执行；执行期间前端会定时读取最新状态。' +
+        '如需恢复实时更新，请确认 Backend 已启用工作流运行事件。'
     })
 
     status = 'succeeded'
@@ -83,6 +85,110 @@ function registerWorkflowTaskControllerTests(): void {
 
     await vi.advanceTimersByTimeAsync(4_000)
     expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(2)
+
+    controller.dispose()
+    vi.useRealTimers()
+  })
+
+  it('backs off disconnected Runtime reads through the fixed request budget', async () => {
+    vi.useFakeTimers()
+    const task = workflowTask()
+    const runtime = runtimePort({
+      subscribeWorkflowRuntime: vi.fn(() => {
+        throw new Error('stream unavailable')
+      }),
+      listWorkflowTasks: vi.fn(async () => ({
+        items: [task], total: 1, page: 1, page_size: 1
+      })),
+      getWorkflowTask: vi.fn(async () => task),
+      listWorkflowTaskJobs: vi.fn(async () => [])
+    })
+    const controller = new WorkflowTaskController(runtime, task.workflow_uuid)
+    await controller.start()
+
+    for (const [delay, expectedReads] of [
+      [2_000, 2],
+      [5_000, 3],
+      [10_000, 4],
+      [30_000, 5],
+      [30_000, 6]
+    ] as const) {
+      await vi.advanceTimersByTimeAsync(delay - 1)
+      expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(expectedReads - 1)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(expectedReads)
+    }
+
+    controller.dispose()
+    vi.useRealTimers()
+  })
+
+  it('does not poll an active Task while Runtime SSE is live', async () => {
+    vi.useFakeTimers()
+    const task = workflowTask()
+    let subscriptionOptions: Parameters<
+      WorkflowRuntimePort['subscribeWorkflowRuntime']
+    >[1]
+    const runtime = runtimePort({
+      subscribeWorkflowRuntime: vi.fn((_listener, options) => {
+        subscriptionOptions = options
+        return { dispose: vi.fn() }
+      }),
+      listWorkflowTasks: vi.fn(async () => ({
+        items: [task], total: 1, page: 1, page_size: 1
+      })),
+      getWorkflowTask: vi.fn(async () => task),
+      listWorkflowTaskJobs: vi.fn(async () => [])
+    })
+    const controller = new WorkflowTaskController(runtime, task.workflow_uuid)
+
+    await controller.start()
+    subscriptionOptions?.onOpen?.({
+      lastEventId: 'runtime-live',
+      reconnected: false
+    })
+    await vi.waitFor(() => {
+      expect(controller.getSnapshot().realtimeStatus).toBe('live')
+      expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(2)
+    })
+
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(2)
+    expect(runtime.listWorkflowTaskJobs).toHaveBeenCalledTimes(2)
+
+    controller.dispose()
+    vi.useRealTimers()
+  })
+
+  it('pauses Runtime reads while its Desktop surface is hidden and rehydrates on resume', async () => {
+    vi.useFakeTimers()
+    const task = workflowTask()
+    const disposeSubscription = vi.fn()
+    const runtime = runtimePort({
+      subscribeWorkflowRuntime: vi.fn(() => ({
+        dispose: disposeSubscription
+      })),
+      listWorkflowTasks: vi.fn(async () => ({
+        items: [task], total: 1, page: 1, page_size: 1
+      })),
+      getWorkflowTask: vi.fn(async () => task),
+      listWorkflowTaskJobs: vi.fn(async () => [])
+    })
+    const controller = new WorkflowTaskController(runtime, task.workflow_uuid)
+
+    await controller.start()
+    controller.setActive(false)
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(disposeSubscription).toHaveBeenCalledOnce()
+    expect(runtime.getWorkflowTask).toHaveBeenCalledOnce()
+
+    controller.setActive(true)
+    await vi.waitFor(() => {
+      expect(runtime.subscribeWorkflowRuntime).toHaveBeenCalledTimes(2)
+      expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(2)
+    })
 
     controller.dispose()
     vi.useRealTimers()
@@ -382,6 +488,61 @@ function registerWorkflowTaskControllerTests(): void {
     await vi.waitFor(() => {
       expect(controller.getSnapshot().task?.control_status).toBe('paused')
     })
+  })
+
+  it('reconciles accepted cancellation when Runtime SSE is unavailable', async () => {
+    vi.useFakeTimers()
+    const initial: WorkflowExecutionTask = {
+      ...workflowTask(),
+      status: 'running'
+    }
+    let authoritative: WorkflowExecutionTask = initial
+    const accepted: WorkflowTaskCommand = {
+      ...workflowCommand(initial.uuid),
+      type: 'cancel'
+    }
+    const runtime = runtimePort({
+      subscribeWorkflowRuntime: vi.fn(() => {
+        throw new Error('workflow.subscribeEvents is unavailable')
+      }),
+      listWorkflowTasks: vi.fn(async () => ({
+        items: [initial], total: 1, page: 1, page_size: 1
+      })),
+      getWorkflowTask: vi.fn(async () => authoritative),
+      listWorkflowTaskJobs: vi.fn(async () => []),
+      commandWorkflowTask: vi.fn(async () => accepted)
+    })
+    const controller = new WorkflowTaskController(
+      runtime,
+      initial.workflow_uuid
+    )
+
+    try {
+      await controller.start()
+
+      await controller.command('cancel')
+      expect(controller.getSnapshot().task?.status).toBe('running')
+      expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(2)
+
+      authoritative = {
+        ...initial,
+        status: 'canceled',
+        cleanup_status: 'settled'
+      }
+      await vi.advanceTimersByTimeAsync(2_000)
+
+      expect(controller.getSnapshot().task).toMatchObject({
+        status: 'canceled',
+        cleanup_status: 'settled'
+      })
+      expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(3)
+
+      await vi.advanceTimersByTimeAsync(30_000)
+      expect(runtime.getWorkflowTask).toHaveBeenCalledTimes(3)
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
   })
 
   it('does not replace a newer Task with a delayed invalidation for an older Task', async () => {
@@ -821,12 +982,13 @@ function singleNodeRuntime(task: WorkflowTask): WorkflowRuntimePort {
   })
 }
 
-function workflowTask(): WorkflowTask {
+function workflowTask(): WorkflowExecutionTask {
   return {
     uuid: '30000000-0000-4000-8000-000000000001',
     create_time: '2026-08-01T00:00:00Z',
     update_time: '2026-08-01T00:00:00Z',
     meta_data: {},
+    execution_kind: 'workflow',
     workflow_uuid: '10000000-0000-4000-8000-000000000001',
     status: 'pending',
     workflow_snapshot: {},

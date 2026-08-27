@@ -46,7 +46,7 @@ const installerInclude = readFileSync(
 
 assert.deepEqual(packageConfig.dependencies ?? {}, {
   '@unilab/device-card-host': 'workspace:*',
-  'electron-updater': '^6.8.9'
+  'electron-updater': '6.8.9'
 })
 assert.deepEqual(deviceCardHostConfig.dependencies ?? {}, {
   esbuild: '0.21.5'

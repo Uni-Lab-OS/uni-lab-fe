@@ -4,7 +4,7 @@ export interface DeviceActionCatalogRecovery {
 }
 
 interface DeviceActionCatalogRecoveryOptions {
-  load: () => Promise<boolean>
+  load: (refresh?: boolean) => Promise<boolean>
   initialRetryDelayMs?: number
   maxRetryDelayMs?: number
 }
@@ -45,16 +45,16 @@ export function startDeviceActionCatalogRecovery(
     retryDelayMs = Math.min(retryDelayMs * 2, maxRetryDelayMs)
     timer = globalThis.setTimeout(() => {
       timer = null
-      void requestLoad()
+      void requestLoad(false)
     }, delay)
   }
 
-  const requestLoad = (): Promise<boolean> => {
+  const requestLoad = (refresh = false): Promise<boolean> => {
     if (disposed) return Promise.resolve(false)
     clearTimer()
     if (inFlight) return inFlight
     let shouldRetry = false
-    inFlight = options.load()
+    inFlight = options.load(refresh)
       .then((loaded) => {
         if (disposed) return false
         if (loaded) retryDelayMs = initialRetryDelayMs
@@ -73,10 +73,10 @@ export function startDeviceActionCatalogRecovery(
   }
 
   // 首次读取不等待定时器；设备面板打开时应尽快进入可运行状态。
-  void requestLoad()
+  void requestLoad(false)
 
   return {
-    refresh: requestLoad,
+    refresh: () => requestLoad(true),
     dispose: () => {
       if (disposed) return
       disposed = true

@@ -3,9 +3,17 @@ export type ManagedRuntimeInstallationPhase =
   | 'unavailable'
   | 'external'
   | 'not-installed'
+  | 'upgrade-required'
   | 'installing'
   | 'ready'
   | 'failed'
+
+export type ManagedRuntimeInstallationErrorCode =
+  | 'upgrade-required'
+  | 'payload-invalid'
+  | 'installation-failed'
+  | 'health-check-failed'
+  | 'unknown'
 
 export interface ManagedRuntimeInstallationSnapshot {
   phase: ManagedRuntimeInstallationPhase
@@ -20,11 +28,16 @@ export interface ManagedRuntimeInstallationSnapshot {
     path: string
   }>
   error: string | null
+  previousRuntimeVersion?: string | null
+  previousEnvironmentPath?: string | null
+  errorCode?: ManagedRuntimeInstallationErrorCode | null
+  errorLogPath?: string | null
 }
 
 export interface ManagedRuntimeInstallationApi {
   getSnapshot: () => Promise<ManagedRuntimeInstallationSnapshot>
   install: () => Promise<ManagedRuntimeInstallationSnapshot>
+  openDiagnosticLog: () => Promise<boolean>
   selectEnvironment: (
     path: string
   ) => Promise<ManagedRuntimeInstallationSnapshot>
@@ -43,5 +56,9 @@ ManagedRuntimeInstallationSnapshot = Object.freeze({
   platform: null,
   environmentPath: null,
   availableEnvironments: [],
-  error: null
+  error: null,
+  previousRuntimeVersion: null,
+  previousEnvironmentPath: null,
+  errorCode: null,
+  errorLogPath: null
 })

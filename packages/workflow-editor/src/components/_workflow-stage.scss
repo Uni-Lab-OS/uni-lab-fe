@@ -933,7 +933,7 @@
   transform: translate(-50%, 50%);
 }
 
-.workflow :global(.react-flow__edge) path {
+.workflow :global(.react-flow__edge-path) {
   stroke-linecap: round;
   stroke-linejoin: round;
   transition:
@@ -941,9 +941,17 @@
     opacity var(--unilab-motion-fast) ease;
 }
 
-.workflow :global(.react-flow__edge):hover path,
-.workflow :global(.react-flow__edge):global(.selected) path {
+.workflow :global(.react-flow__edge):hover :global(.react-flow__edge-path),
+.workflow
+  :global(.react-flow__edge):global(.selected)
+  :global(.react-flow__edge-path) {
   stroke-width: 3;
+}
+
+.workflow :global(.react-flow__edge-interaction) {
+  fill: none;
+  stroke: transparent;
+  transition: none;
 }
 
 .workflow :global(.react-flow__edge-textbg) {
@@ -956,7 +964,9 @@
   font-family: var(--unilab-font-sans);
 }
 
-.workflow :global(.react-flow__edge.wf-flow-edge--material-trace) path {
+.workflow
+  :global(.react-flow__edge.wf-flow-edge--material-trace)
+  :global(.react-flow__edge-path) {
   stroke-dasharray: 3 8;
   stroke-linecap: round;
   animation: workflow-material-flow-direction 900ms linear infinite;
@@ -1124,7 +1134,9 @@
     animation: none;
   }
 
-  .workflow :global(.react-flow__edge.wf-flow-edge--material-trace) path {
+  .workflow
+    :global(.react-flow__edge.wf-flow-edge--material-trace)
+    :global(.react-flow__edge-path) {
     stroke-dasharray: none;
     animation: none;
   }

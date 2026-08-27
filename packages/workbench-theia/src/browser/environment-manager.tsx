@@ -1,5 +1,6 @@
 import type {
   WorkbenchEnvironmentLogKind,
+  WorkbenchGraphDeclaration,
   WorkbenchPlcHandshakeProfile,
   WorkbenchPlcSimulatorConfiguration,
   WorkbenchReleaseReceipt,
@@ -57,6 +58,42 @@ export interface EnvironmentOperationError {
   title: string
   message: string
   technicalDetail?: string
+}
+
+/**
+ * Resolve the value that the graph control is allowed to apply.
+ *
+ * A declared package turns the control into a closed choice.  The configured
+ * value is retained when it is still declared; otherwise the package default
+ * (when declared as a candidate) or the first candidate is shown.  Legacy
+ * Hosts with no candidates keep the existing free-text behavior.
+ *
+ * @param graphPath Current configured or edited graph path.
+ * @param declaration Optional Host-projected package declaration.
+ * @returns A candidate path when the declaration is closed, otherwise the
+ * current free-text value.
+ */
+export function resolveGraphPathSelection(
+  graphPath: string,
+  declaration: WorkbenchGraphDeclaration | null | undefined
+): string {
+  const candidates = declaration?.candidates ?? []
+  if (candidates.length === 0) return graphPath
+  if (candidates.includes(graphPath)) return graphPath
+  const defaultGraphPath = declaration?.defaultGraphPath
+  if (defaultGraphPath && candidates.includes(defaultGraphPath)) {
+    return defaultGraphPath
+  }
+  return candidates[0] ?? graphPath
+}
+
+function graphPathOptionLabel(
+  graphPath: string,
+  defaultGraphPath: string | null | undefined
+): string {
+  return graphPath === defaultGraphPath
+    ? `${graphPath}（包默认）`
+    : graphPath
 }
 
 /**
@@ -131,13 +168,27 @@ export function EnvironmentManager({
   const edgeRuntime = session.edgeRuntime
   const plcSimulator = session.plcSimulator
   const agent = session.agent ?? identity?.agent ?? null
+  const graphDeclaration = session.graphDeclaration
+  const graphCandidates = graphDeclaration?.candidates
+  const graphDeclarationInvalid = graphDeclaration !== null
+    && Array.isArray(graphCandidates)
+    && graphCandidates.length === 0
+  const graphChoiceClosed = Array.isArray(graphCandidates)
+    && graphCandidates.length > 0
+  const graphDeclarationKey = [
+    graphDeclaration?.defaultGraphPath ?? '',
+    ...(graphCandidates ?? [])
+  ].join('\u0000')
   const [plcProjectPath, setPlcProjectPath] = useState(plcSimulator.projectPath)
   const [plcVariableTablePath, setPlcVariableTablePath] = useState(
     plcSimulator.variableTablePath
   )
   const [plcHandshakeProfile, setPlcHandshakeProfile] =
     useState<WorkbenchPlcHandshakeProfile>(plcSimulator.handshakeProfile)
-  const [graphPath, setGraphPath] = useState(session.configuredGraphPath)
+  const [graphPath, setGraphPath] = useState(() => resolveGraphPathSelection(
+    session.configuredGraphPath,
+    graphDeclaration
+  ))
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [logKind, setLogKind] = useState<WorkbenchEnvironmentLogKind>('os')
   const [logTail, setLogTail] = useState<string | null>(null)
@@ -173,9 +224,10 @@ export function EnvironmentManager({
   useEffect(() => setPlcHandshakeProfile(plcSimulator.handshakeProfile), [
     plcSimulator.handshakeProfile
   ])
-  useEffect(() => setGraphPath(session.configuredGraphPath), [
-    session.configuredGraphPath
-  ])
+  useEffect(() => setGraphPath(resolveGraphPathSelection(
+    session.configuredGraphPath,
+    graphDeclaration
+  )), [graphDeclarationKey, session.configuredGraphPath])
   useEffect(() => {
     const configured = session.configuredSchedulerUrl
     setSchedulerAutomatic(configured === null)
@@ -239,9 +291,12 @@ export function EnvironmentManager({
 
   const applyGraphPath = useCallback(async () => {
     await run('apply-graph', async () => {
-      await onConfigureGraph(graphPath)
+      await onConfigureGraph(resolveGraphPathSelection(
+        graphPath,
+        graphDeclaration
+      ))
     })
-  }, [graphPath, onConfigureGraph, run])
+  }, [graphDeclaration, graphPath, onConfigureGraph, run])
 
   const saveSchedulerUrl = useCallback(async () => {
     if (schedulerAutomatic) {
@@ -317,22 +372,50 @@ export function EnvironmentManager({
             message={runtimeInstallationMessage(runtimeInstallation)}
             facts={[
               ['版本', runtimeInstallation.runtimeVersion ?? '—'],
+              ...(runtimeInstallation.previousRuntimeVersion
+                ? [[
+                    '旧版本',
+                    runtimeInstallation.previousRuntimeVersion
+                  ] as [string, string]]
+                : []),
               ['平台', runtimeInstallation.platform ?? '—'],
               ['来源', runtimeInstallation.managed ? '应用内置' : '现有环境'],
               ['环境', runtimeInstallation.environmentPath ?? '—']
             ]}
-            actions={runtimeInstallation.bundled && [
+            actions={(runtimeInstallation.bundled && [
               'not-installed',
+              'upgrade-required',
               'failed'
-            ].includes(runtimeInstallation.phase) ? (
-              <button
-                type="button"
-                disabled={Boolean(busyAction)}
-                onClick={() => void run('install-runtime', async () => {
-                  setRuntimeInstallation(await managedRuntimeApi.install())
-                })}
-              >安装内置 Runtime</button>
-            ) : undefined}
+            ].includes(runtimeInstallation.phase)) || runtimeInstallation.errorLogPath
+              ? (
+                  <>
+                    {runtimeInstallation.bundled && [
+                      'not-installed',
+                      'upgrade-required',
+                      'failed'
+                    ].includes(runtimeInstallation.phase) ? (
+                      <button
+                        type="button"
+                        disabled={Boolean(busyAction)}
+                        onClick={() => void run('install-runtime', async () => {
+                          setRuntimeInstallation(await managedRuntimeApi.install())
+                        })}
+                      >{runtimeInstallation.phase === 'upgrade-required'
+                          ? `升级到 Runtime ${runtimeInstallation.runtimeVersion ?? ''}`
+                          : '安装内置 Runtime'}</button>
+                    ) : null}
+                    {runtimeInstallation.errorLogPath ? (
+                      <button
+                        type="button"
+                        disabled={Boolean(busyAction)}
+                        onClick={() => void run('open-runtime-log', async () => {
+                          await managedRuntimeApi.openDiagnosticLog()
+                        })}
+                      >查看诊断日志</button>
+                    ) : null}
+                  </>
+                )
+              : undefined}
           />
         ) : null}
         <EnvironmentStatusCard
@@ -501,12 +584,53 @@ export function EnvironmentManager({
             <>
               <label className="unilab-environment-manager__path">
                 <span>设备图路径</span>
-                <input
-                  value={graphPath}
-                  disabled={Boolean(busyAction)}
-                  placeholder="deployment/graphs/example.json"
-                  onChange={event => setGraphPath(event.currentTarget.value)}
-                />
+                {graphDeclarationInvalid ? (
+                  <>
+                    <select
+                      aria-label="设备图路径"
+                      aria-invalid="true"
+                      value=""
+                      disabled
+                    >
+                      <option value="">启动图声明无效</option>
+                    </select>
+                    <small role="alert">
+                      Workspace Host 返回的启动图声明无效，请检查设备包或 OS 版本。
+                    </small>
+                  </>
+                ) : graphChoiceClosed ? (
+                  <select
+                    aria-label="设备图路径"
+                    value={resolveGraphPathSelection(
+                      graphPath,
+                      graphDeclaration
+                    )}
+                    disabled={Boolean(busyAction)}
+                    onChange={event => setGraphPath(event.currentTarget.value)}
+                  >
+                    {graphCandidates.map(candidate => (
+                      <option key={candidate} value={candidate}>
+                        {graphPathOptionLabel(
+                          candidate,
+                          graphDeclaration?.defaultGraphPath
+                        )}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    aria-label="设备图路径"
+                    value={graphPath}
+                    disabled={Boolean(busyAction)}
+                    placeholder="deployment/graphs/example.json"
+                    onChange={event => setGraphPath(event.currentTarget.value)}
+                  />
+                )}
+                {!graphDeclarationInvalid && graphDeclaration?.defaultGraphPath ? (
+                  <small>
+                    包默认设备图：{graphDeclaration.defaultGraphPath}
+                  </small>
+                ) : null}
               </label>
               <ExternalDevicesOnlyControl
                 checked={session.configuredExternalDevicesOnly}
@@ -531,7 +655,11 @@ export function EnvironmentManager({
               <button
                 type="button"
                 className="is-primary"
-                disabled={Boolean(busyAction) || !graphPath.trim()}
+                disabled={
+                  Boolean(busyAction)
+                  || graphDeclarationInvalid
+                  || !graphPath.trim()
+                }
                 onClick={() => void applyGraphPath()}
               >{session.phase === 'ready' ? '应用设备图并重建本地数据' : '保存设备图'}</button>
               <button
@@ -592,8 +720,9 @@ export function EnvironmentManager({
                 <span>变量表</span>
                 <input
                   list="unilab-plc-variable-tables"
+                  aria-label="PLC 变量表路径"
                   value={plcVariableTablePath}
-                  disabled={plcSimulator.phase !== 'idle' && plcSimulator.phase !== 'failed'}
+                  disabled={Boolean(busyAction) || !plcConfigurationEditable(plcSimulator.phase)}
                   placeholder="从当前项目推荐 CSV，或填写本地路径"
                   onChange={event => setPlcVariableTablePath(event.currentTarget.value)}
                 />
@@ -784,6 +913,13 @@ export function normalizeSchedulerUrl(value: string): string {
   return url.origin
 }
 
+/** PLC 就绪态支持修改配置，保存后由会话层执行受控重启。 */
+export function plcConfigurationEditable(
+  phase: WorkbenchSessionSnapshot['plcSimulator']['phase']
+): boolean {
+  return phase === 'idle' || phase === 'failed' || phase === 'ready'
+}
+
 export function deriveSchedulerUrl(backendUrl: string): string {
   try {
     const backend = new URL(backendUrl.trim())
@@ -825,6 +961,10 @@ function runtimeInstallationMessage(
       : '当前使用已安装的 UniLab 环境。'
   }
   if (snapshot.phase === 'installing') return '正在离线安装并验证，请勿退出应用。'
+  if (snapshot.phase === 'upgrade-required') {
+    return snapshot.error
+      ?? `本地 Runtime 与当前 Workbench 不兼容，需要升级到 ${snapshot.runtimeVersion ?? '内置版本'}。`
+  }
   if (snapshot.phase === 'not-installed') {
     return '没有检测到 unilab；可从安装包离线安装应用私有 Runtime。'
   }

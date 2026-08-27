@@ -40,6 +40,51 @@ describe('versioned Runtime release restore', () => {
     })
   })
 
+  /** 验证生产 CI 能鉴权读取不展示在公开 Releases 页面中的 Draft Runtime。 */
+  it('restores an authenticated Draft Runtime hidden from the tag endpoint', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'draft-runtime-release-test-'))
+    const destination = join(directory, 'runtime.exe')
+    const payload = Buffer.from('trusted hidden runtime fixture')
+    const sha256 = createHash('sha256').update(payload).digest('hex')
+    const releaseUrl =
+      'https://api.github.com/repos/Uni-Lab-OS/uni-lab-fe/releases/tags/workbench-runtime-test'
+    const releasesUrl =
+      'https://api.github.com/repos/Uni-Lab-OS/uni-lab-fe/releases?per_page=100'
+    const installerUrl = 'https://api.github.test/assets/draft-installer'
+    const checksumUrl = 'https://api.github.test/assets/draft-checksum'
+    const fetchImpl = createFetchFixture(new Map([
+      [releaseUrl, new Response('', { status: 404 })],
+      [releasesUrl, Response.json([{
+        tag_name: 'workbench-runtime-test',
+        draft: true,
+        assets: [
+          { name: 'runtime.exe', url: installerUrl },
+          { name: 'runtime.exe.sha256', url: checksumUrl }
+        ]
+      }])],
+      [installerUrl, new Response(payload)],
+      [checksumUrl, new Response(`${sha256}  runtime.exe\n`)]
+    ]))
+    try {
+      const result = await restoreVersionedRuntime({
+        repository: 'Uni-Lab-OS/uni-lab-fe',
+        tag: 'workbench-runtime-test',
+        assetName: 'runtime.exe',
+        destination,
+        token: 'test-token',
+        fetchImpl
+      })
+      assert.deepEqual(result, {
+        restored: true,
+        reason: 'release',
+        sha256
+      })
+      assert.deepEqual(await readFile(destination), payload)
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
   /** 验证 Release 资产只有在文件名和 SHA-256 都匹配时才进入打包输入。 */
   it('streams and verifies an immutable runtime asset', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'runtime-release-test-'))
@@ -145,17 +190,37 @@ describe('versioned Runtime release restore', () => {
     assert.doesNotMatch(workflow, /^\s+push:$/mu)
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-b09c0c048f6d/u
+      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-718c9ae-f7e78e7-b09c0c0/u
+    )
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_SOURCE_REF: 718c9ae573decc8c80d8e4e7a252a34e3d5a099d/u
+    )
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_OPCUA_FIX_REF: f7e78e7e9fcc47ed24f4b6affeaa82dcc8de49f2/u
+    )
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_BUILD_PIN_REF: b09c0c048f6de1e5027deb1733da439598c577cf/u
     )
     assert.match(workflow, /runs-on: windows-2022/u)
     assert.match(workflow, /runs-on: macos-14/u)
     assert.match(workflow, /actions\/cache\/restore@v6/u)
     assert.match(workflow, /actions\/cache\/save@v6/u)
+    assert.match(workflow, /rattler-build/u)
+    assert.match(workflow, /\.conda\/vendor\/opcua\/recipe\.yaml/u)
+    assert.match(workflow, /\.conda\/base\/recipe\.yaml/u)
+    assert.match(workflow, /UNILABOS_INSTALLER_CHANNEL/u)
+    assert.match(workflow, /import opcua; import unilabos\.workspace_host\.host/u)
+    assert.match(workflow, /unilab-supervisor/u)
     assert.match(workflow, /Uni-Lab-OS-\$env:UNILAB_RUNTIME_VERSION-win-64\.exe/u)
     assert.match(workflow, /Uni-Lab-OS-\$UNILAB_RUNTIME_VERSION-osx-arm64\.sh/u)
     assert.match(workflow, /sha256sum --check/u)
-    assert.match(workflow, /gh release view/u)
+    assert.match(workflow, /releases\?per_page=100/u)
+    assert.doesNotMatch(workflow, /gh release view/u)
     assert.match(workflow, /gh release create/u)
+    assert.match(workflow, /--draft/u)
     assert.doesNotMatch(workflow, /gh release upload/u)
   })
 })

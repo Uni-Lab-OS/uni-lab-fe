@@ -16,6 +16,7 @@ export async function switchWorkbenchWorkspaceToWelcome(options: {
     WorkbenchWorkspaceController,
     'welcomeUrl' | 'getSnapshot' | 'deactivate'
   >
+  selectDirectory?: boolean
   publishSnapshot: (snapshot: WorkbenchWorkspaceSnapshot) => void
 }): Promise<{
   switched: boolean
@@ -43,7 +44,11 @@ export async function switchWorkbenchWorkspaceToWelcome(options: {
   // Replace the transient switching document. This guarantees the welcome
   // renderer starts from a fresh IPC subscription after the old Theia backend
   // has stopped instead of remaining on a one-shot loading screen.
-  await window.loadURL(controller.welcomeUrl)
+  const welcomeUrl = new URL(controller.welcomeUrl)
+  if (options.selectDirectory) {
+    welcomeUrl.searchParams.set('selectDirectory', '1')
+  }
+  await window.loadURL(welcomeUrl.toString())
   if (!window.isDestroyed()) {
     options.publishSnapshot(snapshot)
     window.show()

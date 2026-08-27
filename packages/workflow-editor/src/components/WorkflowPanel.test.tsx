@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
@@ -74,6 +76,21 @@ describe('WorkflowPanel Runtime entry', () => {
     expect(markup).not.toContain('workflow-runtime__authoring')
   })
 
+  /** 固定工作流入口必须把调用方提供的名称传给对应画布。 */
+  it('labels a fixed workflow canvas with its explicit workflow name', () => {
+    const markup = renderToStaticMarkup(
+      <WorkflowPanel
+        runtime={{} as WorkflowRuntimePort}
+        workflowUuid="10000000-0000-4000-8000-000000000001"
+        workflowName="任务冻结流程"
+        authoringStatus={{ available: false, reason: '任务快照只读' }}
+        runStatus={{ available: true }}
+      />
+    )
+
+    expect(markup).toContain('任务冻结流程')
+  })
+
   /** Backend 模式启用直接画布保存，并关闭代码投影入口。 */
   it('opens an editable Backend canvas without code mode', () => {
     const markup = renderToStaticMarkup(
@@ -115,6 +132,27 @@ describe('WorkflowPanel Runtime entry', () => {
     expect(markup).toContain('OS 尚未启动；请先在环境管理中启动 OS')
   })
 
+  it('hides the complete toolbar and execution hint in a Task list snapshot', () => {
+    const markup = renderToStaticMarkup(
+      <WorkflowPanel
+        runtime={{} as WorkflowRuntimePort}
+        workflowUuid="10000000-0000-4000-8000-000000000001"
+        workflowName="任务冻结流程"
+        definitionEditingMode="backend"
+        authoringStatus={{ available: false, reason: '任务快照只读' }}
+        runStatus={{ available: true }}
+        executionStatus={{
+          available: false,
+          reason: '当前显示已创建任务；请在工作流工作台启动新任务'
+        }}
+        hideRuntimeControls
+      />
+    )
+
+    expect(markup).not.toContain('persistent-authoring__toolbar')
+    expect(markup).not.toContain('当前显示已创建任务')
+  })
+
   it('groups catalog entries by station first and declared purpose second', () => {
     const workflows = [
       workflowSummary('S02_离心流程', []),
@@ -140,6 +178,21 @@ describe('WorkflowPanel Runtime entry', () => {
 
   it('reserves the canvas by collapsing auxiliary panels on narrow workspaces', () => {
     expect(COMPACT_WORKFLOW_CANVAS_WIDTH).toBe(1024)
+  })
+
+  /** 隐藏工作流页时保留最后一次路线投影，供物料 3D 页面继续展示联动线路。 */
+  it('keeps publishing the runtime projection while the workflow surface is hidden', () => {
+    const source = readFileSync(
+      new URL('./WorkflowPanel.tsx', import.meta.url),
+      'utf8'
+    )
+
+    expect(source).toContain(
+      'onWorkflowRuntimeProjectionChange={onWorkflowRuntimeProjectionChange}'
+    )
+    expect(source).not.toMatch(
+      /onWorkflowRuntimeProjectionChange=\{active\s*\?/u
+    )
   })
 })
 

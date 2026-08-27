@@ -113,6 +113,14 @@ describe('portable Workbench packaging contract', () => {
       packagingScript,
       /--config\.win\.artifactName=UniLab\.Workbench\.Test-/u
     )
+    assert.match(
+      packagingScript,
+      /--config\.win\.artifactName=UniLab\.Workbench\.UpdateTest-/u
+    )
+    assert.match(
+      packagingScript,
+      /--config\.win\.verifyUpdateCodeSignature=false/u
+    )
     assert.match(packagingScript, /resolveWorkbenchReleaseChannel/u)
     assert.match(packagingScript, /allowsOversizePackagingBenchmark\(\)/u)
   })
@@ -609,6 +617,14 @@ describe('portable Workbench packaging contract', () => {
       /dev-desktop\.mjs$/u
     )
     assert.equal(
+      rootManifest.scripts['workbench:desktop:welcome:development'],
+      'pnpm --filter @unilab/workbench desktop:welcome:development'
+    )
+    assert.match(
+      workbenchManifest.scripts['desktop:welcome:development'],
+      /dev-desktop\.mjs --welcome$/u
+    )
+    assert.equal(
       desktopManifest.scripts['build:workbench-shell'],
       'node scripts/build-workbench-shell.mjs'
     )
@@ -626,6 +642,8 @@ describe('portable Workbench packaging contract', () => {
       /\[watch\/browser\] Finished with 0 errors/u
     )
     assert.match(desktopWatch, /\[watch\/node\] Finished with 0 errors/u)
+    assert.match(desktopWatch, /workbenchRequire\('electron'\)/u)
+    assert.match(desktopWatch, /if \(welcome\)/u)
   })
 
   it('removes source maps and rejects an oversized production lib', async () => {
@@ -649,7 +667,7 @@ describe('portable Workbench packaging contract', () => {
     }
   })
 
-  /** 验证 Windows 原生流水线分流 main 生产包、测试包与同源介质 A/B。 */
+  /** 验证 Windows 原生流水线分流生产、普通测试、热更新测试与介质 A/B。 */
   it('builds the Windows installer on a native GitHub Actions runner', async () => {
     const workflow = await readFile(
       new URL('../../../.github/workflows/package-windows.yml', import.meta.url),
@@ -665,25 +683,29 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /build\/Release\/crypt32\.node/u)
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf/u
+      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-718c9ae-f7e78e7-b09c0c0/u
     )
     assert.doesNotMatch(workflow, /cache: pnpm/u)
     assert.match(workflow, /pnpm\/action-setup@v6/u)
     assert.match(workflow, /actions\/cache\/restore@v6/u)
     assert.match(workflow, /actions\/cache\/save@v6/u)
     assert.match(workflow, /cache-primary-key/u)
-    assert.match(workflow, /branches:\n\s+- main\n\s+- deploy-windows-test/u)
+    assert.match(
+      workflow,
+      /push:\n\s+branches:\n\s+- deploy-windows-test\n\s+- deploy-hot-update-test/u
+    )
+    assert.doesNotMatch(workflow, /push:\n\s+branches:\n(?:\s+- [^\n]+\n)*\s+- main/u)
     assert.doesNotMatch(workflow, /ci\/desktop-packaging-optimization-v2/u)
     assert.match(workflow, /workflow_dispatch:/u)
     assert.match(
       workflow,
-      /options:\n\s+- benchmark\n\s+- quick\n\s+- full/u
+      /default: full\n\s+type: choice\n\s+options:\n\s+- full\n\s+- quick\n\s+- benchmark/u
     )
     assert.match(workflow, /options:\n\s+- normal\n\s+- maximum/u)
     assert.match(workflow, /UNILAB_CI_PACKAGE_MODE:/u)
     assert.match(workflow, /UNILAB_WORKBENCH_COMPRESSION:/u)
     assert.match(workflow, /UNILAB_WORKBENCH_RELEASE_CHANNEL:/u)
-    assert.match(workflow, /refs\/heads\/main' && 'production' \|\| 'test'/u)
+    assert.match(workflow, /'update-test' \|\| 'test'/u)
     assert.doesNotMatch(workflow, /strategy:\n\s+matrix:/u)
     assert.match(workflow, /ELECTRON_VERSION: 33\.4\.11/u)
     assert.match(workflow, /ELECTRON_BUILDER_VERSION: 25\.1\.8/u)
@@ -694,28 +716,31 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /windows-pnpm-store-v1-/u)
     assert.match(workflow, /restore-keys:/u)
     assert.match(workflow, /name: Save pnpm store/u)
-    assert.match(workflow, /windows-runtime-installer-v2-/u)
-    assert.match(workflow, /dist\/constructor\/\*\.exe/u)
+    assert.match(
+      workflow,
+      /destination "\.runtime-source\/dist\/constructor\/Uni-Lab-OS-\$env:UNILAB_RUNTIME_VERSION-win-64\.exe"/u
+    )
     const validateConfigIndex = workflow.indexOf(
       'name: Validate update publishing configuration'
     )
     const releaseRestoreIndex = workflow.indexOf(
       'name: Restore versioned Windows Runtime release'
     )
-    const restoreRuntimeIndex = workflow.indexOf(
-      'name: Restore Windows Runtime cache'
+    const requireRuntimeIndex = workflow.indexOf(
+      'name: Require versioned Windows Runtime release'
     )
-    const checkoutRuntimeIndex = workflow.indexOf('name: Check out Uni-Lab OS')
     assert.ok(validateConfigIndex >= 0)
     assert.ok(releaseRestoreIndex >= 0)
-    assert.ok(restoreRuntimeIndex >= 0)
+    assert.ok(requireRuntimeIndex >= 0)
     assert.ok(validateConfigIndex < releaseRestoreIndex)
-    assert.ok(releaseRestoreIndex < restoreRuntimeIndex)
-    assert.ok(restoreRuntimeIndex < checkoutRuntimeIndex)
+    assert.ok(releaseRestoreIndex < requireRuntimeIndex)
     assert.match(
-      workflow.slice(checkoutRuntimeIndex, checkoutRuntimeIndex + 260),
-      /steps\.runtime-release\.outputs\.hit != 'true'.*steps\.runtime-cache\.outputs\.cache-hit != 'true'/su
+      workflow.slice(requireRuntimeIndex, requireRuntimeIndex + 260),
+      /steps\.runtime-release\.outputs\.hit != 'true'/su
     )
+    assert.doesNotMatch(workflow, /name: Restore Windows Runtime cache/u)
+    assert.doesNotMatch(workflow, /name: Check out Uni-Lab OS/u)
+    assert.doesNotMatch(workflow, /name: Build Windows Runtime/u)
     assert.match(workflow, /windows-electron-builder-v3-/u)
     assert.match(workflow, /electron-\$\{\{ env\.ELECTRON_VERSION \}\}/u)
     assert.match(workflow, /builder-\$\{\{ env\.ELECTRON_BUILDER_VERSION \}\}/u)
@@ -759,14 +784,8 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /readWorkbenchUpdateMetadataVersion/u)
     assert.match(workflow, /发布版本：\$env:UNILAB_WORKBENCH_PACKAGE_VERSION/u)
     assert.doesNotMatch(workflow, /git (?:commit|push)/u)
-    assert.match(workflow, /MINIFORGE_VERSION: 26\.3\.2-3/u)
     assert.match(workflow, /AIONUI_WINDOWS_SHA512: [a-f0-9]{128}/u)
     assert.match(workflow, /Get-FileHash \$agentInstaller -Algorithm SHA512/u)
-    assert.match(workflow, /Test-Path \.conda\/constructor\/construct\.yaml/u)
-    assert.match(
-      workflow,
-      /conda run -n constructor-build constructor/u
-    )
     assert.match(
       workflow,
       /node apps\/workbench\/scripts\/package-windows\.mjs/u
@@ -819,7 +838,7 @@ describe('portable Workbench packaging contract', () => {
     )
     assert.match(workflow, /release-windows\/latest\.yml/u)
     assert.match(workflow, /release-windows\/package-size-report\.json/u)
-    assert.match(workflow, /WINDOWS_RELEASE_TAG: workbench-windows-stable/u)
+    assert.match(workflow, /workbench-windows-hot-update-test/u)
     assert.match(workflow, /tzutil\.exe \/s "China Standard Time"/u)
     assert.match(
       workflow,
@@ -829,14 +848,19 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /' \+08:00'/u)
     assert.match(workflow, /BUILD_STARTED_AT_CST=/u)
     assert.match(workflow, /更新时间：\$env:BUILD_STARTED_AT_CST（UTC\+08:00）/u)
-    assert.match(
-      workflow,
-      /releases\/download\/workbench-windows-stable/u
-    )
+    assert.match(workflow, /releases\/download\/\$\{\{/u)
+    assert.match(workflow, /workbench-windows-stable/u)
+    assert.match(workflow, /workbench-windows-hot-update-test/u)
     assert.doesNotMatch(workflow, /vars\.UNILAB_WORKBENCH_UPDATE_URL/u)
     assert.match(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/u)
     assert.match(workflow, /gh release upload/u)
-    assert.doesNotMatch(workflow, /gh release create/u)
+    const bootstrapSection = workflow.slice(
+      workflow.indexOf('name: Bootstrap isolated Windows hot-update release'),
+      workflow.indexOf('name: Validate update publishing configuration')
+    )
+    assert.match(bootstrapSection, /refs\/heads\/deploy-hot-update-test/u)
+    assert.match(bootstrapSection, /gh release create/u)
+    assert.match(bootstrapSection, /--prerelease/u)
     const uploadBinaryIndex = workflow.indexOf(
       '& gh release upload $env:WINDOWS_RELEASE_TAG $installerPath $blockmapPath'
     )
@@ -874,7 +898,11 @@ describe('portable Workbench packaging contract', () => {
     assert.doesNotMatch(installerUploadSection, /github\.ref/u)
     assert.match(installerUploadSection, /\*-setup\.exe/u)
     assert.match(installerUploadSection, /UNILAB_WORKBENCH_RELEASE_CHANNEL/u)
-    assert.match(installerUploadSection, /github\.run_number/u)
+    assert.match(
+      installerUploadSection,
+      /name: UniLab-Workbench-windows-x64-\$\{\{ env\.UNILAB_WORKBENCH_RELEASE_CHANNEL \}\}-\$\{\{ env\.UNILAB_WORKBENCH_PACKAGE_VERSION \}\}\n/u
+    )
+    assert.doesNotMatch(installerUploadSection, /github\.run_number/u)
     assert.doesNotMatch(installerUploadSection, /\*-setup\.exe\.blockmap/u)
     assert.doesNotMatch(installerUploadSection, /latest\.yml/u)
     assert.match(installerUploadSection, /compression-level: 0/u)
@@ -885,9 +913,16 @@ describe('portable Workbench packaging contract', () => {
     assert.match(abUploadSection, /package-size-report\.json/u)
     assert.match(abUploadSection, /precompressed-ab-metrics\.json/u)
     assert.doesNotMatch(abUploadSection, /\*-setup\.exe/u)
+    const publishReleaseSection = workflow.slice(
+      workflow.indexOf('name: Publish rolling Windows update release')
+    )
     assert.match(
-      workflow,
-      /if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'[^\n]*UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'/u
+      publishReleaseSection,
+      /github\.event_name == 'workflow_dispatch'[^\n]*refs\/heads\/main[^\n]*UNILAB_WORKBENCH_RELEASE_CHANNEL == 'production'/u
+    )
+    assert.match(
+      publishReleaseSection,
+      /github\.event_name == 'push'[^\n]*refs\/heads\/deploy-hot-update-test[^\n]*UNILAB_WORKBENCH_RELEASE_CHANNEL == 'update-test'/u
     )
 
     const builderConfiguration = await readFile(
