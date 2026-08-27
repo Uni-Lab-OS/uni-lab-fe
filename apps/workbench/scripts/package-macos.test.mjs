@@ -433,7 +433,7 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(workflow, /workbench-macos-hot-update-test/u)
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-6fcb80a-f7e78e7-b09c0c0/u
+      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-9623b51c/u
     )
     assert.match(workflow, /AIONUI_VERSION: 2\.1\.53/u)
     assert.match(workflow, /AIONUI_MACOS_SHA512: [a-f0-9]{128}/u)
