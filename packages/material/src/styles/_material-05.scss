@@ -393,6 +393,11 @@
   transform: translate(-50%, -100%);
 }
 
+:where(.scope, .scope *):global(.material-canvas)[data-material-label-layer-visible='false']
+  :global(.material-flow-node__physical-label) {
+  display: none;
+}
+
 :where(.scope, .scope *):global(.material-flow-node--station) :global(.material-flow-node__physical-label) {
   right: auto;
   left: 8px;

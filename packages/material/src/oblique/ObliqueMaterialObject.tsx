@@ -10,6 +10,7 @@ export function ObliqueMaterial({
   selected,
   highlighted,
   showSites,
+  showMaterialLabels,
   labelScale,
   labelOffsetY,
   showTag,
@@ -22,6 +23,7 @@ export function ObliqueMaterial({
   selected: boolean
   highlighted: boolean
   showSites: boolean
+  showMaterialLabels: boolean
   labelScale: number
   labelOffsetY: number
   showTag: boolean
@@ -81,33 +83,35 @@ export function ObliqueMaterial({
         <ObliqueSolidBody object={object} />
       ) : null}
       {showSites ? <ObliqueSiteBounds object={object} /> : null}
-      <g
-        className="material-oblique-object__tag"
-        transform={`translate(${tagPoint[0]} ${tagPoint[1]}) scale(${labelScale}) translate(0 ${labelOffsetY})`}
-      >
-        <line y1="0" y2="34" />
-        <rect
-          x={-tagWidth / 2}
-          y={-tagHeight - 16}
-          width={tagWidth}
-          height={tagHeight}
-          rx="12"
-        />
-        <text
-          className="material-oblique-object__tag-name"
-          y={showCode ? -61 : -42}
+      {showMaterialLabels ? (
+        <g
+          className="material-oblique-object__tag"
+          transform={`translate(${tagPoint[0]} ${tagPoint[1]}) scale(${labelScale}) translate(0 ${labelOffsetY})`}
         >
-          {object.name}
-        </text>
-        {showCode ? (
+          <line y1="0" y2="34" />
+          <rect
+            x={-tagWidth / 2}
+            y={-tagHeight - 16}
+            width={tagWidth}
+            height={tagHeight}
+            rx="12"
+          />
           <text
-            className="material-oblique-object__tag-code"
-            y="-34"
+            className="material-oblique-object__tag-name"
+            y={showCode ? -61 : -42}
           >
-            {object.code}
+            {object.name}
           </text>
-        ) : null}
-      </g>
+          {showCode ? (
+            <text
+              className="material-oblique-object__tag-code"
+              y="-34"
+            >
+              {object.code}
+            </text>
+          ) : null}
+        </g>
+      ) : null}
     </g>
   )
 }

@@ -42,6 +42,123 @@ describe('Workspace Host Workbench adapter', () => {
     expect(snapshot.agent).toBeNull()
   })
 
+  it('projects package graph choices and preserves explicit or persisted selection', async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), 'unilab-host-graph-'))
+    roots.push(workspacePath)
+    const token = 'fixture-token'
+    const snapshot = hostSnapshot(workspacePath)
+    snapshot.graphDeclaration = {
+      defaultGraphPath: 'deployment/graphs/package-default.json',
+      candidates: [
+        'deployment/graphs/package-default.json',
+        'deployment/graphs/persisted.json',
+        'deployment/graphs/explicit.json'
+      ]
+    }
+    snapshot.configuration.graphPath = 'deployment/graphs/persisted.json'
+    const server = createSnapshotServer(token, snapshot)
+    servers.push(server)
+    await listen(server)
+    snapshot.host.endpoint = serverEndpoint(server)
+
+    const runtime = join(workspacePath, '.unilabos', 'runtime', 'workbench')
+    await mkdir(runtime, { recursive: true })
+    await Promise.all([
+      writeFile(join(runtime, 'session.json'), JSON.stringify(snapshot)),
+      writeFile(join(runtime, 'host.token'), token),
+      writeFile(
+        join(workspacePath, '.unilabos', 'environment.local.json'),
+        JSON.stringify({
+          schemaVersion: 1,
+          graphPath: 'deployment/graphs/persisted.json'
+        })
+      )
+    ])
+
+    const neutral = createWorkspaceHostWorkbenchSession({ workspacePath })
+    expect(neutral.getSnapshot().configuredGraphPath).toBe('')
+    const backendLog = await neutral.readEnvironmentLog('workspace-backend')
+    expect(backendLog).toBe('backend fixture log')
+    expect(neutral.getSnapshot()).toMatchObject({
+      configuredGraphPath: 'deployment/graphs/persisted.json',
+      graphDeclaration: {
+        defaultGraphPath: 'deployment/graphs/package-default.json',
+        candidates: [
+          'deployment/graphs/package-default.json',
+          'deployment/graphs/persisted.json',
+          'deployment/graphs/explicit.json'
+        ]
+      }
+    })
+
+    const explicit = createWorkspaceHostWorkbenchSession({
+      workspacePath,
+      graphPath: 'deployment/graphs/explicit.json'
+    })
+    expect(explicit.getSnapshot().configuredGraphPath)
+      .toBe('deployment/graphs/explicit.json')
+    await explicit.readEnvironmentLog('workspace-backend')
+    expect(explicit.getSnapshot().configuredGraphPath)
+      .toBe('deployment/graphs/explicit.json')
+  })
+
+  it('fails closed for a malformed graph declaration', async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), 'unilab-host-bad-graph-'))
+    roots.push(workspacePath)
+    const token = 'fixture-token'
+    const snapshot = hostSnapshot(workspacePath)
+    snapshot.graphDeclaration = {
+      defaultGraphPath: 'deployment/graphs/package-default.json',
+      candidates: ['deployment/graphs/package-default.json', '']
+    }
+    const server = createSnapshotServer(token, snapshot)
+    servers.push(server)
+    await listen(server)
+    snapshot.host.endpoint = serverEndpoint(server)
+    const runtime = join(workspacePath, '.unilabos', 'runtime', 'workbench')
+    await mkdir(runtime, { recursive: true })
+    await Promise.all([
+      writeFile(join(runtime, 'session.json'), JSON.stringify(snapshot)),
+      writeFile(join(runtime, 'host.token'), token)
+    ])
+
+    const session = createWorkspaceHostWorkbenchSession({ workspacePath })
+    await session.readEnvironmentLog('workspace-backend')
+
+    expect(session.getSnapshot().graphDeclaration).toEqual({
+      defaultGraphPath: null,
+      candidates: []
+    })
+  })
+
+  it('projects the active component graph for an older Host', async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), 'unilab-host-old-graph-'))
+    roots.push(workspacePath)
+    const token = 'fixture-token'
+    const snapshot = hostSnapshot(workspacePath)
+    snapshot.configuration.graphPath = null
+    snapshot.components.backend.metadata = {
+      graphPath: join(workspacePath, 'deployment', 'graphs', 'legacy.json')
+    }
+    const server = createSnapshotServer(token, snapshot)
+    servers.push(server)
+    await listen(server)
+    snapshot.host.endpoint = serverEndpoint(server)
+    const runtime = join(workspacePath, '.unilabos', 'runtime', 'workbench')
+    await mkdir(runtime, { recursive: true })
+    await Promise.all([
+      writeFile(join(runtime, 'session.json'), JSON.stringify(snapshot)),
+      writeFile(join(runtime, 'host.token'), token)
+    ])
+
+    const session = createWorkspaceHostWorkbenchSession({ workspacePath })
+    await session.readEnvironmentLog('workspace-backend')
+
+    expect(session.getSnapshot().configuredGraphPath).toBe(
+      join(workspacePath, 'deployment', 'graphs', 'legacy.json')
+    )
+  })
+
   /**
    * 验证适配器会提交已认证命令、投影 Host 状态，并将“仅加载外部设备包”配置更新回传为最新会话快照。
    */
@@ -152,18 +269,39 @@ describe('Workspace Host Workbench adapter', () => {
 
     const session = createWorkspaceHostWorkbenchSession({
       workspacePath,
+      graphPath: 'deployment/graphs/fixture-explicit.json',
       environment: {
         UNILAB_WORKBENCH_RENDERER_URL: 'http://127.0.0.1:3100'
       }
     })
     expect(session.getSnapshot().configuredExternalDevicesOnly).toBe(true)
+    expect(session.getSnapshot().configuredGraphPath).toBe(
+      'deployment/graphs/fixture-explicit.json'
+    )
     await session.registerRenderer()
+
+    const configuredGraph = await session.configureGraph(
+      'deployment/graphs/fixture-selected.json'
+    )
+    expect(receivedParameters.get('configuration.update')).toEqual({
+      graphPath: 'deployment/graphs/fixture-selected.json'
+    })
+    expect(configuredGraph.configuredGraphPath).toBe(
+      'deployment/graphs/fixture-selected.json'
+    )
+
     const backend = await session.startWorkspaceBackend()
 
-    expect(receivedCommands).toEqual(['renderer.attach', 'backend.start'])
+    expect(receivedCommands).toEqual([
+      'renderer.attach',
+      'configuration.update',
+      'backend.start'
+    ])
     expect(backend).toMatchObject({
       phase: 'ready',
+      graphDeclaration: null,
       configuredExternalDevicesOnly: true,
+      workflowLoadingProgress: { loaded: 19, total: 19 },
       identity: {
         workspacePath,
         pid: 4101,
@@ -291,6 +429,90 @@ describe('Workspace Host Workbench adapter', () => {
       '[local_reset_state_blocked] 存在活动工作流或尚未收敛的 Edge 事实；本地状态未重建；'
       + '阻断项：local-edge-authority/edge-job/fixture-job，状态 unknown，未确认命令 fixture-command'
     )
+  })
+
+  /** 编译高负载期间的单次轮询中断不得把仍在运行的 Host 误判为死亡。 */
+  it('retries a transient operation polling transport failure', async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), 'unilab-host-retry-'))
+    roots.push(workspacePath)
+    const token = 'fixture-token'
+    const snapshot = hostSnapshot(workspacePath)
+    let operationId: string | null = null
+    let operationPolls = 0
+    const server = createServer(async (request, response) => {
+      if (request.headers.authorization !== `Bearer ${token}`) {
+        sendJson(response, 401, { error: { message: 'unauthorized' } })
+        return
+      }
+      const url = new URL(request.url ?? '/', 'http://127.0.0.1')
+      if (request.method === 'GET' && url.pathname === '/v1/snapshot') {
+        sendJson(response, 200, snapshot)
+        return
+      }
+      if (request.method === 'POST' && url.pathname === '/v1/operations') {
+        const body = JSON.parse(await readBody(request)) as {
+          operationId: string
+        }
+        operationId = body.operationId
+        snapshot.components.backend = component('backend', { phase: 'starting' })
+        sendJson(response, 202, {
+          operationId,
+          phase: 'running',
+          result: null,
+          error: null
+        })
+        return
+      }
+      const requestedId = url.pathname.match(/^\/v1\/operations\/(.+)$/)?.[1]
+      if (
+        request.method === 'GET'
+        && requestedId
+        && decodeURIComponent(requestedId) === operationId
+      ) {
+        operationPolls += 1
+        if (operationPolls === 1) {
+          request.socket.destroy()
+          return
+        }
+        snapshot.components.backend = component('backend', {
+          phase: 'ready',
+          pid: 4101,
+          address: 'http://127.0.0.1:42001',
+          generation: 'backend-generation'
+        })
+        snapshot.revision += 1
+        snapshot.eventCursor += 1
+        sendJson(response, 200, {
+          operationId,
+          phase: 'succeeded',
+          result: { revision: snapshot.revision },
+          error: null
+        })
+        return
+      }
+      sendJson(response, 404, { error: { message: 'not found' } })
+    })
+    servers.push(server)
+    await listen(server)
+    snapshot.host.endpoint = serverEndpoint(server)
+
+    const runtime = join(workspacePath, '.unilabos', 'runtime', 'workbench')
+    await mkdir(runtime, { recursive: true })
+    await Promise.all([
+      writeFile(join(runtime, 'session.json'), JSON.stringify(snapshot)),
+      writeFile(join(runtime, 'host.token'), token)
+    ])
+
+    const session = createWorkspaceHostWorkbenchSession({
+      workspacePath,
+      readinessTimeoutMs: 5_000
+    })
+
+    await expect(session.startWorkspaceBackend()).resolves.toMatchObject({
+      phase: 'ready',
+      identity: { pid: 4101 }
+    })
+    expect(operationPolls).toBe(2)
   })
 
   it('accepts a restarted Workspace Host snapshot with the same revision', async () => {
@@ -481,13 +703,24 @@ describe('Workspace Host Workbench adapter', () => {
       await writeFile(join(runtime, 'session.json'), JSON.stringify(replacement))
     })
 
-    const session = createWorkspaceHostWorkbenchSession({ workspacePath })
+    const session = createWorkspaceHostWorkbenchSession({
+      workspacePath,
+      readinessTimeoutMs: 12_345
+    })
     const snapshots = await Promise.all([
       session.startWorkspaceBackend(),
       session.startWorkspaceBackend()
     ])
 
     expect(launchWorkspaceHostProcess).toHaveBeenCalledOnce()
+    expect(launchWorkspaceHostProcess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        args: expect.arrayContaining([
+          '--readiness-timeout',
+          '12.345'
+        ])
+      })
+    )
     expect(snapshots).toHaveLength(2)
     for (const snapshot of snapshots) {
       expect(snapshot).toMatchObject({
@@ -555,13 +788,14 @@ function hostSnapshot(workspacePath: string) {
       platform: process.platform
     },
     configuration: {
-      graphPath: 'deployment/graphs/fixture.json',
+      graphPath: 'deployment/graphs/fixture.json' as string | null,
       externalDevicesOnly: true,
       runtimeMode: 'normal',
       domainMode: 'local',
       backendUrl: null as string | null,
       schedulerUrl: null as string | null
     },
+    graphDeclaration: undefined as unknown,
     components: {
       backend: component('backend'),
       edge: component('edge'),
@@ -613,7 +847,8 @@ function applyCommand(
       capabilities: ['authoring', 'inventory', 'workflow-run'],
       metadata: {
         graphPath: 'deployment/graphs/fixture.json',
-        graphFingerprint: 'fixture-fingerprint'
+        graphFingerprint: 'fixture-fingerprint',
+        workflowProgress: { loaded: 19, total: 19 }
       }
     })
   } else if (command === 'renderer.attach') {

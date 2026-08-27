@@ -8,6 +8,7 @@ import { WorkflowIoEditor } from './WorkflowIoEditor'
 import { WorkflowIoSummary } from './WorkflowIoSummary'
 import { WorkflowTaskInputForm } from './WorkflowTaskInputForm'
 import { WorkflowTraceViewer } from './WorkflowTraceViewer'
+import { WorkflowSourceDiff } from './WorkflowSourceDiff'
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
 
 /**
@@ -324,27 +325,30 @@ export function PersistentWorkflowOverlays({
             className="workflow-save-prompt__dialog persistent-authoring__diff"
             role="dialog"
             aria-modal="true"
-            aria-label="完整 Python 差异"
+            aria-labelledby="persistent-source-diff-title"
+            aria-describedby="persistent-source-diff-description"
           >
             <header className="workflow-save-prompt__header">
-              <span className="workflow-save-prompt__eyebrow">
+              <h2 id="persistent-source-diff-title">完整 Python 差异</h2>
+              <p
+                id="persistent-source-diff-description"
+                className="persistent-authoring__diff-description"
+              >
                 {fullSourceDiff.reason === 'conflict_retry'
                   ? '冲突重试检查'
                   : fullSourceDiff.reason === 'source_normalization'
                     ? '规范化源码确认'
                     : '画布保存检查'}
-              </span>
-              <h2>完整 Python 差异</h2>
+                {' · '}<span aria-hidden="true">+</span> 新增
+                {' · '}<span aria-hidden="true">−</span> 删除
+                {' · '}高亮显示行内变化
+              </p>
             </header>
-            <div className="persistent-authoring__diff-grid">
-              <section>
-                <h3>当前 Python</h3>
-                <pre>{fullSourceDiff.before}</pre>
-              </section>
-              <section>
-                <h3>生成的完整 Python</h3>
-                <pre>{fullSourceDiff.after}</pre>
-              </section>
+            <div className="persistent-authoring__diff-content">
+              <WorkflowSourceDiff
+                before={fullSourceDiff.before}
+                after={fullSourceDiff.after}
+              />
             </div>
             <footer className="workflow-save-prompt__actions">
               <WorkflowButton

@@ -32,6 +32,7 @@ export {
 export interface WorkflowPanelProps {
   runtime: WorkflowRuntimePort
   workflowUuid?: string
+  workflowName?: string
   traceRuntime?: WorkflowTracePort
   resourceSlotOptionsPort?: WorkflowResourceSlotOptionsPort
   activeWorkflowStorageKey?: string
@@ -55,20 +56,22 @@ export interface WorkflowPanelProps {
   ) => void
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
+  hideRuntimeControls?: boolean
   allowWorkflowSelection?: boolean
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
 }
 
 /**
- * 组合工作流（Workflow）目录或持久编写面板，并按宿主可见性发布跨面板投影。
+ * 组合工作流（Workflow）目录或持久编写面板，并持续发布跨面板只读投影。
  *
  * @param props 操作系统（OS）端口、可选固定工作流身份与宿主回调。
- * @returns 可独立挂载的工作流面板；隐藏面板不拥有跨面板发布权。
+ * @returns 可独立挂载的工作流面板；隐藏时暂停运行读取但保留 3D 联动投影。
  */
 export default function WorkflowPanel({
   runtime,
   workflowUuid: explicitWorkflowUuid,
+  workflowName: explicitWorkflowName,
   traceRuntime,
   resourceSlotOptionsPort,
   activeWorkflowStorageKey,
@@ -88,6 +91,7 @@ export default function WorkflowPanel({
   onVisibleMaterialRolesChange,
   ideBridge,
   hideEmbeddedCodeEditor = false,
+  hideRuntimeControls = false,
   allowWorkflowSelection = false,
   onResetEnvironment,
   environmentResetBusy = false
@@ -135,20 +139,20 @@ export default function WorkflowPanel({
       <PersistentWorkflowAuthoringPanel
         key={`${workflowUuid}:${definitionAuthority}`}
         runtime={runtime}
+        active={active}
         definitionAuthority={definitionAuthority}
         definitionEditingStatus={authoringStatus}
         workflowUuid={workflowUuid}
-        workflowName={selectedWorkflowName}
+        workflowName={selectedWorkflowName || explicitWorkflowName}
         traceRuntime={traceRuntime}
         resourceSlotOptionsPort={resourceSlotOptionsPort}
         executionStatus={executionStatus}
         onUnsavedChangesChange={onUnsavedChangesChange}
-        onWorkflowRuntimeProjectionChange={active
-          ? onWorkflowRuntimeProjectionChange
-          : undefined}
+        onWorkflowRuntimeProjectionChange={onWorkflowRuntimeProjectionChange}
         onSelectedWorkflowStepChange={onSelectedWorkflowStepChange}
         ideBridge={ideBridge}
         hideEmbeddedCodeEditor={hideEmbeddedCodeEditor}
+        hideRuntimeControls={hideRuntimeControls}
         recoveryRevision={recoveryRevision}
         visibleMaterialRoles={visibleMaterialRoles}
         onVisibleMaterialRolesChange={onVisibleMaterialRolesChange}

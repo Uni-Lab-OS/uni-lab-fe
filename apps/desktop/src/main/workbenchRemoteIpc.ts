@@ -83,13 +83,10 @@ export function registerWorkbenchRemoteAccessIpc(options: {
       const transition = await switchWorkbenchWorkspaceToWelcome({
         window,
         controller,
+        selectDirectory: true,
         publishSnapshot: (snapshot) => publishWorkspaceSnapshot(window, snapshot)
       })
-      if (!transition.switched || window.isDestroyed()) {
-        return transition.snapshot
-      }
-      return await openWorkspaceSelection(options, () => controller
-        .chooseAndOpen('open'))
+      return transition.snapshot
     } finally {
       workspaceSwitchPending = false
     }

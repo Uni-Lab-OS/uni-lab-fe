@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   AppUpdateManager,
+  createElectronUpdaterAdapter,
   type AppUpdaterAdapter
 } from './appUpdateManager'
 
@@ -9,6 +10,8 @@ class RecordingUpdater implements AppUpdaterAdapter {
   configured = false
   checkCount = 0
   downloadCount = 0
+  pauseCount = 0
+  resumeCount = 0
   installCount = 0
   handlers: Parameters<AppUpdaterAdapter['subscribe']>[0] | null = null
 
@@ -33,6 +36,16 @@ class RecordingUpdater implements AppUpdaterAdapter {
     this.downloadCount += 1
   }
 
+  pause(): boolean {
+    this.pauseCount += 1
+    return true
+  }
+
+  resume(): boolean {
+    this.resumeCount += 1
+    return true
+  }
+
   install(): void {
     this.installCount += 1
   }
@@ -43,6 +56,24 @@ afterEach(() => {
 })
 
 describe('AppUpdateManager', () => {
+  it('configures an explicit install so macOS native update starts after confirmation', () => {
+    const updater = {
+      autoDownload: true,
+      autoInstallOnAppQuit: true,
+      allowDowngrade: true,
+      disableWebInstaller: false
+    }
+
+    createElectronUpdaterAdapter(updater as never).configure()
+
+    expect(updater).toMatchObject({
+      autoDownload: false,
+      autoInstallOnAppQuit: false,
+      allowDowngrade: false,
+      disableWebInstaller: true
+    })
+  })
+
   it('keeps development and legacy surfaces disabled without touching the updater', async () => {
     const updater = new RecordingUpdater()
     const manager = createManager(updater, { enabled: false })
@@ -95,6 +126,63 @@ describe('AppUpdateManager', () => {
     expect(updater.installCount).toBe(1)
     expect(snapshots).toContain('available')
     expect(snapshots).toContain('downloaded')
+    manager.dispose()
+  })
+
+  it('pauses and resumes the active transfer without starting another download', async () => {
+    const updater = new RecordingUpdater()
+    const downloadRequest = deferred<void>()
+    updater.download = vi.fn(() => downloadRequest.promise)
+    const manager = createManager(updater)
+    manager.start()
+    updater.handlers?.available('0.2.0')
+
+    await expect(manager.download()).resolves.toMatchObject({
+      phase: 'downloading',
+      progressPercent: 0
+    })
+    expect(updater.download).toHaveBeenCalledOnce()
+
+    await expect(manager.pauseDownload()).resolves.toMatchObject({
+      phase: 'paused',
+      progressPercent: 0
+    })
+    updater.handlers?.progress(42.3)
+    expect(manager.getSnapshot()).toMatchObject({
+      phase: 'paused',
+      progressPercent: 42.3
+    })
+
+    await expect(manager.resumeDownload()).resolves.toMatchObject({
+      phase: 'downloading',
+      progressPercent: 42.3
+    })
+    expect(updater.pauseCount).toBe(1)
+    expect(updater.resumeCount).toBe(1)
+    expect(updater.download).toHaveBeenCalledOnce()
+
+    downloadRequest.resolve()
+    await flushMicrotasks()
+    updater.handlers?.downloaded('0.2.0')
+    manager.dispose()
+  })
+
+  it('rejects an invalid install location before cleanup or updater launch', async () => {
+    const updater = new RecordingUpdater()
+    const beforeInstall = vi.fn(async () => undefined)
+    const manager = createManager(updater, {
+      validateInstall: () => 'INSTALL_FROM_DISK_IMAGE',
+      beforeInstall
+    })
+    manager.start()
+    updater.handlers?.downloaded('0.2.0')
+
+    await expect(manager.restartAndInstall()).resolves.toMatchObject({
+      phase: 'error',
+      errorCode: 'INSTALL_FROM_DISK_IMAGE'
+    })
+    expect(beforeInstall).not.toHaveBeenCalled()
+    expect(updater.installCount).toBe(0)
     manager.dispose()
   })
 
@@ -174,10 +262,45 @@ describe('AppUpdateManager', () => {
     expect(updater.checkCount).toBe(0)
     expect(manager.getSnapshot().phase).toBe('downloading')
 
+    await manager.pauseDownload()
+    await manager.check()
+    expect(updater.checkCount).toBe(0)
+    expect(manager.getSnapshot().phase).toBe('paused')
+
+    await manager.resumeDownload()
+
     updater.handlers?.downloaded('0.2.0')
     await manager.check()
     expect(updater.checkCount).toBe(0)
     expect(manager.getSnapshot().phase).toBe('downloaded')
+    manager.dispose()
+  })
+
+  it('keeps a downloaded update installable when the download promise rejects after the downloaded event', async () => {
+    const updater = new RecordingUpdater()
+    const downloadRequest = deferred<void>()
+    const installConfirmation = deferred<boolean>()
+    updater.download = vi.fn(() => downloadRequest.promise)
+    const manager = createManager(updater, {
+      confirmInstall: vi.fn(() => installConfirmation.promise)
+    })
+    manager.start()
+    updater.handlers?.available('0.2.0')
+
+    const downloading = manager.download()
+    updater.handlers?.downloaded('0.2.0')
+    await flushMicrotasks()
+    downloadRequest.reject(new Error('download promise rejected after completion'))
+    await downloading
+
+    expect(manager.getSnapshot()).toMatchObject({
+      phase: 'downloaded',
+      availableVersion: '0.2.0',
+      progressPercent: 100
+    })
+    installConfirmation.resolve(true)
+    await flushMicrotasks()
+    expect(updater.installCount).toBe(1)
     manager.dispose()
   })
 })
@@ -201,4 +324,18 @@ async function flushMicrotasks(): Promise<void> {
   await Promise.resolve()
   await Promise.resolve()
   await Promise.resolve()
+}
+
+function deferred<T>(): {
+  promise: Promise<T>
+  resolve: (value: T) => void
+  reject: (reason: unknown) => void
+} {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
 }

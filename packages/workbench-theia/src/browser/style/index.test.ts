@@ -189,6 +189,9 @@ describe('environment manager layering and responsive layout', () => {
       /#theia-main-content-panel:not\([\s\S]*?:has\(\.lm-TabBar-tab\.lm-mod-closable\)[\s\S]*?\)\s*> \.lm-DockPanel-widget\s*\{[^}]*top:\s*0 !important;[^}]*left:\s*0 !important;[^}]*right:\s*0 !important;[^}]*width:\s*100% !important;[^}]*height:\s*100% !important/u
     )
     expect(domainNavigationStylesheet).toMatch(
+      /body:not\(\.unilab-agent-panel-visible\)[\s\S]*?#theia-main-content-panel:not\([\s\S]*?:has\([\s\S]*?> \.lm-DockPanel-widget:not\(\.lm-mod-hidden\)[\s\S]*?~ \.lm-DockPanel-widget:not\(\.lm-mod-hidden\)[\s\S]*?\)[\s\S]*?\)[\s\S]*?> \.theia-editor\.lm-DockPanel-widget:not\(\.lm-mod-hidden\)[\s\S]*?> \.monaco-editor\s*\{[^}]*width:\s*100% !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
       /#theia-main-content-panel[\s\S]*?> \.lm-TabBar\.theia-app-centers\.theia-app-main:not\([\s\S]*?:has\(\.lm-TabBar-tab\.lm-mod-closable\)[\s\S]*?\)\s*\{[^}]*display:\s*none !important/u
     )
   })
@@ -234,6 +237,13 @@ describe('environment manager layering and responsive layout', () => {
     )
   })
 
+  /** 工作流任务使用独立活动栏入口，避免与工作流编排目录混淆。 */
+  it('exposes a dedicated workflow Task navigation entry', () => {
+    expect(navigatorSource).toMatch(
+      /mode:\s*'workflow-tasks',[\s\S]*?label:\s*'任务列表'/u
+    )
+  })
+
   /** 试剂领域的产品文案统一使用“试剂”。 */
   it('uses the concise reagent navigation label', () => {
     expect(navigatorSource).toMatch(
@@ -266,6 +276,12 @@ describe('environment manager layering and responsive layout', () => {
     )
     expect(stylesheet).toMatch(
       /@container unilab-workbench \(max-width: 560px\)[\s\S]*?\.unilab-workbench__controls nav\s*\{[^}]*overflow-x:\s*auto/u
+    )
+    expect(stylesheet).toMatch(
+      /@container unilab-workbench \(max-width: 900px\)[\s\S]*?\.unilab-workbench__controls\s*\{[^}]*flex-wrap:\s*wrap/u
+    )
+    expect(stylesheet).toMatch(
+      /@container unilab-workbench \(max-width: 900px\)[\s\S]*?\.unilab-workbench__controls nav\s*\{[^}]*max-width:\s*100%[^}]*overflow-x:\s*auto/u
     )
   })
 

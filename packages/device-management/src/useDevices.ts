@@ -29,22 +29,28 @@ interface UseDevicesResult {
 export function useDevices({
   services,
   backendEnabled,
-  connection
+  connection,
+  active = true
 }: {
   services: Services
   backendEnabled: boolean
   connection: DeviceManagementConnection
+  active?: boolean
 }): UseDevicesResult {
   const client = services.laboratory
   const canListActions = services.capabilities.devices.listActions
-  const isOnline = backendEnabled && connection === 'connected'
+  const isOnline = active && backendEnabled && connection === 'connected'
   const [devices, setDevices] = useState<ManagedDevice[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<number | null>(null)
   const recoveryAttemptRef = useRef(0)
 
-  const refresh = useCallback(async (signal?: AbortSignal) => {
+  const refresh = useCallback(async (
+    signal?: AbortSignal,
+    includeActionStatuses = true
+  ) => {
+    if (!active) return
     if (!backendEnabled) {
       setDevices([])
       setError(null)
@@ -63,8 +69,19 @@ export function useDevices({
     setLoading(true)
     setError(null)
     try {
-      const list = await client.getOnlineDevices(signal)
+      let list = await client.getOnlineDevices(signal, {
+        includeActionStatuses
+      })
       if (signal?.aborted) return
+      const lightweightDevices = presentEdgeDevices(list)
+      if (
+        !includeActionStatuses &&
+        lightweightDevices.some((device) => device.online)
+      ) {
+        // 轻量恢复发现设备上线后只做一次完整补读，恢复可靠的动作占用事实。
+        list = await client.getOnlineDevices(signal)
+        if (signal?.aborted) return
+      }
       setDevices(presentEdgeDevices(list))
       setLastUpdated(Date.now())
     } catch (err) {
@@ -74,7 +91,7 @@ export function useDevices({
     } finally {
       setLoading(false)
     }
-  }, [backendEnabled, canListActions, client, services])
+  }, [active, backendEnabled, canListActions, client, services])
 
   // Edge 连通后只读取一次完整设备目录。动作运行状态由当前 active 动作节点的
   // Task recovery 单独补读，避免定时请求 /devices 时轮询所有设备的动作节点。
@@ -112,7 +129,7 @@ export function useDevices({
     }
     const timer = globalThis.setTimeout(() => {
       recoveryAttemptRef.current += 1
-      void refresh()
+      void refresh(undefined, false)
     }, delay)
     return () => globalThis.clearTimeout(timer)
   }, [backendEnabled, connection, devices, isOnline, lastUpdated, refresh])

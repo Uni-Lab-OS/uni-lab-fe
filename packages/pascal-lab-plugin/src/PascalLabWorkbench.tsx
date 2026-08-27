@@ -36,6 +36,7 @@ import {
   materialIdsToSceneObjectIds
 } from './materialSceneSelection'
 import { preparePascalLabPlugin } from './plugin'
+import { shouldPausePascalRendering } from './renderActivity'
 import {
   isLabDeviceNode,
   type LabMaterialTransferLayerNode,
@@ -50,6 +51,8 @@ export interface PascalLabWorkbenchProps {
   shapes?: MaterialShapeLibrary
   /** 统一控制 2D、2.5D 与 3D 中的库位/点位图层。 */
   showSites?: boolean
+  /** 统一控制 2D、2.5D 与 3D 中的物料/设备名称标签。 */
+  showMaterialLabels?: boolean
   /** 工作流（Workflow）派生的只读物料（Material）转运路线。 */
   materialTransferRoutes?: readonly MaterialTransferSceneRoute[]
   showMaterialTransfers?: boolean
@@ -89,6 +92,7 @@ export function PascalLabWorkbench({
   aggregates,
   shapes,
   showSites = true,
+  showMaterialLabels = true,
   materialTransferRoutes = [],
   showMaterialTransfers = true,
   materialTransferProjectionError = null,
@@ -139,6 +143,7 @@ export function PascalLabWorkbench({
         fitSceneRevision: cameraRequest.revision,
         fitSceneView: cameraRequest.view,
         showSites,
+        showMaterialLabels,
         showMaterialTransfers,
         materialTransferRoutes
       }),
@@ -147,6 +152,7 @@ export function PascalLabWorkbench({
       cameraRequest,
       materialTransferRoutes,
       showMaterialTransfers,
+      showMaterialLabels,
       showSites
     ]
   )
@@ -353,6 +359,7 @@ export function PascalLabWorkbench({
           prepare={prepare}
           readOnly={!editable}
           editorViewMode={pascalViewMode}
+          renderPaused={shouldPausePascalRendering(viewMode)}
           sceneTheme="studio"
           showGrid
           floorplanOverlay={
@@ -360,6 +367,7 @@ export function PascalLabWorkbench({
               floorplanOverlay
               physicalLayout
               showSites={showSites}
+              showMaterialLabels={showMaterialLabels}
               materialTransferRoutes={
                 showMaterialTransfers ? materialTransferOverlayRoutes : []
               }
@@ -403,6 +411,7 @@ export function PascalLabWorkbench({
             aggregates={aggregates}
             shapes={shapes}
             showSites={showSites}
+            showMaterialLabels={showMaterialLabels}
             materialTransferRoutes={
               showMaterialTransfers ? materialTransferOverlayRoutes : []
             }

@@ -163,10 +163,27 @@ export interface WorkspacePackageMountProjection {
   items: readonly WorkspacePackageMount[]
 }
 
+export interface WorkbenchWorkflowLoadingProgress {
+  loaded: number
+  total: number
+}
+
+/**
+ * Package-declared startup graph choices projected by Workspace Host.
+ *
+ * The renderer may use this projection to constrain selection, but it does
+ * not discover package files or decide which graph is authoritative.
+ */
+export interface WorkbenchGraphDeclaration {
+  readonly defaultGraphPath: string | null
+  readonly candidates: readonly string[] | null
+}
+
 export interface WorkbenchSessionSnapshot {
   phase: WorkbenchSessionPhase
   message: string
   configuredGraphPath: string
+  graphDeclaration: WorkbenchGraphDeclaration | null
   configuredExternalDevicesOnly: boolean
   configuredRuntimeMode: WorkbenchRuntimeMode
   configuredDomainMode: WorkbenchDomainMode
@@ -175,6 +192,7 @@ export interface WorkbenchSessionSnapshot {
   identity: WorkbenchSessionIdentity | null
   agent: WorkbenchAgentIdentity | null
   diagnostic: WorkbenchSessionDiagnostic | null
+  workflowLoadingProgress?: WorkbenchWorkflowLoadingProgress | null
   edgeRuntime: WorkbenchEdgeRuntimeSnapshot
   plcSimulator: WorkbenchPlcSimulatorSnapshot
 }

@@ -152,6 +152,17 @@ To exercise the packaged launcher in development without starting a Workspace:
 pnpm --filter @unilab/workbench desktop:welcome
 ```
 
+To keep the welcome-based Workspace launcher while rebuilding Workbench source
+changes, run:
+
+```bash
+pnpm workbench:desktop:welcome:development
+```
+
+The TypeScript and Theia bundle watchers stay active after a Workspace is
+selected. Refresh the Electron window after a successful bundle rebuild.
+Electron main/preload changes still require restarting this command.
+
 An explicit `--workspace` or `THEIA_WORKSPACE` remains the automation-compatible
 direct-launch path and bypasses the welcome surface after successful validation.
 
@@ -209,12 +220,22 @@ validated PLC-Sim launch contract.
 
 Production Workbench applications use `electron-updater` with a build-time
 HTTPS generic provider. The release channel is compiled into Electron main from
-`UNILAB_WORKBENCH_RELEASE_CHANNEL=production|test`; test packages, development
-runs and the legacy Kernel Electron surface keep the updater disabled. A
-production Workbench checks 30 seconds after startup and every four hours
-afterwards, asks before downloading, and asks again before stopping the managed
-process tree and restarting into the installer. An omitted channel defaults to
-`test`, so only an explicit production build can enable updates.
+`UNILAB_WORKBENCH_RELEASE_CHANNEL=production|update-test|test`; ordinary test
+packages, development runs and the legacy Kernel Electron surface keep the
+updater disabled. A production or isolated update-test Workbench checks 30
+seconds after startup and every four hours afterwards. Download and restart are
+triggered explicitly from the in-app update status; ordinary app exit does not
+silently install a downloaded version. An omitted channel defaults to `test`,
+so only an explicit update-capable build can enable updates.
+
+While an update is downloading, the progress row exposes explicit pause and
+resume controls. Pausing applies backpressure to the existing updater response
+stream, so the pending file and checksum state remain intact; resuming continues
+that same transfer instead of starting a second download.
+
+On macOS, the application must be copied out of the mounted DMG before an
+update can replace it. A Workbench launched from `/Volumes` rejects the install
+command before process cleanup and tells the user to copy it to `/Applications`.
 
 Every distributable build requires a credential-free update directory:
 
@@ -251,6 +272,10 @@ bridge only; replace it with a stable trusted certificate before general release
 Their filenames and Actions Artifact names include `Test`/`test`. They use the
 source package version, never read or increment production Release metadata,
 never upload to a rolling Release, and carry a compile-time-disabled updater.
+The macOS test build generates only a DMG. Both macOS branches expose only the
+DMG through Actions Artifacts; `main` still keeps its signed ZIP, blockmap, and
+`latest-mac.yml` exclusively in `workbench-macos-stable` because those internal
+assets are required by macOS automatic updates.
 The same compiled channel selects `platform.test.bohrium.com` and
 `leap-lab.test.bohrium.com` for test packages, while production packages select
 `platform.bohrium.com` and `leap-lab.bohrium.com`.

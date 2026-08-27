@@ -35,6 +35,10 @@ import {
   createWorkflowRuntime,
   type WorkflowRuntimePort
 } from './workflow'
+import { loadWorkflowActionCatalog } from './workflowActionCatalog'
+import {
+  createWorkflowActionCatalogStore
+} from './workflowActionCatalogStore'
 
 export interface Services {
   backend: BackendConfig
@@ -66,6 +70,10 @@ export interface CreateServicesOptions {
 export function createServices(options: CreateServicesOptions): Services {
   // HTTP 客户端是当前服务端配置下所有公开 API 适配器共享的传输边界。
   const http = createHttpClient(options)
+  // 动作目录属于当前 Authority；设备与工作流视图共享同一加载与快照代际。
+  const workflowActionCatalog = createWorkflowActionCatalogStore(
+    (signal) => loadWorkflowActionCatalog(http, signal)
+  )
   // 实时服务拥有会话级连接，必须由 Services.dispose 统一释放。
   const realtime = createRealtimeService(options.backend, options.traceRequest)
   // 能力快照决定物料服务是否允许读取公共物料图（MaterialGraph）。
@@ -78,6 +86,7 @@ export function createServices(options: CreateServicesOptions): Services {
   )
   // 工作流运行时（Workflow Runtime）复用同一个物料服务实例，不再建立私有库存适配器。
   const workflow = createWorkflowRuntime(http, options.backend, {
+    actionCatalog: workflowActionCatalog,
     materialGraph: materials,
     traceRequest: options.traceRequest
   })
@@ -87,7 +96,11 @@ export function createServices(options: CreateServicesOptions): Services {
     capabilities,
     getCapabilityStatus: (capability) =>
       getCapabilityStatus(options.backend, capabilities, capability),
-    laboratory: createLaboratoryService(http, options.backend),
+    laboratory: createLaboratoryService(
+      http,
+      options.backend,
+      workflowActionCatalog.read
+    ),
     deviceActionTasks: createDeviceActionTaskRuntime(http),
     deviceSquare: createDeviceSquareService(http),
     materials,
@@ -97,6 +110,7 @@ export function createServices(options: CreateServicesOptions): Services {
     dispose: () => {
       realtime.dispose()
       workflow.dispose()
+      workflowActionCatalog.dispose()
     }
   }
 }

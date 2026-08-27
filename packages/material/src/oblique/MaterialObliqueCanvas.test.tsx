@@ -140,6 +140,20 @@ describe('MaterialObliqueCanvas', () => {
     expect(markup).not.toContain('data-site-key="TIP01"')
   })
 
+  it('removes visible material tags when the shared label layer is hidden', () => {
+    const markup = renderToStaticMarkup(
+      <MaterialObliqueCanvas
+        aggregates={[aggregate('warehouse')]}
+        showMaterialLabels={false}
+      />
+    )
+
+    expect(markup).toContain(
+      'data-material-label-layer-visible="false"'
+    )
+    expect(markup).not.toContain('material-oblique-object__tag')
+  })
+
   it('renders workflow transfer routes in the same 2.5D projection', () => {
     const markup = renderToStaticMarkup(
       <MaterialObliqueCanvas

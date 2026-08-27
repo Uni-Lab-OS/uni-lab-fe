@@ -20,10 +20,7 @@ import {
   AppUpdateManager,
   createElectronUpdaterAdapter
 } from './appUpdateManager'
-import {
-  confirmAppUpdateDownload,
-  confirmAppUpdateInstall
-} from './appUpdateDialogs'
+import { resolveAppUpdateInstallBlocker } from './appUpdateInstallLocation'
 import { registerAppUpdateIpc } from './appUpdateIpc'
 import { DeviceCardManager } from './deviceCardManager'
 import {
@@ -48,7 +45,10 @@ import {
   ManagedRuntimeInstallation,
   resolveManagedRuntimeDataDirectory
 } from './managedRuntimeInstallation'
-import { registerManagedRuntimeInstallationIpc } from './managedRuntimeInstallationIpc'
+import {
+  registerManagedRuntimeInstallationIpc,
+  runtimeEnvironmentFallbackAllowed
+} from './managedRuntimeInstallationIpc'
 import {
   LocalRuntimeManager,
   resolveLocalRuntimeLaunchPlan
@@ -77,6 +77,7 @@ import {
 } from './desktopSurface'
 import { RendererConsoleLogLimiter } from './rendererConsoleLogLimiter'
 import { shouldEnableWorkbenchUpdates } from './releaseChannel'
+import { resolveAppUpdateProgressBarValue } from '../shared/appUpdate'
 import { cleanupPackagedWorkbench, configurePackagedDeviceCardBuilder } from './packagedRuntime'
 import { isWorkbenchWorkspaceNavigationAllowed, registerWorkbenchRemoteAccessIpc, workbenchUnloadPrompt } from './workbenchRemoteIpc'
 
@@ -508,17 +509,14 @@ app.whenReady().then(async () => {
     publish: (snapshot) => {
       const window = mainWindow
       if (window && !window.isDestroyed()) {
+        window.setProgressBar(resolveAppUpdateProgressBarValue(snapshot))
         window.webContents.send('app-update:state', snapshot)
       }
     },
-    confirmDownload: (snapshot) => confirmAppUpdateDownload(
-      () => mainWindow,
-      snapshot
-    ),
-    confirmInstall: (snapshot) => confirmAppUpdateInstall(
-      () => mainWindow,
-      snapshot
-    ),
+    validateInstall: () => resolveAppUpdateInstallBlocker({
+      platform: process.platform,
+      executablePath: process.execPath
+    }),
     beforeInstall: ensureQuitCleanup
   })
   registerAppUpdateIpc({
@@ -576,6 +574,9 @@ app.whenReady().then(async () => {
     getMainWindow: () => mainWindow,
     onEnvironmentReady: environmentPath => {
       process.env['UNILAB_MANAGED_RUNTIME_PREFIX'] = environmentPath
+    },
+    showDiagnosticLog: async path => {
+      shell.showItemInFolder(path)
     },
     log: logLine
   })
@@ -759,10 +760,12 @@ app.whenReady().then(async () => {
     return electronObservability.run(
       'electron.runtime.discover_environment',
       {},
-      () => Promise.resolve(
-        managedRuntimeInstallation.getSnapshot().environmentPath
-      ).then(environmentPath => environmentPath
-        ?? discoverDefaultCondaEnvironment({ homeDirectory: homedir() }))
+      async () => {
+        const snapshot = managedRuntimeInstallation.getSnapshot()
+        if (snapshot.environmentPath) return snapshot.environmentPath
+        if (!runtimeEnvironmentFallbackAllowed(snapshot)) return null
+        return discoverDefaultCondaEnvironment({ homeDirectory: homedir() })
+      }
     )
   })
   ipcMain.handle(
@@ -1003,6 +1006,12 @@ app.on('before-quit', (event) => {
   })
 })
 
+// 安装启动失败时应用会继续运行，因此清理阶段不能提前解绑 updater 错误。
+// 只在 Electron 确认即将退出后释放更新监听和定时器。
+app.on('will-quit', () => {
+  appUpdateManager?.dispose()
+})
+
 /** 对普通退出与更新安装复用一次且仅一次的 Workbench 宿主清理。 */
 function ensureQuitCleanup(): Promise<void> {
   if (quitCleanupFinished) return Promise.resolve()
@@ -1015,7 +1024,6 @@ function ensureQuitCleanup(): Promise<void> {
 }
 
 async function cleanupBeforeQuit(): Promise<void> {
-  appUpdateManager?.dispose()
   try {
     deviceCardManager?.destroy()
   } catch (error) {

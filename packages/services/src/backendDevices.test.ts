@@ -120,6 +120,22 @@ describe('Backend 设备目录 adapter', () => {
     }])
   })
 
+  it('设备启动恢复轮次可以只读 devices 而跳过全量动作状态', async () => {
+    const { http, request } = mockHttp(fixtureResponses())
+
+    await loadBackendOnlineDevices(
+      http,
+      undefined,
+      'edge',
+      undefined,
+      false
+    )
+
+    expect(request).not.toHaveBeenCalledWith('/api/v1/actions', {
+      signal: undefined
+    })
+  })
+
   it('保留派发阻断原因与持久设备执行占用持有者', async () => {
     const responses = fixtureResponses()
     responses['/api/v1/devices'] = {

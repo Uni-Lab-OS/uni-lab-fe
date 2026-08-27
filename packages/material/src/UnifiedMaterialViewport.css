@@ -275,6 +275,15 @@
   );
 }
 
+.lab-site-layer-toggle button.is-active.is-labels {
+  color: var(--unilab-color-material);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-material-soft) 82%,
+    var(--unilab-color-bg)
+  );
+}
+
 .lab-site-layer-toggle i {
   position: relative;
   width: 18px;

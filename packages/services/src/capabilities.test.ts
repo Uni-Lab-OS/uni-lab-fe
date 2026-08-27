@@ -47,7 +47,6 @@ describe('server capability matrix', () => {
           'workflow.readDefinitions',
           'workflow.editDefinitions',
           'workflow.runTasks',
-          'workflow.subscribeEvents',
           'reagentInfo.read',
           'reagentInfo.create',
           'reagentInfo.update',

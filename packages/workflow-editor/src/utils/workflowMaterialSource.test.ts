@@ -63,7 +63,8 @@ function registerMaterialSourceClosedSelectorTests(): void {
           material_uuid: null,
           site: null,
           slot_range: null,
-          flow_role: 'primary_sample'
+          flow_role: 'primary_sample',
+          custody_policy: 'task_exclusive'
         }
       })
     ])
@@ -105,6 +106,22 @@ function registerMaterialSourceClosedSelectorTests(): void {
     '库位（Site）保留 sort_order/UUID 业务顺序并规范化候选 UUID 持久化',
     preservesCatalogSiteOrder
   )
+  it(
+    '旧选择器按任务全程独占迁移并在下次更新写回新字段',
+    migratesLegacySelectorToTaskExclusive
+  )
+  it(
+    '共享来源不能流入物料移动动作',
+    rejectsSharedSourceMovement
+  )
+  it(
+    '共享来源只跟踪多物料动作中对应的透传句柄',
+    followsOnlyMatchingMaterialPassThrough
+  )
+  it(
+    '共享来源不能穿过复合工作流边界进入移动子图',
+    rejectsCompositeWorkflowMovement
+  )
 
   it('clears fixed Material and enforces mutually exclusive Site forms for create_new', () => {
     const graph = createMaterialSourceNode(catalog(), emptyGraph(), {
@@ -119,7 +136,8 @@ function registerMaterialSourceClosedSelectorTests(): void {
       siteScope: 'fixed',
       fixedSiteUuid: earlySiteUuid,
       candidateSiteUuids: [lateSiteUuid],
-      flowRole: 'consumable'
+      flowRole: 'consumable',
+      custodyPolicy: 'shared_source'
     })
 
     expect(updated.nodes[0].param).toMatchObject({
@@ -127,7 +145,8 @@ function registerMaterialSourceClosedSelectorTests(): void {
       material_uuid: null,
       site: earlySiteUuid,
       slot_range: null,
-      flow_role: 'consumable'
+      flow_role: 'consumable',
+      custody_policy: 'shared_source'
     })
   })
 
@@ -306,7 +325,8 @@ function preservesCatalogSiteOrder(): void {
     fixedMaterialUuid,
     siteScope: 'candidates',
     candidateSiteUuids: [earlySiteUuid, lateSiteUuid],
-    flowRole: 'reagent'
+    flowRole: 'reagent',
+    custodyPolicy: 'shared_source'
   })
   const projection = projectMaterialSourceEditor(
     catalog(),
@@ -325,8 +345,298 @@ function preservesCatalogSiteOrder(): void {
     material_uuid: fixedMaterialUuid,
     site: null,
     slot_range: [lateSiteUuid, earlySiteUuid].sort(),
-    flow_role: 'reagent'
+    flow_role: 'reagent',
+    custody_policy: 'shared_source'
   })
+  expect(projection.custodyPolicy).toBe('shared_source')
+}
+
+/**
+ * 验证升级前七字段选择器保留原独占语义，并在编辑后写回八字段合同。
+ *
+ * @returns 无返回值；迁移默认值或规范写回漂移时由 Vitest 报告失败。
+ * @throws 无；只操作内存候选图。
+ */
+function migratesLegacySelectorToTaskExclusive(): void {
+  const created = createMaterialSourceNode(catalog(), emptyGraph(), {
+    nodeUuid,
+    name: 'legacy_reagent'
+  })
+  const source = created.nodes[0]!
+  const legacyParam = { ...(source.param as Record<string, unknown>) }
+  delete legacyParam.custody_policy
+  const legacyGraph: WorkflowAuthoringGraph = {
+    ...created,
+    nodes: [{ ...source, param: legacyParam }]
+  }
+
+  const projection = projectMaterialSourceEditor(catalog(), legacyGraph, nodeUuid)
+  expect(projection.custodyPolicy).toBe('task_exclusive')
+  const updated = updateMaterialSourceSelector(
+    catalog(),
+    legacyGraph,
+    nodeUuid,
+    {
+      mode: projection.mode,
+      resourceTemplateUuid: projection.resourceTemplateUuid,
+      mountUuid: projection.mountUuid,
+      fixedMaterialUuid: projection.fixedMaterialUuid,
+      siteScope: projection.siteScope,
+      fixedSiteUuid: projection.fixedSiteUuid,
+      candidateSiteUuids: projection.candidateSiteUuids,
+      flowRole: projection.flowRole,
+      custodyPolicy: projection.custodyPolicy
+    }
+  )
+  expect(updated.nodes[0]?.param).toMatchObject({
+    custody_policy: 'task_exclusive'
+  })
+}
+
+/**
+ * 验证共享来源沿 ResourceSlot 连到物料移动动作时前端失败关闭。
+ *
+ * @returns 无返回值；属性投影给出可行动原因，更新共享策略时抛错。
+ * @throws 预期 ``updateMaterialSourceSelector`` 抛出领域错误。
+ */
+function rejectsSharedSourceMovement(): void {
+  const created = createMaterialSourceNode(catalog(), emptyGraph(), {
+    nodeUuid,
+    name: 'stationary_reagent'
+  })
+  const movementNodeUuid = '87000000-0000-4000-8000-000000000001'
+  const movementTemplateUuid = '88000000-0000-4000-8000-000000000001'
+  const movementTargetHandleUuid = '89000000-0000-4000-8000-000000000001'
+  const graph: WorkflowAuthoringGraph = {
+    ...created,
+    nodes: [
+      ...created.nodes,
+      {
+        uuid: movementNodeUuid,
+        workflow_node_template_uuid: movementTemplateUuid,
+        name: 'move_reagent',
+        type: 'ILab',
+        action_name: 'transfer_resource',
+        param: {}
+      }
+    ],
+    edges: [{
+      uuid: '8a000000-0000-4000-8000-000000000001',
+      source_node_uuid: nodeUuid,
+      source_handle_uuid: handleUuid,
+      target_node_uuid: movementNodeUuid,
+      target_handle_uuid: movementTargetHandleUuid
+    }],
+    handle_templates: [
+      ...created.handle_templates,
+      {
+        uuid: movementTargetHandleUuid,
+        workflow_node_template_uuid: movementTemplateUuid,
+        handle_key: 'resource',
+        io_type: 'target',
+        display_name: '物料',
+        type: 'ResourceSlot'
+      }
+    ]
+  }
+  const projection = projectMaterialSourceEditor(catalog(), graph, nodeUuid)
+  expect(projection.sharedSourceBlockedReason).toContain('transfer_resource')
+  expect(() => updateMaterialSourceSelector(catalog(), graph, nodeUuid, {
+    mode: projection.mode,
+    resourceTemplateUuid: projection.resourceTemplateUuid,
+    mountUuid: projection.mountUuid,
+    fixedMaterialUuid: projection.fixedMaterialUuid,
+    siteScope: projection.siteScope,
+    fixedSiteUuid: projection.fixedSiteUuid,
+    candidateSiteUuids: projection.candidateSiteUuids,
+    flowRole: projection.flowRole,
+    custodyPolicy: 'shared_source'
+  })).toThrow(/共享来源.*transfer_resource/)
+}
+
+/**
+ * 验证溶剂瓶不会因同一加液动作的烧杯输出后续移动而被误判，同时保留真实移动链的拦截。
+ *
+ * @returns 无返回值；物料句柄血缘串线时断言失败。
+ * @throws 真实移动链预期由选择器更新抛出领域错误。
+ */
+function followsOnlyMatchingMaterialPassThrough(): void {
+  const created = createMaterialSourceNode(catalog(), emptyGraph(), {
+    nodeUuid,
+    name: 'solvent_pump_1'
+  })
+  const processNodeUuid = '8b000000-0000-4000-8000-000000000001'
+  const processTemplateUuid = '8c000000-0000-4000-8000-000000000001'
+  const solventInputUuid = '8d000000-0000-4000-8000-000000000001'
+  const solventOutputUuid = '8e000000-0000-4000-8000-000000000001'
+  const beakerInputUuid = '8f000000-0000-4000-8000-000000000001'
+  const beakerOutputUuid = '90000000-0000-4000-8000-000000000001'
+  const movementNodeUuid = '91000000-0000-4000-8000-000000000001'
+  const movementTemplateUuid = '92000000-0000-4000-8000-000000000001'
+  const movementTargetUuid = '93000000-0000-4000-8000-000000000001'
+  const graph: WorkflowAuthoringGraph = {
+    ...created,
+    nodes: [
+      ...created.nodes,
+      {
+        uuid: processNodeUuid,
+        workflow_node_template_uuid: processTemplateUuid,
+        name: 'add_solvent_with_materials',
+        type: 'ILab',
+        action_name: 'add_solvent_with_materials',
+        param: {},
+        meta_data: {
+          unilab: {
+            material_passthrough_handles: {
+              [solventOutputUuid]: solventInputUuid,
+              [beakerOutputUuid]: beakerInputUuid
+            }
+          }
+        }
+      },
+      {
+        uuid: movementNodeUuid,
+        workflow_node_template_uuid: movementTemplateUuid,
+        name: 'place_beaker',
+        type: 'ILab',
+        action_name: 'place',
+        param: {}
+      }
+    ],
+    edges: [
+      {
+        uuid: '94000000-0000-4000-8000-000000000001',
+        source_node_uuid: nodeUuid,
+        source_handle_uuid: handleUuid,
+        target_node_uuid: processNodeUuid,
+        target_handle_uuid: solventInputUuid
+      },
+      {
+        uuid: '95000000-0000-4000-8000-000000000001',
+        source_node_uuid: processNodeUuid,
+        source_handle_uuid: beakerOutputUuid,
+        target_node_uuid: movementNodeUuid,
+        target_handle_uuid: movementTargetUuid
+      }
+    ],
+    handle_templates: [
+      ...created.handle_templates,
+      materialHandle(processTemplateUuid, solventInputUuid, 'solvent_pump_1', 'target'),
+      materialHandle(processTemplateUuid, solventOutputUuid, 'solvent_pump_1', 'source'),
+      materialHandle(processTemplateUuid, beakerInputUuid, 'beaker', 'target'),
+      materialHandle(processTemplateUuid, beakerOutputUuid, 'beaker', 'source'),
+      materialHandle(movementTemplateUuid, movementTargetUuid, 'resource', 'target')
+    ]
+  }
+
+  const stationary = projectMaterialSourceEditor(catalog(), graph, nodeUuid)
+  expect(stationary.sharedSourceBlockedReason).toBeNull()
+  expect(updateMaterialSourceSelector(catalog(), graph, nodeUuid, {
+    mode: stationary.mode,
+    resourceTemplateUuid: stationary.resourceTemplateUuid,
+    mountUuid: stationary.mountUuid,
+    fixedMaterialUuid: stationary.fixedMaterialUuid,
+    siteScope: stationary.siteScope,
+    fixedSiteUuid: stationary.fixedSiteUuid,
+    candidateSiteUuids: stationary.candidateSiteUuids,
+    flowRole: stationary.flowRole,
+    custodyPolicy: 'shared_source'
+  }).nodes[0]?.param).toMatchObject({ custody_policy: 'shared_source' })
+
+  const movedGraph: WorkflowAuthoringGraph = {
+    ...graph,
+    edges: graph.edges.map((edge) => String(edge.uuid).startsWith('95')
+      ? { ...edge, source_handle_uuid: solventOutputUuid }
+      : edge)
+  }
+  expect(projectMaterialSourceEditor(
+    catalog(),
+    movedGraph,
+    nodeUuid
+  ).sharedSourceBlockedReason).toContain('place')
+}
+
+/** 验证复合工作流的 target_mappings 会把物料来源安全检查延伸到冻结子图。 */
+function rejectsCompositeWorkflowMovement(): void {
+  const created = createMaterialSourceNode(catalog(), emptyGraph(), {
+    nodeUuid,
+    name: 'reagent_bottle'
+  })
+  const compositeNodeUuid = '96000000-0000-4000-8000-000000000001'
+  const compositeTemplateUuid = '97000000-0000-4000-8000-000000000001'
+  const compositeTargetUuid = '98000000-0000-4000-8000-000000000001'
+  const childPickNodeUuid = '99000000-0000-4000-8000-000000000001'
+  const childPickTemplateUuid = '9a000000-0000-4000-8000-000000000001'
+  const childPickTargetUuid = '9b000000-0000-4000-8000-000000000001'
+  const graph: WorkflowAuthoringGraph = {
+    ...created,
+    nodes: [
+      ...created.nodes,
+      {
+        uuid: compositeNodeUuid,
+        workflow_node_template_uuid: compositeTemplateUuid,
+        name: 'material_transfer',
+        type: 'workflow',
+        param: {},
+        meta_data: {
+          unilab: {
+            composite: {
+              target_mappings: {
+                [compositeTargetUuid]: [{
+                  workflow_node_uuid: childPickNodeUuid,
+                  target_handle_uuid: childPickTargetUuid
+                }]
+              }
+            }
+          }
+        }
+      },
+      {
+        uuid: childPickNodeUuid,
+        workflow_node_template_uuid: childPickTemplateUuid,
+        name: 'pick',
+        type: 'ILab',
+        action_name: 'pick',
+        param: {},
+        parent_uuid: compositeNodeUuid
+      }
+    ],
+    edges: [{
+      uuid: '9c000000-0000-4000-8000-000000000001',
+      source_node_uuid: nodeUuid,
+      source_handle_uuid: handleUuid,
+      target_node_uuid: compositeNodeUuid,
+      target_handle_uuid: compositeTargetUuid
+    }],
+    handle_templates: [
+      ...created.handle_templates,
+      materialHandle(compositeTemplateUuid, compositeTargetUuid, 'resource', 'target'),
+      materialHandle(childPickTemplateUuid, childPickTargetUuid, 'resource', 'target')
+    ]
+  }
+
+  expect(projectMaterialSourceEditor(
+    catalog(),
+    graph,
+    nodeUuid
+  ).sharedSourceBlockedReason).toContain('pick')
+}
+
+/** 构造血缘校验使用的 ResourceSlot 句柄模板。 */
+function materialHandle(
+  workflowNodeTemplateUuid: string,
+  uuid: string,
+  handleKey: string,
+  ioType: 'source' | 'target'
+): WorkflowAuthoringGraph['handle_templates'][number] {
+  return {
+    uuid,
+    workflow_node_template_uuid: workflowNodeTemplateUuid,
+    handle_key: handleKey,
+    io_type: ioType,
+    display_name: handleKey,
+    type: 'ResourceSlot'
+  }
 }
 
 /**

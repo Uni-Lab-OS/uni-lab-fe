@@ -6,6 +6,7 @@ export const WORKBENCH_PACKAGE_MODES = Object.freeze([
 
 export const WORKBENCH_RELEASE_CHANNELS = Object.freeze([
   'production',
+  'update-test',
   'test'
 ])
 
@@ -33,7 +34,7 @@ export function resolveWorkbenchPackageMode(value) {
 /**
  * 解析桌面发布通道，使测试包与生产更新通道保持显式隔离。
  * @param {string | undefined} value 环境变量传入的候选通道。
- * @returns {'production' | 'test'} 已校验的发布通道。
+ * @returns {'production' | 'update-test' | 'test'} 已校验的发布通道。
  * @throws {Error} 候选通道不在受支持集合中时抛出。
  */
 export function resolveWorkbenchReleaseChannel(value) {
@@ -44,6 +45,14 @@ export function resolveWorkbenchReleaseChannel(value) {
     )
   }
   return channel
+}
+
+/**
+ * 判断发布通道是否必须生成并消费自动更新介质。
+ * update-test 使用测试业务环境与隔离 Release，不会接触生产 stable 源。
+ */
+export function supportsWorkbenchUpdates(channel) {
+  return channel === 'production' || channel === 'update-test'
 }
 
 /**

@@ -3,6 +3,7 @@ import { injectable } from '@theia/core/shared/inversify'
 
 export type WorkbenchDomain =
   | 'workflow'
+  | 'workflow-tasks'
   | 'material'
   | 'device'
   | 'robot-debug'
@@ -12,6 +13,7 @@ export type WorkbenchDomain =
 export type WorkbenchViewMode =
   | 'empty'
   | 'workflow'
+  | 'workflow-tasks'
   | 'material'
   | 'device'
   | 'robot-debug'
@@ -102,6 +104,7 @@ export class WorkbenchViewState {
     const nextMode = this.currentMode
     if (nextMode !== previousMode) this.changeEmitter.fire(nextMode)
   }
+
 }
 
 /** 判断当前是否为允许用户关闭任一侧的双领域分栏。 */

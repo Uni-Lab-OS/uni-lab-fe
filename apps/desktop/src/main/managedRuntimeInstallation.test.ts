@@ -163,6 +163,104 @@ describe('ManagedRuntimeInstallation', () => {
     )
   })
 
+  it('classifies a persisted older managed Runtime as upgrade-required', async () => {
+    const fixture = await createInstallationFixture()
+    const previousPrefix = join(
+      fixture.dataDirectory,
+      'managed-runtime',
+      'versions',
+      `0.10.0-linux-64-${'b'.repeat(16)}`
+    )
+    await mkdir(previousPrefix, { recursive: true })
+    await mkdir(join(fixture.dataDirectory, 'managed-runtime'), {
+      recursive: true
+    })
+    await writeFile(
+      join(fixture.dataDirectory, 'managed-runtime', 'active.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        prefix: previousPrefix,
+        runtimeVersion: '0.10.0',
+        platform: 'linux-64',
+        manifestSha256: 'b'.repeat(64)
+      })
+    )
+    const installation = new ManagedRuntimeInstallation({
+      ...fixture,
+      platform: 'linux'
+    })
+
+    await expect(installation.inspect(previousPrefix)).resolves.toMatchObject({
+      installed: false,
+      selection: {
+        kind: 'outdated-managed',
+        path: previousPrefix,
+        runtimeVersion: '0.10.0'
+      }
+    })
+  })
+
+  it('recognizes an older managed Runtime even when the bundled manifest is damaged', async () => {
+    const fixture = await createInstallationFixture()
+    const previousPrefix = join(
+      fixture.dataDirectory,
+      'managed-runtime',
+      'versions',
+      `0.10.0-linux-64-${'b'.repeat(16)}`
+    )
+    await mkdir(previousPrefix, { recursive: true })
+    await writeFile(
+      join(fixture.resourcesDirectory, 'runtime-installer', 'manifest.json'),
+      '{damaged'
+    )
+    const installation = new ManagedRuntimeInstallation({
+      ...fixture,
+      platform: 'linux'
+    })
+
+    await expect(installation.classifySelection(previousPrefix)).resolves.toEqual({
+      kind: 'outdated-managed',
+      path: previousPrefix,
+      runtimeVersion: '0.10.0'
+    })
+    await expect(installation.inspect(previousPrefix)).rejects.toThrow(
+      'Runtime manifest 不是有效 JSON'
+    )
+  })
+
+  it('keeps the previous managed Runtime and active receipt when upgrade installation fails', async () => {
+    const fixture = await createInstallationFixture()
+    const runtimeRoot = join(fixture.dataDirectory, 'managed-runtime')
+    const previousPrefix = join(
+      runtimeRoot,
+      'versions',
+      `0.10.0-linux-64-${'b'.repeat(16)}`
+    )
+    const marker = join(previousPrefix, 'previous-runtime.marker')
+    const activePath = join(runtimeRoot, 'active.json')
+    const activeReceipt = JSON.stringify({
+      schemaVersion: 1,
+      prefix: previousPrefix,
+      runtimeVersion: '0.10.0',
+      platform: 'linux-64',
+      manifestSha256: 'b'.repeat(64)
+    })
+    await mkdir(previousPrefix, { recursive: true })
+    await writeFile(marker, 'previous-runtime')
+    await writeFile(activePath, activeReceipt)
+    const installation = new ManagedRuntimeInstallation({
+      ...fixture,
+      platform: 'linux',
+      runInstaller: vi.fn(async () => {
+        throw new Error('upgrade failed')
+      })
+    })
+
+    await expect(installation.ensureInstalled()).rejects.toThrow('upgrade failed')
+    await expect(readFile(marker, 'utf8')).resolves.toBe('previous-runtime')
+    await expect(readFile(activePath, 'utf8')).resolves.toBe(activeReceipt)
+  })
+
   it('serializes concurrent installers that share one user data directory', async () => {
     const fixture = await createInstallationFixture()
     let releaseInstaller: (() => void) | null = null

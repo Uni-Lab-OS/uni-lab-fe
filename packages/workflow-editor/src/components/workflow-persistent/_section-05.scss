@@ -284,43 +284,320 @@
   }
 
   :global(.persistent-authoring__diff) {
+    display: grid;
     width: min(1120px, calc(100vw - 48px));
+    height: min(760px, calc(100dvh - 48px));
     max-width: none;
+    max-height: calc(100dvh - 48px);
+    grid-template-rows: auto minmax(0, 1fr) auto;
   }
 
-  :global(.persistent-authoring__diff-grid) {
+  :global(.persistent-authoring__diff-description) {
+    margin: 0;
+    color: var(--unilab-color-text-muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  :global(.persistent-authoring__diff-content) {
+    min-width: 0;
+    min-height: 0;
+    padding: 16px 20px 18px;
+    overflow: hidden;
+  }
+
+  :global(.persistent-source-diff) {
+    display: grid;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  :global(.persistent-source-diff__file-header) {
+    display: flex;
+    min-height: 34px;
+    box-sizing: border-box;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    color: var(--unilab-color-text);
+    border: 1px solid var(--unilab-color-border-strong);
+    border-radius: var(--unilab-radius-control);
+    background: var(--unilab-color-surface-muted);
+    font: 12px/1.4 var(--unilab-font-sans, sans-serif);
+  }
+
+  :global(.persistent-source-diff__file-header) strong {
+    margin-right: auto;
+  }
+
+  :global(.persistent-source-diff__language) {
+    display: inline-grid;
+    width: 26px;
+    height: 20px;
+    place-items: center;
+    color: #bfdbfe;
+    border-radius: var(--unilab-radius-sm);
+    background: #1e3a8a;
+    font: 700 10px/1 var(--unilab-font-mono, monospace);
+  }
+
+  :global(.persistent-source-diff__stat) {
+    font: 700 11px/1 var(--unilab-font-mono, monospace);
+    font-variant-numeric: tabular-nums;
+  }
+
+  :global(.persistent-source-diff__stat.is-added) {
+    color: var(--unilab-color-success);
+  }
+
+  :global(.persistent-source-diff__stat.is-deleted) {
+    color: var(--unilab-color-danger);
+  }
+
+  :global(.persistent-source-diff__split) {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     min-height: 0;
     gap: 12px;
-    padding: 0 20px 18px;
   }
 
-  :global(.persistent-authoring__diff-grid) section {
-    display: flex;
+  :global(.persistent-source-diff__pane),
+  :global(.persistent-source-diff__unified) {
+    display: grid;
     min-width: 0;
     min-height: 0;
-    flex-direction: column;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
-  :global(.persistent-authoring__diff-grid) h3 {
+  :global(.persistent-source-diff__pane) h3,
+  :global(.persistent-source-diff__unified) h3 {
     margin: 0 0 7px;
     color: var(--unilab-color-text);
     font-size: 12px;
   }
 
-  :global(.persistent-authoring__diff-grid) pre {
-    overflow: auto;
-    min-height: 240px;
-    max-height: 48vh;
-    margin: 0;
-    padding: 12px;
-    color: #d7dae0;
+  :global(.persistent-source-diff__scroller) {
+    min-width: 0;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: scroll;
+    color: #f8fafc;
     border: 1px solid var(--unilab-color-border-strong);
     border-radius: var(--unilab-radius-md);
     background: #21252b;
-    font: 11px/1.5 var(--unilab-font-mono, monospace);
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  :global(.persistent-source-diff__scroller):focus-visible {
+    outline: 3px solid var(--unilab-color-focus);
+    outline-offset: 2px;
+  }
+
+  :global(.persistent-source-diff__table) {
+    display: table;
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    font: 11px/1.6 var(--unilab-font-mono, monospace);
+  }
+
+  :global(.persistent-source-diff__row) {
+    display: table-row;
+  }
+
+  :global(.persistent-source-diff__row) > span,
+  :global(.persistent-source-diff__row) > code {
+    display: table-cell;
+    height: 20px;
+    box-sizing: border-box;
+    border-bottom: 1px solid rgb(148 163 184 / 10%);
     white-space: pre;
+  }
+
+  :global(.persistent-source-diff__line-number) {
+    min-width: 4ch;
+    padding: 1px 8px;
+    color: #a8b2c1;
+    background: rgb(15 23 42 / 34%);
+    text-align: right;
+    user-select: none;
+  }
+
+  :global(.persistent-source-diff__marker) {
+    width: 3ch;
+    padding: 1px 6px;
+    color: #a8b2c1;
+    font-weight: 700;
+    text-align: center;
+    user-select: none;
+  }
+
+  :global(.persistent-source-diff__row) > code {
+    width: 100%;
+    padding: 1px 20px 1px 8px;
+    color: inherit;
+    font: inherit;
+  }
+
+  :global(.persistent-source-diff__row.is-added) {
+    color: #dcfce7;
+    background: rgb(22 163 74 / 22%);
+  }
+
+  :global(.persistent-source-diff__row.is-added)
+    :global(.persistent-source-diff__marker) {
+    color: #86efac;
+  }
+
+  :global(.persistent-source-diff__row.is-deleted) {
+    color: #fee2e2;
+    background: rgb(220 38 38 / 22%);
+  }
+
+  :global(.persistent-source-diff__row.is-deleted)
+    :global(.persistent-source-diff__marker) {
+    color: #fca5a5;
+  }
+
+  :global(.persistent-source-diff__row.is-modified-before) {
+    color: #fee2e2;
+    background: rgb(220 38 38 / 22%);
+  }
+
+  :global(.persistent-source-diff__row.is-modified-before)
+    :global(.persistent-source-diff__marker) {
+    color: #fca5a5;
+  }
+
+  :global(.persistent-source-diff__row.is-modified-after) {
+    color: #dcfce7;
+    background: rgb(22 163 74 / 22%);
+  }
+
+  :global(.persistent-source-diff__row.is-modified-after)
+    :global(.persistent-source-diff__marker) {
+    color: #86efac;
+  }
+
+  :global(.persistent-source-diff__row.is-placeholder) {
+    color: transparent;
+    background: rgb(15 23 42 / 18%);
+  }
+
+  :global(.persistent-source-diff__hunk) {
+    color: #bfdbfe;
+    background: #172554;
+  }
+
+  :global(.persistent-source-diff__hunk)
+    :global(.persistent-source-diff__line-number),
+  :global(.persistent-source-diff__hunk)
+    :global(.persistent-source-diff__marker) {
+    color: #93c5fd;
+    background: #172554;
+  }
+
+  :global(.persistent-source-diff__meta-cell) {
+    width: 100%;
+    padding: 1px 20px 1px 8px;
+  }
+
+  :global(.persistent-source-diff__meta-cell) code {
+    color: inherit;
+    font: inherit;
+  }
+
+  :global(.persistent-source-diff__collapsed) {
+    color: #bfdbfe;
+    background: #182132;
+  }
+
+  :global(.persistent-source-diff__collapsed)
+    :global(.persistent-source-diff__line-number),
+  :global(.persistent-source-diff__collapsed)
+    :global(.persistent-source-diff__marker) {
+    color: #93c5fd;
+    background: #182132;
+  }
+
+  :global(.persistent-source-diff__collapsed) button {
+    min-height: 30px;
+    padding: 0;
+    color: #bfdbfe;
+    border: 0;
+    background: transparent;
+    font: 600 11px/1.4 var(--unilab-font-sans, sans-serif);
+    cursor: pointer;
+  }
+
+  :global(.persistent-source-diff__collapsed) button:hover {
+    color: #eff6ff;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  :global(.persistent-source-diff__collapsed) button:focus-visible {
+    outline: 2px solid var(--unilab-color-focus);
+    outline-offset: 2px;
+  }
+
+  :global(.persistent-source-diff__row.is-deleted)
+    :global(.is-intraline-change),
+  :global(.persistent-source-diff__row.is-modified-before)
+    :global(.is-intraline-change) {
+    border-radius: 2px;
+    background: rgb(248 113 113 / 38%);
+    box-shadow: inset 0 -1px 0 rgb(254 202 202 / 48%);
+  }
+
+  :global(.persistent-source-diff__row.is-added)
+    :global(.is-intraline-change),
+  :global(.persistent-source-diff__row.is-modified-after)
+    :global(.is-intraline-change) {
+    border-radius: 2px;
+    background: rgb(74 222 128 / 34%);
+    box-shadow: inset 0 -1px 0 rgb(187 247 208 / 48%);
+  }
+
+  :global(.persistent-source-diff__row) :global(.token-comment) {
+    color: #a8b2c1;
+    font-style: italic;
+  }
+
+  :global(.persistent-source-diff__row) :global(.token-keyword),
+  :global(.persistent-source-diff__row) :global(.token-decorator) {
+    color: #c4b5fd;
+  }
+
+  :global(.persistent-source-diff__row) :global(.token-string),
+  :global(.persistent-source-diff__row) :global(.token-triple-quoted-string) {
+    color: #bbf7d0;
+  }
+
+  :global(.persistent-source-diff__row) :global(.token-number),
+  :global(.persistent-source-diff__row) :global(.token-boolean) {
+    color: #fdba74;
+  }
+
+  :global(.persistent-source-diff__row) :global(.token-function),
+  :global(.persistent-source-diff__row) :global(.token-class-name) {
+    color: #93c5fd;
+  }
+
+  :global(.persistent-source-diff__row) :global(.token-builtin) {
+    color: #fde68a;
+  }
+
+  :global(.persistent-source-diff__row) :global(.token-operator) {
+    color: #f9a8d4;
+  }
+
+  :global(.persistent-source-diff__unified) {
+    display: none;
   }
 
   // Workflow panels can share one desktop viewport. Adapt to the panel's
@@ -352,10 +629,6 @@
     }
 
     :global(.workflow-task-input-form) ol {
-      grid-template-columns: 1fr;
-    }
-
-    :global(.persistent-authoring__diff-grid) {
       grid-template-columns: 1fr;
     }
 
@@ -463,6 +736,42 @@
 
     :global(.persistent-authoring__node-editor.is-empty) {
       display: none;
+    }
+  }
+
+  @media (max-width: 760px) {
+    :global(.workflow-save-prompt) {
+      padding: 12px;
+    }
+
+    :global(.persistent-authoring__diff) {
+      width: 100%;
+      height: calc(100dvh - 24px);
+      max-height: calc(100dvh - 24px);
+    }
+
+    :global(.persistent-authoring__diff-content) {
+      padding: 12px;
+    }
+
+    :global(.persistent-source-diff__split) {
+      display: none;
+    }
+
+    :global(.persistent-source-diff__unified) {
+      display: grid;
+      height: 100%;
+    }
+
+    :global(.persistent-authoring__diff)
+      :global(.workflow-save-prompt__actions) {
+      flex-wrap: wrap;
+      padding: 12px;
+    }
+
+    :global(.persistent-authoring__diff)
+      :global(.workflow-save-prompt__actions) button {
+      min-height: 44px;
     }
   }
 }

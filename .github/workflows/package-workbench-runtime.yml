@@ -15,14 +15,16 @@ env:
   CONSTRUCTOR_VERSION: 3.16.1
   MICROMAMBA_VERSION: 2.8.1
   MINIFORGE_VERSION: 26.3.2-3
-  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-b09c0c048f6d
-  UNILAB_RUNTIME_SOURCE_REF: b09c0c048f6de1e5027deb1733da439598c577cf
+  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-718c9ae-f7e78e7-b09c0c0
+  UNILAB_RUNTIME_SOURCE_REF: 718c9ae573decc8c80d8e4e7a252a34e3d5a099d
+  UNILAB_RUNTIME_OPCUA_FIX_REF: f7e78e7e9fcc47ed24f4b6affeaa82dcc8de49f2
+  UNILAB_RUNTIME_BUILD_PIN_REF: b09c0c048f6de1e5027deb1733da439598c577cf
   UNILAB_RUNTIME_VERSION: 0.11.3
 
 jobs:
   build-windows-runtime:
     runs-on: windows-2022
-    timeout-minutes: 60
+    timeout-minutes: 120
     defaults:
       run:
         shell: pwsh
@@ -32,7 +34,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: .runtime-source/dist/constructor/*.exe
-          key: windows-runtime-installer-v2-${{ runner.arch }}-${{ env.UNILAB_RUNTIME_VERSION }}-${{ env.UNILAB_RUNTIME_SOURCE_REF }}-miniforge-${{ env.MINIFORGE_VERSION }}-constructor-${{ env.CONSTRUCTOR_VERSION }}-conda-${{ env.CONDA_STANDALONE_VERSION }}
+          key: windows-runtime-installer-v3-${{ runner.arch }}-${{ env.UNILAB_RUNTIME_VERSION }}-${{ env.UNILAB_RUNTIME_SOURCE_REF }}-${{ env.UNILAB_RUNTIME_OPCUA_FIX_REF }}-${{ env.UNILAB_RUNTIME_BUILD_PIN_REF }}-miniforge-${{ env.MINIFORGE_VERSION }}-constructor-${{ env.CONSTRUCTOR_VERSION }}-conda-${{ env.CONDA_STANDALONE_VERSION }}
 
       - name: Check out Uni-Lab OS
         if: steps.runtime-cache.outputs.cache-hit != 'true'
@@ -41,6 +43,19 @@ jobs:
           repository: Uni-Lab-OS/Uni-Lab-OS
           ref: ${{ env.UNILAB_RUNTIME_SOURCE_REF }}
           path: .runtime-source
+          fetch-depth: 0
+
+      - name: Compose pinned Windows Runtime source
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        run: |
+          git -C .runtime-source fetch --no-tags origin `
+            $env:UNILAB_RUNTIME_OPCUA_FIX_REF `
+            $env:UNILAB_RUNTIME_BUILD_PIN_REF
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to fetch pinned Runtime fixes' }
+          git -C .runtime-source cherry-pick --no-commit `
+            $env:UNILAB_RUNTIME_OPCUA_FIX_REF `
+            $env:UNILAB_RUNTIME_BUILD_PIN_REF
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to compose pinned Runtime source' }
 
       - name: Set up Constructor
         if: steps.runtime-cache.outputs.cache-hit != 'true'
@@ -62,8 +77,35 @@ jobs:
           }
           mamba install -n constructor-build --override-channels -c conda-forge `
             "constructor=$env:CONSTRUCTOR_VERSION" `
-            "conda-standalone=$env:CONDA_STANDALONE_VERSION" -y
+            "conda-standalone=$env:CONDA_STANDALONE_VERSION" `
+            rattler-build -y
           if ($LASTEXITCODE -ne 0) { throw 'Unable to install Constructor' }
+
+          conda run -n constructor-build rattler-build build -r .conda/vendor/rfc8785/recipe.yaml --target-platform win-64 -c conda-forge --output-dir ./output
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to build rfc8785 Runtime package' }
+          conda run -n constructor-build rattler-build build -r .conda/vendor/opcua/recipe.yaml --target-platform win-64 -c conda-forge --output-dir ./output
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to build opcua Runtime package' }
+          conda run -n constructor-build rattler-build build -r .conda/vendor/msgcenterpy/recipe.yaml --target-platform win-64 -c conda-forge --channel ./output --output-dir ./output
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to build msgcenterpy Runtime package' }
+          conda run -n constructor-build rattler-build build -r .conda/vendor/pylabrobot/recipe.yaml --target-platform win-64 -c conda-forge --channel ./output --output-dir ./output
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to build pylabrobot Runtime package' }
+          conda run -n constructor-build rattler-build build -r .conda/base/recipe.yaml --target-platform win-64 -c uni-lab -c robostack-staging -c conda-forge --channel ./output --output-dir ./output
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to build Uni-Lab-OS Runtime package' }
+
+          $runtimePackages = @(
+            Get-ChildItem output -Recurse -File `
+              -Filter "unilabos-$env:UNILAB_RUNTIME_VERSION-*.conda"
+          )
+          if ($runtimePackages.Count -ne 1) {
+            throw "Expected one locally built Uni-Lab-OS package, found $($runtimePackages.Count)"
+          }
+          $packagePrefix = "unilabos-$env:UNILAB_RUNTIME_VERSION-"
+          $packageStem = [System.IO.Path]::GetFileNameWithoutExtension($runtimePackages[0].Name)
+          $packageBuild = $packageStem.Substring($packagePrefix.Length)
+          $channelUri = conda run -n constructor-build python -c "from pathlib import Path; print(Path('output').resolve().as_uri())"
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to resolve local Runtime channel URI' }
+          $env:UNILABOS_INSTALLER_CHANNEL = $channelUri.Trim()
+          $env:UNILABOS_INSTALLER_BUILD = $packageBuild
 
           $condaExe = conda run -n constructor-build python -c "import os; from pathlib import Path; print(Path(os.environ['CONDA_PREFIX'], 'standalone_conda', 'conda.exe'))"
           if ($LASTEXITCODE -ne 0) { throw 'Unable to resolve standalone conda.exe' }
@@ -73,6 +115,41 @@ jobs:
             --conda-exe $condaExe `
             --output-dir dist/constructor
           if ($LASTEXITCODE -ne 0) { throw 'Constructor failed to build Windows Runtime' }
+
+      - name: Smoke test Windows Runtime contract
+        run: |
+          $installers = @(Get-ChildItem .runtime-source/dist/constructor -File -Filter '*.exe')
+          if ($installers.Count -ne 1) {
+            throw "Expected one Windows Runtime installer, found $($installers.Count)"
+          }
+          $prefix = Join-Path $env:RUNNER_TEMP 'workbench-runtime-acceptance'
+          $arguments = @(
+            '/S',
+            '/InstallationType=JustMe',
+            '/NoRegistry=1',
+            '/NoShortcuts=1',
+            '/RegisterPython=0',
+            "/D=$prefix"
+          )
+          $process = Start-Process -FilePath $installers[0].FullName `
+            -ArgumentList $arguments -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Runtime installer exited with $($process.ExitCode)"
+          }
+          $python = Join-Path $prefix 'python.exe'
+          $unilab = Join-Path $prefix 'Scripts/unilab.exe'
+          $supervisor = Join-Path $prefix 'Scripts/unilab-supervisor.exe'
+          foreach ($requiredFile in @($python, $unilab, $supervisor)) {
+            if (-not (Test-Path $requiredFile -PathType Leaf)) {
+              throw "Runtime contract file is missing: $requiredFile"
+            }
+          }
+          & $python -c "import opcua; import unilabos.workspace_host.host"
+          if ($LASTEXITCODE -ne 0) { throw 'Runtime Python contract failed' }
+          & $unilab -h
+          if ($LASTEXITCODE -ne 0) { throw 'unilab entry point failed' }
+          & $supervisor --help
+          if ($LASTEXITCODE -ne 0) { throw 'unilab-supervisor entry point failed' }
 
       - name: Save Windows Runtime cache
         if: steps.runtime-cache.outputs.cache-hit != 'true'
@@ -104,7 +181,7 @@ jobs:
 
   build-macos-runtime:
     runs-on: macos-14
-    timeout-minutes: 60
+    timeout-minutes: 120
     defaults:
       run:
         shell: bash -el {0}
@@ -114,7 +191,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: .ci-cache/runtime/*.sh
-          key: macos-runtime-installer-v1-${{ runner.arch }}-${{ env.UNILAB_RUNTIME_VERSION }}-${{ env.UNILAB_RUNTIME_SOURCE_REF }}-miniforge-${{ env.MINIFORGE_VERSION }}-constructor-${{ env.CONSTRUCTOR_VERSION }}-micromamba-${{ env.MICROMAMBA_VERSION }}
+          key: macos-runtime-installer-v2-${{ runner.arch }}-${{ env.UNILAB_RUNTIME_VERSION }}-${{ env.UNILAB_RUNTIME_SOURCE_REF }}-${{ env.UNILAB_RUNTIME_OPCUA_FIX_REF }}-${{ env.UNILAB_RUNTIME_BUILD_PIN_REF }}-miniforge-${{ env.MINIFORGE_VERSION }}-constructor-${{ env.CONSTRUCTOR_VERSION }}-micromamba-${{ env.MICROMAMBA_VERSION }}
 
       - name: Check out Uni-Lab OS
         if: steps.runtime-cache.outputs.cache-hit != 'true'
@@ -123,6 +200,19 @@ jobs:
           repository: Uni-Lab-OS/Uni-Lab-OS
           ref: ${{ env.UNILAB_RUNTIME_SOURCE_REF }}
           path: .runtime-source
+          fetch-depth: 0
+
+      - name: Compose pinned macOS Runtime source
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        working-directory: .runtime-source
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            "$UNILAB_RUNTIME_OPCUA_FIX_REF" \
+            "$UNILAB_RUNTIME_BUILD_PIN_REF"
+          git cherry-pick --no-commit \
+            "$UNILAB_RUNTIME_OPCUA_FIX_REF" \
+            "$UNILAB_RUNTIME_BUILD_PIN_REF"
 
       - name: Set up Constructor
         if: steps.runtime-cache.outputs.cache-hit != 'true'
@@ -144,7 +234,23 @@ jobs:
           mamba install -n constructor-build --override-channels -c conda-forge \
             "constructor=$CONSTRUCTOR_VERSION" \
             "micromamba=$MICROMAMBA_VERSION" \
+            rattler-build \
             -y
+          conda run -n constructor-build rattler-build build -r .conda/vendor/rfc8785/recipe.yaml --target-platform osx-arm64 -c conda-forge --output-dir ./output
+          conda run -n constructor-build rattler-build build -r .conda/vendor/opcua/recipe.yaml --target-platform osx-arm64 -c conda-forge --output-dir ./output
+          conda run -n constructor-build rattler-build build -r .conda/vendor/msgcenterpy/recipe.yaml --target-platform osx-arm64 -c conda-forge --channel ./output --output-dir ./output
+          conda run -n constructor-build rattler-build build -r .conda/vendor/pylabrobot/recipe.yaml --target-platform osx-arm64 -c conda-forge --channel ./output --output-dir ./output
+          conda run -n constructor-build rattler-build build -r .conda/base/recipe.yaml --target-platform osx-arm64 -c uni-lab -c robostack-staging -c conda-forge --channel ./output --output-dir ./output
+
+          runtime_package_count="$(find output -type f -name "unilabos-$UNILAB_RUNTIME_VERSION-*.conda" | wc -l | tr -d ' ')"
+          test "$runtime_package_count" = 1
+          runtime_package="$(find output -type f -name "unilabos-$UNILAB_RUNTIME_VERSION-*.conda" -print -quit)"
+          runtime_package_name="$(basename "$runtime_package" .conda)"
+          runtime_package_build="${runtime_package_name#unilabos-$UNILAB_RUNTIME_VERSION-}"
+          channel_uri="$(python -c 'from pathlib import Path; print(Path("output").resolve().as_uri())')"
+          export UNILABOS_INSTALLER_CHANNEL="$channel_uri"
+          export UNILABOS_INSTALLER_BUILD="$runtime_package_build"
+
           conda_exe="$(command -v micromamba)"
           test -x "$conda_exe"
           constructor .conda/constructor \
@@ -155,6 +261,21 @@ jobs:
           test -n "$runtime_installer"
           mkdir -p ../.ci-cache/runtime
           cp "$runtime_installer" ../.ci-cache/runtime/
+
+      - name: Smoke test macOS Runtime contract
+        run: |
+          set -euo pipefail
+          runtime_count="$(find .ci-cache/runtime -maxdepth 1 -type f -name '*.sh' | wc -l | tr -d ' ')"
+          test "$runtime_count" = 1
+          runtime_installer="$(find .ci-cache/runtime -maxdepth 1 -type f -name '*.sh' -print -quit)"
+          prefix="$RUNNER_TEMP/workbench-runtime-acceptance"
+          bash "$runtime_installer" -b -p "$prefix"
+          test -x "$prefix/bin/python"
+          test -x "$prefix/bin/unilab"
+          test -x "$prefix/bin/unilab-supervisor"
+          "$prefix/bin/python" -c "import opcua; import unilabos.workspace_host.host"
+          "$prefix/bin/unilab" -h
+          "$prefix/bin/unilab-supervisor" --help
 
       - name: Save macOS Runtime cache
         if: steps.runtime-cache.outputs.cache-hit != 'true'
@@ -220,19 +341,64 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if gh release view "$UNILAB_RUNTIME_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            remote_assets="$(gh release view "$UNILAB_RUNTIME_RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --json assets \
-              --jq '.assets[].name' | sort)"
+          releases_json="$(gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "repos/$GITHUB_REPOSITORY/releases?per_page=100")"
+          release_id="$(RELEASES_JSON="$releases_json" node <<'NODE'
+          const releases = JSON.parse(process.env.RELEASES_JSON)
+          const matches = releases.filter(
+            release => release.tag_name === process.env.UNILAB_RUNTIME_RELEASE_TAG
+          )
+          if (matches.length > 1) {
+            throw new Error(
+              `Runtime Release tag is not unique: ${process.env.UNILAB_RUNTIME_RELEASE_TAG}`
+            )
+          }
+          if (matches.length === 1) process.stdout.write(String(matches[0].id))
+          NODE
+          )"
+          if [[ -n "$release_id" ]]; then
+            remote_assets="$(RELEASES_JSON="$releases_json" node <<'NODE'
+          const releases = JSON.parse(process.env.RELEASES_JSON)
+          const release = releases.find(
+            candidate => candidate.tag_name === process.env.UNILAB_RUNTIME_RELEASE_TAG
+          )
+          process.stdout.write(
+            release.assets.map(asset => asset.name).sort().join('\n')
+          )
+          NODE
+          )"
             expected_assets="$(find runtime-assets -maxdepth 1 -type f -printf '%f\n' | sort)"
             test "$remote_assets" = "$expected_assets"
             verification_directory="$(mktemp -d)"
             trap 'rm -rf "$verification_directory"' EXIT
-            gh release download "$UNILAB_RUNTIME_RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --pattern '*.sha256' \
-              --dir "$verification_directory"
+            checksum_names=(
+              "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256"
+              "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256"
+            )
+            for asset_name in "${checksum_names[@]}"; do
+              asset_id="$(RELEASES_JSON="$releases_json" ASSET_NAME="$asset_name" node <<'NODE'
+          const releases = JSON.parse(process.env.RELEASES_JSON)
+          const release = releases.find(
+            candidate => candidate.tag_name === process.env.UNILAB_RUNTIME_RELEASE_TAG
+          )
+          const matches = release.assets.filter(
+            asset => asset.name === process.env.ASSET_NAME
+          )
+          if (matches.length !== 1) {
+            throw new Error(
+              `Runtime Release asset is not unique: ${process.env.ASSET_NAME}`
+            )
+          }
+          process.stdout.write(String(matches[0].id))
+          NODE
+              )"
+              gh api \
+                -H 'Accept: application/octet-stream' \
+                "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id" \
+                > "$verification_directory/$asset_name"
+            done
             cmp "runtime-assets/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256" \
               "$verification_directory/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256"
             cmp "runtime-assets/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256" \
@@ -245,6 +411,7 @@ jobs:
             runtime-assets/* \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
+            --draft \
             --prerelease \
             --title "Workbench Runtime $UNILAB_RUNTIME_VERSION" \
-            --notes "Pinned Uni-Lab Runtime built from Uni-Lab-OS commit $UNILAB_RUNTIME_SOURCE_REF. Assets are immutable and verified through adjacent SHA-256 manifests."
+            --notes "Pinned Uni-Lab Runtime composed from Uni-Lab-OS base $UNILAB_RUNTIME_SOURCE_REF with fixes $UNILAB_RUNTIME_OPCUA_FIX_REF and $UNILAB_RUNTIME_BUILD_PIN_REF. Assets pass the Workbench Runtime smoke contract and are immutable through adjacent SHA-256 manifests."

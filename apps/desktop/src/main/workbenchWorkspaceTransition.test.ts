@@ -84,4 +84,36 @@ describe('switchWorkbenchWorkspaceToWelcome', () => {
     expect(publishSnapshot).not.toHaveBeenCalled()
     expect(window.show).not.toHaveBeenCalled()
   })
+
+  it('hands directory selection to the fresh welcome renderer', async () => {
+    const loadedUrls: string[] = []
+    const snapshot = {
+      phase: 'welcome' as const,
+      activeWorkspace: null,
+      recentWorkspaces: [],
+      error: null,
+    }
+    const welcomeUrl = 'file:///Applications/UniLab%20Workbench.app/Contents/Resources/app.asar/desktop/welcome.html'
+
+    const result = await switchWorkbenchWorkspaceToWelcome({
+      window: {
+        isDestroyed: () => false,
+        loadURL: async (url) => { loadedUrls.push(url) },
+        show: vi.fn(),
+        focus: vi.fn(),
+      },
+      controller: {
+        welcomeUrl,
+        getSnapshot: () => snapshot,
+        deactivate: async () => snapshot,
+      },
+      selectDirectory: true,
+      publishSnapshot: vi.fn(),
+    })
+
+    const selectingUrl = new URL(welcomeUrl)
+    selectingUrl.searchParams.set('selectDirectory', '1')
+    expect(result).toEqual({ switched: true, snapshot })
+    expect(loadedUrls.at(-1)).toBe(selectingUrl.toString())
+  })
 })
