@@ -93,6 +93,9 @@ export async function afterSign(context) {
   )
   const manifestPath = join(runtimeDirectory, 'manifest.json')
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+  if (manifest.schemaVersion === 2 && manifest.delivery === 'download') {
+    return
+  }
   if (
     typeof manifest.installerFile !== 'string'
     || basename(manifest.installerFile) !== manifest.installerFile

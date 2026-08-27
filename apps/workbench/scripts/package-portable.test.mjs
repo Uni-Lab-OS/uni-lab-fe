@@ -686,6 +686,17 @@ describe('portable Workbench packaging contract', () => {
       workflow,
       /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-9623b51c/u
     )
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_DOWNLOAD_TEST_TAG: workbench-runtime-download-test-0\.11\.3-9623b51c/u
+    )
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_DELIVERY: \$\{\{ github\.ref == 'refs\/heads\/deploy-windows-test' && 'download' \|\| 'bundled' \}\}/u
+    )
+    assert.match(workflow, /name: Publish isolated online Runtime test asset/u)
+    assert.match(workflow, /--range 0-0 --output NUL/u)
+    assert.match(workflow, /Online Windows installer exceeds 250 MiB budget/u)
     assert.doesNotMatch(workflow, /cache: pnpm/u)
     assert.match(workflow, /pnpm\/action-setup@v6/u)
     assert.match(workflow, /actions\/cache\/restore@v6/u)

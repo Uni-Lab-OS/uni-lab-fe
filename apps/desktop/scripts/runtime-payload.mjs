@@ -24,7 +24,9 @@ export function prepareRuntimePayload({
   installerPath,
   runtimeVersion,
   platform,
-  destinationDirectory
+  destinationDirectory,
+  delivery = 'bundled',
+  downloadUrl
 }) {
   const source = resolveRequiredFile(installerPath)
   if (!SUPPORTED_PLATFORMS.has(platform)) {
@@ -44,9 +46,25 @@ export function prepareRuntimePayload({
   const destination = resolve(destinationDirectory)
   rmSync(destination, { recursive: true, force: true })
   mkdirSync(destination, { recursive: true })
+  const manifestPath = join(destination, 'manifest.json')
+  if (delivery === 'download') {
+    const normalizedDownloadUrl = requireRuntimeDownloadUrl(downloadUrl)
+    writeFileSync(manifestPath, `${JSON.stringify({
+      schemaVersion: 2,
+      delivery: 'download',
+      runtimeVersion: runtimeVersion.trim(),
+      platform,
+      installerFile,
+      sha256: sha256File(source),
+      downloadUrl: normalizedDownloadUrl
+    }, null, 2)}\n`, 'utf8')
+    return { installerPath: null, manifestPath, directory: destination }
+  }
+  if (delivery !== 'bundled') {
+    throw new Error(`不支持的 Runtime 交付模式：${delivery}`)
+  }
   const copiedInstaller = join(destination, installerFile)
   copyFileSync(source, copiedInstaller)
-  const manifestPath = join(destination, 'manifest.json')
   writeFileSync(manifestPath, `${JSON.stringify({
     schemaVersion: 1,
     runtimeVersion: runtimeVersion.trim(),
@@ -73,7 +91,9 @@ export function prepareRuntimePayloadFromEnvironment(
     installerPath: environment.UNILAB_RUNTIME_INSTALLER,
     runtimeVersion: environment.UNILAB_RUNTIME_VERSION,
     platform: configuredPlatform,
-    destinationDirectory
+    destinationDirectory,
+    delivery: environment.UNILAB_RUNTIME_DELIVERY?.trim() || 'bundled',
+    downloadUrl: environment.UNILAB_RUNTIME_DOWNLOAD_URL
   })
 }
 
@@ -94,7 +114,7 @@ export function validatePackagedRuntimeResources(
   }
   if (
     !manifest
-    || manifest.schemaVersion !== 1
+    || ![1, 2].includes(manifest.schemaVersion)
     || manifest.platform !== expectedPlatform
     || typeof manifest.installerFile !== 'string'
     || basename(manifest.installerFile) !== manifest.installerFile
@@ -103,15 +123,29 @@ export function validatePackagedRuntimeResources(
   ) {
     throw new Error('桌面应用中的 Runtime manifest 字段无效')
   }
-  const installerPath = join(runtimeDirectory, manifest.installerFile)
-  if (!existsSync(installerPath) || !statSync(installerPath).isFile()) {
-    throw new Error(`Runtime Constructor 未打入桌面应用：${installerPath}`)
+  const delivery = manifest.schemaVersion === 1
+    ? 'bundled'
+    : manifest.delivery
+  if (
+    !['bundled', 'download'].includes(delivery)
+    || (delivery === 'download'
+      && requireRuntimeDownloadUrl(manifest.downloadUrl) !== manifest.downloadUrl)
+  ) {
+    throw new Error('桌面应用中的 Runtime 交付配置无效')
   }
-  const actualHash = sha256File(installerPath)
-  if (actualHash !== manifest.sha256) {
-    throw new Error(
-      `桌面应用中的 Runtime Constructor 校验失败：${actualHash}`
-    )
+  const installerPath = join(runtimeDirectory, manifest.installerFile)
+  if (delivery === 'bundled') {
+    if (!existsSync(installerPath) || !statSync(installerPath).isFile()) {
+      throw new Error(`Runtime Constructor 未打入桌面应用：${installerPath}`)
+    }
+    const actualHash = sha256File(installerPath)
+    if (actualHash !== manifest.sha256) {
+      throw new Error(
+        `桌面应用中的 Runtime Constructor 校验失败：${actualHash}`
+      )
+    }
+  } else if (existsSync(installerPath)) {
+    throw new Error(`在线 Runtime 不得重复打入桌面应用：${installerPath}`)
   }
 
   const workspace = join(resourcesDirectory, 'default-workspace')
@@ -126,7 +160,34 @@ export function validatePackagedRuntimeResources(
       throw new Error(`默认工作区文件未打入桌面应用：${path}`)
     }
   }
-  return { manifestPath, installerPath, workspace }
+  return {
+    manifestPath,
+    installerPath: delivery === 'bundled' ? installerPath : null,
+    delivery,
+    workspace
+  }
+}
+
+function requireRuntimeDownloadUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error('UNILAB_RUNTIME_DOWNLOAD_URL 不能为空')
+  }
+  let url
+  try {
+    url = new URL(value.trim())
+  } catch (error) {
+    throw new Error('Runtime 下载地址不是有效 URL', { cause: error })
+  }
+  if (
+    url.protocol !== 'https:'
+    || url.username
+    || url.password
+    || url.search
+    || url.hash
+  ) {
+    throw new Error('Runtime 下载地址必须是不含凭据、查询或片段的 HTTPS URL')
+  }
+  return url.href
 }
 
 function resolveRequiredFile(value) {

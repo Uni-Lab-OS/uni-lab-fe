@@ -163,6 +163,96 @@ describe('ManagedRuntimeInstallation', () => {
     )
   })
 
+  it('downloads, verifies, caches and installs an online Constructor payload', async () => {
+    const installerBytes = Buffer.from('online-constructor-payload')
+    const fixture = await createInstallationFixture(installerBytes)
+    const payloadDirectory = join(
+      fixture.resourcesDirectory,
+      'runtime-installer'
+    )
+    const installerName = 'Uni-Lab-OS-0.11.3-linux-64.sh'
+    const installerPath = join(payloadDirectory, installerName)
+    const digest = createHash('sha256').update(installerBytes).digest('hex')
+    await rm(installerPath)
+    await writeFile(join(payloadDirectory, 'manifest.json'), JSON.stringify({
+      schemaVersion: 2,
+      delivery: 'download',
+      runtimeVersion: '0.11.3',
+      platform: 'linux-64',
+      installerFile: installerName,
+      sha256: digest,
+      downloadUrl:
+        'https://github.com/Uni-Lab-OS/uni-lab-fe/releases/download/workbench-runtime-download-test-0.11.3/Uni-Lab-OS-0.11.3-linux-64.sh'
+    }))
+    const downloadInstaller = vi.fn(async (
+      _url: string,
+      destination: string
+    ) => writeFile(destination, installerBytes))
+    const runner = vi.fn(async (resolvedInstaller: string, prefix: string) => {
+      expect(resolvedInstaller).toContain(join(
+        'managed-runtime',
+        'downloads',
+        digest,
+        installerName
+      ))
+      await writeLinuxRuntime(prefix)
+    })
+    const installation = new ManagedRuntimeInstallation({
+      ...fixture,
+      platform: 'linux',
+      downloadInstaller,
+      runInstaller: runner
+    })
+
+    await expect(installation.inspect()).resolves.toMatchObject({
+      installed: false,
+      delivery: 'download'
+    })
+    await installation.ensureInstalled()
+
+    expect(downloadInstaller).toHaveBeenCalledTimes(1)
+    expect(downloadInstaller).toHaveBeenCalledWith(
+      expect.stringMatching(/^https:\/\//u),
+      expect.stringMatching(/\.download$/u)
+    )
+    expect(runner).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects a downloaded Constructor whose digest does not match', async () => {
+    const installerBytes = Buffer.from('expected-online-constructor')
+    const fixture = await createInstallationFixture(installerBytes)
+    const payloadDirectory = join(
+      fixture.resourcesDirectory,
+      'runtime-installer'
+    )
+    const installerName = 'Uni-Lab-OS-0.11.3-linux-64.sh'
+    await rm(join(payloadDirectory, installerName))
+    await writeFile(join(payloadDirectory, 'manifest.json'), JSON.stringify({
+      schemaVersion: 2,
+      delivery: 'download',
+      runtimeVersion: '0.11.3',
+      platform: 'linux-64',
+      installerFile: installerName,
+      sha256: createHash('sha256').update(installerBytes).digest('hex'),
+      downloadUrl:
+        'https://github.com/Uni-Lab-OS/uni-lab-fe/releases/download/workbench-runtime-download-test-0.11.3/Uni-Lab-OS-0.11.3-linux-64.sh'
+    }))
+    const runner = vi.fn()
+    const installation = new ManagedRuntimeInstallation({
+      ...fixture,
+      platform: 'linux',
+      downloadInstaller: async (_url, destination) => {
+        await writeFile(destination, 'tampered payload')
+      },
+      runInstaller: runner
+    })
+
+    await expect(installation.ensureInstalled()).rejects.toThrow(
+      /Runtime 安装器校验失败.*日志：/u
+    )
+    expect(runner).not.toHaveBeenCalled()
+  })
+
   it('classifies a persisted older managed Runtime as upgrade-required', async () => {
     const fixture = await createInstallationFixture()
     const previousPrefix = join(

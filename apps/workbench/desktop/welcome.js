@@ -35,6 +35,7 @@ let runtimeRequestPending = false
 let runtimeSnapshot = {
   phase: 'unavailable',
   bundled: false,
+  delivery: null,
   managed: false,
   runtimeVersion: null,
   platform: null,
@@ -238,6 +239,7 @@ function render() {
 }
 
 function renderRuntime() {
+  const downloadsRuntime = runtimeSnapshot.delivery === 'download'
   runtimePanel.hidden = runtimeSnapshot.phase === 'unavailable'
   runtimePanel.dataset.phase = runtimeSnapshot.phase
   runtimeIndicator.className = `runtime-panel__indicator is-${runtimeSnapshot.phase}`
@@ -248,8 +250,8 @@ function renderRuntime() {
       'failed'
     ].includes(runtimeSnapshot.phase)
   installRuntimeButton.textContent = runtimeSnapshot.phase === 'upgrade-required'
-    ? `升级到 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}`
-    : '安装内置 Runtime'
+    ? `${downloadsRuntime ? '下载并升级到' : '升级到'} Runtime ${runtimeSnapshot.runtimeVersion ?? ''}`
+    : downloadsRuntime ? '下载并安装 Runtime' : '安装内置 Runtime'
   installRuntimeButton.disabled = runtimeRequestPending
     || runtimeSnapshot.phase === 'installing'
   openRuntimeLogButton.hidden = !runtimeSnapshot.errorLogPath
@@ -282,8 +284,12 @@ function renderRuntime() {
     return
   }
   if (runtimeSnapshot.phase === 'installing') {
-    runtimeTitle.textContent = '正在安装内置 Runtime'
-    runtimeDetail.textContent = '离线解包并执行 unilab -h 验证，请勿退出应用…'
+    runtimeTitle.textContent = downloadsRuntime
+      ? '正在下载并安装 Runtime'
+      : '正在安装内置 Runtime'
+    runtimeDetail.textContent = downloadsRuntime
+      ? '下载完成后会校验 SHA-256、静默安装并执行 unilab -h 验证，请勿退出应用…'
+      : '离线解包并执行 unilab -h 验证，请勿退出应用…'
     return
   }
   if (runtimeSnapshot.phase === 'upgrade-required') {
@@ -303,7 +309,9 @@ function renderRuntime() {
     return
   }
   runtimeTitle.textContent = '没有检测到 UniLab 环境'
-  runtimeDetail.textContent = `可安装应用内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}，无需另行配置 Conda。`
+  runtimeDetail.textContent = downloadsRuntime
+    ? `可联网下载 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}，校验通过后安装，无需另行配置 Conda。`
+    : `可安装应用内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}，无需另行配置 Conda。`
 }
 
 function renderRecents(recentWorkspaces, busy) {
