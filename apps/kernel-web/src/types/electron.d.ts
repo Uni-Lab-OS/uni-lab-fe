@@ -369,6 +369,7 @@ export type ManagedRuntimeInstallationPhase =
   | 'unavailable'
   | 'external'
   | 'not-installed'
+  | 'upgrade-required'
   | 'installing'
   | 'ready'
   | 'failed'
@@ -386,11 +387,22 @@ export interface ManagedRuntimeInstallationSnapshot {
     path: string
   }>
   error: string | null
+  previousRuntimeVersion?: string | null
+  previousEnvironmentPath?: string | null
+  errorCode?:
+    | 'upgrade-required'
+    | 'payload-invalid'
+    | 'installation-failed'
+    | 'health-check-failed'
+    | 'unknown'
+    | null
+  errorLogPath?: string | null
 }
 
 export interface DesktopManagedRuntimeInstallationApi {
   getSnapshot: () => Promise<ManagedRuntimeInstallationSnapshot>
   install: () => Promise<ManagedRuntimeInstallationSnapshot>
+  openDiagnosticLog: () => Promise<boolean>
   selectEnvironment: (path: string) => Promise<ManagedRuntimeInstallationSnapshot>
   chooseEnvironment: () => Promise<ManagedRuntimeInstallationSnapshot>
   onSnapshot: (

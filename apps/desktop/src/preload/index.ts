@@ -189,6 +189,8 @@ const api = {
       ipcRenderer.invoke('managed-runtime:getSnapshot'),
     install: (): Promise<ManagedRuntimeInstallationSnapshot> =>
       ipcRenderer.invoke('managed-runtime:install'),
+    openDiagnosticLog: (): Promise<boolean> =>
+      ipcRenderer.invoke('managed-runtime:openDiagnosticLog'),
     selectEnvironment: (path: string): Promise<ManagedRuntimeInstallationSnapshot> =>
       ipcRenderer.invoke('managed-runtime:selectEnvironment', path),
     chooseEnvironment: (): Promise<ManagedRuntimeInstallationSnapshot> =>

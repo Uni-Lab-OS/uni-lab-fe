@@ -372,22 +372,50 @@ export function EnvironmentManager({
             message={runtimeInstallationMessage(runtimeInstallation)}
             facts={[
               ['版本', runtimeInstallation.runtimeVersion ?? '—'],
+              ...(runtimeInstallation.previousRuntimeVersion
+                ? [[
+                    '旧版本',
+                    runtimeInstallation.previousRuntimeVersion
+                  ] as [string, string]]
+                : []),
               ['平台', runtimeInstallation.platform ?? '—'],
               ['来源', runtimeInstallation.managed ? '应用内置' : '现有环境'],
               ['环境', runtimeInstallation.environmentPath ?? '—']
             ]}
-            actions={runtimeInstallation.bundled && [
+            actions={(runtimeInstallation.bundled && [
               'not-installed',
+              'upgrade-required',
               'failed'
-            ].includes(runtimeInstallation.phase) ? (
-              <button
-                type="button"
-                disabled={Boolean(busyAction)}
-                onClick={() => void run('install-runtime', async () => {
-                  setRuntimeInstallation(await managedRuntimeApi.install())
-                })}
-              >安装内置 Runtime</button>
-            ) : undefined}
+            ].includes(runtimeInstallation.phase)) || runtimeInstallation.errorLogPath
+              ? (
+                  <>
+                    {runtimeInstallation.bundled && [
+                      'not-installed',
+                      'upgrade-required',
+                      'failed'
+                    ].includes(runtimeInstallation.phase) ? (
+                      <button
+                        type="button"
+                        disabled={Boolean(busyAction)}
+                        onClick={() => void run('install-runtime', async () => {
+                          setRuntimeInstallation(await managedRuntimeApi.install())
+                        })}
+                      >{runtimeInstallation.phase === 'upgrade-required'
+                          ? `升级到 Runtime ${runtimeInstallation.runtimeVersion ?? ''}`
+                          : '安装内置 Runtime'}</button>
+                    ) : null}
+                    {runtimeInstallation.errorLogPath ? (
+                      <button
+                        type="button"
+                        disabled={Boolean(busyAction)}
+                        onClick={() => void run('open-runtime-log', async () => {
+                          await managedRuntimeApi.openDiagnosticLog()
+                        })}
+                      >查看诊断日志</button>
+                    ) : null}
+                  </>
+                )
+              : undefined}
           />
         ) : null}
         <EnvironmentStatusCard
@@ -933,6 +961,10 @@ function runtimeInstallationMessage(
       : '当前使用已安装的 UniLab 环境。'
   }
   if (snapshot.phase === 'installing') return '正在离线安装并验证，请勿退出应用。'
+  if (snapshot.phase === 'upgrade-required') {
+    return snapshot.error
+      ?? `本地 Runtime 与当前 Workbench 不兼容，需要升级到 ${snapshot.runtimeVersion ?? '内置版本'}。`
+  }
   if (snapshot.phase === 'not-installed') {
     return '没有检测到 unilab；可从安装包离线安装应用私有 Runtime。'
   }
