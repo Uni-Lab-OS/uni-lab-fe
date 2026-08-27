@@ -233,6 +233,15 @@ resume controls. Pausing applies backpressure to the existing updater response
 stream, so the pending file and checksum state remain intact; resuming continues
 that same transfer instead of starting a second download.
 
+If the response fails, the desktop shell keeps the verified download identity
+and partial artifact in its OS cache instead of relying on electron-updater's
+temporary `pending` directory. The failure row retains the last durable progress
+and exposes **Continue download** directly. A retry sends `Range` plus `If-Range`
+when a strong validator is available; it appends only a matching `206` response.
+An ignored or stale range restarts safely, and the complete artifact must still
+match the published SHA-512 checksum before it is handed back to
+electron-updater for platform signature verification and installation.
+
 The desktop main-process diagnostic log records the updater's effective
 download mode without enabling its verbose block-plan debug output. Search for
 `Workbench 更新下载模式` to distinguish `mode=differential` from `mode=full`

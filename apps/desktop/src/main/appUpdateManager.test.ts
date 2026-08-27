@@ -136,6 +136,25 @@ describe('AppUpdateManager', () => {
     unsubscribe()
   })
 
+  it('waits for a failed updater promise to settle before starting its retry', async () => {
+    const firstDownload = deferred<string[]>()
+    const updater = {
+      downloadUpdate: vi.fn()
+        .mockReturnValueOnce(firstDownload.promise)
+        .mockResolvedValueOnce([])
+    }
+    const adapter = createElectronUpdaterAdapter(updater as never, vi.fn())
+
+    const firstAttempt = adapter.download()
+    const retry = adapter.download()
+    expect(updater.downloadUpdate).toHaveBeenCalledOnce()
+
+    firstDownload.reject(new Error('network changed'))
+    await expect(firstAttempt).rejects.toThrow('network changed')
+    await expect(retry).resolves.toBeUndefined()
+    expect(updater.downloadUpdate).toHaveBeenCalledTimes(2)
+  })
+
   it('keeps development and legacy surfaces disabled without touching the updater', async () => {
     const updater = new RecordingUpdater()
     const manager = createManager(updater, { enabled: false })
@@ -226,6 +245,42 @@ describe('AppUpdateManager', () => {
     downloadRequest.resolve()
     await flushMicrotasks()
     updater.handlers?.downloaded('0.2.0')
+    manager.dispose()
+  })
+
+  it('keeps failed download progress and retries without checking again', async () => {
+    const updater = new RecordingUpdater()
+    const firstDownload = deferred<void>()
+    const resumedDownload = deferred<void>()
+    updater.download = vi.fn()
+      .mockImplementationOnce(() => firstDownload.promise)
+      .mockImplementationOnce(() => resumedDownload.promise)
+    const manager = createManager(updater)
+    manager.start()
+    updater.handlers?.available('0.2.0')
+
+    await manager.download()
+    updater.handlers?.progress(42.3)
+    firstDownload.reject(new Error('network changed'))
+    await flushMicrotasks()
+
+    expect(manager.getSnapshot()).toMatchObject({
+      phase: 'error',
+      errorCode: 'DOWNLOAD_FAILED',
+      availableVersion: '0.2.0',
+      progressPercent: 42.3
+    })
+
+    await expect(manager.download()).resolves.toMatchObject({
+      phase: 'downloading',
+      availableVersion: '0.2.0',
+      progressPercent: 42.3
+    })
+    expect(updater.download).toHaveBeenCalledTimes(2)
+    expect(updater.checkCount).toBe(0)
+
+    resumedDownload.resolve()
+    await flushMicrotasks()
     manager.dispose()
   })
 

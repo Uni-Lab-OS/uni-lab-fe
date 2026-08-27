@@ -104,6 +104,21 @@ export function createAppUpdateStatusViewModel(
         pending
       }
     case 'error':
+      if (snapshot.errorCode === 'DOWNLOAD_FAILED') {
+        return {
+          visible: true,
+          phase: snapshot.phase,
+          tone: 'error',
+          title: '更新下载已中断',
+          detail: '已下载内容会保留，可以从当前进度继续。',
+          progressPercent: normalizeProgress(snapshot.progressPercent),
+          action: {
+            command: 'download',
+            label: pending ? '正在继续…' : '继续下载'
+          },
+          pending
+        }
+      }
       return {
         visible: true,
         phase: snapshot.phase,

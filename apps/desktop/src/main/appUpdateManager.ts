@@ -9,6 +9,10 @@ import {
   type ElectronUpdaterDownloadPauseController
 } from './electronUpdaterDownloadPause'
 import { createElectronUpdaterDiagnostics } from './electronUpdaterDiagnostics'
+import {
+  bindElectronUpdaterResumableDownload,
+  type ElectronUpdaterResumableDownloadController
+} from './electronUpdaterResumableDownload'
 
 const DEFAULT_INITIAL_CHECK_DELAY_MS = 30_000
 const DEFAULT_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1_000
@@ -150,8 +154,18 @@ export class AppUpdateManager {
 
   /** 下载已发现的版本；其他状态拒绝无意义或并发下载。 */
   async download(): Promise<AppUpdateSnapshot> {
-    if (this.snapshot.phase !== 'available') return this.getSnapshot()
-    this.setSnapshot({ phase: 'downloading', progressPercent: 0 })
+    const canResumeFailedDownload = this.snapshot.phase === 'error'
+      && this.snapshot.errorCode === 'DOWNLOAD_FAILED'
+      && this.snapshot.availableVersion !== undefined
+    if (this.snapshot.phase !== 'available' && !canResumeFailedDownload) {
+      return this.getSnapshot()
+    }
+    this.setSnapshot({
+      phase: 'downloading',
+      progressPercent: canResumeFailedDownload
+        ? this.snapshot.progressPercent ?? 0
+        : 0
+    })
     try {
       const downloadTask = this.options.updater.download()
       void downloadTask.catch((error: unknown) => {
@@ -253,7 +267,13 @@ export class AppUpdateManager {
   }
 
   private setFailure(errorCode: AppUpdateErrorCode): AppUpdateSnapshot {
-    return this.setSnapshot({ phase: 'error', errorCode })
+    return this.setSnapshot({
+      phase: 'error',
+      errorCode,
+      ...(errorCode === 'DOWNLOAD_FAILED'
+        ? { progressPercent: this.snapshot.progressPercent ?? 0 }
+        : {})
+    })
   }
 
   private handleDownloadFailure(error: unknown): void {
@@ -274,7 +294,8 @@ export class AppUpdateManager {
       'available',
       'downloading',
       'paused',
-      'downloaded'
+      'downloaded',
+      'error'
     ].includes(change.phase)
     this.snapshot = {
       currentVersion: this.options.currentVersion,
@@ -298,7 +319,23 @@ export function createElectronUpdaterAdapter(
   log: (message: string) => void
 ): AppUpdaterAdapter {
   let pauseController: ElectronUpdaterDownloadPauseController | null = null
+  let resumableController: ElectronUpdaterResumableDownloadController | null = null
+  let activeDownload: Promise<void> | null = null
   const diagnostics = createElectronUpdaterDiagnostics(log)
+  const startDownload = (): Promise<void> => {
+    diagnostics.started()
+    const task = updater.downloadUpdate().then(() => undefined)
+    activeDownload = task
+    void task.then(
+      () => {
+        if (activeDownload === task) activeDownload = null
+      },
+      () => {
+        if (activeDownload === task) activeDownload = null
+      }
+    )
+    return task
+  }
   return {
     configure() {
       updater.logger = diagnostics.logger
@@ -314,6 +351,12 @@ export function createElectronUpdaterAdapter(
         updater as unknown as Parameters<
           typeof bindElectronUpdaterDownloadPause
         >[0]
+      )
+      resumableController ??= bindElectronUpdaterResumableDownload(
+        updater as unknown as Parameters<
+          typeof bindElectronUpdaterResumableDownload
+        >[0],
+        { log }
       )
     },
     subscribe(handlers) {
@@ -351,14 +394,32 @@ export function createElectronUpdaterAdapter(
       await updater.checkForUpdates()
     },
     async download() {
-      diagnostics.started()
-      await updater.downloadUpdate()
+      const currentDownload = activeDownload
+      if (currentDownload) {
+        try {
+          await currentDownload
+          return
+        } catch {
+          // error 事件比 electron-updater 的 finally 更早抵达 UI。若用户此时
+          // 点击继续，先等失败 Promise 清理完成，再创建唯一的新下载任务。
+          const replacement = activeDownload
+          if (replacement && replacement !== currentDownload) {
+            await replacement
+            return
+          }
+        }
+      }
+      await startDownload()
     },
     pause() {
-      return pauseController?.pause() ?? false
+      const updaterPaused = pauseController?.pause() ?? false
+      const resumablePaused = resumableController?.pause() ?? false
+      return updaterPaused || resumablePaused
     },
     resume() {
-      return pauseController?.resume() ?? false
+      const updaterResumed = pauseController?.resume() ?? false
+      const resumableResumed = resumableController?.resume() ?? false
+      return updaterResumed || resumableResumed
     },
     install() {
       updater.quitAndInstall(false, true)
@@ -366,6 +427,8 @@ export function createElectronUpdaterAdapter(
     dispose() {
       pauseController?.dispose()
       pauseController = null
+      resumableController?.dispose()
+      resumableController = null
     }
   }
 }

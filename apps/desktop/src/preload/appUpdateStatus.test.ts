@@ -102,11 +102,13 @@ describe('createAppUpdateStatusViewModel', () => {
     })
     expect(createAppUpdateStatusViewModel(snapshot({
       phase: 'error',
-      errorCode: 'DOWNLOAD_FAILED'
+      errorCode: 'DOWNLOAD_FAILED',
+      progressPercent: 42.3
     }))).toMatchObject({
       visible: true,
       tone: 'error',
-      action: { command: 'check', label: '重新检查' }
+      progressPercent: 42.3,
+      action: { command: 'download', label: '继续下载' }
     })
   })
 
