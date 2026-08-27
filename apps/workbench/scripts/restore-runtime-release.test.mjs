@@ -185,30 +185,47 @@ describe('versioned Runtime release restore', () => {
       'utf8'
     )
 
+    const windowsJob = workflow.slice(
+      workflow.indexOf('  build-windows-runtime:'),
+      workflow.indexOf('  build-macos-runtime:')
+    )
+    const windowsCheckoutPath = windowsJob.match(
+      /repository: Uni-Lab-OS\/Uni-Lab-OS[\s\S]*?^\s+path: (\S+)$/mu
+    )?.[1]
+    assert.ok(windowsCheckoutPath, 'Windows Runtime 必须声明 OS 源码检出目录')
+    const longestGeneratedHeader = [
+      'D:\\a\\uni-lab-fe\\uni-lab-fe',
+      windowsCheckoutPath,
+      'output\\bld\\rattler-build_ros-humble-unilabos-msgs_1234567890',
+      'work\\build\\rosidl_generator_cpp\\unilabos_msgs\\action\\detail',
+      'reaction_station_liquid_feed_vials_non_titration__rosidl_typesupport_fastrtps_cpp.hpp'
+    ].join('\\')
+    assert.ok(
+      longestGeneratedHeader.length <= 240,
+      `Windows ROS 生成路径超过安全预算: ${longestGeneratedHeader.length}`
+    )
+    assert.match(windowsJob, new RegExp(`working-directory: ${windowsCheckoutPath.replace('.', '\\.')}`, 'u'))
+
     assert.match(workflow, /^name: Publish Versioned Workbench Runtime$/mu)
     assert.match(workflow, /^\s+workflow_dispatch:$/mu)
     assert.doesNotMatch(workflow, /^\s+push:$/mu)
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-718c9ae-f7e78e7-b09c0c0/u
+      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-9623b51c/u
     )
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_SOURCE_REF: 718c9ae573decc8c80d8e4e7a252a34e3d5a099d/u
+      /UNILAB_RUNTIME_SOURCE_REF: 9623b51c6304dfd44f283a4353425d9592f7934f/u
     )
-    assert.match(
-      workflow,
-      /UNILAB_RUNTIME_OPCUA_FIX_REF: f7e78e7e9fcc47ed24f4b6affeaa82dcc8de49f2/u
-    )
-    assert.match(
-      workflow,
-      /UNILAB_RUNTIME_BUILD_PIN_REF: b09c0c048f6de1e5027deb1733da439598c577cf/u
-    )
+    assert.doesNotMatch(workflow, /UNILAB_RUNTIME_OPCUA_FIX_REF/u)
+    assert.doesNotMatch(workflow, /UNILAB_RUNTIME_BUILD_PIN_REF/u)
     assert.match(workflow, /runs-on: windows-2022/u)
     assert.match(workflow, /runs-on: macos-14/u)
     assert.match(workflow, /actions\/cache\/restore@v6/u)
     assert.match(workflow, /actions\/cache\/save@v6/u)
     assert.match(workflow, /rattler-build/u)
+    assert.match(workflow, /recipes\/msgs\/recipe\.yaml/u)
+    assert.match(workflow, /\.conda\/environment\/recipe\.yaml/u)
     assert.match(workflow, /\.conda\/vendor\/opcua\/recipe\.yaml/u)
     assert.match(workflow, /\.conda\/base\/recipe\.yaml/u)
     assert.match(workflow, /UNILABOS_INSTALLER_CHANNEL/u)
