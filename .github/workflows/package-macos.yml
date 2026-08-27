@@ -32,6 +32,7 @@ env:
   ELECTRON_VERSION: 33.4.11
   NODE_RUNTIME_VERSION: 24.14.0
   UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-9623b51c
+  UNILAB_RUNTIME_DOWNLOAD_TEST_TAG: workbench-runtime-download-test-0.11.3-9623b51c
   UNILAB_RUNTIME_VERSION: 0.11.3
   MACOS_RELEASE_TAG: ${{ github.ref == 'refs/heads/deploy-hot-update-test' && 'workbench-macos-hot-update-test' || 'workbench-macos-stable' }}
   UNILAB_WORKBENCH_UPDATE_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/deploy-hot-update-test' && 'workbench-macos-hot-update-test' || 'workbench-macos-stable' }}
@@ -43,6 +44,8 @@ jobs:
       # main、普通测试和热更新测试的完整构建都必须签名公证；手动 quick 保持 unsigned。
       UNILAB_CI_SIGNING_MODE: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/deploy-mac-test' || github.ref == 'refs/heads/deploy-hot-update-test') && (github.event_name == 'push' || inputs.mode == 'full') && 'signed' || 'unsigned' }}
       UNILAB_WORKBENCH_RELEASE_CHANNEL: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/deploy-hot-update-test' && 'update-test' || 'test' }}
+      UNILAB_RUNTIME_DELIVERY: ${{ github.ref == 'refs/heads/deploy-mac-test' && 'download' || 'bundled' }}
+      UNILAB_RUNTIME_DOWNLOAD_URL: ${{ github.ref == 'refs/heads/deploy-mac-test' && 'https://github.com/Uni-Lab-OS/uni-lab-fe/releases/download/workbench-runtime-download-test-0.11.3-9623b51c/Uni-Lab-OS-0.11.3-osx-arm64.sh' || '' }}
     # GitHub 的 macos-14 标准镜像为 Apple Silicon，可直接构建 arm64 原生依赖。
     runs-on: macos-14
     timeout-minutes: 120
@@ -167,6 +170,54 @@ jobs:
           echo "Required verified Runtime release is missing: $UNILAB_RUNTIME_RELEASE_TAG" >&2
           echo "Run the Publish Versioned Workbench Runtime workflow before packaging Workbench." >&2
           exit 1
+
+      # 正式 Runtime Release 继续保持 Draft；普通 macOS 测试包只从隔离
+      # prerelease 匿名下载，并由应用内不可变 SHA-256 清单完成执行前校验。
+      - name: Publish isolated online macOS Runtime test asset
+        if: github.ref == 'refs/heads/deploy-mac-test'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          asset_name="Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh"
+          asset_path=".ci-cache/runtime/$asset_name"
+          expected_size="$(stat -f '%z' "$asset_path")"
+          expected_digest="sha256:$(shasum -a 256 "$asset_path" | awk '{print $1}')"
+
+          if ! gh api "repos/$GITHUB_REPOSITORY/releases/tags/$UNILAB_RUNTIME_DOWNLOAD_TEST_TAG" >/dev/null 2>&1; then
+            gh release create "$UNILAB_RUNTIME_DOWNLOAD_TEST_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Workbench Runtime 在线下载测试 $UNILAB_RUNTIME_VERSION" \
+              --notes '测试打包分支的隔离在线 Runtime 下载源；不用于正式发布。' \
+              --prerelease
+          fi
+
+          release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$UNILAB_RUNTIME_DOWNLOAD_TEST_TAG")"
+          asset_count="$(RELEASE_JSON="$release_json" ASSET_NAME="$asset_name" node -p \
+            "JSON.parse(process.env.RELEASE_JSON).assets.filter(asset => asset.name === process.env.ASSET_NAME).length")"
+          if [[ "$asset_count" == 0 ]]; then
+            gh release upload "$UNILAB_RUNTIME_DOWNLOAD_TEST_TAG" "$asset_path" \
+              --repo "$GITHUB_REPOSITORY"
+            release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$UNILAB_RUNTIME_DOWNLOAD_TEST_TAG")"
+          fi
+
+          RELEASE_JSON="$release_json" ASSET_NAME="$asset_name" \
+            EXPECTED_SIZE="$expected_size" EXPECTED_DIGEST="$expected_digest" node <<'NODE'
+          const release = JSON.parse(process.env.RELEASE_JSON)
+          const assets = release.assets.filter(
+            asset => asset.name === process.env.ASSET_NAME
+          )
+          if (assets.length !== 1 || assets[0].size !== Number(process.env.EXPECTED_SIZE)) {
+            throw new Error('Online macOS Runtime test asset name or size is not immutable')
+          }
+          if (assets[0].digest && assets[0].digest !== process.env.EXPECTED_DIGEST) {
+            throw new Error(`Online macOS Runtime digest mismatch: ${assets[0].digest}`)
+          }
+          NODE
+
+          curl --fail --location --retry 5 --retry-all-errors \
+            --range 0-0 --output /dev/null "$UNILAB_RUNTIME_DOWNLOAD_URL"
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
@@ -482,14 +533,29 @@ jobs:
           fi
           installed_kib="$(du -sk "$packaged_app" | awk '{print $1}')"
           resources_kib="$(du -sk "$packaged_app/Contents/Resources" | awk '{print $1}')"
+          runtime_payload_kib="$(du -sk "$packaged_app/Contents/Resources/runtime-installer" | awk '{print $1}')"
           hdiutil detach "$verify_mount" -force
           trap - EXIT
 
           dmg_bytes="$(stat -f '%z' "$dmg_path")"
           installed_bytes="$((installed_kib * 1024))"
           resources_bytes="$((resources_kib * 1024))"
+          runtime_payload_bytes="$((runtime_payload_kib * 1024))"
           pipeline_seconds="$(($(date +%s) - PIPELINE_STARTED_EPOCH))"
           dmg_sha256="$(shasum -a 256 "$dmg_path" | awk '{print $1}')"
+
+          if [[ "$UNILAB_RUNTIME_DELIVERY" == 'download' ]]; then
+            online_runtime_budget="$((1024 * 1024))"
+            online_dmg_budget="$((250 * 1024 * 1024))"
+            if (( runtime_payload_bytes > online_runtime_budget )); then
+              echo "Online Runtime manifest unexpectedly embeds the installer: ${runtime_payload_bytes} bytes" >&2
+              exit 1
+            fi
+            if (( dmg_bytes > online_dmg_budget )); then
+              echo "Online macOS DMG exceeds 250 MiB budget: ${dmg_bytes} bytes" >&2
+              exit 1
+            fi
+          fi
 
           node - "$BUILD_SECONDS" "$PACKAGE_SECONDS" "$pipeline_seconds" \
             "$dmg_path" "$dmg_bytes" "$dmg_sha256" \
@@ -534,6 +600,7 @@ jobs:
             echo '| --- | ---: |'
             echo "| Build started (UTC+08:00) | $BUILD_STARTED_AT_CST |"
             echo "| Distribution | $UNILAB_CI_SIGNING_MODE |"
+            echo "| Runtime delivery | $UNILAB_RUNTIME_DELIVERY |"
             echo "| Production build | ${BUILD_SECONDS}s |"
             echo "| Native packaging | ${PACKAGE_SECONDS}s |"
             echo "| Build + packaging | $((BUILD_SECONDS + PACKAGE_SECONDS))s |"
@@ -544,6 +611,7 @@ jobs:
             fi
             echo "| Installed application | ${installed_bytes} bytes |"
             echo "| Application Resources | ${resources_bytes} bytes |"
+            echo "| Runtime payload | ${runtime_payload_bytes} bytes |"
           } >> "$GITHUB_STEP_SUMMARY"
 
           cat "$RUNNER_TEMP/macos-packaging-metrics.json"
