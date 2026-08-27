@@ -45,7 +45,10 @@ import {
   ManagedRuntimeInstallation,
   resolveManagedRuntimeDataDirectory
 } from './managedRuntimeInstallation'
-import { registerManagedRuntimeInstallationIpc } from './managedRuntimeInstallationIpc'
+import {
+  registerManagedRuntimeInstallationIpc,
+  runtimeEnvironmentFallbackAllowed
+} from './managedRuntimeInstallationIpc'
 import {
   LocalRuntimeManager,
   resolveLocalRuntimeLaunchPlan
@@ -572,6 +575,9 @@ app.whenReady().then(async () => {
     onEnvironmentReady: environmentPath => {
       process.env['UNILAB_MANAGED_RUNTIME_PREFIX'] = environmentPath
     },
+    showDiagnosticLog: async path => {
+      shell.showItemInFolder(path)
+    },
     log: logLine
   })
   await managedRuntimeInstallation.initialize()
@@ -754,10 +760,12 @@ app.whenReady().then(async () => {
     return electronObservability.run(
       'electron.runtime.discover_environment',
       {},
-      () => Promise.resolve(
-        managedRuntimeInstallation.getSnapshot().environmentPath
-      ).then(environmentPath => environmentPath
-        ?? discoverDefaultCondaEnvironment({ homeDirectory: homedir() }))
+      async () => {
+        const snapshot = managedRuntimeInstallation.getSnapshot()
+        if (snapshot.environmentPath) return snapshot.environmentPath
+        if (!runtimeEnvironmentFallbackAllowed(snapshot)) return null
+        return discoverDefaultCondaEnvironment({ homeDirectory: homedir() })
+      }
     )
   })
   ipcMain.handle(

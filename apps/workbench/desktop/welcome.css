@@ -408,7 +408,8 @@ h1 {
   box-shadow: 0 0 9px rgba(87, 213, 229, 0.62);
 }
 
-.runtime-panel__indicator.is-installing {
+.runtime-panel__indicator.is-installing,
+.runtime-panel__indicator.is-upgrade-required {
   border-color: var(--amber);
   animation: status-pulse 1.15s steps(2, end) infinite;
 }
@@ -447,6 +448,12 @@ h1 {
   font-size: 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.runtime-panel[data-phase='upgrade-required'] .runtime-panel__content span,
+.runtime-panel[data-phase='failed'] .runtime-panel__content span {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .runtime-panel button {

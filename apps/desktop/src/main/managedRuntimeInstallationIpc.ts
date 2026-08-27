@@ -10,11 +10,23 @@ import {
 } from '../shared/managedRuntimeInstallation'
 import type {
   ManagedRuntimeInstallation,
-  ManagedRuntimeInspection
+  ManagedRuntimeInspection,
+  ManagedRuntimeSelection
 } from './managedRuntimeInstallation'
 
 type RuntimeEnvironmentChoice =
   ManagedRuntimeInstallationSnapshot['availableEnvironments'][number]
+
+/** 阻止安装失败或必须升级时绕过控制面重新发现旧 Runtime。 */
+export function runtimeEnvironmentFallbackAllowed(
+  snapshot: ManagedRuntimeInstallationSnapshot
+): boolean {
+  return !(snapshot.bundled && [
+    'upgrade-required',
+    'installing',
+    'failed'
+  ].includes(snapshot.phase))
+}
 
 interface ManagedRuntimeInstallationIpcOptions {
   ipcMain: IpcMain
@@ -27,6 +39,7 @@ interface ManagedRuntimeInstallationIpcOptions {
   assertSender: (event: IpcMainInvokeEvent) => void
   getMainWindow: () => BrowserWindow | null
   onEnvironmentReady: (environmentPath: string) => void
+  showDiagnosticLog: (path: string) => Promise<void>
   log: (message: string) => void
 }
 
@@ -41,14 +54,27 @@ export class ManagedRuntimeInstallationController {
   constructor(private readonly options: ManagedRuntimeInstallationIpcOptions) {}
 
   async initialize(): Promise<ManagedRuntimeInstallationSnapshot> {
+    const persisted = await this.options.readSelectedEnvironment().catch(error => {
+      this.options.log(`读取 Runtime 环境选择失败: ${errorMessage(error)}`)
+      return null
+    })
     let inspection: ManagedRuntimeInspection | null = null
+    let persistedSelection: ManagedRuntimeSelection | null = null
     let inspectionError: string | null = null
     if (this.options.installation) {
       try {
-        inspection = await this.options.installation.inspect()
+        inspection = await this.options.installation.inspect(persisted)
       } catch (error) {
         inspectionError = errorMessage(error)
         this.options.log(`检查内置 Runtime 失败: ${inspectionError}`)
+        persistedSelection = await this.options.installation
+          .classifySelection(persisted)
+          .catch(classificationError => {
+            this.options.log(
+              `识别已选择 Runtime 归属失败: ${errorMessage(classificationError)}`
+            )
+            return null
+          })
       }
     }
 
@@ -58,21 +84,96 @@ export class ManagedRuntimeInstallationController {
       path: inspection.paths.prefix
     } : null
 
-    const persisted = await this.options.readSelectedEnvironment().catch(error => {
-      this.options.log(`读取 Runtime 环境选择失败: ${errorMessage(error)}`)
-      return null
-    })
     const discovered = await this.options.discoverExistingEnvironments()
       .catch(error => {
         this.options.log(`发现本机 UniLab 环境失败: ${errorMessage(error)}`)
         return []
       })
+    const selection = inspection?.selection ?? persistedSelection ?? (
+      persisted
+        ? { kind: 'external' as const, path: persisted, runtimeVersion: null }
+        : { kind: 'none' as const, path: null, runtimeVersion: null }
+    )
+    const selectedManagedPath = selection.kind === 'current-managed'
+      || selection.kind === 'outdated-managed'
+      ? selection.path
+      : null
+    const externalDiscovered = await this.externalOnly(discovered)
     this.externalEnvironmentPaths = await this.validatedEnvironments([
-      ...discovered,
-      ...(persisted && persisted !== this.managedEnvironment?.path
+      ...externalDiscovered.filter(path => path !== selectedManagedPath),
+      ...(persisted
+        && selection.kind !== 'current-managed'
+        && selection.kind !== 'outdated-managed'
+        && persisted !== this.managedEnvironment?.path
         ? [persisted]
         : [])
     ])
+
+    if (
+      this.managedEnvironment
+      && (
+        selection.kind === 'current-managed'
+        || selection.kind === 'outdated-managed'
+      )
+    ) {
+      let activationWarning = inspectionError
+      if (persisted !== this.managedEnvironment.path) {
+        try {
+          await this.options.writeSelectedEnvironment(this.managedEnvironment.path)
+        } catch (error) {
+          activationWarning = `保存当前 Runtime 选择失败：${errorMessage(error)}`
+          this.options.log(activationWarning)
+        }
+      }
+      this.options.onEnvironmentReady(this.managedEnvironment.path)
+      return this.publish(this.readySnapshot(
+        this.managedEnvironment,
+        inspection,
+        activationWarning
+      ))
+    }
+
+    if (inspection && selection.kind === 'outdated-managed') {
+      const previousVersion = selection.runtimeVersion
+      const currentVersion = inspection.paths.runtimeVersion
+      const previousLabel = previousVersion
+        ? `本地 Runtime ${previousVersion}`
+        : '本地旧 Runtime'
+      return this.publish({
+        phase: 'upgrade-required',
+        bundled: true,
+        managed: false,
+        runtimeVersion: currentVersion,
+        platform: inspection.paths.platform,
+        environmentPath: null,
+        availableEnvironments: this.environmentChoices(),
+        error: `${previousLabel} 与当前 Workbench 不兼容，需要安装内置 Runtime ${currentVersion}。旧环境会保留。`,
+        previousRuntimeVersion: previousVersion,
+        previousEnvironmentPath: selection.path,
+        errorCode: 'upgrade-required',
+        errorLogPath: null
+      })
+    }
+
+    if (!inspection && selection.kind === 'outdated-managed') {
+      return this.publish({
+        phase: 'failed',
+        bundled: true,
+        managed: false,
+        runtimeVersion: null,
+        platform: null,
+        environmentPath: null,
+        availableEnvironments: this.environmentChoices(),
+        error: inspectionError
+          ?? '无法检查当前内置 Runtime，旧托管 Runtime 已停止使用。',
+        previousRuntimeVersion: selection.runtimeVersion,
+        previousEnvironmentPath: selection.path,
+        errorCode: inspectionError
+          ? classifyRuntimeError(inspectionError)
+          : 'unknown',
+        errorLogPath: runtimeLogPath(inspectionError)
+      })
+    }
 
     const choices = this.environmentChoices()
     const selected = choices.find(choice => choice.path === persisted)
@@ -97,7 +198,11 @@ export class ManagedRuntimeInstallationController {
         platform: null,
         environmentPath: null,
         availableEnvironments: [],
-        error: null
+        error: null,
+        previousRuntimeVersion: null,
+        previousEnvironmentPath: null,
+        errorCode: null,
+        errorLogPath: null
       })
     }
     return this.publish({
@@ -108,7 +213,11 @@ export class ManagedRuntimeInstallationController {
       platform: inspection?.paths.platform ?? null,
       environmentPath: null,
       availableEnvironments: [],
-      error: inspectionError
+      error: inspectionError,
+      previousRuntimeVersion: null,
+      previousEnvironmentPath: null,
+      errorCode: inspectionError ? classifyRuntimeError(inspectionError) : null,
+      errorLogPath: runtimeLogPath(inspectionError)
     })
   }
 
@@ -128,6 +237,13 @@ export class ManagedRuntimeInstallationController {
       this.pending = null
     })
     return this.pending
+  }
+
+  async openDiagnosticLog(): Promise<boolean> {
+    const logPath = this.snapshot.errorLogPath
+    if (!logPath) return false
+    await this.options.showDiagnosticLog(logPath)
+    return true
   }
 
   async selectEnvironment(path: string): Promise<ManagedRuntimeInstallationSnapshot> {
@@ -176,7 +292,9 @@ export class ManagedRuntimeInstallationController {
       bundled: true,
       managed: false,
       environmentPath: null,
-      error: null
+      error: null,
+      errorCode: null,
+      errorLogPath: null
     })
     try {
       const paths = await this.options.installation!.ensureInstalled()
@@ -195,7 +313,11 @@ export class ManagedRuntimeInstallationController {
         platform: paths.platform,
         environmentPath: paths.prefix,
         availableEnvironments: this.environmentChoices(),
-        error: null
+        error: null,
+        previousRuntimeVersion: null,
+        previousEnvironmentPath: null,
+        errorCode: null,
+        errorLogPath: null
       })
     } catch (error) {
       const message = errorMessage(error)
@@ -206,7 +328,9 @@ export class ManagedRuntimeInstallationController {
         bundled: true,
         managed: false,
         environmentPath: null,
-        error: message
+        error: message,
+        errorCode: classifyRuntimeError(message),
+        errorLogPath: runtimeLogPath(message)
       })
       throw error
     }
@@ -225,6 +349,21 @@ export class ManagedRuntimeInstallationController {
       }
     }))
     return [...new Set(validated.filter((path): path is string => Boolean(path)))]
+  }
+
+  private async externalOnly(paths: string[]): Promise<string[]> {
+    if (!this.options.installation) return paths
+    const classified = await Promise.all(paths.map(async path => ({
+      path,
+      selection: await this.options.installation!.classifySelection(path)
+        .catch(error => {
+          this.options.log(`识别 Runtime 路径归属失败: ${errorMessage(error)}`)
+          return null
+        })
+    })))
+    return classified
+      .filter(({ selection }) => selection?.kind === 'external')
+      .map(({ path }) => path)
   }
 
   private environmentChoices(): RuntimeEnvironmentChoice[] {
@@ -256,7 +395,11 @@ export class ManagedRuntimeInstallationController {
       platform: inspection?.paths.platform ?? this.snapshot.platform,
       environmentPath: selected.path,
       availableEnvironments: this.environmentChoices(),
-      error
+      error,
+      previousRuntimeVersion: null,
+      previousEnvironmentPath: null,
+      errorCode: error ? classifyRuntimeError(error) : null,
+      errorLogPath: runtimeLogPath(error)
     }
   }
 
@@ -289,6 +432,10 @@ export function registerManagedRuntimeInstallationIpc(
     options.assertSender(event)
     return controller.install()
   })
+  options.ipcMain.handle('managed-runtime:openDiagnosticLog', event => {
+    options.assertSender(event)
+    return controller.openDiagnosticLog()
+  })
   options.ipcMain.handle('managed-runtime:selectEnvironment', (event, path: unknown) => {
     options.assertSender(event)
     if (typeof path !== 'string') throw new Error('UniLab 环境路径无效')
@@ -303,4 +450,22 @@ export function registerManagedRuntimeInstallationIpc(
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function classifyRuntimeError(
+  message: string
+): NonNullable<ManagedRuntimeInstallationSnapshot['errorCode']> {
+  if (/安装器执行失败/u.test(message)) return 'installation-failed'
+  if (/依赖验证失败|缺少 python、unilab 或 unilab-supervisor/u.test(message)) {
+    return 'health-check-failed'
+  }
+  if (/manifest|载荷|校验失败|平台不匹配/u.test(message)) {
+    return 'payload-invalid'
+  }
+  return 'unknown'
+}
+
+function runtimeLogPath(message: string | null): string | null {
+  if (!message) return null
+  return message.match(/(?:^|；)日志：([^；\n]+)$/u)?.[1]?.trim() ?? null
 }

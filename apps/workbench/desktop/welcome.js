@@ -16,6 +16,7 @@ const runtimeTitle = document.querySelector('#runtime-title')
 const runtimeDetail = document.querySelector('#runtime-detail')
 const installRuntimeButton = document.querySelector('#install-runtime')
 const chooseRuntimeButton = document.querySelector('#choose-runtime')
+const openRuntimeLogButton = document.querySelector('#open-runtime-log')
 const runtimeSelector = document.querySelector('#runtime-selector')
 const runtimeSelectorLabel = document.querySelector('#runtime-selector-label')
 
@@ -39,7 +40,11 @@ let runtimeSnapshot = {
   platform: null,
   environmentPath: null,
   availableEnvironments: [],
-  error: null
+  error: null,
+  previousRuntimeVersion: null,
+  previousEnvironmentPath: null,
+  errorCode: null,
+  errorLogPath: null
 }
 
 runtimeSelector.addEventListener('change', () => {
@@ -90,6 +95,18 @@ installRuntimeButton.addEventListener('click', () => {
       error: messageOf(error)
     }
     render()
+  }).finally(() => {
+    runtimeRequestPending = false
+    render()
+  })
+})
+
+openRuntimeLogButton.addEventListener('click', () => {
+  if (!runtimeApi || runtimeRequestPending || !runtimeSnapshot.errorLogPath) return
+  runtimeRequestPending = true
+  render()
+  void runtimeApi.openDiagnosticLog().catch(error => {
+    runtimeSnapshot = { ...runtimeSnapshot, error: messageOf(error) }
   }).finally(() => {
     runtimeRequestPending = false
     render()
@@ -202,6 +219,7 @@ function render() {
   const runtimeBlocked = runtimeRequestPending || (
     runtimeSnapshot.bundled && [
       'not-installed',
+      'upgrade-required',
       'installing',
       'failed'
     ].includes(runtimeSnapshot.phase)
@@ -224,9 +242,18 @@ function renderRuntime() {
   runtimePanel.dataset.phase = runtimeSnapshot.phase
   runtimeIndicator.className = `runtime-panel__indicator is-${runtimeSnapshot.phase}`
   installRuntimeButton.hidden = !runtimeSnapshot.bundled
-    || !['not-installed', 'failed'].includes(runtimeSnapshot.phase)
+    || ![
+      'not-installed',
+      'upgrade-required',
+      'failed'
+    ].includes(runtimeSnapshot.phase)
+  installRuntimeButton.textContent = runtimeSnapshot.phase === 'upgrade-required'
+    ? `升级到 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}`
+    : '安装内置 Runtime'
   installRuntimeButton.disabled = runtimeRequestPending
     || runtimeSnapshot.phase === 'installing'
+  openRuntimeLogButton.hidden = !runtimeSnapshot.errorLogPath
+  openRuntimeLogButton.disabled = runtimeRequestPending
   chooseRuntimeButton.disabled = runtimeRequestPending
     || runtimeSnapshot.phase === 'installing'
   const environments = runtimeSnapshot.availableEnvironments ?? []
@@ -257,6 +284,12 @@ function renderRuntime() {
   if (runtimeSnapshot.phase === 'installing') {
     runtimeTitle.textContent = '正在安装内置 Runtime'
     runtimeDetail.textContent = '离线解包并执行 unilab -h 验证，请勿退出应用…'
+    return
+  }
+  if (runtimeSnapshot.phase === 'upgrade-required') {
+    runtimeTitle.textContent = '需要升级本地 Runtime'
+    runtimeDetail.textContent = runtimeSnapshot.error
+      ?? `需要安装内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}。`
     return
   }
   if (runtimeSnapshot.phase === 'failed') {
