@@ -31,7 +31,7 @@ env:
   ELECTRON_BUILDER_VERSION: 25.1.8
   ELECTRON_VERSION: 33.4.11
   NODE_RUNTIME_VERSION: 24.14.0
-  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-6fcb80a-f7e78e7-b09c0c0
+  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-9623b51c
   UNILAB_RUNTIME_VERSION: 0.11.3
   MACOS_RELEASE_TAG: ${{ github.ref == 'refs/heads/deploy-hot-update-test' && 'workbench-macos-hot-update-test' || 'workbench-macos-stable' }}
   UNILAB_WORKBENCH_UPDATE_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/deploy-hot-update-test' && 'workbench-macos-hot-update-test' || 'workbench-macos-stable' }}

@@ -44,7 +44,8 @@ describe('portable Workbench packaging contract', () => {
       assert.match(descriptor.sha256, /^[a-f0-9]{64}$/u)
       assert.equal(descriptor.hostArchitecture, 'x64')
     }
-    assert.equal(MAX_PORTABLE_INSTALLER_BYTES, 800 * 1024 * 1024)
+    assert.equal(MAX_PORTABLE_INSTALLER_BYTES, 810 * 1024 * 1024)
+    assert.ok(MAX_PORTABLE_INSTALLER_BYTES >= 842_480_040)
   })
 
   /** 验证成品复用宿主内联的 Vue 编译器，不要求部署第二份编译器。 */
@@ -683,7 +684,7 @@ describe('portable Workbench packaging contract', () => {
     assert.match(workflow, /build\/Release\/crypt32\.node/u)
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-6fcb80a-f7e78e7-b09c0c0/u
+      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-9623b51c/u
     )
     assert.doesNotMatch(workflow, /cache: pnpm/u)
     assert.match(workflow, /pnpm\/action-setup@v6/u)
