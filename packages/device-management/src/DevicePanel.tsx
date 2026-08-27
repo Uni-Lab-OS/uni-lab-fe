@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -93,6 +94,8 @@ export default function DevicePanel({
   } = useDevices({ services, backendEnabled, connection })
   const [internalSelectedDeviceId, setInternalSelectedDeviceId] =
     useState<string | null>(null)
+  const [deviceQuery, setDeviceQuery] = useState('')
+  const deferredDeviceQuery = useDeferredValue(deviceQuery)
   const selectedDeviceId = controlledSelectedDeviceId !== undefined
     ? controlledSelectedDeviceId
     : internalSelectedDeviceId
@@ -138,6 +141,17 @@ export default function DevicePanel({
       ?? null,
     [devices, selectedDeviceId]
   )
+  const visibleDevices = useMemo(() => {
+    const query = deferredDeviceQuery.trim().toLocaleLowerCase()
+    if (!query) return devices
+    return devices.filter((device) => [
+      device.displayName,
+      device.machineName,
+      device.deviceKey,
+      device.namespace,
+      device.id
+    ].some((value) => value?.toLocaleLowerCase().includes(query)))
+  }, [deferredDeviceQuery, devices])
   const selectedCatalogAction = useMemo(
     () =>
       selectedDevice?.actions.find(
@@ -625,9 +639,9 @@ export default function DevicePanel({
       <aside className={deviceClass('section__list')} aria-label="设备实例列表">
         <header className={deviceClass('edge-device__list-head')}>
           <div>
-            <h1 className={deviceClass('section__list-title')}>仪器设备</h1>
+            <h1 className={deviceClass('section__list-title')}>设备列表</h1>
             <span className={deviceClass('section__list-meta')}>
-              {devices.length} 台设备 · Authority 设备目录
+              {devices.length} 台设备
             </span>
           </div>
           <button
@@ -644,6 +658,16 @@ export default function DevicePanel({
           backendName={backend.name}
           lastUpdated={lastUpdated}
         />
+        <label className={deviceClass('edge-device__search')}>
+          <span aria-hidden="true">⌕</span>
+          <input
+            type="search"
+            value={deviceQuery}
+            placeholder="搜索设备名称 / 编号"
+            aria-label="搜索设备名称或编号"
+            onChange={(event) => setDeviceQuery(event.target.value)}
+          />
+        </label>
         {loading && devices.length === 0 ? (
           <div className={deviceClass('device-loading')} role="status">
             正在读取设备实例与动作模板目录…
@@ -677,7 +701,7 @@ export default function DevicePanel({
           </div>
         ) : (
           <ul className={deviceClass('device-list')}>
-            {devices.map((device) => (
+            {visibleDevices.map((device) => (
               <DeviceListItem
                 key={device.id}
                 device={device}
@@ -685,11 +709,15 @@ export default function DevicePanel({
                 onSelect={setSelectedDeviceId}
               />
             ))}
+            {visibleDevices.length === 0 ? (
+              <li className={deviceClass('edge-device__search-empty')}>
+                没有匹配的设备
+              </li>
+            ) : null}
           </ul>
         )}
         <div className={deviceClass('edge-device__source-note')}>
-          <span>数据来源</span>
-          设备与在线状态来自 DeviceOverview；动作参数来自 WorkflowNodeTemplate。
+          设备目录由 Authority 实时同步
         </div>
       </aside>
 

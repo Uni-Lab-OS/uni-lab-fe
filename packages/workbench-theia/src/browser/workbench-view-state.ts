@@ -7,6 +7,8 @@ export type WorkbenchDomain =
   | 'device'
   | 'robot-debug'
   | 'robot-points'
+  | 'workflow-management'
+  | 'workflow-tasks'
   | 'robot-bench'
   | 'robot-reagents'
 export type WorkbenchViewMode =
@@ -16,6 +18,8 @@ export type WorkbenchViewMode =
   | 'device'
   | 'robot-debug'
   | 'robot-points'
+  | 'workflow-management'
+  | 'workflow-tasks'
   | 'robot-bench'
   | 'robot-reagents'
   | 'split'

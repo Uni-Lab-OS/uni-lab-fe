@@ -43,7 +43,14 @@ export function ActionParameterForm({
     )
   }
   return (
-    <div className={deviceClass('edge-device__parameter-form')}>
+    <div className={deviceClass('edge-device__parameter-table')}>
+      <div className={deviceClass('edge-device__parameter-head')} aria-hidden="true">
+        <span>参数</span>
+        <span>类型</span>
+        <span>参数值</span>
+        <span>参数说明</span>
+      </div>
+      <div className={deviceClass('edge-device__parameter-form')}>
       {fields.map(([name, schema]) => (
         <ActionField
           key={name}
@@ -54,6 +61,7 @@ export function ActionParameterForm({
           onChange={onChange}
         />
       ))}
+      </div>
     </div>
   )
 }
@@ -81,7 +89,9 @@ function ActionField({
         <span>
           {label}
           {schema.required ? <em>必填</em> : null}
+          <code>{name}</code>
         </span>
+        <b>{schema.type}</b>
         <input
           type="checkbox"
           checked={Boolean(value)}
@@ -101,7 +111,9 @@ function ActionField({
       <span>
         {label}
         {schema.required ? <em>必填</em> : null}
+        <code>{name}</code>
       </span>
+      <b>{schema.type}</b>
       {schema.enum?.length ? (
         <select
           value={String(value)}

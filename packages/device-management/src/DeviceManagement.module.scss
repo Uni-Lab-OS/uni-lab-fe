@@ -436,3 +436,134 @@
   margin-top: 3px;
   font: 650 11px/1.5 var(--unilab-font-mono);
 }
+
+/* 原型映射：紧凑设备目录 + 连续的单点动作调试工作区。 */
+.edge-device .section__list {
+  width: 272px;
+  min-width: 232px;
+  flex-basis: 272px;
+}
+
+.edge-device__search {
+  position: relative;
+  display: block;
+  margin: 10px 12px 4px;
+}
+
+.edge-device__search > span {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 10px;
+  color: var(--unilab-color-text-subtle);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.edge-device__search input {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px 0 30px;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: 8px;
+  background: var(--unilab-color-surface-subtle);
+  font-size: 11px;
+}
+
+.edge-device__search-empty {
+  padding: 26px 12px;
+  color: var(--unilab-color-text-muted);
+  text-align: center;
+  font-size: 11px;
+}
+
+.edge-device__source-note {
+  display: block;
+  border: 0;
+  border-top: 1px solid var(--unilab-color-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.edge-device__detail {
+  padding: 14px;
+}
+
+.edge-device__workspace {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: 12px;
+  background: var(--unilab-color-surface);
+  box-shadow: 0 8px 26px rgb(15 23 42 / 5%);
+}
+
+.edge-device__identity {
+  margin-bottom: 0;
+  padding: 14px 16px;
+}
+
+.edge-device__tabs {
+  display: flex;
+  min-height: 42px;
+  align-items: flex-end;
+  gap: 20px;
+  padding: 0 16px;
+  border-top: 1px solid var(--unilab-color-border);
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+.edge-device__tabs button {
+  position: relative;
+  height: 42px;
+  padding: 0 2px;
+  color: var(--unilab-color-text-muted);
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+}
+
+.edge-device__tabs button[aria-selected='true'] {
+  color: var(--unilab-color-device);
+  font-weight: 700;
+}
+
+.edge-device__tabs button[aria-selected='true']::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--unilab-color-device);
+  content: '';
+}
+
+.edge-device__tabs button:disabled {
+  opacity: 0.62;
+}
+
+.edge-device__status-section {
+  padding: 12px 16px 0;
+}
+
+.edge-device__status-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.edge-device__status-heading strong {
+  font-size: 11px;
+}
+
+.edge-device__status-heading small {
+  color: var(--unilab-color-text-muted);
+  font-size: 9px;
+}
+
+.edge-device__status-section .edge-device__metrics {
+  margin-bottom: 0;
+}

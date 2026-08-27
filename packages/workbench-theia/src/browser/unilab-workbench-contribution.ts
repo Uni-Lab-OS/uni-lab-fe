@@ -15,7 +15,8 @@ import {
   RobotDebugDomainEntryWidget,
   RobotPointsDomainEntryWidget,
   RobotReagentsDomainEntryWidget,
-  WorkflowDomainEntryWidget
+  WorkflowDomainEntryWidget,
+  WorkflowTasksDomainEntryWidget
 } from './unilab-workbench-navigator-widget'
 import { UniLabWorkbenchWidget } from './unilab-workbench-widget'
 import { UniLabAgentNavigationContribution } from './unilab-agent-contribution'
@@ -28,6 +29,11 @@ export const OpenUniLabWorkbench: Command = {
 export const OpenUniLabWorkflowView: Command = {
   id: 'unilab.workbench.workflow.open',
   label: '打开工作流'
+}
+
+export const OpenUniLabWorkflowTasksView: Command = {
+  id: 'unilab.workbench.workflow-tasks.open',
+  label: '打开任务列表'
 }
 
 export const OpenUniLabMaterialView: Command = {
@@ -52,7 +58,7 @@ export const OpenRobotPointsView: Command = {
 
 export const OpenRobotBenchView: Command = {
   id: 'unilab.workbench.robot-bench.open',
-  label: '打开实验台'
+  label: '打开工作流管理'
 }
 
 export const OpenRobotReagentsView: Command = {
@@ -93,8 +99,21 @@ export class WorkflowDomainEntryContribution
     super({
       widgetId: WorkflowDomainEntryWidget.ID,
       widgetName: '工作',
-      defaultWidgetOptions: { area: 'left', rank: 77 },
+      defaultWidgetOptions: { area: 'left', rank: 72 },
       toggleCommandId: OpenUniLabWorkflowView.id
+    })
+  }
+}
+
+@injectable()
+export class WorkflowTasksDomainEntryContribution
+  extends AbstractViewContribution<WorkflowTasksDomainEntryWidget> {
+  constructor() {
+    super({
+      widgetId: WorkflowTasksDomainEntryWidget.ID,
+      widgetName: '任务列表',
+      defaultWidgetOptions: { area: 'left', rank: 78 },
+      toggleCommandId: OpenUniLabWorkflowTasksView.id
     })
   }
 }
@@ -106,7 +125,7 @@ export class MaterialDomainEntryContribution
     super({
       widgetId: MaterialDomainEntryWidget.ID,
       widgetName: '物料',
-      defaultWidgetOptions: { area: 'left', rank: 76 },
+      defaultWidgetOptions: { area: 'left', rank: 75 },
       toggleCommandId: OpenUniLabMaterialView.id
     })
   }
@@ -119,7 +138,7 @@ export class DeviceDomainEntryContribution
     super({
       widgetId: DeviceDomainEntryWidget.ID,
       widgetName: '设备管理',
-      defaultWidgetOptions: { area: 'left', rank: 71 },
+      defaultWidgetOptions: { area: 'left', rank: 73 },
       toggleCommandId: OpenUniLabDeviceView.id
     })
   }
@@ -132,7 +151,7 @@ export class RobotDebugDomainEntryContribution
     super({
       widgetId: RobotDebugDomainEntryWidget.ID,
       widgetName: '设备动作',
-      defaultWidgetOptions: { area: 'left', rank: 72 },
+      defaultWidgetOptions: { area: 'left', rank: 71 },
       toggleCommandId: OpenRobotDebugView.id
     })
   }
@@ -144,7 +163,7 @@ export class RobotPointsDomainEntryContribution
   constructor() {
     super({
       widgetId: RobotPointsDomainEntryWidget.ID,
-      widgetName: '点位管理',
+      widgetName: '实验操作调试',
       defaultWidgetOptions: { area: 'left', rank: 73 },
       toggleCommandId: OpenRobotPointsView.id
     })
@@ -157,7 +176,7 @@ export class RobotBenchDomainEntryContribution
   constructor() {
     super({
       widgetId: RobotBenchDomainEntryWidget.ID,
-      widgetName: '实验台',
+      widgetName: '工作流管理',
       defaultWidgetOptions: { area: 'left', rank: 74 },
       toggleCommandId: OpenRobotBenchView.id
     })
@@ -171,7 +190,7 @@ export class RobotReagentsDomainEntryContribution
     super({
       widgetId: RobotReagentsDomainEntryWidget.ID,
       widgetName: '试剂',
-      defaultWidgetOptions: { area: 'left', rank: 75 },
+      defaultWidgetOptions: { area: 'left', rank: 74 },
       toggleCommandId: OpenRobotReagentsView.id
     })
   }
@@ -182,6 +201,9 @@ export class UniLabDomainNavigationInitializer
 implements FrontendApplicationContribution {
   @inject(WorkflowDomainEntryContribution)
   protected readonly workflow!: WorkflowDomainEntryContribution
+
+  @inject(WorkflowTasksDomainEntryContribution)
+  protected readonly workflowTasks!: WorkflowTasksDomainEntryContribution
 
   @inject(MaterialDomainEntryContribution)
   protected readonly material!: MaterialDomainEntryContribution
@@ -235,27 +257,33 @@ implements FrontendApplicationContribution {
       activate: false,
       reveal: false
     })
+    const workflowTasks = await this.workflowTasks.openView({
+      activate: false,
+      reveal: false
+    })
     const agent = await this.agent.openView({ activate: false, reveal: false })
 
     // rank 只影响新建部件；Theia 会先恢复持久化顺序，因此这里重新挂载并
     // 规范公开活动栏的顺序，避免升级后继续沿用已经过时的排列。
-    await app.shell.addWidget(device, { area: 'left', rank: 71 })
-    await app.shell.addWidget(robotDebug, { area: 'left', rank: 72 })
-    await app.shell.addWidget(robotPoints, { area: 'left', rank: 73 })
-    await app.shell.addWidget(robotBench, { area: 'left', rank: 74 })
+    await app.shell.addWidget(robotDebug, { area: 'left', rank: 71 })
+    await app.shell.addWidget(robotPoints, { area: 'left', rank: 72 })
+    await app.shell.addWidget(workflow, { area: 'left', rank: 73 })
+    await app.shell.addWidget(device, { area: 'left', rank: 74 })
     await app.shell.addWidget(robotReagents, { area: 'left', rank: 75 })
     await app.shell.addWidget(material, { area: 'left', rank: 76 })
-    await app.shell.addWidget(workflow, { area: 'left', rank: 77 })
-    await app.shell.addWidget(agent, { area: 'left', rank: 78 })
+    await app.shell.addWidget(robotBench, { area: 'left', rank: 77 })
+    await app.shell.addWidget(workflowTasks, { area: 'left', rank: 78 })
+    await app.shell.addWidget(agent, { area: 'left', rank: 79 })
     const activityBar = app.shell.getTabBarFor(device)
     for (const [index, widget] of [
-      device,
       robotDebug,
       robotPoints,
-      robotBench,
+      workflow,
+      device,
       robotReagents,
       material,
-      workflow,
+      robotBench,
+      workflowTasks,
       agent
     ].entries()) {
       activityBar?.insertTab(index, widget.title)

@@ -86,6 +86,20 @@ describe('Workbench domain view presentation', () => {
     expect(state.currentMode).toBe('robot-points')
   })
 
+  it('opens workflow management and task list as distinct sibling surfaces', () => {
+    const state = new WorkbenchViewState()
+
+    state.toggle('workflow-management')
+    expect(state.currentMode).toBe('workflow-management')
+    expect(state.isVisible('workflow-management')).toBe(true)
+    expect(state.isVisible('workflow')).toBe(false)
+
+    state.toggle('workflow-tasks')
+    expect(state.currentMode).toBe('workflow-tasks')
+    expect(state.isVisible('workflow-management')).toBe(false)
+    expect(state.isVisible('workflow-tasks')).toBe(true)
+  })
+
   it('never deactivates the only active sidebar domain', () => {
     const state = new WorkbenchViewState()
     const listener = vi.fn()
@@ -138,6 +152,7 @@ describe('Workbench domain view presentation', () => {
       <WorkbenchDomainLayout
         mode="split"
         workflow={<section data-testid="workflow-surface" />}
+        workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
@@ -156,6 +171,7 @@ describe('Workbench domain view presentation', () => {
       <WorkbenchDomainLayout
         mode="material"
         workflow={<section data-testid="workflow-surface" />}
+        workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
@@ -181,6 +197,7 @@ describe('Workbench domain view presentation', () => {
       <WorkbenchDomainLayout
         mode="device"
         workflow={<section data-testid="workflow-surface" />}
+        workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
@@ -193,11 +210,42 @@ describe('Workbench domain view presentation', () => {
     expect(markup).toContain('data-testid="material-surface"')
   })
 
+  it('reuses the workflow surface for management and isolates the task list', () => {
+    const managementMarkup = renderToStaticMarkup(
+      <WorkbenchDomainLayout
+        mode="workflow-management"
+        workflow={<section data-testid="workflow-surface" />}
+        workflowTasks={<section data-testid="workflow-tasks-surface" />}
+        material={<section data-testid="material-surface" />}
+        device={<section data-testid="device-surface" />}
+        robotWorkstation={<section data-testid="robot-workstation-surface" />}
+      />
+    )
+    const tasksMarkup = renderToStaticMarkup(
+      <WorkbenchDomainLayout
+        mode="workflow-tasks"
+        workflow={<section data-testid="workflow-surface" />}
+        workflowTasks={<section data-testid="workflow-tasks-surface" />}
+        material={<section data-testid="material-surface" />}
+        device={<section data-testid="device-surface" />}
+        robotWorkstation={<section data-testid="robot-workstation-surface" />}
+      />
+    )
+
+    expect(managementMarkup).toContain(
+      'class="unilab-workbench__domain-slot is-workflow"'
+    )
+    expect(tasksMarkup).toContain(
+      'class="unilab-workbench__domain-slot is-workflow-tasks"'
+    )
+  })
+
   it('renders instruments and materials with an accessible splitter', () => {
     const markup = renderToStaticMarkup(
       <WorkbenchDomainLayout
         mode="device-material"
         workflow={<section data-testid="workflow-surface" />}
+        workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
@@ -230,6 +278,7 @@ describe('Workbench domain view presentation', () => {
       <WorkbenchDomainLayout
         mode="robot-bench"
         workflow={<section data-testid="workflow-surface" />}
+        workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}

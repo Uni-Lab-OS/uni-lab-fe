@@ -40,6 +40,7 @@ import {
 import {
   createWorkflowResourceSlotOptionsPort,
   WorkflowPanel,
+  WorkflowTaskList,
   type WorkflowPanelRuntimeProjection
 } from '@unilab/workflow-editor'
 import {
@@ -1147,6 +1148,18 @@ function WorkbenchSurface({
       />
     </section>
   )
+  const workflowTasksSurface = (
+    <section
+      className="unilab-workbench__surface unilab-workbench__surface--workflow-tasks"
+      aria-label="任务列表窗口"
+    >
+      <WorkflowTaskList
+        runtime={services.workflow}
+        active={viewMode === 'workflow-tasks'}
+        recoveryRevision={recoveryRevision}
+      />
+    </section>
+  )
   const materialSurface = (
     <section
       className="unilab-workbench__surface unilab-workbench__surface--material"
@@ -1265,11 +1278,9 @@ function WorkbenchSurface({
         <WorkbenchTopBar
           connectionMode={connectionMode}
           configurationKind={configurationKind}
-          identityLabel={session.identity
-            ? `${workspaceLabel} · ${
-              connectionMode === 'backend' ? '生产模式' : '调试模式'
-            }`
-            : 'Workspace Backend 尚未启动'}
+          debugTarget={session.configuredRuntimeMode === 'dry-run'
+            ? 'simulation'
+            : 'hardware'}
           viewLabel={workbenchViewLabel(viewMode)}
           workspaceLabel={workspaceLabel}
           onConfigure={setConfigurationKind}
@@ -1291,6 +1302,11 @@ function WorkbenchSurface({
             mountedDomains.current,
             'workflow',
             workflowSurface
+          )}
+          workflowTasks={mountedSurface(
+            mountedDomains.current,
+            'workflow-tasks',
+            workflowTasksSurface
           )}
           material={mountedSurface(
             mountedDomains.current,
@@ -1328,6 +1344,7 @@ function WorkbenchSurface({
 
 type WorkbenchMountedDomain =
   | 'workflow'
+  | 'workflow-tasks'
   | 'material'
   | 'device'
   | 'robot-workstation'
@@ -1338,6 +1355,7 @@ function recordMountedWorkbenchDomains(
   mode: WorkbenchViewMode
 ): void {
   if (isWorkflowWorkbenchView(mode)) mountedDomains.add('workflow')
+  if (mode === 'workflow-tasks') mountedDomains.add('workflow-tasks')
   if (
     mode === 'material' || mode === 'split' || mode === 'device-material'
   ) mountedDomains.add('material')
@@ -1349,7 +1367,8 @@ function recordMountedWorkbenchDomains(
 
 /** 返回工作流表面在当前 Workbench 领域模式下是否拥有可见权。 */
 function isWorkflowWorkbenchView(mode: WorkbenchViewMode): boolean {
-  return mode === 'workflow' || mode === 'split'
+  return mode === 'workflow' || mode === 'workflow-management' ||
+    mode === 'split'
 }
 
 /** 选择当前调度权威对应的连接事实来源。 */
@@ -1374,10 +1393,12 @@ function mountedSurface(
 
 /** 返回 Workbench 标题栏使用的当前领域短名称。 */
 function workbenchViewLabel(mode: WorkbenchViewMode): string {
-  if (mode === 'split') return '工作流 + 物料'
-  if (mode === 'device-material') return '设备管理 + 物料'
-  if (mode === 'workflow') return '工作流'
-  if (mode === 'material') return '物料'
+  if (mode === 'split') return '工作流调试 + 物料管理'
+  if (mode === 'device-material') return '设备管理 + 物料管理'
+  if (mode === 'workflow') return '工作流调试'
+  if (mode === 'workflow-management') return '工作流管理'
+  if (mode === 'workflow-tasks') return '任务列表'
+  if (mode === 'material') return '物料管理'
   if (mode === 'device') return '设备管理'
   if (isRobotWorkbenchViewMode(mode)) return workstationViewLabel(mode)
   return '未打开面板'
@@ -1411,8 +1432,8 @@ function workstationModule(mode: WorkbenchViewMode): WorkstationModule {
  * @returns 当前功能入口的短标题。
  */
 function workstationViewLabel(mode: `robot-${string}`): string {
-  if (mode === 'robot-debug') return '设备动作'
-  if (mode === 'robot-points') return '点位管理'
+  if (mode === 'robot-debug') return '设备单点动作调试'
+  if (mode === 'robot-points') return '实验操作调试'
   if (mode === 'robot-bench') return '实验台'
   return '试剂'
 }

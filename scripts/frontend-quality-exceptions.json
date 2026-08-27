@@ -201,8 +201,8 @@
     "packages/workflow-editor/src/components/WorkflowDag.tsx": {
       "maxLines": 1000,
       "maxFunctionComplexity": 25,
-      "reason": "工作流 DAG（WorkflowDag）集中维护 Canonical Workflow 到 X6 的布局方向、选择/删除和运行态交互；X6 生命周期与轻量 SVG 投影已分别迁入 WorkflowX6Canvas 和 workflowX6Projection。",
-      "futureSplitBoundary": "补齐横向、纵向、蛇形、组合节点和转运组合的 X6 视口回归后，将工具栏命令迁入 useWorkflowDagCommands，WorkflowDag 只组合交互策略与画布。"
+      "reason": "工作流 DAG（WorkflowDag）是 React Flow 的唯一适配边界，集中维护受控节点、边、布局方向、视口测量、选择/删除和运行态覆盖层，避免画布交互状态分散到节点组件。",
+      "futureSplitBoundary": "补齐横向、纵向、蛇形和转运组合的视口回归后，将节点/边投影迁入 useWorkflowDagProjection，将交互命令迁入 useWorkflowDagCommands。"
     },
     "packages/workflow-editor/src/components/workflow-persistent/_section-01.scss": {
       "maxLines": 950,

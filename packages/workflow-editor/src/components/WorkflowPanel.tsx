@@ -32,6 +32,7 @@ export {
 export interface WorkflowPanelProps {
   runtime: WorkflowRuntimePort
   workflowUuid?: string
+  workflowName?: string
   traceRuntime?: WorkflowTracePort
   resourceSlotOptionsPort?: WorkflowResourceSlotOptionsPort
   activeWorkflowStorageKey?: string
@@ -55,6 +56,7 @@ export interface WorkflowPanelProps {
   ) => void
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
+  hideRuntimeControls?: boolean
   allowWorkflowSelection?: boolean
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
@@ -69,6 +71,7 @@ export interface WorkflowPanelProps {
 export default function WorkflowPanel({
   runtime,
   workflowUuid: explicitWorkflowUuid,
+  workflowName: explicitWorkflowName = '',
   traceRuntime,
   resourceSlotOptionsPort,
   activeWorkflowStorageKey,
@@ -88,6 +91,7 @@ export default function WorkflowPanel({
   onVisibleMaterialRolesChange,
   ideBridge,
   hideEmbeddedCodeEditor = false,
+  hideRuntimeControls = false,
   allowWorkflowSelection = false,
   onResetEnvironment,
   environmentResetBusy = false
@@ -138,7 +142,7 @@ export default function WorkflowPanel({
         definitionAuthority={definitionAuthority}
         definitionEditingStatus={authoringStatus}
         workflowUuid={workflowUuid}
-        workflowName={selectedWorkflowName}
+        workflowName={explicitWorkflowName || selectedWorkflowName}
         traceRuntime={traceRuntime}
         resourceSlotOptionsPort={resourceSlotOptionsPort}
         executionStatus={executionStatus}
@@ -149,6 +153,7 @@ export default function WorkflowPanel({
         onSelectedWorkflowStepChange={onSelectedWorkflowStepChange}
         ideBridge={ideBridge}
         hideEmbeddedCodeEditor={hideEmbeddedCodeEditor}
+        hideRuntimeControls={hideRuntimeControls}
         recoveryRevision={recoveryRevision}
         visibleMaterialRoles={visibleMaterialRoles}
         onVisibleMaterialRolesChange={onVisibleMaterialRolesChange}

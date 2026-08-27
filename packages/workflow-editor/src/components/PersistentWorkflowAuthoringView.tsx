@@ -25,6 +25,7 @@ export function PersistentWorkflowAuthoringView({
   visibleMaterialRoles,
   onVisibleMaterialRolesChange,
   hideEmbeddedCodeEditor = false,
+  hideRuntimeControls = false,
   onResetEnvironment,
   environmentResetBusy = false
 }: {
@@ -35,6 +36,7 @@ export function PersistentWorkflowAuthoringView({
     visibleMaterialRoles: readonly string[] | null
   ) => void
   hideEmbeddedCodeEditor?: boolean
+  hideRuntimeControls?: boolean
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
 }): React.JSX.Element {
@@ -224,13 +226,15 @@ export function PersistentWorkflowAuthoringView({
         : 'unavailable'}
       data-workflow-ide-bridge={ideBridgeConnected ? 'connected' : 'missing'}
     >
-      <PersistentWorkflowToolbar
-        model={model}
-        onResetEnvironment={onResetEnvironment}
-        environmentResetBusy={environmentResetBusy}
-      />
+      {!hideRuntimeControls ? (
+        <PersistentWorkflowToolbar
+          model={model}
+          onResetEnvironment={onResetEnvironment}
+          environmentResetBusy={environmentResetBusy}
+        />
+      ) : null}
 
-      {executionBlockedReason && (
+      {!hideRuntimeControls && executionBlockedReason && (
         <div className="workflow-runtime__problem" role="status">
           <strong>工作流运行暂不可用</strong>
           <span>{executionBlockedReason}</span>
@@ -378,7 +382,7 @@ export function PersistentWorkflowAuthoringView({
           className="persistent-authoring__pane persistent-authoring__canvas"
           aria-label="工作流画布"
         >
-          <WorkflowCanvasStageHeader
+          {!hideRuntimeControls ? <WorkflowCanvasStageHeader
             title={workflowName || '完整控制流 DAG'}
             nodeCount={structure.nodes.length}
             linkCount={structure.links.length}
@@ -436,7 +440,7 @@ export function PersistentWorkflowAuthoringView({
                 </WorkflowButton>
               </>
             )}
-          />
+          /> : null}
           <div className={[
             'persistent-authoring__canvas-body',
             mode === 'code' ? 'is-code-mode' : '',
@@ -511,7 +515,9 @@ export function PersistentWorkflowAuthoringView({
                     onBeautify={beautifyCanvasLayout}
                     canvasMutationEnabled={canvasMutationEnabled}
                     onConnectHandles={connectTypedHandles}
-                    onDeleteRequest={deleteCanvasElements}
+                    onDeleteRequest={canvasMutationEnabled
+                      ? deleteCanvasElements
+                      : undefined}
                     visibleMaterialRoles={visibleMaterialRoles}
                     onVisibleMaterialRolesChange={
                       onVisibleMaterialRolesChange

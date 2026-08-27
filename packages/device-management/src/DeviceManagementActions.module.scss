@@ -513,3 +513,107 @@
     flex-direction: column;
   }
 }
+
+/* 原型映射：动作目录与参数详情合并为同一主任务面板。 */
+.edge-device__content {
+  gap: 0;
+  min-height: 480px;
+  margin: 14px 16px 16px;
+  overflow: hidden;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: 10px;
+}
+
+.edge-device__action-section,
+.edge-device__debug-section {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.edge-device__action-section {
+  border-right: 1px solid var(--unilab-color-border);
+  background: var(--unilab-color-surface-subtle);
+}
+
+.edge-device__debug-section {
+  top: 12px;
+}
+
+.edge-device__section-heading span {
+  text-transform: none;
+}
+
+.edge-device__parameter-table {
+  overflow: hidden;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: 8px;
+}
+
+.edge-device__parameter-head,
+.edge-device__field {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) 76px minmax(150px, 1.1fr) minmax(170px, 1.25fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.edge-device__parameter-head {
+  min-height: 36px;
+  padding: 0 11px;
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-surface-muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.edge-device__parameter-form {
+  display: block;
+}
+
+.edge-device__field,
+.edge-device__field.is-wide,
+.edge-device__field--boolean {
+  min-height: 58px;
+  padding: 8px 11px;
+  border: 0;
+  border-top: 1px solid var(--unilab-color-border);
+  border-radius: 0;
+}
+
+.edge-device__field > span code {
+  display: block;
+  margin-top: 2px;
+  color: var(--unilab-color-text-subtle);
+  font: 500 9px/1.35 var(--unilab-font-mono);
+}
+
+.edge-device__field > b {
+  color: var(--unilab-color-text-muted);
+  font: 500 9px/1.4 var(--unilab-font-mono);
+}
+
+.edge-device__field--boolean input {
+  justify-self: start;
+}
+
+@media (max-width: 1080px) {
+  .edge-device__action-section {
+    border-right: 0;
+    border-bottom: 1px solid var(--unilab-color-border);
+  }
+
+  .edge-device__parameter-head {
+    display: none;
+  }
+
+  .edge-device__field,
+  .edge-device__field.is-wide,
+  .edge-device__field--boolean {
+    grid-template-columns: minmax(120px, 0.8fr) minmax(150px, 1.2fr);
+  }
+
+  .edge-device__field > b {
+    display: none;
+  }
+}

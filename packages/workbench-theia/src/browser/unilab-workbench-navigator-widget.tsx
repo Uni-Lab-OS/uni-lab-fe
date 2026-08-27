@@ -76,8 +76,8 @@ export class WorkflowDomainEntryWidget extends UniLabDomainEntryWidget {
   protected readonly widgetId = WorkflowDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
     mode: 'workflow',
-    label: '工作流',
-    caption: '工作流 · 代码、画布与运行',
+    label: '工作流调试',
+    caption: '工作流调试 · 代码、画布与运行',
     description: '编辑工作流源码、观察 DAG，并与 IDE 代码位置双向联动。',
     iconClass: 'unilab-activity-icon--workflow',
     eyebrow: 'WORKFLOW'
@@ -90,8 +90,8 @@ export class MaterialDomainEntryWidget extends UniLabDomainEntryWidget {
   protected readonly widgetId = MaterialDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
     mode: 'material',
-    label: '物料',
-    caption: '物料 · 列表、空间与转运',
+    label: '物料管理',
+    caption: '物料管理 · 列表、空间与转运',
     description: '查看物料、库位与转运路径，并保持与工作流节点同步。',
     iconClass: 'unilab-activity-icon--material',
     eyebrow: 'MATERIAL'
@@ -132,9 +132,9 @@ export class RobotPointsDomainEntryWidget extends UniLabDomainEntryWidget {
   protected readonly widgetId = RobotPointsDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
     mode: 'robot-points',
-    label: '点位管理',
-    caption: '点位管理 · 机械臂控制点目录',
-    description: '读取后端发布的机械臂控制点；接口缺失时保持失败关闭。',
+    label: '实验操作调试',
+    caption: '实验操作调试 · 操作编排与运行验证',
+    description: '编排实验操作并验证动作、参数和执行结果。',
     iconClass: 'unilab-activity-icon--robot-points',
     eyebrow: 'ROBOT POINTS'
   }
@@ -145,12 +145,26 @@ export class RobotBenchDomainEntryWidget extends UniLabDomainEntryWidget {
   static readonly ID = 'unilab:robot-bench-navigation'
   protected readonly widgetId = RobotBenchDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
-    mode: 'robot-bench',
-    label: '实验台',
-    caption: '实验台 · 库位与物料占用',
-    description: '从公共物料图查看实验台库位和真实逻辑占用关系。',
-    iconClass: 'unilab-activity-icon--robot-bench',
-    eyebrow: 'LAB BENCH'
+    mode: 'workflow-management',
+    label: '工作流管理',
+    caption: '工作流管理 · 定义、版本与运行历史',
+    description: '管理工作流定义、调试版本、发布状态与运行历史。',
+    iconClass: 'unilab-activity-icon--workflow',
+    eyebrow: 'WORKFLOW MANAGEMENT'
+  }
+}
+
+@injectable()
+export class WorkflowTasksDomainEntryWidget extends UniLabDomainEntryWidget {
+  static readonly ID = 'unilab:workflow-tasks-navigation'
+  protected readonly widgetId = WorkflowTasksDomainEntryWidget.ID
+  protected readonly entry: DomainEntryDefinition = {
+    mode: 'workflow-tasks',
+    label: '任务列表',
+    caption: '任务列表 · 运行队列与状态',
+    description: '读取 Backend 已持久化的任务列表，查看任务状态与冻结工作流。',
+    iconClass: 'unilab-activity-icon--workflow-tasks',
+    eyebrow: 'WORKFLOW TASKS'
   }
 }
 
@@ -160,8 +174,8 @@ export class RobotReagentsDomainEntryWidget extends UniLabDomainEntryWidget {
   protected readonly widgetId = RobotReagentsDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
     mode: 'robot-reagents',
-    label: '试剂',
-    caption: '试剂 · 容器与库存批次',
+    label: '试剂管理',
+    caption: '试剂管理 · 容器与库存批次',
     description: '读取后端真实试剂容器或 OS 库存批次，不维护前端本地台账。',
     iconClass: 'unilab-activity-icon--robot-reagents',
     eyebrow: 'REAGENTS'

@@ -182,6 +182,9 @@ describe('device status presentation', () => {
     expect(offlineMarkup).not.toContain('占用未提供')
 
     const onlineMarkup = renderWorkspace('online')
+    expect(onlineMarkup).toContain('设备动作')
+    expect(onlineMarkup).toContain('初始化配置')
+    expect(onlineMarkup).toContain('设备实时状态')
     expect(onlineMarkup).not.toContain('提交时确认')
     expect(onlineMarkup).not.toContain('当前服务未提供占用明细')
     expect(onlineMarkup).not.toContain('占用未提供')

@@ -189,6 +189,10 @@ export function WorkbenchConfigurationDialog({
 
   const copy = configurationCopy(kind)
   const debug = kind !== 'production'
+  const plcReady = session.plcSimulator.phase === 'ready'
+  const plcCanStart = canStartRuntime(session.plcSimulator.phase)
+  const osReady = session.edgeRuntime.phase === 'ready'
+  const osCanStart = canStartRuntime(session.edgeRuntime.phase)
 
   return (
     <div
@@ -227,51 +231,38 @@ export function WorkbenchConfigurationDialog({
           {debug ? (
             <>
               <div className="unilab-config-dialog__status-grid">
-                <RuntimeStatus
-                  label="Uni-Lab OS"
-                  phase={session.edgeRuntime.phase}
-                  detail={session.edgeRuntime.message}
-                />
                 {kind === 'simulation' ? (
-                  <RuntimeStatus
-                    label="PLC-Sim"
-                    phase={session.plcSimulator.phase}
-                    detail={session.plcSimulator.message}
-                  />
+                  <>
+                    <RuntimeStatus
+                      label="PLC-Sim"
+                      phase={session.plcSimulator.phase}
+                      detail={session.plcSimulator.message}
+                    />
+                    <RuntimeStatus
+                      label="Uni-Lab OS"
+                      phase={session.edgeRuntime.phase}
+                      detail={session.edgeRuntime.message}
+                    />
+                  </>
                 ) : (
-                  <RuntimeStatus
-                    label="设备来源"
-                    phase={session.phase}
-                    detail="使用当前工作区设备包与设备图"
-                  />
+                  <>
+                    <RuntimeStatus
+                      label="Uni-Lab OS"
+                      phase={session.edgeRuntime.phase}
+                      detail={session.edgeRuntime.message}
+                    />
+                    <RuntimeStatus
+                      label="设备来源"
+                      phase={session.phase}
+                      detail="使用当前工作区设备包与设备图"
+                    />
+                  </>
                 )}
               </div>
 
-              <fieldset>
-                <legend>设备图</legend>
-                <label>
-                  <span>设备图路径</span>
-                  <input
-                    value={graphPath}
-                    onChange={(event) => setGraphPath(event.currentTarget.value)}
-                    placeholder="deployment/graphs/device-graph.json"
-                  />
-                </label>
-                <label className="unilab-config-dialog__check">
-                  <input
-                    type="checkbox"
-                    checked={externalDevicesOnly}
-                    onChange={(event) => setExternalDevicesOnly(
-                      event.currentTarget.checked
-                    )}
-                  />
-                  <span>仅加载工作区安装的设备包</span>
-                </label>
-              </fieldset>
-
               {kind === 'simulation' ? (
                 <fieldset>
-                  <legend>仿真配置</legend>
+                  <legend>PLC-Sim 配置</legend>
                   <label>
                     <span>PLC-Sim 项目路径</span>
                     <input
@@ -302,47 +293,67 @@ export function WorkbenchConfigurationDialog({
                       <option value="xuse">XUSE</option>
                     </select>
                   </label>
+                  <div className="unilab-config-dialog__module-actions">
+                    <button
+                      type="button"
+                      className={plcCanStart ? 'is-primary' : undefined}
+                      disabled={Boolean(busyAction) || !plcCanStart}
+                      onClick={() => void run(
+                        'start-plc',
+                        operations.startPlcSimulator
+                      )}
+                    >启动 PLC-Sim</button>
+                    <button
+                      type="button"
+                      className={plcReady ? 'is-runtime-stop' : undefined}
+                      disabled={Boolean(busyAction) || !plcReady}
+                      onClick={() => void run(
+                        'stop-plc',
+                        operations.stopPlcSimulator
+                      )}
+                    >停止 PLC-Sim</button>
+                  </div>
                 </fieldset>
               ) : null}
 
               <fieldset>
-                <legend>运行控制</legend>
-                <div className="unilab-config-dialog__button-row">
+                <legend>{kind === 'simulation' ? 'Uni-Lab OS 配置' : '设备图'}</legend>
+                <label>
+                  <span>设备图路径</span>
+                  <input
+                    value={graphPath}
+                    onChange={(event) => setGraphPath(event.currentTarget.value)}
+                    placeholder="deployment/graphs/device-graph.json"
+                  />
+                </label>
+                <label className="unilab-config-dialog__check">
+                  <input
+                    type="checkbox"
+                    checked={externalDevicesOnly}
+                    onChange={(event) => setExternalDevicesOnly(
+                      event.currentTarget.checked
+                    )}
+                  />
+                  <span>仅加载工作区安装的设备包</span>
+                </label>
+                <div className="unilab-config-dialog__module-actions">
                   <button
                     type="button"
-                    disabled={Boolean(busyAction)}
+                    className={osCanStart ? 'is-primary' : undefined}
+                    disabled={Boolean(busyAction) || !osCanStart}
                     onClick={() => void run('start-os', operations.startOs)}
                   >启动 OS</button>
                   <button
                     type="button"
-                    disabled={Boolean(busyAction)}
+                    disabled={Boolean(busyAction) || !osReady}
                     onClick={() => void run('restart-os', operations.restartOs)}
                   >重启 OS</button>
                   <button
                     type="button"
-                    disabled={Boolean(busyAction)}
+                    className={osReady ? 'is-runtime-stop' : undefined}
+                    disabled={Boolean(busyAction) || !osReady}
                     onClick={() => void run('stop-os', operations.stopOs)}
                   >停止 OS</button>
-                  {kind === 'simulation' ? (
-                    <>
-                      <button
-                        type="button"
-                        disabled={Boolean(busyAction)}
-                        onClick={() => void run(
-                          'start-plc',
-                          operations.startPlcSimulator
-                        )}
-                      >启动 PLC-Sim</button>
-                      <button
-                        type="button"
-                        disabled={Boolean(busyAction)}
-                        onClick={() => void run(
-                          'stop-plc',
-                          operations.stopPlcSimulator
-                        )}
-                      >停止 PLC-Sim</button>
-                    </>
-                  ) : null}
                   <button
                     type="button"
                     className="is-danger"
@@ -431,6 +442,11 @@ export function WorkbenchConfigurationDialog({
       </section>
     </div>
   )
+}
+
+/** 只有稳定停止或失败态允许再次启动，避免过渡态重复提交生命周期命令。 */
+function canStartRuntime(phase: string): boolean {
+  return phase === 'idle' || phase === 'failed'
 }
 
 /** 以会话事实渲染一个运行组件状态摘要。 */

@@ -12,6 +12,10 @@ export {
 export { WorkflowIoSummary } from './components/WorkflowIoSummary'
 export { WorkflowIoEditor } from './components/WorkflowIoEditor'
 export { WorkflowTaskInputForm } from './components/WorkflowTaskInputForm'
+export {
+  WorkflowTaskList,
+  type WorkflowTaskListProps
+} from './components/WorkflowTaskList'
 export { DebugLaunchInputForm } from './components/DebugLaunchInputForm'
 export {
   buildDebugLaunchOverrides,
@@ -49,6 +53,11 @@ export {
   workflowMaterialRoleLabel,
   type WorkflowMaterialRoleOption
 } from './utils/workflowMaterialTrace'
+export {
+  visibleWorkflowTasks,
+  workflowTaskDisplayName,
+  type WorkflowTaskListFilter
+} from './utils/workflowTaskListProjection'
 export * from './utils/parseWorkflow'
 export * from './utils/parseWorkflowJson'
 export {

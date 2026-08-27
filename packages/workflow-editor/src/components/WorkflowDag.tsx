@@ -4,11 +4,24 @@
  * ============================================================
  * Model: Claude Opus 4.8
  * Generation Date: 2026-07-22
- * Prompt Summary: X6 DAG 拓扑视图（虚拟渲染 + 有向边 + 控件）
+ * Prompt Summary: ReactFlow DAG 拓扑视图(节点分色 + 有向边 + 控件)
  * Context: 工作流方向拓扑连接图展示
  * Human Review Status: [ ] Pending  [ ] Reviewed  [ ] Approved
  * ============================================================
  */
+import ReactFlow, {
+  Background,
+  Controls,
+  MiniMap,
+  Panel
+} from 'reactflow'
+import type {
+  Connection,
+  EdgeChange,
+  Node,
+  NodeChange,
+  ReactFlowInstance
+} from 'reactflow'
 import {
   useCallback,
   useEffect,
@@ -17,14 +30,12 @@ import {
   useState
 } from 'react'
 import { useWorkflowDag } from '../hooks/useWorkflowDag'
+import WorkflowRoundedStepEdge from './WorkflowRoundedStepEdge'
 import { WorkflowButton } from './WorkflowButton'
-import {
-  WorkflowX6Canvas,
-  type WorkflowX6CanvasHandle
-} from './WorkflowX6Canvas'
-import { WorkflowX6NodeActions } from './WorkflowX6NodeActions'
 import WorkflowMaterialVisibilityControl from './WorkflowMaterialVisibilityControl'
 import WorkflowSupportingMaterialPresentationControl from './WorkflowSupportingMaterialPresentationControl'
+import { WORKFLOW_DAG_NODE_TYPES } from './workflowDagNodeTypes'
+import type { WorkflowNodeData } from './WorkflowNodeCard'
 import type { WorkflowLink, WorkflowNode } from '../utils/parseWorkflow'
 import {
   projectNestedWorkflow,
@@ -45,16 +56,23 @@ import {
   type WorkflowDagLayoutStrategy,
   type WorkflowMaterialSwimlaneDirection
 } from '../utils/workflowDagLayoutStrategy'
+import {
+  CANVAS_EDIT_WORKFLOW_CANVAS,
+  READ_ONLY_WORKFLOW_CANVAS,
+  visibleReadOnlyEdgeChanges,
+  visibleReadOnlyNodeChanges
+} from '../utils/workflowCanvasPolicy'
 import type {
   WorkflowSupportingMaterialPresentation
 } from '../utils/workflowReactionMaterialProjection'
+import 'reactflow/dist/style.css'
 import styles from './workflow.module.scss'
 
 interface WorkflowDagProps {
   nodes: WorkflowNode[]
   links: WorkflowLink[]
   onNodeSelect: (nodeId: string) => void
-  /** IDE 光标反查的单一节点；undefined 时由 X6 管理本地多选。 */
+  /** IDE 光标反查的单一节点；undefined 时由 React Flow 管理本地多选。 */
   selectedNodeId?: string | null
   /** 运行输出等外部入口发出的可重复画布聚焦请求。 */
   revealNodeRequest?: Readonly<{ nodeId: string; nonce: number }> | null
@@ -93,6 +111,13 @@ interface WorkflowDagProps {
     visibleMaterialRoles: readonly string[] | null
   ) => void
 }
+// 注册自定义边类型（在组件外定义，避免每次渲染重建）。
+const edgeTypes = { workflowRoundedStep: WorkflowRoundedStepEdge }
+const WORKFLOW_FIT_VIEW_OPTIONS = {
+  padding: 0.16,
+  minZoom: 0.2,
+  maxZoom: 1.35
+} as const
 // 暂停暴露会把画布布局写回工作流（Workflow）草稿的入口；保留实现便于后续恢复。
 const WORKFLOW_LAYOUT_APPLY_ACTION_VISIBLE = false
 
@@ -100,7 +125,7 @@ const WORKFLOW_LAYOUT_APPLY_ACTION_VISIBLE = false
  * 渲染工作流拓扑、运行状态、物料流句柄及可选的画布编辑控制。
  *
  * @param props 工作流节点、边、状态、编辑能力与布局回调。
- * @returns 可缩放、虚拟渲染且遵守当前画布权限的 X6 视图。
+ * @returns 可缩放、可适配且遵守当前画布权限的 ReactFlow 视图。
  */
 export default function WorkflowDag({
   nodes,
@@ -155,11 +180,12 @@ export default function WorkflowDag({
   const activeVisibleMaterialRoles = visibleMaterialRoles === undefined
     ? localVisibleMaterialRoles
     : visibleMaterialRoles
-  const x6CanvasRef = useRef<WorkflowX6CanvasHandle | null>(null)
-  const [localSelection, setLocalSelection] = useState<{
-    nodeUuids: string[]
-    edgeUuids: string[]
-  }>({ nodeUuids: [], edgeUuids: [] })
+  const flowInstanceRef = useRef<ReactFlowInstance | null>(null)
+  const nodeDragOriginRef = useRef<{
+    id: string
+    x: number
+    y: number
+  } | null>(null)
   const beautifyTimerRef = useRef<
     ReturnType<typeof globalThis.setTimeout> | null
   >(null)
@@ -293,7 +319,7 @@ export default function WorkflowDag({
       return next
     })
   }, [])
-  const { nodes: flowNodes, edges: flowEdges } = useWorkflowDag(
+  const { nodes: flowNodes, edges: flowEdges, onNodesChange, onEdgesChange } = useWorkflowDag(
     nestedProjection.nodes,
     nestedProjection.links,
     layoutStrategy,
@@ -306,6 +332,22 @@ export default function WorkflowDag({
     layoutStrategy === 'primary-sample-serpentine'
       ? 'horizontal'
       : swimlaneDirection
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      const visibleChanges = nodePositionMutationEnabled
+        ? changes
+        : visibleReadOnlyNodeChanges(changes)
+      if (visibleChanges.length > 0) onNodesChange(visibleChanges)
+    },
+    [nodePositionMutationEnabled, onNodesChange]
+  )
+  const handleEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      const visibleChanges = visibleReadOnlyEdgeChanges(changes)
+      if (visibleChanges.length > 0) onEdgesChange(visibleChanges)
+    },
+    [onEdgesChange]
+  )
   const nodeById = useMemo(
     () => new Map(nodes.map((node) => [node.id, node])),
     [nodes]
@@ -324,9 +366,9 @@ export default function WorkflowDag({
       const startNode = startNodeId === node.id
       return {
         ...node,
-        selected: externalSelectionActive
-          ? node.id === highlightedNodeId
-          : false,
+        selected: !externalSelectionActive
+          ? node.selected
+          : node.id === highlightedNodeId,
         deletable: false,
         className: [
           node.className,
@@ -397,18 +439,33 @@ export default function WorkflowDag({
       visibleRevealNodeId
     ]
   )
-  const scheduleCanvasNodeReveal = useCallback((nodeId: string): void => {
+  const scheduleCanvasNodeReveal = useCallback((
+    instance: ReactFlowInstance,
+    nodeId: string
+  ): void => {
     if (revealTimerRef.current !== null) {
       globalThis.clearTimeout(revealTimerRef.current)
     }
     revealTimerRef.current = globalThis.setTimeout(() => {
       revealTimerRef.current = null
-      x6CanvasRef.current?.revealNode(nodeId)
+      const node = instance.getNode(nodeId)
+      if (!node) return
+      const width = node.width ?? 0
+      const height = node.height ?? 0
+      instance.setCenter(
+        node.position.x + width / 2,
+        node.position.y + height / 2,
+        {
+          zoom: Math.max(instance.getZoom(), 0.72),
+          duration: 280
+        }
+      )
     }, 0)
   }, [])
   useEffect(() => {
-    if (!x6CanvasRef.current || !visibleRevealNodeId) return
-    scheduleCanvasNodeReveal(visibleRevealNodeId)
+    const instance = flowInstanceRef.current
+    if (!instance || !visibleRevealNodeId) return
+    scheduleCanvasNodeReveal(instance, visibleRevealNodeId)
   }, [
     revealNodeRequest?.nonce,
     scheduleCanvasNodeReveal,
@@ -418,7 +475,6 @@ export default function WorkflowDag({
     () => flowEdges.map((edge) => ({
       ...edge,
       deletable: false,
-      selected: false,
       className: [
         edge.className,
         beforeStartNodeIds.has(edge.source) ||
@@ -427,23 +483,18 @@ export default function WorkflowDag({
           : ''
       ].filter(Boolean).join(' ')
     })),
-    [
-      beforeStartNodeIds,
-      flowEdges
-    ]
+    [beforeStartNodeIds, flowEdges]
   )
   const deletionSelection = useMemo(() => ({
-    nodeUuids: externalSelectionActive && highlightedNodeId
-      ? [highlightedNodeId]
-      : localSelection.nodeUuids,
-    edgeUuids: externalSelectionActive ? [] : localSelection.edgeUuids
-  }), [externalSelectionActive, highlightedNodeId, localSelection])
+    nodeUuids: flowNodes
+      .filter((node) => node.selected)
+      .map((node) => node.id),
+    edgeUuids: flowEdges
+      .filter((edge) => edge.selected)
+      .map((edge) => edge.id)
+  }), [flowEdges, flowNodes])
   const deletionSelectionCount = deletionSelection.nodeUuids.length +
     deletionSelection.edgeUuids.length
-  const selectedCanvasNode = selectedWorkflowNode(
-    deletionSelection.nodeUuids,
-    nodeById
-  )
   const deletionDisabledReason = useMemo(() => {
     if (!canvasMutationEnabled) {
       return '代码模式下工作流画布只读；请切换到画布模式'
@@ -486,7 +537,7 @@ export default function WorkflowDag({
    * @returns 无返回值；不会在面板尺寸或节点选择变化时改写用户缩放。
    */
   const fitWorkflowView = useCallback((): void => {
-    x6CanvasRef.current?.fit()
+    void flowInstanceRef.current?.fitView(WORKFLOW_FIT_VIEW_OPTIONS)
   }, [])
   const handleBeautify = useCallback(() => {
     if (!canBeautify || !onBeautify) return
@@ -590,42 +641,99 @@ export default function WorkflowDag({
         if (event.key !== 'Enter' && event.key !== ' ') return
         const target = event.target
         if (!(target instanceof Element)) return
-        const node = target.closest('.x6-node[data-cell-id]')
-        const nodeId = node?.getAttribute('data-cell-id')
+        const node = target.closest('.react-flow__node[data-id]')
+        const nodeId = node?.getAttribute('data-id')
         if (!nodeId) return
         event.preventDefault()
         onNodeSelect(nodeId)
       }}
     >
-      <WorkflowX6Canvas
-        ref={x6CanvasRef}
+      <ReactFlow
+        className={[
+          isBeautifying ? 'is-beautifying' : '',
+          `wf-layout--${layoutStrategy}`,
+          `wf-layout-direction--${canvasLayoutDirection}`
+        ].filter(Boolean).join(' ')}
         nodes={runtimeNodes}
         edges={runtimeEdges}
-        canvasMutationEnabled={canvasMutationEnabled}
-        nodePositionMutationEnabled={nodePositionMutationEnabled}
-        onSelectionChange={setLocalSelection}
-        onConnectHandles={onConnectHandles}
-        onNodePositionChange={onNodePositionChange}
-        onSetStart={onSetStart}
-        onToggleBreakpoint={onToggleBreakpoint}
-        onToggleGroup={toggleGroup}
-        onNodeSelect={(nodeId) => {
-          setRetainedRevealNodeId((current) =>
-            current === nodeId ? current : null
-          )
-          onNodeSelect(nodeId)
+        onNodesChange={handleNodesChange}
+        onEdgesChange={handleEdgesChange}
+        onConnect={(connection: Connection) => {
+          if (
+            !canvasMutationEnabled ||
+            !connection.source ||
+            !connection.sourceHandle ||
+            !connection.target ||
+            !connection.targetHandle
+          ) return
+          onConnectHandles?.({
+            sourceNodeUuid: connection.source,
+            sourceHandleUuid: connection.sourceHandle,
+            targetNodeUuid: connection.target,
+            targetHandleUuid: connection.targetHandle
+          })
         }}
-      />
-      <WorkflowX6NodeActions
-        node={selectedCanvasNode}
-        expandedGroupIds={expandedGroupIds}
-        breakpoints={breakpoints}
-        onSetStart={onSetStart}
-        onToggleBreakpoint={onToggleBreakpoint}
-        onToggleDisabled={onToggleDisabled}
-        onToggleGroup={toggleGroup}
-      />
-      <div className="workflow-x6__toolbar-panel">
+        nodeTypes={WORKFLOW_DAG_NODE_TYPES}
+        edgeTypes={edgeTypes}
+        fitView
+        fitViewOptions={WORKFLOW_FIT_VIEW_OPTIONS}
+        minZoom={0.2}
+        {...(
+          canvasMutationEnabled
+            ? CANVAS_EDIT_WORKFLOW_CANVAS
+            : READ_ONLY_WORKFLOW_CANVAS
+        )}
+        nodesDraggable={nodePositionMutationEnabled}
+        elementsSelectable
+        proOptions={{ hideAttribution: true }}
+        onInit={(instance) => {
+          flowInstanceRef.current = instance
+          if (visibleRevealNodeId) {
+            scheduleCanvasNodeReveal(instance, visibleRevealNodeId)
+          }
+        }}
+        onNodeClick={(_event, node: Node<WorkflowNodeData>) => {
+          if (node.type === 'wfReactionMaterial') return
+          setRetainedRevealNodeId((current) =>
+            current === node.id ? current : null
+          )
+          onNodeSelect(node.id)
+        }}
+        onNodeDragStart={(_event, node: Node<WorkflowNodeData>) => {
+          nodeDragOriginRef.current = {
+            id: node.id,
+            x: node.position.x,
+            y: node.position.y
+          }
+        }}
+        onNodeDragStop={(_event, node: Node<WorkflowNodeData>) => {
+          if (!nodePositionMutationEnabled) return
+          const origin = nodeDragOriginRef.current
+          nodeDragOriginRef.current = null
+          if (
+            !origin ||
+            origin.id !== node.id ||
+            (origin.x === node.position.x && origin.y === node.position.y)
+          ) return
+          onNodePositionChange?.(node.id, node.position)
+        }}
+        onNodeContextMenu={(event, node: Node<WorkflowNodeData>) => {
+          event.preventDefault()
+          if (node.data.kind === 'material_source') return
+          onSetStart?.(node.id)
+        }}
+        onNodeDoubleClick={(_event, node: Node<WorkflowNodeData>) => {
+          if (node.data.kind === 'material_source') return
+          onToggleBreakpoint?.(node.id)
+        }}
+      >
+        <Background
+          gap={24}
+          size={0.75}
+          color="var(--unilab-color-border-strong)"
+        />
+        <Controls showInteractive={false} showFitView={false} />
+        <Panel position="top-right">
           <div
             className="workflow-runtime__layout-tools"
             role="toolbar"
@@ -770,7 +878,17 @@ export default function WorkflowDag({
               )}
             </div>
           </div>
-      </div>
+        </Panel>
+        <MiniMap
+          pannable
+          zoomable
+          nodeColor={(node) =>
+            node.type === 'wfReactionMaterial'
+              ? 'transparent'
+              : node.data?.color ?? 'var(--unilab-color-text-subtle)'
+          }
+        />
+      </ReactFlow>
     </div>
   )
 }
@@ -785,15 +903,6 @@ function isTextEditingTarget(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest(
     'input, textarea, select, [contenteditable="true"]'
   ))
-}
-
-/** 返回当前唯一选中的规范工作流节点；多选和边选择不显示节点工具栏。 */
-function selectedWorkflowNode(
-  nodeUuids: readonly string[],
-  nodeById: ReadonlyMap<string, WorkflowNode>
-): WorkflowNode | null {
-  if (nodeUuids.length !== 1) return null
-  return nodeById.get(nodeUuids[0]!) ?? null
 }
 
 function nestedGroupStatus(

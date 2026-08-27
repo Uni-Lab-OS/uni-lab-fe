@@ -227,7 +227,17 @@ export function DeviceWorkspace({
         </div>
       </header>
 
-      <div className={deviceClass('edge-device__metrics')} aria-label="设备目录信息">
+      <div className={deviceClass('edge-device__tabs')} role="tablist" aria-label="设备详情">
+        <button type="button" role="tab" aria-selected="true">设备动作</button>
+        <button type="button" role="tab" aria-selected="false" disabled>初始化配置</button>
+      </div>
+
+      <section className={deviceClass('edge-device__status-section')}>
+        <div className={deviceClass('edge-device__status-heading')}>
+          <strong>设备实时状态</strong>
+          <small>运行时刷新</small>
+        </div>
+        <div className={deviceClass('edge-device__metrics')} aria-label="设备目录信息">
         <Metric
           label="设备名称"
           value={device.machineName}
@@ -253,14 +263,15 @@ export function DeviceWorkspace({
                   : '空闲'}
           tone={occupancy || busyActionCount ? 'warning' : 'muted'}
         />
-      </div>
+        </div>
+      </section>
 
       <div className={deviceClass('edge-device__content')}>
         <section className={deviceClass('edge-device__action-section')} data-device-management="action-section">
           <div className={deviceClass('edge-device__section-heading')}>
             <div>
-              <span>动作目录</span>
-              <h3>Edge 上报的动作节点</h3>
+              <h3>设备动作</h3>
+              <span>来自 Edge 上报的动作节点</span>
             </div>
             <small>{device.actions.length} 个</small>
           </div>
@@ -330,10 +341,10 @@ export function DeviceWorkspace({
             <>
               <div className={deviceClass('edge-device__section-heading')}>
                 <div>
-                  <span>动作参数预览</span>
                   <h3 title={selectedAction.displayName}>
                     {selectedAction.displayName}
                   </h3>
+                  <span>动作参数预览</span>
                 </div>
                 <code>{selectedAction.actionName}</code>
               </div>

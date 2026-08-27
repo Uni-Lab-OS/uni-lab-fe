@@ -14,6 +14,7 @@ beforeAll(async () => {
     shell,
     connection,
     runtimeLogs,
+    configuration,
     environment,
     surfaces,
     aionui,
@@ -28,6 +29,10 @@ beforeAll(async () => {
     ),
     readFile(
       fileURLToPath(new URL('./workbench-runtime-log-drawer.css', import.meta.url)),
+      'utf8'
+    ),
+    readFile(
+      fileURLToPath(new URL('./workbench-configuration-dialog.css', import.meta.url)),
       'utf8'
     ),
     readFile(fileURLToPath(new URL('./environment-manager.css', import.meta.url)), 'utf8'),
@@ -50,6 +55,7 @@ beforeAll(async () => {
     shell,
     connection,
     runtimeLogs,
+    configuration,
     environment,
     surfaces,
     aionui
@@ -213,36 +219,111 @@ describe('environment manager layering and responsive layout', () => {
     )
   })
 
-  /** 机械臂调试、点位和实验台能力保留，但暂不展示其活动栏入口。 */
-  it('hides the three internal robot navigation entries', () => {
-    expect(domainNavigationStylesheet).toMatch(
-      /data-unilabdomain='robot-debug'[\s\S]*data-unilabdomain='robot-points'[\s\S]*data-unilabdomain='robot-bench'[\s\S]*display:\s*none/u
-    )
+  /** 原型的七个调试与资源入口均由产品导航承载。 */
+  it('shows the categorized prototype navigation entries', () => {
     expect(domainNavigationStylesheet).not.toMatch(
-      /data-unilabdomain='robot-reagents'\]\s*\{\s*display:\s*none/u
+      /data-unilabdomain='robot-debug'\][^}]*display:\s*none/u
+    )
+    expect(navigatorSource).toMatch(/label:\s*'实验操作调试'/u)
+    expect(navigatorSource).toMatch(/label:\s*'工作流管理'/u)
+    expect(domainNavigationStylesheet).toMatch(
+      /content:\s*'调试工作台';[\s\S]*content:\s*'公共资源中心';/u
+    )
+    expect(navigatorSource).toMatch(
+      /label:\s*'设备动作',[\s\S]*?unilab-activity-icon--robot-debug/u
+    )
+    expect(navigatorSource).toMatch(
+      /label:\s*'实验操作调试',[\s\S]*?unilab-activity-icon--robot-points/u
+    )
+    expect(navigatorSource).toMatch(
+      /label:\s*'工作流调试',[\s\S]*?unilab-activity-icon--workflow/u
+    )
+    expect(navigatorSource).toMatch(
+      /label:\s*'任务列表',[\s\S]*?unilab-activity-icon--workflow-tasks/u
+    )
+    expect(domainNavigationStylesheet).not.toContain('unilab-prototype-nav-icon')
+  })
+
+  /** 文件入口复用 Theia 原生资源管理器，并位于产品领域入口之后。 */
+  it('keeps the original file explorer in the product sidebar', () => {
+    expect(domainNavigationStylesheet).not.toMatch(
+      /lm-TabBar-tab\[id\*='explorer-view-container'\][^}]*display:\s*none/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /lm-TabBar-tab\[id\*='explorer-view-container'\]\s*\{[^}]*order:\s*9 !important;/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /shell-tab-explorer-view-container'[\s\S]*?\.lm-TabBar-tabLabel::after\s*\{[^}]*content:\s*'文件';/u
     )
   })
 
   /** UniLab 领域入口不得叠加 Lumino 遗留的 current 高亮。 */
   it('uses the Workbench domain state as the only activity highlight', () => {
     expect(domainNavigationStylesheet).toMatch(
-      /\.lm-TabBar-tab\.lm-mod-current\[data-unilabactive='false'\]:not\(:hover\)\s*\{[^}]*color:\s*var\(--theia-activityBar-inactiveForeground\) !important;[^}]*background:\s*transparent !important;[^}]*box-shadow:\s*none !important;/u
+      /\.lm-TabBar-tab\.lm-mod-current\[data-unilabactive='false'\]:not\(:hover\)\s*\{[^}]*color:\s*#526176 !important;[^}]*background:\s*transparent !important;[^}]*box-shadow:\s*none !important;/u
     )
   })
 
-  /** 工作流是产品领域名，活动栏不得缩写成“工作”。 */
+  /** 左侧产品菜单应与原型 Header 使用一致的浅色表面。 */
+  it('uses the light prototype treatment for product navigation', () => {
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-left-content-panel \.theia-app-left,\s*#theia-left-content-panel \.theia-app-left \.lm-TabBar-content\s*\{[^}]*background:\s*rgba\(249, 250, 252, 0\.96\) !important;/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-left-content-panel > \.theia-app-sidebar-container\s*\{[^}]*border-right:\s*1px solid var\(--unilab-color-border\);/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /\.lm-TabBar-tab\[data-unilabactive='true'\]\s*\{[^}]*color:\s*var\(--unilab-color-primary\) !important;[^}]*box-shadow:\s*none !important;[^}]*border-inline-start-color:\s*transparent !important;/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-left-content-panel \.theia-app-left \.lm-TabBar-tab:hover\s*\{[^}]*box-shadow:\s*none !important;/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /\.theia-app-left \.lm-TabBar-content\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*196px !important;/u
+    )
+  })
+
+  /** 配置抽屉内容按自身高度排列，避免 Grid 将卡片和按钮纵向拉伸。 */
+  it('keeps the configuration drawer compact and column-aligned', () => {
+    expect(stylesheet).toMatch(
+      /\.unilab-config-dialog fieldset\s*\{[^}]*position:\s*relative;[^}]*padding:\s*46px 16px 16px;/u
+    )
+    expect(stylesheet).toMatch(
+      /\.unilab-config-dialog legend\s*\{[^}]*position:\s*absolute;[^}]*top:\s*16px;[^}]*left:\s*16px;/u
+    )
+    expect(stylesheet).toMatch(
+      /\.unilab-config-dialog button\.unilab-config-dialog__close\s*\{[^}]*display:\s*grid;[^}]*width:\s*32px;[^}]*height:\s*32px;[^}]*min-height:\s*32px;[^}]*padding:\s*0;[^}]*place-items:\s*center;/u
+    )
+    expect(stylesheet).toMatch(
+      /\.unilab-config-dialog button\.unilab-config-dialog__close > \.codicon\s*\{[^}]*width:\s*16px;[^}]*height:\s*16px;[^}]*line-height:\s*16px;/u
+    )
+    expect(stylesheet).toMatch(
+      /\.unilab-config-dialog__body\s*\{[^}]*grid-auto-rows:\s*max-content;[^}]*align-content:\s*start;/u
+    )
+    expect(stylesheet).toMatch(
+      /\.unilab-config-dialog__check\s*\{[^}]*padding-left:\s*160px;/u
+    )
+    expect(stylesheet).toMatch(
+      /\.unilab-config-dialog__module-actions\s*\{[^}]*min-height:\s*36px;[^}]*border-top:\s*1px solid #edf0f5;/u
+    )
+    expect(stylesheet).toMatch(
+      /\.unilab-config-dialog button\.is-danger\s*\{[^}]*margin-left:\s*auto;/u
+    )
+    expect(stylesheet).toMatch(
+      /@media \(prefers-reduced-motion:\s*reduce\)\s*\{\s*\.unilab-config-dialog\s*\{\s*animation:\s*none;/u
+    )
+  })
+
+  /** 工作流入口明确表达调试语义。 */
   it('keeps the complete workflow navigation label', () => {
     expect(navigatorSource).toMatch(
-      /mode:\s*'workflow',[\s\S]*?label:\s*'工作流'/u
+      /mode:\s*'workflow',[\s\S]*?label:\s*'工作流调试'/u
     )
   })
 
-  /** 试剂领域的产品文案统一使用“试剂”。 */
-  it('uses the concise reagent navigation label', () => {
+  /** 公共资源中心的试剂入口使用管理语义。 */
+  it('uses the resource-management reagent navigation label', () => {
     expect(navigatorSource).toMatch(
-      /mode:\s*'robot-reagents',[\s\S]*?label:\s*'试剂'/u
-    )
-    expect(navigatorSource).not.toMatch(
       /mode:\s*'robot-reagents',[\s\S]*?label:\s*'试剂管理'/u
     )
   })
@@ -272,6 +353,31 @@ describe('environment manager layering and responsive layout', () => {
     )
   })
 
+  /** 顶栏沿用原型的白色工作区表面，而不是深色导航条。 */
+  it('uses the prototype light header treatment', () => {
+    const bar = cssRule('.unilab-workbench__bar')
+    const title = cssRule('.unilab-workbench__bar strong')
+
+    expect(bar).toMatch(/background:\s*rgba\(255, 255, 255, \.96\)/u)
+    expect(title).toMatch(/color:\s*var\(--unilab-color-text\)/u)
+  })
+
+  /** 仿真与真实设备目标使用互斥的原型分段 Switch。 */
+  it('renders debug targets as a compact segmented switch', () => {
+    const debugSwitch = cssRule(
+      '.unilab-workbench__bar nav .unilab-workbench__debug-switch'
+    )
+    const option = cssRule(
+      '.unilab-workbench__bar nav .unilab-workbench__debug-switch > button'
+    )
+
+    expect(debugSwitch).toMatch(/display:\s*inline-grid/u)
+    expect(debugSwitch).toMatch(/grid-template-columns:\s*1fr 1fr/u)
+    expect(debugSwitch).toMatch(/background:\s*#f0f2f6/u)
+    expect(option).toMatch(/border:\s*0/u)
+    expect(option).toMatch(/background:\s*transparent/u)
+  })
+
   /** 证明运行日志抽屉占满可用高度，并在窄屏切换为整屏而非溢出。 */
   it('keeps the runtime log drawer usable across desktop and narrow screens', () => {
     const drawer = cssRule('.unilab-runtime-log-drawer')
@@ -284,6 +390,21 @@ describe('environment manager layering and responsive layout', () => {
     expect(stylesheet).toMatch(
       /@media \(max-width: 720px\)[\s\S]*\.unilab-runtime-log-drawer\s*\{[\s\S]*width:\s*100%/u
     )
+  })
+
+  /** 仿真与真实设备配置共用固定在视口右侧的抽屉容器。 */
+  it('renders mode configuration as a right-side drawer', () => {
+    const backdrop = cssRule('.unilab-config-dialog__backdrop')
+    const drawer = cssRule('.unilab-config-dialog')
+    const body = cssRule('.unilab-config-dialog__body')
+
+    expect(backdrop).toMatch(/position:\s*fixed/u)
+    expect(backdrop).toMatch(/justify-content:\s*flex-end/u)
+    expect(drawer).toMatch(/height:\s*100%/u)
+    expect(drawer).toMatch(/grid-template-rows:\s*auto minmax\(0, 1fr\) auto/u)
+    expect(drawer).toMatch(/border-left:\s*1px solid/u)
+    expect(body).toMatch(/min-height:\s*0/u)
+    expect(body).toMatch(/overflow:\s*auto/u)
   })
 })
 

@@ -1,35 +1,45 @@
 import { readFileSync } from 'node:fs'
 
+import type { PropsWithChildren } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { WorkflowNode } from '../utils/parseWorkflow'
 import WorkflowDag from './WorkflowDag'
 
-interface MockX6CanvasProps {
-  nodes: Array<{
-    id: string
-    className?: string
-    selected?: boolean
-  }>
-  edges: Array<{ id: string }>
-}
-
-vi.mock('./WorkflowX6Canvas', () => ({
-  WorkflowX6Canvas: (props: MockX6CanvasProps) => (
+vi.mock('reactflow', () => ({
+  default: ({
+    children,
+    deleteKeyCode,
+    nodes,
+    edges,
+    fitViewOptions
+  }: PropsWithChildren<{
+    deleteKeyCode?: string[] | null
+    nodes: Array<{
+      id: string
+      className?: string
+      deletable?: boolean
+      selected?: boolean
+    }>
+    edges: Array<{ id: string; deletable?: boolean }>
+    fitViewOptions?: { maxZoom?: number }
+  }>) => (
     <div
-      data-canvas-engine="x6"
-      data-x6-virtual="true"
-      data-x6-node-count={props.nodes.length}
-      data-node-selection={props.nodes.map(
-        (node) => String(node.selected)
-      ).join(',')}
-      data-node-classes={props.nodes.map(
-        (node) => node.className
-      ).join('|')}
-      data-edge-id={props.edges[0]?.id}
-    />
-  )
+      data-delete-keys={JSON.stringify(deleteKeyCode)}
+      data-node-deletable={String(nodes[0]?.deletable)}
+      data-node-selection={nodes.map((node) => String(node.selected)).join(',')}
+      data-node-classes={nodes.map((node) => node.className).join('|')}
+      data-edge-id={edges[0]?.id}
+      data-fit-max-zoom={fitViewOptions?.maxZoom}
+    >
+      {children}
+    </div>
+  ),
+  Background: () => null,
+  Controls: () => null,
+  MiniMap: () => null,
+  Panel: ({ children }: PropsWithChildren) => <div>{children}</div>
 }))
 
 vi.mock('../hooks/useWorkflowDag', () => ({
@@ -101,21 +111,20 @@ describe('WorkflowDag control explanations', () => {
 })
 
 describe('WorkflowDag deletion interaction', () => {
-  /** 验证 X6 画布模式呈现统一删除按钮，并由受控选择生成删除请求。 */
+  /** 验证画布模式呈现统一删除按钮，并把双删除键交给受控删除入口。 */
   it('exposes deletion for the selected editable node without visual mutation', () => {
     const markup = renderToStaticMarkup(
       <WorkflowDag
         nodes={[workflowNode]}
         links={[]}
         canvasMutationEnabled
-        selectedNodeId={workflowNode.id}
         onNodeSelect={vi.fn()}
         onDeleteRequest={vi.fn()}
       />
     )
 
-    expect(markup).toContain('data-canvas-engine="x6"')
-    expect(markup).toContain('data-x6-node-count="1"')
+    expect(markup).toContain('data-delete-keys="[&quot;Delete&quot;,&quot;Backspace&quot;]"')
+    expect(markup).toContain('data-node-deletable="false"')
     expect(markup).toContain('删除选中项')
     expect(markup).not.toMatch(/data-disabled-reason="[^"]+"[^>]*>[^<]*删除选中项/)
   })
@@ -132,7 +141,6 @@ describe('WorkflowDag deletion interaction', () => {
         }]}
         links={[]}
         canvasMutationEnabled
-        selectedNodeId={workflowNode.id}
         onNodeSelect={vi.fn()}
         onDeleteRequest={vi.fn()}
       />
@@ -145,7 +153,7 @@ describe('WorkflowDag deletion interaction', () => {
 })
 
 describe('WorkflowDag IDE source selection', () => {
-  /** 验证代码光标反查到的节点成为 X6 唯一可见选中项。 */
+  /** 验证代码光标反查到的节点成为 React Flow 唯一可见选中项。 */
   it('projects the externally selected workflow node into the canvas', () => {
     const markup = renderToStaticMarkup(
       <WorkflowDag
@@ -163,26 +171,6 @@ describe('WorkflowDag IDE source selection', () => {
     expect(markup).toMatch(
       /data-node-classes="[^"]*\|[^"]*wf-flow-node--source-selected/
     )
-  })
-
-  /** 轻量 SVG 节点仍通过单一浮动工具栏保留调试和停用操作。 */
-  it('keeps node debug actions outside the per-node render tree', () => {
-    const markup = renderToStaticMarkup(
-      <WorkflowDag
-        nodes={[workflowNode]}
-        links={[]}
-        selectedNodeId={workflowNode.id}
-        onNodeSelect={vi.fn()}
-        onSetStart={vi.fn()}
-        onToggleBreakpoint={vi.fn()}
-        onToggleDisabled={vi.fn()}
-      />
-    )
-
-    expect(markup).toContain('节点操作')
-    expect(markup).toContain('设为开始')
-    expect(markup).toContain('添加断点')
-    expect(markup).toContain('停用节点')
   })
 
   /** 运行输出定位到折叠组合内部节点时，应选择当前可见的组合边界。 */
@@ -384,8 +372,8 @@ describe('WorkflowDag material role filter', () => {
 })
 
 describe('WorkflowDag host sizing', () => {
-  /** 画布始终声明 X6 虚拟渲染，节点规模不改变状态权威。 */
-  it('uses the virtual X6 authoring canvas', () => {
+  /** 小型纵向流程应允许适度放大，避免在高画布中只占顶部一小块。 */
+  it('lets fitView use the available authoring canvas', () => {
     const markup = renderToStaticMarkup(
       <WorkflowDag
         nodes={[workflowNode]}
@@ -394,8 +382,7 @@ describe('WorkflowDag host sizing', () => {
       />
     )
 
-    expect(markup).toContain('data-canvas-engine="x6"')
-    expect(markup).toContain('data-x6-virtual="true"')
+    expect(markup).toContain('data-fit-max-zoom="1.35"')
   })
 
   /** Theia 窄分栏仍是高桌面面板，不能套用移动端 260px 固定画布。 */

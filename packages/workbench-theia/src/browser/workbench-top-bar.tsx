@@ -14,7 +14,7 @@ import type { WorkbenchConnectionMode } from './workbench-connection-profile'
 export function WorkbenchTopBar({
   connectionMode,
   configurationKind,
-  identityLabel,
+  debugTarget,
   viewLabel,
   workspaceLabel,
   onConfigure,
@@ -23,7 +23,7 @@ export function WorkbenchTopBar({
 }: {
   connectionMode: WorkbenchConnectionMode
   configurationKind: WorkbenchConfigurationKind | null
-  identityLabel: string
+  debugTarget: 'simulation' | 'hardware'
   viewLabel: string
   workspaceLabel: string
   onConfigure: (kind: WorkbenchConfigurationKind) => void
@@ -33,11 +33,13 @@ export function WorkbenchTopBar({
   const production = connectionMode === 'backend'
   return (
     <header className="unilab-workbench__bar">
-      <div className="unilab-workbench__identity">
-        <strong>UniLab Workbench</strong>
-        <span>{identityLabel}</span>
-        <span className="unilab-workbench__view-mode">{viewLabel}</span>
-      </div>
+      <nav className="unilab-workbench__breadcrumb" aria-label="当前位置">
+        <span>{production ? '实验生产平台' : '实验调试平台'}</span>
+        <span className="unilab-workbench__breadcrumb-separator" aria-hidden="true">
+          /
+        </span>
+        <strong aria-current="page">{viewLabel}</strong>
+      </nav>
       <div className="unilab-workbench__controls">
         <nav aria-label={production ? '生产模式' : '调试模式'}>
           <button type="button" onClick={onOpenAssistant}>
@@ -55,26 +57,32 @@ export function WorkbenchTopBar({
               生产配置
             </button>
           ) : (
-            <>
+            <div
+              className="unilab-workbench__debug-switch"
+              role="radiogroup"
+              aria-label="调试运行目标"
+            >
               <button
                 type="button"
-                className={configurationKind === 'simulation' ? 'is-active' : ''}
+                role="radio"
+                className={debugTarget === 'simulation' ? 'is-active' : ''}
+                aria-checked={debugTarget === 'simulation'}
                 aria-expanded={configurationKind === 'simulation'}
                 onClick={() => onConfigure('simulation')}
               >
-                <span className="codicon codicon-beaker" aria-hidden="true" />
                 仿真调试
               </button>
               <button
                 type="button"
-                className={configurationKind === 'hardware' ? 'is-active' : ''}
+                role="radio"
+                className={debugTarget === 'hardware' ? 'is-active' : ''}
+                aria-checked={debugTarget === 'hardware'}
                 aria-expanded={configurationKind === 'hardware'}
                 onClick={() => onConfigure('hardware')}
               >
-                <span className="codicon codicon-plug" aria-hidden="true" />
                 真实设备调试
               </button>
-            </>
+            </div>
           )}
           <DesktopWorkspaceSwitchButton label={workspaceLabel} />
           <button type="button" onClick={onExitMode}>

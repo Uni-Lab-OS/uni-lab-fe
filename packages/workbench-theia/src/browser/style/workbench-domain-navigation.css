@@ -164,32 +164,6 @@
  * UniLab widgets gives it a second, independent active state. Native IDE tabs
  * remain selected by Theia, while these tabs describe panels inside Workbench.
  */
-.theia-app-left
-  .lm-TabBar-tab[data-unilabgroup='true']:not(
-    .lm-TabBar-tab[data-unilabgroup='true']
-      ~ .lm-TabBar-tab[data-unilabgroup='true']
-  ) {
-  margin-top: 18px;
-  overflow: visible;
-}
-
-.theia-app-left
-  .lm-TabBar-tab[data-unilabgroup='true']:not(
-    .lm-TabBar-tab[data-unilabgroup='true']
-      ~ .lm-TabBar-tab[data-unilabgroup='true']
-  )::before {
-  position: absolute;
-  top: -14px;
-  left: 0;
-  width: 100%;
-  color: var(--unilab-color-primary);
-  content: 'UNILAB';
-  font: 700 10px/1 var(--unilab-font-mono);
-  letter-spacing: 0.08em;
-  text-align: center;
-  pointer-events: none;
-}
-
 /* The visible Agent content remains in the right panel. Its activity entry is
  * intentionally represented by the UniLab proxy in the left product group. */
 .theia-app-right .lm-TabBar-tab[data-unilabagentpanel='true'] {
@@ -355,14 +329,95 @@ body:not(.unilab-agent-panel-visible)
   display: none !important;
 }
 
+/* 左侧产品导航使用 HTML 原型的半透明浅灰底，不跟随 IDE 活动栏主题。 */
+#theia-left-content-panel > .theia-app-sidebar-container,
+#theia-left-content-panel .theia-app-left,
+#theia-left-content-panel .theia-app-left .lm-TabBar-content {
+  background: rgba(249, 250, 252, 0.96) !important;
+}
+
+#theia-left-content-panel > .theia-app-sidebar-container {
+  width: 196px !important;
+  min-width: 196px !important;
+  max-width: 196px !important;
+  border-right: 1px solid var(--unilab-color-border);
+  box-shadow: none !important;
+}
+
+#theia-left-content-panel .theia-app-left {
+  width: 196px !important;
+  min-width: 196px !important;
+  padding-top: 58px;
+  overflow: visible !important;
+}
+
+#theia-left-content-panel .theia-app-left::before {
+  position: absolute;
+  top: 16px;
+  left: 18px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #2563eb, #7c3aed);
+  color: #fff;
+  content: 'U';
+  font: 800 14px/34px var(--unilab-font-sans);
+  text-align: center;
+  pointer-events: none;
+}
+
+#theia-left-content-panel .theia-app-left::after {
+  position: absolute;
+  top: 17px;
+  left: 62px;
+  background: linear-gradient(to bottom, #172033 0 18px, #738095 18px);
+  background-clip: text;
+  color: transparent;
+  content: 'Uni-Lab Studio\A实验调试平台';
+  font: 700 13px/18px var(--unilab-font-sans);
+  white-space: pre;
+  -webkit-background-clip: text;
+  pointer-events: none;
+}
+
+#theia-left-content-panel .theia-app-left .lm-TabBar-content {
+  box-sizing: border-box;
+  width: 196px !important;
+  padding: 22px 12px 12px;
+  overflow-x: visible;
+}
+
+#theia-left-content-panel .theia-app-left .lm-TabBar-tab {
+  color: #526176 !important;
+  opacity: 1 !important;
+}
+
+#theia-left-content-panel .theia-app-left .lm-TabBar-tab:hover {
+  color: var(--unilab-color-primary) !important;
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-primary) 7%,
+    var(--unilab-color-surface)
+  ) !important;
+  box-shadow: none !important;
+}
+
 .theia-app-left .lm-TabBar-tab[data-unilabactive='true'] {
-  color: var(--unilab-color-primary);
+  color: var(--unilab-color-primary) !important;
   background: color-mix(
     in srgb,
     var(--unilab-color-primary) 12%,
-    transparent
-  );
-  box-shadow: inset 2px 0 var(--unilab-color-primary);
+    var(--unilab-color-surface)
+  ) !important;
+  box-shadow: none !important;
+  border-inline-start-color: transparent !important;
+}
+
+#theia-left-content-panel .theia-app-left .lm-TabBar-tab:hover,
+#theia-left-content-panel .theia-app-left .lm-TabBar-tab.lm-mod-current {
+  outline: none !important;
+  border-inline-start-color: transparent !important;
+  box-shadow: none !important;
 }
 
 /*
@@ -372,41 +427,167 @@ body:not(.unilab-agent-panel-visible)
  */
 .theia-app-left
   .lm-TabBar-tab.lm-mod-current[data-unilabactive='false']:not(:hover) {
-  color: var(--theia-activityBar-inactiveForeground) !important;
+  color: #526176 !important;
   background: transparent !important;
   box-shadow: none !important;
 }
 
-/* 机械臂内部调试入口暂不对外展示；试剂管理是产品主入口。 */
-.theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-debug'],
-.theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-points'],
-.theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-bench'] {
-  display: none;
+/* 原型中的两组产品导航；分组标题不参与点击和业务状态。 */
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-debug'] {
+  order: 1 !important;
+  margin-top: 24px;
+  overflow: visible !important;
 }
 
-/* 活动栏文案常驻在图标下方，不依赖悬浮提示。 */
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-debug']::before,
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='device']::before {
+  position: absolute;
+  top: -20px;
+  left: 10px;
+  color: #94a0b2;
+  font: 600 10px/16px var(--unilab-font-sans);
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-debug']::before {
+  content: '调试工作台';
+}
+
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='workflow'] {
+  order: 3 !important;
+}
+
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-points'] {
+  order: 2 !important;
+}
+
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='device'] {
+  order: 4 !important;
+  margin-top: 38px;
+  overflow: visible !important;
+}
+
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='device']::before {
+  content: '公共资源中心';
+}
+
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='robot-reagents'] {
+  order: 5 !important;
+}
+
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='material'] {
+  order: 6 !important;
+}
+
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='workflow-management'] {
+  order: 7 !important;
+}
+
+.theia-app-left .lm-TabBar-tab[data-unilabdomain='workflow-tasks'] {
+  order: 8 !important;
+}
+
+/* Agent 与设置仍由专用入口承载；文件恢复为原生 Theia 资源管理器。 */
+#theia-left-content-panel
+  .theia-app-left
+  .lm-TabBar-tab[data-unilabnavigation='agent'],
+#theia-left-content-panel
+  .theia-app-left
+  .lm-TabBar-tab[id*='unilab:settings'] {
+  display: none !important;
+}
+
+#theia-left-content-panel
+  .theia-app-left
+  .lm-TabBar-tab[id*='explorer-view-container'] {
+  order: 9 !important;
+}
+
+/* 活动栏文案与图标横向排列，保持原型的宽侧栏密度。 */
 #theia-left-content-panel .theia-app-left .lm-TabBar-tab {
-  height: 62px !important;
+  order: 20;
+  width: 172px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  margin-right: 0;
+  border-radius: 10px;
+}
+
+#theia-left-content-panel
+  .theia-app-left
+  .lm-TabBar-tab[data-unilabactive='true']
+  .lm-TabBar-tabIcon {
+  background: #dfe8ff;
+  color: var(--unilab-color-primary) !important;
+  opacity: 1 !important;
 }
 
 #theia-left-content-panel
   .theia-app-left
   .lm-TabBar-tab
   > .theia-tab-icon-label {
-  display: grid;
-  width: 48px;
-  height: 58px;
-  grid-template-rows: 34px 16px;
-  align-content: center;
-  justify-items: center;
+  display: flex;
+  width: 172px;
+  height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  position: relative;
+}
+
+#theia-left-content-panel
+  .theia-app-left
+  .lm-TabBar-tab
+  > .theia-tab-icon-label::before {
+  position: absolute;
+  left: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #eef1f6;
+  content: '';
+}
+
+#theia-left-content-panel
+  .theia-app-left
+  .lm-TabBar-tab[data-unilabactive='true']
+  > .theia-tab-icon-label::before {
+  background: #dfe8ff;
 }
 
 #theia-left-content-panel
   .theia-app-left
   .lm-TabBar-tab
   .lm-TabBar-tabIcon {
-  width: 48px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
+  position: relative !important;
+  z-index: 1;
+  flex: 0 0 28px;
+  border-radius: 8px;
+  background: #eef1f6;
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+
+#theia-left-content-panel
+  .theia-app-left
+  .lm-TabBar-tab
+  .unilab-activity-icon {
+  background: currentColor !important;
+}
+
+#theia-left-content-panel
+  .theia-app-left
+  .lm-TabBar-tab
+  .lm-TabBar-tabIcon::before,
+#theia-left-content-panel
+  .theia-app-left
+  .lm-TabBar-tab
+  .unilab-activity-icon {
+  color: inherit !important;
+  opacity: 1 !important;
 }
 
 #theia-left-content-panel
@@ -415,13 +596,15 @@ body:not(.unilab-agent-panel-visible)
   .lm-TabBar-tabLabel {
   position: static !important;
   display: block !important;
-  width: 48px !important;
-  height: 16px !important;
-  overflow: visible;
+  width: auto !important;
+  min-width: 0;
+  height: auto !important;
+  overflow: hidden;
   transform: none !important;
   color: currentColor;
-  font: 500 10px/16px var(--unilab-font-sans);
-  text-align: center;
+  font: 500 13px/20px var(--unilab-font-sans);
+  text-align: left;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -438,7 +621,7 @@ body:not(.unilab-agent-panel-visible)
   .lm-TabBar-tab[id='shell-tab-explorer-view-container']
   .lm-TabBar-tabLabel::after {
   content: '文件';
-  font: 500 10px/16px var(--unilab-font-sans);
+  font: 500 13px/20px var(--unilab-font-sans);
 }
 
 .unilab-activity-icon {
@@ -477,6 +660,10 @@ body:not(.unilab-agent-panel-visible)
 
 .unilab-activity-icon--workflow {
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2.5' y='2.5' width='5' height='4' rx='1'/%3E%3Crect x='12.5' y='2.5' width='5' height='4' rx='1'/%3E%3Crect x='7.5' y='13.5' width='5' height='4' rx='1'/%3E%3Cpath d='M5 6.5V9h5v4.5M15 6.5V9h-5'/%3E%3C/svg%3E");
+}
+
+.unilab-activity-icon--workflow-tasks {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='2.5' width='14' height='15' rx='2'/%3E%3Cpath d='M7 6h6M7 10h6M7 14h4M5 6h.01M5 10h.01M5 14h.01'/%3E%3C/svg%3E");
 }
 
 .unilab-domain-entry {
