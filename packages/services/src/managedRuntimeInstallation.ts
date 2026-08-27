@@ -18,6 +18,7 @@ export type ManagedRuntimeInstallationErrorCode =
 export interface ManagedRuntimeInstallationSnapshot {
   phase: ManagedRuntimeInstallationPhase
   bundled: boolean
+  delivery?: 'bundled' | 'download' | null
   managed: boolean
   runtimeVersion: string | null
   platform: string | null
@@ -51,6 +52,7 @@ export const UNAVAILABLE_MANAGED_RUNTIME_INSTALLATION:
 ManagedRuntimeInstallationSnapshot = Object.freeze({
   phase: 'unavailable',
   bundled: false,
+  delivery: null,
   managed: false,
   runtimeVersion: null,
   platform: null,

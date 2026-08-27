@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto'
 import { execFile, type ExecFileException } from 'node:child_process'
-import { constants as fsConstants, createReadStream } from 'node:fs'
+import {
+  constants as fsConstants,
+  createReadStream,
+  createWriteStream
+} from 'node:fs'
 import {
   access,
   mkdir,
@@ -11,6 +15,8 @@ import {
   stat,
   writeFile
 } from 'node:fs/promises'
+import type { IncomingMessage } from 'node:http'
+import { get as httpsGet } from 'node:https'
 import {
   basename,
   delimiter,
@@ -23,20 +29,26 @@ import {
   sep,
   win32
 } from 'node:path'
+import { Transform } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 
 import type { LocalRuntimeModeInfo } from '../shared/localRuntime'
 
-const MANIFEST_SCHEMA_VERSION = 1
 const INSTALL_LOCK_TIMEOUT_MS = 10 * 60 * 1_000
 const INSTALL_LOCK_STALE_MS = 2 * 60 * 60 * 1_000
 const INSTALL_LOCK_POLL_MS = 50
+const RUNTIME_DOWNLOAD_MAX_BYTES = 1024 * 1024 * 1024
+const RUNTIME_DOWNLOAD_REDIRECT_LIMIT = 5
+const RUNTIME_DOWNLOAD_SOCKET_TIMEOUT_MS = 30_000
 
 export interface ManagedRuntimeManifest {
-  schemaVersion: 1
+  schemaVersion: 1 | 2
+  delivery: 'bundled' | 'download'
   runtimeVersion: string
   platform: 'linux-64' | 'osx-64' | 'osx-arm64' | 'win-64'
   installerFile: string
   sha256: string
+  downloadUrl?: string
 }
 
 export interface ManagedRuntimePaths {
@@ -51,6 +63,7 @@ export interface ManagedRuntimePaths {
 
 export interface ManagedRuntimeInspection {
   installed: boolean
+  delivery?: ManagedRuntimeManifest['delivery']
   paths: ManagedRuntimePaths
   selection: ManagedRuntimeSelection
 }
@@ -72,12 +85,19 @@ export type RuntimeInstallationVerifier = (
   paths: ManagedRuntimePaths
 ) => Promise<void>
 
+/** 把固定 URL 的 Runtime 安装器写入目标临时文件。 */
+export type RuntimeInstallerDownloader = (
+  url: string,
+  destination: string
+) => Promise<void>
+
 interface ManagedRuntimeInstallationOptions {
   resourcesDirectory: string
   dataDirectory: string
   platform?: NodeJS.Platform
   architecture?: string
   runInstaller?: RuntimeInstallerRunner
+  downloadInstaller?: RuntimeInstallerDownloader
   verifyInstallation?: RuntimeInstallationVerifier
 }
 
@@ -107,6 +127,7 @@ export class ManagedRuntimeInstallation {
   private readonly platform: NodeJS.Platform
   private readonly architecture: string
   private readonly runInstaller: RuntimeInstallerRunner
+  private readonly downloadInstaller: RuntimeInstallerDownloader
   private readonly verifyInstallation: RuntimeInstallationVerifier
   private pending: Promise<ManagedRuntimePaths> | null = null
 
@@ -118,6 +139,8 @@ export class ManagedRuntimeInstallation {
     this.runInstaller = options.runInstaller ?? runConstructorInstaller(
       this.platform
     )
+    this.downloadInstaller = options.downloadInstaller
+      ?? downloadRuntimeInstaller
     this.verifyInstallation = options.verifyInstallation
       ?? verifyRuntimeInstallation
   }
@@ -133,6 +156,7 @@ export class ManagedRuntimeInstallation {
     const paths = this.pathsFor(manifest)
     return {
       installed: await this.isValidInstallation(paths),
+      delivery: manifest.delivery,
       paths,
       selection: await this.classifySelectionAgainstCurrent(
         selectedEnvironmentPath,
@@ -192,9 +216,7 @@ export class ManagedRuntimeInstallation {
    * Constructor 会把绝对前缀写入入口脚本，因此安装过程必须直接使用最终前缀。
    */
   private async install(): Promise<ManagedRuntimePaths> {
-    const payloadDirectory = join(this.resourcesDirectory, 'runtime-installer')
-    const manifest = await this.readVerifiedManifest()
-    const installerPath = join(payloadDirectory, manifest.installerFile)
+    const manifest = await this.readManifest()
     const result = this.pathsFor(manifest)
     const versionsDirectory = join(this.dataDirectory, 'managed-runtime', 'versions')
     const prefix = result.prefix
@@ -209,15 +231,20 @@ export class ManagedRuntimeInstallation {
         return result
       }
 
-      if (await pathExists(prefix)) {
-        await rename(prefix, `${prefix}.broken-${Date.now()}`)
-      }
       const logsDirectory = join(runtimeRoot, 'logs')
       await mkdir(logsDirectory, { recursive: true })
       const installerLogPath = join(
         logsDirectory,
         `constructor-install-${Date.now()}-${process.pid}.log`
       )
+      const installerPath = await this.resolveVerifiedInstaller(
+        manifest,
+        runtimeRoot,
+        installerLogPath
+      )
+      if (await pathExists(prefix)) {
+        await rename(prefix, `${prefix}.broken-${Date.now()}`)
+      }
       try {
         await this.runInstaller(installerPath, prefix, installerLogPath)
         await this.requireValidInstallation(result)
@@ -251,23 +278,64 @@ export class ManagedRuntimeInstallation {
     return manifest
   }
 
-  private async readVerifiedManifest(): Promise<ManagedRuntimeManifest> {
-    const manifest = await this.readManifest()
-    if (basename(manifest.installerFile) !== manifest.installerFile) {
-      throw new Error('Runtime installerFile 必须是文件名，不能包含路径')
-    }
-    const installerPath = join(
+  private async resolveVerifiedInstaller(
+    manifest: ManagedRuntimeManifest,
+    runtimeRoot: string,
+    logPath: string
+  ): Promise<string> {
+    const bundledPath = join(
       this.resourcesDirectory,
       'runtime-installer',
       manifest.installerFile
     )
-    const actualSha256 = await sha256File(installerPath)
-    if (actualSha256 !== manifest.sha256) {
+    if (manifest.delivery === 'bundled') {
+      await requireInstallerDigest(bundledPath, manifest.sha256)
+      return bundledPath
+    }
+
+    const downloadUrl = manifest.downloadUrl
+    if (!downloadUrl) throw new Error('Runtime 下载清单缺少 downloadUrl')
+    const cacheDirectory = join(
+      runtimeRoot,
+      'downloads',
+      manifest.sha256
+    )
+    const cachedPath = join(cacheDirectory, manifest.installerFile)
+    await mkdir(cacheDirectory, { recursive: true })
+    if (await pathExists(cachedPath)) {
+      try {
+        await requireInstallerDigest(cachedPath, manifest.sha256)
+        return cachedPath
+      } catch {
+        await rm(cachedPath, { force: true })
+      }
+    }
+
+    const temporaryPath = join(
+      cacheDirectory,
+      `.${manifest.installerFile}.${process.pid}.${Date.now()}.download`
+    )
+    try {
+      await this.downloadInstaller(downloadUrl, temporaryPath)
+    } catch (error) {
+      await rm(temporaryPath, { force: true })
+      await writeRuntimeDownloadLog(logPath, downloadUrl, error)
       throw new Error(
-        `Runtime 安装器校验失败：期望 ${manifest.sha256}，实际 ${actualSha256}`
+        `Runtime 下载失败：${errorMessage(error)}；日志：${logPath}`,
+        { cause: error }
       )
     }
-    return manifest
+    try {
+      await requireInstallerDigest(temporaryPath, manifest.sha256)
+      await rename(temporaryPath, cachedPath)
+      return cachedPath
+    } catch (error) {
+      await rm(temporaryPath, { force: true })
+      await writeRuntimeDownloadLog(logPath, downloadUrl, error)
+      throw new Error(`${errorMessage(error)}；日志：${logPath}`, {
+        cause: error
+      })
+    }
   }
 
   private pathsFor(manifest: ManagedRuntimeManifest): ManagedRuntimePaths {
@@ -409,7 +477,7 @@ function parseManifest(raw: string): ManagedRuntimeManifest {
     throw new Error('Runtime manifest 必须是 JSON object')
   }
   const candidate = parsed as Record<string, unknown>
-  if (candidate.schemaVersion !== MANIFEST_SCHEMA_VERSION) {
+  if (![1, 2].includes(Number(candidate.schemaVersion))) {
     throw new Error('Runtime manifest schemaVersion 不受支持')
   }
   if (
@@ -427,6 +495,19 @@ function parseManifest(raw: string): ManagedRuntimeManifest {
     ].includes(String(candidate.platform))
   ) {
     throw new Error('Runtime manifest 字段无效')
+  }
+  if (candidate.schemaVersion === 1) {
+    return {
+      ...(candidate as unknown as Omit<ManagedRuntimeManifest, 'delivery'>),
+      delivery: 'bundled'
+    }
+  }
+  if (
+    !['bundled', 'download'].includes(String(candidate.delivery))
+    || (candidate.delivery === 'download'
+      && !validRuntimeDownloadUrl(candidate.downloadUrl))
+  ) {
+    throw new Error('Runtime manifest 交付配置无效')
   }
   return candidate as unknown as ManagedRuntimeManifest
 }
@@ -613,6 +694,139 @@ function run(
 function summarizeInstallerOutput(output: string): string {
   const normalized = output.trim().replace(/\s+/g, ' ')
   return normalized.slice(-4_096) || '安装器未输出诊断信息'
+}
+
+/** 通过 HTTPS 流式下载 Runtime，限制重定向、空闲时间与最大体积。 */
+async function downloadRuntimeInstaller(
+  url: string,
+  destination: string
+): Promise<void> {
+  const response = await openRuntimeDownload(new URL(url), 0)
+  const contentLength = Number(response.headers['content-length'] ?? 0)
+  if (
+    Number.isFinite(contentLength)
+    && contentLength > RUNTIME_DOWNLOAD_MAX_BYTES
+  ) {
+    response.destroy()
+    throw new Error(`Runtime 下载文件超过 ${RUNTIME_DOWNLOAD_MAX_BYTES} bytes`)
+  }
+  let receivedBytes = 0
+  const limit = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      receivedBytes += chunk.length
+      if (receivedBytes > RUNTIME_DOWNLOAD_MAX_BYTES) {
+        callback(new Error(
+          `Runtime 下载文件超过 ${RUNTIME_DOWNLOAD_MAX_BYTES} bytes`
+        ))
+        return
+      }
+      callback(null, chunk)
+    }
+  })
+  try {
+    await pipeline(
+      response,
+      limit,
+      createWriteStream(destination, { flags: 'wx', mode: 0o600 })
+    )
+  } catch (error) {
+    await rm(destination, { force: true })
+    throw error
+  }
+}
+
+function openRuntimeDownload(
+  url: URL,
+  redirectCount: number
+): Promise<IncomingMessage> {
+  if (url.protocol !== 'https:' || url.username || url.password) {
+    return Promise.reject(new Error('Runtime 下载重定向必须使用无凭据 HTTPS'))
+  }
+  return new Promise((resolvePromise, reject) => {
+    const request = httpsGet(url, {
+      headers: {
+        'User-Agent': 'UniLab-Workbench-Runtime-Installer',
+        Accept: 'application/octet-stream'
+      }
+    }, response => {
+      const status = response.statusCode ?? 0
+      if (status >= 300 && status < 400 && response.headers.location) {
+        response.resume()
+        if (redirectCount >= RUNTIME_DOWNLOAD_REDIRECT_LIMIT) {
+          reject(new Error('Runtime 下载重定向次数过多'))
+          return
+        }
+        let nextUrl: URL
+        try {
+          nextUrl = new URL(response.headers.location, url)
+        } catch (error) {
+          reject(new Error('Runtime 下载返回无效重定向地址', { cause: error }))
+          return
+        }
+        resolvePromise(openRuntimeDownload(nextUrl, redirectCount + 1))
+        return
+      }
+      if (status !== 200) {
+        response.resume()
+        reject(new Error(`Runtime 下载返回 HTTP ${status}`))
+        return
+      }
+      resolvePromise(response)
+    })
+    request.setTimeout(RUNTIME_DOWNLOAD_SOCKET_TIMEOUT_MS, () => {
+      request.destroy(new Error('Runtime 下载连接超时'))
+    })
+    request.once('error', reject)
+  })
+}
+
+function validRuntimeDownloadUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || !value.trim()) return false
+  try {
+    const url = new URL(value.trim())
+    return url.href === value
+      && url.protocol === 'https:'
+      && !url.username
+      && !url.password
+      && !url.search
+      && !url.hash
+  } catch {
+    return false
+  }
+}
+
+async function requireInstallerDigest(
+  path: string,
+  expectedSha256: string
+): Promise<void> {
+  let actualSha256: string
+  try {
+    actualSha256 = await sha256File(path)
+  } catch (error) {
+    throw new Error(`Runtime 安装器不可读：${path}`, { cause: error })
+  }
+  if (actualSha256 !== expectedSha256) {
+    throw new Error(
+      `Runtime 安装器校验失败：期望 ${expectedSha256}，实际 ${actualSha256}`
+    )
+  }
+}
+
+async function writeRuntimeDownloadLog(
+  logPath: string,
+  url: string,
+  error: unknown
+): Promise<void> {
+  await writeFile(logPath, [
+    '[runtime-download]',
+    `url=${url}`,
+    `error=${errorMessage(error)}`,
+    ''
+  ].join('\n'), { encoding: 'utf8', mode: 0o600 })
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 function sha256File(path: string): Promise<string> {

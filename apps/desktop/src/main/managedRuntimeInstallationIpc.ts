@@ -80,7 +80,7 @@ export class ManagedRuntimeInstallationController {
 
     this.managedEnvironment = inspection?.installed ? {
       kind: 'managed',
-      label: `内置 Runtime ${inspection.paths.runtimeVersion}`,
+      label: `托管 Runtime ${inspection.paths.runtimeVersion}`,
       path: inspection.paths.prefix
     } : null
 
@@ -142,12 +142,13 @@ export class ManagedRuntimeInstallationController {
       return this.publish({
         phase: 'upgrade-required',
         bundled: true,
+        delivery: inspection.delivery,
         managed: false,
         runtimeVersion: currentVersion,
         platform: inspection.paths.platform,
         environmentPath: null,
         availableEnvironments: this.environmentChoices(),
-        error: `${previousLabel} 与当前 Workbench 不兼容，需要安装内置 Runtime ${currentVersion}。旧环境会保留。`,
+        error: `${previousLabel} 与当前 Workbench 不兼容，需要安装 Runtime ${currentVersion}。旧环境会保留。`,
         previousRuntimeVersion: previousVersion,
         previousEnvironmentPath: selection.path,
         errorCode: 'upgrade-required',
@@ -159,6 +160,7 @@ export class ManagedRuntimeInstallationController {
       return this.publish({
         phase: 'failed',
         bundled: true,
+        delivery: null,
         managed: false,
         runtimeVersion: null,
         platform: null,
@@ -193,6 +195,7 @@ export class ManagedRuntimeInstallationController {
       return this.publish({
         phase: 'not-installed',
         bundled: false,
+        delivery: null,
         managed: false,
         runtimeVersion: null,
         platform: null,
@@ -208,6 +211,7 @@ export class ManagedRuntimeInstallationController {
     return this.publish({
       phase: inspectionError ? 'failed' : 'not-installed',
       bundled: true,
+      delivery: inspection?.delivery ?? null,
       managed: false,
       runtimeVersion: inspection?.paths.runtimeVersion ?? null,
       platform: inspection?.paths.platform ?? null,
@@ -300,7 +304,7 @@ export class ManagedRuntimeInstallationController {
       const paths = await this.options.installation!.ensureInstalled()
       this.managedEnvironment = {
         kind: 'managed',
-        label: `内置 Runtime ${paths.runtimeVersion}`,
+        label: `托管 Runtime ${paths.runtimeVersion}`,
         path: paths.prefix
       }
       await this.options.writeSelectedEnvironment(paths.prefix)
@@ -308,6 +312,7 @@ export class ManagedRuntimeInstallationController {
       return this.publish({
         phase: 'ready',
         bundled: true,
+        delivery: previous.delivery ?? null,
         managed: true,
         runtimeVersion: paths.runtimeVersion,
         platform: paths.platform,
@@ -321,7 +326,7 @@ export class ManagedRuntimeInstallationController {
       })
     } catch (error) {
       const message = errorMessage(error)
-      this.options.log(`安装内置 Runtime 失败: ${message}`)
+      this.options.log(`安装托管 Runtime 失败: ${message}`)
       this.publish({
         ...previous,
         phase: 'failed',
@@ -389,6 +394,7 @@ export class ManagedRuntimeInstallationController {
     return {
       phase: selected.kind === 'managed' ? 'ready' : 'external',
       bundled: Boolean(this.options.installation),
+      delivery: inspection?.delivery ?? this.snapshot.delivery ?? null,
       managed: selected.kind === 'managed',
       runtimeVersion: inspection?.paths.runtimeVersion
         ?? this.snapshot.runtimeVersion,
