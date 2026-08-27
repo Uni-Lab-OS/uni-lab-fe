@@ -185,6 +185,27 @@ describe('versioned Runtime release restore', () => {
       'utf8'
     )
 
+    const windowsJob = workflow.slice(
+      workflow.indexOf('  build-windows-runtime:'),
+      workflow.indexOf('  build-macos-runtime:')
+    )
+    const windowsCheckoutPath = windowsJob.match(
+      /repository: Uni-Lab-OS\/Uni-Lab-OS[\s\S]*?^\s+path: (\S+)$/mu
+    )?.[1]
+    assert.ok(windowsCheckoutPath, 'Windows Runtime 必须声明 OS 源码检出目录')
+    const longestGeneratedHeader = [
+      'D:\\a\\uni-lab-fe\\uni-lab-fe',
+      windowsCheckoutPath,
+      'output\\bld\\rattler-build_ros-humble-unilabos-msgs_1234567890',
+      'work\\build\\rosidl_generator_cpp\\unilabos_msgs\\action\\detail',
+      'reaction_station_liquid_feed_vials_non_titration__rosidl_typesupport_fastrtps_cpp.hpp'
+    ].join('\\')
+    assert.ok(
+      longestGeneratedHeader.length <= 240,
+      `Windows ROS 生成路径超过安全预算: ${longestGeneratedHeader.length}`
+    )
+    assert.match(windowsJob, new RegExp(`working-directory: ${windowsCheckoutPath.replace('.', '\\.')}`, 'u'))
+
     assert.match(workflow, /^name: Publish Versioned Workbench Runtime$/mu)
     assert.match(workflow, /^\s+workflow_dispatch:$/mu)
     assert.doesNotMatch(workflow, /^\s+push:$/mu)
