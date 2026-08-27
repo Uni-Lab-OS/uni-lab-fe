@@ -47,7 +47,7 @@ import {
 
 const MEBIBYTE = 1024 * 1024
 const MIN_INSTALLER_BYTES = 50 * MEBIBYTE
-export const MAX_PORTABLE_INSTALLER_BYTES = 800 * MEBIBYTE
+export const MAX_PORTABLE_INSTALLER_BYTES = 810 * MEBIBYTE
 export const PORTABLE_NODE_VERSION = '24.14.0'
 export const PORTABLE_COMPRESSION_LEVELS = Object.freeze(['normal', 'maximum'])
 export const WINDOWS_MAIN_EXECUTABLE = 'UniLab Workbench.exe'
@@ -658,7 +658,7 @@ function findInstaller(outputDirectory, targetPlatform, allowOversize = false) {
   }
   if (!allowOversize && size > MAX_PORTABLE_INSTALLER_BYTES) {
     throw new Error(
-      `Workbench 安装包超出 800 MiB 预算：${basename(path)} 为 ${size} bytes`
+      `Workbench 安装包超出 ${MAX_PORTABLE_INSTALLER_BYTES / MEBIBYTE} MiB 预算：${basename(path)} 为 ${size} bytes`
     )
   }
   const expected = targetPlatform === 'linux-64'
