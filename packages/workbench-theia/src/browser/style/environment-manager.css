@@ -176,6 +176,14 @@ body.unilab-environment-manager-open .material-oblique-stack__label {
   color: var(--unilab-color-danger);
 }
 
+.unilab-environment-card[data-phase='upgrade-required'] .unilab-environment-card__dot {
+  background: var(--unilab-color-warning);
+}
+
+.unilab-environment-card[data-phase='upgrade-required'] .unilab-environment-card__body > p {
+  color: var(--unilab-color-warning);
+}
+
 .unilab-environment-card dl {
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr);

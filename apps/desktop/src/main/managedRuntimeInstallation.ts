@@ -15,9 +15,12 @@ import {
   basename,
   delimiter,
   dirname,
+  isAbsolute,
   join,
   posix,
+  relative,
   resolve,
+  sep,
   win32
 } from 'node:path'
 
@@ -49,7 +52,14 @@ export interface ManagedRuntimePaths {
 export interface ManagedRuntimeInspection {
   installed: boolean
   paths: ManagedRuntimePaths
+  selection: ManagedRuntimeSelection
 }
+
+export type ManagedRuntimeSelection =
+  | { kind: 'none'; path: null; runtimeVersion: null }
+  | { kind: 'current-managed'; path: string; runtimeVersion: string }
+  | { kind: 'outdated-managed'; path: string; runtimeVersion: string | null }
+  | { kind: 'external'; path: string; runtimeVersion: null }
 
 /** 执行 Constructor 载荷，把 Runtime 安装到 prefix，并把诊断信息写入 logPath。 */
 export type RuntimeInstallerRunner = (
@@ -112,8 +122,10 @@ export class ManagedRuntimeInstallation {
       ?? verifyRuntimeInstallation
   }
 
-  /** 检查载荷及固定版本前缀，不执行安装或修复。 */
-  async inspect(): Promise<ManagedRuntimeInspection> {
+  /** 检查载荷、固定版本前缀及已选择环境，不执行安装或修复。 */
+  async inspect(
+    selectedEnvironmentPath: string | null = null
+  ): Promise<ManagedRuntimeInspection> {
     const manifest = await this.readManifest()
     if (basename(manifest.installerFile) !== manifest.installerFile) {
       throw new Error('Runtime installerFile 必须是文件名，不能包含路径')
@@ -121,7 +133,11 @@ export class ManagedRuntimeInstallation {
     const paths = this.pathsFor(manifest)
     return {
       installed: await this.isValidInstallation(paths),
-      paths
+      paths,
+      selection: await this.classifySelectionAgainstCurrent(
+        selectedEnvironmentPath,
+        paths
+      )
     }
   }
 
@@ -266,6 +282,86 @@ export class ManagedRuntimeInstallation {
       'versions',
       versionName
     ), manifest)
+  }
+
+  /**
+   * 识别持久化路径是否属于当前或历史托管 Runtime；外部环境保持用户所有。
+   * 历史版本只读取模块自己的 active.json，不执行其中的任何程序。
+   */
+  async classifySelection(
+    selectedEnvironmentPath: string | null
+  ): Promise<ManagedRuntimeSelection> {
+    return this.classifySelectionAgainstCurrent(selectedEnvironmentPath, null)
+  }
+
+  private async classifySelectionAgainstCurrent(
+    selectedEnvironmentPath: string | null,
+    current: ManagedRuntimePaths | null
+  ): Promise<ManagedRuntimeSelection> {
+    if (!selectedEnvironmentPath?.trim()) {
+      return { kind: 'none', path: null, runtimeVersion: null }
+    }
+    const selected = resolve(selectedEnvironmentPath)
+    if (current && selected === resolve(current.prefix)) {
+      return {
+        kind: 'current-managed',
+        path: selected,
+        runtimeVersion: current.runtimeVersion
+      }
+    }
+    const versionsDirectory = resolve(
+      this.dataDirectory,
+      'managed-runtime',
+      'versions'
+    )
+    const relativePath = relative(versionsDirectory, selected)
+    const managed = relativePath.length > 0
+      && relativePath !== '..'
+      && !relativePath.startsWith(`..${sep}`)
+      && !isAbsolute(relativePath)
+    if (!managed) {
+      return { kind: 'external', path: selected, runtimeVersion: null }
+    }
+    return {
+      kind: 'outdated-managed',
+      path: selected,
+      runtimeVersion: await this.readManagedRuntimeVersion(selected, current)
+    }
+  }
+
+  private async readManagedRuntimeVersion(
+    selected: string,
+    current: ManagedRuntimePaths | null
+  ): Promise<string | null> {
+    try {
+      const active = JSON.parse(await readFile(join(
+        this.dataDirectory,
+        'managed-runtime',
+        'active.json'
+      ), 'utf8')) as Record<string, unknown>
+      if (
+        active.schemaVersion === 1
+        && typeof active.prefix === 'string'
+        && resolve(active.prefix) === selected
+        && typeof active.runtimeVersion === 'string'
+        && active.runtimeVersion.trim()
+      ) {
+        return active.runtimeVersion.trim()
+      }
+    } catch {
+      // 旧安装可能没有 active.json；目录名仍由本模块的固定规则生成。
+    }
+    const platform = current?.platform ?? constructorPlatform(
+      this.platform,
+      this.architecture
+    )
+    const suffix = `-${platform}-`
+    const name = basename(selected)
+    const suffixIndex = name.lastIndexOf(suffix)
+    const digest = suffixIndex >= 0 ? name.slice(suffixIndex + suffix.length) : ''
+    return suffixIndex > 0 && /^[0-9a-f]{16}$/u.test(digest)
+      ? name.slice(0, suffixIndex)
+      : null
   }
 
   private async isValidInstallation(paths: ManagedRuntimePaths): Promise<boolean> {

@@ -61,8 +61,11 @@ describe('Workbench macOS distribution gate', () => {
     assert.doesNotMatch(welcomeDocument, /账号|密码|登录/u)
     assert.match(welcomeDocument, /id="install-runtime"/u)
     assert.match(welcomeDocument, /id="choose-runtime"/u)
+    assert.match(welcomeDocument, /id="open-runtime-log"/u)
     assert.match(welcomeScript, /managedRuntime/u)
     assert.match(welcomeScript, /chooseEnvironment/u)
+    assert.match(welcomeScript, /upgrade-required/u)
+    assert.match(welcomeScript, /openDiagnosticLog/u)
     assert.match(welcomeScript, /unilab -h/u)
     assert.match(welcomeScript, /openRecent\(selectedWorkspace, selectedEntryMode\(\)\)/u)
     assert.equal(
