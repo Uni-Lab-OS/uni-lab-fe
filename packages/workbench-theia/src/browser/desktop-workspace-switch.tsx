@@ -5,9 +5,14 @@ import { desktopWorkspaceApi } from './desktop-workspace'
 /**
  * 渲染桌面端各会话状态共用的工作区选择入口。
  *
+ * @param props 可选的当前工作区短名称；省略时使用默认动作文案。
  * @returns 桌面工作区能力可用时返回选择按钮，否则不渲染入口。
  */
-export function DesktopWorkspaceSwitchButton(): React.JSX.Element | null {
+export function DesktopWorkspaceSwitchButton({
+  label = '选择工作区'
+}: {
+  label?: string
+} = {}): React.JSX.Element | null {
   const api = React.useMemo(() => desktopWorkspaceApi(), [])
   const [available, setAvailable] = React.useState(false)
   const [switching, setSwitching] = React.useState(false)
@@ -50,7 +55,7 @@ export function DesktopWorkspaceSwitchButton(): React.JSX.Element | null {
         aria-hidden="true"
       />
       <span className="unilab-workspace-switch__label">
-        {switching ? '正在切换…' : '选择工作区'}
+        {switching ? '正在切换…' : label}
       </span>
     </button>
   )

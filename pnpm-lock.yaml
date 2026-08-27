@@ -1070,6 +1070,9 @@ importers:
 
   packages/workflow-editor:
     dependencies:
+      '@antv/x6':
+        specifier: ^3.1.8
+        version: 3.1.8
       '@rjsf/core':
         specifier: ^5.19.3
         version: 5.24.13(@rjsf/utils@5.24.13(react@19.2.8))(react@19.2.8)
@@ -1168,6 +1171,10 @@ packages:
     peerDependencies:
       react: '>=16.0.0'
       react-dom: '>=16.0.0'
+
+  '@antv/x6@3.1.8':
+    resolution: {integrity: sha512-JVGxBRmjnqDr7W7Ql5XWc6FUtFcy+QlFaV31cv0pHIeVIJmyYnB5rHmdzz93CY5lCS/XcNBtOnNIIq6JVgfZ5w==}
+    engines: {node: '>=20.0.0'}
 
   '@arizeai/openinference-core@2.4.1':
     resolution: {integrity: sha512-OP7lAeHDAIgZET0OqGw5IkPLLB1xYizx3a2SvFZ+Ssr9LIKrI7eR5zob5x0llv6KHW4Ssc+dWfhsBA8mjfKO/w==}
@@ -5287,6 +5294,9 @@ packages:
     os: [darwin]
     hasBin: true
 
+  dom-align@1.12.4:
+    resolution: {integrity: sha512-R8LUSEay/68zE5c8/3BDxiTEvgb4xZTF0RKmAHfiEVN3klfIpXfi2/QCoiWPccVQ0J/ZGdz9OjzL4uJEP/MRAw==}
+
   dom-serializer@2.0.0:
     resolution: {integrity: sha512-wIkAryiqt/nV5EQKqQpo3SToSOV9J0DnbJqwK7Wv/Trc92zIAYZ4FlMu+JPFW1DfGFt81ZTCGgDEabffXeLyJg==}
 
@@ -6974,6 +6984,9 @@ packages:
   mount-point@3.0.0:
     resolution: {integrity: sha512-jAhfD7ZCG+dbESZjcY1SdFVFqSJkh/yGbdsifHcPkvuLRO5ugK0Ssmd9jdATu29BTd4JiN+vkpMzVvsUgP3SZA==}
     engines: {node: '>=0.10.0'}
+
+  mousetrap@1.6.5:
+    resolution: {integrity: sha512-QNo4kEepaIBwiT8CDhP98umTetp+JNfQYBWvC1pc6/OAibuXtRcxZ58Qz8skvEHYvURne/7R8T5VoOI7rDsEUA==}
 
   move-file@2.1.0:
     resolution: {integrity: sha512-i9qLW6gqboJ5Ht8bauZi7KlTnQ3QFpBCvMvFfEcHADKgHGeJ9BZMO7SFCTwHPV9Qa0du9DYY1Yx3oqlGt30nXA==}
@@ -9285,6 +9298,13 @@ snapshots:
       clsx: 2.1.1
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
+
+  '@antv/x6@3.1.8':
+    dependencies:
+      dom-align: 1.12.4
+      lodash-es: 4.18.1
+      mousetrap: 1.6.5
+      utility-types: 3.11.0
 
   '@arizeai/openinference-core@2.4.1':
     dependencies:
@@ -14887,6 +14907,8 @@ snapshots:
       verror: 1.10.1
     optional: true
 
+  dom-align@1.12.4: {}
+
   dom-serializer@2.0.0:
     dependencies:
       domelementtype: 2.3.0
@@ -16685,6 +16707,8 @@ snapshots:
       '@sindresorhus/df': 1.0.1
       pify: 2.3.0
       pinkie-promise: 2.0.1
+
+  mousetrap@1.6.5: {}
 
   move-file@2.1.0:
     dependencies:

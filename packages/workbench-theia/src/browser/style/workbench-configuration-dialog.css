@@ -1,0 +1,299 @@
+.unilab-config-dialog__backdrop {
+  position: absolute;
+  z-index: 90;
+  inset: 0;
+  display: grid;
+  overflow: auto;
+  padding: 32px;
+  place-items: start center;
+  background: rgba(16, 25, 43, 0.38);
+  backdrop-filter: blur(4px);
+}
+
+.unilab-config-dialog {
+  width: min(720px, 100%);
+  overflow: hidden;
+  color: #172033;
+  border: 1px solid #e5eaf1;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 64px rgba(23, 32, 51, 0.18);
+}
+
+.unilab-config-dialog__header {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 32px;
+  gap: 14px;
+  align-items: start;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid #e5eaf1;
+  background: linear-gradient(135deg, #fff 0%, #f7f9fd 100%);
+}
+
+.unilab-config-dialog__header > .codicon:first-child {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  color: #3568ed;
+  border-radius: 12px;
+  place-items: center;
+  background: #eaf0ff;
+  font-size: 20px;
+}
+
+.unilab-config-dialog[data-kind='simulation'] .unilab-config-dialog__header > .codicon:first-child {
+  color: #12a9b4;
+  background: #e8f8f9;
+}
+
+.unilab-config-dialog__header span:not(.codicon) {
+  color: #738095;
+  font-size: 10px;
+  font-weight: 760;
+  letter-spacing: .14em;
+}
+
+.unilab-config-dialog__header h2 {
+  margin: 3px 0 4px;
+  font-size: 21px;
+  line-height: 1.2;
+}
+
+.unilab-config-dialog__header p {
+  margin: 0;
+  color: #738095;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.unilab-config-dialog__close {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: #738095;
+  border: 0;
+  border-radius: 8px;
+  place-items: center;
+  background: transparent;
+  cursor: pointer;
+}
+
+.unilab-config-dialog__close:hover { background: #eef2f7; }
+
+.unilab-config-dialog__body {
+  display: grid;
+  max-height: min(64vh, 680px);
+  overflow: auto;
+  gap: 16px;
+  padding: 20px 24px;
+  background: #f4f7fb;
+}
+
+.unilab-config-dialog__status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.unilab-config-dialog__status {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e5eaf1;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.unilab-config-dialog__status > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9aa5b5;
+}
+
+.unilab-config-dialog__status[data-phase='ready'] > span {
+  background: #2cad6f;
+  box-shadow: 0 0 0 4px rgba(44, 173, 111, .12);
+}
+
+.unilab-config-dialog__status[data-phase='failed'] > span {
+  background: #dc4c64;
+  box-shadow: 0 0 0 4px rgba(220, 76, 100, .12);
+}
+
+.unilab-config-dialog__status div { display: grid; gap: 3px; }
+.unilab-config-dialog__status strong { font-size: 12px; }
+.unilab-config-dialog__status small {
+  overflow: hidden;
+  color: #738095;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.unilab-config-dialog__status em {
+  color: #738095;
+  font-size: 10px;
+  font-style: normal;
+  text-transform: uppercase;
+}
+
+.unilab-config-dialog fieldset {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid #e5eaf1;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.unilab-config-dialog legend {
+  padding: 0 7px;
+  color: #172033;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.unilab-config-dialog label:not(.unilab-config-dialog__check) {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  color: #566176;
+  font-size: 12px;
+}
+
+.unilab-config-dialog input:not([type='checkbox']),
+.unilab-config-dialog select {
+  width: 100%;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 11px;
+  color: #172033;
+  border: 1px solid #d9e0ea;
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  font: 12px/1.2 var(--unilab-font-sans);
+}
+
+.unilab-config-dialog input:focus,
+.unilab-config-dialog select:focus {
+  border-color: #3568ed;
+  box-shadow: 0 0 0 3px rgba(53, 104, 237, .12);
+}
+
+.unilab-config-dialog__check {
+  display: inline-flex;
+  gap: 9px;
+  align-items: center;
+  color: #566176;
+  font-size: 12px;
+}
+
+.unilab-config-dialog__button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.unilab-config-dialog button {
+  min-height: 34px;
+  padding: 0 13px;
+  color: #344057;
+  border: 1px solid #d9e0ea;
+  border-radius: 8px;
+  background: #fff;
+  font: 650 12px/1.2 var(--unilab-font-sans);
+  cursor: pointer;
+}
+
+.unilab-config-dialog button:hover:not(:disabled) {
+  border-color: #3568ed;
+  color: #3568ed;
+}
+
+.unilab-config-dialog button:disabled { cursor: wait; opacity: .58; }
+.unilab-config-dialog button.is-primary {
+  color: #fff;
+  border-color: #3568ed;
+  background: #3568ed;
+}
+.unilab-config-dialog button.is-danger { color: #c73850; }
+
+.unilab-config-dialog__notice {
+  padding: 12px 14px;
+  color: #46536a;
+  border: 1px solid #cedafe;
+  border-radius: 10px;
+  background: #eaf0ff;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.unilab-config-dialog__probe {
+  justify-self: end;
+}
+
+.unilab-config-dialog__probe .codicon { margin-right: 6px; }
+
+.unilab-config-dialog__probe-result {
+  display: grid;
+  gap: 8px;
+}
+
+.unilab-config-dialog__probe-result article {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 13px;
+  border: 1px solid #e5eaf1;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.unilab-config-dialog__probe-result article > .codicon { color: #dc4c64; }
+.unilab-config-dialog__probe-result article[data-reachable='true'] > .codicon {
+  color: #2cad6f;
+}
+.unilab-config-dialog__probe-result article div { display: grid; gap: 2px; }
+.unilab-config-dialog__probe-result article strong { font-size: 12px; }
+.unilab-config-dialog__probe-result article small,
+.unilab-config-dialog__probe-result p {
+  margin: 0;
+  color: #738095;
+  font-size: 10px;
+}
+
+.unilab-config-dialog__error {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  color: #a92f43;
+  border: 1px solid rgba(220, 76, 100, .3);
+  border-radius: 10px;
+  background: rgba(220, 76, 100, .08);
+  font-size: 12px;
+}
+
+.unilab-config-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 24px;
+  border-top: 1px solid #e5eaf1;
+  background: #fff;
+}
+
+@container unilab-workbench (max-width: 620px) {
+  .unilab-config-dialog__backdrop { padding: 12px; }
+  .unilab-config-dialog__status-grid { grid-template-columns: 1fr; }
+  .unilab-config-dialog label:not(.unilab-config-dialog__check) {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}

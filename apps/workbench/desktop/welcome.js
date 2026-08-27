@@ -46,10 +46,8 @@ runtimeSelector.addEventListener('change', () => {
   render()
   void runtimeApi.selectEnvironment(runtimeSelector.value).then(next => {
     runtimeSnapshot = next
-    render()
   }).catch(error => {
     runtimeSnapshot = { ...runtimeSnapshot, error: messageOf(error) }
-    render()
   }).finally(() => {
     runtimeRequestPending = false
     render()
@@ -63,10 +61,8 @@ chooseRuntimeButton.addEventListener('click', () => {
   render()
   void runtimeApi.chooseEnvironment().then(next => {
     runtimeSnapshot = next
-    render()
   }).catch(error => {
     runtimeSnapshot = { ...runtimeSnapshot, error: messageOf(error) }
-    render()
   }).finally(() => {
     runtimeRequestPending = false
     render()
@@ -80,14 +76,12 @@ installRuntimeButton.addEventListener('click', () => {
   render()
   void runtimeApi.install().then(next => {
     runtimeSnapshot = next
-    render()
   }).catch(error => {
     runtimeSnapshot = {
       ...runtimeSnapshot,
       phase: 'failed',
       error: messageOf(error)
     }
-    render()
   }).finally(() => {
     runtimeRequestPending = false
     render()
@@ -97,13 +91,13 @@ installRuntimeButton.addEventListener('click', () => {
 openButton.addEventListener('click', () => runOperation(
   () => workspaceApi?.openDirectory(),
   '正在打开工作区',
-  '校验目录、Python 环境与本地服务…'
+  '校验目录并启动工作区服务…'
 ))
 
 createButton.addEventListener('click', () => runOperation(
   () => workspaceApi?.createDirectory(),
   '正在创建工作区',
-  '创建目录并校验本地开发环境…'
+  '创建目录并准备工作台…'
 ))
 
 recentList.addEventListener('click', (event) => {
@@ -112,7 +106,7 @@ recentList.addEventListener('click', (event) => {
   void runOperation(
     () => workspaceApi?.openRecent(button.dataset.workspacePath),
     '正在恢复工作区',
-    '重新校验路径与 Python 环境…'
+    '重新校验路径并启动工作区服务…'
   )
 })
 
@@ -233,7 +227,7 @@ function renderRuntime() {
     return
   }
   if (runtimeSnapshot.phase === 'external') {
-    runtimeTitle.textContent = '已检测到现有 UniLab 环境'
+    runtimeTitle.textContent = '已选择现有 UniLab 环境'
     runtimeDetail.textContent = runtimeSnapshot.error
       ? `${runtimeSnapshot.environmentPath ?? '系统环境'}；提示：${runtimeSnapshot.error}`
       : runtimeSnapshot.environmentPath ?? '系统环境'
@@ -245,8 +239,8 @@ function renderRuntime() {
     return
   }
   if (runtimeSnapshot.phase === 'failed') {
-    runtimeTitle.textContent = '内置 Runtime 安装或检查失败'
-    runtimeDetail.textContent = runtimeSnapshot.error ?? '可重试安装或查看应用日志。'
+    runtimeTitle.textContent = 'UniLab 环境检查失败'
+    runtimeDetail.textContent = runtimeSnapshot.error ?? '可重新选择或安装应用内置 Runtime。'
     return
   }
   if (runtimeSnapshot.error) {

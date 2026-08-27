@@ -5,6 +5,7 @@ import type {
 import * as React from 'react'
 
 import type { WorkbenchConnectionMode } from './workbench-connection-profile'
+import type { WorkbenchConfigurationKind } from './workbench-configuration-dialog'
 import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
 import {
   WorkbenchRuntimeLogLauncher,
@@ -22,14 +23,6 @@ export async function captureWorkbenchUiOperation(
   }
 }
 
-function opensEnvironmentManager(snapshot: WorkbenchSessionSnapshot): boolean {
-  return snapshot.phase === 'failed'
-    && (
-      snapshot.diagnostic?.code === 'os_readiness_failed'
-      || snapshot.diagnostic?.code === 'plc_connection_failed'
-    )
-}
-
 function diagnosticTitle(
   code: NonNullable<WorkbenchSessionSnapshot['diagnostic']>['code']
 ): string {
@@ -43,6 +36,16 @@ function diagnosticTitle(
     case 'os_exited': return 'Uni-Lab OS 已退出'
     case 'os_start_failed': return 'Uni-Lab OS 未能启动'
   }
+}
+
+/** 将启动诊断映射到最相关的模式配置入口。 */
+function initialConfigurationKind(
+  snapshot: WorkbenchSessionSnapshot
+): WorkbenchConfigurationKind | null {
+  if (snapshot.phase !== 'failed') return null
+  if (snapshot.diagnostic?.code === 'plc_connection_failed') return 'simulation'
+  if (snapshot.diagnostic?.code === 'os_readiness_failed') return 'hardware'
+  return null
 }
 
 export async function runAndRefreshWorkbenchOperation(
@@ -102,26 +105,28 @@ export function WorkbenchSessionGate({
   onStop,
   launchMode,
   switchingTo,
-  connectionSelector,
   onOpenLog,
   onReadEnvironmentLog,
-  renderEnvironmentManager
+  renderConfiguration
 }: {
   snapshot: WorkbenchSessionSnapshot
   onRetry: () => Promise<void>
   onStop: () => Promise<void>
   launchMode?: 'local' | 'backend'
   switchingTo?: WorkbenchConnectionMode | null
-  connectionSelector?: React.ReactNode
   onOpenLog?: (path: string) => Promise<void>
   onReadEnvironmentLog?: (
     kind: WorkbenchEnvironmentLogKind
   ) => Promise<string>
-  renderEnvironmentManager: (onClose: () => void) => React.ReactNode
+  renderConfiguration: (
+    kind: WorkbenchConfigurationKind,
+    onClose: () => void
+  ) => React.ReactNode
 }): React.JSX.Element {
-  const [environmentOpen, setEnvironmentOpen] = React.useState(
-    opensEnvironmentManager(snapshot)
-  )
+  const [configurationKind, setConfigurationKind] =
+    React.useState<WorkbenchConfigurationKind | null>(
+      initialConfigurationKind(snapshot)
+    )
   const [operationError, setOperationError] = React.useState<string | null>(null)
   const [launchRequested, setLaunchRequested] = React.useState(false)
   const run = React.useCallback(async (operation: () => Promise<void>) => {
@@ -171,8 +176,16 @@ export function WorkbenchSessionGate({
   }, [onStop, run])
 
   React.useEffect(() => {
-    if (opensEnvironmentManager(snapshot)) {
-      setEnvironmentOpen(true)
+    if (
+      snapshot.phase === 'failed'
+      && snapshot.diagnostic?.code === 'plc_connection_failed'
+    ) {
+      setConfigurationKind('simulation')
+    } else if (
+      snapshot.phase === 'failed'
+      && snapshot.diagnostic?.code === 'os_readiness_failed'
+    ) {
+      setConfigurationKind('hardware')
     }
   }, [snapshot.diagnostic?.code, snapshot.phase])
 
@@ -182,9 +195,22 @@ export function WorkbenchSessionGate({
         <span className={`unilab-workbench-session-phase is-${snapshot.phase}`}>
           {snapshot.phase}
         </span>
-        <h2>Unilab 调试工作台</h2>
+        <h2>准备当前工作区</h2>
         <p>{snapshot.message}</p>
-        {connectionSelector}
+        <div className="unilab-workbench-session-modes" aria-label="工作模式配置">
+          <button type="button" onClick={() => setConfigurationKind('simulation')}>
+            <span className="codicon codicon-beaker" aria-hidden="true" />
+            仿真调试
+          </button>
+          <button type="button" onClick={() => setConfigurationKind('hardware')}>
+            <span className="codicon codicon-plug" aria-hidden="true" />
+            真实设备调试
+          </button>
+          <button type="button" onClick={() => setConfigurationKind('production')}>
+            <span className="codicon codicon-server-process" aria-hidden="true" />
+            生产模式
+          </button>
+        </div>
         {snapshot.identity ? (
           <dl>
             <dt>Workspace</dt>
@@ -256,11 +282,11 @@ export function WorkbenchSessionGate({
             <button
               className="is-secondary"
               type="button"
-              aria-expanded={environmentOpen}
-              onClick={() => setEnvironmentOpen(value => !value)}
+              aria-expanded={configurationKind === 'hardware'}
+              onClick={() => setConfigurationKind('hardware')}
             >
               <span className="codicon codicon-settings-gear" aria-hidden="true" />
-              环境管理
+              调试配置
             </button>
             {onReadEnvironmentLog ? (
               <WorkbenchRuntimeLogLauncher
@@ -273,8 +299,11 @@ export function WorkbenchSessionGate({
           <DesktopWorkspaceSwitchButton />
         </footer>
       </section>
-      {environmentOpen
-        ? renderEnvironmentManager(() => setEnvironmentOpen(false))
+      {configurationKind
+        ? renderConfiguration(
+          configurationKind,
+          () => setConfigurationKind(null)
+        )
         : null}
       {switchingTo ? (
         <WorkbenchAuthorityLoading mode={switchingTo} />

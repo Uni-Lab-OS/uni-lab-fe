@@ -1,4 +1,16 @@
 .unilab-workbench {
+  --unilab-color-canvas: #f4f7fb;
+  --unilab-color-surface: #fff;
+  --unilab-color-surface-subtle: #f8fafd;
+  --unilab-color-text: #172033;
+  --unilab-color-text-muted: #738095;
+  --unilab-color-border: #e5eaf1;
+  --unilab-color-border-strong: #d9e0ea;
+  --unilab-color-primary: #3568ed;
+  --unilab-color-primary-soft: #eaf0ff;
+  --unilab-color-focus: #3568ed;
+  --unilab-radius-lg: 14px;
+  --unilab-shadow-panel: 0 12px 35px rgba(35, 53, 84, .08);
   position: relative;
   display: flex;
   container-name: unilab-workbench;
@@ -18,14 +30,15 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 50px;
-  padding: 8px 14px;
+  min-height: 58px;
+  padding: 8px 18px;
   border-bottom: 1px solid var(--unilab-color-border);
-  background: var(--unilab-color-surface);
-  box-shadow: var(--unilab-shadow-control);
+  background: #10192b;
+  box-shadow: 0 6px 22px rgba(16, 25, 43, .14);
 }
 
 .unilab-workbench__bar strong {
+  color: #fff;
   font-size: 18px;
   font-weight: 760;
   letter-spacing: -.02em;
@@ -60,6 +73,18 @@
   white-space: nowrap;
 }
 
+.unilab-workbench__identity > span:not(.unilab-workbench__view-mode) {
+  color: #aeb8c9;
+}
+
+.unilab-workbench__identity > .unilab-workbench__view-mode {
+  width: max-content;
+  padding: 3px 7px;
+  color: #bfcdf9;
+  border-radius: 999px;
+  background: #18243b;
+}
+
 .unilab-workbench__bar > .unilab-workbench__controls {
   display: flex;
   min-width: 0;
@@ -75,17 +100,17 @@
 
 .unilab-workbench__bar nav button {
   display: inline-flex;
-  height: 44px;
-  min-width: 76px;
+  height: 38px;
+  min-width: 0;
   box-sizing: border-box;
   align-items: center;
   justify-content: center;
   gap: 6px;
   padding: 6px 12px;
-  color: var(--unilab-color-text-muted);
-  border: 1px solid var(--unilab-color-border-strong);
-  border-radius: var(--unilab-radius-control);
-  background: var(--unilab-color-surface);
+  color: #c4cede;
+  border: 1px solid #2d3b54;
+  border-radius: 8px;
+  background: #18243b;
   font: 600 12px/1.2 var(--unilab-font-sans);
   cursor: pointer;
 }
@@ -118,9 +143,15 @@
 }
 
 .unilab-workbench__bar nav button.is-active {
-  color: var(--unilab-color-primary);
-  border-color: var(--unilab-color-focus);
-  background: var(--unilab-color-primary-soft);
+  color: #fff;
+  border-color: #5c83ee;
+  background: #3568ed;
+}
+
+.unilab-workbench__bar nav button:hover:not(:disabled) {
+  color: #fff;
+  border-color: #5c83ee;
+  background: #22324f;
 }
 
 .unilab-workbench__bar nav button:disabled {
@@ -223,6 +254,12 @@
   .unilab-workbench__bar > .unilab-workbench__controls nav button {
     flex: 0 0 auto;
     white-space: nowrap;
+  }
+
+  .unilab-workbench__bar > .unilab-workbench__controls nav {
+    width: 100%;
+    overflow-x: auto;
+    justify-content: flex-start;
   }
 }
 

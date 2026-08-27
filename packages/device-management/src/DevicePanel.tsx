@@ -80,7 +80,9 @@ export default function DevicePanel({
   services,
   backend,
   connection,
-  backendEnabled = true
+  backendEnabled = true,
+  selectedDeviceId: controlledSelectedDeviceId,
+  onSelectedDeviceChange
 }: DeviceManagementPanelProps): React.JSX.Element {
   const {
     devices,
@@ -89,7 +91,17 @@ export default function DevicePanel({
     lastUpdated,
     refresh
   } = useDevices({ services, backendEnabled, connection })
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
+  const [internalSelectedDeviceId, setInternalSelectedDeviceId] =
+    useState<string | null>(null)
+  const selectedDeviceId = controlledSelectedDeviceId !== undefined
+    ? controlledSelectedDeviceId
+    : internalSelectedDeviceId
+  const setSelectedDeviceId = useCallback((deviceId: string | null): void => {
+    if (controlledSelectedDeviceId === undefined) {
+      setInternalSelectedDeviceId(deviceId)
+    }
+    onSelectedDeviceChange?.(deviceId)
+  }, [controlledSelectedDeviceId, onSelectedDeviceChange])
   const [selectedActionRef, setSelectedActionRef] = useState<string | null>(null)
   const [argumentDraft, setArgumentDraft] = useState<ArgumentDraft>({})
   const [unlockIntent, setUnlockIntent] = useState<UnlockIntent | null>(null)

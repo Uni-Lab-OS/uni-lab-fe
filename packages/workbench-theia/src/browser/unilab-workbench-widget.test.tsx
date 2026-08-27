@@ -47,7 +47,7 @@ describe('WorkbenchSessionGate', () => {
     expect(errors).toEqual(['local reset is blocked'])
   })
 
-  it('keeps environment management reachable while OS readiness is blocked', () => {
+  it('opens simulation configuration while PLC readiness is blocked', () => {
     const markup = renderToStaticMarkup(
       <WorkbenchSessionGate
         snapshot={{
@@ -113,12 +113,9 @@ describe('WorkbenchSessionGate', () => {
         }}
         onRetry={vi.fn()}
         onStop={vi.fn()}
-        connectionSelector={(
-          <section aria-label="运行连接选择">连接 Backend</section>
-        )}
         onOpenLog={vi.fn()}
-        renderEnvironmentManager={onClose => (
-          <section aria-label="环境管理">
+        renderConfiguration={(kind, onClose) => (
+          <section aria-label={`${kind} 配置`}>
             <button onClick={onClose}>关闭</button>
             <button>启动 PLC-Sim</button>
           </section>
@@ -126,7 +123,7 @@ describe('WorkbenchSessionGate', () => {
       />
     )
 
-    expect(markup).toContain('环境管理')
+    expect(markup).toContain('simulation 配置')
     expect(markup).toContain('启动 PLC-Sim')
     expect(markup).toContain('PLC 连接失败')
     expect(markup).toContain('无法解析 PLC 的 OPC UA 主机名')
@@ -135,7 +132,9 @@ describe('WorkbenchSessionGate', () => {
     expect(markup).toContain('unilab-workbench-session-actions')
     expect(markup).toContain('class="is-primary"')
     expect(markup).toContain('codicon-settings-gear')
-    expect(markup).toContain('运行连接选择')
+    expect(markup).toContain('仿真调试')
+    expect(markup).toContain('真实设备调试')
+    expect(markup).toContain('生产模式')
     expect(markup).toContain('在编辑器中打开日志文件')
     expect(markup).toContain('/workspace/.unilabos/logs/workbench/os.log')
   })
@@ -182,7 +181,7 @@ describe('WorkbenchSessionGate', () => {
         }}
         onRetry={vi.fn()}
         onStop={vi.fn()}
-        renderEnvironmentManager={() => null}
+        renderConfiguration={() => null}
       />
     )
 
@@ -239,7 +238,7 @@ describe('WorkbenchSessionGate', () => {
         launchMode="backend"
         onRetry={vi.fn()}
         onStop={vi.fn()}
-        renderEnvironmentManager={() => null}
+        renderConfiguration={() => null}
       />
     )
 
@@ -291,7 +290,7 @@ describe('WorkbenchSessionGate', () => {
         launchMode="local"
         onRetry={vi.fn()}
         onStop={vi.fn()}
-        renderEnvironmentManager={() => null}
+        renderConfiguration={() => null}
       />
     )
 

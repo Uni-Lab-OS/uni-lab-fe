@@ -104,9 +104,9 @@ export class DeviceDomainEntryWidget extends UniLabDomainEntryWidget {
   protected readonly widgetId = DeviceDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
     mode: 'device',
-    label: '设备',
-    caption: '仪器设备 · 目录、参数与单动作运行',
-    description: '读取当前运行连接的设备动作，填写参数并运行单动作调试任务。',
+    label: '设备管理',
+    caption: '设备管理 · 目录、连接与调度状态',
+    description: '查看当前 Authority 提供的设备连接、派发与执行占用事实。',
     iconClass: 'unilab-activity-icon--device',
     eyebrow: 'INSTRUMENTS'
   }
@@ -118,9 +118,9 @@ export class RobotDebugDomainEntryWidget extends UniLabDomainEntryWidget {
   protected readonly widgetId = RobotDebugDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
     mode: 'robot-debug',
-    label: '动作调试',
-    caption: '动作调试 · 真实设备与单动作运行',
-    description: '读取当前运行连接的机械臂动作，并通过统一任务接口运行单动作调试。',
+    label: '设备动作',
+    caption: '设备动作 · 参数配置与单点调试',
+    description: '选择当前 Authority 提供的设备动作，并通过统一任务接口执行单点调试。',
     iconClass: 'unilab-activity-icon--robot-debug',
     eyebrow: 'ROBOT DEBUG'
   }

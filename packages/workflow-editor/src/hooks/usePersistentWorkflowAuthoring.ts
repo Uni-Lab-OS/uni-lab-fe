@@ -377,7 +377,7 @@ export function usePersistentWorkflowAuthoring({
     ? hideEmbeddedCodeEditor ? ideSourceDirty : editor.isDirty
     : canvasDirty || selectedNodeNameDirty
   const executionBlockedReason = executionStatus?.available === false
-    ? executionStatus.reason || 'OS 未就绪；请先在环境管理中启动 OS'
+    ? executionStatus.reason || 'OS 未就绪；请先在仿真调试或真实设备调试配置中启动 OS'
     : null
   const taskPanel = usePersistentWorkflowTaskPanel({
     runtime,

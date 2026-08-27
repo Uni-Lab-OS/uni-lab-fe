@@ -77,6 +77,28 @@ export interface WorkbenchReleaseTargetInspection {
   }
 }
 
+/** 生产模式使用的 Backend 与调度器（Scheduler）连接配置。 */
+export interface WorkbenchProductionConnectionConfiguration {
+  backendUrl: string
+  schedulerUrl: string
+}
+
+/** 单个生产端点的网络可达性结果，不代表业务能力已经就绪。 */
+export interface WorkbenchEndpointProbeResult {
+  url: string
+  reachable: boolean
+  status: number | null
+  latencyMs: number
+  message: string
+}
+
+/** Backend 与调度器（Scheduler）的一次成对连接检测结果。 */
+export interface WorkbenchProductionConnectionProbe {
+  checkedAt: string
+  backend: WorkbenchEndpointProbeResult
+  scheduler: WorkbenchEndpointProbeResult
+}
+
 export interface WorkbenchSessionIdentity {
   workspacePath: string
   osProjectPath: string
@@ -255,6 +277,12 @@ export interface WorkbenchSession {
   setRuntimeMode(mode: WorkbenchRuntimeMode): Promise<WorkbenchSessionSnapshot>
   setDomainAuthority(mode: WorkbenchDomainMode): Promise<WorkbenchSessionSnapshot>
   setSchedulerUrl(url: string | null): Promise<WorkbenchSessionSnapshot>
+  configureProductionConnection(
+    configuration: WorkbenchProductionConnectionConfiguration
+  ): Promise<WorkbenchSessionSnapshot>
+  probeProductionConnection(
+    configuration: WorkbenchProductionConnectionConfiguration
+  ): Promise<WorkbenchProductionConnectionProbe>
   publishRelease(options?: {
     activate?: boolean
     backendUrl?: string

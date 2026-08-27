@@ -13,108 +13,74 @@
   </head>
   <body>
     <main class="welcome-shell">
-      <aside class="instrument-panel" aria-label="UniLab 调试工作台">
-        <header class="brand-lockup">
-          <span class="brand-mark" aria-hidden="true">
-            <i></i><i></i><i></i>
-          </span>
-          <span>
-            <strong>UNI·LAB</strong>
-            <small>UNILAB WORKBENCH</small>
-          </span>
-        </header>
-
-        <div class="workspace-bay" aria-hidden="true">
-          <div class="workspace-bay__scale">
-            <span>00</span><span>08</span><span>16</span><span>24</span>
-          </div>
-          <div class="workspace-bay__channels">
-            <span class="channel channel--material"><i></i></span>
-            <span class="channel channel--workflow"><i></i><i></i><i></i></span>
-            <span class="channel channel--code"><i></i><i></i></span>
-          </div>
-          <div class="workspace-bay__caption">
-            <span>MAT</span><span>FLOW</span><span>CODE</span>
-          </div>
-        </div>
-
-        <footer class="instrument-meta">
-          <span>MANAGED LOCAL</span>
-          <span class="instrument-meta__ready"><i></i> STANDBY</span>
-        </footer>
-      </aside>
+      <header class="welcome-header">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="brand-copy"><strong>UNI·LAB</strong><small>WORKBENCH</small></span>
+        <span class="welcome-header__meta">LOCAL WORKSPACE</span>
+      </header>
 
       <section class="workspace-panel">
-        <div class="workspace-panel__content">
+        <div class="workspace-panel__intro">
           <p class="eyebrow">WORKSPACE / 工作区</p>
-          <h1>从一个实验项目开始</h1>
+          <h1>从一个实验工作区开始</h1>
           <p class="lead">
-            选择工作区后，Workbench 才会校验 Python 环境并启动 Theia、OS、Agent 与 PLC-Sim 控制面。
+            打开原有设备包工作区后，可选择仿真调试、真实设备调试或生产模式。当前版本无需登录。
           </p>
-
-          <div class="primary-actions" aria-label="工作区操作">
-            <button id="open-workspace" class="action action--primary" type="button">
-              <span class="action__index">01</span>
-              <span><strong>打开工作区</strong><small>选择已有项目目录</small></span>
-              <span class="action__arrow" aria-hidden="true">↗</span>
-            </button>
-            <button id="create-workspace" class="action" type="button">
-              <span class="action__index">02</span>
-              <span><strong>新建工作区</strong><small>创建目录并立即打开</small></span>
-              <span class="action__arrow" aria-hidden="true">＋</span>
-            </button>
-          </div>
-
-          <section class="runtime-panel" id="runtime-panel" aria-live="polite" hidden>
-            <span class="runtime-panel__indicator" id="runtime-indicator" aria-hidden="true"></span>
-            <span class="runtime-panel__content">
-              <small>LOCAL RUNTIME / 本地运行环境</small>
-              <strong id="runtime-title">正在检查 UniLab 环境</strong>
-              <span id="runtime-detail">检查现有环境与安装包内置 Runtime…</span>
-            </span>
-            <div class="runtime-panel__controls">
-              <label id="runtime-selector-label" class="runtime-panel__selector" hidden>
-                <span>UniLab 环境</span>
-                <select id="runtime-selector" aria-label="选择 UniLab 环境"></select>
-              </label>
-              <button id="choose-runtime" type="button">选择已有环境</button>
-              <button id="install-runtime" type="button" hidden>安装内置 Runtime</button>
-            </div>
-          </section>
-
-          <section class="status-panel" id="status-panel" aria-live="polite" hidden>
-            <span class="status-panel__indicator" aria-hidden="true"></span>
-            <span>
-              <strong id="status-title">正在准备工作区</strong>
-              <small id="status-detail">校验目录与 Python 环境…</small>
-            </span>
-          </section>
-
-          <section class="error-panel" id="error-panel" role="alert" hidden>
-            <span class="error-panel__code">CHECK</span>
-            <span>
-              <strong>工作区未能启动</strong>
-              <small id="error-message"></small>
-            </span>
-          </section>
-
-          <section class="recent-section" aria-labelledby="recent-title">
-            <header>
-              <h2 id="recent-title">最近使用</h2>
-              <span id="recent-count">0 / 8</span>
-            </header>
-            <div id="recent-list" class="recent-list"></div>
-            <p id="recent-empty" class="recent-empty">
-              尚无最近工作区。成功启动后会在这台电脑上保留路径记录。
-            </p>
-          </section>
         </div>
 
-        <footer class="workspace-footer">
-          <span>路径仅保存在本机</span>
-          <span>ESC 取消系统目录选择</span>
-        </footer>
+        <div class="primary-actions" aria-label="工作区操作">
+          <button id="open-workspace" class="action action--primary" type="button">
+            <span class="action__index">01</span>
+            <span class="action__icon" aria-hidden="true">↗</span>
+            <span><strong>打开工作区</strong><small>选择已有设备包项目目录</small></span>
+            <span class="action__arrow" aria-hidden="true">→</span>
+          </button>
+          <button id="create-workspace" class="action" type="button">
+            <span class="action__index">02</span>
+            <span class="action__icon" aria-hidden="true">＋</span>
+            <span><strong>新建工作区</strong><small>创建目录并进入工作台</small></span>
+            <span class="action__arrow" aria-hidden="true">→</span>
+          </button>
+        </div>
+
+        <section class="runtime-panel" id="runtime-panel" aria-live="polite" hidden>
+          <span class="runtime-panel__indicator" id="runtime-indicator" aria-hidden="true"></span>
+          <span class="runtime-panel__content">
+            <small>UNILAB ENVIRONMENT / 执行依赖</small>
+            <strong id="runtime-title">正在检查 UniLab 环境</strong>
+            <span id="runtime-detail">检查现有环境与应用内置 Runtime…</span>
+          </span>
+          <div class="runtime-panel__controls">
+            <label id="runtime-selector-label" class="runtime-panel__selector" hidden>
+              <span>UniLab 环境</span>
+              <select id="runtime-selector" aria-label="选择 UniLab 环境"></select>
+            </label>
+            <button id="choose-runtime" type="button">选择已有环境</button>
+            <button id="install-runtime" type="button" hidden>安装内置 Runtime</button>
+          </div>
+        </section>
+
+        <section class="status-panel" id="status-panel" aria-live="polite" hidden>
+          <span class="status-panel__indicator" aria-hidden="true"></span>
+          <span><strong id="status-title">正在准备工作区</strong><small id="status-detail">校验目录与本地服务…</small></span>
+        </section>
+
+        <section class="error-panel" id="error-panel" role="alert" hidden>
+          <span class="error-panel__code">CHECK</span>
+          <span><strong>工作区未能启动</strong><small id="error-message"></small></span>
+        </section>
+
+        <section class="recent-section" aria-labelledby="recent-title">
+          <header><div><p class="eyebrow">RECENT</p><h2 id="recent-title">最近使用</h2></div><span id="recent-count">0 / 8</span></header>
+          <div id="recent-list" class="recent-list"></div>
+          <p id="recent-empty" class="recent-empty">尚无最近工作区。成功启动后会在这台电脑上保留路径记录。</p>
+        </section>
       </section>
+
+      <footer class="workspace-footer">
+        <span>工作区路径仅保存在本机</span>
+        <span>ESC 取消系统目录选择</span>
+      </footer>
     </main>
     <script src="./welcome.js"></script>
   </body>

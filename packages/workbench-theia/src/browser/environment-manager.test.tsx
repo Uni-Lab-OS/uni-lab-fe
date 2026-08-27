@@ -19,7 +19,7 @@ describe('EnvironmentManager', () => {
     )
 
     expect(markup).toContain(
-      '<button type="button">重建本地数据</button>'
+      '<button type="button">重置运行数据</button>'
     )
     expect(markup).toContain('本地数据损坏')
   })
@@ -157,7 +157,7 @@ function failedSession(): WorkbenchSessionSnapshot {
     diagnostic: {
       code: 'os_start_failed',
       message: '本地数据损坏',
-      recovery: '重建本地数据'
+      recovery: '重置运行数据'
     },
     edgeRuntime: {
       phase: 'idle',

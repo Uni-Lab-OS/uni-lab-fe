@@ -373,7 +373,7 @@ function PointFileWorkspace({
               </button>
               <button className={buttonClass()} type="button" disabled title="未连接设备执行端">
                 <WorkstationIcon name="jog" />
-                进入动作调试
+                进入设备动作
               </button>
             </div>
           </div>

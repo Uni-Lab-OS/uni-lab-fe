@@ -19,9 +19,9 @@ describe('PersistentWorkflowToolbar', () => {
     expect(html).toContain('画布模式')
     expect(html).toContain('aria-label="保存工作流"')
     expect(html).toContain('aria-label="开始运行"')
-    expect(html).toContain('aria-label="复位运行环境"')
+    expect(html).toContain('aria-label="重置运行数据"')
     expect(html.indexOf('aria-label="开始运行"')).toBeLessThan(
-      html.indexOf('aria-label="复位运行环境"')
+      html.indexOf('aria-label="重置运行数据"')
     )
     expect(html).toContain('正常运行')
     expect(html).toContain('运行设置，当前为正常运行')
@@ -46,7 +46,7 @@ describe('PersistentWorkflowToolbar', () => {
     )
 
     expect(html).toMatch(
-      /<button[^>]*aria-label="复位运行环境"[^>]*disabled=""[^>]*data-disabled-reason="正在处理运行环境，请稍候"/
+      /<button[^>]*aria-label="重置运行数据"[^>]*disabled=""[^>]*data-disabled-reason="正在处理运行数据，请稍候"/
     )
   })
 

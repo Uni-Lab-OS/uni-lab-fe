@@ -147,7 +147,7 @@ export function usePersistentWorkflowCatalogs({
         setMaterialSourceCatalogLoading(false)
       }
       if (!actionRequestIsCurrent || !materialSourceRequestIsCurrent) {
-        throw new Error('目录刷新已被较新的运行环境请求替代，请重试')
+        throw new Error('目录刷新已被较新的运行数据请求替代，请重试')
       }
       if (materialSourceResult.status === 'rejected') {
         throw materialSourceResult.reason

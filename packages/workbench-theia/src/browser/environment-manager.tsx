@@ -361,7 +361,7 @@ export function EnvironmentManager({
                   void run('rebuild-local-data', onRebuildLocalData)
                 }
               }}
-            >重建本地数据</button>
+            >重置运行数据</button>
           )}
         />
         <EnvironmentStatusCard
@@ -533,7 +533,7 @@ export function EnvironmentManager({
                 className="is-primary"
                 disabled={Boolean(busyAction) || !graphPath.trim()}
                 onClick={() => void applyGraphPath()}
-              >{session.phase === 'ready' ? '应用设备图并重建本地数据' : '保存设备图'}</button>
+              >{session.phase === 'ready' ? '应用设备图并重置运行数据' : '保存设备图'}</button>
               <button
                 type="button"
                 className="is-port-action"
@@ -1038,7 +1038,7 @@ export function RuntimeModeControl({
         'dry-run',
         'Dry-run',
         '仅模拟，不下发设备；下次启动生效',
-        '动作返回模拟成功；切换模式不会重启 OS 或重建本地数据'
+        '动作返回模拟成功；切换模式不会重启 OS 或重置运行数据'
       )}
     </div>
   )

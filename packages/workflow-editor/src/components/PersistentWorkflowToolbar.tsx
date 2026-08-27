@@ -257,7 +257,7 @@ export function PersistentWorkflowToolbar({
         <WorkflowButton
           type="button"
           className="persistent-authoring__debug-icon"
-          aria-label="复位运行环境"
+          aria-label="重置运行数据"
           disabled={
             !onResetEnvironment ||
             busy ||
@@ -267,22 +267,22 @@ export function PersistentWorkflowToolbar({
             dirty
           }
           disabledReason={!onResetEnvironment
-            ? '当前宿主不支持复位运行环境'
+            ? '当前宿主不支持重置运行数据'
             : liveTask
               ? '工作流运行期间不能复位环境'
               : environmentResetBusy || runningEntryBusy
-                ? '正在处理运行环境，请稍候'
+                ? '正在处理运行数据，请稍候'
                 : dirty
                   ? '请先保存当前工作流修改'
                   : busy
                     ? '正在处理工作流编写操作，请稍候'
-                    : '当前运行环境暂时不能复位'}
+                    : '当前运行数据暂时不能重置'}
           title={environmentResetBusy
-            ? '正在复位运行环境'
+            ? '正在重置运行数据'
             : '复位 PLC 与 Backend 物料状态'}
           onClick={() => {
             if (!onResetEnvironment || !globalThis.confirm(
-              '确定复位运行环境吗？\n\n将重启 PLC-Sim，并使用当前设备图清空并重建 Backend 物料与库位状态。'
+              '确定重置运行数据吗？\n\n将重启 PLC-Sim，并使用当前设备图清空并重建 Backend 物料与库位状态。'
             )) return
             void onResetEnvironment()
           }}

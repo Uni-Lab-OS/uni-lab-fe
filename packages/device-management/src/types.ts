@@ -17,4 +17,6 @@ export interface DeviceManagementPanelProps {
   backend: DeviceManagementBackend
   connection: DeviceManagementConnection
   backendEnabled?: boolean
+  selectedDeviceId?: string | null
+  onSelectedDeviceChange?: (deviceId: string | null) => void
 }

@@ -20,6 +20,7 @@ import {
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  DeviceManagementList,
   DeviceManagementPanel
 } from '@unilab/device-management'
 import {
@@ -54,6 +55,8 @@ import {
 import type {
   WorkbenchEnvironmentLogKind,
   WorkbenchPlcSimulatorConfiguration,
+  WorkbenchProductionConnectionConfiguration,
+  WorkbenchProductionConnectionProbe,
   WorkbenchReleaseReceipt,
   WorkbenchReleaseTargetInspection,
   WorkbenchRuntimeMode,
@@ -75,9 +78,12 @@ import {
 import { WorkbenchSessionClientImpl } from './workbench-session-client'
 import { desktopWorkflowTraceRuntime } from './desktop-workflow-trace-runtime'
 import { desktopWorkspaceApi } from './desktop-workspace'
-import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
-import { EnvironmentManager } from './environment-manager'
 import { createTheiaWorkflowIdeAdapter } from './theia-workflow-ide-adapter'
+import {
+  WorkbenchConfigurationDialog,
+  type WorkbenchConfigurationKind,
+  type WorkbenchConfigurationOperations
+} from './workbench-configuration-dialog'
 import {
   createWorkbenchConnectionTargets,
   createWorkbenchServices,
@@ -85,10 +91,7 @@ import {
   type WorkbenchConnectionTargets
 } from './workbench-connection-profile'
 import { preflightWorkbenchRuntimeAuthority } from './workbench-domain-authority'
-import {
-  WorkbenchConnectionSelector,
-  type WorkbenchConnectionState
-} from './workbench-connection-selector'
+import type { WorkbenchConnectionState } from './workbench-connection-selector'
 import {
   currentBrowserOrigin,
   initialWorkbenchConnectionMode,
@@ -99,12 +102,10 @@ import {
 import { useRobotWorkstationData } from './robot-workstation-data'
 import { WorkbenchDomainLayout } from './workbench-domain-layout'
 import { WorkbenchMaterialViewport } from './workbench-material-viewport'
+import { WorkbenchModeEntry } from './workbench-mode-entry'
+import { WorkbenchTopBar } from './workbench-top-bar'
 import { workbenchDeviceConnection } from './workbench-device-connection'
 import { workflowExecutionStatusForConnection } from './workbench-execution-readiness'
-import {
-  WorkbenchRuntimeLogLauncher,
-  workbenchRuntimeLogPaths
-} from './workbench-runtime-log-drawer'
 import {
   runAndRefreshWorkbenchOperation,
   WorkbenchAuthorityLoading,
@@ -343,17 +344,17 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     backendUrl: string
   ): Promise<void> => {
     if (this.lastReportedUnsavedChanges) {
-      throw new Error('请先保存当前工作流修改，再复位运行环境')
+      throw new Error('请先保存当前工作流修改，再重置运行数据')
     }
     try {
       await this.workbenchSession.stopPlcSimulator()
       await this.workbenchSession.startPlcSimulator()
       await this.publishRelease(backendUrl, true)
       this.recoveryRevision += 1
-      void this.messages.info('运行环境已复位，可以重新运行工作流')
+      void this.messages.info('运行数据已重置，可以重新运行工作流')
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      void this.messages.error(`运行环境复位失败：${message}`)
+      void this.messages.error(`运行数据重置失败：${message}`)
       throw error
     } finally {
       await this.refreshSessionSnapshot()
@@ -506,6 +507,84 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       throw error
     } finally {
       await this.refreshSessionSnapshot()
+    }
+  }
+
+  /**
+   * 保存生产 Backend 与调度器（Scheduler）配置并刷新权威快照。
+   *
+   * @param configuration 用户确认的生产连接地址。
+   * @returns Workspace Host 完成持久化后的 Promise。
+   * @safety 保存配置不会自动发布 WorkspaceRelease 或创建任务。
+   */
+  protected readonly configureProductionConnection = async (
+    configuration: WorkbenchProductionConnectionConfiguration
+  ): Promise<void> => {
+    try {
+      await this.workbenchSession.configureProductionConnection(configuration)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      void this.messages.error(`生产连接配置失败：${message}`)
+      throw error
+    } finally {
+      await this.refreshSessionSnapshot()
+    }
+  }
+
+  /**
+   * 通过 Node 会话接缝检测生产端点的网络可达性。
+   *
+   * @param configuration 本次检测使用且不会隐式保存的地址。
+   * @returns Backend 与调度器（Scheduler）的成对探测结果。
+   * @safety 该操作不切换权威、不发布数据也不创建任务。
+   */
+  protected readonly probeProductionConnection = async (
+    configuration: WorkbenchProductionConnectionConfiguration
+  ): Promise<WorkbenchProductionConnectionProbe> => {
+    return await this.workbenchSession.probeProductionConnection(configuration)
+  }
+
+  /**
+   * 打开 Theia 右侧助手入口，复用既有 Agent 面板生命周期。
+   *
+   * @returns 无返回值；只激活已注册的 Agent 导航组件。
+   * @safety 不创建新的 Agent 会话，也不改变 Workspace Host 运行状态。
+   */
+  protected readonly openAssistant = (): void => {
+    void this.shell.activateWidget('unilab:agent-navigation')
+  }
+
+  /**
+   * 从设备管理目录进入独立动作调试页面。
+   *
+   * @returns 无返回值；领域状态只切换主区，不运行任何设备动作。
+   * @safety 设备身份由 React 表面单独保存，领域切换不改变 OS 设备状态。
+   */
+  protected readonly openDeviceActions = (): void => {
+    this.viewState.toggle('robot-debug')
+  }
+
+  /**
+   * 组合配置弹窗允许调用的 Workbench Session 操作。
+   *
+   * @returns 仅经公共会话接口执行的配置与运行控制集合。
+   * @safety 模式入口只取得函数引用，任何有副作用操作仍需用户显式点击。
+   */
+  protected configurationOperations(): WorkbenchConfigurationOperations {
+    return {
+      configureGraph: this.configureGraph,
+      setExternalDevicesOnly: this.setExternalDevicesOnly,
+      configurePlcSimulator: this.configurePlcSimulator,
+      setRuntimeMode: this.setRuntimeMode,
+      startOs: this.retrySession,
+      stopOs: this.stopSession,
+      restartOs: this.restartSession,
+      startPlcSimulator: this.startPlcSimulator,
+      stopPlcSimulator: this.stopPlcSimulator,
+      resetRuntimeData: this.rebuildLocalData,
+      configureProductionConnection: this.configureProductionConnection,
+      probeProductionConnection: this.probeProductionConnection,
+      enterMode: (mode) => { void this.setConnectionMode(mode) }
     }
   }
 
@@ -818,44 +897,14 @@ export class UniLabWorkbenchWidget extends ReactWidget {
           onStop={this.stopWorkspaceBackend}
           launchMode={this.connectionSwitchingTo ?? this.connectionMode}
           switchingTo={this.connectionSwitchingTo}
-          connectionSelector={(
-            <WorkbenchConnectionSelector
-              targets={connectionTargets}
-              selectedMode={this.connectionMode}
-              connection={sessionConnectionState(this.sessionSnapshot.phase)}
-              switchBlockedReason={this.lastReportedUnsavedChanges
-                ? '请先保存当前工作流修改'
-                : this.connectionSwitchingTo
-                  ? '正在验证目标 Authority'
-                : null}
-              defaultOpen
-              onSelect={this.setConnectionMode}
-            />
-          )}
           onOpenLog={this.openSessionLog}
           onReadEnvironmentLog={this.readEnvironmentLog}
-          renderEnvironmentManager={onClose => (
-            <EnvironmentManager
+          renderConfiguration={(kind, onClose) => (
+            <WorkbenchConfigurationDialog
+              kind={kind}
               session={this.sessionSnapshot}
+              operations={this.configurationOperations()}
               onClose={onClose}
-              onRestartSession={this.restartSession}
-              onRebuildLocalData={this.rebuildLocalData}
-              onInspectReleaseTarget={this.inspectReleaseTarget}
-              onPublishRelease={this.publishRelease}
-              onReadEnvironmentLog={this.readEnvironmentLog}
-              onConfigureGraph={this.configureGraph}
-              onSetExternalDevicesOnly={this.setExternalDevicesOnly}
-              onConfigurePlcSimulator={this.configurePlcSimulator}
-              onRefreshPlcVariableTables={this.refreshPlcVariableTables}
-              onStartPlcSimulator={this.startPlcSimulator}
-              onStopPlcSimulator={this.stopPlcSimulator}
-              onReleaseEnvironmentPorts={this.releaseEnvironmentPorts}
-              onStartAgent={this.startAgent}
-              onStopAgent={this.stopAgent}
-              onRestartAgent={this.restartAgent}
-              onSetRuntimeMode={this.setRuntimeMode}
-              onSetSchedulerUrl={this.setSchedulerUrl}
-              onStopSession={this.stopSession}
             />
           )}
         />
@@ -871,33 +920,11 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         sessionClient={this.workbenchSessionClient}
         recoveryRevision={this.recoveryRevision}
         viewMode={this.viewState.currentMode}
-        switchBlockedReason={this.lastReportedUnsavedChanges
-          ? '请先保存当前工作流修改'
-          : this.connectionSwitchingTo
-            ? '正在验证目标 Authority'
-          : null}
-        onConnectionModeChange={this.setConnectionMode}
         onUnsavedChangesChange={this.setWorkflowPanelDirty}
-        onRestartSession={this.restartSession}
-        onRebuildLocalData={this.rebuildLocalData}
-        onInspectReleaseTarget={this.inspectReleaseTarget}
-        onPublishRelease={this.publishRelease}
         onResetWorkflowEnvironment={this.resetWorkflowEnvironment}
-        onReadEnvironmentLog={this.readEnvironmentLog}
-        onOpenLog={this.openSessionLog}
-        onConfigureGraph={this.configureGraph}
-        onSetExternalDevicesOnly={this.setExternalDevicesOnly}
-        onConfigurePlcSimulator={this.configurePlcSimulator}
-        onRefreshPlcVariableTables={this.refreshPlcVariableTables}
-        onStartPlcSimulator={this.startPlcSimulator}
-        onStopPlcSimulator={this.stopPlcSimulator}
-        onReleaseEnvironmentPorts={this.releaseEnvironmentPorts}
-        onStartAgent={this.startAgent}
-        onStopAgent={this.stopAgent}
-        onRestartAgent={this.restartAgent}
-        onSetRuntimeMode={this.setRuntimeMode}
-        onSetSchedulerUrl={this.setSchedulerUrl}
-        onStopSession={this.stopSession}
+        configurationOperations={this.configurationOperations()}
+        onOpenAssistant={this.openAssistant}
+        onOpenDeviceActions={this.openDeviceActions}
       />
     )
   }
@@ -922,29 +949,11 @@ function WorkbenchSurface({
   sessionClient,
   recoveryRevision,
   viewMode,
-  switchBlockedReason,
-  onConnectionModeChange,
   onUnsavedChangesChange,
-  onRestartSession,
-  onRebuildLocalData,
-  onInspectReleaseTarget,
-  onPublishRelease,
   onResetWorkflowEnvironment,
-  onReadEnvironmentLog,
-  onOpenLog,
-  onConfigureGraph,
-  onSetExternalDevicesOnly,
-  onConfigurePlcSimulator,
-  onRefreshPlcVariableTables,
-  onStartPlcSimulator,
-  onStopPlcSimulator,
-  onReleaseEnvironmentPorts,
-  onStartAgent,
-  onStopAgent,
-  onRestartAgent,
-  onSetRuntimeMode,
-  onSetSchedulerUrl,
-  onStopSession
+  configurationOperations,
+  onOpenAssistant,
+  onOpenDeviceActions
 }: {
   connectionMode: WorkbenchConnectionMode
   connectionSwitchingTo: WorkbenchConnectionMode | null
@@ -954,36 +963,11 @@ function WorkbenchSurface({
   sessionClient: WorkbenchSessionClientImpl
   recoveryRevision: number
   viewMode: WorkbenchViewMode
-  switchBlockedReason: string | null
-  onConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onUnsavedChangesChange: (hasUnsavedChanges: boolean) => void
-  onRestartSession: () => Promise<void>
-  onRebuildLocalData: () => Promise<void>
-  onInspectReleaseTarget: (
-    backendUrl: string
-  ) => Promise<WorkbenchReleaseTargetInspection>
-  onPublishRelease: (
-    backendUrl: string,
-    resetTarget?: boolean
-  ) => Promise<WorkbenchReleaseReceipt>
   onResetWorkflowEnvironment: (backendUrl: string) => Promise<void>
-  onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>
-  onOpenLog: (path: string) => Promise<void>
-  onConfigureGraph: (graphPath: string) => Promise<void>
-  onSetExternalDevicesOnly: (enabled: boolean) => Promise<void>
-  onConfigurePlcSimulator: (
-    configuration: WorkbenchPlcSimulatorConfiguration
-  ) => Promise<void>
-  onRefreshPlcVariableTables: () => Promise<void>
-  onStartPlcSimulator: () => Promise<void>
-  onStopPlcSimulator: () => Promise<void>
-  onReleaseEnvironmentPorts: (target: 'os' | 'plc-sim') => Promise<void>
-  onStartAgent: () => Promise<void>
-  onStopAgent: () => Promise<void>
-  onRestartAgent: () => Promise<void>
-  onSetRuntimeMode: (mode: WorkbenchRuntimeMode) => Promise<void>
-  onSetSchedulerUrl: (url: string | null) => Promise<void>
-  onStopSession: () => Promise<void>
+  configurationOperations: WorkbenchConfigurationOperations
+  onOpenAssistant: () => void
+  onOpenDeviceActions: () => void
 }): React.JSX.Element {
   const [selectedWorkflowNode, setSelectedWorkflowNode] =
     useState<string | null>(null)
@@ -991,7 +975,11 @@ function WorkbenchSurface({
     useState<WorkflowPanelRuntimeProjection | null>(null)
   const [selectedMaterialIds, setSelectedMaterialIds] =
     useState<readonly MaterialId[]>([])
-  const [environmentOpen, setEnvironmentOpen] = useState(false)
+  const [selectedActionDeviceId, setSelectedActionDeviceId] =
+    useState<string | null>(null)
+  const [configurationKind, setConfigurationKind] =
+    useState<WorkbenchConfigurationKind | null>(null)
+  const [modeEntryOpen, setModeEntryOpen] = useState(false)
   const [environmentResetBusy, setEnvironmentResetBusy] = useState(false)
   const reportWorkflowUnsavedChanges = useCallback(
     (hasUnsavedChanges: boolean): void => {
@@ -1017,6 +1005,9 @@ function WorkbenchSurface({
   const query = new URLSearchParams(globalThis.location.search)
   const workflowUuid = query.get('workflowUuid') ?? undefined
   const selectedTarget = connectionTargets[connectionMode]
+  const workspaceLabel = session.identity
+    ? workspaceShortName(session.identity.workspacePath)
+    : '选择工作区'
   const services = useMemo(
     () => createWorkbenchServices(selectedTarget),
     [selectedTarget.cacheKey]
@@ -1027,24 +1018,16 @@ function WorkbenchSurface({
       : createWorkbenchServices(connectionTargets.backend),
     [connectionMode, connectionTargets.backend.cacheKey, services]
   )
-  const [connectionProbeRevision, setConnectionProbeRevision] = useState(0)
   const backendTargetConnection = useBackendConnectionState(
     'backend',
     backendProbeServices,
-    connectionProbeRevision
+    0
   )
   const connection = workbenchConnectionState(
     connectionMode,
     session.phase,
     backendTargetConnection
   )
-  /** 重新执行当前 Backend 健康探测，不创建或推进任何工作流任务。 */
-  const retryConnection = useCallback((): void => {
-    setConnectionProbeRevision((revision) => revision + 1)
-  }, [])
-  const connectionRetry = connectionMode === 'backend'
-    ? retryConnection
-    : undefined
   const workstationData = useRobotWorkstationData(
     services,
     viewMode,
@@ -1211,13 +1194,17 @@ function WorkbenchSurface({
   const deviceSurface = (
     <section
       className="unilab-workbench__surface unilab-workbench__surface--device"
-      aria-label="仪器设备窗口"
+      aria-label="设备管理窗口"
     >
-      <DeviceManagementPanel
+      <DeviceManagementList
         services={services}
         backend={deviceBackend}
         backendEnabled={Boolean(selectedTarget.backend.apiUrl)}
         connection={deviceConnection}
+        onOpenActions={(deviceId) => {
+          setSelectedActionDeviceId(deviceId)
+          onOpenDeviceActions()
+        }}
       />
     </section>
   )
@@ -1234,6 +1221,8 @@ function WorkbenchSurface({
             backend={deviceBackend}
             backendEnabled={Boolean(selectedTarget.backend.apiUrl)}
             connection={deviceConnection}
+            selectedDeviceId={selectedActionDeviceId}
+            onSelectedDeviceChange={setSelectedActionDeviceId}
           />
         ) : undefined}
         pointStatus={workstationData.pointStatus}
@@ -1273,74 +1262,26 @@ function WorkbenchSurface({
         data-backend-id={selectedTarget.backend.id}
         data-backend-api-url={selectedTarget.backend.apiUrl}
       >
-        <header className="unilab-workbench__bar">
-          <div className="unilab-workbench__identity">
-            <strong>Unilab 调试工作台</strong>
-            <span>
-              {session.identity
-                ? `Workspace Backend PID ${session.identity.pid} · ${session.identity.mode} · ${session.identity.backendUrl}`
-                : 'Workspace Backend 尚未启动'}
-            </span>
-            <span className="unilab-workbench__view-mode">
-              {workbenchViewLabel(viewMode)}
-            </span>
-          </div>
-          <div className="unilab-workbench__controls">
-            <WorkbenchConnectionSelector
-              targets={connectionTargets}
-              selectedMode={connectionMode}
-              connection={connection}
-              targetConnections={{
-                local: sessionConnectionState(session.phase),
-                backend: backendTargetConnection
-              }}
-              switchBlockedReason={switchBlockedReason}
-              onRetry={connectionRetry}
-              onSelect={onConnectionModeChange}
-            />
-            <nav aria-label="调试工作台页面">
-              <WorkbenchRuntimeLogLauncher
-                onReadLog={onReadEnvironmentLog}
-                logPaths={workbenchRuntimeLogPaths(session)}
-                onOpenLog={onOpenLog}
-              />
-              <button
-                className={environmentOpen ? 'is-active' : ''}
-                aria-expanded={environmentOpen}
-                onClick={() => setEnvironmentOpen(value => !value)}
-              >
-                <span
-                  className={`unilab-environment-trigger__status is-${session.phase}`}
-                  aria-hidden="true"
-                />
-                环境管理
-              </button>
-              <DesktopWorkspaceSwitchButton />
-            </nav>
-          </div>
-        </header>
-        {environmentOpen ? (
-          <EnvironmentManager
+        <WorkbenchTopBar
+          connectionMode={connectionMode}
+          configurationKind={configurationKind}
+          identityLabel={session.identity
+            ? `${workspaceLabel} · ${
+              connectionMode === 'backend' ? '生产模式' : '调试模式'
+            }`
+            : 'Workspace Backend 尚未启动'}
+          viewLabel={workbenchViewLabel(viewMode)}
+          workspaceLabel={workspaceLabel}
+          onConfigure={setConfigurationKind}
+          onExitMode={() => setModeEntryOpen(true)}
+          onOpenAssistant={onOpenAssistant}
+        />
+        {configurationKind ? (
+          <WorkbenchConfigurationDialog
+            kind={configurationKind}
             session={session}
-            onClose={() => setEnvironmentOpen(false)}
-            onRestartSession={onRestartSession}
-            onRebuildLocalData={onRebuildLocalData}
-            onInspectReleaseTarget={onInspectReleaseTarget}
-            onPublishRelease={onPublishRelease}
-            onReadEnvironmentLog={onReadEnvironmentLog}
-            onConfigureGraph={onConfigureGraph}
-            onSetExternalDevicesOnly={onSetExternalDevicesOnly}
-            onConfigurePlcSimulator={onConfigurePlcSimulator}
-            onRefreshPlcVariableTables={onRefreshPlcVariableTables}
-            onStartPlcSimulator={onStartPlcSimulator}
-            onStopPlcSimulator={onStopPlcSimulator}
-            onReleaseEnvironmentPorts={onReleaseEnvironmentPorts}
-            onStartAgent={onStartAgent}
-            onStopAgent={onStopAgent}
-            onRestartAgent={onRestartAgent}
-            onSetRuntimeMode={onSetRuntimeMode}
-            onSetSchedulerUrl={onSetSchedulerUrl}
-            onStopSession={onStopSession}
+            operations={configurationOperations}
+            onClose={() => setConfigurationKind(null)}
           />
         ) : null}
         <WorkbenchDomainLayout
@@ -1369,6 +1310,16 @@ function WorkbenchSurface({
         />
         {connectionSwitchingTo ? (
           <WorkbenchAuthorityLoading mode={connectionSwitchingTo} />
+        ) : null}
+        {modeEntryOpen ? (
+          <WorkbenchModeEntry
+            workspaceLabel={workspaceLabel}
+            onConfigure={(kind) => {
+              setModeEntryOpen(false)
+              setConfigurationKind(kind)
+            }}
+            onReturn={() => setModeEntryOpen(false)}
+          />
         ) : null}
       </div>
     </QueryClientProvider>
@@ -1424,12 +1375,22 @@ function mountedSurface(
 /** 返回 Workbench 标题栏使用的当前领域短名称。 */
 function workbenchViewLabel(mode: WorkbenchViewMode): string {
   if (mode === 'split') return '工作流 + 物料'
-  if (mode === 'device-material') return '仪器设备 + 物料'
+  if (mode === 'device-material') return '设备管理 + 物料'
   if (mode === 'workflow') return '工作流'
   if (mode === 'material') return '物料'
-  if (mode === 'device') return '仪器设备'
+  if (mode === 'device') return '设备管理'
   if (isRobotWorkbenchViewMode(mode)) return workstationViewLabel(mode)
   return '未打开面板'
+}
+
+/**
+ * 从跨平台工作区路径提取供顶部导航使用的稳定短名称。
+ *
+ * @param workspacePath Workspace Host 返回的绝对或相对路径。
+ * @returns 最后一个非空路径段；路径缺失时返回“选择工作区”。
+ */
+function workspaceShortName(workspacePath: string): string {
+  return workspacePath.split(/[\\/]/).filter(Boolean).at(-1) ?? '选择工作区'
 }
 
 /**
@@ -1450,7 +1411,7 @@ function workstationModule(mode: WorkbenchViewMode): WorkstationModule {
  * @returns 当前功能入口的短标题。
  */
 function workstationViewLabel(mode: `robot-${string}`): string {
-  if (mode === 'robot-debug') return '动作调试'
+  if (mode === 'robot-debug') return '设备动作'
   if (mode === 'robot-points') return '点位管理'
   if (mode === 'robot-bench') return '实验台'
   return '试剂'

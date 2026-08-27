@@ -1,6 +1,8 @@
 import './DevicePanel.module.scss'
 
 export { default as DeviceManagementPanel } from './DevicePanel'
+export { DeviceManagementList } from './DeviceManagementList'
+export type { DeviceManagementListProps } from './DeviceManagementList'
 export type {
   DeviceManagementBackend,
   DeviceManagementConnection,

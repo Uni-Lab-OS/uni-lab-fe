@@ -1,0 +1,161 @@
+.unilab-mode-entry {
+  position: absolute;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  overflow: auto;
+  padding: 32px;
+  place-items: center;
+  color: #172033;
+  background: #f4f7fb;
+}
+
+.unilab-mode-entry__panel {
+  width: min(920px, 100%);
+  padding: 28px;
+  border: 1px solid #e5eaf1;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 12px 35px rgba(35, 53, 84, .08);
+}
+
+.unilab-mode-entry__panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #e5eaf1;
+}
+
+.unilab-mode-entry__brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.unilab-mode-entry__brand > span {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  background: #10192b;
+}
+
+.unilab-mode-entry__brand i {
+  display: block;
+  width: 4px;
+  border-radius: 2px;
+  background: #fff;
+}
+.unilab-mode-entry__brand i:nth-child(1) { height: 8px; }
+.unilab-mode-entry__brand i:nth-child(2) { height: 16px; background: #12a9b4; }
+.unilab-mode-entry__brand i:nth-child(3) { height: 11px; background: #3568ed; }
+.unilab-mode-entry__brand div { display: grid; }
+.unilab-mode-entry__brand strong { font-size: 16px; letter-spacing: .04em; }
+.unilab-mode-entry__brand small { color: #738095; font-size: 9px; letter-spacing: .14em; }
+
+.unilab-mode-entry__intro { padding: 42px 2px 26px; }
+.unilab-mode-entry__intro > span {
+  color: #3568ed;
+  font-size: 10px;
+  font-weight: 760;
+  letter-spacing: .14em;
+}
+.unilab-mode-entry__intro h1 {
+  margin: 7px 0 8px;
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1.15;
+  letter-spacing: -.03em;
+}
+.unilab-mode-entry__intro p { margin: 0; color: #738095; font-size: 13px; }
+
+.unilab-mode-entry__cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.unilab-mode-entry__card {
+  position: relative;
+  display: grid;
+  min-height: 220px;
+  grid-template-rows: auto 48px auto 1fr auto;
+  gap: 10px;
+  padding: 18px;
+  text-align: left;
+  color: #172033;
+  border: 1px solid #e5eaf1;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: none;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.unilab-mode-entry__card:hover {
+  transform: translateY(-2px);
+  border-color: #9bb3f4;
+  box-shadow: 0 12px 35px rgba(35, 53, 84, .08);
+}
+
+.unilab-mode-entry__card-index { color: #9aa5b5; font: 700 10px/1 monospace; }
+.unilab-mode-entry__card > .codicon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  color: #3568ed;
+  border-radius: 12px;
+  place-items: center;
+  background: #eaf0ff;
+  font-size: 21px;
+}
+.unilab-mode-entry__card[data-accent='cyan'] > .codicon {
+  color: #12a9b4;
+  background: #e8f8f9;
+}
+.unilab-mode-entry__card[data-accent='navy'] > .codicon {
+  color: #fff;
+  background: #10192b;
+}
+.unilab-mode-entry__card strong { font-size: 17px; }
+.unilab-mode-entry__card small { color: #738095; font-size: 11px; line-height: 1.55; }
+.unilab-mode-entry__card-action { color: #3568ed; font-size: 11px; font-weight: 720; }
+
+.unilab-mode-entry__panel > footer {
+  display: flex;
+  justify-content: center;
+  padding-top: 22px;
+}
+.unilab-mode-entry__panel > footer button,
+.unilab-mode-entry__panel > header .unilab-workspace-switch {
+  min-height: 36px;
+  padding: 0 13px;
+  color: #566176;
+  border: 1px solid #d9e0ea;
+  border-radius: 8px;
+  background: #fff;
+  font: 650 12px/1.2 var(--unilab-font-sans);
+  cursor: pointer;
+}
+
+@container unilab-workbench (max-width: 720px) {
+  .unilab-mode-entry { padding: 12px; place-items: start center; }
+  .unilab-mode-entry__panel { padding: 18px; }
+  .unilab-mode-entry__cards { grid-template-columns: 1fr; }
+  .unilab-mode-entry__card {
+    min-height: 0;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+  }
+  .unilab-mode-entry__card-index { grid-column: 1; }
+  .unilab-mode-entry__card > .codicon { grid-row: 2 / span 2; }
+  .unilab-mode-entry__card strong,
+  .unilab-mode-entry__card small { grid-column: 2; }
+  .unilab-mode-entry__card-action { grid-column: 1 / -1; }
+}

@@ -333,7 +333,7 @@ describe('WorkflowStartFlow', () => {
     const context = {
       aggregate: authoringAggregate(),
       dirty: true,
-      blockedReason: 'OS 尚未启动；请先在环境管理中启动 OS',
+      blockedReason: 'OS 尚未启动；请先在仿真调试或真实设备调试配置中启动 OS',
       editMode: 'canvas' as const
     }
 

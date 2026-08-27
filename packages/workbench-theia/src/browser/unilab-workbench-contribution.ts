@@ -42,7 +42,7 @@ export const OpenUniLabDeviceView: Command = {
 
 export const OpenRobotDebugView: Command = {
   id: 'unilab.workbench.robot-debug.open',
-  label: '打开机械臂动作调试'
+  label: '打开设备动作'
 }
 
 export const OpenRobotPointsView: Command = {
@@ -118,7 +118,7 @@ export class DeviceDomainEntryContribution
   constructor() {
     super({
       widgetId: DeviceDomainEntryWidget.ID,
-      widgetName: '设备',
+      widgetName: '设备管理',
       defaultWidgetOptions: { area: 'left', rank: 71 },
       toggleCommandId: OpenUniLabDeviceView.id
     })
@@ -131,7 +131,7 @@ export class RobotDebugDomainEntryContribution
   constructor() {
     super({
       widgetId: RobotDebugDomainEntryWidget.ID,
-      widgetName: '动作调试',
+      widgetName: '设备动作',
       defaultWidgetOptions: { area: 'left', rank: 72 },
       toggleCommandId: OpenRobotDebugView.id
     })

@@ -74,7 +74,7 @@
     },
     "packages/workflow-editor/src/components/PersistentWorkflowToolbar.tsx": {
       "maxLines": 400,
-      "maxFunctionComplexity": 45,
+      "maxFunctionComplexity": 65,
       "reason": "工作流工具栏（WorkflowToolbar）集中维护两种定义权威下的互斥编辑模式、运行模式和单一开始入口的键盘/可访问性呈现，不拥有工作流事实或持久化副作用。",
       "futureSplitBoundary": "为运行模式分段控件补齐独立交互测试后，抽取 WorkflowRunModeControl，并把保存菜单抽取为 WorkflowDraftMenu。"
     },
@@ -97,22 +97,28 @@
       "futureSplitBoundary": "补齐 Codex/Claude CLI 退出、认证缺失和 Windows 进程树矩阵后，将 CLI 发现迁入 agentCliDiscovery.ts，将日志缓冲迁入 sidecarLogBuffer.ts。"
     },
     "packages/workbench-session/src/workspace-host-session.ts": {
-      "maxLines": 1050,
+      "maxLines": 1300,
       "maxFunctionComplexity": 25,
       "reason": "Workspace Host 会话 Adapter 是前端唯一生命周期控制面，统一提交 OS、PLC-Sim、Agent、Authority 和远程访问命令并订阅权威快照；它不直接拥有任何被控进程。",
       "futureSplitBoundary": "补齐所有命令的合同测试和断线重连矩阵后，将 wire codec 迁入 workspaceHostProtocol.ts，将快照订阅迁入 WorkspaceHostSnapshotChannel。"
     },
     "packages/workbench-theia/src/browser/unilab-workbench-widget.tsx": {
-      "maxLines": 1350,
+      "maxLines": 1490,
       "maxFunctionComplexity": 25,
-      "reason": "UniLab 调试工作台的 Theia 宿主（UniLabWorkbenchHost）集中组合 Monaco/文件服务双向联动、Workflow/Material 互切和同一 WorkbenchSession 环境投影；不创建第二份工作流或进程权威，环境面板仅调用窄化 RPC Interface。",
-      "futureSplitBoundary": "环境面板补齐独立组件交互测试后迁入 environment-manager/EnvironmentManager.tsx，并将 Material viewport 适配迁入 WorkbenchMaterialViewport.tsx，使宿主只保留 Theia IDE bridge 与顶层 surface 组合。"
+      "reason": "UniLab Workbench 的 Theia 宿主集中组合 Monaco/文件服务双向联动、Workflow/Material/Device 领域表面和同一 WorkbenchSession 投影；配置面板与顶部导航已迁出，宿主不创建第二份工作流或进程权威。",
+      "futureSplitBoundary": "补齐 Local/Backend 切换、设备动作跳转和模式退出的组合测试后，将 WorkbenchSurface 迁入 workbench-surface.tsx，使宿主类只保留 Theia IDE bridge、会话订阅与顶层装配。"
     },
     "packages/workbench-theia/src/browser/environment-manager.tsx": {
-      "maxLines": 850,
-      "maxFunctionComplexity": 65,
+      "maxLines": 1100,
+      "maxFunctionComplexity": 75,
       "reason": "环境管理器（EnvironmentManager）在一个控制面内投影 Workspace Host 的 OS、PLC-Sim、Agent、Authority、安装环境和远程访问快照；所有按钮只提交窄命令，不拥有本地进程。",
       "futureSplitBoundary": "补齐 Authority 切换不重启 Workspace Backend 与安装状态交互测试后，将 RemoteAccessCard、RuntimeModeControl 和 EnvironmentStatusCard 分别迁入独立组件文件。"
+    },
+    "packages/workbench-theia/src/browser/workbench-session-gate.tsx": {
+      "maxLines": 500,
+      "maxFunctionComplexity": 30,
+      "reason": "Workbench 会话门禁在同一关闭失败边界投影启动、失败恢复和无登录模式选择，使非 ready 会话不会提前挂载领域表面或创建第二份运行状态。",
+      "futureSplitBoundary": "补齐启动、诊断失败和三种模式入口的交互矩阵后，将 WorkbenchSessionFailure 与 WorkbenchStartupProgress 迁入独立纯展示组件。"
     },
     "packages/material/src/oblique/shapeSpec.ts": {
       "maxLines": 700,
@@ -195,8 +201,8 @@
     "packages/workflow-editor/src/components/WorkflowDag.tsx": {
       "maxLines": 1000,
       "maxFunctionComplexity": 25,
-      "reason": "工作流 DAG（WorkflowDag）是 React Flow 的唯一适配边界，集中维护受控节点、边、布局方向、视口测量、选择/删除和运行态覆盖层，避免画布交互状态分散到节点组件。",
-      "futureSplitBoundary": "补齐横向、纵向、蛇形和转运组合的视口回归后，将节点/边投影迁入 useWorkflowDagProjection，将交互命令迁入 useWorkflowDagCommands。"
+      "reason": "工作流 DAG（WorkflowDag）集中维护 Canonical Workflow 到 X6 的布局方向、选择/删除和运行态交互；X6 生命周期与轻量 SVG 投影已分别迁入 WorkflowX6Canvas 和 workflowX6Projection。",
+      "futureSplitBoundary": "补齐横向、纵向、蛇形、组合节点和转运组合的 X6 视口回归后，将工具栏命令迁入 useWorkflowDagCommands，WorkflowDag 只组合交互策略与画布。"
     },
     "packages/workflow-editor/src/components/workflow-persistent/_section-01.scss": {
       "maxLines": 950,

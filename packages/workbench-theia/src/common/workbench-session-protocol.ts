@@ -97,6 +97,8 @@ type WorkbenchSessionRemoteOperations = Pick<
   | 'setRuntimeMode'
   | 'setDomainAuthority'
   | 'setSchedulerUrl'
+  | 'configureProductionConnection'
+  | 'probeProductionConnection'
   | 'publishRelease'
   | 'inspectReleaseTarget'
 >

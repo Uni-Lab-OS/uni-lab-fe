@@ -53,12 +53,12 @@ describe('Backend 已有工作流运行投影', () => {
       busy: false,
       loadingTask: false,
       liveTask: false,
-      executionBlockedReason: 'OS 尚未启动；请先在环境管理中启动 OS',
+      executionBlockedReason: 'OS 尚未启动；请先在仿真调试或真实设备调试配置中启动 OS',
       preflightLoading: false,
       preflight: preflightReport('ready'),
       preflightError: null,
       targetRequired: false
-    })).toBe('OS 尚未启动；请先在环境管理中启动 OS')
+    })).toBe('OS 尚未启动；请先在仿真调试或真实设备调试配置中启动 OS')
   })
 
   /** 通过的预检显示执行范围，并允许主操作进入创建阶段。 */
