@@ -41,6 +41,7 @@ env:
   ELECTRON_VERSION: 33.4.11
   PORTABLE_NODE_VERSION: 24.14.0
   UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-9623b51c
+  UNILAB_RUNTIME_DOWNLOAD_TEST_TAG: workbench-runtime-download-test-0.11.3-9623b51c
   UNILAB_RUNTIME_VERSION: 0.11.3
   WINDOWS_RELEASE_TAG: ${{ github.ref == 'refs/heads/deploy-hot-update-test' && 'workbench-windows-hot-update-test' || 'workbench-windows-stable' }}
   UNILAB_WORKBENCH_UPDATE_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/deploy-hot-update-test' && 'workbench-windows-hot-update-test' || 'workbench-windows-stable' }}
@@ -51,6 +52,8 @@ jobs:
       UNILAB_CI_PACKAGE_MODE: ${{ github.event_name == 'push' && 'full' || inputs.mode }}
       UNILAB_WORKBENCH_COMPRESSION: ${{ github.event_name == 'workflow_dispatch' && inputs.compression || 'normal' }}
       UNILAB_WORKBENCH_RELEASE_CHANNEL: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/deploy-hot-update-test' && 'update-test' || 'test' }}
+      UNILAB_RUNTIME_DELIVERY: ${{ github.ref == 'refs/heads/deploy-windows-test' && 'download' || 'bundled' }}
+      UNILAB_RUNTIME_DOWNLOAD_URL: ${{ github.ref == 'refs/heads/deploy-windows-test' && 'https://github.com/Uni-Lab-OS/uni-lab-fe/releases/download/workbench-runtime-download-test-0.11.3-9623b51c/Uni-Lab-OS-0.11.3-win-64.exe' || '' }}
     # Node-gyp 11 does not yet recognize the Visual Studio 18 toolchain that
     # may be selected by windows-latest. Keep the native drivelist build on the
     # VS 2022 image until the dependency toolchain is upgraded.
@@ -136,6 +139,50 @@ jobs:
         run: |
           Write-Error "Required verified Runtime release is missing: $env:UNILAB_RUNTIME_RELEASE_TAG"
           throw 'Run the Publish Versioned Workbench Runtime workflow before packaging Workbench.'
+
+      # The production Runtime release remains a hidden Draft. This isolated
+      # prerelease gives only deploy-windows-test packages a credential-free,
+      # immutable URL so the installed app can exercise real online delivery.
+      - name: Publish isolated online Runtime test asset
+        if: github.ref == 'refs/heads/deploy-windows-test'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assetName = "Uni-Lab-OS-$env:UNILAB_RUNTIME_VERSION-win-64.exe"
+          $assetPath = ".runtime-source/dist/constructor/$assetName"
+          $expectedSize = (Get-Item $assetPath).Length
+          $expectedDigest = "sha256:$((Get-FileHash $assetPath -Algorithm SHA256).Hash.ToLowerInvariant())"
+
+          & gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:UNILAB_RUNTIME_DOWNLOAD_TEST_TAG" *> $null
+          if ($LASTEXITCODE -ne 0) {
+            & gh release create $env:UNILAB_RUNTIME_DOWNLOAD_TEST_TAG `
+              --repo $env:GITHUB_REPOSITORY `
+              --target $env:GITHUB_SHA `
+              --title "Workbench Runtime 在线下载测试 $env:UNILAB_RUNTIME_VERSION" `
+              --notes 'deploy-windows-test 的隔离在线 Runtime 下载源；不用于正式发布。' `
+              --prerelease
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to create online Runtime test release' }
+          }
+
+          $release = (& gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:UNILAB_RUNTIME_DOWNLOAD_TEST_TAG") | ConvertFrom-Json
+          $assets = @($release.assets | Where-Object { [string]$_.name -eq $assetName })
+          if ($assets.Count -eq 0) {
+            & gh release upload $env:UNILAB_RUNTIME_DOWNLOAD_TEST_TAG $assetPath `
+              --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to upload online Runtime test asset' }
+            $release = (& gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:UNILAB_RUNTIME_DOWNLOAD_TEST_TAG") | ConvertFrom-Json
+            $assets = @($release.assets | Where-Object { [string]$_.name -eq $assetName })
+          }
+          if ($assets.Count -ne 1 -or [long]$assets[0].size -ne $expectedSize) {
+            throw 'Online Runtime test asset name or size is not immutable'
+          }
+          if ($assets[0].digest -and [string]$assets[0].digest -ne $expectedDigest) {
+            throw "Online Runtime test asset digest mismatch: $($assets[0].digest)"
+          }
+
+          curl.exe --fail --location --retry 5 --retry-all-errors `
+            --range 0-0 --output NUL $env:UNILAB_RUNTIME_DOWNLOAD_URL
+          if ($LASTEXITCODE -ne 0) { throw 'Online Runtime test asset is not anonymously downloadable' }
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
@@ -533,6 +580,19 @@ jobs:
           if ($sizeReport.precompressedProfile -ne 'none') {
             throw "Production package uses an unsafe precompressed profile: $($sizeReport.precompressedProfile)"
           }
+          if ($env:UNILAB_RUNTIME_DELIVERY -eq 'download') {
+            $onlineRuntimeBudget = 1MB
+            $installerBudget = 250MB
+            $runtimeEntry = @($sizeReport.entries | Where-Object {
+              [string]$_.name -eq 'runtime-installer'
+            })
+            if ($runtimeEntry.Count -ne 1 -or [long]$runtimeEntry[0].bytes -gt $onlineRuntimeBudget) {
+              throw "Online Runtime manifest unexpectedly embeds the installer: $($runtimeEntry[0].bytes) bytes"
+            }
+            if ([long]$installer.Length -gt $installerBudget) {
+              throw "Online Windows installer exceeds 250 MiB budget: $($installer.Length) bytes"
+            }
+          }
           @"
           ## Windows Workbench packaging benchmark
 
@@ -540,6 +600,7 @@ jobs:
           | --- | ---: |
           | Build started (UTC+08:00) | $env:BUILD_STARTED_AT_CST |
           | Compression | $env:UNILAB_WORKBENCH_COMPRESSION |
+          | Runtime delivery | $env:UNILAB_RUNTIME_DELIVERY |
           | Production build | $env:WINDOWS_PRODUCTION_BUILD_SECONDS s |
           | Native packaging | $env:WINDOWS_PACKAGE_SECONDS s |
           | Build + packaging | $([int]$env:WINDOWS_PRODUCTION_BUILD_SECONDS + [int]$env:WINDOWS_PACKAGE_SECONDS) s |

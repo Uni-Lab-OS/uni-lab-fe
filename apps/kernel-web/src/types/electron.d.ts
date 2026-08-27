@@ -377,6 +377,7 @@ export type ManagedRuntimeInstallationPhase =
 export interface ManagedRuntimeInstallationSnapshot {
   phase: ManagedRuntimeInstallationPhase
   bundled: boolean
+  delivery?: 'bundled' | 'download' | null
   managed: boolean
   runtimeVersion: string | null
   platform: string | null

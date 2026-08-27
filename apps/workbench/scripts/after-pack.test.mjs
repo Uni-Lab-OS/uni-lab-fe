@@ -76,3 +76,34 @@ it('records the signed Windows Runtime Constructor digest after signing', async 
     await rm(appOutDir, { recursive: true, force: true })
   }
 })
+
+it('keeps an online Windows Runtime manifest without requiring an embedded EXE', async () => {
+  const appOutDir = await mkdtemp(join(tmpdir(), 'unilab-win-online-runtime-'))
+  const runtimeDirectory = join(appOutDir, 'resources', 'runtime-installer')
+  const manifest = {
+    schemaVersion: 2,
+    delivery: 'download',
+    runtimeVersion: '0.11.3',
+    platform: 'win-64',
+    installerFile: 'Uni-Lab-OS-0.11.3-win-64.exe',
+    sha256: 'a'.repeat(64),
+    downloadUrl:
+      'https://github.com/Uni-Lab-OS/uni-lab-fe/releases/download/workbench-runtime-download-test-0.11.3/Uni-Lab-OS-0.11.3-win-64.exe'
+  }
+  try {
+    await mkdir(runtimeDirectory, { recursive: true })
+    await writeFile(
+      join(runtimeDirectory, 'manifest.json'),
+      JSON.stringify(manifest)
+    )
+
+    await afterSign({ electronPlatformName: 'win32', appOutDir })
+
+    assert.deepEqual(JSON.parse(await readFile(
+      join(runtimeDirectory, 'manifest.json'),
+      'utf8'
+    )), manifest)
+  } finally {
+    await rm(appOutDir, { recursive: true, force: true })
+  }
+})
