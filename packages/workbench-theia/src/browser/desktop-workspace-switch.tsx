@@ -9,8 +9,10 @@ import { desktopWorkspaceApi } from './desktop-workspace'
  * @returns 桌面工作区能力可用时返回选择按钮，否则不渲染入口。
  */
 export function DesktopWorkspaceSwitchButton({
+  entryMode = 'debug',
   label = '选择工作区'
 }: {
+  entryMode?: 'debug' | 'production'
   label?: string
 } = {}): React.JSX.Element | null {
   const api = React.useMemo(() => desktopWorkspaceApi(), [])
@@ -34,12 +36,12 @@ export function DesktopWorkspaceSwitchButton({
     if (!api || switching) return
     setSwitching(true)
     try {
-      await api.selectDirectory()
+      await api.selectDirectory(entryMode)
       setSwitching(false)
     } catch {
       setSwitching(false)
     }
-  }, [api, switching])
+  }, [api, entryMode, switching])
 
   if (!available) return null
   return (

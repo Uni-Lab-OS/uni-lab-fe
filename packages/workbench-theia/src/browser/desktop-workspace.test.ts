@@ -32,6 +32,7 @@ describe('desktopWorkspaceApi', () => {
 
     expect(desktopWorkspaceApi()).toBe(api)
     await expect(desktopWorkspaceApi()?.getSnapshot()).resolves.toEqual(snapshot)
-    await expect(desktopWorkspaceApi()?.selectDirectory()).resolves.toEqual(snapshot)
+    await expect(desktopWorkspaceApi()?.selectDirectory('production')).resolves.toEqual(snapshot)
+    expect(api.selectDirectory).toHaveBeenCalledWith('production')
   })
 })

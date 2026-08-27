@@ -268,8 +268,12 @@ function createPackagedWorkspaceController(options) {
   const controller = Object.freeze({
     welcomeUrl: options.welcomeUrl,
     getSnapshot,
-    chooseAndOpen: kind => exclusively(() => chooseAndOpen(kind)),
-    openRecent: workspacePath => exclusively(() => openRecent(workspacePath)),
+    chooseAndOpen: (kind, entryMode) => exclusively(
+      () => chooseAndOpen(kind, entryMode)
+    ),
+    openRecent: (workspacePath, entryMode) => exclusively(
+      () => openRecent(workspacePath, entryMode)
+    ),
     openExplicit: workspacePath => exclusively(() => activateWorkspace(
       workspacePath,
       {
@@ -301,7 +305,7 @@ function createPackagedWorkspaceController(options) {
     return next
   }
 
-  async function chooseAndOpen(kind) {
+  async function chooseAndOpen(kind, entryMode = 'debug') {
     const selection = await dialog.showOpenDialog({
       title: kind === 'create' ? '新建 UniLab 工作区' : '打开 UniLab 工作区',
       buttonLabel: kind === 'create' ? '创建并打开' : '打开',
@@ -310,13 +314,13 @@ function createPackagedWorkspaceController(options) {
         : ['openDirectory', 'createDirectory']
     })
     if (selection.canceled || selection.filePaths.length !== 1) return null
-    return activateWorkspace(selection.filePaths[0])
+    return activateWorkspace(selection.filePaths[0], { entryMode })
   }
 
-  async function openRecent(workspacePath) {
+  async function openRecent(workspacePath, entryMode = 'debug') {
     const recent = recentWorkspaceForPath(config, workspacePath)
     if (!recent) throw failWorkspaceStart('最近工作区记录不存在或已失效。')
-    return activateWorkspace(recent.path)
+    return activateWorkspace(recent.path, { entryMode })
   }
 
   async function activateWorkspace(workspaceCandidate, explicit = {}) {
@@ -401,7 +405,8 @@ function createPackagedWorkspaceController(options) {
       const rendererUrl = createWorkbenchRendererUrl({
         port,
         workspace,
-        workflowUuid: options.parsed.workflowUuid
+        workflowUuid: options.parsed.workflowUuid,
+        entryMode: explicit.entryMode
       })
       await waitForWorkbench(rendererUrl, child, STARTUP_TIMEOUT_MS)
       candidateRemoteController = createPackagedRemoteController({

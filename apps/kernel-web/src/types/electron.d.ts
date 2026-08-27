@@ -353,9 +353,19 @@ export interface WorkbenchWorkspaceSnapshot {
 
 export interface DesktopWorkbenchWorkspaceApi {
   getSnapshot: () => Promise<WorkbenchWorkspaceSnapshot>
-  openDirectory: () => Promise<WorkbenchWorkspaceSnapshot>
-  createDirectory: () => Promise<WorkbenchWorkspaceSnapshot>
-  openRecent: (path: string) => Promise<WorkbenchWorkspaceSnapshot>
+  openDirectory: (
+    entryMode?: 'debug' | 'production'
+  ) => Promise<WorkbenchWorkspaceSnapshot>
+  createDirectory: (
+    entryMode?: 'debug' | 'production'
+  ) => Promise<WorkbenchWorkspaceSnapshot>
+  openRecent: (
+    path: string,
+    entryMode?: 'debug' | 'production'
+  ) => Promise<WorkbenchWorkspaceSnapshot>
+  selectDirectory: (
+    entryMode?: 'debug' | 'production'
+  ) => Promise<WorkbenchWorkspaceSnapshot>
   switchToWelcome: () => Promise<{
     switched: boolean
     snapshot: WorkbenchWorkspaceSnapshot

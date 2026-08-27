@@ -6,7 +6,7 @@ import * as React from 'react'
 
 import type { WorkbenchConnectionMode } from './workbench-connection-profile'
 import type { WorkbenchConfigurationKind } from './workbench-configuration-dialog'
-import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
+import { WorkbenchModeEntry } from './workbench-mode-entry'
 import {
   WorkbenchRuntimeLogLauncher,
   workbenchRuntimeLogPaths
@@ -189,116 +189,64 @@ export function WorkbenchSessionGate({
     }
   }, [snapshot.diagnostic?.code, snapshot.phase])
 
+  const entryStatus = snapshot.phase === 'failed'
+    ? { label: 'SERVICE ATTENTION', tone: 'attention' as const }
+    : launchLoading
+      ? { label: 'SERVICE STARTING', tone: 'idle' as const }
+      : { label: 'WORKSPACE SELECTED', tone: 'idle' as const }
+  const entryNotice = snapshot.diagnostic ? (
+    <div className="unilab-workbench-session-diagnostic" role="alert">
+      <strong>{diagnosticTitle(snapshot.diagnostic.code)}</strong>
+      <p>{snapshot.diagnostic.message}</p>
+      <p className="unilab-workbench-session-diagnostic__recovery">
+        <span>建议：</span>
+        {snapshot.diagnostic.recovery}
+      </p>
+      <code>诊断代码：{snapshot.diagnostic.code}</code>
+    </div>
+  ) : operationError ? (
+    <div className="unilab-workbench-session-diagnostic" role="alert">
+      <strong>操作失败</strong>
+      <p>{operationError}</p>
+    </div>
+  ) : null
+  const entrySupportActions = snapshot.phase === 'failed' ? (
+    <>
+      <button type="button" onClick={() => void start()}>
+        <span className="codicon codicon-refresh" aria-hidden="true" />
+        重新校验并启动 OS
+      </button>
+      {snapshot.identity?.logPath && onOpenLog ? (
+        <button
+          type="button"
+          title="在编辑器中打开日志文件；再次点击关闭"
+          onClick={() => void run(() => onOpenLog(snapshot.identity?.logPath ?? ''))}
+        >
+          <span className="codicon codicon-go-to-file" aria-hidden="true" />
+          打开 OS 日志
+        </button>
+      ) : null}
+      {onReadEnvironmentLog ? (
+        <WorkbenchRuntimeLogLauncher
+          onReadLog={onReadEnvironmentLog}
+          logPaths={workbenchRuntimeLogPaths(snapshot)}
+          onOpenLog={onOpenLog}
+        />
+      ) : null}
+    </>
+  ) : null
+
   return (
     <div className="unilab-workbench unilab-workbench-session-gate">
-      <section className="unilab-workbench-session-card" aria-live="polite">
-        <span className={`unilab-workbench-session-phase is-${snapshot.phase}`}>
-          {snapshot.phase}
-        </span>
-        <h2>准备当前工作区</h2>
-        <p>{snapshot.message}</p>
-        <div className="unilab-workbench-session-modes" aria-label="工作模式配置">
-          <button type="button" onClick={() => setConfigurationKind('simulation')}>
-            <span className="codicon codicon-beaker" aria-hidden="true" />
-            仿真调试
-          </button>
-          <button type="button" onClick={() => setConfigurationKind('hardware')}>
-            <span className="codicon codicon-plug" aria-hidden="true" />
-            真实设备调试
-          </button>
-          <button type="button" onClick={() => setConfigurationKind('production')}>
-            <span className="codicon codicon-server-process" aria-hidden="true" />
-            生产模式
-          </button>
-        </div>
-        {snapshot.identity ? (
-          <dl>
-            <dt>Workspace</dt>
-            <dd>{snapshot.identity.workspacePath}</dd>
-            <dt>OS PID</dt>
-            <dd>{snapshot.identity.pid || '—'}</dd>
-            <dt>Generation</dt>
-            <dd>{snapshot.identity.generation}</dd>
-            <dt>Backend</dt>
-            <dd>{snapshot.identity.backendUrl}</dd>
-            <div className="unilab-workbench-session-log">
-              <dt>Log</dt>
-              <dd>
-                {onOpenLog ? (
-                  <button
-                    type="button"
-                    title="在编辑器中打开日志文件；再次点击关闭"
-                    onClick={() => void run(
-                      () => onOpenLog(snapshot.identity?.logPath ?? '')
-                    )}
-                  >
-                    <span className="codicon codicon-go-to-file" aria-hidden="true" />
-                    <span>{snapshot.identity.logPath}</span>
-                  </button>
-                ) : snapshot.identity.logPath}
-              </dd>
-            </div>
-          </dl>
-        ) : null}
-        {snapshot.diagnostic ? (
-          <div className="unilab-workbench-session-diagnostic" role="alert">
-            <strong>{diagnosticTitle(snapshot.diagnostic.code)}</strong>
-            <p>{snapshot.diagnostic.message}</p>
-            <p className="unilab-workbench-session-diagnostic__recovery">
-              <span>建议：</span>
-              {snapshot.diagnostic.recovery}
-            </p>
-            <code>诊断代码：{snapshot.diagnostic.code}</code>
-          </div>
-        ) : null}
-        {operationError ? (
-          <div className="unilab-workbench-session-diagnostic" role="alert">
-            <strong>操作失败</strong>
-            <p>{operationError}</p>
-          </div>
-        ) : null}
-        <footer className="unilab-workbench-session-actions">
-          <div className="unilab-workbench-session-actions__main">
-            {snapshot.phase === 'idle' || snapshot.phase === 'failed' ? (
-              <button
-                type="button"
-                className="is-primary"
-                onClick={() => void start()}
-              >
-                <span className="codicon codicon-play" aria-hidden="true" />
-                校验并启动
-              </button>
-            ) : null}
-            {snapshot.phase === 'starting' || snapshot.phase === 'waiting' ? (
-              <button
-                type="button"
-                className="is-danger"
-                onClick={() => void stop()}
-              >
-                <span className="codicon codicon-debug-stop" aria-hidden="true" />
-                停止
-              </button>
-            ) : null}
-            <button
-              className="is-secondary"
-              type="button"
-              aria-expanded={configurationKind === 'hardware'}
-              onClick={() => setConfigurationKind('hardware')}
-            >
-              <span className="codicon codicon-settings-gear" aria-hidden="true" />
-              调试配置
-            </button>
-            {onReadEnvironmentLog ? (
-              <WorkbenchRuntimeLogLauncher
-                onReadLog={onReadEnvironmentLog}
-                logPaths={workbenchRuntimeLogPaths(snapshot)}
-                onOpenLog={onOpenLog}
-              />
-            ) : null}
-          </div>
-          <DesktopWorkspaceSwitchButton />
-        </footer>
-      </section>
+      <WorkbenchModeEntry
+        workspaceLabel="选择工作区"
+        workspacePath={snapshot.identity?.workspacePath}
+        initialMode={switchingToBackend ? 'production' : 'debug'}
+        status={entryStatus}
+        notice={entryNotice}
+        supportActions={entrySupportActions}
+        onConfigure={setConfigurationKind}
+      />
       {configurationKind
         ? renderConfiguration(
           configurationKind,

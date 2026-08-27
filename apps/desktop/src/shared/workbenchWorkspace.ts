@@ -6,6 +6,8 @@ export type WorkbenchWorkspacePhase =
   | 'stopping'
   | 'failed'
 
+export type WorkbenchEntryMode = 'debug' | 'production'
+
 export interface RecentWorkbenchWorkspace {
   path: string
   name: string
@@ -28,19 +30,26 @@ export interface WorkbenchWorkspaceController {
   welcomeUrl: string
   getSnapshot: () => WorkbenchWorkspaceSnapshot
   chooseAndOpen: (
-    kind: 'open' | 'create'
+    kind: 'open' | 'create',
+    entryMode?: WorkbenchEntryMode
   ) => Promise<WorkbenchWorkspaceActivation | null>
-  openRecent: (path: string) => Promise<WorkbenchWorkspaceActivation>
+  openRecent: (
+    path: string,
+    entryMode?: WorkbenchEntryMode
+  ) => Promise<WorkbenchWorkspaceActivation>
   deactivate: (error?: string | null) => Promise<WorkbenchWorkspaceSnapshot>
   isNavigationAllowed: (targetUrl: string) => boolean
 }
 
 export interface DesktopWorkbenchWorkspaceApi {
   getSnapshot: () => Promise<WorkbenchWorkspaceSnapshot>
-  openDirectory: () => Promise<WorkbenchWorkspaceSnapshot>
-  createDirectory: () => Promise<WorkbenchWorkspaceSnapshot>
-  openRecent: (path: string) => Promise<WorkbenchWorkspaceSnapshot>
-  selectDirectory: () => Promise<WorkbenchWorkspaceSnapshot>
+  openDirectory: (entryMode?: WorkbenchEntryMode) => Promise<WorkbenchWorkspaceSnapshot>
+  createDirectory: (entryMode?: WorkbenchEntryMode) => Promise<WorkbenchWorkspaceSnapshot>
+  openRecent: (
+    path: string,
+    entryMode?: WorkbenchEntryMode
+  ) => Promise<WorkbenchWorkspaceSnapshot>
+  selectDirectory: (entryMode?: WorkbenchEntryMode) => Promise<WorkbenchWorkspaceSnapshot>
   switchToWelcome: () => Promise<{
     switched: boolean
     snapshot: WorkbenchWorkspaceSnapshot

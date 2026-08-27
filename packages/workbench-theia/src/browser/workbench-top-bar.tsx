@@ -84,7 +84,10 @@ export function WorkbenchTopBar({
               </button>
             </div>
           )}
-          <DesktopWorkspaceSwitchButton label={workspaceLabel} />
+          <DesktopWorkspaceSwitchButton
+            entryMode={production ? 'production' : 'debug'}
+            label={workspaceLabel}
+          />
           <button type="button" onClick={onExitMode}>
             <span className="codicon codicon-sign-out" aria-hidden="true" />
             {production ? '退出生产模式' : '退出调试模式'}

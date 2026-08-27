@@ -238,10 +238,14 @@ async function validWorkbenchPythonEnvironment(candidate, platform) {
 export function createWorkbenchRendererUrl({
   port,
   workspace,
-  workflowUuid
+  workflowUuid,
+  entryMode
 }) {
   const url = new URL(`http://127.0.0.1:${port}/`)
   if (workflowUuid) url.searchParams.set('workflowUuid', workflowUuid)
+  if (entryMode === 'debug' || entryMode === 'production') {
+    url.searchParams.set('entryMode', entryMode)
+  }
   url.hash = workspace
   return url.toString()
 }

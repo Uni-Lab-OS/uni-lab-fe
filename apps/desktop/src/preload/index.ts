@@ -61,6 +61,7 @@ import type {
 } from '../shared/workbenchRemote'
 import type {
   DesktopWorkbenchWorkspaceApi,
+  WorkbenchEntryMode,
   WorkbenchWorkspaceSnapshot
 } from '../shared/workbenchWorkspace'
 import type {
@@ -159,14 +160,17 @@ const api = {
   workbenchWorkspace: {
     getSnapshot: (): Promise<WorkbenchWorkspaceSnapshot> =>
       ipcRenderer.invoke('workbench-workspace:getSnapshot'),
-    openDirectory: (): Promise<WorkbenchWorkspaceSnapshot> =>
-      ipcRenderer.invoke('workbench-workspace:openDirectory'),
-    createDirectory: (): Promise<WorkbenchWorkspaceSnapshot> =>
-      ipcRenderer.invoke('workbench-workspace:createDirectory'),
-    openRecent: (path: string): Promise<WorkbenchWorkspaceSnapshot> =>
-      ipcRenderer.invoke('workbench-workspace:openRecent', path),
-    selectDirectory: (): Promise<WorkbenchWorkspaceSnapshot> =>
-      ipcRenderer.invoke('workbench-workspace:selectDirectory'),
+    openDirectory: (entryMode?: WorkbenchEntryMode): Promise<WorkbenchWorkspaceSnapshot> =>
+      ipcRenderer.invoke('workbench-workspace:openDirectory', entryMode),
+    createDirectory: (entryMode?: WorkbenchEntryMode): Promise<WorkbenchWorkspaceSnapshot> =>
+      ipcRenderer.invoke('workbench-workspace:createDirectory', entryMode),
+    openRecent: (
+      path: string,
+      entryMode?: WorkbenchEntryMode
+    ): Promise<WorkbenchWorkspaceSnapshot> =>
+      ipcRenderer.invoke('workbench-workspace:openRecent', path, entryMode),
+    selectDirectory: (entryMode?: WorkbenchEntryMode): Promise<WorkbenchWorkspaceSnapshot> =>
+      ipcRenderer.invoke('workbench-workspace:selectDirectory', entryMode),
     switchToWelcome: () => ipcRenderer.invoke(
       'workbench-workspace:switchToWelcome'
     ),

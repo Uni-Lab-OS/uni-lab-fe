@@ -1,10 +1,14 @@
 const workspaceApi = window.api?.workbenchWorkspace
 const runtimeApi = window.api?.managedRuntime
+const entryForm = document.querySelector('#mode-entry-form')
+const entryModeInputs = [...document.querySelectorAll('input[name="entry-mode"]')]
+const enterButton = document.querySelector('#enter-workbench')
 const openButton = document.querySelector('#open-workspace')
 const createButton = document.querySelector('#create-workspace')
-const recentList = document.querySelector('#recent-list')
-const recentEmpty = document.querySelector('#recent-empty')
+const workspaceSelect = document.querySelector('#workspace-select')
+const workspacePath = document.querySelector('#workspace-path')
 const recentCount = document.querySelector('#recent-count')
+const serviceStatus = document.querySelector('#service-status')
 const statusPanel = document.querySelector('#status-panel')
 const statusTitle = document.querySelector('#status-title')
 const statusDetail = document.querySelector('#status-detail')
@@ -39,6 +43,29 @@ let runtimeSnapshot = {
   availableEnvironments: [],
   error: null
 }
+
+entryModeInputs.forEach(input => input.addEventListener('change', () => {
+  entryForm.dataset.mode = selectedEntryMode()
+  enterButton.textContent = selectedEntryMode() === 'production'
+    ? '进入生产模式'
+    : '进入调试模式'
+}))
+
+entryForm.addEventListener('submit', (event) => {
+  event.preventDefault()
+  const selectedWorkspace = workspaceSelect.value
+  void runOperation(
+    () => selectedWorkspace
+      ? workspaceApi?.openRecent(selectedWorkspace, selectedEntryMode())
+      : workspaceApi?.openDirectory(selectedEntryMode()),
+    selectedWorkspace ? '正在恢复工作区' : '正在打开工作区',
+    '校验设备包目录并启动工作区服务…'
+  )
+})
+
+workspaceSelect.addEventListener('change', () => {
+  renderSelectedWorkspacePath()
+})
 
 runtimeSelector.addEventListener('change', () => {
   if (!runtimeApi || !runtimeSelector.value || runtimeRequestPending) return
@@ -89,26 +116,16 @@ installRuntimeButton.addEventListener('click', () => {
 })
 
 openButton.addEventListener('click', () => runOperation(
-  () => workspaceApi?.openDirectory(),
+  () => workspaceApi?.openDirectory(selectedEntryMode()),
   '正在打开工作区',
   '校验目录并启动工作区服务…'
 ))
 
 createButton.addEventListener('click', () => runOperation(
-  () => workspaceApi?.createDirectory(),
+  () => workspaceApi?.createDirectory(selectedEntryMode()),
   '正在创建工作区',
   '创建目录并准备工作台…'
 ))
-
-recentList.addEventListener('click', (event) => {
-  const button = event.target.closest('button[data-workspace-path]')
-  if (!button) return
-  void runOperation(
-    () => workspaceApi?.openRecent(button.dataset.workspacePath),
-    '正在恢复工作区',
-    '重新校验路径并启动工作区服务…'
-  )
-})
 
 if (!workspaceApi) {
   snapshot = {
@@ -185,8 +202,10 @@ function render() {
       'failed'
     ].includes(runtimeSnapshot.phase)
   )
+  enterButton.disabled = busy || runtimeBlocked || !workspaceApi
   openButton.disabled = busy || runtimeBlocked || !workspaceApi
   createButton.disabled = busy || runtimeBlocked || !workspaceApi
+  workspaceSelect.disabled = busy || runtimeBlocked || !workspaceApi
   statusPanel.hidden = !busy
   if (switchingBootstrap || snapshot.phase === 'stopping') {
     statusTitle.textContent = '正在切换工作区'
@@ -194,8 +213,18 @@ function render() {
   }
   errorPanel.hidden = snapshot.phase !== 'failed' || !snapshot.error
   errorMessage.textContent = snapshot.error ?? ''
+  serviceStatus.dataset.tone = snapshot.phase === 'failed'
+    ? 'attention'
+    : busy
+      ? 'idle'
+      : 'online'
+  serviceStatus.lastChild.textContent = snapshot.phase === 'failed'
+    ? ' SERVICE ATTENTION'
+    : busy
+      ? ' SERVICE STARTING'
+      : ' WORKSPACE READY'
   renderRuntime()
-  renderRecents(snapshot.recentWorkspaces, busy || runtimeBlocked)
+  renderWorkspaceOptions(snapshot.recentWorkspaces)
 }
 
 function renderRuntime() {
@@ -252,47 +281,37 @@ function renderRuntime() {
   runtimeDetail.textContent = `可安装应用内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}，无需另行配置 Conda。`
 }
 
-function renderRecents(recentWorkspaces, busy) {
-  recentList.replaceChildren()
-  recentEmpty.hidden = recentWorkspaces.length > 0
-  recentCount.textContent = `${recentWorkspaces.length} / 8`
-  recentWorkspaces.forEach((recent, index) => {
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.className = 'recent-item'
-    button.dataset.workspacePath = recent.path
-    button.disabled = busy
-    button.title = recent.path
-
-    const number = document.createElement('span')
-    number.className = 'recent-item__number'
-    number.textContent = String(index + 1).padStart(2, '0')
-
-    const identity = document.createElement('span')
-    const name = document.createElement('strong')
-    const path = document.createElement('small')
-    name.textContent = recent.name
-    path.textContent = recent.path
-    identity.append(name, path)
-
-    const time = document.createElement('time')
-    time.dateTime = recent.lastOpenedAt
-    time.textContent = formatRecentTime(recent.lastOpenedAt)
-
-    button.append(number, identity, time)
-    recentList.append(button)
-  })
+function renderWorkspaceOptions(recentWorkspaces) {
+  const previous = workspaceSelect.value
+  const placeholder = document.createElement('option')
+  placeholder.value = ''
+  placeholder.textContent = recentWorkspaces.length
+    ? '选择最近使用的工作区'
+    : '选择设备包工作区'
+  workspaceSelect.replaceChildren(placeholder, ...recentWorkspaces.map(recent => {
+    const option = document.createElement('option')
+    option.value = recent.path
+    option.textContent = recent.name
+    option.title = recent.path
+    return option
+  }))
+  workspaceSelect.value = recentWorkspaces.some(recent => recent.path === previous)
+    ? previous
+    : recentWorkspaces[0]?.path ?? ''
+  recentCount.textContent = `${recentWorkspaces.length} 个最近工作区`
+  renderSelectedWorkspacePath()
 }
 
-function formatRecentTime(value) {
-  const time = Date.parse(value)
-  if (!Number.isFinite(time) || time === 0) return 'HISTORY'
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(new Date(time))
+function renderSelectedWorkspacePath() {
+  const selected = workspaceSelect.value
+  workspacePath.textContent = selected || '请选择一个设备包工作区'
+  workspacePath.title = selected
+}
+
+function selectedEntryMode() {
+  return entryModeInputs.find(input => input.checked)?.value === 'production'
+    ? 'production'
+    : 'debug'
 }
 
 function messageOf(error) {

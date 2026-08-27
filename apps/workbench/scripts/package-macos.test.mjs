@@ -54,11 +54,17 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(builderConfiguration, /target: dmg/u)
     assert.match(builderConfiguration, /target: zip/u)
     assert.match(welcomeDocument, /<title>UniLab 调试工作台<\/title>/u)
+    assert.match(welcomeDocument, /id="mode-entry-form"/u)
+    assert.match(welcomeDocument, /name="entry-mode" value="debug"/u)
+    assert.match(welcomeDocument, /name="entry-mode" value="production"/u)
+    assert.match(welcomeDocument, /id="workspace-select"/u)
+    assert.doesNotMatch(welcomeDocument, /账号|密码|登录/u)
     assert.match(welcomeDocument, /id="install-runtime"/u)
     assert.match(welcomeDocument, /id="choose-runtime"/u)
     assert.match(welcomeScript, /managedRuntime/u)
     assert.match(welcomeScript, /chooseEnvironment/u)
     assert.match(welcomeScript, /unilab -h/u)
+    assert.match(welcomeScript, /openRecent\(selectedWorkspace, selectedEntryMode\(\)\)/u)
     assert.equal(
       theiaManifest.theiaExtensions[0].frontendPreload,
       'lib/browser/unilab-workbench-frontend-preload-module'

@@ -970,6 +970,7 @@ function WorkbenchSurface({
   onOpenAssistant: () => void
   onOpenDeviceActions: () => void
 }): React.JSX.Element {
+  const query = new URLSearchParams(globalThis.location.search)
   const [selectedWorkflowNode, setSelectedWorkflowNode] =
     useState<string | null>(null)
   const [runtimeProjection, setRuntimeProjection] =
@@ -979,7 +980,8 @@ function WorkbenchSurface({
   const [selectedActionDeviceId, setSelectedActionDeviceId] =
     useState<string | null>(null)
   const [configurationKind, setConfigurationKind] =
-    useState<WorkbenchConfigurationKind | null>(null)
+    useState<WorkbenchConfigurationKind | null>(query.get('entryMode') === 'production'
+      ? 'production' : query.get('entryMode') === 'debug' ? 'simulation' : null)
   const [modeEntryOpen, setModeEntryOpen] = useState(false)
   const [environmentResetBusy, setEnvironmentResetBusy] = useState(false)
   const reportWorkflowUnsavedChanges = useCallback(
@@ -1003,7 +1005,6 @@ function WorkbenchSurface({
     'workflow'
   ]))
   recordMountedWorkbenchDomains(mountedDomains.current, viewMode)
-  const query = new URLSearchParams(globalThis.location.search)
   const workflowUuid = query.get('workflowUuid') ?? undefined
   const selectedTarget = connectionTargets[connectionMode]
   const workspaceLabel = session.identity
@@ -1330,6 +1331,8 @@ function WorkbenchSurface({
         {modeEntryOpen ? (
           <WorkbenchModeEntry
             workspaceLabel={workspaceLabel}
+            workspacePath={session.identity?.workspacePath}
+            initialMode={connectionMode === 'backend' ? 'production' : 'debug'}
             onConfigure={(kind) => {
               setModeEntryOpen(false)
               setConfigurationKind(kind)
