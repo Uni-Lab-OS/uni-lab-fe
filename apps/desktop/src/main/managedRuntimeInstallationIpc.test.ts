@@ -24,27 +24,97 @@ const noSelection = {
 
 describe('ManagedRuntimeInstallationController', () => {
   it('offers the bundled installer only when no usable environment exists', async () => {
+    const ensureInstalled = vi.fn()
     const controller = createController({
-      inspect: vi.fn(async () => ({ installed: false, paths, selection: noSelection })),
-      ensureInstalled: vi.fn()
+      inspect: vi.fn(async () => ({
+        installed: false,
+        delivery: 'bundled' as const,
+        paths,
+        selection: noSelection
+      })),
+      ensureInstalled
     })
 
     await expect(controller.initialize()).resolves.toMatchObject({
       phase: 'not-installed',
       bundled: true,
+      delivery: 'bundled',
       environmentPath: null,
       runtimeVersion: '0.11.3'
     })
+    expect(ensureInstalled).not.toHaveBeenCalled()
+  })
+
+  it('automatically downloads Runtime when the online package has no usable environment', async () => {
+    let finish: ((value: typeof paths) => void) | undefined
+    const pending = new Promise<typeof paths>(resolve => { finish = resolve })
+    const ensureInstalled = vi.fn(() => pending)
+    const onEnvironmentReady = vi.fn()
+    const controller = createController({
+      inspect: vi.fn(async () => ({
+        installed: false,
+        delivery: 'download' as const,
+        paths,
+        selection: noSelection
+      })),
+      ensureInstalled
+    }, { onEnvironmentReady })
+
+    await expect(controller.initialize()).resolves.toMatchObject({
+      phase: 'not-installed',
+      delivery: 'download',
+      environmentPath: null
+    })
+    expect(ensureInstalled).toHaveBeenCalledTimes(1)
+    expect(controller.getSnapshot()).toMatchObject({
+      phase: 'installing',
+      delivery: 'download'
+    })
+
+    const automaticInstallation = controller.install()
+    finish!(paths)
+    await expect(automaticInstallation).resolves.toMatchObject({
+      phase: 'ready',
+      delivery: 'download',
+      managed: true,
+      environmentPath: paths.prefix
+    })
+    expect(ensureInstalled).toHaveBeenCalledTimes(1)
+    expect(onEnvironmentReady).toHaveBeenCalledWith(paths.prefix)
+  })
+
+  it('does not download Runtime when an online package finds a usable external environment', async () => {
+    const ensureInstalled = vi.fn()
+    const controller = createController({
+      inspect: vi.fn(async () => ({
+        installed: false,
+        delivery: 'download' as const,
+        paths,
+        selection: noSelection
+      })),
+      ensureInstalled
+    }, {
+      discoverExistingEnvironments: async () => ['/opt/conda/envs/unilab']
+    })
+
+    await expect(controller.initialize()).resolves.toMatchObject({
+      phase: 'external',
+      delivery: 'download',
+      environmentPath: '/opt/conda/envs/unilab'
+    })
+    expect(ensureInstalled).not.toHaveBeenCalled()
   })
 
   it('blocks a persisted older managed Runtime until the bundled upgrade succeeds', async () => {
     const previousPath = '/data/managed-runtime/versions/0.10.0-osx-arm64-old'
     const validateExistingEnvironment = vi.fn(async (path: string) => path)
+    const ensureInstalled = vi.fn()
     const controller = createController({
       inspect: vi.fn(async (...args: unknown[]) => {
         expect(args[0]).toBe(previousPath)
         return {
           installed: false,
+          delivery: 'download' as const,
           paths,
           selection: {
             kind: 'outdated-managed' as const,
@@ -53,7 +123,7 @@ describe('ManagedRuntimeInstallationController', () => {
           }
         }
       }),
-      ensureInstalled: vi.fn()
+      ensureInstalled
     }, {
       readSelectedEnvironment: async () => previousPath,
       discoverExistingEnvironments: async () => [previousPath],
@@ -73,6 +143,7 @@ describe('ManagedRuntimeInstallationController', () => {
     })
     expect(runtimeEnvironmentFallbackAllowed(snapshot)).toBe(false)
     expect(validateExistingEnvironment).not.toHaveBeenCalledWith(previousPath)
+    expect(ensureInstalled).not.toHaveBeenCalled()
   })
 
   it('switches a persisted older managed Runtime to an already valid bundled version', async () => {
