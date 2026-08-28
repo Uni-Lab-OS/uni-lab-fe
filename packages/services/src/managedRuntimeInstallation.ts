@@ -15,6 +15,20 @@ export type ManagedRuntimeInstallationErrorCode =
   | 'health-check-failed'
   | 'unknown'
 
+export type ManagedRuntimeInstallationProgressStage =
+  | 'preparing'
+  | 'downloading'
+  | 'verifying'
+  | 'installing'
+  | 'validating'
+
+export interface ManagedRuntimeInstallationProgress {
+  stage: ManagedRuntimeInstallationProgressStage
+  downloadedBytes: number | null
+  totalBytes: number | null
+  percentage: number | null
+}
+
 export interface ManagedRuntimeInstallationSnapshot {
   phase: ManagedRuntimeInstallationPhase
   bundled: boolean
@@ -33,6 +47,7 @@ export interface ManagedRuntimeInstallationSnapshot {
   previousEnvironmentPath?: string | null
   errorCode?: ManagedRuntimeInstallationErrorCode | null
   errorLogPath?: string | null
+  progress?: ManagedRuntimeInstallationProgress | null
 }
 
 export interface ManagedRuntimeInstallationApi {
@@ -62,5 +77,6 @@ ManagedRuntimeInstallationSnapshot = Object.freeze({
   previousRuntimeVersion: null,
   previousEnvironmentPath: null,
   errorCode: null,
-  errorLogPath: null
+  errorLogPath: null,
+  progress: null
 })

@@ -33,6 +33,9 @@ import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
 import type { LocalRuntimeModeInfo } from '../shared/localRuntime'
+import type {
+  ManagedRuntimeInstallationProgress
+} from '../shared/managedRuntimeInstallation'
 
 const INSTALL_LOCK_TIMEOUT_MS = 10 * 60 * 1_000
 const INSTALL_LOCK_STALE_MS = 2 * 60 * 60 * 1_000
@@ -40,6 +43,7 @@ const INSTALL_LOCK_POLL_MS = 50
 const RUNTIME_DOWNLOAD_MAX_BYTES = 1024 * 1024 * 1024
 const RUNTIME_DOWNLOAD_REDIRECT_LIMIT = 5
 const RUNTIME_DOWNLOAD_SOCKET_TIMEOUT_MS = 30_000
+const RUNTIME_DOWNLOAD_UNKNOWN_SIZE_REPORT_BYTES = 4 * 1024 * 1024
 
 export interface ManagedRuntimeManifest {
   schemaVersion: 1 | 2
@@ -85,10 +89,15 @@ export type RuntimeInstallationVerifier = (
   paths: ManagedRuntimePaths
 ) => Promise<void>
 
+export type RuntimeInstallationProgressReporter = (
+  progress: ManagedRuntimeInstallationProgress
+) => void
+
 /** 把固定 URL 的 Runtime 安装器写入目标临时文件。 */
 export type RuntimeInstallerDownloader = (
   url: string,
-  destination: string
+  destination: string,
+  reportProgress: RuntimeInstallationProgressReporter
 ) => Promise<void>
 
 interface ManagedRuntimeInstallationOptions {
@@ -165,8 +174,10 @@ export class ManagedRuntimeInstallation {
     }
   }
 
-  ensureInstalled(): Promise<ManagedRuntimePaths> {
-    this.pending ??= this.install()
+  ensureInstalled(
+    reportProgress: RuntimeInstallationProgressReporter = () => undefined
+  ): Promise<ManagedRuntimePaths> {
+    this.pending ??= this.install(reportProgress)
     return this.pending.catch((error: unknown) => {
       this.pending = null
       throw error
@@ -215,7 +226,10 @@ export class ManagedRuntimeInstallation {
    * 在安装锁内校验并安装 Runtime，返回稳定且可直接执行的最终版本目录。
    * Constructor 会把绝对前缀写入入口脚本，因此安装过程必须直接使用最终前缀。
    */
-  private async install(): Promise<ManagedRuntimePaths> {
+  private async install(
+    reportProgress: RuntimeInstallationProgressReporter
+  ): Promise<ManagedRuntimePaths> {
+    reportProgress(runtimeInstallationProgress('preparing'))
     const manifest = await this.readManifest()
     const result = this.pathsFor(manifest)
     const versionsDirectory = join(this.dataDirectory, 'managed-runtime', 'versions')
@@ -240,13 +254,16 @@ export class ManagedRuntimeInstallation {
       const installerPath = await this.resolveVerifiedInstaller(
         manifest,
         runtimeRoot,
-        installerLogPath
+        installerLogPath,
+        reportProgress
       )
       if (await pathExists(prefix)) {
         await rename(prefix, `${prefix}.broken-${Date.now()}`)
       }
       try {
+        reportProgress(runtimeInstallationProgress('installing'))
         await this.runInstaller(installerPath, prefix, installerLogPath)
+        reportProgress(runtimeInstallationProgress('validating'))
         await this.requireValidInstallation(result)
         await this.writeActive(result)
         return result
@@ -281,7 +298,8 @@ export class ManagedRuntimeInstallation {
   private async resolveVerifiedInstaller(
     manifest: ManagedRuntimeManifest,
     runtimeRoot: string,
-    logPath: string
+    logPath: string,
+    reportProgress: RuntimeInstallationProgressReporter
   ): Promise<string> {
     const bundledPath = join(
       this.resourcesDirectory,
@@ -289,6 +307,7 @@ export class ManagedRuntimeInstallation {
       manifest.installerFile
     )
     if (manifest.delivery === 'bundled') {
+      reportProgress(runtimeInstallationProgress('verifying'))
       await requireInstallerDigest(bundledPath, manifest.sha256)
       return bundledPath
     }
@@ -304,6 +323,7 @@ export class ManagedRuntimeInstallation {
     await mkdir(cacheDirectory, { recursive: true })
     if (await pathExists(cachedPath)) {
       try {
+        reportProgress(runtimeInstallationProgress('verifying'))
         await requireInstallerDigest(cachedPath, manifest.sha256)
         return cachedPath
       } catch {
@@ -316,7 +336,8 @@ export class ManagedRuntimeInstallation {
       `.${manifest.installerFile}.${process.pid}.${Date.now()}.download`
     )
     try {
-      await this.downloadInstaller(downloadUrl, temporaryPath)
+      reportProgress(runtimeDownloadProgress(0, null))
+      await this.downloadInstaller(downloadUrl, temporaryPath, reportProgress)
     } catch (error) {
       await rm(temporaryPath, { force: true })
       await writeRuntimeDownloadLog(logPath, downloadUrl, error)
@@ -326,6 +347,7 @@ export class ManagedRuntimeInstallation {
       )
     }
     try {
+      reportProgress(runtimeInstallationProgress('verifying'))
       await requireInstallerDigest(temporaryPath, manifest.sha256)
       await rename(temporaryPath, cachedPath)
       return cachedPath
@@ -699,18 +721,44 @@ function summarizeInstallerOutput(output: string): string {
 /** 通过 HTTPS 流式下载 Runtime，限制重定向、空闲时间与最大体积。 */
 async function downloadRuntimeInstaller(
   url: string,
-  destination: string
+  destination: string,
+  reportProgress: RuntimeInstallationProgressReporter
 ): Promise<void> {
   const response = await openRuntimeDownload(new URL(url), 0)
-  const contentLength = Number(response.headers['content-length'] ?? 0)
+  const declaredLength = Number(response.headers['content-length'] ?? 0)
+  const contentLength = Number.isSafeInteger(declaredLength)
+    && declaredLength > 0
+    ? declaredLength
+    : null
   if (
-    Number.isFinite(contentLength)
-    && contentLength > RUNTIME_DOWNLOAD_MAX_BYTES
+    contentLength !== null && contentLength > RUNTIME_DOWNLOAD_MAX_BYTES
   ) {
     response.destroy()
     throw new Error(`Runtime 下载文件超过 ${RUNTIME_DOWNLOAD_MAX_BYTES} bytes`)
   }
   let receivedBytes = 0
+  let lastReportedBytes = -1
+  let lastReportedPercentage: number | null = null
+  const reportDownloadProgress = (force = false): void => {
+    const progress = runtimeDownloadProgress(receivedBytes, contentLength)
+    const crossedUnknownSizeBoundary = contentLength === null
+      && receivedBytes - lastReportedBytes
+        >= RUNTIME_DOWNLOAD_UNKNOWN_SIZE_REPORT_BYTES
+    const percentageChanged = progress.percentage !== lastReportedPercentage
+    if (
+      !force
+      && !crossedUnknownSizeBoundary
+      && !percentageChanged
+    ) return
+    if (
+      receivedBytes === lastReportedBytes
+      && progress.percentage === lastReportedPercentage
+    ) return
+    lastReportedBytes = receivedBytes
+    lastReportedPercentage = progress.percentage
+    reportProgress(progress)
+  }
+  reportDownloadProgress(true)
   const limit = new Transform({
     transform(chunk: Buffer, _encoding, callback) {
       receivedBytes += chunk.length
@@ -720,6 +768,7 @@ async function downloadRuntimeInstaller(
         ))
         return
       }
+      reportDownloadProgress()
       callback(null, chunk)
     }
   })
@@ -729,9 +778,43 @@ async function downloadRuntimeInstaller(
       limit,
       createWriteStream(destination, { flags: 'wx', mode: 0o600 })
     )
+    reportDownloadProgress(true)
   } catch (error) {
     await rm(destination, { force: true })
     throw error
+  }
+}
+
+export function runtimeDownloadProgress(
+  downloadedBytes: number,
+  totalBytes: number | null
+): ManagedRuntimeInstallationProgress {
+  const validTotal = totalBytes !== null
+    && Number.isSafeInteger(totalBytes)
+    && totalBytes > 0
+    ? totalBytes
+    : null
+  const validDownloaded = Number.isFinite(downloadedBytes)
+    ? Math.max(0, Math.floor(downloadedBytes))
+    : 0
+  return {
+    stage: 'downloading',
+    downloadedBytes: validDownloaded,
+    totalBytes: validTotal,
+    percentage: validTotal === null
+      ? null
+      : Math.min(100, Math.floor((validDownloaded / validTotal) * 100))
+  }
+}
+
+function runtimeInstallationProgress(
+  stage: Exclude<ManagedRuntimeInstallationProgress['stage'], 'downloading'>
+): ManagedRuntimeInstallationProgress {
+  return {
+    stage,
+    downloadedBytes: null,
+    totalBytes: null,
+    percentage: null
   }
 }
 

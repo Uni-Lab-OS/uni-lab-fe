@@ -4,5 +4,7 @@ export {
 export type {
   ManagedRuntimeInstallationApi as DesktopManagedRuntimeInstallationApi,
   ManagedRuntimeInstallationPhase,
+  ManagedRuntimeInstallationProgress,
+  ManagedRuntimeInstallationProgressStage,
   ManagedRuntimeInstallationSnapshot
 } from '@unilab/services'
