@@ -180,6 +180,7 @@ export type WorkflowToolbarIconName =
   | 'settings'
   | 'step'
   | 'trace'
+  | 'validate'
 
 /**
  * 渲染工作流工具栏采用的统一线性图标。
@@ -201,7 +202,8 @@ export function WorkflowToolbarIcon({
     save: <><path d="M3 3h10l2 2v10H3Z" /><path d="M6 3v4h6V3M6 15v-5h6v5" /></>,
     settings: <><circle cx="9" cy="9" r="2.4" /><path d="M9 2.5v2M9 13.5v2M2.5 9h2M13.5 9h2M4.4 4.4l1.4 1.4m6.4 6.4 1.4 1.4M13.6 4.4l-1.4 1.4m-6.4 6.4-1.4 1.4" /></>,
     step: <><path d="m4 4 7 5-7 5Z" /><path d="M13 4v10" /></>,
-    trace: <><circle cx="4" cy="5" r="1.5" /><circle cx="14" cy="9" r="1.5" /><circle cx="7" cy="14" r="1.5" /><path d="m5.4 5.6 7.1 2.8m.2 1.7-4.4 3M5 6.3l1.4 6.2" /></>
+    trace: <><circle cx="4" cy="5" r="1.5" /><circle cx="14" cy="9" r="1.5" /><circle cx="7" cy="14" r="1.5" /><path d="m5.4 5.6 7.1 2.8m.2 1.7-4.4 3M5 6.3l1.4 6.2" /></>,
+    validate: <><path d="M3.5 9.5 7 13l7.5-8" /><path d="M4 3.5h8" /></>
   } satisfies Record<WorkflowToolbarIconName, React.JSX.Element>
 
   return (

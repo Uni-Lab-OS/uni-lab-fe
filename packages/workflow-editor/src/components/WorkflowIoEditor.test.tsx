@@ -289,13 +289,19 @@ const graph: WorkflowAuthoringGraph = {
       uuid: targetHandleUuid,
       workflow_node_template_uuid: targetTemplateUuid,
       handle_key: 'target_value',
-      io_type: 'target'
+      io_type: 'target',
+      meta_data: {
+        unilab: { value_schema: { type: 'integer' } }
+      }
     },
     {
       uuid: sourceHandleUuid,
       workflow_node_template_uuid: sourceTemplateUuid,
       handle_key: 'result',
-      io_type: 'source'
+      io_type: 'source',
+      meta_data: {
+        unilab: { value_schema: { type: 'object' } }
+      }
     }
   ]
 }

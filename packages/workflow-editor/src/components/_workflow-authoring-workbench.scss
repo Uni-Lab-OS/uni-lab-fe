@@ -1,0 +1,385 @@
+.workflow {
+  &:global(.persistent-authoring--canvas) {
+    :global(.workflow-runtime__existing-canvas) {
+      gap: 0;
+      border: 0;
+      border-radius: 0;
+      background: #f6f8fb;
+      box-shadow: none;
+    }
+
+    :global(.persistent-authoring__stage-header) {
+      height: 52px;
+      min-height: 52px;
+      flex-basis: 52px;
+      padding: 8px 14px;
+      border: 1px solid #e2e8f0;
+      border-bottom: 0;
+      border-radius: 10px 10px 0 0;
+      background: #fff;
+      box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+    }
+
+    :global(.persistent-authoring__canvas-body),
+    :global(.persistent-authoring__canvas-body.has-inspector) {
+      grid-template-columns: 260px minmax(520px, 1fr) 286px;
+      grid-template-areas: 'palette graph inspector';
+      gap: 14px;
+      box-sizing: border-box;
+      min-height: 420px;
+      padding: 14px;
+      background: #f6f8fb;
+    }
+
+    :global(.persistent-authoring__canvas-body.is-palette-closed),
+    :global(.persistent-authoring__canvas-body.is-palette-closed.has-inspector) {
+      grid-template-columns: minmax(520px, 1fr) 286px;
+      grid-template-areas: 'graph inspector';
+    }
+
+    :global(.persistent-authoring__canvas-body.is-code-mode) {
+      grid-template-columns: minmax(520px, 1fr);
+      grid-template-areas: 'graph';
+    }
+
+    :global(.persistent-authoring__breadcrumbs) {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    :global(.persistent-authoring__breadcrumbs) > span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    :global(.persistent-authoring__breadcrumbs) button {
+      max-width: 120px;
+      padding: 2px 4px;
+      overflow: hidden;
+      color: #2563eb;
+      border: 0;
+      background: transparent;
+      font-size: 10px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    :global(.persistent-authoring__breadcrumbs) i {
+      color: #cbd5e1;
+      font-style: normal;
+    }
+
+    :global(.persistent-authoring__breadcrumbs) strong {
+      max-width: 120px;
+      overflow: hidden;
+      font-size: 10px;
+      text-overflow: ellipsis;
+    }
+
+    :global(.persistent-authoring__library),
+    :global(.persistent-authoring__graph-stage),
+    :global(.persistent-authoring__node-editor) {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 2px 8px rgb(15 23 42 / 5%);
+    }
+
+    :global(.persistent-authoring__library) {
+      display: flex;
+      grid-area: palette;
+      flex-direction: column;
+    }
+
+    :global(.persistent-authoring__library-heading) {
+      display: flex;
+      height: 52px;
+      min-height: 52px;
+      box-sizing: border-box;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    :global(.persistent-authoring__library-heading) > div {
+      display: grid;
+      gap: 1px;
+    }
+
+    :global(.persistent-authoring__library-heading) h2 {
+      margin: 0;
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    :global(.persistent-authoring__library-heading) small {
+      color: #94a3b8;
+      font-size: 10px;
+    }
+
+    :global(.persistent-authoring__library-heading) > span {
+      display: grid;
+      min-width: 24px;
+      height: 24px;
+      place-items: center;
+      color: #2563eb;
+      border-radius: 999px;
+      background: #eff6ff;
+      font: 600 10px/1 var(--unilab-font-mono, monospace);
+    }
+
+    :global(.persistent-authoring__library-search) {
+      display: block;
+      padding: 10px 10px 8px;
+    }
+
+    :global(.persistent-authoring__library-search) input {
+      width: 100%;
+      height: 32px;
+      box-sizing: border-box;
+      padding: 0 10px;
+      color: #0f172a;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      outline: 0;
+      background: #f8fafc;
+      font-size: 11px;
+    }
+
+    :global(.persistent-authoring__library-search) input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgb(59 130 246 / 15%);
+    }
+
+    :global(.persistent-authoring__library-workflow-list) {
+      display: grid;
+      gap: 3px;
+      max-height: 190px;
+      padding: 0 8px 9px;
+      overflow: auto;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    :global(.persistent-authoring__library-workflow-list) > button,
+    :global(.persistent-authoring__workflow-current) {
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr) auto;
+      min-height: 42px;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 7px;
+      color: #475569;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      text-align: left;
+    }
+
+    :global(.persistent-authoring__library-workflow-list) > button {
+      cursor: pointer;
+    }
+
+    :global(.persistent-authoring__library-workflow-list) > button:hover:not(:disabled) {
+      border-color: #dbeafe;
+      background: #f8fafc;
+    }
+
+    :global(.persistent-authoring__library-workflow-list) > button:global(.is-active),
+    :global(.persistent-authoring__workflow-current) {
+      color: #1d4ed8;
+      border-color: #bfdbfe;
+      background: #eff6ff;
+    }
+
+    :global(.persistent-authoring__library-workflow-list) > button:disabled {
+      cursor: not-allowed;
+      opacity: .62;
+    }
+
+    :global(.persistent-authoring__library-workflow-list) > button > span:nth-child(2),
+    :global(.persistent-authoring__workflow-current) > span:nth-child(2) {
+      display: grid;
+      min-width: 0;
+      gap: 2px;
+    }
+
+    :global(.persistent-authoring__library-workflow-list) strong,
+    :global(.persistent-authoring__library-workflow-list) small {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    :global(.persistent-authoring__library-workflow-list) strong {
+      color: #0f172a;
+      font-size: 11px;
+    }
+
+    :global(.persistent-authoring__library-workflow-list) small {
+      color: #94a3b8;
+      font: 9px/1.3 var(--unilab-font-mono, monospace);
+    }
+
+    :global(.persistent-authoring__library-workflow-list) i {
+      color: #2563eb;
+      font-size: 9px;
+      font-style: normal;
+    }
+
+    :global(.persistent-authoring__library-workflow-list) > p,
+    :global(.persistent-authoring__library-problem) {
+      margin: 0;
+      padding: 10px;
+      color: #64748b;
+      font-size: 10px;
+    }
+
+    :global(.persistent-authoring__library-problem) {
+      display: grid;
+      justify-items: start;
+      gap: 6px;
+      color: #b91c1c;
+    }
+
+    :global(.persistent-authoring__library-problem) button {
+      padding: 3px 7px;
+      color: inherit;
+      border: 1px solid currentcolor;
+      border-radius: 5px;
+      background: #fff;
+    }
+
+    :global(.persistent-authoring__library-nodes) {
+      display: flex;
+      min-height: 0;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    :global(.persistent-authoring__library-nodes)
+      :global(.persistent-authoring__palette) {
+      width: 100%;
+      min-height: 0;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    :global(.persistent-authoring__graph-stage) {
+      grid-area: graph;
+      background-color: #f8fafc;
+      background-image: radial-gradient(#d9e2ef 1px, transparent 1px);
+      background-size: 18px 18px;
+    }
+
+    :global(.workflow-x6) {
+      background: transparent;
+    }
+
+    :global(.persistent-authoring__node-editor) {
+      grid-area: inspector;
+      gap: 12px;
+      padding: 0 12px 14px;
+      border-left: 1px solid #e2e8f0;
+    }
+
+    :global(.persistent-authoring__inspector-heading) {
+      min-height: 52px;
+      box-sizing: border-box;
+      margin: 0 -12px;
+      padding: 8px 12px;
+    }
+
+    :global(.persistent-authoring__inspector-heading) strong {
+      font-size: 14px;
+    }
+
+    :global(.persistent-authoring__inspector-empty) {
+      display: grid;
+      min-height: 230px;
+      align-content: center;
+      justify-items: center;
+      gap: 7px;
+      padding: 18px;
+      color: #64748b;
+      text-align: center;
+    }
+
+    :global(.persistent-authoring__inspector-empty) > span {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      color: #2563eb;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      background: #eff6ff;
+      font-size: 20px;
+    }
+
+    :global(.persistent-authoring__inspector-empty) strong {
+      color: #0f172a;
+      font-size: 12px;
+    }
+
+    :global(.persistent-authoring__inspector-empty) p {
+      max-width: 24ch;
+      font-size: 10px;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.persistent-authoring__parameter-drawer) {
+      margin: 0 -12px;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.persistent-authoring__parameter-drawer) > header {
+      padding: 10px 12px;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.persistent-authoring__parameter-columns) {
+      grid-template-columns: 1fr;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.persistent-authoring__parameter-fields) {
+      grid-template-columns: 1fr;
+    }
+
+    :global(.persistent-authoring__parameter-inline-error) {
+      margin: 5px 0 0;
+      color: #b91c1c;
+      font-size: 10px;
+      line-height: 1.4;
+    }
+  }
+
+  @container (max-width: 1023px) {
+    &:global(.persistent-authoring--canvas) {
+      :global(.persistent-authoring__canvas-body),
+      :global(.persistent-authoring__canvas-body.has-inspector),
+      :global(.persistent-authoring__canvas-body.is-palette-closed),
+      :global(.persistent-authoring__canvas-body.is-palette-closed.has-inspector) {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: 'graph';
+        gap: 0;
+        padding: 10px;
+      }
+
+      :global(.persistent-authoring__library),
+      :global(.persistent-authoring__node-editor) {
+        display: none;
+      }
+    }
+  }
+}

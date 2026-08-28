@@ -1,14 +1,11 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
-import type { Edge, Node, OnNodesChange, OnEdgesChange } from 'reactflow'
-import { MarkerType, Position, useNodesState, useEdgesState } from 'reactflow'
 
 import type { WorkflowNodeData } from '../components/WorkflowNodeCard'
 import { isReadyHandle } from '../components/WorkflowNodeCard'
 import type {
   WorkflowReactionMaterialNodeData
 } from '../components/WorkflowReactionMaterialNode'
-import type { WorkflowRoundedStepEdgeData } from '../components/WorkflowRoundedStepEdge'
 import { layoutDag, type LayoutResult } from '../utils/dagLayout'
 import { getNodeColor } from '../utils/nodeColors'
 import type { WorkflowHandlePort, WorkflowLink, WorkflowNode } from '../utils/parseWorkflow'
@@ -21,7 +18,6 @@ import {
 } from '../utils/workflowDagLayoutStrategy'
 import { layoutWorkflowMaterialSwimlanes } from '../utils/workflowMaterialSwimlaneLayout'
 import { layoutWorkflowPrimarySampleFlow } from '../utils/workflowPrimarySampleLayout'
-import { reconcileReactFlowNodeMeasurements } from '../utils/reactFlowNodeMeasurement'
 import { materialTraceAccent, projectMaterialTraces } from '../utils/workflowMaterialTrace'
 import type { WorkflowMaterialTraceProjection } from '../utils/workflowMaterialTrace'
 import {
@@ -31,15 +27,56 @@ import {
 } from '../utils/workflowReactionMaterialProjection'
 
 interface UseWorkflowDagResult {
-  nodes: Node<WorkflowNodeData>[]
-  edges: Edge<WorkflowRoundedStepEdgeData>[]
-  onNodesChange: OnNodesChange
-  onEdgesChange: OnEdgesChange
+  nodes: WorkflowDagProjectionNode[]
+  edges: WorkflowDagProjectionEdge[]
 }
 
 interface WorkflowFlowElements {
-  flowNodes: Node<WorkflowNodeData>[]
-  flowEdges: Edge<WorkflowRoundedStepEdgeData>[]
+  flowNodes: WorkflowDagProjectionNode[]
+  flowEdges: WorkflowDagProjectionEdge[]
+}
+
+export interface WorkflowDagProjectionNode {
+  id: string
+  type?: string
+  position: { x: number; y: number }
+  targetPosition?: 'top' | 'right' | 'bottom' | 'left'
+  sourcePosition?: 'top' | 'right' | 'bottom' | 'left'
+  style?: CSSProperties
+  selectable?: boolean
+  draggable?: boolean
+  focusable?: boolean
+  deletable?: boolean
+  selected?: boolean
+  className?: string
+  data: WorkflowNodeData
+}
+
+export interface WorkflowDagProjectionEdge {
+  id: string
+  type?: string
+  source: string
+  target: string
+  sourceHandle?: string
+  targetHandle?: string
+  label?: string
+  labelStyle?: CSSProperties
+  ariaLabel?: string
+  className?: string
+  selected?: boolean
+  animated?: boolean
+  style?: CSSProperties
+  data?: {
+    direction?: 'TB' | 'LR'
+    borderRadius?: number
+    sequence?: boolean
+    sourceNodeUuid?: string
+    targetNodeUuid?: string
+    sourceHandleUuid?: string
+    targetHandleUuid?: string
+    materialRole?: string
+    materialEmphasis?: 'primary' | 'supporting'
+  }
 }
 
 interface WorkflowFlowEdgeContext {
@@ -61,14 +98,14 @@ const REACTION_MATERIAL_NODE_GAP = 12
 const REACTION_MATERIAL_ITEM_HEIGHT = 22
 
 /**
- * 将当前可见工作流（Workflow）投影为可交互的 ReactFlow 节点和正交边。
+ * 将当前可见工作流（Workflow）投影为引擎无关节点和正交边。
  *
  * @param nodes 已折叠组合工作流后的全部可见节点。
  * @param links 已重接端点的控制边与物料流（MaterialFlow）边。
  * @param strategy 当前选中的画布布局策略。
  * @param swimlaneDirection 物料泳道策略当前选中的流向。
  * @param supportingMaterialPresentation 辅助物料使用反应式标注或完整支线展示。
- * @returns ReactFlow 状态以及节点、边变更入口。
+ * @returns X6 适配层可直接消费的框架无关节点与边。
  */
 export function useWorkflowDag(
   nodes: WorkflowNode[],
@@ -102,12 +139,8 @@ export function useWorkflowDag(
       swimlaneDirection
     ]
   )
-  const [flowNodes, setNodes, onNodesChange] = useNodesState(
-    fallback.flowNodes
-  )
-  const [flowEdges, setEdges, onEdgesChange] = useEdgesState(
-    fallback.flowEdges
-  )
+  const [flowNodes, setNodes] = useState(fallback.flowNodes)
+  const [flowEdges, setEdges] = useState(fallback.flowEdges)
 
   useEffect(
     /**
@@ -117,20 +150,7 @@ export function useWorkflowDag(
      * @throws React 状态更新异常由运行时传播。
      */
     () => {
-    // `currentNodes` 是流程画布引擎当前持有、可能已完成测量的节点集合。
-    setNodes(
-      /**
-       * 合并当前测量与同步布局节点。
-       *
-       * @param currentNodes 流程画布当前节点。
-       * @returns 保留可靠测量的下一版节点。
-       * @throws 无。
-       */
-      (currentNodes) => reconcileReactFlowNodeMeasurements(
-        currentNodes,
-        fallback.flowNodes
-      )
-    )
+    setNodes(fallback.flowNodes)
     setEdges(fallback.flowEdges)
     },
     [fallback, setEdges, setNodes]
@@ -172,20 +192,7 @@ export function useWorkflowDag(
         strategy,
         supportingMaterialPresentation
       )
-      // `currentNodes` 是异步布局完成时仍有效的最新节点与测量集合。
-      setNodes(
-        /**
-         * 合并当前测量与异步布局节点。
-         *
-         * @param currentNodes 流程画布当前节点。
-         * @returns 保留可靠测量的异步布局节点。
-         * @throws 无。
-         */
-        (currentNodes) => reconcileReactFlowNodeMeasurements(
-          currentNodes,
-          elements.flowNodes
-        )
-      )
+      setNodes(elements.flowNodes)
       setEdges(elements.flowEdges)
       }
     ).catch(
@@ -223,9 +230,7 @@ export function useWorkflowDag(
 
   return {
     nodes: flowNodes,
-    edges: flowEdges,
-    onNodesChange,
-    onEdgesChange
+    edges: flowEdges
   }
 }
 
@@ -237,7 +242,7 @@ export function useWorkflowDag(
  * @param sourceLinks 用于计算物料流（MaterialFlow）追踪颜色的源边。
  * @param strategy 当前画布布局策略，用于节点样式和交互投影。
  * @param supportingMaterialPresentation 辅助物料的画布展示方式。
- * @returns 可直接交给 ReactFlow 的节点与边。
+ * @returns 可交给 X6 元数据适配层的节点与边。
  */
 function buildFlowElements(
   layout: LayoutResult,
@@ -273,7 +278,7 @@ function buildFlowElements(
   const visibleLayoutNodes = reactionFormulaPresentation
     ? layout.nodes.filter((node) => backboneNodeIds.has(node.id))
     : layout.nodes
-  const flowNodes: Node<WorkflowNodeData>[] = visibleLayoutNodes.map((node) => {
+  const flowNodes: WorkflowDagProjectionNode[] = visibleLayoutNodes.map((node) => {
     const laneLayout = layout.swimlanes?.nodeLayouts.get(node.id)
     const handleLanes = layout.swimlanes?.handleLaneIndexes.get(node.id)
     const nodePorts = layout.nodePorts?.get(node.id)
@@ -283,15 +288,15 @@ function buildFlowElements(
       focusable: node.groupKind !== 'subworkflow',
       position: { x: node.x, y: node.y },
       targetPosition: nodePorts
-        ? reactFlowPosition(nodePorts.target)
+        ? nodePorts.target
         : layout.direction === 'horizontal'
-          ? Position.Left
-          : Position.Top,
+          ? 'left'
+          : 'top',
       sourcePosition: nodePorts
-        ? reactFlowPosition(nodePorts.source)
+        ? nodePorts.source
         : layout.direction === 'horizontal'
-          ? Position.Right
-          : Position.Bottom,
+          ? 'right'
+          : 'bottom',
       ...(laneLayout && !compactPrimarySampleLayout
         ? { style: { width: laneLayout.width, height: laneLayout.height } }
         : {}),
@@ -305,6 +310,7 @@ function buildFlowElements(
         visualKind: node.visualKind,
         groupKind: node.groupKind,
         descendantCount: node.descendantNodeIds?.length,
+        openChildWorkflowUuid: node.openChildWorkflowUuid,
         handles: node.handles,
         materialSource: node.materialSource,
         traceAccent: node.type === 'material_source'
@@ -368,12 +374,12 @@ function buildFlowElements(
  *
  * @param layout 已完成主样品蛇形排布的画布布局。
  * @param annotations 按主干目标节点分组的辅助物料（Material）标注。
- * @returns 不可选择、不承载执行语义的 ReactFlow 注释节点。
+ * @returns 不可选择、不承载执行语义的框架无关注释节点。
  */
 function buildReactionMaterialNodes(
   layout: LayoutResult,
   annotations: readonly WorkflowReactionMaterialAnnotation[]
-): Node<WorkflowNodeData>[] {
+): WorkflowDagProjectionNode[] {
   const layoutNodeById = new Map(layout.nodes.map((node) => [node.id, node]))
   return annotations.flatMap((annotation) => {
     const targetNode = layoutNodeById.get(annotation.targetNodeUuid)
@@ -409,10 +415,10 @@ function buildReactionMaterialNodes(
 }
 
 /**
- * 将一条工作流边投影为带物料角色层级的 ReactFlow 正交边。
+ * 将一条工作流边投影为带物料角色层级的框架无关正交边。
  *
  * @param context 当前边、布局、句柄和物料流（MaterialFlow）追踪索引。
- * @returns 保留执行语义、仅调整辅助物料视觉层级的 ReactFlow 边。
+ * @returns 保留执行语义、仅调整辅助物料视觉层级的边投影。
  */
 function buildWorkflowFlowEdge({
   link,
@@ -423,7 +429,7 @@ function buildWorkflowFlowEdge({
   handleByUuid,
   nodeNames,
   compactPrimarySampleLayout
-}: WorkflowFlowEdgeContext): Edge<WorkflowRoundedStepEdgeData> {
+}: WorkflowFlowEdgeContext): WorkflowDagProjectionEdge {
   const communication = link.type === COMM_EDGE_TYPE
   const materialAccent = materialTraces.edgeAccents.get(index)
   // `materialRole` 来自同一条已追踪物料谱系，确保辅助层级与角色筛选一致。
@@ -473,7 +479,6 @@ function buildWorkflowFlowEdge({
       materialAccent,
       supportingMaterial
     ),
-    markerEnd: workflowEdgeMarker(materialAccent, supportingMaterial),
     ariaLabel: workflowEdgeAriaLabel(
       materialAccent,
       ready,
@@ -536,25 +541,6 @@ function workflowEdgeAnimated(
 }
 
 /** 返回物料边箭头；辅助物料使用更小箭头。 */
-function workflowEdgeMarker(
-  materialAccent: string | undefined,
-  supportingMaterial: boolean
-): {
-  type: MarkerType
-  color: string
-  width: number
-  height: number
-} | undefined {
-  if (!materialAccent) return undefined
-  const size = supportingMaterial ? 9 : 14
-  return {
-    type: MarkerType.ArrowClosed,
-    color: materialAccent,
-    width: size,
-    height: size
-  }
-}
-
 /** 返回工作流边的人类可读无障碍名称。 */
 function workflowEdgeAriaLabel(
   materialAccent: string | undefined,
@@ -573,7 +559,7 @@ function workflowEdgeAriaLabel(
  * @param materialAccent 当前物料谱系的稳定强调色；非物料边为空。
  * @param communication 当前边是否为通信控制边。
  * @param supportingMaterial 当前物料边是否属于辅助物料支线。
- * @returns ReactFlow 边可直接使用的颜色、线宽与虚线样式。
+ * @returns 画布适配层可直接使用的颜色、线宽与虚线样式。
  */
 function workflowEdgeStyle(
   materialAccent: string | undefined,
@@ -608,13 +594,3 @@ function workflowEdgeClassName(
  * @param side 布局模块返回的节点边缘方位。
  * @returns React Flow 可直接消费的端口方位。
  */
-function reactFlowPosition(
-  side: 'top' | 'right' | 'bottom' | 'left'
-): Position {
-  return {
-    top: Position.Top,
-    right: Position.Right,
-    bottom: Position.Bottom,
-    left: Position.Left
-  }[side]
-}

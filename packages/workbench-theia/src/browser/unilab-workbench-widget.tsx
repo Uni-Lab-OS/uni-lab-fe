@@ -13,16 +13,10 @@ import {
   DiagnosticSeverity,
   type Diagnostic
 } from '@theia/core/shared/vscode-languageserver-protocol'
-import {
-  Disposable,
-  DisposableCollection
-} from '@theia/core/lib/common/disposable'
+import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable'
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import {
-  DeviceManagementList,
-  DeviceManagementPanel
-} from '@unilab/device-management'
+import { DeviceManagementList, DeviceManagementPanel } from '@unilab/device-management'
 import {
   MaterialStoreProvider,
   MaterialWorkbench,
@@ -34,9 +28,7 @@ import {
   RobotWorkstation,
   type WorkstationModule
 } from '@unilab/robot-workstation'
-import {
-  assertCapability
-} from '@unilab/services'
+import { assertCapability } from '@unilab/services'
 import {
   createWorkflowResourceSlotOptionsPort,
   WorkflowPanel,
@@ -64,13 +56,7 @@ import type {
   WorkbenchSessionSnapshot
 } from '@unilab/workbench-session'
 import * as React from 'react'
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   WorkbenchSessionClient,
@@ -106,6 +92,7 @@ import { WorkbenchMaterialViewport } from './workbench-material-viewport'
 import { WorkbenchModeEntry } from './workbench-mode-entry'
 import { WorkbenchTopBar } from './workbench-top-bar'
 import { workbenchDeviceConnection } from './workbench-device-connection'
+import { WorkbenchExperimentOperationSurface } from './workbench-experiment-operation-surface'
 import { workflowExecutionStatusForConnection } from './workbench-execution-readiness'
 import {
   runAndRefreshWorkbenchOperation,
@@ -999,11 +986,7 @@ function WorkbenchSurface({
     },
     []
   )
-  const mountedDomains = useRef(new Set<
-    'workflow' | 'material' | 'device' | 'robot-workstation'
-  >([
-    'workflow'
-  ]))
+  const mountedDomains = useRef(new Set<WorkbenchMountedDomain>(['workflow']))
   recordMountedWorkbenchDomains(mountedDomains.current, viewMode)
   const workflowUuid = query.get('workflowUuid') ?? undefined
   const selectedTarget = connectionTargets[connectionMode]
@@ -1251,6 +1234,15 @@ function WorkbenchSurface({
       />
     </section>
   )
+  const operationSurface = (
+    <WorkbenchExperimentOperationSurface context={{
+      services, connectionMode, session, workflowRunStatus, resourceSlotOptionsPort,
+      recoveryRevision, active: viewMode === 'operation', onUnsavedChangesChange,
+      reportWorkflowUnsavedChanges,
+      onSelectedWorkflowStepChange: setSelectedWorkflowNode,
+      onWorkflowRuntimeProjectionChange: setRuntimeProjection
+    }} />
+  )
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -1319,6 +1311,11 @@ function WorkbenchSurface({
             'device',
             deviceSurface
           )}
+          operation={mountedSurface(
+            mountedDomains.current,
+            'operation',
+            operationSurface
+          )}
           robotWorkstation={mountedSurface(
             mountedDomains.current,
             'robot-workstation',
@@ -1350,6 +1347,7 @@ type WorkbenchMountedDomain =
   | 'workflow-tasks'
   | 'material'
   | 'device'
+  | 'operation'
   | 'robot-workstation'
 
 /** 记录已经访问过的领域表面，使切换活动栏时保留面板本地状态。 */
@@ -1365,6 +1363,7 @@ function recordMountedWorkbenchDomains(
   if (mode === 'device' || mode === 'device-material') {
     mountedDomains.add('device')
   }
+  if (mode === 'operation') mountedDomains.add('operation')
   if (isRobotWorkbenchViewMode(mode)) mountedDomains.add('robot-workstation')
 }
 
@@ -1403,6 +1402,7 @@ function workbenchViewLabel(mode: WorkbenchViewMode): string {
   if (mode === 'workflow-tasks') return '任务列表'
   if (mode === 'material') return '物料管理'
   if (mode === 'device') return '设备管理'
+  if (mode === 'operation') return '实验操作调试'
   if (isRobotWorkbenchViewMode(mode)) return workstationViewLabel(mode)
   return '未打开面板'
 }

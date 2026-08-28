@@ -24,6 +24,13 @@ export type WorkflowRevision = Record<string, unknown> & {
   layout?: Record<string, unknown>
 }
 
+export type WorkflowDefinitionKind = 'workflow' | 'operation'
+
+export interface WorkflowDefinitionUnilabMetadata
+  extends Partial<WorkflowIoMetadata> {
+  definition_kind?: WorkflowDefinitionKind
+}
+
 export interface WorkflowDocument {
   definition: {
     id: string
@@ -167,13 +174,31 @@ export interface WorkflowAuthoringSourceMapEntry {
 export interface WorkflowAuthoringGraph {
   workflow: Record<string, unknown> & {
     meta_data?: Record<string, unknown> & {
-      unilab?: Record<string, unknown> & Partial<WorkflowIoMetadata>
+      unilab?: Record<string, unknown> & WorkflowDefinitionUnilabMetadata
     }
   }
   nodes: Array<Record<string, unknown>>
   edges: Array<Record<string, unknown>>
   node_templates: Array<Record<string, unknown>>
   handle_templates: Array<Record<string, unknown>>
+}
+
+/** Read the OS-owned definition kind while keeping pre-contract workflows valid. */
+export function workflowDefinitionKind(
+  value: { meta_data?: unknown }
+): WorkflowDefinitionKind {
+  const metaData = recordOrNull(value.meta_data)
+  const unilab = recordOrNull(metaData?.unilab)
+  const kind = unilab?.definition_kind
+  if (kind === undefined) return 'workflow'
+  if (kind === 'workflow' || kind === 'operation') return kind
+  throw new Error('工作流定义种类无效')
+}
+
+function recordOrNull(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
 }
 
 export interface WorkflowAuthoringDraft {

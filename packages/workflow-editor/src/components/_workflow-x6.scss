@@ -1,0 +1,720 @@
+@use './workflow-foundations' as *;
+
+.workflow {
+  :global {
+.workflow-x6 {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-surface) 84%,
+    var(--unilab-color-canvas)
+  );
+  color: var(--unilab-color-text);
+  font-family: var(--unilab-font-sans);
+}
+
+.workflow-x6__viewport {
+  width: 100%;
+  height: 100%;
+}
+
+.workflow-x6__viewport[data-x6-error='true'] {
+  display: grid;
+  padding: 24px;
+  color: var(--unilab-color-danger);
+  place-items: center;
+  font-size: 12px;
+  text-align: center;
+}
+
+.workflow-x6__toolbar-panel {
+  position: absolute;
+  z-index: 12;
+  top: 10px;
+  right: 10px;
+  max-width: calc(100% - 20px);
+}
+
+.workflow-x6 .x6-graph-scroller,
+.workflow-x6 .x6-graph-scroller-content,
+.workflow-x6 .x6-graph {
+  width: 100%;
+  height: 100%;
+}
+
+.workflow-x6 .x6-graph-grid {
+  opacity: .18;
+}
+
+/* React Flow 基线：操作节点是无阴影的紧凑操作条，hover 才抬升。 */
+.workflow-x6-node__body {
+  fill: var(--unilab-color-surface);
+  stroke: var(--unilab-color-border-strong);
+  stroke-width: 1px;
+  transition:
+    filter var(--unilab-motion-fast) ease,
+    stroke var(--unilab-motion-fast) ease,
+    stroke-width var(--unilab-motion-fast) ease;
+}
+
+.workflow-x6 .x6-node:hover .workflow-x6-node__body {
+  stroke: color-mix(
+    in srgb,
+    var(--unilab-color-workflow) 42%,
+    var(--unilab-color-border-strong)
+  );
+  filter: drop-shadow(0 4px 7px rgb(15 23 42 / 10%));
+}
+
+.workflow-x6-node__divider {
+  stroke: var(--unilab-color-border);
+  stroke-width: 1px;
+}
+
+.workflow-x6-node__label {
+  fill: var(--unilab-color-text);
+  font-family: var(--unilab-font-sans);
+  font-size: 12px;
+  font-weight: 650;
+  dominant-baseline: middle;
+}
+
+.workflow-x6-node__status-pill {
+  fill: var(--unilab-color-surface-muted);
+  stroke: none;
+}
+
+.workflow-x6-node__status-dot {
+  stroke: var(--unilab-color-surface);
+  stroke-width: 1.5px;
+}
+
+.workflow-x6-node__status-text {
+  font-family: var(--unilab-font-sans);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.workflow-x6 .x6-node[data-workflow-status='running']
+  .workflow-x6-node__status-pill {
+  fill: var(--unilab-color-warning-soft);
+  stroke: var(--unilab-color-warning);
+  stroke-width: 1px;
+}
+
+.workflow-x6 .x6-node[data-workflow-status='success']
+  .workflow-x6-node__status-pill,
+.workflow-x6 .x6-node[data-workflow-status='succeeded']
+  .workflow-x6-node__status-pill {
+  fill: var(--unilab-color-success-soft);
+  stroke: var(--unilab-color-success);
+  stroke-width: 1px;
+}
+
+.workflow-x6-node__material-card {
+  stroke-width: 1px;
+}
+
+.workflow-x6-node__material-label {
+  font-family: var(--unilab-font-sans);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.workflow-x6-node__group-label {
+  fill: var(--unilab-color-primary);
+  font-family: var(--unilab-font-sans);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.workflow-x6 .x6-node[data-workflow-group-kind='subworkflow']
+  .workflow-x6-node__body {
+  fill: var(--unilab-color-primary-soft);
+  stroke: color-mix(
+    in srgb,
+    var(--unilab-color-primary) 36%,
+    var(--unilab-color-border)
+  );
+  stroke-dasharray: 6 4;
+}
+
+/* 物料来源与机械臂沿用 React Flow 的六边形/菱形视觉，不套通用卡片。 */
+.workflow-x6-node__selection-target,
+.workflow-x6-node__reaction-body {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 1px;
+}
+
+.workflow-x6-node__special-label {
+  fill: var(--unilab-color-text);
+  font-family: var(--unilab-font-sans);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workflow-x6-node__special-meta {
+  fill: var(--unilab-color-text-muted);
+  font-family: var(--unilab-font-sans);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.workflow-x6-node__special-state {
+  font-family: var(--unilab-font-sans);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.workflow-x6-node__shape {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    filter var(--unilab-motion-fast) ease,
+    transform var(--unilab-motion-fast) ease;
+}
+
+.workflow-x6 .x6-node:hover .workflow-x6-node__shape {
+  transform: translateY(-2px);
+}
+
+.workflow-x6-node__shape-frame {
+  fill: var(--unilab-color-text);
+}
+
+.workflow-x6-node__material-glyph,
+.workflow-x6-node__robot-glyph {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.workflow-x6-node__material-glyph {
+  stroke-width: 1.2px;
+}
+
+.workflow-x6-node__robot-glyph {
+  stroke: var(--unilab-color-text);
+  stroke-width: 1.55px;
+}
+
+.workflow-x6-node__transfer-shape {
+  filter: drop-shadow(0 2px 3px color-mix(
+    in srgb,
+    var(--unilab-color-text) 18%,
+    transparent
+  ));
+}
+
+/* 辅助物料反应式保持低色面、无卡片边框。 */
+.workflow-x6-node__reaction-body {
+  fill: color-mix(in srgb, var(--unilab-color-surface) 88%, transparent);
+}
+
+.workflow-x6-node__reaction-line {
+  stroke-width: 1px;
+}
+
+.workflow-x6-node__reaction-name,
+.workflow-x6-node__reaction-role {
+  font-family: var(--unilab-font-sans);
+}
+
+.workflow-x6-node__reaction-name {
+  fill: var(--unilab-color-text);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.workflow-x6-node__reaction-role {
+  fill: var(--unilab-color-text-muted);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+/* 调试标记不仅靠颜色：旗标、文字与断点圆点都保留。 */
+.workflow-x6-node__flag {
+  font-family: var(--unilab-font-sans);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.workflow-x6-node__flag--start {
+  fill: var(--unilab-color-start);
+}
+
+.workflow-x6-node__flag--paused {
+  fill: var(--unilab-color-paused);
+}
+
+.workflow-x6-node__flag--excluded,
+.workflow-x6-node__flag--disabled {
+  fill: var(--unilab-color-skipped);
+}
+
+.workflow-x6-node__breakpoint {
+  fill: var(--unilab-color-danger);
+  stroke: var(--unilab-color-surface);
+  stroke-width: 3px;
+  filter: drop-shadow(0 1px 2px rgb(220 38 38 / 35%));
+}
+
+/* 本地选择使用文本色，IDE/源码反查使用 focus 色，二者保持可区分。 */
+.workflow-x6 .x6-node-selected .workflow-x6-node__body,
+.workflow-x6 .x6-node-selected .workflow-x6-node__selection-target,
+.workflow-x6 .x6-widget-selection-box-node {
+  stroke: var(--unilab-color-text);
+  stroke-width: 2px;
+}
+
+/* 选择框只表达状态；端口和节点本体继续接收连接与点击手势。 */
+.workflow-x6 .x6-widget-selection-box-node {
+  pointer-events: none;
+}
+
+.workflow-x6 .x6-node[data-workflow-source-selected='true']
+  .workflow-x6-node__body,
+.workflow-x6 .x6-node[data-workflow-source-selected='true']
+  .workflow-x6-node__selection-target,
+.workflow-x6 .x6-node[data-workflow-runtime-selected='true']
+  .workflow-x6-node__body,
+.workflow-x6 .x6-node[data-workflow-runtime-selected='true']
+  .workflow-x6-node__selection-target {
+  stroke: var(--unilab-color-focus);
+  stroke-width: 2.5px;
+  filter: drop-shadow(0 7px 9px color-mix(
+    in srgb,
+    var(--unilab-color-focus) 20%,
+    transparent
+  ));
+}
+
+.workflow-x6 .x6-node:focus-visible
+  .workflow-x6-node__body,
+.workflow-x6 .x6-node:focus-visible
+  .workflow-x6-node__selection-target {
+  stroke: var(--unilab-color-focus);
+  stroke-width: 3px;
+}
+
+/* 运行状态与旧画布一致：运行橙、成功绿、核对/失败红、暂停蓝。 */
+.workflow-x6 .x6-node[data-workflow-status='running']
+  .workflow-x6-node__body {
+  stroke: var(--unilab-color-warning);
+  stroke-width: 2px;
+  filter:
+    drop-shadow(0 0 4px color-mix(
+      in srgb,
+      var(--unilab-color-warning) 55%,
+      transparent
+    ))
+    drop-shadow(0 0 11px color-mix(
+      in srgb,
+      var(--unilab-color-warning) 25%,
+      transparent
+    ));
+  animation: workflow-x6-running-signal 1.05s ease-in-out infinite;
+}
+
+.workflow-x6 .x6-node[data-workflow-status='running']
+  .workflow-x6-node__shape {
+  filter:
+    drop-shadow(0 0 5px color-mix(
+      in srgb,
+      var(--unilab-color-warning) 58%,
+      transparent
+    ))
+    drop-shadow(0 0 11px color-mix(
+      in srgb,
+      var(--unilab-color-warning) 28%,
+      transparent
+    ));
+  animation: workflow-x6-running-shape-signal 1.05s ease-in-out infinite;
+}
+
+.workflow-x6 .x6-node:is(
+  [data-workflow-status='success'],
+  [data-workflow-status='succeeded']
+) .workflow-x6-node__body {
+  stroke: var(--unilab-color-success);
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 7px color-mix(
+    in srgb,
+    var(--unilab-color-success) 34%,
+    transparent
+  ));
+}
+
+.workflow-x6 .x6-node:is(
+  [data-workflow-status='success'],
+  [data-workflow-status='succeeded']
+) .workflow-x6-node__shape {
+  filter: drop-shadow(0 0 7px color-mix(
+    in srgb,
+    var(--unilab-color-success) 42%,
+    transparent
+  ));
+}
+
+.workflow-x6 .x6-node:is(
+  [data-workflow-status='failed'],
+  [data-workflow-status='cancelled'],
+  [data-workflow-status='reconciling']
+) .workflow-x6-node__body,
+.workflow-x6 .x6-node:is(
+  [data-workflow-status='failed'],
+  [data-workflow-status='cancelled'],
+  [data-workflow-status='reconciling']
+) .workflow-x6-node__selection-target {
+  stroke: var(--unilab-color-danger);
+  stroke-width: 2px;
+}
+
+.workflow-x6 .x6-node[data-workflow-paused-before='true']
+  .workflow-x6-node__body,
+.workflow-x6 .x6-node[data-workflow-paused-before='true']
+  .workflow-x6-node__selection-target {
+  stroke: var(--unilab-color-paused);
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 5px color-mix(
+    in srgb,
+    var(--unilab-color-paused) 24%,
+    transparent
+  ));
+}
+
+.workflow-x6 .x6-node[data-workflow-before-start='true'] {
+  opacity: .55;
+  filter: grayscale(1);
+}
+
+.workflow-x6 .x6-node[data-workflow-before-start='true']
+  .workflow-x6-node__body {
+  fill: var(--unilab-color-skipped-soft);
+  stroke: var(--unilab-color-border-strong);
+  filter: none;
+}
+
+.workflow-x6 .x6-node[data-workflow-disabled='true'] {
+  opacity: .52;
+  filter: grayscale(.75);
+}
+
+.workflow-x6 .x6-node[data-workflow-disabled='true']
+  .workflow-x6-node__body,
+.workflow-x6 .x6-node[data-workflow-disabled='true']
+  .workflow-x6-node__selection-target,
+.workflow-x6 .x6-node[data-workflow-disabled='true']
+  .workflow-x6-node__shape-frame {
+  stroke: var(--unilab-color-border-strong);
+  stroke-dasharray: 5 4;
+  filter: none;
+}
+
+/* ready 是扁平执行顺序端口；物料端口是空心色环。 */
+.workflow-x6-port {
+  cursor: crosshair;
+}
+
+.workflow-x6-port--ready {
+  fill: var(--unilab-color-text-muted);
+  stroke: none;
+  filter: drop-shadow(0 0 1px var(--unilab-color-surface));
+}
+
+.workflow-x6-port--material {
+  transition:
+    filter var(--unilab-motion-fast) ease,
+    r var(--unilab-motion-fast) ease;
+}
+
+.workflow-x6-port--material:hover {
+  filter: drop-shadow(0 0 3px currentcolor);
+}
+
+.workflow-x6-port--structural {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 圆角边、物料追踪动画与 before-start 降级恢复旧 React Flow 语义。 */
+.workflow-x6 .x6-edge path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition:
+    opacity var(--unilab-motion-fast) ease,
+    stroke-width var(--unilab-motion-fast) ease;
+}
+
+.workflow-x6 .x6-edge:hover .x6-edge-path,
+.workflow-x6 .x6-edge-selected .x6-edge-path {
+  stroke-width: 3px;
+}
+
+.workflow-x6 .x6-edge[data-workflow-edge-kind='material']
+  .x6-edge-path {
+  stroke-dasharray: 3 8;
+}
+
+.workflow-x6 .x6-edge[data-workflow-edge-kind='material']
+  .x6-edge-path:nth-child(2),
+.workflow-x6 .x6-edge[data-workflow-edge-kind='material'][data-workflow-edge-animated='true']
+  .x6-edge-path {
+  animation: workflow-x6-material-flow-direction 1.1s linear infinite;
+}
+
+.workflow-x6 .x6-edge[data-workflow-material-emphasis='supporting']
+  .x6-edge-path {
+  animation: none;
+}
+
+.workflow-x6 .x6-edge[data-workflow-edge-before-start='true'] {
+  opacity: .2;
+  filter: grayscale(1);
+}
+
+.workflow-x6 .x6-widget-selection-rubberband {
+  border-color: var(--unilab-color-focus);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-focus) 8%,
+    transparent
+  );
+}
+
+/* 缩略图与缩放控件沿用旧画布的尺寸、冷色表面与聚焦反馈。 */
+.workflow-x6__minimap {
+  position: absolute;
+  z-index: 7;
+  right: 14px;
+  bottom: 14px;
+  overflow: hidden;
+  width: 164px;
+  height: 108px;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-workflow) 3%,
+    var(--unilab-color-surface)
+  );
+  box-shadow: 0 6px 18px rgb(15 23 42 / 9%);
+}
+
+.workflow-x6__large-graph {
+  position: absolute;
+  z-index: 7;
+  right: 14px;
+  bottom: 14px;
+  padding: 6px 10px;
+  color: var(--unilab-color-text-muted);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-workflow) 3%,
+    var(--unilab-color-surface)
+  );
+  font-size: 10px;
+  box-shadow: 0 6px 18px rgb(15 23 42 / 9%);
+}
+
+.workflow-x6__zoom {
+  position: absolute;
+  z-index: 8;
+  bottom: 14px;
+  left: 14px;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-workflow) 3%,
+    var(--unilab-color-surface)
+  );
+  box-shadow: 0 6px 18px rgb(15 23 42 / 9%);
+}
+
+.workflow-x6__zoom button {
+  width: 34px;
+  height: 32px;
+  padding: 0;
+  color: var(--unilab-color-text-muted);
+  border: 0;
+  border-right: 1px solid var(--unilab-color-border);
+  background: transparent;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.workflow-x6__zoom button:last-child {
+  border-right: 0;
+}
+
+.workflow-x6__zoom button:hover {
+  color: var(--unilab-color-primary);
+  background: var(--unilab-color-workflow-soft);
+}
+
+.workflow-x6__zoom button:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: -2px;
+}
+
+.workflow-x6__node-actions {
+  position: absolute;
+  z-index: 9;
+  bottom: 58px;
+  left: 14px;
+  display: flex;
+  max-width: calc(100% - 28px);
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-surface) 96%,
+    transparent
+  );
+  box-shadow: var(--unilab-shadow-panel);
+}
+
+.workflow-x6__node-actions strong {
+  max-width: 180px;
+  overflow: hidden;
+  padding: 0 6px;
+  color: var(--unilab-color-text);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-x6__node-actions button {
+  min-height: 28px;
+  padding: 0 9px;
+  color: var(--unilab-color-text-muted);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.workflow-x6__node-actions button:hover {
+  color: var(--unilab-color-primary);
+  border-color: var(--unilab-color-focus);
+  background: var(--unilab-color-primary-soft);
+}
+
+.workflow-x6__node-actions button:focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 2px;
+}
+
+.workflow-x6__empty {
+  display: grid;
+  height: 100%;
+  min-height: 220px;
+  padding: 24px;
+  color: var(--unilab-color-text-muted);
+  background: color-mix(
+    in srgb,
+    var(--unilab-color-surface) 84%,
+    var(--unilab-color-canvas)
+  );
+  font-size: 12px;
+  place-items: center;
+  text-align: center;
+}
+
+@keyframes workflow-x6-running-signal {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px color-mix(
+      in srgb,
+      var(--unilab-color-warning) 45%,
+      transparent
+    ));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 6px color-mix(
+        in srgb,
+        var(--unilab-color-warning) 65%,
+        transparent
+      ))
+      drop-shadow(0 0 14px color-mix(
+        in srgb,
+        var(--unilab-color-warning) 30%,
+        transparent
+      ));
+  }
+}
+
+@keyframes workflow-x6-running-shape-signal {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px color-mix(
+      in srgb,
+      var(--unilab-color-warning) 50%,
+      transparent
+    ));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 6px color-mix(
+        in srgb,
+        var(--unilab-color-warning) 68%,
+        transparent
+      ))
+      drop-shadow(0 0 14px color-mix(
+        in srgb,
+        var(--unilab-color-warning) 34%,
+        transparent
+      ));
+  }
+}
+
+@keyframes workflow-x6-material-flow-direction {
+  to {
+    stroke-dashoffset: -22;
+  }
+}
+
+@media (max-width: 960px) {
+  .workflow-x6__minimap {
+    display: none;
+  }
+}
+
+@container workflow (max-width: 720px) {
+  .workflow-x6__minimap {
+    display: none;
+  }
+
+  .workflow-x6__node-actions {
+    max-width: calc(100% - 84px);
+    overflow-x: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-x6 .x6-node[data-workflow-status='running']
+    .workflow-x6-node__body,
+  .workflow-x6 .x6-node[data-workflow-status='running']
+    .workflow-x6-node__shape,
+  .workflow-x6 .x6-edge[data-workflow-edge-animated='true']
+    .x6-edge-path {
+    animation: none;
+  }
+}
+  }
+}

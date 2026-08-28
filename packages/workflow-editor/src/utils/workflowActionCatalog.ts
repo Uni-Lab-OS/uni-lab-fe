@@ -6,7 +6,12 @@ import type {
   WorkflowAuthoringGraph,
   WorkflowPublishedNodeTemplate
 } from '@unilab/services'
+import { isWorkflowValueSchemaAssignable } from '@unilab/services'
 import { v5 as uuidV5 } from 'uuid'
+
+import { wouldCreateWorkflowCycle } from './workflowGraphConnection'
+
+export { createPublishedWorkflowNode } from './workflowPublishedNode'
 
 export interface TypedActionFieldProjection {
   handleUuid: string
@@ -45,7 +50,12 @@ export interface TypedActionEditorProjection {
 export function createTypedActionNode(
   catalog: WorkflowActionCatalogSnapshot,
   graph: WorkflowAuthoringGraph,
-  input: { nodeUuid: string; templateUuid: string; name: string }
+  input: {
+    nodeUuid: string
+    templateUuid: string
+    name: string
+    position?: { x: number; y: number }
+  }
 ): WorkflowAuthoringGraph {
   const template = typedActionTemplate(catalog, input.templateUuid)
   if (graph.nodes.some((node) => node.uuid === input.nodeUuid)) {
@@ -68,7 +78,7 @@ export function createTypedActionNode(
         name: input.name,
         status: 'idle',
         type: nodeType,
-        pose: {},
+        pose: input.position ? { position: { ...input.position } } : {},
         param: {},
         action_name: template.name,
         execution_policy: {},
@@ -84,57 +94,6 @@ export function createTypedActionNode(
     node_templates: appendCatalogRecords(
       graph.node_templates,
       [cloneRecord(template.wireValue ?? nodeTemplateWireValue(template))],
-      'Workflow NodeTemplate'
-    ),
-    handle_templates: appendCatalogRecords(
-      graph.handle_templates,
-      template.handles.map((handle) =>
-        cloneRecord(handle.wireValue ?? handleTemplateWireValue(handle))
-      ),
-      'Workflow HandleTemplate'
-    )
-  }
-}
-
-export function createPublishedWorkflowNode(
-  catalog: WorkflowActionCatalogSnapshot,
-  graph: WorkflowAuthoringGraph,
-  input: { nodeUuid: string; templateUuid: string; name: string }
-): WorkflowAuthoringGraph {
-  const template = publishedWorkflowTemplate(catalog, input.templateUuid)
-  if (graph.nodes.some((node) => node.uuid === input.nodeUuid)) {
-    throw new Error('工作流节点 UUID 已存在')
-  }
-  if (!input.name || graph.nodes.some((node) => node.name === input.name)) {
-    throw new Error('工作流节点名称无效或重复')
-  }
-  return {
-    ...graph,
-    nodes: [
-      ...graph.nodes,
-      {
-        uuid: input.nodeUuid,
-        workflow_node_template_uuid: template.uuid,
-        name: input.name,
-        status: 'idle',
-        type: 'workflow',
-        pose: {},
-        param: {},
-        execution_policy: {},
-        disabled: false,
-        minimized: false,
-        meta_data: {
-          unilab: {
-            input_bindings: {}
-          }
-        }
-      }
-    ],
-    node_templates: appendCatalogRecords(
-      graph.node_templates,
-      [cloneRecord(template.wireValue ?? publishedNodeTemplateWireValue(
-        template
-      ))],
       'Workflow NodeTemplate'
     ),
     handle_templates: appendCatalogRecords(
@@ -386,8 +345,14 @@ export function bindTypedActionWorkflowInput(
     handleUuid,
     'target'
   )
-  if (!workflowInputNames(graph).includes(parameter)) {
+  const input = workflowInputDescriptors(graph).find(
+    descriptor => descriptor.name === parameter
+  )
+  if (!input) {
     throw new Error('工作流入参不存在')
+  }
+  if (!isWorkflowValueSchemaAssignable(input.schema, handle.valueSchema)) {
+    throw new Error('工作流入参 Schema 不能赋值给操作目标端口')
   }
   const dataKey = requiredString(handle.dataKey)
   const cleared = clearTypedActionProvider(
@@ -442,7 +407,7 @@ export function connectTypedActionEdge(
     catalog,
     graph,
     input,
-    sourceHandle.valueType,
+    sourceHandle.valueSchema,
     null
   )
 }
@@ -461,6 +426,7 @@ export function connectFrameworkSourceToTypedActionEdge(
     nodeTemplateUuid: string
     handleUuid: string
     valueType: string
+    valueSchema: Record<string, unknown>
     resourceTemplateUuid: string | null
   }
 ): WorkflowAuthoringGraph {
@@ -488,7 +454,7 @@ export function connectFrameworkSourceToTypedActionEdge(
     catalog,
     graph,
     input,
-    source.valueType,
+    source.valueSchema,
     source.resourceTemplateUuid
   )
 }
@@ -502,9 +468,16 @@ function connectTypedActionTarget(
     targetNodeUuid: string
     targetHandleUuid: string
   },
-  sourceValueType: string,
+  sourceValueSchema: Record<string, unknown>,
   sourceResourceTemplateUuid: string | null
 ): WorkflowAuthoringGraph {
+  if (wouldCreateWorkflowCycle(
+    graph,
+    input.sourceNodeUuid,
+    input.targetNodeUuid
+  )) {
+    throw new Error('工作流连线会形成环路')
+  }
   const edgeUuid = uuidV5(
     `authoring-edge:${input.sourceNodeUuid}:${input.sourceHandleUuid}:` +
       `${input.targetNodeUuid}:${input.targetHandleUuid}`,
@@ -527,8 +500,11 @@ function connectTypedActionTarget(
     input.targetHandleUuid,
     'target'
   )
-  if (sourceValueType !== targetHandle.valueType) {
-    throw new Error('工作流连线两端的端口类型不兼容')
+  if (!isWorkflowValueSchemaAssignable(
+    sourceValueSchema,
+    targetHandle.valueSchema
+  )) {
+    throw new Error('工作流连线两端的 valueSchema 不兼容')
   }
   if (
     sourceResourceTemplateUuid &&
@@ -807,7 +783,9 @@ function clearTypedActionProvider(
   }
 }
 
-function workflowInputNames(graph: WorkflowAuthoringGraph): string[] {
+function workflowInputDescriptors(
+  graph: WorkflowAuthoringGraph
+): Array<{ name: string; schema: Record<string, unknown> }> {
   const workflow = recordValue(graph.workflow)
   const metaData = recordOrNull(workflow.meta_data) ?? {}
   const unilab = recordOrNull(metaData.unilab) ?? {}
@@ -816,13 +794,22 @@ function workflowInputNames(graph: WorkflowAuthoringGraph): string[] {
   if (contract.version !== 1 || !Array.isArray(contract.parameters)) {
     throw new Error('工作流入参定义与当前版本不一致')
   }
-  const names = contract.parameters.map((value) =>
-    requiredString(recordValue(value).name)
-  )
+  const descriptors = contract.parameters.map((value) => {
+    const descriptor = recordValue(value)
+    return {
+      name: requiredString(descriptor.name),
+      schema: recordValue(descriptor.schema)
+    }
+  })
+  const names = descriptors.map(descriptor => descriptor.name)
   if (new Set(names).size !== names.length) {
     throw new Error('工作流入参存在重复参数')
   }
-  return names
+  return descriptors
+}
+
+function workflowInputNames(graph: WorkflowAuthoringGraph): string[] {
+  return workflowInputDescriptors(graph).map(descriptor => descriptor.name)
 }
 
 type ExecutableNodeTemplate =
@@ -858,22 +845,6 @@ function isSupportedTypedActionContract(
   extension: Record<string, unknown> | null
 ): boolean {
   return extension?.version === 1 || extension?.version === 2
-}
-
-function publishedWorkflowTemplate(
-  catalog: WorkflowActionCatalogSnapshot,
-  templateUuid: string
-): WorkflowPublishedNodeTemplate {
-  const template = catalog.workflowTemplates.find((item) =>
-    item.uuid === templateUuid
-  )
-  const extension = template && recordOrNull(
-    template.schema['x-unilabos-workflow-contract']
-  )
-  if (!template || extension?.version !== 1) {
-    throw new Error('已发布工作流模板不存在')
-  }
-  return template
 }
 
 function typedActionTemplate(

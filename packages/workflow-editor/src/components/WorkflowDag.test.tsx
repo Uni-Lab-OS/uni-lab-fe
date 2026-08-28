@@ -118,6 +118,7 @@ describe('WorkflowDag deletion interaction', () => {
         nodes={[workflowNode]}
         links={[]}
         canvasMutationEnabled
+        selectedNodeId={workflowNode.id}
         onNodeSelect={vi.fn()}
         onDeleteRequest={vi.fn()}
       />
@@ -141,6 +142,7 @@ describe('WorkflowDag deletion interaction', () => {
         }]}
         links={[]}
         canvasMutationEnabled
+        selectedNodeId={workflowNode.id}
         onNodeSelect={vi.fn()}
         onDeleteRequest={vi.fn()}
       />
@@ -382,7 +384,7 @@ describe('WorkflowDag host sizing', () => {
       />
     )
 
-    expect(markup).toContain('data-fit-max-zoom="1.35"')
+    expect(markup).toContain('data-fit-max-zoom="1.2"')
   })
 
   /** Theia 窄分栏仍是高桌面面板，不能套用移动端 260px 固定画布。 */

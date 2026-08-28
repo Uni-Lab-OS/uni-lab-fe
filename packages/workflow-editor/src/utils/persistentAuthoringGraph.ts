@@ -498,6 +498,40 @@ export function updatePersistentAuthoringNodeName(
   }
 }
 
+/** 只更新一个可编辑节点的二维画布坐标，并保留 pose 的其余 OS 字段。 */
+export function updatePersistentAuthoringNodePosition(
+  graph: WorkflowAuthoringGraph,
+  nodeUuid: string,
+  position: { x: number; y: number }
+): WorkflowAuthoringGraph {
+  if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+    throw new Error('节点画布坐标必须是有限数值')
+  }
+  const node = graph.nodes.find((item) => item.uuid === nodeUuid)
+  if (!node) throw new Error('节点不存在或已被删除')
+  if (node.parent_uuid !== undefined && node.parent_uuid !== null) {
+    throw new Error('复合工作流的内部私有节点只读；请编辑调用边界')
+  }
+  const pose = isRecord(node.pose) ? node.pose : {}
+  const previousPosition = isRecord(pose.position) ? pose.position : {}
+  return {
+    ...graph,
+    nodes: graph.nodes.map((item) => item.uuid === nodeUuid
+      ? {
+          ...item,
+          pose: {
+            ...pose,
+            position: {
+              ...previousPosition,
+              x: position.x,
+              y: position.y
+            }
+          }
+        }
+      : item)
+  }
+}
+
 export function updatePersistentAuthoringNodeDisabled(
   graph: WorkflowAuthoringGraph,
   nodeUuid: string,

@@ -2,6 +2,11 @@ import type { WorkflowActionCatalogSnapshot } from '@unilab/services'
 import { describe, expect, it } from 'vitest'
 
 import { workflowNodePaletteProjection } from './WorkflowNodePalette'
+import {
+  readWorkflowNodePaletteDragPayload,
+  WORKFLOW_NODE_PALETTE_MIME,
+  writeWorkflowNodePaletteDragPayload
+} from '../utils/workflowCanvasCommands'
 
 describe('workflowNodePaletteProjection', () => {
   it('keeps material, action, and child workflow categories visible', () => {
@@ -35,6 +40,40 @@ describe('workflowNodePaletteProjection', () => {
     expect(projection.showMaterial).toBe(false)
     expect(projection.actions).toEqual([])
     expect(projection.workflows).toHaveLength(1)
+  })
+
+  it('does not project a material placeholder without a real OS template', () => {
+    const projection = workflowNodePaletteProjection(catalog, '', 'all', false)
+
+    expect(projection.counts).toEqual({
+      all: 2,
+      material: 0,
+      action: 1,
+      workflow: 1
+    })
+    expect(projection.showMaterial).toBe(false)
+  })
+
+  it('serializes only node kind and stable template UUID for canvas drops', () => {
+    const values = new Map<string, string>()
+    const dataTransfer = {
+      effectAllowed: 'none',
+      setData: (type: string, value: string) => values.set(type, value),
+      getData: (type: string) => values.get(type) ?? ''
+    } as unknown as DataTransfer
+
+    writeWorkflowNodePaletteDragPayload(dataTransfer, {
+      kind: 'action',
+      templateUuid: 'template-1'
+    })
+
+    expect(values.get(WORKFLOW_NODE_PALETTE_MIME)).toBe(
+      '{"kind":"action","templateUuid":"template-1"}'
+    )
+    expect(readWorkflowNodePaletteDragPayload(dataTransfer)).toEqual({
+      kind: 'action',
+      templateUuid: 'template-1'
+    })
   })
 })
 

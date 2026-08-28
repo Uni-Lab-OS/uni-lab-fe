@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { WorkflowLink, WorkflowNode } from './parseWorkflow'
 
 import {
   CONTROL_DAG_JSON,
@@ -150,6 +151,60 @@ describe('Canonical workflow projection', () => {
       allExpanded.collapsedGroupIds,
       'dose'
     )).toBe('dose')
+  })
+
+  it('loads a 5000+ node canonical layer while materializing only its boundary', () => {
+    const childCount = 5_000
+    const root: WorkflowNode = {
+      id: 'published-child',
+      name: '已发布子工作流',
+      type: 'workflow',
+      className: 'workflow',
+      labNodeType: 'workflow',
+      groupKind: 'subworkflow',
+      collapsedByDefault: true,
+      childNodeIds: Array.from(
+        { length: childCount },
+        (_, index) => `internal-${index}`
+      )
+    }
+    const children: WorkflowNode[] = Array.from(
+      { length: childCount },
+      (_, index) => ({
+        id: `internal-${index}`,
+        name: `内部节点 ${index}`,
+        type: 'action',
+        className: 'action',
+        labNodeType: 'action',
+        parentGroupId: root.id
+      })
+    )
+    const finish: WorkflowNode = {
+      id: 'finish',
+      name: '完成',
+      type: 'action',
+      className: 'action',
+      labNodeType: 'action'
+    }
+    const links: WorkflowLink[] = [{
+      id: 'boundary-edge',
+      source: children.at(-1)!.id,
+      target: finish.id,
+      type: 'control'
+    }]
+    const canonicalNodes = [root, ...children, finish]
+
+    const projected = projectNestedWorkflow(canonicalNodes, links, new Set())
+
+    expect(canonicalNodes).toHaveLength(5_002)
+    expect(projected.nodes.map((node) => node.id)).toEqual([
+      'published-child',
+      'finish'
+    ])
+    expect(projected.hiddenNodeIds.size).toBe(childCount)
+    expect(projected.links).toEqual([
+      expect.objectContaining({ source: 'published-child', target: 'finish' })
+    ])
   })
 
   /**

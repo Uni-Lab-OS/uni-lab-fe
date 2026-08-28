@@ -1,0 +1,138 @@
+:global {
+  .experiment-operation {
+    --operation-workflow: var(--unilab-color-workflow, #2563eb);
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    color: var(--unilab-color-text);
+    background: var(--unilab-color-canvas);
+    font-family: var(--unilab-font-sans);
+  }
+
+  .experiment-operation *,
+  .experiment-operation *::before,
+  .experiment-operation *::after {
+    box-sizing: border-box;
+  }
+
+  .experiment-operation button,
+  .experiment-operation select {
+    color: inherit;
+    font: inherit;
+  }
+
+  .experiment-operation button:focus-visible,
+  .experiment-operation select:focus-visible {
+    outline: 2px solid var(--unilab-color-focus);
+    outline-offset: 2px;
+  }
+
+  .experiment-operation--persistent {
+    grid-template: 52px minmax(0, 1fr) / minmax(0, 1fr);
+  }
+
+  .experiment-operation__directory-bar {
+    z-index: 2;
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--unilab-color-border);
+    background: var(--unilab-color-surface);
+    box-shadow: var(--unilab-shadow-xs);
+  }
+
+  .experiment-operation__directory-bar > div {
+    display: grid;
+    min-width: 180px;
+    margin-right: auto;
+    gap: 1px;
+  }
+
+  .experiment-operation__directory-bar > div span,
+  .experiment-operation__directory-bar > div small {
+    color: var(--unilab-color-text-muted);
+    font-size: 10px;
+    line-height: 13px;
+  }
+
+  .experiment-operation__directory-bar > div strong {
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 17px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .experiment-operation__directory-bar label {
+    min-width: 220px;
+  }
+
+  .experiment-operation__directory-bar select {
+    width: 100%;
+    min-height: 30px;
+    padding: 4px 28px 4px 9px;
+    border: 1px solid var(--unilab-color-border-strong);
+    border-radius: var(--unilab-radius-sm);
+    background: var(--unilab-color-surface);
+    font-size: 11px;
+  }
+
+  .experiment-operation__persistent-workbench {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .experiment-operation__persistent-workbench > * {
+    width: 100%;
+    height: 100%;
+  }
+
+  .experiment-operation__directory-state {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    padding: 32px;
+    color: var(--unilab-color-text-muted);
+    place-content: center;
+    place-items: center;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .experiment-operation__directory-state .codicon {
+    color: var(--operation-workflow);
+    font-size: 24px;
+  }
+
+  .experiment-operation__directory-state strong {
+    color: var(--unilab-color-text);
+    font-size: 14px;
+  }
+
+  .experiment-operation__directory-state p {
+    max-width: 54ch;
+    margin: 0;
+    font-size: 11px;
+    line-height: 18px;
+  }
+
+  .experiment-operation__directory-state.is-error .codicon {
+    color: var(--unilab-color-danger);
+  }
+
+  @container workflow (max-width: 900px) {
+    .experiment-operation__directory-bar > div small {
+      display: none;
+    }
+
+    .experiment-operation__directory-bar label {
+      min-width: 150px;
+    }
+  }
+}

@@ -7,7 +7,8 @@ import {
   parseWorkflowAuthoringGraphImport,
   projectPersistentAuthoringGraph,
   updatePersistentAuthoringNodeDisabled,
-  updatePersistentAuthoringNodeName
+  updatePersistentAuthoringNodeName,
+  updatePersistentAuthoringNodePosition
 } from './persistentAuthoringGraph'
 import { projectNestedWorkflow } from './canonicalWorkflow'
 
@@ -23,6 +24,31 @@ const graph: WorkflowAuthoringGraph = {
 }
 
 describe('persistent Authoring canvas graph edits', () => {
+  it('persists one moved node without rebuilding or flattening its pose', () => {
+    const source: WorkflowAuthoringGraph = {
+      ...graph,
+      nodes: graph.nodes.map((node, index) => index === 0
+        ? {
+            ...node,
+            pose: { frame: 'workflow', position: { x: 12, y: 24, z: 9 } }
+          }
+        : node)
+    }
+    const updated = updatePersistentAuthoringNodePosition(
+      source,
+      'node-1',
+      { x: 320, y: 180 }
+    )
+
+    expect(updated.nodes[0]).toMatchObject({
+      pose: { frame: 'workflow', position: { x: 320, y: 180, z: 9 } }
+    })
+    expect(updated.nodes[1]).toBe(source.nodes[1])
+    expect(source.nodes[0]).toMatchObject({
+      pose: { position: { x: 12, y: 24, z: 9 } }
+    })
+  })
+
   it('persists node disablement and projects a visible disabled marker', () => {
     const disabled = updatePersistentAuthoringNodeDisabled(graph, 'node-1', true)
     const projected = projectPersistentAuthoringGraph(disabled)

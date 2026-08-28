@@ -5,6 +5,7 @@ import type {
   WorkflowOutputDescriptor,
   WorkflowValueSchema
 } from '@unilab/services'
+import { isWorkflowValueSchemaAssignable } from '@unilab/services'
 
 export interface WorkflowInputTargetBinding {
   parameter: string
@@ -94,6 +95,7 @@ export function updateWorkflowInput(
     }
   }
   synchronizeImplicitOutputs(io)
+  requireAllIoBindingSchemasAssignable(next)
   return next
 }
 
@@ -143,12 +145,21 @@ export function bindWorkflowInput(
   if (!io.inputContract.parameters.some(
     ({ name }) => name === binding.parameter
   )) throw new Error('工作流入参不存在')
-  requireOwnedHandle(
+  const targetHandle = requireOwnedHandle(
     next,
     binding.workflowNodeUuid,
     binding.targetHandleUuid,
     'target'
   )
+  const input = io.inputContract.parameters.find(
+    ({ name }) => name === binding.parameter
+  )
+  if (!input || !isWorkflowValueSchemaAssignable(
+    input.schema,
+    requireHandleValueSchema(targetHandle)
+  )) {
+    throw new Error('工作流入参 Schema 不能赋值给目标 Handle')
+  }
   next.nodes = next.nodes.map((node) => {
     if (node.uuid !== binding.workflowNodeUuid) return node
     const metaData = recordOrEmpty(node.meta_data)
@@ -245,6 +256,7 @@ export function updateWorkflowOutput(
     if (binding) io.outputBindings[descriptor.name] = binding
     delete io.outputBindings[currentName]
   }
+  requireAllIoBindingSchemasAssignable(next)
   return next
 }
 
@@ -295,15 +307,26 @@ export function bindWorkflowOutput(
     throw new Error('系统生成的工作流出参绑定不可修改')
   }
   if (binding.kind === 'workflow_input') {
-    if (!io.inputContract.parameters.some(
+    const input = io.inputContract.parameters.find(
       ({ name }) => name === binding.parameter
-    )) throw new Error('工作流入参不存在')
+    )
+    if (!input) throw new Error('工作流入参不存在')
+    requireSchemaAssignable(
+      input.schema,
+      output.schema,
+      '工作流入参 Schema 不能赋值给工作流出参'
+    )
   } else {
-    requireOwnedHandle(
+    const sourceHandle = requireOwnedHandle(
       next,
       binding.workflow_node_uuid,
       binding.source_handle_uuid,
       'source'
+    )
+    requireSchemaAssignable(
+      requireHandleValueSchema(sourceHandle),
+      output.schema,
+      '节点输出 Schema 不能赋值给工作流出参'
     )
   }
   io.outputBindings[name] = structuredClone(binding)
@@ -515,7 +538,7 @@ function requireOwnedHandle(
   nodeUuid: string,
   handleUuid: string,
   ioType: 'source' | 'target'
-): void {
+): Record<string, unknown> {
   const node = graph.nodes.find(({ uuid }) => uuid === nodeUuid)
   if (!node) throw new Error('工作流节点不存在')
   const handle = graph.handle_templates.find(({ uuid }) => uuid === handleUuid)
@@ -526,6 +549,93 @@ function requireOwnedHandle(
   ) {
     throw new Error(
       `Workflow ${ioType} Handle 不存在或不属于所选节点 owner`
+    )
+  }
+  return handle
+}
+
+function requireHandleValueSchema(
+  handle: Record<string, unknown>
+): WorkflowValueSchema {
+  const metaData = recordOrEmpty(handle.meta_data)
+  const unilab = recordOrEmpty(metaData.unilab)
+  const schema = unilab.value_schema
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
+    throw new Error('Workflow Handle 缺少规范 value_schema')
+  }
+  return schema as WorkflowValueSchema
+}
+
+function requireSchemaAssignable(
+  source: WorkflowValueSchema,
+  target: WorkflowValueSchema,
+  message: string
+): void {
+  if (!isWorkflowValueSchemaAssignable(source, target)) {
+    throw new Error(message)
+  }
+}
+
+function requireAllIoBindingSchemasAssignable(
+  graph: WorkflowAuthoringGraph
+): void {
+  const io = mutableIo(graph)
+  const inputs = new Map(
+    io.inputContract.parameters.map((descriptor) => [
+      descriptor.name,
+      descriptor
+    ])
+  )
+  for (const node of graph.nodes) {
+    const metaData = recordOrEmpty(node.meta_data)
+    const unilab = recordOrEmpty(metaData.unilab)
+    for (const [handleUuid, rawBinding] of Object.entries(
+      recordOrEmpty(unilab.input_bindings)
+    )) {
+      const parameter = recordOrEmpty(rawBinding).parameter
+      if (typeof parameter !== 'string') {
+        throw new Error('工作流入参绑定缺少参数名称')
+      }
+      const input = inputs.get(parameter)
+      if (!input) throw new Error('工作流入参绑定引用了不存在的参数')
+      const handle = requireOwnedHandle(
+        graph,
+        requiredString(node.uuid, 'Workflow Node UUID'),
+        handleUuid,
+        'target'
+      )
+      requireSchemaAssignable(
+        input.schema,
+        requireHandleValueSchema(handle),
+        '工作流入参 Schema 不能赋值给目标 Handle'
+      )
+    }
+  }
+  for (const [name, binding] of Object.entries(io.outputBindings)) {
+    const output = io.outputContract.outputs.find(
+      (descriptor) => descriptor.name === name
+    )
+    if (!output) throw new Error('工作流出参绑定引用了不存在的出参')
+    if (binding.kind === 'workflow_input') {
+      const input = inputs.get(binding.parameter)
+      if (!input) throw new Error('工作流出参绑定引用了不存在的入参')
+      requireSchemaAssignable(
+        input.schema,
+        output.schema,
+        '工作流入参 Schema 不能赋值给工作流出参'
+      )
+      continue
+    }
+    const handle = requireOwnedHandle(
+      graph,
+      binding.workflow_node_uuid,
+      binding.source_handle_uuid,
+      'source'
+    )
+    requireSchemaAssignable(
+      requireHandleValueSchema(handle),
+      output.schema,
+      '节点输出 Schema 不能赋值给工作流出参'
     )
   }
 }

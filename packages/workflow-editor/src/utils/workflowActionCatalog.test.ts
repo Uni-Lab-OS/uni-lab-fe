@@ -534,6 +534,24 @@ describe('typed Action editor projection', () => {
     })).toThrow(/类型化|操作|模板/i)
   })
 
+  it('persists an exact canvas position when a template is dropped', () => {
+    const emptyGraph: WorkflowAuthoringGraph = {
+      ...graph,
+      nodes: [],
+      edges: []
+    }
+    const created = createTypedActionNode(catalog, emptyGraph, {
+      nodeUuid: secondNodeUuid,
+      templateUuid,
+      name: 'positioned_action',
+      position: { x: 420, y: 168 }
+    })
+
+    expect(created.nodes[0]?.pose).toEqual({
+      position: { x: 420, y: 168 }
+    })
+  })
+
   it('switches atomically between workflow input, literal and edge providers', () => {
     const withLiteral = updateTypedActionLiteral(
       catalog,
@@ -600,6 +618,55 @@ describe('typed Action editor projection', () => {
       requiredHandleUuid,
       'missing_input'
     )).toThrow(/工作流入参/)
+  })
+
+  it('rejects workflow input bindings that are not schema-assignable', () => {
+    const incompatibleGraph = structuredClone(graph)
+    const inputContract = (
+      incompatibleGraph.workflow.meta_data as {
+        unilab: {
+          input_contract: {
+            parameters: Array<{ name: string; schema: Record<string, unknown> }>
+          }
+        }
+      }
+    ).unilab.input_contract
+    inputContract.parameters[0]!.schema = { type: 'number' }
+
+    expect(() => bindTypedActionWorkflowInput(
+      catalog,
+      incompatibleGraph,
+      nodeUuid,
+      requiredHandleUuid,
+      'count_input'
+    )).toThrow(/Schema|类型|兼容|可赋值/i)
+  })
+
+  it('checks complete schemas instead of only valueType when connecting', () => {
+    const boundedCatalog = structuredClone(catalog)
+    const sourceHandle = boundedCatalog.actionTemplates[1]!.handles[0]!
+    const targetHandle = boundedCatalog.actionTemplates[0]!.handles.find(
+      handle => handle.uuid === requiredHandleUuid
+    )!
+    sourceHandle.valueType = 'integer'
+    sourceHandle.valueSchema = { type: 'integer' }
+    targetHandle.valueType = 'integer'
+    targetHandle.valueSchema = { type: 'integer', minimum: 1 }
+
+    expect(() => connectTypedActionEdge(boundedCatalog, graph, {
+      sourceNodeUuid,
+      sourceHandleUuid: upstreamHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: requiredHandleUuid
+    })).toThrow(/Schema|类型|兼容|可赋值/i)
+
+    sourceHandle.valueSchema = { type: 'integer', minimum: 2 }
+    expect(connectTypedActionEdge(boundedCatalog, graph, {
+      sourceNodeUuid,
+      sourceHandleUuid: upstreamHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: requiredHandleUuid
+    }).edges).toHaveLength(1)
   })
 
   it('preserves required/default/null/enum/object/list/ResourceSlot semantics', () => {
@@ -869,6 +936,27 @@ describe('typed Action editor projection', () => {
     })).toThrow('操作目标端口已有数据来源')
   })
 
+  it('rejects a real-handle connection that would create a workflow cycle', () => {
+    const graphWithReturnPath: WorkflowAuthoringGraph = {
+      ...graph,
+      edges: [{
+        uuid: 'existing-return-path',
+        source_node_uuid: nodeUuid,
+        source_handle_uuid: readySourceHandleUuid,
+        target_node_uuid: sourceNodeUuid,
+        target_handle_uuid: readyTargetHandleUuid,
+        meta_data: {}
+      }]
+    }
+
+    expect(() => connectTypedActionEdge(catalog, graphWithReturnPath, {
+      sourceNodeUuid,
+      sourceHandleUuid: upstreamHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: materialHandleUuid
+    })).toThrow('工作流连线会形成环路')
+  })
+
   it('rehydrates only typed Actions while preserving framework wire records', () => {
     const frameworkTemplateUuid = '21000000-0000-4000-8000-000000000001'
     const frameworkHandleUuid = '31000000-0000-4000-8000-000000000001'
@@ -1056,7 +1144,12 @@ const graph: WorkflowAuthoringGraph = {
             },
             {
               name: 'sample_input',
-              schema: { $slot: 'ResourceSlot' },
+              schema: {
+                $slot: 'ResourceSlot',
+                allowed_resource_template_uuids: [
+                  '10000000-0000-4000-8000-000000000001'
+                ]
+              },
               required: true
             }
           ]
@@ -1599,10 +1692,13 @@ function sourceTemplate(): WorkflowActionCatalogSnapshot['actionTemplates'][numb
     goal: {},
     goalDefault: {},
     handles: [{
-      ...handle(upstreamHandleUuid, 'material', { $slot: 'ResourceSlot' }),
+      ...handle(upstreamHandleUuid, 'material', resourceSlotValueSchema()),
       workflowNodeTemplateUuid: sourceTemplateUuid,
       ioType: 'source',
-      dataSource: 'result'
+      dataSource: 'result',
+      allowedResourceTemplateUuids: [
+        '10000000-0000-4000-8000-000000000001'
+      ]
     }]
   }
 }

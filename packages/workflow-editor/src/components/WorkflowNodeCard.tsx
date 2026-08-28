@@ -57,6 +57,7 @@ export interface WorkflowNodeData {
   groupKind?: 'group' | 'subworkflow'
   groupExpanded?: boolean
   descendantCount?: number
+  openChildWorkflowUuid?: string
   handles?: WorkflowHandlePort[]
   traceAccent?: string
   materialHandleAccents?: Record<string, string>

@@ -15,6 +15,10 @@ import {
   readActiveWorkflowId
 } from '../utils/workflowAuthoringOperations'
 import type { WorkflowIdeBridge } from '../utils/workflowSourceNavigation'
+import type {
+  WorkflowCanvasBreadcrumb,
+  WorkflowCanvasNavigationState
+} from '../utils/workflowCanvasCommands'
 import {
   WorkflowCatalog,
   type WorkflowCatalogState
@@ -101,6 +105,12 @@ export default function WorkflowPanel({
   >(null)
   const [selectedWorkflowName, setSelectedWorkflowName] = useState('')
   const [showCatalog, setShowCatalog] = useState(false)
+  const [workflowBreadcrumbs, setWorkflowBreadcrumbs] = useState<
+    WorkflowCanvasBreadcrumb[]
+  >([])
+  const [canvasRestoreByWorkflow, setCanvasRestoreByWorkflow] = useState<
+    Readonly<Record<string, WorkflowCanvasNavigationState>>
+  >({})
   const handledCatalogRequestRevision = useRef(catalogRequestRevision)
   const authoringAvailable = authoringStatus?.available !== false
   const runAvailable = runStatus?.available === true
@@ -110,6 +120,22 @@ export default function WorkflowPanel({
     : (allowWorkflowSelection ? selectedWorkflowUuid : null) ||
       explicitWorkflowUuid || selectedWorkflowUuid ||
       readActiveWorkflowId(activeWorkflowStorageKey)
+  const activateWorkflow = (
+    nextWorkflowUuid: string,
+    nextWorkflowName: string
+  ): void => {
+    persistActiveWorkflowId(activeWorkflowStorageKey, nextWorkflowUuid)
+    setSelectedWorkflowUuid(nextWorkflowUuid)
+    setSelectedWorkflowName(nextWorkflowName)
+    setShowCatalog(false)
+  }
+  const selectWorkflow = (
+    nextWorkflowUuid: string,
+    nextWorkflowName: string
+  ): void => {
+    setWorkflowBreadcrumbs([])
+    activateWorkflow(nextWorkflowUuid, nextWorkflowName)
+  }
 
   useEffect(() => {
     if (
@@ -163,6 +189,35 @@ export default function WorkflowPanel({
               persistActiveWorkflowId(activeWorkflowStorageKey, '')
               setShowCatalog(true)
             }}
+        onSelectWorkflow={explicitWorkflowUuid && !allowWorkflowSelection
+          ? undefined
+          : selectWorkflow}
+        onOpenChildWorkflow={explicitWorkflowUuid && !allowWorkflowSelection
+          ? undefined
+          : (childWorkflowUuid, childWorkflowName, parentState) => {
+              setCanvasRestoreByWorkflow((current) => ({
+                ...current,
+                [workflowUuid]: parentState
+              }))
+              setWorkflowBreadcrumbs((current) => [
+                ...current,
+                {
+                  workflowUuid,
+                  workflowName: selectedWorkflowName || workflowUuid
+                }
+              ])
+              activateWorkflow(childWorkflowUuid, childWorkflowName)
+            }}
+        workflowBreadcrumbs={workflowBreadcrumbs}
+        onNavigateBreadcrumb={workflowBreadcrumbs.length > 0
+          ? (index) => {
+              const target = workflowBreadcrumbs[index]
+              if (!target) return
+              setWorkflowBreadcrumbs((current) => current.slice(0, index))
+              activateWorkflow(target.workflowUuid, target.workflowName)
+            }
+          : undefined}
+        restoreCanvasState={canvasRestoreByWorkflow[workflowUuid] ?? null}
         onResetEnvironment={onResetEnvironment}
         environmentResetBusy={environmentResetBusy}
       />
@@ -178,12 +233,7 @@ export default function WorkflowPanel({
       runStatus={runStatus}
       onStateChange={onCatalogStateChange}
       onSelect={workflowSelectable
-        ? (nextWorkflowUuid, nextWorkflowName) => {
-            persistActiveWorkflowId(activeWorkflowStorageKey, nextWorkflowUuid)
-            setSelectedWorkflowUuid(nextWorkflowUuid)
-            setSelectedWorkflowName(nextWorkflowName)
-            setShowCatalog(false)
-          }
+        ? selectWorkflow
         : undefined}
     />
   )

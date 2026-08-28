@@ -1,4 +1,5 @@
 import { CodeEditor } from '@unilab/code-editor'
+import type { WorkflowDefinitionKind } from '@unilab/services'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { diagnosticRange } from '../utils/persistentAuthoringSession'
@@ -6,15 +7,23 @@ import {
   canRetryWorkflowRuntimeRead,
   workflowRuntimeProblemHeading
 } from '../utils/workflowRuntimeProblem'
-import WorkflowDag from './WorkflowDag'
+import WorkflowDag, { type WorkflowDagHandle } from './WorkflowDag'
 import { WorkflowOutput } from './WorkflowOutput'
 import { WorkflowButton } from './WorkflowButton'
 import { WorkflowCanvasStageHeader } from './WorkflowCanvasStageHeader'
-import { MaterialSourceInspector } from './MaterialSourceInspector'
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
 import { PersistentWorkflowOverlays } from './PersistentWorkflowOverlays'
 import { PersistentWorkflowToolbar } from './PersistentWorkflowToolbar'
-import { WorkflowNodePalette } from './WorkflowNodePalette'
+import { WorkflowAuthoringLibrary } from './WorkflowAuthoringLibrary'
+import { WorkflowNodeInspector } from './WorkflowNodeInspector'
+import {
+  readWorkflowNodePaletteDragPayload,
+  WORKFLOW_NODE_PALETTE_MIME,
+  type WorkflowCanvasBreadcrumb,
+  type WorkflowCanvasNavigationState,
+  type WorkflowCanvasPoint,
+  type WorkflowNodePaletteDragPayload
+} from '../utils/workflowCanvasCommands'
 import styles from './workflow.module.scss'
 
 export const COMPACT_WORKFLOW_CANVAS_WIDTH = 1024
@@ -22,6 +31,12 @@ export const COMPACT_WORKFLOW_CANVAS_WIDTH = 1024
 export function PersistentWorkflowAuthoringView({
   model,
   workflowName,
+  definitionKind = 'workflow',
+  onSelectWorkflow,
+  onOpenChildWorkflow,
+  workflowBreadcrumbs = [],
+  onNavigateBreadcrumb,
+  restoreCanvasState = null,
   visibleMaterialRoles,
   onVisibleMaterialRolesChange,
   hideEmbeddedCodeEditor = false,
@@ -31,6 +46,16 @@ export function PersistentWorkflowAuthoringView({
 }: {
   model: PersistentWorkflowAuthoringModel
   workflowName?: string
+  definitionKind?: WorkflowDefinitionKind
+  onSelectWorkflow?: (workflowUuid: string, workflowName: string) => void
+  onOpenChildWorkflow?: (
+    workflowUuid: string,
+    workflowName: string,
+    parentState: WorkflowCanvasNavigationState
+  ) => void
+  workflowBreadcrumbs?: readonly WorkflowCanvasBreadcrumb[]
+  onNavigateBreadcrumb?: (index: number) => void
+  restoreCanvasState?: WorkflowCanvasNavigationState | null
   visibleMaterialRoles?: readonly string[] | null
   onVisibleMaterialRolesChange?: (
     visibleMaterialRoles: readonly string[] | null
@@ -51,7 +76,6 @@ export function PersistentWorkflowAuthoringView({
     busy,
     candidateIo,
     canvasMutationEnabled,
-    canvasSaveHint,
     codeViewingAvailable,
     codeProjection,
     completedTaskJobCount,
@@ -62,6 +86,7 @@ export function PersistentWorkflowAuthoringView({
     definitionEditingAvailable,
     definitionEditingDisabledReason,
     diagnostics,
+    dirty,
     editor,
     effectiveMaterialSourceCatalog,
     error,
@@ -72,8 +97,8 @@ export function PersistentWorkflowAuthoringView({
     materialSourceAuthorityBlocked,
     materialSourceCatalogError,
     materialSourceCatalogLoading,
-    materialTraces,
     mode,
+    moveCanvasNode,
     nodePaletteOpen,
     outputExpanded,
     outputTab,
@@ -81,31 +106,20 @@ export function PersistentWorkflowAuthoringView({
     policy,
     projectionKind,
     refreshMaterialSourceCatalog,
-    revealPackageSource,
     runRuntime,
     runtime,
     runtimeBusy,
     selectCanvasNode,
-    selectedActionEditor,
-    selectedActionTemplate,
-    selectedIsMaterialSource,
     selectedJobNodeUuid,
-    selectedMaterialSourceEditor,
-    selectedNodeIsInternal,
-    selectedNodeName,
     selectedNodeUuid,
     selectedTaskNode,
-    setActionParametersOpen,
     setCodeProjection,
     setError,
     setGraph,
-    setMessage,
     setNodePaletteOpen,
     setOutputExpanded,
     setOutputTab,
     setSelectedJobNodeUuid,
-    setSelectedNodeName,
-    setSelectedNodeNameDirty,
     setSelectedNodeUuid,
     setTraceViewerOpen,
     setWorkflowIoOpen,
@@ -125,7 +139,6 @@ export function PersistentWorkflowAuthoringView({
     toggleDebugBreakpoint,
     toggleDebugStartNode,
     toggleNodeDisabled,
-    updateMaterialSource,
     workflowUuid,
   } = model
   const [canvasRevealRequest, setCanvasRevealRequest] = useState<{
@@ -134,6 +147,8 @@ export function PersistentWorkflowAuthoringView({
   } | null>(null)
   const authoringViewRef = useRef<HTMLDivElement | null>(null)
   const graphStageRef = useRef<HTMLDivElement | null>(null)
+  const workflowDagRef = useRef<WorkflowDagHandle | null>(null)
+  const restoredNavigationRef = useRef<string | null>(null)
   const [compactCanvas, setCompactCanvas] = useState(false)
   const [graphStageReady, setGraphStageReady] = useState(false)
 
@@ -184,6 +199,45 @@ export function PersistentWorkflowAuthoringView({
       nonce: (current?.nonce ?? 0) + 1
     }))
   }, [selectCanvasNode, setSelectedJobNodeUuid])
+  const insertPaletteNode = useCallback((
+    payload: WorkflowNodePaletteDragPayload,
+    position?: WorkflowCanvasPoint
+  ): void => {
+    if (payload.kind === 'material') {
+      addMaterialSourceNode(position)
+    } else if (payload.kind === 'action') {
+      addTypedActionNode(payload.templateUuid, position)
+    } else {
+      addPublishedWorkflowNode(payload.templateUuid, position)
+    }
+  }, [addMaterialSourceNode, addPublishedWorkflowNode, addTypedActionNode])
+  const viewportInsertPoint = useCallback((): WorkflowCanvasPoint =>
+    workflowDagRef.current?.viewportCenter() ?? { x: 96, y: 96 }, [])
+  useEffect(() => {
+    if (!graphStageReady || !restoreCanvasState) return
+    const restoreKey = [
+      workflowUuid,
+      restoreCanvasState.selectedNodeUuid ?? '',
+      restoreCanvasState.viewport?.center.x ?? '',
+      restoreCanvasState.viewport?.center.y ?? '',
+      restoreCanvasState.viewport?.zoom ?? ''
+    ].join(':')
+    if (restoredNavigationRef.current === restoreKey) return
+    restoredNavigationRef.current = restoreKey
+    globalThis.requestAnimationFrame(() => {
+      if (restoreCanvasState.viewport) {
+        workflowDagRef.current?.restoreViewport(restoreCanvasState.viewport)
+      }
+      if (restoreCanvasState.selectedNodeUuid) {
+        selectCanvasNode(restoreCanvasState.selectedNodeUuid)
+      }
+    })
+  }, [
+    graphStageReady,
+    restoreCanvasState,
+    selectCanvasNode,
+    workflowUuid
+  ])
   const debugProjection = taskRuntime.snapshot.debug
   const debugFinished = !task || [
     'succeeded',
@@ -200,10 +254,6 @@ export function PersistentWorkflowAuthoringView({
     completed: '已完成',
     stopped: '已停止'
   }
-  const selectedNodeDescription = selectedNodeUuid
-    ? structure.nodes.find((node) => node.id === selectedNodeUuid)
-      ?.description?.trim()
-    : ''
   const realtimeFallbackOnly = taskRuntime.snapshot.realtimeError !== null &&
     taskRuntime.snapshot.actionError === null &&
     taskRuntime.snapshot.projectionError === null &&
@@ -225,6 +275,7 @@ export function PersistentWorkflowAuthoringView({
         ? 'available'
         : 'unavailable'}
       data-workflow-ide-bridge={ideBridgeConnected ? 'connected' : 'missing'}
+      data-definition-kind={definitionKind}
     >
       {!hideRuntimeControls ? (
         <PersistentWorkflowToolbar
@@ -383,7 +434,11 @@ export function PersistentWorkflowAuthoringView({
           aria-label="工作流画布"
         >
           {!hideRuntimeControls ? <WorkflowCanvasStageHeader
-            title={workflowName || '完整控制流 DAG'}
+            title={workflowName || (
+              definitionKind === 'operation'
+                ? '实验操作控制流 DAG'
+                : '完整控制流 DAG'
+            )}
             nodeCount={structure.nodes.length}
             linkCount={structure.links.length}
             projectionTitle={authorityLabel === 'Backend'
@@ -409,6 +464,29 @@ export function PersistentWorkflowAuthoringView({
               : mode === 'code'
                 ? '已应用版本 · 只读'
                 : '已应用版本 · 可编辑'}
+            description={workflowBreadcrumbs.length > 0 ? (
+              <nav
+                className="persistent-authoring__breadcrumbs"
+                aria-label="子工作流层级"
+              >
+                {workflowBreadcrumbs.map((item, index) => (
+                  <span key={`${item.workflowUuid}:${index}`}>
+                    <WorkflowButton
+                      type="button"
+                      disabled={dirty || !onNavigateBreadcrumb}
+                      disabledReason={dirty
+                        ? '请先保存当前子工作流修改'
+                        : '当前工作区不支持层级返回'}
+                      onClick={() => onNavigateBreadcrumb?.(index)}
+                    >
+                      {item.workflowName}
+                    </WorkflowButton>
+                    <i aria-hidden="true">/</i>
+                  </span>
+                ))}
+                <strong>{workflowName || '当前工作流'}</strong>
+              </nav>
+            ) : undefined}
             tools={(
               <>
                 {mode === 'canvas' && !compactCanvas && (
@@ -432,7 +510,9 @@ export function PersistentWorkflowAuthoringView({
                     : '配置整个工作流的输入、输出与节点参数连接'}
                   onClick={() => setWorkflowIoOpen(true)}
                 >
-                  <span>输入与输出</span>
+                  <span>{definitionKind === 'operation'
+                    ? '操作输入与输出'
+                    : '输入与输出'}</span>
                   <strong>
                     输入 {candidateIo?.input_contract.parameters.length ?? 0}
                     {' · '}输出 {candidateIo?.output_contract.outputs.length ?? 0}
@@ -447,14 +527,20 @@ export function PersistentWorkflowAuthoringView({
             mode === 'canvas' && (!nodePaletteOpen || compactCanvas)
               ? 'is-palette-closed'
               : '',
-            mode === 'canvas' && selectedNodeUuid && !compactCanvas
+            mode === 'canvas' && !compactCanvas
               ? 'has-inspector'
               : ''
           ].filter(Boolean).join(' ')}>
             {graph ? (
               <>
                 {mode === 'canvas' && nodePaletteOpen && !compactCanvas && (
-                  <WorkflowNodePalette
+                  <WorkflowAuthoringLibrary
+                    runtime={runtime}
+                    workflowUuid={workflowUuid}
+                    workflowName={workflowName}
+                    definitionKind={definitionKind}
+                    authoringDirty={dirty}
+                    onSelectWorkflow={onSelectWorkflow}
                     catalog={actionCatalog}
                     catalogError={actionCatalogError}
                     busy={busy}
@@ -468,9 +554,18 @@ export function PersistentWorkflowAuthoringView({
                     }
                     materialSourceCatalogLoading={materialSourceCatalogLoading}
                     materialSourceCatalogError={materialSourceCatalogError}
-                    onAddMaterialSource={addMaterialSourceNode}
-                    onAddAction={addTypedActionNode}
-                    onAddWorkflow={addPublishedWorkflowNode}
+                    onAddMaterialSource={() => insertPaletteNode(
+                      { kind: 'material' },
+                      viewportInsertPoint()
+                    )}
+                    onAddAction={(templateUuid) => insertPaletteNode(
+                      { kind: 'action', templateUuid },
+                      viewportInsertPoint()
+                    )}
+                    onAddWorkflow={(templateUuid) => insertPaletteNode(
+                      { kind: 'workflow', templateUuid },
+                      viewportInsertPoint()
+                    )}
                     onRefreshMaterialSourceCatalog={
                       refreshMaterialSourceCatalog
                     }
@@ -479,10 +574,30 @@ export function PersistentWorkflowAuthoringView({
                 <div
                   ref={graphStageRef}
                   className="persistent-authoring__graph-stage"
+                  onDragOver={(event) => {
+                    if (!canvasMutationEnabled || !event.dataTransfer.types.includes(
+                      WORKFLOW_NODE_PALETTE_MIME
+                    )) return
+                    event.preventDefault()
+                    event.dataTransfer.dropEffect = 'copy'
+                  }}
+                  onDrop={(event) => {
+                    if (!canvasMutationEnabled) return
+                    const payload = readWorkflowNodePaletteDragPayload(
+                      event.dataTransfer
+                    )
+                    if (!payload) return
+                    event.preventDefault()
+                    const position = workflowDagRef.current
+                      ?.clientToCanvasPoint(event.clientX, event.clientY) ??
+                      viewportInsertPoint()
+                    insertPaletteNode(payload, position)
+                  }}
                 >
                   {(graphStageReady ||
                     typeof globalThis.ResizeObserver !== 'function') && (
                     <WorkflowDag
+                    ref={workflowDagRef}
                     nodes={structure.nodes}
                     links={structure.links}
                     onNodeSelect={handleCanvasNodeSelect}
@@ -514,9 +629,28 @@ export function PersistentWorkflowAuthoringView({
                         : '工作流图尚未加载完成'}
                     onBeautify={beautifyCanvasLayout}
                     canvasMutationEnabled={canvasMutationEnabled}
+                    nodePositionMutationEnabled={canvasMutationEnabled}
+                    onNodePositionChange={moveCanvasNode}
                     onConnectHandles={connectTypedHandles}
                     onDeleteRequest={canvasMutationEnabled
                       ? deleteCanvasElements
+                      : undefined}
+                    onOpenChildWorkflow={onOpenChildWorkflow
+                      ? (childWorkflowUuid, childWorkflowName) => {
+                          if (dirty) {
+                            setError('请先保存当前工作流修改，再进入子工作流')
+                            return
+                          }
+                          onOpenChildWorkflow(
+                            childWorkflowUuid,
+                            childWorkflowName,
+                            {
+                              viewport:
+                                workflowDagRef.current?.viewportSnapshot() ?? null,
+                              selectedNodeUuid
+                            }
+                          )
+                        }
                       : undefined}
                     visibleMaterialRoles={visibleMaterialRoles}
                     onVisibleMaterialRolesChange={
@@ -525,113 +659,8 @@ export function PersistentWorkflowAuthoringView({
                     />
                   )}
                 </div>
-                {mode === 'canvas' && selectedNodeUuid && !compactCanvas && (
-                  <aside
-                    className="persistent-authoring__node-editor"
-                    aria-label="画布节点编辑器"
-                  >
-                    <header className="persistent-authoring__inspector-heading">
-                      <span>
-                        <span>属性</span>
-                        <strong>
-                          {selectedIsMaterialSource ? '物料来源' : '节点属性'}
-                        </strong>
-                      </span>
-                      <button
-                        type="button"
-                        aria-label="关闭属性面板"
-                        title="关闭属性面板"
-                        onClick={() => {
-                          const nodeUuid = selectedNodeUuid
-                          setSelectedNodeUuid(null)
-                          setSelectedNodeName('')
-                          setSelectedNodeNameDirty(false)
-                          setActionParametersOpen(false)
-                          requestAnimationFrame(() => {
-                            document.querySelector<HTMLElement>(
-                              `.react-flow__node[data-id="${nodeUuid}"]`
-                            )?.focus({ preventScroll: true })
-                          })
-                        }}
-                      >
-                        ×
-                      </button>
-                    </header>
-                    <label>
-                      节点名称
-                      <input
-                        value={selectedNodeName}
-                        disabled={
-                          busy || !canvasMutationEnabled ||
-                          selectedNodeIsInternal
-                        }
-                        aria-describedby="persistent-node-description"
-                        onChange={(event) => {
-                          setSelectedNodeName(event.target.value)
-                          setSelectedNodeNameDirty(true)
-                          setMessage(canvasSaveHint)
-                        }}
-                      />
-                    </label>
-                    <section
-                      id="persistent-node-description"
-                      className="persistent-authoring__node-description"
-                      aria-label="节点说明"
-                    >
-                      <strong>节点说明</strong>
-                      <p>{selectedNodeDescription || '当前节点暂无描述'}</p>
-                    </section>
-                      {selectedMaterialSourceEditor && (
-                        <MaterialSourceInspector
-                          editor={selectedMaterialSourceEditor}
-                          accent={
-                            materialTraces.materialSourceAccents.get(
-                              selectedMaterialSourceEditor.nodeUuid
-                            )
-                          }
-                          editable={
-                            !busy && canvasMutationEnabled &&
-                            !materialSourceCatalogLoading &&
-                            !materialSourceAuthorityBlocked
-                          }
-                          status={taskNodeStates[selectedNodeUuid] || 'pending'}
-                          diagnostics={diagnostics.filter((diagnostic) =>
-                            diagnostic.node_id === selectedNodeUuid
-                          )}
-                          onChange={(patch) => updateMaterialSource(
-                            selectedMaterialSourceEditor,
-                            patch
-                          )}
-                          onRevealSource={revealPackageSource}
-                        />
-                      )}
-                      {selectedActionEditor && (
-                        <section
-                          className="persistent-authoring__action-summary"
-                          aria-label="操作参数摘要"
-                        >
-                          <div>
-                            <strong>操作参数</strong>
-                            <span>
-                              输入 {selectedActionEditor.fields.length}
-                              {' · '}输出 {selectedActionTemplate?.handles.filter(
-                                (handle) => handle.ioType === 'source'
-                              ).length ?? 0}
-                            </span>
-                          </div>
-                          <p>
-                            点击下方按钮编辑输入，并查看输出端口与连接关系。
-                          </p>
-                          <button
-                            type="button"
-                            className="workflow-runtime__primary"
-                            onClick={() => setActionParametersOpen(true)}
-                          >
-                            配置节点参数
-                          </button>
-                        </section>
-                      )}
-                  </aside>
+                {mode === 'canvas' && !compactCanvas && (
+                  <WorkflowNodeInspector model={model} />
                 )}
               </>
             ) : (
@@ -730,7 +759,10 @@ export function PersistentWorkflowAuthoringView({
         />
       </section>
 
-      <PersistentWorkflowOverlays model={model} />
+      <PersistentWorkflowOverlays
+        model={model}
+        definitionKind={definitionKind}
+      />
     </div>
   )
 }

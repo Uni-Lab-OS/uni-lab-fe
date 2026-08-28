@@ -204,6 +204,12 @@
       "reason": "工作流 DAG（WorkflowDag）是 React Flow 的唯一适配边界，集中维护受控节点、边、布局方向、视口测量、选择/删除和运行态覆盖层，避免画布交互状态分散到节点组件。",
       "futureSplitBoundary": "补齐横向、纵向、蛇形和转运组合的视口回归后，将节点/边投影迁入 useWorkflowDagProjection，将交互命令迁入 useWorkflowDagCommands。"
     },
+    "packages/workflow-editor/src/components/workflowX6Projection.ts": {
+      "maxLines": 1200,
+      "maxFunctionComplexity": 25,
+      "reason": "X6 视觉投影（WorkflowX6Projection）在一个纯函数边界内把同一份 Canonical Workflow 画布模型翻译为操作条、物料来源、机械臂、反应式、端口和边的轻量 SVG metadata；集中维护尺寸与端口身份可避免不同节点类型各自漂移出第二份布局合同。",
+      "futureSplitBoundary": "完成默认分层、物料泳道、主样品蛇形和 5000 节点截图基线后，将只含坐标的 glyph markup 迁入 workflowX6Glyphs.ts，将类型尺寸策略迁入 workflowX6NodeDimensions.ts，主文件只保留 X6 metadata 编排。"
+    },
     "packages/workflow-editor/src/components/workflow-persistent/_section-01.scss": {
       "maxLines": 950,
       "maxFunctionComplexity": 25,

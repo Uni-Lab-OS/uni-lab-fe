@@ -219,12 +219,12 @@ describe('environment manager layering and responsive layout', () => {
     )
   })
 
-  /** 原型的七个调试与资源入口均由产品导航承载。 */
+  /** 原型的调试与资源入口均由产品导航承载。 */
   it('shows the categorized prototype navigation entries', () => {
     expect(domainNavigationStylesheet).not.toMatch(
       /data-unilabdomain='robot-debug'\][^}]*display:\s*none/u
     )
-    expect(navigatorSource).toMatch(/label:\s*'实验操作调试'/u)
+    expect(navigatorSource).toMatch(/mode:\s*'operation',[\s\S]*?label:\s*'实验操作调试'/u)
     expect(navigatorSource).toMatch(/label:\s*'工作流管理'/u)
     expect(domainNavigationStylesheet).toMatch(
       /content:\s*'调试工作台';[\s\S]*content:\s*'公共资源中心';/u
@@ -233,13 +233,16 @@ describe('environment manager layering and responsive layout', () => {
       /label:\s*'设备动作',[\s\S]*?unilab-activity-icon--robot-debug/u
     )
     expect(navigatorSource).toMatch(
-      /label:\s*'实验操作调试',[\s\S]*?unilab-activity-icon--robot-points/u
+      /label:\s*'实验操作调试',[\s\S]*?unilab-activity-icon--operation/u
     )
     expect(navigatorSource).toMatch(
       /label:\s*'工作流调试',[\s\S]*?unilab-activity-icon--workflow/u
     )
     expect(navigatorSource).toMatch(
       /label:\s*'任务列表',[\s\S]*?unilab-activity-icon--workflow-tasks/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /data-unilabdomain='robot-points'\]\s*\{\s*display:\s*none;/u
     )
     expect(domainNavigationStylesheet).not.toContain('unilab-prototype-nav-icon')
   })

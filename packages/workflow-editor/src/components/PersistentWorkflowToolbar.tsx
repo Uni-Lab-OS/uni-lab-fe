@@ -8,6 +8,7 @@ import {
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
 import { WorkflowButton } from './WorkflowButton'
 import { WorkflowDebugControls } from './WorkflowDebugger'
+import { WorkflowDraftValidationButton } from './WorkflowDraftValidationButton'
 import {
   WorkflowToolbarIcon,
   WorkflowWorkspaceToolbar
@@ -73,6 +74,8 @@ export function PersistentWorkflowToolbar({
     taskRunMode,
     taskRuntime,
     traceRuntime,
+    validateCanvasDraft,
+    canvasValidationAvailable,
     workflowStartBusy,
     workflowStartPresentation
   } = model
@@ -180,6 +183,17 @@ export function PersistentWorkflowToolbar({
         onSave: saveDraft
       }}
     >
+        <WorkflowDraftValidationButton
+          aggregateAvailable={Boolean(aggregate)}
+          authorityLabel={currentAuthorityLabel}
+          available={canvasValidationAvailable}
+          busy={busy}
+          mode={mode}
+          runningEntryBusy={runningEntryBusy}
+          visible={!liveTask}
+          onValidate={validateCanvasDraft}
+        />
+
         {!liveTask && (
           <details
             ref={runModeMenuRef}

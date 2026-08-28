@@ -82,6 +82,38 @@ describe('Workflow I/O authoring', () => {
     }
   })
 
+  it('rejects an input binding whose complete schema is not assignable', () => {
+    const graph = addWorkflowInput(emptyIoGraph(), {
+      name: 'count',
+      schema: { type: 'number' },
+      required: true
+    })
+
+    expect(() => bindWorkflowInput(graph, {
+      parameter: 'count',
+      workflowNodeUuid: targetNodeUuid,
+      targetHandleUuid
+    })).toThrow(/Schema|赋值|兼容/i)
+  })
+
+  it('rejects changing a bound input to an incompatible schema', () => {
+    const bound = bindWorkflowInput(
+      addWorkflowInput(emptyIoGraph(), input('count')),
+      {
+        parameter: 'count',
+        workflowNodeUuid: targetNodeUuid,
+        targetHandleUuid
+      }
+    )
+
+    expect(() => updateWorkflowInput(bound, 'count', {
+      name: 'count',
+      schema: { type: 'number' },
+      required: true
+    })).toThrow(/Schema|赋值|兼容/i)
+    expect(inputParameters(bound)).toEqual([input('count')])
+  })
+
   it.each([
     ['$slot', { $slot: 'ResourceSlot' }],
     ['nullable $slot', {
@@ -210,7 +242,11 @@ describe('Workflow I/O authoring', () => {
 
   it('binds an explicit output only to a real input or owned source Handle', () => {
     const withInput = addWorkflowInput(emptyIoGraph(), input('count'))
-    const graph = addWorkflowOutput(withInput, output('echo'))
+    const graph = addWorkflowOutput(withInput, {
+      name: 'echo',
+      schema: { type: 'integer' },
+      implicit: false
+    })
 
     const bound = bindWorkflowOutput(graph, 'echo', {
       kind: 'workflow_input',
@@ -234,6 +270,39 @@ describe('Workflow I/O authoring', () => {
       workflow_node_uuid: sourceNodeUuid,
       source_handle_uuid: foreignSourceHandleUuid
     })).toThrow(/Handle|source|owner|节点/i)
+  })
+
+  it('rejects an output binding whose producer schema is not assignable', () => {
+    const graph = addWorkflowOutput(emptyIoGraph(), {
+      name: 'count',
+      schema: { type: 'integer' },
+      implicit: false
+    })
+
+    expect(() => bindWorkflowOutput(graph, 'count', {
+      kind: 'node_output',
+      workflow_node_uuid: sourceNodeUuid,
+      source_handle_uuid: sourceHandleUuid
+    })).toThrow(/Schema|赋值|兼容/i)
+  })
+
+  it('rejects changing a bound output to an incompatible schema', () => {
+    const bound = bindWorkflowOutput(
+      addWorkflowOutput(emptyIoGraph(), output('report')),
+      'report',
+      {
+        kind: 'node_output',
+        workflow_node_uuid: sourceNodeUuid,
+        source_handle_uuid: sourceHandleUuid
+      }
+    )
+
+    expect(() => updateWorkflowOutput(bound, 'report', {
+      name: 'report',
+      schema: { type: 'integer' },
+      implicit: false
+    })).toThrow(/Schema|赋值|兼容/i)
+    expect(outputDescriptors(bound)).toEqual([output('report')])
   })
 
   it('projects binding choices by Handle direction and owning Node', () => {
@@ -499,7 +568,10 @@ describe('Workflow I/O authoring', () => {
       uuid: '30000000-0000-4000-8000-000000000005',
       workflow_node_template_uuid: targetTemplateUuid,
       handle_key: 'other_target',
-      io_type: 'target'
+      io_type: 'target',
+      meta_data: {
+        unilab: { value_schema: { type: 'integer' } }
+      }
     })
     let bound = addWorkflowInput(withSecondTarget, input('count'))
     bound = bindWorkflowInput(bound, {
@@ -558,7 +630,9 @@ function emptyIoGraph(): WorkflowAuthoringGraph {
         data_key: 'target_value',
         display_name: '目标值',
         io_type: 'target',
-        value_schema: { type: 'integer' }
+        meta_data: {
+          unilab: { value_schema: { type: 'integer' } }
+        }
       },
       {
         uuid: sourceHandleUuid,
@@ -567,7 +641,9 @@ function emptyIoGraph(): WorkflowAuthoringGraph {
         data_key: 'result',
         display_name: '结果',
         io_type: 'source',
-        value_schema: { type: 'object' }
+        meta_data: {
+          unilab: { value_schema: { type: 'object' } }
+        }
       },
       {
         uuid: resourceSourceHandleUuid,
@@ -576,7 +652,9 @@ function emptyIoGraph(): WorkflowAuthoringGraph {
         data_key: 'sample',
         display_name: '样品',
         io_type: 'source',
-        value_schema: { $slot: 'ResourceSlot' }
+        meta_data: {
+          unilab: { value_schema: { $slot: 'ResourceSlot' } }
+        }
       },
       {
         uuid: foreignSourceHandleUuid,
@@ -585,7 +663,9 @@ function emptyIoGraph(): WorkflowAuthoringGraph {
         data_key: 'foreign_result',
         display_name: '另一结果',
         io_type: 'source',
-        value_schema: { type: 'object' }
+        meta_data: {
+          unilab: { value_schema: { type: 'object' } }
+        }
       }
     ]
   }

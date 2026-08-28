@@ -158,6 +158,18 @@ export function visibleNestedWorkflowNodeId(
   nodeId: string
 ): string {
   const nodeById = new Map(nodes.map((node) => [node.id, node]))
+  return visibleNestedWorkflowNodeIdFromIndex(
+    nodeById,
+    collapsedGroupIds,
+    nodeId
+  )
+}
+
+function visibleNestedWorkflowNodeIdFromIndex(
+  nodeById: ReadonlyMap<string, WorkflowNode>,
+  collapsedGroupIds: ReadonlySet<string>,
+  nodeId: string
+): string {
   let result = nodeId
   let current = nodeById.get(nodeId)
   const visited = new Set<string>()
@@ -204,7 +216,11 @@ export function projectNestedWorkflow(
       .map((node) => node.id)
   )
   const representative = (nodeId: string): string =>
-    visibleNestedWorkflowNodeId(nodes, collapsedGroupIds, nodeId)
+    visibleNestedWorkflowNodeIdFromIndex(
+      nodeById,
+      collapsedGroupIds,
+      nodeId
+    )
   const hiddenNodeIds = new Set(
     nodes
       .filter((node) => representative(node.id) !== node.id)

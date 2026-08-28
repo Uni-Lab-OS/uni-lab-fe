@@ -1,6 +1,7 @@
 import {
   createWorkflowDefinitionPort,
   type CapabilityStatus,
+  type WorkflowDefinitionKind,
   type WorkflowDefinitionAuthority,
   type WorkflowRuntimePort
 } from '@unilab/services'
@@ -14,6 +15,10 @@ import {
 } from '../hooks/usePersistentWorkflowAuthoring'
 import type { WorkflowResourceSlotOptionsPort } from '../utils/workflowResourceSlotOptions'
 import type { WorkflowIdeBridge } from '../utils/workflowSourceNavigation'
+import type {
+  WorkflowCanvasBreadcrumb,
+  WorkflowCanvasNavigationState
+} from '../utils/workflowCanvasCommands'
 import { projectWorkflowIdeDiagnostics } from '../utils/workflowSourceNavigation'
 import { PersistentWorkflowAuthoringView } from './PersistentWorkflowAuthoringView'
 
@@ -31,6 +36,7 @@ interface PersistentWorkflowAuthoringPanelProps {
   definitionEditingStatus?: CapabilityStatus
   workflowUuid: string
   workflowName?: string
+  definitionKind?: WorkflowDefinitionKind
   traceRuntime?: WorkflowTracePort
   resourceSlotOptionsPort?: WorkflowResourceSlotOptionsPort
   executionStatus?: CapabilityStatus
@@ -44,6 +50,15 @@ interface PersistentWorkflowAuthoringPanelProps {
     visibleMaterialRoles: readonly string[] | null
   ) => void
   onChooseWorkflow?: () => void
+  onSelectWorkflow?: (workflowUuid: string, workflowName: string) => void
+  onOpenChildWorkflow?: (
+    workflowUuid: string,
+    workflowName: string,
+    parentState: WorkflowCanvasNavigationState
+  ) => void
+  workflowBreadcrumbs?: readonly WorkflowCanvasBreadcrumb[]
+  onNavigateBreadcrumb?: (index: number) => void
+  restoreCanvasState?: WorkflowCanvasNavigationState | null
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
   hideRuntimeControls?: boolean
@@ -84,6 +99,12 @@ export function PersistentWorkflowAuthoringPanel(
     <PersistentWorkflowAuthoringView
       model={model}
       workflowName={props.workflowName}
+      definitionKind={props.definitionKind}
+      onSelectWorkflow={props.onSelectWorkflow}
+      onOpenChildWorkflow={props.onOpenChildWorkflow}
+      workflowBreadcrumbs={props.workflowBreadcrumbs}
+      onNavigateBreadcrumb={props.onNavigateBreadcrumb}
+      restoreCanvasState={props.restoreCanvasState}
       visibleMaterialRoles={props.visibleMaterialRoles}
       onVisibleMaterialRolesChange={props.onVisibleMaterialRolesChange}
       hideEmbeddedCodeEditor={props.hideEmbeddedCodeEditor}

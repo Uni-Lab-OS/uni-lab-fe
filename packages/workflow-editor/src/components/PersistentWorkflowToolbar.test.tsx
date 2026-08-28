@@ -18,6 +18,7 @@ describe('PersistentWorkflowToolbar', () => {
     expect(html).toContain('代码模式')
     expect(html).toContain('画布模式')
     expect(html).toContain('aria-label="保存工作流"')
+    expect(html).toContain('aria-label="校验本地工作流草稿"')
     expect(html).toContain('aria-label="开始运行"')
     expect(html).toContain('aria-label="重置运行数据"')
     expect(html.indexOf('aria-label="开始运行"')).toBeLessThan(
@@ -104,6 +105,7 @@ function toolbarModel(): PersistentWorkflowAuthoringModel {
   return {
     aggregate: null,
     busy: false,
+    canvasValidationAvailable: true,
     dirty: false,
     fullSourceDiff: null,
     message: '工作流已就绪',
@@ -126,6 +128,7 @@ function toolbarModel(): PersistentWorkflowAuthoringModel {
     taskRunMode: 'normal',
     taskRuntime: { command: async () => {} },
     traceRuntime: null,
+    validateCanvasDraft: () => {},
     workflowStartBusy: false,
     workflowStartPresentation: {
       disabled: false,

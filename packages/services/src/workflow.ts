@@ -90,6 +90,8 @@ export type {
   WorkflowAuthoringTransformResult,
   WorkflowAuthoringValidateRequest,
   WorkflowDocument,
+  WorkflowDefinitionKind,
+  WorkflowDefinitionUnilabMetadata,
   WorkflowDefinitionChange,
   WorkflowDefinitionChangeAction,
   WorkflowDefinitionChangePage,
@@ -102,6 +104,7 @@ export type {
   WorkflowValidationIssue,
   WorkflowValidationResult
 } from './workflowAuthoringContracts'
+export { workflowDefinitionKind } from './workflowAuthoringContracts'
 export type { BackendWorkflowGraph } from './backendWorkflowGraph'
 export type {
   WorkflowInputContract,
@@ -112,6 +115,7 @@ export type {
   WorkflowOutputDescriptor,
   WorkflowValueSchema
 } from './workflowIo'
+export { isWorkflowValueSchemaAssignable } from './workflowIo'
 export type {
   WorkflowMaterialSourceCatalogSnapshot,
   WorkflowMaterialSourceHandleTemplate,

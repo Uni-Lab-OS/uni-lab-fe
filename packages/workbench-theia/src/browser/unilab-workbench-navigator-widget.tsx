@@ -127,14 +127,28 @@ export class RobotDebugDomainEntryWidget extends UniLabDomainEntryWidget {
 }
 
 @injectable()
+export class OperationDomainEntryWidget extends UniLabDomainEntryWidget {
+  static readonly ID = 'unilab:operation-debug-navigation'
+  protected readonly widgetId = OperationDomainEntryWidget.ID
+  protected readonly entry: DomainEntryDefinition = {
+    mode: 'operation',
+    label: '实验操作调试',
+    caption: '实验操作调试 · 操作库、编排与参数检查',
+    description: '使用当前 Authority 的设备动作目录编排实验操作，并明确区分本地草稿与权威运行状态。',
+    iconClass: 'unilab-activity-icon--operation',
+    eyebrow: 'OPERATION DEBUG'
+  }
+}
+
+@injectable()
 export class RobotPointsDomainEntryWidget extends UniLabDomainEntryWidget {
   static readonly ID = 'unilab:robot-points-navigation'
   protected readonly widgetId = RobotPointsDomainEntryWidget.ID
   protected readonly entry: DomainEntryDefinition = {
     mode: 'robot-points',
-    label: '实验操作调试',
-    caption: '实验操作调试 · 操作编排与运行验证',
-    description: '编排实验操作并验证动作、参数和执行结果。',
+    label: '点位管理',
+    caption: '机械臂点位管理',
+    description: '管理机械臂标定点位与位置参数。',
     iconClass: 'unilab-activity-icon--robot-points',
     eyebrow: 'ROBOT POINTS'
   }

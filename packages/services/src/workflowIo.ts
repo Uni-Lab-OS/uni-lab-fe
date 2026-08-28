@@ -99,6 +99,132 @@ export function decodeWorkflowIoMetadata(value: unknown): WorkflowIoMetadata {
   }
 }
 
+/**
+ * Return whether every value admitted by `sourceValue` is accepted by
+ * `targetValue`. This is a UI preflight only; OS validation remains final.
+ */
+export function isWorkflowValueSchemaAssignable(
+  sourceValue: unknown,
+  targetValue: unknown
+): boolean {
+  try {
+    const source = decodeValueSchema(
+      withoutValueSchemaAnnotations(sourceValue),
+      true,
+      true
+    )
+    const target = decodeValueSchema(
+      withoutValueSchemaAnnotations(targetValue),
+      true,
+      true
+    )
+    return schemaAssignable(source, target)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Action Handle schemas preserve JSON Schema display annotations, while the
+ * Workflow I/O contract deliberately stores only value constraints. These
+ * annotations do not change the admitted value set and must not make an
+ * otherwise compatible Handle fail the editor preflight.
+ */
+function withoutValueSchemaAnnotations(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  const result: Record<string, unknown> = {}
+  for (const [key, member] of Object.entries(value)) {
+    if (['title', 'description', 'default', 'examples', '$comment'].includes(key)) {
+      continue
+    }
+    if (key === 'items') {
+      result[key] = withoutValueSchemaAnnotations(member)
+      continue
+    }
+    if (key === 'anyOf' && Array.isArray(member)) {
+      result[key] = member.map(withoutValueSchemaAnnotations)
+      continue
+    }
+    result[key] = member
+  }
+  return result
+}
+
+function schemaAssignable(
+  source: WorkflowValueSchema,
+  target: WorkflowValueSchema
+): boolean {
+  const sourceNullable = 'anyOf' in source
+  const targetNullable = 'anyOf' in target
+  if (sourceNullable && !targetNullable) return false
+  const sourceBase = sourceNullable ? source.anyOf[0] : source
+  const targetBase = targetNullable ? target.anyOf[0] : target
+
+  if ('$slot' in sourceBase || '$slot' in targetBase) {
+    return slotSchemaAssignable(sourceBase, targetBase)
+  }
+
+  const sourceRecord = sourceBase as Record<string, unknown>
+  const targetRecord = targetBase as Record<string, unknown>
+  const sourceKind = sourceRecord.type
+  const targetKind = targetRecord.type
+  if (
+    sourceKind !== targetKind &&
+    !(sourceKind === 'integer' && targetKind === 'number')
+  ) return false
+
+  const sourceEnum = Array.isArray(sourceRecord.enum)
+    ? sourceRecord.enum
+    : null
+  if (sourceEnum) {
+    return sourceEnum.every(value => isWorkflowDefaultValue(targetBase, value))
+  }
+  if (Array.isArray(targetRecord.enum)) return false
+
+  if (sourceKind === 'number' || sourceKind === 'integer') {
+    return lowerBoundIsSubset(sourceRecord.minimum, targetRecord.minimum) &&
+      upperBoundIsSubset(sourceRecord.maximum, targetRecord.maximum)
+  }
+  if (sourceKind === 'string') {
+    return lowerBoundIsSubset(sourceRecord.minLength, targetRecord.minLength) &&
+      upperBoundIsSubset(sourceRecord.maxLength, targetRecord.maxLength)
+  }
+  if (sourceKind === 'array' && targetKind === 'array') {
+    return schemaAssignable(
+      sourceRecord.items as WorkflowValueSchema,
+      targetRecord.items as WorkflowValueSchema
+    ) &&
+      lowerBoundIsSubset(sourceRecord.minItems, targetRecord.minItems) &&
+      upperBoundIsSubset(sourceRecord.maxItems, targetRecord.maxItems)
+  }
+  return sourceKind === 'boolean' || sourceKind === 'object'
+}
+
+function slotSchemaAssignable(
+  source: WorkflowValueSchema,
+  target: WorkflowValueSchema
+): boolean {
+  if (!('$slot' in source) || !('$slot' in target)) return false
+  const sourceAllowlist = source.allowed_resource_template_uuids
+  const targetAllowlist = target.allowed_resource_template_uuids
+  if (!targetAllowlist) return true
+  if (!sourceAllowlist) return false
+  const targets = new Set(targetAllowlist)
+  return sourceAllowlist.every(identity => targets.has(identity))
+}
+
+function lowerBoundIsSubset(source: unknown, target: unknown): boolean {
+  if (target === undefined) return true
+  return typeof source === 'number' && typeof target === 'number' &&
+    source >= target
+}
+
+function upperBoundIsSubset(source: unknown, target: unknown): boolean {
+  if (target === undefined) return true
+  return typeof source === 'number' && typeof target === 'number' &&
+    source <= target
+}
+
 function decodeInputContract(value: unknown): WorkflowInputContract {
   const contract = exactRecord(value, ['version', 'parameters'])
   if (contract.version !== 1 || !Array.isArray(contract.parameters)) invalid()

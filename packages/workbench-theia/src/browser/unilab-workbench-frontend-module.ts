@@ -17,6 +17,7 @@ import {
 import {
   DeviceDomainEntryContribution,
   MaterialDomainEntryContribution,
+  OperationDomainEntryContribution,
   RobotBenchDomainEntryContribution,
   RobotDebugDomainEntryContribution,
   RobotPointsDomainEntryContribution,
@@ -29,6 +30,7 @@ import {
 import {
   DeviceDomainEntryWidget,
   MaterialDomainEntryWidget,
+  OperationDomainEntryWidget,
   RobotBenchDomainEntryWidget,
   RobotDebugDomainEntryWidget,
   RobotPointsDomainEntryWidget,
@@ -141,6 +143,13 @@ export default new ContainerModule((bind) => {
   bind(WidgetFactory).toDynamicValue(context => ({
     id: RobotDebugDomainEntryWidget.ID,
     createWidget: () => context.container.get(RobotDebugDomainEntryWidget)
+  })).inSingletonScope()
+
+  bindViewContribution(bind, OperationDomainEntryContribution)
+  bind(OperationDomainEntryWidget).toSelf()
+  bind(WidgetFactory).toDynamicValue(context => ({
+    id: OperationDomainEntryWidget.ID,
+    createWidget: () => context.container.get(OperationDomainEntryWidget)
   })).inSingletonScope()
 
   bindViewContribution(bind, RobotPointsDomainEntryContribution)

@@ -45,7 +45,6 @@ import {
   authoringRemoteConflict,
   authoringSaveFailureAction,
   authoringStateMessage,
-  catalogConflictDecision,
   draftSaveMessage,
   isAuthoringConflict,
   isAuthoringSnapshotDirty,
@@ -76,6 +75,10 @@ import {
 } from './useWorkflowIdeSavedSource'
 import { useWorkflowPanelRuntimeProjection } from './useWorkflowPanelRuntimeProjection'
 import { workflowTaskIsLive } from '../utils/workflowTaskPresentation'
+import {
+  generateValidatedWorkflowPython,
+  type WorkflowCanvasValidationCache
+} from '../utils/workflowCanvasValidation'
 
 export type { PersistentWorkflowAuthoringOptions } from './persistentWorkflowAuthoringTypes'
 
@@ -133,17 +136,24 @@ export function usePersistentWorkflowAuthoring({
   const [selectedNodeNameDirty, setSelectedNodeNameDirty] = useState(false)
   const [actionParametersOpen, setActionParametersOpen] = useState(false)
   const [workflowIoOpen, setWorkflowIoOpen] = useState(false)
-  // 外部 IDE 已占用同窗宽度时，默认把节点库收起；用户仍可显式展开。
-  // Kernel Web 保持原有默认展开行为。
-  const [nodePaletteOpen, setNodePaletteOpen] = useState(
-    () => !hideEmbeddedCodeEditor
-  )
+  // 画布模式以三栏工作台为默认；窄屏由视图层自动收起资源库。
+  const [nodePaletteOpen, setNodePaletteOpen] = useState(true)
   const [message, setMessage] = useState(
     definitionPort.capabilities.authority === 'backend'
       ? '正在读取 Backend 工作流图…'
       : '正在读取 OS 工作流编辑状态…'
   )
   const [error, setError] = useState<string | null>(null)
+  const [localValidationDiagnostics, setLocalValidationDiagnostics] =
+    useState<WorkflowAuthoringTransformResult['diagnostics'] | null>(null)
+  const canvasValidationCache = useRef<WorkflowCanvasValidationCache | null>(
+    null
+  )
+  useEffect(() => {
+    if (canvasValidationCache.current?.sourceGraph === graph) return
+    canvasValidationCache.current = null
+    setLocalValidationDiagnostics(null)
+  }, [graph])
   const {
     actionCatalog,
     actionCatalogError,
@@ -438,6 +448,8 @@ export function usePersistentWorkflowAuthoring({
     setSelectedNodeUuid(null)
     setSelectedNodeName('')
     setSelectedNodeNameDirty(false)
+    setLocalValidationDiagnostics(null)
+    canvasValidationCache.current = null
     setRemoteConflict(null)
     setError(null)
     setMessage(nextMessage)
@@ -628,102 +640,31 @@ export function usePersistentWorkflowAuthoring({
     sourceGraph: WorkflowAuthoringGraph,
     authority: WorkflowAuthoringAggregate = aggregate as WorkflowAuthoringAggregate
   ): Promise<WorkflowAuthoringTransformResult> => {
-    if (!definitionPort.capabilities.sourceEditing) {
-      throw new Error(
-        definitionPort.capabilities.sourceEditingDisabledReason ??
-        '当前数据源不支持工作区源码编辑'
-      )
-    }
     if (!authority) throw new Error('工作流编辑数据尚未就绪')
-    const sourceUri = authority.draft?.source_uri
-    if (!sourceUri) throw new Error('当前工作流尚未注册软件包中的 Python 草稿')
-    const request = (graphValue: WorkflowAuthoringGraph) => queue.run(
-      () => runtime.generateWorkflowAuthoringPython({
-        workflow_uuid: workflowUuid,
-        revision: authority.workflow_revision,
-        source_uri: sourceUri,
-        graph: graphValue
-      })
-    )
-    let graphValue = sourceGraph
-    let generated: WorkflowAuthoringTransformResult | null = null
-    let catalogFailure: unknown = null
-    try {
-      generated = await request(graphValue)
-    } catch (generateError) {
-      if (!isTemplateCatalogConflict(generateError)) throw generateError
-      catalogFailure = generateError
-    }
-    const diagnosticCatalogMismatch = generated?.diagnostics.some(
-      (diagnostic) => diagnostic.code === 'template_catalog_mismatch' ||
-        diagnostic.code === 'template_catalog_conflict'
-    ) ?? false
-    if (catalogFailure || diagnosticCatalogMismatch) {
-      const refreshedCatalog = (
-        await refreshWorkflowCatalogsAfterConflict()
-      ).action
-      const decision = catalogConflictDecision({
-        dirty: localState.current.canvasDirty,
-        localPython: localState.current.editorValue,
-        localGraph: sourceGraph,
-        observedFingerprint:
-          authority.candidate?.template_catalog_fingerprint ??
-          authority.applied_source?.template_catalog_fingerprint ??
-          actionCatalog?.fingerprint ?? '',
-        currentFingerprint: refreshedCatalog.fingerprint ?? ''
-      })
-      if (!decision) {
-        if (catalogFailure) throw catalogFailure
-        throw new Error('操作目录已变化，但未返回新的版本标识')
-      }
-      graphValue = rehydrateTypedActionGraph(
-        refreshedCatalog,
-        decision.retainLocalGraph
-      )
-      setGraph(graphValue)
-      setCanvasDirty(true)
-      localState.current = {
-        ...localState.current,
-        graph: graphValue,
-        canvasDirty: true
-      }
-      setMessage('操作目录已更新；本地画布已按稳定 UUID 恢复')
-      generated = await request(graphValue)
-    }
-    if (!generated) throw new Error('OS 未返回工作流转换结果')
-    let blocking = generated.diagnostics.filter(
-      (diagnostic) => diagnostic.severity === 'error'
-    )
-    if (blocking.length > 0 || !generated.normalized_python_source) {
-      throw new Error(
-        blocking.map((item) => `${item.code}: ${item.message}`).join('\n') ||
-        'OS 未返回完整规范化 Python'
-      )
-    }
-    if (!generated.graph) throw new Error('OS 未返回完整画布数据')
-    const validated = await queue.run(
-      () => runtime.validateWorkflowAuthoring({
-        workflow_uuid: workflowUuid,
-        revision: authority.workflow_revision,
-        source_uri: sourceUri,
-        graph: generated.graph as WorkflowAuthoringGraph,
-        python_source: generated.normalized_python_source as string
-      })
-    )
-    blocking = validated.diagnostics.filter(
-      (diagnostic) => diagnostic.severity === 'error'
-    )
-    if (
-      blocking.length > 0 ||
-      !validated.graph ||
-      !validated.normalized_python_source
-    ) {
-      throw new Error(
-        blocking.map((item) => `${item.code}: ${item.message}`).join('\n') ||
-        'OS 未通过编辑中入参与出参校验'
-      )
-    }
-    return validated
+    return generateValidatedWorkflowPython({
+      actionCatalogFingerprint: actionCatalog?.fingerprint ?? '',
+      authority,
+      cache: canvasValidationCache,
+      definitionPort,
+      localCanvasDirty: localState.current.canvasDirty,
+      localEditorValue: localState.current.editorValue,
+      queue,
+      refreshCatalog: refreshWorkflowCatalogsAfterConflict,
+      runtime,
+      sourceGraph,
+      workflowUuid,
+      onCatalogRehydrated: (graphValue) => {
+        setGraph(graphValue)
+        setCanvasDirty(true)
+        localState.current = {
+          ...localState.current,
+          graph: graphValue,
+          canvasDirty: true
+        }
+        setMessage('操作目录已更新；本地画布已按稳定 UUID 恢复')
+      },
+      onDiagnostics: setLocalValidationDiagnostics
+    })
   }, [
     actionCatalog?.fingerprint,
     aggregate,
@@ -733,6 +674,42 @@ export function usePersistentWorkflowAuthoring({
     runtime,
     workflowUuid
   ])
+
+  /**
+   * 只对当前内存草稿执行 OS Python 生成与校验，不保存也不应用候选。
+   */
+  const validateCanvasDraft = (): void => {
+    if (!graph || !aggregate || mode !== 'canvas') return
+    if (!definitionPort.capabilities.sourceEditing) {
+      setError(
+        definitionPort.capabilities.sourceEditingDisabledReason ??
+        '当前数据源不提供 OS Python 草稿校验'
+      )
+      return
+    }
+    void run(async () => {
+      setLocalValidationDiagnostics(null)
+      const sourceGraph = selectedNodeNameDirty && selectedNodeUuid
+        ? updatePersistentAuthoringNodeName(
+            graph,
+            selectedNodeUuid,
+            selectedNodeName
+          )
+        : graph
+      if (sourceGraph !== graph) {
+        setGraph(sourceGraph)
+        setCanvasDirty(true)
+        setSelectedNodeNameDirty(false)
+      }
+      const validated = await generateCanvasPython(sourceGraph)
+      const warningCount = validated.diagnostics.filter(
+        (diagnostic) => diagnostic.severity === 'warning'
+      ).length
+      setMessage(warningCount > 0
+        ? `本地草稿校验通过，包含 ${warningCount} 项警告；未保存、未应用`
+        : '本地草稿校验通过；未保存、未应用')
+    })
+  }
 
   /**
    * 切换工作流单编辑权模式，并在进入画布模式时自动应用一次美化布局。
@@ -1168,7 +1145,8 @@ export function usePersistentWorkflowAuthoring({
   const projectionKind = aggregate
     ? authoringProjection(aggregate).kind
     : null
-  const diagnostics = aggregate?.draft?.diagnostics ?? []
+  const diagnostics = localValidationDiagnostics ??
+    aggregate?.draft?.diagnostics ?? []
   const canvasNodeEditor = usePersistentWorkflowCanvasNodeEditor({
     actionCatalog,
     canvasMutationEnabled,
@@ -1374,6 +1352,9 @@ export function usePersistentWorkflowAuthoring({
     nodePaletteOpen, onChooseWorkflow, pendingMode, policy, projectionKind,
     refreshMaterialSourceCatalog, remoteConflict, requestMode,
     retryLocalAfterConflict, runtime, saveDraft,
+    validateCanvasDraft,
+    canvasValidationAvailable:
+      mode === 'canvas' && definitionPort.capabilities.sourceEditing,
     selectedNodeName, selectedNodeUuid,
     setActionParametersOpen, setCanvasDirty, setCodeProjection, setError,
     setFullSourceDiff, setGraph, setMessage, setNodePaletteOpen,

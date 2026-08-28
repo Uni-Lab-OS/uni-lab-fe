@@ -15,21 +15,20 @@ import type {
 import { WorkflowButton } from './WorkflowButton'
 import { WorkflowResourceSelector } from './WorkflowResourceSelector'
 
-interface WorkflowActionParameterDrawerProps {
-  open: boolean
-  nodeName: string
-  templateName: string
+export interface WorkflowActionParameterEditorProps {
   editor: TypedActionEditorProjection | null
   outputHandles: readonly WorkflowActionHandleTemplate[]
   graph: WorkflowAuthoringGraph | null
   editable: boolean
   resourceSlotOptions?: WorkflowResourceSlotOptionsState
-  onClose: () => void
   onProviderChange: (
     field: TypedActionFieldProjection,
     provider: string
   ) => void
-  onLiteralBlur: (field: TypedActionFieldProjection, raw: string) => void
+  onLiteralBlur: (
+    field: TypedActionFieldProjection,
+    raw: string
+  ) => string | null | void
   onResourceChange?: (
     field: TypedActionFieldProjection,
     materialUuid: string | null
@@ -38,56 +37,21 @@ interface WorkflowActionParameterDrawerProps {
   onNull: (handleUuid: string) => void
 }
 
+interface WorkflowActionParameterDrawerProps
+  extends WorkflowActionParameterEditorProps {
+  open: boolean
+  nodeName: string
+  templateName: string
+  onClose: () => void
+}
+
 export function WorkflowActionParameterDrawer({
   open,
   nodeName,
   templateName,
-  editor,
-  outputHandles,
-  graph,
-  editable,
-  resourceSlotOptions,
   onClose,
-  onProviderChange,
-  onLiteralBlur,
-  onResourceChange,
-  onClear,
-  onNull
+  ...editorProps
 }: WorkflowActionParameterDrawerProps): React.JSX.Element {
-  const configuredInputCount = editor?.fields.filter(
-    (field) => field.providerKind !== 'missing'
-  ).length ?? 0
-  const missingRequiredCount = editor?.diagnostics.filter(
-    (diagnostic) => diagnostic.code === 'required_action_parameter_missing'
-  ).length ?? 0
-  const [literalDraftHandles, setLiteralDraftHandles] = useState<Set<string>>(
-    () => new Set()
-  )
-  useEffect(() => {
-    if (!open) setLiteralDraftHandles(new Set())
-  }, [open])
-  const selectProvider = (
-    field: TypedActionFieldProjection,
-    provider: string
-  ): void => {
-    setLiteralDraftHandles((current) => withLiteralDraft(
-      current,
-      field.handleUuid,
-      provider === 'literal'
-    ))
-    onProviderChange(field, provider)
-  }
-  const commitLiteral = (
-    field: TypedActionFieldProjection,
-    raw: string
-  ): void => {
-    onLiteralBlur(field, raw)
-    setLiteralDraftHandles((current) => withLiteralDraft(
-      current,
-      field.handleUuid,
-      false
-    ))
-  }
   return (
     <SlideOverDrawer
       open={open}
@@ -108,7 +72,75 @@ export function WorkflowActionParameterDrawer({
         </div>
       )}
     >
-      <div className="persistent-authoring__parameter-drawer">
+      <WorkflowActionParameterEditor {...editorProps} />
+    </SlideOverDrawer>
+  )
+}
+
+/**
+ * 可嵌入检查器或抽屉的操作参数编辑主体。
+ *
+ * 临时文本只在本组件内保存，失焦后才交给 Canonical 草稿命令解析。
+ */
+export function WorkflowActionParameterEditor({
+  editor,
+  outputHandles,
+  graph,
+  editable,
+  resourceSlotOptions,
+  onProviderChange,
+  onLiteralBlur,
+  onResourceChange,
+  onClear,
+  onNull
+}: WorkflowActionParameterEditorProps): React.JSX.Element {
+  const configuredInputCount = editor?.fields.filter(
+    (field) => field.providerKind !== 'missing'
+  ).length ?? 0
+  const missingRequiredCount = editor?.diagnostics.filter(
+    (diagnostic) => diagnostic.code === 'required_action_parameter_missing'
+  ).length ?? 0
+  const [literalDraftHandles, setLiteralDraftHandles] = useState<Set<string>>(
+    () => new Set()
+  )
+  const [literalErrors, setLiteralErrors] = useState<Map<string, string>>(
+    () => new Map()
+  )
+  useEffect(() => {
+    setLiteralDraftHandles(new Set())
+    setLiteralErrors(new Map())
+  }, [editor?.nodeUuid])
+  const selectProvider = (
+    field: TypedActionFieldProjection,
+    provider: string
+  ): void => {
+    setLiteralDraftHandles((current) => withLiteralDraft(
+      current,
+      field.handleUuid,
+      provider === 'literal'
+    ))
+    onProviderChange(field, provider)
+  }
+  const commitLiteral = (
+    field: TypedActionFieldProjection,
+    raw: string
+  ): void => {
+    const error = onLiteralBlur(field, raw) || null
+    setLiteralErrors((current) => {
+      const next = new Map(current)
+      if (error) next.set(field.handleUuid, error)
+      else next.delete(field.handleUuid)
+      return next
+    })
+    if (error) return
+    setLiteralDraftHandles((current) => withLiteralDraft(
+      current,
+      field.handleUuid,
+      false
+    ))
+  }
+  return (
+    <div className="persistent-authoring__parameter-drawer">
         <header>
           <div>
             <strong>设置节点参数</strong>
@@ -217,6 +249,14 @@ export function WorkflowActionParameterDrawer({
                           onLiteralBlur={commitLiteral}
                           onResourceChange={onResourceChange}
                         />
+                        {literalErrors.get(field.handleUuid) && (
+                          <p
+                            className="persistent-authoring__parameter-inline-error"
+                            role="alert"
+                          >
+                            {literalErrors.get(field.handleUuid)}
+                          </p>
+                        )}
                       </div>
 
                       <div className="persistent-authoring__parameter-meta">
@@ -317,8 +357,7 @@ export function WorkflowActionParameterDrawer({
             </ParameterSection>
           </div>
         )}
-      </div>
-    </SlideOverDrawer>
+    </div>
   )
 }
 
@@ -356,7 +395,10 @@ function ParameterValueControl({
   providerKind: TypedActionFieldProjection['providerKind']
   editable: boolean
   resourceSlotOptions?: WorkflowResourceSlotOptionsState
-  onLiteralBlur: (field: TypedActionFieldProjection, raw: string) => void
+  onLiteralBlur: (
+    field: TypedActionFieldProjection,
+    raw: string
+  ) => string | null | void
   onResourceChange?: (
     field: TypedActionFieldProjection,
     materialUuid: string | null

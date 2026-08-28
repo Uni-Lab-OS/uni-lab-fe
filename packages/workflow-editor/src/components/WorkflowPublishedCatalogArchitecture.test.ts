@@ -90,7 +90,10 @@ describe('Published Workflow Catalog in the Authoring module', () => {
     const toggle = functionBody(source, 'const toggleGroup')
 
     expect(source).toMatch(
-      /projectNestedWorkflow\([\s\S]*?materialRoleProjection\.nodes,[\s\S]*?materialRoleProjection\.links,[\s\S]*?expandedGroupIds/
+      /projectNestedWorkflow\(nodes, links, expandedGroupIds\)/
+    )
+    expect(source).toMatch(
+      /projectMaterialTraces\([\s\S]*?hierarchyProjection\.nodes,[\s\S]*?hierarchyProjection\.links/
     )
     expect(source).toMatch(
       /groupSignature[\s\S]*?node\.compositeSignature/
@@ -132,6 +135,9 @@ describe('Published Workflow Catalog in the Authoring module', () => {
     expect(source).not.toContain('setError(errorMessage(catalogError))')
     expect(source).toContain('setActionCatalogError')
     expect(source).toContain('ACTION_CATALOG_RETRY_DELAY_MS')
+    expect(source).not.toMatch(
+      /if \(\s*materialSourceCatalogLoading \|\|[\s\S]{0,120}!materialSourceCatalog/u
+    )
     expect(source).not.toMatch(
       /setMaterialSourceCatalogError\(\s*`操作目录加载失败：/
     )

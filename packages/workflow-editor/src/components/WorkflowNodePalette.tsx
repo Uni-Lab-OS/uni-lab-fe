@@ -2,6 +2,10 @@ import type { WorkflowActionCatalogSnapshot } from '@unilab/services'
 import { useMemo, useState } from 'react'
 
 import { WorkflowButton } from './WorkflowButton'
+import {
+  writeWorkflowNodePaletteDragPayload,
+  type WorkflowNodePaletteDragPayload
+} from '../utils/workflowCanvasCommands'
 
 export type WorkflowNodePaletteKind =
   | 'all'
@@ -9,7 +13,7 @@ export type WorkflowNodePaletteKind =
   | 'action'
   | 'workflow'
 
-interface WorkflowNodePaletteProps {
+export interface WorkflowNodePaletteProps {
   catalog: WorkflowActionCatalogSnapshot | null
   catalogError?: string | null
   busy: boolean
@@ -54,7 +58,8 @@ const PALETTE_KINDS: ReadonlyArray<{
 export function workflowNodePaletteProjection(
   catalog: WorkflowActionCatalogSnapshot | null,
   query: string,
-  kind: WorkflowNodePaletteKind
+  kind: WorkflowNodePaletteKind,
+  materialTemplateAvailable = true
 ): WorkflowNodePaletteProjection {
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const matches = (...values: Array<string | null | undefined>): boolean => (
@@ -80,15 +85,17 @@ export function workflowNodePaletteProjection(
         template.source.module
       ))
     : []
-  const showMaterial = (kind === 'all' || kind === 'material') && matches(
-    '物料来源',
-    'OS 准入声明',
-    'material source',
-    'site'
-  )
+  const showMaterial = materialTemplateAvailable &&
+    (kind === 'all' || kind === 'material') && matches(
+      '物料来源',
+      'OS 准入声明',
+      'material source',
+      'site'
+    )
+  const materialCount = materialTemplateAvailable ? 1 : 0
   const counts = {
-    all: allActions.length + allWorkflows.length + 1,
-    material: 1,
+    all: allActions.length + allWorkflows.length + materialCount,
+    material: materialCount,
     action: allActions.length,
     workflow: allWorkflows.length
   }
@@ -125,8 +132,13 @@ export function WorkflowNodePalette({
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState<WorkflowNodePaletteKind>('all')
   const projection = useMemo(
-    () => workflowNodePaletteProjection(catalog, query, kind),
-    [catalog, kind, query]
+    () => workflowNodePaletteProjection(
+      catalog,
+      query,
+      kind,
+      materialSourceCatalogAvailable
+    ),
+    [catalog, kind, materialSourceCatalogAvailable, query]
   )
   const templateDisabled = busy || !canvasMutationEnabled || !graphAvailable
   const templateDisabledReason = busy
@@ -134,6 +146,17 @@ export function WorkflowNodePalette({
     : !canvasMutationEnabled
       ? '当前模式只允许查看工作流画布'
       : '工作流图尚未加载完成'
+  const startTemplateDrag = (
+    event: React.DragEvent<HTMLButtonElement>,
+    payload: WorkflowNodePaletteDragPayload,
+    disabled: boolean
+  ): void => {
+    if (disabled) {
+      event.preventDefault()
+      return
+    }
+    writeWorkflowNodePaletteDragPayload(event.dataTransfer, payload)
+  }
 
   return (
     <aside
@@ -162,7 +185,9 @@ export function WorkflowNodePalette({
         role="group"
         aria-label="节点模板分类"
       >
-        {PALETTE_KINDS.map((option) => (
+        {PALETTE_KINDS.filter((option) =>
+          option.value === 'all' || projection.counts[option.value] > 0
+        ).map((option) => (
           <button
             key={option.value}
             type="button"
@@ -201,6 +226,20 @@ export function WorkflowNodePalette({
                   : materialSourceAuthorityBlocked
                     ? '物料来源目录或引用已失效，请先刷新'
                     : '物料与库位目录尚未加载完成'}
+              draggable={
+                !busy &&
+                canvasMutationEnabled &&
+                materialSourceCatalogAvailable &&
+                !materialSourceAuthorityBlocked
+              }
+              onDragStart={(event) => startTemplateDrag(
+                event,
+                { kind: 'material' },
+                busy ||
+                !canvasMutationEnabled ||
+                !materialSourceCatalogAvailable ||
+                materialSourceAuthorityBlocked
+              )}
               onClick={onAddMaterialSource}
             >
               <span aria-hidden="true">▱</span>
@@ -236,6 +275,12 @@ export function WorkflowNodePalette({
                   key={template.uuid}
                   disabled={templateDisabled}
                   disabledReason={templateDisabledReason}
+                  draggable={!templateDisabled}
+                  onDragStart={(event) => startTemplateDrag(
+                    event,
+                    { kind: 'action', templateUuid: template.uuid },
+                    templateDisabled
+                  )}
                   onClick={() => onAddAction(template.uuid)}
                 >
                   <span aria-hidden="true">⌁</span>
@@ -259,6 +304,12 @@ export function WorkflowNodePalette({
                   key={template.uuid}
                   disabled={templateDisabled}
                   disabledReason={templateDisabledReason}
+                  draggable={!templateDisabled}
+                  onDragStart={(event) => startTemplateDrag(
+                    event,
+                    { kind: 'workflow', templateUuid: template.uuid },
+                    templateDisabled
+                  )}
                   onClick={() => onAddWorkflow(template.uuid)}
                 >
                   <span aria-hidden="true">▣</span>

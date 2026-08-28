@@ -169,16 +169,11 @@ export function usePersistentWorkflowCatalogs({
   }, [refreshMaterialSourceCatalog])
 
   useEffect(() => {
-    if (
-      materialSourceCatalogLoading ||
-      materialSourceCatalogError ||
-      !materialSourceCatalog
-    ) return
     let active = true
     let retryTimer: ReturnType<typeof globalThis.setTimeout> | null = null
     const requestGeneration = ++actionCatalogRequestGeneration.current
-    // MaterialSource 是运行准入门禁；先建立它，再预取体量更大的动作目录，
-    // 避免两组跨端口请求在浏览器启动瞬间彼此挤占连接。
+    // 动作目录与物料来源目录是两个独立只读边界。某个工作区未发布
+    // MaterialSource 时仍必须能新增、连接并编辑真实动作节点。
     const readActionCatalog = async (): Promise<void> => {
       setActionCatalogError(null)
       try {
@@ -210,12 +205,7 @@ export function usePersistentWorkflowCatalogs({
       actionCatalogRequestGeneration.current += 1
       if (retryTimer !== null) globalThis.clearTimeout(retryTimer)
     }
-  }, [
-    materialSourceCatalog,
-    materialSourceCatalogError,
-    materialSourceCatalogLoading,
-    runtime
-  ])
+  }, [runtime])
 
   const effectiveMaterialSourceCatalog = useMemo(() => {
     if (!materialSourceCatalog) return null

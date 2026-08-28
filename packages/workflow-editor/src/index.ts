@@ -3,6 +3,10 @@ export {
   type WorkflowPanelProps,
   type WorkflowCatalogState
 } from './components/WorkflowPanel'
+export {
+  ExperimentOperationWorkbench,
+  type ExperimentOperationWorkbenchProps
+} from './components/ExperimentOperationWorkbench'
 export type {
   WorkflowPanelRuntimeProjection
 } from './workflowPanelProjection'

@@ -100,6 +100,19 @@ describe('Workbench domain view presentation', () => {
     expect(state.isVisible('workflow-tasks')).toBe(true)
   })
 
+  it('opens experiment operation debugging as an exclusive surface', () => {
+    const state = new WorkbenchViewState()
+
+    state.toggle('operation')
+
+    expect(state.currentMode).toBe('operation')
+    expect(state.isVisible('operation')).toBe(true)
+    expect(state.isVisible('workflow')).toBe(false)
+
+    state.toggle('operation')
+    expect(state.currentMode).toBe('operation')
+  })
+
   it('never deactivates the only active sidebar domain', () => {
     const state = new WorkbenchViewState()
     const listener = vi.fn()
@@ -155,6 +168,7 @@ describe('Workbench domain view presentation', () => {
         workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
       />
     )
@@ -174,6 +188,7 @@ describe('Workbench domain view presentation', () => {
         workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
       />
     )
@@ -200,6 +215,7 @@ describe('Workbench domain view presentation', () => {
         workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
       />
     )
@@ -218,6 +234,7 @@ describe('Workbench domain view presentation', () => {
         workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
       />
     )
@@ -228,6 +245,7 @@ describe('Workbench domain view presentation', () => {
         workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
       />
     )
@@ -248,6 +266,7 @@ describe('Workbench domain view presentation', () => {
         workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
       />
     )
@@ -281,6 +300,7 @@ describe('Workbench domain view presentation', () => {
         workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
       />
     )
@@ -288,5 +308,25 @@ describe('Workbench domain view presentation', () => {
     expect(markup).toContain('data-workbench-view="robot-bench"')
     expect(markup).toContain('data-testid="robot-workstation-surface"')
     expect(markup).not.toContain('aria-label="机械臂工作站侧栏"')
+  })
+
+  it('renders the experiment operation workbench in the shared main area', () => {
+    const markup = renderToStaticMarkup(
+      <WorkbenchDomainLayout
+        mode="operation"
+        workflow={<section data-testid="workflow-surface" />}
+        workflowTasks={<section data-testid="workflow-tasks-surface" />}
+        material={<section data-testid="material-surface" />}
+        device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
+        robotWorkstation={<section data-testid="robot-workstation-surface" />}
+      />
+    )
+
+    expect(markup).toContain('data-workbench-view="operation"')
+    expect(markup).toContain('data-testid="operation-surface"')
+    expect(markup).toContain(
+      'class="unilab-workbench__domain-slot is-operation"'
+    )
   })
 })

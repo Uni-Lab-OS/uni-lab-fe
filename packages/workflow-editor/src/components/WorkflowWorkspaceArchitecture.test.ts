@@ -38,7 +38,7 @@ describe('Workflow workspace authority', () => {
 
   /** 属性面板只展示选中节点的说明，不得用保存或投影错误充当描述。 */
   it('renders the selected node description in the inspector', () => {
-    const view = componentSource('PersistentWorkflowAuthoringView.tsx')
+    const view = componentSource('WorkflowNodeInspector.tsx')
 
     expect(view).toContain('selectedNodeDescription')
     expect(view).toContain('节点说明')

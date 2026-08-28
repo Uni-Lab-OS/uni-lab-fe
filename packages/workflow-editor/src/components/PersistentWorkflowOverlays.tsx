@@ -1,4 +1,5 @@
 import { SlideOverDrawer } from '@unilab/design-system'
+import type { WorkflowDefinitionKind } from '@unilab/services'
 
 import { workflowIoMetadata } from '../utils/persistentAuthoringProjection'
 import { WorkflowActionParameterDrawer } from './WorkflowActionParameterDrawer'
@@ -18,10 +19,13 @@ import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAutho
  * @returns 叠加在主工作区之上的受控交互层。
  */
 export function PersistentWorkflowOverlays({
-  model
+  model,
+  definitionKind = 'workflow'
 }: {
   model: PersistentWorkflowAuthoringModel
+  definitionKind?: WorkflowDefinitionKind
 }): React.JSX.Element {
+  const definitionLabel = definitionKind === 'operation' ? '操作' : '工作流'
   const {
     acceptFullSourceDiff,
     actionParametersOpen,
@@ -117,11 +121,11 @@ export function PersistentWorkflowOverlays({
       <SlideOverDrawer
         open={workflowIoOpen}
         size="medium"
-        ariaLabel="工作流输入与输出配置"
+        ariaLabel={`${definitionLabel}输入与输出配置`}
         title={(
           <span className="persistent-authoring__drawer-title">
-            <span>工作流设置</span>
-            <strong>设置工作流输入与输出</strong>
+            <span>{definitionLabel}设置</span>
+            <strong>设置{definitionLabel}输入与输出</strong>
           </span>
         )}
         onClose={() => setWorkflowIoOpen(false)}
@@ -140,7 +144,7 @@ export function PersistentWorkflowOverlays({
       >
         <div className="persistent-authoring__io-drawer">
           <header>
-            <strong>整个工作流的输入与输出</strong>
+            <strong>整个{definitionLabel}的输入与输出</strong>
             <p>
               输入可提供给任意节点；输出可连接节点结果，也可直接返回输入值。
             </p>
@@ -166,7 +170,7 @@ export function PersistentWorkflowOverlays({
                 setCanvasDirty(true)
                 setError(null)
                 setMessage(
-                  '工作流输入与输出已修改；保存前将由 OS 生成规范 Python'
+                  `${definitionLabel}输入与输出已修改；保存前将由 OS 生成规范 Python`
                 )
               }}
             />

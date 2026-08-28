@@ -49,7 +49,11 @@ export interface MaterialSourceEditorProjection {
 export function createMaterialSourceNode(
   catalog: WorkflowMaterialSourceCatalogSnapshot,
   graph: WorkflowAuthoringGraph,
-  input: { nodeUuid: string; name: string }
+  input: {
+    nodeUuid: string
+    name: string
+    position?: { x: number; y: number }
+  }
 ): WorkflowAuthoringGraph {
   if (graph.nodes.some((node) => node.uuid === input.nodeUuid)) {
     throw new Error('工作流节点 UUID 已存在')
@@ -79,7 +83,7 @@ export function createMaterialSourceNode(
         name: input.name,
         status: 'idle',
         type: 'material_source',
-        pose: {},
+        pose: input.position ? { position: { ...input.position } } : {},
         param: {
           resource_template_uuid: resourceTemplate.uuid,
           mode: 'existing',
@@ -299,6 +303,12 @@ export function connectMaterialSourceToTypedActionEdge(
       nodeTemplateUuid: template.uuid,
       handleUuid: template.sourceHandle.uuid,
       valueType: template.sourceHandle.valueType,
+      valueSchema: projection.resourceTemplateUuid
+        ? {
+            $slot: 'ResourceSlot',
+            allowed_resource_template_uuids: [projection.resourceTemplateUuid]
+          }
+        : { $slot: 'ResourceSlot' },
       resourceTemplateUuid: projection.resourceTemplateUuid
     }
   )
