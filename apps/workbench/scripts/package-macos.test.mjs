@@ -57,11 +57,15 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(welcomeDocument, /id="install-runtime"/u)
     assert.match(welcomeDocument, /id="choose-runtime"/u)
     assert.match(welcomeDocument, /id="open-runtime-log"/u)
+    assert.match(welcomeDocument, /id="runtime-progress"/u)
+    assert.match(welcomeDocument, /role="progressbar"/u)
     assert.match(welcomeScript, /managedRuntime/u)
     assert.match(welcomeScript, /chooseEnvironment/u)
     assert.match(welcomeScript, /upgrade-required/u)
     assert.match(welcomeScript, /openDiagnosticLog/u)
     assert.match(welcomeScript, /unilab -h/u)
+    assert.match(welcomeScript, /progress\.percentage/u)
+    assert.match(welcomeScript, /formatBytes/u)
     assert.equal(
       theiaManifest.theiaExtensions[0].frontendPreload,
       'lib/browser/unilab-workbench-frontend-preload-module'

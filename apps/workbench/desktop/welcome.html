@@ -67,11 +67,29 @@
 
           <section class="runtime-panel" id="runtime-panel" aria-live="polite" hidden>
             <span class="runtime-panel__indicator" id="runtime-indicator" aria-hidden="true"></span>
-            <span class="runtime-panel__content">
+            <div class="runtime-panel__content">
               <small>LOCAL RUNTIME / 本地运行环境</small>
               <strong id="runtime-title">正在检查 UniLab 环境</strong>
-              <span id="runtime-detail">检查现有环境与安装包内置 Runtime…</span>
-            </span>
+              <span class="runtime-panel__detail" id="runtime-detail">检查现有环境与安装包内置 Runtime…</span>
+              <div class="runtime-progress" id="runtime-progress" aria-live="off" hidden>
+                <div class="runtime-progress__heading">
+                  <span id="runtime-progress-stage">准备下载</span>
+                  <output id="runtime-progress-value">准备中</output>
+                </div>
+                <div
+                  class="runtime-progress__track is-indeterminate"
+                  id="runtime-progress-track"
+                  role="progressbar"
+                  aria-labelledby="runtime-progress-stage"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuetext="准备下载"
+                >
+                  <span class="runtime-progress__fill" id="runtime-progress-fill"></span>
+                </div>
+                <p id="runtime-progress-bytes">正在连接 Runtime 下载源…</p>
+              </div>
+            </div>
             <div class="runtime-panel__controls">
               <label id="runtime-selector-label" class="runtime-panel__selector" hidden>
                 <span>UniLab 环境</span>

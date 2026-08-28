@@ -374,6 +374,13 @@ export type ManagedRuntimeInstallationPhase =
   | 'ready'
   | 'failed'
 
+export interface ManagedRuntimeInstallationProgress {
+  stage: 'preparing' | 'downloading' | 'verifying' | 'installing' | 'validating'
+  downloadedBytes: number | null
+  totalBytes: number | null
+  percentage: number | null
+}
+
 export interface ManagedRuntimeInstallationSnapshot {
   phase: ManagedRuntimeInstallationPhase
   bundled: boolean
@@ -398,6 +405,7 @@ export interface ManagedRuntimeInstallationSnapshot {
     | 'unknown'
     | null
   errorLogPath?: string | null
+  progress?: ManagedRuntimeInstallationProgress | null
 }
 
 export interface DesktopManagedRuntimeInstallationApi {

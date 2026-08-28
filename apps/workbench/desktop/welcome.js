@@ -14,6 +14,12 @@ const runtimePanel = document.querySelector('#runtime-panel')
 const runtimeIndicator = document.querySelector('#runtime-indicator')
 const runtimeTitle = document.querySelector('#runtime-title')
 const runtimeDetail = document.querySelector('#runtime-detail')
+const runtimeProgress = document.querySelector('#runtime-progress')
+const runtimeProgressStage = document.querySelector('#runtime-progress-stage')
+const runtimeProgressValue = document.querySelector('#runtime-progress-value')
+const runtimeProgressTrack = document.querySelector('#runtime-progress-track')
+const runtimeProgressFill = document.querySelector('#runtime-progress-fill')
+const runtimeProgressBytes = document.querySelector('#runtime-progress-bytes')
 const installRuntimeButton = document.querySelector('#install-runtime')
 const chooseRuntimeButton = document.querySelector('#choose-runtime')
 const openRuntimeLogButton = document.querySelector('#open-runtime-log')
@@ -45,7 +51,8 @@ let runtimeSnapshot = {
   previousRuntimeVersion: null,
   previousEnvironmentPath: null,
   errorCode: null,
-  errorLogPath: null
+  errorLogPath: null,
+  progress: null
 }
 
 runtimeSelector.addEventListener('change', () => {
@@ -242,6 +249,10 @@ function renderRuntime() {
   const downloadsRuntime = runtimeSnapshot.delivery === 'download'
   runtimePanel.hidden = runtimeSnapshot.phase === 'unavailable'
   runtimePanel.dataset.phase = runtimeSnapshot.phase
+  runtimePanel.setAttribute(
+    'aria-busy',
+    String(runtimeSnapshot.phase === 'installing')
+  )
   runtimeIndicator.className = `runtime-panel__indicator is-${runtimeSnapshot.phase}`
   installRuntimeButton.hidden = !runtimeSnapshot.bundled
     || ![
@@ -269,49 +280,168 @@ function renderRuntime() {
   runtimeSelector.disabled = runtimeRequestPending
     || runtimeSnapshot.phase === 'installing'
   runtimeSelectorLabel.hidden = environments.length === 0
+  renderRuntimeProgress(downloadsRuntime)
   if (runtimeSnapshot.phase === 'ready') {
-    runtimeTitle.textContent = `内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''} 已就绪`
-    runtimeDetail.textContent = runtimeSnapshot.error
+    setText(runtimeTitle, `内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''} 已就绪`)
+    setText(runtimeDetail, runtimeSnapshot.error
       ? `${runtimeSnapshot.environmentPath ?? '应用私有环境'}；提示：${runtimeSnapshot.error}`
-      : runtimeSnapshot.environmentPath ?? '应用私有环境'
+      : runtimeSnapshot.environmentPath ?? '应用私有环境')
     return
   }
   if (runtimeSnapshot.phase === 'external') {
-    runtimeTitle.textContent = '已检测到现有 UniLab 环境'
-    runtimeDetail.textContent = runtimeSnapshot.error
+    setText(runtimeTitle, '已检测到现有 UniLab 环境')
+    setText(runtimeDetail, runtimeSnapshot.error
       ? `${runtimeSnapshot.environmentPath ?? '系统环境'}；提示：${runtimeSnapshot.error}`
-      : runtimeSnapshot.environmentPath ?? '系统环境'
+      : runtimeSnapshot.environmentPath ?? '系统环境')
     return
   }
   if (runtimeSnapshot.phase === 'installing') {
-    runtimeTitle.textContent = downloadsRuntime
-      ? '正在下载并安装 Runtime'
-      : '正在安装内置 Runtime'
-    runtimeDetail.textContent = downloadsRuntime
-      ? '下载完成后会校验 SHA-256、静默安装并执行 unilab -h 验证，请勿退出应用…'
-      : '离线解包并执行 unilab -h 验证，请勿退出应用…'
+    const stage = runtimeSnapshot.progress?.stage
+      ?? (downloadsRuntime ? 'preparing' : 'installing')
+    const copy = runtimeInstallationCopy(stage, downloadsRuntime)
+    setText(runtimeTitle, copy.title)
+    setText(runtimeDetail, copy.detail)
     return
   }
   if (runtimeSnapshot.phase === 'upgrade-required') {
-    runtimeTitle.textContent = '需要升级本地 Runtime'
-    runtimeDetail.textContent = runtimeSnapshot.error
-      ?? `需要安装内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}。`
+    setText(runtimeTitle, '需要升级本地 Runtime')
+    setText(
+      runtimeDetail,
+      runtimeSnapshot.error
+        ?? `需要安装内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}。`
+    )
     return
   }
   if (runtimeSnapshot.phase === 'failed') {
-    runtimeTitle.textContent = '内置 Runtime 安装或检查失败'
-    runtimeDetail.textContent = runtimeSnapshot.error ?? '可重试安装或查看应用日志。'
+    setText(runtimeTitle, '内置 Runtime 安装或检查失败')
+    setText(
+      runtimeDetail,
+      runtimeSnapshot.error ?? '可重试安装或查看应用日志。'
+    )
     return
   }
   if (runtimeSnapshot.error) {
-    runtimeTitle.textContent = '所选 UniLab 环境不可用'
-    runtimeDetail.textContent = runtimeSnapshot.error
+    setText(runtimeTitle, '所选 UniLab 环境不可用')
+    setText(runtimeDetail, runtimeSnapshot.error)
     return
   }
-  runtimeTitle.textContent = '没有检测到 UniLab 环境'
-  runtimeDetail.textContent = downloadsRuntime
-    ? `可联网下载 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}，校验通过后安装，无需另行配置 Conda。`
-    : `可安装应用内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}，无需另行配置 Conda。`
+  setText(runtimeTitle, '没有检测到 UniLab 环境')
+  setText(
+    runtimeDetail,
+    downloadsRuntime
+      ? `可联网下载 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}，校验通过后安装，无需另行配置 Conda。`
+      : `可安装应用内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}，无需另行配置 Conda。`
+  )
+}
+
+function renderRuntimeProgress(downloadsRuntime) {
+  const visible = runtimeSnapshot.phase === 'installing'
+  runtimeProgress.hidden = !visible
+  if (!visible) return
+
+  const progress = runtimeSnapshot.progress ?? {
+    stage: downloadsRuntime ? 'preparing' : 'installing',
+    downloadedBytes: null,
+    totalBytes: null,
+    percentage: null
+  }
+  const stageCopy = runtimeProgressCopy(progress.stage)
+  const determinate = progress.stage === 'downloading'
+    && Number.isFinite(progress.percentage)
+  const percentage = determinate
+    ? Math.max(0, Math.min(100, Math.floor(progress.percentage)))
+    : null
+
+  setText(runtimeProgressStage, stageCopy.label)
+  setText(runtimeProgressValue, percentage === null
+    ? stageCopy.value
+    : `${percentage}%`)
+  setText(runtimeProgressBytes, runtimeProgressDetail(progress, stageCopy.detail))
+  runtimeProgressTrack.classList.toggle('is-indeterminate', !determinate)
+  runtimeProgressFill.style.width = percentage === null ? '' : `${percentage}%`
+  if (percentage === null) {
+    runtimeProgressTrack.removeAttribute('aria-valuenow')
+    runtimeProgressTrack.setAttribute('aria-valuetext', stageCopy.label)
+  } else {
+    runtimeProgressTrack.setAttribute('aria-valuenow', String(percentage))
+    runtimeProgressTrack.setAttribute(
+      'aria-valuetext',
+      `${stageCopy.label} ${percentage}%`
+    )
+  }
+}
+
+function runtimeInstallationCopy(stage, downloadsRuntime) {
+  const version = runtimeSnapshot.runtimeVersion
+    ? ` ${runtimeSnapshot.runtimeVersion}`
+    : ''
+  if (stage === 'downloading') return {
+    title: `正在下载 Runtime${version}`,
+    detail: '下载完成后将自动校验并安装，请保持 Workbench 运行。'
+  }
+  if (stage === 'verifying') return {
+    title: '正在校验 Runtime 安装包',
+    detail: '正在核对 SHA-256，确认下载内容完整且未被修改。'
+  }
+  if (stage === 'installing') return {
+    title: '正在安装 Runtime',
+    detail: '安装器正在写入应用私有环境，请勿退出 Workbench。'
+  }
+  if (stage === 'validating') return {
+    title: '正在验证 Runtime',
+    detail: '正在执行 unilab -h 与 OPC UA 依赖检查。'
+  }
+  return {
+    title: downloadsRuntime ? '正在准备下载 Runtime' : '正在准备安装 Runtime',
+    detail: downloadsRuntime
+      ? '正在连接安全下载源并检查本地缓存…'
+      : '正在检查应用内置安装载荷…'
+  }
+}
+
+function runtimeProgressCopy(stage) {
+  if (stage === 'downloading') return {
+    label: '下载 Runtime', value: '下载中', detail: '正在接收安装包'
+  }
+  if (stage === 'verifying') return {
+    label: '校验 SHA-256', value: '校验中', detail: '正在核对安装包完整性'
+  }
+  if (stage === 'installing') return {
+    label: '安装 Runtime', value: '安装中', detail: '正在写入应用私有环境'
+  }
+  if (stage === 'validating') return {
+    label: '验证 Runtime', value: '验证中', detail: '正在检查命令与依赖'
+  }
+  return {
+    label: '准备下载', value: '准备中', detail: '正在连接 Runtime 下载源'
+  }
+}
+
+function runtimeProgressDetail(progress, fallback) {
+  if (progress.stage !== 'downloading'
+    || !Number.isFinite(progress.downloadedBytes)) return fallback
+  const downloaded = formatBytes(progress.downloadedBytes)
+  if (!Number.isFinite(progress.totalBytes) || progress.totalBytes <= 0) {
+    return `已下载 ${downloaded}`
+  }
+  return `${downloaded} / ${formatBytes(progress.totalBytes)}`
+}
+
+function formatBytes(bytes) {
+  const value = Math.max(0, Number(bytes) || 0)
+  if (value < 1024) return `${Math.floor(value)} B`
+  const units = ['KB', 'MB', 'GB']
+  let size = value / 1024
+  let unit = units[0]
+  for (let index = 1; index < units.length && size >= 1024; index += 1) {
+    size /= 1024
+    unit = units[index]
+  }
+  return `${size.toFixed(size >= 100 ? 0 : 1)} ${unit}`
+}
+
+function setText(element, value) {
+  if (element.textContent !== value) element.textContent = value
 }
 
 function renderRecents(recentWorkspaces, busy) {

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { ManagedRuntimeInstallation } from './managedRuntimeInstallation'
+import type {
+  ManagedRuntimeInstallation,
+  RuntimeInstallationProgressReporter
+} from './managedRuntimeInstallation'
 import {
   ManagedRuntimeInstallationController,
   runtimeEnvironmentFallbackAllowed
@@ -47,8 +50,12 @@ describe('ManagedRuntimeInstallationController', () => {
 
   it('automatically downloads Runtime when the online package has no usable environment', async () => {
     let finish: ((value: typeof paths) => void) | undefined
+    let reportProgress: RuntimeInstallationProgressReporter | undefined
     const pending = new Promise<typeof paths>(resolve => { finish = resolve })
-    const ensureInstalled = vi.fn(() => pending)
+    const ensureInstalled = vi.fn((report: RuntimeInstallationProgressReporter) => {
+      reportProgress = report
+      return pending
+    })
     const onEnvironmentReady = vi.fn()
     const controller = createController({
       inspect: vi.fn(async () => ({
@@ -68,7 +75,24 @@ describe('ManagedRuntimeInstallationController', () => {
     expect(ensureInstalled).toHaveBeenCalledTimes(1)
     expect(controller.getSnapshot()).toMatchObject({
       phase: 'installing',
-      delivery: 'download'
+      delivery: 'download',
+      progress: { stage: 'preparing', percentage: null }
+    })
+
+    reportProgress!({
+      stage: 'downloading',
+      downloadedBytes: 104_857_600,
+      totalBytes: 346_539_410,
+      percentage: 30
+    })
+    expect(controller.getSnapshot()).toMatchObject({
+      phase: 'installing',
+      progress: {
+        stage: 'downloading',
+        downloadedBytes: 104_857_600,
+        totalBytes: 346_539_410,
+        percentage: 30
+      }
     })
 
     const automaticInstallation = controller.install()
@@ -77,7 +101,8 @@ describe('ManagedRuntimeInstallationController', () => {
       phase: 'ready',
       delivery: 'download',
       managed: true,
-      environmentPath: paths.prefix
+      environmentPath: paths.prefix,
+      progress: null
     })
     expect(ensureInstalled).toHaveBeenCalledTimes(1)
     expect(onEnvironmentReady).toHaveBeenCalledWith(paths.prefix)
