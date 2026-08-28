@@ -3,6 +3,7 @@ import {
   shell,
   BrowserWindow,
   Menu,
+  net,
   ipcMain,
   dialog,
   type MenuItemConstructorOptions,
@@ -42,6 +43,7 @@ import { registerDeviceProvisioningIpc } from './deviceProvisioningIpc'
 import { LocalDeviceProvisioningManager } from './localDeviceProvisioningManager'
 import { LocalDeviceProvisioningStore } from './localDeviceProvisioningStore'
 import {
+  createElectronRuntimeInstallerDownloader,
   ManagedRuntimeInstallation,
   resolveManagedRuntimeDataDirectory
 } from './managedRuntimeInstallation'
@@ -1106,7 +1108,8 @@ function createManagedRuntime(
   return new ManagedRuntime(
     new ManagedRuntimeInstallation({
       resourcesDirectory,
-      dataDirectory: app.getPath('userData')
+      dataDirectory: app.getPath('userData'),
+      downloadInstaller: createElectronRuntimeInstallerDownloader(net)
     }),
     supervisorStateDirectory
   )
@@ -1186,6 +1189,7 @@ function createManagedRuntimeInstallation(): ManagedRuntimeInstallation | undefi
   }
   return new ManagedRuntimeInstallation({
     resourcesDirectory,
+    downloadInstaller: createElectronRuntimeInstallerDownloader(net),
     dataDirectory: resolveManagedRuntimeDataDirectory({
       platform: process.platform,
       homeDirectory: homedir(),
