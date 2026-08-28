@@ -1,0 +1,112 @@
+@mixin card {
+  /* HTML 工作流调试原型：132×66 类型/名称/说明三行卡片。 */
+  .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype']
+    .workflow-x6-node__body {
+    fill: var(--unilab-color-surface);
+    stroke: var(--unilab-color-border-strong);
+    stroke-width: 1px;
+    filter: drop-shadow(0 2px 5px rgb(15 23 42 / 5%));
+  }
+
+  .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype']:hover
+    .workflow-x6-node__body {
+    stroke: color-mix(
+      in srgb,
+      var(--unilab-color-focus) 44%,
+      var(--unilab-color-border-strong)
+    );
+    filter: drop-shadow(0 4px 12px color-mix(
+      in srgb,
+      var(--unilab-color-focus) 8%,
+      transparent
+    ));
+  }
+
+  .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype']
+    .workflow-x6-node__kind-dot {
+    fill: var(--unilab-color-workflow);
+  }
+
+  .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype']
+    .workflow-x6-node__kind {
+    fill: var(--unilab-color-text-muted);
+    font-family: var(--unilab-font-sans);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .05em;
+  }
+
+  .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype']
+    .workflow-x6-node__label {
+    fill: var(--unilab-color-text);
+    font-family: var(--unilab-font-sans);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype']
+    .workflow-x6-node__detail {
+    fill: var(--unilab-color-text-muted);
+    font-family: var(--unilab-font-sans);
+    font-size: 8px;
+    font-weight: 500;
+  }
+
+  .workflow-x6 .x6-node-selected[data-workflow-card-contract='html-prototype']
+    .workflow-x6-node__body,
+  .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype'][data-workflow-runtime-selected='true']
+    .workflow-x6-node__body {
+    stroke: var(--unilab-color-focus);
+    stroke-width: 2px;
+    filter:
+      drop-shadow(0 0 3px color-mix(
+        in srgb,
+        var(--unilab-color-focus) 24%,
+        transparent
+      ))
+      drop-shadow(0 8px 20px color-mix(
+        in srgb,
+        var(--unilab-color-focus) 14%,
+        transparent
+      ));
+  }
+
+  .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype']
+    .workflow-x6-port--ready {
+    fill: var(--unilab-color-surface);
+    stroke: var(--unilab-color-text-subtle);
+    stroke-width: 2px;
+  }
+
+  .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype']
+    .workflow-x6-port--ready:hover {
+    stroke: var(--unilab-color-focus);
+    filter: drop-shadow(0 0 3px color-mix(
+      in srgb,
+      var(--unilab-color-focus) 35%,
+      transparent
+    ));
+  }
+
+  .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype'][data-workflow-status='running']
+    .workflow-x6-node__body {
+    fill: var(--unilab-color-warning-soft);
+  }
+
+  .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype']:is(
+    [data-workflow-status='success'],
+    [data-workflow-status='succeeded']
+  ) .workflow-x6-node__body {
+    fill: var(--unilab-color-success-soft);
+    stroke-width: 1px;
+  }
+
+  .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype']:is(
+    [data-workflow-status='failed'],
+    [data-workflow-status='cancelled'],
+    [data-workflow-status='reconciling']
+  ) .workflow-x6-node__body {
+    fill: var(--unilab-color-danger-soft);
+    stroke-width: 1px;
+  }
+}

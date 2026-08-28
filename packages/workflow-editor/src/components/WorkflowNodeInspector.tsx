@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
 import { MaterialSourceInspector } from './MaterialSourceInspector'
 import { WorkflowActionParameterEditor } from './WorkflowActionParameterDrawer'
@@ -8,6 +10,9 @@ export function WorkflowNodeInspector({
 }: {
   model: PersistentWorkflowAuthoringModel
 }): React.JSX.Element {
+  const [inspectorPane, setInspectorPane] = useState<
+    'parameters' | 'mapping' | 'runtime'
+  >('parameters')
   const {
     bindTypedFieldToWorkflowInput,
     busy,
@@ -71,6 +76,7 @@ export function WorkflowNodeInspector({
               setSelectedNodeName('')
               setSelectedNodeNameDirty(false)
               setActionParametersOpen(false)
+              setInspectorPane('parameters')
               requestAnimationFrame(() => {
                 document.querySelector<HTMLElement>(
                   `.x6-node[data-cell-id="${nodeUuid}"]`
@@ -141,32 +147,88 @@ export function WorkflowNodeInspector({
           )}
 
           {selectedActionEditor && (
-            <WorkflowActionParameterEditor
-              editor={selectedActionEditor}
-              outputHandles={selectedActionTemplate?.handles.filter(
-                (handle) => handle.ioType === 'source'
-              ) ?? []}
-              graph={graph}
-              editable={!busy && canvasMutationEnabled}
-              resourceSlotOptions={resourceSlotOptions}
-              onProviderChange={(field, provider) => {
-                if (provider.startsWith('workflow:')) {
-                  bindTypedFieldToWorkflowInput(
+            <>
+              <nav
+                className="persistent-authoring__node-tabs"
+                aria-label="节点检查器视图"
+              >
+                {([
+                  ['parameters', '参数配置'],
+                  ['mapping', '输入 / 输出'],
+                  ['runtime', '运行观察']
+                ] as const).map(([pane, label]) => (
+                  <button
+                    key={pane}
+                    type="button"
+                    className={inspectorPane === pane ? 'is-active' : undefined}
+                    aria-pressed={inspectorPane === pane}
+                    onClick={() => setInspectorPane(pane)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </nav>
+              {inspectorPane !== 'runtime' ? (
+                <WorkflowActionParameterEditor
+                  editor={selectedActionEditor}
+                  outputHandles={selectedActionTemplate?.handles.filter(
+                    (handle) => handle.ioType === 'source'
+                  ) ?? []}
+                  graph={graph}
+                  editable={!busy && canvasMutationEnabled}
+                  view={inspectorPane}
+                  resourceSlotOptions={resourceSlotOptions}
+                  onProviderChange={(field, provider) => {
+                    if (provider.startsWith('workflow:')) {
+                      bindTypedFieldToWorkflowInput(
+                        field.handleUuid,
+                        provider.slice('workflow:'.length)
+                      )
+                    } else if (
+                      provider === 'literal' || provider === 'missing'
+                    ) {
+                      updateTypedField(field.handleUuid, undefined)
+                    }
+                  }}
+                  onLiteralBlur={updateTypedFieldFromRaw}
+                  onResourceChange={(field, materialUuid) => updateTypedField(
                     field.handleUuid,
-                    provider.slice('workflow:'.length)
-                  )
-                } else if (provider === 'literal' || provider === 'missing') {
-                  updateTypedField(field.handleUuid, undefined)
-                }
-              }}
-              onLiteralBlur={updateTypedFieldFromRaw}
-              onResourceChange={(field, materialUuid) => updateTypedField(
-                field.handleUuid,
-                materialUuid ? { uuid: materialUuid } : undefined
+                    materialUuid ? { uuid: materialUuid } : undefined
+                  )}
+                  onClear={(handleUuid) => updateTypedField(
+                    handleUuid,
+                    undefined
+                  )}
+                  onNull={(handleUuid) => updateTypedField(handleUuid, null)}
+                />
+              ) : (
+                <section className="persistent-authoring__runtime-observer">
+                  <div className="strategy-list">
+                    <div className="strategy-item">
+                      <span>节点状态</span>
+                      <strong>{taskNodeStates[selectedNodeUuid] || '等待调试'}</strong>
+                    </div>
+                    <div className="strategy-item">
+                      <span>参数合同</span>
+                      <strong>{selectedActionEditor.diagnostics.length > 0
+                        ? '需要处理'
+                        : '校验通过'}</strong>
+                    </div>
+                    <div className="strategy-item">
+                      <span>保存状态</span>
+                      <strong>{canvasSaveHint}</strong>
+                    </div>
+                  </div>
+                  {diagnostics.filter(
+                    (diagnostic) => diagnostic.node_id === selectedNodeUuid
+                  ).map((diagnostic, index) => (
+                    <p key={`${diagnostic.code}:${index}`} role="alert">
+                      {diagnostic.message}
+                    </p>
+                  ))}
+                </section>
               )}
-              onClear={(handleUuid) => updateTypedField(handleUuid, undefined)}
-              onNull={(handleUuid) => updateTypedField(handleUuid, null)}
-            />
+            </>
           )}
         </>
       )}

@@ -1,4 +1,8 @@
-import type { WorkflowRuntimePort, WorkflowSummary } from '@unilab/services'
+import type {
+  WorkflowActionNodeTemplate,
+  WorkflowRuntimePort,
+  WorkflowSummary
+} from '@unilab/services'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
@@ -6,6 +10,11 @@ import {
   ExperimentOperationWorkbench,
   filterExperimentOperationDefinitions
 } from './ExperimentOperationWorkbench'
+import {
+  createExperimentOperationActionNode,
+  experimentOperationParameterFields,
+  groupExperimentOperationActions
+} from './experimentOperationProjection'
 
 describe('ExperimentOperationWorkbench', () => {
   it('renders an OS-owned operation directory boundary while inactive', () => {
@@ -48,9 +57,8 @@ describe('ExperimentOperationWorkbench', () => {
       'WorkflowActionParameterDrawer.tsx'
     )
     const outputList = parameterEditor.slice(
-      parameterEditor.indexOf('persistent-authoring__output-list'),
-      parameterEditor.indexOf('</ParameterSection>',
-        parameterEditor.indexOf('persistent-authoring__output-list'))
+      parameterEditor.indexOf('function MappingSection'),
+      parameterEditor.indexOf('function ParameterValueControl')
     )
 
     expect(workbench).toContain('<PersistentWorkflowAuthoringPanel')
@@ -62,12 +70,75 @@ describe('ExperimentOperationWorkbench', () => {
     expect(overlays).toContain('<WorkflowIoEditor')
     expect(overlays).toContain("definitionKind === 'operation'")
     expect(inspector).toContain('<WorkflowActionParameterEditor')
-    expect(parameterEditor).toContain('title="输出参数"')
-    expect(parameterEditor).toContain('输出类型由 OS 操作模板定义')
+    expect(parameterEditor).toContain('title="设备参数"')
+    expect(parameterEditor).toContain('description="输入与输出契约"')
+    expect(parameterEditor).toContain('className="mapping-row"')
     expect(outputList).not.toContain('<input')
     expect(outputList).not.toContain('<select')
   })
 
+  it('groups only catalog-backed actions and filters by public labels', () => {
+    const templates = [
+      actionTemplate({
+        uuid: 'action-reset',
+        actionClass: 'RobotArm',
+        displayName: '设备复位',
+        actionType: 'reset'
+      }),
+      actionTemplate({
+        uuid: 'action-feed',
+        actionClass: 'FeedStation',
+        displayName: '定量投料',
+        actionType: 'execute_feed'
+      })
+    ]
+
+    expect(groupExperimentOperationActions(templates)).toHaveLength(2)
+    expect(groupExperimentOperationActions(templates, '投料')).toEqual([
+      expect.objectContaining({
+        key: 'FeedStation',
+        templates: [expect.objectContaining({ uuid: 'action-feed' })]
+      })
+    ])
+  })
+
+  it('projects action schema fields and defaults into a local draft only', () => {
+    const template = actionTemplate({
+      schema: {
+        type: 'object',
+        required: ['target_mass'],
+        properties: {
+          target_mass: {
+            type: 'number',
+            title: '目标质量',
+            description: '本次投料的目标质量。'
+          }
+        }
+      },
+      goalDefault: { target_mass: 250 }
+    })
+    const node = createExperimentOperationActionNode(
+      template,
+      { x: 10, y: 20 },
+      'draft-node'
+    )
+
+    expect(node).toMatchObject({
+      id: 'draft-node',
+      kind: 'action',
+      position: { x: 10, y: 20 },
+      parameterValues: { target_mass: 250 }
+    })
+    expect(experimentOperationParameterFields(node)).toEqual([
+      expect.objectContaining({
+        key: 'target_mass',
+        label: '目标质量',
+        type: 'number',
+        required: true,
+        value: 250
+      })
+    ])
+  })
 })
 
 const componentDirectory = fileURLToPath(new URL('.', import.meta.url))
@@ -91,5 +162,22 @@ function workflowSummary(
   }
 }
 
+function actionTemplate(
+  overrides: Partial<WorkflowActionNodeTemplate> = {}
+): WorkflowActionNodeTemplate {
+  return {
+    uuid: 'action-template',
+    resourceTemplateUuid: 'resource-template',
+    name: 'reset',
+    displayName: '设备复位',
+    actionClass: 'RobotArm',
+    actionType: 'reset',
+    schema: {},
+    goal: {},
+    goalDefault: {},
+    handles: [],
+    ...overrides
+  }
+}
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'

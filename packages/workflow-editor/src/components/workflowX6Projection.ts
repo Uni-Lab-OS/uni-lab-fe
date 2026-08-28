@@ -1,28 +1,19 @@
-import type {
-  EdgeMetadata,
-  NodeMetadata
-} from '@antv/x6'
+import type { EdgeMetadata, NodeMetadata } from '@antv/x6'
 import type { CSSProperties, ReactNode } from 'react'
 
 import { isResourceSlotHandle } from '../utils/workflowMaterialTrace'
-import {
-  WORKFLOW_HORIZONTAL_MATERIAL_SOURCE_HANDLE_AXIS,
-  WORKFLOW_HORIZONTAL_TRANSFER_NODE_HANDLE_AXIS,
-  WORKFLOW_VERTICAL_MATERIAL_SOURCE_HANDLE_AXIS,
-  WORKFLOW_VERTICAL_TRANSFER_NODE_HANDLE_AXIS
-} from '../utils/workflowMaterialSwimlaneLayout'
+import { WORKFLOW_HORIZONTAL_MATERIAL_SOURCE_HANDLE_AXIS, WORKFLOW_HORIZONTAL_TRANSFER_NODE_HANDLE_AXIS, WORKFLOW_VERTICAL_MATERIAL_SOURCE_HANDLE_AXIS, WORKFLOW_VERTICAL_TRANSFER_NODE_HANDLE_AXIS } from '../utils/workflowMaterialSwimlaneLayout'
 import type { WorkflowReactionMaterialNodeData } from './WorkflowReactionMaterialNode'
-import {
-  isReadyHandle,
-  workflowMaterialPortCards,
-  workflowNodeStateLabel,
-  type WorkflowNodeData
-} from './WorkflowNodeCard'
+import { isReadyHandle, workflowMaterialPortCards, workflowNodeStateLabel, type WorkflowNodeData } from './WorkflowNodeCard'
+import { createWorkflowPrototypeActionMetadata } from './workflowX6PrototypeAction'
 
 const ACTION_NODE_MIN_WIDTH = 248
 const ACTION_NODE_MAX_WIDTH = 520
 const ACTION_NODE_HEIGHT = 64
 const SUBWORKFLOW_NODE_HEIGHT = 88
+const PROTOTYPE_ACTION_NODE_WIDTH = 132
+const PROTOTYPE_ACTION_NODE_HEIGHT = 66
+const PROTOTYPE_SUBWORKFLOW_NODE_HEIGHT = 78
 const COMPACT_ACTION_NODE_WIDTH = 184
 const COMPACT_ACTION_NODE_BASE_HEIGHT = 92
 const COMPACT_MATERIAL_CARD_PITCH = 33
@@ -220,6 +211,31 @@ function workflowX6EdgeVisual(edge: WorkflowX6Edge): WorkflowX6EdgeVisual {
 
 function workflowActionMetadata(node: WorkflowX6Node): NodeMetadata {
   const { width, height } = workflowX6NodeSize(node)
+  const data = node.data
+  if (
+    !data.layoutStrategy ||
+    data.layoutStrategy === 'crossing-minimized'
+  ) {
+    const markerProjection = workflowDebugMarkerMarkup(data, width)
+    const base = workflowNodeBase(node, { width, height }, 'action')
+    return createWorkflowPrototypeActionMetadata({
+      data,
+      width,
+      height,
+      base,
+      markerProjection,
+      ports: workflowX6Ports(node),
+      titleMarkup: workflowNodeTitleMarkup(data)
+    })
+  }
+  return workflowDetailedActionMetadata(node, width, height)
+}
+
+function workflowDetailedActionMetadata(
+  node: WorkflowX6Node,
+  width: number,
+  height: number
+): NodeMetadata {
   const data = node.data
   const compact = data.layoutStrategy === 'primary-sample-serpentine'
   const materialCards = workflowMaterialPortCards(
@@ -685,10 +701,12 @@ function workflowNodeBase(
 /** 为每个 Canonical Handle UUID 创建同名 X6 端口并恢复端口形状。 */
 function workflowX6Ports(node: WorkflowX6Node): NodeMetadata['ports'] {
   const data = node.data
-  const targetSide = node.targetPosition ?? (
+  const prototypeCard = !data.layoutStrategy ||
+    data.layoutStrategy === 'crossing-minimized'
+  const targetSide = prototypeCard ? 'left' : node.targetPosition ?? (
     data.materialLaneDirection === 'horizontal' ? 'left' : 'top'
   )
-  const sourceSide = node.sourcePosition ?? (
+  const sourceSide = prototypeCard ? 'right' : node.sourcePosition ?? (
     data.materialLaneDirection === 'horizontal' ? 'right' : 'bottom'
   )
   const specialGeometry = workflowX6SpecialPortGeometry(node)
@@ -726,7 +744,7 @@ function workflowX6Ports(node: WorkflowX6Node): NodeMetadata['ports'] {
           ? handle.ioType === 'target' ? 'materialTarget' : 'materialSource'
           : handle.ioType,
         markup: [{
-          tagName: ready ? 'rect' : 'circle',
+          tagName: ready && !prototypeCard ? 'rect' : 'circle',
           selector: 'portBody',
           className: [
             'workflow-x6-port',
@@ -735,7 +753,16 @@ function workflowX6Ports(node: WorkflowX6Node): NodeMetadata['ports'] {
           ]
         }],
         attrs: {
-          portBody: ready
+          portBody: ready && prototypeCard
+            ? {
+                r: 4,
+                magnet: handle.ioType === 'source' ? true : 'passive',
+                stroke: 'var(--unilab-color-text-subtle)',
+                strokeWidth: 2,
+                fill: 'var(--unilab-color-surface)',
+                'data-workflow-handle-kind': kind
+              }
+            : ready
             ? workflowReadyPortAttrs(side, handle.ioType)
             : material
               ? {
@@ -860,6 +887,17 @@ function workflowX6NodeSize(node: WorkflowX6Node): WorkflowX6NodeSize {
         node.style?.height,
         COMPACT_ACTION_NODE_BASE_HEIGHT +
           Math.max(0, materialVariables - 1) * COMPACT_MATERIAL_CARD_PITCH
+      )
+    }
+  }
+  if (data.layoutStrategy !== 'material-swimlanes') {
+    return {
+      width: numericSize(node.style?.width, PROTOTYPE_ACTION_NODE_WIDTH),
+      height: numericSize(
+        node.style?.height,
+        data.groupKind === 'subworkflow'
+          ? PROTOTYPE_SUBWORKFLOW_NODE_HEIGHT
+          : PROTOTYPE_ACTION_NODE_HEIGHT
       )
     }
   }

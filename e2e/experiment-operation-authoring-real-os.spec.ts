@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator } from '@playwright/test'
 import { mkdir, readFile, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
@@ -94,13 +94,61 @@ test('edits operation I/O and node parameters, then saves, applies and restarts'
   await ioDrawer.getByRole('button', { name: '完成', exact: true }).click()
   await page.setViewportSize({ width: 1600, height: 1000 })
 
+  const showPalette = workbench.getByRole('button', { name: '显示节点库' })
+  if (await showPalette.isVisible()) await showPalette.click()
+  const palette = workbench.getByRole('complementary', {
+    name: '工作流（Workflow）节点库'
+  })
+  const finalizeTemplate = palette.getByRole('button', {
+    name: /Finalize/i
+  }).first()
+  const stage = workbench.locator('.persistent-authoring__graph-stage')
+  const existingNodeUuids = new Set(await x6NodeUuids(viewport))
+  const stageBox = await stage.boundingBox()
+  if (!stageBox) throw new Error('实验操作 X6 画布没有可拖放区域')
+  await finalizeTemplate.dragTo(stage, {
+    targetPosition: {
+      x: Math.round(stageBox.width * 0.68),
+      y: Math.round(stageBox.height * 0.54)
+    }
+  })
+  await expect(canvas).toHaveAttribute('data-x6-node-count', '2')
+  const insertedNodeUuid = (await x6NodeUuids(viewport)).find(
+    nodeUuid => !existingNodeUuids.has(nodeUuid)
+  )
+  if (!insertedNodeUuid) throw new Error('拖入动作后未找到新增节点 UUID')
+
+  const inspector = workbench.getByRole('complementary', {
+    name: '画布节点编辑器'
+  })
+  await x6Node(viewport, insertedNodeUuid).click({
+    position: { x: 38, y: 24 }
+  })
+  const insertedName = inspector.getByRole('textbox', { name: '节点名称' })
+  await insertedName.fill('temporary_inserted_e2e')
+  await insertedName.press('Tab')
+
+  await dragConnection(
+    x6Node(viewport, os.nodeUuid).locator(
+      '.workflow-x6-port--ready.workflow-x6-port--source'
+    ),
+    x6Node(viewport, insertedNodeUuid).locator(
+      '.workflow-x6-port--ready.workflow-x6-port--target'
+    )
+  )
+  await expect(canvas).toHaveAttribute('data-x6-edge-count', '1')
+  page.once('dialog', async dialog => dialog.accept())
+  await workbench.getByRole('button', {
+    name: '删除选中的 1 项',
+    exact: true
+  }).click()
+  await expect(canvas).toHaveAttribute('data-x6-node-count', '1')
+  await expect(canvas).toHaveAttribute('data-x6-edge-count', '0')
+
   const node = viewport.locator(
     `.x6-node[data-cell-id="${os.nodeUuid}"]`
   )
   await node.click({ position: { x: 38, y: 24 } })
-  const inspector = workbench.getByRole('complementary', {
-    name: '画布节点编辑器'
-  })
   const nodeName = inspector.getByRole('textbox', { name: '节点名称' })
   await nodeName.fill('finalized_e2e')
   await nodeName.press('Tab')
@@ -113,8 +161,22 @@ test('edits operation I/O and node parameters, then saves, applies and restarts'
   })
   await reportValue.fill('operation-e2e')
   await reportValue.press('Tab')
+  await expect(node.locator('.workflow-x6-node__body'))
+    .toHaveAttribute('width', '132')
+  await expect(node.locator('.workflow-x6-node__body'))
+    .toHaveAttribute('height', '66')
   await page.screenshot({
     path: resolve(ARTIFACT_DIRECTORY, '02-operation-authoring-desktop.png'),
+    fullPage: true
+  })
+  await inspector.getByRole('button', { name: '输入 / 输出' }).click()
+  await expect(inspector.locator('.mapping-section')).toBeVisible()
+  await expect(inspector.locator('.mapping-group-label')).toContainText([
+    '输入参数',
+    '输出参数'
+  ])
+  await page.screenshot({
+    path: resolve(ARTIFACT_DIRECTORY, '03-operation-node-io-desktop.png'),
     fullPage: true
   })
 
@@ -243,6 +305,47 @@ interface AuthoringGraph {
     name: string
     param: Record<string, unknown>
   }>
+}
+
+function x6Node(viewport: Locator, nodeUuid: string): Locator {
+  return viewport.locator(`.x6-node[data-cell-id="${nodeUuid}"]`)
+}
+
+async function x6NodeUuids(viewport: Locator): Promise<string[]> {
+  return await viewport.locator('.x6-node[data-cell-id]').evaluateAll(
+    nodes => nodes.map(node => node.getAttribute('data-cell-id') || '')
+  )
+}
+
+async function dragConnection(source: Locator, target: Locator): Promise<void> {
+  await expect(source).toBeVisible()
+  await expect(target).toBeVisible()
+  const sourceBox = await source.boundingBox()
+  const targetBox = await target.boundingBox()
+  if (!sourceBox || !targetBox) throw new Error('真实端口没有可连接坐标')
+  const sourcePoint = {
+    clientX: sourceBox.x + sourceBox.width / 2,
+    clientY: sourceBox.y + sourceBox.height / 2
+  }
+  const targetPoint = {
+    clientX: targetBox.x + targetBox.width / 2,
+    clientY: targetBox.y + targetBox.height / 2
+  }
+  await source.dispatchEvent('mousedown', {
+    button: 0,
+    buttons: 1,
+    ...sourcePoint
+  })
+  await target.dispatchEvent('mousemove', {
+    button: 0,
+    buttons: 1,
+    ...targetPoint
+  })
+  await target.dispatchEvent('mouseup', {
+    button: 0,
+    buttons: 0,
+    ...targetPoint
+  })
 }
 
 async function readEnvelope<T>(url: string): Promise<T> {

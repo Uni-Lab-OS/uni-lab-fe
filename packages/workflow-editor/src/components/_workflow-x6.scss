@@ -1,4 +1,5 @@
 @use './workflow-foundations' as *;
+@use './workflow-x6-prototype' as workflow-x6-prototype;
 
 .workflow {
   :global {
@@ -273,6 +274,14 @@
 /* 选择框只表达状态；端口和节点本体继续接收连接与点击手势。 */
 .workflow-x6 .x6-widget-selection-box-node {
   pointer-events: none;
+}
+
+/* 节点本体已经表达选中态，隐藏 X6 默认的橙色虚线选框。 */
+.workflow-x6 .x6-widget-selection-box-node {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  stroke: transparent !important;
 }
 
 .workflow-x6 .x6-node[data-workflow-source-selected='true']
@@ -634,6 +643,8 @@
   place-items: center;
   text-align: center;
 }
+
+@include workflow-x6-prototype.card;
 
 @keyframes workflow-x6-running-signal {
   0%,

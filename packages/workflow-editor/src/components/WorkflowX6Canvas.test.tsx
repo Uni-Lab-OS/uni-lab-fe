@@ -136,8 +136,8 @@ describe('WorkflowX6Canvas scale policy', () => {
     expect(edge.target).toEqual({ cell: 'node-b', port: 'handle-in' })
   })
 
-  /** X6 必须恢复旧 React Flow 操作条、中文状态与 ready/物料端口语义。 */
-  it('regresses action nodes to the React Flow visual contract', () => {
+  /** 默认工作流卡片必须严格使用 HTML 原型的 132×66 三行信息结构。 */
+  it('projects action nodes with the HTML workflow-card contract', () => {
     const node = workflowX6NodeMetadata({
       ...workflowNode('mix-sample'),
       data: {
@@ -168,18 +168,24 @@ describe('WorkflowX6Canvas scale policy', () => {
       }
     })
 
-    expect(node.width).toBe(248)
-    expect(node.height).toBe(64)
+    expect(node.width).toBe(132)
+    expect(node.height).toBe(66)
     expect(markupClassNames(node)).toEqual(expect.arrayContaining([
       'workflow-x6-node__body',
-      'workflow-x6-node__material-card',
-      'workflow-x6-node__status-pill',
+      'workflow-x6-node__kind-dot',
+      'workflow-x6-node__kind',
+      'workflow-x6-node__label',
+      'workflow-x6-node__detail',
       'workflow-x6-node__flag--start'
     ]))
     expect(markupTexts(node)).toEqual(expect.arrayContaining([
+      '实验操作',
       '混合主样品',
-      '正在运行',
       '⚑ 起始点'
+    ]))
+    expect(markupClassNames(node)).not.toEqual(expect.arrayContaining([
+      'workflow-x6-node__divider',
+      'workflow-x6-node__status-pill'
     ]))
     const portItems = Array.isArray(node.ports)
       ? node.ports
@@ -199,7 +205,7 @@ describe('WorkflowX6Canvas scale policy', () => {
         id: 'ready-out',
         markup: expect.arrayContaining([
           expect.objectContaining({
-            tagName: 'rect',
+            tagName: 'circle',
             className: expect.arrayContaining([
               'workflow-x6-port--ready'
             ])

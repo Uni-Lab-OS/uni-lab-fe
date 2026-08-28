@@ -12,13 +12,14 @@ const nodeUuid = '10000000-0000-4000-8000-000000000001'
 const targetNodeUuid = '10000000-0000-4000-8000-000000000002'
 const inputHandleUuid = '20000000-0000-4000-8000-000000000001'
 const outputHandleUuid = '20000000-0000-4000-8000-000000000002'
+const readyHandleUuid = '20000000-0000-4000-8000-000000000005'
 const resourceHandleUuid = '20000000-0000-4000-8000-000000000003'
 const warehouseHandleUuid = '20000000-0000-4000-8000-000000000004'
 const materialTemplateUuid = '40000000-0000-4000-8000-000000000001'
 const warehouseTemplateUuid = '40000000-0000-4000-8000-000000000002'
 
 describe('WorkflowActionParameterDrawer', () => {
-  it('presents typed inputs and OS-owned outputs in one focused dialog', () => {
+  it('uses the HTML contract editor and mapping-section visual structure', () => {
     const markup = renderToStaticMarkup(
       <WorkflowActionParameterDrawer
         open
@@ -39,9 +40,16 @@ describe('WorkflowActionParameterDrawer', () => {
 
     expect(markup).toContain('role="dialog"')
     expect(markup).toContain('aria-label="节点参数 dose"')
-    expect(text).toMatch(/已配置\s*1/)
-    expect(text).toMatch(/待补\s*0/)
-    expect(text).toMatch(/输出\s*1/)
+    expect(text).toContain('设备动作参数映射')
+    expect(markup).toContain('node-contract-editor')
+    expect(markup).toContain('contract-editor-intro')
+    expect(markup).toContain('editable-contract-section')
+    expect(markup).toContain('editable-contract-head')
+    expect(markup).toContain('contract-param-card')
+    expect(markup).toContain('mapping-section')
+    expect(markup).toContain('mapping-group-label')
+    expect(markup).toContain('mapping-row')
+    expect(markup).toContain('parameter-provenance')
     expect(text).toContain('target_mass_g')
     expect(text).toContain('commanded_mass_g')
     expect(text).toContain('下游节点：report')
@@ -73,6 +81,29 @@ describe('WorkflowActionParameterDrawer', () => {
     expect(outputStart).toBeGreaterThanOrEqual(0)
     expect(visibleText(markup)).toContain('OS 操作模板')
     expect(outputMarkup).not.toMatch(/<input|<select/)
+  })
+
+  it('keeps structural ready handles on the canvas but out of business outputs', () => {
+    const markup = renderToStaticMarkup(
+      <WorkflowActionParameterDrawer
+        open
+        nodeName="dose"
+        templateName="固体投料"
+        editor={editor}
+        outputHandles={[outputHandle, readyHandle]}
+        graph={graph}
+        editable
+        onClose={vi.fn()}
+        onProviderChange={vi.fn()}
+        onLiteralBlur={vi.fn()}
+        onClear={vi.fn()}
+        onNull={vi.fn()}
+      />
+    )
+
+    expect(visibleText(markup)).toMatch(/输出\s*1/)
+    expect(markup).toContain(outputHandleUuid)
+    expect(markup).not.toContain(readyHandleUuid)
   })
 
   it('surfaces required parameters that still need configuration', () => {
@@ -215,6 +246,18 @@ const outputHandle: WorkflowActionHandleTemplate = {
   allowedResourceTemplateUuids: null,
   implicitPassthrough: false,
   structuralRole: null
+}
+
+const readyHandle: WorkflowActionHandleTemplate = {
+  ...outputHandle,
+  uuid: readyHandleUuid,
+  handleKey: 'ready',
+  displayName: 'Ready',
+  valueType: 'boolean',
+  dataSource: 'dependency',
+  dataKey: 'ready',
+  valueSchema: { type: 'boolean' },
+  structuralRole: 'ready'
 }
 
 const graph: WorkflowAuthoringGraph = {

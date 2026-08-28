@@ -343,7 +343,15 @@
 
     :global(.persistent-authoring__node-editor)
       :global(.persistent-authoring__parameter-drawer) > header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 8px;
       padding: 10px 12px;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.persistent-authoring__parameter-drawer) > header dl {
+      justify-content: flex-start;
     }
 
     :global(.persistent-authoring__node-editor)
@@ -353,7 +361,7 @@
 
     :global(.persistent-authoring__node-editor)
       :global(.persistent-authoring__parameter-fields) {
-      grid-template-columns: 1fr;
+      grid-template-columns: 104px minmax(0, 1fr);
     }
 
     :global(.persistent-authoring__parameter-inline-error) {
@@ -361,6 +369,408 @@
       color: #b91c1c;
       font-size: 10px;
       line-height: 1.4;
+    }
+
+    /* HTML 原型：右侧节点检查器页签。 */
+    :global(.persistent-authoring__node-tabs) {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin: 0 -12px;
+      border-top: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    :global(.persistent-authoring__node-tabs) button {
+      min-width: 0;
+      min-height: 40px;
+      padding: 0 4px;
+      color: #718096;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: #fff;
+      font-size: 9px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    :global(.persistent-authoring__node-tabs) button:global(.is-active) {
+      color: #2563eb;
+      border-bottom-color: #2563eb;
+      font-weight: 700;
+    }
+
+    /* HTML 原型：类型化参数编辑器。 */
+    :global(.persistent-authoring__node-editor)
+      :global(.node-contract-editor) {
+      display: grid;
+      gap: 11px;
+      margin: 0;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-editor-intro) {
+      display: block;
+      margin: 0;
+      padding: 10px 11px;
+      border: 1px solid #dbe4ef;
+      border-radius: 9px;
+      background: #f8fafc;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-editor-intro) strong,
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-editor-intro) p {
+      display: block;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-editor-intro) strong {
+      font-size: 10px;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-editor-intro) p {
+      margin: 4px 0 0;
+      color: #718096;
+      font-size: 8px;
+      line-height: 1.5;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-editor-intro) dl {
+      display: none;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.persistent-authoring__parameter-columns) {
+      display: grid;
+      gap: 11px;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.editable-contract-section) {
+      display: block;
+      overflow: hidden;
+      border: 1px solid #dce4ee;
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.editable-contract-head) {
+      display: flex;
+      min-height: 0;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 11px;
+      border-bottom: 1px solid #e7edf4;
+      background: #f8fafc;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.editable-contract-head) strong {
+      font-size: 10px;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.editable-contract-head) span {
+      padding: 3px 6px;
+      color: #315fd7;
+      border-radius: 5px;
+      background: #e7efff;
+      font-size: 8px;
+      font-weight: 800;
+    }
+
+    :global(.persistent-authoring__parameter-section-note) {
+      margin: 0;
+      padding: 7px 11px 0;
+      color: #8390a1;
+      font-size: 8px;
+      line-height: 1.45;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-param-list) {
+      display: grid;
+      gap: 8px;
+      overflow: visible;
+      padding: 9px;
+      border: 0;
+      border-radius: 0;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-param-list) > :global(.contract-param-card) {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto;
+      gap: 7px;
+      padding: 9px;
+      border: 1px solid #e4eaf2;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-param-list) > :global(.contract-param-card)
+      + :global(.contract-param-card) {
+      border-top: 1px solid #e4eaf2;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-param-meta),
+    :global(.persistent-authoring__node-editor)
+      :global(.persistent-authoring__parameter-list)
+      :global(.contract-param-meta) {
+      display: flex;
+      grid-column: 1;
+      grid-row: auto;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 7px;
+      margin: 0;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-param-meta) strong {
+      color: #334155;
+      font-size: 9px;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-param-meta) code {
+      color: #285bd0;
+      font-size: 9px;
+      font-weight: 800;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-source-grid),
+    :global(.persistent-authoring__node-editor)
+      :global(.persistent-authoring__parameter-list)
+      :global(.contract-source-grid) {
+      display: grid;
+      grid-template-columns: 104px minmax(0, 1fr);
+      grid-column: 1;
+      grid-row: auto;
+      gap: 6px;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-source-grid) input,
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-source-grid) select {
+      width: 100%;
+      height: 34px;
+      min-height: 34px;
+      padding: 0 8px;
+      color: #45566b;
+      border: 1px solid #d8e1ec;
+      border-radius: 7px;
+      background: #f8fafc;
+      font-size: 9px;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-source-note),
+    :global(.persistent-authoring__node-editor)
+      :global(.persistent-authoring__parameter-list)
+      :global(.contract-source-note) {
+      display: flex;
+      grid-column: 1;
+      grid-row: auto;
+      gap: 4px;
+      margin: 0;
+      color: #8390a1;
+      font-size: 8px;
+      line-height: 1.45;
+      white-space: normal;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.persistent-authoring__parameter-actions) {
+      grid-column: 1;
+      grid-row: auto;
+      justify-content: flex-end;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.persistent-authoring__parameter-actions) button {
+      min-height: 24px;
+      padding: 0 6px;
+      font-size: 8px;
+    }
+
+    /* HTML 原型：只读输入 / 输出参数映射。 */
+    :global(.persistent-authoring__mapping-contract) {
+      display: grid;
+      gap: 0;
+    }
+
+    :global(.mapping-toolbar) {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    :global(.mapping-toolbar) span {
+      color: #718096;
+      font-size: 9px;
+    }
+
+    :global(.mapping-section) {
+      overflow: hidden;
+      margin-bottom: 11px;
+      border: 1px solid #e2e8f0;
+      border-radius: 9px;
+      background: #fff;
+    }
+
+    :global(.mapping-section-head) {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 7px 8px;
+      background: #f7f9fc;
+    }
+
+    :global(.mapping-section-head) strong {
+      color: #334155;
+      font-size: 9px;
+    }
+
+    :global(.mapping-section-head) small {
+      color: #718096;
+      font-size: 8px;
+    }
+
+    :global(.mapping-section.material) :global(.mapping-section-head) {
+      background: #fff8ed;
+    }
+
+    :global(.mapping-group-label) {
+      padding: 7px 8px 3px;
+      color: #8793a5;
+      font-size: 8px;
+      font-weight: 700;
+    }
+
+    :global(.mapping-row) {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 7px;
+      padding: 6px 8px;
+      border-bottom: 1px solid #edf1f5;
+    }
+
+    :global(.mapping-row):last-child {
+      border-bottom: 0;
+    }
+
+    :global(.mapping-row) code {
+      display: block;
+      overflow-wrap: anywhere;
+      color: #315fd7;
+      font-size: 8px;
+    }
+
+    :global(.mapping-row) small {
+      display: block;
+      margin-top: 2px;
+      color: #8a96a8;
+      font-size: 7px;
+    }
+
+    :global(.mapping-row) > strong {
+      align-self: center;
+      color: #334155;
+      font-size: 8px;
+      text-align: right;
+    }
+
+    :global(.mapping-section.material) :global(.mapping-row) code {
+      color: #a0610a;
+    }
+
+    :global(.mapping-row-destinations) {
+      grid-column: 1 / -1;
+      color: #718096;
+      font-size: 7px;
+      line-height: 1.45;
+    }
+
+    :global(.mapping-empty) {
+      margin: 0;
+      padding: 6px 8px;
+      color: #8a96a8;
+      font-size: 8px;
+    }
+
+    :global(.parameter-provenance) {
+      margin-top: 8px;
+      padding: 8px;
+      color: #536786;
+      border-left: 3px solid #5c7fe3;
+      border-radius: 0 7px 7px 0;
+      background: #f2f6ff;
+      font-size: 8px;
+      line-height: 1.5;
+    }
+
+    :global(.contract-validation) {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      color: #168461;
+      border-radius: 8px;
+      background: #effaf5;
+      font-size: 8px;
+      font-weight: 700;
+    }
+
+    :global(.contract-validation.warn) {
+      color: #a5630d;
+      background: #fff8e8;
+    }
+
+    :global(.persistent-authoring__runtime-observer) {
+      display: grid;
+      gap: 7px;
+    }
+
+    :global(.strategy-list) {
+      display: grid;
+      gap: 7px;
+    }
+
+    :global(.strategy-item) {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 9px;
+      border: 1px solid #e4eaf1;
+      border-radius: 8px;
+      font-size: 9px;
+    }
+
+    :global(.strategy-item) span {
+      color: #718096;
+    }
+
+    :global(.strategy-item) strong {
+      overflow: hidden;
+      color: #334155;
+      text-align: right;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   }
 

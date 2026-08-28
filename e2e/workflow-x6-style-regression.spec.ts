@@ -21,7 +21,7 @@ test.use({ viewport: { width: 2560, height: 1440 } })
  * @returns 生成桌面页面与画布特写截图，并断言节点、端口、边与窄屏降级。
  * @safety 所有 OS HTTP 路由均由页面内存夹具接管，不写工作区或外部服务。
  */
-test('X6 canvas preserves React Flow visual semantics', async ({ page }) => {
+test('X6 canvas preserves the HTML workflow visual contract', async ({ page }) => {
   mkdirSync(ARTIFACT_DIRECTORY, { recursive: true })
   const browserErrors: string[] = []
   page.on('console', (message) => {
@@ -60,6 +60,8 @@ test('X6 canvas preserves React Flow visual semantics', async ({ page }) => {
   await expect(canvas).toBeVisible()
   await expect(library).toBeVisible()
   await expect(inspector).toBeVisible()
+  await panel.getByRole('combobox', { name: '布局策略' })
+    .selectOption('crossing-minimized')
   await expect.poll(() => desktopColumnsMatchPrototype(library, inspector))
     .toBe(true)
   await expect(canvas).toHaveAttribute('data-x6-node-count', '4')
@@ -76,35 +78,22 @@ test('X6 canvas preserves React Flow visual semantics', async ({ page }) => {
   await expect(firstAction.locator('.workflow-x6-node__label'))
     .toHaveAttribute('x', '10')
   await expect(firstAction.locator('.workflow-x6-node__label'))
-    .toHaveAttribute('y', '19')
-  await expect.poll(() => actionLabelIsInTitleRow(firstAction)).toBe(true)
-  await expect.poll(() => elementIsInside(
-    firstAction.locator('.workflow-x6-node__material-label').first(),
-    firstAction.locator('.workflow-x6-node__material-card').first()
-  )).toBe(true)
-  await expect.poll(() => elementIsInside(
-    firstAction.locator('.workflow-x6-node__status-text'),
-    firstAction.locator('.workflow-x6-node__status-pill')
-  )).toBe(true)
+    .toHaveAttribute('y', '35.5')
+  await expect(firstAction.locator('.workflow-x6-node__body'))
+    .toHaveAttribute('width', '132')
+  await expect(firstAction.locator('.workflow-x6-node__body'))
+    .toHaveAttribute('height', '66')
+  await expect(firstAction.locator('.workflow-x6-node__kind'))
+    .toHaveText('实验操作')
+  await expect.poll(() => actionLabelIsInPrototypeNameRow(firstAction))
+    .toBe(true)
   await expect(viewport.locator('.workflow-x6-node__material-shape'))
     .toBeVisible()
   await expect(viewport.locator('.workflow-x6-node__transfer-shape'))
     .toBeVisible()
-  await expect.poll(() => elementsHaveSameCenterX(
-    viewport.locator('.workflow-x6-node__special-label').first(),
-    viewport.locator('.workflow-x6-node__material-shape')
-  )).toBe(true)
-  await expect(viewport.locator('.workflow-x6-node__status-text').first())
-    .toHaveText('等待执行')
+  await expect(firstAction).toHaveAttribute('data-workflow-status', 'pending')
   await expect(viewport.locator('.workflow-x6-port--material').first())
     .toBeVisible()
-  await expect.poll(() => transferPortsAlignWithDiamond(robotTransfer))
-    .toBe(true)
-  await expect.poll(() => materialSourcePortAlignsWithHexagon(materialSource))
-    .toBe(true)
-  await expect.poll(() => portFillMatchesStroke(
-    robotTransfer.locator('.workflow-x6-port--source')
-  )).toBe(true)
 
   await panel.getByRole('button', {
     name: '适应完整工作流视图'
@@ -222,102 +211,17 @@ async function allNodesAreSeparated(viewport: Locator): Promise<boolean> {
 }
 
 /** 确认 X6 没有将动作标题按内置 Rect label 规则居中。 */
-async function actionLabelIsInTitleRow(action: Locator): Promise<boolean> {
+async function actionLabelIsInPrototypeNameRow(
+  action: Locator
+): Promise<boolean> {
   const body = await action.locator('.workflow-x6-node__body').boundingBox()
   const label = await action.locator('.workflow-x6-node__label').boundingBox()
   if (!body || !label) return false
   const labelCenterY = label.y + label.height / 2
   return label.x >= body.x &&
     label.x + label.width <= body.x + body.width &&
-    labelCenterY < body.y + body.height * 0.34
-}
-
-/** 确认 SVG 文字在对应的语义容器内，防止 X6 Rect 默认平移回归。 */
-async function elementIsInside(
-  element: Locator,
-  container: Locator
-): Promise<boolean> {
-  const elementBox = await element.boundingBox()
-  const containerBox = await container.boundingBox()
-  if (!elementBox || !containerBox) return false
-  const tolerance = 2
-  return elementBox.x >= containerBox.x - tolerance &&
-    elementBox.y >= containerBox.y - tolerance &&
-    elementBox.x + elementBox.width <=
-      containerBox.x + containerBox.width + tolerance &&
-    elementBox.y + elementBox.height <=
-      containerBox.y + containerBox.height + tolerance
-}
-
-/** 确认横向特殊节点的文字与形状保持中心对齐。 */
-async function elementsHaveSameCenterX(
-  first: Locator,
-  second: Locator
-): Promise<boolean> {
-  const firstBox = await first.boundingBox()
-  const secondBox = await second.boundingBox()
-  if (!firstBox || !secondBox) return false
-  const firstCenter = firstBox.x + firstBox.width / 2
-  const secondCenter = secondBox.x + secondBox.width / 2
-  return Math.abs(firstCenter - secondCenter) <= 3
-}
-
-/** 确认机械臂输入/输出端口贴在菱形左右顶点。 */
-async function transferPortsAlignWithDiamond(
-  transfer: Locator
-): Promise<boolean> {
-  const shape = await transfer.locator(
-    '.workflow-x6-node__transfer-shape'
-  ).boundingBox()
-  const target = await transfer.locator(
-    '.workflow-x6-port--target'
-  ).boundingBox()
-  const source = await transfer.locator(
-    '.workflow-x6-port--source'
-  ).boundingBox()
-  if (!shape || !target || !source) return false
-  const targetCenter = {
-    x: target.x + target.width / 2,
-    y: target.y + target.height / 2
-  }
-  const sourceCenter = {
-    x: source.x + source.width / 2,
-    y: source.y + source.height / 2
-  }
-  const shapeCenterY = shape.y + shape.height / 2
-  const tolerance = 2
-  return Math.abs(targetCenter.x - shape.x) <= tolerance &&
-    Math.abs(sourceCenter.x - (shape.x + shape.width)) <= tolerance &&
-    Math.abs(targetCenter.y - shapeCenterY) <= tolerance &&
-    Math.abs(sourceCenter.y - shapeCenterY) <= tolerance
-}
-
-/** 确认物料来源输出端口贴在六边形右侧顶点。 */
-async function materialSourcePortAlignsWithHexagon(
-  materialSource: Locator
-): Promise<boolean> {
-  const shape = await materialSource.locator(
-    '.workflow-x6-node__material-shape'
-  ).boundingBox()
-  const source = await materialSource.locator(
-    '.workflow-x6-port--source'
-  ).boundingBox()
-  if (!shape || !source) return false
-  const sourceCenter = {
-    x: source.x + source.width / 2,
-    y: source.y + source.height / 2
-  }
-  const tolerance = 2
-  return Math.abs(sourceCenter.x - (shape.x + shape.width)) <= tolerance &&
-    Math.abs(sourceCenter.y - (shape.y + shape.height / 2)) <= tolerance
-}
-
-/** 确认横向物料输出端口与旧版一样为物料色实心圆。 */
-async function portFillMatchesStroke(port: Locator): Promise<boolean> {
-  return port.evaluate((element) => {
-    const style = getComputedStyle(element)
-    return style.fill === style.stroke && style.fill !== 'none'
-  })
+    labelCenterY > body.y + body.height * 0.35 &&
+    labelCenterY < body.y + body.height * 0.68
 }
 
 /** 生成物料来源与机械臂节点的高清局部验收图。 */
