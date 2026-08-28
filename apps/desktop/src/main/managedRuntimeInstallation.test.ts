@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import {
+  access,
   chmod,
   mkdir,
   mkdtemp,
@@ -16,6 +17,7 @@ import { promisify } from 'node:util'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  createElectronRuntimeInstallerDownloader,
   ManagedRuntimeInstallation,
   resolveManagedRuntimeDataDirectory,
   runtimeDownloadProgress
@@ -33,6 +35,59 @@ afterEach(async () => {
 })
 
 describe('ManagedRuntimeInstallation', () => {
+  it('downloads through the Electron network stack so system proxy policy is applied', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'unilab-runtime-net-'))
+    temporaryDirectories.push(root)
+    const destination = join(root, 'runtime-installer.download')
+    const installerBytes = Buffer.from('electron-system-proxy-download')
+    const fetch = vi.fn(async () => new Response(installerBytes, {
+      status: 200,
+      headers: { 'content-length': String(installerBytes.length) }
+    }))
+    const download = createElectronRuntimeInstallerDownloader({ fetch } as never)
+    const progress: ReturnType<typeof runtimeDownloadProgress>[] = []
+
+    await download(
+      'https://github.com/Uni-Lab-OS/runtime/releases/download/0.11.3/runtime.sh',
+      destination,
+      next => { progress.push(next) }
+    )
+
+    await expect(readFile(destination)).resolves.toEqual(installerBytes)
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringMatching(/^https:\/\//u),
+      expect.objectContaining({
+        redirect: 'manual',
+        credentials: 'omit'
+      })
+    )
+    expect(progress.at(-1)).toMatchObject({
+      stage: 'downloading',
+      downloadedBytes: installerBytes.length,
+      totalBytes: installerBytes.length,
+      percentage: 100
+    })
+  })
+
+  it('rejects an insecure redirect from the Electron network stack', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'unilab-runtime-net-'))
+    temporaryDirectories.push(root)
+    const destination = join(root, 'runtime-installer.download')
+    const fetch = vi.fn(async () => new Response(null, {
+      status: 302,
+      headers: { location: 'http://downloads.example.com/runtime.sh' }
+    }))
+    const download = createElectronRuntimeInstallerDownloader({ fetch } as never)
+
+    await expect(download(
+      'https://github.com/Uni-Lab-OS/runtime/releases/download/0.11.3/runtime.sh',
+      destination,
+      () => undefined
+    )).rejects.toThrow('Runtime 下载重定向必须使用无凭据 HTTPS')
+    expect(fetch).toHaveBeenCalledTimes(1)
+    await expect(access(destination)).rejects.toThrow()
+  })
+
   it('calculates bounded Runtime download percentages from authoritative bytes', () => {
     expect(runtimeDownloadProgress(104_857_600, 346_539_410)).toEqual({
       stage: 'downloading',

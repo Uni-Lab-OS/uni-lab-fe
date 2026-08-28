@@ -15,8 +15,6 @@ import {
   stat,
   writeFile
 } from 'node:fs/promises'
-import type { IncomingMessage } from 'node:http'
-import { get as httpsGet } from 'node:https'
 import {
   basename,
   delimiter,
@@ -29,8 +27,11 @@ import {
   sep,
   win32
 } from 'node:path'
-import { Transform } from 'node:stream'
+import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
+import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
+
+import type { Net } from 'electron'
 
 import type { LocalRuntimeModeInfo } from '../shared/localRuntime'
 import type {
@@ -100,6 +101,9 @@ export type RuntimeInstallerDownloader = (
   reportProgress: RuntimeInstallationProgressReporter
 ) => Promise<void>
 
+type ElectronRuntimeNet = Pick<Net, 'fetch'>
+type ElectronRuntimeResponse = Awaited<ReturnType<Net['fetch']>>
+
 interface ManagedRuntimeInstallationOptions {
   resourcesDirectory: string
   dataDirectory: string
@@ -149,7 +153,7 @@ export class ManagedRuntimeInstallation {
       this.platform
     )
     this.downloadInstaller = options.downloadInstaller
-      ?? downloadRuntimeInstaller
+      ?? unavailableRuntimeInstallerDownloader
     this.verifyInstallation = options.verifyInstallation
       ?? verifyRuntimeInstallation
   }
@@ -718,14 +722,38 @@ function summarizeInstallerOutput(output: string): string {
   return normalized.slice(-4_096) || '安装器未输出诊断信息'
 }
 
-/** 通过 HTTPS 流式下载 Runtime，限制重定向、空闲时间与最大体积。 */
+/**
+ * 使用 Electron 的 Chromium 网络栈创建下载器，使 Runtime 下载遵循系统代理。
+ */
+export function createElectronRuntimeInstallerDownloader(
+  electronNet: ElectronRuntimeNet
+): RuntimeInstallerDownloader {
+  return (url, destination, reportProgress) => downloadRuntimeInstaller(
+    electronNet,
+    url,
+    destination,
+    reportProgress
+  )
+}
+
+const unavailableRuntimeInstallerDownloader: RuntimeInstallerDownloader =
+  async () => {
+    throw new Error('Runtime 下载需要 Electron 网络服务')
+  }
+
+/** 通过 Chromium 网络栈流式下载 Runtime，限制重定向、空闲时间与最大体积。 */
 async function downloadRuntimeInstaller(
+  electronNet: ElectronRuntimeNet,
   url: string,
   destination: string,
   reportProgress: RuntimeInstallationProgressReporter
 ): Promise<void> {
-  const response = await openRuntimeDownload(new URL(url), 0)
-  const declaredLength = Number(response.headers['content-length'] ?? 0)
+  const { response, abortController } = await openRuntimeDownload(
+    electronNet,
+    new URL(url),
+    0
+  )
+  const declaredLength = Number(response.headers.get('content-length') ?? 0)
   const contentLength = Number.isSafeInteger(declaredLength)
     && declaredLength > 0
     ? declaredLength
@@ -733,8 +761,12 @@ async function downloadRuntimeInstaller(
   if (
     contentLength !== null && contentLength > RUNTIME_DOWNLOAD_MAX_BYTES
   ) {
-    response.destroy()
+    abortController.abort()
     throw new Error(`Runtime 下载文件超过 ${RUNTIME_DOWNLOAD_MAX_BYTES} bytes`)
+  }
+  if (!response.body) {
+    abortController.abort()
+    throw new Error('Runtime 下载响应缺少内容')
   }
   let receivedBytes = 0
   let lastReportedBytes = -1
@@ -759,8 +791,21 @@ async function downloadRuntimeInstaller(
     reportProgress(progress)
   }
   reportDownloadProgress(true)
+  const source = Readable.fromWeb(
+    response.body as unknown as NodeReadableStream<Uint8Array>
+  )
+  let inactivityTimeout: NodeJS.Timeout | undefined
+  const resetInactivityTimeout = (): void => {
+    clearTimeout(inactivityTimeout)
+    inactivityTimeout = setTimeout(() => {
+      const error = new Error('Runtime 下载连接超时')
+      abortController.abort()
+      source.destroy(error)
+    }, RUNTIME_DOWNLOAD_SOCKET_TIMEOUT_MS)
+  }
   const limit = new Transform({
     transform(chunk: Buffer, _encoding, callback) {
+      resetInactivityTimeout()
       receivedBytes += chunk.length
       if (receivedBytes > RUNTIME_DOWNLOAD_MAX_BYTES) {
         callback(new Error(
@@ -773,15 +818,19 @@ async function downloadRuntimeInstaller(
     }
   })
   try {
+    resetInactivityTimeout()
     await pipeline(
-      response,
+      source,
       limit,
       createWriteStream(destination, { flags: 'wx', mode: 0o600 })
     )
     reportDownloadProgress(true)
   } catch (error) {
+    abortController.abort()
     await rm(destination, { force: true })
     throw error
+  } finally {
+    clearTimeout(inactivityTimeout)
   }
 }
 
@@ -818,49 +867,65 @@ function runtimeInstallationProgress(
   }
 }
 
-function openRuntimeDownload(
+async function openRuntimeDownload(
+  electronNet: ElectronRuntimeNet,
   url: URL,
   redirectCount: number
-): Promise<IncomingMessage> {
+): Promise<{
+  response: ElectronRuntimeResponse
+  abortController: AbortController
+}> {
   if (url.protocol !== 'https:' || url.username || url.password) {
-    return Promise.reject(new Error('Runtime 下载重定向必须使用无凭据 HTTPS'))
+    throw new Error('Runtime 下载重定向必须使用无凭据 HTTPS')
   }
-  return new Promise((resolvePromise, reject) => {
-    const request = httpsGet(url, {
+  const abortController = new AbortController()
+  let connectionTimedOut = false
+  const connectionTimeout = setTimeout(() => {
+    connectionTimedOut = true
+    abortController.abort()
+  }, RUNTIME_DOWNLOAD_SOCKET_TIMEOUT_MS)
+  let response: ElectronRuntimeResponse
+  try {
+    response = await electronNet.fetch(url.href, {
+      method: 'GET',
+      redirect: 'manual',
+      credentials: 'omit',
+      cache: 'no-store',
+      bypassCustomProtocolHandlers: true,
+      signal: abortController.signal,
       headers: {
         'User-Agent': 'UniLab-Workbench-Runtime-Installer',
         Accept: 'application/octet-stream'
       }
-    }, response => {
-      const status = response.statusCode ?? 0
-      if (status >= 300 && status < 400 && response.headers.location) {
-        response.resume()
-        if (redirectCount >= RUNTIME_DOWNLOAD_REDIRECT_LIMIT) {
-          reject(new Error('Runtime 下载重定向次数过多'))
-          return
-        }
-        let nextUrl: URL
-        try {
-          nextUrl = new URL(response.headers.location, url)
-        } catch (error) {
-          reject(new Error('Runtime 下载返回无效重定向地址', { cause: error }))
-          return
-        }
-        resolvePromise(openRuntimeDownload(nextUrl, redirectCount + 1))
-        return
-      }
-      if (status !== 200) {
-        response.resume()
-        reject(new Error(`Runtime 下载返回 HTTP ${status}`))
-        return
-      }
-      resolvePromise(response)
     })
-    request.setTimeout(RUNTIME_DOWNLOAD_SOCKET_TIMEOUT_MS, () => {
-      request.destroy(new Error('Runtime 下载连接超时'))
-    })
-    request.once('error', reject)
-  })
+  } catch (error) {
+    if (connectionTimedOut) {
+      throw new Error('Runtime 下载连接超时', { cause: error })
+    }
+    throw error
+  } finally {
+    clearTimeout(connectionTimeout)
+  }
+  if (response.status >= 300 && response.status < 400) {
+    await response.body?.cancel()
+    if (redirectCount >= RUNTIME_DOWNLOAD_REDIRECT_LIMIT) {
+      throw new Error('Runtime 下载重定向次数过多')
+    }
+    const location = response.headers.get('location')
+    if (!location) throw new Error('Runtime 下载返回无效重定向地址')
+    let nextUrl: URL
+    try {
+      nextUrl = new URL(location, url)
+    } catch (error) {
+      throw new Error('Runtime 下载返回无效重定向地址', { cause: error })
+    }
+    return openRuntimeDownload(electronNet, nextUrl, redirectCount + 1)
+  }
+  if (response.status !== 200) {
+    await response.body?.cancel()
+    throw new Error(`Runtime 下载返回 HTTP ${response.status}`)
+  }
+  return { response, abortController }
 }
 
 function validRuntimeDownloadUrl(value: unknown): value is string {
