@@ -208,7 +208,7 @@ export class ManagedRuntimeInstallationController {
         errorLogPath: null
       })
     }
-    return this.publish({
+    const initialSnapshot = this.publish({
       phase: inspectionError ? 'failed' : 'not-installed',
       bundled: true,
       delivery: inspection?.delivery ?? null,
@@ -223,6 +223,8 @@ export class ManagedRuntimeInstallationController {
       errorCode: inspectionError ? classifyRuntimeError(inspectionError) : null,
       errorLogPath: runtimeLogPath(inspectionError)
     })
+    this.installMissingOnlineRuntime(initialSnapshot)
+    return initialSnapshot
   }
 
   getSnapshot(): ManagedRuntimeInstallationSnapshot {
@@ -339,6 +341,19 @@ export class ManagedRuntimeInstallationController {
       })
       throw error
     }
+  }
+
+  /** 在线轻量包缺少可用 Runtime 时，随 Workbench 启动一次下载；失败后保留手动重试。 */
+  private installMissingOnlineRuntime(
+    snapshot: ManagedRuntimeInstallationSnapshot
+  ): void {
+    if (
+      snapshot.phase !== 'not-installed'
+      || snapshot.delivery !== 'download'
+    ) return
+
+    // performInstall 已发布失败快照；这里吸收后台 Promise，避免未处理 rejection。
+    void this.install().catch(() => undefined)
   }
 
   private async validatedEnvironments(candidates: string[]): Promise<string[]> {
