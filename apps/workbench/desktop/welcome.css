@@ -422,7 +422,7 @@ h1 {
 .runtime-panel__content,
 .runtime-panel__content small,
 .runtime-panel__content strong,
-.runtime-panel__content span {
+.runtime-panel__detail {
   display: block;
   min-width: 0;
 }
@@ -440,7 +440,7 @@ h1 {
   font-weight: 600;
 }
 
-.runtime-panel__content span {
+.runtime-panel__detail {
   margin-top: 4px;
   overflow: hidden;
   color: var(--muted);
@@ -450,10 +450,72 @@ h1 {
   white-space: nowrap;
 }
 
-.runtime-panel[data-phase='upgrade-required'] .runtime-panel__content span,
-.runtime-panel[data-phase='failed'] .runtime-panel__content span {
+.runtime-panel[data-phase='upgrade-required'] .runtime-panel__detail,
+.runtime-panel[data-phase='failed'] .runtime-panel__detail {
   overflow-wrap: anywhere;
   white-space: normal;
+}
+
+.runtime-panel[data-phase='installing'] {
+  border-color: #5d4c2f;
+}
+
+.runtime-progress {
+  width: min(100%, 520px);
+  margin-top: 12px;
+}
+
+.runtime-progress[hidden] {
+  display: none;
+}
+
+.runtime-progress__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.runtime-progress__heading output {
+  min-width: 5ch;
+  color: var(--amber);
+  font: inherit;
+  font-weight: 650;
+  text-align: right;
+}
+
+.runtime-progress__track {
+  position: relative;
+  height: 5px;
+  margin-top: 7px;
+  overflow: hidden;
+  background: #202a32;
+}
+
+.runtime-progress__fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--amber);
+  transition: width 160ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.runtime-progress__track.is-indeterminate .runtime-progress__fill {
+  width: 28%;
+  animation: runtime-progress-scan 1.4s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+
+.runtime-progress p {
+  margin: 6px 0 0;
+  color: var(--quiet);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
 }
 
 .runtime-panel button {
@@ -652,6 +714,11 @@ h1 {
 
 @keyframes status-pulse {
   50% { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+}
+
+@keyframes runtime-progress-scan {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(360%); }
 }
 
 @media (max-width: 940px) {

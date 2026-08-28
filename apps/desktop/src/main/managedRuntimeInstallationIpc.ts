@@ -300,10 +300,19 @@ export class ManagedRuntimeInstallationController {
       environmentPath: null,
       error: null,
       errorCode: null,
-      errorLogPath: null
+      errorLogPath: null,
+      progress: {
+        stage: 'preparing',
+        downloadedBytes: null,
+        totalBytes: null,
+        percentage: null
+      }
     })
     try {
-      const paths = await this.options.installation!.ensureInstalled()
+      const paths = await this.options.installation!.ensureInstalled(progress => {
+        if (this.snapshot.phase !== 'installing') return
+        this.publish({ ...this.snapshot, progress })
+      })
       this.managedEnvironment = {
         kind: 'managed',
         label: `托管 Runtime ${paths.runtimeVersion}`,
@@ -431,11 +440,16 @@ export class ManagedRuntimeInstallationController {
       ...snapshot,
       availableEnvironments: snapshot.availableEnvironments.map(
         environment => ({ ...environment })
-      )
+      ),
+      progress: snapshot.progress ? { ...snapshot.progress } : null
     })
     const window = this.options.getMainWindow()
     if (window && !window.isDestroyed()) {
-      window.webContents.send('managed-runtime:snapshot', this.snapshot)
+      try {
+        window.webContents.send('managed-runtime:snapshot', this.snapshot)
+      } catch (error) {
+        this.options.log(`发布 Runtime 安装进度失败: ${errorMessage(error)}`)
+      }
     }
     return this.snapshot
   }

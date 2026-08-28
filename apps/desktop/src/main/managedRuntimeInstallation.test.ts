@@ -17,7 +17,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   ManagedRuntimeInstallation,
-  resolveManagedRuntimeDataDirectory
+  resolveManagedRuntimeDataDirectory,
+  runtimeDownloadProgress
 } from './managedRuntimeInstallation'
 
 const temporaryDirectories: string[] = []
@@ -32,6 +33,22 @@ afterEach(async () => {
 })
 
 describe('ManagedRuntimeInstallation', () => {
+  it('calculates bounded Runtime download percentages from authoritative bytes', () => {
+    expect(runtimeDownloadProgress(104_857_600, 346_539_410)).toEqual({
+      stage: 'downloading',
+      downloadedBytes: 104_857_600,
+      totalBytes: 346_539_410,
+      percentage: 30
+    })
+    expect(runtimeDownloadProgress(500, null)).toEqual({
+      stage: 'downloading',
+      downloadedBytes: 500,
+      totalBytes: null,
+      percentage: null
+    })
+    expect(runtimeDownloadProgress(120, 100).percentage).toBe(100)
+  })
+
   it('keeps Constructor prefixes outside Electron paths with rejected characters', () => {
     const userDataDirectory = join(
       '/Users/lc',
@@ -186,8 +203,15 @@ describe('ManagedRuntimeInstallation', () => {
     }))
     const downloadInstaller = vi.fn(async (
       _url: string,
-      destination: string
-    ) => writeFile(destination, installerBytes))
+      destination: string,
+      reportProgress: (progress: ReturnType<typeof runtimeDownloadProgress>) => void
+    ) => {
+      reportProgress(runtimeDownloadProgress(
+        installerBytes.length,
+        installerBytes.length
+      ))
+      await writeFile(destination, installerBytes)
+    })
     const runner = vi.fn(async (resolvedInstaller: string, prefix: string) => {
       expect(resolvedInstaller).toContain(join(
         'managed-runtime',
@@ -208,14 +232,23 @@ describe('ManagedRuntimeInstallation', () => {
       installed: false,
       delivery: 'download'
     })
-    await installation.ensureInstalled()
+    const progress: ReturnType<typeof runtimeDownloadProgress>[] = []
+    await installation.ensureInstalled(next => { progress.push(next) })
 
     expect(downloadInstaller).toHaveBeenCalledTimes(1)
     expect(downloadInstaller).toHaveBeenCalledWith(
       expect.stringMatching(/^https:\/\//u),
-      expect.stringMatching(/\.download$/u)
+      expect.stringMatching(/\.download$/u),
+      expect.any(Function)
     )
     expect(runner).toHaveBeenCalledTimes(1)
+    expect(progress).toEqual(expect.arrayContaining([
+      expect.objectContaining({ stage: 'preparing' }),
+      expect.objectContaining({ stage: 'downloading', percentage: 100 }),
+      expect.objectContaining({ stage: 'verifying' }),
+      expect.objectContaining({ stage: 'installing' }),
+      expect.objectContaining({ stage: 'validating' })
+    ]))
   })
 
   it('rejects a downloaded Constructor whose digest does not match', async () => {
