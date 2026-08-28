@@ -488,6 +488,10 @@ h1 {
   text-align: right;
 }
 
+.runtime-progress[data-stage='downloading'] .runtime-progress__heading output {
+  color: var(--cyan);
+}
+
 .runtime-progress__track {
   position: relative;
   height: 5px;
@@ -502,6 +506,14 @@ h1 {
   height: 100%;
   background: var(--amber);
   transition: width 160ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.runtime-progress[data-stage='downloading'] .runtime-progress__track {
+  background: #18313a;
+}
+
+.runtime-progress[data-stage='downloading'] .runtime-progress__fill {
+  background: var(--cyan);
 }
 
 .runtime-progress__track.is-indeterminate .runtime-progress__fill {

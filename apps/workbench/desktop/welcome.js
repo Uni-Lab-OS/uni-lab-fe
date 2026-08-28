@@ -346,6 +346,7 @@ function renderRuntimeProgress(downloadsRuntime) {
     percentage: null
   }
   const stageCopy = runtimeProgressCopy(progress.stage)
+  runtimeProgress.dataset.stage = progress.stage
   const determinate = progress.stage === 'downloading'
     && Number.isFinite(progress.percentage)
   const percentage = determinate
