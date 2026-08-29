@@ -46,6 +46,7 @@ test('existing Workflow UI drives Task/Jobs/commands through real OS HTTP and SS
     const url = new URL(request.url())
     if (
       url.pathname.startsWith('/api/v1/workflow') ||
+      url.pathname.startsWith('/api/v1/debug/workflow') ||
       url.pathname === '/api/v1/events'
     ) {
       runtimeRequests.push({ method: request.method(), path: url.pathname })
@@ -59,11 +60,11 @@ test('existing Workflow UI drives Task/Jobs/commands through real OS HTTP and SS
   const panel = page.locator('[data-panel-instance-id="runtime-workflow"]')
 
   await expect(panel.getByText('完整控制流 DAG')).toBeVisible()
-  await expect(panel.getByRole('button', {
-    name: '应用此版本',
-    exact: true
-  })).toBeVisible()
   await prepareAppliedWorkflow(panel, page)
+  await panel.getByRole('button', {
+    name: '画布模式',
+    exact: true
+  }).click()
   await expect(panel.getByRole('button', {
     name: '画布模式',
     exact: true
@@ -90,9 +91,13 @@ test('existing Workflow UI drives Task/Jobs/commands through real OS HTTP and SS
     exact: true
   }).click()
   await expect(panel.getByText(
-    '已设置调试器起始点；普通任务不携带此配置',
+    '已设置调试器起始点；运行模式已切换为调试启动',
     { exact: true }
   )).toBeVisible()
+  await expect(panel.getByRole('button', {
+    name: '调试启动',
+    exact: true
+  })).toBeEnabled()
   await expect(panel.locator('.wf-flow-node--start')).toHaveCount(1)
   await expect(panel.locator('.wf-flow-node--before-start')).toHaveCount(1)
   await expect(panel.locator('.cm-workflow-marker--start')).toHaveCount(1)
@@ -111,7 +116,7 @@ test('existing Workflow UI drives Task/Jobs/commands through real OS HTTP and SS
     exact: true
   }).click()
   await expect(panel.getByText(
-    '已设置调试器断点；普通任务不携带此配置',
+    '已设置调试器断点；运行模式已切换为调试启动',
     { exact: true }
   )).toBeVisible()
   await expect(panel.locator('.wf-flow-node--breakpoint')).toHaveCount(1)
@@ -160,19 +165,25 @@ test('existing Workflow UI drives Task/Jobs/commands through real OS HTTP and SS
     exact: true
   }).click()
 
+  const preflightResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return response.request().method() === 'POST' &&
+      url.pathname === '/api/v1/debug/workflow-tasks:preflight'
+  })
   const createResponse = page.waitForResponse((response) => {
     const url = new URL(response.url())
     return response.request().method() === 'POST' &&
-      url.pathname === '/api/v1/workflow-tasks'
+      url.pathname === '/api/v1/debug/workflow-tasks'
   })
   await panel.getByRole('button', {
-    name: '开始运行',
+    name: '调试启动',
     exact: true
   }).click()
   await page.getByRole('button', {
     name: '使用以上参数运行',
     exact: true
   }).click()
+  expect((await preflightResponse).status()).toBe(200)
   const created = await createResponse
   expect(created.status()).toBe(201)
   const createdEnvelope = await created.json() as {
@@ -183,62 +194,56 @@ test('existing Workflow UI drives Task/Jobs/commands through real OS HTTP and SS
     string,
     unknown
   >
-  expect(createTaskBody).not.toHaveProperty('start_node_id')
-  expect(createTaskBody).not.toHaveProperty('breakpoints')
-  await expect(panel.locator('[data-run-status="pending"]')).toBeVisible()
-  await expect(panel.locator('[data-node-state="pending"]')).toHaveCount(2)
-  const analyzeOutputNode = panel.locator(
-    '.workflow-runtime__node-list button[data-node-state="pending"]'
-  ).nth(1)
-  await analyzeOutputNode.click()
-  await expect(panel.locator(
-    `.react-flow__node[data-id="${ANALYZE_NODE_UUID}"]`
-  )).toHaveClass(/wf-flow-node--runtime-selected/)
-  const taskIdentity = panel.locator('.workflow-runtime__debug-summary')
-    .locator('.is-meta')
-    .filter({ hasText: /^任务/ })
-  await expect(taskIdentity).toBeVisible()
-  await page.screenshot({
-    path: join(artifactDirectory, '05-task-created-with-jobs.png'),
-    fullPage: true
+  expect(createTaskBody).toMatchObject({
+    workflow_uuid: os.runtimeWorkflowUuid,
+    start_node_uuids: [ANALYZE_NODE_UUID],
+    breakpoint_node_uuids: [ANALYZE_NODE_UUID],
+    launch_overrides: [],
+    meta_data: { source: 'unilab-workbench-debugger' }
   })
+  expect(createTaskBody).toHaveProperty('preflight_hash')
 
-  await submitCommand(panel, page, 'pause')
-  await expect(panel.locator('.is-meta').filter({
-    hasText: '暂停 · OS 已接受'
-  }))
-    .toBeVisible()
-  await expect(panel.getByText('已暂停', { exact: true })).toBeVisible()
+  const projectionResponse = await fetch(
+    `${os.upstreamUrl}/api/v1/debug/workflow-tasks/${taskUuid}`
+  )
+  expect(projectionResponse.status).toBe(200)
+  const projectionEnvelope = await projectionResponse.json() as {
+    data: {
+      active_node_uuids: string[]
+      out_of_scope_node_uuids: string[]
+      jobs: Array<{ workflow_node_uuid: string; status: string }>
+      holds: Array<{
+        workflow_node_uuid: string
+        reason: string
+        status: string
+      }>
+    }
+  }
+  expect(projectionEnvelope.data.active_node_uuids).toEqual([
+    ANALYZE_NODE_UUID
+  ])
+  expect(projectionEnvelope.data.out_of_scope_node_uuids).toContain(
+    PREPARE_NODE_UUID
+  )
+  expect(projectionEnvelope.data.jobs).toEqual([
+    expect.objectContaining({
+      workflow_node_uuid: ANALYZE_NODE_UUID,
+      status: 'pending'
+    })
+  ])
+  expect(projectionEnvelope.data.holds).toEqual([
+    expect.objectContaining({
+      workflow_node_uuid: ANALYZE_NODE_UUID,
+      reason: 'start',
+      status: 'open'
+    })
+  ])
+  await expect(panel.getByRole('button', { name: /暂停位置/ })).toBeVisible()
+  await expect(panel.getByRole('region', {
+    name: '调试控制台'
+  })).toContainText('已在节点前暂停')
   await page.screenshot({
-    path: join(artifactDirectory, '06-pause-accepted-and-applied.png'),
-    fullPage: true
-  })
-
-  await submitCommand(panel, page, 'resume')
-  await expect(panel.locator('.is-meta').filter({
-    hasText: '继续 · OS 已接受'
-  }))
-    .toBeVisible()
-  await expect(panel.getByText('控制可用', { exact: true })).toBeVisible()
-  await page.screenshot({
-    path: join(artifactDirectory, '07-resume-accepted-and-applied.png'),
-    fullPage: true
-  })
-
-  await submitCommand(panel, page, 'cancel')
-  await expect(panel.locator('.is-meta').filter({
-    hasText: '取消 · OS 已接受'
-  }))
-    .toBeVisible()
-  await page.screenshot({
-    path: join(artifactDirectory, '08-cancel-durable-accepted.png'),
-    fullPage: true
-  })
-  await expect(panel.locator('[data-run-status="canceled"]')).toBeVisible()
-  await expect(panel.locator('[data-node-state="canceled"]')).toHaveCount(2)
-  await expect(panel.getByText('执行已结束', { exact: true })).toBeVisible()
-  await page.screenshot({
-    path: join(artifactDirectory, '09-task-and-jobs-canceled.png'),
+    path: join(artifactDirectory, '05-debug-task-paused-before-start.png'),
     fullPage: true
   })
 
@@ -246,21 +251,20 @@ test('existing Workflow UI drives Task/Jobs/commands through real OS HTTP and SS
   const restoredPanel = page.locator(
     '[data-panel-instance-id="runtime-workflow"]'
   )
-  await expect(restoredPanel.locator('[data-run-status="canceled"]'))
+  await expect(restoredPanel.getByRole('button', { name: /暂停位置/ }))
     .toBeVisible()
-  await expect(restoredPanel.locator('[data-node-state="canceled"]'))
-    .toHaveCount(2)
-  await expect(
-    restoredPanel.getByTitle(taskUuid, { exact: true })
-  ).toBeVisible()
+  await expect(restoredPanel.getByRole('region', {
+    name: '调试控制台'
+  })).toContainText('已在节点前暂停')
   await page.screenshot({
-    path: join(artifactDirectory, '10-reload-restores-task.png'),
+    path: join(artifactDirectory, '06-reload-restores-debug-hold.png'),
     fullPage: true
   })
 
   expect(runtimeRequests).toEqual(expect.arrayContaining([
     { method: 'GET', path: '/api/v1/events' },
-    { method: 'POST', path: '/api/v1/workflow-tasks' }
+    { method: 'POST', path: '/api/v1/debug/workflow-tasks:preflight' },
+    { method: 'POST', path: '/api/v1/debug/workflow-tasks' }
   ]))
   expect(runtimeRequests.some(({ path }) =>
     path.startsWith('/api/v1/runtime/runs')
@@ -272,17 +276,3 @@ test('existing Workflow UI drives Task/Jobs/commands through real OS HTTP and SS
     'utf8'
   )
 })
-
-async function submitCommand(
-  panel: import('@playwright/test').Locator,
-  page: import('@playwright/test').Page,
-  command: 'pause' | 'resume' | 'cancel'
-): Promise<void> {
-  const response = page.waitForResponse((candidate) => {
-    const url = new URL(candidate.url())
-    return candidate.request().method() === 'POST' &&
-      url.pathname.endsWith('/commands')
-  })
-  await panel.locator(`[data-runtime-command="${command}"]`).click()
-  expect((await response).status()).toBe(201)
-}

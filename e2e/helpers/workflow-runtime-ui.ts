@@ -119,25 +119,43 @@ export async function prepareAppliedWorkflow(
     name: '画布模式',
     exact: true
   }).click()
-  await panel.getByRole('button', {
+  const legacyApply = panel.getByRole('button', {
     name: '应用此版本',
     exact: true
-  }).click()
+  })
+  const fusedApply = panel.getByRole('button', {
+    name: '应用并运行',
+    exact: true
+  })
   const normalizedDiff = page.getByRole('dialog', {
     name: '完整 Python 差异'
   })
-  await expect(normalizedDiff).toBeVisible()
-  await normalizedDiff.getByRole('button', {
-    name: '接受完整差异并保存',
-    exact: true
-  }).click()
+  const taskInput = page.getByLabel('工作流运行输入表单')
+  const usesFusedApply = !(await legacyApply.isVisible())
+  if (!usesFusedApply) {
+    await legacyApply.click()
+    await expect(normalizedDiff).toBeVisible()
+  } else {
+    await fusedApply.click()
+    await expect(normalizedDiff.or(taskInput)).toBeVisible()
+  }
+  if (await normalizedDiff.isVisible()) {
+    await normalizedDiff.getByRole('button', {
+      name: '接受完整差异并保存',
+      exact: true
+    }).click()
+  }
+  if (usesFusedApply) {
+    await expect(taskInput).toBeVisible()
+    await taskInput.getByRole('button', {
+      name: '取消',
+      exact: true
+    }).click()
+    await waitForTaskInputDrawerClosed(page)
+  }
   await expect(page.getByRole('dialog', {
     name: '本次工作流运行参数'
   })).toBeHidden()
-  await expect(panel.getByRole('button', {
-    name: '应用此版本',
-    exact: true
-  })).toBeDisabled()
   await expect(panel.getByRole('button', {
     name: '开始运行',
     exact: true

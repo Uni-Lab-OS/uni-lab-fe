@@ -1,8 +1,7 @@
 import type {
   WorkflowAuthoringAggregate,
   WorkflowDefinitionPort,
-  WorkflowRuntimePort,
-  WorkflowTaskRunMode
+  WorkflowRuntimePort
 } from '@unilab/services'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -27,6 +26,10 @@ import {
   type DebugLaunchInputFieldState,
   type DebugLaunchInputFormState
 } from '../utils/debugLaunchInputForm'
+import {
+  runModeAfterDebugMarkerChange,
+  type WorkflowRunIntent
+} from '../utils/debugRunModeIntent'
 import {
   createWorkflowTaskInputForm,
   containsResourceSlotInput,
@@ -56,7 +59,7 @@ interface PersistentWorkflowDebugSession {
   breakpoints: string[]
 }
 
-export type PersistentWorkflowRunMode = WorkflowTaskRunMode | 'debug'
+export type PersistentWorkflowRunMode = WorkflowRunIntent
 
 interface PersistentWorkflowTaskPanelOptions {
   runtime: WorkflowRuntimePort
@@ -289,10 +292,13 @@ export function usePersistentWorkflowTaskPanel({
   const toggleDebugStartNode = (nodeUuid: string): void => {
     const removing = debugExecutionScope.startNodeId === nodeUuid
     setDebugStartNodeId(removing ? null : nodeUuid)
+    setTaskRunMode((current) =>
+      runModeAfterDebugMarkerChange(current, removing)
+    )
     setMessage(
       removing
         ? '已取消调试器起始点'
-        : '已设置调试器起始点；普通任务不携带此配置'
+        : '已设置调试器起始点；运行模式已切换为调试启动'
     )
   }
 
@@ -304,10 +310,13 @@ export function usePersistentWorkflowTaskPanel({
       else next.add(nodeUuid)
       return next
     })
+    setTaskRunMode((current) =>
+      runModeAfterDebugMarkerChange(current, removing)
+    )
     setMessage(
       removing
         ? '已取消调试器断点'
-        : '已设置调试器断点；普通任务不携带此配置'
+        : '已设置调试器断点；运行模式已切换为调试启动'
     )
   }
 
