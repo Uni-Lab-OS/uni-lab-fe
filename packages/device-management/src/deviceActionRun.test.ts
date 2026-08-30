@@ -126,6 +126,43 @@ describe('device Action D1A preparation', () => {
     }))).toBeNull()
   })
 
+  it('preserves display labels separately from typed enum values', () => {
+    const template = actionTemplate()
+    const schema = template.schema as {
+      properties: { goal: {
+        properties: Record<string, Record<string, unknown>>
+      } }
+    }
+    const goal = schema.properties.goal as {
+      properties: Record<string, Record<string, unknown>>
+    }
+    goal.properties.position['x-unilabos-enum-labels'] = [
+      '选项一',
+      '选项二'
+    ]
+    goal.properties.position.enum = [1, 2]
+    template.handles[0]!.valueType = 'integer'
+    template.handles[0]!.valueSchema = {
+      type: 'integer',
+      enum: [1, 2],
+      'x-unilabos-enum-labels': ['选项一', '选项二']
+    }
+    goal.properties.position.type = 'integer'
+    template.goalDefault.position = 1
+
+    expect(projectDeviceActionInputSchema(template)).toEqual({
+      position: {
+        type: 'integer',
+        title: 'Position',
+        description: '目标位置',
+        enum: [1, 2],
+        'x-unilabos-enum-labels': ['选项一', '选项二'],
+        required: true,
+        default: 1
+      }
+    })
+  })
+
   /** 证明 Backend 平面参数 Schema 可生成表单，旧工作流连接点不影响 D1A 安全判定。 */
   it('projects the Backend flat device Action parameter schema', () => {
     const template = flatActionTemplate()

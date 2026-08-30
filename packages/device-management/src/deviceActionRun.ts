@@ -256,6 +256,17 @@ function projectInputField(
   if (description) field.description = description
   if (Array.isArray(property.enum) && property.enum.length > 0) {
     field.enum = [...property.enum]
+    const enumLabels = property['x-unilabos-enum-labels']
+    if (
+      Array.isArray(enumLabels) &&
+      enumLabels.length === property.enum.length &&
+      enumLabels.every(
+        (label) => typeof label === 'string' && label.trim() === label && label.length > 0
+      ) &&
+      new Set(enumLabels).size === enumLabels.length
+    ) {
+      field['x-unilabos-enum-labels'] = enumLabels as string[]
+    }
   }
   const minimum = finiteNumber(property.minimum)
   const maximum = finiteNumber(property.maximum)

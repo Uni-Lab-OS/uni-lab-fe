@@ -107,6 +107,7 @@ export interface DeviceActionInputSchema {
   description?: string
   default?: unknown
   enum?: unknown[]
+  'x-unilabos-enum-labels'?: string[]
   required?: boolean
   minimum?: number
   maximum?: number

@@ -108,9 +108,9 @@ function ActionField({
           disabled={disabled}
           onChange={(event) => onChange(name, event.target.value)}
         >
-          {schema.enum.map((option) => (
+          {schema.enum.map((option, index) => (
             <option key={JSON.stringify(option)} value={String(option)}>
-              {String(option)}
+              {schema['x-unilabos-enum-labels']?.[index] ?? String(option)}
             </option>
           ))}
         </select>

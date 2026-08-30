@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 interface TaskInputFormProps {
   aggregate: WorkflowAuthoringAggregate
+  form?: unknown
   onChange: (name: string, state: unknown) => void
   onProblem?: (message: string | null) => void
 }
@@ -15,6 +16,7 @@ const modulePath = './WorkflowTaskInputForm'
 const formModule = await import(/* @vite-ignore */ modulePath)
   .catch(() => ({})) as {
     WorkflowTaskInputForm?: ComponentType<TaskInputFormProps>
+    workflowEnumValue?: (schema: unknown, selected: string) => unknown
   }
 
 describe('WorkflowTaskInputForm Applied projection', () => {
@@ -83,6 +85,40 @@ describe('WorkflowTaskInputForm Applied projection', () => {
       'steps',
       { kind: 'value', value: [] }
     )
+  })
+
+  it('shows enum labels while emitting the numeric enum value', () => {
+    expect(formModule.WorkflowTaskInputForm).toBeTypeOf('function')
+    const descriptor = {
+      name: 'selection',
+      schema: {
+        type: 'integer',
+        enum: [1, 2],
+        'x-unilabos-enum-labels': ['选项一', '选项二']
+      },
+      required: false,
+      default: 1
+    }
+    const onChange = vi.fn()
+    const render = formModule.WorkflowTaskInputForm as unknown as (
+      props: TaskInputFormProps
+    ) => unknown
+    const tree = render({
+      aggregate: aggregate(),
+      form: {
+        appliedRevision: 7,
+        fields: [{ descriptor, state: { kind: 'value', value: 1 } }]
+      },
+      onChange
+    })
+
+    const markup = renderToStaticMarkup(tree as never)
+    expect(markup).toContain('value="1"')
+    expect(markup).toContain('选项一')
+    expect(markup).toContain('选项二')
+
+    expect(formModule.workflowEnumValue).toBeTypeOf('function')
+    expect(formModule.workflowEnumValue!(descriptor.schema, '2')).toBe(2)
   })
 
   it('delegates panel submission races to the tested Task-input decision seam', () => {

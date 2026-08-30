@@ -10,6 +10,7 @@ export type WorkflowValueSchema =
   | {
       type: 'string'
       enum?: string[]
+      'x-unilabos-enum-labels'?: string[]
       minLength?: number
       maxLength?: number
       'x-unilabos-editor-control'?: 'site_selector'
@@ -17,10 +18,15 @@ export type WorkflowValueSchema =
   | {
       type: 'integer' | 'number'
       enum?: number[]
+      'x-unilabos-enum-labels'?: string[]
       minimum?: number
       maximum?: number
     }
-  | { type: 'boolean'; enum?: boolean[] }
+  | {
+      type: 'boolean'
+      enum?: boolean[]
+      'x-unilabos-enum-labels'?: string[]
+    }
   | { type: 'object' }
   | {
       type: 'array'
@@ -226,10 +232,16 @@ function decodeValueSchema(
 
   const kind = schema.type
   const optionalByKind: Record<string, string[]> = {
-    string: ['enum', 'minLength', 'maxLength', 'x-unilabos-editor-control'],
-    integer: ['enum', 'minimum', 'maximum'],
-    number: ['enum', 'minimum', 'maximum'],
-    boolean: ['enum'],
+    string: [
+      'enum',
+      'minLength',
+      'maxLength',
+      'x-unilabos-enum-labels',
+      'x-unilabos-editor-control'
+    ],
+    integer: ['enum', 'minimum', 'maximum', 'x-unilabos-enum-labels'],
+    number: ['enum', 'minimum', 'maximum', 'x-unilabos-enum-labels'],
+    boolean: ['enum', 'x-unilabos-enum-labels'],
     object: [],
     array: ['items', 'minItems', 'maxItems']
   }
@@ -275,7 +287,11 @@ function validateSchemaConstraints(
       invalid()
     }
   }
-  if (schema.enum === undefined) return
+  const enumLabels = schema['x-unilabos-enum-labels']
+  if (schema.enum === undefined) {
+    if (enumLabels !== undefined) invalid()
+    return
+  }
   if (
     !['string', 'integer', 'number', 'boolean'].includes(kind) ||
     !Array.isArray(schema.enum) ||
@@ -286,6 +302,16 @@ function validateSchemaConstraints(
     if (!isScalarKind(kind, member) || members.has(member)) invalid()
     members.add(member)
     if (!satisfiesConstraints(schema, kind, member)) invalid()
+  }
+  if (enumLabels !== undefined) {
+    if (
+      !Array.isArray(enumLabels) ||
+      enumLabels.length !== schema.enum.length ||
+      enumLabels.some((label) =>
+        typeof label !== 'string' || !label || label.trim() !== label
+      ) ||
+      new Set(enumLabels).size !== enumLabels.length
+    ) invalid()
   }
 }
 

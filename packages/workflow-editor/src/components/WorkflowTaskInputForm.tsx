@@ -368,24 +368,30 @@ function WorkflowValueControl({
   if ('$slot' in base) {
     return <input disabled aria-label={`${name} 资源位`} />
   }
+  if ('enum' in base && base.enum) {
+    const labels = base['x-unilabos-enum-labels'] ?? base.enum.map(String)
+    return (
+      <label>
+        参数值
+        <select
+          aria-label={`${name} 明确值`}
+          value={String(value)}
+          disabled={disabled}
+          onChange={(event) => {
+            const selected = event.target.value
+            onChange(workflowEnumValue(base, selected))
+          }}
+        >
+          {base.enum.map((item, index) => (
+            <option key={String(item)} value={String(item)}>
+              {labels[index] ?? String(item)}
+            </option>
+          ))}
+        </select>
+      </label>
+    )
+  }
   if (base.type === 'string') {
-    if (base.enum) {
-      return (
-        <label>
-          参数值
-          <select
-            aria-label={`${name} 明确值`}
-            value={typeof value === 'string' ? value : ''}
-            disabled={disabled}
-            onChange={(event) => onChange(event.target.value)}
-          >
-            {base.enum.map((item) => (
-              <option key={item} value={item}>{item}</option>
-            ))}
-          </select>
-        </label>
-      )
-    }
     return (
       <label>
         参数值
@@ -466,6 +472,18 @@ function WorkflowValueControl({
       />
     </label>
   )
+}
+
+export function workflowEnumValue(
+  schema: Exclude<WorkflowValueSchema, { anyOf: unknown } | { $slot: unknown }>,
+  selected: string
+): WorkflowJsonValue {
+  if (schema.type === 'string') return selected
+  if (schema.type === 'boolean') return selected === 'true'
+  if (schema.type === 'integer' || schema.type === 'number') {
+    return Number(selected)
+  }
+  return selected
 }
 
 function stateForKind(

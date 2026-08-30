@@ -66,6 +66,40 @@ describe('Workflow I/O contract projection', () => {
       })
   })
 
+  it('preserves positional enum display labels without changing wire values', async () => {
+    const labeled = {
+      name: 'selection',
+      schema: {
+        type: 'integer',
+        enum: [1, 2],
+        'x-unilabos-enum-labels': ['选项一', '选项二']
+      },
+      required: false,
+      default: 1
+    }
+    const runtime = runtimeFor(authoringAggregate({
+      input_contract: {
+        version: 1,
+        parameters: [labeled]
+      }
+    }))
+
+    await expect(runtime.getWorkflowAuthoring(WORKFLOW_UUID)).resolves
+      .toMatchObject({
+        applied_graph: {
+          workflow: {
+            meta_data: {
+              unilab: {
+                input_contract: {
+                  parameters: [labeled]
+                }
+              }
+            }
+          }
+        }
+      })
+  })
+
   it.each([
     [
       'malformed contract envelope',
@@ -131,6 +165,29 @@ describe('Workflow I/O contract projection', () => {
       {
         name: 'review_enum_duplicate',
         schema: { type: 'string', enum: ['safe', 'safe'] },
+        required: true
+      }
+    ],
+    [
+      'enum labels with the wrong count',
+      {
+        name: 'review_enum_labels',
+        schema: {
+          type: 'integer',
+          enum: [1, 2],
+          'x-unilabos-enum-labels': ['选项一']
+        },
+        required: true
+      }
+    ],
+    [
+      'enum labels without enum values',
+      {
+        name: 'review_enum_labels_without_values',
+        schema: {
+          type: 'integer',
+          'x-unilabos-enum-labels': ['选项一']
+        },
         required: true
       }
     ],
