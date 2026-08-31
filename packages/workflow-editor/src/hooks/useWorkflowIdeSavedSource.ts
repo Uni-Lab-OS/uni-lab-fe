@@ -6,21 +6,14 @@ import {
   synchronizeSavedWorkflowSource,
   type WorkflowIdeBridge
 } from '@unilab/workflow-ide-bridge'
-import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
+import { useEffect, type MutableRefObject } from 'react'
 
 import {
   AuthoringOperationQueue,
   draftSaveMessage,
   isAuthoringConflict
 } from '../utils/persistentAuthoringSession'
-import {
-  workflowCandidateMaterializationDecision,
-  type WorkflowEditMode
-} from '../utils/workflowCanvasPolicy'
-import type { FullSourceDiff } from './persistentWorkflowAuthoringTypes'
-
 interface WorkflowIdeSavedSourceLocalState {
-  mode: WorkflowEditMode
   canvasDirty: boolean
   aggregate: WorkflowAuthoringAggregate | null
 }
@@ -37,11 +30,24 @@ interface WorkflowIdeSavedSourceOptions {
     aggregate: WorkflowAuthoringAggregate,
     message: string
   ) => void
+  installAggregateAgainstDirtyCanvas: (
+    aggregate: WorkflowAuthoringAggregate
+  ) => void
   onSynchronized: () => void
   readRemoteConflict: () => Promise<void>
-  setError: Dispatch<SetStateAction<string | null>>
-  setMessage: Dispatch<SetStateAction<string>>
-  setFullSourceDiff: Dispatch<SetStateAction<FullSourceDiff | null>>
+}
+
+export type WorkflowIdeSavedSourceInstallDecision =
+  | { kind: 'install' }
+  | { kind: 'preserve_dirty_canvas' }
+
+/** IDE 保存后只决定如何安装 OS 聚合，不把规范化源码升级为保存门禁。 */
+export function workflowIdeSavedSourceInstallDecision(
+  canvasDirty: boolean
+): WorkflowIdeSavedSourceInstallDecision {
+  return canvasDirty
+    ? { kind: 'preserve_dirty_canvas' }
+    : { kind: 'install' }
 }
 
 /** Owns IDE-save submission so the authoring surface remains host-neutral. */
@@ -54,11 +60,9 @@ export function useWorkflowIdeSavedSource({
   queue,
   run,
   installAggregate,
+  installAggregateAgainstDirtyCanvas,
   onSynchronized,
-  readRemoteConflict,
-  setError,
-  setMessage,
-  setFullSourceDiff
+  readRemoteConflict
 }: WorkflowIdeSavedSourceOptions): void {
   useEffect(() => {
     const subscribe = ideBridge?.subscribeSavedWorkflowSource
@@ -70,10 +74,6 @@ export function useWorkflowIdeSavedSource({
         savedSource.workflowUuid !== workflowUuid ||
         savedSource.sourceUri !== current?.draft?.source_uri
       ) return
-      if (local.canvasDirty) {
-        setError('画布还有未保存修改；源码已写入文件，但未提交工作流草稿')
-        return
-      }
       void run(async () => {
         try {
           const result = await queue.run(() => synchronizeSavedWorkflowSource(
@@ -88,13 +88,15 @@ export function useWorkflowIdeSavedSource({
             throw new Error('源码保存后又被修改；为避免覆盖，本次未提交工作流草稿')
           }
           const saved = result.aggregate
+          if (
+            workflowIdeSavedSourceInstallDecision(local.canvasDirty).kind ===
+            'preserve_dirty_canvas'
+          ) {
+            installAggregateAgainstDirtyCanvas(saved)
+            return
+          }
           onSynchronized()
           installAggregate(saved, draftSaveMessage(saved))
-          const diff = workflowSourceNormalizationDiff(saved, local.mode)
-          if (diff) {
-            setFullSourceDiff(diff)
-            setMessage('源码已保存；请检查并接受 OS 规范化产生的完整差异')
-          }
         } catch (saveError) {
           if (!isAuthoringConflict(saveError)) throw saveError
           await readRemoteConflict()
@@ -106,37 +108,13 @@ export function useWorkflowIdeSavedSource({
     enabled,
     ideBridge?.subscribeSavedWorkflowSource,
     installAggregate,
+    installAggregateAgainstDirtyCanvas,
     localState,
     onSynchronized,
     queue,
     readRemoteConflict,
     run,
     runtime,
-    setError,
-    setFullSourceDiff,
-    setMessage,
     workflowUuid
   ])
-}
-
-export function workflowSourceNormalizationDiff(
-  aggregate: WorkflowAuthoringAggregate,
-  resumeMode: WorkflowEditMode
-): FullSourceDiff | null {
-  const materialization = aggregate.candidate && aggregate.draft
-    ? workflowCandidateMaterializationDecision({
-        draftPython: aggregate.draft.python_source,
-        normalizedPython: aggregate.candidate.normalized_python_source
-      })
-    : null
-  if (materialization?.kind !== 'review_normalized_source') return null
-  return {
-    before: materialization.before,
-    after: materialization.after,
-    expectedDraftHash: aggregate.draft?.draft_hash ?? null,
-    expectedWorkflowRevision: aggregate.workflow_revision,
-    reason: 'source_normalization',
-    resumeMode,
-    applyAfterSave: false
-  }
 }

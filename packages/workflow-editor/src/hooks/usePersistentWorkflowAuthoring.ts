@@ -70,10 +70,7 @@ import { usePersistentWorkflowCatalogs } from './usePersistentWorkflowCatalogs'
 import { usePersistentWorkflowStartFlow } from './usePersistentWorkflowStartFlow'
 import { usePersistentWorkflowTaskPanel } from './usePersistentWorkflowTaskPanel'
 import { useWorkflowIdeSourceProjection } from './useWorkflowIdeSourceProjection'
-import {
-  useWorkflowIdeSavedSource,
-  workflowSourceNormalizationDiff
-} from './useWorkflowIdeSavedSource'
+import { useWorkflowIdeSavedSource } from './useWorkflowIdeSavedSource'
 import { useWorkflowPanelRuntimeProjection } from './useWorkflowPanelRuntimeProjection'
 import { workflowTaskIsLive } from '../utils/workflowTaskPresentation'
 
@@ -619,11 +616,29 @@ export function usePersistentWorkflowAuthoring({
     setMessage('远端状态已补读；本地内容保持不变，请比较后明确处理')
   }, [definitionPort, installAggregate, queue])
 
+  const installAggregateAgainstDirtyCanvas = useCallback((
+    next: WorkflowAuthoringAggregate
+  ): void => {
+    const current = localState.current
+    remotePending.current = true
+    setAggregate(next)
+    setRemoteConflict(authoringRemoteConflict(next, current))
+    setError(null)
+    setMessage(
+      '源码已保存并完成校验；本地画布修改已保留，请比较后明确处理'
+    )
+    localState.current = {
+      ...current,
+      aggregate: next
+    }
+  }, [])
+
   useWorkflowIdeSavedSource({
     enabled: hideEmbeddedCodeEditor,
     ideBridge, workflowUuid, runtime, localState, queue, run, installAggregate,
+    installAggregateAgainstDirtyCanvas,
     onSynchronized: markRemoteSynchronized,
-    readRemoteConflict, setError, setMessage, setFullSourceDiff
+    readRemoteConflict
   })
 
   const generateCanvasPython = useCallback(async (
@@ -834,7 +849,7 @@ export function usePersistentWorkflowAuthoring({
   }
 
   /**
-   * 保存当前可写工作流源码，并在 OS 规范化结果变化时要求用户确认完整差异。
+   * 保存当前可写工作流源码；OS 规范化结果只作为后台候选投影。
    * 该操作只持久化工作流源码（Workflow Source），不会应用工作流创作候选。
    *
    * @returns 不返回值；异步保存结果通过工作流编辑器状态呈现。
@@ -868,17 +883,7 @@ export function usePersistentWorkflowAuthoring({
             )
           )
           installAggregate(saved, draftSaveMessage(saved))
-          const normalizationDiff = workflowSourceNormalizationDiff(saved, 'code')
-          if (normalizationDiff) {
-            setFullSourceDiff(normalizationDiff)
-            setMessage(
-              pendingPythonImport
-                ? `${pendingPythonImport} 已保存；请接受 OS 规范化 Python 后再应用`
-                : '草稿已保存；请接受 OS 规范化 Python 后再应用'
-            )
-          } else {
-            setPendingPythonImport(null)
-          }
+          setPendingPythonImport(null)
         } catch (saveError) {
           if (!isAuthoringConflict(saveError)) throw saveError
           remotePending.current = true
