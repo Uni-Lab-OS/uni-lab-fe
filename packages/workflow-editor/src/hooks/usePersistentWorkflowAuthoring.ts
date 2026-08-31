@@ -936,6 +936,21 @@ export function usePersistentWorkflowAuthoring({
     })
   }
 
+  const writeReviewedCanvasSourceToIde = async (
+    pythonSource: string,
+    reason: FullSourceDiff['reason'],
+    resumeMode: WorkflowEditMode
+  ): Promise<void> => {
+    const writesCanvasSource = reason === 'canvas_save' ||
+      (reason === 'conflict_retry' && resumeMode === 'canvas')
+    if (!writesCanvasSource || !hideEmbeddedCodeEditor) return
+    const writeIdeSource = ideBridge?.writeActiveWorkflowSource
+    if (!writeIdeSource) {
+      throw new Error('当前 IDE 宿主未提供画布源码写回能力')
+    }
+    await writeIdeSource(pythonSource)
+  }
+
   /**
    * 接受完整工作流源码（Workflow Source）差异并执行一次保存或应用。
    *
@@ -986,6 +1001,11 @@ export function usePersistentWorkflowAuthoring({
           return
         }
         const saved = await saveNormalizedDraft()
+        await writeReviewedCanvasSourceToIde(
+          decision.python_source,
+          diff.reason,
+          diff.resumeMode
+        )
         remotePending.current = false
         setFullSourceDiff(null)
         installAggregate(saved, draftSaveMessage(saved))
@@ -1312,6 +1332,11 @@ export function usePersistentWorkflowAuthoring({
                 expected_workflow_revision: command.expectedWorkflowRevision
               }
             )
+          )
+          await writeReviewedCanvasSourceToIde(
+            command.pythonSource,
+            command.reason,
+            command.resumeMode
           )
           remotePending.current = false
           setFullSourceDiff(null)

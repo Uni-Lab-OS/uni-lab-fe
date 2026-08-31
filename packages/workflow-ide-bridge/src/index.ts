@@ -77,6 +77,8 @@ export interface WorkflowIdeBridge {
   activeWorkflowSourceDirty?: boolean
   /** Ask the IDE host to save the exact active registered workflow source. */
   saveActiveWorkflowSource?: () => Promise<void>
+  /** Replace and save the exact active registered source after canvas review. */
+  writeActiveWorkflowSource?: (pythonSource: string) => Promise<void>
   /** Receive complete sources after the IDE has durably saved them. */
   subscribeSavedWorkflowSource?: (
     listener: (source: WorkflowIdeSavedSource) => void
@@ -199,6 +201,7 @@ export interface WorkflowIdeHostPort {
     diagnostics: readonly WorkflowIdeResolvedDiagnostic[]
   ) => void | Promise<void>
   saveActiveWorkflowSource?: () => Promise<void>
+  writeActiveWorkflowSource?: (pythonSource: string) => Promise<void>
   reportError?: (message: string) => void
 }
 
@@ -223,6 +226,7 @@ export class WorkflowIdeHostAdapter {
   private readonly savedSourceListeners = new Set<
     (source: WorkflowIdeSavedSource) => void
   >()
+  private bridgeWriteSource: string | null = null
 
   constructor(
     private readonly host: WorkflowIdeHostPort,
@@ -236,6 +240,18 @@ export class WorkflowIdeHostAdapter {
       activeWorkflowSourceDirty: false,
       ...(host.saveActiveWorkflowSource
         ? { saveActiveWorkflowSource: () => host.saveActiveWorkflowSource!() }
+        : {}),
+      ...(host.writeActiveWorkflowSource
+        ? {
+            writeActiveWorkflowSource: async (pythonSource: string) => {
+              this.bridgeWriteSource = pythonSource
+              try {
+                await host.writeActiveWorkflowSource!(pythonSource)
+              } finally {
+                this.bridgeWriteSource = null
+              }
+            }
+          }
         : {}),
       subscribeSavedWorkflowSource: listener => {
         this.savedSourceListeners.add(listener)
@@ -306,6 +322,10 @@ export class WorkflowIdeHostAdapter {
       this.sync.currentUri !== this.sync.resolvedSourceUri ||
       this.sync.dirty
     ) return false
+    // Canvas writeback already saved the OS draft through its CAS path. The
+    // matching IDE save only settles the editor model and must not submit it
+    // to OS a second time.
+    if (this.bridgeWriteSource === pythonSource) return true
     return this.acceptProjectedWorkflowSource(pythonSource)
   }
 

@@ -158,6 +158,45 @@ describe('workflow IDE bridge', () => {
     expect(savedSources).toHaveLength(1)
   })
 
+  it('writes reviewed canvas source without resubmitting the host save to OS', async () => {
+    const savedSources: unknown[] = []
+    let writtenSource = ''
+    let adapter: WorkflowIdeHostAdapter
+    adapter = new WorkflowIdeHostAdapter({
+      revealSource: async () => {},
+      replaceDiagnostics: () => {},
+      writeActiveWorkflowSource: async pythonSource => {
+        writtenSource = pythonSource
+        adapter.acceptEditor({
+          currentUri: 'file:///workspace/szlab_poly_studio/workflows/s06_robot.py',
+          dirty: false,
+          cursor: null
+        })
+        expect(adapter.acceptSavedWorkflowSource(pythonSource)).toBe(true)
+      }
+    })
+    adapter.setPackageMounts([{
+      packageId: 'szlab_poly_studio',
+      packageRootUri: 'file:///workspace/szlab_poly_studio',
+      editable: true,
+      readOnly: false
+    }])
+    adapter.acceptSourceProjection(projection)
+    adapter.acceptEditor({
+      currentUri: 'file:///workspace/szlab_poly_studio/workflows/s06_robot.py',
+      dirty: false,
+      cursor: null
+    })
+    adapter.bridge.subscribeSavedWorkflowSource?.(
+      source => { savedSources.push(source) }
+    )
+
+    await adapter.bridge.writeActiveWorkflowSource?.('generated = action()\n')
+
+    expect(writtenSource).toBe('generated = action()\n')
+    expect(savedSources).toEqual([])
+  })
+
   it('rejects a saved-source event from a tab other than the registered workflow file', () => {
     const adapter = new WorkflowIdeHostAdapter({
       revealSource: async () => {},
