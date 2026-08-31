@@ -21,7 +21,7 @@ const API_PORT = Number(process.env.UNILAB_E2E_MATERIAL_PORT ?? '18144')
 const API_URL =
   process.env.UNILAB_E2E_OS_URL ?? `http://127.0.0.1:${API_PORT}`
 const EXPECTED_MATERIAL_COUNT = Number(
-  process.env.UNILAB_E2E_MATERIAL_COUNT ?? '129'
+  process.env.UNILAB_E2E_MATERIAL_COUNT ?? '131'
 )
 const EXPECTED_SITE_COUNT = Number(
   process.env.UNILAB_E2E_SITE_COUNT ?? '418'
@@ -449,10 +449,18 @@ test('上料拖拽不打开物料属性面板', async ({ page }) => {
   )
   await expect(source).toBeVisible({ timeout: 30_000 })
 
-  await source.click()
+  await page.getByPlaceholder('检索物料、设备或库位').fill('500ml')
+  await page.getByRole('button', {
+    name: '烧杯堆栈2 L1B1 烧杯 500 mL',
+    exact: true
+  }).click()
   await expect(
     page.getByRole('dialog', { name: '物料属性' })
   ).toBeVisible()
+  await page.getByRole('button', { name: '关闭物料属性' }).click()
+  await expect(
+    page.getByRole('dialog', { name: '物料属性' })
+  ).toHaveCount(0)
 
   await page.getByRole('button', { name: '上料', exact: true }).click()
   await expect(

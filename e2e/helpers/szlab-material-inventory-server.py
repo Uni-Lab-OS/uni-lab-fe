@@ -5,10 +5,8 @@ from __future__ import annotations
 import argparse
 import ast
 import asyncio
-import inspect
 import os
 import re
-import shutil
 import signal
 import uuid
 from datetime import UTC, datetime
@@ -24,14 +22,25 @@ if not hasattr(signal, "SIGRTMAX"):
 
 from unilabos.app.scheduler.inventory import (
     InventoryService,
-    ResourceTemplateIdentity,
+    InventoryStore,
 )
 from unilabos.app.scheduler.inventory.api import create_app
-from unilabos.app.scheduler.inventory.material_projection import (
-    build_package_material_projection,
-    build_resource_graph_import,
+from unilabos.app.scheduler.inventory.backend_api import (
+    install_backend_resource_api,
 )
-from unilabos.package_manager import WorkspaceSource, compile_package_source
+from unilabos.app.scheduler.inventory.backend_contract import (
+    BackendResourceService,
+)
+from unilabos.app.scheduler.inventory.layout import create_lab_router
+from unilabos.app.scheduler.inventory.resource_graph_bootstrap import (
+    bootstrap_local_resource_graph,
+)
+from unilabos.package_manager import (
+    compile_workspace_material_models,
+    prepare_workspace_registry_runtime,
+)
+from unilabos.registry.registry import lab_registry
+from unilabos.registry.template_snapshot import RegistryTemplateSnapshot
 from unilabos.resources.graphio import read_node_link_json
 
 
@@ -45,61 +54,40 @@ def main() -> None:
     args = parser.parse_args()
 
     root = Path(args.szlab_root).resolve()
-    source = _material_projection_source(
-        root,
-        Path(args.working_dir).resolve() / "material-package-source",
+    runtime_arguments = {
+        "workspace": str(root),
+        "graph": args.graph,
+    }
+    runtime = prepare_workspace_registry_runtime(runtime_arguments)
+    if runtime is None:
+        raise RuntimeError("SZLab 工作区运行时未创建")
+    runtime.publish(lab_registry)
+    runtime.activate_import_path()
+    material_model_catalog = compile_workspace_material_models(
+        runtime.startup_plan,
+        runtime.catalog,
     )
-    catalog = compile_package_source(source)
-    package_projection = build_package_material_projection((source,), (catalog,))
-    resolved_identities = {
-        definition.source_identity: str(
-            uuid.uuid5(
-                uuid.NAMESPACE_URL,
-                f"unilabos:e2e-resource-template:{definition.source_identity}",
-            )
-        )
-        for definition in package_projection.definitions.values()
-    }
-    templates = {
-        template_uuid: ResourceTemplateIdentity(
-            uuid=template_uuid,
-            material_class=source_identity,
-        )
-        for source_identity, template_uuid in resolved_identities.items()
-    }
-    _, resource_tree_set, _ = read_node_link_json(str(root / args.graph))
-    graph_snapshot = {
-        "source_id": Path(args.graph).name,
-        "nodes": [
-            node.res_content.model_dump(by_alias=True)
-            for node in resource_tree_set.all_nodes
-        ],
-    }
-    inventory_options = {
-        "working_dir": args.working_dir,
-        "resource_templates": templates,
-        "material_shapes": package_projection.shapes,
-    }
-    if "material_model_assets" in inspect.signature(
-        InventoryService.open
-    ).parameters:
-        inventory_options["material_model_assets"] = getattr(
-            package_projection,
-            "model_assets",
-            (),
-        )
-    inventory = InventoryService.open(
-        **inventory_options,
+    _, resource_tree_set, _ = read_node_link_json(runtime.graph_copy())
+    inventory_store = InventoryStore(
+        str(Path(args.working_dir).resolve() / "inventory.db")
     )
-    inventory.bootstrap_resource_graph(
-        build_resource_graph_import(
-            graph_snapshot,
-            package_projection,
-            resolved_identities,
-        )
+    inventory = InventoryService(inventory_store)
+    bootstrap_local_resource_graph(
+        store=inventory_store,
+        resource_tree_set=resource_tree_set,
+        registry_snapshot=RegistryTemplateSnapshot.from_registry(lab_registry),
+        source_id=str(runtime.graph_path),
+        material_rendering_by_template=material_model_catalog.models_by_template,
     )
 
     app = create_app(inventory)
+    install_backend_resource_api(
+        app,
+        BackendResourceService(inventory_store),
+        material_shapes=runtime.material_shapes,
+        material_model_catalog=material_model_catalog,
+    )
+    app.include_router(create_lab_router(inventory))
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[args.allow_origin],
@@ -113,36 +101,6 @@ def main() -> None:
     )
     install_material_transfer_workflow_fixture(app, root)
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
-
-
-def _material_projection_source(root: Path, snapshot_root: Path) -> WorkspaceSource:
-    """构造只含设备与物料声明的隔离 Package Source。
-
-    场景端到端测试只验证物料（Material）投影，并通过本文件安装只读的
-    工作流（Workflow）夹具。SZLab 的产品清单可能先于所选 OS 编译器采用
-    新工作流装饰器；把这些与场景无关的声明交给旧编译器会让物料服务在
-    启动前失败。隔离源保留真实 Python/模型资产，但不复制 ``package.yaml``，
-    因而不会把工作流清单误纳入本测试的编译边界。
-    """
-
-    snapshot_root.mkdir(parents=True, exist_ok=False)
-    shutil.copy2(root / "pyproject.toml", snapshot_root / "pyproject.toml")
-    shutil.copytree(
-        root / "szlab_poly_studio",
-        snapshot_root / "szlab_poly_studio",
-        copy_function=_link_or_copy,
-    )
-    return WorkspaceSource(snapshot_root)
-
-
-def _link_or_copy(source: str, target: str) -> str:
-    """优先以硬链接建立只读测试快照，跨文件系统时退回复制。"""
-
-    try:
-        os.link(source, target)
-        return target
-    except OSError:
-        return shutil.copy2(source, target)
 
 
 def install_material_transfer_workflow_fixture(app, root: Path) -> None:
