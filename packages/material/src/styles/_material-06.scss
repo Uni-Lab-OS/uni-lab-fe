@@ -324,6 +324,22 @@
     var(--unilab-shadow-panel);
 }
 
+// 默认设备卡片的外层节点承载真实物理包络，不能用它绘制选中框；
+// 仅高亮中央卡片，避免导轨等超长设备出现横跨画布的蓝色边框。
+:where(.scope, .scope *):global(.material-flow-node--equipment-card):global(.is-selected) {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+:where(.scope, .scope *):global(.material-flow-node--equipment-card):global(.is-selected)
+  :global(.material-flow-node__equipment-card) {
+  border-color: var(--unilab-color-primary);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--unilab-color-primary) 20%, transparent),
+    0 8px 22px rgb(15 23 42 / 14%),
+    inset 0 1px 0 rgb(255 255 255 / 90%);
+}
+
 :where(.scope, .scope *):global(.react-flow__node):global(.material-flow-node--highlighted) :global(.material-flow-node) {
   border-color: var(--unilab-color-warning);
   box-shadow:

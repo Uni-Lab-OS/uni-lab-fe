@@ -99,7 +99,9 @@ test('点击多个 TIP 盒身体后分别选择对应物料', async ({ page }, t
   await targetLabel.waitFor({ state: 'visible' })
   const selectedLabel = await targetLabel.boundingBox()
   expect(selectedLabel).not.toBeNull()
-  await page.getByRole('button', { name: '关闭物料属性' }).click()
+  await expect(
+    page.getByRole('dialog', { name: '物料属性' })
+  ).toHaveCount(0)
   await page
     .getByRole('searchbox', { name: '检索物料、设备或库位' })
     .clear()

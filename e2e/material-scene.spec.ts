@@ -438,6 +438,91 @@ test('SZLab workflow projects material transfers into the Pascal 3D scene', asyn
   expect(browserErrors).toEqual([])
 })
 
+test('位置编辑时物料跟随鼠标并在松手后保存', async ({ page }) => {
+  await installMaterialOnlyLayout(page)
+  await page.goto(
+    `/?section=material&localOsUrl=${encodeURIComponent(API_URL)}`
+  )
+
+  const controls = page.locator('.material-canvas__edit-control')
+  await controls.getByRole('button', {
+    name: '移动物料',
+    exact: true
+  }).click()
+  await expect(controls.getByRole('button', {
+    name: '完成移动',
+    exact: true
+  })).toBeVisible()
+  await expect(
+    page.getByRole('dialog', { name: '物料属性' })
+  ).toHaveCount(0)
+  await expect(page.getByText('Add level', { exact: true })).toHaveCount(0)
+
+  const draggableNodes = page.locator(
+    '.react-flow__node.nopan:visible'
+  )
+  await expect(draggableNodes.first()).toBeVisible({ timeout: 30_000 })
+  let sourceBounds: {
+    x: number
+    y: number
+    width: number
+    height: number
+  } | null = null
+  let sourceIndex = -1
+  for (let index = 0; index < await draggableNodes.count(); index += 1) {
+    const candidate = draggableNodes.nth(index)
+    const bounds = await candidate.boundingBox()
+    const materialId = await candidate.getAttribute('data-id')
+    if (!bounds || !materialId) continue
+    const hitMaterialId = await page.evaluate(({ x, y }) =>
+      document.elementFromPoint(x, y)
+        ?.closest('.react-flow__node')
+        ?.getAttribute('data-id') ?? null,
+    {
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2
+    })
+    if (hitMaterialId === materialId) {
+      sourceBounds = bounds
+      sourceIndex = index
+      break
+    }
+  }
+  if (!sourceBounds) throw new Error('未找到未被遮挡的可移动物料')
+
+  const moveResponse = page.waitForResponse((response) => {
+    if (
+      response.url() !== `${API_URL}/api/v1/inventory/commands` ||
+      response.request().method() !== 'POST'
+    ) return false
+    const command = response.request().postDataJSON() as { type?: string }
+    return command.type === 'material.move'
+  })
+  const sourceCenter = {
+    x: sourceBounds.x + sourceBounds.width / 2,
+    y: sourceBounds.y + sourceBounds.height / 2
+  }
+  await page.mouse.move(sourceCenter.x, sourceCenter.y)
+  await page.mouse.down()
+  await page.mouse.move(sourceCenter.x + 60, sourceCenter.y + 35, {
+    steps: 8
+  })
+  const draggedBounds = await draggableNodes.nth(sourceIndex).boundingBox()
+  expect(draggedBounds).not.toBeNull()
+  expect(Math.abs((draggedBounds?.x ?? 0) - sourceBounds.x)).toBeGreaterThan(20)
+  await page.mouse.up()
+
+  const response = await moveResponse
+  expect(response.ok()).toBe(true)
+  const command = response.request().postDataJSON() as {
+    payload?: { placement?: { position_mm?: unknown } }
+  }
+  expect(command.payload?.placement?.position_mm).toHaveLength(3)
+  await expect(
+    page.getByRole('dialog', { name: '物料属性' })
+  ).toHaveCount(0)
+})
+
 test('手动下料后可拖拽上料且不打开物料属性面板', async ({ page }) => {
   await installMaterialOnlyLayout(page)
   await page.goto(
@@ -457,10 +542,6 @@ test('手动下料后可拖拽上料且不打开物料属性面板', async ({ pa
   await sourceTreeItem.click()
   await expect(
     page.getByRole('dialog', { name: '物料属性' })
-  ).toBeVisible()
-  await page.getByRole('button', { name: '关闭物料属性' }).click()
-  await expect(
-    page.getByRole('dialog', { name: '物料属性' })
   ).toHaveCount(0)
 
   const handlingControls = page.locator('.material-canvas__edit-control')
@@ -475,25 +556,22 @@ test('手动下料后可拖拽上料且不打开物料属性面板', async ({ pa
   await sourceTreeItem.click()
   await expect(
     page.getByRole('dialog', { name: '物料属性' })
-  ).toBeVisible()
-  await page.getByRole('button', { name: '关闭物料属性' }).click()
+  ).toHaveCount(0)
 
   await page.getByRole('button', { name: '上料', exact: true }).click()
   await expect(
     page.getByRole('dialog', { name: '物料属性' })
   ).toHaveCount(0)
 
-  const draggableNodes = page
-    .locator('.material-flow-node[data-material-kind="beaker"]:visible')
-    .locator('xpath=ancestor::div[contains(@class, "react-flow__node")][1]')
-  await expect(draggableNodes.first()).toBeVisible()
-  let sourceBounds: Awaited<ReturnType<typeof source.boundingBox>> = null
-  for (let index = 0; index < await draggableNodes.count(); index += 1) {
-    const candidate = draggableNodes.nth(index)
-    const bounds = await candidate.boundingBox()
-    const materialId = await candidate.getAttribute('data-id')
-    if (!bounds || !materialId) continue
-    const hitMaterialId = await page.evaluate(({ x, y }) =>
+  const sourceNode = source.locator(
+    'xpath=ancestor::div[contains(@class, "react-flow__node")][1]'
+  )
+  await expect(sourceNode).toHaveClass(/nopan/)
+  const sourceMaterialId = await sourceNode.getAttribute('data-id')
+  await expect.poll(async () => {
+    const bounds = await sourceNode.boundingBox()
+    if (!bounds) return null
+    return page.evaluate(({ x, y }) =>
       document.elementFromPoint(x, y)
         ?.closest('.react-flow__node')
         ?.getAttribute('data-id') ?? null,
@@ -501,12 +579,9 @@ test('手动下料后可拖拽上料且不打开物料属性面板', async ({ pa
       x: bounds.x + bounds.width / 2,
       y: bounds.y + bounds.height / 2
     })
-    if (hitMaterialId === materialId) {
-      sourceBounds = bounds
-      break
-    }
-  }
-  if (!sourceBounds) throw new Error('未找到未被重叠节点遮挡的可拖拽物料')
+  }).toBe(sourceMaterialId)
+  const sourceBounds = await sourceNode.boundingBox()
+  if (!sourceBounds) throw new Error('下料后的物料不可见')
   const sourceCenterX = sourceBounds.x + sourceBounds.width / 2
   const sourceCenterY = sourceBounds.y + sourceBounds.height / 2
   await page.mouse.move(sourceCenterX, sourceCenterY)

@@ -1,9 +1,6 @@
 import { emitter } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
-import {
-  PascalEditorHost,
-  type SceneGraph
-} from '@unilab/pascal-host'
+import { PascalEditorHost } from '@unilab/pascal-host'
 import {
   MaterialCanvas,
   MaterialObliqueCanvas,
@@ -24,10 +21,8 @@ import {
 } from 'react'
 
 import {
-  type MaterialSceneMove,
   type MaterialTransferSceneRoute,
-  materialAggregatesToSceneGraph,
-  sceneGraphToMaterialMoves
+  materialAggregatesToSceneGraph
 } from './materialAggregateSceneBridge'
 import {
   configureLabModelRuntime,
@@ -72,13 +67,14 @@ export interface PascalLabWorkbenchProps {
   onCaptureReady?: (blob: Blob) => void
   projectId?: string
   modelRuntime?: LabModelRuntime
-  editable?: boolean
+  /** 只控制二维物料位置编辑，不开启 Pascal 场景编辑器。 */
+  moveStatus?: CapabilityStatus
   attachStatus?: CapabilityStatus
   detachStatus?: CapabilityStatus
   focusRequest?: MaterialFocusRequest | null
   selectedMaterialIds?: readonly string[]
   highlightedMaterialIds?: readonly string[]
-  onMaterialMoves?: (moves: readonly MaterialSceneMove[]) => void
+  onMaterialActivate?: (materialId: string | null) => void
   onSelectionChange?: (
     materialIds: readonly string[],
     sceneObjectIds: readonly string[]
@@ -108,13 +104,13 @@ export function PascalLabWorkbench({
   onCaptureReady,
   projectId = 'unilab-local-scene',
   modelRuntime,
-  editable = false,
+  moveStatus = { available: false, reason: '当前服务不支持移动物料' },
   attachStatus = { available: false },
   detachStatus = { available: false },
   focusRequest = null,
   selectedMaterialIds = [],
   highlightedMaterialIds = [],
-  onMaterialMoves,
+  onMaterialActivate,
   onSelectionChange
 }: PascalLabWorkbenchProps): React.JSX.Element {
   const [cameraRequest, setCameraRequest] = useState<{
@@ -164,9 +160,6 @@ export function PascalLabWorkbench({
       showSites
     ]
   )
-  const [saveStatus, setSaveStatus] = useState<
-    'saved' | 'dirty' | 'saving'
-  >('saved')
   const transferLayer = (
     scene.nodes.level_unilab as {
       materialTransferLayer?: LabMaterialTransferLayerNode | null
@@ -215,6 +208,7 @@ export function PascalLabWorkbench({
   const reportedMaterialIdsRef = useRef<readonly string[]>(
     selectedMaterialIds
   )
+  const syncingSelectionRef = useRef(false)
   reportedMaterialIdsRef.current = selectedMaterialIds
 
   const reportSelectionChange = useCallback((
@@ -231,9 +225,14 @@ export function PascalLabWorkbench({
   useEffect(() => {
     const state = useViewer.getState()
     if (!sameIds(state.selection.selectedIds, selectedSceneObjectIds)) {
-      state.setSelection({
-        selectedIds: [...selectedSceneObjectIds] as never[]
-      })
+      syncingSelectionRef.current = true
+      try {
+        state.setSelection({
+          selectedIds: [...selectedSceneObjectIds] as never[]
+        })
+      } finally {
+        syncingSelectionRef.current = false
+      }
     }
   }, [selectedSceneObjectIds])
 
@@ -251,21 +250,6 @@ export function PascalLabWorkbench({
     await preparePascalLabPlugin()
   }, [modelRuntime])
 
-  const handleSave = useCallback(
-    async (scene: SceneGraph) => {
-      if (!editable) {
-        setSaveStatus('saved')
-        return
-      }
-      setSaveStatus('saving')
-      onMaterialMoves?.(
-        sceneGraphToMaterialMoves(scene, aggregates)
-      )
-      setSaveStatus('saved')
-    },
-    [aggregates, editable, onMaterialMoves]
-  )
-
   const handleSelectionChange = useCallback(
     (sceneObjectIds: readonly string[]) => {
       const materialIds = sceneObjectIds.flatMap((id) => {
@@ -275,18 +259,14 @@ export function PascalLabWorkbench({
           : []
       })
       reportSelectionChange(materialIds, sceneObjectIds)
+      if (!syncingSelectionRef.current) {
+        onMaterialActivate?.(materialIds[0] ?? null)
+      }
     },
-    [reportSelectionChange, scene.nodes]
+    [onMaterialActivate, reportSelectionChange, scene.nodes]
   )
 
-  const statusLabel = useMemo(() => {
-    if (saveStatus === 'saving') return '正在保存'
-    if (saveStatus === 'dirty') return '有未保存修改'
-    const count = aggregates.length
-    return editable
-      ? `${count} 个物料 · 已保存`
-      : `${count} 个物料 · 只读`
-  }, [aggregates.length, editable, saveStatus])
+  const statusLabel = `${aggregates.length} 个物料 · 只读`
   const pascalViewMode = viewMode === '2.5d' ? '3d' : viewMode
 
   const toolbar = (
@@ -365,7 +345,7 @@ export function PascalLabWorkbench({
           scene={scene}
           projectId={projectId}
           prepare={prepare}
-          readOnly={!editable}
+          readOnly
           editorViewMode={pascalViewMode}
           renderPaused={shouldPausePascalRendering(viewMode)}
           sceneTheme="studio"
@@ -380,17 +360,13 @@ export function PascalLabWorkbench({
                 showMaterialTransfers ? materialTransferOverlayRoutes : []
               }
               readStatus={{ available: true }}
-              moveStatus={{
-                available: editable,
-                reason: editable
-                  ? undefined
-                  : '当前服务不支持移动物料'
-              }}
+              moveStatus={moveStatus}
               attachStatus={attachStatus}
               detachStatus={detachStatus}
               focusRequest={focusRequest}
               selectedMaterialIds={selectedMaterialIds}
               highlightedMaterialIds={highlightedMaterialIds}
+              onMaterialActivate={onMaterialActivate}
               onSelectionChange={(materialIds) => {
                 reportSelectionChange(
                   materialIds,
@@ -406,10 +382,6 @@ export function PascalLabWorkbench({
           editorProps={{
             onThumbnailCapture: (blob) => onCaptureReady?.(blob)
           }}
-          onDirty={() => {
-            if (editable) setSaveStatus('dirty')
-          }}
-          onSave={handleSave}
           onSelectionChange={handleSelectionChange}
           suppressSelectionAfterPointerDrag={
             viewMode === '3d' || viewMode === 'split'
@@ -436,6 +408,7 @@ export function PascalLabWorkbench({
                   materialIds
                 )
               )
+              onMaterialActivate?.(materialIds[0] ?? null)
             }}
           />
         </div>

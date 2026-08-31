@@ -22,4 +22,18 @@ describe('Workbench material viewport layer controls', () => {
       expect(source).toContain('showMaterialLabels={showMaterialLabels}')
     }
   )
+
+  it('keeps Pascal read-only while forwarding 2D move capability', async () => {
+    const source = await readFile(
+      fileURLToPath(new URL(
+        './workbench-material-viewport.tsx',
+        import.meta.url
+      )),
+      'utf8'
+    )
+
+    expect(source).toContain('moveStatus={moveStatus}')
+    expect(source).not.toContain('editable={moveStatus.available}')
+    expect(source).not.toContain('onMaterialMoves=')
+  })
 })

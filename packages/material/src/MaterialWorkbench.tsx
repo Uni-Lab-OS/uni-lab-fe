@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 
 import type { CapabilityStatus } from './MaterialCapabilityNotice'
 import { MaterialInspector } from './MaterialInspector'
@@ -46,6 +46,7 @@ export interface MaterialWorkbenchViewportProps {
   selectedMaterialIds: readonly MaterialId[]
   highlightedMaterialIds: readonly MaterialId[]
   onSelectionChange?: (materialIds: readonly MaterialId[]) => void
+  onMaterialActivate?: (materialId: MaterialId | null) => void
 }
 
 /**
@@ -79,13 +80,8 @@ export function MaterialWorkbench({
         .map((aggregate) => aggregate.material.name),
     [aggregatesById]
   )
-  const selectedMaterialId = selectedMaterialIds[0] ?? null
   const [inspectedMaterialId, setInspectedMaterialId] =
-    useState<MaterialId | null>(selectedMaterialId)
-
-  useEffect(() => {
-    setInspectedMaterialId(selectedMaterialId)
-  }, [selectedMaterialId])
+    useState<MaterialId | null>(null)
 
   return (
     <div className={materialScopeClassName('material-workbench')}>
@@ -93,7 +89,7 @@ export function MaterialWorkbench({
         selectedMaterialIds={selectedMaterialIds}
         onSelectionChange={onSelectionChange}
         onMaterialActivate={(materialId) => {
-          setInspectedMaterialId(materialId)
+          setInspectedMaterialId(null)
           setFocusRequest((current) => ({
             materialId,
             revision: (current?.revision ?? 0) + 1
@@ -110,7 +106,8 @@ export function MaterialWorkbench({
             focusRequest,
             selectedMaterialIds,
             highlightedMaterialIds,
-            onSelectionChange
+            onSelectionChange,
+            onMaterialActivate: setInspectedMaterialId
           })
         ) : (
           <MaterialCanvas
@@ -122,6 +119,7 @@ export function MaterialWorkbench({
             selectedMaterialIds={selectedMaterialIds}
             highlightedMaterialIds={highlightedMaterialIds}
             onSelectionChange={onSelectionChange}
+            onMaterialActivate={setInspectedMaterialId}
           />
         )}
       </div>

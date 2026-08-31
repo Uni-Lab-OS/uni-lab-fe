@@ -239,6 +239,7 @@ function localPythonCapabilities(): ServerCapabilities {
   // Edge FastAPI broadcasts at :18003/api/v1/ws/device_status (not Bridge :8014).
   capabilities.devices.subscribeStatus = true
   capabilities.material.readGraph = true
+  capabilities.material.move = true
   capabilities.material.attach = true
   capabilities.material.detach = true
   capabilities.workflow.readDefinitions = true

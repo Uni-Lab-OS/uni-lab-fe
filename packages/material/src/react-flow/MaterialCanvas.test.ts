@@ -4,6 +4,7 @@ import { materialAggregate } from '../testFixtures'
 import {
   canStartMaterialHandlingDrag,
   isOperatorHandledMaterial,
+  isPositionDraggableMaterial,
   selectMaterialSiteDropTarget
 } from './MaterialCanvas'
 
@@ -76,5 +77,35 @@ describe('2D material handling target selection', () => {
 
     expect(isOperatorHandledMaterial(placedBeaker)).toBe(true)
     expect(isOperatorHandledMaterial(stack)).toBe(false)
+  })
+
+  it('allows position edits only outside fixed Sites', () => {
+    const world = materialAggregate('world')
+    const parent = materialAggregate('parented', {
+      placement: {
+        kind: 'parent',
+        parentId: 'deck',
+        anchor: { kind: 'root' },
+        localPose: {
+          positionMm: [10, 20, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      }
+    })
+    const site = materialAggregate('site-child', {
+      placement: {
+        kind: 'site',
+        parentId: 'deck',
+        siteId: 'site-1',
+        offsetPose: {
+          positionMm: [0, 0, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      }
+    })
+
+    expect(isPositionDraggableMaterial(world)).toBe(true)
+    expect(isPositionDraggableMaterial(parent)).toBe(true)
+    expect(isPositionDraggableMaterial(site)).toBe(false)
   })
 })

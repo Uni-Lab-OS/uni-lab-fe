@@ -7,7 +7,6 @@ import {
 } from '@unilab/material'
 import {
   PascalLabWorkbench,
-  type MaterialSceneMove,
   type MaterialTransferSceneRoute
 } from '@unilab/pascal-lab-plugin'
 import { useEffect, useMemo } from 'react'
@@ -142,13 +141,6 @@ export function SceneWorkbench({
     )
   }
 
-  const applyMoves = async (
-    moves: readonly MaterialSceneMove[]
-  ): Promise<void> => {
-    for (const move of moves) {
-      await store.getState().move(move.materialId, move.placement)
-    }
-  }
   const scopeKey =
     runtime.scope?.kind === 'laboratory'
       ? runtime.scope.laboratoryId
@@ -165,16 +157,13 @@ export function SceneWorkbench({
       materialTransferProjectionError={null}
       viewMode={viewMode}
       projectId={`unilab-${backend.id}-${scopeKey}`}
-      editable={moveStatus.available}
+      moveStatus={moveStatus}
       attachStatus={attachStatus}
       detachStatus={detachStatus}
       focusRequest={focusRequest}
       selectedMaterialIds={selectedMaterialIds}
       highlightedMaterialIds={highlightedMaterialIds}
       modelRuntime={modelRuntime}
-      onMaterialMoves={(moves) => {
-        void applyMoves(moves)
-      }}
       onSelectionChange={(materialIds, sceneObjectIds) => {
         selectMaterials(materialIds)
         selectSceneObjects(sceneObjectIds)

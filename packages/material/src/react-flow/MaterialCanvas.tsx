@@ -66,6 +66,7 @@ export interface MaterialCanvasProps {
   selectedMaterialIds?: readonly MaterialId[]
   highlightedMaterialIds?: readonly MaterialId[]
   onSelectionChange?: (materialIds: readonly MaterialId[]) => void
+  onMaterialActivate?: (materialId: MaterialId | null) => void
 }
 
 export interface MaterialFocusRequest {
@@ -98,7 +99,8 @@ export function MaterialCanvas({
   materialTransferRoutes = [],
   selectedMaterialIds = EMPTY_MATERIAL_IDS,
   highlightedMaterialIds = EMPTY_MATERIAL_IDS,
-  onSelectionChange
+  onSelectionChange,
+  onMaterialActivate
 }: MaterialCanvasProps): React.JSX.Element {
   const [isEditing, setIsEditing] = useState(false)
   const [isHandling, setIsHandling] = useState(false)
@@ -126,6 +128,16 @@ export function MaterialCanvas({
     (state) => state.pendingCommandsById
   )
   const canDrag = moveStatus.available && isEditing
+  const positionDraggableMaterialIds = useMemo(
+    () => new Set(
+      canDrag
+        ? Object.values(aggregatesById)
+            .filter(isPositionDraggableMaterial)
+            .map((aggregate) => aggregate.material.id)
+        : []
+    ),
+    [aggregatesById, canDrag]
+  )
   const handlingPending = Object.values(pendingCommandsById).some(
     (command) => command.kind === 'attach' || command.kind === 'detach'
   )
@@ -195,10 +207,10 @@ export function MaterialCanvas({
         dragPreviewByMaterialId,
         selectedMaterialIds,
         highlightedMaterialIds,
-        draggable: canDrag,
+        draggable: false,
         draggableMaterialIds: isHandling
           ? attachDraggableMaterialIds
-          : undefined,
+          : positionDraggableMaterialIds,
         siteDropStateById,
         physicalLayout: physicalLayout ?? !moveStatus.available
       }),
@@ -211,6 +223,7 @@ export function MaterialCanvas({
       physicalLayout,
       selectedMaterialIds,
       isHandling,
+      positionDraggableMaterialIds,
       siteDropStateById
     ]
   )
@@ -232,14 +245,18 @@ export function MaterialCanvas({
       return
     }
     publishSelection([node.id])
-  }, [publishSelection])
+    onMaterialActivate?.(node.id)
+  }, [onMaterialActivate, publishSelection])
   const handlePaneClick = useCallback(() => {
     publishSelection(EMPTY_MATERIAL_IDS)
-  }, [publishSelection])
+    onMaterialActivate?.(null)
+  }, [onMaterialActivate, publishSelection])
   const handleNodeDragStart = useCallback<NodeDragHandler>((_, node) => {
     const isHandlingDrag =
       handlingDragEnabled && attachDraggableMaterialIds.has(node.id)
-    if (!canDrag && !isHandlingDrag) return
+    const isPositionDrag =
+      canDrag && positionDraggableMaterialIds.has(node.id)
+    if (!isPositionDrag && !isHandlingDrag) return
     suppressedNodeClickRef.current = {
       materialId: node.id,
       until: Number.POSITIVE_INFINITY
@@ -249,17 +266,33 @@ export function MaterialCanvas({
     // ResizeObserver 随后触发 fitView，导致当前 React Flow 拖拽被中断。
     setActiveHandlingMaterialId(node.id)
     setHandlingNotice(null)
-  }, [attachDraggableMaterialIds, canDrag, handlingDragEnabled])
+  }, [
+    attachDraggableMaterialIds,
+    canDrag,
+    handlingDragEnabled,
+    positionDraggableMaterialIds
+  ])
   const handleNodeDrag = useCallback<NodeDragHandler>((_, node) => {
-    if (!canDrag && !attachDraggableMaterialIds.has(node.id)) return
+    if (
+      !positionDraggableMaterialIds.has(node.id) &&
+      !attachDraggableMaterialIds.has(node.id)
+    ) return
     const placement = flowPositionToPlacement({
       materialId: node.id,
       flowPosition: node.position,
-      aggregatesById
+      aggregatesById,
+      physicalLayout: physicalLayout ?? !moveStatus.available
     })
     const pose = placementPose(placement)
     if (pose) store.getState().setDragPreview(node.id, pose)
-  }, [aggregatesById, attachDraggableMaterialIds, canDrag, store])
+  }, [
+    aggregatesById,
+    attachDraggableMaterialIds,
+    moveStatus.available,
+    physicalLayout,
+    positionDraggableMaterialIds,
+    store
+  ])
   const handleNodeDragStop = useCallback<NodeDragHandler>((event, node) => {
     if (suppressedNodeClickRef.current?.materialId === node.id) {
       suppressedNodeClickRef.current = {
@@ -292,14 +325,15 @@ export function MaterialCanvas({
         .catch((caught) => setHandlingNotice(errorMessage(caught)))
       return
     }
-    if (!canDrag) {
+    if (!canDrag || !positionDraggableMaterialIds.has(node.id)) {
       store.getState().clearDragPreview(node.id)
       return
     }
     const placement = flowPositionToPlacement({
       materialId: node.id,
       flowPosition: node.position,
-      aggregatesById
+      aggregatesById,
+      physicalLayout: physicalLayout ?? !moveStatus.available
     })
     void store.getState().move(node.id, placement).catch(() => {
       // The store owns the actionable error and preview rollback.
@@ -310,6 +344,9 @@ export function MaterialCanvas({
     canDrag,
     handlingPending,
     isHandling,
+    positionDraggableMaterialIds,
+    physicalLayout,
+    moveStatus.available,
     store
   ])
   useEffect(() => {
@@ -526,6 +563,14 @@ export function isOperatorHandledMaterial(
 ): boolean {
   return aggregate.material.component?.managedByParent !== true &&
     readDefaultMaterialNodePresentation(aggregate).kind === 'material'
+}
+
+/** 位置编辑不得偏移 Site 内物料；它们只能通过上下料改变物理位置。 */
+export function isPositionDraggableMaterial(
+  aggregate: import('../types').MaterialAggregate
+): boolean {
+  return aggregate.placement.kind === 'world' ||
+    aggregate.placement.kind === 'parent'
 }
 
 /** 上下料命令未完成前禁止发起第二次拖拽。 */

@@ -47,10 +47,9 @@ export function projectMaterialFlowNodes(options: {
     options.aggregatesById,
     options.dragPreviewByMaterialId ?? {}
   )
-  const physicalRootPositions = options.physicalLayout
-    ? createPhysicalRootPositions(options.aggregatesById)
+  const physicalUnplacedPositions = options.physicalLayout
+    ? createPhysicalUnplacedPositions(options.aggregatesById, worldMatrices)
     : {}
-
   const nodes = Object.values(options.aggregatesById)
     .map((aggregate) => {
       const materialId = aggregate.material.id
@@ -70,10 +69,17 @@ export function projectMaterialFlowNodes(options: {
         : options.physicalLayout && parentId
           ? physicalChildPosition(
               aggregate,
-              options.aggregatesById[parentId]
+              options.aggregatesById[parentId],
+              placement
             )
-        : options.physicalLayout && physicalRootPositions[materialId]
-          ? physicalRootPositions[materialId]
+        : options.physicalLayout && placement.kind === 'unplaced'
+          ? physicalUnplacedPositions[materialId] ?? { x: 0, y: 0 }
+        : options.physicalLayout
+          ? worldPointToPhysical([
+              worldMatrix[3],
+              worldMatrix[7],
+              worldMatrix[11]
+            ])
         : parentMatrix
           ? worldDeltaToFlow(worldMatrix, parentMatrix)
           : worldPointToFlow([
@@ -126,52 +132,52 @@ export function projectMaterialFlowNodes(options: {
 
   return options.reviewLayout ? avoidReviewCollisions(nodes) : nodes
 }
-function createPhysicalRootPositions(
-  aggregatesById: Readonly<Record<MaterialId, MaterialAggregate>>
-): Record<MaterialId, XYPosition> {
-  const roots = Object.values(aggregatesById)
-    .filter(
-      (aggregate) =>
-        aggregate.placement.kind !== 'parent' &&
-        aggregate.placement.kind !== 'site'
-    )
-    .sort((left, right) =>
-      left.material.id.localeCompare(right.material.id)
-    )
-  const primary =
-    roots.find(
-      (aggregate) =>
-        readMaterial2DVisual(aggregate).kind === 'liquid-handler'
-    ) ??
-    roots.find((aggregate) =>
-      readMaterial2DVisual(aggregate).kind.includes('deck')
-    ) ??
-    roots.find((aggregate) => readMaterial2DVisual(aggregate).physical)
 
-  if (!primary) return {}
-  const primarySize = materialNodeSize(primary, true)
-  const result: Record<MaterialId, XYPosition> = {
-    [primary.material.id]: { x: 0, y: 0 }
-  }
-  const secondary = roots.filter(
-    (aggregate) => aggregate.material.id !== primary.material.id
+/** 未放置物料没有物理坐标，只在 2D 待上料区做稳定排列。 */
+function createPhysicalUnplacedPositions(
+  aggregatesById: Readonly<Record<MaterialId, MaterialAggregate>>,
+  worldMatrices: Readonly<Record<MaterialId, Matrix4>>
+): Record<MaterialId, XYPosition> {
+  const worldRoots = Object.values(aggregatesById).filter(
+    (aggregate) => aggregate.placement.kind === 'world'
   )
-  secondary.forEach((aggregate, index) => {
-    const column = Math.floor(index / 4)
-    const row = index % 4
-    result[aggregate.material.id] = {
-      x: primarySize.width + 44 + column * 146,
-      y: row * 82
-    }
-  })
-  return result
+  const rightEdge = worldRoots.reduce((maximum, aggregate) => {
+    const world = worldMatrices[aggregate.material.id]
+    const position = worldPointToPhysical([world[3], world[7], world[11]])
+    return Math.max(
+      maximum,
+      position.x + materialNodeSize(aggregate, true).width
+    )
+  }, 0)
+  const startY = worldRoots.reduce((minimum, aggregate) => {
+    const world = worldMatrices[aggregate.material.id]
+    return Math.min(
+      minimum,
+      worldPointToPhysical([world[3], world[7], world[11]]).y
+    )
+  }, 0)
+
+  return Object.fromEntries(
+    Object.values(aggregatesById)
+      .filter((aggregate) => aggregate.placement.kind === 'unplaced')
+      .sort((left, right) =>
+        left.material.id.localeCompare(right.material.id)
+      )
+      .map((aggregate, index) => [
+        aggregate.material.id,
+        {
+          x: rightEdge + 44 + Math.floor(index / 4) * 146,
+          y: startY + (index % 4) * 82
+        }
+      ])
+  )
 }
 
 function physicalChildPosition(
   aggregate: MaterialAggregate,
-  parent: MaterialAggregate | undefined
+  parent: MaterialAggregate | undefined,
+  placement: MaterialPlacement = aggregate.placement
 ): XYPosition {
-  const placement = aggregate.placement
   if (!parent) return { x: 0, y: 0 }
   const localPose =
     placement.kind === 'parent'
@@ -206,6 +212,7 @@ export function flowPositionToPlacement(options: {
   materialId: MaterialId
   flowPosition: XYPosition
   aggregatesById: Readonly<Record<MaterialId, MaterialAggregate>>
+  physicalLayout?: boolean
 }): MaterialPlacement {
   const aggregate = options.aggregatesById[options.materialId]
   if (!aggregate) throw new Error(`Unknown Material: ${options.materialId}`)
@@ -220,6 +227,46 @@ export function flowPositionToPlacement(options: {
     currentWorld[7],
     currentWorld[11]
   ] as const
+  if (options.physicalLayout) {
+    if (placement.kind === 'site') return placement
+    const visual = readMaterial2DVisual(aggregate)
+    if (placement.kind === 'parent') {
+      const parent = options.aggregatesById[placement.parentId]
+      const parentHeight = parent
+        ? readMaterial2DVisual(parent).footprintMm[1]
+        : 0
+      return {
+        ...placement,
+        localPose: {
+          ...placement.localPose,
+          positionMm: [
+            options.flowPosition.x / MATERIAL_PHYSICAL_SCALE,
+            parentHeight -
+              options.flowPosition.y / MATERIAL_PHYSICAL_SCALE -
+              visual.footprintMm[1],
+            placement.localPose.positionMm[2]
+          ]
+        }
+      }
+    }
+    const pose = placement.kind === 'world'
+      ? placement.pose
+      : {
+          positionMm: [0, 0, 0] as const,
+          rotationDegXYZ: [0, 0, 0] as const
+        }
+    return {
+      kind: 'world',
+      pose: {
+        ...pose,
+        positionMm: [
+          options.flowPosition.x / MATERIAL_PHYSICAL_SCALE,
+          -options.flowPosition.y / MATERIAL_PHYSICAL_SCALE,
+          pose.positionMm[2]
+        ]
+      }
+    }
+  }
   const desiredWorldPosition = parentWorld
     ? [
         parentWorld[3] + options.flowPosition.x / MATERIAL_FLOW_SCALE,
@@ -407,6 +454,15 @@ function worldPointToFlow(
   return {
     x: point[0] * MATERIAL_FLOW_SCALE,
     y: -point[1] * MATERIAL_FLOW_SCALE
+  }
+}
+
+function worldPointToPhysical(
+  point: readonly [number, number, number]
+): XYPosition {
+  return {
+    x: point[0] * MATERIAL_PHYSICAL_SCALE,
+    y: -point[1] * MATERIAL_PHYSICAL_SCALE
   }
 }
 

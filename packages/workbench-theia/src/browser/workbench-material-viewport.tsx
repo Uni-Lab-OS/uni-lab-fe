@@ -12,7 +12,6 @@ import {
 } from '@unilab/material'
 import type {
   MaterialSceneSourceIdentity,
-  MaterialSceneMove,
   MaterialTransferSceneRoute
 } from '@unilab/pascal-lab-plugin'
 import { ensurePascalRendererDefaults } from '@unilab/pascal-host'
@@ -62,7 +61,8 @@ export function WorkbenchMaterialViewport({
   focusRequest,
   selectedMaterialIds,
   highlightedMaterialIds,
-  onSelectionChange
+  onSelectionChange,
+  onMaterialActivate
 }: MaterialWorkbenchViewportProps & {
   backendUrl: string
   sourceIdentity: MaterialSceneSourceIdentity
@@ -313,15 +313,6 @@ export function WorkbenchMaterialViewport({
     void store.getState().loadGraph()
   }, [loadState, readStatus.available, store])
 
-  /** 依次向 OS 提交物料移动，保留存储端的修订冲突语义。 */
-  const applyMoves = useCallback(async (
-    moves: readonly MaterialSceneMove[]
-  ): Promise<void> => {
-    for (const move of moves) {
-      await store.getState().move(move.materialId, move.placement)
-    }
-  }, [store])
-
   /** 清理失败状态并重新读取当前调度权威的物料图。 */
   const retryGraph = useCallback((): void => {
     store.getState().reset()
@@ -398,14 +389,14 @@ export function WorkbenchMaterialViewport({
               captureRequest={pascalCaptureRequest}
               onCaptureReady={handlePascalCaptureReady}
               projectId={`unilab-workbench-${new URL(backendUrl).port}`}
-              editable={moveStatus.available}
+              moveStatus={moveStatus}
               attachStatus={attachStatus}
               detachStatus={detachStatus}
               focusRequest={focusRequest}
               selectedMaterialIds={displayedSelectedMaterialIds}
               highlightedMaterialIds={highlightedMaterialIds}
               modelRuntime={modelRuntime}
-              onMaterialMoves={(moves) => void applyMoves(moves)}
+              onMaterialActivate={onMaterialActivate}
               onSelectionChange={(materialIds) => onSelectionChange?.(materialIds)}
             />
           </Suspense>

@@ -349,6 +349,91 @@ describe('material template adapter', () => {
     expect(request).not.toHaveBeenCalled()
   })
 
+  it('maps 2D position edits to the strict OS move command', async () => {
+    const movedNode = rawMaterialGraphNode(2)
+    const movedMaterial = movedNode.material as Record<string, unknown>
+    movedMaterial.uuid = 'material-1'
+    movedMaterial.name = 'Movable material'
+    movedMaterial.revision = 3
+    movedNode.relative_position = rawBackendPosition(
+      'position-1',
+      'material-1',
+      [120, 80, 10],
+      [100, 80, 20]
+    )
+    const { http, request } = mockHttp({
+      command_id: 'move-material-1',
+      status: 'completed',
+      result: { aggregates: [movedNode] }
+    })
+    const backend = getDefaultBackend('local-python')
+    const service = createMaterialService(
+      http,
+      backend,
+      resolveServerCapabilities(backend)
+    )
+
+    const result = await service.move({
+      materialId: 'material-1',
+      expectedRevision: 2,
+      idempotencyKey: 'move-material-1',
+      placement: {
+        kind: 'world',
+        pose: {
+          positionMm: [120, 80, 10],
+          rotationDegXYZ: [0, 0, 15]
+        }
+      }
+    })
+
+    expect(result).toMatchObject({
+      material: { id: 'material-1' },
+      revision: 3,
+      placement: {
+        kind: 'world',
+        pose: { positionMm: [120, 80, 10] }
+      }
+    })
+    expect(JSON.parse(String(request.mock.calls[0]?.[1]?.body))).toEqual({
+      command_id: 'move-material-1',
+      type: 'material.move',
+      actor: 'operator:material-workbench',
+      expected_version: 2,
+      payload: {
+        edge_uuid: 'material-1',
+        placement: {
+          kind: 'world',
+          position_mm: [120, 80, 10],
+          rotation_deg_xyz: [0, 0, 15]
+        }
+      }
+    })
+  })
+
+  it('rejects position edits for material fixed to a site', async () => {
+    const backend = getDefaultBackend('local-python')
+    const service = createMaterialService(
+      mockHttp({}).http,
+      backend,
+      resolveServerCapabilities(backend)
+    )
+
+    await expect(service.move({
+      materialId: 'child-1',
+      expectedRevision: 2,
+      idempotencyKey: 'move-child-1',
+      placement: {
+        kind: 'site',
+        parentId: 'parent-1',
+        siteId: 'site-1',
+        offsetPose: {
+          positionMm: [1, 2, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      }
+    })).rejects.toMatchObject({ code: 'MATERIAL_POSITION_FIXED' })
+  })
+
   it('maps 2D attach to the strict OS site command and applies both aggregates', async () => {
     const { http, request } = mockHttp({
       command_id: 'attach-child-1',

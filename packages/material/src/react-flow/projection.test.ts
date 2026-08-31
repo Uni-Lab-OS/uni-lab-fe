@@ -8,6 +8,7 @@ import {
   projectMaterialFlowNodes,
   resolveMaterialWorldPose
 } from './projection'
+import { MATERIAL_PHYSICAL_SCALE } from './visual'
 
 describe('Material React Flow projection', () => {
   it('keeps entity data in the Store and projects only the Material ID', () => {
@@ -224,6 +225,147 @@ describe('Material React Flow projection', () => {
     expect(childNode?.position).toEqual({
       x: 414 * 0.7,
       y: 0
+    })
+  })
+
+  it('round-trips a world position in the physical 2D layout', () => {
+    const aggregate = materialAggregate('material-1', {
+      placement: {
+        kind: 'world',
+        pose: {
+          positionMm: [120, 40, 10],
+          rotationDegXYZ: [0, 0, 15]
+        }
+      }
+    })
+
+    const [node] = projectMaterialFlowNodes({
+      aggregatesById: { 'material-1': aggregate },
+      physicalLayout: true
+    })
+    const placement = flowPositionToPlacement({
+      materialId: 'material-1',
+      flowPosition: node.position,
+      aggregatesById: { 'material-1': aggregate },
+      physicalLayout: true
+    })
+
+    expect(node.position).toEqual({
+      x: 120 * MATERIAL_PHYSICAL_SCALE,
+      y: -40 * MATERIAL_PHYSICAL_SCALE
+    })
+    expect(placement.kind).toBe('world')
+    if (placement.kind !== 'world') return
+    expectTupleCloseTo(placement.pose.positionMm, [120, 40, 10])
+    expect(placement.pose.rotationDegXYZ).toEqual([0, 0, 15])
+  })
+
+  it('round-trips a parent-local position in the physical 2D layout', () => {
+    const deck = materialAggregate('deck', {
+      config: {
+        rendering: { kind: 'deck', footprintMm: [542, 374] }
+      }
+    })
+    const child = materialAggregate('child', {
+      config: {
+        rendering: { kind: 'plate', footprintMm: [128, 86] }
+      },
+      placement: {
+        kind: 'parent',
+        parentId: 'deck',
+        anchor: { kind: 'root' },
+        localPose: {
+          positionMm: [100, 50, 5],
+          rotationDegXYZ: [0, 0, 20]
+        }
+      }
+    })
+    const aggregates = { deck, child }
+
+    const childNode = projectMaterialFlowNodes({
+      aggregatesById: aggregates,
+      physicalLayout: true
+    }).find((node) => node.id === 'child')
+    if (!childNode) throw new Error('child node missing')
+    const placement = flowPositionToPlacement({
+      materialId: 'child',
+      flowPosition: childNode.position,
+      aggregatesById: aggregates,
+      physicalLayout: true
+    })
+
+    expect(placement).toEqual(child.placement)
+  })
+
+  it('uses physical drag previews without snapping back to the old pose', () => {
+    const deck = materialAggregate('deck', {
+      config: {
+        rendering: { kind: 'deck', footprintMm: [542, 374] }
+      }
+    })
+    const child = materialAggregate('child', {
+      config: {
+        rendering: { kind: 'plate', footprintMm: [128, 86] }
+      },
+      placement: {
+        kind: 'parent',
+        parentId: 'deck',
+        anchor: { kind: 'root' },
+        localPose: {
+          positionMm: [0, 0, 5],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      }
+    })
+
+    const childNode = projectMaterialFlowNodes({
+      aggregatesById: { deck, child },
+      dragPreviewByMaterialId: {
+        child: {
+          positionMm: [100, 50, 5],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      },
+      physicalLayout: true
+    }).find((node) => node.id === 'child')
+
+    expect(childNode?.position).toEqual({
+      x: 100 * MATERIAL_PHYSICAL_SCALE,
+      y: (374 - 50 - 86) * MATERIAL_PHYSICAL_SCALE
+    })
+  })
+
+  it('stages unplaced materials beside the physical scene until dragged', () => {
+    const deck = materialAggregate('deck', {
+      config: {
+        rendering: { kind: 'deck', footprintMm: [542, 374] }
+      }
+    })
+    const loose = materialAggregate('loose', {
+      placement: { kind: 'unplaced' }
+    })
+
+    const staged = projectMaterialFlowNodes({
+      aggregatesById: { deck, loose },
+      physicalLayout: true
+    }).find((node) => node.id === 'loose')
+    expect(staged?.position.x).toBeGreaterThan(
+      542 * MATERIAL_PHYSICAL_SCALE
+    )
+
+    const dragged = projectMaterialFlowNodes({
+      aggregatesById: { deck, loose },
+      dragPreviewByMaterialId: {
+        loose: {
+          positionMm: [900, -20, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      },
+      physicalLayout: true
+    }).find((node) => node.id === 'loose')
+    expect(dragged?.position).toEqual({
+      x: 900 * MATERIAL_PHYSICAL_SCALE,
+      y: 20 * MATERIAL_PHYSICAL_SCALE
     })
   })
 

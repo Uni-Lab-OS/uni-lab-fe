@@ -32,6 +32,7 @@ describe('server capability matrix', () => {
           'devices.forceUnlock',
           'devices.runActionTask',
           'material.readGraph',
+          'material.move',
           'material.attach',
           'material.detach',
           'workflow.readDefinitions',

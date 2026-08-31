@@ -233,8 +233,34 @@ export function createMaterialService(
 
     updateConfig: async (_command) =>
       unavailableGraphOperation('material.updateConfig'),
-    move: async (_command) =>
-      unavailableGraphOperation('material.move'),
+    move: async (command) => {
+      assertCapability(
+        getCapabilityStatus(backend, capabilities, 'material.move'),
+        'material.move'
+      )
+      const placement = materialPositionPlacement(command.placement)
+      const result = await executeMaterialRelationCommand(http, {
+        command_id: command.idempotencyKey,
+        type: 'material.move',
+        actor: 'operator:material-workbench',
+        expected_version: command.expectedRevision,
+        payload: {
+          edge_uuid: command.materialId,
+          placement
+        }
+      })
+      const moved = result.aggregates.find(
+        (aggregate) => aggregate.material.id === command.materialId
+      )
+      if (!moved) {
+        throw new ServiceError({
+          code: 'INVALID_API_RESPONSE',
+          message: '物料移动响应缺少目标聚合节点',
+          retryable: false
+        })
+      }
+      return moved
+    },
     attach: async (command) => {
       assertCapability(
         getCapabilityStatus(backend, capabilities, 'material.attach'),
@@ -296,6 +322,33 @@ export function createMaterialService(
       retryable: false
     })
   }
+}
+
+function materialPositionPlacement(
+  placement: MaterialPlacement
+): Record<string, unknown> {
+  if (placement.kind === 'world') {
+    return {
+      kind: 'world',
+      position_mm: placement.pose.positionMm,
+      rotation_deg_xyz: placement.pose.rotationDegXYZ
+    }
+  }
+  if (placement.kind === 'parent') {
+    return {
+      kind: 'parent',
+      parent_uuid: placement.parentId,
+      position_mm: placement.localPose.positionMm,
+      rotation_deg_xyz: placement.localPose.rotationDegXYZ
+    }
+  }
+  throw new ServiceError({
+    code: 'MATERIAL_POSITION_FIXED',
+    message: placement.kind === 'site'
+      ? '已固定在库位的物料请通过上下料调整位置'
+      : '未放置物料缺少可保存的二维坐标',
+    retryable: false
+  })
 }
 
 interface InventoryMaterialCommandResponse {
