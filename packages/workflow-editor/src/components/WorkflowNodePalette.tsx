@@ -3,6 +3,10 @@ import { useMemo, useState } from 'react'
 
 import { WorkflowButton } from './WorkflowButton'
 import {
+  ExperimentOperationDeviceCatalog,
+  useExperimentOperationDeviceCatalog
+} from './ExperimentOperationDeviceCatalog'
+import {
   writeWorkflowNodePaletteDragPayload,
   type WorkflowNodePaletteDragPayload
 } from '../utils/workflowCanvasCommands'
@@ -164,21 +168,11 @@ export function WorkflowNodePalette({
       className="persistent-authoring__palette"
       aria-label="工作流（Workflow）节点库"
     >
-      <header>
-        <span>
-          <strong>节点库</strong>
-          <small>{projection.counts.all} 个可用模板</small>
-        </span>
-        <label className="persistent-authoring__palette-search">
-          <span className="sr-only">搜索节点模板</span>
-          <input
-            type="search"
-            value={query}
-            placeholder="搜索名称或类型"
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
-      </header>
+      <WorkflowNodePaletteHeader
+        query={query}
+        templateCount={projection.counts.all}
+        onQueryChange={setQuery}
+      />
 
       <div
         className="persistent-authoring__palette-kinds"
@@ -265,34 +259,16 @@ export function WorkflowNodePalette({
           </section>
         )}
 
-        {projection.actions.length > 0 && (
-          <section aria-label="动作（Action）模板">
-            <h3>操作</h3>
-            <div className="persistent-authoring__palette-actions">
-              {projection.actions.map((template) => (
-                <WorkflowButton
-                  type="button"
-                  key={template.uuid}
-                  disabled={templateDisabled}
-                  disabledReason={templateDisabledReason}
-                  draggable={!templateDisabled}
-                  onDragStart={(event) => startTemplateDrag(
-                    event,
-                    { kind: 'action', templateUuid: template.uuid },
-                    templateDisabled
-                  )}
-                  onClick={() => onAddAction(template.uuid)}
-                >
-                  <span aria-hidden="true">⌁</span>
-                  <span>
-                    <strong>{template.displayName}</strong>
-                    <small>{template.name}</small>
-                  </span>
-                </WorkflowButton>
-              ))}
-            </div>
-          </section>
-        )}
+        <WorkflowActionPaletteSection
+          kind={kind}
+          query={query}
+          templates={catalog?.actionTemplates ?? []}
+          visibleTemplates={projection.actions}
+          disabled={templateDisabled}
+          disabledReason={templateDisabledReason}
+          onAddAction={onAddAction}
+          onStartDrag={startTemplateDrag}
+        />
 
         {projection.workflows.length > 0 && (
           <section aria-label="子工作流（Workflow）模板">
@@ -323,18 +299,149 @@ export function WorkflowNodePalette({
           </section>
         )}
 
-        {projection.totalCount === 0 && (
-          <div className="persistent-authoring__palette-empty" role="status">
-            <strong>没有匹配的节点模板</strong>
-            <span>尝试搜索名称、类型或切换分类。</span>
-            {query && (
-              <button type="button" onClick={() => setQuery('')}>
-                清除搜索
-              </button>
-            )}
-          </div>
-        )}
+        <WorkflowNodePaletteEmpty
+          totalCount={projection.totalCount}
+          kind={kind}
+          query={query}
+          onClearQuery={() => setQuery('')}
+        />
       </div>
     </aside>
+  )
+}
+
+function WorkflowNodePaletteHeader({
+  query,
+  templateCount,
+  onQueryChange
+}: {
+  query: string
+  templateCount: number
+  onQueryChange(query: string): void
+}): React.JSX.Element {
+  const operationDeviceCatalog = useExperimentOperationDeviceCatalog()
+  const reportedActionCount = operationDeviceCatalog?.devices.reduce(
+    (total, device) => total + device.actions.length,
+    0
+  ) ?? 0
+  return (
+    <header>
+      <span>
+        <strong>{operationDeviceCatalog ? '操作与节点库' : '节点库'}</strong>
+        <small>{operationDeviceCatalog
+          ? `${operationDeviceCatalog.devices.length} 台 · ${reportedActionCount} 项`
+          : `${templateCount} 个可用模板`}</small>
+      </span>
+      <label className="persistent-authoring__palette-search">
+        <span className="sr-only">搜索节点模板</span>
+        <input
+          type="search"
+          value={query}
+          placeholder="搜索名称或类型"
+          onChange={(event) => onQueryChange(event.target.value)}
+        />
+      </label>
+    </header>
+  )
+}
+
+function WorkflowActionPaletteSection({
+  kind,
+  query,
+  templates,
+  visibleTemplates,
+  disabled,
+  disabledReason,
+  onAddAction,
+  onStartDrag
+}: {
+  kind: WorkflowNodePaletteKind
+  query: string
+  templates: WorkflowActionCatalogSnapshot['actionTemplates']
+  visibleTemplates: WorkflowActionCatalogSnapshot['actionTemplates']
+  disabled: boolean
+  disabledReason: string
+  onAddAction(templateUuid: string): void
+  onStartDrag(
+    event: React.DragEvent<HTMLButtonElement>,
+    payload: WorkflowNodePaletteDragPayload,
+    disabled: boolean
+  ): void
+}): React.JSX.Element | null {
+  const operationDeviceCatalog = useExperimentOperationDeviceCatalog()
+  if (operationDeviceCatalog && (kind === 'all' || kind === 'action')) {
+    return (
+      <ExperimentOperationDeviceCatalog
+        devices={operationDeviceCatalog.devices}
+        templates={templates}
+        query={query}
+        loading={operationDeviceCatalog.loading}
+        error={operationDeviceCatalog.error}
+        disabled={disabled}
+        disabledReason={disabledReason}
+        onRefresh={operationDeviceCatalog.refresh}
+        onAddAction={onAddAction}
+      />
+    )
+  }
+  if (visibleTemplates.length === 0) return null
+  return (
+    <section aria-label="动作（Action）模板">
+      <h3>操作</h3>
+      <div className="persistent-authoring__palette-actions">
+        {visibleTemplates.map(template => (
+          <WorkflowButton
+            type="button"
+            key={template.uuid}
+            disabled={disabled}
+            disabledReason={disabledReason}
+            draggable={!disabled}
+            onDragStart={(event) => onStartDrag(
+              event,
+              { kind: 'action', templateUuid: template.uuid },
+              disabled
+            )}
+            onClick={() => onAddAction(template.uuid)}
+          >
+            <span aria-hidden="true">⌁</span>
+            <span>
+              <strong>{template.displayName}</strong>
+              <small>{template.name}</small>
+            </span>
+          </WorkflowButton>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function WorkflowNodePaletteEmpty({
+  totalCount,
+  kind,
+  query,
+  onClearQuery
+}: {
+  totalCount: number
+  kind: WorkflowNodePaletteKind
+  query: string
+  onClearQuery(): void
+}): React.JSX.Element | null {
+  const operationDeviceCatalog = useExperimentOperationDeviceCatalog()
+  if (totalCount > 0) return null
+  if (
+    operationDeviceCatalog &&
+    (kind === 'all' || kind === 'action') &&
+    (operationDeviceCatalog.loading || operationDeviceCatalog.devices.length > 0)
+  ) return null
+  return (
+    <div className="persistent-authoring__palette-empty" role="status">
+      <strong>没有匹配的节点模板</strong>
+      <span>尝试搜索名称、类型或切换分类。</span>
+      {query && (
+        <button type="button" onClick={onClearQuery}>
+          清除搜索
+        </button>
+      )}
+    </div>
   )
 }

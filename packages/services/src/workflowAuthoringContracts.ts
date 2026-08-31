@@ -76,6 +76,13 @@ export interface WorkflowDefinitionCreateRequest {
   meta_data?: Record<string, unknown>
 }
 
+/** 当前设备包中创建实验操作定义的最小作者输入。 */
+export interface ExperimentOperationCreateRequest {
+  name: string
+  categories: string[]
+  description?: string
+}
+
 export type WorkflowDefinitionChangeAction =
   | 'created'
   | 'current_snapshot'

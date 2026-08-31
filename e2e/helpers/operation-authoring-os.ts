@@ -17,7 +17,7 @@ export interface OperationAuthoringOs {
   sourcePath: string
   databasePath: string
   logs(): string
-  readDatabaseEvidence(): Promise<OperationDatabaseEvidence>
+  readDatabaseEvidence(workflowUuid?: string): Promise<OperationDatabaseEvidence>
   stopProcess(): Promise<void>
   restart(): Promise<void>
   stop(): Promise<void>
@@ -89,12 +89,12 @@ export async function startOperationAuthoringOs(): Promise<OperationAuthoringOs>
     sourcePath,
     databasePath,
     logs: () => output,
-    readDatabaseEvidence: async () => {
+    readDatabaseEvidence: async (workflowUuid = OPERATION_WORKFLOW_UUID) => {
       const { stdout } = await promisify(execFile)(python, [
         '-c',
         PYTHON_DATABASE_READER,
         databasePath,
-        OPERATION_WORKFLOW_UUID
+        workflowUuid
       ], {
         cwd: osRepository,
         env: { ...process.env, PYTHONPATH: osRepository },
@@ -134,12 +134,14 @@ from unilabos.app.workflow_api import create_workflow_app
 from unilabos.workflow.authoring_engine import WorkflowAuthoringEngine
 from unilabos.workflow.authoring_kernel import AuthoringCatalogSnapshot
 from unilabos.workflow.service import WorkflowService
+from unilabos.workflow.source_discovery import discover_editable_sources
 from unilabos.workflow.store import WorkflowStore
 
 working_dir = Path(sys.argv[1])
 package_root = Path(sys.argv[2])
 port = int(sys.argv[3])
 source_path = package_root / "workflows" / "operation.py"
+manifest_path = package_root.parent / "package.yaml"
 database_path = working_dir / "workflow.db"
 workflow_uuid = "${OPERATION_WORKFLOW_UUID}"
 node_uuid = "${OPERATION_NODE_UUID}"
@@ -283,6 +285,15 @@ def runtime_experiment_operation(*, report_prefix: str = "operation"):
 
 working_dir.mkdir(parents=True, exist_ok=True)
 source_path.parent.mkdir(parents=True, exist_ok=True)
+if not manifest_path.exists():
+    manifest_path.write_text(
+        "package:\n"
+        "  name: operation_lab\n"
+        "workflows:\n"
+        f"  - workflow_uuid: {workflow_uuid}\n"
+        "    source: operation_lab/workflows/operation.py\n",
+        encoding="utf-8",
+    )
 initialize = not database_path.exists()
 store = WorkflowStore(database_path)
 service = WorkflowService(store, compiler=compiler)
@@ -294,11 +305,8 @@ if initialize:
         description="Real operation authoring and persistence E2E",
         meta_data={"unilab": {"definition_kind": "operation"}},
     )
-service.replace_active_editable_source_authorization(
-    workflow_uuid=workflow_uuid,
-    package_id="operation_lab",
-    package_root=package_root,
-    relative_path="workflows/operation.py",
+service.replace_discovered_source_authorizations(
+    discover_editable_sources((package_root.parent,))
 )
 if initialize:
     aggregate = service.save_draft(

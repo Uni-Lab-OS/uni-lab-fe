@@ -1,0 +1,546 @@
+:global {
+.experiment-operation--persistent {
+  grid-template: 52px minmax(0, 1fr) / minmax(0, 1fr);
+  background: var(--unilab-color-canvas);
+}
+
+.experiment-operation__directory-bar {
+  z-index: 2;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--unilab-color-border);
+  background: var(--unilab-color-surface);
+  box-shadow: var(--unilab-shadow-xs);
+}
+
+.experiment-operation__directory-bar > div {
+  display: grid;
+  min-width: 180px;
+  margin-right: auto;
+  gap: 1px;
+}
+
+.experiment-operation__directory-bar > div span,
+.experiment-operation__directory-bar > div small {
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+  line-height: 13px;
+}
+
+.experiment-operation__directory-bar > div strong {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.experiment-operation__directory-bar label {
+  min-width: 220px;
+}
+
+.experiment-operation__directory-bar select {
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 28px 4px 9px;
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-sm);
+  background: var(--unilab-color-surface);
+  font-size: 11px;
+}
+
+.experiment-operation__directory-bar > button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.experiment-operation__directory-bar > button.is-primary {
+  color: #fff;
+  border-color: var(--operation-workflow);
+  background: var(--operation-workflow);
+}
+
+.experiment-operation__directory-bar > button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.experiment-operation__persistent-workbench {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.experiment-operation__persistent-workbench > * {
+  width: 100%;
+  height: 100%;
+}
+
+.experiment-operation__directory-state {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  padding: 32px;
+  color: var(--unilab-color-text-muted);
+  place-content: center;
+  place-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.experiment-operation__directory-state .codicon {
+  color: var(--operation-workflow);
+  font-size: 24px;
+}
+
+.experiment-operation__directory-state strong {
+  color: var(--unilab-color-text);
+  font-size: 14px;
+}
+
+.experiment-operation__directory-state p {
+  max-width: 54ch;
+  margin: 0;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.experiment-operation__directory-state.is-error .codicon {
+  color: var(--unilab-color-danger);
+}
+
+.experiment-operation__directory-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.experiment-operation__directory-state-actions button {
+  min-height: 32px;
+  padding: 0 12px;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.experiment-operation__directory-state-actions button.is-primary {
+  color: #fff;
+  border-color: var(--operation-workflow);
+  background: var(--operation-workflow);
+}
+
+.experiment-operation__directory-state-actions button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.workflow-runtime__catalog-dialog.experiment-operation__create-dialog {
+  width: min(630px, 100%);
+  overflow: hidden;
+  border-color: #dfe6ef;
+  border-radius: 15px;
+  box-shadow: 0 24px 72px rgb(15 23 42 / 22%);
+}
+
+.workflow-runtime__catalog-dialog.experiment-operation__create-dialog > header {
+  min-height: 68px;
+  align-items: center;
+  padding: 14px 18px;
+  border-color: #e5eaf1;
+}
+
+.workflow-runtime__catalog-dialog.experiment-operation__create-dialog h3 {
+  color: #1f2937;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 21px;
+}
+
+.workflow-runtime__catalog-dialog.experiment-operation__create-dialog header p {
+  margin-top: 3px;
+  color: #738095;
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.workflow-runtime__catalog-dialog.experiment-operation__create-dialog
+  > header
+  > button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  color: #738095;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.workflow-runtime__catalog-dialog.experiment-operation__create-dialog
+  > header
+  > button:hover {
+  color: #1f2937;
+  border-color: #d9e0ea;
+  background: #f7f9fc;
+}
+
+.workflow-runtime__catalog-dialog.experiment-operation__create-dialog
+  > header
+  > button:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 1px;
+}
+
+.experiment-operation__create-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px 12px;
+  padding: 18px 18px 0;
+}
+
+.experiment-operation__create-field {
+  min-width: 0;
+}
+
+.experiment-operation__create-field.is-wide,
+.experiment-operation__selected-categories,
+.experiment-operation__category-suggestions,
+.experiment-operation__create-boundary-note,
+.experiment-operation__create-form
+  > .workflow-runtime__catalog-dialog-error,
+.experiment-operation__create-form > footer {
+  grid-column: 1 / -1;
+}
+
+.experiment-operation__create-form label > span {
+  color: #526177;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.experiment-operation__create-form label:has(input:required) > span::after,
+.experiment-operation__create-form label.is-required > span::after {
+  margin-left: 3px;
+  color: #dc2626;
+  content: '*';
+}
+
+.experiment-operation__create-form input,
+.experiment-operation__create-form textarea {
+  box-sizing: border-box;
+  min-height: 40px;
+  padding: 9px 10px;
+  color: #1f2937;
+  border-color: #cfd8e4;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 12px;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.experiment-operation__create-form textarea {
+  min-height: 94px;
+  line-height: 18px;
+}
+
+.experiment-operation__create-form input::placeholder,
+.experiment-operation__create-form textarea::placeholder {
+  color: #a0aaba;
+}
+
+.experiment-operation__create-form input:hover,
+.experiment-operation__create-form textarea:hover {
+  border-color: #aebdce;
+}
+
+.experiment-operation__create-form input:focus,
+.experiment-operation__create-form textarea:focus {
+  border-color: #3568ed;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgb(53 104 237 / 13%);
+}
+
+.experiment-operation__category-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+
+.experiment-operation__category-entry > button {
+  min-width: 58px;
+  padding: 0 12px;
+  color: #285bd0;
+  border: 1px solid #b9caf0;
+  border-radius: 8px;
+  background: #f5f8ff;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.experiment-operation__category-entry > button:not(:disabled):hover {
+  border-color: #89a7e8;
+  background: #edf3ff;
+}
+
+.experiment-operation__category-entry > button:focus-visible,
+.experiment-operation__selected-categories button:focus-visible,
+.experiment-operation__category-suggestions button:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.experiment-operation__category-entry > button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.experiment-operation__create-field > small {
+  color: #8793a5;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+.experiment-operation__selected-categories,
+.experiment-operation__category-suggestions {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+
+.experiment-operation__selected-categories > span,
+.experiment-operation__category-suggestions > span {
+  padding-top: 4px;
+  color: #65748a;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.experiment-operation__selected-categories > div,
+.experiment-operation__category-suggestions > div {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.experiment-operation__selected-categories > div > span {
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 26px;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 5px 3px 9px;
+  overflow: hidden;
+  color: #285bd0;
+  border: 1px solid #b9caf0;
+  border-radius: 999px;
+  background: #edf3ff;
+  font-size: 10px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+}
+
+.experiment-operation__selected-categories button {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  padding: 0;
+  place-items: center;
+  color: #526fae;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.experiment-operation__selected-categories button:hover {
+  color: #1f4fba;
+  background: #dce8ff;
+}
+
+.experiment-operation__category-suggestions {
+  margin-top: -5px;
+  padding-top: 10px;
+  border-top: 1px solid #edf1f5;
+}
+
+.experiment-operation__category-suggestions > div {
+  max-height: 72px;
+  overflow: auto;
+}
+
+.experiment-operation__category-suggestions button {
+  min-height: 26px;
+  padding: 3px 9px;
+  color: #526177;
+  border: 1px solid #d7e0ea;
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 18px;
+}
+
+.experiment-operation__category-suggestions button:hover {
+  color: #285bd0;
+  border-color: #9eb5e8;
+  background: #f5f8ff;
+}
+
+.experiment-operation__category-suggestions button.is-selected {
+  color: #285bd0;
+  border-color: #b9caf0;
+  background: #edf3ff;
+}
+
+.experiment-operation__category-suggestions > small {
+  grid-column: 2;
+  color: #8793a5;
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.experiment-operation__create-boundary-note {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  margin: -1px 0 0;
+  padding: 10px 11px;
+  color: #53657b;
+  border: 1px solid #d9e5fb;
+  border-radius: 8px;
+  background: #f5f8ff;
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.experiment-operation__create-boundary-note > .codicon {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  color: #3568ed;
+  font-size: 14px;
+}
+
+.experiment-operation__create-form
+  > .workflow-runtime__catalog-dialog-error {
+  padding: 9px 11px;
+  color: #b42318;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff5f5;
+  font-size: 11px;
+}
+
+.experiment-operation__create-form > footer {
+  min-height: 64px;
+  align-items: center;
+  margin: 1px -18px 0;
+  padding: 12px 18px;
+  border-top: 1px solid #e5eaf1;
+  background: #fafbfd;
+}
+
+.experiment-operation__create-form > footer button {
+  min-width: 82px;
+  min-height: 38px;
+  border-color: #cfd8e4;
+  border-radius: 7px;
+  background: #fff;
+  font-size: 12px;
+}
+
+.experiment-operation__create-form > footer button:not(:disabled):hover {
+  border-color: #aebdce;
+  background: #f7f9fc;
+}
+
+.experiment-operation__create-form > footer button.is-primary {
+  min-width: 108px;
+  color: #fff;
+  border-color: #2563eb;
+  background: #2563eb;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 12%);
+}
+
+.experiment-operation__create-form
+  > footer
+  button.is-primary:not(:disabled):hover {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+}
+
+.experiment-operation__create-form > footer button:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .workflow-runtime__catalog-dialog.experiment-operation__create-dialog {
+    border-radius: 14px 14px 0 0;
+  }
+
+  .workflow-runtime__catalog-dialog.experiment-operation__create-dialog > header {
+    min-height: 72px;
+    padding: 14px 16px;
+  }
+
+  .experiment-operation__create-form {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px 16px 0;
+  }
+
+  .experiment-operation__create-field.is-wide,
+  .experiment-operation__selected-categories,
+  .experiment-operation__category-suggestions,
+  .experiment-operation__create-boundary-note,
+  .experiment-operation__create-form
+    > .workflow-runtime__catalog-dialog-error,
+  .experiment-operation__create-form > footer {
+    grid-column: 1;
+  }
+
+  .experiment-operation__create-form > footer {
+    margin-right: -16px;
+    margin-left: -16px;
+    padding: 12px 16px;
+  }
+
+  .experiment-operation__create-form input,
+  .experiment-operation__create-form textarea {
+    font-size: 16px;
+  }
+}
+}

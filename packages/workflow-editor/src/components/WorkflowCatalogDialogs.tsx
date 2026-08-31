@@ -271,13 +271,14 @@ export function WorkflowChangeLogDialog({
   )
 }
 
-function CatalogDialog({
+export function CatalogDialog({
   title,
   description,
   children,
   onClose,
   initialFocusRef,
   closeButtonRef,
+  className,
   wide = false
 }: {
   title: string
@@ -286,6 +287,7 @@ function CatalogDialog({
   onClose?: () => void
   initialFocusRef: React.RefObject<HTMLElement | null>
   closeButtonRef?: React.RefObject<HTMLButtonElement | null>
+  className?: string
   wide?: boolean
 }): React.JSX.Element {
   const headingId = `workflow-catalog-dialog-${dialogSlug(title)}`
@@ -303,7 +305,11 @@ function CatalogDialog({
   const content = (
     <div className="workflow-runtime__catalog-dialog-backdrop">
       <section
-        className={`workflow-runtime__catalog-dialog${wide ? ' is-wide' : ''}`}
+        className={[
+          'workflow-runtime__catalog-dialog',
+          wide ? 'is-wide' : '',
+          className ?? ''
+        ].filter(Boolean).join(' ')}
         role="dialog"
         aria-modal="true"
         aria-labelledby={headingId}

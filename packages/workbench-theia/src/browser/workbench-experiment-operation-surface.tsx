@@ -57,7 +57,9 @@ export function WorkbenchExperimentOperationSurface({
     >
       <ExperimentOperationWorkbench
         runtime={services.workflow}
+        deviceCatalogPort={services.laboratory}
         catalogStatus={services.getCapabilityStatus('workflow.readDefinitions')}
+        creationStatus={services.getCapabilityStatus('workflow.authoring')}
         traceRuntime={desktopWorkflowTraceRuntime(
           typeof window === 'undefined' ? undefined : window
         )}

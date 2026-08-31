@@ -275,6 +275,76 @@ test('edits operation I/O and node parameters, then saves, applies and restarts'
   expect(browserErrors).toEqual([])
 })
 
+/** 通过真实 HTTP 进程验证多分类同时落入 Python、SQLite 与重启恢复事实。 */
+test('creates and restores multiple operation categories', async () => {
+  const response = await fetch(`${os.url}/api/v1/workflows/operations`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name: '样品分装与封装',
+      categories: ['样品前处理', '固体处理'],
+      description: '完成样品定量分装与封膜。'
+    })
+  })
+  expect(response.status).toBe(201)
+  const body = await response.json() as {
+    code: number
+    data: CreatedOperation
+  }
+  expect(body.code).toBe(0)
+  expect(body.data.tags).toEqual(['样品前处理', '固体处理'])
+  expect(body.data.meta_data.unilab.operation).toEqual({
+    category: '样品前处理',
+    categories: ['样品前处理', '固体处理']
+  })
+
+  const database = await os.readDatabaseEvidence(body.data.uuid)
+  const sourcePath = resolve(database.package_root, database.relative_path)
+  const source = await readFile(sourcePath, 'utf8')
+  expect(source).toContain("categories=['样品前处理', '固体处理']")
+  expect(database.applied_source).not.toBeNull()
+
+  await os.stopProcess()
+  await os.restart()
+  const restarted = await readEnvelope<CreatedOperationAuthoringAggregate>(
+    `${os.url}/api/v1/workflows/${body.data.uuid}/authoring`
+  )
+  expect(restarted.state).toBe('applied')
+  expect(restarted.applied_graph.workflow.tags).toEqual([
+    '样品前处理',
+    '固体处理'
+  ])
+  expect(restarted.applied_graph.workflow.meta_data.unilab.operation).toEqual({
+    category: '样品前处理',
+    categories: ['样品前处理', '固体处理']
+  })
+  expect(restarted.draft.python_source).toBe(source)
+})
+
+interface CreatedOperation {
+  uuid: string
+  tags: string[]
+  meta_data: {
+    unilab: {
+      operation: {
+        category: string
+        categories: string[]
+      }
+    }
+  }
+}
+
+interface CreatedOperationAuthoringAggregate {
+  state: string
+  draft: { python_source: string }
+  applied_graph: {
+    workflow: {
+      tags: string[]
+      meta_data: CreatedOperation['meta_data']
+    }
+  }
+}
+
 interface AuthoringAggregate {
   state: string
   workflow_revision: number

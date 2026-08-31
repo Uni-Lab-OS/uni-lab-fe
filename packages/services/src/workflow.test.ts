@@ -174,6 +174,52 @@ describe('workflow authoring adapters', () => {
       { method: 'DELETE' }
     )
   })
+
+  it('通过正式 OS 事务创建实验操作定义和 Python 源码', async () => {
+    const request = vi.fn().mockResolvedValueOnce({
+      code: 0,
+      data: {
+        uuid: '20000000-0000-4000-8000-000000000001',
+        create_time: '2026-08-29T00:00:00Z',
+        update_time: '2026-08-29T00:00:00Z',
+        meta_data: {
+          unilab: {
+            definition_kind: 'operation',
+            operation: { category: '样品前处理' }
+          }
+        },
+        name: '称量并投料',
+        description: '称量固体并加入目标容器。',
+        tags: ['样品前处理'],
+        revision: 2
+      }
+    })
+    const runtime = createWorkflowRuntime(
+      mockHttp(request),
+      getDefaultBackend('local-python')
+    )
+
+    const created = await runtime.createExperimentOperation({
+      name: '称量并投料',
+      categories: ['样品前处理', '固体处理'],
+      description: '称量固体并加入目标容器。'
+    })
+
+    expect(created.meta_data).toMatchObject({
+      unilab: { definition_kind: 'operation' }
+    })
+    expect(request).toHaveBeenCalledWith(
+      '/api/v1/workflows/operations',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          name: '称量并投料',
+          categories: ['样品前处理', '固体处理'],
+          description: '称量固体并加入目标容器。'
+        })
+      })
+    )
+  })
 })
 
 function mockHttp(

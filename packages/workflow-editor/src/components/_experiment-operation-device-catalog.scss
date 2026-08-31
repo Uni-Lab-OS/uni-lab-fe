@@ -1,0 +1,229 @@
+:global {
+.experiment-operation__empty-catalog {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: 260px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.experiment-operation__empty-catalog > .persistent-authoring__palette {
+  grid-area: auto;
+  min-height: 0;
+  margin: 12px 0 12px 12px;
+}
+
+.experiment-operation__directory-state > button {
+  min-height: 30px;
+  padding: 0 12px;
+  color: var(--unilab-color-primary);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.experiment-operation-device-catalog {
+  display: grid;
+  gap: 0;
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+.experiment-operation-device-catalog__source {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 8px 10px;
+  color: var(--unilab-color-text-muted);
+  border-bottom: 1px solid var(--unilab-color-border);
+  background: var(--unilab-color-surface-subtle);
+  font-size: 10px;
+}
+
+.experiment-operation-device-catalog__source strong {
+  color: var(--unilab-color-text);
+}
+
+.experiment-operation-device-catalog__source > div {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 5px;
+}
+
+.experiment-operation-device-catalog__source button,
+.experiment-operation-device-catalog__problem button {
+  min-height: 24px;
+  padding: 0 7px;
+  color: var(--unilab-color-primary);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-sm);
+  background: var(--unilab-color-surface);
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.experiment-operation-device-catalog__source button:last-child {
+  margin-left: auto;
+}
+
+.experiment-operation-device-catalog__state,
+.experiment-operation-device-catalog__problem {
+  margin: 0;
+  padding: 12px 10px;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.experiment-operation-device-catalog__problem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--unilab-color-danger);
+  background: var(--unilab-color-danger-soft);
+}
+
+.experiment-operation-device-catalog__tree {
+  display: grid;
+}
+
+.experiment-operation-device-catalog__device {
+  border-bottom: 1px solid var(--unilab-color-border);
+}
+
+.experiment-operation-device-catalog__device > button {
+  display: grid;
+  width: 100%;
+  min-height: 46px;
+  grid-template-columns: 12px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  color: var(--unilab-color-text);
+  border: 0;
+  background: var(--unilab-color-surface);
+  cursor: pointer;
+  text-align: left;
+}
+
+.experiment-operation-device-catalog__device > button:hover {
+  background: var(--unilab-color-surface-subtle);
+}
+
+.experiment-operation-device-catalog__device > button > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.experiment-operation-device-catalog__device strong,
+.experiment-operation-device-catalog__device small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.experiment-operation-device-catalog__device strong {
+  font-size: 11px;
+}
+
+.experiment-operation-device-catalog__device small {
+  color: var(--unilab-color-text-muted);
+  font: 9px/13px var(--unilab-font-mono);
+}
+
+.experiment-operation-device-catalog__device > button > span:nth-child(3) {
+  color: var(--unilab-color-danger);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.experiment-operation-device-catalog__device > button > span.is-online {
+  color: var(--unilab-color-success);
+}
+
+.experiment-operation-device-catalog__device > div {
+  display: grid;
+  padding: 3px 7px 7px 22px;
+  gap: 3px;
+  background: var(--unilab-color-surface-subtle);
+}
+
+.experiment-operation-device-catalog__action {
+  display: grid;
+  width: 100%;
+  min-height: 38px;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 7px;
+  color: var(--unilab-color-text);
+  border: 1px solid transparent;
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  cursor: grab;
+  text-align: left;
+}
+
+.experiment-operation-device-catalog__action:hover:not(:disabled) {
+  border-color: var(--unilab-color-focus);
+  box-shadow: var(--unilab-shadow-control);
+}
+
+.experiment-operation-device-catalog__action > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+}
+
+.experiment-operation-device-catalog__action strong {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.experiment-operation-device-catalog__action small {
+  overflow: hidden;
+  color: var(--unilab-color-text-muted);
+  font: 9px/12px var(--unilab-font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.experiment-operation-device-catalog__action em {
+  color: var(--unilab-color-warning);
+  font-size: 9px;
+  font-style: normal;
+}
+
+.experiment-operation-device-catalog__action:disabled {
+  cursor: not-allowed;
+  opacity: .62;
+}
+
+.experiment-operation-device-catalog__unbound {
+  display: grid;
+  gap: 3px;
+  padding: 8px 7px;
+  background: var(--unilab-color-surface-subtle);
+}
+
+.experiment-operation-device-catalog__unbound h4 {
+  margin: 0 2px 4px;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+}
+
+@container workflow (max-width: 760px) {
+  .experiment-operation__empty-catalog {
+    grid-template-columns: minmax(220px, 1fr);
+  }
+
+  .experiment-operation__empty-catalog > .experiment-operation__directory-state {
+    display: none;
+  }
+}
+}

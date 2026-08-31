@@ -32,6 +32,7 @@ import {
   strictAuthoringData
 } from './workflowAuthoringCodec'
 import type {
+  ExperimentOperationCreateRequest,
   WorkflowAuthoringChangedEvent
 } from './workflowAuthoringContracts'
 import {
@@ -99,6 +100,7 @@ export type {
   WorkflowDefinitionChangeAction,
   WorkflowDefinitionChangePage,
   WorkflowDefinitionCreateRequest,
+  ExperimentOperationCreateRequest,
   WorkflowListQuery,
   WorkflowPage,
   WorkflowPersistentAuthoringCandidate,
@@ -288,6 +290,21 @@ export function createWorkflowRuntime(
         })
       }
     ),
+    createExperimentOperation: (body: ExperimentOperationCreateRequest) => {
+      requireWorkflowCapability('workflow.authoring')
+      return authoringRequest(
+        '/api/v1/workflows/operations',
+        {
+          method: 'POST',
+          headers: jsonHeaders(),
+          body: JSON.stringify({
+            name: body.name,
+            categories: body.categories,
+            description: body.description
+          })
+        }
+      )
+    },
     deleteWorkflowDefinition: async (workflowUuid) => {
       await request<void>(
         `/api/v1/workflows/${encodeURIComponent(workflowUuid)}`,

@@ -13,6 +13,7 @@ import type {
   WorkflowAuthoringValidateRequest,
   WorkflowDefinitionChangePage,
   WorkflowDefinitionCreateRequest,
+  ExperimentOperationCreateRequest,
   WorkflowDocument,
   WorkflowListQuery,
   WorkflowPage,
@@ -61,6 +62,9 @@ export interface WorkflowRuntimePort {
   listWorkflows: (query?: WorkflowListQuery) => Promise<WorkflowPage>
   createWorkflowDefinition: (
     request: WorkflowDefinitionCreateRequest
+  ) => Promise<WorkflowSummary>
+  createExperimentOperation: (
+    request: ExperimentOperationCreateRequest
   ) => Promise<WorkflowSummary>
   deleteWorkflowDefinition: (workflowUuid: string) => Promise<void>
   listWorkflowDefinitionChanges: (
