@@ -438,7 +438,7 @@ test('SZLab workflow projects material transfers into the Pascal 3D scene', asyn
   expect(browserErrors).toEqual([])
 })
 
-test('上料拖拽不打开物料属性面板', async ({ page }) => {
+test('手动下料后可拖拽上料且不打开物料属性面板', async ({ page }) => {
   await installMaterialOnlyLayout(page)
   await page.goto(
     `/?section=material&localOsUrl=${encodeURIComponent(API_URL)}`
@@ -450,10 +450,11 @@ test('上料拖拽不打开物料属性面板', async ({ page }) => {
   await expect(source).toBeVisible({ timeout: 30_000 })
 
   await page.getByPlaceholder('检索物料、设备或库位').fill('500ml')
-  await page.getByRole('button', {
+  const sourceTreeItem = page.getByRole('button', {
     name: '烧杯堆栈2 L1B1 烧杯 500 mL',
     exact: true
-  }).click()
+  })
+  await sourceTreeItem.click()
   await expect(
     page.getByRole('dialog', { name: '物料属性' })
   ).toBeVisible()
@@ -462,27 +463,85 @@ test('上料拖拽不打开物料属性面板', async ({ page }) => {
     page.getByRole('dialog', { name: '物料属性' })
   ).toHaveCount(0)
 
+  const handlingControls = page.locator('.material-canvas__edit-control')
+  const detachButton = handlingControls.getByRole('button', {
+    name: '下料',
+    exact: true
+  })
+  await expect(detachButton).toBeEnabled()
+  await detachButton.click()
+  await expect(handlingControls.getByRole('status'))
+    .toHaveText('下料完成')
+  await sourceTreeItem.click()
+  await expect(
+    page.getByRole('dialog', { name: '物料属性' })
+  ).toBeVisible()
+  await page.getByRole('button', { name: '关闭物料属性' }).click()
+
   await page.getByRole('button', { name: '上料', exact: true }).click()
   await expect(
     page.getByRole('dialog', { name: '物料属性' })
   ).toHaveCount(0)
 
-  const sourceBounds = await source.boundingBox()
-  if (!sourceBounds) throw new Error('上料物料缺少可拖拽边界')
-  await page.mouse.move(
-    sourceBounds.x + sourceBounds.width / 2,
-    sourceBounds.y + sourceBounds.height / 2
-  )
+  const draggableNodes = page
+    .locator('.material-flow-node[data-material-kind="beaker"]:visible')
+    .locator('xpath=ancestor::div[contains(@class, "react-flow__node")][1]')
+  await expect(draggableNodes.first()).toBeVisible()
+  let sourceBounds: Awaited<ReturnType<typeof source.boundingBox>> = null
+  for (let index = 0; index < await draggableNodes.count(); index += 1) {
+    const candidate = draggableNodes.nth(index)
+    const bounds = await candidate.boundingBox()
+    const materialId = await candidate.getAttribute('data-id')
+    if (!bounds || !materialId) continue
+    const hitMaterialId = await page.evaluate(({ x, y }) =>
+      document.elementFromPoint(x, y)
+        ?.closest('.react-flow__node')
+        ?.getAttribute('data-id') ?? null,
+    {
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2
+    })
+    if (hitMaterialId === materialId) {
+      sourceBounds = bounds
+      break
+    }
+  }
+  if (!sourceBounds) throw new Error('未找到未被重叠节点遮挡的可拖拽物料')
+  const sourceCenterX = sourceBounds.x + sourceBounds.width / 2
+  const sourceCenterY = sourceBounds.y + sourceBounds.height / 2
+  await page.mouse.move(sourceCenterX, sourceCenterY)
   await page.mouse.down()
+  await page.mouse.move(sourceCenterX + 5, sourceCenterY + 5, { steps: 2 })
+  const availableSites = page.locator(
+    '[data-material-site-id][data-site-drop-state="available"]:visible'
+  )
+  await expect(availableSites.first()).toBeVisible()
+  let targetBounds: Awaited<ReturnType<typeof source.boundingBox>> = null
+  for (let index = 0; index < await availableSites.count(); index += 1) {
+    const bounds = await availableSites.nth(index).boundingBox()
+    if (!bounds) continue
+    const targetCenterX = bounds.x + bounds.width / 2
+    const targetCenterY = bounds.y + bounds.height / 2
+    if (Math.hypot(
+      targetCenterX - sourceCenterX,
+      targetCenterY - sourceCenterY
+    ) >= 30) {
+      targetBounds = bounds
+      break
+    }
+  }
+  if (!targetBounds) throw new Error('未找到与物料分离的可用上料库位')
   await page.mouse.move(
-    sourceBounds.x + sourceBounds.width / 2 + 30,
-    sourceBounds.y + sourceBounds.height / 2 + 30,
-    { steps: 5 }
+    targetBounds.x + targetBounds.width / 2,
+    targetBounds.y + targetBounds.height / 2,
+    { steps: 10 }
   )
   await expect(
     page.getByRole('dialog', { name: '物料属性' })
   ).toHaveCount(0)
   await page.mouse.up()
+  await expect(handlingControls.getByRole('status'))
+    .toHaveText('上料完成')
 })
 
 /**

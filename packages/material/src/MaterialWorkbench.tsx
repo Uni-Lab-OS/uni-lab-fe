@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import type { CapabilityStatus } from './MaterialCapabilityNotice'
 import { MaterialInspector } from './MaterialInspector'
@@ -79,7 +79,13 @@ export function MaterialWorkbench({
         .map((aggregate) => aggregate.material.name),
     [aggregatesById]
   )
-  const inspectedMaterialId = selectedMaterialIds[0] ?? null
+  const selectedMaterialId = selectedMaterialIds[0] ?? null
+  const [inspectedMaterialId, setInspectedMaterialId] =
+    useState<MaterialId | null>(selectedMaterialId)
+
+  useEffect(() => {
+    setInspectedMaterialId(selectedMaterialId)
+  }, [selectedMaterialId])
 
   return (
     <div className={materialScopeClassName('material-workbench')}>
@@ -87,6 +93,7 @@ export function MaterialWorkbench({
         selectedMaterialIds={selectedMaterialIds}
         onSelectionChange={onSelectionChange}
         onMaterialActivate={(materialId) => {
+          setInspectedMaterialId(materialId)
           setFocusRequest((current) => ({
             materialId,
             revision: (current?.revision ?? 0) + 1
@@ -132,7 +139,7 @@ export function MaterialWorkbench({
       <MaterialInspector
         materialId={inspectedMaterialId}
         updateStatus={capabilities.updateConfig}
-        onClose={() => onSelectionChange?.([])}
+        onClose={() => setInspectedMaterialId(null)}
       />
     </div>
   )
