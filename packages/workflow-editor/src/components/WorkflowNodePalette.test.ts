@@ -70,10 +70,31 @@ describe('workflowNodePaletteProjection', () => {
     expect(values.get(WORKFLOW_NODE_PALETTE_MIME)).toBe(
       '{"kind":"action","templateUuid":"template-1"}'
     )
+    expect(values.get('text/plain')).toBe(
+      'unilab-workflow-node:{"kind":"action","templateUuid":"template-1"}'
+    )
     expect(readWorkflowNodePaletteDragPayload(dataTransfer)).toEqual({
       kind: 'action',
       templateUuid: 'template-1'
     })
+  })
+
+  it('reads the namespaced Electron text fallback without accepting plain text', () => {
+    const values = new Map<string, string>([[
+      'text/plain',
+      'unilab-workflow-node:{"kind":"action","templateUuid":"template-2"}'
+    ]])
+    const dataTransfer = {
+      types: ['text/plain'],
+      getData: (type: string) => values.get(type) ?? ''
+    } as unknown as DataTransfer
+
+    expect(readWorkflowNodePaletteDragPayload(dataTransfer)).toEqual({
+      kind: 'action',
+      templateUuid: 'template-2'
+    })
+    values.set('text/plain', '普通文本')
+    expect(readWorkflowNodePaletteDragPayload(dataTransfer)).toBeNull()
   })
 })
 

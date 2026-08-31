@@ -10,15 +10,18 @@ import { createPortal } from 'react-dom'
 import type {
   WorkflowDefinitionChange,
   WorkflowDefinitionCreateRequest,
+  WorkflowDefinitionKind,
   WorkflowSummary
 } from '@unilab/services'
 
 import { WorkflowButton } from './WorkflowButton'
 
 export function CreateWorkflowDialog({
+  definitionKind = 'workflow',
   onCancel,
   onCreate
 }: {
+  definitionKind?: WorkflowDefinitionKind
   onCancel: () => void
   onCreate: (request: WorkflowDefinitionCreateRequest) => Promise<void>
 }): React.JSX.Element {
@@ -28,6 +31,7 @@ export function CreateWorkflowDialog({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const nameRef = useRef<HTMLInputElement>(null)
+  const isOperation = definitionKind === 'operation'
 
   /** 提交经过本地约束的工作流定义，并保留失败时的用户输入。 */
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -40,7 +44,10 @@ export function CreateWorkflowDialog({
       await onCreate({
         name: normalizedName,
         description: description.trim() || undefined,
-        tags: tags.split(/[，,]/u).map((tag) => tag.trim()).filter(Boolean)
+        tags: tags.split(/[，,]/u).map((tag) => tag.trim()).filter(Boolean),
+        meta_data: isOperation
+          ? { unilab: { definition_kind: 'operation' } }
+          : undefined
       })
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
@@ -50,8 +57,10 @@ export function CreateWorkflowDialog({
 
   return (
     <CatalogDialog
-      title="新建工作流"
-      description="创建后可进入编排界面添加步骤并保存定义。"
+      title={isOperation ? '新建实验操作' : '新建工作流'}
+      description={isOperation
+        ? '创建后进入空白画布，可从设备动作目录添加并编排节点。'
+        : '创建后可进入编排界面添加步骤并保存定义。'}
       onClose={submitting ? undefined : onCancel}
       initialFocusRef={nameRef}
     >
@@ -64,7 +73,7 @@ export function CreateWorkflowDialog({
             maxLength={100}
             required
             autoComplete="off"
-            placeholder="例如：S01 自动配液"
+            placeholder={isOperation ? '例如：机械臂取放样品' : '例如：S01 自动配液'}
             onChange={(event) => setName(event.target.value)}
           />
         </label>
@@ -74,7 +83,9 @@ export function CreateWorkflowDialog({
             value={description}
             maxLength={500}
             rows={4}
-            placeholder="说明用途、输入与预期结果"
+            placeholder={isOperation
+              ? '说明该实验操作的用途、设备动作与预期结果'
+              : '说明用途、输入与预期结果'}
             onChange={(event) => setDescription(event.target.value)}
           />
         </label>
@@ -83,7 +94,9 @@ export function CreateWorkflowDialog({
           <input
             value={tags}
             autoComplete="off"
-            placeholder="用逗号分隔，例如：S01，配液"
+            placeholder={isOperation
+              ? '用逗号分隔，例如：机械臂，取放'
+              : '用逗号分隔，例如：S01，配液'}
             onChange={(event) => setTags(event.target.value)}
           />
         </label>
@@ -109,7 +122,9 @@ export function CreateWorkflowDialog({
               ? '创建请求正在提交，请稍候'
               : '请先填写工作流名称'}
           >
-            {submitting ? '正在创建…' : '创建并打开'}
+            {submitting
+              ? '正在创建…'
+              : isOperation ? '创建并进入画布' : '创建并打开'}
           </WorkflowButton>
         </footer>
       </form>

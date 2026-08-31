@@ -100,6 +100,23 @@ describe('Workbench domain view presentation', () => {
     expect(state.isVisible('workflow-tasks')).toBe(true)
   })
 
+  it('allows workflow management and materials to remain visible together', () => {
+    const state = new WorkbenchViewState()
+
+    state.toggle('workflow-management')
+    state.toggle('material')
+
+    expect(state.currentMode).toBe('workflow-management-material')
+    expect(state.isVisible('workflow-management')).toBe(true)
+    expect(state.isVisible('workflow')).toBe(false)
+    expect(state.isVisible('material')).toBe(true)
+
+    state.toggle('material')
+    expect(state.currentMode).toBe('workflow-management')
+    expect(state.isVisible('workflow-management')).toBe(true)
+    expect(state.isVisible('material')).toBe(false)
+  })
+
   it('opens experiment operation debugging as an exclusive surface', () => {
     const state = new WorkbenchViewState()
 

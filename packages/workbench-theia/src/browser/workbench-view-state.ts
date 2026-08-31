@@ -25,6 +25,7 @@ export type WorkbenchViewMode =
   | 'robot-bench'
   | 'robot-reagents'
   | 'split'
+  | 'workflow-management-material'
   | 'device-material'
 
 export type RobotWorkbenchViewMode = Extract<
@@ -41,11 +42,12 @@ export type RobotWorkbenchViewMode = Extract<
 @injectable()
 export class WorkbenchViewState {
   protected workflowVisible = !headlessMaterialRendererRequested()
+  protected workflowManagementVisible = false
   protected materialVisible = headlessMaterialRendererRequested()
   protected deviceVisible = false
   protected exclusiveDomain: Exclude<
     WorkbenchDomain,
-    'workflow' | 'material' | 'device'
+    'workflow' | 'workflow-management' | 'material' | 'device'
   > | null = null
   protected readonly changeEmitter = new Emitter<WorkbenchViewMode>()
 
@@ -56,6 +58,10 @@ export class WorkbenchViewState {
     if (this.exclusiveDomain) return this.exclusiveDomain
     if (this.deviceVisible && this.materialVisible) return 'device-material'
     if (this.deviceVisible) return 'device'
+    if (this.workflowManagementVisible && this.materialVisible) {
+      return 'workflow-management-material'
+    }
+    if (this.workflowManagementVisible) return 'workflow-management'
     if (this.workflowVisible && this.materialVisible) return 'split'
     if (this.workflowVisible) return 'workflow'
     if (this.materialVisible) return 'material'
@@ -66,6 +72,9 @@ export class WorkbenchViewState {
   isVisible(domain: WorkbenchDomain): boolean {
     if (this.exclusiveDomain) return this.exclusiveDomain === domain
     if (domain === 'workflow') return this.workflowVisible
+    if (domain === 'workflow-management') {
+      return this.workflowManagementVisible
+    }
     if (domain === 'material') return this.materialVisible
     if (domain === 'device') return this.deviceVisible
     return false
@@ -81,7 +90,12 @@ export class WorkbenchViewState {
     // 主区必须始终保留至少一个活动领域。单视图下再次点击当前入口
     // 只用于保持焦点，不能把唯一活动项关闭成 empty。
     if (!isSplitWorkbenchView(previousMode) && this.isVisible(domain)) return
-    if (domain !== 'workflow' && domain !== 'material' && domain !== 'device') {
+    if (
+      domain !== 'workflow' &&
+      domain !== 'workflow-management' &&
+      domain !== 'material' &&
+      domain !== 'device'
+    ) {
       this.exclusiveDomain = this.exclusiveDomain === domain ? null : domain
     } else if (this.exclusiveDomain) {
       // 从机械臂等互斥页面返回主区时，明确选择用户点击的领域。
@@ -89,6 +103,7 @@ export class WorkbenchViewState {
       // 会把 materialVisible 从 true 切成 false，导致主区与活动栏选中态不一致。
       this.exclusiveDomain = null
       this.workflowVisible = domain === 'workflow'
+      this.workflowManagementVisible = domain === 'workflow-management'
       this.materialVisible = domain === 'material'
       this.deviceVisible = domain === 'device'
     } else {
@@ -96,13 +111,26 @@ export class WorkbenchViewState {
       if (domain === 'workflow') {
         const nextVisible = !this.workflowVisible
         this.workflowVisible = nextVisible
-        if (nextVisible) this.deviceVisible = false
+        if (nextVisible) {
+          this.workflowManagementVisible = false
+          this.deviceVisible = false
+        }
+      } else if (domain === 'workflow-management') {
+        const nextVisible = !this.workflowManagementVisible
+        this.workflowManagementVisible = nextVisible
+        if (nextVisible) {
+          this.workflowVisible = false
+          this.deviceVisible = false
+        }
       } else if (domain === 'material') {
         this.materialVisible = !this.materialVisible
       } else {
         const nextVisible = !this.deviceVisible
         this.deviceVisible = nextVisible
-        if (nextVisible) this.workflowVisible = false
+        if (nextVisible) {
+          this.workflowVisible = false
+          this.workflowManagementVisible = false
+        }
       }
     }
     const nextMode = this.currentMode
@@ -112,7 +140,8 @@ export class WorkbenchViewState {
 
 /** 判断当前是否为允许用户关闭任一侧的双领域分栏。 */
 function isSplitWorkbenchView(mode: WorkbenchViewMode): boolean {
-  return mode === 'split' || mode === 'device-material'
+  return mode === 'split' || mode === 'workflow-management-material' ||
+    mode === 'device-material'
 }
 
 function headlessMaterialRendererRequested(): boolean {

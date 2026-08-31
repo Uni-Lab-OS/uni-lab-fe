@@ -18,8 +18,8 @@ import { PersistentWorkflowToolbar } from './PersistentWorkflowToolbar'
 import { WorkflowAuthoringLibrary } from './WorkflowAuthoringLibrary'
 import { WorkflowNodeInspector } from './WorkflowNodeInspector'
 import {
+  hasWorkflowNodePaletteDragPayload,
   readWorkflowNodePaletteDragPayload,
-  WORKFLOW_NODE_PALETTE_MIME,
   type WorkflowCanvasBreadcrumb,
   type WorkflowCanvasNavigationState,
   type WorkflowCanvasPoint,
@@ -592,20 +592,20 @@ export function PersistentWorkflowAuthoringView({
                 <div
                   ref={graphStageRef}
                   className="persistent-authoring__graph-stage"
-                  onDragOver={(event) => {
-                    if (!canvasMutationEnabled || !event.dataTransfer.types.includes(
-                      WORKFLOW_NODE_PALETTE_MIME
-                    )) return
+                  onDragOverCapture={(event) => {
+                    if (!canvasMutationEnabled ||
+                      !hasWorkflowNodePaletteDragPayload(event.dataTransfer)) return
                     event.preventDefault()
                     event.dataTransfer.dropEffect = 'copy'
                   }}
-                  onDrop={(event) => {
+                  onDropCapture={(event) => {
                     if (!canvasMutationEnabled) return
                     const payload = readWorkflowNodePaletteDragPayload(
                       event.dataTransfer
                     )
                     if (!payload) return
                     event.preventDefault()
+                    event.stopPropagation()
                     const position = workflowDagRef.current
                       ?.clientToCanvasPoint(event.clientX, event.clientY) ??
                       viewportInsertPoint()

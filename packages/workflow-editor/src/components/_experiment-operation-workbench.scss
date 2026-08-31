@@ -213,12 +213,16 @@
 
 .experiment-operation__create-form {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: 15px 12px;
   padding: 18px 18px 0;
 }
 
 .experiment-operation__create-field {
   min-width: 0;
+  align-self: start;
+  align-content: start;
+  grid-auto-rows: max-content;
 }
 
 .experiment-operation__create-field.is-wide,
@@ -290,6 +294,8 @@
 
 .experiment-operation__category-entry > button {
   min-width: 58px;
+  min-height: 40px;
+  align-self: start;
   padding: 0 12px;
   color: #285bd0;
   border: 1px solid #b9caf0;

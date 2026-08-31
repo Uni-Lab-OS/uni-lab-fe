@@ -1,4 +1,5 @@
 import type {
+  WorkflowActionCatalogSnapshot,
   WorkflowRuntimePort,
   WorkflowSummary
 } from '@unilab/services'
@@ -9,6 +10,10 @@ import {
   ExperimentOperationWorkbench,
   filterExperimentOperationDefinitions
 } from './ExperimentOperationWorkbench'
+import {
+  ExperimentOperationDeviceLibrary,
+  groupExperimentOperationDeviceActions
+} from './ExperimentOperationDeviceLibrary'
 
 describe('ExperimentOperationWorkbench', () => {
   it('renders an OS-owned operation directory boundary while inactive', () => {
@@ -40,6 +45,116 @@ describe('ExperimentOperationWorkbench', () => {
     expect(filterExperimentOperationDefinitions(summaries).map(
       workflow => workflow.uuid
     )).toEqual(['operation'])
+  })
+
+  it('shows the device action catalog and creation entry before an operation exists', () => {
+    const markup = renderToStaticMarkup(
+      <ExperimentOperationWorkbench
+        runtime={{} as WorkflowRuntimePort}
+        catalogStatus={{ available: true }}
+        authoringStatus={{ available: true }}
+        active
+      />
+    )
+
+    expect(markup).toContain('操作与节点库')
+    expect(markup).toContain('实验操作库')
+    expect(markup).toContain('设备动作库')
+    expect(markup).toContain('实验流程结构')
+    expect(markup).toContain('实验操作参数')
+    expect(markup).toContain('新建实验操作')
+    expect(markup).not.toContain('设备包尚未发布实验操作')
+  })
+
+  it('groups OS actions by device and excludes authoring-only material sources', () => {
+    const groups = groupExperimentOperationDeviceActions({
+      actionTemplates: [
+        actionTemplate(
+          'pump-start',
+          'pump-template',
+          '启动泵',
+          'lab.devices:SzlabMixerPumpDevice'
+        ),
+        actionTemplate(
+          'pump-stop',
+          'pump-template',
+          '停止泵',
+          'lab.devices:SzlabMixerPumpDevice'
+        ),
+        actionTemplate(
+          'pump-sim',
+          'pump-sim-template',
+          '仿真启动泵',
+          'lab.devices:SzlabMixerPumpEmbeddedSimDevice'
+        ),
+        actionTemplate(
+          'host-create',
+          'host-template',
+          '创建物料',
+          'unilabos.devices:HostNode'
+        ),
+        actionTemplate(
+          'material-source',
+          'material-template',
+          '物料来源',
+          'unilabos.workflow.authoring:material_source',
+          'material_source'
+        )
+      ],
+      workflowTemplates: []
+    } satisfies WorkflowActionCatalogSnapshot)
+
+    expect(groups).toHaveLength(1)
+    expect(groups[0]).toMatchObject({
+      resourceTemplateUuid: 'pump-template',
+      label: 'S06 注射泵'
+    })
+    expect(groups[0]?.actions.map(action => action.uuid)).toEqual([
+      'pump-start',
+      'pump-stop'
+    ])
+  })
+
+  it('shows device actions expanded and counts only business devices', () => {
+    const catalog = {
+      actionTemplates: [
+        actionTemplate(
+          'stir',
+          'stirrer-template',
+          'S04 烧杯磁搅',
+          'lab.devices:SzlabMixerMagneticStirrerDevice'
+        ),
+        actionTemplate(
+          'stir-sim',
+          'stirrer-sim-template',
+          '仿真磁搅',
+          'lab.devices:SzlabMixerMagneticStirrerEmbeddedSimDevice'
+        )
+      ],
+      workflowTemplates: []
+    } satisfies WorkflowActionCatalogSnapshot
+    const markup = renderToStaticMarkup(
+      <ExperimentOperationDeviceLibrary
+        catalog={catalog}
+        onAddAction={() => undefined}
+      />
+    )
+
+    expect(markup).toContain('1 台 · 1 项')
+    expect(markup).toContain('aria-expanded="true"')
+    expect(markup).toContain('aria-controls="operation-device-actions-stirrer-template"')
+    expect(markup).toContain('codicon-chevron-down')
+    expect(markup).toContain('S04 烧杯磁搅')
+    expect(markup).toContain('draggable="true"')
+    expect(markup).not.toContain('仿真磁搅')
+  })
+
+  it('creates operation definitions with canonical OS metadata', () => {
+    const dialogs = componentSource('WorkflowCatalogDialogs.tsx')
+
+    expect(dialogs).toContain("definitionKind = 'workflow'")
+    expect(dialogs).toContain("definition_kind: 'operation'")
+    expect(dialogs).toContain('创建并进入画布')
   })
 
   it('reuses Canonical authoring for operation nodes and complete I/O', () => {
@@ -90,6 +205,27 @@ function workflowSummary(
     name: uuid,
     tags: [],
     revision: 1
+  }
+}
+
+function actionTemplate(
+  uuid: string,
+  resourceTemplateUuid: string,
+  displayName: string,
+  actionClass: string,
+  actionType = 'device_action'
+): WorkflowActionCatalogSnapshot['actionTemplates'][number] {
+  return {
+    uuid,
+    resourceTemplateUuid,
+    name: uuid,
+    displayName,
+    actionClass,
+    actionType,
+    schema: {},
+    goal: {},
+    goalDefault: {},
+    handles: []
   }
 }
 

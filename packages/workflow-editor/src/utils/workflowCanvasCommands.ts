@@ -36,21 +36,45 @@ export type WorkflowHandleConnectionResult =
 
 export const WORKFLOW_NODE_PALETTE_MIME =
   'application/x-unilab-workflow-node-template'
+const WORKFLOW_NODE_PALETTE_TEXT_PREFIX = 'unilab-workflow-node:'
 
 /** 将节点库稳定身份写入浏览器拖拽载荷，不携带目录或草稿对象。 */
 export function writeWorkflowNodePaletteDragPayload(
   dataTransfer: DataTransfer,
   payload: WorkflowNodePaletteDragPayload
 ): void {
+  const serialized = JSON.stringify(payload)
   dataTransfer.effectAllowed = 'copy'
-  dataTransfer.setData(WORKFLOW_NODE_PALETTE_MIME, JSON.stringify(payload))
+  dataTransfer.setData(WORKFLOW_NODE_PALETTE_MIME, serialized)
+  // Electron/macOS may suppress a custom MIME type while an X6 surface owns
+  // the drag target. A namespaced text fallback keeps the payload available
+  // without accepting arbitrary text drops as workflow nodes.
+  dataTransfer.setData(
+    'text/plain',
+    `${WORKFLOW_NODE_PALETTE_TEXT_PREFIX}${serialized}`
+  )
+}
+
+/** 判断拖拽是否来自 UniLab 节点库；不读取受浏览器保护的载荷正文。 */
+export function hasWorkflowNodePaletteDragPayload(
+  dataTransfer: DataTransfer
+): boolean {
+  const types = Array.from(dataTransfer.types ?? [])
+  return types.includes(WORKFLOW_NODE_PALETTE_MIME) ||
+    types.includes('text/plain')
 }
 
 /** 关闭失败地读取节点库拖拽载荷。 */
 export function readWorkflowNodePaletteDragPayload(
   dataTransfer: DataTransfer
 ): WorkflowNodePaletteDragPayload | null {
-  const raw = dataTransfer.getData(WORKFLOW_NODE_PALETTE_MIME)
+  const canonical = dataTransfer.getData(WORKFLOW_NODE_PALETTE_MIME)
+  const textFallback = dataTransfer.getData('text/plain')
+  const raw = canonical || (
+    textFallback.startsWith(WORKFLOW_NODE_PALETTE_TEXT_PREFIX)
+      ? textFallback.slice(WORKFLOW_NODE_PALETTE_TEXT_PREFIX.length)
+      : ''
+  )
   if (!raw) return null
   try {
     const value: unknown = JSON.parse(raw)

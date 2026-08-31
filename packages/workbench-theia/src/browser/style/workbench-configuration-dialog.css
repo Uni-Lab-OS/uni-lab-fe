@@ -274,11 +274,36 @@
   color: #3568ed;
 }
 
-.unilab-config-dialog button:disabled { cursor: wait; opacity: .58; }
+.unilab-config-dialog button:disabled {
+  cursor: not-allowed;
+  opacity: .58;
+}
+.unilab-config-dialog button[aria-busy="true"]:disabled {
+  cursor: wait;
+}
 .unilab-config-dialog button.is-primary {
   color: #fff;
   border-color: #3568ed;
   background: #3568ed;
+}
+.unilab-config-dialog button.is-primary:hover:not(:disabled) {
+  color: #fff;
+  border-color: #2858d7;
+  background: #2858d7;
+}
+.unilab-config-dialog__button-spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: unilab-config-button-spin 700ms linear infinite;
+}
+
+@keyframes unilab-config-button-spin {
+  to { transform: rotate(360deg); }
 }
 .unilab-config-dialog button.is-runtime-stop {
   color: #fff;

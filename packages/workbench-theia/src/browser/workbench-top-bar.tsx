@@ -1,8 +1,13 @@
 import * as React from 'react'
+import type { WorkbenchEnvironmentLogKind } from '@unilab/workbench-session'
 
 import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
 import type { WorkbenchConfigurationKind } from './workbench-configuration-dialog'
 import type { WorkbenchConnectionMode } from './workbench-connection-profile'
+import {
+  WorkbenchRuntimeLogLauncher,
+  type WorkbenchRuntimeLogPaths
+} from './workbench-runtime-log-drawer'
 
 /**
  * 渲染模式相关的 Workbench 顶部入口，保持配置与退出动作语义一致。
@@ -19,7 +24,10 @@ export function WorkbenchTopBar({
   workspaceLabel,
   onConfigure,
   onExitMode,
-  onOpenAssistant
+  onOpenAssistant,
+  onReadEnvironmentLog,
+  onOpenLog,
+  runtimeLogPaths
 }: {
   connectionMode: WorkbenchConnectionMode
   configurationKind: WorkbenchConfigurationKind | null
@@ -29,6 +37,11 @@ export function WorkbenchTopBar({
   onConfigure: (kind: WorkbenchConfigurationKind) => void
   onExitMode: () => void
   onOpenAssistant: () => void
+  onReadEnvironmentLog?: (
+    kind: WorkbenchEnvironmentLogKind
+  ) => Promise<string>
+  onOpenLog?: (path: string) => Promise<void>
+  runtimeLogPaths?: WorkbenchRuntimeLogPaths
 }): React.JSX.Element {
   const production = connectionMode === 'backend'
   return (
@@ -46,6 +59,13 @@ export function WorkbenchTopBar({
             <span className="codicon codicon-hubot" aria-hidden="true" />
             助手
           </button>
+          {onReadEnvironmentLog ? (
+            <WorkbenchRuntimeLogLauncher
+              onReadLog={onReadEnvironmentLog}
+              onOpenLog={onOpenLog}
+              logPaths={runtimeLogPaths}
+            />
+          ) : null}
           {production ? (
             <button
               type="button"

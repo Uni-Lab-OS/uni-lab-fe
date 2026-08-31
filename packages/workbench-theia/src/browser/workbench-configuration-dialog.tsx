@@ -296,13 +296,24 @@ export function WorkbenchConfigurationDialog({
                   <div className="unilab-config-dialog__module-actions">
                     <button
                       type="button"
-                      className={plcCanStart ? 'is-primary' : undefined}
+                      className={
+                        plcCanStart || busyAction === 'start-plc'
+                          ? 'is-primary'
+                          : undefined
+                      }
+                      aria-busy={busyAction === 'start-plc'}
                       disabled={Boolean(busyAction) || !plcCanStart}
                       onClick={() => void run(
                         'start-plc',
                         operations.startPlcSimulator
                       )}
-                    >启动 PLC-Sim</button>
+                    >
+                      <WorkbenchConfigurationActionProgress
+                        active={busyAction === 'start-plc'}
+                        label="启动 PLC-Sim"
+                        pendingLabel="启动中…"
+                      />
+                    </button>
                     <button
                       type="button"
                       className={plcReady ? 'is-runtime-stop' : undefined}
@@ -339,10 +350,21 @@ export function WorkbenchConfigurationDialog({
                 <div className="unilab-config-dialog__module-actions">
                   <button
                     type="button"
-                    className={osCanStart ? 'is-primary' : undefined}
+                    className={
+                      osCanStart || busyAction === 'start-os'
+                        ? 'is-primary'
+                        : undefined
+                    }
+                    aria-busy={busyAction === 'start-os'}
                     disabled={Boolean(busyAction) || !osCanStart}
                     onClick={() => void run('start-os', operations.startOs)}
-                  >启动 OS</button>
+                  >
+                    <WorkbenchConfigurationActionProgress
+                      active={busyAction === 'start-os'}
+                      label="启动 OS"
+                      pendingLabel="启动中…"
+                    />
+                  </button>
                   <button
                     type="button"
                     disabled={Boolean(busyAction) || !osReady}
@@ -441,6 +463,29 @@ export function WorkbenchConfigurationDialog({
         </footer>
       </section>
     </div>
+  )
+}
+
+/** 为运行组件动作提供稳定的按钮内进度反馈。 */
+export function WorkbenchConfigurationActionProgress({
+  active,
+  label,
+  pendingLabel
+}: {
+  active: boolean
+  label: string
+  pendingLabel: string
+}): React.JSX.Element {
+  return (
+    <>
+      {active ? (
+        <span
+          className="unilab-config-dialog__button-spinner"
+          aria-hidden="true"
+        />
+      ) : null}
+      <span>{active ? pendingLabel : label}</span>
+    </>
   )
 }
 

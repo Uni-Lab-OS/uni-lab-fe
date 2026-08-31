@@ -19,6 +19,7 @@
 }
 
 .unilab-workbench__domain-layout.is-split,
+.unilab-workbench__domain-layout.is-workflow-management-material,
 .unilab-workbench__domain-layout.is-device-material {
   display: grid;
   align-items: stretch;
@@ -57,12 +58,15 @@
 }
 
 .unilab-workbench__domain-layout.is-split .is-workflow,
+.unilab-workbench__domain-layout.is-workflow-management-material .is-workflow,
 .unilab-workbench__domain-layout.is-device-material .is-device {
   grid-column: 1;
   grid-row: 1;
 }
 
 .unilab-workbench__domain-layout.is-split .unilab-workbench__splitter,
+.unilab-workbench__domain-layout.is-workflow-management-material
+  .unilab-workbench__splitter,
 .unilab-workbench__domain-layout.is-device-material
   .unilab-workbench__splitter {
   grid-column: 2;
@@ -70,6 +74,7 @@
 }
 
 .unilab-workbench__domain-layout.is-split .is-material,
+.unilab-workbench__domain-layout.is-workflow-management-material .is-material,
 .unilab-workbench__domain-layout.is-device-material .is-material {
   grid-column: 3;
   grid-row: 1;
@@ -77,12 +82,16 @@
 
 .unilab-workbench__domain-layout.is-split
   .unilab-workbench__surface--workflow,
+.unilab-workbench__domain-layout.is-workflow-management-material
+  .unilab-workbench__surface--workflow,
 .unilab-workbench__domain-layout.is-device-material
   .unilab-workbench__surface--device {
   box-shadow: inset -1px 0 var(--unilab-color-border);
 }
 
 .unilab-workbench__domain-layout.is-split
+  .unilab-workbench__surface--material,
+.unilab-workbench__domain-layout.is-workflow-management-material
   .unilab-workbench__surface--material,
 .unilab-workbench__domain-layout.is-device-material
   .unilab-workbench__surface--material {
@@ -96,15 +105,20 @@
  */
 @container unilab-workbench (max-width: 900px) {
   .unilab-workbench__domain-layout.is-split,
+  .unilab-workbench__domain-layout.is-workflow-management-material,
   .unilab-workbench__domain-layout.is-device-material {
     display: flex;
   }
 
   .unilab-workbench__domain-layout.is-split
     > .unilab-workbench__splitter,
+  .unilab-workbench__domain-layout.is-workflow-management-material
+    > .unilab-workbench__splitter,
   .unilab-workbench__domain-layout.is-device-material
     > .unilab-workbench__splitter,
   .unilab-workbench__domain-layout.is-split
+    > .unilab-workbench__domain-slot.is-material,
+  .unilab-workbench__domain-layout.is-workflow-management-material
     > .unilab-workbench__domain-slot.is-material,
   .unilab-workbench__domain-layout.is-device-material
     > .unilab-workbench__domain-slot.is-material {
