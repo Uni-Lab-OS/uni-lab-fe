@@ -180,7 +180,9 @@ function MaterialRenderer(
         readGraph: runtime.getStatus('material.readGraph'),
         create: runtime.getStatus('material.create'),
         updateConfig: runtime.getStatus('material.updateConfig'),
-        move: runtime.getStatus('material.move')
+        move: runtime.getStatus('material.move'),
+        attach: runtime.getStatus('material.attach'),
+        detach: runtime.getStatus('material.detach')
       }}
       selectedMaterialIds={selectedMaterialIds}
       highlightedMaterialIds={highlightedMaterialIds}
@@ -189,7 +191,7 @@ function MaterialRenderer(
       }}
       renderViewport={
         props.unified
-          ? (_viewportProps) => (
+          ? (viewportProps) => (
               <UnifiedLabViewport
                 visibleMaterialRoles={visibleMaterialRoles}
                 materialRoleOptions={materialRoleOptions}
@@ -204,6 +206,9 @@ function MaterialRenderer(
                 ) => (
                   <SceneRenderer
                     {...props}
+                    attachStatus={viewportProps.attachStatus}
+                    detachStatus={viewportProps.detachStatus}
+                    focusRequest={viewportProps.focusRequest}
                     viewMode={viewMode}
                     showSites={showSites}
                     showMaterialTransfers={showMaterialTransfers}
@@ -338,6 +343,9 @@ function SceneRenderer(
     showSites?: boolean
     showMaterialLabels?: boolean
     showMaterialTransfers?: boolean
+    attachStatus?: import('@unilab/material').CapabilityStatus
+    detachStatus?: import('@unilab/material').CapabilityStatus
+    focusRequest?: import('@unilab/material').MaterialFocusRequest | null
   }
 ): React.JSX.Element {
   const runtime = useMaterialRuntime()
@@ -366,6 +374,9 @@ function SceneRenderer(
       fallback={<div className="app-loading">正在加载 3D 编辑器…</div>}
     >
       <SceneWorkbench
+        attachStatus={props.attachStatus}
+        detachStatus={props.detachStatus}
+        focusRequest={props.focusRequest}
         showSites={props.showSites}
         showMaterialLabels={props.showMaterialLabels}
         showMaterialTransfers={props.showMaterialTransfers}

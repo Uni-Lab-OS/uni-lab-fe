@@ -1,6 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 
 import {
+  assertCanAttach,
   buildMaterialGraphIndex,
   assertValidMaterialGraph,
   MaterialRuleError
@@ -337,14 +338,30 @@ export function createMaterialStore(
         dependencies.requireCapability('material.attach')
         const parent = requireAggregate(get(), parentId)
         const child = requireAggregate(get(), childId)
+        assertCanAttach(parent, child, siteId, get().aggregatesById)
         const command: AttachMaterialCommand = {
           parentId,
           childId,
           siteId,
           expectedParentRevision: parent.revision,
-          expectedChildRevision: child.revision
+          expectedChildRevision: child.revision,
+          idempotencyKey:
+            dependencies.createIdempotencyKey?.() ??
+            `material-attach-${Date.now()}-${childId}`
         }
-        const commandId = begin('attach', [parentId, childId])
+        const sourceParentId =
+          child.placement.kind === 'parent' ||
+          child.placement.kind === 'site'
+            ? child.placement.parentId
+            : null
+        const commandId = begin(
+          'attach',
+          [...new Set([
+            parentId,
+            childId,
+            ...(sourceParentId ? [sourceParentId] : [])
+          ])]
+        )
         try {
           const result = await dependencies.graph.attach(command)
           applyAggregates(result.aggregates)
@@ -352,6 +369,8 @@ export function createMaterialStore(
           return result
         } catch (error) {
           return fail(commandId, error)
+        } finally {
+          get().clearDragPreview(childId)
         }
       },
 
@@ -371,7 +390,10 @@ export function createMaterialStore(
           parentId,
           childId,
           expectedParentRevision: parent.revision,
-          expectedChildRevision: child.revision
+          expectedChildRevision: child.revision,
+          idempotencyKey:
+            dependencies.createIdempotencyKey?.() ??
+            `material-detach-${Date.now()}-${childId}`
         }
         const commandId = begin('detach', [parentId, childId])
         try {

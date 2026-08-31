@@ -438,6 +438,45 @@ test('SZLab workflow projects material transfers into the Pascal 3D scene', asyn
   expect(browserErrors).toEqual([])
 })
 
+test('上料拖拽不打开物料属性面板', async ({ page }) => {
+  await installMaterialOnlyLayout(page)
+  await page.goto(
+    `/?section=material&localOsUrl=${encodeURIComponent(API_URL)}`
+  )
+
+  const source = page.locator(
+    '.material-flow-node[data-material-code="UNILAB-GRAPH-debug_beaker_500ml"]'
+  )
+  await expect(source).toBeVisible({ timeout: 30_000 })
+
+  await source.click()
+  await expect(
+    page.getByRole('dialog', { name: '物料属性' })
+  ).toBeVisible()
+
+  await page.getByRole('button', { name: '上料', exact: true }).click()
+  await expect(
+    page.getByRole('dialog', { name: '物料属性' })
+  ).toHaveCount(0)
+
+  const sourceBounds = await source.boundingBox()
+  if (!sourceBounds) throw new Error('上料物料缺少可拖拽边界')
+  await page.mouse.move(
+    sourceBounds.x + sourceBounds.width / 2,
+    sourceBounds.y + sourceBounds.height / 2
+  )
+  await page.mouse.down()
+  await page.mouse.move(
+    sourceBounds.x + sourceBounds.width / 2 + 30,
+    sourceBounds.y + sourceBounds.height / 2 + 30,
+    { steps: 5 }
+  )
+  await expect(
+    page.getByRole('dialog', { name: '物料属性' })
+  ).toHaveCount(0)
+  await page.mouse.up()
+})
+
 /**
  * 使用宽屏侧前方视角完整呈现已解析的物料（Material）转运路径、库位（Site）
  * 锚点与执行器（Executor），验证相机旋转后仍可按全场景边界完成取景。

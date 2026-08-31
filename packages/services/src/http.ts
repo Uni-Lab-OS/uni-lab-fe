@@ -110,9 +110,13 @@ export function createHttpClient(options: CreateHttpClientOptions): HttpClient {
           const problemRecord = asRecord(problem)
           const detail = asRecord(problemRecord.detail)
           const errorEnvelope = asRecord(problemRecord.error)
+          const directError = typeof problemRecord.error === 'string'
+            ? problemRecord.error
+            : undefined
           const message = String(
             errorEnvelope.message ||
             errorEnvelope.msg ||
+            directError ||
             detail.detail ||
             problemRecord.message ||
             problemRecord.detail ||
@@ -121,6 +125,7 @@ export function createHttpClient(options: CreateHttpClientOptions): HttpClient {
           throw new ServiceError({
             code: String(
               errorEnvelope.code ||
+              problemRecord.error_code ||
               detail.code ||
               problemRecord.code ||
               'HTTP_REQUEST_FAILED'

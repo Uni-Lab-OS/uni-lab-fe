@@ -57,6 +57,9 @@ export function WorkbenchMaterialViewport({
   selectedWorkflowNode,
   readStatus,
   moveStatus,
+  attachStatus,
+  detachStatus,
+  focusRequest,
   selectedMaterialIds,
   highlightedMaterialIds,
   onSelectionChange
@@ -396,6 +399,9 @@ export function WorkbenchMaterialViewport({
               onCaptureReady={handlePascalCaptureReady}
               projectId={`unilab-workbench-${new URL(backendUrl).port}`}
               editable={moveStatus.available}
+              attachStatus={attachStatus}
+              detachStatus={detachStatus}
+              focusRequest={focusRequest}
               selectedMaterialIds={displayedSelectedMaterialIds}
               highlightedMaterialIds={highlightedMaterialIds}
               modelRuntime={modelRuntime}

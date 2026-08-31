@@ -106,4 +106,23 @@ describe('createHttpClient tracing', () => {
       status: 401
     })
   })
+
+  it('保留 OS 库存命令的直接错误码与错误消息', async () => {
+    const client = createHttpClient({
+      backend: getDefaultBackend('local-python'),
+      fetcher: vi.fn(async () => Response.json({
+        command_id: 'attach-1',
+        status: 'rejected',
+        error: 'site is occupied',
+        error_code: 'material_site_occupied'
+      }, { status: 409 })) as typeof fetch
+    })
+
+    await expect(client.request('/api/v1/inventory/commands')).rejects
+      .toMatchObject({
+        code: 'material_site_occupied',
+        message: 'site is occupied',
+        status: 409
+      })
+  })
 })

@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 
 import type { CapabilityStatus } from './MaterialCapabilityNotice'
 import { MaterialInspector } from './MaterialInspector'
@@ -9,7 +9,10 @@ import {
 import { MaterialTemplateLauncher } from './MaterialTemplateLauncher'
 import { MaterialTreeSidebar } from './MaterialTreeSidebar'
 import { materialScopeClassName } from './materialStyles'
-import { MaterialCanvas } from './react-flow/MaterialCanvas'
+import {
+  MaterialCanvas,
+  type MaterialFocusRequest
+} from './react-flow/MaterialCanvas'
 import type { MaterialTemplateCatalogPort } from './templateMaterial'
 import type { MaterialId, MaterialScope } from './types'
 
@@ -19,6 +22,8 @@ export interface MaterialWorkbenchCapabilities {
   create: CapabilityStatus
   updateConfig: CapabilityStatus
   move: CapabilityStatus
+  attach: CapabilityStatus
+  detach: CapabilityStatus
 }
 
 export interface MaterialWorkbenchProps {
@@ -35,6 +40,9 @@ export interface MaterialWorkbenchProps {
 export interface MaterialWorkbenchViewportProps {
   readStatus: CapabilityStatus
   moveStatus: CapabilityStatus
+  attachStatus: CapabilityStatus
+  detachStatus: CapabilityStatus
+  focusRequest: MaterialFocusRequest | null
   selectedMaterialIds: readonly MaterialId[]
   highlightedMaterialIds: readonly MaterialId[]
   onSelectionChange?: (materialIds: readonly MaterialId[]) => void
@@ -54,6 +62,9 @@ export function MaterialWorkbench({
   onSelectionChange,
   renderViewport
 }: MaterialWorkbenchProps): React.JSX.Element {
+  const [focusRequest, setFocusRequest] = useState<MaterialFocusRequest | null>(
+    null
+  )
   const store = useMaterialStoreApi()
   const aggregatesById = useMaterialStore(
     (state) => state.aggregatesById
@@ -75,12 +86,21 @@ export function MaterialWorkbench({
       <MaterialTreeSidebar
         selectedMaterialIds={selectedMaterialIds}
         onSelectionChange={onSelectionChange}
+        onMaterialActivate={(materialId) => {
+          setFocusRequest((current) => ({
+            materialId,
+            revision: (current?.revision ?? 0) + 1
+          }))
+        }}
       />
       <div className="material-workbench__viewport">
         {renderViewport ? (
           renderViewport({
             readStatus: capabilities.readGraph,
             moveStatus: capabilities.move,
+            attachStatus: capabilities.attach,
+            detachStatus: capabilities.detach,
+            focusRequest,
             selectedMaterialIds,
             highlightedMaterialIds,
             onSelectionChange
@@ -89,6 +109,9 @@ export function MaterialWorkbench({
           <MaterialCanvas
             readStatus={capabilities.readGraph}
             moveStatus={capabilities.move}
+            attachStatus={capabilities.attach}
+            detachStatus={capabilities.detach}
+            focusRequest={focusRequest}
             selectedMaterialIds={selectedMaterialIds}
             highlightedMaterialIds={highlightedMaterialIds}
             onSelectionChange={onSelectionChange}

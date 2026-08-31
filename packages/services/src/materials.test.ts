@@ -324,10 +324,117 @@ describe('material template adapter', () => {
       })
     ).rejects.toBeInstanceOf(UnsupportedCapabilityError)
     await expect(
+      service.attach({
+        parentId: 'parent-1',
+        childId: 'material-1',
+        siteId: 'site-1',
+        expectedParentRevision: 1,
+        expectedChildRevision: 1,
+        idempotencyKey: 'attach-material-1'
+      })
+    ).rejects.toBeInstanceOf(UnsupportedCapabilityError)
+    await expect(
+      service.detach({
+        parentId: 'parent-1',
+        childId: 'material-1',
+        expectedParentRevision: 1,
+        expectedChildRevision: 1,
+        idempotencyKey: 'detach-material-1'
+      })
+    ).rejects.toBeInstanceOf(UnsupportedCapabilityError)
+    await expect(
       service.getEdgeOperations({ kind: 'singleton' })
     ).rejects.toBeInstanceOf(UnsupportedCapabilityError)
 
     expect(request).not.toHaveBeenCalled()
+  })
+
+  it('maps 2D attach to the strict OS site command and applies both aggregates', async () => {
+    const { http, request } = mockHttp({
+      command_id: 'attach-child-1',
+      status: 'completed',
+      result: { aggregates: rawRelationCommandNodes(true) }
+    })
+    const backend = getDefaultBackend('local-python')
+    const service = createMaterialService(
+      http,
+      backend,
+      resolveServerCapabilities(backend)
+    )
+
+    const result = await service.attach({
+      parentId: 'parent-1',
+      childId: 'child-1',
+      siteId: 'site-1',
+      expectedParentRevision: 4,
+      expectedChildRevision: 2,
+      idempotencyKey: 'attach-child-1'
+    })
+
+    expect(result.aggregates).toHaveLength(2)
+    expect(result.aggregates.find((item) => item.material.id === 'child-1')?.placement)
+      .toEqual({
+        kind: 'site',
+        parentId: 'parent-1',
+        siteId: 'site-1',
+        offsetPose: {
+          positionMm: [0, 0, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      })
+    expect(request).toHaveBeenCalledWith(
+      '/api/v1/inventory/commands',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          command_id: 'attach-child-1',
+          type: 'material.move',
+          actor: 'operator:material-workbench',
+          expected_version: 2,
+          payload: {
+            edge_uuid: 'child-1',
+            parent_uuid: 'parent-1',
+            site_uuid: 'site-1',
+            expected_parent_version: 4
+          }
+        })
+      })
+    )
+  })
+
+  it('maps 2D detach to the strict OS command', async () => {
+    const { http, request } = mockHttp({
+      command_id: 'detach-child-1',
+      status: 'completed',
+      result: { aggregates: rawRelationCommandNodes(false) }
+    })
+    const backend = getDefaultBackend('local-python')
+    const service = createMaterialService(
+      http,
+      backend,
+      resolveServerCapabilities(backend)
+    )
+
+    const result = await service.detach({
+      parentId: 'parent-1',
+      childId: 'child-1',
+      expectedParentRevision: 5,
+      expectedChildRevision: 3,
+      idempotencyKey: 'detach-child-1'
+    })
+
+    expect(result.aggregates.find((item) => item.material.id === 'child-1')?.placement)
+      .toEqual({ kind: 'unplaced' })
+    expect(JSON.parse(String(request.mock.calls[0]?.[1]?.body))).toMatchObject({
+      command_id: 'detach-child-1',
+      type: 'material.detach',
+      expected_version: 3,
+      payload: {
+        edge_uuid: 'child-1',
+        parent_uuid: 'parent-1',
+        expected_parent_version: 5
+      }
+    })
   })
 
   /** 验证 Backend 物料图使用权威修订号并保留资源模板展示摘要。 */
@@ -866,6 +973,38 @@ function rawMaterialGraphNode(index: number): Record<string, unknown> {
       resource_type: 'device'
     }
   }
+}
+
+function rawRelationCommandNodes(attached: boolean): Record<string, unknown>[] {
+  const parent = rawMaterialGraphNode(1)
+  const parentMaterial = parent.material as Record<string, unknown>
+  parentMaterial.uuid = 'parent-1'
+  parentMaterial.name = 'Parent'
+  parentMaterial.revision = attached ? 5 : 6
+  parent.sites = [{
+    uuid: 'site-1',
+    material_uuid: 'parent-1',
+    name: 'A1',
+    meta_data: { key: 'A1', kind: 'deck-slot' },
+    sort_order: 0,
+    allowed_resource_template_uuids: ['template-device'],
+    occupied_material_uuid: attached ? 'child-1' : null,
+    position_x: 0,
+    position_y: 0,
+    position_z: 0,
+    width: 100,
+    length: 80,
+    depth: 10
+  }]
+
+  const child = rawMaterialGraphNode(2)
+  const childMaterial = child.material as Record<string, unknown>
+  childMaterial.uuid = 'child-1'
+  childMaterial.name = 'Child'
+  childMaterial.revision = attached ? 3 : 4
+  childMaterial.parent_uuid = attached ? 'parent-1' : null
+  child.current_site_uuid = attached ? 'site-1' : null
+  return [parent, child]
 }
 
 function mockHttp(response: unknown): {

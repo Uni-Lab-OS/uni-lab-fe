@@ -1,7 +1,9 @@
 import {
   MaterialCapabilityNotice,
   useMaterialStore,
-  useMaterialStoreApi
+  useMaterialStoreApi,
+  type CapabilityStatus,
+  type MaterialFocusRequest
 } from '@unilab/material'
 import {
   PascalLabWorkbench,
@@ -26,12 +28,18 @@ export function SceneWorkbench({
   showSites = true,
   showMaterialLabels = true,
   showMaterialTransfers = true,
-  viewMode = '3d'
+  viewMode = '3d',
+  attachStatus = { available: false },
+  detachStatus = { available: false },
+  focusRequest = null
 }: {
   showSites?: boolean
   showMaterialLabels?: boolean
   showMaterialTransfers?: boolean
   viewMode?: LabViewMode
+  attachStatus?: CapabilityStatus
+  detachStatus?: CapabilityStatus
+  focusRequest?: MaterialFocusRequest | null
 }): React.JSX.Element {
   const { backend } = useWorkbench()
   const runtime = useMaterialRuntime()
@@ -158,6 +166,9 @@ export function SceneWorkbench({
       viewMode={viewMode}
       projectId={`unilab-${backend.id}-${scopeKey}`}
       editable={moveStatus.available}
+      attachStatus={attachStatus}
+      detachStatus={detachStatus}
+      focusRequest={focusRequest}
       selectedMaterialIds={selectedMaterialIds}
       highlightedMaterialIds={highlightedMaterialIds}
       modelRuntime={modelRuntime}

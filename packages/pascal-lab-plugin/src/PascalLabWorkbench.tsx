@@ -7,6 +7,8 @@ import {
 import {
   MaterialCanvas,
   MaterialObliqueCanvas,
+  type CapabilityStatus,
+  type MaterialFocusRequest,
   type MaterialTransferOverlayRoute
 } from '@unilab/material'
 import type {
@@ -71,6 +73,9 @@ export interface PascalLabWorkbenchProps {
   projectId?: string
   modelRuntime?: LabModelRuntime
   editable?: boolean
+  attachStatus?: CapabilityStatus
+  detachStatus?: CapabilityStatus
+  focusRequest?: MaterialFocusRequest | null
   selectedMaterialIds?: readonly string[]
   highlightedMaterialIds?: readonly string[]
   onMaterialMoves?: (moves: readonly MaterialSceneMove[]) => void
@@ -104,6 +109,9 @@ export function PascalLabWorkbench({
   projectId = 'unilab-local-scene',
   modelRuntime,
   editable = false,
+  attachStatus = { available: false },
+  detachStatus = { available: false },
+  focusRequest = null,
   selectedMaterialIds = [],
   highlightedMaterialIds = [],
   onMaterialMoves,
@@ -378,6 +386,9 @@ export function PascalLabWorkbench({
                   ? undefined
                   : '当前服务不支持移动物料'
               }}
+              attachStatus={attachStatus}
+              detachStatus={detachStatus}
+              focusRequest={focusRequest}
               selectedMaterialIds={selectedMaterialIds}
               highlightedMaterialIds={highlightedMaterialIds}
               onSelectionChange={(materialIds) => {

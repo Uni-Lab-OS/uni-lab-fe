@@ -17,6 +17,12 @@ export class MaterialRuleError extends Error {
   }
 }
 
+export type MaterialAttachTargetState =
+  | 'available'
+  | 'occupied'
+  | 'incompatible'
+  | 'cycle'
+
 export function buildMaterialGraphIndex(
   aggregatesById: Readonly<Record<MaterialId, MaterialAggregate>>
 ): MaterialGraphIndex {
@@ -82,16 +88,28 @@ export function assertValidMaterialGraph(
 export function assertCanAttach(
   parent: MaterialAggregate,
   child: MaterialAggregate,
-  siteId?: SiteId
+  siteId?: SiteId,
+  aggregatesById?: Readonly<Record<MaterialId, MaterialAggregate>>
 ): void {
-  if (parent.material.id === child.material.id) {
-    throw new MaterialRuleError(
-      'MATERIAL_PARENT_CYCLE',
-      'Material cannot attach to itself'
-    )
+  if (!siteId) {
+    if (
+      parent.material.id === child.material.id ||
+      (
+        aggregatesById &&
+        wouldCreateParentCycle(
+          child.material.id,
+          parent.material.id,
+          aggregatesById
+        )
+      )
+    ) {
+      throw new MaterialRuleError(
+        'MATERIAL_PARENT_CYCLE',
+        `Attaching ${child.material.id} to ${parent.material.id} creates a cycle`
+      )
+    }
+    return
   }
-
-  if (!siteId) return
   const site = parent.sites.find((candidate) => candidate.id === siteId)
   if (!site) {
     throw new MaterialRuleError(
@@ -99,21 +117,56 @@ export function assertCanAttach(
       `Site ${siteId} does not belong to ${parent.material.id}`
     )
   }
-  if (site.occupiedMaterialIds.length >= site.capacity) {
+  const state = readMaterialAttachTargetState(
+    parent,
+    child,
+    site,
+    aggregatesById
+  )
+  if (state === 'occupied') {
     throw new MaterialRuleError(
       'MATERIAL_SITE_FULL',
       `Site ${siteId} has reached capacity`
     )
   }
-  if (
-    site.allowedTemplateIds.length > 0 &&
-    !site.allowedTemplateIds.includes(child.material.sourceTemplateId)
-  ) {
+  if (state === 'incompatible') {
     throw new MaterialRuleError(
       'MATERIAL_TEMPLATE_NOT_ALLOWED',
       `Site ${siteId} does not accept template ${child.material.sourceTemplateId}`
     )
   }
+  if (state === 'cycle') {
+    throw new MaterialRuleError(
+      'MATERIAL_PARENT_CYCLE',
+      `Attaching ${child.material.id} to ${parent.material.id} creates a cycle`
+    )
+  }
+}
+
+/** 返回同一套上料规则的展示状态，供画布提示与命令校验共同使用。 */
+export function readMaterialAttachTargetState(
+  parent: MaterialAggregate,
+  child: MaterialAggregate,
+  site: MaterialSite,
+  aggregatesById?: Readonly<Record<MaterialId, MaterialAggregate>>
+): MaterialAttachTargetState {
+  if (site.occupiedMaterialIds.length >= site.capacity) return 'occupied'
+  if (
+    site.allowedTemplateIds.length > 0 &&
+    !site.allowedTemplateIds.includes(child.material.sourceTemplateId)
+  ) return 'incompatible'
+  if (
+    parent.material.id === child.material.id ||
+    (
+      aggregatesById &&
+      wouldCreateParentCycle(
+        child.material.id,
+        parent.material.id,
+        aggregatesById
+      )
+    )
+  ) return 'cycle'
+  return 'available'
 }
 
 function assertValidManagedComponent(
@@ -202,4 +255,20 @@ function assertNoParentCycle(
     visited.add(parentId)
     current = aggregatesById[parentId]
   }
+}
+
+function wouldCreateParentCycle(
+  childId: MaterialId,
+  parentId: MaterialId,
+  aggregatesById: Readonly<Record<MaterialId, MaterialAggregate>>
+): boolean {
+  const visited = new Set<MaterialId>([childId])
+  let currentId: MaterialId | null = parentId
+  while (currentId) {
+    if (visited.has(currentId)) return true
+    visited.add(currentId)
+    const current: MaterialAggregate | undefined = aggregatesById[currentId]
+    currentId = current ? placementParentId(current.placement) : null
+  }
+  return false
 }

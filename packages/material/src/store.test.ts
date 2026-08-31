@@ -181,6 +181,148 @@ describe('material store', () => {
     expect(store.getState().error).toBe('revision conflict')
   })
 
+  it('sends idempotent attach and detach commands with both aggregate revisions', async () => {
+    const parent = materialAggregate('parent', {
+      sites: [materialSite('site-1', 'parent', 'A1')]
+    })
+    const child = materialAggregate('child')
+    const attachedParent = materialAggregate('parent', {
+      revision: 2,
+      sites: [materialSite('site-1', 'parent', 'A1', ['child'])]
+    })
+    const attachedChild = materialAggregate('child', {
+      revision: 2,
+      placement: {
+        kind: 'site',
+        parentId: 'parent',
+        siteId: 'site-1',
+        offsetPose: {
+          positionMm: [0, 0, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      }
+    })
+    const detachedParent = materialAggregate('parent', {
+      revision: 3,
+      sites: [materialSite('site-1', 'parent', 'A1')]
+    })
+    const detachedChild = materialAggregate('child', {
+      revision: 3,
+      placement: { kind: 'unplaced' }
+    })
+    const attach = vi.fn(async () => ({
+      aggregates: [attachedParent, attachedChild]
+    }))
+    const detach = vi.fn(async () => ({
+      aggregates: [detachedParent, detachedChild]
+    }))
+    const store = createMaterialStore({
+      scope: { kind: 'singleton' },
+      graph: materialGraphPort({
+        getGraph: async () => [parent, child],
+        attach,
+        detach
+      }),
+      requireCapability: allowCapabilities(
+        'material.readGraph',
+        'material.attach',
+        'material.detach'
+      ),
+      createIdempotencyKey: () => 'relation-command-1'
+    })
+    await store.getState().loadGraph()
+
+    await store.getState().attach('parent', 'child', 'site-1')
+    expect(attach).toHaveBeenCalledWith({
+      parentId: 'parent',
+      childId: 'child',
+      siteId: 'site-1',
+      expectedParentRevision: 1,
+      expectedChildRevision: 1,
+      idempotencyKey: 'relation-command-1'
+    })
+
+    await store.getState().detach('child')
+    expect(detach).toHaveBeenCalledWith({
+      parentId: 'parent',
+      childId: 'child',
+      expectedParentRevision: 2,
+      expectedChildRevision: 2,
+      idempotencyKey: 'relation-command-1'
+    })
+    expect(store.getState().aggregatesById.child.placement).toEqual({
+      kind: 'unplaced'
+    })
+  })
+
+  it('applies a cross-parent site transfer without leaving source occupancy', async () => {
+    const source = materialAggregate('source', {
+      sites: [materialSite('source-site', 'source', 'A1', ['child'])]
+    })
+    const target = materialAggregate('target', {
+      sites: [materialSite('target-site', 'target', 'B1')]
+    })
+    const child = materialAggregate('child', {
+      placement: {
+        kind: 'site',
+        parentId: 'source',
+        siteId: 'source-site',
+        offsetPose: {
+          positionMm: [0, 0, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      }
+    })
+    const transferredSource = materialAggregate('source', {
+      revision: 2,
+      sites: [materialSite('source-site', 'source', 'A1')]
+    })
+    const transferredTarget = materialAggregate('target', {
+      revision: 2,
+      sites: [materialSite('target-site', 'target', 'B1', ['child'])]
+    })
+    const transferredChild = materialAggregate('child', {
+      revision: 2,
+      placement: {
+        kind: 'site',
+        parentId: 'target',
+        siteId: 'target-site',
+        offsetPose: {
+          positionMm: [0, 0, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      }
+    })
+    const attach = vi.fn(async () => ({
+      aggregates: [transferredSource, transferredTarget, transferredChild]
+    }))
+    const store = createMaterialStore({
+      scope: { kind: 'singleton' },
+      graph: materialGraphPort({
+        getGraph: async () => [source, target, child],
+        attach
+      }),
+      requireCapability: allowCapabilities(
+        'material.readGraph',
+        'material.attach'
+      ),
+      createIdempotencyKey: () => 'transfer-child-1'
+    })
+    await store.getState().loadGraph()
+
+    await store.getState().attach('target', 'child', 'target-site')
+
+    expect(store.getState().aggregatesById.source.sites[0].occupiedMaterialIds)
+      .toEqual([])
+    expect(store.getState().aggregatesById.target.sites[0].occupiedMaterialIds)
+      .toEqual(['child'])
+    expect(store.getState().aggregatesById.child.placement).toMatchObject({
+      kind: 'site',
+      parentId: 'target',
+      siteId: 'target-site'
+    })
+  })
+
   it('checks capability before invoking the port', async () => {
     const getGraph = vi.fn()
     const store = createMaterialStore({

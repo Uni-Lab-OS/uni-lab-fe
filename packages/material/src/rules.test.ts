@@ -4,7 +4,8 @@ import {
   assertCanAttach,
   assertValidMaterialGraph,
   buildMaterialGraphIndex,
-  MaterialRuleError
+  MaterialRuleError,
+  readMaterialAttachTargetState
 } from './rules'
 import { materialAggregate } from './testFixtures'
 
@@ -106,6 +107,68 @@ describe('material graph rules', () => {
       assertCanAttach(parent, child, 'site-1')
     ).toThrowError(
       expect.objectContaining({ code: 'MATERIAL_TEMPLATE_NOT_ALLOWED' })
+    )
+  })
+
+  it('shares attach target states with command validation', () => {
+    const child = materialAggregate('child')
+    const descendant = materialAggregate('descendant', {
+      placement: {
+        kind: 'parent',
+        parentId: 'child',
+        anchor: { kind: 'root' },
+        localPose: {
+          positionMm: [0, 0, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      },
+      sites: [{
+        id: 'descendant-site',
+        ownerMaterialId: 'descendant',
+        key: 'deck',
+        name: 'Deck',
+        anchor: { kind: 'root' },
+        poseInAnchor: {
+          positionMm: [0, 0, 0],
+          rotationDegXYZ: [0, 0, 0]
+        },
+        sizeMm: [100, 100, 10],
+        capacity: 1,
+        allowedTemplateIds: [],
+        occupiedMaterialIds: []
+      }]
+    })
+    const graph = { child, descendant }
+    const site = descendant.sites[0]
+
+    expect(readMaterialAttachTargetState(
+      descendant,
+      child,
+      site
+    )).toBe('available')
+    expect(readMaterialAttachTargetState(
+      descendant,
+      child,
+      { ...site, occupiedMaterialIds: ['occupant'] }
+    )).toBe('occupied')
+    expect(readMaterialAttachTargetState(
+      descendant,
+      child,
+      { ...site, allowedTemplateIds: ['other-template'] }
+    )).toBe('incompatible')
+    expect(readMaterialAttachTargetState(
+      descendant,
+      child,
+      site,
+      graph
+    )).toBe('cycle')
+    expect(() => assertCanAttach(
+      descendant,
+      child,
+      'descendant-site',
+      graph
+    )).toThrowError(
+      expect.objectContaining({ code: 'MATERIAL_PARENT_CYCLE' })
     )
   })
 

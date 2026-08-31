@@ -48,6 +48,44 @@
   stroke: var(--unilab-color-primary);
 }
 
+:where(.scope, .scope *):global(.material-canvas.is-handling)
+  :global(.material-flow-site-vector.is-drop-available),
+:where(.scope, .scope *):global(.material-canvas.is-handling)
+  :global(.material-flow-site.is-drop-available) {
+  fill: rgb(220 252 231 / 88%);
+  stroke: #16a34a;
+  stroke-width: 2px;
+  background: rgb(220 252 231 / 88%);
+  border-color: #16a34a;
+  box-shadow: 0 0 0 2px rgb(34 197 94 / 24%);
+}
+
+:where(.scope, .scope *):global(.material-canvas.is-handling)
+  :global(.material-flow-site-vector.is-drop-occupied),
+:where(.scope, .scope *):global(.material-canvas.is-handling)
+  :global(.material-flow-site.is-drop-occupied) {
+  fill: rgb(254 226 226 / 82%);
+  stroke: #dc2626;
+  background: rgb(254 226 226 / 82%);
+  border-color: #dc2626;
+  opacity: .72;
+}
+
+:where(.scope, .scope *):global(.material-canvas.is-handling)
+  :global(.material-flow-site-vector.is-drop-incompatible),
+:where(.scope, .scope *):global(.material-canvas.is-handling)
+  :global(.material-flow-site-vector.is-drop-cycle),
+:where(.scope, .scope *):global(.material-canvas.is-handling)
+  :global(.material-flow-site.is-drop-incompatible),
+:where(.scope, .scope *):global(.material-canvas.is-handling)
+  :global(.material-flow-site.is-drop-cycle) {
+  fill: rgb(241 245 249 / 72%);
+  stroke: #94a3b8;
+  background: rgb(241 245 249 / 72%);
+  border-color: #94a3b8;
+  opacity: .5;
+}
+
 :where(.scope, .scope *):global(.material-flow-site) {
   position: absolute;
   box-sizing: border-box;

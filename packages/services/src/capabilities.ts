@@ -239,6 +239,8 @@ function localPythonCapabilities(): ServerCapabilities {
   // Edge FastAPI broadcasts at :18003/api/v1/ws/device_status (not Bridge :8014).
   capabilities.devices.subscribeStatus = true
   capabilities.material.readGraph = true
+  capabilities.material.attach = true
+  capabilities.material.detach = true
   capabilities.workflow.readDefinitions = true
   capabilities.workflow.authoring = true
   capabilities.workflow.runTasks = true
@@ -292,7 +294,7 @@ function unavailableReason(
       return '当前 Uni-Lab-OS 尚未提供该设备能力'
     }
     if (capability.startsWith('material.')) {
-      return '当前 Uni-Lab-OS 物料图仅开放只读查询，写操作尚未提供统一命令契约'
+      return '当前 Uni-Lab-OS 已开放库位上下料；其余物料写操作尚未提供统一命令契约'
     }
     if (capability.startsWith('workflow.')) {
       return '当前 Uni-Lab-OS 尚未提供该工作流能力'

@@ -88,6 +88,9 @@ export function readDefaultMaterialNodePresentation(
       'centrifuge',
       'slider',
       'hotel',
+      'stack',
+      'warehouse',
+      'buffer',
       'prcxi'
     )
   ) {

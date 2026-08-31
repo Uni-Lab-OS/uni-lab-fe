@@ -36,6 +36,8 @@ export function projectMaterialFlowNodes(options: {
   selectedMaterialIds?: readonly MaterialId[]
   highlightedMaterialIds?: readonly MaterialId[]
   draggable?: boolean
+  draggableMaterialIds?: ReadonlySet<MaterialId>
+  siteDropStateById?: Readonly<Record<string, import('./projectionTypes').MaterialSiteDropState>>
   reviewLayout?: boolean
   physicalLayout?: boolean
 }): MaterialFlowNode[] {
@@ -89,7 +91,12 @@ export function projectMaterialFlowNodes(options: {
         type: 'material',
         parentId: options.reviewLayout ? undefined : parentId ?? undefined,
         position,
-        data: { materialId },
+        data: {
+          materialId,
+          ...(options.siteDropStateById
+            ? { siteDropStateById: options.siteDropStateById }
+            : {})
+        },
         // React Flow uses the top-level dimensions to initialize and fit
         // controlled nodes. Keeping the same values in `style` makes the DOM
         // box deterministic, while avoiding an invisible first render when a
@@ -101,7 +108,10 @@ export function projectMaterialFlowNodes(options: {
           height: size.height
         },
         selected: selected.has(materialId),
-        draggable: options.draggable ?? false,
+        draggable:
+          options.draggableMaterialIds?.has(materialId) ??
+          options.draggable ??
+          false,
         className: highlighted.has(materialId)
           ? 'material-flow-node--highlighted'
           : undefined

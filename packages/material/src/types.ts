@@ -303,6 +303,7 @@ export interface AttachMaterialCommand {
   siteId?: SiteId
   expectedParentRevision: MaterialRevision
   expectedChildRevision: MaterialRevision
+  idempotencyKey: string
 }
 
 export interface DetachMaterialCommand {
@@ -310,6 +311,7 @@ export interface DetachMaterialCommand {
   childId: MaterialId
   expectedParentRevision: MaterialRevision
   expectedChildRevision: MaterialRevision
+  idempotencyKey: string
 }
 
 export interface UpdateMaterialSiteCommand {

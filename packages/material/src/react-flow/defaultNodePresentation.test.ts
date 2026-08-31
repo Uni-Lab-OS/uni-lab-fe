@@ -34,6 +34,19 @@ describe('default material node presentation', () => {
     })
   })
 
+  it('treats storage stacks as equipment rather than draggable labware', () => {
+    const aggregate = materialAggregate('unused-beaker-stack', {
+      config: {
+        rendering: { kind: 'beaker_stack' }
+      }
+    })
+
+    expect(readDefaultMaterialNodePresentation(aggregate)).toEqual({
+      kind: 'equipment',
+      noun: '仪器设备'
+    })
+  })
+
   it('falls back safely for an unknown non-physical material', () => {
     const aggregate = materialAggregate('custom-resource')
 

@@ -19,6 +19,7 @@ import type {
 export interface MaterialTreeSidebarProps {
   selectedMaterialIds?: readonly MaterialId[]
   onSelectionChange?: (materialIds: readonly MaterialId[]) => void
+  onMaterialActivate?: (materialId: MaterialId) => void
 }
 
 export interface MaterialTreeEntry {
@@ -38,7 +39,8 @@ export type MaterialTreeNode = MaterialTreeEntry | MaterialTreeSiteEntry
 
 export function MaterialTreeSidebar({
   selectedMaterialIds = [],
-  onSelectionChange
+  onSelectionChange,
+  onMaterialActivate
 }: MaterialTreeSidebarProps): React.JSX.Element {
   const [open, setOpen] = useState(initialMaterialTreeOpen)
   const reopenButtonRef = useRef<HTMLButtonElement>(null)
@@ -203,9 +205,10 @@ export function MaterialTreeSidebar({
               expandedIds={expandedIds}
               forceExpanded={searchActive}
               selectedIds={selected}
-              onSelect={(materialId) =>
+              onSelect={(materialId) => {
                 onSelectionChange?.([materialId])
-              }
+                onMaterialActivate?.(materialId)
+              }}
               onToggle={(materialId) => {
                 setExpandedIds((current) => {
                   const next = new Set(current)

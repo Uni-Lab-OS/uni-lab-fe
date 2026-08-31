@@ -1205,7 +1205,9 @@ function WorkbenchSurface({
             readGraph: services.getCapabilityStatus('material.readGraph'),
             create: services.getCapabilityStatus('material.create'),
             updateConfig: services.getCapabilityStatus('material.updateConfig'),
-            move: services.getCapabilityStatus('material.move')
+            move: services.getCapabilityStatus('material.move'),
+            attach: services.getCapabilityStatus('material.attach'),
+            detach: services.getCapabilityStatus('material.detach')
           }}
           selectedMaterialIds={selectedMaterialIds}
           highlightedMaterialIds={highlightedMaterialIds}

@@ -14,6 +14,7 @@ import {
   type DefaultMaterialNodeKind
 } from './defaultNodePresentation'
 import type { MaterialFlowNodeData } from './projection'
+import type { MaterialSiteDropState } from './projectionTypes'
 import {
   materialSiteStyle,
   readMaterial2DVisual
@@ -58,6 +59,7 @@ export function MaterialNode({
       <MaterialNodePresentation
         aggregate={aggregate}
         selected={selected}
+        siteDropStateById={data.siteDropStateById}
       />
       <Handle
         id="material-transfer-source"
@@ -79,10 +81,12 @@ export function MaterialNode({
  */
 export function MaterialNodePresentation({
   aggregate,
-  selected
+  selected,
+  siteDropStateById
 }: {
   aggregate: MaterialAggregate
   selected: boolean
+  siteDropStateById?: Readonly<Record<string, MaterialSiteDropState>>
 }): React.JSX.Element {
   const occupied = aggregate.sites.reduce(
     (total, site) => total + site.occupiedMaterialIds.length,
@@ -148,6 +152,8 @@ export function MaterialNodePresentation({
               <LabwareSites
                 sites={aggregate.sites}
                 footprintMm={visual.footprintMm}
+                ownerMaterialId={aggregate.material.id}
+                siteDropStateById={siteDropStateById}
               />
             ) : (
               aggregate.sites
@@ -169,8 +175,12 @@ export function MaterialNodePresentation({
                       key={site.id}
                       className={siteClassName(
                         site,
-                        'material-flow-site'
+                        'material-flow-site',
+                        siteDropStateById?.[site.id]
                       )}
+                      data-material-site-id={site.id}
+                      data-site-owner-material-id={aggregate.material.id}
+                      data-site-drop-state={siteDropStateById?.[site.id]}
                       data-site-key={site.key}
                       style={materialSiteStyle(
                         site,
@@ -367,10 +377,14 @@ function isEquipmentKind(kind: string): boolean {
  */
 function LabwareSites({
   sites,
-  footprintMm
+  footprintMm,
+  ownerMaterialId,
+  siteDropStateById
 }: {
   sites: readonly MaterialSite[]
   footprintMm: readonly [number, number]
+  ownerMaterialId: string
+  siteDropStateById?: Readonly<Record<string, MaterialSiteDropState>>
 }): React.JSX.Element {
   return (
     <svg
@@ -391,7 +405,8 @@ function LabwareSites({
             height
           const className = siteClassName(
             site,
-            'material-flow-site-vector'
+            'material-flow-site-vector',
+            siteDropStateById?.[site.id]
           )
 
           return site.shape === 'circle' ? (
@@ -400,6 +415,9 @@ function LabwareSites({
               className={className}
               cx={x + width / 2}
               cy={y + height / 2}
+              data-material-site-id={site.id}
+              data-site-owner-material-id={ownerMaterialId}
+              data-site-drop-state={siteDropStateById?.[site.id]}
               data-site-key={site.key}
               r={Math.min(width, height) / 2}
               vectorEffect="non-scaling-stroke"
@@ -410,6 +428,9 @@ function LabwareSites({
             <rect
               key={site.id}
               className={className}
+              data-material-site-id={site.id}
+              data-site-owner-material-id={ownerMaterialId}
+              data-site-drop-state={siteDropStateById?.[site.id]}
               data-site-key={site.key}
               height={height}
               rx={Math.min(width, height) * 0.12}
@@ -426,12 +447,17 @@ function LabwareSites({
   )
 }
 
-function siteClassName(site: MaterialSite, base: string): string {
+function siteClassName(
+  site: MaterialSite,
+  base: string,
+  dropState?: MaterialSiteDropState
+): string {
   return [
     base,
     `is-${site.kind ?? 'site'}`,
     `is-${site.visual?.state ?? 'empty'}`,
-    site.shape === 'circle' ? 'is-circle' : ''
+    site.shape === 'circle' ? 'is-circle' : '',
+    dropState ? `is-drop-${dropState}` : ''
   ].join(' ')
 }
 

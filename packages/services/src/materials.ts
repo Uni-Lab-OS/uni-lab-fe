@@ -5,6 +5,7 @@ import type {
   MaterialAggregate,
   MaterialAnchor,
   MaterialGraphPort,
+  MaterialMutationResult,
   MaterialPlacement,
   MaterialScope,
   MaterialSite,
@@ -234,10 +235,48 @@ export function createMaterialService(
       unavailableGraphOperation('material.updateConfig'),
     move: async (_command) =>
       unavailableGraphOperation('material.move'),
-    attach: async (_command) =>
-      unavailableGraphOperation('material.attach'),
-    detach: async (_command) =>
-      unavailableGraphOperation('material.detach'),
+    attach: async (command) => {
+      assertCapability(
+        getCapabilityStatus(backend, capabilities, 'material.attach'),
+        'material.attach'
+      )
+      if (!command.siteId) {
+        throw new ServiceError({
+          code: 'MATERIAL_SITE_REQUIRED',
+          message: '二维上料必须指定目标库位',
+          retryable: false
+        })
+      }
+      return executeMaterialRelationCommand(http, {
+        command_id: command.idempotencyKey,
+        type: 'material.move',
+        actor: 'operator:material-workbench',
+        expected_version: command.expectedChildRevision,
+        payload: {
+          edge_uuid: command.childId,
+          parent_uuid: command.parentId,
+          site_uuid: command.siteId,
+          expected_parent_version: command.expectedParentRevision
+        }
+      })
+    },
+    detach: async (command) => {
+      assertCapability(
+        getCapabilityStatus(backend, capabilities, 'material.detach'),
+        'material.detach'
+      )
+      return executeMaterialRelationCommand(http, {
+        command_id: command.idempotencyKey,
+        type: 'material.detach',
+        actor: 'operator:material-workbench',
+        expected_version: command.expectedChildRevision,
+        payload: {
+          edge_uuid: command.childId,
+          parent_uuid: command.parentId,
+          expected_parent_version: command.expectedParentRevision
+        }
+      })
+    },
     updateSite: async (_command) =>
       unavailableGraphOperation('material.updateSite'),
     getEdgeOperations: async (_scope, _operationIds) =>
@@ -256,6 +295,47 @@ export function createMaterialService(
       message: `${capability} 已声明，但当前 adapter 尚未实现`,
       retryable: false
     })
+  }
+}
+
+interface InventoryMaterialCommandResponse {
+  command_id?: unknown
+  status?: unknown
+  result?: unknown
+  error?: unknown
+  error_code?: unknown
+}
+
+/** 执行 OS 库存命令并把受影响节点解码为共享物料聚合。 */
+async function executeMaterialRelationCommand(
+  http: HttpClient,
+  command: Record<string, unknown>
+): Promise<MaterialMutationResult> {
+  const response = await http.request<InventoryMaterialCommandResponse>(
+    '/api/v1/inventory/commands',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(command)
+    }
+  )
+  if (response.status !== 'completed') {
+    throw new ServiceError({
+      code: optionalString(response.error_code) ?? 'MATERIAL_COMMAND_FAILED',
+      message: optionalString(response.error) ?? '物料命令执行失败',
+      retryable: false
+    })
+  }
+  const result = isRecord(response.result) ? response.result : {}
+  if (!Array.isArray(result.aggregates)) {
+    throw new ServiceError({
+      code: 'INVALID_API_RESPONSE',
+      message: '物料命令响应缺少受影响的聚合节点',
+      retryable: false
+    })
+  }
+  return {
+    aggregates: mapBackendMaterialGraph({ nodes: result.aggregates })
   }
 }
 
