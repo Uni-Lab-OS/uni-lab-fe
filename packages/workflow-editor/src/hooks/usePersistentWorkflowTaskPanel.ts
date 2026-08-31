@@ -60,6 +60,7 @@ export type PersistentWorkflowRunMode = WorkflowTaskRunMode | 'debug'
 
 interface PersistentWorkflowTaskPanelOptions {
   runtime: WorkflowRuntimePort
+  active?: boolean
   definitionPort: WorkflowDefinitionPort
   workflowUuid: string
   aggregate: WorkflowAuthoringAggregate | null
@@ -80,6 +81,7 @@ interface PersistentWorkflowTaskPanelOptions {
  */
 export function usePersistentWorkflowTaskPanel({
   runtime,
+  active = true,
   definitionPort,
   workflowUuid,
   aggregate,
@@ -123,7 +125,7 @@ export function usePersistentWorkflowTaskPanel({
   const [debugBreakpoints, setDebugBreakpoints] = useState<Set<string>>(
     () => new Set(initialDebugSession?.breakpoints ?? [])
   )
-  const taskRuntime = useWorkflowTaskRuntime(runtime, workflowUuid)
+  const taskRuntime = useWorkflowTaskRuntime(runtime, workflowUuid, active)
   const debugExecutionScope = useMemo(
     () => createWorkflowExecutionScope(
       structure.nodes,

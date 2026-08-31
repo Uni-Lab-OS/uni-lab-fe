@@ -24,11 +24,13 @@ describe('device Action catalog startup recovery', () => {
     })
     await flushMicrotasks()
     expect(load).toHaveBeenCalledTimes(1)
+    expect(load).toHaveBeenNthCalledWith(1, false)
 
     await vi.advanceTimersByTimeAsync(999)
     expect(load).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(1)
     expect(load).toHaveBeenCalledTimes(2)
+    expect(load).toHaveBeenNthCalledWith(2, false)
 
     await vi.advanceTimersByTimeAsync(10_000)
     expect(load).toHaveBeenCalledTimes(2)
@@ -47,6 +49,7 @@ describe('device Action catalog startup recovery', () => {
 
     await expect(recovery.refresh()).resolves.toBe(true)
     expect(load).toHaveBeenCalledTimes(2)
+    expect(load).toHaveBeenNthCalledWith(2, true)
     await vi.advanceTimersByTimeAsync(10_000)
     expect(load).toHaveBeenCalledTimes(2)
     recovery.dispose()

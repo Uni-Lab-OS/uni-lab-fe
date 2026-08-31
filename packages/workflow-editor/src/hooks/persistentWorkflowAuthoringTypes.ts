@@ -14,6 +14,7 @@ import type { WorkflowIdeBridge } from '../utils/workflowSourceNavigation'
 
 export interface PersistentWorkflowAuthoringOptions {
   runtime: WorkflowRuntimePort
+  active?: boolean
   definitionPort: WorkflowDefinitionPort
   definitionEditingStatus?: CapabilityStatus
   workflowUuid: string

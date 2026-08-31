@@ -21,7 +21,8 @@ import { WorkflowTaskController } from '../runtime/WorkflowTaskController'
  */
 export function useWorkflowTaskRuntime(
   runtime: WorkflowRuntimePort,
-  workflowUuid: string
+  workflowUuid: string,
+  active = true
 ): {
   snapshot: ReturnType<WorkflowTaskController['getSnapshot']>
   create: (
@@ -47,8 +48,15 @@ export function useWorkflowTaskRuntime(
   refresh: () => Promise<void>
   clearError: () => void
 } {
+  const initialActive = useRef(active)
+  // Authority 或 Workflow 身份在隐藏态切换时，新控制器必须继承当前可见性。
+  initialActive.current = active
   const controller = useMemo(
-    () => new WorkflowTaskController(runtime, workflowUuid),
+    () => new WorkflowTaskController(
+      runtime,
+      workflowUuid,
+      initialActive.current
+    ),
     [runtime, workflowUuid]
   )
   const lifecycleGeneration = useRef(0)
@@ -70,6 +78,10 @@ export function useWorkflowTaskRuntime(
       })
     }
   }, [controller])
+
+  useEffect(() => {
+    controller.setActive(active)
+  }, [active, controller])
 
   return {
     snapshot,

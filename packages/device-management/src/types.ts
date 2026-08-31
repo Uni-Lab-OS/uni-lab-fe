@@ -19,4 +19,5 @@ export interface DeviceManagementPanelProps {
   backendEnabled?: boolean
   selectedDeviceId?: string | null
   onSelectedDeviceChange?: (deviceId: string | null) => void
+  active?: boolean
 }

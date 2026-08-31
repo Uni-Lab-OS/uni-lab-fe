@@ -90,6 +90,7 @@ export type { PersistentWorkflowAuthoringOptions } from './persistentWorkflowAut
  */
 export function usePersistentWorkflowAuthoring({
   runtime,
+  active = true,
   definitionPort,
   definitionEditingStatus,
   workflowUuid,
@@ -391,6 +392,7 @@ export function usePersistentWorkflowAuthoring({
     : null
   const taskPanel = usePersistentWorkflowTaskPanel({
     runtime,
+    active,
     definitionPort,
     workflowUuid,
     aggregate,

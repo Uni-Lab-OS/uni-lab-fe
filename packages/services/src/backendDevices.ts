@@ -18,6 +18,9 @@ import {
 import { requestData, type HttpClient } from './http'
 import { loadWorkflowActionCatalog } from './workflowActionCatalog'
 import type { WorkflowActionNodeTemplate } from './workflowActionCatalogTypes'
+import type {
+  WorkflowActionCatalogReader
+} from './workflowActionCatalogStore'
 
 interface BackendDevice {
   id: string
@@ -52,12 +55,14 @@ interface BackendDeviceAction {
  */
 export async function loadBackendDeviceCatalog(
   http: HttpClient,
-  serverKind: BackendServerKind = 'backend'
+  serverKind: BackendServerKind = 'backend',
+  readActionCatalog?: WorkflowActionCatalogReader
 ): Promise<DeviceCatalogItem[]> {
   const { devices, templates } = await loadBackendDeviceContext(
     http,
     undefined,
-    serverKind
+    serverKind,
+    readActionCatalog
   )
   return devices.map((device) => ({
     deviceId: device.id,
@@ -99,12 +104,16 @@ export async function loadBackendDeviceCatalog(
 export async function loadBackendOnlineDevices(
   http: HttpClient,
   signal?: AbortSignal,
-  serverKind: BackendServerKind = 'backend'
+  serverKind: BackendServerKind = 'backend',
+  readActionCatalog?: WorkflowActionCatalogReader,
+  includeEdgeActionStatuses = true
 ): Promise<OnlineDevice[]> {
   const { devices, templates } = await loadBackendDeviceContext(
     http,
     signal,
-    serverKind
+    serverKind,
+    readActionCatalog,
+    includeEdgeActionStatuses
   )
   return devices.map((device) => ({
     id: device.id,
@@ -145,12 +154,14 @@ export async function loadBackendActionDevices(
 export async function loadBackendDeviceActions(
   http: HttpClient,
   deviceId: string,
-  serverKind: BackendServerKind = 'backend'
+  serverKind: BackendServerKind = 'backend',
+  readActionCatalog?: WorkflowActionCatalogReader
 ): Promise<DeviceAction[]> {
   const { devices, templates } = await loadBackendDeviceContext(
     http,
     undefined,
-    serverKind
+    serverKind,
+    readActionCatalog
   )
   const device = devices
     .find((candidate) => candidate.id === deviceId)
@@ -173,12 +184,14 @@ export async function loadBackendActionSchema(
   http: HttpClient,
   deviceId: string,
   actionName: string,
-  serverKind: BackendServerKind = 'backend'
+  serverKind: BackendServerKind = 'backend',
+  readActionCatalog?: WorkflowActionCatalogReader
 ): Promise<DeviceActionSchema> {
   const { devices, templates } = await loadBackendDeviceContext(
     http,
     undefined,
-    serverKind
+    serverKind,
+    readActionCatalog
   )
   const device = devices.find((candidate) => candidate.id === deviceId)
   const action = device?.actions.find(
@@ -223,15 +236,17 @@ export async function loadBackendActionSchema(
 async function loadBackendDeviceContext(
   http: HttpClient,
   signal?: AbortSignal,
-  serverKind: BackendServerKind = 'backend'
+  serverKind: BackendServerKind = 'backend',
+  readActionCatalog?: WorkflowActionCatalogReader,
+  includeEdgeActionStatuses = true
 ): Promise<{
   devices: BackendDevice[]
   templates: WorkflowActionNodeTemplate[]
 }> {
   const [devices, catalog, edgeActionStatuses] = await Promise.all([
     loadBackendDevices(http, signal),
-    loadWorkflowActionCatalog(http, signal),
-    serverKind === 'edge'
+    readActionCatalog?.(signal) ?? loadWorkflowActionCatalog(http, signal),
+    serverKind === 'edge' && includeEdgeActionStatuses
       ? loadEdgeActionStatuses(http, signal)
       : Promise.resolve(null)
   ])

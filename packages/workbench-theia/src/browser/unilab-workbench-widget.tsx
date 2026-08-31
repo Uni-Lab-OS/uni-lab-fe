@@ -1202,6 +1202,7 @@ function WorkbenchSurface({
           setSelectedActionDeviceId(deviceId)
           onOpenDeviceActions()
         }}
+        active={viewMode === 'device' || viewMode === 'device-material'}
       />
     </section>
   )
@@ -1220,6 +1221,7 @@ function WorkbenchSurface({
             connection={deviceConnection}
             selectedDeviceId={selectedActionDeviceId}
             onSelectedDeviceChange={setSelectedActionDeviceId}
+            active={viewMode === 'robot-debug'}
           />
         ) : undefined}
         pointStatus={workstationData.pointStatus}

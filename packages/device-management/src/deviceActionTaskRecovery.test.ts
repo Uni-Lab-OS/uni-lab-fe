@@ -106,10 +106,11 @@ describe('device Action Task REST rehydrate recovery', () => {
     recovery.dispose()
   })
 
-  it('keeps a REST watchdog when the runtime event stream drops a terminal event', async () => {
+  it('stops the REST watchdog while SSE is live and resumes it after disconnect', async () => {
     const environment = createEnvironment()
     const subscription = createSubscriptionPort()
     const read = vi.fn()
+      .mockResolvedValueOnce(false)
       .mockResolvedValueOnce(false)
       .mockResolvedValueOnce(true)
     const recovery = startDeviceActionTaskRecovery({
@@ -122,11 +123,16 @@ describe('device Action Task REST rehydrate recovery', () => {
     await flushMicrotasks()
     expect(read).toHaveBeenCalledTimes(1)
 
-    await vi.advanceTimersByTimeAsync(1_000)
+    subscription.emit.onOpen()
+    await flushMicrotasks()
     expect(read).toHaveBeenCalledTimes(2)
 
-    await vi.advanceTimersByTimeAsync(5_000)
+    await vi.advanceTimersByTimeAsync(60_000)
     expect(read).toHaveBeenCalledTimes(2)
+
+    subscription.emit.onError(new Error('stream lost'))
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(read).toHaveBeenCalledTimes(3)
     recovery.dispose()
   })
 
@@ -150,6 +156,33 @@ describe('device Action Task REST rehydrate recovery', () => {
 
     await vi.advanceTimersByTimeAsync(10_000)
     expect(read).toHaveBeenCalledTimes(2)
+    recovery.dispose()
+  })
+
+  it('backs off nonterminal fallback reads through the configured delay budget', async () => {
+    const environment = createEnvironment()
+    const read = vi.fn(async () => false)
+    const recovery = startDeviceActionTaskRecovery({
+      tasks: [{ taskUuid: 'task-1', actionRef: 'action-1' }],
+      environment,
+      read,
+      fallbackDelaysMs: [2_000, 5_000, 10_000, 30_000]
+    })
+    await flushMicrotasks()
+    expect(read).toHaveBeenCalledTimes(1)
+
+    for (const [delay, expectedReads] of [
+      [2_000, 2],
+      [5_000, 3],
+      [10_000, 4],
+      [30_000, 5],
+      [30_000, 6]
+    ] as const) {
+      await vi.advanceTimersByTimeAsync(delay - 1)
+      expect(read).toHaveBeenCalledTimes(expectedReads - 1)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(read).toHaveBeenCalledTimes(expectedReads)
+    }
     recovery.dispose()
   })
 

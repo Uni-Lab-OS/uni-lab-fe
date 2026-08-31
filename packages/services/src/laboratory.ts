@@ -20,6 +20,9 @@ import {
   loadBackendDeviceCatalog,
   loadBackendOnlineDevices
 } from './backendDevices'
+import type {
+  WorkflowActionCatalogReader
+} from './workflowActionCatalogStore'
 import {
   getRuntimeDevices,
   mapRuntimeDeviceAction,
@@ -51,6 +54,11 @@ export interface OnlineDevice {
   /** 当前设备级执行占用摘要；null/undefined 表示当前服务未提供该投影。 */
   executionOccupancies?: DeviceExecutionOccupancy[] | null
   actions: DeviceAction[]
+}
+
+export interface OnlineDeviceReadOptions {
+  /** 启动恢复阶段可跳过 Edge 全量动作占用，发现在线设备后再完整补读。 */
+  includeActionStatuses?: boolean
 }
 
 export type DeviceEdgeStatus = 'registered' | 'online' | 'offline'
@@ -170,7 +178,8 @@ export interface ResourceNode {
  */
 export function createLaboratoryService(
   http: HttpClient,
-  backend: BackendConfig
+  backend: BackendConfig,
+  readActionCatalog?: WorkflowActionCatalogReader
 ) {
   return {
     /** 使用统一 v1 健康端点探测 Backend 或 Edge，并透传调用方取消信号。 */
@@ -188,15 +197,33 @@ export function createLaboratoryService(
     },
 
     async getDeviceCatalog(): Promise<DeviceCatalogItem[]> {
-      return loadBackendDeviceCatalog(http, backend.serverKind)
+      return loadBackendDeviceCatalog(
+        http,
+        backend.serverKind,
+        readActionCatalog
+      )
     },
 
-    async getOnlineDevices(signal?: AbortSignal): Promise<OnlineDevice[]> {
-      return loadBackendOnlineDevices(http, signal, backend.serverKind)
+    async getOnlineDevices(
+      signal?: AbortSignal,
+      options: OnlineDeviceReadOptions = {}
+    ): Promise<OnlineDevice[]> {
+      return loadBackendOnlineDevices(
+        http,
+        signal,
+        backend.serverKind,
+        readActionCatalog,
+        options.includeActionStatuses ?? true
+      )
     },
 
     async getDeviceActions(deviceId: string): Promise<DeviceAction[]> {
-      return loadBackendDeviceActions(http, deviceId, backend.serverKind)
+      return loadBackendDeviceActions(
+        http,
+        deviceId,
+        backend.serverKind,
+        readActionCatalog
+      )
     },
 
     async getActionSchema(
@@ -207,7 +234,8 @@ export function createLaboratoryService(
         http,
         deviceId,
         actionName,
-        backend.serverKind
+        backend.serverKind,
+        readActionCatalog
       )
     },
 
