@@ -72,9 +72,11 @@ export interface PascalLabWorkbenchProps {
   attachStatus?: CapabilityStatus
   detachStatus?: CapabilityStatus
   focusRequest?: MaterialFocusRequest | null
+  listDragMaterialId?: string | null
   selectedMaterialIds?: readonly string[]
   highlightedMaterialIds?: readonly string[]
   onMaterialActivate?: (materialId: string | null) => void
+  onHandlingChange?: (active: boolean) => void
   onSelectionChange?: (
     materialIds: readonly string[],
     sceneObjectIds: readonly string[]
@@ -108,9 +110,11 @@ export function PascalLabWorkbench({
   attachStatus = { available: false },
   detachStatus = { available: false },
   focusRequest = null,
+  listDragMaterialId = null,
   selectedMaterialIds = [],
   highlightedMaterialIds = [],
   onMaterialActivate,
+  onHandlingChange,
   onSelectionChange
 }: PascalLabWorkbenchProps): React.JSX.Element {
   const [cameraRequest, setCameraRequest] = useState<{
@@ -364,9 +368,11 @@ export function PascalLabWorkbench({
               attachStatus={attachStatus}
               detachStatus={detachStatus}
               focusRequest={focusRequest}
+              listDragMaterialId={listDragMaterialId}
               selectedMaterialIds={selectedMaterialIds}
               highlightedMaterialIds={highlightedMaterialIds}
               onMaterialActivate={onMaterialActivate}
+              onHandlingChange={onHandlingChange}
               onSelectionChange={(materialIds) => {
                 reportSelectionChange(
                   materialIds,

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 
 import type { CapabilityStatus } from './MaterialCapabilityNotice'
 import { MaterialInspector } from './MaterialInspector'
@@ -43,10 +43,12 @@ export interface MaterialWorkbenchViewportProps {
   attachStatus: CapabilityStatus
   detachStatus: CapabilityStatus
   focusRequest: MaterialFocusRequest | null
+  listDragMaterialId: MaterialId | null
   selectedMaterialIds: readonly MaterialId[]
   highlightedMaterialIds: readonly MaterialId[]
   onSelectionChange?: (materialIds: readonly MaterialId[]) => void
   onMaterialActivate?: (materialId: MaterialId | null) => void
+  onHandlingChange?: (active: boolean) => void
 }
 
 /**
@@ -82,11 +84,21 @@ export function MaterialWorkbench({
   )
   const [inspectedMaterialId, setInspectedMaterialId] =
     useState<MaterialId | null>(null)
+  const [handlingModeActive, setHandlingModeActive] = useState(false)
+  const [listDragMaterialId, setListDragMaterialId] =
+    useState<MaterialId | null>(null)
+  const handleHandlingChange = useCallback((active: boolean) => {
+    setHandlingModeActive(active)
+    if (!active) setListDragMaterialId(null)
+  }, [])
 
   return (
     <div className={materialScopeClassName('material-workbench')}>
       <MaterialTreeSidebar
         selectedMaterialIds={selectedMaterialIds}
+        handlingDragEnabled={
+          handlingModeActive && capabilities.attach.available
+        }
         onSelectionChange={onSelectionChange}
         onMaterialActivate={(materialId) => {
           setInspectedMaterialId(null)
@@ -95,6 +107,8 @@ export function MaterialWorkbench({
             revision: (current?.revision ?? 0) + 1
           }))
         }}
+        onMaterialDragStart={setListDragMaterialId}
+        onMaterialDragEnd={() => setListDragMaterialId(null)}
       />
       <div className="material-workbench__viewport">
         {renderViewport ? (
@@ -104,10 +118,12 @@ export function MaterialWorkbench({
             attachStatus: capabilities.attach,
             detachStatus: capabilities.detach,
             focusRequest,
+            listDragMaterialId,
             selectedMaterialIds,
             highlightedMaterialIds,
             onSelectionChange,
-            onMaterialActivate: setInspectedMaterialId
+            onMaterialActivate: setInspectedMaterialId,
+            onHandlingChange: handleHandlingChange
           })
         ) : (
           <MaterialCanvas
@@ -116,10 +132,12 @@ export function MaterialWorkbench({
             attachStatus={capabilities.attach}
             detachStatus={capabilities.detach}
             focusRequest={focusRequest}
+            listDragMaterialId={listDragMaterialId}
             selectedMaterialIds={selectedMaterialIds}
             highlightedMaterialIds={highlightedMaterialIds}
             onSelectionChange={onSelectionChange}
             onMaterialActivate={setInspectedMaterialId}
+            onHandlingChange={handleHandlingChange}
           />
         )}
       </div>

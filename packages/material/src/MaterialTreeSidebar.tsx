@@ -4,11 +4,16 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties
+  type CSSProperties,
+  type DragEvent as ReactDragEvent
 } from 'react'
 
 import { useMaterialStore } from './MaterialStoreProvider'
 import { materialScopeClassName } from './materialStyles'
+import {
+  isMaterialListHandlingDraggable,
+  writeMaterialHandlingDragData
+} from './operatorHandling'
 import type {
   MaterialAggregate,
   MaterialId,
@@ -18,8 +23,11 @@ import type {
 
 export interface MaterialTreeSidebarProps {
   selectedMaterialIds?: readonly MaterialId[]
+  handlingDragEnabled?: boolean
   onSelectionChange?: (materialIds: readonly MaterialId[]) => void
   onMaterialActivate?: (materialId: MaterialId) => void
+  onMaterialDragStart?: (materialId: MaterialId) => void
+  onMaterialDragEnd?: () => void
 }
 
 export interface MaterialTreeEntry {
@@ -39,8 +47,11 @@ export type MaterialTreeNode = MaterialTreeEntry | MaterialTreeSiteEntry
 
 export function MaterialTreeSidebar({
   selectedMaterialIds = [],
+  handlingDragEnabled = false,
   onSelectionChange,
-  onMaterialActivate
+  onMaterialActivate,
+  onMaterialDragStart,
+  onMaterialDragEnd
 }: MaterialTreeSidebarProps): React.JSX.Element {
   const [open, setOpen] = useState(initialMaterialTreeOpen)
   const reopenButtonRef = useRef<HTMLButtonElement>(null)
@@ -205,10 +216,13 @@ export function MaterialTreeSidebar({
               expandedIds={expandedIds}
               forceExpanded={searchActive}
               selectedIds={selected}
+              handlingDragEnabled={handlingDragEnabled}
               onSelect={(materialId) => {
                 onSelectionChange?.([materialId])
                 onMaterialActivate?.(materialId)
               }}
+              onMaterialDragStart={onMaterialDragStart}
+              onMaterialDragEnd={onMaterialDragEnd}
               onToggle={(materialId) => {
                 setExpandedIds((current) => {
                   const next = new Set(current)
@@ -246,7 +260,10 @@ function MaterialTreeRow({
   expandedIds,
   forceExpanded,
   selectedIds,
+  handlingDragEnabled,
   onSelect,
+  onMaterialDragStart,
+  onMaterialDragEnd,
   onToggle
 }: {
   entry: MaterialTreeEntry
@@ -254,10 +271,15 @@ function MaterialTreeRow({
   expandedIds: ReadonlySet<MaterialId>
   forceExpanded: boolean
   selectedIds: ReadonlySet<MaterialId>
+  handlingDragEnabled: boolean
   onSelect: (materialId: MaterialId) => void
+  onMaterialDragStart?: (materialId: MaterialId) => void
+  onMaterialDragEnd?: () => void
   onToggle: (materialId: MaterialId) => void
 }): React.JSX.Element {
   const materialId = entry.aggregate.material.id
+  const handlingDraggable = handlingDragEnabled &&
+    isMaterialListHandlingDraggable(entry.aggregate)
   const hasChildren = entry.children.length > 0
   const expanded = hasChildren && (
     forceExpanded || expandedIds.has(materialId)
@@ -269,14 +291,28 @@ function MaterialTreeRow({
   return (
     <>
       <div
-        className="material-tree-sidebar__row"
+        className={`material-tree-sidebar__row${
+          handlingDraggable ? ' is-handling-draggable' : ''
+        }`}
         data-material-tree-id={materialId}
         data-material-tree-site-id={entry.occupyingSite?.id}
+        data-material-handling-draggable={handlingDraggable}
+        draggable={handlingDraggable}
         role="treeitem"
         aria-expanded={hasChildren ? expanded : undefined}
         aria-level={depth + 1}
         aria-selected={selectedIds.has(materialId)}
         style={rowStyle}
+        onDragStart={(event: ReactDragEvent<HTMLDivElement>) => {
+          if (!handlingDraggable) {
+            event.preventDefault()
+            return
+          }
+          writeMaterialHandlingDragData(event.dataTransfer, materialId)
+          setMaterialHandlingDragImage(event.dataTransfer, materialId)
+          onMaterialDragStart?.(materialId)
+        }}
+        onDragEnd={() => onMaterialDragEnd?.()}
       >
         <span className="material-tree-sidebar__grip" aria-hidden="true">
           ⠿
@@ -315,7 +351,10 @@ function MaterialTreeRow({
                 expandedIds={expandedIds}
                 forceExpanded={forceExpanded}
                 selectedIds={selectedIds}
+                handlingDragEnabled={handlingDragEnabled}
                 onSelect={onSelect}
+                onMaterialDragStart={onMaterialDragStart}
+                onMaterialDragEnd={onMaterialDragEnd}
                 onToggle={onToggle}
               />
             ) : (
@@ -328,6 +367,24 @@ function MaterialTreeRow({
           )
         : null}
     </>
+  )
+}
+
+/** 由浏览器合成拖拽图像，避免 pointermove 时重绘整张物料图。 */
+function setMaterialHandlingDragImage(
+  dataTransfer: Pick<DataTransfer, 'setDragImage'>,
+  materialId: MaterialId
+): void {
+  const materialNode = Array.from(
+    document.querySelectorAll<HTMLElement>('.react-flow__node[data-id]')
+  ).find((candidate) => candidate.dataset.id === materialId)
+  if (!materialNode) return
+  const rect = materialNode.getBoundingClientRect()
+  if (rect.width <= 0 || rect.height <= 0) return
+  dataTransfer.setDragImage(
+    materialNode,
+    Math.round(rect.width / 2),
+    Math.round(rect.height / 2)
   )
 }
 

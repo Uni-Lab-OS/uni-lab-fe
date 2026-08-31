@@ -209,6 +209,8 @@ function MaterialRenderer(
                     attachStatus={viewportProps.attachStatus}
                     detachStatus={viewportProps.detachStatus}
                     focusRequest={viewportProps.focusRequest}
+                    listDragMaterialId={viewportProps.listDragMaterialId}
+                    onHandlingChange={viewportProps.onHandlingChange}
                     viewMode={viewMode}
                     showSites={showSites}
                     showMaterialTransfers={showMaterialTransfers}
@@ -346,6 +348,8 @@ function SceneRenderer(
     attachStatus?: import('@unilab/material').CapabilityStatus
     detachStatus?: import('@unilab/material').CapabilityStatus
     focusRequest?: import('@unilab/material').MaterialFocusRequest | null
+    listDragMaterialId?: string | null
+    onHandlingChange?: (active: boolean) => void
   }
 ): React.JSX.Element {
   const runtime = useMaterialRuntime()
@@ -377,6 +381,8 @@ function SceneRenderer(
         attachStatus={props.attachStatus}
         detachStatus={props.detachStatus}
         focusRequest={props.focusRequest}
+        listDragMaterialId={props.listDragMaterialId}
+        onHandlingChange={props.onHandlingChange}
         showSites={props.showSites}
         showMaterialLabels={props.showMaterialLabels}
         showMaterialTransfers={props.showMaterialTransfers}

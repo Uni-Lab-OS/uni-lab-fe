@@ -3,7 +3,8 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState
+  useState,
+  type DragEvent as ReactDragEvent
 } from 'react'
 import ReactFlow, {
   Background,
@@ -24,14 +25,21 @@ import type { CapabilityStatus } from '../MaterialCapabilityNotice'
 import { MaterialCapabilityNotice } from '../MaterialCapabilityNotice'
 import { materialScopeClassName } from '../materialStyles'
 import {
+  isMaterialListHandlingDraggable,
+  isOperatorHandledMaterial,
+  readMaterialHandlingDragData
+} from '../operatorHandling'
+import {
   useMaterialStore,
   useMaterialStoreApi
 } from '../MaterialStoreProvider'
-import { readMaterialAttachTargetState } from '../rules'
+import {
+  readMaterialAttachTargetState,
+  type MaterialAttachTargetState
+} from '../rules'
 import type { MaterialId } from '../types'
 import type { MaterialTransferOverlayRoute } from '../materialTransferOverlay'
 import { MaterialNode } from './MaterialNode'
-import { readDefaultMaterialNodePresentation } from './defaultNodePresentation'
 import {
   flowPositionToPlacement,
   placementPose,
@@ -65,8 +73,10 @@ export interface MaterialCanvasProps {
   materialTransferRoutes?: readonly MaterialTransferOverlayRoute[]
   selectedMaterialIds?: readonly MaterialId[]
   highlightedMaterialIds?: readonly MaterialId[]
+  listDragMaterialId?: MaterialId | null
   onSelectionChange?: (materialIds: readonly MaterialId[]) => void
   onMaterialActivate?: (materialId: MaterialId | null) => void
+  onHandlingChange?: (active: boolean) => void
 }
 
 export interface MaterialFocusRequest {
@@ -78,6 +88,10 @@ export interface MaterialSiteDropTarget {
   parentId: MaterialId
   siteId: string
   rect: Pick<DOMRect, 'left' | 'right' | 'top' | 'bottom'>
+}
+
+interface EvaluatedMaterialSiteDropTarget extends MaterialSiteDropTarget {
+  state: MaterialAttachTargetState
 }
 
 /**
@@ -99,8 +113,10 @@ export function MaterialCanvas({
   materialTransferRoutes = [],
   selectedMaterialIds = EMPTY_MATERIAL_IDS,
   highlightedMaterialIds = EMPTY_MATERIAL_IDS,
+  listDragMaterialId = null,
   onSelectionChange,
-  onMaterialActivate
+  onMaterialActivate,
+  onHandlingChange
 }: MaterialCanvasProps): React.JSX.Element {
   const [isEditing, setIsEditing] = useState(false)
   const [isHandling, setIsHandling] = useState(false)
@@ -144,6 +160,15 @@ export function MaterialCanvas({
   const handlingDragEnabled = canStartMaterialHandlingDrag(
     isHandling,
     handlingPending
+  )
+  const listDragAggregate = listDragMaterialId
+    ? aggregatesById[listDragMaterialId]
+    : undefined
+  const listDragAccepted = Boolean(
+    handlingDragEnabled &&
+    attachStatus.available &&
+    listDragAggregate &&
+    isMaterialListHandlingDraggable(listDragAggregate)
   )
   const attachDraggableMaterialIds = useMemo(
     () => new Set(
@@ -194,6 +219,19 @@ export function MaterialCanvas({
       setActiveHandlingMaterialId(null)
     }
   }, [attachStatus.available])
+
+  useEffect(() => {
+    onHandlingChange?.(isHandling)
+  }, [isHandling, onHandlingChange])
+
+  useEffect(() => () => {
+    onHandlingChange?.(false)
+  }, [onHandlingChange])
+
+  useEffect(() => {
+    if (listDragMaterialId && listDragAccepted) return
+    setActiveHandlingMaterialId(null)
+  }, [listDragAccepted, listDragMaterialId])
 
   useEffect(() => {
     if (!readStatus.available || loadState !== 'idle') return
@@ -307,16 +345,21 @@ export function MaterialCanvas({
     }
     if (isHandling && attachDraggableMaterialIds.has(node.id)) {
       const point = pointerPoint(event) ?? nodeCenterPoint(canvasRef.current, node.id)
+      const evaluatedTargets = readEvaluatedSiteDropTargets(
+        canvasRef.current,
+        node.id,
+        aggregatesById
+      )
       const target = point
         ? selectMaterialSiteDropTarget(
             point,
-            readAvailableSiteDropTargets(canvasRef.current)
+            evaluatedTargets.filter(({ state }) => state === 'available')
           )
         : null
       setActiveHandlingMaterialId(null)
       if (!target) {
         store.getState().clearDragPreview(node.id)
-        setHandlingNotice('未放入可用库位：仅绿色且未占用的库位可以上料')
+        setHandlingNotice(readRejectedSiteDropNotice(point, evaluatedTargets))
         return
       }
       setHandlingNotice('正在上料…')
@@ -347,6 +390,70 @@ export function MaterialCanvas({
     positionDraggableMaterialIds,
     physicalLayout,
     moveStatus.available,
+    store
+  ])
+  const handleListDragOver = useCallback((
+    event: ReactDragEvent<HTMLElement>
+  ) => {
+    if (
+      !handlingDragEnabled ||
+      !attachStatus.available
+    ) return
+
+    // Chromium 在首次 dragover 可能隐藏自定义 MIME；先开放 drop，松手时再严格校验。
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    if (listDragAccepted && listDragMaterialId) {
+      setActiveHandlingMaterialId((current) =>
+        current === listDragMaterialId ? current : listDragMaterialId
+      )
+    }
+  }, [
+    attachStatus.available,
+    handlingDragEnabled,
+    listDragAccepted,
+    listDragMaterialId
+  ])
+  const handleListDrop = useCallback((
+    event: ReactDragEvent<HTMLElement>
+  ) => {
+    const payloadMaterialId = readMaterialHandlingDragData(event.dataTransfer)
+    const payloadAggregate = payloadMaterialId
+      ? aggregatesById[payloadMaterialId]
+      : undefined
+    if (
+      !handlingDragEnabled ||
+      !attachStatus.available ||
+      !payloadMaterialId ||
+      !payloadAggregate ||
+      !isMaterialListHandlingDraggable(payloadAggregate)
+    ) return
+
+    event.preventDefault()
+    const point = { x: event.clientX, y: event.clientY }
+    const evaluatedTargets = readEvaluatedSiteDropTargets(
+      canvasRef.current,
+      payloadMaterialId,
+      aggregatesById
+    )
+    const target = selectMaterialSiteDropTarget(
+      point,
+      evaluatedTargets.filter(({ state }) => state === 'available')
+    )
+    setActiveHandlingMaterialId(null)
+    if (!target) {
+      setHandlingNotice(readRejectedSiteDropNotice(point, evaluatedTargets))
+      return
+    }
+    setHandlingNotice('正在上料…')
+    void store.getState()
+      .attach(target.parentId, payloadMaterialId, target.siteId)
+      .then(() => setHandlingNotice('上料完成'))
+      .catch((caught) => setHandlingNotice(errorMessage(caught)))
+  }, [
+    aggregatesById,
+    attachStatus.available,
+    handlingDragEnabled,
     store
   ])
   useEffect(() => {
@@ -430,6 +537,9 @@ export function MaterialCanvas({
       )}
       data-site-layer-visible={showSites}
       data-material-label-layer-visible={showMaterialLabels}
+      data-list-drag-active={listDragAccepted}
+      onDragOver={handleListDragOver}
+      onDrop={handleListDrop}
     >
       {error && loadState === 'error'
         ? <MaterialLoadError technicalMessage={error} />
@@ -558,13 +668,6 @@ function buildSiteDropStates(
   return result
 }
 
-export function isOperatorHandledMaterial(
-  aggregate: import('../types').MaterialAggregate
-): boolean {
-  return aggregate.material.component?.managedByParent !== true &&
-    readDefaultMaterialNodePresentation(aggregate).kind === 'material'
-}
-
 /** 位置编辑不得偏移 Site 内物料；它们只能通过上下料改变物理位置。 */
 export function isPositionDraggableMaterial(
   aggregate: import('../types').MaterialAggregate
@@ -582,11 +685,11 @@ export function canStartMaterialHandlingDrag(
 }
 
 /** 从可用库位的扩展命中区中选择中心最近的目标。 */
-export function selectMaterialSiteDropTarget(
+export function selectMaterialSiteDropTarget<T extends MaterialSiteDropTarget>(
   point: { x: number; y: number },
-  targets: readonly MaterialSiteDropTarget[],
+  targets: readonly T[],
   hitSlop = SITE_DROP_HIT_SLOP_PX
-): MaterialSiteDropTarget | null {
+): T | null {
   return targets
     .filter(({ rect }) =>
       point.x >= rect.left - hitSlop &&
@@ -600,19 +703,56 @@ export function selectMaterialSiteDropTarget(
     )[0] ?? null
 }
 
-function readAvailableSiteDropTargets(
-  canvas: HTMLElement | null
-): MaterialSiteDropTarget[] {
-  if (!canvas) return []
+/** 从权威聚合实时计算状态，不依赖 React 是否已把绿色状态渲染到 DOM。 */
+function readEvaluatedSiteDropTargets(
+  canvas: HTMLElement | null,
+  childId: MaterialId,
+  aggregatesById: Readonly<Record<MaterialId, import('../types').MaterialAggregate>>
+): EvaluatedMaterialSiteDropTarget[] {
+  const child = aggregatesById[childId]
+  if (!canvas || !child) return []
   return Array.from(canvas.querySelectorAll<HTMLElement | SVGGraphicsElement>(
-    '[data-material-site-id][data-site-drop-state="available"]'
+    '[data-material-site-id][data-site-owner-material-id]'
   )).flatMap((element) => {
     const parentId = element.dataset.siteOwnerMaterialId
     const siteId = element.dataset.materialSiteId
-    return parentId && siteId
-      ? [{ parentId, siteId, rect: element.getBoundingClientRect() }]
-      : []
+    if (!parentId || !siteId) return []
+    const parent = aggregatesById[parentId]
+    const site = parent?.sites.find((candidate) => candidate.id === siteId)
+    if (!parent || !site) return []
+    const rect = element.getBoundingClientRect()
+    if (rect.right <= rect.left || rect.bottom <= rect.top) return []
+    return [{
+      parentId,
+      siteId,
+      rect,
+      state: readMaterialAttachTargetState(
+        parent,
+        child,
+        site,
+        aggregatesById
+      )
+    }]
   })
+}
+
+function readRejectedSiteDropNotice(
+  point: { x: number; y: number } | null,
+  targets: readonly EvaluatedMaterialSiteDropTarget[]
+): string {
+  const rejected = point
+    ? selectMaterialSiteDropTarget(point, targets)
+    : null
+  if (rejected?.state === 'incompatible') {
+    return '该库位虽未占用，但不支持当前物料；请拖到绿色库位'
+  }
+  if (rejected?.state === 'occupied') {
+    return '该库位已占用；请拖到绿色空闲库位'
+  }
+  if (rejected?.state === 'cycle') {
+    return '不能把物料放入自身或其子级库位'
+  }
+  return '未放入可用库位：仅绿色且未占用的库位可以上料'
 }
 
 function pointerPoint(event: unknown): { x: number; y: number } | null {

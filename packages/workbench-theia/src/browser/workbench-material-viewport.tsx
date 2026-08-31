@@ -59,10 +59,12 @@ export function WorkbenchMaterialViewport({
   attachStatus,
   detachStatus,
   focusRequest,
+  listDragMaterialId,
   selectedMaterialIds,
   highlightedMaterialIds,
   onSelectionChange,
-  onMaterialActivate
+  onMaterialActivate,
+  onHandlingChange
 }: MaterialWorkbenchViewportProps & {
   backendUrl: string
   sourceIdentity: MaterialSceneSourceIdentity
@@ -393,10 +395,12 @@ export function WorkbenchMaterialViewport({
               attachStatus={attachStatus}
               detachStatus={detachStatus}
               focusRequest={focusRequest}
+              listDragMaterialId={listDragMaterialId}
               selectedMaterialIds={displayedSelectedMaterialIds}
               highlightedMaterialIds={highlightedMaterialIds}
               modelRuntime={modelRuntime}
               onMaterialActivate={onMaterialActivate}
+              onHandlingChange={onHandlingChange}
               onSelectionChange={(materialIds) => onSelectionChange?.(materialIds)}
             />
           </Suspense>

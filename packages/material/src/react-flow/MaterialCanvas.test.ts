@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import { materialAggregate } from '../testFixtures'
+import { isOperatorHandledMaterial } from '../operatorHandling'
 import {
   canStartMaterialHandlingDrag,
-  isOperatorHandledMaterial,
   isPositionDraggableMaterial,
   selectMaterialSiteDropTarget
 } from './MaterialCanvas'

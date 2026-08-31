@@ -523,7 +523,7 @@ test('位置编辑时物料跟随鼠标并在松手后保存', async ({ page }) 
   ).toHaveCount(0)
 })
 
-test('手动下料后可拖拽上料且不打开物料属性面板', async ({ page }) => {
+test('手动下料后仅在上料模式可从列表拖拽上料且不打开属性面板', async ({ page }) => {
   await installMaterialOnlyLayout(page)
   await page.goto(
     `/?section=material&localOsUrl=${encodeURIComponent(API_URL)}`
@@ -539,10 +539,17 @@ test('手动下料后可拖拽上料且不打开物料属性面板', async ({ pa
     name: '烧杯堆栈2 L1B1 烧杯 500 mL',
     exact: true
   })
+  const sourceTreeRow = sourceTreeItem.locator(
+    'xpath=ancestor::*[@data-material-tree-id][1]'
+  )
   await sourceTreeItem.click()
   await expect(
     page.getByRole('dialog', { name: '物料属性' })
   ).toHaveCount(0)
+  const sourceSiteId = await sourceTreeRow.getAttribute(
+    'data-material-tree-site-id'
+  )
+  if (!sourceSiteId) throw new Error('物料缺少原始库位身份')
 
   const handlingControls = page.locator('.material-canvas__edit-control')
   const detachButton = handlingControls.getByRole('button', {
@@ -553,12 +560,28 @@ test('手动下料后可拖拽上料且不打开物料属性面板', async ({ pa
   await detachButton.click()
   await expect(handlingControls.getByRole('status'))
     .toHaveText('下料完成')
-  await sourceTreeItem.click()
+  const materialSearch = page.getByPlaceholder('检索物料、设备或库位')
+  await materialSearch.fill('')
+  await page.getByRole('button', {
+    name: '烧杯堆栈2',
+    exact: true
+  }).click()
+  await materialSearch.fill('500ml')
   await expect(
     page.getByRole('dialog', { name: '物料属性' })
   ).toHaveCount(0)
 
+  await expect(sourceTreeRow).toHaveAttribute(
+    'data-material-handling-draggable',
+    'false'
+  )
+
   await page.getByRole('button', { name: '上料', exact: true }).click()
+  await expect(sourceTreeRow).toHaveAttribute(
+    'data-material-handling-draggable',
+    'true'
+  )
+  await expect(sourceTreeRow).toHaveAttribute('draggable', 'true')
   await expect(
     page.getByRole('dialog', { name: '物料属性' })
   ).toHaveCount(0)
@@ -567,54 +590,90 @@ test('手动下料后可拖拽上料且不打开物料属性面板', async ({ pa
     'xpath=ancestor::div[contains(@class, "react-flow__node")][1]'
   )
   await expect(sourceNode).toHaveClass(/nopan/)
-  const sourceMaterialId = await sourceNode.getAttribute('data-id')
-  await expect.poll(async () => {
-    const bounds = await sourceNode.boundingBox()
-    if (!bounds) return null
-    return page.evaluate(({ x, y }) =>
-      document.elementFromPoint(x, y)
-        ?.closest('.react-flow__node')
-        ?.getAttribute('data-id') ?? null,
-    {
-      x: bounds.x + bounds.width / 2,
-      y: bounds.y + bounds.height / 2
-    })
-  }).toBe(sourceMaterialId)
   const sourceBounds = await sourceNode.boundingBox()
-  if (!sourceBounds) throw new Error('下料后的物料不可见')
-  const sourceCenterX = sourceBounds.x + sourceBounds.width / 2
-  const sourceCenterY = sourceBounds.y + sourceBounds.height / 2
-  await page.mouse.move(sourceCenterX, sourceCenterY)
-  await page.mouse.down()
-  await page.mouse.move(sourceCenterX + 5, sourceCenterY + 5, { steps: 2 })
-  const availableSites = page.locator(
-    '[data-material-site-id][data-site-drop-state="available"]:visible'
-  )
-  await expect(availableSites.first()).toBeVisible()
-  let targetBounds: Awaited<ReturnType<typeof source.boundingBox>> = null
-  for (let index = 0; index < await availableSites.count(); index += 1) {
-    const bounds = await availableSites.nth(index).boundingBox()
-    if (!bounds) continue
-    const targetCenterX = bounds.x + bounds.width / 2
-    const targetCenterY = bounds.y + bounds.height / 2
-    if (Math.hypot(
-      targetCenterX - sourceCenterX,
-      targetCenterY - sourceCenterY
-    ) >= 30) {
-      targetBounds = bounds
-      break
-    }
+  if (!sourceBounds) throw new Error('下料后的物料节点不存在')
+  const treeRowBounds = await sourceTreeRow.boundingBox()
+  const targetSite = page.locator(
+    `[data-material-site-id="${sourceSiteId}"]`
+  ).first()
+  await expect(targetSite).toBeVisible()
+  const targetBounds = await targetSite.boundingBox()
+  if (!treeRowBounds || !targetBounds) {
+    throw new Error('物料列表行或原始空库位不可见')
   }
-  if (!targetBounds) throw new Error('未找到与物料分离的可用上料库位')
+  expect(targetBounds.x).toBeGreaterThanOrEqual(0)
+  expect(targetBounds.y).toBeGreaterThanOrEqual(0)
+  expect(targetBounds.x + targetBounds.width).toBeLessThanOrEqual(1680)
+  expect(targetBounds.y + targetBounds.height).toBeLessThanOrEqual(1050)
+  await page.evaluate(() => {
+    const dragWindow = window as unknown as {
+      __materialDragEvents?: Array<{
+        type: string
+        defaultPrevented: boolean
+        target: string
+      }>
+    }
+    dragWindow.__materialDragEvents = []
+    for (const type of ['dragstart', 'dragover', 'drop', 'dragend']) {
+      document.addEventListener(type, (event) => {
+        dragWindow.__materialDragEvents?.push({
+          type,
+          defaultPrevented: event.defaultPrevented,
+          target: event.target instanceof HTMLElement
+            ? event.target.className
+            : ''
+        })
+      })
+    }
+  })
+  await page.mouse.move(
+    treeRowBounds.x + 8,
+    treeRowBounds.y + treeRowBounds.height / 2
+  )
+  await page.mouse.down()
   await page.mouse.move(
     targetBounds.x + targetBounds.width / 2,
     targetBounds.y + targetBounds.height / 2,
-    { steps: 10 }
+    { steps: 2 }
   )
+  // 列表拖拽只使用浏览器原生 drag image；不得逐帧改写 Store 并重投影画布。
+  const draggedBounds = await sourceNode.boundingBox()
+  expect(draggedBounds).not.toBeNull()
+  expect(
+    Math.hypot(
+      (draggedBounds?.x ?? 0) - sourceBounds.x,
+      (draggedBounds?.y ?? 0) - sourceBounds.y
+    )
+  ).toBeLessThan(2)
   await expect(
     page.getByRole('dialog', { name: '物料属性' })
   ).toHaveCount(0)
+  const attachResponse = page.waitForResponse((response) => {
+    if (
+      response.url() !== `${API_URL}/api/v1/inventory/commands` ||
+      response.request().method() !== 'POST'
+    ) return false
+    const command = response.request().postDataJSON() as {
+      type?: string
+      payload?: { site_uuid?: string }
+    }
+    return command.type === 'material.move' &&
+      command.payload?.site_uuid === sourceSiteId
+  })
   await page.mouse.up()
+  const dragEvents = await page.evaluate(() => (
+    window as unknown as {
+      __materialDragEvents?: Array<{
+        type: string
+        defaultPrevented: boolean
+        target: string
+      }>
+    }
+  ).__materialDragEvents ?? [])
+  expect(dragEvents.map(({ type }) => type)).toEqual(
+    expect.arrayContaining(['dragstart', 'dragover', 'drop', 'dragend'])
+  )
+  expect((await attachResponse).ok()).toBe(true)
   await expect(handlingControls.getByRole('status'))
     .toHaveText('上料完成')
 })

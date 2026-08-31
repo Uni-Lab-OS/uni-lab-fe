@@ -30,7 +30,9 @@ export function SceneWorkbench({
   viewMode = '3d',
   attachStatus = { available: false },
   detachStatus = { available: false },
-  focusRequest = null
+  focusRequest = null,
+  listDragMaterialId = null,
+  onHandlingChange
 }: {
   showSites?: boolean
   showMaterialLabels?: boolean
@@ -39,6 +41,8 @@ export function SceneWorkbench({
   attachStatus?: CapabilityStatus
   detachStatus?: CapabilityStatus
   focusRequest?: MaterialFocusRequest | null
+  listDragMaterialId?: string | null
+  onHandlingChange?: (active: boolean) => void
 }): React.JSX.Element {
   const { backend } = useWorkbench()
   const runtime = useMaterialRuntime()
@@ -161,9 +165,11 @@ export function SceneWorkbench({
       attachStatus={attachStatus}
       detachStatus={detachStatus}
       focusRequest={focusRequest}
+      listDragMaterialId={listDragMaterialId}
       selectedMaterialIds={selectedMaterialIds}
       highlightedMaterialIds={highlightedMaterialIds}
       modelRuntime={modelRuntime}
+      onHandlingChange={onHandlingChange}
       onSelectionChange={(materialIds, sceneObjectIds) => {
         selectMaterials(materialIds)
         selectSceneObjects(sceneObjectIds)

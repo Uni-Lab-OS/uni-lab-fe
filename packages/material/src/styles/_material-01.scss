@@ -303,6 +303,14 @@
   );
 }
 
+:where(.scope, .scope *):global(.material-tree-sidebar__row.is-handling-draggable) {
+  cursor: grab;
+}
+
+:where(.scope, .scope *):global(.material-tree-sidebar__row.is-handling-draggable):active {
+  cursor: grabbing;
+}
+
 :where(.scope, .scope *):global(.material-tree-sidebar__grip) {
   width: 12px;
   color: color-mix(
@@ -312,6 +320,12 @@
   );
   font-size: 13px;
   line-height: 1;
+  cursor: default;
+}
+
+:where(.scope, .scope *):global(.material-tree-sidebar__row.is-handling-draggable)
+  :global(.material-tree-sidebar__grip) {
+  color: var(--unilab-color-primary);
   cursor: grab;
 }
 
