@@ -8,11 +8,12 @@ import {
   workflowRuntimeProblemHeading
 } from '../utils/workflowRuntimeProblem'
 import WorkflowDag, { type WorkflowDagHandle } from './WorkflowDag'
-import { WorkflowOutput } from './WorkflowOutput'
+import { ExperimentOperationStructure } from './ExperimentOperationStructure'
 import { WorkflowButton } from './WorkflowButton'
 import { WorkflowCanvasStageHeader } from './WorkflowCanvasStageHeader'
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
 import { PersistentWorkflowOverlays } from './PersistentWorkflowOverlays'
+import { PersistentWorkflowRuntimePanel } from './PersistentWorkflowRuntimePanel'
 import { PersistentWorkflowToolbar } from './PersistentWorkflowToolbar'
 import { WorkflowAuthoringLibrary } from './WorkflowAuthoringLibrary'
 import { WorkflowNodeInspector } from './WorkflowNodeInspector'
@@ -78,7 +79,6 @@ export function PersistentWorkflowAuthoringView({
     canvasMutationEnabled,
     codeViewingAvailable,
     codeProjection,
-    completedTaskJobCount,
     connectTypedHandles,
     deleteCanvasElements,
     debugBreakpoints,
@@ -100,8 +100,6 @@ export function PersistentWorkflowAuthoringView({
     mode,
     moveCanvasNode,
     nodePaletteOpen,
-    outputExpanded,
-    outputTab,
     pausedBeforeNodeId,
     policy,
     projectionKind,
@@ -110,32 +108,21 @@ export function PersistentWorkflowAuthoringView({
     runtime,
     runtimeBusy,
     selectCanvasNode,
-    selectedJobNodeUuid,
     selectedNodeUuid,
-    selectedTaskNode,
     setCodeProjection,
     setError,
     setGraph,
     setNodePaletteOpen,
-    setOutputExpanded,
-    setOutputTab,
     setSelectedJobNodeUuid,
     setSelectedNodeUuid,
-    setTraceViewerOpen,
     setWorkflowIoOpen,
     sourceSelectedNodeUuid,
     sourceEditingAvailable,
     sourceEditingDisabledReason,
     sourceProjection,
     structure,
-    task,
-    taskJobs,
-    taskNodeNames,
     taskNodeStates,
-    taskOutputNodes,
     taskRuntime,
-    taskActivity,
-    traceRuntime,
     toggleDebugBreakpoint,
     toggleDebugStartNode,
     toggleNodeDisabled,
@@ -151,6 +138,7 @@ export function PersistentWorkflowAuthoringView({
   const restoredNavigationRef = useRef<string | null>(null)
   const [compactCanvas, setCompactCanvas] = useState(false)
   const [graphStageReady, setGraphStageReady] = useState(false)
+  const [operationStructureOpen, setOperationStructureOpen] = useState(true)
 
   useEffect(() => {
     const element = authoringViewRef.current
@@ -158,7 +146,10 @@ export function PersistentWorkflowAuthoringView({
     const observer = new ResizeObserver(([entry]) => {
       const compact = entry.contentRect.width < COMPACT_WORKFLOW_CANVAS_WIDTH
       setCompactCanvas(compact)
-      if (compact) setNodePaletteOpen(false)
+      if (compact) {
+        setNodePaletteOpen(false)
+        setOperationStructureOpen(false)
+      }
     })
     observer.observe(element)
     return () => observer.disconnect()
@@ -199,6 +190,13 @@ export function PersistentWorkflowAuthoringView({
       nonce: (current?.nonce ?? 0) + 1
     }))
   }, [selectCanvasNode, setSelectedJobNodeUuid])
+  const handleStructureNodeSelect = useCallback((nodeId: string): void => {
+    selectCanvasNode(nodeId)
+    setCanvasRevealRequest((current) => ({
+      nodeId,
+      nonce: (current?.nonce ?? 0) + 1
+    }))
+  }, [selectCanvasNode])
   const insertPaletteNode = useCallback((
     payload: WorkflowNodePaletteDragPayload,
     position?: WorkflowCanvasPoint
@@ -238,22 +236,6 @@ export function PersistentWorkflowAuthoringView({
     selectCanvasNode,
     workflowUuid
   ])
-  const debugProjection = taskRuntime.snapshot.debug
-  const debugFinished = !task || [
-    'succeeded',
-    'failed',
-    'canceled',
-    'timeout'
-  ].includes(task.status) || [
-    'completed',
-    'stopped'
-  ].includes(debugProjection?.status ?? '')
-  const debugStatusLabel: Record<string, string> = {
-    paused: '已暂停',
-    running: '运行中',
-    completed: '已完成',
-    stopped: '已停止'
-  }
   const realtimeFallbackOnly = taskRuntime.snapshot.realtimeError !== null &&
     taskRuntime.snapshot.actionError === null &&
     taskRuntime.snapshot.projectionError === null &&
@@ -266,6 +248,10 @@ export function PersistentWorkflowAuthoringView({
         styles.workflow,
         'workflow-runtime persistent-authoring',
         mode === 'canvas' ? 'persistent-authoring--canvas' : '',
+        definitionKind === 'operation' ? 'persistent-authoring--operation' : '',
+        definitionKind === 'operation' && operationStructureOpen
+          ? 'persistent-authoring--operation-structure-open'
+          : '',
         'relative flex h-full w-full flex-col',
         'bg-[var(--unilab-color-canvas)] text-[var(--unilab-color-text)]'
       ].join(' ')}
@@ -489,15 +475,32 @@ export function PersistentWorkflowAuthoringView({
             ) : undefined}
             tools={(
               <>
-                {mode === 'canvas' && !compactCanvas && (
+                {mode === 'canvas' && (
                   <button
                     type="button"
                     className="persistent-authoring__panel-toggle"
                     aria-controls="persistent-authoring-node-palette"
                     aria-pressed={nodePaletteOpen}
-                    onClick={() => setNodePaletteOpen((open) => !open)}
+                    onClick={() => {
+                      if (compactCanvas) setOperationStructureOpen(false)
+                      setNodePaletteOpen((open) => !open)
+                    }}
                   >
                     {nodePaletteOpen ? '隐藏节点库' : '显示节点库'}
+                  </button>
+                )}
+                {mode === 'canvas' && definitionKind === 'operation' && (
+                  <button
+                    type="button"
+                    className="persistent-authoring__panel-toggle"
+                    aria-controls="persistent-authoring-operation-structure"
+                    aria-pressed={operationStructureOpen}
+                    onClick={() => {
+                      if (compactCanvas) setNodePaletteOpen(false)
+                      setOperationStructureOpen((open) => !open)
+                    }}
+                  >
+                    {operationStructureOpen ? '隐藏流程' : '显示流程'}
                   </button>
                 )}
                 <WorkflowButton
@@ -524,16 +527,20 @@ export function PersistentWorkflowAuthoringView({
           <div className={[
             'persistent-authoring__canvas-body',
             mode === 'code' ? 'is-code-mode' : '',
-            mode === 'canvas' && (!nodePaletteOpen || compactCanvas)
+            mode === 'canvas' && !nodePaletteOpen
               ? 'is-palette-closed'
               : '',
             mode === 'canvas' && !compactCanvas
               ? 'has-inspector'
+              : '',
+            mode === 'canvas' && definitionKind === 'operation' &&
+              operationStructureOpen
+              ? 'has-operation-structure'
               : ''
           ].filter(Boolean).join(' ')}>
             {graph ? (
               <>
-                {mode === 'canvas' && nodePaletteOpen && !compactCanvas && (
+                {mode === 'canvas' && nodePaletteOpen && (
                   <WorkflowAuthoringLibrary
                     runtime={runtime}
                     workflowUuid={workflowUuid}
@@ -569,6 +576,17 @@ export function PersistentWorkflowAuthoringView({
                     onRefreshMaterialSourceCatalog={
                       refreshMaterialSourceCatalog
                     }
+                  />
+                )}
+                {mode === 'canvas' && definitionKind === 'operation' &&
+                  operationStructureOpen && (
+                  <ExperimentOperationStructure
+                    workflowName={workflowName || '当前实验操作'}
+                    nodes={structure.nodes}
+                    linkCount={structure.links.length}
+                    selectedNodeId={selectedNodeUuid}
+                    onSelect={handleStructureNodeSelect}
+                    onClose={() => setOperationStructureOpen(false)}
                   />
                 )}
                 <div
@@ -632,9 +650,7 @@ export function PersistentWorkflowAuthoringView({
                     nodePositionMutationEnabled={canvasMutationEnabled}
                     onNodePositionChange={moveCanvasNode}
                     onConnectHandles={connectTypedHandles}
-                    onDeleteRequest={canvasMutationEnabled
-                      ? deleteCanvasElements
-                      : undefined}
+                    onDeleteRequest={deleteCanvasElements}
                     onOpenChildWorkflow={onOpenChildWorkflow
                       ? (childWorkflowUuid, childWorkflowName) => {
                           if (dirty) {
@@ -658,9 +674,18 @@ export function PersistentWorkflowAuthoringView({
                     }
                     />
                   )}
+                  {definitionKind === 'operation' && (
+                    <PersistentWorkflowRuntimePanel
+                      model={model}
+                      onNodeSelect={handleRuntimeNodeSelect}
+                    />
+                  )}
                 </div>
                 {mode === 'canvas' && !compactCanvas && (
-                  <WorkflowNodeInspector model={model} />
+                  <WorkflowNodeInspector
+                    model={model}
+                    definitionKind={definitionKind}
+                  />
                 )}
               </>
             ) : (
@@ -672,92 +697,12 @@ export function PersistentWorkflowAuthoringView({
         </section>
       </section>
 
-      <section
-        className="persistent-authoring__runtime"
-        aria-label="工作流任务运行控制"
-      >
-        {debugProjection && (
-          <section
-            className="persistent-authoring__debug-console"
-            aria-label="调试控制台"
-            data-debug-status={debugProjection.status}
-          >
-            <div>
-              <strong>调试控制台</strong>
-              <span>
-                {pausedBeforeNodeId
-                  ? `已在节点前暂停：${taskNodeNames[pausedBeforeNodeId] || pausedBeforeNodeId}`
-                  : debugProjection.status === 'running'
-                    ? '正在运行到下一个断点'
-                    : `调试会话：${debugStatusLabel[debugProjection.status] ?? debugProjection.status}`}
-              </span>
-            </div>
-            <div role="group" aria-label="调试执行控制">
-              <WorkflowButton
-                type="button"
-                disabled={runtimeBusy || !pausedBeforeNodeId}
-                disabledReason="当前没有可单步放行的暂停点"
-                title="只执行当前暂停节点，然后在下一节点前暂停"
-                onClick={() => runRuntime(
-                  () => taskRuntime.debugCommand('step')
-                )}
-              >
-                <span aria-hidden="true">↷</span>
-                <span>单步</span>
-              </WorkflowButton>
-              <WorkflowButton
-                type="button"
-                disabled={runtimeBusy || !pausedBeforeNodeId}
-                disabledReason="当前没有可继续放行的暂停点"
-                title="继续运行到下一个断点"
-                onClick={() => runRuntime(
-                  () => taskRuntime.debugCommand('continue')
-                )}
-              >
-                <span aria-hidden="true">▶</span>
-                <span>继续</span>
-              </WorkflowButton>
-              <WorkflowButton
-                type="button"
-                className="is-danger"
-                disabled={runtimeBusy || debugFinished}
-                disabledReason="当前没有可停止的调试任务"
-                title="停止调试并取消剩余节点作业"
-                onClick={() => runRuntime(
-                  () => taskRuntime.command('cancel')
-                )}
-              >
-                <span aria-hidden="true">■</span>
-                <span>停止</span>
-              </WorkflowButton>
-            </div>
-          </section>
-        )}
-        <WorkflowOutput
-          expanded={outputExpanded}
-          resizable
-          activeTab={outputTab}
-          completedNodeCount={completedTaskJobCount}
-          expectedNodeCount={taskJobs.length}
-          nodes={taskOutputNodes}
-          nodeNames={taskNodeNames}
-          activity={taskActivity}
-          error={taskRuntime.snapshot.error}
-          selectedNode={selectedTaskNode}
-          selectedNodeId={selectedJobNodeUuid}
-          pausedBeforeNodeId={pausedBeforeNodeId}
-          title="运行输出"
-          countLabel="个节点任务已结束"
-          nodesTabLabel="节点任务状态"
-          onExpandedChange={setOutputExpanded}
-          onTabChange={setOutputTab}
+      {definitionKind !== 'operation' && (
+        <PersistentWorkflowRuntimePanel
+          model={model}
           onNodeSelect={handleRuntimeNodeSelect}
-          onClearError={taskRuntime.clearError}
-          onTraceOpen={traceRuntime
-            ? () => setTraceViewerOpen(true)
-            : undefined}
         />
-      </section>
+      )}
 
       <PersistentWorkflowOverlays
         model={model}

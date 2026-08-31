@@ -6,7 +6,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { TypedActionEditorProjection } from '../utils/workflowActionCatalog'
-import { WorkflowActionParameterDrawer } from './WorkflowActionParameterDrawer'
+import {
+  WorkflowActionParameterDrawer,
+  WorkflowActionParameterEditor
+} from './WorkflowActionParameterDrawer'
 
 const nodeUuid = '10000000-0000-4000-8000-000000000001'
 const targetNodeUuid = '10000000-0000-4000-8000-000000000002'
@@ -80,6 +83,34 @@ describe('WorkflowActionParameterDrawer', () => {
 
     expect(outputStart).toBeGreaterThanOrEqual(0)
     expect(visibleText(markup)).toContain('OS 操作模板')
+    expect(outputMarkup).not.toMatch(/<input|<select/)
+  })
+
+  it('separates the operation input and output contract views', () => {
+    const commonProps = {
+      editor,
+      outputHandles: [outputHandle],
+      graph,
+      editable: true,
+      onProviderChange: vi.fn(),
+      onLiteralBlur: vi.fn(),
+      onClear: vi.fn(),
+      onNull: vi.fn()
+    }
+    const inputMarkup = renderToStaticMarkup(
+      <WorkflowActionParameterEditor {...commonProps} view="inputs" />
+    )
+    const outputMarkup = renderToStaticMarkup(
+      <WorkflowActionParameterEditor {...commonProps} view="outputs" />
+    )
+
+    expect(visibleText(inputMarkup)).toContain('输入契约')
+    expect(inputMarkup).toContain(inputHandleUuid)
+    expect(inputMarkup).not.toContain(outputHandleUuid)
+    expect(inputMarkup).not.toMatch(/<input|<select/)
+    expect(visibleText(outputMarkup)).toContain('输出契约')
+    expect(outputMarkup).toContain(outputHandleUuid)
+    expect(outputMarkup).not.toContain(inputHandleUuid)
     expect(outputMarkup).not.toMatch(/<input|<select/)
   })
 

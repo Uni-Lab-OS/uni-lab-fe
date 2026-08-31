@@ -1,3 +1,4 @@
+import type { WorkflowDefinitionKind } from '@unilab/services'
 import { useState } from 'react'
 
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
@@ -6,13 +7,28 @@ import { WorkflowActionParameterEditor } from './WorkflowActionParameterDrawer'
 
 /** 固定在桌面画布右侧的节点检查器；窄屏继续由共享参数抽屉承载。 */
 export function WorkflowNodeInspector({
-  model
+  model,
+  definitionKind = 'workflow'
 }: {
   model: PersistentWorkflowAuthoringModel
+  definitionKind?: WorkflowDefinitionKind
 }): React.JSX.Element {
   const [inspectorPane, setInspectorPane] = useState<
-    'parameters' | 'mapping' | 'runtime'
+    'parameters' | 'mapping' | 'inputs' | 'outputs' | 'runtime'
   >('parameters')
+  const operationInspector = definitionKind === 'operation'
+  const inspectorTabs = operationInspector
+    ? [
+        ['parameters', '参数配置'],
+        ['inputs', '输入'],
+        ['outputs', '输出'],
+        ['runtime', '运行观察']
+      ] as const
+    : [
+        ['parameters', '参数配置'],
+        ['mapping', '输入 / 输出'],
+        ['runtime', '运行观察']
+      ] as const
   const {
     bindTypedFieldToWorkflowInput,
     busy,
@@ -61,7 +77,7 @@ export function WorkflowNodeInspector({
           <span>属性</span>
           <strong>
             {!selectedNodeUuid
-              ? '节点检查器'
+              ? operationInspector ? '实验操作参数' : '节点检查器'
               : selectedIsMaterialSource ? '物料来源' : '节点属性'}
           </strong>
         </span>
@@ -151,17 +167,15 @@ export function WorkflowNodeInspector({
               <nav
                 className="persistent-authoring__node-tabs"
                 aria-label="节点检查器视图"
+                role="tablist"
               >
-                {([
-                  ['parameters', '参数配置'],
-                  ['mapping', '输入 / 输出'],
-                  ['runtime', '运行观察']
-                ] as const).map(([pane, label]) => (
+                {inspectorTabs.map(([pane, label]) => (
                   <button
                     key={pane}
                     type="button"
+                    role="tab"
                     className={inspectorPane === pane ? 'is-active' : undefined}
-                    aria-pressed={inspectorPane === pane}
+                    aria-selected={inspectorPane === pane}
                     onClick={() => setInspectorPane(pane)}
                   >
                     {label}

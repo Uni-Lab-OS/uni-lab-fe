@@ -237,14 +237,14 @@ def ready_handle(handle_uuid, io_type):
         "handle_key": "ready",
         "io_type": io_type,
         "display_name": "Ready",
-        "type": "any",
+        "type": "boolean",
         "required": False,
         "description": None,
         "data_source": "dependency",
         "data_key": "ready",
         "meta_data": {
             "unilab": {
-                "value_schema": {"type": "any"},
+                "value_schema": {"type": "boolean"},
                 "editor_control": "variable_selector",
                 "allowed_resource_template_uuids": None,
                 "implicit_passthrough": False,

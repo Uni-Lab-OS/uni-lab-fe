@@ -169,7 +169,7 @@ test('edits operation I/O and node parameters, then saves, applies and restarts'
     path: resolve(ARTIFACT_DIRECTORY, '02-operation-authoring-desktop.png'),
     fullPage: true
   })
-  await inspector.getByRole('button', { name: '输入 / 输出' }).click()
+  await inspector.getByRole('tab', { name: '输入 / 输出' }).click()
   await expect(inspector.locator('.mapping-section')).toBeVisible()
   await expect(inspector.locator('.mapping-group-label')).toContainText([
     '输入参数',

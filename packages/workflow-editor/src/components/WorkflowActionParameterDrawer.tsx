@@ -20,7 +20,7 @@ export interface WorkflowActionParameterEditorProps {
   outputHandles: readonly WorkflowActionHandleTemplate[]
   graph: WorkflowAuthoringGraph | null
   editable: boolean
-  view?: 'all' | 'parameters' | 'mapping'
+  view?: 'all' | 'parameters' | 'mapping' | 'inputs' | 'outputs'
   resourceSlotOptions?: WorkflowResourceSlotOptionsState
   onProviderChange: (
     field: TypedActionFieldProjection,
@@ -105,6 +105,9 @@ export function WorkflowActionParameterEditor({
   const businessOutputHandles = outputHandles.filter(
     (handle) => handle.structuralRole === null
   )
+  const showParameterEditor = view === 'all' || view === 'parameters'
+  const showIoMapping = view === 'all' || view === 'mapping' ||
+    view === 'inputs' || view === 'outputs'
   const [literalDraftHandles, setLiteralDraftHandles] = useState<Set<string>>(
     () => new Set()
   )
@@ -146,7 +149,7 @@ export function WorkflowActionParameterEditor({
   }
   return (
     <div className="persistent-authoring__parameter-drawer node-contract-editor">
-        {view !== 'mapping' && <header className="contract-editor-intro">
+        {showParameterEditor && <header className="contract-editor-intro">
           <div>
             <strong>设备动作参数映射</strong>
             <p>
@@ -168,7 +171,7 @@ export function WorkflowActionParameterEditor({
           </p>
         ) : (
           <div className="persistent-authoring__parameter-columns">
-            {view !== 'mapping' && (
+            {showParameterEditor && (
             <ParameterSection
               title="输入参数"
               description="选择参数来源；固定值和工作流输入都在此设置。"
@@ -310,14 +313,15 @@ export function WorkflowActionParameterEditor({
               />
             </ParameterSection>
             )}
-            {view !== 'parameters' && (
+            {showIoMapping && (
               <WorkflowActionIoMapping
                 editor={editor}
                 outputHandles={businessOutputHandles}
                 graph={graph}
+                view={view === 'inputs' || view === 'outputs' ? view : 'all'}
               />
             )}
-            {view !== 'mapping' && (
+            {showParameterEditor && (
               <div className={[
                 'contract-validation',
                 missingRequiredCount > 0 ? 'warn' : ''
@@ -362,11 +366,13 @@ function ParameterSection({
 function WorkflowActionIoMapping({
   editor,
   outputHandles,
-  graph
+  graph,
+  view
 }: {
   editor: TypedActionEditorProjection
   outputHandles: readonly WorkflowActionHandleTemplate[]
   graph: WorkflowAuthoringGraph | null
+  view: 'all' | 'inputs' | 'outputs'
 }): React.JSX.Element {
   const materialInputs = editor.fields.filter(isMaterialInputField)
   const deviceInputs = editor.fields.filter((field) => !isMaterialInputField(field))
@@ -374,20 +380,35 @@ function WorkflowActionIoMapping({
   const deviceOutputs = outputHandles.filter(
     (handle) => !isMaterialOutputHandle(handle)
   )
+  const showInputs = view !== 'outputs'
+  const showOutputs = view !== 'inputs'
+  const hasMaterialContract = (
+    showInputs && materialInputs.length > 0
+  ) || (
+    showOutputs && materialOutputs.length > 0
+  )
   return (
     <div className="persistent-authoring__mapping-contract">
       <div className="mapping-toolbar">
-        <span>参数来自 OS 操作模板与真实 Handle</span>
+        <span>{view === 'inputs'
+          ? '输入来自 OS 操作模板与当前节点绑定'
+          : view === 'outputs'
+            ? '输出来自 OS 操作模板的只读 Handle'
+            : '参数来自 OS 操作模板与真实 Handle'}</span>
       </div>
       <MappingSection
         title="设备参数"
-        description="输入与输出契约"
+        description={view === 'inputs'
+          ? '输入契约'
+          : view === 'outputs' ? '输出契约' : '输入与输出契约'}
         inputs={deviceInputs}
         outputs={deviceOutputs}
         editor={editor}
         graph={graph}
+        showInputs={showInputs}
+        showOutputs={showOutputs}
       />
-      {(materialInputs.length > 0 || materialOutputs.length > 0) && (
+      {hasMaterialContract && (
         <MappingSection
           material
           title="物料参数"
@@ -396,10 +417,16 @@ function WorkflowActionIoMapping({
           outputs={materialOutputs}
           editor={editor}
           graph={graph}
+          showInputs={showInputs}
+          showOutputs={showOutputs}
         />
       )}
       <div className="parameter-provenance">
-        输入映射随节点草稿保存；输出由 OS 操作模板定义，连接只使用真实 Handle UUID。
+        {view === 'inputs'
+          ? '输入映射随节点草稿保存，连接只接受真实 Handle UUID。'
+          : view === 'outputs'
+            ? '输出合同保持只读；实际值与运行状态由 OS 权威任务投影提供。'
+            : '输入映射随节点草稿保存；输出由 OS 操作模板定义，连接只使用真实 Handle UUID。'}
       </div>
     </div>
   )
@@ -412,7 +439,9 @@ function MappingSection({
   inputs,
   outputs,
   editor,
-  graph
+  graph,
+  showInputs,
+  showOutputs
 }: {
   material?: boolean
   title: string
@@ -421,6 +450,8 @@ function MappingSection({
   outputs: readonly WorkflowActionHandleTemplate[]
   editor: TypedActionEditorProjection
   graph: WorkflowAuthoringGraph | null
+  showInputs: boolean
+  showOutputs: boolean
 }): React.JSX.Element {
   return (
     <section className={`mapping-section${material ? ' material' : ''}`}>
@@ -428,10 +459,10 @@ function MappingSection({
         <strong>{title}</strong>
         <small>{description}</small>
       </header>
-      <div className="mapping-group-label">
+      {showInputs && <div className="mapping-group-label">
         {material ? '输入物料' : '输入参数'}
-      </div>
-      {inputs.length === 0 ? (
+      </div>}
+      {showInputs && (inputs.length === 0 ? (
         <p className="mapping-empty">没有声明输入</p>
       ) : inputs.map((field) => (
         <div
@@ -445,11 +476,11 @@ function MappingSection({
           </div>
           <strong>{inputValueLabel(field)}</strong>
         </div>
-      ))}
-      <div className="mapping-group-label">
+      )))}
+      {showOutputs && <div className="mapping-group-label">
         {material ? '输出物料' : '输出参数'}
-      </div>
-      {outputs.length === 0 ? (
+      </div>}
+      {showOutputs && (outputs.length === 0 ? (
         <p className="mapping-empty">没有声明输出</p>
       ) : outputs.map((handle) => {
         const destinations = outputDestinations(
@@ -480,7 +511,7 @@ function MappingSection({
             )}
           </div>
         )
-      })}
+      }))}
     </section>
   )
 }
