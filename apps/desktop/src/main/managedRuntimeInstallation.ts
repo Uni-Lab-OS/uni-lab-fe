@@ -42,7 +42,6 @@ const INSTALL_LOCK_TIMEOUT_MS = 10 * 60 * 1_000
 const INSTALL_LOCK_STALE_MS = 2 * 60 * 60 * 1_000
 const INSTALL_LOCK_POLL_MS = 50
 const RUNTIME_DOWNLOAD_MAX_BYTES = 1024 * 1024 * 1024
-const RUNTIME_DOWNLOAD_REDIRECT_LIMIT = 5
 const RUNTIME_DOWNLOAD_SOCKET_TIMEOUT_MS = 30_000
 const RUNTIME_DOWNLOAD_UNKNOWN_SIZE_REPORT_BYTES = 4 * 1024 * 1024
 
@@ -741,7 +740,7 @@ const unavailableRuntimeInstallerDownloader: RuntimeInstallerDownloader =
     throw new Error('Runtime 下载需要 Electron 网络服务')
   }
 
-/** 通过 Chromium 网络栈流式下载 Runtime，限制重定向、空闲时间与最大体积。 */
+/** 通过 Chromium 网络栈流式下载 Runtime，限制空闲时间与最大体积。 */
 async function downloadRuntimeInstaller(
   electronNet: ElectronRuntimeNet,
   url: string,
@@ -750,8 +749,7 @@ async function downloadRuntimeInstaller(
 ): Promise<void> {
   const { response, abortController } = await openRuntimeDownload(
     electronNet,
-    new URL(url),
-    0
+    new URL(url)
   )
   const declaredLength = Number(response.headers.get('content-length') ?? 0)
   const contentLength = Number.isSafeInteger(declaredLength)
@@ -869,14 +867,13 @@ function runtimeInstallationProgress(
 
 async function openRuntimeDownload(
   electronNet: ElectronRuntimeNet,
-  url: URL,
-  redirectCount: number
+  url: URL
 ): Promise<{
   response: ElectronRuntimeResponse
   abortController: AbortController
 }> {
   if (url.protocol !== 'https:' || url.username || url.password) {
-    throw new Error('Runtime 下载重定向必须使用无凭据 HTTPS')
+    throw new Error('Runtime 下载地址必须使用无凭据 HTTPS')
   }
   const abortController = new AbortController()
   let connectionTimedOut = false
@@ -888,7 +885,7 @@ async function openRuntimeDownload(
   try {
     response = await electronNet.fetch(url.href, {
       method: 'GET',
-      redirect: 'manual',
+      redirect: 'follow',
       credentials: 'omit',
       cache: 'no-store',
       bypassCustomProtocolHandlers: true,
@@ -905,21 +902,6 @@ async function openRuntimeDownload(
     throw error
   } finally {
     clearTimeout(connectionTimeout)
-  }
-  if (response.status >= 300 && response.status < 400) {
-    await response.body?.cancel()
-    if (redirectCount >= RUNTIME_DOWNLOAD_REDIRECT_LIMIT) {
-      throw new Error('Runtime 下载重定向次数过多')
-    }
-    const location = response.headers.get('location')
-    if (!location) throw new Error('Runtime 下载返回无效重定向地址')
-    let nextUrl: URL
-    try {
-      nextUrl = new URL(location, url)
-    } catch (error) {
-      throw new Error('Runtime 下载返回无效重定向地址', { cause: error })
-    }
-    return openRuntimeDownload(electronNet, nextUrl, redirectCount + 1)
   }
   if (response.status !== 200) {
     await response.body?.cancel()

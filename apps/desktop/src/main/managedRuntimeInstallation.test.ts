@@ -40,10 +40,16 @@ describe('ManagedRuntimeInstallation', () => {
     temporaryDirectories.push(root)
     const destination = join(root, 'runtime-installer.download')
     const installerBytes = Buffer.from('electron-system-proxy-download')
-    const fetch = vi.fn(async () => new Response(installerBytes, {
-      status: 200,
-      headers: { 'content-length': String(installerBytes.length) }
-    }))
+    const fetch = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.redirect === 'manual') {
+        throw new Error('Redirect was cancelled')
+      }
+      const response = new Response(installerBytes, {
+        status: 200,
+        headers: { 'content-length': String(installerBytes.length) }
+      })
+      return response
+    })
     const download = createElectronRuntimeInstallerDownloader({ fetch } as never)
     const progress: ReturnType<typeof runtimeDownloadProgress>[] = []
 
@@ -57,7 +63,7 @@ describe('ManagedRuntimeInstallation', () => {
     expect(fetch).toHaveBeenCalledWith(
       expect.stringMatching(/^https:\/\//u),
       expect.objectContaining({
-        redirect: 'manual',
+        redirect: 'follow',
         credentials: 'omit'
       })
     )
@@ -69,22 +75,19 @@ describe('ManagedRuntimeInstallation', () => {
     })
   })
 
-  it('rejects an insecure redirect from the Electron network stack', async () => {
+  it('rejects an insecure Runtime source before using the Electron network stack', async () => {
     const root = await mkdtemp(join(tmpdir(), 'unilab-runtime-net-'))
     temporaryDirectories.push(root)
     const destination = join(root, 'runtime-installer.download')
-    const fetch = vi.fn(async () => new Response(null, {
-      status: 302,
-      headers: { location: 'http://downloads.example.com/runtime.sh' }
-    }))
+    const fetch = vi.fn()
     const download = createElectronRuntimeInstallerDownloader({ fetch } as never)
 
     await expect(download(
-      'https://github.com/Uni-Lab-OS/runtime/releases/download/0.11.3/runtime.sh',
+      'http://downloads.example.com/runtime.sh',
       destination,
       () => undefined
-    )).rejects.toThrow('Runtime 下载重定向必须使用无凭据 HTTPS')
-    expect(fetch).toHaveBeenCalledTimes(1)
+    )).rejects.toThrow('Runtime 下载地址必须使用无凭据 HTTPS')
+    expect(fetch).not.toHaveBeenCalled()
     await expect(access(destination)).rejects.toThrow()
   })
 
