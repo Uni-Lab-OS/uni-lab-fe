@@ -579,7 +579,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     }
   }
 
-  protected readonly saveActiveWorkflowSource = async (): Promise<void> => {
+  protected readonly saveActiveWorkflowSource = async (): Promise<string> => {
     const editorWidget = this.editorManager.currentEditor
     if (
       !editorWidget ||
@@ -588,7 +588,12 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     ) {
       throw new Error('当前标签不是已注册工作流的 Python 源码')
     }
-    await editorWidget.editor.document.save()
+    const document = editorWidget.editor.document
+    await document.save()
+    if (document.dirty) {
+      throw new Error('当前工作流 Python 源码尚未保存完成')
+    }
+    return document.getText()
   }
 
   protected readonly writeActiveWorkflowSource = async (

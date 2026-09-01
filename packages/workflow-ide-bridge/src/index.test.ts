@@ -112,13 +112,23 @@ describe('workflow IDE bridge', () => {
     ])
   })
 
-  it('publishes an IDE save with the workflow identity registered for that exact file', async () => {
+  it('returns a commanded IDE save without publishing a competing save event', async () => {
     let hostSaveCount = 0
     const savedSources: unknown[] = []
-    const adapter = new WorkflowIdeHostAdapter({
+    let adapter: WorkflowIdeHostAdapter
+    adapter = new WorkflowIdeHostAdapter({
       revealSource: async () => {},
       replaceDiagnostics: () => {},
-      saveActiveWorkflowSource: async () => { hostSaveCount += 1 }
+      saveActiveWorkflowSource: async () => {
+        hostSaveCount += 1
+        adapter.acceptEditor({
+          currentUri: 'file:///workspace/szlab_poly_studio/workflows/s06_robot.py',
+          dirty: false,
+          cursor: { line: 19, column: 8 }
+        })
+        expect(adapter.acceptSavedWorkflowSource('value = 2\n')).toBe(true)
+        return 'value = 2\n'
+      }
     })
     adapter.setPackageMounts([{
       packageId: 'szlab_poly_studio',
@@ -137,24 +147,25 @@ describe('workflow IDE bridge', () => {
     )
 
     expect(adapter.bridge.activeWorkflowSourceDirty).toBe(true)
-    await adapter.bridge.saveActiveWorkflowSource?.()
+    const savedSource = await adapter.bridge.saveActiveWorkflowSource?.()
     expect(hostSaveCount).toBe(1)
-
-    adapter.acceptEditor({
-      currentUri: 'file:///workspace/szlab_poly_studio/workflows/s06_robot.py',
-      dirty: false,
-      cursor: { line: 19, column: 8 }
-    })
-    expect(adapter.acceptSavedWorkflowSource('value = 2\n')).toBe(true)
-    expect(savedSources).toEqual([{
+    expect(savedSource).toEqual({
       workflowUuid: 'workflow-1',
       sourceUri: projection.sourceUri,
       sourceVersion: 'v1',
       pythonSource: 'value = 2\n'
-    }])
+    })
+    expect(savedSources).toEqual([])
 
-    subscription?.dispose()
     expect(adapter.acceptSavedWorkflowSource('value = 3\n')).toBe(true)
+    expect(savedSources).toEqual([{
+      workflowUuid: 'workflow-1',
+      sourceUri: projection.sourceUri,
+      sourceVersion: 'v1',
+      pythonSource: 'value = 3\n'
+    }])
+    subscription?.dispose()
+    expect(adapter.acceptSavedWorkflowSource('value = 4\n')).toBe(true)
     expect(savedSources).toHaveLength(1)
   })
 
@@ -399,7 +410,7 @@ describe('workflow IDE bridge', () => {
     }])
   })
 
-  it('returns OS-normalized source for editor review without a second write', async () => {
+  it('keeps normalized Python in the candidate without writing it back', async () => {
     const writes: unknown[] = []
     const compiled = {
       workflow_revision: 7,

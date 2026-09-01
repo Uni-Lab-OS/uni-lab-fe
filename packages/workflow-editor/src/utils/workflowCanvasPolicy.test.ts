@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import {
   CANVAS_EDIT_WORKFLOW_CANVAS,
   READ_ONLY_WORKFLOW_CANVAS,
-  workflowCandidateMaterializationDecision,
   visibleReadOnlyEdgeChanges,
   visibleReadOnlyNodeChanges
 } from './workflowCanvasPolicy'
@@ -174,33 +173,4 @@ describe('D-117 single edit authority policy', () => {
       localPython: 'result = clean()\n'
     })).toEqual({ kind: 'rehydrate' })
   })
-
-  /**
-   * 验证工作流创作候选（Candidate）只有在规范化源码已经成为持久工作流源码时
-   * 才允许应用；参数是已保存源码与 OS 签发的规范化源码，返回公开 UI 决策。
-   *
-   * @returns 不返回值；候选物化门禁不满足预期时由 Vitest 报告失败。
-   */
-  function requiresNormalizedSourceReviewBeforeApply(): void {
-    const draftPython = 'result=build()\n'
-    const normalizedPython = 'result = build()\n'
-
-    expect(workflowCandidateMaterializationDecision({
-      draftPython,
-      normalizedPython
-    })).toEqual({
-      kind: 'review_normalized_source',
-      before: draftPython,
-      after: normalizedPython
-    })
-    expect(workflowCandidateMaterializationDecision({
-      draftPython: normalizedPython,
-      normalizedPython
-    })).toEqual({ kind: 'ready_to_apply' })
-  }
-
-  it(
-    '规范化工作流源码未保存时必须先确认完整差异',
-    requiresNormalizedSourceReviewBeforeApply
-  )
 })

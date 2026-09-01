@@ -37,9 +37,8 @@ export interface FullSourceDiff {
   after: string
   expectedDraftHash: string | null
   expectedWorkflowRevision: number
-  reason: 'canvas_save' | 'conflict_retry' | 'source_normalization'
+  reason: 'canvas_save' | 'conflict_retry'
   resumeMode: WorkflowEditMode
-  applyAfterSave: boolean
 }
 
 export interface RemoteConflict {

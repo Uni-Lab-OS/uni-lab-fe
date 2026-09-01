@@ -4,9 +4,10 @@ import type {
 } from '@unilab/services'
 import {
   synchronizeSavedWorkflowSource,
-  type WorkflowIdeBridge
+  type WorkflowIdeBridge,
+  type WorkflowIdeSavedSource
 } from '@unilab/workflow-ide-bridge'
-import { useEffect, type MutableRefObject } from 'react'
+import { useCallback, useEffect, type MutableRefObject } from 'react'
 
 import {
   AuthoringOperationQueue,
@@ -50,6 +51,19 @@ export function workflowIdeSavedSourceInstallDecision(
     : { kind: 'install' }
 }
 
+/** Save the active IDE source, then wait for that exact source to finish OS sync. */
+export async function saveAndSynchronizeActiveWorkflowSource<TResult>(
+  ideBridge: Pick<WorkflowIdeBridge, 'saveActiveWorkflowSource'> | undefined,
+  synchronize: (savedSource: WorkflowIdeSavedSource) => Promise<TResult>
+): Promise<TResult> {
+  const saveActiveSource = ideBridge?.saveActiveWorkflowSource
+  if (!saveActiveSource) {
+    throw new Error('当前 IDE 宿主未提供工作流源码保存能力')
+  }
+  const savedSource = await saveActiveSource()
+  return synchronize(savedSource)
+}
+
 /** Owns IDE-save submission so the authoring surface remains host-neutral. */
 export function useWorkflowIdeSavedSource({
   enabled,
@@ -63,40 +77,64 @@ export function useWorkflowIdeSavedSource({
   installAggregateAgainstDirtyCanvas,
   onSynchronized,
   readRemoteConflict
-}: WorkflowIdeSavedSourceOptions): void {
+}: WorkflowIdeSavedSourceOptions): {
+  saveActiveSourceAndSynchronize: () => Promise<WorkflowAuthoringAggregate>
+} {
+  const synchronizeSource = useCallback(async (
+    savedSource: WorkflowIdeSavedSource
+  ): Promise<WorkflowAuthoringAggregate> => {
+    const local = localState.current
+    const current = local.aggregate
+    if (
+      savedSource.workflowUuid !== workflowUuid ||
+      savedSource.sourceUri !== current?.draft?.source_uri
+    ) {
+      throw new Error('IDE 保存的源码与当前工作流注册文件不一致')
+    }
+    const result = await queue.run(() => synchronizeSavedWorkflowSource(
+      runtime,
+      savedSource.workflowUuid,
+      savedSource.pythonSource
+    ))
+    if (result.kind === 'source-unavailable') {
+      throw new Error('当前工作流尚未注册可保存的 Python 源码')
+    }
+    if (result.kind === 'source-changed') {
+      throw new Error('源码保存后又被修改；为避免覆盖，本次未提交工作流草稿')
+    }
+    const saved = result.aggregate
+    if (
+      workflowIdeSavedSourceInstallDecision(local.canvasDirty).kind ===
+      'preserve_dirty_canvas'
+    ) {
+      installAggregateAgainstDirtyCanvas(saved)
+      return saved
+    }
+    onSynchronized()
+    installAggregate(saved, draftSaveMessage(saved))
+    return saved
+  }, [
+    installAggregate,
+    installAggregateAgainstDirtyCanvas,
+    localState,
+    onSynchronized,
+    queue,
+    runtime,
+    workflowUuid
+  ])
+
   useEffect(() => {
     const subscribe = ideBridge?.subscribeSavedWorkflowSource
     if (!subscribe || !enabled) return
     const subscription = subscribe((savedSource) => {
-      const local = localState.current
-      const current = local.aggregate
+      const current = localState.current.aggregate
       if (
         savedSource.workflowUuid !== workflowUuid ||
         savedSource.sourceUri !== current?.draft?.source_uri
       ) return
       void run(async () => {
         try {
-          const result = await queue.run(() => synchronizeSavedWorkflowSource(
-            runtime,
-            savedSource.workflowUuid,
-            savedSource.pythonSource
-          ))
-          if (result.kind === 'source-unavailable') {
-            throw new Error('当前工作流尚未注册可保存的 Python 源码')
-          }
-          if (result.kind === 'source-changed') {
-            throw new Error('源码保存后又被修改；为避免覆盖，本次未提交工作流草稿')
-          }
-          const saved = result.aggregate
-          if (
-            workflowIdeSavedSourceInstallDecision(local.canvasDirty).kind ===
-            'preserve_dirty_canvas'
-          ) {
-            installAggregateAgainstDirtyCanvas(saved)
-            return
-          }
-          onSynchronized()
-          installAggregate(saved, draftSaveMessage(saved))
+          await synchronizeSource(savedSource)
         } catch (saveError) {
           if (!isAuthoringConflict(saveError)) throw saveError
           await readRemoteConflict()
@@ -107,14 +145,23 @@ export function useWorkflowIdeSavedSource({
   }, [
     enabled,
     ideBridge?.subscribeSavedWorkflowSource,
-    installAggregate,
-    installAggregateAgainstDirtyCanvas,
-    localState,
-    onSynchronized,
-    queue,
     readRemoteConflict,
     run,
-    runtime,
-    workflowUuid
+    synchronizeSource
   ])
+
+  const saveActiveSourceAndSynchronize = useCallback(async () => {
+    try {
+      return await saveAndSynchronizeActiveWorkflowSource(
+        ideBridge,
+        synchronizeSource
+      )
+    } catch (saveError) {
+      if (!isAuthoringConflict(saveError)) throw saveError
+      await readRemoteConflict()
+      throw saveError
+    }
+  }, [ideBridge, readRemoteConflict, synchronizeSource])
+
+  return { saveActiveSourceAndSynchronize }
 }

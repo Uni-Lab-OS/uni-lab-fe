@@ -15,7 +15,6 @@ export interface WorkflowStartContext {
   aggregate: WorkflowAuthoringAggregate | null
   dirty: boolean
   blockedReason: string | null
-  editMode: 'code' | 'canvas'
 }
 
 export interface WorkflowStartSnapshot {
@@ -30,7 +29,7 @@ export interface WorkflowStartSourceReview {
   after: string
   expectedDraftHash: string | null
   expectedWorkflowRevision: number
-  reason: 'source_normalization' | 'canvas_save'
+  reason: 'canvas_save'
   resumeMode: 'code' | 'canvas'
 }
 
@@ -57,7 +56,6 @@ export type WorkflowStartEvent =
   | {
       kind: 'draft_saved'
       aggregate: WorkflowAuthoringAggregate
-      editMode: 'code' | 'canvas'
     }
   | {
       kind: 'candidate_applied'
@@ -127,14 +125,13 @@ export function createWorkflowStartFlow(): WorkflowStartFlow {
   }
 
   /**
-   * 根据已保存权威选择规范化确认或候选应用命令。
+   * 根据已保存且已通过 OS 校验的权威进入候选应用命令。
    *
    * @param authority OS 返回的工作流创作权威聚合。
    * @returns 下一条应用命令；候选不完整时关闭失败。
    */
   const continueFromSaved = (
-    authority: WorkflowAuthoringAggregate,
-    editMode: WorkflowStartContext['editMode']
+    authority: WorkflowAuthoringAggregate
   ): WorkflowStartCommand => {
     const candidate = authority.candidate
     if (!candidate) {
@@ -149,23 +146,6 @@ export function createWorkflowStartFlow(): WorkflowStartFlow {
       return {
         kind: 'blocked',
         message: '当前候选缺少可确认的工作流源码，请刷新后重试'
-      }
-    }
-    if (
-      authority.draft.python_source !== candidate.normalized_python_source
-    ) {
-      pendingReview = {
-        before: authority.draft.python_source,
-        after: candidate.normalized_python_source,
-        expectedDraftHash: authority.draft.draft_hash,
-        expectedWorkflowRevision: authority.workflow_revision,
-        reason: 'source_normalization',
-        resumeMode: editMode
-      }
-      phase = 'awaiting_source_review'
-      return {
-        kind: 'review_source',
-        review: pendingReview
       }
     }
     phase = 'applying'
@@ -225,7 +205,7 @@ export function createWorkflowStartFlow(): WorkflowStartFlow {
       }
       const candidate = authority.candidate
       if (candidate) {
-        return continueFromSaved(authority, context.editMode)
+        return continueFromSaved(authority)
       }
       phase = 'reading_applied'
       expectedRevision = authority.workflow_revision
@@ -243,7 +223,7 @@ export function createWorkflowStartFlow(): WorkflowStartFlow {
      */
     resume(event): WorkflowStartCommand {
       if (event.kind === 'draft_saved' && phase === 'saving') {
-        return continueFromSaved(event.aggregate, event.editMode)
+        return continueFromSaved(event.aggregate)
       }
       if (event.kind === 'source_review_required' && phase === 'saving') {
         pendingReview = event.review
