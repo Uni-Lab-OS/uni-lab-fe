@@ -1,5 +1,10 @@
 import { spawn } from 'node:child_process'
-import { appendFileSync, createWriteStream, mkdirSync } from 'node:fs'
+import {
+  appendFileSync,
+  createWriteStream,
+  existsSync,
+  mkdirSync
+} from 'node:fs'
 import {
   access,
   mkdir,
@@ -133,7 +138,7 @@ async function startPackagedWorkbench() {
   process.env['ESBUILD_BINARY_PATH'] = resources.esbuildBinary
   if (hasExplicitWorkspace) {
     try {
-      const activation = await workspaceController.openExplicit(
+      const activation = await workspaceController.openPath(
         parsed.workspace
       )
       process.env['UNILAB_DESKTOP_RENDERER_URL'] = activation.rendererUrl
@@ -173,9 +178,12 @@ function resolvePackagedResources() {
         'index.js'
       ),
       welcomePage: path.join(workbench, 'desktop', 'welcome.html'),
-      nodeBinary: process.env['UNILAB_NODE']
-        ?? process.env['npm_node_execpath']
-        ?? process.execPath,
+      // The Electron executable must only host the desktop shell.  Running
+      // the Theia backend with it loads native Node addons (for example
+      // drivelist.node) against Electron's ABI and can crash with SIGSEGV on
+      // macOS.  Development launches normally inherit the real Node binary
+      // from pnpm or PATH; use that instead of Electron as a fallback.
+      nodeBinary: resolveDevelopmentNodeBinary(),
       esbuildBinary: process.env['ESBUILD_BINARY_PATH']
         ?? path.join(repositoryRoot, 'node_modules', '.bin', 'esbuild'),
       brandIcon: path.join(
@@ -235,6 +243,35 @@ function resolvePackagedResources() {
   }
 }
 
+function resolveDevelopmentNodeBinary() {
+  const configured = [
+    process.env['UNILAB_NODE'],
+    process.env['npm_node_execpath']
+  ]
+    .map(value => value?.trim())
+    .filter(Boolean)
+  for (const candidate of configured) {
+    if (!isElectronExecutable(candidate)) return path.resolve(candidate)
+  }
+
+  const executableName = process.platform === 'win32' ? 'node.exe' : 'node'
+  for (const directory of (process.env.PATH ?? '').split(path.delimiter)) {
+    if (!directory) continue
+    const candidate = path.join(directory, executableName)
+    if (existsSync(candidate)) return candidate
+  }
+
+  if (!isElectronExecutable(process.execPath)) return process.execPath
+  throw new Error(
+    '未找到可用于启动 Theia Backend 的 Node 运行时，请设置 UNILAB_NODE。'
+  )
+}
+
+function isElectronExecutable(candidate) {
+  const name = path.basename(candidate).toLowerCase()
+  return name === 'electron' || name === 'electron.exe'
+}
+
 async function readPackagedAgentVersion(payloadPath) {
   let payload
   try {
@@ -274,9 +311,10 @@ function createPackagedWorkspaceController(options) {
     openRecent: (workspacePath, entryMode) => exclusively(
       () => openRecent(workspacePath, entryMode)
     ),
-    openExplicit: workspacePath => exclusively(() => activateWorkspace(
+    openPath: (workspacePath, entryMode) => exclusively(() => activateWorkspace(
       workspacePath,
       {
+        entryMode,
         pythonEnvironment: options.explicitEnvironment,
         osProject: options.explicitOsProject
       }

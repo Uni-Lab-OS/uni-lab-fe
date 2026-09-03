@@ -363,6 +363,10 @@ export interface DesktopWorkbenchWorkspaceApi {
     path: string,
     entryMode?: 'debug' | 'production'
   ) => Promise<WorkbenchWorkspaceSnapshot>
+  openPath: (
+    path: string,
+    entryMode?: 'debug' | 'production'
+  ) => Promise<WorkbenchWorkspaceSnapshot>
   selectDirectory: (
     entryMode?: 'debug' | 'production'
   ) => Promise<WorkbenchWorkspaceSnapshot>

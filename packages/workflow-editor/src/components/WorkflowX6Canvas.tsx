@@ -10,8 +10,10 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
-  useRef
+  useRef,
+  useState
 } from 'react'
+import { createPortal } from 'react-dom'
 
 import type { WorkflowNodeData } from './WorkflowNodeCard'
 import {
@@ -98,6 +100,9 @@ export const WorkflowX6Canvas = forwardRef<
     nodes: [],
     edges: []
   })
+  const [nodeTooltip, setNodeTooltip] = useState<WorkflowX6NodeTooltip | null>(
+    null
+  )
   const callbacksRef = useRef({
     canvasMutationEnabled,
     nodePositionMutationEnabled,
@@ -146,19 +151,61 @@ export const WorkflowX6Canvas = forwardRef<
     },
     clientToCanvasPoint: (clientX, clientY) => {
       const graph = graphRef.current
-      if (!graph) return null
-      const point = graph.clientToLocal(clientX, clientY)
+      const scroller = scrollerRef.current
+      // Use the actual X6 scroller element rather than the React wrapper.
+      // The plugin inserts its viewport next to the graph container and may
+      // give it a slightly different client rect after scrollbars appear.
+      const viewport = scroller?.container ?? containerRef.current
+      if (!graph) {
+        // The palette can be used while X6 is still loading asynchronously.
+        // Keep the drop usable instead of silently falling back to (96, 96).
+        if (!viewport) return null
+        const bounds = viewport.getBoundingClientRect()
+        return {
+          x: clientX - bounds.left,
+          y: clientY - bounds.top
+        }
+      }
+      // Scroller's clientToLocalPoint expects coordinates relative to its
+      // viewport (the same convention used by zoom/center internals), while
+      // drag events expose window client coordinates. Subtract the viewport
+      // origin before applying scroll and padding transforms.
+      const point = scroller && viewport
+        ? (() => {
+            const bounds = viewport.getBoundingClientRect()
+            return scroller.clientToLocalPoint(
+              clientX - bounds.left,
+              clientY - bounds.top
+            )
+          })()
+        : graph.clientToLocal(clientX, clientY)
       return { x: point.x, y: point.y }
     },
     viewportCenter: () => {
       const container = rootRef.current
       const graph = graphRef.current
-      if (!container || !graph) return null
+      if (!container) return null
       const bounds = container.getBoundingClientRect()
-      const point = graph.clientToLocal(
-        bounds.left + bounds.width / 2,
-        bounds.top + bounds.height / 2
-      )
+      const centerX = bounds.left + bounds.width / 2
+      const centerY = bounds.top + bounds.height / 2
+      const viewport = scrollerRef.current?.container ?? containerRef.current
+      if (!graph) {
+        if (!viewport) return null
+        const viewportBounds = viewport.getBoundingClientRect()
+        return {
+          x: centerX - viewportBounds.left,
+          y: centerY - viewportBounds.top
+        }
+      }
+      const point = scrollerRef.current && viewport
+        ? (() => {
+            const viewportBounds = viewport.getBoundingClientRect()
+            return scrollerRef.current.clientToLocalPoint(
+              centerX - viewportBounds.left,
+              centerY - viewportBounds.top
+            )
+          })()
+        : graph.clientToLocal(centerX, centerY)
       return { x: point.x, y: point.y }
     },
     viewportSnapshot: () => {
@@ -166,10 +213,18 @@ export const WorkflowX6Canvas = forwardRef<
       const graph = graphRef.current
       if (!container || !graph) return null
       const bounds = container.getBoundingClientRect()
-      const center = graph.clientToLocal(
-        bounds.left + bounds.width / 2,
-        bounds.top + bounds.height / 2
-      )
+      const centerX = bounds.left + bounds.width / 2
+      const centerY = bounds.top + bounds.height / 2
+      const viewport = scrollerRef.current?.container ?? containerRef.current
+      const center = scrollerRef.current && viewport
+        ? (() => {
+            const viewportBounds = viewport.getBoundingClientRect()
+            return scrollerRef.current.clientToLocalPoint(
+              centerX - viewportBounds.left,
+              centerY - viewportBounds.top
+            )
+          })()
+        : graph.clientToLocal(centerX, centerY)
       return {
         center: { x: center.x, y: center.y },
         zoom: scrollerRef.current?.zoom() ?? graph.zoom()
@@ -285,6 +340,63 @@ export const WorkflowX6Canvas = forwardRef<
       if (node.getData<WorkflowNodeData>()?.kind === 'reaction_material') return
       callbacksRef.current.onNodeSelect(node.id)
     })
+    // Use the rendered X6 node DOM for hover detection. X6's model events can
+    // be skipped while virtual cells are mounted asynchronously; delegation
+    // on the stable canvas root keeps the tooltip reliable in that window.
+    const nodeElementFromTarget = (
+      target: EventTarget | null
+    ): Element | null => {
+      if (!(target instanceof Element)) return null
+      const nodeElement = target.closest(
+        '.x6-node[data-workflow-node-overflow="true"]'
+      )
+      return nodeElement && root.contains(nodeElement) ? nodeElement : null
+    }
+    const updateNodeTooltip = (event: PointerEvent): void => {
+      const nodeElement = nodeElementFromTarget(event.target)
+      if (!nodeElement) {
+        setNodeTooltip(null)
+        return
+      }
+      const text = nodeElement.getAttribute('data-workflow-node-tooltip') ||
+        nodeElement.getAttribute('title')
+      const nodeId = nodeElement.getAttribute('data-cell-id')
+      if (!text || !nodeId) {
+        setNodeTooltip(null)
+        return
+      }
+      setNodeTooltip({
+        nodeId,
+        text,
+        ...workflowX6NodeTooltipPosition(event.clientX, event.clientY)
+      })
+    }
+    const handleNodePointerOver = (event: PointerEvent): void => {
+      const nodeElement = nodeElementFromTarget(event.target)
+      const related = event.relatedTarget
+      if (
+        nodeElement &&
+        related instanceof Element &&
+        nodeElement.contains(related)
+      ) return
+      updateNodeTooltip(event)
+    }
+    const handleNodePointerMove = (event: PointerEvent): void => {
+      if (nodeElementFromTarget(event.target)) updateNodeTooltip(event)
+    }
+    const handleNodePointerOut = (event: PointerEvent): void => {
+      const nodeElement = nodeElementFromTarget(event.target)
+      const related = event.relatedTarget
+      if (
+        nodeElement &&
+        related instanceof Element &&
+        nodeElement.contains(related)
+      ) return
+      setNodeTooltip(null)
+    }
+    root.addEventListener('pointerover', handleNodePointerOver)
+    root.addEventListener('pointermove', handleNodePointerMove)
+    root.addEventListener('pointerout', handleNodePointerOut)
     graph.on('node:contextmenu', ({ e, node }) => {
       e.preventDefault()
       const data = node.getData<WorkflowNodeData>()
@@ -357,9 +469,14 @@ export const WorkflowX6Canvas = forwardRef<
       projectionRef.current.nodes,
       projectionRef.current.edges,
       initialFitPendingRef,
-      appliedProjectionRef
+      appliedProjectionRef,
+      callbacksRef.current.canvasMutationEnabled
     )
     cleanup = () => {
+      setNodeTooltip(null)
+      root.removeEventListener('pointerover', handleNodePointerOver)
+      root.removeEventListener('pointermove', handleNodePointerMove)
+      root.removeEventListener('pointerout', handleNodePointerOut)
       resize.disconnect()
       graph.dispose()
       graphRef.current = null
@@ -387,9 +504,10 @@ export const WorkflowX6Canvas = forwardRef<
       nodes,
       edges,
       initialFitPendingRef,
-      appliedProjectionRef
+      appliedProjectionRef,
+      canvasMutationEnabled
     )
-  }, [edges, nodes])
+  }, [canvasMutationEnabled, edges, nodes])
 
   useEffect(() => {
     const graph = graphRef.current
@@ -469,9 +587,64 @@ export const WorkflowX6Canvas = forwardRef<
           })}
         >⌗</button>
       </div>
+      {nodeTooltip && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className="workflowX6NodeTooltip"
+              role="tooltip"
+              data-node-id={nodeTooltip.nodeId}
+              style={{ left: nodeTooltip.left, top: nodeTooltip.top }}
+            >
+              {nodeTooltip.text}
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   )
 })
+
+interface WorkflowX6NodeTooltip {
+  nodeId: string
+  text: string
+  left: number
+  top: number
+}
+
+const WORKFLOW_X6_TOOLTIP_MAX_WIDTH = 320
+const WORKFLOW_X6_TOOLTIP_MARGIN = 12
+const WORKFLOW_X6_TOOLTIP_OFFSET = 14
+const WORKFLOW_X6_TOOLTIP_ESTIMATED_HEIGHT = 96
+
+/** 将节点提示放在指针附近，并在视口边缘自动翻转。 */
+function workflowX6NodeTooltipPosition(
+  clientX: number,
+  clientY: number
+): Pick<WorkflowX6NodeTooltip, 'left' | 'top'> {
+  const viewportWidth = globalThis.window?.innerWidth ?? 1280
+  const viewportHeight = globalThis.window?.innerHeight ?? 720
+  const tooltipWidth = Math.min(
+    WORKFLOW_X6_TOOLTIP_MAX_WIDTH,
+    Math.max(120, viewportWidth - WORKFLOW_X6_TOOLTIP_MARGIN * 2)
+  )
+  const right = viewportWidth - WORKFLOW_X6_TOOLTIP_MARGIN - tooltipWidth
+  const below = clientY + WORKFLOW_X6_TOOLTIP_OFFSET
+  const above = clientY - WORKFLOW_X6_TOOLTIP_OFFSET -
+    WORKFLOW_X6_TOOLTIP_ESTIMATED_HEIGHT
+  return {
+    left: Math.min(
+      Math.max(
+        clientX + WORKFLOW_X6_TOOLTIP_OFFSET,
+        WORKFLOW_X6_TOOLTIP_MARGIN
+      ),
+      right
+    ),
+    top: below + WORKFLOW_X6_TOOLTIP_ESTIMATED_HEIGHT <=
+      viewportHeight - WORKFLOW_X6_TOOLTIP_MARGIN
+      ? below
+      : Math.max(WORKFLOW_X6_TOOLTIP_MARGIN, above)
+  }
+}
 
 /**
  * 在一个 X6 批处理中替换当前 Canonical Workflow 投影并恢复选择。
@@ -481,6 +654,7 @@ export const WorkflowX6Canvas = forwardRef<
  * @param nodes 当前可见工作流节点投影。
  * @param edges 当前可见工作流边投影。
  * @param initialFitPending 是否仍需执行唯一一次自动适应视图。
+ * @param skipInitialFit 编辑画布不自动重排视口，保证释放坐标稳定。
  * @returns 无返回值；更新只发生在 X6 视图模型，不写回工作流文档。
  * @safety Canonical Workflow 仍是唯一状态源，X6 JSON 不参与持久化。
  */
@@ -523,7 +697,8 @@ function syncWorkflowX6Projection(
   nodes: readonly WorkflowX6Node[],
   edges: readonly WorkflowX6Edge[],
   initialFitPending: { current: boolean },
-  appliedProjection: { current: WorkflowX6ProjectionSnapshot }
+  appliedProjection: { current: WorkflowX6ProjectionSnapshot },
+  skipInitialFit = false
 ): void {
   const nextProjection = { nodes, edges }
   const nextCellIds = new Set([
@@ -581,7 +756,19 @@ function syncWorkflowX6Projection(
     : retainedSelectedIds
   if (effectiveSelectedIds.length > 0) graph.select(effectiveSelectedIds)
   else graph.cleanSelection()
-  if (!initialFitPending.current || nodes.length === 0 || !scroller) return
+  // An empty authoring canvas is a valid, editable state. Mark the initial
+  // fit as consumed here so the first node created by a palette drop stays at
+  // the pointer location instead of triggering zoomToFit and jumping to the
+  // viewport center. Non-empty workflows still receive the one-time fit.
+  if (skipInitialFit) {
+    initialFitPending.current = false
+    return
+  }
+  if (nodes.length === 0) {
+    initialFitPending.current = false
+    return
+  }
+  if (!initialFitPending.current || !scroller) return
   initialFitPending.current = false
   globalThis.requestAnimationFrame(() => {
     scroller.zoomToFit({ padding: 56, maxScale: 1.2 })

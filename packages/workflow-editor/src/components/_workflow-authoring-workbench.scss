@@ -1,5 +1,6 @@
 .workflow {
-  &:global(.persistent-authoring--canvas) {
+  &:global(.persistent-authoring--canvas),
+  &:global(.persistent-authoring--operation) {
     :global(.workflow-runtime__existing-canvas) {
       gap: 0;
       border: 0;
@@ -277,8 +278,9 @@
     :global(.persistent-authoring__graph-stage) {
       grid-area: graph;
       background-color: #f8fafc;
-      background-image: radial-gradient(#d9e2ef 1px, transparent 1px);
-      background-size: 18px 18px;
+      // The X6 canvas owns the dot grid. Keeping a second CSS grid here makes
+      // empty/loading states look like a white panel over a second grid.
+      background-image: none;
     }
 
     :global(.workflow-x6) {
@@ -334,6 +336,60 @@
     :global(.persistent-authoring__inspector-empty) p {
       max-width: 24ch;
       font-size: 10px;
+    }
+
+    :global(.persistent-authoring__palette-drag-preview) {
+      position: fixed;
+      z-index: 10000;
+      box-sizing: border-box;
+      padding: 9px 10px;
+      overflow: hidden;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      border: 1px solid #7ea6f7;
+      border-radius: 10px;
+      background: rgb(255 255 255 / 94%);
+      box-shadow: 0 10px 24px rgb(15 23 42 / 18%);
+      opacity: 0.92;
+    }
+
+    :global(.persistent-authoring__palette-drag-preview-kind) {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: #3569d4;
+      font-size: 8px;
+      font-weight: 700;
+      line-height: 12px;
+    }
+
+    :global(.persistent-authoring__palette-drag-preview-kind) i {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      flex: 0 0 6px;
+      border-radius: 50%;
+      background: #2563eb;
+    }
+
+    :global(.persistent-authoring__palette-drag-preview) > strong,
+    :global(.persistent-authoring__palette-drag-preview) > small {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    :global(.persistent-authoring__palette-drag-preview) > strong {
+      margin-top: 3px;
+      color: #172033;
+      font-size: 10px;
+      line-height: 15px;
+    }
+
+    :global(.persistent-authoring__palette-drag-preview) > small {
+      color: #718096;
+      font: 8px/12px var(--unilab-font-mono, monospace);
     }
 
     :global(.persistent-authoring__node-editor)
@@ -792,4 +848,61 @@
       }
     }
   }
+}
+
+/* 拖拽投影通过 React portal 挂到 body，不能依赖工作台容器祖先选择器。 */
+:global(.persistent-authoring__palette-drag-preview) {
+  position: fixed;
+  z-index: 10000;
+  box-sizing: border-box;
+  width: 132px;
+  min-height: 66px;
+  padding: 9px 10px;
+  overflow: hidden;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  border: 1px solid #7ea6f7;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 18%);
+  opacity: .92;
+}
+
+:global(.persistent-authoring__palette-drag-preview-kind) {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #3569d4;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 12px;
+}
+
+:global(.persistent-authoring__palette-drag-preview-kind) i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: #2563eb;
+}
+
+:global(.persistent-authoring__palette-drag-preview) > strong,
+:global(.persistent-authoring__palette-drag-preview) > small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:global(.persistent-authoring__palette-drag-preview) > strong {
+  margin-top: 3px;
+  color: #172033;
+  font-size: 10px;
+  line-height: 15px;
+}
+
+:global(.persistent-authoring__palette-drag-preview) > small {
+  color: #718096;
+  font: 8px/12px var(--unilab-font-mono, monospace);
 }

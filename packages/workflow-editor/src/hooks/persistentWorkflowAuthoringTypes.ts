@@ -16,6 +16,7 @@ export interface PersistentWorkflowAuthoringOptions {
   runtime: WorkflowRuntimePort
   active?: boolean
   definitionPort: WorkflowDefinitionPort
+  initialMode?: WorkflowEditMode
   definitionEditingStatus?: CapabilityStatus
   workflowUuid: string
   traceRuntime?: WorkflowTracePort

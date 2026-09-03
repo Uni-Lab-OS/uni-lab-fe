@@ -385,6 +385,7 @@ describe('WorkflowDag host sizing', () => {
     )
 
     expect(markup).toContain('data-fit-max-zoom="1.2"')
+    expect(markup).toContain('workflow-runtime__existing-canvas')
   })
 
   /** Theia 窄分栏仍是高桌面面板，不能套用移动端 260px 固定画布。 */

@@ -246,8 +246,11 @@ select { font: inherit; }
 .mode-entry__workspace-head label { margin: 0; }
 .mode-entry__workspace-head small { color: #66768a; font-size: 10px; }
 .mode-entry__workspace-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.mode-entry__workspace-path-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
 .mode-entry__workspace select,
-.mode-entry__workspace-control button {
+.mode-entry__workspace-control button,
+.mode-entry__workspace-path-input,
+.mode-entry__workspace-path-control button {
   height: 40px;
   color: #27384b;
   border: 1px solid #cfd7e1;
@@ -257,6 +260,41 @@ select { font: inherit; }
 .mode-entry__workspace select { min-width: 0; width: 100%; padding: 0 28px 0 10px; background: #f8fafc; font-weight: 600; }
 .mode-entry__workspace-control button { padding: 0 10px; background: #eef3f7; color: #31516e; font-size: 10px; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .mode-entry__workspace-control button:hover { border-color: #6e91b0; background: #e6eef5; }
+.mode-entry__workspace-path-input {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  padding: 0 10px;
+  background: #f8fafc;
+}
+.mode-entry__workspace-path-input:focus-within {
+  border-color: #6e91b0;
+  outline: 2px solid rgb(49 81 110 / 14%);
+  outline-offset: 1px;
+}
+.mode-entry__workspace-path-input input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  color: #27384b;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: 600 11px/1.2 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.mode-entry__workspace-path-input input::placeholder { color: #8795a5; font-weight: 500; }
+.mode-entry__workspace-path-control button {
+  padding: 0 10px;
+  color: #fff;
+  border-color: #1766ad;
+  background: #1766ad;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.mode-entry__workspace-path-control button:hover:not(:disabled) { border-color: #0f5594; background: #0f5594; }
 .mode-entry__workspace code {
   display: block;
   min-width: 0;
@@ -360,12 +398,14 @@ select { font: inherit; }
 .mode-entry__submit:disabled,
 .mode-entry__workspace button:disabled,
 .mode-entry__workspace select:disabled,
+.mode-entry__workspace input:disabled,
 .runtime-panel button:disabled,
 .runtime-panel select:disabled { cursor: wait; opacity: .55; }
 
 .mode-entry__mode-choice:focus-within,
 .mode-entry__workspace select:focus,
 .mode-entry__workspace button:focus-visible,
+.mode-entry__workspace-path-input input:focus-visible,
 .runtime-panel button:focus-visible,
 .runtime-panel select:focus,
 .mode-entry__submit:focus-visible {
@@ -374,6 +414,7 @@ select { font: inherit; }
 }
 
 .mode-entry__footer {
+  display: none;
   margin: 14px 0 0;
   color: #8794a2;
   font: 8px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -393,8 +434,10 @@ select { font: inherit; }
   .mode-entry__selector { padding: 12px; }
   .mode-entry__card { padding: 24px 20px; }
   .mode-entry__modes > div,
-  .mode-entry__workspace-control { grid-template-columns: minmax(0, 1fr); }
-  .mode-entry__workspace-control button { width: 100%; min-height: 42px; }
+  .mode-entry__workspace-control,
+  .mode-entry__workspace-path-control { grid-template-columns: minmax(0, 1fr); }
+  .mode-entry__workspace-control button,
+  .mode-entry__workspace-path-control button { width: 100%; min-height: 42px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

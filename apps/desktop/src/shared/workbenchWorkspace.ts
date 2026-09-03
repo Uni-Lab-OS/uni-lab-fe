@@ -37,6 +37,10 @@ export interface WorkbenchWorkspaceController {
     path: string,
     entryMode?: WorkbenchEntryMode
   ) => Promise<WorkbenchWorkspaceActivation>
+  openPath: (
+    path: string,
+    entryMode?: WorkbenchEntryMode
+  ) => Promise<WorkbenchWorkspaceActivation>
   deactivate: (error?: string | null) => Promise<WorkbenchWorkspaceSnapshot>
   isNavigationAllowed: (targetUrl: string) => boolean
 }
@@ -46,6 +50,10 @@ export interface DesktopWorkbenchWorkspaceApi {
   openDirectory: (entryMode?: WorkbenchEntryMode) => Promise<WorkbenchWorkspaceSnapshot>
   createDirectory: (entryMode?: WorkbenchEntryMode) => Promise<WorkbenchWorkspaceSnapshot>
   openRecent: (
+    path: string,
+    entryMode?: WorkbenchEntryMode
+  ) => Promise<WorkbenchWorkspaceSnapshot>
+  openPath: (
     path: string,
     entryMode?: WorkbenchEntryMode
   ) => Promise<WorkbenchWorkspaceSnapshot>

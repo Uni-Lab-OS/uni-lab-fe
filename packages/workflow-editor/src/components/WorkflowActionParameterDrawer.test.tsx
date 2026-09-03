@@ -237,6 +237,43 @@ describe('WorkflowActionParameterDrawer', () => {
     expect(warehouseMarkup).not.toContain('烧杯 A · …000001')
     expect(markup).not.toContain('物料引用（JSON）')
   })
+
+  it('can hide material fields for the experiment-operation inspector', () => {
+    const resourceEditor: TypedActionEditorProjection = {
+      ...editor,
+      fields: [
+        editor.fields[0]!,
+        resourceField(
+          resourceHandleUuid,
+          'resource',
+          '待转运物料',
+          materialTemplateUuid
+        )
+      ]
+    }
+    const markup = renderToStaticMarkup(
+      <WorkflowActionParameterEditor
+        editor={resourceEditor}
+        outputHandles={[]}
+        graph={graph}
+        editable
+        view="parameters"
+        hideMaterialFields
+        presentation="operation"
+        resourceSlotOptions={{ kind: 'ready', options: [] }}
+        onProviderChange={vi.fn()}
+        onLiteralBlur={vi.fn()}
+        onResourceChange={vi.fn()}
+        onClear={vi.fn()}
+        onNull={vi.fn()}
+      />
+    )
+
+    expect(visibleText(markup)).toContain('业务参数')
+    expect(visibleText(markup)).toContain('target_mass_g')
+    expect(visibleText(markup)).not.toContain('待转运物料')
+    expect(markup).not.toContain('实验室物料')
+  })
 })
 
 const editor: TypedActionEditorProjection = {

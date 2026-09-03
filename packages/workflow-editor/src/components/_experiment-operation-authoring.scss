@@ -1,4 +1,15 @@
 .workflow {
+  // 操作调试在代码模式下也保留左侧操作与节点库，切换代码/画布不会改变工作区结构。
+  &:global(.persistent-authoring--operation[data-definition-kind='operation']) {
+    :global(.persistent-authoring__canvas-body.is-code-mode) {
+      grid-template-columns: 236px minmax(420px, 1fr);
+      grid-template-areas: 'palette graph';
+      gap: 0;
+      padding: 0;
+      background: var(--unilab-color-surface, #fff);
+    }
+  }
+
   &:global(.persistent-authoring--canvas[data-definition-kind='operation']) {
     :global(.persistent-authoring__stage-header) {
       border-right: 0;
@@ -53,14 +64,17 @@
       border-right: 0;
       border-left: 0;
       background-color: #fbfcfe;
-      background-image: radial-gradient(#dce5f0 1px, transparent 1px);
-      background-size: 20px 20px;
+      // Let X6 render the grid once the graph is mounted; a second CSS grid
+      // layer causes the blank placeholder and dots to appear simultaneously.
+      background-image: none;
     }
 
     :global(.persistent-authoring__graph-stage)
       > :global(.workflow-runtime__existing-canvas) {
+      position: relative;
+      inset: auto;
       width: 100%;
-      height: 100%;
+      height: auto;
       min-height: 0;
       overflow: hidden;
     }
@@ -75,10 +89,127 @@
 
     :global(.persistent-authoring__node-editor) {
       border-right: 0;
+      min-height: 0;
+      padding: 0;
+      overflow: auto;
+      background: #fff;
+    }
+
+    :global(.persistent-authoring__inspector-heading) {
+      min-height: 52px;
+      margin: 0;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--unilab-color-border, #dde5ee);
+      background: #fff;
+    }
+
+    :global(.persistent-authoring__inspector-heading) > span {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+    }
+
+    :global(.persistent-authoring__inspector-heading) > span > strong {
+      color: var(--unilab-color-text, #172033);
+      font-size: 13px;
+    }
+
+    :global(.persistent-authoring__inspector-heading) > button {
+      width: 26px;
+      height: 26px;
+      flex: 0 0 26px;
+    }
+
+    :global(.persistent-authoring__operation-summary) {
+      display: grid;
+      gap: 9px;
+      margin: 12px 12px 0;
+      padding: 11px;
+      border: 1px solid #dbe4ef;
+      border-radius: 9px;
+      background: #f8fbff;
+    }
+
+    :global(.persistent-authoring__operation-summary-head) {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    :global(.persistent-authoring__operation-summary-head) > div {
+      display: grid;
+      min-width: 0;
+      gap: 3px;
+    }
+
+    :global(.persistent-authoring__operation-summary-head) span {
+      width: max-content;
+      padding: 3px 6px;
+      color: #087f5b;
+      border-radius: 5px;
+      background: #e9f8f1;
+      font-size: 8px;
+      font-weight: 700;
+    }
+
+    :global(.persistent-authoring__operation-summary-head) strong {
+      overflow: hidden;
+      color: #172033;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    :global(.persistent-authoring__operation-summary-head) small {
+      overflow: hidden;
+      color: #718096;
+      font: 8px/1.4 var(--unilab-font-mono, monospace);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    :global(.persistent-authoring__operation-summary-head) > b {
+      color: #a5630d;
+      font-size: 8px;
+      white-space: nowrap;
+    }
+
+    :global(.persistent-authoring__operation-summary) details {
+      padding-top: 7px;
+      border-top: 1px solid #e2eaf4;
+    }
+
+    :global(.persistent-authoring__operation-summary) summary {
+      color: #315fd7;
+      font-size: 8px;
+      cursor: pointer;
+    }
+
+    :global(.persistent-authoring__operation-summary) details p {
+      margin: 5px 0 0;
+      color: #718096;
+      font-size: 8px;
+      line-height: 1.45;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.persistent-authoring__parameter-drawer) {
+      margin: 12px 12px 14px;
+    }
+
+    :global(.operation-inspector-selection-empty) {
+      min-height: 150px;
+      margin: 0 12px;
+      padding: 18px 12px;
+      border: 1px dashed #dbe4ef;
+      border-radius: 8px;
+      background: #fbfcfe;
     }
 
     :global(.persistent-authoring__node-tabs) {
       grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin: 0;
     }
 
     :global(.persistent-authoring__node-tabs) button {
@@ -324,6 +455,27 @@
   }
 
   @container workflow (max-width: 1023px) {
+    &:global(.persistent-authoring--operation[data-definition-kind='operation']) {
+      :global(.persistent-authoring__canvas-body.is-code-mode) {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: 'graph';
+        padding: 10px;
+      }
+
+      :global(.persistent-authoring__library) {
+        position: absolute;
+        z-index: 20;
+        top: 10px;
+        bottom: 10px;
+        left: 10px;
+        display: flex;
+        width: min(320px, calc(100% - 20px));
+        border: 1px solid var(--unilab-color-border, #dde5ee);
+        border-radius: var(--unilab-radius-lg, 12px);
+        box-shadow: 0 12px 32px rgb(15 23 42 / 12%);
+      }
+    }
+
     &:global(.persistent-authoring--canvas[data-definition-kind='operation']) {
       :global(.persistent-authoring__canvas-body),
       :global(.persistent-authoring__canvas-body.has-inspector),

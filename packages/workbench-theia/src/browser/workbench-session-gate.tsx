@@ -245,6 +245,7 @@ export function WorkbenchSessionGate({
         status={entryStatus}
         notice={entryNotice}
         supportActions={entrySupportActions}
+        onWorkspaceError={setOperationError}
         onConfigure={setConfigurationKind}
       />
       {configurationKind

@@ -3,6 +3,26 @@ export interface WorkflowCanvasPoint {
   y: number
 }
 
+/**
+ * The compact action cards in the HTML prototype are 132 × 66 px.  The
+ * prototype treats the pointer as the card centre while dragging, so keep the
+ * same half-size offset when converting a drop point into a node position.
+ */
+export const WORKFLOW_PROTOTYPE_ACTION_NODE_SIZE = {
+  width: 132,
+  height: 66
+} as const
+
+export function workflowPaletteDropPosition(
+  point: WorkflowCanvasPoint,
+  size: { width: number; height: number } = WORKFLOW_PROTOTYPE_ACTION_NODE_SIZE
+): WorkflowCanvasPoint {
+  return {
+    x: point.x - size.width / 2,
+    y: point.y - size.height / 2
+  }
+}
+
 export interface WorkflowCanvasViewport {
   center: WorkflowCanvasPoint
   zoom: number

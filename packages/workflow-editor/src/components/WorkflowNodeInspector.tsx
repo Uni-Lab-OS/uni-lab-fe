@@ -8,10 +8,12 @@ import { WorkflowActionParameterEditor } from './WorkflowActionParameterDrawer'
 /** 固定在桌面画布右侧的节点检查器；窄屏继续由共享参数抽屉承载。 */
 export function WorkflowNodeInspector({
   model,
-  definitionKind = 'workflow'
+  definitionKind = 'workflow',
+  workflowName
 }: {
   model: PersistentWorkflowAuthoringModel
   definitionKind?: WorkflowDefinitionKind
+  workflowName?: string
 }): React.JSX.Element {
   const [inspectorPane, setInspectorPane] = useState<
     'parameters' | 'mapping' | 'inputs' | 'outputs' | 'runtime'
@@ -19,10 +21,10 @@ export function WorkflowNodeInspector({
   const operationInspector = definitionKind === 'operation'
   const inspectorTabs = operationInspector
     ? [
-        ['parameters', '参数配置'],
-        ['inputs', '输入'],
-        ['outputs', '输出'],
-        ['runtime', '运行观察']
+      ['parameters', '参数配置'],
+      ['inputs', '输入'],
+      ['outputs', '输出'],
+      ['runtime', '运行策略']
       ] as const
     : [
         ['parameters', '参数配置'],
@@ -74,12 +76,14 @@ export function WorkflowNodeInspector({
     >
       <header className="persistent-authoring__inspector-heading">
         <span>
-          <span>属性</span>
           <strong>
-            {!selectedNodeUuid
-              ? operationInspector ? '实验操作参数' : '节点检查器'
-              : selectedIsMaterialSource ? '物料来源' : '节点属性'}
+            {operationInspector
+              ? '实验操作参数'
+              : !selectedNodeUuid
+                ? '节点检查器'
+                : selectedIsMaterialSource ? '物料来源' : '节点属性'}
           </strong>
+          {!operationInspector && <span>属性</span>}
         </span>
         {selectedNodeUuid && (
           <button
@@ -105,7 +109,7 @@ export function WorkflowNodeInspector({
         )}
       </header>
 
-      {!selectedNodeUuid ? (
+      {!selectedNodeUuid && !operationInspector ? (
         <div className="persistent-authoring__inspector-empty">
           <span aria-hidden="true">◇</span>
           <strong>选择画布中的节点</strong>
@@ -113,31 +117,55 @@ export function WorkflowNodeInspector({
         </div>
       ) : (
         <>
-          <label>
-            节点名称
-            <input
-              value={selectedNodeName}
-              disabled={busy || !canvasMutationEnabled || selectedNodeIsInternal}
-              aria-describedby="persistent-node-description"
-              onChange={(event) => {
-                setSelectedNodeName(event.target.value)
-                setSelectedNodeNameDirty(true)
-                setMessage(canvasSaveHint)
-              }}
-              onBlur={() => renameCanvasNode(selectedNodeUuid, selectedNodeName)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') event.currentTarget.blur()
-              }}
-            />
-          </label>
-          <section
-            id="persistent-node-description"
-            className="persistent-authoring__node-description"
-            aria-label="节点说明"
-          >
-            <strong>节点说明</strong>
-            <p>{selectedNodeDescription || '当前节点暂无描述'}</p>
-          </section>
+          {operationInspector ? (
+            <section className="persistent-authoring__operation-summary">
+              <div className="persistent-authoring__operation-summary-head">
+                <div>
+                  <span>实验操作</span>
+                  <strong>{workflowName || selectedNodeName || '未命名实验操作'}</strong>
+                  <small>
+                    {selectedActionTemplate?.displayName || selectedNodeDescription || '选择画布中的动作节点'}
+                    {selectedActionTemplate?.name
+                      ? ` · ${selectedActionTemplate.name}`
+                      : ''}
+                  </small>
+                </div>
+                <b>草稿</b>
+              </div>
+              <details>
+                <summary>查看基本信息与能力说明</summary>
+                <p>{selectedNodeDescription || '参数定义来自当前操作模板，修改后随画布草稿保存。'}</p>
+              </details>
+            </section>
+          ) : (
+            <>
+              <label>
+                节点名称
+                <input
+                  value={selectedNodeName}
+                  disabled={busy || !canvasMutationEnabled || selectedNodeIsInternal}
+                  aria-describedby="persistent-node-description"
+                  onChange={(event) => {
+                    setSelectedNodeName(event.target.value)
+                    setSelectedNodeNameDirty(true)
+                    setMessage(canvasSaveHint)
+                  }}
+                  onBlur={() => renameCanvasNode(selectedNodeUuid!, selectedNodeName)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') event.currentTarget.blur()
+                  }}
+                />
+              </label>
+              <section
+                id="persistent-node-description"
+                className="persistent-authoring__node-description"
+                aria-label="节点说明"
+              >
+                <strong>节点说明</strong>
+                <p>{selectedNodeDescription || '当前节点暂无描述'}</p>
+              </section>
+            </>
+          )}
 
           {selectedMaterialSourceEditor && (
             <MaterialSourceInspector
@@ -150,9 +178,9 @@ export function WorkflowNodeInspector({
                 !materialSourceCatalogLoading &&
                 !materialSourceAuthorityBlocked
               }
-              status={taskNodeStates[selectedNodeUuid] || 'pending'}
+              status={taskNodeStates[selectedNodeUuid!] || 'pending'}
               diagnostics={diagnostics.filter(
-                (diagnostic) => diagnostic.node_id === selectedNodeUuid
+                (diagnostic) => diagnostic.node_id === selectedNodeUuid!
               )}
               onChange={(patch) => updateMaterialSource(
                 selectedMaterialSourceEditor,
@@ -162,7 +190,7 @@ export function WorkflowNodeInspector({
             />
           )}
 
-          {selectedActionEditor && (
+          {(selectedActionEditor || operationInspector) && (
             <>
               <nav
                 className="persistent-authoring__node-tabs"
@@ -182,7 +210,12 @@ export function WorkflowNodeInspector({
                   </button>
                 ))}
               </nav>
-              {inspectorPane !== 'runtime' ? (
+              {!selectedActionEditor ? (
+                <div className="persistent-authoring__inspector-empty operation-inspector-selection-empty">
+                  <strong>选择画布中的动作节点</strong>
+                  <p>选择后配置该操作的业务参数、输入输出与运行策略。</p>
+                </div>
+              ) : inspectorPane !== 'runtime' ? (
                 <WorkflowActionParameterEditor
                   editor={selectedActionEditor}
                   outputHandles={selectedActionTemplate?.handles.filter(
@@ -191,6 +224,8 @@ export function WorkflowNodeInspector({
                   graph={graph}
                   editable={!busy && canvasMutationEnabled}
                   view={inspectorPane}
+                  hideMaterialFields={operationInspector}
+                  presentation={operationInspector ? 'operation' : 'node'}
                   resourceSlotOptions={resourceSlotOptions}
                   onProviderChange={(field, provider) => {
                     if (provider.startsWith('workflow:')) {
@@ -220,7 +255,7 @@ export function WorkflowNodeInspector({
                   <div className="strategy-list">
                     <div className="strategy-item">
                       <span>节点状态</span>
-                      <strong>{taskNodeStates[selectedNodeUuid] || '等待调试'}</strong>
+                      <strong>{taskNodeStates[selectedNodeUuid!] || '等待调试'}</strong>
                     </div>
                     <div className="strategy-item">
                       <span>参数合同</span>
@@ -234,7 +269,7 @@ export function WorkflowNodeInspector({
                     </div>
                   </div>
                   {diagnostics.filter(
-                    (diagnostic) => diagnostic.node_id === selectedNodeUuid
+                    (diagnostic) => diagnostic.node_id === selectedNodeUuid!
                   ).map((diagnostic, index) => (
                     <p key={`${diagnostic.code}:${index}`} role="alert">
                       {diagnostic.message}

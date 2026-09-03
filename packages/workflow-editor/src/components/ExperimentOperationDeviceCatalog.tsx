@@ -10,7 +10,10 @@ import {
   type PropsWithChildren
 } from 'react'
 
-import { writeWorkflowNodePaletteDragPayload } from '../utils/workflowCanvasCommands'
+import {
+  writeWorkflowNodePaletteDragPayload,
+  type WorkflowNodePaletteDragPayload
+} from '../utils/workflowCanvasCommands'
 import {
   projectExperimentOperationDeviceActions,
   type ExperimentOperationProjectedAction,
@@ -65,6 +68,7 @@ interface ExperimentOperationDeviceCatalogProps {
   disabledReason: string
   onRefresh(): void
   onAddAction(templateUuid: string): void
+  onPaletteDragStart?: (payload: WorkflowNodePaletteDragPayload) => void
 }
 
 /** 渲染 HTML 原型中的设备与动作树，所有节点仍从真实目录模板创建。 */
@@ -77,7 +81,7 @@ export function ExperimentOperationDeviceCatalog({
   disabled,
   disabledReason,
   onRefresh,
-  onAddAction
+  onPaletteDragStart
 }: ExperimentOperationDeviceCatalogProps): React.JSX.Element {
   const projection = useMemo(
     () => projectExperimentOperationDeviceActions(devices, templates, query),
@@ -144,13 +148,13 @@ export function ExperimentOperationDeviceCatalog({
             collapsed={collapsedDeviceIds.has(device.deviceId)}
             disabled={disabled}
             disabledReason={disabledReason}
+            onPaletteDragStart={onPaletteDragStart}
             onToggle={() => setCollapsedDeviceIds(current => {
               const next = new Set(current)
               if (next.has(device.deviceId)) next.delete(device.deviceId)
               else next.add(device.deviceId)
               return next
             })}
-            onAddAction={onAddAction}
           />
         ))}
       </div>
@@ -170,7 +174,7 @@ export function ExperimentOperationDeviceCatalog({
               }}
               disabled={disabled}
               disabledReason={disabledReason}
-              onAddAction={onAddAction}
+              onPaletteDragStart={onPaletteDragStart}
             />
           ))}
         </section>
@@ -190,15 +194,15 @@ function DeviceActionGroup({
   collapsed,
   disabled,
   disabledReason,
-  onToggle,
-  onAddAction
+  onPaletteDragStart,
+  onToggle
 }: {
   device: ExperimentOperationProjectedDevice
   collapsed: boolean
   disabled: boolean
   disabledReason: string
+  onPaletteDragStart?: (payload: WorkflowNodePaletteDragPayload) => void
   onToggle(): void
-  onAddAction(templateUuid: string): void
 }): React.JSX.Element {
   const stateLabel = !device.online
     ? '离线'
@@ -232,7 +236,7 @@ function DeviceActionGroup({
               disabledReason={action.template
                 ? disabledReason
                 : '设备已声明动作，但缺少唯一可执行节点模板'}
-              onAddAction={onAddAction}
+              onPaletteDragStart={onPaletteDragStart}
             />
           ))}
         </div>
@@ -245,12 +249,12 @@ function ActionButton({
   action,
   disabled,
   disabledReason,
-  onAddAction
+  onPaletteDragStart
 }: {
   action: ExperimentOperationProjectedAction
   disabled: boolean
   disabledReason: string
-  onAddAction(templateUuid: string): void
+  onPaletteDragStart?: (payload: WorkflowNodePaletteDragPayload) => void
 }): React.JSX.Element {
   const templateUuid = action.template?.uuid ?? null
   return (
@@ -259,17 +263,22 @@ function ActionButton({
       className="experiment-operation-device-catalog__action"
       disabled={disabled}
       disabledReason={disabledReason}
-      draggable={!disabled && templateUuid !== null}
+      data-workflow-palette-action={templateUuid ?? undefined}
+      draggable={!disabled && templateUuid !== null && !onPaletteDragStart}
       data-template-match={templateUuid ? 'matched' : 'missing'}
       onDragStart={event => {
         if (!templateUuid || disabled) return
-        writeWorkflowNodePaletteDragPayload(event.dataTransfer, {
+        const payload = {
           kind: 'action',
           templateUuid
-        })
+        } satisfies WorkflowNodePaletteDragPayload
+        onPaletteDragStart?.(payload)
+        writeWorkflowNodePaletteDragPayload(event.dataTransfer, payload)
       }}
-      onClick={() => {
-        if (templateUuid) onAddAction(templateUuid)
+      onPointerDown={event => {
+        if (!templateUuid || disabled || !onPaletteDragStart) return
+        event.currentTarget.setPointerCapture?.(event.pointerId)
+        onPaletteDragStart({ kind: 'action', templateUuid })
       }}
     >
       <span aria-hidden="true">⌁</span>

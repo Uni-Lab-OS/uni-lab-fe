@@ -6,6 +6,7 @@ interface WorkflowCanvasStageHeaderProps {
   linkCount: number
   projectionLabel: string
   projectionTitle: string
+  hideIdentity?: boolean
   tools?: ReactNode
   description?: ReactNode
 }
@@ -22,15 +23,18 @@ export function WorkflowCanvasStageHeader({
   linkCount,
   projectionLabel,
   projectionTitle,
+  hideIdentity = false,
   tools,
   description
 }: WorkflowCanvasStageHeaderProps): React.JSX.Element {
   return (
     <header className="persistent-authoring__stage-header">
-      <div>
-        <strong>{title}</strong>
-        <span>{nodeCount} 个节点 · {linkCount} 条边</span>
-      </div>
+      {!hideIdentity ? (
+        <div>
+          <strong>{title}</strong>
+          <span>{nodeCount} 个节点 · {linkCount} 条边</span>
+        </div>
+      ) : null}
       <div className="persistent-authoring__stage-context">
         <span
           className="persistent-authoring__projection-status"

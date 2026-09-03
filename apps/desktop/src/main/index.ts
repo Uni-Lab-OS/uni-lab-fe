@@ -302,6 +302,14 @@ function createWindow(): void {
         #theia-left-content-panel {
           z-index: 20 !important;
         }
+        #theia-left-right-split-panel > #theia-bottom-split-panel {
+          left: 196px !important;
+          right: 0 !important;
+          width: auto !important;
+        }
+        #theia-left-right-split-panel:has(.unilab-workbench-session-gate) > #theia-bottom-split-panel {
+          left: 0 !important;
+        }
         #theia-bottom-split-panel > #theia-main-content-panel {
           right: 0 !important;
           width: 100% !important;

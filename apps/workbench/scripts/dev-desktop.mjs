@@ -4,12 +4,13 @@
  * Initial assets still come from `pnpm build:desktop`. This script then runs:
  * - `@unilab/workbench-theia` tsc watch (extension lib/)
  * - `theia build --watch` (browser/node bundles; picks up package `src` exports)
- * - `start-workbench.mjs --desktop`
+ * - the dynamic Electron Workbench launcher (welcome page + per-workspace Backend)
  *
  * UI package edits rebuild through Theia watch; refresh the Electron window after
  * the bundle finishes. Electron main/preload still need a full desktop rebuild.
  */
 import { spawn } from 'node:child_process'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -18,8 +19,10 @@ import { theiaBuildEnvironment } from './theia-build-environment.mjs'
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const workbenchDirectory = path.resolve(scriptDirectory, '..')
 const workspaceRoot = path.resolve(workbenchDirectory, '../..')
-const startScript = path.join(scriptDirectory, 'start-workbench.mjs')
 const theiaBuildScript = path.join(scriptDirectory, 'run-theia-build.mjs')
+const electronExecutable = createRequire(
+  path.join(workbenchDirectory, 'package.json')
+)('electron')
 const productionBuildFlag = '--production-build'
 const productionBuild = process.argv.includes(productionBuildFlag)
 const forwardedArguments = process.argv.slice(2)
@@ -71,9 +74,8 @@ try {
     '[watch/node] Finished with 0 errors'
   ])
   if (!stopping) {
-    start('desktop', process.execPath, [
-      startScript,
-      '--desktop',
+    start('desktop', electronExecutable, [
+      workbenchDirectory,
       ...forwardedArguments
     ], {
       cwd: workbenchDirectory

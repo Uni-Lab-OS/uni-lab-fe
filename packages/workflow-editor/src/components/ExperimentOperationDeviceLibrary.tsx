@@ -4,7 +4,10 @@ import type {
 } from '@unilab/services'
 import { useMemo, useState } from 'react'
 
-import { writeWorkflowNodePaletteDragPayload } from '../utils/workflowCanvasCommands'
+import {
+  writeWorkflowNodePaletteDragPayload,
+  type WorkflowNodePaletteDragPayload
+} from '../utils/workflowCanvasCommands'
 import { WorkflowButton } from './WorkflowButton'
 
 export interface ExperimentOperationDeviceActionGroup {
@@ -21,6 +24,7 @@ interface ExperimentOperationDeviceLibraryProps {
   disabledReason?: string
   dragEnabled?: boolean
   onAddAction?: (templateUuid: string) => void
+  onPaletteDragStart?: (payload: WorkflowNodePaletteDragPayload) => void
   onRefresh?: () => void
 }
 
@@ -53,6 +57,7 @@ export function ExperimentOperationDeviceLibrary({
   disabledReason = '请先新建或选择实验操作',
   dragEnabled = true,
   onAddAction,
+  onPaletteDragStart,
   onRefresh
 }: ExperimentOperationDeviceLibraryProps): React.JSX.Element {
   const [query, setQuery] = useState('')
@@ -186,21 +191,41 @@ export function ExperimentOperationDeviceLibrary({
                     <WorkflowButton
                       key={action.uuid}
                       type="button"
-                      disabled={disabled || !onAddAction}
+                      // Dragging is the primary way to add an action in the
+                      // operation editor. It must not depend on the optional
+                      // click callback (the library is also used without a
+                      // click-to-insert handler).
+                      disabled={disabled}
                       disabledReason={disabledReason}
                       title={`${action.displayName || action.name} · ${action.name}`}
-                      draggable={dragEnabled && !disabled && Boolean(onAddAction)}
+                      data-workflow-palette-action={action.uuid}
+                      // The persistent authoring view uses a pointer-based
+                      // drag fallback because X6 may swallow native drop
+                      // events in Electron. Keep native dragging for callers
+                      // that do not provide that fallback.
+                      draggable={dragEnabled && !disabled && !onPaletteDragStart}
                       onDragStart={event => {
-                        if (!dragEnabled || disabled || !onAddAction) {
+                        if (!dragEnabled || disabled) {
                           event.preventDefault()
                           return
                         }
-                        writeWorkflowNodePaletteDragPayload(event.dataTransfer, {
+                        const payload = {
+                          kind: 'action',
+                          templateUuid: action.uuid
+                        } satisfies WorkflowNodePaletteDragPayload
+                        onPaletteDragStart?.(payload)
+                        writeWorkflowNodePaletteDragPayload(event.dataTransfer, payload)
+                      }}
+                      onPointerDown={(event) => {
+                        if (!dragEnabled || disabled) return
+                        if (onPaletteDragStart) {
+                          event.currentTarget.setPointerCapture?.(event.pointerId)
+                        }
+                        onPaletteDragStart?.({
                           kind: 'action',
                           templateUuid: action.uuid
                         })
                       }}
-                      onClick={() => onAddAction?.(action.uuid)}
                     >
                       <span className="codicon codicon-symbol-method" aria-hidden="true" />
                       <span>

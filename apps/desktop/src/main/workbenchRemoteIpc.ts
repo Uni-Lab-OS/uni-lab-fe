@@ -79,6 +79,18 @@ export function registerWorkbenchRemoteAccessIpc(options: {
     return openWorkspaceSelection(options, () => requireWorkspaceController()
       .openRecent(path, workbenchEntryMode(mode)))
   })
+  ipcMain.handle('workbench-workspace:openPath', (
+    event,
+    path: unknown,
+    mode: unknown
+  ) => {
+    options.assertSender(event)
+    if (typeof path !== 'string' || !path.trim()) {
+      throw new Error('工作区目录不能为空')
+    }
+    return openWorkspaceSelection(options, () => requireWorkspaceController()
+      .openPath(path.trim(), workbenchEntryMode(mode)))
+  })
   ipcMain.handle('workbench-workspace:selectDirectory', async (
     event,
     mode: unknown

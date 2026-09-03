@@ -200,6 +200,27 @@
 }
 
 /*
+ * 首页只承担工作区与运行模式选择，不展示进入工作台后的产品菜单和
+ * Theia 状态栏。SessionGate 被卸载后规则自动失效，工作区导航保持原样。
+ */
+#theia-left-right-split-panel:has(.unilab-workbench-session-gate)
+  > #theia-left-content-panel {
+  display: none !important;
+  width: 0 !important;
+  flex-basis: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+}
+
+body:has(.unilab-workbench-session-gate) #theia-statusBar {
+  display: none !important;
+}
+
+body:has(.unilab-workbench-session-gate) .unilab-mode-entry__footer {
+  display: none !important;
+}
+
+/*
  * Lumino keeps the hidden right activity bar's 48px BoxPanel child in its
  * geometry even when the tab bar itself is display:none. Without reclaiming
  * that child, the 420px Agent Dock is laid out from -48px and overlaps the
@@ -286,8 +307,15 @@ body.unilab-agent-panel-visible
 }
 
 #theia-left-right-split-panel > #theia-bottom-split-panel {
+  /* 产品菜单属于左侧固定栏，主工作区必须从它右侧开始布局。 */
+  left: 196px !important;
   right: 0 !important;
   width: auto !important;
+}
+
+#theia-left-right-split-panel:has(.unilab-workbench-session-gate)
+  > #theia-bottom-split-panel {
+  left: 0 !important;
 }
 
 #theia-bottom-split-panel > #theia-main-content-panel {
@@ -356,6 +384,18 @@ body:not(.unilab-agent-panel-visible)
   max-width: 196px !important;
   border-right: 1px solid var(--unilab-color-border);
   box-shadow: none !important;
+}
+
+/*
+ * Theia 的“收起左栏”只应收起领域内容面板，产品导航本身仍需保持宽栏。
+ * 如果继续沿用默认的 48px max-width，Lumino 会把导航项全部放进溢出菜单，
+ * 进入工作区后就只剩 Logo 和底部的“...”空壳。
+ */
+#theia-left-content-panel.theia-mod-collapsed {
+  width: 196px !important;
+  flex-basis: 196px !important;
+  min-width: 196px !important;
+  max-width: 196px !important;
 }
 
 #theia-left-content-panel .theia-app-left {

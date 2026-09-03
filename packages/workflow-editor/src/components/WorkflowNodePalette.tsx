@@ -31,6 +31,7 @@ export interface WorkflowNodePaletteProps {
   onAddAction: (templateUuid: string) => void
   onAddWorkflow: (templateUuid: string) => void
   onRefreshMaterialSourceCatalog: () => void | Promise<void>
+  onPaletteDragStart?: (payload: WorkflowNodePaletteDragPayload) => void
 }
 
 interface WorkflowNodePaletteProjection {
@@ -131,7 +132,8 @@ export function WorkflowNodePalette({
   onAddMaterialSource,
   onAddAction,
   onAddWorkflow,
-  onRefreshMaterialSourceCatalog
+  onRefreshMaterialSourceCatalog,
+  onPaletteDragStart
 }: WorkflowNodePaletteProps): React.JSX.Element {
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState<WorkflowNodePaletteKind>('all')
@@ -268,6 +270,7 @@ export function WorkflowNodePalette({
           disabledReason={templateDisabledReason}
           onAddAction={onAddAction}
           onStartDrag={startTemplateDrag}
+          onPaletteDragStart={onPaletteDragStart}
         />
 
         {projection.workflows.length > 0 && (
@@ -353,7 +356,8 @@ function WorkflowActionPaletteSection({
   disabled,
   disabledReason,
   onAddAction,
-  onStartDrag
+  onStartDrag,
+  onPaletteDragStart
 }: {
   kind: WorkflowNodePaletteKind
   query: string
@@ -367,6 +371,7 @@ function WorkflowActionPaletteSection({
     payload: WorkflowNodePaletteDragPayload,
     disabled: boolean
   ): void
+  onPaletteDragStart?: (payload: WorkflowNodePaletteDragPayload) => void
 }): React.JSX.Element | null {
   const operationDeviceCatalog = useExperimentOperationDeviceCatalog()
   if (operationDeviceCatalog && (kind === 'all' || kind === 'action')) {
@@ -381,6 +386,7 @@ function WorkflowActionPaletteSection({
         disabledReason={disabledReason}
         onRefresh={operationDeviceCatalog.refresh}
         onAddAction={onAddAction}
+        onPaletteDragStart={onPaletteDragStart}
       />
     )
   }
@@ -395,13 +401,21 @@ function WorkflowActionPaletteSection({
             key={template.uuid}
             disabled={disabled}
             disabledReason={disabledReason}
-            draggable={!disabled}
+            data-workflow-palette-action={template.uuid}
+            draggable={!disabled && !onPaletteDragStart}
             onDragStart={(event) => onStartDrag(
               event,
               { kind: 'action', templateUuid: template.uuid },
               disabled
             )}
-            onClick={() => onAddAction(template.uuid)}
+            onPointerDown={(event) => {
+              if (disabled || !onPaletteDragStart) return
+              event.currentTarget.setPointerCapture?.(event.pointerId)
+              onPaletteDragStart({
+                kind: 'action',
+                templateUuid: template.uuid
+              })
+            }}
           >
             <span aria-hidden="true">⌁</span>
             <span>

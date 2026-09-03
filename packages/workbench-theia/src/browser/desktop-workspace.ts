@@ -16,6 +16,10 @@ export interface DesktopWorkspaceApi {
   selectDirectory: (
     entryMode?: 'debug' | 'production'
   ) => Promise<DesktopWorkspaceSnapshot>
+  openPath: (
+    path: string,
+    entryMode?: 'debug' | 'production'
+  ) => Promise<DesktopWorkspaceSnapshot>
   switchToWelcome: () => Promise<{
     switched: boolean
     snapshot: DesktopWorkspaceSnapshot

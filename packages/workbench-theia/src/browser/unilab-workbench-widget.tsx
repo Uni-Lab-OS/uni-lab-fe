@@ -975,9 +975,11 @@ function WorkbenchSurface({
     useState<readonly MaterialId[]>([])
   const [selectedActionDeviceId, setSelectedActionDeviceId] =
     useState<string | null>(null)
+  // entryMode only selects the debug/production runtime at launch.  It is
+  // intentionally not a UI command: refreshing the renderer must not reopen
+  // the configuration dialog that was shown during the initial launch.
   const [configurationKind, setConfigurationKind] =
-    useState<WorkbenchConfigurationKind | null>(query.get('entryMode') === 'production'
-      ? 'production' : query.get('entryMode') === 'debug' ? 'simulation' : null)
+    useState<WorkbenchConfigurationKind | null>(null)
   const [modeEntryOpen, setModeEntryOpen] = useState(false)
   const [environmentResetBusy, setEnvironmentResetBusy] = useState(false)
   const reportWorkflowUnsavedChanges = useCallback(

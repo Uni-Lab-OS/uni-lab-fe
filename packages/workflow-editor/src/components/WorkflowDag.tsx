@@ -327,7 +327,10 @@ function WorkflowDag({
     nestedProjection.links,
     layoutStrategy,
     swimlaneDirection,
-    supportingMaterialPresentation
+    supportingMaterialPresentation,
+    // In editable mode, preserve explicit poses from the authoring graph so
+    // palette drops and manual moves remain at the user's chosen locations.
+    canvasMutationEnabled
   )
   // `canvasLayoutDirection` 是当前视觉投影的实际阅读方向；蛇形固定横向，
   // 物料泳道（Material Swimlane）才使用用户选择的方向。
@@ -590,16 +593,9 @@ function WorkflowDag({
     setSwimlaneDirection(direction)
   }, [])
 
-  if (flowNodes.length === 0) {
-    return (
-      <p className="workflow-x6__empty" role="status">
-        当前工作流未定义节点，无法生成拓扑图
-      </p>
-    )
-  }
   return (
     <div
-      className={styles.dag}
+      className={`${styles.dag} workflow-runtime__existing-canvas`}
       data-workflow-layout-strategy={layoutStrategy}
       data-workflow-layout-direction={canvasLayoutDirection}
       data-workflow-supporting-material-presentation={
@@ -651,6 +647,11 @@ function WorkflowDag({
           onNodeSelect(nodeId)
         }}
       />
+      {flowNodes.length === 0 && (
+        <p className="workflow-x6__empty workflow-x6__empty--overlay" role="status">
+          将左侧设备动作拖到画布中开始编排
+        </p>
+      )}
       <WorkflowX6NodeActions
         node={selectedCanvasNode}
         expandedGroupIds={expandedGroupIds}

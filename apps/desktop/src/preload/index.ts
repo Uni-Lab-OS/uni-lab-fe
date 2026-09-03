@@ -169,6 +169,11 @@ const api = {
       entryMode?: WorkbenchEntryMode
     ): Promise<WorkbenchWorkspaceSnapshot> =>
       ipcRenderer.invoke('workbench-workspace:openRecent', path, entryMode),
+    openPath: (
+      path: string,
+      entryMode?: WorkbenchEntryMode
+    ): Promise<WorkbenchWorkspaceSnapshot> =>
+      ipcRenderer.invoke('workbench-workspace:openPath', path, entryMode),
     selectDirectory: (entryMode?: WorkbenchEntryMode): Promise<WorkbenchWorkspaceSnapshot> =>
       ipcRenderer.invoke('workbench-workspace:selectDirectory', entryMode),
     switchToWelcome: () => ipcRenderer.invoke(

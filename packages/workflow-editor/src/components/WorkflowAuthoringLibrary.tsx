@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { WorkflowButton } from './WorkflowButton'
 import { ExperimentOperationDeviceLibrary } from './ExperimentOperationDeviceLibrary'
 import { WorkflowNodePalette } from './WorkflowNodePalette'
+import type { WorkflowNodePaletteDragPayload } from '../utils/workflowCanvasCommands'
 
 type WorkflowNodePaletteProps = ComponentProps<typeof WorkflowNodePalette>
 
@@ -20,6 +21,7 @@ interface WorkflowAuthoringLibraryProps extends WorkflowNodePaletteProps {
   definitionKind?: WorkflowDefinitionKind
   authoringDirty: boolean
   onSelectWorkflow?: (workflowUuid: string, workflowName: string) => void
+  onPaletteDragStart?: (payload: WorkflowNodePaletteDragPayload) => void
 }
 
 /**
@@ -34,6 +36,7 @@ export function WorkflowAuthoringLibrary({
   definitionKind = 'workflow',
   authoringDirty,
   onSelectWorkflow,
+  onPaletteDragStart,
   ...paletteProps
 }: WorkflowAuthoringLibraryProps): React.JSX.Element {
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([])
@@ -205,6 +208,7 @@ export function WorkflowAuthoringLibrary({
                     ? '当前模式只允许查看实验操作'
                     : '实验操作画布尚未加载完成'}
                 onAddAction={paletteProps.onAddAction}
+                onPaletteDragStart={onPaletteDragStart}
               />
             </div>
           )}
@@ -222,7 +226,10 @@ export function WorkflowAuthoringLibrary({
           </label>
           {workflowList}
           <div className="persistent-authoring__library-nodes">
-            <WorkflowNodePalette {...paletteProps} />
+            <WorkflowNodePalette
+              {...paletteProps}
+              onPaletteDragStart={onPaletteDragStart}
+            />
           </div>
         </>
       )}

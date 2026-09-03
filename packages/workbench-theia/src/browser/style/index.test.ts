@@ -183,7 +183,10 @@ describe('environment manager layering and responsive layout', () => {
       /@media \(max-width:\s*720px\)[\s\S]*?body\.unilab-agent-panel-visible[\s\S]*?#theia-bottom-split-panel\s*\{[^}]*visibility:\s*hidden !important;[^}]*pointer-events:\s*none !important;/u
     )
     expect(domainNavigationStylesheet).toMatch(
-      /#theia-left-right-split-panel\s*> #theia-bottom-split-panel\s*\{[^}]*right:\s*0 !important;[^}]*width:\s*auto !important/u
+      /#theia-left-right-split-panel\s*> #theia-bottom-split-panel\s*\{[^}]*left:\s*196px !important;[^}]*right:\s*0 !important;[^}]*width:\s*auto !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-left-right-split-panel:has\(\.unilab-workbench-session-gate\)[\s\S]*?> #theia-bottom-split-panel\s*\{[^}]*left:\s*0 !important/u
     )
     expect(domainNavigationStylesheet).not.toMatch(
       /#theia-left-right-split-panel\s*> #theia-bottom-split-panel\s*\{[^}]*left:\s*48px !important/u
@@ -199,6 +202,19 @@ describe('environment manager layering and responsive layout', () => {
     )
     expect(domainNavigationStylesheet).toMatch(
       /#theia-main-content-panel[\s\S]*?> \.lm-TabBar\.theia-app-centers\.theia-app-main:not\([\s\S]*?:has\(\.lm-TabBar-tab\.lm-mod-closable\)[\s\S]*?\)\s*\{[^}]*display:\s*none !important/u
+    )
+  })
+
+  /** 首页模式选择不应展示工作台菜单和底部状态栏。 */
+  it('hides product chrome while the initial mode entry is visible', () => {
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-left-right-split-panel:has\(\.unilab-workbench-session-gate\)[\s\S]*?> #theia-left-content-panel\s*\{[^}]*display:\s*none !important;[^}]*width:\s*0 !important;[^}]*flex-basis:\s*0 !important;[^}]*min-width:\s*0 !important;[^}]*max-width:\s*0 !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /body:has\(\.unilab-workbench-session-gate\) #theia-statusBar\s*\{[^}]*display:\s*none !important/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /body:has\(\.unilab-workbench-session-gate\) \.unilab-mode-entry__footer\s*\{[^}]*display:\s*none !important/u
     )
   })
 
@@ -274,6 +290,9 @@ describe('environment manager layering and responsive layout', () => {
     )
     expect(domainNavigationStylesheet).toMatch(
       /#theia-left-content-panel > \.theia-app-sidebar-container\s*\{[^}]*border-right:\s*1px solid var\(--unilab-color-border\);/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#theia-left-content-panel\.theia-mod-collapsed\s*\{[^}]*width:\s*196px !important;[^}]*flex-basis:\s*196px !important;[^}]*min-width:\s*196px !important;[^}]*max-width:\s*196px !important;/u
     )
     expect(domainNavigationStylesheet).toMatch(
       /\.lm-TabBar-tab\[data-unilabactive='true'\]\s*\{[^}]*color:\s*var\(--unilab-color-primary\) !important;[^}]*box-shadow:\s*none !important;[^}]*border-inline-start-color:\s*transparent !important;/u

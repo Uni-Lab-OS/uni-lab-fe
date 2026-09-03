@@ -149,6 +149,52 @@ describe('ExperimentOperationWorkbench', () => {
     expect(markup).not.toContain('仿真磁搅')
   })
 
+  it('keeps actions draggable when insertion is provided by the canvas fallback', () => {
+    const markup = renderToStaticMarkup(
+      <ExperimentOperationDeviceLibrary
+        catalog={{
+          actionTemplates: [actionTemplate(
+            'stir',
+            'stirrer-template',
+            'S04 烧杯磁搅',
+            'lab.devices:SzlabMixerMagneticStirrerDevice'
+          )],
+          workflowTemplates: []
+        }}
+        onPaletteDragStart={() => undefined}
+      />
+    )
+
+    expect(markup).toContain('data-workflow-palette-action="stir"')
+    expect(markup).not.toContain('disabled=""')
+    expect(markup).not.toContain('draggable="true"')
+  })
+
+  it('keeps the operation and node library mounted across authoring modes', () => {
+    const view = componentSource('PersistentWorkflowAuthoringView.tsx')
+    const styles = componentSource('_experiment-operation-authoring.scss')
+
+    expect(view).toContain(
+      "const operationLibraryPersistent = definitionKind === 'operation'"
+    )
+    expect(view).not.toContain(
+      "hideIdentity={definitionKind === 'operation'}"
+    )
+    expect(view).toContain(
+      'if (!canvasMutationEnabled) return'
+    )
+    expect(view).toContain("event.dataTransfer.dropEffect = 'copy'")
+    expect(view).toContain(
+      "(mode === 'canvas' || operationLibraryPersistent)"
+    )
+    expect(view).toContain(
+      'if (compact && !operationLibraryPersistent)'
+    )
+    expect(styles).toContain(
+      '.persistent-authoring--operation[data-definition-kind=\'operation\']'
+    )
+  })
+
   it('creates operation definitions with canonical OS metadata', () => {
     const dialogs = componentSource('WorkflowCatalogDialogs.tsx')
 
@@ -172,6 +218,8 @@ describe('ExperimentOperationWorkbench', () => {
 
     expect(workbench).toContain('<PersistentWorkflowAuthoringPanel')
     expect(workbench).toContain('definitionKind="operation"')
+    expect(workbench).toContain('initialMode="canvas"')
+    expect(workbench).toContain('hideAuthoringToolbar')
     expect(workbench).not.toContain('<ExperimentOperationCanvas')
     expect(view).toMatch(
       /<PersistentWorkflowOverlays[\s\S]*?definitionKind=\{definitionKind\}/u
@@ -179,6 +227,10 @@ describe('ExperimentOperationWorkbench', () => {
     expect(overlays).toContain('<WorkflowIoEditor')
     expect(overlays).toContain("definitionKind === 'operation'")
     expect(inspector).toContain('<WorkflowActionParameterEditor')
+    expect(inspector).toContain('persistent-authoring__operation-summary')
+    expect(inspector).toContain("['runtime', '运行策略']")
+    expect(inspector).toContain('hideMaterialFields={operationInspector}')
+    expect(view).toContain('persistent-authoring__palette-drag-preview')
     expect(parameterEditor).toContain('title="设备参数"')
     expect(parameterEditor).toContain("'输入与输出契约'")
     expect(parameterEditor).toContain('className="mapping-row"')

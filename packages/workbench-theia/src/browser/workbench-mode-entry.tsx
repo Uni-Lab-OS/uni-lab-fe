@@ -2,7 +2,7 @@ import * as React from 'react'
 
 import type { WorkbenchConfigurationKind } from './workbench-configuration-dialog'
 import { desktopWorkspaceApi } from './desktop-workspace'
-import { DesktopWorkspaceSwitchButton } from './desktop-workspace-switch'
+import { DesktopWorkspacePicker } from './desktop-workspace-switch'
 
 export type WorkbenchEntryMode = 'debug' | 'production'
 
@@ -25,6 +25,7 @@ export function WorkbenchModeEntry({
   status = { label: 'SERVICE ONLINE', tone: 'online' },
   notice,
   supportActions,
+  onWorkspaceError,
   onConfigure,
   onReturn
 }: {
@@ -34,6 +35,7 @@ export function WorkbenchModeEntry({
   status?: WorkbenchModeEntryStatus
   notice?: React.ReactNode
   supportActions?: React.ReactNode
+  onWorkspaceError?: (message: string) => void
   onConfigure: (kind: WorkbenchConfigurationKind) => void
   onReturn?: () => void
 }): React.JSX.Element {
@@ -42,8 +44,13 @@ export function WorkbenchModeEntry({
   const [activeWorkspace, setActiveWorkspace] = React.useState<string | null>(
     workspacePath ?? null
   )
+  const [workspaceInput, setWorkspaceInput] = React.useState(workspacePath ?? '')
 
   React.useEffect(() => setMode(initialMode), [initialMode])
+  React.useEffect(() => {
+    setActiveWorkspace(workspacePath ?? null)
+    setWorkspaceInput(workspacePath ?? '')
+  }, [workspacePath])
   React.useEffect(() => {
     let active = true
     const api = desktopWorkspaceApi()
@@ -51,6 +58,7 @@ export function WorkbenchModeEntry({
     void api.getSnapshot().then((snapshot) => {
       if (active && snapshot.activeWorkspace) {
         setActiveWorkspace(snapshot.activeWorkspace)
+        setWorkspaceInput(snapshot.activeWorkspace)
       }
     }).catch(() => undefined)
     return () => { active = false }
@@ -115,7 +123,10 @@ export function WorkbenchModeEntry({
     }
   }, [onReturn])
 
-  const resolvedWorkspacePath = activeWorkspace ?? workspacePath ?? ''
+  const resolvedWorkspacePath = workspaceInput.trim()
+    || activeWorkspace
+    || workspacePath
+    || ''
   const resolvedWorkspaceLabel = resolvedWorkspacePath
     ? workspaceShortName(resolvedWorkspacePath)
     : workspaceLabel
@@ -224,21 +235,21 @@ export function WorkbenchModeEntry({
                 <small>当前设备包</small>
               </div>
               <div className="unilab-mode-entry__workspace-control">
-                <div
-                  className="unilab-mode-entry__workspace-value"
-                  aria-label={`当前工作区：${resolvedWorkspaceLabel}`}
-                  title={resolvedWorkspacePath || resolvedWorkspaceLabel}
-                >
-                  <span>{resolvedWorkspaceLabel}</span>
-                  <span className="codicon codicon-chevron-down" aria-hidden="true" />
-                </div>
-                <DesktopWorkspaceSwitchButton
+                <DesktopWorkspacePicker
                   entryMode={mode}
-                  label="选择工作区"
+                  value={workspaceInput}
+                  onChange={setWorkspaceInput}
+                  onSelected={(snapshot) => {
+                    if (snapshot.activeWorkspace) {
+                      setActiveWorkspace(snapshot.activeWorkspace)
+                      setWorkspaceInput(snapshot.activeWorkspace)
+                    }
+                  }}
+                  onError={onWorkspaceError}
                 />
               </div>
               <code title={resolvedWorkspacePath || resolvedWorkspaceLabel}>
-                {resolvedWorkspacePath || '请选择一个设备包工作区'}
+                {resolvedWorkspacePath || '请选择或输入一个设备包工作区'}
               </code>
             </div>
 

@@ -92,6 +92,7 @@ export function usePersistentWorkflowAuthoring({
   runtime,
   active = true,
   definitionPort,
+  initialMode,
   definitionEditingStatus,
   workflowUuid,
   traceRuntime,
@@ -106,7 +107,9 @@ export function usePersistentWorkflowAuthoring({
   recoveryRevision = 0
 }: PersistentWorkflowAuthoringOptions) {
   const [mode, setMode] = useState<WorkflowEditMode>(
-    () => definitionPort.capabilities.sourceEditing ? 'code' : 'canvas'
+    () => initialMode ?? (
+      definitionPort.capabilities.sourceEditing ? 'code' : 'canvas'
+    )
   )
   const [codeProjection, setCodeProjection] =
     useState<WorkflowCodeProjection>(
@@ -137,7 +140,7 @@ export function usePersistentWorkflowAuthoring({
   const [selectedNodeNameDirty, setSelectedNodeNameDirty] = useState(false)
   const [actionParametersOpen, setActionParametersOpen] = useState(false)
   const [workflowIoOpen, setWorkflowIoOpen] = useState(false)
-  // 画布模式以三栏工作台为默认；窄屏由视图层自动收起资源库。
+  // 画布模式以三栏工作台为默认；操作调试视图由视图层保证资源库常驻。
   const [nodePaletteOpen, setNodePaletteOpen] = useState(true)
   const [message, setMessage] = useState(
     definitionPort.capabilities.authority === 'backend'

@@ -105,6 +105,7 @@ const REACTION_MATERIAL_ITEM_HEIGHT = 22
  * @param strategy 当前选中的画布布局策略。
  * @param swimlaneDirection 物料泳道策略当前选中的流向。
  * @param supportingMaterialPresentation 辅助物料使用反应式标注或完整支线展示。
+ * @param preserveExplicitPositions 编辑画布中保留节点已有的显式坐标；新拖入节点依赖此坐标落在指针位置。
  * @returns X6 适配层可直接消费的框架无关节点与边。
  */
 export function useWorkflowDag(
@@ -115,7 +116,8 @@ export function useWorkflowDag(
   swimlaneDirection: WorkflowMaterialSwimlaneDirection =
     DEFAULT_WORKFLOW_MATERIAL_SWIMLANE_DIRECTION,
   supportingMaterialPresentation: WorkflowSupportingMaterialPresentation =
-    'full-branches'
+    'full-branches',
+  preserveExplicitPositions = false
 ): UseWorkflowDagResult {
   const fallback = useMemo(
     () => buildFlowElements(
@@ -129,14 +131,16 @@ export function useWorkflowDag(
       nodes,
       links,
       strategy,
-      supportingMaterialPresentation
+      supportingMaterialPresentation,
+      preserveExplicitPositions
     ),
     [
       nodes,
       links,
       strategy,
       supportingMaterialPresentation,
-      swimlaneDirection
+      swimlaneDirection,
+      preserveExplicitPositions
     ]
   )
   const [flowNodes, setNodes] = useState(fallback.flowNodes)
@@ -190,7 +194,8 @@ export function useWorkflowDag(
         nodes,
         links,
         strategy,
-        supportingMaterialPresentation
+        supportingMaterialPresentation,
+        preserveExplicitPositions
       )
       setNodes(elements.flowNodes)
       setEdges(elements.flowEdges)
@@ -224,7 +229,8 @@ export function useWorkflowDag(
       setNodes,
       strategy,
       supportingMaterialPresentation,
-      swimlaneDirection
+      swimlaneDirection,
+      preserveExplicitPositions
     ]
   )
 
@@ -249,8 +255,22 @@ function buildFlowElements(
   sourceNodes: readonly WorkflowNode[],
   sourceLinks: readonly WorkflowLink[],
   strategy: WorkflowDagLayoutStrategy,
-  supportingMaterialPresentation: WorkflowSupportingMaterialPresentation
+  supportingMaterialPresentation: WorkflowSupportingMaterialPresentation,
+  preserveExplicitPositions = false
 ): WorkflowFlowElements {
+  const sourceNodeById = new Map(sourceNodes.map((node) => [node.id, node]))
+  const effectiveLayout = preserveExplicitPositions
+    ? {
+        ...layout,
+        nodes: layout.nodes.map((node) => {
+          const sourceNode = sourceNodeById.get(node.id)
+          return sourceNode && Number.isFinite(sourceNode.x) &&
+            Number.isFinite(sourceNode.y)
+            ? { ...node, x: sourceNode.x as number, y: sourceNode.y as number }
+            : node
+        })
+      }
+    : layout
   const materialTraces = projectMaterialTraces(sourceNodes, sourceLinks)
   const nodeNames = new Map(sourceNodes.map((node) => [node.id, node.name]))
   const handleByUuid = new Map(
@@ -276,12 +296,12 @@ function buildFlowElements(
     ])
   )
   const visibleLayoutNodes = reactionFormulaPresentation
-    ? layout.nodes.filter((node) => backboneNodeIds.has(node.id))
-    : layout.nodes
+    ? effectiveLayout.nodes.filter((node) => backboneNodeIds.has(node.id))
+    : effectiveLayout.nodes
   const flowNodes: WorkflowDagProjectionNode[] = visibleLayoutNodes.map((node) => {
-    const laneLayout = layout.swimlanes?.nodeLayouts.get(node.id)
-    const handleLanes = layout.swimlanes?.handleLaneIndexes.get(node.id)
-    const nodePorts = layout.nodePorts?.get(node.id)
+    const laneLayout = effectiveLayout.swimlanes?.nodeLayouts.get(node.id)
+    const handleLanes = effectiveLayout.swimlanes?.handleLaneIndexes.get(node.id)
+    const nodePorts = effectiveLayout.nodePorts?.get(node.id)
     return {
       id: node.id,
       type: 'wfNode',
@@ -325,7 +345,7 @@ function buildFlowElements(
         ),
         materialChips: materialTraces.chipsByNode.get(node.id) ?? [],
         layoutStrategy: strategy,
-        materialLaneDirection: layout.swimlanes?.direction ?? (
+        materialLaneDirection: effectiveLayout.swimlanes?.direction ?? (
           strategy === 'primary-sample-serpentine'
             ? 'horizontal'
             : undefined
@@ -346,7 +366,7 @@ function buildFlowElements(
       sourceLinks,
       backboneNodeIds
     )
-    flowNodes.push(...buildReactionMaterialNodes(layout, annotations))
+    flowNodes.push(...buildReactionMaterialNodes(effectiveLayout, annotations))
   }
 
   const flowEdges = layout.links.flatMap((link, index) => {
@@ -357,7 +377,7 @@ function buildFlowElements(
     return [buildWorkflowFlowEdge({
       link,
       index,
-      layout,
+      layout: effectiveLayout,
       materialTraces,
       materialRoleByLineage,
       handleByUuid,

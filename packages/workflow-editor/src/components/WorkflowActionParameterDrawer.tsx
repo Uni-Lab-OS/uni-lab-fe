@@ -21,6 +21,10 @@ export interface WorkflowActionParameterEditorProps {
   graph: WorkflowAuthoringGraph | null
   editable: boolean
   view?: 'all' | 'parameters' | 'mapping' | 'inputs' | 'outputs'
+  /** 操作调试右侧面板不展示物料参数。 */
+  hideMaterialFields?: boolean
+  /** 使用实验操作参数面板的文案，而不是节点参数面板文案。 */
+  presentation?: 'node' | 'operation'
   resourceSlotOptions?: WorkflowResourceSlotOptionsState
   onProviderChange: (
     field: TypedActionFieldProjection,
@@ -89,6 +93,8 @@ export function WorkflowActionParameterEditor({
   graph,
   editable,
   view = 'all',
+  hideMaterialFields = false,
+  presentation = 'node',
   resourceSlotOptions,
   onProviderChange,
   onLiteralBlur,
@@ -96,12 +102,23 @@ export function WorkflowActionParameterEditor({
   onClear,
   onNull
 }: WorkflowActionParameterEditorProps): React.JSX.Element {
-  const configuredInputCount = editor?.fields.filter(
+  const visibleFields = hideMaterialFields
+    ? editor?.fields.filter((field) => !isMaterialInputField(field)) ?? []
+    : editor?.fields ?? []
+  const visibleDiagnostics = hideMaterialFields
+    ? editor?.diagnostics.filter((diagnostic) => {
+        const field = editor.fields.find(
+          (item) => item.handleUuid === diagnostic.handleUuid
+        )
+        return !field || !isMaterialInputField(field)
+    }) ?? []
+    : editor?.diagnostics ?? []
+  const configuredInputCount = visibleFields.filter(
     (field) => field.providerKind !== 'missing'
-  ).length ?? 0
-  const missingRequiredCount = editor?.diagnostics.filter(
+  ).length
+  const missingRequiredCount = visibleDiagnostics.filter(
     (diagnostic) => diagnostic.code === 'required_action_parameter_missing'
-  ).length ?? 0
+  ).length
   const businessOutputHandles = outputHandles.filter(
     (handle) => handle.structuralRole === null
   )
@@ -149,7 +166,7 @@ export function WorkflowActionParameterEditor({
   }
   return (
     <div className="persistent-authoring__parameter-drawer node-contract-editor">
-        {showParameterEditor && <header className="contract-editor-intro">
+        {showParameterEditor && presentation !== 'operation' && <header className="contract-editor-intro">
           <div>
             <strong>设备动作参数映射</strong>
             <p>
@@ -171,19 +188,29 @@ export function WorkflowActionParameterEditor({
           </p>
         ) : (
           <div className="persistent-authoring__parameter-columns">
+            {showParameterEditor && presentation === 'operation' && (
+              <div className={[
+                'contract-validation',
+                missingRequiredCount > 0 ? 'warn' : ''
+              ].filter(Boolean).join(' ')}>
+                {missingRequiredCount > 0
+                  ? `⚠ ${missingRequiredCount} 个必填输入仍待配置`
+                  : '✓ 参数契约有效'}
+              </div>
+            )}
             {showParameterEditor && (
             <ParameterSection
-              title="输入参数"
+              title={presentation === 'operation' ? '业务参数' : '输入参数'}
               description="选择参数来源；固定值和工作流输入都在此设置。"
-              count={editor.fields.length}
+              count={visibleFields.length}
             >
-              {editor.fields.length === 0 ? (
+              {visibleFields.length === 0 ? (
                 <p className="persistent-authoring__parameter-empty">
                   当前操作没有外部输入。
                 </p>
               ) : (
                 <ol className="persistent-authoring__parameter-list contract-param-list">
-                  {editor.fields.map((field) => {
+                  {visibleFields.map((field) => {
                     const literalDraft = literalDraftHandles.has(
                       field.handleUuid
                     )
@@ -191,11 +218,11 @@ export function WorkflowActionParameterEditor({
                       ? 'literal'
                       : field.providerKind
                     const diagnostics = literalDraft
-                      ? editor.diagnostics.filter((diagnostic) =>
+                      ? visibleDiagnostics.filter((diagnostic) =>
                           diagnostic.handleUuid === field.handleUuid &&
                           diagnostic.code !== 'required_action_parameter_missing'
                         )
-                      : editor.diagnostics.filter(
+                          : visibleDiagnostics.filter(
                           (diagnostic) =>
                             diagnostic.handleUuid === field.handleUuid
                         )
@@ -307,7 +334,7 @@ export function WorkflowActionParameterEditor({
                 </ol>
               )}
               <ParameterDiagnostics
-                diagnostics={editor.diagnostics.filter(
+                diagnostics={visibleDiagnostics.filter(
                   (diagnostic) => !diagnostic.handleUuid
                 )}
               />
@@ -319,9 +346,10 @@ export function WorkflowActionParameterEditor({
                 outputHandles={businessOutputHandles}
                 graph={graph}
                 view={view === 'inputs' || view === 'outputs' ? view : 'all'}
+                hideMaterial={hideMaterialFields}
               />
             )}
-            {showParameterEditor && (
+            {showParameterEditor && presentation !== 'operation' && (
               <div className={[
                 'contract-validation',
                 missingRequiredCount > 0 ? 'warn' : ''
@@ -367,16 +395,22 @@ function WorkflowActionIoMapping({
   editor,
   outputHandles,
   graph,
-  view
+  view,
+  hideMaterial = false
 }: {
   editor: TypedActionEditorProjection
   outputHandles: readonly WorkflowActionHandleTemplate[]
   graph: WorkflowAuthoringGraph | null
   view: 'all' | 'inputs' | 'outputs'
+  hideMaterial?: boolean
 }): React.JSX.Element {
-  const materialInputs = editor.fields.filter(isMaterialInputField)
+  const materialInputs = hideMaterial
+    ? []
+    : editor.fields.filter(isMaterialInputField)
   const deviceInputs = editor.fields.filter((field) => !isMaterialInputField(field))
-  const materialOutputs = outputHandles.filter(isMaterialOutputHandle)
+  const materialOutputs = hideMaterial
+    ? []
+    : outputHandles.filter(isMaterialOutputHandle)
   const deviceOutputs = outputHandles.filter(
     (handle) => !isMaterialOutputHandle(handle)
   )

@@ -312,6 +312,7 @@ export function ExperimentOperationWorkbench({
               definitionAuthority="workspace"
               definitionEditingStatus={{ available: true }}
               definitionKind="operation"
+              initialMode="canvas"
               workflowUuid={selectedOperation.uuid}
               workflowName={selectedOperation.name}
               traceRuntime={traceRuntime}
@@ -327,6 +328,7 @@ export function ExperimentOperationWorkbench({
               onSelectedWorkflowStepChange={onSelectedWorkflowStepChange}
               recoveryRevision={recoveryRevision}
               hideEmbeddedCodeEditor={hideEmbeddedCodeEditor}
+              hideAuthoringToolbar
               onSelectWorkflow={(workflowUuid) => {
                 if (operations.some(item => item.uuid === workflowUuid)) {
                   setSelectedOperationUuid(workflowUuid)

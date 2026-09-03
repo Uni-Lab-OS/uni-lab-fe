@@ -15,6 +15,14 @@ const palettePath = fileURLToPath(new URL(
   './WorkflowNodePalette.tsx',
   import.meta.url
 ))
+const deviceLibraryPath = fileURLToPath(new URL(
+  './ExperimentOperationDeviceLibrary.tsx',
+  import.meta.url
+))
+const deviceCatalogPath = fileURLToPath(new URL(
+  './ExperimentOperationDeviceCatalog.tsx',
+  import.meta.url
+))
 const authoringHookPath = fileURLToPath(new URL(
   '../hooks/usePersistentWorkflowAuthoring.ts',
   import.meta.url
@@ -40,13 +48,30 @@ describe('Published Workflow Catalog in the Authoring module', () => {
     const actionPicker = paletteSection(source, '操作')
     const workflowPicker = paletteSection(source, '子工作流')
 
-    expect(actionPicker).toContain('projection.actions.map')
+    expect(actionPicker).toContain('visibleTemplates.map')
     expect(actionPicker).toMatch(
       /<WorkflowButton[\s\S]*?key=\{template\.uuid\}[\s\S]*?\{template\.displayName\}/
     )
     expect(workflowPicker).toContain('projection.workflows.map')
     expect(workflowPicker).toMatch(
       /<WorkflowButton[\s\S]*?key=\{template\.uuid\}[\s\S]*?\{template\.displayName\}/
+    )
+  })
+
+  it('requires dragging action entries onto the canvas instead of click insertion', () => {
+    const paletteSource = readFileSync(palettePath, 'utf8')
+    const deviceLibrarySource = readFileSync(deviceLibraryPath, 'utf8')
+    const deviceCatalogSource = readFileSync(deviceCatalogPath, 'utf8')
+
+    expect(paletteSection(paletteSource, '操作')).toContain('onDragStart')
+    expect(paletteSection(paletteSource, '操作')).not.toMatch(
+      /onClick=\{\(\) => onAddAction\(/u
+    )
+    expect(deviceLibrarySource).not.toMatch(
+      /onClick=\{\(\) => onAddAction\??\(/u
+    )
+    expect(deviceCatalogSource).not.toMatch(
+      /onClick=\{\(\) => \{[\s\S]*onAddAction\(/u
     )
   })
 

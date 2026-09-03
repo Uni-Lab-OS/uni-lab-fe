@@ -19,6 +19,7 @@ import type {
   WorkflowCanvasBreadcrumb,
   WorkflowCanvasNavigationState
 } from '../utils/workflowCanvasCommands'
+import type { WorkflowEditMode } from '../utils/workflowCanvasPolicy'
 import { projectWorkflowIdeDiagnostics } from '../utils/workflowSourceNavigation'
 import { PersistentWorkflowAuthoringView } from './PersistentWorkflowAuthoringView'
 
@@ -35,6 +36,7 @@ interface PersistentWorkflowAuthoringPanelProps {
   active?: boolean
   definitionAuthority?: WorkflowDefinitionAuthority
   definitionEditingStatus?: CapabilityStatus
+  initialMode?: WorkflowEditMode
   workflowUuid: string
   workflowName?: string
   definitionKind?: WorkflowDefinitionKind
@@ -62,6 +64,7 @@ interface PersistentWorkflowAuthoringPanelProps {
   restoreCanvasState?: WorkflowCanvasNavigationState | null
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
+  hideAuthoringToolbar?: boolean
   hideRuntimeControls?: boolean
   recoveryRevision?: number
   onResetEnvironment?: () => Promise<void>
@@ -109,6 +112,7 @@ export function PersistentWorkflowAuthoringPanel(
       visibleMaterialRoles={props.visibleMaterialRoles}
       onVisibleMaterialRolesChange={props.onVisibleMaterialRolesChange}
       hideEmbeddedCodeEditor={props.hideEmbeddedCodeEditor}
+      hideAuthoringToolbar={props.hideAuthoringToolbar}
       hideRuntimeControls={props.hideRuntimeControls}
       onResetEnvironment={props.onResetEnvironment}
       environmentResetBusy={props.environmentResetBusy}

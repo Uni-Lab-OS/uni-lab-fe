@@ -381,9 +381,93 @@
 }
 
 .unilab-mode-entry__workspace-control {
+  min-width: 0;
+}
+
+.unilab-workspace-picker {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 6px;
+}
+
+.unilab-workspace-picker__input-wrap {
+  display: flex;
+  min-width: 0;
+  height: 40px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid #cfd7e1;
+  border-radius: 3px;
+  background: #f8fafc;
+}
+
+.unilab-workspace-picker__input-wrap:focus-within {
+  border-color: #6e91b0;
+  outline: 2px solid rgb(49 81 110 / 14%);
+  outline-offset: 1px;
+}
+
+.unilab-workspace-picker__icon {
+  flex: 0 0 auto;
+  color: #506176;
+  font-size: 12px;
+}
+
+.unilab-workspace-picker__input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  color: #27384b;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: 600 11px/1.2 var(--unilab-font-sans);
+}
+
+.unilab-workspace-picker__input::placeholder {
+  color: #8795a5;
+  font-weight: 500;
+}
+
+.unilab-workspace-picker__button {
+  display: inline-flex;
+  height: 40px;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 9px;
+  color: #31516e;
+  border: 1px solid #bfcbd6;
+  border-radius: 3px;
+  background: #eef3f7;
+  font: 700 10px/1.2 var(--unilab-font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.unilab-workspace-picker__button--open {
+  color: #fff;
+  border-color: #1766ad;
+  background: #1766ad;
+}
+
+.unilab-workspace-picker__button:hover:not(:disabled) {
+  border-color: #6e91b0;
+  background: #e6eef5;
+}
+
+.unilab-workspace-picker__button--open:hover:not(:disabled) {
+  border-color: #0f5594;
+  background: #0f5594;
+}
+
+.unilab-workspace-picker__button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
 }
 
 .unilab-mode-entry__workspace-value {
@@ -476,7 +560,8 @@
 
 .unilab-mode-entry__submit:focus-visible,
 .unilab-mode-entry__return:focus-visible,
-.unilab-mode-entry__workspace-control .unilab-workspace-switch:focus-visible {
+.unilab-mode-entry__workspace-control .unilab-workspace-switch:focus-visible,
+.unilab-workspace-picker__button:focus-visible {
   outline: 2px solid #2873b8;
   outline-offset: 2px;
 }
@@ -557,7 +642,12 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .unilab-mode-entry__workspace-control .unilab-workspace-switch {
+  .unilab-workspace-picker {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .unilab-mode-entry__workspace-control .unilab-workspace-switch,
+  .unilab-workspace-picker__button {
     width: 100%;
     min-height: 42px;
   }

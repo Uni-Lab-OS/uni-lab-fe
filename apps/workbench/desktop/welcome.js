@@ -6,6 +6,8 @@ const enterButton = document.querySelector('#enter-workbench')
 const openButton = document.querySelector('#open-workspace')
 const createButton = document.querySelector('#create-workspace')
 const workspaceSelect = document.querySelector('#workspace-select')
+const workspacePathInput = document.querySelector('#workspace-path-input')
+const openPathButton = document.querySelector('#open-workspace-path')
 const workspacePath = document.querySelector('#workspace-path')
 const recentCount = document.querySelector('#recent-count')
 const serviceStatus = document.querySelector('#service-status')
@@ -54,17 +56,32 @@ entryModeInputs.forEach(input => input.addEventListener('change', () => {
 entryForm.addEventListener('submit', (event) => {
   event.preventDefault()
   const selectedWorkspace = workspaceSelect.value
+  const typedWorkspace = workspacePathInput.value.trim()
   void runOperation(
-    () => selectedWorkspace
+    () => typedWorkspace
+      ? workspaceApi?.openPath(typedWorkspace, selectedEntryMode())
+      : selectedWorkspace
       ? workspaceApi?.openRecent(selectedWorkspace, selectedEntryMode())
       : workspaceApi?.openDirectory(selectedEntryMode()),
-    selectedWorkspace ? '正在恢复工作区' : '正在打开工作区',
+    typedWorkspace || selectedWorkspace ? '正在打开工作区' : '正在选择工作区',
     '校验设备包目录并启动工作区服务…'
   )
 })
 
 workspaceSelect.addEventListener('change', () => {
+  workspacePathInput.value = workspaceSelect.value
   renderSelectedWorkspacePath()
+})
+
+workspacePathInput.addEventListener('input', () => {
+  workspaceSelect.value = ''
+  renderSelectedWorkspacePath()
+})
+
+workspacePathInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return
+  event.preventDefault()
+  openTypedWorkspace()
 })
 
 runtimeSelector.addEventListener('change', () => {
@@ -120,6 +137,8 @@ openButton.addEventListener('click', () => runOperation(
   '正在打开工作区',
   '校验目录并启动工作区服务…'
 ))
+
+openPathButton.addEventListener('click', openTypedWorkspace)
 
 createButton.addEventListener('click', () => runOperation(
   () => workspaceApi?.createDirectory(selectedEntryMode()),
@@ -204,8 +223,10 @@ function render() {
   )
   enterButton.disabled = busy || runtimeBlocked || !workspaceApi
   openButton.disabled = busy || runtimeBlocked || !workspaceApi
+  openPathButton.disabled = busy || runtimeBlocked || !workspaceApi
   createButton.disabled = busy || runtimeBlocked || !workspaceApi
   workspaceSelect.disabled = busy || runtimeBlocked || !workspaceApi
+  workspacePathInput.disabled = busy || runtimeBlocked || !workspaceApi
   statusPanel.hidden = !busy
   if (switchingBootstrap || snapshot.phase === 'stopping') {
     statusTitle.textContent = '正在切换工作区'
@@ -298,14 +319,29 @@ function renderWorkspaceOptions(recentWorkspaces) {
   workspaceSelect.value = recentWorkspaces.some(recent => recent.path === previous)
     ? previous
     : recentWorkspaces[0]?.path ?? ''
+  workspacePathInput.value = workspaceSelect.value
   recentCount.textContent = `${recentWorkspaces.length} 个最近工作区`
   renderSelectedWorkspacePath()
 }
 
 function renderSelectedWorkspacePath() {
-  const selected = workspaceSelect.value
+  const selected = workspacePathInput.value.trim() || workspaceSelect.value
   workspacePath.textContent = selected || '请选择一个设备包工作区'
   workspacePath.title = selected
+}
+
+function openTypedWorkspace() {
+  const typedWorkspace = workspacePathInput.value.trim()
+  if (!typedWorkspace) {
+    snapshot = { ...snapshot, phase: 'failed', error: '请输入工作区目录' }
+    render()
+    return
+  }
+  return runOperation(
+    () => workspaceApi?.openPath(typedWorkspace, selectedEntryMode()),
+    '正在打开工作区',
+    '校验设备包目录并启动工作区服务…'
+  )
 }
 
 function selectedEntryMode() {

@@ -9,7 +9,8 @@ import {
 } from './WorkflowX6Canvas'
 import {
   workflowX6EdgeMetadata,
-  workflowX6NodeMetadata
+  workflowX6NodeMetadata,
+  workflowX6NodeTooltipText
 } from './workflowX6Projection'
 
 describe('WorkflowX6Canvas scale policy', () => {
@@ -48,6 +49,9 @@ describe('WorkflowX6Canvas scale policy', () => {
     expect(source).not.toContain('resetCells(')
     expect(source).toMatch(
       /edge:connected[\s\S]*graph\.removeCell\(edge, \{ ui: false \}\)/
+    )
+    expect(source).toMatch(
+      /if \(nodes\.length === 0\) \{[\s\S]*initialFitPending\.current = false/
     )
   })
 
@@ -136,6 +140,94 @@ describe('WorkflowX6Canvas scale policy', () => {
     expect(edge.target).toEqual({ cell: 'node-b', port: 'handle-in' })
   })
 
+  /** 左右可见端口必须忽略透明结构端口，并保持在同一对称轴上。 */
+  it('centers visible left and right handles independently of hidden structural ports', () => {
+    const node = workflowX6NodeMetadata({
+      ...workflowNode('node-a'),
+      data: {
+        ...workflowNode('node-a').data,
+        handles: [
+          {
+            uuid: 'target-ready',
+            handleKey: 'ready',
+            displayName: '就绪输入',
+            dataKey: 'ready',
+            valueType: 'Boolean',
+            ioType: 'target'
+          },
+          {
+            uuid: 'target-structural',
+            handleKey: 'sample',
+            displayName: '样品输入',
+            ioType: 'target'
+          },
+          {
+            uuid: 'source-structural',
+            handleKey: 'result',
+            displayName: '结果输出',
+            ioType: 'source'
+          },
+          {
+            uuid: 'source-ready',
+            handleKey: 'ready',
+            displayName: '就绪输出',
+            dataKey: 'ready',
+            valueType: 'Boolean',
+            ioType: 'source'
+          }
+        ]
+      }
+    })
+
+    expect(portItem(node, 'target-ready')).toMatchObject({
+      args: { dy: 16.5 }
+    })
+    expect(portItem(node, 'source-ready')).toMatchObject({
+      args: { dy: -16.5 }
+    })
+  })
+
+  /** 原型卡片的可见端口固定为左右各一个，不随代码 handle 数量增加。 */
+  it('keeps prototype action cards to one visible handle per side', () => {
+    const node = workflowX6NodeMetadata({
+      ...workflowNode('node-a'),
+      data: {
+        ...workflowNode('node-a').data,
+        handles: [
+          { uuid: 'target-ready', handleKey: 'ready', displayName: '就绪',
+            ioType: 'target', dataKey: 'ready', valueType: 'Boolean' },
+          { uuid: 'target-extra', handleKey: 'sample', displayName: '样品',
+            ioType: 'target' },
+          { uuid: 'source-ready', handleKey: 'ready', displayName: '就绪',
+            ioType: 'source', dataKey: 'ready', valueType: 'Boolean' },
+          { uuid: 'source-extra', handleKey: 'result', displayName: '结果',
+            ioType: 'source' }
+        ]
+      }
+    })
+    const items = (Array.isArray(node.ports) ? node.ports : node.ports?.items) ?? []
+    const visible = items.filter((item) => {
+      const body = item.attrs?.portBody as Record<string, unknown> | undefined
+      return Boolean(item.id) && body?.opacity !== 0
+    })
+    expect(visible.map((item) => item.id)).toEqual([
+      'target-ready',
+      'source-ready'
+    ])
+    expect((portItem(node, 'target-extra')?.attrs as {
+      portBody?: Record<string, unknown>
+    } | undefined)?.portBody).toMatchObject({
+      opacity: 0,
+      pointerEvents: 'none'
+    })
+    expect((portItem(node, 'source-extra')?.attrs as {
+      portBody?: Record<string, unknown>
+    } | undefined)?.portBody).toMatchObject({
+      opacity: 0,
+      pointerEvents: 'none'
+    })
+  })
+
   /** 默认工作流卡片必须严格使用 HTML 原型的 132×66 三行信息结构。 */
   it('projects action nodes with the HTML workflow-card contract', () => {
     const node = workflowX6NodeMetadata({
@@ -213,6 +305,49 @@ describe('WorkflowX6Canvas scale policy', () => {
         ])
       })
     ]))
+    expect(node.portMarkup).toMatchObject({
+      tagName: 'circle',
+      attrs: { r: 0, opacity: 0, visibility: 'hidden' }
+    })
+  })
+
+  /** 节点文字被原型卡片截断时，完整文案通过悬浮提示暴露。 */
+  it('exposes full copy only for overflowing node text', () => {
+    const overflowing = workflowNode('node-overflow')
+    overflowing.data = {
+      ...overflowing.data,
+      name: '这是一个明显超出原型卡片宽度的超长动作名称',
+      description: '这是一个需要在悬浮提示中完整阅读的动作说明。'
+    }
+    const metadata = workflowX6NodeMetadata(overflowing)
+    expect(workflowX6NodeTooltipText(overflowing)).toContain(
+      overflowing.data.name
+    )
+    expect(metadata.attrs?.root).toEqual(expect.objectContaining({
+      'data-workflow-node-overflow': 'true',
+      title: expect.stringContaining(overflowing.data.name)
+    }))
+
+    const compact = workflowNode('node-short')
+    const compactMetadata = workflowX6NodeMetadata(compact)
+    expect(workflowX6NodeTooltipText(compact)).toBeNull()
+    expect(compactMetadata.attrs?.root).toEqual(expect.objectContaining({
+      'data-workflow-node-overflow': 'false'
+    }))
+    expect(compactMetadata.attrs?.root).not.toHaveProperty('title')
+  })
+
+  /** X6 画布使用视口顶层提示层，避免 SVG/画布裁剪完整文案。 */
+  it('renders an accessible viewport tooltip for overflow nodes', () => {
+    const source = readFileSync(
+      new URL('./WorkflowX6Canvas.tsx', import.meta.url),
+      'utf8'
+    )
+    expect(source).toContain("root.addEventListener('pointerover'")
+    expect(source).toContain("root.addEventListener('pointerout'")
+    expect(source).toContain('workflowX6NodeTooltipPosition')
+    expect(source).toContain('className="workflowX6NodeTooltip"')
+    expect(source).toContain('role="tooltip"')
   })
 
   /** 物料来源、机械臂和反应物标注不能退化成同一种白色矩形卡片。 */
