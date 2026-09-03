@@ -4,10 +4,13 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   WorkflowX6Canvas,
+  workflowX6HandleConnectionCandidates,
   workflowX6ProjectionDiff,
   type WorkflowX6Node
 } from './WorkflowX6Canvas'
 import {
+  WORKFLOW_X6_INPUT_PORT_ID,
+  WORKFLOW_X6_OUTPUT_PORT_ID,
   workflowX6EdgeMetadata,
   workflowX6NodeMetadata
 } from './workflowX6Projection'
@@ -95,8 +98,8 @@ describe('WorkflowX6Canvas scale policy', () => {
     expect(source).toContain("graph.disposePlugins('minimap')")
   })
 
-  /** Canonical Handle UUID 必须原样成为 X6 端口身份，连接不能按索引猜测。 */
-  it('preserves canonical handle identities in X6 nodes and edges', () => {
+  /** 视觉端口固定为左右两个，Canonical Handle UUID 只保留在边数据中。 */
+  it('separates two aggregate visual ports from canonical handle identities', () => {
     const node = workflowX6NodeMetadata({
       ...workflowNode('node-a'),
       data: {
@@ -128,12 +131,91 @@ describe('WorkflowX6Canvas scale policy', () => {
     const portItems = Array.isArray(node.ports)
       ? node.ports
       : node.ports?.items
+    expect(portItems).toHaveLength(2)
     expect(portItems).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'handle-in', group: 'target' }),
-      expect.objectContaining({ id: 'handle-out', group: 'source' })
+      expect.objectContaining({
+        id: WORKFLOW_X6_INPUT_PORT_ID,
+        group: 'input'
+      }),
+      expect.objectContaining({
+        id: WORKFLOW_X6_OUTPUT_PORT_ID,
+        group: 'output'
+      })
     ]))
-    expect(edge.source).toEqual({ cell: 'node-a', port: 'handle-out' })
-    expect(edge.target).toEqual({ cell: 'node-b', port: 'handle-in' })
+    expect(portItems?.map(item => item.id)).not.toContain('handle-in')
+    expect(portItems?.map(item => item.id)).not.toContain('handle-out')
+    expect(edge.source).toEqual({
+      cell: 'node-a',
+      port: WORKFLOW_X6_OUTPUT_PORT_ID
+    })
+    expect(edge.target).toEqual({
+      cell: 'node-b',
+      port: WORKFLOW_X6_INPUT_PORT_ID
+    })
+    expect(edge.data).toEqual(expect.objectContaining({
+      sourceHandleUuid: 'handle-out',
+      targetHandleUuid: 'handle-in'
+    }))
+  })
+
+  /** 聚合端口连接优先解析未占用、语义和类型匹配的真实 Handle。 */
+  it('resolves an aggregate connection to the best canonical handle pair', () => {
+    const source = {
+      ...workflowNode('source'),
+      data: {
+        ...workflowNode('source').data,
+        handles: [
+          handle('source-material', 'sample', 'source', 'ResourceSlot'),
+          handle('source-ready', 'ready', 'source', 'Boolean')
+        ]
+      }
+    }
+    const target = {
+      ...workflowNode('target'),
+      data: {
+        ...workflowNode('target').data,
+        handles: [
+          handle('target-ready-used', 'ready', 'target', 'Boolean'),
+          handle('target-material', 'sample', 'target', 'ResourceSlot'),
+          handle('target-ready-free', 'ready', 'target', 'Boolean')
+        ]
+      }
+    }
+
+    expect(workflowX6HandleConnectionCandidates(
+      [source, target],
+      [{
+        id: 'existing',
+        source: 'other',
+        target: 'target',
+        targetHandle: 'target-ready-used'
+      }],
+      'source',
+      'target'
+    )).toEqual(expect.arrayContaining([
+      {
+        sourceNodeUuid: 'source',
+        sourceHandleUuid: 'source-ready',
+        targetNodeUuid: 'target',
+        targetHandleUuid: 'target-ready-free'
+      }
+    ]))
+    expect(workflowX6HandleConnectionCandidates(
+      [source, target],
+      [{
+        id: 'existing',
+        source: 'other',
+        target: 'target',
+        targetHandle: 'target-ready-used'
+      }],
+      'source',
+      'target'
+    )[0]).toEqual({
+      sourceNodeUuid: 'source',
+      sourceHandleUuid: 'source-ready',
+      targetNodeUuid: 'target',
+      targetHandleUuid: 'target-ready-free'
+    })
   })
 
   /** 默认工作流卡片必须严格使用 HTML 原型的 132×66 三行信息结构。 */
@@ -190,28 +272,10 @@ describe('WorkflowX6Canvas scale policy', () => {
     const portItems = Array.isArray(node.ports)
       ? node.ports
       : node.ports?.items
+    expect(portItems).toHaveLength(2)
     expect(portItems).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        id: 'material-in',
-        markup: expect.arrayContaining([
-          expect.objectContaining({
-            className: expect.arrayContaining([
-              'workflow-x6-port--material'
-            ])
-          })
-        ])
-      }),
-      expect.objectContaining({
-        id: 'ready-out',
-        markup: expect.arrayContaining([
-          expect.objectContaining({
-            tagName: 'circle',
-            className: expect.arrayContaining([
-              'workflow-x6-port--ready'
-            ])
-          })
-        ])
-      })
+      expect.objectContaining({ id: WORKFLOW_X6_INPUT_PORT_ID }),
+      expect.objectContaining({ id: WORKFLOW_X6_OUTPUT_PORT_ID })
     ]))
   })
 
@@ -281,8 +345,8 @@ describe('WorkflowX6Canvas scale policy', () => {
     ]))
   })
 
-  /** 横向物料泳道的端口必须对齐旧版图形本体，不能对齐 X6 选区外框。 */
-  it('aligns specialized material ports with the legacy visual axes', () => {
+  /** 特殊节点也只保留左右两个节点级端口，不暴露物料 Handle 数量。 */
+  it('keeps specialized nodes on the same two-port visual contract', () => {
     const accent = '#2f855a'
     const material = workflowX6NodeMetadata({
       ...workflowNode('source'),
@@ -338,27 +402,18 @@ describe('WorkflowX6Canvas scale policy', () => {
       }
     })
 
-    expect(portGroups(material)).toMatchObject({
-      materialSource: {
-        position: { name: 'absolute', args: { x: 92, y: 92 } }
-      }
+    expect(portGroups(material)).toEqual({
+      input: { position: 'left' },
+      output: { position: 'right' }
     })
-    expect(portGroups(transfer)).toMatchObject({
-      materialTarget: {
-        position: { name: 'absolute', args: { x: 33, y: 90 } }
-      },
-      materialSource: {
-        position: { name: 'absolute', args: { x: 87, y: 90 } }
-      }
+    expect(portGroups(transfer)).toEqual({
+      input: { position: 'left' },
+      output: { position: 'right' }
     })
-    expect(portItem(transfer, 'transfer-in')).toMatchObject({
-      group: 'materialTarget',
-      attrs: { portBody: { fill: 'var(--unilab-color-surface)' } }
-    })
-    expect(portItem(transfer, 'transfer-out')).toMatchObject({
-      group: 'materialSource',
-      attrs: { portBody: { fill: accent } }
-    })
+    expect(portItems(material)).toHaveLength(2)
+    expect(portItems(transfer)).toHaveLength(2)
+    expect(portItem(transfer, 'transfer-in')).toBeUndefined()
+    expect(portItem(transfer, 'transfer-out')).toBeUndefined()
     expect(JSON.stringify(transfer.markup)).toContain(
       '60,63 87,90 60,117 33,90'
     )
@@ -455,6 +510,28 @@ function portItem(
     ? node.ports
     : node.ports?.items
   return items?.find(item => item.id === id)
+}
+
+function portItems(
+  node: ReturnType<typeof workflowX6NodeMetadata>
+) {
+  return Array.isArray(node.ports) ? [] : node.ports?.items ?? []
+}
+
+function handle(
+  uuid: string,
+  handleKey: string,
+  ioType: 'source' | 'target',
+  valueType: string
+): NonNullable<WorkflowX6Node['data']['handles']>[number] {
+  return {
+    uuid,
+    handleKey,
+    displayName: handleKey,
+    dataKey: handleKey,
+    ioType,
+    valueType
+  }
 }
 
 /** 构造不携带运行副作用的最小 X6 工作流节点投影。 */

@@ -263,12 +263,17 @@
   filter: drop-shadow(0 1px 2px rgb(220 38 38 / 35%));
 }
 
-/* 本地选择使用文本色，IDE/源码反查使用 focus 色，二者保持可区分。 */
+/* 节点选择与 HTML 原型统一使用控制蓝；运行状态继续由语义色区分。 */
 .workflow-x6 .x6-node-selected .workflow-x6-node__body,
 .workflow-x6 .x6-node-selected .workflow-x6-node__selection-target,
 .workflow-x6 .x6-widget-selection-box-node {
-  stroke: var(--unilab-color-text);
+  stroke: var(--unilab-color-focus);
   stroke-width: 2px;
+}
+
+/* SVG 节点的浏览器默认黑色焦点矩形会重复包住卡片；焦点由卡片描边表达。 */
+.workflow-x6 .x6-node:focus {
+  outline: none;
 }
 
 /* 选择框只表达状态；端口和节点本体继续接收连接与点击手势。 */
@@ -423,9 +428,37 @@
   filter: none;
 }
 
-/* ready 是扁平执行顺序端口；物料端口是空心色环。 */
+/* 节点级聚合端口使用 HTML 原型的 8px 空心圆，透明命中区扩大拖线热区。 */
 .workflow-x6-port {
   cursor: crosshair;
+}
+
+.workflow-x6-port__hit {
+  cursor: crosshair;
+}
+
+.workflow-x6-port__hit--target {
+  cursor: default;
+}
+
+.workflow-x6-port--aggregate {
+  fill: var(--unilab-color-surface);
+  stroke: var(--unilab-color-text-subtle);
+  stroke-width: 2px;
+  transition:
+    filter var(--unilab-motion-fast) ease,
+    stroke var(--unilab-motion-fast) ease;
+}
+
+.workflow-x6 .x6-port:hover .workflow-x6-port--aggregate,
+.workflow-x6 .x6-port.x6-port-available .workflow-x6-port--aggregate,
+.workflow-x6 .x6-port.x6-port-adsorbed .workflow-x6-port--aggregate {
+  stroke: var(--unilab-color-focus);
+  filter: drop-shadow(0 0 3px color-mix(
+    in srgb,
+    var(--unilab-color-focus) 35%,
+    transparent
+  ));
 }
 
 .workflow-x6-port--ready {

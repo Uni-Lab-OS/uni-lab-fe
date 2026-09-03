@@ -14,12 +14,16 @@ import {
 } from 'react'
 
 import type { WorkflowNodeData } from './WorkflowNodeCard'
+import { isReadyHandle } from './WorkflowNodeCard'
 import {
+  WORKFLOW_X6_INPUT_PORT_ID,
+  WORKFLOW_X6_OUTPUT_PORT_ID,
   workflowX6EdgeMetadata,
   workflowX6NodeMetadata,
   type WorkflowX6Edge,
   type WorkflowX6Node
 } from './workflowX6Projection'
+import { isResourceSlotHandle } from '../utils/workflowMaterialTrace'
 import type {
   WorkflowCanvasPoint,
   WorkflowCanvasViewport,
@@ -240,7 +244,8 @@ export const WorkflowX6Canvas = forwardRef<
         allowEdge: false,
         allowPort: () => callbacksRef.current.canvasMutationEnabled &&
           Boolean(callbacksRef.current.onConnectHandles),
-        snap: { radius: 18 },
+        snap: { radius: 24 },
+        highlight: true,
         router: { name: 'manhattan', args: { padding: 16 } },
         connector: { name: 'rounded', args: { radius: 8 } },
         createEdge: (): Edge => graph.createEdge(workflowX6EdgeMetadata({
@@ -317,22 +322,27 @@ export const WorkflowX6Canvas = forwardRef<
     graph.on('edge:connected', ({ edge, isNew }) => {
       if (!isNew) return
       const sourceNodeUuid = edge.getSourceCellId()
-      const sourceHandleUuid = edge.getSourcePortId()
+      const sourcePortId = edge.getSourcePortId()
       const targetNodeUuid = edge.getTargetCellId()
-      const targetHandleUuid = edge.getTargetPortId()
+      const targetPortId = edge.getTargetPortId()
       // X6 交互边永远只是临时手势；Canonical 草稿接受后会重新投影稳定边。
       graph.removeCell(edge, { ui: false })
       if (
         !callbacksRef.current.canvasMutationEnabled ||
-        !sourceNodeUuid || !sourceHandleUuid ||
-        !targetNodeUuid || !targetHandleUuid
+        !sourceNodeUuid || sourcePortId !== WORKFLOW_X6_OUTPUT_PORT_ID ||
+        !targetNodeUuid || targetPortId !== WORKFLOW_X6_INPUT_PORT_ID
       ) return
-      callbacksRef.current.onConnectHandles?.({
+      const connect = callbacksRef.current.onConnectHandles
+      if (!connect) return
+      const candidates = workflowX6HandleConnectionCandidates(
+        projectionRef.current.nodes,
+        projectionRef.current.edges,
         sourceNodeUuid,
-        sourceHandleUuid,
-        targetNodeUuid,
-        targetHandleUuid
-      })
+        targetNodeUuid
+      )
+      for (const connection of candidates.slice(0, 12)) {
+        if (connect(connection).accepted) break
+      }
     })
     graph.on('selection:changed', ({ selected }) => {
       callbacksRef.current.onSelectionChange({
@@ -430,12 +440,6 @@ export const WorkflowX6Canvas = forwardRef<
       data-x6-animations={nodes.length > LARGE_GRAPH_MINIMAP_LIMIT
         ? 'reduced'
         : 'enabled'}
-      data-node-deletable="false"
-      data-node-selection={nodes
-        .map((node) => String(node.selected))
-        .join(',')}
-      data-node-classes={nodes.map((node) => node.className).join('|')}
-      data-fit-max-zoom="1.2"
     >
       <div ref={containerRef} className="workflow-x6__viewport" />
       {nodes.length <= LARGE_GRAPH_MINIMAP_LIMIT ? (
@@ -472,6 +476,87 @@ export const WorkflowX6Canvas = forwardRef<
     </div>
   )
 })
+
+interface RankedWorkflowHandleConnection {
+  connection: WorkflowHandleConnection
+  occupied: boolean
+  semanticMismatch: boolean
+  semanticPriority: number
+  valueTypeMismatch: boolean
+  sourceIndex: number
+  targetIndex: number
+}
+
+/**
+ * 把节点级左右端口手势解析为真实 Canonical Handle UUID 组合。
+ *
+ * X6 不再渲染服务端 Handle 数量；此函数只读取同一 Canonical 投影，优先选择
+ * 未占用、语义相同且类型相同的输入输出，最终兼容性仍由创作命令权威校验。
+ */
+export function workflowX6HandleConnectionCandidates(
+  nodes: readonly WorkflowX6Node[],
+  edges: readonly WorkflowX6Edge[],
+  sourceNodeUuid: string,
+  targetNodeUuid: string
+): WorkflowHandleConnection[] {
+  const sourceHandles = nodes.find(node => node.id === sourceNodeUuid)
+    ?.data.handles?.filter(handle => handle.ioType === 'source') ?? []
+  const targetHandles = nodes.find(node => node.id === targetNodeUuid)
+    ?.data.handles?.filter(handle => handle.ioType === 'target') ?? []
+  const occupiedTargets = new Set(edges.flatMap(edge => {
+    if (edge.target !== targetNodeUuid) return []
+    const handleUuid = edge.data?.targetHandleUuid || edge.targetHandle
+    return handleUuid ? [handleUuid] : []
+  }))
+  const ranked: RankedWorkflowHandleConnection[] = []
+  sourceHandles.forEach((sourceHandle, sourceIndex) => {
+    targetHandles.forEach((targetHandle, targetIndex) => {
+      const sourceKind = workflowHandleSemanticKind(sourceHandle)
+      const targetKind = workflowHandleSemanticKind(targetHandle)
+      ranked.push({
+        connection: {
+          sourceNodeUuid,
+          sourceHandleUuid: sourceHandle.uuid,
+          targetNodeUuid,
+          targetHandleUuid: targetHandle.uuid
+        },
+        occupied: occupiedTargets.has(targetHandle.uuid),
+        semanticMismatch: sourceKind !== targetKind,
+        semanticPriority: workflowHandleSemanticPriority(sourceKind),
+        valueTypeMismatch: Boolean(
+          sourceHandle.valueType && targetHandle.valueType &&
+          sourceHandle.valueType !== targetHandle.valueType
+        ),
+        sourceIndex,
+        targetIndex
+      })
+    })
+  })
+  return ranked.sort((left, right) =>
+    Number(left.occupied) - Number(right.occupied) ||
+    Number(left.semanticMismatch) - Number(right.semanticMismatch) ||
+    left.semanticPriority - right.semanticPriority ||
+    Number(left.valueTypeMismatch) - Number(right.valueTypeMismatch) ||
+    left.sourceIndex - right.sourceIndex ||
+    left.targetIndex - right.targetIndex
+  ).map(item => item.connection)
+}
+
+function workflowHandleSemanticPriority(
+  kind: ReturnType<typeof workflowHandleSemanticKind>
+): number {
+  if (kind === 'ready') return 0
+  if (kind === 'material') return 1
+  return 2
+}
+
+function workflowHandleSemanticKind(
+  handle: NonNullable<WorkflowNodeData['handles']>[number]
+): 'ready' | 'material' | 'value' {
+  if (isReadyHandle(handle)) return 'ready'
+  if (isResourceSlotHandle(handle)) return 'material'
+  return 'value'
+}
 
 /**
  * 在一个 X6 批处理中替换当前 Canonical Workflow 投影并恢复选择。

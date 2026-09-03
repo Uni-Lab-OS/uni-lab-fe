@@ -2,9 +2,16 @@ import type { EdgeMetadata, NodeMetadata } from '@antv/x6'
 import type { CSSProperties, ReactNode } from 'react'
 
 import { isResourceSlotHandle } from '../utils/workflowMaterialTrace'
-import { WORKFLOW_HORIZONTAL_MATERIAL_SOURCE_HANDLE_AXIS, WORKFLOW_HORIZONTAL_TRANSFER_NODE_HANDLE_AXIS, WORKFLOW_VERTICAL_MATERIAL_SOURCE_HANDLE_AXIS, WORKFLOW_VERTICAL_TRANSFER_NODE_HANDLE_AXIS } from '../utils/workflowMaterialSwimlaneLayout'
+import {
+  WORKFLOW_HORIZONTAL_TRANSFER_NODE_HANDLE_AXIS,
+  WORKFLOW_VERTICAL_TRANSFER_NODE_HANDLE_AXIS
+} from '../utils/workflowMaterialSwimlaneLayout'
 import type { WorkflowReactionMaterialNodeData } from './WorkflowReactionMaterialNode'
-import { isReadyHandle, workflowMaterialPortCards, workflowNodeStateLabel, type WorkflowNodeData } from './WorkflowNodeCard'
+import {
+  workflowMaterialPortCards,
+  workflowNodeStateLabel,
+  type WorkflowNodeData
+} from './WorkflowNodeCard'
 import { createWorkflowPrototypeActionMetadata } from './workflowX6PrototypeAction'
 
 const ACTION_NODE_MIN_WIDTH = 248
@@ -35,6 +42,10 @@ const X6_TEXT_ORIGIN = {
 } as const
 
 type WorkflowX6PortSide = 'top' | 'right' | 'bottom' | 'left'
+
+/** X6 只渲染节点级左右端口；Canonical Handle UUID 保留在边数据中。 */
+export const WORKFLOW_X6_INPUT_PORT_ID = 'workflow-node-input'
+export const WORKFLOW_X6_OUTPUT_PORT_ID = 'workflow-node-output'
 
 export interface WorkflowX6Node {
   id: string
@@ -83,11 +94,6 @@ interface WorkflowX6EdgeVisual {
   strokeWidth: number
 }
 
-interface WorkflowX6SpecialPortGeometry {
-  target: { x: number; y: number }
-  source: { x: number; y: number }
-}
-
 type ArrayItem<T> = T extends readonly (infer Item)[] ? Item : never
 type WorkflowX6MarkupItem = ArrayItem<NonNullable<NodeMetadata['markup']>>
 type WorkflowX6Markup = WorkflowX6MarkupItem[]
@@ -125,10 +131,10 @@ export function workflowX6EdgeMetadata(edge: WorkflowX6Edge): EdgeMetadata {
   return {
     id: edge.id,
     source: edge.source
-      ? { cell: edge.source, port: edge.sourceHandle || undefined }
+      ? { cell: edge.source, port: WORKFLOW_X6_OUTPUT_PORT_ID }
       : undefined,
     target: edge.target
-      ? { cell: edge.target, port: edge.targetHandle || undefined }
+      ? { cell: edge.target, port: WORKFLOW_X6_INPUT_PORT_ID }
       : undefined,
     router: { name: 'manhattan', args: { padding: 16 } },
     connector: { name: 'rounded', args: { radius: 8 } },
@@ -183,7 +189,13 @@ export function workflowX6EdgeMetadata(edge: WorkflowX6Edge): EdgeMetadata {
         opacity: visual.beforeStart ? 0.2 : 1
       }
     },
-    data: edge.data,
+    data: {
+      ...edge.data,
+      sourceHandleUuid: edge.data?.sourceHandleUuid ||
+        edge.sourceHandle || undefined,
+      targetHandleUuid: edge.data?.targetHandleUuid ||
+        edge.targetHandle || undefined
+    },
     zIndex: 1
   }
 }
@@ -698,150 +710,78 @@ function workflowNodeBase(
   }
 }
 
-/** 为每个 Canonical Handle UUID 创建同名 X6 端口并恢复端口形状。 */
-function workflowX6Ports(node: WorkflowX6Node): NodeMetadata['ports'] {
-  const data = node.data
-  const prototypeCard = !data.layoutStrategy ||
-    data.layoutStrategy === 'crossing-minimized'
-  const targetSide = prototypeCard ? 'left' : node.targetPosition ?? (
-    data.materialLaneDirection === 'horizontal' ? 'left' : 'top'
-  )
-  const sourceSide = prototypeCard ? 'right' : node.sourcePosition ?? (
-    data.materialLaneDirection === 'horizontal' ? 'right' : 'bottom'
-  )
-  const specialGeometry = workflowX6SpecialPortGeometry(node)
+/**
+ * 创建与 HTML 原型一致的节点级左右端口。
+ *
+ * 端口数量和身份不再由服务端 Handle 数组决定，避免多个同坐标端口互相遮挡。
+ * 真实 Handle UUID 仍由连接命令从 Canonical 节点数据解析，不进入 X6 视觉身份。
+ */
+export function workflowX6Ports(
+  _node: WorkflowX6Node
+): NodeMetadata['ports'] {
   return {
     groups: {
-      target: { position: targetSide },
-      source: { position: sourceSide },
-      ...(specialGeometry ? {
-        materialTarget: {
-          position: {
-            name: 'absolute',
-            args: specialGeometry.target
-          }
-        },
-        materialSource: {
-          position: {
-            name: 'absolute',
-            args: specialGeometry.source
-          }
-        }
-      } : {})
+      input: { position: 'left' },
+      output: { position: 'right' }
     },
-    items: (data.handles ?? []).map(handle => {
-      const material = isResourceSlotHandle(handle)
-      const ready = !material && isReadyHandle(handle)
-      const kind = material ? 'material' : ready ? 'ready' : 'structural'
-      const side = handle.ioType === 'target' ? targetSide : sourceSide
-      const accent = data.materialHandleAccents?.[handle.uuid] ??
-        data.traceAccent ?? 'var(--unilab-color-workflow)'
-      const horizontalMaterial = material &&
-        data.materialLaneDirection === 'horizontal'
-      return {
-        id: handle.uuid,
-        group: material && specialGeometry
-          ? handle.ioType === 'target' ? 'materialTarget' : 'materialSource'
-          : handle.ioType,
-        markup: [{
-          tagName: ready && !prototypeCard ? 'rect' : 'circle',
-          selector: 'portBody',
-          className: [
-            'workflow-x6-port',
-            `workflow-x6-port--${kind}`,
-            `workflow-x6-port--${handle.ioType}`
-          ]
-        }],
-        attrs: {
-          portBody: ready && prototypeCard
-            ? {
-                r: 4,
-                magnet: handle.ioType === 'source' ? true : 'passive',
-                stroke: 'var(--unilab-color-text-subtle)',
-                strokeWidth: 2,
-                fill: 'var(--unilab-color-surface)',
-                'data-workflow-handle-kind': kind
-              }
-            : ready
-            ? workflowReadyPortAttrs(side, handle.ioType)
-            : material
-              ? {
-                  r: horizontalMaterial
-                    ? 5
-                    : data.visualKind === 'robot-transfer' ? 4 : 4.5,
-                  magnet: handle.ioType === 'source' ? true : 'passive',
-                  stroke: accent,
-                  strokeWidth: horizontalMaterial ? 2 : 3,
-                  fill: horizontalMaterial && handle.ioType === 'source'
-                    ? accent
-                    : 'var(--unilab-color-surface)',
-                  'data-workflow-handle-kind': kind
-                }
-              : {
-                  r: 4,
-                  magnet: handle.ioType === 'source' ? true : 'passive',
-                  stroke: 'transparent',
-                  fill: 'transparent',
-                  opacity: 0,
-                  pointerEvents: 'none',
-                  'data-workflow-handle-kind': kind
-                }
-        }
-      }
-    })
+    items: [
+      workflowX6AggregatePort(WORKFLOW_X6_INPUT_PORT_ID, 'input', 'target'),
+      workflowX6AggregatePort(WORKFLOW_X6_OUTPUT_PORT_ID, 'output', 'source')
+    ]
   }
 }
 
-/**
- * 还原特殊节点在 React Flow 内部图形上的端口轴，而非 X6 选区边缘。
- */
-function workflowX6SpecialPortGeometry(
-  node: WorkflowX6Node
-): WorkflowX6SpecialPortGeometry | null {
-  const horizontal = node.data.materialLaneDirection === 'horizontal'
-  if (node.data.kind === 'material_source') {
-    if (horizontal) {
-      return {
-        target: { x: 20, y: WORKFLOW_HORIZONTAL_MATERIAL_SOURCE_HANDLE_AXIS },
-        source: { x: 92, y: WORKFLOW_HORIZONTAL_MATERIAL_SOURCE_HANDLE_AXIS }
-      }
-    }
-    return {
-      target: { x: WORKFLOW_VERTICAL_MATERIAL_SOURCE_HANDLE_AXIS, y: 3 },
-      source: { x: WORKFLOW_VERTICAL_MATERIAL_SOURCE_HANDLE_AXIS, y: 69 }
-    }
-  }
-  if (node.data.visualKind !== 'robot-transfer') return null
-  if (horizontal) {
-    return {
-      target: { x: 33, y: WORKFLOW_HORIZONTAL_TRANSFER_NODE_HANDLE_AXIS },
-      source: { x: 87, y: WORKFLOW_HORIZONTAL_TRANSFER_NODE_HANDLE_AXIS }
-    }
-  }
-  return {
-    target: { x: WORKFLOW_VERTICAL_TRANSFER_NODE_HANDLE_AXIS, y: 9 },
-    source: { x: WORKFLOW_VERTICAL_TRANSFER_NODE_HANDLE_AXIS, y: 63 }
-  }
-}
-
-function workflowReadyPortAttrs(
-  side: WorkflowX6PortSide,
+function workflowX6AggregatePort(
+  id: string,
+  group: 'input' | 'output',
   ioType: 'source' | 'target'
-): Record<string, string | number | true> {
-  const horizontalSide = side === 'left' || side === 'right'
+) {
   return {
-    x: horizontalSide ? -1.5 : -6,
-    y: horizontalSide ? -6 : -1.5,
-    width: horizontalSide ? 3 : 12,
-    height: horizontalSide ? 12 : 3,
-    rx: 1.5,
-    ry: 1.5,
-    magnet: ioType === 'source' ? true : 'passive',
-    stroke: 'none',
-    fill: 'var(--unilab-color-text-muted)',
-    'data-workflow-handle-kind': 'ready'
+    id,
+    group,
+    markup: [
+      {
+        tagName: 'circle',
+        selector: 'portHit',
+        className: [
+          'workflow-x6-port__hit',
+          `workflow-x6-port__hit--${ioType}`
+        ]
+      },
+      {
+        tagName: 'circle',
+        selector: 'portBody',
+        className: [
+          'workflow-x6-port',
+          'workflow-x6-port--aggregate',
+          `workflow-x6-port--${ioType}`
+        ]
+      }
+    ],
+    attrs: {
+      portHit: {
+        r: 11,
+        magnet: ioType === 'source' ? true : 'passive',
+        fill: 'transparent',
+        stroke: 'transparent',
+        cursor: ioType === 'source' ? 'crosshair' : 'default',
+        'aria-label': ioType === 'source' ? '输出连接点' : '输入连接点',
+        'data-workflow-handle-kind': 'aggregate',
+        'data-workflow-handle-io': ioType
+      },
+      portBody: {
+        r: 4,
+        stroke: 'var(--unilab-color-text-subtle)',
+        strokeWidth: 2,
+        fill: 'var(--unilab-color-surface)',
+        pointerEvents: 'none',
+        'data-workflow-handle-kind': 'aggregate',
+        'data-workflow-handle-io': ioType
+      }
+    }
   }
 }
+
 
 function workflowX6NodeSize(node: WorkflowX6Node): WorkflowX6NodeSize {
   const data = node.data
