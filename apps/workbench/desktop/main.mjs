@@ -46,6 +46,47 @@ if (!app.commandLine.hasSwitch('lang')) {
 
 let backendProcess
 let remoteAccessController
+let quitCleanupFinished = false
+let quitCleanupPromise = null
+
+// The development Workbench owns a detached Theia backend. Electron does not
+// run the shared desktop shell's quit hooks for this standalone entry point,
+// so closing its last window must explicitly stop the backend process group.
+app.on('window-all-closed', () => {
+  app.quit()
+})
+
+app.on('before-quit', event => {
+  if (quitCleanupFinished) return
+  event.preventDefault()
+  if (quitCleanupPromise) return
+  quitCleanupPromise = (async () => {
+    try {
+      await closeRemoteAccess()
+    } catch (error) {
+      console.error(
+        `[UniLab Workbench] remote access cleanup failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      )
+    }
+    try {
+      await stopBackendProcess(backendProcess)
+    } catch (error) {
+      console.error(
+        `[UniLab Workbench] Theia backend cleanup failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      )
+    } finally {
+      backendProcess = undefined
+      globalThis.__unilabWorkbenchBackendProcess = undefined
+    }
+  })().finally(() => {
+    quitCleanupFinished = true
+  })
+  void quitCleanupPromise.finally(() => app.quit())
+})
 
 const isolatedUserData = process.env['UNILAB_WORKBENCH_USER_DATA']?.trim()
 if (isolatedUserData) app.setPath('userData', path.resolve(isolatedUserData))
