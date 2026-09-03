@@ -313,6 +313,15 @@ describe('environment manager layering and responsive layout', () => {
       /\.unilab-config-dialog button\.is-danger\s*\{[^}]*margin-left:\s*auto;/u
     )
     expect(stylesheet).toMatch(
+      /\.unilab-config-dialog button\.is-primary:hover:not\(:disabled\)\s*\{[^}]*color:\s*#fff;[^}]*background:\s*#2858d7;/u
+    )
+    expect(stylesheet).toMatch(
+      /\.unilab-config-dialog button:disabled\s*\{[^}]*cursor:\s*not-allowed;/u
+    )
+    expect(stylesheet).toMatch(
+      /\.unilab-config-dialog button\[aria-busy="true"\]:disabled\s*\{[^}]*cursor:\s*wait;/u
+    )
+    expect(stylesheet).toMatch(
       /@media \(prefers-reduced-motion:\s*reduce\)\s*\{\s*\.unilab-config-dialog\s*\{\s*animation:\s*none;/u
     )
   })

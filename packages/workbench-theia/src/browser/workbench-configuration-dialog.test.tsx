@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  WorkbenchConfigurationActionProgress,
   WorkbenchConfigurationDialog,
   type WorkbenchConfigurationOperations
 } from './workbench-configuration-dialog'
@@ -70,10 +71,26 @@ describe('Workbench mode configuration', () => {
     )
 
     expect(buttonMarkup(readyMarkup, '启动 PLC-Sim')).toContain('disabled')
+    expect(buttonMarkup(readyMarkup, '启动 PLC-Sim')).toContain('aria-busy="false"')
     expect(buttonMarkup(readyMarkup, '停止 PLC-Sim')).toContain('is-runtime-stop')
     expect(buttonMarkup(readyMarkup, '启动 OS')).toContain('disabled')
+    expect(buttonMarkup(readyMarkup, '启动 OS')).toContain('aria-busy="false"')
     expect(buttonMarkup(readyMarkup, '停止 OS')).toContain('is-runtime-stop')
     expect(buttonMarkup(readyMarkup, '重启 OS')).not.toContain('disabled')
+  })
+
+  it('shows visible progress while OS startup is pending', () => {
+    const markup = renderToStaticMarkup(
+      <WorkbenchConfigurationActionProgress
+        active
+        label="启动 OS"
+        pendingLabel="启动中…"
+      />
+    )
+
+    expect(markup).toContain('unilab-config-dialog__button-spinner')
+    expect(markup).toContain('启动中…')
+    expect(markup).not.toContain('启动 OS')
   })
 
   it('configures Backend and Scheduler reachability in production mode', () => {
@@ -103,6 +120,7 @@ describe('Workbench mode configuration', () => {
         onConfigure={vi.fn()}
         onExitMode={vi.fn()}
         onOpenAssistant={vi.fn()}
+        onReadEnvironmentLog={vi.fn().mockResolvedValue('')}
       />
     )
     const productionMarkup = renderToStaticMarkup(
@@ -119,6 +137,7 @@ describe('Workbench mode configuration', () => {
     )
 
     expect(debugMarkup).toContain('助手')
+    expect(debugMarkup).toContain('运行日志')
     expect(debugMarkup).toContain('实验调试平台')
     expect(debugMarkup).toContain('工作流调试')
     expect(debugMarkup).not.toContain('UniLab Workbench')
@@ -223,7 +242,8 @@ function operationsFixture(): WorkbenchConfigurationOperations {
 
 /** 返回指定文案按钮的静态标记，供状态语义断言使用。 */
 function buttonMarkup(markup: string, label: string): string {
-  const match = markup.match(new RegExp(`<button[^>]*>${label}</button>`, 'u'))
-  expect(match).not.toBeNull()
-  return match?.[0] ?? ''
+  const match = markup.match(/<button[^>]*>[\s\S]*?<\/button>/gu)
+    ?.find(button => button.includes(label))
+  expect(match).toBeDefined()
+  return match ?? ''
 }

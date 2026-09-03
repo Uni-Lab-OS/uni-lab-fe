@@ -517,7 +517,9 @@
 /* 原型映射：动作目录与参数详情合并为同一主任务面板。 */
 .edge-device__content {
   gap: 0;
-  min-height: 480px;
+  min-height: 0;
+  align-items: stretch;
+  flex: 1 1 auto;
   margin: 14px 16px 16px;
   overflow: hidden;
   border: 1px solid var(--unilab-color-border);
@@ -532,12 +534,29 @@
 }
 
 .edge-device__action-section {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
   border-right: 1px solid var(--unilab-color-border);
   background: var(--unilab-color-surface-subtle);
 }
 
 .edge-device__debug-section {
-  top: 12px;
+  position: relative;
+  top: auto;
+  height: 100%;
+  min-height: 0;
+  align-self: stretch;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.edge-device__action-section .edge-device__action-list {
+  max-height: none;
+  flex: 1 1 auto;
 }
 
 .edge-device__section-heading span {
@@ -598,9 +617,33 @@
 }
 
 @media (max-width: 1080px) {
+  .edge-device__detail {
+    overflow: auto;
+  }
+
+  .edge-device__workspace {
+    height: auto;
+    min-height: 100%;
+  }
+
+  .edge-device__content {
+    align-items: start;
+    flex: 0 0 auto;
+  }
+
   .edge-device__action-section {
+    height: auto;
     border-right: 0;
     border-bottom: 1px solid var(--unilab-color-border);
+  }
+
+  .edge-device__debug-section {
+    height: auto;
+    overflow: visible;
+  }
+
+  .edge-device__action-section .edge-device__action-list {
+    max-height: clamp(220px, calc(100vh - 360px), 560px);
   }
 
   .edge-device__parameter-head {

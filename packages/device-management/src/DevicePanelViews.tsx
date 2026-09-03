@@ -242,7 +242,7 @@ export function DeviceWorkspace({
           label="设备名称"
           value={device.machineName}
         />
-        <Metric label="Edge 身份" value={device.namespace || '—'} />
+        <Metric label="设备实例 ID" value={device.namespace || '—'} />
         <Metric
           label="调度状态"
           value={schedulingStatus}

@@ -14,14 +14,14 @@ import type { WorkflowPanelRuntimeProjection } from '../workflowPanelProjection'
 import type {
   WorkflowResourceSlotOptionsPort
 } from '../utils/workflowResourceSlotOptions'
-import { PersistentWorkflowAuthoringPanel } from './PersistentWorkflowAuthoringPanel'
 import { CreateExperimentOperationDialog } from './CreateExperimentOperationDialog'
 import {
   ExperimentOperationDeviceCatalogProvider,
   type ExperimentOperationDeviceCatalogPort
 } from './ExperimentOperationDeviceCatalog'
+import { ExperimentOperationDeviceLibrary } from './ExperimentOperationDeviceLibrary'
+import { PersistentWorkflowAuthoringPanel } from './PersistentWorkflowAuthoringPanel'
 import { WorkflowButton } from './WorkflowButton'
-import { WorkflowNodePalette } from './WorkflowNodePalette'
 import './ExperimentOperation.module.scss'
 import workflowStyles from './workflow.module.scss'
 
@@ -30,6 +30,8 @@ export interface ExperimentOperationWorkbenchProps {
   deviceCatalogPort?: ExperimentOperationDeviceCatalogPort
   catalogStatus: CapabilityStatus
   creationStatus?: CapabilityStatus
+  /** @deprecated 使用 creationStatus。保留该入口以兼容现有宿主与测试。 */
+  authoringStatus?: CapabilityStatus
   active: boolean
   recoveryRevision?: number
   traceRuntime?: WorkflowTracePort
@@ -60,7 +62,8 @@ export function ExperimentOperationWorkbench({
   runtime,
   deviceCatalogPort,
   catalogStatus,
-  creationStatus = catalogStatus,
+  creationStatus,
+  authoringStatus,
   active,
   recoveryRevision = 0,
   traceRuntime,
@@ -77,17 +80,20 @@ export function ExperimentOperationWorkbench({
   >(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [directoryResolved, setDirectoryResolved] = useState(false)
+  const [actionCatalog, setActionCatalog] =
+    useState<WorkflowActionCatalogSnapshot | null>(null)
+  const [actionCatalogLoading, setActionCatalogLoading] = useState(false)
+  const [actionCatalogError, setActionCatalogError] = useState<string | null>(null)
   const [devices, setDevices] = useState<DeviceActionDeclarationDevice[]>([])
   const [devicesLoading, setDevicesLoading] = useState(false)
   const [devicesError, setDevicesError] = useState<string | null>(null)
-  const [emptyActionCatalog, setEmptyActionCatalog] =
-    useState<WorkflowActionCatalogSnapshot | null>(null)
-  const [emptyActionCatalogError, setEmptyActionCatalogError] =
-    useState<string | null>(null)
-  const [requestRevision, setRequestRevision] = useState(0)
   const [createOpen, setCreateOpen] = useState(false)
   const [authoringDirty, setAuthoringDirty] = useState(false)
+  const [requestRevision, setRequestRevision] = useState(0)
+
+  const effectiveCreationStatus = creationStatus
+    ?? authoringStatus
+    ?? catalogStatus
 
   const refreshDirectory = useCallback((): void => {
     setRequestRevision(value => value + 1)
@@ -100,12 +106,10 @@ export function ExperimentOperationWorkbench({
       setOperations([])
       setSelectedOperationUuid(null)
       setError(catalogStatus.reason ?? '当前 Authority 不支持读取实验操作目录')
-      setDirectoryResolved(true)
       return
     }
     let disposed = false
     setLoading(true)
-    setDirectoryResolved(false)
     setError(null)
     void runtime.listWorkflows({ page: 1, page_size: 100 })
       .then(page => {
@@ -122,17 +126,49 @@ export function ExperimentOperationWorkbench({
         if (disposed) return
         setOperations([])
         setSelectedOperationUuid(null)
-        setError(reason instanceof Error ? reason.message : String(reason))
+        setError(errorMessage(reason))
       })
       .finally(() => {
-        if (!disposed) {
-          setLoading(false)
-          setDirectoryResolved(true)
-        }
+        if (!disposed) setLoading(false)
       })
     return () => {
       disposed = true
     }
+  }, [
+    active,
+    catalogStatus.available,
+    catalogStatus.reason,
+    recoveryRevision,
+    requestRevision,
+    runtime
+  ])
+
+  useEffect(() => {
+    if (!active) return
+    if (!catalogStatus.available) {
+      setActionCatalog(null)
+      setActionCatalogLoading(false)
+      setActionCatalogError(
+        catalogStatus.reason ?? '当前 Authority 不支持读取设备动作目录'
+      )
+      return
+    }
+    const controller = new AbortController()
+    setActionCatalogLoading(true)
+    setActionCatalogError(null)
+    void runtime.getWorkflowActionCatalog(controller.signal)
+      .then(catalog => {
+        if (!controller.signal.aborted) setActionCatalog(catalog)
+      })
+      .catch((reason: unknown) => {
+        if (controller.signal.aborted) return
+        setActionCatalog(null)
+        setActionCatalogError(errorMessage(reason))
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setActionCatalogLoading(false)
+      })
+    return () => controller.abort()
   }, [
     active,
     catalogStatus.available,
@@ -184,8 +220,8 @@ export function ExperimentOperationWorkbench({
     )).sort((left, right) => left.localeCompare(right, 'zh-CN')),
     [operations]
   )
-  const createDisabledReason = !creationStatus.available
-    ? creationStatus.reason ?? '当前 Authority 不支持创建实验操作'
+  const createDisabledReason = !effectiveCreationStatus.available
+    ? effectiveCreationStatus.reason ?? '当前 Authority 不支持创建实验操作'
     : authoringDirty
       ? '请先保存当前实验操作的修改'
       : loading
@@ -198,51 +234,13 @@ export function ExperimentOperationWorkbench({
     const created = await runtime.createExperimentOperation(request)
     setOperations(current => [
       created,
-      ...current.filter(item => item.uuid !== created.uuid)
+      ...current.filter(operation => operation.uuid !== created.uuid)
     ])
     setSelectedOperationUuid(created.uuid)
     setAuthoringDirty(false)
-    setError(null)
-    setDirectoryResolved(true)
     setCreateOpen(false)
+    setError(null)
   }, [runtime])
-
-  useEffect(() => {
-    if (!active || !directoryResolved || selectedOperation) return
-    if (!catalogStatus.available) {
-      setEmptyActionCatalog(null)
-      setEmptyActionCatalogError(
-        catalogStatus.reason ?? '当前 Authority 不支持读取设备动作目录'
-      )
-      return
-    }
-    const controller = new AbortController()
-    let disposed = false
-    setEmptyActionCatalogError(null)
-    void runtime.getWorkflowActionCatalog(controller.signal)
-      .then(catalog => {
-        if (!disposed) setEmptyActionCatalog(catalog)
-      })
-      .catch((reason: unknown) => {
-        if (disposed || controller.signal.aborted) return
-        setEmptyActionCatalog(null)
-        setEmptyActionCatalogError(
-          `操作目录加载失败：${errorMessage(reason)}`
-        )
-      })
-    return () => {
-      disposed = true
-      controller.abort()
-    }
-  }, [
-    active,
-    catalogStatus.available,
-    catalogStatus.reason,
-    directoryResolved,
-    requestRevision,
-    runtime,
-    selectedOperation
-  ])
 
   const deviceCatalogState = useMemo(() => ({
     devices,
@@ -277,95 +275,65 @@ export function ExperimentOperationWorkbench({
         data-visual-baseline="workflow-x6"
         aria-label="实验操作调试工作台"
       >
-        <header className="experiment-operation__directory-bar">
-        <div>
-          <span>实验操作目录</span>
-          <strong>{selectedOperation?.name ?? '等待选择实验操作'}</strong>
-          <small>OS Definition · operation</small>
-        </div>
-        <label>
-          <span className="sr-only">选择实验操作</span>
-          <select
-            aria-label="选择实验操作"
-            value={selectedOperationUuid ?? ''}
-            disabled={loading || operations.length === 0}
-            onChange={event => setSelectedOperationUuid(
-              event.target.value || null
-            )}
+        <header className="experiment-operation__page-header">
+          <div>
+            <h1>实验操作调试</h1>
+            <p>编排设备动作、配置操作参数并进行单操作调试。</p>
+          </div>
+          <WorkflowButton
+            type="button"
+            className="experiment-operation__page-create"
+            disabled={createDisabledReason !== null}
+            disabledReason={createDisabledReason ?? '创建实验操作'}
+            onClick={() => setCreateOpen(true)}
           >
-            {operations.length === 0 ? (
-              <option value="">暂无实验操作</option>
-            ) : operations.map(operation => (
-              <option key={operation.uuid} value={operation.uuid}>
-                {operation.name} · v{operation.revision}
-              </option>
-            ))}
-          </select>
-        </label>
-        <WorkflowButton
-          type="button"
-          disabled={loading}
-          disabledReason="实验操作目录正在刷新"
-          onClick={refreshDirectory}
-        >
-          <span className="codicon codicon-refresh" aria-hidden="true" />
-          刷新目录
-        </WorkflowButton>
-        <WorkflowButton
-          type="button"
-          className="is-primary"
-          disabled={createDisabledReason !== null}
-          disabledReason={createDisabledReason ?? '创建实验操作'}
-          onClick={() => setCreateOpen(true)}
-        >
-          <span className="codicon codicon-add" aria-hidden="true" />
-          新建实验操作
-        </WorkflowButton>
+            <span className="codicon codicon-add" aria-hidden="true" />
+            新建实验操作
+          </WorkflowButton>
         </header>
 
-        {loading && !selectedOperation ? (
-        <OperationDirectoryState title="正在读取实验操作目录" />
-      ) : !selectedOperation ? (
-        <ExperimentOperationEmptyCatalog
-          catalog={emptyActionCatalog}
-          catalogError={emptyActionCatalogError}
-          directoryError={error}
-          onRefresh={refreshDirectory}
-          onCreate={createDisabledReason === null
-            ? () => setCreateOpen(true)
-            : undefined}
-          createDisabledReason={createDisabledReason}
-        />
-      ) : (
-        <div className="experiment-operation__persistent-workbench">
-          <PersistentWorkflowAuthoringPanel
-            key={selectedOperation.uuid}
-            runtime={runtime}
-            definitionAuthority="workspace"
-            definitionEditingStatus={{ available: true }}
-            definitionKind="operation"
-            workflowUuid={selectedOperation.uuid}
-            workflowName={selectedOperation.name}
-            traceRuntime={traceRuntime}
-            resourceSlotOptionsPort={resourceSlotOptionsPort}
-            executionStatus={executionStatus}
-            onUnsavedChangesChange={(hasUnsavedChanges) => {
-              setAuthoringDirty(hasUnsavedChanges)
-              onUnsavedChangesChange?.(hasUnsavedChanges)
-            }}
-            onWorkflowRuntimeProjectionChange={
-              onWorkflowRuntimeProjectionChange
-            }
-            onSelectedWorkflowStepChange={onSelectedWorkflowStepChange}
-            recoveryRevision={recoveryRevision}
-            hideEmbeddedCodeEditor={hideEmbeddedCodeEditor}
-            onSelectWorkflow={(workflowUuid) => {
-              if (operations.some(item => item.uuid === workflowUuid)) {
-                setSelectedOperationUuid(workflowUuid)
-              }
-            }}
+        {!selectedOperation ? (
+          <ExperimentOperationEmptyWorkbench
+            catalog={actionCatalog}
+            catalogLoading={actionCatalogLoading}
+            catalogError={actionCatalogError}
+            directoryLoading={loading}
+            directoryError={error}
+            canCreate={createDisabledReason === null}
+            createDisabledReason={createDisabledReason ?? undefined}
+            onCreate={() => setCreateOpen(true)}
+            onRefresh={refreshDirectory}
           />
-        </div>
+        ) : (
+          <div className="experiment-operation__persistent-workbench">
+            <PersistentWorkflowAuthoringPanel
+              key={selectedOperation.uuid}
+              runtime={runtime}
+              definitionAuthority="workspace"
+              definitionEditingStatus={{ available: true }}
+              definitionKind="operation"
+              workflowUuid={selectedOperation.uuid}
+              workflowName={selectedOperation.name}
+              traceRuntime={traceRuntime}
+              resourceSlotOptionsPort={resourceSlotOptionsPort}
+              executionStatus={executionStatus}
+              onUnsavedChangesChange={(hasUnsavedChanges) => {
+                setAuthoringDirty(hasUnsavedChanges)
+                onUnsavedChangesChange?.(hasUnsavedChanges)
+              }}
+              onWorkflowRuntimeProjectionChange={
+                onWorkflowRuntimeProjectionChange
+              }
+              onSelectedWorkflowStepChange={onSelectedWorkflowStepChange}
+              recoveryRevision={recoveryRevision}
+              hideEmbeddedCodeEditor={hideEmbeddedCodeEditor}
+              onSelectWorkflow={(workflowUuid) => {
+                if (operations.some(item => item.uuid === workflowUuid)) {
+                  setSelectedOperationUuid(workflowUuid)
+                }
+              }}
+            />
+          </div>
         )}
         {createOpen ? (
           <CreateExperimentOperationDialog
@@ -379,93 +347,142 @@ export function ExperimentOperationWorkbench({
   )
 }
 
-export function ExperimentOperationEmptyCatalog({
+function ExperimentOperationEmptyWorkbench({
   catalog,
+  catalogLoading,
   catalogError,
+  directoryLoading,
   directoryError,
-  onRefresh,
+  canCreate,
+  createDisabledReason,
   onCreate,
-  createDisabledReason
+  onRefresh
 }: {
   catalog: WorkflowActionCatalogSnapshot | null
+  catalogLoading: boolean
   catalogError: string | null
+  directoryLoading: boolean
   directoryError: string | null
-  onRefresh(): void
-  onCreate?: () => void
-  createDisabledReason?: string | null
+  canCreate: boolean
+  createDisabledReason?: string
+  onCreate: () => void
+  onRefresh: () => void
 }): React.JSX.Element {
-  return (
-    <div className="experiment-operation__empty-catalog">
-      <WorkflowNodePalette
-        catalog={catalog}
-        catalogError={catalogError}
-        busy={false}
-        canvasMutationEnabled={false}
-        graphAvailable={false}
-        materialSourceCatalogAvailable={false}
-        materialSourceAuthorityBlocked={false}
-        materialSourceCatalogLoading={false}
-        materialSourceCatalogError={null}
-        onAddMaterialSource={() => undefined}
-        onAddAction={() => undefined}
-        onAddWorkflow={() => undefined}
-        onRefreshMaterialSourceCatalog={() => undefined}
-      />
-      <OperationDirectoryState
-        title={directoryError
-          ? '实验操作目录不可用'
-          : '设备包尚未发布实验操作'}
-        detail={directoryError ??
-          '设备与 Action 已从当前 Authority 读取；创建并注册 Python operation 定义后即可编排和保存。'}
-        error={Boolean(directoryError)}
-        onRefresh={onRefresh}
-        onCreate={onCreate}
-        createDisabledReason={createDisabledReason}
-      />
-    </div>
-  )
-}
+  const [libraryTab, setLibraryTab] =
+    useState<'operation' | 'device-action'>('device-action')
 
-function OperationDirectoryState({
-  title,
-  detail,
-  error = false,
-  onRefresh,
-  onCreate,
-  createDisabledReason
-}: {
-  title: string
-  detail?: string
-  error?: boolean
-  onRefresh?: () => void
-  onCreate?: () => void
-  createDisabledReason?: string | null
-}): React.JSX.Element {
   return (
-    <div
-      className={`experiment-operation__directory-state${error ? ' is-error' : ''}`}
-      role={error ? 'alert' : 'status'}
-    >
-      <span
-        className={`codicon ${error ? 'codicon-warning' : 'codicon-loading'}`}
-        aria-hidden="true"
-      />
-      <strong>{title}</strong>
-      {detail ? <p>{detail}</p> : null}
-      <div className="experiment-operation__directory-state-actions">
-        {onCreate ? (
-          <button type="button" className="is-primary" onClick={onCreate}>
-            新建实验操作
+    <div className="experiment-operation__empty-workbench">
+      <aside className="experiment-operation__empty-library">
+        <header><h2>操作与节点库</h2></header>
+        <div className="experiment-operation__empty-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={libraryTab === 'operation'}
+            className={libraryTab === 'operation' ? 'is-active' : undefined}
+            onClick={() => setLibraryTab('operation')}
+          >
+            实验操作库
           </button>
-        ) : createDisabledReason ? (
-          <button type="button" disabled title={createDisabledReason}>
-            新建实验操作
+          <button
+            type="button"
+            role="tab"
+            aria-selected={libraryTab === 'device-action'}
+            className={libraryTab === 'device-action' ? 'is-active' : undefined}
+            onClick={() => setLibraryTab('device-action')}
+          >
+            设备动作库
           </button>
-        ) : null}
-        {onRefresh ? (
-          <button type="button" onClick={onRefresh}>重新读取</button>
-        ) : null}
-      </div>
+        </div>
+        {libraryTab === 'device-action' ? (
+          <ExperimentOperationDeviceLibrary
+            catalog={catalog}
+            loading={catalogLoading}
+            error={catalogError}
+            dragEnabled={false}
+            disabled={!canCreate}
+            disabledReason={createDisabledReason ?? '请先新建实验操作'}
+            onAddAction={canCreate ? () => onCreate() : undefined}
+            onRefresh={onRefresh}
+          />
+        ) : (
+          <div className="experiment-operation__empty-operation-list">
+            <label>
+              <span className="codicon codicon-search" aria-hidden="true" />
+              <input type="search" placeholder="搜索操作名称 / 编号" disabled />
+            </label>
+            <div role={directoryError ? 'alert' : 'status'}>
+              <span
+                className={`codicon ${directoryError
+                  ? 'codicon-warning'
+                  : directoryLoading
+                    ? 'codicon-loading codicon-modifier-spin'
+                    : 'codicon-type-hierarchy-sub'}`}
+                aria-hidden="true"
+              />
+              <strong>{directoryError
+                ? '实验操作目录读取失败'
+                : directoryLoading ? '正在读取实验操作' : '尚未创建实验操作'}</strong>
+              <small>{directoryError ?? '新建后将在这里显示并进入画布。'}</small>
+              {directoryError ? (
+                <button type="button" onClick={onRefresh}>重新读取</button>
+              ) : (
+                <WorkflowButton
+                  type="button"
+                  disabled={!canCreate}
+                  disabledReason={createDisabledReason ?? '当前 Authority 不支持新建实验操作'}
+                  onClick={onCreate}
+                >
+                  新建实验操作
+                </WorkflowButton>
+              )}
+            </div>
+          </div>
+        )}
+      </aside>
+
+      <aside className="experiment-operation__empty-structure">
+        <header><strong>实验流程结构</strong><small>执行顺序与并行关系</small></header>
+        <div><span>序号</span><span>节点名称</span></div>
+        <section>
+          <span className="codicon codicon-list-tree" aria-hidden="true" />
+          <strong>尚未选择实验操作</strong>
+          <small>新建操作后，节点顺序将在这里同步显示。</small>
+        </section>
+      </aside>
+
+      <section className="experiment-operation__empty-stage">
+        <header>
+          <span className="experiment-operation__empty-kind">实验操作</span>
+          <div><strong>请选择实验操作</strong><small>创建后进入空白画布并添加设备动作</small></div>
+        </header>
+        <div className="experiment-operation__empty-canvas">
+          <div>
+            <span className="codicon codicon-type-hierarchy-sub" aria-hidden="true" />
+            <strong>请选择或新建实验操作</strong>
+            <small>设备动作可从左侧拖入画布进行编排。</small>
+            <WorkflowButton
+              type="button"
+              disabled={!canCreate}
+              disabledReason={createDisabledReason ?? '当前 Authority 不支持新建实验操作'}
+              onClick={onCreate}
+            >
+              <span className="codicon codicon-add" aria-hidden="true" />
+              新建实验操作
+            </WorkflowButton>
+          </div>
+        </div>
+      </section>
+
+      <aside className="experiment-operation__empty-inspector">
+        <header><h3>实验操作参数</h3></header>
+        <div>
+          <span className="codicon codicon-settings-gear" aria-hidden="true" />
+          <strong>请选择实验操作</strong>
+          <small>选择后配置业务参数、输入输出、物料及运行策略。</small>
+        </div>
+      </aside>
     </div>
   )
 }

@@ -8,6 +8,7 @@ import type { ComponentProps } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { WorkflowButton } from './WorkflowButton'
+import { ExperimentOperationDeviceLibrary } from './ExperimentOperationDeviceLibrary'
 import { WorkflowNodePalette } from './WorkflowNodePalette'
 
 type WorkflowNodePaletteProps = ComponentProps<typeof WorkflowNodePalette>
@@ -40,6 +41,8 @@ export function WorkflowAuthoringLibrary({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [requestRevision, setRequestRevision] = useState(0)
+  const [operationLibraryTab, setOperationLibraryTab] =
+    useState<'operation' | 'device-action'>('operation')
 
   useEffect(() => {
     let disposed = false
@@ -76,6 +79,69 @@ export function WorkflowAuthoringLibrary({
       .slice(0, 6)
   }, [query, workflows])
 
+  const workflowList = (
+    <div className="persistent-authoring__library-workflow-list" role="list">
+      {loading ? (
+        <p role="status">正在读取{definitionKind === 'operation'
+          ? '实验操作'
+          : '工作流'}…</p>
+      ) : error ? (
+        <div className="persistent-authoring__library-problem" role="alert">
+          <span>{definitionKind === 'operation'
+            ? '实验操作目录读取失败'
+            : '工作流目录读取失败'}</span>
+          <button type="button" onClick={() => setRequestRevision((value) => value + 1)}>
+            重试
+          </button>
+        </div>
+      ) : visibleWorkflows.length === 0 ? (
+        <p role="status">没有匹配的{definitionKind === 'operation'
+          ? '实验操作'
+          : '工作流'}</p>
+      ) : visibleWorkflows.map((workflow) => {
+        const active = workflow.uuid === workflowUuid
+        const switchDisabled = !active && (authoringDirty || !onSelectWorkflow)
+        return (
+          <WorkflowButton
+            key={workflow.uuid}
+            type="button"
+            role="listitem"
+            className={active ? 'is-active' : undefined}
+            aria-current={active ? 'page' : undefined}
+            disabled={switchDisabled}
+            disabledReason={authoringDirty
+              ? '请先保存当前工作流修改'
+              : '当前工作区固定为此工作流'}
+            onClick={() => {
+              if (!active) onSelectWorkflow?.(workflow.uuid, workflow.name)
+            }}
+          >
+            <span aria-hidden="true">◇</span>
+            <span>
+              <strong>{workflow.name}</strong>
+              <small>v{workflow.revision} · {workflow.definition_status === 'empty'
+                ? '待编排'
+                : '已配置'}</small>
+            </span>
+            {active && <i>当前</i>}
+          </WorkflowButton>
+        )
+      })}
+      {!loading && !error && visibleWorkflows.every(
+        (workflow) => workflow.uuid !== workflowUuid
+      ) && (
+        <div className="persistent-authoring__workflow-current">
+          <span aria-hidden="true">◇</span>
+          <span>
+            <strong>{workflowName || '当前工作流'}</strong>
+            <small>{workflowUuid}</small>
+          </span>
+          <i>当前</i>
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <section
       className="persistent-authoring__library"
@@ -85,90 +151,81 @@ export function WorkflowAuthoringLibrary({
     >
       <header className="persistent-authoring__library-heading">
         <div>
-          <h2>{definitionKind === 'operation' ? '实验操作' : '实验工作流'}</h2>
-          <small>最近编辑</small>
+          <h2>{definitionKind === 'operation' ? '操作与节点库' : '实验工作流'}</h2>
+          {definitionKind !== 'operation' ? <small>最近编辑</small> : null}
         </div>
-        <span>{workflows.length}</span>
+        {definitionKind !== 'operation' ? <span>{workflows.length}</span> : null}
       </header>
 
-      <label className="persistent-authoring__library-search">
-        <span className="sr-only">搜索{definitionKind === 'operation'
-          ? '实验操作'
-          : '实验工作流'}</span>
-        <input
-          type="search"
-          value={query}
-          placeholder={definitionKind === 'operation'
-            ? '搜索操作名称'
-            : '搜索工作流名称'}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </label>
-
-      <div className="persistent-authoring__library-workflow-list" role="list">
-        {loading ? (
-          <p role="status">正在读取{definitionKind === 'operation'
-            ? '实验操作'
-            : '工作流'}…</p>
-        ) : error ? (
-          <div className="persistent-authoring__library-problem" role="alert">
-            <span>{definitionKind === 'operation'
-              ? '实验操作目录读取失败'
-              : '工作流目录读取失败'}</span>
-            <button type="button" onClick={() => setRequestRevision((value) => value + 1)}>
-              重试
+      {definitionKind === 'operation' ? (
+        <>
+          <div className="persistent-authoring__library-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={operationLibraryTab === 'operation'}
+              className={operationLibraryTab === 'operation' ? 'is-active' : undefined}
+              onClick={() => setOperationLibraryTab('operation')}
+            >
+              实验操作库
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={operationLibraryTab === 'device-action'}
+              className={operationLibraryTab === 'device-action' ? 'is-active' : undefined}
+              onClick={() => setOperationLibraryTab('device-action')}
+            >
+              设备动作库
             </button>
           </div>
-        ) : visibleWorkflows.length === 0 ? (
-          <p role="status">没有匹配的{definitionKind === 'operation'
-            ? '实验操作'
-            : '工作流'}</p>
-        ) : visibleWorkflows.map((workflow) => {
-          const active = workflow.uuid === workflowUuid
-          const switchDisabled = !active && (authoringDirty || !onSelectWorkflow)
-          return (
-            <WorkflowButton
-              key={workflow.uuid}
-              type="button"
-              role="listitem"
-              className={active ? 'is-active' : undefined}
-              aria-current={active ? 'page' : undefined}
-              disabled={switchDisabled}
-              disabledReason={authoringDirty
-                ? '请先保存当前工作流修改'
-                : '当前工作区固定为此工作流'}
-              onClick={() => {
-                if (!active) onSelectWorkflow?.(workflow.uuid, workflow.name)
-              }}
-            >
-              <span aria-hidden="true">◇</span>
-              <span>
-                <strong>{workflow.name}</strong>
-                <small>v{workflow.revision} · {workflow.definition_status === 'empty'
-                  ? '待编排'
-                  : '已配置'}</small>
-              </span>
-              {active && <i>当前</i>}
-            </WorkflowButton>
-          )
-        })}
-        {!loading && !error && visibleWorkflows.every(
-          (workflow) => workflow.uuid !== workflowUuid
-        ) && (
-          <div className="persistent-authoring__workflow-current">
-            <span aria-hidden="true">◇</span>
-            <span>
-              <strong>{workflowName || '当前工作流'}</strong>
-              <small>{workflowUuid}</small>
-            </span>
-            <i>当前</i>
+          {operationLibraryTab === 'operation' ? (
+            <div className="persistent-authoring__library-pane">
+              <label className="persistent-authoring__library-search">
+                <span className="sr-only">搜索实验操作</span>
+                <input
+                  type="search"
+                  value={query}
+                  placeholder="搜索操作名称 / 编号"
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </label>
+              {workflowList}
+            </div>
+          ) : (
+            <div className="persistent-authoring__library-pane">
+              <ExperimentOperationDeviceLibrary
+                catalog={paletteProps.catalog}
+                error={paletteProps.catalogError}
+                disabled={paletteProps.busy || !paletteProps.canvasMutationEnabled ||
+                  !paletteProps.graphAvailable}
+                disabledReason={paletteProps.busy
+                  ? '正在处理实验操作，请稍后添加节点'
+                  : !paletteProps.canvasMutationEnabled
+                    ? '当前模式只允许查看实验操作'
+                    : '实验操作画布尚未加载完成'}
+                onAddAction={paletteProps.onAddAction}
+              />
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <label className="persistent-authoring__library-search">
+            <span className="sr-only">搜索实验工作流</span>
+            <input
+              type="search"
+              value={query}
+              placeholder="搜索工作流名称"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+          {workflowList}
+          <div className="persistent-authoring__library-nodes">
+            <WorkflowNodePalette {...paletteProps} />
           </div>
-        )}
-      </div>
-
-      <div className="persistent-authoring__library-nodes">
-        <WorkflowNodePalette {...paletteProps} />
-      </div>
+        </>
+      )}
     </section>
   )
 }

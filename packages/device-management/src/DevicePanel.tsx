@@ -703,20 +703,25 @@ export default function DevicePanel({
         ) : null}
         {error ? null : devices.length === 0 ? (
           <div className={deviceClass('device-empty device-empty--compact')}>
-            <strong>
-              {connection === 'connected'
-                ? '当前未配置仪器设备'
-                : '等待 Authority 提供设备'}
-            </strong>
-            {connection === 'connected' ? (
+            <span className={deviceClass('device-empty__icon')} aria-hidden="true">
+              <span className={`codicon ${
+                connection === 'connected'
+                  ? 'codicon-circuit-board'
+                  : 'codicon-radio-tower'
+              }`} />
+            </span>
+            <div className={deviceClass('device-empty__content')}>
+              <strong>
+                {connection === 'connected'
+                  ? '当前未发现可调试设备'
+                  : '等待设备服务连接'}
+              </strong>
               <p>
-                Edge 核心服务已连接。安装或配置设备包和设备图后，重新启动 Edge 并刷新设备。
+                {connection === 'connected'
+                  ? '完成设备包和设备图配置后，重启 OS 并刷新设备目录。'
+                  : '连接成功后将自动加载设备及其可调试动作。'}
               </p>
-            ) : (
-              <p>
-                连接后会读取设备实例，并关联动作节点模板的参数 Schema。
-              </p>
-            )}
+            </div>
           </div>
         ) : (
           <ul className={deviceClass('device-list')}>
@@ -736,7 +741,8 @@ export default function DevicePanel({
           </ul>
         )}
         <div className={deviceClass('edge-device__source-note')}>
-          设备目录由 Authority 实时同步
+          <span className="codicon codicon-sync" aria-hidden="true" />
+          <span>设备目录与当前设备服务保持同步</span>
         </div>
       </aside>
 
@@ -786,12 +792,25 @@ export default function DevicePanel({
           />
         ) : (
           <div className={deviceClass('device-empty device-empty--detail')}>
-            <strong>暂无可调试设备</strong>
-            <p>
-              {connection === 'connected'
-                ? '当前可继续使用 Edge 核心服务；配置仪器设备后请重新启动并刷新。'
-                : '请确认 Edge 已启动并连接到本地桥。'}
-            </p>
+            <span className={deviceClass('device-empty__icon')} aria-hidden="true">
+              <span className={`codicon ${
+                connection === 'connected'
+                  ? 'codicon-circuit-board'
+                  : 'codicon-radio-tower'
+              }`} />
+            </span>
+            <div className={deviceClass('device-empty__content')}>
+              <strong>
+                {connection === 'connected'
+                  ? '当前没有可调试设备'
+                  : '设备服务尚未连接'}
+              </strong>
+              <p>
+                {connection === 'connected'
+                  ? '请先配置设备包和设备图，重启 OS 后刷新设备目录。'
+                  : '启动 OS 后，设备及可调试动作将自动显示在这里。'}
+              </p>
+            </div>
           </div>
         )}
         </main>

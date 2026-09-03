@@ -90,6 +90,7 @@ import { useRobotWorkstationData } from './robot-workstation-data'
 import { WorkbenchDomainLayout } from './workbench-domain-layout'
 import { WorkbenchMaterialViewport } from './workbench-material-viewport'
 import { WorkbenchModeEntry } from './workbench-mode-entry'
+import { workbenchRuntimeLogPaths } from './workbench-runtime-log-drawer'
 import { WorkbenchTopBar } from './workbench-top-bar'
 import { workbenchDeviceConnection } from './workbench-device-connection'
 import { WorkbenchExperimentOperationSurface } from './workbench-experiment-operation-surface'
@@ -913,6 +914,8 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         configurationOperations={this.configurationOperations()}
         onOpenAssistant={this.openAssistant}
         onOpenDeviceActions={this.openDeviceActions}
+        onReadEnvironmentLog={this.readEnvironmentLog}
+        onOpenLog={this.openSessionLog}
       />
     )
   }
@@ -941,7 +944,9 @@ function WorkbenchSurface({
   onResetWorkflowEnvironment,
   configurationOperations,
   onOpenAssistant,
-  onOpenDeviceActions
+  onOpenDeviceActions,
+  onReadEnvironmentLog,
+  onOpenLog
 }: {
   connectionMode: WorkbenchConnectionMode
   connectionSwitchingTo: WorkbenchConnectionMode | null
@@ -956,6 +961,10 @@ function WorkbenchSurface({
   configurationOperations: WorkbenchConfigurationOperations
   onOpenAssistant: () => void
   onOpenDeviceActions: () => void
+  onReadEnvironmentLog: (
+    kind: WorkbenchEnvironmentLogKind
+  ) => Promise<string>
+  onOpenLog: (path: string) => Promise<void>
 }): React.JSX.Element {
   const query = new URLSearchParams(globalThis.location.search)
   const [selectedWorkflowNode, setSelectedWorkflowNode] =
@@ -997,15 +1006,9 @@ function WorkbenchSurface({
     () => createWorkbenchServices(selectedTarget),
     [selectedTarget.cacheKey]
   )
-  const backendProbeServices = useMemo(
-    () => connectionMode === 'backend'
-      ? services
-      : createWorkbenchServices(connectionTargets.backend),
-    [connectionMode, connectionTargets.backend.cacheKey, services]
-  )
   const backendTargetConnection = useBackendConnectionState(
-    'backend',
-    backendProbeServices,
+    connectionMode,
+    services,
     0
   )
   const connection = workbenchConnectionState(
@@ -1058,10 +1061,6 @@ function WorkbenchSurface({
     queryClient.clear()
     services.dispose()
   }, [queryClient, services])
-
-  useEffect(() => () => {
-    if (backendProbeServices !== services) backendProbeServices.dispose()
-  }, [backendProbeServices, services])
 
   const highlightedMaterialIds = useMemo(() => {
     const route = runtimeProjection?.materialTransferRoutes.find(
@@ -1281,6 +1280,9 @@ function WorkbenchSurface({
           onConfigure={setConfigurationKind}
           onExitMode={() => setModeEntryOpen(true)}
           onOpenAssistant={onOpenAssistant}
+          onReadEnvironmentLog={onReadEnvironmentLog}
+          onOpenLog={onOpenLog}
+          runtimeLogPaths={workbenchRuntimeLogPaths(session)}
         />
         {configurationKind ? (
           <WorkbenchConfigurationDialog
@@ -1360,7 +1362,8 @@ function recordMountedWorkbenchDomains(
   if (isWorkflowWorkbenchView(mode)) mountedDomains.add('workflow')
   if (mode === 'workflow-tasks') mountedDomains.add('workflow-tasks')
   if (
-    mode === 'material' || mode === 'split' || mode === 'device-material'
+    mode === 'material' || mode === 'split' ||
+    mode === 'workflow-management-material' || mode === 'device-material'
   ) mountedDomains.add('material')
   if (mode === 'device' || mode === 'device-material') {
     mountedDomains.add('device')
@@ -1372,7 +1375,7 @@ function recordMountedWorkbenchDomains(
 /** 返回工作流表面在当前 Workbench 领域模式下是否拥有可见权。 */
 function isWorkflowWorkbenchView(mode: WorkbenchViewMode): boolean {
   return mode === 'workflow' || mode === 'workflow-management' ||
-    mode === 'split'
+    mode === 'split' || mode === 'workflow-management-material'
 }
 
 /** 选择当前调度权威对应的连接事实来源。 */
@@ -1398,6 +1401,9 @@ function mountedSurface(
 /** 返回 Workbench 标题栏使用的当前领域短名称。 */
 function workbenchViewLabel(mode: WorkbenchViewMode): string {
   if (mode === 'split') return '工作流调试 + 物料管理'
+  if (mode === 'workflow-management-material') {
+    return '工作流管理 + 物料管理'
+  }
   if (mode === 'device-material') return '设备管理 + 物料管理'
   if (mode === 'workflow') return '工作流调试'
   if (mode === 'workflow-management') return '工作流管理'

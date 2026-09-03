@@ -7,90 +7,558 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-    color: var(--unilab-color-text);
-    background: var(--unilab-color-canvas);
+    color: var(--unilab-color-text, #172033);
+    background: #f5f7fb;
     font-family: var(--unilab-font-sans);
   }
 
   .experiment-operation *,
   .experiment-operation *::before,
-  .experiment-operation *::after {
-    box-sizing: border-box;
-  }
+  .experiment-operation *::after { box-sizing: border-box; }
 
   .experiment-operation button,
-  .experiment-operation select {
-    color: inherit;
-    font: inherit;
-  }
+  .experiment-operation input,
+  .experiment-operation select { color: inherit; font: inherit; }
 
   .experiment-operation button:focus-visible,
+  .experiment-operation input:focus-visible,
   .experiment-operation select:focus-visible {
-    outline: 2px solid var(--unilab-color-focus);
+    outline: 2px solid var(--unilab-color-focus, #2563eb);
     outline-offset: 2px;
   }
 
   .experiment-operation--persistent {
-    grid-template: 52px minmax(0, 1fr) / minmax(0, 1fr);
+    grid-template: 54px minmax(0, 1fr) / minmax(0, 1fr);
   }
 
-  .experiment-operation__directory-bar {
+  .experiment-operation__page-header {
     z-index: 2;
     display: flex;
     min-width: 0;
     align-items: center;
-    gap: 12px;
-    padding: 6px 12px;
-    border-bottom: 1px solid var(--unilab-color-border);
-    background: var(--unilab-color-surface);
-    box-shadow: var(--unilab-shadow-xs);
+    gap: 16px;
+    padding: 7px 14px 7px 16px;
+    border-bottom: 1px solid var(--unilab-color-border, #dbe3ef);
+    background: var(--unilab-color-surface, #fff);
   }
 
-  .experiment-operation__directory-bar > div {
+  .experiment-operation__page-header > div {
     display: grid;
-    min-width: 180px;
+    min-width: 0;
     margin-right: auto;
     gap: 1px;
   }
 
-  .experiment-operation__directory-bar > div span,
-  .experiment-operation__directory-bar > div small {
-    color: var(--unilab-color-text-muted);
-    font-size: 10px;
-    line-height: 13px;
-  }
-
-  .experiment-operation__directory-bar > div strong {
+  .experiment-operation__page-header h1,
+  .experiment-operation__page-header p { margin: 0; }
+  .experiment-operation__page-header h1 { font-size: 15px; line-height: 20px; }
+  .experiment-operation__page-header p {
     overflow: hidden;
-    font-size: 13px;
-    line-height: 17px;
+    color: var(--unilab-color-text-muted, #6b778c);
+    font-size: 10px;
+    line-height: 14px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .experiment-operation__directory-bar label {
-    min-width: 220px;
-  }
-
-  .experiment-operation__directory-bar select {
-    width: 100%;
-    min-height: 30px;
-    padding: 4px 28px 4px 9px;
-    border: 1px solid var(--unilab-color-border-strong);
-    border-radius: var(--unilab-radius-sm);
-    background: var(--unilab-color-surface);
+  .experiment-operation button.experiment-operation__page-create,
+  .experiment-operation .experiment-operation__empty-canvas button {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 1px solid var(--operation-workflow);
+    border-radius: 7px;
+    color: #fff;
+    background: var(--operation-workflow);
+    box-shadow: 0 3px 10px rgb(37 99 235 / 20%);
     font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
   }
 
-  .experiment-operation__persistent-workbench {
+  .experiment-operation button.experiment-operation__page-create:hover:not(:disabled),
+  .experiment-operation .experiment-operation__empty-canvas button:hover:not(:disabled) {
+    border-color: #1d4ed8;
+    background: #1d4ed8;
+  }
+
+  .experiment-operation button.experiment-operation__page-create:disabled,
+  .experiment-operation .experiment-operation__empty-canvas button:disabled {
+    border-color: #cbd5e1;
+    color: #94a3b8;
+    background: #eef2f7;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .experiment-operation__persistent-workbench,
+  .experiment-operation__persistent-workbench > * {
+    width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden;
+  }
+
+  .experiment-operation__empty-workbench {
+    display: grid;
     min-width: 0;
     min-height: 0;
     overflow: hidden;
+    background: #fff;
+    grid-template-columns: 236px 224px minmax(420px, 1fr) 286px;
+    grid-template-areas: 'library structure stage inspector';
   }
 
-  .experiment-operation__persistent-workbench > * {
+  .experiment-operation__empty-library,
+  .experiment-operation__empty-structure,
+  .experiment-operation__empty-stage,
+  .experiment-operation__empty-inspector {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    border-right: 1px solid var(--unilab-color-border, #dbe3ef);
+    background: #fff;
+  }
+
+  .experiment-operation__empty-library { display: flex; grid-area: library; flex-direction: column; }
+  .experiment-operation__empty-library > header,
+  .experiment-operation__empty-inspector > header {
+    display: flex;
+    min-height: 50px;
+    align-items: center;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--unilab-color-border, #dbe3ef);
+  }
+  .experiment-operation__empty-library h2,
+  .experiment-operation__empty-inspector h3 { margin: 0; font-size: 12px; }
+
+  .experiment-operation__empty-tabs,
+  .persistent-authoring__library-tabs {
+    display: grid;
+    padding: 7px;
+    border-bottom: 1px solid var(--unilab-color-border, #dbe3ef);
+    background: #f8fafc;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .experiment-operation__empty-tabs button,
+  .persistent-authoring__library-tabs button {
+    min-width: 0;
+    min-height: 32px;
+    padding: 4px 6px;
+    border: 0;
+    border-radius: 7px;
+    color: #718096;
+    background: transparent;
+    font-size: 10px;
+    cursor: pointer;
+  }
+  .experiment-operation__empty-tabs button:hover,
+  .persistent-authoring__library-tabs button:hover { color: #334155; background: #f1f5f9; }
+  .experiment-operation__empty-tabs button.is-active,
+  .persistent-authoring__library-tabs button.is-active {
+    color: #2563eb;
+    background: #fff;
+    box-shadow: 0 2px 7px rgb(15 23 42 / 10%);
+    font-weight: 800;
+  }
+
+  .persistent-authoring__library-pane {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .experiment-operation__empty-operation-list {
+    display: grid;
+    min-height: 0;
+    flex: 1;
+    align-content: start;
+    padding: 10px;
+    gap: 10px;
+  }
+  .experiment-operation__empty-operation-list > label {
+    display: flex;
+    min-height: 34px;
+    align-items: center;
+    gap: 6px;
+    padding: 0 8px;
+    border: 1px solid #d8e1ec;
+    border-radius: 8px;
+    background: #f8fafc;
+  }
+  .experiment-operation__empty-operation-list input {
+    width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 10px;
+  }
+  .experiment-operation__empty-operation-list > div,
+  .experiment-operation__empty-inspector > div {
+    display: grid;
+    min-height: 180px;
+    align-content: center;
+    justify-items: center;
+    padding: 18px;
+    color: #738096;
+    text-align: center;
+    gap: 7px;
+  }
+  .experiment-operation__empty-operation-list strong,
+  .experiment-operation__empty-inspector strong { color: #1f2937; font-size: 11px; }
+  .experiment-operation__empty-operation-list small,
+  .experiment-operation__empty-inspector small { font-size: 9px; line-height: 15px; }
+  .experiment-operation__empty-operation-list button {
+    min-height: 28px;
+    padding: 4px 9px;
+    border: 1px solid #cfd8e6;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 10px;
+    cursor: pointer;
+  }
+
+  .experiment-operation__empty-structure {
+    display: flex; grid-area: structure; flex-direction: column;
+  }
+  .experiment-operation__empty-structure > header {
+    display: grid;
+    min-height: 50px;
+    align-content: center;
+    padding: 6px 11px;
+    border-bottom: 1px solid #dbe3ef;
+    gap: 1px;
+  }
+  .experiment-operation__empty-structure > header strong { font-size: 11px; }
+  .experiment-operation__empty-structure > header small,
+  .experiment-operation__empty-structure > section small { color: #778399; font-size: 9px; }
+  .experiment-operation__empty-structure > div {
+    display: grid;
+    min-height: 32px;
+    grid-template-columns: 44px minmax(0, 1fr);
+    align-items: center;
+    padding: 0 10px;
+    border-bottom: 1px solid #dbe3ef;
+    color: #748096;
+    background: #f8fafc;
+    font-size: 9px;
+  }
+  .experiment-operation__empty-structure > section {
+    display: grid;
+    min-height: 180px;
+    align-content: center;
+    justify-items: center;
+    padding: 18px;
+    color: #758197;
+    text-align: center;
+    gap: 7px;
+  }
+  .experiment-operation__empty-structure > section strong { color: #1f2937; font-size: 11px; }
+
+  .experiment-operation__empty-stage {
+    display: grid;
+    grid-area: stage;
+    grid-template-rows: 50px minmax(0, 1fr);
+    background-color: #fbfcfe;
+    background-image: radial-gradient(#dce5f0 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .experiment-operation__empty-stage > header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 11px;
+    border-bottom: 1px solid #dbe3ef;
+    background: #fff;
+  }
+  .experiment-operation__empty-kind {
+    padding: 3px 6px;
+    border-radius: 5px;
+    color: #047857;
+    background: #ecfdf5;
+    font-size: 8px;
+    font-weight: 700;
+  }
+  .experiment-operation__empty-stage > header > div { display: grid; gap: 1px; }
+  .experiment-operation__empty-stage > header strong { font-size: 11px; }
+  .experiment-operation__empty-stage > header small { color: #758197; font-size: 9px; }
+  .experiment-operation__empty-canvas { display: grid; min-height: 0; place-items: center; }
+  .experiment-operation__empty-canvas > div {
+    display: grid;
+    max-width: 320px;
+    justify-items: center;
+    padding: 24px;
+    color: #718096;
+    text-align: center;
+    gap: 8px;
+  }
+  .experiment-operation__empty-canvas > div > .codicon {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border-radius: 10px;
+    color: #2563eb;
+    background: #eff6ff;
+    font-size: 17px;
+  }
+  .experiment-operation__empty-canvas strong { color: #172033; font-size: 13px; }
+  .experiment-operation__empty-canvas small { font-size: 10px; line-height: 16px; }
+
+  .experiment-operation__empty-inspector { grid-area: inspector; border-right: 0; }
+
+  .operation-device-library {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
+  }
+  .operation-device-library__tools {
+    display: grid;
+    padding: 10px;
+    border-bottom: 1px solid #e1e7f0;
+    grid-template-columns: minmax(0, 1fr) 88px;
+    gap: 8px;
+  }
+  .operation-device-library__tools label {
+    display: flex;
+    min-width: 0;
+    height: 34px;
+    align-items: center;
+    gap: 5px;
+    padding: 0 7px;
+    border: 1px solid #d8e1ec;
+    border-radius: 8px;
+    background: #f8fafc;
+  }
+  .operation-device-library__tools label:focus-within,
+  .operation-device-library__tools select:focus {
+    border-color: #8eb2ff;
+    box-shadow: 0 0 0 2px rgb(37 99 235 / 10%);
+  }
+  .operation-device-library__tools input,
+  .operation-device-library__tools select {
+    min-width: 0;
+    height: 34px;
+    border: 1px solid #d8e1ec;
+    border-radius: 8px;
+    outline: 0;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 10px;
+  }
+  .operation-device-library__tools input { width: 100%; height: auto; border: 0; background: transparent; }
+  .operation-device-library__tools select { padding: 0 5px; }
+
+  .operation-device-library__source {
+    display: grid;
+    min-height: 52px;
+    align-items: center;
+    padding: 7px 9px;
+    border-bottom: 1px solid #e1e7f0;
+    color: #64748b;
+    background: #fbfcfe;
+    font-size: 9px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px;
+  }
+  .operation-device-library__source > span:first-child {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .operation-device-library__source > div {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .operation-device-library__source button {
+    min-height: 26px;
+    padding: 3px 6px;
+    border: 1px solid #d8e1ec;
+    border-radius: 6px;
+    background: #fff;
+    color: #475569;
+    font-size: 9px;
+    cursor: pointer;
+  }
+  .operation-device-library__source button:hover {
+    border-color: #b9c8dd;
+    color: #1d4ed8;
+    background: #f8fbff;
+  }
+
+  .operation-device-library__tree {
+    display: grid;
+    min-height: 0;
+    align-content: start;
+    flex: 1;
+    overflow: auto;
+    padding: 7px 9px 12px;
+    gap: 2px;
+    grid-auto-rows: max-content;
+    scrollbar-width: thin;
+  }
+  .operation-device-library__device {
+    display: block;
+    height: auto;
+    min-height: max-content;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+  .operation-device-library__device-head {
+    display: grid;
     width: 100%;
-    height: 100%;
+    min-height: 44px;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 7px 5px 2px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    grid-template-columns: 16px 26px minmax(0, 1fr) auto;
+    cursor: pointer;
+    text-align: left;
+  }
+  .operation-device-library__device-head:hover { background: #eef4ff; }
+  .operation-device-library__tree-toggle {
+    display: grid;
+    width: 16px;
+    height: 24px;
+    place-items: center;
+    color: #64748b;
+  }
+  .operation-device-library__tree-toggle .codicon { font-size: 12px; }
+  .operation-device-library__device-head i {
+    display: grid;
+    width: 26px;
+    height: 26px;
+    place-items: center;
+    border-radius: 6px;
+    color: #2563eb;
+    background: #eaf1ff;
+    font-style: normal;
+  }
+  .operation-device-library__device-head > span { display: grid; min-width: 0; gap: 1px; }
+  .operation-device-library__device-head strong,
+  .operation-device-library__device-head small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .operation-device-library__device-head strong {
+    color: #1e293b;
+    font-size: 11px;
+    line-height: 15px;
+  }
+  .operation-device-library__device-head small,
+  .operation-device-library__device-head em {
+    color: #748096; font: 8px/12px var(--unilab-font-mono, monospace);
+  }
+  .operation-device-library__device-head em {
+    display: grid;
+    min-width: 22px;
+    height: 20px;
+    padding: 0 5px;
+    place-items: center;
+    border-radius: 10px;
+    color: #64748b;
+    background: #eef2f7;
+    font: 700 9px/20px var(--unilab-font-sans);
+    font-style: normal;
+    white-space: nowrap;
+  }
+
+  .operation-device-library__actions {
+    display: grid;
+    height: auto;
+    position: relative;
+    overflow: visible;
+    margin-left: 10px;
+    padding: 1px 0 5px 32px;
+    background: transparent;
+    grid-auto-rows: minmax(34px, auto);
+    gap: 1px;
+  }
+  .operation-device-library__actions::before {
+    position: absolute;
+    top: 0;
+    bottom: 13px;
+    left: 8px;
+    width: 1px;
+    background: #d7e1ee;
+    content: '';
+  }
+  .operation-device-library__actions > button {
+    display: grid;
+    width: 100%;
+    min-height: 34px;
+    position: relative;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 7px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    grid-template-columns: 16px minmax(0, 1fr);
+    cursor: grab;
+    text-align: left;
+  }
+  .operation-device-library__actions > button::before {
+    position: absolute;
+    top: 50%;
+    left: -24px;
+    width: 18px;
+    height: 1px;
+    background: #d7e1ee;
+    content: '';
+  }
+  .operation-device-library__actions > button:hover:not(:disabled) {
+    color: #1d4ed8;
+    background: #eef4ff;
+  }
+  .operation-device-library__actions > button:hover:not(:disabled)::before {
+    background: #93b4f5;
+  }
+  .operation-device-library__actions > button:disabled {
+    color: #475569;
+    background: transparent;
+    cursor: not-allowed;
+    opacity: 1;
+  }
+  .operation-device-library__actions > button:disabled > .codicon { color: #94a3b8; }
+  .operation-device-library__actions > button > .codicon { color: #2563eb; }
+  .operation-device-library__actions > button > span:last-child { display: grid; min-width: 0; gap: 1px; }
+  .operation-device-library__actions strong,
+  .operation-device-library__actions small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .operation-device-library__actions strong {
+    font-size: 10px;
+    font-weight: 650;
+    line-height: 14px;
+  }
+  .operation-device-library__actions small {
+    color: #7b879a; font: 8px/12px var(--unilab-font-mono, monospace);
+  }
+
+  .operation-device-library__state {
+    display: grid;
+    min-height: 150px;
+    align-content: center;
+    justify-items: center;
+    padding: 16px;
+    color: #758197;
+    text-align: center;
+    gap: 6px;
+  }
+  .operation-device-library__state strong { color: #253044; font-size: 10px; }
+  .operation-device-library__state small { font-size: 8px; line-height: 14px; }
+  .operation-device-library__state button {
+    min-height: 26px;
+    padding: 3px 8px;
+    border: 1px solid #d5deea;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 9px;
+    cursor: pointer;
   }
 
   .experiment-operation__directory-state {
@@ -98,41 +566,27 @@
     min-width: 0;
     min-height: 0;
     padding: 32px;
-    color: var(--unilab-color-text-muted);
+    color: #728096;
     place-content: center;
     place-items: center;
     gap: 8px;
     text-align: center;
   }
+  .experiment-operation__directory-state .codicon { color: #2563eb; font-size: 24px; }
+  .experiment-operation__directory-state strong { color: #172033; font-size: 14px; }
+  .experiment-operation__directory-state p { margin: 0; font-size: 11px; }
 
-  .experiment-operation__directory-state .codicon {
-    color: var(--operation-workflow);
-    font-size: 24px;
-  }
-
-  .experiment-operation__directory-state strong {
-    color: var(--unilab-color-text);
-    font-size: 14px;
-  }
-
-  .experiment-operation__directory-state p {
-    max-width: 54ch;
-    margin: 0;
-    font-size: 11px;
-    line-height: 18px;
-  }
-
-  .experiment-operation__directory-state.is-error .codicon {
-    color: var(--unilab-color-danger);
+  @container workflow (max-width: 1240px) {
+    .experiment-operation__empty-workbench {
+      grid-template-columns: 216px 204px minmax(340px, 1fr) 260px;
+    }
   }
 
   @container workflow (max-width: 900px) {
-    .experiment-operation__directory-bar > div small {
-      display: none;
-    }
-
-    .experiment-operation__directory-bar label {
-      min-width: 150px;
+    .experiment-operation__page-header p { display: none; }
+    .experiment-operation__empty-workbench {
+      overflow: auto;
+      grid-template-columns: 236px 224px minmax(520px, 1fr) 286px;
     }
   }
 }

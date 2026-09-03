@@ -62,7 +62,8 @@ export function WorkbenchDomainLayout({
     setBoundedPercent(primaryPercent + (event.key === 'ArrowLeft' ? -5 : 5))
   }, [setBoundedPercent, primaryPercent])
 
-  const split = mode === 'split' || mode === 'device-material'
+  const split = mode === 'split' || mode === 'workflow-management-material' ||
+    mode === 'device-material'
   const splitStyle = split
     ? {
         gridTemplateColumns:
@@ -71,10 +72,11 @@ export function WorkbenchDomainLayout({
       }
     : undefined
   const workflowVisible = mode === 'workflow' ||
-    mode === 'workflow-management' || mode === 'split'
+    mode === 'workflow-management' || mode === 'split' ||
+    mode === 'workflow-management-material'
   const workflowTasksVisible = mode === 'workflow-tasks'
   const materialVisible = mode === 'material' || mode === 'split' ||
-    mode === 'device-material'
+    mode === 'workflow-management-material' || mode === 'device-material'
   const deviceVisible = mode === 'device' || mode === 'device-material'
   const operationVisible = mode === 'operation'
   const robotWorkstationVisible = isRobotWorkbenchViewMode(mode)
@@ -109,7 +111,9 @@ export function WorkbenchDomainLayout({
         role="separator"
         aria-label={mode === 'device-material'
           ? '调整仪器设备与物料窗口宽度'
-          : '调整工作流与物料窗口宽度'}
+          : mode === 'workflow-management-material'
+            ? '调整工作流管理与物料管理窗口宽度'
+            : '调整工作流与物料窗口宽度'}
         aria-orientation="vertical"
         aria-valuemin={MIN_PRIMARY_PERCENT}
         aria-valuemax={MAX_PRIMARY_PERCENT}
