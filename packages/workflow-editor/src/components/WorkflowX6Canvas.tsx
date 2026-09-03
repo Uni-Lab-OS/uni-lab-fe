@@ -16,12 +16,16 @@ import {
 import { createPortal } from 'react-dom'
 
 import type { WorkflowNodeData } from './WorkflowNodeCard'
+import { isReadyHandle } from './WorkflowNodeCard'
 import {
+  WORKFLOW_X6_INPUT_PORT_ID,
+  WORKFLOW_X6_OUTPUT_PORT_ID,
   workflowX6EdgeMetadata,
   workflowX6NodeMetadata,
   type WorkflowX6Edge,
   type WorkflowX6Node
 } from './workflowX6Projection'
+import { isResourceSlotHandle } from '../utils/workflowMaterialTrace'
 import type {
   WorkflowCanvasPoint,
   WorkflowCanvasViewport,
@@ -151,61 +155,19 @@ export const WorkflowX6Canvas = forwardRef<
     },
     clientToCanvasPoint: (clientX, clientY) => {
       const graph = graphRef.current
-      const scroller = scrollerRef.current
-      // Use the actual X6 scroller element rather than the React wrapper.
-      // The plugin inserts its viewport next to the graph container and may
-      // give it a slightly different client rect after scrollbars appear.
-      const viewport = scroller?.container ?? containerRef.current
-      if (!graph) {
-        // The palette can be used while X6 is still loading asynchronously.
-        // Keep the drop usable instead of silently falling back to (96, 96).
-        if (!viewport) return null
-        const bounds = viewport.getBoundingClientRect()
-        return {
-          x: clientX - bounds.left,
-          y: clientY - bounds.top
-        }
-      }
-      // Scroller's clientToLocalPoint expects coordinates relative to its
-      // viewport (the same convention used by zoom/center internals), while
-      // drag events expose window client coordinates. Subtract the viewport
-      // origin before applying scroll and padding transforms.
-      const point = scroller && viewport
-        ? (() => {
-            const bounds = viewport.getBoundingClientRect()
-            return scroller.clientToLocalPoint(
-              clientX - bounds.left,
-              clientY - bounds.top
-            )
-          })()
-        : graph.clientToLocal(clientX, clientY)
+      if (!graph) return null
+      const point = graph.clientToLocal(clientX, clientY)
       return { x: point.x, y: point.y }
     },
     viewportCenter: () => {
       const container = rootRef.current
       const graph = graphRef.current
-      if (!container) return null
+      if (!container || !graph) return null
       const bounds = container.getBoundingClientRect()
-      const centerX = bounds.left + bounds.width / 2
-      const centerY = bounds.top + bounds.height / 2
-      const viewport = scrollerRef.current?.container ?? containerRef.current
-      if (!graph) {
-        if (!viewport) return null
-        const viewportBounds = viewport.getBoundingClientRect()
-        return {
-          x: centerX - viewportBounds.left,
-          y: centerY - viewportBounds.top
-        }
-      }
-      const point = scrollerRef.current && viewport
-        ? (() => {
-            const viewportBounds = viewport.getBoundingClientRect()
-            return scrollerRef.current.clientToLocalPoint(
-              centerX - viewportBounds.left,
-              centerY - viewportBounds.top
-            )
-          })()
-        : graph.clientToLocal(centerX, centerY)
+      const point = graph.clientToLocal(
+        bounds.left + bounds.width / 2,
+        bounds.top + bounds.height / 2
+      )
       return { x: point.x, y: point.y }
     },
     viewportSnapshot: () => {
@@ -213,18 +175,10 @@ export const WorkflowX6Canvas = forwardRef<
       const graph = graphRef.current
       if (!container || !graph) return null
       const bounds = container.getBoundingClientRect()
-      const centerX = bounds.left + bounds.width / 2
-      const centerY = bounds.top + bounds.height / 2
-      const viewport = scrollerRef.current?.container ?? containerRef.current
-      const center = scrollerRef.current && viewport
-        ? (() => {
-            const viewportBounds = viewport.getBoundingClientRect()
-            return scrollerRef.current.clientToLocalPoint(
-              centerX - viewportBounds.left,
-              centerY - viewportBounds.top
-            )
-          })()
-        : graph.clientToLocal(centerX, centerY)
+      const center = graph.clientToLocal(
+        bounds.left + bounds.width / 2,
+        bounds.top + bounds.height / 2
+      )
       return {
         center: { x: center.x, y: center.y },
         zoom: scrollerRef.current?.zoom() ?? graph.zoom()
@@ -295,7 +249,8 @@ export const WorkflowX6Canvas = forwardRef<
         allowEdge: false,
         allowPort: () => callbacksRef.current.canvasMutationEnabled &&
           Boolean(callbacksRef.current.onConnectHandles),
-        snap: { radius: 18 },
+        snap: { radius: 24 },
+        highlight: true,
         router: { name: 'manhattan', args: { padding: 16 } },
         connector: { name: 'rounded', args: { radius: 8 } },
         createEdge: (): Edge => graph.createEdge(workflowX6EdgeMetadata({
@@ -340,9 +295,8 @@ export const WorkflowX6Canvas = forwardRef<
       if (node.getData<WorkflowNodeData>()?.kind === 'reaction_material') return
       callbacksRef.current.onNodeSelect(node.id)
     })
-    // Use the rendered X6 node DOM for hover detection. X6's model events can
-    // be skipped while virtual cells are mounted asynchronously; delegation
-    // on the stable canvas root keeps the tooltip reliable in that window.
+    // Delegate hover handling to the rendered X6 DOM. Virtual cells are mounted
+    // asynchronously, so model-level events alone can miss a short-lived node.
     const nodeElementFromTarget = (
       target: EventTarget | null
     ): Element | null => {
@@ -429,22 +383,27 @@ export const WorkflowX6Canvas = forwardRef<
     graph.on('edge:connected', ({ edge, isNew }) => {
       if (!isNew) return
       const sourceNodeUuid = edge.getSourceCellId()
-      const sourceHandleUuid = edge.getSourcePortId()
+      const sourcePortId = edge.getSourcePortId()
       const targetNodeUuid = edge.getTargetCellId()
-      const targetHandleUuid = edge.getTargetPortId()
+      const targetPortId = edge.getTargetPortId()
       // X6 交互边永远只是临时手势；Canonical 草稿接受后会重新投影稳定边。
       graph.removeCell(edge, { ui: false })
       if (
         !callbacksRef.current.canvasMutationEnabled ||
-        !sourceNodeUuid || !sourceHandleUuid ||
-        !targetNodeUuid || !targetHandleUuid
+        !sourceNodeUuid || sourcePortId !== WORKFLOW_X6_OUTPUT_PORT_ID ||
+        !targetNodeUuid || targetPortId !== WORKFLOW_X6_INPUT_PORT_ID
       ) return
-      callbacksRef.current.onConnectHandles?.({
+      const connect = callbacksRef.current.onConnectHandles
+      if (!connect) return
+      const candidates = workflowX6HandleConnectionCandidates(
+        projectionRef.current.nodes,
+        projectionRef.current.edges,
         sourceNodeUuid,
-        sourceHandleUuid,
-        targetNodeUuid,
-        targetHandleUuid
-      })
+        targetNodeUuid
+      )
+      for (const connection of candidates.slice(0, 12)) {
+        if (connect(connection).accepted) break
+      }
     })
     graph.on('selection:changed', ({ selected }) => {
       callbacksRef.current.onSelectionChange({
@@ -469,15 +428,14 @@ export const WorkflowX6Canvas = forwardRef<
       projectionRef.current.nodes,
       projectionRef.current.edges,
       initialFitPendingRef,
-      appliedProjectionRef,
-      callbacksRef.current.canvasMutationEnabled
+      appliedProjectionRef
     )
     cleanup = () => {
-      setNodeTooltip(null)
+      resize.disconnect()
       root.removeEventListener('pointerover', handleNodePointerOver)
       root.removeEventListener('pointermove', handleNodePointerMove)
       root.removeEventListener('pointerout', handleNodePointerOut)
-      resize.disconnect()
+      setNodeTooltip(null)
       graph.dispose()
       graphRef.current = null
       scrollerRef.current = null
@@ -504,10 +462,9 @@ export const WorkflowX6Canvas = forwardRef<
       nodes,
       edges,
       initialFitPendingRef,
-      appliedProjectionRef,
-      canvasMutationEnabled
+      appliedProjectionRef
     )
-  }, [canvasMutationEnabled, edges, nodes])
+  }, [edges, nodes])
 
   useEffect(() => {
     const graph = graphRef.current
@@ -548,12 +505,6 @@ export const WorkflowX6Canvas = forwardRef<
       data-x6-animations={nodes.length > LARGE_GRAPH_MINIMAP_LIMIT
         ? 'reduced'
         : 'enabled'}
-      data-node-deletable="false"
-      data-node-selection={nodes
-        .map((node) => String(node.selected))
-        .join(',')}
-      data-node-classes={nodes.map((node) => node.className).join('|')}
-      data-fit-max-zoom="1.2"
     >
       <div ref={containerRef} className="workflow-x6__viewport" />
       {nodes.length <= LARGE_GRAPH_MINIMAP_LIMIT ? (
@@ -633,10 +584,7 @@ function workflowX6NodeTooltipPosition(
     WORKFLOW_X6_TOOLTIP_ESTIMATED_HEIGHT
   return {
     left: Math.min(
-      Math.max(
-        clientX + WORKFLOW_X6_TOOLTIP_OFFSET,
-        WORKFLOW_X6_TOOLTIP_MARGIN
-      ),
+      Math.max(clientX + WORKFLOW_X6_TOOLTIP_OFFSET, WORKFLOW_X6_TOOLTIP_MARGIN),
       right
     ),
     top: below + WORKFLOW_X6_TOOLTIP_ESTIMATED_HEIGHT <=
@@ -644,6 +592,87 @@ function workflowX6NodeTooltipPosition(
       ? below
       : Math.max(WORKFLOW_X6_TOOLTIP_MARGIN, above)
   }
+}
+
+interface RankedWorkflowHandleConnection {
+  connection: WorkflowHandleConnection
+  occupied: boolean
+  semanticMismatch: boolean
+  semanticPriority: number
+  valueTypeMismatch: boolean
+  sourceIndex: number
+  targetIndex: number
+}
+
+/**
+ * 把节点级左右端口手势解析为真实 Canonical Handle UUID 组合。
+ *
+ * X6 不再渲染服务端 Handle 数量；此函数只读取同一 Canonical 投影，优先选择
+ * 未占用、语义相同且类型相同的输入输出，最终兼容性仍由创作命令权威校验。
+ */
+export function workflowX6HandleConnectionCandidates(
+  nodes: readonly WorkflowX6Node[],
+  edges: readonly WorkflowX6Edge[],
+  sourceNodeUuid: string,
+  targetNodeUuid: string
+): WorkflowHandleConnection[] {
+  const sourceHandles = nodes.find(node => node.id === sourceNodeUuid)
+    ?.data.handles?.filter(handle => handle.ioType === 'source') ?? []
+  const targetHandles = nodes.find(node => node.id === targetNodeUuid)
+    ?.data.handles?.filter(handle => handle.ioType === 'target') ?? []
+  const occupiedTargets = new Set(edges.flatMap(edge => {
+    if (edge.target !== targetNodeUuid) return []
+    const handleUuid = edge.data?.targetHandleUuid || edge.targetHandle
+    return handleUuid ? [handleUuid] : []
+  }))
+  const ranked: RankedWorkflowHandleConnection[] = []
+  sourceHandles.forEach((sourceHandle, sourceIndex) => {
+    targetHandles.forEach((targetHandle, targetIndex) => {
+      const sourceKind = workflowHandleSemanticKind(sourceHandle)
+      const targetKind = workflowHandleSemanticKind(targetHandle)
+      ranked.push({
+        connection: {
+          sourceNodeUuid,
+          sourceHandleUuid: sourceHandle.uuid,
+          targetNodeUuid,
+          targetHandleUuid: targetHandle.uuid
+        },
+        occupied: occupiedTargets.has(targetHandle.uuid),
+        semanticMismatch: sourceKind !== targetKind,
+        semanticPriority: workflowHandleSemanticPriority(sourceKind),
+        valueTypeMismatch: Boolean(
+          sourceHandle.valueType && targetHandle.valueType &&
+          sourceHandle.valueType !== targetHandle.valueType
+        ),
+        sourceIndex,
+        targetIndex
+      })
+    })
+  })
+  return ranked.sort((left, right) =>
+    Number(left.occupied) - Number(right.occupied) ||
+    Number(left.semanticMismatch) - Number(right.semanticMismatch) ||
+    left.semanticPriority - right.semanticPriority ||
+    Number(left.valueTypeMismatch) - Number(right.valueTypeMismatch) ||
+    left.sourceIndex - right.sourceIndex ||
+    left.targetIndex - right.targetIndex
+  ).map(item => item.connection)
+}
+
+function workflowHandleSemanticPriority(
+  kind: ReturnType<typeof workflowHandleSemanticKind>
+): number {
+  if (kind === 'ready') return 0
+  if (kind === 'material') return 1
+  return 2
+}
+
+function workflowHandleSemanticKind(
+  handle: NonNullable<WorkflowNodeData['handles']>[number]
+): 'ready' | 'material' | 'value' {
+  if (isReadyHandle(handle)) return 'ready'
+  if (isResourceSlotHandle(handle)) return 'material'
+  return 'value'
 }
 
 /**
@@ -654,7 +683,6 @@ function workflowX6NodeTooltipPosition(
  * @param nodes 当前可见工作流节点投影。
  * @param edges 当前可见工作流边投影。
  * @param initialFitPending 是否仍需执行唯一一次自动适应视图。
- * @param skipInitialFit 编辑画布不自动重排视口，保证释放坐标稳定。
  * @returns 无返回值；更新只发生在 X6 视图模型，不写回工作流文档。
  * @safety Canonical Workflow 仍是唯一状态源，X6 JSON 不参与持久化。
  */
@@ -697,8 +725,7 @@ function syncWorkflowX6Projection(
   nodes: readonly WorkflowX6Node[],
   edges: readonly WorkflowX6Edge[],
   initialFitPending: { current: boolean },
-  appliedProjection: { current: WorkflowX6ProjectionSnapshot },
-  skipInitialFit = false
+  appliedProjection: { current: WorkflowX6ProjectionSnapshot }
 ): void {
   const nextProjection = { nodes, edges }
   const nextCellIds = new Set([
@@ -756,14 +783,8 @@ function syncWorkflowX6Projection(
     : retainedSelectedIds
   if (effectiveSelectedIds.length > 0) graph.select(effectiveSelectedIds)
   else graph.cleanSelection()
-  // An empty authoring canvas is a valid, editable state. Mark the initial
-  // fit as consumed here so the first node created by a palette drop stays at
-  // the pointer location instead of triggering zoomToFit and jumping to the
-  // viewport center. Non-empty workflows still receive the one-time fit.
-  if (skipInitialFit) {
-    initialFitPending.current = false
-    return
-  }
+  // An empty draft is a valid initial state; consume the one-shot fit marker so
+  // adding the first node later does not unexpectedly recenter the editor.
   if (nodes.length === 0) {
     initialFitPending.current = false
     return

@@ -5,7 +5,7 @@
     fill: var(--unilab-color-surface);
     stroke: var(--unilab-color-border-strong);
     stroke-width: 1px;
-    filter: drop-shadow(0 2px 5px rgb(15 23 42 / 5%));
+    filter: drop-shadow(0 5px 14px rgb(15 23 42 / 8%));
   }
 
   .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype']:hover
@@ -15,9 +15,9 @@
       var(--unilab-color-focus) 44%,
       var(--unilab-color-border-strong)
     );
-    filter: drop-shadow(0 4px 12px color-mix(
+    filter: drop-shadow(0 7px 18px color-mix(
       in srgb,
-      var(--unilab-color-focus) 8%,
+      var(--unilab-color-focus) 12%,
       transparent
     ));
   }
@@ -72,14 +72,14 @@
   }
 
   .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype']
-    .workflow-x6-port--ready {
+    .workflow-x6-port--aggregate {
     fill: var(--unilab-color-surface);
     stroke: var(--unilab-color-text-subtle);
     stroke-width: 2px;
   }
 
   .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype']
-    .workflow-x6-port--ready:hover {
+    .workflow-x6-port--aggregate:hover {
     stroke: var(--unilab-color-focus);
     filter: drop-shadow(0 0 3px color-mix(
       in srgb,

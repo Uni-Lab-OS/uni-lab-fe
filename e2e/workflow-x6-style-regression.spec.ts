@@ -92,8 +92,11 @@ test('X6 canvas preserves the HTML workflow visual contract', async ({ page }) =
   await expect(viewport.locator('.workflow-x6-node__transfer-shape'))
     .toBeVisible()
   await expect(firstAction).toHaveAttribute('data-workflow-status', 'pending')
-  await expect(viewport.locator('.workflow-x6-port--material').first())
-    .toBeVisible()
+  await expect(firstAction.locator('.workflow-x6-port--aggregate'))
+    .toHaveCount(2)
+  await expect(firstAction.locator(
+    '.workflow-x6-port--material, .workflow-x6-port--ready'
+  )).toHaveCount(0)
 
   await panel.getByRole('button', {
     name: '适应完整工作流视图'

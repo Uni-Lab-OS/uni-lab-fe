@@ -2,10 +2,16 @@ import type { EdgeMetadata, NodeMetadata } from '@antv/x6'
 import type { CSSProperties, ReactNode } from 'react'
 
 import { isResourceSlotHandle } from '../utils/workflowMaterialTrace'
-import { WORKFLOW_HORIZONTAL_MATERIAL_SOURCE_HANDLE_AXIS, WORKFLOW_HORIZONTAL_TRANSFER_NODE_HANDLE_AXIS, WORKFLOW_VERTICAL_MATERIAL_SOURCE_HANDLE_AXIS, WORKFLOW_VERTICAL_TRANSFER_NODE_HANDLE_AXIS } from '../utils/workflowMaterialSwimlaneLayout'
-import type { WorkflowHandlePort } from '../utils/parseWorkflow'
+import {
+  WORKFLOW_HORIZONTAL_TRANSFER_NODE_HANDLE_AXIS,
+  WORKFLOW_VERTICAL_TRANSFER_NODE_HANDLE_AXIS
+} from '../utils/workflowMaterialSwimlaneLayout'
 import type { WorkflowReactionMaterialNodeData } from './WorkflowReactionMaterialNode'
-import { isReadyHandle, workflowMaterialPortCards, workflowNodeStateLabel, type WorkflowNodeData } from './WorkflowNodeCard'
+import {
+  workflowMaterialPortCards,
+  workflowNodeStateLabel,
+  type WorkflowNodeData
+} from './WorkflowNodeCard'
 import { createWorkflowPrototypeActionMetadata } from './workflowX6PrototypeAction'
 
 const ACTION_NODE_MIN_WIDTH = 248
@@ -35,7 +41,7 @@ const X6_TEXT_ORIGIN = {
   textVerticalAnchor: 'middle'
 } as const
 
-/** X6 默认端口是 10px 黑白圆点；隐藏兜底端口避免旧数据在 (0, 0) 绘制大圆。 */
+/** 隐藏 X6 的默认兜底端口，避免旧数据在节点原点绘制大圆。 */
 const WORKFLOW_X6_HIDDEN_PORT_MARKUP = {
   tagName: 'circle',
   selector: 'portBody',
@@ -48,6 +54,10 @@ const WORKFLOW_X6_HIDDEN_PORT_MARKUP = {
 } as const
 
 type WorkflowX6PortSide = 'top' | 'right' | 'bottom' | 'left'
+
+/** X6 只渲染节点级左右端口；Canonical Handle UUID 保留在边数据中。 */
+export const WORKFLOW_X6_INPUT_PORT_ID = 'workflow-node-input'
+export const WORKFLOW_X6_OUTPUT_PORT_ID = 'workflow-node-output'
 
 export interface WorkflowX6Node {
   id: string
@@ -66,9 +76,6 @@ export interface WorkflowX6Node {
  *
  * X6 节点正文会按照原型卡片的固定宽度截断；只有确实发生截断时才
  * 返回文案，避免每个普通节点都出现无意义的提示层。
- *
- * @param node 当前工作流节点投影。
- * @returns 需要悬浮展示的完整文案；内容未溢出时返回 null。
  */
 export function workflowX6NodeTooltipText(
   node: WorkflowX6Node
@@ -89,9 +96,7 @@ export function workflowX6NodeTooltipText(
   const name = data.name?.trim() || data.id
   const detail = prototypeActionDetailText(data)
   const limits = workflowX6NodeTextLimits(node)
-  const nameOverflow = name.length > limits.name
-  const detailOverflow = detail.length > limits.detail
-  if (!nameOverflow && !detailOverflow) return null
+  if (name.length <= limits.name && detail.length <= limits.detail) return null
   return [name, detail].filter(Boolean).join('\n')
 }
 
@@ -107,16 +112,10 @@ function workflowX6NodeTextLimits(
   const data = node.data
   const horizontal = data.materialLaneDirection === 'horizontal'
   if (data.kind === 'material_source') {
-    return {
-      name: horizontal ? 15 : 16,
-      detail: Number.POSITIVE_INFINITY
-    }
+    return { name: horizontal ? 15 : 16, detail: Number.POSITIVE_INFINITY }
   }
   if (data.visualKind === 'robot-transfer') {
-    return {
-      name: horizontal ? 16 : 15,
-      detail: Number.POSITIVE_INFINITY
-    }
+    return { name: horizontal ? 16 : 15, detail: Number.POSITIVE_INFINITY }
   }
   if (data.layoutStrategy === 'primary-sample-serpentine') {
     return { name: 22, detail: Number.POSITIVE_INFINITY }
@@ -127,10 +126,7 @@ function workflowX6NodeTextLimits(
         .filter(isResourceSlotHandle)
         .map((handle) => handle.dataKey?.trim() || handle.handleKey)
     ).size
-    return {
-      name: materialVariables > 0 ? 15 : 26,
-      detail: Number.POSITIVE_INFINITY
-    }
+    return { name: materialVariables > 0 ? 15 : 26, detail: Number.POSITIVE_INFINITY }
   }
   return { name: 11, detail: 20 }
 }
@@ -181,18 +177,9 @@ interface WorkflowX6EdgeVisual {
   strokeWidth: number
 }
 
-interface WorkflowX6SpecialPortGeometry {
-  target: { x: number; y: number }
-  source: { x: number; y: number }
-}
-
 type ArrayItem<T> = T extends readonly (infer Item)[] ? Item : never
 type WorkflowX6MarkupItem = ArrayItem<NonNullable<NodeMetadata['markup']>>
 type WorkflowX6Markup = WorkflowX6MarkupItem[]
-type WorkflowX6PortMetadata = Extract<
-  NonNullable<NodeMetadata['ports']>,
-  readonly unknown[]
->[number]
 
 interface WorkflowX6MarkupProjection {
   markup: WorkflowX6Markup
@@ -206,22 +193,16 @@ interface WorkflowX6MarkupProjection {
  * 表达，避免在五千节点场景创建同等数量的 React 子树。
  */
 export function workflowX6NodeMetadata(node: WorkflowX6Node): NodeMetadata {
-  let metadata: NodeMetadata
   if (node.type === 'wfReactionMaterial') {
-    metadata = workflowReactionMaterialMetadata(node)
-  } else if (node.data.kind === 'material_source') {
-    metadata = workflowMaterialSourceMetadata(node)
-  } else if (node.data.visualKind === 'robot-transfer') {
-    metadata = workflowRobotTransferMetadata(node)
-  } else {
-    metadata = workflowActionMetadata(node)
+    return workflowReactionMaterialMetadata(node)
   }
-  // Every node kind gets the same safe fallback. Special nodes do not share
-  // workflowNodeBase, so applying this at the public projection boundary
-  // prevents X6 from rendering its default origin port for those nodes too.
-  return metadata.portMarkup
-    ? metadata
-    : { ...metadata, portMarkup: WORKFLOW_X6_HIDDEN_PORT_MARKUP }
+  if (node.data.kind === 'material_source') {
+    return workflowMaterialSourceMetadata(node)
+  }
+  if (node.data.visualKind === 'robot-transfer') {
+    return workflowRobotTransferMetadata(node)
+  }
+  return workflowActionMetadata(node)
 }
 
 /** 把布局边投影为 X6 圆角正交边，并恢复 React Flow 的语义线型。 */
@@ -233,10 +214,10 @@ export function workflowX6EdgeMetadata(edge: WorkflowX6Edge): EdgeMetadata {
   return {
     id: edge.id,
     source: edge.source
-      ? { cell: edge.source, port: edge.sourceHandle || undefined }
+      ? { cell: edge.source, port: WORKFLOW_X6_OUTPUT_PORT_ID }
       : undefined,
     target: edge.target
-      ? { cell: edge.target, port: edge.targetHandle || undefined }
+      ? { cell: edge.target, port: WORKFLOW_X6_INPUT_PORT_ID }
       : undefined,
     router: { name: 'manhattan', args: { padding: 16 } },
     connector: { name: 'rounded', args: { radius: 8 } },
@@ -291,7 +272,13 @@ export function workflowX6EdgeMetadata(edge: WorkflowX6Edge): EdgeMetadata {
         opacity: visual.beforeStart ? 0.2 : 1
       }
     },
-    data: edge.data,
+    data: {
+      ...edge.data,
+      sourceHandleUuid: edge.data?.sourceHandleUuid ||
+        edge.sourceHandle || undefined,
+      targetHandleUuid: edge.data?.targetHandleUuid ||
+        edge.targetHandle || undefined
+    },
     zIndex: 1
   }
 }
@@ -765,9 +752,6 @@ function workflowNodeBase(
     height: size.height,
     zIndex: annotation ? 0 : status === 'running' ? 4 : 2,
     data: node.data,
-    // Keep X6's fallback port invisible. Every supported port below supplies
-    // explicit markup; this prevents malformed legacy entries from rendering
-    // X6's 10px black/white default circle at the node origin.
     portMarkup: WORKFLOW_X6_HIDDEN_PORT_MARKUP,
     attrs: {
       root: {
@@ -814,306 +798,78 @@ function workflowNodeBase(
   }
 }
 
-/** 创建 Canonical 端口身份，并为原型卡片补齐固定的左右视觉端口。 */
-function workflowX6Ports(node: WorkflowX6Node): NodeMetadata['ports'] {
-  const data = node.data
-  const prototypeCard = !data.layoutStrategy ||
-    data.layoutStrategy === 'crossing-minimized'
-  const targetSide = prototypeCard ? 'left' : node.targetPosition ?? (
-    data.materialLaneDirection === 'horizontal' ? 'left' : 'top'
-  )
-  const sourceSide = prototypeCard ? 'right' : node.sourcePosition ?? (
-    data.materialLaneDirection === 'horizontal' ? 'right' : 'bottom'
-  )
-  const specialGeometry = workflowX6SpecialPortGeometry(node)
-  const nodeSize = workflowX6NodeSize(node)
-  // Canonical handles always carry one of the two supported I/O directions.
-  // Older workflow snapshots can contain placeholder entries without a
-  // direction; passing those through to X6 makes it fall back to its default
-  // port markup at (0, 0), which appears as the oversized circle in the
-  // upper-left corner of the card.
-  const canonicalHandles = (data.handles ?? []).filter(
-    (handle): handle is WorkflowHandlePort =>
-      handle.ioType === 'target' || handle.ioType === 'source'
-  )
-  // HTML 原型卡片的结构端口是固定的左右一对，与 Python/OS 暴露的
-  // handle 数量无关。真实 handle 仍保留在端口集合中作为连线身份，
-  // 但只有每侧选中的一个端口参与视觉投影。
-  const fixedPrototypeHandles = prototypeCard && !specialGeometry
-  const fixedHandleByIoType = fixedPrototypeHandles
-    ? new Map((['target', 'source'] as const).map((ioType) => [
-        ioType,
-        fixedPrototypeHandle(canonicalHandles, ioType)
-      ]))
-    : undefined
+/**
+ * 创建与 HTML 原型一致的节点级左右端口。
+ *
+ * 端口数量和身份不再由服务端 Handle 数组决定，避免多个同坐标端口互相遮挡。
+ * 真实 Handle UUID 仍由连接命令从 Canonical 节点数据解析，不进入 X6 视觉身份。
+ */
+export function workflowX6Ports(
+  _node: WorkflowX6Node
+): NodeMetadata['ports'] {
   return {
     groups: {
-      target: { position: targetSide },
-      source: { position: sourceSide },
-      ...(specialGeometry ? {
-        materialTarget: {
-          position: {
-            name: 'absolute',
-            args: specialGeometry.target
-          }
-        },
-        materialSource: {
-          position: {
-            name: 'absolute',
-            args: specialGeometry.source
-          }
-        }
-      } : {})
+      input: { position: 'left' },
+      output: { position: 'right' }
     },
     items: [
-      ...canonicalHandles.map(handle => {
-      const material = isResourceSlotHandle(handle)
-      const ready = !material && isReadyHandle(handle)
-      const fixedVisible = fixedHandleByIoType?.get(handle.ioType)?.uuid ===
-        handle.uuid
-      const visible = fixedPrototypeHandles ? fixedVisible : true
-      const kind = visible && material
-        ? 'material'
-        : visible && (ready || fixedPrototypeHandles)
-          ? 'ready'
-          : 'structural'
-      const side = handle.ioType === 'target' ? targetSide : sourceSide
-      const accent = data.materialHandleAccents?.[handle.uuid] ??
-        data.traceAccent ?? 'var(--unilab-color-workflow)'
-      const horizontalMaterial = material &&
-        data.materialLaneDirection === 'horizontal'
-      const portArgs = specialGeometry && material
-        ? undefined
-        : fixedPrototypeHandles && visible
-          ? workflowX6FixedPortArgs(
-              handle,
-              canonicalHandles,
-              side,
-              nodeSize
-            )
-        : workflowX6VisiblePortArgs(
-            handle,
-            canonicalHandles,
-            side,
-            nodeSize
-          )
-      return {
-        id: handle.uuid,
-        group: material && specialGeometry
-          ? handle.ioType === 'target' ? 'materialTarget' : 'materialSource'
-          : handle.ioType,
-        markup: [{
-          tagName: (ready || (fixedPrototypeHandles && visible)) &&
-            !prototypeCard ? 'rect' : 'circle',
-          selector: 'portBody',
-          className: [
-            'workflow-x6-port',
-            `workflow-x6-port--${kind}`,
-            `workflow-x6-port--${handle.ioType}`
-          ]
-        }],
-        attrs: {
-          portBody: visible && (ready || fixedPrototypeHandles) &&
-            prototypeCard
-            ? {
-                r: 4,
-                magnet: handle.ioType === 'source' ? true : 'passive',
-                stroke: 'var(--unilab-color-text-subtle)',
-                strokeWidth: 2,
-                fill: 'var(--unilab-color-surface)',
-                'data-workflow-handle-kind': kind
-              }
-            : visible && (ready || fixedPrototypeHandles)
-            ? workflowReadyPortAttrs(side, handle.ioType)
-            : visible && material
-              ? {
-                  r: horizontalMaterial
-                    ? 5
-                    : data.visualKind === 'robot-transfer' ? 4 : 4.5,
-                  magnet: handle.ioType === 'source' ? true : 'passive',
-                  stroke: accent,
-                  strokeWidth: horizontalMaterial ? 2 : 3,
-                  fill: horizontalMaterial && handle.ioType === 'source'
-                    ? accent
-                    : 'var(--unilab-color-surface)',
-                'data-workflow-handle-kind': kind
-              }
-            : {
-                  r: 4,
-                  magnet: handle.ioType === 'source' ? true : 'passive',
-                  stroke: 'transparent',
-                  fill: 'transparent',
-                  opacity: 0,
-                  visibility: 'hidden',
-                  pointerEvents: 'none',
-                  'data-workflow-handle-kind': kind
-                }
-        },
-        ...(portArgs ? { args: portArgs } : {})
-      } as WorkflowX6PortMetadata
-      }),
-      fixedPrototypeHandles
-        ? (['target', 'source'] as const)
-            .filter((ioType) => !fixedHandleByIoType?.get(ioType))
-            .map((ioType) => workflowX6SyntheticPort(
-              node.id,
-              ioType,
-              ioType === 'target' ? targetSide : sourceSide
-            ))
-        : []
+      workflowX6AggregatePort(WORKFLOW_X6_INPUT_PORT_ID, 'input', 'target'),
+      workflowX6AggregatePort(WORKFLOW_X6_OUTPUT_PORT_ID, 'output', 'source')
     ]
   }
 }
 
-/** 选择每侧唯一的视觉端口；优先执行顺序端口，其次普通结构端口。 */
-function fixedPrototypeHandle(
-  handles: readonly WorkflowHandlePort[] | undefined,
+function workflowX6AggregatePort(
+  id: string,
+  group: 'input' | 'output',
   ioType: 'source' | 'target'
-): WorkflowHandlePort | undefined {
-  const sideHandles = (handles ?? []).filter((handle) =>
-    handle.ioType === ioType
-  )
-  return sideHandles.find((handle) =>
-    !isResourceSlotHandle(handle) && isReadyHandle(handle)
-  ) ?? sideHandles.find((handle) => !isResourceSlotHandle(handle)) ??
-    sideHandles[0]
-}
-
-/** 将固定视觉端口在同侧的真实 handle 集合中校正到边缘中心。 */
-function workflowX6FixedPortArgs(
-  handle: WorkflowHandlePort,
-  handles: readonly WorkflowHandlePort[],
-  side: WorkflowX6PortSide,
-  nodeSize: WorkflowX6NodeSize
-): Record<string, number> | undefined {
-  const sideHandles = handles.filter((item) => item.ioType === handle.ioType)
-  const sideIndex = sideHandles.findIndex((item) => item.uuid === handle.uuid)
-  if (sideIndex < 0 || sideHandles.length <= 1) return undefined
-  const currentRatio = (sideIndex + 0.5) / sideHandles.length
-  const delta = 0.5 - currentRatio
-  if (Math.abs(delta) < Number.EPSILON) return undefined
-  return side === 'left' || side === 'right'
-    ? { dy: nodeSize.height * delta }
-    : { dx: nodeSize.width * delta }
-}
-
-/** 无 OS handle 时仍显示固定的左右端口，但不允许伪造连线身份。 */
-function workflowX6SyntheticPort(
-  nodeId: string,
-  ioType: 'source' | 'target',
-  side: WorkflowX6PortSide
-): WorkflowX6PortMetadata {
+) {
   return {
-    id: `__visual_${ioType}_${nodeId}`,
-    group: ioType,
-    markup: [{
-      tagName: 'circle',
-      selector: 'portBody',
-      className: [
-        'workflow-x6-port',
-        'workflow-x6-port--ready',
-        `workflow-x6-port--${ioType}`,
-        'workflow-x6-port--visual-only'
-      ]
-    }],
+    id,
+    group,
+    markup: [
+      {
+        tagName: 'circle',
+        selector: 'portHit',
+        className: [
+          'workflow-x6-port__hit',
+          `workflow-x6-port__hit--${ioType}`
+        ]
+      },
+      {
+        tagName: 'circle',
+        selector: 'portBody',
+        className: [
+          'workflow-x6-port',
+          'workflow-x6-port--aggregate',
+          `workflow-x6-port--${ioType}`
+        ]
+      }
+    ],
     attrs: {
+      portHit: {
+        r: 11,
+        magnet: ioType === 'source' ? true : 'passive',
+        fill: 'transparent',
+        stroke: 'transparent',
+        cursor: ioType === 'source' ? 'crosshair' : 'default',
+        'aria-label': ioType === 'source' ? '输出连接点' : '输入连接点',
+        'data-workflow-handle-kind': 'aggregate',
+        'data-workflow-handle-io': ioType
+      },
       portBody: {
         r: 4,
-        magnet: false,
         stroke: 'var(--unilab-color-text-subtle)',
         strokeWidth: 2,
         fill: 'var(--unilab-color-surface)',
-        'data-workflow-handle-kind': 'visual-only',
-        'data-workflow-handle-visual': 'fixed',
-        'data-workflow-handle-side': side
+        pointerEvents: 'none',
+        'data-workflow-handle-kind': 'aggregate',
+        'data-workflow-handle-io': ioType
       }
     }
   }
 }
 
-/**
- * 让可见端口只按可见端口数量分布，避免透明结构端口把左右轴线推偏。
- *
- * X6 默认会把同一分组内的所有端口均匀排列，包含不可见的结构端口；
- * 旧版画布只对可见的 Ready/物料端口进行视觉定位，因此这里用偏移量
- * 将可见端口恢复到各自侧面的对称位置。
- */
-function workflowX6VisiblePortArgs(
-  handle: WorkflowHandlePort,
-  handles: readonly WorkflowHandlePort[],
-  side: WorkflowX6PortSide,
-  nodeSize: WorkflowX6NodeSize
-): Record<string, number> | undefined {
-  if (!isReadyHandle(handle) && !isResourceSlotHandle(handle)) return undefined
-  const sideHandles = handles.filter(item => item.ioType === handle.ioType)
-  const visibleSideHandles = sideHandles.filter(item =>
-    isReadyHandle(item) || isResourceSlotHandle(item)
-  )
-  const sideIndex = sideHandles.findIndex(item => item.uuid === handle.uuid)
-  const visibleIndex = visibleSideHandles.findIndex(
-    item => item.uuid === handle.uuid
-  )
-  if (sideIndex < 0 || visibleIndex < 0) return undefined
-  const currentRatio = (sideIndex + 0.5) / sideHandles.length
-  const desiredRatio = (visibleIndex + 0.5) / visibleSideHandles.length
-  const delta = desiredRatio - currentRatio
-  if (Math.abs(delta) < Number.EPSILON) return undefined
-  if (side === 'left' || side === 'right') {
-    return { dy: nodeSize.height * delta }
-  }
-  return { dx: nodeSize.width * delta }
-}
-
-/**
- * 还原特殊节点在 React Flow 内部图形上的端口轴，而非 X6 选区边缘。
- */
-function workflowX6SpecialPortGeometry(
-  node: WorkflowX6Node
-): WorkflowX6SpecialPortGeometry | null {
-  const horizontal = node.data.materialLaneDirection === 'horizontal'
-  if (node.data.kind === 'material_source') {
-    if (horizontal) {
-      return {
-        target: { x: 20, y: WORKFLOW_HORIZONTAL_MATERIAL_SOURCE_HANDLE_AXIS },
-        source: { x: 92, y: WORKFLOW_HORIZONTAL_MATERIAL_SOURCE_HANDLE_AXIS }
-      }
-    }
-    return {
-      target: { x: WORKFLOW_VERTICAL_MATERIAL_SOURCE_HANDLE_AXIS, y: 3 },
-      source: { x: WORKFLOW_VERTICAL_MATERIAL_SOURCE_HANDLE_AXIS, y: 69 }
-    }
-  }
-  if (node.data.visualKind !== 'robot-transfer') return null
-  if (horizontal) {
-    return {
-      target: { x: 33, y: WORKFLOW_HORIZONTAL_TRANSFER_NODE_HANDLE_AXIS },
-      source: { x: 87, y: WORKFLOW_HORIZONTAL_TRANSFER_NODE_HANDLE_AXIS }
-    }
-  }
-  return {
-    target: { x: WORKFLOW_VERTICAL_TRANSFER_NODE_HANDLE_AXIS, y: 9 },
-    source: { x: WORKFLOW_VERTICAL_TRANSFER_NODE_HANDLE_AXIS, y: 63 }
-  }
-}
-
-function workflowReadyPortAttrs(
-  side: WorkflowX6PortSide,
-  ioType: 'source' | 'target'
-): Record<string, string | number | true> {
-  const horizontalSide = side === 'left' || side === 'right'
-  return {
-    x: horizontalSide ? -1.5 : -6,
-    y: horizontalSide ? -6 : -1.5,
-    width: horizontalSide ? 3 : 12,
-    height: horizontalSide ? 12 : 3,
-    rx: 1.5,
-    ry: 1.5,
-    magnet: ioType === 'source' ? true : 'passive',
-    stroke: 'none',
-    fill: 'var(--unilab-color-text-muted)',
-    'data-workflow-handle-kind': 'ready'
-  }
-}
 
 function workflowX6NodeSize(node: WorkflowX6Node): WorkflowX6NodeSize {
   const data = node.data
