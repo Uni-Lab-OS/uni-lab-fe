@@ -117,5 +117,8 @@
     "ms-pyright.pyright": "https://open-vsx.org/api/ms-pyright/pyright/1.1.402/file/ms-pyright.pyright-1.1.402.vsix",
     "vscode.git-base": "https://open-vsx.org/api/vscode/git-base/1.95.3/file/vscode.git-base-1.95.3.vsix",
     "vscode.git": "https://open-vsx.org/api/vscode/git/1.95.3/file/vscode.git-1.95.3.vsix"
-  }
+  },
+  "theiaPluginsExcludeIds": [
+    "vscode.git-base"
+  ]
 }
