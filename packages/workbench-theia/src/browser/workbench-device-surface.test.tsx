@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   matchWorkspaceDeviceCard,
   preferredWorkbenchDeviceMode,
+  resolveWorkbenchCardWorkspacePath,
   WorkbenchDeviceModeSwitcher
 } from './workbench-device-surface'
 
@@ -64,5 +65,23 @@ describe('工作台仪器设备表面', () => {
       deviceId: 'robot',
       projectId: 'community.ptlc.robot.card'
     })
+  })
+
+  it('falls back to the Theia workspace hash when session path is empty', () => {
+    const previous = globalThis.location
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: { hash: '#F:/workspace/Uni-Lab-SZLab' }
+    })
+    try {
+      expect(resolveWorkbenchCardWorkspacePath('')).toBe(
+        'F:/workspace/Uni-Lab-SZLab'
+      )
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: previous
+      })
+    }
   })
 })

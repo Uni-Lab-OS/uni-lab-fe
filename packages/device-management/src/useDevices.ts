@@ -18,12 +18,37 @@ import {
 import type { DeviceManagementConnection } from './types'
 import { deviceCatalogRecoveryDelay } from './deviceCatalogRecovery'
 
+const UNKNOWN_RESOLUTION_REFRESH_ATTEMPTS = 12
+const UNKNOWN_RESOLUTION_REFRESH_DELAY_MS = 250
+
 interface UseDevicesResult {
   devices: ManagedDevice[]
   loading: boolean
   error: string | null
   lastUpdated: number | null
-  refresh: () => Promise<void>
+  refresh: () => Promise<ManagedDevice[]>
+}
+
+/**
+ * 补读设备目录，直到指定设备完成物理结算（PhysicalSettlement）并恢复派发。
+ *
+ * @param deviceKey 当前 Edge 注册的本地设备身份。
+ * @param refresh 返回同一次权威设备快照的目录刷新函数。
+ * @returns 在限定补读窗口内观察到设备可派发时返回 true，否则返回 false。
+ * @throws 目录读取失败时保留原始异常，由操作入口展示真实错误。
+ */
+export async function waitForDeviceDispatchable(
+  deviceKey: string,
+  refresh: () => Promise<readonly Pick<ManagedDevice, 'deviceKey' | 'dispatchable'>[]>
+): Promise<boolean> {
+  for (let attempt = 0; attempt < UNKNOWN_RESOLUTION_REFRESH_ATTEMPTS; attempt += 1) {
+    await new Promise<void>((resolve) =>
+      globalThis.setTimeout(resolve, UNKNOWN_RESOLUTION_REFRESH_DELAY_MS))
+    if ((await refresh()).some(
+      (device) => device.deviceKey === deviceKey && device.dispatchable
+    )) return true
+  }
+  return false
 }
 
 export function useDevices({
@@ -44,12 +69,20 @@ export function useDevices({
   const [lastUpdated, setLastUpdated] = useState<number | null>(null)
   const recoveryAttemptRef = useRef(0)
 
-  const refresh = useCallback(async (signal?: AbortSignal) => {
+  /**
+   * 重新读取设备目录，并把同一权威快照返回给状态收敛检查。
+   *
+   * @param signal 可选的页面生命周期取消信号。
+   * @returns 当前 Edge 设备目录；读取失败或取消时返回空目录并更新页面错误状态。
+   */
+  const refresh = useCallback(async (
+    signal?: AbortSignal
+  ): Promise<ManagedDevice[]> => {
     if (!backendEnabled) {
       setDevices([])
       setError(null)
       setLastUpdated(null)
-      return
+      return []
     }
     if (!canListActions) {
       setDevices([])
@@ -58,19 +91,22 @@ export function useDevices({
           ?? '当前服务不支持 Action 目录'
       )
       setLastUpdated(null)
-      return
+      return []
     }
     setLoading(true)
     setError(null)
     try {
       const list = await client.getOnlineDevices(signal)
-      if (signal?.aborted) return
-      setDevices(presentEdgeDevices(list))
+      if (signal?.aborted) return []
+      const presented = presentEdgeDevices(list)
+      setDevices(presented)
       setLastUpdated(Date.now())
+      return presented
     } catch (err) {
-      if (signal?.aborted) return
+      if (signal?.aborted) return []
       setError(err instanceof Error ? err.message : '获取设备列表失败')
       setDevices([])
+      return []
     } finally {
       setLoading(false)
     }

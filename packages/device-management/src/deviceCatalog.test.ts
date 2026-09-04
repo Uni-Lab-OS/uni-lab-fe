@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   preferredManagedDevice,
-  presentEdgeDevices
+  presentEdgeDevices,
+  unresolvedUnknownCommandIds
 } from './deviceCatalog'
 
 describe('Edge device catalog', () => {
@@ -132,5 +133,23 @@ describe('Edge device catalog', () => {
       dispatchable: false,
       executionOccupancies: [{ state: 'uncertain' }]
     })
+  })
+
+  /**
+   * 验证人工结算只采用现有阻断原因中明确声明的 UNKNOWN 命令身份。
+   *
+   * @returns 无返回值；通过去重结果和非 UNKNOWN 阻断空结果断言解析边界。
+   * @throws 解析器猜测其他阻断原因或保留空命令时由断言报告失败。
+   * @safety 只解析目录字符串，不提交人工结算或接触设备。
+   */
+  it('extracts only declared UNKNOWN command identities', () => {
+    const first = 'workflow-node-job:10000000-0000-4000-8000-000000000001'
+    const second = 'workflow-node-job:10000000-0000-4000-8000-000000000002'
+
+    expect(unresolvedUnknownCommandIds(
+      `unresolved_unknown_command:${first},${second},${first}`
+    )).toEqual([first, second])
+    expect(unresolvedUnknownCommandIds('device_busy:robot')).toEqual([])
+    expect(unresolvedUnknownCommandIds(null)).toEqual([])
   })
 })

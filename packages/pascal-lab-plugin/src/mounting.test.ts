@@ -4,6 +4,7 @@ import { Group, Vector3 } from 'three'
 import {
   calculateHorizontalSnapDistance,
   calculateLocalMountPose,
+  findChildAttachLink,
   findLinkObject,
   findNearestHorizontalMountMatch,
   syncVirtualAttachPointFrames
@@ -78,5 +79,51 @@ describe('lab mounting', () => {
     syncVirtualAttachPointFrames(root, [{ link: 'tool0', position: [1000, 2000, 3000] }])
     expect(findLinkObject(root, 'tool0')).toBe(real)
     expect(real.position.toArray()).toEqual([0, 0, 0])
+  })
+  it('uses the explicitly requested qualified child attachment link', () => {
+    const root = new Group() as Group & {
+      links: Record<string, Group>
+    }
+    const targetLink = new Group()
+    targetLink.name = 'robot_target_link'
+    const attachLink = new Group()
+    attachLink.name = 'robot_attach_link'
+    root.links = {
+      robot_target_link: targetLink,
+      robot_attach_link: attachLink
+    }
+    root.add(targetLink, attachLink)
+
+    expect(findChildAttachLink(root, 'target_link')).toBe(targetLink)
+  })
+
+  it('falls back through attach_link, tool_0, tool0 and the parent root', () => {
+    const root = new Group() as Group & {
+      links: Record<string, Group>
+    }
+    const attachLink = new Group()
+    attachLink.name = 'robot_attach_link'
+    const toolUnderscoreZero = new Group()
+    toolUnderscoreZero.name = 'robot_tool_0'
+    const tool0 = new Group()
+    tool0.name = 'szlab_mixer_robot_cr7_tool0'
+    root.links = {
+      robot_attach_link: attachLink,
+      robot_tool_0: toolUnderscoreZero,
+      szlab_mixer_robot_cr7_tool0: tool0
+    }
+    root.add(attachLink, toolUnderscoreZero, tool0)
+
+    expect(findChildAttachLink(root, 'missing_link')).toBe(attachLink)
+    delete root.links.robot_attach_link
+    root.remove(attachLink)
+    expect(findChildAttachLink(root, 'missing_link')).toBe(toolUnderscoreZero)
+    delete root.links.robot_tool_0
+    root.remove(toolUnderscoreZero)
+    expect(findChildAttachLink(root, 'missing_link')).toBe(tool0)
+    delete root.links.szlab_mixer_robot_cr7_tool0
+    root.remove(tool0)
+
+    expect(findChildAttachLink(root, 'missing_link')).toBe(root)
   })
 })

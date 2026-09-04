@@ -13,6 +13,25 @@ export interface ManagedDevice extends OnlineDevice {
   displayDetail: string
 }
 
+const UNKNOWN_COMMAND_PREFIX = 'unresolved_unknown_command:'
+
+/**
+ * 从现有派发阻断原因中读取设备明确声明的未知终态（UNKNOWN）命令身份。
+ *
+ * @param reason 设备目录现有的 `dispatchBlockReason` 值。
+ * @returns 去重后的命令身份；其他阻断原因返回空数组。
+ * @throws 不抛出异常；空片段被忽略，原始 wire 值不会被修改。
+ */
+export function unresolvedUnknownCommandIds(reason: string | null): string[] {
+  if (!reason?.startsWith(UNKNOWN_COMMAND_PREFIX)) return []
+  return Array.from(new Set(
+    reason.slice(UNKNOWN_COMMAND_PREFIX.length)
+      .split(',')
+      .map((commandId) => commandId.trim())
+      .filter((commandId) => commandId.startsWith('workflow-node-job:'))
+  ))
+}
+
 /**
  * 解析通用动作页当前设备；保留用户选择，否则优先使用定制卡片匹配设备。
  */

@@ -127,6 +127,47 @@ describe('device action Runtime availability', () => {
     expect(markup).toContain('disabled')
   })
 
+  /**
+   * 验证只有调用方已经识别出明确 UNKNOWN 阻断时才呈现一键人工确认入口。
+   *
+   * @returns 无返回值；通过按钮文案、位置顺序和等待状态断言展示边界。
+   * @throws 普通阻断误显示入口或处理中仍允许重复提交时由断言报告失败。
+   * @safety 静态渲染不会调用结算接口，也不会接触真实设备。
+   */
+  it('renders the one-click UNKNOWN settlement beside the block message', () => {
+    const markup = renderToStaticMarkup(
+      <DeviceActionAvailability
+        state={{
+          kind: 'unavailable',
+          reason: 'dispatch_blocked',
+          message: '设备在线，但存在未确认的历史命令；完成安全核验后才能运行'
+        }}
+        onRun={() => {}}
+        onResolveUnknown={() => {}}
+      />
+    )
+    const pendingMarkup = renderToStaticMarkup(
+      <DeviceActionAvailability
+        state={{
+          kind: 'unavailable',
+          reason: 'dispatch_blocked',
+          message: '设备在线，但存在未确认的历史命令；完成安全核验后才能运行'
+        }}
+        onRun={() => {}}
+        onResolveUnknown={() => {}}
+        resolvingUnknown
+      />
+    )
+
+    expect(markup).toContain('人工确认并解除阻断')
+    expect(markup.indexOf('完成安全核验')).toBeLessThan(
+      markup.indexOf('人工确认并解除阻断')
+    )
+    expect(pendingMarkup).toContain('正在等待物理结算')
+    expect(pendingMarkup).toMatch(/正在等待物理结算[^<]*<\/button>/u)
+    expect(pendingMarkup).toContain('disabled')
+  })
+
   /** 验证动作信息读取失败时只展示通俗说明，不泄露内部“合同”术语。 */
   it('用通俗文案说明动作信息读取失败', () => {
     const markup = renderToStaticMarkup(

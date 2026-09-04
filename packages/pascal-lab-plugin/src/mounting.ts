@@ -163,6 +163,61 @@ export function findLinkObject(
   return match
 }
 
+/**
+ * 解析子物体在父模型上的附着连杆（link）。
+ *
+ * @param parentObject 父物体的场景根对象，其中可以包含带命名空间前缀的 URDF 连杆。
+ * @param requestedLinkName 物理图（Graph）通过 ``extra.parent_link`` 声明的目标连杆；可空。
+ * @returns 依次命中显式目标、``attach_link``、``tool_0``、``tool0``；均不存在时返回父根对象。
+ */
+export function findChildAttachLink(
+  parentObject: Object3D,
+  requestedLinkName?: string | null
+): Object3D {
+  const requested = requestedLinkName === '__root__'
+    ? null
+    : requestedLinkName?.trim()
+  const candidates = [requested, 'attach_link', 'tool_0', 'tool0']
+    .filter((value): value is string => Boolean(value))
+
+  for (const candidate of [...new Set(candidates)]) {
+    const match = findSemanticLinkObject(parentObject, candidate)
+    if (match) return match
+  }
+  return parentObject
+}
+
+/**
+ * 在父模型中按完整名称或命名空间后缀查找语义连杆。
+ *
+ * @param parentObject 父模型场景对象。
+ * @param semanticName 未带设备前缀的连杆语义名，或已经限定的完整连杆名。
+ * @returns 唯一遍历顺序中的首个匹配连杆；不存在时返回 ``null``。
+ */
+function findSemanticLinkObject(
+  parentObject: Object3D,
+  semanticName: string
+): Object3D | null {
+  const exact = findLinkObject(parentObject, semanticName)
+  if (exact) return exact
+
+  let match: Object3D | null = null
+  parentObject.traverse((object) => {
+    if (!match && hasSemanticLinkName(object.name, semanticName)) {
+      match = object
+    }
+  })
+  return match
+}
+
+function hasSemanticLinkName(actual: string, semantic: string): boolean {
+  return (
+    actual === semantic ||
+    actual.endsWith(`_${semantic}`) ||
+    actual.endsWith(`/${semantic}`)
+  )
+}
+
 const VIRTUAL_ATTACH_POINT = 'unilabVirtualAttachPoint'
 
 /**

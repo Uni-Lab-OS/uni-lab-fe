@@ -6,11 +6,17 @@ import type {
 import type { KinematicAttachmentFrame } from '@unilab/scene-runtime'
 import { Euler, Quaternion } from 'three'
 
+import { inferModelFormat } from './modelFormat'
+import { readMaterialRendering } from './materialRenderingSnapshot'
+
 /**
  * 把 format-free 附着 latest 投影成现有 MaterialPlacement 运行时覆盖。
  * stale/uncertain/detaching 保持最后姿态；detached 立即撤销覆盖，物料图中的
  * 当前库位（Site）重新成为渲染权威。同库位放回不会产生库存 revision，不能
  * 把 revision 增加误当成解除附着的必要证据。
+ *
+ * xacro/URDF 工具模型已经在关节里编码了相对法兰姿态；OS 启动后的
+ * ``mount_to_visual`` 是给 RViz attach 网格用的，不能再叠到前端 group 旋转上。
  */
 export function attachmentFramesToRuntimePlacements(
   frames: Readonly<Record<string, KinematicAttachmentFrame>>,
@@ -36,9 +42,7 @@ export function attachmentFramesToRuntimePlacements(
         positionMm: frame.localPose.xyzM.map(value => value * 1000) as [
           number, number, number
         ],
-        rotationDegXYZ: quaternionToDegrees(
-          frame.localPose.orientationXyzw
-        )
+        rotationDegXYZ: overlayRotationDegXYZ(frame, child)
       }
     }
     placements[frame.childRef] = placement
@@ -47,6 +51,24 @@ export function attachmentFramesToRuntimePlacements(
     }
   }
   return Object.freeze(placements)
+}
+
+/** 把附着四元数转成 group 欧拉角；xacro/URDF 工具保持零旋转，避免与模型 rpy 双重叠加。 */
+function overlayRotationDegXYZ(
+  frame: KinematicAttachmentFrame,
+  child: MaterialAggregate
+): [number, number, number] {
+  if (frame.kind === 'tool' && urdfTreeOwnsMountPose(child)) {
+    return [0, 0, 0]
+  }
+  return quaternionToDegrees(frame.localPose.orientationXyzw)
+}
+
+/** 前端 xacro/URDF 工具已经在模型树里编码了相对法兰姿态。 */
+function urdfTreeOwnsMountPose(child: MaterialAggregate): boolean {
+  const rendering = readMaterialRendering(child)
+  const format = inferModelFormat(rendering.model.path, rendering.model.format)
+  return format === 'xacro' || format === 'urdf'
 }
 
 function quaternionToDegrees(

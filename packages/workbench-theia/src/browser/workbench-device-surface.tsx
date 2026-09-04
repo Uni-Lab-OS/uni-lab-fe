@@ -27,8 +27,12 @@ interface WorkbenchDeviceSurfaceProps {
   connection: 'disconnected' | 'connecting' | 'connected' | 'error'
   workspacePath: string
   runtimeRevision: string
+  sessionRevision: string
   active: boolean
 }
+
+const DISCOVERY_RETRY_MS = 2_000
+const DISCOVERY_MAX_ATTEMPTS = 30
 
 /**
  * 返回仪器设备详情的默认工作面。
@@ -124,61 +128,126 @@ export function WorkbenchDeviceSurface({
   connection,
   workspacePath,
   runtimeRevision,
+  sessionRevision,
   active
 }: WorkbenchDeviceSurfaceProps): React.JSX.Element {
   const api = React.useMemo(deviceCardDiscoveryApi, [])
+  const resolvedWorkspacePath = React.useMemo(
+    () => resolveWorkbenchCardWorkspacePath(workspacePath),
+    [workspacePath]
+  )
   const [mode, setMode] = React.useState<WorkbenchDeviceMode>('generic-actions')
+  const [cardProjects, setCardProjects] = React.useState<
+    readonly DevicePackageCardProject[]
+  >([])
   const [matchedDeviceId, setMatchedDeviceId] = React.useState<string | null>(null)
-  const [discovering, setDiscovering] = React.useState(Boolean(api && workspacePath))
+  const [discovering, setDiscovering] = React.useState(
+    Boolean(api && resolvedWorkspacePath)
+  )
   const [discoveryError, setDiscoveryError] = React.useState<string | null>(null)
   const [discoveryRevision, setDiscoveryRevision] = React.useState(0)
 
   React.useEffect(() => {
     let disposed = false
-    if (!api || !workspacePath) {
+    let retryTimer: ReturnType<typeof globalThis.setTimeout> | null = null
+    let attempt = 0
+
+    if (!api) {
       setDiscovering(false)
+      setCardProjects([])
       setMatchedDeviceId(null)
       setMode('generic-actions')
-      setDiscoveryError(null)
+      setDiscoveryError('桌面设备卡片 Host 不可用')
+      return
+    }
+    if (!resolvedWorkspacePath) {
+      setDiscovering(false)
+      setCardProjects([])
+      setMatchedDeviceId(null)
+      setMode('generic-actions')
+      setDiscoveryError('工作区路径尚未就绪')
       return
     }
     setDiscovering(true)
     setDiscoveryError(null)
 
-    /** 读取领域包卡片与设备目录，并按设备类型确定默认工作面。 */
+    /** 先发现领域包卡片；设备目录未就绪时仍预加载卡片界面。 */
     const discover = async (): Promise<void> => {
       try {
-        const [projects, devices] = await Promise.all([
-          api.package.discover(workspacePath),
-          services.laboratory.getDeviceCatalog()
-        ])
+        const projects = await api.package.discover(resolvedWorkspacePath)
         if (disposed) return
+        if (projects.length === 0) {
+          throw new Error('当前领域包没有 frontend/cards 设备卡片')
+        }
+        setCardProjects(projects)
+        setMode((current) => (
+          current === 'generic-actions'
+            ? preferredWorkbenchDeviceMode(true)
+            : current
+        ))
+
+        let devices: DeviceCatalogItem[] = []
+        try {
+          devices = await services.laboratory.getDeviceCatalog()
+        } catch {
+          devices = []
+        }
+        if (disposed) return
+
         const match = matchWorkspaceDeviceCard(projects, devices)
         setMatchedDeviceId(match?.deviceId ?? null)
-        setMode(preferredWorkbenchDeviceMode(Boolean(match)))
+        if (match) {
+          setDiscoveryError(null)
+          return
+        }
+
+        setDiscoveryError(
+          devices.length === 0
+            ? '设备目录尚未就绪，卡片界面已预加载，等待 OS 会话…'
+            : '设备目录中没有与领域包卡片匹配的设备'
+        )
+        if (attempt < DISCOVERY_MAX_ATTEMPTS) {
+          attempt += 1
+          retryTimer = globalThis.setTimeout(() => {
+            if (!disposed) void discover()
+          }, DISCOVERY_RETRY_MS)
+        }
       } catch (error) {
         if (disposed) return
+        setCardProjects([])
         setMatchedDeviceId(null)
         setMode('generic-actions')
         setDiscoveryError(
           error instanceof Error ? error.message : '定制卡片发现失败'
         )
+        if (attempt < DISCOVERY_MAX_ATTEMPTS) {
+          attempt += 1
+          retryTimer = globalThis.setTimeout(() => {
+            if (!disposed) void discover()
+          }, DISCOVERY_RETRY_MS)
+        }
       } finally {
         if (!disposed) setDiscovering(false)
       }
     }
 
     void discover()
-    return () => { disposed = true }
+    return () => {
+      disposed = true
+      if (retryTimer !== null) globalThis.clearTimeout(retryTimer)
+    }
   }, [
     api,
+    connection,
     discoveryRevision,
+    resolvedWorkspacePath,
     runtimeRevision,
-    services.laboratory,
-    workspacePath
+    sessionRevision,
+    services.laboratory
   ])
 
-  const customCardAvailable = matchedDeviceId !== null
+  const customCardAvailable = cardProjects.length > 0
+  const catalogPending = customCardAvailable && matchedDeviceId === null
   return (
     <div
       className="unilab-workbench-device-shell"
@@ -193,10 +262,12 @@ export function WorkbenchDeviceSurface({
       {discovering || discoveryError ? (
         <div
           className="unilab-workbench-device-discovery"
-          role={discoveryError ? 'alert' : 'status'}
+          role={discoveryError && !catalogPending ? 'alert' : 'status'}
         >
           <span>{discoveryError
-            ? `定制卡片发现失败，已显示通用动作：${discoveryError}`
+            ? catalogPending
+              ? discoveryError
+              : `定制卡片发现失败，已显示通用动作：${discoveryError}`
             : '正在检测领域包定制卡片…'}</span>
           {discoveryError ? (
             <button
@@ -232,12 +303,12 @@ export function WorkbenchDeviceSurface({
         aria-labelledby="unilab-workbench-device-custom-card-tab"
         hidden={mode !== 'custom-card'}
       >
-        {active && mode === 'custom-card' && matchedDeviceId ? (
+        {active && mode === 'custom-card' && customCardAvailable ? (
           <WorkbenchDeviceCard
             services={services}
-            workspacePath={workspacePath}
+            workspacePath={resolvedWorkspacePath}
             runtimeRevision={runtimeRevision}
-            deviceId={matchedDeviceId}
+            deviceId={matchedDeviceId ?? undefined}
           />
         ) : null}
       </section>
@@ -271,4 +342,17 @@ function deviceCardDiscoveryApi(): DeviceCardDiscoveryApi | null {
   return (globalThis.window as Window & {
     api?: { deviceCards?: DeviceCardDiscoveryApi }
   }).api?.deviceCards ?? null
+}
+
+/**
+ * 解析定制卡片发现使用的工作区根目录。
+ * @param workspacePath 会话身份提供的路径；缺失时回退到 Theia URL hash。
+ */
+export function resolveWorkbenchCardWorkspacePath(
+  workspacePath: string
+): string {
+  const explicit = workspacePath.trim()
+  if (explicit) return explicit
+  const hash = globalThis.location?.hash?.replace(/^#/, '').trim()
+  return hash ?? ''
 }

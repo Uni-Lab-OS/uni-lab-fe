@@ -151,6 +151,43 @@ describe('laboratory service', () => {
     }])
   })
 
+  /**
+   * 验证一键人工确认逐条复用既有设备级 UNKNOWN 结算接口。
+   *
+   * @returns 无返回值；通过请求路径、顺序和审计原因断言接口边界。
+   * @throws 请求数量、设备身份或命令正文偏离现有合同时由断言报告失败。
+   * @safety 测试只调用内存 HTTP 替身，不接触真实设备或发送运动命令。
+   */
+  it('submits every declared UNKNOWN command through the existing Edge route', async () => {
+    const requests: Array<{ path: string; method?: string; body?: string }> = []
+    const firstCommandId =
+      'workflow-node-job:10000000-0000-4000-8000-000000000001'
+    const secondCommandId =
+      'workflow-node-job:10000000-0000-4000-8000-000000000002'
+    const response = { code: 0, data: { command_uuid: 'resolution-command' } }
+    const service = createLaboratoryService(
+      fixtureHttp({
+        '/api/v1/edge/devices/robot%201/resolve-unknown': response
+      }, requests),
+      getDefaultBackend('local-python')
+    )
+
+    await expect(service.resolveUnknownDeviceCommands({
+      localDeviceId: 'robot 1',
+      deviceCommandIds: [firstCommandId, secondCommandId]
+    })).resolves.toBeUndefined()
+    expect(requests).toEqual([firstCommandId, secondCommandId].map(
+      (deviceCommandId) => ({
+        path: '/api/v1/edge/devices/robot%201/resolve-unknown',
+        method: 'POST',
+        body: JSON.stringify({
+          device_command_id: deviceCommandId,
+          reason: '操作员一键确认设备已停止，物理设备当前空闲'
+        })
+      })
+    ))
+  })
+
   it('forwards caller cancellation to every shared catalog read', async () => {
     const controller = new AbortController()
     const responses = sharedDeviceResponses()

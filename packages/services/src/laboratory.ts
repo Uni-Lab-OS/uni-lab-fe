@@ -195,6 +195,48 @@ export function createLaboratoryService(
       return loadBackendOnlineDevices(http, signal, backend.serverKind)
     },
 
+    /**
+     * 提交操作员对设备未知终态（UNKNOWN）命令的物理空闲确认。
+     *
+     * @param input 本地设备身份和当前设备明确声明的未知命令身份。
+     * @returns 服务端逐条接受全部人工结算命令后返回无。
+     * @throws 设备身份、命令身份无效或任一结算请求被拒绝时抛出 ServiceError。
+     * @safety 该命令只提交物理结算（PhysicalSettlement）见证，不触发设备运动。
+     */
+    async resolveUnknownDeviceCommands(input: {
+      localDeviceId: string
+      deviceCommandIds: readonly string[]
+    }): Promise<void> {
+      const localDeviceId = input.localDeviceId.trim()
+      const deviceCommandIds = Array.from(new Set(
+        input.deviceCommandIds.map((commandId) => commandId.trim())
+      ))
+      if (!localDeviceId || deviceCommandIds.length === 0 ||
+          deviceCommandIds.some((commandId) =>
+            !commandId.startsWith('workflow-node-job:'))) {
+        throw new ServiceError({
+          code: 'INVALID_UNKNOWN_RESOLUTION_IDENTITY',
+          message: '设备未知命令身份无效，拒绝提交人工确认',
+          retryable: false
+        })
+      }
+      for (const deviceCommandId of deviceCommandIds) {
+        await requestData<Record<string, unknown>>(
+          http,
+          `/api/v1/edge/devices/${encodeURIComponent(localDeviceId)}`
+            + '/resolve-unknown',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              device_command_id: deviceCommandId,
+              reason: '操作员一键确认设备已停止，物理设备当前空闲'
+            })
+          }
+        )
+      }
+    },
+
     async getDeviceActions(deviceId: string): Promise<DeviceAction[]> {
       return loadBackendDeviceActions(http, deviceId, backend.serverKind)
     },

@@ -4,7 +4,10 @@ import type {
   WorkflowActionNodeTemplate
 } from '@unilab/services'
 
-import type { ManagedDevice } from './deviceCatalog'
+import {
+  unresolvedUnknownCommandIds,
+  type ManagedDevice
+} from './deviceCatalog'
 import { deviceClass } from './deviceStyles'
 import type { DeviceManagementConnection } from './types'
 import {
@@ -131,6 +134,60 @@ export function DeviceListItem({
   )
 }
 
+interface UnknownResolutionOperation {
+  deviceKey: string
+  state: 'pending' | 'error'
+  message: string | null
+}
+
+/**
+ * 将设备连接与派发事实映射为详情区调度状态文案。
+ *
+ * @param device 当前设备目录项。
+ * @returns 只读的调度状态文案。
+ */
+function schedulingStatusLabel(device: ManagedDevice): string {
+  if (device.edgeStatus !== 'online') return '等待 Edge 连接'
+  return device.dispatchable ? '可调度' : '派发受阻'
+}
+
+/**
+ * 把设备 UNKNOWN 声明和人工结算操作投影成动作提示区的可选控制属性。
+ *
+ * @param device 当前设备目录项。
+ * @param operation 当前人工结算操作；其他设备的操作不会投影到本设备。
+ * @param onResolveUnknown 已获授权的一键人工确认回调。
+ * @returns 按钮回调、等待状态和当前设备错误信息。
+ * @throws 不抛出异常；缺少明确命令身份时关闭人工结算入口。
+ */
+function projectUnknownResolutionControls(
+  device: ManagedDevice,
+  operation: UnknownResolutionOperation | null | undefined,
+  onResolveUnknown?: (
+    device: ManagedDevice,
+    commandIds: readonly string[]
+  ) => void
+): {
+  onResolveUnknown?: () => void
+  resolvingUnknown: boolean
+  unknownResolutionError: string | null
+} {
+  const commandIds = unresolvedUnknownCommandIds(device.dispatchBlockReason)
+  if (commandIds.length === 0 || !onResolveUnknown) {
+    return { resolvingUnknown: false, unknownResolutionError: null }
+  }
+  const currentOperation = operation?.deviceKey === device.deviceKey
+    ? operation
+    : null
+  return {
+    onResolveUnknown: () => onResolveUnknown(device, commandIds),
+    resolvingUnknown: currentOperation?.state === 'pending',
+    unknownResolutionError: currentOperation?.state === 'error'
+      ? currentOperation.message
+      : null
+  }
+}
+
 /**
  * 渲染当前设备的动作目录与单动作调试工作区。
  *
@@ -157,7 +214,9 @@ export function DeviceWorkspace({
   onCancelActionTask,
   canForceUnlock,
   unlockOperation,
-  onRequestUnlock
+  onRequestUnlock,
+  unknownResolution,
+  onResolveUnknown
 }: {
   device: ManagedDevice
   selectedAction: DeviceAction | null
@@ -180,14 +239,22 @@ export function DeviceWorkspace({
   canForceUnlock: boolean
   unlockOperation: UnlockOperation | null
   onRequestUnlock: (device: ManagedDevice, action: DeviceAction) => void
+  unknownResolution?: UnknownResolutionOperation | null
+  onResolveUnknown?: (
+    device: ManagedDevice,
+    commandIds: readonly string[]
+  ) => void
 }): React.JSX.Element {
   const busyActionCount = device.actions.filter(
     (action) => action.isBusy
   ).length
   const occupancy = device.executionOccupancies?.[0] ?? null
-  const schedulingStatus = device.edgeStatus !== 'online'
-    ? '等待 Edge 连接'
-    : device.dispatchable ? '可调度' : '派发受阻'
+  const schedulingStatus = schedulingStatusLabel(device)
+  const unknownResolutionControls = projectUnknownResolutionControls(
+    device,
+    unknownResolution,
+    onResolveUnknown
+  )
   return (
     <div className={deviceClass('edge-device__workspace')} data-device-management="workspace">
       <header className={deviceClass('edge-device__identity')} data-device-management="identity">
@@ -373,6 +440,7 @@ export function DeviceWorkspace({
                   if (actionTemplate) onRunAction(selectedAction, actionTemplate)
                 }}
                 onCancel={onCancelActionTask}
+                {...unknownResolutionControls}
               />
             </>
           ) : device.actions.length === 0 ? (

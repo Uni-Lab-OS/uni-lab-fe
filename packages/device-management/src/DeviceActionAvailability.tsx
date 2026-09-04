@@ -261,6 +261,9 @@ export function ignoreUnavailableDeviceActionRun(): void {}
  * @param props.onRun 可运行时创建动作任务的回调。
  * @param props.onCancel 运行中取消动作任务的可选回调。
  * @param props.disabledRunLabel 不可运行时保留在禁用按钮上的场景文案。
+ * @param props.onResolveUnknown 存在明确 UNKNOWN 阻断时提交一键人工确认的可选回调。
+ * @param props.resolvingUnknown 人工确认已经提交、正在等待物理结算收敛。
+ * @param props.unknownResolutionError 最近一次人工确认的可见失败原因。
  * @returns 动作任务控制区及存在任务时的执行日志。
  * @throws 不主动抛出异常；回调错误由调用方处理。
  * @safety 不可运行状态始终禁用按钮，避免误创建任务。
@@ -269,12 +272,18 @@ export function DeviceActionAvailability({
   state,
   onRun,
   onCancel,
-  disabledRunLabel
+  disabledRunLabel,
+  onResolveUnknown,
+  resolvingUnknown = false,
+  unknownResolutionError = null
 }: {
   state: DeviceActionRunState
   onRun: () => void
   onCancel?: (taskUuid: string) => void
   disabledRunLabel?: string
+  onResolveUnknown?: () => void
+  resolvingUnknown?: boolean
+  unknownResolutionError?: string | null
 }): React.JSX.Element {
   const [logCopied, setLogCopied] = useState(false)
   const [taskIdCopied, setTaskIdCopied] = useState(false)
@@ -326,7 +335,24 @@ export function DeviceActionAvailability({
             取消任务
           </button>
         ) : null}
-        <span>{userFacingActionMessage(state.message)}</span>
+        <span>
+          {userFacingActionMessage(state.message)}
+          {unknownResolutionError ? (
+            <small role="alert">{unknownResolutionError}</small>
+          ) : null}
+        </span>
+        {onResolveUnknown ? (
+          <button
+            type="button"
+            className={deviceClass('edge-device__unlock-button')}
+            disabled={resolvingUnknown}
+            onClick={onResolveUnknown}
+          >
+            {resolvingUnknown
+              ? '正在等待物理结算…'
+              : '人工确认并解除阻断'}
+          </button>
+        ) : null}
       </div>
       {'taskUuid' in state ? (
         <div className={deviceClass('edge-device__execution')} aria-live="polite">

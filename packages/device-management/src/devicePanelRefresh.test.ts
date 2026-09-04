@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { refreshDevicePanelState } from './devicePanelRefresh'
+import { waitForDeviceDispatchable } from './useDevices'
 
 describe('device panel refresh', () => {
   it('refreshes the visible active Task together with devices and catalog', async () => {
@@ -31,5 +32,22 @@ describe('device panel refresh', () => {
     })
 
     expect(refreshTask).not.toHaveBeenCalled()
+  })
+
+  it('keeps waiting until the confirmed device is dispatchable', async () => {
+    vi.useFakeTimers()
+    try {
+      const refresh = vi.fn()
+        .mockResolvedValueOnce([{ deviceKey: 'robot', dispatchable: false }])
+        .mockResolvedValueOnce([{ deviceKey: 'robot', dispatchable: true }])
+
+      const settled = waitForDeviceDispatchable('robot', refresh)
+      await vi.advanceTimersByTimeAsync(500)
+
+      await expect(settled).resolves.toBe(true)
+      expect(refresh).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

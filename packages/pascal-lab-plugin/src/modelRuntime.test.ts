@@ -22,7 +22,7 @@ describe('Pascal model runtime', () => {
       'rail',
       'rail_rail_carriage'
     )
-    expect(childRotation).toBeUndefined()
+    expect(childRotation).toEqual([0, 0, 0])
     expect(resolveModelFrameRotation('urdf', null, null)).toEqual([
       -Math.PI / 2,
       0,
@@ -46,6 +46,37 @@ describe('Pascal model runtime', () => {
     'keeps a URDF child upright when mounted to a parent URDF link',
     assertNestedUrdfKeepsParentFrame
   )
+
+  it('converts a zero-rotation root STL material from ROS Z-up into Pascal Y-up', () => {
+    expect(resolveModelFrameRotation('stl', null, null)).toEqual([
+      -Math.PI / 2,
+      0,
+      0
+    ])
+  })
+
+  it('converts every root Z-up STL independent of its parent device kind', () => {
+    expect(
+      resolveModelFrameRotation(
+        'stl',
+        'powder-warehouse',
+        '__root__'
+      )
+    ).toEqual([-Math.PI / 2, 0, 0])
+  })
+
+  it('converts a Z-up STL robot tool attached at its parent root', () => {
+    expect(
+      resolveModelFrameRotation(
+        'stl',
+        'robot',
+        '__root__'
+      )
+    ).toEqual([-Math.PI / 2, 0, 0])
+    expect(
+      resolveModelFrameRotation('stl', 'robot', 'grasp_frame')
+    ).toEqual([0, 0, 0])
+  })
 
   it('keeps a single STL material renderable when applying a tint', async () => {
     vi.stubGlobal(

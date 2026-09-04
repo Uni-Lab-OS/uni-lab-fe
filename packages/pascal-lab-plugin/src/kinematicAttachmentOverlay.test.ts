@@ -4,13 +4,16 @@ import { describe, expect, it } from 'vitest'
 
 import { attachmentFramesToRuntimePlacements } from './kinematicAttachmentOverlay'
 
-const aggregate = (id: string): MaterialAggregate => ({
+const aggregate = (
+  id: string,
+  config: Record<string, unknown> = {}
+): MaterialAggregate => ({
   material: {
     id,
     sourceTemplateId: `template-${id}`,
     code: id,
     name: id,
-    config: {},
+    config,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z'
   },
@@ -60,6 +63,61 @@ describe('运动学附着 MaterialPlacement 运行时覆盖', () => {
       parentId: 'tool',
       localPose: { positionMm: [0, 0, 80] }
     })
+  })
+
+  it('xacro 工具只改挂载连杆，不把 RViz mount_to_visual 再叠到模型上', () => {
+    const gripper = aggregate('gripper', {
+      rendering: {
+        model: {
+          path: 'models/device.xacro',
+          format: 'xacro'
+        }
+      }
+    })
+    const placements = attachmentFramesToRuntimePlacements({
+      gripper: frame('gripper', 'robot', {
+        kind: 'tool',
+        anchor: { kind: 'link', linkName: 'szlab_mixer_robot_cr7_tool0' },
+        localPose: {
+          xyzM: [0, 0, 0],
+          orientationXyzw: [0.7071067811865476, -0.7071067811865476, 0, 0]
+        }
+      })
+    }, [aggregate('robot'), gripper])
+    expect(placements.gripper).toMatchObject({
+      parentId: 'robot',
+      anchor: { kind: 'link', linkName: 'szlab_mixer_robot_cr7_tool0' },
+      localPose: {
+        positionMm: [0, 0, 0],
+        rotationDegXYZ: [0, 0, 0]
+      }
+    })
+  })
+
+  it('stl 工具仍使用 attach 四元数，因为模型自身没有 URDF rpy', () => {
+    const tool = aggregate('tool', {
+      rendering: {
+        model: {
+          path: 'models/gripper.stl',
+          format: 'stl'
+        }
+      }
+    })
+    const placements = attachmentFramesToRuntimePlacements({
+      tool: frame('tool', 'robot', {
+        kind: 'tool',
+        anchor: { kind: 'link', linkName: 'tool0' },
+        localPose: {
+          xyzM: [0, 0, 0],
+          orientationXyzw: [0.7071067811865476, -0.7071067811865476, 0, 0]
+        }
+      })
+    }, [aggregate('robot'), tool])
+    expect(placements.tool?.kind).toBe('parent')
+    if (placements.tool?.kind !== 'parent') return
+    expect(placements.tool.localPose.rotationDegXYZ[0]).toBeCloseTo(180)
+    expect(placements.tool.localPose.rotationDegXYZ[1]).toBeCloseTo(0)
+    expect(placements.tool.localPose.rotationDegXYZ[2]).toBeCloseTo(90)
   })
 
   it('stale/uncertain 保持姿态，detached 立即交还当前库存库位', () => {

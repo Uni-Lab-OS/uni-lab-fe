@@ -1265,6 +1265,7 @@ function WorkbenchSurface({
         connection={deviceConnection}
         workspacePath={session.identity?.workspacePath ?? ''}
         runtimeRevision={session.edgeRuntime.phase}
+        sessionRevision={`${session.phase}:${session.identity?.generation ?? ''}:${session.edgeRuntime.phase}`}
         active={viewMode === 'device' || viewMode === 'device-material'
           || viewMode === 'material-device'}
       />

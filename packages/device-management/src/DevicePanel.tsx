@@ -18,7 +18,7 @@ import {
   preferredManagedDevice,
   type ManagedDevice
 } from './deviceCatalog'
-import { useDevices } from './useDevices'
+import { useDevices, waitForDeviceDispatchable } from './useDevices'
 import {
   deviceActionDraftStorageKey,
   projectSelectedDeviceAction,
@@ -104,8 +104,9 @@ export default function DevicePanel({
     useState<WorkflowActionCatalogSnapshot | null>(null)
   const [actionCatalogLoading, setActionCatalogLoading] = useState(false)
   const [actionCatalogError, setActionCatalogError] = useState<string | null>(null)
-  const [runOperation, setRunOperation] =
-    useState<DeviceActionRunOperation | null>(null)
+  const [runOperation, setRunOperation] = useState<DeviceActionRunOperation | null>(null)
+  const [unknownResolution, setUnknownResolution] =
+    useState<{ deviceKey: string; state: 'pending' | 'error'; message: string | null } | null>(null)
   const runAttemptRef = useRef<DeviceActionRunAttempt | null>(null)
   const feedbackByTaskRef = useRef<Map<string, DeviceActionFeedbackState>>(
     new Map()
@@ -265,6 +266,34 @@ export default function DevicePanel({
     },
     [argumentDraftKey]
   )
+
+  /**
+   * 一键提交设备声明的未知终态（UNKNOWN）命令；失败只投影错误，不重复物理动作。
+   * @param device 当前设备；@param commandIds 未知命令身份；@returns 收敛后完成；@throws 内部捕获并呈现。
+   */
+  const handleResolveUnknown = useCallback(async (
+    device: ManagedDevice,
+    commandIds: readonly string[]
+  ) => {
+    setUnknownResolution({ deviceKey: device.deviceKey, state: 'pending', message: null })
+    try {
+      await services.laboratory.resolveUnknownDeviceCommands({
+        localDeviceId: device.deviceKey,
+        deviceCommandIds: commandIds
+      })
+      if (await waitForDeviceDispatchable(device.deviceKey, refresh)) {
+        setUnknownResolution(null)
+        return
+      }
+      throw new Error('人工确认已提交，但 Edge 尚未完成物理结算，请刷新后复核')
+    } catch (error) {
+      setUnknownResolution({
+        deviceKey: device.deviceKey,
+        state: 'error',
+        message: error instanceof Error ? error.message : '人工确认失败，请刷新后重试'
+      })
+    }
+  }, [refresh, services.laboratory])
 
   const handleRequestUnlock = useCallback(
     (device: ManagedDevice, action: DeviceAction) => {
@@ -740,6 +769,8 @@ export default function DevicePanel({
             canForceUnlock={canForceUnlock}
             unlockOperation={unlockOperation}
             onRequestUnlock={handleRequestUnlock}
+            unknownResolution={unknownResolution}
+            onResolveUnknown={(device, ids) => void handleResolveUnknown(device, ids)}
           />
         ) : (
           <div className={deviceClass('device-empty device-empty--detail')}>

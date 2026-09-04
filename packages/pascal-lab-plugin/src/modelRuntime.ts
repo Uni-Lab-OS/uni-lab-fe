@@ -30,21 +30,21 @@ export interface LabModelRuntime {
 /**
  * 返回模型从来源坐标系进入当前场景父坐标系所需的轴旋转。
  *
- * @param format 模型来源格式，用于识别采用 Z-up 的 URDF/Xacro。
+ * @param format 模型来源格式，用于识别采用 Z-up 的 URDF/Xacro/STL。
  * @param parentDeviceId 可空的父设备稳定身份。
  * @param parentLinkName 可空的父连杆名称；命名连杆表示当前父坐标已经是 URDF 坐标。
- * @returns Three.js XYZ 欧拉角；无需额外轴转换时返回 undefined。
+ * @returns Three.js XYZ 欧拉角；无需额外轴转换时显式返回零旋转。
  */
 export function resolveModelFrameRotation(
   format: LabDeviceNode['model']['format'],
   parentDeviceId: string | null,
   parentLinkName: string | null
-): [number, number, number] | undefined {
-  const isZUp = format === 'xacro' || format === 'urdf'
+): [number, number, number] {
+  const isZUp = format === 'xacro' || format === 'urdf' || format === 'stl'
   const parentAlreadyUsesUrdfFrame = Boolean(
     parentDeviceId && parentLinkName && parentLinkName !== '__root__'
   )
-  if (!isZUp || parentAlreadyUsesUrdfFrame) return undefined
+  if (!isZUp || parentAlreadyUsesUrdfFrame) return [0, 0, 0]
   return [-Math.PI / 2, 0, 0]
 }
 

@@ -9,6 +9,7 @@ import {
   type MaterialPlacement
 } from '@unilab/material/domain'
 import type { LabPlacementRef } from './schema'
+import { readMaterialRendering } from './materialRenderingSnapshot'
 import {
   labLinkPoseToThree,
   labPoseToPascal,
@@ -226,8 +227,13 @@ function requiresLiveParenting(
     placement.kind === 'parent'
       ? placement.anchor
       : findSite(aggregate, aggregatesById)?.anchor ?? { kind: 'root' }
+  const parent = aggregatesById[placement.parentId]
+  const parentHasKinematics = Boolean(
+    parent && readMaterialRendering(parent).kinematics
+  )
   return (
     anchor.kind === 'link' ||
+    parentHasKinematics ||
     requiresLiveParenting(placement.parentId, aggregatesById, visiting)
   )
 }

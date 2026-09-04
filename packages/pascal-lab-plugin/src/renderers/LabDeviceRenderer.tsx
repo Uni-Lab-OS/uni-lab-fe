@@ -34,7 +34,11 @@ import {
   loadLabDeviceModel,
   resolveModelFrameRotation
 } from '../modelRuntime'
-import { findLinkObject, syncVirtualAttachPointFrames } from '../mounting'
+import {
+  findChildAttachLink,
+  findLinkObject,
+  syncVirtualAttachPointFrames
+} from '../mounting'
 import {
   applyJointStateToUrdf,
   captureInitialJointState,
@@ -48,9 +52,14 @@ import {
 } from './SiteBoundsRenderer'
 import { PascalModelLabel } from './PascalModelLabel'
 import { PASCAL_SCENE_HTML_Z_INDEX_RANGE } from './htmlLayer'
+import {
+  isRetryableModelLoadError,
+  modelLoadRetryDelayMs
+} from '../modelLoadRetry'
 import { generatedBoundingBoxCenter } from './generatedBoundingBox'
 
 export const MODEL_READY_EVENT = 'unilab:pascal-model-ready'
+const MODEL_LOAD_MAX_ATTEMPTS = 12
 
 const useCustomNodeEvents = useNodeEvents as unknown as (
   node: LabDeviceNode,
@@ -75,26 +84,46 @@ function useLabModel(node: LabDeviceNode): {
     }
 
     let cancelled = false
+    let retryTimer: ReturnType<typeof globalThis.setTimeout> | null = null
+    let attempt = 0
     setLoading(true)
     setError(null)
 
-    void loadLabDeviceModel(node)
-      .then((nextObject) => {
-        if (cancelled) {
-          disposeLabModel(nextObject)
-          return
-        }
-        setObject(nextObject)
-        setLoading(false)
-      })
-      .catch((cause: unknown) => {
-        if (cancelled) return
-        setError(cause instanceof Error ? cause.message : String(cause))
-        setLoading(false)
-      })
+    const load = (): void => {
+      void loadLabDeviceModel(node)
+        .then((nextObject) => {
+          if (cancelled) {
+            disposeLabModel(nextObject)
+            return
+          }
+          setObject(nextObject)
+          setError(null)
+          setLoading(false)
+        })
+        .catch((cause: unknown) => {
+          if (cancelled) return
+          const message = cause instanceof Error ? cause.message : String(cause)
+          if (
+            isRetryableModelLoadError(message) &&
+            attempt < MODEL_LOAD_MAX_ATTEMPTS
+          ) {
+            attempt += 1
+            retryTimer = globalThis.setTimeout(
+              load,
+              modelLoadRetryDelayMs(attempt)
+            )
+            return
+          }
+          setError(message)
+          setLoading(false)
+        })
+    }
+
+    load()
 
     return () => {
       cancelled = true
+      if (retryTimer !== null) globalThis.clearTimeout(retryTimer)
     }
   }, [
     node.id,
@@ -237,10 +266,15 @@ export default function LabDeviceRenderer({
   const isSelected = useViewer((state) =>
     state.selection.selectedIds.includes(node.id as never)
   )
+  const usesDefaultChildAttachLink = Boolean(
+    node.attach.parentDeviceId &&
+    node.attach.parentLinkName === '__root__' &&
+    node.placementRef.anchorKind === 'root'
+  )
   const modelFrameRotation = resolveModelFrameRotation(
     node.model.format,
     node.attach.parentDeviceId,
-    node.attach.parentLinkName
+    usesDefaultChildAttachLink ? 'tool0' : node.attach.parentLinkName
   )
   const isDeck = node.deviceType.includes('deck')
   const deckSurfaceProvidedByParent =
@@ -360,12 +394,9 @@ export default function LabDeviceRenderer({
     }
 
     const parentObject = sceneRegistry.nodes.get(parentDeviceId)
-    const linkObject =
-      parentLinkName === '__root__'
-        ? parentObject
-        : parentObject
-          ? findLinkObject(parentObject, parentLinkName)
-          : null
+    const linkObject = parentObject
+      ? findChildAttachLink(parentObject, parentLinkName)
+      : null
     if (!linkObject) return
 
     if (group.parent !== linkObject) linkObject.add(group)
