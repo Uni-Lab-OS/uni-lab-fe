@@ -13,6 +13,7 @@ import { ExperimentOperationStructure } from './ExperimentOperationStructure'
 import { WorkflowButton } from './WorkflowButton'
 import { WorkflowCanvasStageHeader } from './WorkflowCanvasStageHeader'
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
+import { WorkflowOperationCanvasToolbar } from './WorkflowOperationCanvasToolbar'
 import { PersistentWorkflowOverlays } from './PersistentWorkflowOverlays'
 import { PersistentWorkflowRuntimePanel } from './PersistentWorkflowRuntimePanel'
 import { PersistentWorkflowToolbar } from './PersistentWorkflowToolbar'
@@ -671,6 +672,16 @@ export function PersistentWorkflowAuthoringView({
             ) : undefined}
             tools={(
               <>
+                <WorkflowOperationCanvasToolbar
+                  model={model}
+                  workflowName={workflowName}
+                  visible={definitionKind === 'operation'}
+                  operationStructureOpen={operationStructureOpen}
+                  onToggleOperationStructure={() => {
+                    setOperationStructureOpen((open) => !open)
+                  }}
+                  workflowDagRef={workflowDagRef}
+                />
                 {mode === 'canvas' && !operationLibraryPersistent && (
                   <button
                     type="button"
@@ -685,37 +696,24 @@ export function PersistentWorkflowAuthoringView({
                     {nodePaletteOpen ? '隐藏节点库' : '显示节点库'}
                   </button>
                 )}
-                {mode === 'canvas' && definitionKind === 'operation' && (
-                  <button
+                {definitionKind !== 'operation' && (
+                  <WorkflowButton
                     type="button"
-                    className="persistent-authoring__panel-toggle"
-                    aria-controls="persistent-authoring-operation-structure"
-                    aria-pressed={operationStructureOpen}
-                    onClick={() => {
-                      setOperationStructureOpen((open) => !open)
-                    }}
+                    className="persistent-authoring__io-trigger"
+                    disabled={!graph}
+                    disabledReason="工作流图尚未加载完成"
+                    title={mode === 'code'
+                      ? '当前为只读预览；切换到画布模式后可配置'
+                      : '配置整个工作流的输入、输出与节点参数连接'}
+                    onClick={() => setWorkflowIoOpen(true)}
                   >
-                    {operationStructureOpen ? '隐藏流程' : '显示流程'}
-                  </button>
+                    <span>输入与输出</span>
+                    <strong>
+                      输入 {candidateIo?.input_contract.parameters.length ?? 0}
+                      {' · '}输出 {candidateIo?.output_contract.outputs.length ?? 0}
+                    </strong>
+                  </WorkflowButton>
                 )}
-                <WorkflowButton
-                  type="button"
-                  className="persistent-authoring__io-trigger"
-                  disabled={!graph}
-                  disabledReason="工作流图尚未加载完成"
-                  title={mode === 'code'
-                    ? '当前为只读预览；切换到画布模式后可配置'
-                    : '配置整个工作流的输入、输出与节点参数连接'}
-                  onClick={() => setWorkflowIoOpen(true)}
-                >
-                  <span>{definitionKind === 'operation'
-                    ? '操作输入与输出'
-                    : '输入与输出'}</span>
-                  <strong>
-                    输入 {candidateIo?.input_contract.parameters.length ?? 0}
-                    {' · '}输出 {candidateIo?.output_contract.outputs.length ?? 0}
-                  </strong>
-                </WorkflowButton>
               </>
             )}
           /> : null}

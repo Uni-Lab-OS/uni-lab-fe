@@ -788,21 +788,3 @@
 }
   }
 }
-
-/* 节点名称或说明被卡片截断时，在视口顶层展开完整文案，避免被画布裁剪。 */
-:global(.workflowX6NodeTooltip) {
-  position: fixed;
-  z-index: 1100;
-  width: max-content;
-  max-width: min(320px, calc(100vw - 24px));
-  padding: 8px 10px;
-  color: var(--unilab-color-text);
-  border: 1px solid var(--unilab-color-border-strong);
-  border-radius: var(--unilab-radius-sm);
-  background: var(--unilab-color-surface);
-  box-shadow: var(--unilab-shadow-panel);
-  font: 500 11px/1.5 var(--unilab-font-sans);
-  overflow-wrap: anywhere;
-  pointer-events: none;
-  white-space: pre-line;
-}

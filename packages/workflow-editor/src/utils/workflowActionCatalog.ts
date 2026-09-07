@@ -396,7 +396,7 @@ export function connectTypedActionEdge(
 ): WorkflowAuthoringGraph {
   assertParentBoundaryNode(graph, input.sourceNodeUuid)
   assertParentBoundaryNode(graph, input.targetNodeUuid)
-  const sourceHandle = requireNodeHandle(
+  requireNodeHandle(
     catalog,
     graph,
     input.sourceNodeUuid,
@@ -407,7 +407,6 @@ export function connectTypedActionEdge(
     catalog,
     graph,
     input,
-    sourceHandle.valueSchema,
     null
   )
 }
@@ -454,7 +453,6 @@ export function connectFrameworkSourceToTypedActionEdge(
     catalog,
     graph,
     input,
-    source.valueSchema,
     source.resourceTemplateUuid
   )
 }
@@ -468,7 +466,6 @@ function connectTypedActionTarget(
     targetNodeUuid: string
     targetHandleUuid: string
   },
-  sourceValueSchema: Record<string, unknown>,
   sourceResourceTemplateUuid: string | null
 ): WorkflowAuthoringGraph {
   if (wouldCreateWorkflowCycle(
@@ -500,12 +497,9 @@ function connectTypedActionTarget(
     input.targetHandleUuid,
     'target'
   )
-  if (!isWorkflowValueSchemaAssignable(
-    sourceValueSchema,
-    targetHandle.valueSchema
-  )) {
-    throw new Error('工作流连线两端的 valueSchema 不兼容')
-  }
+  // Connection authoring intentionally does not block on valueSchema
+  // compatibility. Handles are still required to exist and have the correct
+  // direction; the OS/runtime remains the final authority for value typing.
   if (
     sourceResourceTemplateUuid &&
     targetHandle.allowedResourceTemplateUuids?.length &&

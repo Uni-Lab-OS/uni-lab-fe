@@ -46,6 +46,7 @@ export function createWorkflowPrototypeActionMetadata({
       data.kind,
       data.status || 'pending'
     )
+  const detailLines = wrapDetail(detail, 20)
   return {
     ...base,
     attrs: {
@@ -62,6 +63,7 @@ export function createWorkflowPrototypeActionMetadata({
       kind: TEXT_ORIGIN,
       label: TEXT_ORIGIN,
       detail: TEXT_ORIGIN,
+      detailSecondary: TEXT_ORIGIN,
       ...markerProjection.attrs
     },
     markup: [
@@ -89,14 +91,29 @@ export function createWorkflowPrototypeActionMetadata({
         tagName: 'text',
         selector: 'detail',
         className: 'workflow-x6-node__detail',
-        textContent: trimLabel(detail, 20),
+        textContent: detailLines[0],
         attrs: { ...TEXT_ORIGIN, x: 10, y: 51.5 }
       },
+      ...(detailLines[1] ? [{
+        tagName: 'text' as const,
+        selector: 'detailSecondary',
+        className: 'workflow-x6-node__detail',
+        textContent: detailLines[1],
+        attrs: { ...TEXT_ORIGIN, x: 10, y: 61.5 }
+      }] : []),
       ...markerProjection.markup,
       titleMarkup
     ],
     ports
   }
+}
+
+function wrapDetail(value: string, lineLimit: number): [string, string?] {
+  if (value.length <= lineLimit) return [value]
+  if (value.length <= lineLimit * 2) {
+    return [value.slice(0, lineLimit), value.slice(lineLimit)]
+  }
+  return [value.slice(0, lineLimit - 1) + '…', value.slice(lineLimit, lineLimit * 2 - 1) + '…']
 }
 
 function trimLabel(value: string, limit: number): string {

@@ -205,7 +205,7 @@ export function workflowX6NodeMetadata(node: WorkflowX6Node): NodeMetadata {
   return workflowActionMetadata(node)
 }
 
-/** 把布局边投影为 X6 圆角正交边，并恢复 React Flow 的语义线型。 */
+/** 把布局边投影为 X6 平滑曲线，并恢复 React Flow 的语义线型。 */
 export function workflowX6EdgeMetadata(edge: WorkflowX6Edge): EdgeMetadata {
   const visual = workflowX6EdgeVisual(edge)
   const labelColor = String(
@@ -219,8 +219,10 @@ export function workflowX6EdgeMetadata(edge: WorkflowX6Edge): EdgeMetadata {
     target: edge.target
       ? { cell: edge.target, port: WORKFLOW_X6_INPUT_PORT_ID }
       : undefined,
-    router: { name: 'manhattan', args: { padding: 16 } },
-    connector: { name: 'rounded', args: { radius: 8 } },
+    // Keep the edge free of Manhattan vertices so X6's smooth connector can
+    // render a continuous cubic curve between the two aggregate ports.
+    router: { name: 'normal' },
+    connector: { name: 'smooth' },
     labels: typeof edge.label === 'string'
       ? [{
           attrs: {
@@ -742,7 +744,6 @@ function workflowNodeBase(
   const data = node.data
   const className = node.className ?? ''
   const status = data.status || 'pending'
-  const tooltipText = workflowX6NodeTooltipText(node)
   return {
     id: node.id,
     shape: 'rect',
@@ -758,9 +759,6 @@ function workflowNodeBase(
         tabindex: annotation ? -1 : 0,
         role: annotation ? 'note' : 'button',
         'aria-label': workflowNodeAriaLabel(data),
-        'data-workflow-node-overflow': tooltipText ? 'true' : 'false',
-        'data-workflow-node-tooltip': tooltipText || '',
-        ...(tooltipText ? { title: tooltipText } : {}),
         'data-workflow-node-kind': data.kind || 'action',
         'data-workflow-node-visual-kind': visualKind,
         'data-workflow-status': status,

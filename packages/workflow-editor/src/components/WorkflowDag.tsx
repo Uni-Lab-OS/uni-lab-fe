@@ -107,6 +107,8 @@ export interface WorkflowDagHandle {
   viewportCenter(): WorkflowCanvasPoint | null
   viewportSnapshot(): WorkflowCanvasViewport | null
   restoreViewport(viewport: WorkflowCanvasViewport): void
+  zoomIn(): void
+  zoomOut(): void
 }
 
 /**
@@ -177,7 +179,9 @@ function WorkflowDag({
     viewportCenter: () => x6CanvasRef.current?.viewportCenter() ?? null,
     viewportSnapshot: () => x6CanvasRef.current?.viewportSnapshot() ?? null,
     restoreViewport: (viewport) =>
-      x6CanvasRef.current?.restoreViewport(viewport)
+      x6CanvasRef.current?.restoreViewport(viewport),
+    zoomIn: () => x6CanvasRef.current?.zoomIn(),
+    zoomOut: () => x6CanvasRef.current?.zoomOut()
   }), [])
   const [localSelection, setLocalSelection] = useState<{
     nodeUuids: string[]

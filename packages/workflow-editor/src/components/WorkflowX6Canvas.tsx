@@ -10,10 +10,8 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
-  useRef,
-  useState
+  useRef
 } from 'react'
-import { createPortal } from 'react-dom'
 
 import type { WorkflowNodeData } from './WorkflowNodeCard'
 import { isReadyHandle } from './WorkflowNodeCard'
@@ -39,6 +37,8 @@ export type { WorkflowX6Edge, WorkflowX6Node } from './workflowX6Projection'
 
 export interface WorkflowX6CanvasHandle {
   fit(): void
+  zoomIn(): void
+  zoomOut(): void
   revealNode(nodeId: string): void
   clientToCanvasPoint(clientX: number, clientY: number): WorkflowCanvasPoint | null
   viewportCenter(): WorkflowCanvasPoint | null
@@ -104,9 +104,6 @@ export const WorkflowX6Canvas = forwardRef<
     nodes: [],
     edges: []
   })
-  const [nodeTooltip, setNodeTooltip] = useState<WorkflowX6NodeTooltip | null>(
-    null
-  )
   const callbacksRef = useRef({
     canvasMutationEnabled,
     nodePositionMutationEnabled,
@@ -140,6 +137,24 @@ export const WorkflowX6Canvas = forwardRef<
       const scroller = scrollerRef.current
       if (scroller) scroller.zoomToFit({ padding: 56, maxScale: 1.2 })
       else graphRef.current?.zoomToFit({ padding: 56, maxScale: 1.2 })
+    },
+    zoomIn: () => {
+      const scroller = scrollerRef.current
+      const graph = graphRef.current
+      if (scroller) {
+        scroller.zoom(0.1, { maxScale: 1.5 })
+      } else {
+        graph?.zoom(0.1, { maxScale: 1.5 })
+      }
+    },
+    zoomOut: () => {
+      const scroller = scrollerRef.current
+      const graph = graphRef.current
+      if (scroller) {
+        scroller.zoom(-0.1, { minScale: 0.02 })
+      } else {
+        graph?.zoom(-0.1, { minScale: 0.02 })
+      }
     },
     revealNode: (nodeId) => {
       const graph = graphRef.current
@@ -251,8 +266,8 @@ export const WorkflowX6Canvas = forwardRef<
           Boolean(callbacksRef.current.onConnectHandles),
         snap: { radius: 24 },
         highlight: true,
-        router: { name: 'manhattan', args: { padding: 16 } },
-        connector: { name: 'rounded', args: { radius: 8 } },
+        router: { name: 'normal' },
+        connector: { name: 'smooth' },
         createEdge: (): Edge => graph.createEdge(workflowX6EdgeMetadata({
           id: globalThis.crypto.randomUUID(),
           source: '',
@@ -295,7 +310,7 @@ export const WorkflowX6Canvas = forwardRef<
       if (node.getData<WorkflowNodeData>()?.kind === 'reaction_material') return
       callbacksRef.current.onNodeSelect(node.id)
     })
-    // Delegate hover handling to the rendered X6 DOM. Virtual cells are mounted
+    /* Delegate hover handling to the rendered X6 DOM. Virtual cells are mounted
     // asynchronously, so model-level events alone can miss a short-lived node.
     const nodeElementFromTarget = (
       target: EventTarget | null
@@ -350,7 +365,7 @@ export const WorkflowX6Canvas = forwardRef<
     }
     root.addEventListener('pointerover', handleNodePointerOver)
     root.addEventListener('pointermove', handleNodePointerMove)
-    root.addEventListener('pointerout', handleNodePointerOut)
+    root.addEventListener('pointerout', handleNodePointerOut) */
     graph.on('node:contextmenu', ({ e, node }) => {
       e.preventDefault()
       const data = node.getData<WorkflowNodeData>()
@@ -432,10 +447,6 @@ export const WorkflowX6Canvas = forwardRef<
     )
     cleanup = () => {
       resize.disconnect()
-      root.removeEventListener('pointerover', handleNodePointerOver)
-      root.removeEventListener('pointermove', handleNodePointerMove)
-      root.removeEventListener('pointerout', handleNodePointerOut)
-      setNodeTooltip(null)
       graph.dispose()
       graphRef.current = null
       scrollerRef.current = null
@@ -538,61 +549,9 @@ export const WorkflowX6Canvas = forwardRef<
           })}
         >⌗</button>
       </div>
-      {nodeTooltip && typeof document !== 'undefined'
-        ? createPortal(
-            <div
-              className="workflowX6NodeTooltip"
-              role="tooltip"
-              data-node-id={nodeTooltip.nodeId}
-              style={{ left: nodeTooltip.left, top: nodeTooltip.top }}
-            >
-              {nodeTooltip.text}
-            </div>,
-            document.body
-          )
-        : null}
     </div>
   )
 })
-
-interface WorkflowX6NodeTooltip {
-  nodeId: string
-  text: string
-  left: number
-  top: number
-}
-
-const WORKFLOW_X6_TOOLTIP_MAX_WIDTH = 320
-const WORKFLOW_X6_TOOLTIP_MARGIN = 12
-const WORKFLOW_X6_TOOLTIP_OFFSET = 14
-const WORKFLOW_X6_TOOLTIP_ESTIMATED_HEIGHT = 96
-
-/** 将节点提示放在指针附近，并在视口边缘自动翻转。 */
-function workflowX6NodeTooltipPosition(
-  clientX: number,
-  clientY: number
-): Pick<WorkflowX6NodeTooltip, 'left' | 'top'> {
-  const viewportWidth = globalThis.window?.innerWidth ?? 1280
-  const viewportHeight = globalThis.window?.innerHeight ?? 720
-  const tooltipWidth = Math.min(
-    WORKFLOW_X6_TOOLTIP_MAX_WIDTH,
-    Math.max(120, viewportWidth - WORKFLOW_X6_TOOLTIP_MARGIN * 2)
-  )
-  const right = viewportWidth - WORKFLOW_X6_TOOLTIP_MARGIN - tooltipWidth
-  const below = clientY + WORKFLOW_X6_TOOLTIP_OFFSET
-  const above = clientY - WORKFLOW_X6_TOOLTIP_OFFSET -
-    WORKFLOW_X6_TOOLTIP_ESTIMATED_HEIGHT
-  return {
-    left: Math.min(
-      Math.max(clientX + WORKFLOW_X6_TOOLTIP_OFFSET, WORKFLOW_X6_TOOLTIP_MARGIN),
-      right
-    ),
-    top: below + WORKFLOW_X6_TOOLTIP_ESTIMATED_HEIGHT <=
-      viewportHeight - WORKFLOW_X6_TOOLTIP_MARGIN
-      ? below
-      : Math.max(WORKFLOW_X6_TOOLTIP_MARGIN, above)
-  }
-}
 
 interface RankedWorkflowHandleConnection {
   connection: WorkflowHandleConnection

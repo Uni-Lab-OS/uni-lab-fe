@@ -642,7 +642,7 @@ describe('typed Action editor projection', () => {
     )).toThrow(/Schema|类型|兼容|可赋值/i)
   })
 
-  it('checks complete schemas instead of only valueType when connecting', () => {
+  it('allows connections without valueSchema preflight blocking', () => {
     const boundedCatalog = structuredClone(catalog)
     const sourceHandle = boundedCatalog.actionTemplates[1]!.handles[0]!
     const targetHandle = boundedCatalog.actionTemplates[0]!.handles.find(
@@ -653,12 +653,12 @@ describe('typed Action editor projection', () => {
     targetHandle.valueType = 'integer'
     targetHandle.valueSchema = { type: 'integer', minimum: 1 }
 
-    expect(() => connectTypedActionEdge(boundedCatalog, graph, {
+    expect(connectTypedActionEdge(boundedCatalog, graph, {
       sourceNodeUuid,
       sourceHandleUuid: upstreamHandleUuid,
       targetNodeUuid: nodeUuid,
       targetHandleUuid: requiredHandleUuid
-    })).toThrow(/Schema|类型|兼容|可赋值/i)
+    }).edges).toHaveLength(1)
 
     sourceHandle.valueSchema = { type: 'integer', minimum: 2 }
     expect(connectTypedActionEdge(boundedCatalog, graph, {

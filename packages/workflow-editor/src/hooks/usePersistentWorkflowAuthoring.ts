@@ -79,6 +79,7 @@ import {
   generateValidatedWorkflowPython,
   type WorkflowCanvasValidationCache
 } from '../utils/workflowCanvasValidation'
+import { useCanvasMutationSync } from '../utils/workflowCanvasMutationSync'
 
 export type { PersistentWorkflowAuthoringOptions } from './persistentWorkflowAuthoringTypes'
 
@@ -680,6 +681,22 @@ export function usePersistentWorkflowAuthoring({
     workflowUuid
   ])
 
+  const syncCanvasMutation = useCanvasMutationSync({
+    definitionPort,
+    editorReplaceContent: editor.replaceContent,
+    generateCanvasPython,
+    localState,
+    queue,
+    runtime,
+    setAggregate,
+    setCanvasDirty,
+    setError,
+    setGraph,
+    setLocalValidationDiagnostics,
+    setMessage,
+    setRemoteConflict,
+    workflowUuid
+  })
   /**
    * 只对当前内存草稿执行 OS Python 生成与校验，不保存也不应用候选。
    */
@@ -1172,6 +1189,7 @@ export function usePersistentWorkflowAuthoring({
     setSelectedNodeName,
     setSelectedNodeNameDirty,
     setSelectedNodeUuid,
+    syncCanvasMutation,
     ideBridge,
     sourceProjection
   })

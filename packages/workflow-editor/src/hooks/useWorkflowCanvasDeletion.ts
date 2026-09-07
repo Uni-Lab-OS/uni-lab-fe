@@ -15,6 +15,7 @@ interface WorkflowCanvasDeletionOptions {
   onSelectionClear: () => void
   onError: (message: string | null) => void
   onMessage: (message: string) => void
+  onMutation?: (graph: WorkflowAuthoringGraph, reason: 'delete') => void
 }
 
 /**
@@ -30,7 +31,8 @@ export function useWorkflowCanvasDeletion({
   onDirty,
   onSelectionClear,
   onError,
-  onMessage
+  onMessage,
+  onMutation
 }: WorkflowCanvasDeletionOptions): (
   selection: WorkflowGraphDeletionSelection
 ) => void {
@@ -52,6 +54,7 @@ export function useWorkflowCanvasDeletion({
     ) return
     const result = deleteWorkflowGraphElements(graph, selection)
     onGraphChange(result.graph)
+    onMutation?.(result.graph, 'delete')
     onDirty()
     onSelectionClear()
     onError(null)
@@ -66,7 +69,8 @@ export function useWorkflowCanvasDeletion({
     onError,
     onGraphChange,
     onMessage,
-    onSelectionClear
+    onSelectionClear,
+    onMutation
   ])
 }
 

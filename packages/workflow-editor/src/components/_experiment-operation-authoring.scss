@@ -1,6 +1,77 @@
 .workflow {
   // 操作调试在代码模式下也保留左侧操作与节点库，切换代码/画布不会改变工作区结构。
   &:global(.persistent-authoring--operation[data-definition-kind='operation']) {
+    :global(.persistent-authoring__canvas-toolbar-button) {
+      display: inline-flex;
+      min-width: 0;
+      height: 34px;
+      align-items: center;
+      justify-content: center;
+      padding: 0 var(--unilab-space-3);
+      color: var(--unilab-color-text-muted);
+      border: 1px solid var(--unilab-color-border-strong);
+      border-radius: var(--unilab-radius-control);
+      background: var(--unilab-color-surface);
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    :global(.persistent-authoring__canvas-toolbar-button):hover:not(:disabled) {
+      color: var(--unilab-color-primary);
+      border-color: var(--unilab-color-focus);
+      background: var(--unilab-color-primary-soft);
+    }
+
+    :global(.persistent-authoring__canvas-toolbar-button):focus-visible {
+      outline: 2px solid var(--unilab-color-focus);
+      outline-offset: 2px;
+    }
+
+    :global(.persistent-authoring__canvas-toolbar-button):disabled {
+      color: var(--unilab-color-text-muted);
+      cursor: not-allowed;
+      opacity: .55;
+    }
+
+    :global(.persistent-authoring__canvas-toolbar-button).is-primary {
+      color: var(--unilab-color-on-primary, #fff);
+      border-color: var(--unilab-color-primary);
+      background: var(--unilab-color-primary);
+    }
+
+    :global(.persistent-authoring__canvas-toolbar-button).is-primary:hover:not(:disabled) {
+      color: var(--unilab-color-on-primary, #fff);
+      border-color: var(--unilab-color-primary-strong, var(--unilab-color-primary));
+      background: var(--unilab-color-primary-strong, var(--unilab-color-primary));
+    }
+
+    :global(.persistent-authoring__canvas-toolbar-button).is-primary:disabled {
+      color: var(--unilab-color-text-muted);
+      border-color: var(--unilab-color-border-strong);
+      background: var(--unilab-color-surface-subtle);
+    }
+
+    :global(.persistent-authoring__canvas-toolbar-button).is-compact {
+      width: 34px;
+      padding: 0;
+      font-size: 16px;
+    }
+
+    :global(.persistent-authoring__stage-context) {
+      min-width: 0;
+    }
+
+    :global(.persistent-authoring__stage-tools) {
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: thin;
+    }
+
     :global(.persistent-authoring__canvas-body.is-code-mode) {
       grid-template-columns: 236px minmax(420px, 1fr);
       grid-template-areas: 'palette graph';

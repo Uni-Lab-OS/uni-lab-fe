@@ -67,6 +67,11 @@ interface PersistentWorkflowCanvasNodeEditorOptions {
   setSelectedNodeName: Dispatch<SetStateAction<string>>
   setSelectedNodeNameDirty: Dispatch<SetStateAction<boolean>>
   setSelectedNodeUuid: Dispatch<SetStateAction<string | null>>
+  /** 画布节点移动或连线成功后，把最新候选图同步到权威 OS。 */
+  syncCanvasMutation?: (
+    graph: WorkflowAuthoringGraph,
+    reason: 'node_move' | 'connect' | 'create' | 'delete'
+  ) => void
   ideBridge?: WorkflowIdeBridge
   sourceProjection: WorkflowSourceProjection | null
 }
@@ -74,8 +79,8 @@ interface PersistentWorkflowCanvasNodeEditorOptions {
 /**
  * 集中维护工作流（Workflow）画布节点的选择、投影与编辑命令。
  *
- * 该 hook 只修改候选图，不负责保存草稿、应用候选或创建工作流任务
- * （WorkflowTask），从而把画布交互与持久化协议隔离。
+ * 该 hook 负责修改候选图，并在节点移动、连线成功后通知创作会话同步
+ * OS；它不负责应用候选或创建工作流任务（WorkflowTask）。
  *
  * @param options 目录快照、候选图、选中态及受控状态写入器。
  * @returns 节点投影和画布编辑命令。
@@ -103,6 +108,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
     setSelectedNodeName,
     setSelectedNodeNameDirty,
     setSelectedNodeUuid,
+    syncCanvasMutation,
     ideBridge,
     sourceProjection
   } = options
@@ -120,6 +126,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
     },
     onError: setError,
     onMessage: setMessage
+    , onMutation: syncCanvasMutation
   })
 
   /** 选择画布节点，并把代码编辑器定位到对应源码行。 */
@@ -256,6 +263,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
     setSelectedNodeNameDirty(false)
     setError(null)
     setMessage(message)
+    syncCanvasMutation?.(next, 'create')
   }
 
   /** 从操作模板目录添加操作节点（ActionNode）。 */
@@ -520,7 +528,8 @@ export function usePersistentWorkflowCanvasNodeEditor(
       setGraph(next)
       setCanvasDirty(true)
       setError(null)
-      setMessage('已使用真实端口创建连线；保存前将生成完整 Python')
+      setMessage('已使用真实端口创建连线；正在同步 OS…')
+      syncCanvasMutation?.(next, 'connect')
       return { accepted: true }
     } catch (connectError) {
       const reason = errorMessage(connectError)
@@ -536,10 +545,12 @@ export function usePersistentWorkflowCanvasNodeEditor(
   ): void => {
     if (!graph || !canvasMutationEnabled) return
     try {
-      setGraph(updatePersistentAuthoringNodePosition(graph, nodeUuid, position))
+      const next = updatePersistentAuthoringNodePosition(graph, nodeUuid, position)
+      setGraph(next)
       setCanvasDirty(true)
       setError(null)
-      setMessage('节点位置已更新；保存草稿后持久化')
+      setMessage('节点位置已更新；正在同步 OS…')
+      syncCanvasMutation?.(next, 'node_move')
     } catch (moveError) {
       setError(errorMessage(moveError))
     }

@@ -12,8 +12,7 @@ import {
   WORKFLOW_X6_INPUT_PORT_ID,
   WORKFLOW_X6_OUTPUT_PORT_ID,
   workflowX6EdgeMetadata,
-  workflowX6NodeMetadata,
-  workflowX6NodeTooltipText
+  workflowX6NodeMetadata
 } from './workflowX6Projection'
 
 describe('WorkflowX6Canvas scale policy', () => {
@@ -318,8 +317,8 @@ describe('WorkflowX6Canvas scale policy', () => {
     })
   })
 
-  /** 节点文字被原型卡片截断时，完整文案通过悬浮提示暴露。 */
-  it('exposes full copy only for overflowing node text', () => {
+  /** 节点文字保持原型卡片的紧凑尺寸，不注入悬浮提示。 */
+  it('keeps compact action cards free of hover tooltips', () => {
     const overflowing = workflowNode('node-overflow')
     overflowing.data = {
       ...overflowing.data,
@@ -327,34 +326,19 @@ describe('WorkflowX6Canvas scale policy', () => {
       description: '这是一个需要在悬浮提示中完整阅读的动作说明。'
     }
     const metadata = workflowX6NodeMetadata(overflowing)
-    expect(workflowX6NodeTooltipText(overflowing)).toContain(
-      overflowing.data.name
-    )
-    expect(metadata.attrs?.root).toEqual(expect.objectContaining({
-      'data-workflow-node-overflow': 'true',
-      title: expect.stringContaining(overflowing.data.name)
-    }))
-
-    const compact = workflowNode('node-short')
-    const compactMetadata = workflowX6NodeMetadata(compact)
-    expect(workflowX6NodeTooltipText(compact)).toBeNull()
-    expect(compactMetadata.attrs?.root).toEqual(expect.objectContaining({
-      'data-workflow-node-overflow': 'false'
-    }))
-    expect(compactMetadata.attrs?.root).not.toHaveProperty('title')
+    expect(metadata.attrs?.root).not.toHaveProperty('title')
+    expect(metadata.attrs?.root).not.toHaveProperty('data-workflow-node-tooltip')
   })
 
-  /** X6 画布使用视口顶层提示层，避免 SVG/画布裁剪完整文案。 */
-  it('renders an accessible viewport tooltip for overflow nodes', () => {
-    const source = readFileSync(
-      new URL('./WorkflowX6Canvas.tsx', import.meta.url),
-      'utf8'
-    )
-    expect(source).toContain("root.addEventListener('pointerover'")
-    expect(source).toContain("root.addEventListener('pointerout'")
-    expect(source).toContain('workflowX6NodeTooltipPosition')
-    expect(source).toContain('className="workflowX6NodeTooltip"')
-    expect(source).toContain('role="tooltip"')
+  it('does not render a canvas-level hover tooltip', () => {
+    expect(renderToStaticMarkup(<WorkflowX6Canvas
+      nodes={[]}
+      edges={[]}
+      canvasMutationEnabled={false}
+      nodePositionMutationEnabled={false}
+      onNodeSelect={vi.fn()}
+      onSelectionChange={vi.fn()}
+    />)).not.toContain('workflowX6NodeTooltip')
   })
 
   /** 物料来源、机械臂和反应物标注不能退化成同一种白色矩形卡片。 */
@@ -521,6 +505,8 @@ describe('WorkflowX6Canvas scale policy', () => {
       strokeDasharray: '3 8',
       targetMarker: expect.objectContaining({ name: 'block' })
     }))
+    expect(edge.router).toEqual({ name: 'normal' })
+    expect(edge.connector).toEqual({ name: 'smooth' })
     expect(css).toContain('var(--unilab-color-warning)')
     expect(css).toContain('var(--unilab-color-success)')
     expect(css).toContain('var(--unilab-color-paused)')
