@@ -295,7 +295,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
         next,
         nodeUuid,
         name,
-        '已从真实操作模板创建节点；保存前将生成完整 Python'
+        '已从真实操作模板创建节点；正在通过工作区同步保存'
       )
     } catch (createError) {
       setError(errorMessage(createError))
@@ -332,7 +332,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
         next,
         nodeUuid,
         name,
-        '已插入已发布工作流边界；内部展开与映射由 OS 生成'
+        '已插入已发布工作流边界；正在通过工作区同步保存'
       )
     } catch (createError) {
       setError(errorMessage(createError))
@@ -361,7 +361,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
         next,
         nodeUuid,
         name,
-        '已添加物料来源；请在属性面板中完成受控选择'
+        '已添加物料来源；正在通过工作区同步保存'
       )
     } catch (createError) {
       setError(errorMessage(createError))

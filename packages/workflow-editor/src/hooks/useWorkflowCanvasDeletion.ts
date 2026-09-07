@@ -60,7 +60,7 @@ export function useWorkflowCanvasDeletion({
     onError(null)
     onMessage(
       `已删除 ${result.removedNodeUuids.length} 个节点、` +
-      `${result.removedEdgeUuids.length} 条连线；保存前将生成完整 Python`
+      `${result.removedEdgeUuids.length} 条连线；正在通过工作区同步保存`
     )
   }, [
     enabled,
