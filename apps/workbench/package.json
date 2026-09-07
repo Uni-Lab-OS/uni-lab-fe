@@ -89,7 +89,7 @@
     "desktop:welcome": "pnpm build:desktop && pnpm start:desktop-welcome",
     "start": "node scripts/start-workbench.mjs",
     "start:desktop": "node scripts/start-workbench.mjs --desktop",
-    "start:desktop-welcome": "electron .",
+    "start:desktop-welcome": "node scripts/start-desktop-welcome.mjs",
     "start:desktop-remote": "node scripts/start-workbench.mjs --desktop --remote",
     "start:remote": "node scripts/start-workbench.mjs --remote",
     "start:theia-only": "theia start \"${THEIA_WORKSPACE:-../..}\" --hostname 127.0.0.1 --port ${THEIA_PORT:-3100} --plugins=local-dir:plugins",
