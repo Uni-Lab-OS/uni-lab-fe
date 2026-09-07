@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import {
   createServer as createHttpServer,
   request as requestHttp,
@@ -104,7 +104,9 @@ export async function startPersistentAuthoringOs(
   const python =
     process.env.UNILAB_OS_PYTHON ||
     '/home/changjunhan/.micromamba/envs/unilab/bin/python'
-  const directory = mkdtempSync(join(tmpdir(), 'unilab-authoring-os-'))
+  const directory = realpathSync(
+    mkdtempSync(join(tmpdir(), 'unilab-authoring-os-'))
+  )
   const workingDirectory = join(directory, 'unilabos_data')
   const editableRoot = join(directory, 'editable')
   const sourcePath = join(
@@ -254,15 +256,24 @@ from pathlib import Path
 from tests.workflow.test_authoring_engine import (
     ANALYZE_NODE_UUID,
     PREPARE_NODE_UUID,
-    RESOURCE_TEMPLATE_UUID,
     WORKFLOW_UUID,
-    _catalog_imports,
+    _engine,
+    _handle,
     _source,
+    _template,
 )
 from unilabos.config.config import BasicConfig
-from unilabos.workflow.catalog import CatalogAuthority, TemplateCatalog
+from unilabos.workflow.authoring_engine import WorkflowAuthoringEngine
+from unilabos.workflow.authoring_kernel import AuthoringCatalogSnapshot
 from unilabos.workflow.service import WorkflowService
 from unilabos.workflow.store import WorkflowStore
+
+RESOURCE_TEMPLATE_UUID = "31000000-0000-4000-8000-000000000001"
+FINALIZE_TEMPLATE_UUID = "30000000-0000-4000-8000-000000000003"
+FINALIZE_REPORT_TARGET_UUID = "42000000-0000-4000-8000-000000000001"
+FINALIZE_REPORT_SOURCE_UUID = "42000000-0000-4000-8000-000000000002"
+FINALIZE_READY_TARGET_UUID = "42000000-0000-4000-8000-000000000003"
+FINALIZE_READY_SOURCE_UUID = "42000000-0000-4000-8000-000000000004"
 
 working_dir = Path(sys.argv[1])
 editable_root = Path(sys.argv[2])
@@ -285,29 +296,62 @@ composite_invocation_uuid = "${COMPOSITE_INVOCATION_UUID}"
 composite_child_source_path = package_root / "workflows" / "composite_child.py"
 composite_parent_source_path = package_root / "workflows" / "composite_parent.py"
 
-def fixture_catalog_imports():
-    imports = _catalog_imports()
-    if not composite_fixture:
-        return imports
-    from unilabos.workflow.catalog import NodeTemplateImport
-    from unilabos.workflow.handle_projection import structural_ready_handle
-    return tuple(
-        NodeTemplateImport(
-            template=dict(item.template),
-            handles=tuple(
-                structural_ready_handle(str(handle["io_type"]))
-                if handle.get("handle_key") == "ready"
-                else dict(handle)
-                for handle in item.handles
+def fixture_authoring_compiler():
+    base_catalog = _engine()._catalog
+    finalize, finalize_handles = _template(
+        FINALIZE_TEMPLATE_UUID,
+        name="finalize",
+        handles=[
+            _handle(
+                FINALIZE_REPORT_TARGET_UUID,
+                node_template_uuid=FINALIZE_TEMPLATE_UUID,
+                key="report",
+                io_type="target",
+                value_type="string",
             ),
+            _handle(
+                FINALIZE_REPORT_SOURCE_UUID,
+                node_template_uuid=FINALIZE_TEMPLATE_UUID,
+                key="report",
+                io_type="source",
+                value_type="string",
+            ),
+            _handle(
+                FINALIZE_READY_TARGET_UUID,
+                node_template_uuid=FINALIZE_TEMPLATE_UUID,
+                key="ready",
+                io_type="target",
+                value_type="any",
+                data_source="dependency",
+            ),
+            _handle(
+                FINALIZE_READY_SOURCE_UUID,
+                node_template_uuid=FINALIZE_TEMPLATE_UUID,
+                key="ready",
+                io_type="source",
+                value_type="any",
+                data_source="dependency",
+            ),
+        ],
+    )
+    node_templates = [
+        action.detached_template() for action in base_catalog.actions
+    ] + [finalize]
+    handle_templates = [
+        handle
+        for action in base_catalog.actions
+        for handle in action.detached_handles()
+    ] + finalize_handles
+    return WorkflowAuthoringEngine(
+        catalog=AuthoringCatalogSnapshot.from_entities(
+            node_templates,
+            handle_templates,
         )
-        for item in imports
     )
 
 source_path.parent.mkdir(parents=True, exist_ok=True)
 source_path.write_text(_source(), encoding="utf-8")
-second_source = _source(workflow_uuid=second_workflow_uuid)
-second_source = second_source.replace(
+second_source = _source().replace(WORKFLOW_UUID, second_workflow_uuid).replace(
     PREPARE_NODE_UUID,
     "20000000-0000-4000-8000-000000000011",
 ).replace(
@@ -317,13 +361,13 @@ second_source = second_source.replace(
 second_source_path.write_text(second_source, encoding="utf-8")
 runtime_source_path.write_text(
     f'''from lab.devices import Reactor
-from unilabos.workflow.authoring import device, workflow_definition, workflow_output
+from unilabos.workflow.authoring import device, workflow, workflow_output
 
 
 reactor: Reactor = device()
 
 
-@workflow_definition(
+@workflow(
     workflow_uuid="{runtime_workflow_uuid}",
     displayname="Runtime control demo",
     description="Two catalog-backed nodes without external input.",
@@ -456,8 +500,7 @@ editable_root.mkdir(parents=True, exist_ok=True)
     encoding="utf-8",
 )
 working_dir.mkdir(parents=True, exist_ok=True)
-authority = CatalogAuthority(authority_id="fe-d117-e2e-local", kind="local")
-database_path = working_dir / "workflow.db"
+database_path = working_dir / "workflow_history.db"
 initialize_store = not database_path.exists()
 store = WorkflowStore(database_path)
 try:
@@ -513,12 +556,6 @@ try:
                 meta_data={},
                 workflow_uuid=composite_parent_workflow_uuid,
             )
-        imports = fixture_catalog_imports()
-        for item in imports:
-            item.template.pop("uuid", None)
-            for handle in item.handles:
-                handle.pop("uuid", None)
-        TemplateCatalog(store).replace(authority, imports)
 finally:
     store.close()
 
@@ -573,46 +610,16 @@ if composite_fixture:
         "workflow_package_catalogs": (package_catalog,),
     }
 
-if initialize_store:
-    from unilabos.app.scheduler.inventory import (
-        InventoryService,
-        ResourceTemplateIdentity,
-    )
-
-    seed_inventory = InventoryService.open(
-        working_dir=working_dir,
-        resource_templates={
-            RESOURCE_TEMPLATE_UUID: ResourceTemplateIdentity(
-                uuid=RESOURCE_TEMPLATE_UUID,
-                material_class="lab.resources:plate_96",
-            ),
-        },
-    )
-    try:
-        seed_inventory.create_material(
-            material_uuid=resource_slot_material_uuid,
-            resource_template_uuid=RESOURCE_TEMPLATE_UUID,
-            barcode="I1-RESOURCE-SLOT-005",
-            name="I1 ResourceSlot sample",
-        )
-    finally:
-        seed_inventory.close()
-
 BasicConfig.working_dir = str(working_dir)
-BasicConfig.workflow_graph_authority = authority
 BasicConfig.workflow_editable_package_roots = (editable_root,)
 
-from unilabos.app.scheduler.integration import setup_edge_scheduler
-from unilabos.workflow.composition import (
-    compose_workflow_runtime,
-    get_workflow_inventory_service,
-)
+from unilabos.workflow.composition import compose_workflow_runtime
 
+authoring_compiler = fixture_authoring_compiler()
 workflow_service = compose_workflow_runtime(
     BasicConfig.working_dir,
-    authority=authority,
+    compiler=authoring_compiler,
     editable_package_roots=BasicConfig.workflow_editable_package_roots,
-    **runtime_catalog_options,
 )
 if composite_fixture:
     def apply_fixture(workflow_uuid, source_path):
@@ -648,22 +655,43 @@ if composite_fixture:
     apply_fixture(composite_child_workflow_uuid, composite_child_source_path)
     apply_fixture(composite_parent_workflow_uuid, composite_parent_source_path)
 
-inventory_service = get_workflow_inventory_service()
-if inventory_service is None:
-    raise RuntimeError("Workflow composition did not expose InventoryService")
-setup_edge_scheduler(
-    inventory_service=inventory_service,
-    workflow_tasks=workflow_service,
-    device_state_db_path="off",
-    workflow_history_db_path="off",
+from unilabos.app.workflow_api import create_workflow_app
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+import uvicorn
+
+class FixtureTemplateSnapshotProvider:
+    def snapshot(self):
+        return authoring_compiler._catalog
+
+workflow_app = create_workflow_app(
+    workflow_service,
+    template_snapshot_provider=FixtureTemplateSnapshotProvider(),
+    authoring_transform=authoring_compiler,
 )
 
-from unilabos.app.web.server import start_server
-start_server(
+@workflow_app.get("/api/v1/health")
+def health():
+    return {"status": "ok"}
+
+@workflow_app.get("/api/v1/materials/graph")
+def material_graph():
+    return {"code": 0, "data": {"nodes": []}}
+
+@workflow_app.get("/api/v1/monitor/events")
+def material_events():
+    return Response("retry: 60000\n\n", media_type="text/event-stream")
+
+workflow_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+uvicorn.run(
+    workflow_app,
     host="127.0.0.1",
     port=port,
-    open_browser=False,
-    **runtime_catalog_options,
 )
 `
 
@@ -678,7 +706,7 @@ from unilabos.workflow.store import WorkflowStore
 
 working_dir = Path(sys.argv[1])
 payload = json.loads(sys.argv[2])
-store = WorkflowStore(working_dir / "workflow.db")
+store = WorkflowStore(working_dir / "workflow_history.db")
 try:
     coordinator = WorkflowRuntimeCoordinator(store)
     result = None
