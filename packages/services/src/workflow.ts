@@ -286,21 +286,28 @@ export function createWorkflowRuntime(
           name: body.name,
           description: body.description,
           tags: body.tags,
-          meta_data: body.meta_data ?? {}
+          meta_data: body.meta_data ?? {},
+          ...(body.meta_data?.unilab &&
+            typeof body.meta_data.unilab === 'object' &&
+            (body.meta_data.unilab as Record<string, unknown>).definition_kind === 'operation'
+            ? { workflow_type: 'experiment_operation' }
+            : {})
         })
       }
     ),
     createExperimentOperation: (body: ExperimentOperationCreateRequest) => {
       requireWorkflowCapability('workflow.authoring')
       return authoringRequest(
-        '/api/v1/workflows/operations',
+        '/api/v1/workflows',
         {
           method: 'POST',
           headers: jsonHeaders(),
           body: JSON.stringify({
             name: body.name,
-            categories: body.categories,
-            description: body.description
+            tags: body.categories,
+            description: body.description,
+            workflow_type: 'experiment_operation',
+            meta_data: { unilab: { definition_kind: 'operation' } }
           })
         }
       )

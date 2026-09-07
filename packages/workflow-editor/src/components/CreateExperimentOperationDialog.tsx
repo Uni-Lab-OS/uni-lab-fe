@@ -199,8 +199,8 @@ export function CreateExperimentOperationDialog({
         <p className="experiment-operation__create-boundary-note">
           <span className="codicon codicon-info" aria-hidden="true" />
           <span>
-            创建成功后进入空白流程画布；Python 文件与 OS 数据库任一写入失败，
-            都不会创建前端临时定义。
+            创建成功后进入空白流程画布；Python 文件或 OS 数据库写入失败时，
+            创建操作也会失败。
           </span>
         </p>
         {error ? (

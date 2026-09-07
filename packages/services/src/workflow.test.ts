@@ -209,13 +209,15 @@ describe('workflow authoring adapters', () => {
       unilab: { definition_kind: 'operation' }
     })
     expect(request).toHaveBeenCalledWith(
-      '/api/v1/workflows/operations',
+      '/api/v1/workflows',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
           name: '称量并投料',
-          categories: ['样品前处理', '固体处理'],
-          description: '称量固体并加入目标容器。'
+          tags: ['样品前处理', '固体处理'],
+          description: '称量固体并加入目标容器。',
+          workflow_type: 'experiment_operation',
+          meta_data: { unilab: { definition_kind: 'operation' } }
         })
       })
     )

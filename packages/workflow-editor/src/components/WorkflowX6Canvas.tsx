@@ -268,6 +268,9 @@ export const WorkflowX6Canvas = forwardRef<
         highlight: true,
         router: { name: 'normal' },
         connector: { name: 'smooth' },
+        // Connect directly to the port anchor so the curve meets the
+        // visible handle instead of stopping at the node boundary.
+        connectionPoint: { name: 'anchor' },
         createEdge: (): Edge => graph.createEdge(workflowX6EdgeMetadata({
           id: globalThis.crypto.randomUUID(),
           source: '',

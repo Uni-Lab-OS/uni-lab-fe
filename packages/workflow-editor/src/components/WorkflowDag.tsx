@@ -665,7 +665,7 @@ function WorkflowDag({
         onToggleDisabled={onToggleDisabled}
         onToggleGroup={toggleGroup}
       />
-      <div className="workflow-x6__toolbar-panel">
+      {(canvasMutationEnabled || materialRoleOptions.length > 0) && <div className="workflow-x6__toolbar-panel">
           <div
             className="workflow-runtime__layout-tools"
             role="toolbar"
@@ -676,7 +676,7 @@ function WorkflowDag({
               role="group"
               aria-label="视图与选择"
             >
-              <WorkflowButton
+              {canvasMutationEnabled && <WorkflowButton
                 type="button"
                 className="workflow-runtime__canvas-button workflow-runtime__fit-view"
                 aria-label="适应完整工作流视图"
@@ -688,8 +688,8 @@ function WorkflowDag({
                   <path d="M7 3.5H3.5V7M13 3.5h3.5V7M7 16.5H3.5V13M13 16.5h3.5V13" />
                 </svg>
                 <span>适应视图</span>
-              </WorkflowButton>
-              {onDeleteRequest && (
+              </WorkflowButton>}
+              {canvasMutationEnabled && onDeleteRequest && (
                 <WorkflowButton
                   type="button"
                   className="workflow-runtime__canvas-button workflow-runtime__delete-selection"
@@ -733,7 +733,7 @@ function WorkflowDag({
                   onChange={setSupportingMaterialPresentation}
                 />
               )}
-              <label className="workflow-runtime__layout-strategy-field">
+              {canvasMutationEnabled && <label className="workflow-runtime__layout-strategy-field">
                 <span aria-hidden="true">布局</span>
                 <select
                   className="workflow-runtime__layout-strategy"
@@ -747,7 +747,7 @@ function WorkflowDag({
                     </option>
                   ))}
                 </select>
-              </label>
+              </label>}
               {layoutStrategy === 'material-swimlanes' && (
                 <div
                   className="workflow-runtime__swimlane-direction"
@@ -810,7 +810,7 @@ function WorkflowDag({
               )}
             </div>
           </div>
-      </div>
+      </div>}
     </div>
   )
 })

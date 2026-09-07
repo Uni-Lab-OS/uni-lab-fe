@@ -451,6 +451,21 @@ describe('WorkflowDag canvas controls', () => {
     expect(markup).toMatch(/aria-pressed="false"[^>]*>完整支线</)
   })
 
+  it('hides canvas-only controls in read-only task details', () => {
+    const markup = renderToStaticMarkup(
+      <WorkflowDag
+        nodes={[workflowNode]}
+        links={[]}
+        onNodeSelect={vi.fn()}
+        onDeleteRequest={vi.fn()}
+      />
+    )
+
+    expect(markup).not.toContain('适应视图')
+    expect(markup).not.toContain('删除选中项')
+    expect(markup).not.toContain('aria-label="布局策略"')
+  })
+
   /** 证明交互态与窄视口规则不依赖运行时内联样式。 */
   it('defines primary, danger, focus and compact responsive states', () => {
     const stylesheet = readFileSync(

@@ -223,6 +223,8 @@ export function workflowX6EdgeMetadata(edge: WorkflowX6Edge): EdgeMetadata {
     // render a continuous cubic curve between the two aggregate ports.
     router: { name: 'normal' },
     connector: { name: 'smooth' },
+    // Use the port anchor (the visible handle center) as the endpoint.
+    connectionPoint: { name: 'anchor' },
     labels: typeof edge.label === 'string'
       ? [{
           attrs: {

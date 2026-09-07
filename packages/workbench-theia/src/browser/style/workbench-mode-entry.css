@@ -570,6 +570,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
@@ -578,6 +579,10 @@
 
 .unilab-mode-entry__support-actions > button,
 .unilab-mode-entry__return {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: 32px;
   padding: 0 10px;
   color: #49657f;
