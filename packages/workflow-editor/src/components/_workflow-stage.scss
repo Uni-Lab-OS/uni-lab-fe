@@ -461,6 +461,19 @@
   white-space: nowrap;
 }
 
+.workflow :global(.wf-node__description) {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--unilab-color-text-muted);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 14px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
 .workflow :global(.wf-node__identity) {
   display: flex;
   min-width: 0;
@@ -594,11 +607,17 @@
   display: inline-flex;
   min-width: 0;
   max-width: 116px;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
   align-self: stretch;
   flex: 1 1 92px;
   padding: 0 10px 0 6px;
   border-right: 1px solid var(--unilab-color-border);
+}
+
+.workflow :global(.wf-node--action-strip) :global(.wf-node__description) {
+  -webkit-line-clamp: 2;
 }
 
 .workflow :global(.wf-node--action-strip) :global(.wf-node__id) {

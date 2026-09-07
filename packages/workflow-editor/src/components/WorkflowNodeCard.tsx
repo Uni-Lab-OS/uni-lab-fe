@@ -221,6 +221,14 @@ export default function WorkflowNodeCard({
           >
             {data.name || data.id}
           </span>
+          {data.description?.trim() && (
+            <span
+              className="wf-node__description"
+              title={data.description.trim()}
+            >
+              {data.description.trim()}
+            </span>
+          )}
         </span>
         {renderMaterialPorts(
           materialPorts,
