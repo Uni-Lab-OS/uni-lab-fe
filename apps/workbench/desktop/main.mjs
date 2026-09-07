@@ -131,20 +131,25 @@ async function startPackagedWorkbench() {
       resources.agentPayload
     )
   }
-  await Promise.all([
+  const requiredResources = [
     access(resources.backendMain),
     access(resources.desktopMain),
     access(resources.plugins),
     access(resources.nodeBinary),
     access(resources.welcomePage),
+    access(resources.workspaceSkills)
+  ]
+  if (app.isPackaged || resources.agentAsar) {
     // Electron treats any `.asar` path as a virtual archive path. Checking the
     // archive file itself through the patched fs therefore returns ENOENT even
     // when the physical package exists; original-fs bypasses that interception.
-    originalFsPromises.access(resources.agentAsar),
-    ...(app.isPackaged ? [access(resources.agentPayload)] : []),
-    access(resources.agentCore),
-    access(resources.workspaceSkills)
-  ])
+    requiredResources.push(originalFsPromises.access(resources.agentAsar))
+    requiredResources.push(access(resources.agentCore))
+  }
+  if (app.isPackaged) {
+    requiredResources.push(access(resources.agentPayload))
+  }
+  await Promise.all(requiredResources)
   if (process.env['UNILAB_WORKBENCH_PACKAGE_SMOKE'] === '1') {
     console.log('UNILAB_WORKBENCH_PACKAGE_SMOKE_OK')
     app.exit(0)
@@ -196,8 +201,7 @@ function resolvePackagedResources() {
   if (!app.isPackaged) {
     const workbench = app.getAppPath()
     const repositoryRoot = path.resolve(workbench, '..', '..')
-    const agentRuntime = process.env['UNILAB_AIONUI_APP']
-      ?? '/Applications/AionUi.app'
+    const agentRuntime = process.env['UNILAB_AIONUI_APP']?.trim() ?? ''
     const agentResources = agentRuntime.endsWith('.app')
       ? path.join(agentRuntime, 'Contents', 'Resources')
       : agentRuntime
@@ -228,16 +232,20 @@ function resolvePackagedResources() {
         'icon.png'
       ),
       agentRuntime,
-      agentPayload: path.join(agentResources, 'payload.json'),
+      agentPayload: agentResources
+        ? path.join(agentResources, 'payload.json')
+        : '',
       workspaceSkills: process.env['UNILAB_WORKBENCH_SKILLS']
         ?? path.join(workbench, 'resources', 'workspace-skills'),
-      agentAsar: path.join(agentResources, 'app.asar'),
-      agentCore: path.join(
-        agentResources,
-        'bundled-aioncore',
-        agentTarget.directory,
-        agentTarget.executable
-      )
+      agentAsar: agentResources ? path.join(agentResources, 'app.asar') : '',
+      agentCore: agentResources
+        ? path.join(
+          agentResources,
+          'bundled-aioncore',
+          agentTarget.directory,
+          agentTarget.executable
+        )
+        : ''
     }
   }
   const root = process.resourcesPath
