@@ -1,3 +1,4 @@
+import type { FileService } from '@theia/filesystem/lib/browser/file-service'
 import {
   inspectMaterialSceneReadiness,
   MaterialCapabilityNotice,
@@ -52,6 +53,7 @@ import {
 import type { WorkbenchSessionClientImpl } from './workbench-session-client'
 import { useWorkbenchMaterialGraphLoad } from './workbench-material-graph-load'
 import { resolveWorkbenchModelUrl } from './workbench-model-url'
+import { WorkbenchSpatialShadowPanel } from './workbench-spatial-shadow-panel'
 import {
   WorkbenchMaterialSceneState,
   WorkbenchMaterialShapeFallbackNotice
@@ -73,6 +75,8 @@ export function WorkbenchMaterialViewport({
   runtimeScopeId,
   sourceIdentity,
   sessionClient,
+  fileService,
+  workspacePath,
   runtimeProjection,
   selectedWorkflowNode,
   cameraFocus,
@@ -89,6 +93,8 @@ export function WorkbenchMaterialViewport({
   runtimeScopeId: string
   sourceIdentity: MaterialSceneSourceIdentity
   sessionClient: WorkbenchSessionClientImpl
+  fileService: FileService
+  workspacePath: string
   runtimeProjection: WorkflowPanelRuntimeProjection | null
   selectedWorkflowNode: string | null
   cameraFocus?: 'scene' | 'kinematics'
@@ -425,6 +431,10 @@ export function WorkbenchMaterialViewport({
       className="unilab-workbench-material-scene"
       data-material-renderer-ready="true"
     >
+      <WorkbenchSpatialShadowPanel
+        fileService={fileService}
+        workspacePath={workspacePath}
+      />
       {shapeLibraryState === 'unavailable' && (
         displayedViewState.mode === '2.5d' || displayedViewState.mode === 'split'
       ) ? (

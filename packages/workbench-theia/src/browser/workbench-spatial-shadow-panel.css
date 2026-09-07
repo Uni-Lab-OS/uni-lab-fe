@@ -1,0 +1,46 @@
+.unilab-workbench-spatial-shadow-panel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  display: flex;
+  max-width: min(620px, calc(100% - 24px));
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.unilab-workbench-spatial-shadow-panel__toggle {
+  pointer-events: auto;
+  border: 1px solid var(--unilab-color-border, #cbd5e1);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--unilab-color-text, #0f172a);
+  background: var(--unilab-color-canvas, #fff);
+  box-shadow: 0 2px 8px rgb(15 23 42 / 12%);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.unilab-workbench-spatial-shadow-panel__toggle:hover {
+  background: var(--unilab-color-surface, #f8fafc);
+}
+
+.unilab-workbench-spatial-shadow-panel__content {
+  width: min(620px, calc(100vw - 48px));
+  max-height: min(78vh, 760px);
+  overflow: auto;
+  pointer-events: auto;
+  border: 1px solid var(--unilab-color-border, #cbd5e1);
+  border-radius: 8px;
+  background: var(--unilab-color-canvas, #fff);
+  box-shadow: 0 8px 28px rgb(15 23 42 / 20%);
+}
+
+.unilab-workbench-spatial-shadow-panel__content .spatial-diagnostics {
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+}

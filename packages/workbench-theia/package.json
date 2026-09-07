@@ -29,6 +29,7 @@
     "@unilab/robot-workstation": "workspace:*",
     "@unilab/scene-runtime": "workspace:*",
     "@unilab/services": "workspace:*",
+    "@unilab/spatial-diagnostics": "workspace:*",
     "@unilab/workbench-session": "workspace:*",
     "@unilab/workflow-editor": "workspace:*",
     "@unilab/workflow-ide-bridge": "workspace:*",

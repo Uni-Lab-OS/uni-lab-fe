@@ -886,6 +886,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         ideBridge={this.ideBridge}
         session={this.sessionSnapshot}
         sessionClient={this.workbenchSessionClient}
+        fileService={this.fileService}
         recoveryRevision={this.recoveryRevision}
         viewMode={this.viewState.currentMode}
         switchBlockedReason={this.lastReportedUnsavedChanges
@@ -938,6 +939,7 @@ function WorkbenchSurface({
   ideBridge,
   session,
   sessionClient,
+  fileService,
   recoveryRevision,
   viewMode,
   switchBlockedReason,
@@ -971,6 +973,7 @@ function WorkbenchSurface({
   ideBridge: WorkflowIdeBridge
   session: WorkbenchSessionSnapshot
   sessionClient: WorkbenchSessionClientImpl
+  fileService: FileService
   recoveryRevision: number
   viewMode: WorkbenchViewMode
   switchBlockedReason: string | null
@@ -1228,6 +1231,8 @@ function WorkbenchSurface({
                 services.capabilities.realtime.subscribeKinematicAttachment
               }
               runtimeScopeId={selectedTarget.sourceId}
+              fileService={fileService}
+              workspacePath={session.identity?.workspacePath ?? ''}
               sourceIdentity={{
                 sourceId: selectedTarget.sourceId,
                 authority: connectionMode,

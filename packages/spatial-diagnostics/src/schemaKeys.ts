@@ -1,0 +1,27 @@
+/** 空间影子快照（Spatial Shadow Snapshot）顶层字段白名单。 */
+export const SPATIAL_SHADOW_TOP_LEVEL_KEYS = [
+  'action_contract_id',
+  'coverage',
+  'continuous_analysis',
+  'decision',
+  'effect',
+  'environment_collision',
+  'environment_entities',
+  'limitations',
+  'mode',
+  'not_workcell_activation',
+  'partial_world_aabb',
+  'playback',
+  'qualification',
+  'registration',
+  'reason_codes',
+  'sample_id',
+  'schema',
+  'segments',
+  'snapshot_digest',
+  'source',
+  'states',
+  'summary',
+  'validation',
+  'world_frame'
+] as const
