@@ -6,6 +6,7 @@ import {
   createWorkflowRuntime,
   type WorkflowRevision
 } from './workflow'
+import { workflowDefinitionKind } from './workflowAuthoringContracts'
 
 const revision: WorkflowRevision = {
   schema_version: '2',
@@ -221,6 +222,17 @@ describe('workflow authoring adapters', () => {
         })
       })
     )
+  })
+
+  it('优先使用 Backend 正式 workflow_type 保持刷新后的实验操作分类', async () => {
+    expect(workflowDefinitionKind({
+      workflow_type: 'experiment_operation',
+      meta_data: {}
+    })).toBe('operation')
+    expect(workflowDefinitionKind({
+      workflow_type: 'normal',
+      meta_data: { unilab: { definition_kind: 'operation' } }
+    })).toBe('workflow')
   })
 })
 

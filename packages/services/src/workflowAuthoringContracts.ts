@@ -58,6 +58,8 @@ export interface WorkflowSummary {
   name: string
   tags: string[]
   revision: number
+  /** Backend 正式工作流类型；旧服务未返回时由 meta_data 兼容推断。 */
+  workflow_type?: 'normal' | 'experiment_operation'
   description?: string
   definition_status?: 'empty' | 'configured'
 }
@@ -192,8 +194,10 @@ export interface WorkflowAuthoringGraph {
 
 /** Read the OS-owned definition kind while keeping pre-contract workflows valid. */
 export function workflowDefinitionKind(
-  value: { meta_data?: unknown }
+  value: { meta_data?: unknown; workflow_type?: unknown }
 ): WorkflowDefinitionKind {
+  if (value.workflow_type === 'experiment_operation') return 'operation'
+  if (value.workflow_type === 'normal') return 'workflow'
   const metaData = recordOrNull(value.meta_data)
   const unilab = recordOrNull(metaData?.unilab)
   const kind = unilab?.definition_kind

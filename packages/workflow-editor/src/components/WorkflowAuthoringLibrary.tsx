@@ -122,9 +122,7 @@ export function WorkflowAuthoringLibrary({
             <span aria-hidden="true">◇</span>
             <span>
               <strong>{workflow.name}</strong>
-              <small>v{workflow.revision} · {workflow.definition_status === 'empty'
-                ? '待编排'
-                : '已配置'}</small>
+              <small>{workflow.description?.trim() || '暂无描述'}</small>
             </span>
             {active && <i>当前</i>}
           </WorkflowButton>
