@@ -501,7 +501,7 @@ function registerWorkflowTaskControllerTests(): void {
       })),
       getWorkflowTask: vi.fn(async () => initial),
       listWorkflowTaskJobs: vi.fn(async () => []),
-      commandWorkflowTask: vi.fn(async () => ({
+      commandWorkflowTask: vi.fn(async (): Promise<WorkflowTaskCommand> => ({
         ...workflowCommand(initial.uuid),
         type: 'cancel',
         status: 'rejected',
