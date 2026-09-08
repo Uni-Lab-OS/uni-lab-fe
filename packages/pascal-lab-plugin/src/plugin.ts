@@ -134,6 +134,7 @@ const labDeviceDefinition = {
     displayName: '实验设备',
     deviceType: 'custom',
     templateUuid: '',
+    sourceNodeUuid: null,
     rosDeviceName: '',
     children: [],
     position: [0, 0, 0],

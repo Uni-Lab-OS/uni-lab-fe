@@ -96,6 +96,7 @@ export const LabDeviceNodeSchema = BaseNode.extend({
   showLabel: z.boolean().default(true),
   deviceType: z.string().default('custom'),
   templateUuid: z.string().default(''),
+  sourceNodeUuid: z.string().nullable().default(null),
   rosDeviceName: z.string().default(''),
   children: z.array(z.string()).default([]),
   position: Vector3Schema.default([0, 0, 0]),

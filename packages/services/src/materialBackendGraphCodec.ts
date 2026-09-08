@@ -1,6 +1,7 @@
 import type {
   LabPose,
   MaterialAggregate,
+  MaterialAnchor,
   MaterialPlacement,
   MaterialSite
 } from '@unilab/material'
@@ -118,12 +119,17 @@ function mapBackendMaterialConfig(
   metaData: unknown
 ): Record<string, unknown> {
   const config = recordValue(value)
+  const materialMetaData = recordValue(metaData)
   const sourceIdentity = optionalString(
-    recordValue(metaData).source_node_id
-  )
+    materialMetaData.source_node_id
+  )?.trim()
+  const sourceNodeUuid = optionalString(
+    materialMetaData.source_runtime_uuid
+  )?.trim()
   const identifiedConfig = {
     ...config,
-    ...(sourceIdentity ? { sourceIdentity } : {})
+    ...(sourceIdentity ? { sourceIdentity } : {}),
+    ...(sourceNodeUuid ? { sourceNodeUuid } : {})
   }
   const rawRendering = isRecord(config.rendering)
     ? config.rendering
@@ -178,7 +184,12 @@ function mapBackendPlacement(
     ? {
         kind: 'parent',
         parentId,
-        anchor: { kind: 'root' },
+        anchor: mapBackendAnchor(
+          isRecord(position.meta_data)
+            ? position.meta_data.anchor
+            : undefined,
+          'relative_position.meta_data.anchor'
+        ),
         localPose: pose
       }
     : { kind: 'world', pose }
@@ -200,7 +211,10 @@ function mapBackendSite(value: unknown): MaterialSite {
       requiredString(raw.name, 'site.name'),
     name: requiredString(raw.name, 'site.name'),
     sortOrder: finiteGraphNumber(raw.sort_order, 'site.sort_order'),
-    anchor: { kind: 'root' },
+    anchor: mapBackendAnchor(
+      metaData.anchor,
+      'site.meta_data.anchor'
+    ),
     poseInAnchor: {
       positionMm: [
         finiteGraphNumber(raw.position_x, 'site.position_x'),
@@ -239,6 +253,30 @@ function mapBackendSite(value: unknown): MaterialSite {
       fillFraction: occupiedMaterialId ? 1 : 0
     }
   }
+}
+
+function mapBackendAnchor(
+  value: unknown,
+  field: string
+): MaterialAnchor {
+  if (value == null) return { kind: 'root' }
+  if (!isRecord(value)) {
+    throw invalidGraph(`${field} must be an object`)
+  }
+  const kind = requiredString(value.kind, `${field}.kind`)
+  if (kind === 'root') {
+    if (optionalString(value.link_name)?.trim()) {
+      throw invalidGraph(`${field}.link_name is invalid for a root anchor`)
+    }
+    return { kind: 'root' }
+  }
+  if (kind === 'link') {
+    return {
+      kind: 'link',
+      linkName: requiredString(value.link_name, `${field}.link_name`)
+    }
+  }
+  throw invalidGraph(`${field}.kind must be root or link`)
 }
 
 function mapBackendPose(

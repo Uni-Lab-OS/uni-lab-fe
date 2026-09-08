@@ -25,6 +25,15 @@ export {
   type LabModelRuntime
 } from './modelRuntime'
 export {
+  JointStateSceneRuntime,
+  findUrdfRobot,
+  jointStateSceneRuntime,
+  type JointStateRenderDiagnostic,
+  type JointStateRenderDiagnosticCode,
+  type JointStateRenderFrame,
+  type JointStateRenderTarget
+} from './jointStateRuntime'
+export {
   calculateHorizontalSnapDistance,
   calculateLocalMountPose,
   findLinkObject,

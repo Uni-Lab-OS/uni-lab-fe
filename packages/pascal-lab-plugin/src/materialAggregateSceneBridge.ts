@@ -125,6 +125,8 @@ export function materialAggregatesToSceneGraph(
         renderBody: !logicalMount,
         deviceType: rendering.kind || 'custom',
         templateUuid: aggregate.material.sourceTemplateId,
+        sourceNodeUuid:
+          stringValue(materialConfig.sourceNodeUuid).trim() || null,
         rosDeviceName: sanitizeRosName(
           stringValue(
             readRecord(aggregate.material.config).rosDeviceName,

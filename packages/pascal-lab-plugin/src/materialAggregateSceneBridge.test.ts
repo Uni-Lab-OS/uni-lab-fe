@@ -20,6 +20,7 @@ describe('Material Aggregate / Pascal bridge', () => {
   it('projects the instance rendering snapshot without copying the entity', () => {
     const robot = aggregate('robot', {
       config: {
+        sourceNodeUuid: '11111111-1111-4111-8111-111111111111',
         rendering: {
           kind: 'robot',
           dimensionsMm: [500, 700, 400],
@@ -56,6 +57,9 @@ describe('Material Aggregate / Pascal bridge', () => {
       meshDir: '/assets/robot/models'
     })
     expect(node.materialKind).toBe('device')
+    expect(node.sourceNodeUuid).toBe(
+      '11111111-1111-4111-8111-111111111111'
+    )
     expect(node.model.attachPoints.map((point) => point.link)).toEqual([
       'tool0'
     ])

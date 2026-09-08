@@ -4,6 +4,7 @@ import {
 } from '@pascal-app/core'
 import { useNodeEvents, useViewer } from '@pascal-app/viewer'
 import { Html } from '@react-three/drei'
+import { useThree } from '@react-three/fiber'
 import { shouldShowMaterialLabelByDefault } from '@unilab/material/domain'
 import {
   useEffect,
@@ -28,6 +29,10 @@ import {
   disposeLabModel,
   loadLabDeviceModel
 } from '../modelRuntime'
+import {
+  findUrdfRobot,
+  jointStateSceneRuntime
+} from '../jointStateRuntime'
 import { findLinkObject } from '../mounting'
 import type { LabDeviceNode } from '../schema'
 import { SiteBoundsRenderer } from './SiteBoundsRenderer'
@@ -210,6 +215,7 @@ export default function LabDeviceRenderer({
     [number, number, number]
   >([0, Math.max(node.dimensions[1], 0.2) + 0.08, 0])
   const { object, error, loading } = useLabModel(node)
+  const invalidate = useThree((state) => state.invalidate)
   const events = useCustomNodeEvents(node, node.type)
   const isSelected = useViewer((state) =>
     state.selection.selectedIds.includes(node.id as never)
@@ -238,6 +244,18 @@ export default function LabDeviceRenderer({
       })
     )
   }, [node.id, object])
+
+  useEffect(() => {
+    if (!object || !node.sourceNodeUuid) return
+    const robot = findUrdfRobot(object)
+    if (!robot) return
+    return jointStateSceneRuntime.registerTarget({
+      nodeUuid: node.sourceNodeUuid,
+      sceneNodeId: node.id,
+      robot,
+      invalidate
+    })
+  }, [invalidate, node.id, node.sourceNodeUuid, object])
 
   useLayoutEffect(() => {
     const root = groupRef.current

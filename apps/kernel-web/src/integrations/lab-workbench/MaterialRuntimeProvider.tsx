@@ -3,6 +3,7 @@ import {
   createMaterialStore,
   type MaterialStore
 } from '@unilab/material'
+import { jointStateSceneRuntime } from '@unilab/pascal-lab-plugin'
 import {
   assertCapability,
   useServices,
@@ -84,6 +85,29 @@ export function MaterialRuntimeProvider({
       backendEnabled && connection === 'connected'
     )
   }, [backendEnabled, connection, recoveryRevision, store])
+
+  useEffect(() => {
+    if (
+      !backendEnabled ||
+      connection !== 'connected' ||
+      !getStatus('realtime.pushJointState').available
+    ) {
+      return
+    }
+    return services.realtime.subscribeJointState({
+      onJointState: (frame) => {
+        jointStateSceneRuntime.apply(frame)
+      },
+      onDiagnostic: (diagnostic) => {
+        console.warn(
+          `[joint-state:${diagnostic.code}] ${diagnostic.message}`
+        )
+      },
+      onError: (message) => {
+        console.warn(`[joint-state:transport] ${message}`)
+      }
+    })
+  }, [backendEnabled, connection, getStatus, services.realtime])
 
   useEffect(() => {
     if (!scope) {

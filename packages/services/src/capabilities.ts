@@ -202,6 +202,7 @@ function localPythonCapabilities(): ServerCapabilities {
   capabilities.workflow.authoring = true
   capabilities.workflow.runTasks = true
   capabilities.workflow.subscribeEvents = true
+  capabilities.realtime.pushJointState = true
   return capabilities
 }
 
@@ -253,9 +254,6 @@ function unavailableReason(
     }
     if (capability.startsWith('reagentInfo.')) {
       return '当前 Uni-Lab-OS 尚未提供统一试剂信息查询与创建契约'
-    }
-    if (capability === 'realtime.pushJointState') {
-      return '当前 Uni-Lab-OS 仅提供 1 Hz device_status，尚未提供 push_joint_state'
     }
     if (capability.startsWith('realtime.')) {
       return '当前 Uni-Lab-OS 尚未提供统一关节命令与控制租约契约'
