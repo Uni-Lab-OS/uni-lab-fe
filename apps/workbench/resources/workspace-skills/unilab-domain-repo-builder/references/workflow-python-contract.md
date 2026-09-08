@@ -50,15 +50,31 @@ Compatible-material selectors query current laboratory inventory and filter by `
 
 ## 4. Structured topology
 
-Use lexical structure to represent topology:
+Adjacent executable statements retain a default control dependency. Use lexical
+structure for readable groups and broad parallel regions, and use node-level
+`depends_on` only where the real DAG differs from that default:
 
 ```python
-with group("prepare"):
-    with parallel():
-        left = device_a.run(...)
-        right = device_b.run(...)
-    joined = device_c.combine(left=left.value, right=right.value)
+a = device_a.run(...)
+b = device_b.run(..., depends_on=[])
+c = device_c.combine(left=a.value, depends_on=[a, b])
+d = device_d.run(..., depends_on=[b])
 ```
+
+For one node, declaring `depends_on` replaces its implicit control predecessor;
+it does not append to it. An empty list is meaningful. The final dependency set
+is data/material dependencies plus explicit control dependencies when declared,
+otherwise plus the default lexical predecessor. Argument bindings such as
+`sample=prepared.sample` always create a non-removable data/material dependency,
+even if that node declares a different or empty `depends_on` list. Redundant
+control references to the same data predecessor normalize to the richer data edge.
+
+The first version accepts only a list literal of unique, earlier executable result
+variables. It applies to Actions and published Workflow invocations, including
+control-only references to earlier sibling branches inside `parallel()`. It is an
+authoring-only reserved keyword and must never appear in an Action signature or be
+forwarded to a Driver. Do not use it to compensate for missing material parameters
+in a Driver/adapter contract; add typed `ResourceSlot` I/O to that wrapper instead.
 
 `parallel()` means its direct branches have no source-order dependency. It does not promise simultaneous physical execution. Concrete shared-device locks, material claims, and Site claims remain scheduler/runtime concerns.
 
@@ -74,7 +90,10 @@ with parallel():
 
 Also do not create synthetic no-op Fork/Join nodes for ordinary structured parallelism. A real downstream node with multiple required inputs is the join; if branches must complete without a data consumer, dependency-only edges or Workflow completion semantics carry that requirement according to the active contract.
 
-Not every DAG is series-parallel. If the supported structured language cannot represent the candidate graph, reject the edit with a diagnostic that identifies the conflicting region and suggests restoring an edge or restructuring the source. Never hide the mismatch in comments.
+Not every DAG is series-parallel; `depends_on` is the explicit representation for
+those supported non-series-parallel control regions. Reject graphs that still
+cannot be represented without reversing an unavailable value/material binding or
+violating group scope. Never hide the mismatch in comments.
 
 ## 5. Material-flow invariants
 

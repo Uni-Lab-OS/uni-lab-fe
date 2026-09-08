@@ -303,9 +303,27 @@ function groupSecondaryBranchesByBackboneRow(
   nodeOrder: ReadonlyMap<string, number>
 ): Map<number, WorkflowSupportingBranch[]> {
   const adjacency = new Map(nodes.map((node) => [node.id, [] as string[]]))
+  const materialNodeIds = new Set<string>()
+  for (const [index] of traces.edgeLineages) {
+    const link = links[index]
+    if (!link) continue
+    materialNodeIds.add(link.source)
+    materialNodeIds.add(link.target)
+  }
+  for (const [nodeId, handles] of traces.handleLineagesByNode) {
+    if (handles.size > 0) materialNodeIds.add(nodeId)
+  }
+  for (const lineage of traces.lineages) {
+    materialNodeIds.add(lineage.sourceNodeUuid)
+  }
   links.forEach((link, index) => {
-    // 只用物料边构造支线，避免纯执行依赖把互不相关的试剂链粘成一条长支线。
-    if (!traces.edgeLineages.has(index)) return
+    // 不用纯执行依赖粘连两条已有物料链；但若依赖至少连接一个不承载物料的
+    // 控制节点，则必须保留它，否则连续的初始化/检查步骤会被误拆成多条支线。
+    if (
+      !traces.edgeLineages.has(index) &&
+      materialNodeIds.has(link.source) &&
+      materialNodeIds.has(link.target)
+    ) return
     adjacency.get(link.source)?.push(link.target)
     adjacency.get(link.target)?.push(link.source)
   })

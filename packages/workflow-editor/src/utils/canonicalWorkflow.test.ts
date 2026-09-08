@@ -152,6 +152,79 @@ describe('Canonical workflow projection', () => {
     )).toBe('dose')
   })
 
+  /** 折叠组合节点时，不得把同一对可见节点之间的不同物料 Handle 边合并。 */
+  it('preserves parallel Handle edges across a collapsed Composite boundary', () => {
+    const nodes = [
+      {
+        id: 'composite',
+        name: '组合步骤',
+        type: 'group',
+        className: 'Group',
+        labNodeType: 'Group',
+        groupKind: 'subworkflow' as const,
+        collapsedByDefault: true
+      },
+      {
+        id: 'child',
+        name: '组合内部动作',
+        type: 'action',
+        className: 'Action',
+        labNodeType: 'Action',
+        parentGroupId: 'composite'
+      },
+      {
+        id: 'sink',
+        name: '下游动作',
+        type: 'action',
+        className: 'Action',
+        labNodeType: 'Action'
+      }
+    ]
+    const links = [
+      {
+        id: 'sample-edge',
+        source: 'child',
+        sourceHandleUuid: 'sample-output',
+        target: 'sink',
+        targetHandleUuid: 'sample-input',
+        type: 'control'
+      },
+      {
+        id: 'ether-edge',
+        source: 'child',
+        sourceHandleUuid: 'ether-output',
+        target: 'sink',
+        targetHandleUuid: 'ether-input',
+        type: 'control'
+      }
+    ]
+
+    const projected = projectNestedWorkflow(nodes, links, new Set())
+
+    expect(projected.links.map((link) => [
+      link.id,
+      link.source,
+      link.sourceHandleUuid,
+      link.target,
+      link.targetHandleUuid
+    ])).toEqual([
+      [
+        'sample-edge',
+        'composite',
+        'sample-output',
+        'sink',
+        'sample-input'
+      ],
+      [
+        'ether-edge',
+        'composite',
+        'ether-output',
+        'sink',
+        'ether-input'
+      ]
+    ])
+  })
+
   /**
    * 验证原生编写分组只保留成员节点，不作为工作流（Workflow）画布节点重复展示。
    */
