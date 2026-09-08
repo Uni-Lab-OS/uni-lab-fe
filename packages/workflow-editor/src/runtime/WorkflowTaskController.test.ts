@@ -490,6 +490,37 @@ function registerWorkflowTaskControllerTests(): void {
     })
   })
 
+  it('surfaces a rejected cancel command instead of looking idle', async () => {
+    const initial: WorkflowExecutionTask = {
+      ...workflowTask(),
+      status: 'running'
+    }
+    const runtime = runtimePort({
+      listWorkflowTasks: vi.fn(async () => ({
+        items: [initial], total: 1, page: 1, page_size: 1
+      })),
+      getWorkflowTask: vi.fn(async () => initial),
+      listWorkflowTaskJobs: vi.fn(async () => []),
+      commandWorkflowTask: vi.fn(async () => ({
+        ...workflowCommand(initial.uuid),
+        type: 'cancel',
+        status: 'rejected',
+        result: { reason: '工作流任务尚未提交到本地调度器' }
+      }))
+    })
+    const controller = new WorkflowTaskController(
+      runtime,
+      initial.workflow_uuid
+    )
+    await controller.start()
+
+    await expect(controller.command('cancel')).rejects.toThrow(
+      '运行控制被拒绝：工作流任务尚未提交到本地调度器'
+    )
+    expect(controller.getSnapshot().actionError).toContain('尚未提交到本地调度器')
+    expect(controller.getSnapshot().task?.status).toBe('running')
+  })
+
   it('reconciles accepted cancellation when Runtime SSE is unavailable', async () => {
     vi.useFakeTimers()
     const initial: WorkflowExecutionTask = {

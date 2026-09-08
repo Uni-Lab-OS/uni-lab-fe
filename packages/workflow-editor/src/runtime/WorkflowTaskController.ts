@@ -282,6 +282,9 @@ export class WorkflowTaskController {
         type,
         idempotency_key: this.nextIdempotencyKey(task.uuid, type)
       })
+      if (command.status === 'rejected') {
+        throw new Error(rejectedWorkflowTaskCommandMessage(command))
+      }
       if (!this.active) return
       this.install({ lastCommand: command })
       await this.requestRefresh(task.uuid)
@@ -515,6 +518,16 @@ export class WorkflowTaskController {
 
 function errorMessage(value: unknown): string {
   return value instanceof Error ? value.message : String(value)
+}
+
+function rejectedWorkflowTaskCommandMessage(
+  command: WorkflowTaskCommand
+): string {
+  const reason = command.result.reason
+  if (typeof reason === 'string' && reason.trim()) {
+    return `运行控制被拒绝：${reason.trim()}`
+  }
+  return '运行控制被拒绝'
 }
 
 /**

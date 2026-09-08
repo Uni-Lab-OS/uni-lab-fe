@@ -61,6 +61,7 @@ export function PersistentWorkflowToolbar({
     runtimeBusy,
     saveDraft,
     selectSingleNodeMode,
+    setMessage,
     setTaskRunMode,
     setTraceViewerOpen,
     singleNodeTargetMissing,
@@ -313,8 +314,11 @@ export function PersistentWorkflowToolbar({
             actionGroupLabel="任务执行控制"
             dangerGroupLabel="任务取消控制"
             commandDataAttribute="runtime"
-            onCommand={(command) => runRuntime(
-              () => taskRuntime.command(command)
+            onCommand={(command, commandMessage) => runRuntime(
+              async () => {
+                await taskRuntime.command(command)
+                setMessage(commandMessage)
+              }
             )}
           />
         )}

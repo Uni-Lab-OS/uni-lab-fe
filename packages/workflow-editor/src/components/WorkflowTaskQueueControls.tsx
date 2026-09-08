@@ -46,7 +46,7 @@ export function WorkflowTaskQueueControls({
     setBusy(true)
     setError(null)
     try {
-      await runtime.commandWorkflowTask(task.uuid, {
+      const accepted = await runtime.commandWorkflowTask(task.uuid, {
         type,
         idempotency_key: [
           'workflow-task-list',
@@ -56,6 +56,14 @@ export function WorkflowTaskQueueControls({
           commandSequence.current
         ].join(':')
       })
+      if (accepted.status === 'rejected') {
+        const reason = accepted.result.reason
+        throw new Error(
+          typeof reason === 'string' && reason.trim()
+            ? `运行控制被拒绝：${reason.trim()}`
+            : '运行控制被拒绝'
+        )
+      }
       await onReconcile()
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : String(reason))

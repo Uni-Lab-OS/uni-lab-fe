@@ -699,7 +699,10 @@ export function PersistentWorkflowAuthoringView({
                 disabledReason="当前没有可停止的调试任务"
                 title="停止调试并取消剩余节点作业"
                 onClick={() => runRuntime(
-                  () => taskRuntime.command('cancel')
+                  async () => {
+                    await taskRuntime.command('cancel')
+                    setMessage('OS 已接受取消请求，正在补读工作流任务与节点任务状态')
+                  }
                 )}
               >
                 <span aria-hidden="true">■</span>
