@@ -19,19 +19,26 @@ implements PreferenceContribution {
       '**/.hg': true,
       '**/CVS': true,
       '**/.DS_Store': true,
-      '**/.unilabos': true
+      '**/.unilabos': true,
+      '**/logs': true,
+      '**/*.log': true
     })
     service.registerOverride('files.watcherExclude', undefined, {
       '**/.git/objects/**': true,
       '**/.git/subtree-cache/**': true,
-      '**/.unilabos/**': true
+      '**/.unilabos/**': true,
+      '**/logs/**': true,
+      '**/*.log': true
     })
     service.registerOverride('search.exclude', undefined, {
       '**/node_modules': true,
-      '**/.unilabos/**': true
+      '**/.unilabos/**': true,
+      '**/logs/**': true,
+      '**/*.log': true
     })
     service.registerOverride('python.analysis.exclude', undefined, [
-      '**/.unilabos/**'
+      '**/.unilabos/**',
+      '**/logs/**'
     ])
     return Promise.resolve()
   }
