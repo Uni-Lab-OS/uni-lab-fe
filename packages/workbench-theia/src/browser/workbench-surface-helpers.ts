@@ -6,14 +6,14 @@ import type {
   WorkflowIdeBridge,
   WorkflowIdeDiagnosticSeverity
 } from '@unilab/workflow-ide-bridge'
-import {
-  isPlcConfigurationMissingError,
-  type WorkbenchEnvironmentLogKind,
-  type WorkbenchPlcSimulatorConfiguration,
-  type WorkbenchReleaseReceipt,
-  type WorkbenchReleaseTargetInspection,
-  type WorkbenchRuntimeMode,
-  type WorkbenchSessionSnapshot
+import { isPlcConfigurationMissingError } from '@unilab/workbench-session/plc-configuration-error'
+import type {
+  WorkbenchEnvironmentLogKind,
+  WorkbenchPlcSimulatorConfiguration,
+  WorkbenchReleaseReceipt,
+  WorkbenchReleaseTargetInspection,
+  WorkbenchRuntimeMode,
+  WorkbenchSessionSnapshot
 } from '@unilab/workbench-session'
 import type { ReactNode } from 'react'
 
