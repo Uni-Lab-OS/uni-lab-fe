@@ -134,17 +134,9 @@ export async function loadWorkflowMaterialSourceCatalog(
     template.name !== 'material_source' ||
     template.type !== 'material_source' ||
     template.node_type !== 'material_source' ||
-    template.class !== 'unilabos.workflow.authoring:material_source' ||
-    handles.length !== 1
+    template.class !== 'unilabos.workflow.authoring:material_source'
   ) invalidCatalog('物料来源（MaterialSource）框架模板详情无效')
-  const handle = handles[0]
-  if (
-    uuidString(handle.workflow_node_template_uuid) !== summaryUuid ||
-    handle.handle_key !== 'material' ||
-    handle.io_type !== 'source' ||
-    handle.type !== 'ResourceSlot' ||
-    handle.required !== false
-  ) invalidCatalog('物料来源（MaterialSource）框架句柄无效')
+  const handle = selectMaterialSourceFrameworkHandle(handles, summaryUuid)
 
   // 公共物料图聚合是物料、挂载关系和库位占用（SiteOccupancy）的唯一前端业务投影。
   const [graphProjection, registeredResourceTemplates] = await Promise.all([
@@ -195,6 +187,53 @@ export async function loadWorkflowMaterialSourceCatalog(
     ...graphProjection,
     resourceTemplates
   }
+}
+
+/**
+ * 从物料来源框架模板句柄中选出唯一的物料输出端口。
+ *
+ * 当前 OS 还会发布一对结构性 ready 连接点；旧 Edge 只有物料句柄。两种闭集
+ * 都接受，其它句柄组合失败关闭，避免把目录加载失败误报成引用失效。
+ *
+ * @param handles 节点模板详情中的未信任句柄列表。
+ * @param templateUuid 框架模板稳定 UUID。
+ * @returns 物料占位符（ResourceSlot）输出句柄。
+ * @throws 句柄集合不是「仅物料」或「物料 + ready 对」时关闭失败。
+ */
+function selectMaterialSourceFrameworkHandle(
+  handles: readonly Record<string, unknown>[],
+  templateUuid: string
+): Record<string, unknown> {
+  const materialHandles = handles.filter((handle) =>
+    handle.handle_key === 'material'
+  )
+  const readyHandles = handles.filter((handle) => handle.handle_key === 'ready')
+  if (
+    materialHandles.length !== 1 ||
+    handles.length !== materialHandles.length + readyHandles.length ||
+    (readyHandles.length !== 0 && readyHandles.length !== 2)
+  ) invalidCatalog('物料来源（MaterialSource）框架句柄无效')
+  const handle = materialHandles[0]
+  if (
+    uuidString(handle.workflow_node_template_uuid) !== templateUuid ||
+    handle.io_type !== 'source' ||
+    handle.type !== 'ResourceSlot' ||
+    handle.required !== false
+  ) invalidCatalog('物料来源（MaterialSource）框架句柄无效')
+  if (readyHandles.length === 2) {
+    const readyDirections = new Set(readyHandles.map((item) => item.io_type))
+    const readyValid = readyHandles.every((item) => (
+      uuidString(item.workflow_node_template_uuid) === templateUuid &&
+      item.type === 'default' &&
+      item.required === false
+    ))
+    if (
+      !readyValid ||
+      !readyDirections.has('target') ||
+      !readyDirections.has('source')
+    ) invalidCatalog('物料来源（MaterialSource）框架句柄无效')
+  }
+  return handle
 }
 
 const MATERIAL_SOURCE_PARAMETER_KEYS = [

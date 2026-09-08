@@ -16,6 +16,10 @@ const frameworkTemplateUuid = '21000000-0000-4000-8000-000000000001'
 const frameworkOwnerUuid = '31000000-0000-4000-8000-000000000001'
 // 框架句柄 UUID 标识物料来源输出的物料占位符（ResourceSlot）。
 const frameworkHandleUuid = '41000000-0000-4000-8000-000000000001'
+// 结构性 ready 输入句柄 UUID，与当前 OS 物料来源模板一致。
+const frameworkReadyTargetHandleUuid = '41000000-0000-4000-8000-000000000002'
+// 结构性 ready 输出句柄 UUID，与当前 OS 物料来源模板一致。
+const frameworkReadySourceHandleUuid = '41000000-0000-4000-8000-000000000003'
 // 挂载物料 UUID 标识直接拥有候选库位（Site）的 Deck 实例。
 const mountUuid = '51000000-0000-4000-8000-000000000001'
 // 被占用物料 UUID 标识已放置在第二库位中的孔板实例。
@@ -121,6 +125,14 @@ function registerWorkflowMaterialSourceCatalogTests(): void {
   it(
     '缺少公共物料图（MaterialGraph）端口时失败关闭且不发出私有库存请求',
     rejectsMissingPublicMaterialGraphPort
+  )
+  it(
+    '兼容旧 Edge 仅发布物料句柄的物料来源模板',
+    acceptsLegacyMaterialOnlyHandle
+  )
+  it(
+    '物料来源模板出现未知句柄时关闭失败',
+    rejectsUnknownMaterialSourceHandle
   )
 }
 
@@ -266,10 +278,13 @@ async function loadsMaterialSourceCatalogInPublicGraphOrder(): Promise<void> {
         `/api/v1/workflow-node-templates/${frameworkTemplateUuid}`
       ] as { data: { template: Record<string, unknown> } }).data.template
     )
-    expect(snapshot.template.sourceHandle.wireValue).toEqual(
-      (fixture[
+    const publishedHandles = (
+      fixture[
         `/api/v1/workflow-node-templates/${frameworkTemplateUuid}`
-      ] as { data: { handles: Record<string, unknown>[] } }).data.handles[0]
+      ] as { data: { handles: Record<string, unknown>[] } }
+    ).data.handles
+    expect(snapshot.template.sourceHandle.wireValue).toEqual(
+      publishedHandles.find((handle) => handle.handle_key === 'material')
     )
     expect(requests).toEqual([
       materialSourceCatalogPath,
@@ -320,6 +335,64 @@ async function rejectsMissingPublicMaterialGraphPort(): Promise<void> {
   expect(requests).toEqual([])
 }
 
+/**
+ * 验证旧 Edge 只发布物料输出句柄时目录仍可加载。
+ *
+ * @returns Promise 完成时表示单句柄模板被接受。
+ */
+async function acceptsLegacyMaterialOnlyHandle(): Promise<void> {
+  const fixture = responses()
+  const detail = fixture[
+    `/api/v1/workflow-node-templates/${frameworkTemplateUuid}`
+  ] as { data: { handles: Record<string, unknown>[] } }
+  detail.data.handles = detail.data.handles.filter(
+    (handle) => handle.handle_key === 'material'
+  )
+  const runtime = createWorkflowRuntime(
+    fixtureHttp(fixture, []),
+    getDefaultBackend('local-python'),
+    { materialGraph: fixtureMaterialGraph() }
+  )
+
+  await expect(runtime.getWorkflowMaterialSourceCatalog()).resolves
+    .toMatchObject({
+      template: { sourceHandle: { uuid: frameworkHandleUuid } }
+    })
+}
+
+/**
+ * 验证物料来源模板夹带未知句柄时失败关闭。
+ *
+ * @returns Promise 完成时表示未知句柄被拒绝。
+ */
+async function rejectsUnknownMaterialSourceHandle(): Promise<void> {
+  const fixture = responses()
+  const detail = fixture[
+    `/api/v1/workflow-node-templates/${frameworkTemplateUuid}`
+  ] as { data: { handles: Record<string, unknown>[] } }
+  detail.data.handles.push({
+    uuid: '41000000-0000-4000-8000-000000000099',
+    workflow_node_template_uuid: frameworkTemplateUuid,
+    handle_key: 'extra',
+    io_type: 'source',
+    display_name: 'Extra',
+    type: 'default',
+    required: false,
+    data_source: null,
+    data_key: null,
+    meta_data: {}
+  })
+  const runtime = createWorkflowRuntime(
+    fixtureHttp(fixture, []),
+    getDefaultBackend('local-python'),
+    { materialGraph: fixtureMaterialGraph() }
+  )
+
+  await expect(runtime.getWorkflowMaterialSourceCatalog()).rejects.toMatchObject({
+    code: 'INVALID_WORKFLOW_MATERIAL_SOURCE_CATALOG'
+  })
+}
+
 /** 构造物料来源目录响应；无参数，返回模板、资源模板和外形接口 fixture，不主动抛错。 */
 function responses(): Record<string, unknown> {
   return {
@@ -362,18 +435,44 @@ function responses(): Record<string, unknown> {
           goal_default: {},
           meta_data: {}
         },
-        handles: [{
-          uuid: frameworkHandleUuid,
-          workflow_node_template_uuid: frameworkTemplateUuid,
-          handle_key: 'material',
-          io_type: 'source',
-          display_name: 'Material',
-          type: 'ResourceSlot',
-          required: false,
-          data_source: 'executor',
-          data_key: 'material',
-          meta_data: {}
-        }]
+        handles: [
+          {
+            uuid: frameworkReadyTargetHandleUuid,
+            workflow_node_template_uuid: frameworkTemplateUuid,
+            handle_key: 'ready',
+            io_type: 'target',
+            display_name: 'ready',
+            type: 'default',
+            required: false,
+            data_source: null,
+            data_key: null,
+            meta_data: {}
+          },
+          {
+            uuid: frameworkReadySourceHandleUuid,
+            workflow_node_template_uuid: frameworkTemplateUuid,
+            handle_key: 'ready',
+            io_type: 'source',
+            display_name: 'ready',
+            type: 'default',
+            required: false,
+            data_source: null,
+            data_key: null,
+            meta_data: {}
+          },
+          {
+            uuid: frameworkHandleUuid,
+            workflow_node_template_uuid: frameworkTemplateUuid,
+            handle_key: 'material',
+            io_type: 'source',
+            display_name: 'Material',
+            type: 'ResourceSlot',
+            required: false,
+            data_source: 'executor',
+            data_key: 'material',
+            meta_data: {}
+          }
+        ]
       }
     },
     '/api/v1/resource-templates?page=1&page_size=100': {
