@@ -114,6 +114,7 @@ import {
   emptyPlcSimulatorSnapshot,
   isWorkflowWorkbenchView,
   restartPlcSimulatorUnlessUnconfigured,
+  shouldResetLocalInventory,
   mountedSurface,
   publishDesktopUnsavedChanges,
   recordMountedWorkbenchDomains,
@@ -349,7 +350,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     }
   }
 
-  /** 已配置则重启 PLC-Sim；未配置则只从当前设备图重建 Backend 物料与库位。 */
+  /** 已配置则重启 PLC-Sim；本地库存或远程 Backend 再按当前连接从设备图重建。 */
   protected readonly resetWorkflowEnvironment = async (
     backendUrl: string
   ): Promise<void> => {
@@ -361,12 +362,20 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         this.workbenchSession,
         this.sessionSnapshot.plcSimulator.projectPath
       )
-      await this.publishRelease(backendUrl, true)
+      if (shouldResetLocalInventory(this.connectionMode)) {
+        const edgeWasReady = this.sessionSnapshot.edgeRuntime.phase === 'ready'
+        await this.workbenchSession.rebuildLocalData()
+        if (edgeWasReady) await this.workbenchSession.restart()
+      } else {
+        await this.publishRelease(backendUrl, true)
+      }
       this.recoveryRevision += 1
       void this.messages.info(
         plcRestarted
           ? '运行环境已复位，可以重新运行工作流'
-          : '已从当前设备图重建 Backend 物料与库位状态'
+          : shouldResetLocalInventory(this.connectionMode)
+            ? '已从当前设备图重建本地物料与库位状态'
+            : '已从当前设备图重建 Backend 物料与库位状态'
       )
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

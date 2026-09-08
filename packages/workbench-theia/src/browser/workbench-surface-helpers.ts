@@ -216,6 +216,18 @@ export function theiaDiagnosticSeverity(
  * @returns 已实际重启 PLC-Sim 时为 true，因未配置而跳过时为 false。
  * @throws 配置存在但启停失败时抛出原始 Host 错误。
  */
+/**
+ * 本地工作区复位库存；Backend Authority 才走 WorkspaceRelease 清空目标服务。
+ *
+ * @param connectionMode 当前 Workbench 运行连接。
+ * @returns 本地模式为 true，此时不得预检远程 Edge 控制接口。
+ */
+export function shouldResetLocalInventory(
+  connectionMode: WorkbenchConnectionMode
+): boolean {
+  return connectionMode === 'local'
+}
+
 export async function restartPlcSimulatorUnlessUnconfigured(
   session: {
     stopPlcSimulator(): Promise<unknown>

@@ -295,10 +295,10 @@ export function PersistentWorkflowToolbar({
                     : '当前运行环境暂时不能复位'}
           title={environmentResetBusy
             ? '正在复位运行环境'
-            : '复位 Backend 物料状态；已配置 PLC-Sim 时同时重启'}
+            : '复位物料状态；本地重建库存，Backend 则发布清空'}
           onClick={() => {
             if (!onResetEnvironment || !globalThis.confirm(
-              '确定复位运行环境吗？\n\n将使用当前设备图清空并重建 Backend 物料与库位状态。若已配置 PLC-Sim，会同时重启仿真。'
+              '确定复位运行环境吗？\n\n将使用当前设备图清空并重建物料与库位。本地模式重建 Workspace 库存；已连接 Backend 时会发布到目标服务。若已配置 PLC-Sim，会同时重启仿真。'
             )) return
             void onResetEnvironment()
           }}

@@ -5,6 +5,7 @@ import {
   emptyPlcSimulatorSnapshot,
   recordMountedWorkbenchDomains,
   restartPlcSimulatorUnlessUnconfigured,
+  shouldResetLocalInventory,
   workbenchViewLabel,
   type WorkbenchMountedDomain
 } from './workbench-surface-helpers'
@@ -34,6 +35,11 @@ describe('Workbench 主区纯展示辅助', () => {
       phase: 'idle',
       pid: null
     })
+  })
+
+  it('resets local inventory instead of publishing to Backend Authority', () => {
+    expect(shouldResetLocalInventory('local')).toBe(true)
+    expect(shouldResetLocalInventory('backend')).toBe(false)
   })
 
   it('restarts PLC-Sim when the project directory is configured', async () => {
