@@ -113,6 +113,7 @@ import {
   emptyEdgeRuntimeSnapshot,
   emptyPlcSimulatorSnapshot,
   isWorkflowWorkbenchView,
+  restartPlcSimulatorUnlessUnconfigured,
   mountedSurface,
   publishDesktopUnsavedChanges,
   recordMountedWorkbenchDomains,
@@ -348,7 +349,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     }
   }
 
-  /** 重启 PLC-Sim，并用当前设备图重建目标 Backend 的物料与库位状态。 */
+  /** 已配置则重启 PLC-Sim；未配置则只从当前设备图重建 Backend 物料与库位。 */
   protected readonly resetWorkflowEnvironment = async (
     backendUrl: string
   ): Promise<void> => {
@@ -356,11 +357,17 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       throw new Error('请先保存当前工作流修改，再复位运行环境')
     }
     try {
-      await this.workbenchSession.stopPlcSimulator()
-      await this.workbenchSession.startPlcSimulator()
+      const plcRestarted = await restartPlcSimulatorUnlessUnconfigured(
+        this.workbenchSession,
+        this.sessionSnapshot.plcSimulator.projectPath
+      )
       await this.publishRelease(backendUrl, true)
       this.recoveryRevision += 1
-      void this.messages.info('运行环境已复位，可以重新运行工作流')
+      void this.messages.info(
+        plcRestarted
+          ? '运行环境已复位，可以重新运行工作流'
+          : '已从当前设备图重建 Backend 物料与库位状态'
+      )
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       void this.messages.error(`运行环境复位失败：${message}`)

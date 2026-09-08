@@ -17,6 +17,10 @@ export {
 } from './workspace-skills'
 export { parseWorkspacePackageMountProjection } from './readiness'
 export {
+  isPlcConfigurationMissingError,
+  PLC_CONFIGURATION_MISSING_CODE
+} from './plc-configuration-error'
+export {
   createWorkbenchDiagnosticBundle,
   createWorkbenchStateBackup,
   prepareWorkbenchState,

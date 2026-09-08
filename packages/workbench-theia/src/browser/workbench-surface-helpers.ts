@@ -6,13 +6,14 @@ import type {
   WorkflowIdeBridge,
   WorkflowIdeDiagnosticSeverity
 } from '@unilab/workflow-ide-bridge'
-import type {
-  WorkbenchEnvironmentLogKind,
-  WorkbenchPlcSimulatorConfiguration,
-  WorkbenchReleaseReceipt,
-  WorkbenchReleaseTargetInspection,
-  WorkbenchRuntimeMode,
-  WorkbenchSessionSnapshot
+import {
+  isPlcConfigurationMissingError,
+  type WorkbenchEnvironmentLogKind,
+  type WorkbenchPlcSimulatorConfiguration,
+  type WorkbenchReleaseReceipt,
+  type WorkbenchReleaseTargetInspection,
+  type WorkbenchRuntimeMode,
+  type WorkbenchSessionSnapshot
 } from '@unilab/workbench-session'
 import type { ReactNode } from 'react'
 
@@ -204,6 +205,32 @@ export function theiaDiagnosticSeverity(
     case 'warning': return DiagnosticSeverity.Warning
     case 'information': return DiagnosticSeverity.Information
     case 'hint': return DiagnosticSeverity.Hint
+  }
+}
+
+/**
+ * 复位运行环境时重启 PLC-Sim；未配置项目目录或变量表则跳过。
+ *
+ * @param session 已暴露启停命令的 Workspace Host 会话。
+ * @param projectPath 当前快照中的 PLC-Sim 项目目录；空字符串表示未配置。
+ * @returns 已实际重启 PLC-Sim 时为 true，因未配置而跳过时为 false。
+ * @throws 配置存在但启停失败时抛出原始 Host 错误。
+ */
+export async function restartPlcSimulatorUnlessUnconfigured(
+  session: {
+    stopPlcSimulator(): Promise<unknown>
+    startPlcSimulator(): Promise<unknown>
+  },
+  projectPath = ''
+): Promise<boolean> {
+  if (!projectPath.trim()) return false
+  try {
+    await session.stopPlcSimulator()
+    await session.startPlcSimulator()
+    return true
+  } catch (error) {
+    if (isPlcConfigurationMissingError(error)) return false
+    throw error
   }
 }
 
