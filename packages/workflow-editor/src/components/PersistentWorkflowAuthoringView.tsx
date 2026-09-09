@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { diagnosticRange } from '../utils/persistentAuthoringSession'
+import { formatAuthoringDiagnostic } from '../utils/workflowAuthoringUserCopy'
 import {
   canRetryWorkflowRuntimeRead,
   workflowRuntimeProblemHeading
@@ -30,8 +31,8 @@ import {
 import styles from './workflow.module.scss'
 
 export const COMPACT_WORKFLOW_CANVAS_WIDTH = 1024
-const WORKFLOW_PALETTE_PREVIEW_WIDTH = 132
-const WORKFLOW_PALETTE_PREVIEW_HEIGHT = 66
+const WORKFLOW_PALETTE_PREVIEW_WIDTH = 180
+const WORKFLOW_PALETTE_PREVIEW_HEIGHT = 84
 
 export function PersistentWorkflowAuthoringView({
   model,
@@ -475,9 +476,9 @@ export function PersistentWorkflowAuthoringView({
         </div>
       )}
 
-      {error && (
+      {error && diagnostics.length === 0 && (
         <div className="workflow-runtime__problem" role="alert">
-          <strong>工作流编辑操作失败</strong>
+          <strong>还不能保存</strong>
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)}>关闭</button>
         </div>
@@ -512,19 +513,22 @@ export function PersistentWorkflowAuthoringView({
       {diagnostics.length > 0 && (
         <section
           className="persistent-authoring__diagnostics"
-          aria-label="Python 草稿诊断"
+          aria-label="草稿待处理事项"
         >
-          <strong>草稿诊断</strong>
+          <strong>还需要处理</strong>
           <ul>
-            {diagnostics.map((diagnostic, index) => (
+            {diagnostics.map((diagnostic, index) => {
+              const copy = formatAuthoringDiagnostic(diagnostic)
+              return (
               <li key={`${diagnostic.code}:${index}`}>
-                <code>{diagnostic.code}</code>
-                <span>{diagnostic.message}</span>
+                <strong>{copy.title}</strong>
+                <span>{copy.detail}</span>
                 {diagnosticRange(diagnostic) && (
                   <span>位置 {diagnosticRange(diagnostic)}</span>
                 )}
               </li>
-            ))}
+              )
+            })}
           </ul>
         </section>
       )}
