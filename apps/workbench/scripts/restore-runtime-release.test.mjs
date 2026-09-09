@@ -211,11 +211,11 @@ describe('versioned Runtime release restore', () => {
     assert.doesNotMatch(workflow, /^\s+push:$/mu)
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-9623b51c/u
+      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.4-17f0da91/u
     )
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_SOURCE_REF: 9623b51c6304dfd44f283a4353425d9592f7934f/u
+      /UNILAB_RUNTIME_SOURCE_REF: 17f0da9148170b0648c09db3f9f395a00af96b4b/u
     )
     assert.doesNotMatch(workflow, /UNILAB_RUNTIME_OPCUA_FIX_REF/u)
     assert.doesNotMatch(workflow, /UNILAB_RUNTIME_BUILD_PIN_REF/u)
