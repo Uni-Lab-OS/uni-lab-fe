@@ -1,5 +1,5 @@
 @mixin card {
-  /* HTML 工作流调试原型：132×66 类型/名称/说明三行卡片。 */
+  /* HTML 工作流调试原型：180×84 类型/名称/说明三行卡片。 */
   .workflow-x6 .x6-node[data-workflow-card-contract='html-prototype']
     .workflow-x6-node__body {
     fill: var(--unilab-color-surface);

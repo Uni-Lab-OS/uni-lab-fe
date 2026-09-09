@@ -163,6 +163,24 @@ export function PersistentWorkflowAuthoringView({
   const [compactCanvas, setCompactCanvas] = useState(false)
   const [graphStageReady, setGraphStageReady] = useState(false)
   const [operationStructureOpen, setOperationStructureOpen] = useState(true)
+  const [inspectorWidth, setInspectorWidth] = useState(320)
+  const inspectorResizeRef = useRef<{ startX: number; startWidth: number } | null>(null)
+  const handleInspectorResize = useCallback((event: React.PointerEvent) => {
+    event.preventDefault()
+    inspectorResizeRef.current = { startX: event.clientX, startWidth: inspectorWidth }
+    const move = (moveEvent: PointerEvent) => {
+      const drag = inspectorResizeRef.current
+      if (!drag) return
+      setInspectorWidth(Math.min(520, Math.max(240, drag.startWidth - (moveEvent.clientX - drag.startX))))
+    }
+    const stop = () => {
+      inspectorResizeRef.current = null
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+  }, [inspectorWidth])
   // 实验操作调试需要始终保留左侧的操作与节点库；工作流调试仍支持手动收起。
   const operationLibraryPersistent = definitionKind === 'operation'
   const nodePaletteVisible = operationLibraryPersistent || nodePaletteOpen
@@ -684,7 +702,6 @@ export function PersistentWorkflowAuthoringView({
                   onToggleOperationStructure={() => {
                     setOperationStructureOpen((open) => !open)
                   }}
-                  workflowDagRef={workflowDagRef}
                 />
                 {mode === 'canvas' && !operationLibraryPersistent && (
                   <button
@@ -736,6 +753,7 @@ export function PersistentWorkflowAuthoringView({
               : ''
           ].filter(Boolean).join(' ')}
             ref={canvasBodyRef}
+            style={{ '--inspector-width': `${inspectorWidth}px` } as React.CSSProperties}
             onPointerDownCapture={handlePalettePointerDownCapture}
             onMouseDownCapture={handlePalettePointerDownCapture}
             onPointerMoveCapture={(event) => {
@@ -910,11 +928,10 @@ export function PersistentWorkflowAuthoringView({
                   )}
                 </div>
                 {mode === 'canvas' && !compactCanvas && (
-                  <WorkflowNodeInspector
-                    model={model}
-                    definitionKind={definitionKind}
-                    workflowName={workflowName}
-                  />
+                  <>
+                    <div className="persistent-authoring__inspector-resize-handle" role="separator" aria-label="调整参数面板宽度" onPointerDown={handleInspectorResize} />
+                    <WorkflowNodeInspector model={model} definitionKind={definitionKind} workflowName={workflowName} />
+                  </>
                 )}
               </>
             ) : (

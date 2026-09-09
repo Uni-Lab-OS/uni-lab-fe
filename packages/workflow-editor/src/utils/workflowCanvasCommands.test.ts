@@ -8,8 +8,8 @@ import {
 describe('workflowPaletteDropPosition', () => {
   it('places the prototype-sized node centre at the pointer location', () => {
     expect(workflowPaletteDropPosition({ x: 420, y: 168 })).toEqual({
-      x: 354,
-      y: 135
+      x: 330,
+      y: 126
     })
   })
 
@@ -22,8 +22,8 @@ describe('workflowPaletteDropPosition', () => {
 
   it('uses the HTML prototype action card dimensions by default', () => {
     expect(WORKFLOW_PROTOTYPE_ACTION_NODE_SIZE).toEqual({
-      width: 132,
-      height: 66
+      width: 180,
+      height: 84
     })
   })
 })

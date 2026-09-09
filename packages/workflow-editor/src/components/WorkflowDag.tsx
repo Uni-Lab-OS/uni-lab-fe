@@ -665,51 +665,12 @@ function WorkflowDag({
         onToggleDisabled={onToggleDisabled}
         onToggleGroup={toggleGroup}
       />
-      {(canvasMutationEnabled || materialRoleOptions.length > 0) && <div className="workflow-x6__toolbar-panel">
+      {materialRoleOptions.length > 0 && <div className="workflow-x6__toolbar-panel">
           <div
             className="workflow-runtime__layout-tools"
             role="toolbar"
             aria-label="画布视图与布局工具"
           >
-            <div
-              className="workflow-runtime__canvas-action-group"
-              role="group"
-              aria-label="视图与选择"
-            >
-              {canvasMutationEnabled && <WorkflowButton
-                type="button"
-                className="workflow-runtime__canvas-button workflow-runtime__fit-view"
-                aria-label="适应完整工作流视图"
-                title="适应完整工作流视图"
-                disabledReason="工作流图尚未加载完成"
-                onClick={fitWorkflowView}
-              >
-                <svg aria-hidden="true" viewBox="0 0 20 20" fill="none">
-                  <path d="M7 3.5H3.5V7M13 3.5h3.5V7M7 16.5H3.5V13M13 16.5h3.5V13" />
-                </svg>
-                <span>适应视图</span>
-              </WorkflowButton>}
-              {canvasMutationEnabled && onDeleteRequest && (
-                <WorkflowButton
-                  type="button"
-                  className="workflow-runtime__canvas-button workflow-runtime__delete-selection"
-                  disabled={Boolean(deletionDisabledReason)}
-                  disabledReason={deletionDisabledReason || ''}
-                  aria-label={deletionSelectionCount > 0
-                    ? `删除选中的 ${deletionSelectionCount} 项`
-                    : '删除选中项'}
-                  title={deletionSelectionCount > 0
-                    ? `删除选中的 ${deletionSelectionCount} 项`
-                    : undefined}
-                  onClick={requestSelectedDeletion}
-                >
-                  <svg aria-hidden="true" viewBox="0 0 20 20" fill="none">
-                    <path d="M4.5 6.5h11M8 6.5v-2h4v2M6.5 6.5l.6 9h5.8l.6-9M8.5 9v4M11.5 9v4" />
-                  </svg>
-                  <span>删除选中项</span>
-                </WorkflowButton>
-              )}
-            </div>
             <div
               className="workflow-runtime__layout-control-group"
               role="group"
@@ -733,21 +694,6 @@ function WorkflowDag({
                   onChange={setSupportingMaterialPresentation}
                 />
               )}
-              {canvasMutationEnabled && <label className="workflow-runtime__layout-strategy-field">
-                <span aria-hidden="true">布局</span>
-                <select
-                  className="workflow-runtime__layout-strategy"
-                  aria-label="布局策略"
-                  value={layoutStrategy}
-                  onChange={handleLayoutStrategyChange}
-                >
-                  {WORKFLOW_DAG_LAYOUT_STRATEGIES.map((strategy) => (
-                    <option key={strategy.value} value={strategy.value}>
-                      {strategy.label}
-                    </option>
-                  ))}
-                </select>
-              </label>}
               {layoutStrategy === 'material-swimlanes' && (
                 <div
                   className="workflow-runtime__swimlane-direction"

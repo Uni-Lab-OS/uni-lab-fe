@@ -51,7 +51,7 @@ export function WorkflowResourceSelector({
       <label>
         <span className="persistent-authoring__resource-selector-heading">
           <span>{label}</span>
-          <small>当前实验室 · {options.length} 个兼容物料</small>
+          <small>可选物料：{options.length}</small>
         </span>
         <select
           aria-label={label}

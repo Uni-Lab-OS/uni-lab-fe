@@ -164,7 +164,13 @@ describe('typed Action editor projection', () => {
       execution_policy: {},
       disabled: false,
       minimized: false,
-      meta_data: { unilab: { input_bindings: {} } }
+      meta_data: {
+        unilab: {
+          input_bindings: {},
+          authoring_result_name: 'prepare_child',
+          authoring_source_order: 0
+        }
+      }
     }])
     expect(created.nodes[0]?.meta_data).not.toHaveProperty(
       'unilab.composite'
@@ -488,7 +494,9 @@ describe('typed Action editor projection', () => {
       minimized: false,
       meta_data: {
         unilab: {
-          input_bindings: {}
+          input_bindings: {},
+          authoring_result_name: 'transfer_2',
+          authoring_source_order: 0
         }
       }
     }])
@@ -1649,6 +1657,7 @@ function actionTemplate(): WorkflowActionCatalogSnapshot['actionTemplates'][numb
     displayName: '转移',
     actionClass: 'lab.devices:Pump',
     actionType: 'UniLabJsonCommand',
+    nodeType: 'device',
     schema: canonicalSchema(
       ['count', 'temperature', 'note', 'mode', 'options', 'samples', 'material', 'site'],
       []
@@ -1688,6 +1697,7 @@ function sourceTemplate(): WorkflowActionCatalogSnapshot['actionTemplates'][numb
     displayName: '来源',
     actionClass: 'lab.devices:Source',
     actionType: 'UniLabJsonCommand',
+    nodeType: 'device',
     schema: canonicalSchema([], ['material']),
     goal: {},
     goalDefault: {},

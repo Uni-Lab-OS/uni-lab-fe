@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
 import { MaterialSourceInspector } from './MaterialSourceInspector'
 import { WorkflowActionParameterEditor } from './WorkflowActionParameterDrawer'
+import { formatAuthoringDiagnostic } from '../utils/workflowAuthoringUserCopy'
 
 /** 固定在桌面画布右侧的节点检查器；窄屏继续由共享参数抽屉承载。 */
 export function WorkflowNodeInspector({
@@ -272,7 +273,7 @@ export function WorkflowNodeInspector({
                     (diagnostic) => diagnostic.node_id === selectedNodeUuid!
                   ).map((diagnostic, index) => (
                     <p key={`${diagnostic.code}:${index}`} role="alert">
-                      {diagnostic.message}
+                      {formatAuthoringDiagnostic(diagnostic).detail}
                     </p>
                   ))}
                 </section>

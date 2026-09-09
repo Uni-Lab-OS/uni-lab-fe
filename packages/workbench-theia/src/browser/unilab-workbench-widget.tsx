@@ -274,6 +274,16 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     await this.refreshSessionSnapshot()
   }
 
+  /** 启动配置对话框中的 OS（Edge），必要时先确保 Workspace Backend 就绪。 */
+  protected readonly startOsSession = async (): Promise<void> => {
+    try {
+      await this.workbenchSession.start()
+    } catch {
+      // The backend publishes the actionable failed snapshot before rejecting.
+    }
+    await this.refreshSessionSnapshot()
+  }
+
   protected readonly stopSession = async (): Promise<void> => {
     await this.workbenchSession.stop()
     await this.refreshSessionSnapshot()
@@ -565,7 +575,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       setExternalDevicesOnly: this.setExternalDevicesOnly,
       configurePlcSimulator: this.configurePlcSimulator,
       setRuntimeMode: this.setRuntimeMode,
-      startOs: this.retrySession,
+      startOs: this.startOsSession,
       stopOs: this.stopSession,
       restartOs: this.restartSession,
       startPlcSimulator: this.startPlcSimulator,

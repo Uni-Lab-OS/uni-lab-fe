@@ -66,6 +66,18 @@ describe('ExperimentOperationWorkbench', () => {
     expect(markup).not.toContain('设备包尚未发布实验操作')
   })
 
+  it('keeps page create enabled regardless of draft dirty or diagnostics', () => {
+    const workbench = componentSource('ExperimentOperationWorkbench.tsx')
+
+    expect(workbench).toContain(
+      '// 草稿诊断/未保存修改不能挡住新建：catalog mismatch 等错误往往无法就地保存，'
+    )
+    expect(workbench).toContain('openCreateDialog')
+    expect(workbench).not.toContain(
+      "? '请先保存当前实验操作的修改'"
+    )
+  })
+
   it('groups OS actions by device and excludes authoring-only material sources', () => {
     const groups = groupExperimentOperationDeviceActions({
       actionTemplates: [
@@ -274,6 +286,7 @@ function actionTemplate(
     displayName,
     actionClass,
     actionType,
+    nodeType: 'device',
     schema: {},
     goal: {},
     goalDefault: {},

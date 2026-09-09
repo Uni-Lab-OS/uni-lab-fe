@@ -46,7 +46,7 @@ export function createWorkflowPrototypeActionMetadata({
       data.kind,
       data.status || 'pending'
     )
-  const detailLines = wrapDetail(detail, 20)
+  const detailLines = wrapDetail(detail, 22)
   return {
     ...base,
     attrs: {
@@ -71,35 +71,35 @@ export function createWorkflowPrototypeActionMetadata({
       {
         tagName: 'circle',
         className: 'workflow-x6-node__kind-dot',
-        attrs: { cx: 13.5, cy: 13, r: 3.5 }
+        attrs: { cx: 13.5, cy: 15, r: 3.5 }
       },
       {
         tagName: 'text',
         selector: 'kind',
         className: 'workflow-x6-node__kind',
         textContent: kind,
-        attrs: { ...TEXT_ORIGIN, x: 20, y: 15.5 }
+        attrs: { ...TEXT_ORIGIN, x: 20, y: 17.5 }
       },
       {
         tagName: 'text',
         selector: 'label',
         className: 'workflow-x6-node__label',
-        textContent: trimLabel(data.name || data.id, 11),
-        attrs: { ...TEXT_ORIGIN, x: 10, y: 35.5 }
+        textContent: trimLabel(data.name || data.id, 14),
+        attrs: { ...TEXT_ORIGIN, x: 10, y: 40 }
       },
       {
         tagName: 'text',
         selector: 'detail',
         className: 'workflow-x6-node__detail',
         textContent: detailLines[0],
-        attrs: { ...TEXT_ORIGIN, x: 10, y: 51.5 }
+        attrs: { ...TEXT_ORIGIN, x: 10, y: 58 }
       },
       ...(detailLines[1] ? [{
         tagName: 'text' as const,
         selector: 'detailSecondary',
         className: 'workflow-x6-node__detail',
         textContent: detailLines[1],
-        attrs: { ...TEXT_ORIGIN, x: 10, y: 61.5 }
+        attrs: { ...TEXT_ORIGIN, x: 10, y: 71 }
       }] : []),
       ...markerProjection.markup,
       titleMarkup

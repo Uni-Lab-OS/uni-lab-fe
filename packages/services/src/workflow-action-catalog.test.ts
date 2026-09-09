@@ -200,6 +200,7 @@ async function verifiesActionSnapshot(): Promise<void> {
       displayName: '转移样品',
       actionClass: 'szlab.devices.pump:Pump',
       actionType: 'UniLabJsonCommand',
+      nodeType: 'device',
       schema: {
         type: 'object',
         properties: {

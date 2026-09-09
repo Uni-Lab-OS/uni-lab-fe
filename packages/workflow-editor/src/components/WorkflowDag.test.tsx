@@ -437,10 +437,9 @@ describe('WorkflowDag canvas controls', () => {
 
     expect(markup).toContain('role="toolbar"')
     expect(markup).toContain('aria-label="画布视图与布局工具"')
-    expect(markup).toContain('aria-label="视图与选择"')
     expect(markup).toContain('aria-label="物料筛选与布局"')
-    expect(markup).toContain('workflow-runtime__canvas-button')
-    expect(markup).toContain('aria-label="布局策略"')
+    expect(markup).not.toContain('workflow-runtime__canvas-button')
+    expect(markup).not.toContain('aria-label="布局策略"')
     expect(markup).not.toContain('workflow-runtime__beautify')
     expect(markup).not.toContain('应用布局')
     expect(markup).toContain(

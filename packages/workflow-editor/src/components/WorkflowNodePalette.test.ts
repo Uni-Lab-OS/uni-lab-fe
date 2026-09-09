@@ -106,6 +106,7 @@ const catalog: WorkflowActionCatalogSnapshot = {
     displayName: '固体投料',
     actionClass: 'SolidDosing',
     actionType: 'device',
+    nodeType: 'device',
     schema: {},
     goal: {},
     goalDefault: {},

@@ -209,6 +209,7 @@ function catalog() {
       displayName: '单节点运行',
       actionClass: null,
       actionType: 'UniLabJsonCommand',
+      nodeType: 'ILab',
       schema: { 'x-unilabos-action-contract': { version: 1 } },
       goal: {},
       goalDefault: {},

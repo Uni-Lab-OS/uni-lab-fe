@@ -100,6 +100,7 @@ function actionTemplate(
     displayName: '设备动作',
     actionClass: 'SolidFeeder',
     actionType: 'UniLabJsonCommand',
+    nodeType: 'ILab',
     schema: {},
     goal: {},
     goalDefault: {},

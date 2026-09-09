@@ -51,6 +51,11 @@ export class WorkbenchViewState {
   > | null = null
   protected readonly changeEmitter = new Emitter<WorkbenchViewMode>()
 
+  constructor() {
+    const saved = readSavedWorkbenchMode()
+    if (saved) this.applyMode(saved)
+  }
+
   readonly onDidChangeMode: Event<WorkbenchViewMode> = this.changeEmitter.event
 
   /** 返回当前 Workbench 主区唯一可见模式。 */
@@ -134,8 +139,47 @@ export class WorkbenchViewState {
       }
     }
     const nextMode = this.currentMode
-    if (nextMode !== previousMode) this.changeEmitter.fire(nextMode)
+    if (nextMode !== previousMode) {
+      saveWorkbenchMode(nextMode)
+      this.changeEmitter.fire(nextMode)
+    }
   }
+
+  private applyMode(mode: WorkbenchViewMode): void {
+    this.workflowVisible = mode === 'workflow' || mode === 'split'
+    this.workflowManagementVisible = mode === 'workflow-management' ||
+      mode === 'workflow-management-material'
+    this.materialVisible = mode === 'material' || mode === 'split' ||
+      mode === 'workflow-management-material' || mode === 'device-material'
+    this.deviceVisible = mode === 'device' || mode === 'device-material'
+    this.exclusiveDomain = mode === 'operation' || mode === 'robot-debug' ||
+      mode === 'robot-points' || mode === 'workflow-tasks' ||
+      mode === 'robot-bench' || mode === 'robot-reagents' ? mode : null
+  }
+}
+
+const WORKBENCH_MODE_STORAGE_KEY = 'unilab.workbench.view-mode'
+const WORKBENCH_MODES = new Set<WorkbenchViewMode>([
+  'workflow', 'material', 'device', 'robot-debug', 'operation',
+  'robot-points', 'workflow-management', 'workflow-tasks', 'robot-bench',
+  'robot-reagents', 'split', 'workflow-management-material', 'device-material'
+])
+
+function readSavedWorkbenchMode(): WorkbenchViewMode | null {
+  try {
+    const value = globalThis.localStorage?.getItem(WORKBENCH_MODE_STORAGE_KEY) ??
+      globalThis.sessionStorage?.getItem(WORKBENCH_MODE_STORAGE_KEY)
+    return value && WORKBENCH_MODES.has(value as WorkbenchViewMode)
+      ? value as WorkbenchViewMode
+      : null
+  } catch { return null }
+}
+
+function saveWorkbenchMode(mode: WorkbenchViewMode): void {
+  try {
+    globalThis.localStorage?.setItem(WORKBENCH_MODE_STORAGE_KEY, mode)
+    globalThis.sessionStorage?.setItem(WORKBENCH_MODE_STORAGE_KEY, mode)
+  } catch { /* ignore */ }
 }
 
 /** 判断当前是否为允许用户关闭任一侧的双领域分栏。 */

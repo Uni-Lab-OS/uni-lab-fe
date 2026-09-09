@@ -86,7 +86,6 @@ function dependencies(options: {
     }
   }
   return {
-    ...options,
     editorReplaceContent: vi.fn(),
     localState,
     queue: new AuthoringOperationQueue(),
@@ -101,7 +100,8 @@ function dependencies(options: {
     tailRef: { current: Promise.resolve() },
     workflowUuid: WORKFLOW_UUID,
     workflowUuidRef: { current: WORKFLOW_UUID },
-    definitionPortRef: { current: options.definitionPort }
+    definitionPortRef: { current: options.definitionPort },
+    ...options
   }
 }
 
@@ -149,6 +149,92 @@ describe('workflow canvas mutation synchronization', () => {
     )
     expect(deps.setCanvasDirty).toHaveBeenCalledWith(false)
     expect(deps.setMessage).toHaveBeenCalledWith('节点位置已同步到 OS')
+  })
+
+  it('persists incomplete nodes as drafts when generate succeeds', async () => {
+    const current = aggregate()
+    const saved = aggregate({
+      state: 'draft_invalid',
+      draft: {
+        ...current.draft!,
+        python_source: 'result = inspect_beaker()\n',
+        draft_hash: 'draft-incomplete',
+        diagnostics: [{
+          severity: 'error',
+          code: 'candidate_invalid',
+          message: '缺少必填输入 beaker'
+        }]
+      }
+    })
+    const generateCanvasPython = vi.fn().mockResolvedValue({
+      diagnostics: [],
+      graph: graph(),
+      normalized_python_source: 'result = inspect_beaker()\n',
+      source_map: [],
+      changeset: null,
+      compiler_version: 'test',
+      template_catalog_fingerprint: 'catalog-1'
+    })
+    const saveWorkflowAuthoringDraft = vi.fn().mockResolvedValue(saved)
+    const deps = dependencies({
+      aggregate: current,
+      definitionPort: definitionPort(false, vi.fn()),
+      runtime: { saveWorkflowAuthoringDraft } as unknown as WorkflowRuntimePort,
+      generateCanvasPython
+    })
+    const setError = vi.fn()
+    const setMessage = vi.fn()
+    const setLocalValidationDiagnostics = vi.fn()
+    deps.setError = setError
+    deps.setMessage = setMessage
+    deps.setLocalValidationDiagnostics = setLocalValidationDiagnostics
+
+    enqueueCanvasMutationSync(graph(), 'create', deps)
+    await vi.waitFor(() => expect(saveWorkflowAuthoringDraft).toHaveBeenCalled())
+
+    expect(setError).toHaveBeenCalledWith(null)
+    expect(setLocalValidationDiagnostics).toHaveBeenCalledWith(
+      saved.draft?.diagnostics
+    )
+    expect(setMessage).toHaveBeenCalledWith(
+      '节点已保存为草稿。请继续配置必填物料或参数后再运行。'
+    )
+  })
+
+  it('keeps incomplete required-parameter failures as local draft diagnostics', async () => {
+    const generateCanvasPython = vi.fn().mockRejectedValue(
+      new Error('candidate_invalid: 动作缺少必填参数 beaker')
+    )
+    const deps = dependencies({
+      aggregate: aggregate(),
+      definitionPort: definitionPort(false, vi.fn()),
+      runtime: { saveWorkflowAuthoringDraft: vi.fn() } as unknown as WorkflowRuntimePort,
+      generateCanvasPython
+    })
+    const setError = vi.fn()
+    const setMessage = vi.fn()
+    const setLocalValidationDiagnostics = vi.fn()
+    const setCanvasDirty = vi.fn()
+    deps.setError = setError
+    deps.setMessage = setMessage
+    deps.setLocalValidationDiagnostics = setLocalValidationDiagnostics
+    deps.setCanvasDirty = setCanvasDirty
+
+    enqueueCanvasMutationSync(graph(), 'create', deps)
+    await vi.waitFor(() => expect(generateCanvasPython).toHaveBeenCalled())
+
+    expect(setError).toHaveBeenCalledWith(null)
+    expect(setCanvasDirty).toHaveBeenCalledWith(true)
+    expect(setLocalValidationDiagnostics).toHaveBeenCalledWith([
+      expect.objectContaining({
+        severity: 'error',
+        code: 'candidate_invalid',
+        message: '动作缺少必填参数 beaker'
+      })
+    ])
+    expect(setMessage).toHaveBeenCalledWith(
+      '节点已加到画布。草稿暂未写入，请配好必填项后重试保存。'
+    )
   })
 
   it('uses the direct graph port for Backend connections', async () => {

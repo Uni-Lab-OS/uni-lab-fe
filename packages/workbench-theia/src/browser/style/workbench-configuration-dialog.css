@@ -257,6 +257,10 @@
 }
 
 .unilab-config-dialog button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   height: 36px;
   min-height: 34px;
   padding: 0 13px;
@@ -292,6 +296,7 @@
   background: #2858d7;
 }
 .unilab-config-dialog__button-spinner {
+  display: inline-block;
   width: 13px;
   height: 13px;
   flex: 0 0 13px;

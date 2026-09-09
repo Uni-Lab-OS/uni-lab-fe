@@ -31,6 +31,8 @@ export interface WorkflowActionNodeTemplate {
   displayName: string
   actionClass: string | null
   actionType: string
+  /** Backend 节点类型（如 ``ILab``）；画布实例必须写入节点 ``type``，不能回落成 ``device``。 */
+  nodeType: string
   schema: Record<string, unknown>
   goal: Record<string, unknown>
   goalDefault: Record<string, unknown>

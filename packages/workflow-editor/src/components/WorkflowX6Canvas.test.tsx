@@ -252,7 +252,7 @@ describe('WorkflowX6Canvas scale policy', () => {
     expect(portItem(node, 'source-extra')).toBeUndefined()
   })
 
-  /** 默认工作流卡片必须严格使用 HTML 原型的 132×66 三行信息结构。 */
+  /** 默认工作流卡片必须严格使用 HTML 原型的 180×84 三行信息结构。 */
   it('projects action nodes with the HTML workflow-card contract', () => {
     const node = workflowX6NodeMetadata({
       ...workflowNode('mix-sample'),
@@ -284,8 +284,8 @@ describe('WorkflowX6Canvas scale policy', () => {
       }
     })
 
-    expect(node.width).toBe(132)
-    expect(node.height).toBe(66)
+    expect(node.width).toBe(180)
+    expect(node.height).toBe(84)
     expect(markupClassNames(node)).toEqual(expect.arrayContaining([
       'workflow-x6-node__body',
       'workflow-x6-node__kind-dot',

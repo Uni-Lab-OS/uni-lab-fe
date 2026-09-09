@@ -20,6 +20,14 @@ import {
 } from './persistentAuthoringSession'
 import { errorMessage, authoritativePython } from './persistentAuthoringProjection'
 
+/** 判断同步失败是否只是动作必填参数尚未配置（可继续本地编辑）。 */
+export function isMissingRequiredActionParameterError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /动作缺少必填参数/.test(message) ||
+    /缺少必填输入/.test(message) ||
+    message.includes('required_action_parameter_missing')
+}
+
 interface CanvasMutationSyncDependencies<LocalState extends {
   mode: 'code' | 'canvas'
   aggregate: WorkflowAuthoringAggregate | null
@@ -217,14 +225,22 @@ export function enqueueCanvasMutationSync<LocalState extends {
       editorValue: python
     }
     setError(null)
+    const incompleteDraft = saved.state === 'draft_invalid' ||
+      (saved.draft?.diagnostics ?? []).some(
+        (diagnostic) => diagnostic.severity === 'error'
+      )
     setMessage(
-      reason === 'connect'
-        ? '连线已同步到 OS；可继续编辑或运行工作流'
-        : reason === 'create'
-          ? '新建节点已同步到 OS'
-          : reason === 'delete'
-            ? '删除操作已同步到 OS'
-            : '节点位置已同步到 OS'
+      incompleteDraft
+        ? reason === 'create'
+          ? '节点已保存为草稿。请继续配置必填物料或参数后再运行。'
+          : '草稿已保存。还有必填项未配齐，配好后才能运行。'
+        : reason === 'connect'
+          ? '连线已同步到 OS；可继续编辑或运行工作流'
+          : reason === 'create'
+            ? '新建节点已同步到 OS'
+            : reason === 'delete'
+              ? '删除操作已同步到 OS'
+              : '节点位置已同步到 OS'
     )
   }).catch(async (syncError: unknown) => {
     if (
@@ -242,8 +258,24 @@ export function enqueueCanvasMutationSync<LocalState extends {
       }
       return
     }
+    // 新建/连线后常见：必填物料口尚未绑定。节点应留在本地供配置，不能当成编辑崩溃。
+    if (isMissingRequiredActionParameterError(syncError)) {
+      const raw = syncError instanceof Error
+        ? syncError.message
+        : String(syncError)
+      const matched = /^([a-z0-9_]+)\s*:\s*(.+)$/i.exec(raw.trim())
+      setLocalValidationDiagnostics([{
+        severity: 'error',
+        code: matched?.[1] ?? 'candidate_invalid',
+        message: matched?.[2]?.trim() || raw
+      }])
+      setCanvasDirty(true)
+      setError(null)
+      setMessage('节点已加到画布。草稿暂未写入，请配好必填项后重试保存。')
+      return
+    }
     setError(errorMessage(syncError))
-    setMessage('画布变更未能同步到 OS；本地修改仍保留')
+    setMessage('这次改动还没同步上去，本地内容仍保留，请检查提示后重试。')
   })
   tailRef.current = operation.then(
     () => undefined,

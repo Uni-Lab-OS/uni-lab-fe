@@ -391,6 +391,7 @@ function actionCatalog(): WorkflowActionCatalogSnapshot {
       displayName: 'Consume material',
       actionClass: 'lab.devices:Consumer',
       actionType: 'UniLabJsonCommand',
+      nodeType: 'ILab',
       schema: {
         type: 'object',
         'x-unilabos-action-contract': {

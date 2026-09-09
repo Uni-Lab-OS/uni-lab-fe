@@ -9,6 +9,7 @@ import type {
   TypedActionEditorProjection,
   TypedActionFieldProjection
 } from '../utils/workflowActionCatalog'
+import { formatAuthoringDiagnostic } from '../utils/workflowAuthoringUserCopy'
 import type {
   WorkflowResourceSlotOptionsState
 } from '../utils/workflowResourceSlotOptions'
@@ -640,12 +641,15 @@ function ParameterDiagnostics({
   if (diagnostics.length === 0) return null
   return (
     <ul className="persistent-authoring__parameter-diagnostics" role="alert">
-      {diagnostics.map((diagnostic, index) => (
+      {diagnostics.map((diagnostic, index) => {
+        const copy = formatAuthoringDiagnostic(diagnostic)
+        return (
         <li key={`${diagnostic.code}:${index}`}>
-          <code>{diagnostic.code}</code>
-          <span>{diagnostic.message}</span>
+          <strong>{copy.title}</strong>
+          <span>{copy.detail}</span>
         </li>
-      ))}
+        )
+      })}
     </ul>
   )
 }

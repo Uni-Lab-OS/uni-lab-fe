@@ -532,26 +532,6 @@ export const WorkflowX6Canvas = forwardRef<
           X6 虚拟画布 · {nodes.length.toLocaleString()} 个节点
         </div>
       )}
-      <div className="workflow-x6__zoom" aria-label="画布缩放">
-        <button
-          type="button"
-          aria-label="放大画布"
-          onClick={() => scrollerRef.current?.zoom(0.15)}
-        >＋</button>
-        <button
-          type="button"
-          aria-label="缩小画布"
-          onClick={() => scrollerRef.current?.zoom(-0.15)}
-        >−</button>
-        <button
-          type="button"
-          aria-label="适应画布"
-          onClick={() => scrollerRef.current?.zoomToFit({
-            padding: 56,
-            maxScale: 1.2
-          })}
-        >⌗</button>
-      </div>
     </div>
   )
 })

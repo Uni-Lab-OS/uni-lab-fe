@@ -8,6 +8,7 @@ import type {
 } from '@unilab/services'
 
 import { connectFrameworkSourceToTypedActionEdge } from './workflowActionCatalog'
+import { authoringSafeIdentifier, nextAuthoringSourceOrder } from './workflowAuthoringNodeIdentity'
 
 export type MaterialSourceMode = 'existing' | 'create_new'
 export type MaterialSourceFlowRole =
@@ -96,7 +97,12 @@ export function createMaterialSourceNode(
         execution_policy: {},
         disabled: false,
         minimized: false,
-        meta_data: {}
+        meta_data: {
+          unilab: {
+            authoring_result_name: authoringSafeIdentifier(input.name),
+            authoring_source_order: nextAuthoringSourceOrder(graph)
+          }
+        }
       }
     ],
     node_templates: appendStableTemplate(

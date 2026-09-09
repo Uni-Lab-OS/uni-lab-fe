@@ -5,6 +5,8 @@ import type {
   WorkflowPublishedNodeTemplate
 } from '@unilab/services'
 
+import { createAuthoringNodeMeta } from './workflowAuthoringNodeIdentity'
+
 /** 从真实已发布工作流目录创建一个折叠的调用边界节点。 */
 export function createPublishedWorkflowNode(
   catalog: WorkflowActionCatalogSnapshot,
@@ -36,7 +38,7 @@ export function createPublishedWorkflowNode(
       execution_policy: {},
       disabled: false,
       minimized: false,
-      meta_data: { unilab: { input_bindings: {} } }
+      meta_data: createAuthoringNodeMeta(graph, input.name)
     }],
     node_templates: appendRecords(
       graph.node_templates,

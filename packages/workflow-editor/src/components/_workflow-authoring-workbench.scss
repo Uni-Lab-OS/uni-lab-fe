@@ -23,18 +23,19 @@
 
     :global(.persistent-authoring__canvas-body),
     :global(.persistent-authoring__canvas-body.has-inspector) {
-      grid-template-columns: 260px minmax(520px, 1fr) 286px;
+      grid-template-columns: 260px minmax(520px, 1fr) var(--inspector-width, 320px);
       grid-template-areas: 'palette graph inspector';
       gap: 14px;
       box-sizing: border-box;
       min-height: 420px;
       padding: 14px;
       background: #f6f8fb;
+      position: relative;
     }
 
     :global(.persistent-authoring__canvas-body.is-palette-closed),
     :global(.persistent-authoring__canvas-body.is-palette-closed.has-inspector) {
-      grid-template-columns: minmax(520px, 1fr) 286px;
+      grid-template-columns: minmax(520px, 1fr) var(--inspector-width, 320px);
       grid-template-areas: 'graph inspector';
     }
 
@@ -90,6 +91,20 @@
       border-radius: 10px;
       background: #fff;
       box-shadow: 0 2px 8px rgb(15 23 42 / 5%);
+    }
+
+    :global(.persistent-authoring__inspector-resize-handle) {
+      position: absolute;
+      top: 14px;
+      right: calc(var(--inspector-width, 320px) + 14px);
+      bottom: 14px;
+      width: 14px;
+      margin-right: -7px;
+      cursor: col-resize;
+      z-index: 2;
+      background: transparent;
+      border-left: 1px solid #dbe3ef;
+      border-right: 1px solid transparent;
     }
 
     :global(.persistent-authoring__library) {
@@ -289,6 +304,8 @@
 
     :global(.persistent-authoring__node-editor) {
       grid-area: inspector;
+      position: relative;
+      z-index: 1;
       gap: 12px;
       padding: 0 12px 14px;
       border-left: 1px solid #e2e8f0;
@@ -604,7 +621,7 @@
     }
 
     :global(.persistent-authoring__node-editor)
-      :global(.contract-source-grid),
+    :global(.contract-source-grid),
     :global(.persistent-authoring__node-editor)
       :global(.persistent-authoring__parameter-list)
       :global(.contract-source-grid) {
@@ -612,6 +629,7 @@
       grid-template-columns: 104px minmax(0, 1fr);
       grid-column: 1;
       grid-row: auto;
+      align-items: end;
       gap: 6px;
     }
 
@@ -628,6 +646,11 @@
       border-radius: 7px;
       background: #f8fafc;
       font-size: 9px;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.contract-source-grid) > label:first-child {
+      padding-top: 40px;
     }
 
     :global(.persistent-authoring__node-editor)
@@ -855,8 +878,8 @@
   position: fixed;
   z-index: 10000;
   box-sizing: border-box;
-  width: 132px;
-  min-height: 66px;
+  width: 180px;
+  min-height: 84px;
   padding: 9px 10px;
   overflow: hidden;
   pointer-events: none;

@@ -116,6 +116,7 @@ export function projectWorkflowExecutableTemplate(
     displayName: summary.displayName,
     actionClass: nullableString(template.class),
     actionType: summary.actionType,
+    nodeType: summary.nodeType,
     schema: actionSchema,
     goal: recordValue(template.goal),
     goalDefault: recordValue(template.goal_default),

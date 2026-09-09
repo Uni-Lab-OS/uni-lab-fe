@@ -2,14 +2,13 @@ import type { WorkflowSummary } from '@unilab/services'
 import type { RefObject } from 'react'
 import { useState } from 'react'
 
-import type { WorkflowDagHandle } from './WorkflowDag'
 import { WorkflowButton } from './WorkflowButton'
 import { WorkflowChangeLogDialog } from './WorkflowCatalogDialogs'
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
 
 /**
  * 实验操作画布的 HTML 原型工具栏。操作页隐藏全局工具栏时，仍保留完整的
- * 源码、流程、版本、保存、发布、缩放和启动调试入口。
+ * 源码、流程、保存、发布和启动调试入口。
  */
 export function WorkflowOperationCanvasToolbar({
   model,
@@ -17,14 +16,12 @@ export function WorkflowOperationCanvasToolbar({
   visible,
   operationStructureOpen,
   onToggleOperationStructure,
-  workflowDagRef
 }: {
   model: PersistentWorkflowAuthoringModel
   workflowName?: string
   visible: boolean
   operationStructureOpen: boolean
   onToggleOperationStructure: () => void
-  workflowDagRef: RefObject<WorkflowDagHandle | null>
 }): React.JSX.Element | null {
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false)
   if (!visible) return null
@@ -106,15 +103,6 @@ export function WorkflowOperationCanvasToolbar({
       <WorkflowButton
         type="button"
         className="persistent-authoring__canvas-toolbar-button"
-        disabledReason="版本历史暂时不可用"
-        title="查看工作流版本历史"
-        onClick={() => setVersionHistoryOpen(true)}
-      >
-        版本历史
-      </WorkflowButton>
-      <WorkflowButton
-        type="button"
-        className="persistent-authoring__canvas-toolbar-button"
         disabled={saveState.disabled}
         disabledReason={saveState.reason}
         title="保存工作流"
@@ -131,28 +119,6 @@ export function WorkflowOperationCanvasToolbar({
         onClick={applyCandidate}
       >
         发布
-      </WorkflowButton>
-      <WorkflowButton
-        type="button"
-        className="persistent-authoring__canvas-toolbar-button is-compact"
-        disabled={!aggregate}
-        disabledReason="工作流图尚未加载完成"
-        aria-label="缩小画布"
-        title="缩小画布"
-        onClick={() => workflowDagRef.current?.zoomOut()}
-      >
-        −
-      </WorkflowButton>
-      <WorkflowButton
-        type="button"
-        className="persistent-authoring__canvas-toolbar-button is-compact"
-        disabled={!aggregate}
-        disabledReason="工作流图尚未加载完成"
-        aria-label="放大画布"
-        title="放大画布"
-        onClick={() => workflowDagRef.current?.zoomIn()}
-      >
-        +
       </WorkflowButton>
       <WorkflowButton
         type="button"

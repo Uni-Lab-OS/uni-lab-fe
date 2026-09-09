@@ -241,7 +241,7 @@ describe('persistent Authoring session coordination', () => {
       '正在检查工作流…'
     )
     expect(draftSaveMessage(aggregate({ state: 'draft_invalid', candidate: null })))
-      .toBe('草稿已保存，但存在错误，修复后才能应用')
+      .toBe('草稿已保存；还有问题未修好，修好后才能应用或运行')
     expect(authoringProjection(aggregate()).kind).toBe('candidate')
     expect(authoringProjection(aggregate({ candidate: null })).kind).toBe('applied')
   })

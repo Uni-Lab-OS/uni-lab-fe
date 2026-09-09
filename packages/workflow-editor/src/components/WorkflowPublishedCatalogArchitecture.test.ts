@@ -102,11 +102,13 @@ describe('Published Workflow Catalog in the Authoring module', () => {
     expect(source).toContain('globalThis.crypto.randomUUID()')
   })
 
-  it('renders OS diagnostic code and message without frontend replacement', () => {
+  it('renders user-facing diagnostic titles instead of raw OS codes', () => {
     const source = readFileSync(viewPath, 'utf8')
 
-    expect(source).toContain('<code>{diagnostic.code}</code>')
-    expect(source).toContain('<span>{diagnostic.message}</span>')
+    expect(source).toContain('formatAuthoringDiagnostic(diagnostic)')
+    expect(source).toContain('<strong>{copy.title}</strong>')
+    expect(source).toContain('<span>{copy.detail}</span>')
+    expect(source).not.toContain('<code>{diagnostic.code}</code>')
     expect(source).not.toMatch(/composite_[a-z_]+\s*:\s*['"`]/)
   })
 

@@ -220,13 +220,25 @@ export function ExperimentOperationWorkbench({
     )).sort((left, right) => left.localeCompare(right, 'zh-CN')),
     [operations]
   )
+  // 草稿诊断/未保存修改不能挡住新建：catalog mismatch 等错误往往无法就地保存，
+  // 新建是离开坏草稿的恢复入口。
   const createDisabledReason = !effectiveCreationStatus.available
     ? effectiveCreationStatus.reason ?? '当前 Authority 不支持创建实验操作'
-    : authoringDirty
-      ? '请先保存当前实验操作的修改'
-      : loading
-        ? '实验操作目录正在刷新'
-        : null
+    : loading
+      ? '实验操作目录正在刷新'
+      : null
+
+  const openCreateDialog = useCallback((): void => {
+    if (
+      authoringDirty
+      && !globalThis.confirm(
+        '当前实验操作有未保存修改，新建将离开当前编辑，是否继续？'
+      )
+    ) {
+      return
+    }
+    setCreateOpen(true)
+  }, [authoringDirty])
 
   const handleCreate = useCallback(async (
     request: ExperimentOperationCreateRequest
@@ -285,7 +297,7 @@ export function ExperimentOperationWorkbench({
             className="experiment-operation__page-create"
             disabled={createDisabledReason !== null}
             disabledReason={createDisabledReason ?? '创建实验操作'}
-            onClick={() => setCreateOpen(true)}
+            onClick={openCreateDialog}
           >
             <span className="codicon codicon-add" aria-hidden="true" />
             新建实验操作
@@ -301,7 +313,7 @@ export function ExperimentOperationWorkbench({
             directoryError={error}
             canCreate={createDisabledReason === null}
             createDisabledReason={createDisabledReason ?? undefined}
-            onCreate={() => setCreateOpen(true)}
+            onCreate={openCreateDialog}
             onRefresh={refreshDirectory}
           />
         ) : (

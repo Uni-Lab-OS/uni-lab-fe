@@ -10,6 +10,8 @@ import { isWorkflowValueSchemaAssignable } from '@unilab/services'
 import { v5 as uuidV5 } from 'uuid'
 
 import { wouldCreateWorkflowCycle } from './workflowGraphConnection'
+import { createAuthoringNodeMeta } from './workflowAuthoringNodeIdentity'
+import { authoringParameterLabel } from './workflowAuthoringUserCopy'
 
 export { createPublishedWorkflowNode } from './workflowPublishedNode'
 
@@ -67,7 +69,7 @@ export function createTypedActionNode(
   const nodeType = typeof template.wireValue?.node_type === 'string' &&
     template.wireValue.node_type
     ? template.wireValue.node_type
-    : 'device'
+    : (template.nodeType || 'device')
   return {
     ...graph,
     nodes: [
@@ -84,11 +86,7 @@ export function createTypedActionNode(
         execution_policy: {},
         disabled: false,
         minimized: false,
-        meta_data: {
-          unilab: {
-            input_bindings: {}
-          }
-        }
+        meta_data: createAuthoringNodeMeta(graph, input.name)
       }
     ],
     node_templates: appendCatalogRecords(
@@ -215,7 +213,7 @@ export function projectTypedActionEditor(
       fieldPath: `/param/${escapeJsonPointer(field.dataKey)}`,
       severity: 'error',
       code: 'required_action_parameter_missing',
-      message: `${field.displayName}为必填参数`
+      message: `${authoringParameterLabel(field.displayName || field.dataKey)}为必填参数`
     }))
   for (const diagnostic of osDiagnostics) {
     if (diagnostic.node_id !== nodeUuid) continue
@@ -664,6 +662,7 @@ function nodeTemplateWireValue(
     display_name: template.displayName,
     class: template.actionClass,
     type: template.actionType,
+    node_type: template.nodeType,
     schema: template.schema,
     goal: template.goal,
     goal_default: template.goalDefault

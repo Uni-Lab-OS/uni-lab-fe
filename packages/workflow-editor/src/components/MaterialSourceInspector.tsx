@@ -11,6 +11,7 @@ import {
   type MaterialSourceSelectorUpdate
 } from '../utils/workflowMaterialSource'
 import { materialTraceAccent } from '../utils/workflowMaterialTrace'
+import { formatAuthoringDiagnostic } from '../utils/workflowAuthoringUserCopy'
 import { WorkflowButton } from './WorkflowButton'
 import { WorkflowResourceSelector } from './WorkflowResourceSelector'
 import { workflowNodeStateLabel } from './WorkflowNodeCard'
@@ -309,12 +310,15 @@ export function MaterialSourceInspector({
       )}
       {diagnostics.length > 0 && (
         <ul className="persistent-authoring__selector-diagnostics">
-          {diagnostics.map((diagnostic, index) => (
+          {diagnostics.map((diagnostic, index) => {
+            const copy = formatAuthoringDiagnostic(diagnostic)
+            return (
             <li key={`${diagnostic.code}:${index}`}>
-              <code>{diagnostic.code}</code>
-              <span>{diagnostic.message}</span>
+              <strong>{copy.title}</strong>
+              <span>{copy.detail}</span>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
       <p className="persistent-authoring__selector-authority">

@@ -34,6 +34,11 @@ interface GenerateValidatedWorkflowPythonOptions {
   runtime: WorkflowRuntimePort
   sourceGraph: WorkflowAuthoringGraph
   workflowUuid: string
+  /**
+   * 为真时只要求 generate 成功即可落草稿：跳过固定点 validate，
+   * 允许缺必填参数先保存，由 save_draft / compile 挂上 draft_invalid 诊断。
+   */
+  allowIncompleteDraft?: boolean
   onCatalogRehydrated: (graph: WorkflowAuthoringGraph) => void
   onDiagnostics: (
     diagnostics: WorkflowAuthoringTransformResult['diagnostics']
@@ -53,6 +58,7 @@ export async function generateValidatedWorkflowPython({
   runtime,
   sourceGraph,
   workflowUuid,
+  allowIncompleteDraft = false,
   onCatalogRehydrated,
   onDiagnostics
 }: GenerateValidatedWorkflowPythonOptions): Promise<WorkflowAuthoringTransformResult> {
@@ -65,7 +71,8 @@ export async function generateValidatedWorkflowPython({
   const cached = cache.current
   if (
     cached?.sourceGraph === sourceGraph &&
-    cached.workflowRevision === authority.workflow_revision
+    cached.workflowRevision === authority.workflow_revision &&
+    !allowIncompleteDraft
   ) {
     onDiagnostics(cached.result.diagnostics)
     return cached.result
@@ -128,6 +135,9 @@ export async function generateValidatedWorkflowPython({
     )
   }
   if (!generated.graph) throw new Error('OS 未返回完整画布数据')
+  if (allowIncompleteDraft) {
+    return generated
+  }
   const validated = await queue.run(
     () => runtime.validateWorkflowAuthoring({
       workflow_uuid: workflowUuid,

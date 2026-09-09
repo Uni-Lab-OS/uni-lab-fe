@@ -91,7 +91,7 @@
 
     :global(.persistent-authoring__canvas-body),
     :global(.persistent-authoring__canvas-body.has-inspector) {
-      grid-template-columns: 236px minmax(420px, 1fr) 286px;
+      grid-template-columns: 236px minmax(420px, 1fr) var(--inspector-width, 320px);
       grid-template-areas: 'palette graph inspector';
       gap: 0;
       padding: 0;
@@ -100,19 +100,19 @@
 
     :global(.persistent-authoring__canvas-body.has-operation-structure),
     :global(.persistent-authoring__canvas-body.has-operation-structure.has-inspector) {
-      grid-template-columns: 236px 224px minmax(420px, 1fr) 286px;
+      grid-template-columns: 236px 224px minmax(420px, 1fr) var(--inspector-width, 320px);
       grid-template-areas: 'palette operation-outline graph inspector';
     }
 
     :global(.persistent-authoring__canvas-body.is-palette-closed),
     :global(.persistent-authoring__canvas-body.is-palette-closed.has-inspector) {
-      grid-template-columns: minmax(420px, 1fr) 286px;
+      grid-template-columns: minmax(420px, 1fr) var(--inspector-width, 320px);
       grid-template-areas: 'graph inspector';
     }
 
     :global(.persistent-authoring__canvas-body.is-palette-closed.has-operation-structure),
     :global(.persistent-authoring__canvas-body.is-palette-closed.has-operation-structure.has-inspector) {
-      grid-template-columns: 224px minmax(420px, 1fr) 286px;
+      grid-template-columns: 224px minmax(420px, 1fr) var(--inspector-width, 320px);
       grid-template-areas: 'operation-outline graph inspector';
     }
 

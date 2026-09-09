@@ -267,7 +267,9 @@ export function usePersistentWorkflowAuthoring({
             content,
             workflowUuid
           )
-          const generated = await generateCanvasPython(importedGraph)
+          const generated = await generateCanvasPython(importedGraph, aggregate as WorkflowAuthoringAggregate, {
+            allowIncompleteDraft: true
+          })
           if (!generated.graph || !generated.normalized_python_source) {
             throw new Error('OS 未返回完整的画布与 Python 数据')
           }
@@ -644,7 +646,8 @@ export function usePersistentWorkflowAuthoring({
 
   const generateCanvasPython = useCallback(async (
     sourceGraph: WorkflowAuthoringGraph,
-    authority: WorkflowAuthoringAggregate = aggregate as WorkflowAuthoringAggregate
+    authority: WorkflowAuthoringAggregate = aggregate as WorkflowAuthoringAggregate,
+    options?: { allowIncompleteDraft?: boolean }
   ): Promise<WorkflowAuthoringTransformResult> => {
     if (!authority) throw new Error('工作流编辑数据尚未就绪')
     return generateValidatedWorkflowPython({
@@ -659,6 +662,7 @@ export function usePersistentWorkflowAuthoring({
       runtime,
       sourceGraph,
       workflowUuid,
+      allowIncompleteDraft: options?.allowIncompleteDraft === true,
       onCatalogRehydrated: (graphValue) => {
         setGraph(graphValue)
         setCanvasDirty(true)
@@ -684,7 +688,12 @@ export function usePersistentWorkflowAuthoring({
   const syncCanvasMutation = useCanvasMutationSync({
     definitionPort,
     editorReplaceContent: editor.replaceContent,
-    generateCanvasPython,
+    generateCanvasPython: (
+      sourceGraph,
+      authority
+    ) => generateCanvasPython(sourceGraph, authority, {
+      allowIncompleteDraft: true
+    }),
     localState,
     queue,
     runtime,
@@ -753,7 +762,9 @@ export function usePersistentWorkflowAuthoring({
     if (nextMode === 'canvas') {
       const sourceGraph = authoringProjection(aggregate).graph
       if (definitionPort.capabilities.sourceEditing) {
-        const generated = await generateCanvasPython(sourceGraph)
+        const generated = await generateCanvasPython(sourceGraph, aggregate as WorkflowAuthoringAggregate, {
+          allowIncompleteDraft: true
+        })
         setGraph(beautifyPersistentAuthoringGraph(
           generated.graph || sourceGraph
         ))
@@ -908,7 +919,9 @@ export function usePersistentWorkflowAuthoring({
         )
         return
       }
-      const generated = await generateCanvasPython(sourceGraph)
+      const generated = await generateCanvasPython(sourceGraph, aggregate as WorkflowAuthoringAggregate, {
+        allowIncompleteDraft: true
+      })
       const decision = workflowCanvasDraftSaveDecision({
         baselinePython: authoritativePython(aggregate),
         generatedPython: generated.normalized_python_source as string,
@@ -1030,7 +1043,8 @@ export function usePersistentWorkflowAuthoring({
         localGraph = rebaseGraphIdentity(localGraph, conflict.remote)
         const generated = await generateCanvasPython(
           localGraph,
-          conflict.remote
+          conflict.remote,
+          { allowIncompleteDraft: true }
         )
         localPython = generated.normalized_python_source as string
       }
@@ -1189,6 +1203,7 @@ export function usePersistentWorkflowAuthoring({
     setSelectedNodeName,
     setSelectedNodeNameDirty,
     setSelectedNodeUuid,
+    setLocalValidationDiagnostics,
     syncCanvasMutation,
     ideBridge,
     sourceProjection
@@ -1273,7 +1288,9 @@ export function usePersistentWorkflowAuthoring({
           )
           return { kind: 'saved' as const, aggregate: saved, editMode: mode }
         }
-        const generated = await generateCanvasPython(sourceGraph)
+        const generated = await generateCanvasPython(sourceGraph, aggregate as WorkflowAuthoringAggregate, {
+          allowIncompleteDraft: true
+        })
         const generatedPython = generated.normalized_python_source
         if (!generatedPython) throw new Error('OS 未返回完整规范化 Python')
         return {

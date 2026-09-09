@@ -264,8 +264,14 @@
 
   :global(.persistent-authoring__resource-selector) {
     display: grid;
+    align-self: start;
     min-width: 0;
     gap: 5px;
+  }
+
+  :global(.persistent-authoring__parameter-fields) > label {
+    align-self: start;
+    min-width: 0;
   }
 
   :global(.persistent-authoring__resource-selector-heading) {
