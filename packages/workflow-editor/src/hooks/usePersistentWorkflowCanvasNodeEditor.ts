@@ -67,6 +67,9 @@ interface PersistentWorkflowCanvasNodeEditorOptions {
   setSelectedNodeName: Dispatch<SetStateAction<string>>
   setSelectedNodeNameDirty: Dispatch<SetStateAction<boolean>>
   setSelectedNodeUuid: Dispatch<SetStateAction<string | null>>
+  setLocalValidationDiagnostics?: Dispatch<
+    SetStateAction<WorkflowAuthoringDiagnostic[] | null>
+  >
   /** 画布节点移动或连线成功后，把最新候选图同步到权威 OS。 */
   syncCanvasMutation?: (
     graph: WorkflowAuthoringGraph,
@@ -108,6 +111,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
     setSelectedNodeName,
     setSelectedNodeNameDirty,
     setSelectedNodeUuid,
+    setLocalValidationDiagnostics,
     syncCanvasMutation,
     ideBridge,
     sourceProjection
@@ -254,7 +258,11 @@ export function usePersistentWorkflowCanvasNodeEditor(
     next: WorkflowAuthoringGraph,
     nodeUuid: string,
     name: string,
-    message: string
+    message: string,
+    options?: {
+      sync?: boolean
+      diagnostics?: WorkflowAuthoringDiagnostic[]
+    }
   ): void => {
     setGraph(next)
     setCanvasDirty(true)
@@ -263,6 +271,10 @@ export function usePersistentWorkflowCanvasNodeEditor(
     setSelectedNodeNameDirty(false)
     setError(null)
     setMessage(message)
+    if (options?.diagnostics) {
+      setLocalValidationDiagnostics?.(options.diagnostics)
+    }
+    if (options?.sync === false) return
     syncCanvasMutation?.(next, 'create')
   }
 
@@ -291,12 +303,38 @@ export function usePersistentWorkflowCanvasNodeEditor(
         name,
         position
       })
+      const projection = projectTypedActionEditor(
+        actionCatalog,
+        next,
+        nodeUuid,
+        []
+      )
+      const missingRequired = projection.diagnostics.filter(
+        (diagnostic) => diagnostic.code === 'required_action_parameter_missing'
+      )
       commitInsertedNode(
         next,
         nodeUuid,
         name,
-        '已从真实操作模板创建节点；正在通过工作区同步保存'
+        missingRequired.length > 0
+          ? '节点已加入画布，正在保存草稿；请继续配置必填物料或参数'
+          : '已从真实操作模板创建节点；正在通过工作区同步保存',
+        missingRequired.length > 0
+          ? {
+              diagnostics: missingRequired.map((diagnostic) => ({
+                severity: diagnostic.severity,
+                code: diagnostic.code,
+                message: diagnostic.message,
+                node_id: nodeUuid,
+                path: diagnostic.fieldPath,
+                workflow_handle_template_uuid: diagnostic.handleUuid
+              })) as WorkflowAuthoringDiagnostic[]
+            }
+          : undefined
       )
+      if (missingRequired.length > 0) {
+        setActionParametersOpen(true)
+      }
     } catch (createError) {
       setError(errorMessage(createError))
     }
@@ -549,8 +587,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
       setGraph(next)
       setCanvasDirty(true)
       setError(null)
-      setMessage('节点位置已更新；正在同步 OS…')
-      syncCanvasMutation?.(next, 'node_move')
+      setMessage('节点位置已更新；保存草稿后持久化')
     } catch (moveError) {
       setError(errorMessage(moveError))
     }
