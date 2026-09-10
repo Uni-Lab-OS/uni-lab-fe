@@ -132,7 +132,8 @@ function useLabModel(node: LabDeviceNode): {
     node.model.meshDir,
     node.model.ossDir,
     node.model.path,
-    node.model.version
+    node.model.version,
+    node.kinematics?.topologyDigest
   ])
 
   useEffect(() => {
@@ -481,6 +482,11 @@ export default function LabDeviceRenderer({
       )}
       {node.renderBody && object && (
         <group
+          key={
+            node.kinematics?.topologyDigest ??
+            node.model.version ??
+            node.model.path
+          }
           ref={modelGroupRef}
           rotation={modelFrameRotation}
         >

@@ -6,11 +6,17 @@
  */
 export function resolveWorkbenchModelUrl(
   backendUrl: string,
-  modelPath: string
+  modelPath: string,
+  topologyDigest?: string | null
 ): string {
   if (!modelPath || /^https?:\/\//u.test(modelPath)) return modelPath
   const normalizedBackend = backendUrl.replace(/\/+$/u, '')
-  return modelPath.startsWith('/')
+  const base = modelPath.startsWith('/')
     ? `${normalizedBackend}${modelPath}`
     : new URL(modelPath, `${normalizedBackend}/`).toString()
+  const digest = topologyDigest?.trim()
+  if (!digest || !modelPath.includes('/kinematic-models/')) return base
+  const url = new URL(base)
+  url.searchParams.set('v', digest)
+  return url.toString()
 }

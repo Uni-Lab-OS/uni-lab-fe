@@ -6,7 +6,6 @@ import {
 import { useState } from 'react'
 
 import { useWorkbenchSpatialShadow } from './workbench-spatial-shadow-source'
-import './workbench-spatial-shadow-panel.css'
 
 /**
  * 物料（Material）视图中的只读空间影子（Spatial Shadow）入口。

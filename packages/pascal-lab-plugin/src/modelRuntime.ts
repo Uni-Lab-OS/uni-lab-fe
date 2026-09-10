@@ -60,8 +60,15 @@ async function resolveUrl(node: LabDeviceNode): Promise<string> {
     : node.model.path
 }
 
+function mergeFetchOptions(): RequestInit {
+  return {
+    cache: 'no-store',
+    ...runtime.fetchOptions?.()
+  }
+}
+
 async function fetchBuffer(url: string): Promise<ArrayBuffer> {
-  const response = await fetch(url, runtime.fetchOptions?.())
+  const response = await fetch(url, mergeFetchOptions())
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} loading ${url}`)
   }
@@ -402,7 +409,7 @@ function patchXacroLoadYaml(
 }
 
 async function loadUrdf(url: string, nodeId: string): Promise<Object3D> {
-  const response = await fetch(url, runtime.fetchOptions?.())
+  const response = await fetch(url, mergeFetchOptions())
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} loading ${url}`)
   }

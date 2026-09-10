@@ -12,6 +12,7 @@ import {
   type MaterialWorkbenchViewportProps
 } from '@unilab/material'
 import type {
+  LabDeviceNode,
   MaterialSceneSourceIdentity,
   MaterialSceneMove,
   MaterialTransferSceneRoute
@@ -161,8 +162,12 @@ export function WorkbenchMaterialViewport({
   )
   const modelRuntime = useMemo(() => ({
     /** 把包内相对模型路径解析到当前 OS 地址。 */
-    resolveUrl: (model: { path: string }) =>
-      resolveWorkbenchModelUrl(backendUrl, model.path)
+    resolveUrl: (model: { path: string }, node: LabDeviceNode) =>
+      resolveWorkbenchModelUrl(
+        backendUrl,
+        model.path,
+        node.kinematics?.topologyDigest
+      )
   }), [backendUrl])
 
   useEffect(() => {
