@@ -5,6 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { theiaBuildEnvironment } from './theia-build-environment.mjs'
+import { normalizeContainerModuleInteropBundle } from './container-module-interop.mjs'
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const workbenchDirectory = path.resolve(scriptDirectory, '..')
@@ -24,12 +25,7 @@ const child = spawn(process.execPath, [
 async function normalizeContainerModuleInterop() {
   const bundlePath = path.join(workbenchDirectory, 'lib', 'frontend', 'bundle.js')
   const bundle = await readFile(bundlePath, 'utf8')
-  const original = 'container.load(containerModule.default)'
-  const normalized = 'container.load(containerModule.default?.registry ? containerModule.default : containerModule.default?.default)'
-  if (!bundle.includes(original)) {
-    throw new Error('Theia frontend container-module loader was not found in bundle.js')
-  }
-  await writeFile(bundlePath, bundle.replaceAll(original, normalized))
+  await writeFile(bundlePath, normalizeContainerModuleInteropBundle(bundle))
 }
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

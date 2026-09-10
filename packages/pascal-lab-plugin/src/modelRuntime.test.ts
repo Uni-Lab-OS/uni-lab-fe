@@ -1,4 +1,5 @@
-import { Euler, Matrix4, Mesh, type Material, Vector3 } from 'three'
+import { Euler, Group, Matrix4, Mesh, type Material, Vector3 } from 'three'
+import { applyProps } from '@react-three/fiber'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -22,7 +23,7 @@ describe('Pascal model runtime', () => {
       'rail',
       'rail_rail_carriage'
     )
-    expect(childRotation).toBeUndefined()
+    expect(childRotation).toEqual([0, 0, 0])
     expect(resolveModelFrameRotation('urdf', null, null)).toEqual([
       -Math.PI / 2,
       0,
@@ -46,6 +47,20 @@ describe('Pascal model runtime', () => {
     'keeps a URDF child upright when mounted to a parent URDF link',
     assertNestedUrdfKeepsParentFrame
   )
+
+  it('clears the previous model rotation across repeated pick and place transitions', () => {
+    const modelFrame = new Group()
+    for (let cycle = 0; cycle < 2; cycle += 1) {
+      applyProps(modelFrame, { rotation: resolveModelFrameRotation('urdf', null, null) })
+      expect(modelFrame.rotation.x).toBeCloseTo(-Math.PI / 2)
+      applyProps(modelFrame, { rotation: resolveModelFrameRotation('urdf', 'arm', 'wrist') })
+      const plateUp = new Vector3(0, 0, 1).applyEuler(modelFrame.rotation)
+      expect(plateUp.z).toBeCloseTo(1)
+      expect(plateUp.y).toBeCloseTo(0)
+      applyProps(modelFrame, { rotation: resolveModelFrameRotation('urdf', 'site', '__root__') })
+      expect(modelFrame.rotation.x).toBeCloseTo(-Math.PI / 2)
+    }
+  })
 
   it('keeps a single STL material renderable when applying a tint', async () => {
     vi.stubGlobal(

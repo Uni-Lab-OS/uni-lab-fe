@@ -3,6 +3,8 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gzipSync } from 'node:zlib'
 
+import { hasNormalizedContainerModuleInterop } from './container-module-interop.mjs'
+
 const MAX_ENTRY_BYTES = 6 * 1024 * 1024
 const MAX_JAVASCRIPT_ASSET_BYTES = 12 * 1024 * 1024
 
@@ -27,7 +29,7 @@ export async function verifyBrowserBundle(frontendDirectory) {
     javascriptFiles(frontendDirectory),
   ])
 
-  if (!bundle.includes('containerModule.default?.registry ? containerModule.default : containerModule.default?.default')) {
+  if (!hasNormalizedContainerModuleInterop(bundle.toString('utf8'))) {
     throw new Error('Workbench bundle.js is missing Theia ContainerModule CommonJS/ESM normalization')
   }
 

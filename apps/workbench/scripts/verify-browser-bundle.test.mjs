@@ -16,7 +16,10 @@ async function fixture({ moduleEntry = true, chunks = true, workerImport = false
     writeFile(path.join(directory, 'index.html'), moduleEntry
       ? '<script type="module" src="./bundle.js" charset="utf-8"></script>'
       : '<script type="text/javascript" src="./bundle.js" charset="utf-8"></script>'),
-    writeFile(path.join(directory, 'bundle.js'), 'import "./chunks/shared.js"'),
+    writeFile(
+      path.join(directory, 'bundle.js'),
+      'import "./chunks/shared.js";container.load(containerModule.default?.registry ? containerModule.default : containerModule.default?.default)'
+    ),
     writeFile(path.join(directory, 'editor.worker.js'), workerImport ? 'import "./chunks/shared.js"' : 'self.onmessage = () => {}'),
     writeFile(path.join(directory, 'plugin-worker.js'), 'self.onmessage = () => {}'),
     ...(chunks ? [writeFile(path.join(directory, 'chunks', 'shared.js'), 'export const shared = true')] : []),

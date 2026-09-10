@@ -488,7 +488,11 @@ describe('Workspace Host Workbench adapter', () => {
       await writeFile(join(runtime, 'session.json'), JSON.stringify(replacement))
     })
 
-    const session = createWorkspaceHostWorkbenchSession({ workspacePath })
+    const session = createWorkspaceHostWorkbenchSession({
+      workspacePath,
+      // 启动器已被替换；显式给出测试环境，避免依赖开发者本机 Conda。
+      environmentPath: join(workspacePath, 'fixture-runtime')
+    })
     const snapshots = await Promise.all([
       session.startWorkspaceBackend(),
       session.startWorkspaceBackend()

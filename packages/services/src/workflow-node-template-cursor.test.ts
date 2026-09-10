@@ -325,7 +325,7 @@ async function sendsExplicitMaterialSourceFilter(): Promise<void> {
  */
 async function sendsResourceTemplateFilter(): Promise<void> {
   const requests: string[] = []
-  const path = '/api/v1/workflow-node-templates?limit=100'
+  const path = '/api/v1/workflow-node-templates?page=1&page_size=100'
     + `&resource_template_uuid=${resourceTemplateUuid}`
   const http = fixtureHttp({
     [path]: page([summary(firstUuid, 'mix')], false, null)

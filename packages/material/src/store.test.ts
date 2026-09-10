@@ -5,9 +5,82 @@ import {
   materialAggregate,
   materialGraphPort
 } from './testFixtures'
-import type { MaterialCapability } from './types'
+import type { MaterialCapability, MaterialMovedEvent } from './types'
 
 describe('material store', () => {
+  it('keeps inventory live through loading and rejects replayed moves', async () => {
+    const source = materialAggregate('source')
+    const target = materialAggregate('target')
+    const vessel = materialAggregate('vessel', { revision: 1 })
+    let onMove!: (event: MaterialMovedEvent) => void
+    const dispose = vi.fn()
+    let finishLoad!: (value: typeof vessel[]) => void
+    const getGraph = vi.fn(() => new Promise<typeof vessel[]>(resolve => {
+      finishLoad = resolve
+    }))
+    const subscribeMoves = vi.fn((listener: typeof onMove) => {
+      onMove = listener
+      return { dispose }
+    })
+    const store = createMaterialStore({
+      scope: { kind: 'singleton' },
+      graph: materialGraphPort({ getGraph, subscribeMoves }),
+      requireCapability: allowCapabilities('material.readGraph')
+    })
+    const loading = store.getState().loadGraph()
+    onMove({ id: '2', materialId: 'vessel', revision: 2, toParentId: 'source' })
+    finishLoad([source, target, vessel])
+    await loading
+    expect(store.getState().aggregatesById.vessel.placement).toMatchObject({ parentId: 'source' })
+    onMove({ id: '3', materialId: 'vessel', revision: 3, toParentId: 'target' })
+    onMove({ id: '2', materialId: 'vessel', revision: 2, toParentId: 'source' })
+    expect(store.getState().aggregatesById.vessel.placement).toMatchObject({ parentId: 'target' })
+    expect(store.getState().loadState).toBe('ready')
+    expect(getGraph).toHaveBeenCalledTimes(1)
+    expect(subscribeMoves).toHaveBeenCalledTimes(1)
+    store.getState().reset()
+    expect(dispose).toHaveBeenCalledTimes(1)
+    onMove({ id: '4', materialId: 'vessel', revision: 4, toParentId: 'source' })
+    expect(store.getState().aggregatesById).toEqual({})
+  })
+
+  it('does not restore a graph whose load was reset while in flight', async () => {
+    let finishLoad!: (value: ReturnType<typeof materialAggregate>[]) => void
+    const dispose = vi.fn()
+    const store = createMaterialStore({
+      scope: { kind: 'singleton' },
+      graph: materialGraphPort({
+        getGraph: () => new Promise(resolve => { finishLoad = resolve }),
+        subscribeMoves: () => ({ dispose })
+      }),
+      requireCapability: allowCapabilities('material.readGraph')
+    })
+    const loading = store.getState().loadGraph()
+    store.getState().reset()
+    finishLoad([materialAggregate('old-plate')])
+    await loading
+    expect(store.getState().loadState).toBe('idle')
+    expect(store.getState().aggregatesById).toEqual({})
+    expect(dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('surfaces invalid live moves instead of silently keeping stale inventory', async () => {
+    let onMove!: (event: MaterialMovedEvent) => void
+    const store = createMaterialStore({
+      scope: { kind: 'singleton' },
+      graph: materialGraphPort({
+        getGraph: async () => [materialAggregate('plate', { revision: 1 })],
+        subscribeMoves: listener => { onMove = listener; return { dispose: vi.fn() } }
+      }),
+      requireCapability: allowCapabilities('material.readGraph')
+    })
+    await store.getState().loadGraph()
+    onMove({ id: '2', materialId: 'plate', revision: 2, toParentId: 'missing' })
+    expect(store.getState().error).toContain('missing')
+    expect(store.getState().aggregatesById.plate.revision).toBe(1)
+    store.getState().reset()
+  })
+
   it('loads authoritative aggregates and derives graph indexes', async () => {
     const parent = materialAggregate('parent')
     const child = materialAggregate('child', {

@@ -55,6 +55,10 @@ export function createMaterialStore(
   const history = createMaterialHistory()
   let commandSequence = 0
   let graphRevision = 0
+  let loadGeneration = 0
+  let moveSubscription: ReturnType<NonNullable<
+    MaterialStoreDependencies['graph']['subscribeMoves']
+  >> | undefined
 
   const nextCommandId = (kind: PendingMaterialCommand['kind']): string => {
     commandSequence += 1
@@ -127,11 +131,28 @@ export function createMaterialStore(
         }
         dependencies.requireCapability('material.readGraph')
         const commandId = begin('load', [])
+        const generation = ++loadGeneration
+        const pendingMoves: MaterialMovedEvent[] = []
         set({ loadState: 'loading' })
         try {
+          // 先订阅再读取快照，缓存加载期间的移动；放下物料时必须使用最新库位。
+          moveSubscription?.dispose()
+          moveSubscription = dependencies.graph.subscribeMoves?.((event) => {
+            if (generation !== loadGeneration) return
+            if (get().loadState === 'loading') {
+              pendingMoves.push(event)
+              return
+            }
+            try {
+              get().applyRemoteMove(event)
+            } catch (error) {
+              set({ error: errorMessage(error) })
+            }
+          })
           const aggregates = await dependencies.graph.getGraph(
             dependencies.scope
           )
+          if (generation !== loadGeneration) return
           const byId = Object.fromEntries(
             aggregates.map((aggregate) => [
               aggregate.material.id,
@@ -148,18 +169,24 @@ export function createMaterialStore(
           })
           graphRevision = aggregates[0]?.revision ?? 0
           history.reset(authoringSnapshot(byId))
+          for (const event of pendingMoves) get().applyRemoteMove(event)
           finish(commandId)
           // 外形只影响画法，取不到也不该让整张图加载失败。
           try {
             const shapeLibrary =
               (await dependencies.graph.getShapeLibrary?.()) ?? []
+            if (generation !== loadGeneration) return
             set({ shapeLibrary, shapeLibraryState: shapeLibrary.length > 0
               ? 'ready'
               : 'unavailable' })
           } catch {
+            if (generation !== loadGeneration) return
             set({ shapeLibrary: [], shapeLibraryState: 'unavailable' })
           }
         } catch (error) {
+          if (generation !== loadGeneration) return
+          moveSubscription?.dispose()
+          moveSubscription = undefined
           set({ loadState: 'error' })
           fail(commandId, error)
         }
@@ -174,6 +201,8 @@ export function createMaterialStore(
             `Unknown moved Material: ${event.materialId}`
           )
         }
+        // SSE 重放以及初始快照已包含的事件不能把库存倒退到旧工位。
+        if (event.revision !== undefined && event.revision <= moving.revision) return
         const targetParent = current[event.toParentId]
         if (!targetParent) {
           throw new MaterialRuleError(
@@ -439,6 +468,9 @@ export function createMaterialStore(
       clearHistory: () => history.clear(),
 
       reset: () => {
+        loadGeneration += 1
+        moveSubscription?.dispose()
+        moveSubscription = undefined
         graphRevision = 0
         set({
           aggregatesById: {},

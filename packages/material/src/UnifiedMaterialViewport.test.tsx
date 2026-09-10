@@ -110,7 +110,8 @@ describe('UnifiedMaterialViewport', () => {
         viewState={{
           mode: '3d',
           showSites: true,
-          showMaterialTransfers: true
+          showMaterialTransfers: true,
+          showMaterialLabels: true
         }}
         renderView={() => <div>scene</div>}
       />
@@ -120,7 +121,8 @@ describe('UnifiedMaterialViewport', () => {
         viewState={{
           mode: '2d',
           showSites: true,
-          showMaterialTransfers: true
+          showMaterialTransfers: true,
+          showMaterialLabels: true
         }}
         renderView={() => <div>scene</div>}
       />
@@ -130,7 +132,8 @@ describe('UnifiedMaterialViewport', () => {
         viewState={{
           mode: 'split',
           showSites: true,
-          showMaterialTransfers: true
+          showMaterialTransfers: true,
+          showMaterialLabels: true
         }}
         renderView={() => <div>scene</div>}
       />
@@ -161,7 +164,7 @@ describe('UnifiedMaterialViewport', () => {
     )
 
     expect(styles).toMatch(
-      /\.lab-unified-viewport\s*\{[^}]*container-name:\s*material-viewport;[^}]*container-type:\s*inline-size;/s
+      /\.lab-unified-viewport\s*\{[^}]*container-name:\s*lab-unified-viewport;[^}]*container-type:\s*inline-size;/s
     )
     expect(styles).toMatch(
       /\.lab-3d-operation-guide\s*\{[^}]*top:\s*calc\(40px \+ 14px\);[^}]*left:\s*14px;[^}]*flex-wrap:\s*wrap;/s
@@ -170,10 +173,10 @@ describe('UnifiedMaterialViewport', () => {
       /\.lab-3d-operation-guide\s*\{[^}]*right:\s*14px;/s
     )
     expect(styles).toMatch(
-      /@container material-viewport \(max-width: 720px\)[\s\S]*\.lab-3d-operation-guide\s*\{[^}]*top:\s*calc\(40px \+ 10px\);[^}]*right:\s*10px;[^}]*left:\s*10px;[^}]*max-width:\s*none;/s
+      /@container lab-unified-viewport \(max-width: 720px\)[\s\S]*\.lab-3d-operation-guide\s*\{[^}]*top:\s*calc\(40px \+ 10px\);[^}]*right:\s*10px;[^}]*left:\s*10px;[^}]*max-width:\s*none;/s
     )
     expect(styles).toMatch(
-      /@container material-viewport \(max-width: 720px\)[\s\S]*\.lab-3d-operation-guide span\s*\{[^}]*white-space:\s*normal;/s
+      /@container lab-unified-viewport \(max-width: 720px\)[\s\S]*\.lab-3d-operation-guide span\s*\{[^}]*white-space:\s*normal;/s
     )
   })
 
