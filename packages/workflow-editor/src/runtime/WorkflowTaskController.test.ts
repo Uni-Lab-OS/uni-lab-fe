@@ -872,8 +872,8 @@ function registerWorkflowTaskControllerTests(): void {
       value: 7
     }]
     const runtime = runtimePort({
-      preflightDebugWorkflowTask: vi.fn(async () => preflight),
-      createDebugWorkflowTask: vi.fn(async () => task),
+      preflightWorkflowTask: vi.fn(async () => ({ workflow_uuid: task.workflow_uuid, workflow_revision: 7, run_mode: 'step' as const, status: 'ready' as const, checked_at: '2026-09-09T00:00:00Z', summary: { execution_node_count: 2, passed_check_count: 1, blocking_check_count: 0, deferred_check_count: 0, confirmation_required_count: 0 }, can_run: true, checks: [], launch: preflight })),
+      createWorkflowTask: vi.fn(async () => task),
       getWorkflowTask: vi.fn(async () => task),
       listWorkflowTaskJobs: vi.fn(async () => [workflowJob()])
     })
@@ -893,22 +893,113 @@ function registerWorkflowTaskControllerTests(): void {
       preflight.preflight_hash
     )
 
-    expect(runtime.preflightDebugWorkflowTask).toHaveBeenCalledWith({
-      workflow_uuid: task.workflow_uuid,
-      start_node_uuids: [workflowJob().workflow_node_uuid],
+    expect(runtime.preflightWorkflowTask).toHaveBeenCalledWith(task.workflow_uuid, {
+      run_mode: 'step',
+      start_node_uuid: workflowJob().workflow_node_uuid,
       breakpoint_node_uuids: [],
       input: { count: 3 },
       launch_overrides: overrides
     })
-    expect(runtime.createDebugWorkflowTask).toHaveBeenCalledWith({
+    expect(runtime.createWorkflowTask).toHaveBeenCalledWith({
       workflow_uuid: task.workflow_uuid,
-      start_node_uuids: [workflowJob().workflow_node_uuid],
+      run_mode: 'step',
+      start_node_uuid: workflowJob().workflow_node_uuid,
       breakpoint_node_uuids: [],
       input: { count: 3 },
       launch_overrides: overrides,
       preflight_hash: preflight.preflight_hash,
       meta_data: { source: 'unilab-workbench-debugger' }
     })
+  })
+
+  it('exposes authoritative missing inputs and refuses blocked or absent launch reports', async () => {
+    const launch: DebugWorkflowTaskPreflight = { workflow_uuid: workflowTask().workflow_uuid,
+      workflow_revision: 7, status: 'needs_input', preflight_hash: 'input-hash',
+      requirements: [], diagnostics: [], launch_overrides: [] }
+    const report = { workflow_uuid: launch.workflow_uuid, workflow_revision: 7,
+      run_mode: 'step' as const, status: 'temporarily_unavailable' as const,
+      checked_at: '2026-09-09T00:00:00Z', summary: { execution_node_count: 2,
+        passed_check_count: 0, blocking_check_count: 0, deferred_check_count: 0,
+        confirmation_required_count: 0 }, can_run: false, checks: [], launch }
+    const preflightWorkflowTask = vi.fn<WorkflowRuntimePort['preflightWorkflowTask']>(async () => report)
+    const controller = new WorkflowTaskController(runtimePort({ preflightWorkflowTask }), launch.workflow_uuid)
+    await expect(controller.preflightDebug('start', [])).resolves.toBe(launch)
+    preflightWorkflowTask.mockResolvedValueOnce({ ...report, launch: { ...launch, status: 'ready' },
+      checks: [{ type: 'device', status: 'blocked', code: 'offline', message: '设备离线',
+        blocking: true, details: {} }] } as Awaited<ReturnType<WorkflowRuntimePort['preflightWorkflowTask']>>)
+    await expect(controller.preflightDebug('start', [])).rejects.toThrow('设备离线')
+    preflightWorkflowTask.mockResolvedValueOnce({ ...report, launch: undefined } as unknown as typeof report)
+    await expect(controller.preflightDebug('start', [])).rejects.toThrow('未提供启动预检结果')
+    controller.dispose()
+  })
+
+  it('sends all configured breakpoints as task configuration without a cropped graph', async () => {
+    const task = workflowTask()
+    const runtime = singleNodeRuntime(task)
+    const controller = new WorkflowTaskController(runtime, task.workflow_uuid)
+    await controller.createDebug('start', ['left', 'right'], {}, [], 'frozen-hash')
+    expect(runtime.createWorkflowTask).toHaveBeenCalledWith({ workflow_uuid: task.workflow_uuid,
+      run_mode: 'step', start_node_uuid: 'start', breakpoint_node_uuids: ['left', 'right'], input: {},
+      launch_overrides: [], preflight_hash: 'frozen-hash', meta_data: { source: 'unilab-workbench-debugger' } })
+    controller.dispose()
+  })
+
+  it('requires one authoritative ready node for step and preserves accepted state', async () => {
+    const task = { ...workflowTask(), run_mode: 'step' as const, control_status: 'paused' as const }
+    const runtime = singleNodeRuntime(task)
+    const state = { workflow_task_uuid: task.uuid, execution_mode: 'step' as const, control_status: 'paused' as const,
+      in_flight_job_count: 0, requires_selection: true, can_step: true,
+      candidates: ['left', 'right'].map(node_uuid => ({ node_uuid, name: node_uuid, kind: 'action', device_id: '', action_name: '' })),
+      breakpoint_node_uuids: ['left', 'right'], hit_breakpoint_node_uuids: ['left', 'right'] }
+    runtime.getWorkflowTaskStepState = vi.fn(async () => state)
+    runtime.commandWorkflowTask = vi.fn(async () => workflowCommand(task.uuid))
+    const controller = new WorkflowTaskController(runtime, task.workflow_uuid)
+    await controller.start(); await controller.createDebug('start', ['left', 'right'])
+    await vi.waitFor(() => expect(controller.getSnapshot().stepState).toEqual(state))
+    await expect(controller.command('step')).rejects.toThrow('请选择')
+    await expect(controller.command('step', 'not-ready')).rejects.toThrow('请选择')
+    expect(runtime.commandWorkflowTask).not.toHaveBeenCalled()
+    await controller.command('step', 'right')
+    expect(runtime.commandWorkflowTask).toHaveBeenCalledWith(task.uuid, expect.objectContaining({ type: 'step', target_node_uuid: 'right' }))
+    expect(controller.getSnapshot().stepState).toEqual(state)
+    state.can_step = false
+    await controller.refresh()
+    await expect(controller.command('step', 'right')).rejects.toThrow('当前不可单步')
+    await controller.command('resume')
+    expect(vi.mocked(runtime.commandWorkflowTask).mock.calls.at(-1)?.[1]).not.toHaveProperty('target_node_uuid')
+    controller.dispose()
+  })
+
+  it('keeps all parallel jobs and paused authority after accepted step and resume commands', async () => {
+    const task = { ...workflowTask(), run_mode: 'step' as const, control_status: 'paused' as const,
+      meta_data: { debug: true } }
+    const jobs = [workflowJob(), { ...workflowJob(), uuid: 'parallel-job', workflow_node_uuid: 'parallel-node' }]
+    const runtime = singleNodeRuntime(task)
+    runtime.listWorkflowTaskJobs = vi.fn(async () => jobs)
+    runtime.commandWorkflowTask = vi.fn(async () => workflowCommand(task.uuid))
+    const controller = new WorkflowTaskController(runtime, task.workflow_uuid)
+    await controller.start()
+    await controller.createDebug('start', [])
+    await vi.waitFor(() => expect(controller.getSnapshot().task?.uuid).toBe(task.uuid))
+    await controller.debugCommand('step')
+    await controller.debugCommand('continue')
+    expect(vi.mocked(runtime.commandWorkflowTask).mock.calls.map(([, request]) => request.type)).toEqual(['step', 'resume'])
+    expect(controller.getSnapshot()).toMatchObject({ task: { control_status: 'paused' }, jobs })
+    controller.dispose()
+  })
+
+  it('keeps preflight and hash conflict errors authoritative without creating a synthetic task', async () => {
+    const runtime = runtimePort({
+      preflightWorkflowTask: vi.fn(async () => { throw new Error('preflight unavailable') }),
+      createWorkflowTask: vi.fn(async () => { throw new Error('debug_preflight_conflict') })
+    })
+    const controller = new WorkflowTaskController(runtime, workflowTask().workflow_uuid)
+    await expect(controller.preflightDebug('start', [])).rejects.toThrow('preflight unavailable')
+    expect(runtime.createWorkflowTask).not.toHaveBeenCalled()
+    await expect(controller.createDebug('start', [], {}, [], 'stale-hash')).rejects.toThrow('debug_preflight_conflict')
+    expect(controller.getSnapshot().task).toBeNull()
+    expect(controller.getSnapshot().actionError).toContain('debug_preflight_conflict')
+    controller.dispose()
   })
 
   it('disposes the global subscription and ignores late REST completion', async () => {

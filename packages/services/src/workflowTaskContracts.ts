@@ -78,6 +78,9 @@ export interface WorkflowRunPreparation {
 }
 
 export type WorkflowRunPreflightStatus =
+  | 'runnable_now'
+  | 'temporarily_unavailable'
+  | 'invalid'
   | 'ready'
   | 'requires_confirmation'
   | 'blocked'
@@ -134,12 +137,40 @@ export type WorkflowTaskCleanupStatus =
 
 export interface WorkflowTaskCreateRequest {
   workflow_uuid: string
+  start_node_uuid?: string
+  breakpoint_node_uuids?: string[]
+  launch_overrides?: DebugLaunchOverride[]
+  preflight_hash?: string
   run_mode?: WorkflowTaskRunMode
   target_node_uuid?: string | null
   inventory_bindings?: WorkflowInventoryBinding[]
   input?: Record<string, unknown>
   description?: string | null
   meta_data?: Record<string, unknown>
+}
+
+export interface WorkflowTaskPreflightRequest {
+  run_mode: WorkflowTaskRunMode
+  start_node_uuid?: string
+  breakpoint_node_uuids?: string[]
+  input?: Record<string, unknown>
+  launch_overrides?: DebugLaunchOverride[]
+}
+
+export interface WorkflowTaskStepState {
+  workflow_task_uuid: string
+  execution_mode: 'normal' | 'step' | 'switching_to_step' | 'single_node'
+  control_status: WorkflowTaskControlStatus
+  in_flight_job_count: number
+  requires_selection: boolean
+  can_step: boolean
+  candidates: Array<{ node_uuid: string; name: string; kind: string; device_id: string; action_name: string }>
+  breakpoint_node_uuids?: string[]
+  hit_breakpoint_node_uuids?: string[]
+}
+
+export interface WorkflowTaskLaunchPreflightReport extends WorkflowRunPreflightReport {
+  launch: DebugWorkflowTaskPreflight
 }
 
 /** Backend 在一次工作流任务（WorkflowTask）中冻结的库存实例绑定。 */
@@ -310,6 +341,7 @@ export interface WorkflowTask {
   workflow_snapshot: Record<string, unknown>
   execution_plan: Record<string, unknown>
   run_mode: WorkflowTaskRunMode
+  execution_mode?: 'normal' | 'step' | 'switching_to_step' | 'single_node'
   target_node_uuid?: string
   control_status: WorkflowTaskControlStatus
   cleanup_status: WorkflowTaskCleanupStatus

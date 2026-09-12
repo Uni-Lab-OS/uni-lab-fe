@@ -31,7 +31,7 @@ export function workflowTaskToolbarControls(
     : task?.control_status === 'waiting_intervention'
       ? new Set<WorkflowTaskCommandType>(['cancel'])
     : task?.control_status === 'paused'
-    ? task.run_mode === 'step'
+    ? (task.execution_mode ?? task.run_mode) === 'step'
       ? new Set<WorkflowTaskCommandType>(['resume', 'step', 'cancel'])
       : new Set<WorkflowTaskCommandType>(['resume', 'cancel'])
     : new Set<WorkflowTaskCommandType>(['pause', 'cancel'])
@@ -81,7 +81,7 @@ export function workflowTaskControls(
       message: 'OS 已接受单步请求，正在补读节点任务与工作流任务状态',
       glyph: '→',
       disabled: busy || terminal || admissionBlocked ||
-        task.run_mode !== 'step' || task.control_status !== 'paused',
+        (task.execution_mode ?? task.run_mode) !== 'step' || task.control_status !== 'paused',
       disabledReason: workflowTaskCommandDisabledReason(task, busy, 'step')
     },
     {
@@ -123,7 +123,7 @@ function workflowTaskCommandDisabledReason(
   }
   if (command === 'pause') return '只有正在执行的任务可以暂停'
   if (command === 'resume') return '只有已经暂停的任务可以继续'
-  if (command === 'step' && task.run_mode !== 'step') {
+  if (command === 'step' && (task.execution_mode ?? task.run_mode) !== 'step') {
     return '当前任务不是单步模式'
   }
   if (command === 'step') return '只有已经暂停的单步任务可以执行下一步'

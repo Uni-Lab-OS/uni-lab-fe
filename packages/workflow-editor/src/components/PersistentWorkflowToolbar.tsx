@@ -1,5 +1,5 @@
 import { useDismissibleDetails } from '@unilab/design-system/hooks'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import {
   workflowTaskIsLive,
@@ -92,9 +92,19 @@ export function PersistentWorkflowToolbar({
     : '工作流尚未加载完成'
   const liveTask = workflowTaskIsLive(task) && !taskHistorical
   const saveDirty = mode === 'code' ? ideSourceDirty || dirty : dirty
+  const stepState = taskRuntime.snapshot?.stepState
+  const [selectedStepNode, setSelectedStepNode] = useState('')
+  const stepTarget = stepState?.candidates.length === 1 ? stepState.candidates[0]!.node_uuid
+    : stepState?.candidates.some(candidate => candidate.node_uuid === selectedStepNode) ? selectedStepNode : ''
   const compactTaskControls = useMemo(
-    () => workflowTaskToolbarControls(taskHistorical ? null : task, taskControls),
-    [task, taskControls, taskHistorical]
+    () => workflowTaskToolbarControls(taskHistorical ? null : task, taskControls).map(control =>
+      control.command === 'step' && stepState ? { ...control,
+        disabled: !liveTask || runtimeBusy || taskRuntime.snapshot?.projectionStale || !stepState.can_step || !stepTarget,
+        title: '执行所选节点，然后等待下一次操作',
+        disabledReason: !stepState.can_step ? '等待在途动作完成和服务确认可单步'
+          : !stepTarget ? '请选择一个就绪节点' : '正在读取或提交任务状态'
+      } : control),
+    [task, taskControls, taskHistorical, stepState, stepTarget, liveTask, runtimeBusy, taskRuntime.snapshot?.projectionStale]
   )
   const saveDisabled = Boolean(
     !saveDirty ||
@@ -307,7 +317,18 @@ export function PersistentWorkflowToolbar({
           <WorkflowToolbarIcon name="refresh" />
         </WorkflowButton>
 
-        {liveTask && !taskRuntime.snapshot.debug && (
+        {liveTask && stepState && stepState.execution_mode !== 'normal' && <div aria-label="单步调度边界">
+          <span role="status">{stepState.execution_mode === 'switching_to_step'
+            ? `等待 ${stepState.in_flight_job_count} 个在途动作完成` : `就绪节点 ${stepState.candidates.length} 个`}</span>
+          {(stepState.hit_breakpoint_node_uuids?.length ?? 0) > 0 && <span>断点已命中：{stepState.hit_breakpoint_node_uuids!.map(uuid =>
+            stepState.candidates.find(candidate => candidate.node_uuid === uuid)?.name || uuid).join('、')}</span>}
+          <label>单步节点<select aria-label="单步就绪节点" value={stepTarget}
+            disabled={!stepState.can_step || runtimeBusy} onChange={event => setSelectedStepNode(event.target.value)}>
+            <option value="">请选择就绪节点</option>{stepState.candidates.map(candidate =>
+              <option key={candidate.node_uuid} value={candidate.node_uuid}>{candidate.name || candidate.node_uuid}</option>)}
+          </select></label>
+        </div>}
+        {liveTask && (
           <WorkflowDebugControls
             compact
             controls={compactTaskControls}
@@ -316,7 +337,7 @@ export function PersistentWorkflowToolbar({
             commandDataAttribute="runtime"
             onCommand={(command, commandMessage) => runRuntime(
               async () => {
-                await taskRuntime.command(command)
+                await taskRuntime.command(command, command === 'step' ? stepTarget || undefined : undefined)
                 setMessage(commandMessage)
               }
             )}

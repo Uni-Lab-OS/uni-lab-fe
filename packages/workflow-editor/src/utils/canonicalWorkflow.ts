@@ -313,7 +313,10 @@ export function createWorkflowExecutionScope(
     }
   }
   const executableNodeIds = new Set<string>()
-  const pending = [normalizedStart]
+  // Match the OS first-entry preview: independent DAG roots remain in this run.
+  const executablePredecessors = new Set(nodes.filter(node => !node.disabled && node.type !== 'material_source').map(node => node.id))
+  const hasExecutablePredecessor = links.some(link => link.target === normalizedStart && executablePredecessors.has(link.source))
+  const pending = hasExecutablePredecessor ? [normalizedStart] : [...nodeIds]
   while (pending.length > 0) {
     const current = pending.pop() as string
     if (executableNodeIds.has(current)) continue

@@ -23,12 +23,6 @@ import type {
 import type { WorkflowMaterialSourceCatalogSnapshot } from './workflowMaterialSource'
 import type { BackendWorkflowGraph } from './backendWorkflowGraph'
 import type {
-  DebugWorkflowTaskCommand,
-  DebugWorkflowTaskCommandRequest,
-  DebugWorkflowTaskCreateRequest,
-  DebugWorkflowTaskPreflight,
-  DebugWorkflowTaskPreflightRequest,
-  DebugWorkflowTaskProjection,
   WorkflowEventSubscription,
   WorkflowNodeJob,
   WorkflowNodeJobFeedbackPage,
@@ -131,23 +125,15 @@ export interface WorkflowRuntimePort {
   createWorkflowTask: (
     request: WorkflowTaskCreateRequest
   ) => Promise<WorkflowTask>
-  createDebugWorkflowTask: (
-    request: DebugWorkflowTaskCreateRequest
-  ) => Promise<WorkflowTask>
-  preflightDebugWorkflowTask: (
-    request: DebugWorkflowTaskPreflightRequest
-  ) => Promise<DebugWorkflowTaskPreflight>
-  getDebugWorkflowTask: (
-    taskUuid: string
-  ) => Promise<DebugWorkflowTaskProjection>
-  commandDebugWorkflowTask: (
-    taskUuid: string,
-    request: DebugWorkflowTaskCommandRequest
-  ) => Promise<DebugWorkflowTaskCommand>
+  preflightWorkflowTask: (
+    workflowUuid: string,
+    request: import('./workflowTaskContracts').WorkflowTaskPreflightRequest
+  ) => Promise<import('./workflowTaskContracts').WorkflowTaskLaunchPreflightReport>
   listWorkflowTasks: (
     query?: WorkflowTaskListQuery
   ) => Promise<WorkflowTaskPage>
   getWorkflowTask: (taskUuid: string) => Promise<WorkflowTask>
+  getWorkflowTaskStepState?: (taskUuid: string) => Promise<import('./workflowTaskContracts').WorkflowTaskStepState>
   listWorkflowTaskJobs: (
     taskUuid: string
   ) => Promise<WorkflowNodeJob[]>

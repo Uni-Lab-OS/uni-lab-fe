@@ -184,22 +184,6 @@ export function PersistentWorkflowAuthoringView({
       nonce: (current?.nonce ?? 0) + 1
     }))
   }, [selectCanvasNode, setSelectedJobNodeUuid])
-  const debugProjection = taskRuntime.snapshot.debug
-  const debugFinished = !task || [
-    'succeeded',
-    'failed',
-    'canceled',
-    'timeout'
-  ].includes(task.status) || [
-    'completed',
-    'stopped'
-  ].includes(debugProjection?.status ?? '')
-  const debugStatusLabel: Record<string, string> = {
-    paused: '已暂停',
-    running: '运行中',
-    completed: '已完成',
-    stopped: '已停止'
-  }
   const selectedNodeDescription = selectedNodeUuid
     ? structure.nodes.find((node) => node.id === selectedNodeUuid)
       ?.description?.trim()
@@ -651,66 +635,6 @@ export function PersistentWorkflowAuthoringView({
         className="persistent-authoring__runtime"
         aria-label="工作流任务运行控制"
       >
-        {debugProjection && (
-          <section
-            className="persistent-authoring__debug-console"
-            aria-label="调试控制台"
-            data-debug-status={debugProjection.status}
-          >
-            <div>
-              <strong>调试控制台</strong>
-              <span>
-                {pausedBeforeNodeId
-                  ? `已在节点前暂停：${taskNodeNames[pausedBeforeNodeId] || pausedBeforeNodeId}`
-                  : debugProjection.status === 'running'
-                    ? '正在运行到下一个断点'
-                    : `调试会话：${debugStatusLabel[debugProjection.status] ?? debugProjection.status}`}
-              </span>
-            </div>
-            <div role="group" aria-label="调试执行控制">
-              <WorkflowButton
-                type="button"
-                disabled={runtimeBusy || !pausedBeforeNodeId}
-                disabledReason="当前没有可单步放行的暂停点"
-                title="只执行当前暂停节点，然后在下一节点前暂停"
-                onClick={() => runRuntime(
-                  () => taskRuntime.debugCommand('step')
-                )}
-              >
-                <span aria-hidden="true">↷</span>
-                <span>单步</span>
-              </WorkflowButton>
-              <WorkflowButton
-                type="button"
-                disabled={runtimeBusy || !pausedBeforeNodeId}
-                disabledReason="当前没有可继续放行的暂停点"
-                title="继续运行到下一个断点"
-                onClick={() => runRuntime(
-                  () => taskRuntime.debugCommand('continue')
-                )}
-              >
-                <span aria-hidden="true">▶</span>
-                <span>继续</span>
-              </WorkflowButton>
-              <WorkflowButton
-                type="button"
-                className="is-danger"
-                disabled={runtimeBusy || debugFinished}
-                disabledReason="当前没有可停止的调试任务"
-                title="停止调试并取消剩余节点作业"
-                onClick={() => runRuntime(
-                  async () => {
-                    await taskRuntime.command('cancel')
-                    setMessage('OS 已接受取消请求，正在补读工作流任务与节点任务状态')
-                  }
-                )}
-              >
-                <span aria-hidden="true">■</span>
-                <span>停止</span>
-              </WorkflowButton>
-            </div>
-          </section>
-        )}
         <WorkflowOutput
           expanded={outputExpanded}
           resizable

@@ -68,6 +68,19 @@ describe('Canonical workflow projection', () => {
     ).toBe('control-demo-3')
   })
 
+  it('preserves independent parallel roots when starting at the first executable boundary', () => {
+    const parsed = parseCanonicalWorkflow(CONTROL_DAG_JSON)
+    const independent = { ...parsed.nodes[0]!, id: 'parallel-root', name: 'Parallel root' }
+    const nodes = [...parsed.nodes, independent]
+    const scope = createWorkflowExecutionScope(nodes, parsed.links, 'measure')
+    expect(scope.executableNodeIds.has('parallel-root')).toBe(true)
+    expect(scope.beforeStartNodeIds.size).toBe(0)
+    const source = { ...independent, id: 'material-input', type: 'material_source' }
+    const supplied = createWorkflowExecutionScope([...nodes, source], [...parsed.links,
+      { ...parsed.links[0]!, source: 'material-input', target: 'measure' }], 'measure')
+    expect(supplied.executableNodeIds.has('parallel-root')).toBe(true)
+  })
+
   it('marks nodes outside the selected start subgraph as before-start', () => {
     const parsed = parseCanonicalWorkflow(CONTROL_DAG_JSON)
     const scope = createWorkflowExecutionScope(

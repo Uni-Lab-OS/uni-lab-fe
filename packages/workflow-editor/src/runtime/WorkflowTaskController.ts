@@ -1,8 +1,6 @@
 import type {
   DebugLaunchOverride,
-  DebugWorkflowTaskCommand,
   DebugWorkflowTaskPreflight,
-  DebugWorkflowTaskProjection,
   WorkflowEventSubscription,
   WorkflowNodeJob,
   WorkflowNodeJobFeedback,
@@ -10,17 +8,17 @@ import type {
   WorkflowTask,
   WorkflowTaskCommand,
   WorkflowTaskCommandType,
-  WorkflowTaskRunMode
+  WorkflowTaskRunMode,
+  WorkflowTaskStepState
 } from '@unilab/services'
 
 export interface WorkflowTaskRuntimeSnapshot {
   loading: boolean
   task: WorkflowTask | null
+  stepState: WorkflowTaskStepState | null
   jobs: readonly WorkflowNodeJob[]
   feedback: readonly WorkflowNodeJobFeedback[]
   lastCommand: WorkflowTaskCommand | null
-  debug: DebugWorkflowTaskProjection | null
-  lastDebugCommand: DebugWorkflowTaskCommand | null
   error: string | null
   actionError: string | null
   projectionError: string | null
@@ -47,11 +45,12 @@ export class WorkflowTaskController {
   private snapshot: WorkflowTaskRuntimeSnapshot = {
     loading: true,
     task: null,
+    stepState: null,
     jobs: [],
     feedback: [],
     lastCommand: null,
-    debug: null,
-    lastDebugCommand: null,
+
+
     error: null,
     actionError: null,
     projectionError: null,
@@ -208,9 +207,10 @@ export class WorkflowTaskController {
   ): Promise<WorkflowTask> {
     this.install({ actionError: null })
     try {
-      const created = await this.runtime.createDebugWorkflowTask({
+      const created = await this.runtime.createWorkflowTask({
         workflow_uuid: this.workflowUuid,
-        start_node_uuids: [startNodeUuid],
+        run_mode: 'step',
+        start_node_uuid: startNodeUuid,
         breakpoint_node_uuids: [...breakpointNodeUuids],
         ...(input === undefined ? {} : { input }),
         launch_overrides: [...launchOverrides],
@@ -220,7 +220,7 @@ export class WorkflowTaskController {
         meta_data: { source: 'unilab-workbench-debugger' }
       })
       if (this.active) {
-        this.install({ lastCommand: null, lastDebugCommand: null })
+        this.install({ lastCommand: null })
         void this.requestRefresh(created.uuid)
       }
       return created
@@ -238,13 +238,21 @@ export class WorkflowTaskController {
   ): Promise<DebugWorkflowTaskPreflight> {
     this.install({ actionError: null })
     try {
-      return await this.runtime.preflightDebugWorkflowTask({
-        workflow_uuid: this.workflowUuid,
-        start_node_uuids: [startNodeUuid],
+      const report = await this.runtime.preflightWorkflowTask(this.workflowUuid, {
+        run_mode: 'step',
+        start_node_uuid: startNodeUuid,
         breakpoint_node_uuids: [...breakpointNodeUuids],
         ...(input === undefined ? {} : { input }),
         launch_overrides: [...launchOverrides]
       })
+      if (!report.launch) throw new Error('当前 OS 未提供启动预检结果，请更新并重启服务。')
+      if (!report.can_run && report.launch.status !== 'needs_input') {
+        const reasons = report.checks
+          .filter((check) => check.status === 'blocked')
+          .map((check) => check.message).join('；')
+        throw new Error(`运行预检未通过：${reasons || '请检查服务返回的运行条件'}`)
+      }
+      return report.launch
     } catch (error) {
       this.install({ actionError: errorMessage(error), loading: false })
       throw error
@@ -252,34 +260,27 @@ export class WorkflowTaskController {
   }
 
   async debugCommand(type: 'step' | 'continue'): Promise<void> {
-    const task = this.snapshot.task
-    const openHold = this.snapshot.debug?.holds.find(
-      (hold) => hold.status === 'open'
-    )
-    if (!task || !openHold) throw new Error('当前调试任务没有可放行的暂停点')
-    this.install({ actionError: null })
-    try {
-      const command = await this.runtime.commandDebugWorkflowTask(task.uuid, {
-        type,
-        scope: { type: 'hold', hold_uuid: openHold.uuid },
-        idempotency_key: this.nextIdempotencyKey(task.uuid, `debug-${type}`)
-      })
-      if (!this.active) return
-      this.install({ lastDebugCommand: command })
-      void this.requestRefresh(task.uuid)
-    } catch (error) {
-      this.install({ actionError: errorMessage(error) })
-      throw error
-    }
+    await this.command(type === 'continue' ? 'resume' : 'step')
   }
 
-  async command(type: WorkflowTaskCommandType): Promise<void> {
+  async command(type: WorkflowTaskCommandType, targetNodeUuid?: string): Promise<void> {
     const task = this.snapshot.task
     if (!task) throw new Error('当前没有可控制的 Workflow Task')
     this.install({ actionError: null })
     try {
+      if (type === 'step' && this.runtime.getWorkflowTaskStepState) {
+        const step = this.snapshot.stepState
+        if (this.snapshot.projectionStale || !step?.can_step || step.workflow_task_uuid !== task.uuid) {
+          throw new Error('当前不可单步，请等待在途动作完成并重新读取就绪节点。')
+        }
+        targetNodeUuid ??= step.candidates.length === 1 ? step.candidates[0]!.node_uuid : undefined
+        if (!targetNodeUuid || !step.candidates.some(candidate => candidate.node_uuid === targetNodeUuid)) {
+          throw new Error('请选择一个当前可单步的就绪节点。')
+        }
+      }
       const command = await this.runtime.commandWorkflowTask(task.uuid, {
         type,
+        ...(targetNodeUuid ? { target_node_uuid: targetNodeUuid } : {}),
         idempotency_key: this.nextIdempotencyKey(task.uuid, type)
       })
       if (command.status === 'rejected') {
@@ -358,9 +359,10 @@ export class WorkflowTaskController {
           this.install({
             loading: false,
             task: null,
+            stepState: null,
             jobs: [],
             feedback: [],
-            debug: null,
+
             projectionError: null,
             feedbackError: null,
             projectionStale: false,
@@ -370,28 +372,28 @@ export class WorkflowTaskController {
           return
         }
       }
-      const [task, jobs] = await Promise.all([
+      const [task, jobs, stepState] = await Promise.all([
         this.runtime.getWorkflowTask(taskUuid),
-        this.runtime.listWorkflowTaskJobs(taskUuid)
+        this.runtime.listWorkflowTaskJobs(taskUuid),
+        this.runtime.getWorkflowTaskStepState?.(taskUuid) ?? Promise.resolve(null)
       ])
       if (
         !this.active ||
         !this.surfaceActive ||
         task.workflow_uuid !== this.workflowUuid
       ) return
+      if (stepState && stepState.workflow_task_uuid !== task.uuid) throw new Error('单步状态不属于当前任务，请重新读取。')
       if (isOlderDifferentTask(this.snapshot.task, task)) return
       const sortedJobs = [...jobs].sort(
         (left, right) => left.topological_index - right.topological_index
       )
-      const debug = task.meta_data.debug === true
-        ? await this.runtime.getDebugWorkflowTask(task.uuid)
-        : null
       const taskChanged = this.snapshot.task?.uuid !== task.uuid
       this.install({
         loading: false,
         task,
+        stepState,
         jobs: sortedJobs,
-        debug,
+
         ...(taskChanged ? { feedback: [] } : {}),
         projectionError: null,
         projectionStale: false,

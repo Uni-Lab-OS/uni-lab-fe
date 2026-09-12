@@ -44,7 +44,7 @@ export function useWorkflowTaskRuntime(
     launchOverrides?: readonly DebugLaunchOverride[]
   ) => Promise<DebugWorkflowTaskPreflight>
   debugCommand: (type: 'step' | 'continue') => Promise<void>
-  command: (type: WorkflowTaskCommandType) => Promise<void>
+  command: (type: WorkflowTaskCommandType, targetNodeUuid?: string) => Promise<void>
   refresh: () => Promise<void>
   clearError: () => void
 } {
@@ -118,7 +118,7 @@ export function useWorkflowTaskRuntime(
       launchOverrides
     ),
     debugCommand: (type) => controller.debugCommand(type),
-    command: (type) => controller.command(type),
+    command: (type, targetNodeUuid) => controller.command(type, targetNodeUuid),
     refresh: () => controller.refresh(),
     clearError: () => controller.clearError()
   }

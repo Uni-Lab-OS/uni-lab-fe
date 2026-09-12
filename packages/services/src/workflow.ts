@@ -147,6 +147,9 @@ export type {
   WorkflowRuntimeChangedEvent,
   WorkflowRuntimeInvalidationEvent,
   WorkflowRunNodeOption,
+  WorkflowTaskStepState,
+  WorkflowTaskPreflightRequest,
+  WorkflowTaskLaunchPreflightReport,
   WorkflowRunPreflightCheck,
   WorkflowRunPreflightCheckStatus,
   WorkflowRunPreflightReport,
@@ -444,37 +447,20 @@ export function createWorkflowRuntime(
             : body
         )
       }),
-    createDebugWorkflowTask: (body) =>
-      runtimeRequest('/api/v1/debug/workflow-tasks', {
+    preflightWorkflowTask: (workflowUuid, body) =>
+      runtimeRequest(`/api/v1/workflows/${encodeURIComponent(workflowUuid)}/run-preflight`, {
         method: 'POST',
         headers: jsonHeaders(),
         body: JSON.stringify(body)
       }),
-    preflightDebugWorkflowTask: (body) =>
-      runtimeRequest('/api/v1/debug/workflow-tasks:preflight', {
-        method: 'POST',
-        headers: jsonHeaders(),
-        body: JSON.stringify(body)
-      }),
-    getDebugWorkflowTask: (taskUuid) =>
-      runtimeRequest(
-        `/api/v1/debug/workflow-tasks/${encodeURIComponent(taskUuid)}`
-      ),
-    commandDebugWorkflowTask: (taskUuid, body) =>
-      runtimeRequest(
-        `/api/v1/debug/workflow-tasks/${encodeURIComponent(taskUuid)}/commands`,
-        {
-          method: 'POST',
-          headers: jsonHeaders(),
-          body: JSON.stringify(body)
-        }
-      ),
     listWorkflowTasks: (query = {}) =>
       runtimeRequest(workflowTaskListPath(query)),
     getWorkflowTask: (taskUuid) =>
       runtimeRequest(
         `/api/v1/workflow-tasks/${encodeURIComponent(taskUuid)}`
       ),
+    getWorkflowTaskStepState: backend.serverKind === 'backend' ? undefined : (taskUuid) =>
+      runtimeRequest(`/api/v1/workflow-tasks/${encodeURIComponent(taskUuid)}/step-state`),
     listWorkflowTaskJobs: (taskUuid) =>
       runtimeRequest(
         `/api/v1/workflow-tasks/${encodeURIComponent(taskUuid)}/jobs`

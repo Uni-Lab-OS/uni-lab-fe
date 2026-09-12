@@ -8,6 +8,22 @@ import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAutho
 import { PersistentWorkflowToolbar } from './PersistentWorkflowToolbar'
 
 describe('PersistentWorkflowToolbar', () => {
+  it('shows all authoritative ready nodes and waits while dispatched actions finish', () => {
+    const task = { ...workflowTask('running'), run_mode: 'step' as const, control_status: 'paused' as const }
+    const stepState = { workflow_task_uuid: task.uuid, execution_mode: 'switching_to_step', control_status: 'paused',
+      can_step: false, requires_selection: true, in_flight_job_count: 2,
+      candidates: ['左侧', '右侧'].map((name, index) => ({ node_uuid: String(index), name })),
+      hit_breakpoint_node_uuids: ['0', '1'], breakpoint_node_uuids: ['0', '1'] }
+    const html = renderToStaticMarkup(<PersistentWorkflowToolbar model={toolbarModel({ task,
+      taskControls: workflowTaskControls(task, false), taskRuntime: { command: async () => {},
+        snapshot: { stepState, projectionStale: false } } as unknown as PersistentWorkflowAuthoringModel['taskRuntime'] })} />)
+    expect(html).toContain('等待 2 个在途动作完成')
+    expect(html).toContain('断点已命中：左侧、右侧')
+    expect(html).toContain('aria-label="单步就绪节点"')
+    expect(html).toContain('请选择就绪节点')
+    expect(html).toContain('等待在途动作完成和服务确认可单步')
+  })
+
   it('keeps navigation and edit mode on one compact debugger toolbar', () => {
     const html = renderToStaticMarkup(
       <PersistentWorkflowToolbar

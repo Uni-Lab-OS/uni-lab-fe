@@ -56,79 +56,47 @@ describe('WorkflowTask runtime port', () => {
       diagnostics: [],
       launch_overrides: []
     }
-    const request = vi.fn().mockResolvedValue({ code: 0, data: preflight })
+    const report = { can_run: false, status: 'temporarily_unavailable', checks: [], launch: preflight }
+    const request = vi.fn().mockResolvedValue({ code: 0, data: report })
     const runtime = taskPort(request)
 
-    await expect(runtime.preflightDebugWorkflowTask({
-      workflow_uuid: WORKFLOW_UUID,
-      start_node_uuids: [JOB_UUID],
-      breakpoint_node_uuids: [],
+    await expect(runtime.preflightWorkflowTask(WORKFLOW_UUID, {
+      run_mode: 'step',
+      start_node_uuid: JOB_UUID,
       input: {},
       launch_overrides: []
-    })).resolves.toEqual(preflight)
+    })).resolves.toEqual(report)
 
     expect(request).toHaveBeenCalledWith(
-      '/api/v1/debug/workflow-tasks:preflight',
+      `/api/v1/workflows/${WORKFLOW_UUID}/run-preflight`,
       expect.objectContaining({
         method: 'POST',
-        body: expect.stringContaining('"start_node_uuids"')
+        body: expect.stringContaining('"start_node_uuid"')
       })
     )
   })
 
-  it('launches and controls a debugger through the dedicated Hold-scoped API', async () => {
-    const task = { uuid: TASK_UUID, workflow_uuid: WORKFLOW_UUID }
-    const projection = {
-      task,
-      jobs: [],
-      configuration: {
-        start_node_uuids: [JOB_UUID],
-        breakpoint_node_uuids: [JOB_UUID]
-      },
-      holds: [{ uuid: JOB_UUID, status: 'open' }]
-    }
-    const command = { uuid: JOB_UUID, type: 'step', status: 'succeeded' }
-    const request = vi.fn()
-      .mockResolvedValueOnce({ code: 0, data: task })
-      .mockResolvedValueOnce({ code: 0, data: projection })
-      .mockResolvedValueOnce({ code: 0, data: command })
+  it('launches and controls step tasks through the standard task API', async () => {
+    const request = vi.fn().mockResolvedValue({ code: 0, data: { uuid: TASK_UUID } })
     const runtime = taskPort(request)
+    const body = { workflow_uuid: WORKFLOW_UUID, run_mode: 'step' as const,
+      start_node_uuid: JOB_UUID, input: {}, launch_overrides: [], preflight_hash: 'hash' }
+    await runtime.createWorkflowTask(body)
+    await runtime.getWorkflowTask(TASK_UUID)
+    await runtime.commandWorkflowTask(TASK_UUID, { type: 'resume', idempotency_key: 'resume-1' })
+    expect(request).toHaveBeenNthCalledWith(1, '/api/v1/workflow-tasks',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify(body) }))
+    expect(request).toHaveBeenNthCalledWith(2, `/api/v1/workflow-tasks/${TASK_UUID}`, undefined)
+    expect(request).toHaveBeenNthCalledWith(3, `/api/v1/workflow-tasks/${TASK_UUID}/commands`,
+      expect.objectContaining({ body: JSON.stringify({ type: 'resume', idempotency_key: 'resume-1' }) }))
+    expect(request.mock.calls.every(([url]) => !url.includes('/debug/'))).toBe(true)
+  })
 
-    await runtime.createDebugWorkflowTask({
-      workflow_uuid: WORKFLOW_UUID,
-      start_node_uuids: [JOB_UUID],
-      breakpoint_node_uuids: [JOB_UUID],
-      input: {}
-    })
-    await runtime.getDebugWorkflowTask(TASK_UUID)
-    await runtime.commandDebugWorkflowTask(TASK_UUID, {
-      type: 'step',
-      scope: { type: 'hold', hold_uuid: JOB_UUID },
-      idempotency_key: 'debug-step-1'
-    })
-
-    expect(request).toHaveBeenNthCalledWith(
-      1,
-      '/api/v1/debug/workflow-tasks',
-      expect.objectContaining({ method: 'POST' })
-    )
-    expect(request).toHaveBeenNthCalledWith(
-      2,
-      `/api/v1/debug/workflow-tasks/${TASK_UUID}`,
-      undefined
-    )
-    expect(request).toHaveBeenNthCalledWith(
-      3,
-      `/api/v1/debug/workflow-tasks/${TASK_UUID}/commands`,
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({
-          type: 'step',
-          scope: { type: 'hold', hold_uuid: JOB_UUID },
-          idempotency_key: 'debug-step-1'
-        })
-      })
-    )
+  it('reads the standard task step boundary without Hold APIs', async () => {
+    const request = vi.fn().mockResolvedValue({ code: 0, data: { can_step: false, candidates: [] } })
+    const runtime = taskPort(request)
+    await runtime.getWorkflowTaskStepState!(TASK_UUID)
+    expect(request).toHaveBeenCalledWith(`/api/v1/workflow-tasks/${TASK_UUID}/step-state`, undefined)
   })
 
   it('creates a Backend-shaped Task without inventing Run identity', async () => {

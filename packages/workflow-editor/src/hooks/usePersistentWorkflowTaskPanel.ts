@@ -194,9 +194,11 @@ export function usePersistentWorkflowTaskPanel({
     }),
     [structure.nodes, task?.status, taskJobs]
   )
-  const pausedBeforeNodeId = taskRuntime.snapshot.debug?.holds.find(
-    (hold) => hold.status === 'open'
-  )?.workflow_node_uuid ?? null
+  const stepState = taskRuntime.snapshot.stepState
+  const hitBreakpoints = stepState?.hit_breakpoint_node_uuids ?? []
+  // A single highlighted node is valid only when the authority reports one hit.
+  const pausedBeforeNodeId = stepState?.execution_mode === 'step' && hitBreakpoints.length === 1
+    ? hitBreakpoints[0]! : null
   const codeSourceMap = useMemo(
     () => workflowSourceMap(aggregate, editorValue),
     [aggregate, editorValue]
