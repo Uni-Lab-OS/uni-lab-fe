@@ -35,6 +35,7 @@ import {
 import {
   createWorkflowResourceSlotOptionsPort,
   WorkflowPanel,
+  WorkflowInterventions,
   WorkflowTaskList,
   type WorkflowPanelRuntimeProjection
 } from '@unilab/workflow-editor'
@@ -834,6 +835,12 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   }
 
   protected override render(): React.ReactElement {
+    return <WorkbenchInterventionHost snapshot={this.sessionSnapshot} connectionMode={this.connectionMode}>
+      {this.renderWorkbench()}
+    </WorkbenchInterventionHost>
+  }
+
+  protected renderWorkbench(): React.ReactElement {
     const surfaceSnapshot = authoritySurfaceSnapshot(
       this.sessionSnapshot,
       this.connectionSwitchSurface,
@@ -1366,4 +1373,25 @@ function WorkbenchSurface({
       </div>
     </QueryClientProvider>
   )
+}
+
+/** 干预宿主位于 readiness gate 外，离线只禁用操作，不卸载权威投影。 */
+function WorkbenchInterventionHost({ snapshot, connectionMode, children }: {
+  snapshot: WorkbenchSessionSnapshot
+  connectionMode: WorkbenchConnectionMode
+  children: React.ReactNode
+}): React.JSX.Element {
+  const lastIdentity = useRef(snapshot.identity)
+  if (snapshot.identity) lastIdentity.current = snapshot.identity
+  const targets = createWorkbenchConnectionTargets({
+    managedLocalUrl: lastIdentity.current?.backendUrl,
+    browserOrigin: currentBrowserOrigin()
+  })
+  const target = targets[connectionMode]
+  const services = useMemo(() => createWorkbenchServices(target), [target.cacheKey])
+  useEffect(() => () => services.dispose(), [services])
+  return <>
+    <WorkflowInterventions runtime={services.workflow} online={snapshot.phase === 'ready'} />
+    {children}
+  </>
 }

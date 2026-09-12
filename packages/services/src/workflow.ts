@@ -418,6 +418,22 @@ export function createWorkflowRuntime(
         targetNodeUuid
       )
     },
+    interventions: capabilities.workflow.interventions ? {
+      list: (status, limit = 500) => runtimeRequest(
+        `/api/v1/workflow-interventions?status=${status}&limit=${limit}`
+      ),
+      get: (uuid) => runtimeRequest(
+        `/api/v1/workflow-interventions/${encodeURIComponent(uuid)}`
+      ),
+      decide: (uuid, body, idempotencyKey) => runtimeRequest(
+        `/api/v1/workflow-interventions/${encodeURIComponent(uuid)}/decisions`,
+        {
+          method: 'POST',
+          headers: { ...jsonHeaders(), 'Idempotency-Key': idempotencyKey },
+          body: JSON.stringify(body)
+        }
+      )
+    } : undefined,
     createWorkflowTask: (body) =>
       runtimeRequest('/api/v1/workflow-tasks', {
         method: 'POST',

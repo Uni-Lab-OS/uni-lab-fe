@@ -28,6 +28,7 @@ export interface ServerCapabilities {
     editDefinitions: boolean
     runTasks: boolean
     subscribeEvents: boolean
+    interventions: boolean
   }
   reagentInfo: {
     read: boolean
@@ -76,6 +77,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'workflow.editDefinitions',
   'workflow.runTasks',
   'workflow.subscribeEvents',
+  'workflow.interventions',
   'reagentInfo.read',
   'reagentInfo.create',
   'reagentInfo.update',
@@ -180,7 +182,8 @@ function unavailableCapabilities(): ServerCapabilities {
       authoring: false,
       editDefinitions: false,
       runTasks: false,
-      subscribeEvents: false
+      subscribeEvents: false,
+      interventions: false
     },
     reagentInfo: {
       read: false,
@@ -243,6 +246,7 @@ function localPythonCapabilities(): ServerCapabilities {
   capabilities.workflow.authoring = true
   capabilities.workflow.runTasks = true
   capabilities.workflow.subscribeEvents = true
+  capabilities.workflow.interventions = true
   capabilities.inventory.readReagents = true
   return capabilities
 }

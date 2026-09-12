@@ -1,8 +1,8 @@
 /** [AI] Model: Claude Opus 4.8 | 2026-07-31 | 应用根:可选登录 + 统一外壳 + 模式 Provider */
 import { useCallback, type ReactNode } from 'react'
-import { ServicesProvider } from '@unilab/services'
+import { ServicesProvider, useServices } from '@unilab/services'
 import type { HttpRequestTraceEvent } from '@unilab/services'
-import { WorkflowSessionProvider } from '@unilab/workflow-editor'
+import { WorkflowInterventions, WorkflowSessionProvider } from '@unilab/workflow-editor'
 import {
   WorkbenchProvider,
   useWorkbench
@@ -67,9 +67,16 @@ function ActiveServices({ children }: { children: ReactNode }): React.JSX.Elemen
       traceRequest={traceRequest}
     >
       <DeviceStatusProvider>
+        <ActiveWorkflowInterventions />
         <DeviceCardAuthoringTargetConnector />
         {children}
       </DeviceStatusProvider>
     </ServicesProvider>
   )
+}
+
+/** 页面和面板切换不卸载公共干预入口。 */
+function ActiveWorkflowInterventions(): React.JSX.Element {
+  const services = useServices()
+  return <WorkflowInterventions runtime={services.workflow} />
 }

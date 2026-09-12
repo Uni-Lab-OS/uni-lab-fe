@@ -1,0 +1,23 @@
+.dialog, .minimized {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1200;
+  padding: 16px;
+  border: 1px solid var(--unilab-color-border, #707070);
+  border-radius: 8px;
+  background: var(--unilab-color-surface, #242424);
+  color: var(--unilab-color-text, #eeeeee);
+  box-shadow: 0 8px 32px #0004;
+}
+.dialog {
+  width: min(580px, calc(100vw - 72px));
+  max-height: calc(100vh - 72px);
+  overflow: auto;
+  header { display: flex; justify-content: space-between; gap: 16px; }
+  article { border-top: 1px solid var(--unilab-color-border, #707070); margin-top: 12px; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+  p { overflow-wrap: anywhere; }
+}
+.options { display: flex; flex-wrap: wrap; gap: 8px; }
+.minimized { display: flex; flex-direction: column; gap: 6px; max-width: calc(100vw - 72px); }

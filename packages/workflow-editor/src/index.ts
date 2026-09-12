@@ -10,6 +10,7 @@ export {
   WorkflowSessionProvider
 } from './components/WorkflowSessionProvider'
 export { WorkflowIoSummary } from './components/WorkflowIoSummary'
+export { WorkflowInterventions } from './components/WorkflowInterventions'
 export { WorkflowIoEditor } from './components/WorkflowIoEditor'
 export { WorkflowTaskInputForm } from './components/WorkflowTaskInputForm'
 export {

@@ -18,6 +18,34 @@ afterEach(() => {
 })
 
 describe('WorkflowTask runtime port', () => {
+  it('uses the public intervention API with revision and idempotency header', async () => {
+    const request = vi.fn().mockResolvedValue({ code: 0, data: [] })
+    const runtime = taskPort(request)
+    await runtime.interventions!.list('selected')
+    await runtime.interventions!.get('intervention/1')
+    await runtime.interventions!.decide('intervention/1', {
+      revision: 2, option_id: 'retry'
+    }, 'stable-key')
+    expect(request).toHaveBeenNthCalledWith(1,
+      '/api/v1/workflow-interventions?status=selected&limit=500', undefined)
+    expect(request).toHaveBeenNthCalledWith(2,
+      '/api/v1/workflow-interventions/intervention%2F1', undefined)
+    expect(request).toHaveBeenNthCalledWith(3,
+      '/api/v1/workflow-interventions/intervention%2F1/decisions', expect.objectContaining({
+        method: 'POST', headers: expect.objectContaining({ 'Idempotency-Key': 'stable-key' }),
+        body: JSON.stringify({ revision: 2, option_id: 'retry' })
+      }))
+    runtime.dispose()
+  })
+
+  it('does not advertise intervention support on unverified profiles', () => {
+    for (const backend of [getDefaultBackend('local-go'), { ...getDefaultBackend(), id: 'unknown' }]) {
+      const runtime = createWorkflowRuntime(mockHttp(vi.fn()), backend)
+      expect(runtime.interventions).toBeUndefined()
+      runtime.dispose()
+    }
+  })
+
   it('preflights debugger launch requirements before creating a task', async () => {
     const preflight = {
       workflow_uuid: WORKFLOW_UUID,
