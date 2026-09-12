@@ -24,6 +24,27 @@ const links: WorkflowLink[] = [
 ]
 
 describe('layoutDag', () => {
+  it('lays out a deep reverse-ordered DAG without exhausting the call stack', () => {
+    const count = 10_000
+    const chain = Array.from({ length: count }, (_, index) =>
+      workflowNode(`node-${index}`, 'action', 0, 0)
+    )
+    const edges = chain.slice(1).map((node, index) => ({
+      source: chain[index]!.id,
+      target: node.id,
+      type: 'control'
+    }))
+    const result = layoutDag([...chain].reverse(), edges, {
+      preserveExistingPositions: false
+    })
+    expect(result.nodes).toHaveLength(count)
+    expect(result.links).toEqual(edges)
+    const byId = new Map(result.nodes.map(node => [node.id, node]))
+    for (const edge of edges) {
+      expect(byId.get(edge.target)!.y).toBeGreaterThan(byId.get(edge.source)!.y)
+    }
+  })
+
   it('默认保留完整的显式布局', () => {
     const result = layoutDag(nodes, links)
 

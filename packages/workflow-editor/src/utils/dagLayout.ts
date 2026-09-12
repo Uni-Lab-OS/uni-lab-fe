@@ -207,7 +207,9 @@ export function finalizeMaterialSourcePlacement(
 function separateLayerCollisions(nodes: readonly LayoutNode[]): LayoutNode[] {
   const byLayer = new Map<number, LayoutNode[]>()
   for (const node of nodes) {
-    byLayer.set(node.y, [...(byLayer.get(node.y) ?? []), node])
+    const bucket = byLayer.get(node.y) ?? []
+    bucket.push(node)
+    byLayer.set(node.y, bucket)
   }
   const nextX = new Map<string, number>()
   for (const layerNodes of byLayer.values()) {
@@ -436,30 +438,43 @@ export function beautifyWorkflowRevision(
 // 用最长路径法为每个节点分层:layer(n) = max(layer(前驱)) + 1
 function assignLayers(nodes: WorkflowNode[], edges: WorkflowLink[]): Map<string, number> {
   const incoming = new Map<string, string[]>()
-  const outgoing = new Map<string, string[]>()
   nodes.forEach((node) => {
     incoming.set(node.id, [])
-    outgoing.set(node.id, [])
   })
   edges.forEach((edge) => {
-    outgoing.get(edge.source)?.push(edge.target)
     incoming.get(edge.target)?.push(edge.source)
   })
 
   const layer = new Map<string, number>()
   const visiting = new Set<string>()
 
-  // 递归求某节点所在层;visiting 集合防止环导致的无限递归
+  // 使用显式栈处理深链，避免节点按逆拓扑顺序到达时耗尽浏览器调用栈。
+  // 保持原有 DFS 顺序及环回边取 0 的只读容错语义。
   const resolve = (id: string): number => {
     const cached = layer.get(id)
     if (cached != null) return cached
-    if (visiting.has(id)) return 0
+    const stack = [{ id, next: 0, max: -1 }]
     visiting.add(id)
-    const preds = incoming.get(id) ?? []
-    const value = preds.length === 0 ? 0 : Math.max(...preds.map(resolve)) + 1
-    visiting.delete(id)
-    layer.set(id, value)
-    return value
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1]!
+      const preds = incoming.get(frame.id) ?? []
+      if (frame.next < preds.length) {
+        const predecessor = preds[frame.next]!
+        const value = layer.get(predecessor)
+        if (value !== undefined || visiting.has(predecessor)) {
+          frame.max = Math.max(frame.max, value ?? 0)
+          frame.next += 1
+        } else {
+          visiting.add(predecessor)
+          stack.push({ id: predecessor, next: 0, max: -1 })
+        }
+      } else {
+        layer.set(frame.id, frame.max + 1)
+        visiting.delete(frame.id)
+        stack.pop()
+      }
+    }
+    return layer.get(id) ?? 0
   }
 
   nodes.forEach((node) => resolve(node.id))
