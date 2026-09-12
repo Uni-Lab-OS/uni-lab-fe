@@ -23,6 +23,93 @@ function fixture() {
 }
 
 describe('workflow intervention controller', () => {
+  it('preserves a conflict through refresh and reconnect until authoritative completion', async () => {
+    const f = fixture(); const stop = f.controller.start()
+    await f.controller.refresh()
+    f.decide.mockRejectedValueOnce(new Error('409 库位确认冲突'))
+    await f.controller.decide('i1', 'retry')
+    f.controller.minimize()
+    await f.controller.refresh()
+    f.reconnect(); await f.controller.refresh()
+    expect(f.controller.getSnapshot()).toMatchObject({ minimized: true, error: '409 库位确认冲突' })
+    expect(f.controller.getSnapshot().items).toHaveLength(1)
+    f.setRows([{ ...open(), status: 'superseded' }]); await f.controller.refresh()
+    expect(f.controller.getSnapshot().items).toEqual([])
+    expect(f.controller.getSnapshot().error).toBeNull()
+    stop()
+  })
+
+  it('keeps the pending item during submission and retains its conflict when authority cannot be read', async () => {
+    const f = fixture(); await f.controller.refresh()
+    let rejectDecision!: (error: Error) => void
+    f.decide.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectDecision = reject }))
+    const pending = f.controller.decide('i1', 'retry')
+    expect(f.controller.getSnapshot()).toMatchObject({ busy: 'i1', items: [open()] })
+    f.list.mockRejectedValue(new Error('REST offline'))
+    rejectDecision(new Error('409 当前方案冲突')); await pending
+    expect(f.controller.getSnapshot().items).toHaveLength(1)
+    expect(f.controller.getSnapshot().error).toBe('REST offline\n409 当前方案冲突')
+    expect(f.controller.getSnapshot().offline).toBe(true)
+    expect(f.controller.getSnapshot().busy).toBeNull()
+  })
+
+  it('uses public TCP error text without rendering delivery metadata as an error', async () => {
+    const f = fixture()
+    const report = { error_message: 'TCP 原始异常', traceback: 'trace detail' }
+    f.setRows([{ ...open(), description: '优先原始描述', meta_data: { error_report: report, delivery_payload: { option_id: 'retry' } } }])
+    await f.controller.refresh()
+    expect(f.controller.getSnapshot().messages.i1).toBe('优先原始描述')
+    f.setRows([{ ...open(), description: undefined, meta_data: { error_report: report } }])
+    await f.controller.refresh()
+    expect(f.controller.getSnapshot().messages.i1).toBe('TCP 原始异常')
+    expect(f.runtime.getWorkflowNodeJob).not.toHaveBeenCalled()
+  })
+
+  it('does not leave a phantom failure window when a rejected response is followed by authoritative completion', async () => {
+    const f = fixture(); await f.controller.refresh()
+    f.decide.mockImplementationOnce(async () => {
+      f.setRows([{ ...open(), status: 'superseded' }]); throw new Error('response lost')
+    })
+    await f.controller.decide('i1', 'retry')
+    expect(f.controller.getSnapshot().items).toEqual([])
+    expect(f.controller.getSnapshot().error).toBeNull()
+  })
+
+  it('confirms only frozen loading request identity and replays the identical payload', async () => {
+    const f = fixture()
+    const item = { ...open(), description: undefined, options: [{ id: 'confirm_loading' }], meta_data: { loading: {
+      schema_version: 1, request_uuid: 'loading-request', revision: 4,
+      rows: [{ key: 'row', instrument: { id: 'instrument', label: '仪器' }, site: { id: 'site', label: '库位' },
+        material: { identity: 'planned', label: '物料' }, quantity: 1, unit: '块', availability: { allowed: true } }]
+    } } }
+    f.setRows([item]); await f.controller.refresh()
+    expect(f.runtime.getWorkflowNodeJob).not.toHaveBeenCalled()
+    f.decide.mockImplementationOnce(async () => {
+      f.setRows([{ ...item, status: 'selected', selected_option_id: 'confirm_loading', delivery_status: 'unknown' }])
+      throw new Error('409 uncertain')
+    })
+    await f.controller.decide('i1', 'confirm_loading')
+    expect(f.decide).toHaveBeenCalledWith('i1', { revision: 1, option_id: 'confirm_loading',
+      result: { request_uuid: 'loading-request', revision: 4 } }, expect.any(String))
+    await f.controller.decide('i1', 'confirm_loading')
+    expect(f.decide.mock.calls[1]).toEqual(f.decide.mock.calls[0])
+    expect(f.controller.getSnapshot().items).toHaveLength(1)
+    f.setRows([{ ...item, status: 'superseded' }]); await f.controller.refresh()
+    expect(f.controller.getSnapshot().items).toHaveLength(0)
+  })
+
+  it('refuses malformed loading or stale authority instead of using a generic decision', async () => {
+    const f = fixture(); f.setRows([{ ...open(), options: [{ id: 'confirm_loading' }], meta_data: {} }])
+    await f.controller.refresh(); await f.controller.decide('i1', 'confirm_loading')
+    expect(f.decide).not.toHaveBeenCalled()
+    expect(f.controller.getSnapshot().error).toContain('入库明细')
+    f.setRows([open()]); await f.controller.refresh()
+    f.list.mockRejectedValueOnce(new Error('REST unavailable'))
+    await f.controller.refresh(); await f.controller.decide('i1', 'retry')
+    expect(f.controller.getSnapshot().offline).toBe(true)
+    expect(f.decide).not.toHaveBeenCalled()
+  })
+
   it('ignores host offline state when the profile has no intervention capability', () => {
     const controller = createWorkflowInterventionController({} as WorkflowRuntimePort)
     controller.setOnline(false)

@@ -8,6 +8,27 @@ const state: InterventionViewState = { minimized: false, busy: null, error: null
   items: [{ uuid: 'i1', workflow_task_uuid: 't1', workflow_node_job_uuid: 'j1', revision: 1, status: 'open',
     meta_data: {}, options: [{ id: 'retry', label: '重试' }], delivery_status: 'none' }] }
 describe('intervention view', () => {
+  it('blocks malformed loading data instead of exposing a generic confirm option', () => {
+    const html = renderToStaticMarkup(<WorkflowInterventionsView {...props} state={{ ...state,
+      items: [{ ...state.items[0]!, options: [{ id: 'confirm_loading', label: 'confirm-bypass' }], meta_data: {} }] }} />)
+    expect(html).toContain('入库明细格式不完整')
+    expect(html).not.toContain('confirm-bypass')
+    expect(html).toContain('待处理事项')
+  })
+
+  it('routes loading snapshots to a neutral persistent dialog without losing other interventions', () => {
+    const loading = { ...state.items[0]!, options: [{ id: 'confirm_loading' }], meta_data: { loading: {
+      schema_version: 1, request_uuid: 'request', revision: 1,
+      rows: [{ key: 'row', instrument: { id: 'instrument', label: '仪器' }, site: { id: 'site', label: '库位' },
+        material: { identity: 'planned', label: '容器' }, quantity: 1, unit: '块', availability: { allowed: true } }]
+    } } }
+    const html = renderToStaticMarkup(<WorkflowInterventionsView {...props} state={{ ...state,
+      items: [loading, { ...state.items[0]!, uuid: 'other' }] }} />)
+    expect(html).toContain('计划物料，尚未入库')
+    expect(html).toContain('其他干预与读取信息（1）')
+    expect(html).toContain('确认已放置')
+  })
+
   it('renders no offline popup for an unsupported profile', () => {
     expect(renderToStaticMarkup(<WorkflowInterventions runtime={{} as WorkflowRuntimePort} online={false} />)).toBe('')
   })

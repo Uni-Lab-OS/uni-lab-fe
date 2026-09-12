@@ -1,0 +1,17 @@
+.dialog, .minimized {
+  position: fixed; right: 16px; bottom: 16px; z-index: 1210;
+  max-width: calc(100vw - 32px); max-height: calc(100vh - 32px);
+  box-sizing: border-box; padding: 16px; overflow: auto;
+  border: 1px solid var(--unilab-color-border, #707070); border-radius: 8px;
+  background: var(--unilab-color-surface, #242424); color: var(--unilab-color-text, #eee);
+  box-shadow: 0 8px 32px #0004;
+  p { overflow-wrap: anywhere; }
+}
+.dialog {
+  min-width: min(420px, calc(100vw - 32px)); min-height: min(320px, calc(100vh - 32px));
+  header, footer { display: flex; justify-content: space-between; gap: 12px; }
+  footer { justify-content: flex-end; margin-top: 16px; }
+  small { display: block; opacity: 0.8; }
+}
+.table { overflow: auto; table { width: 100%; border-collapse: collapse; } th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--unilab-color-border, #707070); } }
+.dimensions, .minimized { display: flex; flex-direction: column; gap: 8px; }

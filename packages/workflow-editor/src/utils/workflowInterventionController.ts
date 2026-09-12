@@ -1,3 +1,4 @@
+import { readWorkflowLoadingRequest } from '@unilab/services'
 import type { WorkflowIntervention, WorkflowRuntimePort } from '@unilab/services'
 
 export interface InterventionViewState {
@@ -15,6 +16,8 @@ export function createWorkflowInterventionController(runtime: WorkflowRuntimePor
   let state: InterventionViewState = { items: [], minimized: false, busy: null, error: null, messages: {} }
   const listeners = new Set<() => void>()
   const keys = new Map<string, string>()
+  const decisionErrors = new Map<string, string>()
+  const payloads = new Map<string, { revision: number; option_id: string; result?: { request_uuid: string; revision: number } }>()
   let disposed = false
   let hostOnline = true
   let eventsOnline = true
@@ -41,10 +44,14 @@ export function createWorkflowInterventionController(runtime: WorkflowRuntimePor
           if (!found.has(previous.uuid)) found.set(previous.uuid, await runtime.interventions.get(previous.uuid))
         }
         const items = [...found.values()].filter(item => item.status !== 'superseded')
+        for (const uuid of decisionErrors.keys()) {
+          if (!items.some(item => item.uuid === uuid)) decisionErrors.delete(uuid)
+        }
         const messages = { ...state.messages }
         let detailError: string | null = null
         await Promise.all(items.map(async item => {
           if (item.description) { messages[item.uuid] = item.description; return }
+          if (readWorkflowLoadingRequest(item).kind !== 'absent') { messages[item.uuid] = '请核对入库明细。'; return }
           const report = item.meta_data.error_report
           if (report && typeof report === 'object' && 'error_message' in report && typeof report.error_message === 'string') {
             messages[item.uuid] = report.error_message
@@ -56,10 +63,14 @@ export function createWorkflowInterventionController(runtime: WorkflowRuntimePor
           } catch (error) { detailError = errorMessage(error) }
         }))
         if (!hostOnline) return
-        update({ items, messages, offline: !eventsOnline, error: !eventsOnline ? '事件连接离线，等待重连。' : detailError ?? (open.length === 500 || selected.length === 500
-          ? '干预列表达到服务端查询上限，可能还有未展示项目；请先处理当前干预。' : null) })
+        update({ items, messages, offline: !eventsOnline, error: combineErrors(
+          !eventsOnline ? '事件连接离线，等待重连。' : detailError,
+          ...decisionErrors.values(),
+          open.length === 500 || selected.length === 500
+            ? '干预列表达到服务端查询上限，可能还有未展示项目；请先处理当前干预。' : null
+        ) })
       } while (refreshAgain && !disposed)
-    } catch (error) { update({ error: errorMessage(error) }) }
+    } catch (error) { update({ error: combineErrors(errorMessage(error), ...decisionErrors.values()), offline: true }) }
   }
   const refresh = (): Promise<void> => {
     if (pendingRefresh) { refreshAgain = true; return pendingRefresh }
@@ -95,17 +106,32 @@ export function createWorkflowInterventionController(runtime: WorkflowRuntimePor
       const replay = item.status === 'selected' && item.delivery_status === 'unknown'
         && item.selected_option_id === optionId && keys.has(identity)
       if (item.status !== 'open' && !replay) return
+      const loading = readWorkflowLoadingRequest(item)
+      if (!replay && loading.kind !== 'absent') {
+        if (loading.kind === 'invalid') { update({ error: loading.message }); return }
+        if (optionId !== 'confirm_loading' || !item.options.some(option => option.id === optionId) ||
+          !loading.request.rows.length || loading.request.rows.some(row => !row.availability.allowed)) {
+          update({ error: '当前入库明细不可确认，请重新读取。' }); return
+        }
+      }
+      const body = payloads.get(identity) ?? {
+        revision: item.revision, option_id: optionId,
+        ...(loading.kind === 'ready' ? { result: { request_uuid: loading.request.request_uuid, revision: loading.request.revision } } : {})
+      }
+      payloads.set(identity, body)
       const key = keys.get(identity) ?? globalThis.crypto.randomUUID()
       keys.set(identity, key)
-      update({ busy: uuid, error: null })
+      decisionErrors.delete(uuid)
+      update({ busy: uuid, error: combineErrors(...decisionErrors.values()) })
       try {
-        const response = await runtime.interventions.decide(uuid, { revision: item.revision, option_id: optionId }, key)
+        const response = await runtime.interventions.decide(uuid, body, key)
         update({ items: state.items.map(previous => previous.uuid === uuid ? response.intervention : previous) })
         await refresh()
       } catch (error) {
         // 请求结果不确定时先重读；不乐观恢复 open，也不把 HTTP 接受当作完成。
+        decisionErrors.set(uuid, errorMessage(error))
         await refresh()
-        update({ error: errorMessage(error) })
+        if (!hostOnline) update({ error: combineErrors(state.error, ...decisionErrors.values()) })
       } finally { update({ busy: null }) }
     }
   }
@@ -113,4 +139,10 @@ export function createWorkflowInterventionController(runtime: WorkflowRuntimePor
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+/** 重连可以清除连接错误，但不能自行清除未解决的决定错误。 */
+function combineErrors(...messages: Array<string | null>): string | null {
+  const values = [...new Set(messages.filter((message): message is string => Boolean(message)))]
+  return values.length ? values.join('\n') : null
 }

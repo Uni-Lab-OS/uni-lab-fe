@@ -124,6 +124,7 @@ export type {
   WorkflowMaterialSourceSite
 } from './workflowMaterialSource'
 export type { WorkflowRuntimePort } from './workflowPort'
+export { readWorkflowLoadingRequest, type WorkflowLoadingRequest, type WorkflowLoadingRow } from './workflowLoading'
 export type {
   DebugLaunchMaterialSuggestion,
   DebugLaunchOverride,
