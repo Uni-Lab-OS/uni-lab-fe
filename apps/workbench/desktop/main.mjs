@@ -49,6 +49,15 @@ let remoteAccessController
 let quitCleanupFinished = false
 let quitCleanupPromise = null
 
+// This entry point owns the active controller. Release both references before
+// awaiting close so backend-exit and before-quit cannot close it twice.
+async function closeRemoteAccess() {
+  const controller = remoteAccessController
+  remoteAccessController = undefined
+  globalThis.__unilabWorkbenchRemoteAccessController = undefined
+  await controller?.close()
+}
+
 // The development Workbench owns a detached Theia backend. Electron does not
 // run the shared desktop shell's quit hooks for this standalone entry point,
 // so closing its last window must explicitly stop the backend process group.
