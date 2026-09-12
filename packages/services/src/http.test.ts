@@ -107,3 +107,25 @@ describe('createHttpClient tracing', () => {
     })
   })
 })
+
+
+describe('request-specific budgets', () => {
+  it('keeps ordinary reads at 8 seconds while an explicit create budget lasts 30 seconds', async () => {
+    vi.useFakeTimers()
+    try {
+      const fetcher = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+        expect(init).not.toHaveProperty('timeoutMs')
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+      })) as typeof fetch
+      const http = createHttpClient({ backend: getDefaultBackend('local-python'), fetcher })
+      const read = http.request('/api/v1/workflow-tasks').catch(error => error)
+      const create = http.request('/api/v1/workflow-tasks', { method: 'POST', timeoutMs: 30_000 }).catch(error => error)
+      await vi.advanceTimersByTimeAsync(8_000)
+      expect(await read).toMatchObject({ code: 'HTTP_REQUEST_TIMEOUT' })
+      expect(vi.mocked(fetcher).mock.calls[1]?.[1]?.signal?.aborted).toBe(false)
+      await vi.advanceTimersByTimeAsync(22_000)
+      expect(await create).toMatchObject({ code: 'HTTP_REQUEST_TIMEOUT' })
+      expect(fetcher).toHaveBeenCalledTimes(2)
+    } finally { vi.useRealTimers() }
+  })
+})

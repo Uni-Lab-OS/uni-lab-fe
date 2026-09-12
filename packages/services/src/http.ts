@@ -4,7 +4,7 @@ import { ServiceError } from './errors'
 export interface HttpClient {
   request: <ResponseValue>(
     path: string,
-    init?: RequestInit
+    init?: RequestInit & { timeoutMs?: number }
   ) => Promise<ResponseValue>
 }
 
@@ -74,10 +74,11 @@ export function createHttpClient(options: CreateHttpClientOptions): HttpClient {
   return {
     request: async <ResponseValue>(
       path: string,
-      init: RequestInit = {}
+      init: RequestInit & { timeoutMs?: number } = {}
     ): Promise<ResponseValue> => {
       const controller = new AbortController()
-      const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs)
+      const { timeoutMs: requestTimeoutMs, ...fetchInit } = init
+      const timeout = globalThis.setTimeout(() => controller.abort(), requestTimeoutMs ?? timeoutMs)
       const token = await options.getAccessToken?.()
       const headers = new Headers(init.headers)
       if (token) headers.set('Authorization', token)
@@ -95,7 +96,7 @@ export function createHttpClient(options: CreateHttpClientOptions): HttpClient {
 
       try {
         const response = await fetcher(requestUrl, {
-          ...init,
+          ...fetchInit,
           headers,
           signal: init.signal ?? controller.signal
         })

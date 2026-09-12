@@ -248,7 +248,7 @@ export function createWorkflowRuntime(
   /** 严格读取工作流运行（Workflow Runtime）接口。 */
   const runtimeRequest = async <Value>(
     path: string,
-    init?: RequestInit
+    init?: RequestInit & { timeoutMs?: number }
   ): Promise<Value> => {
     requireWorkflowCapability('workflow.runTasks')
     return strictRuntimeData<Value>(
@@ -441,6 +441,7 @@ export function createWorkflowRuntime(
     createWorkflowTask: (body) =>
       runtimeRequest('/api/v1/workflow-tasks', {
         method: 'POST',
+        timeoutMs: 30_000,
         headers: jsonHeaders(),
         body: JSON.stringify(
           backend.serverKind === 'backend'

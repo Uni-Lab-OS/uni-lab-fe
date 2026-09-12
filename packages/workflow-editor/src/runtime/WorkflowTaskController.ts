@@ -20,6 +20,7 @@ export interface WorkflowTaskRuntimeSnapshot {
   feedback: readonly WorkflowNodeJobFeedback[]
   lastCommand: WorkflowTaskCommand | null
   error: string | null
+  creationUnconfirmed?: boolean
   actionError: string | null
   projectionError: string | null
   feedbackError: string | null
@@ -31,6 +32,8 @@ export interface WorkflowTaskRuntimeSnapshot {
 }
 
 type WorkflowTaskRuntimeListener = () => void
+
+const CREATION_UNCONFIRMED = '创建结果尚未确认，任务可能已经创建。请先在任务列表核对，避免重复启动；核对后可手动解除本次提交保护。'
 
 const FALLBACK_REFRESH_DELAYS_MS = [2_000, 5_000, 10_000, 30_000] as const
 const TERMINAL_TASK_STATUSES = new Set<WorkflowTask['status']>([
@@ -176,6 +179,7 @@ export class WorkflowTaskController {
     input?: Record<string, unknown>,
     targetNodeUuid?: string
   ): Promise<WorkflowTask> {
+    if (this.snapshot.creationUnconfirmed) throw new Error(CREATION_UNCONFIRMED)
     this.install({ actionError: null })
     try {
       const created = await this.runtime.createWorkflowTask({
@@ -193,8 +197,7 @@ export class WorkflowTaskController {
       }
       return created
     } catch (error) {
-      this.install({ actionError: errorMessage(error), loading: false })
-      throw error
+      throw this.creationError(error)
     }
   }
 
@@ -205,6 +208,7 @@ export class WorkflowTaskController {
     launchOverrides: readonly DebugLaunchOverride[] = [],
     preflightHash?: string
   ): Promise<WorkflowTask> {
+    if (this.snapshot.creationUnconfirmed) throw new Error(CREATION_UNCONFIRMED)
     this.install({ actionError: null })
     try {
       const created = await this.runtime.createWorkflowTask({
@@ -225,9 +229,21 @@ export class WorkflowTaskController {
       }
       return created
     } catch (error) {
-      this.install({ actionError: errorMessage(error), loading: false })
-      throw error
+      throw this.creationError(error)
     }
+  }
+
+  acknowledgeCreationReviewed(): void {
+    this.install({ creationUnconfirmed: false, actionError: null })
+  }
+
+  private creationError(error: unknown): Error {
+    const code = error && typeof error === 'object' && 'code' in error ? error.code : null
+    const status = error && typeof error === 'object' && 'status' in error ? error.status : undefined
+    const uncertain = code === 'HTTP_REQUEST_TIMEOUT' || (code === 'HTTP_REQUEST_FAILED' && status === undefined)
+    const problem = uncertain ? new Error(CREATION_UNCONFIRMED) : error instanceof Error ? error : new Error(String(error))
+    this.install({ creationUnconfirmed: uncertain, actionError: problem.message, loading: false })
+    return problem
   }
 
   async preflightDebug(

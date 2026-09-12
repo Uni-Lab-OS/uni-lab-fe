@@ -46,6 +46,7 @@ export function useWorkflowTaskRuntime(
   debugCommand: (type: 'step' | 'continue') => Promise<void>
   command: (type: WorkflowTaskCommandType, targetNodeUuid?: string) => Promise<void>
   refresh: () => Promise<void>
+  acknowledgeCreationReviewed: () => void
   clearError: () => void
 } {
   const initialActive = useRef(active)
@@ -120,6 +121,7 @@ export function useWorkflowTaskRuntime(
     debugCommand: (type) => controller.debugCommand(type),
     command: (type, targetNodeUuid) => controller.command(type, targetNodeUuid),
     refresh: () => controller.refresh(),
+    acknowledgeCreationReviewed: () => controller.acknowledgeCreationReviewed(),
     clearError: () => controller.clearError()
   }
 }

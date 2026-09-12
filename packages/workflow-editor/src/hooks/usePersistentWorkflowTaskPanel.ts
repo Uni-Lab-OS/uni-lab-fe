@@ -411,7 +411,7 @@ export function usePersistentWorkflowTaskPanel({
     setResourceSlotOptions(undefined)
     if (retainedRevision !== undefined) {
       setMessage(
-        `已取消本次运行；已应用版本 ${retainedRevision} 保持不变，未创建任务`
+        taskRuntime.snapshot.creationUnconfirmed ? '已关闭输入。创建结果尚未确认，请在任务列表核对，不要重复启动。' : `已取消本次运行；已应用版本 ${retainedRevision} 保持不变，未创建任务`
       )
     }
   }
@@ -618,6 +618,12 @@ export function usePersistentWorkflowTaskPanel({
     refreshResourceSlotOptions,
     selectSingleNodeMode,
     runRuntime,
+    creationUnconfirmed: taskRuntime.snapshot.creationUnconfirmed ?? false,
+    acknowledgeCreationReviewed: () => {
+      taskRuntime.acknowledgeCreationReviewed()
+      setTaskInputProblem(null)
+      setError(null)
+    },
     runtimeBusy,
     selectedJobNodeUuid,
     selectedTaskNode,

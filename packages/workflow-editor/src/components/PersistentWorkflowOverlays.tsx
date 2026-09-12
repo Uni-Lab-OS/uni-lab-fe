@@ -44,6 +44,8 @@ export function PersistentWorkflowOverlays({
     resourceSlotOptions,
     retryLocalAfterConflict,
     runtimeBusy,
+    creationUnconfirmed,
+    acknowledgeCreationReviewed,
     selectedActionEditor,
     selectedActionTemplate,
     selectedNodeName,
@@ -211,13 +213,17 @@ export function PersistentWorkflowOverlays({
                 />
               </details>
             )}
+            {creationUnconfirmed && <div role="alert">
+              <p>创建结果尚未确认，任务可能已经创建。请先在任务列表核对，避免重复启动。</p>
+              <button type="button" onClick={acknowledgeCreationReviewed}>我已核对任务列表，解除提交保护</button>
+            </div>}
             {debugLaunchForm ? (
               <DebugLaunchInputForm
                 form={debugLaunchForm}
                 busy={runtimeBusy}
                 problem={taskInputProblem}
                 onChange={updateDebugLaunchInput}
-                onSubmit={submitDebugLaunch}
+                onSubmit={creationUnconfirmed ? undefined : submitDebugLaunch}
                 onCancel={backToTaskInput}
               />
             ) : (
@@ -229,7 +235,7 @@ export function PersistentWorkflowOverlays({
                 resourceSlotOptions={resourceSlotOptions}
                 onChange={updateTaskInput}
                 onProblem={setTaskInputProblem}
-                onSubmit={submitTaskInput}
+                onSubmit={creationUnconfirmed ? undefined : submitTaskInput}
                 onCancel={closeTaskInputForm}
               />
             )}

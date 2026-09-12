@@ -85,7 +85,7 @@ describe('WorkflowTask runtime port', () => {
     await runtime.getWorkflowTask(TASK_UUID)
     await runtime.commandWorkflowTask(TASK_UUID, { type: 'resume', idempotency_key: 'resume-1' })
     expect(request).toHaveBeenNthCalledWith(1, '/api/v1/workflow-tasks',
-      expect.objectContaining({ method: 'POST', body: JSON.stringify(body) }))
+      expect.objectContaining({ method: 'POST', timeoutMs: 30_000, body: JSON.stringify(body) }))
     expect(request).toHaveBeenNthCalledWith(2, `/api/v1/workflow-tasks/${TASK_UUID}`, undefined)
     expect(request).toHaveBeenNthCalledWith(3, `/api/v1/workflow-tasks/${TASK_UUID}/commands`,
       expect.objectContaining({ body: JSON.stringify({ type: 'resume', idempotency_key: 'resume-1' }) }))

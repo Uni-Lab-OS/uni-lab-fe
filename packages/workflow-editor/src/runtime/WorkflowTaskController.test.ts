@@ -1,3 +1,4 @@
+import { ServiceError } from '@unilab/services'
 import type {
   DebugLaunchOverride,
   DebugWorkflowTaskPreflight,
@@ -711,6 +712,38 @@ function registerWorkflowTaskControllerTests(): void {
       realtimeError: null,
       error: 'jobs unavailable'
     })
+  })
+
+  it.each([undefined, 400, 422])('distinguishes unknown network result from HTTP rejection %s', async (status) => {
+    const task = workflowTask()
+    const request = vi.fn().mockRejectedValueOnce(new ServiceError({ code: 'HTTP_REQUEST_FAILED', status, message: 'request failed' })).mockResolvedValue(task)
+    const controller = new WorkflowTaskController(runtimePort({ createWorkflowTask: request }), task.workflow_uuid)
+    await expect(controller.create('normal')).rejects.toThrow()
+    expect(controller.getSnapshot().creationUnconfirmed).toBe(status === undefined)
+    if (status === undefined) {
+      await expect(controller.create('normal')).rejects.toThrow('结果尚未确认')
+      expect(request).toHaveBeenCalledTimes(1)
+    } else {
+      await expect(controller.create('normal')).resolves.toEqual(task)
+      expect(request).toHaveBeenCalledTimes(2)
+    }
+    controller.dispose()
+  })
+
+  it('blocks duplicate normal/debug creation after unknown outcome until explicit review', async () => {
+    const task = workflowTask()
+    const request = vi.fn().mockRejectedValueOnce(Object.assign(new Error('timeout'), { code: 'HTTP_REQUEST_TIMEOUT' })).mockResolvedValue(task)
+    const controller = new WorkflowTaskController(runtimePort({ createWorkflowTask: request }), task.workflow_uuid)
+    await expect(controller.create('normal')).rejects.toThrow('结果尚未确认')
+    controller.clearError()
+    await expect(controller.create('normal')).rejects.toThrow('结果尚未确认')
+    await expect(controller.createDebug('node', [])).rejects.toThrow('结果尚未确认')
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(controller.getSnapshot().creationUnconfirmed).toBe(true)
+    controller.acknowledgeCreationReviewed()
+    await expect(controller.create('normal')).resolves.toEqual(task)
+    expect(request).toHaveBeenCalledTimes(2)
+    controller.dispose()
   })
 
   it('creates the selected Task mode and rehydrates the returned identity', async () => {
