@@ -1,0 +1,517 @@
+{
+  "/api/v1/workflow-node-templates?page=1&page_size=100&node_type=material_source": {
+    "code": 0,
+    "data": {
+      "items": [
+        {
+          "uuid": "9a48a520-b592-5454-8ece-cdc28a552866",
+          "name": "material_source",
+          "display_name": "Material Source",
+          "type": "material_source",
+          "node_type": "material_source",
+          "resource_template": {
+            "uuid": "06259194-f142-5e2b-84dc-133f38f47eb3",
+            "name": "host_node",
+            "display_name": "host_node"
+          }
+        }
+      ],
+      "has_more": false,
+      "page": 1,
+      "page_size": 100
+    }
+  },
+  "/api/v1/workflow-node-templates/9a48a520-b592-5454-8ece-cdc28a552866": {
+    "code": 0,
+    "data": {
+      "template": {
+        "class": "unilabos.workflow.authoring:material_source",
+        "create_time": "1970-01-01T00:00:00Z",
+        "description": "声明工作流进入边界的物料来源。",
+        "display_name": "Material Source",
+        "feedback": {},
+        "goal": {},
+        "goal_default": {},
+        "meta_data": {
+          "unilab": {
+            "framework_owner_only": true,
+            "resource_template": {
+              "display_name": "host_node",
+              "name": "host_node",
+              "uuid": "06259194-f142-5e2b-84dc-133f38f47eb3"
+            }
+          }
+        },
+        "name": "material_source",
+        "node_type": "material_source",
+        "resource_template_uuid": "06259194-f142-5e2b-84dc-133f38f47eb3",
+        "result": {},
+        "schema": "{\"additionalProperties\":false,\"properties\":{\"custody_policy\":{\"enum\":[\"task_exclusive\",\"shared_source\"],\"type\":\"string\"},\"flow_role\":{\"enum\":[\"primary_sample\",\"aliquot_sample\",\"reagent\",\"consumable\"],\"type\":\"string\"},\"material_uuid\":{\"format\":\"uuid\",\"type\":[\"string\",\"null\"]},\"mode\":{\"enum\":[\"existing\",\"create_new\",\"planned_load\"],\"type\":\"string\"},\"mount\":{\"additionalProperties\":false,\"properties\":{\"uuid\":{\"format\":\"uuid\",\"type\":\"string\"}},\"required\":[\"uuid\"],\"type\":\"object\"},\"resource_template_uuid\":{\"format\":\"uuid\",\"type\":\"string\"},\"site\":{\"minLength\":1,\"type\":[\"string\",\"null\"],\"x-unilabos-editor-control\":\"site_selector\",\"x-unilabos-site-selector\":{\"allow_occupied\":false,\"occupant\":\"resource_template_uuid\",\"owner\":\"mount\",\"show_occupied\":true,\"version\":1}},\"slot_range\":{\"items\":{\"minLength\":1,\"type\":\"string\"},\"minItems\":1,\"type\":[\"array\",\"null\"],\"uniqueItems\":true}},\"required\":[\"mode\",\"resource_template_uuid\",\"mount\",\"material_uuid\",\"site\",\"slot_range\",\"flow_role\",\"custody_policy\"],\"type\":\"object\"}",
+        "type": "material_source",
+        "update_time": "1970-01-01T00:00:00Z",
+        "uuid": "9a48a520-b592-5454-8ece-cdc28a552866"
+      },
+      "handles": [
+        {
+          "create_time": "1970-01-01T00:00:00Z",
+          "data_key": "material",
+          "data_source": "executor",
+          "description": "向下游节点传递具体物料实例的物料占位符。",
+          "display_name": "Material",
+          "handle_key": "material",
+          "io_type": "source",
+          "meta_data": {
+            "unilab": {
+              "value_schema": {
+                "$slot": "ResourceSlot"
+              }
+            }
+          },
+          "required": false,
+          "type": "ResourceSlot",
+          "update_time": "1970-01-01T00:00:00Z",
+          "uuid": "2386e169-d7ce-5376-bf0b-15caa16729aa",
+          "workflow_node_template_uuid": "9a48a520-b592-5454-8ece-cdc28a552866"
+        }
+      ]
+    }
+  },
+  "/api/v1/material-shapes": {
+    "code": 0,
+    "data": {
+      "items": []
+    }
+  },
+  "/api/v1/materials/graph": {
+    "code": 0,
+    "data": {
+      "nodes": [
+        {
+          "material": {
+            "uuid": "eda7467f-f501-58cf-a472-3210382038d4",
+            "create_time": "2026-09-09T15:00:13.191Z",
+            "update_time": "2026-09-09T15:00:13.191Z",
+            "description": null,
+            "meta_data": {},
+            "resource_template_uuid": "667f79a4-e7dd-4ebe-ab0e-45bc1a141271",
+            "parent_uuid": null,
+            "class": "community.pylabrobot_unilab.bioyond_el_ah01_plate_hotel",
+            "barcode": "UNILAB-GRAPH-peptide_island_lpx220_warehouse",
+            "name": "自动堆栈 70 位板库",
+            "config": {},
+            "data": {
+              "mode": "inventory-parent-resource",
+              "target_role": "bioyond_el_ah01_warehouse"
+            },
+            "revision": 1,
+            "capacity": {},
+            "rated_capacity": {},
+            "type": "warehouse"
+          },
+          "relative_position": {
+            "uuid": "a890cf17-cbbb-5790-9473-7b4683479308",
+            "create_time": "2026-09-09T15:00:13.191Z",
+            "update_time": "2026-09-09T15:00:13.191Z",
+            "description": null,
+            "meta_data": {},
+            "material_uuid": "eda7467f-f501-58cf-a472-3210382038d4",
+            "position_x": -292.941,
+            "position_y": -360.12,
+            "position_z": 0,
+            "depth": 748.5,
+            "length": 975.035,
+            "width": 560,
+            "scale_x": 1,
+            "scale_y": 1,
+            "scale_z": 1,
+            "rotation_x": 0,
+            "rotation_y": 0,
+            "rotation_z": 0
+          },
+          "sites": [
+            {
+              "uuid": "4dd01f9b-f42b-5d30-8637-df1a521fac9a",
+              "create_time": "2026-09-09T15:00:13.191Z",
+              "update_time": "2026-09-09T15:00:13.191Z",
+              "description": null,
+              "meta_data": {
+                "rotation_deg_xyz": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 288
+                }
+              },
+              "material_uuid": "eda7467f-f501-58cf-a472-3210382038d4",
+              "name": "cassette_09_layer_01",
+              "sort_order": 56,
+              "allowed_resource_template_uuids": [
+                "9a2f0eb8-fe51-4ac8-ace0-692f48413641",
+                "ed70eb4a-68c8-4b28-8c51-535233a02fad",
+                "f6ce7f2d-1421-4762-8aae-5633e28a1f1b"
+              ],
+              "occupied_material_uuid": "99c11cbd-b758-541d-86f0-fd638224251a",
+              "position_x": 278.3251,
+              "position_y": 157.6764,
+              "position_z": 128,
+              "depth": 23,
+              "length": 85.48,
+              "width": 127.76
+            },
+            {
+              "uuid": "3cc7b482-1be1-5a9c-8fda-111fcf89213b",
+              "create_time": "2026-09-09T15:00:13.191Z",
+              "update_time": "2026-09-09T15:00:13.191Z",
+              "description": null,
+              "meta_data": {
+                "rotation_deg_xyz": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 288
+                }
+              },
+              "material_uuid": "eda7467f-f501-58cf-a472-3210382038d4",
+              "name": "cassette_09_layer_06",
+              "sort_order": 61,
+              "allowed_resource_template_uuids": [
+                "9a2f0eb8-fe51-4ac8-ace0-692f48413641",
+                "ed70eb4a-68c8-4b28-8c51-535233a02fad",
+                "f6ce7f2d-1421-4762-8aae-5633e28a1f1b"
+              ],
+              "occupied_material_uuid": null,
+              "position_x": 278.3251,
+              "position_y": 157.6764,
+              "position_z": 466.75,
+              "depth": 23,
+              "length": 85.48,
+              "width": 127.76
+            }
+          ],
+          "current_site_uuid": null,
+          "handles": [],
+          "resource_template": {
+            "uuid": "667f79a4-e7dd-4ebe-ab0e-45bc1a141271",
+            "name": "community.pylabrobot_unilab.bioyond_el_ah01_plate_hotel",
+            "display_name": "Bioyond EL-AH01 Plate Hotel",
+            "resource_type": "resource"
+          }
+        },
+        {
+          "material": {
+            "uuid": "99c11cbd-b758-541d-86f0-fd638224251a",
+            "create_time": "2026-09-09T15:00:13.191Z",
+            "update_time": "2026-09-09T15:00:13.191Z",
+            "description": null,
+            "meta_data": {},
+            "resource_template_uuid": "f6ce7f2d-1421-4762-8aae-5633e28a1f1b",
+            "parent_uuid": null,
+            "class": "community.pylabrobot_unilab.bioyond_peptide_96_well_synthesis_plate_base",
+            "barcode": "UNILAB-GRAPH-peptide_island_synthesis_plate_base_1",
+            "name": "96孔固相合成板底座#1",
+            "config": {},
+            "data": {
+              "mode": "initial-material-occupant",
+              "authoritative_m": 2,
+              "material_type_id": "3a1b997e-241b-64f0-80d1-47bca08799d1",
+              "material_type_name": "96孔固相合成板底座",
+              "material_object_name": "96孔固相合成板底座#1",
+              "material_instance_ordinal": 1,
+              "initial_site": "cassette_09_layer_01",
+              "raw_material_code": "0039-00126",
+              "raw_quantity": 1,
+              "raw_unit": "个",
+              "raw_warehouse_code": "0007",
+              "raw_warehouse_name": "自动化堆栈"
+            },
+            "revision": 1,
+            "capacity": {},
+            "rated_capacity": {},
+            "type": "warehouse"
+          },
+          "relative_position": {
+            "uuid": "4fad1d1e-e1bb-5ece-b6be-5d20d491813c",
+            "create_time": "2026-09-09T15:00:13.191Z",
+            "update_time": "2026-09-09T15:00:13.191Z",
+            "description": null,
+            "meta_data": {},
+            "material_uuid": "99c11cbd-b758-541d-86f0-fd638224251a",
+            "position_x": 278.3251,
+            "position_y": 157.6764,
+            "position_z": 128,
+            "depth": 20,
+            "length": 85.48,
+            "width": 127.76,
+            "scale_x": 1,
+            "scale_y": 1,
+            "scale_z": 1,
+            "rotation_x": 0,
+            "rotation_y": 0,
+            "rotation_z": 288
+          },
+          "sites": [
+            {
+              "uuid": "f2a56263-42ee-5134-ae08-0b2a11c16337",
+              "create_time": "2026-09-09T15:00:13.191Z",
+              "update_time": "2026-09-09T15:00:13.191Z",
+              "description": null,
+              "meta_data": {
+                "rotation_deg_xyz": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              },
+              "material_uuid": "99c11cbd-b758-541d-86f0-fd638224251a",
+              "name": "A1",
+              "sort_order": 0,
+              "allowed_resource_template_uuids": [
+                "9a2f0eb8-fe51-4ac8-ace0-692f48413641"
+              ],
+              "occupied_material_uuid": "deb48433-e5ed-555e-a5d9-b015342bf85c",
+              "position_x": 0,
+              "position_y": 0,
+              "position_z": 20,
+              "depth": 5,
+              "length": 85.48,
+              "width": 127.76
+            }
+          ],
+          "current_site_uuid": "4dd01f9b-f42b-5d30-8637-df1a521fac9a",
+          "handles": [],
+          "resource_template": {
+            "uuid": "f6ce7f2d-1421-4762-8aae-5633e28a1f1b",
+            "name": "community.pylabrobot_unilab.bioyond_peptide_96_well_synthesis_plate_base",
+            "display_name": "bioyond_peptide_96_well_synthesis_plate_base",
+            "resource_type": "resource"
+          }
+        },
+        {
+          "material": {
+            "uuid": "deb48433-e5ed-555e-a5d9-b015342bf85c",
+            "create_time": "2026-09-09T15:00:13.191Z",
+            "update_time": "2026-09-09T15:00:13.191Z",
+            "description": null,
+            "meta_data": {},
+            "resource_template_uuid": "9a2f0eb8-fe51-4ac8-ace0-692f48413641",
+            "parent_uuid": null,
+            "class": "community.pylabrobot_unilab.bioyond_peptide_96_well_synthesis_plate",
+            "barcode": "UNILAB-GRAPH-peptide_island_synthesis_plate_1",
+            "name": "96孔固相合成板#1",
+            "config": {},
+            "data": {
+              "mode": "initial-material-occupant",
+              "authoritative_m": 3,
+              "material_type_id": "3a1871cb-99f3-f01d-23e2-08dbbd0045b5",
+              "material_type_name": "96孔固相合成板",
+              "material_object_name": "96孔固相合成板#1",
+              "material_instance_ordinal": 1,
+              "initial_site": "A1",
+              "raw_material_code": "0001-00069",
+              "raw_quantity": 1,
+              "raw_unit": "块",
+              "raw_warehouse_code": "0007",
+              "raw_warehouse_name": "自动化堆栈",
+              "parent_material": "96孔固相合成板底座#1",
+              "combined_with": "peptide_island_synthesis_plate_base_1"
+            },
+            "revision": 1,
+            "capacity": {},
+            "rated_capacity": {},
+            "type": "plate"
+          },
+          "relative_position": {
+            "uuid": "34718250-2e05-53d9-88b9-a6476c9f592f",
+            "create_time": "2026-09-09T15:00:13.191Z",
+            "update_time": "2026-09-09T15:00:13.191Z",
+            "description": null,
+            "meta_data": {},
+            "material_uuid": "deb48433-e5ed-555e-a5d9-b015342bf85c",
+            "position_x": 0,
+            "position_y": 0,
+            "position_z": 20,
+            "depth": 44,
+            "length": 85.48,
+            "width": 127.76,
+            "scale_x": 1,
+            "scale_y": 1,
+            "scale_z": 1,
+            "rotation_x": 0,
+            "rotation_y": 0,
+            "rotation_z": 0
+          },
+          "sites": [],
+          "current_site_uuid": "f2a56263-42ee-5134-ae08-0b2a11c16337",
+          "handles": [],
+          "resource_template": {
+            "uuid": "9a2f0eb8-fe51-4ac8-ace0-692f48413641",
+            "name": "community.pylabrobot_unilab.bioyond_peptide_96_well_synthesis_plate",
+            "display_name": "bioyond_peptide_96_well_synthesis_plate",
+            "resource_type": "resource"
+          }
+        }
+      ]
+    }
+  },
+  "/api/v1/workflows/94131da4-7110-57ff-b36f-8b04a2ac1140/authoring": {
+    "code": 0,
+    "data": {
+      "workflow_uuid": "94131da4-7110-57ff-b36f-8b04a2ac1140",
+      "workflow_revision": 2,
+      "status": "source",
+      "state": "applied",
+      "applied_graph": {
+        "workflow": {
+          "uuid": "94131da4-7110-57ff-b36f-8b04a2ac1140",
+          "create_time": "2026-09-09T15:00:22.568596Z",
+          "update_time": "2026-09-09T15:00:39.113809Z",
+          "meta_data": {},
+          "description": null,
+          "name": "Material source contract",
+          "tags": [],
+          "workflow_type": "experiment_operation",
+          "revision": 2
+        },
+        "nodes": [
+          {
+            "uuid": "0fa9ae1b-c0e6-56df-807b-319a21531f11",
+            "create_time": "2026-09-09T15:00:39.194558Z",
+            "update_time": "2026-09-09T15:00:39.194558Z",
+            "meta_data": {},
+            "description": null,
+            "workflow_uuid": "94131da4-7110-57ff-b36f-8b04a2ac1140",
+            "name": "Material Source",
+            "type": "material_source",
+            "pose": {},
+            "param": {
+              "custody_policy": "task_exclusive",
+              "flow_role": "primary_sample",
+              "material_uuid": null,
+              "mode": "planned_load",
+              "mount": {
+                "uuid": "eda7467f-f501-58cf-a472-3210382038d4"
+              },
+              "resource_template_uuid": "ed70eb4a-68c8-4b28-8c51-535233a02fad",
+              "site": null,
+              "slot_range": [
+                "cassette_09_layer_06"
+              ]
+            },
+            "execution_policy": {},
+            "disabled": false,
+            "minimized": false,
+            "workflow_node_template_uuid": "9a48a520-b592-5454-8ece-cdc28a552866",
+            "action_name": "material_source"
+          }
+        ],
+        "edges": [],
+        "inventory_requirements": [],
+        "node_templates": [
+          {
+            "class": "unilabos.workflow.authoring:material_source",
+            "create_time": "1970-01-01T00:00:00Z",
+            "description": "声明工作流进入边界的物料来源。",
+            "display_name": "Material Source",
+            "feedback": {},
+            "goal": {},
+            "goal_default": {},
+            "meta_data": {
+              "unilab": {
+                "framework_owner_only": true,
+                "resource_template": {
+                  "display_name": "host_node",
+                  "name": "host_node",
+                  "uuid": "06259194-f142-5e2b-84dc-133f38f47eb3"
+                }
+              }
+            },
+            "name": "material_source",
+            "node_type": "material_source",
+            "resource_template_uuid": "06259194-f142-5e2b-84dc-133f38f47eb3",
+            "result": {},
+            "schema": "{\"additionalProperties\":false,\"properties\":{\"custody_policy\":{\"enum\":[\"task_exclusive\",\"shared_source\"],\"type\":\"string\"},\"flow_role\":{\"enum\":[\"primary_sample\",\"aliquot_sample\",\"reagent\",\"consumable\"],\"type\":\"string\"},\"material_uuid\":{\"format\":\"uuid\",\"type\":[\"string\",\"null\"]},\"mode\":{\"enum\":[\"existing\",\"create_new\",\"planned_load\"],\"type\":\"string\"},\"mount\":{\"additionalProperties\":false,\"properties\":{\"uuid\":{\"format\":\"uuid\",\"type\":\"string\"}},\"required\":[\"uuid\"],\"type\":\"object\"},\"resource_template_uuid\":{\"format\":\"uuid\",\"type\":\"string\"},\"site\":{\"minLength\":1,\"type\":[\"string\",\"null\"],\"x-unilabos-editor-control\":\"site_selector\",\"x-unilabos-site-selector\":{\"allow_occupied\":false,\"occupant\":\"resource_template_uuid\",\"owner\":\"mount\",\"show_occupied\":true,\"version\":1}},\"slot_range\":{\"items\":{\"minLength\":1,\"type\":\"string\"},\"minItems\":1,\"type\":[\"array\",\"null\"],\"uniqueItems\":true}},\"required\":[\"mode\",\"resource_template_uuid\",\"mount\",\"material_uuid\",\"site\",\"slot_range\",\"flow_role\",\"custody_policy\"],\"type\":\"object\"}",
+            "type": "material_source",
+            "update_time": "1970-01-01T00:00:00Z",
+            "uuid": "9a48a520-b592-5454-8ece-cdc28a552866"
+          }
+        ],
+        "handle_templates": [
+          {
+            "create_time": "1970-01-01T00:00:00Z",
+            "data_key": "material",
+            "data_source": "executor",
+            "description": "向下游节点传递具体物料实例的物料占位符。",
+            "display_name": "Material",
+            "handle_key": "material",
+            "io_type": "source",
+            "meta_data": {
+              "unilab": {
+                "value_schema": {
+                  "$slot": "ResourceSlot"
+                }
+              }
+            },
+            "required": false,
+            "type": "ResourceSlot",
+            "update_time": "1970-01-01T00:00:00Z",
+            "uuid": "2386e169-d7ce-5376-bf0b-15caa16729aa",
+            "workflow_node_template_uuid": "9a48a520-b592-5454-8ece-cdc28a552866"
+          }
+        ]
+      },
+      "draft": null,
+      "candidate": null,
+      "applied_source": null
+    }
+  },
+  "/api/v1/resource-templates?page=1&page_size=100": {
+    "code": 0,
+    "data": {
+      "items": [
+        {
+          "uuid": "f6ce7f2d-1421-4762-8aae-5633e28a1f1b",
+          "name": "community.pylabrobot_unilab.bioyond_peptide_96_well_synthesis_plate_base",
+          "display_name": "bioyond_peptide_96_well_synthesis_plate_base",
+          "resource_type": "resource",
+          "tags": [
+            "labware",
+            "bioyond_peptide"
+          ]
+        },
+        {
+          "uuid": "9a2f0eb8-fe51-4ac8-ace0-692f48413641",
+          "name": "community.pylabrobot_unilab.bioyond_peptide_96_well_synthesis_plate",
+          "display_name": "bioyond_peptide_96_well_synthesis_plate",
+          "resource_type": "resource",
+          "tags": [
+            "labware",
+            "bioyond_peptide"
+          ]
+        },
+        {
+          "uuid": "ed70eb4a-68c8-4b28-8c51-535233a02fad",
+          "name": "community.pylabrobot_unilab.bioyond_peptide_96_well_collection_plate",
+          "display_name": "bioyond_peptide_96_well_collection_plate",
+          "resource_type": "resource",
+          "tags": [
+            "labware",
+            "plate"
+          ]
+        },
+        {
+          "uuid": "667f79a4-e7dd-4ebe-ab0e-45bc1a141271",
+          "name": "community.pylabrobot_unilab.bioyond_el_ah01_plate_hotel",
+          "display_name": "Bioyond EL-AH01 Plate Hotel",
+          "resource_type": "resource",
+          "tags": [
+            "labware",
+            "storage",
+            "plate_carrier",
+            "bioyond_day1"
+          ]
+        }
+      ],
+      "has_more": false,
+      "page": 1,
+      "page_size": 100
+    }
+  }
+}

@@ -334,6 +334,12 @@ export function usePersistentWorkflowCanvasNodeEditor(
       patch.resourceTemplateUuid !== editorProjection.resourceTemplateUuid
     const changingMount = patch.mountUuid !== undefined &&
       patch.mountUuid !== editorProjection.mountUuid
+    const nextMode = patch.mode ?? editorProjection.mode
+    const resetPlannedRange = nextMode === 'planned_load' && (changingTemplate || changingMount)
+    const initialPlannedSite = resetPlannedRange ? effectiveMaterialSourceCatalog.sites.find(site =>
+      site.mountMaterialUuid === (patch.mountUuid ?? editorProjection.mountUuid)
+      && (site.allowedResourceTemplateUuids.length === 0 || site.allowedResourceTemplateUuids.includes(
+        patch.resourceTemplateUuid ?? editorProjection.resourceTemplateUuid))) : undefined
     const next: MaterialSourceSelectorUpdate = {
       mode: patch.mode ?? editorProjection.mode,
       resourceTemplateUuid: patch.resourceTemplateUuid ?? editorProjection.resourceTemplateUuid,
@@ -342,13 +348,13 @@ export function usePersistentWorkflowCanvasNodeEditor(
         ? patch.fixedMaterialUuid
         : changingTemplate ? null : editorProjection.fixedMaterialUuid,
       siteScope: patch.siteScope ?? (
-        changingTemplate || changingMount ? 'all' : editorProjection.siteScope
+        resetPlannedRange ? 'candidates' : changingTemplate || changingMount ? 'all' : editorProjection.siteScope
       ),
       fixedSiteUuid: patch.fixedSiteUuid !== undefined
         ? patch.fixedSiteUuid
         : changingTemplate || changingMount ? null : editorProjection.fixedSiteUuid,
       candidateSiteUuids: patch.candidateSiteUuids ?? (
-        changingTemplate || changingMount ? [] : editorProjection.candidateSiteUuids
+        resetPlannedRange ? (initialPlannedSite ? [initialPlannedSite.uuid] : []) : changingTemplate || changingMount ? [] : editorProjection.candidateSiteUuids
       ),
       flowRole: patch.flowRole ?? editorProjection.flowRole,
       custodyPolicy: patch.custodyPolicy ?? editorProjection.custodyPolicy

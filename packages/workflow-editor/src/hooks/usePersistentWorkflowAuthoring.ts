@@ -145,6 +145,7 @@ export function usePersistentWorkflowAuthoring({
     actionCatalogError,
     effectiveMaterialSourceCatalog,
     materialSourceAuthorityBlocked,
+    materialSourceAuthorityProblem,
     materialSourceCatalog,
     materialSourceCatalogError,
     materialSourceCatalogLoading,
@@ -1179,11 +1180,7 @@ export function usePersistentWorkflowAuthoring({
     context: {
       aggregate,
       dirty,
-      blockedReason: executionBlockedReason ?? (
-        materialSourceAuthorityBlocked
-          ? '物料来源目录或引用已失效，请先刷新'
-          : null
-      )
+      blockedReason: executionBlockedReason ?? materialSourceAuthorityProblem
     },
     hasRemoteInvalidation: () => remotePending.current,
     commands: {
@@ -1342,7 +1339,7 @@ export function usePersistentWorkflowAuthoring({
     executionBlockedReason, taskHistorical,
     dirty, discardAndSwitch, editor, effectiveMaterialSourceCatalog, error,
     fileUpload, fullSourceDiff, graph, jsonProjectionEditor,
-    materialSourceAuthorityBlocked, materialSourceCatalogError,
+    materialSourceAuthorityBlocked, materialSourceAuthorityProblem, materialSourceCatalogError,
     materialSourceCatalogLoading, materialTraces, message, mode,
     nodePaletteOpen, onChooseWorkflow, pendingMode, policy, projectionKind,
     refreshMaterialSourceCatalog, remoteConflict, requestMode,

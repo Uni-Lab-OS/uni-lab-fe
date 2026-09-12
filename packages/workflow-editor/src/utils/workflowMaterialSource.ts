@@ -7,9 +7,11 @@ import type {
   WorkflowMaterialSourceSite
 } from '@unilab/services'
 
+import { materialSourceCurrentLocation } from './materialSourceCurrentLocation'
+
 import { connectFrameworkSourceToTypedActionEdge } from './workflowActionCatalog'
 
-export type MaterialSourceMode = 'existing' | 'create_new'
+export type MaterialSourceMode = 'existing' | 'create_new' | 'planned_load'
 export type MaterialSourceFlowRole =
   | 'primary_sample'
   | 'aliquot_sample'
@@ -49,6 +51,8 @@ export interface MaterialSourceEditorProjection {
   mounts: WorkflowMaterialSourceMaterial[]
   fixedMaterials: WorkflowMaterialSourceMaterial[]
   sites: WorkflowMaterialSourceSite[]
+  currentLocation?: ReturnType<typeof materialSourceCurrentLocation>
+  plannedLoadAvailable?: boolean
   staleReferences: string[]
 }
 
@@ -153,12 +157,25 @@ export function projectMaterialSourceEditor(
   }
   const mountUuid = requiredString(mountRecord.uuid, 'mount.uuid')
   const fixedMaterialUuid = nullableString(param.material_uuid, 'material_uuid')
-  const fixedSiteUuid = nullableString(param.site, 'site')
-  const candidateSiteUuids = nullableStringArray(param.slot_range, 'slot_range')
+  const sourceSite = nullableString(param.site, 'site')
+  const sourceRange = nullableStringArray(param.slot_range, 'slot_range')
+  // planned_load 的公开合同允许挂载点内的库位名称；必须唯一对应真实兼容库位。
+  const resolveSite = (value: string): string => {
+    if (mode !== 'planned_load') return value
+    const matches = compatibleSites(catalog, mountUuid, resourceTemplateUuid)
+      .filter(site => site.uuid === value || site.name === value)
+    if (matches.length !== 1) throw new Error(`计划上料库位不存在或不唯一：${value}`)
+    return matches[0]!.uuid
+  }
+  const fixedSiteUuid = sourceSite ? resolveSite(sourceSite) : null
+  const candidateSiteUuids = sourceRange.map(resolveSite)
+  if (mode === 'planned_load' && !fixedSiteUuid && candidateSiteUuids.length === 0) {
+    throw new Error('计划上料必须声明目标库位范围')
+  }
   if (fixedSiteUuid && candidateSiteUuids.length > 0) {
     throw new Error('物料来源库位选择器不能同时指定固定库位和候选集')
   }
-  if (mode === 'create_new' && fixedMaterialUuid) {
+  if (mode !== 'existing' && fixedMaterialUuid) {
     throw new Error('新建物料模式不能携带固定物料')
   }
   const flowRole = materialSourceFlowRole(param.flow_role)
@@ -168,7 +185,8 @@ export function projectMaterialSourceEditor(
     param.custody_policy ?? 'task_exclusive'
   )
   const movementAction = sharedSourceMovementAction(graph, nodeUuid)
-  const sites = compatibleSites(catalog, mountUuid, resourceTemplateUuid)
+  const sites = compatibleSites(catalog, mountUuid, resourceTemplateUuid, mode === 'existing' ? fixedMaterialUuid : null,
+    [...(fixedSiteUuid ? [fixedSiteUuid] : []), ...candidateSiteUuids])
   const staleReferences: string[] = []
   if (!catalog.resourceTemplates.some((item) =>
     item.uuid === resourceTemplateUuid
@@ -183,7 +201,7 @@ export function projectMaterialSourceEditor(
     ...(fixedSiteUuid ? [fixedSiteUuid] : []),
     ...candidateSiteUuids
   ]) {
-    if (!catalog.sites.some((item) => item.uuid === siteUuid)) {
+    if (!sites.some((item) => item.uuid === siteUuid)) {
       staleReferences.push(`库位 ${siteUuid}`)
     }
   }
@@ -212,6 +230,8 @@ export function projectMaterialSourceEditor(
       item.resourceTemplateUuid === resourceTemplateUuid
     ),
     sites,
+    currentLocation: materialSourceCurrentLocation(catalog, fixedMaterialUuid),
+    plannedLoadAvailable: (catalog.template.schema?.properties as { mode?: { enum?: string[] } } | undefined)?.mode?.enum?.includes('planned_load') ?? false,
     staleReferences
   }
 }
@@ -232,7 +252,9 @@ export function updateMaterialSourceSelector(
   const sites = compatibleSites(
     catalog,
     update.mountUuid,
-    update.resourceTemplateUuid
+    update.resourceTemplateUuid,
+    update.mode === 'existing' ? update.fixedMaterialUuid : null,
+    [...(update.fixedSiteUuid ? [update.fixedSiteUuid] : []), ...(update.candidateSiteUuids ?? [])]
   )
   const fixedSiteUuid = update.siteScope === 'fixed'
     ? update.fixedSiteUuid ?? null
@@ -250,9 +272,9 @@ export function updateMaterialSourceSelector(
     ...(fixedSiteUuid ? [fixedSiteUuid] : []),
     ...candidateSiteUuids
   ]) requireOption(sites, siteUuid, 'Site')
-  const fixedMaterialUuid = update.mode === 'create_new'
-    ? null
-    : update.fixedMaterialUuid
+  const mode = materialSourceMode(update.mode)
+  if (mode === 'planned_load' && update.siteScope === 'all') throw new Error('计划上料必须声明目标库位范围')
+  const fixedMaterialUuid = mode === 'existing' ? update.fixedMaterialUuid : null
   if (fixedMaterialUuid) {
     requireOption(
       catalog.materials.filter((item) =>
@@ -268,6 +290,16 @@ export function updateMaterialSourceSelector(
   if (movementAction) {
     throw new Error(`共享来源不能流入 ${movementAction} 物料移动动作`)
   }
+  // 编辑其它字段时保留原源码中的合法库位名，新增选择使用真实 UUID。
+  const original = recordValue(graph.nodes.find(node => node.uuid === nodeUuid)!.param, 'MaterialSource param')
+  const preserveNames = mode === 'planned_load' && projection.mode === 'planned_load'
+    && update.mountUuid === projection.mountUuid && update.resourceTemplateUuid === projection.resourceTemplateUuid
+  const originalRange = nullableStringArray(original.slot_range, 'slot_range')
+  const savedSite = preserveNames && fixedSiteUuid === projection.fixedSiteUuid ? original.site : fixedSiteUuid
+  const savedRange = candidateSiteUuids.map(uuid => {
+    const index = projection.candidateSiteUuids.indexOf(uuid)
+    return preserveNames && index >= 0 ? originalRange[index]! : uuid
+  })
   return {
     ...graph,
     nodes: graph.nodes.map((node) => node.uuid !== nodeUuid
@@ -276,12 +308,12 @@ export function updateMaterialSourceSelector(
           ...node,
           param: {
             resource_template_uuid: update.resourceTemplateUuid,
-            mode: update.mode,
+            mode,
             mount: { uuid: update.mountUuid },
             material_uuid: fixedMaterialUuid,
-            site: fixedSiteUuid,
-            slot_range: candidateSiteUuids.length > 0
-              ? candidateSiteUuids
+            site: savedSite,
+            slot_range: savedRange.length > 0
+              ? savedRange
               : null,
             flow_role: update.flowRole,
             custody_policy: update.custodyPolicy
@@ -347,7 +379,9 @@ function materialSourceMounts(
 function compatibleSites(
   catalog: WorkflowMaterialSourceCatalogSnapshot,
   mountUuid: string,
-  resourceTemplateUuid: string
+  resourceTemplateUuid: string,
+  fixedMaterialUuid: string | null = null,
+  explicitSiteUuids: readonly string[] = []
 ): WorkflowMaterialSourceSite[] {
   const sites: WorkflowMaterialSourceSite[] = []
   for (const site of catalog.sites) {
@@ -355,6 +389,25 @@ function compatibleSites(
     const acceptsTemplate = site.allowedResourceTemplateUuids.length === 0 ||
       site.allowedResourceTemplateUuids.includes(resourceTemplateUuid)
     if (sameMount && acceptsTemplate) sites.push(site)
+  }
+  if (fixedMaterialUuid) {
+    // Selector containment depends on the site's owner, not the selected
+    // material's current location. OS preflight validates actual occupancy.
+    for (const site of catalog.sites) {
+      if (!explicitSiteUuids.includes(site.uuid)) continue
+      if (sites.some(candidate => candidate.uuid === site.uuid)) continue
+      if (site.allowedResourceTemplateUuids.length > 0 &&
+        !site.allowedResourceTemplateUuids.includes(resourceTemplateUuid)) continue
+      let owner = site.mountMaterialUuid
+      const visited = new Set<string>()
+      while (owner !== mountUuid && !visited.has(owner)) {
+        visited.add(owner)
+        const parents = catalog.sites.filter(parent => parent.occupiedMaterialUuid === owner)
+        if (parents.length !== 1) break
+        owner = parents[0]!.mountMaterialUuid
+      }
+      if (owner === mountUuid) sites.push(site)
+    }
   }
   return sites.sort(compareMaterialSourceSites)
 }
@@ -428,7 +481,7 @@ function assertClosedSelector(param: Record<string, unknown>): void {
 }
 
 function materialSourceMode(value: unknown): MaterialSourceMode {
-  if (value !== 'existing' && value !== 'create_new') {
+  if (value !== 'existing' && value !== 'create_new' && value !== 'planned_load') {
     throw new Error('物料来源模式不在闭合目录中')
   }
   return value
@@ -657,4 +710,27 @@ function nullableStringArray(value: unknown, label: string): string[] {
 
 function validPythonName(value: string): boolean {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value)
+}
+
+/** 保留目录加载与逐节点真实引用的具体阻断原因，供启动和界面共同使用。 */
+export function materialSourceGraphAuthorityProblem(
+  graph: WorkflowAuthoringGraph | null,
+  catalog: WorkflowMaterialSourceCatalogSnapshot | null | undefined,
+  unavailableReason?: string | null
+): string | null {
+  const nodes = graph?.nodes.filter(node => node.type === 'material_source') ?? []
+  if (nodes.length === 0) return null
+  if (unavailableReason) return unavailableReason
+  if (!graph || !catalog) return '物料来源目录尚未就绪，请重新读取目录'
+  for (const node of nodes) {
+    if (typeof node.uuid !== 'string' || !node.uuid) return '物料来源节点缺少稳定 UUID'
+    const name = String(node.name || node.uuid)
+    try {
+      const projection = projectMaterialSourceEditor(catalog, graph, node.uuid)
+      if (projection.staleReferences.length > 0) return `${name}：引用已失效（${projection.staleReferences.join('、')}）`
+    } catch (error) {
+      return `${name}：${error instanceof Error ? error.message : String(error)}`
+    }
+  }
+  return null
 }

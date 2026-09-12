@@ -188,6 +188,16 @@ export function MaterialSourceInspector({
           >
             新建物料
           </WorkflowButton>
+          {(editor.plannedLoadAvailable || editor.mode === 'planned_load') && <WorkflowButton
+            type="button"
+            className={editor.mode === 'planned_load' ? 'is-active' : ''}
+            aria-pressed={editor.mode === 'planned_load'}
+            disabled={!editable}
+            disabledReason="当前模式只允许查看物料来源"
+            onClick={() => onChange({ mode: 'planned_load', fixedMaterialUuid: null,
+              siteScope: 'candidates', candidateSiteUuids: editor.candidateSiteUuids.length
+                ? editor.candidateSiteUuids : editor.fixedSiteUuid ? [editor.fixedSiteUuid] : editor.sites.slice(0, 1).map(site => site.uuid) })}
+          >计划上料</WorkflowButton>}
         </div>
         <label>
           挂载点
@@ -204,6 +214,18 @@ export function MaterialSourceInspector({
             ))}
           </select>
         </label>
+        {editor.mode === 'existing' && editor.fixedMaterialUuid && editor.currentLocation && (
+          <div aria-label="当前库存位置">
+            <strong>当前位于</strong>
+            {editor.currentLocation.kind === 'located' ? <>
+              <ol>{editor.currentLocation.positions.map(position => (
+                <li key={position.siteUuid}>{position.ownerName} / {position.siteName}</li>
+              ))}</ol>
+              <p>从直接承载物料向外显示当前位置。来源节点选择物料身份，不代表一次出库；容器内的物料随容器搬运，直到被单独取出。</p>
+            </> : <p>{editor.currentLocation.reason}</p>}
+          </div>
+        )}
+        {editor.mode === 'planned_load' && <p>运行到此来源时等待人工上料确认；确认成功后再使用权威库存中的物料。</p>}
         {editor.mode === 'existing' && (
           <WorkflowResourceSelector
             label="固定物料"
@@ -249,7 +271,7 @@ export function MaterialSourceInspector({
               })
             }}
           >
-            <option value="all">全部兼容的直接库位</option>
+            <option value="all" disabled={editor.mode === 'planned_load'}>全部兼容的直接库位</option>
             <option value="fixed" disabled={editor.sites.length === 0}>
               固定库位
             </option>

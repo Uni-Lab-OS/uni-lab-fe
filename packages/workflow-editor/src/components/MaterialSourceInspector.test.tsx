@@ -16,10 +16,28 @@ import {
  * @returns 不返回值；渲染或过滤合同被破坏时由 Vitest 报告失败。
  */
 function registerMaterialSourceInspectorTests(): void {
+  it('shows authoritative parent positions without inventing transfer edges', () => {
+    const markup = renderToStaticMarkup(<MaterialSourceInspector editor={{ ...editor(), mode: 'existing', fixedMaterialUuid: 'plate', currentLocation: { kind: 'located', positions: [
+      { ownerUuid: 'base', ownerName: '底座', siteUuid: 'a1', siteName: 'A1' },
+      { ownerUuid: 'warehouse', ownerName: '仓库', siteUuid: 'slot', siteName: '第5层' }
+    ] } }} editable={false} status="pending" diagnostics={[]} onChange={vi.fn()} />)
+    expect(markup).toContain('底座 / A1')
+    expect(markup).toContain('仓库 / 第5层')
+    expect(markup).toContain('不代表一次出库')
+  })
   it(
     '物料来源（MaterialSource）属性面板按公共物料图（MaterialGraph）顺序渲染闭合选择器',
     rendersClosedSelectorInPublicGraphOrder
   )
+  it('planned loading is explicit and never requests an existing material', () => {
+    const markup = renderToStaticMarkup(<MaterialSourceInspector
+      editor={{ ...editor(), mode: 'planned_load', plannedLoadAvailable: true }}
+      editable status="material_waiting" diagnostics={[]} onChange={vi.fn()} />)
+    expect(markup).toContain('计划上料')
+    expect(markup).toContain('等待人工上料确认')
+    expect(markup).not.toContain('固定物料')
+    expect(markup).toContain('value="all" disabled=""')
+  })
   it(
     '候选库位（Site）只按名称和稳定 UUID 过滤',
     filtersCandidateSitesByNameAndUuid

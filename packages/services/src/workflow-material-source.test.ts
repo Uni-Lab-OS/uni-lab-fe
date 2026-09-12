@@ -1,3 +1,4 @@
+import plannedFixture from './fixtures/planned-material-source.json'
 import type {
   MaterialAggregate,
   MaterialGraphPort,
@@ -162,6 +163,15 @@ async function validatesPublishedMaterialSourceSchema(): Promise<void> {
   const snapshot = await runtime.getWorkflowMaterialSourceCatalog()
   expect(snapshot.template.uuid).toBe(frameworkTemplateUuid)
   expect(snapshot.template.schema).toEqual(materialSourceSchema())
+
+  detailTemplate.schema = plannedFixture.catalog.template.schema
+  await expect(runtime.getWorkflowMaterialSourceCatalog()).resolves.toMatchObject({
+    template: { schema: plannedFixture.catalog.template.schema }
+  })
+  const unknownMode = structuredClone(plannedFixture.catalog.template.schema)
+  unknownMode.properties.mode.enum.push('unsafe_unknown')
+  detailTemplate.schema = unknownMode
+  await expect(runtime.getWorkflowMaterialSourceCatalog()).rejects.toMatchObject({ code: 'INVALID_WORKFLOW_MATERIAL_SOURCE_CATALOG' })
 
   // 旧 Edge 尚未发布选择器 Schema 时保持兼容，但非空错误 Schema 仍失败关闭。
   detailTemplate.schema = null

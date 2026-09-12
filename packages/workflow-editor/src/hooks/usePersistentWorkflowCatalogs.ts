@@ -6,7 +6,7 @@ import type {
 } from '@unilab/services'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { projectMaterialSourceEditor } from '../utils/workflowMaterialSource'
+import { materialSourceGraphAuthorityProblem } from '../utils/workflowMaterialSource'
 import {
   errorMessage,
   isRecordValue,
@@ -262,29 +262,10 @@ export function usePersistentWorkflowCatalogs({
     }
   }, [actionCatalog, graph, materialSourceCatalog])
 
-  const materialSourceAuthorityBlocked = useMemo(() => {
-    const sourceNodes = graph?.nodes.filter(
-      (node) => node.type === 'material_source'
-    ) ?? []
-    if (sourceNodes.length === 0) return false
-    if (
-      materialSourceCatalogLoading ||
-      materialSourceCatalogError ||
-      !effectiveMaterialSourceCatalog ||
-      !graph
-    ) return true
-    return sourceNodes.some((node) => {
-      if (typeof node.uuid !== 'string' || !node.uuid) return true
-      try {
-        return projectMaterialSourceEditor(
-          effectiveMaterialSourceCatalog,
-          graph,
-          node.uuid
-        ).staleReferences.length > 0
-      } catch {
-        return true
-      }
-    })
+  const materialSourceAuthorityProblem = useMemo(() => {
+    return materialSourceGraphAuthorityProblem(graph, effectiveMaterialSourceCatalog,
+      materialSourceCatalogError ? `物料来源目录加载失败：${materialSourceCatalogError}`
+        : materialSourceCatalogLoading ? '正在读取物料来源目录' : null)
   }, [
     effectiveMaterialSourceCatalog,
     graph,
@@ -296,7 +277,8 @@ export function usePersistentWorkflowCatalogs({
     actionCatalog,
     actionCatalogError,
     effectiveMaterialSourceCatalog,
-    materialSourceAuthorityBlocked,
+    materialSourceAuthorityBlocked: materialSourceAuthorityProblem !== null,
+    materialSourceAuthorityProblem,
     materialSourceCatalog,
     materialSourceCatalogError,
     materialSourceCatalogLoading,

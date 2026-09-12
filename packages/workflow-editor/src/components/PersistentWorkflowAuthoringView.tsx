@@ -1,3 +1,4 @@
+import { MaterialSourceAuthorityNotice } from './MaterialSourceAuthorityNotice'
 import { CodeEditor } from '@unilab/code-editor'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -70,6 +71,7 @@ export function PersistentWorkflowAuthoringView({
     ideBridgeConnected,
     jsonProjectionEditor,
     materialSourceAuthorityBlocked,
+    materialSourceAuthorityProblem,
     materialSourceCatalogError,
     materialSourceCatalogLoading,
     materialTraces,
@@ -225,6 +227,10 @@ export function PersistentWorkflowAuthoringView({
         </div>
       )}
 
+      <MaterialSourceAuthorityNotice
+        problem={materialSourceCatalogLoading ? null : materialSourceAuthorityProblem}
+        onRefresh={() => void refreshMaterialSourceCatalog()}
+      />
       {error && (
         <div className="workflow-runtime__problem" role="alert">
           <strong>工作流编辑操作失败</strong>

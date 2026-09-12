@@ -41,7 +41,7 @@ export default function WorkflowMaterialSourceNode({
     : undefined
   const sourceDescription = data.materialSource
     ? `${flowRoleLabel(data.materialSource.flowRole)} · ${
-        data.materialSource.mode === 'create_new' ? '新建物料' : '已有物料'
+        data.materialSource.mode === 'planned_load' ? '计划上料' : data.materialSource.mode === 'create_new' ? '新建物料' : '已有物料'
       } · ${custodyPolicyLabel(data.materialSource.custodyPolicy)}`
     : '物料来源'
   return (

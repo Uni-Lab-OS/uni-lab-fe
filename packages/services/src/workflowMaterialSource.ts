@@ -273,13 +273,14 @@ function materialSourceTemplateSchema(
   const slotItem = recordValue(slotRange.items)
   const flowRole = recordValue(properties.flow_role)
   const custodyPolicy = recordValue(properties.custody_policy)
+  const plannedLoad = sameStringSet(mode.enum, ['existing', 'create_new', 'planned_load'])
   if (
     schema.type !== 'object' ||
     schema.additionalProperties !== false ||
     !sameStringSet(Object.keys(properties), MATERIAL_SOURCE_PARAMETER_KEYS) ||
     !sameStringSet(schema.required, MATERIAL_SOURCE_PARAMETER_KEYS) ||
     mode.type !== 'string' ||
-    !sameStringSet(mode.enum, ['existing', 'create_new']) ||
+    (!plannedLoad && !sameStringSet(mode.enum, ['existing', 'create_new'])) ||
     resourceTemplate.type !== 'string' ||
     resourceTemplate.format !== 'uuid' ||
     mount.type !== 'object' ||
@@ -291,7 +292,7 @@ function materialSourceTemplateSchema(
     !sameStringSet(materialUuid.type, ['string', 'null']) ||
     materialUuid.format !== 'uuid' ||
     !sameStringSet(site.type, ['string', 'null']) ||
-    site.format !== 'uuid' ||
+    (plannedLoad ? site.minLength !== 1 : site.format !== 'uuid') ||
     site['x-unilabos-editor-control'] !== 'site_selector' ||
     siteSelector.version !== 1 ||
     siteSelector.owner !== 'mount' ||
@@ -302,7 +303,7 @@ function materialSourceTemplateSchema(
     slotRange.minItems !== 1 ||
     slotRange.uniqueItems !== true ||
     slotItem.type !== 'string' ||
-    slotItem.format !== 'uuid' ||
+    (plannedLoad ? slotItem.minLength !== 1 : slotItem.format !== 'uuid') ||
     flowRole.type !== 'string' ||
     !sameStringSet(flowRole.enum, [
       'primary_sample',

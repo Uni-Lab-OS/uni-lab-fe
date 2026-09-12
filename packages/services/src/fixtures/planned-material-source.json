@@ -1,0 +1,231 @@
+{
+  "workflow_revision": 2,
+  "graph": {
+    "workflow": {
+      "uuid": "94131da4-7110-57ff-b36f-8b04a2ac1140",
+      "create_time": "2026-09-09T09:28:19.730863Z",
+      "update_time": "2026-09-09T09:28:42.970835Z",
+      "meta_data": {},
+      "description": null,
+      "name": "Material source contract",
+      "tags": [],
+      "workflow_type": "experiment_operation",
+      "revision": 2
+    },
+    "nodes": [
+      {
+        "uuid": "0fa9ae1b-c0e6-56df-807b-319a21531f11",
+        "create_time": "2026-09-09T09:28:43.112791Z",
+        "update_time": "2026-09-09T09:28:43.112791Z",
+        "meta_data": {},
+        "description": null,
+        "workflow_uuid": "94131da4-7110-57ff-b36f-8b04a2ac1140",
+        "name": "Material Source",
+        "type": "material_source",
+        "pose": {},
+        "param": {
+          "custody_policy": "task_exclusive",
+          "flow_role": "primary_sample",
+          "material_uuid": null,
+          "mode": "planned_load",
+          "mount": {
+            "uuid": "eda7467f-f501-58cf-a472-3210382038d4"
+          },
+          "resource_template_uuid": "e015c79c-d9b4-4f74-8b6d-5b0dc7215d48",
+          "site": null,
+          "slot_range": [
+            "cassette_09_layer_06"
+          ]
+        },
+        "execution_policy": {},
+        "disabled": false,
+        "minimized": false,
+        "workflow_node_template_uuid": "9a48a520-b592-5454-8ece-cdc28a552866",
+        "action_name": "material_source"
+      }
+    ],
+    "edges": [],
+    "node_templates": [],
+    "handle_templates": []
+  },
+  "catalog": {
+    "template": {
+      "uuid": "9a48a520-b592-5454-8ece-cdc28a552866",
+      "resourceTemplateUuid": "06259194-f142-5e2b-84dc-133f38f47eb3",
+      "name": "material_source",
+      "displayName": "Material Source",
+      "actionClass": "unilabos.workflow.authoring:material_source",
+      "actionType": "material_source",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "custody_policy": {
+            "enum": [
+              "task_exclusive",
+              "shared_source"
+            ],
+            "type": "string"
+          },
+          "flow_role": {
+            "enum": [
+              "primary_sample",
+              "aliquot_sample",
+              "reagent",
+              "consumable"
+            ],
+            "type": "string"
+          },
+          "material_uuid": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mode": {
+            "enum": [
+              "existing",
+              "create_new",
+              "planned_load"
+            ],
+            "type": "string"
+          },
+          "mount": {
+            "additionalProperties": false,
+            "properties": {
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid"
+            ],
+            "type": "object"
+          },
+          "resource_template_uuid": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "site": {
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-unilabos-editor-control": "site_selector",
+            "x-unilabos-site-selector": {
+              "allow_occupied": false,
+              "occupant": "resource_template_uuid",
+              "owner": "mount",
+              "show_occupied": true,
+              "version": 1
+            }
+          },
+          "slot_range": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": [
+              "array",
+              "null"
+            ],
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "mode",
+          "resource_template_uuid",
+          "mount",
+          "material_uuid",
+          "site",
+          "slot_range",
+          "flow_role",
+          "custody_policy"
+        ],
+        "type": "object"
+      },
+      "sourceHandle": {
+        "uuid": "2386e169-d7ce-5376-bf0b-15caa16729aa",
+        "handleKey": "material",
+        "ioType": "source",
+        "valueType": "ResourceSlot"
+      }
+    },
+    "resourceTemplates": [
+      {
+        "uuid": "e015c79c-d9b4-4f74-8b6d-5b0dc7215d48",
+        "displayName": "e015c79c-d9b4-4f74-8b6d-5b0dc7215d48"
+      }
+    ],
+    "materials": [
+      {
+        "uuid": "eda7467f-f501-58cf-a472-3210382038d4",
+        "name": "自动堆栈 70 位板库",
+        "resourceTemplateUuid": "5b9b5e6b-a2a9-4524-842d-ed8b6f3a76d1"
+      }
+    ],
+    "sites": [
+      {
+        "uuid": "3cc7b482-1be1-5a9c-8fda-111fcf89213b",
+        "name": "cassette_09_layer_06",
+        "sortOrder": 61,
+        "mountMaterialUuid": "eda7467f-f501-58cf-a472-3210382038d4",
+        "allowedResourceTemplateUuids": [
+          "0a2fa934-3cef-4b46-a956-05f3023915c2",
+          "0ea8fb31-b5d0-45ab-8729-d6fc829f8de9",
+          "1218b68c-6869-442e-ab3e-cc99da6b7d0a",
+          "1808822a-7b17-4565-885e-f141a06a5bda",
+          "227cdc51-7914-4729-933c-6e35137b867a",
+          "2dc6614c-bc63-42a5-b3ca-a2d63d753699",
+          "2eafd221-9676-44b5-98f3-3bdc81416f9e",
+          "3567356c-f695-4f53-a35e-211b2d681c2b",
+          "395572fa-9aa2-4757-9c12-e492ebf3a451",
+          "3e20a245-c891-4fd3-b755-460c46b61f42",
+          "408113e2-e053-4b45-ae44-05aea32d2665",
+          "52de4383-5704-4627-a121-9028d589395c",
+          "5cf03a82-5a74-4d8b-926f-015fad47bbd9",
+          "62b3979b-9da4-44bf-b9ac-483c4aa41848",
+          "6422dab3-7eab-4746-bfca-64bf92b8d766",
+          "6503bbbf-ca43-42fa-90ed-611266b05146",
+          "6897d17f-9a02-4c28-90ef-f67e0e4c1954",
+          "6ef28cfb-5521-4241-95cc-12a1e3136c8f",
+          "75600e93-dcb6-4bc7-ab25-51871a61a923",
+          "778361fc-14a5-4d32-a409-fe75710301d9",
+          "79c8940c-1e3b-4462-9aa7-bb6dd9f57191",
+          "7b0b9e74-9fb1-40cb-93bc-8f09bb663728",
+          "7da81dae-9d3a-427f-9897-025f7f6a5639",
+          "7ddaf715-3361-4af6-a090-6ab078a25e03",
+          "7e36028a-7225-4ae9-80cb-ff6eba2e98e4",
+          "7e791cee-56d4-46c2-8a67-489cbbf04e8b",
+          "8316fe5a-9c7f-496f-a39c-8b42afe4ec26",
+          "849a1e66-2c2e-4a4a-8253-3d1b2830b089",
+          "8ed07d1a-0b2d-4773-ada1-b18292dcacc4",
+          "91069de1-8171-4b61-89c0-38dc7d2285f1",
+          "9bcb4045-96b7-45c2-a521-23129ee046bd",
+          "a9349189-4f81-4b69-97c1-74fc3488c69e",
+          "a9b9ea56-33b7-4ed9-87b2-91a47e539086",
+          "b224669b-5e5c-4833-8225-8f72cb79e651",
+          "b22a2807-e6be-468e-9ddf-d02123143d14",
+          "b242f18c-fafd-4f95-bbc3-e090cb19da2d",
+          "b5f7c42a-c67a-4a6b-8434-20062c21925a",
+          "be63f245-c444-4f2c-b9c3-b5cd3c1249fb",
+          "c5766bb8-a56e-450c-8b21-a13976ab5bb6",
+          "c5ed0684-5485-4854-be6c-c202b4ebd19b",
+          "c89ba49d-efe1-45a0-85e2-01b59eada01f",
+          "cbfe45ea-79b4-4aa0-8fa7-18f6065dc074",
+          "cc0025c2-0b2c-4535-a53e-dfee6c4299d7",
+          "ccdf3c11-e6c5-4967-b0b5-9f6c83cad922",
+          "d8cc2d4d-db90-4312-acb2-b05d986ea1bc",
+          "e015c79c-d9b4-4f74-8b6d-5b0dc7215d48",
+          "ed3cb6c0-0e4e-472e-ae05-57ff16586d38",
+          "f6279188-f2c4-4085-803c-f582cfa942d0",
+          "fdeb83c7-449a-4a9a-a026-ced182b24fa8"
+        ],
+        "occupiedMaterialUuid": null
+      }
+    ]
+  }
+}

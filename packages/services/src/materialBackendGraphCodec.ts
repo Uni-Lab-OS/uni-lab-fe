@@ -10,7 +10,6 @@ import {
   invalidGraph,
   isRecord,
   optionalString,
-  parseTuple,
   recordValue,
   requiredString,
   siteKind,
@@ -279,9 +278,9 @@ function mapBackendSite(value: unknown): MaterialSite {
       ],
       rotationDegXYZ: metaData.rotation_deg_xyz == null
         ? [0, 0, 0]
-        : parseTuple(
+        : parseSiteRotation(
             metaData.rotation_deg_xyz,
-            'site.meta_data.rotation_deg_xyz'
+            `site ${raw.uuid}.meta_data.rotation_deg_xyz`
           )
     },
     sizeMm: [
@@ -364,4 +363,15 @@ function finiteGraphNumber(value: unknown, field: string): number {
     throw invalidGraph(`${field} must be finite`)
   }
   return result
+}
+
+/** OS 库位发布 XYZ 对象，旧 Backend 发布三元数组；两者都必须完整且为有限数值。 */
+export function parseSiteRotation(value: unknown, field: string): readonly [number, number, number] {
+  const tuple = isRecord(value) && Object.keys(value).length === 3
+    && ['x', 'y', 'z'].every(axis => Object.prototype.hasOwnProperty.call(value, axis))
+    ? [value.x, value.y, value.z] : value
+  if (!Array.isArray(tuple) || tuple.length !== 3 || tuple.some(item => typeof item !== 'number' || !Number.isFinite(item))) {
+    throw invalidGraph(`${field} must contain three finite numbers (XYZ object or tuple)`)
+  }
+  return [tuple[0]!, tuple[1]!, tuple[2]!]
 }
