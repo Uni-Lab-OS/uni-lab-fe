@@ -75,8 +75,10 @@ export interface WorkflowIdeBridge {
   activeSourceUri?: string | null
   /** True only when the exact registered workflow source tab is dirty. */
   activeWorkflowSourceDirty?: boolean
-  /** Ask the IDE host to save the exact active registered workflow source. */
-  saveActiveWorkflowSource?: () => Promise<void>
+  /** Save and return the exact active registered workflow source. */
+  saveActiveWorkflowSource?: () => Promise<WorkflowIdeSavedSource>
+  /** Replace and save the exact active registered source after canvas review. */
+  writeActiveWorkflowSource?: (pythonSource: string) => Promise<void>
   /** Receive complete sources after the IDE has durably saved them. */
   subscribeSavedWorkflowSource?: (
     listener: (source: WorkflowIdeSavedSource) => void
@@ -198,7 +200,8 @@ export interface WorkflowIdeHostPort {
   replaceDiagnostics: (
     diagnostics: readonly WorkflowIdeResolvedDiagnostic[]
   ) => void | Promise<void>
-  saveActiveWorkflowSource?: () => Promise<void>
+  saveActiveWorkflowSource?: () => Promise<string>
+  writeActiveWorkflowSource?: (pythonSource: string) => Promise<void>
   reportError?: (message: string) => void
 }
 
@@ -223,6 +226,8 @@ export class WorkflowIdeHostAdapter {
   private readonly savedSourceListeners = new Set<
     (source: WorkflowIdeSavedSource) => void
   >()
+  private bridgeSaveSource = false
+  private bridgeWriteSource: string | null = null
 
   constructor(
     private readonly host: WorkflowIdeHostPort,
@@ -235,7 +240,42 @@ export class WorkflowIdeHostAdapter {
       activeSourceUri: null,
       activeWorkflowSourceDirty: false,
       ...(host.saveActiveWorkflowSource
-        ? { saveActiveWorkflowSource: () => host.saveActiveWorkflowSource!() }
+        ? {
+            saveActiveWorkflowSource: async () => {
+              const projection = this.sync.sourceProjection
+              if (
+                !projection ||
+                !this.sync.currentUri ||
+                this.sync.currentUri !== this.sync.resolvedSourceUri
+              ) {
+                throw new Error('当前标签不是已注册工作流的 Python 源码')
+              }
+              this.bridgeSaveSource = true
+              try {
+                const pythonSource = await host.saveActiveWorkflowSource!()
+                return {
+                  workflowUuid: projection.workflowUuid,
+                  sourceUri: projection.sourceUri,
+                  sourceVersion: projection.sourceVersion,
+                  pythonSource
+                }
+              } finally {
+                this.bridgeSaveSource = false
+              }
+            }
+          }
+        : {}),
+      ...(host.writeActiveWorkflowSource
+        ? {
+            writeActiveWorkflowSource: async (pythonSource: string) => {
+              this.bridgeWriteSource = pythonSource
+              try {
+                await host.writeActiveWorkflowSource!(pythonSource)
+              } finally {
+                this.bridgeWriteSource = null
+              }
+            }
+          }
         : {}),
       subscribeSavedWorkflowSource: listener => {
         this.savedSourceListeners.add(listener)
@@ -306,6 +346,12 @@ export class WorkflowIdeHostAdapter {
       this.sync.currentUri !== this.sync.resolvedSourceUri ||
       this.sync.dirty
     ) return false
+    // Canvas writeback already saved the OS draft through its CAS path. The
+    // matching IDE save only settles the editor model and must not submit it
+    // to OS a second time.
+    if (this.bridgeSaveSource || this.bridgeWriteSource === pythonSource) {
+      return true
+    }
     return this.acceptProjectedWorkflowSource(pythonSource)
   }
 

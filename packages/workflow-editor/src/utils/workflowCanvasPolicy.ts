@@ -77,33 +77,6 @@ export function workflowCanvasDraftSaveDecision(input: {
   }
 }
 
-/**
- * 判断工作流创作候选（Candidate）的规范化源码是否已经保存为工作流源码。
- *
- * @param input.draftPython 当前已持久保存的工作流源码。
- * @param input.normalizedPython OS 为当前候选签发的规范化源码。
- * @returns 源码一致时允许应用；不一致时返回必须由用户确认的完整源码差异。
- */
-export function workflowCandidateMaterializationDecision(input: {
-  draftPython: string
-  normalizedPython: string
-}):
-  | {
-      kind: 'review_normalized_source'
-      before: string
-      after: string
-    }
-  | { kind: 'ready_to_apply' } {
-  if (input.draftPython !== input.normalizedPython) {
-    return {
-      kind: 'review_normalized_source',
-      before: input.draftPython,
-      after: input.normalizedPython
-    }
-  }
-  return { kind: 'ready_to_apply' }
-}
-
 export function workflowAuthoringInvalidationDecision(input: {
   dirty: boolean
   localPython: string

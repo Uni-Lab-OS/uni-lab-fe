@@ -112,13 +112,23 @@ describe('workflow IDE bridge', () => {
     ])
   })
 
-  it('publishes an IDE save with the workflow identity registered for that exact file', async () => {
+  it('returns a commanded IDE save without publishing a competing save event', async () => {
     let hostSaveCount = 0
     const savedSources: unknown[] = []
-    const adapter = new WorkflowIdeHostAdapter({
+    let adapter: WorkflowIdeHostAdapter
+    adapter = new WorkflowIdeHostAdapter({
       revealSource: async () => {},
       replaceDiagnostics: () => {},
-      saveActiveWorkflowSource: async () => { hostSaveCount += 1 }
+      saveActiveWorkflowSource: async () => {
+        hostSaveCount += 1
+        adapter.acceptEditor({
+          currentUri: 'file:///workspace/szlab_poly_studio/workflows/s06_robot.py',
+          dirty: false,
+          cursor: { line: 19, column: 8 }
+        })
+        expect(adapter.acceptSavedWorkflowSource('value = 2\n')).toBe(true)
+        return 'value = 2\n'
+      }
     })
     adapter.setPackageMounts([{
       packageId: 'szlab_poly_studio',
@@ -137,25 +147,65 @@ describe('workflow IDE bridge', () => {
     )
 
     expect(adapter.bridge.activeWorkflowSourceDirty).toBe(true)
-    await adapter.bridge.saveActiveWorkflowSource?.()
+    const savedSource = await adapter.bridge.saveActiveWorkflowSource?.()
     expect(hostSaveCount).toBe(1)
-
-    adapter.acceptEditor({
-      currentUri: 'file:///workspace/szlab_poly_studio/workflows/s06_robot.py',
-      dirty: false,
-      cursor: { line: 19, column: 8 }
-    })
-    expect(adapter.acceptSavedWorkflowSource('value = 2\n')).toBe(true)
-    expect(savedSources).toEqual([{
+    expect(savedSource).toEqual({
       workflowUuid: 'workflow-1',
       sourceUri: projection.sourceUri,
       sourceVersion: 'v1',
       pythonSource: 'value = 2\n'
-    }])
+    })
+    expect(savedSources).toEqual([])
 
-    subscription?.dispose()
     expect(adapter.acceptSavedWorkflowSource('value = 3\n')).toBe(true)
+    expect(savedSources).toEqual([{
+      workflowUuid: 'workflow-1',
+      sourceUri: projection.sourceUri,
+      sourceVersion: 'v1',
+      pythonSource: 'value = 3\n'
+    }])
+    subscription?.dispose()
+    expect(adapter.acceptSavedWorkflowSource('value = 4\n')).toBe(true)
     expect(savedSources).toHaveLength(1)
+  })
+
+  it('writes reviewed canvas source without resubmitting the host save to OS', async () => {
+    const savedSources: unknown[] = []
+    let writtenSource = ''
+    let adapter: WorkflowIdeHostAdapter
+    adapter = new WorkflowIdeHostAdapter({
+      revealSource: async () => {},
+      replaceDiagnostics: () => {},
+      writeActiveWorkflowSource: async pythonSource => {
+        writtenSource = pythonSource
+        adapter.acceptEditor({
+          currentUri: 'file:///workspace/szlab_poly_studio/workflows/s06_robot.py',
+          dirty: false,
+          cursor: null
+        })
+        expect(adapter.acceptSavedWorkflowSource(pythonSource)).toBe(true)
+      }
+    })
+    adapter.setPackageMounts([{
+      packageId: 'szlab_poly_studio',
+      packageRootUri: 'file:///workspace/szlab_poly_studio',
+      editable: true,
+      readOnly: false
+    }])
+    adapter.acceptSourceProjection(projection)
+    adapter.acceptEditor({
+      currentUri: 'file:///workspace/szlab_poly_studio/workflows/s06_robot.py',
+      dirty: false,
+      cursor: null
+    })
+    adapter.bridge.subscribeSavedWorkflowSource?.(
+      source => { savedSources.push(source) }
+    )
+
+    await adapter.bridge.writeActiveWorkflowSource?.('generated = action()\n')
+
+    expect(writtenSource).toBe('generated = action()\n')
+    expect(savedSources).toEqual([])
   })
 
   it('rejects a saved-source event from a tab other than the registered workflow file', () => {
@@ -360,7 +410,7 @@ describe('workflow IDE bridge', () => {
     }])
   })
 
-  it('returns OS-normalized source for editor review without a second write', async () => {
+  it('keeps normalized Python in the candidate without writing it back', async () => {
     const writes: unknown[] = []
     const compiled = {
       workflow_revision: 7,

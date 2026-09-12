@@ -17,7 +17,6 @@ type WorkflowStartDraftResult =
   | {
       kind: 'saved'
       aggregate: WorkflowAuthoringAggregate
-      editMode: WorkflowStartContext['editMode']
     }
   | {
       kind: 'review'
@@ -28,10 +27,7 @@ interface WorkflowStartCommands {
   saveDraft: () => Promise<WorkflowStartDraftResult>
   saveReviewedSource: (
     command: Extract<WorkflowStartCommand, { kind: 'save_reviewed_source' }>
-  ) => Promise<{
-    aggregate: WorkflowAuthoringAggregate
-    editMode: WorkflowStartContext['editMode']
-  }>
+  ) => Promise<WorkflowAuthoringAggregate>
   applyCandidate: (
     candidateHash: string
   ) => Promise<WorkflowAuthoringApplyResponse>
@@ -86,12 +82,8 @@ export function usePersistentWorkflowStartFlow({
   const execute = async (command: WorkflowStartCommand): Promise<void> => {
     if (command.kind === 'blocked') throw new Error(command.message)
     if (command.kind === 'review_source') {
-      setFullSourceDiff({ ...command.review, applyAfterSave: false })
-      setMessage(
-        command.review.reason === 'source_normalization'
-          ? '草稿已保存；请确认 OS 规范化后的完整 Python，再继续运行'
-          : '请确认画布生成的完整 Python，再继续运行'
-      )
+      setFullSourceDiff(command.review)
+      setMessage('请确认画布生成的完整 Python，再继续运行')
       return
     }
     if (command.kind === 'save_draft') {
@@ -99,8 +91,7 @@ export function usePersistentWorkflowStartFlow({
       const next = result.kind === 'saved'
         ? flowRef.current.resume({
             kind: 'draft_saved',
-            aggregate: result.aggregate,
-            editMode: result.editMode
+            aggregate: result.aggregate
           })
         : flowRef.current.resume({
             kind: 'source_review_required',
@@ -113,8 +104,7 @@ export function usePersistentWorkflowStartFlow({
       const saved = await commands.saveReviewedSource(command)
       await execute(flowRef.current.resume({
         kind: 'draft_saved',
-        aggregate: saved.aggregate,
-        editMode: saved.editMode
+        aggregate: saved
       }))
       return
     }

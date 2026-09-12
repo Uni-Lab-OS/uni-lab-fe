@@ -18,7 +18,6 @@ import { useWorkflowFileUpload } from '../hooks/useWorkflowFileUpload'
 import {
   workflowAuthoringModeSwitchDecision,
   workflowAuthoringSurfacePolicy,
-  workflowCandidateMaterializationDecision,
   workflowCanvasDraftSaveDecision,
   type WorkflowEditMode
 } from '../utils/workflowCanvasPolicy'
@@ -40,7 +39,6 @@ import {
 } from '../utils/workflowDagLayoutStrategy'
 import {
   AuthoringOperationQueue,
-  applyMaterializedWorkflowCandidate,
   authoringProjection,
   authoringRemoteConflict,
   authoringSaveFailureAction,
@@ -70,10 +68,7 @@ import { usePersistentWorkflowCatalogs } from './usePersistentWorkflowCatalogs'
 import { usePersistentWorkflowStartFlow } from './usePersistentWorkflowStartFlow'
 import { usePersistentWorkflowTaskPanel } from './usePersistentWorkflowTaskPanel'
 import { useWorkflowIdeSourceProjection } from './useWorkflowIdeSourceProjection'
-import {
-  useWorkflowIdeSavedSource,
-  workflowSourceNormalizationDiff
-} from './useWorkflowIdeSavedSource'
+import { useWorkflowIdeSavedSource } from './useWorkflowIdeSavedSource'
 import { useWorkflowPanelRuntimeProjection } from './useWorkflowPanelRuntimeProjection'
 import { workflowTaskIsLive } from '../utils/workflowTaskPresentation'
 
@@ -619,11 +614,29 @@ export function usePersistentWorkflowAuthoring({
     setMessage('远端状态已补读；本地内容保持不变，请比较后明确处理')
   }, [definitionPort, installAggregate, queue])
 
-  useWorkflowIdeSavedSource({
+  const installAggregateAgainstDirtyCanvas = useCallback((
+    next: WorkflowAuthoringAggregate
+  ): void => {
+    const current = localState.current
+    remotePending.current = true
+    setAggregate(next)
+    setRemoteConflict(authoringRemoteConflict(next, current))
+    setError(null)
+    setMessage(
+      '源码已保存并完成校验；本地画布修改已保留，请比较后明确处理'
+    )
+    localState.current = {
+      ...current,
+      aggregate: next
+    }
+  }, [])
+
+  const workflowIdeSavedSource = useWorkflowIdeSavedSource({
     enabled: hideEmbeddedCodeEditor,
     ideBridge, workflowUuid, runtime, localState, queue, run, installAggregate,
+    installAggregateAgainstDirtyCanvas,
     onSynchronized: markRemoteSynchronized,
-    readRemoteConflict, setError, setMessage, setFullSourceDiff
+    readRemoteConflict
   })
 
   const generateCanvasPython = useCallback(async (
@@ -834,7 +847,7 @@ export function usePersistentWorkflowAuthoring({
   }
 
   /**
-   * 保存当前可写工作流源码，并在 OS 规范化结果变化时要求用户确认完整差异。
+   * 保存当前可写工作流源码；OS 规范化结果只作为后台候选投影。
    * 该操作只持久化工作流源码（Workflow Source），不会应用工作流创作候选。
    *
    * @returns 不返回值；异步保存结果通过工作流编辑器状态呈现。
@@ -847,12 +860,9 @@ export function usePersistentWorkflowAuthoring({
     }
     if (mode === 'code') {
       if (hideEmbeddedCodeEditor) {
-        const saveIdeSource = ideBridge?.saveActiveWorkflowSource
-        if (!saveIdeSource) {
-          setError('当前 IDE 宿主未提供工作流源码保存能力')
-          return
-        }
-        void run(saveIdeSource)
+        void run(async () => {
+          await workflowIdeSavedSource.saveActiveSourceAndSynchronize()
+        })
         return
       }
       void run(async () => {
@@ -868,17 +878,7 @@ export function usePersistentWorkflowAuthoring({
             )
           )
           installAggregate(saved, draftSaveMessage(saved))
-          const normalizationDiff = workflowSourceNormalizationDiff(saved, 'code')
-          if (normalizationDiff) {
-            setFullSourceDiff(normalizationDiff)
-            setMessage(
-              pendingPythonImport
-                ? `${pendingPythonImport} 已保存；请接受 OS 规范化 Python 后再应用`
-                : '草稿已保存；请接受 OS 规范化 Python 后再应用'
-            )
-          } else {
-            setPendingPythonImport(null)
-          }
+          setPendingPythonImport(null)
         } catch (saveError) {
           if (!isAuthoringConflict(saveError)) throw saveError
           remotePending.current = true
@@ -924,11 +924,25 @@ export function usePersistentWorkflowAuthoring({
           expectedDraftHash: aggregate.draft?.draft_hash ?? null,
           expectedWorkflowRevision: aggregate.workflow_revision,
           reason: 'canvas_save',
-          resumeMode: 'canvas',
-          applyAfterSave: false
+          resumeMode: 'canvas'
         })
       }
     })
+  }
+
+  const writeReviewedCanvasSourceToIde = async (
+    pythonSource: string,
+    reason: FullSourceDiff['reason'],
+    resumeMode: WorkflowEditMode
+  ): Promise<void> => {
+    const writesCanvasSource = reason === 'canvas_save' ||
+      (reason === 'conflict_retry' && resumeMode === 'canvas')
+    if (!writesCanvasSource || !hideEmbeddedCodeEditor) return
+    const writeIdeSource = ideBridge?.writeActiveWorkflowSource
+    if (!writeIdeSource) {
+      throw new Error('当前 IDE 宿主未提供画布源码写回能力')
+    }
+    await writeIdeSource(pythonSource)
   }
 
   /**
@@ -958,35 +972,15 @@ export function usePersistentWorkflowAuthoring({
             }
           )
         )
-        if (diff.applyAfterSave) {
-          const { applied } = await applyMaterializedWorkflowCandidate({
-            save: saveNormalizedDraft,
-            apply: (candidateHash) => queue.run(
-              () => runtime.applyWorkflowAuthoring(
-                workflowUuid,
-                { candidate_hash: candidateHash }
-              )
-            )
-          })
-          remotePending.current = false
-          setFullSourceDiff(null)
-          setPendingPythonImport(null)
-          setMode(diff.resumeMode)
-          installAggregate(
-            applied.authoring,
-            applied.apply_result.kind === 'graph'
-              ? `工作流已应用，当前版本为 ${applied.apply_result.workflow_revision}`
-              : '源码已应用，工作流图未发生变化'
-          )
-          return
-        }
         const saved = await saveNormalizedDraft()
+        await writeReviewedCanvasSourceToIde(
+          decision.python_source,
+          diff.reason,
+          diff.resumeMode
+        )
         remotePending.current = false
         setFullSourceDiff(null)
         installAggregate(saved, draftSaveMessage(saved))
-        if (diff.reason === 'source_normalization') {
-          setPendingPythonImport(null)
-        }
         setMode(diff.resumeMode)
       } catch (saveError) {
         const failureAction = authoringSaveFailureAction(saveError)
@@ -1043,8 +1037,7 @@ export function usePersistentWorkflowAuthoring({
         expectedDraftHash: conflict.remote.draft?.draft_hash ?? null,
         expectedWorkflowRevision: conflict.remote.workflow_revision,
         reason: 'conflict_retry',
-        resumeMode: conflict.localMode,
-        applyAfterSave: false
+        resumeMode: conflict.localMode
       })
       setRemoteConflict(null)
     })
@@ -1126,41 +1119,14 @@ export function usePersistentWorkflowAuthoring({
     }
   }
 
-  /**
-   * 应用服务器签发的工作流创作候选；若规范化源码尚未物化，则先打开完整差异确认。
-   * 只有工作流源码与候选规范化源码完全一致时，才向 OS 提交候选哈希。
-   *
-   * @returns 不返回值；异步应用结果通过工作流编辑器状态呈现。
-   */
+  /** 应用 OS 已校验并签发的候选，不把规范化投影写回 Python 源码。 */
   const applyCandidate = (): void => {
     const candidate = aggregate?.candidate
     if (!candidate) {
       setError('当前没有可应用的服务器候选版本')
       return
     }
-    const draft = aggregate?.draft
-    if (!draft) {
-      setError('当前候选缺少可确认的工作流源码，请刷新后重试')
-      return
-    }
-    const materialization = workflowCandidateMaterializationDecision({
-      draftPython: draft.python_source,
-      normalizedPython: candidate.normalized_python_source
-    })
-    if (materialization.kind === 'review_normalized_source') {
-      setFullSourceDiff({
-        before: materialization.before,
-        after: materialization.after,
-        expectedDraftHash: draft.draft_hash,
-        expectedWorkflowRevision: aggregate.workflow_revision,
-        reason: 'source_normalization',
-        resumeMode: mode,
-        applyAfterSave: true
-      })
-      setMessage('请确认 OS 规范化 Python；接受后将自动应用工作流')
-      return
-    }
-    // 候选哈希是 OS 签发的单次应用身份，只能在源码物化门禁通过后提交。
+    // 候选哈希已经绑定 OS 对原始 Python 草稿的校验结果。
     const candidateHash = candidate.candidate_hash
     void run(async () => {
       await applyCandidateByHash(candidateHash)
@@ -1217,8 +1183,7 @@ export function usePersistentWorkflowAuthoring({
         materialSourceAuthorityBlocked
           ? '物料来源目录或引用已失效，请先刷新'
           : null
-      ),
-      editMode: mode
+      )
     },
     hasRemoteInvalidation: () => remotePending.current,
     commands: {
@@ -1230,6 +1195,11 @@ export function usePersistentWorkflowAuthoring({
       saveDraft: async () => {
         if (!aggregate) throw new Error('工作流编辑数据尚未就绪')
         if (mode === 'code') {
+          if (hideEmbeddedCodeEditor) {
+            const saved = await workflowIdeSavedSource
+              .saveActiveSourceAndSynchronize()
+            return { kind: 'saved' as const, aggregate: saved }
+          }
           try {
             const saved = await queue.run(
               () => runtime.saveWorkflowAuthoringDraft(
@@ -1243,7 +1213,7 @@ export function usePersistentWorkflowAuthoring({
             )
             remotePending.current = false
             installAggregate(saved, draftSaveMessage(saved))
-            return { kind: 'saved' as const, aggregate: saved, editMode: mode }
+            return { kind: 'saved' as const, aggregate: saved }
           } catch (saveError) {
             if (!isAuthoringConflict(saveError)) throw saveError
             remotePending.current = true
@@ -1272,7 +1242,7 @@ export function usePersistentWorkflowAuthoring({
             `${definitionPort.capabilities.label} 工作流图已保存，` +
             `当前修订 ${saved.workflow_revision}`
           )
-          return { kind: 'saved' as const, aggregate: saved, editMode: mode }
+          return { kind: 'saved' as const, aggregate: saved }
         }
         const generated = await generateCanvasPython(sourceGraph)
         const generatedPython = generated.normalized_python_source
@@ -1308,14 +1278,16 @@ export function usePersistentWorkflowAuthoring({
               }
             )
           )
+          await writeReviewedCanvasSourceToIde(
+            command.pythonSource,
+            command.reason,
+            command.resumeMode
+          )
           remotePending.current = false
           setFullSourceDiff(null)
           installAggregate(saved, draftSaveMessage(saved))
-          if (command.reason === 'source_normalization') {
-            setPendingPythonImport(null)
-          }
           setMode(command.resumeMode)
-          return { aggregate: saved, editMode: command.resumeMode }
+          return saved
         } catch (saveError) {
           if (!isAuthoringConflict(saveError)) throw saveError
           remotePending.current = true
@@ -1328,8 +1300,7 @@ export function usePersistentWorkflowAuthoring({
             expectedDraftHash: refreshed.draft?.draft_hash ?? null,
             expectedWorkflowRevision: refreshed.workflow_revision,
             reason: 'conflict_retry',
-            resumeMode: command.resumeMode,
-            applyAfterSave: false
+            resumeMode: command.resumeMode
           })
           setMessage(
             '运行前检测到外部修改；本地完整源码已保留，请比较后明确处理'

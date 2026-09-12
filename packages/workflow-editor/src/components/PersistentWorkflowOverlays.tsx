@@ -336,9 +336,7 @@ export function PersistentWorkflowOverlays({
               >
                 {fullSourceDiff.reason === 'conflict_retry'
                   ? '冲突重试检查'
-                  : fullSourceDiff.reason === 'source_normalization'
-                    ? '规范化源码确认'
-                    : '画布保存检查'}
+                  : '画布保存检查'}
                 {' · '}<span aria-hidden="true">+</span> 新增
                 {' · '}<span aria-hidden="true">−</span> 删除
                 {' · '}高亮显示行内变化
@@ -367,11 +365,7 @@ export function PersistentWorkflowOverlays({
                 disabledReason="正在保存并校验工作流源码，请稍候"
                 onClick={acceptFullSourceDiff}
               >
-                {busy
-                  ? '处理中…'
-                  : fullSourceDiff.applyAfterSave
-                    ? '接受完整差异并应用'
-                    : '接受完整差异并保存'}
+                {busy ? '处理中…' : '接受完整差异并保存'}
               </WorkflowButton>
             </footer>
           </section>

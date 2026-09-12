@@ -198,6 +198,8 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       revealSource: location => this.revealResolvedSource(location),
       replaceDiagnostics: diagnostics => this.replaceDiagnostics(diagnostics),
       saveActiveWorkflowSource: () => this.saveActiveWorkflowSource(),
+      writeActiveWorkflowSource: pythonSource =>
+        this.writeActiveWorkflowSource(pythonSource),
       reportError: message => { void this.messages.error(message) }
     })
     this.ideBridge = this.ideAdapter.bridge
@@ -596,7 +598,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     }
   }
 
-  protected readonly saveActiveWorkflowSource = async (): Promise<void> => {
+  protected readonly saveActiveWorkflowSource = async (): Promise<string> => {
     const editorWidget = this.editorManager.currentEditor
     if (
       !editorWidget ||
@@ -605,7 +607,44 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     ) {
       throw new Error('当前标签不是已注册工作流的 Python 源码')
     }
-    await editorWidget.editor.document.save()
+    const document = editorWidget.editor.document
+    await document.save()
+    if (document.dirty) {
+      throw new Error('当前工作流 Python 源码尚未保存完成')
+    }
+    return document.getText()
+  }
+
+  protected readonly writeActiveWorkflowSource = async (
+    pythonSource: string
+  ): Promise<void> => {
+    const editorWidget = this.editorManager.currentEditor
+    if (
+      !editorWidget ||
+      !this.snapshot.resolvedSourceUri ||
+      editorWidget.editor.uri.toString() !== this.snapshot.resolvedSourceUri
+    ) {
+      throw new Error('当前标签不是已注册工作流的 Python 源码')
+    }
+    const document = editorWidget.editor.document
+    if (document.dirty) {
+      throw new Error('当前 Python 文件还有未保存修改，不能用画布源码覆盖')
+    }
+    const currentSource = document.getText()
+    if (currentSource !== pythonSource) {
+      const replaced = await editorWidget.editor.replaceText({
+        source: 'unilab.workflow.canvas',
+        replaceOperations: [{
+          range: {
+            start: { line: 0, character: 0 },
+            end: document.positionAt(currentSource.length)
+          },
+          text: pythonSource
+        }]
+      })
+      if (!replaced) throw new Error('无法把画布生成的 Python 写入当前编辑器')
+    }
+    await document.save()
   }
 
   protected readonly setWorkflowPanelDirty = (

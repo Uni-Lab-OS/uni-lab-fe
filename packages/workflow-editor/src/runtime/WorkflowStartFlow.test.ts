@@ -96,8 +96,7 @@ function provesDirtyWorkflowStartsWithSave(): void {
   const context = {
     aggregate: authority,
     dirty: true,
-    blockedReason: null,
-    editMode: 'code' as const
+    blockedReason: null
   }
 
   expect(flow.snapshot(context)).toMatchObject({
@@ -123,8 +122,7 @@ function provesSavedCandidateStartsWithApply(): void {
   const context = {
     aggregate: applicableCandidateAggregate(),
     dirty: false,
-    blockedReason: null,
-    editMode: 'code' as const
+    blockedReason: null
   }
 
   expect(flow.snapshot(context)).toMatchObject({
@@ -148,8 +146,7 @@ function provesCleanWorkflowReadsAppliedRevision(): void {
   const context = {
     aggregate: authoringAggregate(),
     dirty: false,
-    blockedReason: null,
-    editMode: 'canvas' as const
+    blockedReason: null
   }
 
   expect(flow.start(context)).toEqual({
@@ -169,16 +166,14 @@ function provesSaveApplyReadSequenceBeforeInput(): void {
   const dirtyContext = {
     aggregate: authoringAggregate(),
     dirty: true,
-    blockedReason: null,
-    editMode: 'code' as const
+    blockedReason: null
   }
   expect(flow.start(dirtyContext)).toEqual({ kind: 'save_draft' })
 
   const savedAuthority = applicableCandidateAggregate()
   expect(flow.resume({
     kind: 'draft_saved',
-    aggregate: savedAuthority,
-    editMode: 'code'
+    aggregate: savedAuthority
   })).toEqual({
     kind: 'apply_candidate',
     candidateHash: 'sha256:candidate'
@@ -206,44 +201,63 @@ function provesSaveApplyReadSequenceBeforeInput(): void {
 }
 
 /**
- * 证明规范化差异暂停自动链路，只有明确接受后才按同一 CAS 保存完整源码。
+ * 证明 Python 草稿的规范化投影不会覆盖原源码或暂停运行链路。
  *
- * @returns 无返回值；断言差异内容、双 CAS 和取消恢复能力。
+ * @returns 无返回值；断言有效候选直接按 OS 签发哈希进入应用阶段。
  */
-function provesNormalizedSourceNeedsExplicitReview(): void {
+function provesNormalizedPythonCandidateAppliesWithoutReview(): void {
   const flow = createWorkflowStartFlow()
   const context = {
     aggregate: authoringAggregate(),
     dirty: true,
-    blockedReason: null,
-    editMode: 'code' as const
+    blockedReason: null
   }
   flow.start(context)
 
   const normalizedAuthority = normalizedCandidateAggregate()
-  const reviewCommand = flow.resume({
+  expect(flow.resume({
     kind: 'draft_saved',
-    aggregate: normalizedAuthority,
-    editMode: 'code'
+    aggregate: normalizedAuthority
+  })).toEqual({
+    kind: 'apply_candidate',
+    candidateHash: 'sha256:candidate'
   })
-  expect(reviewCommand).toMatchObject({
-    kind: 'review_source',
-    review: {
-      before: 'def workflow(): return None',
-      expectedDraftHash: 'sha256:draft',
-      expectedWorkflowRevision: 7,
-      reason: 'source_normalization',
-      resumeMode: 'code'
-    }
-  })
-  expect(flow.resume({ kind: 'source_review_accepted' })).toMatchObject({
-    kind: 'save_reviewed_source',
-    pythonSource: 'def workflow():\n    return None\n',
+  expect(flow.snapshot(context).phase).toBe('applying')
+}
+
+/**
+ * 证明只有画布生成且准备写回 Python 的源码需要完整差异确认。
+ *
+ * @returns 无返回值；断言确认后保存同一份画布生成源码及其 CAS 坐标。
+ */
+function provesCanvasWritebackStillRequiresReview(): void {
+  const flow = createWorkflowStartFlow()
+  const context = {
+    aggregate: authoringAggregate(),
+    dirty: true,
+    blockedReason: null
+  }
+  expect(flow.start(context)).toEqual({ kind: 'save_draft' })
+  const review = {
+    before: 'def workflow(): return None',
+    after: 'def workflow():\n    return action()\n',
     expectedDraftHash: 'sha256:draft',
-    expectedWorkflowRevision: 7
+    expectedWorkflowRevision: 7,
+    reason: 'canvas_save' as const,
+    resumeMode: 'canvas' as const
+  }
+  expect(flow.resume({
+    kind: 'source_review_required',
+    review
+  })).toEqual({ kind: 'review_source', review })
+  expect(flow.resume({ kind: 'source_review_accepted' })).toEqual({
+    kind: 'save_reviewed_source',
+    pythonSource: review.after,
+    expectedDraftHash: review.expectedDraftHash,
+    expectedWorkflowRevision: review.expectedWorkflowRevision,
+    reason: 'canvas_save',
+    resumeMode: 'canvas'
   })
-  flow.cancel()
-  expect(flow.snapshot(context).phase).toBe('idle')
 }
 
 /**
@@ -256,14 +270,12 @@ function provesInvalidDraftStopsBeforeApply(): void {
   const context = {
     aggregate: authoringAggregate(),
     dirty: true,
-    blockedReason: null,
-    editMode: 'code' as const
+    blockedReason: null
   }
   flow.start(context)
   expect(flow.resume({
     kind: 'draft_saved',
-    aggregate: authoringAggregate({ state: 'draft_invalid' }),
-    editMode: 'code'
+    aggregate: authoringAggregate({ state: 'draft_invalid' })
   })).toEqual({
     kind: 'blocked',
     message: '工作流源码未生成可应用候选，请修复诊断后重试'
@@ -290,8 +302,7 @@ function provesRevisionRaceStopsBeforeInput(): void {
   const context = {
     aggregate: applicableCandidateAggregate(),
     dirty: false,
-    blockedReason: null,
-    editMode: 'code' as const
+    blockedReason: null
   }
   flow.start(context)
   const appliedAuthority = authoringAggregate({ workflow_revision: 8 })
@@ -323,7 +334,8 @@ describe('WorkflowStartFlow', () => {
   it('已保存候选直接进入应用阶段', provesSavedCandidateStartsWithApply)
   it('无修改时先确认已应用修订', provesCleanWorkflowReadsAppliedRevision)
   it('任务输入前严格保存应用并补读修订', provesSaveApplyReadSequenceBeforeInput)
-  it('规范化差异必须明确确认后保存', provesNormalizedSourceNeedsExplicitReview)
+  it('Python 规范化投影不覆盖源码并直接应用', provesNormalizedPythonCandidateAppliesWithoutReview)
+  it('画布生成源码写回前仍需确认完整差异', provesCanvasWritebackStillRequiresReview)
   it('无有效候选时停止在应用之前', provesInvalidDraftStopsBeforeApply)
   it('应用后修订竞态停止在任务输入之前', provesRevisionRaceStopsBeforeInput)
 
@@ -333,8 +345,7 @@ describe('WorkflowStartFlow', () => {
     const context = {
       aggregate: authoringAggregate(),
       dirty: true,
-      blockedReason: 'OS 尚未启动；请先在环境管理中启动 OS',
-      editMode: 'canvas' as const
+      blockedReason: 'OS 尚未启动；请先在环境管理中启动 OS'
     }
 
     expect(flow.snapshot(context)).toMatchObject({
