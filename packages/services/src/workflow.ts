@@ -456,6 +456,8 @@ export function createWorkflowRuntime(
       }),
     listWorkflowTasks: (query = {}) =>
       runtimeRequest(workflowTaskListPath(query)),
+    listWorkflowTaskPresentations: backend.serverKind === 'backend' ? undefined : (query = {}) =>
+      runtimeRequest(workflowTaskListPath(query).replace('/workflow-tasks', '/workflow-task-presentations')),
     getWorkflowTask: (taskUuid) =>
       runtimeRequest(
         `/api/v1/workflow-tasks/${encodeURIComponent(taskUuid)}`

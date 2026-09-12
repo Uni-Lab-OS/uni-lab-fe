@@ -26,8 +26,8 @@ import {
   type WorkflowTaskListFilter
 } from '../utils/workflowTaskListProjection'
 import {
-  mergeWorkflowTaskPage,
-  subscribeWorkflowTaskListUpdates
+  subscribeWorkflowTaskListUpdates,
+  createWorkflowTaskPageLoader
 } from '../utils/workflowTaskListRuntime'
 import { workflowTaskStatusLabel } from '../utils/workflowTaskPresentation'
 import { createWorkflowTaskViewRuntime } from '../utils/workflowTaskViewRuntime'
@@ -136,6 +136,12 @@ function WorkflowTaskListContent({
     '--workflow-task-queue-width': `${taskQueuePercent}%`
   } as CSSProperties
 
+  const pageLoader = useMemo(() => createWorkflowTaskPageLoader(runtime), [runtime, active])
+  useEffect(() => {
+    pageLoader.activate()
+    return () => pageLoader.dispose()
+  }, [pageLoader])
+
   const loadTasks = useCallback(async (background = false): Promise<void> => {
     const revision = ++requestRevision.current
     if (background) setRefreshing(true)
@@ -143,7 +149,7 @@ function WorkflowTaskListContent({
     setError(null)
     try {
       const [nextPage, workflowPage] = await Promise.all([
-        runtime.listWorkflowTasks({
+        pageLoader.read({
           page: 1,
           page_size: TASK_PAGE_SIZE,
           execution_kind: 'workflow'
@@ -151,8 +157,10 @@ function WorkflowTaskListContent({
         runtime.listWorkflows({ page: 1, page_size: TASK_PAGE_SIZE })
       ])
       if (requestRevision.current !== revision) return
-      setTaskPage(nextPage)
       setWorkflows(workflowPage.items)
+      // 工作流目录可能比摘要慢；已收到更新摘要时不得回装旧初始页。
+      if (!pageLoader.isCurrent(nextPage)) return
+      setTaskPage(nextPage)
       setSelectedTaskUuid((current) =>
         current && nextPage.items.some((task) =>
           isWorkflowExecutionTask(task) && task.uuid === current
@@ -169,7 +177,7 @@ function WorkflowTaskListContent({
         setRefreshing(false)
       }
     }
-  }, [runtime])
+  }, [runtime, pageLoader])
 
   useEffect(() => {
     if (!active) return
@@ -177,15 +185,13 @@ function WorkflowTaskListContent({
   }, [active, loadTasks, recoveryRevision])
 
   /**
-   * 安装服务器发送事件（SSE）失效后补读的单个权威任务。
+   * 安装服务器发送事件（SSE）合并补读后的完整权威摘要页。
    *
-   * @param task Backend 返回的最新工作流任务状态。
+   * @param page Backend 返回的当前任务摘要页。
    * @returns 无返回值；并行兄弟任务保持在当前列表页中。
    */
-  const installRealtimeTask = useCallback((task: WorkflowTask): void => {
-    if (!isWorkflowExecutionTask(task)) return
-    setTaskPage((current) => mergeWorkflowTaskPage(current, task))
-    setSelectedTaskUuid((current) => current ?? task.uuid)
+  const installRealtimePage = useCallback((page: WorkflowTaskPage): void => {
+    setTaskPage(page)
   }, [])
 
   /** 清除已恢复的任务状态实时连接错误。 */
@@ -206,15 +212,16 @@ function WorkflowTaskListContent({
   useEffect(() => {
     if (!active) return
     const subscription = subscribeWorkflowTaskListUpdates(runtime, {
-      onTask: installRealtimeTask,
-      onOpen: markRealtimeConnected,
+      onPage: installRealtimePage,
+      onRecovered: markRealtimeConnected,
       onError: installRealtimeError
-    })
+    }, { page: 1, page_size: TASK_PAGE_SIZE, execution_kind: 'workflow' }, pageLoader)
     return () => subscription.dispose()
   }, [
     active,
     installRealtimeError,
-    installRealtimeTask,
+    installRealtimePage,
+    pageLoader,
     markRealtimeConnected,
     runtime
   ])
@@ -444,10 +451,24 @@ function TaskWorkflowPane({
   active: boolean
   onReconcile: () => Promise<void>
 }): React.JSX.Element {
-  // 初次选中的任务保留冻结快照；同一任务后续刷新只更新运行状态。
-  const [frozenTask] = useState(task)
+  // 初次选中的任务保留冻结快照；同一任务后续刷新只更新运行状态，读取失败可以单独重试详情。
+  const [frozenTask, setFrozenTask] = useState<WorkflowExecutionTask | null>(null)
+  const [detailError, setDetailError] = useState<string | null>(null)
+  const [detailRetry, setDetailRetry] = useState(0)
+  useEffect(() => {
+    if (!active) return
+    let live = true
+    setDetailError(null)
+    void runtime.getWorkflowTask(task.uuid).then((detail) => {
+      if (!live) return
+      if (!isWorkflowExecutionTask(detail) || detail.uuid !== task.uuid) throw new Error('任务详情身份不一致')
+      setFrozenTask(detail)
+      setDetailError(null)
+    }).catch((error) => { if (live) setDetailError(error instanceof Error ? error.message : String(error)) })
+    return () => { live = false }
+  }, [active, runtime, task.uuid, detailRetry])
   const taskViewRuntime = useMemo(
-    () => createWorkflowTaskViewRuntime(runtime, frozenTask),
+    () => frozenTask ? createWorkflowTaskViewRuntime(runtime, frozenTask) : null,
     [frozenTask, runtime]
   )
 
@@ -476,7 +497,11 @@ function TaskWorkflowPane({
         </div>
       </header>
       <div className="workflow-task-list__workflow-panel">
-        <WorkflowPanel
+        {detailError ? <div role="alert">
+          <p>任务详情读取失败：{detailError}</p>
+          <WorkflowButton disabledReason="正在读取任务详情" onClick={() => setDetailRetry((value) => value + 1)}>重试任务详情</WorkflowButton>
+        </div> : null}
+        {!taskViewRuntime ? (detailError ? null : <p>正在读取任务详情…</p>) : <WorkflowPanel
           runtime={taskViewRuntime}
           workflowUuid={task.workflow_uuid}
           workflowName={workflowName}
@@ -494,7 +519,7 @@ function TaskWorkflowPane({
           hideEmbeddedCodeEditor
           hideRuntimeControls
           allowWorkflowSelection={false}
-        />
+        />}
       </div>
     </section>
   )

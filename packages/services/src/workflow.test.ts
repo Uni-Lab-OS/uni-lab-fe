@@ -23,6 +23,17 @@ const revision: WorkflowRevision = {
 }
 
 describe('workflow authoring adapters', () => {
+  it('reads lightweight OS presentations and preserves explicit detail reads', async () => {
+    const page = { items: [], total: 0, page: 1, page_size: 100 }
+    const request = vi.fn().mockResolvedValue({ code: 0, data: page })
+    const runtime = createWorkflowRuntime(mockHttp(request), getDefaultBackend('local-python'))
+    expect(await runtime.listWorkflowTaskPresentations!({ page: 1, page_size: 100, execution_kind: 'workflow' })).toEqual(page)
+    expect(request.mock.calls[0][0]).toContain('/api/v1/workflow-task-presentations?')
+    expect(request.mock.calls[0][0]).toContain('execution_kind=workflow')
+    await runtime.getWorkflowTask('selected')
+    expect(request.mock.calls[1][0]).toBe('/api/v1/workflow-tasks/selected')
+  })
+
   it('keeps explicit dependency authoring syntax inside the OS boundary', async () => {
     const pythonSource = [
       'a = reactor.prepare(sample=sample_a)',

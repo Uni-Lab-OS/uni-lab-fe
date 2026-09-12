@@ -132,6 +132,8 @@ export interface WorkflowRuntimePort {
   listWorkflowTasks: (
     query?: WorkflowTaskListQuery
   ) => Promise<WorkflowTaskPage>
+  /** OS 轻量列表投影；快照已裁剪，不能作为选中详情的冻结图。 */
+  listWorkflowTaskPresentations?: (query?: WorkflowTaskListQuery) => Promise<WorkflowTaskPage>
   getWorkflowTask: (taskUuid: string) => Promise<WorkflowTask>
   getWorkflowTaskStepState?: (taskUuid: string) => Promise<import('./workflowTaskContracts').WorkflowTaskStepState>
   listWorkflowTaskJobs: (

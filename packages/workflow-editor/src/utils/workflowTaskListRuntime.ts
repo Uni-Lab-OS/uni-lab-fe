@@ -6,90 +6,112 @@ import type {
   WorkflowTaskPage
 } from '@unilab/services'
 
+/** 初次读取、手动刷新和 SSE 共用一个串行通道；销毁后不再发出排队请求。 */
+export function createWorkflowTaskPageLoader(runtime: WorkflowRuntimePort) {
+  let active = true
+  let generation = 0
+  let latestPage: WorkflowTaskPage | null = null
+  let tail: Promise<unknown> = Promise.resolve()
+  return {
+    read: (query: Parameters<WorkflowRuntimePort['listWorkflowTasks']>[0]): Promise<WorkflowTaskPage> => {
+      const requestedGeneration = generation
+      const result = tail.then(() => {
+        if (!active || generation !== requestedGeneration) throw new Error('任务列表已关闭')
+        return (runtime.listWorkflowTaskPresentations ?? runtime.listWorkflowTasks)(query).then((page) => {
+          if (active && generation === requestedGeneration) latestPage = page
+          return page
+        })
+      })
+      tail = result.catch(() => undefined)
+      return result
+    },
+    isCurrent: (page: WorkflowTaskPage) => active && latestPage === page,
+    activate: () => {
+      generation++
+      active = true
+      latestPage = null
+    },
+    dispose: () => { active = false }
+  }
+}
+
 export interface WorkflowTaskListUpdateHandlers {
-  onTask: (task: WorkflowTask) => void
-  onOpen?: () => void
+  onPage: (page: WorkflowTaskPage) => void
+  onRecovered?: () => void
   onError: (message: string) => void
 }
 
-/**
- * 订阅工作流运行时失效事件，并精确补读对应工作流任务的权威状态。
- *
- * @param runtime Backend 工作流运行端口。
- * @param handlers 任务补读、连接恢复和错误投影回调。
- * @returns 可释放全局服务器发送事件（SSE）订阅的句柄。
- */
+/** 全页摘要刷新合并所有失效事件；最多一个请求在途，新事件保留一次尾随补读。 */
 export function subscribeWorkflowTaskListUpdates(
   runtime: WorkflowRuntimePort,
-  handlers: WorkflowTaskListUpdateHandlers
+  handlers: WorkflowTaskListUpdateHandlers,
+  query = { page: 1, page_size: 100, execution_kind: 'workflow' as const },
+  sharedLoader?: ReturnType<typeof createWorkflowTaskPageLoader>
 ): WorkflowEventSubscription {
+  const loader = sharedLoader ?? createWorkflowTaskPageLoader(runtime)
   let active = true
-  const taskSequences = new Map<string, number>()
-
-  /**
-   * 从 Backend 补读单个失效任务，忽略同一任务更早返回的响应。
-   *
-   * @param taskUuid 失效事件携带的工作流任务身份。
-   * @returns 补读完成后的 Promise；错误通过任务列表错误回调呈现。
-   */
-  const rehydrateTask = async (taskUuid: string): Promise<void> => {
-    const sequence = (taskSequences.get(taskUuid) ?? 0) + 1
-    taskSequences.set(taskUuid, sequence)
+  let running = false
+  let dirty = false
+  let pageError: string | null = null
+  let connectionError: string | null = null
+  const publishErrors = (): void => {
+    if (!active) return
+    const message = [connectionError, pageError].filter(Boolean).join('；')
+    if (message) handlers.onError(message)
+    else handlers.onRecovered?.()
+  }
+  const drain = async (): Promise<void> => {
+    if (!active || running) return
+    running = true
     try {
-      const task = await runtime.getWorkflowTask(taskUuid)
-      if (!active || taskSequences.get(taskUuid) !== sequence) return
-      handlers.onTask(task)
-    } catch (error) {
-      if (!active || taskSequences.get(taskUuid) !== sequence) return
-      handlers.onError(
-        `工作流任务 ${shortTaskIdentity(taskUuid)} 状态补读失败：${errorMessage(error)}`
-      )
+      while (active && dirty) {
+        dirty = false
+        try {
+          const page = await loader.read(query)
+          if (!active) return
+          handlers.onPage(page)
+          pageError = null
+          publishErrors()
+        } catch (error) {
+          if (!active) return
+          pageError = `任务列表状态补读失败：${errorMessage(error)}`
+          publishErrors()
+        }
+      }
+    } finally {
+      running = false
     }
   }
-
-  /**
-   * 处理全局运行时失效事件；事件本身不携带也不推断任务状态。
-   *
-   * @param event 全局服务器发送事件（SSE）失效通知。
-   * @returns 无返回值；匹配事件会异步触发精确补读。
-   */
-  const handleInvalidation = (
-    event: WorkflowRuntimeInvalidationEvent
-  ): void => {
-    if (event.event !== 'workflow.runtime.changed') return
-    void rehydrateTask(event.data.workflow_task_uuid)
+  const handleInvalidation = (event: WorkflowRuntimeInvalidationEvent): void => {
+    if (!active || event.event !== 'workflow.runtime.changed') return
+    dirty = true
+    void drain()
   }
-
-  /** 连接建立或恢复后清除任务列表的实时连接错误。 */
-  const handleOpen = (): void => handlers.onOpen?.()
-
-  /**
-   * 将实时连接错误转换为可行动的用户提示。
-   *
-   * @param error 运行时订阅返回的连接异常。
-   * @returns 无返回值；任务列表保留上一份权威投影供人工刷新。
-   */
-  const handleSubscriptionError = (error: Error): void => {
-    handlers.onError(`任务状态实时同步中断：${error.message}；可手动刷新`)
-  }
-
   let subscription: WorkflowEventSubscription
   try {
     subscription = runtime.subscribeWorkflowRuntime(handleInvalidation, {
-      onOpen: handleOpen,
-      onError: handleSubscriptionError
+      onOpen: () => {
+        if (!active) return
+        connectionError = null
+        // 恢复连接也补读当前权威页，不假定历史事件完整交付。
+        dirty = true
+        void drain()
+      },
+      onError: (error) => {
+        connectionError = `任务状态实时同步中断：${error.message}；可手动刷新`
+        publishErrors()
+      }
     })
   } catch (error) {
-    handlers.onError(
-      `任务状态实时同步不可用：${errorMessage(error)}；可手动刷新`
-    )
+    connectionError = `任务状态实时同步不可用：${errorMessage(error)}；可手动刷新`
+    publishErrors()
     subscription = { dispose: () => undefined }
   }
-
   return {
-    /** 停止交付延迟补读结果，并释放底层全局服务器发送事件连接。 */
     dispose: () => {
       active = false
+      dirty = false
+      if (!sharedLoader) loader.dispose()
       subscription.dispose()
     }
   }
