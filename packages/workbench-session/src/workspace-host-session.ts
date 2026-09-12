@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { queryWorkbenchLogText, workbenchLogQueryParameters, type WorkbenchLogQuery } from './log-query'
 import { mkdir, readFile, realpath } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -240,15 +241,22 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
 
   async readEnvironmentLog(
     kind: WorkbenchEnvironmentLogKind,
-    maxBytes = 64 * 1024
+    maxBytes = 64 * 1024,
+    query?: WorkbenchLogQuery
   ): Promise<string> {
     if (kind === 'agent') {
+      if (query) {
+        const logPath = this.snapshot.agent?.logPath
+        if (!logPath) return ''
+        try { return queryWorkbenchLogText(await readFile(logPath, 'utf8'), query) }
+        catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return ''; throw error }
+      }
       return await tailFile(this.snapshot.agent?.logPath ?? '', maxBytes)
     }
     const component = kind === 'workspace-backend'
       ? 'backend'
       : kind === 'os' ? 'edge' : 'plc'
-    return await this.readHostLog(component, maxBytes)
+    return await this.readHostLog(component, maxBytes, query)
   }
 
   async configureGraph(graphPath: string): Promise<WorkbenchSessionSnapshot> {
@@ -647,14 +655,21 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
 
   private async readHostLog(
     component: 'backend' | 'edge' | 'plc',
-    maxBytes: number
+    maxBytes: number,
+    query?: WorkbenchLogQuery
   ): Promise<string> {
     const connection = await this.ensureHost()
-    const payload = await hostRequest<{ content: string }>(
+    const payload = await hostRequest<{ content: string; filterSemantics?: string; scannedCount?: number; matchedCount?: number; returnedCount?: number }>(
       connection,
       'GET',
-      `/v1/logs/${component}?maxBytes=${maxBytes}`
+      `/v1/logs/${component}?${query ? workbenchLogQueryParameters(query) : `maxBytes=${maxBytes}`}`
     )
+    if (query && [payload.scannedCount, payload.matchedCount, payload.returnedCount].some(value => !Number.isInteger(value) || Number(value) < 0)) {
+      throw new Error('当前日志服务未确认完整历史筛选，请更新或重启 Workspace Host。')
+    }
+    if (query?.heartbeat !== undefined && payload.filterSemantics !== 'heartbeat-union-v1') {
+      throw new Error('当前日志服务尚不支持心跳独立筛选，请更新或重启 Workspace Host。')
+    }
     return payload.content
   }
 

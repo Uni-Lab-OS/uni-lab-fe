@@ -178,9 +178,10 @@ implements WorkbenchSessionServer, BackendApplicationContribution {
 
   readEnvironmentLog(
     kind: Parameters<WorkbenchSession['readEnvironmentLog']>[0],
-    maxBytes?: number
+    maxBytes?: number,
+    query?: Parameters<WorkbenchSession['readEnvironmentLog']>[2]
   ) {
-    return this.session.readEnvironmentLog(kind, maxBytes)
+    return this.session.readEnvironmentLog(kind, maxBytes, query)
   }
 
   configureGraph(graphPath: string) {

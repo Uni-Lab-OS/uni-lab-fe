@@ -115,7 +115,7 @@ export function WorkbenchSessionGate({
   connectionSelector?: React.ReactNode
   onOpenLog?: (path: string) => Promise<void>
   onReadEnvironmentLog?: (
-    kind: WorkbenchEnvironmentLogKind
+    kind: WorkbenchEnvironmentLogKind, query?: import('@unilab/workbench-session').WorkbenchLogQuery
   ) => Promise<string>
   renderEnvironmentManager: (onClose: () => void) => React.ReactNode
 }): React.JSX.Element {

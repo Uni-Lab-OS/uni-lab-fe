@@ -14,6 +14,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
+    "./log-query": "./src/log-query.ts",
     "./plc-configuration-error": "./src/plc-configuration-error.ts"
   },
   "dependencies": {

@@ -3,6 +3,8 @@ import type {
   WorkbenchSessionSnapshot
 } from '@unilab/workbench-session'
 import { describe, expect, it, vi } from 'vitest'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 
 import type { WorkbenchSessionClient } from '../common/workbench-session-protocol'
 import {
@@ -118,8 +120,9 @@ describe('WorkbenchSessionService', () => {
   })
 
   it('uses a separate readable file beside the source log', () => {
-    expect(readableRuntimeLogPath('/workspace/logs/os.log')).toBe(
-      '/workspace/logs/.readable/os.readable.log'
+    const directory = join(tmpdir(), 'workspace', 'logs')
+    expect(readableRuntimeLogPath(join(directory, 'os.log'))).toBe(
+      join(directory, '.readable', 'os.readable.log')
     )
   })
 })

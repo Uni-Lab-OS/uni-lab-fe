@@ -1,0 +1,92 @@
+{
+  "cases": [
+    {
+      "query": {
+        "levels": [
+          "error"
+        ],
+        "limit": 1
+      },
+      "expected": "2026-09-09 10:00:00 | ERROR | tcp - 原始错误\r\nTraceback (most recent call last):\r\n  File \"worker.py\", line 1\r\nRuntimeError: 失败\r\n"
+    },
+    {
+      "query": {
+        "limit": 2,
+        "categories": [
+          "heartbeat"
+        ],
+        "levels": [
+          "debug",
+          "info"
+        ]
+      },
+      "expected": "26-09-09 [10:00:01.001] [DEBUG] websockets.client.protocol - < PING aa\r\n[INFO] keepalive pong\r\n"
+    },
+    {
+      "query": {
+        "limit": 1,
+        "categories": [
+          "runtime"
+        ],
+        "levels": [
+          "warning"
+        ]
+      },
+      "expected": "[WARN] {\"Message\":\"{\\\"MethodName\\\":\\\"加液\\\"}\"}\r\n"
+    },
+    {
+      "query": {
+        "levels": [],
+        "limit": 500
+      },
+      "expected": ""
+    },
+    {
+      "query": {
+        "limit": 500,
+        "categories": []
+      },
+      "expected": ""
+    },
+    {
+      "query": {
+        "levels": [
+          "error"
+        ],
+        "categories": [
+          "runtime"
+        ],
+        "heartbeat": true,
+        "limit": 500
+      },
+      "expected": "2026-09-09 10:00:00 | ERROR | tcp - 原始错误\r\nTraceback (most recent call last):\r\n  File \"worker.py\", line 1\r\nRuntimeError: 失败\r\n26-09-09 [10:00:01.001] [DEBUG] websockets.client.protocol - < PING aa\r\n[INFO] keepalive pong\r\n"
+    },
+    {
+      "query": {
+        "levels": [],
+        "heartbeat": true,
+        "limit": 500
+      },
+      "expected": "26-09-09 [10:00:01.001] [DEBUG] websockets.client.protocol - < PING aa\r\n[INFO] keepalive pong\r\n"
+    },
+    {
+      "query": {
+        "levels": [
+          "error"
+        ],
+        "heartbeat": false,
+        "limit": 500
+      },
+      "expected": "2026-09-09 10:00:00 | ERROR | tcp - 原始错误\r\nTraceback (most recent call last):\r\n  File \"worker.py\", line 1\r\nRuntimeError: 失败\r\n"
+    },
+    {
+      "query": {
+        "levels": [],
+        "heartbeat": false,
+        "limit": 500
+      },
+      "expected": ""
+    }
+  ],
+  "content": "2026-09-09 10:00:00 | ERROR | tcp - 原始错误\r\nTraceback (most recent call last):\r\n  File \"worker.py\", line 1\r\nRuntimeError: 失败\r\n26-09-09 [10:00:01.001] [DEBUG] websockets.client.protocol - < PING aa\r\n[INFO] keepalive pong\r\n[WARN] {\"Message\":\"{\\\"MethodName\\\":\\\"加液\\\"}\"}\r\n"
+}

@@ -27,7 +27,7 @@ export type WorkbenchRuntimeLogPaths = Partial<Record<
 >>
 
 interface WorkbenchRuntimeLogLauncherProps {
-  onReadLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>
+  onReadLog: (kind: WorkbenchEnvironmentLogKind, query?: import('@unilab/workbench-session').WorkbenchLogQuery) => Promise<string>
   logPaths?: WorkbenchRuntimeLogPaths
   onOpenLog?: (path: string) => Promise<void>
   defaultOpen?: boolean
@@ -50,10 +50,11 @@ export function sanitizeWorkbenchRuntimeLog(content: string): string {
  * @returns 保留换行与堆栈结构的安全日志尾部。
  */
 export async function readWorkbenchRuntimeLog(
-  onReadLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>,
-  kind: WorkbenchEnvironmentLogKind
+  onReadLog: (kind: WorkbenchEnvironmentLogKind, query?: import('@unilab/workbench-session').WorkbenchLogQuery) => Promise<string>,
+  kind: WorkbenchEnvironmentLogKind,
+  query?: import('@unilab/workbench-session').WorkbenchLogQuery
 ): Promise<string> {
-  return sanitizeWorkbenchRuntimeLog(await onReadLog(kind))
+  return sanitizeWorkbenchRuntimeLog(await (query ? onReadLog(kind, query) : onReadLog(kind)))
 }
 
 /**
@@ -103,6 +104,7 @@ export function WorkbenchRuntimeLogLauncher({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [following, setFollowing] = useState(true)
+  const [query, setQuery] = useState<import('@unilab/workbench-session').WorkbenchLogQuery>({ limit: 500, heartbeat: true })
 
   /** 打开日志文件查看器并恢复最新输出自动跟随。 */
   const openDrawer = useCallback((): void => {
@@ -130,7 +132,7 @@ export function WorkbenchRuntimeLogLauncher({
     setLoading(true)
     setError(null)
     try {
-      const safeContent = await readWorkbenchRuntimeLog(onReadLog, activeKind)
+      const safeContent = await readWorkbenchRuntimeLog(onReadLog, activeKind, query)
       if (readGeneration !== readGenerationRef.current) return
       setContentByKind((current) => ({
         ...current,
@@ -149,7 +151,15 @@ export function WorkbenchRuntimeLogLauncher({
         if (readGeneration === readGenerationRef.current) setLoading(false)
       }
     }
-  }, [activeKind, onReadLog])
+  }, [activeKind, onReadLog, query])
+
+  const changeQuery = useCallback((next: import('@unilab/workbench-session').WorkbenchLogQuery): void => {
+    readGenerationRef.current += 1
+    activeReadRef.current = null
+    setContentByKind({})
+    setAvailableByKind({})
+    setQuery(next)
+  }, [])
 
   /** 切换日志来源，并恢复该文件对最新输出的自动跟随。 */
   const selectSource = useCallback((kind: WorkbenchEnvironmentLogKind): void => {
@@ -230,6 +240,8 @@ export function WorkbenchRuntimeLogLauncher({
   const activeLogPath = logPaths[activeKind]
   const drawer = open ? (
     <WorkbenchRuntimeLogViewer
+      query={query}
+      onQueryChange={changeQuery}
       instanceId={instanceId}
       dialogRef={dialogRef}
       contentByKind={contentByKind}

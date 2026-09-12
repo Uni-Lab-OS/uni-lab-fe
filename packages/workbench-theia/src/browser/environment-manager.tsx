@@ -36,7 +36,7 @@ export interface EnvironmentManagerProps {
     backendUrl: string,
     resetTarget?: boolean
   ) => Promise<WorkbenchReleaseReceipt>
-  onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>
+  onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind, query?: import('@unilab/workbench-session').WorkbenchLogQuery) => Promise<string>
   onConfigureGraph: (graphPath: string) => Promise<void>
   onSetExternalDevicesOnly: (enabled: boolean) => Promise<void>
   onConfigurePlcSimulator: (

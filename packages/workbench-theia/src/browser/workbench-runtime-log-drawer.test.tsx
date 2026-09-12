@@ -13,6 +13,23 @@ import {
 } from './workbench-runtime-log-viewer'
 
 describe('WorkbenchRuntimeLogLauncher', () => {
+  it('passes full-history filters through the session boundary, including empty selections', async () => {
+    const read = vi.fn().mockResolvedValue('')
+    const query = { levels: [], categories: ['heartbeat' as const], limit: 100 }
+    await readWorkbenchRuntimeLog(read, 'os', query)
+    expect(read).toHaveBeenCalledWith('os', query)
+  })
+
+  it('filters before limiting and keeps severity independent from heartbeat category', () => {
+    const rows = ['[ERROR] early failure', ...Array.from({ length: 2500 }, () => '[INFO] recent')].join('\n')
+    expect(filterWorkbenchRuntimeLogRows(rows, { levels: ['error'], limit: 1 }).rows[0]?.message).toBe('early failure')
+    const heartbeats = filterWorkbenchRuntimeLogRows('[DEBUG] < PING aa\n[INFO] normal\n[DEBUG] > PONG aa', {
+      levels: ['debug'], categories: ['heartbeat'], limit: 2
+    })
+    expect(heartbeats.rows.map(row => row.level)).toEqual(['debug', 'debug'])
+    expect(filterWorkbenchRuntimeLogRows(rows, { levels: [], limit: 500 }).rows).toEqual([])
+  })
+
   /** 证明抽屉从固定白名单呈现本地托管进程，而不声称可读取远程服务日志。 */
   it('presents the previous local runtime log drawer affordances', () => {
     const markup = renderToStaticMarkup(
@@ -59,8 +76,12 @@ describe('WorkbenchRuntimeLogLauncher', () => {
     )
 
     expect(markup).toContain('aria-label="日志级别筛选"')
-    expect(markup).toContain('<option value="warning">WARNING</option>')
-    expect(markup).toContain('<option value="error">ERROR</option>')
+    expect(markup).toContain('type="checkbox"')
+    expect(markup).toContain('Ping / Pong 心跳')
+    expect(markup).not.toContain('最近日志条数')
+    expect(markup).not.toContain('运行消息')
+    expect(markup).toContain('上限 500')
+    expect(markup).toContain('<details')
     expect(markup).toContain('data-level="warning"')
     expect(markup).toContain('data-level="error"')
     expect(markup).toContain('title="retry device"')
@@ -91,6 +112,12 @@ describe('WorkbenchRuntimeLogLauncher', () => {
     await expect(readWorkbenchRuntimeLog(readLog, 'plc-sim'))
       .resolves.toBe('PLC ready')
     expect(readLog).toHaveBeenCalledWith('plc-sim')
+  })
+
+  it('keeps heartbeat selected across severity filtering without changing the original severity', () => {
+    const result = filterWorkbenchRuntimeLogRows('[DEBUG] ws - < PING aa\n[ERROR] device - failure\n[DEBUG] device - ordinary',
+      { levels: ['error'], heartbeat: true, limit: 500 })
+    expect(result.rows.map(row => row.level)).toEqual(['debug', 'error'])
   })
 
   /** 证明 ERROR 筛选保留 Python traceback，并排除 WARNING 记录。 */

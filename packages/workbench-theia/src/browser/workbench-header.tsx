@@ -34,7 +34,7 @@ export interface WorkbenchHeaderProps {
   onConnectionModeChange: (mode: WorkbenchConnectionMode) => void
   onToggleEnvironment: () => void
   onReadEnvironmentLog: (
-    kind: WorkbenchEnvironmentLogKind
+    kind: WorkbenchEnvironmentLogKind, query?: import('@unilab/workbench-session').WorkbenchLogQuery
   ) => Promise<string>
   onOpenLog: (path: string) => Promise<void>
 }

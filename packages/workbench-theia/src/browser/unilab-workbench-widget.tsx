@@ -395,10 +395,12 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   }
 
   protected readonly readEnvironmentLog = async (
-    kind: WorkbenchEnvironmentLogKind
+    kind: WorkbenchEnvironmentLogKind,
+    query?: import('@unilab/workbench-session').WorkbenchLogQuery
   ): Promise<string> => this.workbenchSession.readEnvironmentLog(
     kind,
-    32 * 1024
+    32 * 1024,
+    query
   )
 
   protected readonly configurePlcSimulator = async (

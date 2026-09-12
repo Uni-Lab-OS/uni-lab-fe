@@ -56,7 +56,9 @@ describe('Workspace Host Workbench adapter', () => {
       ]
     }
     snapshot.configuration.graphPath = 'deployment/graphs/persisted.json'
-    const server = createSnapshotServer(token, snapshot)
+    let heartbeatSupported = false
+    let logQuery: URLSearchParams | undefined
+    const server = createSnapshotServer(token, snapshot, undefined, params => { logQuery = params; return heartbeatSupported })
     servers.push(server)
     await listen(server)
     snapshot.host.endpoint = serverEndpoint(server)
@@ -79,6 +81,15 @@ describe('Workspace Host Workbench adapter', () => {
     expect(neutral.getSnapshot().configuredGraphPath).toBe('')
     const backendLog = await neutral.readEnvironmentLog('workspace-backend')
     expect(backendLog).toBe('backend fixture log')
+    await neutral.readEnvironmentLog('workspace-backend', 1, { levels: [], categories: ['heartbeat'], limit: 100 })
+    expect(logQuery?.get('levels')).toBe('')
+    expect(logQuery?.get('categories')).toBe('heartbeat')
+    expect(logQuery?.get('limit')).toBe('100')
+    expect(logQuery?.has('maxBytes')).toBe(false)
+    await expect(neutral.readEnvironmentLog('workspace-backend', 1, { levels: [], heartbeat: true, limit: 500 })).rejects.toThrow('尚不支持心跳独立筛选')
+    expect(logQuery?.get('heartbeat')).toBe('true')
+    heartbeatSupported = true
+    await expect(neutral.readEnvironmentLog('workspace-backend', 1, { levels: [], heartbeat: true, limit: 500 })).resolves.toBe('backend fixture log')
     expect(neutral.getSnapshot()).toMatchObject({
       configuredGraphPath: 'deployment/graphs/persisted.json',
       graphDeclaration: {
@@ -737,7 +748,8 @@ describe('Workspace Host Workbench adapter', () => {
 function createSnapshotServer(
   token: string,
   snapshot: ReturnType<typeof hostSnapshot>,
-  onSnapshot: () => void = () => undefined
+  onSnapshot: () => void = () => undefined,
+  onLog: (query: URLSearchParams) => void | boolean = () => undefined
 ) {
   return createServer((request, response) => {
     if (request.headers.authorization !== `Bearer ${token}`) {
@@ -751,7 +763,8 @@ function createSnapshotServer(
       return
     }
     if (request.method === 'GET' && url.pathname === '/v1/logs/backend') {
-      sendJson(response, 200, { content: 'backend fixture log' })
+      const heartbeatSupported = onLog(url.searchParams)
+      sendJson(response, 200, { ...(heartbeatSupported ? { filterSemantics: 'heartbeat-union-v1' } : {}), content: 'backend fixture log', scannedCount: 1, matchedCount: 1, returnedCount: 1 })
       return
     }
     sendJson(response, 404, { error: { message: 'not found' } })

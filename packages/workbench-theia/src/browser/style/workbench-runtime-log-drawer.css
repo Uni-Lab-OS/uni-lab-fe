@@ -202,38 +202,8 @@
   flex: 0 0 auto;
   gap: var(--unilab-space-3);
   align-items: center;
-  justify-content: space-between;
-}
-
-.unilab-runtime-log-drawer__filter-control {
-  display: inline-flex;
-  min-width: 0;
-  gap: var(--unilab-space-2);
-  align-items: center;
-  color: var(--unilab-color-text-muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.unilab-runtime-log-drawer__filter-control select {
-  min-width: 124px;
-  height: 30px;
-  padding-inline: 9px 28px;
-  color: var(--unilab-color-text);
-  background: var(--unilab-color-surface);
-  border: 1px solid var(--unilab-color-border-strong);
-  border-radius: var(--unilab-radius-control);
-  font: inherit;
-  cursor: pointer;
-}
-
-.unilab-runtime-log-drawer__filter-control select:hover {
-  border-color: var(--unilab-color-primary);
-}
-
-.unilab-runtime-log-drawer__filter-control select:focus-visible {
-  outline: 2px solid var(--unilab-color-focus);
-  outline-offset: 2px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
 }
 
 .unilab-runtime-log-drawer__filter-count {
@@ -446,4 +416,78 @@
   .unilab-runtime-log-drawer__follow-notice {
     outline: 2px solid Highlight;
   }
+}
+
+.unilab-runtime-log-filter {
+  position: relative;
+  flex: 0 0 auto;
+  font-size: 12px;
+}
+
+.unilab-runtime-log-filter > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-width: 132px;
+  height: 30px;
+  padding: 0 10px;
+  list-style: none;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+}
+
+.unilab-runtime-log-filter > summary::-webkit-details-marker {
+  display: none;
+}
+
+.unilab-runtime-log-filter__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  min-width: 190px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 6px;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  box-shadow: 0 4px 16px #0003;
+}
+
+.unilab-runtime-log-filter__menu label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 6px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.unilab-runtime-log-filter__menu label:hover {
+  background: var(--unilab-color-bg-subtle);
+}
+
+.unilab-runtime-log-filter__menu input {
+  margin: 0;
+}
+
+.unilab-runtime-log-filter__actions {
+  display: flex;
+  gap: 6px;
+  padding: 2px 4px 6px;
+  border-bottom: 1px solid var(--unilab-color-border);
+  margin-bottom: 4px;
+}
+
+.unilab-runtime-log-filter > summary:focus-visible, .unilab-runtime-log-filter__menu input:focus-visible {
+  outline: 2px solid var(--unilab-color-primary);
+  outline-offset: 2px;
 }

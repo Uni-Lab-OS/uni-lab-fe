@@ -255,7 +255,8 @@ export interface WorkbenchSession {
   readLogTail(maxBytes?: number): Promise<string>
   readEnvironmentLog(
     kind: WorkbenchEnvironmentLogKind,
-    maxBytes?: number
+    maxBytes?: number,
+    query?: import('./log-query').WorkbenchLogQuery
   ): Promise<string>
   configureGraph(graphPath: string): Promise<WorkbenchSessionSnapshot>
   setExternalDevicesOnly(enabled: boolean): Promise<WorkbenchSessionSnapshot>
@@ -287,3 +288,5 @@ export function createWorkspaceHostWorkbenchSession(
 ): WorkspaceHostWorkbenchSession {
   return new WorkspaceHostWorkbenchSession(options)
 }
+
+export { WORKBENCH_LOG_LEVELS, workbenchLogCategory, type WorkbenchLogQuery } from './log-query'

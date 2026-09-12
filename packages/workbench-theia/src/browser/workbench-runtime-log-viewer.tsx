@@ -6,18 +6,19 @@ import {
   type LocalRuntimeLogLevel
 } from '@unilab/design-system/lib/runtime-log-formatting'
 import type { WorkbenchEnvironmentLogKind } from '@unilab/workbench-session'
+import { matchesWorkbenchLogQuery, type WorkbenchLogQuery } from '@unilab/workbench-session/log-query'
 import * as React from 'react'
+import { WorkbenchLogFilter } from './workbench-log-filter'
 import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type RefObject,
-  type SyntheticEvent
+  type RefObject
 } from 'react'
 
-export const WORKBENCH_RUNTIME_LOG_MAX_LINES = 2_000
+export const WORKBENCH_RUNTIME_LOG_MAX_LINES = 500
 
 export const WORKBENCH_RUNTIME_LOG_SOURCES: ReadonlyArray<{
   kind: WorkbenchEnvironmentLogKind
@@ -41,24 +42,11 @@ export type WorkbenchRuntimeLogAvailability = Partial<Record<
 
 type WorkbenchRuntimeLogFilter = 'all' | LocalRuntimeLogLevel
 
-const LOG_LEVEL_FILTER_OPTIONS: ReadonlyArray<{
-  value: WorkbenchRuntimeLogFilter
-  label: string
-}> = [
-  { value: 'all', label: '全部级别' },
-  { value: 'trace', label: 'TRACE' },
-  { value: 'debug', label: 'DEBUG' },
-  { value: 'info', label: 'INFO' },
-  { value: 'warning', label: 'WARNING' },
-  { value: 'error', label: 'ERROR' },
-  { value: 'critical', label: 'CRITICAL' },
-  { value: 'system', label: 'SYSTEM' },
-  { value: 'plain', label: 'LOG' }
-]
-
 const LOG_BOTTOM_TOLERANCE_PX = 4
 
 interface WorkbenchRuntimeLogViewerProps {
+  query?: WorkbenchLogQuery
+  onQueryChange?: (query: WorkbenchLogQuery) => void
   instanceId: string
   dialogRef: RefObject<HTMLElement | null>
   contentByKind: WorkbenchRuntimeLogContent
@@ -77,7 +65,7 @@ interface WorkbenchRuntimeLogViewerProps {
 }
 
 /**
- * 按指定级别筛选格式化日志，并限制界面最多保留最近两千条。
+ * 按指定级别筛选格式化日志，并限制界面最多保留最近五百条。
  * @param content 当前日志文件的安全文本尾部。
  * @param filter 用户选择的日志级别或全部级别。
  * @returns 过滤后的结构化日志及过滤前、裁剪前数量。
@@ -85,18 +73,20 @@ interface WorkbenchRuntimeLogViewerProps {
  */
 export function filterWorkbenchRuntimeLogRows(
   content: string,
-  filter: WorkbenchRuntimeLogFilter
+  filter: WorkbenchRuntimeLogFilter | WorkbenchLogQuery
 ): {
   rows: FormattedLocalRuntimeLogRow[]
   retainedCount: number
   totalCount: number
 } {
   const allRows = formatLocalRuntimeLog(content)
-  const retainedRows = allRows.slice(-WORKBENCH_RUNTIME_LOG_MAX_LINES)
+  const query = typeof filter === 'string'
+    ? { limit: WORKBENCH_RUNTIME_LOG_MAX_LINES, levels: filter === 'all' ? undefined : [filter] }
+    : filter
+  const matches = allRows.filter(row => matchesWorkbenchLogQuery(row.level, row.message, query))
+  const retainedRows = matches.slice(-query.limit)
   return {
-    rows: filter === 'all'
-      ? retainedRows
-      : retainedRows.filter((row) => row.level === filter),
+    rows: retainedRows,
     retainedCount: retainedRows.length,
     totalCount: allRows.length
   }
@@ -110,6 +100,8 @@ export function filterWorkbenchRuntimeLogRows(
  * @safety 筛选与复制只作用于内存快照；打开文件仍由 Theia 文件服务控制。
  */
 export function WorkbenchRuntimeLogViewer({
+  query = { limit: WORKBENCH_RUNTIME_LOG_MAX_LINES, heartbeat: true },
+  onQueryChange = () => {},
   instanceId,
   dialogRef,
   contentByKind,
@@ -127,8 +119,6 @@ export function WorkbenchRuntimeLogViewer({
   onClose
 }: WorkbenchRuntimeLogViewerProps): React.JSX.Element {
   const activeLogContentRef = useRef({ kind: activeKind, content: '' })
-  const [levelFilter, setLevelFilter] =
-    useState<WorkbenchRuntimeLogFilter>('all')
   const [hasNewOutput, setHasNewOutput] = useState(false)
   const [copyState, setCopyState] =
     useState<'idle' | 'copied' | 'failed'>('idle')
@@ -138,8 +128,8 @@ export function WorkbenchRuntimeLogViewer({
   const activeAvailable = availableByKind[activeKind] === true
   const filtered = useMemo(
     /** 解析当前日志文件并应用用户选择的级别筛选。 */
-    () => filterWorkbenchRuntimeLogRows(activeContent, levelFilter),
-    [activeContent, levelFilter]
+    () => filterWorkbenchRuntimeLogRows(activeContent, { limit: query.limit }),
+    [activeContent, query]
   )
   const hasRenderedOutput = activeAvailable && filtered.rows.length > 0
   const {
@@ -172,22 +162,10 @@ export function WorkbenchRuntimeLogViewer({
     [activeContent, activeKind, following]
   )
 
-  /**
-   * 应用固定枚举中的日志级别筛选。
-   * @param event 日志级别选择框的变更事件。
-   * @returns 无返回值。
-   */
-  const handleLevelFilterChange = useCallback(
-    (event: SyntheticEvent<HTMLSelectElement>): void => {
-      setLevelFilter(event.currentTarget.value as WorkbenchRuntimeLogFilter)
-    },
-    []
-  )
-
   /** 清除级别筛选并恢复全部结构化日志记录。 */
   const clearLevelFilter = useCallback((): void => {
-    setLevelFilter('all')
-  }, [])
+    onQueryChange({ limit: WORKBENCH_RUNTIME_LOG_MAX_LINES, heartbeat: true })
+  }, [onQueryChange, query.limit])
 
   /** 清除新日志提示并恢复对日志文件末尾的自动跟随。 */
   const resumeFollowing = useCallback((): void => {
@@ -296,6 +274,27 @@ export function WorkbenchRuntimeLogViewer({
           aria-labelledby={`workbench-runtime-log-tab-${activeKind}-${instanceId}`}
           aria-busy={loading}
         >
+          <div className="unilab-runtime-log-drawer__filter-bar">
+            <WorkbenchLogFilter query={query} onChange={onQueryChange} />
+            <button
+              type="button"
+              onClick={() => void copyActiveLog()}
+              aria-live="polite"
+            >
+              <span className="codicon codicon-copy" aria-hidden="true" />
+              {copyState === 'copied'
+                ? '已复制'
+                : copyState === 'failed'
+                  ? '复制失败'
+                  : '复制当前日志'}
+            </button>
+            <span
+              className="unilab-runtime-log-drawer__filter-count"
+              aria-live="polite"
+            >
+              显示筛选后最近 {filtered.rows.length} 条（上限 {query.limit}）
+            </span>
+          </div>
           {error ? (
             <p className="unilab-runtime-log-drawer__error" role="alert">
               日志操作失败：{error}
@@ -307,40 +306,6 @@ export function WorkbenchRuntimeLogViewer({
             </div>
           ) : activeAvailable && activeContent ? (
             <>
-              <div className="unilab-runtime-log-drawer__filter-bar">
-                <label className="unilab-runtime-log-drawer__filter-control">
-                  <span>日志级别</span>
-                  <select
-                    aria-label="日志级别筛选"
-                    value={levelFilter}
-                    onChange={handleLevelFilterChange}
-                  >
-                    {LOG_LEVEL_FILTER_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => void copyActiveLog()}
-                  aria-live="polite"
-                >
-                  <span className="codicon codicon-copy" aria-hidden="true" />
-                  {copyState === 'copied'
-                    ? '已复制'
-                    : copyState === 'failed'
-                      ? '复制失败'
-                      : '复制当前日志'}
-                </button>
-                <span
-                  className="unilab-runtime-log-drawer__filter-count"
-                  aria-live="polite"
-                >
-                  显示 {filtered.rows.length} / {filtered.retainedCount} 条
-                </span>
-              </div>
               {!following ? (
                 <button
                   type="button"
@@ -415,7 +380,7 @@ export function WorkbenchRuntimeLogViewer({
               ) : (
                 <div className="unilab-runtime-log-drawer__empty" role="status">
                   <strong>
-                    没有符合 {logFilterLabel(levelFilter)} 条件的日志
+                    没有符合当前筛选条件的日志
                   </strong>
                   <span>原始日志仍保留，可清除筛选继续查看。</span>
                   <button type="button" onClick={clearLevelFilter}>清除筛选</button>
@@ -424,7 +389,7 @@ export function WorkbenchRuntimeLogViewer({
             </>
           ) : (
             <div className="unilab-runtime-log-drawer__empty" role="status">
-              <strong>{activeAvailable ? '暂时没有日志输出' : '尚未生成日志'}</strong>
+              <strong>{activeAvailable ? '当前筛选没有匹配日志' : '尚未生成日志'}</strong>
               <span>启动相应服务后，输出会自动显示在这里。</span>
             </div>
           )}
@@ -441,10 +406,4 @@ function logLevelLabel(level: LocalRuntimeLogLevel): string {
   if (level === 'system') return 'SYSTEM'
   if (level === 'plain') return 'LOG'
   return level.toUpperCase()
-}
-
-/** 返回当前日志级别筛选的用户可见标签。 */
-function logFilterLabel(filter: WorkbenchRuntimeLogFilter): string {
-  return LOG_LEVEL_FILTER_OPTIONS.find((option) => option.value === filter)
-    ?.label ?? '全部级别'
 }

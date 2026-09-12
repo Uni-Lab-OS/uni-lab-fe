@@ -61,7 +61,7 @@ export interface WorkbenchSurfaceProps {
     resetTarget?: boolean
   ) => Promise<WorkbenchReleaseReceipt>
   onResetWorkflowEnvironment: (backendUrl: string) => Promise<void>
-  onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind) => Promise<string>
+  onReadEnvironmentLog: (kind: WorkbenchEnvironmentLogKind, query?: import('@unilab/workbench-session').WorkbenchLogQuery) => Promise<string>
   onOpenLog: (path: string) => Promise<void>
   onConfigureGraph: (graphPath: string) => Promise<void>
   onSetExternalDevicesOnly: (enabled: boolean) => Promise<void>
