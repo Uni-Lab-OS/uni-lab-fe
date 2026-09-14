@@ -8,6 +8,7 @@ import {
   type DeviceCardHostActionRequest,
   type DeviceCardHostManualExclusiveRequest,
   type DeviceCardHostManualExclusiveResult,
+  type DeviceCardRuntimeSnapshot,
   type DeviceCardWorkspaceStatus,
   type DevicePackageCardProject,
   type OpenDeviceCardWorkspaceRequest
@@ -26,7 +27,8 @@ interface WorkbenchDeviceCardApi {
     discover(workspacePath: string): Promise<DevicePackageCardProject[]>
     open(input: {
       projectDir: string
-      context: DeviceCardAuthoringContext
+      context?: DeviceCardAuthoringContext
+      contextAuthority?: 'host' | 'project-preview'
     }): Promise<DeviceCardWorkspaceStatus>
     preview(request: OpenDeviceCardWorkspaceRequest): Promise<void>
     close(): Promise<void>
@@ -69,6 +71,7 @@ export function WorkbenchDeviceCard({
   const stateRef = React.useRef<Record<string, unknown>>({})
   const [device, setDevice] = React.useState<DeviceCatalogItem | null>(null)
   const [project, setProject] = React.useState<DevicePackageCardProject | null>(null)
+  const [cardPreviewMode, setCardPreviewMode] = React.useState<'host' | 'offline'>('host')
   const [workspace, setWorkspace] = React.useState<DeviceCardWorkspaceStatus | null>(null)
   const [status, setStatus] = React.useState<DeviceStatus | null>(null)
   const [jointState, setJointState] = React.useState<DeviceJointStateFrame | null>(null)
@@ -82,26 +85,57 @@ export function WorkbenchDeviceCard({
     let retry: ReturnType<typeof globalThis.setTimeout> | null = null
     const discover = async (): Promise<void> => {
       try {
-        const [projects, devices] = await Promise.all([
-          api.package.discover(workspacePath),
-          services.laboratory.getDeviceCatalog()
-        ])
-        const match = matchPackageCard(projects, devices, deviceId)
-        if (!match) {
-          throw new Error(
-            projects.length === 0
-              ? '当前领域包没有 frontend/cards 设备卡片'
-              : '设备目录中没有与领域包卡片匹配的设备'
-          )
+        const projects = await api.package.discover(workspacePath)
+        if (projects.length === 0) {
+          throw new Error('当前领域包没有 frontend/cards 设备卡片')
         }
-        const runtimeState = buildDeviceCardRuntimeState(match.device, null, null)
-        const context = createDeviceCardAuthoringContext(
-          authoringTarget(match.device),
-          runtimeState
-        )
+        let devices: DeviceCatalogItem[] = []
+        try {
+          devices = await services.laboratory.getDeviceCatalog()
+        } catch {
+          devices = []
+        }
+        const hostMatch = devices.length > 0
+          ? matchPackageCard(projects, devices, deviceId)
+          : null
+        if (hostMatch) {
+          const runtimeState = buildDeviceCardRuntimeState(hostMatch.device, null, null)
+          const context = createDeviceCardAuthoringContext(
+            authoringTarget(hostMatch.device),
+            runtimeState
+          )
+          const nextWorkspace = await api.package.open({
+            projectDir: hostMatch.project.projectDir,
+            context,
+            contextAuthority: 'host'
+          })
+          if (nextWorkspace.state !== 'ready' || !nextWorkspace.card) {
+            const detail = nextWorkspace.diagnostics
+              .map((item) => `${item.code}: ${item.message}`)
+              .join('；')
+            throw new Error(detail || '设备卡片构建未通过')
+          }
+          if (disposed) return
+          deviceRef.current = hostMatch.device
+          stateRef.current = runtimeState
+          setCardPreviewMode('host')
+          setDevice(hostMatch.device)
+          setProject(hostMatch.project)
+          setWorkspace(nextWorkspace)
+          setMessage(`已加载 ${nextWorkspace.card.title}`)
+          return
+        }
+        const project = matchPackageCardProject(projects, deviceId)
+        if (!project) {
+          throw new Error('设备目录中没有与领域包卡片匹配的设备')
+        }
+        const previewDevice = buildOfflinePreviewDevice(project)
+        if (!previewDevice) {
+          throw new Error('离线预览缺少 authoring-context.json')
+        }
         const nextWorkspace = await api.package.open({
-          projectDir: match.project.projectDir,
-          context
+          projectDir: project.projectDir,
+          contextAuthority: 'project-preview'
         })
         if (nextWorkspace.state !== 'ready' || !nextWorkspace.card) {
           const detail = nextWorkspace.diagnostics
@@ -110,12 +144,16 @@ export function WorkbenchDeviceCard({
           throw new Error(detail || '设备卡片构建未通过')
         }
         if (disposed) return
-        deviceRef.current = match.device
-        stateRef.current = runtimeState
-        setDevice(match.device)
-        setProject(match.project)
+        const offlineState = buildOfflinePreviewState(project)
+        deviceRef.current = previewDevice
+        stateRef.current = offlineState
+        setCardPreviewMode('offline')
+        setDevice(previewDevice)
+        setProject(project)
         setWorkspace(nextWorkspace)
-        setMessage(`已加载 ${nextWorkspace.card.title}`)
+        setMessage(
+          `已加载 ${nextWorkspace.card.title}（离线预览：OS 设备目录不可用，动作仍依赖 Backend）`
+        )
       } catch (error) {
         if (disposed) return
         setMessage(error instanceof Error ? error.message : String(error))
@@ -165,16 +203,18 @@ export function WorkbenchDeviceCard({
   stateRef.current = runtimeState
 
   React.useEffect(() => {
-    if (!api || !workspace?.card || !device || !previewRef.current) return
+    if (!api || !workspace?.card || !previewRef.current) return
+    if (cardPreviewMode === 'host' && !device) return
     const preview = previewRef.current
     let disposed = false
-    const actions = actionContracts(device)
-    const stateKeys = deviceCardRealtimeStateKeys({
-      ...(device.stateSchema ?? {}),
-      online: { type: 'boolean', source: 'host', status: 'resolved' },
-      actionBusy: { type: 'object', source: 'host', status: 'resolved' },
-      jointState: { type: 'object', source: 'host', status: 'resolved' }
+    const previewContext = buildCardPreviewContext({
+      cardPreviewMode,
+      device,
+      project,
+      state: stateRef.current
     })
+    if (!previewContext) return
+    const { actions, context, stateKeys } = previewContext
     const syncBounds = (): DeviceCardBounds => {
       const rect = preview.getBoundingClientRect()
       const bounds = {
@@ -191,18 +231,7 @@ export function WorkbenchDeviceCard({
     const frame = requestAnimationFrame(() => {
       const request: OpenDeviceCardWorkspaceRequest = {
         bounds: syncBounds(),
-        context: {
-          mode: 'live',
-          device: {
-            deviceId: device.deviceId,
-            deviceTypeId: device.deviceTypeId,
-            title: device.label
-          },
-          state: stateRef.current,
-          config: {},
-          theme: 'light',
-          locale: 'zh-CN'
-        },
+        context,
         availableActions: actions,
         availableState: stateKeys,
         availableMedia: [],
@@ -225,7 +254,14 @@ export function WorkbenchDeviceCard({
       observer.disconnect()
       void api.close()
     }
-  }, [api, device, services.capabilities.devices.manualExclusive, workspace?.card])
+  }, [
+    api,
+    cardPreviewMode,
+    device,
+    project,
+    services.capabilities.devices.manualExclusive,
+    workspace?.card
+  ])
 
   React.useEffect(() => {
     if (api && workspace?.card) void api.updateState(runtimeState)
@@ -291,6 +327,7 @@ export function WorkbenchDeviceCard({
     <section
       className="unilab-workbench-device-card"
       data-package-card-state={workspace?.state ?? (api ? 'discovering' : 'unavailable')}
+      data-package-card-preview-mode={cardPreviewMode}
       data-package-card-id={project?.id ?? ''}
       data-package-card-device={device?.deviceId ?? ''}
       aria-label="机械臂设备卡片"
@@ -325,6 +362,18 @@ function matchPackageCard(
   return null
 }
 
+function matchPackageCardProject(
+  projects: readonly DevicePackageCardProject[],
+  requestedDeviceId?: string
+): DevicePackageCardProject | null {
+  if (requestedDeviceId) {
+    const matched = projects.find((project) => project.deviceId === requestedDeviceId)
+    if (matched) return matched
+  }
+  if (projects.length === 1) return projects[0] ?? null
+  return null
+}
+
 function authoringTarget(device: DeviceCatalogItem) {
   return {
     deviceId: device.deviceId,
@@ -354,6 +403,117 @@ function actionContracts(device: DeviceCatalogItem): DeviceCardActionContract[] 
     riskLevel: action.riskLevel,
     busy: action.isBusy
   }))
+}
+
+/** 用卡片 authoring 快照合成离线预览目录项。 */
+export function buildOfflinePreviewDevice(
+  project: DevicePackageCardProject
+): DeviceCatalogItem | null {
+  const preview = project.authoringPreview
+  if (!preview) return null
+  const deviceId = preview.deviceId ?? project.deviceId ?? 'preview-device'
+  const deviceTypeId = preview.deviceTypeId || project.deviceTypes[0] || ''
+  const namespace = deviceTypeId.includes('.')
+    ? deviceTypeId.split('.').slice(0, 2).join('.')
+    : 'community'
+  return {
+    deviceId,
+    materialUuid: deviceId,
+    deviceTypeId,
+    deviceKey: deviceId,
+    namespace,
+    label: preview.title || project.title,
+    online: false,
+    stateSchema: preview.stateSchema,
+    actions: preview.actions.map((action) => ({
+      actionName: action.action,
+      actionRef: action.action,
+      label: action.label,
+      typeName: action.action,
+      inputSchema: action.inputSchema,
+      outputSchema: action.outputSchema,
+      riskLevel: action.riskLevel,
+      isBusy: Boolean(action.busy)
+    }))
+  }
+}
+
+function buildOfflinePreviewState(
+  project: DevicePackageCardProject
+): Record<string, unknown> {
+  const preview = project.authoringPreview
+  if (!preview) return {}
+  const device = buildOfflinePreviewDevice(project)
+  if (!device) return preview.sampleState
+  return {
+    ...preview.sampleState,
+    online: false,
+    actionBusy: Object.fromEntries(
+      device.actions.map((action) => [action.actionName, action.isBusy])
+    )
+  }
+}
+
+function buildCardPreviewContext(input: {
+  cardPreviewMode: 'host' | 'offline'
+  device: DeviceCatalogItem | null
+  project: DevicePackageCardProject | null
+  state: Record<string, unknown>
+}): {
+  actions: DeviceCardActionContract[]
+  context: DeviceCardRuntimeSnapshot
+  stateKeys: string[]
+} | null {
+  if (input.cardPreviewMode === 'offline') {
+    const preview = input.project?.authoringPreview
+    if (!preview) return null
+    const stateKeys = deviceCardRealtimeStateKeys({
+      ...preview.stateSchema,
+      online: { type: 'boolean', source: 'host', status: 'resolved' },
+      actionBusy: { type: 'object', source: 'host', status: 'resolved' },
+      jointState: { type: 'object', source: 'host', status: 'resolved' }
+    })
+    return {
+      actions: preview.actions,
+      stateKeys,
+      context: {
+        mode: 'mock',
+        device: {
+          deviceId: preview.deviceId ?? null,
+          deviceTypeId: preview.deviceTypeId,
+          title: preview.title
+        },
+        state: input.state,
+        config: {},
+        theme: 'light',
+        locale: 'zh-CN'
+      }
+    }
+  }
+  if (!input.device) return null
+  const actions = actionContracts(input.device)
+  const stateKeys = deviceCardRealtimeStateKeys({
+    ...(input.device.stateSchema ?? {}),
+    online: { type: 'boolean', source: 'host', status: 'resolved' },
+    actionBusy: { type: 'object', source: 'host', status: 'resolved' },
+    jointState: { type: 'object', source: 'host', status: 'resolved' }
+  })
+  return {
+    actions,
+    stateKeys,
+    context: {
+      mode: 'live',
+      device: {
+        deviceId: input.device.deviceId,
+        deviceTypeId: input.device.deviceTypeId,
+        title: input.device.label
+      },
+      state: input.state,
+      config: {},
+      theme: 'light',
+      locale: 'zh-CN'
+    }
+  }
 }
 
 /**

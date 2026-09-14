@@ -79,6 +79,19 @@ export function assertValidMaterialGraph(
   }
 }
 
+/** Match inventory slot_id / SSE toSite against Site id, key, name, or canonical label prefix. */
+export function siteMatchesSlotReference(
+  site: MaterialSite,
+  reference: string
+): boolean {
+  const ref = reference.trim()
+  if (!ref) return false
+  if (site.id === ref || site.key === ref || site.name === ref) return true
+  const base = (value: string): string =>
+    value.split(' · ', 1)[0]?.trim() || value
+  return base(site.key) === ref || base(site.name) === ref
+}
+
 export function assertCanAttach(
   parent: MaterialAggregate,
   child: MaterialAggregate,

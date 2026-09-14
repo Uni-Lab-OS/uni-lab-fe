@@ -297,6 +297,53 @@ describe('material store', () => {
     ).toEqual(['vessel'])
   })
 
+  it('projects SSE move when runtime Site display name carries a CAD suffix', async () => {
+    const platform = materialAggregate('hydration_platform', {
+      sites: [
+        materialSite('deck-4-pending', 'hydration_platform', 'deck_4 · 待确认')
+      ]
+    })
+    const plate = materialAggregate('reaction_plate', {
+      placement: {
+        kind: 'site',
+        parentId: 'cad_plate_rack_a',
+        siteId: 'loading-site',
+        offsetPose: {
+          positionMm: [0, 0, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      }
+    })
+    const rack = materialAggregate('cad_plate_rack_a', {
+      sites: [materialSite('loading-site', 'cad_plate_rack_a', 'loading_5', ['reaction_plate'])]
+    })
+    const getGraph = vi.fn(async () => [platform, rack, plate])
+    const store = createMaterialStore({
+      scope: { kind: 'singleton' },
+      graph: materialGraphPort({ getGraph }),
+      requireCapability: allowCapabilities('material.readGraph')
+    })
+    await store.getState().loadGraph()
+
+    store.getState().applyRemoteMove({
+      id: 'deck-4-move',
+      materialId: 'reaction_plate',
+      toParentId: 'hydration_platform',
+      toSite: 'deck_4'
+    })
+
+    expect(getGraph).toHaveBeenCalledTimes(1)
+    expect(store.getState().aggregatesById['reaction_plate'].placement).toEqual({
+      kind: 'site',
+      parentId: 'hydration_platform',
+      siteId: 'deck-4-pending',
+      offsetPose: {
+        positionMm: [0, 0, 0],
+        rotationDegXYZ: [0, 0, 0]
+      }
+    })
+  })
+
   it('resets graph, previews and temporal history together', async () => {
     const initial = materialAggregate('robot')
     const moved = materialAggregate('robot', { revision: 2 })

@@ -164,11 +164,16 @@ export class DeviceCardManager {
         }
         const projectDir = await this.assertPackageCardProject(input.projectDir)
         await this.closePackageWorkspace()
+        const contextAuthority = input.contextAuthority
+          ?? (input.context ? 'host' : 'project-preview')
+        if (contextAuthority === 'host' && !input.context) {
+          throw new Error('Host 模式打开领域包卡片需要提供 OS Authoring Context。')
+        }
         this.packageWorkspace = await createDeviceCardWorkspace({
           projectDir,
           workRoot: this.options.workspaceRoot,
           authoringContext: input.context,
-          contextAuthority: 'host',
+          contextAuthority,
           watch: false
         })
         return this.packageWorkspace.getStatus()
@@ -688,12 +693,34 @@ async function discoverPackageCardProjects(
         await readFile(join(projectDir, 'card.manifest.json'), 'utf8')
       ) as unknown
       if (!isPackageCardManifest(manifest)) continue
+      const authoringContext = await readPackageAuthoringContext(projectDir)
+      const mockState = await readPackageMockState(projectDir)
       projects.push({
         projectDir: await realpath(projectDir),
         id: manifest.id,
         version: manifest.version,
         title: manifest.title,
-        deviceTypes: [...manifest.deviceTypes]
+        deviceTypes: [...manifest.deviceTypes],
+        ...(authoringContext?.deviceId
+          ? { deviceId: authoringContext.deviceId }
+          : {}),
+        ...(authoringContext
+          ? {
+              authoringPreview: {
+                deviceTypeId: authoringContext.deviceTypeId,
+                ...(authoringContext.deviceId
+                  ? { deviceId: authoringContext.deviceId }
+                  : {}),
+                title: authoringContext.title,
+                actions: [...authoringContext.actions],
+                stateSchema: { ...authoringContext.stateSchema },
+                sampleState: {
+                  ...authoringContext.sampleState,
+                  ...mockState
+                }
+              }
+            }
+          : {})
       })
     } catch {
       // 不完整的源码目录不进入发现结果，由卡片检查命令单独报告。
@@ -721,9 +748,40 @@ function isPackageCardManifest(value: unknown): value is {
 
 function isPackageCardOpenInput(value: unknown): value is {
   projectDir: string
-  context: DeviceCardAuthoringContext
+  context?: DeviceCardAuthoringContext
+  contextAuthority?: 'host' | 'project-preview'
 } {
   return isPlainRecord(value)
     && typeof value.projectDir === 'string'
-    && isAuthoringContext(value.context)
+    && (value.context === undefined || isAuthoringContext(value.context))
+    && (value.contextAuthority === undefined
+      || value.contextAuthority === 'host'
+      || value.contextAuthority === 'project-preview')
+    && (value.contextAuthority !== 'host' || isAuthoringContext(value.context))
+}
+
+async function readPackageAuthoringContext(
+  projectDir: string
+): Promise<DeviceCardAuthoringContext | undefined> {
+  try {
+    const raw: unknown = JSON.parse(
+      await readFile(join(projectDir, 'authoring-context.json'), 'utf8')
+    )
+    return isAuthoringContext(raw) ? raw : undefined
+  } catch {
+    return undefined
+  }
+}
+
+async function readPackageMockState(
+  projectDir: string
+): Promise<Record<string, unknown>> {
+  try {
+    const raw: unknown = JSON.parse(
+      await readFile(join(projectDir, 'mock.json'), 'utf8')
+    )
+    return isPlainRecord(raw) ? raw : {}
+  } catch {
+    return {}
+  }
 }

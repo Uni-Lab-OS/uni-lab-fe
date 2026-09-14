@@ -283,7 +283,8 @@ const api = {
         ipcRenderer.invoke('device-cards:package:discover', workspacePath),
       open: (input: {
         projectDir: string
-        context: DeviceCardAuthoringContext
+        context?: DeviceCardAuthoringContext
+        contextAuthority?: 'host' | 'project-preview'
       }): Promise<DeviceCardWorkspaceStatus> =>
         ipcRenderer.invoke('device-cards:package:open', input),
       preview: (request: OpenDeviceCardWorkspaceRequest): Promise<void> =>

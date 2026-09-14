@@ -3,7 +3,8 @@ import { createStore, type StoreApi } from 'zustand/vanilla'
 import {
   buildMaterialGraphIndex,
   assertValidMaterialGraph,
-  MaterialRuleError
+  MaterialRuleError,
+  siteMatchesSlotReference
 } from './rules'
 import {
   authoringSnapshot,
@@ -191,11 +192,8 @@ export function createMaterialStore(
         const nextMoving = next[event.materialId]
         const nextTarget = next[event.toParentId]
         const targetSite = event.toSite
-          ? nextTarget.sites.find(
-              (site) =>
-                site.id === event.toSite ||
-                site.key === event.toSite ||
-                site.name === event.toSite
+          ? nextTarget.sites.find((site) =>
+              siteMatchesSlotReference(site, event.toSite!)
             )
           : undefined
         if (event.toSite && !targetSite) {

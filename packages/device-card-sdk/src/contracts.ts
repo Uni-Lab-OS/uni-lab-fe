@@ -132,6 +132,16 @@ export interface InstalledDeviceCard {
   installedAt: string
 }
 
+/** 领域包卡片 ``authoring-context.json`` 与 ``mock.json`` 合成的离线预览快照。 */
+export interface DevicePackageCardAuthoringPreview {
+  deviceTypeId: string
+  deviceId?: string
+  title: string
+  actions: DeviceCardActionContract[]
+  stateSchema: Record<string, unknown>
+  sampleState: Record<string, unknown>
+}
+
 /** 当前领域包按约定目录发布、可由桌面 Workbench 构建的设备卡片源码。 */
 export interface DevicePackageCardProject {
   projectDir: string
@@ -139,6 +149,10 @@ export interface DevicePackageCardProject {
   version: string
   title: string
   deviceTypes: string[]
+  /** 来自 ``authoring-context.json``，供 Backend 不可用时离线匹配设备。 */
+  deviceId?: string
+  /** 供 Workbench 在无运行实例时渲染 mock 预览界面。 */
+  authoringPreview?: DevicePackageCardAuthoringPreview
 }
 
 export interface DeviceCardBounds {

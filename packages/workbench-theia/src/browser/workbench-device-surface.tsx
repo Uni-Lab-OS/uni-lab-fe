@@ -195,12 +195,20 @@ export function WorkbenchDeviceSurface({
         if (disposed) return
 
         const match = matchWorkspaceDeviceCard(projects, devices)
-        setMatchedDeviceId(match?.deviceId ?? null)
         if (match) {
+          setMatchedDeviceId(match.deviceId)
           setDiscoveryError(null)
           return
         }
 
+        const offlineProject = matchPackageCardProjectForDiscovery(projects)
+        if (devices.length === 0 && offlineProject?.deviceId) {
+          setMatchedDeviceId(offlineProject.deviceId)
+          setDiscoveryError(null)
+          return
+        }
+
+        setMatchedDeviceId(null)
         setDiscoveryError(
           devices.length === 0
             ? '设备目录尚未就绪，卡片界面已预加载，等待 OS 会话…'
@@ -334,6 +342,14 @@ export function matchWorkspaceDeviceCard(
     if (device) return { projectId: project.id, deviceId: device.deviceId }
   }
   return null
+}
+
+/** Backend 尚无运行实例时，用卡片项目内声明的 deviceId 预匹配。 */
+export function matchPackageCardProjectForDiscovery(
+  projects: readonly DevicePackageCardProject[]
+): DevicePackageCardProject | null {
+  if (projects.length === 1) return projects[0] ?? null
+  return projects.find((project) => Boolean(project.deviceId?.trim())) ?? null
 }
 
 /** 返回桌面外壳公开的领域包设备卡片发现接口。 */
