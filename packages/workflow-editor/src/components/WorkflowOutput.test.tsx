@@ -46,7 +46,10 @@ describe('WorkflowOutput', () => {
     )), 'utf8')
 
     expect(stylesheet).toMatch(
-      /workflow-output-panel-nodes\.is-node-details-collapsed\)[\s\S]*workflow-runtime__node-list\)[\s\S]*max-height:\s*none;[\s\S]*flex:\s*1 1 auto;/u
+      /workflow-output-panel-nodes\.is-node-details-collapsed\)[\s\S]*workflow-runtime__node-list\)[\s\S]*max-height:\s*none;[\s\S]*flex:\s*1 1 auto;[\s\S]*grid-auto-rows:\s*54px;[\s\S]*align-content:\s*start;/u
+    )
+    expect(stylesheet).toMatch(
+      /workflow-output-panel-nodes\.is-node-details-collapsed\)[\s\S]*workflow-runtime__node-list\) button\s*\{[^}]*height:\s*54px;/u
     )
     expect(stylesheet).not.toMatch(
       /workflow-runtime__node-details\.is-collapsed\)\s*\{[^}]*margin-top:\s*auto;/u

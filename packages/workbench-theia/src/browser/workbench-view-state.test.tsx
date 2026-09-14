@@ -155,6 +155,27 @@ describe('Workbench domain view presentation', () => {
     ])
   })
 
+  /** 证明工作流任务列表是独立主区，离开后可回到工作流编排。 */
+  it('opens workflow Tasks as an exclusive Backend projection', () => {
+    const state = new WorkbenchViewState()
+    const listener = vi.fn()
+    state.onDidChangeMode(listener)
+
+    state.toggle('workflow-tasks')
+
+    expect(state.currentMode).toBe('workflow-tasks')
+    expect(state.isVisible('workflow-tasks')).toBe(true)
+    expect(state.isVisible('workflow')).toBe(false)
+
+    state.toggle('workflow')
+
+    expect(state.currentMode).toBe('workflow')
+    expect(listener.mock.calls).toEqual([
+      ['workflow-tasks'],
+      ['workflow']
+    ])
+  })
+
   it('presents an instrument entry without nesting the other domains', () => {
     const markup = renderToStaticMarkup(
       <DomainEntryPanel
@@ -211,6 +232,7 @@ describe('Workbench domain view presentation', () => {
     )
 
     expect(markup).toContain('data-testid="workflow-surface"')
+    expect(markup).toContain('data-testid="workflow-tasks-surface"')
     expect(markup).toContain('data-testid="material-surface"')
     expect(markup).toContain('data-testid="device-surface"')
     expect(markup).toContain('data-testid="robot-workstation-surface"')

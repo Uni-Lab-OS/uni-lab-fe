@@ -20,7 +20,6 @@ export function WorkbenchDomainLayout({
   workflowTasks,
   material,
   device,
-  operation,
   robotWorkstation
 }: {
   mode: WorkbenchViewMode
@@ -28,7 +27,6 @@ export function WorkbenchDomainLayout({
   workflowTasks: React.ReactNode
   material: React.ReactNode
   device: React.ReactNode
-  operation: React.ReactNode
   robotWorkstation: React.ReactNode
 }): React.JSX.Element {
   const layoutRef = useRef<HTMLDivElement>(null)
@@ -62,8 +60,7 @@ export function WorkbenchDomainLayout({
     setBoundedPercent(primaryPercent + (event.key === 'ArrowLeft' ? -5 : 5))
   }, [setBoundedPercent, primaryPercent])
 
-  const split = mode === 'split' || mode === 'workflow-management-material' ||
-    mode === 'device-material'
+  const split = mode === 'split' || mode === 'device-material'
   const splitStyle = split
     ? {
         gridTemplateColumns:
@@ -71,14 +68,11 @@ export function WorkbenchDomainLayout({
           + `minmax(0, ${100 - primaryPercent}fr)`
       }
     : undefined
-  const workflowVisible = mode === 'workflow' ||
-    mode === 'workflow-management' || mode === 'split' ||
-    mode === 'workflow-management-material'
+  const workflowVisible = mode === 'workflow' || mode === 'split'
   const workflowTasksVisible = mode === 'workflow-tasks'
   const materialVisible = mode === 'material' || mode === 'split' ||
-    mode === 'workflow-management-material' || mode === 'device-material'
+    mode === 'device-material'
   const deviceVisible = mode === 'device' || mode === 'device-material'
-  const operationVisible = mode === 'operation'
   const robotWorkstationVisible = isRobotWorkbenchViewMode(mode)
 
   return (
@@ -111,9 +105,7 @@ export function WorkbenchDomainLayout({
         role="separator"
         aria-label={mode === 'device-material'
           ? '调整仪器设备与物料窗口宽度'
-          : mode === 'workflow-management-material'
-            ? '调整工作流管理与物料管理窗口宽度'
-            : '调整工作流与物料窗口宽度'}
+          : '调整工作流与物料窗口宽度'}
         aria-orientation="vertical"
         aria-valuemin={MIN_PRIMARY_PERCENT}
         aria-valuemax={MAX_PRIMARY_PERCENT}
@@ -151,15 +143,6 @@ export function WorkbenchDomainLayout({
         inert={!robotWorkstationVisible}
       >
         {robotWorkstation}
-      </div>
-      <div
-        className={`unilab-workbench__domain-slot is-operation${
-          operationVisible ? '' : ' is-inactive'
-        }`}
-        aria-hidden={!operationVisible}
-        inert={!operationVisible}
-      >
-        {operation}
       </div>
     </main>
   )

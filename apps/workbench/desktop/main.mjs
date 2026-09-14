@@ -1,10 +1,5 @@
 import { spawn } from 'node:child_process'
-import {
-  appendFileSync,
-  createWriteStream,
-  existsSync,
-  mkdirSync
-} from 'node:fs'
+import { appendFileSync, createWriteStream, mkdirSync } from 'node:fs'
 import {
   access,
   mkdir,
@@ -30,6 +25,7 @@ import {
   workbenchEnvironmentPathEntries
 } from '../scripts/workbench-launch.mjs'
 import { createRemoteWorkbenchController } from '../scripts/remote-controller.mjs'
+import { showWorkspaceDirectoryDialog } from '../scripts/workspace-dialog.mjs'
 import {
   normalizeWorkbenchLaunchConfig,
   recentWorkspaceForPath,
@@ -138,7 +134,7 @@ async function startPackagedWorkbench() {
   process.env['ESBUILD_BINARY_PATH'] = resources.esbuildBinary
   if (hasExplicitWorkspace) {
     try {
-      const activation = await workspaceController.openPath(
+      const activation = await workspaceController.openExplicit(
         parsed.workspace
       )
       process.env['UNILAB_DESKTOP_RENDERER_URL'] = activation.rendererUrl
@@ -178,12 +174,9 @@ function resolvePackagedResources() {
         'index.js'
       ),
       welcomePage: path.join(workbench, 'desktop', 'welcome.html'),
-      // The Electron executable must only host the desktop shell.  Running
-      // the Theia backend with it loads native Node addons (for example
-      // drivelist.node) against Electron's ABI and can crash with SIGSEGV on
-      // macOS.  Development launches normally inherit the real Node binary
-      // from pnpm or PATH; use that instead of Electron as a fallback.
-      nodeBinary: resolveDevelopmentNodeBinary(),
+      nodeBinary: process.env['UNILAB_NODE']
+        ?? process.env['npm_node_execpath']
+        ?? process.execPath,
       esbuildBinary: process.env['ESBUILD_BINARY_PATH']
         ?? path.join(repositoryRoot, 'node_modules', '.bin', 'esbuild'),
       brandIcon: path.join(
@@ -243,35 +236,6 @@ function resolvePackagedResources() {
   }
 }
 
-function resolveDevelopmentNodeBinary() {
-  const configured = [
-    process.env['UNILAB_NODE'],
-    process.env['npm_node_execpath']
-  ]
-    .map(value => value?.trim())
-    .filter(Boolean)
-  for (const candidate of configured) {
-    if (!isElectronExecutable(candidate)) return path.resolve(candidate)
-  }
-
-  const executableName = process.platform === 'win32' ? 'node.exe' : 'node'
-  for (const directory of (process.env.PATH ?? '').split(path.delimiter)) {
-    if (!directory) continue
-    const candidate = path.join(directory, executableName)
-    if (existsSync(candidate)) return candidate
-  }
-
-  if (!isElectronExecutable(process.execPath)) return process.execPath
-  throw new Error(
-    '未找到可用于启动 Theia Backend 的 Node 运行时，请设置 UNILAB_NODE。'
-  )
-}
-
-function isElectronExecutable(candidate) {
-  const name = path.basename(candidate).toLowerCase()
-  return name === 'electron' || name === 'electron.exe'
-}
-
 async function readPackagedAgentVersion(payloadPath) {
   let payload
   try {
@@ -305,16 +269,11 @@ function createPackagedWorkspaceController(options) {
   const controller = Object.freeze({
     welcomeUrl: options.welcomeUrl,
     getSnapshot,
-    chooseAndOpen: (kind, entryMode) => exclusively(
-      () => chooseAndOpen(kind, entryMode)
-    ),
-    openRecent: (workspacePath, entryMode) => exclusively(
-      () => openRecent(workspacePath, entryMode)
-    ),
-    openPath: (workspacePath, entryMode) => exclusively(() => activateWorkspace(
+    chooseAndOpen: kind => exclusively(() => chooseAndOpen(kind)),
+    openRecent: workspacePath => exclusively(() => openRecent(workspacePath)),
+    openExplicit: workspacePath => exclusively(() => activateWorkspace(
       workspacePath,
       {
-        entryMode,
         pythonEnvironment: options.explicitEnvironment,
         osProject: options.explicitOsProject
       }
@@ -343,22 +302,20 @@ function createPackagedWorkspaceController(options) {
     return next
   }
 
-  async function chooseAndOpen(kind, entryMode = 'debug') {
-    const selection = await dialog.showOpenDialog({
-      title: kind === 'create' ? '新建 UniLab 工作区' : '打开 UniLab 工作区',
-      buttonLabel: kind === 'create' ? '创建并打开' : '打开',
-      properties: kind === 'create'
-        ? ['openDirectory', 'createDirectory', 'promptToCreate']
-        : ['openDirectory', 'createDirectory']
+  async function chooseAndOpen(kind) {
+    const selection = await showWorkspaceDirectoryDialog({
+      dialog,
+      BrowserWindow,
+      kind
     })
     if (selection.canceled || selection.filePaths.length !== 1) return null
-    return activateWorkspace(selection.filePaths[0], { entryMode })
+    return activateWorkspace(selection.filePaths[0])
   }
 
-  async function openRecent(workspacePath, entryMode = 'debug') {
+  async function openRecent(workspacePath) {
     const recent = recentWorkspaceForPath(config, workspacePath)
     if (!recent) throw failWorkspaceStart('最近工作区记录不存在或已失效。')
-    return activateWorkspace(recent.path, { entryMode })
+    return activateWorkspace(recent.path)
   }
 
   async function activateWorkspace(workspaceCandidate, explicit = {}) {
@@ -443,8 +400,7 @@ function createPackagedWorkspaceController(options) {
       const rendererUrl = createWorkbenchRendererUrl({
         port,
         workspace,
-        workflowUuid: options.parsed.workflowUuid,
-        entryMode: explicit.entryMode
+        workflowUuid: options.parsed.workflowUuid
       })
       await waitForWorkbench(rendererUrl, child, STARTUP_TIMEOUT_MS)
       candidateRemoteController = createPackagedRemoteController({

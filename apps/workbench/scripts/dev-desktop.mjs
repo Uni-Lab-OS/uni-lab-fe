@@ -4,7 +4,7 @@
  * Initial assets still come from `pnpm build:desktop`. This script then runs:
  * - `@unilab/workbench-theia` tsc watch (extension lib/)
  * - `theia build --watch` (browser/node bundles; picks up package `src` exports)
- * - the dynamic Electron Workbench launcher (welcome page + per-workspace Backend)
+ * - `start-workbench.mjs --desktop`
  *
  * UI package edits rebuild through Theia watch; refresh the Electron window after
  * the bundle finishes. Electron main/preload still need a full desktop rebuild.
@@ -19,14 +19,14 @@ import { theiaBuildEnvironment } from './theia-build-environment.mjs'
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const workbenchDirectory = path.resolve(scriptDirectory, '..')
 const workspaceRoot = path.resolve(workbenchDirectory, '../..')
+const startScript = path.join(scriptDirectory, 'start-workbench.mjs')
 const theiaBuildScript = path.join(scriptDirectory, 'run-theia-build.mjs')
-const electronExecutable = createRequire(
-  path.join(workbenchDirectory, 'package.json')
-)('electron')
 const productionBuildFlag = '--production-build'
+const welcomeFlag = '--welcome'
 const productionBuild = process.argv.includes(productionBuildFlag)
+const welcome = process.argv.includes(welcomeFlag)
 const forwardedArguments = process.argv.slice(2)
-  .filter(argument => argument !== productionBuildFlag)
+  .filter(argument => ![productionBuildFlag, welcomeFlag].includes(argument))
 const watchMode = productionBuild ? 'production' : 'development'
 const pnpmExecutable = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 
@@ -74,12 +74,29 @@ try {
     '[watch/node] Finished with 0 errors'
   ])
   if (!stopping) {
-    start('desktop', electronExecutable, [
-      workbenchDirectory,
-      ...forwardedArguments
-    ], {
-      cwd: workbenchDirectory
-    })
+    if (welcome) {
+      const workbenchRequire = createRequire(
+        path.join(workbenchDirectory, 'package.json')
+      )
+      const electronExecutable = workbenchRequire('electron')
+      const desktopEnvironment = { ...process.env }
+      delete desktopEnvironment.ELECTRON_RUN_AS_NODE
+      start('desktop', electronExecutable, [
+        workbenchDirectory,
+        ...forwardedArguments
+      ], {
+        cwd: workbenchDirectory,
+        env: desktopEnvironment
+      })
+    } else {
+      start('desktop', process.execPath, [
+        startScript,
+        '--desktop',
+        ...forwardedArguments
+      ], {
+        cwd: workbenchDirectory
+      })
+    }
   }
 } catch (error) {
   if (!stopping) {

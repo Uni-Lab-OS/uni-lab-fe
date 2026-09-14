@@ -40,6 +40,7 @@ export interface MaterialObliqueCanvasProps {
    */
   shapes?: MaterialShapeLibrary
   showSites?: boolean
+  showMaterialLabels?: boolean
   materialTransferRoutes?: readonly MaterialTransferOverlayRoute[]
   selectedMaterialIds?: readonly MaterialId[]
   highlightedMaterialIds?: readonly MaterialId[]
@@ -57,6 +58,7 @@ export function MaterialObliqueCanvas({
   aggregates,
   shapes,
   showSites = true,
+  showMaterialLabels = true,
   materialTransferRoutes = [],
   selectedMaterialIds = [],
   highlightedMaterialIds = [],
@@ -148,6 +150,7 @@ export function MaterialObliqueCanvas({
       data-camera-zoom={camera.zoom.toFixed(2)}
       data-material-oblique-view
       data-site-layer-visible={showSites}
+      data-material-label-layer-visible={showMaterialLabels}
       data-semantic-zoom={semanticZoom}
       role="region"
       onKeyDown={(event) => {
@@ -270,6 +273,7 @@ export function MaterialObliqueCanvas({
                 selected={isSelected}
                 highlighted={isHighlighted}
                 showSites={showSites}
+                showMaterialLabels={showMaterialLabels}
                 labelScale={1 / camera.zoom}
                 labelOffsetY={landmarkOffsets.get(object.materialId) ?? 0}
                 showTag={showTag}

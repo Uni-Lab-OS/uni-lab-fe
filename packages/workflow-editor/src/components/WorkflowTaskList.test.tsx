@@ -1,11 +1,16 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-import type { WorkflowRuntimePort } from '@unilab/services'
+import type {
+  WorkflowExecutionTask,
+  WorkflowRuntimePort
+} from '@unilab/services'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
 import { WorkflowTaskList } from './WorkflowTaskList'
+import { WorkflowTaskListFailure } from './WorkflowTaskListErrorBoundary'
+import { WorkflowTaskQueueControls } from './WorkflowTaskQueueControls'
 
 describe('WorkflowTaskList', () => {
   /** 首帧应立即提供任务页身份、筛选入口与诚实的加载状态。 */
@@ -13,7 +18,6 @@ describe('WorkflowTaskList', () => {
     const markup = renderToStaticMarkup(
       <WorkflowTaskList
         runtime={{} as WorkflowRuntimePort}
-        pollIntervalMs={0}
       />
     )
 
@@ -21,6 +25,7 @@ describe('WorkflowTaskList', () => {
     expect(markup).toContain('搜索工作流、Task UUID 或状态')
     expect(markup).toContain('正在读取工作流任务')
     expect(markup).toContain('aria-label="工作流任务状态"')
+    expect(markup).toContain('运行变化会实时补读')
   })
 
   it('supports resizing the task detail pane without showing run mode copy', () => {
@@ -44,4 +49,104 @@ describe('WorkflowTaskList', () => {
       /workflow-task-list__splitter\)[\s\S]*cursor:\s*col-resize;/u
     )
   })
+
+  it('provides distinct, accessible empty and filtered fallback states', () => {
+    const source = readFileSync(fileURLToPath(new URL(
+      './WorkflowTaskList.tsx',
+      import.meta.url
+    )), 'utf8')
+    const stylesheet = readFileSync(fileURLToPath(new URL(
+      './_workflow-task-list-state.scss',
+      import.meta.url
+    )), 'utf8')
+    const stateSource = readFileSync(fileURLToPath(new URL(
+      './WorkflowTaskListState.tsx',
+      import.meta.url
+    )), 'utf8')
+
+    expect(source).toContain(
+      "kind={workflowTaskItemCount > 0 ? 'filtered' : 'empty'}"
+    )
+    expect(source).toContain('还没有工作流任务')
+    expect(source).toContain('前往“工作流”选择流程并启动运行。')
+    expect(source).toContain('清除搜索与筛选')
+    expect(stateSource).toContain(
+      "aria-live={error ? 'assertive' : 'polite'}"
+    )
+    expect(stateSource).toContain('aria-hidden="true"')
+    expect(stylesheet).toContain('workflow-task-list__state-visual')
+    expect(stylesheet).toContain('@media (prefers-reduced-motion: reduce)')
+  })
+
+  it('limits the page to workflow executions and installs a render fallback', () => {
+    const source = readFileSync(fileURLToPath(new URL(
+      './WorkflowTaskList.tsx',
+      import.meta.url
+    )), 'utf8')
+    const boundarySource = readFileSync(fileURLToPath(new URL(
+      './WorkflowTaskListErrorBoundary.tsx',
+      import.meta.url
+    )), 'utf8')
+
+    expect(source).toContain("execution_kind: 'workflow'")
+    expect(source).toContain('isWorkflowExecutionTask')
+    expect(source).toContain('<WorkflowTaskListErrorBoundary')
+    expect(boundarySource).toContain('static getDerivedStateFromError')
+    const failureMarkup = renderToStaticMarkup(
+      <WorkflowTaskListFailure onRetry={() => undefined} />
+    )
+    expect(failureMarkup).toContain('工作流任务列表显示异常')
+    expect(failureMarkup).toContain('重新加载任务列表')
+    expect(failureMarkup).toContain('role="alert"')
+  })
+
+  /** 已进入队列的任务仍应按 Backend 权威状态提供暂停或继续入口。 */
+  it('exposes pause and resume controls for queued workflow tasks', () => {
+    const runtime = {} as WorkflowRuntimePort
+    const activeTask = workflowExecutionTask({
+      status: 'running',
+      control_status: 'active'
+    })
+    const pausedTask = workflowExecutionTask({
+      status: 'running',
+      control_status: 'paused'
+    })
+
+    expect(renderToStaticMarkup(
+      <WorkflowTaskQueueControls
+        runtime={runtime}
+        task={activeTask}
+        onReconcile={async () => undefined}
+      />
+    )).toContain('暂停')
+    expect(renderToStaticMarkup(
+      <WorkflowTaskQueueControls
+        runtime={runtime}
+        task={pausedTask}
+        onReconcile={async () => undefined}
+      />
+    )).toContain('继续')
+  })
 })
+
+function workflowExecutionTask(
+  patch: Partial<WorkflowExecutionTask>
+): WorkflowExecutionTask {
+  return {
+    uuid: 'task-1',
+    create_time: '2026-08-26T00:00:00Z',
+    update_time: '2026-08-26T00:00:00Z',
+    meta_data: {},
+    execution_kind: 'workflow',
+    workflow_uuid: 'workflow-1',
+    status: 'running',
+    workflow_snapshot: {},
+    execution_plan: {},
+    run_mode: 'normal',
+    control_status: 'active',
+    cleanup_status: 'pending',
+    trace_context: {},
+    error_info: [],
+    ...patch
+  }
+}

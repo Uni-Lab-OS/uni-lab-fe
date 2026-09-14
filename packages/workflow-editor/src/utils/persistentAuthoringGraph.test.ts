@@ -7,8 +7,7 @@ import {
   parseWorkflowAuthoringGraphImport,
   projectPersistentAuthoringGraph,
   updatePersistentAuthoringNodeDisabled,
-  updatePersistentAuthoringNodeName,
-  updatePersistentAuthoringNodePosition
+  updatePersistentAuthoringNodeName
 } from './persistentAuthoringGraph'
 import { projectNestedWorkflow } from './canonicalWorkflow'
 
@@ -24,28 +23,27 @@ const graph: WorkflowAuthoringGraph = {
 }
 
 describe('persistent Authoring canvas graph edits', () => {
-  it('persists one moved node without rebuilding or flattening its pose', () => {
-    const source: WorkflowAuthoringGraph = {
+  /** 画布投影必须保留物料来源（MaterialSource）的保管策略中文语义入口。 */
+  it('把物料保管策略投影到画布节点', () => {
+    const projected = projectPersistentAuthoringGraph({
       ...graph,
-      nodes: graph.nodes.map((node, index) => index === 0
-        ? {
-            ...node,
-            pose: { frame: 'workflow', position: { x: 12, y: 24, z: 9 } }
-          }
-        : node)
-    }
-    const updated = updatePersistentAuthoringNodePosition(
-      source,
-      'node-1',
-      { x: 320, y: 180 }
-    )
-
-    expect(updated.nodes[0]).toMatchObject({
-      pose: { frame: 'workflow', position: { x: 320, y: 180, z: 9 } }
+      nodes: [{
+        uuid: 'shared-reagent-source',
+        name: 'shared_reagent',
+        type: 'material_source',
+        param: {
+          mode: 'existing',
+          flow_role: 'reagent',
+          custody_policy: 'shared_source',
+          mount: { uuid: 'mount-1' },
+          resource_template_uuid: 'reagent-template'
+        }
+      }]
     })
-    expect(updated.nodes[1]).toBe(source.nodes[1])
-    expect(source.nodes[0]).toMatchObject({
-      pose: { position: { x: 12, y: 24, z: 9 } }
+
+    expect(projected.nodes[0]?.materialSource).toMatchObject({
+      flowRole: 'reagent',
+      custodyPolicy: 'shared_source'
     })
   })
 

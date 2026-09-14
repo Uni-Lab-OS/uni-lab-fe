@@ -1,0 +1,108 @@
+.workflow :global(.workflow-task-list__state) {
+  display: flex;
+  min-height: 180px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+  padding: 28px;
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-canvas);
+  text-align: center;
+}
+
+.workflow :global(.workflow-task-list__state-visual) {
+  display: grid;
+  box-sizing: border-box;
+  width: 68px;
+  height: 68px;
+  place-items: center;
+  color: var(--unilab-color-primary);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-lg);
+  background: var(--unilab-color-primary-soft);
+}
+
+.workflow :global(.workflow-task-list__state-visual) svg {
+  width: 38px;
+  height: 38px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.workflow :global(.workflow-task-list__state-spinner) {
+  box-sizing: border-box;
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--unilab-color-border-strong);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: workflow-task-list-spin 800ms linear infinite;
+}
+
+.workflow :global(.workflow-task-list__state-copy) {
+  display: flex;
+  max-width: 520px;
+  align-items: center;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.workflow :global(.workflow-task-list__state-copy) strong {
+  color: var(--unilab-color-text);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.workflow :global(.workflow-task-list__state-copy) > span {
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.workflow :global(.workflow-task-list__state-hint) {
+  margin-top: 3px;
+  color: var(--unilab-color-text);
+  font-weight: 600;
+}
+
+.workflow :global(.workflow-task-list__state.is-filtered) :global(.workflow-task-list__state-visual) {
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-surface-subtle);
+}
+
+.workflow :global(.workflow-task-list__state.is-error) {
+  color: var(--unilab-color-danger);
+}
+
+.workflow :global(.workflow-task-list__state.is-error) :global(.workflow-task-list__state-visual) {
+  color: var(--unilab-color-danger);
+  border-color: var(--unilab-color-danger-soft);
+  background: var(--unilab-color-danger-soft);
+}
+
+@keyframes workflow-task-list-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow :global(.workflow-task-list__state-spinner) {
+    animation: none;
+  }
+}
+
+@container (max-width: 520px) {
+  .workflow :global(.workflow-task-list__state) {
+    padding-inline: 20px;
+  }
+
+  .workflow :global(.workflow-task-list__state-visual) {
+    width: 60px;
+    height: 60px;
+  }
+}

@@ -139,6 +139,7 @@ function snapshot(
     phase,
     message: phase,
     configuredGraphPath: 'deployment/graphs/szlab-plc-sim-local.json',
+    graphDeclaration: null,
     configuredExternalDevicesOnly: true,
     configuredRuntimeMode: 'normal',
     configuredDomainMode: 'local',

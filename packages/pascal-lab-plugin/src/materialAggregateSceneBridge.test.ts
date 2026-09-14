@@ -15,6 +15,7 @@ import {
   isLabDeviceNode,
   isLabMaterialTransferLayerNode
 } from './schema'
+import { generatedBoundingBoxCenter } from './renderers/generatedBoundingBox'
 
 describe('Material Aggregate / Pascal bridge', () => {
   it('projects Backend floor-plane sizes into Pascal dimensions', () => {
@@ -62,6 +63,8 @@ describe('Material Aggregate / Pascal bridge', () => {
             path: '/assets/robot.xacro',
             macro: 'szlab_mixer_robot',
             meshDir: '/assets/robot/models',
+            position: [0.01, 0.02, 0.03],
+            rotation: [0.1, 0.2, 0.3],
             attachPoints: [{ link: 'tool0' }]
           }
         }
@@ -88,8 +91,11 @@ describe('Material Aggregate / Pascal bridge', () => {
       path: '/assets/robot.xacro',
       format: 'xacro',
       macro: 'szlab_mixer_robot',
-      meshDir: '/assets/robot/models'
+      meshDir: '/assets/robot/models',
+      position: [0.01, 0.02, 0.03],
+      rotation: [0.1, 0.2, 0.3]
     })
+    expect(node).not.toHaveProperty('materialKind')
     expect(node.model.attachPoints.map((point) => point.link)).toEqual([
       'tool0'
     ])
@@ -104,6 +110,23 @@ describe('Material Aggregate / Pascal bridge', () => {
     expect(site).not.toHaveProperty('camera')
     expect(scene.nodes.level_unilab).not.toHaveProperty('camera')
     expect(sceneGraphToMaterialMoves(scene, [robot])).toEqual([])
+  })
+
+  it('projects the shared material-label intent without changing domain data', () => {
+    const robot = aggregate('robot')
+    const visibleScene = materialAggregatesToSceneGraph([robot])
+    const hiddenScene = materialAggregatesToSceneGraph([robot], {
+      showMaterialLabels: false
+    })
+    const visibleNode = visibleScene.nodes['lab-robot']
+    const hiddenNode = hiddenScene.nodes['lab-robot']
+
+    expect(isLabDeviceNode(visibleNode)).toBe(true)
+    expect(isLabDeviceNode(hiddenNode)).toBe(true)
+    if (!isLabDeviceNode(visibleNode) || !isLabDeviceNode(hiddenNode)) return
+    expect(visibleNode.showLabel).toBe(true)
+    expect(hiddenNode.showLabel).toBe(false)
+    expect(robot.material).not.toHaveProperty('showLabel')
   })
 
   it('turns a world-space Pascal drag into a canonical placement command', () => {
@@ -275,7 +298,7 @@ describe('Material Aggregate / Pascal bridge', () => {
       anchor: { kind: 'root' },
       poseInAnchor: {
         positionMm: [90, 80, 150],
-        rotationDegXYZ: [0, 0, 0]
+        rotationDegXYZ: [0, 0, 72]
       },
       sizeMm: [86, 86, 120],
       capacity: 1,
@@ -303,6 +326,9 @@ describe('Material Aggregate / Pascal bridge', () => {
     expect(node.floorplanSnapshot?.showSites).toBe(true)
     expect(node.floorplanSnapshot?.sites).toHaveLength(1)
     expect(node.floorplanSnapshot?.sites[0]?.occupied).toBe(false)
+    expect(node.floorplanSnapshot?.sites[0]?.rotationDegXYZ).toEqual([
+      0, 0, 72
+    ])
 
     const hoverOnlyScene = materialAggregatesToSceneGraph([warehouse], {
       showSites: false
@@ -313,6 +339,96 @@ describe('Material Aggregate / Pascal bridge', () => {
     }
     expect(hoverOnlyNode.floorplanSnapshot?.showSites).toBe(false)
     expect(hoverOnlyNode.floorplanSnapshot?.sites).toHaveLength(1)
+  })
+
+  it('does not project a rendering-only material_kind split', () => {
+    const carrier = aggregate('carrier', {
+      config: {
+        rendering: {
+          kind: 'warehouse',
+          material_kind: 'resource',
+          dimensionsMm: [265.52, 206, 180.96]
+        }
+      }
+    })
+
+    const scene = materialAggregatesToSceneGraph([carrier])
+    const node = scene.nodes['lab-carrier']
+    if (!isLabDeviceNode(node)) throw new Error('Expected lab device')
+
+    expect(node).not.toHaveProperty('materialKind')
+  })
+
+  it('keeps a rotated resource datum on the node and offsets only its box', () => {
+    const resource = aggregate('rotated-resource', {
+      config: {
+        rendering: {
+          kind: 'warehouse',
+          material_kind: 'resource',
+          dimensionsMm: [265.52, 206, 180.96]
+        }
+      },
+      placement: {
+        kind: 'world',
+        pose: {
+          positionMm: [1000, 2000, 800],
+          rotationDegXYZ: [0, 0, 90]
+        }
+      }
+    })
+
+    const node = materialAggregatesToSceneGraph([resource]).nodes[
+      'lab-rotated-resource'
+    ]
+    if (!isLabDeviceNode(node)) throw new Error('Expected lab device')
+
+    expectTupleCloseTo(node.position, [1, 0.8, -2])
+    expectTupleCloseTo(node.rotation, [0, Math.PI / 2, 0])
+    expect(generatedBoundingBoxCenter(node.dimensions)).toEqual([
+      0.13276, 0.103, -0.09048
+    ])
+  })
+
+  it('keeps a plate node on its Site lower corner under a rotated owner', () => {
+    const mountSite = site('rack', 'site-a', 'A', [100, 200, 0])
+    const rack = aggregate('rack', {
+      sites: [mountSite],
+      placement: {
+        kind: 'world',
+        pose: {
+          positionMm: [1000, 2000, 800],
+          rotationDegXYZ: [0, 0, 90]
+        }
+      }
+    })
+    const plate = aggregate('plate', {
+      config: {
+        rendering: {
+          kind: 'plate',
+          material_kind: 'resource',
+          dimensionsMm: [127.76, 14.4, 85.48]
+        }
+      },
+      placement: {
+        kind: 'site',
+        parentId: 'rack',
+        siteId: 'site-a',
+        offsetPose: {
+          positionMm: [0, 0, 0],
+          rotationDegXYZ: [0, 0, 0]
+        }
+      }
+    })
+
+    const node = materialAggregatesToSceneGraph([rack, plate]).nodes['lab-plate']
+    if (!isLabDeviceNode(node)) throw new Error('Expected lab device')
+
+    // The Material node remains at the rotated Site lower corner. The box
+    // receives its own half-size centre and cannot move the placement datum.
+    expectTupleCloseTo(node.position, [0.8, 0.8, -2.1])
+    expect(generatedBoundingBoxCenter(node.dimensions)).toEqual([
+      0.06388, 0.0072, -0.04274
+    ])
   })
 
   it('links a colocated legacy child to its matching Site helper', () => {
@@ -648,7 +764,8 @@ function site(
   ownerMaterialId: string,
   id: string,
   key: string,
-  positionMm: readonly [number, number, number] = [0, 0, 0]
+  positionMm: readonly [number, number, number] = [0, 0, 0],
+  rotationDegXYZ: readonly [number, number, number] = [0, 0, 0]
 ): MaterialSite {
   return {
     id,
@@ -658,7 +775,7 @@ function site(
     anchor: { kind: 'root' },
     poseInAnchor: {
       positionMm,
-      rotationDegXYZ: [0, 0, 0]
+      rotationDegXYZ
     },
     sizeMm: [40, 40, 100],
     capacity: 1,

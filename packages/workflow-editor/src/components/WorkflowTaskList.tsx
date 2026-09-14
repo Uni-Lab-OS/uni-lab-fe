@@ -10,6 +10,7 @@ import {
 } from 'react'
 
 import type {
+  WorkflowExecutionTask,
   WorkflowRuntimePort,
   WorkflowSummary,
   WorkflowTask,
@@ -18,19 +19,26 @@ import type {
 
 import {
   formatWorkflowTaskDate,
+  isWorkflowExecutionTask,
   shortWorkflowTaskId,
   visibleWorkflowTasks,
   workflowTaskDisplayName,
   type WorkflowTaskListFilter
 } from '../utils/workflowTaskListProjection'
+import {
+  mergeWorkflowTaskPage,
+  subscribeWorkflowTaskListUpdates
+} from '../utils/workflowTaskListRuntime'
 import { workflowTaskStatusLabel } from '../utils/workflowTaskPresentation'
 import { createWorkflowTaskViewRuntime } from '../utils/workflowTaskViewRuntime'
 import { WorkflowButton } from './WorkflowButton'
 import WorkflowPanel from './WorkflowPanel'
+import { WorkflowTaskQueueControls } from './WorkflowTaskQueueControls'
+import { WorkflowTaskListErrorBoundary } from './WorkflowTaskListErrorBoundary'
+import { TaskListState } from './WorkflowTaskListState'
 import styles from './workflow.module.scss'
 
 const TASK_PAGE_SIZE = 100
-const DEFAULT_POLL_INTERVAL_MS = 5_000
 const DEFAULT_TASK_QUEUE_PERCENT = 38
 const MIN_TASK_QUEUE_PERCENT = 30
 const MAX_TASK_QUEUE_PERCENT = 70
@@ -39,8 +47,8 @@ export interface WorkflowTaskListProps {
   runtime: WorkflowRuntimePort
   active?: boolean
   recoveryRevision?: number
-  pollIntervalMs?: number
 }
+
 /**
  * 展示 Backend 权威工作流任务（WorkflowTask）列表与当前任务摘要。
  *
@@ -50,8 +58,24 @@ export interface WorkflowTaskListProps {
 export function WorkflowTaskList({
   runtime,
   active = true,
-  recoveryRevision = 0,
-  pollIntervalMs = DEFAULT_POLL_INTERVAL_MS
+  recoveryRevision = 0
+}: WorkflowTaskListProps): React.JSX.Element {
+  return (
+    <WorkflowTaskListErrorBoundary resetKey={recoveryRevision}>
+      <WorkflowTaskListContent
+        runtime={runtime}
+        active={active}
+        recoveryRevision={recoveryRevision}
+      />
+    </WorkflowTaskListErrorBoundary>
+  )
+}
+
+/** 承载任务列表状态；外层错误边界保证单条异常数据不会卸载整个面板。 */
+function WorkflowTaskListContent({
+  runtime,
+  active = true,
+  recoveryRevision = 0
 }: WorkflowTaskListProps): React.JSX.Element {
   const [taskPage, setTaskPage] = useState<WorkflowTaskPage>({
     items: [],
@@ -66,6 +90,7 @@ export function WorkflowTaskList({
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [realtimeError, setRealtimeError] = useState<string | null>(null)
   const [taskQueuePercent, setTaskQueuePercent] = useState(
     DEFAULT_TASK_QUEUE_PERCENT
   )
@@ -118,16 +143,22 @@ export function WorkflowTaskList({
     setError(null)
     try {
       const [nextPage, workflowPage] = await Promise.all([
-        runtime.listWorkflowTasks({ page: 1, page_size: TASK_PAGE_SIZE }),
+        runtime.listWorkflowTasks({
+          page: 1,
+          page_size: TASK_PAGE_SIZE,
+          execution_kind: 'workflow'
+        }),
         runtime.listWorkflows({ page: 1, page_size: TASK_PAGE_SIZE })
       ])
       if (requestRevision.current !== revision) return
       setTaskPage(nextPage)
       setWorkflows(workflowPage.items)
       setSelectedTaskUuid((current) =>
-        current && nextPage.items.some((task) => task.uuid === current)
+        current && nextPage.items.some((task) =>
+          isWorkflowExecutionTask(task) && task.uuid === current
+        )
           ? current
-          : nextPage.items[0]?.uuid ?? null
+          : nextPage.items.find(isWorkflowExecutionTask)?.uuid ?? null
       )
     } catch (reason: unknown) {
       if (requestRevision.current !== revision) return
@@ -145,17 +176,56 @@ export function WorkflowTaskList({
     void loadTasks(false)
   }, [active, loadTasks, recoveryRevision])
 
+  /**
+   * 安装服务器发送事件（SSE）失效后补读的单个权威任务。
+   *
+   * @param task Backend 返回的最新工作流任务状态。
+   * @returns 无返回值；并行兄弟任务保持在当前列表页中。
+   */
+  const installRealtimeTask = useCallback((task: WorkflowTask): void => {
+    if (!isWorkflowExecutionTask(task)) return
+    setTaskPage((current) => mergeWorkflowTaskPage(current, task))
+    setSelectedTaskUuid((current) => current ?? task.uuid)
+  }, [])
+
+  /** 清除已恢复的任务状态实时连接错误。 */
+  const markRealtimeConnected = useCallback((): void => {
+    setRealtimeError(null)
+  }, [])
+
+  /**
+   * 保留最近一次权威投影，并展示实时状态补读错误。
+   *
+   * @param message 可行动的连接或任务补读错误。
+   * @returns 无返回值；操作者仍可使用手动刷新恢复。
+   */
+  const installRealtimeError = useCallback((message: string): void => {
+    setRealtimeError(message)
+  }, [])
+
   useEffect(() => {
-    if (!active || pollIntervalMs <= 0) return
-    const timer = globalThis.setInterval(() => {
-      void loadTasks(true)
-    }, pollIntervalMs)
-    return () => globalThis.clearInterval(timer)
-  }, [active, loadTasks, pollIntervalMs])
+    if (!active) return
+    const subscription = subscribeWorkflowTaskListUpdates(runtime, {
+      onTask: installRealtimeTask,
+      onOpen: markRealtimeConnected,
+      onError: installRealtimeError
+    })
+    return () => subscription.dispose()
+  }, [
+    active,
+    installRealtimeError,
+    installRealtimeTask,
+    markRealtimeConnected,
+    runtime
+  ])
 
   const visibleTasks = useMemo(
     () => visibleWorkflowTasks(taskPage.items, workflows, query, filter),
     [filter, query, taskPage.items, workflows]
+  )
+  const workflowTaskItemCount = useMemo(
+    () => taskPage.items.filter(isWorkflowExecutionTask).length,
+    [taskPage.items]
   )
   const selectedTask = visibleTasks.find(
     (task) => task.uuid === selectedTaskUuid
@@ -176,7 +246,13 @@ export function WorkflowTaskList({
       <header className="workflow-task-list__header">
         <div>
           <h2>工作流任务</h2>
-          <p>读取 Backend 已持久化的任务状态；运行中任务每 5 秒自动核对。</p>
+          <p
+            className={realtimeError ? 'is-error' : undefined}
+            role={realtimeError ? 'alert' : undefined}
+          >
+            {realtimeError ??
+              '读取 Backend 已持久化的任务状态；运行变化会实时补读。'}
+          </p>
         </div>
         <WorkflowButton
           type="button"
@@ -219,20 +295,40 @@ export function WorkflowTaskList({
       </div>
 
       {loading ? (
-        <TaskListState title="正在读取工作流任务" />
+        <TaskListState
+          kind="loading"
+          title="正在读取工作流任务"
+          detail="正在连接 Backend 并核对任务状态。"
+        />
       ) : error ? (
         <TaskListState
-          error
+          kind="error"
           title="工作流任务列表不可用"
           detail={error}
-          onRetry={() => void loadTasks(false)}
+          actionLabel="重新读取"
+          onAction={() => void loadTasks(false)}
         />
       ) : visibleTasks.length === 0 ? (
         <TaskListState
-          title={taskPage.items.length > 0 ? '没有匹配的任务' : '暂无工作流任务'}
-          detail={taskPage.items.length > 0
-            ? '调整搜索词或状态筛选后重试。'
-            : '从工作流工作台启动一次运行后，任务会显示在这里。'}
+          kind={workflowTaskItemCount > 0 ? 'filtered' : 'empty'}
+          title={workflowTaskItemCount > 0
+            ? '没有匹配的任务'
+            : '还没有工作流任务'}
+          detail={workflowTaskItemCount > 0
+            ? '当前搜索词或状态筛选下没有结果。'
+            : '运行工作流后，任务状态和对应的工作流快照会显示在这里。'}
+          hint={workflowTaskItemCount > 0
+            ? undefined
+            : '前往“工作流”选择流程并启动运行。'}
+          actionLabel={workflowTaskItemCount > 0
+            ? '清除搜索与筛选'
+            : undefined}
+          onAction={workflowTaskItemCount > 0
+            ? () => {
+                setQuery('')
+                setFilter('all')
+              }
+            : undefined}
         />
       ) : (
         <div
@@ -290,6 +386,7 @@ export function WorkflowTaskList({
                 workflowNames
               )}
               active={active}
+              onReconcile={() => loadTasks(true)}
             />
           ) : null}
         </div>
@@ -307,32 +404,6 @@ const TASK_FILTERS: ReadonlyArray<{
   { value: 'failed', label: '异常' },
   { value: 'attention', label: '待处理' }
 ]
-
-/** 渲染任务列表的加载、错误或空状态。 */
-function TaskListState({
-  title,
-  detail,
-  error = false,
-  onRetry
-}: {
-  title: string
-  detail?: string
-  error?: boolean
-  onRetry?: () => void
-}): React.JSX.Element {
-  return (
-    <div
-      className={`workflow-task-list__state${error ? ' is-error' : ''}`}
-      role={error ? 'alert' : 'status'}
-    >
-      <strong>{title}</strong>
-      {detail ? <span>{detail}</span> : null}
-      {onRetry ? (
-        <button type="button" onClick={onRetry}>重新读取</button>
-      ) : null}
-    </div>
-  )
-}
 
 /** 渲染一个带文字证据的工作流任务状态标记。 */
 function TaskStatus({
@@ -364,12 +435,14 @@ function TaskWorkflowPane({
   runtime,
   task,
   workflowName,
-  active
+  active,
+  onReconcile
 }: {
   runtime: WorkflowRuntimePort
-  task: WorkflowTask
+  task: WorkflowExecutionTask
   workflowName: string
   active: boolean
+  onReconcile: () => Promise<void>
 }): React.JSX.Element {
   // 初次选中的任务保留冻结快照；同一任务后续刷新只更新运行状态。
   const [frozenTask] = useState(task)
@@ -393,7 +466,14 @@ function TaskWorkflowPane({
             </time>
           </p>
         </div>
-        <TaskStatus status={task.status} />
+        <div className="workflow-task-list__workflow-actions">
+          <TaskStatus status={task.status} />
+          <WorkflowTaskQueueControls
+            runtime={runtime}
+            task={task}
+            onReconcile={onReconcile}
+          />
+        </div>
       </header>
       <div className="workflow-task-list__workflow-panel">
         <WorkflowPanel

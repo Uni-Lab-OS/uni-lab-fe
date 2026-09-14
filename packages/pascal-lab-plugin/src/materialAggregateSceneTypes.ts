@@ -12,6 +12,7 @@ export interface MaterialSceneProjectionOptions {
   fitSceneRevision?: number
   fitSceneView?: SceneCameraView
   showSites?: boolean
+  showMaterialLabels?: boolean
   showMaterialTransfers?: boolean
   materialTransferRoutes?: readonly MaterialTransferSceneRoute[]
 }

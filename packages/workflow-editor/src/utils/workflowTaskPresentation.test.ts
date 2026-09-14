@@ -1,4 +1,4 @@
-import type { WorkflowTask } from '@unilab/services'
+import type { WorkflowExecutionTask } from '@unilab/services'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -89,13 +89,14 @@ describe('Workflow Task compact debugger presentation', () => {
 })
 
 function workflowTask(
-  override: Partial<WorkflowTask> = {}
-): WorkflowTask {
+  override: Partial<WorkflowExecutionTask> = {}
+): WorkflowExecutionTask {
   return {
     uuid: '10000000-0000-4000-8000-000000000001',
     create_time: '2026-08-02T00:00:00Z',
     update_time: '2026-08-02T00:00:00Z',
     meta_data: {},
+    execution_kind: 'workflow',
     workflow_uuid: '20000000-0000-4000-8000-000000000001',
     status: 'pending',
     workflow_snapshot: {},

@@ -1,74 +1,41 @@
 import { CodeEditor } from '@unilab/code-editor'
-import type { WorkflowDefinitionKind } from '@unilab/services'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 
 import { diagnosticRange } from '../utils/persistentAuthoringSession'
-import { formatAuthoringDiagnostic } from '../utils/workflowAuthoringUserCopy'
 import {
   canRetryWorkflowRuntimeRead,
   workflowRuntimeProblemHeading
 } from '../utils/workflowRuntimeProblem'
-import WorkflowDag, { type WorkflowDagHandle } from './WorkflowDag'
-import { ExperimentOperationStructure } from './ExperimentOperationStructure'
+import WorkflowDag from './WorkflowDag'
+import { WorkflowOutput } from './WorkflowOutput'
 import { WorkflowButton } from './WorkflowButton'
 import { WorkflowCanvasStageHeader } from './WorkflowCanvasStageHeader'
+import { MaterialSourceInspector } from './MaterialSourceInspector'
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
-import { WorkflowOperationCanvasToolbar } from './WorkflowOperationCanvasToolbar'
 import { PersistentWorkflowOverlays } from './PersistentWorkflowOverlays'
-import { PersistentWorkflowRuntimePanel } from './PersistentWorkflowRuntimePanel'
 import { PersistentWorkflowToolbar } from './PersistentWorkflowToolbar'
-import { WorkflowAuthoringLibrary } from './WorkflowAuthoringLibrary'
-import { WorkflowNodeInspector } from './WorkflowNodeInspector'
-import {
-  readWorkflowNodePaletteDragPayload,
-  type WorkflowCanvasBreadcrumb,
-  type WorkflowCanvasNavigationState,
-  type WorkflowCanvasPoint,
-  type WorkflowNodePaletteDragPayload,
-  workflowPaletteDropPosition
-} from '../utils/workflowCanvasCommands'
+import { WorkflowNodePalette } from './WorkflowNodePalette'
 import styles from './workflow.module.scss'
 
 export const COMPACT_WORKFLOW_CANVAS_WIDTH = 1024
-const WORKFLOW_PALETTE_PREVIEW_WIDTH = 180
-const WORKFLOW_PALETTE_PREVIEW_HEIGHT = 84
 
 export function PersistentWorkflowAuthoringView({
   model,
   workflowName,
-  definitionKind = 'workflow',
-  onSelectWorkflow,
-  onOpenChildWorkflow,
-  workflowBreadcrumbs = [],
-  onNavigateBreadcrumb,
-  restoreCanvasState = null,
   visibleMaterialRoles,
   onVisibleMaterialRolesChange,
   hideEmbeddedCodeEditor = false,
-  hideAuthoringToolbar = false,
   hideRuntimeControls = false,
   onResetEnvironment,
   environmentResetBusy = false
 }: {
   model: PersistentWorkflowAuthoringModel
   workflowName?: string
-  definitionKind?: WorkflowDefinitionKind
-  onSelectWorkflow?: (workflowUuid: string, workflowName: string) => void
-  onOpenChildWorkflow?: (
-    workflowUuid: string,
-    workflowName: string,
-    parentState: WorkflowCanvasNavigationState
-  ) => void
-  workflowBreadcrumbs?: readonly WorkflowCanvasBreadcrumb[]
-  onNavigateBreadcrumb?: (index: number) => void
-  restoreCanvasState?: WorkflowCanvasNavigationState | null
   visibleMaterialRoles?: readonly string[] | null
   onVisibleMaterialRolesChange?: (
     visibleMaterialRoles: readonly string[] | null
   ) => void
   hideEmbeddedCodeEditor?: boolean
-  hideAuthoringToolbar?: boolean
   hideRuntimeControls?: boolean
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
@@ -84,8 +51,10 @@ export function PersistentWorkflowAuthoringView({
     busy,
     candidateIo,
     canvasMutationEnabled,
+    canvasSaveHint,
     codeViewingAvailable,
     codeProjection,
+    completedTaskJobCount,
     connectTypedHandles,
     deleteCanvasElements,
     debugBreakpoints,
@@ -93,7 +62,6 @@ export function PersistentWorkflowAuthoringView({
     definitionEditingAvailable,
     definitionEditingDisabledReason,
     diagnostics,
-    dirty,
     editor,
     effectiveMaterialSourceCatalog,
     error,
@@ -104,35 +72,60 @@ export function PersistentWorkflowAuthoringView({
     materialSourceAuthorityBlocked,
     materialSourceCatalogError,
     materialSourceCatalogLoading,
+    materialTraces,
     mode,
-    moveCanvasNode,
     nodePaletteOpen,
+    outputExpanded,
+    outputTab,
     pausedBeforeNodeId,
     policy,
     projectionKind,
     refreshMaterialSourceCatalog,
+    revealPackageSource,
     runRuntime,
     runtime,
     runtimeBusy,
     selectCanvasNode,
+    selectedActionEditor,
+    selectedActionTemplate,
+    selectedIsMaterialSource,
+    selectedJobNodeUuid,
+    selectedMaterialSourceEditor,
+    selectedNodeIsInternal,
+    selectedNodeName,
     selectedNodeUuid,
+    selectedTaskNode,
+    setActionParametersOpen,
     setCodeProjection,
     setError,
     setGraph,
+    setMessage,
     setNodePaletteOpen,
+    setOutputExpanded,
+    setOutputTab,
     setSelectedJobNodeUuid,
+    setSelectedNodeName,
+    setSelectedNodeNameDirty,
     setSelectedNodeUuid,
+    setTraceViewerOpen,
     setWorkflowIoOpen,
     sourceSelectedNodeUuid,
     sourceEditingAvailable,
     sourceEditingDisabledReason,
     sourceProjection,
     structure,
+    task,
+    taskJobs,
+    taskNodeNames,
     taskNodeStates,
+    taskOutputNodes,
     taskRuntime,
+    taskActivity,
+    traceRuntime,
     toggleDebugBreakpoint,
     toggleDebugStartNode,
     toggleNodeDisabled,
+    updateMaterialSource,
     workflowUuid,
   } = model
   const [canvasRevealRequest, setCanvasRevealRequest] = useState<{
@@ -140,50 +133,9 @@ export function PersistentWorkflowAuthoringView({
     nonce: number
   } | null>(null)
   const authoringViewRef = useRef<HTMLDivElement | null>(null)
-  const canvasBodyRef = useRef<HTMLDivElement | null>(null)
   const graphStageRef = useRef<HTMLDivElement | null>(null)
-  const workflowDagRef = useRef<WorkflowDagHandle | null>(null)
-  const palettePointerDragRef = useRef<{
-    templateUuid: string
-    name: string
-    detail: string
-    startX: number
-    startY: number
-    lastX: number
-    lastY: number
-  } | null>(null)
-  const paletteDragPayloadRef = useRef<WorkflowNodePaletteDragPayload | null>(null)
-  const [paletteDragPreview, setPaletteDragPreview] = useState<{
-    name: string
-    detail: string
-    clientX: number
-    clientY: number
-  } | null>(null)
-  const restoredNavigationRef = useRef<string | null>(null)
   const [compactCanvas, setCompactCanvas] = useState(false)
   const [graphStageReady, setGraphStageReady] = useState(false)
-  const [operationStructureOpen, setOperationStructureOpen] = useState(true)
-  const [inspectorWidth, setInspectorWidth] = useState(320)
-  const inspectorResizeRef = useRef<{ startX: number; startWidth: number } | null>(null)
-  const handleInspectorResize = useCallback((event: React.PointerEvent) => {
-    event.preventDefault()
-    inspectorResizeRef.current = { startX: event.clientX, startWidth: inspectorWidth }
-    const move = (moveEvent: PointerEvent) => {
-      const drag = inspectorResizeRef.current
-      if (!drag) return
-      setInspectorWidth(Math.min(520, Math.max(240, drag.startWidth - (moveEvent.clientX - drag.startX))))
-    }
-    const stop = () => {
-      inspectorResizeRef.current = null
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', stop)
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', stop)
-  }, [inspectorWidth])
-  // 实验操作调试需要始终保留左侧的操作与节点库；工作流调试仍支持手动收起。
-  const operationLibraryPersistent = definitionKind === 'operation'
-  const nodePaletteVisible = operationLibraryPersistent || nodePaletteOpen
 
   useEffect(() => {
     const element = authoringViewRef.current
@@ -191,14 +143,11 @@ export function PersistentWorkflowAuthoringView({
     const observer = new ResizeObserver(([entry]) => {
       const compact = entry.contentRect.width < COMPACT_WORKFLOW_CANVAS_WIDTH
       setCompactCanvas(compact)
-      if (compact && !operationLibraryPersistent) {
-        setNodePaletteOpen(false)
-      }
-      if (compact) setOperationStructureOpen(false)
+      if (compact) setNodePaletteOpen(false)
     })
     observer.observe(element)
     return () => observer.disconnect()
-  }, [operationLibraryPersistent, setNodePaletteOpen])
+  }, [setNodePaletteOpen])
   useEffect(() => {
     const element = graphStageRef.current
     if (!graph || !element) {
@@ -235,223 +184,26 @@ export function PersistentWorkflowAuthoringView({
       nonce: (current?.nonce ?? 0) + 1
     }))
   }, [selectCanvasNode, setSelectedJobNodeUuid])
-  const handleStructureNodeSelect = useCallback((nodeId: string): void => {
-    selectCanvasNode(nodeId)
-    setCanvasRevealRequest((current) => ({
-      nodeId,
-      nonce: (current?.nonce ?? 0) + 1
-    }))
-  }, [selectCanvasNode])
-  const insertPaletteNode = useCallback((
-    payload: WorkflowNodePaletteDragPayload,
-    position?: WorkflowCanvasPoint
-  ): void => {
-    if (payload.kind === 'material') {
-      addMaterialSourceNode(position)
-    } else if (payload.kind === 'action') {
-      addTypedActionNode(payload.templateUuid, position)
-    } else {
-      addPublishedWorkflowNode(payload.templateUuid, position)
-    }
-  }, [addMaterialSourceNode, addPublishedWorkflowNode, addTypedActionNode])
-  const handlePaletteDragStart = useCallback((
-    payload: WorkflowNodePaletteDragPayload
-  ): void => {
-    paletteDragPayloadRef.current = payload
-  }, [])
-  const viewportInsertPoint = useCallback((): WorkflowCanvasPoint =>
-    workflowDagRef.current?.viewportCenter() ?? { x: 96, y: 96 }, [])
-  const canvasDropPosition = useCallback((
-    clientX: number,
-    clientY: number
-  ): WorkflowCanvasPoint => {
-    const point = workflowDagRef.current?.clientToCanvasPoint(clientX, clientY)
-    return point
-      ? workflowPaletteDropPosition(point)
-      : viewportInsertPoint()
-  }, [viewportInsertPoint])
-  // Electron can suppress the native HTML drag/drop sequence when an X6
-  // canvas is empty. Keep a pointer-based fallback for action templates so a
-  // normal mouse drag still inserts the node into the canvas.
-  const handlePalettePointerDownCapture = useCallback((
-    event: React.PointerEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>
-  ): void => {
-    if (!canvasMutationEnabled || event.button !== 0) return
-    const target = event.target instanceof Element
-      ? event.target.closest<HTMLElement>('[data-workflow-palette-action]')
-      : null
-    const templateUuid = target?.dataset.workflowPaletteAction
-    if (!templateUuid) return
-    const template = actionCatalog?.actionTemplates.find(
-      (item) => item.uuid === templateUuid
-    )
-    palettePointerDragRef.current = {
-      templateUuid,
-      name: template?.displayName ||
-        target?.querySelector('strong')?.textContent?.trim() || '设备动作',
-      detail: template?.name ||
-        target?.querySelector('small')?.textContent?.trim() || templateUuid,
-      startX: event.clientX,
-      startY: event.clientY,
-      lastX: event.clientX,
-      lastY: event.clientY
-    }
-    // Show the card immediately so the drag affordance is visible even when
-    // Electron delays the first move event until pointer capture is active.
-    setPaletteDragPreview({
-      name: template?.displayName ||
-        target?.querySelector('strong')?.textContent?.trim() || '设备动作',
-      detail: template?.name ||
-        target?.querySelector('small')?.textContent?.trim() || templateUuid,
-      clientX: event.clientX,
-      clientY: event.clientY
-    })
-  }, [actionCatalog, canvasMutationEnabled])
-
-  useEffect(() => {
-    const handlePointerMove = (event: PointerEvent | MouseEvent): void => {
-      const pending = palettePointerDragRef.current
-      if (!pending) return
-      pending.lastX = event.clientX
-      pending.lastY = event.clientY
-      if (Math.hypot(
-        event.clientX - pending.startX,
-        event.clientY - pending.startY
-      ) > 6) {
-        setPaletteDragPreview({
-          name: pending.name,
-          detail: pending.detail,
-          clientX: event.clientX,
-          clientY: event.clientY
-        })
-      }
-    }
-    const finishPointerDrag = (event: PointerEvent | MouseEvent): void => {
-      const pending = palettePointerDragRef.current
-      palettePointerDragRef.current = null
-      setPaletteDragPreview(null)
-      if (!pending || !canvasMutationEnabled) return
-      const body = canvasBodyRef.current
-      if (!body) return
-      const bounds = body.getBoundingClientRect()
-      const inBody = (clientX: number, clientY: number): boolean => (
-        Number.isFinite(clientX) && Number.isFinite(clientY) &&
-        clientX >= bounds.left && clientX <= bounds.right &&
-        clientY >= bounds.top && clientY <= bounds.bottom
-      )
-      // Native drag cancellation can report a pointerup at the source item,
-      // while the last captured move still contains the real release point.
-      // Prefer the release event when it is inside the authoring surface;
-      // otherwise fall back to the latest captured coordinates.
-      const eventPoint = { x: event.clientX, y: event.clientY }
-      const lastPoint = { x: pending.lastX, y: pending.lastY }
-      const release = event.type !== 'pointercancel' &&
-        inBody(eventPoint.x, eventPoint.y)
-        ? eventPoint
-        : lastPoint
-      const clientX = release.x
-      const clientY = release.y
-      const moved = Math.hypot(
-        clientX - pending.startX,
-        clientY - pending.startY
-      ) > 6
-      if (!moved) return
-      if (
-        clientX < bounds.left || clientX > bounds.right ||
-        clientY < bounds.top || clientY > bounds.bottom
-      ) return
-      const position = canvasDropPosition(clientX, clientY)
-      addTypedActionNode(pending.templateUuid, position)
-    }
-    const handlePointerUp = (event: PointerEvent | MouseEvent): void => {
-      finishPointerDrag(event)
-    }
-    const handlePointerCancel = (event: PointerEvent): void => {
-      // Native HTML drag often emits pointercancel instead of pointerup in
-      // Electron. Use the last pointer position as the drop location.
-      finishPointerDrag(event)
-    }
-    document.addEventListener('pointermove', handlePointerMove)
-    // Some Electron/WebView versions expose the mouse sequence without a
-    // corresponding PointerEvent while the palette item is being dragged.
-    // Keep the mouse fallback so the projected card follows the cursor there
-    // as well.
-    document.addEventListener('mousemove', handlePointerMove)
-    document.addEventListener('pointerup', handlePointerUp)
-    document.addEventListener('mouseup', handlePointerUp)
-    document.addEventListener('pointercancel', handlePointerCancel)
-    return () => {
-      document.removeEventListener('pointermove', handlePointerMove)
-      document.removeEventListener('mousemove', handlePointerMove)
-      document.removeEventListener('pointerup', handlePointerUp)
-      document.removeEventListener('mouseup', handlePointerUp)
-      document.removeEventListener('pointercancel', handlePointerCancel)
-    }
-  }, [addTypedActionNode, canvasDropPosition, canvasMutationEnabled])
-
-  // Keep a document-level native drop listener as a final Electron fallback.
-  // Some renderer/X6 combinations stop propagation before React's synthetic
-  // handler sees the event, even though the browser did receive the drop.
-  useEffect(() => {
-    const isInsideCanvas = (event: DragEvent): boolean => {
-      const body = canvasBodyRef.current
-      if (!body) return false
-      const bounds = body.getBoundingClientRect()
-      return event.clientX >= bounds.left && event.clientX <= bounds.right &&
-        event.clientY >= bounds.top && event.clientY <= bounds.bottom
-    }
-    const handleDragOver = (event: DragEvent): void => {
-      if (!canvasMutationEnabled || !isInsideCanvas(event)) return
-      if (!event.dataTransfer) return
-      event.preventDefault()
-      event.dataTransfer.dropEffect = 'copy'
-    }
-    const handleDrop = (event: DragEvent): void => {
-      if (!canvasMutationEnabled || !isInsideCanvas(event)) return
-      if (!event.dataTransfer) return
-      const payload = readWorkflowNodePaletteDragPayload(event.dataTransfer) ??
-        paletteDragPayloadRef.current
-      if (!payload) return
-      event.preventDefault()
-      event.stopPropagation()
-      palettePointerDragRef.current = null
-      paletteDragPayloadRef.current = null
-      setPaletteDragPreview(null)
-      const position = canvasDropPosition(event.clientX, event.clientY)
-      insertPaletteNode(payload, position)
-    }
-    document.addEventListener('dragover', handleDragOver, true)
-    document.addEventListener('drop', handleDrop, true)
-    return () => {
-      document.removeEventListener('dragover', handleDragOver, true)
-      document.removeEventListener('drop', handleDrop, true)
-    }
-  }, [canvasDropPosition, canvasMutationEnabled, insertPaletteNode])
-  useEffect(() => {
-    if (!graphStageReady || !restoreCanvasState) return
-    const restoreKey = [
-      workflowUuid,
-      restoreCanvasState.selectedNodeUuid ?? '',
-      restoreCanvasState.viewport?.center.x ?? '',
-      restoreCanvasState.viewport?.center.y ?? '',
-      restoreCanvasState.viewport?.zoom ?? ''
-    ].join(':')
-    if (restoredNavigationRef.current === restoreKey) return
-    restoredNavigationRef.current = restoreKey
-    globalThis.requestAnimationFrame(() => {
-      if (restoreCanvasState.viewport) {
-        workflowDagRef.current?.restoreViewport(restoreCanvasState.viewport)
-      }
-      if (restoreCanvasState.selectedNodeUuid) {
-        selectCanvasNode(restoreCanvasState.selectedNodeUuid)
-      }
-    })
-  }, [
-    graphStageReady,
-    restoreCanvasState,
-    selectCanvasNode,
-    workflowUuid
-  ])
+  const debugProjection = taskRuntime.snapshot.debug
+  const debugFinished = !task || [
+    'succeeded',
+    'failed',
+    'canceled',
+    'timeout'
+  ].includes(task.status) || [
+    'completed',
+    'stopped'
+  ].includes(debugProjection?.status ?? '')
+  const debugStatusLabel: Record<string, string> = {
+    paused: '已暂停',
+    running: '运行中',
+    completed: '已完成',
+    stopped: '已停止'
+  }
+  const selectedNodeDescription = selectedNodeUuid
+    ? structure.nodes.find((node) => node.id === selectedNodeUuid)
+      ?.description?.trim()
+    : ''
   const realtimeFallbackOnly = taskRuntime.snapshot.realtimeError !== null &&
     taskRuntime.snapshot.actionError === null &&
     taskRuntime.snapshot.projectionError === null &&
@@ -464,10 +216,6 @@ export function PersistentWorkflowAuthoringView({
         styles.workflow,
         'workflow-runtime persistent-authoring',
         mode === 'canvas' ? 'persistent-authoring--canvas' : '',
-        definitionKind === 'operation' ? 'persistent-authoring--operation' : '',
-        definitionKind === 'operation' && operationStructureOpen
-          ? 'persistent-authoring--operation-structure-open'
-          : '',
         'relative flex h-full w-full flex-col',
         'bg-[var(--unilab-color-canvas)] text-[var(--unilab-color-text)]'
       ].join(' ')}
@@ -477,9 +225,8 @@ export function PersistentWorkflowAuthoringView({
         ? 'available'
         : 'unavailable'}
       data-workflow-ide-bridge={ideBridgeConnected ? 'connected' : 'missing'}
-      data-definition-kind={definitionKind}
     >
-      {!hideRuntimeControls && !hideAuthoringToolbar ? (
+      {!hideRuntimeControls ? (
         <PersistentWorkflowToolbar
           model={model}
           onResetEnvironment={onResetEnvironment}
@@ -494,9 +241,9 @@ export function PersistentWorkflowAuthoringView({
         </div>
       )}
 
-      {error && diagnostics.length === 0 && (
+      {error && (
         <div className="workflow-runtime__problem" role="alert">
-          <strong>还不能保存</strong>
+          <strong>工作流编辑操作失败</strong>
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)}>关闭</button>
         </div>
@@ -531,22 +278,19 @@ export function PersistentWorkflowAuthoringView({
       {diagnostics.length > 0 && (
         <section
           className="persistent-authoring__diagnostics"
-          aria-label="草稿待处理事项"
+          aria-label="Python 草稿诊断"
         >
-          <strong>还需要处理</strong>
+          <strong>草稿诊断</strong>
           <ul>
-            {diagnostics.map((diagnostic, index) => {
-              const copy = formatAuthoringDiagnostic(diagnostic)
-              return (
+            {diagnostics.map((diagnostic, index) => (
               <li key={`${diagnostic.code}:${index}`}>
-                <strong>{copy.title}</strong>
-                <span>{copy.detail}</span>
+                <code>{diagnostic.code}</code>
+                <span>{diagnostic.message}</span>
                 {diagnosticRange(diagnostic) && (
                   <span>位置 {diagnosticRange(diagnostic)}</span>
                 )}
               </li>
-              )
-            })}
+            ))}
           </ul>
         </section>
       )}
@@ -638,86 +382,49 @@ export function PersistentWorkflowAuthoringView({
           className="persistent-authoring__pane persistent-authoring__canvas"
           aria-label="工作流画布"
         >
-          {!hideRuntimeControls ? <WorkflowCanvasStageHeader
-            title={workflowName || (
-              definitionKind === 'operation'
-                ? '实验操作控制流 DAG'
-                : '完整控制流 DAG'
-            )}
-            nodeCount={structure.nodes.length}
-            linkCount={structure.links.length}
-            projectionTitle={authorityLabel === 'Backend'
-              ? definitionEditingAvailable
-                ? '正式 Backend 仅支持画布编辑，修改后可直接保存'
-                : definitionEditingDisabledReason ??
-                  '当前 Backend 工作流定义只读'
-              : projectionKind === 'candidate'
-              ? mode === 'code'
-                ? '当前画布是服务器候选版本的只读预览'
-                : '画布编辑区基于候选版本；保存时由 OS 生成完整 Python'
-              : mode === 'code'
-                ? '当前显示已应用版本；暂无待应用修改'
-                : '画布编辑区基于已应用版本；暂无待应用修改'}
-            projectionLabel={authorityLabel === 'Backend'
-              ? definitionEditingAvailable
-                ? 'Backend 定义 · 已同步'
-                : 'Backend 定义 · 只读'
-              : projectionKind === 'candidate'
-              ? mode === 'code'
-                ? '候选版本 · 只读'
-                : '候选版本 · 待保存'
-              : mode === 'code'
-                ? '已应用版本 · 只读'
-                : '已应用版本 · 可编辑'}
-            description={workflowBreadcrumbs.length > 0 ? (
-              <nav
-                className="persistent-authoring__breadcrumbs"
-                aria-label="子工作流层级"
-              >
-                {workflowBreadcrumbs.map((item, index) => (
-                  <span key={`${item.workflowUuid}:${index}`}>
-                    <WorkflowButton
+          {!hideRuntimeControls && (
+            <WorkflowCanvasStageHeader
+              title={workflowName || '完整控制流 DAG'}
+              nodeCount={structure.nodes.length}
+              linkCount={structure.links.length}
+              projectionTitle={authorityLabel === 'Backend'
+                ? definitionEditingAvailable
+                  ? '正式 Backend 仅支持画布编辑，修改后可直接保存'
+                  : definitionEditingDisabledReason ??
+                    '当前 Backend 工作流定义只读'
+                : projectionKind === 'candidate'
+                ? mode === 'code'
+                  ? '当前画布是服务器候选版本的只读预览'
+                  : '画布编辑区基于候选版本；保存时由 OS 生成完整 Python'
+                : mode === 'code'
+                  ? '当前显示已应用版本；暂无待应用修改'
+                  : '画布编辑区基于已应用版本；暂无待应用修改'}
+              projectionLabel={authorityLabel === 'Backend'
+                ? definitionEditingAvailable
+                  ? 'Backend 定义 · 已同步'
+                  : 'Backend 定义 · 只读'
+                : projectionKind === 'candidate'
+                ? mode === 'code'
+                  ? '候选版本 · 只读'
+                  : '候选版本 · 待保存'
+                : mode === 'code'
+                  ? '已应用版本 · 只读'
+                  : '已应用版本 · 可编辑'}
+              tools={(
+                <>
+                  {mode === 'canvas' &&
+                    !compactCanvas &&
+                    canvasMutationEnabled && (
+                    <button
                       type="button"
-                      disabled={dirty || !onNavigateBreadcrumb}
-                      disabledReason={dirty
-                        ? '请先保存当前子工作流修改'
-                        : '当前工作区不支持层级返回'}
-                      onClick={() => onNavigateBreadcrumb?.(index)}
+                      className="persistent-authoring__panel-toggle"
+                      aria-controls="persistent-authoring-node-palette"
+                      aria-pressed={nodePaletteOpen}
+                      onClick={() => setNodePaletteOpen((open) => !open)}
                     >
-                      {item.workflowName}
-                    </WorkflowButton>
-                    <i aria-hidden="true">/</i>
-                  </span>
-                ))}
-                <strong>{workflowName || '当前工作流'}</strong>
-              </nav>
-            ) : undefined}
-            tools={(
-              <>
-                <WorkflowOperationCanvasToolbar
-                  model={model}
-                  workflowName={workflowName}
-                  visible={definitionKind === 'operation'}
-                  operationStructureOpen={operationStructureOpen}
-                  onToggleOperationStructure={() => {
-                    setOperationStructureOpen((open) => !open)
-                  }}
-                />
-                {mode === 'canvas' && !operationLibraryPersistent && (
-                  <button
-                    type="button"
-                    className="persistent-authoring__panel-toggle"
-                    aria-controls="persistent-authoring-node-palette"
-                    aria-pressed={nodePaletteOpen}
-                    onClick={() => {
-                      if (compactCanvas) setOperationStructureOpen(false)
-                      setNodePaletteOpen((open) => !open)
-                    }}
-                  >
-                    {nodePaletteOpen ? '隐藏节点库' : '显示节点库'}
-                  </button>
-                )}
-                {definitionKind !== 'operation' && (
+                      {nodePaletteOpen ? '隐藏节点库' : '显示节点库'}
+                    </button>
+                  )}
                   <WorkflowButton
                     type="button"
                     className="persistent-authoring__io-trigger"
@@ -734,124 +441,43 @@ export function PersistentWorkflowAuthoringView({
                       {' · '}输出 {candidateIo?.output_contract.outputs.length ?? 0}
                     </strong>
                   </WorkflowButton>
-                )}
-              </>
-            )}
-          /> : null}
+                </>
+              )}
+            />
+          )}
           <div className={[
             'persistent-authoring__canvas-body',
             mode === 'code' ? 'is-code-mode' : '',
-            mode === 'canvas' && !nodePaletteVisible
+            mode === 'canvas' && (!nodePaletteOpen || compactCanvas)
               ? 'is-palette-closed'
               : '',
-            mode === 'canvas' && !compactCanvas
+            mode === 'canvas' && selectedNodeUuid && !compactCanvas
               ? 'has-inspector'
-              : '',
-            mode === 'canvas' && definitionKind === 'operation' &&
-              operationStructureOpen
-              ? 'has-operation-structure'
               : ''
-          ].filter(Boolean).join(' ')}
-            ref={canvasBodyRef}
-            style={{ '--inspector-width': `${inspectorWidth}px` } as React.CSSProperties}
-            onPointerDownCapture={handlePalettePointerDownCapture}
-            onMouseDownCapture={handlePalettePointerDownCapture}
-            onPointerMoveCapture={(event) => {
-              const pending = palettePointerDragRef.current
-              if (!pending) return
-              pending.lastX = event.clientX
-              pending.lastY = event.clientY
-              setPaletteDragPreview({
-                name: pending.name,
-                detail: pending.detail,
-                clientX: event.clientX,
-                clientY: event.clientY
-              })
-            }}
-            onMouseMoveCapture={(event) => {
-              const pending = palettePointerDragRef.current
-              if (!pending) return
-              pending.lastX = event.clientX
-              pending.lastY = event.clientY
-              setPaletteDragPreview({
-                name: pending.name,
-                detail: pending.detail,
-                clientX: event.clientX,
-                clientY: event.clientY
-              })
-            }}
-            onDragOverCapture={(event) => {
-              // X6 can replace the graph-stage DOM while a drag is in flight;
-              // keep the stable canvas body as the native drop target.
-              if (!canvasMutationEnabled) return
-              event.preventDefault()
-              event.dataTransfer.dropEffect = 'copy'
-            }}
-            onDropCapture={(event) => {
-              if (!canvasMutationEnabled) return
-              const payload = readWorkflowNodePaletteDragPayload(
-                event.dataTransfer
-              ) ?? paletteDragPayloadRef.current
-              if (!payload) return
-              event.preventDefault()
-              event.stopPropagation()
-              palettePointerDragRef.current = null
-              paletteDragPayloadRef.current = null
-              setPaletteDragPreview(null)
-              const position = canvasDropPosition(event.clientX, event.clientY)
-              insertPaletteNode(payload, position)
-            }}>
-            {(mode === 'canvas' || operationLibraryPersistent) &&
-              nodePaletteVisible && (
-              <WorkflowAuthoringLibrary
-                runtime={runtime}
-                workflowUuid={workflowUuid}
-                workflowName={workflowName}
-                definitionKind={definitionKind}
-                authoringDirty={dirty}
-                onSelectWorkflow={onSelectWorkflow}
-                onPaletteDragStart={handlePaletteDragStart}
-                catalog={actionCatalog}
-                catalogError={actionCatalogError}
-                busy={busy}
-                canvasMutationEnabled={canvasMutationEnabled}
-                graphAvailable={Boolean(graph)}
-                materialSourceCatalogAvailable={Boolean(
-                  effectiveMaterialSourceCatalog
-                )}
-                materialSourceAuthorityBlocked={
-                  materialSourceAuthorityBlocked
-                }
-                materialSourceCatalogLoading={materialSourceCatalogLoading}
-                materialSourceCatalogError={materialSourceCatalogError}
-                onAddMaterialSource={() => insertPaletteNode(
-                  { kind: 'material' },
-                  viewportInsertPoint()
-                )}
-                onAddAction={(templateUuid) => insertPaletteNode(
-                  { kind: 'action', templateUuid },
-                  viewportInsertPoint()
-                )}
-                onAddWorkflow={(templateUuid) => insertPaletteNode(
-                  { kind: 'workflow', templateUuid },
-                  viewportInsertPoint()
-                )}
-                onRefreshMaterialSourceCatalog={
-                  refreshMaterialSourceCatalog
-                }
-              />
-            )}
+          ].filter(Boolean).join(' ')}>
             {graph ? (
               <>
-                {mode === 'canvas' && definitionKind === 'operation' &&
-                  operationStructureOpen && (
-                  <ExperimentOperationStructure
-                    workflowName={workflowName || '当前实验操作'}
-                    nodes={structure.nodes}
-                    linkCount={structure.links.length}
-                    selectedNodeId={selectedNodeUuid}
-                    onSelect={handleStructureNodeSelect}
-                    onClose={() => setOperationStructureOpen(false)}
+                {mode === 'canvas' && nodePaletteOpen && !compactCanvas && (
+                  <WorkflowNodePalette
+                    catalog={actionCatalog}
+                    catalogError={actionCatalogError}
+                    busy={busy}
+                    canvasMutationEnabled={canvasMutationEnabled}
+                    graphAvailable={Boolean(graph)}
+                    materialSourceCatalogAvailable={Boolean(
+                      effectiveMaterialSourceCatalog
+                    )}
+                    materialSourceAuthorityBlocked={
+                      materialSourceAuthorityBlocked
+                    }
+                    materialSourceCatalogLoading={materialSourceCatalogLoading}
+                    materialSourceCatalogError={materialSourceCatalogError}
+                    onAddMaterialSource={addMaterialSourceNode}
+                    onAddAction={addTypedActionNode}
+                    onAddWorkflow={addPublishedWorkflowNode}
+                    onRefreshMaterialSourceCatalog={
+                      refreshMaterialSourceCatalog
+                    }
                   />
                 )}
                 <div
@@ -861,7 +487,6 @@ export function PersistentWorkflowAuthoringView({
                   {(graphStageReady ||
                     typeof globalThis.ResizeObserver !== 'function') && (
                     <WorkflowDag
-                    ref={workflowDagRef}
                     nodes={structure.nodes}
                     links={structure.links}
                     onNodeSelect={handleCanvasNodeSelect}
@@ -893,26 +518,9 @@ export function PersistentWorkflowAuthoringView({
                         : '工作流图尚未加载完成'}
                     onBeautify={beautifyCanvasLayout}
                     canvasMutationEnabled={canvasMutationEnabled}
-                    nodePositionMutationEnabled={canvasMutationEnabled}
-                    onNodePositionChange={moveCanvasNode}
                     onConnectHandles={connectTypedHandles}
-                    onDeleteRequest={deleteCanvasElements}
-                    onOpenChildWorkflow={onOpenChildWorkflow
-                      ? (childWorkflowUuid, childWorkflowName) => {
-                          if (dirty) {
-                            setError('请先保存当前工作流修改，再进入子工作流')
-                            return
-                          }
-                          onOpenChildWorkflow(
-                            childWorkflowUuid,
-                            childWorkflowName,
-                            {
-                              viewport:
-                                workflowDagRef.current?.viewportSnapshot() ?? null,
-                              selectedNodeUuid
-                            }
-                          )
-                        }
+                    onDeleteRequest={canvasMutationEnabled
+                      ? deleteCanvasElements
                       : undefined}
                     visibleMaterialRoles={visibleMaterialRoles}
                     onVisibleMaterialRolesChange={
@@ -920,18 +528,114 @@ export function PersistentWorkflowAuthoringView({
                     }
                     />
                   )}
-                  {definitionKind === 'operation' && (
-                    <PersistentWorkflowRuntimePanel
-                      model={model}
-                      onNodeSelect={handleRuntimeNodeSelect}
-                    />
-                  )}
                 </div>
-                {mode === 'canvas' && !compactCanvas && (
-                  <>
-                    <div className="persistent-authoring__inspector-resize-handle" role="separator" aria-label="调整参数面板宽度" onPointerDown={handleInspectorResize} />
-                    <WorkflowNodeInspector model={model} definitionKind={definitionKind} workflowName={workflowName} />
-                  </>
+                {mode === 'canvas' && selectedNodeUuid && !compactCanvas && (
+                  <aside
+                    className="persistent-authoring__node-editor"
+                    aria-label="画布节点编辑器"
+                  >
+                    <header className="persistent-authoring__inspector-heading">
+                      <span>
+                        <span>属性</span>
+                        <strong>
+                          {selectedIsMaterialSource ? '物料来源' : '节点属性'}
+                        </strong>
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="关闭属性面板"
+                        title="关闭属性面板"
+                        onClick={() => {
+                          const nodeUuid = selectedNodeUuid
+                          setSelectedNodeUuid(null)
+                          setSelectedNodeName('')
+                          setSelectedNodeNameDirty(false)
+                          setActionParametersOpen(false)
+                          requestAnimationFrame(() => {
+                            document.querySelector<HTMLElement>(
+                              `.react-flow__node[data-id="${nodeUuid}"]`
+                            )?.focus({ preventScroll: true })
+                          })
+                        }}
+                      >
+                        ×
+                      </button>
+                    </header>
+                    <label>
+                      节点名称
+                      <input
+                        value={selectedNodeName}
+                        disabled={
+                          busy || !canvasMutationEnabled ||
+                          selectedNodeIsInternal
+                        }
+                        aria-describedby="persistent-node-description"
+                        onChange={(event) => {
+                          setSelectedNodeName(event.target.value)
+                          setSelectedNodeNameDirty(true)
+                          setMessage(canvasSaveHint)
+                        }}
+                      />
+                    </label>
+                    <section
+                      id="persistent-node-description"
+                      className="persistent-authoring__node-description"
+                      aria-label="节点说明"
+                    >
+                      <strong>节点说明</strong>
+                      <p>{selectedNodeDescription || '当前节点暂无描述'}</p>
+                    </section>
+                      {selectedMaterialSourceEditor && (
+                        <MaterialSourceInspector
+                          editor={selectedMaterialSourceEditor}
+                          accent={
+                            materialTraces.materialSourceAccents.get(
+                              selectedMaterialSourceEditor.nodeUuid
+                            )
+                          }
+                          editable={
+                            !busy && canvasMutationEnabled &&
+                            !materialSourceCatalogLoading &&
+                            !materialSourceAuthorityBlocked
+                          }
+                          status={taskNodeStates[selectedNodeUuid] || 'pending'}
+                          diagnostics={diagnostics.filter((diagnostic) =>
+                            diagnostic.node_id === selectedNodeUuid
+                          )}
+                          onChange={(patch) => updateMaterialSource(
+                            selectedMaterialSourceEditor,
+                            patch
+                          )}
+                          onRevealSource={revealPackageSource}
+                        />
+                      )}
+                      {selectedActionEditor && (
+                        <section
+                          className="persistent-authoring__action-summary"
+                          aria-label="操作参数摘要"
+                        >
+                          <div>
+                            <strong>操作参数</strong>
+                            <span>
+                              输入 {selectedActionEditor.fields.length}
+                              {' · '}输出 {selectedActionTemplate?.handles.filter(
+                                (handle) => handle.ioType === 'source'
+                              ).length ?? 0}
+                            </span>
+                          </div>
+                          <p>
+                            点击下方按钮编辑输入，并查看输出端口与连接关系。
+                          </p>
+                          <button
+                            type="button"
+                            className="workflow-runtime__primary"
+                            onClick={() => setActionParametersOpen(true)}
+                          >
+                            配置节点参数
+                          </button>
+                        </section>
+                      )}
+                  </aside>
                 )}
               </>
             ) : (
@@ -943,36 +647,94 @@ export function PersistentWorkflowAuthoringView({
         </section>
       </section>
 
-      {definitionKind !== 'operation' && (
-        <PersistentWorkflowRuntimePanel
-          model={model}
+      <section
+        className="persistent-authoring__runtime"
+        aria-label="工作流任务运行控制"
+      >
+        {debugProjection && (
+          <section
+            className="persistent-authoring__debug-console"
+            aria-label="调试控制台"
+            data-debug-status={debugProjection.status}
+          >
+            <div>
+              <strong>调试控制台</strong>
+              <span>
+                {pausedBeforeNodeId
+                  ? `已在节点前暂停：${taskNodeNames[pausedBeforeNodeId] || pausedBeforeNodeId}`
+                  : debugProjection.status === 'running'
+                    ? '正在运行到下一个断点'
+                    : `调试会话：${debugStatusLabel[debugProjection.status] ?? debugProjection.status}`}
+              </span>
+            </div>
+            <div role="group" aria-label="调试执行控制">
+              <WorkflowButton
+                type="button"
+                disabled={runtimeBusy || !pausedBeforeNodeId}
+                disabledReason="当前没有可单步放行的暂停点"
+                title="只执行当前暂停节点，然后在下一节点前暂停"
+                onClick={() => runRuntime(
+                  () => taskRuntime.debugCommand('step')
+                )}
+              >
+                <span aria-hidden="true">↷</span>
+                <span>单步</span>
+              </WorkflowButton>
+              <WorkflowButton
+                type="button"
+                disabled={runtimeBusy || !pausedBeforeNodeId}
+                disabledReason="当前没有可继续放行的暂停点"
+                title="继续运行到下一个断点"
+                onClick={() => runRuntime(
+                  () => taskRuntime.debugCommand('continue')
+                )}
+              >
+                <span aria-hidden="true">▶</span>
+                <span>继续</span>
+              </WorkflowButton>
+              <WorkflowButton
+                type="button"
+                className="is-danger"
+                disabled={runtimeBusy || debugFinished}
+                disabledReason="当前没有可停止的调试任务"
+                title="停止调试并取消剩余节点作业"
+                onClick={() => runRuntime(
+                  () => taskRuntime.command('cancel')
+                )}
+              >
+                <span aria-hidden="true">■</span>
+                <span>停止</span>
+              </WorkflowButton>
+            </div>
+          </section>
+        )}
+        <WorkflowOutput
+          expanded={outputExpanded}
+          resizable
+          activeTab={outputTab}
+          completedNodeCount={completedTaskJobCount}
+          expectedNodeCount={taskJobs.length}
+          nodes={taskOutputNodes}
+          nodeNames={taskNodeNames}
+          activity={taskActivity}
+          error={taskRuntime.snapshot.error}
+          selectedNode={selectedTaskNode}
+          selectedNodeId={selectedJobNodeUuid}
+          pausedBeforeNodeId={pausedBeforeNodeId}
+          title="运行输出"
+          countLabel="个节点任务已结束"
+          nodesTabLabel="节点任务状态"
+          onExpandedChange={setOutputExpanded}
+          onTabChange={setOutputTab}
           onNodeSelect={handleRuntimeNodeSelect}
+          onClearError={taskRuntime.clearError}
+          onTraceOpen={traceRuntime
+            ? () => setTraceViewerOpen(true)
+            : undefined}
         />
-      )}
+      </section>
 
-      <PersistentWorkflowOverlays
-        model={model}
-        definitionKind={definitionKind}
-      />
-      {paletteDragPreview && typeof document !== 'undefined' && createPortal(
-        <div
-          className="persistent-authoring__palette-drag-preview"
-          style={{
-            left: paletteDragPreview.clientX,
-            top: paletteDragPreview.clientY,
-            width: WORKFLOW_PALETTE_PREVIEW_WIDTH,
-            minHeight: WORKFLOW_PALETTE_PREVIEW_HEIGHT
-          }}
-          aria-hidden="true"
-        >
-          <span className="persistent-authoring__palette-drag-preview-kind">
-            <i />实验操作
-          </span>
-          <strong>{paletteDragPreview.name}</strong>
-          <small>{paletteDragPreview.detail}</small>
-        </div>,
-        document.body
-      )}
+      <PersistentWorkflowOverlays model={model} />
     </div>
   )
 }

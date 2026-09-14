@@ -152,6 +152,17 @@ To exercise the packaged launcher in development without starting a Workspace:
 pnpm --filter @unilab/workbench desktop:welcome
 ```
 
+To keep the welcome-based Workspace launcher while rebuilding Workbench source
+changes, run:
+
+```bash
+pnpm workbench:desktop:welcome:development
+```
+
+The TypeScript and Theia bundle watchers stay active after a Workspace is
+selected. Refresh the Electron window after a successful bundle rebuild.
+Electron main/preload changes still require restarting this command.
+
 An explicit `--workspace` or `THEIA_WORKSPACE` remains the automation-compatible
 direct-launch path and bypasses the welcome surface after successful validation.
 

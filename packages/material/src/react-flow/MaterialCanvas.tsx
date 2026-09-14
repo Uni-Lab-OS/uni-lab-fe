@@ -53,6 +53,7 @@ export interface MaterialCanvasProps {
   floorplanOverlay?: boolean
   physicalLayout?: boolean
   showSites?: boolean
+  showMaterialLabels?: boolean
   materialTransferRoutes?: readonly MaterialTransferOverlayRoute[]
   selectedMaterialIds?: readonly MaterialId[]
   highlightedMaterialIds?: readonly MaterialId[]
@@ -71,6 +72,7 @@ export function MaterialCanvas({
   floorplanOverlay = false,
   physicalLayout,
   showSites = true,
+  showMaterialLabels = true,
   materialTransferRoutes = [],
   selectedMaterialIds = EMPTY_MATERIAL_IDS,
   highlightedMaterialIds = EMPTY_MATERIAL_IDS,
@@ -230,6 +232,7 @@ export function MaterialCanvas({
         }`
       )}
       data-site-layer-visible={showSites}
+      data-material-label-layer-visible={showMaterialLabels}
     >
       {error ? <MaterialLoadError technicalMessage={error} /> : null}
       <div

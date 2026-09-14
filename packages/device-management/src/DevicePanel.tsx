@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -82,8 +81,6 @@ export default function DevicePanel({
   backend,
   connection,
   backendEnabled = true,
-  selectedDeviceId: controlledSelectedDeviceId,
-  onSelectedDeviceChange,
   active = true
 }: DeviceManagementPanelProps): React.JSX.Element {
   const {
@@ -93,19 +90,7 @@ export default function DevicePanel({
     lastUpdated,
     refresh
   } = useDevices({ services, backendEnabled, connection, active })
-  const [internalSelectedDeviceId, setInternalSelectedDeviceId] =
-    useState<string | null>(null)
-  const [deviceQuery, setDeviceQuery] = useState('')
-  const deferredDeviceQuery = useDeferredValue(deviceQuery)
-  const selectedDeviceId = controlledSelectedDeviceId !== undefined
-    ? controlledSelectedDeviceId
-    : internalSelectedDeviceId
-  const setSelectedDeviceId = useCallback((deviceId: string | null): void => {
-    if (controlledSelectedDeviceId === undefined) {
-      setInternalSelectedDeviceId(deviceId)
-    }
-    onSelectedDeviceChange?.(deviceId)
-  }, [controlledSelectedDeviceId, onSelectedDeviceChange])
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
   const [selectedActionRef, setSelectedActionRef] = useState<string | null>(null)
   const [argumentDraft, setArgumentDraft] = useState<ArgumentDraft>({})
   const [unlockIntent, setUnlockIntent] = useState<UnlockIntent | null>(null)
@@ -142,17 +127,6 @@ export default function DevicePanel({
       ?? null,
     [devices, selectedDeviceId]
   )
-  const visibleDevices = useMemo(() => {
-    const query = deferredDeviceQuery.trim().toLocaleLowerCase()
-    if (!query) return devices
-    return devices.filter((device) => [
-      device.displayName,
-      device.machineName,
-      device.deviceKey,
-      device.namespace,
-      device.id
-    ].some((value) => value?.toLocaleLowerCase().includes(query)))
-  }, [deferredDeviceQuery, devices])
   const selectedCatalogAction = useMemo(
     () =>
       selectedDevice?.actions.find(
@@ -658,9 +632,9 @@ export default function DevicePanel({
       <aside className={deviceClass('section__list')} aria-label="设备实例列表">
         <header className={deviceClass('edge-device__list-head')}>
           <div>
-            <h1 className={deviceClass('section__list-title')}>设备列表</h1>
+            <h1 className={deviceClass('section__list-title')}>仪器设备</h1>
             <span className={deviceClass('section__list-meta')}>
-              {devices.length} 台设备
+              {devices.length} 台设备 · Authority 设备目录
             </span>
           </div>
           <button
@@ -677,16 +651,6 @@ export default function DevicePanel({
           backendName={backend.name}
           lastUpdated={lastUpdated}
         />
-        <label className={deviceClass('edge-device__search')}>
-          <span aria-hidden="true">⌕</span>
-          <input
-            type="search"
-            value={deviceQuery}
-            placeholder="搜索设备名称 / 编号"
-            aria-label="搜索设备名称或编号"
-            onChange={(event) => setDeviceQuery(event.target.value)}
-          />
-        </label>
         {loading && devices.length === 0 ? (
           <div className={deviceClass('device-loading')} role="status">
             正在读取设备实例与动作模板目录…
@@ -703,29 +667,24 @@ export default function DevicePanel({
         ) : null}
         {error ? null : devices.length === 0 ? (
           <div className={deviceClass('device-empty device-empty--compact')}>
-            <span className={deviceClass('device-empty__icon')} aria-hidden="true">
-              <span className={`codicon ${
-                connection === 'connected'
-                  ? 'codicon-circuit-board'
-                  : 'codicon-radio-tower'
-              }`} />
-            </span>
-            <div className={deviceClass('device-empty__content')}>
-              <strong>
-                {connection === 'connected'
-                  ? '当前未发现可调试设备'
-                  : '等待设备服务连接'}
-              </strong>
+            <strong>
+              {connection === 'connected'
+                ? '当前未配置仪器设备'
+                : '等待 Authority 提供设备'}
+            </strong>
+            {connection === 'connected' ? (
               <p>
-                {connection === 'connected'
-                  ? '完成设备包和设备图配置后，重启 OS 并刷新设备目录。'
-                  : '连接成功后将自动加载设备及其可调试动作。'}
+                Edge 核心服务已连接。安装或配置设备包和设备图后，重新启动 Edge 并刷新设备。
               </p>
-            </div>
+            ) : (
+              <p>
+                连接后会读取设备实例，并关联动作节点模板的参数 Schema。
+              </p>
+            )}
           </div>
         ) : (
           <ul className={deviceClass('device-list')}>
-            {visibleDevices.map((device) => (
+            {devices.map((device) => (
               <DeviceListItem
                 key={device.id}
                 device={device}
@@ -733,16 +692,11 @@ export default function DevicePanel({
                 onSelect={setSelectedDeviceId}
               />
             ))}
-            {visibleDevices.length === 0 ? (
-              <li className={deviceClass('edge-device__search-empty')}>
-                没有匹配的设备
-              </li>
-            ) : null}
           </ul>
         )}
         <div className={deviceClass('edge-device__source-note')}>
-          <span className="codicon codicon-sync" aria-hidden="true" />
-          <span>设备目录与当前设备服务保持同步</span>
+          <span>数据来源</span>
+          设备与在线状态来自 DeviceOverview；动作参数来自 WorkflowNodeTemplate。
         </div>
       </aside>
 
@@ -792,25 +746,12 @@ export default function DevicePanel({
           />
         ) : (
           <div className={deviceClass('device-empty device-empty--detail')}>
-            <span className={deviceClass('device-empty__icon')} aria-hidden="true">
-              <span className={`codicon ${
-                connection === 'connected'
-                  ? 'codicon-circuit-board'
-                  : 'codicon-radio-tower'
-              }`} />
-            </span>
-            <div className={deviceClass('device-empty__content')}>
-              <strong>
-                {connection === 'connected'
-                  ? '当前没有可调试设备'
-                  : '设备服务尚未连接'}
-              </strong>
-              <p>
-                {connection === 'connected'
-                  ? '请先配置设备包和设备图，重启 OS 后刷新设备目录。'
-                  : '启动 OS 后，设备及可调试动作将自动显示在这里。'}
-              </p>
-            </div>
+            <strong>暂无可调试设备</strong>
+            <p>
+              {connection === 'connected'
+                ? '当前可继续使用 Edge 核心服务；配置仪器设备后请重新启动并刷新。'
+                : '请确认 Edge 已启动并连接到本地桥。'}
+            </p>
           </div>
         )}
         </main>

@@ -39,6 +39,32 @@ describe('UnifiedMaterialViewport', () => {
     expect(styles).toContain(
       '.lab-site-layer-toggle button.is-active.is-transfer'
     )
+    expect(styles).toContain(
+      '.lab-site-layer-toggle button.is-active.is-labels'
+    )
+  })
+
+  it('publishes the persisted material-label layer intent to every view', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn((key: string) =>
+        key === 'unilab.lab.material-label-layer-visible'
+          ? 'false'
+          : null
+      ),
+      setItem: vi.fn()
+    })
+
+    const markup = renderToStaticMarkup(
+      <UnifiedMaterialViewport
+        renderView={(_, options) => (
+          <output data-material-labels={options.showMaterialLabels} />
+        )}
+      />
+    )
+
+    expect(markup).toContain('aria-label="名称标签"')
+    expect(markup).toContain('aria-pressed="false"')
+    expect(markup).toContain('data-material-labels="false"')
   })
 
   /** 证明 3D 模式只展示准确的左键选择与右键旋转说明。 */
@@ -48,7 +74,8 @@ describe('UnifiedMaterialViewport', () => {
         viewState={{
           mode: '3d',
           showSites: true,
-          showMaterialTransfers: true
+          showMaterialTransfers: true,
+          showMaterialLabels: true
         }}
         renderView={() => <div>scene</div>}
       />
@@ -58,7 +85,8 @@ describe('UnifiedMaterialViewport', () => {
         viewState={{
           mode: '2d',
           showSites: true,
-          showMaterialTransfers: true
+          showMaterialTransfers: true,
+          showMaterialLabels: true
         }}
         renderView={() => <div>scene</div>}
       />
@@ -68,7 +96,8 @@ describe('UnifiedMaterialViewport', () => {
         viewState={{
           mode: 'split',
           showSites: true,
-          showMaterialTransfers: true
+          showMaterialTransfers: true,
+          showMaterialLabels: true
         }}
         renderView={() => <div>scene</div>}
       />

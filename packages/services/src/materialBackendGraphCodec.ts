@@ -10,6 +10,7 @@ import {
   invalidGraph,
   isRecord,
   optionalString,
+  parseTuple,
   recordValue,
   requiredString,
   siteKind,
@@ -276,7 +277,12 @@ function mapBackendSite(value: unknown): MaterialSite {
         finiteGraphNumber(raw.position_y, 'site.position_y'),
         finiteGraphNumber(raw.position_z, 'site.position_z')
       ],
-      rotationDegXYZ: [0, 0, 0]
+      rotationDegXYZ: metaData.rotation_deg_xyz == null
+        ? [0, 0, 0]
+        : parseTuple(
+            metaData.rotation_deg_xyz,
+            'site.meta_data.rotation_deg_xyz'
+          )
     },
     sizeMm: [
       finiteGraphNumber(raw.width, 'site.width'),

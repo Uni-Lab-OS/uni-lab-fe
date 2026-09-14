@@ -156,6 +156,7 @@ export function materialAggregatesToSceneGraph(
       parentId: LEVEL_ID,
       materialNodeId: aggregate.material.id,
       displayName: aggregate.material.name,
+      showLabel: options.showMaterialLabels !== false,
       position: projected.position,
       rotation: projected.rotation,
       dimensions: rendering.dimensionsMm.map(
@@ -177,6 +178,7 @@ export function materialAggregatesToSceneGraph(
             kind: site.kind,
             shape: site.shape,
             positionMm: site.poseInAnchor.positionMm,
+            rotationDegXYZ: site.poseInAnchor.rotationDegXYZ,
             sizeMm: site.sizeMm,
             visible: site.visible !== false,
             occupied: site.occupiedMaterialIds.length > 0,

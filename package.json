@@ -11,6 +11,7 @@
     "workbench": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/workbench build && pnpm --filter @unilab/workbench start",
     "workbench:desktop": "pnpm --filter @unilab/workbench desktop",
     "workbench:desktop:development": "pnpm --filter @unilab/workbench desktop:development",
+    "workbench:desktop:welcome:development": "pnpm --filter @unilab/workbench desktop:welcome:development",
     "workbench:desktop-remote": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/workbench build && pnpm --filter @unilab/workbench start:desktop-remote",
     "workbench:remote": "pnpm --filter @unilab/workbench-theia build && pnpm --filter @unilab/workbench build && pnpm --filter @unilab/workbench start:remote",
     "build": "pnpm -r --if-present build",
@@ -46,7 +47,9 @@
     "test:e2e:device-manual-unlock": "playwright test e2e/device-manual-unlock-real-os.spec.ts",
     "test:e2e:device-single-action": "playwright test e2e/device-single-action-real-os.spec.ts",
     "test:e2e:desktop-local-runtime": "node scripts/run-playwright-e2e.mjs --env UNILAB_E2E_ELECTRON=1 -- e2e/local-runtime-electron-real-edge.spec.ts",
-    "test:e2e:workbench": "playwright test e2e/unilab-workbench.spec.ts e2e/workbench-runtime-log-drawer.spec.ts"
+    "test:e2e:desktop-workspace-reselection": "node apps/desktop/scripts/run-workbench-workspace-reselection-e2e.mjs",
+    "test:e2e:workbench": "playwright test e2e/unilab-workbench.spec.ts e2e/workbench-runtime-log-drawer.spec.ts",
+    "test:e2e:new-unresolved": "playwright test --config e2e/new-unresolved.playwright.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0",

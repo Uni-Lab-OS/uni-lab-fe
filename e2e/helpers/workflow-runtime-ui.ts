@@ -74,17 +74,29 @@ export async function applyWorkflowCandidateWithoutTask(
   panel: Locator,
   page: Page
 ): Promise<void> {
-  await panel.getByRole('button', {
+  const legacyApply = panel.getByRole('button', {
     name: '应用此版本',
     exact: true
-  }).click()
+  })
+  if (await legacyApply.isVisible()) {
+    await legacyApply.click()
+  } else {
+    // 当前 Workbench 将保存、应用与打开运行输入合并为单一入口；取消输入只
+    // 终止本次运行意图，已应用版本仍由 OS 保留，等价于旧版“仅应用”。
+    await panel.getByRole('button', {
+      name: '应用并运行',
+      exact: true
+    }).click()
+    const taskInput = page.getByLabel('工作流运行输入表单')
+    await expect(taskInput).toBeVisible()
+    await taskInput.getByRole('button', {
+      name: '取消',
+      exact: true
+    }).click()
+  }
   await expect(page.getByRole('dialog', {
     name: '本次工作流运行参数'
   })).toBeHidden()
-  await expect(panel.getByRole('button', {
-    name: '应用此版本',
-    exact: true
-  })).toBeDisabled()
   await expect(panel.getByRole('button', {
     name: '开始运行',
     exact: true

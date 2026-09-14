@@ -1,5 +1,6 @@
 import type {
   WorkflowAuthoringAggregate,
+  WorkflowExecutionTask,
   WorkflowInputDescriptor,
   WorkflowTask
 } from '@unilab/services'
@@ -425,12 +426,13 @@ function aggregate(options: {
   }
 }
 
-function workflowTask(snapshotRevision: number): WorkflowTask {
+function workflowTask(snapshotRevision: number): WorkflowExecutionTask {
   return {
     uuid: '30000000-0000-4000-8000-000000000001',
     create_time: '2026-08-02T00:00:00Z',
     update_time: '2026-08-02T00:00:00Z',
     meta_data: {},
+    execution_kind: 'workflow',
     workflow_uuid: '10000000-0000-4000-8000-000000000001',
     status: 'pending',
     workflow_snapshot: {

@@ -1,4 +1,4 @@
-import type { WorkflowTask } from '@unilab/services'
+import type { WorkflowExecutionTask } from '@unilab/services'
 import { describe, expect, it } from 'vitest'
 
 import { workflowTaskMetadata } from './workflowTaskPanelProjection'
@@ -42,13 +42,14 @@ describe('workflowTaskMetadata', () => {
 })
 
 /** 返回包含可识别运行主体和执行人的工作流任务（WorkflowTask）夹具。 */
-function workflowTask(): WorkflowTask {
+function workflowTask(): WorkflowExecutionTask {
   return {
     uuid: '30000000-0000-4000-8000-000000000001',
     create_time: '2026-08-10T08:00:00Z',
     update_time: '2026-08-10T08:00:00Z',
     description: '固体投料流程',
     meta_data: { operator_name: '韩工程师' },
+    execution_kind: 'workflow',
     workflow_uuid: '10000000-0000-4000-8000-000000000001',
     status: 'running',
     workflow_snapshot: {},

@@ -1,7 +1,6 @@
 import {
   createWorkflowDefinitionPort,
   type CapabilityStatus,
-  type WorkflowDefinitionKind,
   type WorkflowDefinitionAuthority,
   type WorkflowRuntimePort
 } from '@unilab/services'
@@ -15,11 +14,6 @@ import {
 } from '../hooks/usePersistentWorkflowAuthoring'
 import type { WorkflowResourceSlotOptionsPort } from '../utils/workflowResourceSlotOptions'
 import type { WorkflowIdeBridge } from '../utils/workflowSourceNavigation'
-import type {
-  WorkflowCanvasBreadcrumb,
-  WorkflowCanvasNavigationState
-} from '../utils/workflowCanvasCommands'
-import type { WorkflowEditMode } from '../utils/workflowCanvasPolicy'
 import { projectWorkflowIdeDiagnostics } from '../utils/workflowSourceNavigation'
 import { PersistentWorkflowAuthoringView } from './PersistentWorkflowAuthoringView'
 
@@ -36,10 +30,8 @@ interface PersistentWorkflowAuthoringPanelProps {
   active?: boolean
   definitionAuthority?: WorkflowDefinitionAuthority
   definitionEditingStatus?: CapabilityStatus
-  initialMode?: WorkflowEditMode
   workflowUuid: string
   workflowName?: string
-  definitionKind?: WorkflowDefinitionKind
   traceRuntime?: WorkflowTracePort
   resourceSlotOptionsPort?: WorkflowResourceSlotOptionsPort
   executionStatus?: CapabilityStatus
@@ -53,18 +45,8 @@ interface PersistentWorkflowAuthoringPanelProps {
     visibleMaterialRoles: readonly string[] | null
   ) => void
   onChooseWorkflow?: () => void
-  onSelectWorkflow?: (workflowUuid: string, workflowName: string) => void
-  onOpenChildWorkflow?: (
-    workflowUuid: string,
-    workflowName: string,
-    parentState: WorkflowCanvasNavigationState
-  ) => void
-  workflowBreadcrumbs?: readonly WorkflowCanvasBreadcrumb[]
-  onNavigateBreadcrumb?: (index: number) => void
-  restoreCanvasState?: WorkflowCanvasNavigationState | null
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
-  hideAuthoringToolbar?: boolean
   hideRuntimeControls?: boolean
   recoveryRevision?: number
   onResetEnvironment?: () => Promise<void>
@@ -103,16 +85,9 @@ export function PersistentWorkflowAuthoringPanel(
     <PersistentWorkflowAuthoringView
       model={model}
       workflowName={props.workflowName}
-      definitionKind={props.definitionKind}
-      onSelectWorkflow={props.onSelectWorkflow}
-      onOpenChildWorkflow={props.onOpenChildWorkflow}
-      workflowBreadcrumbs={props.workflowBreadcrumbs}
-      onNavigateBreadcrumb={props.onNavigateBreadcrumb}
-      restoreCanvasState={props.restoreCanvasState}
       visibleMaterialRoles={props.visibleMaterialRoles}
       onVisibleMaterialRolesChange={props.onVisibleMaterialRolesChange}
       hideEmbeddedCodeEditor={props.hideEmbeddedCodeEditor}
-      hideAuthoringToolbar={props.hideAuthoringToolbar}
       hideRuntimeControls={props.hideRuntimeControls}
       onResetEnvironment={props.onResetEnvironment}
       environmentResetBusy={props.environmentResetBusy}

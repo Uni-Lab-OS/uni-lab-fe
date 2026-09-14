@@ -308,6 +308,30 @@
     box-shadow: var(--unilab-shadow-control);
   }
 
+  :global(.persistent-authoring__custody-policy-note),
+  :global(.persistent-authoring__custody-policy-warning) {
+    overflow-wrap: anywhere;
+    padding: 8px 9px;
+    border-radius: var(--unilab-radius-control);
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  :global(.persistent-authoring__custody-policy-note) {
+    color: var(--unilab-color-text-muted) !important;
+    background: var(--unilab-color-surface-muted);
+  }
+
+  :global(.persistent-authoring__custody-policy-note[data-custody-policy='shared_source']) {
+    color: var(--unilab-color-material) !important;
+    background: var(--unilab-color-material-soft);
+  }
+
+  :global(.persistent-authoring__custody-policy-warning) {
+    color: var(--unilab-color-danger) !important;
+    background: var(--unilab-color-danger-soft);
+  }
+
   :global(.persistent-authoring__candidate-sites) {
     display: grid;
     gap: 1px;

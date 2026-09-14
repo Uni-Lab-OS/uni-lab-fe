@@ -11,6 +11,7 @@
   background: var(--unilab-color-canvas);
   container-type: inline-size;
 }
+
 .workflow :global(.workflow-task-list__header) {
   display: flex;
   align-items: center;
@@ -37,6 +38,10 @@
   margin-top: 4px;
   color: var(--unilab-color-text-muted);
   font-size: 12px;
+}
+
+.workflow :global(.workflow-task-list__header) p.is-error {
+  color: var(--unilab-color-danger);
 }
 
 .workflow :global(.workflow-task-list__header) button,
@@ -309,6 +314,50 @@
   min-width: 0;
 }
 
+.workflow :global(.workflow-task-list__workflow-actions) {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.workflow :global(.workflow-task-list__queue-controls) {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.workflow :global(.workflow-task-list__queue-controls) > div {
+  display: flex;
+}
+
+.workflow :global(.workflow-task-list__queue-controls) button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  color: var(--unilab-color-primary);
+  border: 1px solid var(--unilab-color-focus);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-primary-soft);
+  cursor: pointer;
+  font: 650 11px/1 var(--unilab-font-sans);
+}
+
+.workflow :global(.workflow-task-list__queue-controls) button:disabled {
+  cursor: wait;
+  opacity: .55;
+}
+
+.workflow :global(.workflow-task-list__queue-controls) > [role='alert'] {
+  max-width: 280px;
+  color: var(--unilab-color-danger);
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: right;
+}
+
 .workflow :global(.workflow-task-list__workflow-context) h3 {
   overflow: hidden;
   font-size: 13px;
@@ -338,29 +387,6 @@
   min-height: 0;
   flex: 1;
   overflow: hidden;
-}
-
-.workflow :global(.workflow-task-list__state) {
-  display: flex;
-  min-height: 180px;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 8px;
-  padding: 28px;
-  color: var(--unilab-color-text-muted);
-  text-align: center;
-}
-
-.workflow :global(.workflow-task-list__state) span {
-  max-width: 640px;
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-
-.workflow :global(.workflow-task-list__state.is-error) {
-  color: var(--unilab-color-danger);
 }
 
 @container (max-width: 760px) {
@@ -420,5 +446,10 @@
 
   .workflow :global(.workflow-task-list__workflow-context) {
     align-items: flex-start;
+  }
+
+  .workflow :global(.workflow-task-list__workflow-actions) {
+    align-items: flex-end;
+    flex-direction: column;
   }
 }

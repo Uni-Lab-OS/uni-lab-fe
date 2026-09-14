@@ -49,6 +49,18 @@ describe('buildLabFloorplan', () => {
     expect(collect(plate, 'text')).toHaveLength(0)
     expect(collect(hoveredPlate, 'text')).toHaveLength(1)
   })
+
+  it('suppresses material tags even during interaction when the layer is hidden', () => {
+    const hiddenEquipment = device({ kind: 'liquid-handler' })
+    hiddenEquipment.showLabel = false
+
+    const geometry = buildLabFloorplan(
+      hiddenEquipment,
+      context({ hovered: true, selected: true, highlighted: true })
+    )
+
+    expect(collect(geometry, 'text')).toHaveLength(0)
+  })
 })
 
 function device(

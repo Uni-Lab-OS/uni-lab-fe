@@ -73,7 +73,7 @@ export function buildLabFloorplan(
   const equipment =
     node.type === 'lab-table' ||
     isEquipmentKind((node as LabDeviceNode).deviceType ?? snapshot.kind)
-  if (equipment || hovered || showSelection) {
+  if (node.showLabel && (equipment || hovered || showSelection)) {
     const labelPoint = localPoint(
       snapshot.worldPositionMm,
       snapshot.worldRotationDegXYZ[2],

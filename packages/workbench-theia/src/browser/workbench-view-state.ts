@@ -3,29 +3,24 @@ import { injectable } from '@theia/core/shared/inversify'
 
 export type WorkbenchDomain =
   | 'workflow'
+  | 'workflow-tasks'
   | 'material'
   | 'device'
   | 'robot-debug'
-  | 'operation'
   | 'robot-points'
-  | 'workflow-management'
-  | 'workflow-tasks'
   | 'robot-bench'
   | 'robot-reagents'
 export type WorkbenchViewMode =
   | 'empty'
   | 'workflow'
+  | 'workflow-tasks'
   | 'material'
   | 'device'
   | 'robot-debug'
-  | 'operation'
   | 'robot-points'
-  | 'workflow-management'
-  | 'workflow-tasks'
   | 'robot-bench'
   | 'robot-reagents'
   | 'split'
-  | 'workflow-management-material'
   | 'device-material'
 
 export type RobotWorkbenchViewMode = Extract<
@@ -42,19 +37,13 @@ export type RobotWorkbenchViewMode = Extract<
 @injectable()
 export class WorkbenchViewState {
   protected workflowVisible = !headlessMaterialRendererRequested()
-  protected workflowManagementVisible = false
   protected materialVisible = headlessMaterialRendererRequested()
   protected deviceVisible = false
   protected exclusiveDomain: Exclude<
     WorkbenchDomain,
-    'workflow' | 'workflow-management' | 'material' | 'device'
+    'workflow' | 'material' | 'device'
   > | null = null
   protected readonly changeEmitter = new Emitter<WorkbenchViewMode>()
-
-  constructor() {
-    const saved = readSavedWorkbenchMode()
-    if (saved) this.applyMode(saved)
-  }
 
   readonly onDidChangeMode: Event<WorkbenchViewMode> = this.changeEmitter.event
 
@@ -63,10 +52,6 @@ export class WorkbenchViewState {
     if (this.exclusiveDomain) return this.exclusiveDomain
     if (this.deviceVisible && this.materialVisible) return 'device-material'
     if (this.deviceVisible) return 'device'
-    if (this.workflowManagementVisible && this.materialVisible) {
-      return 'workflow-management-material'
-    }
-    if (this.workflowManagementVisible) return 'workflow-management'
     if (this.workflowVisible && this.materialVisible) return 'split'
     if (this.workflowVisible) return 'workflow'
     if (this.materialVisible) return 'material'
@@ -77,9 +62,6 @@ export class WorkbenchViewState {
   isVisible(domain: WorkbenchDomain): boolean {
     if (this.exclusiveDomain) return this.exclusiveDomain === domain
     if (domain === 'workflow') return this.workflowVisible
-    if (domain === 'workflow-management') {
-      return this.workflowManagementVisible
-    }
     if (domain === 'material') return this.materialVisible
     if (domain === 'device') return this.deviceVisible
     return false
@@ -95,12 +77,7 @@ export class WorkbenchViewState {
     // 主区必须始终保留至少一个活动领域。单视图下再次点击当前入口
     // 只用于保持焦点，不能把唯一活动项关闭成 empty。
     if (!isSplitWorkbenchView(previousMode) && this.isVisible(domain)) return
-    if (
-      domain !== 'workflow' &&
-      domain !== 'workflow-management' &&
-      domain !== 'material' &&
-      domain !== 'device'
-    ) {
+    if (domain !== 'workflow' && domain !== 'material' && domain !== 'device') {
       this.exclusiveDomain = this.exclusiveDomain === domain ? null : domain
     } else if (this.exclusiveDomain) {
       // 从机械臂等互斥页面返回主区时，明确选择用户点击的领域。
@@ -108,7 +85,6 @@ export class WorkbenchViewState {
       // 会把 materialVisible 从 true 切成 false，导致主区与活动栏选中态不一致。
       this.exclusiveDomain = null
       this.workflowVisible = domain === 'workflow'
-      this.workflowManagementVisible = domain === 'workflow-management'
       this.materialVisible = domain === 'material'
       this.deviceVisible = domain === 'device'
     } else {
@@ -116,76 +92,24 @@ export class WorkbenchViewState {
       if (domain === 'workflow') {
         const nextVisible = !this.workflowVisible
         this.workflowVisible = nextVisible
-        if (nextVisible) {
-          this.workflowManagementVisible = false
-          this.deviceVisible = false
-        }
-      } else if (domain === 'workflow-management') {
-        const nextVisible = !this.workflowManagementVisible
-        this.workflowManagementVisible = nextVisible
-        if (nextVisible) {
-          this.workflowVisible = false
-          this.deviceVisible = false
-        }
+        if (nextVisible) this.deviceVisible = false
       } else if (domain === 'material') {
         this.materialVisible = !this.materialVisible
       } else {
         const nextVisible = !this.deviceVisible
         this.deviceVisible = nextVisible
-        if (nextVisible) {
-          this.workflowVisible = false
-          this.workflowManagementVisible = false
-        }
+        if (nextVisible) this.workflowVisible = false
       }
     }
     const nextMode = this.currentMode
-    if (nextMode !== previousMode) {
-      saveWorkbenchMode(nextMode)
-      this.changeEmitter.fire(nextMode)
-    }
+    if (nextMode !== previousMode) this.changeEmitter.fire(nextMode)
   }
 
-  private applyMode(mode: WorkbenchViewMode): void {
-    this.workflowVisible = mode === 'workflow' || mode === 'split'
-    this.workflowManagementVisible = mode === 'workflow-management' ||
-      mode === 'workflow-management-material'
-    this.materialVisible = mode === 'material' || mode === 'split' ||
-      mode === 'workflow-management-material' || mode === 'device-material'
-    this.deviceVisible = mode === 'device' || mode === 'device-material'
-    this.exclusiveDomain = mode === 'operation' || mode === 'robot-debug' ||
-      mode === 'robot-points' || mode === 'workflow-tasks' ||
-      mode === 'robot-bench' || mode === 'robot-reagents' ? mode : null
-  }
-}
-
-const WORKBENCH_MODE_STORAGE_KEY = 'unilab.workbench.view-mode'
-const WORKBENCH_MODES = new Set<WorkbenchViewMode>([
-  'workflow', 'material', 'device', 'robot-debug', 'operation',
-  'robot-points', 'workflow-management', 'workflow-tasks', 'robot-bench',
-  'robot-reagents', 'split', 'workflow-management-material', 'device-material'
-])
-
-function readSavedWorkbenchMode(): WorkbenchViewMode | null {
-  try {
-    const value = globalThis.localStorage?.getItem(WORKBENCH_MODE_STORAGE_KEY) ??
-      globalThis.sessionStorage?.getItem(WORKBENCH_MODE_STORAGE_KEY)
-    return value && WORKBENCH_MODES.has(value as WorkbenchViewMode)
-      ? value as WorkbenchViewMode
-      : null
-  } catch { return null }
-}
-
-function saveWorkbenchMode(mode: WorkbenchViewMode): void {
-  try {
-    globalThis.localStorage?.setItem(WORKBENCH_MODE_STORAGE_KEY, mode)
-    globalThis.sessionStorage?.setItem(WORKBENCH_MODE_STORAGE_KEY, mode)
-  } catch { /* ignore */ }
 }
 
 /** 判断当前是否为允许用户关闭任一侧的双领域分栏。 */
 function isSplitWorkbenchView(mode: WorkbenchViewMode): boolean {
-  return mode === 'split' || mode === 'workflow-management-material' ||
-    mode === 'device-material'
+  return mode === 'split' || mode === 'device-material'
 }
 
 function headlessMaterialRendererRequested(): boolean {

@@ -26,6 +26,7 @@ import type {
   ManagedLocalWorkbenchSessionOptions,
   WorkbenchDomainMode,
   WorkbenchEnvironmentLogKind,
+  WorkbenchGraphDeclaration,
   WorkbenchPlcHandshakeProfile,
   WorkbenchPlcSimulatorConfiguration,
   WorkbenchProductionConnectionConfiguration,
@@ -83,6 +84,8 @@ interface WorkspaceHostSnapshot {
     tokenPath: string
     platform: string
   }
+  /** Optional for compatibility with older Workspace Host snapshots. */
+  graphDeclaration?: unknown
   configuration: Record<string, unknown>
   components: {
     backend: HostComponent
@@ -121,15 +124,17 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
   private readonly listeners = new Set<(
     snapshot: WorkbenchSessionSnapshot
   ) => void>()
+  /** 尚未由 Host 接受的一次性显式启动图选择。 */
+  private pendingInitialGraphPath: string | null
   private agent: ManagedWorkbenchAgent | null = null
   private agentStarting: Promise<WorkbenchSessionSnapshot> | null = null
   private polling = false
   private readonly pollTimer: ReturnType<typeof setInterval>
 
   constructor(private readonly options: ManagedLocalWorkbenchSessionOptions) {
-    const graphPath = options.graphPath
-      ?? join('deployment', 'graphs', 'szlab-local-debug.json')
+    const graphPath = options.graphPath ?? ''
     const mode = options.runtimeMode ?? 'normal'
+    this.pendingInitialGraphPath = options.graphPath ?? null
     this.snapshot = initialSnapshot(options, graphPath, mode)
     this.pollTimer = setInterval(() => {
       void this.pollHost()
@@ -173,6 +178,11 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
 
   async startWorkspaceBackend(): Promise<WorkbenchSessionSnapshot> {
     await this.loadConfiguration()
+    const initialGraphPath = this.pendingInitialGraphPath
+    if (initialGraphPath !== null) {
+      await this.updateConfiguration({ graphPath: initialGraphPath })
+      this.pendingInitialGraphPath = null
+    }
     return await this.run('backend.start')
   }
 
@@ -251,6 +261,14 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
     const wasBackendReady = this.host?.components.backend.phase === 'ready'
     const wasEdgeReady = this.host?.components.edge.phase === 'ready'
     await this.updateConfiguration({ graphPath })
+    this.pendingInitialGraphPath = null
+    this.publish({
+      configuredGraphPath: graphPath,
+      edgeRuntime: {
+        ...this.snapshot.edgeRuntime,
+        graphPath
+      }
+    })
     if (wasBackendReady) await this.run('local.reset-state')
     if (wasEdgeReady) await this.run('os.start')
     return this.getSnapshot()
@@ -670,7 +688,12 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
       && this.host.host.pid === host.host.pid
     if (sameHost && this.host!.revision >= host.revision) return
     this.host = host
-    this.snapshot = projectSnapshot(host, this.snapshot, this.options)
+    this.snapshot = projectSnapshot(
+      host,
+      this.snapshot,
+      this.options,
+      this.pendingInitialGraphPath
+    )
     this.emit()
   }
 
@@ -697,7 +720,7 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
       '.unilabos',
       'environment.local.json'
     ))
-    const graphPath = this.options.graphPath
+    const graphPath = this.pendingInitialGraphPath
       ?? configuration.graphPath
       ?? this.snapshot.configuredGraphPath
     const externalDevicesOnly = this.options.externalDevicesOnly
@@ -976,19 +999,30 @@ async function hostRequest<T>(
  * @param host Workspace Host 返回的组件与配置事实。
  * @param previous 上一次前端快照，用于保留 Host 未返回的稳定字段。
  * @param options 当前工作区的启动配置。
+ * @param pendingInitialGraphPath 尚未由 Host 接受的一次性显式选择。
  * @returns 可供 Workbench 渲染和控制的统一会话快照。
  */
 function projectSnapshot(
   host: WorkspaceHostSnapshot,
   previous: WorkbenchSessionSnapshot,
-  options: ManagedLocalWorkbenchSessionOptions
+  options: ManagedLocalWorkbenchSessionOptions,
+  pendingInitialGraphPath: string | null
 ): WorkbenchSessionSnapshot {
   const backend = host.components.backend
   const edge = host.components.edge
   const plc = host.components.plc
   const configuration = host.configuration
-  const graphPath = stringValue(configuration['graphPath'])
+  const graphDeclaration = parseGraphDeclaration(host.graphDeclaration)
+  const legacyRuntimeGraphPath = stringValue(backend.metadata?.['graphPath'])
+    ?? stringValue(edge.metadata?.['graphPath'])
+  // 显式启动参数只保留到 Host 首次接受；之后由 Host 持久化配置负责选择。
+  // 包声明提供默认值，旧 Host 则从实际组件 metadata 只读回投当前图。
+  const graphPath = pendingInitialGraphPath
+    ?? stringValue(configuration['graphPath'])
+    ?? graphDeclaration?.defaultGraphPath
+    ?? legacyRuntimeGraphPath
     ?? previous.configuredGraphPath
+    ?? ''
   const externalDevicesOnly = booleanValue(configuration['externalDevicesOnly'])
     ?? previous.configuredExternalDevicesOnly
   const mode = runtimeMode(configuration['runtimeMode'])
@@ -1028,6 +1062,7 @@ function projectSnapshot(
     phase: backendPhase,
     message: componentMessage('Workspace Backend', backend),
     configuredGraphPath: graphPath,
+    graphDeclaration,
     configuredExternalDevicesOnly: externalDevicesOnly,
     configuredRuntimeMode: mode,
     configuredDomainMode: domainMode,
@@ -1090,6 +1125,7 @@ function initialSnapshot(
     phase: 'idle',
     message: 'Workspace Host 尚未连接',
     configuredGraphPath: graphPath,
+    graphDeclaration: null,
     configuredExternalDevicesOnly: options.externalDevicesOnly ?? true,
     configuredRuntimeMode: mode,
     configuredDomainMode: options.domainMode ?? 'local',
@@ -1195,6 +1231,59 @@ function handshakeProfile(value: unknown): WorkbenchPlcHandshakeProfile {
 
 function stringValue(value: unknown): string | null {
   return typeof value === 'string' && value ? value : null
+}
+
+/**
+ * 将 Workspace Host 的可选 graphDeclaration 解析为窄化的 UI 投影。
+ *
+ * 旧 Host 不返回该字段；坏类型、空路径、重复候选或默认值不属于候选时，
+ * 返回一个不可操作的空候选哨兵，使 Environment Manager 关闭失败。
+ *
+ * @param value Host 快照中的未知 graphDeclaration 值。
+ * @returns 合法声明，或表示旧/无声明 Host 的 null。
+ */
+function parseGraphDeclaration(
+  value: unknown
+): WorkbenchGraphDeclaration | null {
+  if (value === undefined || value === null) return null
+  if (!isRecord(value)) return invalidGraphDeclaration()
+  const defaultGraphPath = stringValue(value['defaultGraphPath'])
+  const rawCandidates = value['candidates']
+  if (!defaultGraphPath) return invalidGraphDeclaration()
+  if (rawCandidates === null) {
+    return { defaultGraphPath, candidates: null }
+  }
+  if (!Array.isArray(rawCandidates) || rawCandidates.length === 0) {
+    return invalidGraphDeclaration()
+  }
+  const candidates = strictUniqueStrings(rawCandidates)
+  if (candidates === null || !candidates.includes(defaultGraphPath)) {
+    return invalidGraphDeclaration()
+  }
+  return {
+    defaultGraphPath,
+    candidates
+  }
+}
+
+function strictUniqueStrings(value: readonly unknown[]): string[] | null {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const candidate of value) {
+    if (
+      typeof candidate !== 'string'
+      || !candidate
+      || candidate.trim() !== candidate
+      || seen.has(candidate)
+    ) return null
+    seen.add(candidate)
+    result.push(candidate)
+  }
+  return result
+}
+
+function invalidGraphDeclaration(): WorkbenchGraphDeclaration {
+  return { defaultGraphPath: null, candidates: [] }
 }
 
 /**

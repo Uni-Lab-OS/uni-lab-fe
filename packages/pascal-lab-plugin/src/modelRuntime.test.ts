@@ -76,6 +76,25 @@ describe('Pascal model runtime', () => {
       )
     ).toBe(false)
   })
+
+  it('distinguishes packaged Xacro libraries from complete robot documents', () => {
+    const packagedPath =
+      'http://127.0.0.1:8014/api/v1/material-models/lab/devices/model.xacro'
+    expect(
+      shouldInstantiateXacro(
+        packagedPath,
+        undefined,
+        '<robot xmlns:xacro="http://ros.org/wiki/xacro"><xacro:macro name="device"><link name="body" /></xacro:macro></robot>'
+      )
+    ).toBe(true)
+    expect(
+      shouldInstantiateXacro(
+        packagedPath,
+        undefined,
+        '<robot xmlns:xacro="http://ros.org/wiki/xacro"><link name="body" /></robot>'
+      )
+    ).toBe(false)
+  })
 })
 
 function minimalBinaryStl(): ArrayBuffer {

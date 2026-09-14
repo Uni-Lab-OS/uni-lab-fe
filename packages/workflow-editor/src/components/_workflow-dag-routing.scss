@@ -22,7 +22,9 @@
   height: 12px;
 }
 
-.workflow :global(.react-flow__edge.wf-flow-edge--ready) path {
+.workflow
+  :global(.react-flow__edge.wf-flow-edge--ready)
+  :global(.react-flow__edge-path) {
   stroke: var(--unilab-color-text-subtle);
   stroke-dasharray: none;
 }

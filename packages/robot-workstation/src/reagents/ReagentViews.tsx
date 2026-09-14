@@ -1,4 +1,5 @@
 import { Button } from '@unilab/design-system'
+import { useEffect, useState } from 'react'
 
 import type { ReagentInfoProjection, ReagentInventoryProjection } from '../types'
 import { pillBaseClass, uiClass } from '../uiClasses'
@@ -17,6 +18,25 @@ export interface ReagentInfoActions {
   delete(item: ReagentInfoProjection): void
 }
 
+export const REAGENT_PAGE_SIZE = 20
+
+/** 将任意试剂行投影为边界安全的当前页。 */
+export function paginateReagentRows<Row>(
+  rows: readonly Row[],
+  requestedPage: number,
+  pageSize = REAGENT_PAGE_SIZE
+): { items: readonly Row[]; page: number; totalPages: number } {
+  const safePageSize = Math.max(1, Math.trunc(pageSize))
+  const totalPages = Math.max(1, Math.ceil(rows.length / safePageSize))
+  const page = Math.min(totalPages, Math.max(1, Math.trunc(requestedPage)))
+  const offset = (page - 1) * safePageSize
+  return {
+    items: rows.slice(offset, offset + safePageSize),
+    page,
+    totalPages
+  }
+}
+
 /**
  * 按附件的信息层级展示真实试剂台账，不把缺失的业务字段补成示例值。
  * @param props 权威库存条目、搜索词和可选 Backend 行操作。
@@ -32,7 +52,11 @@ export function ReagentLedgerView({
   actions?: ReagentLedgerActions
 }): React.JSX.Element {
   const visibleItems = filterReagentInventory(items, query)
+  const [page, setPage] = useState(1)
+  const pagination = paginateReagentRows(visibleItems, page)
   const totals = summarizeReagentInventory(items)
+  useEffect(() => setPage(1), [query])
+  useEffect(() => setPage(pagination.page), [pagination.page])
   return (
     <>
       <div className={styles.reagentStats} aria-label="试剂库存摘要">
@@ -58,7 +82,7 @@ export function ReagentLedgerView({
             </tr>
           </thead>
           <tbody>
-            {visibleItems.map(item => (
+            {pagination.items.map(item => (
               <tr key={item.id}>
                 <td data-label="试剂名称">
                   <strong>{item.name}</strong>
@@ -90,6 +114,7 @@ export function ReagentLedgerView({
             ) : null}
           </tbody>
         </table>
+        <ReagentPagination pagination={pagination} onPageChange={setPage} />
       </div>
     </>
   )
@@ -110,7 +135,11 @@ export function ReagentLibraryView({
   actions?: ReagentInfoActions
 }): React.JSX.Element {
   const visibleInfos = filterReagentInfos(infos, query)
+  const [page, setPage] = useState(1)
+  const pagination = paginateReagentRows(visibleInfos, page)
   const columnCount = 5 + Number(Boolean(actions))
+  useEffect(() => setPage(1), [query])
+  useEffect(() => setPage(pagination.page), [pagination.page])
   return (
     <section className={uiClass.panel}>
       <div className={uiClass.tableScroll}>
@@ -126,7 +155,7 @@ export function ReagentLibraryView({
             </tr>
           </thead>
           <tbody>
-            {visibleInfos.map(info => {
+            {pagination.items.map(info => {
               const parameterSummary = formatInfoParameters(info)
               return (
                 <tr key={info.id}>
@@ -161,7 +190,39 @@ export function ReagentLibraryView({
           </tbody>
         </table>
       </div>
+      <ReagentPagination pagination={pagination} onPageChange={setPage} />
     </section>
+  )
+}
+
+/** 在库存和基础信息目录之间复用同一分页交互。 */
+function ReagentPagination({
+  pagination,
+  onPageChange
+}: {
+  pagination: { page: number; totalPages: number }
+  onPageChange(page: number): void
+}): React.JSX.Element | null {
+  if (pagination.totalPages <= 1) return null
+  return (
+    <nav
+      className="flex items-center justify-end gap-3 border-t border-[var(--unilab-color-border)] p-3 text-xs text-[var(--unilab-color-text-muted)]"
+      aria-label="试剂分页"
+    >
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={pagination.page <= 1}
+        onClick={() => onPageChange(pagination.page - 1)}
+      >上一页</Button>
+      <span>第 {pagination.page} / {pagination.totalPages} 页</span>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={pagination.page >= pagination.totalPages}
+        onClick={() => onPageChange(pagination.page + 1)}
+      >下一页</Button>
+    </nav>
   )
 }
 

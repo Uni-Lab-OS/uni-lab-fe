@@ -23,6 +23,18 @@ const API_URL =
 const EXPECTED_MATERIAL_COUNT = Number(
   process.env.UNILAB_E2E_MATERIAL_COUNT ?? '129'
 )
+const EXPECTED_SITE_COUNT = Number(
+  process.env.UNILAB_E2E_SITE_COUNT ?? '418'
+)
+const EXPECTED_OCCUPIED_SITE_COUNT = Number(
+  process.env.UNILAB_E2E_OCCUPIED_SITE_COUNT ?? '110'
+)
+const EXPECTED_OBLIQUE_SITE_COUNT = Number(
+  process.env.UNILAB_E2E_OBLIQUE_SITE_COUNT ?? '130'
+)
+const EXPECTED_TRANSFER_ROUTE_COUNT = Number(
+  process.env.UNILAB_E2E_TRANSFER_ROUTE_COUNT ?? '5'
+)
 const FE_ORIGIN = process.env.UNILAB_FE_E2E_URL ?? 'http://127.0.0.1:4173'
 const ARTIFACT_ROOT = resolve(
   CORE_ROOT,
@@ -136,13 +148,13 @@ test('SZLab MaterialGraph renders complete 2.5D and 3D views', async ({
   const graphSites =
     graphPayload.data?.nodes?.flatMap((node) => node.sites ?? []) ?? []
   expect(graphPayload.data?.nodes).toHaveLength(EXPECTED_MATERIAL_COUNT)
-  expect(graphSites).toHaveLength(418)
+  expect(graphSites).toHaveLength(EXPECTED_SITE_COUNT)
   expect(
     graphSites.filter((site) => site.occupied_material_uuid != null)
-  ).toHaveLength(110)
+  ).toHaveLength(EXPECTED_OCCUPIED_SITE_COUNT)
   expect(
     graphSites.filter((site) => site.occupied_material_uuid == null)
-  ).toHaveLength(308)
+  ).toHaveLength(EXPECTED_SITE_COUNT - EXPECTED_OCCUPIED_SITE_COUNT)
   const shapePayload = (await shapeResponse.json()) as {
     data?: { items?: unknown[] }
   }
@@ -154,7 +166,9 @@ test('SZLab MaterialGraph renders complete 2.5D and 3D views', async ({
   await expect(
     page.getByText(`(${EXPECTED_MATERIAL_COUNT})`, { exact: true })
   ).toBeVisible()
-  await expect(page.getByText('Edge 已连接', { exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Edge 已连接' })
+  ).toBeVisible()
 
   await expandMaterial(page, 'S1 连续流工作站')
   await expandMaterial(page, 'SZLab 聚合物工作站台面')
@@ -215,14 +229,16 @@ test('SZLab MaterialGraph renders complete 2.5D and 3D views', async ({
     EXPECTED_MATERIAL_COUNT
   )
   await expect(oblique.locator('[data-oblique-site-bounds]')).toHaveCount(
-    130
+    EXPECTED_OBLIQUE_SITE_COUNT
   )
   await expect(
     oblique.locator('[data-oblique-site-bounds][data-site-occupancy="occupied"]')
-  ).toHaveCount(110)
+  ).toHaveCount(EXPECTED_OCCUPIED_SITE_COUNT)
   await expect(
     oblique.locator('[data-oblique-site-bounds][data-site-occupancy="empty"]')
-  ).toHaveCount(20)
+  ).toHaveCount(
+    EXPECTED_OBLIQUE_SITE_COUNT - EXPECTED_OCCUPIED_SITE_COUNT
+  )
   await expect(
     oblique.locator('[data-oblique-render-style="spec"]').first()
   ).toBeVisible()
@@ -367,14 +383,19 @@ test('SZLab workflow projects material transfers into the Pascal 3D scene', asyn
   )
   const viewer = page.locator('[data-pascal-viewer-3d]')
   await expect(viewer).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByText('5 条物料转运路线', { exact: true }))
-    .toBeVisible({ timeout: 30_000 })
+  await expect(
+    page.getByText(`${EXPECTED_TRANSFER_ROUTE_COUNT} 条物料转运路线`, {
+      exact: true
+    })
+  ).toBeVisible({ timeout: 30_000 })
   const transferToggle = page.getByRole('button', {
     name: '物料转运',
     exact: true
   })
   await expect(transferToggle).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.locator('.pascal-transfer-executor')).toHaveCount(5)
+  await expect(page.locator('.pascal-transfer-executor')).toHaveCount(
+    EXPECTED_TRANSFER_ROUTE_COUNT
+  )
   await expect(page.locator('.pascal-transfer-executor.is-expanded'))
     .toHaveCount(1)
   await expect(
@@ -395,7 +416,9 @@ test('SZLab workflow projects material transfers into the Pascal 3D scene', asyn
   })
   await siteToggle.click()
   await expect(siteToggle).toHaveAttribute('aria-pressed', 'false')
-  await expect(page.locator('.pascal-transfer-executor')).toHaveCount(5)
+  await expect(page.locator('.pascal-transfer-executor')).toHaveCount(
+    EXPECTED_TRANSFER_ROUTE_COUNT
+  )
   await captureViewport(page, 'szlab-material-transfer-03-routes-only.png')
 
   await transferToggle.click()
@@ -405,7 +428,9 @@ test('SZLab workflow projects material transfers into the Pascal 3D scene', asyn
 
   await transferToggle.click()
   await expect(transferToggle).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.locator('.pascal-transfer-executor')).toHaveCount(5)
+  await expect(page.locator('.pascal-transfer-executor')).toHaveCount(
+    EXPECTED_TRANSFER_ROUTE_COUNT
+  )
   await page.getByRole('button', { name: '适配场景', exact: true }).click()
   await page.waitForTimeout(700)
   await captureViewport(page, 'szlab-material-transfer-05-layer-restored.png')
@@ -436,9 +461,14 @@ test('SZLab 物料（Material）转运呈现完整侧面全景', async ({
   )
   const viewer = page.locator('[data-pascal-viewer-3d]')
   await expect(viewer).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByText('5 条物料转运路线', { exact: true }))
-    .toBeVisible({ timeout: 30_000 })
-  await expect(page.locator('.pascal-transfer-executor')).toHaveCount(5)
+  await expect(
+    page.getByText(`${EXPECTED_TRANSFER_ROUTE_COUNT} 条物料转运路线`, {
+      exact: true
+    })
+  ).toBeVisible({ timeout: 30_000 })
+  await expect(page.locator('.pascal-transfer-executor')).toHaveCount(
+    EXPECTED_TRANSFER_ROUTE_COUNT
+  )
 
   const topView = page.getByRole('button', {
     name: '顶视图',

@@ -3,9 +3,11 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
 import {
+  REAGENT_PAGE_SIZE,
   reagentInfoParameterEntries,
   filterReagentInfos,
   filterReagentInventory,
+  paginateReagentRows,
   ReagentLedgerView,
   ReagentLibraryView
 } from './ReagentViews'
@@ -121,5 +123,42 @@ describe('ReagentViews filters', () => {
     expect(markup).toContain('data-smiles="CCO"')
     expect(markup).toContain('data-size="compact"')
     expect(markup).not.toContain('<th>SMILES</th>')
+  })
+
+  /** 证明库存和试剂库只渲染当前页，并且后续页仍可被稳定访问。 */
+  it('paginates reagent rows instead of rendering the entire catalog', () => {
+    const items = Array.from({ length: REAGENT_PAGE_SIZE + 1 }, (_, index) => ({
+      id: `reagent-${index + 1}`,
+      name: `分页试剂 ${index + 1}`,
+      status: 'available' as const
+    }))
+    const markup = renderToStaticMarkup(createElement(ReagentLedgerView, {
+      items,
+      query: ''
+    }))
+
+    expect(markup).toContain('第 1 / 2 页')
+    expect(markup).toContain('分页试剂 1')
+    expect(markup).not.toContain(`分页试剂 ${REAGENT_PAGE_SIZE + 1}`)
+    expect(paginateReagentRows(items, 2).items.map(item => item.id))
+      .toEqual([`reagent-${REAGENT_PAGE_SIZE + 1}`])
+
+    const infos = Array.from(
+      { length: REAGENT_PAGE_SIZE + 1 },
+      (_, index) => ({
+        id: `info-${index + 1}`,
+        name: `基础信息 ${index + 1}`,
+        aliases: [],
+        physicalState: 'liquid' as const
+      })
+    )
+    const libraryMarkup = renderToStaticMarkup(createElement(
+      ReagentLibraryView,
+      { infos, query: '' }
+    ))
+    expect(libraryMarkup).toContain('第 1 / 2 页')
+    expect(libraryMarkup).not.toContain(
+      `基础信息 ${REAGENT_PAGE_SIZE + 1}`
+    )
   })
 })

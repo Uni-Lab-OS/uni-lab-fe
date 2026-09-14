@@ -1,6 +1,7 @@
 import type {
   DebugLaunchOverride,
   DebugWorkflowTaskPreflight,
+  WorkflowExecutionTask,
   WorkflowNodeJob,
   WorkflowNodeJobFeedback,
   WorkflowRuntimeChangedEvent,
@@ -491,11 +492,11 @@ function registerWorkflowTaskControllerTests(): void {
 
   it('reconciles accepted cancellation when Runtime SSE is unavailable', async () => {
     vi.useFakeTimers()
-    const initial: WorkflowTask = {
+    const initial: WorkflowExecutionTask = {
       ...workflowTask(),
       status: 'running'
     }
-    let authoritative: WorkflowTask = initial
+    let authoritative: WorkflowExecutionTask = initial
     const accepted: WorkflowTaskCommand = {
       ...workflowCommand(initial.uuid),
       type: 'cancel'
@@ -981,12 +982,13 @@ function singleNodeRuntime(task: WorkflowTask): WorkflowRuntimePort {
   })
 }
 
-function workflowTask(): WorkflowTask {
+function workflowTask(): WorkflowExecutionTask {
   return {
     uuid: '30000000-0000-4000-8000-000000000001',
     create_time: '2026-08-01T00:00:00Z',
     update_time: '2026-08-01T00:00:00Z',
     meta_data: {},
+    execution_kind: 'workflow',
     workflow_uuid: '10000000-0000-4000-8000-000000000001',
     status: 'pending',
     workflow_snapshot: {},

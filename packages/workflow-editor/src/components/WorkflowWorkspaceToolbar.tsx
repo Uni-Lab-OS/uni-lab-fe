@@ -36,6 +36,7 @@ interface WorkflowWorkspaceToolbarProps {
   codeMode: WorkflowWorkspaceModeControl
   canvasMode: WorkflowWorkspaceModeControl
   save: WorkflowWorkspaceSaveControl
+  hideActions?: boolean
   children?: ReactNode
 }
 
@@ -55,6 +56,7 @@ export function WorkflowWorkspaceToolbar({
   codeMode,
   canvasMode,
   save,
+  hideActions = false,
   children
 }: WorkflowWorkspaceToolbarProps): React.JSX.Element {
   const liveTask = workflowTaskIsLive(task) && !historicalTask
@@ -116,7 +118,7 @@ export function WorkflowWorkspaceToolbar({
         {message}
       </span>
 
-      <div
+      {!hideActions ? <div
         className="workflow__toolbar-actions persistent-authoring__debug-toolbar"
         aria-label="工作流调试工具栏"
       >
@@ -165,7 +167,7 @@ export function WorkflowWorkspaceToolbar({
         </WorkflowButton>
 
         {children}
-      </div>
+      </div> : null}
     </header>
   )
 }

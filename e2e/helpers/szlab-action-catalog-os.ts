@@ -69,6 +69,25 @@ export async function startSzlabCompositeMaterialWorkflowOs(): Promise<SzlabMate
 }
 
 /**
+ * 启动当前 SZLab 物料感知工作流的并行任务验收运行时。
+ *
+ * @returns 真实 OS 公共 HTTP 地址、工作流身份、SZLab 修订和清理函数。
+ * @throws 缺少审定 SZLab 修订、仓库不匹配或 OS 启动失败时抛出诊断异常。
+ * @safety 普通作业只派发给保持运行的虚拟执行器，不连接或驱动真实设备。
+ */
+export async function startSzlabParallelMaterialWorkflowOs(): Promise<SzlabMaterialWorkflowOs> {
+  // ``fixtureSha`` 是本次工作流任务（WorkflowTask）验收冻结的 SZLab 源码身份。
+  const fixtureSha = requiredEnvironment('UNILAB_SZLAB_REVISION')
+  return startSzlabOs({
+    workflowUuid: SZLAB_COMPOSITE_MATERIAL_WORKFLOW_UUID,
+    fixtureSha,
+    applyCompatibility: false,
+    applyCompositeMaterial: true,
+    holdExecution: true
+  })
+}
+
+/**
  * 启动绑定真实 S06 工作流定义的隔离 Uni-Lab-OS 创作夹具。
  *
  * @returns 已就绪的 OS 地址、S06 工作流 UUID、日志读取器和停止函数。
@@ -88,6 +107,7 @@ async function startSzlabOs(options: {
   fixtureSha: string
   applyCompatibility: boolean
   applyCompositeMaterial?: boolean
+  holdExecution?: boolean
 }): Promise<SzlabMaterialWorkflowOs> {
   const osRepository = resolve(requiredEnvironment('UNILAB_A1_OS_ROOT'))
   const szlabSourceRepository = resolve(
@@ -134,7 +154,8 @@ async function startSzlabOs(options: {
       workingDirectory,
       szlabRepository,
       String(port),
-      options.applyCompositeMaterial ? '1' : '0'
+      options.applyCompositeMaterial ? '1' : '0',
+      options.holdExecution ? '1' : '0'
     ],
     {
       cwd: osRepository,
@@ -194,37 +215,28 @@ function applyA1WorkflowInputCompatibility(repository: string): void {
 }
 
 const PYTHON_LAUNCHER = String.raw`
-import copy
-import json
 import sqlite3
 import sys
 from pathlib import Path
 
-from fastapi import Request
-from fastapi.responses import JSONResponse
 from unilabos.config.config import BasicConfig
-from unilabos.package_manager import WorkspaceSource, compile_package_source
-from unilabos.registry.catalog_consumer import (
-    workflow_template_imports_from_registry_snapshot,
+from unilabos.package_manager import (
+    WorkspaceSource,
+    compile_package_source,
+    compile_registry_snapshot,
 )
 from unilabos.registry.registry import Registry
-from unilabos.workflow.catalog import (
-    CatalogAuthority,
-    LocalResourceTemplateIdentityIndex,
-)
 from unilabos.resources.graphio import read_node_link_json
 from unilabos.workflow.composition import (
-    compose_workflow_runtime,
     get_workflow_service,
-    get_workflow_inventory_service,
 )
-from unilabos.workflow.service import WorkflowService
-from unilabos.workflow.store import WorkflowStore
+from unilabos.workflow.source_discovery import discover_editable_sources
 
 working_dir = Path(sys.argv[1])
 szlab_root = Path(sys.argv[2]).resolve()
 port = int(sys.argv[3])
 apply_composite_material = sys.argv[4] == "1"
+hold_execution = sys.argv[5] == "1"
 working_dir.mkdir(parents=True, exist_ok=True)
 
 package_source = WorkspaceSource(szlab_root)
@@ -233,52 +245,72 @@ registry = Registry()
 registry.device_type_registry = {}
 registry.resource_type_registry = {}
 registry._setup_called = False
-registry.setup(external_only=True, package_catalogs=[package_catalog])
-registry_snapshot = copy.deepcopy(registry.device_type_registry)
-resource_registry_snapshot = copy.deepcopy(registry.resource_type_registry)
-
-authority = CatalogAuthority(authority_id="szlab-local", kind="local")
-store = WorkflowStore(working_dir / "workflow.db")
-try:
-    service = WorkflowService(store)
-    for definition in package_catalog.definitions.workflows:
-        workflow_uuid = str(definition.details["workflow_uuid"])
-        service.create_workflow(
-            name=str(definition.id),
-            tags=["szlab", "a1-e2e"],
-            description="PackageCatalog 到前端 typed editor 的真实联调 fixture",
-            meta_data={},
-            workflow_uuid=workflow_uuid,
-        )
-finally:
-    store.close()
+registry.setup(external_only=True)
+registry.publish_package_snapshot(compile_registry_snapshot((package_catalog,)))
 
 BasicConfig.working_dir = str(working_dir)
-BasicConfig.workflow_graph_authority = authority
-BasicConfig.workflow_editable_package_roots = (szlab_root,)
+# 工作区预编译计划已携带精确授权根；不能再并行启用遗留目录扫描入口。
+BasicConfig.workflow_editable_package_roots = ()
+BasicConfig.workflow_source_discovery_plan = discover_editable_sources((szlab_root,))
+BasicConfig.control_plane = "local"
+BasicConfig.process_role = "combined"
 
 graph_path = szlab_root / "deployment" / "graphs" / "szlab-local-debug.json"
 _graph, resource_tree_set, _links = read_node_link_json(str(graph_path))
-inventory_snapshot = {
-    "source_id": graph_path.name,
-    "nodes": [
-        node.res_content.model_dump(by_alias=True)
-        for node in resource_tree_set.all_nodes
-    ],
-}
-workflow_service = compose_workflow_runtime(
-    working_dir,
-    authority=authority,
-    editable_package_roots=(szlab_root,),
-    registry_snapshot=registry_snapshot,
-    resource_registry_snapshot=resource_registry_snapshot,
-    workflow_package_catalogs=(package_catalog,),
-    inventory_graph_snapshot=inventory_snapshot,
-    package_sources=(package_source,),
-    package_catalogs=(package_catalog,),
+from unilabos.registry.template_snapshot import RegistryTemplateSnapshot
+from unilabos.app.scheduler.integration import (
+    setup_edge_inventory,
+    setup_edge_scheduler,
 )
+
+class HoldExecutionBackend:
+    """只记录普通作业派发并保持运行的虚拟执行器。"""
+
+    def __init__(self):
+        """初始化空派发记录和完成监听器；参数、返回与异常均无。"""
+        self.dispatched = []
+        self.listeners = []
+
+    def dispatch(self, payload):
+        """记录派发载荷；参数为作业命令，返回无，且绝不产生物理效果。"""
+        self.dispatched.append(dict(payload))
+
+    def busy_device_action_keys(self):
+        """返回空外部忙碌键集合；调度器仍保留进程内在途作业互斥。"""
+        return set()
+
+    def add_job_finished_listener(self, listener):
+        """保存完成监听器；虚拟执行器不会主动完成或调用它。"""
+        self.listeners.append(listener)
+
+    def start(self):
+        """启动虚拟执行器；无需线程或外部连接，返回无。"""
+        return None
+
+inventory_database = working_dir / "inventory.db"
+setup_edge_inventory(
+    str(inventory_database),
+    resource_tree_set=resource_tree_set,
+    registry_snapshot=RegistryTemplateSnapshot.from_registry(registry),
+    resource_graph_source_id=graph_path.name,
+)
+setup_edge_scheduler(
+    inventory_db_path=str(inventory_database),
+    device_state_db_path="off",
+    workflow_history_db_path="off",
+    execution_backend=HoldExecutionBackend() if hold_execution else None,
+)
+
+from unilabos.app.web import server
+
+server.setup_server()
+workflow_service = get_workflow_service()
+if workflow_service is None:
+    raise RuntimeError("真实 OS 未发布工作流权威")
+
 if apply_composite_material:
     def apply_workflow_source(workflow_uuid, source_path):
+        """按子到父顺序规范化并应用工作流源码；失败时不发布部分候选。"""
         before = workflow_service.get_authoring(workflow_uuid)
         aggregate = workflow_service.save_draft(
             workflow_uuid,
@@ -306,7 +338,6 @@ if apply_composite_material:
             workflow_uuid,
             candidate_hash=candidate["candidate_hash"],
         )
-        source_path.write_text(normalized_source, encoding="utf-8")
 
     apply_workflow_source(
         "e7c53119-9fde-5250-9bf5-264f23d157a8",
@@ -315,50 +346,6 @@ if apply_composite_material:
     apply_workflow_source(
         "6d9fb3e2-4dcb-5f23-93b4-74d1b6083393",
         szlab_root / "szlab_poly_studio/workflows/single_sample_atomic_material.py",
-    )
-from unilabos.app.scheduler.integration import setup_edge_scheduler
-
-setup_edge_scheduler(
-    inventory_service=get_workflow_inventory_service(),
-    workflow_tasks=workflow_service,
-    device_state_db_path="off",
-    workflow_history_db_path="off",
-)
-
-from unilabos.app.web import server
-
-server.setup_server(
-    registry_snapshot=registry_snapshot,
-    resource_registry_snapshot=resource_registry_snapshot,
-    workflow_package_catalogs=(package_catalog,),
-)
-
-# 当前 OS 固定快照仍发布旧页码外壳；测试只在 HTTP 边界把同一批真实目录条目
-# 投影为前端当前要求的 UUID 游标合同，不替换目录生成、详情或工作流持久化链路。
-@server.app.middleware("http")
-async def e2e_normalize_node_template_cursor(request: Request, call_next):
-    response = await call_next(request)
-    if (
-        request.method != "GET"
-        or request.url.path != "/api/v1/workflow-node-templates"
-        or response.status_code != 200
-    ):
-        return response
-    body = b"".join([chunk async for chunk in response.body_iterator])
-    payload = json.loads(body)
-    data = payload["data"]
-    for legacy_field in ("total", "page", "page_size"):
-        data.pop(legacy_field, None)
-    data["has_more"] = False
-    data["next_cursor_uuid"] = None
-    return JSONResponse(
-        payload,
-        status_code=response.status_code,
-        headers={
-            key: value
-            for key, value in response.headers.items()
-            if key.lower() != "content-length"
-        },
     )
 
 # 当前集成测试固定的 OS 运行时快照早于 Backend 同名微后端挂载；仅在该路由
@@ -411,56 +398,10 @@ if not any(
             },
         }
 
-@server.app.post("/__e2e/catalog-bump")
-def bump_catalog():
-    bumped = copy.deepcopy(registry_snapshot)
-    changed = False
-    for device in bumped.values():
-        actions = device.get("class", {}).get("action_value_mappings", {})
-        action = actions.get("run_stirring")
-        if not isinstance(action, dict):
-            continue
-        position = action["schema"]["properties"]["goal"]["properties"]["position"]
-        position["description"] = "A1 E2E catalog revision 2"
-        changed = True
-        break
-    if not changed:
-        raise RuntimeError("run_stirring action missing")
-    service = get_workflow_service()
-    known_source_identities = {
-        device.get("source_fqid") or registry_key
-        for registry_key, device in bumped.items()
-        if isinstance(device, dict)
-    }
-    known_source_identities.update(
-        resource.get("class", {}).get("module")
-        for resource in resource_registry_snapshot.values()
-        if isinstance(resource, dict)
-        and isinstance(resource.get("class", {}).get("module"), str)
-    )
-    identity_index = LocalResourceTemplateIdentityIndex(
-        service._store,
-        authority,
-        sorted(known_source_identities),
-    )
-    imports = workflow_template_imports_from_registry_snapshot(
-        bumped,
-        authority_id=authority.authority_id,
-        resource_template_identity_resolver=identity_index,
-    )
-    snapshot = service.compiler.template_catalog.replace(authority, imports)
-    return {
-        "code": 0,
-        "data": {"catalog_fingerprint": snapshot.fingerprint},
-        "error": None,
-    }
-
 server.start_server(
     host="127.0.0.1",
     port=port,
     open_browser=False,
-    registry_snapshot=registry_snapshot,
-    resource_registry_snapshot=resource_registry_snapshot,
 )
 `
 
