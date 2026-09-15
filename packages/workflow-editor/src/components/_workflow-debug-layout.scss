@@ -1,0 +1,222 @@
+.workflow:global(.persistent-authoring--workflow-debug) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  --debug-library-width: 196px;
+  --debug-structure-width: 224px;
+  padding: 0 14px 14px;
+  background: #f5f7fb;
+
+  :global(.persistent-authoring__inspector-resize-handle) { border: 0; }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :global(.workflow-debug-heading) {
+    display: flex;
+    flex: 0 0 58px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  :global(.workflow-debug-heading) h1 { margin: 0; font-size: 20px; font-weight: 700; }
+  :global(.workflow-debug-heading) > button {
+    min-height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--unilab-color-primary);
+    border-radius: 8px;
+    background: var(--unilab-color-primary);
+    color: #fff;
+    font-size: 12px;
+  }
+  :global(.workflow-debug-heading) > button:disabled { opacity: .5; }
+  :global(.persistent-authoring__workbench) {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    background: transparent;
+  }
+  :global(.persistent-authoring__canvas) { min-height: 0; padding: 0; border: 0; background: transparent; }
+  :global(.persistent-authoring__canvas-body),
+  :global(.persistent-authoring__canvas-body.has-inspector) {
+    position: relative;
+    grid-template-columns: var(--debug-library-width) minmax(0, 1fr) max(320px, var(--inspector-width, 320px));
+    grid-template-areas: 'palette graph inspector';
+    min-height: 0;
+    gap: 12px;
+    padding: 0;
+    background: transparent;
+  }
+  :global(.persistent-authoring__canvas-body.has-operation-structure) {
+    grid-template-columns: var(--debug-library-width) var(--debug-structure-width) minmax(0, 1fr) max(320px, var(--inspector-width, 320px));
+    grid-template-areas: 'palette operation-outline graph inspector';
+  }
+  :global(.persistent-authoring__library),
+  :global(.persistent-authoring__operation-structure),
+  :global(.persistent-authoring__node-editor),
+  :global(.persistent-authoring__graph-stage) {
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid #e1e7f0;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 3%);
+    overflow: hidden;
+  }
+  :global(.persistent-authoring__graph-stage) {
+    display: flex;
+    flex-direction: column;
+    background-image: none;
+  }
+  :global(.persistent-authoring__graph-stage) > :global(.workflow-runtime__existing-canvas) {
+    position: relative;
+    inset: auto;
+    flex: 1 1 auto;
+    width: 100%;
+    height: auto;
+    min-height: 160px;
+    overflow: hidden;
+  }
+  :global(.persistent-authoring__graph-stage) > :global(.persistent-authoring__runtime) {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 45%;
+    overflow: auto;
+    border-top: 1px solid #e1e7f0;
+  }
+  :global(.persistent-authoring__library-heading) { min-height: 52px; padding: 12px; }
+  :global(.persistent-authoring__library-heading) h2 { font-size: 13px; }
+  :global(.persistent-authoring__library-heading) > span { display: none; }
+  :global(.persistent-authoring__library-tabs) { display: grid; grid-template-columns: 1fr 1fr; flex: 0 0 auto; padding: 6px; border-bottom: 1px solid #edf1f6; background: #f9fafc; }
+  :global(.persistent-authoring__library-tabs) button { min-height: 32px; padding: 0 4px; border: 0; border-radius: 5px; background: transparent; color: #7b879b; font-size: 10px; white-space: nowrap; }
+  :global(.persistent-authoring__library-tabs) button[aria-selected='true'] { color: var(--unilab-color-primary); background: #fff; font-weight: 650; }
+  :global(.persistent-authoring__library-pane) { flex: 1; min-height: 0; overflow: auto; }
+  :global(.persistent-authoring__library-search) { padding: 12px 10px; }
+  :global(.persistent-authoring__library-search) input { height: 36px; font-size: 11px; }
+  :global(.persistent-authoring__library-section-label) { padding: 0 12px 8px; color: #8591a4; font-size: 9px; }
+  :global(.persistent-authoring__library-workflow-list) { gap: 6px; max-height: none; padding: 0 8px 12px; border: 0; overflow: visible; }
+  :global(.persistent-authoring__library-workflow-list) > button { min-height: 64px; padding: 9px; grid-template-columns: 28px minmax(0, 1fr); }
+  :global(.persistent-authoring__library-workflow-list) strong { font-size: 11px; }
+  :global(.persistent-authoring__library-workflow-list) small { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 9px; }
+  :global(.persistent-authoring__library-workflow-list) i { display: none; }
+  :global(.persistent-authoring__library-nodes) { min-height: 0; overflow: auto; }
+
+  :global(.persistent-authoring__operation-structure) { display: flex; grid-area: operation-outline; flex-direction: column; }
+  :global(.persistent-authoring__operation-structure) > header { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #e8edf5; }
+  :global(.persistent-authoring__operation-structure) > header > span { display: grid; gap: 3px; }
+  :global(.persistent-authoring__operation-structure) > header strong { font-size: 12px; }
+  :global(.persistent-authoring__operation-structure) > header small { color: #8591a4; font-size: 9px; }
+  :global(.persistent-authoring__operation-structure) > header button { width: 26px; height: 26px; padding: 0; border: 1px solid #e1e7f0; border-radius: 6px; background: #fff; color: #748297; }
+  :global(.persistent-authoring__operation-structure-columns) { display: flex; min-height: 44px; align-items: center; gap: 8px; padding: 6px 8px; color: #7e8ba0; font-size: 9px; border-bottom: 1px solid #e8edf5; }
+  :global(.persistent-authoring__structure-tools) { display: flex; gap: 4px; margin-left: auto; }
+  :global(.persistent-authoring__structure-tools) button { padding: 5px 4px; border: 1px solid #e1e7f0; border-radius: 5px; background: white; color: #718096; font-size: 8px; white-space: nowrap; }
+  :global(.persistent-authoring__operation-root) { display: grid; grid-template-columns: 34px minmax(0,1fr); align-items: center; min-height: 52px; padding: 8px; border-bottom: 1px solid #dbe7fb; background: #eef5ff; }
+  :global(.persistent-authoring__operation-root) > span:first-child { color: var(--unilab-color-primary); font-size: 9px; font-weight: 700; text-align: center; }
+  :global(.persistent-authoring__operation-root) > span:last-child { display: grid; gap: 3px; min-width: 0; }
+  :global(.persistent-authoring__operation-root) strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+  :global(.persistent-authoring__operation-root) small { color: #8591a4; font-size: 9px; }
+  :global(.persistent-authoring__operation-structure) ol { min-height: 0; margin: 0; padding: 0 0 0 14px; overflow: auto; list-style: none; }
+  :global(.persistent-authoring__operation-structure) li { border-bottom: 1px solid #edf1f6; border-left: 1px solid #dbe5f3; }
+  :global(.persistent-authoring__operation-structure) li > button { display: grid; width: 100%; min-height: 44px; grid-template-columns: 22px 24px minmax(0,1fr); align-items: center; gap: 6px; padding: 6px; border: 0; background: #fff; text-align: left; }
+  :global(.persistent-authoring__operation-structure) li > button:hover,
+  :global(.persistent-authoring__operation-structure) li > button[aria-current='true'] { background: #eef5ff; box-shadow: inset 2px 0 var(--unilab-color-primary); }
+  :global(.persistent-authoring__operation-structure) li > button > span:first-child { color: #8591a4; font-size: 9px; text-align: center; }
+  :global(.persistent-authoring__operation-structure) li :global(.codicon) { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 6px; background: #edf3ff; color: var(--unilab-color-primary); font-size: 12px; }
+  :global(.persistent-authoring__operation-structure) li > button > span:last-child { display: grid; gap: 3px; min-width: 0; }
+  :global(.persistent-authoring__operation-structure) li strong,
+  :global(.persistent-authoring__operation-structure) li small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :global(.persistent-authoring__operation-structure) li strong { font-size: 10px; }
+  :global(.persistent-authoring__operation-structure) li small { color: #8591a4; font-size: 9px; }
+  :global(.persistent-authoring__operation-structure-empty) { display: grid; gap: 8px; padding: 28px 16px; color: #8591a4; font-size: 11px; text-align: center; }
+
+  :global(.workflow-debug-toolbar) { flex: 0 0 auto; min-width: 0; background: #fff; border-bottom: 1px solid #e7edf5; }
+  :global(.workflow-debug-toolbar__main) { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; }
+  :global(.workflow-debug-toolbar__identity) { display: grid; min-width: 90px; gap: 3px; }
+  :global(.workflow-debug-toolbar__identity) strong { overflow: hidden; max-width: 200px; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+  :global(.workflow-debug-toolbar__identity) small { color: #8591a4; font-size: 9px; }
+  :global(.workflow-debug-toolbar__actions) { display: flex; min-width: 0; align-items: center; gap: 5px; overflow-x: auto; scrollbar-width: thin; }
+  :global(.workflow-debug-toolbar) button { flex: 0 0 auto; min-height: 32px; padding: 0 8px; border: 1px solid #dfe6f0; border-radius: 7px; background: #fff; color: #52627b; font-size: 11px; white-space: nowrap; cursor: pointer; }
+  :global(.workflow-debug-toolbar) button:hover:not(:disabled) { color: var(--unilab-color-primary); border-color: var(--unilab-color-primary); background: #f5f8ff; }
+  :global(.workflow-debug-toolbar) button:disabled { opacity: .45; cursor: not-allowed; }
+  :global(.workflow-debug-toolbar) button:global(.is-primary) { color: #fff; border-color: var(--unilab-color-primary); background: var(--unilab-color-primary); }
+  :global(.workflow-debug-toolbar) button:global(.is-primary):hover:not(:disabled) { color: #fff; border-color: var(--unilab-color-primary-hover); background: var(--unilab-color-primary-hover); }
+  :global(.workflow-debug-toolbar__controls) { display: flex; min-height: 40px; align-items: center; gap: 7px; padding: 6px 10px; border-top: 1px solid #eef1f6; }
+  :global(.workflow-debug-toolbar__controls) select { width: auto; height: 29px; padding: 0 6px; border: 1px solid #dfe6f0; border-radius: 7px; background: #fff; color: #52627b; font-size: 10px; }
+  :global(.workflow-debug-toolbar__clock) { color: #7b879b; font-size: 10px; }
+  :global(.workflow-debug-toolbar__status) { display: flex; align-items: center; gap: 5px; padding: 4px 6px; border-radius: 6px; background: #f1f5fa; color: #718096; font-size: 9px; white-space: nowrap; }
+  :global(.workflow-debug-toolbar__status) i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  :global(.workflow-debug-toolbar__status.is-running) { color: var(--unilab-color-warning); }
+  :global(.workflow-debug-toolbar__status.is-success) { color: var(--unilab-color-success); }
+  :global(.workflow-debug-toolbar__status.is-error) { color: var(--unilab-color-danger); }
+  :global(.workflow-debug-toolbar__runtime-actions) { display: flex; align-items: center; gap: 5px; margin-left: auto; }
+  :global(.workflow-debug-toolbar__runtime-actions) > button { min-height: 27px; font-size: 10px; }
+  :global(.workflow-debug-toolbar__message) { min-height: 22px; padding: 4px 10px; color: #7b879b; font-size: 10px; line-height: 14px; }
+
+  :global(.persistent-authoring__node-editor) { display: flex; flex-direction: column; gap: 0; padding: 0; overflow-y: auto; }
+  :global(.persistent-authoring__node-editor) > * { flex-shrink: 0; }
+  :global(.persistent-authoring__inspector-heading) { min-height: 52px; margin: 0; padding: 10px 12px; border-bottom: 1px solid #e7edf5; }
+  :global(.persistent-authoring__node-editor) > label,
+  :global(.persistent-authoring__node-description),
+  :global(.persistent-authoring__parameter-drawer),
+  :global(.persistent-authoring__runtime-observer) { margin: 12px; }
+  :global(.persistent-authoring__node-tabs) { grid-template-columns: repeat(3,minmax(0,1fr)); margin: 0; }
+  :global(.persistent-authoring__node-tabs) button { white-space: nowrap; font-size: 11px; }
+  :global(.persistent-authoring__inspector-empty) { padding: 28px 14px; }
+  :global(.persistent-authoring__node-editor) :global(.editable-contract-section):has(:global(.contract-param-list)) { min-width: 0; max-width: 100%; }
+  :global(.persistent-authoring__node-editor) :global(.contract-param-list) {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  :global(.persistent-authoring__node-editor) :global(.contract-param-list) > :global(.contract-param-card) {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.7fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  :global(.persistent-authoring__node-editor) :global(.contract-param-list) > :global(.contract-param-card) + :global(.contract-param-card) { border-top: 0; }
+  :global(.persistent-authoring__node-editor) :global(.contract-param-meta) { min-height: 34px; padding: 6px 8px; border-radius: 6px; background: #f3f4f6; }
+  :global(.persistent-authoring__node-editor) :global(.contract-param-meta) code { display: none; }
+  :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-optional) { display: none; }
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) input { background: #f3f4f6; border-color: transparent; }
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) select { background: #f3f4f6; border-color: transparent; }
+  :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-list) :global(.contract-param-meta) { grid-column: 1; grid-row: 1; align-items: center; }
+  :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-list) :global(.contract-source-grid) {
+    grid-column: 2; grid-row: 1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center;
+  }
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) > * { min-width: 0; }
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) input { min-width: 0; }
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) select { min-width: 0; padding-inline: 4px; }
+  :global(.persistent-authoring__node-editor) :global(.contract-param-meta) > span:first-child { min-width: 0; }
+  :global(.persistent-authoring__node-editor) :global(.contract-param-meta) strong { display: block; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) > label:first-child { padding-top: 0; }
+  :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-list) :global(.contract-source-note) { display: none; }
+  :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-actions) { grid-column: 3; grid-row: 1; margin: 0; }
+  :global(.persistent-authoring__canvas-body.is-code-mode) { grid-template-columns: minmax(0,1fr); grid-template-areas: 'graph'; }
+
+  @container workflow (max-width: 1240px) {
+    --debug-library-width: 180px;
+    --debug-structure-width: 200px;
+    :global(.workflow-debug-toolbar__main) { flex-wrap: wrap; gap: 7px; }
+    :global(.workflow-debug-toolbar__identity) { flex: 1 1 100%; }
+    :global(.workflow-debug-toolbar__actions) { width: 100%; }
+  }
+  @container workflow (max-width: 1023px) {
+    :global(.persistent-authoring__canvas-body),
+    :global(.persistent-authoring__canvas-body.has-operation-structure),
+    :global(.persistent-authoring__canvas-body.is-palette-closed) { grid-template-columns: minmax(0,1fr); grid-template-areas: 'graph'; }
+    :global(.persistent-authoring__library),
+    :global(.persistent-authoring__operation-structure) { display: flex; position: absolute; z-index: 20; top: 108px; bottom: 8px; left: 8px; width: min(280px,calc(100% - 16px)); box-shadow: 0 8px 24px rgb(15 23 42 / 12%); }
+    :global(.persistent-authoring__node-editor) { display: none; }
+    :global(.workflow-debug-toolbar__controls) { flex-wrap: wrap; }
+  }
+}

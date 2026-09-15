@@ -95,11 +95,12 @@
 
     :global(.persistent-authoring__inspector-resize-handle) {
       position: absolute;
-      top: 14px;
-      right: calc(var(--inspector-width, 320px) + 14px);
-      bottom: 14px;
-      width: 14px;
-      margin-right: -7px;
+      grid-area: inspector;
+      top: 0;
+      right: auto;
+      bottom: 0;
+      left: 0;
+      width: 8px;
       cursor: col-resize;
       z-index: 2;
       background: transparent;

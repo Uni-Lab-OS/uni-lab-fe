@@ -192,6 +192,7 @@ function sessionFixture(): WorkbenchSessionSnapshot {
     configuredDomainMode: 'local',
     configuredBackendUrl: 'https://backend.example.com',
     configuredSchedulerUrl: 'https://scheduler.example.com',
+    graphDeclaration: null,
     identity: null,
     agent: null,
     diagnostic: null,

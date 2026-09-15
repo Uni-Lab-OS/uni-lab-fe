@@ -133,10 +133,10 @@ export function usePersistentWorkflowCanvasNodeEditor(
     , onMutation: syncCanvasMutation
   })
 
-  /** 选择画布节点，并把代码编辑器定位到对应源码行。 */
+  /** 选择节点；调试检查器保持面板布局，源码联动入口才定位代码编辑器。 */
   const selectCanvasNode = useCallback((
     nodeUuid: string,
-    origin: 'canvas' | 'source' | 'runtime' = 'canvas'
+    origin: 'canvas' | 'source' | 'runtime' | 'inspector' = 'canvas'
   ): void => {
     if (selectedNodeNameDirty && nodeUuid !== selectedNodeUuid) {
       setError('请先保存当前节点名称修改，再选择其他节点')

@@ -369,3 +369,48 @@ describe('Workbench domain view presentation', () => {
     )
   })
 })
+
+
+describe('文件与领域视图切换', () => {
+  it('从任务列表打开文件时替换任务列表，返回任务列表时关闭文件视图', () => {
+    const state = new WorkbenchViewState()
+    state.toggle('workflow-tasks')
+    state.toggle('files')
+    expect(state.currentMode).toBe('files')
+    expect(state.isVisible('workflow-tasks')).toBe(false)
+    state.toggle('files')
+    expect(state.currentMode).toBe('files')
+    state.toggle('workflow-tasks')
+    expect(state.currentMode).toBe('workflow-tasks')
+    expect(state.isVisible('files')).toBe(false)
+  })
+
+  it.each(['workflow', 'workflow-management'] as const)(
+    '文件可与 %s 共存，并允许任意一侧独立保留', domain => {
+      const state = new WorkbenchViewState()
+      state.toggle('workflow-tasks')
+      state.toggle('files')
+      state.toggle(domain)
+      expect(state.currentMode).toBe(`${domain}-files`)
+      expect(state.isVisible('files')).toBe(true)
+      expect(state.isVisible(domain)).toBe(true)
+      state.toggle(domain)
+      expect(state.currentMode).toBe('files')
+      state.toggle(domain)
+      state.toggle('files')
+      expect(state.currentMode).toBe(domain)
+    }
+  )
+
+  it('从物料分栏打开文件仅保留工作流，并在列表和调试之间保持文件可见', () => {
+    const state = new WorkbenchViewState()
+    state.toggle('material')
+    state.toggle('files')
+    expect(state.currentMode).toBe('workflow-files')
+    expect(state.isVisible('material')).toBe(false)
+    state.toggle('workflow-management')
+    expect(state.currentMode).toBe('workflow-management-files')
+    state.toggle('workflow')
+    expect(state.currentMode).toBe('workflow-files')
+  })
+})

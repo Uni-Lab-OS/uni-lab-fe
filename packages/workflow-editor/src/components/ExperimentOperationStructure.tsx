@@ -1,4 +1,5 @@
 import type { WorkflowNode } from '../utils/parseWorkflow'
+import { useState } from 'react'
 
 interface ExperimentOperationStructureProps {
   workflowName: string
@@ -7,6 +8,7 @@ interface ExperimentOperationStructureProps {
   selectedNodeId: string | null
   onSelect(nodeId: string): void
   onClose(): void
+  definitionKind?: 'workflow' | 'operation'
 }
 
 /**
@@ -18,8 +20,10 @@ export function ExperimentOperationStructure({
   linkCount,
   selectedNodeId,
   onSelect,
-  onClose
+  onClose,
+  definitionKind = 'operation'
 }: ExperimentOperationStructureProps): React.JSX.Element {
+  const [expanded, setExpanded] = useState(true)
   return (
     <aside
       id="persistent-authoring-operation-structure"
@@ -44,10 +48,14 @@ export function ExperimentOperationStructure({
       <div className="persistent-authoring__operation-structure-columns">
         <span>序号</span>
         <span>节点名称</span>
+        {definitionKind === 'workflow' && <div className="persistent-authoring__structure-tools">
+          <button type="button" onClick={() => setExpanded(true)}>全部展开</button>
+          <button type="button" onClick={() => setExpanded(false)}>全部收起</button>
+        </div>}
       </div>
 
       <div className="persistent-authoring__operation-root">
-        <span>OP</span>
+        <span>{definitionKind === 'workflow' ? 'WF' : 'OP'}</span>
         <span>
           <strong>{workflowName}</strong>
           <small>{nodes.length} 个节点 · {linkCount} 条连接</small>
@@ -61,7 +69,7 @@ export function ExperimentOperationStructure({
           <small>从操作与节点库拖入动作后，将在这里同步显示。</small>
         </div>
       ) : (
-        <ol>
+        <ol hidden={!expanded}>
           {nodes.map((node, index) => (
             <li key={node.id}>
               <button

@@ -49,7 +49,7 @@
   gap: 12px;
   align-items: stretch;
 
-  :global([class*='edge-device__connection']) {
+  > :global([class*='edge-device__connection']) {
     min-height: 62px;
     box-sizing: border-box;
     border: 1px solid #e5eaf1;

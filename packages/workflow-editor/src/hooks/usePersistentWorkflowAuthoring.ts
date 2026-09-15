@@ -200,6 +200,7 @@ export function usePersistentWorkflowAuthoring({
   ])
   // 首次 OS 聚合返回前保持忙碌，避免新建工作流首帧误触编辑命令。
   const [busy, setBusy] = useState(true)
+  const [preparingSavePreview, setPreparingSavePreview] = useState(false)
   const [pendingMode, setPendingMode] = useState<WorkflowEditMode | null>(null)
   const [fullSourceDiff, setFullSourceDiff] =
     useState<FullSourceDiff | null>(null)
@@ -895,7 +896,8 @@ export function usePersistentWorkflowAuthoring({
       })
       return
     }
-    if (!graph) return
+    if (!graph || busy || preparingSavePreview) return
+    setPreparingSavePreview(true)
     void run(async () => {
       const sourceGraph = selectedNodeNameDirty && selectedNodeUuid
         ? updatePersistentAuthoringNodeName(
@@ -904,11 +906,6 @@ export function usePersistentWorkflowAuthoring({
             selectedNodeName
           )
         : graph
-      if (sourceGraph !== graph) {
-        setGraph(sourceGraph)
-        setCanvasDirty(true)
-        setSelectedNodeNameDirty(false)
-      }
       if (definitionPort.capabilities.directGraphSaving) {
         const saved = await definitionPort.saveGraph(sourceGraph)
         remotePending.current = false
@@ -922,6 +919,12 @@ export function usePersistentWorkflowAuthoring({
       const generated = await generateCanvasPython(sourceGraph, aggregate as WorkflowAuthoringAggregate, {
         allowIncompleteDraft: true
       })
+      // 等差异生成完成再更新画布，与对比框一起提交，避免等待期间重绘。
+      if (sourceGraph !== graph) {
+        setGraph(sourceGraph)
+        setCanvasDirty(true)
+        setSelectedNodeNameDirty(false)
+      }
       const decision = workflowCanvasDraftSaveDecision({
         baselinePython: authoritativePython(aggregate),
         generatedPython: generated.normalized_python_source as string,
@@ -938,7 +941,7 @@ export function usePersistentWorkflowAuthoring({
           applyAfterSave: false
         })
       }
-    })
+    }).finally(() => setPreparingSavePreview(false))
   }
 
   /**
@@ -1391,7 +1394,7 @@ export function usePersistentWorkflowAuthoring({
     materialSourceCatalogLoading, materialTraces, message, mode,
     nodePaletteOpen, onChooseWorkflow, pendingMode, policy, projectionKind,
     refreshMaterialSourceCatalog, remoteConflict, requestMode,
-    retryLocalAfterConflict, runtime, saveDraft,
+    retryLocalAfterConflict, runtime, saveDraft, preparingSavePreview,
     validateCanvasDraft,
     canvasValidationAvailable:
       mode === 'canvas' && definitionPort.capabilities.sourceEditing,

@@ -16,6 +16,7 @@ import type { DeviceCardActionRiskLevel } from '@unilab/device-card-sdk'
 import {
   loadBackendActionDevices,
   loadBackendActionSchema,
+  loadBackendDeviceActionDeclarations,
   loadBackendDeviceActions,
   loadBackendDeviceCatalog,
   loadBackendOnlineDevices
@@ -59,6 +60,29 @@ export interface OnlineDevice {
 export interface OnlineDeviceReadOptions {
   /** 启动恢复阶段可跳过 Edge 全量动作占用，发现在线设备后再完整补读。 */
   includeActionStatuses?: boolean
+}
+
+/** 设备实例直接声明的动作；可执行模板合同由 WorkflowActionCatalog 独立提供。 */
+export interface DeviceActionDeclaration {
+  actionName: string
+  typeName: string
+  isBusy: boolean
+  currentJobId: string | null
+}
+
+/** 实验操作节点库使用的轻量设备与动作声明快照。 */
+export interface DeviceActionDeclarationDevice {
+  id: string
+  materialUuid: string
+  resourceTemplateUuid: string
+  deviceKey: string
+  namespace: string
+  machineName: string
+  online: boolean
+  edgeStatus: DeviceEdgeStatus
+  dispatchable: boolean
+  dispatchBlockReason: string | null
+  actions: DeviceActionDeclaration[]
 }
 
 export type DeviceEdgeStatus = 'registered' | 'online' | 'offline'
@@ -215,6 +239,12 @@ export function createLaboratoryService(
         readActionCatalog,
         options.includeActionStatuses ?? true
       )
+    },
+
+    async getDeviceActionDeclarations(
+      signal?: AbortSignal
+    ): Promise<DeviceActionDeclarationDevice[]> {
+      return loadBackendDeviceActionDeclarations(http, signal)
     },
 
     async getDeviceActions(deviceId: string): Promise<DeviceAction[]> {

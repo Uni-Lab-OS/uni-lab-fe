@@ -25,7 +25,7 @@ export interface WorkflowActionParameterEditorProps {
   /** 操作调试右侧面板不展示物料参数。 */
   hideMaterialFields?: boolean
   /** 使用实验操作参数面板的文案，而不是节点参数面板文案。 */
-  presentation?: 'node' | 'operation'
+  presentation?: 'node' | 'operation' | 'debug'
   resourceSlotOptions?: WorkflowResourceSlotOptionsState
   onProviderChange: (
     field: TypedActionFieldProjection,
@@ -167,7 +167,7 @@ export function WorkflowActionParameterEditor({
   }
   return (
     <div className="persistent-authoring__parameter-drawer node-contract-editor">
-        {showParameterEditor && presentation !== 'operation' && <header className="contract-editor-intro">
+        {showParameterEditor && presentation === 'node' && <header className="contract-editor-intro">
           <div>
             <strong>设备动作参数映射</strong>
             <p>
@@ -231,6 +231,7 @@ export function WorkflowActionParameterEditor({
                       <li
                         key={field.handleUuid}
                         className="contract-param-card"
+                        title={presentation === 'debug' ? `${field.dataKey} · ${schemaLabel(field.valueSchema)} · ${field.hasDefault ? `默认 ${jsonLabel(field.defaultValue)}` : '无默认值'} · ${field.nullable ? '允许为空' : '不可为空'}` : undefined}
                         data-workflow-handle-template-uuid={field.handleUuid}
                       >
                       <div className="persistent-authoring__parameter-heading contract-param-meta">
@@ -311,8 +312,10 @@ export function WorkflowActionParameterEditor({
                           disabled={!editable}
                           disabledReason="当前模式只允许查看节点参数"
                           onClick={() => onClear(field.handleUuid)}
+                          aria-label={`清除 ${field.displayName} 的值`}
+                          title="清除值"
                         >
-                          清除值
+                          {presentation === 'debug' ? <span className="codicon codicon-trash" aria-hidden="true" /> : '清除值'}
                         </WorkflowButton>
                         {field.nullable && (
                           <WorkflowButton

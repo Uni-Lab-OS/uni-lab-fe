@@ -42,13 +42,13 @@ describe('WorkflowX6Canvas scale policy', () => {
     })
   })
 
-  it('does not reset the graph and always removes an interactive temporary edge', () => {
+  it('resets only changed layouts and always removes an interactive temporary edge', () => {
     const source = readFileSync(
       new URL('./WorkflowX6Canvas.tsx', import.meta.url),
       'utf8'
     )
 
-    expect(source).not.toContain('resetCells(')
+    expect(source).toMatch(/if \(layoutChanged\) \{\s*graph\.resetCells\(/)
     expect(source).toMatch(
       /edge:connected[\s\S]*graph\.removeCell\(edge, \{ ui: false \}\)/
     )
@@ -131,6 +131,8 @@ describe('WorkflowX6Canvas scale policy', () => {
       targetHandle: 'handle-in'
     })
 
+    expect(edge.attrs?.lines).toMatchObject({ connection: true })
+    expect(edge.attrs?.wrap).toMatchObject({ strokeWidth: 10 })
     const portItems = Array.isArray(node.ports)
       ? node.ports
       : node.ports?.items
@@ -506,7 +508,7 @@ describe('WorkflowX6Canvas scale policy', () => {
       targetMarker: expect.objectContaining({ name: 'block' })
     }))
     expect(edge.router).toEqual({ name: 'normal' })
-    expect(edge.connector).toEqual({ name: 'smooth' })
+    expect(edge.connector).toEqual({ name: 'workflow-gentle' })
     expect(css).toContain('var(--unilab-color-warning)')
     expect(css).toContain('var(--unilab-color-success)')
     expect(css).toContain('var(--unilab-color-paused)')

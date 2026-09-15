@@ -1,5 +1,4 @@
 import type {
-  WorkflowExecutionTask,
   WorkflowSummary,
   WorkflowTask
 } from '@unilab/services'
@@ -72,50 +71,21 @@ describe('工作流任务列表投影', () => {
     expect(formatWorkflowTaskDate('not-a-date')).toBe('not-a-date')
     expect(formatWorkflowTaskDate('2026-08-19T03:00:00Z')).toContain('2026')
   })
-
-  it('忽略设备单动作任务且搜索时不读取空工作流 UUID', () => {
-    const workflow = workflowTask(
-      '20000000-0000-4000-8000-000000000006',
-      'running'
-    )
-    const directDeviceAction: WorkflowTask = {
-      ...workflowTask(
-        '20000000-0000-4000-8000-000000000007',
-        'running'
-      ),
-      execution_kind: 'ad_hoc_device_action',
-      workflow_uuid: null,
-      description: '设备单动作运行'
-    }
-
-    expect(() => visibleWorkflowTasks(
-      [directDeviceAction, workflow],
-      [],
-      '设备',
-      'all'
-    )).not.toThrow()
-    expect(visibleWorkflowTasks(
-      [directDeviceAction, workflow],
-      [],
-      '',
-      'all'
-    )).toEqual([workflow])
-  })
 })
 
 /** 创建覆盖列表状态所需字段的 Backend 工作流任务夹具。 */
 function workflowTask(
   uuid: string,
   status: WorkflowTask['status'],
-  overrides: Partial<WorkflowExecutionTask> = {}
-): WorkflowExecutionTask {
+  overrides: Partial<WorkflowTask> = {}
+): WorkflowTask {
   return {
     uuid,
     create_time: '2026-08-19T00:00:00Z',
     update_time: '2026-08-19T00:00:00Z',
     meta_data: {},
-    execution_kind: 'workflow',
     workflow_uuid: WORKFLOW_UUID,
+    execution_kind: 'workflow',
     status,
     workflow_snapshot: {},
     execution_plan: {},

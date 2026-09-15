@@ -821,3 +821,60 @@ body:not(.unilab-agent-panel-visible)
   outline: 2px solid var(--unilab-color-focus);
   outline-offset: 2px;
 }
+
+/* 文件树参与主布局，禁止再覆盖任务列表或工作流内容。 */
+body.unilab-files-visible #theia-left-right-split-panel > #theia-bottom-split-panel {
+  left: var(--unilab-files-left-width, 460px) !important;
+}
+
+/* 互斥领域铺满主区；原生编辑器保持挂载以保留未保存内容。 */
+body[data-unilab-view]:not(.unilab-files-visible) #theia-main-content-panel > .theia-editor,
+body[data-unilab-view]:not(.unilab-files-visible) #theia-main-content-panel > .lm-TabBar,
+body[data-unilab-view]:not(.unilab-files-visible) #theia-main-content-panel > .lm-DockPanel-handle {
+  display: none !important;
+}
+
+body[data-unilab-view]:not(.unilab-files-visible) #theia-main-content-panel > .unilab-workbench-widget {
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 仅文件模式下，编辑器填满主区，不保留被切走的业务页面分栏。 */
+body[data-unilab-view='files'] #theia-main-content-panel:has(> .theia-editor:not(.lm-mod-hidden)) > .unilab-workbench-widget {
+  display: none !important;
+}
+
+body[data-unilab-view='files'] #theia-main-content-panel > .theia-editor:not(.lm-mod-hidden) {
+  left: 0 !important;
+  width: 100% !important;
+}
+
+.unilab-workbench__files-empty {
+  display: flex;
+  flex: 1 1 auto;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: var(--unilab-color-text-muted);
+}
+
+.unilab-workbench__files-empty > .codicon {
+  font-size: 42px;
+}
+
+body.unilab-files-visible .theia-app-left .lm-TabBar-tab[id='shell-tab-explorer-view-container'] {
+  color: var(--unilab-color-primary) !important;
+  background: #e5edff !important;
+}
+
+/* 聚焦编辑器时仍将桌面外壳固定在视口，避免文档滚动造成导航点击位置漂移。 */
+body[data-unilab-view] #theia-app-shell {
+  position: fixed;
+  inset: 0;
+}
+
+body[data-unilab-view='files'] .lm-TabBar-tab[id='shell-tab-unilab:authoring-workbench'] {
+  display: none;
+}

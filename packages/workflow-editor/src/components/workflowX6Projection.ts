@@ -219,10 +219,8 @@ export function workflowX6EdgeMetadata(edge: WorkflowX6Edge): EdgeMetadata {
     target: edge.target
       ? { cell: edge.target, port: WORKFLOW_X6_INPUT_PORT_ID }
       : undefined,
-    // Keep the edge free of Manhattan vertices so X6's smooth connector can
-    // render a continuous cubic curve between the two aggregate ports.
     router: { name: 'normal' },
-    connector: { name: 'smooth' },
+    connector: { name: 'workflow-gentle' },
     // Use the port anchor (the visible handle center) as the endpoint.
     connectionPoint: { name: 'anchor' },
     labels: typeof edge.label === 'string'
@@ -246,6 +244,9 @@ export function workflowX6EdgeMetadata(edge: WorkflowX6Edge): EdgeMetadata {
         }]
       : undefined,
     attrs: {
+      // Incremental updates replace attrs, so retain X6's path binding defaults.
+      lines: { connection: true, strokeLinejoin: 'round' },
+      wrap: { strokeWidth: 10 },
       root: {
         role: edge.ariaLabel ? 'img' : undefined,
         'aria-label': edge.ariaLabel,

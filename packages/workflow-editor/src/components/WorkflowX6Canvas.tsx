@@ -117,6 +117,7 @@ export const WorkflowX6Canvas = forwardRef<
     onOpenChildWorkflow
   })
   const initialFitPendingRef = useRef(true)
+  const nodeDraggingRef = useRef(false)
 
   callbacksRef.current = {
     canvasMutationEnabled,
@@ -221,16 +222,27 @@ export const WorkflowX6Canvas = forwardRef<
     let cleanup: (() => void) | undefined
     void import('@antv/x6').then(({
       Graph,
+      Path,
       MiniMap,
       Scroller,
       Selection
     }) => {
       if (disposed) return
+      Graph.registerConnector('workflow-gentle', (source, target, _route, options) => {
+        // Short outward tangents keep handles visible without a large detour.
+        const reach = Math.max(24, Math.min(64, Math.abs(target.x - source.x) / 3))
+        const path = new Path()
+        path.appendSegment(Path.createSegment('M', source.x, source.y))
+        path.appendSegment(Path.createSegment(
+          'C', source.x + reach, source.y, target.x - reach, target.y, target.x, target.y
+        ))
+        return options.raw ? path : path.serialize()
+      }, true)
     let graph!: Graph
     graph = new Graph({
       container,
-      async: true,
-      virtual: { enabled: true, margin: 480 },
+      async: false,
+      virtual: { enabled: projectionRef.current.nodes.length > LARGE_GRAPH_MINIMAP_LIMIT, margin: 480 },
       background: { color: 'transparent' },
       grid: {
         visible: true,
@@ -267,7 +279,7 @@ export const WorkflowX6Canvas = forwardRef<
         snap: { radius: 24 },
         highlight: true,
         router: { name: 'normal' },
-        connector: { name: 'smooth' },
+        connector: { name: 'workflow-gentle' },
         // Connect directly to the port anchor so the curve meets the
         // visible handle instead of stopping at the node boundary.
         connectionPoint: { name: 'anchor' },
@@ -281,7 +293,7 @@ export const WorkflowX6Canvas = forwardRef<
     const scroller = new Scroller({
       enabled: true,
       pannable: true,
-      autoResize: true,
+      autoResize: false,
       minVisibleWidth: 180,
       minVisibleHeight: 120,
       padding: 72
@@ -290,6 +302,7 @@ export const WorkflowX6Canvas = forwardRef<
       enabled: true,
       multiple: true,
       rubberband: true,
+      modifiers: ['shift'],
       movable: false,
       showNodeSelectionBox: true,
       showEdgeSelectionBox: true
@@ -305,7 +318,7 @@ export const WorkflowX6Canvas = forwardRef<
         scalable: true,
         minScale: 0.01,
         maxScale: 0.35,
-        graphOptions: { virtual: true, async: true }
+        graphOptions: { virtual: false, async: false }
       }))
     }
 
@@ -394,7 +407,33 @@ export const WorkflowX6Canvas = forwardRef<
       if (data?.kind === 'material_source') return
       callbacksRef.current.onToggleBreakpoint?.(node.id)
     })
+    let dragFrame: number | null = null
+    const refreshDraggedConnections = (node: import('@antv/x6').Node): void => {
+      graph.findViewByCell(node)?.cleanCache()
+      for (const edge of graph.getConnectedEdges(node)) {
+        const view = graph.findViewByCell(edge)
+        if (view?.isEdgeView()) {
+          view.updateTerminalProperties('source')
+          view.updateTerminalProperties('target')
+          view.update()
+        }
+      }
+    }
+    graph.on('node:moving', ({ node }) => {
+      if (dragFrame !== null) cancelAnimationFrame(dragFrame)
+      dragFrame = requestAnimationFrame(() => {
+        dragFrame = null
+        refreshDraggedConnections(node)
+      })
+    })
+    graph.on('node:move', () => {
+      nodeDraggingRef.current = true
+    })
     graph.on('node:moved', ({ node }) => {
+      if (dragFrame !== null) cancelAnimationFrame(dragFrame)
+      dragFrame = null
+      refreshDraggedConnections(node)
+      nodeDraggingRef.current = false
       if (!callbacksRef.current.nodePositionMutationEnabled) return
       callbacksRef.current.onNodePositionChange?.(node.id, node.position())
     })
@@ -449,6 +488,7 @@ export const WorkflowX6Canvas = forwardRef<
       appliedProjectionRef
     )
     cleanup = () => {
+      if (dragFrame !== null) cancelAnimationFrame(dragFrame)
       resize.disconnect()
       graph.dispose()
       graphRef.current = null
@@ -469,7 +509,7 @@ export const WorkflowX6Canvas = forwardRef<
 
   useEffect(() => {
     const graph = graphRef.current
-    if (!graph) return
+    if (!graph || nodeDraggingRef.current) return
     syncWorkflowX6Projection(
       graph,
       scrollerRef.current,
@@ -478,6 +518,16 @@ export const WorkflowX6Canvas = forwardRef<
       initialFitPendingRef,
       appliedProjectionRef
     )
+    const frame = requestAnimationFrame(() => {
+      for (const edge of graph.getEdges()) {
+        const view = graph.findViewByCell(edge)
+        if (!view?.isEdgeView()) continue
+        view.updateTerminalProperties('source')
+        view.updateTerminalProperties('target')
+        view.update()
+      }
+    })
+    return () => cancelAnimationFrame(frame)
   }, [edges, nodes])
 
   useEffect(() => {
@@ -500,7 +550,7 @@ export const WorkflowX6Canvas = forwardRef<
         scalable: true,
         minScale: 0.01,
         maxScale: 0.35,
-        graphOptions: { virtual: true, async: true }
+        graphOptions: { virtual: false, async: false }
       }))
     })
     return () => {
@@ -683,17 +733,45 @@ function syncWorkflowX6Projection(
   )
   const nodeById = new Map(nodes.map(node => [node.id, node]))
   const edgeById = new Map(edges.map(edge => [edge.id, edge]))
+  const previousNodeById = new Map(appliedProjection.current.nodes.map(node => [node.id, node]))
+  if (nodes.length > 0 && previousNodeById.size > 0 &&
+      nodes.every(node => !previousNodeById.has(node.id))) {
+    initialFitPending.current = true
+  }
+  const layoutChanged = nodes.some(node => {
+    const previous = previousNodeById.get(node.id)
+    if (!previous || (previous.position.x === node.position.x && previous.position.y === node.position.y)) return false
+    const cell = graph.getCellById(node.id)
+    const position = cell?.isNode() ? cell.position() : null
+    // A drag has already moved the live cell; its draft echo must not rebuild it.
+    return !position || position.x !== node.position.x || position.y !== node.position.y
+  })
   graph.batchUpdate('workflow-projection', () => {
+    if (layoutChanged) {
+      graph.resetCells([
+        ...nodes.map(node => graph.createNode(workflowX6NodeMetadata(node))),
+        ...edges.map(edge => graph.createEdge(workflowX6EdgeMetadata(edge)))
+      ], { ui: false })
+      return
+    }
     for (const edgeId of diff.removeEdgeIds) graph.removeCell(edgeId, { ui: false })
     for (const nodeId of diff.removeNodeIds) graph.removeCell(nodeId, { ui: false })
     for (const nodeId of diff.updateNodeIds) {
       const cell = graph.getCellById(nodeId)
       const node = nodeById.get(nodeId)
       if (!cell?.isNode() || !node) continue
-      const { id: _id, ...metadata } = workflowX6NodeMetadata(node)
+      const { id: _id, x, y, width, height, ...metadata } = workflowX6NodeMetadata(node)
+      // Constructor aliases x/y and width/height must use the live node APIs.
+      if (typeof x === 'number' && typeof y === 'number') cell.position(x, y, { ui: false })
+      if (typeof width === 'number' && typeof height === 'number') cell.resize(width, height, { ui: false })
+      const previousNode = previousNodeById.get(nodeId)
+      const previousMetadata = previousNode ? workflowX6NodeMetadata(previousNode) : null
+      const changedMetadata = Object.fromEntries(Object.entries(metadata).filter(([key, value]) =>
+        !previousMetadata || JSON.stringify(previousMetadata[key as keyof typeof previousMetadata]) !== JSON.stringify(value)
+      ))
       replaceWorkflowX6CellMetadata(
         cell,
-        metadata as Partial<NodeProperties>
+        changedMetadata as Partial<NodeProperties>
       )
     }
     for (const nodeId of diff.addNodeIds) {
@@ -750,6 +828,8 @@ function replaceWorkflowX6CellMetadata(
   metadata: Partial<NodeProperties> | Partial<EdgeProperties>
 ): void {
   for (const [key, value] of Object.entries(metadata)) {
+    // Keep unchanged port/markup views alive when only the layout moves.
+    if (JSON.stringify(cell.getProp(key)) === JSON.stringify(value)) continue
     cell.setProp(key, value, { ui: false })
   }
 }

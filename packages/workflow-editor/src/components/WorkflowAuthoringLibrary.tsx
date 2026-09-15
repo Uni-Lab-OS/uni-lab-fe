@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { WorkflowButton } from './WorkflowButton'
 import { ExperimentOperationDeviceLibrary } from './ExperimentOperationDeviceLibrary'
 import { WorkflowNodePalette } from './WorkflowNodePalette'
-import type { WorkflowNodePaletteDragPayload } from '../utils/workflowCanvasCommands'
+import { writeWorkflowNodePaletteDragPayload, type WorkflowNodePaletteDragPayload } from '../utils/workflowCanvasCommands'
 
 type WorkflowNodePaletteProps = ComponentProps<typeof WorkflowNodePalette>
 
@@ -40,12 +40,15 @@ export function WorkflowAuthoringLibrary({
   ...paletteProps
 }: WorkflowAuthoringLibraryProps): React.JSX.Element {
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([])
+  const [operations, setOperations] = useState<WorkflowSummary[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [requestRevision, setRequestRevision] = useState(0)
   const [operationLibraryTab, setOperationLibraryTab] =
     useState<'operation' | 'device-action'>('operation')
+  const [workflowLibraryTab, setWorkflowLibraryTab] =
+    useState<'workflow' | 'operation'>('workflow')
 
   useEffect(() => {
     let disposed = false
@@ -53,9 +56,10 @@ export function WorkflowAuthoringLibrary({
     setError(null)
     void runtime.listWorkflows({ page: 1, page_size: 100 })
       .then((page) => {
-        if (!disposed) setWorkflows(page.items.filter(
-          workflow => workflowDefinitionKind(workflow) === definitionKind
-        ))
+        if (!disposed) {
+          setWorkflows(page.items.filter(workflow => workflowDefinitionKind(workflow) === definitionKind))
+          setOperations(page.items.filter(workflow => workflowDefinitionKind(workflow) === 'operation'))
+        }
       })
       .catch((reason: unknown) => {
         if (!disposed) {
@@ -75,11 +79,11 @@ export function WorkflowAuthoringLibrary({
     return [...workflows]
       .filter((workflow) => !normalizedQuery || [
         workflow.name,
+        workflow.uuid,
         workflow.description ?? '',
         ...workflow.tags
       ].some((value) => value.toLocaleLowerCase().includes(normalizedQuery)))
-      .sort((left, right) => right.update_time.localeCompare(left.update_time))
-      .slice(0, 6)
+      .sort((left, right) => right.update_time.localeCompare(left.update_time) || left.uuid.localeCompare(right.uuid))
   }, [query, workflows])
 
   const workflowList = (
@@ -122,7 +126,9 @@ export function WorkflowAuthoringLibrary({
             <span aria-hidden="true">◇</span>
             <span>
               <strong>{workflow.name}</strong>
-              <small>{workflow.description?.trim() || '暂无描述'}</small>
+              <small>{definitionKind === 'workflow'
+                ? `版本 ${workflow.revision ?? '—'}`
+                : workflow.description?.trim() || '暂无描述'}</small>
             </span>
             {active && <i>当前</i>}
           </WorkflowButton>
@@ -152,8 +158,7 @@ export function WorkflowAuthoringLibrary({
     >
       <header className="persistent-authoring__library-heading">
         <div>
-          <h2>{definitionKind === 'operation' ? '操作与节点库' : '实验工作流'}</h2>
-          {definitionKind !== 'operation' ? <small>最近编辑</small> : null}
+          <h2>{definitionKind === 'operation' ? '操作与节点库' : '工作流与操作库'}</h2>
         </div>
         {definitionKind !== 'operation' ? <span>{workflows.length}</span> : null}
       </header>
@@ -213,22 +218,51 @@ export function WorkflowAuthoringLibrary({
         </>
       ) : (
         <>
+          <div className="persistent-authoring__library-tabs" role="tablist" aria-label="工作流与操作库">
+            <button type="button" role="tab" aria-selected={workflowLibraryTab === 'workflow'} className={workflowLibraryTab === 'workflow' ? 'is-active' : undefined} onClick={() => setWorkflowLibraryTab('workflow')}>实验工作流库</button>
+            <button type="button" role="tab" aria-selected={workflowLibraryTab === 'operation'} className={workflowLibraryTab === 'operation' ? 'is-active' : undefined} onClick={() => setWorkflowLibraryTab('operation')}>实验操作库</button>
+          </div>
+          {workflowLibraryTab === 'workflow' ? <div className="persistent-authoring__library-pane">
           <label className="persistent-authoring__library-search">
             <span className="sr-only">搜索实验工作流</span>
             <input
               type="search"
               value={query}
-              placeholder="搜索工作流名称"
+              placeholder="搜索工作流名称 / 编号"
               onChange={(event) => setQuery(event.target.value)}
             />
           </label>
+          <div className="persistent-authoring__library-section-label">最近编辑</div>
           {workflowList}
-          <div className="persistent-authoring__library-nodes">
-            <WorkflowNodePalette
-              {...paletteProps}
-              onPaletteDragStart={onPaletteDragStart}
-            />
-          </div>
+          </div> : <div className="persistent-authoring__library-pane">
+            <div className="persistent-authoring__library-workflow-list" role="list">
+              {loading ? <p role="status">正在读取实验操作…</p> : error ? (
+                <div role="alert">实验操作目录读取失败<button type="button" onClick={() => setRequestRevision(value => value + 1)}>重试</button></div>
+              ) : operations.map(operation => {
+                const template = paletteProps.catalog?.workflowTemplates.find(item => item.workflowUuid === operation.uuid)
+                const disabled = !template || paletteProps.busy || !paletteProps.canvasMutationEnabled || !paletteProps.graphAvailable
+                return <WorkflowButton
+                  key={operation.uuid}
+                  role="listitem"
+                  type="button"
+                  disabled={disabled}
+                  disabledReason={!template ? '请先在实验操作调试中发布该实验操作' : '当前画布暂不可编辑'}
+                  draggable={!disabled}
+                  onClick={() => { if (template) paletteProps.onAddWorkflow(template.uuid) }}
+                  onDragStart={event => {
+                    if (disabled || !template) { event.preventDefault(); return }
+                    const payload: WorkflowNodePaletteDragPayload = { kind: 'workflow', templateUuid: template.uuid }
+                    writeWorkflowNodePaletteDragPayload(event.dataTransfer, payload)
+                    onPaletteDragStart?.(payload)
+                  }}
+                >
+                  <span aria-hidden="true">◇</span>
+                  <span><strong>{operation.name}</strong><small>{template ? `版本 ${template.workflowRevision}` : '尚未发布'}</small></span>
+                </WorkflowButton>
+              })}
+              {!loading && !error && operations.length === 0 && <p role="status">暂无实验操作</p>}
+            </div>
+          </div>}
         </>
       )}
     </section>

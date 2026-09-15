@@ -36,7 +36,8 @@ export function WorkflowCatalog({
   authoringStatus,
   runStatus,
   onStateChange,
-  onSelect
+  onSelect,
+  creationEntryVisible = WORKFLOW_CATALOG_CREATION_ENTRY_VISIBLE
 }: {
   runtime: WorkflowRuntimePort
   activeWorkflowStorageKey?: string
@@ -45,6 +46,7 @@ export function WorkflowCatalog({
   runStatus?: CapabilityStatus
   onStateChange?: (state: WorkflowCatalogState) => void
   onSelect?: (workflowUuid: string, workflowName: string) => void
+  creationEntryVisible?: boolean
 }): React.JSX.Element {
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -180,7 +182,7 @@ export function WorkflowCatalog({
           ) : null}
         </div>
         <div className="workflow-runtime__catalog-header-actions">
-          {WORKFLOW_CATALOG_CREATION_ENTRY_VISIBLE && authoringAvailable ? (
+          {creationEntryVisible && authoringAvailable ? (
             <button type="button" onClick={() => setCreateOpen(true)}>
               <span aria-hidden="true">＋</span>
               新建工作流

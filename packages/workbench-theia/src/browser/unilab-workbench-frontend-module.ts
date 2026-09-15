@@ -39,6 +39,7 @@ import {
   WorkflowTasksDomainEntryWidget
 } from './unilab-workbench-navigator-widget'
 import { UniLabWorkbenchWidget } from './unilab-workbench-widget'
+import { WorkbenchFilesContribution } from './workbench-files-contribution'
 import { WorkbenchViewState } from './workbench-view-state'
 import { WorkbenchSessionClientImpl } from './workbench-session-client'
 import { WorkbenchPrivateStatePreferenceContribution } from './workbench-private-state-preferences'
@@ -55,6 +56,8 @@ import '../../src/browser/style/index.css'
 
 export default new ContainerModule((bind) => {
   bind(WorkbenchViewState).toSelf().inSingletonScope()
+  bind(WorkbenchFilesContribution).toSelf().inSingletonScope()
+  bind(FrontendApplicationContribution).toService(WorkbenchFilesContribution)
   bind(WorkbenchPrivateStatePreferenceContribution).toSelf().inSingletonScope()
   bind(PreferenceContribution).toService(
     WorkbenchPrivateStatePreferenceContribution

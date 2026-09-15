@@ -10,11 +10,13 @@ import { formatAuthoringDiagnostic } from '../utils/workflowAuthoringUserCopy'
 export function WorkflowNodeInspector({
   model,
   definitionKind = 'workflow',
-  workflowName
+  workflowName,
+  debugLayout = false
 }: {
   model: PersistentWorkflowAuthoringModel
   definitionKind?: WorkflowDefinitionKind
   workflowName?: string
+  debugLayout?: boolean
 }): React.JSX.Element {
   const [inspectorPane, setInspectorPane] = useState<
     'parameters' | 'mapping' | 'inputs' | 'outputs' | 'runtime'
@@ -66,6 +68,14 @@ export function WorkflowNodeInspector({
     ? model.structure.nodes.find((node) => node.id === selectedNodeUuid)
       ?.description?.trim()
     : ''
+  const selectedNode = model.structure.nodes.find((node) => node.id === selectedNodeUuid)
+  const tablist = (
+    <nav className="persistent-authoring__node-tabs" aria-label="节点检查器视图" role="tablist">
+      {inspectorTabs.map(([pane, label]) => (
+        <button key={pane} type="button" role="tab" className={inspectorPane === pane ? 'is-active' : undefined} aria-selected={inspectorPane === pane} onClick={() => setInspectorPane(pane)}>{label}</button>
+      ))}
+    </nav>
+  )
 
   return (
     <aside
@@ -82,9 +92,11 @@ export function WorkflowNodeInspector({
               ? '实验操作参数'
               : !selectedNodeUuid
                 ? '节点检查器'
-                : selectedIsMaterialSource ? '物料来源' : '节点属性'}
+                : selectedIsMaterialSource ? '物料来源' : debugLayout
+                  ? selectedNode?.type === 'condition' || selectedNode?.type === 'branch' ? '判断节点信息' : '节点信息'
+                  : '节点属性'}
           </strong>
-          {!operationInspector && <span>属性</span>}
+          {!operationInspector && !debugLayout && <span>属性</span>}
         </span>
         {selectedNodeUuid && (
           <button
@@ -109,6 +121,7 @@ export function WorkflowNodeInspector({
           </button>
         )}
       </header>
+      {debugLayout && tablist}
 
       {!selectedNodeUuid && !operationInspector ? (
         <div className="persistent-authoring__inspector-empty">
@@ -193,24 +206,7 @@ export function WorkflowNodeInspector({
 
           {(selectedActionEditor || operationInspector) && (
             <>
-              <nav
-                className="persistent-authoring__node-tabs"
-                aria-label="节点检查器视图"
-                role="tablist"
-              >
-                {inspectorTabs.map(([pane, label]) => (
-                  <button
-                    key={pane}
-                    type="button"
-                    role="tab"
-                    className={inspectorPane === pane ? 'is-active' : undefined}
-                    aria-selected={inspectorPane === pane}
-                    onClick={() => setInspectorPane(pane)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </nav>
+              {!debugLayout && tablist}
               {!selectedActionEditor ? (
                 <div className="persistent-authoring__inspector-empty operation-inspector-selection-empty">
                   <strong>选择画布中的动作节点</strong>
@@ -226,7 +222,7 @@ export function WorkflowNodeInspector({
                   editable={!busy && canvasMutationEnabled}
                   view={inspectorPane}
                   hideMaterialFields={operationInspector}
-                  presentation={operationInspector ? 'operation' : 'node'}
+                  presentation={operationInspector ? 'operation' : debugLayout ? 'debug' : 'node'}
                   resourceSlotOptions={resourceSlotOptions}
                   onProviderChange={(field, provider) => {
                     if (provider.startsWith('workflow:')) {

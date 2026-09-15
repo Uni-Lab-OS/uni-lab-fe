@@ -38,7 +38,9 @@ abstract class UniLabDomainEntryWidget extends ReactWidget {
 
   protected readonly open = (): void => {
     this.viewState.toggle(this.entry.mode)
-    void this.shell.collapsePanel('left')
+    if (!this.viewState.isVisible('files')) {
+      void this.shell.collapsePanel('left')
+    }
     void this.shell.activateWidget(UniLabWorkbenchWidget.ID)
   }
 
@@ -81,20 +83,6 @@ export class WorkflowDomainEntryWidget extends UniLabDomainEntryWidget {
     description: '编辑工作流源码、观察 DAG，并与 IDE 代码位置双向联动。',
     iconClass: 'unilab-activity-icon--workflow',
     eyebrow: 'WORKFLOW'
-  }
-}
-
-@injectable()
-export class WorkflowTasksDomainEntryWidget extends UniLabDomainEntryWidget {
-  static readonly ID = 'unilab:workflow-tasks-navigation'
-  protected readonly widgetId = WorkflowTasksDomainEntryWidget.ID
-  protected readonly entry: DomainEntryDefinition = {
-    mode: 'workflow-tasks',
-    label: '任务列表',
-    caption: '工作流任务 · 运行队列与状态',
-    description: '读取 Backend 已持久化的任务列表，核对运行、控制与清理状态。',
-    iconClass: 'unilab-activity-icon--workflow-tasks',
-    eyebrow: 'WORKFLOW TASKS'
   }
 }
 
