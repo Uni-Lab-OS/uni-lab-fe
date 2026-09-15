@@ -308,7 +308,7 @@ body.unilab-agent-panel-visible
 
 #theia-left-right-split-panel > #theia-bottom-split-panel {
   /* 产品菜单属于左侧固定栏，主工作区必须从它右侧开始布局。 */
-  left: 196px !important;
+  left: 160px !important;
   right: 0 !important;
   width: auto !important;
 }
@@ -379,9 +379,9 @@ body:not(.unilab-agent-panel-visible)
 }
 
 #theia-left-content-panel > .theia-app-sidebar-container {
-  width: 196px !important;
-  min-width: 196px !important;
-  max-width: 196px !important;
+  width: 160px !important;
+  min-width: 160px !important;
+  max-width: 160px !important;
   border-right: 1px solid var(--unilab-color-border);
   box-shadow: none !important;
 }
@@ -392,15 +392,15 @@ body:not(.unilab-agent-panel-visible)
  * 进入工作区后就只剩 Logo 和底部的“...”空壳。
  */
 #theia-left-content-panel.theia-mod-collapsed {
-  width: 196px !important;
-  flex-basis: 196px !important;
-  min-width: 196px !important;
-  max-width: 196px !important;
+  width: 160px !important;
+  flex-basis: 160px !important;
+  min-width: 160px !important;
+  max-width: 160px !important;
 }
 
 #theia-left-content-panel .theia-app-left {
-  width: 196px !important;
-  min-width: 196px !important;
+  width: 160px !important;
+  min-width: 160px !important;
   padding-top: 58px;
   overflow: visible !important;
 }
@@ -436,7 +436,7 @@ body:not(.unilab-agent-panel-visible)
 
 #theia-left-content-panel .theia-app-left .lm-TabBar-content {
   box-sizing: border-box;
-  width: 196px !important;
+  width: 160px !important;
   padding: 22px 12px 12px;
   overflow-x: visible;
 }
@@ -565,7 +565,7 @@ body:not(.unilab-agent-panel-visible)
 /* 活动栏文案与图标横向排列，保持原型的宽侧栏密度。 */
 #theia-left-content-panel .theia-app-left .lm-TabBar-tab {
   order: 20;
-  width: 172px !important;
+  width: 136px !important;
   height: 44px !important;
   min-height: 44px !important;
   margin-right: 0;
@@ -586,7 +586,7 @@ body:not(.unilab-agent-panel-visible)
   .lm-TabBar-tab
   > .theia-tab-icon-label {
   display: flex;
-  width: 172px;
+  width: 136px;
   height: 44px;
   align-items: center;
   gap: 10px;

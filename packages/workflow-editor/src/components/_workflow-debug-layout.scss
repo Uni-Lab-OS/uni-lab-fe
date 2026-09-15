@@ -2,7 +2,7 @@
   box-sizing: border-box;
   min-width: 0;
   max-width: 100%;
-  --debug-library-width: 196px;
+  --debug-library-width: 176px;
   --debug-structure-width: 224px;
   padding: 0 14px 14px;
   background: #f5f7fb;
@@ -131,7 +131,7 @@
   :global(.persistent-authoring__operation-structure) li small { color: #8591a4; font-size: 9px; }
   :global(.persistent-authoring__operation-structure-empty) { display: grid; gap: 8px; padding: 28px 16px; color: #8591a4; font-size: 11px; text-align: center; }
 
-  :global(.workflow-debug-toolbar) { flex: 0 0 auto; min-width: 0; background: #fff; border-bottom: 1px solid #e7edf5; }
+  :global(.workflow-debug-toolbar) { container: workflow-toolbar / inline-size; flex: 0 0 auto; min-width: 0; background: #fff; border-bottom: 1px solid #e7edf5; }
   :global(.workflow-debug-toolbar__main) { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; }
   :global(.workflow-debug-toolbar__identity) { display: grid; min-width: 90px; gap: 3px; }
   :global(.workflow-debug-toolbar__identity) strong { overflow: hidden; max-width: 200px; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
@@ -203,11 +203,16 @@
   :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-actions) { grid-column: 3; grid-row: 1; margin: 0; }
   :global(.persistent-authoring__canvas-body.is-code-mode) { grid-template-columns: minmax(0,1fr); grid-template-areas: 'graph'; }
 
+  @container workflow-toolbar (max-width: 900px) {
+    :global(.workflow-debug-toolbar__identity) { display: none; }
+    :global(.workflow-debug-toolbar__actions) { width: 100%; }
+  }
+
   @container workflow (max-width: 1240px) {
-    --debug-library-width: 180px;
+    --debug-library-width: 160px;
     --debug-structure-width: 200px;
     :global(.workflow-debug-toolbar__main) { flex-wrap: wrap; gap: 7px; }
-    :global(.workflow-debug-toolbar__identity) { flex: 1 1 100%; }
+    :global(.workflow-debug-toolbar__identity) { display: none; }
     :global(.workflow-debug-toolbar__actions) { width: 100%; }
   }
   @container workflow (max-width: 1023px) {

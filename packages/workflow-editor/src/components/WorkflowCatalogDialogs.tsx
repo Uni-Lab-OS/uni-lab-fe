@@ -276,7 +276,7 @@ export function WorkflowChangeLogDialog({
               <span className="workflow-runtime__catalog-log-mark" aria-hidden="true" />
               <div>
                 <strong>{change.summary}</strong>
-                <span>{formatChangeTime(change.create_time)} · 版本 {change.revision}</span>
+                <span>{formatChangeTime(change.create_time)}</span>
               </div>
             </li>
           ))}

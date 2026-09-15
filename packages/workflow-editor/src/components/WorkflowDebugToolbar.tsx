@@ -71,13 +71,13 @@ export function WorkflowDebugToolbar({
     <header className="workflow-debug-toolbar__main">
       <div className="workflow-debug-toolbar__identity">
         <strong title={workflowName}>{workflowName || '当前工作流'}</strong>
-        <small>{aggregate ? `版本 ${aggregate.workflow_revision}${saveDirty ? ' · 未保存' : ''}` : '正在读取…'}</small>
+        {(!aggregate || saveDirty) && <small>{aggregate ? '未保存' : '正在读取…'}</small>}
       </div>
       <div className="workflow-debug-toolbar__actions" aria-label="工作流画布工具">
         {compact && <button type="button" onClick={onToggleLibrary}>工作流库</button>}
         <button type="button" aria-pressed={structureOpen} onClick={onToggleStructure}>{structureOpen ? '隐藏流程' : '显示流程'}</button>
         <WorkflowButton type="button" disabled={saveDisabled} disabledReason={working ? '正在处理工作流，请稍候' : pendingConfirmation ? '请先完成当前确认操作' : '没有可保存的修改'} onClick={model.saveDraft} aria-label="保存" aria-busy={model.preparingSavePreview || undefined} style={{ minWidth: 64 }}>{model.preparingSavePreview ? '生成中…' : '保存'}</WorkflowButton>
-        <WorkflowButton type="button" className="is-primary" disabled={publishDisabled} disabledReason={dirty || ideSourceDirty ? '请先保存当前修改' : '当前没有可发布的候选版本，或正在处理工作流'} onClick={model.applyCandidate}>发布</WorkflowButton>
+        <WorkflowButton type="button" className="is-primary" disabled={publishDisabled} disabledReason={dirty || ideSourceDirty ? '请先保存当前修改' : '当前没有可发布的修改，或正在处理工作流'} onClick={model.applyCandidate}>发布</WorkflowButton>
         <WorkflowButton type="button" disabled={working || !aggregate || model.codeViewingAvailable === false} disabledReason="当前暂时无法切换源码视图" onClick={() => model.requestMode(mode === 'canvas' ? 'code' : 'canvas')}>{mode === 'canvas' ? '查看源码' : '查看画布'}</WorkflowButton>
         <WorkflowButton type="button" disabled={working || !aggregate || !model.canvasValidationAvailable} disabledReason="当前画布尚未就绪或不支持校验" onClick={model.validateCanvasDraft}>✓ 校验</WorkflowButton>
         <button type="button" onClick={onAutoLayout} disabled={!onAutoLayout} title="使用 ELK 横向排列当前画布预览">自动排列</button>

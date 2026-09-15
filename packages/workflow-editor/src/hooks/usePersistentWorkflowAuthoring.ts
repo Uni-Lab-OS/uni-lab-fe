@@ -912,7 +912,7 @@ export function usePersistentWorkflowAuthoring({
         installAggregate(
           saved,
           `${definitionPort.capabilities.label} 工作流图已保存，` +
-          `当前修订 ${saved.workflow_revision}`
+          '更新完成'
         )
         return
       }
@@ -988,7 +988,7 @@ export function usePersistentWorkflowAuthoring({
           installAggregate(
             applied.authoring,
             applied.apply_result.kind === 'graph'
-              ? `工作流已应用，当前版本为 ${applied.apply_result.workflow_revision}`
+              ? '工作流已应用'
               : '源码已应用，工作流图未发生变化'
           )
           return
@@ -1092,7 +1092,7 @@ export function usePersistentWorkflowAuthoring({
       installAggregate(
         applied.authoring,
         applied.apply_result.kind === 'graph'
-          ? `工作流已应用，当前版本为 ${applied.apply_result.workflow_revision}`
+          ? '工作流已应用'
           : '源码已应用，工作流图未发生变化'
       )
       return applied
@@ -1149,7 +1149,7 @@ export function usePersistentWorkflowAuthoring({
   const applyCandidate = (): void => {
     const candidate = aggregate?.candidate
     if (!candidate) {
-      setError('当前没有可应用的服务器候选版本')
+      setError('当前没有可应用的修改')
       return
     }
     const draft = aggregate?.draft
@@ -1287,7 +1287,7 @@ export function usePersistentWorkflowAuthoring({
           installAggregate(
             saved,
             `${definitionPort.capabilities.label} 工作流图已保存，` +
-            `当前修订 ${saved.workflow_revision}`
+            '更新完成'
           )
           return { kind: 'saved' as const, aggregate: saved, editMode: mode }
         }
@@ -1379,7 +1379,7 @@ export function usePersistentWorkflowAuthoring({
     applyCandidate, beautifyCanvasLayout,
     busy, cancelFullSourceDiff, candidateIo, canvasMutationEnabled,
     canvasSaveHint: definitionPort.capabilities.directGraphSaving
-      ? '画布缓冲已修改；保存后将以修订 CAS 写入 Backend'
+      ? '画布已修改；保存时将检查冲突并写入 Backend'
       : '画布缓冲已修改；保存前将生成完整 Python 差异',
     codeProjection,
     diagnostics,

@@ -45,11 +45,11 @@ export function WorkflowSavePrompt({
           <p id="workflow-save-prompt-description">
             当前工作流来自
             <strong title={fileName}>{fileName}</strong>。
-            保存修订版本时，可以同时保存更新后的标准工作流 JSON。
+            保存工作流时，可以同时保存更新后的标准工作流 JSON。
           </p>
           <p className="workflow-save-prompt__notice">
             {canWriteOriginal
-              ? '原文件会被当前内容直接覆盖，请确认不再需要旧版本。'
+              ? '原文件会被当前内容直接覆盖，请确认不再需要原内容。'
               : '当前浏览器或导入方式没有原文件写入权限，将下载更新后的同名文件。'}
           </p>
         </div>

@@ -152,7 +152,7 @@ export function PersistentWorkflowOverlays({
           {appliedIo && (
             <details className="persistent-authoring__applied-io">
               <summary>
-                已应用版本 {aggregate?.workflow_revision}
+                当前运行配置
                 <span>
                   输入 {appliedIo.input_contract.parameters.length}
                   {' · '}输出 {appliedIo.output_contract.outputs.length}

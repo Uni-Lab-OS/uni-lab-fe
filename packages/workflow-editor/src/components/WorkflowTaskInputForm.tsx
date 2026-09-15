@@ -62,11 +62,8 @@ export function WorkflowTaskInputForm({
       <header>
         <div>
           <strong>本次运行输入</strong>
-          <span>使用已应用版本 {form.appliedRevision}</span>
         </div>
-        <p>
-          本次运行使用已应用版本；未覆盖的参数由 OS 使用固定默认值。
-        </p>
+        <p>未覆盖的参数使用固定默认值。</p>
       </header>
 
       {problem && <p className="workflow-runtime__problem" role="alert">{problem}</p>}

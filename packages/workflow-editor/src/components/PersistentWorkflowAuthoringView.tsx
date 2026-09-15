@@ -645,7 +645,7 @@ export function PersistentWorkflowAuthoringView({
                   ? 'Python 是 OS 生成的只读投影'
                   : codeProjection === 'json'
                     ? 'JSON 来自 OS 候选图，仅供查看；切换不会覆盖 Python 草稿'
-                    : 'Python 草稿可编辑；保存时校验草稿哈希与工作流版本'}
+                    : 'Python 草稿可编辑；保存时检查是否存在冲突'}
             </p>
           </section>
         ) : null}

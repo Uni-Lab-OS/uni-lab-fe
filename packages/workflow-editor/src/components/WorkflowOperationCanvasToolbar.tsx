@@ -115,7 +115,7 @@ export function WorkflowOperationCanvasToolbar({
         className="persistent-authoring__canvas-toolbar-button is-primary"
         disabled={publishState.disabled}
         disabledReason={publishState.reason}
-        title="发布当前工作流候选版本"
+        title="发布当前工作流"
         onClick={applyCandidate}
       >
         发布
@@ -207,7 +207,7 @@ function publishToolbarState({
     workflowStartBusy || fullSourceDiff || pendingMode || remoteConflict
   )
   const reason = !aggregate?.candidate
-    ? '当前没有可发布的工作流候选版本'
+    ? '当前没有可发布的工作流修改'
     : dirty
       ? '请先保存当前工作流修改'
       : busy || runtimeBusy || workflowStartBusy

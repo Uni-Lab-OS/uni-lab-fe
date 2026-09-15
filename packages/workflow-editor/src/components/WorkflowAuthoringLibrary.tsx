@@ -126,9 +126,7 @@ export function WorkflowAuthoringLibrary({
             <span aria-hidden="true">◇</span>
             <span>
               <strong>{workflow.name}</strong>
-              <small>{definitionKind === 'workflow'
-                ? `版本 ${workflow.revision ?? '—'}`
-                : workflow.description?.trim() || '暂无描述'}</small>
+              {definitionKind !== 'workflow' && <small>{workflow.description?.trim() || '暂无描述'}</small>}
             </span>
             {active && <i>当前</i>}
           </WorkflowButton>
@@ -257,7 +255,7 @@ export function WorkflowAuthoringLibrary({
                   }}
                 >
                   <span aria-hidden="true">◇</span>
-                  <span><strong>{operation.name}</strong><small>{template ? `版本 ${template.workflowRevision}` : '尚未发布'}</small></span>
+                  <span><strong>{operation.name}</strong>{!template && <small>尚未发布</small>}</span>
                 </WorkflowButton>
               })}
               {!loading && !error && operations.length === 0 && <p role="status">暂无实验操作</p>}
