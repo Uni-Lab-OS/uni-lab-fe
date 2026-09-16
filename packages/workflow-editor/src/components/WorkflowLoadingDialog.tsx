@@ -31,6 +31,7 @@ export function WorkflowLoadingDialog(props: WorkflowLoadingDialogProps) {
     setSize(next)
     try { window.localStorage.setItem(LOADING_DIALOG_SIZE_KEY, JSON.stringify(next)) } catch { /* 只丢失尺寸偏好。 */ }
   }
+  const multipleInstruments = new Set(view.rows.map(row => row.instrument.id)).size > 1
   const disabledReason = loadingConfirmationDisabledReason(view, online, busy, Boolean(onConfirm))
   const status = !online ? '连接离线，入库事项仍保留'
     : busy ? '正在提交入库确认，请等待服务结果'
@@ -43,14 +44,15 @@ export function WorkflowLoadingDialog(props: WorkflowLoadingDialogProps) {
     style={{ width: `${size.width * 100}vw`, height: `${size.height * 100}vh` }}>
     <header><strong>{view.title}</strong><button type="button" onClick={onMinimize}>最小化</button></header>
     {props.navigation}
+    <div className={styles.body}>
     <p role="status">{status}</p>
     {view.description && <p>{view.description}</p>}
     {error && <p role="alert">{error}</p>}
-    <div className={styles.table}><table><thead><tr><th>仪器</th><th>库位</th><th>物料</th><th>数量</th><th>核对状态</th></tr></thead>
+    <div className={styles.table}><table><thead><tr><th>位置</th><th>物料</th><th>数量</th><th>核对状态</th></tr></thead>
       <tbody>{view.rows.map(row => <tr key={row.key}>
-        <td>{row.instrument.label}</td><td>{row.site.label}</td>
+        <td>{multipleInstruments ? `${row.instrument.label} · ` : ''}{row.site.label}</td>
         <td>{row.material.label}<small>{row.material.identity === 'existing' ? '已有物料' : '计划物料，尚未入库'}</small></td>
-        <td>{row.quantity} {row.unit}</td><td>{row.availability.allowed ? '可核对' : row.availability.reason || '暂不可用'}</td>
+        <td>{row.quantity} {row.unit}</td><td>{row.confirmationStatus && <span>{row.confirmationStatus} · </span>}{row.availability.allowed ? '可核对' : row.availability.reason || '暂不可用'}</td>
       </tr>)}</tbody></table></div>
     <p>请核对实物与目标库位。确认后仍需等待服务返回最新库存。</p>
     <details><summary>调整窗口大小</summary><div className={styles.dimensions}>
@@ -58,6 +60,7 @@ export function WorkflowLoadingDialog(props: WorkflowLoadingDialogProps) {
       <label>窗口高度<input aria-label="窗口高度百分比" type="range" min="30" max="95" value={Math.round(size.height * 100)} onChange={event => resize('height', Number(event.target.value))} />{Math.round(size.height * 100)}%</label>
     </div></details>
     {props.onReplay && <WorkflowButton type="button" disabled={!online || busy} disabledReason={!online ? '连接离线' : '正在提交'} onClick={props.onReplay}>重投已确认入库</WorkflowButton>}
+    </div>
     <footer><WorkflowButton type="button" disabled={!online || busy} disabledReason={!online ? '连接离线' : '正在提交'} onClick={onRefresh}>重新读取</WorkflowButton>
       <WorkflowButton type="button" disabled={disabledReason !== null} disabledReason={disabledReason || ''}
         onClick={() => { if (!disabledReason) onConfirm?.() }}>确认已放置</WorkflowButton></footer>

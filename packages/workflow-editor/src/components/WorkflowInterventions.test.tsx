@@ -63,3 +63,25 @@ describe('intervention view', () => {
     expect(html).toContain('role="alert"'); expect(html).toContain('重新读取')
   })
 })
+
+it('shows one warehouse table containing all its ready materials in natural location order', () => {
+  const loading = (uuid: string, site: string, instrument = 'warehouse') => ({
+    ...state.items[0]!, uuid, options: [{ id: 'confirm_loading' }],
+    meta_data: { loading: { schema_version: 1, request_uuid: `request-${uuid}`, revision: 1,
+      rows: [{ key: 'row', instrument: { id: instrument, label: instrument },
+        site: { id: site, label: site }, material: { identity: 'planned', label: `物料-${uuid}` },
+        quantity: 2, unit: '块', availability: { allowed: true } }] } }
+  })
+  const html = renderToStaticMarkup(<WorkflowInterventionsView {...props}
+    onConfirmLoading={vi.fn()} state={{ ...state, items: [
+      loading('first', 'A10'), loading('second', 'A2'), loading('other', 'B1', 'other warehouse')
+    ] }} />)
+  const table = html.slice(html.indexOf('<tbody>'), html.indexOf('</tbody>'))
+  expect(html).toContain('人工入库 · warehouse')
+  expect(html).toContain('<th>位置</th><th>物料</th><th>数量</th>')
+  expect(table.indexOf('A2')).toBeLessThan(table.indexOf('A10'))
+  expect(table).toContain('物料-first')
+  expect(table).toContain('物料-second')
+  expect(table).toContain('2 块')
+  expect(table).not.toContain('物料-other')
+})

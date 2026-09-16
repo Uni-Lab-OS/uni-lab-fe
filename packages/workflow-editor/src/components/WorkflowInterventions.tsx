@@ -5,6 +5,7 @@ import { readWorkflowLoadingRequest, type WorkflowRuntimePort } from '@unilab/se
 import { WorkflowLoadingDialog } from './WorkflowLoadingDialog'
 import { createWorkflowInterventionController, type InterventionViewState } from '../utils/workflowInterventionController'
 import styles from './WorkflowInterventions.module.scss'
+import { groupWorkflowLoading, type LoadingDecisionIdentity } from '../utils/workflowLoadingGroups'
 
 /** 全局工作流干预入口：目录/工作流切换不关闭仍待处理的设备异常。 */
 export function WorkflowInterventions({ runtime, online = true }: { runtime: WorkflowRuntimePort; online?: boolean }) {
@@ -14,41 +15,54 @@ export function WorkflowInterventions({ runtime, online = true }: { runtime: Wor
   useEffect(() => controller.setOnline(online), [controller, online])
   if (!runtime.interventions) return null
   const view = <WorkflowInterventionsView state={state} onMinimize={controller.minimize} onRestore={controller.restore}
-    onRetry={() => { void controller.refresh() }} onDecide={(uuid, option) => { void controller.decide(uuid, option) }} />
+    onRetry={() => { void controller.refresh() }} onConfirmLoading={identities => { void controller.confirmLoadingGroup(identities) }} onDecide={(uuid, option) => { void controller.decide(uuid, option) }} />
   return typeof document === 'undefined' ? view : createPortal(view, document.body)
 }
 
-export function WorkflowInterventionsView({ state, onMinimize, onRestore, onRetry, onDecide }: {
+export function WorkflowInterventionsView({ state, onMinimize, onRestore, onRetry, onDecide, onConfirmLoading }: {
   state: InterventionViewState
   onMinimize: () => void
   onRestore: () => void
   onRetry: () => void
   onDecide: (uuid: string, option: string) => void
+  onConfirmLoading?: (identities: readonly LoadingDecisionIdentity[]) => void
 }) {
   const [selectedLoading, setSelectedLoading] = useState<string | null | undefined>(undefined)
   const loadingItems = state.items.filter(item => readWorkflowLoadingRequest(item).kind !== 'absent')
+  const groups = groupWorkflowLoading(state.items)
   const activeLoading = selectedLoading === null ? undefined
-    : loadingItems.find(item => item.uuid === selectedLoading) ?? loadingItems[0]
-  const loadingProjection = activeLoading ? readWorkflowLoadingRequest(activeLoading) : undefined
+    : groups.find(group => group.key === selectedLoading) ?? groups[0]
+  const groupedCount = groups.reduce((total, group) => total + group.items.length, 0)
   const navigation = loadingItems.length ? <label>待处理事项<select aria-label="待处理事项"
-    value={activeLoading?.uuid ?? ''} onChange={event => setSelectedLoading(event.target.value || null)}>
-    <option value="">其他干预与读取信息（{state.items.length - loadingItems.length}）</option>
-    {loadingItems.map((item, index) => <option key={item.uuid} value={item.uuid}>人工入库 {index + 1} · {item.workflow_task_uuid}</option>)}
+    value={activeLoading?.key ?? ''} onChange={event => setSelectedLoading(event.target.value || null)}>
+    <option value="">其他干预与读取信息（{state.items.length - groupedCount}）</option>
+    {groups.map(group => <option key={group.key} value={group.key} title={group.taskUuid}>{group.label} · {group.rows.length} 项物料 · 任务 {group.taskUuid.slice(0, 8)}</option>)}
   </select></label> : null
   if (!state.items.length && !state.error) return null
   if (state.minimized) return <aside className={styles.minimized} aria-label="工作流干预小窗">
     <button type="button" onClick={onRestore}>恢复干预窗口（{state.items.length}）</button>
     <span role="status">{state.error ? '连接或读取异常' : '仍有干预等待处理或设备确认'}</span>
   </aside>
-  if (activeLoading && loadingProjection?.kind === 'ready') return <WorkflowLoadingDialog
-    view={{ title: '人工入库', description: activeLoading.description, rows: loadingProjection.request.rows,
-      status: activeLoading.status === 'open' ? 'open' : 'selected', deliveryStatus: activeLoading.delivery_status }}
-    online={!state.offline} busy={state.busy !== null} minimized={false} error={state.error}
-    navigation={navigation} onMinimize={onMinimize} onRestore={onRestore} onRefresh={onRetry}
-    onConfirm={activeLoading.options.some(option => option.id === 'confirm_loading')
-      ? () => onDecide(activeLoading.uuid, 'confirm_loading') : undefined}
-    onReplay={state.replayable?.includes(activeLoading.uuid) && activeLoading.delivery_status === 'unknown'
-      ? () => onDecide(activeLoading.uuid, 'confirm_loading') : undefined} />
+  if (activeLoading) {
+    const progress = state.loadingProgress && activeLoading.items.some(item => state.loadingProgress!.interventionUuids.includes(item.uuid))
+      ? "上次提交：已接受 " + state.loadingProgress.accepted + " / " + state.loadingProgress.total + " 项确认，库存以服务返回为准。" : ''
+    const replay = activeLoading.items.find(item => state.replayable?.includes(item.uuid)
+      && item.delivery_status === 'unknown')
+    const hasUncertain = activeLoading.items.some(item => item.delivery_status === 'unknown')
+    const confirm = (onConfirmLoading || activeLoading.items.length === 1)
+      && activeLoading.decisions.length && !hasUncertain
+      && activeLoading.items.filter(item => item.status === 'open').every(item => item.options.some(option => option.id === 'confirm_loading'))
+      ? () => onConfirmLoading
+        ? onConfirmLoading(activeLoading.decisions)
+        : activeLoading.items.length === 1 && onDecide(activeLoading.items[0]!.uuid, 'confirm_loading')
+      : undefined
+    return <WorkflowLoadingDialog
+      view={{ title: `人工入库 · ${activeLoading.label}`, description: `确认后逐项入库，未成功的项目会保留供核对。${progress}`,
+        rows: activeLoading.rows, status: activeLoading.decisions.length ? 'open' : 'selected', deliveryStatus: hasUncertain ? 'unknown' : 'none' }}
+      online={!state.offline} busy={state.busy !== null} minimized={false} error={state.error}
+      navigation={navigation} onMinimize={onMinimize} onRestore={onRestore} onRefresh={onRetry}
+      onConfirm={confirm} onReplay={replay ? () => onDecide(replay.uuid, 'confirm_loading') : undefined} />
+  }
   return <section className={styles.dialog} role="dialog" aria-modal="false" aria-label="工作流设备异常干预">
     <header><strong>设备异常与人工干预</strong><button type="button" onClick={onMinimize}>最小化</button></header>
     {navigation}
