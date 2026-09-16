@@ -9,7 +9,7 @@ describe('environment reset choices', () => {
     const html = renderToStaticMarkup(<WorkflowEnvironmentResetDialog
       port={{ available: { rebuild: true, materials: true, locks: true }, preview }} onClose={vi.fn()} />)
     expect(html.match(/checked=""/g)).toHaveLength(1)
-    expect(html).toContain('新建物料保留并移到未放置')
+    expect(html).toContain('删除运行中新建物料')
     expect(html).toContain('预览复位范围')
     expect(html).not.toContain('确认执行')
     expect(preview).not.toHaveBeenCalled()

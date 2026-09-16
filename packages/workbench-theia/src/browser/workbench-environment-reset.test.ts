@@ -6,7 +6,7 @@ function fixture() {
   const calls: string[] = []
   const preview = vi.fn(async () => ({ baseline_fingerprint: 'baseline', materials: [
     { material_uuid: 'original', name: '原物料', revision: 3, reset_kind: 'baseline', needs_reset: true, site_uuid: 'slot', parent_uuid: 'device', relative_position: {} },
-    { material_uuid: 'new', name: '新物料', revision: 7, reset_kind: 'unplace_new', needs_reset: true, site_uuid: null, parent_uuid: null, relative_position: null }
+    { material_uuid: 'new', name: '新物料', revision: 7, reset_kind: 'delete_new', needs_reset: true, site_uuid: null, parent_uuid: null, relative_position: null }
   ] }))
   const apply = vi.fn(async () => { calls.push('apply'); return { status: 'restored', restored_count: 2, material_uuids: ['original', 'new'] } })
   let released = false
@@ -47,7 +47,7 @@ describe('environment reset plan', () => {
     const plan = await f.port.preview({ rebuild: false, materials: true, locks: true })
     expect(f.calls).toEqual([])
     expect(f.list.mock.calls.map(call => call[0])).toEqual(['failed', 'active'])
-    expect(plan.summary.join('\n')).toContain('未放置（新建物料保留）')
+    expect(plan.summary.join('\n')).toContain('删除（运行中新建物料）')
     expect(plan.summary.join('\n')).toContain('1 个其他任务不在解除范围内')
     const result = await plan.execute('实物已核对')
     expect(f.calls).toEqual(['unlock', 'apply', 'refresh'])

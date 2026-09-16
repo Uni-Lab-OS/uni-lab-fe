@@ -67,10 +67,10 @@ export function createWorkbenchEnvironmentReset(
         summary.push(...eligible.map(owner => `任务 ${owner.workflow_task_uuid}：${owner.locks.length} 项执行锁、${owner.active_device_tenancy_count} 项设备托管。`))
       }
       if (materialPreview) {
-        summary.push(`恢复启动设备图中的物料位置，${materialPreview.materials.filter(row => row.needs_reset && row.reset_kind === 'baseline').length} 项位置需要更新。不改变物料数量或内容。`)
-        summary.push("保留运行期间新建物料，将 " + materialPreview.materials.filter(row => row.needs_reset && row.reset_kind === 'unplace_new').length + " 项移到未放置；不会删除其身份或内容。")
+        summary.push(`恢复启动设备图中的物料位置，${materialPreview.materials.filter(row => row.needs_reset && row.reset_kind === 'baseline').length} 项位置需要更新。保留原有物料数量和内容。`)
+        summary.push("删除运行期间新建物料，共 " + materialPreview.materials.filter(row => row.needs_reset && row.reset_kind === 'delete_new').length + " 项退出当前库存，保留历史记录。")
         summary.push(...materialPreview.materials.filter(row => row.needs_reset).map(row =>
-          `${row.name} → ${row.reset_kind === 'unplace_new' ? '未放置（新建物料保留）' : row.site_uuid ? siteNames.get(row.site_uuid) ?? '库位 ' + row.site_uuid.slice(0, 8) : row.parent_uuid ? materialNames.get(row.parent_uuid) ?? '父物料 ' + row.parent_uuid.slice(0, 8) : '启动图中的世界位置'}`))
+          `${row.name} → ${row.reset_kind === 'delete_new' ? '删除（运行中新建物料）' : row.site_uuid ? siteNames.get(row.site_uuid) ?? '库位 ' + row.site_uuid.slice(0, 8) : row.parent_uuid ? materialNames.get(row.parent_uuid) ?? '父物料 ' + row.parent_uuid.slice(0, 8) : '启动图中的世界位置'}`))
       }
       return {
         selection,

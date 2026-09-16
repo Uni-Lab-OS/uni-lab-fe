@@ -8,7 +8,7 @@ export interface MaterialLocationResetPreview {
     revision: number
     parent_uuid: string | null
     site_uuid: string | null
-    reset_kind: 'baseline' | 'unplace_new'
+    reset_kind: 'baseline' | 'delete_new'
     relative_position: Record<string, number> | null
     needs_reset: boolean
   }>

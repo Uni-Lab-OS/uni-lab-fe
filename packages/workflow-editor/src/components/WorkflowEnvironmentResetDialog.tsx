@@ -71,7 +71,7 @@ export function WorkflowEnvironmentResetDialog({ port, onClose }: {
   }
   const choices: Array<[keyof WorkflowEnvironmentResetSelection, string, string]> = [
     ['rebuild', '重建本地数据', '停止服务并重建本地库存、设备状态和工作流历史，随后恢复服务；包含以下两项。'],
-    ['materials', '复位物料', '按启动设备图恢复原有物料位置，新建物料保留并移到未放置；不重启服务，不改变数量或内容，也不移动实物。'],
+    ['materials', '复位物料', '按启动设备图恢复原有物料位置，删除运行中新建物料；不重启服务，保留原有物料数量和内容，也不移动实物。'],
     ['locks', '复位设备锁', '释放符合条件的异常终态任务资源锁；运行中的任务不会被强行解锁。']
   ]
   return <dialog ref={element} className={styles.dialog} aria-labelledby="environment-reset-title"
