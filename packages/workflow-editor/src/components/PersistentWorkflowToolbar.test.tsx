@@ -20,7 +20,7 @@ describe('PersistentWorkflowToolbar', () => {
     expect(html).toContain('等待 2 个在途动作完成')
     expect(html).toContain('断点已命中：左侧、右侧')
     expect(html).toContain('aria-label="单步就绪节点"')
-    expect(html).toContain('请选择就绪节点')
+    expect(html).toContain('<option value="0" selected="">左侧</option>')
     expect(html).toContain('等待在途动作完成和服务确认可单步')
   })
 

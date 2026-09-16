@@ -1,5 +1,6 @@
 import { WorkflowEnvironmentResetDialog } from './WorkflowEnvironmentResetDialog'
 import type { WorkflowEnvironmentResetPort } from '../utils/workflowEnvironmentReset'
+import { workflowStepSelection } from '../utils/workflowStepSelection'
 import { useDismissibleDetails } from '@unilab/design-system/hooks'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -99,9 +100,8 @@ export function PersistentWorkflowToolbar({
   const liveTask = workflowTaskIsLive(task) && !taskHistorical
   const saveDirty = mode === 'code' ? ideSourceDirty || dirty : dirty
   const stepState = taskRuntime.snapshot?.stepState
-  const [selectedStepNode, setSelectedStepNode] = useState('')
-  const stepTarget = stepState?.candidates.length === 1 ? stepState.candidates[0]!.node_uuid
-    : stepState?.candidates.some(candidate => candidate.node_uuid === selectedStepNode) ? selectedStepNode : ''
+  const [selectedStepNode, setSelectedStepNode] = useState<{ taskUuid: string | undefined; nodeUuid: string } | null>(null)
+  const stepTarget = workflowStepSelection(task?.uuid, stepState?.candidates ?? [], selectedStepNode)
   const compactTaskControls = useMemo(
     () => workflowTaskToolbarControls(taskHistorical ? null : task, taskControls).map(control =>
       control.command === 'step' && stepState ? { ...control,
@@ -322,8 +322,8 @@ export function PersistentWorkflowToolbar({
           {(stepState.hit_breakpoint_node_uuids?.length ?? 0) > 0 && <span>断点已命中：{stepState.hit_breakpoint_node_uuids!.map(uuid =>
             stepState.candidates.find(candidate => candidate.node_uuid === uuid)?.name || uuid).join('、')}</span>}
           <label>单步节点<select aria-label="单步就绪节点" value={stepTarget}
-            disabled={!stepState.can_step || runtimeBusy} onChange={event => setSelectedStepNode(event.target.value)}>
-            <option value="">请选择就绪节点</option>{stepState.candidates.map(candidate =>
+            disabled={!stepState.can_step || runtimeBusy} onChange={event => setSelectedStepNode({ taskUuid: task?.uuid, nodeUuid: event.target.value })}>
+            {!stepState.candidates.length && <option value="">暂无就绪节点</option>}{stepState.candidates.map(candidate =>
               <option key={candidate.node_uuid} value={candidate.node_uuid}>{candidate.name || candidate.node_uuid}</option>)}
           </select></label>
         </div>}
