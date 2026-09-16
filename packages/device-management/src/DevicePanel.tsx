@@ -15,6 +15,8 @@ import {
 
 import type { ManagedDevice } from './deviceCatalog'
 import { useDevices } from './useDevices'
+import { useDeviceTaskLocks } from './useDeviceTaskLocks'
+import { DeviceTaskUnlockDialog } from './DeviceTaskUnlockDialog'
 import {
   deviceActionDraftStorageKey,
   projectSelectedDeviceAction,
@@ -90,6 +92,9 @@ export default function DevicePanel({
     lastUpdated,
     refresh
   } = useDevices({ services, backendEnabled, connection, active })
+  const taskLocks = useDeviceTaskLocks(services, active && backendEnabled && connection === 'connected', devices)
+  const [showTaskUnlock, setShowTaskUnlock] = useState(false)
+  useEffect(() => { setShowTaskUnlock(false) }, [services, backend.apiUrl, backend.id])
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
   const [selectedActionRef, setSelectedActionRef] = useState<string | null>(null)
   const [argumentDraft, setArgumentDraft] = useState<ArgumentDraft>({})
@@ -432,6 +437,7 @@ export default function DevicePanel({
   ])
 
   const handleRefresh = useCallback(async (): Promise<void> => {
+    await taskLocks.refresh()
     await refreshDevicePanelState({
       refreshDevices: refresh,
       refreshCatalog: () =>
@@ -447,6 +453,7 @@ export default function DevicePanel({
     loadActionCatalog,
     queueDeviceActionTaskRefresh,
     refresh,
+    taskLocks.refresh,
     runOperation
   ])
 
@@ -634,7 +641,7 @@ export default function DevicePanel({
           <div>
             <h1 className={deviceClass('section__list-title')}>仪器设备</h1>
             <span className={deviceClass('section__list-meta')}>
-              {devices.length} 台设备 · Authority 设备目录
+              {devices.length} 台仪器 · {taskLocks.known ? `${devices.filter(device => taskLocks.lockedDeviceIds.has(device.id)).length} 台锁定` : taskLocks.snapshot ? `已知 ${devices.filter(device => taskLocks.lockedDeviceIds.has(device.id)).length} 台锁定（还有占用待核对）` : '锁状态未知'}
             </span>
           </div>
           <button
@@ -645,7 +652,12 @@ export default function DevicePanel({
           >
             {loading ? '同步中' : '刷新'}
           </button>
+          {services.capabilities.workflow.releaseTaskResources ? <button type="button"
+            className={deviceClass('edge-device__unlock-button')}
+            disabled={taskLocks.loading || !taskLocks.snapshot || connection !== 'connected'}
+            onClick={() => setShowTaskUnlock(true)}>解锁</button> : null}
         </header>
+        {taskLocks.error ? <p role="alert">锁状态读取失败：{taskLocks.error}</p> : null}
         <ConnectionSummary
           connection={connection}
           backendName={backend.name}
@@ -756,6 +768,9 @@ export default function DevicePanel({
         )}
         </main>
       </section>
+      {showTaskUnlock && services.workflow.executionLocks ? <DeviceTaskUnlockDialog
+        owners={taskLocks.owners} devices={devices} port={services.workflow.executionLocks}
+        onClose={() => setShowTaskUnlock(false)} onRefresh={taskLocks.refresh} /> : null}
       {unlockIntent ? (
         <UnlockConfirmationDialog
           intent={unlockIntent}

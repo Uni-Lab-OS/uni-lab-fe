@@ -122,6 +122,7 @@ export interface WorkflowRuntimePort {
     targetNodeUuid?: string
   ) => Promise<WorkflowRunPreflightReport>
   interventions?: import('./workflowInterventions').WorkflowInterventionPort
+  executionLocks?: import('./workflowExecutionLocks').WorkflowExecutionLockPort
   createWorkflowTask: (
     request: WorkflowTaskCreateRequest
   ) => Promise<WorkflowTask>

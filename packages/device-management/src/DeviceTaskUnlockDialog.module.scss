@@ -1,0 +1,75 @@
+.dialog {
+  width: min(620px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+  padding: 0;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: 12px;
+  color: var(--unilab-color-text);
+  background: var(--unilab-color-surface);
+  font-family: var(--unilab-font-sans);
+
+  &[open] { display: flex; flex-direction: column; }
+  &::backdrop { background: rgb(15 23 42 / 48%); }
+
+  header, footer {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+  }
+  h2 { margin: 0; font-size: 18px; }
+  footer {
+    justify-content: flex-end;
+    border-top: 1px solid var(--unilab-color-border);
+  }
+  button {
+    min-height: 34px;
+    padding: 6px 12px;
+    border: 1px solid var(--unilab-color-border-strong);
+    border-radius: 6px;
+    background: var(--unilab-color-surface);
+    color: var(--unilab-color-text);
+    font: inherit;
+    cursor: pointer;
+  }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  button:focus-visible, textarea:focus-visible, input:focus-visible {
+    outline: 2px solid var(--unilab-color-device);
+    outline-offset: 2px;
+  }
+  code { overflow-wrap: anywhere; }
+}
+.body {
+  min-height: 0;
+  padding: 0 20px 16px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.selectActions { display: flex; gap: 8px; }
+.owner {
+  margin: 12px 0;
+  border: 1px solid var(--unilab-color-border);
+  border-radius: 8px;
+  label { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+  p { margin: 4px 0; }
+  small { display: block; }
+}
+.reason {
+  display: grid;
+  gap: 6px;
+  textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 8px;
+    resize: vertical;
+    border: 1px solid var(--unilab-color-border-strong);
+    border-radius: 6px;
+    font: inherit;
+    color: var(--unilab-color-text);
+    background: var(--unilab-color-surface);
+  }
+}
+.confirmation { display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; }

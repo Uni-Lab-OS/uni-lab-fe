@@ -438,6 +438,25 @@ export function createWorkflowRuntime(
         }
       )
     } : undefined,
+    executionLocks: capabilities.workflow.releaseTaskResources ? {
+      list: (taskUuid) => runtimeRequest(
+        `/api/v1/workflow-tasks/${encodeURIComponent(taskUuid)}/execution-locks`
+      ),
+      unlockResources: (taskUuid, body) => runtimeRequest(
+        `/api/v1/workflow-tasks/${encodeURIComponent(taskUuid)}/commands`,
+        {
+          method: 'POST',
+          headers: jsonHeaders(),
+          body: JSON.stringify({
+            type: 'unlock_resources',
+            target_node_uuid: null,
+            idempotency_key: body.idempotency_key,
+            description: body.reason,
+            meta_data: { confirmed_physical_safe: body.physical_safe_confirmed }
+          })
+        }
+      )
+    } : undefined,
     createWorkflowTask: (body) =>
       runtimeRequest('/api/v1/workflow-tasks', {
         method: 'POST',
