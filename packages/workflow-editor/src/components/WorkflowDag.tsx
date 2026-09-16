@@ -25,7 +25,6 @@ import {
   type WorkflowX6CanvasHandle
 } from './WorkflowX6Canvas'
 import { WorkflowX6NodeActions } from './WorkflowX6NodeActions'
-import WorkflowMaterialVisibilityControl from './WorkflowMaterialVisibilityControl'
 import WorkflowSupportingMaterialPresentationControl from './WorkflowSupportingMaterialPresentationControl'
 import type { WorkflowLink, WorkflowNode } from '../utils/parseWorkflow'
 import {
@@ -668,6 +667,10 @@ function WorkflowDag({
         </p>
       )}
       <WorkflowX6NodeActions
+        onDeleteSelection={canvasMutationEnabled && onDeleteRequest && deletionSelectionCount > 0
+          ? requestSelectedDeletion
+          : undefined}
+        deletionDisabledReason={deletionDisabledReason}
         node={selectedCanvasNode}
         expandedGroupIds={expandedGroupIds}
         breakpoints={breakpoints}
@@ -676,7 +679,11 @@ function WorkflowDag({
         onToggleDisabled={onToggleDisabled}
         onToggleGroup={toggleGroup}
       />
-      {materialRoleOptions.length > 0 && <div className="workflow-x6__toolbar-panel">
+      {materialRoleOptions.length > 0 && (
+        layoutStrategy === 'primary-sample-serpentine' ||
+        layoutStrategy === 'material-swimlanes' ||
+        WORKFLOW_LAYOUT_APPLY_ACTION_VISIBLE
+      ) && <div className="workflow-x6__toolbar-panel">
           <div
             className="workflow-runtime__layout-tools"
             role="toolbar"
@@ -687,18 +694,6 @@ function WorkflowDag({
               role="group"
               aria-label="物料筛选与布局"
             >
-              {materialRoleOptions.length > 0 && (
-                <WorkflowMaterialVisibilityControl
-                  options={materialRoleOptions}
-                  visibleMaterialRoles={activeVisibleMaterialRoles}
-                  primarySampleLocked={
-                    layoutStrategy === 'primary-sample-serpentine'
-                  }
-                  onVisibleMaterialRolesChange={
-                    handleVisibleMaterialRolesChange
-                  }
-                />
-              )}
               {layoutStrategy === 'primary-sample-serpentine' && (
                 <WorkflowSupportingMaterialPresentationControl
                   value={supportingMaterialPresentation}
