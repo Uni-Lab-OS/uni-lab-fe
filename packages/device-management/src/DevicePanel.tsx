@@ -17,6 +17,8 @@ import type { ManagedDevice } from './deviceCatalog'
 import { useDevices } from './useDevices'
 import { useDeviceTaskLocks } from './useDeviceTaskLocks'
 import { DeviceTaskUnlockDialog } from './DeviceTaskUnlockDialog'
+import { DeviceFilters } from './DeviceFilters'
+import { filterDevices, type DeviceFilters as DeviceFilterState } from './deviceFilterModel'
 import {
   deviceActionDraftStorageKey,
   projectSelectedDeviceAction,
@@ -96,6 +98,13 @@ export default function DevicePanel({
   const [showTaskUnlock, setShowTaskUnlock] = useState(false)
   useEffect(() => { setShowTaskUnlock(false) }, [services, backend.apiUrl, backend.id])
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
+  const [filters, setFilters] = useState<DeviceFilterState>({ query: '', status: 'all', lock: 'all' })
+  const visibleDevices = useMemo(() => filterDevices(
+    devices, filters, taskLocks.known ? taskLocks.lockedDeviceIds : null
+  ), [devices, filters, taskLocks.known, taskLocks.lockedDeviceIds])
+  useEffect(() => {
+    setFilters({ query: '', status: 'all', lock: 'all' })
+  }, [backend.apiUrl, backend.id])
   const [selectedActionRef, setSelectedActionRef] = useState<string | null>(null)
   const [argumentDraft, setArgumentDraft] = useState<ArgumentDraft>({})
   const [unlockIntent, setUnlockIntent] = useState<UnlockIntent | null>(null)
@@ -127,10 +136,10 @@ export default function DevicePanel({
 
   const selectedDevice = useMemo(
     () =>
-      devices.find((device) => device.id === selectedDeviceId)
-      ?? devices[0]
+      visibleDevices.find((device) => device.id === selectedDeviceId)
+      ?? visibleDevices[0]
       ?? null,
-    [devices, selectedDeviceId]
+    [visibleDevices, selectedDeviceId]
   )
   const selectedCatalogAction = useMemo(
     () =>
@@ -663,6 +672,13 @@ export default function DevicePanel({
           backendName={backend.name}
           lastUpdated={lastUpdated}
         />
+        <DeviceFilters
+          value={filters}
+          onChange={setFilters}
+          locksKnown={taskLocks.known}
+          visibleCount={visibleDevices.length}
+          totalCount={devices.length}
+        />
         {loading && devices.length === 0 ? (
           <div className={deviceClass('device-loading')} role="status">
             正在读取设备实例与动作模板目录…
@@ -694,9 +710,14 @@ export default function DevicePanel({
               </p>
             )}
           </div>
+        ) : visibleDevices.length === 0 ? (
+          <div className={deviceClass('device-empty device-empty--compact')} role="status">
+            <strong>{filters.lock !== 'all' && !taskLocks.known ? '锁状态尚未就绪' : '没有匹配的仪器'}</strong>
+            <p>调整搜索条件或清除筛选，查看完整仪器目录。</p>
+          </div>
         ) : (
           <ul className={deviceClass('device-list')}>
-            {devices.map((device) => (
+            {visibleDevices.map((device) => (
               <DeviceListItem
                 key={device.id}
                 device={device}
@@ -758,9 +779,9 @@ export default function DevicePanel({
           />
         ) : (
           <div className={deviceClass('device-empty device-empty--detail')}>
-            <strong>暂无可调试设备</strong>
+            <strong>{devices.length ? '没有匹配的仪器' : '暂无可调试设备'}</strong>
             <p>
-              {connection === 'connected'
+              {devices.length ? '请调整左侧搜索条件或清除筛选。' : connection === 'connected'
                 ? '当前可继续使用 Edge 核心服务；配置仪器设备后请重新启动并刷新。'
                 : '请确认 Edge 已启动并连接到本地桥。'}
             </p>

@@ -1,0 +1,51 @@
+.filters {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--unilab-color-border);
+
+  label {
+    display: grid;
+    min-width: 0;
+    gap: 4px;
+    color: var(--unilab-color-text-muted);
+    font-size: 11px;
+  }
+
+  input,
+  select {
+    width: 100%;
+    min-width: 0;
+    min-height: 30px;
+    padding: 4px 6px;
+    border: 1px solid var(--unilab-color-border);
+    border-radius: 5px;
+    background: var(--unilab-color-surface);
+    color: var(--unilab-color-text);
+  }
+
+  select:disabled { opacity: 0.55; }
+}
+
+.selects {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--unilab-color-text-muted);
+
+  button {
+    padding: 2px 0;
+    border: 0;
+    background: transparent;
+    color: var(--unilab-color-device);
+    cursor: pointer;
+  }
+}
