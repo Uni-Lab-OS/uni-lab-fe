@@ -1,3 +1,4 @@
+import { createWorkbenchEnvironmentReset } from './workbench-environment-reset'
 import { EditorManager, EditorWidget } from '@theia/editor/lib/browser'
 import { FileService } from '@theia/filesystem/lib/browser/file-service'
 import { ApplicationShell, Message } from '@theia/core/lib/browser'
@@ -1169,6 +1170,17 @@ function WorkbenchSurface({
     }
   }, [onResetWorkflowEnvironment, selectedTarget.backend.apiUrl])
 
+  const environmentReset = useMemo(() => createWorkbenchEnvironmentReset(
+    services,
+    connectionMode === 'local',
+    () => onResetWorkflowEnvironment(selectedTarget.backend.apiUrl),
+    async () => {
+      materialStore.getState().reset()
+      await materialStore.getState().loadGraph()
+      await queryClient.invalidateQueries()
+    }
+  ), [services, connectionMode, onResetWorkflowEnvironment, selectedTarget.backend.apiUrl, materialStore, queryClient])
+
   const workflowSurface = (
     <section
       className="unilab-workbench__surface unilab-workbench__surface--workflow"
@@ -1212,6 +1224,7 @@ function WorkbenchSurface({
         onSelectedWorkflowStepChange={setSelectedWorkflowNode}
         onWorkflowRuntimeProjectionChange={setRuntimeProjection}
         onResetEnvironment={resetWorkflowEnvironment}
+        environmentReset={environmentReset}
         environmentResetBusy={environmentResetBusy}
       />
     </section>

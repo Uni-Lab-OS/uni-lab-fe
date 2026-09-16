@@ -1,3 +1,4 @@
+import type { WorkflowEnvironmentResetPort } from '../utils/workflowEnvironmentReset'
 import { useEffect, useRef, useState } from 'react'
 
 import type {
@@ -59,6 +60,7 @@ export interface WorkflowPanelProps {
   hideRuntimeControls?: boolean
   allowWorkflowSelection?: boolean
   onResetEnvironment?: () => Promise<void>
+  environmentReset?: WorkflowEnvironmentResetPort
   environmentResetBusy?: boolean
 }
 
@@ -94,6 +96,7 @@ export default function WorkflowPanel({
   hideRuntimeControls = false,
   allowWorkflowSelection = false,
   onResetEnvironment,
+  environmentReset,
   environmentResetBusy = false
 }: WorkflowPanelProps): React.JSX.Element {
   const [selectedWorkflowUuid, setSelectedWorkflowUuid] = useState<
@@ -163,6 +166,7 @@ export default function WorkflowPanel({
               setShowCatalog(true)
             }}
         onResetEnvironment={onResetEnvironment}
+          environmentReset={environmentReset}
         environmentResetBusy={environmentResetBusy}
       />
     )

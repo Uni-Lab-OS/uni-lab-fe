@@ -1,3 +1,5 @@
+import { WorkflowEnvironmentResetDialog } from './WorkflowEnvironmentResetDialog'
+import type { WorkflowEnvironmentResetPort } from '../utils/workflowEnvironmentReset'
 import { useDismissibleDetails } from '@unilab/design-system/hooks'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -17,6 +19,7 @@ interface PersistentWorkflowToolbarProps {
   model: PersistentWorkflowAuthoringModel
   hideRuntimeControls?: boolean
   onResetEnvironment?: () => Promise<void>
+  environmentReset?: WorkflowEnvironmentResetPort
   environmentResetBusy?: boolean
 }
 
@@ -39,8 +42,11 @@ export function PersistentWorkflowToolbar({
   model,
   hideRuntimeControls = false,
   onResetEnvironment,
+  environmentReset,
   environmentResetBusy = false
 }: PersistentWorkflowToolbarProps): React.JSX.Element {
+  const [resetOpen, setResetOpen] = useState(false)
+  const resetPort = environmentReset
   const {
     aggregate,
     authorityLabel,
@@ -286,14 +292,14 @@ export function PersistentWorkflowToolbar({
           className="persistent-authoring__debug-icon"
           aria-label="复位运行环境"
           disabled={
-            !onResetEnvironment ||
+            !resetPort ||
             busy ||
             runningEntryBusy ||
             liveTask ||
             environmentResetBusy ||
             dirty
           }
-          disabledReason={!onResetEnvironment
+          disabledReason={!resetPort
             ? '当前宿主不支持复位运行环境'
             : liveTask
               ? '工作流运行期间不能复位环境'
@@ -304,15 +310,8 @@ export function PersistentWorkflowToolbar({
                   : busy
                     ? '正在处理工作流编写操作，请稍候'
                     : '当前运行环境暂时不能复位'}
-          title={environmentResetBusy
-            ? '正在复位运行环境'
-            : '复位物料状态；本地重建库存，Backend 则发布清空'}
-          onClick={() => {
-            if (!onResetEnvironment || !globalThis.confirm(
-              '确定复位运行环境吗？\n\n将使用当前设备图清空并重建物料与库位。本地模式重建 Workspace 库存；已连接 Backend 时会发布到目标服务。若已配置 PLC-Sim，会同时重启仿真。'
-            )) return
-            void onResetEnvironment()
-          }}
+          title={environmentResetBusy ? '正在复位运行环境' : '选择重建数据、复位物料或复位设备锁'}
+          onClick={() => { if (resetPort) setResetOpen(true) }}
         >
           <WorkflowToolbarIcon name="refresh" />
         </WorkflowButton>
@@ -355,6 +354,7 @@ export function PersistentWorkflowToolbar({
             <WorkflowToolbarIcon name="trace" />
           </button>
         )}
+      {resetOpen && resetPort ? <WorkflowEnvironmentResetDialog port={resetPort} onClose={() => setResetOpen(false)} /> : null}
     </WorkflowWorkspaceToolbar>
   )
 }

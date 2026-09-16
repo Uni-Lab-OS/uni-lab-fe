@@ -1,3 +1,4 @@
+import type { WorkflowEnvironmentResetPort } from '../utils/workflowEnvironmentReset'
 import {
   createWorkflowDefinitionPort,
   type CapabilityStatus,
@@ -50,6 +51,7 @@ interface PersistentWorkflowAuthoringPanelProps {
   hideRuntimeControls?: boolean
   recoveryRevision?: number
   onResetEnvironment?: () => Promise<void>
+  environmentReset?: WorkflowEnvironmentResetPort
   environmentResetBusy?: boolean
 }
 
@@ -90,6 +92,7 @@ export function PersistentWorkflowAuthoringPanel(
       hideEmbeddedCodeEditor={props.hideEmbeddedCodeEditor}
       hideRuntimeControls={props.hideRuntimeControls}
       onResetEnvironment={props.onResetEnvironment}
+      environmentReset={props.environmentReset}
       environmentResetBusy={props.environmentResetBusy}
     />
   )

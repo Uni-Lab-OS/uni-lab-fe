@@ -1,0 +1,17 @@
+.dialog {
+  width: min(640px, calc(100vw - 40px)); max-height: calc(100vh - 40px); padding: 0;
+  border: 1px solid var(--unilab-color-border); border-radius: 10px;
+  color: var(--unilab-color-text); background: var(--unilab-color-surface); font-family: var(--unilab-font-sans);
+  &[open] { display: flex; flex-direction: column; }
+  &::backdrop { background: #0f172a70; }
+  header, footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; flex-shrink: 0; }
+  h2 { margin: 0; font-size: 18px; }
+  footer { justify-content: flex-end; border-top: 1px solid var(--unilab-color-border); }
+  button, textarea { font: inherit; color: inherit; background: var(--unilab-color-surface); border: 1px solid var(--unilab-color-border-strong); border-radius: 6px; padding: 7px 10px; }
+  button { cursor: pointer; } button:disabled { opacity: .55; cursor: not-allowed; }
+  :focus-visible { outline: 2px solid var(--unilab-color-device); outline-offset: 2px; }
+}
+.body { padding: 0 20px 16px; min-height: 0; overflow: auto; font-size: 13px; line-height: 1.6; }
+.option, .confirmation { display: flex; align-items: flex-start; gap: 9px; margin: 12px 0; }
+.option small { display: block; }
+.reason { display: grid; gap: 6px; textarea { resize: vertical; } }

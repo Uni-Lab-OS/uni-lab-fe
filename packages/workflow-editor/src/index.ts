@@ -64,3 +64,5 @@ export {
   type WorkflowSourcePosition,
   type WorkflowSourceProjection
 } from './utils/workflowSourceNavigation'
+
+export type { WorkflowEnvironmentResetPort, WorkflowEnvironmentResetPlan, WorkflowEnvironmentResetResult, WorkflowEnvironmentResetSelection } from './utils/workflowEnvironmentReset'

@@ -1,3 +1,5 @@
+import { createMaterialLocationResetPort, type MaterialLocationResetPort } from './materialLocationReset'
+export type { MaterialLocationResetPort, MaterialLocationResetPreview } from './materialLocationReset'
 import type {
   CreateMaterialInput,
   CreateMaterialResult,
@@ -45,7 +47,7 @@ export type {
   MaterialTemplateSummary
 } from '@unilab/material'
 
-export type MaterialService = MaterialTemplateCatalogPort & MaterialGraphPort
+export type MaterialService = MaterialTemplateCatalogPort & MaterialGraphPort & { resetLocations?: MaterialLocationResetPort }
 
 /**
  * 创建统一物料服务，把部署差异收敛在 Backend/OS adapter 内。
@@ -94,6 +96,7 @@ export function createMaterialService(
   }
 
   return {
+    resetLocations: capabilities.material.resetLocations ? createMaterialLocationResetPort(http) : undefined,
     listTemplates: async (scope) => {
       requireReadTemplates()
       assertSingletonScope(scope)

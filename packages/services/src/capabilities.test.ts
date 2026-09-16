@@ -38,6 +38,7 @@ describe('server capability matrix', () => {
           'workflow.subscribeEvents',
           'workflow.interventions',
           'workflow.releaseTaskResources',
+          'material.resetLocations',
           'inventory.readReagents'
         ]
         const localGoCapabilities = [

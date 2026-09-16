@@ -21,6 +21,7 @@ export interface ServerCapabilities {
     readContents: boolean
     updateContents: boolean
     persistentUndo: boolean
+    resetLocations: boolean
   }
   workflow: {
     readDefinitions: boolean
@@ -73,6 +74,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'material.readContents',
   'material.updateContents',
   'material.persistentUndo',
+  'material.resetLocations',
   'workflow.readDefinitions',
   'workflow.authoring',
   'workflow.editDefinitions',
@@ -177,7 +179,8 @@ function unavailableCapabilities(): ServerCapabilities {
       deleteSubtrees: false,
       readContents: false,
       updateContents: false,
-      persistentUndo: false
+      persistentUndo: false,
+      resetLocations: false
     },
     workflow: {
       readDefinitions: false,
@@ -251,6 +254,7 @@ function localPythonCapabilities(): ServerCapabilities {
   capabilities.workflow.subscribeEvents = true
   capabilities.workflow.interventions = true
   capabilities.workflow.releaseTaskResources = true
+  capabilities.material.resetLocations = true
   capabilities.inventory.readReagents = true
   return capabilities
 }

@@ -1,3 +1,4 @@
+import type { WorkflowEnvironmentResetPort } from '../utils/workflowEnvironmentReset'
 import { MaterialSourceAuthorityNotice } from './MaterialSourceAuthorityNotice'
 import { CodeEditor } from '@unilab/code-editor'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -28,6 +29,7 @@ export function PersistentWorkflowAuthoringView({
   hideEmbeddedCodeEditor = false,
   hideRuntimeControls = false,
   onResetEnvironment,
+  environmentReset,
   environmentResetBusy = false
 }: {
   model: PersistentWorkflowAuthoringModel
@@ -39,6 +41,7 @@ export function PersistentWorkflowAuthoringView({
   hideEmbeddedCodeEditor?: boolean
   hideRuntimeControls?: boolean
   onResetEnvironment?: () => Promise<void>
+  environmentReset?: WorkflowEnvironmentResetPort
   environmentResetBusy?: boolean
 }): React.JSX.Element {
   const {
@@ -216,6 +219,7 @@ export function PersistentWorkflowAuthoringView({
         <PersistentWorkflowToolbar
           model={model}
           onResetEnvironment={onResetEnvironment}
+          environmentReset={environmentReset}
           environmentResetBusy={environmentResetBusy}
         />
       ) : null}

@@ -28,7 +28,8 @@ describe('PersistentWorkflowToolbar', () => {
     const html = renderToStaticMarkup(
       <PersistentWorkflowToolbar
         model={toolbarModel()}
-        onResetEnvironment={async () => {}}
+        environmentReset={{ available: { rebuild: true, materials: true, locks: true },
+          preview: async selection => ({ selection, summary: [], execute: async () => [] }) }}
       />
     )
 
@@ -58,7 +59,8 @@ describe('PersistentWorkflowToolbar', () => {
     const html = renderToStaticMarkup(
       <PersistentWorkflowToolbar
         model={toolbarModel()}
-        onResetEnvironment={async () => {}}
+        environmentReset={{ available: { rebuild: true, materials: true, locks: true },
+          preview: async selection => ({ selection, summary: [], execute: async () => [] }) }}
         environmentResetBusy
       />
     )
