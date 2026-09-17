@@ -15,11 +15,11 @@ env:
   CONSTRUCTOR_VERSION: 3.16.1
   MICROMAMBA_VERSION: 2.8.1
   MINIFORGE_VERSION: 26.3.2-3
-  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.3-4b579413-f7e78e7-b09c0c0
+  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.4-4b579413
   UNILAB_RUNTIME_SOURCE_REF: 4b579413ea283a4a5a337a0370c8ed86b7532cbe
   UNILAB_RUNTIME_OPCUA_FIX_REF: f7e78e7e9fcc47ed24f4b6affeaa82dcc8de49f2
   UNILAB_RUNTIME_BUILD_PIN_REF: b09c0c048f6de1e5027deb1733da439598c577cf
-  UNILAB_RUNTIME_VERSION: 0.11.3
+  UNILAB_RUNTIME_VERSION: 0.11.4
 
 jobs:
   build-windows-runtime:
@@ -45,17 +45,19 @@ jobs:
           path: .runtime-source
           fetch-depth: 0
 
-      - name: Compose pinned Windows Runtime source
+      - name: Validate current Windows Runtime source
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: |
-          git -C .runtime-source fetch --no-tags origin `
-            $env:UNILAB_RUNTIME_OPCUA_FIX_REF `
-            $env:UNILAB_RUNTIME_BUILD_PIN_REF
-          if ($LASTEXITCODE -ne 0) { throw 'Unable to fetch pinned Runtime fixes' }
-          git -C .runtime-source cherry-pick --no-commit `
-            $env:UNILAB_RUNTIME_OPCUA_FIX_REF `
-            $env:UNILAB_RUNTIME_BUILD_PIN_REF
-          if ($LASTEXITCODE -ne 0) { throw 'Unable to compose pinned Runtime source' }
+          $required = @(
+            '.runtime-source/.conda/constructor/construct.yaml',
+            '.runtime-source/.conda/vendor/opcua/recipe.yaml',
+            '.runtime-source/.conda/base/recipe.yaml'
+          )
+          foreach ($path in $required) {
+            if (-not (Test-Path $path -PathType Leaf)) {
+              throw "Current Runtime source is missing: $path"
+            }
+          }
 
       - name: Set up Constructor
         if: steps.runtime-cache.outputs.cache-hit != 'true'
@@ -202,17 +204,14 @@ jobs:
           path: .runtime-source
           fetch-depth: 0
 
-      - name: Compose pinned macOS Runtime source
+      - name: Validate current macOS Runtime source
         if: steps.runtime-cache.outputs.cache-hit != 'true'
         working-directory: .runtime-source
         run: |
           set -euo pipefail
-          git fetch --no-tags origin \
-            "$UNILAB_RUNTIME_OPCUA_FIX_REF" \
-            "$UNILAB_RUNTIME_BUILD_PIN_REF"
-          git cherry-pick --no-commit \
-            "$UNILAB_RUNTIME_OPCUA_FIX_REF" \
-            "$UNILAB_RUNTIME_BUILD_PIN_REF"
+          test -f .conda/constructor/construct.yaml
+          test -f .conda/vendor/opcua/recipe.yaml
+          test -f .conda/base/recipe.yaml
 
       - name: Set up Constructor
         if: steps.runtime-cache.outputs.cache-hit != 'true'
