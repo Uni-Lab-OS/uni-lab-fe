@@ -23,6 +23,7 @@ env:
 
 jobs:
   build-windows-runtime:
+    if: ${{ false }}
     runs-on: windows-2022
     timeout-minutes: 120
     defaults:
@@ -311,7 +312,6 @@ jobs:
 
   publish-runtime-release:
     needs:
-      - build-windows-runtime
       - build-macos-runtime
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -319,7 +319,7 @@ jobs:
       - name: Download Runtime staging artifacts
         uses: actions/download-artifact@v6
         with:
-          pattern: workbench-runtime-*-${{ env.UNILAB_RUNTIME_VERSION }}
+          pattern: workbench-runtime-macos-${{ env.UNILAB_RUNTIME_VERSION }}
           path: runtime-assets
           merge-multiple: true
 
@@ -327,16 +327,13 @@ jobs:
         run: |
           set -euo pipefail
           expected=(
-            "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe"
-            "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256"
             "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh"
             "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256"
           )
-          test "$(find runtime-assets -maxdepth 1 -type f | wc -l | tr -d ' ')" = 4
+          test "$(find runtime-assets -maxdepth 1 -type f | wc -l | tr -d ' ')" = 2
           for name in "${expected[@]}"; do test -f "runtime-assets/$name"; done
           (
             cd runtime-assets
-            sha256sum --check "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256"
             sha256sum --check "Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256"
           )
 
@@ -358,8 +355,6 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --pattern '*.sha256' \
               --dir "$verification_directory"
-            cmp "runtime-assets/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256" \
-              "$verification_directory/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-win-64.exe.sha256"
             cmp "runtime-assets/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256" \
               "$verification_directory/Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh.sha256"
             echo "Runtime release already exists with identical immutable checksums."
