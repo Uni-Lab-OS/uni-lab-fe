@@ -643,7 +643,9 @@ describe('portable Workbench packaging contract', () => {
     )
     assert.match(desktopWatch, /\[watch\/node\] Finished with 0 errors/u)
     assert.match(desktopWatch, /workbenchRequire\('electron'\)/u)
-    assert.match(desktopWatch, /if \(welcome\)/u)
+    assert.match(desktopWatch, /electronArguments\.push\(workbenchDirectory/u)
+    assert.match(desktopWatch, /UNILAB_DESKTOP_NO_SANDBOX/u)
+    assert.doesNotMatch(desktopWatch, /startScript/u)
   })
 
   it('removes source maps and rejects an oversized production lib', async () => {

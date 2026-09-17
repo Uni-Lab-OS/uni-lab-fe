@@ -253,6 +253,7 @@ function newNodeCatalog(): WorkflowActionCatalogSnapshot {
       displayName: '新增动作',
       actionClass: null,
       actionType: 'device',
+      nodeType: 'device',
       schema: {
         'x-unilabos-action-contract': {
           version: 1,

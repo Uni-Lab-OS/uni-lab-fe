@@ -110,13 +110,13 @@ describe('device action Runtime availability', () => {
     expect(markup).toContain('参数已就绪')
   })
 
-  it('keeps unsupported material contracts fail closed', () => {
+  it('keeps backends without single-action capability unavailable', () => {
     const markup = renderToStaticMarkup(
       <DeviceActionAvailability
         state={{
           kind: 'unavailable',
           reason: 'workflow_required',
-          message: '该动作包含物料语义，请在工作流中运行'
+          message: '当前环境暂不支持单动作运行，请在工作流中运行'
         }}
         onRun={() => {}}
       />

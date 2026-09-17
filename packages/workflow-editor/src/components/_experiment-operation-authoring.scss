@@ -1,0 +1,607 @@
+.workflow {
+  // 操作调试在代码模式下也保留左侧操作与节点库，切换代码/画布不会改变工作区结构。
+  &:global(.persistent-authoring--operation[data-definition-kind='operation']) {
+    :global(.persistent-authoring__canvas-toolbar-button) {
+      display: inline-flex;
+      min-width: 0;
+      height: 34px;
+      align-items: center;
+      justify-content: center;
+      padding: 0 var(--unilab-space-3);
+      color: var(--unilab-color-text-muted);
+      border: 1px solid var(--unilab-color-border-strong);
+      border-radius: var(--unilab-radius-control);
+      background: var(--unilab-color-surface);
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    :global(.persistent-authoring__canvas-toolbar-button):hover:not(:disabled) {
+      color: var(--unilab-color-primary);
+      border-color: var(--unilab-color-focus);
+      background: var(--unilab-color-primary-soft);
+    }
+
+    :global(.persistent-authoring__canvas-toolbar-button):focus-visible {
+      outline: 2px solid var(--unilab-color-focus);
+      outline-offset: 2px;
+    }
+
+    :global(.persistent-authoring__canvas-toolbar-button):disabled {
+      color: var(--unilab-color-text-muted);
+      cursor: not-allowed;
+      opacity: .55;
+    }
+
+    :global(.persistent-authoring__canvas-toolbar-button.is-primary) {
+      color: var(--unilab-color-on-primary, #fff);
+      border-color: var(--unilab-color-primary);
+      background: var(--unilab-color-primary);
+    }
+
+    :global(.persistent-authoring__canvas-toolbar-button.is-primary):hover:not(:disabled) {
+      color: var(--unilab-color-on-primary, #fff);
+      border-color: var(--unilab-color-primary-strong, var(--unilab-color-primary));
+      background: var(--unilab-color-primary-strong, var(--unilab-color-primary));
+    }
+
+    :global(.persistent-authoring__canvas-toolbar-button.is-primary):disabled {
+      color: var(--unilab-color-text-muted);
+      border-color: var(--unilab-color-border-strong);
+      background: var(--unilab-color-surface-subtle);
+    }
+
+    :global(.persistent-authoring__canvas-toolbar-button.is-compact) {
+      width: 34px;
+      padding: 0;
+      font-size: 16px;
+    }
+
+    :global(.persistent-authoring__stage-context) {
+      min-width: 0;
+    }
+
+    :global(.persistent-authoring__stage-tools) {
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: thin;
+    }
+
+    :global(.persistent-authoring__canvas-body.is-code-mode) {
+      grid-template-columns: 236px minmax(420px, 1fr);
+      grid-template-areas: 'palette graph';
+      gap: 0;
+      padding: 0;
+      background: var(--unilab-color-surface, #fff);
+    }
+  }
+
+  &:global(.persistent-authoring--canvas[data-definition-kind='operation']) {
+    :global(.persistent-authoring__stage-header) {
+      border-right: 0;
+      border-left: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    :global(.persistent-authoring__canvas-body),
+    :global(.persistent-authoring__canvas-body.has-inspector) {
+      grid-template-columns: 236px minmax(420px, 1fr) var(--inspector-width, 320px);
+      grid-template-areas: 'palette graph inspector';
+      gap: 0;
+      padding: 0;
+      background: var(--unilab-color-surface, #fff);
+    }
+
+    :global(.persistent-authoring__canvas-body.has-operation-structure),
+    :global(.persistent-authoring__canvas-body.has-operation-structure.has-inspector) {
+      grid-template-columns: 236px 224px minmax(420px, 1fr) var(--inspector-width, 320px);
+      grid-template-areas: 'palette operation-outline graph inspector';
+    }
+
+    :global(.persistent-authoring__canvas-body.is-palette-closed),
+    :global(.persistent-authoring__canvas-body.is-palette-closed.has-inspector) {
+      grid-template-columns: minmax(420px, 1fr) var(--inspector-width, 320px);
+      grid-template-areas: 'graph inspector';
+    }
+
+    :global(.persistent-authoring__canvas-body.is-palette-closed.has-operation-structure),
+    :global(.persistent-authoring__canvas-body.is-palette-closed.has-operation-structure.has-inspector) {
+      grid-template-columns: 224px minmax(420px, 1fr) var(--inspector-width, 320px);
+      grid-template-areas: 'operation-outline graph inspector';
+    }
+
+    :global(.persistent-authoring__library),
+    :global(.persistent-authoring__graph-stage),
+    :global(.persistent-authoring__node-editor) {
+      border-top: 0;
+      border-bottom: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    :global(.persistent-authoring__library) {
+      border-left: 0;
+    }
+
+    :global(.persistent-authoring__graph-stage) {
+      display: grid;
+      grid-template-rows: minmax(260px, 1fr) auto;
+      border-right: 0;
+      border-left: 0;
+      background-color: #fbfcfe;
+      // Let X6 render the grid once the graph is mounted; a second CSS grid
+      // layer causes the blank placeholder and dots to appear simultaneously.
+      background-image: none;
+    }
+
+    :global(.persistent-authoring__graph-stage)
+      > :global(.workflow-runtime__existing-canvas) {
+      position: relative;
+      inset: auto;
+      width: 100%;
+      height: auto;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    :global(.persistent-authoring__graph-stage)
+      > :global(.persistent-authoring__runtime) {
+      max-height: 46%;
+      overflow: hidden;
+      border-top: 1px solid var(--unilab-color-border, #dde5ee);
+      background: var(--unilab-color-surface, #fff);
+    }
+
+    :global(.persistent-authoring__node-editor) {
+      border-right: 0;
+      min-height: 0;
+      padding: 0;
+      overflow: auto;
+      background: #fff;
+    }
+
+    :global(.persistent-authoring__inspector-heading) {
+      min-height: 52px;
+      margin: 0;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--unilab-color-border, #dde5ee);
+      background: #fff;
+    }
+
+    :global(.persistent-authoring__inspector-heading) > span {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+    }
+
+    :global(.persistent-authoring__inspector-heading) > span > strong {
+      color: var(--unilab-color-text, #172033);
+      font-size: 13px;
+    }
+
+    :global(.persistent-authoring__inspector-heading) > button {
+      width: 26px;
+      height: 26px;
+      flex: 0 0 26px;
+    }
+
+    :global(.persistent-authoring__operation-summary) {
+      display: grid;
+      gap: 9px;
+      margin: 12px 12px 0;
+      padding: 11px;
+      border: 1px solid #dbe4ef;
+      border-radius: 9px;
+      background: #f8fbff;
+    }
+
+    :global(.persistent-authoring__operation-summary-head) {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    :global(.persistent-authoring__operation-summary-head) > div {
+      display: grid;
+      min-width: 0;
+      gap: 3px;
+    }
+
+    :global(.persistent-authoring__operation-summary-head) span {
+      width: max-content;
+      padding: 3px 6px;
+      color: #087f5b;
+      border-radius: 5px;
+      background: #e9f8f1;
+      font-size: 8px;
+      font-weight: 700;
+    }
+
+    :global(.persistent-authoring__operation-summary-head) strong {
+      overflow: hidden;
+      color: #172033;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    :global(.persistent-authoring__operation-summary-head) small {
+      overflow: hidden;
+      color: #718096;
+      font: 8px/1.4 var(--unilab-font-mono, monospace);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    :global(.persistent-authoring__operation-summary-head) > b {
+      color: #a5630d;
+      font-size: 8px;
+      white-space: nowrap;
+    }
+
+    :global(.persistent-authoring__operation-summary) details {
+      padding-top: 7px;
+      border-top: 1px solid #e2eaf4;
+    }
+
+    :global(.persistent-authoring__operation-summary) summary {
+      color: #315fd7;
+      font-size: 8px;
+      cursor: pointer;
+    }
+
+    :global(.persistent-authoring__operation-summary) details p {
+      margin: 5px 0 0;
+      color: #718096;
+      font-size: 8px;
+      line-height: 1.45;
+    }
+
+    :global(.persistent-authoring__node-editor)
+      :global(.persistent-authoring__parameter-drawer) {
+      margin: 12px 12px 14px;
+    }
+
+    :global(.operation-inspector-selection-empty) {
+      min-height: 150px;
+      margin: 0 12px;
+      padding: 18px 12px;
+      border: 1px dashed #dbe4ef;
+      border-radius: 8px;
+      background: #fbfcfe;
+    }
+
+    :global(.persistent-authoring__node-tabs) {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin: 0;
+    }
+
+    :global(.persistent-authoring__node-tabs) button {
+      min-height: 42px;
+      font-size: 10px;
+    }
+
+    :global(.persistent-authoring__operation-structure) {
+      display: flex;
+      min-width: 0;
+      min-height: 0;
+      grid-area: operation-outline;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--unilab-color-border, #dde5ee);
+      background: var(--unilab-color-surface, #fff);
+    }
+
+    :global(.persistent-authoring__operation-structure) > header {
+      display: flex;
+      min-height: 52px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px 8px 12px;
+      border-bottom: 1px solid var(--unilab-color-border, #dde5ee);
+    }
+
+    :global(.persistent-authoring__operation-structure) > header > span {
+      display: grid;
+      min-width: 0;
+      gap: 2px;
+    }
+
+    :global(.persistent-authoring__operation-structure) > header strong {
+      overflow: hidden;
+      color: var(--unilab-color-text, #0f172a);
+      font-size: 12px;
+      line-height: 16px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    :global(.persistent-authoring__operation-structure) > header small {
+      color: var(--unilab-color-text-muted, #64748b);
+      font-size: 9px;
+      line-height: 13px;
+    }
+
+    :global(.persistent-authoring__operation-structure) > header button {
+      display: grid;
+      width: 28px;
+      height: 28px;
+      flex: 0 0 28px;
+      padding: 0;
+      place-items: center;
+      color: var(--unilab-color-text-muted, #64748b);
+      border: 1px solid transparent;
+      border-radius: var(--unilab-radius-control, 6px);
+      background: transparent;
+      cursor: pointer;
+    }
+
+    :global(.persistent-authoring__operation-structure) > header button:hover {
+      color: var(--unilab-color-text, #0f172a);
+      border-color: var(--unilab-color-border, #dde5ee);
+      background: var(--unilab-color-surface-subtle, #f8fafc);
+    }
+
+    :global(.persistent-authoring__operation-structure-columns) {
+      display: grid;
+      min-height: 34px;
+      grid-template-columns: 42px minmax(0, 1fr);
+      align-items: center;
+      padding: 0 9px;
+      color: var(--unilab-color-text-muted, #64748b);
+      border-bottom: 1px solid var(--unilab-color-border, #dde5ee);
+      background: var(--unilab-color-surface-subtle, #f8fafc);
+      font-size: 9px;
+    }
+
+    :global(.persistent-authoring__operation-root) {
+      display: grid;
+      min-height: 58px;
+      grid-template-columns: 42px minmax(0, 1fr);
+      align-items: center;
+      padding: 0 9px;
+      color: var(--unilab-color-primary, #2563eb);
+      border-bottom: 1px solid var(--unilab-color-border, #dde5ee);
+      background: var(--unilab-color-primary-soft, #eff6ff);
+      box-shadow: inset 1px 0 var(--unilab-color-primary, #2563eb);
+    }
+
+    :global(.persistent-authoring__operation-root) > span:first-child {
+      font: 700 10px/1 var(--unilab-font-mono, monospace);
+      text-align: center;
+    }
+
+    :global(.persistent-authoring__operation-root) > span:last-child {
+      display: grid;
+      min-width: 0;
+      gap: 2px;
+    }
+
+    :global(.persistent-authoring__operation-root) strong,
+    :global(.persistent-authoring__operation-root) small {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    :global(.persistent-authoring__operation-root) strong {
+      color: var(--unilab-color-text, #0f172a);
+      font-size: 11px;
+    }
+
+    :global(.persistent-authoring__operation-root) small {
+      color: var(--unilab-color-text-muted, #64748b);
+      font: 9px/13px var(--unilab-font-mono, monospace);
+    }
+
+    :global(.persistent-authoring__operation-structure) ol {
+      min-height: 0;
+      margin: 0;
+      padding: 0;
+      overflow: auto;
+      scrollbar-color: var(--unilab-color-border-strong, #cbd5e1) transparent;
+      scrollbar-width: thin;
+      list-style: none;
+    }
+
+    :global(.persistent-authoring__operation-structure) li {
+      border-bottom: 1px solid var(--unilab-color-border, #dde5ee);
+    }
+
+    :global(.persistent-authoring__operation-structure) li > button {
+      display: grid;
+      width: 100%;
+      min-height: 52px;
+      grid-template-columns: 32px 24px minmax(0, 1fr);
+      align-items: center;
+      gap: 5px;
+      padding: 5px 9px 5px 0;
+      color: var(--unilab-color-text, #0f172a);
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    :global(.persistent-authoring__operation-structure) li > button:hover {
+      background: var(--unilab-color-surface-subtle, #f8fafc);
+    }
+
+    :global(.persistent-authoring__operation-structure)
+      li > button[aria-current='true'] {
+      background: var(--unilab-color-primary-soft, #eff6ff);
+      box-shadow: inset 1px 0 var(--unilab-color-primary, #2563eb);
+    }
+
+    :global(.persistent-authoring__operation-structure)
+      li > button > span:first-child {
+      color: var(--unilab-color-text-muted, #64748b);
+      font: 9px/1 var(--unilab-font-mono, monospace);
+      text-align: center;
+    }
+
+    :global(.persistent-authoring__operation-structure)
+      li > button > .codicon {
+      display: grid;
+      width: 24px;
+      height: 24px;
+      place-items: center;
+      color: var(--unilab-color-primary, #2563eb);
+      border-radius: var(--unilab-radius-sm, 4px);
+      background: var(--unilab-color-primary-soft, #eff6ff);
+    }
+
+    :global(.persistent-authoring__operation-structure)
+      li > button > span:last-child {
+      display: grid;
+      min-width: 0;
+      gap: 2px;
+    }
+
+    :global(.persistent-authoring__operation-structure) li strong,
+    :global(.persistent-authoring__operation-structure) li small {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    :global(.persistent-authoring__operation-structure) li strong {
+      font-size: 10px;
+      line-height: 15px;
+    }
+
+    :global(.persistent-authoring__operation-structure) li small {
+      color: var(--unilab-color-text-muted, #64748b);
+      font: 8px/13px var(--unilab-font-mono, monospace);
+    }
+
+    :global(.persistent-authoring__operation-structure-empty) {
+      display: grid;
+      min-height: 180px;
+      align-content: center;
+      justify-items: center;
+      gap: 7px;
+      padding: 20px;
+      color: var(--unilab-color-text-muted, #64748b);
+      text-align: center;
+    }
+
+    :global(.persistent-authoring__operation-structure-empty) > .codicon {
+      color: var(--unilab-color-primary, #2563eb);
+      font-size: 20px;
+    }
+
+    :global(.persistent-authoring__operation-structure-empty) strong {
+      color: var(--unilab-color-text, #0f172a);
+      font-size: 11px;
+    }
+
+    :global(.persistent-authoring__operation-structure-empty) small {
+      max-width: 24ch;
+      font-size: 9px;
+      line-height: 15px;
+    }
+  }
+
+  @container workflow (max-width: 1240px) {
+    &:global(.persistent-authoring--canvas[data-definition-kind='operation']) {
+      :global(.persistent-authoring__canvas-body.has-operation-structure),
+      :global(.persistent-authoring__canvas-body.has-operation-structure.has-inspector) {
+        grid-template-columns: 216px 204px minmax(340px, 1fr) 260px;
+      }
+
+      :global(.persistent-authoring__canvas-body.is-palette-closed.has-operation-structure),
+      :global(.persistent-authoring__canvas-body.is-palette-closed.has-operation-structure.has-inspector) {
+        grid-template-columns: 204px minmax(340px, 1fr) 260px;
+      }
+    }
+  }
+
+  @container workflow (max-width: 1023px) {
+    &:global(.persistent-authoring--operation[data-definition-kind='operation']) {
+      :global(.persistent-authoring__canvas-body.is-code-mode) {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: 'graph';
+        padding: 10px;
+      }
+
+      :global(.persistent-authoring__library) {
+        position: absolute;
+        z-index: 20;
+        top: 10px;
+        bottom: 10px;
+        left: 10px;
+        display: flex;
+        width: min(320px, calc(100% - 20px));
+        border: 1px solid var(--unilab-color-border, #dde5ee);
+        border-radius: var(--unilab-radius-lg, 12px);
+        box-shadow: 0 12px 32px rgb(15 23 42 / 12%);
+      }
+    }
+
+    &:global(.persistent-authoring--canvas[data-definition-kind='operation']) {
+      :global(.persistent-authoring__canvas-body),
+      :global(.persistent-authoring__canvas-body.has-inspector),
+      :global(.persistent-authoring__canvas-body.has-operation-structure),
+      :global(.persistent-authoring__canvas-body.has-operation-structure.has-inspector),
+      :global(.persistent-authoring__canvas-body.is-palette-closed),
+      :global(.persistent-authoring__canvas-body.is-palette-closed.has-inspector),
+      :global(.persistent-authoring__canvas-body.is-palette-closed.has-operation-structure),
+      :global(.persistent-authoring__canvas-body.is-palette-closed.has-operation-structure.has-inspector) {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: 'graph';
+        padding: 10px;
+      }
+
+      :global(.persistent-authoring__library),
+      :global(.persistent-authoring__operation-structure) {
+        position: absolute;
+        z-index: 20;
+        top: 10px;
+        bottom: 10px;
+        left: 10px;
+        display: flex;
+        width: min(320px, calc(100% - 20px));
+        border: 1px solid var(--unilab-color-border, #dde5ee);
+        border-radius: var(--unilab-radius-lg, 12px);
+        box-shadow: 0 12px 32px rgb(15 23 42 / 12%);
+      }
+
+      :global(.persistent-authoring__node-editor) {
+        display: none;
+      }
+
+      :global(.persistent-authoring__stage-tools) {
+        gap: 5px;
+      }
+    }
+  }
+}
+
+
+.workflow:global(.persistent-authoring--operation[data-definition-kind='operation']) {
+  :global(.workflow-condition-editor) { display: grid; gap: 10px; margin: 12px; }
+  :global(.workflow-condition-editor) > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  :global(.workflow-condition-editor) > header > span { display: grid; gap: 2px; }
+  :global(.workflow-condition-editor) > header strong { color: #087f6f; font-size: 11px; }
+  :global(.workflow-condition-editor) > header small { color: var(--unilab-color-text-muted); font-size: 8px; }
+  :global(.workflow-condition-editor) button { min-height: 28px; padding: 0 8px; color: #087f6f; border: 1px solid #b7e4d6; border-radius: 6px; background: #effaf7; font-size: 9px; font-weight: 700; }
+  :global(.workflow-condition-editor) button:disabled { cursor: not-allowed; opacity: .45; }
+  :global(.workflow-condition-editor) article { display: grid; gap: 8px; padding: 9px; border: 1px solid #b7e4d6; border-radius: 8px; background: #f7fffc; }
+  :global(.workflow-condition-editor__branch-heading) { display: grid; grid-template-columns: 22px minmax(0,1fr) 28px; align-items: center; gap: 6px; }
+  :global(.workflow-condition-editor__branch-heading) b { display: grid; width: 20px; height: 20px; place-items: center; color: #087f6f; border-radius: 50%; background: #d7f5ea; font-size: 8px; }
+  :global(.workflow-condition-editor__branch-heading) strong { color: var(--unilab-color-text); font-size: 10px; }
+  :global(.workflow-condition-editor__condition) { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+  :global(.workflow-condition-editor label) { display: grid; gap: 4px; color: var(--unilab-color-text-muted); font-size: 8px; }
+  :global(.workflow-condition-editor input), :global(.workflow-condition-editor select) { min-width: 0; padding: 6px 7px; border: 1px solid var(--unilab-color-border); border-radius: 5px; background: var(--unilab-color-surface); font-size: 9px; }
+  :global(.workflow-condition-editor__members) select { min-height: 74px; }
+  :global(.workflow-condition-editor p), :global(.workflow-condition-editor label small) { margin: 0; color: var(--unilab-color-text-muted); font-size: 8px; line-height: 1.4; }
+}

@@ -1,45 +1,21 @@
 import { readFileSync } from 'node:fs'
 
-import type { PropsWithChildren } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { WorkflowNode } from '../utils/parseWorkflow'
 import WorkflowDag from './WorkflowDag'
 
-vi.mock('reactflow', () => ({
-  default: ({
-    children,
-    deleteKeyCode,
-    nodes,
-    edges,
-    fitViewOptions
-  }: PropsWithChildren<{
-    deleteKeyCode?: string[] | null
-    nodes: Array<{
-      id: string
-      className?: string
-      deletable?: boolean
-      selected?: boolean
-    }>
-    edges: Array<{ id: string; deletable?: boolean }>
-    fitViewOptions?: { maxZoom?: number }
-  }>) => (
+// 捕获当前 X6 边界接收到的投影，验证宿主选择逻辑而非旧引擎 DOM。
+vi.mock('./WorkflowX6Canvas', () => ({
+  WorkflowX6Canvas: ({ nodes, edges }: import('./WorkflowX6Canvas').WorkflowX6CanvasProps) => (
     <div
-      data-delete-keys={JSON.stringify(deleteKeyCode)}
-      data-node-deletable={String(nodes[0]?.deletable)}
-      data-node-selection={nodes.map((node) => String(node.selected)).join(',')}
-      data-node-classes={nodes.map((node) => node.className).join('|')}
+      data-x6-node-count={nodes.length}
+      data-node-selection={nodes.map(node => String(node.selected)).join(',')}
+      data-node-classes={nodes.map(node => node.className).join('|')}
       data-edge-id={edges[0]?.id}
-      data-fit-max-zoom={fitViewOptions?.maxZoom}
-    >
-      {children}
-    </div>
-  ),
-  Background: () => null,
-  Controls: () => null,
-  MiniMap: () => null,
-  Panel: ({ children }: PropsWithChildren) => <div>{children}</div>
+    />
+  )
 }))
 
 vi.mock('../hooks/useWorkflowDag', () => ({
@@ -118,13 +94,14 @@ describe('WorkflowDag deletion interaction', () => {
         nodes={[workflowNode]}
         links={[]}
         canvasMutationEnabled
+        selectedNodeId={workflowNode.id}
         onNodeSelect={vi.fn()}
         onDeleteRequest={vi.fn()}
       />
     )
 
     expect(markup).toContain('data-delete-keys="[&quot;Delete&quot;,&quot;Backspace&quot;]"')
-    expect(markup).toContain('data-node-deletable="false"')
+    expect(markup).toContain('data-x6-node-count="1"')
     expect(markup).toContain('删除选中项')
     expect(markup).not.toMatch(/data-disabled-reason="[^"]+"[^>]*>[^<]*删除选中项/)
   })
@@ -141,6 +118,7 @@ describe('WorkflowDag deletion interaction', () => {
         }]}
         links={[]}
         canvasMutationEnabled
+        selectedNodeId={workflowNode.id}
         onNodeSelect={vi.fn()}
         onDeleteRequest={vi.fn()}
       />
@@ -153,7 +131,7 @@ describe('WorkflowDag deletion interaction', () => {
 })
 
 describe('WorkflowDag IDE source selection', () => {
-  /** 验证代码光标反查到的节点成为 React Flow 唯一可见选中项。 */
+  /** 验证代码光标反查到的节点成为 X6 唯一可见选中项。 */
   it('projects the externally selected workflow node into the canvas', () => {
     const markup = renderToStaticMarkup(
       <WorkflowDag
@@ -349,8 +327,8 @@ describe('WorkflowDag material handles and execution signals', () => {
 })
 
 describe('WorkflowDag material role filter', () => {
-  /** 验证物料流角色（MaterialFlowRole）显隐使用带文字的独立复选框。 */
-  it('exposes independently selectable role visibility without color-only cues', () => {
+  /** 画布不再展示“全部物料”筛选入口，物料节点仍正常呈现。 */
+  it('omits the material visibility menu without removing material nodes', () => {
     const markup = renderToStaticMarkup(
       <WorkflowDag
         nodes={[
@@ -362,12 +340,10 @@ describe('WorkflowDag material role filter', () => {
       />
     )
 
-    expect(markup).toContain('aria-label="物料节点可见性：全部物料"')
-    expect(markup).toContain('aria-label="物料节点可见性"')
-    expect(markup).toContain('type="checkbox"')
-    expect(markup).toContain('主样品')
-    expect(markup).toContain('试剂')
-    expect(markup).toContain('全部物料')
+    expect(markup).not.toContain('aria-label="物料节点可见性：全部物料"')
+    expect(markup).not.toContain('aria-label="物料节点可见性"')
+    expect(markup).toContain('data-x6-node-count="2"')
+    expect(markup).not.toContain('全部物料')
   })
 })
 
@@ -382,7 +358,10 @@ describe('WorkflowDag host sizing', () => {
       />
     )
 
-    expect(markup).toContain('data-fit-max-zoom="1.35"')
+    const canvasSource = readFileSync(new URL('./WorkflowX6Canvas.tsx', import.meta.url), 'utf8')
+    expect(canvasSource).toMatch(/fit: \(\) => \{[\s\S]*?scroller\.zoomToFit\(\{ padding: 56, maxScale: 1\.2 \}\)/)
+    expect(canvasSource).toMatch(/graphRef\.current\?\.zoomToFit\(\{ padding: 56, maxScale: 1\.2 \}\)/)
+    expect(markup).toContain('workflow-runtime__existing-canvas')
   })
 
   /** Theia 窄分栏仍是高桌面面板，不能套用移动端 260px 固定画布。 */
@@ -411,13 +390,13 @@ describe('WorkflowDag host sizing', () => {
 
 describe('WorkflowDag canvas controls', () => {
   /**
-   * 证明画布按钮按任务分组，并暂时隐藏会写回工作流草稿的布局应用入口。
+   * 默认减少交叉布局不展示蛇形布局的辅助物料控件或空工具栏。
    *
-   * @returns 无返回值；断言布局选择器保留且“应用布局”按钮不进入可操作界面。
+   * @returns 无返回值；断言当前布局标记正确，且隐藏入口不进入可操作界面。
    * @throws 布局应用入口重新渲染时由 Vitest 抛出。
    * @safety 仅检查服务端静态标记，不写入工作流（Workflow）草稿。
    */
-  it('groups view actions while hiding the layout apply action', () => {
+  it('omits inapplicable layout controls from the default crossing-minimized layout', () => {
     const markup = renderToStaticMarkup(
       <WorkflowDag
         nodes={[
@@ -432,20 +411,33 @@ describe('WorkflowDag canvas controls', () => {
       />
     )
 
-    expect(markup).toContain('role="toolbar"')
-    expect(markup).toContain('aria-label="画布视图与布局工具"')
-    expect(markup).toContain('aria-label="视图与选择"')
-    expect(markup).toContain('aria-label="物料筛选与布局"')
-    expect(markup).toContain('workflow-runtime__canvas-button')
-    expect(markup).toContain('aria-label="布局策略"')
+    expect(markup).toContain('data-workflow-layout-strategy="crossing-minimized"')
+    expect(markup).not.toContain('aria-label="画布视图与布局工具"')
+    expect(markup).not.toContain('workflow-runtime__canvas-button')
+    expect(markup).not.toContain('aria-label="布局策略"')
     expect(markup).not.toContain('workflow-runtime__beautify')
     expect(markup).not.toContain('应用布局')
     expect(markup).toContain(
       'data-workflow-layout-direction="horizontal"'
     )
-    expect(markup).toContain('aria-label="辅助物料展示方式"')
-    expect(markup).toMatch(/aria-pressed="true"[^>]*>只看主物料</)
-    expect(markup).toMatch(/aria-pressed="false"[^>]*>完整支线</)
+    expect(markup).not.toContain('aria-label="辅助物料展示方式"')
+    expect(markup).not.toContain('只看主物料')
+    expect(markup).not.toContain('完整支线')
+  })
+
+  it('hides canvas-only controls in read-only task details', () => {
+    const markup = renderToStaticMarkup(
+      <WorkflowDag
+        nodes={[workflowNode]}
+        links={[]}
+        onNodeSelect={vi.fn()}
+        onDeleteRequest={vi.fn()}
+      />
+    )
+
+    expect(markup).not.toContain('适应视图')
+    expect(markup).not.toContain('删除选中项')
+    expect(markup).not.toContain('aria-label="布局策略"')
   })
 
   /** 证明交互态与窄视口规则不依赖运行时内联样式。 */

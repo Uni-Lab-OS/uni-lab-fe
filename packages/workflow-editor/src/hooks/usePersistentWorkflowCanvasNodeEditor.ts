@@ -29,7 +29,18 @@ import {
   errorMessage,
   parseTypedFieldValue
 } from '../utils/persistentAuthoringProjection'
-import { updatePersistentAuthoringNodeDisabled } from '../utils/persistentAuthoringGraph'
+import {
+  updatePersistentAuthoringNodeDisabled,
+  updatePersistentAuthoringNodeName,
+  updatePersistentAuthoringNodePosition
+} from '../utils/persistentAuthoringGraph'
+import type {
+  WorkflowCanvasPoint,
+  WorkflowHandleConnection,
+  WorkflowHandleConnectionResult
+} from '../utils/workflowCanvasCommands'
+import { configureManualConfirmation } from '../utils/workflowManualConfirmation'
+import { applyWorkflowConditionParam } from '../utils/workflowConditionControl'
 import { useWorkflowCanvasDeletion } from './useWorkflowCanvasDeletion'
 import {
   workflowNodeAtSourcePosition,
@@ -58,6 +69,14 @@ interface PersistentWorkflowCanvasNodeEditorOptions {
   setSelectedNodeName: Dispatch<SetStateAction<string>>
   setSelectedNodeNameDirty: Dispatch<SetStateAction<boolean>>
   setSelectedNodeUuid: Dispatch<SetStateAction<string | null>>
+  setLocalValidationDiagnostics?: Dispatch<
+    SetStateAction<WorkflowAuthoringDiagnostic[] | null>
+  >
+  /** 画布节点移动或连线成功后，把最新候选图同步到权威 OS。 */
+  syncCanvasMutation?: (
+    graph: WorkflowAuthoringGraph,
+    reason: 'node_move' | 'connect' | 'create' | 'delete'
+  ) => void
   ideBridge?: WorkflowIdeBridge
   sourceProjection: WorkflowSourceProjection | null
 }
@@ -65,8 +84,8 @@ interface PersistentWorkflowCanvasNodeEditorOptions {
 /**
  * 集中维护工作流（Workflow）画布节点的选择、投影与编辑命令。
  *
- * 该 hook 只修改候选图，不负责保存草稿、应用候选或创建工作流任务
- * （WorkflowTask），从而把画布交互与持久化协议隔离。
+ * 该 hook 负责修改候选图，并在节点移动、连线成功后通知创作会话同步
+ * OS；它不负责应用候选或创建工作流任务（WorkflowTask）。
  *
  * @param options 目录快照、候选图、选中态及受控状态写入器。
  * @returns 节点投影和画布编辑命令。
@@ -94,6 +113,8 @@ export function usePersistentWorkflowCanvasNodeEditor(
     setSelectedNodeName,
     setSelectedNodeNameDirty,
     setSelectedNodeUuid,
+    setLocalValidationDiagnostics,
+    syncCanvasMutation,
     ideBridge,
     sourceProjection
   } = options
@@ -111,12 +132,13 @@ export function usePersistentWorkflowCanvasNodeEditor(
     },
     onError: setError,
     onMessage: setMessage
+    , onMutation: syncCanvasMutation
   })
 
-  /** 选择画布节点，并把代码编辑器定位到对应源码行。 */
+  /** 选择节点；调试检查器保持面板布局，源码联动入口才定位代码编辑器。 */
   const selectCanvasNode = useCallback((
     nodeUuid: string,
-    origin: 'canvas' | 'source' | 'runtime' = 'canvas'
+    origin: 'canvas' | 'source' | 'runtime' | 'inspector' = 'canvas'
   ): void => {
     if (selectedNodeNameDirty && nodeUuid !== selectedNodeUuid) {
       setError('请先保存当前节点名称修改，再选择其他节点')
@@ -233,8 +255,37 @@ export function usePersistentWorkflowCanvasNodeEditor(
   }, [graph, effectiveMaterialSourceCatalog, selectedIsMaterialSource, selectedNodeUuid])
   const selectedMaterialSourceEditor = selectedMaterialSourceProjection.editor
 
+  /** 原子提交一个新节点，并把选择和检查器同步到稳定 UUID。 */
+  const commitInsertedNode = (
+    next: WorkflowAuthoringGraph,
+    nodeUuid: string,
+    name: string,
+    message: string,
+    options?: {
+      sync?: boolean
+      diagnostics?: WorkflowAuthoringDiagnostic[]
+    }
+  ): void => {
+    setGraph(next)
+    setCanvasDirty(true)
+    setSelectedNodeUuid(nodeUuid)
+    setSelectedNodeName(name)
+    setSelectedNodeNameDirty(false)
+    setError(null)
+    setMessage(message)
+    if (options?.diagnostics) {
+      setLocalValidationDiagnostics?.(options.diagnostics)
+    }
+    if (options?.sync === false) return
+    syncCanvasMutation?.(next, 'create')
+  }
+
   /** 从操作模板目录添加操作节点（ActionNode）。 */
-  const addTypedActionNode = (templateUuid: string): void => {
+  const addTypedActionNode = (
+    templateUuid: string,
+    position?: WorkflowCanvasPoint,
+    manualConfirmation?: { deviceUuid: string; timeoutSeconds: number }
+  ): void => {
     if (!actionCatalog || !graph) return
     const template = actionCatalog.actionTemplates.find(
       (item) => item.uuid === templateUuid
@@ -248,21 +299,57 @@ export function usePersistentWorkflowCanvasNodeEditor(
       suffix += 1
     }
     try {
-      const next = createTypedActionNode(actionCatalog, graph, {
-        nodeUuid: globalThis.crypto.randomUUID(),
+      const nodeUuid = globalThis.crypto.randomUUID()
+      let next = createTypedActionNode(actionCatalog, graph, {
+        nodeUuid,
         templateUuid,
-        name
+        name,
+        position
       })
-      setGraph(next)
-      setCanvasDirty(true)
-      setMessage('已从真实操作模板创建节点；保存前将生成完整 Python')
+      if (manualConfirmation) next = configureManualConfirmation(next, nodeUuid, template, manualConfirmation)
+      const projection = projectTypedActionEditor(
+        actionCatalog,
+        next,
+        nodeUuid,
+        []
+      )
+      const missingRequired = projection.diagnostics.filter(
+        (diagnostic) => diagnostic.code === 'required_action_parameter_missing'
+      )
+      commitInsertedNode(
+        next,
+        nodeUuid,
+        name,
+        missingRequired.length > 0
+          ? '节点已加入画布，正在保存草稿；请继续配置必填物料或参数'
+          : '已从真实操作模板创建节点；正在通过工作区同步保存',
+        missingRequired.length > 0
+          ? {
+              diagnostics: missingRequired.map((diagnostic) => ({
+                severity: diagnostic.severity,
+                code: diagnostic.code,
+                message: diagnostic.message,
+                node_id: nodeUuid,
+                path: diagnostic.fieldPath,
+                workflow_handle_template_uuid: diagnostic.handleUuid
+              })) as WorkflowAuthoringDiagnostic[]
+            }
+          : undefined
+      )
+      if (missingRequired.length > 0) {
+        setActionParametersOpen(true)
+      }
     } catch (createError) {
       setError(errorMessage(createError))
     }
   }
 
   /** 从工作流模板目录添加复合工作流节点（WorkflowNode）。 */
-  const addPublishedWorkflowNode = (templateUuid: string): void => {
+  const addPublishedWorkflowNode = (
+    templateUuid: string,
+    position?: WorkflowCanvasPoint,
+    manualConfirmation?: { deviceUuid: string; timeoutSeconds: number }
+  ): void => {
     if (!actionCatalog || !graph) return
     const template = actionCatalog.workflowTemplates.find(
       (item) => item.uuid === templateUuid
@@ -277,21 +364,26 @@ export function usePersistentWorkflowCanvasNodeEditor(
       suffix += 1
     }
     try {
+      const nodeUuid = globalThis.crypto.randomUUID()
       const next = createPublishedWorkflowNode(actionCatalog, graph, {
-        nodeUuid: globalThis.crypto.randomUUID(),
+        nodeUuid,
         templateUuid,
-        name
+        name,
+        position
       })
-      setGraph(next)
-      setCanvasDirty(true)
-      setMessage('已插入已发布工作流边界；内部展开与映射由 OS 生成')
+      commitInsertedNode(
+        next,
+        nodeUuid,
+        name,
+        '已插入已发布工作流边界；正在通过工作区同步保存'
+      )
     } catch (createError) {
       setError(errorMessage(createError))
     }
   }
 
   /** 添加物料来源（MaterialSource）节点，并立即选中它。 */
-  const addMaterialSourceNode = (): void => {
+  const addMaterialSourceNode = (position?: WorkflowCanvasPoint): void => {
     if (!effectiveMaterialSourceCatalog || !graph || materialSourceAuthorityBlocked) {
       return
     }
@@ -306,14 +398,14 @@ export function usePersistentWorkflowCanvasNodeEditor(
       const next = createMaterialSourceNode(
         effectiveMaterialSourceCatalog,
         graph,
-        { nodeUuid, name }
+        { nodeUuid, name, position }
       )
-      setGraph(next)
-      setCanvasDirty(true)
-      setSelectedNodeUuid(nodeUuid)
-      setSelectedNodeName(name)
-      setSelectedNodeNameDirty(false)
-      setMessage('已添加物料来源；请在属性面板中完成受控选择')
+      commitInsertedNode(
+        next,
+        nodeUuid,
+        name,
+        '已添加物料来源；正在通过工作区同步保存'
+      )
     } catch (createError) {
       setError(errorMessage(createError))
     }
@@ -369,9 +461,25 @@ export function usePersistentWorkflowCanvasNodeEditor(
     }
   }
 
+  /** 修改确认超时或恢复普通设备动作，不改变底层动作参数。 */
+  const updateManualConfirmation = (config: { deviceUuid: string; timeoutSeconds: number } | null): void => {
+    if (!canvasMutationEnabled || !graph || !selectedNodeUuid || !selectedActionTemplate) return
+    try {
+      setGraph(configureManualConfirmation(graph, selectedNodeUuid, selectedActionTemplate, config))
+      setCanvasDirty(true)
+      setError(null)
+      setMessage('人工确认配置已更新，请保存后调试')
+    } catch (error) { setError(errorMessage(error)) }
+  }
+
   /** 更新操作节点（ActionNode）的类型化字段值。 */
-  const updateTypedField = (handleUuid: string, value: unknown): void => {
-    if (!actionCatalog || !graph || !selectedNodeUuid) return
+  const updateTypedField = (
+    handleUuid: string,
+    value: unknown
+  ): string | null => {
+    if (!actionCatalog || !graph || !selectedNodeUuid) {
+      return '当前没有可编辑的操作节点'
+    }
     try {
       const next = updateTypedActionLiteral(
         actionCatalog,
@@ -382,9 +490,13 @@ export function usePersistentWorkflowCanvasNodeEditor(
       )
       setGraph(next)
       setCanvasDirty(true)
+      setError(null)
       setMessage('操作参数已更新；保存前将生成完整 Python')
+      return null
     } catch (updateError) {
-      setError(errorMessage(updateError))
+      const message = errorMessage(updateError)
+      setError(message)
+      return message
     }
   }
 
@@ -410,11 +522,16 @@ export function usePersistentWorkflowCanvasNodeEditor(
   const updateTypedFieldFromRaw = (
     field: TypedActionFieldProjection,
     raw: string
-  ): void => {
+  ): string | null => {
     try {
-      updateTypedField(field.handleUuid, parseTypedFieldValue(field, raw))
+      return updateTypedField(
+        field.handleUuid,
+        parseTypedFieldValue(field, raw)
+      )
     } catch (parseError) {
-      setError(errorMessage(parseError))
+      const message = errorMessage(parseError)
+      setError(message)
+      return message
     }
   }
 
@@ -441,13 +558,12 @@ export function usePersistentWorkflowCanvasNodeEditor(
   }
 
   /** 使用真实端口连接操作或物料来源（MaterialSource）节点。 */
-  const connectTypedHandles = (connection: {
-    sourceNodeUuid: string
-    sourceHandleUuid: string
-    targetNodeUuid: string
-    targetHandleUuid: string
-  }): void => {
-    if (!actionCatalog || !graph) return
+  const connectTypedHandles = (
+    connection: WorkflowHandleConnection
+  ): WorkflowHandleConnectionResult => {
+    if (!actionCatalog || !graph) {
+      return { accepted: false, reason: '工作流目录或草稿尚未加载完成' }
+    }
     try {
       const sourceNode = graph.nodes.find(
         (node) => node.uuid === connection.sourceNodeUuid
@@ -466,19 +582,86 @@ export function usePersistentWorkflowCanvasNodeEditor(
       }
       setGraph(next)
       setCanvasDirty(true)
-      setMessage('已使用真实端口创建连线；保存前将生成完整 Python')
+      setError(null)
+      setMessage('已使用真实端口创建连线；正在同步 OS…')
+      syncCanvasMutation?.(next, 'connect')
+      return { accepted: true }
     } catch (connectError) {
-      setError(errorMessage(connectError))
+      const reason = errorMessage(connectError)
+      setError(reason)
+      return { accepted: false, reason }
     }
+  }
+
+  /** 更新画布坐标；纯布局调整不标记源码待保存。 */
+  const moveCanvasNode = (
+    nodeUuid: string,
+    position: WorkflowCanvasPoint
+  ): void => {
+    if (!graph || !canvasMutationEnabled) return
+    try {
+      const next = updatePersistentAuthoringNodePosition(graph, nodeUuid, position)
+      setGraph(next)
+    } catch (moveError) {
+      setError(errorMessage(moveError))
+    }
+  }
+
+  /** 在失焦或确认时把名称提交到 Canonical 草稿。 */
+  const renameCanvasNode = (nodeUuid: string, name: string): boolean => {
+    if (!graph || !canvasMutationEnabled) return false
+    try {
+      setGraph(updatePersistentAuthoringNodeName(graph, nodeUuid, name))
+      setSelectedNodeName(name.trim())
+      setSelectedNodeNameDirty(false)
+      setCanvasDirty(true)
+      setError(null)
+      setMessage('节点名称已更新；保存草稿后持久化')
+      return true
+    } catch (renameError) {
+      setError(errorMessage(renameError))
+      return false
+    }
+  }
+
+  /** 更新条件/循环控制节点结构参数，并通过既有画布同步链路保存到 OS。 */
+  const updateControlNodeParam = (
+    nodeUuid: string,
+    param: Record<string, unknown>
+  ): void => {
+    if (!graph || !canvasMutationEnabled) return
+    const target = graph.nodes.find((node) => node.uuid === nodeUuid)
+    const type = String(target?.type || '')
+    if (!target || (type !== 'condition' && type !== 'repeat_until')) {
+      setError('选中节点不是条件或循环控制节点')
+      return
+    }
+    const next = type === 'condition'
+      ? applyWorkflowConditionParam(graph, nodeUuid, param)
+      : {
+          ...graph,
+          nodes: graph.nodes.map((node) => node.uuid === nodeUuid
+            ? { ...node, param }
+            : node)
+        }
+    setGraph(next)
+    setCanvasDirty(true)
+    setError(null)
+    setMessage('控制节点结构已更新；正在同步 OS 草稿…')
+    syncCanvasMutation?.(next, 'create')
   }
 
   return {
     addMaterialSourceNode,
     addPublishedWorkflowNode,
     addTypedActionNode,
+    updateControlNodeParam,
+    updateManualConfirmation,
     bindTypedFieldToWorkflowInput,
     connectTypedHandles,
     deleteCanvasElements,
+    moveCanvasNode,
+    renameCanvasNode,
     selectCanvasNode,
     selectedActionEditor,
     selectedActionProjection,

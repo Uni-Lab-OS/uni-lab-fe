@@ -23,6 +23,19 @@ describe('WorkflowPanel Runtime entry', () => {
     expect(markup).toContain('正在读取工作流')
   })
 
+
+  it('keeps workflow management on the catalog when a workflow is selected', () => {
+    const markup = renderToStaticMarkup(
+      <WorkflowPanel
+        runtime={{} as WorkflowRuntimePort}
+        workflowUuid="10000000-0000-4000-8000-000000000001"
+        catalogOnly
+      />
+    )
+
+    expect(markup).toContain('工作流目录')
+    expect(markup).not.toContain('persistent-authoring__canvas')
+  })
   it('keeps the Backend catalog read-only when authoring is unavailable', () => {
     const markup = renderToStaticMarkup(
       <WorkflowPanel
@@ -60,7 +73,7 @@ describe('WorkflowPanel Runtime entry', () => {
     expect(markup).toContain('Backend 定义 · 只读')
     expect(markup).toContain('正在读取 Backend 工作流图')
     expect(markup).toContain('aria-label="开始运行"')
-    expect(markup).toContain('aria-label="复位运行环境"')
+    expect(markup).toContain('aria-label="重置运行数据"')
     expect(markup).toContain('运行设置，当前为正常运行')
     expect(markup).toContain('任务运行模式')
     expect(markup).not.toContain('⌄')
@@ -122,14 +135,14 @@ describe('WorkflowPanel Runtime entry', () => {
         runStatus={{ available: true }}
         executionStatus={{
           available: false,
-          reason: 'OS 尚未启动；请先在环境管理中启动 OS'
+          reason: 'OS 尚未启动；请先在仿真调试或真实设备调试配置中启动 OS'
         }}
       />
     )
 
     expect(markup).toContain('Backend 定义 · 已同步')
     expect(markup).toContain('aria-label="保存工作流"')
-    expect(markup).toContain('OS 尚未启动；请先在环境管理中启动 OS')
+    expect(markup).toContain('OS 尚未启动；请先在仿真调试或真实设备调试配置中启动 OS')
   })
 
   it('hides the complete toolbar and execution hint in a Task list snapshot', () => {

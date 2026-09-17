@@ -76,15 +76,6 @@ async function verifyCanvasDeletion(
   )
   await expect(page.getByText('完整控制流 DAG')).toBeVisible()
 
-  const deleteSelection = page.getByRole('button', {
-    name: '删除选中项',
-    exact: true
-  })
-  await expect(deleteSelection).toBeDisabled()
-  await expect(deleteSelection).toHaveAttribute(
-    'data-disabled-reason',
-    '代码模式下工作流画布只读；请切换到画布模式'
-  )
   await page.getByRole('button', {
     name: '画布模式',
     exact: true
@@ -93,13 +84,18 @@ async function verifyCanvasDeletion(
     '画布模式：Python 是 OS 生成的只读投影',
     { exact: true }
   )).toBeVisible()
-
-  const nodes = page.locator('.react-flow__node-wfNode')
-  await expect(nodes).toHaveCount(2)
-  const analyzeNode = page.locator('.react-flow__node').filter({
-    has: page.locator('.wf-node__id').filter({ hasText: /^analyzed$/ })
+  const deleteSelection = page.getByRole('button', {
+    name: /^删除选中/
   })
-  const deletedNodeUuid = await analyzeNode.getAttribute('data-id')
+  await expect(deleteSelection).toBeDisabled()
+
+  const nodes = page.locator(
+    '[data-canvas-engine="x6"] .workflow-x6__viewport '
+      + '.x6-node[data-cell-id]'
+  )
+  await expect(nodes).toHaveCount(2)
+  const analyzeNode = nodes.filter({ hasText: /analyzed/ })
+  const deletedNodeUuid = await analyzeNode.getAttribute('data-cell-id')
   expect(deletedNodeUuid).toBeTruthy()
   await analyzeNode.click({ position: { x: 24, y: 24 } })
   await expect(deleteSelection).toBeEnabled()
@@ -117,7 +113,7 @@ async function verifyCanvasDeletion(
   }
   await expect(nodes).toHaveCount(1)
   await expect(page.locator(
-    `.react-flow__node[data-id="${deletedNodeUuid}"]`
+    `.workflow-x6__viewport .x6-node[data-cell-id="${deletedNodeUuid}"]`
   )).toHaveCount(0)
   expect(confirmation).toContain('删除将同时移除')
   await expect(page.getByText(

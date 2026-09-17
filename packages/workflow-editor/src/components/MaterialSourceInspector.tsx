@@ -11,6 +11,7 @@ import {
   type MaterialSourceSelectorUpdate
 } from '../utils/workflowMaterialSource'
 import { materialTraceAccent } from '../utils/workflowMaterialTrace'
+import { formatAuthoringDiagnostic } from '../utils/workflowAuthoringUserCopy'
 import { WorkflowButton } from './WorkflowButton'
 import { WorkflowResourceSelector } from './WorkflowResourceSelector'
 import { workflowNodeStateLabel } from './WorkflowNodeCard'
@@ -232,7 +233,7 @@ export function MaterialSourceInspector({
       <fieldset>
         <legend>库位范围</legend>
         <label>
-          库位范围
+          选择范围
           <select
             aria-label="库位范围"
             value={editor.siteScope}
@@ -347,17 +348,17 @@ export function MaterialSourceInspector({
       )}
       {diagnostics.length > 0 && (
         <ul className="persistent-authoring__selector-diagnostics">
-          {diagnostics.map((diagnostic, index) => (
+          {diagnostics.map((diagnostic, index) => {
+            const copy = formatAuthoringDiagnostic(diagnostic)
+            return (
             <li key={`${diagnostic.code}:${index}`}>
-              <code>{diagnostic.code}</code>
-              <span>{diagnostic.message}</span>
+              <strong>{copy.title}</strong>
+              <span>{copy.detail}</span>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
-      <p className="persistent-authoring__selector-authority">
-        仅保存稳定 UUID；库位按业务顺序展示，候选集按 UUID 规范保存。
-      </p>
     </section>
   )
 }

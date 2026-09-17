@@ -57,7 +57,7 @@ export function ReagentModule({
   const [libraryQuery, setLibraryQuery] = useState('')
   const [dialog, setDialog] = useState<ReagentDialog>(null)
   const [historyId, setHistoryId] = useState<string>()
-  const [feedback, setFeedback] = useState('')
+  const [libraryFeedback, setLibraryFeedback] = useState('')
   const createReady = Boolean(
     management &&
     status.phase === 'ready' &&
@@ -68,12 +68,11 @@ export function ReagentModule({
   const query = view === 'ledger' ? ledgerQuery : libraryQuery
   const setQuery = view === 'ledger' ? setLedgerQuery : setLibraryQuery
 
-  /** 创建提交成功后关闭模态框并等待列表和目录权威回读。 */
+  /** 创建提交成功后关闭模态框并等待列表权威回读。 */
   async function createReagent(command: ReagentCreateCommand): Promise<void> {
     if (!management) return
     await management.create(command)
     setDialog(null)
-    setFeedback('试剂库存已入库，正在刷新列表。')
   }
 
   /** 更新提交成功后关闭模态框；界面不在本地推进修订或数量。 */
@@ -81,32 +80,30 @@ export function ReagentModule({
     if (!management) return
     await management.update(command)
     setDialog(null)
-    setFeedback('库存信息已保存，正在刷新列表。')
   }
 
-  /** 删除提交成功后清理详情选择，并等待 Backend 软删除后的台账。 */
+  /** 删除提交成功后清理详情选择，并等待服务端台账回读。 */
   async function deleteReagent(item: ReagentInventoryProjection): Promise<void> {
     if (!management) return
     await management.delete(item.id)
     if (historyId === item.id) setHistoryId(undefined)
     setDialog(null)
-    setFeedback('试剂库存已删除，余量变更已记录。')
   }
 
-  /** 手工登记化学品身份后关闭表单，并等待 Backend 目录权威回读。 */
+  /** 手工登记化学品身份后关闭表单，并等待目录权威回读。 */
   async function createReagentInfo(command: ReagentInfoCreateCommand): Promise<void> {
     if (!infoManagement) return
     await infoManagement.create(command)
     setDialog(null)
-    setFeedback('试剂目录已新增，正在刷新目录。')
+    setLibraryFeedback('试剂目录已新增，正在刷新目录。')
   }
 
-  /** 纠错化学品身份后不在本地改行，统一等待 Backend 返回最新目录。 */
+  /** 纠错化学品身份后不在本地改行，统一等待服务端返回最新目录。 */
   async function updateReagentInfo(command: ReagentInfoUpdateCommand): Promise<void> {
     if (!infoManagement) return
     await infoManagement.update(command)
     setDialog(null)
-    setFeedback('试剂目录已更新，正在刷新目录。')
+    setLibraryFeedback('试剂目录已更新，正在刷新目录。')
   }
 
   /** 删除未被引用的误建身份；成功前不从目录乐观移除。 */
@@ -114,7 +111,7 @@ export function ReagentModule({
     if (!infoManagement) return
     await infoManagement.delete(item.id)
     setDialog(null)
-    setFeedback('试剂目录项已删除，正在刷新目录。')
+    setLibraryFeedback('试剂目录项已删除，正在刷新目录。')
   }
 
   return (
@@ -194,7 +191,7 @@ export function ReagentModule({
         management={management}
         infoManagement={infoManagement}
         query={query}
-        feedback={feedback}
+        feedback=""
         historyId={historyId}
         onDialog={setDialog}
         onHistory={setHistoryId}
@@ -205,7 +202,7 @@ export function ReagentModule({
         status={infoStatus}
         query={query}
         management={infoManagement}
-        feedback={feedback}
+        feedback={libraryFeedback}
         onDialog={setDialog}
       />
       <ReagentDialogLayer

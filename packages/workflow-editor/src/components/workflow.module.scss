@@ -19,3 +19,11 @@
 @use './workflow-task-list-state';
 @use './workflow-readonly-controls';
 @use './workflow-canvas-ux';
+@use './workflow-x6';
+@use './workflow-authoring-workbench';
+@use './experiment-operation-authoring';
+@use './workflow-debug-layout';
+
+@use './workflow-canvas-debug-mode';
+
+@use './experiment-operation-reference-layout';

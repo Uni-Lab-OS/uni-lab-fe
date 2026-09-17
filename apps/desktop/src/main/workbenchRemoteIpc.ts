@@ -74,6 +74,14 @@ export function registerWorkbenchRemoteAccessIpc(options: {
     return openWorkspaceSelection(options, () => requireWorkspaceController()
       .openRecent(path))
   })
+  ipcMain.handle('workbench-workspace:openPath', (event, path: unknown) => {
+    options.assertSender(event)
+    if (typeof path !== 'string' || !path.trim()) {
+      throw new Error('工作区路径无效')
+    }
+    return openWorkspaceSelection(options, () => requireWorkspaceController()
+      .openPath(path))
+  })
   ipcMain.handle('workbench-workspace:selectDirectory', async (event) => {
     options.assertSender(event)
     const controller = requireWorkspaceController()

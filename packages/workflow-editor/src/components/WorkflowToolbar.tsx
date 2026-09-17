@@ -170,10 +170,10 @@ export function WorkflowToolbar({
           disabled={busy || !sourceRunnable}
           disabledReason={busy
             ? '正在处理工作流，请稍后再保存'
-            : '当前内容尚未形成可运行的工作流，不能保存修订版本'}
+            : '当前内容尚未形成可运行的工作流，不能保存工作流'}
           onClick={onSave}
         >
-          保存修订版本
+          保存工作流
         </WorkflowButton>
 
         <span className="workflow__toolbar-divider" aria-hidden="true" />

@@ -7,6 +7,7 @@ import {
 import type { HttpClient } from './http'
 import {
   loadBackendActionSchema,
+  loadBackendDeviceActionDeclarations,
   loadBackendDeviceCatalog,
   loadBackendOnlineDevices
 } from './backendDevices'
@@ -14,6 +15,34 @@ import {
 const materialUuid = '50000000-0000-4000-8000-000000000001'
 
 describe('Backend 设备目录 adapter', () => {
+  /** 实验操作资源库只读取设备声明，不应为了设备树重复预取完整动作模板目录。 */
+  it('单次读取设备实例及其动作声明', async () => {
+    const { http, request } = fixture()
+
+    await expect(loadBackendDeviceActionDeclarations(http)).resolves.toEqual([{
+      id: materialUuid,
+      materialUuid,
+      resourceTemplateUuid,
+      deviceKey: 'pump-01',
+      namespace: 'edge-01',
+      machineName: '主泵',
+      online: true,
+      edgeStatus: 'online',
+      dispatchable: true,
+      dispatchBlockReason: null,
+      actions: [{
+        actionName: 'transfer.sample.v1',
+        typeName: 'UniLabJsonCommand',
+        isBusy: false,
+        currentJobId: null
+      }]
+    }])
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(request).toHaveBeenCalledWith('/api/v1/devices', {
+      signal: undefined
+    })
+  })
+
   /** 证明 DeviceOverview 负责实例身份，WorkflowNodeTemplate 负责动作参数合同。 */
   it('组合设备实例、Edge 绑定与动作模板 schema', async () => {
     const { http, request } = fixture()

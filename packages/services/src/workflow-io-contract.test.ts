@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { getDefaultBackend } from './backends'
 import type { HttpClient } from './http'
 import { createWorkflowRuntime } from './workflow'
+import { isWorkflowValueSchemaAssignable } from './workflowIo'
 
 const WORKFLOW_UUID = '11111111-1111-4111-8111-111111111111'
 const RESOURCE_TEMPLATE_UUID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
@@ -42,6 +43,96 @@ const outputContract = {
 }
 
 describe('Workflow I/O contract projection', () => {
+  it.each([
+    [
+      'integer range into wider number range',
+      { type: 'integer', minimum: 1, maximum: 5 },
+      { type: 'number', minimum: 0, maximum: 10 },
+      true
+    ],
+    [
+      'number into integer',
+      { type: 'number' },
+      { type: 'integer' },
+      false
+    ],
+    [
+      'narrow enum into wider enum',
+      { type: 'string', enum: ['safe'] },
+      { type: 'string', enum: ['safe', 'fast'] },
+      true
+    ],
+    [
+      'unbounded string into enum',
+      { type: 'string' },
+      { type: 'string', enum: ['safe'] },
+      false
+    ],
+    [
+      'nullable source into non-null target',
+      { anyOf: [{ type: 'string' }, { type: 'null' }] },
+      { type: 'string' },
+      false
+    ],
+    [
+      'resource allowlist subset',
+      {
+        $slot: 'ResourceSlot',
+        allowed_resource_template_uuids: [RESOURCE_TEMPLATE_UUID]
+      },
+      {
+        $slot: 'ResourceSlot',
+        allowed_resource_template_uuids: [
+          RESOURCE_TEMPLATE_UUID,
+          'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+        ]
+      },
+      true
+    ],
+    [
+      'unbounded resource into bounded target',
+      { $slot: 'ResourceSlot' },
+      {
+        $slot: 'ResourceSlot',
+        allowed_resource_template_uuids: [RESOURCE_TEMPLATE_UUID]
+      },
+      false
+    ],
+    [
+      'array item and length subset',
+      {
+        type: 'array',
+        items: { type: 'integer' },
+        minItems: 2,
+        maxItems: 4
+      },
+      {
+        type: 'array',
+        items: { type: 'number' },
+        minItems: 1,
+        maxItems: 5
+      },
+      true
+    ],
+    [
+      'OS Handle display annotations do not change assignability',
+      { type: 'string' },
+      {
+        type: 'string',
+        title: 'Report',
+        description: 'Projected from the action schema'
+      },
+      true
+    ]
+  ])('checks full schema assignability: %s', (
+    _label,
+    source,
+    target,
+    expected
+  ) => {
+    expect(isWorkflowValueSchemaAssignable(source, target)).toBe(expected)
+  })
+
   it('preserves ordered descriptors and stable binding identity', async () => {
     const runtime = runtimeFor(authoringAggregate())
 

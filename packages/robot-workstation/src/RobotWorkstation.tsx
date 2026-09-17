@@ -45,7 +45,7 @@ export function RobotWorkstation({
         {module === 'debug' ? (
           actionContent ?? (
             <div className={uiClass.modulePage} data-testid="workstation-debug">
-              <ModuleHeader title="机械臂动作调试" description="读取 OS 上报的真实设备动作，并通过统一单动作任务接口调试。" />
+              <ModuleHeader title="设备动作" description="读取 OS 上报的真实设备动作，并通过统一单动作任务接口调试。" />
               <WorkstationDataState status={ACTION_UNAVAILABLE} title="设备动作接口不可用" />
             </div>
           )
@@ -77,7 +77,7 @@ export function RobotWorkstation({
  * @returns 对应模块的中文标题。
  */
 function moduleLabel(module: RobotWorkstationProps['module']): string {
-  if (module === 'debug') return '机械臂动作调试'
+  if (module === 'debug') return '设备动作'
   if (module === 'points') return '机械臂点位管理'
   if (module === 'bench') return '实验台'
   return '试剂'

@@ -109,6 +109,9 @@ function mapWorkflowSummary(raw: Record<string, unknown>): WorkflowSummary {
     name: requiredString(raw.name, 'name'),
     tags: stringArray(raw.tags),
     revision: nonNegativeInteger(raw.revision, 'revision'),
+    ...(raw.workflow_type === 'normal' || raw.workflow_type === 'experiment_operation'
+      ? { workflow_type: raw.workflow_type }
+      : {}),
     ...(optionalString(raw.description)
       ? { description: optionalString(raw.description) }
       : {}),

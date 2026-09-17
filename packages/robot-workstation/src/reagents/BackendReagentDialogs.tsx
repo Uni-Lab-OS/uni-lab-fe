@@ -218,14 +218,26 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
                   <span>供应商</span>
                   <Input name="supplier" maxLength={255} />
                 </label>
-                <label>
-                  <span>生产日期（有效期开始）</span>
-                  <Input name="productionDate" type="date" />
-                </label>
-                <label>
-                  <span>截止日期（有效期结束）</span>
-                  <Input name="expiryDate" type="date" />
-                </label>
+                <div className={styles.reagentDateRangeField}>
+                  <span>有效期</span>
+                  <div
+                    className={styles.reagentDateRangeControl}
+                    role="group"
+                    aria-label="有效期"
+                  >
+                    <Input
+                      name="productionDate"
+                      type="date"
+                      aria-label="生产日期（有效期开始）"
+                    />
+                    <span aria-hidden="true">至</span>
+                    <Input
+                      name="expiryDate"
+                      type="date"
+                      aria-label="截止日期（有效期结束）"
+                    />
+                  </div>
+                </div>
               </div>
             </fieldset>
           ) : null}
@@ -542,9 +554,9 @@ function physicalStateLabel(value: string): string {
 }
 
 /**
- * 对 Backend 试剂软删除提供显式范围和文字确认。
+ * 对试剂软删除提供显式影响范围和二次确认。
  * @param props 待删除试剂、异步删除回调和关闭回调。
- * @returns 只有输入“删除”后才可提交的危险操作模态框。
+ * @returns 通过取消或确认删除完成决策的危险操作模态框。
  */
 export function BackendReagentDeleteDialog({
   item,
@@ -555,13 +567,12 @@ export function BackendReagentDeleteDialog({
   onDelete: () => Promise<void>
   onClose: () => void
 }): React.JSX.Element {
-  const [confirmation, setConfirmation] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  /** 提交软删除并等待 Backend 台账闭合完成。 */
+  /** 二次确认后提交软删除并等待服务端台账闭合完成。 */
   async function handleDelete(): Promise<void> {
-    if (submitting || confirmation !== '删除') return
+    if (submitting) return
     setSubmitting(true)
     setError('')
     try {
@@ -575,31 +586,29 @@ export function BackendReagentDeleteDialog({
   return (
     <ReagentDialogFrame
       title={`删除 ${item.name}`}
-      description={`Backend 会将 ${formatQuantity(item.totalQuantity, item.unit)} 余量闭合为零、追加 remove 台账并软删除试剂；被任务预留或修订冲突时会拒绝。`}
+      description={`系统会将 ${formatQuantity(item.totalQuantity, item.unit)} 余量闭合为零、追加 remove 台账并软删除试剂；被任务预留或修订冲突时会拒绝。`}
       busy={submitting}
       onClose={onClose}
     >
-      <div className={styles.deleteConfirmation}>
-        <label>
-          <span>输入“删除”确认</span>
-          <Input
-            data-dialog-initial-focus
-            value={confirmation}
-            onChange={event => setConfirmation(event.target.value)}
-            autoComplete="off"
-          />
-        </label>
-        {error ? <p className={styles.dialogError} role="alert">{error}</p> : null}
-      </div>
+      {error ? (
+        <div className={styles.deleteConfirmation}>
+          <p className={styles.dialogError} role="alert">{error}</p>
+        </div>
+      ) : null}
       <div className={uiClass.dialogActions}>
-        <Button variant="outline" disabled={submitting} onClick={onClose}>取消</Button>
+        <Button
+          data-dialog-initial-focus
+          variant="outline"
+          disabled={submitting}
+          onClick={onClose}
+        >取消</Button>
         <Button
           variant="destructive"
           type="button"
-          disabled={submitting || confirmation !== '删除'}
+          disabled={submitting}
           onClick={() => void handleDelete()}
         >
-          {submitting ? '正在删除…' : '确认软删除'}
+          {submitting ? '正在删除…' : '确认删除'}
         </Button>
       </div>
     </ReagentDialogFrame>
@@ -613,6 +622,7 @@ export interface EditorValues {
   densityGPerMl?: number
   quantity: number
   quantityUnit: string
+  maximumCapacity?: number
   concentrationValue?: number
   concentrationUnit?: string
   description?: string
@@ -625,6 +635,7 @@ export interface EditorValues {
 /** 从浏览器 FormData 读取试剂表单值，空数值保持 undefined。 */
 function reagentEditorValues(form: FormData): EditorValues {
   const densityGPerMl = optionalNumber(form.get('densityGPerMl'))
+  const maximumCapacity = optionalNumber(form.get('maximumCapacity'))
   const concentrationValue = optionalNumber(form.get('concentrationValue'))
   const description = textValue(form, 'description')
   const concentrationUnit = textValue(form, 'concentrationUnit')
@@ -639,6 +650,7 @@ function reagentEditorValues(form: FormData): EditorValues {
     ...(densityGPerMl == null ? {} : { densityGPerMl }),
     quantity: Number(form.get('quantity')),
     quantityUnit: textValue(form, 'quantityUnit'),
+    ...(maximumCapacity == null ? {} : { maximumCapacity }),
     ...(concentrationValue == null ? {} : { concentrationValue }),
     ...(concentrationUnit ? { concentrationUnit } : {}),
     ...(description ? { description } : {}),
@@ -665,6 +677,14 @@ export function validateReagentEditor(
   if (!values.quantityUnit) return '计量单位不能为空'
   if (mode === 'create' && !REAGENT_QUANTITY_UNITS.some(unit => unit === values.quantityUnit)) {
     return '请选择 Backend 支持的计量单位'
+  }
+  if (values.maximumCapacity != null) {
+    if (!Number.isFinite(values.maximumCapacity) || values.maximumCapacity <= 0) {
+      return '最大装料量必须是大于零的有限数'
+    }
+    if (values.maximumCapacity < values.quantity) {
+      return '最大装料量不能小于初始数量'
+    }
   }
   if (values.densityGPerMl != null && (!Number.isFinite(values.densityGPerMl) || values.densityGPerMl <= 0)) {
     return '密度必须是大于零的有限数'
@@ -698,6 +718,7 @@ export function reagentCreateCommand(
     ...concentrationCommand(values),
     quantity: values.quantity,
     quantityUnit: values.quantityUnit,
+    ...containerCapacityCommand(values),
     metadata: {
       supplier: values.supplier,
       density_condition: values.densityCondition,
@@ -707,6 +728,24 @@ export function reagentCreateCommand(
     },
     ...(values.description ? { description: values.description } : {})
   }
+}
+
+/** 将表单最大装料量转换为 OS 使用的 µL 或 g 基础单位。 */
+function containerCapacityCommand(
+  values: EditorValues
+): Pick<ReagentCreateCommand, 'containerCapacity'> {
+  if (values.maximumCapacity == null) return {}
+  const unit = values.quantityUnit.trim().replace('μ', 'µ').toLocaleLowerCase('en-US')
+  const volumeFactors: Record<string, number> = { 'µl': 1, ml: 1_000, l: 1_000_000 }
+  const massFactors: Record<string, number> = { mg: 0.001, g: 1, kg: 1_000 }
+  const volumeFactor = volumeFactors[unit]
+  if (volumeFactor != null) {
+    return { containerCapacity: { maxVolumeUl: values.maximumCapacity * volumeFactor } }
+  }
+  const massFactor = massFactors[unit]
+  return massFactor == null
+    ? {}
+    : { containerCapacity: { maxMassG: values.maximumCapacity * massFactor } }
 }
 
 /** 按名称、条码或稳定 UUID 筛选试剂容器候选。 */

@@ -54,18 +54,17 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(builderConfiguration, /target: dmg/u)
     assert.match(builderConfiguration, /target: zip/u)
     assert.match(welcomeDocument, /<title>UniLab 调试工作台<\/title>/u)
+    assert.match(welcomeDocument, /id="mode-entry-form"/u)
+    assert.match(welcomeDocument, /name="entry-mode" value="debug"/u)
+    assert.match(welcomeDocument, /name="entry-mode" value="production"/u)
+    assert.match(welcomeDocument, /id="workspace-select"/u)
+    assert.doesNotMatch(welcomeDocument, /账号|密码|登录/u)
     assert.match(welcomeDocument, /id="install-runtime"/u)
     assert.match(welcomeDocument, /id="choose-runtime"/u)
-    assert.match(welcomeDocument, /id="open-runtime-log"/u)
-    assert.match(welcomeDocument, /id="runtime-progress"/u)
-    assert.match(welcomeDocument, /role="progressbar"/u)
     assert.match(welcomeScript, /managedRuntime/u)
     assert.match(welcomeScript, /chooseEnvironment/u)
-    assert.match(welcomeScript, /upgrade-required/u)
-    assert.match(welcomeScript, /openDiagnosticLog/u)
     assert.match(welcomeScript, /unilab -h/u)
-    assert.match(welcomeScript, /progress\.percentage/u)
-    assert.match(welcomeScript, /formatBytes/u)
+    assert.match(welcomeScript, /openRecent\(selectedWorkspace, selectedEntryMode\(\)\)/u)
     assert.equal(
       theiaManifest.theiaExtensions[0].frontendPreload,
       'lib/browser/unilab-workbench-frontend-preload-module'
@@ -440,22 +439,8 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(workflow, /workbench-macos-hot-update-test/u)
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-9623b51c/u
+      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.4-ad016b73/u
     )
-    assert.match(
-      workflow,
-      /UNILAB_RUNTIME_DOWNLOAD_TEST_TAG: workbench-runtime-download-test-0\.11\.3-9623b51c/u
-    )
-    assert.match(
-      workflow,
-      /UNILAB_RUNTIME_DELIVERY: \$\{\{ github\.ref == 'refs\/heads\/deploy-mac-test' && 'download' \|\| 'bundled' \}\}/u
-    )
-    assert.match(
-      workflow,
-      /name: Publish isolated online macOS Runtime test asset/u
-    )
-    assert.match(workflow, /--range 0-0 --output \/dev\/null/u)
-    assert.match(workflow, /Online macOS DMG exceeds 250 MiB budget/u)
     assert.match(workflow, /AIONUI_VERSION: 2\.1\.53/u)
     assert.match(workflow, /AIONUI_MACOS_SHA512: [a-f0-9]{128}/u)
     assert.match(workflow, /ELECTRON_VERSION: 33\.4\.11/u)

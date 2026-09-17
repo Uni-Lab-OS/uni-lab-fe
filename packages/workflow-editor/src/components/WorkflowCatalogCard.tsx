@@ -41,7 +41,7 @@ export function WorkflowCatalogCard({
         aria-label={selectable
           ? `${selectionMode === 'run' ? '运行' : '打开'}工作流 ${workflow.name}`
           : `工作流 ${workflow.name}（当前 Backend 只读）`}
-        title={`${workflow.name}\n版本 ${workflow.revision}`}
+        title={workflow.name}
       >
         <span className="workflow-runtime__catalog-mark" aria-hidden="true">◇</span>
         <span className="workflow-runtime__catalog-copy">
@@ -61,7 +61,6 @@ export function WorkflowCatalogCard({
         <span className={`workflow-runtime__catalog-status is-${workflow.definition_status ?? 'unknown'}`}>
           {status}
         </span>
-        <span>版本 {workflow.revision}</span>
         {manageable && managementActionsVisible ? (
           <div>
             <button type="button" onClick={onShowLog}>修改日志</button>

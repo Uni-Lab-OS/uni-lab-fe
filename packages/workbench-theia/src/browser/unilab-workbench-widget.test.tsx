@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -7,6 +8,21 @@ import {
   WorkbenchAuthorityLoading,
   WorkbenchSessionGate
 } from './workbench-session-gate'
+
+describe('device action navigation', () => {
+  it('forwards the device selected from management into the debug panel', () => {
+    const source = readFileSync(
+      new URL('./unilab-workbench-widget.tsx', import.meta.url),
+      'utf8'
+    )
+
+    expect(source).toContain('setSelectedActionDeviceKey(deviceKey)')
+    expect(source).toContain('selectedDeviceKey={selectedActionDeviceKey}')
+    expect(source).toContain(
+      'onSelectedDeviceKeyChange={setSelectedActionDeviceKey}'
+    )
+  })
+})
 
 describe('WorkbenchSessionGate', () => {
   it('shows Workspace Backend loading while switching from Backend', () => {
@@ -47,7 +63,7 @@ describe('WorkbenchSessionGate', () => {
     expect(errors).toEqual(['local reset is blocked'])
   })
 
-  it('keeps environment management reachable while OS readiness is blocked', () => {
+  it('opens simulation configuration while PLC readiness is blocked', () => {
     const markup = renderToStaticMarkup(
       <WorkbenchSessionGate
         snapshot={{
@@ -114,12 +130,9 @@ describe('WorkbenchSessionGate', () => {
         }}
         onRetry={vi.fn()}
         onStop={vi.fn()}
-        connectionSelector={(
-          <section aria-label="运行连接选择">连接 Backend</section>
-        )}
         onOpenLog={vi.fn()}
-        renderEnvironmentManager={onClose => (
-          <section aria-label="环境管理">
+        renderConfiguration={(kind, onClose) => (
+          <section aria-label={`${kind} 配置`}>
             <button onClick={onClose}>关闭</button>
             <button>启动 PLC-Sim</button>
           </section>
@@ -127,18 +140,18 @@ describe('WorkbenchSessionGate', () => {
       />
     )
 
-    expect(markup).toContain('环境管理')
+    expect(markup).toContain('simulation 配置')
     expect(markup).toContain('启动 PLC-Sim')
     expect(markup).toContain('PLC 连接失败')
     expect(markup).toContain('无法解析 PLC 的 OPC UA 主机名')
     expect(markup).toContain('建议：')
     expect(markup).toContain('诊断代码：plc_connection_failed')
-    expect(markup).toContain('unilab-workbench-session-actions')
-    expect(markup).toContain('class="is-primary"')
-    expect(markup).toContain('codicon-settings-gear')
-    expect(markup).toContain('运行连接选择')
-    expect(markup).toContain('在编辑器中打开日志文件')
-    expect(markup).toContain('/workspace/.unilabos/logs/workbench/os.log')
+    expect(markup).toContain('unilab-mode-entry')
+    expect(markup).toContain('class="unilab-mode-entry__submit"')
+    expect(markup).toContain('重新校验并启动 OS')
+    expect(markup).toContain('调试模式')
+    expect(markup).toContain('生产模式')
+    expect(markup).toContain('打开 OS 日志')
   })
 
   it('covers the workbench with startup progress while the session starts', () => {
@@ -184,7 +197,7 @@ describe('WorkbenchSessionGate', () => {
         }}
         onRetry={vi.fn()}
         onStop={vi.fn()}
-        renderEnvironmentManager={() => null}
+        renderConfiguration={() => null}
       />
     )
 
@@ -242,7 +255,7 @@ describe('WorkbenchSessionGate', () => {
         launchMode="backend"
         onRetry={vi.fn()}
         onStop={vi.fn()}
-        renderEnvironmentManager={() => null}
+        renderConfiguration={() => null}
       />
     )
 
@@ -295,7 +308,7 @@ describe('WorkbenchSessionGate', () => {
         launchMode="local"
         onRetry={vi.fn()}
         onStop={vi.fn()}
-        renderEnvironmentManager={() => null}
+        renderConfiguration={() => null}
       />
     )
 

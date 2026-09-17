@@ -3,6 +3,10 @@ export {
   type WorkflowPanelProps,
   type WorkflowCatalogState
 } from './components/WorkflowPanel'
+export {
+  ExperimentOperationWorkbench,
+  type ExperimentOperationWorkbenchProps
+} from './components/ExperimentOperationWorkbench'
 export type {
   WorkflowPanelRuntimeProjection
 } from './workflowPanelProjection'
@@ -53,6 +57,11 @@ export {
   workflowMaterialRoleLabel,
   type WorkflowMaterialRoleOption
 } from './utils/workflowMaterialTrace'
+export {
+  visibleWorkflowTasks,
+  workflowTaskDisplayName,
+  type WorkflowTaskListFilter
+} from './utils/workflowTaskListProjection'
 export * from './utils/parseWorkflow'
 export * from './utils/parseWorkflowJson'
 export {
@@ -63,3 +72,5 @@ export {
   type WorkflowSourcePosition,
   type WorkflowSourceProjection
 } from './utils/workflowSourceNavigation'
+
+export { WorkflowStationRecovery } from './components/recovery/WorkflowStationRecovery'

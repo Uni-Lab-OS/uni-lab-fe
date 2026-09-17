@@ -1,0 +1,122 @@
+import type { NodeMetadata } from '@antv/x6'
+
+import {
+  workflowNodeStateLabel,
+  type WorkflowNodeData
+} from './WorkflowNodeCard'
+
+type ArrayItem<T> = T extends readonly (infer Item)[] ? Item : never
+type MarkupItem = ArrayItem<NonNullable<NodeMetadata['markup']>>
+
+interface WorkflowPrototypeActionMetadataInput {
+  data: WorkflowNodeData
+  width: number
+  height: number
+  base: NodeMetadata
+  markerProjection: {
+    attrs: NonNullable<NodeMetadata['attrs']>
+    markup: MarkupItem[]
+  }
+  ports: NodeMetadata['ports']
+  titleMarkup: MarkupItem
+}
+
+const TEXT_ORIGIN = {
+  refX: 0,
+  refY: 0,
+  textAnchor: 'start',
+  textVerticalAnchor: 'middle'
+} as const
+
+/**
+ * 默认画布使用 HTML 原型的紧凑工作流卡片：类型、名称、说明三行。
+ * 运行状态通过整卡边框与底色表达，不再占用独立状态胶囊。
+ */
+export function createWorkflowPrototypeActionMetadata({
+  data,
+  width,
+  base,
+  markerProjection,
+  ports,
+  titleMarkup
+}: WorkflowPrototypeActionMetadataInput): NodeMetadata {
+  const kind = data.kind === 'manual_confirm' ? '人工确认' : data.groupKind === 'subworkflow' ? '子工作流' : '实验操作'
+  const detail = data.groupKind === 'subworkflow'
+    ? `${data.groupExpanded ? '▾' : '▸'} ${data.descendantCount ?? 0} 个内部节点`
+    : data.description?.trim() || workflowNodeStateLabel(
+      data.kind,
+      data.status || 'pending'
+    )
+  const detailLines = wrapDetail(detail, 22)
+  return {
+    ...base,
+    attrs: {
+      ...base.attrs,
+      root: {
+        ...base.attrs?.root,
+        'data-workflow-card-contract': 'html-prototype'
+      },
+      body: {
+        ...base.attrs?.body,
+        rx: 10,
+        ry: 10
+      },
+      kind: TEXT_ORIGIN,
+      label: {
+        ...TEXT_ORIGIN,
+        text: data.name || data.id,
+        textWrap: { width: Math.max(1, width - 20), height: 20, ellipsis: true, breakWord: true }
+      },
+      detail: TEXT_ORIGIN,
+      detailSecondary: TEXT_ORIGIN,
+      ...markerProjection.attrs
+    },
+    markup: [
+      { tagName: 'rect', selector: 'body', className: 'workflow-x6-node__body' },
+      {
+        tagName: 'circle',
+        className: 'workflow-x6-node__kind-dot',
+        attrs: { cx: 13.5, cy: 15, r: 3.5 }
+      },
+      {
+        tagName: 'text',
+        selector: 'kind',
+        className: 'workflow-x6-node__kind',
+        textContent: kind,
+        attrs: { ...TEXT_ORIGIN, x: 20, y: 17.5 }
+      },
+      {
+        tagName: 'text',
+        selector: 'label',
+        className: 'workflow-x6-node__label',
+        attrs: { ...TEXT_ORIGIN, x: 10, y: 40 }
+      },
+      {
+        tagName: 'text',
+        selector: 'detail',
+        className: 'workflow-x6-node__detail',
+        textContent: detailLines[0],
+        attrs: { ...TEXT_ORIGIN, x: 10, y: 58 }
+      },
+      ...(detailLines[1] ? [{
+        tagName: 'text' as const,
+        selector: 'detailSecondary',
+        className: 'workflow-x6-node__detail',
+        textContent: detailLines[1],
+        attrs: { ...TEXT_ORIGIN, x: 10, y: 71 }
+      }] : []),
+      ...markerProjection.markup,
+      titleMarkup
+    ],
+    ports
+  }
+}
+
+function wrapDetail(value: string, lineLimit: number): [string, string?] {
+  if (value.length <= lineLimit) return [value]
+  if (value.length <= lineLimit * 2) {
+    return [value.slice(0, lineLimit), value.slice(lineLimit)]
+  }
+  return [value.slice(0, lineLimit), value.slice(lineLimit, lineLimit * 2 - 1) + '…']
+}
+

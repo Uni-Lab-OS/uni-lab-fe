@@ -108,7 +108,18 @@ export function projectWorkflowExecutableTemplate(
       workflowSchema
     )
   }
-  if (!actionSchema) return null
+  const controlKind = summary.nodeType === 'condition' || summary.nodeType === 'repeat_until'
+    ? summary.nodeType : null
+  let controlSchema: Record<string, unknown> | null = null
+  if (controlKind) {
+    const metadata = recordValue(recordValue(template.meta_data).unilab)
+    if (summary.actionType !== controlKind ||
+      template.class !== `unilabos.workflow.authoring:${controlKind}` ||
+      metadata.framework_owner_only !== true || metadata.executor_kind !== controlKind) invalidCatalog()
+    controlSchema = recordValue(metadata.parameter_schema)
+    if (controlSchema.type !== 'object') invalidCatalog()
+  }
+  if (!actionSchema && !controlSchema) return null
   return attachWireValue({
     uuid,
     resourceTemplateUuid,
@@ -116,7 +127,8 @@ export function projectWorkflowExecutableTemplate(
     displayName: summary.displayName,
     actionClass: nullableString(template.class),
     actionType: summary.actionType,
-    schema: actionSchema,
+    nodeType: summary.nodeType,
+    schema: (controlSchema ?? actionSchema)!,
     goal: recordValue(template.goal),
     goalDefault: recordValue(template.goal_default),
     // 平面 Backend 参数 Schema 没有参数 Handle；旧工作流 Handle 不得冒充设备动作入参。

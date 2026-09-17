@@ -15,6 +15,14 @@ const palettePath = fileURLToPath(new URL(
   './WorkflowNodePalette.tsx',
   import.meta.url
 ))
+const deviceLibraryPath = fileURLToPath(new URL(
+  './ExperimentOperationDeviceLibrary.tsx',
+  import.meta.url
+))
+const deviceCatalogPath = fileURLToPath(new URL(
+  './ExperimentOperationDeviceCatalog.tsx',
+  import.meta.url
+))
 const authoringHookPath = fileURLToPath(new URL(
   '../hooks/usePersistentWorkflowAuthoring.ts',
   import.meta.url
@@ -40,13 +48,30 @@ describe('Published Workflow Catalog in the Authoring module', () => {
     const actionPicker = paletteSection(source, '操作')
     const workflowPicker = paletteSection(source, '子工作流')
 
-    expect(actionPicker).toContain('projection.actions.map')
+    expect(actionPicker).toContain('visibleTemplates.map')
     expect(actionPicker).toMatch(
       /<WorkflowButton[\s\S]*?key=\{template\.uuid\}[\s\S]*?\{template\.displayName\}/
     )
     expect(workflowPicker).toContain('projection.workflows.map')
     expect(workflowPicker).toMatch(
       /<WorkflowButton[\s\S]*?key=\{template\.uuid\}[\s\S]*?\{template\.displayName\}/
+    )
+  })
+
+  it('requires dragging action entries onto the canvas instead of click insertion', () => {
+    const paletteSource = readFileSync(palettePath, 'utf8')
+    const deviceLibrarySource = readFileSync(deviceLibraryPath, 'utf8')
+    const deviceCatalogSource = readFileSync(deviceCatalogPath, 'utf8')
+
+    expect(paletteSection(paletteSource, '操作')).toContain('onDragStart')
+    expect(paletteSection(paletteSource, '操作')).not.toMatch(
+      /onClick=\{\(\) => onAddAction\(/u
+    )
+    expect(deviceLibrarySource).not.toMatch(
+      /onClick=\{\(\) => onAddAction\??\(/u
+    )
+    expect(deviceCatalogSource).not.toMatch(
+      /onClick=\{\(\) => \{[\s\S]*onAddAction\(/u
     )
   })
 
@@ -77,11 +102,13 @@ describe('Published Workflow Catalog in the Authoring module', () => {
     expect(source).toContain('globalThis.crypto.randomUUID()')
   })
 
-  it('renders OS diagnostic code and message without frontend replacement', () => {
+  it('renders user-facing diagnostic titles instead of raw OS codes', () => {
     const source = readFileSync(viewPath, 'utf8')
 
-    expect(source).toContain('<code>{diagnostic.code}</code>')
-    expect(source).toContain('<span>{diagnostic.message}</span>')
+    expect(source).toContain('formatAuthoringDiagnostic(diagnostic)')
+    expect(source).toContain('<strong>{copy.title}</strong>')
+    expect(source).toContain('<span>{copy.detail}</span>')
+    expect(source).not.toContain('<code>{diagnostic.code}</code>')
     expect(source).not.toMatch(/composite_[a-z_]+\s*:\s*['"`]/)
   })
 
@@ -90,7 +117,10 @@ describe('Published Workflow Catalog in the Authoring module', () => {
     const toggle = functionBody(source, 'const toggleGroup')
 
     expect(source).toMatch(
-      /projectNestedWorkflow\([\s\S]*?materialRoleProjection\.nodes,[\s\S]*?materialRoleProjection\.links,[\s\S]*?expandedGroupIds/
+      /projectNestedWorkflow\(nodes, links, expandedGroupIds\)/
+    )
+    expect(source).toMatch(
+      /projectMaterialTraces\([\s\S]*?hierarchyProjection\.nodes,[\s\S]*?hierarchyProjection\.links/
     )
     expect(source).toMatch(
       /groupSignature[\s\S]*?node\.compositeSignature/
@@ -132,6 +162,9 @@ describe('Published Workflow Catalog in the Authoring module', () => {
     expect(source).not.toContain('setError(errorMessage(catalogError))')
     expect(source).toContain('setActionCatalogError')
     expect(source).toContain('ACTION_CATALOG_RETRY_DELAY_MS')
+    expect(source).not.toMatch(
+      /if \(\s*materialSourceCatalogLoading \|\|[\s\S]{0,120}!materialSourceCatalog/u
+    )
     expect(source).not.toMatch(
       /setMaterialSourceCatalogError\(\s*`操作目录加载失败：/
     )

@@ -240,13 +240,16 @@ export function useRobotWorkstationData(
     setReagentContainerStatus({ phase: 'loading', message: '正在读取容器物料…' })
     void Promise.all([
       services.materials.getGraph({ kind: 'singleton' }),
-      services.materials.listTemplates({ kind: 'singleton' })
+      services.inventory.listReagentContainerTemplates()
     ]).then(
       ([aggregates, templates]) => {
         if (controller.signal.aborted) return
         setReagentContainers(projectReagentContainers(
           aggregates,
-          templates.items
+          templates.map(template => ({
+            uuid: template.id,
+            tags: template.tags
+          }))
         ))
         setReagentContainerStatus({
           phase: 'ready',

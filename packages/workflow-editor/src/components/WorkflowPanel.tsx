@@ -4,6 +4,7 @@ import type {
   CapabilityStatus,
   WorkflowRuntimePort
 } from '@unilab/services'
+import { workflowDefinitionKind } from '@unilab/services'
 
 import type { WorkflowTracePort } from '../traceRuntime'
 import type { WorkflowPanelRuntimeProjection } from '../workflowPanelProjection'
@@ -15,6 +16,10 @@ import {
   readActiveWorkflowId
 } from '../utils/workflowAuthoringOperations'
 import type { WorkflowIdeBridge } from '../utils/workflowSourceNavigation'
+import type {
+  WorkflowCanvasBreadcrumb,
+  WorkflowCanvasNavigationState
+} from '../utils/workflowCanvasCommands'
 import {
   WorkflowCatalog,
   type WorkflowCatalogState
@@ -56,22 +61,25 @@ export interface WorkflowPanelProps {
   ) => void
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
+  hideCanvasSidebars?: boolean
   hideRuntimeControls?: boolean
   allowWorkflowSelection?: boolean
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
+  debugLayout?: boolean
+  catalogOnly?: boolean
 }
 
 /**
- * 组合工作流（Workflow）目录或持久编写面板，并持续发布跨面板只读投影。
+ * 组合工作流（Workflow）目录或持久编写面板，并按宿主可见性发布跨面板投影。
  *
  * @param props 操作系统（OS）端口、可选固定工作流身份与宿主回调。
- * @returns 可独立挂载的工作流面板；隐藏时暂停运行读取但保留 3D 联动投影。
+ * @returns 可独立挂载的工作流面板；隐藏面板不拥有跨面板发布权。
  */
 export default function WorkflowPanel({
   runtime,
   workflowUuid: explicitWorkflowUuid,
-  workflowName: explicitWorkflowName,
+  workflowName: explicitWorkflowName = '',
   traceRuntime,
   resourceSlotOptionsPort,
   activeWorkflowStorageKey,
@@ -91,25 +99,50 @@ export default function WorkflowPanel({
   onVisibleMaterialRolesChange,
   ideBridge,
   hideEmbeddedCodeEditor = false,
+  hideCanvasSidebars = false,
   hideRuntimeControls = false,
   allowWorkflowSelection = false,
   onResetEnvironment,
-  environmentResetBusy = false
+  environmentResetBusy = false,
+  debugLayout = false,
+  catalogOnly = false
 }: WorkflowPanelProps): React.JSX.Element {
   const [selectedWorkflowUuid, setSelectedWorkflowUuid] = useState<
     string | null
   >(null)
   const [selectedWorkflowName, setSelectedWorkflowName] = useState('')
   const [showCatalog, setShowCatalog] = useState(false)
+  const [workflowBreadcrumbs, setWorkflowBreadcrumbs] = useState<
+    WorkflowCanvasBreadcrumb[]
+  >([])
+  const [canvasRestoreByWorkflow, setCanvasRestoreByWorkflow] = useState<
+    Readonly<Record<string, WorkflowCanvasNavigationState>>
+  >({})
   const handledCatalogRequestRevision = useRef(catalogRequestRevision)
   const authoringAvailable = authoringStatus?.available !== false
   const runAvailable = runStatus?.available === true
   const workflowSelectable = authoringAvailable || runAvailable
-  const workflowUuid = !workflowSelectable || showCatalog
+  const workflowUuid = catalogOnly || !workflowSelectable || showCatalog
     ? null
     : (allowWorkflowSelection ? selectedWorkflowUuid : null) ||
       explicitWorkflowUuid || selectedWorkflowUuid ||
       readActiveWorkflowId(activeWorkflowStorageKey)
+  const activateWorkflow = (
+    nextWorkflowUuid: string,
+    nextWorkflowName: string
+  ): void => {
+    persistActiveWorkflowId(activeWorkflowStorageKey, nextWorkflowUuid)
+    setSelectedWorkflowUuid(nextWorkflowUuid)
+    setSelectedWorkflowName(nextWorkflowName)
+    setShowCatalog(false)
+  }
+  const selectWorkflow = (
+    nextWorkflowUuid: string,
+    nextWorkflowName: string
+  ): void => {
+    setWorkflowBreadcrumbs([])
+    activateWorkflow(nextWorkflowUuid, nextWorkflowName)
+  }
 
   useEffect(() => {
     if (
@@ -130,6 +163,23 @@ export default function WorkflowPanel({
     return () => onActiveWorkflowChange?.(null)
   }, [active, onActiveWorkflowChange, workflowUuid])
 
+  useEffect(() => {
+    if (catalogOnly || !debugLayout || !active || workflowUuid || showCatalog || !workflowSelectable) return
+    let disposed = false
+    void runtime.listWorkflows({ page: 1, page_size: 100 }).then((page) => {
+      if (disposed) return
+      const workflow = page.items.filter((item) => workflowDefinitionKind(item) === 'workflow')
+        .sort((left, right) => right.update_time.localeCompare(left.update_time))[0]
+      if (!workflow) return
+      persistActiveWorkflowId(activeWorkflowStorageKey, workflow.uuid)
+      setSelectedWorkflowUuid(workflow.uuid)
+      setSelectedWorkflowName(workflow.name)
+    }).catch(() => {
+      // 目录组件保留统一的读取失败提示与重试入口。
+    })
+    return () => { disposed = true }
+  }, [active, activeWorkflowStorageKey, catalogOnly, debugLayout, runtime, showCatalog, workflowSelectable, workflowUuid])
+
   if (workflowUuid && isWorkflowUuid(workflowUuid)) {
     const definitionAuthority = definitionEditingMode === 'backend' ||
       (!authoringAvailable && runAvailable)
@@ -137,21 +187,26 @@ export default function WorkflowPanel({
       : 'workspace'
     return (
       <PersistentWorkflowAuthoringPanel
-        key={`${workflowUuid}:${definitionAuthority}`}
+        key={debugLayout ? definitionAuthority : `${workflowUuid}:${definitionAuthority}`}
         runtime={runtime}
+        debugLayout={debugLayout}
+        initialMode={debugLayout ? 'canvas' : undefined}
         active={active}
         definitionAuthority={definitionAuthority}
         definitionEditingStatus={authoringStatus}
         workflowUuid={workflowUuid}
-        workflowName={selectedWorkflowName || explicitWorkflowName}
+        workflowName={explicitWorkflowName || selectedWorkflowName}
         traceRuntime={traceRuntime}
         resourceSlotOptionsPort={resourceSlotOptionsPort}
         executionStatus={executionStatus}
         onUnsavedChangesChange={onUnsavedChangesChange}
-        onWorkflowRuntimeProjectionChange={onWorkflowRuntimeProjectionChange}
+        onWorkflowRuntimeProjectionChange={active
+          ? onWorkflowRuntimeProjectionChange
+          : undefined}
         onSelectedWorkflowStepChange={onSelectedWorkflowStepChange}
         ideBridge={ideBridge}
         hideEmbeddedCodeEditor={hideEmbeddedCodeEditor}
+        hideCanvasSidebars={hideCanvasSidebars}
         hideRuntimeControls={hideRuntimeControls}
         recoveryRevision={recoveryRevision}
         visibleMaterialRoles={visibleMaterialRoles}
@@ -162,6 +217,35 @@ export default function WorkflowPanel({
               persistActiveWorkflowId(activeWorkflowStorageKey, '')
               setShowCatalog(true)
             }}
+        onSelectWorkflow={explicitWorkflowUuid && !allowWorkflowSelection
+          ? undefined
+          : selectWorkflow}
+        onOpenChildWorkflow={explicitWorkflowUuid && !allowWorkflowSelection
+          ? undefined
+          : (childWorkflowUuid, childWorkflowName, parentState) => {
+              setCanvasRestoreByWorkflow((current) => ({
+                ...current,
+                [workflowUuid]: parentState
+              }))
+              setWorkflowBreadcrumbs((current) => [
+                ...current,
+                {
+                  workflowUuid,
+                  workflowName: selectedWorkflowName || workflowUuid
+                }
+              ])
+              activateWorkflow(childWorkflowUuid, childWorkflowName)
+            }}
+        workflowBreadcrumbs={workflowBreadcrumbs}
+        onNavigateBreadcrumb={workflowBreadcrumbs.length > 0
+          ? (index) => {
+              const target = workflowBreadcrumbs[index]
+              if (!target) return
+              setWorkflowBreadcrumbs((current) => current.slice(0, index))
+              activateWorkflow(target.workflowUuid, target.workflowName)
+            }
+          : undefined}
+        restoreCanvasState={canvasRestoreByWorkflow[workflowUuid] ?? null}
         onResetEnvironment={onResetEnvironment}
         environmentResetBusy={environmentResetBusy}
       />
@@ -170,20 +254,18 @@ export default function WorkflowPanel({
 
   return (
     <WorkflowCatalog
+      creationEntryVisible={debugLayout ? true : undefined}
       runtime={runtime}
       activeWorkflowStorageKey={activeWorkflowStorageKey}
       recoveryRevision={recoveryRevision}
       authoringStatus={authoringStatus}
       runStatus={runStatus}
       onStateChange={onCatalogStateChange}
-      onSelect={workflowSelectable
-        ? (nextWorkflowUuid, nextWorkflowName) => {
-            persistActiveWorkflowId(activeWorkflowStorageKey, nextWorkflowUuid)
-            setSelectedWorkflowUuid(nextWorkflowUuid)
-            setSelectedWorkflowName(nextWorkflowName)
-            setShowCatalog(false)
-          }
-        : undefined}
+      onSelect={catalogOnly
+        ? undefined
+        : workflowSelectable
+          ? selectWorkflow
+          : undefined}
     />
   )
 }

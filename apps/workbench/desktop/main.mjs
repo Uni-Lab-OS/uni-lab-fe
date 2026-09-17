@@ -43,6 +43,15 @@ const DEFAULT_WORKBENCH_LOCALE = 'zh-CN'
 if (!app.commandLine.hasSwitch('lang')) {
   app.commandLine.appendSwitch('lang', DEFAULT_WORKBENCH_LOCALE)
 }
+if (
+  process.env['UNILAB_DESKTOP_NO_SANDBOX'] === '1' &&
+  !app.commandLine.hasSwitch('no-sandbox')
+) {
+  console.warn(
+    '[UniLab Workbench] Electron sandbox disabled for this development session'
+  )
+  app.commandLine.appendSwitch('no-sandbox')
+}
 
 let backendProcess
 let remoteAccessController
@@ -134,7 +143,7 @@ async function startPackagedWorkbench() {
   process.env['ESBUILD_BINARY_PATH'] = resources.esbuildBinary
   if (hasExplicitWorkspace) {
     try {
-      const activation = await workspaceController.openExplicit(
+      const activation = await workspaceController.openPath(
         parsed.workspace
       )
       process.env['UNILAB_DESKTOP_RENDERER_URL'] = activation.rendererUrl

@@ -151,7 +151,7 @@ export function draftSaveMessage(
   aggregate: WorkflowAuthoringAggregate
 ): string {
   if (aggregate.state === 'draft_invalid') {
-    return '草稿已保存，但存在错误，修复后才能应用'
+    return '草稿已保存；还有问题未修好，修好后才能应用或运行'
   }
   if (
     aggregate.candidate?.changeset.kind === 'source_only' ||

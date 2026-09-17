@@ -2,6 +2,12 @@ import type { WorkflowActionCatalogSnapshot } from '@unilab/services'
 import { describe, expect, it } from 'vitest'
 
 import { workflowNodePaletteProjection } from './WorkflowNodePalette'
+import {
+  readWorkflowNodePaletteDragPayload,
+  workflowNodePalettePointerPayload,
+  WORKFLOW_NODE_PALETTE_MIME,
+  writeWorkflowNodePaletteDragPayload
+} from '../utils/workflowCanvasCommands'
 
 describe('workflowNodePaletteProjection', () => {
   it('keeps material, action, and child workflow categories visible', () => {
@@ -36,6 +42,71 @@ describe('workflowNodePaletteProjection', () => {
     expect(projection.actions).toEqual([])
     expect(projection.workflows).toHaveLength(1)
   })
+
+  it('does not project a material placeholder without a real OS template', () => {
+    const projection = workflowNodePaletteProjection(catalog, '', 'all', false)
+
+    expect(projection.counts).toEqual({
+      all: 2,
+      material: 0,
+      action: 1,
+      workflow: 1
+    })
+    expect(projection.showMaterial).toBe(false)
+  })
+
+  it('serializes only node kind and stable template UUID for canvas drops', () => {
+    const values = new Map<string, string>()
+    const dataTransfer = {
+      effectAllowed: 'none',
+      setData: (type: string, value: string) => values.set(type, value),
+      getData: (type: string) => values.get(type) ?? ''
+    } as unknown as DataTransfer
+
+    writeWorkflowNodePaletteDragPayload(dataTransfer, {
+      kind: 'action',
+      templateUuid: 'template-1'
+    })
+
+    expect(values.get(WORKFLOW_NODE_PALETTE_MIME)).toBe(
+      '{"kind":"action","templateUuid":"template-1"}'
+    )
+    expect(values.get('text/plain')).toBe(
+      'unilab-workflow-node:{"kind":"action","templateUuid":"template-1"}'
+    )
+    expect(readWorkflowNodePaletteDragPayload(dataTransfer)).toEqual({
+      kind: 'action',
+      templateUuid: 'template-1'
+    })
+  })
+
+  it('reads the namespaced Electron text fallback without accepting plain text', () => {
+    const values = new Map<string, string>([[
+      'text/plain',
+      'unilab-workflow-node:{"kind":"action","templateUuid":"template-2"}'
+    ]])
+    const dataTransfer = {
+      types: ['text/plain'],
+      getData: (type: string) => values.get(type) ?? ''
+    } as unknown as DataTransfer
+
+    expect(readWorkflowNodePaletteDragPayload(dataTransfer)).toEqual({
+      kind: 'action',
+      templateUuid: 'template-2'
+    })
+    values.set('text/plain', '普通文本')
+    expect(readWorkflowNodePaletteDragPayload(dataTransfer)).toBeNull()
+  })
+
+  it('resolves published workflow cards for the Electron pointer fallback', () => {
+    expect(workflowNodePalettePointerPayload({
+      workflowPaletteWorkflow: 'workflow-template-1'
+    })).toEqual({
+      kind: 'workflow',
+      templateUuid: 'workflow-template-1'
+    })
+    expect(workflowNodePalettePointerPayload({})).toBeNull()
+  })
 })
 
 const catalog: WorkflowActionCatalogSnapshot = {
@@ -46,6 +117,7 @@ const catalog: WorkflowActionCatalogSnapshot = {
     displayName: '固体投料',
     actionClass: 'SolidDosing',
     actionType: 'device',
+    nodeType: 'device',
     schema: {},
     goal: {},
     goalDefault: {},

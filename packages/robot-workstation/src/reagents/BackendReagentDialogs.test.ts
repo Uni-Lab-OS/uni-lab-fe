@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
 import {
+  BackendReagentDeleteDialog,
   BackendReagentEditorDialog,
   filterReagentContainers,
   reagentCreateCommand,
@@ -105,6 +106,9 @@ describe('Backend reagent editor validation', () => {
     expect(markup).toContain('供应商')
     expect(markup).toContain('生产日期')
     expect(markup).toContain('截止日期')
+    expect(markup).toContain('role="group"')
+    expect(markup).toContain('aria-label="有效期"')
+    expect(markup).toContain('>至<')
     expect(markup).toContain('name="productionDate"')
     expect(markup).toContain('name="expiryDate"')
     expect(markup).toContain('更多信息')
@@ -199,5 +203,26 @@ describe('Backend reagent editor validation', () => {
     expect(filterReagentContainers(containers, 'beaker-02')).toEqual([containers[1]])
     expect(filterReagentContainers(containers, 'MATERIAL-ALPHA')).toEqual([containers[0]])
     expect(filterReagentContainers(containers, '  ')).toEqual(containers)
+  })
+
+  it('使用二次确认按钮删除库存试剂，不要求输入删除文案', () => {
+    const markup = renderToStaticMarkup(
+      createElement(BackendReagentDeleteDialog, {
+        item: {
+          id: 'reagent-1',
+          name: '乙醇',
+          totalQuantity: 100,
+          unit: 'mL',
+          status: 'available'
+        },
+        onDelete: async () => undefined,
+        onClose: () => undefined
+      })
+    )
+
+    expect(markup).toContain('确认删除')
+    expect(markup).toContain('data-dialog-initial-focus="true"')
+    expect(markup).not.toContain('输入“删除”确认')
+    expect(markup).not.toContain('<input')
   })
 })

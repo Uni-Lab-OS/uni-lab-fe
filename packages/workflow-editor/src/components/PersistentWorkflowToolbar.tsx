@@ -8,6 +8,7 @@ import {
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
 import { WorkflowButton } from './WorkflowButton'
 import { WorkflowDebugControls } from './WorkflowDebugger'
+import { WorkflowDraftValidationButton } from './WorkflowDraftValidationButton'
 import {
   WorkflowToolbarIcon,
   WorkflowWorkspaceToolbar
@@ -15,7 +16,7 @@ import {
 
 interface PersistentWorkflowToolbarProps {
   model: PersistentWorkflowAuthoringModel
-  hideRuntimeControls?: boolean
+  showRunModeMenu?: boolean
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
 }
@@ -37,7 +38,7 @@ const RUN_MODE_LABELS = {
  */
 export function PersistentWorkflowToolbar({
   model,
-  hideRuntimeControls = false,
+  showRunModeMenu = true,
   onResetEnvironment,
   environmentResetBusy = false
 }: PersistentWorkflowToolbarProps): React.JSX.Element {
@@ -75,6 +76,8 @@ export function PersistentWorkflowToolbar({
     taskRunMode,
     taskRuntime,
     traceRuntime,
+    validateCanvasDraft,
+    canvasValidationAvailable,
     workflowStartBusy,
     workflowStartPresentation
   } = model
@@ -131,20 +134,11 @@ export function PersistentWorkflowToolbar({
     setTaskRunMode(runMode)
   }
 
-  const initialStartLabel = taskRunMode === 'single_node'
+  const startLabel = taskRunMode === 'single_node'
     ? '开始单节点调试'
     : taskRunMode === 'debug'
       ? '调试启动'
-      : workflowStartPresentation.label
-  const startLabel = liveTask
-    ? taskRunMode === 'single_node'
-      ? '再次单节点调试'
-      : taskRunMode === 'debug'
-        ? '再次调试启动'
-        : taskRunMode === 'step'
-          ? '再次单步运行'
-          : '再次运行'
-    : initialStartLabel
+    : workflowStartPresentation.label
   return (
     <WorkflowWorkspaceToolbar
       task={task}
@@ -190,28 +184,39 @@ export function PersistentWorkflowToolbar({
         title: '保存工作流（Ctrl+S）',
         onSave: saveDraft
       }}
-      hideActions={hideRuntimeControls}
     >
-        <details
-          ref={runModeMenuRef}
-          className="persistent-authoring__run-mode-menu"
-        >
-          <summary
-            aria-label={`运行设置，当前为${RUN_MODE_LABELS[taskRunMode]}`}
-            aria-disabled={runningEntryBusy}
-            title={`运行设置：${RUN_MODE_LABELS[taskRunMode]}`}
-            onClick={(event) => {
-              if (runningEntryBusy) event.preventDefault()
-            }}
+        <WorkflowDraftValidationButton
+          aggregateAvailable={Boolean(aggregate)}
+          authorityLabel={currentAuthorityLabel}
+          available={canvasValidationAvailable}
+          busy={busy}
+          mode={mode}
+          runningEntryBusy={runningEntryBusy}
+          visible={!liveTask}
+          onValidate={validateCanvasDraft}
+        />
+
+        {!liveTask && showRunModeMenu && (
+          <details
+            ref={runModeMenuRef}
+            className="persistent-authoring__run-mode-menu"
           >
-            <WorkflowToolbarIcon
-              name={taskRunMode === 'step' ? 'step' : 'debug'}
-            />
-          </summary>
-          <div role="menu" aria-label="任务运行模式">
-            {(['normal', 'debug', 'step', 'single_node'] as const)
-              .filter((runMode) => runMode !== 'debug' || canDebugLaunch)
-              .map((runMode) => (
+            <summary
+              aria-label={`运行设置，当前为${RUN_MODE_LABELS[taskRunMode]}`}
+              aria-disabled={runningEntryBusy}
+              title={`运行设置：${RUN_MODE_LABELS[taskRunMode]}`}
+              onClick={(event) => {
+                if (runningEntryBusy) event.preventDefault()
+              }}
+            >
+              <WorkflowToolbarIcon
+                name={taskRunMode === 'step' ? 'step' : 'debug'}
+              />
+            </summary>
+            <div role="menu" aria-label="任务运行模式">
+              {(['normal', 'debug', 'step', 'single_node'] as const)
+                .filter((runMode) => runMode !== 'debug' || canDebugLaunch)
+                .map((runMode) => (
                 <WorkflowButton
                   key={runMode}
                   type="button"
@@ -235,45 +240,40 @@ export function PersistentWorkflowToolbar({
                   {taskRunMode === runMode && <i aria-hidden="true">✓</i>}
                 </WorkflowButton>
               ))}
-          </div>
-        </details>
+            </div>
+          </details>
+        )}
 
-        <WorkflowButton
-          type="button"
-          className="persistent-authoring__debug-icon is-start"
-          aria-label={startLabel}
-          disabled={
-            busy ||
-            runningEntryBusy ||
-            environmentResetBusy ||
-            singleNodeTargetMissing ||
-            workflowStartPresentation.disabled
-          }
-          disabledReason={busy
-            ? '正在处理工作流编写操作，请稍候'
-            : environmentResetBusy
-              ? '运行前环境正在复位，请等待安全校验完成'
+        {!liveTask && (
+          <WorkflowButton
+            type="button"
+            className="persistent-authoring__debug-icon is-start"
+            aria-label={startLabel}
+            disabled={
+              busy ||
+              runningEntryBusy ||
+              singleNodeTargetMissing ||
+              workflowStartPresentation.disabled
+            }
+            disabledReason={busy
+              ? '正在处理工作流编写操作，请稍候'
               : runningEntryBusy
                 ? '正在处理上一项工作流任务操作，请稍候'
                 : singleNodeTargetMissing
                   ? '请先在画布节点上设置起始点'
                   : workflowStartPresentation.disabledReason ??
                     '工作流尚未就绪'}
-          title={liveTask
-            ? `${startLabel} · 创建新的独立工作流任务；当前任务继续运行，资源冲突由调度器排队`
-            : `${startLabel} · ${RUN_MODE_LABELS[taskRunMode]}`}
-          data-tooltip={liveTask
-            ? `${startLabel}：创建新的独立任务`
-            : undefined}
-          onClick={startWorkflow}
-        >
-          <WorkflowToolbarIcon name="play" />
-        </WorkflowButton>
+            title={`${startLabel} · ${RUN_MODE_LABELS[taskRunMode]}`}
+            onClick={startWorkflow}
+          >
+            <WorkflowToolbarIcon name="play" />
+          </WorkflowButton>
+        )}
 
         <WorkflowButton
           type="button"
           className="persistent-authoring__debug-icon"
-          aria-label="复位运行环境"
+          aria-label="重置运行数据"
           disabled={
             !onResetEnvironment ||
             busy ||
@@ -283,22 +283,22 @@ export function PersistentWorkflowToolbar({
             dirty
           }
           disabledReason={!onResetEnvironment
-            ? '当前宿主不支持复位运行环境'
+            ? '当前宿主不支持重置运行数据'
             : liveTask
               ? '工作流运行期间不能复位环境'
               : environmentResetBusy || runningEntryBusy
-                ? '正在处理运行环境，请稍候'
+                ? '正在处理运行数据，请稍候'
                 : dirty
                   ? '请先保存当前工作流修改'
                   : busy
                     ? '正在处理工作流编写操作，请稍候'
-                    : '当前运行环境暂时不能复位'}
+                    : '当前运行数据暂时不能重置'}
           title={environmentResetBusy
-            ? '正在复位运行环境'
+            ? '正在重置运行数据'
             : '复位 PLC 与 Backend 物料状态'}
           onClick={() => {
             if (!onResetEnvironment || !globalThis.confirm(
-              '确定复位运行环境吗？\n\n将重启 PLC-Sim，并使用当前设备图清空并重建 Backend 物料与库位状态。'
+              '确定重置运行数据吗？\n\n将重启 PLC-Sim，并使用当前设备图清空并重建 Backend 物料与库位状态。'
             )) return
             void onResetEnvironment()
           }}

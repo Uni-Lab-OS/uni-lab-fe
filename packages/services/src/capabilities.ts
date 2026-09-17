@@ -28,6 +28,7 @@ export interface ServerCapabilities {
     editDefinitions: boolean
     runTasks: boolean
     subscribeEvents: boolean
+    recovery: boolean
   }
   reagentInfo: {
     read: boolean
@@ -76,6 +77,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'workflow.editDefinitions',
   'workflow.runTasks',
   'workflow.subscribeEvents',
+  'workflow.recovery',
   'reagentInfo.read',
   'reagentInfo.create',
   'reagentInfo.update',
@@ -180,7 +182,8 @@ function unavailableCapabilities(): ServerCapabilities {
       authoring: false,
       editDefinitions: false,
       runTasks: false,
-      subscribeEvents: false
+      subscribeEvents: false,
+      recovery: false
     },
     reagentInfo: {
       read: false,
@@ -232,6 +235,7 @@ function localGoCapabilities(): ServerCapabilities {
 
 function localPythonCapabilities(): ServerCapabilities {
   const capabilities = unavailableCapabilities()
+  capabilities.workflow.recovery = true
   capabilities.devices.listOnline = true
   capabilities.devices.listActions = true
   capabilities.devices.forceUnlock = true
@@ -243,7 +247,15 @@ function localPythonCapabilities(): ServerCapabilities {
   capabilities.workflow.authoring = true
   capabilities.workflow.runTasks = true
   capabilities.workflow.subscribeEvents = true
+  capabilities.reagentInfo.read = true
+  capabilities.reagentInfo.create = true
+  capabilities.reagentInfo.update = true
+  capabilities.reagentInfo.delete = true
   capabilities.inventory.readReagents = true
+  capabilities.inventory.createReagent = true
+  capabilities.inventory.updateReagent = true
+  capabilities.inventory.deleteReagent = true
+  capabilities.inventory.readReagentHistory = true
   return capabilities
 }
 

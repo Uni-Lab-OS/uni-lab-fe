@@ -1,10 +1,15 @@
 import type {
   DeviceAction,
   DeviceExecutionOccupancy,
-  WorkflowActionNodeTemplate
+  WorkflowActionNodeTemplate,
+  WorkflowRecoveryPort
 } from '@unilab/services'
 
-import type { ManagedDevice } from './deviceCatalog'
+import {
+  managedDeviceSelectionKey,
+  type ManagedDevice
+} from './deviceCatalog'
+import { DeviceExecutionUnlock } from './DeviceExecutionUnlock'
 import { deviceClass } from './deviceStyles'
 import type { DeviceManagementConnection } from './types'
 import {
@@ -77,7 +82,7 @@ export function DeviceListItem({
 }: {
   device: ManagedDevice
   selected: boolean
-  onSelect: (deviceId: string) => void
+  onSelect: (deviceKey: string) => void
 }): React.JSX.Element {
   const busyActionCount = device.actions.filter(
     (action) => action.isBusy
@@ -91,7 +96,7 @@ export function DeviceListItem({
         className={deviceClass('edge-device__device-item', selected && 'is-active')}
         aria-pressed={selected}
         aria-label={`${device.displayName}，${edgeLabel}，${device.dispatchable ? '可调度' : '派发受阻'}${occupancy ? '，存在执行占用' : ''}`}
-        onClick={() => onSelect(device.id)}
+        onClick={() => onSelect(managedDeviceSelectionKey(device))}
       >
         <span className={deviceClass('edge-device__device-icon')}>
           <DeviceIcon device={device} />
@@ -157,7 +162,9 @@ export function DeviceWorkspace({
   onCancelActionTask,
   canForceUnlock,
   unlockOperation,
-  onRequestUnlock
+  onRequestUnlock,
+  recovery,
+  onRefreshDevice
 }: {
   device: ManagedDevice
   selectedAction: DeviceAction | null
@@ -180,6 +187,8 @@ export function DeviceWorkspace({
   canForceUnlock: boolean
   unlockOperation: UnlockOperation | null
   onRequestUnlock: (device: ManagedDevice, action: DeviceAction) => void
+  recovery?: WorkflowRecoveryPort
+  onRefreshDevice?: () => Promise<void>
 }): React.JSX.Element {
   const busyActionCount = device.actions.filter(
     (action) => action.isBusy
@@ -227,12 +236,21 @@ export function DeviceWorkspace({
         </div>
       </header>
 
-      <div className={deviceClass('edge-device__metrics')} aria-label="设备目录信息">
+      <div className={deviceClass('edge-device__tabs')} role="tablist" aria-label="设备详情">
+        <button type="button" role="tab" aria-selected="true">设备动作</button>
+      </div>
+
+      <section className={deviceClass('edge-device__status-section')}>
+        <div className={deviceClass('edge-device__status-heading')}>
+          <strong>设备实时状态</strong>
+          <small>运行时刷新</small>
+        </div>
+        <div className={deviceClass('edge-device__metrics')} aria-label="设备目录信息">
         <Metric
           label="设备名称"
           value={device.machineName}
         />
-        <Metric label="Edge 身份" value={device.namespace || '—'} />
+        <Metric label="设备实例 ID" value={device.namespace || '—'} />
         <Metric
           label="调度状态"
           value={schedulingStatus}
@@ -253,14 +271,15 @@ export function DeviceWorkspace({
                   : '空闲'}
           tone={occupancy || busyActionCount ? 'warning' : 'muted'}
         />
-      </div>
+        </div>
+      </section>
 
       <div className={deviceClass('edge-device__content')}>
         <section className={deviceClass('edge-device__action-section')} data-device-management="action-section">
           <div className={deviceClass('edge-device__section-heading')}>
             <div>
-              <span>动作目录</span>
-              <h3>Edge 上报的动作节点</h3>
+              <h3>设备动作</h3>
+              <span>来自 Edge 上报的动作节点</span>
             </div>
             <small>{device.actions.length} 个</small>
           </div>
@@ -326,20 +345,24 @@ export function DeviceWorkspace({
         </section>
 
         <section className={deviceClass('edge-device__debug-section')} data-device-management="debug-section">
+          <DeviceExecutionOccupancySummary occupancies={device.executionOccupancies} />
+          {recovery && onRefreshDevice && device.executionOccupancies?.map(item => (
+            <DeviceExecutionUnlock
+              key={`${device.id}:${item.workflowTaskUuid}:${item.workflowNodeJobUuid}:${item.leaseUuid}`}
+              occupancy={item} port={recovery} onRefresh={onRefreshDevice}
+            />
+          ))}
           {selectedAction ? (
             <>
               <div className={deviceClass('edge-device__section-heading')}>
                 <div>
-                  <span>动作参数预览</span>
                   <h3 title={selectedAction.displayName}>
                     {selectedAction.displayName}
                   </h3>
+                  <span>动作参数预览</span>
                 </div>
                 <code>{selectedAction.actionName}</code>
               </div>
-              <DeviceExecutionOccupancySummary
-                occupancies={device.executionOccupancies}
-              />
               <DeviceLockControl
                 action={selectedAction}
                 canForceUnlock={canForceUnlock}
@@ -397,7 +420,7 @@ export function DeviceWorkspace({
 }
 
 /**
- * 展示设备级执行占用持有者；不提供手动解锁，避免越过物理结算边界。
+ * 展示设备级执行占用持有者；解锁命令由相邻的独立控件提供。
  *
  * @param props Authority 明确返回的设备执行占用摘要；null 表示未提供。
  * @returns 有占用时返回状态区域，否则不渲染。

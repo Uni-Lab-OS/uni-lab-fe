@@ -4,7 +4,42 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { DomainEntryPanel } from './domain-entry-panel'
 import { WorkbenchDomainLayout } from './workbench-domain-layout'
-import { WorkbenchViewState } from './workbench-view-state'
+import {
+  WorkbenchViewState,
+  isWorkflowDebugWorkbenchView,
+  isWorkflowManagementWorkbenchView
+} from './workbench-view-state'
+
+describe('工作流管理与调试布局边界', () => {
+  it('只为工作流调试模式启用 debugLayout', () => {
+    expect(isWorkflowDebugWorkbenchView('workflow')).toBe(true)
+    expect(isWorkflowDebugWorkbenchView('workflow-files')).toBe(true)
+    expect(isWorkflowDebugWorkbenchView('split')).toBe(true)
+
+    expect(isWorkflowDebugWorkbenchView('workflow-management')).toBe(false)
+    expect(isWorkflowDebugWorkbenchView('workflow-management-files')).toBe(false)
+    expect(isWorkflowDebugWorkbenchView('workflow-management-material')).toBe(false)
+
+    expect(isWorkflowManagementWorkbenchView('workflow')).toBe(false)
+    expect(isWorkflowManagementWorkbenchView('workflow-files')).toBe(false)
+    expect(isWorkflowManagementWorkbenchView('split')).toBe(false)
+    expect(isWorkflowManagementWorkbenchView('workflow-management')).toBe(true)
+    expect(isWorkflowManagementWorkbenchView('workflow-management-files')).toBe(true)
+    expect(isWorkflowManagementWorkbenchView('workflow-management-material')).toBe(true)
+  })
+})
+
+describe('工作台导航标题', () => {
+  it('不再通过活动栏 hover 重复展示完整 caption', () => {
+    const source = readFileSync(
+      new URL('./unilab-workbench-navigator-widget.tsx', import.meta.url),
+      'utf8'
+    )
+
+    expect(source).toContain("this.title.caption = ''")
+    expect(source).not.toContain('this.title.caption = this.entry.caption')
+  })
+})
 
 describe('Workbench domain view presentation', () => {
   it('derives split layout from independent workflow and material toggles', () => {
@@ -86,6 +121,50 @@ describe('Workbench domain view presentation', () => {
     expect(state.currentMode).toBe('robot-points')
   })
 
+  it('opens workflow management and task list as distinct sibling surfaces', () => {
+    const state = new WorkbenchViewState()
+
+    state.toggle('workflow-management')
+    expect(state.currentMode).toBe('workflow-management')
+    expect(state.isVisible('workflow-management')).toBe(true)
+    expect(state.isVisible('workflow')).toBe(false)
+
+    state.toggle('workflow-tasks')
+    expect(state.currentMode).toBe('workflow-tasks')
+    expect(state.isVisible('workflow-management')).toBe(false)
+    expect(state.isVisible('workflow-tasks')).toBe(true)
+  })
+
+  it('allows workflow management and materials to remain visible together', () => {
+    const state = new WorkbenchViewState()
+
+    state.toggle('workflow-management')
+    state.toggle('material')
+
+    expect(state.currentMode).toBe('workflow-management-material')
+    expect(state.isVisible('workflow-management')).toBe(true)
+    expect(state.isVisible('workflow')).toBe(false)
+    expect(state.isVisible('material')).toBe(true)
+
+    state.toggle('material')
+    expect(state.currentMode).toBe('workflow-management')
+    expect(state.isVisible('workflow-management')).toBe(true)
+    expect(state.isVisible('material')).toBe(false)
+  })
+
+  it('opens experiment operation debugging as an exclusive surface', () => {
+    const state = new WorkbenchViewState()
+
+    state.toggle('operation')
+
+    expect(state.currentMode).toBe('operation')
+    expect(state.isVisible('operation')).toBe(true)
+    expect(state.isVisible('workflow')).toBe(false)
+
+    state.toggle('operation')
+    expect(state.currentMode).toBe('operation')
+  })
+
   it('never deactivates the only active sidebar domain', () => {
     const state = new WorkbenchViewState()
     const listener = vi.fn()
@@ -162,6 +241,7 @@ describe('Workbench domain view presentation', () => {
         workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
       />
     )
@@ -181,6 +261,7 @@ describe('Workbench domain view presentation', () => {
         workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
       />
     )
@@ -208,6 +289,7 @@ describe('Workbench domain view presentation', () => {
         workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
       />
     )
@@ -218,6 +300,38 @@ describe('Workbench domain view presentation', () => {
     expect(markup).toContain('data-testid="material-surface"')
   })
 
+  it('reuses the workflow surface for management and isolates the task list', () => {
+    const managementMarkup = renderToStaticMarkup(
+      <WorkbenchDomainLayout
+        mode="workflow-management"
+        workflow={<section data-testid="workflow-surface" />}
+        workflowTasks={<section data-testid="workflow-tasks-surface" />}
+        material={<section data-testid="material-surface" />}
+        device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
+        robotWorkstation={<section data-testid="robot-workstation-surface" />}
+      />
+    )
+    const tasksMarkup = renderToStaticMarkup(
+      <WorkbenchDomainLayout
+        mode="workflow-tasks"
+        workflow={<section data-testid="workflow-surface" />}
+        workflowTasks={<section data-testid="workflow-tasks-surface" />}
+        material={<section data-testid="material-surface" />}
+        device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
+        robotWorkstation={<section data-testid="robot-workstation-surface" />}
+      />
+    )
+
+    expect(managementMarkup).toContain(
+      'class="unilab-workbench__domain-slot is-workflow"'
+    )
+    expect(tasksMarkup).toContain(
+      'class="unilab-workbench__domain-slot is-workflow-tasks"'
+    )
+  })
+
   it('renders instruments and materials with an accessible splitter', () => {
     const markup = renderToStaticMarkup(
       <WorkbenchDomainLayout
@@ -226,6 +340,7 @@ describe('Workbench domain view presentation', () => {
         workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
       />
     )
@@ -259,6 +374,7 @@ describe('Workbench domain view presentation', () => {
         workflowTasks={<section data-testid="workflow-tasks-surface" />}
         material={<section data-testid="material-surface" />}
         device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
         robotWorkstation={<section data-testid="robot-workstation-surface" />}
       />
     )
@@ -266,5 +382,70 @@ describe('Workbench domain view presentation', () => {
     expect(markup).toContain('data-workbench-view="robot-bench"')
     expect(markup).toContain('data-testid="robot-workstation-surface"')
     expect(markup).not.toContain('aria-label="机械臂工作站侧栏"')
+  })
+
+  it('renders the experiment operation workbench in the shared main area', () => {
+    const markup = renderToStaticMarkup(
+      <WorkbenchDomainLayout
+        mode="operation"
+        workflow={<section data-testid="workflow-surface" />}
+        workflowTasks={<section data-testid="workflow-tasks-surface" />}
+        material={<section data-testid="material-surface" />}
+        device={<section data-testid="device-surface" />}
+        operation={<section data-testid="operation-surface" />}
+        robotWorkstation={<section data-testid="robot-workstation-surface" />}
+      />
+    )
+
+    expect(markup).toContain('data-workbench-view="operation"')
+    expect(markup).toContain('data-testid="operation-surface"')
+    expect(markup).toContain(
+      'class="unilab-workbench__domain-slot is-operation"'
+    )
+  })
+})
+
+
+describe('文件与领域视图切换', () => {
+  it('从任务列表打开文件时替换任务列表，返回任务列表时关闭文件视图', () => {
+    const state = new WorkbenchViewState()
+    state.toggle('workflow-tasks')
+    state.toggle('files')
+    expect(state.currentMode).toBe('files')
+    expect(state.isVisible('workflow-tasks')).toBe(false)
+    state.toggle('files')
+    expect(state.currentMode).toBe('files')
+    state.toggle('workflow-tasks')
+    expect(state.currentMode).toBe('workflow-tasks')
+    expect(state.isVisible('files')).toBe(false)
+  })
+
+  it.each(['workflow', 'workflow-management'] as const)(
+    '文件可与 %s 共存，并允许任意一侧独立保留', domain => {
+      const state = new WorkbenchViewState()
+      state.toggle('workflow-tasks')
+      state.toggle('files')
+      state.toggle(domain)
+      expect(state.currentMode).toBe(`${domain}-files`)
+      expect(state.isVisible('files')).toBe(true)
+      expect(state.isVisible(domain)).toBe(true)
+      state.toggle(domain)
+      expect(state.currentMode).toBe('files')
+      state.toggle(domain)
+      state.toggle('files')
+      expect(state.currentMode).toBe(domain)
+    }
+  )
+
+  it('从物料分栏打开文件仅保留工作流，并在列表和调试之间保持文件可见', () => {
+    const state = new WorkbenchViewState()
+    state.toggle('material')
+    state.toggle('files')
+    expect(state.currentMode).toBe('workflow-files')
+    expect(state.isVisible('material')).toBe(false)
+    state.toggle('workflow-management')
+    expect(state.currentMode).toBe('workflow-management-files')
+    state.toggle('workflow')
+    expect(state.currentMode).toBe('workflow-files')
   })
 })

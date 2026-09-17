@@ -1,0 +1,307 @@
+import { ManualConfirmationEditor } from './ManualConfirmationEditor'
+import type { WorkflowDefinitionKind } from '@unilab/services'
+import { useState } from 'react'
+
+import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
+import { MaterialSourceInspector } from './MaterialSourceInspector'
+import { WorkflowConditionNodeEditor } from './WorkflowConditionNodeEditor'
+import { WorkflowActionParameterEditor } from './WorkflowActionParameterDrawer'
+import { formatAuthoringDiagnostic } from '../utils/workflowAuthoringUserCopy'
+
+/** 固定在桌面画布右侧的节点检查器；窄屏继续由共享参数抽屉承载。 */
+export function WorkflowNodeInspector({
+  model,
+  definitionKind = 'workflow',
+  workflowName,
+  debugLayout = false
+}: {
+  model: PersistentWorkflowAuthoringModel
+  definitionKind?: WorkflowDefinitionKind
+  workflowName?: string
+  debugLayout?: boolean
+}): React.JSX.Element {
+  const [inspectorPane, setInspectorPane] = useState<
+    'parameters' | 'mapping' | 'inputs' | 'outputs' | 'runtime'
+  >('parameters')
+  const operationInspector = definitionKind === 'operation'
+  const inspectorTabs = operationInspector
+    ? [
+      ['parameters', '参数配置'],
+      ['inputs', '输入'],
+      ['outputs', '输出'],
+      ['runtime', '运行策略']
+      ] as const
+    : [
+        ['parameters', '参数配置'],
+        ['mapping', '输入 / 输出'],
+        ['runtime', '运行观察']
+      ] as const
+  const {
+    bindTypedFieldToWorkflowInput,
+    busy,
+    canvasMutationEnabled,
+    canvasSaveHint,
+    diagnostics,
+    graph,
+    materialSourceAuthorityBlocked,
+    materialSourceCatalogLoading,
+    materialTraces,
+    renameCanvasNode,
+    resourceSlotOptions,
+    revealPackageSource,
+    selectedActionEditor,
+    selectedActionTemplate,
+    selectedIsMaterialSource,
+    selectedMaterialSourceEditor,
+    selectedNodeIsInternal,
+    selectedNodeName,
+    selectedNodeUuid,
+    setActionParametersOpen,
+    setMessage,
+    setSelectedNodeName,
+    setSelectedNodeNameDirty,
+    setSelectedNodeUuid,
+    taskNodeStates,
+    updateMaterialSource,
+    updateTypedField,
+    updateTypedFieldFromRaw
+  } = model
+  const selectedNodeDescription = selectedNodeUuid
+    ? model.structure.nodes.find((node) => node.id === selectedNodeUuid)
+      ?.description?.trim()
+    : ''
+  const selectedNode = model.structure.nodes.find((node) => node.id === selectedNodeUuid)
+  const selectedGraphNode = graph?.nodes.find(node => node.uuid === selectedNodeUuid)
+  const selectedIsCondition = selectedGraphNode?.type === 'condition'
+  const manualConfig = selectedGraphNode?.manual_confirmation as { timeout_seconds?: number } | undefined
+  const tablist = (
+    <nav className="persistent-authoring__node-tabs" aria-label="节点检查器视图" role="tablist">
+      {inspectorTabs.map(([pane, label]) => (
+        <button key={pane} type="button" role="tab" className={inspectorPane === pane ? 'is-active' : undefined} aria-selected={inspectorPane === pane} onClick={() => setInspectorPane(pane)}>{label}</button>
+      ))}
+    </nav>
+  )
+
+  return (
+    <aside
+      className={[
+        'persistent-authoring__node-editor',
+        selectedNodeUuid ? '' : 'is-empty'
+      ].filter(Boolean).join(' ')}
+      aria-label="画布节点编辑器"
+    >
+      <header className="persistent-authoring__inspector-heading">
+        <span>
+          <strong>
+            {operationInspector
+              ? '实验操作参数'
+              : !selectedNodeUuid
+                ? '节点检查器'
+                : selectedIsMaterialSource ? '物料来源' : debugLayout
+                  ? selectedNode?.type === 'condition' || selectedNode?.type === 'branch' ? '判断节点信息' : '节点信息'
+                  : '节点属性'}
+          </strong>
+          {!operationInspector && !debugLayout && <span>属性</span>}
+        </span>
+        {selectedNodeUuid && (
+          <button
+            type="button"
+            aria-label="取消节点选择"
+            title="取消节点选择"
+            onClick={() => {
+              const nodeUuid = selectedNodeUuid
+              setSelectedNodeUuid(null)
+              setSelectedNodeName('')
+              setSelectedNodeNameDirty(false)
+              setActionParametersOpen(false)
+              setInspectorPane('parameters')
+              requestAnimationFrame(() => {
+                document.querySelector<HTMLElement>(
+                  `.x6-node[data-cell-id="${nodeUuid}"]`
+                )?.focus({ preventScroll: true })
+              })
+            }}
+          >
+            ×
+          </button>
+        )}
+      </header>
+      {(debugLayout || operationInspector) && !selectedIsMaterialSource && tablist}
+
+      {!selectedNodeUuid && !operationInspector ? (
+        <div className="persistent-authoring__inspector-empty">
+          <span aria-hidden="true">◇</span>
+          <strong>选择画布中的节点</strong>
+          <p>在这里编辑名称和类型化参数，并查看输入、输出、运行状态与诊断。</p>
+        </div>
+      ) : (
+        <>
+          {operationInspector ? (
+            <section className="persistent-authoring__operation-summary">
+              <div className="persistent-authoring__operation-summary-head">
+                <div>
+                  <span>实验操作</span>
+                  <strong>{workflowName || selectedNodeName || '未命名实验操作'}</strong>
+                  <small>
+                    {selectedActionTemplate?.displayName || selectedNodeDescription || '选择画布中的动作节点'}
+                    {selectedActionTemplate?.name
+                      ? ` · ${selectedActionTemplate.name}`
+                      : ''}
+                  </small>
+                </div>
+                <b>草稿</b>
+              </div>
+              <details>
+                <summary>查看基本信息与能力说明</summary>
+                <p>{selectedNodeDescription || '参数定义来自当前操作模板，修改后随画布草稿保存。'}</p>
+              </details>
+            </section>
+          ) : (
+            <>
+              <label>
+                节点名称
+                <input
+                  value={selectedNodeName}
+                  disabled={busy || !canvasMutationEnabled || selectedNodeIsInternal}
+                  aria-describedby="persistent-node-description"
+                  onChange={(event) => {
+                    setSelectedNodeName(event.target.value)
+                    setSelectedNodeNameDirty(true)
+                    setMessage(canvasSaveHint)
+                  }}
+                  onBlur={() => renameCanvasNode(selectedNodeUuid!, selectedNodeName)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') event.currentTarget.blur()
+                  }}
+                />
+              </label>
+              <section
+                id="persistent-node-description"
+                className="persistent-authoring__node-description"
+                aria-label="节点说明"
+              >
+                <strong>节点说明</strong>
+                <p>{selectedNodeDescription || '当前节点暂无描述'}</p>
+              </section>
+            </>
+          )}
+
+          {selectedGraphNode?.type === 'manual_confirm' && <ManualConfirmationEditor
+            key={`${selectedNodeUuid}:${manualConfig?.timeout_seconds}`}
+            timeoutSeconds={manualConfig?.timeout_seconds ?? 3600}
+            deviceUuid={String(selectedGraphNode.material_uuid || '')}
+            editable={!busy && canvasMutationEnabled && Boolean(model.runtime.recovery)}
+            onChange={model.updateManualConfirmation}
+          />}
+          {selectedMaterialSourceEditor && (
+            <MaterialSourceInspector
+              editor={selectedMaterialSourceEditor}
+              accent={materialTraces.materialSourceAccents.get(
+                selectedMaterialSourceEditor.nodeUuid
+              )}
+              editable={
+                !busy && canvasMutationEnabled &&
+                !materialSourceCatalogLoading &&
+                !materialSourceAuthorityBlocked
+              }
+              status={taskNodeStates[selectedNodeUuid!] || 'pending'}
+              diagnostics={diagnostics.filter(
+                (diagnostic) => diagnostic.node_id === selectedNodeUuid!
+              )}
+              onChange={(patch) => updateMaterialSource(
+                selectedMaterialSourceEditor,
+                patch
+              )}
+              onRevealSource={revealPackageSource}
+            />
+          )}
+
+          {selectedIsCondition && operationInspector && graph && selectedNodeUuid && (
+            <WorkflowConditionNodeEditor
+              graph={graph}
+              nodeUuid={selectedNodeUuid}
+              editable={!busy && canvasMutationEnabled}
+              onChange={(param) => model.updateControlNodeParam(
+                selectedNodeUuid,
+                param
+              )}
+            />
+          )}
+
+          {!selectedIsMaterialSource && !selectedIsCondition && (selectedActionEditor || operationInspector) && (
+            <>
+              {!debugLayout && !operationInspector && tablist}
+              {!selectedActionEditor ? (
+                <div className="persistent-authoring__inspector-empty operation-inspector-selection-empty">
+                  <strong>选择画布中的动作节点</strong>
+                  <p>选择后配置该操作的业务参数、输入输出与运行策略。</p>
+                </div>
+              ) : inspectorPane !== 'runtime' ? (
+                <WorkflowActionParameterEditor
+                  editor={selectedActionEditor}
+                  outputHandles={selectedActionTemplate?.handles.filter(
+                    (handle) => handle.ioType === 'source'
+                  ) ?? []}
+                  graph={graph}
+                  editable={!busy && canvasMutationEnabled}
+                  view={inspectorPane}
+                  hideMaterialFields={operationInspector}
+                  presentation={operationInspector ? 'operation' : debugLayout ? 'debug' : 'node'}
+                  resourceSlotOptions={resourceSlotOptions}
+                  onProviderChange={(field, provider) => {
+                    if (provider.startsWith('workflow:')) {
+                      bindTypedFieldToWorkflowInput(
+                        field.handleUuid,
+                        provider.slice('workflow:'.length)
+                      )
+                    } else if (
+                      provider === 'literal' || provider === 'missing'
+                    ) {
+                      updateTypedField(field.handleUuid, undefined)
+                    }
+                  }}
+                  onLiteralBlur={updateTypedFieldFromRaw}
+                  onResourceChange={(field, materialUuid) => updateTypedField(
+                    field.handleUuid,
+                    materialUuid ? { uuid: materialUuid } : undefined
+                  )}
+                  onClear={(handleUuid) => updateTypedField(
+                    handleUuid,
+                    undefined
+                  )}
+                  onNull={(handleUuid) => updateTypedField(handleUuid, null)}
+                />
+              ) : (
+                <section className="persistent-authoring__runtime-observer">
+                  <div className="strategy-list">
+                    <div className="strategy-item">
+                      <span>节点状态</span>
+                      <strong>{taskNodeStates[selectedNodeUuid!] || '等待调试'}</strong>
+                    </div>
+                    <div className="strategy-item">
+                      <span>参数合同</span>
+                      <strong>{selectedActionEditor.diagnostics.length > 0
+                        ? '需要处理'
+                        : '校验通过'}</strong>
+                    </div>
+                    <div className="strategy-item">
+                      <span>保存状态</span>
+                      <strong>{canvasSaveHint}</strong>
+                    </div>
+                  </div>
+                  {diagnostics.filter(
+                    (diagnostic) => diagnostic.node_id === selectedNodeUuid!
+                  ).map((diagnostic, index) => (
+                    <p key={`${diagnostic.code}:${index}`} role="alert">
+                      {formatAuthoringDiagnostic(diagnostic).detail}
+                    </p>
+                  ))}
+                </section>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </aside>
+  )
+}

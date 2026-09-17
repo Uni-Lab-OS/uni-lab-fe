@@ -5,44 +5,50 @@ import { createInventoryReadPort } from './inventory'
 import type { HttpClient } from './http'
 
 describe('inventory read port', () => {
-  /** 证明 OS 快照只投影明确的试剂批次，并保留权威可用量和预留量。 */
-  it('maps reagent lots from the real OS inventory snapshot', async () => {
-    const request = vi.fn(async () => ({
-      templates: [
-        { template_id: 'reagent-naoh', name: 'NaOH 1M', category: 'reagent' },
-        { template_id: 'tips', name: '吸头', category: 'consumable' }
-      ],
-      lots: [
-        {
-          lot_id: 'lot-naoh', template_id: 'reagent-naoh', batch_no: 'B-01',
-          unit: 'mL', quantity_total: 500, quantity_available: 420,
-          quantity_reserved: 80, expiry: '2027-01-01', quarantined: 0,
-          warehouse_zone_id: 'zone-a'
-        },
-        {
-          lot_id: 'lot-tips', template_id: 'tips', batch_no: 'T-01',
-          unit: 'piece', quantity_total: 96, quantity_available: 96,
-          quantity_reserved: 0, expiry: '', quarantined: 0,
-          warehouse_zone_id: 'zone-b'
+  /** 证明 OS 试剂资源列表保留总量、活动预留量与可用量。 */
+  it('maps reagent inventory from the real OS reagent endpoint', async () => {
+    const request = vi.fn(async (path: string) => {
+      expect(path).toBe('/api/v1/reagents?page=1&page_size=500')
+      return {
+        code: 0,
+        data: {
+          items: [{
+            uuid: 'reagent-naoh', material_uuid: 'material-naoh',
+            reagent_info_uuid: 'info-naoh', revision: 3, meta_data: {},
+            name: 'NaOH 1M', physical_state: 'liquid', quantity: 500,
+            quantity_unit: 'mL', active_workflow_reserved_quantity: 80,
+            container_barcode: 'B-01', container_name: '碱液瓶'
+          }]
         }
-      ]
-    }))
+      }
+    })
     const port = createInventoryReadPort(
       { request } as HttpClient,
       getDefaultBackend('local-python')
     )
 
     await expect(port.listReagentInventory()).resolves.toEqual([{
-      id: 'lot-naoh',
-      templateId: 'reagent-naoh',
+      id: 'reagent-naoh',
+      materialId: 'material-naoh',
+      reagentInfoId: 'info-naoh',
       name: 'NaOH 1M',
+      cas: undefined,
+      molecularFormula: undefined,
+      physicalState: 'liquid',
       totalQuantity: 500,
       availableQuantity: 420,
       reservedQuantity: 80,
       unit: 'mL',
       lotLabel: 'B-01',
-      siteLabel: 'zone-a',
-      expiresAt: '2027-01-01',
+      siteLabel: '碱液瓶',
+      concentrationValue: undefined,
+      concentrationUnit: undefined,
+      densityGPerMl: undefined,
+      revision: 3,
+      description: undefined,
+      metadata: {},
+      createdAt: undefined,
+      updatedAt: undefined,
       status: 'available'
     }])
   })
@@ -63,7 +69,7 @@ describe('inventory read port', () => {
     }))
     const port = createInventoryReadPort(
       { request } as HttpClient,
-      getDefaultBackend('local-go')
+      getDefaultBackend('local-python')
     )
 
     const [item] = await port.listReagentInventory()
@@ -101,7 +107,7 @@ describe('inventory read port', () => {
     })
     const port = createInventoryReadPort(
       { request } as HttpClient,
-      getDefaultBackend('local-go')
+      getDefaultBackend('local-python')
     )
 
     await expect(port.listReagentInfos()).resolves.toEqual([{
@@ -135,7 +141,7 @@ describe('inventory read port', () => {
     })
     const port = createInventoryReadPort(
       { request } as HttpClient,
-      getDefaultBackend('local-go')
+      getDefaultBackend('local-python')
     )
 
     await expect(port.lookupCompoundByCAS('64-17-5')).resolves.toEqual({
@@ -173,7 +179,7 @@ describe('inventory read port', () => {
     })
     const port = createInventoryReadPort(
       { request } as HttpClient,
-      getDefaultBackend('local-go')
+      getDefaultBackend('local-python')
     )
 
     await expect(port.createReagentInfo({
@@ -235,7 +241,7 @@ describe('inventory read port', () => {
     })
     const port = createInventoryReadPort(
       { request } as HttpClient,
-      getDefaultBackend('local-go')
+      getDefaultBackend('local-python')
     )
 
     await expect(port.createReagent({
@@ -285,7 +291,7 @@ describe('inventory read port', () => {
     })
     const port = createInventoryReadPort(
       { request } as HttpClient,
-      getDefaultBackend('local-go')
+      getDefaultBackend('local-python')
     )
 
     await expect(port.createReagent({
@@ -327,7 +333,7 @@ describe('inventory read port', () => {
     }))
     const port = createInventoryReadPort(
       { request } as HttpClient,
-      getDefaultBackend('local-go')
+      getDefaultBackend('local-python')
     )
 
     await expect(port.listReagentHistory('material-1')).resolves.toEqual({
@@ -344,27 +350,32 @@ describe('inventory read port', () => {
     })
   })
 
-  /** 证明 Edge 库存快照不能被误当成 Backend 试剂写接口。 */
-  it('fails closed for reagent mutations on Edge', async () => {
+  /** 证明 OS profile 直接开放统一试剂删除路由。 */
+  it('sends reagent mutations to the OS v1 contract', async () => {
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      expect(path).toBe('/api/v1/reagents/reagent-1')
+      expect(init?.method).toBe('DELETE')
+      return { code: 0 }
+    })
     const port = createInventoryReadPort(
-      { request: vi.fn() } as unknown as HttpClient,
+      { request } as HttpClient,
       getDefaultBackend('local-python')
     )
 
-    await expect(port.deleteReagent('lot-1')).rejects.toMatchObject({
-      code: 'UNSUPPORTED_REAGENT_WRITE'
-    })
+    await expect(port.deleteReagent('reagent-1')).resolves.toBeUndefined()
   })
 
-  /** 证明非法数量不会被前端静默归零。 */
+  /** 证明 OS 试剂资源中的非法数量不会被前端静默归零。 */
   it('rejects malformed authoritative quantities', async () => {
     const request = vi.fn(async () => ({
-      templates: [{ template_id: 'reagent-x', name: '试剂 X', category: 'reagent' }],
-      lots: [{
-        lot_id: 'lot-x', template_id: 'reagent-x', batch_no: '', unit: 'mL',
-        quantity_total: '10', quantity_available: 10, quantity_reserved: 0,
-        expiry: '', quarantined: 0, warehouse_zone_id: ''
-      }]
+      code: 0,
+      data: {
+        items: [{
+          uuid: 'reagent-x', material_uuid: 'material-x',
+          reagent_info_uuid: 'info-x', revision: 1, meta_data: {},
+          name: '试剂 X', quantity: '10', quantity_unit: 'mL'
+        }]
+      }
     }))
     const port = createInventoryReadPort(
       { request } as HttpClient,

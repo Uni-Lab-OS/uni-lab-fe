@@ -1,3 +1,4 @@
+import type { WorkflowRecoveryPort } from './workflowRecovery'
 import type { WorkflowActionCatalogSnapshot } from './workflowActionCatalog'
 import type {
   WorkflowAuthoringAggregate,
@@ -13,6 +14,7 @@ import type {
   WorkflowAuthoringValidateRequest,
   WorkflowDefinitionChangePage,
   WorkflowDefinitionCreateRequest,
+  ExperimentOperationCreateRequest,
   WorkflowDocument,
   WorkflowListQuery,
   WorkflowPage,
@@ -52,6 +54,9 @@ import type {
  * 该端口只封装通信与解码，不持有工作流或任务权威状态。
  */
 export interface WorkflowRuntimePort {
+  /** OS 专属异常处置与人工确认契约；不支持的 Authority 不暴露写入口。 */
+  recovery?: WorkflowRecoveryPort
+
   getWorkflowActionCatalog: (
     signal?: AbortSignal,
     options?: { refresh?: boolean }
@@ -61,6 +66,9 @@ export interface WorkflowRuntimePort {
   listWorkflows: (query?: WorkflowListQuery) => Promise<WorkflowPage>
   createWorkflowDefinition: (
     request: WorkflowDefinitionCreateRequest
+  ) => Promise<WorkflowSummary>
+  createExperimentOperation: (
+    request: ExperimentOperationCreateRequest
   ) => Promise<WorkflowSummary>
   deleteWorkflowDefinition: (workflowUuid: string) => Promise<void>
   listWorkflowDefinitionChanges: (

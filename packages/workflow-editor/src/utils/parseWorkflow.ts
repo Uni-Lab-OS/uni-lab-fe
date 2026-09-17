@@ -40,6 +40,19 @@ export interface WorkflowNode {
   openChildWorkflowUuid?: string
   // Resets session-only expansion when the authoritative OS graph changes.
   compositeSignature?: string
+  controlFlow?: {
+    kind: 'condition' | 'repeat_until'
+    branchCount?: number
+    maxIterations?: number
+    branches?: Array<{
+      label: string
+      entryNodeUuids: string[]
+      conditionSummary: string
+    }>
+    entryNodeUuids?: string[]
+    exitNodeUuids?: string[]
+    successorNodeUuids?: string[]
+  }
   // OS 已发布工作流来源元数据派生的专用画布视觉。
   visualKind?: WorkflowNodeVisualKind
   handles?: WorkflowHandlePort[]

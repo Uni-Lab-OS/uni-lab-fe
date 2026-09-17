@@ -46,6 +46,7 @@ const siteHandleUuid = '30000000-0000-4000-8000-000000000008'
 const upstreamHandleUuid = '30000000-0000-4000-8000-000000000009'
 const readyTargetHandleUuid = '30000000-0000-4000-8000-000000000010'
 const readySourceHandleUuid = '30000000-0000-4000-8000-000000000011'
+const upstreamReadySourceHandleUuid = '30000000-0000-4000-8000-000000000013'
 const publishedWorkflowTemplateUuid =
   '20000000-0000-4000-8000-000000000010'
 const publishedWorkflowUuid = '60000000-0000-4000-8000-000000000010'
@@ -164,7 +165,13 @@ describe('typed Action editor projection', () => {
       execution_policy: {},
       disabled: false,
       minimized: false,
-      meta_data: { unilab: { input_bindings: {} } }
+      meta_data: {
+        unilab: {
+          input_bindings: {},
+          authoring_result_name: 'prepare_child',
+          authoring_source_order: 0
+        }
+      }
     }])
     expect(created.nodes[0]?.meta_data).not.toHaveProperty(
       'unilab.composite'
@@ -301,7 +308,7 @@ describe('typed Action editor projection', () => {
     )!
     expect(connectedInvocation.param).toEqual({})
     expect(connectedInvocation.meta_data).toEqual({
-      unilab: { input_bindings: {} }
+      unilab: { input_bindings: {}, authoring_source_order: 2 }
     })
 
     const outputConnected = connectTypedActionEdge(
@@ -488,7 +495,9 @@ describe('typed Action editor projection', () => {
       minimized: false,
       meta_data: {
         unilab: {
-          input_bindings: {}
+          input_bindings: {},
+          authoring_result_name: 'transfer_2',
+          authoring_source_order: 0
         }
       }
     }])
@@ -532,6 +541,24 @@ describe('typed Action editor projection', () => {
       templateUuid: '20000000-0000-4000-8000-000000000003',
       name: 'health'
     })).toThrow(/类型化|操作|模板/i)
+  })
+
+  it('persists an exact canvas position when a template is dropped', () => {
+    const emptyGraph: WorkflowAuthoringGraph = {
+      ...graph,
+      nodes: [],
+      edges: []
+    }
+    const created = createTypedActionNode(catalog, emptyGraph, {
+      nodeUuid: secondNodeUuid,
+      templateUuid,
+      name: 'positioned_action',
+      position: { x: 420, y: 168 }
+    })
+
+    expect(created.nodes[0]?.pose).toEqual({
+      position: { x: 420, y: 168 }
+    })
   })
 
   it('switches atomically between workflow input, literal and edge providers', () => {
@@ -600,6 +627,55 @@ describe('typed Action editor projection', () => {
       requiredHandleUuid,
       'missing_input'
     )).toThrow(/工作流入参/)
+  })
+
+  it('rejects workflow input bindings that are not schema-assignable', () => {
+    const incompatibleGraph = structuredClone(graph)
+    const inputContract = (
+      incompatibleGraph.workflow.meta_data as {
+        unilab: {
+          input_contract: {
+            parameters: Array<{ name: string; schema: Record<string, unknown> }>
+          }
+        }
+      }
+    ).unilab.input_contract
+    inputContract.parameters[0]!.schema = { type: 'number' }
+
+    expect(() => bindTypedActionWorkflowInput(
+      catalog,
+      incompatibleGraph,
+      nodeUuid,
+      requiredHandleUuid,
+      'count_input'
+    )).toThrow(/Schema|类型|兼容|可赋值/i)
+  })
+
+  it('allows connections without valueSchema preflight blocking', () => {
+    const boundedCatalog = structuredClone(catalog)
+    const sourceHandle = boundedCatalog.actionTemplates[1]!.handles[0]!
+    const targetHandle = boundedCatalog.actionTemplates[0]!.handles.find(
+      handle => handle.uuid === requiredHandleUuid
+    )!
+    sourceHandle.valueType = 'integer'
+    sourceHandle.valueSchema = { type: 'integer' }
+    targetHandle.valueType = 'integer'
+    targetHandle.valueSchema = { type: 'integer', minimum: 1 }
+
+    expect(connectTypedActionEdge(boundedCatalog, graph, {
+      sourceNodeUuid,
+      sourceHandleUuid: upstreamHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: requiredHandleUuid
+    }).edges).toHaveLength(1)
+
+    sourceHandle.valueSchema = { type: 'integer', minimum: 2 }
+    expect(connectTypedActionEdge(boundedCatalog, graph, {
+      sourceNodeUuid,
+      sourceHandleUuid: upstreamHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: requiredHandleUuid
+    }).edges).toHaveLength(1)
   })
 
   it('preserves required/default/null/enum/object/list/ResourceSlot semantics', () => {
@@ -869,6 +945,119 @@ describe('typed Action editor projection', () => {
     })).toThrow('操作目标端口已有数据来源')
   })
 
+  it('用规范 ready 连接点建立执行顺序连线，并拒绝与数据输入混连', () => {
+    // OS 的动作模板投影把 ready 投影成 data_key/data_source 为 null、type 为
+    // default 的结构连接点；创作层必须按这一真实形态处理，不能要求 data_key。
+    const canonicalCatalog = structuredClone(catalog)
+    for (const template of canonicalCatalog.actionTemplates) {
+      for (const item of template.handles) {
+        if (item.structuralRole !== 'ready') continue
+        item.dataSource = null
+        item.dataKey = null
+        item.valueType = 'default'
+        item.valueSchema = {}
+      }
+    }
+    const upstream = canonicalCatalog.actionTemplates.find(
+      (template) => template.uuid === sourceTemplateUuid
+    )!
+    upstream.handles.push({
+      ...readyHandle(upstreamReadySourceHandleUuid, 'source'),
+      workflowNodeTemplateUuid: sourceTemplateUuid,
+      dataSource: null,
+      dataKey: null,
+      valueType: 'default',
+      valueSchema: {}
+    })
+    const fanInGraph: WorkflowAuthoringGraph = {
+      ...graph,
+      nodes: [...graph.nodes, {
+        uuid: secondNodeUuid,
+        workflow_node_template_uuid: sourceTemplateUuid,
+        name: 'source-2',
+        param: {}
+      }]
+    }
+
+    const connected = connectTypedActionEdge(canonicalCatalog, fanInGraph, {
+      sourceNodeUuid,
+      sourceHandleUuid: upstreamReadySourceHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: readyTargetHandleUuid
+    })
+
+    expect(connected.edges).toEqual([expect.objectContaining({
+      source_node_uuid: sourceNodeUuid,
+      source_handle_uuid: upstreamReadySourceHandleUuid,
+      target_node_uuid: nodeUuid,
+      target_handle_uuid: readyTargetHandleUuid
+    })])
+    // 执行顺序输入只表达先后关系，允许多个上游汇入。
+    expect(connectTypedActionEdge(canonicalCatalog, connected, {
+      sourceNodeUuid: secondNodeUuid,
+      sourceHandleUuid: upstreamReadySourceHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: readyTargetHandleUuid
+    }).edges).toHaveLength(2)
+    expect(() => connectTypedActionEdge(canonicalCatalog, fanInGraph, {
+      sourceNodeUuid,
+      sourceHandleUuid: upstreamReadySourceHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: siteHandleUuid
+    })).toThrow('执行顺序输出只能连接到目标节点的执行顺序输入')
+    expect(() => connectTypedActionEdge(canonicalCatalog, fanInGraph, {
+      sourceNodeUuid,
+      sourceHandleUuid: upstreamHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: readyTargetHandleUuid
+    })).toThrow('数据输出不能连接到执行顺序输入')
+  })
+
+  it('连线成功后把后添加的动作上游排到目标之前', () => {
+    const reversedGraph: WorkflowAuthoringGraph = {
+      ...graph,
+      nodes: graph.nodes.map((node) => ({
+        ...node,
+        meta_data: {
+          unilab: { authoring_source_order: node.uuid === sourceNodeUuid ? 1 : 0 }
+        }
+      }))
+    }
+    const connected = connectTypedActionEdge(catalog, reversedGraph, {
+      sourceNodeUuid,
+      sourceHandleUuid: upstreamHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: materialHandleUuid
+    })
+    expect(connected.nodes.find((node) => node.uuid === sourceNodeUuid)?.meta_data)
+      .toMatchObject({ unilab: { authoring_source_order: 0 } })
+    expect(connected.nodes.find((node) => node.uuid === nodeUuid)?.meta_data)
+      .toMatchObject({ unilab: { authoring_source_order: 1 } })
+    expect(reversedGraph.nodes.find((node) => node.uuid === sourceNodeUuid)?.meta_data)
+      .toMatchObject({ unilab: { authoring_source_order: 1 } })
+  })
+
+  it('rejects a real-handle connection that would create a workflow cycle', () => {
+    const graphWithReturnPath: WorkflowAuthoringGraph = {
+      ...graph,
+      edges: [{
+        uuid: 'existing-return-path',
+        source_node_uuid: nodeUuid,
+        source_handle_uuid: readySourceHandleUuid,
+        target_node_uuid: sourceNodeUuid,
+        target_handle_uuid: readyTargetHandleUuid,
+        meta_data: {}
+      }]
+    }
+
+    expect(() => connectTypedActionEdge(catalog, graphWithReturnPath, {
+      sourceNodeUuid,
+      sourceHandleUuid: upstreamHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: materialHandleUuid
+    })).toThrow('工作流连线会形成环路')
+  })
+
   it('rehydrates only typed Actions while preserving framework wire records', () => {
     const frameworkTemplateUuid = '21000000-0000-4000-8000-000000000001'
     const frameworkHandleUuid = '31000000-0000-4000-8000-000000000001'
@@ -1056,7 +1245,12 @@ const graph: WorkflowAuthoringGraph = {
             },
             {
               name: 'sample_input',
-              schema: { $slot: 'ResourceSlot' },
+              schema: {
+                $slot: 'ResourceSlot',
+                allowed_resource_template_uuids: [
+                  '10000000-0000-4000-8000-000000000001'
+                ]
+              },
               required: true
             }
           ]
@@ -1556,6 +1750,7 @@ function actionTemplate(): WorkflowActionCatalogSnapshot['actionTemplates'][numb
     displayName: '转移',
     actionClass: 'lab.devices:Pump',
     actionType: 'UniLabJsonCommand',
+    nodeType: 'device',
     schema: canonicalSchema(
       ['count', 'temperature', 'note', 'mode', 'options', 'samples', 'material', 'site'],
       []
@@ -1595,14 +1790,18 @@ function sourceTemplate(): WorkflowActionCatalogSnapshot['actionTemplates'][numb
     displayName: '来源',
     actionClass: 'lab.devices:Source',
     actionType: 'UniLabJsonCommand',
+    nodeType: 'device',
     schema: canonicalSchema([], ['material']),
     goal: {},
     goalDefault: {},
     handles: [{
-      ...handle(upstreamHandleUuid, 'material', { $slot: 'ResourceSlot' }),
+      ...handle(upstreamHandleUuid, 'material', resourceSlotValueSchema()),
       workflowNodeTemplateUuid: sourceTemplateUuid,
       ioType: 'source',
-      dataSource: 'result'
+      dataSource: 'result',
+      allowedResourceTemplateUuids: [
+        '10000000-0000-4000-8000-000000000001'
+      ]
     }]
   }
 }

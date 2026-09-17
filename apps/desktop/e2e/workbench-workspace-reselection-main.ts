@@ -46,7 +46,7 @@ const controller: WorkbenchWorkspaceController = {
     return { rendererUrl: readyUrl, snapshot: snapshot() }
   },
   openRecent: async () => null,
-  openExplicit: async () => null,
+  openPath: async () => null,
   deactivate: async () => {
     phase = 'stopping'
     await new Promise(resolve => setTimeout(resolve, 25))

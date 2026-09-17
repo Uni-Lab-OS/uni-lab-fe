@@ -14,6 +14,13 @@ const BACKEND_CONNECTION_PROBE_INTERVAL_MS = 3_000
 
 type BackendPing = (signal: AbortSignal) => Promise<boolean>
 
+/** 仅生产 Backend 连接需要主动探测远端健康状态。 */
+export function backendHealthProbeEnabled(
+  mode: WorkbenchConnectionMode
+): boolean {
+  return mode === 'backend'
+}
+
 /**
  * 持续探测 Backend 健康状态，避免把一次成功或连接模式选择当成长期在线事实。
  * @param ping 可取消的 Backend 健康探测。
@@ -61,11 +68,11 @@ export function useBackendConnectionState(
   retryRevision: number
 ): WorkbenchConnectionState {
   const [state, setState] = useState<WorkbenchConnectionState>(
-    mode === 'backend' ? 'connecting' : 'disconnected'
+    backendHealthProbeEnabled(mode) ? 'connecting' : 'disconnected'
   )
 
   useEffect(() => {
-    if (mode !== 'backend') {
+    if (!backendHealthProbeEnabled(mode)) {
       setState('disconnected')
       return
     }
