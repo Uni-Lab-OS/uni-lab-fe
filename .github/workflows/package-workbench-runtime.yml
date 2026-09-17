@@ -15,8 +15,8 @@ env:
   CONSTRUCTOR_VERSION: 3.16.1
   MICROMAMBA_VERSION: 2.8.1
   MINIFORGE_VERSION: 26.3.2-3
-  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.4-4b579413
-  UNILAB_RUNTIME_SOURCE_REF: 4b579413ea283a4a5a337a0370c8ed86b7532cbe
+  UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.4-ad016b73
+  UNILAB_RUNTIME_SOURCE_REF: ad016b73b52bf58b8afd8abcea368a754ee9a30c
   UNILAB_RUNTIME_OPCUA_FIX_REF: f7e78e7e9fcc47ed24f4b6affeaa82dcc8de49f2
   UNILAB_RUNTIME_BUILD_PIN_REF: b09c0c048f6de1e5027deb1733da439598c577cf
   UNILAB_RUNTIME_VERSION: 0.11.4
@@ -51,6 +51,7 @@ jobs:
           $required = @(
             '.runtime-source/.conda/constructor/construct.yaml',
             '.runtime-source/.conda/vendor/opcua/recipe.yaml',
+            '.runtime-source/.conda/environment/recipe.yaml',
             '.runtime-source/.conda/base/recipe.yaml'
           )
           foreach ($path in $required) {
@@ -91,6 +92,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Unable to build msgcenterpy Runtime package' }
           conda run -n constructor-build rattler-build build -r .conda/vendor/pylabrobot/recipe.yaml --target-platform win-64 -c conda-forge --channel ./output --output-dir ./output
           if ($LASTEXITCODE -ne 0) { throw 'Unable to build pylabrobot Runtime package' }
+          conda run -n constructor-build rattler-build build -r .conda/environment/recipe.yaml --target-platform win-64 -c uni-lab -c robostack-staging -c conda-forge --channel ./output --output-dir ./output
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to build unilabos-env Runtime package' }
           conda run -n constructor-build rattler-build build -r .conda/base/recipe.yaml --target-platform win-64 -c uni-lab -c robostack-staging -c conda-forge --channel ./output --output-dir ./output
           if ($LASTEXITCODE -ne 0) { throw 'Unable to build Uni-Lab-OS Runtime package' }
 
@@ -211,6 +214,7 @@ jobs:
           set -euo pipefail
           test -f .conda/constructor/construct.yaml
           test -f .conda/vendor/opcua/recipe.yaml
+          test -f .conda/environment/recipe.yaml
           test -f .conda/base/recipe.yaml
 
       - name: Set up Constructor
@@ -239,6 +243,7 @@ jobs:
           conda run -n constructor-build rattler-build build -r .conda/vendor/opcua/recipe.yaml --target-platform osx-arm64 -c conda-forge --output-dir ./output
           conda run -n constructor-build rattler-build build -r .conda/vendor/msgcenterpy/recipe.yaml --target-platform osx-arm64 -c conda-forge --channel ./output --output-dir ./output
           conda run -n constructor-build rattler-build build -r .conda/vendor/pylabrobot/recipe.yaml --target-platform osx-arm64 -c conda-forge --channel ./output --output-dir ./output
+          conda run -n constructor-build rattler-build build -r .conda/environment/recipe.yaml --target-platform osx-arm64 -c uni-lab -c robostack-staging -c conda-forge --channel ./output --output-dir ./output
           conda run -n constructor-build rattler-build build -r .conda/base/recipe.yaml --target-platform osx-arm64 -c uni-lab -c robostack-staging -c conda-forge --channel ./output --output-dir ./output
 
           runtime_package_count="$(find output -type f -name "unilabos-$UNILAB_RUNTIME_VERSION-*.conda" | wc -l | tr -d ' ')"
