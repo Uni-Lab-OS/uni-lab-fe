@@ -1,7 +1,10 @@
 import type { WorkflowAuthoringGraph } from '@unilab/services'
 import { describe, expect, it } from 'vitest'
 
-import { reorderAuthoringSourceAfterConnection } from './workflowAuthoringNodeIdentity'
+import {
+  authoringSafeIdentifier,
+  reorderAuthoringSourceAfterConnection
+} from './workflowAuthoringNodeIdentity'
 
 function graphOf(ids: string[], edges: string[][] = []): WorkflowAuthoringGraph {
   return {
@@ -94,5 +97,24 @@ describe('连线后的作者源码顺序', () => {
     expect(graph).toEqual(original)
     expect(() => reorderAuthoringSourceAfterConnection(graphOf(['a'], [['a', 'missing']])))
       .toThrow('不存在的节点')
+  })
+})
+
+describe('作者安全标识符', () => {
+  it('把全中文符号名清洗为回退名，而不是一串下划线', () => {
+    // 回归：拖入以中文命名的已发布工作流时，旧逻辑逐字符替换为 `_`，
+    // 得到形如 `____` 的合法但无意义的节点名。
+    expect(authoringSafeIdentifier('阿事实上', 'workflow')).toBe('workflow')
+    expect(authoringSafeIdentifier('子工作流', 'workflow')).toBe('workflow')
+  })
+
+  it('去除首尾下划线并保留内部合法片段', () => {
+    expect(authoringSafeIdentifier('阿a事b', 'workflow')).toBe('a_b')
+    expect(authoringSafeIdentifier('__mix__', 'workflow')).toBe('mix')
+  })
+
+  it('数字开头或 Python 关键字都退化为安全名', () => {
+    expect(authoringSafeIdentifier('3d扫描', 'workflow')).toBe('workflow')
+    expect(authoringSafeIdentifier('class', 'workflow')).toBe('class_value')
   })
 })

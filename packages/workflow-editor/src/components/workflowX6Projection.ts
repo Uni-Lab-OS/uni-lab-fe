@@ -322,18 +322,19 @@ function workflowControlNodeMetadata(node: WorkflowX6Node): NodeMetadata {
     const base = workflowNodeBase(node, { width, height }, 'control')
     return {
       ...base,
-      attrs: {
-        ...base.attrs,
-        body: { ...base.attrs?.body, fill: '#fff9ed', stroke: '#d97706', strokeWidth: 1.4, rx: 10, ry: 10 },
-        controlName: X6_TEXT_ORIGIN,
-        controlSummary: X6_TEXT_ORIGIN
-      },
+      attrs: { ...base.attrs, body: { ...base.attrs?.body, fill: '#fff', stroke: '#d8dee8', strokeWidth: 1.2, rx: 9, ry: 9 }, controlName: X6_TEXT_ORIGIN, controlSummary: X6_TEXT_ORIGIN },
       markup: [
-        { tagName: 'rect', selector: 'body', className: 'workflow-x6-node__body workflow-x6-node__control-body' },
-        { tagName: 'text', selector: 'controlName', textContent: `↻  ${trimLabel(data.name || data.id, 22)}`, attrs: { ...X6_TEXT_ORIGIN, x: 14, y: 30, fill: '#a15c07', fontSize: 13, fontWeight: 750 } },
-        { tagName: 'text', selector: 'controlSummary', textContent: `最多 ${control.maxIterations ?? 3} 轮 · 条件满足后退出`, attrs: { ...X6_TEXT_ORIGIN, x: 14, y: 58, fill: '#a15c07', fontSize: 10, fontWeight: 650 } },
+        { tagName: 'rect', selector: 'body', className: 'workflow-x6-node__body workflow-x6-node__loop-body' },
+        { tagName: 'rect', attrs: { x: 12, y: 10, width: 20, height: 20, rx: 5, ry: 5, fill: '#fef3c7' } },
+        { tagName: 'text', attrs: { ...X6_TEXT_ORIGIN, x: 18, y: 24, fill: '#d97706', fontSize: 11, fontWeight: 900 }, textContent: '↻' },
+        { tagName: 'text', selector: 'controlName', textContent: '循环：LOOP', attrs: { ...X6_TEXT_ORIGIN, x: 40, y: 23, fill: '#1e293b', fontSize: 11, fontWeight: 800 } },
+        { tagName: 'line', attrs: { x1: 12, y1: 38, x2: width - 12, y2: 38, stroke: '#eef1f5', strokeWidth: 1 } },
+        { tagName: 'text', selector: 'controlSummary', textContent: `最多 ${control.maxIterations ?? 3} 轮`, attrs: { ...X6_TEXT_ORIGIN, x: 14, y: 60, fill: '#64748b', fontSize: 8, fontWeight: 600 } },
+        { tagName: 'text', textContent: 'LOOP', attrs: { ...X6_TEXT_ORIGIN, x: width - 48, y: 60, fill: '#475569', fontSize: 9, fontWeight: 800 } },
+        { tagName: 'text', textContent: 'EXIT', attrs: { ...X6_TEXT_ORIGIN, x: width - 42, y: 88, fill: '#475569', fontSize: 9, fontWeight: 800 } },
         workflowNodeTitleMarkup(data)
-      ]
+      ],
+      ports: workflowLoopPorts(width, height)
     }
   }
   const branches = control.branches ?? []
@@ -932,6 +933,16 @@ function workflowConditionBranchPorts(
         'aria-label': `${branch.label} 分支输出`
       } }
     }))
+  }
+}
+
+function workflowLoopPorts(width: number, height: number): NodeMetadata['ports'] {
+  return {
+    groups: { loop: { position: { name: 'absolute' } } },
+    items: [
+      { id: 'workflow-loop-body', group: 'loop', args: { x: width, y: 60 }, markup: [{ tagName: 'circle', selector: 'portBody' }], attrs: { portBody: { r: 5, magnet: false, fill: '#fff', stroke: '#3b82f6', strokeWidth: 2, 'aria-label': 'LOOP 循环体输出' } } },
+      { id: 'workflow-loop-exit', group: 'loop', args: { x: width, y: Math.min(height - 8, 88) }, markup: [{ tagName: 'circle', selector: 'portBody' }], attrs: { portBody: { r: 5, magnet: false, fill: '#fff', stroke: '#3b82f6', strokeWidth: 2, 'aria-label': 'EXIT 循环退出输出' } } }
+    ]
   }
 }
 

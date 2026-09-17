@@ -323,8 +323,19 @@ export const WorkflowX6Canvas = forwardRef<
     }
 
     graph.on('node:click', ({ node }) => {
-      if (node.getData<WorkflowNodeData>()?.kind === 'reaction_material') return
+      const data = node.getData<WorkflowNodeData>()
+      if (data?.kind === 'reaction_material') return
       callbacksRef.current.onNodeSelect(node.id)
+      if (
+        data?.groupKind === 'subworkflow' &&
+        data.openChildWorkflowUuid &&
+        callbacksRef.current.onOpenChildWorkflow
+      ) {
+        callbacksRef.current.onOpenChildWorkflow(
+          data.openChildWorkflowUuid,
+          data.name
+        )
+      }
     })
     /* Delegate hover handling to the rendered X6 DOM. Virtual cells are mounted
     // asynchronously, so model-level events alone can miss a short-lived node.
@@ -390,16 +401,6 @@ export const WorkflowX6Canvas = forwardRef<
     })
     graph.on('node:dblclick', ({ node }) => {
       const data = node.getData<WorkflowNodeData>()
-      if (
-        data?.openChildWorkflowUuid &&
-        callbacksRef.current.onOpenChildWorkflow
-      ) {
-        callbacksRef.current.onOpenChildWorkflow(
-          data.openChildWorkflowUuid,
-          data.name
-        )
-        return
-      }
       if (data?.groupKind === 'subworkflow') {
         callbacksRef.current.onToggleGroup?.(node.id)
         return

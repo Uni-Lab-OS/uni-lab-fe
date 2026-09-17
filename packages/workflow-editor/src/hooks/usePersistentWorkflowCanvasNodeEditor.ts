@@ -34,6 +34,7 @@ import {
   updatePersistentAuthoringNodeName,
   updatePersistentAuthoringNodePosition
 } from '../utils/persistentAuthoringGraph'
+import { authoringSafeIdentifier } from '../utils/workflowAuthoringNodeIdentity'
 import type {
   WorkflowCanvasPoint,
   WorkflowHandleConnection,
@@ -355,8 +356,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
       (item) => item.uuid === templateUuid
     )
     if (!template) return
-    const stem = template.source.symbol.replace(/[^A-Za-z0-9_]/g, '_') ||
-      'workflow'
+    const stem = authoringSafeIdentifier(template.source.symbol, 'workflow')
     let name = stem
     let suffix = 2
     while (graph.nodes.some((item) => item.name === name)) {

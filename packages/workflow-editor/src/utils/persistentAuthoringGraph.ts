@@ -141,9 +141,13 @@ function projectNodeIdentity(
   const nodeUsesTechnicalDefault = Boolean(
     nodeName && (nodeName === actionName || nodeName === templateName)
   )
-  const displayName = nodeUsesTechnicalDefault
-    ? templateDisplayName ?? nodeName
-    : nodeName ?? templateDisplayName ?? templateName
+  // 子工作流边界展示已发布模板的业务名称；node.name 仍是 Python 作者标识，
+  // 由右侧节点检查器直接读取原始 Authoring Graph，不在此处写回。
+  const displayName = type === 'workflow'
+    ? templateDisplayName ?? nodeName ?? templateName
+    : nodeUsesTechnicalDefault
+      ? templateDisplayName ?? nodeName
+      : nodeName ?? templateDisplayName ?? templateName
   const description = nullableString(node.description) ??
     nullableString(template?.description)
   return {

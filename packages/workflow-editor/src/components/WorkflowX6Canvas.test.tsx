@@ -79,7 +79,9 @@ describe('WorkflowX6Canvas scale policy', () => {
       }
     })
     expect(metadata.markup).toEqual(expect.arrayContaining([
-      expect.objectContaining({ textContent: '最多 6 轮 · 条件满足后退出' })
+      expect.objectContaining({ textContent: '最多 6 轮' }),
+      expect.objectContaining({ textContent: 'LOOP' }),
+      expect.objectContaining({ textContent: 'EXIT' })
     ]))
     expect({ width: metadata.width, height: metadata.height })
       .toEqual({ width: 240, height: 92 })
@@ -376,6 +378,53 @@ describe('WorkflowX6Canvas scale policy', () => {
       tagName: 'circle',
       attrs: { r: 0, opacity: 0, visibility: 'hidden' }
     })
+  })
+
+  it('projects a Dify-style subworkflow card with a business title and child count', () => {
+    const base = workflowNode('child-workflow')
+    const metadata = workflowX6NodeMetadata({
+      ...base,
+      data: {
+        ...base.data,
+        name: '阿事实上',
+        groupKind: 'subworkflow',
+        descendantCount: 3,
+        openChildWorkflowUuid: 'child-workflow-uuid'
+      }
+    })
+
+    expect(markupClassNames(metadata)).toEqual(expect.arrayContaining([
+      'workflow-x6-node__group-header',
+      'workflow-x6-node__group-accent',
+      'workflow-x6-node__group-badge',
+      'workflow-x6-node__group-name',
+      'workflow-x6-node__group-count'
+    ]))
+    expect(markupTexts(metadata)).toEqual(expect.arrayContaining([
+      '子工作流',
+      '阿事实上',
+      '▸ 3 个内部节点'
+    ]))
+  })
+
+  it('opens only a subworkflow boundary on single click', () => {
+    const source = readFileSync(
+      new URL('./WorkflowX6Canvas.tsx', import.meta.url),
+      'utf8'
+    )
+    const clickHandler = source.slice(
+      source.indexOf("graph.on('node:click'"),
+      source.indexOf("graph.on('node:contextmenu'")
+    )
+    const doubleClickHandler = source.slice(
+      source.indexOf("graph.on('node:dblclick'"),
+      source.indexOf('let dragFrame')
+    )
+
+    expect(clickHandler).toContain("data?.groupKind === 'subworkflow'")
+    expect(clickHandler).toContain('onOpenChildWorkflow')
+    expect(clickHandler).toContain('data.openChildWorkflowUuid')
+    expect(doubleClickHandler).not.toContain('onOpenChildWorkflow')
   })
 
   /** 节点文字保持原型卡片的紧凑尺寸，不注入悬浮提示。 */

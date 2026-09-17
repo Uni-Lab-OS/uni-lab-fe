@@ -34,6 +34,8 @@ export interface ExperimentOperationWorkbenchProps {
   /** @deprecated 使用 creationStatus。保留该入口以兼容现有宿主与测试。 */
   authoringStatus?: CapabilityStatus
   active: boolean
+  /** 从工作流调试点击子工作流时，定向打开对应实验操作。 */
+  requestedWorkflowUuid?: string | null
   recoveryRevision?: number
   traceRuntime?: WorkflowTracePort
   resourceSlotOptionsPort?: WorkflowResourceSlotOptionsPort
@@ -55,6 +57,23 @@ export function filterExperimentOperationDefinitions(
     .sort((left, right) => right.update_time.localeCompare(left.update_time))
 }
 
+/** Resolve the operation selected by host navigation without disturbing valid local selection. */
+export function resolveExperimentOperationSelection(
+  operations: readonly WorkflowSummary[],
+  requestedWorkflowUuid: string | null | undefined,
+  currentWorkflowUuid: string | null
+): string | null {
+  if (
+    requestedWorkflowUuid &&
+    operations.some(item => item.uuid === requestedWorkflowUuid)
+  ) return requestedWorkflowUuid
+  if (
+    currentWorkflowUuid &&
+    operations.some(item => item.uuid === currentWorkflowUuid)
+  ) return currentWorkflowUuid
+  return operations[0]?.uuid ?? null
+}
+
 /**
  * 实验操作调试入口。目录由 OS 权威定义元数据驱动，编辑复用同一个 Canonical
  * Definition authoring 会话、X6 画布、双 CAS 保存和 WorkflowTask 调试链路。
@@ -66,6 +85,7 @@ export function ExperimentOperationWorkbench({
   creationStatus,
   authoringStatus,
   active,
+  requestedWorkflowUuid = null,
   recoveryRevision = 0,
   traceRuntime,
   resourceSlotOptionsPort,
@@ -118,9 +138,7 @@ export function ExperimentOperationWorkbench({
         const next = filterExperimentOperationDefinitions(page.items)
         setOperations(next)
         setSelectedOperationUuid(current =>
-          current && next.some(item => item.uuid === current)
-            ? current
-            : next[0]?.uuid ?? null
+          resolveExperimentOperationSelection(next, null, current)
         )
       })
       .catch((reason: unknown) => {
@@ -143,6 +161,17 @@ export function ExperimentOperationWorkbench({
     requestRevision,
     runtime
   ])
+
+  useEffect(() => {
+    if (!active || !requestedWorkflowUuid) return
+    setSelectedOperationUuid(current =>
+      resolveExperimentOperationSelection(
+        operations,
+        requestedWorkflowUuid,
+        current
+      )
+    )
+  }, [active, operations, requestedWorkflowUuid])
 
   useEffect(() => {
     if (!active) return
