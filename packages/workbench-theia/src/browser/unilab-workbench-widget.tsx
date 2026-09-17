@@ -33,6 +33,7 @@ import {
   createWorkflowResourceSlotOptionsPort,
   WorkflowPanel,
   WorkflowTaskList,
+  WorkflowStationRecovery,
   type WorkflowPanelRuntimeProjection
 } from '@unilab/workflow-editor'
 import {
@@ -1306,6 +1307,7 @@ function WorkbenchSurface({
             onClose={() => setConfigurationKind(null)}
           />
         ) : null}
+        <WorkflowStationRecovery runtime={services.workflow} active={workflowRunStatus.available && !connectionSwitchingTo} />
         <WorkbenchDomainLayout
           key={selectedTarget.cacheKey}
           mode={viewMode}

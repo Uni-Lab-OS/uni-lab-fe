@@ -72,3 +72,5 @@ export {
   type WorkflowSourcePosition,
   type WorkflowSourceProjection
 } from './utils/workflowSourceNavigation'
+
+export { WorkflowStationRecovery } from './components/recovery/WorkflowStationRecovery'

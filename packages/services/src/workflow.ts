@@ -1,3 +1,4 @@
+import { createWorkflowRecoveryPort } from './workflowRecovery'
 import type { MaterialGraphPort } from '@unilab/material'
 
 import type { BackendConfig } from './backends'
@@ -267,6 +268,9 @@ export function createWorkflowRuntime(
   }
 
   const port: WorkflowRuntimePort = {
+    recovery: capabilities.workflow.recovery
+      ? createWorkflowRecoveryPort(http, backend, sseTransport, subscriptions)
+      : undefined,
     getWorkflowActionCatalog: (signal, options) => {
       requireWorkflowCapability('workflow.readDefinitions')
       return (options?.refresh

@@ -1,0 +1,43 @@
+.workflow-recovery {
+  color: var(--unilab-color-text, #26364d);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 8px 12px;
+  background: var(--unilab-color-surface, #fff);
+  border-top: 1px solid var(--unilab-color-border, #dce4ef);
+  max-height: 32vh;
+  overflow: auto;
+
+  button, input, select, textarea { font: inherit; }
+  button {
+    color: inherit; background: var(--unilab-color-surface, #fff);
+    border: 1px solid var(--unilab-color-border, #dce4ef); border-radius: 6px;
+    padding: 6px 10px; cursor: pointer;
+    &:hover:not(:disabled), &[aria-pressed='true'] { background: #eef3ff; border-color: #7b99ff; }
+    &:disabled { opacity: .5; cursor: not-allowed; }
+    &:focus-visible { outline: 2px solid #315fe8; outline-offset: 2px; }
+  }
+  label { display: grid; gap: 5px; margin: 10px 0; }
+  select, textarea, input:not([type='checkbox']) {
+    color: inherit; background: var(--unilab-color-surface, #fff); min-width: 0;
+    width: 100%; box-sizing: border-box; border: 1px solid var(--unilab-color-border, #dce4ef);
+    border-radius: 6px; padding: 7px;
+  }
+  textarea { min-height: 60px; resize: vertical; }
+  h2 { font-size: 18px; margin: 0; }
+  h3 { font-size: 13px; margin: 12px 0 6px; }
+  p { margin: 8px 0; overflow-wrap: anywhere; }
+  small { overflow-wrap: anywhere; }
+  article, fieldset { margin: 10px 0; padding: 10px; border: 1px solid #dce4ef; border-radius: 8px; }
+  pre { overflow: auto; max-height: 220px; padding: 10px; background: #f5f7fb; white-space: pre-wrap; overflow-wrap: anywhere; }
+  [role='alert'] { color: #a12b23; background: #fff1ef; padding: 8px; border-radius: 6px; }
+  summary { cursor: pointer; padding: 7px 0; }
+  &__banner, &__actions, header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  &__banner, header { justify-content: space-between; }
+  label.workflow-recovery__check, label.handling-check { display: flex; align-items: flex-start; gap: 8px; }
+  &__backdrop { position: fixed; inset: 0; z-index: 10000; background: #17243e66; display: grid; place-items: center; max-height: none; padding: 20px; }
+  &__dialog { background: var(--unilab-color-surface, #fff); width: min(820px, 94vw); max-height: 88vh; overflow: auto; border-radius: 12px; padding: 20px; box-sizing: border-box; box-shadow: 0 15px 50px #182c4933; }
+  footer { margin-top: 18px; padding-top: 10px; border-top: 1px solid #dce4ef; color: #65758c; }
+  .handling-occupancies label { display: flex; gap: 8px; }
+  .handling-occupancies small, .handling-occupancies code { display: block; }
+}
