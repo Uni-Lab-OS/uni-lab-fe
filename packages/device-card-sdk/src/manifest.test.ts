@@ -41,6 +41,19 @@ describe('device card manifest', () => {
     }))
   })
 
+  it('accepts a templateCard reference without local entry', () => {
+    const diagnostics = validateDeviceCardManifest({
+      schemaVersion: 1,
+      id: 'demo.robot.card',
+      version: '0.1.0',
+      title: '引用卡片',
+      deviceTypes: ['community.demo.robot'],
+      hostProtocolVersion: 1,
+      templateCard: 'unilab_robot_template/frontend/cards/rail-mounted-arm-card'
+    })
+    expect(diagnostics.filter((item) => item.severity === 'error')).toEqual([])
+  })
+
   it('rejects duplicate permissions', () => {
     const diagnostics = validateDeviceCardManifest({
       ...VALID_MANIFEST,

@@ -1,5 +1,15 @@
 export { buildDeviceCard, DEVICE_CARD_BUILDER_VERSION } from './build'
 export {
+  listDeviceCardWatchRoots,
+  overlayTemplateAuthoringContext,
+  resolveTemplateCardAuthoringPreview,
+  resolveTemplateCardPath
+} from './templateCard'
+export {
+  readProjectAuthoringContext,
+  readProjectMockState
+} from './buildSupport'
+export {
   inspectDeviceCardArchive,
   packDeviceCard,
   unpackDeviceCard

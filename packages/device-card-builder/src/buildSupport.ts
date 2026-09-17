@@ -9,14 +9,31 @@ const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.vue'])
 
 export async function projectSourceHash(
   projectDir: string,
-  _manifest: DeviceCardManifest
+  manifest: DeviceCardManifest,
+  overlayProjectDir?: string
 ): Promise<string> {
   const hash = createHash('sha256')
+  hash.update('source\u0000')
   for (const path of await projectFiles(projectDir)) {
     const relativePath = relative(projectDir, path).replaceAll('\\', '/')
     hash.update(relativePath)
     hash.update('\u0000')
     hash.update(await readFile(path))
+    hash.update('\u0000')
+  }
+  if (overlayProjectDir) {
+    hash.update('overlay\u0000')
+    for (const path of await projectFiles(overlayProjectDir)) {
+      const relativePath = relative(overlayProjectDir, path).replaceAll('\\', '/')
+      hash.update(relativePath)
+      hash.update('\u0000')
+      hash.update(await readFile(path))
+      hash.update('\u0000')
+    }
+  }
+  if (manifest.templateCard) {
+    hash.update('template-card\u0000')
+    hash.update(manifest.templateCard)
     hash.update('\u0000')
   }
   return hash.digest('hex')
@@ -111,6 +128,21 @@ export async function readProjectAuthoringContext(
     return isAuthoringContext(raw) ? raw : undefined
   } catch {
     return undefined
+  }
+}
+
+export async function readProjectMockState(
+  projectDir: string
+): Promise<Record<string, unknown>> {
+  try {
+    const raw: unknown = JSON.parse(
+      await readFile(resolve(projectDir, 'mock.json'), 'utf8')
+    )
+    return raw != null && typeof raw === 'object' && !Array.isArray(raw)
+      ? raw as Record<string, unknown>
+      : {}
+  } catch {
+    return {}
   }
 }
 

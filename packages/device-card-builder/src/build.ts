@@ -17,12 +17,10 @@ import {
   type Loader,
   type Plugin
 } from 'esbuild'
-import {
-  parseDeviceCardManifest,
-  validateDeviceCardManifest,
-  type DeviceCardAuthoringContext,
-  type DeviceCardDiagnostic,
-  type DeviceCardManifest
+import type {
+  DeviceCardAuthoringContext,
+  DeviceCardDiagnostic,
+  DeviceCardManifest
 } from '@unilab/device-card-sdk'
 
 import {
@@ -44,6 +42,13 @@ import {
   scanSource,
   validatePermissionsAgainstContext
 } from './security'
+import {
+  narrowTemplateCardPermissionsForHost,
+  overlayTemplateAuthoringContext,
+  resolveEffectiveCardProject,
+  resolveEntryFile,
+  resolveOverlayRelativePath
+} from './templateCard'
 import { vueSfcPlugin } from './vuePlugin'
 
 export const DEVICE_CARD_BUILDER_VERSION = '0.1.0'
@@ -69,44 +74,62 @@ export async function buildDeviceCard(
   // 不 realpath 时 import 白名单会误判越界，vue/sdk 解析失败。
   const projectDir = await realpath(resolve(request.projectDir))
   const outDir = resolve(request.outDir)
-  const diagnostics: DeviceCardDiagnostic[] = []
-  let manifest: DeviceCardManifest
-  try {
-    const manifestText = await readFile(
-      resolve(projectDir, 'card.manifest.json'),
-      'utf8'
-    )
-    const rawManifest: unknown = JSON.parse(manifestText)
-    diagnostics.push(...validateDeviceCardManifest(rawManifest))
-    if (hasErrors(diagnostics)) {
-      return { ok: false, diagnostics, outDir }
-    }
-    manifest = parseDeviceCardManifest(rawManifest)
-  } catch (error) {
-    diagnostics.push({
-      severity: 'error',
-      code: 'manifest.read',
-      message: error instanceof Error ? error.message : String(error),
-      path: 'card.manifest.json'
-    })
+  const resolved = await resolveEffectiveCardProject(projectDir, {
+    templateAnchorDir: request.templateAnchorDir
+  })
+  const diagnostics: DeviceCardDiagnostic[] = [...resolved.diagnostics]
+  if (hasErrors(diagnostics)) {
     return { ok: false, diagnostics, outDir }
   }
+  const {
+    manifestProjectDir,
+    sourceProjectDir,
+    overlayProjectDir
+  } = resolved.effective
+  let manifest = resolved.effective.manifest
 
   const contextAuthority = request.contextAuthority ?? 'project-preview'
-  const projectContext = await readProjectAuthoringContext(projectDir)
+  const projectContext = await readProjectAuthoringContext(manifestProjectDir)
+    ?? await readTemplateAuthoringContext(
+      sourceProjectDir,
+      manifestProjectDir,
+      manifest
+    )
   // Only a Host-supplied Context is authoritative. Project Context remains a
   // useful offline preview snapshot, but cannot broaden a Host contract.
   const authoringContext = contextAuthority === 'host'
     ? mergeHostAuthoringContext(request.authoringContext, projectContext)
     : request.authoringContext ?? projectContext
+  if (contextAuthority === 'host' && authoringContext && manifest.templateCard) {
+    const narrowed = narrowTemplateCardPermissionsForHost(
+      manifest,
+      authoringContext
+    )
+    manifest = narrowed.manifest
+    diagnostics.push(...narrowed.diagnostics)
+  }
   diagnostics.push(
     ...validatePermissionsAgainstContext(manifest, authoringContext, {
       allowLegacyPreviewState: contextAuthority === 'project-preview'
     })
   )
-  const entry = assertInside(projectDir, manifest.entry)
+  const entry = resolveEntryFile(
+    sourceProjectDir,
+    overlayProjectDir,
+    manifest.entry
+  )
   try {
-    diagnostics.push(...await scanProjectSources(projectDir))
+    const entryInsideSource = isInside(sourceProjectDir, entry)
+    const entryInsideOverlay = Boolean(
+      overlayProjectDir && isInside(overlayProjectDir, entry)
+    )
+    if (!entryInsideSource && !entryInsideOverlay) {
+      throw new Error(`entry 不在 template 或领域 overlay 目录内：${manifest.entry}`)
+    }
+    diagnostics.push(...await scanProjectSources(sourceProjectDir))
+    if (overlayProjectDir) {
+      diagnostics.push(...await scanProjectSources(overlayProjectDir))
+    }
     await readFile(entry)
   } catch (error) {
     diagnostics.push({
@@ -120,13 +143,17 @@ export async function buildDeviceCard(
     return { ok: false, diagnostics, outDir }
   }
 
-  const sourceHash = await projectSourceHash(projectDir, manifest)
+  const sourceHash = await projectSourceHash(
+    sourceProjectDir,
+    manifest,
+    overlayProjectDir
+  )
   const elementName = elementNameFor(manifest, sourceHash)
   await rm(outDir, { recursive: true, force: true })
   await mkdir(outDir, { recursive: true })
   try {
     await esbuild({
-      absWorkingDir: projectDir,
+      absWorkingDir: sourceProjectDir,
       bundle: true,
       define: {
         __UNILAB_CARD_ELEMENT__: JSON.stringify(elementName),
@@ -150,7 +177,11 @@ export async function buildDeviceCard(
       outfile: resolve(outDir, 'entry.js'),
       platform: 'browser',
       plugins: [
-        importPolicyPlugin(projectDir),
+        importPolicyPlugin({
+          sourceProjectDir,
+          overlayProjectDir,
+          entry
+        }),
         ...(manifest.authoringProfile === 'vue-web-component-v1'
           ? [vueSfcPlugin()]
           : []),
@@ -160,7 +191,7 @@ export async function buildDeviceCard(
       stdin: {
         contents: wrapperSource(manifest, entry),
         loader: 'tsx',
-        resolveDir: projectDir,
+        resolveDir: sourceProjectDir,
         sourcefile: 'unilab-card-wrapper.tsx'
       },
       target: ['chrome120'],
@@ -210,6 +241,17 @@ export async function buildDeviceCard(
   return { ok: true, diagnostics, metadata, outDir }
 }
 
+async function readTemplateAuthoringContext(
+  sourceProjectDir: string,
+  manifestProjectDir: string,
+  manifest: DeviceCardManifest
+): Promise<DeviceCardAuthoringContext | undefined> {
+  if (sourceProjectDir === manifestProjectDir) return undefined
+  const templateContext = await readProjectAuthoringContext(sourceProjectDir)
+  if (!templateContext) return undefined
+  return overlayTemplateAuthoringContext(templateContext, manifest)
+}
+
 function wrapperSource(manifest: DeviceCardManifest, entry: string): string {
   const entrySpecifier = JSON.stringify(entry)
   if (manifest.authoringProfile === 'vue-web-component-v1') {
@@ -256,7 +298,12 @@ function wrapperSource(manifest: DeviceCardManifest, entry: string): string {
  * @param projectDir 已解析为真实路径的卡片项目根目录。
  * @returns 仅允许项目内文件和固定依赖的 esbuild 插件。
  */
-function importPolicyPlugin(projectDir: string): Plugin {
+function importPolicyPlugin(options: {
+  sourceProjectDir: string
+  overlayProjectDir?: string
+  entry: string
+}): Plugin {
+  const { sourceProjectDir, overlayProjectDir, entry } = options
   return {
     name: 'unilab-import-policy',
     setup(build) {
@@ -267,14 +314,27 @@ function importPolicyPlugin(projectDir: string): Plugin {
         if (
           args.importer &&
           args.importer !== 'unilab-card-wrapper.tsx' &&
-          !isInside(projectDir, args.importer)
+          !isInside(sourceProjectDir, args.importer) &&
+          !(overlayProjectDir && isInside(overlayProjectDir, args.importer))
         ) {
           return undefined
         }
         const absoluteImport = isAbsolute(args.path)
         if (args.path.startsWith('.') || absoluteImport) {
-          const resolved = resolve(args.resolveDir || projectDir, args.path)
-          assertInside(projectDir, relative(projectDir, resolved))
+          const overlayPath = overlayProjectDir && args.importer
+            ? resolveOverlayRelativePath(
+              sourceProjectDir,
+              overlayProjectDir,
+              args.importer,
+              args.path
+            )
+            : undefined
+          const resolved = overlayPath ??
+            resolve(args.resolveDir || sourceProjectDir, args.path)
+          if (overlayPath) {
+            return { path: overlayPath }
+          }
+          assertInside(sourceProjectDir, relative(sourceProjectDir, resolved))
           return absoluteImport ? { path: resolved } : undefined
         }
         if (IMPORT_ALLOWLIST.has(args.path)) {
@@ -285,6 +345,13 @@ function importPolicyPlugin(projectDir: string): Plugin {
             text: `不允许导入 ${args.path}；只能使用相对模块、SDK、UI Kit 与固定框架依赖。`
           }]
         }
+      })
+      build.onResolve({ filter: /.*/ }, (args) => {
+        if (args.importer !== 'unilab-card-wrapper.tsx') return undefined
+        if (resolve(args.path) === resolve(entry)) {
+          return { path: entry }
+        }
+        return undefined
       })
     }
   }
@@ -356,8 +423,10 @@ function unpackedAsarPath(path: string): string {
 
 function isInside(root: string, candidate: string): boolean {
   const pathFromRoot = relative(resolve(root), resolve(candidate))
-  return pathFromRoot === '' ||
-    (!pathFromRoot.startsWith('..') && !pathFromRoot.startsWith('/'))
+  if (pathFromRoot === '') return true
+  // Windows 跨盘符时 relative() 会返回目标绝对路径，不能误判为「在内」。
+  if (isAbsolute(pathFromRoot)) return false
+  return !pathFromRoot.startsWith('..') && !pathFromRoot.startsWith('/')
 }
 
 function hostDocument(

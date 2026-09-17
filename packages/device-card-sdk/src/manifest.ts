@@ -9,6 +9,7 @@ import type {
 const CARD_ID = /^[a-z0-9](?:[a-z0-9._-]{1,126}[a-z0-9])?$/
 const VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/
 const RELATIVE_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9._/-]+$/
+const TEMPLATE_CARD = RELATIVE_PATH
 const PROFILES: readonly DeviceCardAuthoringProfile[] = [
   'web-component-lite-v1',
   'vue-web-component-v1',
@@ -40,17 +41,35 @@ export function validateDeviceCardManifest(
   expectString(input, 'version', diagnostics, (value) => VERSION.test(value))
   expectString(input, 'title', diagnostics, (value) => value.trim().length > 0)
   expectEqual(input, 'hostProtocolVersion', 1, diagnostics)
-  expectString(input, 'sdkVersion', diagnostics)
+
+  const templateCard = input.templateCard
+  const usesTemplateCard = typeof templateCard === 'string'
+
+  expectString(input, 'sdkVersion', diagnostics, () => true, usesTemplateCard)
 
   const profile = input.authoringProfile
   if (
-    typeof profile !== 'string' ||
-    !PROFILES.includes(profile as DeviceCardAuthoringProfile)
+    profile !== undefined &&
+    (typeof profile !== 'string' ||
+      !PROFILES.includes(profile as DeviceCardAuthoringProfile))
   ) {
     diagnostics.push(error(
       'manifest.profile',
       `authoringProfile 必须是 ${PROFILES.join('、')}。`,
       'authoringProfile'
+    ))
+  } else if (!usesTemplateCard && typeof profile !== 'string') {
+    diagnostics.push(error(
+      'manifest.profile',
+      `authoringProfile 必须是 ${PROFILES.join('、')}。`,
+      'authoringProfile'
+    ))
+  }
+  if (usesTemplateCard && !TEMPLATE_CARD.test(templateCard)) {
+    diagnostics.push(error(
+      'manifest.template_card',
+      'templateCard 必须是相对路径且不得包含 ..。',
+      'templateCard'
     ))
   }
 
@@ -58,26 +77,32 @@ export function validateDeviceCardManifest(
     input,
     'entry',
     diagnostics,
-    (value) => RELATIVE_PATH.test(value)
+    (value) => RELATIVE_PATH.test(value),
+    usesTemplateCard
   )
-  if (entry && typeof profile === 'string') {
-    const expectedExtension = profile === 'vue-web-component-v1'
+  const resolvedProfile = typeof profile === 'string' ? profile : undefined
+  if (entry && resolvedProfile) {
+    const expectedExtension = resolvedProfile === 'vue-web-component-v1'
       ? '.vue'
-      : profile === 'react-web-component-v1'
+      : resolvedProfile === 'react-web-component-v1'
         ? '.tsx'
         : '.ts'
     if (!entry.endsWith(expectedExtension)) {
       diagnostics.push(error(
         'manifest.entry_extension',
-        `${profile} 的入口必须使用 ${expectedExtension}。`,
+        `${resolvedProfile} 的入口必须使用 ${expectedExtension}。`,
         'entry'
       ))
     }
   }
 
   expectStringArray(input, 'deviceTypes', diagnostics, false)
-  expectStringArray(input, 'uiFeatures', diagnostics, true)
-  validatePermissions(input.permissions, diagnostics)
+  if (input.uiFeatures !== undefined || !usesTemplateCard) {
+    expectStringArray(input, 'uiFeatures', diagnostics, true)
+  }
+  if (input.permissions !== undefined || !usesTemplateCard) {
+    validatePermissions(input.permissions, diagnostics)
+  }
 
   if (input.config !== undefined) {
     if (!isRecord(input.config)) {
@@ -155,9 +180,20 @@ function expectString(
   input: Record<string, unknown>,
   key: string,
   diagnostics: DeviceCardDiagnostic[],
-  predicate: (value: string) => boolean = () => true
+  predicate: (value: string) => boolean = () => true,
+  optional = false
 ): string | null {
   const value = input[key]
+  if (value === undefined) {
+    if (!optional) {
+      diagnostics.push(error(
+        `manifest.${key}`,
+        `${key} 无效。`,
+        key
+      ))
+    }
+    return null
+  }
   if (typeof value !== 'string' || !predicate(value)) {
     diagnostics.push(error(
       `manifest.${key}`,

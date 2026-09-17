@@ -15,6 +15,7 @@ import {
   createDeviceCardWorkspace,
   LocalDeviceCardAuthoringAutomation,
   listInstalledDeviceCards,
+  resolveTemplateCardAuthoringPreview,
   verifyArtifactKey,
   type DeviceCardWorkspace
 } from '@unilab/device-card-host'
@@ -693,8 +694,15 @@ async function discoverPackageCardProjects(
         await readFile(join(projectDir, 'card.manifest.json'), 'utf8')
       ) as unknown
       if (!isPackageCardManifest(manifest)) continue
-      const authoringContext = await readPackageAuthoringContext(projectDir)
-      const mockState = await readPackageMockState(projectDir)
+      let authoringContext = await readPackageAuthoringContext(projectDir)
+      let mockState = await readPackageMockState(projectDir)
+      if (!authoringContext) {
+        const templatePreview = await resolveTemplateCardAuthoringPreview(projectDir)
+        if (templatePreview) {
+          authoringContext = templatePreview.authoringContext
+          mockState = { ...templatePreview.mockState, ...mockState }
+        }
+      }
       projects.push({
         projectDir: await realpath(projectDir),
         id: manifest.id,

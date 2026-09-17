@@ -9,6 +9,8 @@ export type DeviceCardContextAuthority = 'host' | 'project-preview'
 export interface DeviceCardBuildRequest {
   projectDir: string
   outDir: string
+  /** 领域卡片源码目录；解包到临时目录时用于解析 templateCard。 */
+  templateAnchorDir?: string
   authoringContext?: DeviceCardAuthoringContext
   contextAuthority?: DeviceCardContextAuthority
   development?: boolean

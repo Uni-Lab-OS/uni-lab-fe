@@ -27,6 +27,8 @@ export interface DeviceCardManifest {
   entry: string
   uiFeatures: string[]
   permissions: DeviceCardPermissions
+  /** 引用 template 卡片源码；领域仓只需 manifest + 可选 overlay（如 branding）。 */
+  templateCard?: string
   config?: {
     version: number
     defaults: JsonObject

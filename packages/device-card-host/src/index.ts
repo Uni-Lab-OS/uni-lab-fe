@@ -34,6 +34,8 @@ export {
   type DeviceCardActionValidationResult
 } from './runtimeActionSecurity'
 
+export { resolveTemplateCardAuthoringPreview } from '@unilab/device-card-builder'
+
 export {
   DeviceCardAuthoringError,
   LocalDeviceCardAuthoringAutomation,

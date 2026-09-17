@@ -14,6 +14,7 @@ import { basename, dirname, join, relative, resolve } from 'node:path'
 
 import {
   buildDeviceCard,
+  listDeviceCardWatchRoots,
   packDeviceCard,
   unpackDeviceCard,
   type DeviceCardBuildMetadata,
@@ -157,7 +158,8 @@ class LocalDeviceCardWorkspace implements DeviceCardWorkspace {
   async startWatching(): Promise<void> {
     if (this.closed || this.poller) return
     try {
-      this.lastFingerprint = await projectFingerprint(this.projectDir)
+      const watchRoots = await listDeviceCardWatchRoots(this.projectDir)
+      this.lastFingerprint = await projectFingerprintMany(watchRoots)
       this.poller = setInterval(() => {
         void this.checkForChanges()
       }, WATCH_POLL_MS)
@@ -183,7 +185,8 @@ class LocalDeviceCardWorkspace implements DeviceCardWorkspace {
     if (this.closed || this.fingerprinting) return
     this.fingerprinting = true
     try {
-      const next = await projectFingerprint(this.projectDir)
+      const watchRoots = await listDeviceCardWatchRoots(this.projectDir)
+      const next = await projectFingerprintMany(watchRoots)
       if (next !== this.lastFingerprint) {
         this.lastFingerprint = next
         await this.rebuild()
@@ -217,6 +220,7 @@ class LocalDeviceCardWorkspace implements DeviceCardWorkspace {
       const artifactDir = join(generationRoot, 'artifact')
       const result = await buildDeviceCard({
         projectDir: sourceDir,
+        templateAnchorDir: this.projectDir,
         outDir: artifactDir,
         authoringContext: this.authoringContext,
         contextAuthority: this.contextAuthority,
@@ -340,6 +344,15 @@ async function writeStatusFile(
   const temporary = `${path}.tmp`
   await writeFile(temporary, `${JSON.stringify(status, null, 2)}\n`, 'utf8')
   await rename(temporary, path)
+}
+
+async function projectFingerprintMany(roots: string[]): Promise<string> {
+  const hash = createHash('sha256')
+  for (const root of roots) {
+    hash.update(await projectFingerprint(root))
+    hash.update('\u0000')
+  }
+  return hash.digest('hex')
 }
 
 async function projectFingerprint(
