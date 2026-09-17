@@ -28,6 +28,7 @@ export type {
   DeviceCardManifest,
   DeviceCardPermissions,
   DevicePackageCardProject,
+  DeviceCardRuntimeConfig,
   DeviceCardRuntimeSnapshot,
   DeviceCardBounds,
   DeviceCardHostActionRequest,

@@ -38,6 +38,7 @@ import type {
 } from '@unilab/device-card-sdk'
 
 import { ElectronDeviceCardAuthoringApprovals } from './deviceCardAgentPermissions'
+import { buildDeviceCardRuntimeConfig } from './deviceCardRuntimeConfig'
 import { RendererDeviceCardAuthoringTargetPort } from './deviceCardAuthoringTargets'
 import { DeviceCardVisibilityController } from './deviceCardVisibility'
 import { dispatchDeviceCardAction } from './deviceCardActionDispatch'
@@ -453,6 +454,7 @@ export class DeviceCardManager {
         webSecurity: true
       }
     })
+    const runtimeConfig = buildDeviceCardRuntimeConfig(record.metadata.manifest)
     const session: RuntimeSession = {
       view,
       record,
@@ -462,9 +464,9 @@ export class DeviceCardManager {
           request.context.state,
           record.metadata.manifest.permissions.state
         ),
-        config: { ...(record.metadata.manifest.config?.defaults ?? {}) }
+        config: runtimeConfig
       },
-      config: { ...(record.metadata.manifest.config?.defaults ?? {}) },
+      config: runtimeConfig,
       actions: new Map(
         (request.availableActions ?? []).map((action) => [
           action.action,

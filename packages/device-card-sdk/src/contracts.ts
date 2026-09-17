@@ -67,11 +67,18 @@ export interface DeviceCardAuthoringContext {
   media: string[]
 }
 
+/** 卡片运行时 config 扩展字段；由 Host 从收窄后 manifest 注入，领域仓无需填写。 */
+export interface DeviceCardRuntimeConfig extends JsonObject {
+  allowedActions?: string[]
+  allowedState?: string[]
+}
+
 export interface DeviceCardRuntimeSnapshot {
   mode: 'mock' | 'live'
   device: DeviceCardDescriptor
   state: Record<string, unknown>
-  config: JsonObject
+  /** 含 manifest defaults 与 Host 注入的 allowedActions / allowedState。 */
+  config: DeviceCardRuntimeConfig
   theme: 'light' | 'dark'
   locale: string
 }
