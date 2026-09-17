@@ -231,6 +231,7 @@ export interface ReagentCreateCommand {
   concentrationUnit?: string
   quantity: number
   quantityUnit: string
+  containerCapacity?: { maxVolumeUl: number } | { maxMassG: number }
   description?: string
   metadata?: Record<string, unknown>
 }
