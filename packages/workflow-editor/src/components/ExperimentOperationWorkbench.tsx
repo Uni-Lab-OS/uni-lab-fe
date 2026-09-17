@@ -20,6 +20,7 @@ import {
   type ExperimentOperationDeviceCatalogPort
 } from './ExperimentOperationDeviceCatalog'
 import { ExperimentOperationDeviceLibrary } from './ExperimentOperationDeviceLibrary'
+import { ExperimentOperationControlLibrary } from './ExperimentOperationControlLibrary'
 import { PersistentWorkflowAuthoringPanel } from './PersistentWorkflowAuthoringPanel'
 import { WorkflowButton } from './WorkflowButton'
 import './ExperimentOperation.module.scss'
@@ -410,6 +411,7 @@ function ExperimentOperationEmptyWorkbench({
           </button>
         </div>
         {libraryTab === 'device-action' ? (
+          <>
           <ExperimentOperationDeviceLibrary
             catalog={catalog}
             loading={catalogLoading}
@@ -420,6 +422,14 @@ function ExperimentOperationEmptyWorkbench({
             onAddAction={canCreate ? () => onCreate() : undefined}
             onRefresh={onRefresh}
           />
+          <ExperimentOperationControlLibrary
+            catalog={catalog} busy={false} canvasMutationEnabled={false}
+            graphAvailable={false} materialSourceCatalogAvailable={false}
+            materialSourceAuthorityBlocked={false} materialSourceCatalogLoading={false}
+            materialSourceCatalogError={null} onAddAction={onCreate}
+            onAddMaterialSource={onCreate} onRefreshMaterialSourceCatalog={onRefresh}
+          />
+          </>
         ) : (
           <div className="experiment-operation__empty-operation-list">
             <label>

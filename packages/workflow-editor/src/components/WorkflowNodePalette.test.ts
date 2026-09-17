@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { workflowNodePaletteProjection } from './WorkflowNodePalette'
 import {
   readWorkflowNodePaletteDragPayload,
+  workflowNodePalettePointerPayload,
   WORKFLOW_NODE_PALETTE_MIME,
   writeWorkflowNodePaletteDragPayload
 } from '../utils/workflowCanvasCommands'
@@ -95,6 +96,16 @@ describe('workflowNodePaletteProjection', () => {
     })
     values.set('text/plain', '普通文本')
     expect(readWorkflowNodePaletteDragPayload(dataTransfer)).toBeNull()
+  })
+
+  it('resolves published workflow cards for the Electron pointer fallback', () => {
+    expect(workflowNodePalettePointerPayload({
+      workflowPaletteWorkflow: 'workflow-template-1'
+    })).toEqual({
+      kind: 'workflow',
+      templateUuid: 'workflow-template-1'
+    })
+    expect(workflowNodePalettePointerPayload({})).toBeNull()
   })
 })
 

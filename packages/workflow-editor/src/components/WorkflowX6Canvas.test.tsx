@@ -42,6 +42,65 @@ describe('WorkflowX6Canvas scale policy', () => {
     })
   })
 
+
+  it('renders a Dify-style IF/ELSE card with one output port per branch', () => {
+    const metadata = workflowX6NodeMetadata({
+      ...workflowNode('condition'),
+      data: {
+        ...workflowNode('condition').data,
+        kind: 'condition', name: '按结果分支',
+        controlFlow: {
+          kind: 'condition', branchCount: 2,
+          branches: [
+            { label: 'IF', entryNodeUuids: ['pass'], conditionSummary: '固定为真' },
+            { label: 'ELSE', entryNodeUuids: ['fail'], conditionSummary: '兜底分支' }
+          ]
+        }
+      }
+    })
+    expect(metadata.markup).toEqual(expect.arrayContaining([
+      expect.objectContaining({ textContent: '条件分支：IF/ELSE' }),
+      expect.objectContaining({ textContent: 'IF' }),
+      expect.objectContaining({ textContent: 'ELSE' })
+    ]))
+    const ports = metadata.ports
+    expect(Array.isArray(ports) ? ports : ports?.items ?? []).toHaveLength(2)
+    expect({ width: metadata.width, height: metadata.height })
+      .toEqual({ width: 240, height: 100 })
+  })
+
+  it('keeps the loop control summary', () => {
+    const metadata = workflowX6NodeMetadata({
+      ...workflowNode('repeat'),
+      data: {
+        ...workflowNode('repeat').data,
+        kind: 'repeat_until', name: '重试循环',
+        controlFlow: { kind: 'repeat_until', maxIterations: 6 }
+      }
+    })
+    expect(metadata.markup).toEqual(expect.arrayContaining([
+      expect.objectContaining({ textContent: '最多 6 轮 · 条件满足后退出' })
+    ]))
+    expect({ width: metadata.width, height: metadata.height })
+      .toEqual({ width: 240, height: 92 })
+  })
+
+  it('routes a condition branch edge from its dedicated Dify-style port', () => {
+    const edge = workflowX6EdgeMetadata({
+      id: 'condition-if-pass', source: 'condition', target: 'pass',
+      style: { stroke: '#cbd5e1', strokeWidth: 1.6 },
+      data: {
+        sourcePortId: 'workflow-condition-branch-0',
+        controlBranch: 'if'
+      }
+    })
+    expect(edge.source).toEqual({
+      cell: 'condition', port: 'workflow-condition-branch-0'
+    })
+    expect(edge.attrs?.line).toEqual(expect.objectContaining({
+      stroke: '#cbd5e1', strokeWidth: 1.6
+    }))
+  })
   it('resets only changed layouts and always removes an interactive temporary edge', () => {
     const source = readFileSync(
       new URL('./WorkflowX6Canvas.tsx', import.meta.url),

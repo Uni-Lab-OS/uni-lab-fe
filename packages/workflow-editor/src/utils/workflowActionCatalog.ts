@@ -10,7 +10,10 @@ import { isWorkflowValueSchemaAssignable } from '@unilab/services'
 import { v5 as uuidV5 } from 'uuid'
 
 import { wouldCreateWorkflowCycle } from './workflowGraphConnection'
-import { createAuthoringNodeMeta } from './workflowAuthoringNodeIdentity'
+import {
+  createAuthoringNodeMeta,
+  reorderAuthoringSourceAfterConnection
+} from './workflowAuthoringNodeIdentity'
 import { authoringParameterLabel } from './workflowAuthoringUserCopy'
 
 export { createPublishedWorkflowNode } from './workflowPublishedNode'
@@ -81,7 +84,7 @@ export function createTypedActionNode(
         status: 'idle',
         type: nodeType,
         pose: input.position ? { position: { ...input.position } } : {},
-        param: {},
+        param: defaultControlNodeParam(nodeType),
         action_name: template.name,
         execution_policy: {},
         disabled: false,
@@ -102,6 +105,27 @@ export function createTypedActionNode(
       'Workflow HandleTemplate'
     )
   }
+}
+
+/** 为调度器控制节点创建与 OS frontend 一致的可编辑默认结构。 */
+function defaultControlNodeParam(nodeType: string): Record<string, unknown> {
+  if (nodeType === 'condition') {
+    return {
+      predecessor_node_uuids: [], bindings: {},
+      branches: [{ label: 'if', condition: { lit: true }, node_uuids: [], entry_node_uuids: [], exit_node_uuids: [] }]
+    }
+  }
+  if (nodeType === 'repeat_until') {
+    return {
+      predecessor_node_uuids: [], successor_node_uuids: [],
+      loop_variable: 'loop', max_iterations: 3,
+      initial_carry: { done: { kind: 'literal', value: false } },
+      next_carry: { done: { kind: 'literal', value: true } },
+      until: { lit: true }, bindings: {},
+      node_uuids: [], entry_node_uuids: [], exit_node_uuids: []
+    }
+  }
+  return {}
 }
 
 function appendCatalogRecords(
@@ -394,7 +418,7 @@ export function connectTypedActionEdge(
 ): WorkflowAuthoringGraph {
   assertParentBoundaryNode(graph, input.sourceNodeUuid)
   assertParentBoundaryNode(graph, input.targetNodeUuid)
-  requireNodeHandle(
+  const sourceHandle = requireNodeHandle(
     catalog,
     graph,
     input.sourceNodeUuid,
@@ -405,7 +429,8 @@ export function connectTypedActionEdge(
     catalog,
     graph,
     input,
-    null
+    null,
+    sourceHandle.structuralRole === 'ready'
   )
 }
 
@@ -451,7 +476,8 @@ export function connectFrameworkSourceToTypedActionEdge(
     catalog,
     graph,
     input,
-    source.resourceTemplateUuid
+    source.resourceTemplateUuid,
+    false
   )
 }
 
@@ -464,7 +490,8 @@ function connectTypedActionTarget(
     targetNodeUuid: string
     targetHandleUuid: string
   },
-  sourceResourceTemplateUuid: string | null
+  sourceResourceTemplateUuid: string | null,
+  sourceIsReady: boolean
 ): WorkflowAuthoringGraph {
   if (wouldCreateWorkflowCycle(
     graph,
@@ -478,7 +505,25 @@ function connectTypedActionTarget(
       `${input.targetNodeUuid}:${input.targetHandleUuid}`,
     requiredString(graph.workflow.uuid)
   )
-  if (graph.edges.some(
+  const targetHandle = requireNodeHandle(
+    catalog,
+    graph,
+    input.targetNodeUuid,
+    input.targetHandleUuid,
+    'target'
+  )
+  // ready 只表达执行先后，没有 data_key；它与数据连接点混连时 OS 一定拒绝候选，
+  // 因此在创作层就关闭失败，而不是把不合法的边写进 Canonical 草稿。
+  const targetIsReady = targetHandle.structuralRole === 'ready'
+  if (sourceIsReady !== targetIsReady) {
+    throw new Error(sourceIsReady
+      ? '执行顺序输出只能连接到目标节点的执行顺序输入。'
+        + '需要传值请从对应的数据输出连线；只需设置先后顺序请连接两端的执行顺序连接点。'
+      : '数据输出不能连接到执行顺序输入。'
+        + '请改连类型匹配的数据输入；只需设置先后顺序请连接两端的执行顺序连接点。')
+  }
+  // 单一来源约束只适用于承载数据的输入；执行顺序输入允许多个上游汇入。
+  if (!targetIsReady && graph.edges.some(
     (edge) =>
       edge.target_node_uuid === input.targetNodeUuid &&
       edge.target_handle_uuid === input.targetHandleUuid
@@ -488,13 +533,6 @@ function connectTypedActionTarget(
   if (graph.edges.some((edge) => edge.uuid === edgeUuid)) {
     throw new Error('工作流连线 UUID 已存在')
   }
-  const targetHandle = requireNodeHandle(
-    catalog,
-    graph,
-    input.targetNodeUuid,
-    input.targetHandleUuid,
-    'target'
-  )
   // Connection authoring intentionally does not block on valueSchema
   // compatibility. Handles are still required to exist and have the correct
   // direction; the OS/runtime remains the final authority for value typing.
@@ -505,8 +543,24 @@ function connectTypedActionTarget(
       sourceResourceTemplateUuid
     )
   ) throw new Error('物料来源的资源模板不被操作目标接受')
+  if (targetIsReady) {
+    return reorderAuthoringSourceAfterConnection({
+      ...graph,
+      edges: [
+        ...graph.edges,
+        {
+          uuid: edgeUuid,
+          source_node_uuid: input.sourceNodeUuid,
+          source_handle_uuid: input.sourceHandleUuid,
+          target_node_uuid: input.targetNodeUuid,
+          target_handle_uuid: input.targetHandleUuid,
+          meta_data: {}
+        }
+      ]
+    })
+  }
   const dataKey = requiredString(targetHandle.dataKey)
-  return {
+  return reorderAuthoringSourceAfterConnection({
     ...graph,
     nodes: graph.nodes.map((node) => {
       if (node.uuid !== input.targetNodeUuid) return node
@@ -541,7 +595,7 @@ function connectTypedActionTarget(
         meta_data: {}
       }
     ]
-  }
+  })
 }
 
 export function rehydrateTypedActionGraph(
@@ -820,7 +874,11 @@ function typedTemplate(
     const extension = recordOrNull(
       action.schema['x-unilabos-action-contract']
     )
-    if (isSupportedTypedActionContract(extension)) return action
+    if (isSupportedTypedActionContract(extension) || (
+      (action.nodeType === 'condition' || action.nodeType === 'repeat_until') &&
+      action.actionType === action.nodeType &&
+      action.actionClass === `unilabos.workflow.authoring:${action.nodeType}`
+    )) return action
   }
   const workflow = catalog.workflowTemplates.find((item) =>
     item.uuid === templateUuid
@@ -854,6 +912,9 @@ function typedActionTemplate(
 function orderedTargetHandles(
   template: ExecutableNodeTemplate
 ): WorkflowActionHandleTemplate[] {
+  // 控制区域由调度器解释参数，不具有设备动作的输入句柄合同。
+  if ('nodeType' in template &&
+    (template.nodeType === 'condition' || template.nodeType === 'repeat_until')) return []
   const order = 'workflowUuid' in template
     ? template.inputOrder
     : stringArray(recordValue(

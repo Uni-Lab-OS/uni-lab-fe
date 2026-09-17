@@ -1,8 +1,10 @@
+import { ManualConfirmationEditor } from './ManualConfirmationEditor'
 import type { WorkflowDefinitionKind } from '@unilab/services'
 import { useState } from 'react'
 
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
 import { MaterialSourceInspector } from './MaterialSourceInspector'
+import { WorkflowConditionNodeEditor } from './WorkflowConditionNodeEditor'
 import { WorkflowActionParameterEditor } from './WorkflowActionParameterDrawer'
 import { formatAuthoringDiagnostic } from '../utils/workflowAuthoringUserCopy'
 
@@ -69,6 +71,9 @@ export function WorkflowNodeInspector({
       ?.description?.trim()
     : ''
   const selectedNode = model.structure.nodes.find((node) => node.id === selectedNodeUuid)
+  const selectedGraphNode = graph?.nodes.find(node => node.uuid === selectedNodeUuid)
+  const selectedIsCondition = selectedGraphNode?.type === 'condition'
+  const manualConfig = selectedGraphNode?.manual_confirmation as { timeout_seconds?: number } | undefined
   const tablist = (
     <nav className="persistent-authoring__node-tabs" aria-label="节点检查器视图" role="tablist">
       {inspectorTabs.map(([pane, label]) => (
@@ -121,7 +126,7 @@ export function WorkflowNodeInspector({
           </button>
         )}
       </header>
-      {debugLayout && tablist}
+      {(debugLayout || operationInspector) && !selectedIsMaterialSource && tablist}
 
       {!selectedNodeUuid && !operationInspector ? (
         <div className="persistent-authoring__inspector-empty">
@@ -181,6 +186,13 @@ export function WorkflowNodeInspector({
             </>
           )}
 
+          {selectedGraphNode?.type === 'manual_confirm' && <ManualConfirmationEditor
+            key={`${selectedNodeUuid}:${manualConfig?.timeout_seconds}`}
+            timeoutSeconds={manualConfig?.timeout_seconds ?? 3600}
+            deviceUuid={String(selectedGraphNode.material_uuid || '')}
+            editable={!busy && canvasMutationEnabled && Boolean(model.runtime.recovery)}
+            onChange={model.updateManualConfirmation}
+          />}
           {selectedMaterialSourceEditor && (
             <MaterialSourceInspector
               editor={selectedMaterialSourceEditor}
@@ -204,9 +216,21 @@ export function WorkflowNodeInspector({
             />
           )}
 
-          {(selectedActionEditor || operationInspector) && (
+          {selectedIsCondition && operationInspector && graph && selectedNodeUuid && (
+            <WorkflowConditionNodeEditor
+              graph={graph}
+              nodeUuid={selectedNodeUuid}
+              editable={!busy && canvasMutationEnabled}
+              onChange={(param) => model.updateControlNodeParam(
+                selectedNodeUuid,
+                param
+              )}
+            />
+          )}
+
+          {!selectedIsMaterialSource && !selectedIsCondition && (selectedActionEditor || operationInspector) && (
             <>
-              {!debugLayout && tablist}
+              {!debugLayout && !operationInspector && tablist}
               {!selectedActionEditor ? (
                 <div className="persistent-authoring__inspector-empty operation-inspector-selection-empty">
                   <strong>选择画布中的动作节点</strong>

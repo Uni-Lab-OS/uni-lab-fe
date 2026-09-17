@@ -247,7 +247,15 @@ function localPythonCapabilities(): ServerCapabilities {
   capabilities.workflow.authoring = true
   capabilities.workflow.runTasks = true
   capabilities.workflow.subscribeEvents = true
+  capabilities.reagentInfo.read = true
+  capabilities.reagentInfo.create = true
+  capabilities.reagentInfo.update = true
+  capabilities.reagentInfo.delete = true
   capabilities.inventory.readReagents = true
+  capabilities.inventory.createReagent = true
+  capabilities.inventory.updateReagent = true
+  capabilities.inventory.deleteReagent = true
+  capabilities.inventory.readReagentHistory = true
   return capabilities
 }
 

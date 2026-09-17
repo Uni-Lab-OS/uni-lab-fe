@@ -27,6 +27,7 @@ export interface WorkflowNodePaletteProps {
   materialSourceAuthorityBlocked: boolean
   materialSourceCatalogLoading: boolean
   materialSourceCatalogError: string | null
+  onAddManualConfirmation?: () => void
   onAddMaterialSource: () => void
   onAddAction: (templateUuid: string) => void
   onAddWorkflow: (templateUuid: string) => void

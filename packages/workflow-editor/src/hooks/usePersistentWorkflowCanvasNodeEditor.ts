@@ -39,6 +39,8 @@ import type {
   WorkflowHandleConnection,
   WorkflowHandleConnectionResult
 } from '../utils/workflowCanvasCommands'
+import { configureManualConfirmation } from '../utils/workflowManualConfirmation'
+import { applyWorkflowConditionParam } from '../utils/workflowConditionControl'
 import { useWorkflowCanvasDeletion } from './useWorkflowCanvasDeletion'
 import {
   workflowNodeAtSourcePosition,
@@ -281,7 +283,8 @@ export function usePersistentWorkflowCanvasNodeEditor(
   /** 从操作模板目录添加操作节点（ActionNode）。 */
   const addTypedActionNode = (
     templateUuid: string,
-    position?: WorkflowCanvasPoint
+    position?: WorkflowCanvasPoint,
+    manualConfirmation?: { deviceUuid: string; timeoutSeconds: number }
   ): void => {
     if (!actionCatalog || !graph) return
     const template = actionCatalog.actionTemplates.find(
@@ -297,12 +300,13 @@ export function usePersistentWorkflowCanvasNodeEditor(
     }
     try {
       const nodeUuid = globalThis.crypto.randomUUID()
-      const next = createTypedActionNode(actionCatalog, graph, {
+      let next = createTypedActionNode(actionCatalog, graph, {
         nodeUuid,
         templateUuid,
         name,
         position
       })
+      if (manualConfirmation) next = configureManualConfirmation(next, nodeUuid, template, manualConfirmation)
       const projection = projectTypedActionEditor(
         actionCatalog,
         next,
@@ -343,7 +347,8 @@ export function usePersistentWorkflowCanvasNodeEditor(
   /** 从工作流模板目录添加复合工作流节点（WorkflowNode）。 */
   const addPublishedWorkflowNode = (
     templateUuid: string,
-    position?: WorkflowCanvasPoint
+    position?: WorkflowCanvasPoint,
+    manualConfirmation?: { deviceUuid: string; timeoutSeconds: number }
   ): void => {
     if (!actionCatalog || !graph) return
     const template = actionCatalog.workflowTemplates.find(
@@ -454,6 +459,17 @@ export function usePersistentWorkflowCanvasNodeEditor(
     } catch (updateError) {
       setError(errorMessage(updateError))
     }
+  }
+
+  /** 修改确认超时或恢复普通设备动作，不改变底层动作参数。 */
+  const updateManualConfirmation = (config: { deviceUuid: string; timeoutSeconds: number } | null): void => {
+    if (!canvasMutationEnabled || !graph || !selectedNodeUuid || !selectedActionTemplate) return
+    try {
+      setGraph(configureManualConfirmation(graph, selectedNodeUuid, selectedActionTemplate, config))
+      setCanvasDirty(true)
+      setError(null)
+      setMessage('人工确认配置已更新，请保存后调试')
+    } catch (error) { setError(errorMessage(error)) }
   }
 
   /** 更新操作节点（ActionNode）的类型化字段值。 */
@@ -577,7 +593,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
     }
   }
 
-  /** 把单节点拖拽坐标写回 Canonical 草稿，不触碰其他节点。 */
+  /** 更新画布坐标；纯布局调整不标记源码待保存。 */
   const moveCanvasNode = (
     nodeUuid: string,
     position: WorkflowCanvasPoint
@@ -586,9 +602,6 @@ export function usePersistentWorkflowCanvasNodeEditor(
     try {
       const next = updatePersistentAuthoringNodePosition(graph, nodeUuid, position)
       setGraph(next)
-      setCanvasDirty(true)
-      setError(null)
-      setMessage('节点位置已更新；保存草稿后持久化')
     } catch (moveError) {
       setError(errorMessage(moveError))
     }
@@ -611,10 +624,39 @@ export function usePersistentWorkflowCanvasNodeEditor(
     }
   }
 
+  /** 更新条件/循环控制节点结构参数，并通过既有画布同步链路保存到 OS。 */
+  const updateControlNodeParam = (
+    nodeUuid: string,
+    param: Record<string, unknown>
+  ): void => {
+    if (!graph || !canvasMutationEnabled) return
+    const target = graph.nodes.find((node) => node.uuid === nodeUuid)
+    const type = String(target?.type || '')
+    if (!target || (type !== 'condition' && type !== 'repeat_until')) {
+      setError('选中节点不是条件或循环控制节点')
+      return
+    }
+    const next = type === 'condition'
+      ? applyWorkflowConditionParam(graph, nodeUuid, param)
+      : {
+          ...graph,
+          nodes: graph.nodes.map((node) => node.uuid === nodeUuid
+            ? { ...node, param }
+            : node)
+        }
+    setGraph(next)
+    setCanvasDirty(true)
+    setError(null)
+    setMessage('控制节点结构已更新；正在同步 OS 草稿…')
+    syncCanvasMutation?.(next, 'create')
+  }
+
   return {
     addMaterialSourceNode,
     addPublishedWorkflowNode,
     addTypedActionNode,
+    updateControlNodeParam,
+    updateManualConfirmation,
     bindTypedFieldToWorkflowInput,
     connectTypedHandles,
     deleteCanvasElements,

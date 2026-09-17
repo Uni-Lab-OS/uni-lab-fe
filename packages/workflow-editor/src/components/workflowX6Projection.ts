@@ -160,6 +160,8 @@ export interface WorkflowX6Edge {
     targetHandleUuid?: string
     materialEmphasis?: 'primary' | 'supporting'
     sequence?: boolean
+    sourcePortId?: string
+    controlBranch?: 'if' | 'elif' | 'else'
   }
 }
 
@@ -196,6 +198,9 @@ export function workflowX6NodeMetadata(node: WorkflowX6Node): NodeMetadata {
   if (node.type === 'wfReactionMaterial') {
     return workflowReactionMaterialMetadata(node)
   }
+  if (node.data.controlFlow) {
+    return workflowControlNodeMetadata(node)
+  }
   if (node.data.kind === 'material_source') {
     return workflowMaterialSourceMetadata(node)
   }
@@ -214,7 +219,7 @@ export function workflowX6EdgeMetadata(edge: WorkflowX6Edge): EdgeMetadata {
   return {
     id: edge.id,
     source: edge.source
-      ? { cell: edge.source, port: WORKFLOW_X6_OUTPUT_PORT_ID }
+      ? { cell: edge.source, port: edge.data?.sourcePortId ?? WORKFLOW_X6_OUTPUT_PORT_ID }
       : undefined,
     target: edge.target
       ? { cell: edge.target, port: WORKFLOW_X6_INPUT_PORT_ID }
@@ -306,6 +311,58 @@ function workflowX6EdgeVisual(edge: WorkflowX6Edge): WorkflowX6EdgeVisual {
       edge.style?.stroke ?? 'var(--unilab-color-text-subtle)'
     ),
     strokeWidth: Number(edge.style?.strokeWidth ?? fallbackWidth)
+  }
+}
+
+function workflowControlNodeMetadata(node: WorkflowX6Node): NodeMetadata {
+  const { width, height } = workflowX6NodeSize(node)
+  const data = node.data
+  const control = data.controlFlow!
+  if (control.kind !== 'condition') {
+    const base = workflowNodeBase(node, { width, height }, 'control')
+    return {
+      ...base,
+      attrs: {
+        ...base.attrs,
+        body: { ...base.attrs?.body, fill: '#fff9ed', stroke: '#d97706', strokeWidth: 1.4, rx: 10, ry: 10 },
+        controlName: X6_TEXT_ORIGIN,
+        controlSummary: X6_TEXT_ORIGIN
+      },
+      markup: [
+        { tagName: 'rect', selector: 'body', className: 'workflow-x6-node__body workflow-x6-node__control-body' },
+        { tagName: 'text', selector: 'controlName', textContent: `↻  ${trimLabel(data.name || data.id, 22)}`, attrs: { ...X6_TEXT_ORIGIN, x: 14, y: 30, fill: '#a15c07', fontSize: 13, fontWeight: 750 } },
+        { tagName: 'text', selector: 'controlSummary', textContent: `最多 ${control.maxIterations ?? 3} 轮 · 条件满足后退出`, attrs: { ...X6_TEXT_ORIGIN, x: 14, y: 58, fill: '#a15c07', fontSize: 10, fontWeight: 650 } },
+        workflowNodeTitleMarkup(data)
+      ]
+    }
+  }
+  const branches = control.branches ?? []
+  const base = workflowNodeBase(node, { width, height }, 'condition')
+  const branchMarkup: WorkflowX6Markup = branches.flatMap((branch, index) => {
+    const y = 58 + index * 30
+    return [
+      { tagName: 'text', textContent: branch.label, attrs: { ...X6_TEXT_ORIGIN, x: width - 42, y, fill: '#475569', fontSize: 9, fontWeight: 800 } },
+      ...(index === 0 ? [{ tagName: 'text', textContent: `判断 ${trimLabel(branch.conditionSummary, 15)}`, attrs: { ...X6_TEXT_ORIGIN, x: 14, y, fill: '#64748b', fontSize: 8, fontWeight: 600 } }] : [])
+    ]
+  })
+  return {
+    ...base,
+    attrs: {
+      ...base.attrs,
+      body: { ...base.attrs?.body, fill: '#ffffff', stroke: '#d8dee8', strokeWidth: 1.2, rx: 9, ry: 9 },
+      controlName: X6_TEXT_ORIGIN,
+      controlSummary: X6_TEXT_ORIGIN
+    },
+    markup: [
+      { tagName: 'rect', selector: 'body', className: 'workflow-x6-node__body workflow-x6-node__condition-body' },
+      { tagName: 'rect', attrs: { x: 12, y: 10, width: 20, height: 20, rx: 5, ry: 5, fill: '#e0f2fe' } },
+      { tagName: 'text', attrs: { ...X6_TEXT_ORIGIN, x: 18, y: 24, fill: '#0891b2', fontSize: 11, fontWeight: 900 }, textContent: '↪' },
+      { tagName: 'text', selector: 'controlName', textContent: '条件分支：IF/ELSE', attrs: { ...X6_TEXT_ORIGIN, x: 40, y: 23, fill: '#1e293b', fontSize: 11, fontWeight: 800 } },
+      { tagName: 'line', attrs: { x1: 12, y1: 38, x2: width - 12, y2: 38, stroke: '#eef1f5', strokeWidth: 1 } },
+      ...branchMarkup,
+      workflowNodeTitleMarkup(data)
+    ],
+    ports: workflowConditionBranchPorts(node, width, height)
   }
 }
 
@@ -829,30 +886,14 @@ function workflowX6AggregatePort(
     id,
     group,
     markup: [
-      {
-        tagName: 'circle',
-        selector: 'portHit',
-        className: [
-          'workflow-x6-port__hit',
-          `workflow-x6-port__hit--${ioType}`
-        ]
-      },
-      {
-        tagName: 'circle',
-        selector: 'portBody',
-        className: [
-          'workflow-x6-port',
-          'workflow-x6-port--aggregate',
-          `workflow-x6-port--${ioType}`
-        ]
-      }
+      { tagName: 'circle', selector: 'portHit', className: ['workflow-x6-port__hit', `workflow-x6-port__hit--${ioType}`] },
+      { tagName: 'circle', selector: 'portBody', className: ['workflow-x6-port', 'workflow-x6-port--aggregate', `workflow-x6-port--${ioType}`] }
     ],
     attrs: {
       portHit: {
         r: 11,
         magnet: ioType === 'source' ? true : 'passive',
-        fill: 'transparent',
-        stroke: 'transparent',
+        fill: 'transparent', stroke: 'transparent',
         cursor: ioType === 'source' ? 'crosshair' : 'default',
         'aria-label': ioType === 'source' ? '输出连接点' : '输入连接点',
         'data-workflow-handle-kind': 'aggregate',
@@ -860,10 +901,8 @@ function workflowX6AggregatePort(
       },
       portBody: {
         r: 4,
-        stroke: 'var(--unilab-color-text-subtle)',
-        strokeWidth: 2,
-        fill: 'var(--unilab-color-surface)',
-        pointerEvents: 'none',
+        stroke: 'var(--unilab-color-text-subtle)', strokeWidth: 2,
+        fill: 'var(--unilab-color-surface)', pointerEvents: 'none',
         'data-workflow-handle-kind': 'aggregate',
         'data-workflow-handle-io': ioType
       }
@@ -871,6 +910,30 @@ function workflowX6AggregatePort(
   }
 }
 
+export function workflowConditionBranchPortId(index: number): string {
+  return `workflow-condition-branch-${index}`
+}
+
+function workflowConditionBranchPorts(
+  node: WorkflowX6Node,
+  width: number,
+  height: number
+): NodeMetadata['ports'] {
+  const branches = node.data.controlFlow?.branches ?? []
+  return {
+    groups: { branch: { position: { name: 'absolute' } } },
+    items: branches.map((branch, index) => ({
+      id: workflowConditionBranchPortId(index), group: 'branch',
+      args: { x: width, y: Math.min(height - 8, 58 + index * 30) },
+      markup: [{ tagName: 'circle', selector: 'portBody', className: 'workflow-x6-port workflow-x6-port--condition' }],
+      attrs: { portBody: {
+        r: 5, magnet: false, fill: '#ffffff',
+        stroke: '#3b82f6', strokeWidth: 2,
+        'aria-label': `${branch.label} 分支输出`
+      } }
+    }))
+  }
+}
 
 function workflowX6NodeSize(node: WorkflowX6Node): WorkflowX6NodeSize {
   const data = node.data
@@ -888,6 +951,18 @@ function workflowX6NodeSize(node: WorkflowX6Node): WorkflowX6NodeSize {
     }
   }
   const horizontal = data.materialLaneDirection === 'horizontal'
+  if (data.controlFlow) {
+    const branches = data.controlFlow.branches?.length ?? 0
+    return data.controlFlow.kind === 'condition'
+      ? {
+          width: numericSize(node.style?.width, 240),
+          height: numericSize(node.style?.height, 100)
+        }
+      : {
+          width: numericSize(node.style?.width, 240),
+          height: numericSize(node.style?.height, 92)
+        }
+  }
   if (data.kind === 'material_source') {
     return {
       width: numericSize(node.style?.width,

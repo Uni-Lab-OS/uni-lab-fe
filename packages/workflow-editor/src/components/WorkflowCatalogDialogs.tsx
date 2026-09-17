@@ -66,7 +66,10 @@ export function CreateWorkflowDialog({
     >
       <form className="workflow-runtime__catalog-form" onSubmit={handleSubmit}>
         <label>
-          <span>名称</span>
+          <span>
+            名称
+            <span className="workflow-runtime__catalog-required">必填</span>
+          </span>
           <input
             ref={nameRef}
             value={name}

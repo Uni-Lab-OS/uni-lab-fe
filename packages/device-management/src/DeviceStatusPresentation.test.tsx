@@ -102,6 +102,7 @@ describe('device status presentation', () => {
         displayName: '加液',
         actionClass: null,
         actionType: 'Dose',
+        nodeType: 'device',
         schema: { type: 'object', properties: {} },
         goal: {},
         goalDefault: {},
@@ -183,7 +184,7 @@ describe('device status presentation', () => {
 
     const onlineMarkup = renderWorkspace('online')
     expect(onlineMarkup).toContain('设备动作')
-    expect(onlineMarkup).toContain('初始化配置')
+    expect(onlineMarkup).not.toContain('初始化配置')
     expect(onlineMarkup).toContain('设备实时状态')
     expect(onlineMarkup).not.toContain('提交时确认')
     expect(onlineMarkup).not.toContain('当前服务未提供占用明细')

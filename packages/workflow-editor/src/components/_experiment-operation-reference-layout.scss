@@ -1,0 +1,124 @@
+// 实验操作调试四栏工作区；不影响独立工作流调试页面。
+.workflow:global(.persistent-authoring--canvas[data-definition-kind='operation']) {
+  --operation-library-width: clamp(160px, 10vw, 200px);
+  --operation-structure-width: clamp(180px, 11vw, 224px);
+
+  :global(.persistent-authoring__canvas-body),
+  :global(.persistent-authoring__canvas-body.has-inspector) {
+    grid-template-columns: var(--operation-library-width) minmax(280px, 1fr) var(--inspector-width, 320px);
+    grid-template-areas: 'palette graph inspector';
+    gap: 10px;
+    padding: 10px 14px 14px;
+    min-height: 0;
+    background: #f5f7fb;
+  }
+
+  :global(.persistent-authoring__canvas-body.has-operation-structure),
+  :global(.persistent-authoring__canvas-body.has-operation-structure.has-inspector) {
+    grid-template-columns: var(--operation-library-width) var(--operation-structure-width) minmax(280px, 1fr) var(--inspector-width, 320px);
+    grid-template-areas: 'palette operation-outline graph inspector';
+  }
+
+  :global(.persistent-authoring__library),
+  :global(.persistent-authoring__operation-structure),
+  :global(.persistent-authoring__graph-stage),
+  :global(.persistent-authoring__node-editor) {
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid #e3e9f2;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgb(25 45 80 / 3%);
+    background-color: #fff;
+    overflow: hidden;
+  }
+
+  :global(.persistent-authoring__graph-stage),
+  :global(.persistent-authoring__graph-stage.has-canvas-debug-mode) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  :global(.persistent-authoring__graph-stage) > :global(.persistent-authoring__stage-header) {
+    flex: 0 0 auto;
+    height: auto;
+    min-height: 48px;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    border: 0;
+    border-bottom: 1px solid #e7edf5;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  :global(.persistent-authoring__stage-header) > div:first-child { min-width: 0; }
+  :global(.persistent-authoring__stage-header) strong { font-size: 12px; }
+  :global(.persistent-authoring__stage-context) { margin-left: auto; }
+  :global(.persistent-authoring__stage-tools) { gap: 5px; }
+  :global(.persistent-authoring__canvas-toolbar-button) { height: 30px; padding: 0 9px; font-size: 11px; }
+  :global(.persistent-authoring__canvas-toolbar-button.is-primary):not(:disabled) {
+    color: #fff;
+    border-color: #315fea;
+    background: #315fea;
+  }
+  :global(.persistent-authoring__canvas-toolbar-button.is-primary):hover:not(:disabled) {
+    color: #fff;
+    border-color: #244cce;
+    background: #244cce;
+  }
+  :global(.persistent-authoring__canvas-debug-bar) { min-height: 38px; padding: 4px 8px; }
+  :global(.persistent-authoring__canvas-debug-select) { height: 28px; min-height: 28px; width: 110px; font-size: 11px; }
+
+  :global(.persistent-authoring__graph-stage) > :global(.workflow-runtime__existing-canvas) {
+    flex: 1 1 0;
+    min-height: 160px;
+    background: #fafcff;
+  }
+
+  :global(.persistent-authoring__graph-stage) > :global(.persistent-authoring__runtime) {
+    flex: 0 0 auto;
+    max-height: 40%;
+    border-top: 1px solid #e3e9f2;
+  }
+
+  :global(.persistent-authoring__node-editor) { overflow-y: auto; }
+  :global(.persistent-authoring__inspector-resize-handle) { border: 0; width: 8px; left: -7px; }
+  :global(.persistent-authoring__inspector-heading),
+  :global(.persistent-authoring__library-heading),
+  :global(.persistent-authoring__operation-structure) > header { min-height: 46px; }
+  :global(.persistent-authoring__node-tabs) { border-bottom: 1px solid #e7edf5; }
+  :global(.persistent-authoring__node-tabs) button { min-height: 36px; }
+  :global(.persistent-authoring__operation-summary) { margin: 12px; }
+
+  :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-list) :global(.contract-source-grid) {
+    grid-template-columns: minmax(0, 1fr) 88px;
+    align-items: start;
+  }
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) > label:first-child {
+    grid-column: 2;
+    grid-row: 1;
+    padding-top: 0;
+  }
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) > :nth-child(2) {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) > p {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  :global(.persistent-authoring__canvas-body:not(.has-inspector)) {
+    grid-template-columns: var(--operation-library-width) minmax(280px, 1fr);
+    grid-template-areas: 'palette graph';
+  }
+  :global(.persistent-authoring__canvas-body.has-operation-structure:not(.has-inspector)) {
+    grid-template-columns: var(--operation-library-width) var(--operation-structure-width) minmax(280px, 1fr);
+    grid-template-areas: 'palette operation-outline graph';
+  }
+  :global(.persistent-authoring__canvas-body.is-canvas-only) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'graph';
+  }
+}

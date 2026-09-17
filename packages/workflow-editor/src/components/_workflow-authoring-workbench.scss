@@ -39,6 +39,11 @@
       grid-template-areas: 'graph inspector';
     }
 
+    :global(.persistent-authoring__canvas-body.is-canvas-only) {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'graph';
+    }
+
     :global(.persistent-authoring__canvas-body.is-code-mode) {
       grid-template-columns: minmax(520px, 1fr);
       grid-template-areas: 'graph';
@@ -209,6 +214,14 @@
       background: #f8fafc;
     }
 
+
+    :global(.persistent-authoring__library-workflow-list) > button[draggable='true'] {
+      cursor: grab;
+    }
+
+    :global(.persistent-authoring__library-workflow-list) > button[draggable='true']:active {
+      cursor: grabbing;
+    }
     :global(.persistent-authoring__library-workflow-list) > button:global(.is-active),
     :global(.persistent-authoring__workflow-current) {
       color: #1d4ed8;

@@ -33,7 +33,6 @@ import {
   createWorkflowResourceSlotOptionsPort,
   WorkflowPanel,
   WorkflowTaskList,
-  WorkflowStationRecovery,
   type WorkflowPanelRuntimeProjection
 } from '@unilab/workflow-editor'
 import {
@@ -104,6 +103,8 @@ import {
 import {
   WorkbenchViewState,
   isRobotWorkbenchViewMode,
+  isWorkflowDebugWorkbenchView,
+  isWorkflowManagementWorkbenchView,
   type WorkbenchViewMode
 } from './workbench-view-state'
 import { hasWorkbenchUnsavedChanges } from './workbench-unsaved-changes'
@@ -987,7 +988,7 @@ function WorkbenchSurface({
     useState<WorkflowPanelRuntimeProjection | null>(null)
   const [selectedMaterialIds, setSelectedMaterialIds] =
     useState<readonly MaterialId[]>([])
-  const [selectedActionDeviceId, setSelectedActionDeviceId] =
+  const [selectedActionDeviceKey, setSelectedActionDeviceKey] =
     useState<string | null>(null)
   // entryMode only selects the debug/production runtime at launch.  It is
   // intentionally not a UI command: refreshing the renderer must not reopen
@@ -1089,6 +1090,8 @@ function WorkbenchSurface({
   }, [runtimeProjection, selectedWorkflowNode])
 
   const workflowRunStatus = services.getCapabilityStatus('workflow.runTasks')
+  const workflowDebugVisible = isWorkflowDebugWorkbenchView(viewMode)
+  const workflowManagementVisible = isWorkflowManagementWorkbenchView(viewMode)
   const resetWorkflowEnvironment = useCallback(async (): Promise<void> => {
     setEnvironmentResetBusy(true)
     try {
@@ -1106,7 +1109,13 @@ function WorkbenchSurface({
       aria-label="工作流窗口"
     >
       <WorkflowPanel
-        debugLayout
+        key={workflowDebugVisible
+          ? 'workflow-debug'
+          : workflowManagementVisible
+            ? 'workflow-management'
+            : 'workflow-hidden'}
+        debugLayout={workflowDebugVisible}
+        catalogOnly={workflowManagementVisible}
         runtime={services.workflow}
         traceRuntime={desktopWorkflowTraceRuntime(
           typeof window === 'undefined' ? undefined : window
@@ -1126,12 +1135,14 @@ function WorkbenchSurface({
           workflowRunStatus
         )}
         resourceSlotOptionsPort={resourceSlotOptionsPort}
-        active={isWorkflowWorkbenchView(viewMode)}
-        workflowUuid={workflowUuid}
-        activeWorkflowStorageKey={`unilab.workflow.active.${
-          encodeURIComponent(selectedTarget.sourceId)
-        }.v1`}
-        allowWorkflowSelection
+        active={workflowDebugVisible}
+        workflowUuid={workflowDebugVisible ? workflowUuid : undefined}
+        activeWorkflowStorageKey={workflowDebugVisible
+          ? `unilab.workflow.active.${encodeURIComponent(
+            selectedTarget.sourceId
+          )}.v1`
+          : undefined}
+        allowWorkflowSelection={workflowDebugVisible}
         recoveryRevision={recoveryRevision}
         hideEmbeddedCodeEditor={
           connectionMode === 'local' && desktopWorkspaceApi() !== null
@@ -1214,8 +1225,8 @@ function WorkbenchSurface({
         backend={deviceBackend}
         backendEnabled={Boolean(selectedTarget.backend.apiUrl)}
         connection={deviceConnection}
-        onOpenActions={(deviceId) => {
-          setSelectedActionDeviceId(deviceId)
+        onOpenActions={(deviceKey) => {
+          setSelectedActionDeviceKey(deviceKey)
           onOpenDeviceActions()
         }}
         active={viewMode === 'device' || viewMode === 'device-material'}
@@ -1236,6 +1247,8 @@ function WorkbenchSurface({
             backendEnabled={Boolean(selectedTarget.backend.apiUrl)}
             connection={deviceConnection}
             active={viewMode === 'robot-debug'}
+            selectedDeviceKey={selectedActionDeviceKey}
+            onSelectedDeviceKeyChange={setSelectedActionDeviceKey}
           />
         ) : undefined}
         pointStatus={workstationData.pointStatus}
@@ -1307,7 +1320,6 @@ function WorkbenchSurface({
             onClose={() => setConfigurationKind(null)}
           />
         ) : null}
-        <WorkflowStationRecovery runtime={services.workflow} active={workflowRunStatus.available && !connectionSwitchingTo} />
         <WorkbenchDomainLayout
           key={selectedTarget.cacheKey}
           mode={viewMode}
@@ -1352,7 +1364,7 @@ function WorkbenchSurface({
             initialMode={connectionMode === 'backend' ? 'production' : 'debug'}
             onConfigure={(kind) => {
               setModeEntryOpen(false)
-              setConfigurationKind(kind)
+              requestAnimationFrame(() => setConfigurationKind(kind))
             }}
             onReturn={() => setModeEntryOpen(false)}
           />

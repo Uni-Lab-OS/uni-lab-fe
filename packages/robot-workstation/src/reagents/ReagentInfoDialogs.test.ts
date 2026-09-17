@@ -6,6 +6,7 @@ import {
   mergeReagentInfoMetadata,
   mergeLookupFields,
   reagentInfoCustomParameters,
+  ReagentInfoDeleteDialog,
   ReagentInfoEditorDialog,
   validateCustomParameters,
   validateReagentInfoEditor
@@ -152,5 +153,25 @@ describe('ReagentInfoDialogs validation', () => {
       { name: '纯度', value: 'AR' },
       { name: '纯度', value: '99.9%' }
     ])).toBe('自定义参数名称“纯度”重复')
+  })
+
+  it('使用二次确认按钮删除试剂目录项，不要求输入删除文案', () => {
+    const markup = renderToStaticMarkup(
+      createElement(ReagentInfoDeleteDialog, {
+        item: {
+          id: 'info-1',
+          name: '乙醇',
+          aliases: [],
+          physicalState: 'liquid'
+        },
+        onDelete: async () => undefined,
+        onClose: () => undefined
+      })
+    )
+
+    expect(markup).toContain('确认删除')
+    expect(markup).toContain('data-dialog-initial-focus="true"')
+    expect(markup).not.toContain('输入“删除”确认')
+    expect(markup).not.toContain('<input')
   })
 })

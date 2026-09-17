@@ -2,15 +2,18 @@ import * as React from 'react'
 
 import { ConnectionSummary } from './DevicePanelSupport'
 import styles from './DeviceCatalogList.module.scss'
-import type { ManagedDevice } from './deviceCatalog'
+import {
+  managedDeviceSelectionKey,
+  type ManagedDevice
+} from './deviceCatalog'
 import type { DeviceManagementPanelProps } from './types'
 import { useDevices } from './useDevices'
 
 export interface DeviceManagementListProps extends Omit<
   DeviceManagementPanelProps,
-  'selectedDeviceId' | 'onSelectedDeviceChange'
+  'selectedDeviceKey' | 'onSelectedDeviceKeyChange'
 > {
-  onOpenActions?: (deviceId: string) => void
+  onOpenActions?: (deviceKey: string) => void
 }
 
 /**
@@ -19,7 +22,7 @@ export interface DeviceManagementListProps extends Omit<
  * @param props 当前服务连接和可选的单点调试跳转回调。
  * @returns 设备状态列表、连接诊断、刷新和动作调试入口。
  * @throws 目录错误由 useDevices 投影为可见错误状态。
- * @safety 本页面不运行设备动作；跳转时只传递稳定设备 ID。
+ * @safety 本页面不运行设备动作；跳转时只传递稳定设备实例选择键。
  */
 export function DeviceManagementList({
   services,
@@ -107,7 +110,7 @@ export function DeviceManagementList({
             <tbody>
               {devices.map(device => (
                 <DeviceRow
-                  key={device.id}
+                  key={managedDeviceSelectionKey(device)}
                   device={device}
                   onOpenActions={onOpenActions}
                 />
@@ -158,7 +161,10 @@ function DeviceRow({
       <td>{device.actions.length} 个</td>
       <td className={styles.actionCell}>
         {onOpenActions ? (
-          <button type="button" onClick={() => onOpenActions(device.id)}>
+          <button
+            type="button"
+            onClick={() => onOpenActions(managedDeviceSelectionKey(device))}
+          >
             单点调试
             <span className="codicon codicon-arrow-right" aria-hidden="true" />
           </button>

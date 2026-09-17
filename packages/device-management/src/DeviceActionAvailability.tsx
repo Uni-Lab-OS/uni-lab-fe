@@ -8,8 +8,7 @@ import type {
 
 import type { ManagedDevice } from './deviceCatalog'
 import {
-  projectDeviceActionInputSchema,
-  supportsD1AS1
+  projectDeviceActionInputSchema
 } from './deviceActionRun'
 import { shortIdentifier } from './devicePanelFormat'
 import { deviceClass } from './deviceStyles'
@@ -20,7 +19,7 @@ import styles from './DevicePanel.module.scss'
  *
  * @param input 动作、设备、模板、连接和目录读取状态。
  * @returns 可运行状态或带稳定原因的关闭状态。
- * @safety 参数合同、设备身份或物料/库位边界无法证明安全时关闭失败。
+ * @safety 参数合同或设备身份不完整时关闭失败；物料和库位准入由后端校验。
  */
 export function deviceActionReadiness({
   action,
@@ -91,13 +90,6 @@ export function deviceActionReadiness({
       kind: 'unavailable',
       reason: 'template_unmatched',
       message: '没有找到与当前设备动作匹配的运行信息，请刷新后重试'
-    }
-  }
-  if (!supportsD1AS1(template)) {
-    return {
-      kind: 'unavailable',
-      reason: 'workflow_required',
-      message: '该动作会影响物料或库位，请在工作流中运行'
     }
   }
   if (projectDeviceActionInputSchema(template) === null) {

@@ -34,12 +34,13 @@ const TEXT_ORIGIN = {
  */
 export function createWorkflowPrototypeActionMetadata({
   data,
+  width,
   base,
   markerProjection,
   ports,
   titleMarkup
 }: WorkflowPrototypeActionMetadataInput): NodeMetadata {
-  const kind = data.groupKind === 'subworkflow' ? '子工作流' : '实验操作'
+  const kind = data.kind === 'manual_confirm' ? '人工确认' : data.groupKind === 'subworkflow' ? '子工作流' : '实验操作'
   const detail = data.groupKind === 'subworkflow'
     ? `${data.groupExpanded ? '▾' : '▸'} ${data.descendantCount ?? 0} 个内部节点`
     : data.description?.trim() || workflowNodeStateLabel(
@@ -61,7 +62,11 @@ export function createWorkflowPrototypeActionMetadata({
         ry: 10
       },
       kind: TEXT_ORIGIN,
-      label: TEXT_ORIGIN,
+      label: {
+        ...TEXT_ORIGIN,
+        text: data.name || data.id,
+        textWrap: { width: Math.max(1, width - 20), height: 20, ellipsis: true, breakWord: true }
+      },
       detail: TEXT_ORIGIN,
       detailSecondary: TEXT_ORIGIN,
       ...markerProjection.attrs
@@ -84,7 +89,6 @@ export function createWorkflowPrototypeActionMetadata({
         tagName: 'text',
         selector: 'label',
         className: 'workflow-x6-node__label',
-        textContent: trimLabel(data.name || data.id, 14),
         attrs: { ...TEXT_ORIGIN, x: 10, y: 40 }
       },
       {
@@ -113,9 +117,6 @@ function wrapDetail(value: string, lineLimit: number): [string, string?] {
   if (value.length <= lineLimit * 2) {
     return [value.slice(0, lineLimit), value.slice(lineLimit)]
   }
-  return [value.slice(0, lineLimit - 1) + '…', value.slice(lineLimit, lineLimit * 2 - 1) + '…']
+  return [value.slice(0, lineLimit), value.slice(lineLimit, lineLimit * 2 - 1) + '…']
 }
 
-function trimLabel(value: string, limit: number): string {
-  return value.length > limit ? `${value.slice(0, Math.max(1, limit - 1))}…` : value
-}

@@ -21,6 +21,28 @@ const MATERIAL_UUID = '10000000-0000-4000-8000-000000000006'
 const FINGERPRINT = `sha256:${'a'.repeat(64)}`
 
 describe('DeviceCardActionController', () => {
+  it('物料及库位动作保留参数提交给后端单动作入口', async () => {
+    const actionCatalog = catalog()
+    actionCatalog.actionTemplates[0]!.schema = {
+      'x-unilabos-action-contract': {
+        version: 2,
+        // 模拟带物料语义的权威合同，准入由后端执行。
+        resource_contract: { material: { $slot: 'ResourceSlot' }, editor_control: 'site_selector' }
+      }
+    } as unknown as typeof actionCatalog.actionTemplates[0]['schema']
+    const create = vi.fn(async () => task('succeeded'))
+    const controller = new DeviceCardActionController({
+      workflow: {
+        getWorkflowActionCatalog: vi.fn(async () => actionCatalog)
+      } as unknown as WorkflowRuntimePort,
+      tasks: { createDeviceActionTask: create, getDeviceActionTask: vi.fn() },
+      runtimeEventsSupported: false
+    })
+    const params = { material: { uuid: MATERIAL_UUID }, target_site: 'site-1' }
+    await expect(controller.execute({ ...request(), params }, device()))
+      .resolves.toMatchObject({ status: 'DONE' })
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ param: params }))
+  })
   /** 证明全局 SSE 只触发工作流任务（WorkflowTask）REST 补读，不直接覆盖任务状态。 */
   it('submits the device material and rehydrates after the standard runtime event', async () => {
     vi.useFakeTimers()

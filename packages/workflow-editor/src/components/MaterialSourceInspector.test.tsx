@@ -59,7 +59,7 @@ function rendersClosedSelectorInPublicGraphOrder(): void {
   expect(markup).toContain('在代码中打开资源模板')
   expect(markup).toContain('已有物料')
   expect(markup).toContain('新建物料')
-  expect(markup).toContain('当前实验室 · 1 个兼容物料')
+  expect(markup).toContain('可选物料：1')
   expect(markup).toContain('384 Well Plate A · …000011')
   expect(markup).toContain('挂载点')
   expect(markup).toContain('库位范围')

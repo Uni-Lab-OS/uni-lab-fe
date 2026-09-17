@@ -118,7 +118,7 @@ export function WorkflowTaskList({
     setError(null)
     try {
       const [nextPage, workflowPage] = await Promise.all([
-        runtime.listWorkflowTasks({ page: 1, page_size: TASK_PAGE_SIZE }),
+        runtime.listWorkflowTasks({ page: 1, page_size: TASK_PAGE_SIZE, execution_kind: 'workflow' }),
         runtime.listWorkflows({ page: 1, page_size: TASK_PAGE_SIZE })
       ])
       if (requestRevision.current !== revision) return
@@ -412,6 +412,7 @@ function TaskWorkflowPane({
             reason: '当前显示已创建任务；请在工作流工作台启动新任务'
           }}
           hideEmbeddedCodeEditor
+          hideCanvasSidebars
           hideRuntimeControls
           allowWorkflowSelection={false}
         />

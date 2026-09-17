@@ -76,6 +76,8 @@ export interface WorkflowDagProjectionEdge {
     targetHandleUuid?: string
     materialRole?: string
     materialEmphasis?: 'primary' | 'supporting'
+    sourcePortId?: string
+    controlBranch?: 'if' | 'elif' | 'else'
   }
 }
 
@@ -330,6 +332,7 @@ function buildFlowElements(
         visualKind: node.visualKind,
         groupKind: node.groupKind,
         descendantCount: node.descendantNodeIds?.length,
+        controlFlow: node.controlFlow,
         openChildWorkflowUuid: node.openChildWorkflowUuid,
         handles: node.handles,
         materialSource: node.materialSource,
@@ -385,6 +388,36 @@ function buildFlowElements(
       compactPrimarySampleLayout
     })]
   })
+  const visibleNodeIds = new Set(flowNodes.map((node) => node.id))
+  for (const controlNode of sourceNodes) {
+    if (controlNode.controlFlow?.kind !== 'condition') continue
+    for (const [branchIndex, branch] of (
+      controlNode.controlFlow.branches ?? []
+    ).entries()) {
+      const target = branch.entryNodeUuids.find((uuid) =>
+        visibleNodeIds.has(uuid)
+      )
+      if (!target || !visibleNodeIds.has(controlNode.id)) continue
+      const branchKind = branch.label === 'ELSE'
+        ? 'else' : branch.label === 'ELIF' ? 'elif' : 'if'
+      const displayLabel = branchKind === 'else'
+        ? 'False 分支' : branchKind === 'if' ? 'True 分支' : branch.label
+      flowEdges.push({
+        id: `display-condition:${controlNode.id}:${branchIndex}:${target}`,
+        source: controlNode.id,
+        target,
+        ariaLabel: `${displayLabel}：${controlNode.name} → ${nodeNames.get(target) ?? target}`,
+        className: `wf-flow-edge--condition-${branchKind}`,
+        style: { stroke: '#cbd5e1', strokeWidth: 1.6 },
+        data: {
+          sourceNodeUuid: controlNode.id,
+          targetNodeUuid: target,
+          sourcePortId: `workflow-condition-branch-${branchIndex}`,
+          controlBranch: branchKind
+        }
+      })
+    }
+  }
 
   return { flowNodes, flowEdges }
 }

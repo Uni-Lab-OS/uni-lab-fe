@@ -622,6 +622,9 @@ export function workflowX6HandleConnectionCandidates(
     targetHandles.forEach((targetHandle, targetIndex) => {
       const sourceKind = workflowHandleSemanticKind(sourceHandle)
       const targetKind = workflowHandleSemanticKind(targetHandle)
+      // 执行顺序（ready）连接点只承载先后关系，OS 永远拒绝它与数据连接点混连；
+      // 节点级手势不得把它降级成“先试数据输入”的候选。
+      if ((sourceKind === 'ready') !== (targetKind === 'ready')) return
       ranked.push({
         connection: {
           sourceNodeUuid,
@@ -629,6 +632,7 @@ export function workflowX6HandleConnectionCandidates(
           targetNodeUuid,
           targetHandleUuid: targetHandle.uuid
         },
+        // 已占用的执行顺序输入仍是合法候选（允许多路汇入），只是优先级更低。
         occupied: occupiedTargets.has(targetHandle.uuid),
         semanticMismatch: sourceKind !== targetKind,
         semanticPriority: workflowHandleSemanticPriority(sourceKind),

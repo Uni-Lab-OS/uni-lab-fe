@@ -61,11 +61,13 @@ export interface WorkflowPanelProps {
   ) => void
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
+  hideCanvasSidebars?: boolean
   hideRuntimeControls?: boolean
   allowWorkflowSelection?: boolean
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
   debugLayout?: boolean
+  catalogOnly?: boolean
 }
 
 /**
@@ -97,11 +99,13 @@ export default function WorkflowPanel({
   onVisibleMaterialRolesChange,
   ideBridge,
   hideEmbeddedCodeEditor = false,
+  hideCanvasSidebars = false,
   hideRuntimeControls = false,
   allowWorkflowSelection = false,
   onResetEnvironment,
   environmentResetBusy = false,
-  debugLayout = false
+  debugLayout = false,
+  catalogOnly = false
 }: WorkflowPanelProps): React.JSX.Element {
   const [selectedWorkflowUuid, setSelectedWorkflowUuid] = useState<
     string | null
@@ -118,7 +122,7 @@ export default function WorkflowPanel({
   const authoringAvailable = authoringStatus?.available !== false
   const runAvailable = runStatus?.available === true
   const workflowSelectable = authoringAvailable || runAvailable
-  const workflowUuid = !workflowSelectable || showCatalog
+  const workflowUuid = catalogOnly || !workflowSelectable || showCatalog
     ? null
     : (allowWorkflowSelection ? selectedWorkflowUuid : null) ||
       explicitWorkflowUuid || selectedWorkflowUuid ||
@@ -160,7 +164,7 @@ export default function WorkflowPanel({
   }, [active, onActiveWorkflowChange, workflowUuid])
 
   useEffect(() => {
-    if (!debugLayout || !active || workflowUuid || showCatalog || !workflowSelectable) return
+    if (catalogOnly || !debugLayout || !active || workflowUuid || showCatalog || !workflowSelectable) return
     let disposed = false
     void runtime.listWorkflows({ page: 1, page_size: 100 }).then((page) => {
       if (disposed) return
@@ -174,7 +178,7 @@ export default function WorkflowPanel({
       // 目录组件保留统一的读取失败提示与重试入口。
     })
     return () => { disposed = true }
-  }, [active, activeWorkflowStorageKey, debugLayout, runtime, showCatalog, workflowSelectable, workflowUuid])
+  }, [active, activeWorkflowStorageKey, catalogOnly, debugLayout, runtime, showCatalog, workflowSelectable, workflowUuid])
 
   if (workflowUuid && isWorkflowUuid(workflowUuid)) {
     const definitionAuthority = definitionEditingMode === 'backend' ||
@@ -202,6 +206,7 @@ export default function WorkflowPanel({
         onSelectedWorkflowStepChange={onSelectedWorkflowStepChange}
         ideBridge={ideBridge}
         hideEmbeddedCodeEditor={hideEmbeddedCodeEditor}
+        hideCanvasSidebars={hideCanvasSidebars}
         hideRuntimeControls={hideRuntimeControls}
         recoveryRevision={recoveryRevision}
         visibleMaterialRoles={visibleMaterialRoles}
@@ -256,9 +261,11 @@ export default function WorkflowPanel({
       authoringStatus={authoringStatus}
       runStatus={runStatus}
       onStateChange={onCatalogStateChange}
-      onSelect={workflowSelectable
-        ? selectWorkflow
-        : undefined}
+      onSelect={catalogOnly
+        ? undefined
+        : workflowSelectable
+          ? selectWorkflow
+          : undefined}
     />
   )
 }

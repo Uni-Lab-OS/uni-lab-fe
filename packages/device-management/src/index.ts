@@ -22,8 +22,7 @@ export {
 export type { UnlockIntent, UnlockOperation } from './DeviceLockControls'
 export {
   matchDeviceActionTemplate,
-  serializeDeviceActionInput,
-  supportsD1AS1
+  serializeDeviceActionInput
 } from './deviceActionRun'
 export type { DeviceActionArgumentDraft } from './deviceActionRun'
 export { presentEdgeDevices } from './deviceCatalog'

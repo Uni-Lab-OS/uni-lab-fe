@@ -57,6 +57,19 @@ export interface WorkflowNodeData {
   groupKind?: 'group' | 'subworkflow'
   groupExpanded?: boolean
   descendantCount?: number
+  controlFlow?: {
+    kind: 'condition' | 'repeat_until'
+    branchCount?: number
+    maxIterations?: number
+    branches?: Array<{
+      label: string
+      entryNodeUuids: string[]
+      conditionSummary: string
+    }>
+    entryNodeUuids?: string[]
+    exitNodeUuids?: string[]
+    successorNodeUuids?: string[]
+  }
   openChildWorkflowUuid?: string
   handles?: WorkflowHandlePort[]
   traceAccent?: string
@@ -717,7 +730,7 @@ export function workflowNodeShowsState(kind?: string, status?: string): boolean 
 }
 
 export function workflowNodeKindLabel(kind?: string): string {
-  return kind === 'material_source'
+  return kind === 'manual_confirm' ? '人工确认' : kind === 'material_source'
     ? '物料来源'
     : kind === 'branch'
       ? '◇ 分支节点'

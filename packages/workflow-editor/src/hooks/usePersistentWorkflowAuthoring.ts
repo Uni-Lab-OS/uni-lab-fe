@@ -366,8 +366,6 @@ export function usePersistentWorkflowAuthoring({
       swimlaneDirection
     )
     setGraph(nextGraph)
-    setCanvasDirty(true)
-    setSelectedNodeNameDirty(false)
     setError(null)
     setMessage(
       `已应用${workflowDagLayoutStrategyLabel(strategy)}${
@@ -376,8 +374,7 @@ export function usePersistentWorkflowAuthoring({
               swimlaneDirection
             )}）`
           : ''
-      }布局；` +
-      '保存草稿后将写入工作流'
+      }布局`
     )
   }, [
     busy,
@@ -1374,7 +1371,7 @@ export function usePersistentWorkflowAuthoring({
   const candidateIo = graph ? workflowIoMetadata(graph) : null
 
   return {
-    acceptFullSourceDiff, actionCatalog, actionCatalogError, actionParametersOpen,
+    active, acceptFullSourceDiff, actionCatalog, actionCatalogError, actionParametersOpen,
     adoptRemoteConflict, aggregate, appliedIo,
     applyCandidate, beautifyCanvasLayout,
     busy, cancelFullSourceDiff, candidateIo, canvasMutationEnabled,

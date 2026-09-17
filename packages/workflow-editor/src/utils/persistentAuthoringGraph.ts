@@ -120,6 +120,7 @@ function projectPersistentAuthoringNode(
     ...projectNodeParent(node, context.nodeByUuid),
     ...projectNodeReadOnlyState(node, context.nodeByUuid),
     ...projectCompositeState(nodeUuid, context),
+    ...projectControlFlowState(node, type),
     ...projectMaterialSourceState(node, type, context.resourceTemplateByUuid),
     ...nodePosition(node.pose)
   }
@@ -211,6 +212,62 @@ function projectCompositeState(
   }
 }
 
+
+function projectControlFlowState(
+  node: AuthoringNode,
+  type: string
+): Pick<WorkflowNode, 'controlFlow'> {
+  if (type !== 'condition' && type !== 'repeat_until') return {}
+  const param = isRecord(node.param) ? node.param : {}
+  if (type === 'condition') {
+    const rawBranches = Array.isArray(param.branches) ? param.branches : []
+    const branches = rawBranches.map((value, index) => {
+      const branch = isRecord(value) ? value : {}
+      const members = Array.isArray(branch.node_uuids)
+        ? branch.node_uuids.filter((item): item is string => typeof item === 'string')
+        : []
+      const entries = Array.isArray(branch.entry_node_uuids)
+        ? branch.entry_node_uuids.filter((item): item is string => typeof item === 'string')
+        : []
+      const condition = isRecord(branch.condition) ? branch.condition : null
+      const rawLabel = String(branch.label || '').toLowerCase()
+      const label = condition === null || rawLabel === 'else'
+        ? 'ELSE'
+        : index === 0 || rawLabel === 'if' ? 'IF' : 'ELIF'
+      const conditionSummary = condition?.lit === true
+        ? '固定为真'
+        : condition?.lit === false ? '固定为假'
+          : typeof condition?.var === 'string' ? condition.var
+            : label === 'ELSE' ? '兜底分支' : '条件判断'
+      return {
+        label,
+        entryNodeUuids: entries.length > 0 ? entries : members.slice(0, 1),
+        conditionSummary
+      }
+    })
+    return {
+      controlFlow: {
+        kind: 'condition',
+        branchCount: branches.length,
+        branches
+      }
+    }
+  }
+  const maximum = Number(param.max_iterations)
+  const list = (value: unknown) => Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string') : []
+  return {
+    controlFlow: {
+      kind: 'repeat_until',
+      ...(Number.isInteger(maximum) && maximum > 0
+        ? { maxIterations: maximum }
+        : {}),
+      entryNodeUuids: list(param.entry_node_uuids),
+      exitNodeUuids: list(param.exit_node_uuids),
+      successorNodeUuids: list(param.successor_node_uuids)
+    }
+  }
+}
 function projectMaterialSourceState(
   node: AuthoringNode,
   type: string,

@@ -161,21 +161,17 @@ export function DesktopWorkspacePicker({
       </div>
       <button
         type="button"
-        className="unilab-workspace-picker__button"
+        className="unilab-workspace-picker__button unilab-workspace-picker__button--open"
         disabled={!available || switching}
-        title="选择并打开 UniLab 工作区目录"
-        onClick={() => { void selectWorkspace() }}
+        title={value.trim()
+          ? '打开输入的工作区目录'
+          : '选择并打开 UniLab 工作区目录'}
+        onClick={() => {
+          if (value.trim()) void openTypedWorkspace()
+          else void selectWorkspace()
+        }}
       >
         <span className="codicon codicon-folder-opened" aria-hidden="true" />
-        选择文件夹
-      </button>
-      <button
-        type="button"
-        className="unilab-workspace-picker__button unilab-workspace-picker__button--open"
-        disabled={!available || switching || !value.trim()}
-        title="打开输入的工作区目录"
-        onClick={() => { void openTypedWorkspace() }}
-      >
         {switching ? '正在打开…' : '打开目录'}
       </button>
     </div>

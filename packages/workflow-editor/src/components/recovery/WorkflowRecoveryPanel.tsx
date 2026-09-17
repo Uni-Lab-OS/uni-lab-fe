@@ -2,9 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { WorkflowRecoveryPort } from '@unilab/services'
 import type { PersistentWorkflowAuthoringModel } from '../persistentWorkflowAuthoringModel'
 import { RecoveryContext, useRecoveryController } from './RecoveryContext'
-import { StationRecovery } from './StationRecovery'
 import { ManualConfirmationPanel } from './ManualConfirmationPanel'
-import { TaskRecovery } from './TaskRecovery'
 import './recovery.scss'
 
 export function WorkflowRecoveryPanel({ model }: { model: PersistentWorkflowAuthoringModel }) {
@@ -31,12 +29,10 @@ function ConnectedRecovery({ port, model }: { port: WorkflowRecoveryPort; model:
   const writable = model.active && Boolean(state.station) && !state.readError && !state.pending && !state.unconfirmed && !taskReadError
   if (!model.active) return null
   return <RecoveryContext.Provider value={{ port, revision: state.revision }}>
-    <section className="workflow-recovery" aria-label="异常处置与人工确认">
+    <section className="workflow-recovery" aria-label="人工确认">
       {taskReadError && <p role="alert">任务状态读取失败：{taskReadError}</p>}
-      <StationRecovery controller={controller} state={state} writable={writable} />
       <ManualConfirmationPanel jobs={model.taskJobs} names={model.taskNodeNames} port={port}
         writable={writable && !model.taskRuntime.snapshot.error && !model.runtimeBusy} refresh={refresh} />
-      {model.task && <TaskRecovery key={model.task.uuid} task={model.task} jobs={model.taskJobs} runtime={model.runtime} writable={writable && !model.taskRuntime.snapshot.error} refresh={refresh} />}
     </section>
   </RecoveryContext.Provider>
 }

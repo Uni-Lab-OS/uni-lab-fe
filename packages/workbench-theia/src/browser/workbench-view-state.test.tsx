@@ -4,7 +4,42 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { DomainEntryPanel } from './domain-entry-panel'
 import { WorkbenchDomainLayout } from './workbench-domain-layout'
-import { WorkbenchViewState } from './workbench-view-state'
+import {
+  WorkbenchViewState,
+  isWorkflowDebugWorkbenchView,
+  isWorkflowManagementWorkbenchView
+} from './workbench-view-state'
+
+describe('工作流管理与调试布局边界', () => {
+  it('只为工作流调试模式启用 debugLayout', () => {
+    expect(isWorkflowDebugWorkbenchView('workflow')).toBe(true)
+    expect(isWorkflowDebugWorkbenchView('workflow-files')).toBe(true)
+    expect(isWorkflowDebugWorkbenchView('split')).toBe(true)
+
+    expect(isWorkflowDebugWorkbenchView('workflow-management')).toBe(false)
+    expect(isWorkflowDebugWorkbenchView('workflow-management-files')).toBe(false)
+    expect(isWorkflowDebugWorkbenchView('workflow-management-material')).toBe(false)
+
+    expect(isWorkflowManagementWorkbenchView('workflow')).toBe(false)
+    expect(isWorkflowManagementWorkbenchView('workflow-files')).toBe(false)
+    expect(isWorkflowManagementWorkbenchView('split')).toBe(false)
+    expect(isWorkflowManagementWorkbenchView('workflow-management')).toBe(true)
+    expect(isWorkflowManagementWorkbenchView('workflow-management-files')).toBe(true)
+    expect(isWorkflowManagementWorkbenchView('workflow-management-material')).toBe(true)
+  })
+})
+
+describe('工作台导航标题', () => {
+  it('不再通过活动栏 hover 重复展示完整 caption', () => {
+    const source = readFileSync(
+      new URL('./unilab-workbench-navigator-widget.tsx', import.meta.url),
+      'utf8'
+    )
+
+    expect(source).toContain("this.title.caption = ''")
+    expect(source).not.toContain('this.title.caption = this.entry.caption')
+  })
+})
 
 describe('Workbench domain view presentation', () => {
   it('derives split layout from independent workflow and material toggles', () => {

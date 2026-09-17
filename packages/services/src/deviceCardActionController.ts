@@ -9,7 +9,6 @@ import type {
 } from './deviceActionTasks'
 import type { DeviceCatalogItem } from './laboratory'
 import type {
-  WorkflowActionNodeTemplate,
   WorkflowRuntimeInvalidationEvent,
   WorkflowRuntimePort
 } from './workflow'
@@ -145,9 +144,6 @@ export class DeviceCardActionController {
         )
       }
       const template = matches[0]!
-      if (!supportsDeviceCardSingleAction(template)) {
-        throw new Error('Action 包含物料或 Site 语义，请在工作流中运行。')
-      }
       const accepted = await this.ports.tasks.createDeviceActionTask({
         material_uuid: device.materialUuid,
         workflow_node_template_uuid: template.uuid,
@@ -180,23 +176,6 @@ export class DeviceCardActionController {
       subscription.dispose()
     }
   }
-}
-
-/**
- * 判断动作模板是否可由设备卡片安全直接执行。
- *
- * @param template 已校验的动作节点模板。
- * @returns 不含物料占位符（ResourceSlot）、库位（Site）或隐式传递时为 true。
- */
-export function supportsDeviceCardSingleAction(
-  template: WorkflowActionNodeTemplate
-): boolean {
-  return template.handles.every((handle) =>
-    handle.editorControl !== 'material_port' &&
-    handle.editorControl !== 'site_selector' &&
-    !handle.implicitPassthrough &&
-    !containsUnsupportedContract(handle.valueSchema)
-  ) && !containsUnsupportedContract(template.schema)
 }
 
 /** 校验设备与动作请求；参数是请求和设备投影，无返回值，绑定、在线状态或声明不一致时抛错。 */
@@ -272,18 +251,4 @@ function mapActionStatus(status: string): DeviceCardActionRun['status'] {
   if (status === 'timeout') return 'TIMEOUT'
   if (status === 'running') return 'RUNNING'
   return 'ACCEPTED'
-}
-
-/** 递归检查不支持的物料或库位合同；参数是 schema 值，返回是否命中，不主动抛错。 */
-function containsUnsupportedContract(value: unknown): boolean {
-  if (Array.isArray(value)) return value.some(containsUnsupportedContract)
-  if (!value || typeof value !== 'object') return value === 'ResourceSlot'
-  const record = value as Record<string, unknown>
-  if (
-    record.$slot === 'ResourceSlot' ||
-    record.editor_control === 'material_port' ||
-    record.editor_control === 'site_selector' ||
-    record.implicit_passthrough === true
-  ) return true
-  return Object.values(record).some(containsUnsupportedContract)
 }
