@@ -225,7 +225,8 @@ function sizeWorkflowNode(node: WorkflowNode): SizedNode {
       Math.max(ACTION_NODE_MIN_WIDTH, 170 + materialVariables * 78)
     ),
     height: node.groupKind === 'subworkflow'
-      ? SUBWORKFLOW_NODE_HEIGHT
+      ? SUBWORKFLOW_NODE_HEIGHT +
+        (node.expandedRowCount ? node.expandedRowCount * 22 + 6 : 0)
       : ACTION_NODE_HEIGHT
   }
 }

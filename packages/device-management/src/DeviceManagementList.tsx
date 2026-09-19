@@ -6,6 +6,7 @@ import {
   managedDeviceSelectionKey,
   type ManagedDevice
 } from './deviceCatalog'
+import { deviceDispatchBlockPresentation } from './devicePanelFormat'
 import type { DeviceManagementPanelProps } from './types'
 import { useDevices } from './useDevices'
 
@@ -70,8 +71,10 @@ export function DeviceManagementList({
             tone="success"
           />
           <Metric
-            label="派发受阻"
-            value={devices.filter(device => !device.dispatchable).length}
+            label="调度受限"
+            value={devices.filter(device => (
+              device.edgeStatus === 'online' && !device.dispatchable
+            )).length}
             tone="warning"
           />
           <Metric
@@ -135,6 +138,20 @@ function DeviceRow({
   onOpenActions?: (deviceId: string) => void
 }): React.JSX.Element {
   const occupied = hasExecutionOccupancy(device)
+  const dispatchBlocked = (
+    device.edgeStatus === 'online' && !device.dispatchable
+  )
+  const dispatchBlock = dispatchBlocked
+    ? deviceDispatchBlockPresentation(device.dispatchBlockReason)
+    : null
+  const schedulingLabel = device.edgeStatus !== 'online'
+    ? '等待连接'
+    : dispatchBlock?.label ?? (occupied ? '执行占用' : '可调度')
+  const schedulingDetail = device.edgeStatus !== 'online'
+    ? 'Edge 建立连接后才能参与调度'
+    : dispatchBlock?.detail ?? (
+      occupied ? '设备当前存在执行占用' : undefined
+    )
   return (
     <tr>
       <td>
@@ -154,8 +171,13 @@ function DeviceRow({
       </td>
       <td>
         <StatusBadge
-          tone={occupied ? 'primary' : device.dispatchable ? 'success' : 'warning'}
-          label={occupied ? '执行占用' : device.dispatchable ? '可派发' : '派发受阻'}
+          tone={dispatchBlocked
+            ? 'warning'
+            : occupied
+              ? 'primary'
+              : device.edgeStatus === 'online' ? 'success' : 'muted'}
+          label={schedulingLabel}
+          title={schedulingDetail}
         />
       </td>
       <td>{device.actions.length} 个</td>
@@ -202,10 +224,16 @@ function Metric({
 /** 渲染不承载交互的设备状态标签。 */
 function StatusBadge({
   label,
-  tone
+  tone,
+  title
 }: {
   label: string
   tone: 'success' | 'warning' | 'primary' | 'muted'
+  title?: string
 }): React.JSX.Element {
-  return <span className={styles.badge} data-tone={tone}><i aria-hidden="true" />{label}</span>
+  return (
+    <span className={styles.badge} data-tone={tone} title={title}>
+      <i aria-hidden="true" />{label}
+    </span>
+  )
 }

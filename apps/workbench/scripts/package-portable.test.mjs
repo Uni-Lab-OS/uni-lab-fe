@@ -616,14 +616,10 @@ describe('portable Workbench packaging contract', () => {
       workbenchManifest.scripts['desktop:development'],
       /dev-desktop\.mjs$/u
     )
-    assert.equal(
-      rootManifest.scripts['workbench:desktop:welcome:development'],
-      'pnpm --filter @unilab/workbench desktop:welcome:development'
-    )
-    assert.match(
-      workbenchManifest.scripts['desktop:welcome:development'],
-      /dev-desktop\.mjs --welcome$/u
-    )
+    assert.equal(rootManifest.scripts['workbench:desktop:welcome:development'], undefined)
+    assert.equal(workbenchManifest.scripts['desktop:welcome:development'], undefined)
+    assert.equal(workbenchManifest.scripts['desktop:welcome'], undefined)
+    assert.equal(workbenchManifest.scripts['start:desktop-welcome'], undefined)
     assert.equal(
       desktopManifest.scripts['build:workbench-shell'],
       'node scripts/build-workbench-shell.mjs'

@@ -54,7 +54,8 @@ describe('device status presentation', () => {
     )
 
     expect(listMarkup).toContain('在线')
-    expect(listMarkup).toContain('派发受阻')
+    expect(listMarkup).not.toContain('派发受阻')
+    expect(listMarkup).toContain('历史命令待核验')
     expect(listMarkup).toContain('执行占用')
     expect(detailMarkup).toContain('不确定占用')
     expect(detailMarkup).toContain('需要完成安全核验')
@@ -178,7 +179,6 @@ describe('device status presentation', () => {
       )
 
     const offlineMarkup = renderWorkspace('offline')
-    expect(offlineMarkup).toContain('等待 Edge 连接')
     expect(offlineMarkup).toContain('等待连接')
     expect(offlineMarkup).not.toContain('占用未提供')
 

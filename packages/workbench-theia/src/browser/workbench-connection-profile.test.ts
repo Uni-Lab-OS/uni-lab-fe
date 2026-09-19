@@ -28,6 +28,17 @@ describe('Workbench connection authority profile', () => {
     })).toBe('local')
   })
 
+  it('maps the desktop entry mode to the matching connection authority', () => {
+    expect(resolveInitialWorkbenchConnectionMode({
+      search: '?entryMode=debug',
+      storedMode: 'backend'
+    })).toBe('local')
+    expect(resolveInitialWorkbenchConnectionMode({
+      search: '?entryMode=production',
+      storedMode: 'local'
+    })).toBe('backend')
+  })
+
   /** 证明损坏的持久偏好失败关闭到 Local Authority，而不是猜测 Backend 权威。 */
   it('rejects an unknown stored authority value', () => {
     expect(resolveInitialWorkbenchConnectionMode({

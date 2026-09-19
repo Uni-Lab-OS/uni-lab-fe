@@ -147,18 +147,28 @@
     stroke: none;
   }
 
-  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-accent,
-  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-badge {
+  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-accent {
     fill: var(--workflow-subworkflow-accent);
     stroke: none;
   }
 
-  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-glyph {
-    fill: var(--unilab-color-surface);
-    font-family: var(--unilab-font-sans);
-    font-size: 9px;
-    font-weight: 700;
-    dominant-baseline: middle;
+  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-glyph-frame {
+    fill: none;
+    stroke: var(--workflow-subworkflow-accent);
+    stroke-width: 1.4px;
+  }
+
+  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-glyph-link {
+    fill: none;
+    stroke: var(--workflow-subworkflow-accent);
+    stroke-width: 1.2px;
+    stroke-linecap: round;
+  }
+
+  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-glyph-node {
+    fill: var(--workflow-subworkflow-accent);
+    stroke: var(--unilab-color-surface);
+    stroke-width: .6px;
   }
 
   .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-kind {
@@ -183,6 +193,25 @@
     font-family: var(--unilab-font-sans);
     font-size: 10px;
     font-weight: 600;
+    dominant-baseline: middle;
+    cursor: pointer;
+  }
+
+  .workflow-x6 .x6-node#{$sub}:hover .workflow-x6-node__group-count {
+    fill: var(--workflow-subworkflow-accent);
+  }
+
+  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-child-row {
+    fill: var(--unilab-color-surface);
+    stroke: var(--unilab-color-border);
+    stroke-width: 1px;
+  }
+
+  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-child-name {
+    fill: var(--unilab-color-text);
+    font-family: var(--unilab-font-sans);
+    font-size: 10px;
+    font-weight: 500;
     dominant-baseline: middle;
   }
 

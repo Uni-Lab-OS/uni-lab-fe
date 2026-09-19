@@ -283,9 +283,15 @@
   background: var(--unilab-color-danger-soft);
 }
 
+.edge-device__list-lock.is-ready,
 .edge-device__node-state.is-ready,
 .edge-device__status-badge.is-online {
   background: var(--unilab-color-success-soft);
+}
+
+.edge-device__list-lock.is-waiting {
+  color: var(--unilab-color-text-muted);
+  background: var(--unilab-color-surface-muted);
 }
 
 .edge-device__chevron {
