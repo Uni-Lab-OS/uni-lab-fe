@@ -29,7 +29,10 @@ import {
   formatTime,
   type ArgumentDraft
 } from './DevicePanelPresentation'
-import { shortIdentifier } from './devicePanelFormat'
+import {
+  deviceDispatchBlockPresentation,
+  shortIdentifier
+} from './devicePanelFormat'
 
 export function ConnectionSummary({
   connection,
@@ -89,13 +92,23 @@ export function DeviceListItem({
   ).length
   const occupancy = device.executionOccupancies?.[0] ?? null
   const edgeLabel = edgeStatusLabel(device.edgeStatus)
+  const dispatchBlock = (
+    device.edgeStatus === 'online' && !device.dispatchable
+  )
+    ? deviceDispatchBlockPresentation(device.dispatchBlockReason)
+    : null
+  const schedulingLabel = device.edgeStatus !== 'online'
+    ? '等待连接'
+    : dispatchBlock?.label ?? (
+      occupancy || busyActionCount ? '执行占用' : '可调度'
+    )
   return (
     <li>
       <button
         type="button"
         className={deviceClass('edge-device__device-item', selected && 'is-active')}
         aria-pressed={selected}
-        aria-label={`${device.displayName}，${edgeLabel}，${device.dispatchable ? '可调度' : '派发受阻'}${occupancy ? '，存在执行占用' : ''}`}
+        aria-label={`${device.displayName}，${edgeLabel}，${schedulingLabel}${occupancy ? '，存在执行占用' : ''}`}
         onClick={() => onSelect(managedDeviceSelectionKey(device))}
       >
         <span className={deviceClass('edge-device__device-icon')}>
@@ -108,25 +121,25 @@ export function DeviceListItem({
               aria-hidden="true"
             />
             <span className={deviceClass('device-list__name')}>{device.displayName}</span>
-            {!device.dispatchable && device.edgeStatus === 'online' ? (
-              <span className={deviceClass('edge-device__list-lock is-blocked')}>
-                派发受阻
-              </span>
-            ) : null}
-            {occupancy ? (
-              <span className={deviceClass('edge-device__list-lock', occupancy.state === 'uncertain' && 'is-uncertain')}>
-                执行占用
-              </span>
-            ) : null}
-            {!occupancy && busyActionCount ? (
-              <span className={deviceClass('edge-device__list-lock')}>
-                动作占用
-              </span>
-            ) : null}
+            <span
+              className={deviceClass(
+                'edge-device__list-lock',
+                dispatchBlock
+                  ? 'is-blocked'
+                  : device.edgeStatus !== 'online'
+                    ? 'is-waiting'
+                    : occupancy || busyActionCount
+                      ? 'is-occupied'
+                      : 'is-ready'
+              )}
+              title={dispatchBlock?.detail}
+            >
+              {schedulingLabel}
+            </span>
           </span>
           <span className={deviceClass('device-list__key')}>
             {edgeLabel} · {device.actions.length} 个动作
-            {occupancy ? ` · Job ${shortIdentifier(occupancy.workflowNodeJobUuid)}` : ''}
+            {occupancy ? ` · 执行占用 Job ${shortIdentifier(occupancy.workflowNodeJobUuid)}` : ''}
             {!occupancy && busyActionCount ? ` · ${busyActionCount} 个动作占用` : ''}
           </span>
         </span>
@@ -194,9 +207,16 @@ export function DeviceWorkspace({
     (action) => action.isBusy
   ).length
   const occupancy = device.executionOccupancies?.[0] ?? null
+  const dispatchBlock = (
+    device.edgeStatus === 'online' && !device.dispatchable
+  )
+    ? deviceDispatchBlockPresentation(device.dispatchBlockReason)
+    : null
   const schedulingStatus = device.edgeStatus !== 'online'
-    ? '等待 Edge 连接'
-    : device.dispatchable ? '可调度' : '派发受阻'
+    ? '等待连接'
+    : dispatchBlock?.label ?? (
+      occupancy || busyActionCount ? '执行占用' : '可调度'
+    )
   return (
     <div className={deviceClass('edge-device__workspace')} data-device-management="workspace">
       <header className={deviceClass('edge-device__identity')} data-device-management="identity">
@@ -223,9 +243,12 @@ export function DeviceWorkspace({
               执行占用 · Job {shortIdentifier(occupancy.workflowNodeJobUuid)}
             </span>
           ) : null}
-          {!device.dispatchable && device.edgeStatus === 'online' ? (
-            <span className={deviceClass('edge-device__status-badge is-blocked')}>
-              派发受阻
+          {dispatchBlock ? (
+            <span
+              className={deviceClass('edge-device__status-badge is-blocked')}
+              title={dispatchBlock.detail}
+            >
+              {dispatchBlock.label}
             </span>
           ) : null}
           <span
@@ -254,10 +277,19 @@ export function DeviceWorkspace({
         <Metric
           label="调度状态"
           value={schedulingStatus}
-          tone={device.dispatchable
-            ? 'success'
-            : device.edgeStatus === 'online' ? 'warning' : 'muted'}
+          tone={device.edgeStatus !== 'online'
+            ? 'muted'
+            : dispatchBlock || occupancy || busyActionCount
+              ? 'warning'
+              : 'success'}
         />
+        {dispatchBlock ? (
+          <Metric
+            label="调度受限原因"
+            value={dispatchBlock.detail}
+            tone="warning"
+          />
+        ) : null}
         <Metric
           label="执行占用"
           value={occupancy
@@ -265,7 +297,7 @@ export function DeviceWorkspace({
             : busyActionCount
               ? `${busyActionCount} 个动作占用`
               : device.edgeStatus !== 'online'
-                ? '等待 Edge 连接'
+                ? '等待连接'
                 : device.executionOccupancies === null
                   ? '—'
                   : '空闲'}

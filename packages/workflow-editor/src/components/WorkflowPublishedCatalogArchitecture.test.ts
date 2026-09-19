@@ -117,7 +117,7 @@ describe('Published Workflow Catalog in the Authoring module', () => {
     const toggle = functionBody(source, 'const toggleGroup')
 
     expect(source).toMatch(
-      /projectNestedWorkflow\(nodes, links, expandedGroupIds\)/
+      /projectNestedWorkflow\(sizedNodes, links, new Set\(\)\)/
     )
     expect(source).toMatch(
       /projectMaterialTraces\([\s\S]*?hierarchyProjection\.nodes,[\s\S]*?hierarchyProjection\.links/

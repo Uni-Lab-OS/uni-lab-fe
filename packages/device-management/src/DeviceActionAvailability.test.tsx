@@ -93,7 +93,7 @@ describe('device action Runtime availability', () => {
     expect(state).toEqual({
       kind: 'unavailable',
       reason: 'dispatch_blocked',
-      message: '设备在线，但存在未确认的历史命令；完成安全核验后才能运行'
+      message: '存在未确认的历史命令；完成安全核验后才能恢复派发'
     })
   })
 

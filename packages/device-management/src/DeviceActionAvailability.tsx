@@ -10,7 +10,10 @@ import type { ManagedDevice } from './deviceCatalog'
 import {
   projectDeviceActionInputSchema
 } from './deviceActionRun'
-import { shortIdentifier } from './devicePanelFormat'
+import {
+  deviceDispatchBlockPresentation,
+  shortIdentifier
+} from './devicePanelFormat'
 import { deviceClass } from './deviceStyles'
 import styles from './DevicePanel.module.scss'
 
@@ -61,7 +64,9 @@ export function deviceActionReadiness({
     return {
       kind: 'unavailable',
       reason: 'dispatch_blocked',
-      message: dispatchBlockMessage(device.dispatchBlockReason)
+      message: deviceDispatchBlockPresentation(
+        device.dispatchBlockReason
+      ).detail
     }
   }
   if (!device.materialUuid) {
@@ -110,14 +115,6 @@ export function deviceActionReadiness({
           ? '当前服务未提供占用明细；提交时由调度器（Scheduler）进行权威准入'
           : '参数将提交为正式工作流任务（WorkflowTask）和作业（Job）'
   }
-}
-
-/** 把派发安全阻断原因翻译成设备页可行动说明，不泄漏 wire 细节。 */
-function dispatchBlockMessage(reason: string | null): string {
-  if (reason?.startsWith('unresolved_unknown_command:')) {
-    return '设备在线，但存在未确认的历史命令；完成安全核验后才能运行'
-  }
-  return '设备在线，但当前被安全策略阻止派发；完成设备核验后再试'
 }
 
 export function projectDeviceActionTask(
@@ -398,7 +395,7 @@ function unavailableRunLabel(reason: DeviceActionUnavailableReason): string {
     case 'device_offline':
       return '设备离线'
     case 'dispatch_blocked':
-      return '派发受阻'
+      return '调度受限'
     case 'device_identity_missing':
       return '暂时无法运行'
     case 'catalog_loading':

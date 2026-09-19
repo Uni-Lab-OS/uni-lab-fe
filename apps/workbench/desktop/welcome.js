@@ -34,6 +34,9 @@ let snapshot = {
 const bootstrapSearch = new URLSearchParams(location.search)
 let switchingBootstrap = bootstrapSearch.get('switching') === '1'
 let selectDirectoryBootstrap = bootstrapSearch.get('selectDirectory') === '1'
+const entryModeBootstrap = bootstrapSearch.get('entryMode') === 'production'
+  ? 'production'
+  : 'debug'
 let requestPending = switchingBootstrap || selectDirectoryBootstrap
 let bootstrappedDirectorySelection = false
 let runtimeRequestPending = false
@@ -46,6 +49,13 @@ let runtimeSnapshot = {
   environmentPath: null,
   availableEnvironments: [],
   error: null
+}
+
+if (entryModeBootstrap === 'production') {
+  const productionInput = entryModeInputs.find(input => input.value === 'production')
+  if (productionInput) productionInput.checked = true
+  entryForm.dataset.mode = 'production'
+  enterButton.textContent = '进入生产模式'
 }
 
 entryModeInputs.forEach(input => input.addEventListener('change', () => {
@@ -176,7 +186,7 @@ function handleBootstrapSnapshot(next) {
     bootstrappedDirectorySelection = true
     requestPending = false
     void runOperation(
-      () => workspaceApi?.openDirectory(),
+      () => workspaceApi?.openDirectory(entryModeBootstrap),
       '正在打开工作区',
       '校验目录、Python 环境与本地服务…'
     )

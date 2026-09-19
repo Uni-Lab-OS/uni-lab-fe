@@ -21,10 +21,9 @@ const workbenchDirectory = path.resolve(scriptDirectory, '..')
 const workspaceRoot = path.resolve(workbenchDirectory, '../..')
 const theiaBuildScript = path.join(scriptDirectory, 'run-theia-build.mjs')
 const productionBuildFlag = '--production-build'
-const welcomeFlag = '--welcome'
 const productionBuild = process.argv.includes(productionBuildFlag)
 const forwardedArguments = process.argv.slice(2)
-  .filter(argument => ![productionBuildFlag, welcomeFlag].includes(argument))
+  .filter(argument => argument !== productionBuildFlag)
 const watchMode = productionBuild ? 'production' : 'development'
 const pnpmExecutable = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 

@@ -12,7 +12,16 @@ describe('Workbench Workspace IPC contract', () => {
       "ipcMain.handle('workbench-workspace:openPath'"
     )
     expect(source).toMatch(
-      /workbench-workspace:openPath[\s\S]*\.openPath\(path\)/u
+      /workbench-workspace:openPath[\s\S]*\.openPath\(path, normalizeEntryMode\(entryMode\)\)/u
+    )
+  })
+
+  it('passes the selected entry mode through directory selection', () => {
+    expect(source).toMatch(
+      /workbench-workspace:openDirectory[\s\S]*\.chooseAndOpen\('open', normalizeEntryMode\(entryMode\)\)/u
+    )
+    expect(source).toMatch(
+      /selectDirectory: true,[\s\S]*entryMode: normalizeEntryMode\(entryMode\)/u
     )
   })
 })

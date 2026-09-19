@@ -86,16 +86,36 @@ export function createWorkflowPrototypeActionMetadata({
           className: 'workflow-x6-node__group-accent',
           attrs: { x: 0, y: 0, width: 4, height, rx: 2, ry: 2 }
         },
+        // Dify 子流程图标：容器方框 + 两个由连线相接的流程节点（紫色线稿，无底片）。
         {
           tagName: 'rect',
-          className: 'workflow-x6-node__group-badge',
-          attrs: { x: 10, y: 8, width: 14, height: 14, rx: 4, ry: 4 }
+          className: 'workflow-x6-node__group-glyph-frame',
+          attrs: { x: 10, y: 7, width: 13, height: 13, rx: 3, ry: 3 }
         },
         {
-          tagName: 'text',
-          className: 'workflow-x6-node__group-glyph',
-          textContent: '⧉',
-          attrs: { ...TEXT_ORIGIN, x: 17, y: 15.5, textAnchor: 'middle' }
+          tagName: 'path',
+          className: 'workflow-x6-node__group-glyph-link',
+          attrs: { d: 'M14.3 11 H18.7' }
+        },
+        {
+          tagName: 'path',
+          className: 'workflow-x6-node__group-glyph-link',
+          attrs: { d: 'M16.5 12 V16' }
+        },
+        {
+          tagName: 'circle',
+          className: 'workflow-x6-node__group-glyph-node',
+          attrs: { cx: 14, cy: 11, r: 1.4 }
+        },
+        {
+          tagName: 'circle',
+          className: 'workflow-x6-node__group-glyph-node',
+          attrs: { cx: 19, cy: 11, r: 1.4 }
+        },
+        {
+          tagName: 'circle',
+          className: 'workflow-x6-node__group-glyph-node',
+          attrs: { cx: 16.5, cy: 16.5, r: 1.4 }
         },
         {
           tagName: 'text',
@@ -117,6 +137,7 @@ export function createWorkflowPrototypeActionMetadata({
           textContent: detailLines[0],
           attrs: { ...TEXT_ORIGIN, x: 12, y: 68 }
         },
+        ...subworkflowChildRowMarkup(data),
         ...markerProjection.markup,
         titleMarkup
       ],
@@ -194,5 +215,35 @@ function wrapDetail(value: string, lineLimit: number): [string, string?] {
     return [value.slice(0, lineLimit), value.slice(lineLimit)]
   }
   return [value.slice(0, lineLimit), value.slice(lineLimit, lineLimit * 2 - 1) + '…']
+}
+
+/**
+ * 展开态下，把子工作流内部节点名称画成卡片内的列表条目（Dify 风格）。
+ * 纯展示：不铺到画布、不参与选中/断点/运行状态。
+ */
+function subworkflowChildRowMarkup(
+  data: WorkflowNodeData
+): MarkupItem[] {
+  if (!data.groupExpanded) return []
+  const names = data.descendantNames ?? []
+  if (names.length === 0) return []
+  const rowHeight = 22
+  const top = 80
+  const rows: MarkupItem[] = []
+  names.forEach((name, index) => {
+    const y = top + index * rowHeight
+    rows.push({
+      tagName: 'rect',
+      className: 'workflow-x6-node__group-child-row',
+      attrs: { x: 12, y, width: 156, height: rowHeight - 6, rx: 5, ry: 5 }
+    })
+    rows.push({
+      tagName: 'text',
+      className: 'workflow-x6-node__group-child-name',
+      textContent: name.length > 20 ? name.slice(0, 19) + '…' : name,
+      attrs: { ...TEXT_ORIGIN, x: 22, y: y + (rowHeight - 6) / 2 }
+    })
+  })
+  return rows
 }
 
