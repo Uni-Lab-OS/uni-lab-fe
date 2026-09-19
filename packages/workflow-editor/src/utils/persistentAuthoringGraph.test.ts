@@ -371,6 +371,25 @@ describe('C1 persistent Composite hierarchy', () => {
     expect(byId.get('inner')).not.toHaveProperty('visualKind')
   })
 
+  it('shows the Published workflow display name while preserving the authoring identifier', () => {
+    const source = compositeGraph()
+    source.nodes = source.nodes.map((node) => node.uuid === 'outer'
+      ? { ...node, name: 'workflow' }
+      : node)
+    source.node_templates = source.node_templates.map((template) =>
+      template.uuid === 'outer-template'
+        ? { ...template, display_name: '阿事实上' }
+        : template
+    )
+
+    const projected = projectPersistentAuthoringGraph(source)
+    const outer = projected.nodes.find((node) => node.id === 'outer')
+
+    expect(outer?.name).toBe('阿事实上')
+    expect(source.nodes.find((node) => node.uuid === 'outer')?.name)
+      .toBe('workflow')
+  })
+
   it('projects Backend-native workflow contracts and node source provenance', () => {
     const source = compositeGraph()
     source.node_templates = source.node_templates.map((template) =>

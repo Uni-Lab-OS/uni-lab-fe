@@ -33,6 +33,8 @@ export interface WorkflowNode {
   childNodeIds?: string[]
   descendantNodeIds?: string[]
   collapsedByDefault?: boolean
+  // 子工作流卡片展开时，卡片内以列表形式展示的内部节点行数（仅影响画布尺寸）。
+  expandedRowCount?: number
   // Persistent Authoring projects OS-owned Composite internals as read-only.
   authoringReadOnly?: boolean
   authoringReadOnlyReason?: string

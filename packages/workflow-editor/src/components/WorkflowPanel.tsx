@@ -50,6 +50,8 @@ export interface WorkflowPanelProps {
   executionStatus?: CapabilityStatus
   onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void
   onActiveWorkflowChange?: (workflowUuid: string | null) => void
+  /** 宿主可把子工作流导航到独立的实验操作调试界面。 */
+  onOpenChildWorkflow?: (workflowUuid: string, workflowName: string) => void
   onWorkflowRuntimeProjectionChange?: (
     projection: WorkflowPanelRuntimeProjection | null
   ) => void
@@ -92,6 +94,7 @@ export default function WorkflowPanel({
   executionStatus,
   onUnsavedChangesChange,
   onActiveWorkflowChange,
+  onOpenChildWorkflow,
   onWorkflowRuntimeProjectionChange,
   onSelectedWorkflowStepChange,
   onCatalogStateChange,
@@ -223,6 +226,10 @@ export default function WorkflowPanel({
         onOpenChildWorkflow={explicitWorkflowUuid && !allowWorkflowSelection
           ? undefined
           : (childWorkflowUuid, childWorkflowName, parentState) => {
+              if (onOpenChildWorkflow) {
+                onOpenChildWorkflow(childWorkflowUuid, childWorkflowName)
+                return
+              }
               setCanvasRestoreByWorkflow((current) => ({
                 ...current,
                 [workflowUuid]: parentState

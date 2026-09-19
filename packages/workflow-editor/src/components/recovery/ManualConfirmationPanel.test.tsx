@@ -1,11 +1,17 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { WorkflowNodeJob, WorkflowRecoveryPort } from '@unilab/services'
-import { ManualConfirmationPanel, confirmationActions } from './ManualConfirmationPanel'
+import { ManualConfirmationPanel, confirmationActions, formatManualConfirmationDeadline } from './ManualConfirmationPanel'
 import { parseManualParameters } from './ManualActionParameters'
 const job = { uuid: 'job', workflow_node_uuid: 'node', manual_confirmation: { status: 'pending', actions: ['approve'] } } as WorkflowNodeJob
 
 describe('人工确认节点操作', () => {
+
+  it('将确认截止时间固定格式化为 YYYY-MM-DD HH:mm:ss', () => {
+    const local = new Date(2026, 8, 17, 21, 18, 19)
+    expect(formatManualConfirmationDeadline(local.toISOString()))
+      .toBe('2026-09-17 21:18:19')
+  })
   it('仅开放服务返回的操作，断线或确认结束后均禁止提交', () => {
     expect(confirmationActions(job, true)).toEqual(['approve'])
     expect(confirmationActions(job, false)).toEqual([])

@@ -5,6 +5,7 @@ import type {
   BenchSnapshot,
   ReagentContainerOption,
   ReagentCreateCommand,
+  ReagentDispenseCommand,
   ReagentHistoryProjection,
   ReagentInfoProjection,
   ReagentInfoManagement,
@@ -101,6 +102,14 @@ export function useRobotWorkstationData(
   /** 请求 Backend 软删除试剂；成功前不从前端列表乐观移除。 */
   const deleteReagent = useCallback(async (reagentId: string): Promise<void> => {
     await services.inventory.deleteReagent(reagentId)
+    retryReagents()
+  }, [retryReagents, services.inventory])
+
+  /** 提交 OS 原子分装命令；源瓶与全部目标瓶成功后统一重新查询。 */
+  const dispenseReagent = useCallback(async (
+    command: ReagentDispenseCommand
+  ): Promise<void> => {
+    await services.inventory.dispenseReagent(command)
     retryReagents()
   }, [retryReagents, services.inventory])
 
@@ -284,11 +293,15 @@ export function useRobotWorkstationData(
       create: createReagent,
       update: updateReagent,
       delete: deleteReagent,
+      ...(services.getCapabilityStatus('inventory.dispenseReagent').available
+        ? { dispense: dispenseReagent }
+        : {}),
       readHistory: readReagentHistory
     }
   }, [
     createReagent,
     deleteReagent,
+    dispenseReagent,
     readReagentHistory,
     reagentContainerStatus,
     reagentContainers,

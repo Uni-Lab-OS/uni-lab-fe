@@ -8,7 +8,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   ExperimentOperationWorkbench,
-  filterExperimentOperationDefinitions
+  filterExperimentOperationDefinitions,
+  resolveExperimentOperationSelection
 } from './ExperimentOperationWorkbench'
 import {
   ExperimentOperationDeviceLibrary,

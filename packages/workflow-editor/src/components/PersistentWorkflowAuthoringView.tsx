@@ -40,6 +40,14 @@ export const COMPACT_WORKFLOW_CANVAS_WIDTH = 1024
 const WORKFLOW_PALETTE_PREVIEW_WIDTH = 180
 const WORKFLOW_PALETTE_PREVIEW_HEIGHT = 84
 
+function authoringDiagnosticDismissKey(diagnostic: {
+  code: string
+  message: string
+  path?: string | null
+}): string {
+  return `${diagnostic.code}:${diagnostic.path ?? ''}:${diagnostic.message}`
+}
+
 export function PersistentWorkflowAuthoringView({
   model,
   workflowName,
@@ -97,6 +105,7 @@ export function PersistentWorkflowAuthoringView({
     codeViewingAvailable,
     codeProjection,
     connectTypedHandles,
+    connectConditionBranchHandle,
     deleteCanvasElements,
     debugBreakpoints,
     debugExecutionScope,
@@ -114,6 +123,8 @@ export function PersistentWorkflowAuthoringView({
     materialSourceCatalogLoading,
     mode,
     moveCanvasNode,
+    moveCanvasNodes,
+    moveCanvasNodeToLoop,
     nodePaletteOpen,
     pausedBeforeNodeId,
     policy,
@@ -173,10 +184,24 @@ export function PersistentWorkflowAuthoringView({
   const [operationStructureOpen, setOperationStructureOpen] = useState(true)
   const [inspectorWidth, setInspectorWidth] = useState(320)
   const [createWorkflowOpen, setCreateWorkflowOpen] = useState(false)
+  const [dismissedDiagnosticKeys, setDismissedDiagnosticKeys] = useState<
+    ReadonlySet<string>
+  >(new Set())
+  const visibleDiagnostics = diagnostics.filter(
+    (diagnostic) => !dismissedDiagnosticKeys.has(authoringDiagnosticDismissKey(diagnostic))
+  )
+  const dismissDiagnostic = useCallback((diagnosticKey: string) => {
+    setDismissedDiagnosticKeys((current) => {
+      const next = new Set(current)
+      next.add(diagnosticKey)
+      return next
+    })
+  }, [])
   useEffect(() => {
     setCanvasRevealRequest(null)
     setPaletteDragPreview(null)
     setCreateWorkflowOpen(false)
+    setDismissedDiagnosticKeys(new Set())
     restoredNavigationRef.current = null
   }, [workflowUuid])
   const inspectorResizeRef = useRef<{ startX: number; startWidth: number } | null>(null)
@@ -647,23 +672,33 @@ export function PersistentWorkflowAuthoringView({
           <button type="button" onClick={taskRuntime.clearError}>关闭</button>
         </div>
       )}
-      {diagnostics.length > 0 && (
+      {visibleDiagnostics.length > 0 && (
         <section
           className="persistent-authoring__diagnostics"
           aria-label="草稿待处理事项"
         >
           <strong>还需要处理</strong>
           <ul>
-            {diagnostics.map((diagnostic, index) => {
+            {visibleDiagnostics.map((diagnostic) => {
               const copy = formatAuthoringDiagnostic(diagnostic)
+              const diagnosticKey = authoringDiagnosticDismissKey(diagnostic)
               return (
-              <li key={`${diagnostic.code}:${index}`}>
-                <strong>{copy.title}</strong>
-                <span>{copy.detail}</span>
-                {diagnosticRange(diagnostic) && (
-                  <span>位置 {diagnosticRange(diagnostic)}</span>
-                )}
-              </li>
+                <li key={diagnosticKey}>
+                  <strong>{copy.title}</strong>
+                  <span>{copy.detail}</span>
+                  {diagnosticRange(diagnostic) && (
+                    <span>位置 {diagnosticRange(diagnostic)}</span>
+                  )}
+                  <button
+                    type="button"
+                    className="persistent-authoring__diagnostic-dismiss"
+                    aria-label={`关闭：${copy.title}`}
+                    title="关闭此提示"
+                    onClick={() => dismissDiagnostic(diagnosticKey)}
+                  >
+                    ×
+                  </button>
+                </li>
               )
             })}
           </ul>
@@ -954,7 +989,10 @@ export function PersistentWorkflowAuthoringView({
                     canvasMutationEnabled={canvasMutationEnabled}
                     nodePositionMutationEnabled={canvasMutationEnabled}
                     onNodePositionChange={moveCanvasNode}
+                    onNodePositionsChange={moveCanvasNodes}
+                    onNodeParentChange={moveCanvasNodeToLoop}
                     onConnectHandles={connectTypedHandles}
+                    onConnectConditionBranch={connectConditionBranchHandle}
                     onDeleteRequest={deleteCanvasElements}
                     onOpenChildWorkflow={onOpenChildWorkflow
                       ? (childWorkflowUuid, childWorkflowName) => {

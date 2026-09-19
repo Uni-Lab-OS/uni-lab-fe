@@ -1160,3 +1160,78 @@
     font: 11px var(--unilab-font-mono);
   }
 }
+
+.reagentDispenseSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px 12px;
+
+  > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    padding: 8px 10px;
+    background: var(--unilab-color-surface);
+    border: 1px solid var(--unilab-color-border);
+    border-radius: var(--unilab-radius-control);
+  }
+
+  dt {
+    color: var(--unilab-color-text-muted);
+    font-size: 11px;
+  }
+
+  dd {
+    min-width: 0;
+    margin: 0;
+    color: var(--unilab-color-text);
+    font: 600 12px var(--unilab-font-mono);
+    overflow-wrap: anywhere;
+  }
+}
+
+.reagentDispenseTargets {
+  display: grid;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.reagentDispenseTarget {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, 0.38fr) 32px;
+  gap: 8px;
+  align-items: end;
+  padding: 10px;
+  background: var(--unilab-color-surface);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: var(--unilab-radius-md);
+
+  > label {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+
+    > span {
+      color: var(--unilab-color-text-muted);
+      font-size: 12px;
+      font-weight: 550;
+    }
+  }
+}
+
+@media (width <= 720px) {
+  .reagentDispenseSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reagentDispenseTarget {
+    grid-template-columns: minmax(0, 1fr) 32px;
+
+    > label {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+  }
+}

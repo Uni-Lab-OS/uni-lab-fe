@@ -104,7 +104,6 @@ import {
   WorkbenchViewState,
   isRobotWorkbenchViewMode,
   isWorkflowDebugWorkbenchView,
-  isWorkflowManagementWorkbenchView,
   type WorkbenchViewMode
 } from './workbench-view-state'
 import { hasWorkbenchUnsavedChanges } from './workbench-unsaved-changes'
@@ -568,6 +567,11 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     this.viewState.toggle('robot-debug')
   }
 
+  /** 从工作流调试中的子工作流调用进入独立实验操作调试界面。 */
+  protected readonly openExperimentOperation = (): void => {
+    this.viewState.toggle('operation')
+  }
+
   /**
    * 组合配置弹窗允许调用的 Workbench Session 操作。
    *
@@ -929,6 +933,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         configurationOperations={this.configurationOperations()}
         onOpenAssistant={this.openAssistant}
         onOpenDeviceActions={this.openDeviceActions}
+        onOpenExperimentOperation={this.openExperimentOperation}
         onReadEnvironmentLog={this.readEnvironmentLog}
         onOpenLog={this.openSessionLog}
       />
@@ -960,6 +965,7 @@ function WorkbenchSurface({
   configurationOperations,
   onOpenAssistant,
   onOpenDeviceActions,
+  onOpenExperimentOperation,
   onReadEnvironmentLog,
   onOpenLog
 }: {
@@ -976,6 +982,7 @@ function WorkbenchSurface({
   configurationOperations: WorkbenchConfigurationOperations
   onOpenAssistant: () => void
   onOpenDeviceActions: () => void
+  onOpenExperimentOperation: () => void
   onReadEnvironmentLog: (
     kind: WorkbenchEnvironmentLogKind
   ) => Promise<string>
@@ -983,6 +990,8 @@ function WorkbenchSurface({
 }): React.JSX.Element {
   const query = new URLSearchParams(globalThis.location.search)
   const [selectedWorkflowNode, setSelectedWorkflowNode] =
+    useState<string | null>(null)
+  const [requestedOperationUuid, setRequestedOperationUuid] =
     useState<string | null>(null)
   const [runtimeProjection, setRuntimeProjection] =
     useState<WorkflowPanelRuntimeProjection | null>(null)
@@ -1090,8 +1099,6 @@ function WorkbenchSurface({
   }, [runtimeProjection, selectedWorkflowNode])
 
   const workflowRunStatus = services.getCapabilityStatus('workflow.runTasks')
-  const workflowDebugVisible = isWorkflowDebugWorkbenchView(viewMode)
-  const workflowManagementVisible = isWorkflowManagementWorkbenchView(viewMode)
   const resetWorkflowEnvironment = useCallback(async (): Promise<void> => {
     setEnvironmentResetBusy(true)
     try {
@@ -1109,13 +1116,7 @@ function WorkbenchSurface({
       aria-label="工作流窗口"
     >
       <WorkflowPanel
-        key={workflowDebugVisible
-          ? 'workflow-debug'
-          : workflowManagementVisible
-            ? 'workflow-management'
-            : 'workflow-hidden'}
-        debugLayout={workflowDebugVisible}
-        catalogOnly={workflowManagementVisible}
+        debugLayout={isWorkflowDebugWorkbenchView(viewMode)}
         runtime={services.workflow}
         traceRuntime={desktopWorkflowTraceRuntime(
           typeof window === 'undefined' ? undefined : window
@@ -1135,14 +1136,12 @@ function WorkbenchSurface({
           workflowRunStatus
         )}
         resourceSlotOptionsPort={resourceSlotOptionsPort}
-        active={workflowDebugVisible}
-        workflowUuid={workflowDebugVisible ? workflowUuid : undefined}
-        activeWorkflowStorageKey={workflowDebugVisible
-          ? `unilab.workflow.active.${encodeURIComponent(
-            selectedTarget.sourceId
-          )}.v1`
-          : undefined}
-        allowWorkflowSelection={workflowDebugVisible}
+        active={isWorkflowWorkbenchView(viewMode)}
+        workflowUuid={workflowUuid}
+        activeWorkflowStorageKey={`unilab.workflow.active.${
+          encodeURIComponent(selectedTarget.sourceId)
+        }.v1`}
+        allowWorkflowSelection
         recoveryRevision={recoveryRevision}
         hideEmbeddedCodeEditor={
           connectionMode === 'local' && desktopWorkspaceApi() !== null
@@ -1153,6 +1152,10 @@ function WorkbenchSurface({
           reportWorkflowUnsavedChanges(hasUnsavedChanges)
         }}
         onSelectedWorkflowStepChange={setSelectedWorkflowNode}
+        onOpenChildWorkflow={(childWorkflowUuid) => {
+          setRequestedOperationUuid(childWorkflowUuid)
+          onOpenExperimentOperation()
+        }}
         onWorkflowRuntimeProjectionChange={setRuntimeProjection}
         onResetEnvironment={resetWorkflowEnvironment}
         environmentResetBusy={environmentResetBusy}
@@ -1266,7 +1269,9 @@ function WorkbenchSurface({
   const operationSurface = (
     <WorkbenchExperimentOperationSurface context={{
       services, connectionMode, session, workflowRunStatus, resourceSlotOptionsPort,
-      recoveryRevision, active: viewMode === 'operation', onUnsavedChangesChange,
+      recoveryRevision, active: viewMode === 'operation',
+      requestedWorkflowUuid: requestedOperationUuid,
+      onUnsavedChangesChange,
       reportWorkflowUnsavedChanges,
       onSelectedWorkflowStepChange: setSelectedWorkflowNode,
       onWorkflowRuntimeProjectionChange: setRuntimeProjection

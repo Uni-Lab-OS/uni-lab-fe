@@ -3,11 +3,13 @@ import { Button, Input } from '@unilab/design-system'
 
 import { DataAuthorityNotice, ModuleHeader, WorkstationDataState } from '../ModuleHeader'
 import { BackendReagentDeleteDialog, BackendReagentEditorDialog } from '../reagents/BackendReagentDialogs'
+import { BackendReagentDispenseDialog } from '../reagents/BackendReagentDispenseDialog'
 import { BackendReagentHistory } from '../reagents/BackendReagentHistory'
 import { ReagentInfoDeleteDialog, ReagentInfoEditorDialog } from '../reagents/ReagentInfoDialogs'
 import { ReagentLedgerView, ReagentLibraryView } from '../reagents/ReagentViews'
 import type {
   ReagentCreateCommand,
+  ReagentDispenseCommand,
   ReagentInfoCreateCommand,
   ReagentInfoManagement,
   ReagentInfoProjection,
@@ -24,6 +26,7 @@ import styles from '../workstation.module.scss'
 type ReagentDialog =
   | { kind: 'create' }
   | { kind: 'edit'; id: string }
+  | { kind: 'dispense'; id: string }
   | { kind: 'delete'; id: string }
   | { kind: 'info-create' }
   | { kind: 'info-edit'; id: string }
@@ -79,6 +82,13 @@ export function ReagentModule({
   async function updateReagent(command: ReagentUpdateCommand): Promise<void> {
     if (!management) return
     await management.update(command)
+    setDialog(null)
+  }
+
+  /** 分装成功后关闭模态框，源瓶与目标瓶均等待 OS 权威列表回读。 */
+  async function dispenseReagent(command: ReagentDispenseCommand): Promise<void> {
+    if (!management?.dispense) return
+    await management.dispense(command)
     setDialog(null)
   }
 
@@ -213,6 +223,7 @@ export function ReagentModule({
         infoManagement={infoManagement}
         onCreate={createReagent}
         onUpdate={updateReagent}
+        onDispense={dispenseReagent}
         onDelete={deleteReagent}
         onInfoCreate={createReagentInfo}
         onInfoUpdate={updateReagentInfo}
@@ -307,6 +318,9 @@ function ReagentLedgerSurface({
               query={query}
               actions={management ? {
                 edit: item => onDialog({ kind: 'edit', id: item.id }),
+                ...(management.dispense
+                  ? { dispense: (item: ReagentInventoryProjection) => onDialog({ kind: 'dispense', id: item.id }) }
+                  : {}),
                 history: item => onHistory(item.id),
                 delete: item => onDialog({ kind: 'delete', id: item.id })
               } : undefined}
@@ -400,6 +414,7 @@ function ReagentDialogLayer({
   infoManagement,
   onCreate,
   onUpdate,
+  onDispense,
   onDelete,
   onInfoCreate,
   onInfoUpdate,
@@ -413,13 +428,16 @@ function ReagentDialogLayer({
   infoManagement?: ReagentInfoManagement
   onCreate: (command: ReagentCreateCommand) => Promise<void>
   onUpdate: (command: ReagentUpdateCommand) => Promise<void>
+  onDispense: (command: ReagentDispenseCommand) => Promise<void>
   onDelete: (item: ReagentInventoryProjection) => Promise<void>
   onInfoCreate: (command: ReagentInfoCreateCommand) => Promise<void>
   onInfoUpdate: (command: ReagentInfoUpdateCommand) => Promise<void>
   onInfoDelete: (item: ReagentInfoProjection) => Promise<void>
   onClose: () => void
 }): React.JSX.Element {
-  const dialogItem = dialog && (dialog.kind === 'edit' || dialog.kind === 'delete')
+  const dialogItem = dialog && (
+    dialog.kind === 'edit' || dialog.kind === 'dispense' || dialog.kind === 'delete'
+  )
     ? items?.find(item => item.id === dialog.id)
     : undefined
   const dialogInfo = dialog && (dialog.kind === 'info-edit' || dialog.kind === 'info-delete')
@@ -449,6 +467,17 @@ function ReagentDialogLayer({
         containers={management.containers ?? []}
         occupiedMaterialIds={occupiedMaterialIds}
         onSave={onUpdate}
+        onClose={onClose}
+      />
+    )
+  }
+  if (dialog?.kind === 'dispense' && dialogItem && management?.dispense) {
+    return (
+      <BackendReagentDispenseDialog
+        item={dialogItem}
+        containers={management.containers ?? []}
+        occupiedMaterialIds={occupiedMaterialIds}
+        onSave={onDispense}
         onClose={onClose}
       />
     )

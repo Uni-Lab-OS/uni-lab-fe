@@ -19,6 +19,7 @@ export interface WorkbenchExperimentOperationContext {
     ExperimentOperationWorkbenchProps['resourceSlotOptionsPort']
   recoveryRevision: number
   active: boolean
+  requestedWorkflowUuid?: string | null
   onUnsavedChangesChange: NonNullable<
     ExperimentOperationWorkbenchProps['onUnsavedChangesChange']
   >
@@ -45,6 +46,7 @@ export function WorkbenchExperimentOperationSurface({
     resourceSlotOptionsPort,
     recoveryRevision,
     active,
+    requestedWorkflowUuid,
     onUnsavedChangesChange,
     reportWorkflowUnsavedChanges,
     onSelectedWorkflowStepChange,
@@ -70,6 +72,7 @@ export function WorkbenchExperimentOperationSurface({
           workflowRunStatus
         )}
         active={active}
+        requestedWorkflowUuid={requestedWorkflowUuid}
         recoveryRevision={recoveryRevision}
         hideEmbeddedCodeEditor={
           connectionMode === 'local' && desktopWorkspaceApi() !== null

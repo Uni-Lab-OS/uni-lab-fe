@@ -57,6 +57,9 @@ export interface WorkflowNodeData {
   groupKind?: 'group' | 'subworkflow'
   groupExpanded?: boolean
   descendantCount?: number
+  descendantNames?: string[]
+  parentGroupId?: string
+  loopMemberCount?: number
   controlFlow?: {
     kind: 'condition' | 'repeat_until'
     branchCount?: number

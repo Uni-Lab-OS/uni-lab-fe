@@ -121,9 +121,9 @@ describe('Backend reagent editor validation', () => {
       expect(markup).toContain(`>${unit}<`)
     }
     expect(markup).not.toContain('mol</')
-    expect(markup).not.toMatch(/name="quantityUnit"[^>]*value="mL"/)
-    expect(markup).not.toMatch(/name="productionDate"[^>]*value=/)
-    expect(markup).not.toMatch(/name="expiryDate"[^>]*value=/)
+    expect(markup).toMatch(/name="quantityUnit"[^>]*value="mL"/)
+    expect(markup).toMatch(/name="productionDate"[^>]*value=""/)
+    expect(markup).toMatch(/name="expiryDate"[^>]*value=""/)
   })
 
   /** 证明试剂入库登记窗口采用“试剂与容器 / 试剂容器 / 试剂名称”术语。 */

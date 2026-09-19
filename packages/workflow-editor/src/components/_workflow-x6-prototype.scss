@@ -109,4 +109,87 @@
     fill: var(--unilab-color-danger-soft);
     stroke-width: 1px;
   }
+
+  /* 方案 A · Dify 分组容器：子工作流卡片 */
+  $sub: "[data-workflow-card-contract='html-prototype'][data-workflow-group-kind='subworkflow']";
+
+  .workflow-x6 .x6-node#{$sub} {
+    --workflow-subworkflow-accent: var(--unilab-color-material);
+    --workflow-subworkflow-soft: var(--unilab-color-material-soft);
+  }
+
+  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__body {
+    fill: var(--unilab-color-surface);
+    stroke: color-mix(
+      in srgb,
+      var(--workflow-subworkflow-accent) 30%,
+      var(--unilab-color-border-strong)
+    );
+    stroke-width: 1px;
+    stroke-dasharray: none;
+  }
+
+  .workflow-x6 .x6-node#{$sub}:hover .workflow-x6-node__body {
+    stroke: color-mix(
+      in srgb,
+      var(--workflow-subworkflow-accent) 60%,
+      var(--unilab-color-border-strong)
+    );
+    filter: drop-shadow(0 7px 18px color-mix(
+      in srgb,
+      var(--workflow-subworkflow-accent) 14%,
+      transparent
+    ));
+  }
+
+  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-header {
+    fill: var(--workflow-subworkflow-soft);
+    stroke: none;
+  }
+
+  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-accent,
+  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-badge {
+    fill: var(--workflow-subworkflow-accent);
+    stroke: none;
+  }
+
+  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-glyph {
+    fill: var(--unilab-color-surface);
+    font-family: var(--unilab-font-sans);
+    font-size: 9px;
+    font-weight: 700;
+    dominant-baseline: middle;
+  }
+
+  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-kind {
+    fill: var(--workflow-subworkflow-accent);
+    font-family: var(--unilab-font-sans);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    dominant-baseline: middle;
+  }
+
+  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-name {
+    fill: var(--unilab-color-text);
+    font-family: var(--unilab-font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    dominant-baseline: middle;
+  }
+
+  .workflow-x6 .x6-node#{$sub} .workflow-x6-node__group-count {
+    fill: var(--unilab-color-text-muted);
+    font-family: var(--unilab-font-sans);
+    font-size: 10px;
+    font-weight: 600;
+    dominant-baseline: middle;
+  }
+
+  .workflow-x6 .x6-node-selected#{$sub} .workflow-x6-node__body,
+  .workflow-x6 .x6-node#{$sub}[data-workflow-runtime-selected='true']
+    .workflow-x6-node__body {
+    stroke: var(--workflow-subworkflow-accent);
+    stroke-width: 2px;
+  }
 }

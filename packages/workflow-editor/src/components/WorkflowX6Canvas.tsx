@@ -56,8 +56,21 @@ export interface WorkflowX6CanvasProps {
     nodeId: string,
     position: { x: number; y: number }
   ) => void
+  onNodePositionsChange?: (
+    changes: ReadonlyArray<{ nodeId: string; position: { x: number; y: number } }>
+  ) => void
+  onNodeParentChange?: (
+    nodeId: string,
+    loopId: string | null,
+    position: { x: number; y: number }
+  ) => void
   onConnectHandles?: (
     connection: WorkflowHandleConnection
+  ) => WorkflowHandleConnectionResult
+  onConnectConditionBranch?: (
+    conditionNodeId: string,
+    branchIndex: number,
+    targetNodeId: string
   ) => WorkflowHandleConnectionResult
   onSelectionChange(selection: {
     nodeUuids: string[]
@@ -87,7 +100,10 @@ export const WorkflowX6Canvas = forwardRef<
   nodePositionMutationEnabled,
   onNodeSelect,
   onNodePositionChange,
+  onNodePositionsChange,
+  onNodeParentChange,
   onConnectHandles,
+  onConnectConditionBranch,
   onSelectionChange,
   onSetStart,
   onToggleBreakpoint,
@@ -109,7 +125,10 @@ export const WorkflowX6Canvas = forwardRef<
     nodePositionMutationEnabled,
     onNodeSelect,
     onNodePositionChange,
+    onNodePositionsChange,
+    onNodeParentChange,
     onConnectHandles,
+    onConnectConditionBranch,
     onSelectionChange,
     onSetStart,
     onToggleBreakpoint,
@@ -124,7 +143,10 @@ export const WorkflowX6Canvas = forwardRef<
     nodePositionMutationEnabled,
     onNodeSelect,
     onNodePositionChange,
+    onNodePositionsChange,
+    onNodeParentChange,
     onConnectHandles,
+    onConnectConditionBranch,
     onSelectionChange,
     onSetStart,
     onToggleBreakpoint,
@@ -269,13 +291,28 @@ export const WorkflowX6Canvas = forwardRef<
         vertexAddable: false,
         vertexDeletable: false
       },
+      embedding: {
+        enabled: true,
+        findParent: 'center',
+        frontOnly: false,
+        validate: ({ child, parent }) => {
+          if (!callbacksRef.current.canvasMutationEnabled) return false
+          const childData = child.getData<WorkflowNodeData>()
+          const parentData = parent.getData<WorkflowNodeData>()
+          return parentData?.controlFlow?.kind === 'repeat_until' &&
+            childData?.controlFlow == null && child.id !== parent.id
+        }
+      },
       connecting: {
         allowBlank: false,
         allowLoop: false,
         allowNode: false,
         allowEdge: false,
         allowPort: () => callbacksRef.current.canvasMutationEnabled &&
-          Boolean(callbacksRef.current.onConnectHandles),
+          Boolean(
+            callbacksRef.current.onConnectHandles ||
+            callbacksRef.current.onConnectConditionBranch
+          ),
         snap: { radius: 24 },
         highlight: true,
         router: { name: 'normal' },
@@ -322,9 +359,26 @@ export const WorkflowX6Canvas = forwardRef<
       }))
     }
 
-    graph.on('node:click', ({ node }) => {
-      if (node.getData<WorkflowNodeData>()?.kind === 'reaction_material') return
+    graph.on('node:click', ({ e, node }) => {
+      const data = node.getData<WorkflowNodeData>()
+      if (data?.kind === 'reaction_material') return
       callbacksRef.current.onNodeSelect(node.id)
+      if (data?.groupKind !== 'subworkflow') return
+      // 点击“N 个内部节点”计数行 → 就地展开/收起；点击卡片其它区域 → 跳转实验操作调试。
+      const target = e?.target as Element | null
+      const onCountRow = Boolean(
+        target?.closest?.('.workflow-x6-node__group-count')
+      )
+      if (onCountRow) {
+        callbacksRef.current.onToggleGroup?.(node.id)
+        return
+      }
+      if (data.openChildWorkflowUuid && callbacksRef.current.onOpenChildWorkflow) {
+        callbacksRef.current.onOpenChildWorkflow(
+          data.openChildWorkflowUuid,
+          data.name
+        )
+      }
     })
     /* Delegate hover handling to the rendered X6 DOM. Virtual cells are mounted
     // asynchronously, so model-level events alone can miss a short-lived node.
@@ -390,16 +444,6 @@ export const WorkflowX6Canvas = forwardRef<
     })
     graph.on('node:dblclick', ({ node }) => {
       const data = node.getData<WorkflowNodeData>()
-      if (
-        data?.openChildWorkflowUuid &&
-        callbacksRef.current.onOpenChildWorkflow
-      ) {
-        callbacksRef.current.onOpenChildWorkflow(
-          data.openChildWorkflowUuid,
-          data.name
-        )
-        return
-      }
       if (data?.groupKind === 'subworkflow') {
         callbacksRef.current.onToggleGroup?.(node.id)
         return
@@ -435,7 +479,30 @@ export const WorkflowX6Canvas = forwardRef<
       refreshDraggedConnections(node)
       nodeDraggingRef.current = false
       if (!callbacksRef.current.nodePositionMutationEnabled) return
+      const data = node.getData<WorkflowNodeData>()
+      if (data?.controlFlow?.kind === 'repeat_until') {
+        const changes = [node, ...node.getChildren().filter((cell) => cell.isNode())]
+          .map((cell) => ({ nodeId: cell.id, position: cell.position() }))
+        if (callbacksRef.current.onNodePositionsChange) {
+          callbacksRef.current.onNodePositionsChange(changes)
+          return
+        }
+      }
+      const projectedParentId = data?.parentGroupId ?? ''
+      const liveParentId = node.getParentId() || ''
+      // node:embedded 原子维护 parent_uuid；避免同一次拖动再用旧 graph 写坐标。
+      if (projectedParentId !== liveParentId) return
       callbacksRef.current.onNodePositionChange?.(node.id, node.position())
+    })
+    graph.on('node:embedded', ({ node, currentParent, previousParent }) => {
+      if (!callbacksRef.current.canvasMutationEnabled) return
+      const currentData = currentParent?.getData<WorkflowNodeData>()
+      const previousData = previousParent?.getData<WorkflowNodeData>()
+      const loopId = currentData?.controlFlow?.kind === 'repeat_until'
+        ? currentParent!.id
+        : null
+      if (!loopId && previousData?.controlFlow?.kind !== 'repeat_until') return
+      callbacksRef.current.onNodeParentChange?.(node.id, loopId, node.position())
     })
     graph.on('edge:connected', ({ edge, isNew }) => {
       if (!isNew) return
@@ -447,9 +514,21 @@ export const WorkflowX6Canvas = forwardRef<
       graph.removeCell(edge, { ui: false })
       if (
         !callbacksRef.current.canvasMutationEnabled ||
-        !sourceNodeUuid || sourcePortId !== WORKFLOW_X6_OUTPUT_PORT_ID ||
-        !targetNodeUuid || targetPortId !== WORKFLOW_X6_INPUT_PORT_ID
+        !sourceNodeUuid || !targetNodeUuid ||
+        targetPortId !== WORKFLOW_X6_INPUT_PORT_ID
       ) return
+      const conditionPort = /^workflow-condition-branch-(\d+)$/.exec(
+        sourcePortId || ''
+      )
+      if (conditionPort) {
+        callbacksRef.current.onConnectConditionBranch?.(
+          sourceNodeUuid,
+          Number(conditionPort[1]),
+          targetNodeUuid
+        )
+        return
+      }
+      if (sourcePortId !== WORKFLOW_X6_OUTPUT_PORT_ID) return
       const connect = callbacksRef.current.onConnectHandles
       if (!connect) return
       const candidates = workflowX6HandleConnectionCandidates(
@@ -797,6 +876,7 @@ function syncWorkflowX6Projection(
       if (edge) graph.addEdge(workflowX6EdgeMetadata(edge), { ui: false })
     }
   }, { ui: false })
+  syncWorkflowX6LoopEmbeddings(graph, nodes)
   appliedProjection.current = nextProjection
   const selectedIds = [
     ...nodes.filter(node => node.selected).map(node => node.id),
@@ -818,6 +898,38 @@ function syncWorkflowX6Projection(
   globalThis.requestAnimationFrame(() => {
     scroller.zoomToFit({ padding: 56, maxScale: 1.2 })
   })
+}
+
+function syncWorkflowX6LoopEmbeddings(
+  graph: Graph,
+  nodes: readonly WorkflowX6Node[]
+): void {
+  const projectionById = new Map(nodes.map((node) => [node.id, node]))
+  for (const projection of nodes) {
+    const cell = graph.getCellById(projection.id)
+    if (!cell?.isNode()) continue
+    const desiredParentId = projection.data.parentGroupId
+    const desiredParentProjection = desiredParentId
+      ? projectionById.get(desiredParentId)
+      : undefined
+    const desiredParent = desiredParentId &&
+      desiredParentProjection?.data.controlFlow?.kind === 'repeat_until'
+      ? graph.getCellById(desiredParentId)
+      : null
+    const currentParent = cell.getParent()
+    if (desiredParent?.isNode()) {
+      if (currentParent?.id !== desiredParent.id) {
+        desiredParent.addChild(cell, { ui: false })
+      }
+      desiredParent.setZIndex(0, { ui: false })
+      cell.setZIndex(1, { ui: false })
+      continue
+    }
+    if (currentParent?.isNode() &&
+        currentParent.getData<WorkflowNodeData>()?.controlFlow?.kind === 'repeat_until') {
+      cell.removeFromParent({ ui: false })
+    }
+  }
 }
 
 /**

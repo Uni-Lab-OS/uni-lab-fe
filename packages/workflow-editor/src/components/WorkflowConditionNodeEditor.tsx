@@ -90,7 +90,7 @@ export function WorkflowConditionNodeEditor({
               <b>{index + 1}</b>
               <strong>{branch.label} · {fallback ? '兜底分支' : '判断分支'}</strong>
               <button type="button" aria-label={`删除条件分支 ${index + 1}`}
-                disabled={!editable || editor.branches.length <= 1}
+                disabled={!editable || editor.branches.length <= 2}
                 onClick={() => commit(removeWorkflowConditionBranch(editor.branches, index))}>×</button>
             </div>
             {!fallback ? (

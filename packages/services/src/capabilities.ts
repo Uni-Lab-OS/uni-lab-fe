@@ -41,6 +41,7 @@ export interface ServerCapabilities {
     createReagent: boolean
     updateReagent: boolean
     deleteReagent: boolean
+    dispenseReagent: boolean
     readReagentHistory: boolean
   }
   realtime: {
@@ -86,6 +87,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'inventory.createReagent',
   'inventory.updateReagent',
   'inventory.deleteReagent',
+  'inventory.dispenseReagent',
   'inventory.readReagentHistory',
   'realtime.pushJointState',
   'realtime.setJointState',
@@ -196,6 +198,7 @@ function unavailableCapabilities(): ServerCapabilities {
       createReagent: false,
       updateReagent: false,
       deleteReagent: false,
+      dispenseReagent: false,
       readReagentHistory: false
     },
     realtime: {
@@ -255,6 +258,7 @@ function localPythonCapabilities(): ServerCapabilities {
   capabilities.inventory.createReagent = true
   capabilities.inventory.updateReagent = true
   capabilities.inventory.deleteReagent = true
+  capabilities.inventory.dispenseReagent = true
   capabilities.inventory.readReagentHistory = true
   return capabilities
 }

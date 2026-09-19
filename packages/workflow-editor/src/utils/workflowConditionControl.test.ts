@@ -4,6 +4,7 @@ import type { WorkflowAuthoringGraph } from '@unilab/services'
 import {
   addWorkflowConditionBranch,
   applyWorkflowConditionParam,
+  connectWorkflowConditionBranch,
   projectWorkflowConditionEditor,
   removeWorkflowConditionBranch,
   updateWorkflowConditionBranch,
@@ -24,10 +25,9 @@ const graph: WorkflowAuthoringGraph = {
 }
 
 describe('workflow condition control', () => {
-  it('adds an else branch and derives branch boundaries from selected members', () => {
+  it('projects IF/ELSE handles and derives branch boundaries from selected members', () => {
     const initial = projectWorkflowConditionEditor(graph, 'condition')
-    const added = addWorkflowConditionBranch(initial.branches)
-    const withTrue = updateWorkflowConditionBranch(added, 0, {
+    const withTrue = updateWorkflowConditionBranch(initial.branches, 0, {
       condition: { var: 'qualified' }, node_uuids: ['pass']
     })
     const complete = updateWorkflowConditionBranch(withTrue, 1, {
@@ -52,14 +52,40 @@ describe('workflow condition control', () => {
       .toBe('condition')
   })
 
-  it('keeps at least one branch and restores the remaining branch as fallback', () => {
+  it('keeps at least IF and ELSE when removing an extra ELIF branch', () => {
     const added = addWorkflowConditionBranch(
       projectWorkflowConditionEditor(graph, 'condition').branches
     )
-    const removed = removeWorkflowConditionBranch(added, 0)
+    expect(added.map((branch) => branch.label)).toEqual(['if', 'elif0', 'else'])
+    const removed = removeWorkflowConditionBranch(added, 1)
     expect(removed).toEqual([
-      expect.objectContaining({ label: 'if', condition: null })
+      expect.objectContaining({ label: 'if' }),
+      expect.objectContaining({ label: 'else', condition: null })
     ])
-    expect(removeWorkflowConditionBranch(removed, 0)).toHaveLength(1)
+    expect(removeWorkflowConditionBranch(removed, 0)).toHaveLength(2)
+  })
+
+  it('connects a branch handle to an action and moves it between branches', () => {
+    const connectedIf = connectWorkflowConditionBranch(graph, 'condition', 0, 'pass')
+    expect(connectedIf.nodes.find((node) => node.uuid === 'pass')?.parent_uuid)
+      .toBe('condition')
+    expect(connectedIf.nodes.find((node) => node.uuid === 'condition')?.param)
+      .toMatchObject({
+        branches: [
+          { label: 'if', node_uuids: ['pass'], entry_node_uuids: ['pass'] },
+          { label: 'else', node_uuids: [] }
+        ]
+      })
+
+    const connectedElse = connectWorkflowConditionBranch(
+      connectedIf, 'condition', 1, 'pass'
+    )
+    expect(connectedElse.nodes.find((node) => node.uuid === 'condition')?.param)
+      .toMatchObject({
+        branches: [
+          { label: 'if', node_uuids: [] },
+          { label: 'else', node_uuids: ['pass'], entry_node_uuids: ['pass'] }
+        ]
+      })
   })
 })

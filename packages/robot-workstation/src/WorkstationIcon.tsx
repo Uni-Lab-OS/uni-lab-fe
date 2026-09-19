@@ -18,6 +18,7 @@ export type WorkstationIconName =
   | 'search'
   | 'shield'
   | 'site'
+  | 'split'
   | 'stop'
   | 'history'
   | 'close'
@@ -145,6 +146,13 @@ function iconPath(name: WorkstationIconName): React.JSX.Element {
         <>
           <rect x="4" y="4" width="16" height="16" rx="3" />
           <path d="M8 8h3v3H8zm5 0h3v3h-3zM8 13h3v3H8zm5 0h3v3h-3z" />
+        </>
+      )
+    case 'split':
+      return (
+        <>
+          <path d="M5 5h4v4H5zM15 3h4v4h-4zM15 17h4v4h-4z" />
+          <path d="M9 7h2a4 4 0 0 1 4 4v8M15 5v6" />
         </>
       )
     case 'stop':
