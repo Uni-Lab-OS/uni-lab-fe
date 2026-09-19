@@ -159,6 +159,26 @@ export interface ReagentMutationReceipt {
   revision: number
 }
 
+export interface ReagentDispenseTargetInput {
+  materialId: string
+  quantity: number
+  expectedMaterialRevision?: number
+}
+
+export interface ReagentDispenseInput {
+  commandId: string
+  sourceReagentId: string
+  expectedRevision: number
+  quantityUnit: string
+  targets: readonly ReagentDispenseTargetInput[]
+  reason?: string
+}
+
+export interface ReagentDispenseReceipt {
+  commandId: string
+  replayed: boolean
+}
+
 export interface ReagentHistoryEntry {
   id: string
   materialId: string
@@ -192,6 +212,7 @@ export interface InventoryPort {
   createReagent(input: ReagentCreateInput, signal?: AbortSignal): Promise<ReagentMutationReceipt>
   updateReagent(input: ReagentUpdateInput, signal?: AbortSignal): Promise<ReagentMutationReceipt>
   deleteReagent(reagentId: string, signal?: AbortSignal): Promise<void>
+  dispenseReagent(input: ReagentDispenseInput, signal?: AbortSignal): Promise<ReagentDispenseReceipt>
   listReagentHistory(materialId: string, page?: number, signal?: AbortSignal): Promise<ReagentHistoryPage>
 }
 
@@ -380,6 +401,40 @@ export function createInventoryReadPort(
     },
 
     /**
+     * 通过 OS 原子命令把一瓶试剂分装到一个或多个空容器。
+     * @param input 源试剂修订、稳定命令身份及全部目标容器闭集。
+     * @param signal 调用方取消信号。
+     * @returns OS 完成或幂等重放的命令回执；业务拒绝直接抛出可行动错误。
+     */
+    async dispenseReagent(input, signal) {
+      requireReagentDispenseContract(backend)
+      const raw = await http.request<unknown>('/api/v1/inventory/commands', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          command_id: input.commandId,
+          type: 'reagent.dispense',
+          actor: 'frontend:robot-workstation',
+          payload: {
+            source_reagent_uuid: input.sourceReagentId,
+            expected_revision: input.expectedRevision,
+            quantity_unit: input.quantityUnit,
+            targets: input.targets.map(target => ({
+              material_uuid: target.materialId,
+              quantity: target.quantity,
+              ...(target.expectedMaterialRevision == null
+                ? {}
+                : { expected_material_revision: target.expectedMaterialRevision })
+            })),
+            reason: input.reason ?? '分装'
+          }
+        }),
+        signal
+      })
+      return decodeReagentDispenseReceipt(raw, input.commandId)
+    },
+
+    /**
      * 读取一个容器物料上的不可变试剂台账。
      * @param materialId 承载试剂的容器物料 UUID。
      * @param page 从 1 开始的页码，默认第一页。
@@ -406,6 +461,45 @@ function requireReagentContract(backend: BackendConfig): void {
     message: '当前服务配置未声明统一试剂 v1 契约。',
     retryable: false
   })
+}
+
+/** 分装只允许调用已验证 inventory command 契约的本地 OS。 */
+function requireReagentDispenseContract(backend: BackendConfig): void {
+  if (backend.id === 'local-python') return
+  throw new ServiceError({
+    code: 'UNSUPPORTED_REAGENT_DISPENSE_CONTRACT',
+    message: '当前服务配置未声明试剂分装命令契约。',
+    retryable: false
+  })
+}
+
+/** 严格解码 OS inventory command 回执，并把 HTTP 200 业务拒绝转换为服务错误。 */
+function decodeReagentDispenseReceipt(
+  raw: unknown,
+  expectedCommandId: string
+): ReagentDispenseReceipt {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw invalidInventoryResponse('试剂分装命令回执不是对象')
+  }
+  const result = raw as Record<string, unknown>
+  if (result.command_id !== expectedCommandId) {
+    throw invalidInventoryResponse('试剂分装命令回执身份不匹配')
+  }
+  if (result.status !== 'completed') {
+    throw new ServiceError({
+      code: typeof result.error_code === 'string'
+        ? result.error_code
+        : 'REAGENT_DISPENSE_REJECTED',
+      message: typeof result.error === 'string' && result.error.trim()
+        ? result.error
+        : '试剂分装被库存权威拒绝。',
+      retryable: result.error_code === 'version_conflict'
+    })
+  }
+  return {
+    commandId: expectedCommandId,
+    replayed: result.replayed === true
+  }
 }
 
 /** 创建可诊断的库存响应合同错误。 */

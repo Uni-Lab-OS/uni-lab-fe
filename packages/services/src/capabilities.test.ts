@@ -31,7 +31,6 @@ describe('server capability matrix', () => {
           'devices.subscribeStatus',
           'devices.forceUnlock',
           'devices.runActionTask',
-          'material.readTemplates',
           'material.readGraph',
           'workflow.readDefinitions',
           'workflow.authoring',
@@ -46,6 +45,7 @@ describe('server capability matrix', () => {
           'inventory.createReagent',
           'inventory.updateReagent',
           'inventory.deleteReagent',
+          'inventory.dispenseReagent',
           'inventory.readReagentHistory'
         ]
         const localGoCapabilities = [

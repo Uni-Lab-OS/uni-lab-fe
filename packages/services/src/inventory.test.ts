@@ -366,6 +366,80 @@ describe('inventory read port', () => {
   })
 
   /** 证明 OS 试剂资源中的非法数量不会被前端静默归零。 */
+
+  /** 证明试剂分装使用 OS 原子命令，保留幂等身份、源修订和全部目标闭集。 */
+  it('dispenses reagent through the OS inventory command contract', async () => {
+    const request = vi.fn(async (path: string, init?: RequestInit) => {
+      expect(path).toBe('/api/v1/inventory/commands')
+      expect(init?.method).toBe('POST')
+      return {
+        command_id: 'dispense-command-1',
+        status: 'completed',
+        result: { source_reagent_uuid: 'reagent-1' }
+      }
+    })
+    const port = createInventoryReadPort(
+      { request } as HttpClient,
+      getDefaultBackend('local-python')
+    )
+
+    await expect(port.dispenseReagent({
+      commandId: 'dispense-command-1',
+      sourceReagentId: 'reagent-1',
+      expectedRevision: 4,
+      quantityUnit: 'mL',
+      targets: [
+        { materialId: 'empty-bottle-1', quantity: 25 },
+        { materialId: 'empty-bottle-2', quantity: 30 }
+      ],
+      reason: '实验分装'
+    })).resolves.toEqual({
+      commandId: 'dispense-command-1',
+      replayed: false
+    })
+
+    expect(JSON.parse(String(request.mock.calls[0]?.[1]?.body))).toEqual({
+      command_id: 'dispense-command-1',
+      type: 'reagent.dispense',
+      actor: 'frontend:robot-workstation',
+      payload: {
+        source_reagent_uuid: 'reagent-1',
+        expected_revision: 4,
+        quantity_unit: 'mL',
+        targets: [
+          { material_uuid: 'empty-bottle-1', quantity: 25 },
+          { material_uuid: 'empty-bottle-2', quantity: 30 }
+        ],
+        reason: '实验分装'
+      }
+    })
+  })
+
+  /** 证明 HTTP 200 中的分装业务拒绝不会被误当成成功。 */
+  it('surfaces reagent dispense business rejection', async () => {
+    const port = createInventoryReadPort(
+      {
+        request: vi.fn(async () => ({
+          command_id: 'dispense-command-2',
+          status: 'rejected',
+          error_code: '4002',
+          error: '目标容器已有内容物'
+        }))
+      } as HttpClient,
+      getDefaultBackend('local-python')
+    )
+
+    await expect(port.dispenseReagent({
+      commandId: 'dispense-command-2',
+      sourceReagentId: 'reagent-1',
+      expectedRevision: 4,
+      quantityUnit: 'mL',
+      targets: [{ materialId: 'occupied-bottle', quantity: 10 }]
+    })).rejects.toMatchObject({
+      code: '4002',
+      message: '目标容器已有内容物'
+    })
+  })
   it('rejects malformed authoritative quantities', async () => {
     const request = vi.fn(async () => ({
       code: 0,

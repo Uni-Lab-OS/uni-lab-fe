@@ -231,7 +231,6 @@ export interface ReagentCreateCommand {
   concentrationUnit?: string
   quantity: number
   quantityUnit: string
-  containerCapacity?: { maxVolumeUl: number } | { maxMassG: number }
   description?: string
   metadata?: Record<string, unknown>
 }
@@ -245,6 +244,18 @@ export interface ReagentUpdateCommand {
   concentrationUnit?: string
   description?: string
   metadata?: Record<string, unknown>
+}
+
+export interface ReagentDispenseCommand {
+  commandId: string
+  sourceReagentId: string
+  expectedRevision: number
+  quantityUnit: string
+  targets: readonly {
+    materialId: string
+    quantity: number
+  }[]
+  reason?: string
 }
 
 export interface ReagentHistoryProjection {
@@ -266,6 +277,7 @@ export interface ReagentManagement {
   create(command: ReagentCreateCommand): Promise<void>
   update(command: ReagentUpdateCommand): Promise<void>
   delete(reagentId: string): Promise<void>
+  dispense?(command: ReagentDispenseCommand): Promise<void>
   readHistory(materialId: string): Promise<readonly ReagentHistoryProjection[]>
 }
 

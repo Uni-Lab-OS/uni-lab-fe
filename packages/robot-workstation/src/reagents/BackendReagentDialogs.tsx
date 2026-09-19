@@ -57,19 +57,24 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
   const [densityGPerMl, setDensityGPerMl] = useState(
     initial?.densityGPerMl == null ? '' : String(initial.densityGPerMl)
   )
-  const [quantityUnit, setQuantityUnit] = useState(initial?.unit ?? '')
+  const [quantityUnit, setQuantityUnit] = useState(
+    initial?.unit ?? (props.mode === 'create' ? 'mL' : '')
+  )
+  const [productionDate, setProductionDate] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
+  const expiryDateRef = useRef<HTMLInputElement>(null)
   const [advancedOpen, setAdvancedOpen] = useState(
     props.mode === 'edit' && Boolean(initial?.concentrationValue != null || initial?.description)
   )
   const [customParameters, setCustomParameters] = useState<CustomParameter[]>([])
   const selectedInfo = props.infos?.find(info => info.id === selectedInfoId)
 
-  /** 切换试剂目录项时只带入参考密度，不替用户猜测计量单位。 */
+  /** 切换试剂目录项时带入参考密度，并按形态设置默认计量单位。 */
   function selectReagentInfo(infoId: string): void {
     const nextInfo = props.infos?.find(info => info.id === infoId)
     setSelectedInfoId(infoId)
     setDensityGPerMl(nextInfo?.densityGPerMl == null ? '' : String(nextInfo.densityGPerMl))
-    setQuantityUnit('')
+    setQuantityUnit(nextInfo?.physicalState === 'liquid' ? 'mL' : nextInfo?.physicalState === 'solid' ? 'g' : '')
   }
 
   function reportError(message: string): void {
@@ -229,12 +234,33 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
                       name="productionDate"
                       type="date"
                       aria-label="生产日期（有效期开始）"
+                      value={productionDate}
+                      max={expiryDate || undefined}
+                      onChange={event => {
+                        const nextStart = event.target.value
+                        setProductionDate(nextStart)
+                        // 与 antd RangePicker 一致：选完开始日期即跳到结束日期，无需再次点击。
+                        if (nextStart && !expiryDate) {
+                          expiryDateRef.current?.focus()
+                          if (typeof expiryDateRef.current?.showPicker === 'function') {
+                            try {
+                              expiryDateRef.current.showPicker()
+                            } catch {
+                              // 浏览器不允许时静默降级为聚焦。
+                            }
+                          }
+                        }
+                      }}
                     />
                     <span aria-hidden="true">至</span>
                     <Input
+                      ref={expiryDateRef}
                       name="expiryDate"
                       type="date"
                       aria-label="截止日期（有效期结束）"
+                      value={expiryDate}
+                      min={productionDate || undefined}
+                      onChange={event => setExpiryDate(event.target.value)}
                     />
                   </div>
                 </div>
@@ -296,19 +322,30 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
 }
 
 /** 使用独立触发器与搜索浮层完成试剂容器选择。 */
-function ContainerSearchSelect({
+export function ContainerSearchSelect({
   containers,
-  disabled
+  disabled,
+  name = 'materialId',
+  value,
+  onChange,
+  initialFocus = true,
+  placeholder = '请选择试剂容器'
 }: {
   containers: readonly ReagentContainerOption[]
   disabled: boolean
+  name?: string
+  value?: string
+  onChange?: (materialId: string) => void
+  initialFocus?: boolean
+  placeholder?: string
 }): React.JSX.Element {
   const listboxId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [selectedId, setSelectedId] = useState('')
+  const [internalSelectedId, setInternalSelectedId] = useState('')
+  const selectedId = value ?? internalSelectedId
   const selected = containers.find(container => container.id === selectedId)
   const options = useMemo(
     () => filterReagentContainers(containers, query),
@@ -322,7 +359,8 @@ function ContainerSearchSelect({
   }, [open])
 
   function select(container: ReagentContainerOption): void {
-    setSelectedId(container.id)
+    if (value === undefined) setInternalSelectedId(container.id)
+    onChange?.(container.id)
     setQuery('')
     setOpen(false)
   }
@@ -335,12 +373,12 @@ function ContainerSearchSelect({
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
       }}
     >
-      <input type="hidden" name="materialId" value={selectedId} />
+      {name ? <input type="hidden" name={name} value={selectedId} /> : null}
       <Button
         type="button"
         variant="outline"
         className={styles.reagentContainerSelectControl}
-        data-dialog-initial-focus
+        data-dialog-initial-focus={initialFocus || undefined}
         aria-haspopup="listbox"
         aria-controls={listboxId}
         aria-expanded={open}
@@ -356,7 +394,7 @@ function ContainerSearchSelect({
         }}
       >
         <span className={selected ? styles.reagentContainerSelectValue : styles.reagentContainerSelectPlaceholder}>
-          {selected ? reagentContainerLabel(selected) : '请选择试剂容器'}
+          {selected ? reagentContainerLabel(selected) : placeholder}
         </span>
         <span aria-hidden="true" className={styles.reagentContainerSelectArrow} />
       </Button>
@@ -622,7 +660,6 @@ export interface EditorValues {
   densityGPerMl?: number
   quantity: number
   quantityUnit: string
-  maximumCapacity?: number
   concentrationValue?: number
   concentrationUnit?: string
   description?: string
@@ -635,7 +672,6 @@ export interface EditorValues {
 /** 从浏览器 FormData 读取试剂表单值，空数值保持 undefined。 */
 function reagentEditorValues(form: FormData): EditorValues {
   const densityGPerMl = optionalNumber(form.get('densityGPerMl'))
-  const maximumCapacity = optionalNumber(form.get('maximumCapacity'))
   const concentrationValue = optionalNumber(form.get('concentrationValue'))
   const description = textValue(form, 'description')
   const concentrationUnit = textValue(form, 'concentrationUnit')
@@ -650,7 +686,6 @@ function reagentEditorValues(form: FormData): EditorValues {
     ...(densityGPerMl == null ? {} : { densityGPerMl }),
     quantity: Number(form.get('quantity')),
     quantityUnit: textValue(form, 'quantityUnit'),
-    ...(maximumCapacity == null ? {} : { maximumCapacity }),
     ...(concentrationValue == null ? {} : { concentrationValue }),
     ...(concentrationUnit ? { concentrationUnit } : {}),
     ...(description ? { description } : {}),
@@ -677,14 +712,6 @@ export function validateReagentEditor(
   if (!values.quantityUnit) return '计量单位不能为空'
   if (mode === 'create' && !REAGENT_QUANTITY_UNITS.some(unit => unit === values.quantityUnit)) {
     return '请选择 Backend 支持的计量单位'
-  }
-  if (values.maximumCapacity != null) {
-    if (!Number.isFinite(values.maximumCapacity) || values.maximumCapacity <= 0) {
-      return '最大装料量必须是大于零的有限数'
-    }
-    if (values.maximumCapacity < values.quantity) {
-      return '最大装料量不能小于初始数量'
-    }
   }
   if (values.densityGPerMl != null && (!Number.isFinite(values.densityGPerMl) || values.densityGPerMl <= 0)) {
     return '密度必须是大于零的有限数'
@@ -718,7 +745,6 @@ export function reagentCreateCommand(
     ...concentrationCommand(values),
     quantity: values.quantity,
     quantityUnit: values.quantityUnit,
-    ...containerCapacityCommand(values),
     metadata: {
       supplier: values.supplier,
       density_condition: values.densityCondition,
@@ -728,24 +754,6 @@ export function reagentCreateCommand(
     },
     ...(values.description ? { description: values.description } : {})
   }
-}
-
-/** 将表单最大装料量转换为 OS 使用的 µL 或 g 基础单位。 */
-function containerCapacityCommand(
-  values: EditorValues
-): Pick<ReagentCreateCommand, 'containerCapacity'> {
-  if (values.maximumCapacity == null) return {}
-  const unit = values.quantityUnit.trim().replace('μ', 'µ').toLocaleLowerCase('en-US')
-  const volumeFactors: Record<string, number> = { 'µl': 1, ml: 1_000, l: 1_000_000 }
-  const massFactors: Record<string, number> = { mg: 0.001, g: 1, kg: 1_000 }
-  const volumeFactor = volumeFactors[unit]
-  if (volumeFactor != null) {
-    return { containerCapacity: { maxVolumeUl: values.maximumCapacity * volumeFactor } }
-  }
-  const massFactor = massFactors[unit]
-  return massFactor == null
-    ? {}
-    : { containerCapacity: { maxMassG: values.maximumCapacity * massFactor } }
 }
 
 /** 按名称、条码或稳定 UUID 筛选试剂容器候选。 */
