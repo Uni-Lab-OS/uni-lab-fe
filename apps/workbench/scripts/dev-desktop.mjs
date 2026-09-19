@@ -77,6 +77,12 @@ try {
     )
     const electronExecutable = workbenchRequire('electron')
     const desktopEnvironment = { ...process.env }
+    // Electron exposes its own executable through `process.execPath` once the
+    // desktop main process starts.  Keep the development Node executable
+    // explicit so the workbench backend is spawned by Node rather than by
+    // Electron's embedded runtime (which can crash while loading native
+    // Theia dependencies such as drivelist).
+    desktopEnvironment.UNILAB_NODE ??= process.execPath
     delete desktopEnvironment.ELECTRON_RUN_AS_NODE
     const electronArguments = []
     if (desktopEnvironment.UNILAB_DESKTOP_NO_SANDBOX === '1') {
