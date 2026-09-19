@@ -21,6 +21,12 @@ describe('workflowAuthoringUserCopy', () => {
       .not.toContain('candidate_invalid')
   })
 
+  it('物料源码身份错误不再误报为设备动作更新', () => {
+    const copy = formatAuthoringDiagnostic({ code: 'template_catalog_mismatch', message: '物料来源资源模板 UUID 不能反解为当前源码身份' })
+    expect(copy.title).toBe('物料来源模板不可用')
+    expect(copy.detail).toContain('改选受支持的物料模板')
+    expect(copy.detail).not.toContain('删掉')
+  })
   it('formats draft diagnostics without exposing raw codes as the title', () => {
     const copy = formatAuthoringDiagnostic({
       code: 'template_catalog_mismatch',

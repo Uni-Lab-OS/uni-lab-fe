@@ -43,6 +43,7 @@ export function visibleWorkflowTasks(
   const normalizedQuery = query.trim().toLocaleLowerCase()
   return [...tasks]
     .filter((task) => {
+      if (task.execution_kind !== 'workflow') return false
       if (!workflowTaskMatchesFilter(task, filter)) return false
       if (!normalizedQuery) return true
       const searchable = [

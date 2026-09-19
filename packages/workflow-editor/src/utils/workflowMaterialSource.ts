@@ -68,15 +68,21 @@ export function createMaterialSourceNode(
   if (!validPythonName(input.name) || graph.nodes.some(
     (node) => node.name === input.name
   )) throw new Error('物料来源节点名称无效或重复')
-  const mount = materialSourceMounts(catalog)[0]
-  const mountTemplateUuids = new Set(
-    materialSourceMounts(catalog).map((item) => item.resourceTemplateUuid)
+  // 从库位的明确兼容声明选择模板，避免 UUID 排序把 host_node 等设备模板选为物料。
+  const mounts = materialSourceMounts(catalog)
+  const defaultSite = catalog.sites.find(site =>
+    mounts.some(mount => mount.uuid === site.mountMaterialUuid) &&
+    site.allowedResourceTemplateUuids.some(uuid => catalog.resourceTemplates.some(template => template.uuid === uuid))
   )
-  const resourceTemplate = catalog.resourceTemplates.find(
-    (item) => !mountTemplateUuids.has(item.uuid)
-  ) ?? catalog.resourceTemplates[0]
+  const resourceTemplate = defaultSite
+    ? catalog.resourceTemplates.find(template => defaultSite.allowedResourceTemplateUuids.includes(template.uuid))
+    : catalog.resourceTemplates.find(template => Boolean(template.sourceUri) &&
+        catalog.sites.some(site => site.allowedResourceTemplateUuids.length === 0 &&
+          mounts.some(mount => mount.uuid === site.mountMaterialUuid)))
+  const mount = mounts.find(item => item.uuid === defaultSite?.mountMaterialUuid) ??
+    mounts.find(item => catalog.sites.some(site => site.mountMaterialUuid === item.uuid && site.allowedResourceTemplateUuids.length === 0))
   if (!resourceTemplate || !mount) {
-    throw new Error('OS 物料与库位目录中没有可用的物料来源初始选项')
+    throw new Error('没有可用于物料来源的模板与兼容库位，请先配置库位允许的物料模板后刷新目录')
   }
   const template = catalog.template
   const sourceHandle = template.sourceHandle

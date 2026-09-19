@@ -37,7 +37,16 @@ describe('server capability matrix', () => {
           'workflow.runTasks',
           'workflow.subscribeEvents',
           'workflow.recovery',
-          'inventory.readReagents'
+          'reagentInfo.read',
+          'reagentInfo.create',
+          'reagentInfo.update',
+          'reagentInfo.delete',
+          'inventory.readReagents',
+          'inventory.createReagent',
+          'inventory.updateReagent',
+          'inventory.deleteReagent',
+          'inventory.dispenseReagent',
+          'inventory.readReagentHistory'
         ]
         const localGoCapabilities = [
           'devices.listOnline',
@@ -112,8 +121,8 @@ describe('server capability matrix', () => {
     }
   })
 
-  /** 证明化学品字典 CRUD 只在已完成真实联调的 Go Backend 开放。 */
-  it('exposes reagent information CRUD only for the Go Backend', () => {
+  /** 证明化学品字典 CRUD 已由 OS 与 Go Backend 的同形 v1 契约共同开放。 */
+  it('exposes reagent information CRUD for OS and Go Backend', () => {
     const backendCapabilities = resolveServerCapabilities(
       getDefaultBackend('local-go')
     )
@@ -127,12 +136,12 @@ describe('server capability matrix', () => {
       'reagentInfo.delete'
     ] as const) {
       expect(hasServerCapability(backendCapabilities, capability)).toBe(true)
-      expect(hasServerCapability(edgeCapabilities, capability)).toBe(false)
+      expect(hasServerCapability(edgeCapabilities, capability)).toBe(true)
     }
   })
 
-  /** 证明试剂写能力只对完成真实 CRUD 联调的 Go Backend 开放。 */
-  it('keeps reagent mutations Backend-only', () => {
+  /** 证明试剂库存 CRUD 与历史查询在 OS 和 Go Backend 使用同形 v1 契约。 */
+  it('exposes reagent mutations for OS and Go Backend', () => {
     const backendCapabilities = resolveServerCapabilities(
       getDefaultBackend('local-go')
     )
@@ -147,7 +156,7 @@ describe('server capability matrix', () => {
       'inventory.readReagentHistory'
     ] as const) {
       expect(hasServerCapability(backendCapabilities, capability)).toBe(true)
-      expect(hasServerCapability(edgeCapabilities, capability)).toBe(false)
+      expect(hasServerCapability(edgeCapabilities, capability)).toBe(true)
     }
   })
 

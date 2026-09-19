@@ -143,7 +143,7 @@ export function CreateExperimentOperationDialog({
             <div>
               {categories.map(category => (
                 <span key={category}>
-                  {category}
+                  <span className="experiment-operation__category-name">{category}</span>
                   <button
                     type="button"
                     aria-label={`移除分类 ${category}`}

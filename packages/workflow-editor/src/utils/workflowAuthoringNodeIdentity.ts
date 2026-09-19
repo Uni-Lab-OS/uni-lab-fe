@@ -62,6 +62,75 @@ export function createAuthoringNodeMeta(
   }
 }
 
+/** 按执行依赖稳定排序源码编号；保留节点数组、坐标及其他作者元数据。 */
+export function reorderAuthoringSourceAfterConnection(
+  graph: WorkflowAuthoringGraph
+): WorkflowAuthoringGraph {
+  const entries = graph.nodes.map((node, index) => {
+    if (typeof node.uuid !== 'string' || !node.uuid) {
+      throw new Error('工作流节点标识缺失')
+    }
+    const meta = recordOrNull(node.meta_data)
+    const unilab = recordOrNull(meta?.unilab)
+    const order = unilab?.authoring_source_order
+    return {
+      uuid: node.uuid,
+      index,
+      order: typeof order === 'number' && Number.isInteger(order) && order >= 0
+        ? order
+        : Infinity
+    }
+  })
+  const byUuid = new Map(entries.map((entry) => [entry.uuid, entry]))
+  if (byUuid.size !== entries.length) throw new Error('工作流节点标识重复')
+  const incoming = new Map(entries.map((entry) => [entry.uuid, 0]))
+  const outgoing = new Map<string, string[]>()
+  for (const edge of graph.edges) {
+    const source = String(edge.source_node_uuid)
+    const target = String(edge.target_node_uuid)
+    if (!byUuid.has(source) || !byUuid.has(target)) {
+      throw new Error('工作流连线引用了不存在的节点')
+    }
+    const targets = outgoing.get(source) ?? []
+    targets.push(target)
+    outgoing.set(source, targets)
+    incoming.set(target, incoming.get(target)! + 1)
+  }
+  const ready = entries.filter((entry) => incoming.get(entry.uuid) === 0)
+  const orderedUuids: string[] = []
+  while (ready.length > 0) {
+    // 无依赖冲突时优先沿用源码顺序；缺少编号时使用原节点数组顺序。
+    ready.sort((left, right) => left.order - right.order || left.index - right.index)
+    const entry = ready.shift()!
+    orderedUuids.push(entry.uuid)
+    for (const target of outgoing.get(entry.uuid) ?? []) {
+      const count = incoming.get(target)! - 1
+      incoming.set(target, count)
+      if (count === 0) ready.push(byUuid.get(target)!)
+    }
+  }
+  if (orderedUuids.length !== entries.length) {
+    throw new Error('工作流连线会形成环路')
+  }
+  const sourceOrder = new Map(orderedUuids.map((uuid, index) => [uuid, index]))
+  return {
+    ...graph,
+    nodes: graph.nodes.map((node) => {
+      const meta = recordOrNull(node.meta_data) ?? {}
+      const unilab = recordOrNull(meta.unilab) ?? {}
+      const order = sourceOrder.get(String(node.uuid))!
+      if (unilab.authoring_source_order === order) return node
+      return {
+        ...node,
+        meta_data: {
+          ...meta,
+          unilab: { ...unilab, authoring_source_order: order }
+        }
+      }
+    })
+  }
+}
+
 function recordOrNull(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   return value as Record<string, unknown>

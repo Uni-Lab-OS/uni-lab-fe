@@ -516,6 +516,7 @@
 }
 
 :global(.workflow-runtime__catalog-dialog) {
+  box-sizing: border-box;
   width: min(480px, 100%);
   max-height: min(720px, calc(100vh - 48px));
   overflow: auto;
@@ -570,6 +571,13 @@
   font-size: 20px;
 }
 
+:global(.workflow-runtime__catalog-required) {
+  margin-left: 6px;
+  color: var(--unilab-color-danger);
+  font-size: 11px;
+  font-weight: 550;
+}
+
 :global(.workflow-runtime__catalog-form) {
   display: grid;
   gap: 16px;
@@ -586,6 +594,7 @@
 
 :global(.workflow-runtime__catalog-form) input,
 :global(.workflow-runtime__catalog-form) textarea {
+  box-sizing: border-box;
   width: 100%;
   min-height: 40px;
   padding: 9px 11px;
@@ -752,4 +761,17 @@
     border-left: 0;
     border-radius: var(--unilab-radius-lg) var(--unilab-radius-lg) 0 0;
   }
+}
+
+:global(.workflow-manual-confirmation-form) select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 10px;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border-strong);
+  border-radius: var(--unilab-radius-control);
+  background: var(--unilab-color-surface);
+  font: inherit;
 }

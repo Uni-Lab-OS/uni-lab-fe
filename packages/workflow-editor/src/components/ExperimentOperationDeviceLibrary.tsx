@@ -2,7 +2,8 @@ import type {
   WorkflowActionCatalogSnapshot,
   WorkflowActionNodeTemplate
 } from '@unilab/services'
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import {
   writeWorkflowNodePaletteDragPayload,
@@ -60,6 +61,21 @@ export function ExperimentOperationDeviceLibrary({
   onPaletteDragStart,
   onRefresh
 }: ExperimentOperationDeviceLibraryProps): React.JSX.Element {
+  const tooltipId = useId()
+  const [tooltip, setTooltip] = useState<{ text: string; left: number; top: number } | null>(null)
+  // 提示挂载到页面顶层，避免窄列表和滚动容器裁剪完整名称。
+  const showTooltip = (target: EventTarget | null): void => {
+    const row = target instanceof Element
+      ? target.closest<HTMLElement>('[data-library-tooltip]')
+      : null
+    if (!row) { setTooltip(null); return }
+    const bounds = row.getBoundingClientRect()
+    setTooltip({
+      text: row.dataset.libraryTooltip ?? '',
+      left: Math.max(8, Math.min(bounds.right + 8, window.innerWidth - 328)),
+      top: Math.max(8, Math.min(bounds.top, window.innerHeight - 156))
+    })
+  }
   const [query, setQuery] = useState('')
   const [deviceFilter, setDeviceFilter] = useState('all')
   const groups = useMemo(
@@ -120,7 +136,18 @@ export function ExperimentOperationDeviceLibrary({
         </div>
       </div>
 
-      <div className="operation-device-library__tree" role="tree" aria-label="设备与动作树">
+      <div
+        className="operation-device-library__tree"
+        role="tree"
+        aria-label="设备与动作树"
+        onPointerOver={event => showTooltip(event.target)}
+        onPointerLeave={() => setTooltip(null)}
+        onFocus={event => showTooltip(event.target)}
+        onBlur={() => setTooltip(null)}
+        onPointerDown={() => setTooltip(null)}
+        onScroll={() => setTooltip(null)}
+        onKeyDown={event => { if (event.key === 'Escape') setTooltip(null) }}
+      >
         {loading && groups.length === 0 ? (
           <div className="operation-device-library__state" role="status">
             <span className="codicon codicon-loading codicon-modifier-spin" aria-hidden="true" />
@@ -154,7 +181,8 @@ export function ExperimentOperationDeviceLibrary({
                 className="operation-device-library__device-head"
                 aria-controls={actionListId}
                 aria-expanded={!collapsed}
-                title={group.label}
+                data-library-tooltip={`${group.label}\n${group.resourceTemplateUuid}`}
+                aria-describedby={tooltip?.text === `${group.label}\n${group.resourceTemplateUuid}` ? tooltipId : undefined}
                 onClick={() => setCollapsedIds(current => {
                   const next = new Set(current)
                   if (next.has(group.resourceTemplateUuid)) {
@@ -197,7 +225,8 @@ export function ExperimentOperationDeviceLibrary({
                       // click-to-insert handler).
                       disabled={disabled}
                       disabledReason={disabledReason}
-                      title={`${action.displayName || action.name} · ${action.name}`}
+                      data-library-tooltip={`${action.displayName || action.name}\n${action.name}`}
+                      aria-describedby={tooltip?.text === `${action.displayName || action.name}\n${action.name}` ? tooltipId : undefined}
                       data-workflow-palette-action={action.uuid}
                       // The persistent authoring view uses a pointer-based
                       // drag fallback because X6 may swallow native drop
@@ -240,6 +269,12 @@ export function ExperimentOperationDeviceLibrary({
           )
         })}
       </div>
+      {tooltip && typeof document !== 'undefined' ? createPortal(
+        <div id={tooltipId} role="tooltip" className="operationDeviceLibraryTooltip"
+          style={{ left: tooltip.left, top: tooltip.top }}>
+          {tooltip.text}
+        </div>, document.body
+      ) : null}
     </div>
   )
 }

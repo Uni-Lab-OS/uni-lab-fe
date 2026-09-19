@@ -2,7 +2,7 @@
   box-sizing: border-box;
   min-width: 0;
   max-width: 100%;
-  --debug-library-width: 176px;
+  --debug-library-width: 196px;
   --debug-structure-width: 224px;
   padding: 0 14px 14px;
   background: #f5f7fb;
@@ -97,7 +97,8 @@
   :global(.persistent-authoring__library-search) input { height: 36px; font-size: 11px; }
   :global(.persistent-authoring__library-section-label) { padding: 0 12px 8px; color: #8591a4; font-size: 9px; }
   :global(.persistent-authoring__library-workflow-list) { gap: 6px; max-height: none; padding: 0 8px 12px; border: 0; overflow: visible; }
-  :global(.persistent-authoring__library-workflow-list) > button { min-height: 64px; padding: 9px; grid-template-columns: 28px minmax(0, 1fr); }
+  :global(.persistent-authoring__library-workflow-list) > button,
+  :global(.persistent-authoring__workflow-current) { min-height: 48px; padding: 6px 8px; grid-template-columns: 24px minmax(0, 1fr); }
   :global(.persistent-authoring__library-workflow-list) strong { font-size: 11px; }
   :global(.persistent-authoring__library-workflow-list) small { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 9px; }
   :global(.persistent-authoring__library-workflow-list) i { display: none; }
@@ -209,7 +210,7 @@
   }
 
   @container workflow (max-width: 1240px) {
-    --debug-library-width: 160px;
+    --debug-library-width: 180px;
     --debug-structure-width: 200px;
     :global(.workflow-debug-toolbar__main) { flex-wrap: wrap; gap: 7px; }
     :global(.workflow-debug-toolbar__identity) { display: none; }

@@ -233,7 +233,7 @@ export function MaterialSourceInspector({
       <fieldset>
         <legend>库位范围</legend>
         <label>
-          库位范围
+          选择范围
           <select
             aria-label="库位范围"
             value={editor.siteScope}
@@ -359,9 +359,6 @@ export function MaterialSourceInspector({
           })}
         </ul>
       )}
-      <p className="persistent-authoring__selector-authority">
-        仅保存稳定 UUID；库位按业务顺序展示，候选集按 UUID 规范保存。
-      </p>
     </section>
   )
 }

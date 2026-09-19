@@ -268,7 +268,11 @@ function decodeBackendReagentItem(
   field: string
 ): ReagentInventoryItem {
   const item = object(value, field)
-  const quantity = optionalFiniteNumber(item.quantity)
+  const quantity = finiteNumber(item.quantity, `${field}.quantity`)
+  const reserved = optionalFiniteNumber(item.active_workflow_reserved_quantity)
+  const available = quantity == null || reserved == null
+    ? undefined
+    : Math.max(0, quantity - reserved)
   return {
     id: requiredString(item.uuid, `${field}.uuid`),
     materialId: requiredString(item.material_uuid, `${field}.material_uuid`),
@@ -278,6 +282,8 @@ function decodeBackendReagentItem(
     molecularFormula: optionalString(item.molecular_formula),
     physicalState: optionalString(item.physical_state),
     totalQuantity: quantity,
+    availableQuantity: available,
+    reservedQuantity: reserved,
     unit: optionalString(item.quantity_unit),
     lotLabel: optionalString(item.container_barcode),
     siteLabel: optionalString(item.container_name),
@@ -387,6 +393,13 @@ function optionalFiniteNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
+
+/** 读取必填有限数；正式试剂资源不能把非法数量降级为未知。 */
+function finiteNumber(value: unknown, field: string): number {
+  const result = optionalFiniteNumber(value)
+  if (result == null) throw invalidInventoryResponse(`${field} 必须是有限数`)
+  return result
+}
 /** 只接受 Backend 公布的四种 CAS 查询状态。 */
 function compoundLookupStatus(value: unknown): CompoundLookupResult['status'] {
   if (

@@ -1,10 +1,15 @@
 import type {
   DeviceAction,
   DeviceExecutionOccupancy,
-  WorkflowActionNodeTemplate
+  WorkflowActionNodeTemplate,
+  WorkflowRecoveryPort
 } from '@unilab/services'
 
-import type { ManagedDevice } from './deviceCatalog'
+import {
+  managedDeviceSelectionKey,
+  type ManagedDevice
+} from './deviceCatalog'
+import { DeviceExecutionUnlock } from './DeviceExecutionUnlock'
 import { deviceClass } from './deviceStyles'
 import type { DeviceManagementConnection } from './types'
 import {
@@ -24,7 +29,10 @@ import {
   formatTime,
   type ArgumentDraft
 } from './DevicePanelPresentation'
-import { shortIdentifier } from './devicePanelFormat'
+import {
+  deviceDispatchBlockPresentation,
+  shortIdentifier
+} from './devicePanelFormat'
 
 export function ConnectionSummary({
   connection,
@@ -77,21 +85,31 @@ export function DeviceListItem({
 }: {
   device: ManagedDevice
   selected: boolean
-  onSelect: (deviceId: string) => void
+  onSelect: (deviceKey: string) => void
 }): React.JSX.Element {
   const busyActionCount = device.actions.filter(
     (action) => action.isBusy
   ).length
   const occupancy = device.executionOccupancies?.[0] ?? null
   const edgeLabel = edgeStatusLabel(device.edgeStatus)
+  const dispatchBlock = (
+    device.edgeStatus === 'online' && !device.dispatchable
+  )
+    ? deviceDispatchBlockPresentation(device.dispatchBlockReason)
+    : null
+  const schedulingLabel = device.edgeStatus !== 'online'
+    ? '等待连接'
+    : dispatchBlock?.label ?? (
+      occupancy || busyActionCount ? '执行占用' : '可调度'
+    )
   return (
     <li>
       <button
         type="button"
         className={deviceClass('edge-device__device-item', selected && 'is-active')}
         aria-pressed={selected}
-        aria-label={`${device.displayName}，${edgeLabel}，${device.dispatchable ? '可调度' : '派发受阻'}${occupancy ? '，存在执行占用' : ''}`}
-        onClick={() => onSelect(device.id)}
+        aria-label={`${device.displayName}，${edgeLabel}，${schedulingLabel}${occupancy ? '，存在执行占用' : ''}`}
+        onClick={() => onSelect(managedDeviceSelectionKey(device))}
       >
         <span className={deviceClass('edge-device__device-icon')}>
           <DeviceIcon device={device} />
@@ -103,25 +121,25 @@ export function DeviceListItem({
               aria-hidden="true"
             />
             <span className={deviceClass('device-list__name')}>{device.displayName}</span>
-            {!device.dispatchable && device.edgeStatus === 'online' ? (
-              <span className={deviceClass('edge-device__list-lock is-blocked')}>
-                派发受阻
-              </span>
-            ) : null}
-            {occupancy ? (
-              <span className={deviceClass('edge-device__list-lock', occupancy.state === 'uncertain' && 'is-uncertain')}>
-                执行占用
-              </span>
-            ) : null}
-            {!occupancy && busyActionCount ? (
-              <span className={deviceClass('edge-device__list-lock')}>
-                动作占用
-              </span>
-            ) : null}
+            <span
+              className={deviceClass(
+                'edge-device__list-lock',
+                dispatchBlock
+                  ? 'is-blocked'
+                  : device.edgeStatus !== 'online'
+                    ? 'is-waiting'
+                    : occupancy || busyActionCount
+                      ? 'is-occupied'
+                      : 'is-ready'
+              )}
+              title={dispatchBlock?.detail}
+            >
+              {schedulingLabel}
+            </span>
           </span>
           <span className={deviceClass('device-list__key')}>
             {edgeLabel} · {device.actions.length} 个动作
-            {occupancy ? ` · Job ${shortIdentifier(occupancy.workflowNodeJobUuid)}` : ''}
+            {occupancy ? ` · 执行占用 Job ${shortIdentifier(occupancy.workflowNodeJobUuid)}` : ''}
             {!occupancy && busyActionCount ? ` · ${busyActionCount} 个动作占用` : ''}
           </span>
         </span>
@@ -157,7 +175,9 @@ export function DeviceWorkspace({
   onCancelActionTask,
   canForceUnlock,
   unlockOperation,
-  onRequestUnlock
+  onRequestUnlock,
+  recovery,
+  onRefreshDevice
 }: {
   device: ManagedDevice
   selectedAction: DeviceAction | null
@@ -180,14 +200,23 @@ export function DeviceWorkspace({
   canForceUnlock: boolean
   unlockOperation: UnlockOperation | null
   onRequestUnlock: (device: ManagedDevice, action: DeviceAction) => void
+  recovery?: WorkflowRecoveryPort
+  onRefreshDevice?: () => Promise<void>
 }): React.JSX.Element {
   const busyActionCount = device.actions.filter(
     (action) => action.isBusy
   ).length
   const occupancy = device.executionOccupancies?.[0] ?? null
+  const dispatchBlock = (
+    device.edgeStatus === 'online' && !device.dispatchable
+  )
+    ? deviceDispatchBlockPresentation(device.dispatchBlockReason)
+    : null
   const schedulingStatus = device.edgeStatus !== 'online'
-    ? '等待 Edge 连接'
-    : device.dispatchable ? '可调度' : '派发受阻'
+    ? '等待连接'
+    : dispatchBlock?.label ?? (
+      occupancy || busyActionCount ? '执行占用' : '可调度'
+    )
   return (
     <div className={deviceClass('edge-device__workspace')} data-device-management="workspace">
       <header className={deviceClass('edge-device__identity')} data-device-management="identity">
@@ -214,9 +243,12 @@ export function DeviceWorkspace({
               执行占用 · Job {shortIdentifier(occupancy.workflowNodeJobUuid)}
             </span>
           ) : null}
-          {!device.dispatchable && device.edgeStatus === 'online' ? (
-            <span className={deviceClass('edge-device__status-badge is-blocked')}>
-              派发受阻
+          {dispatchBlock ? (
+            <span
+              className={deviceClass('edge-device__status-badge is-blocked')}
+              title={dispatchBlock.detail}
+            >
+              {dispatchBlock.label}
             </span>
           ) : null}
           <span
@@ -229,7 +261,6 @@ export function DeviceWorkspace({
 
       <div className={deviceClass('edge-device__tabs')} role="tablist" aria-label="设备详情">
         <button type="button" role="tab" aria-selected="true">设备动作</button>
-        <button type="button" role="tab" aria-selected="false" disabled>初始化配置</button>
       </div>
 
       <section className={deviceClass('edge-device__status-section')}>
@@ -246,10 +277,19 @@ export function DeviceWorkspace({
         <Metric
           label="调度状态"
           value={schedulingStatus}
-          tone={device.dispatchable
-            ? 'success'
-            : device.edgeStatus === 'online' ? 'warning' : 'muted'}
+          tone={device.edgeStatus !== 'online'
+            ? 'muted'
+            : dispatchBlock || occupancy || busyActionCount
+              ? 'warning'
+              : 'success'}
         />
+        {dispatchBlock ? (
+          <Metric
+            label="调度受限原因"
+            value={dispatchBlock.detail}
+            tone="warning"
+          />
+        ) : null}
         <Metric
           label="执行占用"
           value={occupancy
@@ -257,7 +297,7 @@ export function DeviceWorkspace({
             : busyActionCount
               ? `${busyActionCount} 个动作占用`
               : device.edgeStatus !== 'online'
-                ? '等待 Edge 连接'
+                ? '等待连接'
                 : device.executionOccupancies === null
                   ? '—'
                   : '空闲'}
@@ -337,6 +377,13 @@ export function DeviceWorkspace({
         </section>
 
         <section className={deviceClass('edge-device__debug-section')} data-device-management="debug-section">
+          <DeviceExecutionOccupancySummary occupancies={device.executionOccupancies} />
+          {recovery && onRefreshDevice && device.executionOccupancies?.map(item => (
+            <DeviceExecutionUnlock
+              key={`${device.id}:${item.workflowTaskUuid}:${item.workflowNodeJobUuid}:${item.leaseUuid}`}
+              occupancy={item} port={recovery} onRefresh={onRefreshDevice}
+            />
+          ))}
           {selectedAction ? (
             <>
               <div className={deviceClass('edge-device__section-heading')}>
@@ -348,9 +395,6 @@ export function DeviceWorkspace({
                 </div>
                 <code>{selectedAction.actionName}</code>
               </div>
-              <DeviceExecutionOccupancySummary
-                occupancies={device.executionOccupancies}
-              />
               <DeviceLockControl
                 action={selectedAction}
                 canForceUnlock={canForceUnlock}
@@ -408,7 +452,7 @@ export function DeviceWorkspace({
 }
 
 /**
- * 展示设备级执行占用持有者；不提供手动解锁，避免越过物理结算边界。
+ * 展示设备级执行占用持有者；解锁命令由相邻的独立控件提供。
  *
  * @param props Authority 明确返回的设备执行占用摘要；null 表示未提供。
  * @returns 有占用时返回状态区域，否则不渲染。

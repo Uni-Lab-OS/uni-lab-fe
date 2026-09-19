@@ -84,8 +84,21 @@ interface WorkflowDagProps {
     nodeId: string,
     position: { x: number; y: number }
   ) => void
+  onNodePositionsChange?: (
+    changes: ReadonlyArray<{ nodeId: string; position: { x: number; y: number } }>
+  ) => void
+  onNodeParentChange?: (
+    nodeId: string,
+    loopId: string | null,
+    position: { x: number; y: number }
+  ) => void
   onConnectHandles?: (
     connection: WorkflowHandleConnection
+  ) => WorkflowHandleConnectionResult
+  onConnectConditionBranch?: (
+    conditionNodeId: string,
+    branchIndex: number,
+    targetNodeId: string
   ) => WorkflowHandleConnectionResult
   onDeleteRequest?: (selection: {
     nodeUuids: string[]
@@ -137,7 +150,10 @@ function WorkflowDag({
   canvasMutationEnabled = false,
   nodePositionMutationEnabled = false,
   onNodePositionChange,
+  onNodePositionsChange,
+  onNodeParentChange,
   onConnectHandles,
+  onConnectConditionBranch,
   onDeleteRequest,
   visibleMaterialRoles,
   onVisibleMaterialRolesChange,
@@ -216,9 +232,33 @@ function WorkflowDag({
     },
     []
   )
+  const descendantNamesById = useMemo(() => {
+    const nameById = new Map(nodes.map((node) => [node.id, node.name]))
+    const map = new Map<string, string[]>()
+    for (const node of nodes) {
+      if (node.groupKind !== 'subworkflow') continue
+      map.set(
+        node.id,
+        (node.descendantNodeIds ?? []).map(
+          (id) => nameById.get(id) ?? id
+        )
+      )
+    }
+    return map
+  }, [nodes])
+  const sizedNodes = useMemo(
+    () => nodes.map((node) =>
+      node.groupKind === 'subworkflow' && expandedGroupIds.has(node.id)
+        ? { ...node, expandedRowCount: descendantNamesById.get(node.id)?.length ?? 0 }
+        : node
+    ),
+    [nodes, expandedGroupIds, descendantNamesById]
+  )
   const hierarchyProjection = useMemo(
-    () => projectNestedWorkflow(nodes, links, expandedGroupIds),
-    [expandedGroupIds, links, nodes]
+    // 纯展示列表方案：子工作流内部节点只在卡片内列出，永不铺到画布，
+    // 因此嵌套投影始终以空展开集合折叠到边界。
+    () => projectNestedWorkflow(sizedNodes, links, new Set()),
+    [links, sizedNodes]
   )
   const materialTraceProjection = useMemo(
     () => projectMaterialTraces(
@@ -412,6 +452,7 @@ function WorkflowDag({
           beforeStart,
           pausedBefore,
           groupExpanded: expandedGroupIds.has(node.id),
+          descendantNames: descendantNamesById.get(node.id),
           onToggleGroup: toggleGroup,
           onSetStart: sourceNode?.type === 'material_source'
             ? undefined
@@ -432,6 +473,7 @@ function WorkflowDag({
       flowNodes,
       highlightedNodeId,
       expandedGroupIds,
+      descendantNamesById,
       nodeById,
       nodeStates,
       onSetStart,
@@ -649,7 +691,10 @@ function WorkflowDag({
         nodePositionMutationEnabled={nodePositionMutationEnabled}
         onSelectionChange={setLocalSelection}
         onConnectHandles={onConnectHandles}
+        onConnectConditionBranch={onConnectConditionBranch}
         onNodePositionChange={handleNodePositionChange}
+        onNodePositionsChange={onNodePositionsChange}
+        onNodeParentChange={onNodeParentChange}
         onSetStart={onSetStart}
         onToggleBreakpoint={onToggleBreakpoint}
         onToggleGroup={toggleGroup}

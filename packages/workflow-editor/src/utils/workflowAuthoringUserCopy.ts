@@ -46,7 +46,9 @@ export function formatAuthoringDiagnostic(diagnostic: {
 }): { title: string; detail: string } {
   const code = diagnostic.code.trim()
   const rawMessage = diagnostic.message.trim()
-  const title = DIAGNOSTIC_TITLES[code] ?? '需要处理的问题'
+  const title = /物料来源资源模板 UUID 不能反解|资源模板源码身份不能安全/u.test(rawMessage)
+    ? '物料来源模板不可用'
+    : DIAGNOSTIC_TITLES[code] ?? '需要处理的问题'
   return {
     title,
     detail: humanizeAuthoringMessage(rawMessage, code)
@@ -87,6 +89,9 @@ function humanizeAuthoringMessage(message: string, code = ''): string {
   if (code === 'required_action_parameter_missing' || /为必填参数$/u.test(message)) {
     const label = message.replace(/为必填参数$/u, '').trim() || '该项'
     return `「${label}」还是必填的：请连接上游物料，或在参数面板中填写。草稿可以先保存，配齐后才能运行。`
+  }
+  if (/物料来源资源模板 UUID 不能反解|资源模板源码身份不能安全/u.test(message)) {
+    return '物料来源选择的资源模板没有可用的源码定义。请在物料来源参数中改选受支持的物料模板，并选择兼容挂载点。'
   }
   if (code === 'template_catalog_mismatch' || /目录语义已漂移|模板目录/u.test(message)) {
     return '设备操作定义有更新，当前草稿里的节点已对不上。请删掉受影响节点后，从左侧操作库重新拖入。'

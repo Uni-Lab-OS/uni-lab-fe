@@ -23,6 +23,19 @@ describe('WorkflowPanel Runtime entry', () => {
     expect(markup).toContain('正在读取工作流')
   })
 
+
+  it('keeps workflow management on the catalog when a workflow is selected', () => {
+    const markup = renderToStaticMarkup(
+      <WorkflowPanel
+        runtime={{} as WorkflowRuntimePort}
+        workflowUuid="10000000-0000-4000-8000-000000000001"
+        catalogOnly
+      />
+    )
+
+    expect(markup).toContain('工作流目录')
+    expect(markup).not.toContain('persistent-authoring__canvas')
+  })
   it('keeps the Backend catalog read-only when authoring is unavailable', () => {
     const markup = renderToStaticMarkup(
       <WorkflowPanel

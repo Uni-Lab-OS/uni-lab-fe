@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { presentEdgeDevices } from './deviceCatalog'
+import {
+  managedDeviceSelectionKey,
+  presentEdgeDevices
+} from './deviceCatalog'
 
 describe('Edge device catalog', () => {
   it('does not create default devices when Edge reports nothing', () => {
@@ -69,7 +72,7 @@ describe('Edge device catalog', () => {
     const [device] = presentEdgeDevices([{
       id: 'pump',
       materialUuid: '10000000-0000-4000-8000-000000000003',
-      deviceKey: '/cell/pump',
+      deviceKey: '/devices/pump-1',
       namespace: '/cell',
       machineName: '注射泵',
       online: true,
@@ -93,5 +96,33 @@ describe('Edge device catalog', () => {
       dispatchable: false,
       executionOccupancies: [{ state: 'uncertain' }]
     })
+  })
+
+  it('distinguishes device instances that share one material UUID', () => {
+    const devices = presentEdgeDevices([
+      {
+        id: 'shared-material',
+        materialUuid: 'shared-material',
+        deviceKey: 'szlab_poly_plc',
+        namespace: 'edge-a',
+        machineName: 'SZLab PLC',
+        online: true,
+        actions: []
+      },
+      {
+        id: 'shared-material',
+        materialUuid: 'shared-material',
+        deviceKey: 'szlab_mixer_robot',
+        namespace: 'edge-a',
+        machineName: 'SZLab 机械臂',
+        online: true,
+        actions: []
+      }
+    ])
+
+    expect(new Set(devices.map(managedDeviceSelectionKey))).toEqual(new Set([
+      '["edge-a","szlab_poly_plc"]',
+      '["edge-a","szlab_mixer_robot"]'
+    ]))
   })
 })

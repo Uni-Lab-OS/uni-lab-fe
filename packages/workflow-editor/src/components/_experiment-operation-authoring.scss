@@ -36,25 +36,25 @@
       opacity: .55;
     }
 
-    :global(.persistent-authoring__canvas-toolbar-button).is-primary {
+    :global(.persistent-authoring__canvas-toolbar-button.is-primary) {
       color: var(--unilab-color-on-primary, #fff);
       border-color: var(--unilab-color-primary);
       background: var(--unilab-color-primary);
     }
 
-    :global(.persistent-authoring__canvas-toolbar-button).is-primary:hover:not(:disabled) {
+    :global(.persistent-authoring__canvas-toolbar-button.is-primary):hover:not(:disabled) {
       color: var(--unilab-color-on-primary, #fff);
       border-color: var(--unilab-color-primary-strong, var(--unilab-color-primary));
       background: var(--unilab-color-primary-strong, var(--unilab-color-primary));
     }
 
-    :global(.persistent-authoring__canvas-toolbar-button).is-primary:disabled {
+    :global(.persistent-authoring__canvas-toolbar-button.is-primary):disabled {
       color: var(--unilab-color-text-muted);
       border-color: var(--unilab-color-border-strong);
       background: var(--unilab-color-surface-subtle);
     }
 
-    :global(.persistent-authoring__canvas-toolbar-button).is-compact {
+    :global(.persistent-authoring__canvas-toolbar-button.is-compact) {
       width: 34px;
       padding: 0;
       font-size: 16px;
@@ -584,4 +584,37 @@
       }
     }
   }
+}
+
+
+.workflow:global(.persistent-authoring--operation[data-definition-kind='operation']) {
+  :global(.workflow-condition-editor) { display: grid; gap: 10px; margin: 12px; }
+  :global(.workflow-condition-editor) > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  :global(.workflow-condition-editor) > header > span { display: grid; gap: 2px; }
+  :global(.workflow-condition-editor) > header strong { color: #087f6f; font-size: 11px; }
+  :global(.workflow-condition-editor) > header small { color: var(--unilab-color-text-muted); font-size: 8px; }
+  :global(.workflow-condition-editor) button { min-height: 28px; padding: 0 8px; color: #087f6f; border: 1px solid #b7e4d6; border-radius: 6px; background: #effaf7; font-size: 9px; font-weight: 700; }
+  :global(.workflow-condition-editor) button:disabled { cursor: not-allowed; opacity: .45; }
+  :global(.workflow-condition-editor) article { display: grid; gap: 8px; padding: 9px; border: 1px solid #b7e4d6; border-radius: 8px; background: #f7fffc; }
+  :global(.workflow-condition-editor__branch-heading) { display: grid; grid-template-columns: 22px minmax(0,1fr) 28px; align-items: center; gap: 6px; }
+  :global(.workflow-condition-editor__branch-heading) b { display: grid; width: 20px; height: 20px; place-items: center; color: #087f6f; border-radius: 50%; background: #d7f5ea; font-size: 8px; }
+  :global(.workflow-condition-editor__branch-heading) strong { color: var(--unilab-color-text); font-size: 10px; }
+  :global(.workflow-condition-editor__condition) { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+  :global(.workflow-condition-editor label) { display: grid; gap: 4px; color: var(--unilab-color-text-muted); font-size: 8px; }
+  :global(.workflow-condition-editor input), :global(.workflow-condition-editor select) { min-width: 0; padding: 6px 7px; border: 1px solid var(--unilab-color-border); border-radius: 5px; background: var(--unilab-color-surface); font-size: 9px; }
+  :global(.workflow-condition-editor__members) select { min-height: 74px; }
+  :global(.workflow-condition-editor p), :global(.workflow-condition-editor label small) { margin: 0; color: var(--unilab-color-text-muted); font-size: 8px; line-height: 1.4; }
+
+  :global(.workflow-loop-editor) { display: grid; gap: 10px; margin: 12px; }
+  :global(.workflow-loop-editor) > header { display: grid; gap: 2px; }
+  :global(.workflow-loop-editor) > header strong { color: #a15c07; font-size: 11px; }
+  :global(.workflow-loop-editor) > header small { color: var(--unilab-color-text-muted); font-size: 8px; }
+  :global(.workflow-loop-editor__grid) { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  :global(.workflow-loop-editor__field), :global(.workflow-loop-editor__members) { display: grid; gap: 4px; color: var(--unilab-color-text-muted); font-size: 8px; }
+  :global(.workflow-loop-editor input), :global(.workflow-loop-editor select) { min-width: 0; padding: 6px 7px; border: 1px solid var(--unilab-color-border); border-radius: 5px; background: var(--unilab-color-surface); font-size: 9px; }
+  :global(.workflow-loop-editor__members) select { min-height: 74px; }
+  :global(.workflow-loop-editor__until) { display: grid; gap: 8px; margin: 0; padding: 9px; border: 1px solid #bfdbfe; border-radius: 8px; background: #f8fbff; }
+  :global(.workflow-loop-editor__until legend) { padding: 0 4px; color: #2563eb; font-size: 10px; font-weight: 700; }
+  :global(.workflow-loop-editor__until > small) { color: var(--unilab-color-text-muted); font-size: 8px; line-height: 1.4; }
+  :global(.workflow-loop-editor label small) { margin: 0; color: var(--unilab-color-text-muted); font-size: 8px; line-height: 1.4; }
 }

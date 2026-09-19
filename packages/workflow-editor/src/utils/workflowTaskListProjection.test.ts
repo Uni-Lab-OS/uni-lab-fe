@@ -14,6 +14,16 @@ import {
 const WORKFLOW_UUID = '10000000-0000-4000-8000-000000000001'
 
 describe('工作流任务列表投影', () => {
+  it('不展示设备单动作调试任务', () => {
+    const workflow = workflowTask('workflow-task', 'succeeded')
+    const action = workflowTask('device-task', 'running', {
+      execution_kind: 'ad_hoc_device_action',
+      workflow_uuid: null
+    })
+    expect(visibleWorkflowTasks([action, workflow], [], '', 'all')).toEqual([workflow])
+    expect(visibleWorkflowTasks([action], [], '', 'active')).toEqual([])
+  })
+
   it('按创建时间倒序筛选运行中任务并使用工作流目录名称', () => {
     const workflows = [{
       uuid: WORKFLOW_UUID,

@@ -33,7 +33,6 @@ import {
   createWorkflowResourceSlotOptionsPort,
   WorkflowPanel,
   WorkflowTaskList,
-  WorkflowStationRecovery,
   type WorkflowPanelRuntimeProjection
 } from '@unilab/workflow-editor'
 import {
@@ -104,6 +103,7 @@ import {
 import {
   WorkbenchViewState,
   isRobotWorkbenchViewMode,
+  isWorkflowDebugWorkbenchView,
   type WorkbenchViewMode
 } from './workbench-view-state'
 import { hasWorkbenchUnsavedChanges } from './workbench-unsaved-changes'
@@ -567,6 +567,11 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     this.viewState.toggle('robot-debug')
   }
 
+  /** 从工作流调试中的子工作流调用进入独立实验操作调试界面。 */
+  protected readonly openExperimentOperation = (): void => {
+    this.viewState.toggle('operation')
+  }
+
   /**
    * 组合配置弹窗允许调用的 Workbench Session 操作。
    *
@@ -928,6 +933,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         configurationOperations={this.configurationOperations()}
         onOpenAssistant={this.openAssistant}
         onOpenDeviceActions={this.openDeviceActions}
+        onOpenExperimentOperation={this.openExperimentOperation}
         onReadEnvironmentLog={this.readEnvironmentLog}
         onOpenLog={this.openSessionLog}
       />
@@ -959,6 +965,7 @@ function WorkbenchSurface({
   configurationOperations,
   onOpenAssistant,
   onOpenDeviceActions,
+  onOpenExperimentOperation,
   onReadEnvironmentLog,
   onOpenLog
 }: {
@@ -975,6 +982,7 @@ function WorkbenchSurface({
   configurationOperations: WorkbenchConfigurationOperations
   onOpenAssistant: () => void
   onOpenDeviceActions: () => void
+  onOpenExperimentOperation: () => void
   onReadEnvironmentLog: (
     kind: WorkbenchEnvironmentLogKind
   ) => Promise<string>
@@ -983,11 +991,13 @@ function WorkbenchSurface({
   const query = new URLSearchParams(globalThis.location.search)
   const [selectedWorkflowNode, setSelectedWorkflowNode] =
     useState<string | null>(null)
+  const [requestedOperationUuid, setRequestedOperationUuid] =
+    useState<string | null>(null)
   const [runtimeProjection, setRuntimeProjection] =
     useState<WorkflowPanelRuntimeProjection | null>(null)
   const [selectedMaterialIds, setSelectedMaterialIds] =
     useState<readonly MaterialId[]>([])
-  const [selectedActionDeviceId, setSelectedActionDeviceId] =
+  const [selectedActionDeviceKey, setSelectedActionDeviceKey] =
     useState<string | null>(null)
   // entryMode only selects the debug/production runtime at launch.  It is
   // intentionally not a UI command: refreshing the renderer must not reopen
@@ -1106,7 +1116,7 @@ function WorkbenchSurface({
       aria-label="工作流窗口"
     >
       <WorkflowPanel
-        debugLayout
+        debugLayout={isWorkflowDebugWorkbenchView(viewMode)}
         runtime={services.workflow}
         traceRuntime={desktopWorkflowTraceRuntime(
           typeof window === 'undefined' ? undefined : window
@@ -1142,6 +1152,10 @@ function WorkbenchSurface({
           reportWorkflowUnsavedChanges(hasUnsavedChanges)
         }}
         onSelectedWorkflowStepChange={setSelectedWorkflowNode}
+        onOpenChildWorkflow={(childWorkflowUuid) => {
+          setRequestedOperationUuid(childWorkflowUuid)
+          onOpenExperimentOperation()
+        }}
         onWorkflowRuntimeProjectionChange={setRuntimeProjection}
         onResetEnvironment={resetWorkflowEnvironment}
         environmentResetBusy={environmentResetBusy}
@@ -1214,8 +1228,8 @@ function WorkbenchSurface({
         backend={deviceBackend}
         backendEnabled={Boolean(selectedTarget.backend.apiUrl)}
         connection={deviceConnection}
-        onOpenActions={(deviceId) => {
-          setSelectedActionDeviceId(deviceId)
+        onOpenActions={(deviceKey) => {
+          setSelectedActionDeviceKey(deviceKey)
           onOpenDeviceActions()
         }}
         active={viewMode === 'device' || viewMode === 'device-material'}
@@ -1236,6 +1250,8 @@ function WorkbenchSurface({
             backendEnabled={Boolean(selectedTarget.backend.apiUrl)}
             connection={deviceConnection}
             active={viewMode === 'robot-debug'}
+            selectedDeviceKey={selectedActionDeviceKey}
+            onSelectedDeviceKeyChange={setSelectedActionDeviceKey}
           />
         ) : undefined}
         pointStatus={workstationData.pointStatus}
@@ -1253,7 +1269,9 @@ function WorkbenchSurface({
   const operationSurface = (
     <WorkbenchExperimentOperationSurface context={{
       services, connectionMode, session, workflowRunStatus, resourceSlotOptionsPort,
-      recoveryRevision, active: viewMode === 'operation', onUnsavedChangesChange,
+      recoveryRevision, active: viewMode === 'operation',
+      requestedWorkflowUuid: requestedOperationUuid,
+      onUnsavedChangesChange,
       reportWorkflowUnsavedChanges,
       onSelectedWorkflowStepChange: setSelectedWorkflowNode,
       onWorkflowRuntimeProjectionChange: setRuntimeProjection
@@ -1307,7 +1325,6 @@ function WorkbenchSurface({
             onClose={() => setConfigurationKind(null)}
           />
         ) : null}
-        <WorkflowStationRecovery runtime={services.workflow} active={workflowRunStatus.available && !connectionSwitchingTo} />
         <WorkbenchDomainLayout
           key={selectedTarget.cacheKey}
           mode={viewMode}
@@ -1352,7 +1369,7 @@ function WorkbenchSurface({
             initialMode={connectionMode === 'backend' ? 'production' : 'debug'}
             onConfigure={(kind) => {
               setModeEntryOpen(false)
-              setConfigurationKind(kind)
+              requestAnimationFrame(() => setConfigurationKind(kind))
             }}
             onReturn={() => setModeEntryOpen(false)}
           />

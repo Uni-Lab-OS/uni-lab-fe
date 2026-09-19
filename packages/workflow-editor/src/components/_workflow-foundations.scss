@@ -158,3 +158,22 @@
     border-color: #f87171;
   }
 }
+
+// 设备动作库完整名称浮层，不受侧栏宽度和溢出裁剪限制。
+:global(.operationDeviceLibraryTooltip) {
+  position: fixed;
+  z-index: 10000;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 10px 12px;
+  border: 1px solid #dce4f2;
+  border-radius: 8px;
+  background: #fff;
+  color: #26344c;
+  box-shadow: 0 4px 16px rgb(25 45 80 / 14%);
+  font: 12px/1.6 sans-serif;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}

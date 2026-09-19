@@ -85,7 +85,7 @@ export function ExperimentOperationStructure({
                 />
                 <span>
                   <strong>{node.name}</strong>
-                  <small>{operationNodeKind(node)}</small>
+                  {node.description?.trim() && <small title={node.description.trim()}>{node.description.trim()}</small>}
                 </span>
               </button>
             </li>
@@ -103,9 +103,3 @@ function operationNodeIcon(node: WorkflowNode): string {
   return 'codicon-server-process'
 }
 
-function operationNodeKind(node: WorkflowNode): string {
-  if (node.groupKind === 'subworkflow') return '实验操作节点'
-  if (node.materialSource) return '物料来源'
-  if (node.type === 'condition' || node.type === 'branch') return '流程控制'
-  return node.className || node.type || '设备动作'
-}

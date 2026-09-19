@@ -151,9 +151,12 @@ export function workflowNodeDeletionDisabledReason(
   node: Record<string, unknown>,
   nodeByUuid?: ReadonlyMap<string, Record<string, unknown>>
 ): string | null {
+  const parentUuid = typeof node.parent_uuid === 'string'
+    ? node.parent_uuid : ''
+  const parent = parentUuid ? nodeByUuid?.get(parentUuid) : undefined
   if (
-    typeof node.parent_uuid === 'string' &&
-    node.parent_uuid.length > 0 &&
+    parentUuid &&
+    String(parent?.type || '') !== 'repeat_until' &&
     !hasOnlyPresentationGroupAncestors(node, nodeByUuid)
   ) {
     return '复合工作流内部私有节点只读；请删除或编辑调用边界'

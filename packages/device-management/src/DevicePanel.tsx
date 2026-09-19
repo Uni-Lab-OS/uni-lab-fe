@@ -13,7 +13,10 @@ import {
   type WorkflowNodeJobFeedback
 } from '@unilab/services'
 
-import type { ManagedDevice } from './deviceCatalog'
+import {
+  managedDeviceSelectionKey,
+  type ManagedDevice
+} from './deviceCatalog'
 import { useDevices } from './useDevices'
 import {
   deviceActionDraftStorageKey,
@@ -81,7 +84,9 @@ export default function DevicePanel({
   backend,
   connection,
   backendEnabled = true,
-  active = true
+  active = true,
+  selectedDeviceKey: controlledSelectedDeviceKey,
+  onSelectedDeviceKeyChange
 }: DeviceManagementPanelProps): React.JSX.Element {
   const {
     devices,
@@ -90,7 +95,17 @@ export default function DevicePanel({
     lastUpdated,
     refresh
   } = useDevices({ services, backendEnabled, connection, active })
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
+  const [localSelectedDeviceKey, setLocalSelectedDeviceKey] =
+    useState<string | null>(null)
+  const selectedDeviceKey = controlledSelectedDeviceKey === undefined
+    ? localSelectedDeviceKey
+    : controlledSelectedDeviceKey
+  const setSelectedDeviceKey = useCallback((deviceKey: string | null): void => {
+    if (controlledSelectedDeviceKey === undefined) {
+      setLocalSelectedDeviceKey(deviceKey)
+    }
+    onSelectedDeviceKeyChange?.(deviceKey)
+  }, [controlledSelectedDeviceKey, onSelectedDeviceKeyChange])
   const [selectedActionRef, setSelectedActionRef] = useState<string | null>(null)
   const [argumentDraft, setArgumentDraft] = useState<ArgumentDraft>({})
   const [unlockIntent, setUnlockIntent] = useState<UnlockIntent | null>(null)
@@ -122,10 +137,12 @@ export default function DevicePanel({
 
   const selectedDevice = useMemo(
     () =>
-      devices.find((device) => device.id === selectedDeviceId)
+      devices.find(
+        (device) => managedDeviceSelectionKey(device) === selectedDeviceKey
+      )
       ?? devices[0]
       ?? null,
-    [devices, selectedDeviceId]
+    [devices, selectedDeviceKey]
   )
   const selectedCatalogAction = useMemo(
     () =>
@@ -223,13 +240,22 @@ export default function DevicePanel({
 
   useEffect(() => {
     if (!devices.length) {
-      setSelectedDeviceId(null)
+      if (controlledSelectedDeviceKey === undefined) {
+        setSelectedDeviceKey(null)
+      }
       return
     }
-    if (!devices.some((device) => device.id === selectedDeviceId)) {
-      setSelectedDeviceId(devices[0]?.id ?? null)
+    if (!devices.some(
+      (device) => managedDeviceSelectionKey(device) === selectedDeviceKey
+    )) {
+      setSelectedDeviceKey(managedDeviceSelectionKey(devices[0]))
     }
-  }, [devices, selectedDeviceId])
+  }, [
+    controlledSelectedDeviceKey,
+    devices,
+    selectedDeviceKey,
+    setSelectedDeviceKey
+  ])
 
   useEffect(() => {
     if (!selectedDevice?.actions.length) {
@@ -684,20 +710,19 @@ export default function DevicePanel({
           </div>
         ) : (
           <ul className={deviceClass('device-list')}>
-            {devices.map((device) => (
-              <DeviceListItem
-                key={device.id}
-                device={device}
-                selected={device.id === selectedDevice?.id}
-                onSelect={setSelectedDeviceId}
-              />
-            ))}
+            {devices.map((device) => {
+              const deviceKey = managedDeviceSelectionKey(device)
+              return (
+                <DeviceListItem
+                  key={deviceKey}
+                  device={device}
+                  selected={deviceKey === selectedDeviceKey}
+                  onSelect={setSelectedDeviceKey}
+                />
+              )
+            })}
           </ul>
         )}
-        <div className={deviceClass('edge-device__source-note')}>
-          <span>数据来源</span>
-          设备与在线状态来自 DeviceOverview；动作参数来自 WorkflowNodeTemplate。
-        </div>
       </aside>
 
       <main className={deviceClass('section__detail edge-device__detail')}>
@@ -743,6 +768,8 @@ export default function DevicePanel({
             canForceUnlock={canForceUnlock}
             unlockOperation={unlockOperation}
             onRequestUnlock={handleRequestUnlock}
+            recovery={services.capabilities.workflow.recovery ? services.workflow.recovery : undefined}
+            onRefreshDevice={refresh}
           />
         ) : (
           <div className={deviceClass('device-empty device-empty--detail')}>

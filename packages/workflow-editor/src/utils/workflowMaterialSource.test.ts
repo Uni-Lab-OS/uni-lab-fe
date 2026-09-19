@@ -72,6 +72,17 @@ function registerMaterialSourceClosedSelectorTests(): void {
     expect(created.handle_templates).toHaveLength(1)
   })
 
+  it('不把排在目录首位的主机模板选为物料，按库位兼容声明选择', () => {
+    const current = catalog()
+    current.resourceTemplates.unshift({ uuid: '06259194-f142-5e2b-84dc-133f38f47eb3', displayName: 'host_node' })
+    const created = createMaterialSourceNode(current, emptyGraph(), { nodeUuid, name: 'sample' })
+    expect(created.nodes[0]!.param).toMatchObject({ resource_template_uuid: resourceTemplateUuid, mount: { uuid: mountUuid } })
+  })
+  it('没有兼容声明或源码身份时不猜测默认物料模板', () => {
+    const current = catalog()
+    current.sites = current.sites.map(site => ({ ...site, allowedResourceTemplateUuids: [] }))
+    expect(() => createMaterialSourceNode(current, emptyGraph(), { nodeUuid, name: 'sample' })).toThrow('兼容库位')
+  })
   it('reuses the complete OS wire templates when Candidate already has MaterialSource', () => {
     const createdFirst = createMaterialSourceNode(catalog(), emptyGraph(), {
       nodeUuid,
@@ -158,7 +169,10 @@ function registerMaterialSourceClosedSelectorTests(): void {
     const graph: WorkflowAuthoringGraph = {
       ...withSource,
       nodes: [
-        ...withSource.nodes,
+        ...withSource.nodes.map((node) => ({
+          ...node,
+          meta_data: { unilab: { authoring_source_order: 1 } }
+        })),
         {
           uuid: actionNodeUuid,
           workflow_node_template_uuid: actionTemplateUuid,
@@ -173,6 +187,7 @@ function registerMaterialSourceClosedSelectorTests(): void {
           minimized: false,
           meta_data: {
             unilab: {
+              authoring_source_order: 0,
               input_bindings: {
                 [actionTargetHandleUuid]: { parameter: 'sample_input' }
               }
@@ -203,7 +218,10 @@ function registerMaterialSourceClosedSelectorTests(): void {
     expect(connected.edges[0]?.uuid).toMatch(/^[0-9a-f-]{36}$/)
     expect(connected.nodes[1]?.param).toEqual({})
     expect(connected.nodes[1]?.meta_data).toEqual({
-      unilab: { input_bindings: {} }
+      unilab: { input_bindings: {}, authoring_source_order: 1 }
+    })
+    expect(connected.nodes[0]?.meta_data).toMatchObject({
+      unilab: { authoring_source_order: 0 }
     })
 
     const secondTarget: WorkflowAuthoringGraph = {

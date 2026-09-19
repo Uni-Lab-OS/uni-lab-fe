@@ -106,6 +106,7 @@ describe('RobotWorkstation', () => {
           create: async () => undefined,
           update: async () => undefined,
           delete: async () => undefined,
+          dispense: async () => undefined,
           readHistory: async () => []
         }}
       />
@@ -113,6 +114,7 @@ describe('RobotWorkstation', () => {
 
     expect(markup).toContain('试剂入库')
     expect(markup).toContain('编辑 乙醇')
+    expect(markup).toContain('分装 乙醇')
     expect(markup).toContain('查看 乙醇 历史')
     expect(markup).not.toContain('试剂身份、数量、修订与历史由 Go Backend 持久化')
   })
@@ -231,5 +233,9 @@ describe('RobotWorkstation', () => {
     expect(markup).toContain('试剂入库')
     expect(markup).toContain('新增试剂目录')
     expect(moduleSource).toMatch(/<WorkstationIcon name="plus"\s*\/>\s*新增试剂/s)
+    expect(moduleSource).toMatch(/<ReagentLedgerSurface[\s\S]*?feedback=""/)
+    expect(moduleSource).toMatch(/<ReagentLibrarySurface[\s\S]*?feedback=\{libraryFeedback\}/)
+    expect(moduleSource).not.toContain('试剂库存已入库，正在刷新列表。')
+    expect(moduleSource).not.toContain('库存信息已保存，正在刷新列表。')
   })
 })

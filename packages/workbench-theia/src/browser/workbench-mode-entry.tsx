@@ -134,9 +134,12 @@ export function WorkbenchModeEntry({
     ? '进入生产模式'
     : '进入调试模式'
 
+  const configureMode = (): void => {
+    onConfigure(mode === 'production' ? 'production' : 'simulation')
+  }
   const submit = (event: React.FormEvent<HTMLFormElement>): void => {
     event.preventDefault()
-    onConfigure(mode === 'production' ? 'production' : 'simulation')
+    configureMode()
   }
 
   return (
@@ -255,7 +258,11 @@ export function WorkbenchModeEntry({
 
             {notice}
 
-            <button className="unilab-mode-entry__submit" type="submit">
+            <button
+              className="unilab-mode-entry__submit"
+              type="button"
+              onClick={configureMode}
+            >
               {submitLabel}
             </button>
           </form>

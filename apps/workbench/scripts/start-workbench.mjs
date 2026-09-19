@@ -255,6 +255,10 @@ async function launchDesktop(rendererUrl) {
   delete desktopEnvironment.ELECTRON_RUN_AS_NODE
   console.log(`[UniLab Workbench] desktop renderer: ${rendererUrl}`)
   const electronArguments = []
+  if (process.env.UNILAB_DESKTOP_NO_SANDBOX === '1') {
+    console.warn('[UniLab Workbench] Electron sandbox disabled for this development session')
+    electronArguments.push('--no-sandbox')
+  }
   const remoteDebuggingPort = process.env.UNILAB_DESKTOP_REMOTE_DEBUGGING_PORT
   if (remoteDebuggingPort) {
     electronArguments.push(`--remote-debugging-port=${remoteDebuggingPort}`)

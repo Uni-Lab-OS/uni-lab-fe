@@ -215,8 +215,10 @@
 
   :global(.persistent-authoring__material-source-inspector) {
     display: grid;
-    gap: 0;
-    margin: 0 -14px;
+    gap: 14px;
+    min-width: 0;
+    margin: 0;
+    padding: 14px;
   }
 
   :global(.persistent-authoring__material-identity) {
@@ -224,7 +226,7 @@
     grid-template-columns: 38px minmax(0, 1fr) auto;
     align-items: center;
     gap: 9px;
-    padding: 12px 14px;
+    padding: 0 0 12px;
     border-bottom: 1px solid var(--unilab-color-border);
     background: var(--unilab-color-surface);
   }
@@ -270,18 +272,38 @@
   :global(.persistent-authoring__material-source-inspector) fieldset {
     display: grid;
     min-width: 0;
-    gap: 9px;
+    gap: 12px;
     margin: 0;
-    padding: 12px 14px 14px;
-    border: 0;
-    border-bottom: 1px solid var(--unilab-color-border);
+    padding: 12px;
+    border: 1px solid var(--unilab-color-border);
+    border-radius: var(--unilab-radius-control);
   }
 
   :global(.persistent-authoring__material-source-inspector) legend {
-    padding: 0;
+    padding: 0 5px;
     color: var(--unilab-color-text);
     font-size: 11px;
     font-weight: 700;
+  }
+
+  :global(.persistent-authoring__material-source-inspector) select,
+  :global(.persistent-authoring__material-source-inspector) input:not([type='checkbox']) {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 34px;
+    font-family: inherit;
+  }
+
+  :global(.persistent-authoring__material-source-inspector) label {
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  :global(.persistent-authoring__material-source-inspector) p {
+    font-size: 11px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
   }
 
   :global(.persistent-authoring__segmented) {
@@ -302,7 +324,7 @@
     font-size: 10px;
   }
 
-  :global(.persistent-authoring__segmented) button.is-active {
+  :global(.persistent-authoring__segmented) button[aria-pressed='true'] {
     color: var(--unilab-color-primary);
     background: var(--unilab-color-surface);
     box-shadow: var(--unilab-shadow-control);
@@ -465,4 +487,16 @@
     justify-content: space-between;
     gap: var(--unilab-space-4);
   }
+}
+
+.workflow :global(.persistent-authoring__manual-confirmation) {
+  display: grid;
+  gap: 10px;
+  margin: 12px;
+  padding: 12px;
+  border: 1px solid #f5d49b;
+  border-radius: 8px;
+  background: #fff9ed;
+  color: #855518;
+  font-size: 12px;
 }

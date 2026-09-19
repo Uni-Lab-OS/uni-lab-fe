@@ -217,6 +217,22 @@ function saveWorkbenchMode(mode: WorkbenchViewMode): void {
   } catch { /* ignore */ }
 }
 
+
+/** 仅工作流调试入口启用调试型布局；工作流管理保持目录管理界面。 */
+export function isWorkflowDebugWorkbenchView(
+  mode: WorkbenchViewMode
+): boolean {
+  return mode === 'workflow-files' || mode === 'workflow' || mode === 'split'
+}
+
+/** 仅工作流管理入口展示目录管理界面，不复用调试画布状态。 */
+export function isWorkflowManagementWorkbenchView(
+  mode: WorkbenchViewMode
+): boolean {
+  return mode === 'workflow-management' ||
+    mode === 'workflow-management-files' ||
+    mode === 'workflow-management-material'
+}
 /** 判断当前是否为允许用户关闭任一侧的双领域分栏。 */
 function isSplitWorkbenchView(mode: WorkbenchViewMode): boolean {
   return mode === 'workflow-files' || mode === 'workflow-management-files' ||

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 
 import type { WorkflowNodeData } from '../components/WorkflowNodeCard'
@@ -76,6 +76,8 @@ export interface WorkflowDagProjectionEdge {
     targetHandleUuid?: string
     materialRole?: string
     materialEmphasis?: 'primary' | 'supporting'
+    sourcePortId?: string
+    controlBranch?: 'if' | 'elif' | 'else'
   }
 }
 
@@ -96,6 +98,12 @@ const REACTION_MATERIAL_NODE_WIDTH = 152
 const PRIMARY_SAMPLE_NODE_WIDTH = 184
 const REACTION_MATERIAL_NODE_GAP = 12
 const REACTION_MATERIAL_ITEM_HEIGHT = 22
+
+// 服务端静态渲染没有可供 useLayoutEffect 使用的布局；浏览器中则必须在绘制前
+// 安装同步投影，避免拖入控制节点时短暂显示上一帧的普通动作卡片。
+const useImmediateEffect = typeof window === 'undefined'
+  ? useEffect
+  : useLayoutEffect
 
 /**
  * 将当前可见工作流（Workflow）投影为引擎无关节点和正交边。
@@ -146,7 +154,10 @@ export function useWorkflowDag(
   const [flowNodes, setNodes] = useState(fallback.flowNodes)
   const [flowEdges, setEdges] = useState(fallback.flowEdges)
 
-  useEffect(
+  // 节点投影必须在浏览器绘制前安装。拖入控制节点时，fallback 已经包含
+  // controlFlow；如果等到 passive effect，X6 会先把上一帧的普通节点卡片画出来，
+  // 下一帧才切换为 LOOP/EXIT 控制卡片。
+  useImmediateEffect(
     /**
      * 同步安装当前同步布局并保留已有有效测量。
      *
@@ -154,8 +165,8 @@ export function useWorkflowDag(
      * @throws React 状态更新异常由运行时传播。
      */
     () => {
-    setNodes(fallback.flowNodes)
-    setEdges(fallback.flowEdges)
+      setNodes(fallback.flowNodes)
+      setEdges(fallback.flowEdges)
     },
     [fallback, setEdges, setNodes]
   )
@@ -330,6 +341,8 @@ function buildFlowElements(
         visualKind: node.visualKind,
         groupKind: node.groupKind,
         descendantCount: node.descendantNodeIds?.length,
+        parentGroupId: node.parentGroupId,
+        controlFlow: node.controlFlow,
         openChildWorkflowUuid: node.openChildWorkflowUuid,
         handles: node.handles,
         materialSource: node.materialSource,
@@ -360,6 +373,8 @@ function buildFlowElements(
     }
   })
 
+  projectLoopContainerLayout(flowNodes)
+
   if (reactionFormulaPresentation) {
     const annotations = projectWorkflowReactionMaterialAnnotations(
       sourceNodes,
@@ -385,8 +400,77 @@ function buildFlowElements(
       compactPrimarySampleLayout
     })]
   })
+  const visibleNodeIds = new Set(flowNodes.map((node) => node.id))
+  for (const controlNode of sourceNodes) {
+    if (controlNode.controlFlow?.kind !== 'condition') continue
+    for (const [branchIndex, branch] of (
+      controlNode.controlFlow.branches ?? []
+    ).entries()) {
+      const target = branch.entryNodeUuids.find((uuid) =>
+        visibleNodeIds.has(uuid)
+      )
+      if (!target || !visibleNodeIds.has(controlNode.id)) continue
+      const branchKind = branch.label === 'ELSE'
+        ? 'else' : branch.label === 'ELIF' ? 'elif' : 'if'
+      const displayLabel = branchKind === 'else'
+        ? 'False 分支' : branchKind === 'if' ? 'True 分支' : branch.label
+      flowEdges.push({
+        id: `display-condition:${controlNode.id}:${branchIndex}:${target}`,
+        source: controlNode.id,
+        target,
+        ariaLabel: `${displayLabel}：${controlNode.name} → ${nodeNames.get(target) ?? target}`,
+        className: `wf-flow-edge--condition-${branchKind}`,
+        style: { stroke: '#cbd5e1', strokeWidth: 1.6 },
+        data: {
+          sourceNodeUuid: controlNode.id,
+          targetNodeUuid: target,
+          sourcePortId: `workflow-condition-branch-${branchIndex}`,
+          controlBranch: branchKind
+        }
+      })
+    }
+  }
 
   return { flowNodes, flowEdges }
+}
+
+/**
+ * 把 repeat_until 投影为包围 parent_uuid 成员的 Dify Loop 容器。
+ * 子节点坐标仍是 Canonical 绝对坐标，X6 embedding 只负责交互时整体移动。
+ */
+function projectLoopContainerLayout(nodes: WorkflowDagProjectionNode[]): void {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]))
+  for (const loop of nodes) {
+    if (loop.data.controlFlow?.kind !== 'repeat_until') continue
+    const members = nodes.filter((node) =>
+      node.id !== loop.id && node.data.parentGroupId === loop.id
+    )
+    let left = loop.position.x
+    let top = loop.position.y
+    let right = left + 520
+    let bottom = top + 220
+    for (const member of members) {
+      const width = workflowProjectedSize(member.style?.width, 184)
+      const height = workflowProjectedSize(member.style?.height, 92)
+      left = Math.min(left, member.position.x - 28)
+      top = Math.min(top, member.position.y - 64)
+      right = Math.max(right, member.position.x + width + 28)
+      bottom = Math.max(bottom, member.position.y + height + 32)
+    }
+    loop.position = { x: left, y: top }
+    loop.style = {
+      ...loop.style,
+      width: Math.max(520, right - left),
+      height: Math.max(220, bottom - top)
+    }
+    loop.data = { ...loop.data, loopMemberCount: members.length }
+    nodeById.set(loop.id, loop)
+  }
+}
+
+function workflowProjectedSize(value: CSSProperties['width'], fallback: number): number {
+  const numeric = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''))
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback
 }
 
 /**

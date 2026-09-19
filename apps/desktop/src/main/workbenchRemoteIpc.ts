@@ -58,23 +58,48 @@ export function registerWorkbenchRemoteAccessIpc(options: {
     return workspaceController()?.getSnapshot()
       ?? UNAVAILABLE_WORKBENCH_WORKSPACE
   })
-  ipcMain.handle('workbench-workspace:openDirectory', (event) => {
-    options.assertSender(event)
-    return openWorkspaceSelection(options, () => requireWorkspaceController()
-      .chooseAndOpen('open'))
-  })
-  ipcMain.handle('workbench-workspace:createDirectory', (event) => {
-    options.assertSender(event)
-    return openWorkspaceSelection(options, () => requireWorkspaceController()
-      .chooseAndOpen('create'))
-  })
-  ipcMain.handle('workbench-workspace:openRecent', (event, path: unknown) => {
+  ipcMain.handle(
+    'workbench-workspace:openDirectory',
+    (event, entryMode: unknown) => {
+      options.assertSender(event)
+      return openWorkspaceSelection(options, () => requireWorkspaceController()
+        .chooseAndOpen('open', normalizeEntryMode(entryMode)))
+    }
+  )
+  ipcMain.handle(
+    'workbench-workspace:createDirectory',
+    (event, entryMode: unknown) => {
+      options.assertSender(event)
+      return openWorkspaceSelection(options, () => requireWorkspaceController()
+        .chooseAndOpen('create', normalizeEntryMode(entryMode)))
+    }
+  )
+  ipcMain.handle('workbench-workspace:openRecent', (
+    event,
+    path: unknown,
+    entryMode: unknown
+  ) => {
     options.assertSender(event)
     if (typeof path !== 'string') throw new Error('最近工作区路径无效')
     return openWorkspaceSelection(options, () => requireWorkspaceController()
-      .openRecent(path))
+      .openRecent(path, normalizeEntryMode(entryMode)))
   })
-  ipcMain.handle('workbench-workspace:selectDirectory', async (event) => {
+  ipcMain.handle('workbench-workspace:openPath', (
+    event,
+    path: unknown,
+    entryMode: unknown
+  ) => {
+    options.assertSender(event)
+    if (typeof path !== 'string' || !path.trim()) {
+      throw new Error('工作区路径无效')
+    }
+    return openWorkspaceSelection(options, () => requireWorkspaceController()
+      .openPath(path, normalizeEntryMode(entryMode)))
+  })
+  ipcMain.handle('workbench-workspace:selectDirectory', async (
+    event,
+    entryMode: unknown
+  ) => {
     options.assertSender(event)
     const controller = requireWorkspaceController()
     const window = requireMainWindow(options)
@@ -84,6 +109,7 @@ export function registerWorkbenchRemoteAccessIpc(options: {
         window,
         controller,
         selectDirectory: true,
+        entryMode: normalizeEntryMode(entryMode),
         publishSnapshot: (snapshot) => publishWorkspaceSnapshot(window, snapshot)
       })
       return transition.snapshot
@@ -106,6 +132,10 @@ export function registerWorkbenchRemoteAccessIpc(options: {
       workspaceSwitchPending = false
     }
   })
+}
+
+function normalizeEntryMode(value: unknown): 'debug' | 'production' | undefined {
+  return value === 'debug' || value === 'production' ? value : undefined
 }
 
 export function isWorkbenchWorkspaceNavigationAllowed(targetUrl: string): boolean {

@@ -1,4 +1,5 @@
 import type {
+  WorkbenchEntryMode,
   WorkbenchWorkspaceController,
   WorkbenchWorkspaceSnapshot
 } from '../shared/workbenchWorkspace'
@@ -17,6 +18,7 @@ export async function switchWorkbenchWorkspaceToWelcome(options: {
     'welcomeUrl' | 'getSnapshot' | 'deactivate'
   >
   selectDirectory?: boolean
+  entryMode?: WorkbenchEntryMode
   publishSnapshot: (snapshot: WorkbenchWorkspaceSnapshot) => void
 }): Promise<{
   switched: boolean
@@ -47,6 +49,9 @@ export async function switchWorkbenchWorkspaceToWelcome(options: {
   const welcomeUrl = new URL(controller.welcomeUrl)
   if (options.selectDirectory) {
     welcomeUrl.searchParams.set('selectDirectory', '1')
+  }
+  if (options.entryMode) {
+    welcomeUrl.searchParams.set('entryMode', options.entryMode)
   }
   await window.loadURL(welcomeUrl.toString())
   if (!window.isDestroyed()) {

@@ -145,11 +145,11 @@ describe('versioned Runtime release restore', () => {
     assert.doesNotMatch(workflow, /^\s+push:$/mu)
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.3-6fcb80a-f7e78e7-b09c0c0/u
+      /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.4-ad016b73/u
     )
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_SOURCE_REF: 6fcb80aa80282b238de713113377ba8c979adbd7/u
+      /UNILAB_RUNTIME_SOURCE_REF: ad016b73b52bf58b8afd8abcea368a754ee9a30c/u
     )
     assert.match(
       workflow,
@@ -165,6 +165,9 @@ describe('versioned Runtime release restore', () => {
     assert.match(workflow, /actions\/cache\/save@v6/u)
     assert.match(workflow, /rattler-build/u)
     assert.match(workflow, /\.conda\/vendor\/opcua\/recipe\.yaml/u)
+    // unilabos 依赖同版本 unilabos-env；uni-lab channel 只发布已发行版本，因此
+    // 按当前源码分支打 Runtime 时必须把 environment recipe 一起构建进本地 channel。
+    assert.match(workflow, /\.conda\/environment\/recipe\.yaml/u)
     assert.match(workflow, /\.conda\/base\/recipe\.yaml/u)
     assert.match(workflow, /UNILABOS_INSTALLER_CHANNEL/u)
     assert.match(workflow, /import opcua; import unilabos\.workspace_host\.host/u)

@@ -59,6 +59,9 @@ export function resolveInitialWorkbenchConnectionMode(
     search.get('workbenchConnection')
   )
   if (explicitMode) return explicitMode
+  const entryMode = search.get('entryMode')
+  if (entryMode === 'production') return 'backend'
+  if (entryMode === 'debug') return 'local'
   const backendId = search.get('backend')
   if (backendId === 'local-go') return 'backend'
   if (backendId === 'local-python') return 'local'

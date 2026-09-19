@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { WorkflowButton } from './WorkflowButton'
 import { ExperimentOperationDeviceLibrary } from './ExperimentOperationDeviceLibrary'
+import { ExperimentOperationControlLibrary } from './ExperimentOperationControlLibrary'
 import { WorkflowNodePalette } from './WorkflowNodePalette'
 import { writeWorkflowNodePaletteDragPayload, type WorkflowNodePaletteDragPayload } from '../utils/workflowCanvasCommands'
 
@@ -86,8 +87,28 @@ export function WorkflowAuthoringLibrary({
       .sort((left, right) => right.update_time.localeCompare(left.update_time) || left.uuid.localeCompare(right.uuid))
   }, [query, workflows])
 
+  const visibleOperations = useMemo(
+    () => [...operations].sort((left, right) =>
+      right.update_time.localeCompare(left.update_time) ||
+      left.uuid.localeCompare(right.uuid)
+    ),
+    [operations]
+  )
+
   const workflowList = (
     <div className="persistent-authoring__library-workflow-list" role="list">
+      {!loading && !error && visibleWorkflows.every(
+        (workflow) => workflow.uuid !== workflowUuid
+      ) && (
+        <div className="persistent-authoring__workflow-current">
+          <span aria-hidden="true">◇</span>
+          <span>
+            <strong>{workflowName || '当前工作流'}</strong>
+            <small>{workflowUuid}</small>
+          </span>
+          <i>当前</i>
+        </div>
+      )}
       {loading ? (
         <p role="status">正在读取{definitionKind === 'operation'
           ? '实验操作'
@@ -132,18 +153,6 @@ export function WorkflowAuthoringLibrary({
           </WorkflowButton>
         )
       })}
-      {!loading && !error && visibleWorkflows.every(
-        (workflow) => workflow.uuid !== workflowUuid
-      ) && (
-        <div className="persistent-authoring__workflow-current">
-          <span aria-hidden="true">◇</span>
-          <span>
-            <strong>{workflowName || '当前工作流'}</strong>
-            <small>{workflowUuid}</small>
-          </span>
-          <i>当前</i>
-        </div>
-      )}
     </div>
   )
 
@@ -211,6 +220,7 @@ export function WorkflowAuthoringLibrary({
                 onAddAction={paletteProps.onAddAction}
                 onPaletteDragStart={onPaletteDragStart}
               />
+              <ExperimentOperationControlLibrary {...paletteProps} onPaletteDragStart={onPaletteDragStart} />
             </div>
           )}
         </>
@@ -236,7 +246,7 @@ export function WorkflowAuthoringLibrary({
             <div className="persistent-authoring__library-workflow-list" role="list">
               {loading ? <p role="status">正在读取实验操作…</p> : error ? (
                 <div role="alert">实验操作目录读取失败<button type="button" onClick={() => setRequestRevision(value => value + 1)}>重试</button></div>
-              ) : operations.map(operation => {
+              ) : visibleOperations.map(operation => {
                 const template = paletteProps.catalog?.workflowTemplates.find(item => item.workflowUuid === operation.uuid)
                 const disabled = !template || paletteProps.busy || !paletteProps.canvasMutationEnabled || !paletteProps.graphAvailable
                 return <WorkflowButton
@@ -245,6 +255,7 @@ export function WorkflowAuthoringLibrary({
                   type="button"
                   disabled={disabled}
                   disabledReason={!template ? '请先在实验操作调试中发布该实验操作' : '当前画布暂不可编辑'}
+                  data-workflow-palette-workflow={template?.uuid}
                   draggable={!disabled}
                   onClick={() => { if (template) paletteProps.onAddWorkflow(template.uuid) }}
                   onDragStart={event => {
@@ -260,6 +271,10 @@ export function WorkflowAuthoringLibrary({
               })}
               {!loading && !error && operations.length === 0 && <p role="status">暂无实验操作</p>}
             </div>
+            <ExperimentOperationControlLibrary
+              {...paletteProps}
+              onPaletteDragStart={onPaletteDragStart}
+            />
           </div>}
         </>
       )}

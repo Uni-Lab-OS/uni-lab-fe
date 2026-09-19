@@ -46,6 +46,7 @@ const siteHandleUuid = '30000000-0000-4000-8000-000000000008'
 const upstreamHandleUuid = '30000000-0000-4000-8000-000000000009'
 const readyTargetHandleUuid = '30000000-0000-4000-8000-000000000010'
 const readySourceHandleUuid = '30000000-0000-4000-8000-000000000011'
+const upstreamReadySourceHandleUuid = '30000000-0000-4000-8000-000000000013'
 const publishedWorkflowTemplateUuid =
   '20000000-0000-4000-8000-000000000010'
 const publishedWorkflowUuid = '60000000-0000-4000-8000-000000000010'
@@ -307,7 +308,7 @@ describe('typed Action editor projection', () => {
     )!
     expect(connectedInvocation.param).toEqual({})
     expect(connectedInvocation.meta_data).toEqual({
-      unilab: { input_bindings: {} }
+      unilab: { input_bindings: {}, authoring_source_order: 2 }
     })
 
     const outputConnected = connectTypedActionEdge(
@@ -942,6 +943,98 @@ describe('typed Action editor projection', () => {
       targetNodeUuid: nodeUuid,
       targetHandleUuid: materialHandleUuid
     })).toThrow('操作目标端口已有数据来源')
+  })
+
+  it('用规范 ready 连接点建立执行顺序连线，并拒绝与数据输入混连', () => {
+    // OS 的动作模板投影把 ready 投影成 data_key/data_source 为 null、type 为
+    // default 的结构连接点；创作层必须按这一真实形态处理，不能要求 data_key。
+    const canonicalCatalog = structuredClone(catalog)
+    for (const template of canonicalCatalog.actionTemplates) {
+      for (const item of template.handles) {
+        if (item.structuralRole !== 'ready') continue
+        item.dataSource = null
+        item.dataKey = null
+        item.valueType = 'default'
+        item.valueSchema = {}
+      }
+    }
+    const upstream = canonicalCatalog.actionTemplates.find(
+      (template) => template.uuid === sourceTemplateUuid
+    )!
+    upstream.handles.push({
+      ...readyHandle(upstreamReadySourceHandleUuid, 'source'),
+      workflowNodeTemplateUuid: sourceTemplateUuid,
+      dataSource: null,
+      dataKey: null,
+      valueType: 'default',
+      valueSchema: {}
+    })
+    const fanInGraph: WorkflowAuthoringGraph = {
+      ...graph,
+      nodes: [...graph.nodes, {
+        uuid: secondNodeUuid,
+        workflow_node_template_uuid: sourceTemplateUuid,
+        name: 'source-2',
+        param: {}
+      }]
+    }
+
+    const connected = connectTypedActionEdge(canonicalCatalog, fanInGraph, {
+      sourceNodeUuid,
+      sourceHandleUuid: upstreamReadySourceHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: readyTargetHandleUuid
+    })
+
+    expect(connected.edges).toEqual([expect.objectContaining({
+      source_node_uuid: sourceNodeUuid,
+      source_handle_uuid: upstreamReadySourceHandleUuid,
+      target_node_uuid: nodeUuid,
+      target_handle_uuid: readyTargetHandleUuid
+    })])
+    // 执行顺序输入只表达先后关系，允许多个上游汇入。
+    expect(connectTypedActionEdge(canonicalCatalog, connected, {
+      sourceNodeUuid: secondNodeUuid,
+      sourceHandleUuid: upstreamReadySourceHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: readyTargetHandleUuid
+    }).edges).toHaveLength(2)
+    expect(() => connectTypedActionEdge(canonicalCatalog, fanInGraph, {
+      sourceNodeUuid,
+      sourceHandleUuid: upstreamReadySourceHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: siteHandleUuid
+    })).toThrow('执行顺序输出只能连接到目标节点的执行顺序输入')
+    expect(() => connectTypedActionEdge(canonicalCatalog, fanInGraph, {
+      sourceNodeUuid,
+      sourceHandleUuid: upstreamHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: readyTargetHandleUuid
+    })).toThrow('数据输出不能连接到执行顺序输入')
+  })
+
+  it('连线成功后把后添加的动作上游排到目标之前', () => {
+    const reversedGraph: WorkflowAuthoringGraph = {
+      ...graph,
+      nodes: graph.nodes.map((node) => ({
+        ...node,
+        meta_data: {
+          unilab: { authoring_source_order: node.uuid === sourceNodeUuid ? 1 : 0 }
+        }
+      }))
+    }
+    const connected = connectTypedActionEdge(catalog, reversedGraph, {
+      sourceNodeUuid,
+      sourceHandleUuid: upstreamHandleUuid,
+      targetNodeUuid: nodeUuid,
+      targetHandleUuid: materialHandleUuid
+    })
+    expect(connected.nodes.find((node) => node.uuid === sourceNodeUuid)?.meta_data)
+      .toMatchObject({ unilab: { authoring_source_order: 0 } })
+    expect(connected.nodes.find((node) => node.uuid === nodeUuid)?.meta_data)
+      .toMatchObject({ unilab: { authoring_source_order: 1 } })
+    expect(reversedGraph.nodes.find((node) => node.uuid === sourceNodeUuid)?.meta_data)
+      .toMatchObject({ unilab: { authoring_source_order: 1 } })
   })
 
   it('rejects a real-handle connection that would create a workflow cycle', () => {

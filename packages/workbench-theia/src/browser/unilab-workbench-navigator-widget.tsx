@@ -24,7 +24,8 @@ abstract class UniLabDomainEntryWidget extends ReactWidget {
   protected init(): void {
     this.id = this.widgetId
     this.title.label = this.entry.label
-    this.title.caption = this.entry.caption
+    // 导航标签已完整展示，不再通过活动栏 hover 重复显示 caption。
+    this.title.caption = ''
     this.title.iconClass = `unilab-activity-icon ${this.entry.iconClass}`
     this.title.closable = false
     this.node.style.minWidth = '196px'

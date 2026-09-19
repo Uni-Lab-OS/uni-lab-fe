@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -7,6 +8,21 @@ import {
   WorkbenchAuthorityLoading,
   WorkbenchSessionGate
 } from './workbench-session-gate'
+
+describe('device action navigation', () => {
+  it('forwards the device selected from management into the debug panel', () => {
+    const source = readFileSync(
+      new URL('./unilab-workbench-widget.tsx', import.meta.url),
+      'utf8'
+    )
+
+    expect(source).toContain('setSelectedActionDeviceKey(deviceKey)')
+    expect(source).toContain('selectedDeviceKey={selectedActionDeviceKey}')
+    expect(source).toContain(
+      'onSelectedDeviceKeyChange={setSelectedActionDeviceKey}'
+    )
+  })
+})
 
 describe('WorkbenchSessionGate', () => {
   it('shows Workspace Backend loading while switching from Backend', () => {

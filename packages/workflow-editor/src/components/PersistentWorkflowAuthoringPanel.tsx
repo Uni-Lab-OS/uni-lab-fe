@@ -65,6 +65,7 @@ interface PersistentWorkflowAuthoringPanelProps {
   ideBridge?: WorkflowIdeBridge
   hideEmbeddedCodeEditor?: boolean
   hideAuthoringToolbar?: boolean
+  hideCanvasSidebars?: boolean
   hideRuntimeControls?: boolean
   recoveryRevision?: number
   onResetEnvironment?: () => Promise<void>
@@ -143,6 +144,7 @@ function AuthoringSessionView({ model, props }: SessionSnapshot): React.JSX.Elem
       onVisibleMaterialRolesChange={props.onVisibleMaterialRolesChange}
       hideEmbeddedCodeEditor={props.hideEmbeddedCodeEditor}
       hideAuthoringToolbar={props.hideAuthoringToolbar}
+      hideCanvasSidebars={props.hideCanvasSidebars}
       hideRuntimeControls={props.hideRuntimeControls}
       onResetEnvironment={props.onResetEnvironment}
       environmentResetBusy={props.environmentResetBusy}

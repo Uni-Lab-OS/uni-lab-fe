@@ -153,8 +153,7 @@ export function projectDeviceActionInputSchema(
       !property ||
       (contract.typed && (
         !handle ||
-        handle.editorControl !== 'variable_selector' ||
-        handle.implicitPassthrough ||
+        !['variable_selector', 'material_port', 'site_selector'].includes(handle.editorControl) ||
         handle.required !== contract.required.includes(name)
       ))
     ) return null
@@ -170,24 +169,6 @@ export function projectDeviceActionInputSchema(
     result[name] = projected
   }
   return result
-}
-
-/**
- * 判断设备单动作调试（D1A）是否不涉及物料占位符（ResourceSlot）或库位（Site）。
- *
- * @param template 已匹配的动作模板。
- * @returns 仅包含普通变量参数且无隐式物料传递时返回 true。
- */
-export function supportsD1AS1(
-  template: WorkflowActionNodeTemplate
-): boolean {
-  const typed = record(template.schema['x-unilabos-action-contract']) !== null
-  return (!typed || template.handles.every((handle) =>
-    handle.editorControl !== 'material_port' &&
-    handle.editorControl !== 'site_selector' &&
-    !handle.implicitPassthrough &&
-    !containsUnsupportedContract(handle.valueSchema)
-  )) && !containsUnsupportedContract(template.schema)
 }
 
 /**
@@ -342,6 +323,8 @@ function inputType(schema: Record<string, unknown>): string | null {
   }
   const candidates = [schema, ...alternatives]
   const declared = candidates.flatMap((candidate) => {
+    // ResourceSlot 在动作 goal 中以带 UUID 的对象提交。
+    if (candidate.$slot === 'ResourceSlot') return ['object']
     if (typeof candidate.type === 'string') return [candidate.type]
     if (
       Array.isArray(candidate.type) &&
@@ -479,20 +462,4 @@ function assertNumberRange(
 
 function fieldLabel(name: string, schema: DeviceActionInputSchema): string {
   return schema.title || name
-}
-
-function containsUnsupportedContract(value: unknown): boolean {
-  if (Array.isArray(value)) return value.some(containsUnsupportedContract)
-  if (!value || typeof value !== 'object') return value === 'ResourceSlot'
-  const record = value as Record<string, unknown>
-  if (
-    record.$slot === 'ResourceSlot' ||
-    record['x-unilabos-material-lock'] === true ||
-    record.editor_control === 'material_port' ||
-    record.editor_control === 'site_selector' ||
-    record.implicit_passthrough === true
-  ) {
-    return true
-  }
-  return Object.values(record).some(containsUnsupportedContract)
 }
