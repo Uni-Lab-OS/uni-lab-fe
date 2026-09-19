@@ -224,7 +224,18 @@ function projectControlFlowState(
   if (type !== 'condition' && type !== 'repeat_until') return {}
   const param = isRecord(node.param) ? node.param : {}
   if (type === 'condition') {
-    const rawBranches = Array.isArray(param.branches) ? param.branches : []
+    const sourceBranches = Array.isArray(param.branches) ? param.branches : []
+    const rawBranches = sourceBranches.length === 0
+      ? [
+          { label: 'if', condition: { lit: true } },
+          { label: 'else', condition: null }
+        ]
+      : sourceBranches.length === 1
+        ? [
+            sourceBranches[0],
+            { label: 'else', condition: null }
+          ]
+        : sourceBranches
     const branches = rawBranches.map((value, index) => {
       const branch = isRecord(value) ? value : {}
       const members = Array.isArray(branch.node_uuids)
@@ -524,6 +535,16 @@ function workflowTemplateSchema(value: unknown): Record<string, unknown> {
   }
 }
 
+function nodeHasReadOnlyCompositeParent(
+  graph: WorkflowAuthoringGraph,
+  node: Record<string, unknown>
+): boolean {
+  const parentUuid = typeof node.parent_uuid === 'string' ? node.parent_uuid : ''
+  if (!parentUuid) return false
+  const parent = graph.nodes.find((item) => item.uuid === parentUuid)
+  return String(parent?.type || '') !== 'repeat_until'
+}
+
 export function updatePersistentAuthoringNodeName(
   graph: WorkflowAuthoringGraph,
   nodeUuid: string,
@@ -542,9 +563,7 @@ export function updatePersistentAuthoringNodeName(
     throw new Error('节点不存在或已被删除')
   }
   if (graph.nodes.some((node) =>
-    node.uuid === nodeUuid &&
-    node.parent_uuid !== undefined &&
-    node.parent_uuid !== null
+    node.uuid === nodeUuid && nodeHasReadOnlyCompositeParent(graph, node)
   )) {
     throw new Error('复合工作流的内部私有节点只读；请编辑调用边界')
   }
@@ -571,7 +590,7 @@ export function updatePersistentAuthoringNodePosition(
   }
   const node = graph.nodes.find((item) => item.uuid === nodeUuid)
   if (!node) throw new Error('节点不存在或已被删除')
-  if (node.parent_uuid !== undefined && node.parent_uuid !== null) {
+  if (nodeHasReadOnlyCompositeParent(graph, node)) {
     throw new Error('复合工作流的内部私有节点只读；请编辑调用边界')
   }
   const pose = isRecord(node.pose) ? node.pose : {}
@@ -594,6 +613,15 @@ export function updatePersistentAuthoringNodePosition(
   }
 }
 
+/** 原子更新多个节点坐标，用于 X6 父容器移动时同步全部循环体成员。 */
+export function updatePersistentAuthoringNodePositions(
+  graph: WorkflowAuthoringGraph,
+  changes: ReadonlyArray<{ nodeUuid: string; position: { x: number; y: number } }>
+): WorkflowAuthoringGraph {
+  return changes.reduce((current, change) =>
+    updatePersistentAuthoringNodePosition(current, change.nodeUuid, change.position), graph)
+}
+
 export function updatePersistentAuthoringNodeDisabled(
   graph: WorkflowAuthoringGraph,
   nodeUuid: string,
@@ -601,7 +629,7 @@ export function updatePersistentAuthoringNodeDisabled(
 ): WorkflowAuthoringGraph {
   const node = graph.nodes.find((item) => item.uuid === nodeUuid)
   if (!node) throw new Error('节点不存在或已被删除')
-  if (node.parent_uuid !== undefined && node.parent_uuid !== null) {
+  if (nodeHasReadOnlyCompositeParent(graph, node)) {
     throw new Error('复合工作流的内部私有节点只读；请编辑调用边界')
   }
   return {

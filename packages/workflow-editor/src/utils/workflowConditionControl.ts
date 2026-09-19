@@ -33,12 +33,19 @@ function branchLabel(index: number, total: number): string {
 }
 
 function normalizeBranches(values: readonly WorkflowConditionBranch[]): WorkflowConditionBranch[] {
-  return values.map((branch, index) => {
+  const seeded = values.length === 0
+    ? [{ label: 'if', condition: { lit: true }, node_uuids: [], entry_node_uuids: [], exit_node_uuids: [] }]
+    : values.map((branch) => ({ ...branch }))
+  if (seeded.length === 1) {
+    if (seeded[0]!.condition == null) seeded[0]!.condition = { lit: true }
+    seeded.push({ label: 'else', condition: null, node_uuids: [], entry_node_uuids: [], exit_node_uuids: [] })
+  }
+  return seeded.map((branch, index) => {
     const members = strings(branch.node_uuids)
     return {
       ...branch,
       label: branchLabel(index, values.length),
-      condition: index === values.length - 1 ? null : record(branch.condition),
+      condition: index === seeded.length - 1 ? null : record(branch.condition),
       node_uuids: members,
       entry_node_uuids: members.length ? [members[0]!] : [],
       exit_node_uuids: members.length ? [members[members.length - 1]!] : []
@@ -92,7 +99,7 @@ export function removeWorkflowConditionBranch(
   branches: readonly WorkflowConditionBranch[],
   index: number
 ): WorkflowConditionBranch[] {
-  if (branches.length <= 1) return [...branches]
+  if (branches.length <= 2) return normalizeBranches(branches)
   return normalizeBranches(branches.filter((_, branchIndex) => branchIndex !== index))
 }
 
@@ -138,4 +145,40 @@ export function applyWorkflowConditionParam(
       return node
     })
   }
+}
+
+/** 从 IF/ELIF/ELSE handle 直连动作节点，并把目标移入对应分支。 */
+export function connectWorkflowConditionBranch(
+  graph: WorkflowAuthoringGraph,
+  conditionUuid: string,
+  branchIndex: number,
+  targetNodeUuid: string
+): WorkflowAuthoringGraph {
+  const target = graph.nodes.find((node) => node.uuid === targetNodeUuid)
+  if (!target) throw new Error('条件分支连接的目标节点不存在')
+  const targetType = String(target.type || '')
+  if (targetType === 'condition' || targetType === 'repeat_until') {
+    throw new Error('条件分支入口必须是动作节点')
+  }
+  if (typeof target.parent_uuid === 'string' && target.parent_uuid !== conditionUuid) {
+    throw new Error('目标节点已属于其它控制区域，请先移出原控制区域')
+  }
+  const editor = projectWorkflowConditionEditor(graph, conditionUuid)
+  if (branchIndex < 0 || branchIndex >= editor.branches.length) {
+    throw new Error('条件分支 handle 不存在')
+  }
+  const withoutTarget = editor.branches.map((branch) => ({
+    ...branch,
+    node_uuids: branch.node_uuids.filter((uuid) => uuid !== targetNodeUuid)
+  }))
+  const selected = withoutTarget[branchIndex]!
+  const branches = updateWorkflowConditionBranch(withoutTarget, branchIndex, {
+    node_uuids: [...selected.node_uuids, targetNodeUuid]
+  })
+  const node = graph.nodes.find((item) => item.uuid === conditionUuid)!
+  return applyWorkflowConditionParam(
+    graph,
+    conditionUuid,
+    updateWorkflowConditionParam(node.param, branches)
+  )
 }

@@ -2,6 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import type { WorkflowNodeJob, WorkflowRecoveryPort } from '@unilab/services'
 
 const labels: Record<string, string> = { pending: '等待人工确认', approved: '已批准', rejected: '已拒绝', timed_out: '确认已超时', canceled: '确认已取消' }
+
+export function formatManualConfirmationDeadline(value: string): string {
+  const date = new Date(value)
+  if (!Number.isFinite(date.getTime())) return value
+  const pad = (part: number): string => String(part).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
 export function confirmationActions(job: WorkflowNodeJob, writable: boolean): Array<'approve' | 'reject'> {
   const confirmation = job.manual_confirmation
   if (!writable || !confirmation || confirmation.status !== 'pending') return []
@@ -46,7 +53,7 @@ function ConfirmationRow({ job, name, port, writable, refresh }: { job: Workflow
   const allowed = confirmationActions(job, writable && !pending)
   return <article>
     <strong>{name} · {labels[confirmation.status] || confirmation.status}</strong>
-    {confirmation.deadline_at && <p>确认截止时间：<time dateTime={confirmation.deadline_at}>{new Date(confirmation.deadline_at).toLocaleString()}</time></p>}
+    {confirmation.deadline_at && <p>确认截止时间：<time dateTime={confirmation.deadline_at}>{formatManualConfirmationDeadline(confirmation.deadline_at)}</time></p>}
     {confirmation.status === 'pending' && <p>批准后继续执行该节点的设备动作；拒绝将请求取消任务。</p>}
     <div className="workflow-recovery__actions">{confirmation.status === 'pending' && <>
       <button type="button" disabled={!allowed.includes('approve')} onClick={() => void decide('approve')}>批准</button>

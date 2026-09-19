@@ -352,6 +352,24 @@ describe('C1 persistent Composite hierarchy', () => {
   })
 
   it('projects the robot transfer visual from OS published source metadata', () => {
+    const source = compositeGraph()
+    source.node_templates = source.node_templates.map((template) =>
+      template.uuid === 'outer-template'
+        ? publishedTemplate(
+            'outer-template',
+            'workflow-child-outer',
+            'sha256:outer-contract',
+            's_z_lab_标准物料转运'
+          )
+        : template
+    )
+
+    const projected = projectPersistentAuthoringGraph(source)
+    const byId = new Map(projected.nodes.map((node) => [node.id, node]))
+
+    expect(byId.get('outer')?.visualKind).toBe('robot-transfer')
+    expect(byId.get('inner')).not.toHaveProperty('visualKind')
+  })
 
   it('shows the Published workflow display name while preserving the authoring identifier', () => {
     const source = compositeGraph()
@@ -370,24 +388,6 @@ describe('C1 persistent Composite hierarchy', () => {
     expect(outer?.name).toBe('阿事实上')
     expect(source.nodes.find((node) => node.uuid === 'outer')?.name)
       .toBe('workflow')
-  })
-    const source = compositeGraph()
-    source.node_templates = source.node_templates.map((template) =>
-      template.uuid === 'outer-template'
-        ? publishedTemplate(
-            'outer-template',
-            'workflow-child-outer',
-            'sha256:outer-contract',
-            's_z_lab_标准物料转运'
-          )
-        : template
-    )
-
-    const projected = projectPersistentAuthoringGraph(source)
-    const byId = new Map(projected.nodes.map((node) => [node.id, node]))
-
-    expect(byId.get('outer')?.visualKind).toBe('robot-transfer')
-    expect(byId.get('inner')).not.toHaveProperty('visualKind')
   })
 
   it('projects Backend-native workflow contracts and node source provenance', () => {

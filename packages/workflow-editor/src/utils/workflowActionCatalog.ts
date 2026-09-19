@@ -112,7 +112,10 @@ function defaultControlNodeParam(nodeType: string): Record<string, unknown> {
   if (nodeType === 'condition') {
     return {
       predecessor_node_uuids: [], bindings: {},
-      branches: [{ label: 'if', condition: { lit: true }, node_uuids: [], entry_node_uuids: [], exit_node_uuids: [] }]
+      branches: [
+        { label: 'if', condition: { lit: true }, node_uuids: [], entry_node_uuids: [], exit_node_uuids: [] },
+        { label: 'else', condition: null, node_uuids: [], entry_node_uuids: [], exit_node_uuids: [] }
+      ]
     }
   }
   if (nodeType === 'repeat_until') {
@@ -943,7 +946,11 @@ function assertParentBoundaryNode(
 ): void {
   const node = graph.nodes.find((item) => item.uuid === nodeUuid)
   if (!node) throw new Error('工作流节点不存在')
-  if (node.parent_uuid !== undefined && node.parent_uuid !== null) {
+  const parentUuid = typeof node.parent_uuid === 'string' ? node.parent_uuid : ''
+  const parent = parentUuid
+    ? graph.nodes.find((item) => item.uuid === parentUuid)
+    : undefined
+  if (parentUuid && String(parent?.type || '') !== 'repeat_until') {
     throw new Error('Composite internal/private Node 只读；请编辑 invocation boundary')
   }
 }

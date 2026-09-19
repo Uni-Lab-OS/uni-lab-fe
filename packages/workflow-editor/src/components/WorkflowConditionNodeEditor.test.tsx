@@ -18,7 +18,7 @@ const graph: WorkflowAuthoringGraph = {
 }
 
 describe('WorkflowConditionNodeEditor', () => {
-  it('adds an else branch through the visible editor action', () => {
+  it('inserts an ELIF branch between the required IF and ELSE branches', () => {
     const onChange = vi.fn()
     const tree = WorkflowConditionNodeEditor({
       graph, nodeUuid: 'condition', editable: true, onChange
@@ -29,6 +29,7 @@ describe('WorkflowConditionNodeEditor', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       branches: [
         expect.objectContaining({ label: 'if', condition: { lit: true } }),
+        expect.objectContaining({ label: 'elif0' }),
         expect.objectContaining({ label: 'else', condition: null })
       ]
     }))

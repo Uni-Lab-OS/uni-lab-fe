@@ -5,6 +5,7 @@ import { useState } from 'react'
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
 import { MaterialSourceInspector } from './MaterialSourceInspector'
 import { WorkflowConditionNodeEditor } from './WorkflowConditionNodeEditor'
+import { WorkflowLoopNodeEditor } from './WorkflowLoopNodeEditor'
 import { WorkflowActionParameterEditor } from './WorkflowActionParameterDrawer'
 import { formatAuthoringDiagnostic } from '../utils/workflowAuthoringUserCopy'
 
@@ -73,6 +74,7 @@ export function WorkflowNodeInspector({
   const selectedNode = model.structure.nodes.find((node) => node.id === selectedNodeUuid)
   const selectedGraphNode = graph?.nodes.find(node => node.uuid === selectedNodeUuid)
   const selectedIsCondition = selectedGraphNode?.type === 'condition'
+  const selectedIsLoop = selectedGraphNode?.type === 'repeat_until'
   const manualConfig = selectedGraphNode?.manual_confirmation as { timeout_seconds?: number } | undefined
   const tablist = (
     <nav className="persistent-authoring__node-tabs" aria-label="节点检查器视图" role="tablist">
@@ -216,19 +218,24 @@ export function WorkflowNodeInspector({
             />
           )}
 
-          {selectedIsCondition && operationInspector && graph && selectedNodeUuid && (
+          {selectedIsCondition && graph && selectedNodeUuid && (
             <WorkflowConditionNodeEditor
               graph={graph}
               nodeUuid={selectedNodeUuid}
               editable={!busy && canvasMutationEnabled}
-              onChange={(param) => model.updateControlNodeParam(
-                selectedNodeUuid,
-                param
-              )}
+              onChange={(param) => model.updateControlNodeParam(selectedNodeUuid, param)}
+            />
+          )}
+          {selectedIsLoop && graph && selectedNodeUuid && (
+            <WorkflowLoopNodeEditor
+              graph={graph}
+              nodeUuid={selectedNodeUuid}
+              editable={!busy && canvasMutationEnabled}
+              onChange={(param) => model.updateControlNodeParam(selectedNodeUuid, param)}
             />
           )}
 
-          {!selectedIsMaterialSource && !selectedIsCondition && (selectedActionEditor || operationInspector) && (
+          {!selectedIsMaterialSource && !selectedIsCondition && !selectedIsLoop && (selectedActionEditor || operationInspector) && (
             <>
               {!debugLayout && !operationInspector && tablist}
               {!selectedActionEditor ? (

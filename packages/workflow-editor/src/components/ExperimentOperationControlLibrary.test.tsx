@@ -81,7 +81,10 @@ describe('experiment operation framework nodes', () => {
     if (kind === 'condition') {
       expect(created.nodes[0]?.param).toMatchObject({
         predecessor_node_uuids: [],
-        branches: [{ label: 'if', condition: { lit: true }, node_uuids: [] }]
+        branches: [
+          { label: 'if', condition: { lit: true }, node_uuids: [] },
+          { label: 'else', condition: null, node_uuids: [] }
+        ]
       })
     } else {
       expect(created.nodes[0]?.param).toMatchObject({

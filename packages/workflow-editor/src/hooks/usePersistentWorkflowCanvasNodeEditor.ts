@@ -32,7 +32,8 @@ import {
 import {
   updatePersistentAuthoringNodeDisabled,
   updatePersistentAuthoringNodeName,
-  updatePersistentAuthoringNodePosition
+  updatePersistentAuthoringNodePosition,
+  updatePersistentAuthoringNodePositions
 } from '../utils/persistentAuthoringGraph'
 import { authoringSafeIdentifier } from '../utils/workflowAuthoringNodeIdentity'
 import type {
@@ -41,7 +42,11 @@ import type {
   WorkflowHandleConnectionResult
 } from '../utils/workflowCanvasCommands'
 import { configureManualConfirmation } from '../utils/workflowManualConfirmation'
-import { applyWorkflowConditionParam } from '../utils/workflowConditionControl'
+import {
+  applyWorkflowConditionParam,
+  connectWorkflowConditionBranch
+} from '../utils/workflowConditionControl'
+import { applyWorkflowLoopParam, moveWorkflowNodeToLoop } from '../utils/workflowLoopControl'
 import { useWorkflowCanvasDeletion } from './useWorkflowCanvasDeletion'
 import {
   workflowNodeAtSourcePosition,
@@ -229,11 +234,11 @@ export function usePersistentWorkflowCanvasNodeEditor(
   const selectedActionTemplate = actionCatalog?.actionTemplates.find(
     (template) => template.uuid === selectedActionEditor?.templateUuid
   ) ?? null
-  const selectedNodeIsInternal = graph?.nodes.some((node) =>
-    node.uuid === selectedNodeUuid &&
-    node.parent_uuid !== undefined &&
-    node.parent_uuid !== null
-  ) ?? false
+  const selectedNodeIsInternal = graph?.nodes.some((node) => {
+    if (node.uuid !== selectedNodeUuid || typeof node.parent_uuid !== 'string') return false
+    const parent = graph.nodes.find((item) => item.uuid === node.parent_uuid)
+    return String(parent?.type || '') !== 'repeat_until'
+  }) ?? false
   const selectedMaterialSourceProjection = useMemo(() => {
     if (
       !effectiveMaterialSourceCatalog ||
@@ -472,6 +477,30 @@ export function usePersistentWorkflowCanvasNodeEditor(
     } catch (error) { setError(errorMessage(error)) }
   }
 
+  /** 更新条件/循环控制节点结构参数，并通过既有画布同步链路保存到 OS。 */
+  const updateControlNodeParam = (
+    nodeUuid: string,
+    param: Record<string, unknown>
+  ): void => {
+    if (!graph || !canvasMutationEnabled) return
+    const target = graph.nodes.find((node) => node.uuid === nodeUuid)
+    const type = String(target?.type || '')
+    if (!target || (type !== 'condition' && type !== 'repeat_until')) {
+      setError('选中节点不是条件或循环控制节点')
+      return
+    }
+    try {
+      const next = type === 'condition'
+        ? applyWorkflowConditionParam(graph, nodeUuid, param)
+        : applyWorkflowLoopParam(graph, nodeUuid, param)
+      setGraph(next)
+      setCanvasDirty(true)
+      setError(null)
+      setMessage('控制节点结构已更新；正在同步 OS 草稿…')
+      syncCanvasMutation?.(next, 'create')
+    } catch (error) { setError(errorMessage(error)) }
+  }
+
   /** 更新操作节点（ActionNode）的类型化字段值。 */
   const updateTypedField = (
     handleUuid: string,
@@ -593,6 +622,32 @@ export function usePersistentWorkflowCanvasNodeEditor(
     }
   }
 
+  /** 把 IF/ELIF/ELSE 输出 handle 直接连接到对应分支入口动作。 */
+  const connectConditionBranchHandle = (
+    conditionNodeUuid: string,
+    branchIndex: number,
+    targetNodeUuid: string
+  ): WorkflowHandleConnectionResult => {
+    if (!graph || !canvasMutationEnabled) {
+      return { accepted: false, reason: '当前画布不可编辑' }
+    }
+    try {
+      const next = connectWorkflowConditionBranch(
+        graph, conditionNodeUuid, branchIndex, targetNodeUuid
+      )
+      setGraph(next)
+      setCanvasDirty(true)
+      setError(null)
+      setMessage('条件分支连线已创建；正在同步 OS…')
+      syncCanvasMutation?.(next, 'connect')
+      return { accepted: true }
+    } catch (connectError) {
+      const reason = errorMessage(connectError)
+      setError(reason)
+      return { accepted: false, reason }
+    }
+  }
+
   /** 更新画布坐标；纯布局调整不标记源码待保存。 */
   const moveCanvasNode = (
     nodeUuid: string,
@@ -624,45 +679,57 @@ export function usePersistentWorkflowCanvasNodeEditor(
     }
   }
 
-  /** 更新条件/循环控制节点结构参数，并通过既有画布同步链路保存到 OS。 */
-  const updateControlNodeParam = (
-    nodeUuid: string,
-    param: Record<string, unknown>
+  /** 移动 Loop 容器时原子写回容器与全部循环体成员坐标。 */
+  const moveCanvasNodes = (
+    changes: ReadonlyArray<{ nodeId: string; position: WorkflowCanvasPoint }>
+  ): void => {
+    if (!graph || !canvasMutationEnabled || changes.length === 0) return
+    try {
+      const next = updatePersistentAuthoringNodePositions(graph, changes.map((change) => ({
+        nodeUuid: change.nodeId,
+        position: change.position
+      })))
+      setGraph(next)
+      syncCanvasMutation?.(next, 'node_move')
+    } catch (moveError) {
+      setError(errorMessage(moveError))
+    }
+  }
+
+  /** 拖入/拖出 Dify Loop 容器并同步 Canonical 循环体边界。 */
+  const moveCanvasNodeToLoop = (
+    nodeId: string,
+    loopId: string | null,
+    position: WorkflowCanvasPoint
   ): void => {
     if (!graph || !canvasMutationEnabled) return
-    const target = graph.nodes.find((node) => node.uuid === nodeUuid)
-    const type = String(target?.type || '')
-    if (!target || (type !== 'condition' && type !== 'repeat_until')) {
-      setError('选中节点不是条件或循环控制节点')
-      return
+    try {
+      const next = moveWorkflowNodeToLoop(graph, nodeId, loopId, position)
+      setGraph(next)
+      setCanvasDirty(true)
+      setError(null)
+      setMessage(loopId ? '节点已加入循环体；正在同步 OS…' : '节点已移出循环体；正在同步 OS…')
+      syncCanvasMutation?.(next, 'node_move')
+    } catch (moveError) {
+      setError(errorMessage(moveError))
     }
-    const next = type === 'condition'
-      ? applyWorkflowConditionParam(graph, nodeUuid, param)
-      : {
-          ...graph,
-          nodes: graph.nodes.map((node) => node.uuid === nodeUuid
-            ? { ...node, param }
-            : node)
-        }
-    setGraph(next)
-    setCanvasDirty(true)
-    setError(null)
-    setMessage('控制节点结构已更新；正在同步 OS 草稿…')
-    syncCanvasMutation?.(next, 'create')
   }
 
   return {
     addMaterialSourceNode,
     addPublishedWorkflowNode,
     addTypedActionNode,
-    updateControlNodeParam,
     updateManualConfirmation,
     bindTypedFieldToWorkflowInput,
     connectTypedHandles,
+    connectConditionBranchHandle,
     deleteCanvasElements,
     moveCanvasNode,
+    moveCanvasNodes,
+    moveCanvasNodeToLoop,
     renameCanvasNode,
     selectCanvasNode,
+    updateControlNodeParam,
     selectedActionEditor,
     selectedActionProjection,
     selectedActionTemplate,
