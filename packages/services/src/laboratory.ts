@@ -27,6 +27,7 @@ import type {
 import {
   getRuntimeDevices,
   mapRuntimeDeviceAction,
+  mapRuntimeDeviceActionSchema,
   mapRuntimeResource,
   runtimeString,
   runtimeStringArray
@@ -205,6 +206,8 @@ export function createLaboratoryService(
   backend: BackendConfig,
   readActionCatalog?: WorkflowActionCatalogReader
 ) {
+  const usesRuntimeDeviceCatalog = backend.serverKind === 'edge'
+
   return {
     /** 使用统一 v1 健康端点探测 Backend 或 Edge，并透传调用方取消信号。 */
     async ping(signal?: AbortSignal): Promise<boolean> {
@@ -217,10 +220,18 @@ export function createLaboratoryService(
     },
 
     async getActionDevices(): Promise<DeviceActionTarget[]> {
+      if (usesRuntimeDeviceCatalog) {
+        return (await loadRuntimeOnlineDevices(http))
+          .filter((device) => device.actions.length > 0)
+          .map((device) => ({ deviceId: device.id, label: device.machineName }))
+      }
       return loadBackendActionDevices(http)
     },
 
     async getDeviceCatalog(): Promise<DeviceCatalogItem[]> {
+      if (usesRuntimeDeviceCatalog) {
+        return (await loadRuntimeOnlineDevices(http)).map(mapRuntimeDeviceCatalog)
+      }
       return loadBackendDeviceCatalog(
         http,
         backend.serverKind,
@@ -232,6 +243,9 @@ export function createLaboratoryService(
       signal?: AbortSignal,
       options: OnlineDeviceReadOptions = {}
     ): Promise<OnlineDevice[]> {
+      if (usesRuntimeDeviceCatalog) {
+        return loadRuntimeOnlineDevices(http, signal)
+      }
       return loadBackendOnlineDevices(
         http,
         signal,
@@ -244,10 +258,20 @@ export function createLaboratoryService(
     async getDeviceActionDeclarations(
       signal?: AbortSignal
     ): Promise<DeviceActionDeclarationDevice[]> {
+      if (usesRuntimeDeviceCatalog) {
+        return (await loadRuntimeOnlineDevices(http, signal)).map(
+          mapRuntimeDeviceActionDeclaration
+        )
+      }
       return loadBackendDeviceActionDeclarations(http, signal)
     },
 
     async getDeviceActions(deviceId: string): Promise<DeviceAction[]> {
+      if (usesRuntimeDeviceCatalog) {
+        const device = (await loadRuntimeOnlineDevices(http))
+          .find((candidate) => candidate.id === deviceId)
+        return device?.actions ?? []
+      }
       return loadBackendDeviceActions(
         http,
         deviceId,
@@ -260,6 +284,22 @@ export function createLaboratoryService(
       deviceId: string,
       actionName: string
     ): Promise<DeviceActionSchema> {
+      if (usesRuntimeDeviceCatalog) {
+        const device = (await loadRuntimeOnlineDevices(http))
+          .find((candidate) => candidate.id === deviceId)
+        const action = device?.actions.find(
+          (candidate) => candidate.actionName === actionName
+        )
+        if (!action) {
+          throw new ServiceError({
+            code: 'ACTION_NOT_FOUND',
+            message: `未找到设备动作：${deviceId}.${actionName}`,
+            status: 404,
+            retryable: false
+          })
+        }
+        return mapRuntimeDeviceActionSchema(action)
+      }
       return loadBackendActionSchema(
         http,
         deviceId,
@@ -319,25 +359,84 @@ export function createLaboratoryService(
 
 export type LaboratoryService = ReturnType<typeof createLaboratoryService>
 
+async function loadRuntimeOnlineDevices(
+  http: HttpClient,
+  signal?: AbortSignal
+): Promise<OnlineDevice[]> {
+  return (await getRuntimeDevices(http, signal))
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .map((device) => ({
+      id: device.id,
+      materialUuid: device.materialUuid,
+      resourceTemplateUuid: device.deviceTypeId,
+      deviceKey: device.deviceKey,
+      namespace: device.namespace,
+      machineName: device.name,
+      online: device.online,
+      edgeStatus: device.online ? 'online' : 'offline',
+      dispatchable: device.online,
+      dispatchBlockReason: null,
+      actions: device.actions.map(mapRuntimeDeviceAction)
+    }))
+}
+
+function mapRuntimeDeviceCatalog(device: OnlineDevice): DeviceCatalogItem {
+  return {
+    deviceId: device.id,
+    materialUuid: device.materialUuid,
+    resourceTemplateUuid: device.resourceTemplateUuid,
+    deviceTypeId: device.resourceTemplateUuid ?? device.id,
+    deviceKey: device.deviceKey,
+    namespace: device.namespace,
+    label: device.machineName,
+    online: device.online,
+    edgeStatus: device.edgeStatus,
+    dispatchable: device.dispatchable,
+    dispatchBlockReason: device.dispatchBlockReason,
+    actions: device.actions.map((action) => ({
+      actionName: action.actionName,
+      actionRef: action.actionRef,
+      label: action.displayName,
+      typeName: action.typeName,
+      inputSchema: action.inputSchema,
+      outputSchema: action.outputSchema,
+      riskLevel: action.riskLevel,
+      isBusy: action.isBusy
+    }))
+  }
+}
+
+function mapRuntimeDeviceActionDeclaration(
+  device: OnlineDevice
+): DeviceActionDeclarationDevice {
+  return {
+    id: device.id,
+    materialUuid: device.materialUuid,
+    resourceTemplateUuid: device.resourceTemplateUuid ?? device.id,
+    deviceKey: device.deviceKey,
+    namespace: device.namespace,
+    machineName: device.machineName,
+    online: device.online,
+    edgeStatus: device.edgeStatus ?? (device.online ? 'online' : 'offline'),
+    dispatchable: device.dispatchable ?? device.online,
+    dispatchBlockReason: device.dispatchBlockReason ?? null,
+    actions: device.actions.map((action) => ({
+      actionName: action.actionName,
+      typeName: action.typeName,
+      isBusy: action.isBusy,
+      currentJobId: action.currentJobId
+    }))
+  }
+}
+
 /**
- * 创建只供桌面端本地 Driver/注册表诊断使用的富设备目录读取端口。
- * 正常产品界面必须使用 createLaboratoryService 的共享 DeviceOverview 合同。
+ * 创建桌面端本地 Driver/注册表诊断使用的富设备目录读取端口。
+ * 与 createLaboratoryService 的 local-python 适配共用同一套 OS authoring 目录映射。
  */
 export function createLocalAuthoringLaboratoryService(http: HttpClient) {
   return {
     async getOnlineDevices(signal?: AbortSignal): Promise<OnlineDevice[]> {
-      return (await getRuntimeDevices(http, signal))
-        .sort((left, right) => left.id.localeCompare(right.id))
-        .map((device) => ({
-          id: device.id,
-          materialUuid: device.materialUuid,
-          resourceTemplateUuid: device.deviceTypeId,
-          deviceKey: device.deviceKey,
-          namespace: device.namespace,
-          machineName: device.name,
-          online: device.online,
-          actions: device.actions.map(mapRuntimeDeviceAction)
-        }))
+      return loadRuntimeOnlineDevices(http, signal)
     }
   }
 }
