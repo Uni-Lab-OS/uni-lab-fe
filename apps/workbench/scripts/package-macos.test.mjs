@@ -441,6 +441,18 @@ describe('Workbench macOS distribution gate', () => {
       workflow,
       /UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0\.11\.4-ad016b73/u
     )
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_DELIVERY: \$\{\{ github\.ref == 'refs\/heads\/deploy-mac-test' && 'download' \|\| 'bundled' \}\}/u
+    )
+    assert.match(
+      workflow,
+      /UNILAB_RUNTIME_DOWNLOAD_URL: .*workbench-runtime-0\.11\.4-ad016b73\/Uni-Lab-OS-0\.11\.4-osx-arm64\.sh/u
+    )
+    assert.match(workflow, /name: Validate downloadable macOS Runtime/u)
+    assert.match(workflow, /--range 0-0 --output \/dev\/null/u)
+    assert.match(workflow, /Online macOS DMG exceeds 250 MiB budget/u)
+    assert.match(workflow, /runtimePayload: Number\(values\[8\]\)/u)
     assert.match(workflow, /AIONUI_VERSION: 2\.1\.53/u)
     assert.match(workflow, /AIONUI_MACOS_SHA512: [a-f0-9]{128}/u)
     assert.match(workflow, /ELECTRON_VERSION: 33\.4\.11/u)
