@@ -13,7 +13,7 @@ import type {
 interface RuntimeActionTemplate {
   actionRef: string
   actionName: string
-  deviceId: string
+  deviceId?: string
   label: string
   typeName: string
   isBusy: boolean
