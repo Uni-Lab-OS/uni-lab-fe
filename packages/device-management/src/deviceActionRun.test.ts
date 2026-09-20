@@ -66,6 +66,37 @@ describe('device Action D1A preparation', () => {
     )).toBeNull()
   })
 
+  it('joins a legacy resource template name when sibling devices share the action', () => {
+    const real = {
+      ...actionTemplate(),
+      resourceTemplateName: 'community.szlab_poly_studio.szlab_mixer_photoshotting'
+    }
+    const sim = {
+      ...actionTemplate(),
+      uuid: UUID_2,
+      resourceTemplateUuid: '10000000-0000-4000-8000-000000000004',
+      resourceTemplateName: 'community.szlab_poly_studio.szlab_mixer_photoshotting_sim'
+    }
+    const catalog = actionCatalog([real, sim])
+
+    expect(matchDeviceActionTemplate(
+      catalog,
+      liveAction(),
+      'community.szlab_poly_studio.szlab_mixer_photoshotting'
+    )).toBe(real)
+    expect(matchDeviceActionTemplate(
+      catalog,
+      liveAction(),
+      'szlab_mixer_photoshotting'
+    )).toBe(real)
+    expect(matchDeviceActionTemplate(
+      catalog,
+      liveAction(),
+      'community.szlab_poly_studio.szlab_mixer_photoshotting_sim'
+    )).toBe(sim)
+    expect(matchDeviceActionTemplate(catalog, liveAction(), 'community.lab.robot')).toBeNull()
+  })
+
   /** 证明选择投影与草稿键同时隔离资源模板、Backend 和目录代际。 */
   it('projects one selected Action and isolates its parameter draft generation', () => {
     const template = actionTemplate()

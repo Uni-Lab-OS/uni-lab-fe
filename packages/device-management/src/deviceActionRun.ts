@@ -83,19 +83,44 @@ export function matchDeviceActionTemplate(
     template.name === action.actionName &&
     template.actionType === action.typeName
   )
-  const matches = resourceTemplateUuid === undefined
-    ? candidates
-    : candidates.filter((template) => template.resourceTemplateUuid === resourceTemplateUuid)
+  const matches = candidates.filter((template) =>
+    workflowTemplateMatchesResourceIdentity(template, resourceTemplateUuid)
+  )
   if (matches.length === 1) return matches[0] ?? null
 
   // Older Edge catalogs identify the resource template by its stable name rather
   // than the inventory UUID. Keep the identity guard for UUID-based catalogs and
-  // only use the legacy value when the action itself is unambiguous.
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(resourceTemplateUuid ?? '')
+  // only use the unique-action fallback when sibling templates cannot be named.
+  const isUuid = isResourceTemplateUuid(resourceTemplateUuid)
   if (resourceTemplateUuid !== undefined && !isUuid && candidates.length === 1) {
     return candidates[0] ?? null
   }
-  return matches.length === 1 ? matches[0] ?? null : null
+  return null
+}
+
+const RESOURCE_TEMPLATE_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function isResourceTemplateUuid(value: string | undefined): boolean {
+  return RESOURCE_TEMPLATE_UUID.test(value ?? '')
+}
+
+/**
+ * 判断动作模板是否属于当前设备的资源模板。
+ *
+ * 本地 Edge 目录常用稳定名称（如 `community.szlab_poly_studio.szlab_mixer_photoshotting`）
+ * 代替库存 UUID。同名动作可能同时存在于实机和仿真模板上，必须按名称消歧。
+ */
+function workflowTemplateMatchesResourceIdentity(
+  template: Pick<WorkflowActionNodeTemplate, 'resourceTemplateUuid' | 'resourceTemplateName'>,
+  resourceTemplateId?: string
+): boolean {
+  if (resourceTemplateId === undefined) return true
+  if (template.resourceTemplateUuid === resourceTemplateId) return true
+  if (isResourceTemplateUuid(resourceTemplateId)) return false
+  const name = template.resourceTemplateName
+  if (!name) return false
+  return name === resourceTemplateId || name.endsWith(`.${resourceTemplateId}`)
 }
 
 /**
