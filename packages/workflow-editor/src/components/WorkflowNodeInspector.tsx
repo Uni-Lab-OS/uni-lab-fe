@@ -237,8 +237,7 @@ export function WorkflowNodeInspector({
               nodeUuid={selectedNodeUuid}
               editable={!busy && canvasMutationEnabled}
               onChange={(param) => model.updateControlNodeParam(selectedNodeUuid, param)}
-              onAddNode={() => undefined}
-              openAddNodeRequest={loopAddNodeRequest === selectedNodeUuid}
+              openAddNodeRequest={Boolean(loopAddNodeRequest)}
               onAddNodeRequestHandled={onLoopAddNodeRequestHandled}
             />
           )}

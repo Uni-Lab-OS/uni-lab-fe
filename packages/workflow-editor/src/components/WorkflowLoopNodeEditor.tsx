@@ -54,7 +54,6 @@ export function WorkflowLoopNodeEditor({
   nodeUuid,
   editable,
   onChange,
-  onAddNode,
   openAddNodeRequest,
   onAddNodeRequestHandled
 }: {
@@ -62,7 +61,6 @@ export function WorkflowLoopNodeEditor({
   nodeUuid: string
   editable: boolean
   onChange(param: Record<string, unknown>): void
-  onAddNode?: () => void
   openAddNodeRequest?: boolean
   onAddNodeRequestHandled?: () => void
 }): React.JSX.Element {
@@ -136,13 +134,13 @@ export function WorkflowLoopNodeEditor({
           </label>
         )}
       </fieldset>
-      <label className="workflow-loop-editor__members">
+      <div className="workflow-loop-editor__members-actions">
         <span>循环体执行节点</span>
-        {onAddNode && (
-          <button type="button" disabled={!editable} onClick={() => setAddNodeOpen(true)}>
-            添加节点到循环体
-          </button>
-        )}
+        <button type="button" disabled={!editable} onClick={() => setAddNodeOpen(true)}>
+          添加节点到循环体
+        </button>
+      </div>
+      <label className="workflow-loop-editor__members">
         <select multiple value={editor.bodyNodeUuids} disabled={!editable}
           onChange={event => commit({ bodyNodeUuids: selected(event) })}>
           {editor.candidateNodes.map(candidate => (
