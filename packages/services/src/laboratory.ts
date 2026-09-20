@@ -206,7 +206,8 @@ export function createLaboratoryService(
   backend: BackendConfig,
   readActionCatalog?: WorkflowActionCatalogReader
 ) {
-  const usesRuntimeDeviceCatalog = backend.serverKind === 'edge'
+  const usesRuntimeDeviceCatalog =
+    backend.id === 'local-go' || backend.id === 'local-python'
 
   return {
     /** 使用统一 v1 健康端点探测 Backend 或 Edge，并透传调用方取消信号。 */
@@ -363,12 +364,22 @@ async function loadRuntimeOnlineDevices(
   http: HttpClient,
   signal?: AbortSignal
 ): Promise<OnlineDevice[]> {
-  return (await getRuntimeDevices(http, signal))
+  const runtimeDevices = await getRuntimeDevices(http, signal)
+  const inventoryTemplateIds = runtimeDevices.some((device) =>
+    device.deviceTypeId != null &&
+    !RESOURCE_TEMPLATE_UUID.test(device.deviceTypeId)
+  )
+    ? await loadInventoryResourceTemplateIds(http, signal)
+    : new Map<string, string>()
+  return runtimeDevices
     .sort((left, right) => left.id.localeCompare(right.id))
     .map((device) => ({
       id: device.id,
       materialUuid: device.materialUuid,
-      resourceTemplateUuid: device.deviceTypeId,
+      resourceTemplateUuid:
+        inventoryTemplateIds.get(device.id) ??
+        inventoryTemplateIds.get(device.deviceKey) ??
+        device.deviceTypeId,
       deviceKey: device.deviceKey,
       namespace: device.namespace,
       machineName: device.name,
@@ -378,6 +389,48 @@ async function loadRuntimeOnlineDevices(
       dispatchBlockReason: null,
       actions: device.actions.map(mapRuntimeDeviceAction)
     }))
+}
+
+const RESOURCE_TEMPLATE_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+/**
+ * 用库存设备实例的资源模板 UUID 补齐本地 authoring 目录里的类名身份。
+ *
+ * 本地 Edge 把 `deviceTypeId` 写成 `community.szlab_poly_studio.xxx`，
+ * 而动作目录按库存 UUID 区分实机/仿真同名动作。
+ */
+async function loadInventoryResourceTemplateIds(
+  http: HttpClient,
+  signal?: AbortSignal
+): Promise<Map<string, string>> {
+  try {
+    const raw = await requestData<unknown>(http, '/api/v1/devices', { signal })
+    if (!Array.isArray(raw)) return new Map()
+    const resolved = new Map<string, string>()
+    for (const item of raw) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) continue
+      const record = item as Record<string, unknown>
+      const binding = record.binding && typeof record.binding === 'object'
+        && !Array.isArray(record.binding)
+        ? record.binding as Record<string, unknown>
+        : null
+      const material = record.material && typeof record.material === 'object'
+        && !Array.isArray(record.material)
+        ? record.material as Record<string, unknown>
+        : null
+      const templateId = typeof material?.resource_template_uuid === 'string'
+        ? material.resource_template_uuid
+        : ''
+      const localId = typeof binding?.local_id === 'string' ? binding.local_id : ''
+      if (RESOURCE_TEMPLATE_UUID.test(templateId) && localId) {
+        resolved.set(localId, templateId)
+      }
+    }
+    return resolved
+  } catch {
+    return new Map()
+  }
 }
 
 function mapRuntimeDeviceCatalog(device: OnlineDevice): DeviceCatalogItem {
@@ -431,7 +484,7 @@ function mapRuntimeDeviceActionDeclaration(
 
 /**
  * 创建桌面端本地 Driver/注册表诊断使用的富设备目录读取端口。
- * 与 createLaboratoryService 的 local-python 适配共用同一套 OS authoring 目录映射。
+ * 与 createLaboratoryService 的本地适配共用同一套 OS authoring 目录映射。
  */
 export function createLocalAuthoringLaboratoryService(http: HttpClient) {
   return {

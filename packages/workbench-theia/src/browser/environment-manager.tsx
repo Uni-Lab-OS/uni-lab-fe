@@ -382,6 +382,27 @@ export function EnvironmentManager({
               ['来源', runtimeInstallation.managed ? '应用内置' : '现有环境'],
               ['环境', runtimeInstallation.environmentPath ?? '—']
             ]}
+            content={runtimeInstallation.availableEnvironments.length > 1 ? (
+              <label className="unilab-environment-manager__runtime-choice">
+                <span>选择环境</span>
+                <select
+                  aria-label="选择 UniLab 环境"
+                  value={runtimeInstallation.environmentPath ?? ''}
+                  disabled={Boolean(busyAction)}
+                  onChange={event => void run('select-runtime', async () => {
+                    setRuntimeInstallation(
+                      await managedRuntimeApi.selectEnvironment(event.currentTarget.value)
+                    )
+                  })}
+                >
+                  {runtimeInstallation.availableEnvironments.map(environment => (
+                    <option key={environment.path} value={environment.path}>
+                      {environment.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : undefined}
             actions={(runtimeInstallation.bundled && [
               'not-installed',
               'upgrade-required',
@@ -960,7 +981,13 @@ function runtimeInstallationMessage(
       ? `当前使用现有 UniLab 环境；内置载荷异常：${snapshot.error}`
       : '当前使用已安装的 UniLab 环境。'
   }
-  if (snapshot.phase === 'installing') return '正在离线安装并验证，请勿退出应用。'
+  if (snapshot.phase === 'installing') {
+    const progress = snapshot.progress
+    if (progress?.percentage !== null && progress?.percentage !== undefined) {
+      return `Runtime ${progress.stage === 'downloading' ? '下载' : '安装'}进度 ${progress.percentage}%；请勿退出应用。`
+    }
+    return '正在下载、安装并验证 Runtime，请勿退出应用。'
+  }
   if (snapshot.phase === 'upgrade-required') {
     return snapshot.error
       ?? `本地 Runtime 与当前 Workbench 不兼容，需要升级到 ${snapshot.runtimeVersion ?? '内置版本'}。`

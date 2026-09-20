@@ -406,28 +406,30 @@ function buildFlowElements(
     for (const [branchIndex, branch] of (
       controlNode.controlFlow.branches ?? []
     ).entries()) {
-      const target = branch.entryNodeUuids.find((uuid) =>
+      const targets = branch.entryNodeUuids.filter((uuid) =>
         visibleNodeIds.has(uuid)
       )
-      if (!target || !visibleNodeIds.has(controlNode.id)) continue
+      if (!targets.length || !visibleNodeIds.has(controlNode.id)) continue
       const branchKind = branch.label === 'ELSE'
         ? 'else' : branch.label === 'ELIF' ? 'elif' : 'if'
       const displayLabel = branchKind === 'else'
         ? 'False 分支' : branchKind === 'if' ? 'True 分支' : branch.label
-      flowEdges.push({
-        id: `display-condition:${controlNode.id}:${branchIndex}:${target}`,
-        source: controlNode.id,
-        target,
-        ariaLabel: `${displayLabel}：${controlNode.name} → ${nodeNames.get(target) ?? target}`,
-        className: `wf-flow-edge--condition-${branchKind}`,
-        style: { stroke: '#cbd5e1', strokeWidth: 1.6 },
-        data: {
-          sourceNodeUuid: controlNode.id,
-          targetNodeUuid: target,
-          sourcePortId: `workflow-condition-branch-${branchIndex}`,
-          controlBranch: branchKind
-        }
-      })
+      for (const target of targets) {
+        flowEdges.push({
+          id: `display-condition:${controlNode.id}:${branchIndex}:${target}`,
+          source: controlNode.id,
+          target,
+          ariaLabel: `${displayLabel}：${controlNode.name} → ${nodeNames.get(target) ?? target}`,
+          className: `wf-flow-edge--condition-${branchKind}`,
+          style: { stroke: '#cbd5e1', strokeWidth: 1.6 },
+          data: {
+            sourceNodeUuid: controlNode.id,
+            targetNodeUuid: target,
+            sourcePortId: `workflow-condition-branch-${branchIndex}`,
+            controlBranch: branchKind
+          }
+        })
+      }
     }
   }
 

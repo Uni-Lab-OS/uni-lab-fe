@@ -119,8 +119,9 @@ export function usePersistentWorkflowAuthoring({
   const [aggregate, setAggregate] =
     useState<WorkflowAuthoringAggregate | null>(null)
   const policy = workflowAuthoringSurfacePolicy(mode)
-  const canvasMutationEnabled = policy.canvasMutationEnabled &&
-    definitionEditingStatus?.available !== false
+  // Validation diagnostics describe the current draft; they must not lock
+  // the canvas. Invalid drafts remain editable until the user fixes them.
+  const canvasMutationEnabled = policy.canvasMutationEnabled
   const editor = useCodeMirror(
     '',
     'python',
@@ -908,8 +909,7 @@ export function usePersistentWorkflowAuthoring({
         remotePending.current = false
         installAggregate(
           saved,
-          `${definitionPort.capabilities.label} 工作流图已保存，` +
-          '更新完成'
+          `保存成功；${definitionPort.capabilities.label} 工作流图已更新`
         )
         return
       }
@@ -1144,9 +1144,15 @@ export function usePersistentWorkflowAuthoring({
    * @returns 不返回值；异步应用结果通过工作流编辑器状态呈现。
    */
   const applyCandidate = (): void => {
+    if (dirty) {
+      saveDraft()
+      setMessage('正在先保存当前工作流草稿；保存完成后请再次点击发布')
+      return
+    }
     const candidate = aggregate?.candidate
     if (!candidate) {
-      setError('当前没有可应用的修改')
+      saveDraft()
+      setMessage('正在保存并校验当前工作流；完成后将继续发布')
       return
     }
     const draft = aggregate?.draft
@@ -1283,8 +1289,7 @@ export function usePersistentWorkflowAuthoring({
           remotePending.current = false
           installAggregate(
             saved,
-            `${definitionPort.capabilities.label} 工作流图已保存，` +
-            '更新完成'
+            `保存成功；${definitionPort.capabilities.label} 工作流图已更新`
           )
           return { kind: 'saved' as const, aggregate: saved, editMode: mode }
         }

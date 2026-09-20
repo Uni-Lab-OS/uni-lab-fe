@@ -329,12 +329,16 @@ function workflowControlNodeMetadata(node: WorkflowX6Node): NodeMetadata {
       controlName: { ...X6_TEXT_ORIGIN, x: 44, y: 23, fill: '#1e293b', fontSize: 12, fontWeight: 800 },
       controlSummary: { ...X6_TEXT_ORIGIN, x: 82, y: 23, fill: '#64748b', fontSize: 8, fontWeight: 600 },
       loopHeaderDivider: { x1: 14, y1: 46, x2: width - 14, y2: 46, stroke: '#eef1f5', strokeWidth: 1 },
-      loopLane: { x: 16, y: 58, width: width - 32, height: Math.max(112, height - 74), rx: 10, ry: 10, fill: '#f8fafc', stroke: '#eef1f5', strokeWidth: 1 },
+      // The lane is a visual backdrop. Let embedded action nodes receive
+      // pointer events so they remain draggable after entering the loop.
+      loopLane: { x: 16, y: 58, width: width - 32, height: Math.max(112, height - 74), rx: 10, ry: 10, fill: '#f8fafc', stroke: '#eef1f5', strokeWidth: 1, pointerEvents: 'none' },
       loopLaneLine: { x1: 54, y1: 112, x2: width - 28, y2: 112, stroke: '#dbe3ee', strokeWidth: 1.2 },
       loopStartOuter: { cx: 40, cy: 112, r: 14, fill: '#ffffff', stroke: '#d8dee8', strokeWidth: 1.2 },
       loopStartInner: { cx: 40, cy: 112, r: 8, fill: '#2563eb' },
       loopStartGlyph: { ...X6_TEXT_ORIGIN, x: 37, y: 113, fill: '#ffffff', fontSize: 7, fontWeight: 900 },
-      loopEmpty: { ...X6_TEXT_ORIGIN, x: 68, y: 88, fill: '#94a3b8', fontSize: 9, fontWeight: 600 }
+      loopEmpty: { ...X6_TEXT_ORIGIN, x: 68, y: 88, fill: '#94a3b8', fontSize: 9, fontWeight: 600 },
+      loopAddNodeButton: { x: width / 2 - 72, y: Math.max(116, height - 62), width: 144, height: 30, rx: 7, ry: 7, fill: '#eff6ff', stroke: '#bfdbfe', strokeWidth: 1, cursor: 'pointer', pointerEvents: 'all' },
+      loopAddNode: { ...X6_TEXT_ORIGIN, x: width / 2, y: Math.max(135, height - 40), textAnchor: 'middle', fill: '#2563eb', fontSize: 11, fontWeight: 700, cursor: 'pointer', pointerEvents: 'none' }
     }
     return {
       ...base,
@@ -352,7 +356,9 @@ function workflowControlNodeMetadata(node: WorkflowX6Node): NodeMetadata {
         { tagName: 'circle', selector: 'loopStartOuter' },
         { tagName: 'circle', selector: 'loopStartInner' },
         { tagName: 'text', selector: 'loopStartGlyph', textContent: '▶' },
-        ...(memberCount === 0 ? [{ tagName: 'text', selector: 'loopEmpty', textContent: '将动作节点拖入循环体' }] : []),
+        ...(memberCount === 0 ? [{ tagName: 'text', selector: 'loopEmpty', textContent: '点击“添加节点”选择循环动作' }] : []),
+        { tagName: 'rect', selector: 'loopAddNodeButton', className: 'workflow-x6-loop-add-node' },
+        { tagName: 'text', selector: 'loopAddNode', className: 'workflow-x6-loop-add-node', textContent: '＋ 添加节点' },
         workflowNodeTitleMarkup(data)
       ],
       ports: { groups: {}, items: [] }

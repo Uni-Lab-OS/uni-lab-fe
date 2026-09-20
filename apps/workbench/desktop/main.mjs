@@ -422,7 +422,12 @@ function createPackagedWorkspaceController(options) {
         workflowUuid: options.parsed.workflowUuid,
         entryMode
       })
-      await waitForWorkbench(rendererUrl, child, STARTUP_TIMEOUT_MS)
+      await waitForWorkbench(
+        rendererUrl,
+        child,
+        STARTUP_TIMEOUT_MS,
+        path.join(logDirectory, 'workbench-desktop-launcher.log')
+      )
       candidateRemoteController = createPackagedRemoteController({
         port,
         workspace,
@@ -684,12 +689,17 @@ function canBindLoopback(port) {
   })
 }
 
-async function waitForWorkbench(rendererUrl, child, timeoutMs) {
+async function waitForWorkbench(rendererUrl, child, timeoutMs, logPath) {
   const deadline = Date.now() + timeoutMs
   let lastError = '尚未响应'
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
-      throw new Error(`Theia backend 提前退出，退出码 ${child.exitCode}。`)
+      const detail = await startupLogTail(logPath)
+      throw new Error(
+        `Theia backend 提前退出，退出码 ${child.exitCode}。\n` +
+        `启动日志：\n${detail}\n` +
+        `日志文件：${logPath}`
+      )
     }
     try {
       const response = await fetch(rendererUrl, { redirect: 'manual' })
@@ -700,7 +710,23 @@ async function waitForWorkbench(rendererUrl, child, timeoutMs) {
     }
     await delay(250)
   }
-  throw new Error(`Theia backend 在 ${timeoutMs / 1000} 秒内未就绪：${lastError}`)
+  const detail = await startupLogTail(logPath)
+  throw new Error(
+    `Theia backend 在 ${timeoutMs / 1000} 秒内未就绪：${lastError}\n` +
+    `启动日志：\n${detail}\n` +
+    `日志文件：${logPath}`
+  )
+}
+
+/** 返回启动日志末尾，直接展示导致工作区启动失败的后端错误。 */
+async function startupLogTail(logPath) {
+  try {
+    const content = await readFile(logPath, 'utf8')
+    const lines = content.split(/\r?\n/).filter(Boolean)
+    return lines.slice(-24).join('\n') || '日志为空，后端未输出可用错误信息。'
+  } catch (error) {
+    return `无法读取启动日志：${error instanceof Error ? error.message : String(error)}`
+  }
 }
 
 async function stopBackendProcess(child) {

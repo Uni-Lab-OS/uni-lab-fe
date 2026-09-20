@@ -150,6 +150,17 @@
   font-weight: 600;
 }
 
+.edge-device__field.is-invalid input:not([type='checkbox']),
+.edge-device__field.is-invalid select,
+.edge-device__field.is-invalid textarea,
+.edge-device__field.is-invalid {
+  border-color: var(--unilab-color-danger, #d14343);
+}
+
+.edge-device__field.is-invalid small[role='alert'] {
+  color: var(--unilab-color-danger, #d14343);
+}
+
 .edge-device__field input:not([type='checkbox']),
 .edge-device__field select,
 .edge-device__field textarea {

@@ -106,6 +106,7 @@ export function PersistentWorkflowAuthoringView({
     codeProjection,
     connectTypedHandles,
     connectConditionBranchHandle,
+    connectConditionPredecessorHandle,
     deleteCanvasElements,
     debugBreakpoints,
     debugExecutionScope,
@@ -157,6 +158,7 @@ export function PersistentWorkflowAuthoringView({
     nodeId: string
     nonce: number
   } | null>(null)
+  const [loopAddNodeRequest, setLoopAddNodeRequest] = useState<string | null>(null)
   const authoringViewRef = useRef<HTMLDivElement | null>(null)
   const canvasBodyRef = useRef<HTMLDivElement | null>(null)
   const graphStageRef = useRef<HTMLDivElement | null>(null)
@@ -187,9 +189,13 @@ export function PersistentWorkflowAuthoringView({
   const [dismissedDiagnosticKeys, setDismissedDiagnosticKeys] = useState<
     ReadonlySet<string>
   >(new Set())
-  const visibleDiagnostics = diagnostics.filter(
-    (diagnostic) => !dismissedDiagnosticKeys.has(authoringDiagnosticDismissKey(diagnostic))
-  )
+  // 画布编辑允许保存不完整草稿；结构校验在运行/发布门禁中展示，
+  // 不要在用户仅保存布局或中间节点时阻断编辑。
+  const visibleDiagnostics = mode === 'canvas'
+    ? []
+    : diagnostics.filter(
+      (diagnostic) => !dismissedDiagnosticKeys.has(authoringDiagnosticDismissKey(diagnostic))
+    )
   const dismissDiagnostic = useCallback((diagnosticKey: string) => {
     setDismissedDiagnosticKeys((current) => {
       const next = new Set(current)
@@ -201,6 +207,7 @@ export function PersistentWorkflowAuthoringView({
     setCanvasRevealRequest(null)
     setPaletteDragPreview(null)
     setCreateWorkflowOpen(false)
+    setLoopAddNodeRequest(null)
     setDismissedDiagnosticKeys(new Set())
     restoredNavigationRef.current = null
   }, [workflowUuid])
@@ -993,6 +1000,11 @@ export function PersistentWorkflowAuthoringView({
                     onNodeParentChange={moveCanvasNodeToLoop}
                     onConnectHandles={connectTypedHandles}
                     onConnectConditionBranch={connectConditionBranchHandle}
+                    onConnectConditionPredecessor={connectConditionPredecessorHandle}
+                    onAddNodeToLoop={(nodeId) => {
+                      handleCanvasNodeSelect(nodeId)
+                      setLoopAddNodeRequest(nodeId)
+                    }}
                     onDeleteRequest={deleteCanvasElements}
                     onOpenChildWorkflow={onOpenChildWorkflow
                       ? (childWorkflowUuid, childWorkflowName) => {
@@ -1027,7 +1039,14 @@ export function PersistentWorkflowAuthoringView({
                 {mode === 'canvas' && !compactCanvas && !hideCanvasSidebars && (
                   <>
                     <div className="persistent-authoring__inspector-resize-handle" role="separator" aria-label="调整参数面板宽度" onPointerDown={handleInspectorResize} />
-                    <WorkflowNodeInspector model={model} definitionKind={definitionKind} workflowName={workflowName} debugLayout={debugLayout} />
+                    <WorkflowNodeInspector
+                      model={model}
+                      definitionKind={definitionKind}
+                      workflowName={workflowName}
+                      debugLayout={debugLayout}
+                      loopAddNodeRequest={loopAddNodeRequest}
+                      onLoopAddNodeRequestHandled={() => setLoopAddNodeRequest(null)}
+                    />
                   </>
                 )}
               </>

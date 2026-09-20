@@ -133,7 +133,12 @@ export class DeviceCardActionController {
         template.actionType === action.typeName &&
         (
           device.resourceTemplateUuid === undefined ||
-          template.resourceTemplateUuid === device.resourceTemplateUuid
+          template.resourceTemplateUuid === device.resourceTemplateUuid ||
+          template.resourceTemplateName === device.resourceTemplateUuid ||
+          Boolean(
+            template.resourceTemplateName &&
+            template.resourceTemplateName.endsWith(`.${device.resourceTemplateUuid}`)
+          )
         )
       )
       if (matches.length !== 1) {

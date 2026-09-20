@@ -126,6 +126,23 @@ describe('device action Runtime availability', () => {
     expect(markup).toContain('disabled')
   })
 
+  it('keeps the run button submittable when the Action template is unmatched', () => {
+    const markup = renderToStaticMarkup(
+      <DeviceActionAvailability
+        state={{
+          kind: 'unavailable',
+          reason: 'template_unmatched',
+          message: '没有找到与当前设备动作匹配的运行信息，请刷新后重试'
+        }}
+        onRun={() => {}}
+      />
+    )
+
+    expect(markup).toContain('运行此动作')
+    expect(markup).not.toContain('disabled')
+    expect(markup).not.toContain('暂时无法运行')
+  })
+
   /** 验证动作信息读取失败时只展示通俗说明，不泄露内部“合同”术语。 */
   it('用通俗文案说明动作信息读取失败', () => {
     const markup = renderToStaticMarkup(

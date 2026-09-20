@@ -9,9 +9,20 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   AuthoringOperationQueue
 } from './persistentAuthoringSession'
-import { enqueueCanvasMutationSync } from './workflowCanvasMutationSync'
+import {
+  enqueueCanvasMutationSync,
+  isMissingRequiredActionParameterError
+} from './workflowCanvasMutationSync'
 
 const WORKFLOW_UUID = '11111111-1111-4111-8111-111111111111'
+
+describe('canvas mutation validation classification', () => {
+  it('keeps an empty newly-added RepeatUntil as an editable draft', () => {
+    expect(isMissingRequiredActionParameterError(
+      new Error('candidate_invalid: RepeatUntil 冻结合同无效')
+    )).toBe(true)
+  })
+})
 
 function graph(): WorkflowAuthoringGraph {
   return {

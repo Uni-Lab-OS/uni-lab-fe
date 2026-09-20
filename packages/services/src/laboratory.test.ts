@@ -27,10 +27,15 @@ describe('laboratory service', () => {
     }])
   })
 
-  it('uses DeviceOverview plus WorkflowNodeTemplate for local-go',
+  it('uses the OS authoring device catalog for local-go',
     async () => {
       const service = createLaboratoryService(
-        fixtureHttp(sharedDeviceResponses()),
+        fixtureHttp({
+          '/api/v1/authoring/device-catalog': {
+            code: 0,
+            data: runtimeDeviceResponses()
+          }
+        }),
         getDefaultBackend('local-go')
       )
 
@@ -47,26 +52,9 @@ describe('laboratory service', () => {
           actionRef: `${materialUuid}.transfer.sample.v1`,
           displayName: '转移样品',
           typeName: 'UniLabJsonCommand',
-          inputSchema: {
-            sample: { $slot: 'ResourceSlot' },
-            mode: { type: 'string', enum: ['safe', 'fast'], default: 'safe' }
-          }
+          inputSchema: { mode: { type: 'string', default: 'safe' } }
         }]
       }])
-      await expect(service.getDeviceCatalog()).resolves.toMatchObject([{
-        deviceId: materialUuid,
-        resourceTemplateUuid,
-        actions: [{
-          label: '转移样品',
-          outputSchema: { sample: { $slot: 'ResourceSlot' } }
-        }]
-      }])
-      await expect(service.getActionDevices()).resolves.toEqual([
-        { deviceId: materialUuid, label: '主泵' }
-      ])
-      await expect(service.getDeviceActions(materialUuid)).resolves.toMatchObject([
-        { actionName: 'transfer.sample.v1', schema: { type: 'object' } }
-      ])
       await expect(
         service.getActionSchema(materialUuid, 'transfer.sample.v1')
       ).resolves.toMatchObject({
@@ -76,6 +64,57 @@ describe('laboratory service', () => {
       })
     }
   )
+
+  it('resolves a class-name device type to the inventory resource template UUID', async () => {
+    const service = createLaboratoryService(
+      fixtureHttp({
+        '/api/v1/authoring/device-catalog': {
+          code: 0,
+          data: {
+            items: [{
+              id: 'szlab_mixer_photoshotting',
+              materialUuid,
+              deviceTypeId: 'community.szlab_poly_studio.szlab_mixer_photoshotting',
+              deviceKey: '/devices/szlab_mixer_photoshotting/szlab_mixer_photoshotting',
+              namespace: '/devices/szlab_mixer_photoshotting',
+              name: 'S05 拍照检测',
+              online: true,
+              actions: [{
+                id: 'inspect_beaker',
+                actionRef: 'szlab_mixer_photoshotting.inspect_beaker',
+                name: 'S05 烧杯拍照检测',
+                typeName: 'UniLabJsonCommand',
+                inputSchema: { beaker: { type: 'object' } },
+                outputSchema: {},
+                busy: false
+              }]
+            }]
+          }
+        },
+        '/api/v1/devices': {
+          code: 0,
+          data: [{
+            binding: {
+              local_id: 'szlab_mixer_photoshotting',
+              edge_uuid: 'edge-01',
+              material_uuid: materialUuid
+            },
+            material: {
+              uuid: materialUuid,
+              resource_template_uuid: resourceTemplateUuid,
+              name: 'S05 拍照检测'
+            }
+          }]
+        }
+      }),
+      getDefaultBackend('local-python')
+    )
+
+    await expect(service.getOnlineDevices()).resolves.toMatchObject([{
+      id: 'szlab_mixer_photoshotting',
+      resourceTemplateUuid
+    }])
+  })
 
   it('uses the OS authoring device catalog for local-python', async () => {
     const requests: Array<{ path: string; method?: string; body?: string }> = []
@@ -123,7 +162,7 @@ describe('laboratory service', () => {
           data: { schemaVersion: 'device-catalog/v1', items: [] }
         }
       }),
-      getDefaultBackend('local-go')
+      getDefaultBackend('cloud')
     )
 
     await expect(service.getDeviceCatalog()).rejects.toMatchObject({

@@ -1,4 +1,5 @@
 import type { WorkflowAuthoringGraph } from '@unilab/services'
+import { useEffect, useState } from 'react'
 
 import {
   projectWorkflowLoopEditor,
@@ -52,14 +53,25 @@ export function WorkflowLoopNodeEditor({
   graph,
   nodeUuid,
   editable,
-  onChange
+  onChange,
+  openAddNodeRequest,
+  onAddNodeRequestHandled
 }: {
   graph: WorkflowAuthoringGraph
   nodeUuid: string
   editable: boolean
   onChange(param: Record<string, unknown>): void
+  openAddNodeRequest?: boolean
+  onAddNodeRequestHandled?: () => void
 }): React.JSX.Element {
+  const [addNodeOpen, setAddNodeOpen] = useState(false)
+  const [nodeToAdd, setNodeToAdd] = useState('')
   const editor = projectWorkflowLoopEditor(graph, nodeUuid)
+  useEffect(() => {
+    if (!openAddNodeRequest) return
+    setAddNodeOpen(true)
+    onAddNodeRequestHandled?.()
+  }, [onAddNodeRequestHandled, openAddNodeRequest])
   const until = loopUntilForm(editor.until)
   const commit = (patch: Parameters<typeof updateWorkflowLoopParam>[1]): void => {
     onChange(updateWorkflowLoopParam(graph.nodes.find(n => n.uuid === nodeUuid)?.param, patch))
@@ -122,8 +134,13 @@ export function WorkflowLoopNodeEditor({
           </label>
         )}
       </fieldset>
-      <label className="workflow-loop-editor__members">
+      <div className="workflow-loop-editor__members-actions">
         <span>循环体执行节点</span>
+        <button type="button" disabled={!editable} onClick={() => setAddNodeOpen(true)}>
+          添加节点到循环体
+        </button>
+      </div>
+      <label className="workflow-loop-editor__members">
         <select multiple value={editor.bodyNodeUuids} disabled={!editable}
           onChange={event => commit({ bodyNodeUuids: selected(event) })}>
           {editor.candidateNodes.map(candidate => (
@@ -132,6 +149,28 @@ export function WorkflowLoopNodeEditor({
         </select>
         <small>按住 Ctrl/⌘ 可多选；首尾节点自动成为循环入口和出口。</small>
       </label>
+      {addNodeOpen && (
+        <div className="workflow-loop-editor__add-dialog" role="dialog" aria-label="添加节点到循环体">
+          <strong>添加节点到循环体</strong>
+          <select value={nodeToAdd} onChange={event => setNodeToAdd(event.target.value)}>
+            <option value="">请选择动作节点</option>
+            {editor.candidateNodes
+              .filter(candidate => !editor.bodyNodeUuids.includes(candidate.uuid))
+              .map(candidate => <option key={candidate.uuid} value={candidate.uuid}>{candidate.name}</option>)}
+          </select>
+          <div>
+            <button type="button" onClick={() => setAddNodeOpen(false)}>取消</button>
+            <button type="button" disabled={!nodeToAdd} onClick={() => {
+              if (!nodeToAdd) return
+              onChange(updateWorkflowLoopParam(graph.nodes.find(n => n.uuid === nodeUuid)?.param, {
+                bodyNodeUuids: [...editor.bodyNodeUuids, nodeToAdd]
+              }))
+              setNodeToAdd('')
+              setAddNodeOpen(false)
+            }}>添加</button>
+          </div>
+        </div>
+      )}
       <label className="workflow-loop-editor__members">
         <span>循环完成后的后继节点（可选）</span>
         <select multiple value={editor.successorNodeUuids} disabled={!editable}

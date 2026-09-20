@@ -27,6 +27,8 @@ export interface WorkflowActionHandleTemplate {
 export interface WorkflowActionNodeTemplate {
   uuid: string
   resourceTemplateUuid: string
+  /** 资源模板稳定名称；本地 Edge 目录常用它代替库存 UUID。 */
+  resourceTemplateName?: string
   name: string
   displayName: string
   actionClass: string | null

@@ -7,6 +7,7 @@ import type {
 } from '@unilab/services'
 
 import {
+  collectDeviceActionFieldErrors,
   deviceActionDraftStorageKey,
   matchDeviceActionTemplate,
   projectDeviceActionInputSchema,
@@ -58,6 +59,43 @@ describe('device Action D1A preparation', () => {
       ...liveAction(),
       typeName: 'other.Action'
     })).toBeNull()
+    expect(matchDeviceActionTemplate(catalog, liveAction(), 'community.lab.robot')).toBe(template)
+    expect(matchDeviceActionTemplate(
+      actionCatalog([template, { ...template, uuid: UUID_2 }]),
+      liveAction(),
+      'community.lab.robot'
+    )).toBeNull()
+  })
+
+  it('joins a legacy resource template name when sibling devices share the action', () => {
+    const real = {
+      ...actionTemplate(),
+      resourceTemplateName: 'community.szlab_poly_studio.szlab_mixer_photoshotting'
+    }
+    const sim = {
+      ...actionTemplate(),
+      uuid: UUID_2,
+      resourceTemplateUuid: '10000000-0000-4000-8000-000000000004',
+      resourceTemplateName: 'community.szlab_poly_studio.szlab_mixer_photoshotting_sim'
+    }
+    const catalog = actionCatalog([real, sim])
+
+    expect(matchDeviceActionTemplate(
+      catalog,
+      liveAction(),
+      'community.szlab_poly_studio.szlab_mixer_photoshotting'
+    )).toBe(real)
+    expect(matchDeviceActionTemplate(
+      catalog,
+      liveAction(),
+      'szlab_mixer_photoshotting'
+    )).toBe(real)
+    expect(matchDeviceActionTemplate(
+      catalog,
+      liveAction(),
+      'community.szlab_poly_studio.szlab_mixer_photoshotting_sim'
+    )).toBe(sim)
+    expect(matchDeviceActionTemplate(catalog, liveAction(), 'community.lab.robot')).toBeNull()
   })
 
   /** 证明选择投影与草稿键同时隔离资源模板、Backend 和目录代际。 */
@@ -269,6 +307,21 @@ describe('device Action D1A preparation', () => {
   })
 
   /** 证明用户清空可选字段时仍提交合同默认值，不把默认语义交给 Backend 猜测。 */
+  it('collects click-time field errors without rejecting the rest of the form', () => {
+    const action = liveAction()
+    action.inputSchema = {
+      beaker: { type: 'object', required: true, title: '烧杯' },
+      sample_id: { type: 'string', required: false, default: '' }
+    }
+
+    expect(collectDeviceActionFieldErrors(action, {
+      beaker: '',
+      sample_id: 'debug-sample'
+    })).toEqual({
+      beaker: '烧杯 为必填项'
+    })
+  })
+
   it('uses a declared schema default instead of silently delegating a cleared field to the backend', () => {
     const action = liveAction()
     action.inputSchema = {

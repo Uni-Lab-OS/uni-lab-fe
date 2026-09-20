@@ -25,7 +25,11 @@ export function isMissingRequiredActionParameterError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error)
   return /动作缺少必填参数/.test(message) ||
     /缺少必填输入/.test(message) ||
-    message.includes('required_action_parameter_missing')
+    message.includes('required_action_parameter_missing') ||
+    // A newly-created RepeatUntil is intentionally empty until the user
+    // adds its body and configures carry/exit values. Keep that draft local
+    // instead of surfacing the backend's strict publish-contract error.
+    /RepeatUntil 冻结合同无效/.test(message)
 }
 
 interface CanvasMutationSyncDependencies<LocalState extends {
@@ -263,15 +267,18 @@ export function enqueueCanvasMutationSync<LocalState extends {
       const raw = syncError instanceof Error
         ? syncError.message
         : String(syncError)
+      const incompleteRepeatUntil = /RepeatUntil 冻结合同无效/.test(raw)
       const matched = /^([a-z0-9_]+)\s*:\s*(.+)$/i.exec(raw.trim())
-      setLocalValidationDiagnostics([{
+      setLocalValidationDiagnostics(incompleteRepeatUntil ? [] : [{
         severity: 'error',
         code: matched?.[1] ?? 'candidate_invalid',
         message: matched?.[2]?.trim() || raw
       }])
       setCanvasDirty(true)
       setError(null)
-      setMessage('节点已加到画布。草稿暂未写入，请配好必填项后重试保存。')
+      setMessage(incompleteRepeatUntil
+        ? '循环节点已添加，请点击“添加节点”选择循环动作并配置循环条件。'
+        : '节点已加到画布。草稿暂未写入，请配好必填项后重试保存。')
       return
     }
     setError(errorMessage(syncError))

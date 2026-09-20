@@ -371,6 +371,7 @@
 
 .workflow :global(.workflow-runtime__problem) {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: var(--unilab-space-3);
   padding: 8px var(--unilab-space-4);
@@ -386,7 +387,20 @@
 
 .workflow :global(.workflow-runtime__problem) span {
   flex: 1;
+  min-width: 0;
   white-space: pre-wrap;
+}
+
+@media (max-width: 720px) {
+  .workflow :global(.workflow-runtime__problem) {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .workflow :global(.workflow-runtime__problem) span {
+    flex: 1 1 100%;
+    overflow-wrap: anywhere;
+  }
 }
 
 .workflow :global(.workflow-runtime__problem) button {

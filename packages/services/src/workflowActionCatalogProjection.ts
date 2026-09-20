@@ -39,6 +39,7 @@ export type WorkflowSummaryValue = {
   actionType: string
   nodeType: string
   resourceTemplateUuid: string
+  resourceTemplateName: string
 }
 
 /**
@@ -59,7 +60,8 @@ export function projectWorkflowSummaryValue(
     displayName: stringValue(summary.display_name),
     actionType: stringValue(summary.type),
     nodeType: stringValue(summary.node_type),
-    resourceTemplateUuid: uuidValue(resource.uuid)
+    resourceTemplateUuid: uuidValue(resource.uuid),
+    resourceTemplateName: stringValue(resource.name)
   }
 }
 
@@ -123,6 +125,7 @@ export function projectWorkflowExecutableTemplate(
   return attachWireValue({
     uuid,
     resourceTemplateUuid,
+    resourceTemplateName: summary.resourceTemplateName,
     name: summary.name,
     displayName: summary.displayName,
     actionClass: nullableString(template.class),

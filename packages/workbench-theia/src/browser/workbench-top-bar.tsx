@@ -112,6 +112,15 @@ export function WorkbenchTopBar({
             <span className="codicon codicon-sign-out" aria-hidden="true" />
             {production ? '退出生产模式' : '退出调试模式'}
           </button>
+          <button
+            type="button"
+            aria-label="刷新页面"
+            title="刷新页面"
+            onClick={() => window.location.reload()}
+          >
+            <span className="codicon codicon-refresh" aria-hidden="true" />
+            刷新
+          </button>
         </nav>
       </div>
     </header>

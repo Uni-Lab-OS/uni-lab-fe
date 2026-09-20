@@ -1,4 +1,5 @@
 import { WorkflowRecoveryPanel } from './recovery/WorkflowRecoveryPanel'
+import { WorkflowStationRecovery } from './recovery/WorkflowStationRecovery'
 import { WorkflowButton } from './WorkflowButton'
 import { WorkflowOutput } from './WorkflowOutput'
 import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAuthoringModel'
@@ -111,6 +112,7 @@ export function PersistentWorkflowRuntimePanel({
         </section>
       )}
       <WorkflowRecoveryPanel model={model} />
+      <WorkflowStationRecovery runtime={model.runtime} active={model.active} />
       <WorkflowOutput
         expanded={outputExpanded}
         resizable

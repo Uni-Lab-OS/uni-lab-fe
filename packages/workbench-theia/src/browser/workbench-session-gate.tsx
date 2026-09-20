@@ -210,11 +210,13 @@ export function WorkbenchSessionGate({
       <p>{operationError}</p>
     </div>
   ) : null
-  const entrySupportActions = snapshot.phase === 'failed' ? (
+  const workspaceRestartRequired = snapshot.diagnostic?.code === 'os_start_failed' ||
+    /Theia backend.*(?:退出|exit|stopped)/i.test(operationError ?? '')
+  const entrySupportActions = snapshot.phase === 'failed' || workspaceRestartRequired ? (
     <>
       <button type="button" onClick={() => void start()}>
         <span className="codicon codicon-refresh" aria-hidden="true" />
-        重新校验并启动 OS
+        {workspaceRestartRequired ? '重启 OS' : '重新校验并启动 OS'}
       </button>
       {snapshot.identity?.logPath && onOpenLog ? (
         <button

@@ -72,6 +72,10 @@ export interface WorkflowX6CanvasProps {
     branchIndex: number,
     targetNodeId: string
   ) => WorkflowHandleConnectionResult
+  onConnectConditionPredecessor?: (
+    sourceNodeId: string,
+    conditionNodeId: string
+  ) => WorkflowHandleConnectionResult
   onSelectionChange(selection: {
     nodeUuids: string[]
     edgeUuids: string[]
@@ -79,6 +83,7 @@ export interface WorkflowX6CanvasProps {
   onSetStart?: (nodeId: string) => void
   onToggleBreakpoint?: (nodeId: string) => void
   onToggleGroup?: (nodeId: string) => void
+  onAddNodeToLoop?: (nodeId: string) => void
   onOpenChildWorkflow?: (workflowUuid: string, workflowName: string) => void
 }
 
@@ -104,10 +109,12 @@ export const WorkflowX6Canvas = forwardRef<
   onNodeParentChange,
   onConnectHandles,
   onConnectConditionBranch,
+  onConnectConditionPredecessor,
   onSelectionChange,
   onSetStart,
   onToggleBreakpoint,
   onToggleGroup,
+  onAddNodeToLoop,
   onOpenChildWorkflow
 }, forwardedRef): React.JSX.Element {
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -129,10 +136,12 @@ export const WorkflowX6Canvas = forwardRef<
     onNodeParentChange,
     onConnectHandles,
     onConnectConditionBranch,
+    onConnectConditionPredecessor,
     onSelectionChange,
     onSetStart,
     onToggleBreakpoint,
     onToggleGroup,
+    onAddNodeToLoop,
     onOpenChildWorkflow
   })
   const initialFitPendingRef = useRef(true)
@@ -147,10 +156,12 @@ export const WorkflowX6Canvas = forwardRef<
     onNodeParentChange,
     onConnectHandles,
     onConnectConditionBranch,
+    onConnectConditionPredecessor,
     onSelectionChange,
     onSetStart,
     onToggleBreakpoint,
     onToggleGroup,
+    onAddNodeToLoop,
     onOpenChildWorkflow
   }
   projectionRef.current = { nodes, edges }
@@ -359,15 +370,40 @@ export const WorkflowX6Canvas = forwardRef<
       }))
     }
 
+    // X6 delegates SVG child clicks to the parent node. Capture the loop
+    // action at the DOM boundary so the add affordance remains clickable
+    // across X6 versions and zoom levels.
+    const handleLoopAddClick = (event: Event): void => {
+      const target = event.target as Element | null
+      const action = target?.closest?.('.workflow-x6-loop-add-node')
+      if (!action) return
+      const nodeId = action.closest('.x6-node')?.getAttribute('data-cell-id')
+      if (!nodeId) return
+      event.preventDefault()
+      event.stopPropagation()
+      callbacksRef.current.onAddNodeToLoop?.(nodeId)
+    }
+    root.addEventListener('click', handleLoopAddClick, true)
+
     graph.on('node:click', ({ e, node }) => {
       const data = node.getData<WorkflowNodeData>()
       if (data?.kind === 'reaction_material') return
       callbacksRef.current.onNodeSelect(node.id)
+      const target = e?.target as Element | null
+      if (
+        target?.getAttribute?.('data-selector') === 'loopAddNode' ||
+        target?.getAttribute?.('data-selector') === 'loopAddNodeButton' ||
+        target?.closest?.('.workflow-x6-loop-add-node')
+      ) {
+        e?.stopPropagation?.()
+        callbacksRef.current.onAddNodeToLoop?.(node.id)
+        return
+      }
       if (data?.groupKind !== 'subworkflow') return
       // 点击“N 个内部节点”计数行 → 就地展开/收起；点击卡片其它区域 → 跳转实验操作调试。
-      const target = e?.target as Element | null
+      const countTarget = e?.target as Element | null
       const onCountRow = Boolean(
-        target?.closest?.('.workflow-x6-node__group-count')
+        countTarget?.closest?.('.workflow-x6-node__group-count')
       )
       if (onCountRow) {
         callbacksRef.current.onToggleGroup?.(node.id)
@@ -470,8 +506,10 @@ export const WorkflowX6Canvas = forwardRef<
         refreshDraggedConnections(node)
       })
     })
-    graph.on('node:move', () => {
+    graph.on('node:move', ({ node }) => {
       nodeDraggingRef.current = true
+      // 动作节点上残留的 X6 父子会让“拖这个、另一个跟着走”。
+      detachUnexpectedWorkflowX6EmbedChildren(node)
     })
     graph.on('node:moved', ({ node }) => {
       if (dragFrame !== null) cancelAnimationFrame(dragFrame)
@@ -488,10 +526,11 @@ export const WorkflowX6Canvas = forwardRef<
           return
         }
       }
-      const projectedParentId = data?.parentGroupId ?? ''
-      const liveParentId = node.getParentId() || ''
-      // node:embedded 原子维护 parent_uuid；避免同一次拖动再用旧 graph 写坐标。
-      if (projectedParentId !== liveParentId) return
+      const liveParent = node.getParent()
+      const liveParentIsLoop = liveParent?.isNode() &&
+        liveParent.getData<WorkflowNodeData>()?.controlFlow?.kind === 'repeat_until'
+      // 只在真正改 Loop 归属时交给 node:embedded；条件 parent_uuid 不是 X6 父节点。
+      if (liveParentIsLoop && (data?.parentGroupId ?? '') !== liveParent.id) return
       callbacksRef.current.onNodePositionChange?.(node.id, node.position())
     })
     graph.on('node:embedded', ({ node, currentParent, previousParent }) => {
@@ -501,7 +540,19 @@ export const WorkflowX6Canvas = forwardRef<
       const loopId = currentData?.controlFlow?.kind === 'repeat_until'
         ? currentParent!.id
         : null
-      if (!loopId && previousData?.controlFlow?.kind !== 'repeat_until') return
+      if (!loopId) {
+        if (currentParent?.isNode()) {
+          node.removeFromParent({ ui: false })
+        }
+        if (previousData?.controlFlow?.kind === 'repeat_until') {
+          callbacksRef.current.onNodeParentChange?.(
+            node.id,
+            null,
+            node.position()
+          )
+        }
+        return
+      }
       callbacksRef.current.onNodeParentChange?.(node.id, loopId, node.position())
     })
     graph.on('edge:connected', ({ edge, isNew }) => {
@@ -526,6 +577,11 @@ export const WorkflowX6Canvas = forwardRef<
           Number(conditionPort[1]),
           targetNodeUuid
         )
+        return
+      }
+      const targetNode = projectionRef.current.nodes.find(node => node.id === targetNodeUuid)
+      if (sourcePortId === WORKFLOW_X6_OUTPUT_PORT_ID && targetNode?.data.controlFlow?.kind === 'condition') {
+        onConnectConditionPredecessor?.(sourceNodeUuid, targetNodeUuid)
         return
       }
       if (sourcePortId !== WORKFLOW_X6_OUTPUT_PORT_ID) return
@@ -568,6 +624,7 @@ export const WorkflowX6Canvas = forwardRef<
     )
     cleanup = () => {
       if (dragFrame !== null) cancelAnimationFrame(dragFrame)
+      root.removeEventListener('click', handleLoopAddClick, true)
       resize.disconnect()
       graph.dispose()
       graphRef.current = null
@@ -900,6 +957,32 @@ function syncWorkflowX6Projection(
   })
 }
 
+/**
+ * X6 embedding 只服务 Loop 容器。条件分支的 parent_uuid 是语义分组，
+ * 不能变成拖动父子，否则拖一个动作会把另一个动作一起带走。
+ */
+export function workflowX6DesiredEmbedParentId(
+  node: WorkflowX6Node,
+  nodesById: ReadonlyMap<string, WorkflowX6Node>
+): string | null {
+  const parentId = node.data.parentGroupId
+  if (!parentId) return null
+  return nodesById.get(parentId)?.data.controlFlow?.kind === 'repeat_until'
+    ? parentId
+    : null
+}
+
+function detachUnexpectedWorkflowX6EmbedChildren(
+  node: import('@antv/x6').Node
+): void {
+  if (node.getData<WorkflowNodeData>()?.controlFlow?.kind === 'repeat_until') {
+    return
+  }
+  for (const child of [...node.getChildren()]) {
+    if (child.isNode()) child.removeFromParent({ ui: false })
+  }
+}
+
 function syncWorkflowX6LoopEmbeddings(
   graph: Graph,
   nodes: readonly WorkflowX6Node[]
@@ -908,25 +991,26 @@ function syncWorkflowX6LoopEmbeddings(
   for (const projection of nodes) {
     const cell = graph.getCellById(projection.id)
     if (!cell?.isNode()) continue
-    const desiredParentId = projection.data.parentGroupId
-    const desiredParentProjection = desiredParentId
-      ? projectionById.get(desiredParentId)
-      : undefined
-    const desiredParent = desiredParentId &&
-      desiredParentProjection?.data.controlFlow?.kind === 'repeat_until'
+    const desiredParentId = workflowX6DesiredEmbedParentId(
+      projection,
+      projectionById
+    )
+    const desiredParent = desiredParentId
       ? graph.getCellById(desiredParentId)
       : null
     const currentParent = cell.getParent()
     if (desiredParent?.isNode()) {
       if (currentParent?.id !== desiredParent.id) {
+        if (currentParent?.isNode()) {
+          cell.removeFromParent({ ui: false })
+        }
         desiredParent.addChild(cell, { ui: false })
       }
       desiredParent.setZIndex(0, { ui: false })
       cell.setZIndex(1, { ui: false })
       continue
     }
-    if (currentParent?.isNode() &&
-        currentParent.getData<WorkflowNodeData>()?.controlFlow?.kind === 'repeat_until') {
+    if (currentParent?.isNode()) {
       cell.removeFromParent({ ui: false })
     }
   }

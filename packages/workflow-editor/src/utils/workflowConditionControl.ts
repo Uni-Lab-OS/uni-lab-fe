@@ -40,14 +40,24 @@ function normalizeBranches(values: readonly WorkflowConditionBranch[]): Workflow
     if (seeded[0]!.condition == null) seeded[0]!.condition = { lit: true }
     seeded.push({ label: 'else', condition: null, node_uuids: [], entry_node_uuids: [], exit_node_uuids: [] })
   }
+  const claimed = new Set<string>()
   return seeded.map((branch, index) => {
-    const members = strings(branch.node_uuids)
+    // Repair older drafts where the same action was stored in multiple
+    // branches. The first branch keeps ownership; later branches drop it.
+    const members = strings(branch.node_uuids).filter((uuid) => {
+      if (claimed.has(uuid)) return false
+      claimed.add(uuid)
+      return true
+    })
     return {
       ...branch,
       label: branchLabel(index, values.length),
       condition: index === seeded.length - 1 ? null : record(branch.condition),
       node_uuids: members,
-      entry_node_uuids: members.length ? [members[0]!] : [],
+      // A branch handle is a fan-out point: every member is an entry target.
+      // Keep the complete list so the canvas can render and reconnect all
+      // actions attached to the IF/ELIF/ELSE port.
+      entry_node_uuids: members,
       exit_node_uuids: members.length ? [members[members.length - 1]!] : []
     }
   })
@@ -108,9 +118,15 @@ export function updateWorkflowConditionBranch(
   index: number,
   patch: Partial<WorkflowConditionBranch>
 ): WorkflowConditionBranch[] {
-  return normalizeBranches(branches.map((branch, branchIndex) =>
-    branchIndex === index ? { ...branch, ...patch } : branch
-  ))
+  const requested = patch.node_uuids
+  return normalizeBranches(branches.map((branch, branchIndex) => {
+    if (branchIndex === index) return { ...branch, ...patch }
+    if (!requested) return { ...branch }
+    return {
+      ...branch,
+      node_uuids: branch.node_uuids.filter((uuid) => !requested.includes(uuid))
+    }
+  }))
 }
 
 export function updateWorkflowConditionParam(
@@ -181,4 +197,25 @@ export function connectWorkflowConditionBranch(
     conditionUuid,
     updateWorkflowConditionParam(node.param, branches)
   )
+}
+
+/** 将普通动作接到条件区域的前置执行链。 */
+export function connectWorkflowConditionPredecessor(
+  graph: WorkflowAuthoringGraph,
+  conditionUuid: string,
+  sourceNodeUuid: string
+): WorkflowAuthoringGraph {
+  const condition = graph.nodes.find((node) => node.uuid === conditionUuid)
+  const source = graph.nodes.find((node) => node.uuid === sourceNodeUuid)
+  if (!condition || !source) throw new Error('条件节点或前置动作不存在')
+  if (condition.type !== 'condition') throw new Error('目标节点不是条件节点')
+  if (sourceNodeUuid === conditionUuid) throw new Error('条件节点不能连接自身')
+  const param = record(condition.param)
+  const predecessors = strings(param.predecessor_node_uuids)
+  return {
+    ...graph,
+    nodes: graph.nodes.map((node) => node.uuid === conditionUuid
+      ? { ...node, param: { ...param, predecessor_node_uuids: [...new Set([...predecessors, sourceNodeUuid])] } }
+      : node)
+  }
 }

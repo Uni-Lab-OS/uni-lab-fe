@@ -113,7 +113,7 @@ export function deviceActionReadiness({
         : device.executionOccupancies === null &&
             action.busyStatusKnown === false
           ? '当前服务未提供占用明细；提交时由调度器（Scheduler）进行权威准入'
-          : '参数将提交为正式工作流任务（WorkflowTask）和作业（Job）'
+          : ''
   }
 }
 
@@ -273,7 +273,9 @@ export function DeviceActionAvailability({
   const terminal = state.kind === 'succeeded' ||
     state.kind === 'failed' ||
     state.kind === 'canceled'
-  const runnable = ready || terminal
+  const submitAllowedUnavailable = state.kind === 'unavailable' &&
+    (state.reason === 'template_unmatched' || state.reason === 'contract_invalid')
+  const runnable = ready || terminal || submitAllowedUnavailable
   const log = deviceActionExecutionLog(state)
   const taskUuid = 'taskUuid' in state ? state.taskUuid : null
   useEffect(() => {
@@ -295,7 +297,9 @@ export function DeviceActionAvailability({
           onClick={onRun}
         >
           {state.kind === 'unavailable'
-            ? disabledRunLabel ?? unavailableRunLabel(state.reason)
+            ? submitAllowedUnavailable
+              ? '运行此动作'
+              : disabledRunLabel ?? unavailableRunLabel(state.reason)
             : state.kind === 'submitting'
               ? '正在创建正式任务…'
               : state.kind === 'error' && state.retryable
@@ -315,7 +319,7 @@ export function DeviceActionAvailability({
             取消任务
           </button>
         ) : null}
-        <span>{userFacingActionMessage(state.message)}</span>
+        {state.message ? <span>{userFacingActionMessage(state.message)}</span> : null}
       </div>
       {'taskUuid' in state ? (
         <div className={deviceClass('edge-device__execution')} aria-live="polite">

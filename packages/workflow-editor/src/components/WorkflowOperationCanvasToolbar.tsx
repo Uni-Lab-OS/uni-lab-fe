@@ -203,18 +203,14 @@ function publishToolbarState({
   | 'workflowStartBusy'
 >): ToolbarState {
   const disabled = Boolean(
-    !aggregate?.candidate || dirty || busy || runtimeBusy ||
+    busy || runtimeBusy ||
     workflowStartBusy || fullSourceDiff || pendingMode || remoteConflict
   )
-  const reason = !aggregate?.candidate
-    ? '当前没有可发布的工作流修改'
-    : dirty
-      ? '请先保存当前工作流修改'
-      : busy || runtimeBusy || workflowStartBusy
+  const reason = busy || runtimeBusy || workflowStartBusy
         ? '正在处理工作流，请稍候再发布'
         : fullSourceDiff || pendingMode || remoteConflict
           ? '请先完成当前工作流确认操作'
-          : '当前工作流暂时不能发布'
+          : '点击发布前会自动保存并校验当前工作流'
   return { disabled, reason }
 }
 

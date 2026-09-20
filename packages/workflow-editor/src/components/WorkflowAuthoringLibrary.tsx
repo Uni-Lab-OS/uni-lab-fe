@@ -128,7 +128,9 @@ export function WorkflowAuthoringLibrary({
           : '工作流'}</p>
       ) : visibleWorkflows.map((workflow) => {
         const active = workflow.uuid === workflowUuid
-        const switchDisabled = !active && (authoringDirty || !onSelectWorkflow)
+        // 工作流切换本身不应被旧的本地 dirty 标记阻塞；画布变更已通过
+        // 自动同步/保存流程处理，用户仍可在切换前主动保存。
+        const switchDisabled = !active && !onSelectWorkflow
         return (
           <WorkflowButton
             key={workflow.uuid}
@@ -137,9 +139,7 @@ export function WorkflowAuthoringLibrary({
             className={active ? 'is-active' : undefined}
             aria-current={active ? 'page' : undefined}
             disabled={switchDisabled}
-            disabledReason={authoringDirty
-              ? '请先保存当前工作流修改'
-              : '当前工作区固定为此工作流'}
+            disabledReason="当前工作区固定为此工作流"
             onClick={() => {
               if (!active) onSelectWorkflow?.(workflow.uuid, workflow.name)
             }}
@@ -199,7 +199,7 @@ export function WorkflowAuthoringLibrary({
                 <input
                   type="search"
                   value={query}
-                  placeholder="搜索操作名称 / 编号"
+                  placeholder="搜索操作名称"
                   onChange={(event) => setQuery(event.target.value)}
                 />
               </label>

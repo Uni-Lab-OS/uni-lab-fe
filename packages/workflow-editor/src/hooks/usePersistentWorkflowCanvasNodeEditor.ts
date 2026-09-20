@@ -44,7 +44,8 @@ import type {
 import { configureManualConfirmation } from '../utils/workflowManualConfirmation'
 import {
   applyWorkflowConditionParam,
-  connectWorkflowConditionBranch
+  connectWorkflowConditionBranch,
+  connectWorkflowConditionPredecessor
 } from '../utils/workflowConditionControl'
 import { applyWorkflowLoopParam, moveWorkflowNodeToLoop } from '../utils/workflowLoopControl'
 import { useWorkflowCanvasDeletion } from './useWorkflowCanvasDeletion'
@@ -237,7 +238,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
   const selectedNodeIsInternal = graph?.nodes.some((node) => {
     if (node.uuid !== selectedNodeUuid || typeof node.parent_uuid !== 'string') return false
     const parent = graph.nodes.find((item) => item.uuid === node.parent_uuid)
-    return String(parent?.type || '') !== 'repeat_until'
+    return !['condition', 'repeat_until'].includes(String(parent?.type || ''))
   }) ?? false
   const selectedMaterialSourceProjection = useMemo(() => {
     if (
@@ -648,7 +649,27 @@ export function usePersistentWorkflowCanvasNodeEditor(
     }
   }
 
-  /** 更新画布坐标；纯布局调整不标记源码待保存。 */
+  const connectConditionPredecessorHandle = (
+    sourceNodeUuid: string,
+    conditionNodeUuid: string
+  ): WorkflowHandleConnectionResult => {
+    if (!graph || !canvasMutationEnabled) return { accepted: false, reason: '当前画布不可编辑' }
+    try {
+      const next = connectWorkflowConditionPredecessor(graph, conditionNodeUuid, sourceNodeUuid)
+      setGraph(next)
+      setCanvasDirty(true)
+      setError(null)
+      setMessage('已连接条件节点前置动作；正在同步 OS…')
+      syncCanvasMutation?.(next, 'connect')
+      return { accepted: true }
+    } catch (connectError) {
+      const reason = errorMessage(connectError)
+      setError(reason)
+      return { accepted: false, reason }
+    }
+  }
+
+  /** 更新画布坐标并立即同步，避免刷新后回退到旧布局。 */
   const moveCanvasNode = (
     nodeUuid: string,
     position: WorkflowCanvasPoint
@@ -657,6 +678,8 @@ export function usePersistentWorkflowCanvasNodeEditor(
     try {
       const next = updatePersistentAuthoringNodePosition(graph, nodeUuid, position)
       setGraph(next)
+      setCanvasDirty(true)
+      syncCanvasMutation?.(next, 'node_move')
     } catch (moveError) {
       setError(errorMessage(moveError))
     }
@@ -723,6 +746,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
     bindTypedFieldToWorkflowInput,
     connectTypedHandles,
     connectConditionBranchHandle,
+    connectConditionPredecessorHandle,
     deleteCanvasElements,
     moveCanvasNode,
     moveCanvasNodes,

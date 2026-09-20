@@ -20,8 +20,12 @@ const runtimePanel = document.querySelector('#runtime-panel')
 const runtimeIndicator = document.querySelector('#runtime-indicator')
 const runtimeTitle = document.querySelector('#runtime-title')
 const runtimeDetail = document.querySelector('#runtime-detail')
+const runtimeProgress = document.querySelector('#runtime-progress')
+const runtimeProgressBar = document.querySelector('#runtime-progress-bar')
+const runtimeProgressLabel = document.querySelector('#runtime-progress-label')
 const installRuntimeButton = document.querySelector('#install-runtime')
 const chooseRuntimeButton = document.querySelector('#choose-runtime')
+const openRuntimeLogButton = document.querySelector('#open-runtime-log')
 const runtimeSelector = document.querySelector('#runtime-selector')
 const runtimeSelectorLabel = document.querySelector('#runtime-selector-label')
 
@@ -40,15 +44,22 @@ const entryModeBootstrap = bootstrapSearch.get('entryMode') === 'production'
 let requestPending = switchingBootstrap || selectDirectoryBootstrap
 let bootstrappedDirectorySelection = false
 let runtimeRequestPending = false
+let continueAfterRuntimeInstall = false
+let runtimeProgressSample = null
 let runtimeSnapshot = {
   phase: 'unavailable',
   bundled: false,
+  delivery: null,
   managed: false,
   runtimeVersion: null,
   platform: null,
   environmentPath: null,
   availableEnvironments: [],
-  error: null
+  error: null,
+  previousRuntimeVersion: null,
+  previousEnvironmentPath: null,
+  errorCode: null,
+  errorLogPath: null
 }
 
 if (entryModeBootstrap === 'production') {
@@ -129,15 +140,34 @@ installRuntimeButton.addEventListener('click', () => {
   if (!runtimeApi || runtimeRequestPending
     || runtimeSnapshot.phase === 'installing') return
   runtimeRequestPending = true
+  continueAfterRuntimeInstall = true
   render()
   void runtimeApi.install().then(next => {
     runtimeSnapshot = next
+    if (continueAfterRuntimeInstall && next.phase === 'ready') {
+      continueAfterRuntimeInstall = false
+      render()
+      continueIntoWorkspace()
+      return
+    }
   }).catch(error => {
     runtimeSnapshot = {
       ...runtimeSnapshot,
       phase: 'failed',
       error: messageOf(error)
     }
+  }).finally(() => {
+    runtimeRequestPending = false
+    render()
+  })
+})
+
+openRuntimeLogButton.addEventListener('click', () => {
+  if (!runtimeApi || runtimeRequestPending || !runtimeSnapshot.errorLogPath) return
+  runtimeRequestPending = true
+  render()
+  void runtimeApi.openDiagnosticLog().catch(error => {
+    runtimeSnapshot = { ...runtimeSnapshot, error: messageOf(error) }
   }).finally(() => {
     runtimeRequestPending = false
     render()
@@ -202,8 +232,13 @@ function handleBootstrapSnapshot(next) {
 
 if (runtimeApi) {
   runtimeApi.onSnapshot(next => {
+    const wasInstalling = runtimeSnapshot.phase === 'installing'
     runtimeSnapshot = next
     render()
+    if (continueAfterRuntimeInstall && wasInstalling && next.phase === 'ready') {
+      continueAfterRuntimeInstall = false
+      continueIntoWorkspace()
+    }
   })
   runtimeApi.getSnapshot().then(next => {
     runtimeSnapshot = next
@@ -242,6 +277,7 @@ function render() {
   const runtimeBlocked = runtimeRequestPending || (
     runtimeSnapshot.bundled && [
       'not-installed',
+      'upgrade-required',
       'installing',
       'failed'
     ].includes(runtimeSnapshot.phase)
@@ -274,13 +310,23 @@ function render() {
 }
 
 function renderRuntime() {
+  const downloadsRuntime = runtimeSnapshot.delivery === 'download'
   runtimePanel.hidden = runtimeSnapshot.phase === 'unavailable'
   runtimePanel.dataset.phase = runtimeSnapshot.phase
   runtimeIndicator.className = `runtime-panel__indicator is-${runtimeSnapshot.phase}`
   installRuntimeButton.hidden = !runtimeSnapshot.bundled
-    || !['not-installed', 'failed'].includes(runtimeSnapshot.phase)
+    || ![
+      'not-installed',
+      'upgrade-required',
+      'failed'
+    ].includes(runtimeSnapshot.phase)
+  installRuntimeButton.textContent = runtimeSnapshot.phase === 'upgrade-required'
+    ? `${downloadsRuntime ? '下载并升级到' : '升级到'} Runtime ${runtimeSnapshot.runtimeVersion ?? ''}`
+    : downloadsRuntime ? '下载并安装 Runtime' : '安装内置 Runtime'
   installRuntimeButton.disabled = runtimeRequestPending
     || runtimeSnapshot.phase === 'installing'
+  openRuntimeLogButton.hidden = !runtimeSnapshot.errorLogPath
+  openRuntimeLogButton.disabled = runtimeRequestPending
   chooseRuntimeButton.disabled = runtimeRequestPending
     || runtimeSnapshot.phase === 'installing'
   const environments = runtimeSnapshot.availableEnvironments ?? []
@@ -309,8 +355,20 @@ function renderRuntime() {
     return
   }
   if (runtimeSnapshot.phase === 'installing') {
-    runtimeTitle.textContent = '正在安装内置 Runtime'
-    runtimeDetail.textContent = '离线解包并执行 unilab -h 验证，请勿退出应用…'
+    runtimeTitle.textContent = downloadsRuntime
+      ? '正在下载并安装 Runtime'
+      : '正在安装内置 Runtime'
+    runtimeDetail.textContent = downloadsRuntime
+      ? '下载完成后会校验 SHA-256、静默安装并执行 unilab -h 验证，请勿退出应用…'
+      : '离线解包并执行 unilab -h 验证，请勿退出应用…'
+    renderRuntimeProgress(runtimeSnapshot.progress)
+    return
+  }
+  runtimeProgress.hidden = true
+  if (runtimeSnapshot.phase === 'upgrade-required') {
+    runtimeTitle.textContent = '需要升级本地 Runtime'
+    runtimeDetail.textContent = runtimeSnapshot.error
+      ?? `需要安装内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}。`
     return
   }
   if (runtimeSnapshot.phase === 'failed') {
@@ -324,7 +382,54 @@ function renderRuntime() {
     return
   }
   runtimeTitle.textContent = '没有检测到 UniLab 环境'
-  runtimeDetail.textContent = `可安装应用内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}，无需另行配置 Conda。`
+  runtimeDetail.textContent = downloadsRuntime
+    ? `可联网下载 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}，校验通过后安装，无需另行配置 Conda。`
+    : `可安装应用内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}，无需另行配置 Conda。`
+}
+
+function renderRuntimeProgress(progress) {
+  if (!progress || progress.stage === 'preparing') {
+    runtimeProgress.hidden = true
+    return
+  }
+  runtimeProgress.hidden = false
+  const percentage = Number.isFinite(progress.percentage) ? progress.percentage : null
+  runtimeProgressBar.style.width = `${percentage ?? 0}%`
+  runtimeProgressBar.dataset.stage = progress.stage
+  const downloaded = formatBytes(progress.downloadedBytes)
+  const total = formatBytes(progress.totalBytes)
+  const size = downloaded && total ? `${downloaded} / ${total}` : downloaded ?? '处理中…'
+  const speed = progress.stage === 'downloading' ? runtimeDownloadSpeed(progress.downloadedBytes) : null
+  runtimeProgressLabel.textContent = percentage === null
+    ? `${progressStageLabel(progress.stage)} · ${size}${speed ? ` · ${speed}` : ''}`
+    : `${progressStageLabel(progress.stage)} · ${percentage}% · ${size}${speed ? ` · ${speed}` : ''}`
+}
+
+function runtimeDownloadSpeed(downloadedBytes) {
+  if (!Number.isFinite(downloadedBytes)) return null
+  const now = performance.now()
+  const previous = runtimeProgressSample
+  runtimeProgressSample = { bytes: downloadedBytes, at: now }
+  if (!previous || now <= previous.at || downloadedBytes <= previous.bytes) return null
+  const bytesPerSecond = (downloadedBytes - previous.bytes) / ((now - previous.at) / 1000)
+  if (!Number.isFinite(bytesPerSecond) || bytesPerSecond < 1024) return `${Math.round(bytesPerSecond)} B/s`
+  if (bytesPerSecond < 1024 * 1024) return `${(bytesPerSecond / 1024).toFixed(0)} KB/s`
+  return `${(bytesPerSecond / 1024 / 1024).toFixed(1)} MB/s`
+}
+
+function progressStageLabel(stage) {
+  return {
+    downloading: '下载中',
+    verifying: '校验中',
+    installing: '安装中',
+    validating: '验证中'
+  }[stage] ?? '处理中'
+}
+
+function formatBytes(value) {
+  if (!Number.isFinite(value) || value < 0) return null
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`
+  return `${(value / 1024 / 1024).toFixed(1)} MB`
 }
 
 function renderWorkspaceOptions(recentWorkspaces) {
@@ -366,6 +471,19 @@ function openTypedWorkspace() {
     () => workspaceApi?.openPath(typedWorkspace, selectedEntryMode()),
     '正在打开工作区',
     '校验设备包目录并启动工作区服务…'
+  )
+}
+
+function continueIntoWorkspace() {
+  const selectedWorkspace = workspaceSelect.value
+  const typedWorkspace = workspacePathInput.value.trim()
+  if (!selectedWorkspace && !typedWorkspace) return
+  void runOperation(
+    () => typedWorkspace
+      ? workspaceApi?.openPath(typedWorkspace, selectedEntryMode())
+      : workspaceApi?.openRecent(selectedWorkspace, selectedEntryMode()),
+    'Runtime 已更新，正在进入工作台',
+    'Runtime 校验完成，继续启动工作区服务…'
   )
 }
 

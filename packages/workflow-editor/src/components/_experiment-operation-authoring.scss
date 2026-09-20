@@ -603,6 +603,8 @@
   :global(.workflow-condition-editor label) { display: grid; gap: 4px; color: var(--unilab-color-text-muted); font-size: 8px; }
   :global(.workflow-condition-editor input), :global(.workflow-condition-editor select) { min-width: 0; padding: 6px 7px; border: 1px solid var(--unilab-color-border); border-radius: 5px; background: var(--unilab-color-surface); font-size: 9px; }
   :global(.workflow-condition-editor__members) select { min-height: 74px; }
+  :global(.workflow-condition-editor__connected-members) { min-height: 74px; max-height: 120px; overflow: auto; display: grid; align-content: start; gap: 2px; padding: 6px 7px; border: 1px solid var(--unilab-color-border); border-radius: 5px; background: #fff; font-size: 9px; }
+  :global(.workflow-condition-editor__connected-members) span { display: block; padding: 2px 3px; color: var(--unilab-color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   :global(.workflow-condition-editor p), :global(.workflow-condition-editor label small) { margin: 0; color: var(--unilab-color-text-muted); font-size: 8px; line-height: 1.4; }
 
   :global(.workflow-loop-editor) { display: grid; gap: 10px; margin: 12px; }
