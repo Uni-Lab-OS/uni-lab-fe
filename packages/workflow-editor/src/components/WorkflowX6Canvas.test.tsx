@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   WorkflowX6Canvas,
+  workflowX6DesiredEmbedParentId,
   workflowX6HandleConnectionCandidates,
   workflowX6ProjectionDiff,
   type WorkflowX6Node
@@ -81,6 +82,70 @@ describe('WorkflowX6Canvas scale policy', () => {
       .toEqual({ width: 240, height: 108 })
   })
 
+  it('embeds only repeat_until parents so dragging an action cannot move siblings', () => {
+    const loop = {
+      ...workflowNode('loop'),
+      data: {
+        ...workflowNode('loop').data,
+        kind: 'repeat_until',
+        controlFlow: { kind: 'repeat_until' as const }
+      }
+    }
+    const condition = {
+      ...workflowNode('condition'),
+      data: {
+        ...workflowNode('condition').data,
+        kind: 'condition',
+        controlFlow: { kind: 'condition' as const, branchCount: 2 }
+      }
+    }
+    const takePhoto = {
+      ...workflowNode('take_photo'),
+      data: {
+        ...workflowNode('take_photo').data,
+        parentGroupId: 'run_stirring'
+      }
+    }
+    const branchMember = {
+      ...workflowNode('take_photo_2'),
+      data: {
+        ...workflowNode('take_photo_2').data,
+        parentGroupId: 'condition'
+      }
+    }
+    const loopMember = {
+      ...workflowNode('dose'),
+      data: {
+        ...workflowNode('dose').data,
+        parentGroupId: 'loop'
+      }
+    }
+    const nodesById = new Map([
+      [loop.id, loop],
+      [condition.id, condition],
+      [takePhoto.id, takePhoto],
+      [branchMember.id, branchMember],
+      [loopMember.id, loopMember],
+      [workflowNode('run_stirring').id, workflowNode('run_stirring')]
+    ])
+
+    expect(workflowX6DesiredEmbedParentId(loopMember, nodesById)).toBe('loop')
+    expect(workflowX6DesiredEmbedParentId(branchMember, nodesById)).toBeNull()
+    expect(workflowX6DesiredEmbedParentId(takePhoto, nodesById)).toBeNull()
+
+    const source = readFileSync(
+      new URL('./WorkflowX6Canvas.tsx', import.meta.url),
+      'utf8'
+    )
+    expect(source).toContain('detachUnexpectedWorkflowX6EmbedChildren')
+    expect(source).toMatch(
+      /if \(currentParent\?\.isNode\(\)\) \{\s*cell\.removeFromParent\(\{ ui: false \}\)/
+    )
+    expect(source).not.toContain(
+      "currentParent.getData<WorkflowNodeData>()?.controlFlow?.kind === 'repeat_until')"
+    )
+  })
+
   it('renders a Dify-style loop container without LOOP/EXIT handles', () => {
     const metadata = workflowX6NodeMetadata({
       ...workflowNode('repeat'),
@@ -93,7 +158,7 @@ describe('WorkflowX6Canvas scale policy', () => {
     expect(metadata.markup).toEqual(expect.arrayContaining([
       expect.objectContaining({ textContent: '循环' }),
       expect.objectContaining({ textContent: '最多 6 次' }),
-      expect.objectContaining({ textContent: '将动作节点拖入循环体' })
+      expect.objectContaining({ textContent: '点击“添加节点”选择循环动作' })
     ]))
     expect(metadata.markup).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ textContent: 'LOOP' }),

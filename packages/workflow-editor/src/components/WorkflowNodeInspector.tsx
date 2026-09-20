@@ -14,12 +14,16 @@ export function WorkflowNodeInspector({
   model,
   definitionKind = 'workflow',
   workflowName,
-  debugLayout = false
+  debugLayout = false,
+  loopAddNodeRequest,
+  onLoopAddNodeRequestHandled
 }: {
   model: PersistentWorkflowAuthoringModel
   definitionKind?: WorkflowDefinitionKind
   workflowName?: string
   debugLayout?: boolean
+  loopAddNodeRequest?: string | null
+  onLoopAddNodeRequestHandled?: () => void
 }): React.JSX.Element {
   const [inspectorPane, setInspectorPane] = useState<
     'parameters' | 'mapping' | 'inputs' | 'outputs' | 'runtime'
@@ -233,6 +237,9 @@ export function WorkflowNodeInspector({
               nodeUuid={selectedNodeUuid}
               editable={!busy && canvasMutationEnabled}
               onChange={(param) => model.updateControlNodeParam(selectedNodeUuid, param)}
+              onAddNode={() => undefined}
+              openAddNodeRequest={loopAddNodeRequest === selectedNodeUuid}
+              onAddNodeRequestHandled={onLoopAddNodeRequestHandled}
             />
           )}
 

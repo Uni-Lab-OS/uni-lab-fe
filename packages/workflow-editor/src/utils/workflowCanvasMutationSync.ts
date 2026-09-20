@@ -277,7 +277,7 @@ export function enqueueCanvasMutationSync<LocalState extends {
       setCanvasDirty(true)
       setError(null)
       setMessage(incompleteRepeatUntil
-        ? '循环节点已添加，请将动作节点拖入循环体并配置循环条件。'
+        ? '循环节点已添加，请点击“添加节点”选择循环动作并配置循环条件。'
         : '节点已加到画布。草稿暂未写入，请配好必填项后重试保存。')
       return
     }

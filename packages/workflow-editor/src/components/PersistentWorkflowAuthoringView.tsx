@@ -158,6 +158,7 @@ export function PersistentWorkflowAuthoringView({
     nodeId: string
     nonce: number
   } | null>(null)
+  const [loopAddNodeRequest, setLoopAddNodeRequest] = useState<string | null>(null)
   const authoringViewRef = useRef<HTMLDivElement | null>(null)
   const canvasBodyRef = useRef<HTMLDivElement | null>(null)
   const graphStageRef = useRef<HTMLDivElement | null>(null)
@@ -206,6 +207,7 @@ export function PersistentWorkflowAuthoringView({
     setCanvasRevealRequest(null)
     setPaletteDragPreview(null)
     setCreateWorkflowOpen(false)
+    setLoopAddNodeRequest(null)
     setDismissedDiagnosticKeys(new Set())
     restoredNavigationRef.current = null
   }, [workflowUuid])
@@ -999,7 +1001,10 @@ export function PersistentWorkflowAuthoringView({
                     onConnectHandles={connectTypedHandles}
                     onConnectConditionBranch={connectConditionBranchHandle}
                     onConnectConditionPredecessor={connectConditionPredecessorHandle}
-                    onAddNodeToLoop={() => setNodePaletteOpen(true)}
+                    onAddNodeToLoop={(nodeId) => {
+                      handleCanvasNodeSelect(nodeId)
+                      setLoopAddNodeRequest(nodeId)
+                    }}
                     onDeleteRequest={deleteCanvasElements}
                     onOpenChildWorkflow={onOpenChildWorkflow
                       ? (childWorkflowUuid, childWorkflowName) => {
@@ -1034,7 +1039,14 @@ export function PersistentWorkflowAuthoringView({
                 {mode === 'canvas' && !compactCanvas && !hideCanvasSidebars && (
                   <>
                     <div className="persistent-authoring__inspector-resize-handle" role="separator" aria-label="调整参数面板宽度" onPointerDown={handleInspectorResize} />
-                    <WorkflowNodeInspector model={model} definitionKind={definitionKind} workflowName={workflowName} debugLayout={debugLayout} />
+                    <WorkflowNodeInspector
+                      model={model}
+                      definitionKind={definitionKind}
+                      workflowName={workflowName}
+                      debugLayout={debugLayout}
+                      loopAddNodeRequest={loopAddNodeRequest}
+                      onLoopAddNodeRequestHandled={() => setLoopAddNodeRequest(null)}
+                    />
                   </>
                 )}
               </>

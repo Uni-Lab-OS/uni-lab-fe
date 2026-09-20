@@ -1,5 +1,5 @@
 import type { WorkflowAuthoringGraph } from '@unilab/services'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import {
   projectWorkflowLoopEditor,
@@ -54,17 +54,26 @@ export function WorkflowLoopNodeEditor({
   nodeUuid,
   editable,
   onChange,
-  onAddNode
+  onAddNode,
+  openAddNodeRequest,
+  onAddNodeRequestHandled
 }: {
   graph: WorkflowAuthoringGraph
   nodeUuid: string
   editable: boolean
   onChange(param: Record<string, unknown>): void
   onAddNode?: () => void
+  openAddNodeRequest?: boolean
+  onAddNodeRequestHandled?: () => void
 }): React.JSX.Element {
   const [addNodeOpen, setAddNodeOpen] = useState(false)
   const [nodeToAdd, setNodeToAdd] = useState('')
   const editor = projectWorkflowLoopEditor(graph, nodeUuid)
+  useEffect(() => {
+    if (!openAddNodeRequest) return
+    setAddNodeOpen(true)
+    onAddNodeRequestHandled?.()
+  }, [onAddNodeRequestHandled, openAddNodeRequest])
   const until = loopUntilForm(editor.until)
   const commit = (patch: Parameters<typeof updateWorkflowLoopParam>[1]): void => {
     onChange(updateWorkflowLoopParam(graph.nodes.find(n => n.uuid === nodeUuid)?.param, patch))
