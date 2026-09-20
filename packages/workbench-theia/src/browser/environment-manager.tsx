@@ -376,6 +376,27 @@ export function EnvironmentManager({
               ['来源', runtimeInstallation.managed ? '应用内置' : '现有环境'],
               ['环境', runtimeInstallation.environmentPath ?? '—']
             ]}
+            content={runtimeInstallation.availableEnvironments.length > 1 ? (
+              <label className="unilab-environment-manager__runtime-choice">
+                <span>选择环境</span>
+                <select
+                  aria-label="选择 UniLab 环境"
+                  value={runtimeInstallation.environmentPath ?? ''}
+                  disabled={Boolean(busyAction)}
+                  onChange={event => void run('select-runtime', async () => {
+                    setRuntimeInstallation(
+                      await managedRuntimeApi.selectEnvironment(event.currentTarget.value)
+                    )
+                  })}
+                >
+                  {runtimeInstallation.availableEnvironments.map(environment => (
+                    <option key={environment.path} value={environment.path}>
+                      {environment.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : undefined}
             actions={runtimeInstallation.bundled && [
               'not-installed',
               'failed'
