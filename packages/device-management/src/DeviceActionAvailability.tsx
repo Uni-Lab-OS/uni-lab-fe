@@ -113,7 +113,7 @@ export function deviceActionReadiness({
         : device.executionOccupancies === null &&
             action.busyStatusKnown === false
           ? '当前服务未提供占用明细；提交时由调度器（Scheduler）进行权威准入'
-          : '参数将提交为正式工作流任务（WorkflowTask）和作业（Job）'
+          : ''
   }
 }
 
@@ -319,7 +319,7 @@ export function DeviceActionAvailability({
             取消任务
           </button>
         ) : null}
-        <span>{userFacingActionMessage(state.message)}</span>
+        {state.message ? <span>{userFacingActionMessage(state.message)}</span> : null}
       </div>
       {'taskUuid' in state ? (
         <div className={deviceClass('edge-device__execution')} aria-live="polite">
