@@ -1151,7 +1151,8 @@ export function usePersistentWorkflowAuthoring({
     }
     const candidate = aggregate?.candidate
     if (!candidate) {
-      setError('当前没有可应用的修改')
+      saveDraft()
+      setMessage('正在保存并校验当前工作流；完成后将继续发布')
       return
     }
     const draft = aggregate?.draft
