@@ -472,6 +472,8 @@
 
 .unilab-workbench-session-diagnostic p {
   margin: 6px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .unilab-workbench-session-actions {

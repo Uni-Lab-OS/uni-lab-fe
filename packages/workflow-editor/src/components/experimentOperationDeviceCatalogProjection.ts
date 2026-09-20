@@ -118,8 +118,16 @@ function matchingTemplates(
   action: DeviceActionDeclaration,
   templates: readonly WorkflowActionNodeTemplate[]
 ): WorkflowActionNodeTemplate[] {
-  return templates.filter(template =>
+  const exact = templates.filter(template =>
     template.resourceTemplateUuid === device.resourceTemplateUuid &&
+    template.name === action.actionName &&
+    template.actionType === action.typeName
+  )
+  if (exact.length > 0) return exact
+  // 某些设备声明只返回动作身份，资源模板 UUID 由设备实例别名承载。
+  // 在严格资源匹配失败时，按动作名和类型做唯一回退，避免人工确认
+  // 弹窗显示设备却无法取得其动作。
+  return templates.filter(template =>
     template.name === action.actionName &&
     template.actionType === action.typeName
   )

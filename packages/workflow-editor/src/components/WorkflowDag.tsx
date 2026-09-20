@@ -109,6 +109,7 @@ interface WorkflowDagProps {
     visibleMaterialRoles: readonly string[] | null
   ) => void
   onOpenChildWorkflow?: (workflowUuid: string, workflowName: string) => void
+  onAddNodeToLoop?: (nodeId: string) => void
 }
 // 暂停暴露会把画布布局写回工作流（Workflow）草稿的入口；保留实现便于后续恢复。
 const WORKFLOW_LAYOUT_APPLY_ACTION_VISIBLE = false
@@ -157,7 +158,8 @@ function WorkflowDag({
   onDeleteRequest,
   visibleMaterialRoles,
   onVisibleMaterialRolesChange,
-  onOpenChildWorkflow
+  onOpenChildWorkflow,
+  onAddNodeToLoop
 }: WorkflowDagProps, forwardedRef): React.JSX.Element {
   const [automaticLayoutPreview, setAutomaticLayoutPreview] = useState(false)
   const [previewPositions, setPreviewPositions] = useState<Record<string, { x: number; y: number }> | null>(null)
@@ -523,12 +525,19 @@ function WorkflowDag({
       flowNodes.length
     ]
   )
-  const deletionSelection = useMemo(() => ({
-    nodeUuids: externalSelectionActive && highlightedNodeId
-      ? [highlightedNodeId]
-      : localSelection.nodeUuids,
-    edgeUuids: externalSelectionActive ? [] : localSelection.edgeUuids
-  }), [externalSelectionActive, highlightedNodeId, localSelection])
+  const deletionSelection = useMemo(() => {
+    // X6 的本地选择优先级高于 IDE/运行态带来的高亮节点；否则外部高亮
+    // 会把已选中的连线清空，导致 Delete/Backspace 看起来没有效果。
+    const hasLocalSelection = localSelection.nodeUuids.length > 0 ||
+      localSelection.edgeUuids.length > 0
+    if (hasLocalSelection) return localSelection
+    return {
+      nodeUuids: externalSelectionActive && highlightedNodeId
+        ? [highlightedNodeId]
+        : [],
+      edgeUuids: []
+    }
+  }, [externalSelectionActive, highlightedNodeId, localSelection])
   const deletionSelectionCount = deletionSelection.nodeUuids.length +
     deletionSelection.edgeUuids.length
   const selectedCanvasNode = selectedWorkflowNode(
@@ -553,11 +562,8 @@ function WorkflowDag({
     for (const edgeUuid of deletionSelection.edgeUuids) {
       const edge = flowEdges.find((item) => item.id === edgeUuid)
       if (!edge) continue
-      const sourceReason = nodeById.get(edge.source)?.authoringReadOnlyReason
-      const targetReason = nodeById.get(edge.target)?.authoringReadOnlyReason
-      if (sourceReason || targetReason) {
-        return '复合工作流内部或系统节点的连线只读，不能直接删除'
-      }
+      // 连线由用户在当前画布创建；端点节点可能属于复合结构，
+      // 但不应因此阻止用户删除这条连线。
     }
     return null
   }, [
@@ -571,6 +577,53 @@ function WorkflowDag({
     if (deletionDisabledReason || !onDeleteRequest) return
     onDeleteRequest(deletionSelection)
   }, [deletionDisabledReason, deletionSelection, onDeleteRequest])
+
+  const handleCanvasSelectionChange = useCallback((selection: {
+    nodeUuids: string[]
+    edgeUuids: string[]
+  }): void => {
+    const nodeIds = new Set(flowNodes.map((node) => node.id))
+    const edgeIds = new Set(flowEdges.map((edge) => edge.id))
+    setLocalSelection({
+      nodeUuids: selection.nodeUuids.filter((id) => nodeIds.has(id)),
+      edgeUuids: selection.edgeUuids.filter((id) => edgeIds.has(id))
+    })
+  }, [flowEdges, flowNodes])
+
+  useEffect(() => {
+    const nodeIds = new Set(flowNodes.map((node) => node.id))
+    const edgeIds = new Set(flowEdges.map((edge) => edge.id))
+    setLocalSelection((current) => {
+      const nodeUuids = current.nodeUuids.filter((id) => nodeIds.has(id))
+      const edgeUuids = current.edgeUuids.filter((id) => edgeIds.has(id))
+      if (
+        nodeUuids.length === current.nodeUuids.length &&
+        edgeUuids.length === current.edgeUuids.length
+      ) return current
+      return { nodeUuids, edgeUuids }
+    })
+  }, [flowEdges, flowNodes])
+
+  // X6 选中连线后不一定会把焦点留在画布 DOM 上，因此仅依赖
+  // onKeyDownCapture 会漏掉 Backspace/Delete。保留输入控件原生编辑行为，
+  // 其余情况下由当前画布选择统一处理快捷键。
+  useEffect(() => {
+    const handleWindowKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return
+      if (!onDeleteRequest || deletionSelectionCount === 0) return
+      if (isTextEditingTarget(event.target)) return
+      if (deletionDisabledReason) return
+      event.preventDefault()
+      requestSelectedDeletion()
+    }
+    globalThis.addEventListener('keydown', handleWindowKeyDown, true)
+    return () => globalThis.removeEventListener('keydown', handleWindowKeyDown, true)
+  }, [
+    deletionDisabledReason,
+    deletionSelectionCount,
+    onDeleteRequest,
+    requestSelectedDeletion
+  ])
   /**
    * 仅在用户明确请求时适应完整工作流（Workflow）视图。
    *
@@ -689,7 +742,7 @@ function WorkflowDag({
         edges={runtimeEdges}
         canvasMutationEnabled={canvasMutationEnabled}
         nodePositionMutationEnabled={nodePositionMutationEnabled}
-        onSelectionChange={setLocalSelection}
+        onSelectionChange={handleCanvasSelectionChange}
         onConnectHandles={onConnectHandles}
         onConnectConditionBranch={onConnectConditionBranch}
         onNodePositionChange={handleNodePositionChange}
@@ -699,6 +752,7 @@ function WorkflowDag({
         onToggleBreakpoint={onToggleBreakpoint}
         onToggleGroup={toggleGroup}
         onOpenChildWorkflow={onOpenChildWorkflow}
+        onAddNodeToLoop={onAddNodeToLoop}
         onNodeSelect={(nodeId) => {
           setRetainedRevealNodeId((current) =>
             current === nodeId ? current : null

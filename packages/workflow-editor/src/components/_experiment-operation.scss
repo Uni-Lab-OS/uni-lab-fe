@@ -150,7 +150,7 @@
     border: 0;
     border-radius: 7px;
     color: #718096;
-    background: transparent;
+    background: #fff;
     font-size: 10px;
     cursor: pointer;
   }
@@ -314,7 +314,7 @@
     flex: 1;
     flex-direction: column;
     overflow: hidden;
-    background: #fff;
+    background: transparent;
   }
   .operation-device-library__tools {
     display: grid;
@@ -322,6 +322,7 @@
     border-bottom: 1px solid #e1e7f0;
     grid-template-columns: minmax(0, 1fr) 88px;
     gap: 8px;
+    background: #fff;
   }
   .operation-device-library__tools label {
     display: flex;
@@ -394,12 +395,16 @@
     display: grid;
     min-height: 0;
     align-content: start;
-    flex: 1;
+    // Let the list end with its last item; only overflowed catalogs scroll.
+    // A growing flex child otherwise creates a large blank scroll track.
+    flex: 0 1 auto;
+    max-height: 100%;
     overflow: auto;
     padding: 7px 9px 12px;
     gap: 2px;
     grid-auto-rows: max-content;
     scrollbar-width: thin;
+    background: #fff;
   }
   .operation-device-library__device {
     display: block;

@@ -1196,12 +1196,14 @@
   display: grid;
   gap: 8px;
   padding: 8px 12px;
+  overflow-x: hidden;
 }
 
 .reagentDispenseTarget {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(150px, 0.38fr) 32px;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.38fr) 32px;
   gap: 8px;
+  min-width: 0;
   align-items: end;
   padding: 10px;
   background: var(--unilab-color-surface);
@@ -1218,6 +1220,12 @@
       font-size: 12px;
       font-weight: 550;
     }
+  }
+
+  // 删除按钮与数量输入框对齐，而不是贴在整行底部。
+  > button {
+    align-self: end;
+    margin-bottom: 4px;
   }
 }
 

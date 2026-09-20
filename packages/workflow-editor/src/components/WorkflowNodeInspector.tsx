@@ -66,6 +66,7 @@ export function WorkflowNodeInspector({
     updateMaterialSource,
     updateTypedField,
     updateTypedFieldFromRaw
+    , setNodePaletteOpen
   } = model
   const selectedNodeDescription = selectedNodeUuid
     ? model.structure.nodes.find((node) => node.id === selectedNodeUuid)

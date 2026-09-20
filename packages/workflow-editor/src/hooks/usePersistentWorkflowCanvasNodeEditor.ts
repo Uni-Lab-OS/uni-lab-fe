@@ -237,7 +237,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
   const selectedNodeIsInternal = graph?.nodes.some((node) => {
     if (node.uuid !== selectedNodeUuid || typeof node.parent_uuid !== 'string') return false
     const parent = graph.nodes.find((item) => item.uuid === node.parent_uuid)
-    return String(parent?.type || '') !== 'repeat_until'
+    return !['condition', 'repeat_until'].includes(String(parent?.type || ''))
   }) ?? false
   const selectedMaterialSourceProjection = useMemo(() => {
     if (
@@ -648,7 +648,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
     }
   }
 
-  /** 更新画布坐标；纯布局调整不标记源码待保存。 */
+  /** 更新画布坐标并立即同步，避免刷新后回退到旧布局。 */
   const moveCanvasNode = (
     nodeUuid: string,
     position: WorkflowCanvasPoint
@@ -657,6 +657,8 @@ export function usePersistentWorkflowCanvasNodeEditor(
     try {
       const next = updatePersistentAuthoringNodePosition(graph, nodeUuid, position)
       setGraph(next)
+      setCanvasDirty(true)
+      syncCanvasMutation?.(next, 'node_move')
     } catch (moveError) {
       setError(errorMessage(moveError))
     }

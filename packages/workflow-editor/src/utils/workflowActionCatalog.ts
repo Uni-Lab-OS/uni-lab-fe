@@ -950,7 +950,8 @@ function assertParentBoundaryNode(
   const parent = parentUuid
     ? graph.nodes.find((item) => item.uuid === parentUuid)
     : undefined
-  if (parentUuid && String(parent?.type || '') !== 'repeat_until') {
+  if (parentUuid &&
+      !['condition', 'repeat_until'].includes(String(parent?.type || ''))) {
     throw new Error('Composite internal/private Node 只读；请编辑 invocation boundary')
   }
 }

@@ -463,7 +463,7 @@ function ExperimentOperationEmptyWorkbench({
           <div className="experiment-operation__empty-operation-list">
             <label>
               <span className="codicon codicon-search" aria-hidden="true" />
-              <input type="search" placeholder="搜索操作名称 / 编号" disabled />
+              <input type="search" placeholder="搜索操作名称" disabled />
             </label>
             <div role={directoryError ? 'alert' : 'status'}>
               <span

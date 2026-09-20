@@ -79,6 +79,7 @@ export interface WorkflowX6CanvasProps {
   onSetStart?: (nodeId: string) => void
   onToggleBreakpoint?: (nodeId: string) => void
   onToggleGroup?: (nodeId: string) => void
+  onAddNodeToLoop?: (nodeId: string) => void
   onOpenChildWorkflow?: (workflowUuid: string, workflowName: string) => void
 }
 
@@ -108,6 +109,7 @@ export const WorkflowX6Canvas = forwardRef<
   onSetStart,
   onToggleBreakpoint,
   onToggleGroup,
+  onAddNodeToLoop,
   onOpenChildWorkflow
 }, forwardedRef): React.JSX.Element {
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -133,6 +135,7 @@ export const WorkflowX6Canvas = forwardRef<
     onSetStart,
     onToggleBreakpoint,
     onToggleGroup,
+    onAddNodeToLoop,
     onOpenChildWorkflow
   })
   const initialFitPendingRef = useRef(true)
@@ -151,6 +154,7 @@ export const WorkflowX6Canvas = forwardRef<
     onSetStart,
     onToggleBreakpoint,
     onToggleGroup,
+    onAddNodeToLoop,
     onOpenChildWorkflow
   }
   projectionRef.current = { nodes, edges }
@@ -363,11 +367,17 @@ export const WorkflowX6Canvas = forwardRef<
       const data = node.getData<WorkflowNodeData>()
       if (data?.kind === 'reaction_material') return
       callbacksRef.current.onNodeSelect(node.id)
+      const target = e?.target as Element | null
+      if (target?.getAttribute?.('data-selector') === 'loopAddNode') {
+        e?.stopPropagation?.()
+        callbacksRef.current.onAddNodeToLoop?.(node.id)
+        return
+      }
       if (data?.groupKind !== 'subworkflow') return
       // 点击“N 个内部节点”计数行 → 就地展开/收起；点击卡片其它区域 → 跳转实验操作调试。
-      const target = e?.target as Element | null
+      const countTarget = e?.target as Element | null
       const onCountRow = Boolean(
-        target?.closest?.('.workflow-x6-node__group-count')
+        countTarget?.closest?.('.workflow-x6-node__group-count')
       )
       if (onCountRow) {
         callbacksRef.current.onToggleGroup?.(node.id)

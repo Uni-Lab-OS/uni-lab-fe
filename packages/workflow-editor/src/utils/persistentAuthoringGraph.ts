@@ -542,7 +542,7 @@ function nodeHasReadOnlyCompositeParent(
   const parentUuid = typeof node.parent_uuid === 'string' ? node.parent_uuid : ''
   if (!parentUuid) return false
   const parent = graph.nodes.find((item) => item.uuid === parentUuid)
-  return String(parent?.type || '') !== 'repeat_until'
+  return !['condition', 'repeat_until'].includes(String(parent?.type || ''))
 }
 
 export function updatePersistentAuthoringNodeName(

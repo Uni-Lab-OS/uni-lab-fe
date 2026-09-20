@@ -187,9 +187,13 @@ export function PersistentWorkflowAuthoringView({
   const [dismissedDiagnosticKeys, setDismissedDiagnosticKeys] = useState<
     ReadonlySet<string>
   >(new Set())
-  const visibleDiagnostics = diagnostics.filter(
-    (diagnostic) => !dismissedDiagnosticKeys.has(authoringDiagnosticDismissKey(diagnostic))
-  )
+  // 画布编辑允许保存不完整草稿；结构校验在运行/发布门禁中展示，
+  // 不要在用户仅保存布局或中间节点时阻断编辑。
+  const visibleDiagnostics = mode === 'canvas'
+    ? []
+    : diagnostics.filter(
+      (diagnostic) => !dismissedDiagnosticKeys.has(authoringDiagnosticDismissKey(diagnostic))
+    )
   const dismissDiagnostic = useCallback((diagnosticKey: string) => {
     setDismissedDiagnosticKeys((current) => {
       const next = new Set(current)
@@ -993,6 +997,7 @@ export function PersistentWorkflowAuthoringView({
                     onNodeParentChange={moveCanvasNodeToLoop}
                     onConnectHandles={connectTypedHandles}
                     onConnectConditionBranch={connectConditionBranchHandle}
+                    onAddNodeToLoop={() => setNodePaletteOpen(true)}
                     onDeleteRequest={deleteCanvasElements}
                     onOpenChildWorkflow={onOpenChildWorkflow
                       ? (childWorkflowUuid, childWorkflowName) => {

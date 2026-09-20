@@ -119,16 +119,16 @@ export function WorkflowConditionNodeEditor({
               </div>
             ) : <p>前面的条件均不满足时执行。</p>}
             <label className="workflow-condition-editor__members">
-              <span>这个分支执行哪些节点</span>
-              <select multiple value={branch.node_uuids} disabled={!editable}
-                onChange={event => commit(updateWorkflowConditionBranch(editor.branches, index, {
-                  node_uuids: [...event.target.selectedOptions].map(option => option.value)
-                }))}>
-                {editor.candidateNodes.map(candidate => (
-                  <option key={candidate.uuid} value={candidate.uuid}>{candidate.name}</option>
-                ))}
-              </select>
-              <small>按住 Ctrl/⌘ 可多选；首尾节点自动成为分支入口和出口。</small>
+              <span>这个分支已连接的节点</span>
+              <div className="workflow-condition-editor__connected-members">
+                {branch.node_uuids.length > 0
+                  ? branch.node_uuids.map((uuid) => {
+                      const candidate = editor.candidateNodes.find(item => item.uuid === uuid)
+                      return <span key={uuid}>{candidate?.name ?? uuid}</span>
+                    })
+                  : <small>尚未连接节点，请从分支 handle 连接动作节点。</small>}
+              </div>
+              <small>此处只展示已连接到当前分支 handle 的节点。</small>
             </label>
           </article>
         )

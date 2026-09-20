@@ -184,7 +184,11 @@
     :global(.persistent-authoring__library-workflow-list) {
       display: grid;
       gap: 3px;
-      max-height: 190px;
+      align-content: start;
+      grid-auto-rows: max-content;
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
       padding: 0 8px 9px;
       overflow: auto;
       border-bottom: 1px solid #e2e8f0;
