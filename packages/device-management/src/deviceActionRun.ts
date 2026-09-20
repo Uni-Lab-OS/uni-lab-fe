@@ -79,14 +79,22 @@ export function matchDeviceActionTemplate(
   action: DeviceAction,
   resourceTemplateUuid?: string
 ): WorkflowActionNodeTemplate | null {
-  const matches = catalog.actionTemplates.filter((template) =>
+  const candidates = catalog.actionTemplates.filter((template) =>
     template.name === action.actionName &&
-    template.actionType === action.typeName &&
-    (
-      resourceTemplateUuid === undefined ||
-      template.resourceTemplateUuid === resourceTemplateUuid
-    )
+    template.actionType === action.typeName
   )
+  const matches = resourceTemplateUuid === undefined
+    ? candidates
+    : candidates.filter((template) => template.resourceTemplateUuid === resourceTemplateUuid)
+  if (matches.length === 1) return matches[0] ?? null
+
+  // Older Edge catalogs identify the resource template by its stable name rather
+  // than the inventory UUID. Keep the identity guard for UUID-based catalogs and
+  // only use the legacy value when the action itself is unambiguous.
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(resourceTemplateUuid ?? '')
+  if (resourceTemplateUuid !== undefined && !isUuid && candidates.length === 1) {
+    return candidates[0] ?? null
+  }
   return matches.length === 1 ? matches[0] ?? null : null
 }
 

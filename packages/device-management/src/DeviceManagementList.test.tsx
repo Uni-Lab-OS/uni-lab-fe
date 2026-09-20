@@ -18,7 +18,7 @@ describe('DeviceManagementList', () => {
 
     expect(markup).toContain('data-device-management="list"')
     expect(markup).toContain('设备管理')
-    expect(markup).toContain('等待设备连接')
+    expect(markup).toContain('等待设备服务连接')
     expect(markup).not.toContain('查看详情')
     expect(markup).not.toContain('AI 创建设备')
   })

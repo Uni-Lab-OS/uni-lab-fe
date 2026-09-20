@@ -696,7 +696,7 @@ export default function DevicePanel({
             <strong>
               {connection === 'connected'
                 ? '当前未配置仪器设备'
-                : '等待 Authority 提供设备'}
+                : '等待设备服务连接'}
             </strong>
             {connection === 'connected' ? (
               <p>
@@ -704,7 +704,7 @@ export default function DevicePanel({
               </p>
             ) : (
               <p>
-                连接后会读取设备实例，并关联动作节点模板的参数 Schema。
+                连接成功后会自动加载设备列表和可用动作。
               </p>
             )}
           </div>

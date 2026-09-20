@@ -94,8 +94,8 @@ export function DeviceManagementList({
       ) : devices.length === 0 && !loading ? (
         <div className={styles.empty}>
           <span className="codicon codicon-circuit-board" aria-hidden="true" />
-          <strong>{connection === 'connected' ? '当前没有设备' : '等待设备连接'}</strong>
-          <p>设备会从当前工作区设备包和设备图中发现；本页面不维护另一份设备台账。</p>
+          <strong>{connection === 'connected' ? '当前没有设备' : '等待设备服务连接'}</strong>
+          <p>连接成功后会自动加载设备列表和可用动作。</p>
         </div>
       ) : (
         <div className={styles.tableWrap}>

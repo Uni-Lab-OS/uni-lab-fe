@@ -58,6 +58,12 @@ describe('device Action D1A preparation', () => {
       ...liveAction(),
       typeName: 'other.Action'
     })).toBeNull()
+    expect(matchDeviceActionTemplate(catalog, liveAction(), 'community.lab.robot')).toBe(template)
+    expect(matchDeviceActionTemplate(
+      actionCatalog([template, { ...template, uuid: UUID_2 }]),
+      liveAction(),
+      'community.lab.robot'
+    )).toBeNull()
   })
 
   /** 证明选择投影与草稿键同时隔离资源模板、Backend 和目录代际。 */
