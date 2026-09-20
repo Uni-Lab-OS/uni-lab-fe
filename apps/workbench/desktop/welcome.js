@@ -20,6 +20,9 @@ const runtimePanel = document.querySelector('#runtime-panel')
 const runtimeIndicator = document.querySelector('#runtime-indicator')
 const runtimeTitle = document.querySelector('#runtime-title')
 const runtimeDetail = document.querySelector('#runtime-detail')
+const runtimeProgress = document.querySelector('#runtime-progress')
+const runtimeProgressBar = document.querySelector('#runtime-progress-bar')
+const runtimeProgressLabel = document.querySelector('#runtime-progress-label')
 const installRuntimeButton = document.querySelector('#install-runtime')
 const chooseRuntimeButton = document.querySelector('#choose-runtime')
 const openRuntimeLogButton = document.querySelector('#open-runtime-log')
@@ -344,8 +347,10 @@ function renderRuntime() {
     runtimeDetail.textContent = downloadsRuntime
       ? '下载完成后会校验 SHA-256、静默安装并执行 unilab -h 验证，请勿退出应用…'
       : '离线解包并执行 unilab -h 验证，请勿退出应用…'
+    renderRuntimeProgress(runtimeSnapshot.progress)
     return
   }
+  runtimeProgress.hidden = true
   if (runtimeSnapshot.phase === 'upgrade-required') {
     runtimeTitle.textContent = '需要升级本地 Runtime'
     runtimeDetail.textContent = runtimeSnapshot.error
@@ -366,6 +371,38 @@ function renderRuntime() {
   runtimeDetail.textContent = downloadsRuntime
     ? `可联网下载 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}，校验通过后安装，无需另行配置 Conda。`
     : `可安装应用内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}，无需另行配置 Conda。`
+}
+
+function renderRuntimeProgress(progress) {
+  if (!progress || progress.stage === 'preparing') {
+    runtimeProgress.hidden = true
+    return
+  }
+  runtimeProgress.hidden = false
+  const percentage = Number.isFinite(progress.percentage) ? progress.percentage : null
+  runtimeProgressBar.style.width = `${percentage ?? 0}%`
+  runtimeProgressBar.dataset.stage = progress.stage
+  const downloaded = formatBytes(progress.downloadedBytes)
+  const total = formatBytes(progress.totalBytes)
+  const size = downloaded && total ? `${downloaded} / ${total}` : downloaded ?? '处理中…'
+  runtimeProgressLabel.textContent = percentage === null
+    ? `${progressStageLabel(progress.stage)} · ${size}`
+    : `${progressStageLabel(progress.stage)} · ${percentage}% · ${size}`
+}
+
+function progressStageLabel(stage) {
+  return {
+    downloading: '下载中',
+    verifying: '校验中',
+    installing: '安装中',
+    validating: '验证中'
+  }[stage] ?? '处理中'
+}
+
+function formatBytes(value) {
+  if (!Number.isFinite(value) || value < 0) return null
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`
+  return `${(value / 1024 / 1024).toFixed(1)} MB`
 }
 
 function renderWorkspaceOptions(recentWorkspaces) {

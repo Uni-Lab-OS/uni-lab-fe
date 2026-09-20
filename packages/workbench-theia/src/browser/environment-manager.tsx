@@ -399,6 +399,7 @@ export function EnvironmentManager({
             ) : undefined}
             actions={runtimeInstallation.bundled && [
               'not-installed',
+              'upgrade-required',
               'failed'
             ].includes(runtimeInstallation.phase) ? (
               <button
@@ -407,7 +408,9 @@ export function EnvironmentManager({
                 onClick={() => void run('install-runtime', async () => {
                   setRuntimeInstallation(await managedRuntimeApi.install())
                 })}
-              >安装内置 Runtime</button>
+              >{runtimeInstallation.phase === 'upgrade-required'
+                  ? `升级到 Runtime ${runtimeInstallation.runtimeVersion ?? ''}`
+                  : '安装内置 Runtime'}</button>
             ) : undefined}
           />
         ) : null}
@@ -953,7 +956,13 @@ function runtimeInstallationMessage(
       ? `当前使用现有 UniLab 环境；内置载荷异常：${snapshot.error}`
       : '当前使用已安装的 UniLab 环境。'
   }
-  if (snapshot.phase === 'installing') return '正在离线安装并验证，请勿退出应用。'
+  if (snapshot.phase === 'installing') {
+    const progress = snapshot.progress
+    if (progress?.percentage !== null && progress?.percentage !== undefined) {
+      return `Runtime ${progress.stage === 'downloading' ? '下载' : '安装'}进度 ${progress.percentage}%；请勿退出应用。`
+    }
+    return '正在下载、安装并验证 Runtime，请勿退出应用。'
+  }
   if (snapshot.phase === 'not-installed') {
     return '没有检测到 unilab；可从安装包离线安装应用私有 Runtime。'
   }

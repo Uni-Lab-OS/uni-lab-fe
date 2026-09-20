@@ -446,7 +446,7 @@ describe('Workbench macOS distribution gate', () => {
     )
     assert.match(
       workflow,
-      /UNILAB_RUNTIME_DOWNLOAD_TEST_TAG: workbench-runtime-download-test-0\.11\.3-9623b51c/u
+      /UNILAB_RUNTIME_DOWNLOAD_TEST_TAG: workbench-runtime-download-test-0\.11\.4-ad016b73/u
     )
     assert.match(
       workflow,

@@ -32,6 +32,7 @@ env:
   ELECTRON_VERSION: 33.4.11
   NODE_RUNTIME_VERSION: 24.14.0
   UNILAB_RUNTIME_RELEASE_TAG: workbench-runtime-0.11.4-ad016b73
+  UNILAB_RUNTIME_DOWNLOAD_TEST_TAG: workbench-runtime-download-test-0.11.4-ad016b73
   UNILAB_RUNTIME_VERSION: 0.11.4
   MACOS_RELEASE_TAG: ${{ github.ref == 'refs/heads/deploy-hot-update-test' && 'workbench-macos-hot-update-test' || 'workbench-macos-stable' }}
   UNILAB_WORKBENCH_UPDATE_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/deploy-hot-update-test' && 'workbench-macos-hot-update-test' || 'workbench-macos-stable' }}
@@ -43,6 +44,8 @@ jobs:
       # main、普通测试和热更新测试的完整构建都必须签名公证；手动 quick 保持 unsigned。
       UNILAB_CI_SIGNING_MODE: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/deploy-mac-test' || github.ref == 'refs/heads/deploy-hot-update-test') && (github.event_name == 'push' || inputs.mode == 'full') && 'signed' || 'unsigned' }}
       UNILAB_WORKBENCH_RELEASE_CHANNEL: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/deploy-hot-update-test' && 'update-test' || 'test' }}
+      UNILAB_RUNTIME_DELIVERY: ${{ github.ref == 'refs/heads/deploy-mac-test' && 'download' || 'bundled' }}
+      UNILAB_RUNTIME_DOWNLOAD_URL: ${{ github.ref == 'refs/heads/deploy-mac-test' && 'https://github.com/Uni-Lab-OS/uni-lab-fe/releases/download/workbench-runtime-download-test-0.11.4-ad016b73/Uni-Lab-OS-0.11.4-osx-arm64.sh' || '' }}
     # GitHub 的 macos-14 标准镜像为 Apple Silicon，可直接构建 arm64 原生依赖。
     runs-on: macos-14
     timeout-minutes: 120
@@ -167,6 +170,24 @@ jobs:
           echo "Required verified Runtime release is missing: $UNILAB_RUNTIME_RELEASE_TAG" >&2
           echo "Run the Publish Versioned Workbench Runtime workflow before packaging Workbench." >&2
           exit 1
+
+      - name: Publish isolated online macOS Runtime test asset
+        if: github.ref == 'refs/heads/deploy-mac-test'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          asset_name="Uni-Lab-OS-$UNILAB_RUNTIME_VERSION-osx-arm64.sh"
+          asset_path=".ci-cache/runtime/$asset_name"
+          if ! gh api "repos/$GITHUB_REPOSITORY/releases/tags/$UNILAB_RUNTIME_DOWNLOAD_TEST_TAG" >/dev/null 2>&1; then
+            gh release create "$UNILAB_RUNTIME_DOWNLOAD_TEST_TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Workbench Runtime 在线下载测试 $UNILAB_RUNTIME_VERSION" --notes '测试分支的隔离在线 Runtime 下载源。' --prerelease
+          fi
+          release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$UNILAB_RUNTIME_DOWNLOAD_TEST_TAG")"
+          asset_count="$(RELEASE_JSON="$release_json" ASSET_NAME="$asset_name" node -p "JSON.parse(process.env.RELEASE_JSON).assets.filter(asset => asset.name === process.env.ASSET_NAME).length")"
+          if [[ "$asset_count" == 0 ]]; then
+            gh release upload "$UNILAB_RUNTIME_DOWNLOAD_TEST_TAG" "$asset_path" --repo "$GITHUB_REPOSITORY"
+          fi
+          curl --fail --location --retry 5 --retry-all-errors --range 0-0 --output /dev/null "$UNILAB_RUNTIME_DOWNLOAD_URL"
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
