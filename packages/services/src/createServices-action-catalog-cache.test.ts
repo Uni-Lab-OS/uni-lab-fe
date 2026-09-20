@@ -16,7 +16,10 @@ describe('服务组合根的动作目录缓存', () => {
       backend: getDefaultBackend('local-go'),
       fetcher: fixtureFetcher({
         ...catalogResponses(),
-        '/api/v1/devices': { code: 0, data: [] }
+        '/api/v1/authoring/device-catalog': {
+          code: 0,
+          data: { schemaVersion: 'device-catalog/v1', items: [] }
+        }
       }, requests)
     })
 
@@ -34,8 +37,8 @@ describe('服务组合根的动作目录缓存', () => {
         requests,
         `/api/v1/workflow-node-templates/${nodeUuid}`
       )).toBe(1)
-      // 设备恢复轮次只重新读取轻量 `/devices`，不重复扫描模板详情。
-      expect(count(requests, '/api/v1/devices')).toBe(2)
+      // 设备恢复轮次只重新读取轻量 authoring device catalog。
+      expect(count(requests, '/api/v1/authoring/device-catalog')).toBe(2)
     } finally {
       services.dispose()
     }

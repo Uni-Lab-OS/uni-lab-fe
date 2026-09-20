@@ -273,7 +273,9 @@ export function DeviceActionAvailability({
   const terminal = state.kind === 'succeeded' ||
     state.kind === 'failed' ||
     state.kind === 'canceled'
-  const runnable = ready || terminal
+  const submitAllowedUnavailable = state.kind === 'unavailable' &&
+    (state.reason === 'template_unmatched' || state.reason === 'contract_invalid')
+  const runnable = ready || terminal || submitAllowedUnavailable
   const log = deviceActionExecutionLog(state)
   const taskUuid = 'taskUuid' in state ? state.taskUuid : null
   useEffect(() => {
@@ -295,7 +297,9 @@ export function DeviceActionAvailability({
           onClick={onRun}
         >
           {state.kind === 'unavailable'
-            ? disabledRunLabel ?? unavailableRunLabel(state.reason)
+            ? submitAllowedUnavailable
+              ? '运行此动作'
+              : disabledRunLabel ?? unavailableRunLabel(state.reason)
             : state.kind === 'submitting'
               ? '正在创建正式任务…'
               : state.kind === 'error' && state.retryable

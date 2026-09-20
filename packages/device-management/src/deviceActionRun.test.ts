@@ -7,6 +7,7 @@ import type {
 } from '@unilab/services'
 
 import {
+  collectDeviceActionFieldErrors,
   deviceActionDraftStorageKey,
   matchDeviceActionTemplate,
   projectDeviceActionInputSchema,
@@ -306,6 +307,21 @@ describe('device Action D1A preparation', () => {
   })
 
   /** 证明用户清空可选字段时仍提交合同默认值，不把默认语义交给 Backend 猜测。 */
+  it('collects click-time field errors without rejecting the rest of the form', () => {
+    const action = liveAction()
+    action.inputSchema = {
+      beaker: { type: 'object', required: true, title: '烧杯' },
+      sample_id: { type: 'string', required: false, default: '' }
+    }
+
+    expect(collectDeviceActionFieldErrors(action, {
+      beaker: '',
+      sample_id: 'debug-sample'
+    })).toEqual({
+      beaker: '烧杯 为必填项'
+    })
+  })
+
   it('uses a declared schema default instead of silently delegating a cleared field to the backend', () => {
     const action = liveAction()
     action.inputSchema = {

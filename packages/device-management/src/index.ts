@@ -21,6 +21,7 @@ export {
 } from './DeviceLockControls'
 export type { UnlockIntent, UnlockOperation } from './DeviceLockControls'
 export {
+  collectDeviceActionFieldErrors,
   matchDeviceActionTemplate,
   serializeDeviceActionInput
 } from './deviceActionRun'

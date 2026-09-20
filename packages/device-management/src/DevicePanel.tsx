@@ -19,6 +19,7 @@ import {
 } from './deviceCatalog'
 import { useDevices } from './useDevices'
 import {
+  collectDeviceActionFieldErrors,
   deviceActionDraftStorageKey,
   projectSelectedDeviceAction,
   serializeDeviceActionInput
@@ -108,6 +109,7 @@ export default function DevicePanel({
   }, [controlledSelectedDeviceKey, onSelectedDeviceKeyChange])
   const [selectedActionRef, setSelectedActionRef] = useState<string | null>(null)
   const [argumentDraft, setArgumentDraft] = useState<ArgumentDraft>({})
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [unlockIntent, setUnlockIntent] = useState<UnlockIntent | null>(null)
   const [unlockOperation, setUnlockOperation] =
     useState<UnlockOperation | null>(null)
@@ -271,15 +273,34 @@ export default function DevicePanel({
     }
   }, [selectedActionRef, selectedDevice])
 
+  const argumentSchemaFingerprint = selectedAction
+    ? JSON.stringify(
+      Object.entries(selectedAction.inputSchema).map(([name, schema]) => [
+        name,
+        schema.type,
+        schema.required ?? false,
+        schema.default ?? null,
+        schema.enum ?? null
+      ])
+    )
+    : ''
+
   useEffect(() => {
     const fallback = selectedAction
       ? createArgumentDraft(selectedAction.inputSchema)
       : {}
     setArgumentDraft(readArgumentDraft(argumentDraftKey, fallback))
-  }, [argumentDraftKey, selectedAction?.actionRef])
+    setFieldErrors({})
+  }, [argumentDraftKey, argumentSchemaFingerprint, selectedAction?.actionRef])
 
   const handleArgumentChange = useCallback(
     (name: string, value: string | boolean) => {
+      setFieldErrors((current) => {
+        if (!current[name]) return current
+        const next = { ...current }
+        delete next[name]
+        return next
+      })
       setArgumentDraft((current) => {
         const next = { ...current, [name]: value }
         writeArgumentDraft(argumentDraftKey, next)
@@ -488,7 +509,7 @@ export default function DevicePanel({
   const handleRunAction = useCallback(async (
     device: ManagedDevice,
     action: DeviceAction,
-    template: WorkflowActionNodeTemplate
+    template: WorkflowActionNodeTemplate | null
   ) => {
     if (
       !actionCatalog ||
@@ -508,6 +529,35 @@ export default function DevicePanel({
       })
       return
     }
+    if (!template) {
+      setRunOperation({
+        actionRef: action.actionRef,
+        state: {
+          kind: 'error',
+          message: '没有找到与当前设备动作匹配的运行信息，请刷新后重试',
+          retryable: true
+        }
+      })
+      return
+    }
+    const nextFieldErrors = collectDeviceActionFieldErrors(
+      action,
+      argumentDraft,
+      template
+    )
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors)
+      setRunOperation({
+        actionRef: action.actionRef,
+        state: {
+          kind: 'error',
+          message: Object.values(nextFieldErrors)[0] ?? '请先补全动作参数',
+          retryable: true
+        }
+      })
+      return
+    }
+    setFieldErrors({})
     let input: Record<string, unknown>
     try {
       input = serializeDeviceActionInput(action, argumentDraft, template)
@@ -517,7 +567,7 @@ export default function DevicePanel({
         state: {
           kind: 'error',
           message: error instanceof Error ? error.message : 'Action 参数不合法',
-          retryable: false
+          retryable: true
         }
       })
       return
@@ -737,6 +787,7 @@ export default function DevicePanel({
             selectedAction={selectedAction}
             selectedActionRef={selectedActionRef}
             argumentDraft={argumentDraft}
+            fieldErrors={fieldErrors}
             onSelectAction={setSelectedActionRef}
             onArgumentChange={handleArgumentChange}
             actionTemplate={selectedActionTemplate}

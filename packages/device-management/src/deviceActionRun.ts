@@ -136,12 +136,19 @@ export function projectDeviceActionTemplate(
 ): DeviceAction {
   if (!template) return action
   const inputSchema = projectDeviceActionInputSchema(template)
+  if (inputSchema === null) {
+    return {
+      ...action,
+      displayName: template.displayName,
+      label: template.displayName
+    }
+  }
   return {
     ...action,
     displayName: template.displayName,
     label: template.displayName,
-    schema: inputSchema === null ? null : template.schema,
-    inputSchema: inputSchema ?? {}
+    schema: template.schema,
+    inputSchema
   }
 }
 
@@ -217,27 +224,68 @@ export function serializeDeviceActionInput(
   draft: DeviceActionArgumentDraft,
   template?: WorkflowActionNodeTemplate
 ): Record<string, unknown> {
-  const allowedNames = template
-    ? new Set(Object.keys(template.goal))
-    : null
+  const errors = collectDeviceActionFieldErrors(action, draft, template)
+  const firstError = Object.values(errors)[0]
+  if (firstError) throw new Error(firstError)
   return Object.fromEntries(
-    Object.entries(action.inputSchema).flatMap(([name, schema]) => {
-      // The live Device catalog may expose routing helpers such as
-      // `unilabos_device_id` that are not part of the frozen Action contract.
-      // DeviceActionRun validation is closed (`additionalProperties: false`),
-      // so only submit fields owned by the selected workflow template.
-      if (allowedNames && !allowedNames.has(name)) return []
-      const value = draft[name]
-      if (value === '' || value === undefined) {
-        if (schema.required) throw new Error(`${fieldLabel(name, schema)} 为必填项`)
-        if (schema.default !== undefined && schema.default !== null) {
-          return [[name, parseField(name, schema, draftDefaultValue(schema))]]
-        }
-        return []
-      }
-      return [[name, parseField(name, schema, value)]]
-    })
+    deviceActionInputEntries(action, draft, template)
   )
+}
+
+/**
+ * 在点击运行时按字段收集参数错误，不在输入过程中禁用提交。
+ */
+export function collectDeviceActionFieldErrors(
+  action: DeviceAction,
+  draft: DeviceActionArgumentDraft,
+  template?: WorkflowActionNodeTemplate
+): Record<string, string> {
+  const errors: Record<string, string> = {}
+  for (const [name, schema] of Object.entries(action.inputSchema)) {
+    if (!deviceActionInputFieldAllowed(name, template)) continue
+    try {
+      readDeviceActionField(name, schema, draft[name])
+    } catch (error) {
+      errors[name] = error instanceof Error ? error.message : `${fieldLabel(name, schema)} 不合法`
+    }
+  }
+  return errors
+}
+
+function deviceActionInputEntries(
+  action: DeviceAction,
+  draft: DeviceActionArgumentDraft,
+  template?: WorkflowActionNodeTemplate
+): Array<[string, unknown]> {
+  return Object.entries(action.inputSchema).flatMap(([name, schema]) => {
+    if (!deviceActionInputFieldAllowed(name, template)) return []
+    const parsed = readDeviceActionField(name, schema, draft[name])
+    return parsed === undefined ? [] : [[name, parsed]]
+  })
+}
+
+function deviceActionInputFieldAllowed(
+  name: string,
+  template?: WorkflowActionNodeTemplate
+): boolean {
+  // The live Device catalog may expose routing helpers such as
+  // `unilabos_device_id` that are not part of the frozen Action contract.
+  return !template || Object.prototype.hasOwnProperty.call(template.goal, name)
+}
+
+function readDeviceActionField(
+  name: string,
+  schema: DeviceActionInputSchema,
+  value: string | boolean | undefined
+): unknown {
+  if (value === '' || value === undefined) {
+    if (schema.required) throw new Error(`${fieldLabel(name, schema)} 为必填项`)
+    if (schema.default !== undefined && schema.default !== null) {
+      return parseField(name, schema, draftDefaultValue(schema))
+    }
+    return undefined
+  }
+  return parseField(name, schema, value)
 }
 
 /**

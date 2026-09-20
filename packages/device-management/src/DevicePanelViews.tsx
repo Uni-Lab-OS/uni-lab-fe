@@ -162,6 +162,7 @@ export function DeviceWorkspace({
   selectedAction,
   selectedActionRef,
   argumentDraft,
+  fieldErrors,
   onSelectAction,
   onArgumentChange,
   actionTemplate,
@@ -183,6 +184,7 @@ export function DeviceWorkspace({
   selectedAction: DeviceAction | null
   selectedActionRef: string | null
   argumentDraft: ArgumentDraft
+  fieldErrors?: Record<string, string>
   onSelectAction: (actionRef: string) => void
   onArgumentChange: (name: string, value: string | boolean) => void
   actionTemplate: WorkflowActionNodeTemplate | null
@@ -194,7 +196,7 @@ export function DeviceWorkspace({
   activeRunActionRef: string | null
   onRunAction: (
     action: DeviceAction,
-    template: WorkflowActionNodeTemplate
+    template: WorkflowActionNodeTemplate | null
   ) => void
   onCancelActionTask: (taskUuid: string) => void
   canForceUnlock: boolean
@@ -406,6 +408,7 @@ export function DeviceWorkspace({
               <ActionParameterForm
                 action={selectedAction}
                 draft={argumentDraft}
+                errors={fieldErrors}
                 disabled={
                   runState?.kind === 'submitting' ||
                   runState?.kind === 'accepted' ||
@@ -425,7 +428,7 @@ export function DeviceWorkspace({
                   catalogError: actionCatalogError
                 })}
                 onRun={() => {
-                  if (actionTemplate) onRunAction(selectedAction, actionTemplate)
+                  onRunAction(selectedAction, actionTemplate)
                 }}
                 onCancel={onCancelActionTask}
               />

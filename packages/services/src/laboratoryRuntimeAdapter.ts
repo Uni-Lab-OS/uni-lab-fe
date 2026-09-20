@@ -90,7 +90,12 @@ export function mapRuntimeDeviceAction(
     busyStatusKnown: true,
     currentJobId: template.currentJobId,
     schema,
-    inputSchema: mapActionSchema(schema.properties),
+    inputSchema: mapActionSchema(
+      schema.properties,
+      Array.isArray(schema.required)
+        ? schema.required.filter((name): name is string => typeof name === 'string')
+        : []
+    ),
     outputSchema: mapActionSchema(template.outputSchema),
     riskLevel: template.riskLevel
   }
@@ -205,14 +210,32 @@ export function asRuntimeRecord(value: unknown): Record<string, unknown> {
 
 /** 把 Action schema 的 properties 映射为字段定义。 */
 function mapActionSchema(
-  value: unknown
+  value: unknown,
+  requiredNames: string[] = []
 ): Record<string, DeviceActionInputSchema> {
   const schema = asRuntimeRecord(value)
   return Object.fromEntries(
-    Object.entries(schema).map(([name, definition]) => [
-      name,
-      asRuntimeRecord(definition) as DeviceActionInputSchema
-    ])
+    Object.entries(schema).map(([name, definition]) => {
+      const field = asRuntimeRecord(definition)
+      const type = typeof field.type === 'string'
+        ? field.type
+        : Array.isArray(field.type)
+          ? field.type.find((item) => item !== 'null' && typeof item === 'string')
+          : undefined
+      const mapped: DeviceActionInputSchema = {
+        type: typeof type === 'string' ? type : undefined,
+        required: requiredNames.includes(name) || field.required === true
+      }
+      if (typeof field.title === 'string') mapped.title = field.title
+      if (typeof field.description === 'string') mapped.description = field.description
+      if (Object.prototype.hasOwnProperty.call(field, 'default')) {
+        mapped.default = field.default
+      }
+      if (Array.isArray(field.enum)) mapped.enum = [...field.enum]
+      if (typeof field.minimum === 'number') mapped.minimum = field.minimum
+      if (typeof field.maximum === 'number') mapped.maximum = field.maximum
+      return [name, mapped]
+    })
   )
 }
 

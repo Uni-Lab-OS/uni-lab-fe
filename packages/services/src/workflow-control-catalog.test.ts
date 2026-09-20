@@ -5,7 +5,7 @@ function fixture(kind: 'condition' | 'repeat_until') {
   const uuid = '20000000-0000-4000-8000-000000000001'
   const resourceTemplateUuid = '10000000-0000-4000-8000-000000000001'
   return {
-    summary: { uuid, resourceTemplateUuid, name: kind, displayName: kind, actionType: kind, nodeType: kind },
+    summary: { uuid, resourceTemplateUuid, resourceTemplateName: 'host_node', name: kind, displayName: kind, actionType: kind, nodeType: kind },
     data: { template: { uuid, resource_template_uuid: resourceTemplateUuid, name: kind,
       display_name: kind, type: kind, node_type: kind,
       class: `unilabos.workflow.authoring:${kind}`, schema: null,
