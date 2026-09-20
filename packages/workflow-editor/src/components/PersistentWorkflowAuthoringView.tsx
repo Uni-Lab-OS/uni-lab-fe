@@ -106,6 +106,7 @@ export function PersistentWorkflowAuthoringView({
     codeProjection,
     connectTypedHandles,
     connectConditionBranchHandle,
+    connectConditionPredecessorHandle,
     deleteCanvasElements,
     debugBreakpoints,
     debugExecutionScope,
@@ -997,6 +998,7 @@ export function PersistentWorkflowAuthoringView({
                     onNodeParentChange={moveCanvasNodeToLoop}
                     onConnectHandles={connectTypedHandles}
                     onConnectConditionBranch={connectConditionBranchHandle}
+                    onConnectConditionPredecessor={connectConditionPredecessorHandle}
                     onAddNodeToLoop={() => setNodePaletteOpen(true)}
                     onDeleteRequest={deleteCanvasElements}
                     onOpenChildWorkflow={onOpenChildWorkflow

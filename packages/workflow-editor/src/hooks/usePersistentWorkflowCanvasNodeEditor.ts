@@ -44,7 +44,8 @@ import type {
 import { configureManualConfirmation } from '../utils/workflowManualConfirmation'
 import {
   applyWorkflowConditionParam,
-  connectWorkflowConditionBranch
+  connectWorkflowConditionBranch,
+  connectWorkflowConditionPredecessor
 } from '../utils/workflowConditionControl'
 import { applyWorkflowLoopParam, moveWorkflowNodeToLoop } from '../utils/workflowLoopControl'
 import { useWorkflowCanvasDeletion } from './useWorkflowCanvasDeletion'
@@ -648,6 +649,26 @@ export function usePersistentWorkflowCanvasNodeEditor(
     }
   }
 
+  const connectConditionPredecessorHandle = (
+    sourceNodeUuid: string,
+    conditionNodeUuid: string
+  ): WorkflowHandleConnectionResult => {
+    if (!graph || !canvasMutationEnabled) return { accepted: false, reason: '当前画布不可编辑' }
+    try {
+      const next = connectWorkflowConditionPredecessor(graph, conditionNodeUuid, sourceNodeUuid)
+      setGraph(next)
+      setCanvasDirty(true)
+      setError(null)
+      setMessage('已连接条件节点前置动作；正在同步 OS…')
+      syncCanvasMutation?.(next, 'connect')
+      return { accepted: true }
+    } catch (connectError) {
+      const reason = errorMessage(connectError)
+      setError(reason)
+      return { accepted: false, reason }
+    }
+  }
+
   /** 更新画布坐标并立即同步，避免刷新后回退到旧布局。 */
   const moveCanvasNode = (
     nodeUuid: string,
@@ -725,6 +746,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
     bindTypedFieldToWorkflowInput,
     connectTypedHandles,
     connectConditionBranchHandle,
+    connectConditionPredecessorHandle,
     deleteCanvasElements,
     moveCanvasNode,
     moveCanvasNodes,

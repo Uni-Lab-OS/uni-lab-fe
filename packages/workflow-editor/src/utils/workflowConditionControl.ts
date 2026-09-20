@@ -198,3 +198,24 @@ export function connectWorkflowConditionBranch(
     updateWorkflowConditionParam(node.param, branches)
   )
 }
+
+/** 将普通动作接到条件区域的前置执行链。 */
+export function connectWorkflowConditionPredecessor(
+  graph: WorkflowAuthoringGraph,
+  conditionUuid: string,
+  sourceNodeUuid: string
+): WorkflowAuthoringGraph {
+  const condition = graph.nodes.find((node) => node.uuid === conditionUuid)
+  const source = graph.nodes.find((node) => node.uuid === sourceNodeUuid)
+  if (!condition || !source) throw new Error('条件节点或前置动作不存在')
+  if (condition.type !== 'condition') throw new Error('目标节点不是条件节点')
+  if (sourceNodeUuid === conditionUuid) throw new Error('条件节点不能连接自身')
+  const param = record(condition.param)
+  const predecessors = strings(param.predecessor_node_uuids)
+  return {
+    ...graph,
+    nodes: graph.nodes.map((node) => node.uuid === conditionUuid
+      ? { ...node, param: { ...param, predecessor_node_uuids: [...new Set([...predecessors, sourceNodeUuid])] } }
+      : node)
+  }
+}

@@ -100,6 +100,10 @@ interface WorkflowDagProps {
     branchIndex: number,
     targetNodeId: string
   ) => WorkflowHandleConnectionResult
+  onConnectConditionPredecessor?: (
+    sourceNodeId: string,
+    conditionNodeId: string
+  ) => WorkflowHandleConnectionResult
   onDeleteRequest?: (selection: {
     nodeUuids: string[]
     edgeUuids: string[]
@@ -155,6 +159,7 @@ function WorkflowDag({
   onNodeParentChange,
   onConnectHandles,
   onConnectConditionBranch,
+  onConnectConditionPredecessor,
   onDeleteRequest,
   visibleMaterialRoles,
   onVisibleMaterialRolesChange,
@@ -745,6 +750,7 @@ function WorkflowDag({
         onSelectionChange={handleCanvasSelectionChange}
         onConnectHandles={onConnectHandles}
         onConnectConditionBranch={onConnectConditionBranch}
+        onConnectConditionPredecessor={onConnectConditionPredecessor}
         onNodePositionChange={handleNodePositionChange}
         onNodePositionsChange={onNodePositionsChange}
         onNodeParentChange={onNodeParentChange}

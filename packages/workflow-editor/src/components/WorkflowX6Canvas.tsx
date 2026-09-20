@@ -72,6 +72,10 @@ export interface WorkflowX6CanvasProps {
     branchIndex: number,
     targetNodeId: string
   ) => WorkflowHandleConnectionResult
+  onConnectConditionPredecessor?: (
+    sourceNodeId: string,
+    conditionNodeId: string
+  ) => WorkflowHandleConnectionResult
   onSelectionChange(selection: {
     nodeUuids: string[]
     edgeUuids: string[]
@@ -105,6 +109,7 @@ export const WorkflowX6Canvas = forwardRef<
   onNodeParentChange,
   onConnectHandles,
   onConnectConditionBranch,
+  onConnectConditionPredecessor,
   onSelectionChange,
   onSetStart,
   onToggleBreakpoint,
@@ -131,6 +136,7 @@ export const WorkflowX6Canvas = forwardRef<
     onNodeParentChange,
     onConnectHandles,
     onConnectConditionBranch,
+    onConnectConditionPredecessor,
     onSelectionChange,
     onSetStart,
     onToggleBreakpoint,
@@ -150,6 +156,7 @@ export const WorkflowX6Canvas = forwardRef<
     onNodeParentChange,
     onConnectHandles,
     onConnectConditionBranch,
+    onConnectConditionPredecessor,
     onSelectionChange,
     onSetStart,
     onToggleBreakpoint,
@@ -368,7 +375,10 @@ export const WorkflowX6Canvas = forwardRef<
       if (data?.kind === 'reaction_material') return
       callbacksRef.current.onNodeSelect(node.id)
       const target = e?.target as Element | null
-      if (target?.getAttribute?.('data-selector') === 'loopAddNode') {
+      if (
+        target?.getAttribute?.('data-selector') === 'loopAddNode' ||
+        target?.closest?.('.workflow-x6-loop-add-node')
+      ) {
         e?.stopPropagation?.()
         callbacksRef.current.onAddNodeToLoop?.(node.id)
         return
@@ -536,6 +546,11 @@ export const WorkflowX6Canvas = forwardRef<
           Number(conditionPort[1]),
           targetNodeUuid
         )
+        return
+      }
+      const targetNode = projectionRef.current.nodes.find(node => node.id === targetNodeUuid)
+      if (sourcePortId === WORKFLOW_X6_OUTPUT_PORT_ID && targetNode?.data.controlFlow?.kind === 'condition') {
+        onConnectConditionPredecessor?.(sourceNodeUuid, targetNodeUuid)
         return
       }
       if (sourcePortId !== WORKFLOW_X6_OUTPUT_PORT_ID) return
