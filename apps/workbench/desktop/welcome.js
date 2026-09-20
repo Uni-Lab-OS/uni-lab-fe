@@ -44,6 +44,8 @@ const entryModeBootstrap = bootstrapSearch.get('entryMode') === 'production'
 let requestPending = switchingBootstrap || selectDirectoryBootstrap
 let bootstrappedDirectorySelection = false
 let runtimeRequestPending = false
+let continueAfterRuntimeInstall = false
+let runtimeProgressSample = null
 let runtimeSnapshot = {
   phase: 'unavailable',
   bundled: false,
@@ -138,9 +140,16 @@ installRuntimeButton.addEventListener('click', () => {
   if (!runtimeApi || runtimeRequestPending
     || runtimeSnapshot.phase === 'installing') return
   runtimeRequestPending = true
+  continueAfterRuntimeInstall = true
   render()
   void runtimeApi.install().then(next => {
     runtimeSnapshot = next
+    if (continueAfterRuntimeInstall && next.phase === 'ready') {
+      continueAfterRuntimeInstall = false
+      render()
+      continueIntoWorkspace()
+      return
+    }
   }).catch(error => {
     runtimeSnapshot = {
       ...runtimeSnapshot,
@@ -223,8 +232,13 @@ function handleBootstrapSnapshot(next) {
 
 if (runtimeApi) {
   runtimeApi.onSnapshot(next => {
+    const wasInstalling = runtimeSnapshot.phase === 'installing'
     runtimeSnapshot = next
     render()
+    if (continueAfterRuntimeInstall && wasInstalling && next.phase === 'ready') {
+      continueAfterRuntimeInstall = false
+      continueIntoWorkspace()
+    }
   })
   runtimeApi.getSnapshot().then(next => {
     runtimeSnapshot = next
@@ -385,9 +399,22 @@ function renderRuntimeProgress(progress) {
   const downloaded = formatBytes(progress.downloadedBytes)
   const total = formatBytes(progress.totalBytes)
   const size = downloaded && total ? `${downloaded} / ${total}` : downloaded ?? '处理中…'
+  const speed = progress.stage === 'downloading' ? runtimeDownloadSpeed(progress.downloadedBytes) : null
   runtimeProgressLabel.textContent = percentage === null
-    ? `${progressStageLabel(progress.stage)} · ${size}`
-    : `${progressStageLabel(progress.stage)} · ${percentage}% · ${size}`
+    ? `${progressStageLabel(progress.stage)} · ${size}${speed ? ` · ${speed}` : ''}`
+    : `${progressStageLabel(progress.stage)} · ${percentage}% · ${size}${speed ? ` · ${speed}` : ''}`
+}
+
+function runtimeDownloadSpeed(downloadedBytes) {
+  if (!Number.isFinite(downloadedBytes)) return null
+  const now = performance.now()
+  const previous = runtimeProgressSample
+  runtimeProgressSample = { bytes: downloadedBytes, at: now }
+  if (!previous || now <= previous.at || downloadedBytes <= previous.bytes) return null
+  const bytesPerSecond = (downloadedBytes - previous.bytes) / ((now - previous.at) / 1000)
+  if (!Number.isFinite(bytesPerSecond) || bytesPerSecond < 1024) return `${Math.round(bytesPerSecond)} B/s`
+  if (bytesPerSecond < 1024 * 1024) return `${(bytesPerSecond / 1024).toFixed(0)} KB/s`
+  return `${(bytesPerSecond / 1024 / 1024).toFixed(1)} MB/s`
 }
 
 function progressStageLabel(stage) {
@@ -444,6 +471,19 @@ function openTypedWorkspace() {
     () => workspaceApi?.openPath(typedWorkspace, selectedEntryMode()),
     '正在打开工作区',
     '校验设备包目录并启动工作区服务…'
+  )
+}
+
+function continueIntoWorkspace() {
+  const selectedWorkspace = workspaceSelect.value
+  const typedWorkspace = workspacePathInput.value.trim()
+  if (!selectedWorkspace && !typedWorkspace) return
+  void runOperation(
+    () => typedWorkspace
+      ? workspaceApi?.openPath(typedWorkspace, selectedEntryMode())
+      : workspaceApi?.openRecent(selectedWorkspace, selectedEntryMode()),
+    'Runtime 已更新，正在进入工作台',
+    'Runtime 校验完成，继续启动工作区服务…'
   )
 }
 
