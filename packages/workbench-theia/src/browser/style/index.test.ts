@@ -266,6 +266,16 @@ describe('environment manager layering and responsive layout', () => {
     )
   })
 
+  /** SCM 圆点装饰不得改变原生文件树的统一行高。 */
+  it('keeps decorated file tree rows at the native content line height', () => {
+    expect(domainNavigationStylesheet).toMatch(
+      /body\.unilab-files-visible #explorer-view-container \.theia-TreeNode\s*\{[^}]*height:\s*var\(--theia-content-line-height\);[^}]*min-height:\s*var\(--theia-content-line-height\);/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /#explorer-view-container[\s\S]*?\.theia-TreeNodeTail[\s\S]*?\.theia-decorator-size\s*\{[^}]*width:\s*1em;[^}]*height:\s*1em;[^}]*line-height:\s*1;/u
+    )
+  })
+
   /** 左右侧栏同时打开时按工作台自身宽度换行，避免操作区被 Agent 覆盖。 */
   it('wraps the workbench header by its own available width', () => {
     expect(stylesheet).toMatch(

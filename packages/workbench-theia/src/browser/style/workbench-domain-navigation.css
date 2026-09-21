@@ -823,6 +823,30 @@ body:not(.unilab-agent-panel-visible)
 }
 
 /* 文件树参与主布局，禁止再覆盖任务列表或工作流内容。 */
+body.unilab-files-visible #explorer-view-container .theia-TreeNode {
+  box-sizing: border-box;
+  height: var(--theia-content-line-height);
+  min-height: var(--theia-content-line-height);
+}
+
+body.unilab-files-visible #explorer-view-container .theia-TreeNodeContent,
+body.unilab-files-visible #explorer-view-container .theia-TreeNodeTail {
+  height: var(--theia-content-line-height);
+  min-height: 0;
+  align-items: center;
+}
+
+/* SCM 的圆点装饰不能用 100% 高度参与虚拟树测量，否则目录行会被反向撑高。 */
+body.unilab-files-visible
+  #explorer-view-container
+  .theia-TreeNodeTail
+  .theia-decorator-size {
+  width: 1em;
+  height: 1em;
+  flex: 0 0 1em;
+  line-height: 1;
+}
+
 body.unilab-files-visible #theia-left-right-split-panel > #theia-bottom-split-panel {
   left: var(--unilab-files-left-width, 460px) !important;
 }
