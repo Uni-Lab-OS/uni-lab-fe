@@ -50,7 +50,7 @@ export function WorkflowCanvasDebugMode({ model, onAutoLayout }: {
         title="自动排列当前实验操作中的节点"
         onClick={onAutoLayout}
       >
-        自动排步
+        自动排列
       </button>
     </div>
   )

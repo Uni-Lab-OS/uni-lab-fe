@@ -154,3 +154,63 @@ export function moveWorkflowNodeToLoop(
     })
   }
 }
+
+/** 将外部节点连接到 Loop 左侧输入 handle。 */
+export function connectWorkflowLoopPredecessor(
+  graph: WorkflowAuthoringGraph,
+  loopUuid: string,
+  sourceNodeUuid: string
+): WorkflowAuthoringGraph {
+  return connectWorkflowLoopBoundary(
+    graph,
+    loopUuid,
+    sourceNodeUuid,
+    'predecessor_node_uuids'
+  )
+}
+
+/** 将 Loop 右侧输出 handle 连接到外部后继节点。 */
+export function connectWorkflowLoopSuccessor(
+  graph: WorkflowAuthoringGraph,
+  loopUuid: string,
+  targetNodeUuid: string
+): WorkflowAuthoringGraph {
+  return connectWorkflowLoopBoundary(
+    graph,
+    loopUuid,
+    targetNodeUuid,
+    'successor_node_uuids'
+  )
+}
+
+function connectWorkflowLoopBoundary(
+  graph: WorkflowAuthoringGraph,
+  loopUuid: string,
+  boundaryNodeUuid: string,
+  field: 'predecessor_node_uuids' | 'successor_node_uuids'
+): WorkflowAuthoringGraph {
+  const loop = graph.nodes.find((node) => node.uuid === loopUuid)
+  const boundary = graph.nodes.find((node) => node.uuid === boundaryNodeUuid)
+  if (!loop || String(loop.type || '') !== 'repeat_until') {
+    throw new Error('连接边界不是循环节点')
+  }
+  if (!boundary) throw new Error('循环连接的外部节点不存在')
+  if (boundaryNodeUuid === loopUuid) throw new Error('循环节点不能连接自身')
+  if (typeof boundary.parent_uuid === 'string' && boundary.parent_uuid === loopUuid) {
+    throw new Error('循环体内部节点不能作为循环外部边界')
+  }
+  const param = record(loop.param)
+  const values = strings(param[field])
+  return {
+    ...graph,
+    nodes: graph.nodes.map((node) => node.uuid === loopUuid
+      ? {
+          ...node,
+          param: {
+            ...param,
+            [field]: [...new Set([...values, boundaryNodeUuid])]
+          }
+        }
+      : node)
+  }
+}

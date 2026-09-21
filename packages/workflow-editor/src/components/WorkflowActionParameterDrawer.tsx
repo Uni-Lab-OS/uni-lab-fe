@@ -284,6 +284,7 @@ export function WorkflowActionParameterEditor({
                           field={field}
                           providerKind={providerKind}
                           editable={editable}
+                          compact={presentation !== 'node'}
                           resourceSlotOptions={resourceSlotOptions}
                           onLiteralBlur={commitLiteral}
                           onResourceChange={onResourceChange}
@@ -558,6 +559,7 @@ function ParameterValueControl({
   field,
   providerKind,
   editable,
+  compact = false,
   resourceSlotOptions,
   onLiteralBlur,
   onResourceChange
@@ -565,6 +567,7 @@ function ParameterValueControl({
   field: TypedActionFieldProjection
   providerKind: TypedActionFieldProjection['providerKind']
   editable: boolean
+  compact?: boolean
   resourceSlotOptions?: WorkflowResourceSlotOptionsState
   onLiteralBlur: (
     field: TypedActionFieldProjection,
@@ -586,6 +589,7 @@ function ParameterValueControl({
         optionsState={resourceSlotOptions}
         allowedResourceTemplateUuids={field.allowedResourceTemplateUuids}
         disabled={disabled || !onResourceChange}
+        compact={compact}
         onChange={(materialUuid) => onResourceChange?.(field, materialUuid)}
       />
     )

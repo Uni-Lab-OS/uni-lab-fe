@@ -266,6 +266,19 @@ describe('environment manager layering and responsive layout', () => {
     )
   })
 
+  /** 二次点击「文件」收起左栏后，不得继续预留 460px 空资源管理器列。 */
+  it('does not reserve the files column after Theia collapses the left panel', () => {
+    expect(domainNavigationStylesheet).toMatch(
+      /body\.unilab-files-visible #theia-left-content-panel:not\(\.theia-mod-collapsed\)\s*\{[^}]*min-width:\s*460px/u
+    )
+    expect(domainNavigationStylesheet).not.toMatch(
+      /body\.unilab-files-visible #theia-left-content-panel\s*\{[^}]*min-width:\s*460px/u
+    )
+    expect(domainNavigationStylesheet).toMatch(
+      /body\.unilab-files-visible:not\(:has\(#theia-left-content-panel\.theia-mod-collapsed\)\)[\s\S]*?#theia-bottom-split-panel\s*\{[^}]*left:\s*var\(--unilab-files-left-width,\s*460px\)/u
+    )
+  })
+
   /** SCM 圆点装饰不得改变原生文件树的统一行高。 */
   it('keeps decorated file tree rows at the native content line height', () => {
     expect(domainNavigationStylesheet).toMatch(

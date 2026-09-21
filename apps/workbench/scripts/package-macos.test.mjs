@@ -67,6 +67,13 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(welcomeScript, /upgrade-required/u)
     assert.match(welcomeScript, /openDiagnosticLog/u)
     assert.match(welcomeScript, /unilab -h/u)
+    // 切换到本机/外部 Runtime 是早返回分支；必须先清掉旧安装的下载进度，
+    // 否则面板会错误地保留“准备下载”的历史状态。
+    assert.ok(
+      welcomeScript.indexOf('runtimeProgress.hidden = true')
+        < welcomeScript.indexOf("if (runtimeSnapshot.phase === 'external')")
+    )
+    assert.match(welcomeScript, /renderRuntimeProgress\(runtimeSnapshot\.progress\)/u)
     assert.match(welcomeScript, /openRecent\(selectedWorkspace, selectedEntryMode\(\)\)/u)
     assert.equal(
       theiaManifest.theiaExtensions[0].frontendPreload,

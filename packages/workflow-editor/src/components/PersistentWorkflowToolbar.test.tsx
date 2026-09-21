@@ -8,6 +8,20 @@ import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAutho
 import { PersistentWorkflowToolbar } from './PersistentWorkflowToolbar'
 
 describe('PersistentWorkflowToolbar', () => {
+  it('uses the compact toolbar style and the 自动排列 wording', () => {
+    const html = renderToStaticMarkup(
+      <PersistentWorkflowToolbar
+        model={toolbarModel()}
+        onAutoLayout={() => undefined}
+      />
+    )
+
+    expect(html).toContain('aria-label="自动排列"')
+    expect(html).toContain('persistent-authoring__debug-icon--label')
+    expect(html).toContain('>自动排列</button>')
+    expect(html).not.toContain('自动排步')
+  })
+
   it('keeps navigation and edit mode on one compact debugger toolbar', () => {
     const html = renderToStaticMarkup(
       <PersistentWorkflowToolbar

@@ -100,6 +100,7 @@ import {
   WorkbenchAuthorityLoading,
   WorkbenchSessionGate
 } from './workbench-session-gate'
+import { FILES_EDITOR_SPLIT_MODE } from './workbench-files-layout'
 import {
   WorkbenchViewState,
   isRobotWorkbenchViewMode,
@@ -802,7 +803,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     )
     const widget = existing ?? await this.editorManager.open(uri, {
       mode: 'activate',
-      widgetOptions: { area: 'main', mode: 'split-right', ref: this }
+      widgetOptions: { area: 'main', mode: FILES_EDITOR_SPLIT_MODE, ref: this }
     })
     if (location.readOnly) {
       const monacoEditor = widget.editor as typeof widget.editor & {
@@ -1147,6 +1148,7 @@ function WorkbenchSurface({
         )}
         resourceSlotOptionsPort={resourceSlotOptionsPort}
         active={isWorkflowWorkbenchView(viewMode)}
+        hideCanvasSidebars={!isWorkflowDebugWorkbenchView(viewMode)}
         workflowUuid={workflowUuid}
         catalogRequestRevision={workflowManagementListRequestRevision}
         activeWorkflowStorageKey={`unilab.workflow.active.${

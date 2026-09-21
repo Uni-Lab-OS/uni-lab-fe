@@ -6,6 +6,7 @@ import {
   WorkflowX6Canvas,
   workflowX6DesiredEmbedParentId,
   workflowX6HandleConnectionCandidates,
+  workflowX6NextCanvasZoom,
   workflowX6ProjectionDiff,
   type WorkflowX6Node
 } from './WorkflowX6Canvas'
@@ -565,6 +566,71 @@ describe('WorkflowX6Canvas scale policy', () => {
     expect(clickHandler).toContain('onOpenChildWorkflow')
     expect(clickHandler).toContain('data.openChildWorkflowUuid')
     expect(doubleClickHandler).not.toContain('onOpenChildWorkflow')
+  })
+
+  it('zooms from blank canvas around the viewport instead of a stale mouse origin', () => {
+    expect(workflowX6NextCanvasZoom(1, -100)).toBeCloseTo(1.1)
+    expect(workflowX6NextCanvasZoom(1.1, 100)).toBeCloseTo(1)
+    expect(workflowX6NextCanvasZoom(0.02, 100)).toBe(0.02)
+    expect(workflowX6NextCanvasZoom(1.5, -100)).toBe(1.5)
+
+    const source = readFileSync(
+      new URL('./WorkflowX6Canvas.tsx', import.meta.url),
+      'utf8'
+    )
+    const mousewheel = source.slice(
+      source.indexOf('mousewheel: {'),
+      source.indexOf('interacting: {')
+    )
+    const wheelHandler = source.slice(
+      source.indexOf('const handleCanvasWheel'),
+      source.indexOf("root.addEventListener('wheel', handleCanvasWheel")
+    )
+
+    expect(mousewheel).toContain('enabled: false')
+    expect(wheelHandler).toContain('workflowX6NextCanvasZoom')
+    expect(wheelHandler).toContain('absolute: true')
+    expect(wheelHandler).not.toContain('event.ctrlKey')
+    expect(wheelHandler).not.toContain('zoomAtMousePosition')
+    expect(source).toContain('scroller.resize(rect.width, rect.height)')
+    expect(source).not.toContain('graph.resize(rect.width, rect.height)')
+    expect(source).toContain("root.removeEventListener('wheel', handleCanvasWheel, true)")
+  })
+
+  it('keeps blank-canvas panning on the scroller after zoom', () => {
+    const source = readFileSync(
+      new URL('./WorkflowX6Canvas.tsx', import.meta.url),
+      'utf8'
+    )
+    const panFallback = source.slice(
+      source.indexOf('let backgroundPan:'),
+      source.indexOf('if (minimapRef.current)')
+    )
+
+    expect(panFallback).not.toContain(
+      'callbacksRef.current.nodePositionMutationEnabled'
+    )
+    expect(panFallback).toContain('scroller.container.scrollLeft')
+    expect(panFallback).toContain('scroller.container.scrollTop')
+    expect(panFallback).toContain('event.shiftKey')
+    expect(panFallback).toContain("'.x6-node'")
+    expect(panFallback).toContain("'.x6-edge'")
+    expect(source).toContain(
+      "root.removeEventListener('pointermove', handleBackgroundPanPointerMove, true)"
+    )
+  })
+
+  it('grows the scroller paper to the cell bbox so far-right nodes stay reachable', () => {
+    const source = readFileSync(
+      new URL('./WorkflowX6Canvas.tsx', import.meta.url),
+      'utf8'
+    )
+    expect(source).toContain('autoResize: true')
+    expect(source).not.toContain('autoResize: false')
+    expect(source).toContain('scroller.updateScroller()')
+    expect(source).toMatch(
+      /if \(paperNeedsUpdate\) scroller\?\.updateScroller\(\)/
+    )
   })
 
   /** 节点文字保持原型卡片的紧凑尺寸，不注入悬浮提示。 */

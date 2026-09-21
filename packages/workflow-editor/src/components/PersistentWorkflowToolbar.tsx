@@ -189,12 +189,14 @@ export function PersistentWorkflowToolbar({
     >
       <WorkflowButton
         type="button"
+        className="persistent-authoring__debug-icon persistent-authoring__debug-icon--label"
         disabled={!onAutoLayout || runningEntryBusy || !aggregate}
         disabledReason="工作流尚未加载完成或正在运行"
+        aria-label="自动排列"
         title="自动排列工作流节点"
         onClick={onAutoLayout}
       >
-        自动排步
+        自动排列
       </WorkflowButton>
       <WorkflowDraftValidationButton
           aggregateAvailable={Boolean(aggregate)}

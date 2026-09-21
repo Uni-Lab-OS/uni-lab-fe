@@ -340,6 +340,9 @@ function renderRuntime() {
   runtimeSelector.disabled = runtimeRequestPending
     || runtimeSnapshot.phase === 'installing'
   runtimeSelectorLabel.hidden = environments.length === 0
+  // 先复位前一次安装留下的下载状态；只有 installing 分支会重新显示真实进度。
+  // 否则安装后切换到已选择的本机环境时，旧的“准备下载”条会残留在 external 面板中。
+  hideRuntimeProgress()
   if (runtimeSnapshot.phase === 'ready') {
     runtimeTitle.textContent = `内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''} 已就绪`
     runtimeDetail.textContent = runtimeSnapshot.error
@@ -364,7 +367,7 @@ function renderRuntime() {
     renderRuntimeProgress(runtimeSnapshot.progress)
     return
   }
-  runtimeProgress.hidden = true
+  hideRuntimeProgress()
   if (runtimeSnapshot.phase === 'upgrade-required') {
     runtimeTitle.textContent = '需要升级本地 Runtime'
     runtimeDetail.textContent = runtimeSnapshot.error
@@ -387,12 +390,22 @@ function renderRuntime() {
     : `可安装应用内置 Runtime ${runtimeSnapshot.runtimeVersion ?? ''}，无需另行配置 Conda。`
 }
 
+function hideRuntimeProgress() {
+  runtimeProgress.hidden = true
+  runtimeProgress.style.display = 'none'
+}
+
+function showRuntimeProgress() {
+  runtimeProgress.hidden = false
+  runtimeProgress.style.removeProperty('display')
+}
+
 function renderRuntimeProgress(progress) {
   if (!progress || progress.stage === 'preparing') {
-    runtimeProgress.hidden = true
+    hideRuntimeProgress()
     return
   }
-  runtimeProgress.hidden = false
+  showRuntimeProgress()
   const percentage = Number.isFinite(progress.percentage) ? progress.percentage : null
   runtimeProgressBar.style.width = `${percentage ?? 0}%`
   runtimeProgressBar.dataset.stage = progress.stage

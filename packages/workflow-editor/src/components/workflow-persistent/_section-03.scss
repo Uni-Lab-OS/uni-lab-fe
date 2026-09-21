@@ -287,6 +287,30 @@
     gap: 5px;
   }
 
+  :global(.persistent-authoring__resource-selector.is-compact) {
+    align-self: center;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  :global(.persistent-authoring__resource-selector.is-compact) label {
+    display: block;
+    min-width: 0;
+    gap: 0;
+  }
+
+  :global(.persistent-authoring__resource-selector.is-compact) select {
+    width: 100%;
+    height: 32px;
+    min-height: 32px;
+  }
+
+  :global(.persistent-authoring__resource-selector.is-compact)
+  :global(.persistent-authoring__resource-selector-heading),
+  :global(.persistent-authoring__resource-selector.is-compact) > span[role='status'] {
+    display: none;
+  }
+
   :global(.persistent-authoring__parameter-fields) > label {
     align-self: start;
     min-width: 0;

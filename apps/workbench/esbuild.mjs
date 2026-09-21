@@ -24,6 +24,20 @@ browserOptions.alias = {
     'next/link': sharedShimPath('next-link'),
 };
 browserOptions.jsx = 'automatic';
+
+// Theia's built-in source-map-paths plugin recursively rewrites every map in
+// the shared `lib/` tree. Browser and Node builds then race over that rewrite
+// during development, intermittently leaving invalid JSON and preventing the
+// Workspace Backend from starting. Keep source maps, but omit only the
+// file:// path rewrite in development; production bundles retain it.
+if (mode === 'development') {
+    for (const options of [browserOptions, nodeOptions]) {
+        options.plugins = (options.plugins ?? []).filter(
+            plugin => plugin.name !== 'theia-source-map-paths'
+        );
+    }
+}
+
 // Theia emits an IIFE bundle, so native `import.meta.url` has no module URL.
 // Pascal's Three.js KTX2 loader still constructs its fallback URLs eagerly;
 // the actual transcoder path is configured separately, but the base must be

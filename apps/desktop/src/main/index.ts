@@ -261,6 +261,7 @@ function createWindow(): void {
     }
   })
 
+  mainWindow.webContents.setVisualZoomLevelLimits(1, 1)
   mainWindow.on('ready-to-show', () => {
     logLine('window ready-to-show')
     electronObservability.record('electron.renderer.ready')

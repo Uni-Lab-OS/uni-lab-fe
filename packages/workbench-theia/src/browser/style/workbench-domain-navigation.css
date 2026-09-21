@@ -306,8 +306,8 @@ body.unilab-agent-panel-visible
   z-index: 20 !important;
 }
 
-/* 只有文件树显示时，才给产品导航和文件树预留完整的左侧面板宽度。 */
-body.unilab-files-visible #theia-left-content-panel {
+/* 只有文件树真正展开时，才给产品导航和文件树预留完整的左侧面板宽度。 */
+body.unilab-files-visible #theia-left-content-panel:not(.theia-mod-collapsed) {
   min-width: 460px !important;
 }
 
@@ -852,7 +852,9 @@ body.unilab-files-visible
   line-height: 1;
 }
 
-body.unilab-files-visible #theia-left-right-split-panel > #theia-bottom-split-panel {
+body.unilab-files-visible:not(:has(#theia-left-content-panel.theia-mod-collapsed))
+  #theia-left-right-split-panel
+  > #theia-bottom-split-panel {
   left: var(--unilab-files-left-width, 460px) !important;
 }
 

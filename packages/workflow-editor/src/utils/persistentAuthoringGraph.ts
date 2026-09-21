@@ -277,6 +277,7 @@ function projectControlFlowState(
       ...(Number.isInteger(maximum) && maximum > 0
         ? { maxIterations: maximum }
         : {}),
+      predecessorNodeUuids: list(param.predecessor_node_uuids),
       entryNodeUuids: list(param.entry_node_uuids),
       exitNodeUuids: list(param.exit_node_uuids),
       successorNodeUuids: list(param.successor_node_uuids)
