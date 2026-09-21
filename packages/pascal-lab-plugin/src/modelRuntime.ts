@@ -10,6 +10,7 @@ import {
 } from 'three'
 import jsYaml from 'js-yaml'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
@@ -100,6 +101,8 @@ async function parseUrdf(
   fixFileUrls(document)
   const loader = new URDFLoader()
   loader.workingPath = workingPath
+  loader.packages = (packageName: string) =>
+    resolveUrdfPackageDirectory(packageName, workingPath)
   const pendingMeshes = setupUrdfMeshLoader(loader)
   const robot = loader.parse(document)
   await Promise.all(pendingMeshes)
@@ -108,7 +111,26 @@ async function parseUrdf(
   return robot
 }
 
-function setupUrdfMeshLoader(loader: URDFLoader): Promise<void>[] {
+/** Resolve ROS package references within the model's published package path. */
+export function resolveUrdfPackageDirectory(
+  packageName: string,
+  modelDirectory: string
+): string {
+  const url = new URL(modelDirectory)
+  const segments = url.pathname.split('/')
+  const index = segments.findIndex(segment =>
+    decodeURIComponent(segment) === packageName
+  )
+  if (index < 0) {
+    throw new Error(`Model URL does not contain ROS package ${packageName}`)
+  }
+  url.pathname = segments.slice(0, index + 1).join('/')
+  url.search = ''
+  url.hash = ''
+  return url.toString().replace(/\/$/, '')
+}
+
+export function setupUrdfMeshLoader(loader: URDFLoader): Promise<void>[] {
   const pendingMeshes: Promise<void>[] = []
   loader.loadMeshCb = (
     url: string,
@@ -116,35 +138,23 @@ function setupUrdfMeshLoader(loader: URDFLoader): Promise<void>[] {
     done: (mesh: Object3D, error?: Error) => void
   ) => {
     const resolvedUrl = recoverAbsoluteUrl(url)
-    if (/\.stl(?:$|\?)/i.test(resolvedUrl)) {
-      const pending = fetchBuffer(resolvedUrl)
-        .then((buffer) => {
-          done(
-            new Mesh(
-              new STLLoader().parse(buffer),
-              new MeshPhongMaterial({ color: 0xd1d5db })
-            )
-          )
-        })
-        .catch((cause: unknown) => {
-          done(
-            new Object3D(),
-            cause instanceof Error ? cause : new Error(String(cause))
-          )
-        })
-      pendingMeshes.push(pending)
-      return
-    }
-    const pending = new Promise<void>((resolve) => {
-      loader.defaultMeshLoader(
-        resolvedUrl,
-        manager,
-        (mesh, error) => {
-          done(mesh, error)
-          resolve()
-        }
-      )
-    })
+    const pending = (async () => {
+      if (/\.stl(?:$|[?#])/i.test(resolvedUrl)) {
+        return new Mesh(
+          new STLLoader().parse(await fetchBuffer(resolvedUrl)),
+          new MeshPhongMaterial({ color: 0xd1d5db })
+        )
+      }
+      if (/\.(?:glb|gltf)(?:$|[?#])/i.test(resolvedUrl)) {
+        return loadGltf(resolvedUrl, '')
+      }
+      if (/\.dae(?:$|[?#])/i.test(resolvedUrl)) {
+        const result = await new ColladaLoader(manager).loadAsync(resolvedUrl)
+        if (!result) throw new Error(`Empty Collada model: ${resolvedUrl}`)
+        return result.scene
+      }
+      throw new Error(`Unsupported URDF mesh format: ${resolvedUrl}`)
+    })().then(mesh => { done(mesh) })
     pendingMeshes.push(pending)
   }
   return pendingMeshes

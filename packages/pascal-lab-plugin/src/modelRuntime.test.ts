@@ -1,17 +1,58 @@
-import { Mesh, type Material } from 'three'
+import { LoadingManager, Mesh, Group, type Material } from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import URDFLoader from 'urdf-loader'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   buildDeviceXacro,
   loadLabDeviceModel,
   resolveModelDirectory,
+  resolveUrdfPackageDirectory,
+  setupUrdfMeshLoader,
   shouldInstantiateXacro
 } from './modelRuntime'
 import { LabDeviceNodeSchema } from './schema'
 
 describe('Pascal model runtime', () => {
+  it('keeps package meshes on the published model origin and package root', () => {
+    expect(resolveUrdfPackageDirectory(
+      'example_devices',
+      'http://127.0.0.1:8014/api/v1/material-models/example/example_devices/models/robot/'
+    )).toBe('http://127.0.0.1:8014/api/v1/material-models/example/example_devices')
+    expect(resolveUrdfPackageDirectory(
+      'other_package',
+      'https://assets.example.com/release/other_package/models/'
+    )).toBe('https://assets.example.com/release/other_package')
+    expect(() => resolveUrdfPackageDirectory(
+      'missing', 'https://assets.example.com/release/other_package/models/'
+    )).toThrow('Model URL does not contain ROS package missing')
+  })
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('completes URDF meshes containing GLB scenes', async () => {
+    const scene = new Group()
+    const load = vi.spyOn(GLTFLoader.prototype, 'loadAsync')
+      .mockResolvedValue({ scene } as Awaited<ReturnType<GLTFLoader['loadAsync']>>)
+    const loader = new URDFLoader()
+    const pending = setupUrdfMeshLoader(loader)
+    const done = vi.fn()
+    loader.loadMeshCb('http://localhost/assets/table.glb', new LoadingManager(), done)
+    await Promise.all(pending)
+    expect(load).toHaveBeenCalledWith('http://localhost/assets/table.glb')
+    expect(done).toHaveBeenCalledWith(scene)
+  })
+
+  it('rejects failed or unsupported URDF meshes instead of hanging', async () => {
+    vi.spyOn(GLTFLoader.prototype, 'loadAsync').mockRejectedValue(new Error('HTTP 404'))
+    for (const [path, message] of [['missing.glb', 'HTTP 404'], ['unknown.bin', 'Unsupported URDF mesh format']]) {
+      const loader = new URDFLoader()
+      const pending = setupUrdfMeshLoader(loader)
+      loader.loadMeshCb(`http://localhost/${path}`, new LoadingManager(), vi.fn())
+      await expect(Promise.all(pending)).rejects.toThrow(message)
+    }
   })
 
   it('keeps a single STL material renderable when applying a tint', async () => {
