@@ -128,6 +128,41 @@ describe('ExperimentOperationWorkbench', () => {
     ])
   })
 
+  it('groups Yibin Station classes as device actions', () => {
+    const groups = groupExperimentOperationDeviceActions({
+      actionTemplates: [
+        {
+          ...actionTemplate(
+            'create-task',
+            'atomic-template',
+            '创建 TASK',
+            'yb_sse_devices.devices.yb_synthesis_atomic_station.device:YBSynthesisAtomicStation'
+          ),
+          nodeType: 'ILab',
+          resourceTemplateName: 'community.yb_sse_devices.yb_synthesis_atomic_station'
+        },
+        {
+          ...actionTemplate(
+            'host-create',
+            'host-template',
+            '创建物料',
+            'unilabos.ros.nodes.presets.host_node:HostNode'
+          ),
+          nodeType: 'ILab',
+          resourceTemplateName: 'host_node'
+        }
+      ],
+      workflowTemplates: []
+    } satisfies WorkflowActionCatalogSnapshot)
+
+    expect(groups).toHaveLength(1)
+    expect(groups[0]).toMatchObject({
+      resourceTemplateUuid: 'atomic-template',
+      label: 'YB 合成工站（原子动作）'
+    })
+    expect(groups[0]?.actions.map(action => action.uuid)).toEqual(['create-task'])
+  })
+
   it('shows device actions expanded and counts only business devices', () => {
     const catalog = {
       actionTemplates: [

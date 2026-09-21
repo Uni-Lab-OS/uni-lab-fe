@@ -10,12 +10,53 @@ export function closedRecord(
   return value
 }
 
+/**
+ * 解析闭合对象，并允许一组可选键。
+ *
+ * @param raw 未信任对象。
+ * @param required 必须出现的键。
+ * @param optional 允许出现、但可缺省的额外键。
+ * @returns 已核对键集合的记录。
+ * @throws 缺少必选键或出现未知键时关闭失败。
+ */
+export function closedRecordAllowing(
+  raw: unknown,
+  required: string[],
+  optional: string[] = []
+): Record<string, unknown> {
+  const value = recordValue(raw)
+  requireKeysAllowing(value, required, optional)
+  return value
+}
+
 /** 核对对象键集合；参数是记录与允许键，无返回值，不完全相同时关闭失败。 */
 export function requireKeys(
   raw: Record<string, unknown>,
   keys: string[]
 ): void {
   if (!sameStrings(Object.keys(raw).sort(), [...keys].sort())) invalidCatalog()
+}
+
+/**
+ * 核对对象键集合：必须包含 required，且不得出现 required∪optional 之外的键。
+ *
+ * @param raw 已解析对象。
+ * @param required 必须出现的键。
+ * @param optional 允许出现、但可缺省的额外键。
+ * @throws 缺少必选键或出现未知键时关闭失败。
+ */
+export function requireKeysAllowing(
+  raw: Record<string, unknown>,
+  required: string[],
+  optional: string[] = []
+): void {
+  const allowed = new Set([...required, ...optional])
+  for (const key of Object.keys(raw)) {
+    if (!allowed.has(key)) invalidCatalog()
+  }
+  for (const key of required) {
+    if (!Object.prototype.hasOwnProperty.call(raw, key)) invalidCatalog()
+  }
 }
 
 /** 解析唯一字符串数组；参数是原始值，返回原顺序数组，重复值时关闭失败。 */

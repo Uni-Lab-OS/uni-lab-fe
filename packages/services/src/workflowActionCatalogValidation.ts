@@ -36,16 +36,17 @@ export function objectEnvelope(raw: unknown): {
   return { properties: normalized, required }
 }
 
-/** 验证全部已发布工作流连接点；参数是连接点与冻结合同，无返回值，数量、方向或 schema 不一致时关闭失败。 */
+/** 验证全部已发布工作流连接点；参数是连接点与冻结合同，返回已对齐白名单的连接点，数量、方向或 schema 不一致时关闭失败。 */
 export function validatePublishedHandles(
   handles: WorkflowActionHandleTemplate[],
   contract: WorkflowSchemaProjection
-): void {
-  if (handles.length !== contract.inputOrder.length +
+): WorkflowActionHandleTemplate[] {
+  const aligned = alignPublishedHandlesWithContract(handles, contract)
+  if (aligned.length !== contract.inputOrder.length +
     contract.outputOrder.length + 2) invalidCatalog()
   let index = 0
   for (const name of contract.inputOrder) {
-    const handle = handles[index++]
+    const handle = aligned[index++]
     if (!handle) invalidCatalog()
     validateBusinessHandle(
       handle,
@@ -57,7 +58,7 @@ export function validatePublishedHandles(
     )
   }
   for (const name of contract.outputOrder) {
-    const handle = handles[index++]
+    const handle = aligned[index++]
     if (!handle) invalidCatalog()
     validateBusinessHandle(
       handle,
@@ -68,8 +69,70 @@ export function validatePublishedHandles(
       false
     )
   }
-  validateReadyHandle(handles[index++], 'target')
-  validateReadyHandle(handles[index], 'source')
+  validateReadyHandle(aligned[index++], 'target')
+  validateReadyHandle(aligned[index], 'source')
+  return aligned
+}
+
+/**
+ * 以冻结合同 schema 对齐物料占位符（ResourceSlot）白名单。
+ *
+ * Local Domain 重建后资源模板 UUID 可能重写，OS 会更新合同 schema，但连接点
+ * wire 上的白名单可能仍保留发布快照中的旧 UUID。仅在两侧都是 ResourceSlot 时
+ * 以 schema 白名单为准；其它 value schema 破坏仍失败关闭。
+ */
+export function alignPublishedHandlesWithContract(
+  handles: WorkflowActionHandleTemplate[],
+  contract: WorkflowSchemaProjection
+): WorkflowActionHandleTemplate[] {
+  return handles.map((handle) => {
+    if (handle.structuralRole === 'ready') return handle
+    const schema = handle.ioType === 'target'
+      ? contract.inputSchemas[handle.handleKey]
+      : handle.ioType === 'source'
+        ? contract.outputSchemas[handle.handleKey]
+        : undefined
+    if (!schema) return handle
+    const schemaSlot = resourceSlotSchema(schema)
+    const handleSlot = resourceSlotSchema(handle.valueSchema)
+    if (!schemaSlot || !handleSlot) return handle
+    const allowlist = schemaAllowlist(schema)
+    if (sameAllowlist(handle.allowedResourceTemplateUuids, allowlist)) {
+      return handle
+    }
+    return {
+      ...handle,
+      valueSchema: rewriteResourceSlotAllowlist(handle.valueSchema, allowlist),
+      allowedResourceTemplateUuids: allowlist
+    }
+  })
+}
+
+/** 在 ResourceSlot schema 树中重写白名单；保持其余字段不变。 */
+function rewriteResourceSlotAllowlist(
+  schema: Record<string, unknown>,
+  allowlist: string[] | null
+): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...schema }
+  if (next.$slot === 'ResourceSlot') {
+    if (allowlist === null) delete next.allowed_resource_template_uuids
+    else next.allowed_resource_template_uuids = [...allowlist]
+    return next
+  }
+  if (next.items && typeof next.items === 'object' && !Array.isArray(next.items)) {
+    next.items = rewriteResourceSlotAllowlist(
+      next.items as Record<string, unknown>,
+      allowlist
+    )
+  }
+  if (Array.isArray(next.anyOf)) {
+    next.anyOf = next.anyOf.map((member) =>
+      member && typeof member === 'object' && !Array.isArray(member)
+        ? rewriteResourceSlotAllowlist(member as Record<string, unknown>, allowlist)
+        : member
+    )
+  }
+  return next
 }
 
 /** 验证业务连接点；参数包含连接点、名称、方向、数据源、schema 与必填性，无返回值，不一致时关闭失败。 */

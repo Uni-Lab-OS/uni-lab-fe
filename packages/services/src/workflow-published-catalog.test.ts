@@ -102,10 +102,6 @@ const malformedWorkflowCases: ReadonlyArray<{
   { name: 'input Handle data source', mutation: 'wrong_input_data_source' },
   { name: 'input Handle data key', mutation: 'wrong_input_data_key' },
   { name: 'input Handle value schema', mutation: 'wrong_input_value_schema' },
-  {
-    name: 'ResourceSlot allowlist correspondence',
-    mutation: 'wrong_resource_slot_allowlist'
-  },
   { name: 'missing structural ready Handle', mutation: 'missing_ready_handle' },
   { name: 'ready Handle structural role', mutation: 'missing_ready_role' },
   { name: 'ready Handle data source', mutation: 'wrong_ready_data_source' },
@@ -121,7 +117,7 @@ describe('Published Workflow catalog projection', registerPublishedWorkflowTests
 /**
  * 注册发布工作流（PublishedWorkflow）冻结合同与投影测试。
  *
- * @returns 无返回值；Vitest 在收集阶段登记 35 项测试。
+ * @returns 无返回值；Vitest 在收集阶段登记测试。
  * @throws 测试登记本身不抛出异常，运行断言失败由 Vitest 报告。
  */
 function registerPublishedWorkflowTests(): void {
@@ -149,6 +145,10 @@ function registerPublishedWorkflowTests(): void {
   it(
     'normalizes Published Handles to the frozen contract order',
     normalizesHandlesToFrozenOrder
+  )
+  it(
+    'heals ResourceSlot allowlist drift from rematerialized schema',
+    healsResourceSlotAllowlistDrift
   )
 }
 
@@ -462,6 +462,29 @@ async function normalizesHandlesToFrozenOrder(): Promise<void> {
       workflowReadyTargetUuid,
       workflowReadySourceUuid
     ])
+}
+
+/**
+ * Local Domain 重建后，合同 schema 白名单可能已重写，而 Handle wire 仍保留旧 UUID。
+ * 目录投影应以 schema 为准治愈 ResourceSlot 白名单漂移。
+ */
+async function healsResourceSlotAllowlistDrift(): Promise<void> {
+  const responses = executableCatalogResponses()
+  applyMalformedWorkflowMutation(responses, 'wrong_resource_slot_allowlist')
+  const runtime = createWorkflowRuntime(
+    fixtureHttp(responses),
+    getDefaultBackend('local-python')
+  )
+
+  const catalog = await runtime.getWorkflowActionCatalog()
+  const input = catalog.workflowTemplates[0]?.handles.find((handle) =>
+    handle.handleKey === 'sample' && handle.ioType === 'target'
+  )
+  expect(input?.allowedResourceTemplateUuids).toEqual([resourceTemplateUuid])
+  expect(input?.valueSchema).toEqual({
+    $slot: 'ResourceSlot',
+    allowed_resource_template_uuids: [resourceTemplateUuid]
+  })
 }
 
 /**

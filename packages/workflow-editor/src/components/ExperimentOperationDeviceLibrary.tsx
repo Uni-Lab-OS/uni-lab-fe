@@ -281,11 +281,16 @@ export function ExperimentOperationDeviceLibrary({
 
 function isExperimentDeviceAction(action: WorkflowActionNodeTemplate): boolean {
   const deviceClass = action.actionClass?.split(':').at(-1)?.trim() ?? ''
-  return Boolean(action.resourceTemplateUuid) &&
-    deviceClass.endsWith('Device') &&
-    !deviceClass.endsWith('EmbeddedSimDevice') &&
-    action.actionClass !== 'unilabos.workflow.authoring:material_source' &&
-    action.actionType !== 'material_source'
+  const resourceName = action.resourceTemplateName ?? ''
+  if (!action.resourceTemplateUuid) return false
+  if (
+    action.actionType === 'material_source' ||
+    action.actionClass === 'unilabos.workflow.authoring:material_source'
+  ) return false
+  if (deviceClass.endsWith('EmbeddedSimDevice')) return false
+  if (deviceClass === 'HostNode' || resourceName === 'host_node') return false
+  // SZLab 设备类以 Device 结尾；Yibin 等工站类是 ILab 节点，类名常以 Station 结尾。
+  return deviceClass.endsWith('Device') || action.nodeType === 'ILab'
 }
 
 function experimentDeviceLabel(
@@ -307,7 +312,11 @@ function experimentDeviceDisplayName(className: string): string {
     [/RobotDevice$/u, 'SZLab 机械臂'],
     [/PolyPLCDevice$/u, 'SZLab PLC'],
     [/S07SolidAdditionDevice$/u, 'S07 固体加料'],
-    [/S08CapStationDevice$/u, 'S08 开关盖']
+    [/S08CapStationDevice$/u, 'S08 开关盖'],
+    [/YBSynthesisAtomicStation$/u, 'YB 合成工站（原子动作）'],
+    [/YBSynthesisModbusStation$/u, 'YB 合成工站（Modbus）'],
+    [/SynthesisStation$/u, 'YB 合成工站'],
+    [/ConductivityStation$/u, 'YB 电导率工站']
   ]
   return names.find(([pattern]) => pattern.test(className))?.[1] ??
     className.replaceAll('_', ' ')

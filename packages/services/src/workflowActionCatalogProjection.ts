@@ -9,6 +9,7 @@ import {
   allowlistValue,
   booleanValue,
   closedRecord,
+  closedRecordAllowing,
   digestValue,
   identifierValue,
   invalidCatalog,
@@ -189,9 +190,12 @@ function projectPublishedWorkflow(
     summary.nodeType !== 'workflow' ||
     summary.name !== `workflow:${contract.workflowUuid}`
   ) invalidCatalog()
-  const unilab = closedRecord(
+  // OS 现会在已发布工作流元数据中附带可选 `workflow_contract`；
+  // 目录投影仍以 schema 上的 `x-unilabos-workflow-contract` 为准。
+  const unilab = closedRecordAllowing(
     recordValue(template.meta_data).unilab,
-    ['framework_owner_only', 'workflow_source']
+    ['framework_owner_only', 'workflow_source'],
+    ['workflow_contract']
   )
   if (unilab.framework_owner_only !== true) invalidCatalog()
   const rawSource = closedRecord(unilab.workflow_source, [
@@ -216,11 +220,13 @@ function projectPublishedWorkflow(
     packageCatalogDigest: digestValue(rawSource.package_catalog_digest),
     definitionContentHash: digestValue(rawSource.definition_content_hash)
   }
-  const handles = orderPublishedHandles(
-    rawHandles.map((handle) => projectHandle(handle, summary.uuid)),
+  const handles = validatePublishedHandles(
+    orderPublishedHandles(
+      rawHandles.map((handle) => projectHandle(handle, summary.uuid)),
+      contract
+    ),
     contract
   )
-  validatePublishedHandles(handles, contract)
   const goal = recordValue(template.goal)
   const goalDefault = recordValue(template.goal_default)
   const result = recordValue(template.result)
