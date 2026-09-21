@@ -19,6 +19,15 @@
 - 一个业务事实只能有一个 owner。跨 panel 交互只传稳定 id、selection、
   highlight 和 command intent，不复制 Material、Workflow 或 Pascal 场景实体。
 
+## Impeccable 界面规范
+
+- 所有 UI 新增、重构和样式调整必须遵循仓库根目录的 `DESIGN.md` 与
+  `.impeccable/design.json`，优先复用现有设计 token、组件语言和语义颜色。
+- 工作台界面保持“精密仪器台”风格：冷灰工作区、白色操作表面、结构灰边界、
+  稳定的系统字体层级；不得为局部页面引入近似色、装饰性渐变、玻璃拟态或无语义阴影。
+- 浮层、控件、焦点、禁用和响应式状态必须同时满足可读性、键盘访问与 WCAG 2.1 AA；
+  修改视觉界面后应使用 Impeccable 检查并在实际页面复核。
+
 ## 物料架构原则
 
 - `packages/material` 拥有 Material domain type、Zustand authoring store、

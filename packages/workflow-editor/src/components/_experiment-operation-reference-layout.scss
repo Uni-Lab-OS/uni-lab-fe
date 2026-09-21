@@ -110,6 +110,63 @@
     grid-row: auto;
   }
 
+  /* 参数卡片保持参数名、来源、输入值和操作按钮在同一条基准线上。 */
+  :global(.persistent-authoring__node-editor) :global(.contract-param-list) > :global(.contract-param-card) {
+    display: grid;
+    grid-template-columns: minmax(92px, .9fr) minmax(0, 1.45fr) auto;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 6px;
+  }
+  :global(.persistent-authoring__node-editor) :global(.contract-param-list) > :global(.contract-param-card) > :global(.contract-param-meta) {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    align-self: stretch;
+  }
+  :global(.persistent-authoring__node-editor) :global(.contract-param-list) > :global(.contract-param-card) > :global(.contract-source-grid) {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    width: 100%;
+    grid-template-columns: minmax(68px, .95fr) minmax(0, 1.05fr);
+    align-items: center;
+  }
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) > label,
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) > label select,
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) input,
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) select {
+    min-width: 0;
+    width: 100%;
+    height: 32px;
+    min-height: 32px;
+    box-sizing: border-box;
+    align-self: center;
+  }
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) > label:first-child {
+    padding-top: 0;
+  }
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) > :global(.persistent-authoring__resource-selector) {
+    min-width: 0;
+    align-self: center;
+  }
+  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) > :global(.persistent-authoring__resource-selector) select {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  :global(.persistent-authoring__node-editor) :global(.contract-param-list) > :global(.contract-param-card) > :global(.persistent-authoring__parameter-actions) {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: center;
+    margin: 0;
+  }
+  :global(.persistent-authoring__node-editor) :global(.contract-param-list) > :global(.contract-param-card) > :global(.persistent-authoring__parameter-inline-error),
+  :global(.persistent-authoring__node-editor) :global(.contract-param-list) > :global(.contract-param-card) > :global(.persistent-authoring__parameter-diagnostics) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
   :global(.persistent-authoring__canvas-body:not(.has-inspector)) {
     grid-template-columns: var(--operation-library-width) minmax(280px, 1fr);
     grid-template-areas: 'palette graph';

@@ -172,6 +172,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   protected connectionSwitchRevision = 0
   protected connectionInterrupted = false
   protected recoveryRevision = 0
+  protected workflowManagementListRequestRevision = 0
   @postConstruct()
   protected init(): void {
     this.ideAdapter = createTheiaWorkflowIdeAdapter({
@@ -212,6 +213,10 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       this.update()
     }))
     this.toDispose.push(this.viewState.onDidChangeMode(() => this.update()))
+    this.toDispose.push(this.viewState.onDidRequestWorkflowManagementList(() => {
+      this.workflowManagementListRequestRevision += 1
+      this.update()
+    }))
     this.toDispose.push(this.connectionStatus.onStatusChange(status => {
       if (status === ConnectionStatus.OFFLINE) {
         this.connectionInterrupted = true
@@ -927,6 +932,9 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         session={this.sessionSnapshot}
         sessionClient={this.workbenchSessionClient}
         recoveryRevision={this.recoveryRevision}
+        workflowManagementListRequestRevision={
+          this.workflowManagementListRequestRevision
+        }
         viewMode={this.viewState.currentMode}
         onUnsavedChangesChange={this.setWorkflowPanelDirty}
         onResetWorkflowEnvironment={this.resetWorkflowEnvironment}
@@ -959,6 +967,7 @@ function WorkbenchSurface({
   session,
   sessionClient,
   recoveryRevision,
+  workflowManagementListRequestRevision,
   viewMode,
   onUnsavedChangesChange,
   onResetWorkflowEnvironment,
@@ -976,6 +985,7 @@ function WorkbenchSurface({
   session: WorkbenchSessionSnapshot
   sessionClient: WorkbenchSessionClientImpl
   recoveryRevision: number
+  workflowManagementListRequestRevision: number
   viewMode: WorkbenchViewMode
   onUnsavedChangesChange: (hasUnsavedChanges: boolean) => void
   onResetWorkflowEnvironment: (backendUrl: string) => Promise<void>
@@ -1138,6 +1148,7 @@ function WorkbenchSurface({
         resourceSlotOptionsPort={resourceSlotOptionsPort}
         active={isWorkflowWorkbenchView(viewMode)}
         workflowUuid={workflowUuid}
+        catalogRequestRevision={workflowManagementListRequestRevision}
         activeWorkflowStorageKey={`unilab.workflow.active.${
           encodeURIComponent(selectedTarget.sourceId)
         }.v1`}

@@ -55,6 +55,7 @@ export class WorkbenchViewState {
     'workflow' | 'workflow-management' | 'material' | 'device' | 'files'
   > | null = null
   protected readonly changeEmitter = new Emitter<WorkbenchViewMode>()
+  protected readonly workflowManagementListRequestEmitter = new Emitter<void>()
 
   constructor() {
     const saved = readSavedWorkbenchMode()
@@ -62,6 +63,9 @@ export class WorkbenchViewState {
   }
 
   readonly onDidChangeMode: Event<WorkbenchViewMode> = this.changeEmitter.event
+  /** 工作流管理入口重复点击时，请求当前工作流详情返回目录列表。 */
+  readonly onDidRequestWorkflowManagementList: Event<void> =
+    this.workflowManagementListRequestEmitter.event
 
   /** 返回当前 Workbench 主区唯一可见模式。 */
   get currentMode(): WorkbenchViewMode {
@@ -105,7 +109,12 @@ export class WorkbenchViewState {
     const previousMode = this.currentMode
     // 主区必须始终保留至少一个活动领域。单视图下再次点击当前入口
     // 只用于保持焦点，不能把唯一活动项关闭成 empty。
-    if (!isSplitWorkbenchView(previousMode) && this.isVisible(domain)) return
+    if (!isSplitWorkbenchView(previousMode) && this.isVisible(domain)) {
+      if (domain === 'workflow-management') {
+        this.workflowManagementListRequestEmitter.fire()
+      }
+      return
+    }
     if (domain === 'files') {
       this.filesVisible = !this.filesVisible
       if (this.exclusiveDomain) {

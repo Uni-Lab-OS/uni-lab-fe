@@ -167,32 +167,34 @@
   :global(.persistent-authoring__inspector-empty) { padding: 28px 14px; }
   :global(.persistent-authoring__node-editor) :global(.editable-contract-section):has(:global(.contract-param-list)) { min-width: 0; max-width: 100%; }
   :global(.persistent-authoring__node-editor) :global(.contract-param-list) {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    gap: 10px;
     min-width: 0;
     max-width: 100%;
-    overflow-x: auto;
+    overflow: visible;
+    padding: 10px;
+    border: 0;
+    background: #f7f9fc;
   }
   :global(.persistent-authoring__node-editor) :global(.contract-param-list) > :global(.contract-param-card) {
     min-width: 0;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.7fr) auto;
-    align-items: center;
-    gap: 8px;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+    padding: 9px;
+    border: 1px solid #e2e8f0;
+    border-radius: 9px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgb(31 48 78 / 5%);
   }
-  :global(.persistent-authoring__node-editor) :global(.contract-param-list) > :global(.contract-param-card) + :global(.contract-param-card) { border-top: 0; }
+  :global(.persistent-authoring__node-editor) :global(.contract-param-list) > :global(.contract-param-card) + :global(.contract-param-card) { border-top: 1px solid #e2e8f0; }
   :global(.persistent-authoring__node-editor) :global(.contract-param-meta) { min-height: 34px; padding: 6px 8px; border-radius: 6px; background: #f3f4f6; }
   :global(.persistent-authoring__node-editor) :global(.contract-param-meta) code { display: none; }
   :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-optional) { display: none; }
   :global(.persistent-authoring__node-editor) :global(.contract-source-grid) input { background: #f3f4f6; border-color: transparent; }
   :global(.persistent-authoring__node-editor) :global(.contract-source-grid) select { background: #f3f4f6; border-color: transparent; }
-  :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-list) :global(.contract-param-meta) { grid-column: 1; grid-row: 1; align-items: center; }
+  :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-list) :global(.contract-param-meta) { grid-column: 1; grid-row: auto; align-items: center; }
   :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-list) :global(.contract-source-grid) {
-    grid-column: 2; grid-row: 1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center;
+    grid-column: 1; grid-row: auto; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center;
   }
   :global(.persistent-authoring__node-editor) :global(.contract-source-grid) > * { min-width: 0; }
   :global(.persistent-authoring__node-editor) :global(.contract-source-grid) input { min-width: 0; }
@@ -201,7 +203,7 @@
   :global(.persistent-authoring__node-editor) :global(.contract-param-meta) strong { display: block; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
   :global(.persistent-authoring__node-editor) :global(.contract-source-grid) > label:first-child { padding-top: 0; }
   :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-list) :global(.contract-source-note) { display: none; }
-  :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-actions) { grid-column: 3; grid-row: 1; margin: 0; }
+  :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-actions) { grid-column: 1; grid-row: auto; margin: 0; }
   :global(.persistent-authoring__canvas-body.is-code-mode) { grid-template-columns: minmax(0,1fr); grid-template-areas: 'graph'; }
 
   @container workflow-toolbar (max-width: 900px) {

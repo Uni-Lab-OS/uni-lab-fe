@@ -48,6 +48,8 @@ export function WorkflowNodeInspector({
     canvasSaveHint,
     diagnostics,
     graph,
+    actionCatalog,
+    addTypedActionNodeToLoop,
     materialSourceAuthorityBlocked,
     materialSourceCatalogLoading,
     materialTraces,
@@ -237,6 +239,11 @@ export function WorkflowNodeInspector({
               nodeUuid={selectedNodeUuid}
               editable={!busy && canvasMutationEnabled}
               onChange={(param) => model.updateControlNodeParam(selectedNodeUuid, param)}
+              actionCatalog={actionCatalog}
+              actionCatalogError={model.actionCatalogError}
+              onAddActionToLoop={(templateUuid, loopUuid) => {
+                addTypedActionNodeToLoop(templateUuid, loopUuid)
+              }}
               openAddNodeRequest={Boolean(loopAddNodeRequest)}
               onAddNodeRequestHandled={onLoopAddNodeRequestHandled}
             />

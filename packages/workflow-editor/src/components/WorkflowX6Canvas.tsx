@@ -146,6 +146,11 @@ export const WorkflowX6Canvas = forwardRef<
   })
   const initialFitPendingRef = useRef(true)
   const nodeDraggingRef = useRef(false)
+  const loopDragRef = useRef<{
+    nodeId: string
+    start: { x: number; y: number }
+    origin: { x: number; y: number }
+  } | null>(null)
 
   callbacksRef.current = {
     canvasMutationEnabled,
@@ -287,7 +292,10 @@ export const WorkflowX6Canvas = forwardRef<
         }
       },
       scaling: { min: 0.02, max: 1.5 },
-      panning: false,
+      // Keep canvas panning available even when node editing is disabled.
+      // The Scroller plugin takes ownership after initialization, while this
+      // fallback keeps the management/read-only canvas draggable as well.
+      panning: { enabled: true },
       mousewheel: {
         enabled: true,
         modifiers: ['ctrl', 'meta'],
@@ -340,7 +348,11 @@ export const WorkflowX6Canvas = forwardRef<
     })
     const scroller = new Scroller({
       enabled: true,
-      pannable: true,
+      pannable: {
+        enabled: true,
+        eventTypes: ['leftMouseDown', 'rightMouseDown']
+      },
+      modifiers: [],
       autoResize: false,
       minVisibleWidth: 180,
       minVisibleHeight: 120,
@@ -383,6 +395,15 @@ export const WorkflowX6Canvas = forwardRef<
       event.stopPropagation()
       callbacksRef.current.onAddNodeToLoop?.(nodeId)
     }
+    // Some X6 versions stop the native click after dispatching the parent
+    // node event. Capture the pointer gesture too so the loop affordance
+    // cannot be swallowed by node selection.
+    const handleLoopAddPointerDown = (event: Event): void => {
+      const target = event.target as Element | null
+      if (!target?.closest?.('.workflow-x6-loop-add-node')) return
+      handleLoopAddClick(event)
+    }
+    root.addEventListener('pointerdown', handleLoopAddPointerDown, true)
     root.addEventListener('click', handleLoopAddClick, true)
 
     graph.on('node:click', ({ e, node }) => {
@@ -499,6 +520,63 @@ export const WorkflowX6Canvas = forwardRef<
         }
       }
     }
+    // X6 的 embedding 会把循环体动作委托给父节点，某些版本在父节点
+    // 已有子节点后不再触发父容器的拖动事件。循环容器使用独立的指针
+    // 手势，仍按 X6 的 deep position 同步移动全部循环体成员。
+    const handleLoopPointerDown = (event: PointerEvent): void => {
+      if (!callbacksRef.current.nodePositionMutationEnabled) return
+      const target = event.target as Element | null
+      if (!target || target.closest('.workflow-x6-loop-add-node')) return
+      const nodeElement = target.closest('.x6-node')
+      const nodeId = nodeElement?.getAttribute('data-cell-id')
+      if (!nodeId) return
+      const node = graph.getCellById(nodeId)
+      if (!node?.isNode()) return
+      const data = node.getData<WorkflowNodeData>()
+      if (data?.controlFlow?.kind !== 'repeat_until') return
+      const point = graph.clientToLocal(event.clientX, event.clientY)
+      loopDragRef.current = {
+        nodeId,
+        start: { x: point.x, y: point.y },
+        origin: node.position()
+      }
+      nodeDraggingRef.current = true
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const handleLoopPointerMove = (event: PointerEvent): void => {
+      const drag = loopDragRef.current
+      if (!drag) return
+      const node = graph.getCellById(drag.nodeId)
+      if (!node?.isNode()) return
+      const point = graph.clientToLocal(event.clientX, event.clientY)
+      node.position(
+        drag.origin.x + point.x - drag.start.x,
+        drag.origin.y + point.y - drag.start.y,
+        { deep: true, ui: true }
+      )
+      refreshDraggedConnections(node)
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const handleLoopPointerUp = (event: PointerEvent): void => {
+      const drag = loopDragRef.current
+      if (!drag) return
+      loopDragRef.current = null
+      nodeDraggingRef.current = false
+      const node = graph.getCellById(drag.nodeId)
+      if (node?.isNode() && callbacksRef.current.nodePositionMutationEnabled) {
+        const changes = [node, ...node.getChildren().filter(cell => cell.isNode())]
+          .map(cell => ({ nodeId: cell.id, position: cell.position() }))
+        callbacksRef.current.onNodePositionsChange?.(changes)
+      }
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    document.addEventListener('pointerdown', handleLoopPointerDown, true)
+    document.addEventListener('pointermove', handleLoopPointerMove, true)
+    document.addEventListener('pointerup', handleLoopPointerUp, true)
+    document.addEventListener('pointercancel', handleLoopPointerUp, true)
     graph.on('node:moving', ({ node }) => {
       if (dragFrame !== null) cancelAnimationFrame(dragFrame)
       dragFrame = requestAnimationFrame(() => {
@@ -624,6 +702,12 @@ export const WorkflowX6Canvas = forwardRef<
     )
     cleanup = () => {
       if (dragFrame !== null) cancelAnimationFrame(dragFrame)
+      loopDragRef.current = null
+      document.removeEventListener('pointerdown', handleLoopPointerDown, true)
+      document.removeEventListener('pointermove', handleLoopPointerMove, true)
+      document.removeEventListener('pointerup', handleLoopPointerUp, true)
+      document.removeEventListener('pointercancel', handleLoopPointerUp, true)
+      root.removeEventListener('pointerdown', handleLoopAddPointerDown, true)
       root.removeEventListener('click', handleLoopAddClick, true)
       resize.disconnect()
       graph.dispose()

@@ -19,6 +19,7 @@ interface PersistentWorkflowToolbarProps {
   showRunModeMenu?: boolean
   onResetEnvironment?: () => Promise<void>
   environmentResetBusy?: boolean
+  onAutoLayout?: () => void
 }
 
 const RUN_MODE_LABELS = {
@@ -40,7 +41,8 @@ export function PersistentWorkflowToolbar({
   model,
   showRunModeMenu = true,
   onResetEnvironment,
-  environmentResetBusy = false
+  environmentResetBusy = false,
+  onAutoLayout
 }: PersistentWorkflowToolbarProps): React.JSX.Element {
   const {
     aggregate,
@@ -185,7 +187,16 @@ export function PersistentWorkflowToolbar({
         onSave: saveDraft
       }}
     >
-        <WorkflowDraftValidationButton
+      <WorkflowButton
+        type="button"
+        disabled={!onAutoLayout || runningEntryBusy || !aggregate}
+        disabledReason="工作流尚未加载完成或正在运行"
+        title="自动排列工作流节点"
+        onClick={onAutoLayout}
+      >
+        自动排步
+      </WorkflowButton>
+      <WorkflowDraftValidationButton
           aggregateAvailable={Boolean(aggregate)}
           authorityLabel={currentAuthorityLabel}
           available={canvasValidationAvailable}

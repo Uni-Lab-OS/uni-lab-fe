@@ -12,6 +12,7 @@ import { UniLabWorkbenchWidget } from './unilab-workbench-widget'
 import { WorkbenchViewState } from './workbench-view-state'
 
 const EXPLORER_ID = 'explorer-view-container'
+const FILES_PANEL_SIZE = 460
 
 /** 将原生文件树、编辑器与产品领域视图连接到同一呈现状态。 */
 @injectable()
@@ -31,6 +32,12 @@ export class WorkbenchFilesContribution implements FrontendApplicationContributi
   private readonly subscriptions = new DisposableCollection()
   private observer: ResizeObserver | undefined
   private arranging = false
+
+  /** 文件树和产品导航共用左侧面板，恢复布局时也要重新应用文件树宽度。 */
+  private resizeFilesPanel(): void {
+    if (!this.viewState.isVisible('files')) return
+    this.shell.resize(FILES_PANEL_SIZE, 'left')
+  }
 
   onStart(): void {
     this.subscriptions.push(this.viewState.onDidChangeMode(() => this.present(true)))
@@ -56,7 +63,7 @@ export class WorkbenchFilesContribution implements FrontendApplicationContributi
       if (tabBar.currentTitle?.owner.id === EXPLORER_ID) {
         if (!this.viewState.isVisible('files')) this.viewState.toggle('files')
         // 产品活动栏宽于 Theia 默认活动栏，给文件树留出可读的独立宽度。
-        this.shell.resize(460, 'left')
+        this.resizeFilesPanel()
         this.present()
       }
     }
@@ -74,9 +81,13 @@ export class WorkbenchFilesContribution implements FrontendApplicationContributi
     }
     this.present()
     void this.applicationState.reachedState('ready').then(() => {
+      // 布局恢复时 currentChanged 可能不会再次触发，主动修正已打开的文件树宽度。
+      this.resizeFilesPanel()
       if (this.viewState.isVisible('files')) {
-        void this.shell.revealWidget(EXPLORER_ID)
-        this.present(true)
+        void this.shell.revealWidget(EXPLORER_ID).then(() => {
+          this.resizeFilesPanel()
+          this.present(true)
+        })
       }
     })
   }
@@ -93,7 +104,9 @@ export class WorkbenchFilesContribution implements FrontendApplicationContributi
         const editor = this.editors.currentEditor ?? this.editors.all.at(-1)
         if (this.viewState.isVisible('files') &&
             this.shell.leftPanelHandler.tabBar.currentTitle?.owner.id !== EXPLORER_ID) {
-          void this.shell.revealWidget(EXPLORER_ID)
+          void this.shell.revealWidget(EXPLORER_ID).then(() => this.resizeFilesPanel())
+        } else {
+          this.resizeFilesPanel()
         }
         if (workbench && editor && this.viewState.isVisible('files')) {
           if (this.viewState.currentMode === 'files') {

@@ -635,6 +635,7 @@ export function PersistentWorkflowAuthoringView({
           showRunModeMenu={mode !== 'canvas'}
           onResetEnvironment={onResetEnvironment}
           environmentResetBusy={environmentResetBusy}
+          onAutoLayout={() => workflowDagRef.current?.autoLayout()}
         />
       ) : null}
 
@@ -958,7 +959,7 @@ export function PersistentWorkflowAuthoringView({
                     onZoomOut={() => workflowDagRef.current?.zoomOut()}
                     onConfigureIo={() => setWorkflowIoOpen(true)}
                   />}
-                  {!hideRuntimeControls && mode === 'canvas' && !debugLayout ? <WorkflowCanvasDebugMode model={model} /> : null}
+                  {!hideRuntimeControls && mode === 'canvas' && !debugLayout ? <WorkflowCanvasDebugMode model={model} onAutoLayout={() => workflowDagRef.current?.autoLayout()} /> : null}
                   {(graphStageReady ||
                     typeof globalThis.ResizeObserver !== 'function') && (
                     <WorkflowDag
