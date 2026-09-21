@@ -216,7 +216,9 @@ export function WorkbenchSessionGate({
   const entryNotice = snapshot.diagnostic ? (
     <div className="unilab-workbench-session-diagnostic" role="alert">
       <strong>{diagnosticTitle(snapshot.diagnostic.code)}</strong>
-      <p>{snapshot.diagnostic.message}</p>
+      {snapshot.diagnostic.code === 'local_inventory_graph_conflict'
+        ? null
+        : <p>{snapshot.diagnostic.message}</p>}
       <p className="unilab-workbench-session-diagnostic__recovery">
         <span>建议：</span>
         {snapshot.diagnostic.recovery}
