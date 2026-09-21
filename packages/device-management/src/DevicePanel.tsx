@@ -819,7 +819,7 @@ export default function DevicePanel({
             canForceUnlock={canForceUnlock}
             unlockOperation={unlockOperation}
             onRequestUnlock={handleRequestUnlock}
-            recovery={services.capabilities.workflow.recovery ? services.workflow.recovery : undefined}
+            recovery={services.workflow.recovery}
             onRefreshDevice={refresh}
           />
         ) : (

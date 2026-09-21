@@ -199,7 +199,7 @@ export function WorkflowNodeInspector({
             key={`${selectedNodeUuid}:${manualConfig?.timeout_seconds}`}
             timeoutSeconds={manualConfig?.timeout_seconds ?? 3600}
             deviceUuid={String(selectedGraphNode.material_uuid || '')}
-            editable={!busy && canvasMutationEnabled && Boolean(model.runtime.recovery)}
+            editable={!busy && canvasMutationEnabled}
             onChange={model.updateManualConfirmation}
           />}
           {selectedMaterialSourceEditor && (
