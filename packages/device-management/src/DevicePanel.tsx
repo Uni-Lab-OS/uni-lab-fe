@@ -710,7 +710,7 @@ export default function DevicePanel({
           <div>
             <h1 className={deviceClass('section__list-title')}>仪器设备</h1>
             <span className={deviceClass('section__list-meta')}>
-              {devices.length} 台设备 · Authority 设备目录
+              {devices.length} 台设备
             </span>
           </div>
           <button
