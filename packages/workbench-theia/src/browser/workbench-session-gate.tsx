@@ -35,7 +35,7 @@ function diagnosticTitle(
     case 'os_readiness_failed': return 'Uni-Lab OS 尚未就绪'
     case 'os_exited': return 'Uni-Lab OS 已退出'
     case 'os_start_failed': return 'Uni-Lab OS 未能启动'
-    case 'local_inventory_graph_conflict': return '当前工作区的库存数据与所选部署图不一致'
+    case 'local_inventory_graph_conflict': return '当前工作区的库存数据与所选设备包不一致'
   }
 }
 
