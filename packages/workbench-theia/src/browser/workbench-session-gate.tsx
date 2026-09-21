@@ -222,6 +222,19 @@ export function WorkbenchSessionGate({
         {snapshot.diagnostic.recovery}
       </p>
       <code>诊断代码：{snapshot.diagnostic.code}</code>
+      {snapshot.diagnostic.code === 'local_inventory_graph_conflict'
+        && onResetLocalData ? (
+        <div className="unilab-workbench-session-diagnostic__actions">
+          <button
+            className="unilab-workbench-session-diagnostic__reset"
+            type="button"
+            onClick={() => void resetLocalData()}
+          >
+            <span className="codicon codicon-trash" aria-hidden="true" />
+            重置工作区库存并重试
+          </button>
+        </div>
+      ) : null}
     </div>
   ) : operationError ? (
     <div className="unilab-workbench-session-diagnostic" role="alert">
@@ -233,13 +246,6 @@ export function WorkbenchSessionGate({
     /Theia backend.*(?:退出|exit|stopped)/i.test(operationError ?? '')
   const entrySupportActions = snapshot.phase === 'failed' || workspaceRestartRequired ? (
     <>
-      {snapshot.diagnostic?.code === 'local_inventory_graph_conflict'
-        && onResetLocalData ? (
-        <button type="button" onClick={() => void resetLocalData()}>
-          <span className="codicon codicon-trash" aria-hidden="true" />
-          重置工作区库存并重试
-        </button>
-      ) : null}
       <button type="button" onClick={() => void start()}>
         <span className="codicon codicon-refresh" aria-hidden="true" />
         {workspaceRestartRequired ? '重启 OS' : '重新校验并启动 OS'}

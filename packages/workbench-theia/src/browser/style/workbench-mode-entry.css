@@ -217,6 +217,33 @@
   border-radius: 3px;
 }
 
+.unilab-mode-entry .unilab-workbench-session-diagnostic__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--unilab-color-danger) 24%, transparent);
+}
+
+.unilab-mode-entry .unilab-workbench-session-diagnostic__reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  color: var(--unilab-color-danger);
+  border: 1px solid color-mix(in srgb, var(--unilab-color-danger) 45%, transparent);
+  border-radius: 3px;
+  background: #fff;
+  font: 700 10px/1.2 var(--unilab-font-sans);
+  cursor: pointer;
+}
+
+.unilab-mode-entry .unilab-workbench-session-diagnostic__reset:hover {
+  background: color-mix(in srgb, var(--unilab-color-danger) 8%, #fff);
+}
+
 .unilab-mode-entry__kicker {
   display: flex;
   align-items: center;
