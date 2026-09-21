@@ -908,6 +908,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         <WorkbenchSessionGate
           snapshot={this.sessionSnapshot}
           onRetry={this.retrySession}
+          onResetLocalData={this.rebuildLocalData}
           onStop={this.stopWorkspaceBackend}
           launchMode={this.connectionSwitchingTo ?? this.connectionMode}
           switchingTo={this.connectionSwitchingTo}

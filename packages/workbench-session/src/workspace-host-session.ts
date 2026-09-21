@@ -1185,10 +1185,16 @@ function componentDiagnostic(
   component: HostComponent
 ): WorkbenchSessionDiagnostic | null {
   if (!component.diagnostic) return null
+  const localInventoryGraphConflict = /(?:当前工作区的库存数据与所选部署图不匹配|既有库存权威与资源图来源或指纹)/u
+    .test(component.diagnostic)
   return {
-    code: component.phase === 'failed' ? 'os_start_failed' : 'os_exited',
+    code: localInventoryGraphConflict
+      ? 'local_inventory_graph_conflict'
+      : component.phase === 'failed' ? 'os_start_failed' : 'os_exited',
     message: component.diagnostic,
-    recovery: '查看 Workspace Host 与组件日志后重试'
+    recovery: localInventoryGraphConflict
+      ? '重置工作区库存后重新启动；这会清空本地调试库存、设备状态和工作流历史'
+      : '查看 Workspace Host 与组件日志后重试'
   }
 }
 

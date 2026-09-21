@@ -35,6 +35,7 @@ function diagnosticTitle(
     case 'os_readiness_failed': return 'Uni-Lab OS 尚未就绪'
     case 'os_exited': return 'Uni-Lab OS 已退出'
     case 'os_start_failed': return 'Uni-Lab OS 未能启动'
+    case 'local_inventory_graph_conflict': return '工作区库存与部署图不匹配'
   }
 }
 
@@ -102,6 +103,7 @@ export function WorkbenchAuthorityLoading({
 export function WorkbenchSessionGate({
   snapshot,
   onRetry,
+  onResetLocalData,
   onStop,
   launchMode,
   switchingTo,
@@ -111,6 +113,7 @@ export function WorkbenchSessionGate({
 }: {
   snapshot: WorkbenchSessionSnapshot
   onRetry: () => Promise<void>
+  onResetLocalData?: () => Promise<void>
   onStop: () => Promise<void>
   launchMode?: 'local' | 'backend'
   switchingTo?: WorkbenchConnectionMode | null
@@ -170,6 +173,22 @@ export function WorkbenchSessionGate({
     })
   }, [onRetry])
 
+  const resetLocalData = React.useCallback(async () => {
+    if (!onResetLocalData) return
+    if (!globalThis.confirm(
+      '重置工作区库存会清空本地调试库存、设备状态和工作流历史。继续？'
+    )) return
+    setLaunchRequested(true)
+    setOperationError(null)
+    await captureWorkbenchUiOperation(async () => {
+      await onResetLocalData()
+      await onRetry()
+    }, message => {
+      setOperationError(message)
+      setLaunchRequested(false)
+    })
+  }, [onResetLocalData, onRetry])
+
   const stop = React.useCallback(async () => {
     await run(onStop)
     setLaunchRequested(false)
@@ -214,6 +233,13 @@ export function WorkbenchSessionGate({
     /Theia backend.*(?:退出|exit|stopped)/i.test(operationError ?? '')
   const entrySupportActions = snapshot.phase === 'failed' || workspaceRestartRequired ? (
     <>
+      {snapshot.diagnostic?.code === 'local_inventory_graph_conflict'
+        && onResetLocalData ? (
+        <button type="button" onClick={() => void resetLocalData()}>
+          <span className="codicon codicon-trash" aria-hidden="true" />
+          重置工作区库存并重试
+        </button>
+      ) : null}
       <button type="button" onClick={() => void start()}>
         <span className="codicon codicon-refresh" aria-hidden="true" />
         {workspaceRestartRequired ? '重启 OS' : '重新校验并启动 OS'}

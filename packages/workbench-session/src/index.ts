@@ -45,6 +45,7 @@ export interface WorkbenchSessionDiagnostic {
     | 'python_environment_not_found'
     | 'port_conflict'
     | 'os_start_failed'
+    | 'local_inventory_graph_conflict'
     | 'os_readiness_failed'
     | 'plc_connection_failed'
     | 'os_exited'
