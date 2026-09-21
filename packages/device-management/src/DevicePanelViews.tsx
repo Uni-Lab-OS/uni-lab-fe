@@ -121,21 +121,23 @@ export function DeviceListItem({
               aria-hidden="true"
             />
             <span className={deviceClass('device-list__name')}>{device.displayName}</span>
-            <span
-              className={deviceClass(
-                'edge-device__list-lock',
-                dispatchBlock
-                  ? 'is-blocked'
-                  : device.edgeStatus !== 'online'
-                    ? 'is-waiting'
-                    : occupancy || busyActionCount
-                      ? 'is-occupied'
-                      : 'is-ready'
-              )}
-              title={dispatchBlock?.detail}
-            >
-              {schedulingLabel}
-            </span>
+            {schedulingLabel !== '可调度' ? (
+              <span
+                className={deviceClass(
+                  'edge-device__list-lock',
+                  dispatchBlock
+                    ? 'is-blocked'
+                    : device.edgeStatus !== 'online'
+                      ? 'is-waiting'
+                      : occupancy || busyActionCount
+                        ? 'is-occupied'
+                        : 'is-ready'
+                )}
+                title={dispatchBlock?.detail}
+              >
+                {schedulingLabel}
+              </span>
+            ) : null}
           </span>
           <span className={deviceClass('device-list__key')}>
             {edgeLabel} · {device.actions.length} 个动作
