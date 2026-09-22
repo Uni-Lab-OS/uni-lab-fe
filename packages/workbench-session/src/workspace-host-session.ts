@@ -1193,7 +1193,7 @@ function componentDiagnostic(
       : component.phase === 'failed' ? 'os_start_failed' : 'os_exited',
     message: component.diagnostic,
     recovery: localInventoryGraphConflict
-      ? '重置工作区库存后重新启动；这会清空本地调试库存、设备状态和工作流历史'
+      ? '重置工作区数据后重新启动；这会清空本地调试数据、设备状态和工作流历史'
       : '查看 Workspace Host 与组件日志后重试'
   }
 }

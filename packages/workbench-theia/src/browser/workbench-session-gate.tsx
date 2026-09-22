@@ -176,7 +176,7 @@ export function WorkbenchSessionGate({
   const resetLocalData = React.useCallback(async () => {
     if (!onResetLocalData) return
     if (!globalThis.confirm(
-      '重置工作区库存会清空本地调试库存、设备状态和工作流历史。继续？'
+      '重置工作区数据会清空本地调试数据、设备状态和工作流历史。继续？'
     )) return
     setLaunchRequested(true)
     setOperationError(null)
@@ -233,7 +233,7 @@ export function WorkbenchSessionGate({
             onClick={() => void resetLocalData()}
           >
             <span className="codicon codicon-trash" aria-hidden="true" />
-            重置工作区库存并重试
+            重置工作区数据并重试
           </button>
         </div>
       ) : null}
