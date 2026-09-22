@@ -1,10 +1,13 @@
 import {
   bindViewContribution,
   FrontendApplicationContribution,
+  KeybindingContribution,
   WebSocketConnectionProvider,
   WidgetFactory
 } from '@theia/core/lib/browser'
 import { ContainerModule } from '@theia/core/shared/inversify'
+import { CommandContribution } from '@theia/core/lib/common/command'
+import { MenuContribution } from '@theia/core/lib/common/menu'
 import { PreferenceContribution } from '@theia/core/lib/common/preferences'
 import { TabBarToolbarContribution } from '@theia/core/lib/browser/shell/tab-bar-toolbar/tab-bar-toolbar-registry'
 import '@unilab/design-system/theme.css'
@@ -39,6 +42,7 @@ import {
   WorkflowTasksDomainEntryWidget
 } from './unilab-workbench-navigator-widget'
 import { UniLabWorkbenchWidget } from './unilab-workbench-widget'
+import { WorkbenchCodeNavigationContribution } from './workbench-code-navigation-contribution'
 import { WorkbenchFilesContribution } from './workbench-files-contribution'
 import { WorkbenchViewState } from './workbench-view-state'
 import { WorkbenchSessionClientImpl } from './workbench-session-client'
@@ -58,6 +62,14 @@ export default new ContainerModule((bind) => {
   bind(WorkbenchViewState).toSelf().inSingletonScope()
   bind(WorkbenchFilesContribution).toSelf().inSingletonScope()
   bind(FrontendApplicationContribution).toService(WorkbenchFilesContribution)
+
+  bind(WorkbenchCodeNavigationContribution).toSelf().inSingletonScope()
+  bind(CommandContribution).toService(WorkbenchCodeNavigationContribution)
+  bind(MenuContribution).toService(WorkbenchCodeNavigationContribution)
+  bind(KeybindingContribution).toService(WorkbenchCodeNavigationContribution)
+  bind(TabBarToolbarContribution).toService(
+    WorkbenchCodeNavigationContribution
+  )
   bind(WorkbenchPrivateStatePreferenceContribution).toSelf().inSingletonScope()
   bind(PreferenceContribution).toService(
     WorkbenchPrivateStatePreferenceContribution

@@ -15,11 +15,8 @@ function conditionForm(condition: Record<string, unknown> | null): {
   value: string
 } {
   if (!condition) return { variable: '', operator: 'truthy', value: '' }
-  if (condition.lit === true) {
-    return { variable: '', operator: 'literal_true', value: '' }
-  }
-  if (condition.lit === false) {
-    return { variable: '', operator: 'literal_false', value: '' }
+  if (condition.lit === true || condition.lit === false) {
+    return { variable: '', operator: 'truthy', value: '' }
   }
   if (typeof condition.var === 'string') {
     return { variable: condition.var, operator: 'truthy', value: '' }
@@ -46,8 +43,10 @@ function literal(raw: string): unknown {
 }
 
 function buildCondition(variable: string, operator: string, value: string): Record<string, unknown> {
-  if (operator === 'literal_true') return { lit: true }
-  if (operator === 'literal_false') return { lit: false }
+  // 允许用户直接在默认的“固定为真/假”表单中输入参数名；
+  // 一旦有参数名，自动切换为参数真值判断，避免受控输入每次按键都被清空。
+  if (operator === 'literal_true') return variable ? { var: variable } : { lit: true }
+  if (operator === 'literal_false') return variable ? { var: variable } : { lit: false }
   if (operator === 'truthy') return variable ? { var: variable } : { lit: true }
   return {
     binop: operator,
@@ -104,8 +103,6 @@ export function WorkflowConditionNodeEditor({
                   onChange={event => commit(updateWorkflowConditionBranch(editor.branches, index, {
                     condition: buildCondition(form.variable, event.target.value, form.value)
                   }))}>
-                  <option value="literal_true">固定为真（测试）</option>
-                  <option value="literal_false">固定为假（测试）</option>
                   <option value="truthy">参数为真</option><option value="==">等于</option>
                   <option value="!=">不等于</option><option value=">">大于</option>
                   <option value=">=">大于等于</option><option value="<">小于</option>

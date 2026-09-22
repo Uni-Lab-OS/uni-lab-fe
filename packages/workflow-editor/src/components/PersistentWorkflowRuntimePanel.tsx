@@ -7,9 +7,11 @@ import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAutho
 /** 把调试控制和权威运行输出收敛为可嵌入画布的结果坞。 */
 export function PersistentWorkflowRuntimePanel({
   model,
+  workflowName,
   onNodeSelect
 }: {
   model: PersistentWorkflowAuthoringModel
+  workflowName?: string
   onNodeSelect(nodeId: string): void
 }): React.JSX.Element {
   const {
@@ -112,7 +114,12 @@ export function PersistentWorkflowRuntimePanel({
         </section>
       )}
       <WorkflowRecoveryPanel model={model} />
-      <WorkflowStationRecovery runtime={model.runtime} active={model.active} />
+      <WorkflowStationRecovery
+        runtime={model.runtime}
+        active={model.active}
+        workflowName={workflowName}
+        nodeNames={taskNodeNames}
+      />
       <WorkflowOutput
         expanded={outputExpanded}
         resizable

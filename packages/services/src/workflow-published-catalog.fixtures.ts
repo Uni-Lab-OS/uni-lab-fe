@@ -277,6 +277,14 @@ export function executableCatalogResponses(): Record<string, unknown> {
         meta_data: {
           unilab: {
             framework_owner_only: true,
+            workflow_contract: {
+              version: 1,
+              workflow_uuid: workflowUuid,
+              workflow_revision: 7,
+              contract_uuid: '11111111-1111-4111-8111-111111111111',
+              contract_digest: `sha256:${'c'.repeat(64)}`,
+              source_hash: `sha256:${'b'.repeat(64)}`
+            },
             workflow_source: {
               kind: 'package',
               definition_fqid: 'c1_published_lab.workflows.prepare_sample',

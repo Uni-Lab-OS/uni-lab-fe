@@ -3,6 +3,8 @@ import type { WorkflowAuthoringGraph } from '@unilab/services'
 
 import {
   applyWorkflowLoopParam,
+  connectWorkflowLoopPredecessor,
+  connectWorkflowLoopSuccessor,
   moveWorkflowNodeToLoop,
   projectWorkflowLoopEditor,
   updateWorkflowLoopParam
@@ -74,5 +76,23 @@ describe('workflow loop control', () => {
     expect(detached.nodes.find(n => n.uuid === 'loop')?.param).toMatchObject({
       node_uuids: [], entry_node_uuids: [], exit_node_uuids: []
     })
+  })
+
+  it('connects external nodes through the loop left and right handles', () => {
+    const withPredecessor = connectWorkflowLoopPredecessor(
+      graph, 'loop', 'dose'
+    )
+    const connected = connectWorkflowLoopSuccessor(
+      withPredecessor, 'loop', 'report'
+    )
+    expect(connected.nodes.find(n => n.uuid === 'loop')?.param).toMatchObject({
+      predecessor_node_uuids: ['dose'],
+      successor_node_uuids: ['report'],
+      node_uuids: []
+    })
+    expect(connected.nodes.find(n => n.uuid === 'dose')?.parent_uuid)
+      .toBeUndefined()
+    expect(connected.nodes.find(n => n.uuid === 'report')?.parent_uuid)
+      .toBeUndefined()
   })
 })

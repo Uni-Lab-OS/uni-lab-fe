@@ -51,6 +51,7 @@ export interface WorkflowNode {
       entryNodeUuids: string[]
       conditionSummary: string
     }>
+    predecessorNodeUuids?: string[]
     entryNodeUuids?: string[]
     exitNodeUuids?: string[]
     successorNodeUuids?: string[]

@@ -9,8 +9,9 @@ const MODE_LABELS = {
 } as const
 
 /** 画布调试选择框；与工具栏共用运行模式，只在启动命令中创建真实任务。 */
-export function WorkflowCanvasDebugMode({ model }: {
+export function WorkflowCanvasDebugMode({ model, onAutoLayout }: {
   model: PersistentWorkflowAuthoringModel
+  onAutoLayout?: () => void
 }): React.JSX.Element {
   const disabled = model.busy || !model.aggregate || model.runtimeBusy ||
     model.workflowStartBusy || Boolean(model.taskInputForm) ||
@@ -42,6 +43,15 @@ export function WorkflowCanvasDebugMode({ model }: {
       <span className="persistent-authoring__canvas-debug-mode" aria-label={`当前调试模式：${label}`}>
         <i aria-hidden="true" />{label}
       </span>
+      <button
+        type="button"
+        className="persistent-authoring__canvas-debug-layout"
+        disabled={disabled || !onAutoLayout}
+        title="自动排列当前实验操作中的节点"
+        onClick={onAutoLayout}
+      >
+        自动排列
+      </button>
     </div>
   )
 }

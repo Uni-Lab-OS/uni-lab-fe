@@ -11,6 +11,8 @@ export interface WorkflowResourceSelectorProps {
   allowedResourceTemplateUuids?: readonly string[] | null
   disabled?: boolean
   emptyLabel?: string
+  /** 检查器参数行只保留下拉框，不展示可选数量和读取状态。 */
+  compact?: boolean
   onChange: (materialUuid: string | null) => void
 }
 
@@ -27,6 +29,7 @@ export function WorkflowResourceSelector({
   allowedResourceTemplateUuids,
   disabled = false,
   emptyLabel = '请选择物料',
+  compact = false,
   onChange
 }: WorkflowResourceSelectorProps): React.JSX.Element {
   const options = compatibleOptions(
@@ -47,12 +50,17 @@ export function WorkflowResourceSelector({
       : null
 
   return (
-    <div className="persistent-authoring__resource-selector">
+    <div className={[
+      'persistent-authoring__resource-selector',
+      compact ? 'is-compact' : ''
+    ].filter(Boolean).join(' ')}>
       <label>
-        <span className="persistent-authoring__resource-selector-heading">
-          <span>{label}</span>
-          <small>可选物料：{options.length}</small>
-        </span>
+        {!compact && (
+          <span className="persistent-authoring__resource-selector-heading">
+            <span>{label}</span>
+            <small>可选物料：{options.length}</small>
+          </span>
+        )}
         <select
           aria-label={label}
           value={value}
@@ -72,7 +80,7 @@ export function WorkflowResourceSelector({
           ))}
         </select>
       </label>
-      {problem && <span role="status">{problem}</span>}
+      {!compact && problem && <span role="status">{problem}</span>}
     </div>
   )
 }

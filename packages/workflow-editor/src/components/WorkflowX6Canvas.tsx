@@ -32,6 +32,22 @@ import type {
 } from '../utils/workflowCanvasCommands'
 
 const LARGE_GRAPH_MINIMAP_LIMIT = 2_000
+const WORKFLOW_X6_READABLE_SCALE = 0.72
+const WORKFLOW_X6_MIN_SCALE = 0.02
+const WORKFLOW_X6_MAX_SCALE = 1.5
+const WORKFLOW_X6_WHEEL_ZOOM_FACTOR = 1.1
+
+/** Ctrl/⌘ + 滚轮或触控板捏合时的下一档缩放，绕开 X6 在 Scroller 上的错误中心点。 */
+export function workflowX6NextCanvasZoom(
+  current: number,
+  deltaY: number
+): number {
+  if (!Number.isFinite(current) || current <= 0) return WORKFLOW_X6_READABLE_SCALE
+  const next = deltaY < 0
+    ? current * WORKFLOW_X6_WHEEL_ZOOM_FACTOR
+    : current / WORKFLOW_X6_WHEEL_ZOOM_FACTOR
+  return Math.min(WORKFLOW_X6_MAX_SCALE, Math.max(WORKFLOW_X6_MIN_SCALE, next))
+}
 
 export type { WorkflowX6Edge, WorkflowX6Node } from './workflowX6Projection'
 
@@ -146,6 +162,11 @@ export const WorkflowX6Canvas = forwardRef<
   })
   const initialFitPendingRef = useRef(true)
   const nodeDraggingRef = useRef(false)
+  const loopDragRef = useRef<{
+    nodeId: string
+    start: { x: number; y: number }
+    origin: { x: number; y: number }
+  } | null>(null)
 
   callbacksRef.current = {
     canvasMutationEnabled,
@@ -169,25 +190,40 @@ export const WorkflowX6Canvas = forwardRef<
   useImperativeHandle(forwardedRef, () => ({
     fit: () => {
       const scroller = scrollerRef.current
-      if (scroller) scroller.zoomToFit({ padding: 56, maxScale: 1.2 })
-      else graphRef.current?.zoomToFit({ padding: 56, maxScale: 1.2 })
+      const graph = graphRef.current
+      if (scroller && graph) {
+        scroller.zoomToFit({
+          padding: 56,
+          minScale: WORKFLOW_X6_READABLE_SCALE,
+          maxScale: 1.2
+        })
+        scroller.centerContent()
+        scroller.updateScroller()
+      } else {
+        graph?.zoomToFit({
+          padding: 56,
+          minScale: WORKFLOW_X6_READABLE_SCALE,
+          maxScale: 1.2
+        })
+        graph?.centerContent()
+      }
     },
     zoomIn: () => {
       const scroller = scrollerRef.current
       const graph = graphRef.current
       if (scroller) {
-        scroller.zoom(0.1, { maxScale: 1.5 })
+        scroller.zoom(0.1, { maxScale: WORKFLOW_X6_MAX_SCALE })
       } else {
-        graph?.zoom(0.1, { maxScale: 1.5 })
+        graph?.zoom(0.1, { maxScale: WORKFLOW_X6_MAX_SCALE })
       }
     },
     zoomOut: () => {
       const scroller = scrollerRef.current
       const graph = graphRef.current
       if (scroller) {
-        scroller.zoom(-0.1, { minScale: 0.02 })
+        scroller.zoom(-0.1, { minScale: WORKFLOW_X6_MIN_SCALE })
       } else {
-        graph?.zoom(-0.1, { minScale: 0.02 })
+        graph?.zoom(-0.1, { minScale: WORKFLOW_X6_MIN_SCALE })
       }
     },
     revealNode: (nodeId) => {
@@ -195,9 +231,9 @@ export const WorkflowX6Canvas = forwardRef<
       const cell = graph?.getCellById(nodeId)
       if (!graph || !cell?.isNode()) return
       const currentZoom = scrollerRef.current?.zoom() ?? graph.zoom()
-      if (currentZoom < 0.72) {
-        scrollerRef.current?.zoomTo(0.72)
-        if (!scrollerRef.current) graph.zoomTo(0.72)
+      if (currentZoom < WORKFLOW_X6_READABLE_SCALE) {
+        scrollerRef.current?.zoomTo(WORKFLOW_X6_READABLE_SCALE)
+        if (!scrollerRef.current) graph.zoomTo(WORKFLOW_X6_READABLE_SCALE)
       }
       scrollerRef.current?.centerCell(cell)
       if (!scrollerRef.current) graph.centerCell(cell)
@@ -286,13 +322,14 @@ export const WorkflowX6Canvas = forwardRef<
           thickness: 0.75
         }
       },
-      scaling: { min: 0.02, max: 1.5 },
-      panning: false,
-      mousewheel: {
-        enabled: true,
-        modifiers: ['ctrl', 'meta'],
-        zoomAtMousePosition: true
-      },
+      scaling: { min: WORKFLOW_X6_MIN_SCALE, max: WORKFLOW_X6_MAX_SCALE },
+      // Keep canvas panning available even when node editing is disabled.
+      // The Scroller plugin takes ownership after initialization, while this
+      // fallback keeps the management/read-only canvas draggable as well.
+      panning: { enabled: true },
+      // Scroller 接管缩放；内置 mousewheel 的 zoomAtMousePosition 会用错坐标系，
+      // 缩小后内容被甩出视口，拖动和放大都会失效。
+      mousewheel: { enabled: false },
       interacting: {
         nodeMovable: () => callbacksRef.current.nodePositionMutationEnabled,
         edgeMovable: false,
@@ -340,11 +377,15 @@ export const WorkflowX6Canvas = forwardRef<
     })
     const scroller = new Scroller({
       enabled: true,
-      pannable: true,
-      autoResize: false,
+      pannable: {
+        enabled: true,
+        eventTypes: ['leftMouseDown', 'rightMouseDown']
+      },
+      modifiers: [],
+      // false 时 X6 用空 contentArea 定图纸，右侧节点只出现在缩略图里、拖不过去。
+      autoResize: true,
       minVisibleWidth: 180,
-      minVisibleHeight: 120,
-      padding: 72
+      minVisibleHeight: 120
     })
     const selection = new Selection({
       enabled: true,
@@ -357,6 +398,86 @@ export const WorkflowX6Canvas = forwardRef<
     })
     graph.use(scroller)
     graph.use(selection)
+
+    // 工作流管理/只读详情页没有节点移动能力；在空白区提供稳定的左键拖拽
+    // fallback，避免 Selection/Scroller 事件竞争导致大图无法平移。
+    let backgroundPan: {
+      pointerId: number
+      startX: number
+      startY: number
+      scrollLeft: number
+      scrollTop: number
+    } | null = null
+    const backgroundPanBlockedSelector = [
+      '.x6-node',
+      '.x6-edge',
+      '.workflow-x6__minimap',
+      'button',
+      'input',
+      'select',
+      'textarea',
+      '[role="button"]'
+    ].join(', ')
+    const handleBackgroundPanPointerDown = (event: PointerEvent): void => {
+      if (
+        event.button !== 0 ||
+        event.shiftKey ||
+        !(event.target instanceof Element) ||
+        event.target.closest(backgroundPanBlockedSelector)
+      ) return
+      backgroundPan = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        scrollLeft: scroller.container.scrollLeft,
+        scrollTop: scroller.container.scrollTop
+      }
+      scroller.container.setPointerCapture?.(event.pointerId)
+      scroller.container.dataset.panning = 'true'
+      root.classList.add('is-background-panning')
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const handleBackgroundPanPointerMove = (event: PointerEvent): void => {
+      if (!backgroundPan || backgroundPan.pointerId !== event.pointerId) return
+      scroller.container.scrollLeft =
+        backgroundPan.scrollLeft - (event.clientX - backgroundPan.startX)
+      scroller.container.scrollTop =
+        backgroundPan.scrollTop - (event.clientY - backgroundPan.startY)
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const stopBackgroundPan = (event?: PointerEvent): void => {
+      if (!backgroundPan) return
+      const pointerId = backgroundPan.pointerId
+      backgroundPan = null
+      scroller.container.dataset.panning = 'false'
+      root.classList.remove('is-background-panning')
+      if (event && scroller.container.hasPointerCapture?.(pointerId)) {
+        scroller.container.releasePointerCapture?.(pointerId)
+      }
+    }
+    root.addEventListener('pointerdown', handleBackgroundPanPointerDown, true)
+    root.addEventListener('pointermove', handleBackgroundPanPointerMove, true)
+    root.addEventListener('pointerup', stopBackgroundPan, true)
+    root.addEventListener('pointercancel', stopBackgroundPan, true)
+    const handleCanvasWheel = (event: WheelEvent): void => {
+      if (!(event.target instanceof Element) || !root.contains(event.target)) return
+      if (event.target.closest('.workflow-x6__minimap')) return
+      // 空白处也缩放，并拦住 Electron/浏览器的页面缩放，避免缩完之后拖不动。
+      event.preventDefault()
+      event.stopPropagation()
+      scroller.zoom(workflowX6NextCanvasZoom(scroller.zoom(), event.deltaY), {
+        absolute: true,
+        minScale: WORKFLOW_X6_MIN_SCALE,
+        maxScale: WORKFLOW_X6_MAX_SCALE
+      })
+      scroller.updateScroller()
+    }
+    root.addEventListener('wheel', handleCanvasWheel, {
+      capture: true,
+      passive: false
+    })
     if (minimapRef.current) {
       graph.use(new MiniMap({
         container: minimapRef.current,
@@ -383,6 +504,15 @@ export const WorkflowX6Canvas = forwardRef<
       event.stopPropagation()
       callbacksRef.current.onAddNodeToLoop?.(nodeId)
     }
+    // Some X6 versions stop the native click after dispatching the parent
+    // node event. Capture the pointer gesture too so the loop affordance
+    // cannot be swallowed by node selection.
+    const handleLoopAddPointerDown = (event: Event): void => {
+      const target = event.target as Element | null
+      if (!target?.closest?.('.workflow-x6-loop-add-node')) return
+      handleLoopAddClick(event)
+    }
+    root.addEventListener('pointerdown', handleLoopAddPointerDown, true)
     root.addEventListener('click', handleLoopAddClick, true)
 
     graph.on('node:click', ({ e, node }) => {
@@ -499,6 +629,63 @@ export const WorkflowX6Canvas = forwardRef<
         }
       }
     }
+    // X6 的 embedding 会把循环体动作委托给父节点，某些版本在父节点
+    // 已有子节点后不再触发父容器的拖动事件。循环容器使用独立的指针
+    // 手势，仍按 X6 的 deep position 同步移动全部循环体成员。
+    const handleLoopPointerDown = (event: PointerEvent): void => {
+      if (!callbacksRef.current.nodePositionMutationEnabled) return
+      const target = event.target as Element | null
+      if (!target || target.closest('.workflow-x6-loop-add-node')) return
+      const nodeElement = target.closest('.x6-node')
+      const nodeId = nodeElement?.getAttribute('data-cell-id')
+      if (!nodeId) return
+      const node = graph.getCellById(nodeId)
+      if (!node?.isNode()) return
+      const data = node.getData<WorkflowNodeData>()
+      if (data?.controlFlow?.kind !== 'repeat_until') return
+      const point = graph.clientToLocal(event.clientX, event.clientY)
+      loopDragRef.current = {
+        nodeId,
+        start: { x: point.x, y: point.y },
+        origin: node.position()
+      }
+      nodeDraggingRef.current = true
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const handleLoopPointerMove = (event: PointerEvent): void => {
+      const drag = loopDragRef.current
+      if (!drag) return
+      const node = graph.getCellById(drag.nodeId)
+      if (!node?.isNode()) return
+      const point = graph.clientToLocal(event.clientX, event.clientY)
+      node.position(
+        drag.origin.x + point.x - drag.start.x,
+        drag.origin.y + point.y - drag.start.y,
+        { deep: true, ui: true }
+      )
+      refreshDraggedConnections(node)
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const handleLoopPointerUp = (event: PointerEvent): void => {
+      const drag = loopDragRef.current
+      if (!drag) return
+      loopDragRef.current = null
+      nodeDraggingRef.current = false
+      const node = graph.getCellById(drag.nodeId)
+      if (node?.isNode() && callbacksRef.current.nodePositionMutationEnabled) {
+        const changes = [node, ...node.getChildren().filter(cell => cell.isNode())]
+          .map(cell => ({ nodeId: cell.id, position: cell.position() }))
+        callbacksRef.current.onNodePositionsChange?.(changes)
+      }
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    document.addEventListener('pointerdown', handleLoopPointerDown, true)
+    document.addEventListener('pointermove', handleLoopPointerMove, true)
+    document.addEventListener('pointerup', handleLoopPointerUp, true)
+    document.addEventListener('pointercancel', handleLoopPointerUp, true)
     graph.on('node:moving', ({ node }) => {
       if (dragFrame !== null) cancelAnimationFrame(dragFrame)
       dragFrame = requestAnimationFrame(() => {
@@ -516,6 +703,7 @@ export const WorkflowX6Canvas = forwardRef<
       dragFrame = null
       refreshDraggedConnections(node)
       nodeDraggingRef.current = false
+      scroller.updateScroller()
       if (!callbacksRef.current.nodePositionMutationEnabled) return
       const data = node.getData<WorkflowNodeData>()
       if (data?.controlFlow?.kind === 'repeat_until') {
@@ -607,10 +795,10 @@ export const WorkflowX6Canvas = forwardRef<
     scrollerRef.current = scroller
 
     const resize = new ResizeObserver(() => {
-      // Scroller 会改写内部 graph container；外层壳才是可见视口尺寸权威。
+      // 只改 Scroller 视口。graph.resize 会在缩放后把图纸拉回窗口大小，
+      // 比例还停在缩小值，拖动和再次放大都会失效。
       const rect = root.getBoundingClientRect()
       if (rect.width <= 0 || rect.height <= 0) return
-      graph.resize(rect.width, rect.height)
       scroller.resize(rect.width, rect.height)
     })
     resize.observe(root)
@@ -624,7 +812,19 @@ export const WorkflowX6Canvas = forwardRef<
     )
     cleanup = () => {
       if (dragFrame !== null) cancelAnimationFrame(dragFrame)
+      loopDragRef.current = null
+      document.removeEventListener('pointerdown', handleLoopPointerDown, true)
+      document.removeEventListener('pointermove', handleLoopPointerMove, true)
+      document.removeEventListener('pointerup', handleLoopPointerUp, true)
+      document.removeEventListener('pointercancel', handleLoopPointerUp, true)
+      root.removeEventListener('pointerdown', handleLoopAddPointerDown, true)
       root.removeEventListener('click', handleLoopAddClick, true)
+      root.removeEventListener('pointerdown', handleBackgroundPanPointerDown, true)
+      root.removeEventListener('pointermove', handleBackgroundPanPointerMove, true)
+      root.removeEventListener('pointerup', stopBackgroundPan, true)
+      root.removeEventListener('pointercancel', stopBackgroundPan, true)
+      root.removeEventListener('wheel', handleCanvasWheel, true)
+      stopBackgroundPan()
       resize.disconnect()
       graph.dispose()
       graphRef.current = null
@@ -950,11 +1150,26 @@ function syncWorkflowX6Projection(
     initialFitPending.current = false
     return
   }
-  if (!initialFitPending.current || !scroller) return
-  initialFitPending.current = false
-  globalThis.requestAnimationFrame(() => {
-    scroller.zoomToFit({ padding: 56, maxScale: 1.2 })
-  })
+  const paperNeedsUpdate =
+    layoutChanged ||
+    diff.addNodeIds.length > 0 ||
+    diff.removeNodeIds.length > 0 ||
+    diff.addEdgeIds.length > 0 ||
+    diff.removeEdgeIds.length > 0
+  if (initialFitPending.current && scroller) {
+    initialFitPending.current = false
+    globalThis.requestAnimationFrame(() => {
+      scroller.zoomToFit({
+        padding: 56,
+        minScale: WORKFLOW_X6_READABLE_SCALE,
+        maxScale: 1.2
+      })
+      scroller.centerContent()
+      scroller.updateScroller()
+    })
+    return
+  }
+  if (paperNeedsUpdate) scroller?.updateScroller()
 }
 
 /**

@@ -212,9 +212,78 @@
 }
 
 .unilab-mode-entry .unilab-workbench-session-diagnostic {
+  display: grid;
+  gap: 8px;
   margin: 0;
-  border: 1px solid color-mix(in srgb, var(--unilab-color-danger) 38%, transparent);
-  border-radius: 3px;
+  padding: 12px 14px;
+  color: var(--unilab-color-danger);
+  border: 1px solid #fca5a5;
+  border-radius: var(--unilab-radius-md);
+  background: var(--unilab-color-danger-soft);
+  font: 400 0.8125rem/1.5 var(--unilab-font-sans);
+}
+
+.unilab-mode-entry .unilab-workbench-session-diagnostic > strong {
+  font: 700 0.875rem/1.45 var(--unilab-font-sans);
+}
+
+.unilab-mode-entry .unilab-workbench-session-diagnostic > p {
+  margin: 0;
+}
+
+.unilab-mode-entry .unilab-workbench-session-diagnostic__recovery {
+  color: #991b1b;
+}
+
+.unilab-mode-entry .unilab-workbench-session-diagnostic__recovery > span {
+  font-weight: 650;
+}
+
+.unilab-mode-entry .unilab-workbench-session-diagnostic > code {
+  color: #7f1d1d;
+  font: 600 0.75rem/1.5 var(--unilab-font-mono);
+  overflow-wrap: anywhere;
+}
+
+.unilab-mode-entry .unilab-workbench-session-diagnostic__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--unilab-color-danger) 24%, transparent);
+}
+
+.unilab-mode-entry .unilab-workbench-session-diagnostic__reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  color: var(--unilab-color-danger);
+  border: 1px solid #fca5a5;
+  border-radius: var(--unilab-radius-md);
+  background: var(--unilab-color-danger-soft);
+  font: 600 0.8125rem/1.45 var(--unilab-font-sans);
+  cursor: pointer;
+  transition:
+    border-color var(--unilab-motion-fast),
+    background var(--unilab-motion-fast),
+    transform var(--unilab-motion-fast);
+}
+
+.unilab-mode-entry .unilab-workbench-session-diagnostic__reset:hover {
+  border-color: var(--unilab-color-danger);
+  background: #fee2e2;
+}
+
+.unilab-mode-entry .unilab-workbench-session-diagnostic__reset:focus-visible {
+  outline: 2px solid var(--unilab-color-focus);
+  outline-offset: 2px;
+}
+
+.unilab-mode-entry .unilab-workbench-session-diagnostic__reset:active {
+  transform: translateY(1px);
 }
 
 .unilab-mode-entry__kicker {

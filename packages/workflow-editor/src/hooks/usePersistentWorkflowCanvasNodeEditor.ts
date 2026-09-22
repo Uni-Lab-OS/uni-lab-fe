@@ -47,7 +47,12 @@ import {
   connectWorkflowConditionBranch,
   connectWorkflowConditionPredecessor
 } from '../utils/workflowConditionControl'
-import { applyWorkflowLoopParam, moveWorkflowNodeToLoop } from '../utils/workflowLoopControl'
+import {
+  applyWorkflowLoopParam,
+  moveWorkflowNodeToLoop,
+  projectWorkflowLoopEditor,
+  updateWorkflowLoopParam
+} from '../utils/workflowLoopControl'
 import { useWorkflowCanvasDeletion } from './useWorkflowCanvasDeletion'
 import {
   workflowNodeAtSourcePosition,
@@ -86,6 +91,21 @@ interface PersistentWorkflowCanvasNodeEditorOptions {
   ) => void
   ideBridge?: WorkflowIdeBridge
   sourceProjection: WorkflowSourceProjection | null
+}
+
+/** 读取规范图节点的显式画布坐标；缺失时交给布局器计算。 */
+function explicitNodePosition(
+  node: WorkflowAuthoringGraph['nodes'][number] | undefined
+): WorkflowCanvasPoint | undefined {
+  const pose = node?.pose
+  if (!pose || typeof pose !== 'object' || Array.isArray(pose)) return undefined
+  const position = (pose as Record<string, unknown>).position
+  if (!position || typeof position !== 'object' || Array.isArray(position)) {
+    return undefined
+  }
+  const x = Number((position as Record<string, unknown>).x)
+  const y = Number((position as Record<string, unknown>).y)
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined
 }
 
 /**
@@ -271,12 +291,16 @@ export function usePersistentWorkflowCanvasNodeEditor(
     options?: {
       sync?: boolean
       diagnostics?: WorkflowAuthoringDiagnostic[]
+      selection?: {
+        uuid: string
+        name: string
+      }
     }
   ): void => {
     setGraph(next)
     setCanvasDirty(true)
-    setSelectedNodeUuid(nodeUuid)
-    setSelectedNodeName(name)
+    setSelectedNodeUuid(options?.selection?.uuid ?? nodeUuid)
+    setSelectedNodeName(options?.selection?.name ?? name)
     setSelectedNodeNameDirty(false)
     setError(null)
     setMessage(message)
@@ -291,13 +315,15 @@ export function usePersistentWorkflowCanvasNodeEditor(
   const addTypedActionNode = (
     templateUuid: string,
     position?: WorkflowCanvasPoint,
-    manualConfirmation?: { deviceUuid: string; timeoutSeconds: number }
-  ): void => {
-    if (!actionCatalog || !graph) return
+    manualConfirmation?: { deviceUuid: string; timeoutSeconds: number },
+    afterCreate?: (next: WorkflowAuthoringGraph, nodeUuid: string) => WorkflowAuthoringGraph,
+    selection?: { uuid: string; name: string }
+  ): string | null => {
+    if (!actionCatalog || !graph) return null
     const template = actionCatalog.actionTemplates.find(
       (item) => item.uuid === templateUuid
     )
-    if (!template) return
+    if (!template) return null
     const stem = template.name.replace(/[^A-Za-z0-9_]/g, '_') || 'action'
     let name = stem
     let suffix = 2
@@ -314,6 +340,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
         position
       })
       if (manualConfirmation) next = configureManualConfirmation(next, nodeUuid, template, manualConfirmation)
+      if (afterCreate) next = afterCreate(next, nodeUuid)
       const projection = projectTypedActionEditor(
         actionCatalog,
         next,
@@ -339,16 +366,73 @@ export function usePersistentWorkflowCanvasNodeEditor(
                 node_id: nodeUuid,
                 path: diagnostic.fieldPath,
                 workflow_handle_template_uuid: diagnostic.handleUuid
-              })) as WorkflowAuthoringDiagnostic[]
+              })) as WorkflowAuthoringDiagnostic[],
+              selection
             }
-          : undefined
+          : selection ? { selection } : undefined
       )
       if (missingRequired.length > 0) {
         setActionParametersOpen(true)
       }
+      return nodeUuid
     } catch (createError) {
       setError(errorMessage(createError))
+      return null
     }
+  }
+
+  /** 从设备动作目录创建动作节点，并原子加入指定循环体。 */
+  const addTypedActionNodeToLoop = (
+    templateUuid: string,
+    loopUuid: string
+  ): string | null => {
+    if (!graph) return null
+    const loop = graph.nodes.find(node => node.uuid === loopUuid)
+    if (!loop || String(loop.type) !== 'repeat_until') {
+      setError('目标节点不是循环节点')
+      return null
+    }
+    const currentLoop = projectWorkflowLoopEditor(graph, loopUuid)
+    const loopPosition = explicitNodePosition(loop)
+    // 新动作没有 OS pose 时，先放到循环容器的内容区。这样首次添加动作
+    // 不会落到视口外，也不会让 X6 把一个“幽灵节点”留在画布原点。
+    const insertionPosition = loopPosition
+      ? {
+          x: loopPosition.x + 80,
+          y: loopPosition.y + 72 + Math.min(currentLoop.bodyNodeUuids.length, 1) * 72
+        }
+      : undefined
+    const createdUuid = addTypedActionNode(
+      templateUuid,
+      insertionPosition,
+      undefined,
+      (next, nodeUuid) => {
+        const currentLoop = projectWorkflowLoopEditor(next, loopUuid)
+        return applyWorkflowLoopParam(
+          next,
+          loopUuid,
+          updateWorkflowLoopParam(
+            next.nodes.find(node => node.uuid === loopUuid)?.param,
+            { bodyNodeUuids: [...currentLoop.bodyNodeUuids, nodeUuid] }
+          )
+        )
+      },
+      { uuid: loopUuid, name: String(loop.name || '') }
+    )
+    if (createdUuid) {
+      // 添加动作后检查器回到循环节点，避免保留新动作名称导致画布与
+      // 检查器状态不一致；同时关闭可能残留的参数抽屉，保证画布仍可拖拽。
+      setActionParametersOpen(false)
+      // X6 重新投影新增节点时可能恢复一次新增动作的本地选择；在该帧
+      // 结束后再确认循环选择，避免检查器回到动作节点并遮住画布。
+      globalThis.requestAnimationFrame(() => {
+        setSelectedNodeUuid(loopUuid)
+        setSelectedNodeName(String(loop.name || ''))
+        setSelectedNodeNameDirty(false)
+        setActionParametersOpen(false)
+      })
+    }
+    return createdUuid
   }
 
   /** 从工作流模板目录添加复合工作流节点（WorkflowNode）。 */
@@ -742,6 +826,7 @@ export function usePersistentWorkflowCanvasNodeEditor(
     addMaterialSourceNode,
     addPublishedWorkflowNode,
     addTypedActionNode,
+    addTypedActionNodeToLoop,
     updateManualConfirmation,
     bindTypedFieldToWorkflowInput,
     connectTypedHandles,

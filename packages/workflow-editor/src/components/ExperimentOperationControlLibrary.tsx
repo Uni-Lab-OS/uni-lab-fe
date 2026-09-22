@@ -23,13 +23,13 @@ export function ExperimentOperationControlLibrary(props: Props): React.JSX.Eleme
   return <details className="operation-control-library" open>
     <summary><strong>流程控制与物料</strong><span>4 项</span></summary>
     <div className="operation-control-library__grid">
-      <WorkflowButton type="button" disabled={blocked || !props.catalog || !props.onAddManualConfirmation}
-        disabledReason={blocked ? reason : '当前服务不支持人工确认'}
+      <WorkflowButton type="button" disabled={blocked || !props.catalog}
+        disabledReason={blocked ? reason : '动作目录尚未就绪'}
         data-node-kind="manual_confirm" data-workflow-palette-manual="true"
-        draggable={!blocked && Boolean(props.catalog && props.onAddManualConfirmation)}
-        onClick={() => props.onAddManualConfirmation?.()}
+        draggable={!blocked && Boolean(props.catalog)}
+        onClick={() => props.onAddManualConfirmation()}
         onDragStart={event => {
-          if (blocked || !props.catalog || !props.onAddManualConfirmation) { event.preventDefault(); return }
+          if (blocked || !props.catalog) { event.preventDefault(); return }
           const payload = { kind: 'manual_confirmation' } as const
           props.onPaletteDragStart?.(payload)
           writeWorkflowNodePaletteDragPayload(event.dataTransfer, payload)

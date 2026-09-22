@@ -165,43 +165,169 @@
   :global(.persistent-authoring__node-tabs) { grid-template-columns: repeat(3,minmax(0,1fr)); margin: 0; }
   :global(.persistent-authoring__node-tabs) button { white-space: nowrap; font-size: 11px; }
   :global(.persistent-authoring__inspector-empty) { padding: 28px 14px; }
-  :global(.persistent-authoring__node-editor) :global(.editable-contract-section):has(:global(.contract-param-list)) { min-width: 0; max-width: 100%; }
-  :global(.persistent-authoring__node-editor) :global(.contract-param-list) {
-    display: flex;
-    flex-direction: column;
+  :global(.persistent-authoring__node-editor) :global(.editable-contract-section):has(:global(.contract-param-list)) {
     min-width: 0;
     max-width: 100%;
-    overflow-x: auto;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
   }
-  :global(.persistent-authoring__node-editor) :global(.contract-param-list) > :global(.contract-param-card) {
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list.contract-param-list) {
+    display: grid;
+    gap: 0;
     min-width: 0;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.7fr) auto;
-    align-items: center;
-    gap: 8px;
+    max-width: 100%;
+    overflow: hidden;
+    margin: 0;
     padding: 0;
     border: 0;
     border-radius: 0;
-    background: transparent;
+    background: #fff;
+  }
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list.contract-param-list)
+  > :global(.contract-param-card) {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(72px, .85fr) minmax(0, 1.5fr) auto;
+    grid-template-rows: auto;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 6px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
     box-shadow: none;
   }
-  :global(.persistent-authoring__node-editor) :global(.contract-param-list) > :global(.contract-param-card) + :global(.contract-param-card) { border-top: 0; }
-  :global(.persistent-authoring__node-editor) :global(.contract-param-meta) { min-height: 34px; padding: 6px 8px; border-radius: 6px; background: #f3f4f6; }
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list.contract-param-list)
+  > :global(.contract-param-card)
+  + :global(.contract-param-card) {
+    border-top: 1px solid #e2e8f0;
+  }
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list.contract-param-list)
+  > :global(.contract-param-card)
+  > :global(.contract-param-meta) {
+    display: flex;
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    align-self: center;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin: 0;
+  }
   :global(.persistent-authoring__node-editor) :global(.contract-param-meta) code { display: none; }
   :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-optional) { display: none; }
-  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) input { background: #f3f4f6; border-color: transparent; }
-  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) select { background: #f3f4f6; border-color: transparent; }
-  :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-list) :global(.contract-param-meta) { grid-column: 1; grid-row: 1; align-items: center; }
-  :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-list) :global(.contract-source-grid) {
-    grid-column: 2; grid-row: 1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center;
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list.contract-param-list)
+  > :global(.contract-param-card)
+  > :global(.contract-source-grid) {
+    display: grid;
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    width: 100%;
+    grid-template-columns: minmax(68px, .9fr) minmax(0, 1.1fr);
+    align-items: center;
+    align-self: center;
+    gap: 6px;
   }
-  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) > * { min-width: 0; }
-  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) input { min-width: 0; }
-  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) select { min-width: 0; padding-inline: 4px; }
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list)
+  :global(.contract-source-grid) > * { min-width: 0; }
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list)
+  :global(.contract-source-grid) input,
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list)
+  :global(.contract-source-grid) select {
+    min-width: 0;
+    width: 100%;
+    height: 32px;
+    min-height: 32px;
+    box-sizing: border-box;
+    padding: 0 6px;
+    background: #fff;
+    border-color: #d8e1ec;
+  }
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list)
+  :global(.contract-source-grid) > label:first-child {
+    grid-column: auto;
+    grid-row: auto;
+    padding-top: 0;
+    align-self: center;
+    height: 32px;
+  }
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list)
+  :global(.contract-source-grid) > :nth-child(2) {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list)
+  :global(.contract-source-grid) > :global(.persistent-authoring__resource-selector) {
+    min-width: 0;
+    align-self: center;
+  }
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list)
+  :global(.contract-source-grid) > :global(.persistent-authoring__resource-selector.is-compact) {
+    height: 32px;
+    overflow: hidden;
+  }
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list)
+  :global(.contract-source-grid) > :global(.persistent-authoring__resource-selector) select {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   :global(.persistent-authoring__node-editor) :global(.contract-param-meta) > span:first-child { min-width: 0; }
-  :global(.persistent-authoring__node-editor) :global(.contract-param-meta) strong { display: block; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
-  :global(.persistent-authoring__node-editor) :global(.contract-source-grid) > label:first-child { padding-top: 0; }
-  :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-list) :global(.contract-source-note) { display: none; }
-  :global(.persistent-authoring__node-editor) :global(.persistent-authoring__parameter-actions) { grid-column: 3; grid-row: 1; margin: 0; }
+  :global(.persistent-authoring__node-editor) :global(.contract-param-meta) strong {
+    display: block;
+    color: #334155;
+    font-size: 11px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+  }
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list)
+  :global(.contract-source-note) { display: none; }
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list.contract-param-list)
+  > :global(.contract-param-card)
+  > :global(.persistent-authoring__parameter-actions) {
+    display: flex;
+    grid-column: 3;
+    grid-row: 1;
+    align-self: center;
+    margin: 0;
+    justify-content: flex-end;
+  }
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list.contract-param-list)
+  > :global(.contract-param-card)
+  > :global(.persistent-authoring__parameter-inline-error),
+  :global(.persistent-authoring__node-editor)
+  :global(.persistent-authoring__parameter-list.contract-param-list)
+  > :global(.contract-param-card)
+  > :global(.persistent-authoring__parameter-diagnostics) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
   :global(.persistent-authoring__canvas-body.is-code-mode) { grid-template-columns: minmax(0,1fr); grid-template-areas: 'graph'; }
 
   @container workflow-toolbar (max-width: 900px) {

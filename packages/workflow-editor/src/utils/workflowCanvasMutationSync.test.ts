@@ -248,6 +248,34 @@ describe('workflow canvas mutation synchronization', () => {
     )
   })
 
+  it('keeps an empty condition branch editable when moving a node', async () => {
+    const saveWorkflowAuthoringDraft = vi.fn()
+    const deps = dependencies({
+      aggregate: aggregate(),
+      definitionPort: definitionPort(false, vi.fn()),
+      runtime: { saveWorkflowAuthoringDraft } as unknown as WorkflowRuntimePort,
+      generateCanvasPython: vi.fn().mockRejectedValue(
+        new Error('candidate_invalid: 条件分支不能为空')
+      )
+    })
+    const movedGraph = graph()
+    enqueueCanvasMutationSync(movedGraph, 'node_move', deps)
+    await deps.tailRef.current
+
+    expect(saveWorkflowAuthoringDraft).not.toHaveBeenCalled()
+    expect(deps.localState.current.graph).toBe(movedGraph)
+    expect(deps.setCanvasDirty).toHaveBeenCalledWith(true)
+    expect(deps.setError).toHaveBeenCalledWith(null)
+    expect(deps.setLocalValidationDiagnostics).toHaveBeenCalledWith([
+      expect.objectContaining({
+        severity: 'warning',
+        code: 'condition_branch_incomplete',
+        message: expect.stringContaining('IF / ELSE')
+      })
+    ])
+    expect(deps.setMessage).toHaveBeenCalledWith(expect.stringContaining('尚未保存到 OS'))
+  })
+
   it('uses the direct graph port for Backend connections', async () => {
     const current = aggregate({ state: 'unapplied_graph' })
     const saved = aggregate({

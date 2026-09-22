@@ -710,7 +710,7 @@ export default function DevicePanel({
           <div>
             <h1 className={deviceClass('section__list-title')}>仪器设备</h1>
             <span className={deviceClass('section__list-meta')}>
-              {devices.length} 台设备 · Authority 设备目录
+              {devices.length} 台设备
             </span>
           </div>
           <button
@@ -819,7 +819,7 @@ export default function DevicePanel({
             canForceUnlock={canForceUnlock}
             unlockOperation={unlockOperation}
             onRequestUnlock={handleRequestUnlock}
-            recovery={services.capabilities.workflow.recovery ? services.workflow.recovery : undefined}
+            recovery={services.workflow.recovery}
             onRefreshDevice={refresh}
           />
         ) : (

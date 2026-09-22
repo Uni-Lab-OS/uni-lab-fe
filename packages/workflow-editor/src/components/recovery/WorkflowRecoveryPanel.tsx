@@ -7,7 +7,6 @@ import './recovery.scss'
 
 export function WorkflowRecoveryPanel({ model }: { model: PersistentWorkflowAuthoringModel }) {
   const port = model.runtime.recovery
-  if (!port) return null
   return <ConnectedRecovery key={port.scopeKey} port={port} model={model} />
 }
 function ConnectedRecovery({ port, model }: { port: WorkflowRecoveryPort; model: PersistentWorkflowAuthoringModel }) {

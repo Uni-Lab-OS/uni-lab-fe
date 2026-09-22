@@ -268,9 +268,7 @@ export function createWorkflowRuntime(
   }
 
   const port: WorkflowRuntimePort = {
-    recovery: capabilities.workflow.recovery
-      ? createWorkflowRecoveryPort(http, backend, sseTransport, subscriptions)
-      : undefined,
+    recovery: createWorkflowRecoveryPort(http, backend, sseTransport, subscriptions),
     getWorkflowActionCatalog: (signal, options) => {
       requireWorkflowCapability('workflow.readDefinitions')
       return (options?.refresh

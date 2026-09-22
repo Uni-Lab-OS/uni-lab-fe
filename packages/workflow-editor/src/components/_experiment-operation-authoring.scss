@@ -614,9 +614,307 @@
   :global(.workflow-loop-editor__grid) { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   :global(.workflow-loop-editor__field), :global(.workflow-loop-editor__members) { display: grid; gap: 4px; color: var(--unilab-color-text-muted); font-size: 8px; }
   :global(.workflow-loop-editor input), :global(.workflow-loop-editor select) { min-width: 0; padding: 6px 7px; border: 1px solid var(--unilab-color-border); border-radius: 5px; background: var(--unilab-color-surface); font-size: 9px; }
-  :global(.workflow-loop-editor__members) select { min-height: 74px; }
+  :global(.workflow-loop-editor__members-actions) { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--unilab-color-text-muted); font-size: 9px; font-weight: 700; }
+  :global(.workflow-loop-editor__members-actions button) { padding: 5px 8px; border: 1px solid #bfdbfe; border-radius: 5px; color: #2563eb; background: #eff6ff; font-size: 9px; cursor: pointer; }
+  :global(.workflow-loop-editor__members-actions button:disabled) { cursor: not-allowed; opacity: .55; }
+  :global(.workflow-loop-editor__member-list) { display: grid; gap: 4px; min-height: 42px; padding: 6px; border: 1px solid var(--unilab-color-border); border-radius: 5px; background: #fff; }
+  :global(.workflow-loop-editor__member) { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; padding: 5px 6px; border-radius: 4px; color: var(--unilab-color-text); background: #f8fafc; font-size: 9px; }
+  :global(.workflow-loop-editor__member span) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :global(.workflow-loop-editor__member button) { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; color: #64748b; background: transparent; font-size: 14px; line-height: 18px; cursor: pointer; }
+  :global(.workflow-loop-editor__member button:hover) { color: #dc2626; background: #fee2e2; }
+  :global(.workflow-loop-editor__member-empty) { padding: 8px 4px; color: #94a3b8; font-size: 9px; }
   :global(.workflow-loop-editor__until) { display: grid; gap: 8px; margin: 0; padding: 9px; border: 1px solid #bfdbfe; border-radius: 8px; background: #f8fbff; }
   :global(.workflow-loop-editor__until legend) { padding: 0 4px; color: #2563eb; font-size: 10px; font-weight: 700; }
   :global(.workflow-loop-editor__until > small) { color: var(--unilab-color-text-muted); font-size: 8px; line-height: 1.4; }
   :global(.workflow-loop-editor label small) { margin: 0; color: var(--unilab-color-text-muted); font-size: 8px; line-height: 1.4; }
+}
+
+// The node picker is portalled to document.body so it can cover the canvas and
+// inspector. Keep the selectors global and token-based; CSS modules otherwise
+// scope them to the inspector subtree and leave the portal unstyled.
+:global(.workflow-loop-editor__modal-backdrop) {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--unilab-space-4, 16px);
+  background: rgb(15 23 42 / 28%);
+}
+
+:global(.workflow-loop-editor__add-dialog) {
+  width: min(440px, calc(100vw - 32px));
+  display: grid;
+  gap: var(--unilab-space-4, 16px);
+  padding: var(--unilab-space-6, 24px);
+  border: 1px solid var(--unilab-color-border-strong, #c9d4e1);
+  border-radius: var(--unilab-radius-lg, 12px);
+  color: var(--unilab-color-text, #1f2329);
+  background: var(--unilab-color-surface, #fff);
+  box-shadow: var(--unilab-shadow-panel, 0 12px 32px rgb(15 23 42 / 12%));
+  font-family: var(--unilab-font-sans, sans-serif);
+}
+
+:global(.workflow-loop-editor__add-dialog header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--unilab-space-3, 12px);
+}
+
+:global(.workflow-loop-editor__add-dialog header strong) {
+  color: var(--unilab-color-text, #1f2329);
+  font-size: .875rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+:global(.workflow-loop-editor__modal-close) {
+  position: relative;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--unilab-radius-control, 6px);
+  color: var(--unilab-color-text-muted, #6b7280);
+  background: transparent;
+  cursor: pointer;
+}
+
+:global(.workflow-loop-editor__modal-close)::before,
+:global(.workflow-loop-editor__modal-close)::after {
+  position: absolute;
+  width: 13px;
+  height: 1.5px;
+  border-radius: 999px;
+  background: currentColor;
+  content: '';
+}
+
+:global(.workflow-loop-editor__modal-close)::before { transform: rotate(45deg); }
+:global(.workflow-loop-editor__modal-close)::after { transform: rotate(-45deg); }
+:global(.workflow-loop-editor__modal-close:hover) {
+  border-color: var(--unilab-color-border, #dde5ee);
+  color: var(--unilab-color-text, #1f2329);
+  background: var(--unilab-color-surface-muted, #edf2f7);
+}
+
+:global(.workflow-loop-editor__add-dialog p) {
+  margin: -4px 0 0;
+  color: var(--unilab-color-text-muted, #6b7280);
+  font-size: .8125rem;
+  line-height: 1.5;
+}
+
+:global(.workflow-loop-editor__add-dialog label) {
+  display: grid;
+  gap: var(--unilab-space-2, 8px);
+  color: var(--unilab-color-text-muted, #6b7280);
+  font-size: .75rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+:global(.workflow-loop-editor__action-picker) {
+  position: relative;
+  display: grid;
+  gap: var(--unilab-space-2, 8px);
+}
+
+:global(.workflow-loop-editor__action-picker-label) {
+  color: var(--unilab-color-text-muted, #6b7280);
+  font-size: .75rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+:global(.workflow-loop-editor__action-picker-control) {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 10px;
+  border: 1px solid var(--unilab-color-border-strong, #c9d4e1);
+  border-radius: var(--unilab-radius-control, 6px);
+  color: var(--unilab-color-text, #1f2329);
+  background: var(--unilab-color-surface, #fff);
+  font: 500 .75rem/1.5 var(--unilab-font-sans, sans-serif);
+  text-align: left;
+  cursor: pointer;
+}
+
+:global(.workflow-loop-editor__action-picker-control:hover),
+:global(.workflow-loop-editor__action-picker-control[aria-expanded='true']) {
+  border-color: var(--unilab-color-primary, #2563eb);
+}
+
+:global(.workflow-loop-editor__action-picker-placeholder) {
+  color: var(--unilab-color-text-subtle, #94a3b8);
+}
+
+:global(.workflow-loop-editor__action-picker-chevron) {
+  flex: 0 0 auto;
+  color: var(--unilab-color-text-muted, #6b7280);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+:global(.workflow-loop-editor__action-picker-menu) {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  display: grid;
+  gap: 8px;
+  max-height: 300px;
+  padding: 8px;
+  overflow: hidden;
+  border: 1px solid var(--unilab-color-border-strong, #c9d4e1);
+  border-radius: var(--unilab-radius-md, 8px);
+  background: var(--unilab-color-surface, #fff);
+  box-shadow: var(--unilab-shadow-popover, 0 12px 28px rgb(15 23 42 / 16%));
+}
+
+:global(.workflow-loop-editor__action-picker-search) {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--unilab-color-border, #dde5ee);
+  border-radius: var(--unilab-radius-control, 6px);
+  color: var(--unilab-color-text, #1f2329);
+  background: var(--unilab-color-surface, #fff);
+  font: 500 .75rem/1.5 var(--unilab-font-sans, sans-serif);
+}
+
+:global(.workflow-loop-editor__action-picker-options) {
+  display: grid;
+  max-height: 226px;
+  gap: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+:global(.workflow-loop-editor__action-picker-group) {
+  display: grid;
+  gap: 2px;
+}
+
+:global(.workflow-loop-editor__action-picker-group-label) {
+  padding: 3px 8px;
+  color: var(--unilab-color-text-subtle, #94a3b8);
+  font-size: .6875rem;
+  font-weight: 600;
+}
+
+:global(.workflow-loop-editor__action-picker-option) {
+  display: grid;
+  gap: 1px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--unilab-radius-control, 6px);
+  color: var(--unilab-color-text, #1f2329);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+:global(.workflow-loop-editor__action-picker-option:hover),
+:global(.workflow-loop-editor__action-picker-option[aria-selected='true']) {
+  background: var(--unilab-color-surface-muted, #edf2f7);
+}
+
+:global(.workflow-loop-editor__action-picker-option:disabled) {
+  color: var(--unilab-color-text-subtle, #94a3b8);
+  cursor: not-allowed;
+}
+
+:global(.workflow-loop-editor__action-picker-option strong) {
+  overflow: hidden;
+  font-size: .75rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:global(.workflow-loop-editor__action-picker-option small) {
+  overflow: hidden;
+  color: var(--unilab-color-text-muted, #6b7280);
+  font-size: .6875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:global(.workflow-loop-editor__action-picker-control:focus-visible),
+:global(.workflow-loop-editor__action-picker-search:focus-visible),
+:global(.workflow-loop-editor__modal-close:focus-visible),
+:global(.workflow-loop-editor__add-dialog footer button:focus-visible) {
+  outline: 2px solid var(--unilab-color-focus, #93c5fd);
+  outline-offset: 2px;
+}
+
+:global(.workflow-loop-editor__modal-empty) {
+  margin-top: calc(var(--unilab-space-2, 8px) * -1);
+  color: var(--unilab-color-text-muted, #6b7280);
+  font-size: .75rem;
+  line-height: 1.45;
+}
+
+:global(.workflow-loop-editor__add-dialog footer) {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--unilab-space-2, 8px);
+  margin-top: var(--unilab-space-2, 8px);
+}
+
+:global(.workflow-loop-editor__add-dialog footer button) {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--unilab-radius-md, 8px);
+  font: 600 .8125rem/1.45 var(--unilab-font-sans, sans-serif);
+  cursor: pointer;
+  transition: background var(--unilab-motion-fast, 120ms) ease, border-color var(--unilab-motion-fast, 120ms) ease;
+}
+
+:global(.workflow-loop-editor__modal-secondary) {
+  border: 1px solid var(--unilab-color-border-strong, #c9d4e1);
+  color: var(--unilab-color-text, #1f2329);
+  background: var(--unilab-color-surface, #fff);
+}
+
+:global(.workflow-loop-editor__modal-secondary:hover) {
+  border-color: var(--unilab-color-border-strong, #c9d4e1);
+  background: var(--unilab-color-surface-muted, #edf2f7);
+}
+
+:global(.workflow-loop-editor__modal-primary) {
+  border: 1px solid var(--unilab-color-primary, #2563eb);
+  color: var(--unilab-color-surface, #fff);
+  background: var(--unilab-color-primary, #2563eb);
+}
+
+:global(.workflow-loop-editor__modal-primary:hover:not(:disabled)) {
+  border-color: var(--unilab-color-primary-hover, #1d4ed8);
+  background: var(--unilab-color-primary-hover, #1d4ed8);
+}
+
+:global(.workflow-loop-editor__add-dialog footer button:active:not(:disabled)) {
+  transform: translateY(1px);
+}
+
+:global(.workflow-loop-editor__add-dialog footer button:disabled) {
+  border-color: var(--unilab-color-border, #dde5ee);
+  color: var(--unilab-color-text-subtle, #94a3b8);
+  background: var(--unilab-color-surface-muted, #edf2f7);
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(.workflow-loop-editor__add-dialog footer button) { transition: none; }
 }

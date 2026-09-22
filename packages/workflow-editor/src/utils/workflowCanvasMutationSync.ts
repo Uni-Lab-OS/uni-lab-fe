@@ -262,6 +262,20 @@ export function enqueueCanvasMutationSync<LocalState extends {
       }
       return
     }
+    // 空分支是编辑中间态：保留未保存标记和可操作提示，运行校验仍由 OS 严格执行。
+    const syncMessage = syncError instanceof Error ? syncError.message : String(syncError)
+    if (/^(?:candidate_invalid:\s*)?条件分支不能为空$/.test(syncMessage.trim())) {
+      const message = '条件节点还有未连接动作的分支，请从 IF / ELSE 输出端连接动作节点后再保存。'
+      setLocalValidationDiagnostics([{
+        severity: 'warning',
+        code: 'condition_branch_incomplete',
+        message
+      }])
+      setCanvasDirty(true)
+      setError(null)
+      setMessage('画布改动已保留在本地，尚未保存到 OS。' + message)
+      return
+    }
     // 新建/连线后常见：必填物料口尚未绑定。节点应留在本地供配置，不能当成编辑崩溃。
     if (isMissingRequiredActionParameterError(syncError)) {
       const raw = syncError instanceof Error

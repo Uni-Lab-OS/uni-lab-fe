@@ -100,6 +100,7 @@ import {
   WorkbenchAuthorityLoading,
   WorkbenchSessionGate
 } from './workbench-session-gate'
+import { FILES_EDITOR_SPLIT_MODE } from './workbench-files-layout'
 import {
   WorkbenchViewState,
   isRobotWorkbenchViewMode,
@@ -172,6 +173,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
   protected connectionSwitchRevision = 0
   protected connectionInterrupted = false
   protected recoveryRevision = 0
+  protected workflowManagementListRequestRevision = 0
   @postConstruct()
   protected init(): void {
     this.ideAdapter = createTheiaWorkflowIdeAdapter({
@@ -212,6 +214,10 @@ export class UniLabWorkbenchWidget extends ReactWidget {
       this.update()
     }))
     this.toDispose.push(this.viewState.onDidChangeMode(() => this.update()))
+    this.toDispose.push(this.viewState.onDidRequestWorkflowManagementList(() => {
+      this.workflowManagementListRequestRevision += 1
+      this.update()
+    }))
     this.toDispose.push(this.connectionStatus.onStatusChange(status => {
       if (status === ConnectionStatus.OFFLINE) {
         this.connectionInterrupted = true
@@ -797,7 +803,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
     )
     const widget = existing ?? await this.editorManager.open(uri, {
       mode: 'activate',
-      widgetOptions: { area: 'main', mode: 'split-right', ref: this }
+      widgetOptions: { area: 'main', mode: FILES_EDITOR_SPLIT_MODE, ref: this }
     })
     if (location.readOnly) {
       const monacoEditor = widget.editor as typeof widget.editor & {
@@ -902,6 +908,7 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         <WorkbenchSessionGate
           snapshot={this.sessionSnapshot}
           onRetry={this.retrySession}
+          onResetLocalData={this.rebuildLocalData}
           onStop={this.stopWorkspaceBackend}
           launchMode={this.connectionSwitchingTo ?? this.connectionMode}
           switchingTo={this.connectionSwitchingTo}
@@ -927,6 +934,9 @@ export class UniLabWorkbenchWidget extends ReactWidget {
         session={this.sessionSnapshot}
         sessionClient={this.workbenchSessionClient}
         recoveryRevision={this.recoveryRevision}
+        workflowManagementListRequestRevision={
+          this.workflowManagementListRequestRevision
+        }
         viewMode={this.viewState.currentMode}
         onUnsavedChangesChange={this.setWorkflowPanelDirty}
         onResetWorkflowEnvironment={this.resetWorkflowEnvironment}
@@ -959,6 +969,7 @@ function WorkbenchSurface({
   session,
   sessionClient,
   recoveryRevision,
+  workflowManagementListRequestRevision,
   viewMode,
   onUnsavedChangesChange,
   onResetWorkflowEnvironment,
@@ -976,6 +987,7 @@ function WorkbenchSurface({
   session: WorkbenchSessionSnapshot
   sessionClient: WorkbenchSessionClientImpl
   recoveryRevision: number
+  workflowManagementListRequestRevision: number
   viewMode: WorkbenchViewMode
   onUnsavedChangesChange: (hasUnsavedChanges: boolean) => void
   onResetWorkflowEnvironment: (backendUrl: string) => Promise<void>
@@ -1137,7 +1149,9 @@ function WorkbenchSurface({
         )}
         resourceSlotOptionsPort={resourceSlotOptionsPort}
         active={isWorkflowWorkbenchView(viewMode)}
+        hideCanvasSidebars={!isWorkflowDebugWorkbenchView(viewMode)}
         workflowUuid={workflowUuid}
+        catalogRequestRevision={workflowManagementListRequestRevision}
         activeWorkflowStorageKey={`unilab.workflow.active.${
           encodeURIComponent(selectedTarget.sourceId)
         }.v1`}

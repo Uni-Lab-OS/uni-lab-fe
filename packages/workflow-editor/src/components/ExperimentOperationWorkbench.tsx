@@ -455,7 +455,8 @@ function ExperimentOperationEmptyWorkbench({
             catalog={catalog} busy={false} canvasMutationEnabled={false}
             graphAvailable={false} materialSourceCatalogAvailable={false}
             materialSourceAuthorityBlocked={false} materialSourceCatalogLoading={false}
-            materialSourceCatalogError={null} onAddAction={onCreate}
+            materialSourceCatalogError={null} onAddManualConfirmation={onCreate}
+            onAddAction={onCreate}
             onAddMaterialSource={onCreate} onRefreshMaterialSourceCatalog={onRefresh}
           />
           </>

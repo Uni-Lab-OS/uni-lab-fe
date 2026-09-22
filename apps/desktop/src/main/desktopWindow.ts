@@ -44,6 +44,7 @@ export function createDesktopWindow({
     }
   })
 
+  window.webContents.setVisualZoomLevelLimits(1, 1)
   window.on('ready-to-show', () => {
     log('window ready-to-show')
     observability.record('electron.renderer.ready')

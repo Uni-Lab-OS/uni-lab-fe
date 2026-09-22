@@ -46,12 +46,6 @@ export function useWorkflowCanvasDeletion({
       onError(decision.reason)
       return
     }
-    const impactCount = decision.connectedEdgeCount +
-      decision.removedOutputCount
-    if (
-      impactCount > 0 &&
-      !globalThis.confirm(deletionConfirmationMessage(decision))
-    ) return
     const result = deleteWorkflowGraphElements(graph, selection)
     onGraphChange(result.graph)
     onMutation?.(result.graph, 'delete')

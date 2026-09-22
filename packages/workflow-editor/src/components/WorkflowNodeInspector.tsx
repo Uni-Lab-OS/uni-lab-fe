@@ -48,6 +48,8 @@ export function WorkflowNodeInspector({
     canvasSaveHint,
     diagnostics,
     graph,
+    actionCatalog,
+    addTypedActionNodeToLoop,
     materialSourceAuthorityBlocked,
     materialSourceCatalogLoading,
     materialTraces,
@@ -197,7 +199,7 @@ export function WorkflowNodeInspector({
             key={`${selectedNodeUuid}:${manualConfig?.timeout_seconds}`}
             timeoutSeconds={manualConfig?.timeout_seconds ?? 3600}
             deviceUuid={String(selectedGraphNode.material_uuid || '')}
-            editable={!busy && canvasMutationEnabled && Boolean(model.runtime.recovery)}
+            editable={!busy && canvasMutationEnabled}
             onChange={model.updateManualConfirmation}
           />}
           {selectedMaterialSourceEditor && (
@@ -237,6 +239,11 @@ export function WorkflowNodeInspector({
               nodeUuid={selectedNodeUuid}
               editable={!busy && canvasMutationEnabled}
               onChange={(param) => model.updateControlNodeParam(selectedNodeUuid, param)}
+              actionCatalog={actionCatalog}
+              actionCatalogError={model.actionCatalogError}
+              onAddActionToLoop={(templateUuid, loopUuid) => {
+                addTypedActionNodeToLoop(templateUuid, loopUuid)
+              }}
               openAddNodeRequest={Boolean(loopAddNodeRequest)}
               onAddNodeRequestHandled={onLoopAddNodeRequestHandled}
             />

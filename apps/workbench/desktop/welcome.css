@@ -362,6 +362,7 @@ select { font: inherit; }
 .status-panel small,
 .error-panel small { overflow: hidden; color: #5f7184; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .runtime-panel__progress { display: grid; grid-column: 1 / -1; gap: 5px; margin-top: 4px; }
+.runtime-panel__progress[hidden] { display: none; }
 .runtime-panel__progress-track { height: 5px; overflow: hidden; border-radius: 999px; background: #dce5ed; }
 .runtime-panel__progress-track span { display: block; width: 0; height: 100%; border-radius: inherit; background: #2873b8; transition: width 180ms ease, background-color 180ms ease; }
 .runtime-panel__progress-track span[data-stage='installing'],

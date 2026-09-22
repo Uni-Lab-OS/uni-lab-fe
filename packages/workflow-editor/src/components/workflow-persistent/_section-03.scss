@@ -163,6 +163,24 @@
     align-items: center;
   }
 
+  /* 参数配置采用清晰的卡片层级，必填状态和编辑控件保持同一视觉行。 */
+  :global(.persistent-authoring__parameter-list.contract-param-list) {
+    gap: 10px;
+    padding: 10px;
+    border: 0;
+    background: #f7f9fc;
+  }
+
+  :global(.persistent-authoring__parameter-list.contract-param-list) > li {
+    border: 1px solid #e2e8f0;
+    border-radius: 9px;
+    box-shadow: 0 2px 8px rgb(31 48 78 / 5%);
+  }
+
+  :global(.persistent-authoring__parameter-list.contract-param-list) > li + li {
+    border-top: 1px solid #e2e8f0;
+  }
+
   :global(.persistent-authoring__output-list) > li {
     grid-template-columns: minmax(128px, .85fr) 82px minmax(140px, 1.15fr);
     align-items: center;
@@ -267,6 +285,30 @@
     align-self: start;
     min-width: 0;
     gap: 5px;
+  }
+
+  :global(.persistent-authoring__resource-selector.is-compact) {
+    align-self: center;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  :global(.persistent-authoring__resource-selector.is-compact) label {
+    display: block;
+    min-width: 0;
+    gap: 0;
+  }
+
+  :global(.persistent-authoring__resource-selector.is-compact) select {
+    width: 100%;
+    height: 32px;
+    min-height: 32px;
+  }
+
+  :global(.persistent-authoring__resource-selector.is-compact)
+  :global(.persistent-authoring__resource-selector-heading),
+  :global(.persistent-authoring__resource-selector.is-compact) > span[role='status'] {
+    display: none;
   }
 
   :global(.persistent-authoring__parameter-fields) > label {

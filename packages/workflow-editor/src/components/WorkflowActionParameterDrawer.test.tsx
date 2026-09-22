@@ -274,6 +274,41 @@ describe('WorkflowActionParameterDrawer', () => {
     expect(visibleText(markup)).not.toContain('待转运物料')
     expect(markup).not.toContain('实验室物料')
   })
+
+  it('hides material inventory chrome in the debug inspector parameter row', () => {
+    const resourceEditor: TypedActionEditorProjection = {
+      ...editor,
+      fields: [
+        resourceField(
+          resourceHandleUuid,
+          'resource',
+          'beaker',
+          materialTemplateUuid
+        )
+      ]
+    }
+    const markup = renderToStaticMarkup(
+      <WorkflowActionParameterEditor
+        editor={resourceEditor}
+        outputHandles={[]}
+        graph={graph}
+        editable
+        view="parameters"
+        presentation="debug"
+        onProviderChange={vi.fn()}
+        onLiteralBlur={vi.fn()}
+        onResourceChange={vi.fn()}
+        onClear={vi.fn()}
+        onNull={vi.fn()}
+      />
+    )
+    const text = visibleText(markup)
+    expect(markup).toContain('persistent-authoring__resource-selector is-compact')
+    expect(markup).toContain('请选择物料')
+    expect(text).not.toContain('可选物料')
+    expect(text).not.toContain('正在读取当前实验室物料')
+    expect(text).not.toContain('beaker 实验室物料')
+  })
 })
 
 const editor: TypedActionEditorProjection = {

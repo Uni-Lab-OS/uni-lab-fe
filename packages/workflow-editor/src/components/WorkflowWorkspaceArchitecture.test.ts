@@ -112,6 +112,19 @@ describe('Workflow workspace authority', () => {
     )
   })
 
+  it('keeps workflow-debug input parameters in a compact row list', () => {
+    const stylesheet = componentSource('_workflow-debug-layout.scss')
+    expect(stylesheet).toMatch(
+      /parameter-list\.contract-param-list\)[\s\S]*?> :global\(\.contract-param-card\) \{[\s\S]*?grid-template-columns:\s*minmax\(72px, \.85fr\) minmax\(0, 1\.5fr\) auto/
+    )
+    expect(stylesheet).toMatch(
+      /parameter-list\.contract-param-list\)[\s\S]*?> :global\(\.contract-param-card\) \{[\s\S]*?box-shadow:\s*none/
+    )
+    expect(stylesheet).not.toMatch(
+      /parameter-list\.contract-param-list\)[\s\S]*?> :global\(\.contract-param-card\) \{[\s\S]*?box-shadow:\s*0 2px 8px/
+    )
+  })
+
   /** 单工作流宽屏保持单行；工作流与物料分栏变窄后才上下排列参数名称。 */
   it('stacks translated parameter names only in a narrow workflow pane', () => {
     const stylesheet = componentSource(

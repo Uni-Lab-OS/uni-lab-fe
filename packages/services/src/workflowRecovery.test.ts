@@ -15,10 +15,13 @@ function fixture() {
   return { port, request, subscribe }
 }
 describe('OS 异常处置接口', () => {
-  it('只向 OS 暴露恢复端口，未知和 Backend 不尝试请求', () => {
-    for (const id of ['local-go', 'cloud']) expect(createWorkflowRuntime({ request: vi.fn() }, { ...getDefaultBackend(id), apiUrl: 'http://127.0.0.1:18003' }).recovery).toBeUndefined()
-    expect(createWorkflowRuntime({ request: vi.fn() }, getDefaultBackend()).recovery).toBeDefined()
-    expect(createWorkflowRuntime({ request: vi.fn() }, { ...getDefaultBackend(), id: 'unknown' }).recovery).toBeUndefined()
+  it('始终向 OS 暴露恢复端口', () => {
+    for (const id of ['local-python', 'local-go', 'cloud', 'unknown']) {
+      expect(createWorkflowRuntime(
+        { request: vi.fn() },
+        { ...getDefaultBackend(), id, apiUrl: 'http://127.0.0.1:18003' }
+      ).recovery).toBeDefined()
+    }
   })
   it('决定携带版本与快照，未确认时不会恢复工站', async () => {
     const intent = decisionIntent(snapshot, error, 'retry_current_node', false, '检查完成')

@@ -12,156 +12,73 @@ import {
   assertCapability
 } from './errors'
 
+const OS_CAPABILITIES = [
+  'devices.listOnline',
+  'devices.listActions',
+  'devices.subscribeStatus',
+  'devices.forceUnlock',
+  'devices.runActionTask',
+  'material.readGraph',
+  'workflow.readDefinitions',
+  'workflow.authoring',
+  'workflow.runTasks',
+  'workflow.subscribeEvents',
+  'workflow.recovery',
+  'reagentInfo.read',
+  'reagentInfo.create',
+  'reagentInfo.update',
+  'reagentInfo.delete',
+  'inventory.readReagents',
+  'inventory.createReagent',
+  'inventory.updateReagent',
+  'inventory.deleteReagent',
+  'inventory.dispenseReagent',
+  'inventory.readReagentHistory'
+] as const
+
 describe('server capability matrix', () => {
-  /** 证明每个服务配置只开放已有合同、恢复和真实联调证据的能力。 */
-  it.each(['local-go', 'local-python', 'cloud'])(
-    'declares only verified target-contract features for %s',
+  it.each(['local-python', 'local-go', 'cloud', 'custom'])(
+    'uses the Uni-Lab-OS capability matrix for %s',
     (backendId) => {
-      const backend = getDefaultBackend(backendId)
+      const backend = backendId === 'custom'
+        ? { id: 'custom', name: 'Custom server' }
+        : getDefaultBackend(backendId)
       const capabilities = resolveServerCapabilities(backend)
 
-      expect(capabilities.devices.runActionTask).toBe(
-        backendId === 'local-go' || backendId === 'local-python'
-      )
-
       for (const capability of SERVER_CAPABILITY_KEYS) {
-        const localPythonCapabilities = [
-          'devices.listOnline',
-          'devices.listActions',
-          'devices.subscribeStatus',
-          'devices.forceUnlock',
-          'devices.runActionTask',
-          'material.readGraph',
-          'workflow.readDefinitions',
-          'workflow.authoring',
-          'workflow.runTasks',
-          'workflow.subscribeEvents',
-          'workflow.recovery',
-          'reagentInfo.read',
-          'reagentInfo.create',
-          'reagentInfo.update',
-          'reagentInfo.delete',
-          'inventory.readReagents',
-          'inventory.createReagent',
-          'inventory.updateReagent',
-          'inventory.deleteReagent',
-          'inventory.dispenseReagent',
-          'inventory.readReagentHistory'
-        ]
-        const localGoCapabilities = [
-          'devices.listOnline',
-          'devices.listActions',
-          'devices.runActionTask',
-          'material.readTemplates',
-          'material.readGraph',
-          'workflow.readDefinitions',
-          'workflow.editDefinitions',
-          'workflow.runTasks',
-          'reagentInfo.read',
-          'reagentInfo.create',
-          'reagentInfo.update',
-          'reagentInfo.delete',
-          'inventory.readReagents',
-          'inventory.createReagent',
-          'inventory.updateReagent',
-          'inventory.deleteReagent',
-          'inventory.readReagentHistory'
-        ]
-        const expected = backendId === 'local-python'
-          ? localPythonCapabilities.includes(capability)
-          : backendId === 'local-go'
-            ? localGoCapabilities.includes(capability)
-            : false
-        expect(hasServerCapability(capabilities, capability)).toBe(expected)
-
-        const status = getCapabilityStatus(
-          backend,
-          capabilities,
-          capability
+        const expected = OS_CAPABILITIES.includes(
+          capability as (typeof OS_CAPABILITIES)[number]
         )
+        expect(hasServerCapability(capabilities, capability)).toBe(expected)
+        const status = getCapabilityStatus(backend, capabilities, capability)
         expect(status.available).toBe(expected)
         expect(status.reason == null).toBe(expected)
       }
     }
   )
 
-  it('denies unknown profiles by default', () => {
-    const backend = { id: 'custom', name: 'Custom server' }
-    const capabilities = resolveServerCapabilities(backend)
-
-    expect(capabilities.material.readGraph).toBe(false)
-    expect(
-      getCapabilityStatus(
-        backend,
-        capabilities,
-        'material.readGraph'
-      ).reason
-    ).toContain('尚未声明')
-    expect(capabilities.material.readContents).toBe(false)
-    expect(capabilities.material.deleteSubtrees).toBe(false)
-    expect(capabilities.reagentInfo).toEqual({
-      read: false,
-      create: false,
-      update: false,
-      delete: false
-    })
-  })
-
   it('keeps planned material content capabilities fail closed', () => {
-    for (const backendId of ['local-go', 'local-python', 'cloud']) {
-      const backend = getDefaultBackend(backendId)
-      const capabilities = resolveServerCapabilities(backend)
-
-      expect(
-        hasServerCapability(
-          capabilities,
-          'material.readContents'
-        )
-      ).toBe(false)
-    }
+    const capabilities = resolveServerCapabilities(getDefaultBackend())
+    expect(hasServerCapability(capabilities, 'material.readContents')).toBe(false)
   })
 
-  /** 证明化学品字典 CRUD 已由 OS 与 Go Backend 的同形 v1 契约共同开放。 */
-  it('exposes reagent information CRUD for OS and Go Backend', () => {
-    const backendCapabilities = resolveServerCapabilities(
-      getDefaultBackend('local-go')
-    )
-    const edgeCapabilities = resolveServerCapabilities(
-      getDefaultBackend('local-python')
-    )
-
+  it('exposes reagent information and inventory mutations on OS', () => {
+    const capabilities = resolveServerCapabilities(getDefaultBackend())
     for (const capability of [
       'reagentInfo.create',
       'reagentInfo.update',
-      'reagentInfo.delete'
-    ] as const) {
-      expect(hasServerCapability(backendCapabilities, capability)).toBe(true)
-      expect(hasServerCapability(edgeCapabilities, capability)).toBe(true)
-    }
-  })
-
-  /** 证明试剂库存 CRUD 与历史查询在 OS 和 Go Backend 使用同形 v1 契约。 */
-  it('exposes reagent mutations for OS and Go Backend', () => {
-    const backendCapabilities = resolveServerCapabilities(
-      getDefaultBackend('local-go')
-    )
-    const edgeCapabilities = resolveServerCapabilities(
-      getDefaultBackend('local-python')
-    )
-
-    for (const capability of [
+      'reagentInfo.delete',
       'inventory.createReagent',
       'inventory.updateReagent',
       'inventory.deleteReagent',
       'inventory.readReagentHistory'
     ] as const) {
-      expect(hasServerCapability(backendCapabilities, capability)).toBe(true)
-      expect(hasServerCapability(edgeCapabilities, capability)).toBe(true)
+      expect(hasServerCapability(capabilities, capability)).toBe(true)
     }
   })
 
   it('throws one typed error for defensive action checks', () => {
-    const backend = getDefaultBackend('local-python')
+    const backend = getDefaultBackend()
     const capabilities = resolveServerCapabilities(backend)
     const status = getCapabilityStatus(
       backend,

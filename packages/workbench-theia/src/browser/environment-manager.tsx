@@ -459,7 +459,7 @@ export function EnvironmentManager({
               ].includes(session.phase)}
               onClick={() => {
                 const confirmed = globalThis.confirm(
-                  '重建 Workspace Backend 会清空本地调试库存、设备状态和工作流历史。继续？'
+                  '重建 Workspace Backend 会清空本地调试数据、设备状态和工作流历史。继续？'
                 )
                 if (confirmed) {
                   void run('rebuild-local-data', onRebuildLocalData)

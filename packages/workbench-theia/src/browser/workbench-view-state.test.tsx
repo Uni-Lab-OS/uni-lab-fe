@@ -123,6 +123,8 @@ describe('Workbench domain view presentation', () => {
 
   it('opens workflow management and task list as distinct sibling surfaces', () => {
     const state = new WorkbenchViewState()
+    let listRequests = 0
+    state.onDidRequestWorkflowManagementList(() => { listRequests += 1 })
 
     state.toggle('workflow-management')
     expect(state.currentMode).toBe('workflow-management')
@@ -133,6 +135,11 @@ describe('Workbench domain view presentation', () => {
     expect(state.currentMode).toBe('workflow-tasks')
     expect(state.isVisible('workflow-management')).toBe(false)
     expect(state.isVisible('workflow-tasks')).toBe(true)
+
+    state.toggle('workflow-management')
+    expect(listRequests).toBe(0)
+    state.toggle('workflow-management')
+    expect(listRequests).toBe(1)
   })
 
   it('allows workflow management and materials to remain visible together', () => {

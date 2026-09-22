@@ -296,7 +296,7 @@ export function PersistentWorkflowAuthoringView({
     position?: WorkflowCanvasPoint
   ): void => {
     if (payload.kind === 'manual_confirmation') {
-      if (runtime.recovery) setManualInsertPosition(position ?? { x: 96, y: 96 })
+      setManualInsertPosition(position ?? { x: 96, y: 96 })
     } else if (payload.kind === 'material') {
       addMaterialSourceNode(position)
     } else if (payload.kind === 'action') {
@@ -304,7 +304,7 @@ export function PersistentWorkflowAuthoringView({
     } else {
       addPublishedWorkflowNode(payload.templateUuid, position)
     }
-  }, [addMaterialSourceNode, addPublishedWorkflowNode, addTypedActionNode, runtime.recovery])
+  }, [addMaterialSourceNode, addPublishedWorkflowNode, addTypedActionNode])
   const handlePaletteDragStart = useCallback((
     payload: WorkflowNodePaletteDragPayload
   ): void => {
@@ -635,6 +635,7 @@ export function PersistentWorkflowAuthoringView({
           showRunModeMenu={mode !== 'canvas'}
           onResetEnvironment={onResetEnvironment}
           environmentResetBusy={environmentResetBusy}
+          onAutoLayout={() => workflowDagRef.current?.autoLayout()}
         />
       ) : null}
 
@@ -903,7 +904,7 @@ export function PersistentWorkflowAuthoringView({
                 }
                 materialSourceCatalogLoading={materialSourceCatalogLoading}
                 materialSourceCatalogError={materialSourceCatalogError}
-                onAddManualConfirmation={runtime.recovery ? () => insertPaletteNode({ kind: 'manual_confirmation' }, viewportInsertPoint()) : undefined}
+                onAddManualConfirmation={() => insertPaletteNode({ kind: 'manual_confirmation' }, viewportInsertPoint())}
                 onAddMaterialSource={() => insertPaletteNode(
                   { kind: 'material' },
                   viewportInsertPoint()
@@ -958,7 +959,7 @@ export function PersistentWorkflowAuthoringView({
                     onZoomOut={() => workflowDagRef.current?.zoomOut()}
                     onConfigureIo={() => setWorkflowIoOpen(true)}
                   />}
-                  {!hideRuntimeControls && mode === 'canvas' && !debugLayout ? <WorkflowCanvasDebugMode model={model} /> : null}
+                  {!hideRuntimeControls && mode === 'canvas' && !debugLayout ? <WorkflowCanvasDebugMode model={model} onAutoLayout={() => workflowDagRef.current?.autoLayout()} /> : null}
                   {(graphStageReady ||
                     typeof globalThis.ResizeObserver !== 'function') && (
                     <WorkflowDag
@@ -1032,6 +1033,7 @@ export function PersistentWorkflowAuthoringView({
                   {(definitionKind === 'operation' || debugLayout) && (
                     <PersistentWorkflowRuntimePanel
                       model={model}
+                      workflowName={workflowName}
                       onNodeSelect={handleRuntimeNodeSelect}
                     />
                   )}
@@ -1062,6 +1064,7 @@ export function PersistentWorkflowAuthoringView({
       {definitionKind !== 'operation' && !debugLayout && (
         <PersistentWorkflowRuntimePanel
           model={model}
+          workflowName={workflowName}
           onNodeSelect={handleRuntimeNodeSelect}
         />
       )}

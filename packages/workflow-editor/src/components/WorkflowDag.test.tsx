@@ -359,8 +359,11 @@ describe('WorkflowDag host sizing', () => {
     )
 
     const canvasSource = readFileSync(new URL('./WorkflowX6Canvas.tsx', import.meta.url), 'utf8')
-    expect(canvasSource).toMatch(/fit: \(\) => \{[\s\S]*?scroller\.zoomToFit\(\{ padding: 56, maxScale: 1\.2 \}\)/)
-    expect(canvasSource).toMatch(/graphRef\.current\?\.zoomToFit\(\{ padding: 56, maxScale: 1\.2 \}\)/)
+    expect(canvasSource).toContain('const WORKFLOW_X6_READABLE_SCALE = 0.72')
+    expect(canvasSource).toMatch(/fit: \(\) => \{[\s\S]*?scroller\.zoomToFit\(\{[\s\S]*?minScale: WORKFLOW_X6_READABLE_SCALE[\s\S]*?maxScale: 1\.2/)
+    expect(canvasSource).toMatch(/graph\?\.zoomToFit\(\{[\s\S]*?minScale: WORKFLOW_X6_READABLE_SCALE[\s\S]*?maxScale: 1\.2/)
+    expect(canvasSource).toContain('scroller.centerContent()')
+    expect(canvasSource).toContain('graph?.centerContent()')
     expect(markup).toContain('workflow-runtime__existing-canvas')
   })
 

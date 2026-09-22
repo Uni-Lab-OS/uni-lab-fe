@@ -646,7 +646,7 @@ export function usePersistentWorkflowAuthoring({
   const generateCanvasPython = useCallback(async (
     sourceGraph: WorkflowAuthoringGraph,
     authority: WorkflowAuthoringAggregate = aggregate as WorkflowAuthoringAggregate,
-    options?: { allowIncompleteDraft?: boolean }
+    options?: { allowIncompleteDraft?: boolean; publishDiagnostics?: boolean }
   ): Promise<WorkflowAuthoringTransformResult> => {
     if (!authority) throw new Error('工作流编辑数据尚未就绪')
     return generateValidatedWorkflowPython({
@@ -672,7 +672,10 @@ export function usePersistentWorkflowAuthoring({
         }
         setMessage('操作目录已更新；本地画布已按稳定 UUID 恢复')
       },
-      onDiagnostics: setLocalValidationDiagnostics
+      // 自动同步由序列号守卫在保存结束后发布诊断，避免旧请求闪现提示。
+      onDiagnostics: options?.publishDiagnostics === false
+        ? () => undefined
+        : setLocalValidationDiagnostics
     })
   }, [
     actionCatalog?.fingerprint,
@@ -691,7 +694,8 @@ export function usePersistentWorkflowAuthoring({
       sourceGraph,
       authority
     ) => generateCanvasPython(sourceGraph, authority, {
-      allowIncompleteDraft: true
+      allowIncompleteDraft: true,
+      publishDiagnostics: false
     }),
     localState,
     queue,
