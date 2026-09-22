@@ -66,9 +66,13 @@ describe('Workbench macOS distribution gate', () => {
     assert.match(welcomeScript, /unilab -h/u)
     // 切换到本机/外部 Runtime 是早返回分支；必须先清掉旧安装的下载进度，
     // 否则面板会错误地保留“准备下载”的历史状态。
+    const externalPhaseIndex = welcomeScript.indexOf(
+      "if (runtimeSnapshot.phase === 'external')"
+    )
+    assert.ok(externalPhaseIndex >= 0)
     assert.ok(
-      welcomeScript.indexOf('runtimeProgress.hidden = true')
-        < welcomeScript.indexOf("if (runtimeSnapshot.phase === 'external')")
+      welcomeScript.indexOf('hideRuntimeProgress()', 0)
+        < externalPhaseIndex
     )
     assert.match(welcomeScript, /renderRuntimeProgress\(runtimeSnapshot\.progress\)/u)
     assert.match(welcomeScript, /openRecent\(selectedWorkspace, selectedEntryMode\(\)\)/u)
