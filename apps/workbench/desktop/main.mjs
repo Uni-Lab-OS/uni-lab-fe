@@ -43,6 +43,15 @@ const DEFAULT_WORKBENCH_LOCALE = 'zh-CN'
 if (!app.commandLine.hasSwitch('lang')) {
   app.commandLine.appendSwitch('lang', DEFAULT_WORKBENCH_LOCALE)
 }
+if (
+  process.env['UNILAB_DESKTOP_NO_SANDBOX'] === '1' &&
+  !app.commandLine.hasSwitch('no-sandbox')
+) {
+  console.warn(
+    '[UniLab Workbench] Electron sandbox disabled for this development session'
+  )
+  app.commandLine.appendSwitch('no-sandbox')
+}
 
 let backendProcess
 let remoteAccessController
@@ -134,7 +143,7 @@ async function startPackagedWorkbench() {
   process.env['ESBUILD_BINARY_PATH'] = resources.esbuildBinary
   if (hasExplicitWorkspace) {
     try {
-      const activation = await workspaceController.openExplicit(
+      const activation = await workspaceController.openPath(
         parsed.workspace
       )
       process.env['UNILAB_DESKTOP_RENDERER_URL'] = activation.rendererUrl
@@ -269,14 +278,17 @@ function createPackagedWorkspaceController(options) {
   const controller = Object.freeze({
     welcomeUrl: options.welcomeUrl,
     getSnapshot,
-    chooseAndOpen: kind => exclusively(() => chooseAndOpen(kind)),
-    openRecent: workspacePath => exclusively(() => openRecent(workspacePath)),
-    openExplicit: workspacePath => exclusively(() => activateWorkspace(
+    chooseAndOpen: (kind, entryMode) => exclusively(() => chooseAndOpen(
+      kind,
+      entryMode
+    )),
+    openRecent: (workspacePath, entryMode) => exclusively(() => openRecent(
       workspacePath,
-      {
-        pythonEnvironment: options.explicitEnvironment,
-        osProject: options.explicitOsProject
-      }
+      entryMode
+    )),
+    openPath: (workspacePath, entryMode) => exclusively(() => openPath(
+      workspacePath,
+      entryMode
     )),
     deactivate: error => exclusively(() => deactivate(error)),
     isNavigationAllowed
@@ -302,23 +314,30 @@ function createPackagedWorkspaceController(options) {
     return next
   }
 
-  async function chooseAndOpen(kind) {
+  async function chooseAndOpen(kind, entryMode) {
     const selection = await showWorkspaceDirectoryDialog({
       dialog,
       BrowserWindow,
       kind
     })
     if (selection.canceled || selection.filePaths.length !== 1) return null
-    return activateWorkspace(selection.filePaths[0])
+    return activateWorkspace(selection.filePaths[0], {}, entryMode)
   }
 
-  async function openRecent(workspacePath) {
+  async function openRecent(workspacePath, entryMode) {
     const recent = recentWorkspaceForPath(config, workspacePath)
     if (!recent) throw failWorkspaceStart('最近工作区记录不存在或已失效。')
-    return activateWorkspace(recent.path)
+    return activateWorkspace(recent.path, {}, entryMode)
   }
 
-  async function activateWorkspace(workspaceCandidate, explicit = {}) {
+  async function openPath(workspacePath, entryMode) {
+    return activateWorkspace(workspacePath, {
+      pythonEnvironment: options.explicitEnvironment,
+      osProject: options.explicitOsProject
+    }, entryMode)
+  }
+
+  async function activateWorkspace(workspaceCandidate, explicit = {}, entryMode) {
     if (backendProcess) {
       throw failWorkspaceStart('请先返回欢迎页，再打开另一个工作区。')
     }
@@ -400,9 +419,15 @@ function createPackagedWorkspaceController(options) {
       const rendererUrl = createWorkbenchRendererUrl({
         port,
         workspace,
-        workflowUuid: options.parsed.workflowUuid
+        workflowUuid: options.parsed.workflowUuid,
+        entryMode
       })
-      await waitForWorkbench(rendererUrl, child, STARTUP_TIMEOUT_MS)
+      await waitForWorkbench(
+        rendererUrl,
+        child,
+        STARTUP_TIMEOUT_MS,
+        path.join(logDirectory, 'workbench-desktop-launcher.log')
+      )
       candidateRemoteController = createPackagedRemoteController({
         port,
         workspace,
@@ -664,12 +689,17 @@ function canBindLoopback(port) {
   })
 }
 
-async function waitForWorkbench(rendererUrl, child, timeoutMs) {
+async function waitForWorkbench(rendererUrl, child, timeoutMs, logPath) {
   const deadline = Date.now() + timeoutMs
   let lastError = '尚未响应'
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
-      throw new Error(`Theia backend 提前退出，退出码 ${child.exitCode}。`)
+      const detail = await startupLogTail(logPath)
+      throw new Error(
+        `Theia backend 提前退出，退出码 ${child.exitCode}。\n` +
+        `启动日志：\n${detail}\n` +
+        `日志文件：${logPath}`
+      )
     }
     try {
       const response = await fetch(rendererUrl, { redirect: 'manual' })
@@ -680,7 +710,23 @@ async function waitForWorkbench(rendererUrl, child, timeoutMs) {
     }
     await delay(250)
   }
-  throw new Error(`Theia backend 在 ${timeoutMs / 1000} 秒内未就绪：${lastError}`)
+  const detail = await startupLogTail(logPath)
+  throw new Error(
+    `Theia backend 在 ${timeoutMs / 1000} 秒内未就绪：${lastError}\n` +
+    `启动日志：\n${detail}\n` +
+    `日志文件：${logPath}`
+  )
+}
+
+/** 返回启动日志末尾，直接展示导致工作区启动失败的后端错误。 */
+async function startupLogTail(logPath) {
+  try {
+    const content = await readFile(logPath, 'utf8')
+    const lines = content.split(/\r?\n/).filter(Boolean)
+    return lines.slice(-24).join('\n') || '日志为空，后端未输出可用错误信息。'
+  } catch (error) {
+    return `无法读取启动日志：${error instanceof Error ? error.message : String(error)}`
+  }
 }
 
 async function stopBackendProcess(child) {

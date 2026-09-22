@@ -372,50 +372,46 @@ export function EnvironmentManager({
             message={runtimeInstallationMessage(runtimeInstallation)}
             facts={[
               ['版本', runtimeInstallation.runtimeVersion ?? '—'],
-              ...(runtimeInstallation.previousRuntimeVersion
-                ? [[
-                    '旧版本',
-                    runtimeInstallation.previousRuntimeVersion
-                  ] as [string, string]]
-                : []),
               ['平台', runtimeInstallation.platform ?? '—'],
               ['来源', runtimeInstallation.managed ? '应用内置' : '现有环境'],
               ['环境', runtimeInstallation.environmentPath ?? '—']
             ]}
-            actions={(runtimeInstallation.bundled && [
+            content={runtimeInstallation.availableEnvironments.length > 1 ? (
+              <label className="unilab-environment-manager__runtime-choice">
+                <span>选择环境</span>
+                <select
+                  aria-label="选择 UniLab 环境"
+                  value={runtimeInstallation.environmentPath ?? ''}
+                  disabled={Boolean(busyAction)}
+                  onChange={event => void run('select-runtime', async () => {
+                    setRuntimeInstallation(
+                      await managedRuntimeApi.selectEnvironment(event.currentTarget.value)
+                    )
+                  })}
+                >
+                  {runtimeInstallation.availableEnvironments.map(environment => (
+                    <option key={environment.path} value={environment.path}>
+                      {environment.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : undefined}
+            actions={runtimeInstallation.bundled && [
               'not-installed',
               'upgrade-required',
               'failed'
-            ].includes(runtimeInstallation.phase)) || runtimeInstallation.errorLogPath
-              ? (
-                  <>
-                    {runtimeInstallation.bundled && [
-                      'not-installed',
-                      'upgrade-required',
-                      'failed'
-                    ].includes(runtimeInstallation.phase) ? (
-                      <button
-                        type="button"
-                        disabled={Boolean(busyAction)}
-                        onClick={() => void run('install-runtime', async () => {
-                          setRuntimeInstallation(await managedRuntimeApi.install())
-                        })}
-                      >{runtimeInstallation.phase === 'upgrade-required'
-                          ? `升级到 Runtime ${runtimeInstallation.runtimeVersion ?? ''}`
-                          : '安装内置 Runtime'}</button>
-                    ) : null}
-                    {runtimeInstallation.errorLogPath ? (
-                      <button
-                        type="button"
-                        disabled={Boolean(busyAction)}
-                        onClick={() => void run('open-runtime-log', async () => {
-                          await managedRuntimeApi.openDiagnosticLog()
-                        })}
-                      >查看诊断日志</button>
-                    ) : null}
-                  </>
-                )
-              : undefined}
+            ].includes(runtimeInstallation.phase) ? (
+              <button
+                type="button"
+                disabled={Boolean(busyAction)}
+                onClick={() => void run('install-runtime', async () => {
+                  setRuntimeInstallation(await managedRuntimeApi.install())
+                })}
+              >{runtimeInstallation.phase === 'upgrade-required'
+                  ? `升级到 Runtime ${runtimeInstallation.runtimeVersion ?? ''}`
+                  : '安装内置 Runtime'}</button>
+            ) : undefined}
           />
         ) : null}
         <EnvironmentStatusCard
@@ -438,13 +434,13 @@ export function EnvironmentManager({
               ].includes(session.phase)}
               onClick={() => {
                 const confirmed = globalThis.confirm(
-                  '重建 Workspace Backend 会清空本地调试库存、设备状态和工作流历史。继续？'
+                  '重建 Workspace Backend 会清空本地调试数据、设备状态和工作流历史。继续？'
                 )
                 if (confirmed) {
                   void run('rebuild-local-data', onRebuildLocalData)
                 }
               }}
-            >重建本地数据</button>
+            >重置运行数据</button>
           )}
         />
         <EnvironmentStatusCard
@@ -661,7 +657,7 @@ export function EnvironmentManager({
                   || !graphPath.trim()
                 }
                 onClick={() => void applyGraphPath()}
-              >{session.phase === 'ready' ? '应用设备图并重建本地数据' : '保存设备图'}</button>
+              >{session.phase === 'ready' ? '应用设备图并重置运行数据' : '保存设备图'}</button>
               <button
                 type="button"
                 className="is-port-action"
@@ -960,10 +956,12 @@ function runtimeInstallationMessage(
       ? `当前使用现有 UniLab 环境；内置载荷异常：${snapshot.error}`
       : '当前使用已安装的 UniLab 环境。'
   }
-  if (snapshot.phase === 'installing') return '正在离线安装并验证，请勿退出应用。'
-  if (snapshot.phase === 'upgrade-required') {
-    return snapshot.error
-      ?? `本地 Runtime 与当前 Workbench 不兼容，需要升级到 ${snapshot.runtimeVersion ?? '内置版本'}。`
+  if (snapshot.phase === 'installing') {
+    const progress = snapshot.progress
+    if (progress?.percentage !== null && progress?.percentage !== undefined) {
+      return `Runtime ${progress.stage === 'downloading' ? '下载' : '安装'}进度 ${progress.percentage}%；请勿退出应用。`
+    }
+    return '正在下载、安装并验证 Runtime，请勿退出应用。'
   }
   if (snapshot.phase === 'not-installed') {
     return '没有检测到 unilab；可从安装包离线安装应用私有 Runtime。'
@@ -1178,7 +1176,7 @@ export function RuntimeModeControl({
         'dry-run',
         'Dry-run',
         '仅模拟，不下发设备；下次启动生效',
-        '动作返回模拟成功；切换模式不会重启 OS 或重建本地数据'
+        '动作返回模拟成功；切换模式不会重启 OS 或重置运行数据'
       )}
     </div>
   )

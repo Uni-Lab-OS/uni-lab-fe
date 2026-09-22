@@ -34,7 +34,7 @@ export function DebugLaunchInputForm({
       <header>
         <div>
           <strong>补充被跳过节点的输入</strong>
-          <span>OS 预检 · Applied revision {form.preflight.workflow_revision}</span>
+          <span>运行预检</span>
         </div>
         <p>
           起始点或禁用节点裁掉了上游值。补充值只冻结到本次调试任务，

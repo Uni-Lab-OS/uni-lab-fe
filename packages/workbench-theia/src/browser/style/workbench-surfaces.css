@@ -328,6 +328,8 @@
 }
 
 .unilab-workbench-session-gate {
+  box-sizing: border-box;
+  width: 100%;
   align-items: center;
   justify-content: center;
   padding: 32px;
@@ -349,6 +351,33 @@
 .unilab-workbench-session-card > p {
   margin: 0 0 18px;
   color: var(--unilab-color-text-muted);
+}
+
+.unilab-workbench-session-modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.unilab-workbench-session-modes button {
+  display: flex;
+  min-height: 70px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #344057;
+  border: 1px solid #e5eaf1;
+  border-radius: 12px;
+  background: #fff;
+  font: 650 12px/1.2 var(--unilab-font-sans);
+  cursor: pointer;
+}
+
+.unilab-workbench-session-modes button:hover {
+  color: #3568ed;
+  border-color: #9bb3f4;
+  background: #eaf0ff;
 }
 
 .unilab-workbench-session-card dl {
@@ -443,6 +472,8 @@
 
 .unilab-workbench-session-diagnostic p {
   margin: 6px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .unilab-workbench-session-actions {

@@ -4,6 +4,19 @@ import type { WorkflowLink, WorkflowNode } from './parseWorkflow'
 import { layoutVisibleWorkflowDag } from './workflowDagLayout'
 
 describe('layoutVisibleWorkflowDag', () => {
+  it('places linked nodes left to right when horizontal layout is requested', async () => {
+    const nodes = [workflowNode('a', 'action'), workflowNode('b', 'action'), workflowNode('c', 'action')]
+    const links: WorkflowLink[] = [{ source: 'a', target: 'b', type: 'ready' }, { source: 'b', target: 'c', type: 'ready' }]
+    const result = await layoutVisibleWorkflowDag(nodes, links, 'crossing-minimized', 'horizontal')
+    expect(result.direction).toBe('horizontal')
+    const [a, b, c] = result.nodes
+    expect(b!.x - a!.x).toBeGreaterThanOrEqual(248)
+    expect(c!.x - b!.x).toBeGreaterThanOrEqual(248)
+    expect(a!.y).toBe(b!.y)
+    expect(b!.y).toBe(c!.y)
+    expect(result.links).toEqual(links)
+  })
+
   /** 验证物料来源与动作节点共同参与纵向分层，并且同层不重叠。 */
   it('lays out every visible node in non-overlapping horizontal layers', async () => {
     const nodes = [

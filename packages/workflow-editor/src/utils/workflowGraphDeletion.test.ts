@@ -134,6 +134,52 @@ describe('normalized workflow graph deletion', () => {
     })
   })
 
+  /** 条件分支成员属于可编辑控制域，删除后必须清理分支边界引用。 */
+  it('deletes a condition branch member and clears branch references', () => {
+    const graph = graphFixture()
+    graph.nodes.push({
+      uuid: 'condition',
+      name: '条件',
+      type: 'condition',
+      param: {
+        predecessor_node_uuids: [],
+        branches: [
+          {
+            label: 'if', condition: { lit: true },
+            node_uuids: ['action'],
+            entry_node_uuids: ['action'],
+            exit_node_uuids: ['action']
+          },
+          {
+            label: 'else', condition: null,
+            node_uuids: [], entry_node_uuids: [], exit_node_uuids: []
+          }
+        ]
+      }
+    })
+    const action = graph.nodes.find((node) => node.uuid === 'action')
+    if (!action) throw new Error('Fixture action is missing')
+    action.parent_uuid = 'condition'
+
+    expect(workflowGraphDeletionDecision(graph, {
+      nodeUuids: ['action']
+    })).toMatchObject({ kind: 'allowed', nodeUuids: ['action'] })
+    expect(projectPersistentAuthoringGraph(graph).nodes.find(
+      (node) => node.id === 'action'
+    )).not.toHaveProperty('authoringReadOnly')
+
+    const deleted = deleteWorkflowGraphElements(graph, {
+      nodeUuids: ['action']
+    }).graph
+    expect(deleted.nodes.find((node) => node.uuid === 'condition')?.param)
+      .toMatchObject({
+        branches: [
+          { node_uuids: [], entry_node_uuids: [], exit_node_uuids: [] },
+          { node_uuids: [], entry_node_uuids: [], exit_node_uuids: [] }
+        ]
+      })
+  })
+
   /** 展示分组不应把其中的调用边界误判为 Composite 私有实现。 */
   it('allows deleting an edge into a call boundary inside a presentation group', () => {
     const graph = graphFixture()
@@ -253,6 +299,7 @@ function newNodeCatalog(): WorkflowActionCatalogSnapshot {
       displayName: '新增动作',
       actionClass: null,
       actionType: 'device',
+      nodeType: 'device',
       schema: {
         'x-unilabos-action-contract': {
           version: 1,

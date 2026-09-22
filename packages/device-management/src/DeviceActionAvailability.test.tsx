@@ -93,7 +93,7 @@ describe('device action Runtime availability', () => {
     expect(state).toEqual({
       kind: 'unavailable',
       reason: 'dispatch_blocked',
-      message: '设备在线，但存在未确认的历史命令；完成安全核验后才能运行'
+      message: '存在未确认的历史命令；完成安全核验后才能恢复派发'
     })
   })
 
@@ -110,13 +110,13 @@ describe('device action Runtime availability', () => {
     expect(markup).toContain('参数已就绪')
   })
 
-  it('keeps unsupported material contracts fail closed', () => {
+  it('keeps backends without single-action capability unavailable', () => {
     const markup = renderToStaticMarkup(
       <DeviceActionAvailability
         state={{
           kind: 'unavailable',
           reason: 'workflow_required',
-          message: '该动作包含物料语义，请在工作流中运行'
+          message: '当前环境暂不支持单动作运行，请在工作流中运行'
         }}
         onRun={() => {}}
       />
@@ -124,6 +124,23 @@ describe('device action Runtime availability', () => {
 
     expect(markup).toContain('请在工作流中运行')
     expect(markup).toContain('disabled')
+  })
+
+  it('keeps the run button submittable when the Action template is unmatched', () => {
+    const markup = renderToStaticMarkup(
+      <DeviceActionAvailability
+        state={{
+          kind: 'unavailable',
+          reason: 'template_unmatched',
+          message: '没有找到与当前设备动作匹配的运行信息，请刷新后重试'
+        }}
+        onRun={() => {}}
+      />
+    )
+
+    expect(markup).toContain('运行此动作')
+    expect(markup).not.toContain('disabled')
+    expect(markup).not.toContain('暂时无法运行')
   })
 
   /** 验证动作信息读取失败时只展示通俗说明，不泄露内部“合同”术语。 */

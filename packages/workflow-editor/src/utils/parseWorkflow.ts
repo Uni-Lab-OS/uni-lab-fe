@@ -33,6 +33,8 @@ export interface WorkflowNode {
   childNodeIds?: string[]
   descendantNodeIds?: string[]
   collapsedByDefault?: boolean
+  // 子工作流卡片展开时，卡片内以列表形式展示的内部节点行数（仅影响画布尺寸）。
+  expandedRowCount?: number
   // Persistent Authoring projects OS-owned Composite internals as read-only.
   authoringReadOnly?: boolean
   authoringReadOnlyReason?: string
@@ -40,6 +42,20 @@ export interface WorkflowNode {
   openChildWorkflowUuid?: string
   // Resets session-only expansion when the authoritative OS graph changes.
   compositeSignature?: string
+  controlFlow?: {
+    kind: 'condition' | 'repeat_until'
+    branchCount?: number
+    maxIterations?: number
+    branches?: Array<{
+      label: string
+      entryNodeUuids: string[]
+      conditionSummary: string
+    }>
+    predecessorNodeUuids?: string[]
+    entryNodeUuids?: string[]
+    exitNodeUuids?: string[]
+    successorNodeUuids?: string[]
+  }
   // OS 已发布工作流来源元数据派生的专用画布视觉。
   visualKind?: WorkflowNodeVisualKind
   handles?: WorkflowHandlePort[]

@@ -29,6 +29,8 @@ import type {
   WorkbenchGraphDeclaration,
   WorkbenchPlcHandshakeProfile,
   WorkbenchPlcSimulatorConfiguration,
+  WorkbenchProductionConnectionConfiguration,
+  WorkbenchProductionConnectionProbe,
   WorkbenchRuntimeMode,
   WorkbenchReleaseReceipt,
   WorkbenchReleaseTargetInspection,
@@ -39,6 +41,10 @@ import type {
   WorkbenchWorkflowLoadingProgress,
   WorkspacePackageMountProjection
 } from './index'
+import {
+  normalizeProductionEndpoint,
+  probeProductionEndpoints
+} from './production-connection'
 
 const HOST_SCHEMA = 'unilab-workspace-host/v1'
 const HOST_START_TIMEOUT_MS = 15_000
@@ -389,6 +395,52 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
     return this.getSnapshot()
   }
 
+  /**
+   * 原子保存生产模式使用的 Backend 与调度器（Scheduler）地址。
+   *
+   * @param configuration 用户确认的两个生产端点。
+   * @returns Workspace Host 持久化配置后的会话快照。
+   * @throws 地址为空或不是 HTTP(S) URL 时拒绝写入，避免切换到无效 Authority。
+   * @safety 该操作只更新配置，不切换 Authority、不发布数据也不启动任务。
+   */
+  async configureProductionConnection(
+    configuration: WorkbenchProductionConnectionConfiguration
+  ): Promise<WorkbenchSessionSnapshot> {
+    const backendUrl = normalizeProductionEndpoint(
+      configuration.backendUrl,
+      'Backend'
+    )
+    const schedulerUrl = normalizeProductionEndpoint(
+      configuration.schedulerUrl,
+      '调度器（Scheduler）'
+    )
+    await this.updateConfiguration({ backendUrl, schedulerUrl })
+    return this.getSnapshot()
+  }
+
+  /**
+   * 从 Node 侧检测生产 Backend 与调度器（Scheduler）的网络可达性。
+   *
+   * @param configuration 待检测但不会自动保存的两个生产端点。
+   * @returns 两个端点各自的 HTTP 可达性、状态码和耗时。
+   * @throws 地址为空或不是 HTTP(S) URL 时拒绝探测。
+   * @safety 仅发送无凭据 GET 请求；结果不表示业务接口、权限或调度能力已就绪。
+   */
+  async probeProductionConnection(
+    configuration: WorkbenchProductionConnectionConfiguration
+  ): Promise<WorkbenchProductionConnectionProbe> {
+    return await probeProductionEndpoints({
+      backendUrl: normalizeProductionEndpoint(
+        configuration.backendUrl,
+        'Backend'
+      ),
+      schedulerUrl: normalizeProductionEndpoint(
+        configuration.schedulerUrl,
+        '调度器（Scheduler）'
+      )
+    })
+  }
+
   async publishRelease(
     options: {
       activate?: boolean
@@ -464,9 +516,9 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
   }
 
   private resolveBackendAuthorityUrl(): string | undefined {
-    return this.options.backendAuthorityUrl
-      ?? stringValue(this.host?.configuration['backendUrl'])
+    return stringValue(this.host?.configuration['backendUrl'])
       ?? this.snapshot.configuredBackendUrl
+      ?? this.options.backendAuthorityUrl
       ?? undefined
   }
 
@@ -659,7 +711,7 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
   }
 
   /**
-   * 从本地环境文件读取可持久化配置，并按显式启动选项优先的规则投影到会话快照。
+   * 从本地环境文件读取可持久化配置；生产端点允许工作区配置覆盖启动默认值。
    * @returns 配置读取及快照发布完成后结束，不返回业务数据。
    */
   private async loadConfiguration(): Promise<void> {
@@ -680,11 +732,11 @@ export class WorkspaceHostWorkbenchSession implements WorkbenchSession {
     const domainMode = this.options.domainMode
       ?? configuration.domainMode
       ?? this.snapshot.configuredDomainMode
-    const backendUrl = this.options.backendAuthorityUrl
-      ?? configuration.backendUrl
+    const backendUrl = configuration.backendUrl
+      ?? this.options.backendAuthorityUrl
       ?? this.snapshot.configuredBackendUrl
-    const schedulerUrl = this.options.schedulerAuthorityUrl
-      ?? configuration.schedulerUrl
+    const schedulerUrl = configuration.schedulerUrl
+      ?? this.options.schedulerAuthorityUrl
       ?? this.snapshot.configuredSchedulerUrl
     this.publish({
       configuredGraphPath: graphPath,
@@ -1133,10 +1185,16 @@ function componentDiagnostic(
   component: HostComponent
 ): WorkbenchSessionDiagnostic | null {
   if (!component.diagnostic) return null
+  const localInventoryGraphConflict = /(?:当前工作区的库存数据与所选部署图不匹配|既有库存权威与资源图来源或指纹)/u
+    .test(component.diagnostic)
   return {
-    code: component.phase === 'failed' ? 'os_start_failed' : 'os_exited',
+    code: localInventoryGraphConflict
+      ? 'local_inventory_graph_conflict'
+      : component.phase === 'failed' ? 'os_start_failed' : 'os_exited',
     message: component.diagnostic,
-    recovery: '查看 Workspace Host 与组件日志后重试'
+    recovery: localInventoryGraphConflict
+      ? '重置工作区数据后重新启动；这会清空本地调试数据、设备状态和工作流历史'
+      : '查看 Workspace Host 与组件日志后重试'
   }
 }
 

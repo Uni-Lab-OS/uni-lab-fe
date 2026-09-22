@@ -1,3 +1,5 @@
+import { forwardRef } from 'react'
+
 import { cn } from '../lib/utils'
 
 export type InputProps = React.ComponentProps<'input'>
@@ -7,9 +9,13 @@ export type InputProps = React.ComponentProps<'input'>
  * @param props 原生输入框属性；`className` 可补充业务布局但不重建交互状态。
  * @returns 带错误、禁用和键盘焦点反馈的输入元素。
  */
-export function Input({ className, type, ...props }: InputProps): React.JSX.Element {
+export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+  { className, type, ...props },
+  ref
+): React.JSX.Element {
   return (
     <input
+      ref={ref}
       type={type}
       data-slot="input"
       className={cn(
@@ -25,4 +31,4 @@ export function Input({ className, type, ...props }: InputProps): React.JSX.Elem
       {...props}
     />
   )
-}
+})

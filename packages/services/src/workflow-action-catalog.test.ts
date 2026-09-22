@@ -196,10 +196,12 @@ async function verifiesActionSnapshot(): Promise<void> {
     actionTemplates: [{
       uuid: nodeUuid,
       resourceTemplateUuid,
+      resourceTemplateName: 'community.szlab.pump',
       name: 'transfer.sample.v1',
       displayName: '转移样品',
       actionClass: 'szlab.devices.pump:Pump',
       actionType: 'UniLabJsonCommand',
+      nodeType: 'device',
       schema: {
         type: 'object',
         properties: {

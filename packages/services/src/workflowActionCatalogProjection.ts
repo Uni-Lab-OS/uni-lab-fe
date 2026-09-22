@@ -9,6 +9,7 @@ import {
   allowlistValue,
   booleanValue,
   closedRecord,
+  closedRecordAllowing,
   digestValue,
   identifierValue,
   invalidCatalog,
@@ -39,6 +40,7 @@ export type WorkflowSummaryValue = {
   actionType: string
   nodeType: string
   resourceTemplateUuid: string
+  resourceTemplateName: string
 }
 
 /**
@@ -59,7 +61,8 @@ export function projectWorkflowSummaryValue(
     displayName: stringValue(summary.display_name),
     actionType: stringValue(summary.type),
     nodeType: stringValue(summary.node_type),
-    resourceTemplateUuid: uuidValue(resource.uuid)
+    resourceTemplateUuid: uuidValue(resource.uuid),
+    resourceTemplateName: stringValue(resource.name)
   }
 }
 
@@ -108,15 +111,28 @@ export function projectWorkflowExecutableTemplate(
       workflowSchema
     )
   }
-  if (!actionSchema) return null
+  const controlKind = summary.nodeType === 'condition' || summary.nodeType === 'repeat_until'
+    ? summary.nodeType : null
+  let controlSchema: Record<string, unknown> | null = null
+  if (controlKind) {
+    const metadata = recordValue(recordValue(template.meta_data).unilab)
+    if (summary.actionType !== controlKind ||
+      template.class !== `unilabos.workflow.authoring:${controlKind}` ||
+      metadata.framework_owner_only !== true || metadata.executor_kind !== controlKind) invalidCatalog()
+    controlSchema = recordValue(metadata.parameter_schema)
+    if (controlSchema.type !== 'object') invalidCatalog()
+  }
+  if (!actionSchema && !controlSchema) return null
   return attachWireValue({
     uuid,
     resourceTemplateUuid,
+    resourceTemplateName: summary.resourceTemplateName,
     name: summary.name,
     displayName: summary.displayName,
     actionClass: nullableString(template.class),
     actionType: summary.actionType,
-    schema: actionSchema,
+    nodeType: summary.nodeType,
+    schema: (controlSchema ?? actionSchema)!,
     goal: recordValue(template.goal),
     goalDefault: recordValue(template.goal_default),
     // 平面 Backend 参数 Schema 没有参数 Handle；旧工作流 Handle 不得冒充设备动作入参。
@@ -174,9 +190,12 @@ function projectPublishedWorkflow(
     summary.nodeType !== 'workflow' ||
     summary.name !== `workflow:${contract.workflowUuid}`
   ) invalidCatalog()
-  const unilab = closedRecord(
+  // OS 现会在已发布工作流元数据中附带可选 `workflow_contract`；
+  // 目录投影仍以 schema 上的 `x-unilabos-workflow-contract` 为准。
+  const unilab = closedRecordAllowing(
     recordValue(template.meta_data).unilab,
-    ['framework_owner_only', 'workflow_source']
+    ['framework_owner_only', 'workflow_source'],
+    ['workflow_contract']
   )
   if (unilab.framework_owner_only !== true) invalidCatalog()
   const rawSource = closedRecord(unilab.workflow_source, [
@@ -201,11 +220,13 @@ function projectPublishedWorkflow(
     packageCatalogDigest: digestValue(rawSource.package_catalog_digest),
     definitionContentHash: digestValue(rawSource.definition_content_hash)
   }
-  const handles = orderPublishedHandles(
-    rawHandles.map((handle) => projectHandle(handle, summary.uuid)),
+  const handles = validatePublishedHandles(
+    orderPublishedHandles(
+      rawHandles.map((handle) => projectHandle(handle, summary.uuid)),
+      contract
+    ),
     contract
   )
-  validatePublishedHandles(handles, contract)
   const goal = recordValue(template.goal)
   const goalDefault = recordValue(template.goal_default)
   const result = recordValue(template.result)

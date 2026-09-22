@@ -27,12 +27,12 @@ import {
 } from './backendMaterialCatalog'
 import { requestData, type HttpClient } from './http'
 import { mapBackendMaterialGraph } from './materialBackendGraphCodec'
+import { mapCreateMaterialResult } from './materialLegacyGraphCodec'
 import {
   createIdempotencyKey,
   isRecord,
   optionalString
 } from './materialCodecPrimitives'
-import { mapCreateMaterialResult } from './materialLegacyGraphCodec'
 import {
   mapTemplateCatalog,
   mapTemplateDetail

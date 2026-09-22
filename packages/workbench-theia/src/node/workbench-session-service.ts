@@ -231,6 +231,22 @@ implements WorkbenchSessionServer, BackendApplicationContribution {
     return this.session.setSchedulerUrl(url)
   }
 
+  configureProductionConnection(
+    configuration: Parameters<
+      WorkbenchSession['configureProductionConnection']
+    >[0]
+  ) {
+    return this.session.configureProductionConnection(configuration)
+  }
+
+  probeProductionConnection(
+    configuration: Parameters<
+      WorkbenchSession['probeProductionConnection']
+    >[0]
+  ) {
+    return this.session.probeProductionConnection(configuration)
+  }
+
   publishRelease(
     options?: Parameters<WorkbenchSession['publishRelease']>[0]
   ) {

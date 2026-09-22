@@ -1,6 +1,8 @@
 import './DevicePanel.module.scss'
 
 export { default as DeviceManagementPanel } from './DevicePanel'
+export { DeviceManagementList } from './DeviceManagementList'
+export type { DeviceManagementListProps } from './DeviceManagementList'
 export type {
   DeviceManagementBackend,
   DeviceManagementConnection,
@@ -19,9 +21,9 @@ export {
 } from './DeviceLockControls'
 export type { UnlockIntent, UnlockOperation } from './DeviceLockControls'
 export {
+  collectDeviceActionFieldErrors,
   matchDeviceActionTemplate,
-  serializeDeviceActionInput,
-  supportsD1AS1
+  serializeDeviceActionInput
 } from './deviceActionRun'
 export type { DeviceActionArgumentDraft } from './deviceActionRun'
 export { presentEdgeDevices } from './deviceCatalog'

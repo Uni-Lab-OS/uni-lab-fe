@@ -13,9 +13,13 @@ import {
   type WorkflowNodeJobFeedback
 } from '@unilab/services'
 
-import type { ManagedDevice } from './deviceCatalog'
+import {
+  managedDeviceSelectionKey,
+  type ManagedDevice
+} from './deviceCatalog'
 import { useDevices } from './useDevices'
 import {
+  collectDeviceActionFieldErrors,
   deviceActionDraftStorageKey,
   projectSelectedDeviceAction,
   serializeDeviceActionInput
@@ -81,7 +85,9 @@ export default function DevicePanel({
   backend,
   connection,
   backendEnabled = true,
-  active = true
+  active = true,
+  selectedDeviceKey: controlledSelectedDeviceKey,
+  onSelectedDeviceKeyChange
 }: DeviceManagementPanelProps): React.JSX.Element {
   const {
     devices,
@@ -90,9 +96,20 @@ export default function DevicePanel({
     lastUpdated,
     refresh
   } = useDevices({ services, backendEnabled, connection, active })
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
+  const [localSelectedDeviceKey, setLocalSelectedDeviceKey] =
+    useState<string | null>(null)
+  const selectedDeviceKey = controlledSelectedDeviceKey === undefined
+    ? localSelectedDeviceKey
+    : controlledSelectedDeviceKey
+  const setSelectedDeviceKey = useCallback((deviceKey: string | null): void => {
+    if (controlledSelectedDeviceKey === undefined) {
+      setLocalSelectedDeviceKey(deviceKey)
+    }
+    onSelectedDeviceKeyChange?.(deviceKey)
+  }, [controlledSelectedDeviceKey, onSelectedDeviceKeyChange])
   const [selectedActionRef, setSelectedActionRef] = useState<string | null>(null)
   const [argumentDraft, setArgumentDraft] = useState<ArgumentDraft>({})
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [unlockIntent, setUnlockIntent] = useState<UnlockIntent | null>(null)
   const [unlockOperation, setUnlockOperation] =
     useState<UnlockOperation | null>(null)
@@ -122,10 +139,12 @@ export default function DevicePanel({
 
   const selectedDevice = useMemo(
     () =>
-      devices.find((device) => device.id === selectedDeviceId)
+      devices.find(
+        (device) => managedDeviceSelectionKey(device) === selectedDeviceKey
+      )
       ?? devices[0]
       ?? null,
-    [devices, selectedDeviceId]
+    [devices, selectedDeviceKey]
   )
   const selectedCatalogAction = useMemo(
     () =>
@@ -223,13 +242,22 @@ export default function DevicePanel({
 
   useEffect(() => {
     if (!devices.length) {
-      setSelectedDeviceId(null)
+      if (controlledSelectedDeviceKey === undefined) {
+        setSelectedDeviceKey(null)
+      }
       return
     }
-    if (!devices.some((device) => device.id === selectedDeviceId)) {
-      setSelectedDeviceId(devices[0]?.id ?? null)
+    if (!devices.some(
+      (device) => managedDeviceSelectionKey(device) === selectedDeviceKey
+    )) {
+      setSelectedDeviceKey(managedDeviceSelectionKey(devices[0]))
     }
-  }, [devices, selectedDeviceId])
+  }, [
+    controlledSelectedDeviceKey,
+    devices,
+    selectedDeviceKey,
+    setSelectedDeviceKey
+  ])
 
   useEffect(() => {
     if (!selectedDevice?.actions.length) {
@@ -245,15 +273,34 @@ export default function DevicePanel({
     }
   }, [selectedActionRef, selectedDevice])
 
+  const argumentSchemaFingerprint = selectedAction
+    ? JSON.stringify(
+      Object.entries(selectedAction.inputSchema).map(([name, schema]) => [
+        name,
+        schema.type,
+        schema.required ?? false,
+        schema.default ?? null,
+        schema.enum ?? null
+      ])
+    )
+    : ''
+
   useEffect(() => {
     const fallback = selectedAction
       ? createArgumentDraft(selectedAction.inputSchema)
       : {}
     setArgumentDraft(readArgumentDraft(argumentDraftKey, fallback))
-  }, [argumentDraftKey, selectedAction?.actionRef])
+    setFieldErrors({})
+  }, [argumentDraftKey, argumentSchemaFingerprint, selectedAction?.actionRef])
 
   const handleArgumentChange = useCallback(
     (name: string, value: string | boolean) => {
+      setFieldErrors((current) => {
+        if (!current[name]) return current
+        const next = { ...current }
+        delete next[name]
+        return next
+      })
       setArgumentDraft((current) => {
         const next = { ...current, [name]: value }
         writeArgumentDraft(argumentDraftKey, next)
@@ -462,7 +509,7 @@ export default function DevicePanel({
   const handleRunAction = useCallback(async (
     device: ManagedDevice,
     action: DeviceAction,
-    template: WorkflowActionNodeTemplate
+    template: WorkflowActionNodeTemplate | null
   ) => {
     if (
       !actionCatalog ||
@@ -482,6 +529,35 @@ export default function DevicePanel({
       })
       return
     }
+    if (!template) {
+      setRunOperation({
+        actionRef: action.actionRef,
+        state: {
+          kind: 'error',
+          message: '没有找到与当前设备动作匹配的运行信息，请刷新后重试',
+          retryable: true
+        }
+      })
+      return
+    }
+    const nextFieldErrors = collectDeviceActionFieldErrors(
+      action,
+      argumentDraft,
+      template
+    )
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors)
+      setRunOperation({
+        actionRef: action.actionRef,
+        state: {
+          kind: 'error',
+          message: Object.values(nextFieldErrors)[0] ?? '请先补全动作参数',
+          retryable: true
+        }
+      })
+      return
+    }
+    setFieldErrors({})
     let input: Record<string, unknown>
     try {
       input = serializeDeviceActionInput(action, argumentDraft, template)
@@ -491,7 +567,7 @@ export default function DevicePanel({
         state: {
           kind: 'error',
           message: error instanceof Error ? error.message : 'Action 参数不合法',
-          retryable: false
+          retryable: true
         }
       })
       return
@@ -634,7 +710,7 @@ export default function DevicePanel({
           <div>
             <h1 className={deviceClass('section__list-title')}>仪器设备</h1>
             <span className={deviceClass('section__list-meta')}>
-              {devices.length} 台设备 · Authority 设备目录
+              {devices.length} 台设备
             </span>
           </div>
           <button
@@ -670,7 +746,7 @@ export default function DevicePanel({
             <strong>
               {connection === 'connected'
                 ? '当前未配置仪器设备'
-                : '等待 Authority 提供设备'}
+                : '等待设备服务连接'}
             </strong>
             {connection === 'connected' ? (
               <p>
@@ -678,26 +754,25 @@ export default function DevicePanel({
               </p>
             ) : (
               <p>
-                连接后会读取设备实例，并关联动作节点模板的参数 Schema。
+                连接成功后会自动加载设备列表和可用动作。
               </p>
             )}
           </div>
         ) : (
           <ul className={deviceClass('device-list')}>
-            {devices.map((device) => (
-              <DeviceListItem
-                key={device.id}
-                device={device}
-                selected={device.id === selectedDevice?.id}
-                onSelect={setSelectedDeviceId}
-              />
-            ))}
+            {devices.map((device) => {
+              const deviceKey = managedDeviceSelectionKey(device)
+              return (
+                <DeviceListItem
+                  key={deviceKey}
+                  device={device}
+                  selected={deviceKey === selectedDeviceKey}
+                  onSelect={setSelectedDeviceKey}
+                />
+              )
+            })}
           </ul>
         )}
-        <div className={deviceClass('edge-device__source-note')}>
-          <span>数据来源</span>
-          设备与在线状态来自 DeviceOverview；动作参数来自 WorkflowNodeTemplate。
-        </div>
       </aside>
 
       <main className={deviceClass('section__detail edge-device__detail')}>
@@ -712,6 +787,7 @@ export default function DevicePanel({
             selectedAction={selectedAction}
             selectedActionRef={selectedActionRef}
             argumentDraft={argumentDraft}
+            fieldErrors={fieldErrors}
             onSelectAction={setSelectedActionRef}
             onArgumentChange={handleArgumentChange}
             actionTemplate={selectedActionTemplate}
@@ -743,6 +819,8 @@ export default function DevicePanel({
             canForceUnlock={canForceUnlock}
             unlockOperation={unlockOperation}
             onRequestUnlock={handleRequestUnlock}
+            recovery={services.workflow.recovery}
+            onRefreshDevice={refresh}
           />
         ) : (
           <div className={deviceClass('device-empty device-empty--detail')}>

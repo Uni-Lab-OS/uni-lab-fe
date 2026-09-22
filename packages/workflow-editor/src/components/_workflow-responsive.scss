@@ -274,3 +274,59 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* 输出栏在侧栏之间可能很窄，按自身宽度适配，不依赖整个工作区宽度。 */
+.workflow :global(.workflow-runtime__results) {
+  container-name: workflow-output;
+  container-type: inline-size;
+  min-width: 0;
+}
+
+@container workflow-output (max-width: 680px) {
+  .workflow :global(.workflow-runtime__output-header) {
+    flex: 0 0 auto;
+    min-height: 0;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .workflow :global(.workflow-runtime__output-title) {
+    flex: 1 1 120px;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .workflow :global(.workflow-runtime__output-tabs) {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    order: 3;
+    flex: 0 0 100%;
+    box-sizing: border-box;
+    width: 100%;
+    height: auto;
+    min-height: 34px;
+    gap: 2px;
+    overflow: visible;
+  }
+
+  .workflow :global(.workflow-runtime__output-tabs) button {
+    min-width: 0;
+    min-height: 28px;
+    height: auto;
+    padding: 4px;
+    gap: 4px;
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .workflow :global(.workflow-runtime__output-tabs) button span {
+    flex-shrink: 0;
+    min-width: 16px;
+    padding-inline: 2px;
+    font-size: 10px;
+  }
+}

@@ -27,10 +27,14 @@ export interface WorkflowActionHandleTemplate {
 export interface WorkflowActionNodeTemplate {
   uuid: string
   resourceTemplateUuid: string
+  /** 资源模板稳定名称；本地 Edge 目录常用它代替库存 UUID。 */
+  resourceTemplateName?: string
   name: string
   displayName: string
   actionClass: string | null
   actionType: string
+  /** Backend 节点类型（如 ``ILab``）；画布实例必须写入节点 ``type``，不能回落成 ``device``。 */
+  nodeType: string
   schema: Record<string, unknown>
   goal: Record<string, unknown>
   goalDefault: Record<string, unknown>

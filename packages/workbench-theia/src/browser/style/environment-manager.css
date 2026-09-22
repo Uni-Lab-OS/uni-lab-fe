@@ -376,9 +376,29 @@ body.unilab-environment-manager-open .material-oblique-stack__label {
 }
 
 .unilab-environment-manager button:disabled,
-.unilab-environment-manager input:disabled {
+.unilab-environment-manager input:disabled,
+.unilab-environment-manager select:disabled {
   cursor: not-allowed;
   opacity: 0.48;
+}
+
+.unilab-environment-manager__runtime-choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--unilab-color-text-muted);
+  font-size: 11px;
+}
+
+.unilab-environment-manager__runtime-choice select {
+  min-width: 0;
+  padding: 5px 7px;
+  color: var(--unilab-color-text);
+  border: 1px solid var(--unilab-color-border);
+  border-radius: 4px;
+  background: var(--unilab-color-canvas);
 }
 
 .unilab-environment-manager__logs {

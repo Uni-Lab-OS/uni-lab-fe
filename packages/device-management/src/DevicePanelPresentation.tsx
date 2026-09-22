@@ -27,11 +27,13 @@ export function ActionParameterForm({
   action,
   draft,
   disabled,
+  errors,
   onChange
 }: {
   action: DeviceAction
   draft: ArgumentDraft
   disabled: boolean
+  errors?: Record<string, string>
   onChange: (name: string, value: string | boolean) => void
 }): React.JSX.Element {
   const fields = Object.entries(action.inputSchema)
@@ -43,17 +45,26 @@ export function ActionParameterForm({
     )
   }
   return (
-    <div className={deviceClass('edge-device__parameter-form')}>
+    <div className={deviceClass('edge-device__parameter-table')}>
+      <div className={deviceClass('edge-device__parameter-head')} aria-hidden="true">
+        <span>参数</span>
+        <span>类型</span>
+        <span>参数值</span>
+        <span>参数说明</span>
+      </div>
+      <div className={deviceClass('edge-device__parameter-form')}>
       {fields.map(([name, schema]) => (
         <ActionField
           key={name}
           name={name}
           schema={schema}
-          value={draft[name] ?? ''}
+          value={draft[name] ?? defaultArgumentValue(schema)}
+          error={errors?.[name]}
           disabled={disabled}
           onChange={onChange}
         />
       ))}
+      </div>
     </div>
   )
 }
@@ -62,12 +73,14 @@ function ActionField({
   name,
   schema,
   value,
+  error,
   disabled,
   onChange
 }: {
   name: string
   schema: DeviceActionInputSchema
   value: string | boolean
+  error?: string
   disabled: boolean
   onChange: (name: string, value: string | boolean) => void
 }): React.JSX.Element {
@@ -75,33 +88,44 @@ function ActionField({
   if (schema.type === 'boolean') {
     return (
       <label
-        className={deviceClass('edge-device__field edge-device__field--boolean')}
+        className={deviceClass(
+          'edge-device__field edge-device__field--boolean',
+          error && 'is-invalid'
+        )}
         data-device-management="field"
       >
         <span>
           {label}
           {schema.required ? <em>必填</em> : null}
+          <code>{name}</code>
         </span>
+        <b>{schema.type}</b>
         <input
           type="checkbox"
           checked={Boolean(value)}
           disabled={disabled}
           onChange={(event) => onChange(name, event.target.checked)}
         />
-        {schema.description ? <small>{schema.description}</small> : null}
+        {error ? <small role="alert">{error}</small> : schema.description ? <small>{schema.description}</small> : null}
       </label>
     )
   }
   const isStructured = schema.type === 'object' || schema.type === 'array'
   return (
     <label
-      className={deviceClass('edge-device__field', isStructured && 'is-wide')}
+      className={deviceClass(
+        'edge-device__field',
+        isStructured && 'is-wide',
+        error && 'is-invalid'
+      )}
       data-device-management="field"
     >
       <span>
         {label}
         {schema.required ? <em>必填</em> : null}
+        <code>{name}</code>
       </span>
+      <b>{schema.type}</b>
       {schema.enum?.length ? (
         <select
           value={String(value)}
@@ -133,14 +157,14 @@ function ActionField({
           min={schema.minimum}
           max={schema.maximum}
           step={schema.type === 'integer' ? 1 : 'any'}
-          placeholder={schema.default !== undefined
+          placeholder={schema.default !== undefined && schema.default !== ''
             ? `默认值：${String(schema.default)}`
             : undefined}
           disabled={disabled}
           onChange={(event) => onChange(name, event.target.value)}
         />
       )}
-      {schema.description ? <small>{schema.description}</small> : null}
+      {error ? <small role="alert">{error}</small> : schema.description ? <small>{schema.description}</small> : null}
     </label>
   )
 }
@@ -247,7 +271,9 @@ export function writeArgumentDraft(
   }
 }
 
-function draftValue(schema: DeviceActionInputSchema): string | boolean {
+export function defaultArgumentValue(
+  schema: DeviceActionInputSchema
+): string | boolean {
   if (schema.type === 'boolean') return Boolean(schema.default)
   if (schema.default !== undefined && schema.default !== null) {
     if (schema.type === 'object' || schema.type === 'array') {
@@ -256,9 +282,16 @@ function draftValue(schema: DeviceActionInputSchema): string | boolean {
     return String(schema.default)
   }
   if (schema.enum?.length) return String(schema.enum[0])
-  if (schema.type === 'object') return '{}'
+  if (schema.type === 'integer' || schema.type === 'number') {
+    return schema.minimum !== undefined ? String(schema.minimum) : '0'
+  }
   if (schema.type === 'array') return '[]'
+  if (schema.type === 'object') return schema.required ? '' : '{}'
   return ''
+}
+
+function draftValue(schema: DeviceActionInputSchema): string | boolean {
+  return defaultArgumentValue(schema)
 }
 
 export function formatTime(timestamp: number): string {

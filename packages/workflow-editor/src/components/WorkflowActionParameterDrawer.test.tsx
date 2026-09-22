@@ -6,19 +6,23 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { TypedActionEditorProjection } from '../utils/workflowActionCatalog'
-import { WorkflowActionParameterDrawer } from './WorkflowActionParameterDrawer'
+import {
+  WorkflowActionParameterDrawer,
+  WorkflowActionParameterEditor
+} from './WorkflowActionParameterDrawer'
 
 const nodeUuid = '10000000-0000-4000-8000-000000000001'
 const targetNodeUuid = '10000000-0000-4000-8000-000000000002'
 const inputHandleUuid = '20000000-0000-4000-8000-000000000001'
 const outputHandleUuid = '20000000-0000-4000-8000-000000000002'
+const readyHandleUuid = '20000000-0000-4000-8000-000000000005'
 const resourceHandleUuid = '20000000-0000-4000-8000-000000000003'
 const warehouseHandleUuid = '20000000-0000-4000-8000-000000000004'
 const materialTemplateUuid = '40000000-0000-4000-8000-000000000001'
 const warehouseTemplateUuid = '40000000-0000-4000-8000-000000000002'
 
 describe('WorkflowActionParameterDrawer', () => {
-  it('presents typed inputs and OS-owned outputs in one focused dialog', () => {
+  it('uses the HTML contract editor and mapping-section visual structure', () => {
     const markup = renderToStaticMarkup(
       <WorkflowActionParameterDrawer
         open
@@ -39,9 +43,16 @@ describe('WorkflowActionParameterDrawer', () => {
 
     expect(markup).toContain('role="dialog"')
     expect(markup).toContain('aria-label="节点参数 dose"')
-    expect(text).toMatch(/已配置\s*1/)
-    expect(text).toMatch(/待补\s*0/)
-    expect(text).toMatch(/输出\s*1/)
+    expect(text).toContain('设备动作参数映射')
+    expect(markup).toContain('node-contract-editor')
+    expect(markup).toContain('contract-editor-intro')
+    expect(markup).toContain('editable-contract-section')
+    expect(markup).toContain('editable-contract-head')
+    expect(markup).toContain('contract-param-card')
+    expect(markup).toContain('mapping-section')
+    expect(markup).toContain('mapping-group-label')
+    expect(markup).toContain('mapping-row')
+    expect(markup).toContain('parameter-provenance')
     expect(text).toContain('target_mass_g')
     expect(text).toContain('commanded_mass_g')
     expect(text).toContain('下游节点：report')
@@ -73,6 +84,57 @@ describe('WorkflowActionParameterDrawer', () => {
     expect(outputStart).toBeGreaterThanOrEqual(0)
     expect(visibleText(markup)).toContain('OS 操作模板')
     expect(outputMarkup).not.toMatch(/<input|<select/)
+  })
+
+  it('separates the operation input and output contract views', () => {
+    const commonProps = {
+      editor,
+      outputHandles: [outputHandle],
+      graph,
+      editable: true,
+      onProviderChange: vi.fn(),
+      onLiteralBlur: vi.fn(),
+      onClear: vi.fn(),
+      onNull: vi.fn()
+    }
+    const inputMarkup = renderToStaticMarkup(
+      <WorkflowActionParameterEditor {...commonProps} view="inputs" />
+    )
+    const outputMarkup = renderToStaticMarkup(
+      <WorkflowActionParameterEditor {...commonProps} view="outputs" />
+    )
+
+    expect(visibleText(inputMarkup)).toContain('输入契约')
+    expect(inputMarkup).toContain(inputHandleUuid)
+    expect(inputMarkup).not.toContain(outputHandleUuid)
+    expect(inputMarkup).not.toMatch(/<input|<select/)
+    expect(visibleText(outputMarkup)).toContain('输出契约')
+    expect(outputMarkup).toContain(outputHandleUuid)
+    expect(outputMarkup).not.toContain(inputHandleUuid)
+    expect(outputMarkup).not.toMatch(/<input|<select/)
+  })
+
+  it('keeps structural ready handles on the canvas but out of business outputs', () => {
+    const markup = renderToStaticMarkup(
+      <WorkflowActionParameterDrawer
+        open
+        nodeName="dose"
+        templateName="固体投料"
+        editor={editor}
+        outputHandles={[outputHandle, readyHandle]}
+        graph={graph}
+        editable
+        onClose={vi.fn()}
+        onProviderChange={vi.fn()}
+        onLiteralBlur={vi.fn()}
+        onClear={vi.fn()}
+        onNull={vi.fn()}
+      />
+    )
+
+    expect(visibleText(markup)).toMatch(/输出\s*1/)
+    expect(markup).toContain(outputHandleUuid)
+    expect(markup).not.toContain(readyHandleUuid)
   })
 
   it('surfaces required parameters that still need configuration', () => {
@@ -175,6 +237,78 @@ describe('WorkflowActionParameterDrawer', () => {
     expect(warehouseMarkup).not.toContain('烧杯 A · …000001')
     expect(markup).not.toContain('物料引用（JSON）')
   })
+
+  it('can hide material fields for the experiment-operation inspector', () => {
+    const resourceEditor: TypedActionEditorProjection = {
+      ...editor,
+      fields: [
+        editor.fields[0]!,
+        resourceField(
+          resourceHandleUuid,
+          'resource',
+          '待转运物料',
+          materialTemplateUuid
+        )
+      ]
+    }
+    const markup = renderToStaticMarkup(
+      <WorkflowActionParameterEditor
+        editor={resourceEditor}
+        outputHandles={[]}
+        graph={graph}
+        editable
+        view="parameters"
+        hideMaterialFields
+        presentation="operation"
+        resourceSlotOptions={{ kind: 'ready', options: [] }}
+        onProviderChange={vi.fn()}
+        onLiteralBlur={vi.fn()}
+        onResourceChange={vi.fn()}
+        onClear={vi.fn()}
+        onNull={vi.fn()}
+      />
+    )
+
+    expect(visibleText(markup)).toContain('业务参数')
+    expect(visibleText(markup)).toContain('target_mass_g')
+    expect(visibleText(markup)).not.toContain('待转运物料')
+    expect(markup).not.toContain('实验室物料')
+  })
+
+  it('hides material inventory chrome in the debug inspector parameter row', () => {
+    const resourceEditor: TypedActionEditorProjection = {
+      ...editor,
+      fields: [
+        resourceField(
+          resourceHandleUuid,
+          'resource',
+          'beaker',
+          materialTemplateUuid
+        )
+      ]
+    }
+    const markup = renderToStaticMarkup(
+      <WorkflowActionParameterEditor
+        editor={resourceEditor}
+        outputHandles={[]}
+        graph={graph}
+        editable
+        view="parameters"
+        presentation="debug"
+        onProviderChange={vi.fn()}
+        onLiteralBlur={vi.fn()}
+        onResourceChange={vi.fn()}
+        onClear={vi.fn()}
+        onNull={vi.fn()}
+      />
+    )
+    const text = visibleText(markup)
+    expect(markup).toContain('persistent-authoring__resource-selector is-compact')
+    expect(markup).toContain('请选择物料')
+    expect(text).not.toContain('可选物料')
+    expect(text).not.toContain('正在读取当前实验室物料')
+    expect(text).not.toContain('beaker 实验室物料')
+  })
 })
 
 const editor: TypedActionEditorProjection = {
@@ -215,6 +349,18 @@ const outputHandle: WorkflowActionHandleTemplate = {
   allowedResourceTemplateUuids: null,
   implicitPassthrough: false,
   structuralRole: null
+}
+
+const readyHandle: WorkflowActionHandleTemplate = {
+  ...outputHandle,
+  uuid: readyHandleUuid,
+  handleKey: 'ready',
+  displayName: 'Ready',
+  valueType: 'boolean',
+  dataSource: 'dependency',
+  dataKey: 'ready',
+  valueSchema: { type: 'boolean' },
+  structuralRole: 'ready'
 }
 
 const graph: WorkflowAuthoringGraph = {

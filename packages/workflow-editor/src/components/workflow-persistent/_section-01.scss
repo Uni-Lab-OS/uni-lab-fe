@@ -125,6 +125,17 @@
     opacity: .48;
   }
 
+  :global(.persistent-authoring__debug-icon--label) {
+    width: auto;
+    min-width: 72px;
+    padding: 0 10px;
+    color: var(--unilab-color-text-muted);
+    border-color: var(--unilab-color-border);
+    background: var(--unilab-color-surface);
+    font: 600 12px/1 var(--unilab-font-sans);
+    white-space: nowrap;
+  }
+
   :global(.persistent-authoring__debug-icon.is-dirty)::after {
     position: absolute;
     width: 5px;

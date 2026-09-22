@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { deviceActionReadiness } from './DeviceActionAvailability'
 import type {
   DeviceAction,
   WorkflowActionCatalogSnapshot,
@@ -6,16 +7,39 @@ import type {
 } from '@unilab/services'
 
 import {
+  collectDeviceActionFieldErrors,
   deviceActionDraftStorageKey,
   matchDeviceActionTemplate,
   projectDeviceActionInputSchema,
   projectSelectedDeviceAction,
   projectDeviceActionTemplate,
-  serializeDeviceActionInput,
-  supportsD1AS1
+  serializeDeviceActionInput
 } from './deviceActionRun'
 
 describe('device Action D1A preparation', () => {
+  it('含物料输出和隐式透传的无参数动作可以单独调试', () => {
+    const template = actionTemplate({
+      ioType: 'source', editorControl: 'material_port', implicitPassthrough: true,
+      valueSchema: { $slot: 'ResourceSlot' }
+    })
+    template.schema = {
+      type: 'object',
+      properties: { goal: { type: 'object', properties: {}, required: [], additionalProperties: false } },
+      'x-unilabos-action-contract': { version: 2, input_order: [], output_order: ['position'] }
+    }
+    template.goal = {}
+    template.goalDefault = {}
+    expect(deviceActionReadiness({
+      action: liveAction(), template, canRunActionTask: true,
+      connection: 'connected', catalogLoading: false, catalogError: null,
+      device: {
+        id: 'robot', materialUuid: RESOURCE_UUID, deviceKey: 'robot',
+        namespace: 'robot', machineName: 'robot', online: true, edgeStatus: 'online',
+        dispatchable: true, dispatchBlockReason: null, executionOccupancies: [],
+        actions: [liveAction()], displayName: '机械臂', displayDetail: ''
+      }
+    }).kind).toBe('ready')
+  })
   /** 证明动作名称和类型相同仍必须按资源模板（ResourceTemplate）UUID 唯一匹配。 */
   it('joins live Action to exactly one stable A1 identity', () => {
     const template = actionTemplate()
@@ -35,6 +59,43 @@ describe('device Action D1A preparation', () => {
       ...liveAction(),
       typeName: 'other.Action'
     })).toBeNull()
+    expect(matchDeviceActionTemplate(catalog, liveAction(), 'community.lab.robot')).toBe(template)
+    expect(matchDeviceActionTemplate(
+      actionCatalog([template, { ...template, uuid: UUID_2 }]),
+      liveAction(),
+      'community.lab.robot'
+    )).toBeNull()
+  })
+
+  it('joins a legacy resource template name when sibling devices share the action', () => {
+    const real = {
+      ...actionTemplate(),
+      resourceTemplateName: 'community.szlab_poly_studio.szlab_mixer_photoshotting'
+    }
+    const sim = {
+      ...actionTemplate(),
+      uuid: UUID_2,
+      resourceTemplateUuid: '10000000-0000-4000-8000-000000000004',
+      resourceTemplateName: 'community.szlab_poly_studio.szlab_mixer_photoshotting_sim'
+    }
+    const catalog = actionCatalog([real, sim])
+
+    expect(matchDeviceActionTemplate(
+      catalog,
+      liveAction(),
+      'community.szlab_poly_studio.szlab_mixer_photoshotting'
+    )).toBe(real)
+    expect(matchDeviceActionTemplate(
+      catalog,
+      liveAction(),
+      'szlab_mixer_photoshotting'
+    )).toBe(real)
+    expect(matchDeviceActionTemplate(
+      catalog,
+      liveAction(),
+      'community.szlab_poly_studio.szlab_mixer_photoshotting_sim'
+    )).toBe(sim)
+    expect(matchDeviceActionTemplate(catalog, liveAction(), 'community.lab.robot')).toBeNull()
   })
 
   /** 证明选择投影与草稿键同时隔离资源模板、Backend 和目录代际。 */
@@ -70,33 +131,38 @@ describe('device Action D1A preparation', () => {
     ].join(':'))
   })
 
-  /** 证明包含物料占位符（ResourceSlot）、库位（Site）或隐式透传的动作关闭失败。 */
-  it('fails closed for material, Site and implicit pass-through contracts', () => {
-    expect(supportsD1AS1(actionTemplate())).toBe(true)
-    expect(supportsD1AS1(actionTemplate({
-      editorControl: 'material_port'
-    }))).toBe(false)
-    expect(supportsD1AS1(actionTemplate({
-      editorControl: 'site_selector'
-    }))).toBe(false)
-    expect(supportsD1AS1(actionTemplate({
-      implicitPassthrough: true
-    }))).toBe(false)
-    expect(supportsD1AS1(actionTemplate({
-      valueSchema: { $slot: 'ResourceSlot', type: 'object' }
-    }))).toBe(false)
-    expect(supportsD1AS1({
-      ...flatActionTemplate(),
-      schema: {
-        type: 'object',
-        properties: {
-          resource: {
-            type: 'object',
-            'x-unilabos-material-lock': true
-          }
-        }
-      }
-    })).toBe(false)
+  it.each(['material_port', 'site_selector'] as const)('支持 %s 参数及隐式物料传递', editorControl => {
+    const template = actionTemplate({ editorControl, implicitPassthrough: true })
+    expect(projectDeviceActionInputSchema(template)).not.toBeNull()
+  })
+
+  it('将物料 UUID 对象和库位参数按原合同提交，并保留必填校验', () => {
+    const template = actionTemplate({
+      editorControl: 'material_port',
+      valueSchema: { $slot: 'ResourceSlot' }
+    })
+    const materialProperty = {
+      type: 'object', 'x-unilabos-material-lock': true,
+      properties: { uuid: { type: 'string', format: 'uuid' } }, required: ['uuid']
+    }
+    template.schema = {
+      type: 'object',
+      properties: { goal: {
+        type: 'object', properties: { position: materialProperty },
+        required: ['position'], additionalProperties: false
+      } },
+      'x-unilabos-action-contract': { version: 2, input_order: ['position'], output_order: [] }
+    }
+    template.goalDefault = {}
+    const action = projectDeviceActionTemplate(liveAction(), template)
+    expect(action.inputSchema.position?.type).toBe('object')
+    expect(serializeDeviceActionInput(action, { position: JSON.stringify({ uuid: RESOURCE_UUID }) }, template))
+      .toEqual({ position: { uuid: RESOURCE_UUID } })
+    expect(() => serializeDeviceActionInput(action, {}, template)).toThrow('必填')
+    expect(() => serializeDeviceActionInput(action, { position: '[]' }, template)).toThrow('对象')
+    const siteTemplate = actionTemplate({ editorControl: 'site_selector' })
+    expect(serializeDeviceActionInput(projectDeviceActionTemplate(liveAction(), siteTemplate), { position: 'site-1' }, siteTemplate))
+      .toEqual({ position: 'site-1' })
   })
 
   /** 证明动作合同的 goal、目标连接点和 goal_default 能生成无猜测的参数表单。 */
@@ -155,7 +221,7 @@ describe('device Action D1A preparation', () => {
         direction: { type: 'string', default: 'clockwise', required: false }
       }
     })
-    expect(supportsD1AS1(template)).toBe(true)
+    expect(projectDeviceActionInputSchema(template)).not.toBeNull()
   })
 
   /** 证明 S09 使用的 JSON Schema nullable 类型数组不会被误报为参数合同不可用。 */
@@ -241,6 +307,21 @@ describe('device Action D1A preparation', () => {
   })
 
   /** 证明用户清空可选字段时仍提交合同默认值，不把默认语义交给 Backend 猜测。 */
+  it('collects click-time field errors without rejecting the rest of the form', () => {
+    const action = liveAction()
+    action.inputSchema = {
+      beaker: { type: 'object', required: true, title: '烧杯' },
+      sample_id: { type: 'string', required: false, default: '' }
+    }
+
+    expect(collectDeviceActionFieldErrors(action, {
+      beaker: '',
+      sample_id: 'debug-sample'
+    })).toEqual({
+      beaker: '烧杯 为必填项'
+    })
+  })
+
   it('uses a declared schema default instead of silently delegating a cleared field to the backend', () => {
     const action = liveAction()
     action.inputSchema = {
@@ -321,6 +402,7 @@ function actionTemplate(
     displayName: '移动',
     actionClass: null,
     actionType: 'demo.Move',
+    nodeType: 'device',
     schema: {
       type: 'object',
       properties: {

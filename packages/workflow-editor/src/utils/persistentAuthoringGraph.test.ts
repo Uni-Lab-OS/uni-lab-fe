@@ -7,7 +7,8 @@ import {
   parseWorkflowAuthoringGraphImport,
   projectPersistentAuthoringGraph,
   updatePersistentAuthoringNodeDisabled,
-  updatePersistentAuthoringNodeName
+  updatePersistentAuthoringNodeName,
+  updatePersistentAuthoringNodePosition
 } from './persistentAuthoringGraph'
 import { projectNestedWorkflow } from './canonicalWorkflow'
 
@@ -23,27 +24,28 @@ const graph: WorkflowAuthoringGraph = {
 }
 
 describe('persistent Authoring canvas graph edits', () => {
-  /** 画布投影必须保留物料来源（MaterialSource）的保管策略中文语义入口。 */
-  it('把物料保管策略投影到画布节点', () => {
-    const projected = projectPersistentAuthoringGraph({
+  it('persists one moved node without rebuilding or flattening its pose', () => {
+    const source: WorkflowAuthoringGraph = {
       ...graph,
-      nodes: [{
-        uuid: 'shared-reagent-source',
-        name: 'shared_reagent',
-        type: 'material_source',
-        param: {
-          mode: 'existing',
-          flow_role: 'reagent',
-          custody_policy: 'shared_source',
-          mount: { uuid: 'mount-1' },
-          resource_template_uuid: 'reagent-template'
-        }
-      }]
-    })
+      nodes: graph.nodes.map((node, index) => index === 0
+        ? {
+            ...node,
+            pose: { frame: 'workflow', position: { x: 12, y: 24, z: 9 } }
+          }
+        : node)
+    }
+    const updated = updatePersistentAuthoringNodePosition(
+      source,
+      'node-1',
+      { x: 320, y: 180 }
+    )
 
-    expect(projected.nodes[0]?.materialSource).toMatchObject({
-      flowRole: 'reagent',
-      custodyPolicy: 'shared_source'
+    expect(updated.nodes[0]).toMatchObject({
+      pose: { frame: 'workflow', position: { x: 320, y: 180, z: 9 } }
+    })
+    expect(updated.nodes[1]).toBe(source.nodes[1])
+    expect(source.nodes[0]).toMatchObject({
+      pose: { position: { x: 12, y: 24, z: 9 } }
     })
   })
 
@@ -367,6 +369,25 @@ describe('C1 persistent Composite hierarchy', () => {
 
     expect(byId.get('outer')?.visualKind).toBe('robot-transfer')
     expect(byId.get('inner')).not.toHaveProperty('visualKind')
+  })
+
+  it('shows the Published workflow display name while preserving the authoring identifier', () => {
+    const source = compositeGraph()
+    source.nodes = source.nodes.map((node) => node.uuid === 'outer'
+      ? { ...node, name: 'workflow' }
+      : node)
+    source.node_templates = source.node_templates.map((template) =>
+      template.uuid === 'outer-template'
+        ? { ...template, display_name: '阿事实上' }
+        : template
+    )
+
+    const projected = projectPersistentAuthoringGraph(source)
+    const outer = projected.nodes.find((node) => node.id === 'outer')
+
+    expect(outer?.name).toBe('阿事实上')
+    expect(source.nodes.find((node) => node.uuid === 'outer')?.name)
+      .toBe('workflow')
   })
 
   it('projects Backend-native workflow contracts and node source provenance', () => {

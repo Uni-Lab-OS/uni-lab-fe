@@ -13,6 +13,13 @@ export interface ManagedDevice extends OnlineDevice {
   displayDetail: string
 }
 
+/** 返回只用于界面选择的设备实例键；动作派发仍使用权威 Material UUID。 */
+export function managedDeviceSelectionKey(
+  device: Pick<OnlineDevice, 'namespace' | 'deviceKey'>
+): string {
+  return JSON.stringify([device.namespace, device.deviceKey])
+}
+
 /**
  * 把 Edge 目录转换为仪器设备菜单模型，并排除仅供系统调度的宿主节点。
  *

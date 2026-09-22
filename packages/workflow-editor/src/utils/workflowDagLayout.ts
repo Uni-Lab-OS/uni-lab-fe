@@ -61,7 +61,7 @@ export async function layoutVisibleWorkflowDag(
     return layoutWorkflowPrimarySampleFlow(nodes, links)
   }
   if (nodes.length === 0) {
-    return { nodes: [], links: [], direction: 'vertical' }
+    return { nodes: [], links: [], direction: swimlaneDirection }
   }
 
   const nodeIds = new Set(nodes.map((node) => node.id))
@@ -73,7 +73,7 @@ export async function layoutVisibleWorkflowDag(
     id: 'workflow-root',
     layoutOptions: {
       'elk.algorithm': 'layered',
-      'elk.direction': 'DOWN',
+      'elk.direction': swimlaneDirection === 'horizontal' ? 'RIGHT' : 'DOWN',
       'elk.edgeRouting': 'ORTHOGONAL',
       'elk.spacing.nodeNode': String(NODE_GAP),
       'elk.layered.spacing.nodeNodeBetweenLayers': String(LAYER_GAP),
@@ -90,7 +90,9 @@ export async function layoutVisibleWorkflowDag(
       ports: (node.handles ?? []).map((handle, index) => ({
         id: handle.uuid,
         layoutOptions: {
-          'port.side': handle.ioType === 'source' ? 'SOUTH' : 'NORTH',
+          'port.side': swimlaneDirection === 'horizontal'
+            ? (handle.ioType === 'source' ? 'EAST' : 'WEST')
+            : (handle.ioType === 'source' ? 'SOUTH' : 'NORTH'),
           'port.index': String(index)
         }
       }))
@@ -109,9 +111,11 @@ export async function layoutVisibleWorkflowDag(
     ])
   )
   return {
-    nodes: alignVisibleWorkflowLayers(sizedNodes, visibleLinks, elkPositionById),
+    nodes: swimlaneDirection === 'horizontal'
+      ? nodes.map(node => ({ ...node, ...elkPositionById.get(node.id)! }))
+      : alignVisibleWorkflowLayers(sizedNodes, visibleLinks, elkPositionById),
     links: visibleLinks,
-    direction: 'vertical'
+    direction: swimlaneDirection
   }
 }
 
@@ -221,7 +225,8 @@ function sizeWorkflowNode(node: WorkflowNode): SizedNode {
       Math.max(ACTION_NODE_MIN_WIDTH, 170 + materialVariables * 78)
     ),
     height: node.groupKind === 'subworkflow'
-      ? SUBWORKFLOW_NODE_HEIGHT
+      ? SUBWORKFLOW_NODE_HEIGHT +
+        (node.expandedRowCount ? node.expandedRowCount * 22 + 6 : 0)
       : ACTION_NODE_HEIGHT
   }
 }

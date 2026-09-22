@@ -79,15 +79,48 @@ export function matchDeviceActionTemplate(
   action: DeviceAction,
   resourceTemplateUuid?: string
 ): WorkflowActionNodeTemplate | null {
-  const matches = catalog.actionTemplates.filter((template) =>
+  const candidates = catalog.actionTemplates.filter((template) =>
     template.name === action.actionName &&
-    template.actionType === action.typeName &&
-    (
-      resourceTemplateUuid === undefined ||
-      template.resourceTemplateUuid === resourceTemplateUuid
-    )
+    template.actionType === action.typeName
   )
-  return matches.length === 1 ? matches[0] ?? null : null
+  const matches = candidates.filter((template) =>
+    workflowTemplateMatchesResourceIdentity(template, resourceTemplateUuid)
+  )
+  if (matches.length === 1) return matches[0] ?? null
+
+  // Older Edge catalogs identify the resource template by its stable name rather
+  // than the inventory UUID. Keep the identity guard for UUID-based catalogs and
+  // only use the unique-action fallback when sibling templates cannot be named.
+  const isUuid = isResourceTemplateUuid(resourceTemplateUuid)
+  if (resourceTemplateUuid !== undefined && !isUuid && candidates.length === 1) {
+    return candidates[0] ?? null
+  }
+  return null
+}
+
+const RESOURCE_TEMPLATE_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function isResourceTemplateUuid(value: string | undefined): boolean {
+  return RESOURCE_TEMPLATE_UUID.test(value ?? '')
+}
+
+/**
+ * 判断动作模板是否属于当前设备的资源模板。
+ *
+ * 本地 Edge 目录常用稳定名称（如 `community.szlab_poly_studio.szlab_mixer_photoshotting`）
+ * 代替库存 UUID。同名动作可能同时存在于实机和仿真模板上，必须按名称消歧。
+ */
+function workflowTemplateMatchesResourceIdentity(
+  template: Pick<WorkflowActionNodeTemplate, 'resourceTemplateUuid' | 'resourceTemplateName'>,
+  resourceTemplateId?: string
+): boolean {
+  if (resourceTemplateId === undefined) return true
+  if (template.resourceTemplateUuid === resourceTemplateId) return true
+  if (isResourceTemplateUuid(resourceTemplateId)) return false
+  const name = template.resourceTemplateName
+  if (!name) return false
+  return name === resourceTemplateId || name.endsWith(`.${resourceTemplateId}`)
 }
 
 /**
@@ -103,12 +136,19 @@ export function projectDeviceActionTemplate(
 ): DeviceAction {
   if (!template) return action
   const inputSchema = projectDeviceActionInputSchema(template)
+  if (inputSchema === null) {
+    return {
+      ...action,
+      displayName: template.displayName,
+      label: template.displayName
+    }
+  }
   return {
     ...action,
     displayName: template.displayName,
     label: template.displayName,
-    schema: inputSchema === null ? null : template.schema,
-    inputSchema: inputSchema ?? {}
+    schema: template.schema,
+    inputSchema
   }
 }
 
@@ -153,8 +193,7 @@ export function projectDeviceActionInputSchema(
       !property ||
       (contract.typed && (
         !handle ||
-        handle.editorControl !== 'variable_selector' ||
-        handle.implicitPassthrough ||
+        !['variable_selector', 'material_port', 'site_selector'].includes(handle.editorControl) ||
         handle.required !== contract.required.includes(name)
       ))
     ) return null
@@ -173,24 +212,6 @@ export function projectDeviceActionInputSchema(
 }
 
 /**
- * 判断设备单动作调试（D1A）是否不涉及物料占位符（ResourceSlot）或库位（Site）。
- *
- * @param template 已匹配的动作模板。
- * @returns 仅包含普通变量参数且无隐式物料传递时返回 true。
- */
-export function supportsD1AS1(
-  template: WorkflowActionNodeTemplate
-): boolean {
-  const typed = record(template.schema['x-unilabos-action-contract']) !== null
-  return (!typed || template.handles.every((handle) =>
-    handle.editorControl !== 'material_port' &&
-    handle.editorControl !== 'site_selector' &&
-    !handle.implicitPassthrough &&
-    !containsUnsupportedContract(handle.valueSchema)
-  )) && !containsUnsupportedContract(template.schema)
-}
-
-/**
  * 按参数 Schema 严格序列化设备单动作调试（D1A）表单。
  *
  * @param action 已投影参数合同的设备动作。
@@ -203,27 +224,68 @@ export function serializeDeviceActionInput(
   draft: DeviceActionArgumentDraft,
   template?: WorkflowActionNodeTemplate
 ): Record<string, unknown> {
-  const allowedNames = template
-    ? new Set(Object.keys(template.goal))
-    : null
+  const errors = collectDeviceActionFieldErrors(action, draft, template)
+  const firstError = Object.values(errors)[0]
+  if (firstError) throw new Error(firstError)
   return Object.fromEntries(
-    Object.entries(action.inputSchema).flatMap(([name, schema]) => {
-      // The live Device catalog may expose routing helpers such as
-      // `unilabos_device_id` that are not part of the frozen Action contract.
-      // DeviceActionRun validation is closed (`additionalProperties: false`),
-      // so only submit fields owned by the selected workflow template.
-      if (allowedNames && !allowedNames.has(name)) return []
-      const value = draft[name]
-      if (value === '' || value === undefined) {
-        if (schema.required) throw new Error(`${fieldLabel(name, schema)} 为必填项`)
-        if (schema.default !== undefined && schema.default !== null) {
-          return [[name, parseField(name, schema, draftDefaultValue(schema))]]
-        }
-        return []
-      }
-      return [[name, parseField(name, schema, value)]]
-    })
+    deviceActionInputEntries(action, draft, template)
   )
+}
+
+/**
+ * 在点击运行时按字段收集参数错误，不在输入过程中禁用提交。
+ */
+export function collectDeviceActionFieldErrors(
+  action: DeviceAction,
+  draft: DeviceActionArgumentDraft,
+  template?: WorkflowActionNodeTemplate
+): Record<string, string> {
+  const errors: Record<string, string> = {}
+  for (const [name, schema] of Object.entries(action.inputSchema)) {
+    if (!deviceActionInputFieldAllowed(name, template)) continue
+    try {
+      readDeviceActionField(name, schema, draft[name])
+    } catch (error) {
+      errors[name] = error instanceof Error ? error.message : `${fieldLabel(name, schema)} 不合法`
+    }
+  }
+  return errors
+}
+
+function deviceActionInputEntries(
+  action: DeviceAction,
+  draft: DeviceActionArgumentDraft,
+  template?: WorkflowActionNodeTemplate
+): Array<[string, unknown]> {
+  return Object.entries(action.inputSchema).flatMap(([name, schema]) => {
+    if (!deviceActionInputFieldAllowed(name, template)) return []
+    const parsed = readDeviceActionField(name, schema, draft[name])
+    return parsed === undefined ? [] : [[name, parsed]]
+  })
+}
+
+function deviceActionInputFieldAllowed(
+  name: string,
+  template?: WorkflowActionNodeTemplate
+): boolean {
+  // The live Device catalog may expose routing helpers such as
+  // `unilabos_device_id` that are not part of the frozen Action contract.
+  return !template || Object.prototype.hasOwnProperty.call(template.goal, name)
+}
+
+function readDeviceActionField(
+  name: string,
+  schema: DeviceActionInputSchema,
+  value: string | boolean | undefined
+): unknown {
+  if (value === '' || value === undefined) {
+    if (schema.required) throw new Error(`${fieldLabel(name, schema)} 为必填项`)
+    if (schema.default !== undefined && schema.default !== null) {
+      return parseField(name, schema, draftDefaultValue(schema))
+    }
+    return undefined
+  }
+  return parseField(name, schema, value)
 }
 
 /**
@@ -342,6 +404,8 @@ function inputType(schema: Record<string, unknown>): string | null {
   }
   const candidates = [schema, ...alternatives]
   const declared = candidates.flatMap((candidate) => {
+    // ResourceSlot 在动作 goal 中以带 UUID 的对象提交。
+    if (candidate.$slot === 'ResourceSlot') return ['object']
     if (typeof candidate.type === 'string') return [candidate.type]
     if (
       Array.isArray(candidate.type) &&
@@ -479,20 +543,4 @@ function assertNumberRange(
 
 function fieldLabel(name: string, schema: DeviceActionInputSchema): string {
   return schema.title || name
-}
-
-function containsUnsupportedContract(value: unknown): boolean {
-  if (Array.isArray(value)) return value.some(containsUnsupportedContract)
-  if (!value || typeof value !== 'object') return value === 'ResourceSlot'
-  const record = value as Record<string, unknown>
-  if (
-    record.$slot === 'ResourceSlot' ||
-    record['x-unilabos-material-lock'] === true ||
-    record.editor_control === 'material_port' ||
-    record.editor_control === 'site_selector' ||
-    record.implicit_passthrough === true
-  ) {
-    return true
-  }
-  return Object.values(record).some(containsUnsupportedContract)
 }

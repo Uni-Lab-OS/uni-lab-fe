@@ -8,10 +8,12 @@ import type {
 
 import type { ManagedDevice } from './deviceCatalog'
 import {
-  projectDeviceActionInputSchema,
-  supportsD1AS1
+  projectDeviceActionInputSchema
 } from './deviceActionRun'
-import { shortIdentifier } from './devicePanelFormat'
+import {
+  deviceDispatchBlockPresentation,
+  shortIdentifier
+} from './devicePanelFormat'
 import { deviceClass } from './deviceStyles'
 import styles from './DevicePanel.module.scss'
 
@@ -20,7 +22,7 @@ import styles from './DevicePanel.module.scss'
  *
  * @param input 动作、设备、模板、连接和目录读取状态。
  * @returns 可运行状态或带稳定原因的关闭状态。
- * @safety 参数合同、设备身份或物料/库位边界无法证明安全时关闭失败。
+ * @safety 参数合同或设备身份不完整时关闭失败；物料和库位准入由后端校验。
  */
 export function deviceActionReadiness({
   action,
@@ -62,7 +64,9 @@ export function deviceActionReadiness({
     return {
       kind: 'unavailable',
       reason: 'dispatch_blocked',
-      message: dispatchBlockMessage(device.dispatchBlockReason)
+      message: deviceDispatchBlockPresentation(
+        device.dispatchBlockReason
+      ).detail
     }
   }
   if (!device.materialUuid) {
@@ -93,13 +97,6 @@ export function deviceActionReadiness({
       message: '没有找到与当前设备动作匹配的运行信息，请刷新后重试'
     }
   }
-  if (!supportsD1AS1(template)) {
-    return {
-      kind: 'unavailable',
-      reason: 'workflow_required',
-      message: '该动作会影响物料或库位，请在工作流中运行'
-    }
-  }
   if (projectDeviceActionInputSchema(template) === null) {
     return {
       kind: 'unavailable',
@@ -116,16 +113,8 @@ export function deviceActionReadiness({
         : device.executionOccupancies === null &&
             action.busyStatusKnown === false
           ? '当前服务未提供占用明细；提交时由调度器（Scheduler）进行权威准入'
-          : '参数将提交为正式工作流任务（WorkflowTask）和作业（Job）'
+          : ''
   }
-}
-
-/** 把派发安全阻断原因翻译成设备页可行动说明，不泄漏 wire 细节。 */
-function dispatchBlockMessage(reason: string | null): string {
-  if (reason?.startsWith('unresolved_unknown_command:')) {
-    return '设备在线，但存在未确认的历史命令；完成安全核验后才能运行'
-  }
-  return '设备在线，但当前被安全策略阻止派发；完成设备核验后再试'
 }
 
 export function projectDeviceActionTask(
@@ -284,7 +273,9 @@ export function DeviceActionAvailability({
   const terminal = state.kind === 'succeeded' ||
     state.kind === 'failed' ||
     state.kind === 'canceled'
-  const runnable = ready || terminal
+  const submitAllowedUnavailable = state.kind === 'unavailable' &&
+    (state.reason === 'template_unmatched' || state.reason === 'contract_invalid')
+  const runnable = ready || terminal || submitAllowedUnavailable
   const log = deviceActionExecutionLog(state)
   const taskUuid = 'taskUuid' in state ? state.taskUuid : null
   useEffect(() => {
@@ -306,7 +297,9 @@ export function DeviceActionAvailability({
           onClick={onRun}
         >
           {state.kind === 'unavailable'
-            ? disabledRunLabel ?? unavailableRunLabel(state.reason)
+            ? submitAllowedUnavailable
+              ? '运行此动作'
+              : disabledRunLabel ?? unavailableRunLabel(state.reason)
             : state.kind === 'submitting'
               ? '正在创建正式任务…'
               : state.kind === 'error' && state.retryable
@@ -326,7 +319,7 @@ export function DeviceActionAvailability({
             取消任务
           </button>
         ) : null}
-        <span>{userFacingActionMessage(state.message)}</span>
+        {state.message ? <span>{userFacingActionMessage(state.message)}</span> : null}
       </div>
       {'taskUuid' in state ? (
         <div className={deviceClass('edge-device__execution')} aria-live="polite">
@@ -406,7 +399,7 @@ function unavailableRunLabel(reason: DeviceActionUnavailableReason): string {
     case 'device_offline':
       return '设备离线'
     case 'dispatch_blocked':
-      return '派发受阻'
+      return '调度受限'
     case 'device_identity_missing':
       return '暂时无法运行'
     case 'catalog_loading':

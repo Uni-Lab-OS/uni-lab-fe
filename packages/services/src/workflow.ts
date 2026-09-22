@@ -1,3 +1,4 @@
+import { createWorkflowRecoveryPort } from './workflowRecovery'
 import type { MaterialGraphPort } from '@unilab/material'
 
 import type { BackendConfig } from './backends'
@@ -32,6 +33,7 @@ import {
   strictAuthoringData
 } from './workflowAuthoringCodec'
 import type {
+  ExperimentOperationCreateRequest,
   WorkflowAuthoringChangedEvent
 } from './workflowAuthoringContracts'
 import {
@@ -93,10 +95,13 @@ export type {
   WorkflowAuthoringTransformResult,
   WorkflowAuthoringValidateRequest,
   WorkflowDocument,
+  WorkflowDefinitionKind,
+  WorkflowDefinitionUnilabMetadata,
   WorkflowDefinitionChange,
   WorkflowDefinitionChangeAction,
   WorkflowDefinitionChangePage,
   WorkflowDefinitionCreateRequest,
+  ExperimentOperationCreateRequest,
   WorkflowListQuery,
   WorkflowPage,
   WorkflowPersistentAuthoringCandidate,
@@ -105,6 +110,7 @@ export type {
   WorkflowValidationIssue,
   WorkflowValidationResult
 } from './workflowAuthoringContracts'
+export { workflowDefinitionKind } from './workflowAuthoringContracts'
 export type { BackendWorkflowGraph } from './backendWorkflowGraph'
 export type {
   WorkflowInputContract,
@@ -115,6 +121,7 @@ export type {
   WorkflowOutputDescriptor,
   WorkflowValueSchema
 } from './workflowIo'
+export { isWorkflowValueSchemaAssignable } from './workflowIo'
 export type {
   WorkflowMaterialSourceCatalogSnapshot,
   WorkflowMaterialSourceHandleTemplate,
@@ -261,6 +268,7 @@ export function createWorkflowRuntime(
   }
 
   const port: WorkflowRuntimePort = {
+    recovery: createWorkflowRecoveryPort(http, backend, sseTransport, subscriptions),
     getWorkflowActionCatalog: (signal, options) => {
       requireWorkflowCapability('workflow.readDefinitions')
       return (options?.refresh
@@ -282,10 +290,32 @@ export function createWorkflowRuntime(
           name: body.name,
           description: body.description,
           tags: body.tags,
-          meta_data: body.meta_data ?? {}
+          meta_data: body.meta_data ?? {},
+          ...(body.meta_data?.unilab &&
+            typeof body.meta_data.unilab === 'object' &&
+            (body.meta_data.unilab as Record<string, unknown>).definition_kind === 'operation'
+            ? { workflow_type: 'experiment_operation' }
+            : {})
         })
       }
     ),
+    createExperimentOperation: (body: ExperimentOperationCreateRequest) => {
+      requireWorkflowCapability('workflow.authoring')
+      return authoringRequest(
+        '/api/v1/workflows',
+        {
+          method: 'POST',
+          headers: jsonHeaders(),
+          body: JSON.stringify({
+            name: body.name,
+            tags: body.categories,
+            description: body.description,
+            workflow_type: 'experiment_operation',
+            meta_data: { unilab: { definition_kind: 'operation' } }
+          })
+        }
+      )
+    },
     deleteWorkflowDefinition: async (workflowUuid) => {
       await request<void>(
         `/api/v1/workflows/${encodeURIComponent(workflowUuid)}`,

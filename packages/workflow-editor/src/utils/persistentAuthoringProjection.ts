@@ -7,6 +7,7 @@ import type {
 
 import { authoringProjection } from './persistentAuthoringSession'
 import type { TypedActionFieldProjection } from './workflowActionCatalog'
+import { formatAuthoringError } from './workflowAuthoringUserCopy'
 
 /** 为目录缺失的资源模板生成稳定短标签。 */
 export function shortTemplateLabel(uuid: string): string {
@@ -92,9 +93,10 @@ export function workflowGraphJsonProjection(
 /** 把未知异常转换为可展示消息。 */
 export function errorMessage(value: unknown): string {
   const message = value instanceof Error ? value.message : String(value)
-  return /reconnecting channel/i.test(message)
-    ? '连接暂时中断，恢复后将自动重试。'
-    : message
+  if (/reconnecting channel/i.test(message)) {
+    return '连接暂时中断，恢复后将自动重试。'
+  }
+  return formatAuthoringError(message)
 }
 
 /** 按动作句柄 schema 解析表单原始值。 */

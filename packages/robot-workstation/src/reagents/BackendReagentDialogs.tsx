@@ -57,19 +57,24 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
   const [densityGPerMl, setDensityGPerMl] = useState(
     initial?.densityGPerMl == null ? '' : String(initial.densityGPerMl)
   )
-  const [quantityUnit, setQuantityUnit] = useState(initial?.unit ?? '')
+  const [quantityUnit, setQuantityUnit] = useState(
+    initial?.unit ?? (props.mode === 'create' ? 'mL' : '')
+  )
+  const [productionDate, setProductionDate] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
+  const expiryDateRef = useRef<HTMLInputElement>(null)
   const [advancedOpen, setAdvancedOpen] = useState(
     props.mode === 'edit' && Boolean(initial?.concentrationValue != null || initial?.description)
   )
   const [customParameters, setCustomParameters] = useState<CustomParameter[]>([])
   const selectedInfo = props.infos?.find(info => info.id === selectedInfoId)
 
-  /** 切换试剂目录项时只带入参考密度，不替用户猜测计量单位。 */
+  /** 切换试剂目录项时带入参考密度，并按形态设置默认计量单位。 */
   function selectReagentInfo(infoId: string): void {
     const nextInfo = props.infos?.find(info => info.id === infoId)
     setSelectedInfoId(infoId)
     setDensityGPerMl(nextInfo?.densityGPerMl == null ? '' : String(nextInfo.densityGPerMl))
-    setQuantityUnit('')
+    setQuantityUnit(nextInfo?.physicalState === 'liquid' ? 'mL' : nextInfo?.physicalState === 'solid' ? 'g' : '')
   }
 
   function reportError(message: string): void {
@@ -218,14 +223,47 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
                   <span>供应商</span>
                   <Input name="supplier" maxLength={255} />
                 </label>
-                <label>
-                  <span>生产日期（有效期开始）</span>
-                  <Input name="productionDate" type="date" />
-                </label>
-                <label>
-                  <span>截止日期（有效期结束）</span>
-                  <Input name="expiryDate" type="date" />
-                </label>
+                <div className={styles.reagentDateRangeField}>
+                  <span>有效期</span>
+                  <div
+                    className={styles.reagentDateRangeControl}
+                    role="group"
+                    aria-label="有效期"
+                  >
+                    <Input
+                      name="productionDate"
+                      type="date"
+                      aria-label="生产日期（有效期开始）"
+                      value={productionDate}
+                      max={expiryDate || undefined}
+                      onChange={event => {
+                        const nextStart = event.target.value
+                        setProductionDate(nextStart)
+                        // 与 antd RangePicker 一致：选完开始日期即跳到结束日期，无需再次点击。
+                        if (nextStart && !expiryDate) {
+                          expiryDateRef.current?.focus()
+                          if (typeof expiryDateRef.current?.showPicker === 'function') {
+                            try {
+                              expiryDateRef.current.showPicker()
+                            } catch {
+                              // 浏览器不允许时静默降级为聚焦。
+                            }
+                          }
+                        }
+                      }}
+                    />
+                    <span aria-hidden="true">至</span>
+                    <Input
+                      ref={expiryDateRef}
+                      name="expiryDate"
+                      type="date"
+                      aria-label="截止日期（有效期结束）"
+                      value={expiryDate}
+                      min={productionDate || undefined}
+                      onChange={event => setExpiryDate(event.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
             </fieldset>
           ) : null}
@@ -284,19 +322,30 @@ export function BackendReagentEditorDialog(props: EditorProps): React.JSX.Elemen
 }
 
 /** 使用独立触发器与搜索浮层完成试剂容器选择。 */
-function ContainerSearchSelect({
+export function ContainerSearchSelect({
   containers,
-  disabled
+  disabled,
+  name = 'materialId',
+  value,
+  onChange,
+  initialFocus = true,
+  placeholder = '请选择试剂容器'
 }: {
   containers: readonly ReagentContainerOption[]
   disabled: boolean
+  name?: string
+  value?: string
+  onChange?: (materialId: string) => void
+  initialFocus?: boolean
+  placeholder?: string
 }): React.JSX.Element {
   const listboxId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [selectedId, setSelectedId] = useState('')
+  const [internalSelectedId, setInternalSelectedId] = useState('')
+  const selectedId = value ?? internalSelectedId
   const selected = containers.find(container => container.id === selectedId)
   const options = useMemo(
     () => filterReagentContainers(containers, query),
@@ -310,7 +359,8 @@ function ContainerSearchSelect({
   }, [open])
 
   function select(container: ReagentContainerOption): void {
-    setSelectedId(container.id)
+    if (value === undefined) setInternalSelectedId(container.id)
+    onChange?.(container.id)
     setQuery('')
     setOpen(false)
   }
@@ -323,12 +373,12 @@ function ContainerSearchSelect({
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
       }}
     >
-      <input type="hidden" name="materialId" value={selectedId} />
+      {name ? <input type="hidden" name={name} value={selectedId} /> : null}
       <Button
         type="button"
         variant="outline"
         className={styles.reagentContainerSelectControl}
-        data-dialog-initial-focus
+        data-dialog-initial-focus={initialFocus || undefined}
         aria-haspopup="listbox"
         aria-controls={listboxId}
         aria-expanded={open}
@@ -344,7 +394,7 @@ function ContainerSearchSelect({
         }}
       >
         <span className={selected ? styles.reagentContainerSelectValue : styles.reagentContainerSelectPlaceholder}>
-          {selected ? reagentContainerLabel(selected) : '请选择试剂容器'}
+          {selected ? reagentContainerLabel(selected) : placeholder}
         </span>
         <span aria-hidden="true" className={styles.reagentContainerSelectArrow} />
       </Button>
@@ -542,9 +592,9 @@ function physicalStateLabel(value: string): string {
 }
 
 /**
- * 对 Backend 试剂软删除提供显式范围和文字确认。
+ * 对试剂软删除提供显式影响范围和二次确认。
  * @param props 待删除试剂、异步删除回调和关闭回调。
- * @returns 只有输入“删除”后才可提交的危险操作模态框。
+ * @returns 通过取消或确认删除完成决策的危险操作模态框。
  */
 export function BackendReagentDeleteDialog({
   item,
@@ -555,13 +605,12 @@ export function BackendReagentDeleteDialog({
   onDelete: () => Promise<void>
   onClose: () => void
 }): React.JSX.Element {
-  const [confirmation, setConfirmation] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  /** 提交软删除并等待 Backend 台账闭合完成。 */
+  /** 二次确认后提交软删除并等待服务端台账闭合完成。 */
   async function handleDelete(): Promise<void> {
-    if (submitting || confirmation !== '删除') return
+    if (submitting) return
     setSubmitting(true)
     setError('')
     try {
@@ -575,31 +624,29 @@ export function BackendReagentDeleteDialog({
   return (
     <ReagentDialogFrame
       title={`删除 ${item.name}`}
-      description={`Backend 会将 ${formatQuantity(item.totalQuantity, item.unit)} 余量闭合为零、追加 remove 台账并软删除试剂；被任务预留或修订冲突时会拒绝。`}
+      description={`系统会将 ${formatQuantity(item.totalQuantity, item.unit)} 余量闭合为零、追加 remove 台账并软删除试剂；被任务预留或修订冲突时会拒绝。`}
       busy={submitting}
       onClose={onClose}
     >
-      <div className={styles.deleteConfirmation}>
-        <label>
-          <span>输入“删除”确认</span>
-          <Input
-            data-dialog-initial-focus
-            value={confirmation}
-            onChange={event => setConfirmation(event.target.value)}
-            autoComplete="off"
-          />
-        </label>
-        {error ? <p className={styles.dialogError} role="alert">{error}</p> : null}
-      </div>
+      {error ? (
+        <div className={styles.deleteConfirmation}>
+          <p className={styles.dialogError} role="alert">{error}</p>
+        </div>
+      ) : null}
       <div className={uiClass.dialogActions}>
-        <Button variant="outline" disabled={submitting} onClick={onClose}>取消</Button>
+        <Button
+          data-dialog-initial-focus
+          variant="outline"
+          disabled={submitting}
+          onClick={onClose}
+        >取消</Button>
         <Button
           variant="destructive"
           type="button"
-          disabled={submitting || confirmation !== '删除'}
+          disabled={submitting}
           onClick={() => void handleDelete()}
         >
-          {submitting ? '正在删除…' : '确认软删除'}
+          {submitting ? '正在删除…' : '确认删除'}
         </Button>
       </div>
     </ReagentDialogFrame>

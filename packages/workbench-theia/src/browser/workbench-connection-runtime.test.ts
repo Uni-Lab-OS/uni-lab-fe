@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  backendHealthProbeEnabled,
   monitorBackendConnection,
   sessionConnectionState
 } from './workbench-connection-runtime'
@@ -8,6 +9,11 @@ import {
 afterEach(() => vi.useRealTimers())
 
 describe('Workbench connection runtime projection', () => {
+  it('probes Backend health only in production connection mode', () => {
+    expect(backendHealthProbeEnabled('backend')).toBe(true)
+    expect(backendHealthProbeEnabled('local')).toBe(false)
+  })
+
   /** 证明托管 OS 生命周期只投影传输健康，不伪造调度或任务状态。 */
   it('maps managed session phases to connection states', () => {
     expect(sessionConnectionState('ready')).toBe('connected')

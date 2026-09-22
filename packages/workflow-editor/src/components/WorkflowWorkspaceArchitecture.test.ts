@@ -66,7 +66,7 @@ describe('Workflow workspace authority', () => {
 
   /** 属性面板只展示选中节点的说明，不得用保存或投影错误充当描述。 */
   it('renders the selected node description in the inspector', () => {
-    const view = componentSource('PersistentWorkflowAuthoringView.tsx')
+    const view = componentSource('WorkflowNodeInspector.tsx')
 
     expect(view).toContain('selectedNodeDescription')
     expect(view).toContain('节点说明')
@@ -109,6 +109,19 @@ describe('Workflow workspace authority', () => {
     )
     expect(outputStylesheet).toMatch(
       /@container workflow \(max-width: 720px\)[\s\S]*?\.workflow-runtime__output-tabs\) button[^{]*\{[^}]*min-width:\s*max-content[^}]*flex:\s*0 0 auto/u
+    )
+  })
+
+  it('keeps workflow-debug input parameters in a compact row list', () => {
+    const stylesheet = componentSource('_workflow-debug-layout.scss')
+    expect(stylesheet).toMatch(
+      /parameter-list\.contract-param-list\)[\s\S]*?> :global\(\.contract-param-card\) \{[\s\S]*?grid-template-columns:\s*minmax\(72px, \.85fr\) minmax\(0, 1\.5fr\) auto/
+    )
+    expect(stylesheet).toMatch(
+      /parameter-list\.contract-param-list\)[\s\S]*?> :global\(\.contract-param-card\) \{[\s\S]*?box-shadow:\s*none/
+    )
+    expect(stylesheet).not.toMatch(
+      /parameter-list\.contract-param-list\)[\s\S]*?> :global\(\.contract-param-card\) \{[\s\S]*?box-shadow:\s*0 2px 8px/
     )
   })
 

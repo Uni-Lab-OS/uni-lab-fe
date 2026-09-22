@@ -131,6 +131,7 @@ export function deleteWorkflowGraphElements(
     removedEdges,
     removedNodeUuids
   )
+  next.nodes = clearRemovedControlMembers(next.nodes, removedNodeUuids)
   removeDeletedNodeOutputs(next, removedNodeUuids)
   pruneUnreferencedTemplates(next)
   return {
@@ -151,19 +152,26 @@ export function workflowNodeDeletionDisabledReason(
   node: Record<string, unknown>,
   nodeByUuid?: ReadonlyMap<string, Record<string, unknown>>
 ): string | null {
+  const parentUuid = typeof node.parent_uuid === 'string'
+    ? node.parent_uuid : ''
+  const parent = parentUuid ? nodeByUuid?.get(parentUuid) : undefined
   if (
-    typeof node.parent_uuid === 'string' &&
-    node.parent_uuid.length > 0 &&
+    parentUuid &&
+    !['condition', 'repeat_until'].includes(String(parent?.type || '')) &&
     !hasOnlyPresentationGroupAncestors(node, nodeByUuid)
   ) {
     return '复合工作流内部私有节点只读；请删除或编辑调用边界'
   }
   const unilab = nodeUnilab(node)
+  // Condition and RepeatUntil are authoring controls. They may carry
+  // framework metadata, but remain user-owned canvas nodes and must be
+  // deletable from the editor.
+  const controlNode = node.type === 'condition' || node.type === 'repeat_until'
   if (
     node.type === 'group' ||
     unilab.presentation_group === true ||
     unilab.authoring_read_only === true ||
-    unilab.system_generated === true
+    (!controlNode && unilab.system_generated === true)
   ) return '系统生成或结构节点只读，不能直接删除'
   return null
 }
@@ -211,18 +219,13 @@ function workflowEdgeDeletionDisabledReason(
 ): string | null {
   const edgeUnilab = record(record(edge.meta_data).unilab)
   if (
-    edgeUnilab.authoring_read_only === true ||
-    edgeUnilab.system_generated === true
-  ) return '系统生成的工作流连线只读，不能直接删除'
+    edgeUnilab.authoring_read_only === true
+  ) return '工作流连线被标记为只读，不能直接删除'
   for (const nodeUuid of [
     stringValue(edge.source_node_uuid),
     stringValue(edge.target_node_uuid)
   ]) {
-    const node = nodeByUuid.get(nodeUuid)
-    if (!node) return '工作流连线引用的节点已不存在'
-    if (workflowNodeDeletionDisabledReason(node, nodeByUuid)) {
-      return '复合工作流内部或系统节点的连线只读，不能直接删除'
-    }
+    if (!nodeByUuid.has(nodeUuid)) return '工作流连线引用的节点已不存在'
   }
   return null
 }
@@ -381,6 +384,71 @@ function isReadyHandle(handle: Record<string, unknown> | undefined): boolean {
     stringValue(handle?.data_key) === 'ready'
 }
 
+
+/** 删除控制域成员后清理 Condition/RepeatUntil 中的所有失效 UUID。 */
+function clearRemovedControlMembers(
+  nodes: Array<Record<string, unknown>>,
+  removedNodeUuids: ReadonlySet<string>
+): Array<Record<string, unknown>> {
+  return nodes.map((node) => {
+    const type = stringValue(node.type)
+    const param = record(node.param)
+    if (type === 'condition') {
+      const branches = Array.isArray(param.branches)
+        ? param.branches.map((value) => {
+            const branch = record(value)
+            const members = retainedNodeUuids(branch.node_uuids, removedNodeUuids)
+            return {
+              ...branch,
+              node_uuids: members,
+              entry_node_uuids: members.length > 0 ? [members[0]] : [],
+              exit_node_uuids: members.length > 0 ? [members[members.length - 1]] : []
+            }
+          })
+        : []
+      return {
+        ...node,
+        param: {
+          ...param,
+          predecessor_node_uuids: retainedNodeUuids(
+            param.predecessor_node_uuids, removedNodeUuids
+          ),
+          branches
+        }
+      }
+    }
+    if (type === 'repeat_until') {
+      const members = retainedNodeUuids(param.node_uuids, removedNodeUuids)
+      return {
+        ...node,
+        param: {
+          ...param,
+          predecessor_node_uuids: retainedNodeUuids(
+            param.predecessor_node_uuids, removedNodeUuids
+          ),
+          successor_node_uuids: retainedNodeUuids(
+            param.successor_node_uuids, removedNodeUuids
+          ),
+          node_uuids: members,
+          entry_node_uuids: members.length > 0 ? [members[0]] : [],
+          exit_node_uuids: members.length > 0 ? [members[members.length - 1]] : []
+        }
+      }
+    }
+    return node
+  })
+}
+
+function retainedNodeUuids(
+  value: unknown,
+  removedNodeUuids: ReadonlySet<string>
+): string[] {
+  return Array.isArray(value)
+    ? value
+      .filter((item): item is string => typeof item === 'string')
+      .filter((uuid) => !removedNodeUuids.has(uuid))
+    : []
+}
 /**
  * 删除引用已移除节点的显式工作流出参描述与绑定。
  *

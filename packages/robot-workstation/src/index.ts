@@ -6,6 +6,7 @@ export type {
   PointManagementSnapshot,
   ReagentContainerOption,
   ReagentCreateCommand,
+  ReagentDispenseCommand,
   ReagentHistoryProjection,
   ReagentInfoCreateCommand,
   ReagentInfoLookupCandidate,

@@ -3,12 +3,12 @@
  * To reset, delete this file and rerun theia build again.
  */
 import { browserOptions, mode, watch } from './gen-esbuild.browser.mjs';
-import { nodeOptions } from './gen-esbuild.node.mjs';
+import { nativeBindings, nodeOptions } from './gen-esbuild.node.mjs';
 
 import esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
 import { sassPlugin } from 'esbuild-sass-plugin';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 import { injectWorkbenchPreloadShell } from './scripts/preload-shell.mjs';
@@ -24,6 +24,20 @@ browserOptions.alias = {
     'next/link': sharedShimPath('next-link'),
 };
 browserOptions.jsx = 'automatic';
+
+// Theia's built-in source-map-paths plugin recursively rewrites every map in
+// the shared `lib/` tree. Browser and Node builds then race over that rewrite
+// during development, intermittently leaving invalid JSON and preventing the
+// Workspace Backend from starting. Keep source maps, but omit only the
+// file:// path rewrite in development; production bundles retain it.
+if (mode === 'development') {
+    for (const options of [browserOptions, nodeOptions]) {
+        options.plugins = (options.plugins ?? []).filter(
+            plugin => plugin.name !== 'theia-source-map-paths'
+        );
+    }
+}
+
 // Theia emits an IIFE bundle, so native `import.meta.url` has no module URL.
 // Pascal's Three.js KTX2 loader still constructs its fallback URLs eagerly;
 // the actual transcoder path is configured separately, but the base must be
@@ -72,15 +86,31 @@ browserOptions.plugins.push({
     },
 });
 
-// drivelist 12.0.2 does not publish a Windows N-API prebuild. Requiring its
-// missing native binding would crash the complete Theia backend during boot,
-// although Theia only needs mount points from it. Keep the native package on
-// macOS/Linux and use a narrow, pure-Node drive-root provider on Windows.
+// Theia only consumes drivelist mount points for its drive-root picker.
+// Avoid loading this native addon in Electron-backed processes: Windows has
+// no published N-API prebuild and the macOS arm64 binary can segfault during
+// Node module registration before JavaScript error handling is available.
 if (process.platform === 'win32') {
+    delete nativeBindings.drivelist;
+    await rm(fileURLToPath(
+        new URL('./lib/backend/native/drivelist.node', import.meta.url)
+    ), { force: true });
     nodeOptions.alias = {
         ...nodeOptions.alias,
         drivelist: fileURLToPath(
             new URL('./scripts/drivelist-windows-shim.cjs', import.meta.url)
+        ),
+    };
+}
+if (process.platform === 'darwin') {
+    delete nativeBindings.drivelist;
+    await rm(fileURLToPath(
+        new URL('./lib/backend/native/drivelist.node', import.meta.url)
+    ), { force: true });
+    nodeOptions.alias = {
+        ...nodeOptions.alias,
+        drivelist: fileURLToPath(
+            new URL('./scripts/drivelist-darwin-shim.cjs', import.meta.url)
         ),
     };
 }

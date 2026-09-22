@@ -45,7 +45,6 @@ import {
   authoringRemoteConflict,
   authoringSaveFailureAction,
   authoringStateMessage,
-  catalogConflictDecision,
   draftSaveMessage,
   isAuthoringConflict,
   isAuthoringSnapshotDirty,
@@ -76,6 +75,11 @@ import {
 } from './useWorkflowIdeSavedSource'
 import { useWorkflowPanelRuntimeProjection } from './useWorkflowPanelRuntimeProjection'
 import { workflowTaskIsLive } from '../utils/workflowTaskPresentation'
+import {
+  generateValidatedWorkflowPython,
+  type WorkflowCanvasValidationCache
+} from '../utils/workflowCanvasValidation'
+import { useCanvasMutationSync } from '../utils/workflowCanvasMutationSync'
 
 export type { PersistentWorkflowAuthoringOptions } from './persistentWorkflowAuthoringTypes'
 
@@ -89,6 +93,7 @@ export function usePersistentWorkflowAuthoring({
   runtime,
   active = true,
   definitionPort,
+  initialMode,
   definitionEditingStatus,
   workflowUuid,
   traceRuntime,
@@ -103,7 +108,9 @@ export function usePersistentWorkflowAuthoring({
   recoveryRevision = 0
 }: PersistentWorkflowAuthoringOptions) {
   const [mode, setMode] = useState<WorkflowEditMode>(
-    () => definitionPort.capabilities.sourceEditing ? 'code' : 'canvas'
+    () => initialMode ?? (
+      definitionPort.capabilities.sourceEditing ? 'code' : 'canvas'
+    )
   )
   const [codeProjection, setCodeProjection] =
     useState<WorkflowCodeProjection>(
@@ -112,8 +119,9 @@ export function usePersistentWorkflowAuthoring({
   const [aggregate, setAggregate] =
     useState<WorkflowAuthoringAggregate | null>(null)
   const policy = workflowAuthoringSurfacePolicy(mode)
-  const canvasMutationEnabled = policy.canvasMutationEnabled &&
-    definitionEditingStatus?.available !== false
+  // Validation diagnostics describe the current draft; they must not lock
+  // the canvas. Invalid drafts remain editable until the user fixes them.
+  const canvasMutationEnabled = policy.canvasMutationEnabled
   const editor = useCodeMirror(
     '',
     'python',
@@ -134,17 +142,24 @@ export function usePersistentWorkflowAuthoring({
   const [selectedNodeNameDirty, setSelectedNodeNameDirty] = useState(false)
   const [actionParametersOpen, setActionParametersOpen] = useState(false)
   const [workflowIoOpen, setWorkflowIoOpen] = useState(false)
-  // 外部 IDE 已占用同窗宽度时，默认把节点库收起；用户仍可显式展开。
-  // Kernel Web 保持原有默认展开行为。
-  const [nodePaletteOpen, setNodePaletteOpen] = useState(
-    () => !hideEmbeddedCodeEditor
-  )
+  // 画布模式以三栏工作台为默认；操作调试视图由视图层保证资源库常驻。
+  const [nodePaletteOpen, setNodePaletteOpen] = useState(true)
   const [message, setMessage] = useState(
     definitionPort.capabilities.authority === 'backend'
       ? '正在读取 Backend 工作流图…'
       : '正在读取 OS 工作流编辑状态…'
   )
   const [error, setError] = useState<string | null>(null)
+  const [localValidationDiagnostics, setLocalValidationDiagnostics] =
+    useState<WorkflowAuthoringTransformResult['diagnostics'] | null>(null)
+  const canvasValidationCache = useRef<WorkflowCanvasValidationCache | null>(
+    null
+  )
+  useEffect(() => {
+    if (canvasValidationCache.current?.sourceGraph === graph) return
+    canvasValidationCache.current = null
+    setLocalValidationDiagnostics(null)
+  }, [graph])
   const {
     actionCatalog,
     actionCatalogError,
@@ -186,6 +201,7 @@ export function usePersistentWorkflowAuthoring({
   ])
   // 首次 OS 聚合返回前保持忙碌，避免新建工作流首帧误触编辑命令。
   const [busy, setBusy] = useState(true)
+  const [preparingSavePreview, setPreparingSavePreview] = useState(false)
   const [pendingMode, setPendingMode] = useState<WorkflowEditMode | null>(null)
   const [fullSourceDiff, setFullSourceDiff] =
     useState<FullSourceDiff | null>(null)
@@ -253,7 +269,9 @@ export function usePersistentWorkflowAuthoring({
             content,
             workflowUuid
           )
-          const generated = await generateCanvasPython(importedGraph)
+          const generated = await generateCanvasPython(importedGraph, aggregate as WorkflowAuthoringAggregate, {
+            allowIncompleteDraft: true
+          })
           if (!generated.graph || !generated.normalized_python_source) {
             throw new Error('OS 未返回完整的画布与 Python 数据')
           }
@@ -349,8 +367,6 @@ export function usePersistentWorkflowAuthoring({
       swimlaneDirection
     )
     setGraph(nextGraph)
-    setCanvasDirty(true)
-    setSelectedNodeNameDirty(false)
     setError(null)
     setMessage(
       `已应用${workflowDagLayoutStrategyLabel(strategy)}${
@@ -359,8 +375,7 @@ export function usePersistentWorkflowAuthoring({
               swimlaneDirection
             )}）`
           : ''
-      }布局；` +
-      '保存草稿后将写入工作流'
+      }布局`
     )
   }, [
     busy,
@@ -378,7 +393,7 @@ export function usePersistentWorkflowAuthoring({
     ? hideEmbeddedCodeEditor ? ideSourceDirty : editor.isDirty
     : canvasDirty || selectedNodeNameDirty
   const executionBlockedReason = executionStatus?.available === false
-    ? executionStatus.reason || 'OS 未就绪；请先在环境管理中启动 OS'
+    ? executionStatus.reason || 'OS 未就绪；请先在仿真调试或真实设备调试配置中启动 OS'
     : null
   const taskPanel = usePersistentWorkflowTaskPanel({
     runtime,
@@ -440,6 +455,8 @@ export function usePersistentWorkflowAuthoring({
     setSelectedNodeUuid(null)
     setSelectedNodeName('')
     setSelectedNodeNameDirty(false)
+    setLocalValidationDiagnostics(null)
+    canvasValidationCache.current = null
     setRemoteConflict(null)
     setError(null)
     setMessage(nextMessage)
@@ -628,104 +645,38 @@ export function usePersistentWorkflowAuthoring({
 
   const generateCanvasPython = useCallback(async (
     sourceGraph: WorkflowAuthoringGraph,
-    authority: WorkflowAuthoringAggregate = aggregate as WorkflowAuthoringAggregate
+    authority: WorkflowAuthoringAggregate = aggregate as WorkflowAuthoringAggregate,
+    options?: { allowIncompleteDraft?: boolean; publishDiagnostics?: boolean }
   ): Promise<WorkflowAuthoringTransformResult> => {
-    if (!definitionPort.capabilities.sourceEditing) {
-      throw new Error(
-        definitionPort.capabilities.sourceEditingDisabledReason ??
-        '当前数据源不支持工作区源码编辑'
-      )
-    }
     if (!authority) throw new Error('工作流编辑数据尚未就绪')
-    const sourceUri = authority.draft?.source_uri
-    if (!sourceUri) throw new Error('当前工作流尚未注册软件包中的 Python 草稿')
-    const request = (graphValue: WorkflowAuthoringGraph) => queue.run(
-      () => runtime.generateWorkflowAuthoringPython({
-        workflow_uuid: workflowUuid,
-        revision: authority.workflow_revision,
-        source_uri: sourceUri,
-        graph: graphValue
-      })
-    )
-    let graphValue = sourceGraph
-    let generated: WorkflowAuthoringTransformResult | null = null
-    let catalogFailure: unknown = null
-    try {
-      generated = await request(graphValue)
-    } catch (generateError) {
-      if (!isTemplateCatalogConflict(generateError)) throw generateError
-      catalogFailure = generateError
-    }
-    const diagnosticCatalogMismatch = generated?.diagnostics.some(
-      (diagnostic) => diagnostic.code === 'template_catalog_mismatch' ||
-        diagnostic.code === 'template_catalog_conflict'
-    ) ?? false
-    if (catalogFailure || diagnosticCatalogMismatch) {
-      const refreshedCatalog = (
-        await refreshWorkflowCatalogsAfterConflict()
-      ).action
-      const decision = catalogConflictDecision({
-        dirty: localState.current.canvasDirty,
-        localPython: localState.current.editorValue,
-        localGraph: sourceGraph,
-        observedFingerprint:
-          authority.candidate?.template_catalog_fingerprint ??
-          authority.applied_source?.template_catalog_fingerprint ??
-          actionCatalog?.fingerprint ?? '',
-        currentFingerprint: refreshedCatalog.fingerprint ?? ''
-      })
-      if (!decision) {
-        if (catalogFailure) throw catalogFailure
-        throw new Error('操作目录已变化，但未返回新的版本标识')
-      }
-      graphValue = rehydrateTypedActionGraph(
-        refreshedCatalog,
-        decision.retainLocalGraph
-      )
-      setGraph(graphValue)
-      setCanvasDirty(true)
-      localState.current = {
-        ...localState.current,
-        graph: graphValue,
-        canvasDirty: true
-      }
-      setMessage('操作目录已更新；本地画布已按稳定 UUID 恢复')
-      generated = await request(graphValue)
-    }
-    if (!generated) throw new Error('OS 未返回工作流转换结果')
-    let blocking = generated.diagnostics.filter(
-      (diagnostic) => diagnostic.severity === 'error'
-    )
-    if (blocking.length > 0 || !generated.normalized_python_source) {
-      throw new Error(
-        blocking.map((item) => `${item.code}: ${item.message}`).join('\n') ||
-        'OS 未返回完整规范化 Python'
-      )
-    }
-    if (!generated.graph) throw new Error('OS 未返回完整画布数据')
-    const validated = await queue.run(
-      () => runtime.validateWorkflowAuthoring({
-        workflow_uuid: workflowUuid,
-        revision: authority.workflow_revision,
-        source_uri: sourceUri,
-        graph: generated.graph as WorkflowAuthoringGraph,
-        python_source: generated.normalized_python_source as string
-      })
-    )
-    blocking = validated.diagnostics.filter(
-      (diagnostic) => diagnostic.severity === 'error'
-    )
-    if (
-      blocking.length > 0 ||
-      !validated.graph ||
-      !validated.normalized_python_source
-    ) {
-      throw new Error(
-        blocking.map((item) => `${item.code}: ${item.message}`).join('\n') ||
-        'OS 未通过编辑中入参与出参校验'
-      )
-    }
-    return validated
+    return generateValidatedWorkflowPython({
+      actionCatalogFingerprint: actionCatalog?.fingerprint ?? '',
+      authority,
+      cache: canvasValidationCache,
+      definitionPort,
+      localCanvasDirty: localState.current.canvasDirty,
+      localEditorValue: localState.current.editorValue,
+      queue,
+      refreshCatalog: refreshWorkflowCatalogsAfterConflict,
+      runtime,
+      sourceGraph,
+      workflowUuid,
+      allowIncompleteDraft: options?.allowIncompleteDraft === true,
+      onCatalogRehydrated: (graphValue) => {
+        setGraph(graphValue)
+        setCanvasDirty(true)
+        localState.current = {
+          ...localState.current,
+          graph: graphValue,
+          canvasDirty: true
+        }
+        setMessage('操作目录已更新；本地画布已按稳定 UUID 恢复')
+      },
+      // 自动同步由序列号守卫在保存结束后发布诊断，避免旧请求闪现提示。
+      onDiagnostics: options?.publishDiagnostics === false
+        ? () => undefined
+        : setLocalValidationDiagnostics
+    })
   }, [
     actionCatalog?.fingerprint,
     aggregate,
@@ -735,6 +686,64 @@ export function usePersistentWorkflowAuthoring({
     runtime,
     workflowUuid
   ])
+
+  const syncCanvasMutation = useCanvasMutationSync({
+    definitionPort,
+    editorReplaceContent: editor.replaceContent,
+    generateCanvasPython: (
+      sourceGraph,
+      authority
+    ) => generateCanvasPython(sourceGraph, authority, {
+      allowIncompleteDraft: true,
+      publishDiagnostics: false
+    }),
+    localState,
+    queue,
+    runtime,
+    setAggregate,
+    setCanvasDirty,
+    setError,
+    setGraph,
+    setLocalValidationDiagnostics,
+    setMessage,
+    setRemoteConflict,
+    workflowUuid
+  })
+  /**
+   * 只对当前内存草稿执行 OS Python 生成与校验，不保存也不应用候选。
+   */
+  const validateCanvasDraft = (): void => {
+    if (!graph || !aggregate || mode !== 'canvas') return
+    if (!definitionPort.capabilities.sourceEditing) {
+      setError(
+        definitionPort.capabilities.sourceEditingDisabledReason ??
+        '当前数据源不提供 OS Python 草稿校验'
+      )
+      return
+    }
+    void run(async () => {
+      setLocalValidationDiagnostics(null)
+      const sourceGraph = selectedNodeNameDirty && selectedNodeUuid
+        ? updatePersistentAuthoringNodeName(
+            graph,
+            selectedNodeUuid,
+            selectedNodeName
+          )
+        : graph
+      if (sourceGraph !== graph) {
+        setGraph(sourceGraph)
+        setCanvasDirty(true)
+        setSelectedNodeNameDirty(false)
+      }
+      const validated = await generateCanvasPython(sourceGraph)
+      const warningCount = validated.diagnostics.filter(
+        (diagnostic) => diagnostic.severity === 'warning'
+      ).length
+      setMessage(warningCount > 0
+        ? `本地草稿校验通过，包含 ${warningCount} 项警告；未保存、未应用`
+        : '本地草稿校验通过；未保存、未应用')
+    })
+  }
 
   /**
    * 切换工作流单编辑权模式，并在进入画布模式时自动应用一次美化布局。
@@ -756,7 +765,9 @@ export function usePersistentWorkflowAuthoring({
     if (nextMode === 'canvas') {
       const sourceGraph = authoringProjection(aggregate).graph
       if (definitionPort.capabilities.sourceEditing) {
-        const generated = await generateCanvasPython(sourceGraph)
+        const generated = await generateCanvasPython(sourceGraph, aggregate as WorkflowAuthoringAggregate, {
+          allowIncompleteDraft: true
+        })
         setGraph(beautifyPersistentAuthoringGraph(
           generated.graph || sourceGraph
         ))
@@ -887,7 +898,8 @@ export function usePersistentWorkflowAuthoring({
       })
       return
     }
-    if (!graph) return
+    if (!graph || busy || preparingSavePreview) return
+    setPreparingSavePreview(true)
     void run(async () => {
       const sourceGraph = selectedNodeNameDirty && selectedNodeUuid
         ? updatePersistentAuthoringNodeName(
@@ -896,22 +908,24 @@ export function usePersistentWorkflowAuthoring({
             selectedNodeName
           )
         : graph
-      if (sourceGraph !== graph) {
-        setGraph(sourceGraph)
-        setCanvasDirty(true)
-        setSelectedNodeNameDirty(false)
-      }
       if (definitionPort.capabilities.directGraphSaving) {
         const saved = await definitionPort.saveGraph(sourceGraph)
         remotePending.current = false
         installAggregate(
           saved,
-          `${definitionPort.capabilities.label} 工作流图已保存，` +
-          `当前修订 ${saved.workflow_revision}`
+          `保存成功；${definitionPort.capabilities.label} 工作流图已更新`
         )
         return
       }
-      const generated = await generateCanvasPython(sourceGraph)
+      const generated = await generateCanvasPython(sourceGraph, aggregate as WorkflowAuthoringAggregate, {
+        allowIncompleteDraft: true
+      })
+      // 等差异生成完成再更新画布，与对比框一起提交，避免等待期间重绘。
+      if (sourceGraph !== graph) {
+        setGraph(sourceGraph)
+        setCanvasDirty(true)
+        setSelectedNodeNameDirty(false)
+      }
       const decision = workflowCanvasDraftSaveDecision({
         baselinePython: authoritativePython(aggregate),
         generatedPython: generated.normalized_python_source as string,
@@ -928,7 +942,7 @@ export function usePersistentWorkflowAuthoring({
           applyAfterSave: false
         })
       }
-    })
+    }).finally(() => setPreparingSavePreview(false))
   }
 
   /**
@@ -975,7 +989,7 @@ export function usePersistentWorkflowAuthoring({
           installAggregate(
             applied.authoring,
             applied.apply_result.kind === 'graph'
-              ? `工作流已应用，当前版本为 ${applied.apply_result.workflow_revision}`
+              ? '工作流已应用'
               : '源码已应用，工作流图未发生变化'
           )
           return
@@ -1033,7 +1047,8 @@ export function usePersistentWorkflowAuthoring({
         localGraph = rebaseGraphIdentity(localGraph, conflict.remote)
         const generated = await generateCanvasPython(
           localGraph,
-          conflict.remote
+          conflict.remote,
+          { allowIncompleteDraft: true }
         )
         localPython = generated.normalized_python_source as string
       }
@@ -1078,7 +1093,7 @@ export function usePersistentWorkflowAuthoring({
       installAggregate(
         applied.authoring,
         applied.apply_result.kind === 'graph'
-          ? `工作流已应用，当前版本为 ${applied.apply_result.workflow_revision}`
+          ? '工作流已应用'
           : '源码已应用，工作流图未发生变化'
       )
       return applied
@@ -1133,9 +1148,15 @@ export function usePersistentWorkflowAuthoring({
    * @returns 不返回值；异步应用结果通过工作流编辑器状态呈现。
    */
   const applyCandidate = (): void => {
+    if (dirty) {
+      saveDraft()
+      setMessage('正在先保存当前工作流草稿；保存完成后请再次点击发布')
+      return
+    }
     const candidate = aggregate?.candidate
     if (!candidate) {
-      setError('当前没有可应用的服务器候选版本')
+      saveDraft()
+      setMessage('正在保存并校验当前工作流；完成后将继续发布')
       return
     }
     const draft = aggregate?.draft
@@ -1170,7 +1191,8 @@ export function usePersistentWorkflowAuthoring({
   const projectionKind = aggregate
     ? authoringProjection(aggregate).kind
     : null
-  const diagnostics = aggregate?.draft?.diagnostics ?? []
+  const diagnostics = localValidationDiagnostics ??
+    aggregate?.draft?.diagnostics ?? []
   const canvasNodeEditor = usePersistentWorkflowCanvasNodeEditor({
     actionCatalog,
     canvasMutationEnabled,
@@ -1191,6 +1213,8 @@ export function usePersistentWorkflowAuthoring({
     setSelectedNodeName,
     setSelectedNodeNameDirty,
     setSelectedNodeUuid,
+    setLocalValidationDiagnostics,
+    syncCanvasMutation,
     ideBridge,
     sourceProjection
   })
@@ -1269,12 +1293,13 @@ export function usePersistentWorkflowAuthoring({
           remotePending.current = false
           installAggregate(
             saved,
-            `${definitionPort.capabilities.label} 工作流图已保存，` +
-            `当前修订 ${saved.workflow_revision}`
+            `保存成功；${definitionPort.capabilities.label} 工作流图已更新`
           )
           return { kind: 'saved' as const, aggregate: saved, editMode: mode }
         }
-        const generated = await generateCanvasPython(sourceGraph)
+        const generated = await generateCanvasPython(sourceGraph, aggregate as WorkflowAuthoringAggregate, {
+          allowIncompleteDraft: true
+        })
         const generatedPython = generated.normalized_python_source
         if (!generatedPython) throw new Error('OS 未返回完整规范化 Python')
         return {
@@ -1355,12 +1380,12 @@ export function usePersistentWorkflowAuthoring({
   const candidateIo = graph ? workflowIoMetadata(graph) : null
 
   return {
-    acceptFullSourceDiff, actionCatalog, actionCatalogError, actionParametersOpen,
+    active, acceptFullSourceDiff, actionCatalog, actionCatalogError, actionParametersOpen,
     adoptRemoteConflict, aggregate, appliedIo,
     applyCandidate, beautifyCanvasLayout,
     busy, cancelFullSourceDiff, candidateIo, canvasMutationEnabled,
     canvasSaveHint: definitionPort.capabilities.directGraphSaving
-      ? '画布缓冲已修改；保存后将以修订 CAS 写入 Backend'
+      ? '画布已修改；保存时将检查冲突并写入 Backend'
       : '画布缓冲已修改；保存前将生成完整 Python 差异',
     codeProjection,
     diagnostics,
@@ -1375,7 +1400,10 @@ export function usePersistentWorkflowAuthoring({
     materialSourceCatalogLoading, materialTraces, message, mode,
     nodePaletteOpen, onChooseWorkflow, pendingMode, policy, projectionKind,
     refreshMaterialSourceCatalog, remoteConflict, requestMode,
-    retryLocalAfterConflict, runtime, saveDraft,
+    retryLocalAfterConflict, runtime, saveDraft, preparingSavePreview,
+    validateCanvasDraft,
+    canvasValidationAvailable:
+      mode === 'canvas' && definitionPort.capabilities.sourceEditing,
     selectedNodeName, selectedNodeUuid,
     setActionParametersOpen, setCanvasDirty, setCodeProjection, setError,
     setFullSourceDiff, setGraph, setMessage, setNodePaletteOpen,

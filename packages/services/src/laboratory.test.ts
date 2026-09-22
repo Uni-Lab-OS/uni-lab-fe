@@ -27,12 +27,16 @@ describe('laboratory service', () => {
     }])
   })
 
-  it.each(['local-python', 'local-go'])(
-    'uses DeviceOverview plus WorkflowNodeTemplate for %s',
-    async (backendId) => {
+  it('uses the OS authoring device catalog for local-go',
+    async () => {
       const service = createLaboratoryService(
-        fixtureHttp(sharedDeviceResponses()),
-        getDefaultBackend(backendId)
+        fixtureHttp({
+          '/api/v1/authoring/device-catalog': {
+            code: 0,
+            data: runtimeDeviceResponses()
+          }
+        }),
+        getDefaultBackend('local-go')
       )
 
       await expect(service.getOnlineDevices()).resolves.toMatchObject([{
@@ -48,26 +52,9 @@ describe('laboratory service', () => {
           actionRef: `${materialUuid}.transfer.sample.v1`,
           displayName: '转移样品',
           typeName: 'UniLabJsonCommand',
-          inputSchema: {
-            sample: { $slot: 'ResourceSlot' },
-            mode: { type: 'string', enum: ['safe', 'fast'], default: 'safe' }
-          }
+          inputSchema: { mode: { type: 'string', default: 'safe' } }
         }]
       }])
-      await expect(service.getDeviceCatalog()).resolves.toMatchObject([{
-        deviceId: materialUuid,
-        resourceTemplateUuid,
-        actions: [{
-          label: '转移样品',
-          outputSchema: { sample: { $slot: 'ResourceSlot' } }
-        }]
-      }])
-      await expect(service.getActionDevices()).resolves.toEqual([
-        { deviceId: materialUuid, label: '主泵' }
-      ])
-      await expect(service.getDeviceActions(materialUuid)).resolves.toMatchObject([
-        { actionName: 'transfer.sample.v1', schema: { type: 'object' } }
-      ])
       await expect(
         service.getActionSchema(materialUuid, 'transfer.sample.v1')
       ).resolves.toMatchObject({
@@ -78,6 +65,94 @@ describe('laboratory service', () => {
     }
   )
 
+  it('resolves a class-name device type to the inventory resource template UUID', async () => {
+    const service = createLaboratoryService(
+      fixtureHttp({
+        '/api/v1/authoring/device-catalog': {
+          code: 0,
+          data: {
+            items: [{
+              id: 'szlab_mixer_photoshotting',
+              materialUuid,
+              deviceTypeId: 'community.szlab_poly_studio.szlab_mixer_photoshotting',
+              deviceKey: '/devices/szlab_mixer_photoshotting/szlab_mixer_photoshotting',
+              namespace: '/devices/szlab_mixer_photoshotting',
+              name: 'S05 拍照检测',
+              online: true,
+              actions: [{
+                id: 'inspect_beaker',
+                actionRef: 'szlab_mixer_photoshotting.inspect_beaker',
+                name: 'S05 烧杯拍照检测',
+                typeName: 'UniLabJsonCommand',
+                inputSchema: { beaker: { type: 'object' } },
+                outputSchema: {},
+                busy: false
+              }]
+            }]
+          }
+        },
+        '/api/v1/devices': {
+          code: 0,
+          data: [{
+            binding: {
+              local_id: 'szlab_mixer_photoshotting',
+              edge_uuid: 'edge-01',
+              material_uuid: materialUuid
+            },
+            material: {
+              uuid: materialUuid,
+              resource_template_uuid: resourceTemplateUuid,
+              name: 'S05 拍照检测'
+            }
+          }]
+        }
+      }),
+      getDefaultBackend('local-python')
+    )
+
+    await expect(service.getOnlineDevices()).resolves.toMatchObject([{
+      id: 'szlab_mixer_photoshotting',
+      resourceTemplateUuid
+    }])
+  })
+
+  it('uses the OS authoring device catalog for local-python', async () => {
+    const requests: Array<{ path: string; method?: string; body?: string }> = []
+    const service = createLaboratoryService(
+      fixtureHttp({
+        '/api/v1/authoring/device-catalog': {
+          code: 0,
+          data: runtimeDeviceResponses()
+        }
+      }, requests),
+      getDefaultBackend('local-python')
+    )
+
+    await expect(service.getOnlineDevices()).resolves.toMatchObject([{
+      id: materialUuid,
+      materialUuid,
+      machineName: '主泵',
+      online: true,
+      actions: [{
+        actionName: 'transfer.sample.v1',
+        displayName: '转移样品',
+        typeName: 'UniLabJsonCommand',
+        inputSchema: {
+          mode: { type: 'string', default: 'safe' }
+        }
+      }]
+    }])
+    await expect(service.getActionSchema(materialUuid, 'transfer.sample.v1'))
+      .resolves.toMatchObject({
+        goalDefault: { mode: 'safe' },
+        actionType: 'UniLabJsonCommand'
+      })
+    expect(requests.map(({ path }) => path)).toEqual([
+      '/api/v1/authoring/device-catalog',
+      '/api/v1/authoring/device-catalog'
+    ])
+  })
+
   it('fails closed when Local returns a non-DeviceOverview catalog', async () => {
     const service = createLaboratoryService(
       fixtureHttp({
@@ -87,7 +162,7 @@ describe('laboratory service', () => {
           data: { schemaVersion: 'device-catalog/v1', items: [] }
         }
       }),
-      getDefaultBackend('local-python')
+      getDefaultBackend('cloud')
     )
 
     await expect(service.getDeviceCatalog()).rejects.toMatchObject({
@@ -148,7 +223,12 @@ describe('laboratory service', () => {
 
   it('forwards caller cancellation to every shared catalog read', async () => {
     const controller = new AbortController()
-    const responses = sharedDeviceResponses()
+    const responses: Record<string, unknown> = {
+      '/api/v1/authoring/device-catalog': {
+        code: 0,
+        data: runtimeDeviceResponses()
+      }
+    }
     const observedSignals: Array<AbortSignal | null> = []
     const http: HttpClient = {
       request: async <ResponseValue>(
@@ -169,7 +249,7 @@ describe('laboratory service', () => {
     await service.ping(controller.signal)
     await service.getOnlineDevices(controller.signal)
 
-    expect(observedSignals.length).toBeGreaterThan(2)
+    expect(observedSignals.length).toBe(2)
     expect(new Set(observedSignals)).toEqual(new Set([controller.signal]))
   })
 })
@@ -198,6 +278,31 @@ function sharedDeviceResponses(): Record<string, unknown> {
         actions: [{ name: 'transfer.sample.v1', type: 'UniLabJsonCommand' }]
       }]
     }
+  }
+}
+
+function runtimeDeviceResponses(): Record<string, unknown> {
+  return {
+    items: [{
+      id: materialUuid,
+      materialUuid,
+      deviceTypeId: resourceTemplateUuid,
+      deviceKey: 'pump-01',
+      namespace: 'edge-01',
+      name: '主泵',
+      online: true,
+      actions: [{
+        id: 'transfer.sample.v1',
+        actionRef: `${materialUuid}.transfer.sample.v1`,
+        name: '转移样品',
+        typeName: 'UniLabJsonCommand',
+        inputSchema: {
+          mode: { type: 'string', default: 'safe' }
+        },
+        outputSchema: { sample: { $slot: 'ResourceSlot' } },
+        busy: false
+      }]
+    }]
   }
 }
 

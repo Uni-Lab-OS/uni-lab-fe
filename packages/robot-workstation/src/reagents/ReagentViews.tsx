@@ -9,6 +9,7 @@ import { MoleculeStructure2D } from './MoleculeStructure2D'
 
 export interface ReagentLedgerActions {
   edit(item: ReagentInventoryProjection): void
+  dispense?(item: ReagentInventoryProjection): void
   history(item: ReagentInventoryProjection): void
   delete(item: ReagentInventoryProjection): void
 }
@@ -102,6 +103,18 @@ export function ReagentLedgerView({
                   <td data-label="操作">
                     <div className={uiClass.rowActions}>
                       <RowAction icon="edit" label={`编辑 ${item.name}`} disabled={item.revision == null} onClick={() => actions.edit(item)} />
+                      {actions.dispense ? (
+                        <RowAction
+                          icon="split"
+                          label={`分装 ${item.name}`}
+                          disabled={
+                            item.revision == null ||
+                            !item.unit ||
+                            (item.availableQuantity ?? item.totalQuantity ?? 0) <= 0
+                          }
+                          onClick={() => actions.dispense?.(item)}
+                        />
+                      ) : null}
                       <RowAction icon="history" label={`查看 ${item.name} 历史`} disabled={!item.materialId} onClick={() => actions.history(item)} />
                       <RowAction icon="trash" label={`删除 ${item.name}`} disabled={item.revision == null} onClick={() => actions.delete(item)} />
                     </div>

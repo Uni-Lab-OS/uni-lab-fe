@@ -25,6 +25,8 @@ export const COMPOSITE_CHILD_WORKFLOW_UUID =
   '10000000-0000-4000-8000-000000000006'
 export const COMPOSITE_PARENT_WORKFLOW_UUID =
   '10000000-0000-4000-8000-000000000007'
+export const OPERATION_AUTHORING_WORKFLOW_UUID =
+  '10000000-0000-4000-8000-000000000008'
 export const COMPOSITE_INVOCATION_UUID =
   '20000000-0000-4000-8000-000000000062'
 
@@ -40,9 +42,16 @@ export interface PersistentAuthoringOs {
   compositeChildWorkflowUuid: string
   compositeParentWorkflowUuid: string
   compositeInvocationUuid: string
+  operationWorkflowUuid: string
   sourcePath: string
   secondSourcePath: string
+  runtimeSourcePath: string
+  operationSourcePath: string
+  databasePath: string
   logs: () => string
+  readAuthoringDatabaseEvidence: (
+    workflowUuid: string
+  ) => Promise<AuthoringDatabaseEvidence>
   failNextRequest: (request: {
     method: string
     path: string
@@ -66,6 +75,18 @@ export interface PersistentAuthoringOs {
   stopProcess: () => Promise<void>
   restart: () => Promise<void>
   stop: () => Promise<void>
+}
+
+export interface AuthoringDatabaseEvidence {
+  workflow_uuid: string
+  workflow_revision: number
+  package_root: string
+  relative_path: string
+  source_uri: string
+  observed_draft_hash: string | null
+  candidate_hash: string | null
+  candidate: Record<string, unknown> | null
+  applied_source: Record<string, unknown> | null
 }
 
 export interface RuntimeFeedbackSample {
@@ -119,6 +140,19 @@ export async function startPersistentAuthoringOs(
     'workflows',
     'second.py'
   )
+  const runtimeSourcePath = join(
+    editableRoot,
+    'production_lab',
+    'workflows',
+    'runtime.py'
+  )
+  const operationSourcePath = join(
+    editableRoot,
+    'production_lab',
+    'workflows',
+    'operation.py'
+  )
+  const databasePath = join(workingDirectory, 'workflow.db')
   const port = await availablePort()
   const upstreamUrl = `http://127.0.0.1:${port}`
   let child: ChildProcess | null = null
@@ -195,9 +229,20 @@ export async function startPersistentAuthoringOs(
     compositeChildWorkflowUuid: COMPOSITE_CHILD_WORKFLOW_UUID,
     compositeParentWorkflowUuid: COMPOSITE_PARENT_WORKFLOW_UUID,
     compositeInvocationUuid: COMPOSITE_INVOCATION_UUID,
+    operationWorkflowUuid: OPERATION_AUTHORING_WORKFLOW_UUID,
     sourcePath,
     secondSourcePath,
+    runtimeSourcePath,
+    operationSourcePath,
+    databasePath,
     logs: () => output,
+    readAuthoringDatabaseEvidence: (workflowUuid) =>
+      readAuthoringDatabaseEvidence({
+        python,
+        osRepository,
+        databasePath,
+        workflowUuid
+      }),
     failNextRequest: (request) => {
       if (!options.faultProxy) {
         throw new Error('PersistentAuthoringOs fault proxy is not enabled')
@@ -259,7 +304,13 @@ from tests.workflow.test_authoring_engine import (
     _catalog_imports,
     _source,
 )
+from tests.workflow.test_m2a_material_source_vertical_slice import (
+    _catalog_imports as _material_source_catalog_imports,
+)
 from unilabos.config.config import BasicConfig
+from unilabos.registry.catalog_consumer import (
+    workflow_template_imports_from_registry_snapshot,
+)
 from unilabos.workflow.catalog import CatalogAuthority, TemplateCatalog
 from unilabos.workflow.service import WorkflowService
 from unilabos.workflow.store import WorkflowStore
@@ -274,6 +325,8 @@ second_workflow_uuid = "${SECOND_AUTHORING_WORKFLOW_UUID}"
 second_source_path = package_root / "workflows" / "second.py"
 runtime_workflow_uuid = "${RUNTIME_AUTHORING_WORKFLOW_UUID}"
 runtime_source_path = package_root / "workflows" / "runtime.py"
+operation_workflow_uuid = "${OPERATION_AUTHORING_WORKFLOW_UUID}"
+operation_source_path = package_root / "workflows" / "operation.py"
 scalar_input_workflow_uuid = "${SCALAR_INPUT_WORKFLOW_UUID}"
 scalar_input_source_path = package_root / "workflows" / "scalar_input.py"
 resource_slot_input_workflow_uuid = "${RESOURCE_SLOT_INPUT_WORKFLOW_UUID}"
@@ -286,7 +339,72 @@ composite_child_source_path = package_root / "workflows" / "composite_child.py"
 composite_parent_source_path = package_root / "workflows" / "composite_parent.py"
 
 def fixture_catalog_imports():
-    imports = _catalog_imports()
+    legacy_imports = _catalog_imports()
+    finalize_resource_template_uuid = next(
+        str(item.template["resource_template_uuid"])
+        for item in legacy_imports
+        if item.template.get("name") == "finalize"
+    )
+    action_schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "goal": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {"report": {"type": "string"}},
+                "required": [],
+            },
+            "result": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {"report": {"type": "string"}},
+                "required": ["report"],
+            },
+        },
+        "required": ["goal", "result"],
+        "x-unilabos-action-contract": {
+            "version": 1,
+            "input_order": ["report"],
+            "output_order": ["report"],
+            "resource_template_symbols": {"goal": {}, "result": {}},
+        },
+    }
+    modern_finalize = workflow_template_imports_from_registry_snapshot(
+        {
+            "reactor": {
+                "source_fqid": "lab.devices:Reactor",
+                "display_name": "Reactor",
+                "class": {
+                    "module": "lab.devices:Reactor",
+                    "action_value_mappings": {
+                        "finalize": {
+                            "displayname": "Finalize",
+                            "description": "Finalize one report",
+                            "schema": action_schema,
+                            "goal": {"report": "report"},
+                            "goal_default": {},
+                            "feedback": {},
+                            "result": {"report": "report"},
+                            "type": "action",
+                            "node_type": "compute",
+                        }
+                    },
+                },
+            }
+        },
+        authority_id="fe-d117-e2e-local",
+        resource_template_identity_resolver=(
+            lambda _identity: finalize_resource_template_uuid
+        ),
+    )[0]
+    imports = [
+        modern_finalize
+        if item.template.get("name") == "finalize"
+        else item
+        for item in legacy_imports
+    ]
+    imports.append(_material_source_catalog_imports()[0])
     if not composite_fixture:
         return imports
     from unilabos.workflow.catalog import NodeTemplateImport
@@ -304,8 +422,13 @@ def fixture_catalog_imports():
         for item in imports
     )
 
-source_path.parent.mkdir(parents=True, exist_ok=True)
-source_path.write_text(_source(), encoding="utf-8")
+def seed_source(path, source, *, encoding="utf-8"):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.is_file():
+        path.write_text(source, encoding=encoding)
+
+
+seed_source(source_path, _source())
 second_source = _source(workflow_uuid=second_workflow_uuid)
 second_source = second_source.replace(
     PREPARE_NODE_UUID,
@@ -314,8 +437,9 @@ second_source = second_source.replace(
     ANALYZE_NODE_UUID,
     "20000000-0000-4000-8000-000000000012",
 )
-second_source_path.write_text(second_source, encoding="utf-8")
-runtime_source_path.write_text(
+seed_source(second_source_path, second_source)
+seed_source(
+    runtime_source_path,
     f'''from lab.devices import Reactor
 from unilabos.workflow.authoring import device, workflow_definition, workflow_output
 
@@ -337,7 +461,30 @@ def runtime_control_demo():
 ''',
     encoding="utf-8",
 )
-scalar_input_source_path.write_text(
+seed_source(
+    operation_source_path,
+    f'''from lab.devices import Reactor
+from unilabos.workflow.authoring import device, workflow, workflow_output
+
+
+reactor: Reactor = device()
+
+
+@workflow(
+    workflow_uuid="{operation_workflow_uuid}",
+    displayname="Runtime experiment operation",
+    description="Catalog-backed experiment operation authoring fixture.",
+    definition_kind="operation",
+)
+def runtime_experiment_operation(*, report_prefix: str = "operation"):
+    # unilab:node_uuid=20000000-0000-4000-8000-000000000081
+    finalized = reactor.finalize(report=report_prefix)
+    return workflow_output(report=finalized.report)
+''',
+    encoding="utf-8",
+)
+seed_source(
+    scalar_input_source_path,
     f'''from lab.devices import Reactor
 from unilabos.registry.annotations import JSONValue
 from unilabos.workflow.authoring import device, workflow_definition, workflow_output
@@ -367,7 +514,8 @@ def scalar_input_task(
 ''',
     encoding="utf-8",
 )
-resource_slot_input_source_path.write_text(
+seed_source(
+    resource_slot_input_source_path,
     f'''from unilabos.registry.placeholder_type import ResourceSlot
 from unilabos.workflow.authoring import workflow_definition, workflow_output
 
@@ -383,7 +531,8 @@ def resource_slot_input_task(*, sample: ResourceSlot):
     encoding="utf-8",
 )
 if composite_fixture:
-    composite_child_source_path.write_text(
+    seed_source(
+        composite_child_source_path,
         f'''from c1_lifecycle.device import MeasurementDevice
 from unilabos.workflow.authoring import device, workflow_definition, workflow_output
 
@@ -403,7 +552,8 @@ def published_child(*, value: float):
 ''',
         encoding="utf-8",
     )
-    composite_parent_source_path.write_text(
+    seed_source(
+        composite_parent_source_path,
         f'''from c1_lifecycle.device import MeasurementDevice
 from production_lab.workflows.composite_child import published_child
 from unilabos.workflow.authoring import device, workflow_definition, workflow_output
@@ -441,6 +591,8 @@ editable_root.mkdir(parents=True, exist_ok=True)
         "    source: production_lab/workflows/second.py",
         f"  - workflow_uuid: {runtime_workflow_uuid}",
         "    source: production_lab/workflows/runtime.py",
+        f"  - workflow_uuid: {operation_workflow_uuid}",
+        "    source: production_lab/workflows/operation.py",
         f"  - workflow_uuid: {scalar_input_workflow_uuid}",
         "    source: production_lab/workflows/scalar_input.py",
         f"  - workflow_uuid: {resource_slot_input_workflow_uuid}",
@@ -483,6 +635,13 @@ try:
             description="Real Task/Job Runtime E2E",
             meta_data={},
             workflow_uuid=runtime_workflow_uuid,
+        )
+        service.create_workflow(
+            name="Runtime experiment operation",
+            tags=["operation"],
+            description="Real operation authoring and persistence E2E",
+            meta_data={"unilab": {"definition_kind": "operation"}},
+            workflow_uuid=operation_workflow_uuid,
         )
         service.create_workflow(
             name="I1 scalar input Task form fixture",
@@ -763,6 +922,55 @@ finally:
     connection.close()
 `
 
+const PYTHON_AUTHORING_DATABASE_READER = String.raw`
+import json
+import sqlite3
+import sys
+from pathlib import Path
+
+database_path = Path(sys.argv[1])
+workflow_uuid = sys.argv[2]
+connection = sqlite3.connect(
+    f"file:{database_path}?mode=ro",
+    uri=True,
+    timeout=10,
+)
+connection.row_factory = sqlite3.Row
+try:
+    connection.execute("PRAGMA query_only = ON")
+    row = connection.execute(
+        """
+        SELECT
+            workflow.uuid AS workflow_uuid,
+            workflow.revision AS workflow_revision,
+            registration.package_root,
+            registration.relative_path,
+            registration.source_uri,
+            authoring.observed_draft_hash,
+            authoring.candidate_hash,
+            authoring.candidate,
+            authoring.applied_source
+        FROM workflow
+        JOIN workflow_source_registration AS registration
+          ON registration.workflow_uuid = workflow.uuid
+        LEFT JOIN workflow_authoring AS authoring
+          ON authoring.workflow_uuid = workflow.uuid
+        WHERE workflow.uuid = ?
+        """,
+        (workflow_uuid,),
+    ).fetchone()
+    if row is None:
+        raise RuntimeError(f"authoring database row is missing: {workflow_uuid}")
+    result = dict(row)
+    for field in ("candidate", "applied_source"):
+        result[field] = (
+            json.loads(result[field]) if result[field] is not None else None
+        )
+    print("UNILAB_AUTHORING_DATABASE=" + json.dumps(result, sort_keys=True))
+finally:
+    connection.close()
+`
+
 async function runRuntimeMutation({
   python,
   osRepository,
@@ -866,6 +1074,62 @@ async function runMaterialAuthorityMutation({
   })
 }
 
+async function readAuthoringDatabaseEvidence({
+  python,
+  osRepository,
+  databasePath,
+  workflowUuid
+}: {
+  python: string
+  osRepository: string
+  databasePath: string
+  workflowUuid: string
+}): Promise<AuthoringDatabaseEvidence> {
+  return await new Promise<AuthoringDatabaseEvidence>((resolveRead, rejectRead) => {
+    const reader = spawn(
+      python,
+      ['-c', PYTHON_AUTHORING_DATABASE_READER, databasePath, workflowUuid],
+      {
+        cwd: osRepository,
+        env: {
+          ...process.env,
+          PYTHONPATH: osRepository,
+          PYTHONUNBUFFERED: '1'
+        },
+        stdio: ['ignore', 'pipe', 'pipe']
+      }
+    )
+    let output = ''
+    reader.stdout?.on('data', (chunk) => {
+      output += chunk.toString()
+    })
+    reader.stderr?.on('data', (chunk) => {
+      output += chunk.toString()
+    })
+    reader.once('error', rejectRead)
+    reader.once('exit', (code) => {
+      if (code !== 0) {
+        rejectRead(new Error(
+          `Authoring database reader exited with ${code}\n${output}`
+        ))
+        return
+      }
+      const resultLine = output.split(/\r?\n/).find((line) =>
+        line.startsWith('UNILAB_AUTHORING_DATABASE=')
+      )
+      if (!resultLine) {
+        rejectRead(new Error(
+          `Authoring database reader returned no evidence\n${output}`
+        ))
+        return
+      }
+      resolveRead(JSON.parse(resultLine.slice(
+        'UNILAB_AUTHORING_DATABASE='.length
+      )) as AuthoringDatabaseEvidence)
+    })
+  })
+}
+
 interface FaultProxy {
   url: string
   failNext: (request: {
@@ -892,11 +1156,28 @@ async function startFaultProxy(upstreamUrl: string): Promise<FaultProxy> {
   const server: HttpServer = createHttpServer((incoming, outgoing) => {
     const incomingUrl = new URL(incoming.url || '/', upstreamUrl)
     const method = incoming.method || 'GET'
+    const corsHeaders = {
+      'access-control-allow-origin': incoming.headers.origin || '*',
+      'access-control-allow-methods':
+        'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS',
+      'access-control-allow-headers':
+        incoming.headers['access-control-request-headers'] ||
+        'Content-Type, Authorization'
+    }
+    if (method === 'OPTIONS') {
+      incoming.resume()
+      outgoing.writeHead(204, {
+        ...corsHeaders,
+        'access-control-max-age': '600'
+      })
+      outgoing.end()
+      return
+    }
     const fixtureCatalog = currentFixtureCatalogResponse(method, incomingUrl)
     if (fixtureCatalog) {
       incoming.resume()
       outgoing.writeHead(200, {
-        'Access-Control-Allow-Origin': incoming.headers.origin || '*',
+        ...corsHeaders,
         'Content-Type': 'application/json; charset=utf-8',
         'Content-Length': Buffer.byteLength(fixtureCatalog)
       })
@@ -918,7 +1199,7 @@ async function startFaultProxy(upstreamUrl: string): Promise<FaultProxy> {
         }
       })
       outgoing.writeHead(fault?.status ?? 503, {
-        'Access-Control-Allow-Origin': incoming.headers.origin || '*',
+        ...corsHeaders,
         'Content-Type': 'application/json; charset=utf-8',
         'Content-Length': Buffer.byteLength(body)
       })
@@ -935,16 +1216,24 @@ async function startFaultProxy(upstreamUrl: string): Promise<FaultProxy> {
       response.once('error', abortOutgoing)
       if (
         method === 'GET' &&
-        incomingUrl.pathname === '/api/v1/workflow-node-templates'
+        (
+          incomingUrl.pathname === '/api/v1/workflow-node-templates' ||
+          incomingUrl.pathname === '/api/v1/materials/graph' ||
+          incomingUrl.pathname === '/api/v1/workflows'
+        )
       ) {
         const chunks: Buffer[] = []
         response.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
         response.on('end', () => {
-          const body = normalizeWorkflowNodeTemplateCatalog(
-            Buffer.concat(chunks)
-          )
+          const upstreamBody = Buffer.concat(chunks)
+          const body = incomingUrl.pathname === '/api/v1/materials/graph'
+            ? normalizeFixtureMaterialGraph(upstreamBody)
+            : incomingUrl.pathname === '/api/v1/workflows'
+              ? normalizeFixtureWorkflowCatalog(upstreamBody)
+              : normalizeWorkflowNodeTemplateCatalog(upstreamBody)
           const responseHeaders = {
             ...response.headers,
+            ...corsHeaders,
             'content-length': String(body.length)
           }
           delete responseHeaders['transfer-encoding']
@@ -953,7 +1242,10 @@ async function startFaultProxy(upstreamUrl: string): Promise<FaultProxy> {
         })
         return
       }
-      outgoing.writeHead(response.statusCode || 502, response.headers)
+      outgoing.writeHead(response.statusCode || 502, {
+        ...response.headers,
+        ...corsHeaders
+      })
       response.pipe(outgoing)
     })
     upstream.on('error', (error) => {
@@ -969,7 +1261,7 @@ async function startFaultProxy(upstreamUrl: string): Promise<FaultProxy> {
         }
       })
       outgoing.writeHead(502, {
-        'Access-Control-Allow-Origin': incoming.headers.origin || '*',
+        ...corsHeaders,
         'Content-Type': 'application/json; charset=utf-8',
         'Content-Length': Buffer.byteLength(body)
       })
@@ -1025,6 +1317,75 @@ function normalizeWorkflowNodeTemplateCatalog(body: Buffer): Buffer {
       ...currentData,
       has_more: false,
       next_cursor_uuid: null
+    }
+  }))
+}
+
+/**
+ * 把旧夹具缺失的公共物料图展示字段补为当前只读合同。
+ *
+ * @param body 旧 OS 返回的公共物料图响应体。
+ * @returns 保留真实库存身份并补齐类型、修订和资源模板展示摘要的响应体。
+ */
+function normalizeFixtureMaterialGraph(body: Buffer): Buffer {
+  const envelope = JSON.parse(body.toString('utf8')) as {
+    data?: { nodes?: Array<Record<string, unknown>> }
+  }
+  if (!Array.isArray(envelope.data?.nodes)) return body
+  return Buffer.from(JSON.stringify({
+    ...envelope,
+    data: {
+      ...envelope.data,
+      nodes: envelope.data.nodes.map((node) => {
+        const material = node.material as Record<string, unknown> | undefined
+        if (!material) return node
+        const resourceTemplateUuid = String(
+          material.resource_template_uuid ?? ''
+        )
+        const className = String(material.class ?? resourceTemplateUuid)
+        return {
+          ...node,
+          material: {
+            ...material,
+            type: material.type ?? 'resource',
+            revision: material.revision ?? 1
+          },
+          resource_template: node.resource_template ?? {
+            uuid: resourceTemplateUuid,
+            name: className,
+            display_name: className,
+            resource_type: 'resource'
+          }
+        }
+      })
+    }
+  }))
+}
+
+/**
+ * 为旧夹具的页码工作流目录补齐当前遍历终止字段。
+ *
+ * @param body 旧 OS 返回的工作流目录响应体。
+ * @returns 带 has_more 的当前页码合同响应体。
+ */
+function normalizeFixtureWorkflowCatalog(body: Buffer): Buffer {
+  const envelope = JSON.parse(body.toString('utf8')) as {
+    data?: Record<string, unknown>
+  }
+  const data = envelope.data
+  if (!data || !Array.isArray(data.items)) return body
+  const page = Number(data.page)
+  const pageSize = Number(data.page_size)
+  const total = Number(data.total)
+  return Buffer.from(JSON.stringify({
+    ...envelope,
+    data: {
+      ...data,
+      has_more:
+        Number.isFinite(page) && Number.isFinite(pageSize) &&
+        Number.isFinite(total)
+          ? page * pageSize < total
+          : false
     }
   }))
 }

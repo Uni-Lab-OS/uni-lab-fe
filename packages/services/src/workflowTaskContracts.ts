@@ -1,3 +1,4 @@
+import type { ManualConfirmation } from './workflowRecoveryContracts'
 /**
  * 工作流任务（WorkflowTask）及其作业、命令与事件的稳定传输合同。
  *
@@ -352,6 +353,12 @@ export type WorkflowNodeJobStatus =
   | 'timeout'
 
 export interface WorkflowNodeJob {
+  manual_confirmation?: ManualConfirmation
+  expected_change_set?: Record<string, unknown>
+  review_version?: string
+  result_reviewed?: boolean
+  execution_source?: string
+
   uuid: string
   create_time: string
   update_time: string

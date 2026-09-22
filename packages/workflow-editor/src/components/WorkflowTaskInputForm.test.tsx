@@ -18,7 +18,7 @@ const formModule = await import(/* @vite-ignore */ modulePath)
   }
 
 describe('WorkflowTaskInputForm Applied projection', () => {
-  it('renders the Applied revision, default hints, and three input states', () => {
+  it('hides the revision while rendering default hints and three input states', () => {
     expect(formModule.WorkflowTaskInputForm).toBeTypeOf('function')
     const markup = renderToStaticMarkup(createElement(
       formModule.WorkflowTaskInputForm!,
@@ -26,7 +26,7 @@ describe('WorkflowTaskInputForm Applied projection', () => {
     ))
     const text = visibleText(markup)
 
-    expect(text).toMatch(/Applied[^0-9]*7|已应用[^0-9]*7/i)
+    expect(text).not.toMatch(/Applied[^0-9]*7|已应用[^0-9]*7/i)
     expect(text).toMatch(/attempts[\s\S]*(default|默认)[^0-9]*3/i)
     expect(markup).toContain('使用工作流默认值')
     expect(markup).toContain('传入空值')

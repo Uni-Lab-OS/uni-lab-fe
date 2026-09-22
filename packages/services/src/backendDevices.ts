@@ -4,6 +4,7 @@ import type {
   DeviceActionInputSchema,
   DeviceActionSchema,
   DeviceActionTarget,
+  DeviceActionDeclarationDevice,
   DeviceCatalogItem,
   DeviceEdgeStatus,
   DeviceExecutionOccupancy,
@@ -131,6 +132,36 @@ export async function loadBackendOnlineDevices(
       action,
       matchActionTemplate(device, action, templates)
     ))
+  }))
+}
+
+/**
+ * 读取实验操作节点库所需的设备实例与原始动作声明。
+ *
+ * 此投影只消费 `/api/v1/devices`，动作模板由工作流目录独立加载并在调用侧按
+ * 资源模板、动作名和命令类型关联，避免同一界面重复预取完整模板详情。
+ */
+export async function loadBackendDeviceActionDeclarations(
+  http: HttpClient,
+  signal?: AbortSignal
+): Promise<DeviceActionDeclarationDevice[]> {
+  return (await loadBackendDevices(http, signal)).map((device) => ({
+    id: device.id,
+    materialUuid: device.id,
+    resourceTemplateUuid: device.deviceTypeId,
+    deviceKey: device.deviceKey,
+    namespace: device.namespace,
+    machineName: device.label,
+    online: device.online,
+    edgeStatus: device.edgeStatus,
+    dispatchable: device.dispatchable,
+    dispatchBlockReason: device.dispatchBlockReason,
+    actions: device.actions.map((action) => ({
+      actionName: action.actionName,
+      typeName: action.typeName,
+      isBusy: action.isBusy,
+      currentJobId: action.currentJobId
+    }))
   }))
 }
 

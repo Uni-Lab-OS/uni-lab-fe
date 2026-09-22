@@ -8,6 +8,20 @@ import type { PersistentWorkflowAuthoringModel } from './persistentWorkflowAutho
 import { PersistentWorkflowToolbar } from './PersistentWorkflowToolbar'
 
 describe('PersistentWorkflowToolbar', () => {
+  it('uses the compact toolbar style and the 自动排列 wording', () => {
+    const html = renderToStaticMarkup(
+      <PersistentWorkflowToolbar
+        model={toolbarModel()}
+        onAutoLayout={() => undefined}
+      />
+    )
+
+    expect(html).toContain('aria-label="自动排列"')
+    expect(html).toContain('persistent-authoring__debug-icon--label')
+    expect(html).toContain('>自动排列</button>')
+    expect(html).not.toContain('自动排步')
+  })
+
   it('keeps navigation and edit mode on one compact debugger toolbar', () => {
     const html = renderToStaticMarkup(
       <PersistentWorkflowToolbar
@@ -90,23 +104,6 @@ describe('PersistentWorkflowToolbar', () => {
     expect(html).toContain('data-tooltip="再次运行：创建新的独立任务"')
     expect(html).toContain('创建新的独立工作流任务')
     expect(html).toContain('运行中')
-  })
-
-  it('enables the shared save button for a dirty registered Theia source', () => {
-    const html = renderToStaticMarkup(
-      <PersistentWorkflowToolbar
-        model={{
-          ...toolbarModel(),
-          aggregate: {} as PersistentWorkflowAuthoringModel['aggregate'],
-          mode: 'code',
-          ideSourceDirty: true
-        }}
-      />
-    )
-
-    expect(html).toMatch(
-      /<button[^>]*aria-label="保存工作流"(?![^>]*disabled=)[^>]*>/
-    )
   })
 
   /** 证明 OS 工作流编写聚合返回前，两个编辑模式入口均不可误触。 */

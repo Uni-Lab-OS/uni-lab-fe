@@ -1,14 +1,11 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
-import type { Edge, Node, OnNodesChange, OnEdgesChange } from 'reactflow'
-import { MarkerType, Position, useNodesState, useEdgesState } from 'reactflow'
 
 import type { WorkflowNodeData } from '../components/WorkflowNodeCard'
 import { isReadyHandle } from '../components/WorkflowNodeCard'
 import type {
   WorkflowReactionMaterialNodeData
 } from '../components/WorkflowReactionMaterialNode'
-import type { WorkflowRoundedStepEdgeData } from '../components/WorkflowRoundedStepEdge'
 import { layoutDag, type LayoutResult } from '../utils/dagLayout'
 import { getNodeColor } from '../utils/nodeColors'
 import type { WorkflowHandlePort, WorkflowLink, WorkflowNode } from '../utils/parseWorkflow'
@@ -21,7 +18,6 @@ import {
 } from '../utils/workflowDagLayoutStrategy'
 import { layoutWorkflowMaterialSwimlanes } from '../utils/workflowMaterialSwimlaneLayout'
 import { layoutWorkflowPrimarySampleFlow } from '../utils/workflowPrimarySampleLayout'
-import { reconcileReactFlowNodeMeasurements } from '../utils/reactFlowNodeMeasurement'
 import { materialTraceAccent, projectMaterialTraces } from '../utils/workflowMaterialTrace'
 import type { WorkflowMaterialTraceProjection } from '../utils/workflowMaterialTrace'
 import {
@@ -31,15 +27,58 @@ import {
 } from '../utils/workflowReactionMaterialProjection'
 
 interface UseWorkflowDagResult {
-  nodes: Node<WorkflowNodeData>[]
-  edges: Edge<WorkflowRoundedStepEdgeData>[]
-  onNodesChange: OnNodesChange
-  onEdgesChange: OnEdgesChange
+  nodes: WorkflowDagProjectionNode[]
+  edges: WorkflowDagProjectionEdge[]
 }
 
 interface WorkflowFlowElements {
-  flowNodes: Node<WorkflowNodeData>[]
-  flowEdges: Edge<WorkflowRoundedStepEdgeData>[]
+  flowNodes: WorkflowDagProjectionNode[]
+  flowEdges: WorkflowDagProjectionEdge[]
+}
+
+export interface WorkflowDagProjectionNode {
+  id: string
+  type?: string
+  position: { x: number; y: number }
+  targetPosition?: 'top' | 'right' | 'bottom' | 'left'
+  sourcePosition?: 'top' | 'right' | 'bottom' | 'left'
+  style?: CSSProperties
+  selectable?: boolean
+  draggable?: boolean
+  focusable?: boolean
+  deletable?: boolean
+  selected?: boolean
+  className?: string
+  data: WorkflowNodeData
+}
+
+export interface WorkflowDagProjectionEdge {
+  id: string
+  type?: string
+  source: string
+  target: string
+  sourceHandle?: string
+  targetHandle?: string
+  label?: string
+  labelStyle?: CSSProperties
+  ariaLabel?: string
+  className?: string
+  selected?: boolean
+  animated?: boolean
+  style?: CSSProperties
+  data?: {
+    direction?: 'TB' | 'LR'
+    borderRadius?: number
+    sequence?: boolean
+    sourceNodeUuid?: string
+    targetNodeUuid?: string
+    sourceHandleUuid?: string
+    targetHandleUuid?: string
+    materialRole?: string
+    materialEmphasis?: 'primary' | 'supporting'
+    sourcePortId?: string
+    controlBranch?: 'if' | 'elif' | 'else'
+  }
 }
 
 interface WorkflowFlowEdgeContext {
@@ -60,15 +99,22 @@ const PRIMARY_SAMPLE_NODE_WIDTH = 184
 const REACTION_MATERIAL_NODE_GAP = 12
 const REACTION_MATERIAL_ITEM_HEIGHT = 22
 
+// 服务端静态渲染没有可供 useLayoutEffect 使用的布局；浏览器中则必须在绘制前
+// 安装同步投影，避免拖入控制节点时短暂显示上一帧的普通动作卡片。
+const useImmediateEffect = typeof window === 'undefined'
+  ? useEffect
+  : useLayoutEffect
+
 /**
- * 将当前可见工作流（Workflow）投影为可交互的 ReactFlow 节点和正交边。
+ * 将当前可见工作流（Workflow）投影为引擎无关节点和正交边。
  *
  * @param nodes 已折叠组合工作流后的全部可见节点。
  * @param links 已重接端点的控制边与物料流（MaterialFlow）边。
  * @param strategy 当前选中的画布布局策略。
  * @param swimlaneDirection 物料泳道策略当前选中的流向。
  * @param supportingMaterialPresentation 辅助物料使用反应式标注或完整支线展示。
- * @returns ReactFlow 状态以及节点、边变更入口。
+ * @param preserveExplicitPositions 编辑画布中保留节点已有的显式坐标；新拖入节点依赖此坐标落在指针位置。
+ * @returns X6 适配层可直接消费的框架无关节点与边。
  */
 export function useWorkflowDag(
   nodes: WorkflowNode[],
@@ -78,7 +124,8 @@ export function useWorkflowDag(
   swimlaneDirection: WorkflowMaterialSwimlaneDirection =
     DEFAULT_WORKFLOW_MATERIAL_SWIMLANE_DIRECTION,
   supportingMaterialPresentation: WorkflowSupportingMaterialPresentation =
-    'full-branches'
+    'full-branches',
+  preserveExplicitPositions = false
 ): UseWorkflowDagResult {
   const fallback = useMemo(
     () => buildFlowElements(
@@ -92,24 +139,25 @@ export function useWorkflowDag(
       nodes,
       links,
       strategy,
-      supportingMaterialPresentation
+      supportingMaterialPresentation,
+      preserveExplicitPositions
     ),
     [
       nodes,
       links,
       strategy,
       supportingMaterialPresentation,
-      swimlaneDirection
+      swimlaneDirection,
+      preserveExplicitPositions
     ]
   )
-  const [flowNodes, setNodes, onNodesChange] = useNodesState(
-    fallback.flowNodes
-  )
-  const [flowEdges, setEdges, onEdgesChange] = useEdgesState(
-    fallback.flowEdges
-  )
+  const [flowNodes, setNodes] = useState(fallback.flowNodes)
+  const [flowEdges, setEdges] = useState(fallback.flowEdges)
 
-  useEffect(
+  // 节点投影必须在浏览器绘制前安装。拖入控制节点时，fallback 已经包含
+  // controlFlow；如果等到 passive effect，X6 会先把上一帧的普通节点卡片画出来，
+  // 下一帧才切换为 LOOP/EXIT 控制卡片。
+  useImmediateEffect(
     /**
      * 同步安装当前同步布局并保留已有有效测量。
      *
@@ -117,21 +165,8 @@ export function useWorkflowDag(
      * @throws React 状态更新异常由运行时传播。
      */
     () => {
-    // `currentNodes` 是流程画布引擎当前持有、可能已完成测量的节点集合。
-    setNodes(
-      /**
-       * 合并当前测量与同步布局节点。
-       *
-       * @param currentNodes 流程画布当前节点。
-       * @returns 保留可靠测量的下一版节点。
-       * @throws 无。
-       */
-      (currentNodes) => reconcileReactFlowNodeMeasurements(
-        currentNodes,
-        fallback.flowNodes
-      )
-    )
-    setEdges(fallback.flowEdges)
+      setNodes(fallback.flowNodes)
+      setEdges(fallback.flowEdges)
     },
     [fallback, setEdges, setNodes]
   )
@@ -170,22 +205,10 @@ export function useWorkflowDag(
         nodes,
         links,
         strategy,
-        supportingMaterialPresentation
+        supportingMaterialPresentation,
+        preserveExplicitPositions
       )
-      // `currentNodes` 是异步布局完成时仍有效的最新节点与测量集合。
-      setNodes(
-        /**
-         * 合并当前测量与异步布局节点。
-         *
-         * @param currentNodes 流程画布当前节点。
-         * @returns 保留可靠测量的异步布局节点。
-         * @throws 无。
-         */
-        (currentNodes) => reconcileReactFlowNodeMeasurements(
-          currentNodes,
-          elements.flowNodes
-        )
-      )
+      setNodes(elements.flowNodes)
       setEdges(elements.flowEdges)
       }
     ).catch(
@@ -217,15 +240,14 @@ export function useWorkflowDag(
       setNodes,
       strategy,
       supportingMaterialPresentation,
-      swimlaneDirection
+      swimlaneDirection,
+      preserveExplicitPositions
     ]
   )
 
   return {
     nodes: flowNodes,
-    edges: flowEdges,
-    onNodesChange,
-    onEdgesChange
+    edges: flowEdges
   }
 }
 
@@ -237,15 +259,29 @@ export function useWorkflowDag(
  * @param sourceLinks 用于计算物料流（MaterialFlow）追踪颜色的源边。
  * @param strategy 当前画布布局策略，用于节点样式和交互投影。
  * @param supportingMaterialPresentation 辅助物料的画布展示方式。
- * @returns 可直接交给 ReactFlow 的节点与边。
+ * @returns 可交给 X6 元数据适配层的节点与边。
  */
 function buildFlowElements(
   layout: LayoutResult,
   sourceNodes: readonly WorkflowNode[],
   sourceLinks: readonly WorkflowLink[],
   strategy: WorkflowDagLayoutStrategy,
-  supportingMaterialPresentation: WorkflowSupportingMaterialPresentation
+  supportingMaterialPresentation: WorkflowSupportingMaterialPresentation,
+  preserveExplicitPositions = false
 ): WorkflowFlowElements {
+  const sourceNodeById = new Map(sourceNodes.map((node) => [node.id, node]))
+  const effectiveLayout = preserveExplicitPositions
+    ? {
+        ...layout,
+        nodes: layout.nodes.map((node) => {
+          const sourceNode = sourceNodeById.get(node.id)
+          return sourceNode && Number.isFinite(sourceNode.x) &&
+            Number.isFinite(sourceNode.y)
+            ? { ...node, x: sourceNode.x as number, y: sourceNode.y as number }
+            : node
+        })
+      }
+    : layout
   const materialTraces = projectMaterialTraces(sourceNodes, sourceLinks)
   const nodeNames = new Map(sourceNodes.map((node) => [node.id, node.name]))
   const handleByUuid = new Map(
@@ -271,27 +307,27 @@ function buildFlowElements(
     ])
   )
   const visibleLayoutNodes = reactionFormulaPresentation
-    ? layout.nodes.filter((node) => backboneNodeIds.has(node.id))
-    : layout.nodes
-  const flowNodes: Node<WorkflowNodeData>[] = visibleLayoutNodes.map((node) => {
-    const laneLayout = layout.swimlanes?.nodeLayouts.get(node.id)
-    const handleLanes = layout.swimlanes?.handleLaneIndexes.get(node.id)
-    const nodePorts = layout.nodePorts?.get(node.id)
+    ? effectiveLayout.nodes.filter((node) => backboneNodeIds.has(node.id))
+    : effectiveLayout.nodes
+  const flowNodes: WorkflowDagProjectionNode[] = visibleLayoutNodes.map((node) => {
+    const laneLayout = effectiveLayout.swimlanes?.nodeLayouts.get(node.id)
+    const handleLanes = effectiveLayout.swimlanes?.handleLaneIndexes.get(node.id)
+    const nodePorts = effectiveLayout.nodePorts?.get(node.id)
     return {
       id: node.id,
       type: 'wfNode',
       focusable: node.groupKind !== 'subworkflow',
       position: { x: node.x, y: node.y },
       targetPosition: nodePorts
-        ? reactFlowPosition(nodePorts.target)
+        ? nodePorts.target
         : layout.direction === 'horizontal'
-          ? Position.Left
-          : Position.Top,
+          ? 'left'
+          : 'top',
       sourcePosition: nodePorts
-        ? reactFlowPosition(nodePorts.source)
+        ? nodePorts.source
         : layout.direction === 'horizontal'
-          ? Position.Right
-          : Position.Bottom,
+          ? 'right'
+          : 'bottom',
       ...(laneLayout && !compactPrimarySampleLayout
         ? { style: { width: laneLayout.width, height: laneLayout.height } }
         : {}),
@@ -305,6 +341,9 @@ function buildFlowElements(
         visualKind: node.visualKind,
         groupKind: node.groupKind,
         descendantCount: node.descendantNodeIds?.length,
+        parentGroupId: node.parentGroupId,
+        controlFlow: node.controlFlow,
+        openChildWorkflowUuid: node.openChildWorkflowUuid,
         handles: node.handles,
         materialSource: node.materialSource,
         traceAccent: node.type === 'material_source'
@@ -319,7 +358,7 @@ function buildFlowElements(
         ),
         materialChips: materialTraces.chipsByNode.get(node.id) ?? [],
         layoutStrategy: strategy,
-        materialLaneDirection: layout.swimlanes?.direction ?? (
+        materialLaneDirection: effectiveLayout.swimlanes?.direction ?? (
           strategy === 'primary-sample-serpentine'
             ? 'horizontal'
             : undefined
@@ -334,13 +373,15 @@ function buildFlowElements(
     }
   })
 
+  projectLoopContainerLayout(flowNodes)
+
   if (reactionFormulaPresentation) {
     const annotations = projectWorkflowReactionMaterialAnnotations(
       sourceNodes,
       sourceLinks,
       backboneNodeIds
     )
-    flowNodes.push(...buildReactionMaterialNodes(layout, annotations))
+    flowNodes.push(...buildReactionMaterialNodes(effectiveLayout, annotations))
   }
 
   const flowEdges = layout.links.flatMap((link, index) => {
@@ -351,7 +392,7 @@ function buildFlowElements(
     return [buildWorkflowFlowEdge({
       link,
       index,
-      layout,
+      layout: effectiveLayout,
       materialTraces,
       materialRoleByLineage,
       handleByUuid,
@@ -359,8 +400,79 @@ function buildFlowElements(
       compactPrimarySampleLayout
     })]
   })
+  const visibleNodeIds = new Set(flowNodes.map((node) => node.id))
+  for (const controlNode of sourceNodes) {
+    if (controlNode.controlFlow?.kind !== 'condition') continue
+    for (const [branchIndex, branch] of (
+      controlNode.controlFlow.branches ?? []
+    ).entries()) {
+      const targets = branch.entryNodeUuids.filter((uuid) =>
+        visibleNodeIds.has(uuid)
+      )
+      if (!targets.length || !visibleNodeIds.has(controlNode.id)) continue
+      const branchKind = branch.label === 'ELSE'
+        ? 'else' : branch.label === 'ELIF' ? 'elif' : 'if'
+      const displayLabel = branchKind === 'else'
+        ? 'False 分支' : branchKind === 'if' ? 'True 分支' : branch.label
+      for (const target of targets) {
+        flowEdges.push({
+          id: `display-condition:${controlNode.id}:${branchIndex}:${target}`,
+          source: controlNode.id,
+          target,
+          ariaLabel: `${displayLabel}：${controlNode.name} → ${nodeNames.get(target) ?? target}`,
+          className: `wf-flow-edge--condition-${branchKind}`,
+          style: { stroke: '#cbd5e1', strokeWidth: 1.6 },
+          data: {
+            sourceNodeUuid: controlNode.id,
+            targetNodeUuid: target,
+            sourcePortId: `workflow-condition-branch-${branchIndex}`,
+            controlBranch: branchKind
+          }
+        })
+      }
+    }
+  }
 
   return { flowNodes, flowEdges }
+}
+
+/**
+ * 把 repeat_until 投影为包围 parent_uuid 成员的 Dify Loop 容器。
+ * 子节点坐标仍是 Canonical 绝对坐标，X6 embedding 只负责交互时整体移动。
+ */
+function projectLoopContainerLayout(nodes: WorkflowDagProjectionNode[]): void {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]))
+  for (const loop of nodes) {
+    if (loop.data.controlFlow?.kind !== 'repeat_until') continue
+    const members = nodes.filter((node) =>
+      node.id !== loop.id && node.data.parentGroupId === loop.id
+    )
+    let left = loop.position.x
+    let top = loop.position.y
+    let right = left + 520
+    let bottom = top + 220
+    for (const member of members) {
+      const width = workflowProjectedSize(member.style?.width, 184)
+      const height = workflowProjectedSize(member.style?.height, 92)
+      left = Math.min(left, member.position.x - 28)
+      top = Math.min(top, member.position.y - 64)
+      right = Math.max(right, member.position.x + width + 28)
+      bottom = Math.max(bottom, member.position.y + height + 32)
+    }
+    loop.position = { x: left, y: top }
+    loop.style = {
+      ...loop.style,
+      width: Math.max(520, right - left),
+      height: Math.max(220, bottom - top)
+    }
+    loop.data = { ...loop.data, loopMemberCount: members.length }
+    nodeById.set(loop.id, loop)
+  }
+}
+
+function workflowProjectedSize(value: CSSProperties['width'], fallback: number): number {
+  const numeric = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''))
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback
 }
 
 /**
@@ -368,12 +480,12 @@ function buildFlowElements(
  *
  * @param layout 已完成主样品蛇形排布的画布布局。
  * @param annotations 按主干目标节点分组的辅助物料（Material）标注。
- * @returns 不可选择、不承载执行语义的 ReactFlow 注释节点。
+ * @returns 不可选择、不承载执行语义的框架无关注释节点。
  */
 function buildReactionMaterialNodes(
   layout: LayoutResult,
   annotations: readonly WorkflowReactionMaterialAnnotation[]
-): Node<WorkflowNodeData>[] {
+): WorkflowDagProjectionNode[] {
   const layoutNodeById = new Map(layout.nodes.map((node) => [node.id, node]))
   return annotations.flatMap((annotation) => {
     const targetNode = layoutNodeById.get(annotation.targetNodeUuid)
@@ -409,10 +521,10 @@ function buildReactionMaterialNodes(
 }
 
 /**
- * 将一条工作流边投影为带物料角色层级的 ReactFlow 正交边。
+ * 将一条工作流边投影为带物料角色层级的框架无关正交边。
  *
  * @param context 当前边、布局、句柄和物料流（MaterialFlow）追踪索引。
- * @returns 保留执行语义、仅调整辅助物料视觉层级的 ReactFlow 边。
+ * @returns 保留执行语义、仅调整辅助物料视觉层级的边投影。
  */
 function buildWorkflowFlowEdge({
   link,
@@ -423,7 +535,7 @@ function buildWorkflowFlowEdge({
   handleByUuid,
   nodeNames,
   compactPrimarySampleLayout
-}: WorkflowFlowEdgeContext): Edge<WorkflowRoundedStepEdgeData> {
+}: WorkflowFlowEdgeContext): WorkflowDagProjectionEdge {
   const communication = link.type === COMM_EDGE_TYPE
   const materialAccent = materialTraces.edgeAccents.get(index)
   // `materialRole` 来自同一条已追踪物料谱系，确保辅助层级与角色筛选一致。
@@ -473,7 +585,6 @@ function buildWorkflowFlowEdge({
       materialAccent,
       supportingMaterial
     ),
-    markerEnd: workflowEdgeMarker(materialAccent, supportingMaterial),
     ariaLabel: workflowEdgeAriaLabel(
       materialAccent,
       ready,
@@ -536,25 +647,6 @@ function workflowEdgeAnimated(
 }
 
 /** 返回物料边箭头；辅助物料使用更小箭头。 */
-function workflowEdgeMarker(
-  materialAccent: string | undefined,
-  supportingMaterial: boolean
-): {
-  type: MarkerType
-  color: string
-  width: number
-  height: number
-} | undefined {
-  if (!materialAccent) return undefined
-  const size = supportingMaterial ? 9 : 14
-  return {
-    type: MarkerType.ArrowClosed,
-    color: materialAccent,
-    width: size,
-    height: size
-  }
-}
-
 /** 返回工作流边的人类可读无障碍名称。 */
 function workflowEdgeAriaLabel(
   materialAccent: string | undefined,
@@ -573,7 +665,7 @@ function workflowEdgeAriaLabel(
  * @param materialAccent 当前物料谱系的稳定强调色；非物料边为空。
  * @param communication 当前边是否为通信控制边。
  * @param supportingMaterial 当前物料边是否属于辅助物料支线。
- * @returns ReactFlow 边可直接使用的颜色、线宽与虚线样式。
+ * @returns 画布适配层可直接使用的颜色、线宽与虚线样式。
  */
 function workflowEdgeStyle(
   materialAccent: string | undefined,
@@ -608,13 +700,3 @@ function workflowEdgeClassName(
  * @param side 布局模块返回的节点边缘方位。
  * @returns React Flow 可直接消费的端口方位。
  */
-function reactFlowPosition(
-  side: 'top' | 'right' | 'bottom' | 'left'
-): Position {
-  return {
-    top: Position.Top,
-    right: Position.Right,
-    bottom: Position.Bottom,
-    left: Position.Left
-  }[side]
-}

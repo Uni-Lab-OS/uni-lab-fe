@@ -299,9 +299,9 @@ export function ReagentInfoEditorDialog(props: EditorProps): React.JSX.Element {
 }
 
 /**
- * 对化学品字典删除提供历史引用边界说明和文字确认。
+ * 对化学品字典删除提供历史引用边界说明和二次确认。
  * @param props 待删除身份、异步删除回调和关闭回调。
- * @returns 只有输入“删除”后才可提交的危险操作模态框。
+ * @returns 通过取消或确认删除完成决策的危险操作模态框。
  */
 export function ReagentInfoDeleteDialog({
   item,
@@ -312,13 +312,12 @@ export function ReagentInfoDeleteDialog({
   onDelete: () => Promise<void>
   onClose: () => void
 }): React.JSX.Element {
-  const [confirmation, setConfirmation] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  /** 请求 Backend 删除误建身份，引用冲突时保留对话框和原始错误。 */
+  /** 二次确认后请求服务端删除误建身份，引用冲突时保留原始错误。 */
   async function handleDelete(): Promise<void> {
-    if (submitting || confirmation !== '删除') return
+    if (submitting) return
     setSubmitting(true)
     setError('')
     try {
@@ -335,31 +334,29 @@ export function ReagentInfoDeleteDialog({
   return (
     <ReagentDialogFrame
       title={`删除 ${item.name}`}
-      description="仅从未被库存、仓库或工作流历史引用的误建化学身份可以删除；有关联记录时 Backend 会拒绝并保留审计身份。"
+      description="仅从未被库存、仓库或工作流历史引用的误建化学身份可以删除；有关联记录时系统会拒绝并保留审计身份。"
       busy={submitting}
       onClose={onClose}
     >
-      <div className={styles.deleteConfirmation}>
-        <label>
-          <span>输入“删除”确认</span>
-          <Input
-            data-dialog-initial-focus
-            value={confirmation}
-            onChange={event => setConfirmation(event.target.value)}
-            autoComplete="off"
-          />
-        </label>
-        {error ? <p className={styles.dialogError} role="alert">{error}</p> : null}
-      </div>
+      {error ? (
+        <div className={styles.deleteConfirmation}>
+          <p className={styles.dialogError} role="alert">{error}</p>
+        </div>
+      ) : null}
       <div className={uiClass.dialogActions}>
-        <Button variant="outline" disabled={submitting} onClick={onClose}>取消</Button>
+        <Button
+          data-dialog-initial-focus
+          variant="outline"
+          disabled={submitting}
+          onClick={onClose}
+        >取消</Button>
         <Button
           variant="destructive"
           type="button"
-          disabled={submitting || confirmation !== '删除'}
+          disabled={submitting}
           onClick={() => void handleDelete()}
         >
-          {submitting ? '正在删除…' : '确认删除身份'}
+          {submitting ? '正在删除…' : '确认删除'}
         </Button>
       </div>
     </ReagentDialogFrame>

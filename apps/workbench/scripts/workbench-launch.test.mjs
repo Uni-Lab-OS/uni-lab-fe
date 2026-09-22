@@ -216,8 +216,9 @@ describe('Workbench launch contract', () => {
     assert.equal(createWorkbenchRendererUrl({
       port: 3110,
       workspace: '/tmp/Uni Lab/SZLab',
-      workflowUuid: 'workflow-1'
-    }), 'http://127.0.0.1:3110/?workflowUuid=workflow-1#/tmp/Uni%20Lab/SZLab')
+      workflowUuid: 'workflow-1',
+      entryMode: 'production'
+    }), 'http://127.0.0.1:3110/?workflowUuid=workflow-1&entryMode=production#/tmp/Uni%20Lab/SZLab')
   })
 
   it('activates the complete executable path on POSIX and Windows', () => {

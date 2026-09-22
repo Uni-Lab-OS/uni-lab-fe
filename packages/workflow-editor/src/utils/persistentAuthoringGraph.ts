@@ -120,6 +120,7 @@ function projectPersistentAuthoringNode(
     ...projectNodeParent(node, context.nodeByUuid),
     ...projectNodeReadOnlyState(node, context.nodeByUuid),
     ...projectCompositeState(nodeUuid, context),
+    ...projectControlFlowState(node, type),
     ...projectMaterialSourceState(node, type, context.resourceTemplateByUuid),
     ...nodePosition(node.pose)
   }
@@ -140,9 +141,13 @@ function projectNodeIdentity(
   const nodeUsesTechnicalDefault = Boolean(
     nodeName && (nodeName === actionName || nodeName === templateName)
   )
-  const displayName = nodeUsesTechnicalDefault
-    ? templateDisplayName ?? nodeName
-    : nodeName ?? templateDisplayName ?? templateName
+  // 子工作流边界展示已发布模板的业务名称；node.name 仍是 Python 作者标识，
+  // 由右侧节点检查器直接读取原始 Authoring Graph，不在此处写回。
+  const displayName = type === 'workflow'
+    ? templateDisplayName ?? nodeName ?? templateName
+    : nodeUsesTechnicalDefault
+      ? templateDisplayName ?? nodeName
+      : nodeName ?? templateDisplayName ?? templateName
   const description = nullableString(node.description) ??
     nullableString(template?.description)
   return {
@@ -211,6 +216,74 @@ function projectCompositeState(
   }
 }
 
+
+function projectControlFlowState(
+  node: AuthoringNode,
+  type: string
+): Pick<WorkflowNode, 'controlFlow'> {
+  if (type !== 'condition' && type !== 'repeat_until') return {}
+  const param = isRecord(node.param) ? node.param : {}
+  if (type === 'condition') {
+    const sourceBranches = Array.isArray(param.branches) ? param.branches : []
+    const rawBranches = sourceBranches.length === 0
+      ? [
+          { label: 'if', condition: { lit: true } },
+          { label: 'else', condition: null }
+        ]
+      : sourceBranches.length === 1
+        ? [
+            sourceBranches[0],
+            { label: 'else', condition: null }
+          ]
+        : sourceBranches
+    const branches = rawBranches.map((value, index) => {
+      const branch = isRecord(value) ? value : {}
+      const members = Array.isArray(branch.node_uuids)
+        ? branch.node_uuids.filter((item): item is string => typeof item === 'string')
+        : []
+      const entries = Array.isArray(branch.entry_node_uuids)
+        ? branch.entry_node_uuids.filter((item): item is string => typeof item === 'string')
+        : []
+      const condition = isRecord(branch.condition) ? branch.condition : null
+      const rawLabel = String(branch.label || '').toLowerCase()
+      const label = condition === null || rawLabel === 'else'
+        ? 'ELSE'
+        : index === 0 || rawLabel === 'if' ? 'IF' : 'ELIF'
+      const conditionSummary = condition?.lit === true
+        ? '固定为真'
+        : condition?.lit === false ? '固定为假'
+          : typeof condition?.var === 'string' ? condition.var
+            : label === 'ELSE' ? '兜底分支' : '条件判断'
+      return {
+        label,
+        entryNodeUuids: entries.length > 0 ? entries : members.slice(0, 1),
+        conditionSummary
+      }
+    })
+    return {
+      controlFlow: {
+        kind: 'condition',
+        branchCount: branches.length,
+        branches
+      }
+    }
+  }
+  const maximum = Number(param.max_iterations)
+  const list = (value: unknown) => Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string') : []
+  return {
+    controlFlow: {
+      kind: 'repeat_until',
+      ...(Number.isInteger(maximum) && maximum > 0
+        ? { maxIterations: maximum }
+        : {}),
+      predecessorNodeUuids: list(param.predecessor_node_uuids),
+      entryNodeUuids: list(param.entry_node_uuids),
+      exitNodeUuids: list(param.exit_node_uuids),
+      successorNodeUuids: list(param.successor_node_uuids)
+    }
+  }
+}
 function projectMaterialSourceState(
   node: AuthoringNode,
   type: string,
@@ -463,6 +536,16 @@ function workflowTemplateSchema(value: unknown): Record<string, unknown> {
   }
 }
 
+function nodeHasReadOnlyCompositeParent(
+  graph: WorkflowAuthoringGraph,
+  node: Record<string, unknown>
+): boolean {
+  const parentUuid = typeof node.parent_uuid === 'string' ? node.parent_uuid : ''
+  if (!parentUuid) return false
+  const parent = graph.nodes.find((item) => item.uuid === parentUuid)
+  return !['condition', 'repeat_until'].includes(String(parent?.type || ''))
+}
+
 export function updatePersistentAuthoringNodeName(
   graph: WorkflowAuthoringGraph,
   nodeUuid: string,
@@ -481,9 +564,7 @@ export function updatePersistentAuthoringNodeName(
     throw new Error('节点不存在或已被删除')
   }
   if (graph.nodes.some((node) =>
-    node.uuid === nodeUuid &&
-    node.parent_uuid !== undefined &&
-    node.parent_uuid !== null
+    node.uuid === nodeUuid && nodeHasReadOnlyCompositeParent(graph, node)
   )) {
     throw new Error('复合工作流的内部私有节点只读；请编辑调用边界')
   }
@@ -499,6 +580,49 @@ export function updatePersistentAuthoringNodeName(
   }
 }
 
+/** 只更新一个可编辑节点的二维画布坐标，并保留 pose 的其余 OS 字段。 */
+export function updatePersistentAuthoringNodePosition(
+  graph: WorkflowAuthoringGraph,
+  nodeUuid: string,
+  position: { x: number; y: number }
+): WorkflowAuthoringGraph {
+  if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+    throw new Error('节点画布坐标必须是有限数值')
+  }
+  const node = graph.nodes.find((item) => item.uuid === nodeUuid)
+  if (!node) throw new Error('节点不存在或已被删除')
+  if (nodeHasReadOnlyCompositeParent(graph, node)) {
+    throw new Error('复合工作流的内部私有节点只读；请编辑调用边界')
+  }
+  const pose = isRecord(node.pose) ? node.pose : {}
+  const previousPosition = isRecord(pose.position) ? pose.position : {}
+  return {
+    ...graph,
+    nodes: graph.nodes.map((item) => item.uuid === nodeUuid
+      ? {
+          ...item,
+          pose: {
+            ...pose,
+            position: {
+              ...previousPosition,
+              x: position.x,
+              y: position.y
+            }
+          }
+        }
+      : item)
+  }
+}
+
+/** 原子更新多个节点坐标，用于 X6 父容器移动时同步全部循环体成员。 */
+export function updatePersistentAuthoringNodePositions(
+  graph: WorkflowAuthoringGraph,
+  changes: ReadonlyArray<{ nodeUuid: string; position: { x: number; y: number } }>
+): WorkflowAuthoringGraph {
+  return changes.reduce((current, change) =>
+    updatePersistentAuthoringNodePosition(current, change.nodeUuid, change.position), graph)
+}
+
 export function updatePersistentAuthoringNodeDisabled(
   graph: WorkflowAuthoringGraph,
   nodeUuid: string,
@@ -506,7 +630,7 @@ export function updatePersistentAuthoringNodeDisabled(
 ): WorkflowAuthoringGraph {
   const node = graph.nodes.find((item) => item.uuid === nodeUuid)
   if (!node) throw new Error('节点不存在或已被删除')
-  if (node.parent_uuid !== undefined && node.parent_uuid !== null) {
+  if (nodeHasReadOnlyCompositeParent(graph, node)) {
     throw new Error('复合工作流的内部私有节点只读；请编辑调用边界')
   }
   return {

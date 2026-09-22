@@ -16,3 +16,6 @@ export * from './workflowDefinitionPort'
 export * from './managedRuntimeInstallation'
 export * from './workflowIo'
 export * from './ServicesProvider'
+
+export * from './workflowRecovery'
+export * from './workflowRecoveryContracts'

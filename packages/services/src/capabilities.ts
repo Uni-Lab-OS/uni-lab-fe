@@ -28,6 +28,7 @@ export interface ServerCapabilities {
     editDefinitions: boolean
     runTasks: boolean
     subscribeEvents: boolean
+    recovery: boolean
   }
   reagentInfo: {
     read: boolean
@@ -40,6 +41,7 @@ export interface ServerCapabilities {
     createReagent: boolean
     updateReagent: boolean
     deleteReagent: boolean
+    dispenseReagent: boolean
     readReagentHistory: boolean
   }
   realtime: {
@@ -76,6 +78,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'workflow.editDefinitions',
   'workflow.runTasks',
   'workflow.subscribeEvents',
+  'workflow.recovery',
   'reagentInfo.read',
   'reagentInfo.create',
   'reagentInfo.update',
@@ -84,6 +87,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'inventory.createReagent',
   'inventory.updateReagent',
   'inventory.deleteReagent',
+  'inventory.dispenseReagent',
   'inventory.readReagentHistory',
   'realtime.pushJointState',
   'realtime.setJointState',
@@ -100,28 +104,12 @@ export interface CapabilityStatus {
 }
 
 /**
- * These presets describe the APIs that are available now, not the APIs planned
- * by the target architecture. A capability only becomes true when the selected
- * server implements the complete semantics represented by its key.
- */
-const CURRENT_DEFAULT_CAPABILITIES: Readonly<
-  Record<string, ServerCapabilities>
-> = {
-  'local-go': localGoCapabilities(),
-  'local-python': localPythonCapabilities(),
-  cloud: unavailableCapabilities()
-}
-
-/**
- * Capabilities are resolved statically. Unknown/custom profile IDs are
- * deny-by-default until an adapter explicitly declares support.
+ * 现在只连 Uni-Lab-OS。能力表不再按 local-go / cloud 分流。
  */
 export function resolveServerCapabilities(
-  backend: Pick<BackendConfig, 'id'>
+  _backend?: Pick<BackendConfig, 'id'>
 ): ServerCapabilities {
-  return cloneCapabilities(
-    CURRENT_DEFAULT_CAPABILITIES[backend.id] ?? unavailableCapabilities()
-  )
+  return cloneCapabilities(osCapabilities())
 }
 
 export function hasServerCapability(
@@ -180,7 +168,8 @@ function unavailableCapabilities(): ServerCapabilities {
       authoring: false,
       editDefinitions: false,
       runTasks: false,
-      subscribeEvents: false
+      subscribeEvents: false,
+      recovery: false
     },
     reagentInfo: {
       read: false,
@@ -193,6 +182,7 @@ function unavailableCapabilities(): ServerCapabilities {
       createReagent: false,
       updateReagent: false,
       deleteReagent: false,
+      dispenseReagent: false,
       readReagentHistory: false
     },
     realtime: {
@@ -207,17 +197,19 @@ function unavailableCapabilities(): ServerCapabilities {
   }
 }
 
-/** 返回已完成真实 Backend 联调的本地 Go 能力集合；未验证写能力继续关闭失败。 */
-function localGoCapabilities(): ServerCapabilities {
+function osCapabilities(): ServerCapabilities {
   const capabilities = unavailableCapabilities()
+  capabilities.workflow.recovery = true
   capabilities.devices.listOnline = true
   capabilities.devices.listActions = true
+  capabilities.devices.forceUnlock = true
   capabilities.devices.runActionTask = true
-  capabilities.material.readTemplates = true
+  capabilities.devices.subscribeStatus = true
   capabilities.material.readGraph = true
   capabilities.workflow.readDefinitions = true
-  capabilities.workflow.editDefinitions = true
+  capabilities.workflow.authoring = true
   capabilities.workflow.runTasks = true
+  capabilities.workflow.subscribeEvents = true
   capabilities.reagentInfo.read = true
   capabilities.reagentInfo.create = true
   capabilities.reagentInfo.update = true
@@ -226,24 +218,8 @@ function localGoCapabilities(): ServerCapabilities {
   capabilities.inventory.createReagent = true
   capabilities.inventory.updateReagent = true
   capabilities.inventory.deleteReagent = true
+  capabilities.inventory.dispenseReagent = true
   capabilities.inventory.readReagentHistory = true
-  return capabilities
-}
-
-function localPythonCapabilities(): ServerCapabilities {
-  const capabilities = unavailableCapabilities()
-  capabilities.devices.listOnline = true
-  capabilities.devices.listActions = true
-  capabilities.devices.forceUnlock = true
-  capabilities.devices.runActionTask = true
-  // Edge FastAPI broadcasts at :18003/api/v1/ws/device_status (not Bridge :8014).
-  capabilities.devices.subscribeStatus = true
-  capabilities.material.readGraph = true
-  capabilities.workflow.readDefinitions = true
-  capabilities.workflow.authoring = true
-  capabilities.workflow.runTasks = true
-  capabilities.workflow.subscribeEvents = true
-  capabilities.inventory.readReagents = true
   return capabilities
 }
 
@@ -262,59 +238,29 @@ function cloneCapabilities(
 }
 
 function unavailableReason(
-  backend: Pick<BackendConfig, 'id' | 'name'>,
+  _backend: Pick<BackendConfig, 'id' | 'name'>,
   capability: ServerCapability
 ): string {
-  if (backend.id === 'local-go') {
-    if (capability.startsWith('devices.')) {
-      return '当前 Backend 已提供设备目录，但动作运行、强制解锁或实时状态仍缺少完整语义'
-    }
-    if (capability.startsWith('material.')) {
-      return '当前 Backend 物料目录与物料图只读可用，写操作尚未对齐修订、幂等与补偿契约'
-    }
-    if (capability.startsWith('workflow.')) {
-      return '当前 Backend 已提供工作流目录，但前端创作模型、运行事件与安全恢复语义尚未完整对齐'
-    }
-    if (capability.startsWith('reagentInfo.')) {
-      return '当前 Go 后端试剂信息接口尚未接入统一前端 Service Port'
-    }
-    if (capability.startsWith('inventory.')) {
-      return '当前 Go 后端尚未提供该库存只读能力'
-    }
-    if (capability.startsWith('realtime.')) {
-      return '当前 Go 后端尚未提供 unilab/realtime-v1 实时接口'
-    }
-    return '当前 Go 后端尚未提供统一边缘端配置与创建补偿契约'
+  if (capability.startsWith('devices.')) {
+    return '当前 Uni-Lab-OS 尚未提供该设备能力'
   }
-
-  if (backend.id === 'local-python') {
-    if (capability.startsWith('devices.')) {
-      return '当前 Uni-Lab-OS 尚未提供该设备能力'
-    }
-    if (capability.startsWith('material.')) {
-      return '当前 Uni-Lab-OS 物料图仅开放只读查询，写操作尚未提供统一命令契约'
-    }
-    if (capability.startsWith('workflow.')) {
-      return '当前 Uni-Lab-OS 尚未提供该工作流能力'
-    }
-    if (capability.startsWith('reagentInfo.')) {
-      return '当前 Uni-Lab-OS 尚未提供统一试剂信息查询与创建契约'
-    }
-    if (capability.startsWith('inventory.')) {
-      return '当前 Uni-Lab-OS 尚未提供该库存只读能力'
-    }
-    if (capability === 'realtime.pushJointState') {
-      return '当前 Uni-Lab-OS 仅提供 1 Hz device_status，尚未提供 push_joint_state'
-    }
-    if (capability.startsWith('realtime.')) {
-      return '当前 Uni-Lab-OS 尚未提供统一关节命令与控制租约契约'
-    }
-    return '当前 Uni-Lab-OS 尚未向前端公开统一 provisioning 与创建补偿契约'
+  if (capability.startsWith('material.')) {
+    return '当前 Uni-Lab-OS 物料图仅开放只读查询，写操作尚未提供统一命令契约'
   }
-
-  if (backend.id === 'cloud') {
-    return '旧版云端接口不属于统一新协议；新版云端服务契约尚未接入'
+  if (capability.startsWith('workflow.')) {
+    return '当前 Uni-Lab-OS 尚未提供该工作流能力'
   }
-
-  return `${backend.name} 尚未声明 ${capability} 能力`
+  if (capability.startsWith('reagentInfo.')) {
+    return '当前 Uni-Lab-OS 尚未提供统一试剂信息查询与创建契约'
+  }
+  if (capability.startsWith('inventory.')) {
+    return '当前 Uni-Lab-OS 尚未提供该库存只读能力'
+  }
+  if (capability === 'realtime.pushJointState') {
+    return '当前 Uni-Lab-OS 仅提供 1 Hz device_status，尚未提供 push_joint_state'
+  }
+  if (capability.startsWith('realtime.')) {
+    return '当前 Uni-Lab-OS 尚未提供统一关节命令与控制租约契约'
+  }
+  return '当前 Uni-Lab-OS 尚未向前端公开统一 provisioning 与创建补偿契约'
 }
