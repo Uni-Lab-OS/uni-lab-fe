@@ -364,7 +364,7 @@ function workflowControlNodeMetadata(node: WorkflowX6Node): NodeMetadata {
         { tagName: 'text', selector: 'loopAddNode', className: 'workflow-x6-loop-add-node', textContent: '＋ 添加节点' },
         workflowNodeTitleMarkup(data)
       ],
-      ports: { groups: {}, items: [] }
+      ports: workflowX6Ports(node)
     }
   }
   const branches = control.branches ?? []
