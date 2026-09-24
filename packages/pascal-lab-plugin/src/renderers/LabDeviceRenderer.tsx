@@ -4,10 +4,12 @@ import {
 } from '@pascal-app/core'
 import { useNodeEvents, useViewer } from '@pascal-app/viewer'
 import { Html } from '@react-three/drei'
-import { useThree } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { shouldShowMaterialLabelByDefault } from '@unilab/material/domain'
 import {
   getJointStateFrame,
+  jointStatePlaybackIsActive,
+  sampleJointStateAtRenderTime,
   subscribeJointStateFrame
 } from '@unilab/scene-runtime'
 import {
@@ -262,6 +264,7 @@ export default function LabDeviceRenderer({
   >([0, Math.max(node.dimensions[1], 0.2) + 0.08, 0])
   const { object, error, loading } = useLabModel(node)
   const appliedJointFrameRef = useRef<object | null>(null)
+  const playbackActiveRef = useRef(false)
   const invalidate = useThree(state => state.invalidate)
   const events = useCustomNodeEvents(node, node.type)
   const isSelected = useViewer((state) =>
@@ -286,37 +289,58 @@ export default function LabDeviceRenderer({
 
   useRegistry(node.id, node.type, groupRef)
 
-  // 设备自己的 latest 到达时直接命令式写入 URDF，再只唤醒一帧出图。不能依赖
-  // Pascal demand frame 轮询，否则外部状态已更新时 Three joint 仍可能保持旧值。
   useEffect(() => {
-    const kinematics = node.kinematics
-    if (!object || !kinematics) return
-    const applyLatest = (): void => {
-      const frame = getJointStateFrame(node.materialNodeId)
-      if (!frame) {
-        if (appliedJointFrameRef.current) {
-          resetJointStateUrdf(object)
-          invalidate()
-        }
-        appliedJointFrameRef.current = null
-        return
-      }
-      if (frame === appliedJointFrameRef.current || frame.stale ||
-          !matchesKinematicContract(kinematics, frame)) return
-      captureInitialJointState(object)
-      if (applyJointStateToUrdf(object, frame.jointStates)) {
-        appliedJointFrameRef.current = frame
-        invalidate()
-      }
-    }
-    applyLatest()
-    return subscribeJointStateFrame(node.materialNodeId, applyLatest)
-  }, [invalidate, node.kinematics, node.materialNodeId, object])
-
-  useEffect(() => {
-    // 模型实例变化后必须重新应用当前 latest，不能沿用旧对象引用。
     appliedJointFrameRef.current = null
   }, [object, node.materialNodeId])
+
+  // 关节样本进入多帧时间缓冲；RAF 按 renderTs 采样后写入 URDF。
+  useEffect(() => {
+    const kinematics = node.kinematics
+    if (!object || !kinematics) {
+      playbackActiveRef.current = false
+      return
+    }
+    const rememberLatest = (): void => {
+      const frame = getJointStateFrame(node.materialNodeId)
+      if (!frame) {
+        playbackActiveRef.current = false
+        if (appliedJointFrameRef.current) {
+          resetJointStateUrdf(object)
+          appliedJointFrameRef.current = null
+          invalidate()
+        }
+        return
+      }
+      if (!matchesKinematicContract(kinematics, frame)) {
+        playbackActiveRef.current = false
+        return
+      }
+      captureInitialJointState(object)
+      playbackActiveRef.current = true
+      invalidate()
+    }
+    rememberLatest()
+    return subscribeJointStateFrame(node.materialNodeId, rememberLatest)
+  }, [invalidate, node.kinematics, node.materialNodeId, object])
+
+  useFrame(() => {
+    const kinematics = node.kinematics
+    if (!object || !kinematics || !playbackActiveRef.current) return
+    const now = Date.now()
+    const latest = getJointStateFrame(node.materialNodeId)
+    const sample = sampleJointStateAtRenderTime(node.materialNodeId, now)
+    const frame = sample.frame ?? latest
+    const jointStates = sample.jointStates ?? latest?.jointStates ?? null
+    const contractFrame = latest ?? frame
+    if (!jointStates || !contractFrame) return
+    if (!matchesKinematicContract(kinematics, contractFrame)) return
+    if (applyJointStateToUrdf(object, jointStates)) {
+      appliedJointFrameRef.current = contractFrame
+      invalidate()
+    } else if (jointStatePlaybackIsActive(node.materialNodeId, now)) {
+      invalidate()
+    }
+  })
 
   useEffect(() => {
     if (!groupRef.current) return
@@ -540,7 +564,11 @@ export default function LabDeviceRenderer({
 
 function matchesKinematicContract(
   kinematics: NonNullable<LabDeviceNode['kinematics']>,
-  frame: NonNullable<ReturnType<typeof getJointStateFrame>>
+  frame: {
+    deviceId: string
+    topologyDigest: string
+    jointStates: Readonly<Record<string, number>>
+  }
 ): boolean {
   if (frame.deviceId !== kinematics.deviceId ||
       frame.topologyDigest !== kinematics.topologyDigest) return false

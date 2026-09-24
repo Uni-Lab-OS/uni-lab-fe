@@ -165,6 +165,8 @@ function mapBackendMaterialConfig(
     ? config.rendering
     : {}
   if (!position) return identifiedConfig
+  const positionDimensionsMm = readRelativePositionDimensionsMm(position)
+  const configuredDimensionsMm = readConfiguredDimensionsMm(rawRendering)
   return {
     ...identifiedConfig,
     rendering: {
@@ -175,13 +177,35 @@ function mapBackendMaterialConfig(
         optionalString(config.category) ??
         optionalString(config.type) ??
         (materialType === 'deck' ? 'deck' : 'custom'),
-      dimensionsMm: [
+      dimensionsMm: positionDimensionsMm ?? configuredDimensionsMm ?? [
         finiteGraphNumber(position.width, 'relative_position.width'),
         finiteGraphNumber(position.depth, 'relative_position.depth'),
         finiteGraphNumber(position.length, 'relative_position.length')
       ]
     }
   }
+}
+
+function readRelativePositionDimensionsMm(
+  position: Record<string, unknown>
+): [number, number, number] | undefined {
+  const width = finiteGraphNumber(position.width, 'relative_position.width')
+  const depth = finiteGraphNumber(position.depth, 'relative_position.depth')
+  const length = finiteGraphNumber(position.length, 'relative_position.length')
+  return width > 0 || depth > 0 || length > 0
+    ? [width, depth, length]
+    : undefined
+}
+
+function readConfiguredDimensionsMm(
+  rendering: Record<string, unknown>
+): [number, number, number] | undefined {
+  const source = rendering.dimensionsMm ?? rendering.sizeMm
+  if (!Array.isArray(source) || source.length !== 3) return undefined
+  const dimensions = source.map((value, index) =>
+    finiteGraphNumber(value, `rendering.dimensionsMm[${index}]`)
+  ) as [number, number, number]
+  return dimensions.some(value => value > 0) ? dimensions : undefined
 }
 
 /**

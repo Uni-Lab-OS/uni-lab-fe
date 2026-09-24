@@ -68,7 +68,7 @@ export interface DeviceCardAuthoringContext {
 }
 
 /** 卡片运行时 config 扩展字段；由 Host 从收窄后 manifest 注入，领域仓无需填写。 */
-export interface DeviceCardRuntimeConfig extends JsonObject {
+export type DeviceCardRuntimeConfig = JsonObject & {
   allowedActions?: string[]
   allowedState?: string[]
 }

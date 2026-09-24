@@ -3,6 +3,35 @@ import { describe, expect, it } from 'vitest'
 import { mapBackendMaterialGraph } from './materialBackendGraphCodec'
 
 describe('运动学父设备放置投影', () => {
+  it('keeps configured rendering dimensions when relative_position sizes are zero', () => {
+    const graph = mapBackendMaterialGraph({
+      nodes: [
+        {
+          ...graphNode('rail', null, {
+            rendering: {
+              kind: 'rail',
+              dimensionsMm: [2300, 180, 150]
+            }
+          }),
+          relative_position: {
+            ...graphNode('rail', null, {}).relative_position as Record<
+              string,
+              unknown
+            >,
+            width: 0,
+            length: 0,
+            depth: 0
+          }
+        }
+      ]
+    })
+
+    expect(graph[0]?.material.config.rendering).toEqual({
+      kind: 'rail',
+      dimensionsMm: [2300, 180, 150]
+    })
+  })
+
   it('uses the OS-projected rail mount link for live child parenting', () => {
     const graph = mapBackendMaterialGraph({
       nodes: [

@@ -71,7 +71,8 @@ export async function scanProjectSources(
     if (
       entry.name === 'node_modules' ||
       entry.name === '.git' ||
-      entry.name === '.unilab-card'
+      entry.name === '.unilab-card' ||
+      entry.name === 'tests'
     ) {
       continue
     }

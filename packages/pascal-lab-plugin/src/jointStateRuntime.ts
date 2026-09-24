@@ -1,3 +1,11 @@
+/**
+ * URDF 关节投影（对齐 pTLC 的 RobotJointDriver 应用层）。
+ *
+ * 本模块只负责把已采样好的关节角写入 URDF，不做时间缓冲或帧间插值。
+ * 播放缓冲与 100ms 延迟插值在 @unilab/scene-runtime 的 JointStateRingBuffer
+ *（对齐 pTLC RobotPoseBuffer）；LabDeviceRenderer 经 sampleJointStateAtRenderTime
+ * 取样后再调用 applyJointStateToUrdf。
+ */
 import type { Object3D } from 'three'
 
 interface UrdfJointLike {

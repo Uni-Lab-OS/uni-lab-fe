@@ -1,5 +1,25 @@
 import { createStore } from 'zustand/vanilla'
 
+import {
+  appendJointStateToRingBuffer,
+  markJointStateRingBufferDisconnected,
+  replaceJointStateRingBufferSnapshot,
+  resetAllJointStateRingBuffers,
+  resetJointStateRingBuffer,
+  sampleJointStateAtRenderTime,
+  type JointStateRenderSample
+} from './jointStateRingBuffer'
+
+export {
+  JOINT_STATE_RENDER_DELAY_MS,
+  JOINT_STATE_STALE_MS,
+  JointStateRingBuffer,
+  jointStatePlaybackIsActive,
+  sampleJointStateAtRenderTime,
+  type JointStateRenderSample
+} from './jointStateRingBuffer'
+export { unwrapAngleRad } from './jointAngleUnwrap'
+
 export type JointStateSource = 'mock' | 'live'
 
 export interface JointStateFrame {
@@ -84,6 +104,7 @@ export function activateSceneRuntimeScope(scopeId: string): void {
   const normalized = scopeId.trim()
   if (!normalized) throw new Error('场景运行时（SceneRuntime）scopeId 不能为空。')
   if (sceneRuntimeStore.getState().scopeId === normalized) return
+  resetAllJointStateRingBuffers()
   sceneRuntimeStore.setState({
     scopeId: normalized,
     jointFrames: {},
@@ -103,6 +124,7 @@ export function publishJointStateFrame(
       accepted = current
       return state
     }
+    appendJointStateToRingBuffer(frame)
     return {
       ...state,
       jointFrames: { ...state.jointFrames, [frame.materialId]: frame }
@@ -124,6 +146,7 @@ export function replaceJointStateSnapshot(
   if (Object.keys(frames).length !== inputs.length) {
     throw new Error('关节状态（JointState）快照包含重复物料身份。')
   }
+  replaceJointStateRingBufferSnapshot(Object.values(frames))
   sceneRuntimeStore.setState(state => ({ ...state, jointFrames: frames }))
 }
 
@@ -145,12 +168,18 @@ export function subscribeJointStateFrame(
 }
 
 export function clearJointStateFrame(materialId: string): void {
+  resetJointStateRingBuffer(materialId)
   sceneRuntimeStore.setState(state => {
     if (!(materialId in state.jointFrames)) return state
     const next = { ...state.jointFrames }
     delete next[materialId]
     return { ...state, jointFrames: next }
   })
+}
+
+/** SSE 断流后下一帧不与旧位姿插值。 */
+export function markJointStateStreamDisconnected(materialId: string): void {
+  markJointStateRingBufferDisconnected(materialId)
 }
 
 /** 发布一个工具或物料的 latest-value-wins 运动学附着投影。 */

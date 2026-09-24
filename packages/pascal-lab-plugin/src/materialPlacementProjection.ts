@@ -10,6 +10,7 @@ import {
 } from '@unilab/material/domain'
 import type { LabPlacementRef } from './schema'
 import { readMaterialRendering } from './materialRenderingSnapshot'
+import { readRecord } from './materialSceneWire'
 import {
   labLinkPoseToThree,
   labPoseToPascal,
@@ -79,15 +80,26 @@ export function projectPlacement(
       ? labLinkPoseToThree(localPose)
       : labPoseToPascal(localPose)
 
+  const attach = {
+    parentDeviceId: parentSceneObjectId,
+    parentLinkName:
+      anchor.kind === 'link' ? anchor.linkName : '__root__',
+    mountPoint: placement.kind === 'site' ? placement.siteId : null
+  }
+  const renderingConfig = readRecord(aggregate.material.config).rendering
+  const parentLinkOverride =
+    typeof renderingConfig === 'object' &&
+    renderingConfig !== null &&
+    typeof (renderingConfig as Record<string, unknown>).parent_link === 'string'
+      ? String((renderingConfig as Record<string, unknown>).parent_link).trim()
+      : ''
+  if (parentLinkOverride) {
+    attach.parentLinkName = parentLinkOverride
+  }
   return {
     ...base,
     ...pose,
-    attach: {
-      parentDeviceId: parentSceneObjectId,
-      parentLinkName:
-        anchor.kind === 'link' ? anchor.linkName : '__root__',
-      mountPoint: placement.kind === 'site' ? placement.siteId : null
-    }
+    attach
   }
 }
 
