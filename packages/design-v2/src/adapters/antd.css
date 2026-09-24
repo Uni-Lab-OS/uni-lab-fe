@@ -1,0 +1,70 @@
+/*
+ * AntD adapter: keeps AntD's component ownership intact while aligning its
+ * most visible surfaces with the design-v2 semantic variables.
+ */
+.ant-btn-primary {
+  color: var(--bh-color-primary-foreground);
+  background: var(--bh-color-primary);
+  border-color: var(--bh-color-primary);
+}
+
+.ant-btn-primary:not(:disabled):hover {
+  color: var(--bh-color-primary-foreground);
+  background: color-mix(in srgb, var(--bh-color-primary) 88%, black);
+  border-color: color-mix(in srgb, var(--bh-color-primary) 88%, black);
+}
+
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector,
+.ant-picker,
+.ant-input-number {
+  color: var(--bh-color-foreground);
+  background: var(--bh-color-card);
+  border-color: var(--bh-color-input);
+}
+
+.ant-input::placeholder,
+.ant-select-selection-placeholder {
+  color: var(--bh-color-muted-foreground);
+}
+
+.ant-card,
+.ant-modal-content,
+.ant-popover-inner,
+.ant-dropdown-menu {
+  color: var(--bh-color-card-foreground);
+  background: var(--bh-color-card);
+}
+
+.ant-card,
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector,
+.ant-picker,
+.ant-input-number,
+.ant-table,
+.ant-table-container {
+  border-color: var(--bh-color-border);
+}
+
+.ant-modal-header,
+.ant-modal-footer,
+.ant-table-thead > tr > th {
+  background: var(--bh-color-card);
+  border-color: var(--bh-color-border);
+}
+
+.ant-form-item-explain-error,
+.ant-alert-error {
+  color: var(--bh-color-destructive);
+}
+
+.ant-input:focus,
+.ant-input-focused,
+.ant-input-affix-wrapper:focus,
+.ant-input-affix-wrapper-focused,
+.ant-select-focused .ant-select-selector {
+  border-color: var(--bh-color-ring);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bh-color-ring) 22%, transparent);
+}

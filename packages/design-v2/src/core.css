@@ -1,0 +1,5 @@
+@import './tokens/foundation.css';
+@import './tokens/theme.css';
+@import './tokens/color-modes.css';
+@import './tokens/compatibility.css';
+@import './tokens/icons.css';

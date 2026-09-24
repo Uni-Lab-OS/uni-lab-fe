@@ -1,0 +1,26 @@
+:root {
+  --bh-space-1: 0.25rem;
+  --bh-space-2: 0.5rem;
+  --bh-space-3: 0.75rem;
+  --bh-space-4: 1rem;
+  --bh-space-5: 1.25rem;
+  --bh-space-6: 1.5rem;
+  --bh-space-8: 2rem;
+  --bh-space-10: 2.5rem;
+  --bh-space-12: 3rem;
+
+  --bh-width-control-sm: 6rem;
+  --bh-width-control-md: 12rem;
+  --bh-width-control-lg: 20rem;
+  --bh-max-width-content: 80rem;
+
+  --bh-border-width-default: 1px;
+  --bh-border-width-strong: 2px;
+  --bh-stroke-width-icon: 1.75px;
+  --bh-opacity-disabled: 0.5;
+  --bh-opacity-muted: 0.7;
+  --bh-breakpoint-sm: 40rem;
+  --bh-breakpoint-md: 48rem;
+  --bh-breakpoint-lg: 64rem;
+  --bh-breakpoint-xl: 80rem;
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@unilab/design-v2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": ["**/*.css"],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens": "./src/tokens.ts",
+    "./theme": "./src/runtime/theme.ts",
+    "./core.css": "./src/core.css",
+    "./themes/default.css": "./src/themes/default.css",
+    "./adapters/tailwind.css": "./src/adapters/tailwind.css",
+    "./adapters/antd.css": "./src/adapters/antd.css"
+  }
+}

@@ -1,0 +1,75 @@
+/* Default preset. Custom presets can override the same semantic variables. */
+:root,
+:root[data-design-preset='default'],
+:root:not([data-design-preset]) {
+  --bh-color-background: #f8fafc;
+  --bh-color-foreground: #172033;
+  --bh-color-card: #ffffff;
+  --bh-color-card-foreground: #172033;
+  --bh-color-popover: #ffffff;
+  --bh-color-popover-foreground: #172033;
+  --bh-color-primary: #2563eb;
+  --bh-color-primary-foreground: #ffffff;
+  --bh-color-secondary: #eef2f7;
+  --bh-color-secondary-foreground: #334155;
+  --bh-color-muted: #f1f5f9;
+  --bh-color-muted-foreground: #64748b;
+  --bh-color-accent: #e8f0ff;
+  --bh-color-accent-foreground: #1d4ed8;
+  --bh-color-destructive: #dc2626;
+  --bh-color-destructive-foreground: #ffffff;
+  --bh-color-border: #dbe3ed;
+  --bh-color-input: #cbd5e1;
+  --bh-color-ring: #93c5fd;
+  --bh-color-ring-offset: #ffffff;
+  --bh-color-chart-1: #2563eb;
+  --bh-color-chart-2: #16a34a;
+  --bh-color-chart-3: #f59e0b;
+  --bh-color-chart-4: #7c3aed;
+  --bh-color-chart-5: #db2777;
+  --bh-color-sidebar: #ffffff;
+  --bh-color-sidebar-foreground: #334155;
+  --bh-color-sidebar-primary: #2563eb;
+  --bh-color-sidebar-primary-foreground: #ffffff;
+  --bh-color-sidebar-accent: #eff6ff;
+  --bh-color-sidebar-accent-foreground: #1d4ed8;
+  --bh-color-sidebar-border: #e2e8f0;
+  --bh-color-sidebar-ring: #93c5fd;
+}
+
+:root[data-color-mode='dark'][data-design-preset='default'],
+:root[data-color-mode='dark']:not([data-design-preset]) {
+  --bh-color-background: #0f172a;
+  --bh-color-foreground: #e2e8f0;
+  --bh-color-card: #172033;
+  --bh-color-card-foreground: #e2e8f0;
+  --bh-color-popover: #172033;
+  --bh-color-popover-foreground: #e2e8f0;
+  --bh-color-primary: #60a5fa;
+  --bh-color-primary-foreground: #0f172a;
+  --bh-color-secondary: #263449;
+  --bh-color-secondary-foreground: #e2e8f0;
+  --bh-color-muted: #1e293b;
+  --bh-color-muted-foreground: #94a3b8;
+  --bh-color-accent: #172554;
+  --bh-color-accent-foreground: #bfdbfe;
+  --bh-color-destructive: #f87171;
+  --bh-color-destructive-foreground: #450a0a;
+  --bh-color-border: #334155;
+  --bh-color-input: #475569;
+  --bh-color-ring: #60a5fa;
+  --bh-color-ring-offset: #0f172a;
+  --bh-color-chart-1: #60a5fa;
+  --bh-color-chart-2: #4ade80;
+  --bh-color-chart-3: #fbbf24;
+  --bh-color-chart-4: #a78bfa;
+  --bh-color-chart-5: #f472b6;
+  --bh-color-sidebar: #111827;
+  --bh-color-sidebar-foreground: #cbd5e1;
+  --bh-color-sidebar-primary: #60a5fa;
+  --bh-color-sidebar-primary-foreground: #0f172a;
+  --bh-color-sidebar-accent: #172554;
+  --bh-color-sidebar-accent-foreground: #bfdbfe;
+  --bh-color-sidebar-border: #334155;
+  --bh-color-sidebar-ring: #60a5fa;
+}

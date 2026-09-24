@@ -1,0 +1,12 @@
+/* Color mode contract. Concrete values are supplied by a theme preset. */
+:root {
+  color-scheme: light;
+}
+
+:root[data-color-mode='light'] {
+  color-scheme: light;
+}
+
+:root[data-color-mode='dark'] {
+  color-scheme: dark;
+}
