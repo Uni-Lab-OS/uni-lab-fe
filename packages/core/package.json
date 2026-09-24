@@ -1,0 +1,29 @@
+{
+  "name": "@unilab-fe/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zustand": "^5.0.8"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "2.1.9"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./react": "./src/react.ts"
+  }
+}
