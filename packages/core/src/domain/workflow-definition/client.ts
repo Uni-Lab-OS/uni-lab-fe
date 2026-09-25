@@ -31,11 +31,14 @@ export class WorkflowDefinitionClient implements WorkflowDefinitionPort {
     readonly page?: number
     readonly pageSize?: number
   } = {}): Promise<readonly PublishedWorkflowRevisionSummary[]> {
-    const page = input.page ?? 1
-    const pageSize = input.pageSize ?? 100
+    const params = new URLSearchParams({
+      page: String(input.page ?? 1),
+      page_size: String(input.pageSize ?? 100),
+      status: 'published'
+    })
     const response = await this.transport.request<unknown>({
       method: 'GET',
-      url: `${this.apiPrefix}/workflows?page=${page}&page_size=${pageSize}&status=published`
+      url: `${this.apiPrefix}/workflows?${params.toString()}`
     })
     return decodePublishedWorkflowList(response.data)
   }

@@ -7,7 +7,9 @@ class FakeTransport implements RequestTransport {
 
   async request<Value>(request: TransportRequest): Promise<TransportResponse<Value>> {
     this.requests.push(request)
-    const data = request.url.endsWith('/graph')
+    const data = request.url.includes('/workflows?')
+      ? { code: 0, data: { items: [{ uuid: 'wf-1', name: 'Published', revision: 2, workflow_type: 'workflow', status: 'published' }] } }
+      : request.url.endsWith('/graph')
       ? {
           workflow: { uuid: 'wf-1', revision: 2 },
           nodes: [],
@@ -22,6 +24,17 @@ class FakeTransport implements RequestTransport {
 }
 
 describe('workflow definition client', () => {
+  it('reads only published workflow summaries with an explicit page contract', async () => {
+    const transport = new FakeTransport()
+    const client = new WorkflowDefinitionClient(transport)
+    await expect(client.listPublishedRevisions({ page: 2, pageSize: 10 })).resolves.toMatchObject([
+      { workflowUuid: 'wf-1', status: 'published' }
+    ])
+    expect(transport.requests[0]?.url).toBe(
+      '/api/v1/workflows?page=2&page_size=10&status=published'
+    )
+  })
+
   it('keeps routes and transport out of the scenario-facing port', async () => {
     const transport = new FakeTransport()
     const client = new WorkflowDefinitionClient(transport)

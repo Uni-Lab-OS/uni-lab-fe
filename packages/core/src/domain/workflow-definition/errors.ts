@@ -3,6 +3,7 @@ export type WorkflowDefinitionErrorCode =
   | 'WORKFLOW_NOT_PUBLISHED'
   | 'UNSUPPORTED_WORKFLOW_TYPE'
   | 'WORKFLOW_IDENTITY_DRIFT'
+  | 'WORKFLOW_REVISION_DRIFT'
 
 export class WorkflowDefinitionError extends Error {
   readonly code: WorkflowDefinitionErrorCode

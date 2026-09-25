@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { decodePublishedWorkflow } from './codec'
+import {
+  decodePublishedWorkflow,
+  decodePublishedWorkflowList
+} from './codec'
 
 describe('workflow definition codec', () => {
   it('maps a published experiment operation and its requirements', () => {
@@ -43,5 +46,44 @@ describe('workflow definition codec', () => {
       { uuid: 'wf-1', name: 'Unknown', revision: 1, workflow_type: 'future', status: 'published' },
       { workflow: { uuid: 'wf-1' }, nodes: [], edges: [], node_templates: [], handle_templates: [] }
     )).toThrowError('unsupported')
+  })
+
+  it('unwraps the published list envelope and rejects duplicate identities', () => {
+    expect(decodePublishedWorkflowList({
+      code: 0,
+      data: {
+        items: [{
+          uuid: 'wf-1', name: 'Published', revision: 1,
+          workflow_type: 'workflow', status: 'published'
+        }],
+        page: 1,
+        page_size: 20,
+        has_more: false
+      }
+    })).toMatchObject([{ workflowUuid: 'wf-1', revision: 1 }])
+
+    expect(() => decodePublishedWorkflowList({
+      items: [
+        { uuid: 'wf-1', name: 'One', revision: 1, workflow_type: 'workflow', status: 'published' },
+        { uuid: 'wf-1', name: 'Duplicate', revision: 2, workflow_type: 'workflow', status: 'published' }
+      ]
+    })).toThrow('duplicate workflow uuid')
+  })
+
+  it('rejects revision drift between the summary and graph snapshot', () => {
+    expect(() => decodePublishedWorkflow(
+      { uuid: 'wf-1', name: 'Published', revision: 2, workflow_type: 'workflow', status: 'published' },
+      {
+        code: 0,
+        data: {
+          workflow: { uuid: 'wf-1', revision: 1 },
+          nodes: [],
+          edges: [],
+          node_templates: [],
+          handle_templates: [],
+          inventory_requirements: []
+        }
+      }
+    )).toThrow('revisions differ')
   })
 })

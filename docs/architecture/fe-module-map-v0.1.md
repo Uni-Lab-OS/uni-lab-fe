@@ -63,7 +63,7 @@ v0.1 的逻辑模块如下，**不是要求立即建立六个 package**：
 
 | 逻辑模块 | FE 拥有的语义 | 第一阶段 |
 | --- | --- | --- |
-| Workflow Definition | Published Revision、graph、inventory requirement、workflow type、ActionDefinition 投影 | 进入 |
+| Workflow Definition | Published Revision、graph、inventory requirement、workflow type、ActionDefinition 投影 | 已进入（Published Revision/Graph 读取） |
 | Device & Action | Device/Action 只读投影、能力和资源合同引用、Action Run 的 OS command/read seam | 已进入（目录、定义、提交身份与标准 Task/NodeJob 读取） |
 | Material & Site | Material、Site、Site Occupancy 的只读投影 | 已进入（列表、Graph、详情与 Site 读取） |
 | Reagent & Inventory | Reagent、Lot、数量库存的只读投影 | 已进入（Backend Reagent 与 Edge Inventory 读取） |
@@ -549,7 +549,8 @@ Device Card 产生反向依赖。`index.ts` 只导出当前纵向切片，尚未
 完成纯逻辑测试。
 
 当前结果：Scenario 可以替换 fake Port 或 fake Transport，而不修改 Domain 语义文件；已覆盖
-Published Workflow 类型校验、graph identity 校验和 route 编码。
+Published Workflow 类型校验、列表包络、重复身份、summary/graph identity 与 revision 漂移校验，
+并通过 route 编码测试。
 
 ### Phase 2：Generic Transport 与具体 Adapter
 

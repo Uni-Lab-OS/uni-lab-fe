@@ -18,13 +18,21 @@ import type {
 export function decodePublishedWorkflowList(
   value: unknown
 ): readonly PublishedWorkflowRevisionSummary[] {
-  const root = asRecord(value, 'workflow list')
+  const root = asRecord(unwrapEnvelope(value), 'workflow list')
   const items = Array.isArray(root.items)
     ? root.items
     : Array.isArray(root.data)
       ? root.data
       : []
-  return items.map((item, index) => decodeSummary(asRecord(item, `items[${index}]`), `items[${index}]`))
+  const identities = new Set<string>()
+  return items.map((item, index) => {
+    const summary = decodeSummary(asRecord(item, `items[${index}]`), `items[${index}]`)
+    if (identities.has(summary.workflowUuid)) {
+      throw definitionError('INVALID_WORKFLOW_DEFINITION', `duplicate workflow uuid: ${summary.workflowUuid}`)
+    }
+    identities.add(summary.workflowUuid)
+    return summary
+  })
 }
 
 export function decodePublishedWorkflow(
@@ -40,6 +48,21 @@ export function decodePublishedWorkflow(
       'WORKFLOW_IDENTITY_DRIFT',
       'Workflow summary and graph identities differ'
     )
+  }
+  const graphRevision = optionalRevision(graphWorkflow.revision)
+  if (graphRevision !== undefined && graphRevision !== summary.revision) {
+    throw new WorkflowDefinitionError(
+      'WORKFLOW_REVISION_DRIFT',
+      'Workflow summary and graph revisions differ'
+    )
+  }
+  for (const requirement of graph.inventoryRequirements) {
+    if (requirement.workflowUuid !== undefined && requirement.workflowUuid !== summary.workflowUuid) {
+      throw new WorkflowDefinitionError(
+        'WORKFLOW_IDENTITY_DRIFT',
+        `Inventory requirement ${requirement.uuid} belongs to another workflow`
+      )
+    }
   }
   return {
     kind: 'published_revision',
@@ -87,13 +110,14 @@ function decodeWorkflowType(value: unknown, path: string): PublishedWorkflowType
 }
 
 function decodeGraph(value: WorkflowGraphResponse): WorkflowGraph {
-  const workflow = asRecord(value.workflow, 'graph.workflow')
-  const nodes = recordArray(value.nodes, 'graph.nodes')
-  const edges = recordArray(value.edges, 'graph.edges')
-  const nodeTemplates = recordArray(value.node_templates, 'graph.node_templates')
-  const handleTemplates = recordArray(value.handle_templates, 'graph.handle_templates')
-  const requirements = Array.isArray(value.inventory_requirements)
-    ? value.inventory_requirements.map((item, index) =>
+  const root = asRecord(unwrapEnvelope(value), 'workflow graph') as WorkflowGraphResponse
+  const workflow = asRecord(root.workflow, 'graph.workflow')
+  const nodes = recordArray(root.nodes, 'graph.nodes')
+  const edges = recordArray(root.edges, 'graph.edges')
+  const nodeTemplates = recordArray(root.node_templates, 'graph.node_templates')
+  const handleTemplates = recordArray(root.handle_templates, 'graph.handle_templates')
+  const requirements = Array.isArray(root.inventory_requirements)
+    ? root.inventory_requirements.map((item, index) =>
         decodeRequirement(asRecord(item, `graph.inventory_requirements[${index}]`), index)
       )
     : []
@@ -105,6 +129,21 @@ function decodeGraph(value: WorkflowGraphResponse): WorkflowGraph {
     handleTemplates,
     inventoryRequirements: requirements
   }
+}
+
+function unwrapEnvelope(value: unknown): unknown {
+  const root = asOptionalRecord(value)
+  if (!root || (!('data' in root) && root.code === undefined && root.error === undefined)) {
+    return value
+  }
+  if (root.code !== undefined && root.code !== 0 && root.code !== '0') {
+    throw definitionError(
+      'INVALID_WORKFLOW_DEFINITION',
+      optionalString(asOptionalRecord(root.error)?.message ?? asOptionalRecord(root.error)?.msg ?? root.message)
+        ?? `Workflow request rejected with code ${String(root.code)}`
+    )
+  }
+  return root.data
 }
 
 function decodeRequirement(value: WorkflowDefinitionRecord, index: number): InventoryRequirement {
@@ -142,6 +181,15 @@ function asRecord(value: unknown, path: string): WorkflowDefinitionRecord {
 function asOptionalRecord(value: unknown): WorkflowDefinitionRecord | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? value as WorkflowDefinitionRecord
+    : undefined
+}
+
+function optionalRevision(value: unknown): number | undefined {
+  if (typeof value === 'number') return Number.isInteger(value) && value > 0 ? value : undefined
+  const record = asOptionalRecord(value)
+  if (record?.number === undefined) return undefined
+  return typeof record.number === 'number' && Number.isInteger(record.number) && record.number > 0
+    ? record.number
     : undefined
 }
 
