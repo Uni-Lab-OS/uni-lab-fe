@@ -1,6 +1,6 @@
 # Uni-Lab FE Module Map v0.1
 
-状态：2026-09-25，正式技术设计第一阶段；core 内 Phase 0-3 完成，Device & Action、Material & Site 与 Reagent & Inventory 的只读/command seam 已进入，Phase 4/5 延后，Phase 6 仅保留 assembly seam
+状态：2026-09-25，正式技术设计第一阶段；core 内 Phase 0-3 完成，Device & Action、Material & Site、Reagent & Inventory 与 Workflow Execution Read 的只读/command seam 已进入，Phase 4/5 延后，Phase 6 仅保留 assembly seam
 
 本文只冻结 FE 的模块层次、处置矩阵、依赖方向和第一阶段实现边界。它不重新定义
 OS 权威、Task/NodeJob/Attempt/DeviceCommand、Run Preparation 的领域语义、
@@ -67,7 +67,7 @@ v0.1 的逻辑模块如下，**不是要求立即建立六个 package**：
 | Device & Action | Device/Action 只读投影、能力和资源合同引用、Action Run 的 OS command/read seam | 已进入（目录、定义、提交身份与标准 Task/NodeJob 读取） |
 | Material & Site | Material、Site、Site Occupancy 的只读投影 | 已进入（列表、Graph、详情与 Site 读取） |
 | Reagent & Inventory | Reagent、Lot、数量库存的只读投影 | 已进入（Backend Reagent 与 Edge Inventory 读取） |
-| Workflow Execution Read | SubmitRun 结果、Task/Job/NodeJob Detail 的读取语义 | 最小进入 |
+| Workflow Execution Read | SubmitRun 结果、Task/Job/NodeJob Detail、Job Feedback 的读取语义 | 已进入（Task/Jobs/NodeJob/Feedback 只读） |
 | Evidence & Intervention | 证据、干预、恢复和对账的场景读取/命令语义 | 延后 |
 
 这些模块之间不互相复制事实。Run Preparation 是跨模块 Scenario；它可以同时调用
@@ -357,7 +357,7 @@ packages/
           client.ts             # calls injected generic transport
           errors.ts
         workflow-execution-read/
-          model.ts              # Task detail / Job read projections
+          model.ts              # Task / Job / NodeJob / Feedback read projections
           port.ts
           api.ts
           codec.ts
@@ -569,9 +569,12 @@ codec 或 Scenario。
 `UNMAPPED_RESOURCE_SELECTION`。更完整的 stale/confirmation/execution_unknown 场景合同测试
 留到接入真实 OS response fixture 时补齐。
 
-同时已加入 `Workflow Execution Read` 的最小读链路：`GET /workflow-tasks/{id}` 和
-`GET /workflow-tasks/{id}/jobs`。它只映射 Task/Job read projection，保留未知 status 和
-`execution_unknown`，不实现事件、控制命令或前端运行时状态机。
+同时已加入 `Workflow Execution Read` 的只读链路：`GET /workflow-tasks/{id}`、
+`GET /workflow-tasks/{id}/jobs`、`GET /workflow-node-jobs/{id}` 和
+`GET /workflow-node-jobs/{id}/feedback`。它映射 Task、Job、NodeJob Detail 与 Feedback
+projection，保留未知 status、`execution_unknown` 和 `uncertainty_reason`；Feedback 的
+Backend 页码在 Domain client 内收敛为 sequence cursor。不实现事件、控制命令、Attempt
+状态机或前端运行时状态机。
 
 当前 Domain 继续开发已加入 `Device & Action`：设备目录 `GET /devices`、ActionDefinition
 列表/详情、`ActionResourceContract` 引用，以及 `POST /device-action-runs` 的 OS command
