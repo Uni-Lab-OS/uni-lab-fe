@@ -21,6 +21,7 @@
     "./tokens/source.responsive.css": "./src/tokens/source.responsive.css",
     "./tokens/source.icons.css": "./src/tokens/source.icons.css",
     "./adapters/tailwind.css": "./src/adapters/tailwind.css",
-    "./adapters/antd.css": "./src/adapters/antd.css"
+    "./adapters/antd.css": "./src/adapters/antd.css",
+    "./adapters/antd-theme": "./src/adapters/antdTheme.ts"
   }
 }

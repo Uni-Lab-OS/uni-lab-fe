@@ -26,3 +26,9 @@ export {
   type SourceTokenCollection,
   type SourceTokenGroup
 } from './tokens/source'
+
+export {
+  createAntdTheme,
+  type AntdThemeAlgorithms,
+  type AntdThemeConfig
+} from './adapters/antdTheme'
