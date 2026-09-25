@@ -1,6 +1,6 @@
 # Uni-Lab FE Module Map v0.1
 
-状态：2026-09-24，正式技术设计第一阶段
+状态：2026-09-25，正式技术设计第一阶段；core 内 Phase 0-3 完成，Phase 4/5 延后，Phase 6 仅保留 assembly seam
 
 本文只冻结 FE 的模块层次、处置矩阵、依赖方向和第一阶段实现边界。它不重新定义
 OS 权威、Task/NodeJob/Attempt/DeviceCommand、Run Preparation 的领域语义、
@@ -351,8 +351,8 @@ packages/
           reagent-inventory/
 
       shared/                   # reusable UI-facing building blocks
-        components/
-        hooks/
+        components/              # deferred until UI interaction contract is stable
+        hooks/                   # deferred until UI interaction contract is stable
 
       scenarios/                # user-task composition
         run-preparation/
@@ -543,13 +543,25 @@ codec 或 Scenario。
 只实现该 Scenario 需要的 Picker、RequirementRow、BindingSelection、PreflightStatus
 和 SubmitRunResult。组件只消费 ViewModel 和 intent callback。
 
+当前决定：延后实现并回退临时组件。页面交互需求、视觉层级和 Design System 装配尚未讨论
+清楚，本阶段不冻结 semantic component props，也不在 `core` 中建立 UI 组件目录。
+
 ### Phase 5：Assembly 与受控联调
 
 通过 `assembly/backend.ts` 注入 FetchTransport 和 Domain clients，用一个已发布
 `experiment_operation` 完成 Published Revision → Preflight → SubmitRun → NodeJob Detail。
 不执行真实设备动作。
 
+当前决定：延后并回退 `experiment_operation` fixture 和合同测试。它们只服务于临时联调，
+尚未形成稳定的真实 OS contract；后续应在明确真实 OS caller 和 response fixture 位置后，
+重新建立测试资产，不进入正式 Domain API。
+
 ### Phase 6：Host 接入评估
 
 Phase 5 通过后，才评估 Browser、Desktop、Workbench 的装配方式。三者复用 Domain client、
 Scenario 和 ViewModel，只替换 transport/profile 和 Host 能力。
+
+当前结果：已加入 `assembly/host.ts`。Browser、Desktop、Workbench 通过同一个
+`createProductHostAssembly()` 注入 `RequestTransport`，复用同一组 Domain client、Scenario
+和 ViewModel；差异只保留在 Host descriptor 的 profile/capabilities。现有三个 app 尚未改动，
+Electron IPC 和真实 Workbench transport 等待真实 caller 出现后再实现。
