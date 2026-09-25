@@ -5,7 +5,8 @@
   "type": "module",
   "sideEffects": ["**/*.css"],
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "generate:source": "node scripts/generate-source-tokens.mjs"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -13,6 +14,12 @@
     "./theme": "./src/runtime/theme.ts",
     "./core.css": "./src/core.css",
     "./themes/default.css": "./src/themes/default.css",
+    "./tokens/source": "./src/tokens/source.ts",
+    "./tokens/source.colors.css": "./src/tokens/source.colors.css",
+    "./tokens/source.foundation.css": "./src/tokens/source.foundation.css",
+    "./tokens/source.theme.css": "./src/tokens/source.theme.css",
+    "./tokens/source.responsive.css": "./src/tokens/source.responsive.css",
+    "./tokens/source.icons.css": "./src/tokens/source.icons.css",
     "./adapters/tailwind.css": "./src/adapters/tailwind.css",
     "./adapters/antd.css": "./src/adapters/antd.css"
   }

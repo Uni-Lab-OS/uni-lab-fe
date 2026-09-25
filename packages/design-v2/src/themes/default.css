@@ -1,75 +1,163 @@
-/* Default preset. Custom presets can override the same semantic variables. */
+@import '../tokens/source.colors.css';
+@import '../tokens/source.foundation.css';
+@import '../tokens/source.theme.css';
+@import '../tokens/source.responsive.css';
+@import '../tokens/source.icons.css';
+
+/*
+ * Default preset
+ *
+ * This file is the semantic bridge. The source files keep the complete
+ * design inventory; this file gives applications stable names. Components
+ * and adapters should consume the --bh-* names below, never --bh-source-*.
+ * Light/dark values are selected by source.colors.css through data-color-mode.
+ */
 :root,
 :root[data-design-preset='default'],
 :root:not([data-design-preset]) {
-  --bh-color-background: #f8fafc;
-  --bh-color-foreground: #172033;
-  --bh-color-card: #ffffff;
-  --bh-color-card-foreground: #172033;
-  --bh-color-popover: #ffffff;
-  --bh-color-popover-foreground: #172033;
-  --bh-color-primary: #2563eb;
-  --bh-color-primary-foreground: #ffffff;
-  --bh-color-secondary: #eef2f7;
-  --bh-color-secondary-foreground: #334155;
-  --bh-color-muted: #f1f5f9;
-  --bh-color-muted-foreground: #64748b;
-  --bh-color-accent: #e8f0ff;
-  --bh-color-accent-foreground: #1d4ed8;
-  --bh-color-destructive: #dc2626;
-  --bh-color-destructive-foreground: #ffffff;
-  --bh-color-border: #dbe3ed;
-  --bh-color-input: #cbd5e1;
-  --bh-color-ring: #93c5fd;
-  --bh-color-ring-offset: #ffffff;
-  --bh-color-chart-1: #2563eb;
-  --bh-color-chart-2: #16a34a;
-  --bh-color-chart-3: #f59e0b;
-  --bh-color-chart-4: #7c3aed;
-  --bh-color-chart-5: #db2777;
-  --bh-color-sidebar: #ffffff;
-  --bh-color-sidebar-foreground: #334155;
-  --bh-color-sidebar-primary: #2563eb;
-  --bh-color-sidebar-primary-foreground: #ffffff;
-  --bh-color-sidebar-accent: #eff6ff;
-  --bh-color-sidebar-accent-foreground: #1d4ed8;
-  --bh-color-sidebar-border: #e2e8f0;
-  --bh-color-sidebar-ring: #93c5fd;
-}
+  /* Theme and foundation aliases */
+  --bh-font-family-sans: "PingFang SC", "Microsoft YaHei", Inter, ui-sans-serif, system-ui, sans-serif;
+  --bh-font-size-xs: 0.75rem;
+  --bh-font-size-sm: 0.875rem;
+  --bh-font-size-md: 1rem;
+  --bh-font-size-lg: 1.125rem;
+  --bh-font-size-xl: 1.25rem;
+  --bh-font-size-2xl: 1.5rem;
+  --bh-font-size-3xl: 1.875rem;
+  --bh-font-size-4xl: 2.25rem;
+  --bh-font-size-5xl: 3rem;
+  --bh-font-size-6xl: 3.75rem;
+  --bh-font-size-7xl: 4.5rem;
+  --bh-font-size-8xl: 6rem;
+  --bh-font-size-9xl: 8rem;
+  --bh-line-height-xs: 1rem;
+  --bh-line-height-sm: 1.25rem;
+  --bh-line-height-md: 1.5rem;
+  --bh-line-height-lg: 1.75rem;
+  --bh-line-height-xl: 1.75rem;
+  --bh-line-height-2xl: 2rem;
+  --bh-line-height-3xl: 2.25rem;
+  --bh-line-height-4xl: 2.5rem;
+  --bh-line-height-5xl: 3rem;
+  --bh-line-height-6xl: 3.75rem;
+  --bh-line-height-7xl: 4.5rem;
+  --bh-line-height-8xl: 6rem;
+  --bh-line-height-9xl: 8rem;
+  --bh-breakpoint-sm: 40rem;
+  --bh-breakpoint-md: 48rem;
+  --bh-breakpoint-lg: 64rem;
+  --bh-breakpoint-xl: 80rem;
+  --bh-container-3xs: 16rem;
+  --bh-container-2xs: 18rem;
+  --bh-container-xs: 20rem;
+  --bh-container-sm: 24rem;
+  --bh-container-md: 28rem;
+  --bh-container-lg: 32rem;
+  --bh-container-xl: 36rem;
+  --bh-container-2xl: 42rem;
+  --bh-container-3xl: 48rem;
+  --bh-container-4xl: 56rem;
+  --bh-container-5xl: 64rem;
+  --bh-container-6xl: 72rem;
+  --bh-container-7xl: 80rem;
 
-:root[data-color-mode='dark'][data-design-preset='default'],
-:root[data-color-mode='dark']:not([data-design-preset]) {
-  --bh-color-background: #0f172a;
-  --bh-color-foreground: #e2e8f0;
-  --bh-color-card: #172033;
-  --bh-color-card-foreground: #e2e8f0;
-  --bh-color-popover: #172033;
-  --bh-color-popover-foreground: #e2e8f0;
-  --bh-color-primary: #60a5fa;
-  --bh-color-primary-foreground: #0f172a;
-  --bh-color-secondary: #263449;
-  --bh-color-secondary-foreground: #e2e8f0;
-  --bh-color-muted: #1e293b;
-  --bh-color-muted-foreground: #94a3b8;
-  --bh-color-accent: #172554;
-  --bh-color-accent-foreground: #bfdbfe;
-  --bh-color-destructive: #f87171;
-  --bh-color-destructive-foreground: #450a0a;
-  --bh-color-border: #334155;
-  --bh-color-input: #475569;
-  --bh-color-ring: #60a5fa;
-  --bh-color-ring-offset: #0f172a;
-  --bh-color-chart-1: #60a5fa;
-  --bh-color-chart-2: #4ade80;
-  --bh-color-chart-3: #fbbf24;
-  --bh-color-chart-4: #a78bfa;
-  --bh-color-chart-5: #f472b6;
-  --bh-color-sidebar: #111827;
-  --bh-color-sidebar-foreground: #cbd5e1;
-  --bh-color-sidebar-primary: #60a5fa;
-  --bh-color-sidebar-primary-foreground: #0f172a;
-  --bh-color-sidebar-accent: #172554;
-  --bh-color-sidebar-accent-foreground: #bfdbfe;
-  --bh-color-sidebar-border: #334155;
-  --bh-color-sidebar-ring: #60a5fa;
+  /* Color primitives: source layer owns the light/dark values. */
+  --bh-color-primary-white: var(--bh-source-color-modes-primary-white);
+  --bh-color-primary-neutral-light: var(--bh-source-color-modes-primary-neutral-light);
+  --bh-color-primary-background: var(--bh-source-color-modes-primary-background);
+  --bh-color-primary-background-hover: var(--bh-source-color-modes-primary-background-hover);
+  --bh-color-primary-border: var(--bh-source-color-modes-primary-border);
+  --bh-color-primary-hover: var(--bh-source-color-modes-primary-hover);
+  --bh-color-primary-default: var(--bh-source-color-modes-primary-default);
+  --bh-color-primary-pressed: var(--bh-source-color-modes-primary-pressed);
+  --bh-color-primary-focus: var(--bh-source-color-modes-primary-focus);
+  --bh-color-primary-information-light: var(--bh-source-color-modes-primary-information-light);
+  --bh-color-primary-information: var(--bh-source-color-modes-primary-information);
+  --bh-color-primary-disabled: var(--bh-source-color-modes-primary-disabled);
+  --bh-color-primary-neutral: var(--bh-source-color-modes-primary-neutral);
+  --bh-color-primary-inverse: var(--bh-source-color-modes-primary-inverse);
+  --bh-color-primary-overlay: var(--bh-source-color-modes-primary-overlay);
+  --bh-color-fill-0: var(--bh-source-color-modes-fill-0);
+  --bh-color-fill-1: var(--bh-source-color-modes-fill-1);
+  --bh-color-fill-2: var(--bh-source-color-modes-fill-2);
+  --bh-color-fill-3: var(--bh-source-color-modes-fill-3);
+  --bh-color-fill-4: var(--bh-source-color-modes-fill-4);
+  --bh-color-fill-5: var(--bh-source-color-modes-fill-5);
+  --bh-color-border-0: var(--bh-source-color-modes-border-0);
+  --bh-color-border-1: var(--bh-source-color-modes-border-1);
+  --bh-color-border-2: var(--bh-source-color-modes-border-2);
+  --bh-color-border-3: var(--bh-source-color-modes-border-3);
+  --bh-color-text-placeholder: var(--bh-source-color-modes-text-placeholder);
+  --bh-color-text-description: var(--bh-source-color-modes-text-description);
+  --bh-color-text-disabled: var(--bh-source-color-modes-text-disabled);
+  --bh-color-text-default: var(--bh-source-color-modes-text-default);
+  --bh-color-icon-default: var(--bh-source-color-modes-icon-default);
+  --bh-color-icon-context: var(--bh-source-icon-context-context-text-default);
+  --bh-color-icon-hover: var(--bh-source-color-modes-icon-hover);
+  --bh-color-sidebar-default: var(--bh-source-color-modes-sidebar-default);
+  --bh-color-sidebar-hover: var(--bh-source-color-modes-sidebar-hover);
+  --bh-color-sidebar-selected: var(--bh-source-color-modes-sidebar-selected);
+  --bh-color-warning-default: var(--bh-source-color-modes-warning-default);
+  --bh-color-warning-subtle: var(--bh-source-color-modes-warning-subtle);
+  --bh-color-warning-pressed: var(--bh-source-color-modes-warning-pressed);
+  --bh-color-warning-focus: var(--bh-source-color-modes-warning-focus);
+  --bh-color-warning-hover: var(--bh-source-color-modes-warning-hover);
+  --bh-color-warning-disabled: var(--bh-source-color-modes-warning-disabled);
+  --bh-color-alert-warning-text: var(--bh-source-color-modes-custom-amber-900-dark-amber-50);
+  --bh-color-alert-warning-border: var(--bh-source-color-modes-custom-amber-200-dark-amber-900);
+  --bh-color-alert-warning-background: var(--bh-source-color-modes-custom-amber-50-dark-amber-950);
+  --bh-color-alpha-50: var(--bh-source-color-modes-alpha-50);
+  --bh-color-alpha-10: var(--bh-source-color-modes-alpha-10);
+  --bh-color-custom-destructive-10: var(--bh-source-color-modes-custom-destructive-10-dark-destructive-20);
+  --bh-color-success-pressed: var(--bh-source-color-modes-success-pressed);
+  --bh-color-success-default: var(--bh-source-color-modes-success-default);
+  --bh-color-success-focus: var(--bh-source-color-modes-success-focus);
+  --bh-color-success-hover: var(--bh-source-color-modes-success-hover);
+  --bh-color-success-disabled: var(--bh-source-color-modes-success-disabled);
+  --bh-color-success-subtle: var(--bh-source-color-modes-success-subtle);
+  --bh-color-error-default: var(--bh-source-color-modes-error-default);
+  --bh-color-error-pressed: var(--bh-source-color-modes-error-pressed);
+  --bh-color-error-subtle: var(--bh-source-color-modes-error-subtle);
+  --bh-color-error-disabled: var(--bh-source-color-modes-error-disabled);
+  --bh-color-error-hover: var(--bh-source-color-modes-error-hover);
+  --bh-color-error-focus: var(--bh-source-color-modes-error-focus);
+
+  /* Stable semantic aliases consumed by pages and component adapters. */
+  --bh-color-background: var(--bh-color-primary-white);
+  --bh-color-foreground: var(--bh-color-text-default);
+  --bh-color-control: var(--bh-color-fill-0);
+  --bh-color-control-hover: var(--bh-color-fill-1);
+  --bh-color-control-active: var(--bh-color-primary-background);
+  --bh-color-control-foreground: var(--bh-color-text-default);
+  --bh-color-card: var(--bh-source-color-modes-base-card);
+  --bh-color-card-foreground: var(--bh-color-text-default);
+  --bh-color-popover: var(--bh-source-color-modes-base-popover);
+  --bh-color-popover-foreground: var(--bh-color-text-default);
+  --bh-color-primary: var(--bh-color-primary-default);
+  --bh-color-primary-foreground: var(--bh-color-primary-white);
+  --bh-color-secondary: var(--bh-color-fill-1);
+  --bh-color-secondary-foreground: var(--bh-color-text-default);
+  --bh-color-muted: var(--bh-color-fill-0);
+  --bh-color-muted-foreground: var(--bh-color-text-description);
+  --bh-color-accent: var(--bh-color-primary-background-hover);
+  --bh-color-accent-foreground: var(--bh-color-text-default);
+  --bh-color-destructive: var(--bh-color-error-default);
+  --bh-color-destructive-foreground: var(--bh-color-primary-white);
+  --bh-color-border: var(--bh-color-border-1);
+  --bh-color-input: var(--bh-color-border-1);
+  --bh-color-ring: var(--bh-color-primary-focus);
+  --bh-color-ring-offset: var(--bh-source-color-modes-base-ring-offset);
+  --bh-color-chart-1: var(--bh-source-color-modes-base-chart-1);
+  --bh-color-chart-2: var(--bh-source-color-modes-base-chart-2);
+  --bh-color-chart-3: var(--bh-source-color-modes-base-chart-3);
+  --bh-color-chart-4: var(--bh-source-color-modes-base-chart-4);
+  --bh-color-chart-5: var(--bh-source-color-modes-base-chart-5);
+  --bh-color-sidebar: var(--bh-color-sidebar-default);
+  --bh-color-sidebar-foreground: var(--bh-color-text-default);
+  --bh-color-sidebar-primary: var(--bh-color-primary-default);
+  --bh-color-sidebar-primary-foreground: var(--bh-color-primary-white);
+  --bh-color-sidebar-accent: var(--bh-color-sidebar-selected);
+  --bh-color-sidebar-accent-foreground: var(--bh-color-text-default);
+  --bh-color-sidebar-border: var(--bh-color-border-1);
+  --bh-color-sidebar-ring: var(--bh-color-primary-focus);
 }

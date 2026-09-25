@@ -1,0 +1,64 @@
+/* Generated from design source Variables — 4. Pro / Responsive (29) */
+:root {
+  --bh-source-pro-responsive-container-padding-x: 24px;
+  --bh-source-pro-responsive-section-padding-y: 96px;
+  --bh-source-pro-responsive-section-title-gap-sm: 16px;
+  --bh-source-pro-responsive-section-title-gap-md: 20px;
+  --bh-source-pro-responsive-section-title-gap-lg: 20px;
+  --bh-source-pro-responsive-section-title-gap-xl: 24px;
+  --bh-source-pro-responsive-component-padding-sm: 8px;
+  --bh-source-pro-responsive-component-padding-md: 16px;
+  --bh-source-pro-responsive-component-padding-lg: 24px;
+  --bh-source-pro-responsive-heading-xl-font-family: "PingFang SC";
+  --bh-source-pro-responsive-heading-xl-font-size: 60px;
+  --bh-source-pro-responsive-heading-xl-line-height: 60px;
+  --bh-source-pro-responsive-heading-xl-font-weight: 600;
+  --bh-source-pro-responsive-heading-xl-letter-spacing: -1.5px;
+  --bh-source-pro-responsive-heading-lg-font-family: "PingFang SC";
+  --bh-source-pro-responsive-heading-lg-font-size: 48px;
+  --bh-source-pro-responsive-heading-lg-line-height: 48px;
+  --bh-source-pro-responsive-heading-lg-font-weight: 600;
+  --bh-source-pro-responsive-heading-lg-letter-spacing: -1.2px;
+  --bh-source-pro-responsive-heading-md-font-family: "PingFang SC";
+  --bh-source-pro-responsive-heading-md-font-size: 36px;
+  --bh-source-pro-responsive-heading-md-line-height: 40px;
+  --bh-source-pro-responsive-heading-md-font-weight: 600;
+  --bh-source-pro-responsive-heading-md-letter-spacing: -0.9px;
+  --bh-source-pro-responsive-heading-sm-font-family: "PingFang SC";
+  --bh-source-pro-responsive-heading-sm-font-size: 24px;
+  --bh-source-pro-responsive-heading-sm-line-height: 32px;
+  --bh-source-pro-responsive-heading-sm-font-weight: 600;
+  --bh-source-pro-responsive-heading-sm-letter-spacing: -0.6px;
+}
+
+:root[data-responsive-mode='mobile'] {
+  --bh-source-pro-responsive-container-padding-x: 16px;
+  --bh-source-pro-responsive-section-padding-y: 64px;
+  --bh-source-pro-responsive-section-title-gap-sm: 16px;
+  --bh-source-pro-responsive-section-title-gap-md: 16px;
+  --bh-source-pro-responsive-section-title-gap-lg: 16px;
+  --bh-source-pro-responsive-section-title-gap-xl: 20px;
+  --bh-source-pro-responsive-component-padding-sm: 8px;
+  --bh-source-pro-responsive-component-padding-md: 16px;
+  --bh-source-pro-responsive-component-padding-lg: 24px;
+  --bh-source-pro-responsive-heading-xl-font-family: "PingFang SC";
+  --bh-source-pro-responsive-heading-xl-font-size: 48px;
+  --bh-source-pro-responsive-heading-xl-line-height: 48px;
+  --bh-source-pro-responsive-heading-xl-font-weight: 600;
+  --bh-source-pro-responsive-heading-xl-letter-spacing: -1.2px;
+  --bh-source-pro-responsive-heading-lg-font-family: "PingFang SC";
+  --bh-source-pro-responsive-heading-lg-font-size: 36px;
+  --bh-source-pro-responsive-heading-lg-line-height: 40px;
+  --bh-source-pro-responsive-heading-lg-font-weight: 600;
+  --bh-source-pro-responsive-heading-lg-letter-spacing: -0.9px;
+  --bh-source-pro-responsive-heading-md-font-family: "PingFang SC";
+  --bh-source-pro-responsive-heading-md-font-size: 30px;
+  --bh-source-pro-responsive-heading-md-line-height: 36px;
+  --bh-source-pro-responsive-heading-md-font-weight: 600;
+  --bh-source-pro-responsive-heading-md-letter-spacing: -0.75px;
+  --bh-source-pro-responsive-heading-sm-font-family: "PingFang SC";
+  --bh-source-pro-responsive-heading-sm-font-size: 20px;
+  --bh-source-pro-responsive-heading-sm-line-height: 28px;
+  --bh-source-pro-responsive-heading-sm-font-weight: 600;
+  --bh-source-pro-responsive-heading-sm-letter-spacing: -0.5px;
+}

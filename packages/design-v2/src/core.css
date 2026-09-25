@@ -3,3 +3,8 @@
 @import './tokens/color-modes.css';
 @import './tokens/compatibility.css';
 @import './tokens/icons.css';
+@import './tokens/source.colors.css';
+@import './tokens/source.foundation.css';
+@import './tokens/source.theme.css';
+@import './tokens/source.responsive.css';
+@import './tokens/source.icons.css';

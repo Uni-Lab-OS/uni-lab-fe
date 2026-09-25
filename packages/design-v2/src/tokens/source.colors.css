@@ -1,0 +1,209 @@
+/*
+ * Design source variables — 3. Color Modes
+ *
+ * This file deliberately keeps the design source path in every declaration. Values
+ * are the Light / Dark modes read from the Variables panel; component-facing
+ * aliases live in themes/default.css and must not be mistaken for source
+ * variables.
+ */
+
+:root,
+:root[data-design-preset='default'],
+:root:not([data-design-preset]) {
+  /* primary */
+  --bh-source-color-modes-primary-white: #fff;
+  --bh-source-color-modes-primary-neutral-light: #f7fafe;
+  --bh-source-color-modes-primary-background: #f2f3ff;
+  --bh-source-color-modes-primary-background-hover: #d9e1ff;
+  --bh-source-color-modes-primary-border: #c7d2ff;
+  --bh-source-color-modes-primary-hover: #626aea;
+  --bh-source-color-modes-primary-default: #3c49dd;
+  --bh-source-color-modes-primary-pressed: #2f37b7;
+  --bh-source-color-modes-primary-focus: #c7d2ff;
+  --bh-source-color-modes-primary-information-light: #f2f3ff;
+  --bh-source-color-modes-primary-information: #3c49dd;
+  --bh-source-color-modes-primary-disabled: #c9cdd5;
+  --bh-source-color-modes-primary-neutral: #4e5969;
+  --bh-source-color-modes-primary-inverse: #1d2129;
+  --bh-source-color-modes-primary-overlay: #1d2129;
+
+  /* fill / border / text / icon / sidebar */
+  --bh-source-color-modes-fill-0: #f7f8fa;
+  --bh-source-color-modes-fill-1: #f2f3f5;
+  --bh-source-color-modes-fill-2: #e5e6ec;
+  --bh-source-color-modes-fill-3: #c9cdd5;
+  --bh-source-color-modes-fill-4: #4e5969;
+  --bh-source-color-modes-fill-5: #1d2129;
+  --bh-source-color-modes-border-0: #f2f3f5;
+  --bh-source-color-modes-border-1: #e5e6ec;
+  --bh-source-color-modes-border-2: #c9cdd5;
+  --bh-source-color-modes-border-3: #86909c;
+  --bh-source-color-modes-text-placeholder: #86909c;
+  --bh-source-color-modes-text-description: #4e5969;
+  --bh-source-color-modes-text-disabled: #c9cdd5;
+  --bh-source-color-modes-text-default: #1d2129;
+  --bh-source-color-modes-icon-default: #1d2129;
+  --bh-source-color-modes-icon-hover: #4e5969;
+  --bh-source-color-modes-sidebar-default: #f7fafe;
+  --bh-source-color-modes-sidebar-hover: #f2f5f9;
+  --bh-source-color-modes-sidebar-selected: #ebeef3;
+
+  /* warning / success / error */
+  --bh-source-color-modes-warning-default: #ffa114;
+  --bh-source-color-modes-warning-subtle: #fff5e3;
+  --bh-source-color-modes-warning-pressed: #ed7a00;
+  --bh-source-color-modes-warning-focus: #ffe8b2;
+  --bh-source-color-modes-warning-hover: #ffb04f;
+  --bh-source-color-modes-warning-disabled: #fdd78a;
+  --bh-source-color-modes-success-pressed: #008858;
+  --bh-source-color-modes-success-default: #0ab268;
+  --bh-source-color-modes-success-focus: #c6f3d7;
+  --bh-source-color-modes-success-hover: #56c08d;
+  --bh-source-color-modes-success-disabled: #92dab2;
+  --bh-source-color-modes-success-subtle: #e3f9e9;
+  --bh-source-color-modes-error-default: #ff4747;
+  --bh-source-color-modes-error-pressed: #cc3939;
+  --bh-source-color-modes-error-subtle: #ffeded;
+  --bh-source-color-modes-error-disabled: #ff9191;
+  --bh-source-color-modes-error-hover: #ff6c6c;
+  --bh-source-color-modes-error-focus: #ffc7c7;
+
+  /* base — the source paths are base/card, base/popover and base/ring-offset. */
+  --bh-source-color-modes-base-card: #f7f8fa;
+  --bh-source-color-modes-base-popover: #f7f8fa;
+  --bh-source-color-modes-base-ring-offset: #f7f8fa;
+  --bh-source-color-modes-base-chart-1: #fa541c;
+  --bh-source-color-modes-base-chart-2: #08979c;
+  --bh-source-color-modes-base-chart-3: #00474f;
+  --bh-source-color-modes-base-chart-4: #ffc53d;
+  --bh-source-color-modes-base-chart-5: #ffa114;
+
+  /* alpha */
+  --bh-source-color-modes-alpha-5: rgb(255 255 255 / 95%);
+  --bh-source-color-modes-alpha-10: rgb(255 255 255 / 90%);
+  --bh-source-color-modes-alpha-20: rgb(255 255 255 / 80%);
+  --bh-source-color-modes-alpha-30: rgb(255 255 255 / 70%);
+  --bh-source-color-modes-alpha-40: rgb(255 255 255 / 60%);
+  --bh-source-color-modes-alpha-50: rgb(255 255 255 / 50%);
+  --bh-source-color-modes-alpha-60: rgb(255 255 255 / 40%);
+  --bh-source-color-modes-alpha-80: rgb(255 255 255 / 20%);
+  --bh-source-color-modes-alpha-90: rgb(255 255 255 / 10%);
+
+  /* custom */
+  --bh-source-color-modes-custom-background-dark-input-30: #f7f8fa;
+  --bh-source-color-modes-custom-background-dark-calendar-30: #f7f8fa;
+  --bh-source-color-modes-custom-accent-dark-input-50: #f2f3f5;
+  --bh-source-color-modes-custom-accent-dark-calendar-50: #f2f3f5;
+  --bh-source-color-modes-custom-input-dark-input-80: #e5e6ec;
+  --bh-source-color-modes-custom-input-50-dark-input-80: rgb(229 230 236 / 50%);
+  --bh-source-color-modes-custom-input-30-dark-transparent: rgb(229 230 236 / 30%);
+  --bh-source-color-modes-custom-muted-dark-input-50: #f2f3f5;
+  --bh-source-color-modes-custom-destructive-10-dark-destructive-20: rgb(212 56 13 / 10%);
+  --bh-source-color-modes-custom-destructive-20-dark-destructive-30: rgb(212 56 13 / 20%);
+  --bh-source-color-modes-custom-destructive-40-dark-destructive-40: rgb(212 56 13 / 40%);
+  --bh-source-color-modes-custom-dark-input: rgb(255 255 255 / 0%);
+  --bh-source-color-modes-custom-outline: rgb(172 172 172 / 50%);
+  --bh-source-color-modes-custom-blue-500-dark-blue-600: #597ef7;
+  --bh-source-color-modes-custom-ring-dark-input-dark: #c7d2ff;
+  --bh-source-color-modes-custom-popover-70: rgb(255 255 255 / 70%);
+  --bh-source-color-modes-custom-bg-background-20-dark-bg-background-10: rgb(255 255 255 / 20%);
+  --bh-source-color-modes-custom-bg-primary-5-dark-bg-primary-10: rgb(18 18 18 / 5%);
+  /* Alert warning variables read from the Figma Alert selection colors. */
+  --bh-source-color-modes-custom-amber-900-dark-amber-50: #873800;
+  --bh-source-color-modes-custom-amber-200-dark-amber-900: #ffe58f;
+  --bh-source-color-modes-custom-amber-50-dark-amber-950: #fffbe6;
+}
+
+:root[data-color-mode='dark'][data-design-preset='default'],
+:root[data-color-mode='dark']:not([data-design-preset]) {
+  --bh-source-color-modes-primary-white: #121212;
+  --bh-source-color-modes-primary-neutral-light: #232323;
+  --bh-source-color-modes-primary-background: #272e59;
+  --bh-source-color-modes-primary-background-hover: #394580;
+  --bh-source-color-modes-primary-border: #5363a6;
+  --bh-source-color-modes-primary-hover: #7086cc;
+  --bh-source-color-modes-primary-default: #93adf3;
+  --bh-source-color-modes-primary-pressed: #c2d4ff;
+  --bh-source-color-modes-primary-focus: #5363a6;
+  --bh-source-color-modes-primary-information-light: #272e59;
+  --bh-source-color-modes-primary-information: #93adf3;
+  --bh-source-color-modes-primary-disabled: #383838;
+  --bh-source-color-modes-primary-neutral: #acacac;
+  --bh-source-color-modes-primary-inverse: #e0e0e0;
+  --bh-source-color-modes-primary-overlay: #e0e0e0;
+  --bh-source-color-modes-fill-0: #252525;
+  --bh-source-color-modes-fill-1: #2c2c2c;
+  --bh-source-color-modes-fill-2: #2f2f2f;
+  --bh-source-color-modes-fill-3: #383838;
+  --bh-source-color-modes-fill-4: #acacac;
+  --bh-source-color-modes-fill-5: #e0e0e0;
+  --bh-source-color-modes-border-0: #2c2c2c;
+  --bh-source-color-modes-border-1: #2f2f2f;
+  --bh-source-color-modes-border-2: #383838;
+  --bh-source-color-modes-border-3: #7d7d7d;
+  --bh-source-color-modes-text-placeholder: #7d7d7d;
+  --bh-source-color-modes-text-description: #acacac;
+  --bh-source-color-modes-text-disabled: #383838;
+  --bh-source-color-modes-text-default: #e0e0e0;
+  --bh-source-color-modes-icon-default: #e0e0e0;
+  --bh-source-color-modes-icon-hover: #acacac;
+  --bh-source-color-modes-sidebar-default: #1d1f24;
+  --bh-source-color-modes-sidebar-hover: #26282d;
+  --bh-source-color-modes-sidebar-selected: #383a3f;
+  --bh-source-color-modes-warning-default: #db8c14;
+  --bh-source-color-modes-warning-subtle: #593d13;
+  --bh-source-color-modes-warning-pressed: #f3c362;
+  --bh-source-color-modes-warning-focus: #7d5213;
+  --bh-source-color-modes-warning-hover: #e7a739;
+  --bh-source-color-modes-warning-disabled: #232323;
+  --bh-source-color-modes-success-pressed: #4bc387;
+  --bh-source-color-modes-success-default: #0b9a5b;
+  --bh-source-color-modes-success-focus: #0e5a39;
+  --bh-source-color-modes-success-hover: #28ae70;
+  --bh-source-color-modes-success-disabled: #232323;
+  --bh-source-color-modes-success-subtle: #104227;
+  --bh-source-color-modes-error-default: #db3f3f;
+  --bh-source-color-modes-error-pressed: #f39992;
+  --bh-source-color-modes-error-subtle: #592222;
+  --bh-source-color-modes-error-disabled: #232323;
+  --bh-source-color-modes-error-hover: #e76b67;
+  --bh-source-color-modes-error-focus: #7d2a2a;
+  --bh-source-color-modes-base-card: #252525;
+  --bh-source-color-modes-base-popover: #252525;
+  --bh-source-color-modes-base-ring-offset: #252525;
+  --bh-source-color-modes-base-chart-1: #0958d9;
+  --bh-source-color-modes-base-chart-2: #28ae70;
+  --bh-source-color-modes-base-chart-3: #ffa114;
+  --bh-source-color-modes-base-chart-4: #9254de;
+  --bh-source-color-modes-base-chart-5: #ff4747;
+  --bh-source-color-modes-alpha-5: rgb(18 18 18 / 95%);
+  --bh-source-color-modes-alpha-10: rgb(18 18 18 / 90%);
+  --bh-source-color-modes-alpha-20: rgb(18 18 18 / 80%);
+  --bh-source-color-modes-alpha-30: rgb(18 18 18 / 70%);
+  --bh-source-color-modes-alpha-40: rgb(18 18 18 / 60%);
+  --bh-source-color-modes-alpha-50: rgb(18 18 18 / 50%);
+  --bh-source-color-modes-alpha-60: rgb(18 18 18 / 40%);
+  --bh-source-color-modes-alpha-80: rgb(18 18 18 / 20%);
+  --bh-source-color-modes-alpha-90: rgb(18 18 18 / 10%);
+  --bh-source-color-modes-custom-background-dark-input-30: rgb(255 255 255 / 4.5%);
+  --bh-source-color-modes-custom-background-dark-calendar-30: rgb(255 255 255 / 4.5%);
+  --bh-source-color-modes-custom-accent-dark-input-50: rgb(255 255 255 / 7.5%);
+  --bh-source-color-modes-custom-accent-dark-calendar-50: rgb(255 255 255 / 7.5%);
+  --bh-source-color-modes-custom-input-dark-input-80: rgb(255 255 255 / 12%);
+  --bh-source-color-modes-custom-input-50-dark-input-80: rgb(255 255 255 / 15%);
+  --bh-source-color-modes-custom-input-30-dark-transparent: rgb(255 255 255 / 0.5%);
+  --bh-source-color-modes-custom-muted-dark-input-50: rgb(255 255 255 / 7.5%);
+  --bh-source-color-modes-custom-destructive-10-dark-destructive-20: rgb(255 108 108 / 20%);
+  --bh-source-color-modes-custom-destructive-20-dark-destructive-30: rgb(255 108 108 / 30%);
+  --bh-source-color-modes-custom-destructive-40-dark-destructive-40: rgb(255 108 108 / 40%);
+  --bh-source-color-modes-custom-dark-input: #2f2f2f;
+  --bh-source-color-modes-custom-outline: rgb(125 125 125 / 50%);
+  --bh-source-color-modes-custom-blue-500-dark-blue-600: #2f54eb;
+  --bh-source-color-modes-custom-ring-dark-input-dark: rgb(255 255 255 / 15%);
+  --bh-source-color-modes-custom-popover-70: rgb(37 37 37 / 70%);
+  --bh-source-color-modes-custom-bg-background-20-dark-bg-background-10: rgb(18 18 18 / 10%);
+  --bh-source-color-modes-custom-bg-primary-5-dark-bg-primary-10: rgb(255 255 255 / 10%);
+  --bh-source-color-modes-custom-amber-900-dark-amber-50: #fffbe6;
+  --bh-source-color-modes-custom-amber-200-dark-amber-900: #874d00;
+  --bh-source-color-modes-custom-amber-50-dark-amber-950: #3b1e00;
+}

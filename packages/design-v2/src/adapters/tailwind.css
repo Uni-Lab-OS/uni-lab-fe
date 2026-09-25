@@ -1,6 +1,10 @@
 @theme inline {
   --color-background: var(--bh-color-background);
   --color-foreground: var(--bh-color-foreground);
+  --color-control: var(--bh-color-control);
+  --color-control-hover: var(--bh-color-control-hover);
+  --color-control-active: var(--bh-color-control-active);
+  --color-control-foreground: var(--bh-color-control-foreground);
   --color-card: var(--bh-color-card);
   --color-card-foreground: var(--bh-color-card-foreground);
   --color-popover: var(--bh-color-popover);

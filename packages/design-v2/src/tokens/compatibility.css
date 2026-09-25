@@ -1,6 +1,10 @@
 :root {
   --background: var(--bh-color-background);
   --foreground: var(--bh-color-foreground);
+  --control: var(--bh-color-control);
+  --control-hover: var(--bh-color-control-hover);
+  --control-active: var(--bh-color-control-active);
+  --control-foreground: var(--bh-color-control-foreground);
   --card: var(--bh-color-card);
   --card-foreground: var(--bh-color-card-foreground);
   --popover: var(--bh-color-popover);

@@ -17,3 +17,12 @@ export {
   setTheme as setDesignTheme,
   watchTheme as watchDesignTheme
 } from './runtime/theme'
+
+export {
+  SOURCE_TOKEN_COLLECTIONS,
+  SOURCE_TOKEN_TOTAL,
+  sourceCssVar,
+  sourceVariableSuffix,
+  type SourceTokenCollection,
+  type SourceTokenGroup
+} from './tokens/source'
