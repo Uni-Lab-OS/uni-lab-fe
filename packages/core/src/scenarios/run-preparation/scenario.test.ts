@@ -31,7 +31,12 @@ describe('run preparation scenario', () => {
     const runPreparation: RunPreparationPort = {
       async requestPreflight() { throw new Error('not used') },
       async submitRun() { throw new Error('not used') },
-      async getNodeJobDetail() { throw new Error('not used') }
+      async getNodeJobDetail(jobUuid) {
+        return {
+          kind: 'node_job_detail', source: 'fixture', jobUuid, workflowTaskUuid: 'task-1',
+          workflowNodeUuid: 'node-1', executorKind: 'device', logicalStatus: 'running', attempt: 1, raw: {}
+        }
+      }
     }
 
     const view = await createRunPreparationScenario(port, runPreparation).load('wf-1', {
@@ -41,5 +46,7 @@ describe('run preparation scenario', () => {
 
     expect(view.kind).toBe('run_preparation')
     expect(view.revision.workflowUuid).toBe('wf-1')
+    const inspected = await createRunPreparationScenario(port, runPreparation).inspectNodeJob(view, 'job-1')
+    expect(inspected.nodeJob).toMatchObject({ jobUuid: 'job-1', workflowTaskUuid: 'task-1' })
   })
 })

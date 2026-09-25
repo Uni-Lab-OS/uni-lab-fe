@@ -32,7 +32,8 @@ describe('createRunPreparationStore', () => {
             }
           },
           ...state,
-          requirements: []
+          requirements: [],
+          nodeJob: null
         }
       },
       async requestPreflight(state): Promise<PreflightReport> {
@@ -56,6 +57,15 @@ describe('createRunPreparationStore', () => {
           taskUuid: 'task-1',
           raw: {}
         }
+      },
+      async inspectNodeJob(viewModel, jobUuid) {
+        return {
+          ...viewModel,
+          nodeJob: {
+            kind: 'node_job_detail', source: 'fixture', jobUuid, workflowTaskUuid: 'task-1',
+            workflowNodeUuid: 'node-1', executorKind: 'device', logicalStatus: 'running', attempt: 1, raw: {}
+          }
+        }
       }
     }
 
@@ -74,5 +84,8 @@ describe('createRunPreparationStore', () => {
     })
     expect(store.getState().preflight?.canRun).toBe(true)
     expect(store.getState().status).toBe('ready')
+
+    await store.getState().inspectNodeJob('job-1')
+    expect(store.getState().nodeJob?.jobUuid).toBe('job-1')
   })
 })

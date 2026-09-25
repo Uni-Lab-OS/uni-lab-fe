@@ -12,6 +12,9 @@ import { EvidenceInterventionClient } from '../domain/evidence-intervention/clie
 import type { EvidenceInterventionPort } from '../domain/evidence-intervention/port'
 import type { RequestTransport } from '../transport/request'
 import { createRunPreparationScenario } from '../scenarios/run-preparation/scenario'
+import { createWorkflowDebuggingScenario } from '../scenarios/workflow-debugging/scenario'
+import { createDeviceActionDebuggingScenario } from '../scenarios/device-action-debugging/scenario'
+import { createLaboratoryOperationsScenario } from '../scenarios/laboratory-operations/scenario'
 
 export interface BackendCore {
   readonly transport: RequestTransport
@@ -23,6 +26,9 @@ export interface BackendCore {
   readonly reagentInventory: ReagentInventoryPort
   readonly evidenceIntervention: EvidenceInterventionPort
   readonly runPreparation: ReturnType<typeof createRunPreparationScenario>
+  readonly workflowDebugging: ReturnType<typeof createWorkflowDebuggingScenario>
+  readonly deviceActionDebugging: ReturnType<typeof createDeviceActionDebuggingScenario>
+  readonly laboratoryOperations: ReturnType<typeof createLaboratoryOperationsScenario>
 }
 
 export function createBackendCore(options: FetchTransportOptions): BackendCore {
@@ -48,6 +54,13 @@ export function createBackendCoreFromTransport(
     materialSite,
     reagentInventory,
     evidenceIntervention,
-    runPreparation: createRunPreparationScenario(workflowDefinitions, runPreparationPort)
+    runPreparation: createRunPreparationScenario(workflowDefinitions, runPreparationPort),
+    workflowDebugging: createWorkflowDebuggingScenario(executionRead, workflowDefinitions),
+    deviceActionDebugging: createDeviceActionDebuggingScenario(deviceActions, executionRead),
+    laboratoryOperations: createLaboratoryOperationsScenario(
+      executionRead,
+      deviceActions,
+      evidenceIntervention
+    )
   }
 }

@@ -1,5 +1,5 @@
 import { createStore, type StateCreator, type StoreApi } from 'zustand/vanilla'
-import type { PreflightReport, RunConfiguration, SubmittedRun } from '../../domain/run-preparation/model'
+import type { NodeJobDetail, PreflightReport, RunConfiguration, SubmittedRun } from '../../domain/run-preparation/model'
 import type { BindingDraft } from '../../domain/run-preparation/model'
 import type { RunPreparationScenario } from './scenario'
 import type { RunPreparationViewModel } from './view-model'
@@ -20,11 +20,13 @@ export interface RunPreparationStoreState {
   readonly binding: BindingDraft
   readonly preflight: PreflightReport | null
   readonly submittedRun: SubmittedRun | null
+  readonly nodeJob: NodeJobDetail | null
   readonly error: Error | null
 
   load(workflowUuid: string): Promise<void>
   requestPreflight(): Promise<void>
   submitRun(): Promise<void>
+  inspectNodeJob(jobUuid: string): Promise<void>
   updateConfiguration(patch: Partial<RunConfiguration>): void
   updateBinding(patch: Partial<BindingDraft>): void
   clearError(): void
@@ -56,6 +58,7 @@ export function createRunPreparationStoreState(
     },
     preflight: null,
     submittedRun: null,
+    nodeJob: null,
     error: null,
 
     async load(workflowUuid) {
@@ -72,6 +75,7 @@ export function createRunPreparationStoreState(
           viewModel,
           preflight: null,
           submittedRun: null,
+          nodeJob: null,
           error: null
         })
       } catch (error) {
@@ -101,7 +105,21 @@ export function createRunPreparationStoreState(
 
       try {
         const submittedRun = await scenario.submitRun(currentScenarioState(get()))
-        set({ status: 'ready', submittedRun, error: null })
+        set({ status: 'ready', submittedRun, nodeJob: null, error: null })
+      } catch (error) {
+        set({ status: 'error', error: toError(error) })
+      }
+    },
+
+    async inspectNodeJob(jobUuid) {
+      const state = get()
+      if (!state.viewModel) return
+
+      set({ status: 'loading', error: null })
+
+      try {
+        const viewModel = await scenario.inspectNodeJob(state.viewModel, jobUuid)
+        set({ status: 'ready', viewModel, nodeJob: viewModel.nodeJob, error: null })
       } catch (error) {
         set({ status: 'error', error: toError(error) })
       }
@@ -110,14 +128,16 @@ export function createRunPreparationStoreState(
     updateConfiguration(patch) {
       set((state) => ({
         configuration: { ...state.configuration, ...patch },
-        preflight: null
+        preflight: null,
+        nodeJob: null
       }))
     },
 
     updateBinding(patch) {
       set((state) => ({
         binding: { ...state.binding, ...patch },
-        preflight: null
+        preflight: null,
+        nodeJob: null
       }))
     },
 

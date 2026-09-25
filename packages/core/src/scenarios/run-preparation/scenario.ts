@@ -10,6 +10,10 @@ export interface RunPreparationScenario {
   load(workflowUuid: string, state: Omit<RunPreparationState, 'revision'>): Promise<RunPreparationViewModel>
   requestPreflight(state: RunPreparationState): ReturnType<RunPreparationPort['requestPreflight']>
   submitRun(state: RunPreparationState): ReturnType<RunPreparationPort['submitRun']>
+  inspectNodeJob(
+    viewModel: RunPreparationViewModel,
+    jobUuid: string
+  ): Promise<RunPreparationViewModel>
 }
 
 export function createRunPreparationScenario(
@@ -30,6 +34,10 @@ export function createRunPreparationScenario(
       state.revision.workflowUuid,
       state.configuration,
       state.binding
-    )
+    ),
+    async inspectNodeJob(viewModel, jobUuid) {
+      const nodeJob = await runPreparation.getNodeJobDetail(jobUuid)
+      return { ...viewModel, nodeJob }
+    }
   }
 }

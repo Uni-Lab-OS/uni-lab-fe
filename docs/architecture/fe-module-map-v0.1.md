@@ -1,6 +1,6 @@
 # Uni-Lab FE Module Map v0.1
 
-状态：2026-09-25，正式技术设计第一阶段；core 内 Phase 0-3 完成，Device & Action、Material & Site、Reagent & Inventory 与 Workflow Execution Read 的只读/command seam 已进入，Phase 4/5 延后，Phase 6 仅保留 assembly seam
+状态：2026-09-25，正式技术设计第一阶段；core 内 Phase 0-3 完成，Domain 与第一阶段 Scenario seam 已进入，Phase 4/5 延后，Phase 6 仅保留 assembly seam
 
 本文只冻结 FE 的模块层次、处置矩阵、依赖方向和第一阶段实现边界。它不重新定义
 OS 权威、Task/NodeJob/Attempt/DeviceCommand、Run Preparation 的领域语义、
@@ -10,7 +10,7 @@ ActionResourceContract、Claim/Settlement、`unknown`、通用替代策略、真
 ## 0. 阶段确认与第一条决策
 
 当前主线已经完成总体架构、领域模型、Run Preparation 语义、最小 OS 垂直切片验证和
-workspace 前置盘点；前置验证已关闭，正式产品实现尚未开始。
+workspace 前置盘点；前置验证已关闭，headless Domain 与第一阶段 Scenario 实现正在进入。
 
 本轮第一条决策是：**先冻结四层 Module Map 与现有 app/package 的处置，不以旧 package
 名称直接推导目标架构；只有这两项稳定后，才冻结 Domain Port、Scenario ViewModel、
@@ -44,9 +44,12 @@ Scenario 是面向用户任务的编排模块，组合 Domain Port，持有场�
 Scenario ViewModel。v0.1 只承认以下场景名：
 
 - **Run Preparation**：Published Revision → Run Configuration/Binding Draft → Preflight → SubmitRun。
-- **Workflow Debugging**：定义级和运行级观察的组合入口；第一阶段只接 Run Preparation 的入口。
-- **Device Action Debugging**：复用标准 WorkflowTask/NodeJob 运行模型的设备动作场景，第一阶段不实现。
-- **Laboratory Operations**：运行关注、资源冲突和待处理事项的组合入口，第一阶段不实现。
+- **Workflow Debugging**：定义级和运行级观察的组合入口；当前提供 Published Revision、Task
+  matrix、Task detail、NodeJob detail 和 feedback seam，UI 交互与控制命令继续延期。
+- **Device Action Debugging**：复用标准 WorkflowTask/NodeJob 运行模型的设备动作场景；当前提供
+  设备/ActionDefinition 读取、OS command acceptance 和标准 Task/Job/Feedback 读取。
+- **Laboratory Operations**：运行关注、设备可用性和待处理事项的组合入口；当前提供只读
+  Task matrix、设备目录和 Intervention 读取。
 - **Workflow Authoring**：定义 Draft/Revision/Publication 的产品场景，列入后续，不把旧 editor 整体当作领域模块。
 
 Scenario 可以保存 Run Configuration、Binding Draft、选中项和页面上下文；这些是
@@ -404,13 +407,17 @@ packages/
       scenarios/                # user-task composition
         run-preparation/
           state.ts
-          queries.ts
-          commands.ts
           view-model.ts
           store.ts                 # Zustand scenario store
         workflow-debugging/
+          view-model.ts
+          scenario.ts
         device-action-debugging/
+          view-model.ts
+          scenario.ts
         laboratory-operations/
+          view-model.ts
+          scenario.ts
 
       assembly/                 # dependency wiring only
         backend.ts
@@ -591,6 +598,14 @@ workflow/execution/status/cleanup 筛选，保留未知 status、`execution_unkn
 `uncertainty_reason`；Feedback 的 Backend 页码在 Domain client 内收敛为 sequence cursor。
 不实现事件、控制命令、Attempt 状态机或前端运行时状态机。
 
+在此只读 Domain seam 之上，当前已进入 `Workflow Debugging Scenario`：它通过
+`WorkflowDefinitionPort` 和 `WorkflowExecutionReadPort` 加载 Published Revision、OS 提供的
+Task matrix，并按选择读取 Task、NodeJob 与 feedback，输出场景 ViewModel。与此同时，
+`Device Action Debugging Scenario` 组合 Device/Action 与标准 Execution Read，保留 command
+acceptance 和后续读取的边界；`Laboratory Operations Scenario` 组合 Task matrix、设备目录和
+Intervention read。Scenario 不拼接运行时汇总、不拥有执行事实，也不直接接触 transport；
+页面、Zustand store 和控制命令等交互层仍然延期。
+
 当前 Domain 继续开发已加入 `Device & Action`：设备目录 `GET /devices`、ActionDefinition
 列表/详情、`ActionResourceContract` 引用，以及 `POST /device-action-runs` 的 OS command
 边界。命令只返回 OS 接受的 Task/NodeJob 身份；运行读取复用标准 Task/NodeJob port，不在
@@ -620,6 +635,7 @@ Phase 5 通过后，才评估 Browser、Desktop、Workbench 的装配方式。�
 Scenario 和 ViewModel，只替换 transport/profile 和 Host 能力。
 
 当前结果：已加入 `assembly/host.ts`。Browser、Desktop、Workbench 通过同一个
-`createProductHostAssembly()` 注入 `RequestTransport`，复用同一组 Domain client、Scenario
+`createProductHostAssembly()` 注入 `RequestTransport`，复用同一组 Domain client 和四个第一阶段
+Scenario（Run Preparation、Workflow Debugging、Device Action Debugging、Laboratory Operations）
 和 ViewModel；差异只保留在 Host descriptor 的 profile/capabilities。现有三个 app 尚未改动，
 Electron IPC 和真实 Workbench transport 等待真实 caller 出现后再实现。
