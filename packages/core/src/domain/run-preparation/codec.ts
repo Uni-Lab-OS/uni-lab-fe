@@ -105,6 +105,15 @@ function decodeCheck(value: RunPreparationRecord, path: string): PreflightCheck 
 }
 
 function unwrapData(value: RunPreparationRecord): RunPreparationRecord {
+  if (value.code !== undefined && value.code !== 0 && value.code !== '0') {
+    throw new RunPreparationError(
+      'OS_REQUEST_REJECTED',
+      optionalString(asOptionalRecord(value.error)?.message
+        ?? asOptionalRecord(value.error)?.msg
+        ?? value.message)
+        ?? `OS request rejected with code ${String(value.code)}`
+    )
+  }
   return asOptionalRecord(value.data) ?? value
 }
 

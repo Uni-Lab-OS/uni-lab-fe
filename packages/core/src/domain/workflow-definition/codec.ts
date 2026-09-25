@@ -39,7 +39,10 @@ export function decodePublishedWorkflow(
   summaryValue: PublishedWorkflowResponse,
   graphValue: WorkflowGraphResponse
 ): PublishedWorkflowRevision {
-  const summary = decodeSummary(summaryValue, 'workflow')
+  const summary = decodeSummary(
+    asRecord(unwrapEnvelope(summaryValue), 'workflow'),
+    'workflow'
+  )
   const graph = decodeGraph(graphValue)
   const graphWorkflow = graph.workflow
   const graphUuid = optionalString(graphWorkflow.uuid)

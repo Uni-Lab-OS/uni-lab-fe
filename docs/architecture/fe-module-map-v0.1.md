@@ -1,6 +1,6 @@
 # Uni-Lab FE Module Map v0.1
 
-状态：2026-09-25，正式技术设计第一阶段；core 内 Phase 0-3 完成，Domain 与第一阶段 Scenario seam 已进入，Phase 4/5 延后，Phase 6 仅保留 assembly seam
+状态：2026-09-25，正式技术设计第一阶段；core 内 Phase 0-3 完成，Domain、第一阶段 Scenario seam 与 OS Adapter Contract 已进入，Phase 4/5 联调延后，Phase 6 仅保留 assembly seam
 
 本文只冻结 FE 的模块层次、处置矩阵、依赖方向和第一阶段实现边界。它不重新定义
 OS 权威、Task/NodeJob/Attempt/DeviceCommand、Run Preparation 的领域语义、
@@ -586,8 +586,11 @@ codec 或 Scenario。
 
 当前结果：已实现 Run Configuration、Binding Draft、Preflight、SubmitRun、NodeJob Detail
 和 `RunPreparationViewModel`，并通过 fake Port/transport 测试验证调用方向与
-`UNMAPPED_RESOURCE_SELECTION`。更完整的 stale/confirmation/execution_unknown 场景合同测试
-留到接入真实 OS response fixture 时补齐。
+`UNMAPPED_RESOURCE_SELECTION`。`src/adapters/os-contract.test.ts` 已使用 OS 标准
+`{ code, data }` response envelope 验证 Published Revision → Preflight → SubmitRun →
+Task/Jobs/NodeJob/Feedback 链路，覆盖 `deferred`、`confirmation_required`、
+`execution_unknown`、`uncertainty_reason` 和 HTTP 200 业务错误；该测试只验证 wire/codec
+合同，不代表真实设备动作已执行。
 
 同时已加入 `Workflow Execution Read` 的只读链路：`GET /workflow-tasks`、
 `GET /workflow-task-presentations`、`GET /workflow-tasks/{id}`、
@@ -611,6 +614,13 @@ Intervention read。Scenario 不拼接运行时汇总、不拥有执行事实，
 边界。命令只返回 OS 接受的 Task/NodeJob 身份；运行读取复用标准 Task/NodeJob port，不在
 Device & Action 内复制任务状态机，也不把响应解释为真实设备动作已完成。
 
+当前 OS Adapter Contract 已覆盖所有已实现的 Domain seam：`os-contract.test.ts` 覆盖
+Workflow Definition → Run Preparation → Workflow Execution Read 主链，
+`os-domain-contract.test.ts` 覆盖 Device & Action、Material & Site、Reagent & Inventory、
+Evidence & Intervention，以及 Task 列表和 matrix presentation 查询。合同测试只断言真实
+OS route、query、request body、`{ code, data }` envelope 和 Domain projection；Event Bus、
+intervention decision 写入、Authoring 写接口和真实设备动作仍在明确延期范围内。
+
 ### Phase 4：最小 Shared UI
 
 只实现该 Scenario 需要的 Picker、RequirementRow、BindingSelection、PreflightStatus
@@ -625,9 +635,10 @@ Device & Action 内复制任务状态机，也不把响应解释为真实设备�
 `experiment_operation` 完成 Published Revision → Preflight → SubmitRun → NodeJob Detail。
 不执行真实设备动作。
 
-当前决定：延后并回退 `experiment_operation` fixture 和合同测试。它们只服务于临时联调，
-尚未形成稳定的真实 OS contract；后续应在明确真实 OS caller 和 response fixture 位置后，
-重新建立测试资产，不进入正式 Domain API。
+当前决定：延后并回退 `experiment_operation` fixture 和受控联调资产。它们只服务于临时联调，
+尚未形成稳定的真实 OS 联调 caller；本轮已完成正式 Shared Interface 的 response contract
+测试，后续只在明确真实 OS caller 和 response fixture 来源后建立受控联调资产，不进入正式
+Domain API。
 
 ### Phase 6：Host 接入评估
 
