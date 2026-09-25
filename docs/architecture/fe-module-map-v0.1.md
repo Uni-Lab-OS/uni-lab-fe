@@ -1,6 +1,6 @@
 # Uni-Lab FE Module Map v0.1
 
-状态：2026-09-25，正式技术设计第一阶段；core 内 Phase 0-3 完成，Device & Action 的设备目录、ActionDefinition 与 Action Run command/read seam 已进入，Phase 4/5 延后，Phase 6 仅保留 assembly seam
+状态：2026-09-25，正式技术设计第一阶段；core 内 Phase 0-3 完成，Device & Action 与 Material & Site 的只读/command seam 已进入，Phase 4/5 延后，Phase 6 仅保留 assembly seam
 
 本文只冻结 FE 的模块层次、处置矩阵、依赖方向和第一阶段实现边界。它不重新定义
 OS 权威、Task/NodeJob/Attempt/DeviceCommand、Run Preparation 的领域语义、
@@ -65,7 +65,7 @@ v0.1 的逻辑模块如下，**不是要求立即建立六个 package**：
 | --- | --- | --- |
 | Workflow Definition | Published Revision、graph、inventory requirement、workflow type、ActionDefinition 投影 | 进入 |
 | Device & Action | Device/Action 只读投影、能力和资源合同引用、Action Run 的 OS command/read seam | 已进入（目录、定义、提交身份与标准 Task/NodeJob 读取） |
-| Material & Site | Material、Site、Site Occupancy 的只读投影 | 进入（只读） |
+| Material & Site | Material、Site、Site Occupancy 的只读投影 | 已进入（列表、Graph、详情与 Site 读取） |
 | Reagent & Inventory | Reagent、Lot、数量库存的只读投影 | 进入（只读） |
 | Workflow Execution Read | SubmitRun 结果、Task/Job/NodeJob Detail 的读取语义 | 最小进入 |
 | Evidence & Intervention | 证据、干预、恢复和对账的场景读取/命令语义 | 延后 |
@@ -80,6 +80,12 @@ domain 边界：`model.ts` 定义设备、动作和 Action Run 投影，`port.ts
 `RequestTransport`。设备目录和 ActionDefinition 是读取投影；`createActionRun` 只返回 OS
 接受的 Task/NodeJob 身份，`getActionRun` 复用 Workflow Execution Read 的标准 Task/Job
 投影，不在 Device & Action 内再造任务状态模型。
+
+Material & Site 已沿同一 Domain seam 进入：`GET /materials`、`GET /materials/graph`、
+`GET /materials/{id}`、`GET /materials/{id}/sites` 和 `GET /sites/{id}` 只读映射为
+Material、Site、Site Occupancy、相对位置和资源模板摘要。缺失的 occupancy 字段保留为
+`known: false`；Graph 中跨 Material 节点的 Site 所有者关系必须通过 codec 校验。该 Domain
+不提供移动、摆放、删除或库存结算命令。
 
 ### 1.4 OS Adapters
 
@@ -358,10 +364,13 @@ packages/
           codec.ts               # OS DTO ↔ Device & Action projection
           client.ts              # injected transport + Execution Read composition
           errors.ts
-        resources/
-          device-action/
-          material-site/
-          reagent-inventory/
+        material-site/
+          model.ts              # Material / Site / Occupancy projections
+          port.ts                # graph, detail and Site read ports
+          api.ts                 # material and Site DTO shapes
+          codec.ts              # OS DTO ↔ Material & Site projection
+          client.ts
+          errors.ts
 
       shared/                   # reusable UI-facing building blocks
         components/              # deferred until UI interaction contract is stable
