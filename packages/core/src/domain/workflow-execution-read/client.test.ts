@@ -8,6 +8,21 @@ describe('WorkflowExecutionReadClient', () => {
     const transport: RequestTransport = {
       async request<Value>(request: TransportRequest): Promise<TransportResponse<Value>> {
         requests.push(request)
+        if (request.url.startsWith('/api/v1/workflow-tasks?')) {
+          return {
+            status: 200,
+            headers: {},
+            data: {
+              items: [{
+                uuid: 'task-1', workflow_uuid: 'workflow-1', execution_kind: 'workflow',
+                status: 'running', run_mode: 'normal', control_status: 'active',
+                cleanup_status: 'none', create_time: '2026-09-24T00:00:00Z',
+                update_time: '2026-09-24T00:01:00Z'
+              }],
+              total: 1, page: 2, page_size: 10, has_more: false
+            } as Value
+          }
+        }
         if (request.url.endsWith('/jobs')) {
           return {
             status: 200,
@@ -89,17 +104,31 @@ describe('WorkflowExecutionReadClient', () => {
     }
 
     const client = new WorkflowExecutionReadClient(transport)
+    const taskPage = await client.listTasks({
+      page: 2,
+      pageSize: 10,
+      workflowUuid: 'workflow-1',
+      status: 'running'
+    })
     const task = await client.getTaskDetail('task/1')
     const jobs = await client.listTaskJobs('task/1')
     const detail = await client.getNodeJobDetail('job/1')
     const feedback = await client.listNodeJobFeedback('job-1', { afterSequence: 0, limit: 50 })
 
     expect(requests.map((request) => request.url)).toEqual([
+      '/api/v1/workflow-tasks?page=2&page_size=10&workflow_uuid=workflow-1&status=running',
       '/api/v1/workflow-tasks/task%2F1',
       '/api/v1/workflow-tasks/task%2F1/jobs',
       '/api/v1/workflow-node-jobs/job%2F1',
       '/api/v1/workflow-node-jobs/job-1/feedback?page=1&page_size=500'
     ])
+    expect(taskPage).toMatchObject({
+      total: 1,
+      page: 2,
+      pageSize: 10,
+      hasMore: false,
+      items: [{ taskUuid: 'task-1' }]
+    })
     expect(task.status).toBe('running')
     expect(jobs[0]?.status).toBe('execution_unknown')
     expect(detail).toMatchObject({

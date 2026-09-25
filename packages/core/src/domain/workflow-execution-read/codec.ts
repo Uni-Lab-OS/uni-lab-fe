@@ -1,10 +1,11 @@
 import { WorkflowExecutionReadError } from './errors'
-import type { TaskJobsResponse, WorkflowExecutionRecord } from './api'
+import type { TaskJobsResponse, TaskListResponse, WorkflowExecutionRecord } from './api'
 import type {
   WorkflowNodeJobDetail,
   NodeJobFeedback,
   NodeJobFeedbackPage,
   TaskJobSummary,
+  TaskRuntimePage,
   TaskRuntimeDetail
 } from './model'
 
@@ -27,6 +28,26 @@ export function decodeTaskRuntimeDetail(value: unknown): TaskRuntimeDetail {
     ...(optionalString(raw.finished_at) === undefined ? {} : { finishedAt: optionalString(raw.finished_at) }),
     ...(optionalString(raw.attention_reason) === undefined ? {} : { attentionReason: optionalString(raw.attention_reason) }),
     raw
+  }
+}
+
+export function decodeTaskPage(value: unknown): TaskRuntimePage {
+  const root = unwrapData(asRecord(value, 'task list')) as TaskListResponse
+  if (!Array.isArray(root.items)) invalid('task list.items must be an array')
+  const page = positiveInteger(root.page, 'task list.page')
+  const pageSize = positiveInteger(root.page_size, 'task list.page_size')
+  const total = nonNegativeInteger(root.total, 'task list.total')
+  return {
+    items: root.items.map((item, index) => decodeTaskRuntimeDetail(
+      asRecord(item, `task list.items[${index}]`)
+    )),
+    total,
+    page,
+    pageSize,
+    hasMore: root.has_more === undefined
+      ? page * pageSize < total
+      : booleanValue(root.has_more, 'task list.has_more'),
+    raw: root
   }
 }
 
@@ -196,6 +217,14 @@ function nonNegativeInteger(value: unknown, path: string): number {
     throw new WorkflowExecutionReadError('INVALID_TASK_RUNTIME_RESPONSE', `${path} must be a non-negative integer`)
   }
   return value
+}
+
+function positiveInteger(value: unknown, path: string): number {
+  const result = nonNegativeInteger(value, path)
+  if (result < 1) {
+    throw new WorkflowExecutionReadError('INVALID_TASK_RUNTIME_RESPONSE', `${path} must be positive`)
+  }
+  return result
 }
 
 function nullableNonNegativeInteger(value: unknown, path: string): number | null {

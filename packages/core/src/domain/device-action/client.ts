@@ -24,13 +24,18 @@ import type {
 } from '../workflow-execution-read/port'
 import { DeviceActionError } from './errors'
 
+type DeviceActionExecutionReadPort = Pick<
+  WorkflowExecutionReadPort,
+  'getTaskDetail' | 'listTaskJobs'
+>
+
 export class DeviceActionClient implements DeviceActionPort {
-  private readonly executionRead: WorkflowExecutionReadPort
+  private readonly executionRead: DeviceActionExecutionReadPort
   private readonly apiPrefix: string
 
   constructor(
     private readonly transport: RequestTransport,
-    executionReadOrApiPrefix: WorkflowExecutionReadPort | string = '/api/v1',
+    executionReadOrApiPrefix: DeviceActionExecutionReadPort | string = '/api/v1',
     apiPrefix = '/api/v1'
   ) {
     if (typeof executionReadOrApiPrefix === 'string') {

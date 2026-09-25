@@ -582,12 +582,14 @@ codec 或 Scenario。
 `UNMAPPED_RESOURCE_SELECTION`。更完整的 stale/confirmation/execution_unknown 场景合同测试
 留到接入真实 OS response fixture 时补齐。
 
-同时已加入 `Workflow Execution Read` 的只读链路：`GET /workflow-tasks/{id}`、
+同时已加入 `Workflow Execution Read` 的只读链路：`GET /workflow-tasks`、
+`GET /workflow-tasks/{id}`、
 `GET /workflow-tasks/{id}/jobs`、`GET /workflow-node-jobs/{id}` 和
 `GET /workflow-node-jobs/{id}/feedback`。它映射 Task、Job、NodeJob Detail 与 Feedback
-projection，保留未知 status、`execution_unknown` 和 `uncertainty_reason`；Feedback 的
-Backend 页码在 Domain client 内收敛为 sequence cursor。不实现事件、控制命令、Attempt
-状态机或前端运行时状态机。
+projection，Task 列表支持 workflow/execution/status/cleanup 筛选，保留未知 status、
+`execution_unknown` 和 `uncertainty_reason`；Feedback 的 Backend 页码在 Domain client
+内收敛为 sequence cursor。不实现 TaskRuntimeSummary 拼装、事件、控制命令、Attempt 状态机
+或前端运行时状态机。
 
 当前 Domain 继续开发已加入 `Device & Action`：设备目录 `GET /devices`、ActionDefinition
 列表/详情、`ActionResourceContract` 引用，以及 `POST /device-action-runs` 的 OS command

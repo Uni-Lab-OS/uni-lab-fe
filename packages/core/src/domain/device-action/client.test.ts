@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DeviceActionClient } from './client'
 import type { RequestTransport, TransportRequest, TransportResponse } from '../../transport/request'
-import type { WorkflowExecutionReadPort } from '../workflow-execution-read/port'
 
 describe('DeviceActionClient', () => {
   it('uses the node template catalog routes', async () => {
@@ -104,7 +103,7 @@ describe('DeviceActionClient', () => {
   })
 
   it('composes action run reads from the standard task and job port', async () => {
-    const executionRead: WorkflowExecutionReadPort = {
+    const executionRead = {
       async getTaskDetail(taskUuid) {
         return { kind: 'task_runtime_detail', source: 'os', taskUuid, workflowUuid: null,
           executionKind: 'device_action', status: 'pending', runMode: 'single_action',

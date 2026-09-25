@@ -17,6 +17,15 @@ export interface TaskRuntimeDetail {
   readonly raw: Readonly<Record<string, unknown>>
 }
 
+export interface TaskRuntimePage {
+  readonly items: readonly TaskRuntimeDetail[]
+  readonly total: number
+  readonly page: number
+  readonly pageSize: number
+  readonly hasMore: boolean
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
 export interface TaskJobSummary {
   readonly kind: 'task_job_summary'
   readonly source: 'os' | 'fixture'

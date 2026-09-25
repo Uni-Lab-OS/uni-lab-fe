@@ -1,5 +1,5 @@
 import type { RequestTransport } from '../../transport/request'
-import { decodeTaskJobs, decodeTaskRuntimeDetail } from './codec'
+import { decodeTaskJobs, decodeTaskPage, decodeTaskRuntimeDetail } from './codec'
 import {
   decodeNodeJobDetail,
   decodeNodeJobFeedbackPage
@@ -8,6 +8,7 @@ import type { WorkflowExecutionReadPort } from './port'
 import type {
   NodeJobFeedbackResponse,
   TaskJobsResponse,
+  TaskListResponse,
   WorkflowExecutionRecord
 } from './api'
 import { WorkflowExecutionReadError } from './errors'
@@ -24,6 +25,29 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
       url: `${this.apiPrefix}/workflow-tasks/${encodeURIComponent(taskUuid)}`
     })
     return decodeTaskRuntimeDetail(response.data)
+  }
+
+  async listTasks(input: {
+    readonly page?: number
+    readonly pageSize?: number
+    readonly workflowUuid?: string
+    readonly executionKind?: string
+    readonly status?: string
+    readonly cleanupStatus?: string
+  } = {}) {
+    const params = new URLSearchParams({
+      page: String(input.page ?? 1),
+      page_size: String(input.pageSize ?? 20)
+    })
+    add(params, 'workflow_uuid', input.workflowUuid)
+    add(params, 'execution_kind', input.executionKind)
+    add(params, 'status', input.status)
+    add(params, 'cleanup_status', input.cleanupStatus)
+    const response = await this.transport.request<TaskListResponse>({
+      method: 'GET',
+      url: `${this.apiPrefix}/workflow-tasks?${params.toString()}`
+    })
+    return decodeTaskPage(response.data)
   }
 
   async listTaskJobs(taskUuid: string) {
@@ -111,4 +135,8 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
       raw
     }
   }
+}
+
+function add(params: URLSearchParams, key: string, value: string | undefined): void {
+  if (value !== undefined && value !== '') params.set(key, value)
 }
