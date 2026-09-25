@@ -1,5 +1,10 @@
 import type { RequestTransport } from '../../transport/request'
-import { decodeTaskJobs, decodeTaskPage, decodeTaskRuntimeDetail } from './codec'
+import {
+  decodeTaskJobs,
+  decodeTaskPage,
+  decodeTaskPresentationPage,
+  decodeTaskRuntimeDetail
+} from './codec'
 import {
   decodeNodeJobDetail,
   decodeNodeJobFeedbackPage
@@ -9,6 +14,7 @@ import type {
   NodeJobFeedbackResponse,
   TaskJobsResponse,
   TaskListResponse,
+  TaskPresentationResponse,
   WorkflowExecutionRecord
 } from './api'
 import { WorkflowExecutionReadError } from './errors'
@@ -48,6 +54,33 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
       url: `${this.apiPrefix}/workflow-tasks?${params.toString()}`
     })
     return decodeTaskPage(response.data)
+  }
+
+  async listTaskPresentations(input: {
+    readonly page?: number
+    readonly pageSize?: number
+    readonly workflowUuid?: string
+    readonly executionKind?: string
+    readonly status?: string
+    readonly cleanupStatus?: string
+    readonly view?: string
+    readonly terminalLimit?: number
+  } = {}) {
+    const params = new URLSearchParams({
+      page: String(input.page ?? 1),
+      page_size: String(input.pageSize ?? 20)
+    })
+    add(params, 'workflow_uuid', input.workflowUuid)
+    add(params, 'execution_kind', input.executionKind)
+    add(params, 'status', input.status)
+    add(params, 'cleanup_status', input.cleanupStatus)
+    add(params, 'view', input.view)
+    if (input.terminalLimit !== undefined) params.set('terminal_limit', String(input.terminalLimit))
+    const response = await this.transport.request<TaskPresentationResponse>({
+      method: 'GET',
+      url: `${this.apiPrefix}/workflow-task-presentations?${params.toString()}`
+    })
+    return decodeTaskPresentationPage(response.data)
   }
 
   async listTaskJobs(taskUuid: string) {

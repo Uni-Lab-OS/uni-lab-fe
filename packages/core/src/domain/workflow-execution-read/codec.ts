@@ -1,12 +1,20 @@
 import { WorkflowExecutionReadError } from './errors'
-import type { TaskJobsResponse, TaskListResponse, WorkflowExecutionRecord } from './api'
+import type {
+  TaskJobsResponse,
+  TaskListResponse,
+  TaskPresentationResponse,
+  WorkflowExecutionRecord
+} from './api'
 import type {
   WorkflowNodeJobDetail,
   NodeJobFeedback,
   NodeJobFeedbackPage,
   TaskJobSummary,
   TaskRuntimePage,
-  TaskRuntimeDetail
+  TaskRuntimeDetail,
+  TaskRuntimePresentation,
+  TaskRuntimePresentationJob,
+  TaskRuntimePresentationPage
 } from './model'
 
 export function decodeTaskRuntimeDetail(value: unknown): TaskRuntimeDetail {
@@ -48,6 +56,68 @@ export function decodeTaskPage(value: unknown): TaskRuntimePage {
       ? page * pageSize < total
       : booleanValue(root.has_more, 'task list.has_more'),
     raw: root
+  }
+}
+
+export function decodeTaskPresentationPage(value: unknown): TaskRuntimePresentationPage {
+  const root = unwrapData(asRecord(value, 'task presentation list')) as TaskPresentationResponse
+  if (!Array.isArray(root.items)) invalid('task presentation list.items must be an array')
+  return {
+    items: root.items.map((item, index) => decodeTaskPresentation(
+      asRecord(item, `task presentations.items[${index}]`)
+    )),
+    total: nonNegativeInteger(root.total, 'task presentations.total'),
+    page: positiveInteger(root.page, 'task presentations.page'),
+    pageSize: positiveInteger(root.page_size, 'task presentations.page_size'),
+    raw: root
+  }
+}
+
+function decodeTaskPresentation(value: WorkflowExecutionRecord): TaskRuntimePresentation {
+  const jobs = value.jobs
+  if (!Array.isArray(jobs)) invalid('task presentation.jobs must be an array')
+  return {
+    kind: 'task_runtime_presentation',
+    source: 'os',
+    taskUuid: requiredString(value.uuid ?? value.task_uuid, 'presentation.uuid'),
+    workflowUuid: nullableString(value.workflow_uuid, 'presentation.workflow_uuid'),
+    executionKind: requiredString(value.execution_kind, 'presentation.execution_kind'),
+    status: requiredString(value.status, 'presentation.status'),
+    runMode: requiredString(value.run_mode, 'presentation.run_mode'),
+    controlStatus: requiredString(value.control_status, 'presentation.control_status'),
+    cleanupStatus: requiredString(value.cleanup_status, 'presentation.cleanup_status'),
+    priority: nullableString(value.priority, 'presentation.priority'),
+    description: nullableString(value.description, 'presentation.description'),
+    createdAt: requiredString(value.create_time, 'presentation.create_time'),
+    updatedAt: requiredString(value.update_time, 'presentation.update_time'),
+    finishedAt: nullableString(value.finished_at, 'presentation.finished_at'),
+    attentionReason: nullableString(value.attention_reason, 'presentation.attention_reason'),
+    jobs: jobs.map((job, index) => decodePresentationJob(
+      asRecord(job, `presentation.jobs[${index}]`)
+    )),
+    raw: value
+  }
+}
+
+function decodePresentationJob(value: WorkflowExecutionRecord): TaskRuntimePresentationJob {
+  return {
+    kind: 'task_runtime_presentation_job',
+    source: 'os',
+    jobUuid: requiredString(value.uuid ?? value.job_uuid, 'presentation.job.uuid'),
+    workflowNodeUuid: requiredString(value.workflow_node_uuid, 'presentation.job.workflow_node_uuid'),
+    topologicalIndex: nonNegativeInteger(value.topological_index, 'presentation.job.topological_index'),
+    executorKind: requiredString(value.executor_kind, 'presentation.job.executor_kind'),
+    status: requiredString(value.status, 'presentation.job.status'),
+    attempt: nonNegativeInteger(value.attempt, 'presentation.job.attempt'),
+    currentAttempt: booleanValue(value.current_attempt, 'presentation.job.current_attempt'),
+    executionSource: nullableString(value.execution_source, 'presentation.job.execution_source'),
+    startState: nullableString(value.start_state, 'presentation.job.start_state'),
+    controlData: asOptionalRecord(value.control_data) ?? {},
+    errorInfo: Array.isArray(value.error_info) ? value.error_info : [],
+    waitReason: asOptionalRecord(value.wait_reason) ?? {},
+    expectedChangeSet: asOptionalRecord(value.expected_change_set) ?? {},
+    finishedAt: nullableString(value.finished_at, 'presentation.job.finished_at'),
+    raw: value
   }
 }
 

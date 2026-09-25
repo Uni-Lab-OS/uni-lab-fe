@@ -3,10 +3,21 @@ import type {
   NodeJobFeedbackPage,
   TaskJobSummary,
   TaskRuntimePage,
-  TaskRuntimeDetail
+  TaskRuntimeDetail,
+  TaskRuntimePresentationPage
 } from './model'
 
 export interface WorkflowExecutionReadPort {
+  listTaskPresentations(input?: {
+    readonly page?: number
+    readonly pageSize?: number
+    readonly workflowUuid?: string
+    readonly executionKind?: string
+    readonly status?: string
+    readonly cleanupStatus?: string
+    readonly view?: string
+    readonly terminalLimit?: number
+  }): Promise<TaskRuntimePresentationPage>
   listTasks(input?: {
     readonly page?: number
     readonly pageSize?: number

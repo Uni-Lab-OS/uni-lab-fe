@@ -8,6 +8,25 @@ describe('WorkflowExecutionReadClient', () => {
     const transport: RequestTransport = {
       async request<Value>(request: TransportRequest): Promise<TransportResponse<Value>> {
         requests.push(request)
+        if (request.url.startsWith('/api/v1/workflow-task-presentations?')) {
+          return {
+            status: 200,
+            headers: {},
+            data: {
+              items: [{
+                uuid: 'task-1', workflow_uuid: 'workflow-1', execution_kind: 'workflow',
+                status: 'running', run_mode: 'normal', control_status: 'active',
+                cleanup_status: 'none', create_time: '2026-09-24T00:00:00Z',
+                update_time: '2026-09-24T00:01:00Z', jobs: [{
+                  uuid: 'job-1', workflow_node_uuid: 'node-1', topological_index: 0,
+                  executor_kind: 'device', status: 'running', attempt: 1,
+                  current_attempt: true, control_data: {}, error_info: [],
+                  wait_reason: {}, expected_change_set: {}
+                }]
+              }], total: 1, page: 1, page_size: 20
+            } as Value
+          }
+        }
         if (request.url.startsWith('/api/v1/workflow-tasks?')) {
           return {
             status: 200,
@@ -104,6 +123,11 @@ describe('WorkflowExecutionReadClient', () => {
     }
 
     const client = new WorkflowExecutionReadClient(transport)
+    const presentationPage = await client.listTaskPresentations({
+      view: 'matrix',
+      terminalLimit: 5,
+      status: 'running'
+    })
     const taskPage = await client.listTasks({
       page: 2,
       pageSize: 10,
@@ -116,12 +140,20 @@ describe('WorkflowExecutionReadClient', () => {
     const feedback = await client.listNodeJobFeedback('job-1', { afterSequence: 0, limit: 50 })
 
     expect(requests.map((request) => request.url)).toEqual([
+      '/api/v1/workflow-task-presentations?page=1&page_size=20&status=running&view=matrix&terminal_limit=5',
       '/api/v1/workflow-tasks?page=2&page_size=10&workflow_uuid=workflow-1&status=running',
       '/api/v1/workflow-tasks/task%2F1',
       '/api/v1/workflow-tasks/task%2F1/jobs',
       '/api/v1/workflow-node-jobs/job%2F1',
       '/api/v1/workflow-node-jobs/job-1/feedback?page=1&page_size=500'
     ])
+    expect(presentationPage).toMatchObject({
+      total: 1,
+      items: [{
+        taskUuid: 'task-1',
+        jobs: [{ jobUuid: 'job-1', status: 'running' }]
+      }]
+    })
     expect(taskPage).toMatchObject({
       total: 1,
       page: 2,

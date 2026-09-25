@@ -14,6 +14,13 @@ export interface TaskListResponse extends WorkflowExecutionRecord {
   readonly has_more?: unknown
 }
 
+export interface TaskPresentationResponse extends WorkflowExecutionRecord {
+  readonly items?: readonly WorkflowExecutionRecord[]
+  readonly total?: unknown
+  readonly page?: unknown
+  readonly page_size?: unknown
+}
+
 export interface NodeJobFeedbackResponse extends WorkflowExecutionRecord {
   readonly items?: readonly WorkflowExecutionRecord[]
   readonly has_more?: unknown

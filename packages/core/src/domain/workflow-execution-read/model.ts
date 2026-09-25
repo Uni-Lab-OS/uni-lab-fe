@@ -26,6 +26,54 @@ export interface TaskRuntimePage {
   readonly raw: Readonly<Record<string, unknown>>
 }
 
+export interface TaskRuntimePresentationJob {
+  readonly kind: 'task_runtime_presentation_job'
+  readonly source: 'os' | 'fixture'
+  readonly jobUuid: string
+  readonly workflowNodeUuid: string
+  readonly topologicalIndex: number
+  readonly executorKind: string
+  readonly status: string
+  readonly attempt: number
+  readonly currentAttempt: boolean
+  readonly executionSource: string | null
+  readonly startState: string | null
+  readonly controlData: Readonly<Record<string, unknown>>
+  readonly errorInfo: readonly unknown[]
+  readonly waitReason: Readonly<Record<string, unknown>>
+  readonly expectedChangeSet: Readonly<Record<string, unknown>>
+  readonly finishedAt: string | null
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+export interface TaskRuntimePresentation {
+  readonly kind: 'task_runtime_presentation'
+  readonly source: 'os' | 'fixture'
+  readonly taskUuid: string
+  readonly workflowUuid: string | null
+  readonly executionKind: string
+  readonly status: string
+  readonly runMode: string
+  readonly controlStatus: string
+  readonly cleanupStatus: string
+  readonly priority: string | null
+  readonly description: string | null
+  readonly createdAt: string
+  readonly updatedAt: string
+  readonly finishedAt: string | null
+  readonly attentionReason: string | null
+  readonly jobs: readonly TaskRuntimePresentationJob[]
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+export interface TaskRuntimePresentationPage {
+  readonly items: readonly TaskRuntimePresentation[]
+  readonly total: number
+  readonly page: number
+  readonly pageSize: number
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
 export interface TaskJobSummary {
   readonly kind: 'task_job_summary'
   readonly source: 'os' | 'fixture'
