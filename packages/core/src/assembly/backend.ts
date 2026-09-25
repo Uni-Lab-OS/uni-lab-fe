@@ -8,6 +8,8 @@ import { MaterialSiteClient } from '../domain/material-site/client'
 import type { MaterialSitePort } from '../domain/material-site/port'
 import { ReagentInventoryClient } from '../domain/reagent-inventory/client'
 import type { ReagentInventoryPort } from '../domain/reagent-inventory/port'
+import { EvidenceInterventionClient } from '../domain/evidence-intervention/client'
+import type { EvidenceInterventionPort } from '../domain/evidence-intervention/port'
 import type { RequestTransport } from '../transport/request'
 import { createRunPreparationScenario } from '../scenarios/run-preparation/scenario'
 
@@ -19,6 +21,7 @@ export interface BackendCore {
   readonly deviceActions: DeviceActionPort
   readonly materialSite: MaterialSitePort
   readonly reagentInventory: ReagentInventoryPort
+  readonly evidenceIntervention: EvidenceInterventionPort
   readonly runPreparation: ReturnType<typeof createRunPreparationScenario>
 }
 
@@ -35,6 +38,7 @@ export function createBackendCoreFromTransport(
   const deviceActions = new DeviceActionClient(transport, executionRead)
   const materialSite = new MaterialSiteClient(transport)
   const reagentInventory = new ReagentInventoryClient(transport)
+  const evidenceIntervention = new EvidenceInterventionClient(transport)
   return {
     transport,
     workflowDefinitions,
@@ -43,6 +47,7 @@ export function createBackendCoreFromTransport(
     deviceActions,
     materialSite,
     reagentInventory,
+    evidenceIntervention,
     runPreparation: createRunPreparationScenario(workflowDefinitions, runPreparationPort)
   }
 }

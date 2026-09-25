@@ -68,7 +68,7 @@ v0.1 的逻辑模块如下，**不是要求立即建立六个 package**：
 | Material & Site | Material、Site、Site Occupancy 的只读投影 | 已进入（列表、Graph、详情与 Site 读取） |
 | Reagent & Inventory | Reagent、Lot、数量库存的只读投影 | 已进入（Backend Reagent 与 Edge Inventory 读取） |
 | Workflow Execution Read | SubmitRun 结果、Task/Job/NodeJob Detail、Job Feedback 的读取语义 | 已进入（Task/Jobs/NodeJob/Feedback 只读） |
-| Evidence & Intervention | 证据、干预、恢复和对账的场景读取/命令语义 | 延后 |
+| Evidence & Intervention | 证据、干预、恢复和对账的场景读取/命令语义 | 部分进入（Intervention 只读） |
 
 这些模块之间不互相复制事实。Run Preparation 是跨模块 Scenario；它可以同时调用
 Definition、Device & Action、Material & Site、Reagent & Inventory 和 Execution Read，
@@ -92,6 +92,11 @@ Reagent & Inventory 已沿同一 Domain seam 进入：Backend 的 `GET /reagent-
 `GET /inventory/lots`、`GET /inventory/snapshot`。codec 保留缺失的数量、预留和快照维度为
 `null` 或空集合，不把未知伪造成零；Lot 的 `empty`、`reserved`、`quarantined` 只由已观测
 字段推导。该 Domain 只读，不提供库存写入、Reservation、Claim 或 Settlement。
+
+Evidence & Intervention 当前只进入 Intervention read seam：`GET /workflow-interventions`
+与 `GET /workflow-interventions/{id}` 映射待处理事项、候选选项、revision、投递状态和关联
+Task/NodeJob。由于 OS 尚未提供独立稳定的 Evidence read contract，本轮不虚构 Evidence
+模型，也不提供 intervention decision、resolve-uncertain、恢复或结算命令。
 
 ### 1.4 OS Adapters
 
@@ -382,6 +387,13 @@ packages/
           port.ts                # Backend Reagent 与 Edge Inventory read ports
           api.ts                 # Reagent 与 inventory DTO shapes
           codec.ts               # Backend/Edge DTO ↔ inventory projection
+          client.ts              # injected transport + explicit read routes
+          errors.ts
+        evidence-intervention/
+          model.ts              # Intervention read projection; Evidence remains deferred
+          port.ts                # read-only intervention port
+          api.ts                 # intervention DTO shape
+          codec.ts               # OS DTO ↔ intervention projection
           client.ts              # injected transport + explicit read routes
           errors.ts
 
