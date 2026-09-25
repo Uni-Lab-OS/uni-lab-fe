@@ -1,6 +1,6 @@
 # Uni-Lab FE Module Map v0.1
 
-状态：2026-09-25，正式技术设计第一阶段；core 内 Phase 0-3 完成，Device & Action 与 Material & Site 的只读/command seam 已进入，Phase 4/5 延后，Phase 6 仅保留 assembly seam
+状态：2026-09-25，正式技术设计第一阶段；core 内 Phase 0-3 完成，Device & Action、Material & Site 与 Reagent & Inventory 的只读/command seam 已进入，Phase 4/5 延后，Phase 6 仅保留 assembly seam
 
 本文只冻结 FE 的模块层次、处置矩阵、依赖方向和第一阶段实现边界。它不重新定义
 OS 权威、Task/NodeJob/Attempt/DeviceCommand、Run Preparation 的领域语义、
@@ -66,7 +66,7 @@ v0.1 的逻辑模块如下，**不是要求立即建立六个 package**：
 | Workflow Definition | Published Revision、graph、inventory requirement、workflow type、ActionDefinition 投影 | 进入 |
 | Device & Action | Device/Action 只读投影、能力和资源合同引用、Action Run 的 OS command/read seam | 已进入（目录、定义、提交身份与标准 Task/NodeJob 读取） |
 | Material & Site | Material、Site、Site Occupancy 的只读投影 | 已进入（列表、Graph、详情与 Site 读取） |
-| Reagent & Inventory | Reagent、Lot、数量库存的只读投影 | 进入（只读） |
+| Reagent & Inventory | Reagent、Lot、数量库存的只读投影 | 已进入（Backend Reagent 与 Edge Inventory 读取） |
 | Workflow Execution Read | SubmitRun 结果、Task/Job/NodeJob Detail 的读取语义 | 最小进入 |
 | Evidence & Intervention | 证据、干预、恢复和对账的场景读取/命令语义 | 延后 |
 
@@ -86,6 +86,12 @@ Material & Site 已沿同一 Domain seam 进入：`GET /materials`、`GET /mater
 Material、Site、Site Occupancy、相对位置和资源模板摘要。缺失的 occupancy 字段保留为
 `known: false`；Graph 中跨 Material 节点的 Site 所有者关系必须通过 codec 校验。该 Domain
 不提供移动、摆放、删除或库存结算命令。
+
+Reagent & Inventory 已沿同一 Domain seam 进入：Backend 的 `GET /reagent-infos`、
+`GET /reagents` 与详情读取，以及 Edge 的 `GET /inventory/instances`、
+`GET /inventory/lots`、`GET /inventory/snapshot`。codec 保留缺失的数量、预留和快照维度为
+`null` 或空集合，不把未知伪造成零；Lot 的 `empty`、`reserved`、`quarantined` 只由已观测
+字段推导。该 Domain 只读，不提供库存写入、Reservation、Claim 或 Settlement。
 
 ### 1.4 OS Adapters
 
@@ -370,6 +376,13 @@ packages/
           api.ts                 # material and Site DTO shapes
           codec.ts              # OS DTO ↔ Material & Site projection
           client.ts
+          errors.ts
+        reagent-inventory/
+          model.ts              # Reagent / ReagentInfo / Lot / Instance / Snapshot projections
+          port.ts                # Backend Reagent 与 Edge Inventory read ports
+          api.ts                 # Reagent 与 inventory DTO shapes
+          codec.ts               # Backend/Edge DTO ↔ inventory projection
+          client.ts              # injected transport + explicit read routes
           errors.ts
 
       shared/                   # reusable UI-facing building blocks

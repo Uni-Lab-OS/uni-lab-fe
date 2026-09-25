@@ -6,6 +6,8 @@ import { DeviceActionClient } from '../domain/device-action/client'
 import type { DeviceActionPort } from '../domain/device-action/port'
 import { MaterialSiteClient } from '../domain/material-site/client'
 import type { MaterialSitePort } from '../domain/material-site/port'
+import { ReagentInventoryClient } from '../domain/reagent-inventory/client'
+import type { ReagentInventoryPort } from '../domain/reagent-inventory/port'
 import type { RequestTransport } from '../transport/request'
 import { createRunPreparationScenario } from '../scenarios/run-preparation/scenario'
 
@@ -16,6 +18,7 @@ export interface BackendCore {
   readonly executionRead: WorkflowExecutionReadClient
   readonly deviceActions: DeviceActionPort
   readonly materialSite: MaterialSitePort
+  readonly reagentInventory: ReagentInventoryPort
   readonly runPreparation: ReturnType<typeof createRunPreparationScenario>
 }
 
@@ -31,6 +34,7 @@ export function createBackendCoreFromTransport(
   const executionRead = new WorkflowExecutionReadClient(transport)
   const deviceActions = new DeviceActionClient(transport, executionRead)
   const materialSite = new MaterialSiteClient(transport)
+  const reagentInventory = new ReagentInventoryClient(transport)
   return {
     transport,
     workflowDefinitions,
@@ -38,6 +42,7 @@ export function createBackendCoreFromTransport(
     executionRead,
     deviceActions,
     materialSite,
+    reagentInventory,
     runPreparation: createRunPreparationScenario(workflowDefinitions, runPreparationPort)
   }
 }
