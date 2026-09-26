@@ -1,0 +1,10 @@
+// Generated from the read-only Figma Bohr icon export. Do not edit by hand.
+// Regenerate with: pnpm --dir packages/design-v2 build:icons -- --source-dir <export>/clean
+
+import { createStaticIcon } from '../../staticIcon'
+
+export const ArrowBlockUpLineIcon = createStaticIcon({
+  "body": "<path d=\"M9.8 17C9.51997 17 9.37996 17 9.273 16.9455C9.17892 16.8976 9.10243 16.8211 9.0545 16.727C9 16.62 9 16.48 9 16.2V10H5L12 3L19 10H15V16.2C15 16.48 15 16.62 14.9455 16.727C14.8976 16.8211 14.8211 16.8976 14.727 16.9455C14.62 17 14.48 17 14.2 17H9.8Z\" stroke=\"currentColor\" stroke-width=\"var(--bh-icon-stroke-width, 1.8)\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<path d=\"M19 21H5\" stroke=\"currentColor\" stroke-width=\"var(--bh-icon-stroke-width, 1.8)\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
+  "viewBox": "0 0 24 24"
+})
+export default ArrowBlockUpLineIcon

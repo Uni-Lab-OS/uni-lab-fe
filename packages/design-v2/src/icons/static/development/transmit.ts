@@ -1,0 +1,10 @@
+// Generated from the read-only Figma Bohr icon export. Do not edit by hand.
+// Regenerate with: pnpm --dir packages/design-v2 build:icons -- --source-dir <export>/clean
+
+import { createStaticIcon } from '../../staticIcon'
+
+export const TransmitIcon = createStaticIcon({
+  "body": "<path d=\"M7 2V2.9H17V2V1.1H7V2ZM22 7H21.1V17H22H22.9V7H22ZM17 22V21.1H7V22V22.9H17V22ZM2 17H2.9V7H2H1.1V17H2ZM7 22V21.1C4.73563 21.1 2.9 19.2644 2.9 17H2H1.1C1.1 20.2585 3.74152 22.9 7 22.9V22ZM22 17H21.1C21.1 19.2644 19.2644 21.1 17 21.1V22V22.9C20.2585 22.9 22.9 20.2585 22.9 17H22ZM17 2V2.9C19.2644 2.9 21.1 4.73563 21.1 7H22H22.9C22.9 3.74152 20.2585 1.1 17 1.1V2ZM7 2V1.1C3.74152 1.1 1.1 3.74152 1.1 7H2H2.9C2.9 4.73563 4.73563 2.9 7 2.9V2Z\" fill=\"currentColor\"/>\n<path d=\"M6.5 10H17.5L14.75 7\" stroke=\"currentColor\" stroke-width=\"var(--bh-icon-stroke-width, 1.8)\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<path d=\"M17.5 14H6.5L9.25 17\" stroke=\"currentColor\" stroke-width=\"var(--bh-icon-stroke-width, 1.8)\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
+  "viewBox": "0 0 24 24"
+})
+export default TransmitIcon

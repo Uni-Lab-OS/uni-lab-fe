@@ -1,6 +1,6 @@
 # `@unilab/design-v2`
 
-Uni-Lab 新版设计基础层。这个包只负责设计变量、默认主题、主题运行时和技术栈适配，不提供 React UI 组件。
+Uni-Lab 新版设计基础层。这个包负责设计变量、默认主题、主题运行时、技术栈适配和 Figma Bohr 图标集合；不提供完整的 React UI 组件。
 
 如果你只想在新项目里使用这套规范，先看“5 分钟接入”；如果你要继续维护内部 example 规范站或让 AI coding agent 修改组件，直接看“维护与 AI coding agent 约定”。
 
@@ -96,6 +96,162 @@ export function ProjectForm() {
 ```
 
 不需要为每个页面重新设置主色、边框色、输入框背景或 hover/focus 颜色。
+
+## Figma Bohr 图标
+
+图标来自 [Bohrium Design System 的 Bohr icon 页面](https://www.figma.com/design/SmWwL4eUrBlNQAG6nfWqll/Bohrium-Design-System-1.0.0?node-id=26162-2679&p=f)，以 Figma File 中的 `Icon/<category>/<name>` 组件为权威来源。当前已导出 19 个分类、1227 个公开组件；Deprecated、Pilot、Wrapper 和内部辅助节点不会进入运行时集合。
+
+图标是单独的 React 子路径，不会让只使用 token/CSS 的项目被动引入 React：
+
+```bash
+pnpm add @unilab/design-v2 react
+```
+
+新项目的全局 CSS 仍然要先接入 token 和默认主题，再接入图标样式；否则 `color="primary"` 等语义色会退回 `currentColor`：
+
+```css
+@import '@unilab/design-v2/core.css';
+@import '@unilab/design-v2/themes/default.css';
+@import '@unilab/design-v2/icons/styles.css';
+```
+
+TypeScript 项目还需要由应用提供 `@types/react`；使用 AntD 时继续按上文接入 `antd/dist/reset.css`、`adapters/antd.css` 和 `ConfigProvider`。图标包只提供图形和颜色契约，不替代 AntD 的按钮、菜单或布局组件。
+
+在应用入口引入图标样式，然后直接使用 `Icon`：
+
+```tsx
+import { Icon } from '@unilab/design-v2/icons'
+import '@unilab/design-v2/icons/styles.css'
+
+export function EmptyState() {
+  return (
+    <div>
+      <Icon name="alerts-feedback/bell-01" size={24} color="context" title="通知" />
+      <span>没有通知</span>
+    </div>
+  )
+}
+```
+
+放在已有按钮或菜单中、且旁边已经有可见文字时，可以省略 `title`，图标会自动以装饰性 SVG 输出：
+
+```tsx
+<button type="button" aria-label="打开设置">
+  <Icon name="general/settings-01" size="md" color="inherit" />
+</button>
+```
+
+`name` 使用小写 kebab-case 的分类和名称，例如 `alerts-feedback/alert-circle`、`finance-ecommerce/credit-card-02`。完整名称、原始 Figma 名称和资产路径可从 manifest 读取：
+
+```ts
+import { ICON_CATEGORIES, ICON_MANIFEST, ICON_NAMES } from '@unilab/design-v2/icons'
+
+const alert = ICON_MANIFEST['alerts-feedback/alert-circle']
+// alert.figmaName === 'Icon/Alerts & feedback/alert-circle'
+console.log(ICON_NAMES.length) // 1227
+console.log(ICON_CATEGORIES.map((item) => `${item.name}: ${item.count}`))
+```
+
+### 尺寸、颜色和描边
+
+`Icon` 的默认尺寸是 Figma 导出尺寸 24px；也可以传入 8、10、12、14、15、16、18、20、22、24，或 `sm`、`md`、`lg`、`xl`。`color` 表示图标使用的语义颜色角色，会随默认主题和 Light/Dark 切换：
+
+| 属性 | 可选值 | 语义变量 |
+| --- | --- | --- |
+| `color` | `context`、`default`、`primary`、`white`、`error`、`success`、`inherit` | `--bh-color-icon-context`、`--bh-color-primary`、`--bh-color-error-default` 等 |
+| `weight` | `default`、`strong`、`medium`、`compact`、`detail`、`hairline` | Figma Bohr Icon 的 1.8、2、1.5、1.2、0.54、0.2 描边组 |
+| `size` | Figma 的 8–24px 尺寸或设计系统别名 | `--bh-icon-size-*` 或显式像素值 |
+
+Figma 导出的 `#1D2129` 已转换为 `currentColor`，所以不要在业务 CSS 中重新给 SVG 写黑色。需要跟随父元素颜色时使用 `color="inherit"`；需要明确的主题主色时使用 `color="primary"`。`title` 会生成可访问名称；没有 `title` 的图标默认标记为装饰性图标。
+
+### 生产环境的拆包入口
+
+通用 `Icon` 不会把 1227 个 SVG body 一次性打进应用。它会根据 `name` 的分类前缀按需加载分类 chunk：
+
+```tsx
+// 只会在运行时加载 alerts-feedback 分类 chunk
+<Icon name="alerts-feedback/bell-01" color="primary" />
+```
+
+对首屏、SSR 或 bundle 极度敏感的固定图标，可以使用生成的静态单图标入口：
+
+```tsx
+import AlertCircleIcon from '@unilab/design-v2/icons/static/alerts-feedback/alert-circle'
+
+<AlertCircleIcon size="md" color="error" title="发生错误" />
+```
+
+静态入口只包含一个图标 body，可以被 bundler 独立 tree-shaking。图标密集型页面如果已知即将使用某个分类，可以提前预加载：
+
+```ts
+import { preloadIconCategory } from '@unilab/design-v2/icons'
+
+void preloadIconCategory('editor')
+```
+
+`ICON_MANIFEST`、`ICON_NAMES` 和 `ICON_CATEGORIES` 是搜索/管理用数据，会显式包含完整清单；普通业务页面不需要导入它们。内部 `#icons` 预览页为了支持全量搜索会主动使用完整清单，这是预览行为，不代表生产页面的推荐接入方式。
+
+### 直接使用 SVG 资产
+
+需要 CSS mask 或非 React 页面时，可以从 `@unilab/design-v2/icons/assets/<category>/<name>.svg` 引用同一批导出资产。资产保留 Figma 的路径、mask 和 viewBox，只做了上下文色和 mask 中性底色的主题化处理。需要跟随主题色时优先使用 React `Icon` 或 CSS mask；直接放进 `<img>` 的 SVG 运行在外部文档中，不能可靠继承宿主元素的 `currentColor`。
+
+### 给 AI coding agent 的固定规则
+
+让 agent 新增图标时，要求它按下面顺序处理，不要凭图标语义猜名称或重新画 SVG：
+
+1. 先从 `ICON_NAMES` 中查找候选名称，再用 `ICON_MANIFEST[name].figmaName` 确认 Figma 来源。
+2. 页面使用 `<Icon name="..." />`，不要复制 `src/icons/generated` 中的 body，也不要直接写 `#1D2129`。
+3. 普通图标默认使用 `color="context"`；品牌强调使用 `primary`，错误/成功使用 `error`/`success`，按钮内图标使用 `inherit` 或 `white`。
+4. 只有设计稿明确要求时才设置 `weight`；不要为了“看起来更粗”覆盖 Figma 的特殊细节描边。
+5. 变更图标导出后运行 `validate:icons`、design-v2 typecheck 和 preview build；不要手工修改 `generated` 目录。
+
+如果名称无法通过 `IconName` 类型检查，先查 manifest 和预览页搜索结果；不要把 kebab-case 名称改成 PascalCase，也不要退回第三方 icon 包。
+
+### 新增图标的自动化流程
+
+图标的唯一事实来源仍然是 Figma File → Components。当前仓库没有用个人凭证自动读取 Figma 的 API；因此“从 Figma 拉取文件”需要由有权限的设计师或开发者在 Ego Lite/Figma 中执行只读导出。导出完成后，仓库内的整理、主题化、类型入口、按分类拆包和校验都是自动完成的，不需要手工复制 SVG 或编辑 generated 文件。
+
+一次新增或更新图标的标准流程如下：
+
+1. 在 Figma 的 `Icon/<category>/<name>` 下新增或更新公开组件。名称要稳定，不能放在 `Deprecated`、`Pilot`、`Wrapper` 或内部辅助节点中。
+2. 从 Figma 只读导出 SVG，并按分类放成 `export/clean/<category>/<name>.svg`。分类目录和文件名来自 Figma，不要自己把名称改成 PascalCase。
+3. 运行一键同步命令。它会先清理旧的 `assets`、`generated` 和 `static` 输出，再一次性生成全部图标并校验，避免增量生成留下旧文件：
+
+   ```bash
+   pnpm --dir packages/design-v2 icons:sync -- \
+     --source-dir /path/to/figma-export/clean \
+     --output-dir packages/design-v2/src/icons
+   ```
+
+   如果只需要分别执行生成或校验，仍可以使用 `build:icons` 和 `validate:icons`。
+
+4. 运行完整校验和类型/预览构建：
+
+   ```bash
+   pnpm --dir packages/design-v2 validate:icons
+   pnpm --dir packages/design-v2 typecheck
+   pnpm --dir packages/design-v2/examples/preview typecheck
+   pnpm --dir packages/design-v2/examples/preview build
+   ```
+
+5. 检查 `git diff`：应同时看到 manifest、对应分类 chunk、SVG asset 和单图标 static 入口的变化；不要直接修改这些生成文件。预览页的 `#icons` 搜索可以用来确认名称、分类、主题色和 viewBox。
+
+校验默认允许图标数量变化，因此新增合法图标不会因为旧数量门槛失败；它仍会检查 asset/manifest/static 一一对应、Figma provenance、viewBox、硬编码颜色和 Deprecated 文件。若某个发布分支需要冻结数量，可显式执行 `pnpm --dir packages/design-v2 validate:icons -- --expected-count 1227`，新增图标时再有意更新这个门槛。
+
+如果未来接入 Figma API 或 CI 下载器，只需要让它产出同样的 `export/clean` 目录，然后调用上面的 `icons:sync` 命令；生成器本身不依赖浏览器、Figma SDK 或个人登录态，适合放进 CI。
+
+### 重新生成和校验
+
+重新从 Ego Lite 的只读 Figma 导出结果生成资产时，将解压后按分类整理的目录传给脚本：
+
+```bash
+pnpm --dir packages/design-v2 build:icons -- \
+  --source-dir /path/to/figma-export/clean \
+  --output-dir packages/design-v2/src/icons
+pnpm --dir packages/design-v2 validate:icons
+```
+
+脚本会同时生成 `src/icons/assets`、`src/icons/generated/manifest.ts`、按分类拆分的 chunk 和 `src/icons/static` 下的单图标入口。校验会检查资产和 manifest 数量是否一致、分类 chunk、静态入口、Figma provenance、原始 viewBox、硬编码颜色以及 Deprecated 文件。不要手工编辑 `generated` 或 `static` 目录；设计稿更新时重新导出并运行生成脚本。
 
 ## 先理解三层关系
 

@@ -15,6 +15,16 @@ export function Sidebar({ components, selectedId, onSelect }: SidebarProps): Rea
         <span className="sidebar-caption">Accordion → Upload</span>
       </div>
       <nav className="catalog-nav">
+        <button
+          className={`catalog-nav-item icon-library-nav-item ${selectedId === 'icons' ? 'catalog-nav-item-active' : ''}`}
+          type="button"
+          aria-current={selectedId === 'icons' ? 'page' : undefined}
+          onClick={() => onSelect('icons')}
+        >
+          <span className="catalog-nav-index">◎</span>
+          <span>Icon 图标集合</span>
+          <span className="icon-library-nav-count">1227</span>
+        </button>
         {components.map((component, index) => (
           <button
             className={`catalog-nav-item ${component.id === selectedId ? 'catalog-nav-item-active' : ''}`}

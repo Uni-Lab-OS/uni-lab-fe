@@ -1,0 +1,10 @@
+// Generated from the read-only Figma Bohr icon export. Do not edit by hand.
+// Regenerate with: pnpm --dir packages/design-v2 build:icons -- --source-dir <export>/clean
+
+import { createStaticIcon } from '../../staticIcon'
+
+export const HelpIcon = createStaticIcon({
+  "body": "<path d=\"M2 12M22 12M22 12M2 12M12 2M22 12M12 22M2 12M12 22V21.1C6.97421 21.1 2.9 17.0258 2.9 12H2H1.1C1.1 18.0199 5.9801 22.9 12 22.9V22ZM22 12H21.1C21.1 17.0258 17.0258 21.1 12 21.1V22V22.9C18.0199 22.9 22.9 18.0199 22.9 12H22ZM12 2V2.9C17.0258 2.9 21.1 6.97421 21.1 12H22H22.9C22.9 5.9801 18.0199 1.1 12 1.1V2ZM12 2V1.1C5.9801 1.1 1.1 5.9801 1.1 12H2H2.9C2.9 6.97421 6.97421 2.9 12 2.9V2Z\" fill=\"currentColor\"/>\n<path d=\"M8.5 9.40364C8.5 7.79997 10.067 6.19995 12 6.19995C14.2322 6.19995 15.5 7.90933 15.5 9.40364C15.5 11.9939 12.9259 11.4126 12.1491 13.6178C12.0164 13.9944 12 14.4007 12 14.8\" stroke=\"currentColor\" stroke-width=\"var(--bh-icon-stroke-width, 1.8)\" stroke-linecap=\"round\"/>\n<path d=\"M12 17.8834L12 17.3\" stroke=\"currentColor\" stroke-width=\"var(--bh-icon-stroke-width, 1.8)\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
+  "viewBox": "0 0 24 24"
+})
+export default HelpIcon

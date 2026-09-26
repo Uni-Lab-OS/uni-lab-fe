@@ -1,0 +1,10 @@
+// Generated from the read-only Figma Bohr icon export. Do not edit by hand.
+// Regenerate with: pnpm --dir packages/design-v2 build:icons -- --source-dir <export>/clean
+
+import { createStaticIcon } from '../../staticIcon'
+
+export const Pilcrow02Icon = createStaticIcon({
+  "body": "<path d=\"M17.5 4V20M19.5 4H9C6.79086 4 5 5.79086 5 8C5 10.2091 6.79086 12 9 12H14M14 4V20M12 20H19.5\" stroke=\"currentColor\" stroke-width=\"var(--bh-icon-stroke-width, 1.8)\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
+  "viewBox": "0 0 24 24"
+})
+export default Pilcrow02Icon

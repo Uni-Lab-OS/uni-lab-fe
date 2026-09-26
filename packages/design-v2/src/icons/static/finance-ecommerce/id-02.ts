@@ -1,0 +1,10 @@
+// Generated from the read-only Figma Bohr icon export. Do not edit by hand.
+// Regenerate with: pnpm --dir packages/design-v2 build:icons -- --source-dir <export>/clean
+
+import { createStaticIcon } from '../../staticIcon'
+
+export const Id02Icon = createStaticIcon({
+  "body": "<path d=\"M7 7.5V16.5M6.8 21H17.2C18.8802 21 19.7202 21 20.362 20.673C20.9265 20.3854 21.3854 19.9265 21.673 19.362C22 18.7202 22 17.8802 22 16.2V7.8C22 6.11984 22 5.27976 21.673 4.63803C21.3854 4.07354 20.9265 3.6146 20.362 3.32698C19.7202 3 18.8802 3 17.2 3H6.8C5.11984 3 4.27976 3 3.63803 3.32698C3.07354 3.6146 2.6146 4.07354 2.32698 4.63803C2 5.27976 2 6.11984 2 7.8V16.2C2 17.8802 2 18.7202 2.32698 19.362C2.6146 19.9265 3.07354 20.3854 3.63803 20.673C4.27976 21 5.11984 21 6.8 21ZM11 7.5H13C13.9296 7.5 14.3944 7.5 14.7788 7.58775C16.0896 7.88692 17.1131 8.91044 17.4122 10.2212C17.5 10.6056 17.5 11.0704 17.5 12C17.5 12.9296 17.5 13.3944 17.4122 13.7788C17.1131 15.0896 16.0896 16.1131 14.7788 16.4122C14.3944 16.5 13.9296 16.5 13 16.5H11V7.5Z\" stroke=\"currentColor\" stroke-width=\"var(--bh-icon-stroke-width, 1.8)\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
+  "viewBox": "0 0 24 24"
+})
+export default Id02Icon

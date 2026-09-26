@@ -1,0 +1,10 @@
+// Generated from the read-only Figma Bohr icon export. Do not edit by hand.
+// Regenerate with: pnpm --dir packages/design-v2 build:icons -- --source-dir <export>/clean
+
+import { createStaticIcon } from '../../staticIcon'
+
+export const ThumbLineDoneIcon = createStaticIcon({
+  "body": "<path d=\"M7.6001 18.0018L10.7001 20.4018C11.1001 20.8018 12.0001 21.0018 12.6001 21.0018M7.6001 9.20182L11.7001 3.10182C12.1001 2.50182 13.1001 2.10182 13.9001 2.40182C14.8001 2.70182 15.4001 3.70182 15.2001 4.60182L14.7001 7.80182C14.6001 8.50182 15.1001 9.00182 15.7001 9.00182H19.7001C21.2001 9.00182 22.1001 10.2018 21.6001 11.6018L21.0001 13.4268\" stroke=\"currentColor\" stroke-width=\"var(--bh-icon-stroke-width, 1.8)\" stroke-miterlimit=\"10\" stroke-linecap=\"round\"/>\n<path d=\"M2.5 18.0018V9.70176C2.5 8.30176 3.1 7.80176 4.5 7.80176H5.5C6.9 7.80176 7.5 8.30176 7.5 9.70176V18.0018C7.5 19.4018 6.9 19.9018 5.5 19.9018H4.5C3.1 19.9018 2.5 19.4018 2.5 18.0018Z\" stroke=\"currentColor\" stroke-width=\"var(--bh-icon-stroke-width, 1.8)\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<path d=\"M15.5 19.0161L17.5 21.0161L22 16.5161\" stroke=\"currentColor\" stroke-width=\"var(--bh-icon-stroke-width, 1.8)\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
+  "viewBox": "0 0 24 24"
+})
+export default ThumbLineDoneIcon

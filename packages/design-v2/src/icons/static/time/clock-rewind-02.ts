@@ -1,0 +1,10 @@
+// Generated from the read-only Figma Bohr icon export. Do not edit by hand.
+// Regenerate with: pnpm --dir packages/design-v2 build:icons -- --source-dir <export>/clean
+
+import { createStaticIcon } from '../../staticIcon'
+
+export const ClockRewind02Icon = createStaticIcon({
+  "body": "<path d=\"M2.05716 13.0678C2.2819 15.1416 3.15194 17.1743 4.68644 18.8199C8.45107 22.857 14.7829 23.0781 18.82 19.3134C22.857 15.5488 23.0781 9.21699 19.3135 5.17992C15.5489 1.14284 9.21706 0.921733 5.17999 4.68636C4.13416 5.66162 3.3368 6.81537 2.81234 8.05647\" stroke=\"currentColor\" stroke-width=\"var(--bh-icon-stroke-width, 1.8)\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<path d=\"M12 7V12.25C12 12.4074 12.0741 12.5556 12.2 12.65L16 15.5\" stroke=\"currentColor\" stroke-width=\"var(--bh-icon-stroke-width, 1.8)\" stroke-linecap=\"round\"/>\n<path d=\"M2.00122 4.39893V8.39893H6.00122\" stroke=\"currentColor\" stroke-width=\"var(--bh-icon-stroke-width, 1.8)\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
+  "viewBox": "0 0 24 24"
+})
+export default ClockRewind02Icon

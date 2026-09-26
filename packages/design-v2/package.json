@@ -6,7 +6,13 @@
   "sideEffects": ["**/*.css"],
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "generate:source": "node scripts/generate-source-tokens.mjs"
+    "generate:source": "node scripts/generate-source-tokens.mjs",
+    "build:icons": "node scripts/build-icon-assets.mjs",
+    "icons:sync": "node scripts/sync-icons.mjs",
+    "validate:icons": "node scripts/validate-icons.mjs"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -22,6 +28,11 @@
     "./tokens/source.icons.css": "./src/tokens/source.icons.css",
     "./adapters/tailwind.css": "./src/adapters/tailwind.css",
     "./adapters/antd.css": "./src/adapters/antd.css",
-    "./adapters/antd-theme": "./src/adapters/antdTheme.ts"
+    "./adapters/antd-theme": "./src/adapters/antdTheme.ts",
+    "./icons": "./src/icons/index.ts",
+    "./icons/styles.css": "./src/icons/styles.css",
+    "./icons/manifest": "./src/icons/generated/manifest.ts",
+    "./icons/assets/*": "./src/icons/assets/*",
+    "./icons/static/*": "./src/icons/static/*.ts"
   }
 }

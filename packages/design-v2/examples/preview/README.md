@@ -18,12 +18,21 @@ http://localhost:5173/#alert-dialog
 http://localhost:5173/#rate
 ```
 
+Icon 集合是独立的首级页面：
+
+```text
+http://localhost:5173/#icons
+```
+
+Icon 页面使用 `@unilab/design-v2/icons` 的 manifest 做索引，支持按图标名称、Figma 名称或分类搜索，按分类筛选，并切换 Context、Primary、Error 等主题色或输入自定义颜色。首屏只渲染 120 个结果，继续点击 `Load more` 才会追加结果，避免一次性创建全部 1227 个 SVG 节点。
+
 ## 代码职责
 
 | 文件 | 职责 |
 | --- | --- |
 | `src/components/componentRegistry.ts` | 68 个组件的顺序、分组、状态、尺寸、变量绑定和审计状态 |
 | `src/components/Sidebar.tsx` | File → Components 左导航 |
+| `src/components/IconGallery.tsx` | Icon 集合搜索、分类筛选、主题色和自定义颜色预览 |
 | `src/components/SpecimenFrame.tsx` | 页面标题、审计条带、设计来源说明和公共展示框架 |
 | `src/components/ComponentDemo.tsx` | 当前演示组件和 example-shell |
 | `src/App.tsx` | hash 选择、主题订阅和 AntD `ConfigProvider` |
