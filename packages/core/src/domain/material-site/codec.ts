@@ -180,7 +180,6 @@ function decodeMaterialSummary(value: MaterialSiteRecord): MaterialSummary {
     description: nullableString(value.description, 'material.description'),
     revision: nullablePositiveInteger(value.revision, 'material.revision'),
     config: optionalRecord(value.config, 'material.config'),
-    data: optionalRecord(value.data, 'material.data'),
     metadata: optionalRecord(value.meta_data, 'material.meta_data'),
     createdAt: nullableString(value.create_time, 'material.create_time'),
     updatedAt: nullableString(value.update_time, 'material.update_time'),

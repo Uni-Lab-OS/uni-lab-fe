@@ -29,7 +29,6 @@ interface MaterialIdentity {
   readonly description: string | null
   readonly revision: number | null
   readonly config: Readonly<Record<string, unknown>>
-  readonly data: Readonly<Record<string, unknown>>
   readonly metadata: Readonly<Record<string, unknown>>
   readonly createdAt: string | null
   readonly updatedAt: string | null
