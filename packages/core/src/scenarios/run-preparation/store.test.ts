@@ -86,6 +86,6 @@ describe('createRunPreparationStore', () => {
     expect(store.getState().status).toBe('ready')
 
     await store.getState().inspectNodeJob('job-1')
-    expect(store.getState().nodeJob?.jobUuid).toBe('job-1')
+    expect(store.getState().viewModel?.nodeJob?.jobUuid).toBe('job-1')
   })
 })

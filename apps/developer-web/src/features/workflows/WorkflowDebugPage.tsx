@@ -13,17 +13,14 @@ import {
 } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import type {
-  PublishedWorkflowRevision,
   PreflightReport,
-  RunPreparationState,
-  SubmittedRun,
 } from "@unilab-fe/core";
 import type { StudioRoute } from "../../components/AppShell";
 import { AppIcon } from "../../components/ui/Icon";
 import { AsyncState } from "../../components/ui/AsyncState";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { useBackend } from "../../app/BackendProvider";
-import { useBackendQuery } from "../../hooks/useBackendQuery";
+import { createRunPreparationReactStore } from "@unilab-fe/core/react";
 import { jsonText, nodeLabel } from "./workflowPresentation";
 import {
   normalizeWorkflowInput,
@@ -111,21 +108,27 @@ export function WorkflowDebugPage({
   onNavigate: (route: StudioRoute) => void;
 }) {
   const { backend } = useBackend();
-  const query = useBackendQuery(`workflow-debug:${workflowUuid}`, (backend) =>
-    backend.core.workflowDefinitions.getPublishedRevision(workflowUuid),
+  const useRunPreparationStore = useMemo(
+    () => createRunPreparationReactStore(backend.core.runPreparation),
+    [backend.core.runPreparation],
   );
+  const storeStatus = useRunPreparationStore((state) => state.status);
+  const storeError = useRunPreparationStore((state) => state.error);
+  const revision = useRunPreparationStore((state) => state.viewModel?.revision);
+  const preflight = useRunPreparationStore((state) => state.preflight);
+  const submitted = useRunPreparationStore((state) => state.submittedRun);
+  const configuration = useRunPreparationStore((state) => state.viewModel?.configuration);
+  const runMode = configuration?.runMode ?? "normal";
+  const priority = configuration?.priority ?? "normal";
+  const taskName = configuration?.description ?? "";
   const [step, setStep] = useState(0);
-  const [runMode, setRunMode] =
-    useState<RunPreparationState["configuration"]["runMode"]>("normal");
-  const [priority, setPriority] = useState<"normal" | "high">("normal");
-  const [taskName, setTaskName] = useState("");
-  const [inputValues, setInputValues] = useState<Record<string, unknown>>({});
   const [inputForm] = Form.useForm<Record<string, unknown>>();
-  const [preflight, setPreflight] = useState<PreflightReport | null>(null);
-  const [submitted, setSubmitted] = useState<SubmittedRun | null>(null);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const revision = query.data;
+  useEffect(() => {
+    void useRunPreparationStore.getState().load(workflowUuid);
+  }, [useRunPreparationStore, workflowUuid]);
+
   const inputParameters = useMemo(
     () => revision?.graph.inputParameters ?? [],
     [revision],
@@ -158,28 +161,16 @@ export function WorkflowDebugPage({
   useEffect(() => {
     if (!revision) return;
     const defaults = workflowInputDefaults(inputParameters);
-    inputForm.setFieldsValue({ workflowInput: defaults });
-    setInputValues(defaults);
-    setTaskName((current) => current || revision.name);
-  }, [inputForm, inputParameters, revision]);
+    inputForm.setFieldsValue({ workflowInput: configuration?.input ?? defaults });
+    const current = useRunPreparationStore.getState().viewModel?.configuration;
+    if (!current?.description) {
+      useRunPreparationStore.getState().updateConfiguration({
+        description: revision.name,
+        input: configuration?.input ?? defaults,
+      });
+    }
+  }, [inputForm, inputParameters, revision, useRunPreparationStore]);
 
-  const state = useMemo(() => {
-    if (!revision) return null;
-    return {
-      revision,
-      configuration: {
-        runMode,
-        priority,
-        description: taskName.trim() || undefined,
-        input: inputValues,
-      },
-      binding: {
-        source: "user" as const,
-        inventoryBindings: [],
-        selectedResources: {},
-      },
-    } satisfies RunPreparationState;
-  }, [inputValues, priority, revision, runMode, taskName]);
   const runPreflight = async () => {
     if (!revision) return;
     setBusy(true);
@@ -191,25 +182,16 @@ export function WorkflowDebugPage({
       }
       const values = await inputForm.validateFields();
       const nextInput = normalizeWorkflowInput(values, inputParameters);
-      setInputValues(nextInput);
-      const nextState: RunPreparationState = {
-        revision,
-        configuration: {
-          runMode,
-          priority,
-          description: taskName.trim(),
-          input: nextInput,
-        },
-        binding: {
-          source: "user",
-          inventoryBindings: [],
-          selectedResources: {},
-        },
-      };
-      const report = await backend.core.runPreparation.requestPreflight(
-        nextState,
-      );
-      setPreflight(report);
+      const store = useRunPreparationStore.getState();
+      store.updateConfiguration({
+        runMode,
+        priority,
+        description: taskName.trim(),
+        input: nextInput,
+      });
+      await store.requestPreflight();
+      const nextState = useRunPreparationStore.getState();
+      if (nextState.error) throw nextState.error;
       setStep(1);
     } catch (error) {
       setFormError(
@@ -220,12 +202,14 @@ export function WorkflowDebugPage({
     }
   };
   const submit = async () => {
-    if (!state || !preflight?.canRun) return;
+    if (!revision || !preflight?.canRun) return;
     setBusy(true);
     setFormError(null);
     try {
-      const result = await backend.core.runPreparation.submitRun(state);
-      setSubmitted(result);
+      await useRunPreparationStore.getState().submitRun();
+      const nextState = useRunPreparationStore.getState();
+      if (nextState.error) throw nextState.error;
+      if (!nextState.submittedRun) throw new Error("后端未返回已接受的任务");
       setStep(2);
       message.success("任务已提交");
     } catch (error) {
@@ -251,10 +235,10 @@ export function WorkflowDebugPage({
         }
       />
       <AsyncState
-        loading={query.loading}
-        error={query.error}
-        onRetry={query.reload}
-        empty={!query.loading && !revision}
+        loading={storeStatus === "loading" || storeStatus === "idle"}
+        error={storeError ?? undefined}
+        onRetry={() => void useRunPreparationStore.getState().load(workflowUuid)}
+        empty={storeStatus !== "loading" && storeStatus !== "idle" && !revision}
       >
         {revision && (
           <>
@@ -279,7 +263,11 @@ export function WorkflowDebugPage({
                         showSearch
                         optionFilterProp="label"
                         value={runMode}
-                        onChange={setRunMode}
+                        onChange={(value) =>
+                          useRunPreparationStore.getState().updateConfiguration({
+                            runMode: value as typeof runMode,
+                          })
+                        }
                         options={[
                           { value: "normal", label: "正常运行" },
                           { value: "step", label: "单步运行" },
@@ -292,7 +280,11 @@ export function WorkflowDebugPage({
                         showSearch
                         optionFilterProp="label"
                         value={priority}
-                        onChange={setPriority}
+                        onChange={(value) =>
+                          useRunPreparationStore.getState().updateConfiguration({
+                            priority: value as "normal" | "high",
+                          })
+                        }
                         options={[
                           { value: "normal", label: "普通" },
                           { value: "high", label: "高" },
@@ -303,7 +295,11 @@ export function WorkflowDebugPage({
                   <Form.Item label="任务名称" required>
                     <Input
                       value={taskName}
-                      onChange={(event) => setTaskName(event.target.value)}
+                      onChange={(event) =>
+                        useRunPreparationStore.getState().updateConfiguration({
+                          description: event.target.value,
+                        })
+                      }
                       placeholder="请输入任务名称"
                     />
                   </Form.Item>
