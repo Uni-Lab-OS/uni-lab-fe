@@ -145,11 +145,15 @@ describe('DeviceActionClient', () => {
     await expect(client.listDevices()).resolves.toMatchObject([{
       deviceUuid: 'material-runtime-1',
       label: 'S04 磁搅',
-      online: false,
+      online: null,
+      dispatchable: null,
       actions: [{
         actionName: 'run_stirring',
         actionDefinitionUuid: 'template-run-stirring',
-        actionRef: 'szlab_mixer_stirrer.run_stirring'
+        actionRef: 'szlab_mixer_stirrer.run_stirring',
+        isBusy: null,
+        busyStatusKnown: false,
+        currentJobUuid: null
       }]
     }])
     expect(requests.map((request) => request.url)).toEqual([

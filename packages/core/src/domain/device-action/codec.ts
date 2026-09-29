@@ -43,9 +43,9 @@ export function decodeDeviceList(value: unknown): readonly DeviceSummary[] {
  * 读取本地 Driver 目录时使用的设备投影。
  *
  * Local Workspace 在尚未建立 Backend device binding 时，`/devices` 会返回
- * 空数组，而设备包仍会通过 `/authoring/device-catalog` 暴露真实实例与
- * action schema。这里把该目录收敛成和 Backend `/devices` 相同的领域模型，
- * 并用完整节点模板列表补上可执行动作的稳定 UUID。
+ * 空数组，而设备包仍会通过 `/authoring/device-catalog` 暴露设备目录与
+ * action schema。这里把目录收敛成可供浏览的设备模型，并用完整节点模板
+ * 列表补上动作的稳定 UUID；运行时在线、占用和可调度事实保持未知。
  */
 export function decodeAuthoringDeviceCatalog(
   value: unknown,
@@ -69,10 +69,10 @@ export function decodeAuthoringDeviceCatalog(
       deviceKey: optionalString(raw.deviceKey) ?? deviceId,
       namespace: optionalString(raw.namespace) ?? deviceId,
       label: optionalString(raw.name) ?? deviceId,
-      online: optionalBoolean(raw.online, `authoring.device-catalog.items[${index}].online`),
-      edgeStatus: raw.online === true ? 'online' : 'offline',
-      dispatchable: raw.online === true,
-      dispatchBlockReason: raw.online === true ? null : '设备离线',
+      online: null,
+      edgeStatus: null,
+      dispatchable: null,
+      dispatchBlockReason: null,
       executionOccupancies: null,
       actions: actions.map((item, actionIndex) => {
         const action = asRecord(item, `authoring.device-catalog.items[${index}].actions[${actionIndex}]`)
@@ -85,9 +85,9 @@ export function decodeAuthoringDeviceCatalog(
           label: optionalString(action.name) ?? actionName,
           actionType: optionalString(action.typeName) ?? 'device_action',
           actionDefinitionUuid: definition?.actionUuid ?? null,
-          isBusy: action.busy === undefined ? null : booleanValue(action.busy, `authoring.device-catalog.items[${index}].actions[${actionIndex}].busy`),
-          busyStatusKnown: action.busy !== undefined,
-          currentJobUuid: nullableString(action.currentJobId, `authoring.device-catalog.items[${index}].actions[${actionIndex}].currentJobId`),
+          isBusy: null,
+          busyStatusKnown: false,
+          currentJobUuid: null,
           raw: action
         }
       }),
