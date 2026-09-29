@@ -1,3 +1,27 @@
+export type ResourceCandidateKind = 'device' | 'material' | 'inventory' | 'site'
+
+/**
+ * Run Preparation 用于展示和绑定草稿的资源候选投影。
+ *
+ * 候选项只携带来源端观察到的事实，不代表 FE 已完成准入、占用或预留。
+ */
+export interface ResourceCandidate {
+  readonly kind: 'resource_candidate'
+  readonly id: string
+  readonly resourceKind: ResourceCandidateKind
+  readonly label: string
+  readonly status: string | null
+  readonly source: 'os' | 'fixture'
+  readonly observedAt: string | null
+  readonly metadata: Readonly<Record<string, unknown>>
+}
+
+export interface ResourceCandidateIssue {
+  readonly kind: 'resource_candidate_issue'
+  readonly resourceKind: Exclude<ResourceCandidateKind, 'site'>
+  readonly message: string
+}
+
 export interface RunConfiguration {
   readonly runMode: 'normal' | 'step' | 'single_node'
   readonly targetNodeUuid?: string

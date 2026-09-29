@@ -1,10 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
-import { projectWorkflowGraph } from "./WorkflowFlowCanvas";
+import { describe, expect, it } from "vitest";
+import { projectWorkflowGraphModel } from "./workflowFlowProjection";
 
 describe("workflow flow projection", () => {
   it("lays nodes out by edge rank and preserves graph connections", () => {
-    const onSelect = vi.fn();
-    const projected = projectWorkflowGraph(
+    const projected = projectWorkflowGraphModel(
       {
         workflow: {},
         nodes: [
@@ -21,20 +20,19 @@ describe("workflow flow projection", () => {
         inventoryRequirements: [],
       },
       "step",
-      onSelect,
     );
 
     expect(projected.nodes.map((node) => node.position.x)).toEqual([0, 280, 560]);
-    expect(projected.nodes[1]?.data.selected).toBe(true);
+    expect(projected.nodes[1]?.selected).toBe(true);
     expect(projected.edges.map((edge) => [edge.source, edge.target])).toEqual([
       ["source", "step"],
       ["step", "sink"],
     ]);
-    expect(projected.nodes[0]?.data.onSelect).toBe(onSelect);
+    expect(projected.nodes[0]?.position).toEqual({ x: 0, y: 0 });
   });
 
   it("collapses composite child nodes into their top-level workflow node", () => {
-    const projected = projectWorkflowGraph(
+    const projected = projectWorkflowGraphModel(
       {
         workflow: {},
         nodes: [
@@ -48,11 +46,10 @@ describe("workflow flow projection", () => {
         inventoryRequirements: [],
       },
       null,
-      () => undefined,
     );
 
     expect(projected.nodes.map((node) => node.id)).toEqual(["root", "next"]);
-    expect(projected.nodes[0]?.data.childCount).toBe(1);
+    expect(projected.nodes[0]?.childCount).toBe(1);
     expect(projected.edges).toHaveLength(1);
   });
 });

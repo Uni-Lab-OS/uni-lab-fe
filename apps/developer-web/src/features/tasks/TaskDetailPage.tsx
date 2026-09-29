@@ -4,7 +4,6 @@ import {
   Empty,
   Button,
   Segmented,
-  Select,
   Space,
   Tabs,
   Tag,
@@ -21,7 +20,6 @@ import type {
 import type {
   WorkflowTask,
   WorkflowTaskCommandType,
-  WorkflowTaskStepState,
 } from "@unilab/services";
 import { useBackend } from "../../app/BackendProvider";
 import type { StudioRoute } from "../../components/AppShell";
@@ -64,18 +62,10 @@ export function TaskDetail({
         ? current.services.workflow.getWorkflowTask(row.task.taskUuid)
         : Promise.resolve(undefined),
   );
-  const stepState = useBackendQuery<WorkflowTaskStepState | undefined>(
-    `workflow-task-step-state:${row.task.taskUuid}`,
-    (current) =>
-      row.task.executionKind === "workflow"
-        ? current.services.workflow.getWorkflowTaskStepState(row.task.taskUuid)
-        : Promise.resolve(undefined),
-  );
   useEffect(() => {
     if (row.task.executionKind !== "workflow") return;
 
     const refresh = () => {
-      stepState.reload();
       if (runtimeTask.data && !["succeeded", "failed", "canceled", "timeout"].includes(runtimeTask.data.status)) {
         runtimeTask.reload();
         detail.reload();
@@ -87,7 +77,6 @@ export function TaskDetail({
   }, [
     row.task.executionKind,
     runtimeTask.data?.status,
-    stepState.reload,
     runtimeTask.reload,
     detail.reload,
     jobs.reload,
@@ -162,22 +151,12 @@ export function TaskDetail({
         type,
         target_node_uuid: targetNodeUuid ?? null,
         idempotency_key: `studio-${row.task.taskUuid}-${type}-${Date.now()}`,
-        description:
-          type === "step"
-            ? "任务详情页执行单步"
-            : type === "switch_to_step"
-              ? "任务详情页进入单步调试"
-              : undefined,
+        description: type === "step" ? "任务详情页执行单步" : undefined,
       });
       message.success(
-        type === "step"
-          ? "单步命令已发送"
-          : type === "switch_to_step"
-            ? "已进入单步调试"
-            : "控制命令已发送",
+        type === "step" ? "单步命令已发送" : "控制命令已发送",
       );
       runtimeTask.reload();
-      stepState.reload();
       detail.reload();
       jobs.reload();
     } catch (error) {
@@ -243,8 +222,6 @@ export function TaskDetail({
               : undefined)
           }
           nodeNames={nodeNames}
-          stepState={stepState.data}
-          stepStateError={stepState.error}
           commandBusy={commandBusy}
           onCommand={sendCommand}
         />
@@ -265,8 +242,6 @@ function TaskExecutionConsole({
   inspectorLoading,
   controlTask,
   nodeNames,
-  stepState,
-  stepStateError,
   commandBusy,
   onCommand,
 }: {
@@ -285,8 +260,6 @@ function TaskExecutionConsole({
     control_status: string;
   };
   nodeNames: ReadonlyMap<string, string>;
-  stepState?: WorkflowTaskStepState;
-  stepStateError?: Error;
   commandBusy: boolean;
   onCommand: (type: WorkflowTaskCommandType, targetNodeUuid?: string) => void;
 }) {
@@ -315,8 +288,6 @@ function TaskExecutionConsole({
       <TaskIdentity row={row} detail={detail} />
       <DebugToolbar
         task={controlTask}
-        stepState={stepState}
-        stepStateError={stepStateError}
         busy={commandBusy}
         onCommand={onCommand}
       />
@@ -345,8 +316,6 @@ function TaskExecutionConsole({
 
 function DebugToolbar({
   task,
-  stepState,
-  stepStateError,
   busy,
   onCommand,
 }: {
@@ -355,20 +324,9 @@ function DebugToolbar({
     run_mode: string;
     control_status: string;
   };
-  stepState?: WorkflowTaskStepState;
-  stepStateError?: Error;
   busy: boolean;
   onCommand: (type: WorkflowTaskCommandType, targetNodeUuid?: string) => void;
 }) {
-  const [targetNodeUuid, setTargetNodeUuid] = useState<string>();
-  const candidates = stepState?.candidates ?? [];
-  useEffect(() => {
-    if (!targetNodeUuid && candidates[0]) setTargetNodeUuid(candidates[0].node_uuid);
-    if (targetNodeUuid && !candidates.some((item) => item.node_uuid === targetNodeUuid)) {
-      setTargetNodeUuid(candidates[0]?.node_uuid);
-    }
-  }, [candidates, targetNodeUuid]);
-
   const terminal = ["succeeded", "failed", "canceled", "timeout"].includes(
     task?.status ?? "",
   );
@@ -379,13 +337,8 @@ function DebugToolbar({
   const controlLabel = terminal
     ? "任务已结束"
     : isPaused
-      ? "任务已暂停，可选择下一节点"
+      ? "任务已暂停，可执行下一步"
       : "控制命令会由 OS 确认后生效";
-  const canStep = Boolean(
-    live && mode === "step" && isPaused && stepState?.can_step &&
-      (!stepState.requires_selection || targetNodeUuid),
-  );
-
   return (
     <div className="debug-toolbar">
       <div className="debug-toolbar-copy">
@@ -396,15 +349,6 @@ function DebugToolbar({
         <span className="muted-cell">{controlLabel}</span>
       </div>
       <Space wrap className="debug-toolbar-actions">
-        {mode === "normal" && live && (
-          <Button
-            onClick={() => onCommand("switch_to_step")}
-            disabled={busy || !task}
-            loading={busy}
-          >
-            进入单步调试
-          </Button>
-        )}
         {mode === "normal" && live && controlStatus === "active" && (
           <Button onClick={() => onCommand("pause")} disabled={busy}>
             暂停任务
@@ -417,23 +361,10 @@ function DebugToolbar({
         )}
         {mode === "step" && isPaused && (
           <>
-            {candidates.length > 0 && (
-              <Select
-                className="debug-candidate-select"
-                value={targetNodeUuid}
-                placeholder="选择下一节点"
-                options={candidates.map((candidate) => ({
-                  value: candidate.node_uuid,
-                  label: `${candidate.name} · ${candidate.action_name || candidate.kind}`,
-                }))}
-                onChange={setTargetNodeUuid}
-                disabled={busy}
-              />
-            )}
             <Button
               type="primary"
-              onClick={() => onCommand("step", targetNodeUuid)}
-              disabled={busy || !canStep}
+              onClick={() => onCommand("step")}
+              disabled={busy}
               loading={busy}
             >
               执行下一步
@@ -456,21 +387,13 @@ function DebugToolbar({
         <Tag>
           {terminal ? "已结束" : isPaused ? "已暂停" : controlStatus === "active" ? "执行中" : controlStatus}
         </Tag>
-        {mode === "step" && stepState && (
-          <span className="muted-cell">
-            {stepState.in_flight_job_count} 个在途节点 · {candidates.length} 个可执行节点
-          </span>
-        )}
-        {stepStateError && mode === "step" && (
-          <span className="muted-cell">单步候选暂不可用，稍后可重试。</span>
-        )}
       </div>
       {mode === "normal" && live && (
         <Alert
           className="debug-toolbar-hint"
           type="info"
           showIcon
-          message="需要逐节点观察时，先进入单步调试；任务会暂停在调度边界，再执行下一步。"
+          message="单步模式需要在创建任务时确定；任务会暂停在调度边界，再执行下一步。"
         />
       )}
       {terminal && (

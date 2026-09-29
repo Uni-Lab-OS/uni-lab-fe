@@ -54,7 +54,11 @@ export function createBackendCoreFromTransport(
     materialSite,
     reagentInventory,
     evidenceIntervention,
-    runPreparation: createRunPreparationScenario(workflowDefinitions, runPreparationPort),
+    runPreparation: createRunPreparationScenario(
+      workflowDefinitions,
+      runPreparationPort,
+      { deviceActions, materialSite, reagentInventory }
+    ),
     workflowDebugging: createWorkflowDebuggingScenario(executionRead, workflowDefinitions),
     deviceActionDebugging: createDeviceActionDebuggingScenario(deviceActions, executionRead),
     laboratoryOperations: createLaboratoryOperationsScenario(
