@@ -1,3 +1,4 @@
+import { Icon } from '@unilab/design-v2/icons'
 import type { MaterialGraphNode, SiteSummary } from '@unilab-fe/core'
 import { SitePicker } from './SitePicker'
 
@@ -27,11 +28,13 @@ export function MaterialInspector({
       aria-label={`${detail.name} 物料详情`}
     >
       <header className="lab-ui-material-inspector__header">
+        <span className="lab-ui-material-inspector__icon" aria-hidden="true">
+          <Icon name="shapes/cube-03" color="primary" size={22} />
+        </span>
         <div>
           <span className="lab-ui-eyebrow">物料</span>
           <h2>{detail.name || detail.materialUuid}</h2>
         </div>
-        <span className="lab-ui-identity">{detail.materialUuid}</span>
       </header>
       <MaterialFacts node={node} />
       <section className="lab-ui-material-inspector__sites">
@@ -56,6 +59,10 @@ function MaterialFacts({ node }: { readonly node: MaterialGraphNode }) {
   const detail = node.material
   return (
     <dl className="lab-ui-definition-list">
+      <div>
+        <dt>物料 ID</dt>
+        <dd title={detail.materialUuid}>{detail.materialUuid}</dd>
+      </div>
       <div>
         <dt>物料类型</dt>
         <dd>{detail.materialType || '未提供'}</dd>

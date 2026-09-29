@@ -1,8 +1,8 @@
 import { Button, Input, Table, Tooltip } from "antd";
 import type { TableColumnsType } from "antd";
 import { useEffect, useMemo, useState } from "react";
-import { deviceDispatchStatus } from "@unilab-fe/core";
 import type { DeviceSummary } from "@unilab-fe/core";
+import { DeviceStatusBadge } from "@unilab/lab-ui";
 import { EmptyState } from "@unilab/design-v2";
 import { useBackendQuery } from "../../hooks/useBackendQuery";
 import { AppIcon } from "../../components/ui/Icon";
@@ -122,16 +122,7 @@ function DeviceTable({
       key: "state",
       align: "center",
       render: (_, row) => {
-        const status = deviceDispatchStatus(row);
-        return status === "offline" ? (
-          <DeviceStatus tone="offline" label={row.dispatchBlockReason ?? "离线"} />
-        ) : status === "blocked" ? (
-          <DeviceStatus tone="attention" label={row.dispatchBlockReason ?? "不可调度"} />
-        ) : status === "available" ? (
-          <DeviceStatus tone="available" label="在线，可调试" />
-        ) : (
-          <DeviceStatus tone="attention" label="状态未知" />
-        );
+        return <DeviceStatusBadge device={row} />;
       },
     },
     {
@@ -180,20 +171,5 @@ function DeviceTable({
         showTotal: (total, range) => `${range[0]}-${range[1]} / 共 ${total} 台设备`,
       }}
     />
-  );
-}
-
-function DeviceStatus({
-  tone,
-  label,
-}: {
-  tone: "offline" | "attention" | "available";
-  label: string;
-}) {
-  return (
-    <span className={`device-status device-status--${tone}`}>
-      <span className="device-status__dot" aria-hidden="true" />
-      {label}
-    </span>
   );
 }

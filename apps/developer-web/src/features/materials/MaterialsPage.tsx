@@ -1,4 +1,4 @@
-import { Button, Empty, Input, List, Tag, Tooltip, Tree, Typography } from "antd";
+import { Button, Empty, Input, Tooltip, Tree, Typography } from "antd";
 import type { TreeDataNode } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@unilab/design-v2";
@@ -6,6 +6,10 @@ import ChevronDownIcon from "@unilab/design-v2/icons/static/arrows/chevron-down"
 import ChevronRightIcon from "@unilab/design-v2/icons/static/arrows/chevron-right";
 import type { MaterialGraphNode, SiteSummary } from "@unilab-fe/core";
 import type { IconColor, IconName } from "@unilab/design-v2/icons";
+import {
+  MaterialInspector as LabMaterialInspector,
+  SitePicker,
+} from "@unilab/lab-ui";
 import { useBackendQuery } from "../../hooks/useBackendQuery";
 import { AppIcon } from "../../components/ui/Icon";
 import { AsyncState } from "../../components/ui/AsyncState";
@@ -412,54 +416,12 @@ function SiteList({
       <div className="section-title">
         <h3>库位</h3>
       </div>
-      {sites.length ? (
-        <List
-          size="small"
-          dataSource={[...sites]}
-          renderItem={(item) => (
-            <List.Item
-              className="material-inspector__site-item"
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelect({ kind: "site", siteId: item.siteUuid })}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onSelect({ kind: "site", siteId: item.siteUuid });
-                }
-              }}
-            >
-              <div>
-                <strong>{item.name || item.key}</strong>
-                <span>
-                  {item.occupancy.known
-                    ? item.occupancy.occupiedMaterialUuid
-                      ? "已占用物料"
-                      : "空闲"
-                    : "占用未知"}
-                </span>
-              </div>
-              {item.key && item.key !== (item.name || item.key) && (
-                <Tooltip title={item.key}>
-                  <Tag
-                    color={
-                      item.occupancy.known
-                        ? item.occupancy.occupiedMaterialUuid
-                          ? "success"
-                          : "default"
-                        : "warning"
-                    }
-                  >
-                    {item.key}
-                  </Tag>
-                </Tooltip>
-              )}
-            </List.Item>
-          )}
-        />
-      ) : (
-        <Typography.Text type="secondary">没有库位信息</Typography.Text>
-      )}
+      <SitePicker
+        sites={sites}
+        variant="inspector"
+        emptyDescription="没有库位信息"
+        onSelectSite={(siteUuid) => onSelect({ kind: "site", siteId: siteUuid })}
+      />
     </div>
   );
 }
@@ -530,12 +492,10 @@ function MaterialManagement({
           />
         </section>
         {node ? (
-      <MaterialInspector
-        node={node}
-        nodes={node ? [node] : []}
-        selection={node ? { kind: "material", materialId: node.material.materialUuid } : null}
-        onSelect={() => undefined}
-      />
+          <LabMaterialInspector
+            node={{ ...node, sites: collectNodeSites(node, allNodes) }}
+            onSelectOccupiedMaterial={setSelected}
+          />
         ) : (
           <Empty description="没有匹配的物料" />
         )}

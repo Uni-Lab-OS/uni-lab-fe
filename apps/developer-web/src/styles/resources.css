@@ -126,12 +126,14 @@
 }
 .material-flow-group.is-search-dimmed,
 .material-flow-block.is-search-dimmed {
-  opacity: 0.34;
-  filter: saturate(0.6);
+  opacity: 0.86;
+  filter: none;
 }
 .material-flow-group.is-search-match {
   border-color: #7c3aed;
-  box-shadow: 0 0 0 3px rgb(124 58 237 / 18%), 0 14px 28px rgb(62 81 160 / 14%);
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 0 0 3px rgb(124 58 237 / 28%), 0 14px 28px rgb(62 81 160 / 14%);
 }
 .material-flow-group.is-search-match .material-flow-group__header {
   border-bottom-color: rgb(124 58 237 / 26%);
@@ -195,7 +197,9 @@
 }
 .material-flow-block.is-search-match {
   border-color: #a78bfa;
-  box-shadow: 0 0 0 2px rgb(124 58 237 / 20%), 0 8px 18px rgb(62 81 160 / 10%);
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 0 0 2px rgb(124 58 237 / 30%), 0 8px 18px rgb(62 81 160 / 10%);
 }
 .material-flow-block__header {
   display: flex;
@@ -270,14 +274,16 @@
   background: #e8edff;
 }
 .material-flow-site.is-search-dimmed {
-  opacity: 0.4;
-  filter: saturate(0.55);
+  opacity: 0.8;
+  filter: none;
 }
 .material-flow-site.is-search-match {
   border-color: #7c3aed;
   color: #5b21b6;
   background: #f3edff;
-  box-shadow: 0 0 0 2px rgb(124 58 237 / 18%);
+  position: relative;
+  z-index: 3;
+  box-shadow: 0 0 0 3px rgb(124 58 237 / 34%), 0 3px 10px rgb(124 58 237 / 18%);
 }
 .material-flow-site:focus-visible {
   outline: 2px solid #5264dc;
@@ -368,6 +374,29 @@
 }
 .material-inspector__link {
   padding-inline: 0;
+}
+.material-inspector__link.ant-btn-link {
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--studio-accent) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  line-height: 1.5;
+}
+.material-inspector__link.ant-btn-link:hover {
+  color: var(--studio-accent) !important;
+  background: transparent !important;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.material-inspector__link.ant-btn-link:focus-visible {
+  background: transparent !important;
+  outline: 2px solid var(--studio-primary);
+  outline-offset: 3px;
 }
 .definition-list {
   display: grid;
@@ -486,6 +515,12 @@
   transform: none;
 }
 .resource-tree.ant-tree .ant-tree-treenode:hover {
+  background: transparent !important;
+}
+.resource-tree.ant-tree .ant-tree-switcher:hover {
+  background: transparent !important;
+}
+.resource-tree.ant-tree .ant-tree-switcher:focus-visible {
   background: transparent !important;
 }
 .resource-tree.ant-tree .ant-tree-treenode:hover > .ant-tree-node-content-wrapper:not(.ant-tree-node-selected),

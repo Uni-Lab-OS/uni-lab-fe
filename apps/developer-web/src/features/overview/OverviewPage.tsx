@@ -127,6 +127,7 @@ function previewTaskRow(
     updatedAt: "2026-09-28T10:05:00.000Z",
     finishedAt: null,
     attentionReason: status === "attention" ? "设备或资源需要关注" : null,
+    progress: null,
     jobs: [],
     raw: { name, workflow_name: workflowName },
   };
@@ -174,7 +175,7 @@ export function OverviewPage({ onNavigate }: { onNavigate: (route: StudioRoute, 
       <AsyncState loading={query.loading} error={query.error} onRetry={query.reload} empty={!query.loading && rows.length === 0} emptyDescription="当前后端没有返回任务记录" variant="table" tableColumns={6}>
         <SummaryStrip rows={rows} />
         <div className="overview-columns"><TaskColumn title="活动任务" rows={activePreviewRows} onView={openTask} empty="当前没有活动任务" /><TaskColumn title="异常任务" rows={attentionPreviewRows} onView={openTask} attention empty="当前没有异常任务" /></div>
-        <TaskTable rows={filteredRows} keyword={keyword} status={status} onKeywordChange={setKeyword} onStatusChange={setStatus} onView={openTask} onAbort={(row) => { if (!backend.services.getCapabilityStatus("workflow.runTasks").available) { message.info("当前后端未开放任务中止能力"); return; } Modal.confirm({ title: "中止任务？", content: "将向后端发送 cancel 命令，最终状态以运行时回传为准。", okText: "中止", okButtonProps: { danger: true }, cancelText: "取消", onOk: async () => { try { await backend.services.workflow.commandWorkflowTask(row.task.taskUuid, { type: "cancel", idempotency_key: `studio-${row.task.taskUuid}-${Date.now()}` }); message.success("中止命令已发送"); query.reload(); } catch (error) { message.error(error instanceof Error ? error.message : "中止失败"); } } }); }} />
+        <TaskTable rows={filteredRows} keyword={keyword} status={status} onKeywordChange={setKeyword} onStatusChange={setStatus} onView={openTask} onAbort={(row) => { Modal.confirm({ title: "中止任务？", content: "将向 Core 控制端口发送 cancel 命令，最终状态以 OS 回传为准。", okText: "中止", okButtonProps: { danger: true }, cancelText: "取消", onOk: async () => { try { const receipt = await backend.core.executionControl.sendTaskCommand(row.task.taskUuid, { type: "cancel", idempotencyKey: `studio-${row.task.taskUuid}-cancel-${Date.now()}` }); message.success(receipt.accepted ? "中止命令已接受，等待 OS 生效" : "中止命令未被接受"); query.reload(); } catch (error) { message.error(error instanceof Error ? error.message : "中止失败"); } } }); }} />
       </AsyncState>
       <DebugTargetModal kind={debugTargetKind} onCancel={() => setDebugTargetKind(null)} onConfirm={(target) => { setDebugTargetKind(null); onNavigate(target.kind === "device" ? "devices" : "workflows", target.kind === "device" ? `?debugDevice=${encodeURIComponent(target.uuid)}` : `?debugWorkflow=${encodeURIComponent(target.uuid)}`); }} />
     </div>

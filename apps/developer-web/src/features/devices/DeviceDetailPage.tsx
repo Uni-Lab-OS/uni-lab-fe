@@ -22,13 +22,16 @@ import type {
   DeviceActionState,
   DeviceSummary,
 } from "@unilab-fe/core";
+import {
+  DeviceActionList,
+  DeviceActionParameterFields,
+} from "@unilab/lab-ui";
 import { useBackend } from "../../app/BackendProvider";
 import { useBackendQuery } from "../../hooks/useBackendQuery";
 import { AppIcon } from "../../components/ui/Icon";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import {
-  DeviceActionInputFields,
   deviceActionDefaults,
   deviceActionParameters,
   deviceActionParametersFromSchema,
@@ -138,30 +141,16 @@ export function DeviceDetail({
             <h2>动作</h2>
             <span>{device.actions.length} 个动作</span>
           </div>
-          {device.actions.length === 0 ? (
-            <Typography.Text type="secondary">设备没有可用动作</Typography.Text>
-          ) : (
-            device.actions.map((action) => (
-              <button
-                type="button"
-                key={action.actionRef}
-                className={`action-item ${selectedAction?.actionRef === action.actionRef ? "is-selected" : ""}`}
-                onClick={() => {
-                  setSelectedAction(action);
-                  setAccepted(null);
-                  setDebugEditing(false);
-                  setParameterView("form");
-                }}
-              >
-                <Tooltip title={action.label} placement="right">
-                  <span className="action-item-label">
-                    <strong>{action.label}</strong>
-                  </span>
-                </Tooltip>
-                {action.isBusy && <Tag color="processing">执行中</Tag>}
-              </button>
-            ))
-          )}
+          <DeviceActionList
+            actions={device.actions}
+            selectedActionRef={selectedAction?.actionRef}
+            onSelectAction={(action) => {
+              setSelectedAction(action);
+              setAccepted(null);
+              setDebugEditing(false);
+              setParameterView("form");
+            }}
+          />
         </section>
         <section className="detail-main">
           <div className="section-title detail-main__action-heading">
@@ -396,21 +385,18 @@ function DeviceActionEditor({
   }>();
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [parameterValues, setParameterValues] = useState<Record<string, unknown>>({});
   useEffect(() => {
     setSubmitError(null);
+    setParameterValues(deviceActionDefaults(parameters));
     form.resetFields();
-    form.setFieldsValue({
-      materialUuid: device.materialUuid,
-      ...deviceActionDefaults(parameters),
-    });
+    form.setFieldsValue({ materialUuid: device.materialUuid });
   }, [action?.actionRef, device.materialUuid, form, parameters]);
   useEffect(() => {
     if (editing) return;
+    setParameterValues(deviceActionDefaults(parameters));
     form.resetFields();
-    form.setFieldsValue({
-      materialUuid: device.materialUuid,
-      ...deviceActionDefaults(parameters),
-    });
+    form.setFieldsValue({ materialUuid: device.materialUuid });
     setSubmitError(null);
   }, [device.materialUuid, editing, form, parameters]);
   const submit = async (values: {
@@ -425,7 +411,10 @@ function DeviceActionEditor({
     ) return;
     let param: Record<string, unknown>;
     try {
-      param = normalizeDeviceActionParameters(values, parameters);
+      param = normalizeDeviceActionParameters(
+        { ...values, ...parameterValues },
+        parameters,
+      );
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "动作参数无效");
       return;
@@ -493,7 +482,6 @@ function DeviceActionEditor({
         layout="vertical"
         initialValues={{
           materialUuid: device.materialUuid,
-          ...deviceActionDefaults(parameters),
         }}
         onFinish={submit}
       >
@@ -515,7 +503,15 @@ function DeviceActionEditor({
               </Form.Item>
             </ReadOnlyFieldTooltip>
           )}
-          <DeviceActionInputFields parameters={parameters} editable={editing} />
+          <DeviceActionParameterFields
+            parameters={parameters}
+            value={parameterValues}
+            editable={editing}
+            className="device-action-input-fields"
+            onChange={(name, next) =>
+              setParameterValues((current) => ({ ...current, [name]: next }))
+            }
+          />
         </div>
         {editing && (
           <Form.Item label="调试说明" name="description">

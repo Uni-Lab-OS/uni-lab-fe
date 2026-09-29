@@ -20,9 +20,9 @@ const navigation: readonly {
   { key: "overview", label: "总览", icon: "general/home-02" },
   { key: "workflows", label: "工作流", icon: "development/dataflow-01" },
   { key: "tasks", label: "任务", icon: "time/clock" },
+  { key: "materials", label: "物料", icon: "shapes/cube-03" },
   { key: "devices", label: "设备", icon: "development/cpu-chip-01" },
   { key: "reagents", label: "试剂", icon: "education/beaker-01" },
-  { key: "materials", label: "物料", icon: "shapes/cube-03" },
 ];
 
 export function AppShell({

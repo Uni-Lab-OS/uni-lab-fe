@@ -1,3 +1,105 @@
+.lab-ui-material-inspector {
+  box-sizing: border-box;
+  min-width: 0;
+  height: 100%;
+  overflow: auto;
+  padding: 16px 20px 12px;
+  border: 1px solid var(--studio-border, var(--unilab-border-subtle, #d9e0eb));
+  border-radius: var(--studio-radius, 12px);
+  background: var(--studio-surface, var(--unilab-surface, #fff));
+}
+
+.lab-ui-material-inspector__header {
+  align-items: center;
+  display: flex;
+  gap: 11px;
+  margin-bottom: 8px;
+}
+
+.lab-ui-material-inspector__icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  flex: 0 0 40px;
+  border-radius: 10px;
+  background: #edf0ff;
+}
+
+.lab-ui-material-inspector__header h2 {
+  overflow: hidden;
+  margin: 0;
+  color: #40506a;
+  font-size: 17px;
+  font-weight: 620;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lab-ui-material-inspector__header > div {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.lab-ui-material-inspector .lab-ui-definition-list {
+  display: grid;
+  gap: 11px;
+  margin: 17px 0 0;
+}
+
+.lab-ui-material-inspector .lab-ui-definition-list div {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.lab-ui-material-inspector .lab-ui-definition-list dd {
+  color: var(--studio-text-secondary, #647188);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lab-ui-material-inspector .lab-ui-definition-list dt {
+  color: var(--studio-text-faint, #9aa4b3);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.lab-ui-material-inspector__sites h3 {
+  margin: 20px 0 10px;
+}
+
+.lab-ui-material-inspector__sites > .lab-ui-empty-region {
+  display: flex;
+  min-height: 220px;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.lab-ui-material-inspector__sites > .lab-ui-empty-region .bh-empty-state {
+  margin-inline: auto;
+}
+
+.lab-ui-site-picker__item {
+  border-color: var(--studio-border, #dfe4ef);
+  border-radius: var(--studio-control-radius, 8px);
+}
+
+.lab-ui-site-picker__item:hover {
+  background: var(--studio-surface-muted, #f2f4f7);
+}
+
+.lab-ui-site-picker__item.is-selected {
+  background: var(--studio-selection, #f0edff);
+  border-color: var(--studio-accent, #7c3aed);
+}
+
 .lab-ui-site-picker--inspector .lab-ui-site-picker__item {
   align-items: center;
   background: transparent;

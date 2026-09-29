@@ -25,7 +25,7 @@ export function SitePicker({
       <div className="lab-ui-empty-region">
         <EmptyState
           scene="no-data"
-          size="compact"
+          size={variant === 'default' ? 'default' : 'compact'}
           title={emptyDescription}
         />
       </div>

@@ -1264,7 +1264,7 @@ body {
 
 .workflow-node-descriptions .ant-descriptions-item-label {
   width: 88px;
-  color: var(--studio-text-faint);
+  color: var(--studio-text);
   font-family: var(--bh-font-family-sans);
   font-weight: 600;
   white-space: nowrap;

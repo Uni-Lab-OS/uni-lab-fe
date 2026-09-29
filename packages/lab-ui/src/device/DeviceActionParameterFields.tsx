@@ -27,7 +27,15 @@ export function DeviceActionParameterFields({
   }
 
   return (
-    <div className={className ?? 'device-action-input-fields'}>
+    <div
+      className={[
+        'device-action-input-fields',
+        'lab-ui-device-action-input-fields',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       {parameters.map((parameter) => (
         <DeviceActionParameterField
           key={parameter.name}
@@ -60,7 +68,7 @@ function DeviceActionParameterField({
       <span className="device-action-input-label">
         <span>
           {parameter.title}
-          {parameter.required ? ' *' : ''}
+          {parameter.required && <span className="lab-ui-required-mark" aria-hidden="true"> *</span>}
         </span>
         {parameter.title !== parameter.name && <code>{parameter.name}</code>}
       </span>
@@ -118,12 +126,12 @@ function renderInput(
     return (
       <input
         type="number"
-        disabled={!editable}
+        readOnly={!editable}
         value={stringValue(value)}
         min={numberValue(parameter.schema.minimum)}
         max={numberValue(parameter.schema.maximum)}
         step={type === 'integer' ? 1 : 'any'}
-        onChange={(event) => onChange(event.currentTarget.value)}
+        onChange={(event) => onChange(numberInputValue(event.currentTarget.value))}
       />
     )
   }
@@ -131,7 +139,7 @@ function renderInput(
   if (isDeviceActionResourceParameter(parameter)) {
     return (
       <input
-        disabled={!editable}
+        readOnly={!editable}
         value={stringValue(value)}
         placeholder="输入资源 UUID"
         onChange={(event) => onChange(event.currentTarget.value)}
@@ -142,7 +150,7 @@ function renderInput(
   if (isDeviceActionStructuredParameter(parameter)) {
     return (
       <textarea
-        disabled={!editable}
+        readOnly={!editable}
         value={stringValue(value)}
         rows={4}
         placeholder="请输入 JSON"
@@ -153,7 +161,7 @@ function renderInput(
 
   return (
     <input
-      disabled={!editable}
+      readOnly={!editable}
       value={stringValue(value)}
       placeholder={`请输入${parameter.title}`}
       onChange={(event) => onChange(event.currentTarget.value)}
@@ -180,4 +188,10 @@ function stringValue(value: unknown): string {
 
 function numberValue(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function numberInputValue(value: string): number | string {
+  if (value === '') return ''
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : value
 }

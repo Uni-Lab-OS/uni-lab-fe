@@ -13,6 +13,11 @@ import {
 import type { TableColumnsType } from "antd";
 import { useEffect, useRef, useState } from "react";
 import type { MaterialSummary, Reagent, ReagentInfo } from "@unilab-fe/core";
+import {
+  ReagentCatalogSummary,
+  ReagentInventorySummary,
+  ReagentQuantitySummary,
+} from "@unilab/lab-ui";
 import { EmptyState } from "@unilab/design-v2";
 import { useBackend } from "../../app/BackendProvider";
 import { useBackendQuery } from "../../hooks/useBackendQuery";
@@ -480,34 +485,7 @@ function InventoryTable({
       key: "quantity",
       width: 155,
       render: (_, item) => (
-        <div className="amount-cell">
-          <div className="amount-cell__line">
-            <strong>
-              {item.quantity == null
-                ? "未提供"
-                : `${item.quantity} ${item.quantityUnit ?? ""}`}
-            </strong>
-            {item.status && (
-              <Tag
-                color={
-                  item.status === "available"
-                    ? "success"
-                    : item.status === "empty"
-                      ? "default"
-                      : "warning"
-                }
-              >
-                {item.status}
-              </Tag>
-            )}
-          </div>
-          {/* 被工作流预留的量不能再被占用，必须和总量分开显示。 */}
-          {item.reservedQuantity != null && item.reservedQuantity > 0 && (
-            <span>
-              已预留 {item.reservedQuantity} {item.quantityUnit ?? ""}
-            </span>
-          )}
-        </div>
+        <ReagentQuantitySummary reagent={item} />
       ),
     },
     {
@@ -667,10 +645,7 @@ function CatalogTable({
       key: "name",
       width: 330,
       render: (_, item) => (
-        <div className="primary-cell">
-          <TableText text={item.name} />
-          {item.nameEn ? <span>{item.nameEn}</span> : null}
-        </div>
+        <ReagentCatalogSummary info={item} />
       ),
     },
     {
