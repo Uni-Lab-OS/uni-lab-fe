@@ -1,0 +1,32 @@
+{
+  "name": "@unilab/developer-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Uni-Lab Developer Web resource and debugging workspace",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@ant-design/v5-patch-for-react-19": "^1.0.3",
+    "@unilab-fe/core": "workspace:*",
+    "@unilab/design-v2": "workspace:*",
+    "@unilab/services": "workspace:*",
+    "antd": "^5.27.6",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "reactflow": "11.11.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "2.1.9"
+  }
+}

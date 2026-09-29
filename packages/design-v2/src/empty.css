@@ -1,0 +1,93 @@
+.bh-empty-state {
+  --bh-empty-illustration-color: var(--bh-color-text-disabled);
+  --bh-empty-title-color: var(--bh-color-text-description);
+  --bh-empty-description-color: var(--bh-color-text-placeholder);
+  display: flex;
+  width: min(100%, 19.25rem);
+  min-width: min(18rem, 100%);
+  min-height: 21.1rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bh-space-4);
+  padding: var(--bh-space-6);
+  color: var(--bh-empty-title-color);
+  font-family: var(--bh-font-family-sans);
+  text-align: center;
+  border-radius: var(--bh-radius-xl);
+  background: transparent;
+}
+
+.bh-empty-state[data-size='compact'] {
+  width: min(100%, 19.25rem);
+  min-height: 12rem;
+  padding: var(--bh-space-4);
+  gap: var(--bh-space-3);
+}
+
+.bh-empty-state[data-tone='dark'] {
+  --bh-empty-illustration-color: var(--bh-color-text-placeholder);
+  --bh-empty-title-color: var(--bh-color-text-placeholder);
+  --bh-empty-description-color: var(--bh-color-text-disabled);
+}
+
+.bh-empty-state__header,
+.bh-empty-state__content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bh-empty-state__header {
+  flex-direction: column;
+  gap: var(--bh-space-4);
+}
+
+.bh-empty-state__illustration {
+  display: inline-flex;
+  min-height: 5.25rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.bh-empty-state[data-size='compact'] .bh-empty-state__illustration {
+  min-height: 4rem;
+}
+
+.bh-empty-state__illustration > :where(svg, img) {
+  display: block;
+  max-width: 100%;
+  max-height: 6rem;
+}
+
+.bh-empty-state__illustration-asset {
+  width: 5.3125rem;
+  height: 5.3125rem;
+  object-fit: contain;
+}
+
+.bh-empty-state__copy {
+  display: grid;
+  gap: var(--bh-space-2);
+  justify-items: center;
+  max-width: 20rem;
+}
+
+.bh-empty-state__title {
+  color: var(--bh-empty-title-color);
+  font-size: var(--bh-font-size-sm);
+  font-weight: var(--bh-font-weight-medium);
+  line-height: var(--bh-line-height-md);
+}
+
+.bh-empty-state__description {
+  color: var(--bh-empty-description-color);
+  font-size: var(--bh-font-size-sm);
+  font-weight: var(--bh-font-weight-normal);
+  line-height: var(--bh-line-height-md);
+}
+
+.bh-empty-state__content {
+  flex-wrap: wrap;
+  gap: var(--bh-space-2);
+}

@@ -89,6 +89,69 @@ describe('device action codec', () => {
     })).toThrow('handle.editor_control is invalid')
   })
 
+  it('decodes the real SZLab template shape with JSON schema and unilab handle metadata', () => {
+    const action = decodeActionDefinition({
+      code: 0,
+      data: {
+        template: {
+          uuid: 'action-szlab',
+          resource_template_uuid: 'device-template-1',
+          name: 'run_stirring',
+          display_name: '运行搅拌',
+          type: 'UniLabJsonCommand',
+          node_type: 'ILab',
+          schema: JSON.stringify({ type: 'object', properties: { duration: { type: 'number' } } }),
+          goal: { duration: 'duration' },
+          goal_default: { duration: 1 }
+        },
+        handles: [{
+          uuid: 'handle-szlab',
+          workflow_node_template_uuid: 'action-szlab',
+          handle_key: 'duration',
+          io_type: 'target',
+          display_name: 'duration',
+          type: 'number',
+          required: false,
+          data_source: 'goal',
+          data_key: 'duration',
+          meta_data: {
+            unilab: {
+              value_schema: { type: 'number', default: 1 },
+              editor_control: 'variable_selector',
+              implicit_passthrough: false
+            }
+          }
+        }]
+      }
+    })
+
+    expect(action.schema).toMatchObject({ type: 'object', properties: { duration: { type: 'number' } } })
+    expect(action.handles[0]).toMatchObject({
+      valueSchema: { type: 'number', default: 1 },
+      editorControl: 'variable_selector'
+    })
+  })
+
+  it('preserves source fields returned beside the action template', () => {
+    const action = decodeActionDefinition({
+      template: {
+        uuid: 'action-source',
+        resource_template_uuid: 'device-template-1',
+        name: 'inspect',
+        display_name: 'Inspect',
+        type: 'device_action',
+        node_type: 'device_action',
+        schema: {},
+        goal: {},
+        goal_default: {}
+      },
+      source_code: 'class Inspect: pass',
+      handles: []
+    })
+
+    expect(action.raw.source_code).toBe('class Inspect: pass')
+  })
+
   it('maps the Backend device projection without inventing online state', () => {
     const [device] = decodeDeviceList({
       code: 0,

@@ -102,6 +102,63 @@ describe('DeviceActionClient', () => {
     })
   })
 
+  it('falls back to the authoring device catalog when the runtime device list is empty', async () => {
+    const requests: TransportRequest[] = []
+    const transport: RequestTransport = {
+      async request<Value>(request: TransportRequest): Promise<TransportResponse<Value>> {
+        requests.push(request)
+        if (request.url === '/api/v1/devices') {
+          return { status: 200, headers: {}, data: { code: 0, data: [] } } as TransportResponse<Value>
+        }
+        if (request.url === '/api/v1/authoring/device-catalog') {
+          return { status: 200, headers: {}, data: { code: 0, data: { items: [{
+            id: 'szlab_mixer_stirrer',
+            materialUuid: 'material-runtime-1',
+            deviceTypeId: 'community.szlab_poly_studio.szlab_mixer_stirrer',
+            deviceKey: '/devices/szlab_mixer_stirrer/szlab_mixer_stirrer',
+            namespace: '/devices/szlab_mixer_stirrer',
+            name: 'S04 磁搅',
+            online: false,
+            actions: [{
+              id: 'run_stirring',
+              actionRef: 'szlab_mixer_stirrer.run_stirring',
+              name: '运行搅拌',
+              typeName: 'UniLabJsonCommand',
+              busy: false,
+              inputSchema: { type: 'object', properties: { duration: { type: 'number' } } },
+              outputSchema: { type: 'object' }
+            }]
+          }] } } } as TransportResponse<Value>
+        }
+        return { status: 200, headers: {}, data: { code: 0, data: { items: [{
+          uuid: 'template-run-stirring',
+          resource_template: { uuid: 'device-template-1' },
+          name: 'run_stirring',
+          display_name: '运行搅拌',
+          type: 'UniLabJsonCommand',
+          node_type: 'ILab'
+        }] } } } as TransportResponse<Value>
+      }
+    }
+
+    const client = new DeviceActionClient(transport)
+    await expect(client.listDevices()).resolves.toMatchObject([{
+      deviceUuid: 'material-runtime-1',
+      label: 'S04 磁搅',
+      online: false,
+      actions: [{
+        actionName: 'run_stirring',
+        actionDefinitionUuid: 'template-run-stirring',
+        actionRef: 'szlab_mixer_stirrer.run_stirring'
+      }]
+    }])
+    expect(requests.map((request) => request.url)).toEqual([
+      '/api/v1/devices',
+      '/api/v1/authoring/device-catalog',
+      '/api/v1/workflow-node-templates?page=1&page_size=200'
+    ])
+  })
+
   it('composes action run reads from the standard task and job port', async () => {
     const executionRead = {
       async getTaskDetail(taskUuid) {

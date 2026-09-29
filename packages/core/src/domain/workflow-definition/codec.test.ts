@@ -15,7 +15,30 @@ describe('workflow definition codec', () => {
         status: 'published'
       },
       {
-        workflow: { uuid: 'wf-1', revision: 3 },
+        workflow: {
+          uuid: 'wf-1',
+          revision: 3,
+          meta_data: {
+            unilab: {
+              input_contract: {
+                version: 1,
+                parameters: [
+                  {
+                    name: 'volume',
+                    required: true,
+                    schema: { type: 'number', minimum: 0 }
+                  },
+                  {
+                    name: 'enabled',
+                    required: false,
+                    default: true,
+                    schema: { type: 'boolean' }
+                  }
+                ]
+              }
+            }
+          }
+        },
         nodes: [],
         edges: [],
         node_templates: [],
@@ -39,6 +62,10 @@ describe('workflow definition codec', () => {
       requiredQuantity: 100,
       quantityUnit: 'uL'
     })
+    expect(result.graph.inputParameters).toEqual([
+      { name: 'volume', required: true, schema: { type: 'number', minimum: 0 } },
+      { name: 'enabled', required: false, defaultValue: true, schema: { type: 'boolean' } }
+    ])
   })
 
   it('rejects an unsupported workflow type', () => {
@@ -68,6 +95,22 @@ describe('workflow definition codec', () => {
         { uuid: 'wf-1', name: 'Duplicate', revision: 2, workflow_type: 'workflow', status: 'published' }
       ]
     })).toThrow('duplicate workflow uuid')
+  })
+
+  it('normalizes SZLab source workflows into the regular workflow type', () => {
+    expect(decodePublishedWorkflowList({
+      items: [{
+        uuid: 'wf-source',
+        name: 'Source workflow',
+        revision: 2,
+        workflow_type: 'normal',
+        status: 'source'
+      }]
+    })).toMatchObject([{
+      workflowUuid: 'wf-source',
+      workflowType: 'workflow',
+      status: 'source'
+    }])
   })
 
   it('rejects revision drift between the summary and graph snapshot', () => {

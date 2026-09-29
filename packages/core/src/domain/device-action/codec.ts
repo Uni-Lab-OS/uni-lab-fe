@@ -39,6 +39,63 @@ export function decodeDeviceList(value: unknown): readonly DeviceSummary[] {
   }
 }
 
+/**
+ * 读取本地 Driver 目录时使用的设备投影。
+ *
+ * Local Workspace 在尚未建立 Backend device binding 时，`/devices` 会返回
+ * 空数组，而设备包仍会通过 `/authoring/device-catalog` 暴露真实实例与
+ * action schema。这里把该目录收敛成和 Backend `/devices` 相同的领域模型，
+ * 并用完整节点模板列表补上可执行动作的稳定 UUID。
+ */
+export function decodeAuthoringDeviceCatalog(
+  value: unknown,
+  definitions: readonly ActionDefinitionSummary[] = []
+): readonly DeviceSummary[] {
+  const payload = unwrapEnvelope(value)
+  const root = asOptionalRecord(payload)
+  const items = Array.isArray(root?.items) ? root.items : Array.isArray(payload) ? payload : []
+  const definitionByName = new Map(definitions.map((definition) => [definition.name, definition]))
+  return items.map((item, index) => {
+    const raw = asRecord(item, `authoring.device-catalog.items[${index}]`)
+    const deviceId = requiredString(raw.id, `authoring.device-catalog.items[${index}].id`)
+    const materialUuid = optionalString(raw.materialUuid) ?? deviceId
+    const actions = Array.isArray(raw.actions) ? raw.actions : []
+    return {
+      kind: 'device_summary',
+      source: 'os',
+      deviceUuid: materialUuid,
+      materialUuid,
+      resourceTemplateUuid: optionalString(raw.deviceTypeId) ?? deviceId,
+      deviceKey: optionalString(raw.deviceKey) ?? deviceId,
+      namespace: optionalString(raw.namespace) ?? deviceId,
+      label: optionalString(raw.name) ?? deviceId,
+      online: optionalBoolean(raw.online, `authoring.device-catalog.items[${index}].online`),
+      edgeStatus: raw.online === true ? 'online' : 'offline',
+      dispatchable: raw.online === true,
+      dispatchBlockReason: raw.online === true ? null : '设备离线',
+      executionOccupancies: null,
+      actions: actions.map((item, actionIndex) => {
+        const action = asRecord(item, `authoring.device-catalog.items[${index}].actions[${actionIndex}]`)
+        const actionName = optionalString(action.id) ?? optionalString(action.name)
+        if (!actionName) throw invalid(`authoring.device-catalog.items[${index}].actions[${actionIndex}].id must be a string`)
+        const definition = definitionByName.get(actionName)
+        return {
+          actionName,
+          actionRef: optionalString(action.actionRef) ?? `${deviceId}.${actionName}`,
+          label: optionalString(action.name) ?? actionName,
+          actionType: optionalString(action.typeName) ?? 'device_action',
+          actionDefinitionUuid: definition?.actionUuid ?? null,
+          isBusy: action.busy === undefined ? null : booleanValue(action.busy, `authoring.device-catalog.items[${index}].actions[${actionIndex}].busy`),
+          busyStatusKnown: action.busy !== undefined,
+          currentJobUuid: nullableString(action.currentJobId, `authoring.device-catalog.items[${index}].actions[${actionIndex}].currentJobId`),
+          raw: action
+        }
+      }),
+      raw
+    }
+  })
+}
+
 export function decodeActionRunAccepted(value: unknown): DeviceActionRunAccepted {
   try {
     const payload = unwrapEnvelope(value)
@@ -80,7 +137,7 @@ export function decodeActionDefinition(
   const payload = unwrapEnvelope(value)
   const root = asRecord(payload, 'action definition') as ActionDefinitionDetailResponse
   const template = asOptionalRecord(root.template) ?? root
-  const summary = decodeSummary(template)
+  const summary = decodeSummary(withSourceFields(template, root))
   const handles = Array.isArray(root.handles)
     ? root.handles.map((handle, index) => decodeHandle(asRecord(handle, `handles[${index}]`)))
     : []
@@ -88,12 +145,25 @@ export function decodeActionDefinition(
     ...summary,
     kind: 'action_definition',
     actionClass: nullableString(template.class, 'action.class'),
-    schema: asRecord(template.schema, 'action.schema'),
-    goal: asRecord(template.goal, 'action.goal'),
-    goalDefault: asRecord(template.goal_default, 'action.goal_default'),
+    schema: recordOrJson(template.schema, 'action.schema'),
+    goal: recordOrJson(template.goal, 'action.goal'),
+    goalDefault: recordOrJson(template.goal_default, 'action.goal_default'),
     handles,
     resourceContract: decodeResourceContract(template)
   }
+}
+
+function withSourceFields(
+  template: DeviceActionRecord,
+  root: ActionDefinitionDetailResponse
+): DeviceActionRecord {
+  const sourceFields = ['source_code', 'sourceCode', 'python_source']
+  const inherited = Object.fromEntries(
+    sourceFields
+      .filter((field) => root[field] !== undefined && template[field] === undefined)
+      .map((field) => [field, root[field]])
+  )
+  return Object.keys(inherited).length ? { ...template, ...inherited } : template
 }
 
 function decodeSummary(value: DeviceActionRecord): ActionDefinitionSummary {
@@ -210,6 +280,14 @@ function decodeOccupancies(value: unknown): readonly DeviceExecutionOccupancy[] 
 }
 
 function decodeHandle(value: DeviceActionRecord): ActionHandle {
+  const metadata = asOptionalRecord(value.meta_data)
+  const unilab = asOptionalRecord(metadata?.unilab)
+  const valueSchema = value.value_schema ?? unilab?.value_schema ?? {}
+  const editorControl = value.editor_control ?? unilab?.editor_control ?? 'variable_selector'
+  const allowedResourceTemplateUuids = value.allowed_resource_template_uuids
+    ?? unilab?.allowed_resource_template_uuids
+  const implicitPassthrough = value.implicit_passthrough
+    ?? unilab?.implicit_passthrough
   return {
     uuid: requiredString(value.uuid, 'handle.uuid'),
     workflowNodeTemplateUuid: requiredString(
@@ -223,22 +301,34 @@ function decodeHandle(value: DeviceActionRecord): ActionHandle {
     required: booleanValue(value.required, 'handle.required'),
     dataSource: nullableString(value.data_source, 'handle.data_source'),
     dataKey: nullableString(value.data_key, 'handle.data_key'),
-    valueSchema: asRecord(value.value_schema, 'handle.value_schema'),
+    valueSchema: asRecord(valueSchema, 'handle.value_schema'),
     editorControl: enumValue(
-      value.editor_control,
+      editorControl,
       ['material_port', 'site_selector', 'variable_selector'],
       'handle.editor_control'
     ),
     allowedResourceTemplateUuids: nullableStringArray(
-      value.allowed_resource_template_uuids,
+      allowedResourceTemplateUuids,
       'handle.allowed_resource_template_uuids'
     ),
     implicitPassthrough: booleanValue(
-      value.implicit_passthrough,
+      implicitPassthrough === undefined ? false : implicitPassthrough,
       'handle.implicit_passthrough'
     ),
     structuralRole: nullableEnum(value.structural_role, ['ready'], 'handle.structural_role')
   }
+}
+
+function recordOrJson(value: unknown, path: string): DeviceActionRecord {
+  if (typeof value === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(value)
+      return asRecord(parsed, path)
+    } catch {
+      throw invalid(`${path} must be an object or JSON object string`)
+    }
+  }
+  return asRecord(value, path)
 }
 
 function decodeResourceContract(

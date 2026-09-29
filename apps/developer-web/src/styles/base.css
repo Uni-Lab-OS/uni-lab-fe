@@ -1,0 +1,48 @@
+@import "@unilab/design-v2/core.css";
+@import "@unilab/design-v2/themes/default.css";
+@import "@unilab/design-v2/adapters/antd.css";
+
+html,
+body,
+#root {
+  font-family: var(--bh-font-family-sans);
+}
+
+:root {
+  color: var(--bh-color-foreground);
+  background: var(--bh-color-fill-0);
+  font-synthesis: none;
+  --studio-background: var(--bh-color-fill-0);
+  --studio-surface: var(--bh-color-primary-white);
+  --studio-surface-muted: var(--bh-color-fill-1);
+  --studio-border: var(--bh-color-border-1);
+  --studio-border-soft: var(--bh-color-border-0);
+  --studio-text: var(--bh-color-text-default);
+  --studio-text-muted: var(--bh-color-text-description);
+  --studio-text-faint: var(--bh-color-text-placeholder);
+  --studio-accent: var(--bh-color-primary);
+  --studio-radius: var(--bh-radius-lg);
+  --studio-control-radius: var(--bh-radius-md);
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  min-width: 1024px;
+  margin: 0;
+  color: var(--studio-text);
+  background: var(--studio-background);
+}
+button,
+input,
+select,
+textarea {
+  font-family: var(--bh-font-family-sans);
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+}
+button {
+  cursor: pointer;
+}

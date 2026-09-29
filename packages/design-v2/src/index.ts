@@ -32,3 +32,12 @@ export {
   type AntdThemeAlgorithms,
   type AntdThemeConfig
 } from './adapters/antdTheme'
+
+export {
+  EMPTY_STATE_LABELS,
+  EmptyState,
+  type EmptyStateProps,
+  type EmptyStateScene,
+  type EmptyStateSize,
+  type EmptyStateTone,
+} from './empty'

@@ -8,6 +8,14 @@
   border-color: var(--bh-color-primary);
 }
 
+/* AntD's generated variant styles can color direct child spans independently
+ * of the button. Primary buttons should keep one foreground color for text
+ * and icons across every consuming app. */
+.ant-btn-primary > span,
+.ant-btn-primary > .ant-btn-icon {
+  color: inherit !important;
+}
+
 .ant-btn,
 .ant-input,
 .ant-input-affix-wrapper,
@@ -20,7 +28,7 @@
 }
 
 .ant-btn {
-  min-height: 36px;
+  min-height: 32px;
   font-weight: 500;
   box-shadow: none !important;
 }
@@ -442,7 +450,14 @@
 .ant-table-thead > tr > th,
 .ant-transfer-list-header {
   color: var(--bh-color-foreground);
-  background: var(--bh-color-control-hover) !important;
+  background: var(--bh-color-card) !important;
+  font-size: var(--bh-font-size-sm);
+  font-weight: 500;
+}
+
+.ant-table-tbody > tr > td {
+  background: var(--bh-color-card);
+  border-bottom: 1px solid var(--bh-color-border);
 }
 
 .ant-table-tbody > tr.ant-table-row:hover > td,

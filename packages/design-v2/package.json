@@ -28,6 +28,7 @@
     "./tokens/source.icons.css": "./src/tokens/source.icons.css",
     "./adapters/tailwind.css": "./src/adapters/tailwind.css",
     "./adapters/antd.css": "./src/adapters/antd.css",
+    "./empty.css": "./src/empty.css",
     "./adapters/antd-theme": "./src/adapters/antdTheme.ts",
     "./icons": "./src/icons/index.ts",
     "./icons/styles.css": "./src/icons/styles.css",

@@ -7,6 +7,7 @@ import type {
   PublishedWorkflowRevision,
   PublishedWorkflowRevisionSummary,
   PublishedWorkflowType,
+  WorkflowRevisionStatus,
   WorkflowGraph
 } from './model'
 import type {
@@ -80,10 +81,7 @@ function decodeSummary(
 ): PublishedWorkflowRevisionSummary {
   const workflowUuid = requiredString(value.uuid ?? value.workflow_uuid, `${path}.uuid`)
   const name = requiredString(value.name ?? value.title, `${path}.name`)
-  const status = optionalString(value.status)
-  if (status !== undefined && status !== 'published') {
-    throw definitionError('WORKFLOW_NOT_PUBLISHED', `${path}.status is not published`)
-  }
+  const status = decodeWorkflowStatus(value.status, `${path}.status`)
   const revision = positiveInteger(
     value.revision ?? asOptionalRecord(value.revision)?.number,
     `${path}.revision`
@@ -99,22 +97,31 @@ function decodeSummary(
     name,
     revision,
     workflowType,
-    status: 'published',
+    status,
     ...(description === undefined ? {} : { description })
   }
 }
 
 function decodeWorkflowType(value: unknown, path: string): PublishedWorkflowType {
   if (value === 'workflow' || value === 'experiment_operation') return value
+  // SZLab 的完整工作流目录使用 normal 表示普通工作流；统一到前端展示类型。
+  if (value === 'normal') return 'workflow'
   throw definitionError(
     'UNSUPPORTED_WORKFLOW_TYPE',
     `${path} is missing or unsupported`
   )
 }
 
+function decodeWorkflowStatus(value: unknown, path: string): WorkflowRevisionStatus {
+  if (value === undefined) return 'published'
+  if (value === 'published' || value === 'source') return value
+  throw definitionError('INVALID_WORKFLOW_DEFINITION', `${path} is unsupported`)
+}
+
 function decodeGraph(value: WorkflowGraphResponse): WorkflowGraph {
   const root = asRecord(unwrapEnvelope(value), 'workflow graph') as WorkflowGraphResponse
   const workflow = asRecord(root.workflow, 'graph.workflow')
+  const inputParameters = decodeInputParameters(workflow)
   const nodes = recordArray(root.nodes, 'graph.nodes')
   const edges = recordArray(root.edges, 'graph.edges')
   const nodeTemplates = recordArray(root.node_templates, 'graph.node_templates')
@@ -126,12 +133,66 @@ function decodeGraph(value: WorkflowGraphResponse): WorkflowGraph {
     : []
   return {
     workflow,
+    inputParameters,
     nodes,
     edges,
     nodeTemplates,
     handleTemplates,
     inventoryRequirements: requirements
   }
+}
+
+function decodeInputParameters(
+  workflow: WorkflowDefinitionRecord
+): readonly {
+  name: string
+  required: boolean
+  schema: WorkflowDefinitionRecord
+  defaultValue?: unknown
+  title?: string
+  description?: string
+}[] {
+  const metadata = asOptionalRecord(workflow.meta_data)
+  const unilab = asOptionalRecord(metadata?.unilab)
+  const contract = asOptionalRecord(unilab?.input_contract)
+  if (contract?.parameters === undefined) return []
+  if (!Array.isArray(contract.parameters)) {
+    throw definitionError(
+      'INVALID_WORKFLOW_DEFINITION',
+      'graph.workflow.meta_data.unilab.input_contract.parameters must be an array'
+    )
+  }
+  const names = new Set<string>()
+  return contract.parameters.map((value, index) => {
+    const path = `graph.workflow.meta_data.unilab.input_contract.parameters[${index}]`
+    const parameter = asRecord(value, path)
+    const name = requiredString(parameter.name, `${path}.name`)
+    if (names.has(name)) {
+      throw definitionError('INVALID_WORKFLOW_DEFINITION', `${path}.name is duplicated`)
+    }
+    names.add(name)
+    const schema = asOptionalRecord(parameter.schema)
+    if (!schema) {
+      throw definitionError('INVALID_WORKFLOW_DEFINITION', `${path}.schema must be an object`)
+    }
+    const result = {
+      name,
+      required: booleanValue(parameter.required, `${path}.required`),
+      schema,
+      ...(Object.prototype.hasOwnProperty.call(parameter, 'default')
+        ? { defaultValue: parameter.default }
+        : Object.prototype.hasOwnProperty.call(schema, 'default')
+          ? { defaultValue: schema.default }
+          : {}),
+      ...(optionalString(parameter.title ?? schema.title) === undefined
+        ? {}
+        : { title: optionalString(parameter.title ?? schema.title) }),
+      ...(optionalString(parameter.description ?? schema.description) === undefined
+        ? {}
+        : { description: optionalString(parameter.description ?? schema.description) })
+    }
+    return result
+  })
 }
 
 function unwrapEnvelope(value: unknown): unknown {

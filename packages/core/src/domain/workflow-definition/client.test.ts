@@ -35,6 +35,16 @@ describe('workflow definition client', () => {
     )
   })
 
+  it('can read the complete workflow catalog for management pages', async () => {
+    const transport = new FakeTransport()
+    const client = new WorkflowDefinitionClient(transport)
+    await client.listPublishedRevisions({ status: 'all' })
+
+    expect(transport.requests[0]?.url).toBe(
+      '/api/v1/workflows?page=1&page_size=100'
+    )
+  })
+
   it('keeps routes and transport out of the scenario-facing port', async () => {
     const transport = new FakeTransport()
     const client = new WorkflowDefinitionClient(transport)

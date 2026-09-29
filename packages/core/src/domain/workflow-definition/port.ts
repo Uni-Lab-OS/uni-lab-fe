@@ -7,6 +7,8 @@ export interface WorkflowDefinitionPort {
   listPublishedRevisions(input?: {
     readonly page?: number
     readonly pageSize?: number
+    /** 列表页可读取完整目录；默认仍只读取已发布版本。 */
+    readonly status?: 'published' | 'all'
   }): Promise<readonly PublishedWorkflowRevisionSummary[]>
 
   getPublishedRevision(workflowUuid: string): Promise<PublishedWorkflowRevision>

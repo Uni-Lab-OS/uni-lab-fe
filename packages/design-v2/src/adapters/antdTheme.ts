@@ -15,6 +15,11 @@ function themeColor(name: string, fallback: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
 }
 
+function themeFont(name: string, fallback: string): string {
+  if (typeof document === 'undefined') return fallback
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
+}
+
 /**
  * Bridge design-v2 semantic tokens to AntD ConfigProvider's theme contract.
  * The AntD algorithms are supplied by the consuming app so this package does
@@ -27,6 +32,10 @@ export function createAntdTheme<TAlgorithm>(
   return {
     algorithm: theme.resolvedMode === 'dark' ? algorithms.darkAlgorithm : algorithms.defaultAlgorithm,
     token: {
+      fontFamily: themeFont(
+        '--bh-font-family-sans',
+        'Inter, ui-sans-serif, system-ui, sans-serif',
+      ),
       borderRadius: 5,
       controlHeight: 36,
       colorPrimary: themeColor('--bh-color-primary', '#5363a6'),
@@ -44,12 +53,15 @@ export function createAntdTheme<TAlgorithm>(
       colorTextSecondary: themeColor('--bh-color-muted-foreground', '#6b7280'),
       colorTextTertiary: themeColor('--bh-color-text-description', '#6b7280'),
       colorTextQuaternary: themeColor('--bh-color-text-placeholder', '#9ca3af'),
+      colorTextDisabled: themeColor('--bh-color-text-disabled', '#c9cdd5'),
       colorBorder: themeColor('--bh-color-border', '#d9d9d9'),
       colorBorderSecondary: themeColor('--bh-color-border', '#d9d9d9'),
+      colorBorderDisabled: themeColor('--bh-color-border-1', '#e5e6ec'),
       colorFill: themeColor('--bh-color-fill-1', '#f5f5f5'),
       colorFillSecondary: themeColor('--bh-color-fill-0', '#fafafa'),
       colorFillTertiary: themeColor('--bh-color-fill-1', '#f5f5f5'),
       colorFillQuaternary: themeColor('--bh-color-fill-2', '#e5e5e5'),
+      colorBgContainerDisabled: themeColor('--bh-color-fill-1', '#f2f3f5'),
       colorError: themeColor('--bh-color-error-default', '#db3f3f'),
       colorErrorHover: themeColor('--bh-color-error-hover', '#e76b67'),
       colorErrorActive: themeColor('--bh-color-error-pressed', '#b52e31'),

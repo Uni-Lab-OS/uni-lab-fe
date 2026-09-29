@@ -1,6 +1,6 @@
 # `@unilab/design-v2`
 
-Uni-Lab 新版设计基础层。这个包负责设计变量、默认主题、主题运行时、技术栈适配和 Figma Bohr 图标集合；不提供完整的 React UI 组件。
+Uni-Lab 新版设计基础层。这个包负责设计变量、默认主题、主题运行时、技术栈适配、Figma Bohr 图标集合和少量跨页面标准组件（当前包含 `EmptyState`）。
 
 如果你只想在新项目里使用这套规范，先看“5 分钟接入”；如果你要继续维护内部 example 规范站或让 AI coding agent 修改组件，直接看“维护与 AI coding agent 约定”。
 
@@ -96,6 +96,30 @@ export function ProjectForm() {
 ```
 
 不需要为每个页面重新设置主色、边框色、输入框背景或 hover/focus 颜色。
+
+## 空状态 `EmptyState`
+
+`EmptyState` 对齐 Bohrium Design System 的 `Empty / 空状态（补充）` 画板，统一空数据、搜索无结果、网络断开、无权限、任务为空等场景。组件本身是透明的内容容器，卡片背景由外层面板负责；默认规格为宽度 308px、最小高度约 337px、内边距 24px、圆角 12px、纵向间距 16px。
+
+```tsx
+import { EmptyState } from '@unilab/design-v2'
+
+<EmptyState
+  scene="no-results"
+  illustration={<SearchEmptyIllustration />}
+  actions={<Button type="primary">重新搜索</Button>}
+/>
+```
+
+### 规范
+
+- `scene` 使用稳定的 16 个业务枚举，默认文案来自 `EMPTY_STATE_LABELS`；其中 `no-results` 与 `no-results-2` 是两个独立插画变体，但默认显示文案相同；自定义文案使用 `title`。
+- `illustration` 是 `Empty Header` 插槽。当前内置资源直接来自 Figma Empty 画板导出的 SVG：`no-data`、`no-task`、`no-results` 的浅色变体，以及 `no-data` 的深色变体；其他场景可继续通过插槽传入对应的 Figma 变体。
+- 插画下方文案统一使用 14px / 24px、字重 500；浅色主题使用 `text/disabled`，深色主题使用 `text/placeholder`。
+- `actions` 是 `Empty Content` 插槽，放置标准 Button；没有操作时不要放置空容器。
+- `tone="dark"` 用于深色背景，`size="compact"` 用于表格单元格或高度受限的面板。
+
+`EmptyState` 会自动引入自身样式；只使用 CSS 或需要显式引入时，也可以使用 `@unilab/design-v2/empty.css`。
 
 ## Figma Bohr 图标
 
@@ -359,7 +383,7 @@ AntD 适配层只负责覆盖公共外观：卡片、表单控件、下拉面板
 | AntD theme bridge 子路径 | `@unilab/design-v2/adapters/antd-theme` |
 | Tailwind 适配 | `@unilab/design-v2/adapters/tailwind.css` |
 
-`@unilab/design-v2` 不提供 React UI 组件；组件行为、交互和可访问性由 AntD 或业务组件负责。
+除 `EmptyState` 等明确导出的跨页面标准组件外，组件行为、交互和可访问性仍由 AntD 或业务组件负责。
 
 ## 自定义页面样式怎么写
 

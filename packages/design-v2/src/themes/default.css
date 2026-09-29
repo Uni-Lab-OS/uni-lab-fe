@@ -16,7 +16,9 @@
 :root[data-design-preset='default'],
 :root:not([data-design-preset]) {
   /* Theme and foundation aliases */
-  --bh-font-family-sans: "PingFang SC", "Microsoft YaHei", Inter, ui-sans-serif, system-ui, sans-serif;
+  /* Keep the default preset aligned with the shared foundation token. */
+  --bh-font-family-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --bh-font-family-mono: "Roboto Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --bh-font-size-xs: 0.75rem;
   --bh-font-size-sm: 0.875rem;
   --bh-font-size-md: 1rem;
@@ -123,15 +125,21 @@
   --bh-color-error-focus: var(--bh-source-color-modes-error-focus);
 
   /* Stable semantic aliases consumed by pages and component adapters. */
-  --bh-color-background: var(--bh-color-primary-white);
+  /*
+   * Surface hierarchy:
+   * - the application canvas is the quiet fill layer;
+   * - cards, controls and overlays sit on the white surface layer.
+   * Keep the source inventory unchanged and express the product semantics here.
+   */
+  --bh-color-background: var(--bh-color-fill-0);
   --bh-color-foreground: var(--bh-color-text-default);
-  --bh-color-control: var(--bh-color-fill-0);
+  --bh-color-control: var(--bh-color-primary-white);
   --bh-color-control-hover: var(--bh-color-fill-1);
   --bh-color-control-active: var(--bh-color-primary-background);
   --bh-color-control-foreground: var(--bh-color-text-default);
-  --bh-color-card: var(--bh-source-color-modes-base-card);
+  --bh-color-card: var(--bh-color-primary-white);
   --bh-color-card-foreground: var(--bh-color-text-default);
-  --bh-color-popover: var(--bh-source-color-modes-base-popover);
+  --bh-color-popover: var(--bh-color-primary-white);
   --bh-color-popover-foreground: var(--bh-color-text-default);
   --bh-color-primary: var(--bh-color-primary-default);
   --bh-color-primary-foreground: var(--bh-color-primary-white);

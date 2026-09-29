@@ -3,6 +3,7 @@ import {
   decodeActionDefinition,
   decodeActionDefinitionList,
   decodeActionRunAccepted,
+  decodeAuthoringDeviceCatalog,
   decodeDeviceList
 } from './codec'
 import type { DeviceActionPort } from './port'
@@ -52,7 +53,24 @@ export class DeviceActionClient implements DeviceActionPort {
       method: 'GET',
       url: `${this.apiPrefix}/devices`
     })
-    return decodeDeviceList(response.data)
+    const devices = decodeDeviceList(response.data)
+    if (devices.length > 0) return devices
+
+    // Local Workspace 尚未建立运行时 binding 时，/devices 会明确返回空数组。
+    // 4174 控制台此时回退到 authoring/device-catalog；这里保持同一语义，
+    // 并读取完整模板目录给设备包动作补上 workflow node template UUID。
+    const [catalogResponse, templateResponse] = await Promise.all([
+      this.transport.request({
+        method: 'GET',
+        url: `${this.apiPrefix}/authoring/device-catalog`
+      }),
+      this.transport.request({
+        method: 'GET',
+        url: `${this.apiPrefix}/workflow-node-templates?page=1&page_size=200`
+      })
+    ])
+    const definitions = decodeActionDefinitionList(templateResponse.data)
+    return decodeAuthoringDeviceCatalog(catalogResponse.data, definitions)
   }
 
   async listActionDefinitions(input: {

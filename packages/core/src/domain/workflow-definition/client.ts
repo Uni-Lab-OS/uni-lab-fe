@@ -30,12 +30,13 @@ export class WorkflowDefinitionClient implements WorkflowDefinitionPort {
   async listPublishedRevisions(input: {
     readonly page?: number
     readonly pageSize?: number
+    readonly status?: 'published' | 'all'
   } = {}): Promise<readonly PublishedWorkflowRevisionSummary[]> {
     const params = new URLSearchParams({
       page: String(input.page ?? 1),
-      page_size: String(input.pageSize ?? 100),
-      status: 'published'
+      page_size: String(input.pageSize ?? 100)
     })
+    if (input.status !== 'all') params.set('status', 'published')
     const response = await this.transport.request<unknown>({
       method: 'GET',
       url: `${this.apiPrefix}/workflows?${params.toString()}`
