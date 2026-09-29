@@ -12,6 +12,9 @@ import {
   Typography,
 } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  createDeviceActionDebuggingViewModel,
+} from "@unilab-fe/core";
 import type {
   ActionDefinition,
   DeviceActionState,
@@ -432,14 +435,20 @@ function DeviceActionEditor({
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const result = await backend.core.deviceActions.createActionRun({
-        materialUuid: values.materialUuid,
-        workflowNodeTemplateUuid: action.actionDefinitionUuid,
-        param,
-        idempotencyKey: crypto.randomUUID(),
-        description: values.description,
-      });
-      onAccepted({ taskUuid: result.taskUuid, jobUuid: result.jobUuid });
+      const viewModel = createDeviceActionDebuggingViewModel({}, [], []);
+      const nextViewModel = await backend.core.deviceActionDebugging.startRun(
+        viewModel,
+        {
+          materialUuid: values.materialUuid,
+          workflowNodeTemplateUuid: action.actionDefinitionUuid,
+          param,
+          idempotencyKey: crypto.randomUUID(),
+          description: values.description,
+        },
+      );
+      const acceptedRun = nextViewModel.acceptedRun;
+      if (!acceptedRun) throw new Error("OS 未返回已接受的动作任务");
+      onAccepted({ taskUuid: acceptedRun.taskUuid, jobUuid: acceptedRun.jobUuid });
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "调试命令发送失败");
     } finally {

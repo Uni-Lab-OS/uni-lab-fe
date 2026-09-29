@@ -90,6 +90,13 @@ function HistoryModal({
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let active = true;
+    if (!backend.services.getCapabilityStatus("inventory.readReagentHistory").available) {
+      setError(new Error("当前端点未开放库存历史读取能力"));
+      setLoading(false);
+      return () => {
+        active = false;
+      };
+    }
     setLoading(true);
     void backend.services.inventory
       .listReagentHistory(reagent.materialUuid)
@@ -175,6 +182,14 @@ function MutationModal({
     setLoading(true);
     setError(null);
     try {
+      const capability = state.type === "create-info"
+        ? "reagentInfo.create"
+        : state.type === "create-inventory"
+          ? "inventory.createReagent"
+          : "inventory.updateReagent";
+      if (!backend.services.getCapabilityStatus(capability).available) {
+        throw new Error("当前端点未开放此项试剂写入能力");
+      }
       if (state.type === "create-info")
         await backend.services.inventory.createReagentInfo({
           name: String(values.name),

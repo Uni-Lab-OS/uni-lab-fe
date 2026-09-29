@@ -122,24 +122,30 @@ function requiredValue(value: unknown): boolean {
   return value === true;
 }
 
-function resourceKindForKey(key: string): {
-  kind: WorkflowResourceKind;
-  kindLabel: string;
-} | null {
-  const normalized = key.toLowerCase();
-  if (normalized.includes("device")) return { kind: "device", kindLabel: "设备" };
-  if (normalized === "site" || normalized.includes("warehouse") || normalized.includes("location")) {
-    return { kind: "site", kindLabel: "库位" };
+function resourceKindFromSchema(schema: WorkflowRecord | undefined): WorkflowResourceKind | null {
+  if (!schema) return null;
+  const explicit = readString(schema, ["resource_kind", "resourceKind", "$resourceKind"]);
+  if (explicit === "device" || explicit === "site" || explicit === "material" || explicit === "reagent" || explicit === "resource_template" || explicit === "resource") {
+    return explicit;
   }
-  if (normalized.includes("reagent")) return { kind: "reagent", kindLabel: "试剂" };
-  if (normalized === "material_uuid" || normalized === "material" || normalized.includes("material")) {
-    return { kind: "material", kindLabel: "物料" };
-  }
-  if (normalized === "resource_template_uuid" || normalized.includes("resource_template")) {
-    return { kind: "resource_template", kindLabel: "资源模板" };
-  }
-  if (normalized === "mount") return { kind: "material", kindLabel: "挂载物料" };
+  if (schema.$slot === "ResourceSlot" || schema.type === "ResourceSlot") return "material";
+  if (schema.$slot === "Site" || schema.type === "Site") return "site";
+  if (schema.$slot === "ResourceTemplate" || schema.type === "ResourceTemplate") return "resource_template";
   return null;
+}
+
+function resourceKindLabel(kind: WorkflowResourceKind): string {
+  return kind === "device"
+    ? "设备"
+    : kind === "site"
+      ? "库位"
+      : kind === "material"
+        ? "物料"
+        : kind === "reagent"
+          ? "试剂"
+          : kind === "resource_template"
+            ? "资源模板"
+            : "资源";
 }
 
 function resourceValue(value: unknown): string {
@@ -154,26 +160,48 @@ function resourceValue(value: unknown): string {
 
 function pushResource(
   resources: WorkflowResourceDependency[],
-  key: string,
+  kind: WorkflowResourceKind,
   value: unknown,
+  kindLabel = resourceKindLabel(kind),
 ): void {
-  const kind = resourceKindForKey(key);
-  if (!kind || value == null || value === "") return;
-  const next = { ...kind, value: resourceValue(value) };
+  if (value == null || value === "") return;
+  const next = { kind, kindLabel, value: resourceValue(value) };
   if (!resources.some((item) => item.kind === next.kind && item.value === next.value)) {
     resources.push(next);
   }
 }
 
-function collectResourceFields(
+function collectResourceSlotValue(
   resources: WorkflowResourceDependency[],
   value: unknown,
 ): void {
   const record = asRecord(value);
-  if (!record) return;
-  Object.entries(record).forEach(([key, fieldValue]) => {
-    if (resourceKindForKey(key)) pushResource(resources, key, fieldValue);
-  });
+  if (!record) {
+    pushResource(resources, "material", value);
+    return;
+  }
+  const resourceTemplateUuid = record.resource_template_uuid;
+  if (resourceTemplateUuid !== undefined) {
+    pushResource(resources, "resource_template", resourceTemplateUuid);
+  }
+  if (record.mount !== undefined) {
+    pushResource(resources, "material", record.mount, "挂载物料");
+  }
+  if (record.site !== undefined) {
+    pushResource(resources, "site", record.site);
+  }
+  if (record.material_uuid !== undefined) {
+    pushResource(resources, "material", record.material_uuid);
+  }
+  if (
+    resourceTemplateUuid === undefined &&
+    record.mount === undefined &&
+    record.site === undefined &&
+    record.material_uuid === undefined &&
+    record.uuid !== undefined
+  ) {
+    pushResource(resources, "material", record.uuid);
+  }
 }
 
 export function workflowContracts(
@@ -246,11 +274,23 @@ export function workflowNodeDetails(
   const executorBinding = asRecord(unilab?.executor_binding);
   const resources: WorkflowResourceDependency[] = [];
   if (executorBinding?.device_id !== undefined) {
-    pushResource(resources, "device_id", executorBinding.device_id);
+    pushResource(resources, "device", executorBinding.device_id);
   }
+  const handleByDataKey = new Map(
+    handles.flatMap((handle) => {
+      const dataKey = readString(handle, ["data_key", "handle_key"]);
+      return dataKey ? [[dataKey, handle] as const] : [];
+    }),
+  );
   Object.entries(params).forEach(([name, value]) => {
-    if (resourceKindForKey(name)) pushResource(resources, name, value);
-    collectResourceFields(resources, value);
+    const schema = schemaFromHandle(handleByDataKey.get(name) ?? {});
+    const kind = resourceKindFromSchema(schema);
+    if (!kind) return;
+    if (kind === "material" && (schema?.$slot === "ResourceSlot" || schema?.type === "ResourceSlot")) {
+      collectResourceSlotValue(resources, value);
+      return;
+    }
+    pushResource(resources, kind, value);
   });
   revision.graph.inventoryRequirements
     .filter((requirement) => requirement.consumeNodeUuid === readString(node, ["uuid", "node_uuid"]))

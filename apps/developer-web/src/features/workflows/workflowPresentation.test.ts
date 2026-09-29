@@ -110,4 +110,33 @@ describe("workflow presentation helpers", () => {
     expect(workflowValueText({ uuid: "material-1" }, directory)).toBe("样品瓶");
     expect(workflowValueText("site-1", directory)).toBe("S041");
   });
+
+  it("does not infer resources from arbitrary parameter names", () => {
+    const revision = {
+      source: "os" as const,
+      workflowUuid: "wf-1",
+      name: "参数测试",
+      revision: 1,
+      workflowType: "workflow" as const,
+      status: "published" as const,
+      kind: "published_revision" as const,
+      graph: {
+        workflow: {},
+        nodes: [{
+          uuid: "node-1",
+          param: { device_name: "mixer", material_hint: "sample-1" },
+          workflow_node_template_uuid: "template-1",
+        }],
+        edges: [],
+        nodeTemplates: [],
+        handleTemplates: [
+          { workflow_node_template_uuid: "template-1", io_type: "target", data_key: "device_name", type: "string" },
+          { workflow_node_template_uuid: "template-1", io_type: "target", data_key: "material_hint", type: "string" },
+        ],
+        inventoryRequirements: [],
+      },
+    };
+
+    expect(workflowNodeDetails(revision, revision.graph.nodes[0]).resources).toEqual([]);
+  });
 });

@@ -52,7 +52,10 @@ export function ReagentsPage() {
       ),
     [keyword, query.data],
   );
-  const mutationEnabled = backend.config.serverKind === "backend";
+  const canCreateInfo = backend.services.getCapabilityStatus("reagentInfo.create").available;
+  const canCreateInventory = backend.services.getCapabilityStatus("inventory.createReagent").available;
+  const canUpdateInventory = backend.services.getCapabilityStatus("inventory.updateReagent").available;
+  const canReadHistory = backend.services.getCapabilityStatus("inventory.readReagentHistory").available;
 
   return (
     <div className="page-stack">
@@ -62,14 +65,14 @@ export function ReagentsPage() {
           <Space>
             <Tooltip
               title={
-                mutationEnabled
+                canCreateInfo
                   ? undefined
-                  : "当前 Uni-Lab OS 不支持试剂写入，请切换到 Go Backend。"
+                  : "当前端点未开放试剂目录写入能力。"
               }
             >
               <span>
                 <Button
-                  disabled={!mutationEnabled}
+                  disabled={!canCreateInfo}
                   icon={<AppIcon name="general/plus" color="primary" size={16} />}
                   onClick={() => setModal({ type: "create-info" })}
                 >
@@ -79,15 +82,15 @@ export function ReagentsPage() {
             </Tooltip>
             <Tooltip
               title={
-                mutationEnabled
+                canCreateInventory
                   ? undefined
-                  : "当前 Uni-Lab OS 不支持试剂写入，请切换到 Go Backend。"
+                  : "当前端点未开放库存写入能力。"
               }
             >
               <span>
                 <Button
                   type="primary"
-                  disabled={!mutationEnabled}
+                  disabled={!canCreateInventory}
                   icon={
                     <AppIcon
                       name="development/package-plus"
@@ -147,8 +150,9 @@ export function ReagentsPage() {
           {tab === "inventory" ? (
             <InventoryTable
               data={inventory}
-              canMutate={mutationEnabled}
+              canMutate={canUpdateInventory}
               onHistory={(item) => setModal({ type: "history", reagent: item })}
+              canReadHistory={canReadHistory}
               onEdit={(item) =>
                 setModal({ type: "edit-inventory", reagent: item })
               }
@@ -156,7 +160,7 @@ export function ReagentsPage() {
           ) : (
             <CatalogTable
               data={catalog}
-              canMutate={mutationEnabled}
+              canMutate={canCreateInventory}
               onDetail={(item) =>
                 setModal({ type: "catalog-detail", info: item })
               }
@@ -180,11 +184,13 @@ function InventoryTable({
   data,
   canMutate,
   onHistory,
+  canReadHistory,
   onEdit,
 }: {
   data: readonly Reagent[];
   canMutate: boolean;
   onHistory: (item: Reagent) => void;
+  canReadHistory: boolean;
   onEdit: (item: Reagent) => void;
 }) {
   const columns: TableColumnsType<Reagent> = [
@@ -263,15 +269,16 @@ function InventoryTable({
       width: 100,
       render: (_, item) => (
         <Space size={2}>
-          <Tooltip title="查看历史">
+          <Tooltip title={canReadHistory ? "查看历史" : "当前端点不支持库存历史"}>
             <Button
               className="icon-button"
               type="text"
               icon={<AppIcon name="time/clock-refresh" size={18} />}
               onClick={() => onHistory(item)}
+              disabled={!canReadHistory}
             />
           </Tooltip>
-          <Tooltip title={canMutate ? "编辑库存" : "当前后端不支持写入"}>
+          <Tooltip title={canMutate ? "编辑库存" : "当前端点不支持此项写入"}>
             <Button
               className="icon-button"
               type="text"
@@ -361,7 +368,7 @@ function CatalogTable({
               onClick={() => onDetail(item)}
             />
           </Tooltip>
-          <Tooltip title={canMutate ? "录入库存" : "当前后端不支持写入"}>
+          <Tooltip title={canMutate ? "录入库存" : "当前端点不支持此项写入"}>
             <Button
               className="icon-button"
               type="text"

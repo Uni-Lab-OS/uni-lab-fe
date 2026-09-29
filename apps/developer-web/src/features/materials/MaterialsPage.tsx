@@ -6,7 +6,6 @@ import ChevronDownIcon from "@unilab/design-v2/icons/static/arrows/chevron-down"
 import ChevronRightIcon from "@unilab/design-v2/icons/static/arrows/chevron-right";
 import type { MaterialGraphNode, SiteSummary } from "@unilab-fe/core";
 import type { IconColor, IconName } from "@unilab/design-v2/icons";
-import { useBackend } from "../../app/BackendProvider";
 import { useBackendQuery } from "../../hooks/useBackendQuery";
 import { AppIcon } from "../../components/ui/Icon";
 import { AsyncState } from "../../components/ui/AsyncState";
@@ -343,7 +342,6 @@ function MaterialDetailInspector({
   selectedSite?: SiteSummary;
   onSelect: (selection: MaterialSelection) => void;
 }) {
-  const { backend } = useBackend();
   const currentSite = node.currentSiteUuid
     ? (node.sites.find((item) => item.siteUuid === node.currentSiteUuid) ??
       node.sites[0])
@@ -357,9 +355,6 @@ function MaterialDetailInspector({
         ? "available"
         : "empty"
       : "attention";
-  const operationsSupported =
-    backend.config.serverKind === "backend" &&
-    backend.services.getCapabilityStatus("material.attach").available;
   return (
     <aside className="material-inspector">
       <InspectorHeading
@@ -398,25 +393,9 @@ function MaterialDetailInspector({
         </div>
       </dl>
       <SiteList sites={node.sites} onSelect={onSelect} />
-      <div className="inspector-actions">
-        <Button
-          disabled={!operationsSupported}
-          icon={<AppIcon name="general/upload-01" color="primary" size={16} />}
-        >
-          上料
-        </Button>
-        <Button
-          disabled={!operationsSupported}
-          icon={<AppIcon name="general/download-01" size={16} />}
-        >
-          下料
-        </Button>
-      </div>
-      {!operationsSupported && (
-        <Typography.Text className="capability-note">
-          当前后端能力未开放物料 attach / detach 命令，操作已禁用。
-        </Typography.Text>
-      )}
+      <Typography.Text type="secondary" className="capability-note">
+        当前页面仅展示物料与库位状态；变更库位需通过统一物料命令执行。
+      </Typography.Text>
     </aside>
   );
 }

@@ -365,23 +365,25 @@ function WorkflowDetail({
   const resourceDirectoryQuery = useBackendQuery<WorkflowResourceDirectory>(
     "workflow-resource-directory",
     async (current) => {
-      const [aggregates, devices] = await Promise.all([
-        current.services.materials.getGraph({ kind: "singleton" }),
+      const [graph, devices] = await Promise.all([
+        current.core.materialSite.getGraph(),
         current.core.deviceActions.listDevices(),
       ]);
       const resourceTemplates = new Map<string, string>();
-      const materials = aggregates.map((aggregate) => {
-        const template = aggregate.material.config.resourceTemplate;
-        if (template && typeof template === "object" && !Array.isArray(template)) {
-          const raw = template as Record<string, unknown>;
-          if (typeof raw.uuid === "string" && typeof raw.displayName === "string") {
-            resourceTemplates.set(raw.uuid, raw.displayName);
-          }
+      const materials = graph.nodes.map((node) => {
+        if (node.resourceTemplate) {
+          resourceTemplates.set(
+            node.resourceTemplate.uuid,
+            node.resourceTemplate.displayName,
+          );
         }
-        return { uuid: aggregate.material.id, name: aggregate.material.name };
+        return {
+          uuid: node.material.materialUuid,
+          name: node.material.name,
+        };
       });
-      const sites = aggregates.flatMap((aggregate) =>
-        aggregate.sites.map((site) => ({ uuid: site.id, name: site.name })),
+      const sites = graph.nodes.flatMap((node) =>
+        node.sites.map((site) => ({ uuid: site.siteUuid, name: site.name })),
       );
       return {
         resourceTemplates: [...resourceTemplates].map(([uuid, displayName]) => ({ uuid, displayName })),
