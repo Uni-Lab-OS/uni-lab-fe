@@ -1,6 +1,7 @@
 import { Button, Input, Table, Tooltip } from "antd";
 import type { TableColumnsType } from "antd";
 import { useEffect, useMemo, useState } from "react";
+import { deviceDispatchStatus } from "@unilab-fe/core";
 import type { DeviceSummary } from "@unilab-fe/core";
 import { EmptyState } from "@unilab/design-v2";
 import { useBackendQuery } from "../../hooks/useBackendQuery";
@@ -120,14 +121,18 @@ function DeviceTable({
       title: "状态",
       key: "state",
       align: "center",
-      render: (_, row) =>
-        row.online === false ? (
+      render: (_, row) => {
+        const status = deviceDispatchStatus(row);
+        return status === "offline" ? (
           <DeviceStatus tone="offline" label={row.dispatchBlockReason ?? "离线"} />
-        ) : row.dispatchable === false ? (
+        ) : status === "blocked" ? (
           <DeviceStatus tone="attention" label={row.dispatchBlockReason ?? "不可调度"} />
-        ) : (
+        ) : status === "available" ? (
           <DeviceStatus tone="available" label="在线，可调试" />
-        ),
+        ) : (
+          <DeviceStatus tone="attention" label="状态未知" />
+        );
+      },
     },
     {
       title: "当前动作",

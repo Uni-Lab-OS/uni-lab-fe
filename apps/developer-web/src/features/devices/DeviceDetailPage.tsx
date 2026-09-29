@@ -13,6 +13,8 @@ import {
 } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  deviceDispatchStatus,
+  deviceOccupancyStatus,
   createDeviceActionDebuggingViewModel,
 } from "@unilab-fe/core";
 import type {
@@ -62,15 +64,7 @@ export function DeviceDetail({
         : Promise.resolve(undefined),
   );
   const actionDefinition = definitionQuery.data;
-  const hasOccupancy =
-    device.actions.some((action) => action.isBusy === true) ||
-    (device.executionOccupancies?.length ?? 0) > 0;
-  const occupancyKnown = device.actions.every((action) => action.busyStatusKnown);
-  const occupancyStatus = hasOccupancy
-    ? "occupied"
-    : occupancyKnown
-      ? "idle"
-      : "unknown";
+  const occupancyStatus = deviceOccupancyStatus(device);
   const actionParameters = useMemo(() => {
     const defined = deviceActionParameters(actionDefinition);
     if (defined.length || actionDefinition) return defined;
@@ -424,7 +418,11 @@ function DeviceActionEditor({
     [key: string]: unknown;
     description?: string;
   }) => {
-    if (!editing || device.online === false || !action?.actionDefinitionUuid) return;
+    if (
+      !editing ||
+      deviceDispatchStatus(device) !== "available" ||
+      !action?.actionDefinitionUuid
+    ) return;
     let param: Record<string, unknown>;
     try {
       param = normalizeDeviceActionParameters(values, parameters);
@@ -466,11 +464,18 @@ function DeviceActionEditor({
           style={{ marginBottom: 18 }}
         />
       ) : null}
-      {editing && device.online === false ? (
+      {editing && deviceDispatchStatus(device) !== "available" ? (
         <Alert
-          type="error"
+          type={deviceDispatchStatus(device) === "unknown" ? "warning" : "error"}
           showIcon
-          message="设备当前不在线，不能执行动作。"
+          message={
+            deviceDispatchStatus(device) === "offline"
+              ? "设备当前不在线，不能执行动作。"
+              : deviceDispatchStatus(device) === "blocked"
+                ? "设备当前不可调度，不能执行动作。"
+                : "设备可调度状态未知，不能执行动作。"
+          }
+          description={device.dispatchBlockReason ?? undefined}
           style={{ marginBottom: 18 }}
         />
       ) : null}
@@ -524,7 +529,10 @@ function DeviceActionEditor({
               type="primary"
               htmlType="submit"
               loading={submitting}
-              disabled={device.online === false || !action?.actionDefinitionUuid}
+              disabled={
+                deviceDispatchStatus(device) !== "available" ||
+                !action?.actionDefinitionUuid
+              }
               icon={<AppIcon name="media/play" color="white" size={16} />}
             >
               发送调试命令
