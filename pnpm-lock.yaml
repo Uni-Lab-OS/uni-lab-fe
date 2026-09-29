@@ -98,6 +98,9 @@ importers:
       '@unilab/design-v2':
         specifier: workspace:*
         version: link:../../packages/design-v2
+      '@unilab/lab-ui':
+        specifier: workspace:*
+        version: link:../../packages/lab-ui
       '@unilab/services':
         specifier: workspace:*
         version: link:../../packages/services
@@ -778,6 +781,34 @@ importers:
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
+
+  packages/lab-ui:
+    dependencies:
+      '@unilab-fe/core':
+        specifier: workspace:*
+        version: link:../core
+      '@unilab/design-v2':
+        specifier: workspace:*
+        version: link:../design-v2
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.7
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      react:
+        specifier: ^19.2.1
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.2.1
+        version: 19.2.8(react@19.2.8)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: 2.1.9
+        version: 2.1.9(@types/node@22.20.1)(less@3.13.1)(lightningcss@1.30.1)(sass-embedded@1.97.3)(sass@1.102.0)(terser@5.49.2)
 
   packages/local-environment:
     devDependencies:

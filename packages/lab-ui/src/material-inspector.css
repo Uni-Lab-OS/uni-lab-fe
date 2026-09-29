@@ -1,0 +1,86 @@
+.lab-ui-site-picker--inspector .lab-ui-site-picker__item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  box-sizing: border-box;
+  color: inherit;
+  font: inherit;
+  gap: 8px;
+  justify-content: flex-start;
+  margin: 0 -8px 6px;
+  padding: 4px 8px;
+  transition: background-color 120ms ease;
+}
+
+.lab-ui-site-picker--inspector .lab-ui-site-picker__item:last-child {
+  margin-bottom: 0;
+}
+
+.lab-ui-site-picker--inspector .lab-ui-site-picker__item:hover,
+.lab-ui-site-picker--inspector .lab-ui-site-picker__item.is-selected {
+  background: var(--studio-surface-muted, #f2f4f7);
+  border-color: transparent;
+}
+
+.lab-ui-site-picker--inspector .lab-ui-site-picker__item:focus-visible {
+  outline: 2px solid var(--studio-primary, #4f46e5);
+  outline-offset: -2px;
+}
+
+.lab-ui-site-picker--inspector .lab-ui-site-picker__item > .lab-ui-site-picker__content {
+  display: block;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.lab-ui-site-picker--inspector .lab-ui-site-picker__content > strong {
+  display: block;
+  color: #67748b;
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lab-ui-site-picker--inspector .lab-ui-site-picker__status {
+  display: block;
+  margin-top: 4px;
+  color: #a0a9b7;
+  font-size: 12px;
+}
+
+.lab-ui-site-picker--inspector .lab-ui-site-picker__key-tag {
+  align-items: center;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  display: inline-flex;
+  flex: 0 1 auto;
+  font-size: 12px;
+  line-height: 20px;
+  max-width: 42%;
+  min-height: 22px;
+  overflow: hidden;
+  padding: 0 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lab-ui-site-picker--inspector .lab-ui-site-picker__key-tag.is-empty {
+  background: #fafafa;
+  border-color: #d9d9d9;
+  color: rgba(0, 0, 0, 0.88);
+}
+
+.lab-ui-site-picker--inspector .lab-ui-site-picker__key-tag.is-occupied {
+  background: #f6ffed;
+  border-color: #b7eb8f;
+  color: #389e0d;
+}
+
+.lab-ui-site-picker--inspector .lab-ui-site-picker__key-tag.is-unknown {
+  background: #fffbe6;
+  border-color: #ffe58f;
+  color: #d48806;
+}

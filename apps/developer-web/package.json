@@ -15,6 +15,7 @@
     "@ant-design/v5-patch-for-react-19": "^1.0.3",
     "@unilab-fe/core": "workspace:*",
     "@unilab/design-v2": "workspace:*",
+    "@unilab/lab-ui": "workspace:*",
     "@unilab/services": "workspace:*",
     "antd": "^5.27.6",
     "react": "^19.2.1",
