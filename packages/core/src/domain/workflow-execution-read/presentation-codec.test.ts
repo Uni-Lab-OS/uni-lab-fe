@@ -16,6 +16,7 @@ describe('task presentation codec', () => {
           cleanup_status: 'none',
           create_time: '2026-09-25T00:00:00Z',
           update_time: '2026-09-25T00:00:01Z',
+          progress: { completed: 1, total: 2, percent: 50 },
           jobs: [{
             uuid: 'job-1', workflow_node_uuid: 'node-1', topological_index: 0,
             executor_kind: 'device', status: 'execution_unknown', attempt: 1,
@@ -32,6 +33,7 @@ describe('task presentation codec', () => {
       items: [{
         status: 'execution_unknown',
         controlStatus: 'waiting_intervention',
+        progress: { completed: 1, total: 2, percent: 50 },
         jobs: [{ status: 'execution_unknown', executionSource: 'edge' }]
       }]
     })

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { createWorkflowDebuggingScenario } from './scenario'
 import type { WorkflowExecutionReadPort } from '../../domain/workflow-execution-read/port'
 import type { WorkflowDefinitionPort } from '../../domain/workflow-definition/port'
+import type { WorkflowExecutionControlPort } from '../../domain/workflow-execution-control/port'
+import type { WorkflowRuntimeEventsPort } from '../../domain/workflow-runtime-events/port'
 
 describe('workflow debugging scenario', () => {
   it('loads the OS task matrix without composing a runtime summary', async () => {
@@ -31,8 +33,10 @@ describe('workflow debugging scenario', () => {
     expect(task).toMatchObject({
       selectedTaskUuid: 'task-1',
       selectedTask: { taskUuid: 'task-1' },
+      selectedTaskTitle: '测试任务',
       selectedJobs: [{ jobUuid: 'job-1' }]
     })
+    expect(task.timeline[0]).toMatchObject({ workflowNodeUuid: 'node-1', nodeLabel: '节点 A' })
     expect(workflow.selectedWorkflow).toMatchObject({ workflowUuid: 'workflow-1' })
     expect(job).toMatchObject({
       selectedJobUuid: 'job-1',
@@ -51,6 +55,36 @@ describe('workflow debugging scenario', () => {
     expect(reloaded.selectedTaskUuid).toBeNull()
     expect(reloaded.selectedJobs).toEqual([])
   })
+
+  it('keeps command accepted separate and rehydrates after a matching runtime invalidation', async () => {
+    let emit: ((event: Parameters<Parameters<WorkflowRuntimeEventsPort['subscribe']>[0]>[0]) => void) | undefined
+    const control: WorkflowExecutionControlPort = {
+      async sendTaskCommand(taskUuid, request) {
+        return {
+          kind: 'workflow_task_command_receipt', commandUuid: 'command-1', workflowTaskUuid: taskUuid,
+          type: request.type, targetNodeUuid: request.targetNodeUuid ?? null, idempotencyKey: request.idempotencyKey,
+          accepted: true, lifecycle: 'accepted', statusCode: 201, result: {}, createdAt: null, updatedAt: null, raw: {}
+        }
+      }
+    }
+    const events: WorkflowRuntimeEventsPort = {
+      subscribe(listener) {
+        emit = listener
+        return { dispose: () => undefined }
+      }
+    }
+    const scenario = createWorkflowDebuggingScenario(fakeExecutionRead(), fakeWorkflowDefinitions(), control, events)
+    const initial = await scenario.inspectTask(await scenario.load(), 'task-1')
+    const sent = await scenario.sendCommand(initial, { type: 'step', idempotencyKey: 'idem-1' })
+    expect(sent.command.lifecycle).toBe('accepted')
+    expect(sent.viewModel.selectedTask?.status).toBe('running')
+
+    const updates: string[] = []
+    scenario.subscribeRuntime(initial, (view) => updates.push(view.selectedTaskUuid ?? ''))
+    emit?.({ id: 'event-1', event: 'workflow.runtime.changed', workflowTaskUuid: 'task-1', raw: {} })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(updates).toEqual(['task-1'])
+  })
 })
 
 function fakeExecutionRead(): WorkflowExecutionReadPort {
@@ -62,7 +96,7 @@ function fakeExecutionRead(): WorkflowExecutionReadPort {
           workflowUuid: 'workflow-1', executionKind: 'workflow', status: 'running',
           runMode: 'normal', controlStatus: 'active', cleanupStatus: 'none',
           priority: null, description: null, createdAt: 'now', updatedAt: 'now',
-          finishedAt: null, attentionReason: null, jobs: [], raw: {}
+          finishedAt: null, attentionReason: null, progress: null, jobs: [], raw: {}
         }],
         total: 1, page: 1, pageSize: 20, raw: {}
       }
@@ -74,7 +108,14 @@ function fakeExecutionRead(): WorkflowExecutionReadPort {
       return {
         kind: 'task_runtime_detail', source: 'os', taskUuid, workflowUuid: 'workflow-1',
         executionKind: 'workflow', status: 'running', runMode: 'normal',
-        controlStatus: 'active', cleanupStatus: 'none', createdAt: 'now', updatedAt: 'now', raw: {}
+        controlStatus: 'active', cleanupStatus: 'none', createdAt: 'now', updatedAt: 'now',
+        description: '从测试创建',
+        raw: {
+          workflow_snapshot: {
+            workflow: { name: '测试任务' },
+            nodes: [{ uuid: 'node-1', name: '节点 A' }]
+          }
+        }
       }
     },
     async listTaskJobs() {

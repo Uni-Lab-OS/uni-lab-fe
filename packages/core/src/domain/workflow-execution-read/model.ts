@@ -62,6 +62,7 @@ export interface TaskRuntimePresentation {
   readonly updatedAt: string
   readonly finishedAt: string | null
   readonly attentionReason: string | null
+  readonly progress: WorkflowProgressFact | null
   readonly jobs: readonly TaskRuntimePresentationJob[]
   readonly raw: Readonly<Record<string, unknown>>
 }
@@ -90,6 +91,7 @@ export interface TaskJobSummary {
   readonly errorInfo: readonly unknown[]
   readonly waitReason: Readonly<Record<string, unknown>>
   readonly expectedChangeSet: Readonly<Record<string, unknown>>
+  readonly startedAt?: string
   readonly finishedAt?: string
   readonly raw: Readonly<Record<string, unknown>>
 }
@@ -148,4 +150,109 @@ export interface NodeJobFeedbackPage {
   readonly nextCursor: number
   readonly hasMore: boolean
   readonly raw: Readonly<Record<string, unknown>>
+}
+
+/** Task 命令只表达意图；命令回执与 Task/Job 投影分开保存。 */
+export type WorkflowTaskCommandType = 'step' | 'pause' | 'resume' | 'cancel'
+
+export interface WorkflowTaskCommandRequest {
+  readonly type: WorkflowTaskCommandType
+  readonly targetNodeUuid?: string | null
+  readonly idempotencyKey: string
+  readonly description?: string | null
+  readonly metadata?: Readonly<Record<string, unknown>>
+}
+
+export type WorkflowTaskCommandLifecycle = 'accepted' | 'applied' | 'rejected' | 'unknown'
+
+export interface WorkflowTaskCommandReceipt {
+  readonly kind: 'workflow_task_command_receipt'
+  readonly commandUuid: string | null
+  readonly workflowTaskUuid: string
+  readonly type: WorkflowTaskCommandType
+  readonly targetNodeUuid: string | null
+  readonly idempotencyKey: string
+  readonly accepted: boolean
+  readonly lifecycle: WorkflowTaskCommandLifecycle
+  readonly statusCode: number | null
+  readonly result: Readonly<Record<string, unknown>>
+  readonly createdAt: string | null
+  readonly updatedAt: string | null
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+export interface WorkflowRuntimeInvalidation {
+  readonly id: string
+  readonly event: 'workflow.runtime.changed' | 'device_action_task.changed'
+  readonly workflowTaskUuid: string
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+export interface WorkflowRuntimeSubscription {
+  readonly dispose: () => void
+}
+
+export interface WorkflowReadyFrontierCandidate {
+  readonly nodeUuid: string
+  readonly jobUuid: string | null
+  readonly branchUuid: string | null
+  readonly label: string | null
+  readonly selectable: boolean
+  readonly blockedBy: readonly string[]
+  readonly waitReason: Readonly<Record<string, unknown>>
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+export interface WorkflowJoinFact {
+  readonly nodeUuid: string
+  readonly requiredBranchUuids: readonly string[]
+  readonly satisfiedBranchUuids: readonly string[]
+  readonly missingConditions: readonly string[]
+  readonly ready: boolean
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+export interface WorkflowProgressFact {
+  readonly completed: number
+  readonly total: number
+  readonly percent: number | null
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+export interface WorkflowResourceWaitFact {
+  readonly resourceUuid: string | null
+  readonly resourceKind: string | null
+  readonly reason: string | null
+  readonly blocking: boolean
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+export type WorkflowExecutionLockState = 'reserved' | 'running' | 'released' | 'uncertain' | 'unknown'
+
+export interface WorkflowExecutionLockFact {
+  readonly lockUuid: string | null
+  readonly jobUuid: string | null
+  readonly lockKey: string | null
+  readonly scope: string | null
+  readonly claimUuid: string | null
+  readonly fencingToken: string | null
+  readonly state: WorkflowExecutionLockState
+  readonly canRelease: boolean | null
+  readonly blockingReasons: readonly string[]
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+export interface WorkflowRecoveryFact {
+  readonly executionUnknown: boolean
+  readonly requiresReconciliation: boolean
+  readonly locks: readonly WorkflowExecutionLockFact[]
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+export interface WorkflowDebugFacts {
+  readonly readyFrontier: readonly WorkflowReadyFrontierCandidate[]
+  readonly joins: readonly WorkflowJoinFact[]
+  readonly progress: WorkflowProgressFact | null
+  readonly resourceWaits: readonly WorkflowResourceWaitFact[]
+  readonly recovery: WorkflowRecoveryFact
 }

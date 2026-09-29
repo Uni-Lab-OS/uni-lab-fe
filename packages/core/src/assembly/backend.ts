@@ -2,6 +2,9 @@ import { createFetchTransport, type FetchTransportOptions } from '../adapters/fe
 import { WorkflowDefinitionClient } from '../domain/workflow-definition/client'
 import { RunPreparationClient } from '../domain/run-preparation/client'
 import { WorkflowExecutionReadClient } from '../domain/workflow-execution-read/client'
+import { WorkflowExecutionControlClient } from '../domain/workflow-execution-control/client'
+import type { WorkflowRuntimeEventsPort } from '../domain/workflow-runtime-events/port'
+import { WorkflowExecutionRecoveryClient } from '../domain/workflow-execution-recovery/client'
 import { DeviceActionClient } from '../domain/device-action/client'
 import type { DeviceActionPort } from '../domain/device-action/port'
 import { MaterialSiteClient } from '../domain/material-site/client'
@@ -21,6 +24,9 @@ export interface BackendCore {
   readonly workflowDefinitions: WorkflowDefinitionClient
   readonly runPreparationPort: RunPreparationClient
   readonly executionRead: WorkflowExecutionReadClient
+  readonly executionControl: WorkflowExecutionControlClient
+  readonly executionRecovery: WorkflowExecutionRecoveryClient
+  readonly workflowRuntimeEvents?: WorkflowRuntimeEventsPort
   readonly deviceActions: DeviceActionPort
   readonly materialSite: MaterialSitePort
   readonly reagentInventory: ReagentInventoryPort
@@ -31,16 +37,23 @@ export interface BackendCore {
   readonly laboratoryOperations: ReturnType<typeof createLaboratoryOperationsScenario>
 }
 
-export function createBackendCore(options: FetchTransportOptions): BackendCore {
-  return createBackendCoreFromTransport(createFetchTransport(options))
+export interface BackendCoreIntegrations {
+  readonly runtimeEvents?: WorkflowRuntimeEventsPort
+}
+
+export function createBackendCore(options: FetchTransportOptions, integrations: BackendCoreIntegrations = {}): BackendCore {
+  return createBackendCoreFromTransport(createFetchTransport(options), integrations)
 }
 
 export function createBackendCoreFromTransport(
-  transport: RequestTransport
+  transport: RequestTransport,
+  integrations: BackendCoreIntegrations = {}
 ): BackendCore {
   const workflowDefinitions = new WorkflowDefinitionClient(transport)
   const runPreparationPort = new RunPreparationClient(transport)
   const executionRead = new WorkflowExecutionReadClient(transport)
+  const executionControl = new WorkflowExecutionControlClient(transport)
+  const executionRecovery = new WorkflowExecutionRecoveryClient(executionRead)
   const deviceActions = new DeviceActionClient(transport, executionRead)
   const materialSite = new MaterialSiteClient(transport)
   const reagentInventory = new ReagentInventoryClient(transport)
@@ -50,6 +63,9 @@ export function createBackendCoreFromTransport(
     workflowDefinitions,
     runPreparationPort,
     executionRead,
+    executionControl,
+    executionRecovery,
+    workflowRuntimeEvents: integrations.runtimeEvents,
     deviceActions,
     materialSite,
     reagentInventory,
@@ -59,7 +75,12 @@ export function createBackendCoreFromTransport(
       runPreparationPort,
       { deviceActions, materialSite, reagentInventory }
     ),
-    workflowDebugging: createWorkflowDebuggingScenario(executionRead, workflowDefinitions),
+    workflowDebugging: createWorkflowDebuggingScenario(
+      executionRead,
+      workflowDefinitions,
+      executionControl,
+      integrations.runtimeEvents
+    ),
     deviceActionDebugging: createDeviceActionDebuggingScenario(deviceActions, executionRead),
     laboratoryOperations: createLaboratoryOperationsScenario(
       executionRead,

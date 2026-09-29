@@ -27,28 +27,33 @@ export function RunPreparationSummary({
         </div>
         <span>版本 {revision.revision}</span>
       </header>
-      <dl className="lab-ui-definition-list">
-        <div>
-          <dt>运行模式</dt>
-          <dd>{runModeLabel(configuration.runMode)}</dd>
-        </div>
-        <div>
-          <dt>优先级</dt>
-          <dd>{configuration.priority === 'high' ? '高' : '普通'}</dd>
-        </div>
-        <div>
-          <dt>任务名称</dt>
-          <dd>{configuration.description || '未填写'}</dd>
-        </div>
-        <div>
-          <dt>输入参数</dt>
-          <dd>{inputCount} 项</dd>
-        </div>
-      </dl>
-      <section>
-        <h3>库存需求</h3>
-        <InventoryRequirementList requirements={viewModel.requirements} />
-      </section>
+      <div className="lab-ui-run-preparation-summary__columns">
+        <section className="lab-ui-run-preparation-summary__basic">
+          <h3>基础信息</h3>
+          <dl className="lab-ui-definition-list">
+            <div>
+              <dt>运行模式</dt>
+              <dd>{runModeLabel(configuration.runMode)}</dd>
+            </div>
+            <div>
+              <dt>优先级</dt>
+              <dd>{configuration.priority === 'high' ? '高' : '普通'}</dd>
+            </div>
+            <div>
+              <dt>任务名称</dt>
+              <dd>{configuration.description || '未填写'}</dd>
+            </div>
+            <div>
+              <dt>输入参数</dt>
+              <dd>{inputCount} 项</dd>
+            </div>
+          </dl>
+        </section>
+        <section className="lab-ui-run-preparation-summary__inventory">
+          <h3>库存需求</h3>
+          <InventoryRequirementList requirements={viewModel.requirements} />
+        </section>
+      </div>
       {preflight && <PreflightReportView report={preflight} />}
     </section>
   )

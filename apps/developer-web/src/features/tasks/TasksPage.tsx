@@ -13,29 +13,16 @@ import { EmptyState } from "@unilab/design-v2";
 import { useEffect, useMemo, useState } from "react";
 import type { TaskRuntimePresentation } from "@unilab-fe/core";
 import { useBackend } from "../../app/BackendProvider";
-import type { StudioRoute } from "../../components/AppShell";
 import { AppIcon } from "../../components/ui/Icon";
 import { AsyncState } from "../../components/ui/AsyncState";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { TableText } from "../../components/ui/TableText";
 import { useBackendQuery } from "../../hooks/useBackendQuery";
-import {
-  displayTime,
-  jobLabel,
-  jobStatus,
-  resourceEntries,
-  toTaskListRow,
-  toTimelineItems,
-  type TaskListRow,
-} from "./taskDomain";
-import { TaskDetail } from "./TaskDetailPage";
+import { displayTime, toTaskListRow, type TaskListRow } from "./taskDomain";
+import { TaskDetailPage } from "./TaskDetailPage";
 
-export function TasksPage({
-  onNavigate,
-}: {
-  onNavigate: (route: StudioRoute) => void;
-}) {
+export function TasksPage() {
   const query = useBackendQuery("task-presentations", (backend) =>
     backend.core.executionRead.listTaskPresentations({
       page: 1,
@@ -92,11 +79,7 @@ export function TasksPage({
 
   if (selected)
     return (
-      <TaskDetail
-        row={selected}
-        onBack={closeTask}
-        onNavigate={onNavigate}
-      />
+      <TaskDetailPage taskUuid={selected.task.taskUuid} onBack={closeTask} />
     );
   const columns: TableColumnsType<TaskListRow> = [
     {
@@ -243,9 +226,7 @@ function AbortTaskButton({
 }) {
   const { backend } = useBackend();
   const [busy, setBusy] = useState(false);
-  const available =
-    backend.services.getCapabilityStatus("workflow.runTasks").available &&
-    ["running", "waiting", "attention"].includes(status);
+  const available = ["running", "waiting", "attention"].includes(status);
   const abort = () =>
     Modal.confirm({
       title: "中止任务？",
@@ -256,11 +237,11 @@ function AbortTaskButton({
       onOk: async () => {
         setBusy(true);
         try {
-          await backend.services.workflow.commandWorkflowTask(taskUuid, {
+          const receipt = await backend.core.executionControl.sendTaskCommand(taskUuid, {
             type: "cancel",
-            idempotency_key: `studio-${taskUuid}-${Date.now()}`,
+            idempotencyKey: `studio-${taskUuid}-cancel-${Date.now()}`,
           });
-          message.success("中止命令已发送");
+          message.success(receipt.accepted ? "中止命令已接受，等待 OS 生效" : "中止命令未被接受");
           onDone();
         } catch (error) {
           message.error(error instanceof Error ? error.message : "中止失败");

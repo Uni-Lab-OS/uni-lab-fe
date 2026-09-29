@@ -1,7 +1,6 @@
 import {
   Alert,
   Button,
-  Collapse,
   Form,
   Input,
   Select,
@@ -12,91 +11,19 @@ import {
   message,
 } from "antd";
 import { useEffect, useMemo, useState } from "react";
-import type {
-  PreflightReport,
-} from "@unilab-fe/core";
+import {
+  RunPreparationSummary,
+  RunSubmitConfirmation,
+  WorkflowInputForm,
+} from "@unilab/lab-ui";
 import type { StudioRoute } from "../../components/AppShell";
 import { AppIcon } from "../../components/ui/Icon";
 import { AsyncState } from "../../components/ui/AsyncState";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { useBackend } from "../../app/BackendProvider";
 import { createRunPreparationReactStore } from "@unilab-fe/core/react";
-import { jsonText, nodeLabel } from "./workflowPresentation";
-import {
-  normalizeWorkflowInput,
-  workflowInputDefaults,
-  WorkflowInputFields,
-} from "./WorkflowInputFields";
-
-function preflightStatusLabel(status?: PreflightReport["status"]) {
-  switch (status) {
-    case "runnable_now":
-      return "可提交";
-    case "temporarily_unavailable":
-      return "暂不可提交";
-    case "invalid":
-      return "参数无效";
-    default:
-      return "未执行";
-  }
-}
-
-function preflightStatusColor(
-  status?: PreflightReport["status"],
-): "default" | "green" | "orange" | "red" {
-  switch (status) {
-    case "runnable_now":
-      return "green";
-    case "temporarily_unavailable":
-      return "orange";
-    case "invalid":
-      return "red";
-    default:
-      return "default";
-  }
-}
-
-function preflightCheckLabel(status: PreflightReport["checks"][number]["status"]) {
-  switch (status) {
-    case "passed":
-      return "已通过";
-    case "blocked":
-      return "已阻塞";
-    case "deferred":
-      return "待复核";
-    case "confirmation_required":
-      return "待确认";
-  }
-}
-
-function preflightCheckColor(
-  status: PreflightReport["checks"][number]["status"],
-): "blue" | "green" | "orange" | "red" {
-  switch (status) {
-    case "passed":
-      return "green";
-    case "blocked":
-      return "red";
-    case "deferred":
-      return "orange";
-    case "confirmation_required":
-      return "blue";
-  }
-}
-
-type PreflightCheck = PreflightReport["checks"][number];
-type PreflightCheckStatus = PreflightCheck["status"];
-
-const preflightCheckGroups: ReadonlyArray<{
-  key: PreflightCheckStatus;
-  title: string;
-  color: "blue" | "green" | "orange" | "red";
-}> = [
-  { key: "blocked", title: "阻塞项", color: "red" },
-  { key: "confirmation_required", title: "待确认", color: "blue" },
-  { key: "deferred", title: "待复核", color: "orange" },
-  { key: "passed", title: "已通过", color: "green" },
-];
+import { jsonText } from "./workflowPresentation";
+import { normalizeWorkflowInput, workflowInputDefaults } from "./WorkflowInputFields";
 
 export function WorkflowDebugPage({
   workflowUuid,
@@ -114,6 +41,7 @@ export function WorkflowDebugPage({
   );
   const storeStatus = useRunPreparationStore((state) => state.status);
   const storeError = useRunPreparationStore((state) => state.error);
+  const viewModel = useRunPreparationStore((state) => state.viewModel);
   const revision = useRunPreparationStore((state) => state.viewModel?.revision);
   const preflight = useRunPreparationStore((state) => state.preflight);
   const submitted = useRunPreparationStore((state) => state.submittedRun);
@@ -122,7 +50,7 @@ export function WorkflowDebugPage({
   const priority = configuration?.priority ?? "normal";
   const taskName = configuration?.description ?? "";
   const [step, setStep] = useState(0);
-  const [inputForm] = Form.useForm<Record<string, unknown>>();
+  const [workflowInput, setWorkflowInput] = useState<Record<string, unknown>>({});
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   useEffect(() => {
@@ -133,35 +61,10 @@ export function WorkflowDebugPage({
     () => revision?.graph.inputParameters ?? [],
     [revision],
   );
-  const groupedPreflightChecks = useMemo(
-    () =>
-      preflight
-        ? preflightCheckGroups
-            .map((group) => ({
-              ...group,
-              checks: preflight.checks.filter(
-                (check) => check.status === group.key,
-              ),
-            }))
-            .filter((group) => group.checks.length > 0)
-        : [],
-    [preflight],
-  );
-  const defaultPreflightActiveKeys = useMemo(() => {
-    const priorityGroups = groupedPreflightChecks.filter(
-      (group) =>
-        group.key === "blocked" || group.key === "confirmation_required",
-    );
-    return (priorityGroups.length > 0
-      ? priorityGroups
-      : groupedPreflightChecks.slice(0, 1)
-    ).map((group) => group.key);
-  }, [groupedPreflightChecks]);
-
   useEffect(() => {
     if (!revision) return;
     const defaults = workflowInputDefaults(inputParameters);
-    inputForm.setFieldsValue({ workflowInput: configuration?.input ?? defaults });
+    setWorkflowInput(configuration?.input ?? defaults);
     const current = useRunPreparationStore.getState().viewModel?.configuration;
     if (!current?.description) {
       useRunPreparationStore.getState().updateConfiguration({
@@ -169,7 +72,7 @@ export function WorkflowDebugPage({
         input: configuration?.input ?? defaults,
       });
     }
-  }, [inputForm, inputParameters, revision, useRunPreparationStore]);
+  }, [configuration?.input, inputParameters, revision, useRunPreparationStore]);
 
   const runPreflight = async () => {
     if (!revision) return;
@@ -180,8 +83,7 @@ export function WorkflowDebugPage({
         setFormError("请填写任务名称");
         return;
       }
-      const values = await inputForm.validateFields();
-      const nextInput = normalizeWorkflowInput(values, inputParameters);
+      const nextInput = normalizeWorkflowInput(workflowInput, inputParameters);
       const store = useRunPreparationStore.getState();
       store.updateConfiguration({
         runMode,
@@ -256,7 +158,7 @@ export function WorkflowDebugPage({
                   <h2>填写运行参数</h2>
                   <Tag color="blue">v{revision.revision}</Tag>
                 </div>
-                <Form form={inputForm} layout="vertical">
+                <Form layout="vertical">
                   <div className="debug-run-options">
                     <Form.Item label="运行模式">
                       <Select
@@ -309,7 +211,11 @@ export function WorkflowDebugPage({
                     <div className="workflow-input-section__heading">
                       <strong>工作流参数</strong>
                     </div>
-                    <WorkflowInputFields parameters={inputParameters} />
+                    <WorkflowInputForm
+                      parameters={inputParameters}
+                      value={workflowInput}
+                      onChange={setWorkflowInput}
+                    />
                   </div>
                   {formError && (
                     <Alert
@@ -327,49 +233,10 @@ export function WorkflowDebugPage({
             )}
             {step === 1 && (
               <section className="detail-card debug-step-card">
-                <div className="section-title">
-                  <h2>依赖检查</h2>
-                  <Tag color={preflightStatusColor(preflight?.status)}>
-                    {preflightStatusLabel(preflight?.status)}
-                  </Tag>
-                </div>
-                {preflight && (
-                  <Collapse
-                    className="preflight-accordion"
-                    bordered={false}
-                    defaultActiveKey={defaultPreflightActiveKeys}
-                    items={groupedPreflightChecks.map((group) => ({
-                      key: group.key,
-                      label: (
-                        <span className="preflight-group-label">
-                          <strong>{group.title}</strong>
-                          <span>{group.checks.length} 项</span>
-                        </span>
-                      ),
-                      extra: <Tag color={group.color}>{group.title}</Tag>,
-                      children: (
-                        <div className="preflight-list">
-                          {group.checks.map((check, index) => (
-                            <div
-                              className={`preflight-item preflight-item--${check.status}`}
-                              key={`${check.code}-${check.nodeUuid ?? "global"}-${index}`}
-                            >
-                              <span className="preflight-dot" />
-                              <div>
-                                <strong>{check.message}</strong>
-                                <small>
-                                  {check.code}
-                                  {check.nodeName ? ` · ${check.nodeName}` : ""}
-                                </small>
-                              </div>
-                              <Tag color={preflightCheckColor(check.status)}>
-                                {preflightCheckLabel(check.status)}
-                              </Tag>
-                            </div>
-                          ))}
-                        </div>
-                      ),
-                    }))}
+                {viewModel && (
+                  <RunPreparationSummary
+                    viewModel={viewModel}
+                    preflight={preflight}
                   />
                 )}
                 {formError && (
@@ -380,17 +247,13 @@ export function WorkflowDebugPage({
                     message={formError}
                   />
                 )}
-                <Space>
-                  <Button onClick={() => setStep(0)}>返回修改</Button>
-                  <Button
-                    type="primary"
-                    loading={busy}
-                    disabled={!preflight?.canRun}
-                    onClick={submit}
-                  >
-                    提交任务
-                  </Button>
-                </Space>
+                <RunSubmitConfirmation
+                  canSubmit={Boolean(preflight?.canRun)}
+                  busy={busy}
+                  onEdit={() => setStep(0)}
+                  onSubmit={submit}
+                  submitLabel="提交任务"
+                />
               </section>
             )}
             {step === 2 && (

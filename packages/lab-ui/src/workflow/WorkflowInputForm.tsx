@@ -66,7 +66,7 @@ function WorkflowInputField({
       <span className="lab-ui-form-field__label">
         <span>
           {label}
-          {parameter.required ? ' *' : ''}
+          {parameter.required && <span className="lab-ui-required-mark" aria-hidden="true"> *</span>}
         </span>
         <code>{parameter.name}</code>
       </span>
@@ -123,7 +123,7 @@ function renderInput(
         min={numberValue(schema.minimum)}
         max={numberValue(schema.maximum)}
         step={schema.type === 'integer' ? 1 : 'any'}
-        onChange={(event) => onChange(event.currentTarget.value)}
+        onChange={(event) => onChange(numberInputValue(event.currentTarget.value))}
       />
     )
   }
@@ -166,4 +166,10 @@ function stringValue(value: unknown): string {
 
 function numberValue(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function numberInputValue(value: string): number | string {
+  if (value === '') return ''
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : value
 }

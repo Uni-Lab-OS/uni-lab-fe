@@ -14,17 +14,8 @@ export function RunSubmitConfirmation({
   onEdit,
   submitLabel = '提交运行',
 }: RunSubmitConfirmationProps) {
-  const title = canSubmit ? '检查完成，可以提交' : '当前不能提交'
-  const description = canSubmit
-    ? '提交后将由运行时返回任务和节点状态。'
-    : '请先处理运行前检查中的阻塞项。'
-
   return (
     <div className="lab-ui-run-submit-confirmation">
-      <div>
-        <strong>{title}</strong>
-        <p>{description}</p>
-      </div>
       <div className="lab-ui-run-submit-confirmation__actions">
         {onEdit && (
           <button type="button" onClick={onEdit} disabled={busy}>

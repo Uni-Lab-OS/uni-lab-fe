@@ -20,7 +20,7 @@ function StudioRoutes() {
     ) : route === "workflows" ? (
       <WorkflowsPage onNavigate={navigateTo} />
     ) : route === "tasks" ? (
-      <TasksPage onNavigate={navigateTo} />
+      <TasksPage />
     ) : (
       <MaterialsPage />
     );

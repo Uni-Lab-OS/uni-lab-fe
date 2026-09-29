@@ -18,6 +18,7 @@ const task = (raw: Readonly<Record<string, unknown>>): TaskRuntimePresentation =
   updatedAt: "2026-09-24T05:23:58.676408Z",
   finishedAt: null,
   attentionReason: null,
+  progress: null,
   raw,
   jobs: [],
 });

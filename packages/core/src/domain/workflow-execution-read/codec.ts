@@ -16,6 +16,7 @@ import type {
   TaskRuntimePresentationJob,
   TaskRuntimePresentationPage
 } from './model'
+import { deriveWorkflowProgress } from './debug-facts'
 
 export function decodeTaskRuntimeDetail(value: unknown): TaskRuntimeDetail {
   const raw = unwrapData(asRecord(value, 'task'))
@@ -92,6 +93,7 @@ function decodeTaskPresentation(value: WorkflowExecutionRecord): TaskRuntimePres
     updatedAt: requiredString(value.update_time, 'presentation.update_time'),
     finishedAt: nullableString(value.finished_at, 'presentation.finished_at'),
     attentionReason: nullableString(value.attention_reason, 'presentation.attention_reason'),
+    progress: deriveWorkflowProgress(value.progress, jobs),
     jobs: jobs.map((job, index) => decodePresentationJob(
       asRecord(job, `presentation.jobs[${index}]`)
     )),
@@ -230,6 +232,9 @@ function decodeTaskJob(value: WorkflowExecutionRecord): TaskJobSummary {
     errorInfo: Array.isArray(value.error_info) ? value.error_info : [],
     waitReason: asOptionalRecord(value.wait_reason) ?? {},
     expectedChangeSet: asOptionalRecord(value.expected_change_set) ?? {},
+    ...(optionalString(value.started_at) === undefined
+      ? {}
+      : { startedAt: optionalString(value.started_at) }),
     ...(optionalString(value.finished_at) === undefined
       ? {}
       : { finishedAt: optionalString(value.finished_at) }),

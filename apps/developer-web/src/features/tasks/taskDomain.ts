@@ -21,18 +21,14 @@ export interface TaskListRow {
 }
 
 export function toTaskListRow(task: TaskRuntimePresentation): TaskListRow {
-  const totalJobs = task.jobs.length;
-  const completedJobs = task.jobs.filter((job) =>
-    ["success", "succeeded", "completed", "finished"].includes(
-      job.status.toLowerCase(),
-    ),
-  ).length;
+  const totalJobs = task.progress?.total ?? task.jobs.length;
+  const completedJobs = task.progress?.completed ?? 0;
   return {
     task,
     name: taskDisplayName(task),
     workflowName: workflowDisplayName(task),
     status: normalizeStatus(task.status, task.attentionReason),
-    progress: totalJobs ? Math.round((completedJobs / totalJobs) * 100) : null,
+    progress: task.progress?.percent ?? (totalJobs ? Math.round((completedJobs / totalJobs) * 100) : null),
     completedJobs,
     totalJobs,
   };

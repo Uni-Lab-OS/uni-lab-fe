@@ -36,16 +36,44 @@ export function createStudioBackend(): StudioBackend {
   };
   const accessToken = () =>
     window.sessionStorage.getItem("unilab.access_token");
+  const services = createServices({
+    backend: config,
+    getAccessToken: accessToken,
+  });
+  const core = createBackendCore({
+    baseUrl,
+    timeoutMs: 12_000,
+    getAccessToken: accessToken,
+  }, {
+    runtimeEvents: {
+      subscribe(listener, options) {
+        const subscription = services.workflow.subscribeWorkflowRuntime((event) => {
+          if (event.event !== "workflow.runtime.changed" && event.event !== "device_action_task.changed") return;
+          listener({
+            id: event.id,
+            event: event.event,
+            workflowTaskUuid: event.event === "workflow.runtime.changed"
+              ? event.data.workflow_task_uuid
+              : event.data.task_uuid,
+            raw: event.data,
+          });
+        }, {
+          lastEventId: options?.lastEventId,
+          onError: (error) => {
+            // 当前 OS 某些 runtime.changed 帧附带 dispatch_gate 等扩展字段。
+            // 失效事件仍包含权威 task UUID；兼容性解析告警不应把 Core 会话置为错误，
+            // 真正的 SSE 连接错误继续交给 Core Store 展示。
+            if (error.message === "Workflow Runtime SSE 返回了无效事件") return;
+            options?.onError?.(error);
+          },
+        });
+        return { dispose: subscription.dispose };
+      },
+    },
+  });
   return {
     config,
-    core: createBackendCore({
-      baseUrl,
-      timeoutMs: 12_000,
-      getAccessToken: accessToken,
-    }),
-    services: createServices({
-      backend: config,
-      getAccessToken: accessToken,
-    }),
+    core,
+    services,
   };
 }

@@ -1,3 +1,4 @@
+import { Icon } from '@unilab/design-v2/icons'
 import type { PreflightCheckStatus, PreflightReport } from '@unilab-fe/core'
 
 export interface PreflightReportViewProps {
@@ -6,29 +7,57 @@ export interface PreflightReportViewProps {
 
 /** 后端 preflight 权威结果的展示，不根据 HTTP 接受结果推断运行状态。 */
 export function PreflightReportView({ report }: PreflightReportViewProps) {
+  const groups = groupChecks(report.checks)
+
   return (
     <section
       className={`lab-ui-preflight lab-ui-preflight--${report.status}`}
       aria-label="运行前检查"
     >
       <header className="lab-ui-preflight__header">
-        <div>
-          <span className="lab-ui-eyebrow">运行前检查</span>
-          <h2>{preflightStatusLabel(report.status)}</h2>
-        </div>
-        <span>{report.canRun ? '可以提交' : '暂不可提交'}</span>
+        <h2>运行前检查</h2>
       </header>
       {report.checks.length === 0 ? (
         <p className="lab-ui-list-empty">后端没有返回检查项。</p>
       ) : (
-        <ul className="lab-ui-preflight__list">
-          {report.checks.map((check, index) => (
-            <PreflightCheckItem
-              key={`${check.code}-${check.nodeUuid ?? 'global'}-${index}`}
-              check={check}
-            />
+        <div className="lab-ui-preflight__groups">
+          {groups.map((group) => (
+            <details
+              className={`lab-ui-preflight__group is-${group.status}`}
+              key={group.status}
+              open={group.status === 'blocked' || group.status === 'confirmation_required'}
+            >
+              <summary>
+                <span>{group.title}</span>
+                <span className={`lab-ui-preflight__tag is-${group.status}`}>
+                  {group.checks.length}
+                </span>
+              </summary>
+              <ul className="lab-ui-preflight__list">
+                {group.checks.map((check, index) => (
+                  <PreflightCheckItem
+                    key={`${check.code}-${check.nodeUuid ?? 'global'}-${index}`}
+                    check={check}
+                  />
+                ))}
+              </ul>
+            </details>
           ))}
-        </ul>
+        </div>
+      )}
+      {!report.canRun && (
+        <div className="lab-ui-preflight__alert" role="alert">
+          <Icon
+            name="alerts-feedback/alert-circle"
+            color="error"
+            size={16}
+            decorative
+          />
+          <div>
+            <strong>当前不能提交</strong>
+            <p>请先处理运行前检查中的阻塞项。</p>
+          </div>
+        </div>
       )}
     </section>
   )
@@ -49,15 +78,30 @@ function PreflightCheckItem({
           {check.nodeName ? ` · ${check.nodeName}` : ''}
         </small>
       </div>
-      <span>{checkStatusLabel(check.status)}</span>
+      <span className={`lab-ui-preflight__status-tag is-${check.status}`}>
+        {checkStatusLabel(check.status)}
+      </span>
     </li>
   )
 }
 
-function preflightStatusLabel(status: PreflightReport['status']): string {
-  if (status === 'runnable_now') return '检查通过'
-  if (status === 'temporarily_unavailable') return '暂不可用'
-  return '参数无效'
+const preflightGroups: ReadonlyArray<{
+  readonly status: PreflightCheckStatus
+  readonly title: string
+}> = [
+  { status: 'blocked', title: '阻塞项' },
+  { status: 'confirmation_required', title: '待确认' },
+  { status: 'deferred', title: '待复核' },
+  { status: 'passed', title: '已通过' },
+]
+
+function groupChecks(checks: PreflightReport['checks']) {
+  return preflightGroups
+    .map((group) => ({
+      ...group,
+      checks: checks.filter((check) => check.status === group.status),
+    }))
+    .filter((group) => group.checks.length > 0)
 }
 
 function checkStatusLabel(status: PreflightCheckStatus): string {

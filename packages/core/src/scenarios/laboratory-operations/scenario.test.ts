@@ -32,7 +32,7 @@ function fakeExecutionRead(): WorkflowExecutionReadPort {
           kind: 'task_runtime_presentation', source: 'os', taskUuid: 'task-1', workflowUuid: 'workflow-1',
           executionKind: 'workflow', status: 'running', runMode: 'normal', controlStatus: 'active',
           cleanupStatus: 'none', priority: null, description: null, createdAt: 'now', updatedAt: 'now',
-          finishedAt: null, attentionReason: null, jobs: [], raw: {}
+          finishedAt: null, attentionReason: null, progress: null, jobs: [], raw: {}
         }], total: 1, page: 1, pageSize: 20, raw: {}
       }
     },
