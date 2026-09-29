@@ -3,11 +3,17 @@ import type {
   EdgeInstanceListResponse,
   EdgeLotListResponse,
   EdgeSnapshotResponse,
+  InventoryCommandResponse,
+  ReagentBatchResponse,
+  ReagentHistoryListResponse,
   ReagentInfoListResponse,
   ReagentInventoryRecord,
   ReagentListResponse
 } from './api'
 import type {
+  CapacityInput,
+  CapacityLimits,
+  CompoundLookup,
   InventoryContent,
   InventoryInstance,
   InventoryLot,
@@ -16,9 +22,22 @@ import type {
   InventorySnapshot,
   InventoryTemplate,
   Reagent,
+  ReagentBatchResult,
+  ReagentBatchRowError,
+  ReagentDispenseCommand,
+  ReagentDispenseLine,
+  ReagentDispenseResult,
+  ReagentDraft,
+  ReagentHistoryEntry,
+  ReagentHistoryPage,
   ReagentInfo,
+  ReagentInfoBatchResult,
+  ReagentInfoDraft,
   ReagentInfoPage,
-  ReagentPage
+  ReagentInfoPatch,
+  ReagentPage,
+  ReagentPatch,
+  ReagentStructure3d
 } from './model'
 
 export function decodeReagentInfoPage(value: unknown): ReagentInfoPage {
@@ -75,6 +94,14 @@ export function decodeReagent(value: unknown): Reagent {
   return {
     kind: 'reagent',
     source: 'os',
+    densitySource: nullableString(raw.density_source, 'reagent.density_source'),
+    materialRevision: nullableNonNegativeInteger(raw.material_revision, 'reagent.material_revision'),
+    maximumCapacity: nullableCapacity(raw.maximum_capacity, 'reagent.maximum_capacity'),
+    configuredCapacity: nullableCapacity(raw.configured_capacity, 'reagent.configured_capacity'),
+    ratedCapacity: nullableCapacity(raw.rated_capacity, 'reagent.rated_capacity'),
+    reagentInfo: raw.reagent_info == null
+      ? null
+      : decodeReagentInfo(asRecord(raw.reagent_info, 'reagent.reagent_info')),
     reagentUuid: requiredString(raw.uuid, 'reagent.uuid'),
     materialUuid: requiredString(raw.material_uuid, 'reagent.material_uuid'),
     reagentInfoUuid: requiredString(raw.reagent_info_uuid, 'reagent.reagent_info_uuid'),
@@ -102,6 +129,351 @@ export function decodeReagent(value: unknown): Reagent {
     status: quantity === null ? 'unknown' : quantity > 0 ? 'available' : 'empty',
     raw
   }
+}
+
+/** 校验信封是否被 OS 接受；删除等没有返回投影的写入使用它。 */
+export function assertReagentEnvelopeAccepted(value: unknown): void {
+  unwrapEnvelope(value)
+}
+
+export function decodeCompoundLookup(value: unknown): CompoundLookup {
+  const raw = asRecord(unwrapEnvelope(value), 'compound lookup')
+  const status = requiredString(raw.status, 'compound.status')
+  if (status !== 'registered' && status !== 'ok' && status !== 'not_found' && status !== 'unavailable') {
+    invalid(`compound.status ${status} is not a known lookup status`)
+  }
+  const compound = asOptionalRecord(raw.compound)
+  return {
+    kind: 'compound_lookup',
+    source: 'os',
+    cas: requiredString(raw.cas, 'compound.cas'),
+    status,
+    message: nullableString(raw.message, 'compound.message'),
+    compound: compound === undefined ? null : {
+      name: nullableString(compound.name, 'compound.compound.name'),
+      molecularFormula: nullableString(compound.molecular_formula, 'compound.compound.molecular_formula'),
+      smiles: nullableString(compound.smiles, 'compound.compound.smiles'),
+      inchiKey: nullableString(compound.inchi_key, 'compound.compound.inchi_key'),
+      molecularWeight: nullableFiniteNumber(compound.molecular_weight, 'compound.compound.molecular_weight'),
+      densityGPerMl: nullableFiniteNumber(compound.density_g_per_ml, 'compound.compound.density_g_per_ml'),
+      raw: compound
+    },
+    raw
+  }
+}
+
+export function decodeReagentStructure3d(value: unknown): ReagentStructure3d {
+  const raw = asRecord(unwrapEnvelope(value), 'reagent structure')
+  return {
+    kind: 'reagent_structure_3d',
+    source: 'os',
+    reagentInfoUuid: requiredString(raw.reagent_info_uuid, 'structure.reagent_info_uuid'),
+    identityKey: nullableString(raw.identity_key, 'structure.identity_key'),
+    format: nullableString(raw.format, 'structure.format'),
+    structureSource: nullableString(raw.source, 'structure.source'),
+    sourceId: nullableString(raw.source_id, 'structure.source_id'),
+    content: nullableString(raw.content, 'structure.content'),
+    checksum: nullableString(raw.checksum, 'structure.checksum'),
+    status: requiredString(raw.status, 'structure.status'),
+    generatedAt: nullableString(raw.generated_at, 'structure.generated_at'),
+    errorMessage: nullableString(raw.error_message, 'structure.error_message'),
+    updatedAt: nullableString(raw.update_time, 'structure.update_time'),
+    raw
+  }
+}
+
+export function decodeReagentHistoryPage(value: unknown): ReagentHistoryPage {
+  const root = asRecord(unwrapEnvelope(value), 'reagent history list') as ReagentHistoryListResponse
+  const items = listItems(root, 'reagent history list')
+  return {
+    items: items.map((item, index) => decodeReagentHistoryEntry(asRecord(item, `reagent_history.items[${index}]`))),
+    page: nullablePositiveInteger(root.page, 'reagent_history.page'),
+    pageSize: nullablePositiveInteger(root.page_size, 'reagent_history.page_size'),
+    hasMore: root.has_more === true,
+    raw: root
+  }
+}
+
+export function decodeReagentHistoryEntry(value: unknown): ReagentHistoryEntry {
+  const raw = asRecord(unwrapEnvelope(value), 'reagent history')
+  return {
+    kind: 'reagent_history_entry',
+    source: 'os',
+    historyUuid: requiredString(raw.uuid, 'reagent_history.uuid'),
+    materialUuid: requiredString(raw.material_uuid, 'reagent_history.material_uuid'),
+    eventType: requiredString(raw.event_type, 'reagent_history.event_type'),
+    operatorType: requiredString(raw.operator_type, 'reagent_history.operator_type'),
+    causationId: nullableString(raw.causation_id, 'reagent_history.causation_id'),
+    changes: optionalRecord(raw.changes, 'reagent_history.changes'),
+    extension: optionalRecord(raw.extension, 'reagent_history.extension'),
+    traceId: nullableString(raw.trace_id, 'reagent_history.trace_id'),
+    recordedAt: requiredString(raw.recorded_at, 'reagent_history.recorded_at'),
+    workflowTaskUuid: nullableString(raw.workflow_task_uuid, 'reagent_history.workflow_task_uuid'),
+    workflowNodeJobUuid: nullableString(raw.workflow_node_job_uuid, 'reagent_history.workflow_node_job_uuid'),
+    subjectType: requiredString(raw.subject_type, 'reagent_history.subject_type'),
+    subjectUuid: requiredString(raw.subject_uuid, 'reagent_history.subject_uuid'),
+    quantityDelta: nullableFiniteNumber(raw.quantity_delta, 'reagent_history.quantity_delta'),
+    quantityUnit: nullableString(raw.quantity_unit, 'reagent_history.quantity_unit'),
+    revision: nullableNonNegativeInteger(raw.revision, 'reagent_history.revision'),
+    raw
+  }
+}
+
+export function decodeReagentInfoBatchResult(value: unknown): ReagentInfoBatchResult {
+  const root = batchRoot(value)
+  return {
+    kind: 'reagent_info_batch_result',
+    source: 'os',
+    ...batchOutcome(root),
+    items: (root.items ?? []).map((item, index) =>
+      decodeReagentInfo(asRecord(item, `reagent_info_batch.items[${index}]`))
+    )
+  }
+}
+
+export function decodeReagentBatchResult(value: unknown): ReagentBatchResult {
+  const root = batchRoot(value)
+  return {
+    kind: 'reagent_batch_result',
+    source: 'os',
+    ...batchOutcome(root),
+    items: (root.items ?? []).map((item, index) =>
+      decodeReagent(asRecord(item, `reagent_batch.items[${index}]`))
+    )
+  }
+}
+
+/**
+ * 库存命令响应没有 `{code,data}` 信封。命令被拒绝时 `status` 与 `error_code`
+ * 都必须保留，由调用方判断是否可重试。
+ */
+export function decodeReagentDispenseResult(value: unknown): ReagentDispenseResult {
+  const raw = asRecord(value, 'dispense result') as InventoryCommandResponse
+  const result = asOptionalRecord(raw.result)
+  return {
+    kind: 'reagent_dispense_result',
+    source: 'os',
+    commandId: requiredString(raw.command_id, 'dispense.command_id'),
+    status: requiredString(raw.status, 'dispense.status'),
+    errorCode: nullableString(raw.error_code, 'dispense.error_code'),
+    errorMessage: nullableString(raw.error_message, 'dispense.error_message'),
+    sourceLine: result?.source == null
+      ? null
+      : decodeDispenseLine(asRecord(result.source, 'dispense.result.source'), 'dispense.result.source'),
+    targets: decodeArray(
+      result?.targets,
+      (line) => decodeDispenseLine(line, 'dispense.result.targets'),
+      'dispense.result.targets'
+    ),
+    raw
+  }
+}
+
+export function encodeReagentInfoDraft(
+  draft: ReagentInfoDraft
+): Readonly<Record<string, unknown>> {
+  return {
+    name: draft.name,
+    ...(draft.cas === undefined ? {} : { cas: draft.cas }),
+    ...optionalField('name_en', draft.nameEn),
+    ...(draft.aliases === undefined ? {} : { aliases: [...draft.aliases] }),
+    ...optionalField('molecular_formula', draft.molecularFormula),
+    ...optionalField('smiles', draft.smiles),
+    ...optionalField('inchi_key', draft.inchiKey),
+    ...optionalField('molecular_weight', draft.molecularWeight),
+    ...optionalField('density_g_per_ml', draft.densityGPerMl),
+    ...(draft.physicalState === undefined ? {} : { physical_state: draft.physicalState }),
+    ...optionalField('description', draft.description),
+    ...(draft.metadata === undefined ? {} : { meta_data: draft.metadata })
+  }
+}
+
+/** 只发送显式出现的键，让 OS 的 `exclude_unset` 保持未提及字段不变。 */
+export function encodeReagentInfoPatch(
+  patch: ReagentInfoPatch
+): Readonly<Record<string, unknown>> {
+  return {
+    ...optionalField('name', patch.name),
+    ...optionalField('cas', patch.cas),
+    ...optionalField('name_en', patch.nameEn),
+    ...(patch.aliases === undefined ? {} : { aliases: [...patch.aliases] }),
+    ...optionalField('molecular_formula', patch.molecularFormula),
+    ...optionalField('smiles', patch.smiles),
+    ...optionalField('inchi_key', patch.inchiKey),
+    ...optionalField('molecular_weight', patch.molecularWeight),
+    ...optionalField('density_g_per_ml', patch.densityGPerMl),
+    ...optionalField('physical_state', patch.physicalState),
+    ...optionalField('description', patch.description),
+    ...(patch.metadata === undefined ? {} : { meta_data: patch.metadata })
+  }
+}
+
+export function encodeReagentDraft(
+  draft: ReagentDraft
+): Readonly<Record<string, unknown>> {
+  requireExactlyOneIdentity(draft)
+  return {
+    material_uuid: draft.materialUuid,
+    ...(draft.reagentInfoUuid === undefined ? {} : { reagent_info_uuid: draft.reagentInfoUuid }),
+    ...(draft.cas === undefined ? {} : { cas: draft.cas }),
+    quantity: draft.quantity,
+    quantity_unit: draft.quantityUnit,
+    ...(draft.physicalState === undefined ? {} : { physical_state: draft.physicalState }),
+    ...optionalField('density_g_per_ml', draft.densityGPerMl),
+    ...optionalField('concentration_value', draft.concentrationValue),
+    ...optionalField('concentration_unit', draft.concentrationUnit),
+    ...optionalField('source', draft.source),
+    ...optionalField('observed_at', draft.observedAt),
+    ...optionalField('description', draft.description),
+    ...(draft.metadata === undefined ? {} : { meta_data: draft.metadata }),
+    ...encodeCapacityField(draft.containerCapacity),
+    ...optionalField('expected_material_revision', draft.expectedMaterialRevision)
+  }
+}
+
+export function encodeReagentPatch(
+  patch: ReagentPatch
+): Readonly<Record<string, unknown>> {
+  return {
+    quantity: patch.quantity,
+    quantity_unit: patch.quantityUnit,
+    ...optionalField('expected_revision', patch.expectedRevision),
+    ...optionalField('concentration_value', patch.concentrationValue),
+    ...optionalField('concentration_unit', patch.concentrationUnit),
+    ...optionalField('source', patch.source),
+    ...optionalField('observed_at', patch.observedAt),
+    ...optionalField('description', patch.description),
+    ...(patch.metadata === undefined ? {} : { meta_data: patch.metadata }),
+    ...encodeCapacityField(patch.containerCapacity),
+    ...optionalField('expected_material_revision', patch.expectedMaterialRevision)
+  }
+}
+
+export function encodeReagentDispenseCommand(
+  command: ReagentDispenseCommand
+): Readonly<Record<string, unknown>> {
+  if (command.targets.length === 0) {
+    throw new ReagentInventoryError(
+      'INVALID_REAGENT_WRITE_INPUT',
+      '分装命令必须至少包含一个目标容器'
+    )
+  }
+  return {
+    command_id: command.commandId,
+    type: 'reagent.dispense',
+    ...(command.actor === undefined ? {} : { actor: command.actor }),
+    ...(command.warehouseZoneId === undefined
+      ? {}
+      : { warehouse_zone_id: command.warehouseZoneId }),
+    payload: {
+      source_reagent_uuid: command.sourceReagentUuid,
+      quantity_unit: command.quantityUnit,
+      ...optionalField('expected_revision', command.expectedRevision),
+      ...(command.reason === undefined ? {} : { reason: command.reason }),
+      targets: command.targets.map((target) => ({
+        material_uuid: target.materialUuid,
+        quantity: target.quantity,
+        ...encodeCapacityField(target.containerCapacity),
+        ...optionalField('expected_material_revision', target.expectedMaterialRevision)
+      }))
+    }
+  }
+}
+
+function requireExactlyOneIdentity(draft: ReagentDraft): void {
+  const hasInfo = optionalString(draft.reagentInfoUuid) !== undefined
+  const hasCas = optionalString(draft.cas) !== undefined
+  if (hasInfo === hasCas) {
+    throw new ReagentInventoryError(
+      'INVALID_REAGENT_WRITE_INPUT',
+      '登记试剂必须且只能提供 reagentInfoUuid 或 cas 之一'
+    )
+  }
+}
+
+function encodeCapacityField(
+  capacity: CapacityInput | undefined
+): Readonly<Record<string, unknown>> {
+  if (capacity === undefined) return {}
+  const hasVolume = capacity.maxVolumeUl !== undefined
+  const hasMass = capacity.maxMassG !== undefined
+  if (hasVolume === hasMass) {
+    throw new ReagentInventoryError(
+      'INVALID_REAGENT_WRITE_INPUT',
+      '容器装料上限必须且只能提供 maxVolumeUl 或 maxMassG 之一'
+    )
+  }
+  return {
+    container_capacity: hasVolume
+      ? { max_volume_ul: capacity.maxVolumeUl }
+      : { max_mass_g: capacity.maxMassG }
+  }
+}
+
+function optionalField(
+  key: string,
+  value: unknown
+): Readonly<Record<string, unknown>> {
+  return value === undefined ? {} : { [key]: value }
+}
+
+function decodeDispenseLine(value: unknown, path: string): ReagentDispenseLine {
+  const raw = asRecord(value, path)
+  return {
+    reagentUuid: requiredString(raw.reagent_uuid, `${path}.reagent_uuid`),
+    materialUuid: nullableString(raw.material_uuid, `${path}.material_uuid`),
+    quantity: nullableFiniteNumber(raw.quantity, `${path}.quantity`),
+    quantityUnit: nullableString(raw.quantity_unit, `${path}.quantity_unit`),
+    revision: nullableNonNegativeInteger(raw.revision, `${path}.revision`),
+    raw
+  }
+}
+
+function batchRoot(value: unknown): ReagentBatchResponse {
+  return asRecord(unwrapEnvelope(value), 'reagent batch') as ReagentBatchResponse
+}
+
+function batchOutcome(root: ReagentBatchResponse): {
+  readonly total: number
+  readonly created: number
+  readonly failed: number
+  readonly atomic: boolean
+  readonly errors: readonly ReagentBatchRowError[]
+  readonly raw: Readonly<Record<string, unknown>>
+} {
+  return {
+    total: nullableNonNegativeInteger(root.total, 'reagent_batch.total') ?? 0,
+    created: nullableNonNegativeInteger(root.created, 'reagent_batch.created') ?? 0,
+    failed: nullableNonNegativeInteger(root.failed, 'reagent_batch.failed') ?? 0,
+    atomic: root.atomic !== false,
+    errors: decodeArray(root.errors, decodeBatchRowError, 'reagent_batch.errors'),
+    raw: root
+  }
+}
+
+export function decodeBatchRowError(raw: ReagentInventoryRecord): ReagentBatchRowError {
+  return {
+    row: nullablePositiveInteger(raw.row, 'reagent_batch.errors.row'),
+    errors: decodeArray(
+      raw.errors,
+      (entry) => ({
+        field: optionalString(entry.field) ?? 'row',
+        message: requiredString(entry.message, 'reagent_batch.errors.message')
+      }),
+      'reagent_batch.errors.errors'
+    ),
+    raw
+  }
+}
+
+function nullableCapacity(value: unknown, path: string): CapacityLimits | null {
+  if (value === null || value === undefined) return null
+  const raw = asRecord(value, path)
+  const maxVolumeUl = nullableFiniteNumber(raw.max_volume_ul, `${path}.max_volume_ul`)
+  const maxMassG = nullableFiniteNumber(raw.max_mass_g, `${path}.max_mass_g`)
+  // OS 用空对象表示“这一层没有声明上限”，不能当成上限为 0。
+  if (maxVolumeUl === null && maxMassG === null) return null
+  return { maxVolumeUl, maxMassG, raw }
 }
 
 export function decodeInventoryInstances(value: unknown): readonly InventoryInstance[] {
@@ -245,7 +617,14 @@ function unwrapEnvelope(value: unknown): unknown {
     throw new ReagentInventoryError(
       'OS_REQUEST_REJECTED',
       optionalString(error?.message ?? error?.msg ?? root.message)
-        ?? `OS request rejected with code ${String(root.code)}`
+        ?? `OS request rejected with code ${String(root.code)}`,
+      {
+        osCode: root.code as number | string,
+        // 批量导入把逐行错误放在 details 里；丢掉它就无法定位失败的那一行。
+        ...(asOptionalRecord(error?.details) === undefined
+          ? {}
+          : { details: asOptionalRecord(error?.details) })
+      }
     )
   }
   return root.data
@@ -279,8 +658,13 @@ function requiredString(value: unknown, path: string): string {
   return result
 }
 
+/**
+ * OS 用空字符串表示“该字段没有值”，例如 instance 的 `lot_id` 与 3D 结构的
+ * `identity_key`。空白一律收敛为 `null`，非字符串类型仍然按非法响应拒绝。
+ */
 function nullableString(value: unknown, path: string): string | null {
   if (value === null || value === undefined) return null
+  if (typeof value === 'string') return optionalString(value) ?? null
   return requiredString(value, path)
 }
 

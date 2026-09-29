@@ -245,6 +245,74 @@ body {
   margin: 12px 0 0;
 }
 
+/* 试剂列表撑满剩余视口：表头和分页固定，中间行数多时单独滚动。 */
+.studio-main--reagents {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studio-content--reagents {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+}
+
+.reagent-list-page {
+  flex: 1 1 auto;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.reagent-list-page > .data-section,
+.reagent-list-page > .async-state,
+.reagent-list-page > .async-state--table {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.reagent-list-page > .data-section {
+  flex: 1 1 auto;
+}
+
+.reagent-list-page .reagent-table,
+.reagent-list-page .reagent-table .ant-spin-nested-loading,
+.reagent-list-page .reagent-table .ant-spin-container,
+.reagent-list-page .reagent-table .ant-table,
+.reagent-list-page .reagent-table .ant-table-container {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.reagent-list-page .reagent-table .ant-table-container {
+  overflow: hidden;
+}
+
+.reagent-list-page .reagent-table .ant-table-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.reagent-list-page .reagent-table .ant-table-thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--studio-surface);
+}
+
+.reagent-list-page .reagent-table .ant-pagination {
+  flex: 0 0 auto;
+  margin: 12px 16px;
+}
+
 /* 详情页占满主内容区，动作列表和详情内容在卡片内部独立滚动。 */
 .studio-content--devices:has(.device-detail-page) {
   display: flex;
@@ -370,15 +438,37 @@ body {
   border-color: var(--studio-border);
 }
 
-.ant-btn-primary {
+.ant-btn-primary:not(.ant-btn-dangerous):not(.ant-btn-color-dangerous) {
   border-color: var(--studio-accent) !important;
   background: var(--studio-accent) !important;
   box-shadow: none !important;
 }
 
-.ant-btn-primary:hover {
+.ant-btn-primary:not(.ant-btn-dangerous):not(.ant-btn-color-dangerous):hover {
   border-color: var(--bh-color-primary-hover) !important;
   background: var(--bh-color-primary-hover) !important;
+}
+
+/* 删除确认是 primary + danger。主色规则不能把它刷成蓝色。 */
+.ant-btn-primary.ant-btn-dangerous:not(:disabled):not(.ant-btn-disabled),
+.ant-btn-primary.ant-btn-color-dangerous:not(:disabled):not(.ant-btn-disabled) {
+  color: var(--bh-color-primary-foreground, #fff) !important;
+  background: var(--bh-color-error-default) !important;
+  border-color: var(--bh-color-error-default) !important;
+  box-shadow: none !important;
+}
+
+.ant-btn-primary.ant-btn-dangerous:not(:disabled):not(.ant-btn-disabled):hover,
+.ant-btn-primary.ant-btn-color-dangerous:not(:disabled):not(.ant-btn-disabled):hover {
+  color: var(--bh-color-primary-foreground, #fff) !important;
+  background: var(--bh-color-error-hover) !important;
+  border-color: var(--bh-color-error-hover) !important;
+}
+
+.ant-btn-primary.ant-btn-dangerous:not(:disabled):not(.ant-btn-disabled):active,
+.ant-btn-primary.ant-btn-color-dangerous:not(:disabled):not(.ant-btn-disabled):active {
+  background: var(--bh-color-error-pressed) !important;
+  border-color: var(--bh-color-error-pressed) !important;
 }
 
 .ant-btn-dangerous:not(.ant-btn-text) {
@@ -1756,6 +1846,221 @@ body {
 
 .reagent-form-grid .ant-form-item {
   min-width: 0;
+}
+
+.amount-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.amount-cell__line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.amount-cell__line .ant-tag {
+  margin: 0;
+}
+
+.amount-cell strong {
+  color: var(--studio-text);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.amount-cell > span {
+  color: var(--studio-text-faint);
+  font-size: 10px;
+}
+
+/* antd 的 InputNumber/DatePicker 默认按内容宽度收缩，表单里需要撑满列宽。 */
+.reagent-mutation-form .full-input {
+  width: 100%;
+}
+
+.reagent-form-section {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 0 14px;
+  padding-left: 10px;
+  color: var(--studio-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.reagent-form-section::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+  height: 22px;
+  background: var(--studio-accent);
+}
+
+/* 横线放在上一块字段和下一组标题的正中，不贴着标题。 */
+.reagent-form-grid > .reagent-form-section:not(:first-child) {
+  margin-top: 0;
+  padding-top: 24px;
+}
+
+.reagent-form-grid > .reagent-form-section:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  border-top: 1px solid var(--studio-border);
+}
+
+.reagent-capacity-note {
+  margin-bottom: 16px;
+}
+
+.reagent-dispense-source {
+  margin-bottom: 16px;
+}
+
+.reagent-dispense-targets {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.reagent-dispense-target {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px auto;
+  gap: 12px;
+  align-items: end;
+  width: 100%;
+}
+
+.reagent-dispense-target .ant-select,
+.reagent-dispense-target .ant-input-number {
+  width: 100%;
+}
+
+.reagent-dispense-target .ant-form-item {
+  margin-bottom: 0;
+}
+
+.reagent-cas-lookup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reagent-cas-lookup .ant-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.reagent-lookup-result {
+  margin: 4px 0 12px;
+}
+
+.reagent-lookup-button.ant-btn {
+  flex: none;
+  height: 32px;
+  padding-inline: 12px;
+  color: var(--studio-accent);
+  background: var(--studio-surface);
+  border-color: var(--studio-border);
+}
+
+.reagent-lookup-button.ant-btn:not(:disabled):hover {
+  color: var(--studio-accent);
+  border-color: var(--studio-accent);
+  background: var(--studio-selection);
+}
+
+/* 弹窗挂在页面外，占位符沿用正文色会看起来像已经填过。提示用浅色和无衬线字体。 */
+.reagent-mutation-modal input::placeholder,
+.reagent-mutation-modal textarea::placeholder {
+  color: var(--studio-text-faint) !important;
+  font-family: var(--bh-font-family-sans);
+  font-weight: 400;
+  opacity: 1;
+}
+
+.reagent-amount-field {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: 32px;
+  overflow: hidden;
+  background: var(--studio-surface);
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-control-radius);
+}
+
+.reagent-amount-field:focus-within {
+  border-color: var(--studio-accent);
+}
+
+.reagent-amount-field .reagent-amount-value {
+  flex: 1 1 auto;
+  width: auto;
+  height: 30px;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.reagent-amount-field .reagent-amount-value .ant-input-number-input {
+  height: 30px;
+}
+
+.reagent-amount-field .reagent-amount-value.ant-input-number-focused {
+  box-shadow: none;
+}
+
+.reagent-amount-field .reagent-amount-unit {
+  flex: 0 0 88px;
+}
+
+.reagent-amount-field .reagent-amount-unit .ant-select-selector {
+  height: 30px !important;
+  border: 0 !important;
+  border-left: 1px solid var(--studio-border) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* CAS、SMILES、InChIKey 是机器标识符，等宽字体才好分辨 0/O 与 1/l。 */
+.reagent-identifier-input,
+.reagent-identifier-text {
+  font-family: var(--bh-font-family-mono);
+}
+
+.reagent-identifier-text {
+  word-break: break-all;
+}
+
+.reagent-error-details {
+  margin: 8px 0 0;
+  max-height: 160px;
+  overflow: auto;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.reagent-history-pagination {
+  margin-top: 12px;
+  text-align: right;
+}
+
+.reagent-import-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 @media (max-width: 820px) {

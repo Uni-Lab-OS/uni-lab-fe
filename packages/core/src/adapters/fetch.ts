@@ -34,11 +34,21 @@ export function createFetchTransport(
 
         let body: BodyInit | undefined
         if (request.body !== undefined) {
-          body = typeof request.body === 'string'
-            ? request.body
-            : JSON.stringify(request.body)
-          if (!headers.has('content-type')) {
-            headers.set('content-type', 'application/json')
+          if (typeof request.body === 'string') {
+            body = request.body
+            if (!headers.has('content-type')) {
+              headers.set('content-type', 'application/json')
+            }
+          } else if (isPassthroughBody(request.body)) {
+            // multipart 的 boundary 只能由运行时生成，显式 content-type 会让
+            // 服务端无法解析文件字段。
+            body = request.body
+            headers.delete('content-type')
+          } else {
+            body = JSON.stringify(request.body)
+            if (!headers.has('content-type')) {
+              headers.set('content-type', 'application/json')
+            }
           }
         }
 
@@ -80,6 +90,15 @@ export function createFetchTransport(
       }
     }
   }
+}
+
+/** 文件上传等二进制载荷必须原样交给 fetch，不能被 JSON 序列化。 */
+function isPassthroughBody(body: unknown): body is BodyInit {
+  return (typeof FormData !== 'undefined' && body instanceof FormData)
+    || (typeof Blob !== 'undefined' && body instanceof Blob)
+    || (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams)
+    || (typeof ArrayBuffer !== 'undefined' && body instanceof ArrayBuffer)
+    || (typeof ReadableStream !== 'undefined' && body instanceof ReadableStream)
 }
 
 function joinUrl(baseUrl: string, path: string): string {

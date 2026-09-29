@@ -36,7 +36,20 @@ describe('server capability matrix', () => {
           'workflow.authoring',
           'workflow.runTasks',
           'workflow.subscribeEvents',
-          'inventory.readReagents'
+          'reagentInfo.read',
+          'reagentInfo.create',
+          'reagentInfo.update',
+          'reagentInfo.delete',
+          'reagentInfo.batchImport',
+          'reagentInfo.readStructure3d',
+          'reagentInfo.lookupCompound',
+          'inventory.readReagents',
+          'inventory.createReagent',
+          'inventory.updateReagent',
+          'inventory.deleteReagent',
+          'inventory.readReagentHistory',
+          'inventory.batchImportReagents',
+          'inventory.dispenseReagent'
         ]
         const localGoCapabilities = [
           'devices.listOnline',
@@ -93,7 +106,10 @@ describe('server capability matrix', () => {
       read: false,
       create: false,
       update: false,
-      delete: false
+      delete: false,
+      batchImport: false,
+      readStructure3d: false,
+      lookupCompound: false
     })
   })
 
@@ -111,13 +127,16 @@ describe('server capability matrix', () => {
     }
   })
 
-  /** 证明化学品字典 CRUD 只在已完成真实联调的 Go Backend 开放。 */
-  it('exposes reagent information CRUD only for the Go Backend', () => {
+  /** 证明化学品字典 CRUD 在两套已完成真实联调的本地权威上开放，云端仍关闭。 */
+  it('exposes reagent information CRUD on both verified local authorities', () => {
     const backendCapabilities = resolveServerCapabilities(
       getDefaultBackend('local-go')
     )
     const edgeCapabilities = resolveServerCapabilities(
       getDefaultBackend('local-python')
+    )
+    const cloudCapabilities = resolveServerCapabilities(
+      getDefaultBackend('cloud')
     )
 
     for (const capability of [
@@ -126,17 +145,21 @@ describe('server capability matrix', () => {
       'reagentInfo.delete'
     ] as const) {
       expect(hasServerCapability(backendCapabilities, capability)).toBe(true)
-      expect(hasServerCapability(edgeCapabilities, capability)).toBe(false)
+      expect(hasServerCapability(edgeCapabilities, capability)).toBe(true)
+      expect(hasServerCapability(cloudCapabilities, capability)).toBe(false)
     }
   })
 
-  /** 证明试剂写能力只对完成真实 CRUD 联调的 Go Backend 开放。 */
-  it('keeps reagent mutations Backend-only', () => {
+  /** 证明试剂写能力只在完成真实 CRUD 联调的本地权威开放。 */
+  it('keeps reagent mutations on verified local authorities only', () => {
     const backendCapabilities = resolveServerCapabilities(
       getDefaultBackend('local-go')
     )
     const edgeCapabilities = resolveServerCapabilities(
       getDefaultBackend('local-python')
+    )
+    const cloudCapabilities = resolveServerCapabilities(
+      getDefaultBackend('cloud')
     )
 
     for (const capability of [
@@ -146,7 +169,32 @@ describe('server capability matrix', () => {
       'inventory.readReagentHistory'
     ] as const) {
       expect(hasServerCapability(backendCapabilities, capability)).toBe(true)
-      expect(hasServerCapability(edgeCapabilities, capability)).toBe(false)
+      expect(hasServerCapability(edgeCapabilities, capability)).toBe(true)
+      expect(hasServerCapability(cloudCapabilities, capability)).toBe(false)
+    }
+  })
+
+  /**
+   * 分装、批量导入、CAS 查询和三维结构目前只在 OS 本地模式验证过；Go Backend
+   * 尚未提供同形接口，必须继续 fail closed。
+   */
+  it('keeps OS-only reagent capabilities closed on the Go Backend', () => {
+    const backendCapabilities = resolveServerCapabilities(
+      getDefaultBackend('local-go')
+    )
+    const edgeCapabilities = resolveServerCapabilities(
+      getDefaultBackend('local-python')
+    )
+
+    for (const capability of [
+      'reagentInfo.batchImport',
+      'reagentInfo.readStructure3d',
+      'reagentInfo.lookupCompound',
+      'inventory.batchImportReagents',
+      'inventory.dispenseReagent'
+    ] as const) {
+      expect(hasServerCapability(edgeCapabilities, capability)).toBe(true)
+      expect(hasServerCapability(backendCapabilities, capability)).toBe(false)
     }
   })
 

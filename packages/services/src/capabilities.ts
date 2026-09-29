@@ -34,6 +34,9 @@ export interface ServerCapabilities {
     create: boolean
     update: boolean
     delete: boolean
+    batchImport: boolean
+    readStructure3d: boolean
+    lookupCompound: boolean
   }
   inventory: {
     readReagents: boolean
@@ -41,6 +44,8 @@ export interface ServerCapabilities {
     updateReagent: boolean
     deleteReagent: boolean
     readReagentHistory: boolean
+    batchImportReagents: boolean
+    dispenseReagent: boolean
   }
   realtime: {
     pushJointState: boolean
@@ -80,11 +85,16 @@ export const SERVER_CAPABILITY_KEYS = [
   'reagentInfo.create',
   'reagentInfo.update',
   'reagentInfo.delete',
+  'reagentInfo.batchImport',
+  'reagentInfo.readStructure3d',
+  'reagentInfo.lookupCompound',
   'inventory.readReagents',
   'inventory.createReagent',
   'inventory.updateReagent',
   'inventory.deleteReagent',
   'inventory.readReagentHistory',
+  'inventory.batchImportReagents',
+  'inventory.dispenseReagent',
   'realtime.pushJointState',
   'realtime.setJointState',
   'realtime.jointControlLease',
@@ -186,14 +196,19 @@ function unavailableCapabilities(): ServerCapabilities {
       read: false,
       create: false,
       update: false,
-      delete: false
+      delete: false,
+      batchImport: false,
+      readStructure3d: false,
+      lookupCompound: false
     },
     inventory: {
       readReagents: false,
       createReagent: false,
       updateReagent: false,
       deleteReagent: false,
-      readReagentHistory: false
+      readReagentHistory: false,
+      batchImportReagents: false,
+      dispenseReagent: false
     },
     realtime: {
       pushJointState: false,
@@ -243,7 +258,22 @@ function localPythonCapabilities(): ServerCapabilities {
   capabilities.workflow.authoring = true
   capabilities.workflow.runTasks = true
   capabilities.workflow.subscribeEvents = true
+  // OS 本地模式的 Backend 同形试剂适配器已按 /api/v1 逐条验证：目录与库存的
+  // 增删改、批量与文件导入、CAS 查询、三维结构缓存、容器台账和分装命令。
+  capabilities.reagentInfo.read = true
+  capabilities.reagentInfo.create = true
+  capabilities.reagentInfo.update = true
+  capabilities.reagentInfo.delete = true
+  capabilities.reagentInfo.batchImport = true
+  capabilities.reagentInfo.readStructure3d = true
+  capabilities.reagentInfo.lookupCompound = true
   capabilities.inventory.readReagents = true
+  capabilities.inventory.createReagent = true
+  capabilities.inventory.updateReagent = true
+  capabilities.inventory.deleteReagent = true
+  capabilities.inventory.readReagentHistory = true
+  capabilities.inventory.batchImportReagents = true
+  capabilities.inventory.dispenseReagent = true
   return capabilities
 }
 

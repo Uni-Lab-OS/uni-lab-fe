@@ -1,68 +1,247 @@
-import { Button, Input, Space, Table, Tabs, Tag, Tooltip } from "antd";
+import {
+  Button,
+  Dropdown,
+  Input,
+  Modal,
+  Space,
+  Table,
+  Tabs,
+  Tag,
+  Tooltip,
+  message,
+} from "antd";
 import type { TableColumnsType } from "antd";
-import { useMemo, useState } from "react";
-import type { Reagent, ReagentInfo } from "@unilab-fe/core";
+import { useEffect, useRef, useState } from "react";
+import type { MaterialSummary, Reagent, ReagentInfo } from "@unilab-fe/core";
 import { EmptyState } from "@unilab/design-v2";
 import { useBackend } from "../../app/BackendProvider";
 import { useBackendQuery } from "../../hooks/useBackendQuery";
 import { AppIcon } from "../../components/ui/Icon";
 import { AsyncState } from "../../components/ui/AsyncState";
 import { PageHeader } from "../../components/ui/PageHeader";
-import { ReagentModal, type ReagentModalState } from "./ReagentModal";
+import {
+  ReagentModal,
+  physicalStateLabel,
+  type ReagentModalState,
+} from "./ReagentModal";
 import { TableText } from "../../components/ui/TableText";
+import { formatCapacity } from "./reagentCapacity";
 
 interface ReagentData {
   readonly inventory: readonly Reagent[];
+  readonly inventoryTotal: number;
   readonly catalog: readonly ReagentInfo[];
+  readonly catalogTotal: number;
+  /** 录入库存时要选全部目录身份，不能只用当前这一页。 */
+  readonly catalogOptions: readonly ReagentInfo[];
+  readonly materials: readonly MaterialSummary[];
+}
+
+const PAGE_SIZE = 10;
+
+type ReagentInventoryPort = ReturnType<
+  typeof useBackend
+>["backend"]["core"]["reagentInventory"];
+
+function includesText(value: string | null | undefined, needle: string): boolean {
+  return Boolean(value?.toLowerCase().includes(needle));
+}
+
+/**
+ * 库存接口的 `cas` 必须整号相等，`keyword` 也不看 CAS。
+ * 因此搜索先取全表，再按名称、容器名和 CAS 片段筛选。
+ */
+function matchesInventory(item: Reagent, keyword: string): boolean {
+  const needle = keyword.trim().toLowerCase();
+  if (!needle) return true;
+  return (
+    includesText(item.name, needle) ||
+    includesText(item.containerName, needle) ||
+    includesText(item.cas, needle)
+  );
+}
+
+/**
+ * 目录接口的 `name` 只模糊匹配名称，`cas` 必须整号相等，像 "78" 这种片段
+ * 对不上 `141-78-6`。因此目录搜索先取全表，再按名称、英文名和 CAS 片段筛选。
+ */
+function matchesCatalog(item: ReagentInfo, keyword: string): boolean {
+  const needle = keyword.trim().toLowerCase();
+  if (!needle) return true;
+  return [item.name, item.nameEn, item.cas].some((value) => includesText(value, needle));
+}
+
+async function listAllPages<T>(
+  load: (page: number, pageSize: number) => Promise<{ items: readonly T[]; total: number | null }>,
+): Promise<T[]> {
+  const pageSize = 500;
+  const first = await load(1, pageSize);
+  const total = first.total ?? first.items.length;
+  const items = [...first.items];
+  for (let page = 2; items.length < total; page += 1) {
+    const next = await load(page, pageSize);
+    items.push(...next.items);
+    if (next.items.length === 0) break;
+  }
+  return items;
+}
+
+function listAllReagents(port: ReagentInventoryPort): Promise<Reagent[]> {
+  return listAllPages((page, pageSize) => port.listReagents({ page, pageSize }));
+}
+
+function listAllReagentInfos(port: ReagentInventoryPort): Promise<ReagentInfo[]> {
+  return listAllPages((page, pageSize) => port.listReagentInfos({ page, pageSize }));
 }
 
 export function ReagentsPage() {
   const { backend } = useBackend();
-  const query = useBackendQuery<ReagentData>(
-    "reagent-resources",
-    async (current) => {
-      const [inventory, catalog] = await Promise.all([
-        current.core.reagentInventory.listReagents({ page: 1, pageSize: 200 }),
-        current.core.reagentInventory.listReagentInfos({
-          page: 1,
-          pageSize: 200,
-        }),
-      ]);
-      return { inventory: inventory.items, catalog: catalog.items };
-    },
-  );
   const [tab, setTab] = useState<"inventory" | "catalog">("inventory");
   const [keyword, setKeyword] = useState("");
+  const [submittedKeyword, setSubmittedKeyword] = useState("");
+  const [inventoryPage, setInventoryPage] = useState(1);
+  const [catalogPage, setCatalogPage] = useState(1);
   const [modal, setModal] = useState<ReagentModalState | null>(null);
-  const inventory = useMemo(
-    () =>
-      (query.data?.inventory ?? []).filter((item) =>
-        `${item.name} ${item.containerName ?? ""} ${item.containerBarcode ?? ""}`
-          .toLowerCase()
-          .includes(keyword.toLowerCase()),
-      ),
-    [keyword, query.data],
+  // 拼音组字期间不能把未确认的字母当成搜索词，否则候选还没选上就被提交。
+  const composingRef = useRef(false);
+  const publishKeyword = (value: string) => {
+    setSubmittedKeyword((current) => {
+      if (current === value) return current;
+      setInventoryPage(1);
+      setCatalogPage(1);
+      return value;
+    });
+  };
+  useEffect(() => {
+    if (composingRef.current) return;
+    const timer = window.setTimeout(() => publishKeyword(keyword), 300);
+    return () => window.clearTimeout(timer);
+  }, [keyword]);
+  const query = useBackendQuery<ReagentData>(
+    `reagent-resources:${tab}:${inventoryPage}:${catalogPage}:${submittedKeyword}`,
+    async (current) => {
+      const [inventory, catalog, catalogOptions, materials] = await Promise.all([
+        tab === "inventory" && submittedKeyword.trim()
+          ? listAllReagents(current.core.reagentInventory).then((items) => {
+              const matched = items.filter((item) =>
+                matchesInventory(item, submittedKeyword),
+              );
+              const start = (inventoryPage - 1) * PAGE_SIZE;
+              return {
+                items: matched.slice(start, start + PAGE_SIZE),
+                total: matched.length,
+              };
+            })
+          : current.core.reagentInventory.listReagents({
+              page: inventoryPage,
+              pageSize: PAGE_SIZE,
+            }),
+        tab === "catalog" && submittedKeyword.trim()
+          ? listAllReagentInfos(current.core.reagentInventory).then((items) => {
+              const matched = items.filter((item) =>
+                matchesCatalog(item, submittedKeyword),
+              );
+              const start = (catalogPage - 1) * PAGE_SIZE;
+              return {
+                items: matched.slice(start, start + PAGE_SIZE),
+                total: matched.length,
+              };
+            })
+          : current.core.reagentInventory.listReagentInfos({
+              page: catalogPage,
+              pageSize: PAGE_SIZE,
+            }),
+        // 登记库存要在全部目录身份里选，不能受当前页和搜索词限制。
+        current.core.reagentInventory.listReagentInfos({
+          page: 1,
+          pageSize: 500,
+        }),
+        current.core.materialSite.listMaterials({ page: 1, pageSize: 500 }),
+      ]);
+      return {
+        inventory: inventory.items,
+        inventoryTotal: inventory.total ?? inventory.items.length,
+        catalog: catalog.items,
+        catalogTotal: catalog.total ?? catalog.items.length,
+        catalogOptions: catalogOptions.items,
+        materials: materials.items,
+      };
+    },
   );
-  const catalog = useMemo(
-    () =>
-      (query.data?.catalog ?? []).filter((item) =>
-        `${item.name} ${item.nameEn ?? ""} ${item.cas ?? ""}`
-          .toLowerCase()
-          .includes(keyword.toLowerCase()),
-      ),
-    [keyword, query.data],
-  );
-  const canCreateInfo = backend.services.getCapabilityStatus("reagentInfo.create").available;
-  const canCreateInventory = backend.services.getCapabilityStatus("inventory.createReagent").available;
-  const canUpdateInventory = backend.services.getCapabilityStatus("inventory.updateReagent").available;
-  const canReadHistory = backend.services.getCapabilityStatus("inventory.readReagentHistory").available;
+  const can = (capability: Parameters<typeof backend.services.getCapabilityStatus>[0]) =>
+    backend.services.getCapabilityStatus(capability).available;
+  const canCreateInfo = can("reagentInfo.create");
+  const canUpdateInfo = can("reagentInfo.update");
+  const canDeleteInfo = can("reagentInfo.delete");
+  const canCreateInventory = can("inventory.createReagent");
+  const canUpdateInventory = can("inventory.updateReagent");
+  const canDeleteInventory = can("inventory.deleteReagent");
+  const canReadHistory = can("inventory.readReagentHistory");
+  const canDispense = can("inventory.dispenseReagent");
+  const canImportCatalog = can("reagentInfo.batchImport");
+  const canImportInventory = can("inventory.batchImportReagents");
+
+  /**
+   * 删除可能被目录引用或被任务预留而被 OS 拒绝，必须把真实原因显示出来，
+   * 不能当成"已删除"。
+   */
+  const confirmDelete = (
+    title: string,
+    content: string,
+    remove: () => Promise<void>,
+  ) => {
+    Modal.confirm({
+      title,
+      content,
+      okText: "删除",
+      okButtonProps: { danger: true },
+      cancelText: "取消",
+      onOk: async () => {
+        try {
+          await remove();
+          message.success("已删除");
+          query.reload();
+        } catch (cause) {
+          message.error(cause instanceof Error ? cause.message : "删除失败");
+          throw cause;
+        }
+      },
+    });
+  };
 
   return (
-    <div className="page-stack">
+    <div className="page-stack reagent-list-page">
       <PageHeader
         title="试剂"
         actions={
           <Space>
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: "catalog",
+                    label: "导入试剂目录",
+                    disabled: !canImportCatalog,
+                    onClick: () =>
+                      setModal({ type: "import", target: "catalog" }),
+                  },
+                  {
+                    key: "inventory",
+                    label: "导入试剂库存",
+                    disabled: !canImportInventory,
+                    onClick: () =>
+                      setModal({ type: "import", target: "inventory" }),
+                  },
+                ],
+              }}
+            >
+              <Button
+                disabled={!canImportCatalog && !canImportInventory}
+                icon={<AppIcon name="general/upload-01" size={16} />}
+              >
+                批量导入
+              </Button>
+            </Dropdown>
             <Tooltip
               title={
                 canCreateInfo
@@ -108,7 +287,7 @@ export function ReagentsPage() {
         }
       />
       <AsyncState
-        loading={query.loading}
+        loading={query.loading && query.data === undefined}
         error={query.error}
         onRetry={query.reload}
         variant="table"
@@ -122,15 +301,18 @@ export function ReagentsPage() {
               onChange={(key) => {
                 setTab(key as "inventory" | "catalog");
                 setKeyword("");
+                setSubmittedKeyword("");
+                setInventoryPage(1);
+                setCatalogPage(1);
               }}
               items={[
                 {
                   key: "inventory",
-                  label: `库存 ${query.data?.inventory.length ?? 0}`,
+                  label: `库存 ${query.data?.inventoryTotal ?? 0}`,
                 },
                 {
                   key: "catalog",
-                  label: `目录 ${query.data?.catalog.length ?? 0}`,
+                  label: `目录 ${query.data?.catalogTotal ?? 0}`,
                 },
               ]}
             />
@@ -144,28 +326,69 @@ export function ReagentsPage() {
                   : "搜索名称或 CAS 号"
               }
               value={keyword}
+              onCompositionStart={() => {
+                composingRef.current = true;
+              }}
+              onCompositionEnd={(event) => {
+                composingRef.current = false;
+                const value = event.currentTarget.value;
+                setKeyword(value);
+                publishKeyword(value);
+              }}
               onChange={(event) => setKeyword(event.target.value)}
             />
           </div>
           {tab === "inventory" ? (
             <InventoryTable
-              data={inventory}
+              data={query.data?.inventory ?? []}
+              page={inventoryPage}
+              total={query.data?.inventoryTotal ?? 0}
+              onPageChange={setInventoryPage}
               canMutate={canUpdateInventory}
+              canDelete={canDeleteInventory}
+              canDispense={canDispense}
               onHistory={(item) => setModal({ type: "history", reagent: item })}
               canReadHistory={canReadHistory}
               onEdit={(item) =>
                 setModal({ type: "edit-inventory", reagent: item })
               }
+              onDispense={(item) => setModal({ type: "dispense", reagent: item })}
+              onDelete={(item) =>
+                confirmDelete(
+                  `删除库存 ${item.name}`,
+                  "存在活动工作流预留时 OS 会拒绝删除。",
+                  () =>
+                    backend.core.reagentInventory.deleteReagent(
+                      item.reagentUuid,
+                    ),
+                )
+              }
             />
           ) : (
             <CatalogTable
-              data={catalog}
+              data={query.data?.catalog ?? []}
+              page={catalogPage}
+              total={query.data?.catalogTotal ?? 0}
+              onPageChange={setCatalogPage}
               canMutate={canCreateInventory}
+              canEdit={canUpdateInfo}
+              canDelete={canDeleteInfo}
               onDetail={(item) =>
                 setModal({ type: "catalog-detail", info: item })
               }
+              onEdit={(item) => setModal({ type: "edit-info", info: item })}
               onCreateInventory={(item) =>
                 setModal({ type: "create-inventory", info: item })
+              }
+              onDelete={(item) =>
+                confirmDelete(
+                  `删除目录身份 ${item.name}`,
+                  "已被库存引用的试剂身份不可删除。",
+                  () =>
+                    backend.core.reagentInventory.deleteReagentInfo(
+                      item.reagentInfoUuid,
+                    ),
+                )
               }
             />
           )}
@@ -173,6 +396,8 @@ export function ReagentsPage() {
       </AsyncState>
       <ReagentModal
         state={modal}
+        materials={query.data?.materials ?? []}
+        catalog={query.data?.catalogOptions ?? []}
         onClose={() => setModal(null)}
         onSaved={query.reload}
       />
@@ -180,24 +405,55 @@ export function ReagentsPage() {
   );
 }
 
+function listPagination(
+  page: number,
+  total: number,
+  onChange: (next: number) => void,
+) {
+  return {
+    current: page,
+    pageSize: PAGE_SIZE,
+    total,
+    hideOnSinglePage: false,
+    showSizeChanger: false,
+    showTotal: (count: number, range: [number, number]) =>
+      count === 0 ? "共 0 条" : `${range[0]}-${range[1]} / 共 ${count} 条`,
+    onChange,
+  };
+}
+
 function InventoryTable({
   data,
+  page,
+  total,
+  onPageChange,
   canMutate,
+  canDelete,
+  canDispense,
   onHistory,
   canReadHistory,
   onEdit,
+  onDispense,
+  onDelete,
 }: {
   data: readonly Reagent[];
+  page: number;
+  total: number;
+  onPageChange: (next: number) => void;
   canMutate: boolean;
+  canDelete: boolean;
+  canDispense: boolean;
   onHistory: (item: Reagent) => void;
   canReadHistory: boolean;
   onEdit: (item: Reagent) => void;
+  onDispense: (item: Reagent) => void;
+  onDelete: (item: Reagent) => void;
 }) {
   const columns: TableColumnsType<Reagent> = [
     {
       title: "库存名称",
       key: "name",
-      width: 310,
+      width: 260,
       render: (_, item) => (
         <div className="primary-cell">
           <TableText text={item.name} />
@@ -209,28 +465,47 @@ function InventoryTable({
       ),
     },
     {
+      title: "化学身份",
+      key: "identity",
+      width: 140,
+      render: (_, item) => (
+        <div className="primary-cell reagent-identifier-text">
+          <span>{item.cas ?? "无 CAS"}</span>
+          <span>{item.molecularFormula ?? "分子式未提供"}</span>
+        </div>
+      ),
+    },
+    {
       title: "余量",
       key: "quantity",
-      width: 145,
+      width: 155,
       render: (_, item) => (
         <div className="amount-cell">
-          <strong>
-            {item.quantity == null
-              ? "未提供"
-              : `${item.quantity} ${item.quantityUnit ?? ""}`}
-          </strong>
-          {item.status && (
-            <Tag
-              color={
-                item.status === "available"
-                  ? "success"
-                  : item.status === "empty"
-                    ? "default"
-                    : "warning"
-              }
-            >
-              {item.status}
-            </Tag>
+          <div className="amount-cell__line">
+            <strong>
+              {item.quantity == null
+                ? "未提供"
+                : `${item.quantity} ${item.quantityUnit ?? ""}`}
+            </strong>
+            {item.status && (
+              <Tag
+                color={
+                  item.status === "available"
+                    ? "success"
+                    : item.status === "empty"
+                      ? "default"
+                      : "warning"
+                }
+              >
+                {item.status}
+              </Tag>
+            )}
+          </div>
+          {/* 被工作流预留的量不能再被占用，必须和总量分开显示。 */}
+          {item.reservedQuantity != null && item.reservedQuantity > 0 && (
+            <span>
+              已预留 {item.reservedQuantity} {item.quantityUnit ?? ""}
+            </span>
           )}
         </div>
       ),
@@ -238,35 +513,62 @@ function InventoryTable({
     {
       title: "物性",
       key: "property",
-      width: 175,
+      width: 185,
       render: (_, item) => (
-        <span className="muted-cell">
-          {item.physicalState ?? "未提供"}
-          {item.concentrationValue != null
-            ? ` / ${item.concentrationValue}${item.concentrationUnit ?? ""}`
-            : ""}
-        </span>
+        <div className="primary-cell">
+          <span>
+            {physicalStateLabel(item.physicalState)}
+            {item.concentrationValue != null
+              ? ` / ${item.concentrationValue}${item.concentrationUnit ?? ""}`
+              : ""}
+          </span>
+          <span>
+            {item.densityGPerMl == null
+              ? "密度未提供"
+              : `${item.densityGPerMl} g/mL${item.densitySource ? ` · ${item.densitySource}` : ""}`}
+          </span>
+        </div>
       ),
     },
     {
-      title: "容器物料",
-      dataIndex: "materialUuid",
-      width: 230,
-      render: (value: string) => <span className="muted-cell">{value}</span>,
+      title: "装料上限",
+      key: "capacity",
+      width: 120,
+      render: (_, item) => (
+        <Tooltip
+          title={
+            <>
+              <div>额定规格 {formatCapacity(item.ratedCapacity)}</div>
+              <div>手工配置 {formatCapacity(item.configuredCapacity)}</div>
+              <div>容器物料 {item.materialUuid}</div>
+            </>
+          }
+        >
+          <span className="muted-cell">
+            {formatCapacity(item.maximumCapacity)}
+          </span>
+        </Tooltip>
+      ),
     },
     {
       title: "更新时间",
-      dataIndex: "updatedAt",
+      key: "updatedAt",
       width: 165,
-      render: (value: string | null) => (
-        <span className="muted-cell">{value ?? "未提供"}</span>
+      render: (_, item) => (
+        <div className="primary-cell">
+          <span>{item.updatedAt ?? "未提供"}</span>
+          <span>
+            版本 {item.revision ?? "未提供"} · 物料{" "}
+            {item.materialRevision ?? "未提供"}
+          </span>
+        </div>
       ),
     },
     {
       title: "操作",
       key: "operation",
       align: "right",
-      width: 100,
+      width: 180,
       render: (_, item) => (
         <Space size={2}>
           <Tooltip title={canReadHistory ? "查看历史" : "当前端点不支持库存历史"}>
@@ -276,6 +578,21 @@ function InventoryTable({
               icon={<AppIcon name="time/clock-refresh" size={18} />}
               onClick={() => onHistory(item)}
               disabled={!canReadHistory}
+            />
+          </Tooltip>
+          <Tooltip title={canDispense ? "分装到其他容器" : "当前端点不支持分装"}>
+            <Button
+              className="icon-button"
+              type="text"
+              disabled={!canDispense}
+              icon={
+                <AppIcon
+                  name="weather/droplets-01"
+                  color={canDispense ? "primary" : "context"}
+                  size={18}
+                />
+              }
+              onClick={() => onDispense(item)}
             />
           </Tooltip>
           <Tooltip title={canMutate ? "编辑库存" : "当前端点不支持此项写入"}>
@@ -293,31 +610,56 @@ function InventoryTable({
               onClick={() => onEdit(item)}
             />
           </Tooltip>
+          <Tooltip title={canDelete ? "删除库存" : "当前端点不支持删除"}>
+            <Button
+              className="icon-button"
+              type="text"
+              danger
+              disabled={!canDelete}
+              icon={<AppIcon name="general/trash-01" size={18} />}
+              onClick={() => onDelete(item)}
+            />
+          </Tooltip>
         </Space>
       ),
     },
   ];
   return (
     <Table<Reagent>
+      className="reagent-table"
       rowKey="reagentUuid"
       columns={columns}
       dataSource={[...data]}
       locale={{ emptyText: <EmptyState scene="no-data" size="compact" title="暂无库存" /> }}
-      pagination={{ pageSize: 10, hideOnSinglePage: true }}
+      pagination={listPagination(page, total, onPageChange)}
     />
   );
 }
 
 function CatalogTable({
   data,
+  page,
+  total,
+  onPageChange,
   canMutate,
+  canEdit,
+  canDelete,
   onDetail,
+  onEdit,
   onCreateInventory,
+  onDelete,
 }: {
   data: readonly ReagentInfo[];
+  page: number;
+  total: number;
+  onPageChange: (next: number) => void;
   canMutate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
   onDetail: (item: ReagentInfo) => void;
+  onEdit: (item: ReagentInfo) => void;
   onCreateInventory: (item: ReagentInfo) => void;
+  onDelete: (item: ReagentInfo) => void;
 }) {
   const columns: TableColumnsType<ReagentInfo> = [
     {
@@ -327,10 +669,7 @@ function CatalogTable({
       render: (_, item) => (
         <div className="primary-cell">
           <TableText text={item.name} />
-          <span>
-            {item.nameEn ?? "未提供英文名"}
-            {item.molecularFormula ? ` / ${item.molecularFormula}` : ""}
-          </span>
+          {item.nameEn ? <span>{item.nameEn}</span> : null}
         </div>
       ),
     },
@@ -338,13 +677,36 @@ function CatalogTable({
       title: "CAS 号",
       dataIndex: "cas",
       width: 175,
-      render: (value: string | null) => value ?? "未提供",
+      render: (value: string | null) => (
+        <span className="reagent-identifier-text">{value ?? "未提供"}</span>
+      ),
     },
     {
       title: "物态",
       dataIndex: "physicalState",
       width: 120,
-      render: (value: string) => <Tag color="blue">{value}</Tag>,
+      render: (value: string) => (
+        <Tag color="blue">{physicalStateLabel(value)}</Tag>
+      ),
+    },
+    {
+      title: "分子式",
+      dataIndex: "molecularFormula",
+      width: 120,
+      render: (value: string | null) => (
+        <span className="reagent-identifier-text">{value ?? "未提供"}</span>
+      ),
+    },
+    {
+      title: "SMILES",
+      dataIndex: "smiles",
+      width: 180,
+      render: (value: string | null) =>
+        value ? (
+          <TableText className="reagent-identifier-text" text={value} />
+        ) : (
+          "未提供"
+        ),
     },
     {
       title: "分子量",
@@ -357,7 +719,7 @@ function CatalogTable({
       title: "操作",
       key: "operation",
       align: "right",
-      width: 130,
+      width: 180,
       render: (_, item) => (
         <Space size={2}>
           <Tooltip title="查看详情">
@@ -383,17 +745,43 @@ function CatalogTable({
               onClick={() => onCreateInventory(item)}
             />
           </Tooltip>
+          <Tooltip title={canEdit ? "编辑目录" : "当前端点不支持目录修改"}>
+            <Button
+              className="icon-button"
+              type="text"
+              disabled={!canEdit}
+              icon={
+                <AppIcon
+                  name="general/edit-05"
+                  color={canEdit ? "primary" : "context"}
+                  size={18}
+                />
+              }
+              onClick={() => onEdit(item)}
+            />
+          </Tooltip>
+          <Tooltip title={canDelete ? "删除目录" : "当前端点不支持目录删除"}>
+            <Button
+              className="icon-button"
+              type="text"
+              danger
+              disabled={!canDelete}
+              icon={<AppIcon name="general/trash-01" size={18} />}
+              onClick={() => onDelete(item)}
+            />
+          </Tooltip>
         </Space>
       ),
     },
   ];
   return (
     <Table<ReagentInfo>
+      className="reagent-table"
       rowKey="reagentInfoUuid"
       columns={columns}
       dataSource={[...data]}
       locale={{ emptyText: <EmptyState scene="no-data" size="compact" title="暂无试剂目录" /> }}
-      pagination={{ pageSize: 10, hideOnSinglePage: true }}
+      pagination={listPagination(page, total, onPageChange)}
     />
   );
 }
