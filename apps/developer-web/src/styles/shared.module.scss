@@ -1091,15 +1091,15 @@ textarea {
   box-shadow: none !important;
 }
 
-:global(.ant-dropdown-menu-item) > .bh-icon {
-  color: var(--studio-text-muted) !important;
+:global(.ant-dropdown-menu-item) .bh-icon {
+  --bh-icon-color: var(--studio-text-muted) !important;
   background: transparent !important;
   transition: color var(--bh-motion-fast) ease, background var(--bh-motion-fast) ease;
 }
 
-:global(.ant-dropdown-menu-item):hover > .bh-icon,
-:global(.ant-dropdown-menu-item-selected) > .bh-icon {
-  color: var(--studio-accent) !important;
+:global(.ant-dropdown-menu-item):hover .bh-icon,
+:global(.ant-dropdown-menu-item-selected) .bh-icon {
+  --bh-icon-color: var(--studio-accent) !important;
   background: var(--studio-selection) !important;
 }
 

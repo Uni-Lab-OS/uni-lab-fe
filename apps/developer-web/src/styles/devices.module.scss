@@ -35,7 +35,8 @@
   margin-bottom: 12px;
 }
 .detail-main {
-  max-width: 770px;
+  width: 100%;
+  max-width: none;
   padding: 14px 18px 16px;
   background: var(--studio-surface);
 }

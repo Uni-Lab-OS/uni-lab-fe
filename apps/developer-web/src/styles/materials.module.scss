@@ -398,6 +398,8 @@
   display: grid;
   grid-template-columns: 80px minmax(0, 1fr);
   gap: 8px;
+  align-items: center;
+  min-height: 32px;
 }
 .definition-list dt,
 .inspector-field-label {
@@ -411,10 +413,12 @@
   margin-bottom: 14px;
 }
 .definition-list dd {
+  min-width: 0;
   margin: 0;
   overflow: hidden;
   color: #647188;
   font-size: 13px;
+  line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -458,6 +462,9 @@
   min-width: 88px;
   height: 30px;
   padding: 0 13px;
+}
+.inspector-actions .material-site-action:global(.ant-btn) {
+  min-width: 96px;
 }
 .capability-note {
   display: block;

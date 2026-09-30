@@ -242,10 +242,10 @@
   align-content: start;
 }
 .workflow-debug-page {
-  height: 100%;
-  min-height: 0;
+  height: auto;
+  min-height: 100%;
   grid-template-rows: auto auto minmax(0, 1fr);
-  overflow: hidden;
+  overflow: visible;
 }
 .debug-step-card--submitted {
   min-height: 0;

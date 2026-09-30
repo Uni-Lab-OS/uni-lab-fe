@@ -21,6 +21,7 @@ import {
   MaterialFlowCanvas,
   type MaterialSelection,
 } from "./MaterialFlowCanvas";
+import { resolveMaterialSiteAction } from "./materialSiteActions";
 
 export function MaterialsPage() {
   const query = useBackendQuery("material-graph", (backend) =>
@@ -175,6 +176,7 @@ function MaterialInspector({
   return (
     <MaterialDetailInspector
       node={node}
+      nodes={nodes}
       selectedSite={selectedSite}
       onSelect={onSelect}
     />
@@ -279,6 +281,7 @@ function SiteInspector({
   onSelect: (selection: MaterialSelection) => void;
 }) {
   const occupied = site.occupancy.occupiedMaterialUuid;
+  const siteAction = resolveMaterialSiteAction(site.occupancy);
   const status = site.occupancy.known
     ? occupied
       ? "available"
@@ -334,16 +337,24 @@ function SiteInspector({
           </Button>
         </div>
       )}
+      <SiteHandlingActions action={siteAction} />
+      {siteAction === "unavailable" && (
+        <Typography.Text type="secondary" className={cx("capability-note")}>
+          库位占用状态未知，暂不提供上下料操作。
+        </Typography.Text>
+      )}
     </aside>
   );
 }
 
 function MaterialDetailInspector({
   node,
+  nodes,
   selectedSite,
   onSelect,
 }: {
   node: MaterialGraphNode;
+  nodes: readonly MaterialGraphNode[];
   selectedSite?: SiteSummary;
   onSelect: (selection: MaterialSelection) => void;
 }) {
@@ -351,8 +362,17 @@ function MaterialDetailInspector({
     ? (node.sites.find((item) => item.siteUuid === node.currentSiteUuid) ??
       node.sites[0])
     : node.sites[0];
-  const site = selectedSite ?? currentSite;
+  const graphSite = node.currentSiteUuid
+    ? nodes.flatMap((item) => item.sites).find((item) => item.siteUuid === node.currentSiteUuid)
+    : undefined;
   const detail = node.material;
+  const occupiedSite = nodes
+    .flatMap((item) => item.sites)
+    .find((item) => item.occupancy.occupiedMaterialUuid === detail.materialUuid);
+  const site = selectedSite ?? currentSite ?? graphSite ?? occupiedSite;
+  const siteAction = site
+    ? resolveMaterialSiteAction(site.occupancy)
+    : "unavailable";
   const status = !site
     ? "empty"
     : site.occupancy.known
@@ -397,11 +417,41 @@ function MaterialDetailInspector({
           <dd>{detail.revision == null ? "未提供" : detail.revision}</dd>
         </div>
       </dl>
-      <SiteList sites={node.sites} onSelect={onSelect} />
+      <SiteList sites={site ? [site] : node.sites} onSelect={onSelect} />
+      <SiteHandlingActions action={siteAction} />
       <Typography.Text type="secondary" className={cx("capability-note")}>
-        当前页面仅展示物料与库位状态；变更库位需通过统一物料命令执行。
+        {siteAction === "unavailable"
+          ? "当前页面仅展示物料与库位状态；库位占用状态未知。"
+          : "当前只展示库位允许的操作方向；统一物料命令接入后可执行。"}
       </Typography.Text>
     </aside>
+  );
+}
+
+function SiteHandlingActions({
+  action,
+}: {
+  action: ReturnType<typeof resolveMaterialSiteAction>;
+}) {
+  if (action === "unavailable") return null;
+  const isLoad = action === "load";
+  return (
+    <div className={cx("inspector-actions")} aria-label="库位上下料">
+      <Button
+        className={cx("material-site-action")}
+        disabled
+        icon={
+          <AppIcon
+            name={isLoad ? "general/upload-01" : "general/download-01"}
+            color={isLoad ? "primary" : undefined}
+            size={16}
+          />
+        }
+        title="统一物料命令尚未接入"
+      >
+        {isLoad ? "上料" : "下料"}
+      </Button>
+    </div>
   );
 }
 

@@ -33,6 +33,7 @@ export function DebugTargetModal({
       ? backend.core.workflowDefinitions.listPublishedRevisions({
           page: 1,
           pageSize: 200,
+          status: "all",
         })
       : Promise.resolve([]),
   );
@@ -196,7 +197,9 @@ function WorkflowOption({
         <strong>{workflow.name}</strong>
         <small>版本 v{workflow.revision}</small>
       </span>
-      <Tag color="green">已发布</Tag>
+      <Tag color={workflow.status === "published" ? "green" : "default"}>
+        {workflow.status === "published" ? "已发布" : "未发布"}
+      </Tag>
     </label>
   );
 }
