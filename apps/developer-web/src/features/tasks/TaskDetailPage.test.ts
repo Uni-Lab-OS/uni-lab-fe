@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { WorkflowNodeJobDetail } from '@unilab-fe/core'
 import type { WorkflowResourceWaitFact } from '@unilab-fe/core'
-import { hasWorkflowSiteFact, readExpectedChangeSetKind } from './TaskDetailPage'
+import { hasWorkflowSiteFact, readExpectedChangeSetKind } from './taskDetailModel'
 
 const job = (raw: Readonly<Record<string, unknown>>): WorkflowNodeJobDetail => ({
   kind: 'node_job_detail',

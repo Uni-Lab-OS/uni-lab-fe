@@ -20,6 +20,9 @@
 - 初始迁移只修改 `uni-lab-fe`；当前 Uni-Lab-OS 本地桥仅补入统一的只读
   Material 查询。其余 Backend/Edge 契约仍是未来前置工作，前端不能伪装
   服务端尚未具备的能力。
+- [前端 Module 边界与 UI 沉淀规范](architecture/frontend-module-boundaries-and-ui-extraction.md)：
+  固定 Host、Scenario、Domain、Feature UI、`lab-ui` 的 Module 分层，以及 TSX、样式、
+  类型和测试的完整迁移规则。
 
 ## 设备卡片创作
 

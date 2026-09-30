@@ -1,13 +1,17 @@
 # 前端样式归属与覆盖契约
 
+组件分层、`lab-ui` 沉淀门槛、Interface/Seam 以及 TSX 与样式的完整迁移规则，统一以
+[前端 Module 边界与 UI 沉淀规范](./frontend-module-boundaries-and-ui-extraction.md) 为准；
+本文只补充样式 owner、加载顺序和级联约束。
+
 ## 现状审计
 
-| 区域 | 归属 | 当前入口 | 结论 |
-| --- | --- | --- | --- |
-| `packages/core` | 领域类型、状态和服务契约 | 无 UI CSS | 保持 headless，不引入 Sass、AntD 或主题依赖。 |
-| `packages/design-v2` | token、默认主题、颜色模式、图标和 AntD 适配 | `core.css`、`themes/default.css`、`adapters/antd.css`、图标样式 | 这些是产品级全局契约，继续全局加载；组件不复制 token。 |
-| `packages/lab-ui` | 可搬运业务组件 | `shared.module.scss`、`material.module.scss`、`device.module.scss`、`reagent.module.scss`、`run.module.scss`、`workflow.module.scss` | 每个业务域拥有自己的 Module，组件通过 `cx()` 映射；不再发布全局 `styles.css` 或 `material-inspector.css`。 |
-| `apps/developer-web` | 应用壳、页面布局和各页面组件 | `styles/global.css` + `app-shell/overview/devices/materials/reagents/workflows/tasks/shared.module.scss` 等 | 只有 token/reset/AntD 适配保留全局入口；应用壳、表格、资源、工作流、任务详情等样式都由按域拆分的 Module 管理。 |
+| 区域                 | 归属                                        | 当前入口                                                                                                                               | 结论                                                                                                           |
+| -------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `packages/core`      | 领域类型、状态和服务契约                    | 无 UI CSS                                                                                                                              | 保持 headless，不引入 Sass、AntD 或主题依赖。                                                                  |
+| `packages/design-v2` | token、默认主题、颜色模式、图标和 AntD 适配 | `core.css`、`themes/default.css`、`adapters/antd.css`、图标样式                                                                        | 这些是产品级全局契约，继续全局加载；组件不复制 token。                                                         |
+| `packages/lab-ui`    | 可搬运业务组件                              | `shared.module.scss`、`material.module.scss`、`device.module.scss`、`reagent.module.scss`、`run.module.scss`、`workflow.module.scss`   | 每个业务域拥有自己的 Module，组件通过 `cx()` 映射；不再发布全局 `styles.css` 或 `material-inspector.css`。     |
+| `apps/developer-web` | 应用壳、页面布局和各页面组件                | `styles/global.css` + `app-shell/overview/devices/materials/reagents/workflows/shared.module.scss`，以及 feature-local `*.module.scss` | 只有 token/reset/AntD 适配保留全局入口；应用壳、表格、资源、工作流、任务详情等样式都由按域拆分的 Module 管理。 |
 
 ## 加载顺序
 
@@ -37,6 +41,12 @@
 - 给原先依赖 developer-web 的通用类补上 lab-ui 本地样式，避免组件搬运后出现样式丢失。
 - 给所有 lab-ui 组件的类名加 CSS Modules 映射，保留状态 modifier 的动态行为。
 - 把 developer-web 的 页面 CSS 和覆盖规则迁移为独立 CSS Module，并通过 `styleMaps.ts` 映射组件类名。
+- 任务详情试点已完成完整样式收口：`TaskDetailPage`、Inspector、并行抽屉和执行时间线各自位于
+  `features/tasks`，通过 feature-local resolver 使用共享交互、页面壳、Inspector、并行抽屉
+  和 `TaskExecutionTimeline` 五个 CSS Module；Overview 的调试目标选择器也回收到
+  `DebugTargetModal.module.scss`。
+- 删除只承载历史任务详情规则的 `styles/tasks.module.scss`，`styleMaps.ts` 不再把任务详情
+  样式作为隐式共享 owner；页面组件不再依赖 `classNames` 样式 slot。
 - 删除 `body` 的 `min-width: 1024px`，修复窄屏下文档宽度被强行撑开的溢出。
 
 ## 验证结果

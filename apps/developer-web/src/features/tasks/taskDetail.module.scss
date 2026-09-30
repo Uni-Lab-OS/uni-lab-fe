@@ -1,0 +1,150 @@
+/* Task detail shared interaction styles. */
+
+.debug-ghost-button,
+.debug-icon-button,
+.debug-text-button {
+  border: 0;
+  background: transparent;
+  color: #718099;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+.debug-ghost-button {
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.debug-ghost-button:hover {
+  background: #e9edf5;
+  color: #465b85;
+}
+.debug-control-state .debug-state-dot {
+  width: 6px;
+  height: 6px;
+}
+.debug-control-paused .debug-state-dot {
+  background: #5f6ded;
+}
+.debug-control-active .debug-state-dot {
+  background: #e99a31;
+}
+.debug-control-canceling .debug-state-dot {
+  background: #d65b5b;
+}
+.debug-state-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+}
+.debug-primary-button,
+.debug-secondary-button,
+.debug-danger-button,
+.debug-danger-outline-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 9px;
+  height: 36px;
+  padding: 0 13px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+.debug-primary-button {
+  border: 1px solid #3d67ed;
+  background: #416cf2;
+  color: #fff;
+  box-shadow: 0 5px 12px rgba(65, 108, 242, 0.18);
+}
+.debug-primary-button:hover {
+  background: #315be0;
+}
+.debug-secondary-button {
+  border: 1px solid #d7deea;
+  background: #fff;
+  color: #475b81;
+}
+.debug-secondary-button:hover {
+  border-color: #aebcda;
+  background: #f7f9fd;
+}
+.debug-danger-button,
+.debug-danger-outline-button {
+  border: 1px solid #efbcbc;
+  background: #fff5f5;
+  color: #c54c4c;
+}
+.debug-danger-button:hover,
+.debug-danger-outline-button:hover:not(:disabled) {
+  background: #ffebeb;
+}
+.debug-danger-outline-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+.debug-drawer-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  background: rgba(26, 39, 65, 0.22);
+  display: flex;
+  justify-content: flex-end;
+}
+.debug-inspector-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 26px 26px 13px;
+}
+.debug-inspector-head h2 {
+  font-size: 19px;
+  margin: 7px 0 6px;
+  color: #20345c;
+}
+.debug-inspector-head p {
+  font-size: 12px;
+  color: #718098;
+  margin: 0;
+  line-height: 1.6;
+}
+.debug-icon-button {
+  width: 32px;
+  height: 32px;
+  justify-content: center;
+  border-radius: 8px;
+}
+.debug-icon-button:hover {
+  background: #f0f3f8;
+}
+.debug-inspector-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  border-top: 1px solid #e7ebf2;
+  padding: 14px 26px;
+}
+.debug-detail-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.debug-detail-section-head h3 {
+  margin: 0;
+  color: #32486d;
+  font-size: 13px;
+}
+.debug-detail-section-head span {
+  font-size: 10px;
+  color: #9aa5b5;
+}
+.debug-text-button {
+  font-size: 10px;
+  color: #4f68c8;
+  white-space: nowrap;
+}

@@ -48,9 +48,3 @@ export {
   type StatusTone as TaskStatusTone,
 } from './shared/StatusBadge'
 export { TaskProgress, type TaskProgressProps } from './task/TaskProgress'
-export {
-  TaskTimeline,
-  type TaskTimelineClassNames,
-  type TaskTimelineItem,
-  type TaskTimelineProps,
-} from './task/TaskTimeline'

@@ -1,0 +1,182 @@
+/* Task detail parallel styles. */
+
+.debug-parallel-drawer {
+  height: 100%;
+  width: min(620px, 100vw);
+  background: #fff;
+  box-shadow: -12px 0 35px rgba(25, 38, 65, 0.2);
+  display: flex;
+  flex-direction: column;
+}
+.debug-parallel-body {
+  overflow: auto;
+  flex: 1;
+  padding: 22px 26px;
+}
+.debug-parallel-summary {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 0 26px 17px;
+  color: #718099;
+  font-size: 11px;
+}
+.debug-parallel-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.debug-parallel-summary b {
+  font-size: 16px;
+  color: #344b78;
+}
+.debug-parallel-join {
+  margin-left: auto;
+  color: #8765c8 !important;
+}
+.debug-parallel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 0 0 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e9edf3;
+}
+.debug-parallel-section:last-child {
+  border-bottom: 0;
+  margin-bottom: 0;
+}
+.debug-parallel-section-title h3 {
+  font-size: 14px;
+}
+.debug-branch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.debug-branch-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 13px;
+  border: 1px solid #dfe5ee;
+  background: #fff;
+  border-radius: 10px;
+  text-align: left;
+  color: #3b5278;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+.debug-branch-card:hover {
+  border-color: #aebbe2;
+  background: #fafbff;
+}
+.debug-branch-card.is-selected {
+  border-color: #6e64d7;
+  background: #f6f3ff;
+  box-shadow: 0 0 0 2px rgba(110, 100, 215, 0.12);
+}
+.debug-branch-card.is-submitted {
+  border-color: #b8ddcc;
+  background: #f3fbf6;
+}
+.debug-branch-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #eef1ff;
+  color: #5c6fcd;
+  flex: 0 0 34px;
+}
+.debug-branch-card.is-submitted .debug-branch-card-icon {
+  background: #e6f6ed;
+  color: #2c9b68;
+}
+.debug-branch-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+}
+.debug-branch-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.debug-branch-card-head strong {
+  font-size: 13px;
+  color: #344d76;
+}
+.debug-branch-state {
+  font-size: 10px;
+  padding: 3px 6px;
+  border-radius: 99px;
+}
+.debug-branch-state.is-submitted {
+  background: #e4f5eb;
+  color: #2e8c61;
+}
+.debug-branch-node {
+  font-size: 12px;
+  color: #52688e;
+}
+.debug-branch-detail {
+  font-size: 10px;
+  color: #9aa5b5;
+}
+.debug-branch-card-check {
+  color: #6e64d7;
+  display: flex;
+  align-items: center;
+}
+.debug-radio {
+  display: block;
+  width: 17px;
+  height: 17px;
+  border: 1px solid #c7d0df;
+  border-radius: 50%;
+  background: #fff;
+}
+.debug-selection-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 10px 11px;
+  background: #f2f5ff;
+  color: #63749a;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.debug-submit-branch {
+  width: 100%;
+  height: 40px;
+}
+.debug-submit-branch:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  box-shadow: none;
+}
+.debug-join-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e3e8ef;
+  border-radius: 9px;
+}
+.debug-join-checks span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #7c899e;
+  font-size: 11px;
+}
+.debug-join-checks svg {
+  color: #a8b2c2;
+}
