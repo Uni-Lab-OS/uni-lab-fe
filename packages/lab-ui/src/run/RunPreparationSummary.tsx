@@ -1,6 +1,7 @@
 import type { PreflightReport, RunPreparationViewModel } from '@unilab-fe/core'
 import { InventoryRequirementList } from '../workflow/InventoryRequirementList'
 import { PreflightReportView } from './PreflightReportView'
+import { DefinitionList } from '../shared/DefinitionList'
 
 import { cx } from '../classNames'
 export interface RunPreparationSummaryProps {
@@ -31,24 +32,15 @@ export function RunPreparationSummary({
       <div className={cx('lab-ui-run-preparation-summary__columns')}>
         <section className={cx('lab-ui-run-preparation-summary__basic')}>
           <h3>基础信息</h3>
-          <dl className={cx('lab-ui-definition-list')}>
-            <div>
-              <dt>运行模式</dt>
-              <dd>{runModeLabel(configuration.runMode)}</dd>
-            </div>
-            <div>
-              <dt>优先级</dt>
-              <dd>{configuration.priority === 'high' ? '高' : '普通'}</dd>
-            </div>
-            <div>
-              <dt>任务名称</dt>
-              <dd>{configuration.description || '未填写'}</dd>
-            </div>
-            <div>
-              <dt>输入参数</dt>
-              <dd>{inputCount} 项</dd>
-            </div>
-          </dl>
+          <DefinitionList
+            className={cx('lab-ui-definition-list')}
+            items={[
+              { label: '运行模式', value: runModeLabel(configuration.runMode) },
+              { label: '优先级', value: configuration.priority === 'high' ? '高' : '普通' },
+              { label: '任务名称', value: configuration.description, missingText: '未填写' },
+              { label: '输入参数', value: `${inputCount} 项` },
+            ]}
+          />
         </section>
         <section className={cx('lab-ui-run-preparation-summary__inventory')}>
           <h3>库存需求</h3>

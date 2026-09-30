@@ -1,6 +1,7 @@
 import { Icon } from '@unilab/design-v2/icons'
 import type { MaterialGraphNode, SiteSummary } from '@unilab-fe/core'
 import { SitePicker } from './SitePicker'
+import { DefinitionList } from '../shared/DefinitionList'
 
 import { cx } from '../classNames'
 export interface MaterialInspectorProps {
@@ -59,28 +60,16 @@ export function MaterialInspector({
 function MaterialFacts({ node }: { readonly node: MaterialGraphNode }) {
   const detail = node.material
   return (
-    <dl className={cx('lab-ui-definition-list')}>
-      <div>
-        <dt>物料 ID</dt>
-        <dd title={detail.materialUuid}>{detail.materialUuid}</dd>
-      </div>
-      <div>
-        <dt>物料类型</dt>
-        <dd>{detail.materialType || '未提供'}</dd>
-      </div>
-      <div>
-        <dt>资源模板</dt>
-        <dd>{node.resourceTemplate?.displayName || '未提供'}</dd>
-      </div>
-      <div>
-        <dt>条码</dt>
-        <dd>{detail.barcode || '未提供'}</dd>
-      </div>
-      <div>
-        <dt>当前库位</dt>
-        <dd>{node.currentSiteUuid || '未绑定库位'}</dd>
-      </div>
-    </dl>
+    <DefinitionList
+      className={cx('lab-ui-definition-list')}
+      items={[
+        { label: '物料 ID', value: detail.materialUuid, mono: true },
+        { label: '物料类型', value: detail.materialType },
+        { label: '资源模板', value: node.resourceTemplate?.displayName },
+        { label: '条码', value: detail.barcode, mono: true },
+        { label: '当前库位', value: node.currentSiteUuid, missingText: '未绑定库位', mono: true },
+      ]}
+    />
   )
 }
 

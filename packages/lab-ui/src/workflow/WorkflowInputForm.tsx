@@ -1,6 +1,7 @@
 import type { WorkflowInputParameter } from '@unilab-fe/core'
 
 import { cx } from '../classNames'
+import { SchemaInputField } from '../shared/SchemaInputField'
 export type WorkflowInputValues = Readonly<Record<string, unknown>>
 
 export interface WorkflowInputFormProps {
@@ -63,114 +64,16 @@ function WorkflowInputField({
   const label = parameter.title || parameter.name
 
   return (
-    <label className={cx('lab-ui-form-field')}>
-      <span className={cx('lab-ui-form-field__label')}>
-        <span>
-          {label}
-          {parameter.required && <span className={cx('lab-ui-required-mark')} aria-hidden="true"> *</span>}
-        </span>
-        <code>{parameter.name}</code>
-      </span>
-      {renderInput(parameter, value, disabled, onChange)}
-      {parameter.description && <small>{parameter.description}</small>}
-      {error && <span className={cx('lab-ui-form-field__error')}>{error}</span>}
-    </label>
-  )
-}
-
-function renderInput(
-  parameter: WorkflowInputParameter,
-  value: unknown,
-  disabled: boolean,
-  onChange: (value: unknown) => void,
-) {
-  const schema = parameter.schema
-  const enumValues = Array.isArray(schema.enum) ? schema.enum : undefined
-
-  if (enumValues) {
-    return (
-      <select
-        disabled={disabled}
-        value={stringValue(value)}
-        onChange={(event) => onChange(event.currentTarget.value)}
-      >
-        {!parameter.required && <option value="">请选择</option>}
-        {enumValues.map((option) => (
-          <option key={String(option)} value={String(option)}>
-            {String(option)}
-          </option>
-        ))}
-      </select>
-    )
-  }
-
-  if (schema.type === 'boolean') {
-    return (
-      <input
-        type="checkbox"
-        disabled={disabled}
-        checked={value === true}
-        onChange={(event) => onChange(event.currentTarget.checked)}
-      />
-    )
-  }
-
-  if (schema.type === 'number' || schema.type === 'integer') {
-    return (
-      <input
-        type="number"
-        disabled={disabled}
-        value={stringValue(value)}
-        min={numberValue(schema.minimum)}
-        max={numberValue(schema.maximum)}
-        step={schema.type === 'integer' ? 1 : 'any'}
-        onChange={(event) => onChange(numberInputValue(event.currentTarget.value))}
-      />
-    )
-  }
-
-  if (isStructuredInput(schema)) {
-    const isResource = schema.$slot === 'ResourceSlot'
-    return (
-      <textarea
-        disabled={disabled}
-        value={stringValue(value)}
-        rows={isResource ? 1 : 4}
-        placeholder={isResource ? '输入资源 UUID' : '请输入 JSON'}
-        onChange={(event) => onChange(event.currentTarget.value)}
-      />
-    )
-  }
-
-  return (
-    <input
+    <SchemaInputField
+      label={label}
+      name={parameter.name}
+      schema={parameter.schema}
+      value={value}
+      required={parameter.required}
       disabled={disabled}
-      value={stringValue(value)}
-      onChange={(event) => onChange(event.currentTarget.value)}
+      description={parameter.description}
+      error={error}
+      onChange={onChange}
     />
   )
-}
-
-function isStructuredInput(schema: Readonly<Record<string, unknown>>) {
-  return (
-    schema.$slot === 'ResourceSlot' ||
-    schema.type === 'object' ||
-    schema.type === 'array'
-  )
-}
-
-function stringValue(value: unknown): string {
-  if (value == null) return ''
-  if (typeof value === 'string') return value
-  return typeof value === 'object' ? JSON.stringify(value) : String(value)
-}
-
-function numberValue(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
-}
-
-function numberInputValue(value: string): number | string {
-  if (value === '') return ''
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : value
 }

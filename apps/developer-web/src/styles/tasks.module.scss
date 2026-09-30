@@ -21,8 +21,8 @@
 /* Timeline interaction details. */
 .debug-timeline-list:before{left:26px;bottom:0}
 .debug-timeline-row,.debug-parallel-row{box-sizing:border-box;width:calc(100% - 16px);margin-left:8px;margin-right:8px;padding-left:0;padding-right:12px}
-.debug-timeline-row.is-last:after,.debug-parallel-row:last-of-type:after{content:"";position:absolute;z-index:0;left:16px;top:50px;bottom:-1000px;width:3px;background:#fff;pointer-events:none}
-.debug-timeline-row.is-last>* ,.debug-parallel-row:last-of-type>*{position:relative;z-index:1}
+.debug-timeline-row[data-last="true"]:after,.debug-parallel-row:last-of-type:after{content:"";position:absolute;z-index:0;left:16px;top:50px;bottom:-1000px;width:3px;background:#fff;pointer-events:none}
+.debug-timeline-row[data-last="true"]>* ,.debug-parallel-row:last-of-type>*{position:relative;z-index:1}
 .debug-inline-overview{position:relative;z-index:1;margin:0 8px 12px 58px;padding:14px;border:1px solid #e0e6f0;border-radius:10px;background:#fff}
 .debug-inline-overview .debug-detail-callout{margin:0}
 .debug-inline-overview .debug-detail-grid{margin-top:4px}
@@ -32,8 +32,8 @@
 .debug-timeline-list:before{display:none}
 .debug-timeline-row,.debug-parallel-row{width:calc(100% - 32px);margin-left:16px;margin-right:16px}
 .debug-timeline-row:before{content:"";position:absolute;left:17px;top:50px;bottom:-14px;width:1px;background:#e7ebf2;pointer-events:none}
-.debug-timeline-row.is-last:before{display:none}
-.debug-timeline-row.is-last:after,.debug-parallel-row:last-of-type:after{display:none}
+.debug-timeline-row[data-last="true"]:before{display:none}
+.debug-timeline-row[data-last="true"]:after,.debug-parallel-row:last-of-type:after{display:none}
 .debug-timeline-row>* ,.debug-parallel-row>*{position:relative;z-index:1}
 .debug-timeline-meta{gap:18px}
 .debug-inline-overview{display:none}
@@ -68,11 +68,11 @@
 .debug-timeline-row:before{left:94px;top:44px;bottom:-14px}
 
 /* Timeline discs reuse the status pill pair, plus the pill's own focus-hue border. */
-.debug-marker-success{--debug-status-bg:var(--bh-color-success-subtle);--debug-status-fg:var(--bh-color-success-default);--debug-status-ring:var(--bh-color-success-focus)}
-.debug-marker-running,.debug-marker-waiting,.debug-marker-manual,.debug-marker-parallel{--debug-status-bg:var(--bh-color-warning-subtle);--debug-status-fg:var(--bh-color-warning-default);--debug-status-ring:var(--bh-color-warning-focus)}
-.debug-marker-unknown,.debug-marker-failed{--debug-status-bg:var(--bh-color-error-subtle);--debug-status-fg:var(--bh-color-error-default);--debug-status-ring:var(--bh-color-error-focus)}
-.debug-marker-pending,.debug-marker-skipped{--debug-status-bg:var(--studio-status-neutral-bg);--debug-status-fg:var(--studio-status-neutral-fg);--debug-status-ring:var(--bh-color-border-1)}
-.debug-marker-success,.debug-marker-running,.debug-marker-waiting,.debug-marker-manual,.debug-marker-parallel,.debug-marker-unknown,.debug-marker-pending,.debug-marker-failed,.debug-marker-skipped{display:inline-flex;align-items:center;justify-content:center;background:var(--debug-status-bg);color:var(--debug-status-fg);border:1px solid var(--debug-status-ring);box-shadow:none}
+.debug-timeline-marker[data-status="success"]{--debug-status-bg:var(--bh-color-success-subtle,#ecfdf3);--debug-status-fg:var(--bh-color-success-default,#16a34a);--debug-status-ring:var(--bh-color-success-focus,#86efac)}
+.debug-timeline-marker[data-status="running"],.debug-timeline-marker[data-status="waiting"],.debug-timeline-marker[data-status="manual"],.debug-timeline-marker[data-status="parallel"]{--debug-status-bg:var(--bh-color-warning-subtle,#fff7e5);--debug-status-fg:var(--bh-color-warning-default,#d97706);--debug-status-ring:var(--bh-color-warning-focus,#f5c76b)}
+.debug-timeline-marker[data-status="unknown"],.debug-timeline-marker[data-status="failed"]{--debug-status-bg:var(--bh-color-error-subtle,#fff0ee);--debug-status-fg:var(--bh-color-error-default,#dc2626);--debug-status-ring:var(--bh-color-error-focus,#f5a5a0)}
+.debug-timeline-marker[data-status="pending"],.debug-timeline-marker[data-status="skipped"]{--debug-status-bg:var(--studio-status-neutral-bg);--debug-status-fg:var(--studio-status-neutral-fg);--debug-status-ring:var(--bh-color-border-1,#dde5ee)}
+.debug-timeline-marker[data-status]{display:inline-flex;align-items:center;justify-content:center;background:var(--debug-status-bg);color:var(--debug-status-fg);border:1px solid var(--debug-status-ring);box-shadow:none}
 /* Compact marker: small filled disc centred on the row's first line. */
 .debug-timeline-marker{--debug-timeline-disc:24px;width:var(--debug-timeline-disc);height:var(--debug-timeline-disc);flex:0 0 var(--debug-timeline-disc);margin-top:calc((var(--debug-timeline-line) - var(--debug-timeline-disc)) / 2);box-shadow:none}
 
@@ -585,4 +585,14 @@
   .debug-summary-progress-track span {
     transition: none;
   }
+}
+
+/* Empty feedback is a state, not a two-column event row. */
+.debug-event-log-empty {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  padding: 12px !important;
+  text-align: center;
 }

@@ -140,11 +140,23 @@
 }
 
 .lab-ui-form-field__error,
+.lab-ui-form-field--error .lab-ui-form-field__error {
+  color: var(--bh-color-error-default, var(--unilab-color-danger, #b42318));
+  font-size: 12px;
+  line-height: 18px;
+}
+
 .device-action-input-description,
 .device-action-input-error {
   color: var(--studio-text-faint);
   font-size: 12px;
   line-height: 18px;
+}
+
+.lab-ui-form-field--error input:not([type=checkbox]),
+.lab-ui-form-field--error select,
+.lab-ui-form-field--error textarea {
+  border-color: var(--bh-color-error-default, var(--unilab-color-danger, #b42318));
 }
 
 .lab-ui-form-field input:not([type=checkbox]):focus,
@@ -168,4 +180,132 @@
 
 .lab-ui-material-inspector__sites > .lab-ui-empty-region .bh-empty-state {
   margin-inline: auto;
+}
+
+/* 只读事实既可作为紧凑行，也可作为详情表单面展示。 */
+.lab-ui-definition {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.lab-ui-definition > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lab-ui-definition dd {
+  margin: 0;
+  text-align: right;
+}
+
+.lab-ui-definition__value--mono {
+  font-family: var(--bh-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  overflow-wrap: anywhere;
+}
+
+.lab-ui-definition__value--missing {
+  color: var(--studio-text-faint, var(--unilab-text-secondary, #667085));
+}
+
+.lab-ui-definition--form {
+  gap: 14px 16px;
+  margin: 0;
+}
+
+.lab-ui-definition--form.lab-ui-definition--columns-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.lab-ui-definition--form > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: initial;
+  gap: 6px;
+}
+
+.lab-ui-definition--form > .lab-ui-definition__item--wide {
+  grid-column: 1 / -1;
+}
+
+.lab-ui-definition--form dt {
+  color: var(--studio-form-label-color, var(--studio-text-secondary, #667085));
+  font-family: var(--studio-form-label-font-family, var(--bh-font-family-sans));
+  font-size: var(--studio-form-label-size, 12px);
+  font-weight: var(--studio-form-label-weight, 500);
+  line-height: var(--studio-form-label-line-height, 18px);
+}
+
+.lab-ui-definition--form dd {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--studio-border, var(--unilab-border-subtle, #d0d5dd));
+  border-radius: var(--studio-control-radius, 8px);
+  background: var(--studio-surface-muted, var(--studio-surface, #fff));
+  color: var(--studio-text, var(--unilab-text-default, #1d2939));
+  font-size: 13px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+@media (max-width: 640px) {
+  .lab-ui-definition--form.lab-ui-definition--columns-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lab-ui-definition--form > .lab-ui-definition__item--wide {
+    grid-column: auto;
+  }
+}
+
+.lab-ui-status-badge {
+  display: inline-flex;
+  min-height: 21px;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.lab-ui-status-badge__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lab-ui-status-badge--success {
+  color: #249d69;
+  background: #eaf8f1;
+}
+
+.lab-ui-status-badge--warning {
+  color: #bd7c12;
+  background: #fff7e5;
+}
+
+.lab-ui-status-badge--error {
+  color: #ca5f57;
+  background: #fff0ee;
+}
+
+.lab-ui-status-badge--info {
+  color: var(--studio-accent, #4f46e5);
+  background: color-mix(in srgb, var(--studio-accent, #4f46e5) 12%, transparent);
+}
+
+.lab-ui-status-badge--neutral {
+  color: var(--studio-status-neutral-fg, #7e8aa0);
+  background: var(--studio-status-neutral-bg, #eef1f6);
 }

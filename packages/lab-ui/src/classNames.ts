@@ -3,9 +3,10 @@ import material from './material.module.scss'
 import reagent from './reagent.module.scss'
 import run from './run.module.scss'
 import shared from './shared.module.scss'
+import task from './task.module.scss'
 import workflow from './workflow.module.scss'
 
-const maps = [material, device, reagent, run, workflow, shared]
+const maps = [material, device, reagent, run, task, workflow, shared]
 
 /** Resolve a component class through its owning module; preserve third-party classes. */
 export function cx(...names: Array<string | false | null | undefined>): string {

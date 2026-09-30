@@ -17,7 +17,6 @@ import {
   Upload,
 } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
 import type {
   CapacityInput,
   CompoundLookup,
@@ -29,6 +28,7 @@ import type {
   ReagentInfoBatchResult,
   ReagentStructure3d,
 } from "@unilab-fe/core";
+import { DefinitionList } from "@unilab/lab-ui";
 import { useBackend } from "../../app/BackendProvider";
 import type { ServerCapability } from "@unilab-fe/core";
 import {
@@ -365,37 +365,55 @@ function CatalogDetail({
       <div className={cx("reagent-detail-content")}>
         <section className={cx("reagent-detail-section")} aria-labelledby="reagent-detail-identity">
           <h3 id="reagent-detail-identity">基础信息</h3>
-          <div className={cx("reagent-detail-grid")}>
-            <DetailField label="名称"><DetailValue value={info.name} /></DetailField>
-            <DetailField label="英文名"><DetailValue value={info.nameEn} /></DetailField>
-            <DetailField label="别名" wide><DetailValue value={info.aliases.length ? info.aliases.join("、") : null} /></DetailField>
-          </div>
+          <DefinitionList
+            variant="form"
+            columns={2}
+            className={cx("reagent-detail-grid")}
+            items={[
+              { label: "名称", value: info.name },
+              { label: "英文名", value: info.nameEn },
+              { label: "别名", value: info.aliases.length ? info.aliases.join("、") : null, wide: true },
+            ]}
+          />
         </section>
 
         <section className={cx("reagent-detail-section")} aria-labelledby="reagent-detail-properties">
           <h3 id="reagent-detail-properties">化学属性</h3>
-          <div className={cx("reagent-detail-grid")}>
-            <DetailField label="CAS 号"><DetailValue value={info.cas} mono /></DetailField>
-            <DetailField label="分子式"><DetailValue value={info.molecularFormula} mono /></DetailField>
-            <DetailField label="物态"><DetailValue value={physicalStateLabel(info.physicalState)} /></DetailField>
-            <DetailField label="分子量"><DetailValue value={info.molecularWeight == null ? null : `${info.molecularWeight} g/mol`} /></DetailField>
-            <DetailField label="密度"><DetailValue value={info.densityGPerMl == null ? null : `${info.densityGPerMl} g/mL`} /></DetailField>
-          </div>
+          <DefinitionList
+            variant="form"
+            columns={2}
+            className={cx("reagent-detail-grid")}
+            items={[
+              { label: "CAS 号", value: info.cas, mono: true },
+              { label: "分子式", value: info.molecularFormula, mono: true },
+              { label: "物态", value: physicalStateLabel(info.physicalState) },
+              { label: "分子量", value: info.molecularWeight == null ? null : `${info.molecularWeight} g/mol` },
+              { label: "密度", value: info.densityGPerMl == null ? null : `${info.densityGPerMl} g/mL` },
+            ]}
+          />
         </section>
 
         <section className={cx("reagent-detail-section")} aria-labelledby="reagent-detail-identifiers">
           <h3 id="reagent-detail-identifiers">结构标识</h3>
-          <div className={cx("reagent-detail-grid")}>
-            <DetailField label="SMILES" wide><DetailValue value={info.smiles} mono /></DetailField>
-            <DetailField label="InChIKey" wide><DetailValue value={info.inchiKey} mono /></DetailField>
-          </div>
+          <DefinitionList
+            variant="form"
+            columns={2}
+            className={cx("reagent-detail-grid")}
+            items={[
+              { label: "SMILES", value: info.smiles, mono: true, wide: true },
+              { label: "InChIKey", value: info.inchiKey, mono: true, wide: true },
+            ]}
+          />
         </section>
 
         <section className={cx("reagent-detail-section")} aria-labelledby="reagent-detail-notes">
           <h3 id="reagent-detail-notes">备注</h3>
-          <div className={cx("reagent-detail-grid")}>
-            <DetailField label="描述" wide><DetailValue value={info.description} /></DetailField>
-          </div>
+          <DefinitionList
+            variant="form"
+            columns={2}
+            className={cx("reagent-detail-grid")}
+            items={[{ label: "描述", value: info.description, wide: true }]}
+          />
         </section>
 
         <section className={cx("reagent-detail-section")} aria-labelledby="reagent-detail-structure">
@@ -418,21 +436,18 @@ function CatalogDetail({
                 description={structureError.message}
               />
             ) : structure?.content ? (
-              <>
-                <DetailField label="状态">
-                  <Tag color="success">{structure.status}</Tag>
-                </DetailField>
-                <DetailField label="格式"><DetailValue value={structure.format} /></DetailField>
-                <DetailField label="来源">
-                  <DetailValue
-                    value={`${structure.structureSource ?? ""}${structure.sourceId ? ` / ${structure.sourceId}` : ""}`}
-                  />
-                </DetailField>
-                <DetailField label="生成时间"><DetailValue value={structure.generatedAt} /></DetailField>
-                <DetailField label="结构内容">
-                  <DetailValue value={`已缓存 ${structure.content.length} 字符`} />
-                </DetailField>
-              </>
+              <DefinitionList
+                variant="form"
+                columns={2}
+                className={cx("reagent-detail-grid")}
+                items={[
+                  { label: "状态", value: <Tag color="success">{structure.status}</Tag> },
+                  { label: "格式", value: structure.format },
+                  { label: "来源", value: `${structure.structureSource ?? ""}${structure.sourceId ? ` / ${structure.sourceId}` : ""}` },
+                  { label: "生成时间", value: structure.generatedAt },
+                  { label: "结构内容", value: `已缓存 ${structure.content.length} 字符` },
+                ]}
+              />
             ) : (
               <div className={cx("reagent-detail-empty", "reagent-detail-field--wide")}>
                 <Tag color="warning">待生成</Tag>
@@ -443,45 +458,6 @@ function CatalogDetail({
         </section>
       </div>
     </Modal>
-  );
-}
-
-function DetailField({
-  label,
-  children,
-  wide = false,
-}: {
-  label: string;
-  children: ReactNode;
-  wide?: boolean;
-}) {
-  return (
-    <div
-      className={cx("reagent-detail-field", wide && "reagent-detail-field--wide")}
-    >
-      <span className={cx("reagent-detail-label")}>{label}</span>
-      <div className={cx("reagent-detail-value")}>{children}</div>
-    </div>
-  );
-}
-
-function DetailValue({
-  value,
-  mono = false,
-}: {
-  value: ReactNode;
-  mono?: boolean;
-}) {
-  const missing = value == null || value === "";
-  return (
-    <span
-      className={cx(
-        mono && "reagent-detail-code",
-        missing && "reagent-detail-value--empty",
-      )}
-    >
-      {missing ? "未提供" : value}
-    </span>
   );
 }
 

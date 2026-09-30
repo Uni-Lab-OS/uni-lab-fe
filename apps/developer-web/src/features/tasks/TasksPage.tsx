@@ -13,11 +13,11 @@ import type { TableColumnsType } from "antd";
 import { EmptyState } from "@unilab/design-v2";
 import { useEffect, useMemo, useState } from "react";
 import type { TaskRuntimePresentation } from "@unilab-fe/core";
+import { TaskProgress, TaskStatusBadge } from "@unilab/lab-ui";
 import { useBackend } from "../../app/BackendProvider";
 import { AppIcon } from "../../components/ui/Icon";
 import { AsyncState } from "../../components/ui/AsyncState";
 import { PageHeader } from "../../components/ui/PageHeader";
-import { StatusBadge } from "../../components/ui/StatusBadge";
 import { TableText } from "../../components/ui/TableText";
 import { useBackendQuery } from "../../hooks/useBackendQuery";
 import { displayTime, toTaskListRow, type TaskListRow } from "./taskDomain";
@@ -102,19 +102,20 @@ export function TasksPage() {
       title: "状态",
       dataIndex: "status",
       width: 125,
-      render: (value) => <StatusBadge status={value} />,
+      render: (value) => <TaskStatusBadge status={value} />,
     },
     {
       title: "进度",
       key: "progress",
       width: 150,
       render: (_, row) => (
-        <div className={cx("progress-cell")}>
-          <span>{row.progress == null ? "—" : `${row.progress}%`}</span>
-          <span className={cx("muted-cell")}>
-            {row.completedJobs}/{row.totalJobs} 节点
-          </span>
-        </div>
+        <TaskProgress
+          className={cx("progress-cell")}
+          metaClassName={cx("muted-cell")}
+          percent={row.progress}
+          completed={row.completedJobs}
+          total={row.totalJobs}
+        />
       ),
     },
     {
@@ -202,6 +203,7 @@ export function TasksPage() {
         >
           <Table
             className={cx("task-list-table")}
+            tableLayout="fixed"
             rowKey={(row) => row.task.taskUuid}
             columns={columns}
             dataSource={rows}

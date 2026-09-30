@@ -1031,6 +1031,21 @@ textarea {
   font-size: 14px;
 }
 
+/* 固定列宽后，长任务/工作流名称才会在自己的单元格内省略，Typography.Text 才能触发 hover tooltip。 */
+.task-list-table :global(.ant-table) {
+  table-layout: fixed;
+}
+
+.task-list-table :global(.ant-table-cell),
+.task-list-table :global(.ant-table-tbody) > tr > td:nth-child(-n + 2) > * {
+  min-width: 0;
+}
+
+.task-list-table :global(.ant-table-tbody) > tr > td:nth-child(-n + 2) > * {
+  max-width: 100%;
+  overflow: hidden;
+}
+
 /* Let data tables hug their content; keep spacing in the toolbar and cells. */
 .data-section {
   padding-top: 0;

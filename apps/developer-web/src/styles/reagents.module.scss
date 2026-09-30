@@ -94,46 +94,8 @@
   gap: 14px 16px;
 }
 
-.reagent-detail-field {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 6px;
-}
-
 .reagent-detail-field--wide {
   grid-column: 1 / -1;
-}
-
-.reagent-detail-label {
-  color: var(--studio-text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 18px;
-}
-
-.reagent-detail-value {
-  display: flex;
-  min-height: 36px;
-  align-items: center;
-  box-sizing: border-box;
-  padding: 8px 10px;
-  border: 1px solid var(--studio-border);
-  border-radius: var(--studio-control-radius);
-  background: var(--studio-surface-muted);
-  color: var(--studio-text);
-  font-size: 13px;
-  line-height: 18px;
-  overflow-wrap: anywhere;
-}
-
-.reagent-detail-code {
-  font-family: var(--bh-font-family-mono);
-  word-break: break-all;
-}
-
-.reagent-detail-value--empty {
-  color: var(--studio-text-faint);
 }
 
 .reagent-detail-empty {
