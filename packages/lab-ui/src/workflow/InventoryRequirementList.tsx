@@ -18,20 +18,13 @@ export function InventoryRequirementList({
   return (
     <ul className={cx('lab-ui-requirement-list')} aria-label="库存需求列表">
       {requirements.map((requirement) => (
-        <InventoryRequirementItem
-          key={requirement.uuid}
-          requirement={requirement}
-        />
+        <InventoryRequirementItem key={requirement.uuid} requirement={requirement} />
       ))}
     </ul>
   )
 }
 
-function InventoryRequirementItem({
-  requirement,
-}: {
-  readonly requirement: InventoryRequirement
-}) {
+function InventoryRequirementItem({ requirement }: { readonly requirement: InventoryRequirement }) {
   return (
     <li>
       <div>

@@ -4,7 +4,7 @@ import type {
   DeviceActionRunAccepted,
   DeviceActionRunRequest,
   DeviceActionRunView,
-  DeviceSummary
+  DeviceSummary,
 } from './model'
 
 export interface DeviceActionPort {
@@ -17,9 +17,7 @@ export interface DeviceActionPort {
 
   getActionDefinition(actionUuid: string): Promise<ActionDefinition>
 
-  createActionRun(
-    request: DeviceActionRunRequest
-  ): Promise<DeviceActionRunAccepted>
+  createActionRun(request: DeviceActionRunRequest): Promise<DeviceActionRunAccepted>
 
   getActionRun(taskUuid: string): Promise<DeviceActionRunView>
 }

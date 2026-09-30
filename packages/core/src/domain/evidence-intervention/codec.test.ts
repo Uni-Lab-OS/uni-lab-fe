@@ -3,28 +3,32 @@ import { decodeIntervention, decodeInterventionList } from './codec'
 
 describe('evidence intervention codec', () => {
   it('maps an open intervention while preserving device options and delivery state', () => {
-    expect(decodeIntervention({
-      code: 0,
-      data: intervention('intervention-1', 'open')
-    })).toMatchObject({
+    expect(
+      decodeIntervention({
+        code: 0,
+        data: intervention('intervention-1', 'open'),
+      }),
+    ).toMatchObject({
       kind: 'workflow_intervention',
       interventionUuid: 'intervention-1',
       status: 'open',
       options: [{ id: 'retry' }, { id: 'abort' }],
       deliveryStatus: 'none',
-      selectedOption: {}
+      selectedOption: {},
     })
   })
 
   it('accepts the direct list payload and rejects duplicate option identities', () => {
-    expect(decodeInterventionList([
-      intervention('intervention-1', 'selected')
-    ])).toMatchObject([{ status: 'selected' }])
+    expect(decodeInterventionList([intervention('intervention-1', 'selected')])).toMatchObject([
+      { status: 'selected' },
+    ])
 
-    expect(() => decodeIntervention({
-      ...intervention('intervention-1', 'open'),
-      options: [{ id: 'retry' }, { id: 'retry' }]
-    })).toThrow('duplicate intervention option id')
+    expect(() =>
+      decodeIntervention({
+        ...intervention('intervention-1', 'open'),
+        options: [{ id: 'retry' }, { id: 'retry' }],
+      }),
+    ).toThrow('duplicate intervention option id')
   })
 })
 
@@ -39,10 +43,13 @@ function intervention(uuid: string, status: string) {
     edge_command_uuid: null,
     revision: 1,
     status,
-    options: [{ id: 'retry', action: 'retry', label: 'Retry' }, { id: 'abort', action: 'abort' }],
+    options: [
+      { id: 'retry', action: 'retry', label: 'Retry' },
+      { id: 'abort', action: 'abort' },
+    ],
     resume_control_status: 'active',
     selected_option: {},
     delivery_status: 'none',
-    opened_at: '2026-09-25T00:00:00Z'
+    opened_at: '2026-09-25T00:00:00Z',
   }
 }

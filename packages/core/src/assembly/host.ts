@@ -30,31 +30,31 @@ export interface ProductHostAssembly {
 }
 
 export function createProductHostAssembly(
-  options: ProductHostAssemblyOptions
+  options: ProductHostAssemblyOptions,
 ): ProductHostAssembly {
   return {
     host: {
       kind: options.kind,
       profileId: options.profileId ?? options.kind,
-      capabilities: options.capabilities ?? defaultCapabilities(options.kind)
+      capabilities: options.capabilities ?? defaultCapabilities(options.kind),
     },
-    core: createBackendCoreFromTransport(options.transport)
+    core: createBackendCoreFromTransport(options.transport),
   }
 }
 
 export const HOST_ASSEMBLY_EVALUATION = {
   browser: {
     transport: 'FetchTransport',
-    hostResponsibilities: ['web session', 'navigation', 'capability presentation']
+    hostResponsibilities: ['web session', 'navigation', 'capability presentation'],
   },
   desktop: {
     transport: 'injected RequestTransport',
-    hostResponsibilities: ['window lifecycle', 'local process bridge', 'packaging']
+    hostResponsibilities: ['window lifecycle', 'local process bridge', 'packaging'],
   },
   workbench: {
     transport: 'injected RequestTransport',
-    hostResponsibilities: ['workspace', 'Theia extension', 'panel lifecycle']
-  }
+    hostResponsibilities: ['workspace', 'Theia extension', 'panel lifecycle'],
+  },
 } as const
 
 function defaultCapabilities(kind: ProductHostKind): readonly ProductHostCapability[] {

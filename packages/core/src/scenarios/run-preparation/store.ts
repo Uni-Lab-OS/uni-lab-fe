@@ -1,5 +1,9 @@
 import { createStore, type StateCreator, type StoreApi } from 'zustand/vanilla'
-import type { PreflightReport, RunConfiguration, SubmittedRun } from '../../domain/run-preparation/model'
+import type {
+  PreflightReport,
+  RunConfiguration,
+  SubmittedRun,
+} from '../../domain/run-preparation/model'
 import type { BindingDraft } from '../../domain/run-preparation/model'
 import type { RunPreparationScenario } from './scenario'
 import type { RunPreparationViewModel } from './view-model'
@@ -31,14 +35,12 @@ export interface RunPreparationStoreState {
 
 export type RunPreparationStore = StoreApi<RunPreparationStoreState>
 
-export function createRunPreparationStore(
-  scenario: RunPreparationScenario
-): RunPreparationStore {
+export function createRunPreparationStore(scenario: RunPreparationScenario): RunPreparationStore {
   return createStore(createRunPreparationStoreState(scenario))
 }
 
 export function createRunPreparationStoreState(
-  scenario: RunPreparationScenario
+  scenario: RunPreparationScenario,
 ): StateCreator<RunPreparationStoreState> {
   return (set, get) => ({
     status: 'idle',
@@ -53,19 +55,18 @@ export function createRunPreparationStoreState(
 
       try {
         const state = get()
-        const draft = state.viewModel?.revision.workflowUuid === workflowUuid
-          ? state.viewModel
-          : undefined
+        const draft =
+          state.viewModel?.revision.workflowUuid === workflowUuid ? state.viewModel : undefined
         const viewModel = await scenario.load(workflowUuid, {
           configuration: draft?.configuration ?? defaultConfiguration,
-          binding: draft?.binding ?? defaultBinding
+          binding: draft?.binding ?? defaultBinding,
         })
         set({
           status: 'ready',
           viewModel,
           preflight: null,
           submittedRun: null,
-          error: null
+          error: null,
         })
       } catch (error) {
         set({ status: 'error', error: toError(error) })
@@ -115,54 +116,56 @@ export function createRunPreparationStoreState(
     },
 
     updateConfiguration(patch) {
-      set((state) => state.viewModel
-        ? {
-            viewModel: {
-              ...state.viewModel,
-              configuration: { ...state.viewModel.configuration, ...patch },
-              nodeJob: null
-            },
-            preflight: null,
-            submittedRun: null
-          }
-        : state)
+      set((state) =>
+        state.viewModel
+          ? {
+              viewModel: {
+                ...state.viewModel,
+                configuration: { ...state.viewModel.configuration, ...patch },
+                nodeJob: null,
+              },
+              preflight: null,
+              submittedRun: null,
+            }
+          : state,
+      )
     },
 
     updateBinding(patch) {
-      set((state) => state.viewModel
-        ? {
-            viewModel: {
-              ...state.viewModel,
-              binding: { ...state.viewModel.binding, ...patch },
-              nodeJob: null
-            },
-            preflight: null,
-            submittedRun: null
-          }
-        : state)
+      set((state) =>
+        state.viewModel
+          ? {
+              viewModel: {
+                ...state.viewModel,
+                binding: { ...state.viewModel.binding, ...patch },
+                nodeJob: null,
+              },
+              preflight: null,
+              submittedRun: null,
+            }
+          : state,
+      )
     },
 
     clearError() {
       set({ error: null })
-    }
+    },
   })
 }
 
-function currentScenarioState(
-  state: RunPreparationStoreState
-) {
+function currentScenarioState(state: RunPreparationStoreState) {
   return state.viewModel!
 }
 
 const defaultConfiguration: RunConfiguration = {
   runMode: 'normal',
-  input: {}
+  input: {},
 }
 
 const defaultBinding: BindingDraft = {
   source: 'user',
   inventoryBindings: [],
-  selectedResources: {}
+  selectedResources: {},
 }
 
 function toError(error: unknown): Error {

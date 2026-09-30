@@ -4,7 +4,7 @@ import type {
   MaterialGraphResponse,
   MaterialListResponse,
   MaterialSiteRecord,
-  SiteListResponse
+  SiteListResponse,
 } from './api'
 import type {
   MaterialDetail,
@@ -15,25 +15,21 @@ import type {
   MaterialResourceTemplateSummary,
   MaterialSummary,
   SiteSummary,
-  Vector3
+  Vector3,
 } from './model'
 
 export function decodeMaterialList(value: unknown): MaterialListPage {
   const payload = unwrapEnvelope(value)
   const root = asRecord(payload, 'material list') as MaterialListResponse
-  const items = Array.isArray(root.items)
-    ? root.items
-    : Array.isArray(root.data)
-      ? root.data
-      : []
+  const items = Array.isArray(root.items) ? root.items : Array.isArray(root.data) ? root.data : []
   return {
     items: items.map((item, index) =>
-      decodeMaterialSummary(asRecord(item, `materials.items[${index}]`))
+      decodeMaterialSummary(asRecord(item, `materials.items[${index}]`)),
     ),
     total: nullableInteger(root.total, 'materials.total'),
     page: nullablePositiveInteger(root.page, 'materials.page'),
     pageSize: nullablePositiveInteger(root.page_size, 'materials.page_size'),
-    raw: root
+    raw: root,
   }
 }
 
@@ -47,7 +43,7 @@ export function decodeMaterialGraph(value: unknown): MaterialGraph {
   const nodes = root.nodes.map((item, index) => {
     const node = asRecord(item, `material graph.nodes[${index}]`)
     const material = decodeMaterialSummary(
-      asRecord(node.material, `material graph.nodes[${index}].material`)
+      asRecord(node.material, `material graph.nodes[${index}].material`),
     )
     if (materialIds.has(material.materialUuid)) {
       invalid(`duplicate material uuid: ${material.materialUuid}`)
@@ -59,12 +55,10 @@ export function decodeMaterialGraph(value: unknown): MaterialGraph {
     }
     const nodeSites = siteValues.map((site, siteIndex) => {
       const decoded = decodeSite(
-        asRecord(site, `material graph.nodes[${index}].sites[${siteIndex}]`)
+        asRecord(site, `material graph.nodes[${index}].sites[${siteIndex}]`),
       )
       if (decoded.ownerMaterialUuid !== material.materialUuid) {
-        invalid(
-          `site ${decoded.siteUuid} owner does not match material ${material.materialUuid}`
-        )
+        invalid(`site ${decoded.siteUuid} owner does not match material ${material.materialUuid}`)
       }
       if (sites.has(decoded.siteUuid)) invalid(`duplicate site uuid: ${decoded.siteUuid}`)
       sites.set(decoded.siteUuid, decoded)
@@ -76,28 +70,24 @@ export function decodeMaterialGraph(value: unknown): MaterialGraph {
       relativePosition.raw.material_uuid !== undefined &&
       relativePosition.raw.material_uuid !== material.materialUuid
     ) {
-      invalid(
-        `relative_position owner does not match material ${material.materialUuid}`
-      )
+      invalid(`relative_position owner does not match material ${material.materialUuid}`)
     }
     return {
       material,
       resourceTemplate: decodeResourceTemplate(
         node.resource_template,
-        material.resourceTemplateUuid
+        material.resourceTemplateUuid,
       ),
       relativePosition,
       sites: nodeSites,
       currentSiteUuid: nullableString(node.current_site_uuid, 'current_site_uuid'),
-      raw: node
+      raw: node,
     } satisfies MaterialGraphNode
   })
 
   for (const node of nodes) {
     if (node.currentSiteUuid !== null && !sites.has(node.currentSiteUuid)) {
-      invalid(
-        `current_site_uuid does not resolve: ${node.currentSiteUuid}`
-      )
+      invalid(`current_site_uuid does not resolve: ${node.currentSiteUuid}`)
     }
   }
 
@@ -105,7 +95,7 @@ export function decodeMaterialGraph(value: unknown): MaterialGraph {
     kind: 'material_graph',
     source: 'os',
     nodes,
-    raw: root
+    raw: root,
   }
 }
 
@@ -113,25 +103,27 @@ export function decodeMaterialDetail(value: unknown): MaterialDetail {
   const payload = unwrapEnvelope(value)
   const root = asRecord(payload, 'material detail') as MaterialDetailResponse
   const material = decodeMaterialSummary(root)
-  const sites = root.sites === undefined
-    ? []
-    : decodeSiteList(root.sites, 'material.sites', material.materialUuid)
-  const currentSite = root.current_site === null || root.current_site === undefined
-    ? null
-    : decodeSite(asRecord(root.current_site, 'material.current_site'))
+  const sites =
+    root.sites === undefined
+      ? []
+      : decodeSiteList(root.sites, 'material.sites', material.materialUuid)
+  const currentSite =
+    root.current_site === null || root.current_site === undefined
+      ? null
+      : decodeSite(asRecord(root.current_site, 'material.current_site'))
   return {
     ...material,
     kind: 'material_detail',
     relativePosition: decodeRelativePosition(root.relative_position),
     sites,
-    currentSite
+    currentSite,
   }
 }
 
 export function decodeSiteList(
   value: unknown,
   path = 'sites',
-  expectedOwnerMaterialUuid?: string
+  expectedOwnerMaterialUuid?: string,
 ): readonly SiteSummary[] {
   const payload = unwrapEnvelope(value)
   const root = asOptionalRecord(payload)
@@ -150,9 +142,7 @@ export function decodeSiteList(
       expectedOwnerMaterialUuid !== undefined &&
       site.ownerMaterialUuid !== expectedOwnerMaterialUuid
     ) {
-      invalid(
-        `site ${site.siteUuid} owner does not match material ${expectedOwnerMaterialUuid}`
-      )
+      invalid(`site ${site.siteUuid} owner does not match material ${expectedOwnerMaterialUuid}`)
     }
     return site
   })
@@ -170,7 +160,7 @@ function decodeMaterialSummary(value: MaterialSiteRecord): MaterialSummary {
     materialUuid: requiredString(value.uuid, 'material.uuid'),
     resourceTemplateUuid: requiredString(
       value.resource_template_uuid,
-      'material.resource_template_uuid'
+      'material.resource_template_uuid',
     ),
     materialType: nullableString(value.type, 'material.type'),
     className: nullableString(value.class, 'material.class'),
@@ -183,16 +173,13 @@ function decodeMaterialSummary(value: MaterialSiteRecord): MaterialSummary {
     metadata: optionalRecord(value.meta_data, 'material.meta_data'),
     createdAt: nullableString(value.create_time, 'material.create_time'),
     updatedAt: nullableString(value.update_time, 'material.update_time'),
-    raw: value
+    raw: value,
   }
 }
 
 function decodeSite(value: MaterialSiteRecord): SiteSummary {
   const metadata = optionalRecord(value.meta_data, 'site.meta_data')
-  const occupiedField = Object.prototype.hasOwnProperty.call(
-    value,
-    'occupied_material_uuid'
-  )
+  const occupiedField = Object.prototype.hasOwnProperty.call(value, 'occupied_material_uuid')
   return {
     kind: 'site',
     source: 'os',
@@ -201,33 +188,47 @@ function decodeSite(value: MaterialSiteRecord): SiteSummary {
     key: optionalString(metadata.key) ?? requiredString(value.name, 'site.name'),
     name: requiredString(value.name, 'site.name'),
     sortOrder: nullableNumber(value.sort_order, 'site.sort_order'),
-    allowedResourceTemplateUuids: value.allowed_resource_template_uuids === undefined
-      ? null
-      : stringArray(value.allowed_resource_template_uuids, 'site.allowed_resource_template_uuids'),
+    allowedResourceTemplateUuids:
+      value.allowed_resource_template_uuids === undefined
+        ? null
+        : stringArray(
+            value.allowed_resource_template_uuids,
+            'site.allowed_resource_template_uuids',
+          ),
     occupancy: {
       known: occupiedField,
       occupiedMaterialUuid: nullableString(
         value.occupied_material_uuid,
-        'site.occupied_material_uuid'
-      )
+        'site.occupied_material_uuid',
+      ),
     },
     geometry: decodeSiteGeometry(value),
     metadata,
-    raw: value
+    raw: value,
   }
 }
 
 function decodeSiteGeometry(value: MaterialSiteRecord): SiteSummary['geometry'] {
   const hasGeometry = [
-    'position_x', 'position_y', 'position_z',
-    'width', 'length', 'depth',
-    'rotation_x', 'rotation_y', 'rotation_z'
+    'position_x',
+    'position_y',
+    'position_z',
+    'width',
+    'length',
+    'depth',
+    'rotation_x',
+    'rotation_y',
+    'rotation_z',
   ].some((key) => value[key] !== undefined && value[key] !== null)
   if (!hasGeometry) return null
   return {
     positionMm: requiredVector(value, ['position_x', 'position_y', 'position_z'], 'site.position'),
     sizeMm: optionalVector(value, ['width', 'depth', 'length'], 'site.size'),
-    rotationDegXYZ: optionalVector(value, ['rotation_x', 'rotation_y', 'rotation_z'], 'site.rotation')
+    rotationDegXYZ: optionalVector(
+      value,
+      ['rotation_x', 'rotation_y', 'rotation_z'],
+      'site.rotation',
+    ),
   }
 }
 
@@ -235,17 +236,25 @@ function decodeRelativePosition(value: unknown): MaterialRelativePosition | null
   if (value === null || value === undefined) return null
   const raw = asRecord(value, 'material.relative_position')
   return {
-    positionMm: requiredVector(raw, ['position_x', 'position_y', 'position_z'], 'relative_position.position'),
+    positionMm: requiredVector(
+      raw,
+      ['position_x', 'position_y', 'position_z'],
+      'relative_position.position',
+    ),
     sizeMm: optionalVector(raw, ['width', 'depth', 'length'], 'relative_position.size'),
     scale: optionalVector(raw, ['scale_x', 'scale_y', 'scale_z'], 'relative_position.scale'),
-    rotationDegXYZ: optionalVector(raw, ['rotation_x', 'rotation_y', 'rotation_z'], 'relative_position.rotation'),
-    raw
+    rotationDegXYZ: optionalVector(
+      raw,
+      ['rotation_x', 'rotation_y', 'rotation_z'],
+      'relative_position.rotation',
+    ),
+    raw,
   }
 }
 
 function decodeResourceTemplate(
   value: unknown,
-  expectedUuid: string
+  expectedUuid: string,
 ): MaterialResourceTemplateSummary | null {
   if (value === null || value === undefined) return null
   const raw = asRecord(value, 'resource_template')
@@ -259,7 +268,7 @@ function decodeResourceTemplate(
     displayName: requiredString(raw.display_name, 'resource_template.display_name'),
     resourceType: requiredString(raw.resource_type, 'resource_template.resource_type'),
     ...(optionalString(raw.icon) === undefined ? {} : { icon: optionalString(raw.icon) }),
-    raw
+    raw,
   }
 }
 
@@ -272,8 +281,8 @@ function unwrapEnvelope(value: unknown): unknown {
     const error = asOptionalRecord(record.error)
     throw new MaterialSiteError(
       'OS_REQUEST_REJECTED',
-      optionalString(error?.message ?? error?.msg ?? record.message)
-        ?? `OS request rejected with code ${String(record.code)}`
+      optionalString(error?.message ?? error?.msg ?? record.message) ??
+        `OS request rejected with code ${String(record.code)}`,
     )
   }
   return record.data
@@ -287,7 +296,7 @@ function asRecord(value: unknown, path: string): MaterialSiteRecord {
 
 function asOptionalRecord(value: unknown): MaterialSiteRecord | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as MaterialSiteRecord
+    ? (value as MaterialSiteRecord)
     : undefined
 }
 
@@ -313,7 +322,8 @@ function optionalString(value: unknown): string | undefined {
 
 function nullableNumber(value: unknown, path: string): number | null {
   if (value === null || value === undefined) return null
-  if (typeof value !== 'number' || !Number.isFinite(value)) invalid(`${path} must be a finite number`)
+  if (typeof value !== 'number' || !Number.isFinite(value))
+    invalid(`${path} must be a finite number`)
   return value
 }
 
@@ -343,7 +353,7 @@ function stringArray(value: unknown, path: string): readonly string[] {
 function requiredVector(
   value: MaterialSiteRecord,
   keys: readonly [string, string, string],
-  path: string
+  path: string,
 ): Vector3 {
   const vector = optionalVector(value, keys, path)
   if (!vector) invalid(`${path} must contain three finite numbers`)
@@ -353,7 +363,7 @@ function requiredVector(
 function optionalVector(
   value: MaterialSiteRecord,
   keys: readonly [string, string, string],
-  path: string
+  path: string,
 ): Vector3 | null {
   const values = keys.map((key) => value[key])
   if (values.every((item) => item === undefined || item === null)) return null

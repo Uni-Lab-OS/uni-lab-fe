@@ -49,7 +49,7 @@ const LOCAL_PYTHON_CAPABILITIES = new Set<ServerCapability>([
 
 /** 返回当前 profile 已完成联调的能力集合；未知 profile 默认关闭。 */
 export function resolveServerCapabilities(
-  target: Pick<BackendCapabilityTarget, 'id'>
+  target: Pick<BackendCapabilityTarget, 'id'>,
 ): ReadonlySet<ServerCapability> {
   if (target.id === 'local-python') return LOCAL_PYTHON_CAPABILITIES
   if (target.id === 'local-go') return LOCAL_GO_CAPABILITIES
@@ -59,7 +59,7 @@ export function resolveServerCapabilities(
 export function getCapabilityStatus(
   target: BackendCapabilityTarget,
   capabilities: ReadonlySet<ServerCapability>,
-  capability: ServerCapability
+  capability: ServerCapability,
 ): CapabilityStatus {
   if (capabilities.has(capability)) return { available: true }
   return {

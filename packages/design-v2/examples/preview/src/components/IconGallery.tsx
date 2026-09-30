@@ -34,17 +34,25 @@ export function IconGallery(): React.JSX.Element {
   const [resultLimit, setResultLimit] = useState(INITIAL_RESULT_LIMIT)
 
   const normalizedQuery = normalizeSearch(query)
-  const filteredNames = useMemo(() => ICON_NAMES.filter((name) => {
-    const entry = ICON_MANIFEST[name]
-    const matchesCategory = category === 'all' || entry.categorySlug === category
-    if (!matchesCategory) return false
-    if (!normalizedQuery) return true
-    return [name, entry.figmaName, entry.category].some((value) => normalizeSearch(value).includes(normalizedQuery))
-  }), [category, normalizedQuery])
+  const filteredNames = useMemo(
+    () =>
+      ICON_NAMES.filter((name) => {
+        const entry = ICON_MANIFEST[name]
+        const matchesCategory = category === 'all' || entry.categorySlug === category
+        if (!matchesCategory) return false
+        if (!normalizedQuery) return true
+        return [name, entry.figmaName, entry.category].some((value) =>
+          normalizeSearch(value).includes(normalizedQuery),
+        )
+      }),
+    [category, normalizedQuery],
+  )
 
   const visibleNames = filteredNames.slice(0, resultLimit)
   const selectedColor = COLOR_OPTIONS.find((option) => option.value === color)
-  const iconStyle = useCustomColor ? ({ '--bh-icon-color': customColor } as React.CSSProperties) : undefined
+  const iconStyle = useCustomColor
+    ? ({ '--bh-icon-color': customColor } as React.CSSProperties)
+    : undefined
 
   const clearFilters = (): void => {
     setQuery('')
@@ -71,7 +79,10 @@ export function IconGallery(): React.JSX.Element {
         <div>
           <span className="eyebrow">ICON LIBRARY / FIGMA EXPORT</span>
           <h2 id="icon-gallery-title">按名称和主题色查找图标。</h2>
-          <p>这里展示 Bohr icon 页面导出的公开组件。颜色使用 design-v2 语义变量，也可以用自定义色检查图标在业务场景中的表现。</p>
+          <p>
+            这里展示 Bohr icon 页面导出的公开组件。颜色使用 design-v2
+            语义变量，也可以用自定义色检查图标在业务场景中的表现。
+          </p>
         </div>
         <div className="icon-gallery-total">
           <strong>{ICON_NAMES.length}</strong>
@@ -96,11 +107,19 @@ export function IconGallery(): React.JSX.Element {
             <select value={category} onChange={(event) => updateCategory(event.target.value)}>
               <option value="all">All categories · {ICON_NAMES.length}</option>
               {ICON_CATEGORIES.map((item) => (
-                <option key={item.slug} value={item.slug}>{item.name} · {item.count}</option>
+                <option key={item.slug} value={item.slug}>
+                  {item.name} · {item.count}
+                </option>
               ))}
             </select>
           </label>
-          <button className="control-button icon-gallery-reset" type="button" onClick={clearFilters}>Reset</button>
+          <button
+            className="control-button icon-gallery-reset"
+            type="button"
+            onClick={clearFilters}
+          >
+            Reset
+          </button>
         </div>
 
         <div className="icon-gallery-color-row">
@@ -118,14 +137,31 @@ export function IconGallery(): React.JSX.Element {
                     setUseCustomColor(false)
                   }}
                 >
-                  <span className="icon-color-dot" style={{ color: option.value === 'inherit' ? 'var(--bh-color-foreground)' : `var(${option.variable}, currentColor)` }} />
+                  <span
+                    className="icon-color-dot"
+                    style={{
+                      color:
+                        option.value === 'inherit'
+                          ? 'var(--bh-color-foreground)'
+                          : `var(${option.variable}, currentColor)`,
+                    }}
+                  />
                   {option.label}
                 </button>
               ))}
             </div>
           </div>
-          <label className={`icon-custom-color ${useCustomColor ? 'icon-custom-color-active' : ''}`}>
-            <input type="color" value={customColor} onChange={(event) => { setCustomColor(event.target.value); setUseCustomColor(true) }} />
+          <label
+            className={`icon-custom-color ${useCustomColor ? 'icon-custom-color-active' : ''}`}
+          >
+            <input
+              type="color"
+              value={customColor}
+              onChange={(event) => {
+                setCustomColor(event.target.value)
+                setUseCustomColor(true)
+              }}
+            />
             <span>Custom</span>
             <code>{customColor.toUpperCase()}</code>
           </label>
@@ -133,14 +169,25 @@ export function IconGallery(): React.JSX.Element {
       </section>
 
       <div className="icon-gallery-summary">
-        <span><strong>{filteredNames.length}</strong> results</span>
-        <span>{useCustomColor ? `Custom · ${customColor.toUpperCase()}` : `${selectedColor?.label} · ${selectedColor?.variable}`}</span>
+        <span>
+          <strong>{filteredNames.length}</strong> results
+        </span>
+        <span>
+          {useCustomColor
+            ? `Custom · ${customColor.toUpperCase()}`
+            : `${selectedColor?.label} · ${selectedColor?.variable}`}
+        </span>
       </div>
 
       {visibleNames.length > 0 ? (
         <div className="icon-gallery-grid" aria-live="polite">
           {visibleNames.map((name) => (
-            <IconCard key={name} name={name} color={useCustomColor ? 'inherit' : color} style={iconStyle} />
+            <IconCard
+              key={name}
+              name={name}
+              color={useCustomColor ? 'inherit' : color}
+              style={iconStyle}
+            />
           ))}
         </div>
       ) : (
@@ -153,15 +200,31 @@ export function IconGallery(): React.JSX.Element {
 
       {visibleNames.length < filteredNames.length && (
         <div className="icon-gallery-load-more">
-          <span>Showing {visibleNames.length} of {filteredNames.length}</span>
-          <button className="control-button" type="button" onClick={() => setResultLimit((limit) => limit + RESULT_STEP)}>Load more</button>
+          <span>
+            Showing {visibleNames.length} of {filteredNames.length}
+          </span>
+          <button
+            className="control-button"
+            type="button"
+            onClick={() => setResultLimit((limit) => limit + RESULT_STEP)}
+          >
+            Load more
+          </button>
         </div>
       )}
     </section>
   )
 }
 
-function IconCard({ name, color, style }: { name: IconName; color: IconColor; style?: React.CSSProperties }): React.JSX.Element {
+function IconCard({
+  name,
+  color,
+  style,
+}: {
+  name: IconName
+  color: IconColor
+  style?: React.CSSProperties
+}): React.JSX.Element {
   const entry = ICON_MANIFEST[name]
   return (
     <article className="icon-card">

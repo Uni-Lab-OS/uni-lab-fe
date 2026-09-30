@@ -5,7 +5,7 @@ import type {
   WorkflowTaskCommandReceipt,
   WorkflowTaskCommandRequest,
   WorkflowRuntimeInvalidation,
-  WorkflowRuntimeSubscription
+  WorkflowRuntimeSubscription,
 } from '../../domain/workflow-execution-read/model'
 import type { WorkflowRuntimeEventsPort } from '../../domain/workflow-runtime-events/port'
 import { deriveWorkflowDebugFacts } from '../../domain/workflow-execution-read/debug-facts'
@@ -13,7 +13,7 @@ import {
   createWorkflowDebuggingViewModel,
   projectWorkflowDebugFacts,
   type WorkflowDebuggingQuery,
-  type WorkflowDebuggingViewModel
+  type WorkflowDebuggingViewModel,
 } from './view-model'
 
 export interface WorkflowDebuggingScenario {
@@ -21,26 +21,29 @@ export interface WorkflowDebuggingScenario {
   reload(viewModel: WorkflowDebuggingViewModel): Promise<WorkflowDebuggingViewModel>
   inspectWorkflow(
     viewModel: WorkflowDebuggingViewModel,
-    workflowUuid: string
+    workflowUuid: string,
   ): Promise<WorkflowDebuggingViewModel>
   inspectTask(
     viewModel: WorkflowDebuggingViewModel,
-    taskUuid: string
+    taskUuid: string,
   ): Promise<WorkflowDebuggingViewModel>
   inspectJob(
     viewModel: WorkflowDebuggingViewModel,
     jobUuid: string,
-    input?: { readonly afterSequence?: number; readonly limit?: number }
+    input?: { readonly afterSequence?: number; readonly limit?: number },
   ): Promise<WorkflowDebuggingViewModel>
   refreshTask(viewModel: WorkflowDebuggingViewModel): Promise<WorkflowDebuggingViewModel>
   sendCommand(
     viewModel: WorkflowDebuggingViewModel,
-    request: WorkflowTaskCommandRequest
-  ): Promise<{ readonly viewModel: WorkflowDebuggingViewModel; readonly command: WorkflowTaskCommandReceipt }>
+    request: WorkflowTaskCommandRequest,
+  ): Promise<{
+    readonly viewModel: WorkflowDebuggingViewModel
+    readonly command: WorkflowTaskCommandReceipt
+  }>
   subscribeRuntime(
     viewModel: WorkflowDebuggingViewModel,
     listener: (viewModel: WorkflowDebuggingViewModel, event: WorkflowRuntimeInvalidation) => void,
-    options?: { readonly lastEventId?: string; readonly onError?: (error: Error) => void }
+    options?: { readonly lastEventId?: string; readonly onError?: (error: Error) => void },
   ): WorkflowRuntimeSubscription
 }
 
@@ -48,7 +51,7 @@ export function createWorkflowDebuggingScenario(
   executionRead: WorkflowExecutionReadPort,
   workflowDefinitions: WorkflowDefinitionPort,
   control?: WorkflowExecutionControlPort,
-  runtimeEvents?: WorkflowRuntimeEventsPort
+  runtimeEvents?: WorkflowRuntimeEventsPort,
 ): WorkflowDebuggingScenario {
   const scenario: WorkflowDebuggingScenario = {
     async load(query = {}) {
@@ -56,8 +59,8 @@ export function createWorkflowDebuggingScenario(
         executionRead.listTaskPresentations(query),
         workflowDefinitions.listPublishedRevisions({
           page: query.workflowPage,
-          pageSize: query.workflowPageSize ?? query.pageSize
-        })
+          pageSize: query.workflowPageSize ?? query.pageSize,
+        }),
       ])
       return createWorkflowDebuggingViewModel(query, page, workflows)
     },
@@ -71,38 +74,43 @@ export function createWorkflowDebuggingScenario(
       return {
         ...viewModel,
         selectedWorkflowUuid: workflowUuid,
-        selectedWorkflow: workflow
+        selectedWorkflow: workflow,
       }
     },
 
     async inspectTask(viewModel, taskUuid) {
       const [task, jobs] = await Promise.all([
         executionRead.getTaskDetail(taskUuid),
-        executionRead.listTaskJobs(taskUuid)
+        executionRead.listTaskJobs(taskUuid),
       ])
-      return projectWorkflowDebugFacts({
-        ...viewModel,
-        selectedTaskUuid: taskUuid,
-        selectedTask: task,
-        selectedJobs: jobs,
-        selectedJobUuid: null,
-        selectedJob: null,
-        feedback: null,
-        lastCommand: null
-      }, deriveWorkflowDebugFacts(task, jobs), jobs, task)
+      return projectWorkflowDebugFacts(
+        {
+          ...viewModel,
+          selectedTaskUuid: taskUuid,
+          selectedTask: task,
+          selectedJobs: jobs,
+          selectedJobUuid: null,
+          selectedJob: null,
+          feedback: null,
+          lastCommand: null,
+        },
+        deriveWorkflowDebugFacts(task, jobs),
+        jobs,
+        task,
+      )
     },
 
     async inspectJob(viewModel, jobUuid, input) {
       const [job, feedback] = await Promise.all([
         executionRead.getNodeJobDetail(jobUuid),
-        executionRead.listNodeJobFeedback(jobUuid, input)
+        executionRead.listNodeJobFeedback(jobUuid, input),
       ])
       return {
         ...viewModel,
         selectedTaskUuid: viewModel.selectedTaskUuid ?? job.workflowTaskUuid,
         selectedJobUuid: jobUuid,
         selectedJob: job,
-        feedback
+        feedback,
       }
     },
 
@@ -111,19 +119,24 @@ export function createWorkflowDebuggingScenario(
       const taskUuid = viewModel.selectedTaskUuid
       const [task, jobs] = await Promise.all([
         executionRead.getTaskDetail(taskUuid),
-        executionRead.listTaskJobs(taskUuid)
+        executionRead.listTaskJobs(taskUuid),
       ])
-      let next = projectWorkflowDebugFacts({
-        ...viewModel,
-        selectedTask: task,
-        selectedJobs: jobs
-      }, deriveWorkflowDebugFacts(task, jobs), jobs, task)
+      let next = projectWorkflowDebugFacts(
+        {
+          ...viewModel,
+          selectedTask: task,
+          selectedJobs: jobs,
+        },
+        deriveWorkflowDebugFacts(task, jobs),
+        jobs,
+        task,
+      )
       if (viewModel.selectedJobUuid) {
         const selectedJob = await executionRead.getNodeJobDetail(viewModel.selectedJobUuid)
         const previousCursor = viewModel.feedback?.nextCursor ?? 0
         const feedback = await executionRead.listNodeJobFeedback(viewModel.selectedJobUuid, {
           afterSequence: previousCursor,
-          limit: 500
+          limit: 500,
         })
         const existing = viewModel.feedback?.items ?? []
         const merged = new Map(existing.map((item) => [`${item.jobUuid}:${item.sequence}`, item]))
@@ -132,7 +145,11 @@ export function createWorkflowDebuggingScenario(
         next = {
           ...next,
           selectedJob,
-          feedback: { ...feedback, items, nextCursor: Math.max(viewModel.feedback?.nextCursor ?? 0, feedback.nextCursor) }
+          feedback: {
+            ...feedback,
+            items,
+            nextCursor: Math.max(viewModel.feedback?.nextCursor ?? 0, feedback.nextCursor),
+          },
         }
       }
       return next
@@ -154,20 +171,24 @@ export function createWorkflowDebuggingScenario(
         if (refreshInFlight || !pendingEvent) return
         const event = pendingEvent
         pendingEvent = null
-        refreshInFlight = scenario.refreshTask(currentViewModel).then((next) => {
-          currentViewModel = next
-          listener(next, event)
-        }).catch(options?.onError).finally(() => {
-          refreshInFlight = null
-          refresh()
-        })
+        refreshInFlight = scenario
+          .refreshTask(currentViewModel)
+          .then((next) => {
+            currentViewModel = next
+            listener(next, event)
+          })
+          .catch(options?.onError)
+          .finally(() => {
+            refreshInFlight = null
+            refresh()
+          })
       }
       return runtimeEvents.subscribe((event) => {
         if (event.workflowTaskUuid !== currentViewModel.selectedTaskUuid) return
         pendingEvent = event
         refresh()
       }, options)
-    }
+    },
   }
   return scenario
 }

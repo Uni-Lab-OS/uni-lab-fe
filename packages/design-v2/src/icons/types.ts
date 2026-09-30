@@ -6,7 +6,14 @@ export type { IconName }
 
 export type IconSize = 8 | 10 | 12 | 14 | 15 | 16 | 18 | 20 | 22 | 24 | 'sm' | 'md' | 'lg' | 'xl'
 
-export type IconColor = 'context' | 'default' | 'primary' | 'white' | 'error' | 'success' | 'inherit'
+export type IconColor =
+  | 'context'
+  | 'default'
+  | 'primary'
+  | 'white'
+  | 'error'
+  | 'success'
+  | 'inherit'
 
 export type IconWeight = 'default' | 'strong' | 'medium' | 'compact' | 'detail' | 'hairline'
 

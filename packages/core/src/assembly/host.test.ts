@@ -7,19 +7,19 @@ describe('product host assembly seam', () => {
     const transport: RequestTransport = {
       async request() {
         return { status: 200, headers: {}, data: {} }
-      }
+      },
     }
     const browser = createProductHostAssembly({
       kind: 'browser',
-      transport
+      transport,
     })
     const desktop = createProductHostAssembly({
       kind: 'desktop',
-      transport
+      transport,
     })
     const workbench = createProductHostAssembly({
       kind: 'workbench',
-      transport
+      transport,
     })
 
     expect(browser.host.capabilities).toEqual(['web_session'])

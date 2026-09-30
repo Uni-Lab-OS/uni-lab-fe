@@ -1,7 +1,4 @@
-import type {
-  PublishedWorkflowRevision,
-  PublishedWorkflowRevisionSummary
-} from './model'
+import type { PublishedWorkflowRevision, PublishedWorkflowRevisionSummary } from './model'
 
 export interface WorkflowDefinitionPort {
   listPublishedRevisions(input?: {

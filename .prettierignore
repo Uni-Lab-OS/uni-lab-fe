@@ -1,0 +1,20 @@
+# Dependencies and build output
+node_modules/
+.agents/
+.impeccable/
+**/dist/
+**/build/
+**/coverage/
+**/.turbo/
+**/.vite/
+**/playwright-report/
+**/test-results/
+
+# Generated or vendored sources
+packages/design-v2/src/icons/generated/
+packages/design-v2/src/icons/static/
+patches/
+
+# Workspace artifacts and lockfiles are managed by their own tools
+pnpm-lock.yaml
+prototype/

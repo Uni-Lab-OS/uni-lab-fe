@@ -17,32 +17,21 @@ export function ReagentHistoryList({
   emptyDescription = '暂无库存变更记录',
 }: ReagentHistoryListProps) {
   if (items.length === 0) {
-    return (
-      <p className={cx('lab-ui-reagent-history__empty')}>{emptyDescription}</p>
-    )
+    return <p className={cx('lab-ui-reagent-history__empty')}>{emptyDescription}</p>
   }
 
   return (
     <ul className={cx('history-list', 'lab-ui-reagent-history')}>
       {items.map((item, index) => (
-        <ReagentHistoryItemView
-          key={`${item.recordedAt}-${item.eventType}-${index}`}
-          item={item}
-        />
+        <ReagentHistoryItemView key={`${item.recordedAt}-${item.eventType}-${index}`} item={item} />
       ))}
     </ul>
   )
 }
 
-function ReagentHistoryItemView({
-  item,
-}: {
-  readonly item: ReagentHistoryItem
-}) {
+function ReagentHistoryItemView({ item }: { readonly item: ReagentHistoryItem }) {
   const quantity =
-    item.quantityDelta == null
-      ? '数量未提供'
-      : `${item.quantityDelta} ${item.quantityUnit ?? ''}`
+    item.quantityDelta == null ? '数量未提供' : `${item.quantityDelta} ${item.quantityUnit ?? ''}`
 
   return (
     <li>

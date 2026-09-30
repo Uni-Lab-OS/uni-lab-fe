@@ -45,11 +45,13 @@ const commonStatusMeta: Readonly<Record<string, StatusMeta>> = {
 
 /** 状态值到稳定呈现元数据的公共映射；领域 adapter 可覆盖返回值。 */
 export function statusMeta(status: string): StatusMeta {
-  return commonStatusMeta[status.toLowerCase()] ?? {
-    label: status || '状态未知',
-    tone: 'neutral',
-    icon: 'general/info-circle',
-  }
+  return (
+    commonStatusMeta[status.toLowerCase()] ?? {
+      label: status || '状态未知',
+      tone: 'neutral',
+      icon: 'general/info-circle',
+    }
+  )
 }
 
 /** 不读取领域状态的状态胶囊；调用方通过 status 或显式 meta 提供语义。 */

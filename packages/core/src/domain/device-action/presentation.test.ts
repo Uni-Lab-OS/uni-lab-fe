@@ -15,11 +15,11 @@ describe('device occupancy presentation', () => {
             isBusy: true,
             busyStatusKnown: true,
             currentJobUuid: 'job-1',
-            raw: {}
-          }
+            raw: {},
+          },
         ],
-        executionOccupancies: []
-      })
+        executionOccupancies: [],
+      }),
     ).toBe('occupied')
 
     expect(
@@ -33,10 +33,10 @@ describe('device occupancy presentation', () => {
             state: 'running',
             actionName: 'aspirate',
             acquiredAt: null,
-            raw: {}
-          }
-        ]
-      })
+            raw: {},
+          },
+        ],
+      }),
     ).toBe('occupied')
   })
 
@@ -53,11 +53,11 @@ describe('device occupancy presentation', () => {
             isBusy: false,
             busyStatusKnown: true,
             currentJobUuid: null,
-            raw: {}
-          }
+            raw: {},
+          },
         ],
-        executionOccupancies: []
-      })
+        executionOccupancies: [],
+      }),
     ).toBe('idle')
 
     expect(
@@ -72,11 +72,11 @@ describe('device occupancy presentation', () => {
             isBusy: null,
             busyStatusKnown: false,
             currentJobUuid: null,
-            raw: {}
-          }
+            raw: {},
+          },
         ],
-        executionOccupancies: null
-      })
+        executionOccupancies: null,
+      }),
     ).toBe('unknown')
   })
 })

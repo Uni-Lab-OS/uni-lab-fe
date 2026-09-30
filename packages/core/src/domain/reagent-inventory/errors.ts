@@ -18,7 +18,7 @@ export class ReagentInventoryError extends Error {
   constructor(
     readonly code: ReagentInventoryErrorCode,
     message: string,
-    options: ReagentInventoryErrorOptions = {}
+    options: ReagentInventoryErrorOptions = {},
   ) {
     super(message)
     this.name = 'ReagentInventoryError'

@@ -35,7 +35,10 @@ export function SitePicker({
 
   return (
     <div
-      className={cx('lab-ui-site-picker', variant === 'inspector' && 'lab-ui-site-picker--inspector')}
+      className={cx(
+        'lab-ui-site-picker',
+        variant === 'inspector' && 'lab-ui-site-picker--inspector',
+      )}
       role="listbox"
       aria-label="库位选择"
     >

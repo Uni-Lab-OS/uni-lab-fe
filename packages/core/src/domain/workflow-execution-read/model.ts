@@ -227,7 +227,12 @@ export interface WorkflowResourceWaitFact {
   readonly raw: Readonly<Record<string, unknown>>
 }
 
-export type WorkflowExecutionLockState = 'reserved' | 'running' | 'released' | 'uncertain' | 'unknown'
+export type WorkflowExecutionLockState =
+  | 'reserved'
+  | 'running'
+  | 'released'
+  | 'uncertain'
+  | 'unknown'
 
 export interface WorkflowExecutionLockFact {
   readonly lockUuid: string | null

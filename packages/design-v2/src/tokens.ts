@@ -117,10 +117,10 @@ export const DESIGN_TOKEN_NAMES = [
   'shadow-card',
   'shadow-lg',
   'motion-fast',
-  'motion-normal'
+  'motion-normal',
 ] as const
 
-export type DesignTokenName = typeof DESIGN_TOKEN_NAMES[number]
+export type DesignTokenName = (typeof DESIGN_TOKEN_NAMES)[number]
 
 /** 将设计 token 名称转换为 CSS variable 引用。 */
 export function cssVar(name: DesignTokenName): string {
@@ -133,5 +133,5 @@ export {
   setTheme,
   watchTheme,
   type SetThemeOptions,
-  type ThemeControllerOptions
+  type ThemeControllerOptions,
 } from './runtime/theme'

@@ -21,6 +21,8 @@
     "build:desktop": "pnpm --filter @unilab/desktop build",
     "quality:frontend": "node scripts/check-frontend-quality.mjs",
     "quality:styles": "node scripts/check-style-architecture.mjs",
+    "format": "prettier --write apps/developer-web packages/core packages/lab-ui packages/design-v2",
+    "format:check": "prettier --check apps/developer-web packages/core packages/lab-ui packages/design-v2",
     "card": "pnpm --filter @unilab/device-card-tooling build && node packages/device-card-tooling/dist/cli.mjs",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
@@ -55,6 +57,7 @@
     "@playwright/test": "1.55.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "prettier": "3.6.2",
     "sass": "^1.93.2",
     "typescript": "^5.6.3"
   },

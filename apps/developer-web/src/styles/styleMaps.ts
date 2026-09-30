@@ -7,16 +7,7 @@ import shared from './shared.module.scss'
 import tasks from './tasks.module.scss'
 import workflows from './workflows.module.scss'
 
-const maps = [
-  appShell,
-  shared,
-  overview,
-  materials,
-  devices,
-  reagents,
-  workflows,
-  tasks,
-]
+const maps = [appShell, shared, overview, materials, devices, reagents, workflows, tasks]
 
 /** Resolve app classes through the module that owns them.
  * Unknown values are preserved for third-party utility classes such as

@@ -12,7 +12,7 @@ export class WorkflowDefinitionError extends Error {
   constructor(
     code: WorkflowDefinitionErrorCode,
     message: string,
-    details?: Readonly<Record<string, unknown>>
+    details?: Readonly<Record<string, unknown>>,
   ) {
     super(message)
     this.name = 'WorkflowDefinitionError'

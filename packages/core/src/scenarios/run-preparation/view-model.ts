@@ -2,7 +2,7 @@ import type { RunPreparationState } from './state'
 import type {
   NodeJobDetail,
   ResourceCandidate,
-  ResourceCandidateIssue
+  ResourceCandidateIssue,
 } from '../../domain/run-preparation/model'
 
 export interface RunPreparationViewModel extends RunPreparationState {
@@ -13,15 +13,13 @@ export interface RunPreparationViewModel extends RunPreparationState {
   readonly nodeJob: NodeJobDetail | null
 }
 
-export function toRunPreparationViewModel(
-  state: RunPreparationState
-): RunPreparationViewModel {
+export function toRunPreparationViewModel(state: RunPreparationState): RunPreparationViewModel {
   return {
     kind: 'run_preparation',
     ...state,
     requirements: state.revision.graph.inventoryRequirements,
     candidates: [],
     candidateIssues: [],
-    nodeJob: null
+    nodeJob: null,
   }
 }

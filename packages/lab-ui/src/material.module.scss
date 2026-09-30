@@ -1,12 +1,16 @@
 /* Styles owned by the material lab-ui components. */
 
-.lab-ui-material-list, .lab-ui-site-picker, .lab-ui-requirement-list, .lab-ui-preflight__list {
+.lab-ui-material-list,
+.lab-ui-site-picker,
+.lab-ui-requirement-list,
+.lab-ui-preflight__list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.lab-ui-material-list__item, .lab-ui-site-picker__item {
+.lab-ui-material-list__item,
+.lab-ui-site-picker__item {
   align-items: center;
   background: transparent;
   border: 1px solid var(--unilab-border-subtle, #e4e7ec);
@@ -20,21 +24,34 @@
   width: 100%;
 }
 
-.lab-ui-material-list li + li, .lab-ui-site-picker__item + .lab-ui-site-picker__item {
+.lab-ui-material-list li + li,
+.lab-ui-site-picker__item + .lab-ui-site-picker__item {
   margin-top: 8px;
 }
 
-.lab-ui-material-list__item:hover, .lab-ui-material-list__item.is-selected, .lab-ui-site-picker__item:hover, .lab-ui-site-picker__item.is-selected {
+.lab-ui-material-list__item:hover,
+.lab-ui-material-list__item.is-selected,
+.lab-ui-site-picker__item:hover,
+.lab-ui-site-picker__item.is-selected {
   background: var(--unilab-surface-selected, #f9f5ff);
   border-color: var(--unilab-border-accent, #7f56d9);
 }
 
-.lab-ui-material-list__primary, .lab-ui-site-picker__item > span:first-child, .lab-ui-preflight__list li > div {
+.lab-ui-material-list__primary,
+.lab-ui-site-picker__item > span:first-child,
+.lab-ui-preflight__list li > div {
   display: grid;
   gap: 3px;
 }
 
-.lab-ui-material-list__primary span, .lab-ui-material-list__meta, .lab-ui-site-picker small, .lab-ui-preflight__list small, .lab-ui-requirement-list li span, .lab-ui-definition-list dt, .lab-ui-eyebrow, .lab-ui-identity {
+.lab-ui-material-list__primary span,
+.lab-ui-material-list__meta,
+.lab-ui-site-picker small,
+.lab-ui-preflight__list small,
+.lab-ui-requirement-list li span,
+.lab-ui-definition-list dt,
+.lab-ui-eyebrow,
+.lab-ui-identity {
   color: var(--unilab-text-secondary, #667085);
   font-size: 12px;
 }
@@ -69,18 +86,23 @@
   text-align: right;
 }
 
-.lab-ui-material-inspector__header, .lab-ui-preflight__header, .lab-ui-run-preparation-summary > header {
+.lab-ui-material-inspector__header,
+.lab-ui-preflight__header,
+.lab-ui-run-preparation-summary > header {
   align-items: flex-start;
   display: flex;
   gap: 12px;
   justify-content: space-between;
 }
 
-.lab-ui-material-inspector h2, .lab-ui-preflight h2, .lab-ui-run-preparation-summary h2 {
+.lab-ui-material-inspector h2,
+.lab-ui-preflight h2,
+.lab-ui-run-preparation-summary h2 {
   margin: 4px 0 0;
 }
 
-.lab-ui-material-inspector h3, .lab-ui-run-preparation-summary h3 {
+.lab-ui-material-inspector h3,
+.lab-ui-run-preparation-summary h3 {
   margin: 20px 0 10px;
 }
 

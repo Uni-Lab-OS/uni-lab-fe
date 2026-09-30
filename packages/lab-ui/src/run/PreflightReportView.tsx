@@ -48,12 +48,7 @@ export function PreflightReportView({ report }: PreflightReportViewProps) {
       )}
       {!report.canRun && (
         <div className={cx('lab-ui-preflight__alert')} role="alert">
-          <Icon
-            name="alerts-feedback/alert-circle"
-            color="error"
-            size={16}
-            decorative
-          />
+          <Icon name="alerts-feedback/alert-circle" color="error" size={16} decorative />
           <div>
             <strong>当前不能提交</strong>
             <p>请先处理运行前检查中的阻塞项。</p>
@@ -64,11 +59,7 @@ export function PreflightReportView({ report }: PreflightReportViewProps) {
   )
 }
 
-function PreflightCheckItem({
-  check,
-}: {
-  readonly check: PreflightReport['checks'][number]
-}) {
+function PreflightCheckItem({ check }: { readonly check: PreflightReport['checks'][number] }) {
   return (
     <li className={cx(`is-${check.status}`)}>
       <span className={cx('lab-ui-preflight__indicator')} aria-hidden="true" />

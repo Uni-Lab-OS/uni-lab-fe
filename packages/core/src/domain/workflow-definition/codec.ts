@@ -1,35 +1,31 @@
-import {
-  WorkflowDefinitionError,
-  type WorkflowDefinitionErrorCode
-} from './errors'
+import { WorkflowDefinitionError, type WorkflowDefinitionErrorCode } from './errors'
 import type {
   InventoryRequirement,
   PublishedWorkflowRevision,
   PublishedWorkflowRevisionSummary,
   PublishedWorkflowType,
   WorkflowRevisionStatus,
-  WorkflowGraph
+  WorkflowGraph,
 } from './model'
 import type {
   PublishedWorkflowResponse,
   WorkflowDefinitionRecord,
-  WorkflowGraphResponse
+  WorkflowGraphResponse,
 } from './api'
 
 export function decodePublishedWorkflowList(
-  value: unknown
+  value: unknown,
 ): readonly PublishedWorkflowRevisionSummary[] {
   const root = asRecord(unwrapEnvelope(value), 'workflow list')
-  const items = Array.isArray(root.items)
-    ? root.items
-    : Array.isArray(root.data)
-      ? root.data
-      : []
+  const items = Array.isArray(root.items) ? root.items : Array.isArray(root.data) ? root.data : []
   const identities = new Set<string>()
   return items.map((item, index) => {
     const summary = decodeSummary(asRecord(item, `items[${index}]`), `items[${index}]`)
     if (identities.has(summary.workflowUuid)) {
-      throw definitionError('INVALID_WORKFLOW_DEFINITION', `duplicate workflow uuid: ${summary.workflowUuid}`)
+      throw definitionError(
+        'INVALID_WORKFLOW_DEFINITION',
+        `duplicate workflow uuid: ${summary.workflowUuid}`,
+      )
     }
     identities.add(summary.workflowUuid)
     return summary
@@ -46,57 +42,57 @@ export function decodeWorkflowListHasMore(value: unknown): boolean {
 
 export function decodePublishedWorkflow(
   summaryValue: PublishedWorkflowResponse,
-  graphValue: WorkflowGraphResponse
+  graphValue: WorkflowGraphResponse,
 ): PublishedWorkflowRevision {
-  const summary = decodeSummary(
-    asRecord(unwrapEnvelope(summaryValue), 'workflow'),
-    'workflow'
-  )
+  const summary = decodeSummary(asRecord(unwrapEnvelope(summaryValue), 'workflow'), 'workflow')
   const graph = decodeGraph(graphValue)
   const graphWorkflow = graph.workflow
   const graphUuid = optionalString(graphWorkflow.uuid)
   if (graphUuid !== undefined && graphUuid !== summary.workflowUuid) {
     throw new WorkflowDefinitionError(
       'WORKFLOW_IDENTITY_DRIFT',
-      'Workflow summary and graph identities differ'
+      'Workflow summary and graph identities differ',
     )
   }
   const graphRevision = optionalRevision(graphWorkflow.revision)
   if (graphRevision !== undefined && graphRevision !== summary.revision) {
     throw new WorkflowDefinitionError(
       'WORKFLOW_REVISION_DRIFT',
-      'Workflow summary and graph revisions differ'
+      'Workflow summary and graph revisions differ',
     )
   }
   for (const requirement of graph.inventoryRequirements) {
-    if (requirement.workflowUuid !== undefined && requirement.workflowUuid !== summary.workflowUuid) {
+    if (
+      requirement.workflowUuid !== undefined &&
+      requirement.workflowUuid !== summary.workflowUuid
+    ) {
       throw new WorkflowDefinitionError(
         'WORKFLOW_IDENTITY_DRIFT',
-        `Inventory requirement ${requirement.uuid} belongs to another workflow`
+        `Inventory requirement ${requirement.uuid} belongs to another workflow`,
       )
     }
   }
   return {
     kind: 'published_revision',
     ...summary,
-    graph
+    graph,
   }
 }
 
 function decodeSummary(
   value: WorkflowDefinitionRecord,
-  path: string
+  path: string,
 ): PublishedWorkflowRevisionSummary {
   const workflowUuid = requiredString(value.uuid ?? value.workflow_uuid, `${path}.uuid`)
   const name = requiredString(value.name ?? value.title, `${path}.name`)
   const status = decodeWorkflowStatus(value.status, `${path}.status`)
   const revision = positiveInteger(
     value.revision ?? asOptionalRecord(value.revision)?.number,
-    `${path}.revision`
+    `${path}.revision`,
   )
   const workflowType = decodeWorkflowType(
     value.workflow_type ?? value.workflowType,
-    `${path}.workflow_type`
+    `${path}.workflow_type`,
   )
   const description = optionalString(value.description)
   return {
@@ -106,7 +102,7 @@ function decodeSummary(
     revision,
     workflowType,
     status,
-    ...(description === undefined ? {} : { description })
+    ...(description === undefined ? {} : { description }),
   }
 }
 
@@ -114,10 +110,7 @@ function decodeWorkflowType(value: unknown, path: string): PublishedWorkflowType
   if (value === 'workflow' || value === 'experiment_operation') return value
   // SZLab 的完整工作流目录使用 normal 表示普通工作流；统一到前端展示类型。
   if (value === 'normal') return 'workflow'
-  throw definitionError(
-    'UNSUPPORTED_WORKFLOW_TYPE',
-    `${path} is missing or unsupported`
-  )
+  throw definitionError('UNSUPPORTED_WORKFLOW_TYPE', `${path} is missing or unsupported`)
 }
 
 function decodeWorkflowStatus(value: unknown, path: string): WorkflowRevisionStatus {
@@ -136,7 +129,7 @@ function decodeGraph(value: WorkflowGraphResponse): WorkflowGraph {
   const handleTemplates = recordArray(root.handle_templates, 'graph.handle_templates')
   const requirements = Array.isArray(root.inventory_requirements)
     ? root.inventory_requirements.map((item, index) =>
-        decodeRequirement(asRecord(item, `graph.inventory_requirements[${index}]`), index)
+        decodeRequirement(asRecord(item, `graph.inventory_requirements[${index}]`), index),
       )
     : []
   return {
@@ -146,13 +139,11 @@ function decodeGraph(value: WorkflowGraphResponse): WorkflowGraph {
     edges,
     nodeTemplates,
     handleTemplates,
-    inventoryRequirements: requirements
+    inventoryRequirements: requirements,
   }
 }
 
-function decodeInputParameters(
-  workflow: WorkflowDefinitionRecord
-): readonly {
+function decodeInputParameters(workflow: WorkflowDefinitionRecord): readonly {
   name: string
   required: boolean
   schema: WorkflowDefinitionRecord
@@ -167,7 +158,7 @@ function decodeInputParameters(
   if (!Array.isArray(contract.parameters)) {
     throw definitionError(
       'INVALID_WORKFLOW_DEFINITION',
-      'graph.workflow.meta_data.unilab.input_contract.parameters must be an array'
+      'graph.workflow.meta_data.unilab.input_contract.parameters must be an array',
     )
   }
   const names = new Set<string>()
@@ -197,7 +188,7 @@ function decodeInputParameters(
         : { title: optionalString(parameter.title ?? schema.title) }),
       ...(optionalString(parameter.description ?? schema.description) === undefined
         ? {}
-        : { description: optionalString(parameter.description ?? schema.description) })
+        : { description: optionalString(parameter.description ?? schema.description) }),
     }
     return result
   })
@@ -211,8 +202,9 @@ function unwrapEnvelope(value: unknown): unknown {
   if (root.code !== undefined && root.code !== 0 && root.code !== '0') {
     throw definitionError(
       'INVALID_WORKFLOW_DEFINITION',
-      optionalString(asOptionalRecord(root.error)?.message ?? asOptionalRecord(root.error)?.msg ?? root.message)
-        ?? `Workflow request rejected with code ${String(root.code)}`
+      optionalString(
+        asOptionalRecord(root.error)?.message ?? asOptionalRecord(root.error)?.msg ?? root.message,
+      ) ?? `Workflow request rejected with code ${String(root.code)}`,
     )
   }
   return root.data
@@ -234,12 +226,13 @@ function decodeRequirement(value: WorkflowDefinitionRecord, index: number): Inve
     ...(optionalString(value.description) === undefined
       ? {}
       : { description: optionalString(value.description) }),
-    metadata: asOptionalRecord(value.meta_data) ?? {}
+    metadata: asOptionalRecord(value.meta_data) ?? {},
   }
 }
 
 function recordArray(value: unknown, path: string): readonly Readonly<Record<string, unknown>>[] {
-  if (!Array.isArray(value)) throw definitionError('INVALID_WORKFLOW_DEFINITION', `${path} must be an array`)
+  if (!Array.isArray(value))
+    throw definitionError('INVALID_WORKFLOW_DEFINITION', `${path} must be an array`)
   return value.map((item, index) => asRecord(item, `${path}[${index}]`))
 }
 
@@ -252,7 +245,7 @@ function asRecord(value: unknown, path: string): WorkflowDefinitionRecord {
 
 function asOptionalRecord(value: unknown): WorkflowDefinitionRecord | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as WorkflowDefinitionRecord
+    ? (value as WorkflowDefinitionRecord)
     : undefined
 }
 
@@ -267,7 +260,8 @@ function optionalRevision(value: unknown): number | undefined {
 
 function requiredString(value: unknown, path: string): string {
   const result = optionalString(value)
-  if (result === undefined) throw definitionError('INVALID_WORKFLOW_DEFINITION', `${path} must be a string`)
+  if (result === undefined)
+    throw definitionError('INVALID_WORKFLOW_DEFINITION', `${path} must be a string`)
   return result
 }
 
@@ -296,6 +290,9 @@ function booleanValue(value: unknown, path: string): boolean {
   return value
 }
 
-function definitionError(code: WorkflowDefinitionErrorCode, message: string): WorkflowDefinitionError {
+function definitionError(
+  code: WorkflowDefinitionErrorCode,
+  message: string,
+): WorkflowDefinitionError {
   return new WorkflowDefinitionError(code, message)
 }

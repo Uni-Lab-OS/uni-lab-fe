@@ -1,19 +1,8 @@
-import type {
-  TaskJobSummary,
-  TaskRuntimeDetail
-} from '../workflow-execution-read/model'
+import type { TaskJobSummary, TaskRuntimeDetail } from '../workflow-execution-read/model'
 
-export type ActionEditorControl =
-  | 'material_port'
-  | 'site_selector'
-  | 'variable_selector'
+export type ActionEditorControl = 'material_port' | 'site_selector' | 'variable_selector'
 
-export type ActionResourceRole =
-  | 'device'
-  | 'tool'
-  | 'motion'
-  | 'site'
-  | 'material'
+export type ActionResourceRole = 'device' | 'tool' | 'motion' | 'site' | 'material'
 
 export interface ActionHandle {
   readonly uuid: string

@@ -4,7 +4,7 @@ import type {
   TaskJobSummary,
   TaskRuntimePage,
   TaskRuntimeDetail,
-  TaskRuntimePresentationPage
+  TaskRuntimePresentationPage,
 } from './model'
 
 export interface WorkflowExecutionReadPort {
@@ -31,6 +31,6 @@ export interface WorkflowExecutionReadPort {
   getNodeJobDetail(jobUuid: string): Promise<WorkflowNodeJobDetail>
   listNodeJobFeedback(
     jobUuid: string,
-    input?: { readonly afterSequence?: number; readonly limit?: number }
+    input?: { readonly afterSequence?: number; readonly limit?: number },
   ): Promise<NodeJobFeedbackPage>
 }

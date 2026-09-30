@@ -1,6 +1,6 @@
 import type {
   WorkflowRuntimeInvalidation,
-  WorkflowRuntimeSubscription
+  WorkflowRuntimeSubscription,
 } from '../domain/workflow-execution-read/model'
 import type { WorkflowRuntimeEventsPort } from '../domain/workflow-runtime-events/port'
 
@@ -37,7 +37,7 @@ const MAX_SEEN_EVENT_IDS = 512
  * task/job projection over REST after receiving an event.
  */
 export function createWorkflowRuntimeEvents(
-  options: WorkflowRuntimeEventsOptions
+  options: WorkflowRuntimeEventsOptions,
 ): WorkflowRuntimeEvents {
   const subscribers = new Set<Subscriber>()
   const seenEventIds = new Set<string>()
@@ -197,7 +197,7 @@ function workflowEventsUrl(baseUrl: string): string {
 async function readSseStream(
   stream: ReadableStream<Uint8Array>,
   onFrame: (frame: SseFrame) => void,
-  signal: AbortSignal
+  signal: AbortSignal,
 ): Promise<void> {
   const reader = stream.getReader()
   const decoder = new TextDecoder()
@@ -243,9 +243,7 @@ function parseRuntimeEvent(frame: SseFrame): WorkflowRuntimeInvalidation | null 
   }
   try {
     const data = JSON.parse(frame.data) as Record<string, unknown>
-    const key = frame.event === 'workflow.runtime.changed'
-      ? 'workflow_task_uuid'
-      : 'task_uuid'
+    const key = frame.event === 'workflow.runtime.changed' ? 'workflow_task_uuid' : 'task_uuid'
     // OS 允许在失效通知中附带 dispatch_gate 等诊断字段；前端只依赖稳定的
     // Task UUID，不能因为扩展字段存在而丢弃整条刷新通知。
     if (typeof data[key] !== 'string' || data[key].trim() === '') {

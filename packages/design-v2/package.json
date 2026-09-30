@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "sideEffects": ["**/*.css"],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "generate:source": "node scripts/generate-source-tokens.mjs",

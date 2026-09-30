@@ -8,14 +8,14 @@ export {
   configureTheme,
   getTheme,
   setTheme,
-  watchTheme
+  watchTheme,
 } from './tokens'
 
 export {
   configureTheme as configureDesignTheme,
   getTheme as getDesignTheme,
   setTheme as setDesignTheme,
-  watchTheme as watchDesignTheme
+  watchTheme as watchDesignTheme,
 } from './runtime/theme'
 
 export {
@@ -24,13 +24,13 @@ export {
   sourceCssVar,
   sourceVariableSuffix,
   type SourceTokenCollection,
-  type SourceTokenGroup
+  type SourceTokenGroup,
 } from './tokens/source'
 
 export {
   createAntdTheme,
   type AntdThemeAlgorithms,
-  type AntdThemeConfig
+  type AntdThemeConfig,
 } from './adapters/antdTheme'
 
 export {

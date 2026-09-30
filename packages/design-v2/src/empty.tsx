@@ -79,7 +79,9 @@ function DefaultIllustration({ scene, tone }: { scene: EmptyStateScene; tone: Em
 
   if (!source) return null
 
-  return <img aria-hidden="true" className="bh-empty-state__illustration-asset" src={source} alt="" />
+  return (
+    <img aria-hidden="true" className="bh-empty-state__illustration-asset" src={source} alt="" />
+  )
 }
 
 export function EmptyState({

@@ -3,47 +3,46 @@ import {
   decodeTaskJobs,
   decodeTaskPage,
   decodeTaskPresentationPage,
-  decodeTaskRuntimeDetail
+  decodeTaskRuntimeDetail,
 } from './codec'
-import {
-  decodeNodeJobDetail,
-  decodeNodeJobFeedbackPage
-} from './codec'
+import { decodeNodeJobDetail, decodeNodeJobFeedbackPage } from './codec'
 import type { WorkflowExecutionReadPort } from './port'
 import type {
   NodeJobFeedbackResponse,
   TaskJobsResponse,
   TaskListResponse,
   TaskPresentationResponse,
-  WorkflowExecutionRecord
+  WorkflowExecutionRecord,
 } from './api'
 import { WorkflowExecutionReadError } from './errors'
 
 export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
   constructor(
     private readonly transport: RequestTransport,
-    private readonly apiPrefix = '/api/v1'
+    private readonly apiPrefix = '/api/v1',
   ) {}
 
   async getTaskDetail(taskUuid: string) {
     const response = await this.transport.request<WorkflowExecutionRecord>({
       method: 'GET',
-      url: `${this.apiPrefix}/workflow-tasks/${encodeURIComponent(taskUuid)}`
+      url: `${this.apiPrefix}/workflow-tasks/${encodeURIComponent(taskUuid)}`,
     })
     return decodeTaskRuntimeDetail(response.data)
   }
 
-  async listTasks(input: {
-    readonly page?: number
-    readonly pageSize?: number
-    readonly workflowUuid?: string
-    readonly executionKind?: string
-    readonly status?: string
-    readonly cleanupStatus?: string
-  } = {}) {
+  async listTasks(
+    input: {
+      readonly page?: number
+      readonly pageSize?: number
+      readonly workflowUuid?: string
+      readonly executionKind?: string
+      readonly status?: string
+      readonly cleanupStatus?: string
+    } = {},
+  ) {
     const params = new URLSearchParams({
       page: String(input.page ?? 1),
-      page_size: String(input.pageSize ?? 20)
+      page_size: String(input.pageSize ?? 20),
     })
     add(params, 'workflow_uuid', input.workflowUuid)
     add(params, 'execution_kind', input.executionKind)
@@ -51,24 +50,26 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
     add(params, 'cleanup_status', input.cleanupStatus)
     const response = await this.transport.request<TaskListResponse>({
       method: 'GET',
-      url: `${this.apiPrefix}/workflow-tasks?${params.toString()}`
+      url: `${this.apiPrefix}/workflow-tasks?${params.toString()}`,
     })
     return decodeTaskPage(response.data)
   }
 
-  async listTaskPresentations(input: {
-    readonly page?: number
-    readonly pageSize?: number
-    readonly workflowUuid?: string
-    readonly executionKind?: string
-    readonly status?: string
-    readonly cleanupStatus?: string
-    readonly view?: string
-    readonly terminalLimit?: number
-  } = {}) {
+  async listTaskPresentations(
+    input: {
+      readonly page?: number
+      readonly pageSize?: number
+      readonly workflowUuid?: string
+      readonly executionKind?: string
+      readonly status?: string
+      readonly cleanupStatus?: string
+      readonly view?: string
+      readonly terminalLimit?: number
+    } = {},
+  ) {
     const params = new URLSearchParams({
       page: String(input.page ?? 1),
-      page_size: String(input.pageSize ?? 20)
+      page_size: String(input.pageSize ?? 20),
     })
     add(params, 'workflow_uuid', input.workflowUuid)
     add(params, 'execution_kind', input.executionKind)
@@ -78,7 +79,7 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
     if (input.terminalLimit !== undefined) params.set('terminal_limit', String(input.terminalLimit))
     const response = await this.transport.request<TaskPresentationResponse>({
       method: 'GET',
-      url: `${this.apiPrefix}/workflow-task-presentations?${params.toString()}`
+      url: `${this.apiPrefix}/workflow-task-presentations?${params.toString()}`,
     })
     return decodeTaskPresentationPage(response.data)
   }
@@ -86,7 +87,7 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
   async listTaskJobs(taskUuid: string) {
     const response = await this.transport.request<TaskJobsResponse>({
       method: 'GET',
-      url: `${this.apiPrefix}/workflow-tasks/${encodeURIComponent(taskUuid)}/jobs`
+      url: `${this.apiPrefix}/workflow-tasks/${encodeURIComponent(taskUuid)}/jobs`,
     })
     return decodeTaskJobs(response.data)
   }
@@ -94,27 +95,27 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
   async getNodeJobDetail(jobUuid: string) {
     const response = await this.transport.request<WorkflowExecutionRecord>({
       method: 'GET',
-      url: `${this.apiPrefix}/workflow-node-jobs/${encodeURIComponent(jobUuid)}`
+      url: `${this.apiPrefix}/workflow-node-jobs/${encodeURIComponent(jobUuid)}`,
     })
     return decodeNodeJobDetail(response.data)
   }
 
   async listNodeJobFeedback(
     jobUuid: string,
-    input: { readonly afterSequence?: number; readonly limit?: number } = {}
+    input: { readonly afterSequence?: number; readonly limit?: number } = {},
   ) {
     const afterSequence = input.afterSequence ?? 0
     const limit = input.limit ?? 50
     if (!Number.isSafeInteger(afterSequence) || afterSequence < 0) {
       throw new WorkflowExecutionReadError(
         'INVALID_FEEDBACK_RESPONSE',
-        'feedback afterSequence must be a non-negative safe integer'
+        'feedback afterSequence must be a non-negative safe integer',
       )
     }
     if (!Number.isSafeInteger(limit) || limit < 1) {
       throw new WorkflowExecutionReadError(
         'INVALID_FEEDBACK_RESPONSE',
-        'feedback limit must be a positive safe integer'
+        'feedback limit must be a positive safe integer',
       )
     }
 
@@ -127,7 +128,7 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
       const params = new URLSearchParams({ page: String(page), page_size: '500' })
       const response = await this.transport.request<NodeJobFeedbackResponse>({
         method: 'GET',
-        url: `${this.apiPrefix}/workflow-node-jobs/${encodeURIComponent(jobUuid)}/feedback?${params.toString()}`
+        url: `${this.apiPrefix}/workflow-node-jobs/${encodeURIComponent(jobUuid)}/feedback?${params.toString()}`,
       })
       const decoded = decodeNodeJobFeedbackPage(response.data)
       raw = decoded.raw
@@ -136,7 +137,7 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
         if (item.jobUuid !== jobUuid) {
           throw new WorkflowExecutionReadError(
             'INVALID_FEEDBACK_RESPONSE',
-            `feedback ${item.feedbackUuid} does not belong to job ${jobUuid}`
+            `feedback ${item.feedbackUuid} does not belong to job ${jobUuid}`,
           )
         }
         if (item.sequence <= afterSequence) continue
@@ -144,7 +145,7 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
         if (identities.has(identity)) {
           throw new WorkflowExecutionReadError(
             'INVALID_FEEDBACK_RESPONSE',
-            `duplicate feedback sequence: ${identity}`
+            `duplicate feedback sequence: ${identity}`,
           )
         }
         identities.add(identity)
@@ -154,7 +155,7 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
       if (page === 100) {
         throw new WorkflowExecutionReadError(
           'INVALID_FEEDBACK_RESPONSE',
-          'feedback page budget exceeded'
+          'feedback page budget exceeded',
         )
       }
     }
@@ -165,7 +166,7 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
       items,
       nextCursor: items.at(-1)?.sequence ?? afterSequence,
       hasMore: accepted.length > items.length || backendHasMore,
-      raw
+      raw,
     }
   }
 }

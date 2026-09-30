@@ -40,16 +40,18 @@ function slug(value) {
 }
 
 function normalizeSvg(svg) {
-  return svg
-    .replace(/#1d2129/gi, 'currentColor')
-    // Figma emits this neutral only as the opaque mask backing rect. The
-    // mask uses alpha, so a named white fill preserves the export semantics
-    // without leaking a second icon color into the runtime API.
-    .replace(/#d9d9d9/gi, 'white')
-    .replace(/stroke-width="1\.8"/g, 'stroke-width="var(--bh-icon-stroke-width, 1.8)"')
-    .replace(/\s+xmlns:xlink="[^"]+"/g, '')
-    .replace(/\n+/g, '\n')
-    .trim()
+  return (
+    svg
+      .replace(/#1d2129/gi, 'currentColor')
+      // Figma emits this neutral only as the opaque mask backing rect. The
+      // mask uses alpha, so a named white fill preserves the export semantics
+      // without leaking a second icon color into the runtime API.
+      .replace(/#d9d9d9/gi, 'white')
+      .replace(/stroke-width="1\.8"/g, 'stroke-width="var(--bh-icon-stroke-width, 1.8)"')
+      .replace(/\s+xmlns:xlink="[^"]+"/g, '')
+      .replace(/\n+/g, '\n')
+      .trim()
+  )
 }
 
 function bodyOf(svg) {
@@ -133,7 +135,7 @@ for (const categoryEntry of categories) {
       body: parsed.body,
       strokeWidth: 1.8,
       source: 'figma',
-      sourcePage: 'Bohr icon / 玻尔图标（Bohr 线上）'
+      sourcePage: 'Bohr icon / 玻尔图标（Bohr 线上）',
     })
   }
 }
@@ -148,7 +150,7 @@ const categorySummary = categories.map((categoryEntry) => {
   return {
     slug: categorySlug,
     name: category,
-    count: entries.filter((entry) => entry.category === category).length
+    count: entries.filter((entry) => entry.category === category).length,
   }
 })
 
@@ -156,7 +158,7 @@ const generatedHeader = `// Generated from the read-only Figma Bohr icon export.
 await writeFile(
   join(generatedDir, 'manifest.ts'),
   `${generatedHeader}\nexport const ICON_MANIFEST = ${JSON.stringify(manifest, null, 2)} as const\n\nexport const ICON_NAMES = ${JSON.stringify(names, null, 2)} as const\nexport type IconName = typeof ICON_NAMES[number]\n\nexport const ICON_CATEGORIES = ${JSON.stringify(categorySummary, null, 2)} as const\n`,
-  'utf8'
+  'utf8',
 )
 
 const categoryEntries = new Map()
@@ -167,32 +169,43 @@ for (const entry of entries) {
 }
 
 for (const [categorySlug, categoryIcons] of categoryEntries) {
-  const categoryData = Object.fromEntries(categoryIcons.map((entry) => [entry.name, {
-    body: entry.body,
-    viewBox: entry.viewBox
-  }]))
+  const categoryData = Object.fromEntries(
+    categoryIcons.map((entry) => [
+      entry.name,
+      {
+        body: entry.body,
+        viewBox: entry.viewBox,
+      },
+    ]),
+  )
   await writeFile(
     join(generatedDir, 'categories', `${categorySlug}.ts`),
     `${generatedHeader}\nexport const ICON_CATEGORY_DATA = ${JSON.stringify(categoryData, null, 2)} as const\n`,
-    'utf8'
+    'utf8',
   )
 
   const categoryStaticDir = join(staticDir, categorySlug)
   await mkdir(categoryStaticDir, { recursive: true })
   for (const entry of categoryIcons) {
-    const componentName = `${entry.name.split('/')[1].split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join('')}Icon`
+    const componentName = `${entry.name
+      .split('/')[1]
+      .split('-')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join('')}Icon`
     await writeFile(
       join(categoryStaticDir, `${entry.name.split('/')[1]}.ts`),
       `${generatedHeader}\nimport { createStaticIcon } from '../../staticIcon'\n\nexport const ${componentName} = createStaticIcon(${JSON.stringify({ body: entry.body, viewBox: entry.viewBox }, null, 2)})\nexport default ${componentName}\n`,
-      'utf8'
+      'utf8',
     )
   }
 }
 
-const categoryLoaders = Object.fromEntries([...categoryEntries.keys()].map((categorySlug) => [
-  categorySlug,
-  `() => import('./categories/${categorySlug}')`
-]))
+const categoryLoaders = Object.fromEntries(
+  [...categoryEntries.keys()].map((categorySlug) => [
+    categorySlug,
+    `() => import('./categories/${categorySlug}')`,
+  ]),
+)
 await writeFile(
   join(generatedDir, 'iconLoader.ts'),
   `${generatedHeader}
@@ -207,7 +220,9 @@ type IconCategoryModule = { ICON_CATEGORY_DATA: Record<string, ResolvedIconData>
 type IconCategory = keyof typeof ICON_CATEGORY_LOADERS
 
 const ICON_CATEGORY_LOADERS = {
-${Object.entries(categoryLoaders).map(([categorySlug, loader]) => `  '${categorySlug}': ${loader},`).join('\n')}
+${Object.entries(categoryLoaders)
+  .map(([categorySlug, loader]) => `  '${categorySlug}': ${loader},`)
+  .join('\n')}
 } as const
 
 const categoryCache = new Map<string, Promise<IconCategoryModule>>()
@@ -247,7 +262,7 @@ export function preloadIconCategory(category: string): Promise<void> {
   return loadCategory(category).then(() => undefined)
 }
 `,
-  'utf8'
+  'utf8',
 )
 
 console.log(`Generated ${entries.length} Figma icons in ${relative(packageRoot, outputDir)}`)

@@ -11,21 +11,21 @@ export interface DeviceActionParameter {
 
 /** 将设备包的 action schema 与 handles 合并为稳定的表单参数顺序。 */
 export function deviceActionParameters(
-  definition?: ActionDefinition
+  definition?: ActionDefinition,
 ): readonly DeviceActionParameter[] {
   if (!definition) return []
   return buildDeviceActionParameters(
     definition.schema,
     definition.goalDefault,
     definition.handles.filter(
-      (handle) => handle.ioType === 'target' && handle.dataSource === 'goal'
-    )
+      (handle) => handle.ioType === 'target' && handle.dataSource === 'goal',
+    ),
   )
 }
 
 /** 设备目录没有对应 workflow-node-template 时，使用设备包下发的 inputSchema。 */
 export function deviceActionParametersFromSchema(
-  schema: Readonly<Record<string, unknown>>
+  schema: Readonly<Record<string, unknown>>,
 ): readonly DeviceActionParameter[] {
   return buildDeviceActionParameters(schema, {}, [])
 }
@@ -38,20 +38,20 @@ function buildDeviceActionParameters(
     readonly displayName: string
     readonly required: boolean
     readonly valueSchema: Readonly<Record<string, unknown>>
-  }[]
+  }[],
 ): readonly DeviceActionParameter[] {
   const properties = asRecord(schema.properties) ?? {}
   const required = new Set(stringArray(schema.required))
   const orderedNames = [
     ...handles.map((handle) => handle.handleKey),
-    ...Object.keys(properties)
+    ...Object.keys(properties),
   ].filter((name, index, names) => names.indexOf(name) === index)
 
   return orderedNames.map((name) => {
     const handle = handles.find((item) => item.handleKey === name)
     const parameterSchema = {
       ...(handle?.valueSchema ?? {}),
-      ...(asRecord(properties[name]) ?? {})
+      ...(asRecord(properties[name]) ?? {}),
     }
     const defaultValue = Object.prototype.hasOwnProperty.call(goalDefault, name)
       ? goalDefault[name]
@@ -62,28 +62,25 @@ function buildDeviceActionParameters(
       required: required.has(name) || handle?.required === true,
       title: stringValue(parameterSchema.title) ?? handle?.displayName ?? name,
       description: stringValue(parameterSchema.description),
-      ...(defaultValue !== undefined ? { defaultValue } : {})
+      ...(defaultValue !== undefined ? { defaultValue } : {}),
     }
   })
 }
 
 export function deviceActionDefaults(
-  parameters: readonly DeviceActionParameter[]
+  parameters: readonly DeviceActionParameter[],
 ): Record<string, unknown> {
   return Object.fromEntries(
     parameters
       .filter((parameter) => parameter.defaultValue !== undefined)
-      .map((parameter) => [
-        parameter.name,
-        formValue(parameter, parameter.defaultValue)
-      ])
+      .map((parameter) => [parameter.name, formValue(parameter, parameter.defaultValue)]),
   )
 }
 
 /** 将表单值还原成 OS action run 所需的 goal 对象。 */
 export function normalizeDeviceActionParameters(
   values: Readonly<Record<string, unknown>>,
-  parameters: readonly DeviceActionParameter[]
+  parameters: readonly DeviceActionParameter[],
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {}
   for (const parameter of parameters) {
@@ -97,8 +94,7 @@ export function normalizeDeviceActionParameters(
       continue
     }
     if (isDeviceActionResourceParameter(parameter)) {
-      result[parameter.name] =
-        typeof value === 'string' ? { uuid: value.trim() } : value
+      result[parameter.name] = typeof value === 'string' ? { uuid: value.trim() } : value
       continue
     }
     if (isDeviceActionStructuredParameter(parameter)) {
@@ -118,49 +114,33 @@ export function normalizeDeviceActionParameters(
   return result
 }
 
-export function isDeviceActionResourceParameter(
-  parameter: DeviceActionParameter
-): boolean {
+export function isDeviceActionResourceParameter(parameter: DeviceActionParameter): boolean {
   return (
     parameter.schema.$slot === 'ResourceSlot' ||
     parameter.schema['x-unilabos-material-lock'] === true
   )
 }
 
-export function isDeviceActionStructuredParameter(
-  parameter: DeviceActionParameter
-): boolean {
+export function isDeviceActionStructuredParameter(parameter: DeviceActionParameter): boolean {
   const type = schemaType(parameter.schema)
   return type === 'object' || type === 'array'
 }
 
-function formValue(
-  parameter: DeviceActionParameter,
-  value: unknown
-): unknown {
+function formValue(parameter: DeviceActionParameter, value: unknown): unknown {
   if (isDeviceActionResourceParameter(parameter)) {
     const record = asRecord(value)
     return record && typeof record.uuid === 'string' ? record.uuid : value
   }
-  if (
-    isDeviceActionStructuredParameter(parameter) &&
-    typeof value === 'object' &&
-    value !== null
-  ) {
+  if (isDeviceActionStructuredParameter(parameter) && typeof value === 'object' && value !== null) {
     return JSON.stringify(value, null, 2)
   }
   return value
 }
 
-function schemaType(
-  schema: Readonly<Record<string, unknown>>
-): string | undefined {
+function schemaType(schema: Readonly<Record<string, unknown>>): string | undefined {
   if (typeof schema.type === 'string') return schema.type
   if (Array.isArray(schema.type)) {
-    return schema.type.find(
-      (item): item is string =>
-        typeof item === 'string' && item !== 'null'
-    )
+    return schema.type.find((item): item is string => typeof item === 'string' && item !== 'null')
   }
   return undefined
 }

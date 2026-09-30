@@ -4,7 +4,7 @@ import {
   deviceActionDefaults,
   deviceActionParameters,
   deviceActionParametersFromSchema,
-  normalizeDeviceActionParameters
+  normalizeDeviceActionParameters,
 } from './parameters'
 
 function definition(): ActionDefinition {
@@ -24,8 +24,8 @@ function definition(): ActionDefinition {
       properties: {
         beaker: { type: 'object', 'x-unilabos-material-lock': true },
         sample_id: { type: 'string', default: 'sample-01' },
-        enabled: { type: 'boolean', default: true }
-      }
+        enabled: { type: 'boolean', default: true },
+      },
     },
     goal: {},
     goalDefault: { sample_id: 'sample-01', enabled: true },
@@ -44,11 +44,11 @@ function definition(): ActionDefinition {
         editorControl: 'material_port',
         allowedResourceTemplateUuids: null,
         implicitPassthrough: false,
-        structuralRole: null
-      }
+        structuralRole: null,
+      },
     ],
     resourceContract: null,
-    raw: {}
+    raw: {},
   }
 }
 
@@ -58,7 +58,7 @@ describe('device action parameter projection', () => {
     expect(parameters.map((parameter) => parameter.name)).toEqual([
       'beaker',
       'sample_id',
-      'enabled'
+      'enabled',
     ])
     expect(parameters[0]).toMatchObject({ title: '烧杯', required: true })
   })
@@ -67,17 +67,17 @@ describe('device action parameter projection', () => {
     const parameters = deviceActionParameters(definition())
     expect(deviceActionDefaults(parameters)).toEqual({
       sample_id: 'sample-01',
-      enabled: true
+      enabled: true,
     })
     expect(
       normalizeDeviceActionParameters(
         { beaker: 'material-1', sample_id: 'sample-02', enabled: false },
-        parameters
-      )
+        parameters,
+      ),
     ).toEqual({
       beaker: { uuid: 'material-1' },
       sample_id: 'sample-02',
-      enabled: false
+      enabled: false,
     })
   })
 
@@ -85,11 +85,11 @@ describe('device action parameter projection', () => {
     const parameters = deviceActionParametersFromSchema({
       type: 'object',
       properties: { sample: { type: 'object', title: '样品' } },
-      required: ['sample']
+      required: ['sample'],
     })
     expect(() => normalizeDeviceActionParameters({}, parameters)).toThrow('请输入样品')
-    expect(() =>
-      normalizeDeviceActionParameters({ sample: '{' }, parameters)
-    ).toThrow('必须是合法 JSON')
+    expect(() => normalizeDeviceActionParameters({ sample: '{' }, parameters)).toThrow(
+      '必须是合法 JSON',
+    )
   })
 })

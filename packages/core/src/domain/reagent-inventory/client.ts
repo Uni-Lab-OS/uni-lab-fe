@@ -21,7 +21,7 @@ import {
   encodeReagentDraft,
   encodeReagentInfoDraft,
   encodeReagentInfoPatch,
-  encodeReagentPatch
+  encodeReagentPatch,
 } from './codec'
 import type { ReagentInventoryPort } from './port'
 import type {
@@ -31,7 +31,7 @@ import type {
   ReagentImportInput,
   ReagentInfoDraft,
   ReagentInfoPatch,
-  ReagentPatch
+  ReagentPatch,
 } from './model'
 import type {
   EdgeInstanceListResponse,
@@ -42,29 +42,31 @@ import type {
   ReagentHistoryListResponse,
   ReagentInfoListResponse,
   ReagentInventoryRecord,
-  ReagentListResponse
+  ReagentListResponse,
 } from './api'
 
 export class ReagentInventoryClient implements ReagentInventoryPort {
   constructor(
     private readonly transport: RequestTransport,
-    private readonly apiPrefix = '/api/v1'
+    private readonly apiPrefix = '/api/v1',
   ) {}
 
-  async listReagentInfos(input: {
-    readonly page?: number
-    readonly pageSize?: number
-    readonly name?: string
-    readonly cas?: string
-    readonly physicalState?: string
-  } = {}) {
+  async listReagentInfos(
+    input: {
+      readonly page?: number
+      readonly pageSize?: number
+      readonly name?: string
+      readonly cas?: string
+      readonly physicalState?: string
+    } = {},
+  ) {
     const params = pageParams(input.page, input.pageSize)
     add(params, 'name', input.name)
     add(params, 'cas', input.cas)
     add(params, 'physical_state', input.physicalState)
     const response = await this.transport.request<ReagentInfoListResponse>({
       method: 'GET',
-      url: `${this.apiPrefix}/reagent-infos?${params.toString()}`
+      url: `${this.apiPrefix}/reagent-infos?${params.toString()}`,
     })
     return decodeReagentInfoPage(response.data)
   }
@@ -72,7 +74,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
   async getReagentInfo(reagentInfoUuid: string) {
     const response = await this.transport.request<ReagentInventoryRecord>({
       method: 'GET',
-      url: `${this.apiPrefix}/reagent-infos/${encodeURIComponent(reagentInfoUuid)}`
+      url: `${this.apiPrefix}/reagent-infos/${encodeURIComponent(reagentInfoUuid)}`,
     })
     return decodeReagentInfo(response.data)
   }
@@ -82,7 +84,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
       method: 'POST',
       url: `${this.apiPrefix}/reagent-infos`,
       headers: { 'Content-Type': 'application/json' },
-      body: encodeReagentInfoDraft(draft)
+      body: encodeReagentInfoDraft(draft),
     })
     return decodeReagentInfo(response.data)
   }
@@ -92,7 +94,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
       method: 'PUT',
       url: `${this.apiPrefix}/reagent-infos/${encodeURIComponent(reagentInfoUuid)}`,
       headers: { 'Content-Type': 'application/json' },
-      body: encodeReagentInfoPatch(patch)
+      body: encodeReagentInfoPatch(patch),
     })
     return decodeReagentInfo(response.data)
   }
@@ -100,7 +102,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
   async deleteReagentInfo(reagentInfoUuid: string) {
     const response = await this.transport.request<ReagentInventoryRecord>({
       method: 'DELETE',
-      url: `${this.apiPrefix}/reagent-infos/${encodeURIComponent(reagentInfoUuid)}`
+      url: `${this.apiPrefix}/reagent-infos/${encodeURIComponent(reagentInfoUuid)}`,
     })
     assertReagentEnvelopeAccepted(response.data)
   }
@@ -110,7 +112,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
       method: 'POST',
       url: `${this.apiPrefix}/reagent-infos/batch`,
       headers: { 'Content-Type': 'application/json' },
-      body: encodeBatch(input)
+      body: encodeBatch(input),
     })
     return decodeReagentInfoBatchResult(response.data)
   }
@@ -119,7 +121,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
     const response = await this.transport.request<ReagentBatchResponse>({
       method: 'POST',
       url: `${this.apiPrefix}/reagent-infos/import?${importParams(input)}`,
-      body: importBody(input)
+      body: importBody(input),
     })
     return decodeReagentInfoBatchResult(response.data)
   }
@@ -127,7 +129,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
   async getReagentInfoStructure3d(reagentInfoUuid: string) {
     const response = await this.transport.request<ReagentInventoryRecord>({
       method: 'GET',
-      url: `${this.apiPrefix}/reagent-infos/${encodeURIComponent(reagentInfoUuid)}/structure-3d`
+      url: `${this.apiPrefix}/reagent-infos/${encodeURIComponent(reagentInfoUuid)}/structure-3d`,
     })
     return decodeReagentStructure3d(response.data)
   }
@@ -135,20 +137,22 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
   async lookupCompound(cas: string) {
     const response = await this.transport.request<ReagentInventoryRecord>({
       method: 'GET',
-      url: `${this.apiPrefix}/compounds/${encodeURIComponent(cas)}`
+      url: `${this.apiPrefix}/compounds/${encodeURIComponent(cas)}`,
     })
     return decodeCompoundLookup(response.data)
   }
 
-  async listReagents(input: {
-    readonly page?: number
-    readonly pageSize?: number
-    readonly materialUuid?: string
-    readonly reagentInfoUuid?: string
-    readonly keyword?: string
-    readonly cas?: string
-    readonly barcode?: string
-  } = {}) {
+  async listReagents(
+    input: {
+      readonly page?: number
+      readonly pageSize?: number
+      readonly materialUuid?: string
+      readonly reagentInfoUuid?: string
+      readonly keyword?: string
+      readonly cas?: string
+      readonly barcode?: string
+    } = {},
+  ) {
     const params = pageParams(input.page, input.pageSize)
     add(params, 'material_uuid', input.materialUuid)
     add(params, 'reagent_info_uuid', input.reagentInfoUuid)
@@ -157,7 +161,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
     add(params, 'barcode', input.barcode)
     const response = await this.transport.request<ReagentListResponse>({
       method: 'GET',
-      url: `${this.apiPrefix}/reagents?${params.toString()}`
+      url: `${this.apiPrefix}/reagents?${params.toString()}`,
     })
     return decodeReagentPage(response.data)
   }
@@ -165,7 +169,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
   async getReagent(reagentUuid: string) {
     const response = await this.transport.request<ReagentInventoryRecord>({
       method: 'GET',
-      url: `${this.apiPrefix}/reagents/${encodeURIComponent(reagentUuid)}`
+      url: `${this.apiPrefix}/reagents/${encodeURIComponent(reagentUuid)}`,
     })
     return decodeReagent(response.data)
   }
@@ -175,7 +179,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
       method: 'POST',
       url: `${this.apiPrefix}/reagents`,
       headers: { 'Content-Type': 'application/json' },
-      body: encodeReagentDraft(draft)
+      body: encodeReagentDraft(draft),
     })
     return decodeReagent(response.data)
   }
@@ -185,7 +189,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
       method: 'PUT',
       url: `${this.apiPrefix}/reagents/${encodeURIComponent(reagentUuid)}`,
       headers: { 'Content-Type': 'application/json' },
-      body: encodeReagentPatch(patch)
+      body: encodeReagentPatch(patch),
     })
     return decodeReagent(response.data)
   }
@@ -193,7 +197,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
   async deleteReagent(reagentUuid: string) {
     const response = await this.transport.request<ReagentInventoryRecord>({
       method: 'DELETE',
-      url: `${this.apiPrefix}/reagents/${encodeURIComponent(reagentUuid)}`
+      url: `${this.apiPrefix}/reagents/${encodeURIComponent(reagentUuid)}`,
     })
     assertReagentEnvelopeAccepted(response.data)
   }
@@ -203,7 +207,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
       method: 'POST',
       url: `${this.apiPrefix}/reagents/batch`,
       headers: { 'Content-Type': 'application/json' },
-      body: encodeBatch(input)
+      body: encodeBatch(input),
     })
     return decodeReagentBatchResult(response.data)
   }
@@ -212,7 +216,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
     const response = await this.transport.request<ReagentBatchResponse>({
       method: 'POST',
       url: `${this.apiPrefix}/reagents/import?${importParams(input)}`,
-      body: importBody(input)
+      body: importBody(input),
     })
     return decodeReagentBatchResult(response.data)
   }
@@ -220,20 +224,21 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
   async getReagentHistory(historyUuid: string) {
     const response = await this.transport.request<ReagentInventoryRecord>({
       method: 'GET',
-      url: `${this.apiPrefix}/reagent-history/${encodeURIComponent(historyUuid)}`
+      url: `${this.apiPrefix}/reagent-history/${encodeURIComponent(historyUuid)}`,
     })
     return decodeReagentHistoryEntry(response.data)
   }
 
   async listReagentHistory(
     materialUuid: string,
-    input: { readonly page?: number; readonly pageSize?: number } = {}
+    input: { readonly page?: number; readonly pageSize?: number } = {},
   ) {
     const params = pageParams(input.page, input.pageSize)
     const response = await this.transport.request<ReagentHistoryListResponse>({
       method: 'GET',
-      url: `${this.apiPrefix}/materials/${encodeURIComponent(materialUuid)}`
-        + `/reagent-history?${params.toString()}`
+      url:
+        `${this.apiPrefix}/materials/${encodeURIComponent(materialUuid)}` +
+        `/reagent-history?${params.toString()}`,
     })
     return decodeReagentHistoryPage(response.data)
   }
@@ -243,7 +248,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
       method: 'POST',
       url: `${this.apiPrefix}/inventory/commands`,
       headers: { 'Content-Type': 'application/json' },
-      body: encodeReagentDispenseCommand(command)
+      body: encodeReagentDispenseCommand(command),
     })
     return decodeReagentDispenseResult(response.data)
   }
@@ -251,7 +256,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
   async listInventoryInstances() {
     const response = await this.transport.request<EdgeInstanceListResponse>({
       method: 'GET',
-      url: `${this.apiPrefix}/inventory/instances`
+      url: `${this.apiPrefix}/inventory/instances`,
     })
     return decodeInventoryInstances(response.data)
   }
@@ -259,7 +264,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
   async getInventoryInstance(instanceUuid: string) {
     const response = await this.transport.request<ReagentInventoryRecord>({
       method: 'GET',
-      url: `${this.apiPrefix}/inventory/instances/${encodeURIComponent(instanceUuid)}`
+      url: `${this.apiPrefix}/inventory/instances/${encodeURIComponent(instanceUuid)}`,
     })
     return decodeInventoryInstance(response.data)
   }
@@ -267,7 +272,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
   async listInventoryLots() {
     const response = await this.transport.request<EdgeLotListResponse>({
       method: 'GET',
-      url: `${this.apiPrefix}/inventory/lots`
+      url: `${this.apiPrefix}/inventory/lots`,
     })
     return decodeInventoryLots(response.data)
   }
@@ -275,7 +280,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
   async getInventoryLot(lotId: string) {
     const response = await this.transport.request<ReagentInventoryRecord>({
       method: 'GET',
-      url: `${this.apiPrefix}/inventory/lots/${encodeURIComponent(lotId)}`
+      url: `${this.apiPrefix}/inventory/lots/${encodeURIComponent(lotId)}`,
     })
     return decodeInventoryLot(response.data)
   }
@@ -283,7 +288,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
   async getInventorySnapshot() {
     const response = await this.transport.request<EdgeSnapshotResponse>({
       method: 'GET',
-      url: `${this.apiPrefix}/inventory/snapshot`
+      url: `${this.apiPrefix}/inventory/snapshot`,
     })
     return decodeInventorySnapshot(response.data)
   }
@@ -292,7 +297,7 @@ export class ReagentInventoryClient implements ReagentInventoryPort {
 function pageParams(page: number | undefined, pageSize: number | undefined): URLSearchParams {
   return new URLSearchParams({
     page: String(page ?? 1),
-    page_size: String(pageSize ?? 100)
+    page_size: String(pageSize ?? 100),
   })
 }
 
@@ -303,13 +308,13 @@ function add(params: URLSearchParams, key: string, value: string | undefined): v
 function encodeBatch(input: ReagentBatchInput): Readonly<Record<string, unknown>> {
   return {
     items: [...input.items],
-    ...(input.atomic === undefined ? {} : { atomic: input.atomic })
+    ...(input.atomic === undefined ? {} : { atomic: input.atomic }),
   }
 }
 
 function importParams(input: ReagentImportInput): string {
   return new URLSearchParams({
-    atomic: String(input.atomic ?? true)
+    atomic: String(input.atomic ?? true),
   }).toString()
 }
 

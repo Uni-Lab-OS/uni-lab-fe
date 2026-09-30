@@ -118,7 +118,7 @@
   height: 27px;
   border-radius: 0 3px 3px 0;
   background: var(--studio-accent);
-  content: "";
+  content: '';
 }
 .studio-nav-item :global(.ant-badge) {
   margin-left: auto;
@@ -177,7 +177,6 @@
   padding: 39px 48px 72px;
 }
 
-
 /* Source: app-shell.module.scss */
 /* Styles owned by the app-shell application components. */
 
@@ -197,7 +196,9 @@
   padding: 22px 12px 14px;
   border-right: 1px solid var(--studio-border);
   background: var(--bh-color-primary-white);
-  transition: width 180ms ease, flex-basis 180ms ease;
+  transition:
+    width 180ms ease,
+    flex-basis 180ms ease;
 }
 
 .studio-brand {
@@ -297,7 +298,9 @@
   border-radius: var(--studio-control-radius);
   color: var(--studio-text-muted);
   font-size: var(--bh-font-size-sm);
-  transition: background var(--bh-motion-fast) ease, color var(--bh-motion-fast) ease;
+  transition:
+    background var(--bh-motion-fast) ease,
+    color var(--bh-motion-fast) ease;
 }
 
 .studio-nav-item:hover {
@@ -695,7 +698,8 @@ body,
   overflow: hidden;
 }
 
-.studio-content--workflows :global(.ant-btn):not(:global(.ant-btn-text)):not(:global(.ant-btn-link)) {
+.studio-content--workflows
+  :global(.ant-btn):not(:global(.ant-btn-text)):not(:global(.ant-btn-link)) {
   min-height: 32px;
   height: 32px;
 }
@@ -723,10 +727,13 @@ body,
 
 /* Collapsed navigation keeps the icon rail available without taking page space. */
 .studio-shell--collapsed .studio-sidebar {
+  position: relative;
+  z-index: 3;
   flex-basis: 72px;
   width: 72px;
   padding-right: 11px;
   padding-left: 11px;
+  overflow: visible;
 }
 
 .studio-shell--collapsed .studio-brand {

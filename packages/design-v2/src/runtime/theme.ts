@@ -24,7 +24,7 @@ export interface ThemeControllerOptions {
 let controllerOptions: Required<ThemeControllerOptions> = {
   storageKey: DEFAULT_STORAGE_KEY,
   defaultMode: 'system',
-  defaultPreset: 'default'
+  defaultPreset: 'default',
 }
 
 let systemMediaQuery: MediaQueryList | null = null
@@ -34,17 +34,16 @@ let systemMediaQueryListener: (() => void) | null = null
 export function getTheme(): ThemeState {
   const root = getRoot()
   const stored = readStoredTheme()
-  const mode = readMode(root?.dataset.themeMode)
-    ?? readMode(root?.dataset.colorMode)
-    ?? stored.mode
-    ?? controllerOptions.defaultMode
-  const preset = root?.dataset.designPreset
-    ?? stored.preset
-    ?? controllerOptions.defaultPreset
+  const mode =
+    readMode(root?.dataset.themeMode) ??
+    readMode(root?.dataset.colorMode) ??
+    stored.mode ??
+    controllerOptions.defaultMode
+  const preset = root?.dataset.designPreset ?? stored.preset ?? controllerOptions.defaultPreset
   return {
     mode,
     preset,
-    resolvedMode: resolveMode(mode)
+    resolvedMode: resolveMode(mode),
   }
 }
 
@@ -55,11 +54,11 @@ export function setTheme(options: SetThemeOptions = {}): ThemeState {
     ...current,
     mode: options.mode ?? current.mode,
     preset: options.preset ?? current.preset,
-    resolvedMode: resolveMode(options.mode ?? current.mode)
+    resolvedMode: resolveMode(options.mode ?? current.mode),
   }
   controllerOptions = {
     ...controllerOptions,
-    ...(options.storageKey ? { storageKey: options.storageKey } : {})
+    ...(options.storageKey ? { storageKey: options.storageKey } : {}),
   }
 
   const root = getRoot()
@@ -90,17 +89,15 @@ export function watchTheme(listener: (state: ThemeState) => void): () => void {
 export function configureTheme(options: ThemeControllerOptions = {}): ThemeState {
   controllerOptions = {
     ...controllerOptions,
-    ...options
+    ...options,
   }
   const stored = readStoredTheme()
   const root = getRoot()
   if (root && !root.dataset.themeMode) {
     setTheme({
       mode: stored.mode ?? controllerOptions.defaultMode,
-      preset: root.dataset.designPreset
-        ?? stored.preset
-        ?? controllerOptions.defaultPreset,
-      persist: false
+      preset: root.dataset.designPreset ?? stored.preset ?? controllerOptions.defaultPreset,
+      persist: false,
     })
   }
   installSystemListener()
@@ -127,7 +124,7 @@ function readStoredTheme(): StoredTheme {
   if (typeof window === 'undefined') return {}
   try {
     const value = window.localStorage.getItem(controllerOptions.storageKey)
-    return value ? JSON.parse(value) as StoredTheme : {}
+    return value ? (JSON.parse(value) as StoredTheme) : {}
   } catch {
     return {}
   }
@@ -138,7 +135,7 @@ function persistTheme(state: ThemeState): void {
   try {
     window.localStorage.setItem(
       controllerOptions.storageKey,
-      JSON.stringify({ mode: state.mode, preset: state.preset })
+      JSON.stringify({ mode: state.mode, preset: state.preset }),
     )
   } catch {
     // 本地存储不可用时仍保留内存和 DOM 状态。

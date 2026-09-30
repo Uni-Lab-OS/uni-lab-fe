@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  decodeMaterialDetail,
-  decodeMaterialGraph,
-  decodeSiteDetail
-} from './codec'
+import { decodeMaterialDetail, decodeMaterialGraph, decodeSiteDetail } from './codec'
 
 describe('material site codec', () => {
   it('maps a graph while keeping cross-node Site ownership and occupancy', () => {
@@ -16,20 +12,20 @@ describe('material site codec', () => {
             resource_template: template('template-deck', 'device'),
             relative_position: position('material-root'),
             sites: [site('site-a1', 'material-root', 'material-child')],
-            current_site_uuid: null
+            current_site_uuid: null,
           },
           {
             material: {
               ...material('material-child', 'template-vial', 'Vial'),
-              parent_uuid: 'material-root'
+              parent_uuid: 'material-root',
             },
             resource_template: template('template-vial', 'resource'),
             relative_position: null,
             sites: [],
-            current_site_uuid: 'site-a1'
-          }
-        ]
-      }
+            current_site_uuid: 'site-a1',
+          },
+        ],
+      },
     })
 
     expect(graph).toMatchObject({
@@ -37,17 +33,19 @@ describe('material site codec', () => {
       nodes: [
         {
           material: { materialUuid: 'material-root' },
-          sites: [{
-            siteUuid: 'site-a1',
-            ownerMaterialUuid: 'material-root',
-            occupancy: { known: true, occupiedMaterialUuid: 'material-child' }
-          }]
+          sites: [
+            {
+              siteUuid: 'site-a1',
+              ownerMaterialUuid: 'material-root',
+              occupancy: { known: true, occupiedMaterialUuid: 'material-child' },
+            },
+          ],
         },
         {
           material: { materialUuid: 'material-child' },
-          currentSiteUuid: 'site-a1'
-        }
-      ]
+          currentSiteUuid: 'site-a1',
+        },
+      ],
     })
   })
 
@@ -55,22 +53,26 @@ describe('material site codec', () => {
     const site = decodeSiteDetail({
       uuid: 'site-unknown',
       material_uuid: 'material-root',
-      name: 'Unknown site'
+      name: 'Unknown site',
     })
 
     expect(site.occupancy).toEqual({
       known: false,
-      occupiedMaterialUuid: null
+      occupiedMaterialUuid: null,
     })
   })
 
   it('rejects a Site whose owner does not match its graph node', () => {
-    expect(() => decodeMaterialGraph({
-      nodes: [{
-        material: material('material-root', 'template-deck', 'Deck'),
-        sites: [site('site-a1', 'other-material', null)]
-      }]
-    })).toThrow('owner does not match')
+    expect(() =>
+      decodeMaterialGraph({
+        nodes: [
+          {
+            material: material('material-root', 'template-deck', 'Deck'),
+            sites: [site('site-a1', 'other-material', null)],
+          },
+        ],
+      }),
+    ).toThrow('owner does not match')
   })
 
   it('maps a material detail and its current Site', () => {
@@ -80,15 +82,15 @@ describe('material site codec', () => {
         ...material('material-child', 'template-vial', 'Vial'),
         relative_position: position('material-child'),
         sites: [],
-        current_site: site('site-a1', 'material-root', 'material-child')
-      }
+        current_site: site('site-a1', 'material-root', 'material-child'),
+      },
     })
 
     expect(detail).toMatchObject({
       kind: 'material_detail',
       materialUuid: 'material-child',
       relativePosition: { positionMm: [10, 20, 30] },
-      currentSite: { siteUuid: 'site-a1' }
+      currentSite: { siteUuid: 'site-a1' },
     })
   })
 })
@@ -107,7 +109,7 @@ function material(uuid: string, templateUuid: string, name: string) {
     data: {},
     meta_data: { source_node_id: uuid },
     create_time: '2026-09-25T00:00:00Z',
-    update_time: '2026-09-25T00:00:01Z'
+    update_time: '2026-09-25T00:00:01Z',
   }
 }
 
@@ -116,7 +118,7 @@ function template(uuid: string, resourceType: string) {
     uuid,
     name: `${resourceType}.template`,
     display_name: resourceType,
-    resource_type: resourceType
+    resource_type: resourceType,
   }
 }
 
@@ -134,7 +136,7 @@ function position(materialUuid: string) {
     scale_z: 1,
     rotation_x: 0,
     rotation_y: 0,
-    rotation_z: 0
+    rotation_z: 0,
   }
 }
 
@@ -146,7 +148,9 @@ function site(uuid: string, ownerUuid: string, occupiedUuid: string | null) {
     meta_data: { key: 'deck-A1' },
     sort_order: 0,
     allowed_resource_template_uuids: ['template-vial'],
-    ...(occupiedUuid === null ? { occupied_material_uuid: null } : { occupied_material_uuid: occupiedUuid }),
+    ...(occupiedUuid === null
+      ? { occupied_material_uuid: null }
+      : { occupied_material_uuid: occupiedUuid }),
     position_x: 1,
     position_y: 2,
     position_z: 3,
@@ -155,6 +159,6 @@ function site(uuid: string, ownerUuid: string, occupiedUuid: string | null) {
     length: 6,
     rotation_x: 0,
     rotation_y: 0,
-    rotation_z: 0
+    rotation_z: 0,
   }
 }

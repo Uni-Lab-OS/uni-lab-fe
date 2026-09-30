@@ -7,7 +7,7 @@ export type MaterialSiteErrorCode =
 export class MaterialSiteError extends Error {
   constructor(
     readonly code: MaterialSiteErrorCode,
-    message: string
+    message: string,
   ) {
     super(message)
     this.name = 'MaterialSiteError'

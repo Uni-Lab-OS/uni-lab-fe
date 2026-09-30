@@ -35,7 +35,9 @@
   gap: 6px;
 }
 
-.device-action-input-fields .device-action-field-slot > input:not([type=checkbox]), .device-action-input-fields .device-action-field-slot > select, .device-action-input-fields .device-action-field-slot > textarea {
+.device-action-input-fields .device-action-field-slot > input:not([type='checkbox']),
+.device-action-input-fields .device-action-field-slot > select,
+.device-action-input-fields .device-action-field-slot > textarea {
   border: 1px solid var(--unilab-border-subtle, #d0d5dd);
   border-radius: 6px;
   font: inherit;
@@ -43,14 +45,14 @@
   width: 100%;
 }
 
-.device-action-input-fields .device-action-field-slot > input[type=checkbox] {
+.device-action-input-fields .device-action-field-slot > input[type='checkbox'] {
   justify-self: start;
 }
 
-.lab-ui-form-field input:not([type=checkbox]),
+.lab-ui-form-field input:not([type='checkbox']),
 .lab-ui-form-field select,
 .lab-ui-form-field textarea,
-.lab-ui-device-action-input-fields input:not([type=checkbox]),
+.lab-ui-device-action-input-fields input:not([type='checkbox']),
 .lab-ui-device-action-input-fields select,
 .lab-ui-device-action-input-fields textarea {
   min-width: 0;
@@ -95,14 +97,15 @@
   line-height: 18px;
 }
 
-.lab-ui-form-field input:not([type=checkbox]):focus,
+.lab-ui-form-field input:not([type='checkbox']):focus,
 .lab-ui-form-field select:focus,
 .lab-ui-form-field textarea:focus,
-.lab-ui-device-action-input-fields input:not([type=checkbox]):focus,
+.lab-ui-device-action-input-fields input:not([type='checkbox']):focus,
 .lab-ui-device-action-input-fields select:focus,
 .lab-ui-device-action-input-fields textarea:focus {
   border-color: var(--bh-color-primary-focus, var(--studio-accent));
-  outline: 2px solid color-mix(in srgb, var(--bh-color-primary-focus, var(--studio-accent)) 28%, transparent);
+  outline: 2px solid
+    color-mix(in srgb, var(--bh-color-primary-focus, var(--studio-accent)) 28%, transparent);
   outline-offset: 0;
 }
 
@@ -186,7 +189,10 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: var(--studio-form-label-color, var(--studio-text-secondary, var(--bh-color-text-description)));
+  color: var(
+    --studio-form-label-color,
+    var(--studio-text-secondary, var(--bh-color-text-description))
+  );
   font-family: var(--studio-form-label-font-family, var(--bh-font-family-sans));
   font-size: var(--studio-form-label-size, 14px);
   font-weight: var(--studio-form-label-weight, 500);

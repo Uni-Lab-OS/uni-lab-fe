@@ -4,25 +4,25 @@ import type { WorkflowExecutionReadPort } from '../../domain/workflow-execution-
 import {
   createLaboratoryOperationsViewModel,
   type LaboratoryOperationsQuery,
-  type LaboratoryOperationsViewModel
+  type LaboratoryOperationsViewModel,
 } from './view-model'
 
 export interface LaboratoryOperationsScenario {
   load(query?: LaboratoryOperationsQuery): Promise<LaboratoryOperationsViewModel>
   inspectTask(
     viewModel: LaboratoryOperationsViewModel,
-    taskUuid: string
+    taskUuid: string,
   ): Promise<LaboratoryOperationsViewModel>
   inspectIntervention(
     viewModel: LaboratoryOperationsViewModel,
-    interventionUuid: string
+    interventionUuid: string,
   ): Promise<LaboratoryOperationsViewModel>
 }
 
 export function createLaboratoryOperationsScenario(
   executionRead: WorkflowExecutionReadPort,
   deviceActions: DeviceActionPort,
-  interventions: EvidenceInterventionPort
+  interventions: EvidenceInterventionPort,
 ): LaboratoryOperationsScenario {
   return {
     async load(query = {}) {
@@ -33,13 +33,13 @@ export function createLaboratoryOperationsScenario(
           status: query.status,
           cleanupStatus: query.cleanupStatus,
           view: query.view,
-          terminalLimit: query.terminalLimit
+          terminalLimit: query.terminalLimit,
         }),
         deviceActions.listDevices(),
         interventions.listInterventions({
           status: query.interventionStatus,
-          limit: query.interventionLimit
-        })
+          limit: query.interventionLimit,
+        }),
       ])
       return createLaboratoryOperationsViewModel(query, tasks, devices, interventionItems)
     },
@@ -47,13 +47,13 @@ export function createLaboratoryOperationsScenario(
     async inspectTask(viewModel, taskUuid) {
       const [task, jobs] = await Promise.all([
         executionRead.getTaskDetail(taskUuid),
-        executionRead.listTaskJobs(taskUuid)
+        executionRead.listTaskJobs(taskUuid),
       ])
       return {
         ...viewModel,
         selectedTaskUuid: taskUuid,
         selectedTask: task,
-        selectedJobs: jobs
+        selectedJobs: jobs,
       }
     },
 
@@ -62,8 +62,8 @@ export function createLaboratoryOperationsScenario(
       return {
         ...viewModel,
         selectedInterventionUuid: interventionUuid,
-        selectedIntervention: intervention
+        selectedIntervention: intervention,
       }
-    }
+    },
   }
 }

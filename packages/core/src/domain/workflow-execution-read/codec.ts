@@ -3,7 +3,7 @@ import type {
   TaskJobsResponse,
   TaskListResponse,
   TaskPresentationResponse,
-  WorkflowExecutionRecord
+  WorkflowExecutionRecord,
 } from './api'
 import type {
   WorkflowNodeJobDetail,
@@ -14,7 +14,7 @@ import type {
   TaskRuntimeDetail,
   TaskRuntimePresentation,
   TaskRuntimePresentationJob,
-  TaskRuntimePresentationPage
+  TaskRuntimePresentationPage,
 } from './model'
 import { deriveWorkflowProgress } from './debug-facts'
 
@@ -30,13 +30,21 @@ export function decodeTaskRuntimeDetail(value: unknown): TaskRuntimeDetail {
     runMode: requiredString(raw.run_mode, 'task.run_mode'),
     controlStatus: requiredString(raw.control_status, 'task.control_status'),
     cleanupStatus: requiredString(raw.cleanup_status, 'task.cleanup_status'),
-    ...(optionalString(raw.priority) === undefined ? {} : { priority: optionalString(raw.priority) }),
-    ...(optionalString(raw.description) === undefined ? {} : { description: optionalString(raw.description) }),
+    ...(optionalString(raw.priority) === undefined
+      ? {}
+      : { priority: optionalString(raw.priority) }),
+    ...(optionalString(raw.description) === undefined
+      ? {}
+      : { description: optionalString(raw.description) }),
     createdAt: requiredString(raw.create_time, 'task.create_time'),
     updatedAt: requiredString(raw.update_time, 'task.update_time'),
-    ...(optionalString(raw.finished_at) === undefined ? {} : { finishedAt: optionalString(raw.finished_at) }),
-    ...(optionalString(raw.attention_reason) === undefined ? {} : { attentionReason: optionalString(raw.attention_reason) }),
-    raw
+    ...(optionalString(raw.finished_at) === undefined
+      ? {}
+      : { finishedAt: optionalString(raw.finished_at) }),
+    ...(optionalString(raw.attention_reason) === undefined
+      ? {}
+      : { attentionReason: optionalString(raw.attention_reason) }),
+    raw,
   }
 }
 
@@ -47,16 +55,17 @@ export function decodeTaskPage(value: unknown): TaskRuntimePage {
   const pageSize = positiveInteger(root.page_size, 'task list.page_size')
   const total = nonNegativeInteger(root.total, 'task list.total')
   return {
-    items: root.items.map((item, index) => decodeTaskRuntimeDetail(
-      asRecord(item, `task list.items[${index}]`)
-    )),
+    items: root.items.map((item, index) =>
+      decodeTaskRuntimeDetail(asRecord(item, `task list.items[${index}]`)),
+    ),
     total,
     page,
     pageSize,
-    hasMore: root.has_more === undefined
-      ? page * pageSize < total
-      : booleanValue(root.has_more, 'task list.has_more'),
-    raw: root
+    hasMore:
+      root.has_more === undefined
+        ? page * pageSize < total
+        : booleanValue(root.has_more, 'task list.has_more'),
+    raw: root,
   }
 }
 
@@ -64,13 +73,13 @@ export function decodeTaskPresentationPage(value: unknown): TaskRuntimePresentat
   const root = unwrapData(asRecord(value, 'task presentation list')) as TaskPresentationResponse
   if (!Array.isArray(root.items)) invalid('task presentation list.items must be an array')
   return {
-    items: root.items.map((item, index) => decodeTaskPresentation(
-      asRecord(item, `task presentations.items[${index}]`)
-    )),
+    items: root.items.map((item, index) =>
+      decodeTaskPresentation(asRecord(item, `task presentations.items[${index}]`)),
+    ),
     total: nonNegativeInteger(root.total, 'task presentations.total'),
     page: positiveInteger(root.page, 'task presentations.page'),
     pageSize: positiveInteger(root.page_size, 'task presentations.page_size'),
-    raw: root
+    raw: root,
   }
 }
 
@@ -94,10 +103,10 @@ function decodeTaskPresentation(value: WorkflowExecutionRecord): TaskRuntimePres
     finishedAt: nullableString(value.finished_at, 'presentation.finished_at'),
     attentionReason: nullableString(value.attention_reason, 'presentation.attention_reason'),
     progress: deriveWorkflowProgress(value.progress, jobs),
-    jobs: jobs.map((job, index) => decodePresentationJob(
-      asRecord(job, `presentation.jobs[${index}]`)
-    )),
-    raw: value
+    jobs: jobs.map((job, index) =>
+      decodePresentationJob(asRecord(job, `presentation.jobs[${index}]`)),
+    ),
+    raw: value,
   }
 }
 
@@ -106,8 +115,14 @@ function decodePresentationJob(value: WorkflowExecutionRecord): TaskRuntimePrese
     kind: 'task_runtime_presentation_job',
     source: 'os',
     jobUuid: requiredString(value.uuid ?? value.job_uuid, 'presentation.job.uuid'),
-    workflowNodeUuid: requiredString(value.workflow_node_uuid, 'presentation.job.workflow_node_uuid'),
-    topologicalIndex: nonNegativeInteger(value.topological_index, 'presentation.job.topological_index'),
+    workflowNodeUuid: requiredString(
+      value.workflow_node_uuid,
+      'presentation.job.workflow_node_uuid',
+    ),
+    topologicalIndex: nonNegativeInteger(
+      value.topological_index,
+      'presentation.job.topological_index',
+    ),
     executorKind: requiredString(value.executor_kind, 'presentation.job.executor_kind'),
     status: requiredString(value.status, 'presentation.job.status'),
     attempt: nonNegativeInteger(value.attempt, 'presentation.job.attempt'),
@@ -119,13 +134,13 @@ function decodePresentationJob(value: WorkflowExecutionRecord): TaskRuntimePrese
     waitReason: asOptionalRecord(value.wait_reason) ?? {},
     expectedChangeSet: asOptionalRecord(value.expected_change_set) ?? {},
     finishedAt: nullableString(value.finished_at, 'presentation.job.finished_at'),
-    raw: value
+    raw: value,
   }
 }
 
 export function decodeTaskJobs(value: unknown): readonly TaskJobSummary[] {
   const root = Array.isArray(value)
-    ? { data: value } as WorkflowExecutionRecord
+    ? ({ data: value } as WorkflowExecutionRecord)
     : asRecord(value, 'task jobs')
   const unwrapped = unwrapData(root)
   const items = Array.isArray(unwrapped.items)
@@ -155,7 +170,10 @@ export function decodeNodeJobDetail(value: unknown): WorkflowNodeJobDetail {
     topologicalIndex: nullableNonNegativeInteger(raw.topological_index, 'job.topological_index'),
     executorKind: requiredString(raw.executor_kind, 'job.executor_kind'),
     executionPolicy: asOptionalRecord(raw.execution_policy) ?? {},
-    executionTimeoutSeconds: nullableNonNegativeNumber(raw.execution_timeout_seconds, 'job.execution_timeout_seconds'),
+    executionTimeoutSeconds: nullableNonNegativeNumber(
+      raw.execution_timeout_seconds,
+      'job.execution_timeout_seconds',
+    ),
     status: requiredString(raw.status, 'job.status'),
     attempt: nonNegativeInteger(raw.attempt, 'job.attempt'),
     param: asOptionalRecord(raw.param) ?? {},
@@ -168,27 +186,32 @@ export function decodeNodeJobDetail(value: unknown): WorkflowNodeJobDetail {
     executionDeadlineAt: nullableString(raw.execution_deadline_at, 'job.execution_deadline_at'),
     cancelCommandUuid: nullableString(raw.cancel_command_uuid, 'job.cancel_command_uuid'),
     cancelAckDeadlineAt: nullableString(raw.cancel_ack_deadline_at, 'job.cancel_ack_deadline_at'),
-    cancelCompleteDeadlineAt: nullableString(raw.cancel_complete_deadline_at, 'job.cancel_complete_deadline_at'),
+    cancelCompleteDeadlineAt: nullableString(
+      raw.cancel_complete_deadline_at,
+      'job.cancel_complete_deadline_at',
+    ),
     startedAt: nullableString(raw.started_at, 'job.started_at'),
     finishedAt: nullableString(raw.finished_at, 'job.finished_at'),
-    raw
+    raw,
   }
 }
 
 export function decodeNodeJobFeedbackPage(value: unknown): NodeJobFeedbackPage {
   const raw = unwrapData(asRecord(value, 'node job feedback'))
   const items = raw.items
-  if (!Array.isArray(items)) invalid('node job feedback.items must be an array', 'INVALID_FEEDBACK_RESPONSE')
-  const decoded = items.map((item, index) => decodeNodeJobFeedback(
-    asRecord(item, `node job feedback.items[${index}]`)
-  ))
+  if (!Array.isArray(items))
+    invalid('node job feedback.items must be an array', 'INVALID_FEEDBACK_RESPONSE')
+  const decoded = items.map((item, index) =>
+    decodeNodeJobFeedback(asRecord(item, `node job feedback.items[${index}]`)),
+  )
   return {
     items: decoded,
-    nextCursor: raw.next_cursor === undefined
-      ? decoded.at(-1)?.sequence ?? 0
-      : nonNegativeInteger(raw.next_cursor, 'node job feedback.next_cursor'),
+    nextCursor:
+      raw.next_cursor === undefined
+        ? (decoded.at(-1)?.sequence ?? 0)
+        : nonNegativeInteger(raw.next_cursor, 'node job feedback.next_cursor'),
     hasMore: booleanValue(raw.has_more, 'node job feedback.has_more'),
-    raw
+    raw,
   }
 }
 
@@ -207,7 +230,7 @@ function decodeNodeJobFeedback(value: WorkflowExecutionRecord): NodeJobFeedback 
     idempotencyKey: requiredString(value.idempotency_key, 'feedback.idempotency_key'),
     description: nullableString(value.description, 'feedback.description'),
     metadata: asOptionalRecord(value.meta_data) ?? {},
-    raw: value
+    raw: value,
   }
 }
 
@@ -238,7 +261,7 @@ function decodeTaskJob(value: WorkflowExecutionRecord): TaskJobSummary {
     ...(optionalString(value.finished_at) === undefined
       ? {}
       : { finishedAt: optionalString(value.finished_at) }),
-    raw: value
+    raw: value,
   }
 }
 
@@ -246,8 +269,11 @@ function unwrapData(value: WorkflowExecutionRecord): WorkflowExecutionRecord {
   if (value.code !== undefined && value.code !== 0 && value.code !== '0') {
     throw new WorkflowExecutionReadError(
       'OS_REQUEST_REJECTED',
-      optionalString(asOptionalRecord(value.error)?.message ?? asOptionalRecord(value.error)?.msg ?? value.message)
-        ?? `OS request rejected with code ${String(value.code)}`
+      optionalString(
+        asOptionalRecord(value.error)?.message ??
+          asOptionalRecord(value.error)?.msg ??
+          value.message,
+      ) ?? `OS request rejected with code ${String(value.code)}`,
     )
   }
   return asOptionalRecord(value.data) ?? value
@@ -255,21 +281,27 @@ function unwrapData(value: WorkflowExecutionRecord): WorkflowExecutionRecord {
 
 function asRecord(value: unknown, path: string): WorkflowExecutionRecord {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new WorkflowExecutionReadError('INVALID_TASK_RUNTIME_RESPONSE', `${path} must be an object`)
+    throw new WorkflowExecutionReadError(
+      'INVALID_TASK_RUNTIME_RESPONSE',
+      `${path} must be an object`,
+    )
   }
   return value as WorkflowExecutionRecord
 }
 
 function asOptionalRecord(value: unknown): WorkflowExecutionRecord | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as WorkflowExecutionRecord
+    ? (value as WorkflowExecutionRecord)
     : undefined
 }
 
 function requiredString(value: unknown, path: string): string {
   const result = optionalString(value)
   if (result === undefined) {
-    throw new WorkflowExecutionReadError('INVALID_TASK_RUNTIME_RESPONSE', `${path} must be a string`)
+    throw new WorkflowExecutionReadError(
+      'INVALID_TASK_RUNTIME_RESPONSE',
+      `${path} must be a string`,
+    )
   }
   return result
 }
@@ -282,14 +314,20 @@ function nullableString(value: unknown, path: string): string | null {
   if (value === null || value === undefined) return null
   const result = optionalString(value)
   if (result === undefined) {
-    throw new WorkflowExecutionReadError('INVALID_TASK_RUNTIME_RESPONSE', `${path} must be a string or null`)
+    throw new WorkflowExecutionReadError(
+      'INVALID_TASK_RUNTIME_RESPONSE',
+      `${path} must be a string or null`,
+    )
   }
   return result
 }
 
 function nonNegativeInteger(value: unknown, path: string): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
-    throw new WorkflowExecutionReadError('INVALID_TASK_RUNTIME_RESPONSE', `${path} must be a non-negative integer`)
+    throw new WorkflowExecutionReadError(
+      'INVALID_TASK_RUNTIME_RESPONSE',
+      `${path} must be a non-negative integer`,
+    )
   }
   return value
 }
@@ -297,7 +335,10 @@ function nonNegativeInteger(value: unknown, path: string): number {
 function positiveInteger(value: unknown, path: string): number {
   const result = nonNegativeInteger(value, path)
   if (result < 1) {
-    throw new WorkflowExecutionReadError('INVALID_TASK_RUNTIME_RESPONSE', `${path} must be positive`)
+    throw new WorkflowExecutionReadError(
+      'INVALID_TASK_RUNTIME_RESPONSE',
+      `${path} must be positive`,
+    )
   }
   return result
 }
@@ -310,21 +351,30 @@ function nullableNonNegativeInteger(value: unknown, path: string): number | null
 function nullableNonNegativeNumber(value: unknown, path: string): number | null {
   if (value === null || value === undefined) return null
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-    throw new WorkflowExecutionReadError('INVALID_NODE_JOB_RESPONSE', `${path} must be a non-negative number`)
+    throw new WorkflowExecutionReadError(
+      'INVALID_NODE_JOB_RESPONSE',
+      `${path} must be a non-negative number`,
+    )
   }
   return value
 }
 
 function booleanValue(value: unknown, path: string): boolean {
   if (typeof value !== 'boolean') {
-    throw new WorkflowExecutionReadError('INVALID_TASK_RUNTIME_RESPONSE', `${path} must be a boolean`)
+    throw new WorkflowExecutionReadError(
+      'INVALID_TASK_RUNTIME_RESPONSE',
+      `${path} must be a boolean`,
+    )
   }
   return value
 }
 
 function invalid(
   message: string,
-  code: 'INVALID_TASK_RUNTIME_RESPONSE' | 'INVALID_NODE_JOB_RESPONSE' | 'INVALID_FEEDBACK_RESPONSE' = 'INVALID_TASK_RUNTIME_RESPONSE'
+  code:
+    | 'INVALID_TASK_RUNTIME_RESPONSE'
+    | 'INVALID_NODE_JOB_RESPONSE'
+    | 'INVALID_FEEDBACK_RESPONSE' = 'INVALID_TASK_RUNTIME_RESPONSE',
 ): never {
   throw new WorkflowExecutionReadError(code, message)
 }

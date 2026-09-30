@@ -4,7 +4,7 @@ import type {
   TaskRuntimeDetail,
   TaskRuntimePresentation,
   TaskRuntimePresentationPage,
-  TaskJobSummary
+  TaskJobSummary,
 } from '../../domain/workflow-execution-read/model'
 
 export interface LaboratoryOperationsQuery {
@@ -38,7 +38,7 @@ export function createLaboratoryOperationsViewModel(
   query: LaboratoryOperationsQuery,
   tasks: TaskRuntimePresentationPage,
   devices: readonly DeviceSummary[],
-  interventions: readonly WorkflowIntervention[]
+  interventions: readonly WorkflowIntervention[],
 ): LaboratoryOperationsViewModel {
   return {
     kind: 'laboratory_operations',
@@ -53,6 +53,6 @@ export function createLaboratoryOperationsViewModel(
     selectedTask: null,
     selectedJobs: [],
     selectedInterventionUuid: null,
-    selectedIntervention: null
+    selectedIntervention: null,
   }
 }

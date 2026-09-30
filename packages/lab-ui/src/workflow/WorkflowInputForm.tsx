@@ -21,11 +21,7 @@ export function WorkflowInputForm({
   errors = {},
 }: WorkflowInputFormProps) {
   if (parameters.length === 0) {
-    return (
-      <p className={cx('lab-ui-form-empty')}>
-        该工作流没有声明需要填写的运行参数。
-      </p>
-    )
+    return <p className={cx('lab-ui-form-empty')}>该工作流没有声明需要填写的运行参数。</p>
   }
 
   const setValue = (name: string, next: unknown) => {

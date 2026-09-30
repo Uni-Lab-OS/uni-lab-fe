@@ -1,13 +1,10 @@
-import type {
-  EvidenceInterventionRecord,
-  InterventionListResponse
-} from './api'
+import type { EvidenceInterventionRecord, InterventionListResponse } from './api'
 import { EvidenceInterventionError } from './errors'
 import type {
   WorkflowIntervention,
   WorkflowInterventionDeliveryStatus,
   WorkflowInterventionOption,
-  WorkflowInterventionStatus
+  WorkflowInterventionStatus,
 } from './model'
 
 export function decodeInterventionList(value: unknown): readonly WorkflowIntervention[] {
@@ -16,9 +13,7 @@ export function decodeInterventionList(value: unknown): readonly WorkflowInterve
     ? payload
     : (asRecord(payload, 'intervention list') as InterventionListResponse).items
   if (!Array.isArray(items)) invalid('intervention list.items must be an array')
-  return items.map((item, index) => decodeIntervention(
-    asRecord(item, `interventions[${index}]`)
-  ))
+  return items.map((item, index) => decodeIntervention(asRecord(item, `interventions[${index}]`)))
 }
 
 export function decodeIntervention(value: unknown): WorkflowIntervention {
@@ -29,12 +24,18 @@ export function decodeIntervention(value: unknown): WorkflowIntervention {
     source: 'os',
     interventionUuid: requiredString(raw.uuid, 'intervention.uuid'),
     workflowTaskUuid: requiredString(raw.workflow_task_uuid, 'intervention.workflow_task_uuid'),
-    workflowNodeJobUuid: requiredString(raw.workflow_node_job_uuid, 'intervention.workflow_node_job_uuid'),
+    workflowNodeJobUuid: requiredString(
+      raw.workflow_node_job_uuid,
+      'intervention.workflow_node_job_uuid',
+    ),
     edgeCommandUuid: nullableString(raw.edge_command_uuid, 'intervention.edge_command_uuid'),
     revision: positiveInteger(raw.revision, 'intervention.revision'),
     status: interventionStatus(raw.status, 'intervention.status'),
     options,
-    resumeControlStatus: requiredString(raw.resume_control_status, 'intervention.resume_control_status'),
+    resumeControlStatus: requiredString(
+      raw.resume_control_status,
+      'intervention.resume_control_status',
+    ),
     selectedOptionId: nullableString(raw.selected_option_id, 'intervention.selected_option_id'),
     selectedOption: optionalRecord(raw.selected_option, 'intervention.selected_option'),
     deliveryStatus: deliveryStatus(raw.delivery_status, 'intervention.delivery_status'),
@@ -45,7 +46,7 @@ export function decodeIntervention(value: unknown): WorkflowIntervention {
     updatedAt: requiredString(raw.update_time, 'intervention.update_time'),
     decidedAt: nullableString(raw.decided_at, 'intervention.decided_at'),
     deliveredAt: nullableString(raw.delivered_at, 'intervention.delivered_at'),
-    raw
+    raw,
   }
 }
 
@@ -65,12 +66,14 @@ function decodeOptions(value: unknown): readonly WorkflowInterventionOption[] {
 
 function unwrapEnvelope(value: unknown): unknown {
   const root = asOptionalRecord(value)
-  if (!root || (!('data' in root) && root.code === undefined && root.error === undefined)) return value
+  if (!root || (!('data' in root) && root.code === undefined && root.error === undefined))
+    return value
   if (root.code !== undefined && root.code !== 0 && root.code !== '0') {
     throw new EvidenceInterventionError(
       'OS_REQUEST_REJECTED',
-      optionalString(asOptionalRecord(root.error)?.message ?? asOptionalRecord(root.error)?.msg ?? root.message)
-        ?? `OS request rejected with code ${String(root.code)}`
+      optionalString(
+        asOptionalRecord(root.error)?.message ?? asOptionalRecord(root.error)?.msg ?? root.message,
+      ) ?? `OS request rejected with code ${String(root.code)}`,
     )
   }
   return root.data
@@ -84,7 +87,7 @@ function asRecord(value: unknown, path: string): EvidenceInterventionRecord {
 
 function asOptionalRecord(value: unknown): EvidenceInterventionRecord | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as EvidenceInterventionRecord
+    ? (value as EvidenceInterventionRecord)
     : undefined
 }
 
@@ -121,7 +124,8 @@ function interventionStatus(value: unknown, path: string): WorkflowInterventionS
 }
 
 function deliveryStatus(value: unknown, path: string): WorkflowInterventionDeliveryStatus {
-  if (value === 'none' || value === 'pending' || value === 'accepted' || value === 'unknown') return value
+  if (value === 'none' || value === 'pending' || value === 'accepted' || value === 'unknown')
+    return value
   invalid(`${path} is not a supported delivery status`)
 }
 

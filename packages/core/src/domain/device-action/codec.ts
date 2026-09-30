@@ -1,7 +1,7 @@
 import type {
   ActionDefinitionDetailResponse,
   ActionDefinitionListResponse,
-  DeviceActionRecord
+  DeviceActionRecord,
 } from './api'
 import { DeviceActionError } from './errors'
 import type {
@@ -14,7 +14,7 @@ import type {
   ActionResourceRole,
   DeviceActionRunAccepted,
   DeviceExecutionOccupancy,
-  DeviceSummary
+  DeviceSummary,
 } from './model'
 
 export function decodeDeviceList(value: unknown): readonly DeviceSummary[] {
@@ -49,7 +49,7 @@ export function decodeDeviceList(value: unknown): readonly DeviceSummary[] {
  */
 export function decodeAuthoringDeviceCatalog(
   value: unknown,
-  definitions: readonly ActionDefinitionSummary[] = []
+  definitions: readonly ActionDefinitionSummary[] = [],
 ): readonly DeviceSummary[] {
   const payload = unwrapEnvelope(value)
   const root = asOptionalRecord(payload)
@@ -75,9 +75,15 @@ export function decodeAuthoringDeviceCatalog(
       dispatchBlockReason: null,
       executionOccupancies: null,
       actions: actions.map((item, actionIndex) => {
-        const action = asRecord(item, `authoring.device-catalog.items[${index}].actions[${actionIndex}]`)
+        const action = asRecord(
+          item,
+          `authoring.device-catalog.items[${index}].actions[${actionIndex}]`,
+        )
         const actionName = optionalString(action.id) ?? optionalString(action.name)
-        if (!actionName) throw invalid(`authoring.device-catalog.items[${index}].actions[${actionIndex}].id must be a string`)
+        if (!actionName)
+          throw invalid(
+            `authoring.device-catalog.items[${index}].actions[${actionIndex}].id must be a string`,
+          )
         const definition = definitionByName.get(actionName)
         return {
           actionName,
@@ -88,10 +94,10 @@ export function decodeAuthoringDeviceCatalog(
           isBusy: null,
           busyStatusKnown: false,
           currentJobUuid: null,
-          raw: action
+          raw: action,
         }
       }),
-      raw
+      raw,
     }
   })
 }
@@ -108,7 +114,7 @@ export function decodeActionRunAccepted(value: unknown): DeviceActionRunAccepted
       created: booleanValue(root.created, 'device action run.created'),
       taskUuid: requiredString(task.uuid ?? task.task_uuid, 'device action run.task.uuid'),
       jobUuid: requiredString(job.uuid ?? job.job_uuid, 'device action run.job.uuid'),
-      raw: root
+      raw: root,
     }
   } catch (error) {
     if (error instanceof DeviceActionError && error.code === 'INVALID_ACTION_DEFINITION') {
@@ -118,22 +124,14 @@ export function decodeActionRunAccepted(value: unknown): DeviceActionRunAccepted
   }
 }
 
-export function decodeActionDefinitionList(
-  value: unknown
-): readonly ActionDefinitionSummary[] {
+export function decodeActionDefinitionList(value: unknown): readonly ActionDefinitionSummary[] {
   const payload = unwrapEnvelope(value)
   const root = asRecord(payload, 'action definition list') as ActionDefinitionListResponse
-  const items = Array.isArray(root.items)
-    ? root.items
-    : Array.isArray(root.data)
-      ? root.data
-      : []
+  const items = Array.isArray(root.items) ? root.items : Array.isArray(root.data) ? root.data : []
   return items.map((item, index) => decodeSummary(asRecord(item, `items[${index}]`)))
 }
 
-export function decodeActionDefinition(
-  value: ActionDefinitionDetailResponse
-): ActionDefinition {
+export function decodeActionDefinition(value: ActionDefinitionDetailResponse): ActionDefinition {
   const payload = unwrapEnvelope(value)
   const root = asRecord(payload, 'action definition') as ActionDefinitionDetailResponse
   const template = asOptionalRecord(root.template) ?? root
@@ -149,19 +147,19 @@ export function decodeActionDefinition(
     goal: recordOrJson(template.goal, 'action.goal'),
     goalDefault: recordOrJson(template.goal_default, 'action.goal_default'),
     handles,
-    resourceContract: decodeResourceContract(template)
+    resourceContract: decodeResourceContract(template),
   }
 }
 
 function withSourceFields(
   template: DeviceActionRecord,
-  root: ActionDefinitionDetailResponse
+  root: ActionDefinitionDetailResponse,
 ): DeviceActionRecord {
   const sourceFields = ['source_code', 'sourceCode', 'python_source']
   const inherited = Object.fromEntries(
     sourceFields
       .filter((field) => root[field] !== undefined && template[field] === undefined)
-      .map((field) => [field, root[field]])
+      .map((field) => [field, root[field]]),
   )
   return Object.keys(inherited).length ? { ...template, ...inherited } : template
 }
@@ -178,9 +176,9 @@ function decodeSummary(value: DeviceActionRecord): ActionDefinitionSummary {
     nodeType: requiredString(value.node_type, 'action.node_type'),
     resourceTemplateUuid: requiredString(
       value.resource_template_uuid ?? resource?.uuid,
-      'action.resource_template_uuid'
+      'action.resource_template_uuid',
     ),
-    raw: value
+    raw: value,
   }
 }
 
@@ -192,13 +190,14 @@ function decodeDevice(value: DeviceActionRecord): DeviceSummary {
   const namespace = requiredString(binding.edge_uuid, 'device.binding.edge_uuid')
   const resourceTemplateUuid = requiredString(
     material.resource_template_uuid ?? value.resource_template_uuid,
-    'device.material.resource_template_uuid'
+    'device.material.resource_template_uuid',
   )
-  const busyActions: readonly unknown[] = value.actions === undefined
-    ? []
-    : Array.isArray(value.actions)
-      ? value.actions
-      : invalid('device.actions must be an array')
+  const busyActions: readonly unknown[] =
+    value.actions === undefined
+      ? []
+      : Array.isArray(value.actions)
+        ? value.actions
+        : invalid('device.actions must be an array')
   return {
     kind: 'device_summary',
     source: 'os',
@@ -212,47 +211,52 @@ function decodeDevice(value: DeviceActionRecord): DeviceSummary {
     edgeStatus: nullableString(value.edge_status ?? value.edgeStatus, 'device.edge_status'),
     dispatchable: optionalBoolean(
       value.dispatchable ?? value.can_dispatch ?? value.canDispatch,
-      'device.dispatchable'
+      'device.dispatchable',
     ),
     dispatchBlockReason: nullableString(
-      binding.dispatch_block_reason ?? binding.dispatchBlockReason ??
-        value.dispatch_block_reason ?? value.dispatchBlockReason,
-      'device.dispatch_block_reason'
+      binding.dispatch_block_reason ??
+        binding.dispatchBlockReason ??
+        value.dispatch_block_reason ??
+        value.dispatchBlockReason,
+      'device.dispatch_block_reason',
     ),
     executionOccupancies: decodeOccupancies(
-      value.execution_occupancies ?? value.executionOccupancies
+      value.execution_occupancies ?? value.executionOccupancies,
     ),
     actions: busyActions.map((action, index) =>
-      decodeDeviceAction(asRecord(action, `device.actions[${index}]`), deviceUuid)
+      decodeDeviceAction(asRecord(action, `device.actions[${index}]`), deviceUuid),
     ),
-    raw: value
+    raw: value,
   }
 }
 
 function decodeDeviceAction(
   value: DeviceActionRecord,
-  deviceUuid: string
+  deviceUuid: string,
 ): DeviceSummary['actions'][number] {
   const actionName = requiredString(value.name, 'device.actions[].name')
   const actionType = requiredString(value.type, 'device.actions[].type')
   const busy = value.is_busy ?? value.isBusy ?? value.busy
   return {
     actionName,
-    actionRef: optionalString(value.action_ref ?? value.actionRef ?? value.ref) ??
+    actionRef:
+      optionalString(value.action_ref ?? value.actionRef ?? value.ref) ??
       `${deviceUuid}.${actionName}`,
     label: optionalString(value.label ?? value.display_name ?? value.displayName) ?? actionName,
     actionType,
     actionDefinitionUuid: nullableString(
-      value.action_definition_uuid ?? value.actionDefinitionUuid ?? value.workflow_node_template_uuid,
-      'device.actions[].action_definition_uuid'
+      value.action_definition_uuid ??
+        value.actionDefinitionUuid ??
+        value.workflow_node_template_uuid,
+      'device.actions[].action_definition_uuid',
     ),
     isBusy: busy === undefined ? null : booleanValue(busy, 'device.actions[].busy'),
     busyStatusKnown: busy !== undefined,
     currentJobUuid: nullableString(
       value.current_job_uuid ?? value.current_job_id ?? value.currentJobUuid ?? value.currentJobId,
-      'device.actions[].current_job_uuid'
+      'device.actions[].current_job_uuid',
     ),
-    raw: value
+    raw: value,
   }
 }
 
@@ -262,19 +266,28 @@ function decodeOccupancies(value: unknown): readonly DeviceExecutionOccupancy[] 
   return value.map((item, index) => {
     const raw = asRecord(item, `device.execution_occupancies[${index}]`)
     return {
-      leaseUuid: nullableString(raw.lease_uuid ?? raw.leaseUuid, `device.execution_occupancies[${index}].lease_uuid`),
+      leaseUuid: nullableString(
+        raw.lease_uuid ?? raw.leaseUuid,
+        `device.execution_occupancies[${index}].lease_uuid`,
+      ),
       workflowTaskUuid: nullableString(
         raw.workflow_task_uuid ?? raw.workflowTaskUuid,
-        `device.execution_occupancies[${index}].workflow_task_uuid`
+        `device.execution_occupancies[${index}].workflow_task_uuid`,
       ),
       workflowNodeJobUuid: requiredString(
         raw.workflow_node_job_uuid ?? raw.workflowNodeJobUuid,
-        `device.execution_occupancies[${index}].workflow_node_job_uuid`
+        `device.execution_occupancies[${index}].workflow_node_job_uuid`,
       ),
       state: requiredString(raw.state, `device.execution_occupancies[${index}].state`),
-      actionName: nullableString(raw.action_name ?? raw.actionName, `device.execution_occupancies[${index}].action_name`),
-      acquiredAt: nullableString(raw.acquired_at ?? raw.acquiredAt, `device.execution_occupancies[${index}].acquired_at`),
-      raw
+      actionName: nullableString(
+        raw.action_name ?? raw.actionName,
+        `device.execution_occupancies[${index}].action_name`,
+      ),
+      acquiredAt: nullableString(
+        raw.acquired_at ?? raw.acquiredAt,
+        `device.execution_occupancies[${index}].acquired_at`,
+      ),
+      raw,
     }
   })
 }
@@ -284,15 +297,14 @@ function decodeHandle(value: DeviceActionRecord): ActionHandle {
   const unilab = asOptionalRecord(metadata?.unilab)
   const valueSchema = value.value_schema ?? unilab?.value_schema ?? {}
   const editorControl = value.editor_control ?? unilab?.editor_control ?? 'variable_selector'
-  const allowedResourceTemplateUuids = value.allowed_resource_template_uuids
-    ?? unilab?.allowed_resource_template_uuids
-  const implicitPassthrough = value.implicit_passthrough
-    ?? unilab?.implicit_passthrough
+  const allowedResourceTemplateUuids =
+    value.allowed_resource_template_uuids ?? unilab?.allowed_resource_template_uuids
+  const implicitPassthrough = value.implicit_passthrough ?? unilab?.implicit_passthrough
   return {
     uuid: requiredString(value.uuid, 'handle.uuid'),
     workflowNodeTemplateUuid: requiredString(
       value.workflow_node_template_uuid,
-      'handle.workflow_node_template_uuid'
+      'handle.workflow_node_template_uuid',
     ),
     handleKey: requiredString(value.handle_key, 'handle.handle_key'),
     ioType: enumValue(value.io_type, ['source', 'target'], 'handle.io_type'),
@@ -305,17 +317,17 @@ function decodeHandle(value: DeviceActionRecord): ActionHandle {
     editorControl: enumValue(
       editorControl,
       ['material_port', 'site_selector', 'variable_selector'],
-      'handle.editor_control'
+      'handle.editor_control',
     ),
     allowedResourceTemplateUuids: nullableStringArray(
       allowedResourceTemplateUuids,
-      'handle.allowed_resource_template_uuids'
+      'handle.allowed_resource_template_uuids',
     ),
     implicitPassthrough: booleanValue(
       implicitPassthrough === undefined ? false : implicitPassthrough,
-      'handle.implicit_passthrough'
+      'handle.implicit_passthrough',
     ),
-    structuralRole: nullableEnum(value.structural_role, ['ready'], 'handle.structural_role')
+    structuralRole: nullableEnum(value.structural_role, ['ready'], 'handle.structural_role'),
   }
 }
 
@@ -331,50 +343,56 @@ function recordOrJson(value: unknown, path: string): DeviceActionRecord {
   return asRecord(value, path)
 }
 
-function decodeResourceContract(
-  template: DeviceActionRecord
-): ActionResourceContract | null {
+function decodeResourceContract(template: DeviceActionRecord): ActionResourceContract | null {
   const metadata = asOptionalRecord(template.meta_data)
   const unilab = asOptionalRecord(metadata?.unilab)
-  const raw = asOptionalRecord(unilab?.resource_contract)
-    ?? asOptionalRecord(unilab?.action_resource_contract)
+  const raw =
+    asOptionalRecord(unilab?.resource_contract) ??
+    asOptionalRecord(unilab?.action_resource_contract)
   if (!raw) return null
 
   const resourceParams = Array.isArray(raw.resource_params)
-    ? raw.resource_params.map((item, index) => decodeResourceParameter(
-        asRecord(item, `resource_contract.resource_params[${index}]`),
-        index
-      ))
+    ? raw.resource_params.map((item, index) =>
+        decodeResourceParameter(
+          asRecord(item, `resource_contract.resource_params[${index}]`),
+          index,
+        ),
+      )
     : []
   return {
-    version: raw.version === undefined ? 1 : positiveInteger(raw.version, 'resource_contract.version'),
+    version:
+      raw.version === undefined ? 1 : positiveInteger(raw.version, 'resource_contract.version'),
     resourceParams,
     requiredDeviceParams: stringArray(
       raw.required_device_params,
-      'resource_contract.required_device_params'
+      'resource_contract.required_device_params',
     ),
-    ...(optionalRecordField(raw.transfer, 'resource_contract.transfer')),
-    ...(optionalRecordField(raw.operate_in_place, 'resource_contract.operate_in_place', 'operateInPlace')),
-    ...(optionalRecordField(raw.device_tenancy, 'resource_contract.device_tenancy', 'deviceTenancy')),
-    ...(optionalRecordField(raw.aliquot, 'resource_contract.aliquot')),
+    ...optionalRecordField(raw.transfer, 'resource_contract.transfer'),
+    ...optionalRecordField(
+      raw.operate_in_place,
+      'resource_contract.operate_in_place',
+      'operateInPlace',
+    ),
+    ...optionalRecordField(raw.device_tenancy, 'resource_contract.device_tenancy', 'deviceTenancy'),
+    ...optionalRecordField(raw.aliquot, 'resource_contract.aliquot'),
     ...(raw.order_sensitive === undefined
       ? {}
       : { orderSensitive: booleanValue(raw.order_sensitive, 'resource_contract.order_sensitive') }),
-    raw
+    raw,
   }
 }
 
 function decodeResourceParameter(
   value: DeviceActionRecord,
-  index: number
+  index: number,
 ): ActionResourceParameter {
   return {
     param: requiredString(value.param, `resource_contract.resource_params[${index}].param`),
     role: enumValue(
       value.role,
       ['device', 'tool', 'motion', 'site', 'material'],
-      `resource_contract.resource_params[${index}].role`
-    )
+      `resource_contract.resource_params[${index}].role`,
+    ),
   }
 }
 
@@ -385,8 +403,9 @@ function unwrapEnvelope(value: unknown): unknown {
   }
   if (record.code !== undefined && record.code !== 0 && record.code !== '0') {
     const error = asOptionalRecord(record.error)
-    const message = optionalString(error?.message ?? error?.msg ?? record.message)
-      ?? `OS request rejected with code ${String(record.code)}`
+    const message =
+      optionalString(error?.message ?? error?.msg ?? record.message) ??
+      `OS request rejected with code ${String(record.code)}`
     throw new DeviceActionError('OS_REQUEST_REJECTED', message)
   }
   return record.data
@@ -400,7 +419,7 @@ function asRecord(value: unknown, path: string): DeviceActionRecord {
 
 function asOptionalRecord(value: unknown): DeviceActionRecord | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as DeviceActionRecord
+    ? (value as DeviceActionRecord)
     : undefined
 }
 
@@ -443,10 +462,7 @@ function stringArray(value: unknown, path: string): readonly string[] {
   return value
 }
 
-function nullableStringArray(
-  value: unknown,
-  path: string
-): readonly string[] | null {
+function nullableStringArray(value: unknown, path: string): readonly string[] | null {
   if (value === null || value === undefined) return null
   return stringArray(value, path)
 }
@@ -454,7 +470,7 @@ function nullableStringArray(
 function enumValue<const Values extends readonly string[]>(
   value: unknown,
   values: Values,
-  path: string
+  path: string,
 ): Values[number] {
   if (typeof value === 'string' && values.includes(value)) return value as Values[number]
   throw invalid(`${path} is invalid`)
@@ -463,7 +479,7 @@ function enumValue<const Values extends readonly string[]>(
 function nullableEnum<const Values extends readonly string[]>(
   value: unknown,
   values: Values,
-  path: string
+  path: string,
 ): Values[number] | null {
   if (value === null || value === undefined) return null
   return enumValue(value, values, path)
@@ -472,7 +488,7 @@ function nullableEnum<const Values extends readonly string[]>(
 function optionalRecordField(
   value: unknown,
   path: string,
-  outputKey?: string
+  outputKey?: string,
 ): Record<string, unknown> {
   if (value === undefined) return {}
   return { [outputKey ?? camelCase(path.split('.').at(-1) ?? '')]: asRecord(value, path) }

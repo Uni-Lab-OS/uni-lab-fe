@@ -8,7 +8,7 @@ import type {
   ReagentHistoryListResponse,
   ReagentInfoListResponse,
   ReagentInventoryRecord,
-  ReagentListResponse
+  ReagentListResponse,
 } from './api'
 import type {
   CapacityInput,
@@ -37,18 +37,20 @@ import type {
   ReagentInfoPatch,
   ReagentPage,
   ReagentPatch,
-  ReagentStructure3d
+  ReagentStructure3d,
 } from './model'
 
 export function decodeReagentInfoPage(value: unknown): ReagentInfoPage {
   const root = asRecord(unwrapEnvelope(value), 'reagent info list') as ReagentInfoListResponse
   const items = listItems(root, 'reagent info list')
   return {
-    items: items.map((item, index) => decodeReagentInfo(asRecord(item, `reagent_infos.items[${index}]`))),
+    items: items.map((item, index) =>
+      decodeReagentInfo(asRecord(item, `reagent_infos.items[${index}]`)),
+    ),
     total: nullableNonNegativeInteger(root.total, 'reagent_infos.total'),
     page: nullablePositiveInteger(root.page, 'reagent_infos.page'),
     pageSize: nullablePositiveInteger(root.page_size ?? root.pageSize, 'reagent_infos.page_size'),
-    raw: root
+    raw: root,
   }
 }
 
@@ -72,7 +74,7 @@ export function decodeReagentInfo(value: unknown): ReagentInfo {
     metadata: optionalRecord(raw.meta_data, 'reagent_info.meta_data'),
     createdAt: nullableString(raw.create_time, 'reagent_info.create_time'),
     updatedAt: nullableString(raw.update_time, 'reagent_info.update_time'),
-    raw
+    raw,
   }
 }
 
@@ -84,7 +86,7 @@ export function decodeReagentPage(value: unknown): ReagentPage {
     total: nullableNonNegativeInteger(root.total, 'reagents.total'),
     page: nullablePositiveInteger(root.page, 'reagents.page'),
     pageSize: nullablePositiveInteger(root.page_size ?? root.pageSize, 'reagents.page_size'),
-    raw: root
+    raw: root,
   }
 }
 
@@ -95,13 +97,17 @@ export function decodeReagent(value: unknown): Reagent {
     kind: 'reagent',
     source: 'os',
     densitySource: nullableString(raw.density_source, 'reagent.density_source'),
-    materialRevision: nullableNonNegativeInteger(raw.material_revision, 'reagent.material_revision'),
+    materialRevision: nullableNonNegativeInteger(
+      raw.material_revision,
+      'reagent.material_revision',
+    ),
     maximumCapacity: nullableCapacity(raw.maximum_capacity, 'reagent.maximum_capacity'),
     configuredCapacity: nullableCapacity(raw.configured_capacity, 'reagent.configured_capacity'),
     ratedCapacity: nullableCapacity(raw.rated_capacity, 'reagent.rated_capacity'),
-    reagentInfo: raw.reagent_info == null
-      ? null
-      : decodeReagentInfo(asRecord(raw.reagent_info, 'reagent.reagent_info')),
+    reagentInfo:
+      raw.reagent_info == null
+        ? null
+        : decodeReagentInfo(asRecord(raw.reagent_info, 'reagent.reagent_info')),
     reagentUuid: requiredString(raw.uuid, 'reagent.uuid'),
     materialUuid: requiredString(raw.material_uuid, 'reagent.material_uuid'),
     reagentInfoUuid: requiredString(raw.reagent_info_uuid, 'reagent.reagent_info_uuid'),
@@ -114,9 +120,12 @@ export function decodeReagent(value: unknown): Reagent {
     quantityUnit: nullableString(raw.quantity_unit, 'reagent.quantity_unit'),
     reservedQuantity: nullableFiniteNumber(
       raw.active_workflow_reserved_quantity,
-      'reagent.active_workflow_reserved_quantity'
+      'reagent.active_workflow_reserved_quantity',
     ),
-    concentrationValue: nullableFiniteNumber(raw.concentration_value, 'reagent.concentration_value'),
+    concentrationValue: nullableFiniteNumber(
+      raw.concentration_value,
+      'reagent.concentration_value',
+    ),
     concentrationUnit: nullableString(raw.concentration_unit, 'reagent.concentration_unit'),
     densityGPerMl: nullableFiniteNumber(raw.density_g_per_ml, 'reagent.density_g_per_ml'),
     revision: nullableNonNegativeInteger(raw.revision, 'reagent.revision'),
@@ -127,7 +136,7 @@ export function decodeReagent(value: unknown): Reagent {
     createdAt: nullableString(raw.create_time, 'reagent.create_time'),
     updatedAt: nullableString(raw.update_time, 'reagent.update_time'),
     status: quantity === null ? 'unknown' : quantity > 0 ? 'available' : 'empty',
-    raw
+    raw,
   }
 }
 
@@ -139,7 +148,12 @@ export function assertReagentEnvelopeAccepted(value: unknown): void {
 export function decodeCompoundLookup(value: unknown): CompoundLookup {
   const raw = asRecord(unwrapEnvelope(value), 'compound lookup')
   const status = requiredString(raw.status, 'compound.status')
-  if (status !== 'registered' && status !== 'ok' && status !== 'not_found' && status !== 'unavailable') {
+  if (
+    status !== 'registered' &&
+    status !== 'ok' &&
+    status !== 'not_found' &&
+    status !== 'unavailable'
+  ) {
     invalid(`compound.status ${status} is not a known lookup status`)
   }
   const compound = asOptionalRecord(raw.compound)
@@ -149,16 +163,28 @@ export function decodeCompoundLookup(value: unknown): CompoundLookup {
     cas: requiredString(raw.cas, 'compound.cas'),
     status,
     message: nullableString(raw.message, 'compound.message'),
-    compound: compound === undefined ? null : {
-      name: nullableString(compound.name, 'compound.compound.name'),
-      molecularFormula: nullableString(compound.molecular_formula, 'compound.compound.molecular_formula'),
-      smiles: nullableString(compound.smiles, 'compound.compound.smiles'),
-      inchiKey: nullableString(compound.inchi_key, 'compound.compound.inchi_key'),
-      molecularWeight: nullableFiniteNumber(compound.molecular_weight, 'compound.compound.molecular_weight'),
-      densityGPerMl: nullableFiniteNumber(compound.density_g_per_ml, 'compound.compound.density_g_per_ml'),
-      raw: compound
-    },
-    raw
+    compound:
+      compound === undefined
+        ? null
+        : {
+            name: nullableString(compound.name, 'compound.compound.name'),
+            molecularFormula: nullableString(
+              compound.molecular_formula,
+              'compound.compound.molecular_formula',
+            ),
+            smiles: nullableString(compound.smiles, 'compound.compound.smiles'),
+            inchiKey: nullableString(compound.inchi_key, 'compound.compound.inchi_key'),
+            molecularWeight: nullableFiniteNumber(
+              compound.molecular_weight,
+              'compound.compound.molecular_weight',
+            ),
+            densityGPerMl: nullableFiniteNumber(
+              compound.density_g_per_ml,
+              'compound.compound.density_g_per_ml',
+            ),
+            raw: compound,
+          },
+    raw,
   }
 }
 
@@ -178,7 +204,7 @@ export function decodeReagentStructure3d(value: unknown): ReagentStructure3d {
     generatedAt: nullableString(raw.generated_at, 'structure.generated_at'),
     errorMessage: nullableString(raw.error_message, 'structure.error_message'),
     updatedAt: nullableString(raw.update_time, 'structure.update_time'),
-    raw
+    raw,
   }
 }
 
@@ -186,11 +212,13 @@ export function decodeReagentHistoryPage(value: unknown): ReagentHistoryPage {
   const root = asRecord(unwrapEnvelope(value), 'reagent history list') as ReagentHistoryListResponse
   const items = listItems(root, 'reagent history list')
   return {
-    items: items.map((item, index) => decodeReagentHistoryEntry(asRecord(item, `reagent_history.items[${index}]`))),
+    items: items.map((item, index) =>
+      decodeReagentHistoryEntry(asRecord(item, `reagent_history.items[${index}]`)),
+    ),
     page: nullablePositiveInteger(root.page, 'reagent_history.page'),
     pageSize: nullablePositiveInteger(root.page_size, 'reagent_history.page_size'),
     hasMore: root.has_more === true,
-    raw: root
+    raw: root,
   }
 }
 
@@ -209,13 +237,16 @@ export function decodeReagentHistoryEntry(value: unknown): ReagentHistoryEntry {
     traceId: nullableString(raw.trace_id, 'reagent_history.trace_id'),
     recordedAt: requiredString(raw.recorded_at, 'reagent_history.recorded_at'),
     workflowTaskUuid: nullableString(raw.workflow_task_uuid, 'reagent_history.workflow_task_uuid'),
-    workflowNodeJobUuid: nullableString(raw.workflow_node_job_uuid, 'reagent_history.workflow_node_job_uuid'),
+    workflowNodeJobUuid: nullableString(
+      raw.workflow_node_job_uuid,
+      'reagent_history.workflow_node_job_uuid',
+    ),
     subjectType: requiredString(raw.subject_type, 'reagent_history.subject_type'),
     subjectUuid: requiredString(raw.subject_uuid, 'reagent_history.subject_uuid'),
     quantityDelta: nullableFiniteNumber(raw.quantity_delta, 'reagent_history.quantity_delta'),
     quantityUnit: nullableString(raw.quantity_unit, 'reagent_history.quantity_unit'),
     revision: nullableNonNegativeInteger(raw.revision, 'reagent_history.revision'),
-    raw
+    raw,
   }
 }
 
@@ -226,8 +257,8 @@ export function decodeReagentInfoBatchResult(value: unknown): ReagentInfoBatchRe
     source: 'os',
     ...batchOutcome(root),
     items: (root.items ?? []).map((item, index) =>
-      decodeReagentInfo(asRecord(item, `reagent_info_batch.items[${index}]`))
-    )
+      decodeReagentInfo(asRecord(item, `reagent_info_batch.items[${index}]`)),
+    ),
   }
 }
 
@@ -238,8 +269,8 @@ export function decodeReagentBatchResult(value: unknown): ReagentBatchResult {
     source: 'os',
     ...batchOutcome(root),
     items: (root.items ?? []).map((item, index) =>
-      decodeReagent(asRecord(item, `reagent_batch.items[${index}]`))
-    )
+      decodeReagent(asRecord(item, `reagent_batch.items[${index}]`)),
+    ),
   }
 }
 
@@ -257,21 +288,23 @@ export function decodeReagentDispenseResult(value: unknown): ReagentDispenseResu
     status: requiredString(raw.status, 'dispense.status'),
     errorCode: nullableString(raw.error_code, 'dispense.error_code'),
     errorMessage: nullableString(raw.error_message, 'dispense.error_message'),
-    sourceLine: result?.source == null
-      ? null
-      : decodeDispenseLine(asRecord(result.source, 'dispense.result.source'), 'dispense.result.source'),
+    sourceLine:
+      result?.source == null
+        ? null
+        : decodeDispenseLine(
+            asRecord(result.source, 'dispense.result.source'),
+            'dispense.result.source',
+          ),
     targets: decodeArray(
       result?.targets,
       (line) => decodeDispenseLine(line, 'dispense.result.targets'),
-      'dispense.result.targets'
+      'dispense.result.targets',
     ),
-    raw
+    raw,
   }
 }
 
-export function encodeReagentInfoDraft(
-  draft: ReagentInfoDraft
-): Readonly<Record<string, unknown>> {
+export function encodeReagentInfoDraft(draft: ReagentInfoDraft): Readonly<Record<string, unknown>> {
   return {
     name: draft.name,
     ...(draft.cas === undefined ? {} : { cas: draft.cas }),
@@ -284,14 +317,12 @@ export function encodeReagentInfoDraft(
     ...optionalField('density_g_per_ml', draft.densityGPerMl),
     ...(draft.physicalState === undefined ? {} : { physical_state: draft.physicalState }),
     ...optionalField('description', draft.description),
-    ...(draft.metadata === undefined ? {} : { meta_data: draft.metadata })
+    ...(draft.metadata === undefined ? {} : { meta_data: draft.metadata }),
   }
 }
 
 /** 只发送显式出现的键，让 OS 的 `exclude_unset` 保持未提及字段不变。 */
-export function encodeReagentInfoPatch(
-  patch: ReagentInfoPatch
-): Readonly<Record<string, unknown>> {
+export function encodeReagentInfoPatch(patch: ReagentInfoPatch): Readonly<Record<string, unknown>> {
   return {
     ...optionalField('name', patch.name),
     ...optionalField('cas', patch.cas),
@@ -304,13 +335,11 @@ export function encodeReagentInfoPatch(
     ...optionalField('density_g_per_ml', patch.densityGPerMl),
     ...optionalField('physical_state', patch.physicalState),
     ...optionalField('description', patch.description),
-    ...(patch.metadata === undefined ? {} : { meta_data: patch.metadata })
+    ...(patch.metadata === undefined ? {} : { meta_data: patch.metadata }),
   }
 }
 
-export function encodeReagentDraft(
-  draft: ReagentDraft
-): Readonly<Record<string, unknown>> {
+export function encodeReagentDraft(draft: ReagentDraft): Readonly<Record<string, unknown>> {
   requireExactlyOneIdentity(draft)
   return {
     material_uuid: draft.materialUuid,
@@ -327,13 +356,11 @@ export function encodeReagentDraft(
     ...optionalField('description', draft.description),
     ...(draft.metadata === undefined ? {} : { meta_data: draft.metadata }),
     ...encodeCapacityField(draft.containerCapacity),
-    ...optionalField('expected_material_revision', draft.expectedMaterialRevision)
+    ...optionalField('expected_material_revision', draft.expectedMaterialRevision),
   }
 }
 
-export function encodeReagentPatch(
-  patch: ReagentPatch
-): Readonly<Record<string, unknown>> {
+export function encodeReagentPatch(patch: ReagentPatch): Readonly<Record<string, unknown>> {
   return {
     quantity: patch.quantity,
     quantity_unit: patch.quantityUnit,
@@ -345,17 +372,17 @@ export function encodeReagentPatch(
     ...optionalField('description', patch.description),
     ...(patch.metadata === undefined ? {} : { meta_data: patch.metadata }),
     ...encodeCapacityField(patch.containerCapacity),
-    ...optionalField('expected_material_revision', patch.expectedMaterialRevision)
+    ...optionalField('expected_material_revision', patch.expectedMaterialRevision),
   }
 }
 
 export function encodeReagentDispenseCommand(
-  command: ReagentDispenseCommand
+  command: ReagentDispenseCommand,
 ): Readonly<Record<string, unknown>> {
   if (command.targets.length === 0) {
     throw new ReagentInventoryError(
       'INVALID_REAGENT_WRITE_INPUT',
-      '分装命令必须至少包含一个目标容器'
+      '分装命令必须至少包含一个目标容器',
     )
   }
   return {
@@ -374,9 +401,9 @@ export function encodeReagentDispenseCommand(
         material_uuid: target.materialUuid,
         quantity: target.quantity,
         ...encodeCapacityField(target.containerCapacity),
-        ...optionalField('expected_material_revision', target.expectedMaterialRevision)
-      }))
-    }
+        ...optionalField('expected_material_revision', target.expectedMaterialRevision),
+      })),
+    },
   }
 }
 
@@ -386,13 +413,13 @@ function requireExactlyOneIdentity(draft: ReagentDraft): void {
   if (hasInfo === hasCas) {
     throw new ReagentInventoryError(
       'INVALID_REAGENT_WRITE_INPUT',
-      '登记试剂必须且只能提供 reagentInfoUuid 或 cas 之一'
+      '登记试剂必须且只能提供 reagentInfoUuid 或 cas 之一',
     )
   }
 }
 
 function encodeCapacityField(
-  capacity: CapacityInput | undefined
+  capacity: CapacityInput | undefined,
 ): Readonly<Record<string, unknown>> {
   if (capacity === undefined) return {}
   const hasVolume = capacity.maxVolumeUl !== undefined
@@ -400,20 +427,17 @@ function encodeCapacityField(
   if (hasVolume === hasMass) {
     throw new ReagentInventoryError(
       'INVALID_REAGENT_WRITE_INPUT',
-      '容器装料上限必须且只能提供 maxVolumeUl 或 maxMassG 之一'
+      '容器装料上限必须且只能提供 maxVolumeUl 或 maxMassG 之一',
     )
   }
   return {
     container_capacity: hasVolume
       ? { max_volume_ul: capacity.maxVolumeUl }
-      : { max_mass_g: capacity.maxMassG }
+      : { max_mass_g: capacity.maxMassG },
   }
 }
 
-function optionalField(
-  key: string,
-  value: unknown
-): Readonly<Record<string, unknown>> {
+function optionalField(key: string, value: unknown): Readonly<Record<string, unknown>> {
   return value === undefined ? {} : { [key]: value }
 }
 
@@ -425,7 +449,7 @@ function decodeDispenseLine(value: unknown, path: string): ReagentDispenseLine {
     quantity: nullableFiniteNumber(raw.quantity, `${path}.quantity`),
     quantityUnit: nullableString(raw.quantity_unit, `${path}.quantity_unit`),
     revision: nullableNonNegativeInteger(raw.revision, `${path}.revision`),
-    raw
+    raw,
   }
 }
 
@@ -447,7 +471,7 @@ function batchOutcome(root: ReagentBatchResponse): {
     failed: nullableNonNegativeInteger(root.failed, 'reagent_batch.failed') ?? 0,
     atomic: root.atomic !== false,
     errors: decodeArray(root.errors, decodeBatchRowError, 'reagent_batch.errors'),
-    raw: root
+    raw: root,
   }
 }
 
@@ -458,11 +482,11 @@ export function decodeBatchRowError(raw: ReagentInventoryRecord): ReagentBatchRo
       raw.errors,
       (entry) => ({
         field: optionalString(entry.field) ?? 'row',
-        message: requiredString(entry.message, 'reagent_batch.errors.message')
+        message: requiredString(entry.message, 'reagent_batch.errors.message'),
       }),
-      'reagent_batch.errors.errors'
+      'reagent_batch.errors.errors',
     ),
-    raw
+    raw,
   }
 }
 
@@ -479,7 +503,9 @@ function nullableCapacity(value: unknown, path: string): CapacityLimits | null {
 export function decodeInventoryInstances(value: unknown): readonly InventoryInstance[] {
   const root = asRecord(unwrapEnvelope(value), 'inventory instances') as EdgeInstanceListResponse
   const items = requiredArray(root.instances, 'inventory instances.instances')
-  return items.map((item, index) => decodeInventoryInstance(asRecord(item, `inventory.instances[${index}]`)))
+  return items.map((item, index) =>
+    decodeInventoryInstance(asRecord(item, `inventory.instances[${index}]`)),
+  )
 }
 
 export function decodeInventoryInstance(value: unknown): InventoryInstance {
@@ -503,14 +529,21 @@ export function decodeInventorySnapshot(value: unknown): InventorySnapshot {
   return {
     kind: 'inventory_snapshot',
     source: 'os',
-    snapshotSequence: nullableNonNegativeInteger(root.snapshot_sequence, 'inventory.snapshot_sequence'),
+    snapshotSequence: nullableNonNegativeInteger(
+      root.snapshot_sequence,
+      'inventory.snapshot_sequence',
+    ),
     templates: decodeArray(root.templates, decodeInventoryTemplate, 'inventory.templates'),
     lots: decodeArray(root.lots, decodeInventoryLotRecord, 'inventory.lots'),
     instances: decodeArray(root.instances, decodeInventoryInstanceRecord, 'inventory.instances'),
     relations: decodeArray(root.relations, decodeInventoryRelation, 'inventory.relations'),
     contents: decodeArray(root.contents, decodeInventoryContent, 'inventory.contents'),
-    reservations: decodeArray(root.reservations, decodeInventoryReservation, 'inventory.reservations'),
-    raw: root
+    reservations: decodeArray(
+      root.reservations,
+      decodeInventoryReservation,
+      'inventory.reservations',
+    ),
+    raw: root,
   }
 }
 
@@ -524,9 +557,23 @@ function decodeInventoryInstanceRecord(raw: ReagentInventoryRecord): InventoryIn
     status: requiredString(raw.status, 'inventory.instance.status'),
     version: nullablePositiveInteger(raw.version, 'inventory.instance.version'),
     parentUuid: nullableString(raw.parent_uuid, 'inventory.instance.parent_uuid'),
-    ...(raw.relation === undefined ? {} : { relation: raw.relation === null ? null : decodeInventoryRelation(asRecord(raw.relation, 'inventory.instance.relation')) }),
-    ...(raw.content === undefined ? {} : { content: raw.content === null ? null : decodeInventoryContent(asRecord(raw.content, 'inventory.instance.content')) }),
-    raw
+    ...(raw.relation === undefined
+      ? {}
+      : {
+          relation:
+            raw.relation === null
+              ? null
+              : decodeInventoryRelation(asRecord(raw.relation, 'inventory.instance.relation')),
+        }),
+    ...(raw.content === undefined
+      ? {}
+      : {
+          content:
+            raw.content === null
+              ? null
+              : decodeInventoryContent(asRecord(raw.content, 'inventory.instance.content')),
+        }),
+    raw,
   }
 }
 
@@ -549,7 +596,7 @@ function decodeInventoryLotRecord(raw: ReagentInventoryRecord): InventoryLot {
     createdAt: nullableFiniteNumber(raw.created_at, 'inventory.lot.created_at'),
     version: nullablePositiveInteger(raw.version, 'inventory.lot.version'),
     status: lotStatus(total, available, reserved, quarantined),
-    raw
+    raw,
   }
 }
 
@@ -560,7 +607,7 @@ function decodeInventoryTemplate(raw: ReagentInventoryRecord): InventoryTemplate
     category: requiredString(raw.category, 'inventory.template.category'),
     specJson: nullableString(raw.spec_json, 'inventory.template.spec_json'),
     version: nullablePositiveInteger(raw.version, 'inventory.template.version'),
-    raw
+    raw,
   }
 }
 
@@ -570,7 +617,7 @@ function decodeInventoryRelation(raw: ReagentInventoryRecord): InventoryRelation
     slotId: nullableString(raw.slot_id, 'inventory.relation.slot_id'),
     childUuid: requiredString(raw.child_uuid, 'inventory.relation.child_uuid'),
     version: nullablePositiveInteger(raw.version, 'inventory.relation.version'),
-    raw
+    raw,
   }
 }
 
@@ -579,7 +626,7 @@ function decodeInventoryContent(raw: ReagentInventoryRecord): InventoryContent {
     instanceUuid: requiredString(raw.instance_uuid, 'inventory.content.instance_uuid'),
     stateJson: nullableString(raw.state_json, 'inventory.content.state_json'),
     version: nullablePositiveInteger(raw.version, 'inventory.content.version'),
-    raw
+    raw,
   }
 }
 
@@ -593,7 +640,7 @@ function decodeInventoryReservation(raw: ReagentInventoryRecord): InventoryReser
     amountsJson: nullableString(raw.amounts_json, 'inventory.reservation.amounts_json'),
     createdAt: nullableFiniteNumber(raw.created_at, 'inventory.reservation.created_at'),
     version: nullablePositiveInteger(raw.version, 'inventory.reservation.version'),
-    raw
+    raw,
   }
 }
 
@@ -603,7 +650,11 @@ function listItems(root: ReagentInventoryRecord, path: string): readonly Reagent
   return items as readonly ReagentInventoryRecord[]
 }
 
-function decodeArray<T>(value: unknown, decoder: (raw: ReagentInventoryRecord) => T, path: string): readonly T[] {
+function decodeArray<T>(
+  value: unknown,
+  decoder: (raw: ReagentInventoryRecord) => T,
+  path: string,
+): readonly T[] {
   if (value === undefined) return []
   if (!Array.isArray(value)) invalid(`${path} must be an array`)
   return value.map((item, index) => decoder(asRecord(item, `${path}[${index}]`)))
@@ -611,20 +662,21 @@ function decodeArray<T>(value: unknown, decoder: (raw: ReagentInventoryRecord) =
 
 function unwrapEnvelope(value: unknown): unknown {
   const root = asOptionalRecord(value)
-  if (!root || (!('data' in root) && root.code === undefined && root.error === undefined)) return value
+  if (!root || (!('data' in root) && root.code === undefined && root.error === undefined))
+    return value
   if (root.code !== undefined && root.code !== 0 && root.code !== '0') {
     const error = asOptionalRecord(root.error)
     throw new ReagentInventoryError(
       'OS_REQUEST_REJECTED',
-      optionalString(error?.message ?? error?.msg ?? root.message)
-        ?? `OS request rejected with code ${String(root.code)}`,
+      optionalString(error?.message ?? error?.msg ?? root.message) ??
+        `OS request rejected with code ${String(root.code)}`,
       {
         osCode: root.code as number | string,
         // 批量导入把逐行错误放在 details 里；丢掉它就无法定位失败的那一行。
         ...(asOptionalRecord(error?.details) === undefined
           ? {}
-          : { details: asOptionalRecord(error?.details) })
-      }
+          : { details: asOptionalRecord(error?.details) }),
+      },
     )
   }
   return root.data
@@ -638,7 +690,7 @@ function asRecord(value: unknown, path: string): ReagentInventoryRecord {
 
 function asOptionalRecord(value: unknown): ReagentInventoryRecord | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as ReagentInventoryRecord
+    ? (value as ReagentInventoryRecord)
     : undefined
 }
 
@@ -674,24 +726,28 @@ function optionalString(value: unknown): string | undefined {
 
 function nullableFiniteNumber(value: unknown, path: string): number | null {
   if (value === null || value === undefined) return null
-  if (typeof value !== 'number' || !Number.isFinite(value)) invalid(`${path} must be a finite number`)
+  if (typeof value !== 'number' || !Number.isFinite(value))
+    invalid(`${path} must be a finite number`)
   return value
 }
 
 function nullableNonNegativeInteger(value: unknown, path: string): number | null {
   if (value === null || value === undefined) return null
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) invalid(`${path} must be a non-negative safe integer`)
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0)
+    invalid(`${path} must be a non-negative safe integer`)
   return value
 }
 
 function nullablePositiveInteger(value: unknown, path: string): number | null {
   if (value === null || value === undefined) return null
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) invalid(`${path} must be a positive safe integer`)
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1)
+    invalid(`${path} must be a positive safe integer`)
   return value
 }
 
 function stringArray(value: unknown, path: string): readonly string[] {
-  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) invalid(`${path} must be an array of strings`)
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string'))
+    invalid(`${path} must be an array of strings`)
   return value.map((item, index) => {
     const result = optionalString(item)
     if (result === undefined) invalid(`${path}[${index}] must be a non-empty string`)
@@ -706,7 +762,12 @@ function nullableBooleanFlag(value: unknown, path: string): boolean | null {
   invalid(`${path} must be a boolean or 0/1`)
 }
 
-function lotStatus(total: number | null, available: number | null, reserved: number | null, quarantined: boolean | null): string {
+function lotStatus(
+  total: number | null,
+  available: number | null,
+  reserved: number | null,
+  quarantined: boolean | null,
+): string {
   if (quarantined === true) return 'quarantined'
   if (total !== null && total <= 0) return 'empty'
   if (reserved !== null && reserved > 0 && available !== null && available <= 0) return 'reserved'

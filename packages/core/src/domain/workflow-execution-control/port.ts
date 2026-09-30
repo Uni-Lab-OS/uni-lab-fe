@@ -1,11 +1,11 @@
 import type {
   WorkflowTaskCommandReceipt,
-  WorkflowTaskCommandRequest
+  WorkflowTaskCommandRequest,
 } from '../workflow-execution-read/model'
 
 export interface WorkflowExecutionControlPort {
   sendTaskCommand(
     taskUuid: string,
-    request: WorkflowTaskCommandRequest
+    request: WorkflowTaskCommandRequest,
   ): Promise<WorkflowTaskCommandReceipt>
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type {
   PreflightReport,
   RunConfiguration,
-  SubmittedRun
+  SubmittedRun,
 } from '../../domain/run-preparation/model'
 import type { RunPreparationScenario } from './scenario'
 import { createRunPreparationStore } from './store'
@@ -28,12 +28,12 @@ describe('createRunPreparationStore', () => {
               edges: [],
               nodeTemplates: [],
               handleTemplates: [],
-              inventoryRequirements: []
-            }
+              inventoryRequirements: [],
+            },
           },
           ...state,
           requirements: [],
-          nodeJob: null
+          nodeJob: null,
         }
       },
       async requestPreflight(state): Promise<PreflightReport> {
@@ -47,7 +47,7 @@ describe('createRunPreparationStore', () => {
           status: 'runnable_now',
           canRun: true,
           checkedAt: '2026-09-24T00:00:00Z',
-          checks: []
+          checks: [],
         }
       },
       async submitRun(): Promise<SubmittedRun> {
@@ -55,32 +55,39 @@ describe('createRunPreparationStore', () => {
           kind: 'submitted_run',
           source: 'fixture',
           taskUuid: 'task-1',
-          raw: {}
+          raw: {},
         }
       },
       async inspectNodeJob(viewModel, jobUuid) {
         return {
           ...viewModel,
           nodeJob: {
-            kind: 'node_job_detail', source: 'fixture', jobUuid, workflowTaskUuid: 'task-1',
-            workflowNodeUuid: 'node-1', executorKind: 'device', logicalStatus: 'running', attempt: 1, raw: {}
-          }
+            kind: 'node_job_detail',
+            source: 'fixture',
+            jobUuid,
+            workflowTaskUuid: 'task-1',
+            workflowNodeUuid: 'node-1',
+            executorKind: 'device',
+            logicalStatus: 'running',
+            attempt: 1,
+            raw: {},
+          },
         }
-      }
+      },
     }
 
     const store = createRunPreparationStore(scenario)
     await store.getState().load('workflow-1')
     store.getState().updateConfiguration({
       runMode: 'single_node',
-      targetNodeUuid: 'node-1'
+      targetNodeUuid: 'node-1',
     })
     await store.getState().requestPreflight()
 
     expect(receivedConfiguration).toEqual({
       runMode: 'single_node',
       targetNodeUuid: 'node-1',
-      input: {}
+      input: {},
     })
     expect(store.getState().preflight?.canRun).toBe(true)
     expect(store.getState().status).toBe('ready')

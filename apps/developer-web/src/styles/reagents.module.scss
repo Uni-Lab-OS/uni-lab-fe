@@ -206,7 +206,7 @@
 }
 
 .reagent-form-section::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   bottom: 0;
@@ -222,7 +222,7 @@
 }
 
 .reagent-form-grid > .reagent-form-section:not(:first-child)::before {
-  content: "";
+  content: '';
   position: absolute;
   top: 0;
   right: 0;

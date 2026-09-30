@@ -1,6 +1,8 @@
 /* Styles owned by the shared lab-ui components. */
 
-.lab-ui-empty-region, .lab-ui-list-empty, .lab-ui-form-empty {
+.lab-ui-empty-region,
+.lab-ui-list-empty,
+.lab-ui-form-empty {
   color: var(--unilab-text-secondary, #667085);
   padding: 16px;
 }
@@ -21,7 +23,9 @@
   font-size: 12px;
 }
 
-.lab-ui-form-field input:not([type=checkbox]), .lab-ui-form-field select, .lab-ui-form-field textarea {
+.lab-ui-form-field input:not([type='checkbox']),
+.lab-ui-form-field select,
+.lab-ui-form-field textarea {
   border: 1px solid var(--unilab-border-subtle, #d0d5dd);
   border-radius: 6px;
   font: inherit;
@@ -29,7 +33,7 @@
   width: 100%;
 }
 
-.lab-ui-form-field input[type=checkbox] {
+.lab-ui-form-field input[type='checkbox'] {
   justify-self: start;
 }
 
@@ -51,13 +55,17 @@
   font-weight: 500;
 }
 
-.lab-ui-form-field input:not([type=checkbox]), .lab-ui-form-field select, .lab-ui-form-field textarea {
+.lab-ui-form-field input:not([type='checkbox']),
+.lab-ui-form-field select,
+.lab-ui-form-field textarea {
   background: var(--studio-surface, var(--unilab-surface, #fff));
   color: var(--studio-text, var(--unilab-text-default, #1d2939));
   border-color: var(--studio-border, var(--unilab-border-subtle, #d0d5dd));
 }
 
-.lab-ui-form-field input:not([type=checkbox]):focus, .lab-ui-form-field select:focus, .lab-ui-form-field textarea:focus {
+.lab-ui-form-field input:not([type='checkbox']):focus,
+.lab-ui-form-field select:focus,
+.lab-ui-form-field textarea:focus {
   border-color: var(--studio-accent, var(--unilab-color-link, #6941c6));
   outline: 2px solid color-mix(in srgb, var(--studio-accent, #6941c6) 18%, transparent);
   outline-offset: 0;
@@ -99,10 +107,10 @@
   color: var(--studio-text-muted);
 }
 
-.lab-ui-form-field input:not([type=checkbox]),
+.lab-ui-form-field input:not([type='checkbox']),
 .lab-ui-form-field select,
 .lab-ui-form-field textarea,
-.lab-ui-device-action-input-fields input:not([type=checkbox]),
+.lab-ui-device-action-input-fields input:not([type='checkbox']),
 .lab-ui-device-action-input-fields select,
 .lab-ui-device-action-input-fields textarea {
   min-width: 0;
@@ -153,20 +161,21 @@
   line-height: 18px;
 }
 
-.lab-ui-form-field--error input:not([type=checkbox]),
+.lab-ui-form-field--error input:not([type='checkbox']),
 .lab-ui-form-field--error select,
 .lab-ui-form-field--error textarea {
   border-color: var(--bh-color-error-default, var(--unilab-color-danger, #b42318));
 }
 
-.lab-ui-form-field input:not([type=checkbox]):focus,
+.lab-ui-form-field input:not([type='checkbox']):focus,
 .lab-ui-form-field select:focus,
 .lab-ui-form-field textarea:focus,
-.lab-ui-device-action-input-fields input:not([type=checkbox]):focus,
+.lab-ui-device-action-input-fields input:not([type='checkbox']):focus,
 .lab-ui-device-action-input-fields select:focus,
 .lab-ui-device-action-input-fields textarea:focus {
   border-color: var(--bh-color-primary-focus, var(--studio-accent));
-  outline: 2px solid color-mix(in srgb, var(--bh-color-primary-focus, var(--studio-accent)) 28%, transparent);
+  outline: 2px solid
+    color-mix(in srgb, var(--bh-color-primary-focus, var(--studio-accent)) 28%, transparent);
   outline-offset: 0;
 }
 

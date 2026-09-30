@@ -4,7 +4,7 @@ export type DeviceOccupancyStatus = 'occupied' | 'idle' | 'unknown'
 export type DeviceDispatchStatus = 'offline' | 'blocked' | 'available' | 'unknown'
 
 export function deviceDispatchStatus(
-  device: Pick<DeviceSummary, 'online' | 'dispatchable'>
+  device: Pick<DeviceSummary, 'online' | 'dispatchable'>,
 ): DeviceDispatchStatus {
   if (device.online === false) return 'offline'
   if (device.dispatchable === false) return 'blocked'
@@ -19,13 +19,12 @@ export function deviceDispatchStatus(
  * 状态才能判定为空闲，否则保持未知。
  */
 export function deviceOccupancyStatus(
-  device: Pick<DeviceSummary, 'actions' | 'executionOccupancies'>
+  device: Pick<DeviceSummary, 'actions' | 'executionOccupancies'>,
 ): DeviceOccupancyStatus {
-  const hasOccupancy = (device.executionOccupancies?.length ?? 0) > 0 ||
+  const hasOccupancy =
+    (device.executionOccupancies?.length ?? 0) > 0 ||
     device.actions.some((action) => action.isBusy === true)
   if (hasOccupancy) return 'occupied'
 
-  return device.actions.every((action) => action.busyStatusKnown)
-    ? 'idle'
-    : 'unknown'
+  return device.actions.every((action) => action.busyStatusKnown) ? 'idle' : 'unknown'
 }

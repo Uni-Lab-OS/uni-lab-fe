@@ -4,15 +4,15 @@ import type {
   TaskRuntimeDetail,
   TaskRuntimePresentation,
   WorkflowNodeJobDetail,
-  TaskRuntimePresentationPage
+  TaskRuntimePresentationPage,
 } from '../../domain/workflow-execution-read/model'
 import type {
   WorkflowDebugFacts,
-  WorkflowTaskCommandReceipt
+  WorkflowTaskCommandReceipt,
 } from '../../domain/workflow-execution-read/model'
 import type {
   PublishedWorkflowRevision,
-  PublishedWorkflowRevisionSummary
+  PublishedWorkflowRevisionSummary,
 } from '../../domain/workflow-definition/model'
 
 export interface WorkflowDebuggingQuery {
@@ -84,7 +84,7 @@ export interface WorkflowDebugFocus {
 export function createWorkflowDebuggingViewModel(
   query: WorkflowDebuggingQuery,
   page: TaskRuntimePresentationPage,
-  workflows: readonly PublishedWorkflowRevisionSummary[] = []
+  workflows: readonly PublishedWorkflowRevisionSummary[] = [],
 ): WorkflowDebuggingViewModel {
   return {
     kind: 'workflow_debugging',
@@ -107,7 +107,7 @@ export function createWorkflowDebuggingViewModel(
     timeline: [],
     controls: emptyControls(),
     currentFocus: null,
-    lastCommand: null
+    lastCommand: null,
   }
 }
 
@@ -115,14 +115,15 @@ export function projectWorkflowDebugFacts(
   viewModel: WorkflowDebuggingViewModel,
   facts: WorkflowDebugFacts,
   jobs = viewModel.selectedJobs,
-  task = viewModel.selectedTask
+  task = viewModel.selectedTask,
 ): WorkflowDebuggingViewModel {
   const timeline = jobs
     .slice()
     .sort((left, right) => left.topologicalIndex - right.topologicalIndex)
     .map((job) => {
-      const syntheticCompletion = ['workflow_input', 'workflow_output'].includes(job.executorKind)
-        && ['succeeded', 'failed', 'canceled', 'timeout'].includes(job.status)
+      const syntheticCompletion =
+        ['workflow_input', 'workflow_output'].includes(job.executorKind) &&
+        ['succeeded', 'failed', 'canceled', 'timeout'].includes(job.status)
       const rawCreatedAt = syntheticCompletion ? rawTimestamp(job.raw, 'create_time') : null
       const rawFinishedAt = syntheticCompletion ? rawTimestamp(job.raw, 'finished_at') : null
       return {
@@ -136,10 +137,14 @@ export function projectWorkflowDebugFacts(
         startedAt: job.startedAt ?? rawCreatedAt ?? rawFinishedAt,
         finishedAt: job.finishedAt ?? rawFinishedAt,
         waitReason: job.waitReason,
-        errorInfo: job.errorInfo
+        errorInfo: job.errorInfo,
       }
     })
-  const focusJob = jobs.find((job) => ['running', 'intervention_required', 'execution_unknown', 'pending', 'dispatched'].includes(job.status))
+  const focusJob = jobs.find((job) =>
+    ['running', 'intervention_required', 'execution_unknown', 'pending', 'dispatched'].includes(
+      job.status,
+    ),
+  )
   const taskStatus = task?.status ?? ''
   const taskCanBeControlled = ['pending', 'running'].includes(taskStatus)
   return {
@@ -151,19 +156,25 @@ export function projectWorkflowDebugFacts(
       canStep: taskCanBeControlled && task?.runMode === 'step' && task?.controlStatus === 'paused',
       canPause: taskCanBeControlled && task?.controlStatus === 'active',
       canResume: taskCanBeControlled && task?.controlStatus === 'paused',
-      canCancel: !['succeeded', 'failed', 'canceled', 'timeout'].includes(taskStatus) && taskStatus !== ''
+      canCancel:
+        !['succeeded', 'failed', 'canceled', 'timeout'].includes(taskStatus) && taskStatus !== '',
     },
     currentFocus: focusJob
       ? {
-          reason: focusJob.status === 'execution_unknown' ? 'execution_unknown' :
-            focusJob.status === 'intervention_required' ? 'intervention_required' :
-              Object.keys(focusJob.waitReason).length > 0 ? 'resource_wait' : focusJob.status,
+          reason:
+            focusJob.status === 'execution_unknown'
+              ? 'execution_unknown'
+              : focusJob.status === 'intervention_required'
+                ? 'intervention_required'
+                : Object.keys(focusJob.waitReason).length > 0
+                  ? 'resource_wait'
+                  : focusJob.status,
           nodeUuid: focusJob.workflowNodeUuid,
-          jobUuid: focusJob.jobUuid
+          jobUuid: focusJob.jobUuid,
         }
       : task?.attentionReason
         ? { reason: task.attentionReason, nodeUuid: null, jobUuid: null }
-        : null
+        : null,
   }
 }
 
@@ -172,8 +183,9 @@ function resolveTaskTitle(task: TaskRuntimeDetail): string {
   const metadata = asRecord(raw.meta_data)
   const snapshot = asRecord(raw.workflow_snapshot)
   const workflow = asRecord(snapshot?.workflow)
-  const explicit = [raw.name, raw.task_name, metadata?.name, metadata?.task_name]
-    .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
+  const explicit = [raw.name, raw.task_name, metadata?.name, metadata?.task_name].find(
+    (value): value is string => typeof value === 'string' && value.trim().length > 0,
+  )
   if (explicit) return explicit
   const workflowName = workflow?.name
   if (typeof workflowName === 'string' && workflowName.trim().length > 0) return workflowName
@@ -182,21 +194,24 @@ function resolveTaskTitle(task: TaskRuntimeDetail): string {
   return `Task ${task.taskUuid.slice(0, 8)}`
 }
 
-function resolveNodeLabel(task: TaskRuntimeDetail | null, nodeUuid: string, topologicalIndex: number): string {
+function resolveNodeLabel(
+  task: TaskRuntimeDetail | null,
+  nodeUuid: string,
+  topologicalIndex: number,
+): string {
   const snapshot = asRecord(task?.raw.workflow_snapshot)
   const nodes = Array.isArray(snapshot?.nodes) ? snapshot.nodes : []
-  const node = nodes
-    .map(asRecord)
-    .find((candidate) => candidate?.uuid === nodeUuid)
-  const explicit = [node?.name, node?.action_name, node?.description]
-    .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
+  const node = nodes.map(asRecord).find((candidate) => candidate?.uuid === nodeUuid)
+  const explicit = [node?.name, node?.action_name, node?.description].find(
+    (value): value is string => typeof value === 'string' && value.trim().length > 0,
+  )
   if (explicit) return explicit
   return Number.isFinite(topologicalIndex) ? `节点 ${topologicalIndex + 1}` : '未命名节点'
 }
 
 function asRecord(value: unknown): Readonly<Record<string, unknown>> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
-    ? value as Readonly<Record<string, unknown>>
+    ? (value as Readonly<Record<string, unknown>>)
     : null
 }
 

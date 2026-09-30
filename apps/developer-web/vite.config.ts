@@ -6,9 +6,7 @@ export default defineConfig(({ mode }) => {
   // 浏览器端和开发代理才能使用同一个 workspace backend 地址。
   const env = loadEnv(mode, process.cwd(), '')
   const apiTarget =
-    env.VITE_UNILAB_PROXY_TARGET ||
-    env.VITE_EDGE_API_URL ||
-    'http://127.0.0.1:59394'
+    env.VITE_UNILAB_PROXY_TARGET || env.VITE_EDGE_API_URL || 'http://127.0.0.1:59394'
 
   return {
     plugins: [react()],

@@ -18,7 +18,7 @@ function run(script, args) {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(process.execPath, [resolve(scriptDir, script), ...args], {
       cwd: packageRoot,
-      stdio: 'inherit'
+      stdio: 'inherit',
     })
     child.once('error', reject)
     child.once('exit', (code, signal) => {
@@ -36,7 +36,9 @@ function run(script, args) {
 const sourceDirIndex = process.argv.indexOf('--source-dir')
 const sourceDir = sourceDirIndex >= 0 ? process.argv[sourceDirIndex + 1] : undefined
 if (!sourceDir) {
-  console.error('Missing --source-dir. Pass the complete Figma export directory, for example --source-dir /tmp/figma-export/clean')
+  console.error(
+    'Missing --source-dir. Pass the complete Figma export directory, for example --source-dir /tmp/figma-export/clean',
+  )
   process.exitCode = 1
 } else {
   const outputDirIndex = process.argv.indexOf('--output-dir')
@@ -49,7 +51,9 @@ if (!sourceDir) {
   try {
     await run('build-icon-assets.mjs', buildArgs)
     await run('validate-icons.mjs', validateArgs)
-    console.log('\nIcon sync complete. Review git diff, then run design-v2 typecheck and preview build before opening a PR.')
+    console.log(
+      '\nIcon sync complete. Review git diff, then run design-v2 typecheck and preview build before opening a PR.',
+    )
   } catch (error) {
     console.error(`\nIcon sync failed: ${error instanceof Error ? error.message : error}`)
     process.exitCode = 1

@@ -1,8 +1,5 @@
 import type { PublishedWorkflowRevision } from '../../domain/workflow-definition/model'
-import type {
-  BindingDraft,
-  RunConfiguration
-} from '../../domain/run-preparation/model'
+import type { BindingDraft, RunConfiguration } from '../../domain/run-preparation/model'
 
 export type { BindingDraft, RunConfiguration } from '../../domain/run-preparation/model'
 

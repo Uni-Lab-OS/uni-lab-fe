@@ -13,7 +13,7 @@ export class WorkflowExecutionRecoveryClient implements WorkflowExecutionRecover
   async getTaskRecovery(taskUuid: string): Promise<WorkflowRecoveryFact> {
     const [task, jobs] = await Promise.all([
       this.executionRead.getTaskDetail(taskUuid),
-      this.executionRead.listTaskJobs(taskUuid)
+      this.executionRead.listTaskJobs(taskUuid),
     ])
     return deriveWorkflowDebugFacts(task, jobs).recovery
   }

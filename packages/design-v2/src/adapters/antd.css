@@ -237,7 +237,9 @@
   background: var(--bh-color-primary-white) !important;
 }
 
-.ant-select-item-option-active:not(.ant-select-item-option-disabled):not(.ant-select-item-option-selected) {
+.ant-select-item-option-active:not(.ant-select-item-option-disabled):not(
+    .ant-select-item-option-selected
+  ) {
   color: var(--bh-color-foreground) !important;
   background: var(--bh-color-primary-background-hover) !important;
 }

@@ -8,7 +8,7 @@ export type WorkflowExecutionReadErrorCode =
 export class WorkflowExecutionReadError extends Error {
   constructor(
     readonly code: WorkflowExecutionReadErrorCode,
-    message: string
+    message: string,
   ) {
     super(message)
     this.name = 'WorkflowExecutionReadError'

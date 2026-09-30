@@ -4,11 +4,11 @@ import type {
   DeviceActionRunView,
   DeviceSummary,
   ActionDefinition,
-  ActionDefinitionSummary
+  ActionDefinitionSummary,
 } from '../../domain/device-action/model'
 import type {
   NodeJobFeedbackPage,
-  WorkflowNodeJobDetail
+  WorkflowNodeJobDetail,
 } from '../../domain/workflow-execution-read/model'
 
 export interface DeviceActionDebuggingQuery {
@@ -35,7 +35,7 @@ export interface DeviceActionDebuggingViewModel {
 export function createDeviceActionDebuggingViewModel(
   query: DeviceActionDebuggingQuery,
   devices: readonly DeviceSummary[],
-  actions: readonly ActionDefinitionSummary[]
+  actions: readonly ActionDefinitionSummary[],
 ): DeviceActionDebuggingViewModel {
   return {
     kind: 'device_action_debugging',
@@ -49,6 +49,6 @@ export function createDeviceActionDebuggingViewModel(
     acceptedRun: null,
     run: null,
     nodeJob: null,
-    feedback: null
+    feedback: null,
   }
 }

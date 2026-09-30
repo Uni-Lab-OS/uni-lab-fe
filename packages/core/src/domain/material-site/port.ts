@@ -1,9 +1,4 @@
-import type {
-  MaterialDetail,
-  MaterialGraph,
-  MaterialListPage,
-  SiteSummary
-} from './model'
+import type { MaterialDetail, MaterialGraph, MaterialListPage, SiteSummary } from './model'
 
 export interface MaterialSitePort {
   listMaterials(input?: {

@@ -16,7 +16,7 @@ describe('createWorkflowRuntimeEvents', () => {
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
           controllers.push(controller)
-        }
+        },
       })
       return new Response(stream, { status: 200 })
     })
@@ -25,20 +25,22 @@ describe('createWorkflowRuntimeEvents', () => {
     const events: unknown[] = []
     const runtime = createWorkflowRuntimeEvents({
       baseUrl: 'https://os.example.test',
-      getAccessToken: () => 'Bearer token'
+      getAccessToken: () => 'Bearer token',
     })
     const subscription = runtime.subscribe((event) => events.push(event))
 
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
-    controllers[0]?.enqueue(new TextEncoder().encode(
-      'id: event-1\nevent: workflow.runtime.changed\ndata: {"dispatch_gate":"active","workflow_task_uuid":"task-1"}\n\n'
-    ))
+    controllers[0]?.enqueue(
+      new TextEncoder().encode(
+        'id: event-1\nevent: workflow.runtime.changed\ndata: {"dispatch_gate":"active","workflow_task_uuid":"task-1"}\n\n',
+      ),
+    )
     await vi.waitFor(() => expect(events).toHaveLength(1))
     expect(events[0]).toEqual({
       id: 'event-1',
       event: 'workflow.runtime.changed',
       workflowTaskUuid: 'task-1',
-      raw: { dispatch_gate: 'active', workflow_task_uuid: 'task-1' }
+      raw: { dispatch_gate: 'active', workflow_task_uuid: 'task-1' },
     })
 
     subscription.dispose()
@@ -51,7 +53,7 @@ describe('createWorkflowRuntimeEvents', () => {
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
           controllers.push(controller)
-        }
+        },
       })
       return new Response(stream, { status: 200 })
     })
@@ -79,7 +81,7 @@ describe('createWorkflowRuntimeEvents', () => {
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
           controllers.push(controller)
-        }
+        },
       })
       return new Response(stream, { status: 200 })
     })
@@ -87,13 +89,15 @@ describe('createWorkflowRuntimeEvents', () => {
 
     const runtime = createWorkflowRuntimeEvents({
       baseUrl: 'https://os.example.test',
-      reconnectDelayMs: 0
+      reconnectDelayMs: 0,
     })
     const subscription = runtime.subscribe(() => undefined)
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
-    controllers[0]?.enqueue(new TextEncoder().encode(
-      'id: event-7\nevent: workflow.runtime.changed\ndata: {"workflow_task_uuid":"task-7"}\n\n'
-    ))
+    controllers[0]?.enqueue(
+      new TextEncoder().encode(
+        'id: event-7\nevent: workflow.runtime.changed\ndata: {"workflow_task_uuid":"task-7"}\n\n',
+      ),
+    )
     controllers[0]?.close()
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2))
 

@@ -4,23 +4,20 @@ import type { DeviceActionPort } from '../../domain/device-action/port'
 import { deviceDispatchStatus } from '../../domain/device-action/presentation'
 import type { MaterialSitePort } from '../../domain/material-site/port'
 import type { ReagentInventoryPort } from '../../domain/reagent-inventory/port'
-import type {
-  ResourceCandidate,
-  ResourceCandidateIssue
-} from '../../domain/run-preparation/model'
+import type { ResourceCandidate, ResourceCandidateIssue } from '../../domain/run-preparation/model'
 import type { RunPreparationState } from './state'
-import {
-  toRunPreparationViewModel,
-  type RunPreparationViewModel
-} from './view-model'
+import { toRunPreparationViewModel, type RunPreparationViewModel } from './view-model'
 
 export interface RunPreparationScenario {
-  load(workflowUuid: string, state: Omit<RunPreparationState, 'revision'>): Promise<RunPreparationViewModel>
+  load(
+    workflowUuid: string,
+    state: Omit<RunPreparationState, 'revision'>,
+  ): Promise<RunPreparationViewModel>
   requestPreflight(state: RunPreparationState): ReturnType<RunPreparationPort['requestPreflight']>
   submitRun(state: RunPreparationState): ReturnType<RunPreparationPort['submitRun']>
   inspectNodeJob(
     viewModel: RunPreparationViewModel,
-    jobUuid: string
+    jobUuid: string,
   ): Promise<RunPreparationViewModel>
 }
 
@@ -33,7 +30,7 @@ export interface RunPreparationCandidatePorts {
 export function createRunPreparationScenario(
   workflowDefinitions: WorkflowDefinitionPort,
   runPreparation: RunPreparationPort,
-  candidatePorts: RunPreparationCandidatePorts = {}
+  candidatePorts: RunPreparationCandidatePorts = {},
 ): RunPreparationScenario {
   return {
     async load(workflowUuid, state) {
@@ -43,36 +40,32 @@ export function createRunPreparationScenario(
       return {
         ...viewModel,
         candidates: candidateResult.candidates,
-        candidateIssues: candidateResult.issues
+        candidateIssues: candidateResult.issues,
       }
     },
-    requestPreflight: (state) => runPreparation.requestPreflight(
-      state.revision.workflowUuid,
-      state.configuration,
-      state.binding
-    ),
-    submitRun: (state) => runPreparation.submitRun(
-      state.revision.workflowUuid,
-      state.configuration,
-      state.binding
-    ),
+    requestPreflight: (state) =>
+      runPreparation.requestPreflight(
+        state.revision.workflowUuid,
+        state.configuration,
+        state.binding,
+      ),
+    submitRun: (state) =>
+      runPreparation.submitRun(state.revision.workflowUuid, state.configuration, state.binding),
     async inspectNodeJob(viewModel, jobUuid) {
       const nodeJob = await runPreparation.getNodeJobDetail(jobUuid)
       return { ...viewModel, nodeJob }
-    }
+    },
   }
 }
 
-async function loadCandidates(
-  ports: RunPreparationCandidatePorts
-): Promise<{
+async function loadCandidates(ports: RunPreparationCandidatePorts): Promise<{
   readonly candidates: readonly ResourceCandidate[]
   readonly issues: readonly ResourceCandidateIssue[]
 }> {
   const results = await Promise.allSettled([
     ports.deviceActions?.listDevices(),
     ports.materialSite?.getGraph(),
-    ports.reagentInventory?.listInventoryInstances()
+    ports.reagentInventory?.listInventoryInstances(),
   ])
   const candidates: ResourceCandidate[] = []
   const issues: ResourceCandidateIssue[] = []
@@ -88,7 +81,7 @@ async function loadCandidates(
         status: deviceDispatchStatus(device),
         source: device.source,
         observedAt: null,
-        metadata: device.raw
+        metadata: device.raw,
       })
     }
   }
@@ -105,7 +98,7 @@ async function loadCandidates(
         status: null,
         source: material.source,
         observedAt: material.updatedAt,
-        metadata: node.raw
+        metadata: node.raw,
       })
       for (const site of node.sites) {
         candidates.push({
@@ -116,7 +109,7 @@ async function loadCandidates(
           status: siteStatus(site.occupancy.known, site.occupancy.occupiedMaterialUuid),
           source: site.source,
           observedAt: null,
-          metadata: site.raw
+          metadata: site.raw,
         })
       }
     }
@@ -133,7 +126,7 @@ async function loadCandidates(
         status: item.status,
         source: 'os',
         observedAt: null,
-        metadata: item.raw
+        metadata: item.raw,
       })
     }
   }
@@ -144,22 +137,20 @@ async function loadCandidates(
 function settledValue<T>(
   result: PromiseSettledResult<T | undefined>,
   resourceKind: ResourceCandidateIssue['resourceKind'],
-  issues: ResourceCandidateIssue[]
+  issues: ResourceCandidateIssue[],
 ): T | undefined {
   if (result.status === 'fulfilled') return result.value
   issues.push({
     kind: 'resource_candidate_issue',
     resourceKind,
-    message: result.reason instanceof Error
-      ? result.reason.message
-      : '资源候选读取失败'
+    message: result.reason instanceof Error ? result.reason.message : '资源候选读取失败',
   })
   return undefined
 }
 
 function siteStatus(
   known: boolean,
-  occupiedMaterialUuid: string | null
+  occupiedMaterialUuid: string | null,
 ): ResourceCandidate['status'] {
   if (!known) return 'unknown'
   return occupiedMaterialUuid ? 'occupied' : 'available'

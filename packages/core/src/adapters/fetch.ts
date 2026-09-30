@@ -2,7 +2,7 @@ import {
   TransportError,
   type RequestTransport,
   type TransportRequest,
-  type TransportResponse
+  type TransportResponse,
 } from '../transport/request'
 
 export interface FetchTransportOptions {
@@ -12,15 +12,11 @@ export interface FetchTransportOptions {
   readonly timeoutMs?: number
 }
 
-export function createFetchTransport(
-  options: FetchTransportOptions
-): RequestTransport {
+export function createFetchTransport(options: FetchTransportOptions): RequestTransport {
   const fetcher = options.fetcher ?? fetch
 
   return {
-    request: async <Value>(
-      request: TransportRequest
-    ): Promise<TransportResponse<Value>> => {
+    request: async <Value>(request: TransportRequest): Promise<TransportResponse<Value>> => {
       const controller = new AbortController()
       const timeoutMs = request.timeoutMs ?? options.timeoutMs ?? 8_000
       const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs)
@@ -56,7 +52,7 @@ export function createFetchTransport(
           method: request.method,
           headers,
           body,
-          signal: controller.signal
+          signal: controller.signal,
         })
         const data = await readResponseBody(response)
 
@@ -66,14 +62,14 @@ export function createFetchTransport(
             message: responseMessage(data) ?? `HTTP ${response.status}`,
             status: response.status,
             retryable: response.status >= 500,
-            cause: data
+            cause: data,
           })
         }
 
         return {
           status: response.status,
           headers: Object.fromEntries(response.headers.entries()),
-          data: data as Value
+          data: data as Value,
         }
       } catch (error) {
         if (error instanceof TransportError) throw error
@@ -82,23 +78,25 @@ export function createFetchTransport(
           code: aborted ? 'HTTP_REQUEST_ABORTED' : 'HTTP_REQUEST_FAILED',
           message: aborted ? '请求已中止或超时' : errorMessage(error),
           retryable: !aborted,
-          cause: error
+          cause: error,
         })
       } finally {
         globalThis.clearTimeout(timeout)
         request.signal?.removeEventListener('abort', abort)
       }
-    }
+    },
   }
 }
 
 /** 文件上传等二进制载荷必须原样交给 fetch，不能被 JSON 序列化。 */
 function isPassthroughBody(body: unknown): body is BodyInit {
-  return (typeof FormData !== 'undefined' && body instanceof FormData)
-    || (typeof Blob !== 'undefined' && body instanceof Blob)
-    || (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams)
-    || (typeof ArrayBuffer !== 'undefined' && body instanceof ArrayBuffer)
-    || (typeof ReadableStream !== 'undefined' && body instanceof ReadableStream)
+  return (
+    (typeof FormData !== 'undefined' && body instanceof FormData) ||
+    (typeof Blob !== 'undefined' && body instanceof Blob) ||
+    (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams) ||
+    (typeof ArrayBuffer !== 'undefined' && body instanceof ArrayBuffer) ||
+    (typeof ReadableStream !== 'undefined' && body instanceof ReadableStream)
+  )
 }
 
 function joinUrl(baseUrl: string, path: string): string {
@@ -130,7 +128,7 @@ function responseMessage(value: unknown): string | undefined {
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : undefined
 }
 

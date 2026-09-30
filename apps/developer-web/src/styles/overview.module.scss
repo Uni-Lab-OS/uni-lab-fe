@@ -57,7 +57,12 @@
 .overview-skeleton-table-head span,
 .overview-skeleton-table-row span {
   display: block;
-  background: linear-gradient(90deg, var(--bh-color-fill-2, #edf0f5) 25%, var(--bh-color-fill-1, #f8f9fb) 37%, var(--bh-color-fill-2, #edf0f5) 63%);
+  background: linear-gradient(
+    90deg,
+    var(--bh-color-fill-2, #edf0f5) 25%,
+    var(--bh-color-fill-1, #f8f9fb) 37%,
+    var(--bh-color-fill-2, #edf0f5) 63%
+  );
   background-size: 400% 100%;
   animation: overview-skeleton-loading 1.4s ease infinite;
 }
@@ -149,7 +154,9 @@
 .overview-skeleton-table-head,
 .overview-skeleton-table-row {
   display: grid;
-  grid-template-columns: minmax(160px, 2fr) minmax(140px, 1.7fr) minmax(76px, .7fr) minmax(108px, 1.1fr) minmax(130px, 1.3fr) minmax(76px, .8fr);
+  grid-template-columns:
+    minmax(160px, 2fr) minmax(140px, 1.7fr) minmax(76px, 0.7fr) minmax(108px, 1.1fr)
+    minmax(130px, 1.3fr) minmax(76px, 0.8fr);
   align-items: center;
   gap: 20px;
   border-top: 1px solid var(--studio-border);
@@ -181,8 +188,12 @@
 }
 
 @keyframes overview-skeleton-loading {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -200,16 +211,29 @@
 }
 
 @media (max-width: 820px) {
-  .overview-skeleton-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .overview-skeleton-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
-  .overview-skeleton-columns { grid-template-columns: 1fr; }
-  .overview-skeleton-table-toolbar { flex-wrap: wrap; }
-  .overview-skeleton-table-title { width: 100%; margin-right: 0; }
+  .overview-skeleton-columns {
+    grid-template-columns: 1fr;
+  }
+  .overview-skeleton-table-toolbar {
+    flex-wrap: wrap;
+  }
+  .overview-skeleton-table-title {
+    width: 100%;
+    margin-right: 0;
+  }
   .overview-skeleton-table-head,
-  .overview-skeleton-table-row { min-width: 760px; }
-  .overview-skeleton-table { overflow-x: auto; }
+  .overview-skeleton-table-row {
+    min-width: 760px;
+  }
+  .overview-skeleton-table {
+    overflow-x: auto;
+  }
 }
 
 /* 总览指标条：四张互相独立的指标卡，不留整条容器边框。 */

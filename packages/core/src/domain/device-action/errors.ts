@@ -10,7 +10,7 @@ export class DeviceActionError extends Error {
   constructor(
     readonly code: DeviceActionErrorCode,
     message: string,
-    readonly retryable = false
+    readonly retryable = false,
   ) {
     super(message)
     this.name = 'DeviceActionError'

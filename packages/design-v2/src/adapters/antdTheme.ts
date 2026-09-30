@@ -30,12 +30,10 @@ export function createAntdTheme<TAlgorithm>(
   algorithms: AntdThemeAlgorithms<TAlgorithm>,
 ): AntdThemeConfig<TAlgorithm> {
   return {
-    algorithm: theme.resolvedMode === 'dark' ? algorithms.darkAlgorithm : algorithms.defaultAlgorithm,
+    algorithm:
+      theme.resolvedMode === 'dark' ? algorithms.darkAlgorithm : algorithms.defaultAlgorithm,
     token: {
-      fontFamily: themeFont(
-        '--bh-font-family-sans',
-        'Inter, ui-sans-serif, system-ui, sans-serif',
-      ),
+      fontFamily: themeFont('--bh-font-family-sans', 'Inter, ui-sans-serif, system-ui, sans-serif'),
       borderRadius: 5,
       controlHeight: 36,
       colorPrimary: themeColor('--bh-color-primary', '#5363a6'),

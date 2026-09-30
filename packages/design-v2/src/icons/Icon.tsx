@@ -6,7 +6,7 @@ import type { IconProps } from './types'
 
 const EMPTY_ICON_DATA: ResolvedIconData = {
   body: '',
-  viewBox: '0 0 24 24'
+  viewBox: '0 0 24 24',
 }
 
 export function Icon({ name, ...props }: IconProps): React.JSX.Element {
@@ -16,7 +16,10 @@ export function Icon({ name, ...props }: IconProps): React.JSX.Element {
     let active = true
     const cached = getCachedIconData(name)
     setData(cached)
-    if (cached) return () => { active = false }
+    if (cached)
+      return () => {
+        active = false
+      }
 
     loadIconData(name)
       .then((nextData) => {
@@ -26,7 +29,9 @@ export function Icon({ name, ...props }: IconProps): React.JSX.Element {
         if (active) setData(undefined)
       })
 
-    return () => { active = false }
+    return () => {
+      active = false
+    }
   }, [name])
 
   return <IconSvg data={data ?? EMPTY_ICON_DATA} {...props} />

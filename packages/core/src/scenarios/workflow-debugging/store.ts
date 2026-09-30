@@ -1,12 +1,18 @@
 import { createStore, type StateCreator, type StoreApi } from 'zustand/vanilla'
 import type {
   WorkflowTaskCommandReceipt,
-  WorkflowTaskCommandRequest
+  WorkflowTaskCommandRequest,
 } from '../../domain/workflow-execution-read/model'
 import type { WorkflowDebuggingQuery, WorkflowDebuggingViewModel } from './view-model'
 import type { WorkflowDebuggingScenario } from './scenario'
 
-export type WorkflowDebuggingStoreStatus = 'idle' | 'loading' | 'ready' | 'refreshing' | 'commanding' | 'error'
+export type WorkflowDebuggingStoreStatus =
+  | 'idle'
+  | 'loading'
+  | 'ready'
+  | 'refreshing'
+  | 'commanding'
+  | 'error'
 
 export interface WorkflowDebuggingStoreState {
   readonly status: WorkflowDebuggingStoreStatus
@@ -29,12 +35,14 @@ export interface WorkflowDebuggingStoreState {
 
 export type WorkflowDebuggingStore = StoreApi<WorkflowDebuggingStoreState>
 
-export function createWorkflowDebuggingStore(scenario: WorkflowDebuggingScenario): WorkflowDebuggingStore {
+export function createWorkflowDebuggingStore(
+  scenario: WorkflowDebuggingScenario,
+): WorkflowDebuggingStore {
   return createStore(createWorkflowDebuggingStoreState(scenario))
 }
 
 export function createWorkflowDebuggingStoreState(
-  scenario: WorkflowDebuggingScenario
+  scenario: WorkflowDebuggingScenario,
 ): StateCreator<WorkflowDebuggingStoreState> {
   return (set, get) => {
     let subscription: { dispose: () => void } | null = null
@@ -56,7 +64,14 @@ export function createWorkflowDebuggingStoreState(
         try {
           const viewModel = await scenario.load(query)
           if (generation !== requestGeneration) return
-          set({ status: 'ready', viewModel, selectedTaskUuid: null, selectedJobUuid: null, command: null, error: null })
+          set({
+            status: 'ready',
+            viewModel,
+            selectedTaskUuid: null,
+            selectedJobUuid: null,
+            command: null,
+            error: null,
+          })
         } catch (error) {
           if (generation !== requestGeneration) return
           set({ status: 'error', error: toError(error) })
@@ -71,7 +86,13 @@ export function createWorkflowDebuggingStoreState(
         try {
           const viewModel = await scenario.reload(current)
           if (generation !== requestGeneration) return
-          set({ status: 'ready', viewModel, selectedTaskUuid: null, selectedJobUuid: null, error: null })
+          set({
+            status: 'ready',
+            viewModel,
+            selectedTaskUuid: null,
+            selectedJobUuid: null,
+            error: null,
+          })
         } catch (error) {
           if (generation !== requestGeneration) return
           set({ status: 'error', error: toError(error) })
@@ -86,7 +107,14 @@ export function createWorkflowDebuggingStoreState(
         try {
           const viewModel = await scenario.inspectTask(current, taskUuid)
           if (generation !== requestGeneration) return
-          set({ status: 'ready', viewModel, selectedTaskUuid: taskUuid, selectedJobUuid: null, command: null, error: null })
+          set({
+            status: 'ready',
+            viewModel,
+            selectedTaskUuid: taskUuid,
+            selectedJobUuid: null,
+            command: null,
+            error: null,
+          })
           get().startRuntimeSubscription()
         } catch (error) {
           if (generation !== requestGeneration) return
@@ -131,7 +159,12 @@ export function createWorkflowDebuggingStoreState(
         try {
           const result = await scenario.sendCommand(current, request)
           // 保留旧 Task/Job 快照，只有后续 REST rehydrate 才能改变运行状态。
-          set({ status: 'ready', viewModel: result.viewModel, command: result.command, error: null })
+          set({
+            status: 'ready',
+            viewModel: result.viewModel,
+            command: result.command,
+            error: null,
+          })
         } catch (error) {
           set({ status: 'error', error: toError(error) })
         }
@@ -142,9 +175,19 @@ export function createWorkflowDebuggingStoreState(
         if (!current?.selectedTaskUuid) return
         subscription?.dispose()
         try {
-          subscription = scenario.subscribeRuntime(current, (viewModel) => {
-            set({ status: 'ready', viewModel, selectedTaskUuid: viewModel.selectedTaskUuid, selectedJobUuid: viewModel.selectedJobUuid, runtimeError: null })
-          }, { onError: (error) => set({ runtimeError: error }) })
+          subscription = scenario.subscribeRuntime(
+            current,
+            (viewModel) => {
+              set({
+                status: 'ready',
+                viewModel,
+                selectedTaskUuid: viewModel.selectedTaskUuid,
+                selectedJobUuid: viewModel.selectedJobUuid,
+                runtimeError: null,
+              })
+            },
+            { onError: (error) => set({ runtimeError: error }) },
+          )
         } catch (error) {
           subscription = null
           set({ runtimeError: toError(error) })
@@ -158,7 +201,7 @@ export function createWorkflowDebuggingStoreState(
 
       clearError() {
         set({ error: null, runtimeError: null })
-      }
+      },
     }
   }
 }

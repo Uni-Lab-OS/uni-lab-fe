@@ -215,11 +215,7 @@ export interface ReagentPatch {
   readonly expectedMaterialRevision?: number
 }
 
-export type CompoundLookupStatus =
-  | 'registered'
-  | 'ok'
-  | 'not_found'
-  | 'unavailable'
+export type CompoundLookupStatus = 'registered' | 'ok' | 'not_found' | 'unavailable'
 
 export interface CompoundCandidate {
   readonly name: string | null

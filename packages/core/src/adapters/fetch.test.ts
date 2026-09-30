@@ -12,15 +12,15 @@ describe('createFetchTransport', () => {
         calls.push(init ?? {})
         return new Response(JSON.stringify({ ok: true }), {
           status: 200,
-          headers: { 'content-type': 'application/json' }
+          headers: { 'content-type': 'application/json' },
         })
-      }
+      },
     })
 
     const response = await transport.request<{ ok: boolean }>({
       method: 'POST',
       url: '/api/v1/ping',
-      body: { requestId: 'r-1' }
+      body: { requestId: 'r-1' },
     })
 
     expect(response.data).toEqual({ ok: true })
@@ -34,18 +34,17 @@ describe('createFetchTransport', () => {
   it('maps non-success responses to a transport error', async () => {
     const transport = createFetchTransport({
       baseUrl: 'https://os.example.test',
-      fetcher: async () => new Response(
-        JSON.stringify({ error: { code: 'OS_BUSY', message: 'busy' } }),
-        { status: 503 }
-      )
+      fetcher: async () =>
+        new Response(JSON.stringify({ error: { code: 'OS_BUSY', message: 'busy' } }), {
+          status: 503,
+        }),
     })
 
-    await expect(transport.request({ method: 'GET', url: '/status' }))
-      .rejects.toMatchObject({
-        name: 'TransportError',
-        code: 'OS_BUSY',
-        status: 503,
-        retryable: true
-      })
+    await expect(transport.request({ method: 'GET', url: '/status' })).rejects.toMatchObject({
+      name: 'TransportError',
+      code: 'OS_BUSY',
+      status: 503,
+      retryable: true,
+    })
   })
 })

@@ -10,18 +10,12 @@ export interface RunPreparationSummaryProps {
 }
 
 /** 运行提交前的领域摘要；提交动作和 store 仍由场景拥有。 */
-export function RunPreparationSummary({
-  viewModel,
-  preflight,
-}: RunPreparationSummaryProps) {
+export function RunPreparationSummary({ viewModel, preflight }: RunPreparationSummaryProps) {
   const { revision, configuration } = viewModel
   const inputCount = Object.keys(configuration.input).length
 
   return (
-    <section
-      className={cx('lab-ui-run-preparation-summary')}
-      aria-label="运行准备摘要"
-    >
+    <section className={cx('lab-ui-run-preparation-summary')} aria-label="运行准备摘要">
       <header>
         <div>
           <span className={cx('lab-ui-eyebrow')}>工作流</span>
@@ -52,9 +46,7 @@ export function RunPreparationSummary({
   )
 }
 
-function runModeLabel(
-  mode: RunPreparationViewModel['configuration']['runMode'],
-): string {
+function runModeLabel(mode: RunPreparationViewModel['configuration']['runMode']): string {
   if (mode === 'step') return '单步运行'
   if (mode === 'single_node') return '单节点运行'
   return '正常运行'

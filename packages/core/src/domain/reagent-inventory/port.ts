@@ -19,7 +19,7 @@ import type {
   ReagentInfoPatch,
   ReagentPage,
   ReagentPatch,
-  ReagentStructure3d
+  ReagentStructure3d,
 } from './model'
 
 export interface ReagentInventoryPort {
@@ -35,10 +35,7 @@ export interface ReagentInventoryPort {
 
   createReagentInfo(draft: ReagentInfoDraft): Promise<ReagentInfo>
 
-  updateReagentInfo(
-    reagentInfoUuid: string,
-    patch: ReagentInfoPatch
-  ): Promise<ReagentInfo>
+  updateReagentInfo(reagentInfoUuid: string, patch: ReagentInfoPatch): Promise<ReagentInfo>
 
   /** 已被库存引用的身份不可删除，OS 会以业务错误拒绝。 */
   deleteReagentInfo(reagentInfoUuid: string): Promise<void>
@@ -79,7 +76,7 @@ export interface ReagentInventoryPort {
 
   listReagentHistory(
     materialUuid: string,
-    input?: { readonly page?: number; readonly pageSize?: number }
+    input?: { readonly page?: number; readonly pageSize?: number },
   ): Promise<ReagentHistoryPage>
 
   /**

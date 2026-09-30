@@ -12,20 +12,20 @@ describe('EvidenceInterventionClient', () => {
           ? { items: [intervention('intervention-1')] }
           : intervention('intervention/1')
         return { status: 200, headers: {}, data: { code: 0, data } } as TransportResponse<Value>
-      }
+      },
     }
 
     const client = new EvidenceInterventionClient(transport)
     await expect(client.listInterventions({ status: 'open', limit: 20 })).resolves.toMatchObject([
-      { interventionUuid: 'intervention-1' }
+      { interventionUuid: 'intervention-1' },
     ])
     await expect(client.getIntervention('intervention/1')).resolves.toMatchObject({
-      interventionUuid: 'intervention/1'
+      interventionUuid: 'intervention/1',
     })
 
     expect(requests.map(({ method, url }) => ({ method, url }))).toEqual([
       { method: 'GET', url: '/api/v1/workflow-interventions?status=open&limit=20' },
-      { method: 'GET', url: '/api/v1/workflow-interventions/intervention%2F1' }
+      { method: 'GET', url: '/api/v1/workflow-interventions/intervention%2F1' },
     ])
   })
 })
@@ -44,6 +44,6 @@ function intervention(uuid: string) {
     resume_control_status: 'active',
     selected_option: {},
     delivery_status: 'none',
-    opened_at: '2026-09-25T00:00:00Z'
+    opened_at: '2026-09-25T00:00:00Z',
   }
 }

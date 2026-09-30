@@ -234,7 +234,6 @@
   font-size: 11px;
 }
 
-
 /* Source: devices.module.scss */
 /* Styles owned by the devices application components. */
 
@@ -310,7 +309,7 @@
 .device-action-form-grid :global(.ant-input),
 .device-action-form-grid :global(.ant-input-number),
 .device-action-form-grid :global(.ant-select-selector),
-.device-action-input-fields input:not([type="checkbox"]),
+.device-action-input-fields input:not([type='checkbox']),
 .device-action-input-fields select {
   box-sizing: border-box;
   height: 36px;

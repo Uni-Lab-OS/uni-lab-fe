@@ -19,11 +19,7 @@ export function MaterialList({
   if (items.length === 0) {
     return (
       <div className={cx('lab-ui-empty-region')}>
-        <EmptyState
-          scene="no-data"
-          size="compact"
-          title={emptyDescription}
-        />
+        <EmptyState scene="no-data" size="compact" title={emptyDescription} />
       </div>
     )
   }

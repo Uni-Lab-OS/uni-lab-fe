@@ -5,21 +5,57 @@ import type { TaskJobSummary, TaskRuntimeDetail } from './model'
 describe('deriveWorkflowDebugFacts', () => {
   it('projects frontier, join, progress, waits and recovery without inventing candidates', () => {
     const task = {
-      kind: 'task_runtime_detail', source: 'os', taskUuid: 'task-1', workflowUuid: 'workflow-1',
-      executionKind: 'workflow', status: 'running', runMode: 'step', controlStatus: 'paused',
-      cleanupStatus: 'requires_attention', createdAt: 'now', updatedAt: 'now',
+      kind: 'task_runtime_detail',
+      source: 'os',
+      taskUuid: 'task-1',
+      workflowUuid: 'workflow-1',
+      executionKind: 'workflow',
+      status: 'running',
+      runMode: 'step',
+      controlStatus: 'paused',
+      cleanupStatus: 'requires_attention',
+      createdAt: 'now',
+      updatedAt: 'now',
       raw: {
         ready_frontier: [{ node_uuid: 'node-a', branch_uuid: 'branch-a', selectable: true }],
-        joins: [{ node_uuid: 'join-1', required_branch_uuids: ['branch-a', 'branch-b'], satisfied_branch_uuids: ['branch-a'], missing_conditions: ['branch-b'] }],
+        joins: [
+          {
+            node_uuid: 'join-1',
+            required_branch_uuids: ['branch-a', 'branch-b'],
+            satisfied_branch_uuids: ['branch-a'],
+            missing_conditions: ['branch-b'],
+          },
+        ],
         progress: { completed: 1, total: 3 },
-        execution_locks: [{ uuid: 'lock-1', state: 'uncertain', claim_uuid: 'claim-1', fencing_token: '4', can_release: false }]
-      }
+        execution_locks: [
+          {
+            uuid: 'lock-1',
+            state: 'uncertain',
+            claim_uuid: 'claim-1',
+            fencing_token: '4',
+            can_release: false,
+          },
+        ],
+      },
     } satisfies TaskRuntimeDetail
-    const jobs = [{
-      kind: 'task_job_summary', source: 'os', jobUuid: 'job-1', workflowNodeUuid: 'node-a', topologicalIndex: 0,
-      executorKind: 'device', status: 'pending', attempt: 1, currentAttempt: true, controlData: {}, errorInfo: [],
-      waitReason: { reason: 'claim held' }, expectedChangeSet: {}, raw: {}
-    }] satisfies readonly TaskJobSummary[]
+    const jobs = [
+      {
+        kind: 'task_job_summary',
+        source: 'os',
+        jobUuid: 'job-1',
+        workflowNodeUuid: 'node-a',
+        topologicalIndex: 0,
+        executorKind: 'device',
+        status: 'pending',
+        attempt: 1,
+        currentAttempt: true,
+        controlData: {},
+        errorInfo: [],
+        waitReason: { reason: 'claim held' },
+        expectedChangeSet: {},
+        raw: {},
+      },
+    ] satisfies readonly TaskJobSummary[]
 
     const facts = deriveWorkflowDebugFacts(task, jobs)
     expect(facts.readyFrontier[0]).toMatchObject({ nodeUuid: 'node-a', selectable: true })

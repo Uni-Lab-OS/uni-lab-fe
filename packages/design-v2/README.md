@@ -40,12 +40,7 @@ body {
 ```tsx
 import { useEffect, useMemo, useState } from 'react'
 import { ConfigProvider, theme as antTheme } from 'antd'
-import {
-  configureTheme,
-  createAntdTheme,
-  getTheme,
-  watchTheme,
-} from '@unilab/design-v2'
+import { configureTheme, createAntdTheme, getTheme, watchTheme } from '@unilab/design-v2'
 import './styles/global.css'
 
 configureTheme({ defaultMode: 'system', defaultPreset: 'default' })
@@ -55,10 +50,14 @@ export function AppRoot() {
 
   useEffect(() => watchTheme(setDesignTheme), [])
 
-  const antdConfig = useMemo(() => createAntdTheme(designTheme, {
-    defaultAlgorithm: antTheme.defaultAlgorithm,
-    darkAlgorithm: antTheme.darkAlgorithm,
-  }), [designTheme.preset, designTheme.resolvedMode])
+  const antdConfig = useMemo(
+    () =>
+      createAntdTheme(designTheme, {
+        defaultAlgorithm: antTheme.defaultAlgorithm,
+        darkAlgorithm: antTheme.darkAlgorithm,
+      }),
+    [designTheme.preset, designTheme.resolvedMode],
+  )
 
   return (
     <ConfigProvider theme={antdConfig}>
@@ -103,8 +102,7 @@ export function ProjectForm() {
 
 ```tsx
 import { EmptyState } from '@unilab/design-v2'
-
-<EmptyState
+;<EmptyState
   scene="no-results"
   illustration={<SearchEmptyIllustration />}
   actions={<Button type="primary">重新搜索</Button>}
@@ -180,11 +178,11 @@ console.log(ICON_CATEGORIES.map((item) => `${item.name}: ${item.count}`))
 
 `Icon` 的默认尺寸是 Figma 导出尺寸 24px；也可以传入 8、10、12、14、15、16、18、20、22、24，或 `sm`、`md`、`lg`、`xl`。`color` 表示图标使用的语义颜色角色，会随默认主题和 Light/Dark 切换：
 
-| 属性 | 可选值 | 语义变量 |
-| --- | --- | --- |
-| `color` | `context`、`default`、`primary`、`white`、`error`、`success`、`inherit` | `--bh-color-icon-context`、`--bh-color-primary`、`--bh-color-error-default` 等 |
-| `weight` | `default`、`strong`、`medium`、`compact`、`detail`、`hairline` | Figma Bohr Icon 的 1.8、2、1.5、1.2、0.54、0.2 描边组 |
-| `size` | Figma 的 8–24px 尺寸或设计系统别名 | `--bh-icon-size-*` 或显式像素值 |
+| 属性     | 可选值                                                                  | 语义变量                                                                       |
+| -------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `color`  | `context`、`default`、`primary`、`white`、`error`、`success`、`inherit` | `--bh-color-icon-context`、`--bh-color-primary`、`--bh-color-error-default` 等 |
+| `weight` | `default`、`strong`、`medium`、`compact`、`detail`、`hairline`          | Figma Bohr Icon 的 1.8、2、1.5、1.2、0.54、0.2 描边组                          |
+| `size`   | Figma 的 8–24px 尺寸或设计系统别名                                      | `--bh-icon-size-*` 或显式像素值                                                |
 
 Figma 导出的 `#1D2129` 已转换为 `currentColor`，所以不要在业务 CSS 中重新给 SVG 写黑色。需要跟随父元素颜色时使用 `color="inherit"`；需要明确的主题主色时使用 `color="primary"`。`title` 会生成可访问名称；没有 `title` 的图标默认标记为装饰性图标。
 
@@ -201,8 +199,7 @@ Figma 导出的 `#1D2129` 已转换为 `currentColor`，所以不要在业务 CS
 
 ```tsx
 import AlertCircleIcon from '@unilab/design-v2/icons/static/alerts-feedback/alert-circle'
-
-<AlertCircleIcon size="md" color="error" title="发生错误" />
+;<AlertCircleIcon size="md" color="error" title="发生错误" />
 ```
 
 静态入口只包含一个图标 body，可以被 bundler 独立 tree-shaking。图标密集型页面如果已知即将使用某个分类，可以提前预加载：
@@ -281,11 +278,11 @@ pnpm --dir packages/design-v2 validate:icons
 
 实际使用时不要把所有变量混在一起看。包内变量分成三层：
 
-| 层级 | 命名形式 | 作用 | 业务组件是否直接使用 |
-| --- | --- | --- | --- |
-| 设计源层 | `--bh-source-*` | 完整保存设计文件中的 Foundation、Theme、Color Modes、Responsive 和 Icon 数值 | 否，通常只用于主题映射 |
-| 语义层 | `--bh-*`、`--bh-color-*` | 把原始数值翻译成稳定的产品语义，例如卡片、控件、边框、主色 | 是，业务 CSS 的首选 |
-| 组件适配层 | AntD/Tailwind 的变量和选择器 | 把语义层接到具体技术栈的组件样式 | 组件库正常使用即可 |
+| 层级       | 命名形式                     | 作用                                                                         | 业务组件是否直接使用   |
+| ---------- | ---------------------------- | ---------------------------------------------------------------------------- | ---------------------- |
+| 设计源层   | `--bh-source-*`              | 完整保存设计文件中的 Foundation、Theme、Color Modes、Responsive 和 Icon 数值 | 否，通常只用于主题映射 |
+| 语义层     | `--bh-*`、`--bh-color-*`     | 把原始数值翻译成稳定的产品语义，例如卡片、控件、边框、主色                   | 是，业务 CSS 的首选    |
+| 组件适配层 | AntD/Tailwind 的变量和选择器 | 把语义层接到具体技术栈的组件样式                                             | 组件库正常使用即可     |
 
 以卡片为例，完整链路是：
 
@@ -329,21 +326,21 @@ pnpm --dir packages/design-v2 validate:icons
 ```tsx
 import { useEffect, useMemo, useState } from 'react'
 import { ConfigProvider, theme as antTheme } from 'antd'
-import {
-  createAntdTheme,
-  getTheme,
-  watchTheme,
-} from '@unilab/design-v2'
+import { createAntdTheme, getTheme, watchTheme } from '@unilab/design-v2'
 
 export function AppRoot() {
   const [designTheme, setDesignTheme] = useState(getTheme())
 
   useEffect(() => watchTheme(setDesignTheme), [])
 
-  const antdConfig = useMemo(() => createAntdTheme(designTheme, {
-    defaultAlgorithm: antTheme.defaultAlgorithm,
-    darkAlgorithm: antTheme.darkAlgorithm,
-  }), [designTheme.preset, designTheme.resolvedMode])
+  const antdConfig = useMemo(
+    () =>
+      createAntdTheme(designTheme, {
+        defaultAlgorithm: antTheme.defaultAlgorithm,
+        darkAlgorithm: antTheme.darkAlgorithm,
+      }),
+    [designTheme.preset, designTheme.resolvedMode],
+  )
 
   return (
     <ConfigProvider theme={antdConfig}>
@@ -375,13 +372,13 @@ AntD 适配层只负责覆盖公共外观：卡片、表单控件、下拉面板
 
 ### 导出入口
 
-| 用途 | 推荐入口 |
-| --- | --- |
-| 主题运行时、token API、AntD theme bridge | `@unilab/design-v2` |
-| 只读取 source token 清单 | `@unilab/design-v2/tokens/source` |
-| AntD CSS 适配 | `@unilab/design-v2/adapters/antd.css` |
-| AntD theme bridge 子路径 | `@unilab/design-v2/adapters/antd-theme` |
-| Tailwind 适配 | `@unilab/design-v2/adapters/tailwind.css` |
+| 用途                                     | 推荐入口                                  |
+| ---------------------------------------- | ----------------------------------------- |
+| 主题运行时、token API、AntD theme bridge | `@unilab/design-v2`                       |
+| 只读取 source token 清单                 | `@unilab/design-v2/tokens/source`         |
+| AntD CSS 适配                            | `@unilab/design-v2/adapters/antd.css`     |
+| AntD theme bridge 子路径                 | `@unilab/design-v2/adapters/antd-theme`   |
+| Tailwind 适配                            | `@unilab/design-v2/adapters/tailwind.css` |
 
 除 `EmptyState` 等明确导出的跨页面标准组件外，组件行为、交互和可访问性仍由 AntD 或业务组件负责。
 
@@ -411,17 +408,17 @@ AntD 适配层只负责覆盖公共外观：卡片、表单控件、下拉面板
 
 常用语义变量包括：
 
-| 变量 | 用途 |
-| --- | --- |
-| `--bh-color-background` / `--bh-color-foreground` | 页面背景和正文 |
-| `--bh-color-card` / `--bh-color-card-foreground` | 卡片、面板、弹层容器 |
-| `--bh-color-control` / `--bh-color-control-foreground` | 输入框、选择器、默认控件 |
-| `--bh-color-control-hover` / `--bh-color-control-active` | 控件悬浮和选中状态 |
-| `--bh-color-primary` / `--bh-color-primary-foreground` | 主按钮、选中状态、进度 |
-| `--bh-color-border` / `--bh-color-input` | 边框和输入控件边界 |
-| `--bh-color-ring` | 聚焦描边 |
-| `--bh-color-destructive` | 错误和危险操作 |
-| `--bh-color-chart-1` … `--bh-color-chart-5` | 图表序列 |
+| 变量                                                     | 用途                     |
+| -------------------------------------------------------- | ------------------------ |
+| `--bh-color-background` / `--bh-color-foreground`        | 页面背景和正文           |
+| `--bh-color-card` / `--bh-color-card-foreground`         | 卡片、面板、弹层容器     |
+| `--bh-color-control` / `--bh-color-control-foreground`   | 输入框、选择器、默认控件 |
+| `--bh-color-control-hover` / `--bh-color-control-active` | 控件悬浮和选中状态       |
+| `--bh-color-primary` / `--bh-color-primary-foreground`   | 主按钮、选中状态、进度   |
+| `--bh-color-border` / `--bh-color-input`                 | 边框和输入控件边界       |
+| `--bh-color-ring`                                        | 聚焦描边                 |
+| `--bh-color-destructive`                                 | 错误和危险操作           |
+| `--bh-color-chart-1` … `--bh-color-chart-5`              | 图表序列                 |
 
 ## Tailwind 4 怎么用
 
@@ -438,9 +435,7 @@ AntD 适配层只负责覆盖公共外观：卡片、表单控件、下拉面板
 
 ```tsx
 <section className="rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm">
-  <button className="rounded-md bg-primary px-4 py-2 text-primary-foreground">
-    创建项目
-  </button>
+  <button className="rounded-md bg-primary px-4 py-2 text-primary-foreground">创建项目</button>
 </section>
 ```
 
@@ -460,7 +455,7 @@ setTheme({ mode: 'dark' })
 根节点会得到类似：
 
 ```html
-<html data-design-preset="default" data-color-mode="dark">
+<html data-design-preset="default" data-color-mode="dark"></html>
 ```
 
 应用自己的品牌主题时，保留语义变量名，只覆盖需要改变的值：
@@ -486,9 +481,11 @@ export function ThemeToggle() {
   const current = getTheme()
   return (
     <button
-      onClick={() => setTheme({
-        mode: current.resolvedMode === 'dark' ? 'light' : 'dark',
-      })}
+      onClick={() =>
+        setTheme({
+          mode: current.resolvedMode === 'dark' ? 'light' : 'dark',
+        })
+      }
     >
       切换主题
     </button>
@@ -502,14 +499,14 @@ export function ThemeToggle() {
 
 `src/tokens/source.ts` 是只读的机器可读清单；`source.*.css` 是完整的原始变量输出。当前覆盖 6 个集合、共 670 个变量：
 
-| 集合 | 数量 |
-| --- | ---: |
-| Foundation | 420 |
-| Theme | 126 |
-| Color Modes | 87 |
-| Pro / Responsive | 29 |
-| Icon Context | 1 |
-| Bohr Icon | 7 |
+| 集合             | 数量 |
+| ---------------- | ---: |
+| Foundation       |  420 |
+| Theme            |  126 |
+| Color Modes      |   87 |
+| Pro / Responsive |   29 |
+| Icon Context     |    1 |
+| Bohr Icon        |    7 |
 
 重新生成 Foundation、Theme 和 Responsive 输出：
 

@@ -114,7 +114,9 @@
 .material-flow-group.is-selected {
   border-color: #5264dc;
   background: rgba(232, 237, 255, 0.9);
-  box-shadow: 0 0 0 3px rgba(82, 100, 220, 0.2), 0 14px 28px rgba(62, 81, 160, 0.14);
+  box-shadow:
+    0 0 0 3px rgba(82, 100, 220, 0.2),
+    0 14px 28px rgba(62, 81, 160, 0.14);
 }
 .material-flow-group.is-selected .material-flow-group__header {
   border-bottom-color: #b9c5ff;
@@ -123,7 +125,12 @@
 .material-flow-group,
 .material-flow-block,
 .material-flow-site {
-  transition: opacity 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease, filter 140ms ease;
+  transition:
+    opacity 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease,
+    filter 140ms ease;
 }
 .material-flow-group.is-search-dimmed,
 .material-flow-block.is-search-dimmed {
@@ -134,7 +141,9 @@
   border-color: #7c3aed;
   position: relative;
   z-index: 2;
-  box-shadow: 0 0 0 3px rgb(124 58 237 / 28%), 0 14px 28px rgb(62 81 160 / 14%);
+  box-shadow:
+    0 0 0 3px rgb(124 58 237 / 28%),
+    0 14px 28px rgb(62 81 160 / 14%);
 }
 .material-flow-group.is-search-match .material-flow-group__header {
   border-bottom-color: rgb(124 58 237 / 26%);
@@ -200,7 +209,9 @@
   border-color: #a78bfa;
   position: relative;
   z-index: 2;
-  box-shadow: 0 0 0 2px rgb(124 58 237 / 30%), 0 8px 18px rgb(62 81 160 / 10%);
+  box-shadow:
+    0 0 0 2px rgb(124 58 237 / 30%),
+    0 8px 18px rgb(62 81 160 / 10%);
 }
 .material-flow-block__header {
   display: flex;
@@ -264,7 +275,9 @@
 .material-flow-site.is-selected {
   border-color: #5264dc;
   background: #e8edff;
-  box-shadow: 0 0 0 3px rgba(82, 100, 220, 0.24), 0 4px 12px rgba(82, 100, 220, 0.18);
+  box-shadow:
+    0 0 0 3px rgba(82, 100, 220, 0.24),
+    0 4px 12px rgba(82, 100, 220, 0.18);
 }
 .material-flow-site.is-occupied {
   border-color: #91d2b0;
@@ -284,7 +297,9 @@
   background: #f3edff;
   position: relative;
   z-index: 3;
-  box-shadow: 0 0 0 3px rgb(124 58 237 / 34%), 0 3px 10px rgb(124 58 237 / 18%);
+  box-shadow:
+    0 0 0 3px rgb(124 58 237 / 34%),
+    0 3px 10px rgb(124 58 237 / 18%);
 }
 .material-flow-site:focus-visible {
   outline: 2px solid #5264dc;
@@ -528,20 +543,30 @@
 .resource-tree:global(.ant-tree) :global(.ant-tree-switcher):focus-visible {
   background: transparent !important;
 }
-.resource-tree:global(.ant-tree) :global(.ant-tree-treenode):hover > :global(.ant-tree-node-content-wrapper):not(:global(.ant-tree-node-selected)),
-.resource-tree:global(.ant-tree) :global(.ant-tree-node-content-wrapper):hover:not(:global(.ant-tree-node-selected)) {
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-treenode):hover
+  > :global(.ant-tree-node-content-wrapper):not(:global(.ant-tree-node-selected)),
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-node-content-wrapper):hover:not(:global(.ant-tree-node-selected)) {
   background: var(--studio-surface-muted) !important;
 }
 .resource-tree:global(.ant-tree) :global(.ant-tree-treenode-selected),
 .resource-tree:global(.ant-tree) :global(.ant-tree-treenode-selected):hover {
   background: transparent !important;
 }
-.resource-tree:global(.ant-tree) :global(.ant-tree-node-content-wrapper):global(.ant-tree-node-selected),
-.resource-tree:global(.ant-tree) :global(.ant-tree-treenode-selected) > :global(.ant-tree-node-content-wrapper) {
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-node-content-wrapper):global(.ant-tree-node-selected),
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-treenode-selected)
+  > :global(.ant-tree-node-content-wrapper) {
   background: var(--studio-selection) !important;
 }
-.resource-tree:global(.ant-tree) :global(.ant-tree-treenode):hover > :global(.ant-tree-node-content-wrapper),
-.resource-tree:global(.ant-tree) :global(.ant-tree-treenode-selected) > :global(.ant-tree-node-content-wrapper) {
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-treenode):hover
+  > :global(.ant-tree-node-content-wrapper),
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-treenode-selected)
+  > :global(.ant-tree-node-content-wrapper) {
   border-radius: 8px;
 }
 .material-management-page {
@@ -596,7 +621,6 @@
   color: #778399;
   font-size: 12px;
 }
-
 
 /* Source: materials.module.scss */
 /* Styles owned by the materials application components. */

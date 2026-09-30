@@ -48,13 +48,15 @@ export function DefinitionList({
         return (
           <div
             key={item.key ?? `${String(item.label)}-${index}`}
-            className={cx(
-              item.wide && 'lab-ui-definition__item--wide',
-              item.className,
-            )}
+            className={cx(item.wide && 'lab-ui-definition__item--wide', item.className)}
           >
             <dt>{item.label}</dt>
-            <dd className={cx(item.mono && 'lab-ui-definition__value--mono', missing && 'lab-ui-definition__value--missing')}>
+            <dd
+              className={cx(
+                item.mono && 'lab-ui-definition__value--mono',
+                missing && 'lab-ui-definition__value--missing',
+              )}
+            >
               {missing ? (item.missingText ?? emptyValue) : item.value}
             </dd>
           </div>

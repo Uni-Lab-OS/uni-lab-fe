@@ -1,157 +1,138 @@
-import { cx } from "../../styles/styleMaps";
-import {
-  Alert,
-  Button,
-  Form,
-  Input,
-  Select,
-  Space,
-  Steps,
-  Tag,
-  Tooltip,
-  message,
-} from "antd";
-import { useEffect, useMemo, useState } from "react";
-import {
-  RunPreparationSummary,
-  RunSubmitConfirmation,
-  WorkflowInputForm,
-} from "@unilab/lab-ui";
-import type { StudioRoute } from "../../components/AppShell";
-import { AppIcon } from "../../components/ui/Icon";
-import { AsyncState } from "../../components/ui/AsyncState";
-import { PageHeader } from "../../components/ui/PageHeader";
-import { useBackend } from "../../app/BackendProvider";
-import { RunPreparationError } from "@unilab-fe/core";
-import { createRunPreparationReactStore } from "@unilab-fe/core/react";
-import { jsonText, nodeLabel, nodeUuid } from "./workflowPresentation";
-import { normalizeWorkflowInput, workflowInputDefaults } from "./WorkflowInputFields";
+import { cx } from '../../styles/styleMaps'
+import { Alert, Button, Form, Input, Select, Space, Steps, Tag, Tooltip, message } from 'antd'
+import { useEffect, useMemo, useState } from 'react'
+import { RunPreparationSummary, RunSubmitConfirmation, WorkflowInputForm } from '@unilab/lab-ui'
+import type { StudioRoute } from '../../components/AppShell'
+import { AppIcon } from '../../components/ui/Icon'
+import { AsyncState } from '../../components/ui/AsyncState'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { useBackend } from '../../app/BackendProvider'
+import { RunPreparationError } from '@unilab-fe/core'
+import { createRunPreparationReactStore } from '@unilab-fe/core/react'
+import { jsonText, nodeLabel, nodeUuid } from './workflowPresentation'
+import { normalizeWorkflowInput, workflowInputDefaults } from './WorkflowInputFields'
 
 export function WorkflowDebugPage({
   workflowUuid,
   onBack,
   onNavigate,
 }: {
-  workflowUuid: string;
-  onBack: () => void;
-  onNavigate: (route: StudioRoute) => void;
+  workflowUuid: string
+  onBack: () => void
+  onNavigate: (route: StudioRoute) => void
 }) {
-  const { backend } = useBackend();
-  const [messageApi, messageContextHolder] = message.useMessage();
+  const { backend } = useBackend()
+  const [messageApi, messageContextHolder] = message.useMessage()
   const useRunPreparationStore = useMemo(
     () => createRunPreparationReactStore(backend.core.runPreparation),
     [backend.core.runPreparation],
-  );
-  const storeStatus = useRunPreparationStore((state) => state.status);
-  const storeError = useRunPreparationStore((state) => state.error);
-  const viewModel = useRunPreparationStore((state) => state.viewModel);
-  const revision = useRunPreparationStore((state) => state.viewModel?.revision);
-  const preflight = useRunPreparationStore((state) => state.preflight);
-  const submitted = useRunPreparationStore((state) => state.submittedRun);
-  const configuration = useRunPreparationStore((state) => state.viewModel?.configuration);
-  const runMode = configuration?.runMode ?? "normal";
-  const targetNodeUuid = configuration?.targetNodeUuid ?? "";
-  const priority = configuration?.priority ?? "normal";
-  const taskName = configuration?.description ?? "";
-  const hasTaskConflict = storeError instanceof RunPreparationError && storeError.code === "DEVELOP_TASK_CONFLICT";
-  const [step, setStep] = useState(0);
-  const [workflowInput, setWorkflowInput] = useState<Record<string, unknown>>({});
-  const [busy, setBusy] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  )
+  const storeStatus = useRunPreparationStore((state) => state.status)
+  const storeError = useRunPreparationStore((state) => state.error)
+  const viewModel = useRunPreparationStore((state) => state.viewModel)
+  const revision = useRunPreparationStore((state) => state.viewModel?.revision)
+  const preflight = useRunPreparationStore((state) => state.preflight)
+  const submitted = useRunPreparationStore((state) => state.submittedRun)
+  const configuration = useRunPreparationStore((state) => state.viewModel?.configuration)
+  const runMode = configuration?.runMode ?? 'normal'
+  const targetNodeUuid = configuration?.targetNodeUuid ?? ''
+  const priority = configuration?.priority ?? 'normal'
+  const taskName = configuration?.description ?? ''
+  const hasTaskConflict =
+    storeError instanceof RunPreparationError && storeError.code === 'DEVELOP_TASK_CONFLICT'
+  const [step, setStep] = useState(0)
+  const [workflowInput, setWorkflowInput] = useState<Record<string, unknown>>({})
+  const [busy, setBusy] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
   const hasLocalWorkflowServiceError =
-    step === 1 && formError?.includes("本地工作流服务处理失败") === true;
+    step === 1 && formError?.includes('本地工作流服务处理失败') === true
   useEffect(() => {
-    void useRunPreparationStore.getState().load(workflowUuid);
-  }, [useRunPreparationStore, workflowUuid]);
+    void useRunPreparationStore.getState().load(workflowUuid)
+  }, [useRunPreparationStore, workflowUuid])
 
-  const inputParameters = useMemo(
-    () => revision?.graph.inputParameters ?? [],
-    [revision],
-  );
+  const inputParameters = useMemo(() => revision?.graph.inputParameters ?? [], [revision])
   const targetNodeOptions = useMemo(
     () =>
       revision?.graph.nodes.map((node, index) => {
-        const uuid = nodeUuid(node, index);
+        const uuid = nodeUuid(node, index)
         return {
           value: uuid,
           label: `${nodeLabel(node, index)} (${uuid})`,
-        };
+        }
       }) ?? [],
     [revision],
-  );
+  )
   useEffect(() => {
-    if (!revision) return;
-    const defaults = workflowInputDefaults(inputParameters);
-    setWorkflowInput(configuration?.input ?? defaults);
-    const current = useRunPreparationStore.getState().viewModel?.configuration;
+    if (!revision) return
+    const defaults = workflowInputDefaults(inputParameters)
+    setWorkflowInput(configuration?.input ?? defaults)
+    const current = useRunPreparationStore.getState().viewModel?.configuration
     if (!current?.description) {
       useRunPreparationStore.getState().updateConfiguration({
         description: revision.name,
         input: configuration?.input ?? defaults,
-      });
+      })
     }
-  }, [configuration?.input, inputParameters, revision, useRunPreparationStore]);
+  }, [configuration?.input, inputParameters, revision, useRunPreparationStore])
 
   const runPreflight = async () => {
-    if (!revision) return;
-    setBusy(true);
-    setFormError(null);
+    if (!revision) return
+    setBusy(true)
+    setFormError(null)
     try {
       if (!taskName.trim()) {
-        setFormError("请填写任务名称");
-        return;
+        setFormError('请填写任务名称')
+        return
       }
-      if (runMode === "single_node" && !targetNodeUuid) {
-        setFormError("请选择目标节点");
-        return;
+      if (runMode === 'single_node' && !targetNodeUuid) {
+        setFormError('请选择目标节点')
+        return
       }
-      const nextInput = normalizeWorkflowInput(workflowInput, inputParameters);
-      const store = useRunPreparationStore.getState();
+      const nextInput = normalizeWorkflowInput(workflowInput, inputParameters)
+      const store = useRunPreparationStore.getState()
       store.updateConfiguration({
         runMode,
         priority,
         description: taskName.trim(),
         input: nextInput,
-      });
-      await store.requestPreflight();
-      const nextState = useRunPreparationStore.getState();
-      if (nextState.error) throw nextState.error;
-      setStep(1);
+      })
+      await store.requestPreflight()
+      const nextState = useRunPreparationStore.getState()
+      if (nextState.error) throw nextState.error
+      setStep(1)
     } catch (error) {
-      setFormError(
-        error instanceof Error ? error.message : "请完善必填运行参数",
-      );
+      setFormError(error instanceof Error ? error.message : '请完善必填运行参数')
     } finally {
-      setBusy(false);
+      setBusy(false)
     }
-  };
+  }
   const submit = async () => {
-    if (!revision || !preflight?.canRun) return;
-    setBusy(true);
-    setFormError(null);
+    if (!revision || !preflight?.canRun) return
+    setBusy(true)
+    setFormError(null)
     try {
-      await useRunPreparationStore.getState().submitRun();
-      const nextState = useRunPreparationStore.getState();
-      if (nextState.error) throw nextState.error;
-      if (!nextState.submittedRun) throw new Error("后端未返回已接受的任务");
-      setStep(2);
-      messageApi.success("任务已提交");
+      await useRunPreparationStore.getState().submitRun()
+      const nextState = useRunPreparationStore.getState()
+      if (nextState.error) throw nextState.error
+      if (!nextState.submittedRun) throw new Error('后端未返回已接受的任务')
+      setStep(2)
+      messageApi.success('任务已提交')
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "提交失败");
+      setFormError(error instanceof Error ? error.message : '提交失败')
     } finally {
-      setBusy(false);
+      setBusy(false)
     }
-  };
+  }
   return (
-    <div className={cx("page-stack workflow-debug-page")}>
+    <div className={cx('page-stack workflow-debug-page')}>
       {messageContextHolder}
       <PageHeader
-        title={revision?.name ?? "工作流调试"}
+        title={revision?.name ?? '工作流调试'}
         leading={
           <Tooltip title="返回工作流">
             <Button
               type="text"
-              className={cx("page-header-back")}
+              className={cx('page-header-back')}
               aria-label="返回工作流"
               onClick={onBack}
               icon={<AppIcon name="arrows/arrow-left" size={18} />}
@@ -160,32 +141,28 @@ export function WorkflowDebugPage({
         }
       />
       <AsyncState
-        loading={storeStatus === "loading" || storeStatus === "idle"}
+        loading={storeStatus === 'loading' || storeStatus === 'idle'}
         // 提交/依赖检查失败时保留当前工作流页面，让步骤内的 formError 展示可操作提示；
         // 只有初次加载还没有 revision 时才显示整页数据加载错误。
-        error={!revision ? storeError ?? undefined : undefined}
+        error={!revision ? (storeError ?? undefined) : undefined}
         onRetry={() => void useRunPreparationStore.getState().load(workflowUuid)}
-        empty={storeStatus !== "loading" && storeStatus !== "idle" && !revision}
+        empty={storeStatus !== 'loading' && storeStatus !== 'idle' && !revision}
       >
         {revision && (
           <>
             <Steps
-              className={cx("workflow-debug-steps")}
+              className={cx('workflow-debug-steps')}
               current={step}
-              items={[
-                { title: "填写入参" },
-                { title: "依赖检查" },
-                { title: "提交任务" },
-              ]}
+              items={[{ title: '填写入参' }, { title: '依赖检查' }, { title: '提交任务' }]}
             />
             {step === 0 && (
-              <section className={cx("detail-card debug-step-card")}>
-                <div className={cx("section-title")}>
+              <section className={cx('detail-card debug-step-card')}>
+                <div className={cx('section-title')}>
                   <h2>填写运行参数</h2>
                   <Tag color="blue">v{revision.revision}</Tag>
                 </div>
                 <Form layout="vertical">
-                  <div className={cx("debug-run-options")}>
+                  <div className={cx('debug-run-options')}>
                     <Form.Item label="运行模式">
                       <Select
                         showSearch
@@ -193,7 +170,7 @@ export function WorkflowDebugPage({
                         value={runMode}
                         onChange={(value) =>
                           useRunPreparationStore.getState().updateConfiguration(
-                            value === "single_node"
+                            value === 'single_node'
                               ? { runMode: value as typeof runMode }
                               : {
                                   runMode: value as typeof runMode,
@@ -202,9 +179,9 @@ export function WorkflowDebugPage({
                           )
                         }
                         options={[
-                          { value: "normal", label: "正常运行" },
-                          { value: "step", label: "单步运行" },
-                          { value: "single_node", label: "单节点运行" },
+                          { value: 'normal', label: '正常运行' },
+                          { value: 'step', label: '单步运行' },
+                          { value: 'single_node', label: '单节点运行' },
                         ]}
                       />
                     </Form.Item>
@@ -215,16 +192,16 @@ export function WorkflowDebugPage({
                         value={priority}
                         onChange={(value) =>
                           useRunPreparationStore.getState().updateConfiguration({
-                            priority: value as "normal" | "high",
+                            priority: value as 'normal' | 'high',
                           })
                         }
                         options={[
-                          { value: "normal", label: "普通" },
-                          { value: "high", label: "高" },
+                          { value: 'normal', label: '普通' },
+                          { value: 'high', label: '高' },
                         ]}
                       />
                     </Form.Item>
-                    {runMode === "single_node" && (
+                    {runMode === 'single_node' && (
                       <Form.Item label="目标节点" required>
                         <Select
                           showSearch
@@ -253,9 +230,11 @@ export function WorkflowDebugPage({
                     />
                   </Form.Item>
                   <div
-                    className={cx(`workflow-input-section ${inputParameters.length === 0 ? "workflow-input-section--empty" : ""}`)}
+                    className={cx(
+                      `workflow-input-section ${inputParameters.length === 0 ? 'workflow-input-section--empty' : ''}`,
+                    )}
                   >
-                    <div className={cx("workflow-input-section__heading")}>
+                    <div className={cx('workflow-input-section__heading')}>
                       <strong>工作流参数</strong>
                     </div>
                     <WorkflowInputForm
@@ -265,12 +244,7 @@ export function WorkflowDebugPage({
                     />
                   </div>
                   {formError && (
-                    <Alert
-                      className={cx("form-error")}
-                      type="error"
-                      showIcon
-                      message={formError}
-                    />
+                    <Alert className={cx('form-error')} type="error" showIcon message={formError} />
                   )}
                   <Button type="primary" loading={busy} onClick={runPreflight}>
                     {busy ? "正在检查运行条件…" : "下一步：依赖检查"}
@@ -287,32 +261,25 @@ export function WorkflowDebugPage({
               </section>
             )}
             {step === 1 && (
-              <section className={cx("detail-card debug-step-card")}>
-                {viewModel && (
-                  <RunPreparationSummary
-                    viewModel={viewModel}
-                    preflight={preflight}
-                  />
-                )}
+              <section className={cx('detail-card debug-step-card')}>
+                {viewModel && <RunPreparationSummary viewModel={viewModel} preflight={preflight} />}
                 {formError && (
                   <Alert
-                    className={cx("form-error")}
+                    className={cx('form-error')}
                     type="error"
                     showIcon
                     message={formError}
                     description={
                       hasLocalWorkflowServiceError
-                        ? "后端可能已经创建任务，但本地调度尚未完成。请先到任务列表核对；若没有记录，确认本地工作流服务和设备动作定义后再重试。"
+                        ? '后端可能已经创建任务，但本地调度尚未完成。请先到任务列表核对；若没有记录，确认本地工作流服务和设备动作定义后再重试。'
                         : undefined
                     }
                     action={
-                      hasTaskConflict || hasLocalWorkflowServiceError
-                        ? (
-                          <Button type="link" onClick={() => onNavigate("tasks")}>
-                            查看任务列表
-                          </Button>
-                        )
-                        : undefined
+                      hasTaskConflict || hasLocalWorkflowServiceError ? (
+                        <Button type="link" onClick={() => onNavigate('tasks')}>
+                          查看任务列表
+                        </Button>
+                      ) : undefined
                     }
                   />
                 )}
@@ -326,36 +293,34 @@ export function WorkflowDebugPage({
               </section>
             )}
             {step === 2 && (
-              <section className={cx("detail-card debug-step-card debug-step-card--submitted")}>
+              <section className={cx('detail-card debug-step-card debug-step-card--submitted')}>
                 <Alert
                   type="success"
                   showIcon
                   message="任务已提交"
                   description={
-                    submitted
-                      ? (
-                        <span className={cx("debug-result-summary")}>
-                          <span>任务名称：{taskName}</span>
-                          <span>任务编号：{submitted.taskUuid}</span>
-                        </span>
-                      )
-                      : "后端已接受本次运行"
+                    submitted ? (
+                      <span className={cx('debug-result-summary')}>
+                        <span>任务名称：{taskName}</span>
+                        <span>任务编号：{submitted.taskUuid}</span>
+                      </span>
+                    ) : (
+                      '后端已接受本次运行'
+                    )
                   }
                 />
-                <Space className={cx("debug-result-actions")}>
-                  <Button type="primary" onClick={() => onNavigate("tasks")}>
+                <Space className={cx('debug-result-actions')}>
+                  <Button type="primary" onClick={() => onNavigate('tasks')}>
                     查看任务
                   </Button>
                   <Button onClick={onBack}>返回工作流</Button>
                 </Space>
-                <pre className={cx("schema-block-pre")}>
-                  {jsonText(submitted?.raw)}
-                </pre>
+                <pre className={cx('schema-block-pre')}>{jsonText(submitted?.raw)}</pre>
               </section>
             )}
           </>
         )}
       </AsyncState>
     </div>
-  );
+  )
 }

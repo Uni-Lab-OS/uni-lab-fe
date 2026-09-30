@@ -50,13 +50,22 @@ export function SchemaInputField({
       <span className={cx('lab-ui-form-field__label')}>
         <span>
           {label}
-          {required && <span className={cx('lab-ui-required-mark')} aria-hidden="true"> *</span>}
+          {required && (
+            <span className={cx('lab-ui-required-mark')} aria-hidden="true">
+              {' '}
+              *
+            </span>
+          )}
         </span>
         {name && name !== label && <code>{name}</code>}
       </span>
       {input}
       {description && <small>{description}</small>}
-      {error && <span className={cx('lab-ui-form-field__error')} role="alert">{error}</span>}
+      {error && (
+        <span className={cx('lab-ui-form-field__error')} role="alert">
+          {error}
+        </span>
+      )}
     </label>
   )
 }
@@ -164,9 +173,7 @@ function isStructuredSchema(schema: Readonly<Record<string, unknown>>): boolean 
 function schemaType(schema: Readonly<Record<string, unknown>>): string | undefined {
   if (typeof schema.type === 'string') return schema.type
   if (Array.isArray(schema.type)) {
-    return schema.type.find(
-      (item): item is string => typeof item === 'string' && item !== 'null',
-    )
+    return schema.type.find((item): item is string => typeof item === 'string' && item !== 'null')
   }
   return undefined
 }

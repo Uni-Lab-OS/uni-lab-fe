@@ -12,7 +12,7 @@ class FakeTransport implements RequestTransport {
     status: 'runnable_now',
     can_run: true,
     checked_at: '2026-09-24T00:00:00Z',
-    checks: []
+    checks: [],
   }
 
   async request<Value>(request: TransportRequest): Promise<TransportResponse<Value>> {
@@ -21,7 +21,7 @@ class FakeTransport implements RequestTransport {
       return {
         status: 202,
         headers: {},
-        data: { task_uuid: 'task-1', accepted_at: '2026-09-24T00:00:01Z' } as Value
+        data: { task_uuid: 'task-1', accepted_at: '2026-09-24T00:00:01Z' } as Value,
       }
     }
     return { status: 200, headers: {}, data: this.response as Value }
@@ -74,22 +74,24 @@ describe('run preparation client', () => {
     await client.requestPreflight('wf-1', configuration, binding)
     await client.submitRun('wf-1', { ...configuration, description: 'debug run' }, binding)
 
-    expect(transport.requests.map(request => [request.method, request.url])).toEqual([
+    expect(transport.requests.map((request) => [request.method, request.url])).toEqual([
       ['POST', '/api/v1/workflows/wf-1/run-preflight'],
-      ['POST', '/api/v1/workflow-tasks']
+      ['POST', '/api/v1/workflow-tasks'],
     ])
     expect(transport.requests[1]?.body).toMatchObject({
       workflow_uuid: 'wf-1',
       priority: 'normal',
-      description: 'debug run'
+      description: 'debug run',
     })
   })
 
   it('blocks unmapped selected resources before submit', async () => {
     const client = new RunPreparationClient(new FakeTransport())
-    await expect(client.submitRun('wf-1', configuration, {
-      ...binding,
-      selectedResources: { device: 'device-1' }
-    })).rejects.toMatchObject({ code: 'UNMAPPED_RESOURCE_SELECTION' })
+    await expect(
+      client.submitRun('wf-1', configuration, {
+        ...binding,
+        selectedResources: { device: 'device-1' },
+      }),
+    ).rejects.toMatchObject({ code: 'UNMAPPED_RESOURCE_SELECTION' })
   })
 })

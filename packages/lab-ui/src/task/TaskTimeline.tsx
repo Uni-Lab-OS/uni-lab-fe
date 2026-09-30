@@ -76,45 +76,63 @@ export function TaskTimeline({
   if (loading) return <TimelineSkeleton className={names.list} />
   return (
     <div className={cx(names.list)}>
-      {items.length === 0 ? empty : items.map((item, index) => {
-        const last = Boolean(isLast?.(item, index))
-        const row = (
-          <button
-            type="button"
-            key={item.id}
-            className={cx(names.row, selectedId === item.id && 'is-selected')}
-            data-status={item.status}
-            data-last={last ? 'true' : undefined}
-            onClick={() => onSelect?.(item)}
-            disabled={!onSelect}
-          >
-            <span className={cx(names.time)}>{item.time}</span>
-            <span className={cx(names.marker)} data-status={item.status} aria-hidden="true">
-              {renderMarker?.(item) ?? <Icon name={(statusMarker[item.status] ?? 'general/info-circle') as never} size={14} color="inherit" />}
-            </span>
-            <span className={cx(names.content)}>
-              <span className={cx(names.head)}>
-                <span className={cx(names.title)}>{item.title}</span>
-                <StatusBadge status={item.status} />
-              </span>
-              <span className={cx(names.meta)}>
-                <span>执行设备：{item.device ?? 'OS 未提供'}</span>
-                <span>持续时间：{item.duration}</span>
-              </span>
-              {item.status === 'running' && <span className={cx(names.progress)}><span style={{ width: `${item.progress ?? 0}%` }} /></span>}
-            </span>
-            <span className={cx(names.chevron)} aria-hidden="true"><Icon name="arrows/chevron-right" size={16} color="inherit" /></span>
-          </button>
-        )
-        return row
-      })}
+      {items.length === 0
+        ? empty
+        : items.map((item, index) => {
+            const last = Boolean(isLast?.(item, index))
+            const row = (
+              <button
+                type="button"
+                key={item.id}
+                className={cx(names.row, selectedId === item.id && 'is-selected')}
+                data-status={item.status}
+                data-last={last ? 'true' : undefined}
+                onClick={() => onSelect?.(item)}
+                disabled={!onSelect}
+              >
+                <span className={cx(names.time)}>{item.time}</span>
+                <span className={cx(names.marker)} data-status={item.status} aria-hidden="true">
+                  {renderMarker?.(item) ?? (
+                    <Icon
+                      name={(statusMarker[item.status] ?? 'general/info-circle') as never}
+                      size={14}
+                      color="inherit"
+                    />
+                  )}
+                </span>
+                <span className={cx(names.content)}>
+                  <span className={cx(names.head)}>
+                    <span className={cx(names.title)}>{item.title}</span>
+                    <StatusBadge status={item.status} />
+                  </span>
+                  <span className={cx(names.meta)}>
+                    <span>执行设备：{item.device ?? 'OS 未提供'}</span>
+                    <span>持续时间：{item.duration}</span>
+                  </span>
+                  {item.status === 'running' && (
+                    <span className={cx(names.progress)}>
+                      <span style={{ width: `${item.progress ?? 0}%` }} />
+                    </span>
+                  )}
+                </span>
+                <span className={cx(names.chevron)} aria-hidden="true">
+                  <Icon name="arrows/chevron-right" size={16} color="inherit" />
+                </span>
+              </button>
+            )
+            return row
+          })}
     </div>
   )
 }
 
 function TimelineSkeleton({ className }: { readonly className: string }) {
   return (
-    <div className={cx(className, 'lab-ui-task-timeline__skeleton')} role="status" aria-label="正在加载执行时间线">
+    <div
+      className={cx(className, 'lab-ui-task-timeline__skeleton')}
+      role="status"
+      aria-label="正在加载执行时间线"
+    >
       {Array.from({ length: 5 }, (_, index) => (
         <div className={cx('lab-ui-task-timeline__skeleton-row')} key={index}>
           <span className={cx('lab-ui-task-timeline__skeleton-time')} />

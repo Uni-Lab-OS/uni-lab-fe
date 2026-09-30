@@ -10,7 +10,9 @@ import { SpecimenFrame } from './components/SpecimenFrame'
 function initialComponentId(): string {
   const requested = window.location.hash.replace(/^#\/?/, '')
   if (requested === 'icons') return requested
-  return componentRegistry.some((item) => item.id === requested) ? requested : componentRegistry[0].id
+  return componentRegistry.some((item) => item.id === requested)
+    ? requested
+    : componentRegistry[0].id
 }
 
 export function App(): React.JSX.Element {
@@ -26,10 +28,14 @@ export function App(): React.JSX.Element {
 
   const isIconPage = selectedId === 'icons'
   const component = isIconPage ? null : getComponent(selectedId)
-  const antdConfig = useMemo(() => createAntdTheme(theme, {
-    defaultAlgorithm: antTheme.defaultAlgorithm,
-    darkAlgorithm: antTheme.darkAlgorithm,
-  }), [theme.preset, theme.resolvedMode])
+  const antdConfig = useMemo(
+    () =>
+      createAntdTheme(theme, {
+        defaultAlgorithm: antTheme.defaultAlgorithm,
+        darkAlgorithm: antTheme.darkAlgorithm,
+      }),
+    [theme.preset, theme.resolvedMode],
+  )
 
   const selectComponent = (id: string): void => {
     setSelectedId(id)
@@ -53,13 +59,22 @@ export function App(): React.JSX.Element {
             </div>
           </div>
           <div className="header-controls">
-            <span className="mode-readout">{theme.resolvedMode === 'dark' ? 'Dark' : 'Light'} · {componentRegistry.length} components · 1227 icons</span>
-            <button className="control-button" type="button" onClick={changeMode}>{theme.resolvedMode === 'dark' ? '切换浅色' : '切换深色'}</button>
+            <span className="mode-readout">
+              {theme.resolvedMode === 'dark' ? 'Dark' : 'Light'} · {componentRegistry.length}{' '}
+              components · 1227 icons
+            </span>
+            <button className="control-button" type="button" onClick={changeMode}>
+              {theme.resolvedMode === 'dark' ? '切换浅色' : '切换深色'}
+            </button>
           </div>
         </header>
 
         <div className="catalog-layout">
-          <Sidebar components={componentRegistry} selectedId={selectedId} onSelect={selectComponent} />
+          <Sidebar
+            components={componentRegistry}
+            selectedId={selectedId}
+            onSelect={selectComponent}
+          />
           <main className="catalog-main">
             {isIconPage ? (
               <IconGallery />
@@ -68,7 +83,10 @@ export function App(): React.JSX.Element {
                 <section className="catalog-intro">
                   <span className="eyebrow">COMPONENTS / FILE ORDER</span>
                   <h2>按设计文件顺序逐页核验。</h2>
-                  <p>左侧导航来自 Figma File 的 Components 页面，当前页的状态、尺寸和变量绑定记录在审计条带中。</p>
+                  <p>
+                    左侧导航来自 Figma File 的 Components
+                    页面，当前页的状态、尺寸和变量绑定记录在审计条带中。
+                  </p>
                 </section>
                 {component && (
                   <SpecimenFrame component={component}>

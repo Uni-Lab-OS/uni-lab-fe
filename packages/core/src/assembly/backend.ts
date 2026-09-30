@@ -41,13 +41,16 @@ export interface BackendCoreIntegrations {
   readonly runtimeEvents?: WorkflowRuntimeEventsPort
 }
 
-export function createBackendCore(options: FetchTransportOptions, integrations: BackendCoreIntegrations = {}): BackendCore {
+export function createBackendCore(
+  options: FetchTransportOptions,
+  integrations: BackendCoreIntegrations = {},
+): BackendCore {
   return createBackendCoreFromTransport(createFetchTransport(options), integrations)
 }
 
 export function createBackendCoreFromTransport(
   transport: RequestTransport,
-  integrations: BackendCoreIntegrations = {}
+  integrations: BackendCoreIntegrations = {},
 ): BackendCore {
   const workflowDefinitions = new WorkflowDefinitionClient(transport)
   const runPreparationPort = new RunPreparationClient(transport)
@@ -70,22 +73,22 @@ export function createBackendCoreFromTransport(
     materialSite,
     reagentInventory,
     evidenceIntervention,
-    runPreparation: createRunPreparationScenario(
-      workflowDefinitions,
-      runPreparationPort,
-      { deviceActions, materialSite, reagentInventory }
-    ),
+    runPreparation: createRunPreparationScenario(workflowDefinitions, runPreparationPort, {
+      deviceActions,
+      materialSite,
+      reagentInventory,
+    }),
     workflowDebugging: createWorkflowDebuggingScenario(
       executionRead,
       workflowDefinitions,
       executionControl,
-      integrations.runtimeEvents
+      integrations.runtimeEvents,
     ),
     deviceActionDebugging: createDeviceActionDebuggingScenario(deviceActions, executionRead),
     laboratoryOperations: createLaboratoryOperationsScenario(
       executionRead,
       deviceActions,
-      evidenceIntervention
-    )
+      evidenceIntervention,
+    ),
   }
 }

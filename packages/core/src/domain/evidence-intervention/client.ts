@@ -6,20 +6,24 @@ import type { EvidenceInterventionPort } from './port'
 export class EvidenceInterventionClient implements EvidenceInterventionPort {
   constructor(
     private readonly transport: RequestTransport,
-    private readonly apiPrefix = '/api/v1'
+    private readonly apiPrefix = '/api/v1',
   ) {}
 
-  async listInterventions(input: {
-    readonly status?: string
-    readonly limit?: number
-  } = {}) {
+  async listInterventions(
+    input: {
+      readonly status?: string
+      readonly limit?: number
+    } = {},
+  ) {
     const params = new URLSearchParams({
       status: input.status ?? 'open',
-      limit: String(input.limit ?? 100)
+      limit: String(input.limit ?? 100),
     })
-    const response = await this.transport.request<InterventionListResponse | readonly EvidenceInterventionRecord[]>({
+    const response = await this.transport.request<
+      InterventionListResponse | readonly EvidenceInterventionRecord[]
+    >({
       method: 'GET',
-      url: `${this.apiPrefix}/workflow-interventions?${params.toString()}`
+      url: `${this.apiPrefix}/workflow-interventions?${params.toString()}`,
     })
     return decodeInterventionList(response.data)
   }
@@ -27,7 +31,7 @@ export class EvidenceInterventionClient implements EvidenceInterventionPort {
   async getIntervention(interventionUuid: string) {
     const response = await this.transport.request<EvidenceInterventionRecord>({
       method: 'GET',
-      url: `${this.apiPrefix}/workflow-interventions/${encodeURIComponent(interventionUuid)}`
+      url: `${this.apiPrefix}/workflow-interventions/${encodeURIComponent(interventionUuid)}`,
     })
     return decodeIntervention(response.data)
   }

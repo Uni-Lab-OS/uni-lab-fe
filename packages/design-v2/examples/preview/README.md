@@ -28,16 +28,16 @@ Icon 页面使用 `@unilab/design-v2/icons` 的 manifest 做索引，支持按�
 
 ## 代码职责
 
-| 文件 | 职责 |
-| --- | --- |
+| 文件                                  | 职责                                                  |
+| ------------------------------------- | ----------------------------------------------------- |
 | `src/components/componentRegistry.ts` | 68 个组件的顺序、分组、状态、尺寸、变量绑定和审计状态 |
-| `src/components/Sidebar.tsx` | File → Components 左导航 |
-| `src/components/IconGallery.tsx` | Icon 集合搜索、分类筛选、主题色和自定义颜色预览 |
-| `src/components/SpecimenFrame.tsx` | 页面标题、审计条带、设计来源说明和公共展示框架 |
-| `src/components/ComponentDemo.tsx` | 当前演示组件和 example-shell |
-| `src/App.tsx` | hash 选择、主题订阅和 AntD `ConfigProvider` |
-| `src/styles.css` | 预览页布局和仅限 example 的展示样式 |
-| `COMPONENT-AUDIT.md` | Figma/localhost 核验矩阵和证据记录 |
+| `src/components/Sidebar.tsx`          | File → Components 左导航                              |
+| `src/components/IconGallery.tsx`      | Icon 集合搜索、分类筛选、主题色和自定义颜色预览       |
+| `src/components/SpecimenFrame.tsx`    | 页面标题、审计条带、设计来源说明和公共展示框架        |
+| `src/components/ComponentDemo.tsx`    | 当前演示组件和 example-shell                          |
+| `src/App.tsx`                         | hash 选择、主题订阅和 AntD `ConfigProvider`           |
+| `src/styles.css`                      | 预览页布局和仅限 example 的展示样式                   |
+| `COMPONENT-AUDIT.md`                  | Figma/localhost 核验矩阵和证据记录                    |
 
 ## 新增或校正组件
 

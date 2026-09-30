@@ -1,29 +1,20 @@
-import { cx } from "../../styles/styleMaps";
-import {
-  Button,
-  Input,
-  Modal,
-  Select,
-  Space,
-  Table,
-  Tooltip,
-  message,
-} from "antd";
-import type { TableColumnsType } from "antd";
-import { EmptyState } from "@unilab/design-v2";
-import { AppIcon } from "../../components/ui/Icon";
-import { StatusBadge } from "../../components/ui/StatusBadge";
-import { formatDateTime, type TaskRow } from "./taskPresentation";
-import { TableText } from "../../components/ui/TableText";
+import { cx } from '../../styles/styleMaps'
+import { Button, Input, Modal, Select, Space, Table, Tooltip, message } from 'antd'
+import type { TableColumnsType } from 'antd'
+import { EmptyState } from '@unilab/design-v2'
+import { AppIcon } from '../../components/ui/Icon'
+import { StatusBadge } from '../../components/ui/StatusBadge'
+import { formatDateTime, type TaskRow } from './taskPresentation'
+import { TableText } from '../../components/ui/TableText'
 
 interface TaskTableProps {
-  rows: readonly TaskRow[];
-  keyword: string;
-  status: string;
-  onKeywordChange: (value: string) => void;
-  onStatusChange: (value: string) => void;
-  onView: (row: TaskRow) => void;
-  onAbort: (row: TaskRow) => void;
+  rows: readonly TaskRow[]
+  keyword: string
+  status: string
+  onKeywordChange: (value: string) => void
+  onStatusChange: (value: string) => void
+  onView: (row: TaskRow) => void
+  onAbort: (row: TaskRow) => void
 }
 
 export function TaskTable({
@@ -35,17 +26,17 @@ export function TaskTable({
   onView,
   onAbort,
 }: TaskTableProps) {
-  const hasTableFilter = Boolean(keyword.trim()) || status !== "all";
+  const hasTableFilter = Boolean(keyword.trim()) || status !== 'all'
   const columns: TableColumnsType<TaskRow> = [
     {
-      title: "任务",
-      key: "name",
+      title: '任务',
+      key: 'name',
       width: 280,
       render: (_, row) => (
-        <div className={cx("primary-cell")}>
+        <div className={cx('primary-cell')}>
           <button
             type="button"
-            className={cx("primary-cell-link")}
+            className={cx('primary-cell-link')}
             aria-label={`查看任务 ${row.name}`}
             onClick={() => onView(row)}
           >
@@ -55,54 +46,54 @@ export function TaskTable({
       ),
     },
     {
-      title: "工作流",
-      key: "workflowName",
+      title: '工作流',
+      key: 'workflowName',
       width: 240,
       render: (_, row) => (
-        <div className={cx("overview-table-text-cell")}>
+        <div className={cx('overview-table-text-cell')}>
           <TableText text={row.workflowName} />
         </div>
       ),
     },
     {
-      title: "优先级",
-      dataIndex: ["task", "priority"],
+      title: '优先级',
+      dataIndex: ['task', 'priority'],
       width: 100,
       render: (value: string | null) => <PriorityLabel value={value} />,
     },
     {
-      title: "进度",
-      key: "progress",
-      align: "center",
+      title: '进度',
+      key: 'progress',
+      align: 'center',
       width: 170,
       render: (_, row) => (
-        <div className={cx("progress-cell")}>
-          <span>{row.progress == null ? "—" : `${row.progress}%`}</span>
+        <div className={cx('progress-cell')}>
+          <span>{row.progress == null ? '—' : `${row.progress}%`}</span>
           <StatusBadge status={row.status} />
         </div>
       ),
     },
     {
-      title: "时间",
-      key: "time",
-      align: "center",
+      title: '时间',
+      key: 'time',
+      align: 'center',
       width: 190,
       render: (_, row) => (
-        <time className={cx("muted-cell")} dateTime={row.createdAt}>
-          {row.createdAt ? formatDateTime(row.createdAt) : "未提供"}
+        <time className={cx('muted-cell')} dateTime={row.createdAt}>
+          {row.createdAt ? formatDateTime(row.createdAt) : '未提供'}
         </time>
       ),
     },
     {
-      title: "操作",
-      key: "operation",
-      align: "center",
+      title: '操作',
+      key: 'operation',
+      align: 'center',
       width: 120,
       render: (_, row) => (
         <Space size={2}>
           <Tooltip title="查看任务">
             <Button
-              className={cx("icon-button")}
+              className={cx('icon-button')}
               type="text"
               icon={<AppIcon name="general/eye" size={18} />}
               aria-label={`查看任务 ${row.name}`}
@@ -111,12 +102,10 @@ export function TaskTable({
           </Tooltip>
           <Tooltip title="中止任务">
             <Button
-              className={cx("icon-button")}
+              className={cx('icon-button')}
               type="text"
               danger
-              disabled={
-                !["running", "waiting", "attention"].includes(row.status)
-              }
+              disabled={!['running', 'waiting', 'attention'].includes(row.status)}
               icon={<AppIcon name="media/stop-circle" size={16} />}
               aria-label={`中止任务 ${row.name}`}
               onClick={() => onAbort(row)}
@@ -125,17 +114,17 @@ export function TaskTable({
         </Space>
       ),
     },
-  ];
+  ]
 
   return (
-    <section className={cx("data-section")}>
-      <div className={cx("data-section-toolbar")}>
-        <div className={cx("section-title")}>
+    <section className={cx('data-section')}>
+      <div className={cx('data-section-toolbar')}>
+        <div className={cx('section-title')}>
           <h2>所有任务</h2>
         </div>
         <Space>
           <Input
-            className={cx("search-input")}
+            className={cx('search-input')}
             allowClear
             prefix={<AppIcon name="general/search-md" size={16} />}
             placeholder="搜索任务"
@@ -143,15 +132,15 @@ export function TaskTable({
             onChange={(event) => onKeywordChange(event.target.value)}
           />
           <Select
-            className={cx("status-select")}
+            className={cx('status-select')}
             value={status}
             onChange={onStatusChange}
             options={[
-              { value: "all", label: "全部状态" },
-              { value: "waiting", label: "等待中" },
-              { value: "running", label: "执行中" },
-              { value: "attention", label: "异常" },
-              { value: "completed", label: "已完成" },
+              { value: 'all', label: '全部状态' },
+              { value: 'waiting', label: '等待中' },
+              { value: 'running', label: '执行中' },
+              { value: 'attention', label: '异常' },
+              { value: 'completed', label: '已完成' },
             ]}
           />
         </Space>
@@ -164,42 +153,42 @@ export function TaskTable({
         locale={{
           emptyText: (
             <EmptyState
-              scene={hasTableFilter ? "no-results" : "no-data"}
+              scene={hasTableFilter ? 'no-results' : 'no-data'}
               size="compact"
-              title={hasTableFilter ? "没有匹配的任务" : "暂无任务"}
+              title={hasTableFilter ? '没有匹配的任务' : '暂无任务'}
             />
           ),
         }}
         pagination={{ pageSize: 10, hideOnSinglePage: true }}
       />
     </section>
-  );
+  )
 }
 
 function PriorityLabel({ value }: { value: string | null | undefined }) {
-  const normalized = value?.toLowerCase() ?? "normal";
+  const normalized = value?.toLowerCase() ?? 'normal'
   const label =
-    normalized === "urgent" || normalized === "critical"
-      ? "紧急"
-      : normalized === "high"
-        ? "高"
-        : normalized === "low"
-          ? "低"
-          : normalized === "normal"
-            ? "普通"
-            : value ?? "普通";
+    normalized === 'urgent' || normalized === 'critical'
+      ? '紧急'
+      : normalized === 'high'
+        ? '高'
+        : normalized === 'low'
+          ? '低'
+          : normalized === 'normal'
+            ? '普通'
+            : (value ?? '普通')
   const tone =
-    normalized === "urgent" || normalized === "critical"
-      ? "urgent"
-      : normalized === "high"
-        ? "high"
-        : normalized === "low"
-          ? "low"
-          : "normal";
+    normalized === 'urgent' || normalized === 'critical'
+      ? 'urgent'
+      : normalized === 'high'
+        ? 'high'
+        : normalized === 'low'
+          ? 'low'
+          : 'normal'
   return (
     <span className={cx(`priority-label priority-label--${tone}`)}>
-      <span className={cx("priority-dot")} aria-hidden="true" />
+      <span className={cx('priority-dot')} aria-hidden="true" />
       {label}
     </span>
-  );
+  )
 }

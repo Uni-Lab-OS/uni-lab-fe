@@ -1,16 +1,11 @@
 import { RunPreparationError } from './errors'
-import type {
-  NodeJobDetail,
-  PreflightCheck,
-  PreflightReport,
-  SubmittedRun
-} from './model'
+import type { NodeJobDetail, PreflightCheck, PreflightReport, SubmittedRun } from './model'
 import type { RunPreparationRecord } from './api'
 import type { RunConfiguration } from './model'
 
 export function decodePreflightReport(
   value: unknown,
-  configuration: RunConfiguration
+  configuration: RunConfiguration,
 ): PreflightReport {
   const record = unwrapData(asRecord(value, 'preflight'))
   const checks = Array.isArray(record.checks)
@@ -21,13 +16,13 @@ export function decodePreflightReport(
     : []
   const workflowRevision = numberValue(
     record.workflow_revision ?? record.revision,
-    'preflight.workflow_revision'
+    'preflight.workflow_revision',
   )
   const checkedAt = stringValue(record.checked_at, 'preflight.checked_at')
   const status = enumValue(
     record.status,
     ['runnable_now', 'temporarily_unavailable', 'invalid'] as const,
-    'preflight.status'
+    'preflight.status',
   )
   return {
     kind: 'preflight_report',
@@ -41,16 +36,13 @@ export function decodePreflightReport(
     status,
     canRun: record.can_run === true || status === 'runnable_now',
     checkedAt,
-    checks
+    checks,
   }
 }
 
 export function decodeSubmittedRun(value: unknown): SubmittedRun {
   const record = unwrapData(asRecord(value, 'submit run'))
-  const taskUuid = stringValue(
-    record.task_uuid ?? record.uuid,
-    'submit run.task_uuid'
-  )
+  const taskUuid = stringValue(record.task_uuid ?? record.uuid, 'submit run.task_uuid')
   return {
     kind: 'submitted_run',
     source: 'os',
@@ -58,7 +50,7 @@ export function decodeSubmittedRun(value: unknown): SubmittedRun {
     ...(optionalString(record.accepted_at) === undefined
       ? {}
       : { acceptedAt: optionalString(record.accepted_at) }),
-    raw: record
+    raw: record,
   }
 }
 
@@ -70,7 +62,7 @@ export function decodeNodeJobDetail(value: unknown): NodeJobDetail {
     jobUuid: stringValue(record.uuid ?? record.job_uuid, 'node job.uuid'),
     workflowTaskUuid: stringValue(
       record.workflow_task_uuid ?? record.task_uuid,
-      'node job.workflow_task_uuid'
+      'node job.workflow_task_uuid',
     ),
     workflowNodeUuid: stringValue(record.workflow_node_uuid, 'node job.workflow_node_uuid'),
     executorKind: stringValue(record.executor_kind, 'node job.executor_kind'),
@@ -79,7 +71,7 @@ export function decodeNodeJobDetail(value: unknown): NodeJobDetail {
     ...(optionalString(record.uncertainty_reason) === undefined
       ? {}
       : { uncertaintyReason: optionalString(record.uncertainty_reason) }),
-    raw: record
+    raw: record,
   }
 }
 
@@ -89,7 +81,7 @@ function decodeCheck(value: RunPreparationRecord, path: string): PreflightCheck 
     status: enumValue(
       value.status,
       ['passed', 'blocked', 'deferred', 'confirmation_required'] as const,
-      `${path}.status`
+      `${path}.status`,
     ),
     code: stringValue(value.code, `${path}.code`),
     message: stringValue(value.message, `${path}.message`),
@@ -100,7 +92,7 @@ function decodeCheck(value: RunPreparationRecord, path: string): PreflightCheck 
     ...(optionalString(value.node_name) === undefined
       ? {}
       : { nodeName: optionalString(value.node_name) }),
-    details: asOptionalRecord(value.details) ?? {}
+    details: asOptionalRecord(value.details) ?? {},
   }
 }
 
@@ -110,15 +102,11 @@ function unwrapData(value: RunPreparationRecord): RunPreparationRecord {
     const errorCode = optionalString(error?.code)
     const message = optionalString(error?.message ?? error?.msg ?? value.message)
     if (errorCode === 'develop_task_conflict') {
-      throw new RunPreparationError(
-        'DEVELOP_TASK_CONFLICT',
-        formatDevelopTaskConflict(message)
-      )
+      throw new RunPreparationError('DEVELOP_TASK_CONFLICT', formatDevelopTaskConflict(message))
     }
     throw new RunPreparationError(
       'OS_REQUEST_REJECTED',
-      message
-        ?? `OS request rejected with code ${String(value.code)}`
+      message ?? `OS request rejected with code ${String(value.code)}`,
     )
   }
   return asOptionalRecord(value.data) ?? value
@@ -128,13 +116,14 @@ function formatDevelopTaskConflict(message: string | undefined): string {
   const match = message?.match(/^develop_task_conflict:([^:]+):([^:]+)$/)
   if (!match) return '开发模式已有未结束的任务，请先结束或取消该任务后再提交。'
   const [, taskUuid, status] = match
-  const statusLabel = status === 'pending'
-    ? '等待中'
-    : status === 'running'
-      ? '执行中'
-      : status === 'canceling'
-        ? '取消中'
-        : status
+  const statusLabel =
+    status === 'pending'
+      ? '等待中'
+      : status === 'running'
+        ? '执行中'
+        : status === 'canceling'
+          ? '取消中'
+          : status
   return `开发模式已有未结束的任务（${statusLabel}，任务 ID：${taskUuid}），请先结束或取消该任务后再提交。`
 }
 
@@ -147,7 +136,7 @@ function asRecord(value: unknown, path: string): RunPreparationRecord {
 
 function asOptionalRecord(value: unknown): RunPreparationRecord | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as RunPreparationRecord
+    ? (value as RunPreparationRecord)
     : undefined
 }
 
@@ -173,7 +162,7 @@ function numberValue(value: unknown, path: string): number {
 function enumValue<const Values extends readonly string[]>(
   value: unknown,
   values: Values,
-  path: string
+  path: string,
 ): Values[number] {
   if (typeof value === 'string' && values.includes(value)) return value as Values[number]
   throw new RunPreparationError('INVALID_RUN_PREPARATION_RESPONSE', `${path} is invalid`)

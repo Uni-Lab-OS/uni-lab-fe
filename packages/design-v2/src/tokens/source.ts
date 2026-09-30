@@ -36,8 +36,8 @@ export const SOURCE_TOKEN_COLLECTIONS = [
       ['opacity', 21],
       ['line-height', 20],
       ['Bohrium Primitive Color', 177],
-      ['compatibility', 36]
-    ])
+      ['compatibility', 36],
+    ]),
   },
   {
     sourcePath: '2. Theme',
@@ -53,8 +53,8 @@ export const SOURCE_TOKEN_COLLECTIONS = [
       ['line-height', 13],
       ['letter-spacing', 1],
       ['paragraph-spacing', 1],
-      ['paragraph-indent', 1]
-    ])
+      ['paragraph-indent', 1],
+    ]),
   },
   {
     sourcePath: '3. Color Modes',
@@ -71,8 +71,8 @@ export const SOURCE_TOKEN_COLLECTIONS = [
       ['error', 6],
       ['base', 8],
       ['alpha', 9],
-      ['custom', 18]
-    ])
+      ['custom', 18],
+    ]),
   },
   {
     sourcePath: '4. Pro / Responsive',
@@ -82,16 +82,16 @@ export const SOURCE_TOKEN_COLLECTIONS = [
       ['heading-lg', 5],
       ['heading-md', 5],
       ['heading-sm', 5],
-      ['(root)', 9]
-    ])
+      ['(root)', 9],
+    ]),
   },
   { sourcePath: '6. Icon Context', count: 1, groups: groups([['context', 1]]) },
-  { sourcePath: '6. Bohr Icon', count: 7, groups: groups([['stroke-width', 7]]) }
+  { sourcePath: '6. Bohr Icon', count: 7, groups: groups([['stroke-width', 7]]) },
 ] satisfies readonly SourceTokenCollection[]
 
 export const SOURCE_TOKEN_TOTAL = SOURCE_TOKEN_COLLECTIONS.reduce(
   (total, collection) => total + collection.count,
-  0
+  0,
 )
 
 /** Convert a design source path such as `base/card` to a stable CSS variable suffix. */

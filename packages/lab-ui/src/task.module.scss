@@ -162,12 +162,31 @@
   animation: lab-ui-task-timeline-loading 1.4s ease infinite;
 }
 
-.lab-ui-task-timeline__skeleton-time { width: 44px; height: 10px; }
-.lab-ui-task-timeline__skeleton-marker { width: 36px; height: 36px; border-radius: 50%; }
-.lab-ui-task-timeline__skeleton-title { width: 58%; height: 13px; }
-.lab-ui-task-timeline__skeleton-meta { width: 38%; height: 10px; margin-top: 8px; }
+.lab-ui-task-timeline__skeleton-time {
+  width: 44px;
+  height: 10px;
+}
+.lab-ui-task-timeline__skeleton-marker {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+.lab-ui-task-timeline__skeleton-title {
+  width: 58%;
+  height: 13px;
+}
+.lab-ui-task-timeline__skeleton-meta {
+  width: 38%;
+  height: 10px;
+  margin-top: 8px;
+}
 
 @keyframes lab-ui-task-timeline-loading {
-  0%, 100% { opacity: .58; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.58;
+  }
+  50% {
+    opacity: 1;
+  }
 }

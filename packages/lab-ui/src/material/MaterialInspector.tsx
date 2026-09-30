@@ -20,15 +20,10 @@ export function MaterialInspector({
 }: MaterialInspectorProps) {
   const detail = node.material
   const selectedSite = selectedSiteUuid ?? node.currentSiteUuid ?? undefined
-  const occupiedSites = node.sites.filter(
-    (site) => site.occupancy.occupiedMaterialUuid,
-  )
+  const occupiedSites = node.sites.filter((site) => site.occupancy.occupiedMaterialUuid)
 
   return (
-    <aside
-      className={cx('lab-ui-material-inspector')}
-      aria-label={`${detail.name} 物料详情`}
-    >
+    <aside className={cx('lab-ui-material-inspector')} aria-label={`${detail.name} 物料详情`}>
       <header className={cx('lab-ui-material-inspector__header')}>
         <span className={cx('lab-ui-material-inspector__icon')} aria-hidden="true">
           <Icon name="shapes/cube-03" color="primary" size={22} />
@@ -47,10 +42,7 @@ export function MaterialInspector({
           onSelectSite={onSelectSite}
         />
         {occupiedSites.length > 0 && (
-          <OccupiedMaterialList
-            sites={occupiedSites}
-            onSelectMaterial={onSelectOccupiedMaterial}
-          />
+          <OccupiedMaterialList sites={occupiedSites} onSelectMaterial={onSelectOccupiedMaterial} />
         )}
       </section>
     </aside>
