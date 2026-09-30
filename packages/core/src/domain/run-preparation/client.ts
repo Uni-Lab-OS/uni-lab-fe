@@ -13,6 +13,9 @@ import {
 import type { RunPreparationPort } from './port'
 import type { BindingDraft, RunConfiguration } from './model'
 
+// OS 会计算完整 DAG 的执行计划；大图预检和任务准入使用独立的等待预算。
+const WORKFLOW_PLANNING_TIMEOUT_MS = 10 * 60_000
+
 export class RunPreparationClient implements RunPreparationPort {
   constructor(
     private readonly transport: RequestTransport,
@@ -27,6 +30,7 @@ export class RunPreparationClient implements RunPreparationPort {
     const response = await this.transport.request<RunPreparationRecord>({
       method: 'POST',
       url: `${this.apiPrefix}/workflows/${encodeURIComponent(workflowUuid)}/run-preflight`,
+      timeoutMs: WORKFLOW_PLANNING_TIMEOUT_MS,
       body: toPreflightRequest(configuration, binding)
     })
     return decodePreflightReport(response.data, configuration)
@@ -46,6 +50,7 @@ export class RunPreparationClient implements RunPreparationPort {
     const response = await this.transport.request<RunPreparationRecord>({
       method: 'POST',
       url: `${this.apiPrefix}/workflow-tasks`,
+      timeoutMs: WORKFLOW_PLANNING_TIMEOUT_MS,
       body: toSubmitRequest(workflowUuid, configuration, binding)
     })
     return decodeSubmittedRun(response.data)

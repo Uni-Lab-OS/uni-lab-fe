@@ -37,6 +37,7 @@ export function WorkflowDebugPage({
   onNavigate: (route: StudioRoute) => void;
 }) {
   const { backend } = useBackend();
+  const [messageApi, messageContextHolder] = message.useMessage();
   const useRunPreparationStore = useMemo(
     () => createRunPreparationReactStore(backend.core.runPreparation),
     [backend.core.runPreparation],
@@ -134,7 +135,7 @@ export function WorkflowDebugPage({
       if (nextState.error) throw nextState.error;
       if (!nextState.submittedRun) throw new Error("后端未返回已接受的任务");
       setStep(2);
-      message.success("任务已提交");
+      messageApi.success("任务已提交");
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "提交失败");
     } finally {
@@ -143,6 +144,7 @@ export function WorkflowDebugPage({
   };
   return (
     <div className={cx("page-stack workflow-debug-page")}>
+      {messageContextHolder}
       <PageHeader
         title={revision?.name ?? "工作流调试"}
         leading={
@@ -271,8 +273,16 @@ export function WorkflowDebugPage({
                     />
                   )}
                   <Button type="primary" loading={busy} onClick={runPreflight}>
-                    下一步：依赖检查
+                    {busy ? "正在检查运行条件…" : "下一步：依赖检查"}
                   </Button>
+                  {busy && (
+                    <Alert
+                      type="info"
+                      showIcon
+                      message="正在等待 OS 校验结果"
+                      description="大型工作流可能需要几分钟，请等待校验完成。"
+                    />
+                  )}
                 </Form>
               </section>
             )}

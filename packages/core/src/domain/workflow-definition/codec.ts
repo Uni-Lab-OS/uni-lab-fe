@@ -36,6 +36,14 @@ export function decodePublishedWorkflowList(
   })
 }
 
+export function decodeWorkflowListHasMore(value: unknown): boolean {
+  const root = asRecord(unwrapEnvelope(value), 'workflow list')
+  if (typeof root.has_more !== 'boolean') {
+    throw definitionError('INVALID_WORKFLOW_DEFINITION', 'workflow list.has_more must be a boolean')
+  }
+  return root.has_more
+}
+
 export function decodePublishedWorkflow(
   summaryValue: PublishedWorkflowResponse,
   graphValue: WorkflowGraphResponse

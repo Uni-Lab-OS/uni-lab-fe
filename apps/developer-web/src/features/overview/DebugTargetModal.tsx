@@ -32,7 +32,8 @@ export function DebugTargetModal({
     kind === "workflow"
       ? backend.core.workflowDefinitions.listPublishedRevisions({
           page: 1,
-          pageSize: 200,
+          pageSize: 100,
+          allPages: true,
           status: "all",
         })
       : Promise.resolve([]),

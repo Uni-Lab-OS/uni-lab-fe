@@ -53,7 +53,8 @@ export function WorkflowsPage({
   const query = useBackendQuery("workflow-catalog", (current) =>
     current.core.workflowDefinitions.listPublishedRevisions({
       page: 1,
-      pageSize: 200,
+      pageSize: 100,
+      allPages: true,
       status: "all",
     }),
   );
