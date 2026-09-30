@@ -58,4 +58,11 @@ export class WorkflowDefinitionClient implements WorkflowDefinitionPort {
     ])
     return decodePublishedWorkflow(summary.data, graph.data)
   }
+
+  async deleteWorkflowDefinition(workflowUuid: string): Promise<void> {
+    await this.transport.request<unknown>({
+      method: 'DELETE',
+      url: `${this.apiPrefix}/workflows/${encodeURIComponent(workflowUuid)}`
+    })
+  }
 }

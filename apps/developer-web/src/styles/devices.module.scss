@@ -286,7 +286,9 @@
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 18px;
+  align-items: start;
+  column-gap: 18px;
+  row-gap: 18px;
 }
 
 .device-action-input-fields :global(.ant-form-item) {
@@ -296,6 +298,22 @@
 .device-action-field-slot,
 .device-action-readonly-field {
   min-width: 0;
+}
+
+.device-action-input-fields .device-action-field-slot {
+  align-content: start;
+  gap: 8px;
+}
+
+/* 设备调试参数与物料 UUID 使用同一组 36px 控件高度。 */
+.device-action-form-grid :global(.ant-input),
+.device-action-form-grid :global(.ant-input-number),
+.device-action-form-grid :global(.ant-select-selector),
+.device-action-input-fields input:not([type="checkbox"]),
+.device-action-input-fields select {
+  box-sizing: border-box;
+  height: 36px;
+  min-height: 36px;
 }
 
 .device-action-editor .device-action-readonly-field :global(.ant-form-item) {

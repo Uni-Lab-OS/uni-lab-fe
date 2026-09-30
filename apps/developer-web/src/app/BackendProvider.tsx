@@ -23,7 +23,7 @@ const BackendContext = createContext<BackendContextValue | null>(null);
 
 export function BackendProvider({ children }: { children: ReactNode }) {
   const backend = useMemo(() => createStudioBackend(), []);
-  useEffect(() => () => backend.services.dispose(), [backend]);
+  useEffect(() => () => backend.dispose(), [backend]);
   const [connection, setConnection] = useState<BackendConnection>("unknown");
   const reportSuccess = useCallback(() => setConnection("connected"), []);
   const reportError = useCallback(() => setConnection("error"), []);

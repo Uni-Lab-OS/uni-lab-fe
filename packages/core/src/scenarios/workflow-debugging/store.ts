@@ -38,6 +38,7 @@ export function createWorkflowDebuggingStoreState(
 ): StateCreator<WorkflowDebuggingStoreState> {
   return (set, get) => {
     let subscription: { dispose: () => void } | null = null
+    let requestGeneration = 0
     return {
       status: 'idle',
       viewModel: null,
@@ -48,13 +49,16 @@ export function createWorkflowDebuggingStoreState(
       runtimeError: null,
 
       async load(query = {}) {
+        const generation = ++requestGeneration
         subscription?.dispose()
         subscription = null
         set({ status: 'loading', error: null })
         try {
           const viewModel = await scenario.load(query)
+          if (generation !== requestGeneration) return
           set({ status: 'ready', viewModel, selectedTaskUuid: null, selectedJobUuid: null, command: null, error: null })
         } catch (error) {
+          if (generation !== requestGeneration) return
           set({ status: 'error', error: toError(error) })
         }
       },
@@ -62,11 +66,14 @@ export function createWorkflowDebuggingStoreState(
       async reload() {
         const current = get().viewModel
         if (!current) return get().load()
+        const generation = ++requestGeneration
         set({ status: 'loading', error: null })
         try {
           const viewModel = await scenario.reload(current)
+          if (generation !== requestGeneration) return
           set({ status: 'ready', viewModel, selectedTaskUuid: null, selectedJobUuid: null, error: null })
         } catch (error) {
+          if (generation !== requestGeneration) return
           set({ status: 'error', error: toError(error) })
         }
       },
@@ -74,12 +81,15 @@ export function createWorkflowDebuggingStoreState(
       async inspectTask(taskUuid) {
         const current = get().viewModel
         if (!current) return
+        const generation = ++requestGeneration
         set({ status: 'loading', error: null })
         try {
           const viewModel = await scenario.inspectTask(current, taskUuid)
+          if (generation !== requestGeneration) return
           set({ status: 'ready', viewModel, selectedTaskUuid: taskUuid, selectedJobUuid: null, command: null, error: null })
           get().startRuntimeSubscription()
         } catch (error) {
+          if (generation !== requestGeneration) return
           set({ status: 'error', error: toError(error) })
         }
       },
@@ -87,12 +97,15 @@ export function createWorkflowDebuggingStoreState(
       async inspectJob(jobUuid) {
         const current = get().viewModel
         if (!current) return
+        const generation = ++requestGeneration
         set({ status: 'loading', error: null })
         try {
           const viewModel = await scenario.inspectJob(current, jobUuid)
+          if (generation !== requestGeneration) return
           set({ status: 'ready', viewModel, selectedJobUuid: jobUuid, error: null })
           get().startRuntimeSubscription()
         } catch (error) {
+          if (generation !== requestGeneration) return
           set({ status: 'error', error: toError(error) })
         }
       },
@@ -100,10 +113,13 @@ export function createWorkflowDebuggingStoreState(
       async inspectWorkflow(workflowUuid) {
         const current = get().viewModel
         if (!current) return
+        const generation = ++requestGeneration
         try {
           const viewModel = await scenario.inspectWorkflow(current, workflowUuid)
+          if (generation !== requestGeneration) return
           set({ status: 'ready', viewModel, error: null })
         } catch (error) {
+          if (generation !== requestGeneration) return
           set({ status: 'error', error: toError(error) })
         }
       },

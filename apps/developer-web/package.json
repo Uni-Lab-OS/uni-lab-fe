@@ -16,7 +16,6 @@
     "@unilab-fe/core": "workspace:*",
     "@unilab/design-v2": "workspace:*",
     "@unilab/lab-ui": "workspace:*",
-    "@unilab/services": "workspace:*",
     "antd": "^5.27.6",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",

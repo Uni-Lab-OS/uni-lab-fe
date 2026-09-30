@@ -83,7 +83,7 @@
   padding-bottom: 2px;
 }
 .execution-console .task-identity :global(.ant-descriptions-item-label) {
-  color: var(--studio-text-faint);
+  color: var(--studio-form-label-color);
 }
 .debug-toolbar {
   display: grid;
@@ -234,7 +234,7 @@
     SFMono-Regular,
     Menlo,
     monospace;
-  white-space: pre-wrap;
+  white-space: pre;
 }
 .debug-step-card {
   width: 100%;
@@ -242,8 +242,10 @@
   align-content: start;
 }
 .workflow-debug-page {
-  min-height: calc(100dvh - 40px);
+  height: 100%;
+  min-height: 0;
   grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
 }
 .debug-step-card--submitted {
   min-height: 0;
@@ -251,6 +253,7 @@
   align-content: stretch;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 14px;
+  overflow: hidden;
 }
 .debug-step-card--submitted :global(.ant-alert) {
   margin: 0;
@@ -278,7 +281,9 @@
 .debug-step-card--submitted .schema-block-pre {
   min-height: 0;
   max-height: none;
-  height: 100%;
+  height: auto;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 .preflight-list {
   display: grid;
@@ -317,8 +322,11 @@
   gap: 9px;
 }
 .preflight-group-label > span {
-  color: var(--studio-text-faint);
-  font-size: 12px;
+  color: var(--studio-form-label-color);
+  font-family: var(--studio-form-label-font-family);
+  font-size: var(--studio-form-label-size);
+  font-weight: var(--studio-form-label-weight);
+  line-height: var(--studio-form-label-line-height);
 }
 .preflight-accordion .preflight-list {
   max-height: min(46vh, 460px);
@@ -738,6 +746,11 @@
   display: inline-flex;
   align-items: baseline;
   gap: 7px;
+  color: var(--studio-form-label-color);
+  font-family: var(--studio-form-label-font-family);
+  font-size: var(--studio-form-label-size);
+  font-weight: var(--studio-form-label-weight);
+  line-height: var(--studio-form-label-line-height);
 }
 
 .workflow-input-label code {
@@ -954,9 +967,11 @@
 
 .workflow-node-descriptions :global(.ant-descriptions-item-label) {
   width: 88px;
-  color: var(--studio-text);
-  font-family: var(--bh-font-family-sans);
-  font-weight: 600;
+  color: var(--studio-form-label-color);
+  font-family: var(--studio-form-label-font-family);
+  font-size: var(--studio-form-label-size);
+  font-weight: var(--studio-form-label-weight);
+  line-height: var(--studio-form-label-line-height);
   white-space: nowrap;
 }
 
@@ -970,6 +985,7 @@
 
 .workflow-node-descriptions :global(.ant-descriptions-row) > td {
   padding-bottom: 12px;
+  border-bottom: 0;
 }
 
 .workflow-node-io {
@@ -1247,9 +1263,11 @@
 }
 
 .workflow-info-form span {
-  color: var(--studio-text-faint);
-  font-size: 12px;
-  font-weight: 600;
+  color: var(--studio-form-label-color);
+  font-family: var(--studio-form-label-font-family);
+  font-size: var(--studio-form-label-size);
+  font-weight: var(--studio-form-label-weight);
+  line-height: var(--studio-form-label-line-height);
 }
 
 .workflow-info-form strong,

@@ -326,8 +326,8 @@ function SiteInspector({
       {occupied && (
         <div className={cx("inspector-section")}>
           <Button
-            type="link"
-            className={cx("material-inspector__link")}
+            type="default"
+            className={cx("material-inspector__button")}
             onClick={() => onSelect({ kind: "material", materialId: occupied, siteId: site.siteUuid })}
           >
             查看占用物料
@@ -414,9 +414,7 @@ function SiteList({
 }) {
   return (
     <div className={cx("inspector-section")}>
-      <div className={cx("section-title")}>
-        <h3>库位</h3>
-      </div>
+      <div className={cx("inspector-field-label")}>库位</div>
       <SitePicker
         sites={sites}
         variant="inspector"

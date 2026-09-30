@@ -40,7 +40,7 @@ export function TaskTable({
     {
       title: "任务",
       key: "name",
-      width: 300,
+      width: 280,
       render: (_, row) => (
         <div className={cx("primary-cell")}>
           <button
@@ -57,8 +57,12 @@ export function TaskTable({
     {
       title: "工作流",
       key: "workflowName",
-      width: 200,
-      render: (_, row) => <TableText text={row.workflowName} />,
+      width: 240,
+      render: (_, row) => (
+        <div className={cx("overview-table-text-cell")}>
+          <TableText text={row.workflowName} />
+        </div>
+      ),
     },
     {
       title: "优先级",
@@ -156,6 +160,7 @@ export function TaskTable({
         rowKey={(row) => row.task.taskUuid}
         columns={columns}
         dataSource={[...rows]}
+        tableLayout="fixed"
         locale={{
           emptyText: (
             <EmptyState

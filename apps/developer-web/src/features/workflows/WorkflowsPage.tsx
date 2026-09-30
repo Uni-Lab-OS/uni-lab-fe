@@ -310,7 +310,7 @@ function DeleteWorkflowButton({
 }) {
   const { backend } = useBackend();
   const [busy, setBusy] = useState(false);
-  const available = backend.services.getCapabilityStatus(
+  const available = backend.getCapabilityStatus(
     "workflow.editDefinitions",
   ).available;
   const remove = () =>
@@ -323,7 +323,7 @@ function DeleteWorkflowButton({
       onOk: async () => {
         setBusy(true);
         try {
-          await backend.services.workflow.deleteWorkflowDefinition(
+          await backend.core.workflowDefinitions.deleteWorkflowDefinition(
             workflow.workflowUuid,
           );
           message.success("工作流已删除");

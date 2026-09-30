@@ -120,30 +120,37 @@ export function projectWorkflowDebugFacts(
   const timeline = jobs
     .slice()
     .sort((left, right) => left.topologicalIndex - right.topologicalIndex)
-    .map((job) => ({
-      jobUuid: job.jobUuid,
-      workflowNodeUuid: job.workflowNodeUuid,
-      nodeLabel: resolveNodeLabel(task, job.workflowNodeUuid, job.topologicalIndex),
-      status: job.status,
-      attempt: job.attempt,
-      topologicalIndex: job.topologicalIndex,
-      executorKind: job.executorKind,
-      startedAt: job.startedAt ?? null,
-      finishedAt: job.finishedAt ?? null,
-      waitReason: job.waitReason,
-      errorInfo: job.errorInfo
-    }))
+    .map((job) => {
+      const syntheticCompletion = ['workflow_input', 'workflow_output'].includes(job.executorKind)
+        && ['succeeded', 'failed', 'canceled', 'timeout'].includes(job.status)
+      const rawCreatedAt = syntheticCompletion ? rawTimestamp(job.raw, 'create_time') : null
+      const rawFinishedAt = syntheticCompletion ? rawTimestamp(job.raw, 'finished_at') : null
+      return {
+        jobUuid: job.jobUuid,
+        workflowNodeUuid: job.workflowNodeUuid,
+        nodeLabel: resolveNodeLabel(task, job.workflowNodeUuid, job.topologicalIndex),
+        status: job.status,
+        attempt: job.attempt,
+        topologicalIndex: job.topologicalIndex,
+        executorKind: job.executorKind,
+        startedAt: job.startedAt ?? rawCreatedAt ?? rawFinishedAt,
+        finishedAt: job.finishedAt ?? rawFinishedAt,
+        waitReason: job.waitReason,
+        errorInfo: job.errorInfo
+      }
+    })
   const focusJob = jobs.find((job) => ['running', 'intervention_required', 'execution_unknown', 'pending', 'dispatched'].includes(job.status))
   const taskStatus = task?.status ?? ''
+  const taskCanBeControlled = ['pending', 'running'].includes(taskStatus)
   return {
     ...viewModel,
     facts,
     selectedTaskTitle: task ? resolveTaskTitle(task) : viewModel.selectedTaskTitle,
     timeline,
     controls: {
-      canStep: taskStatus !== '' && task?.runMode === 'step' && task.controlStatus === 'paused' && facts.readyFrontier.some((candidate) => candidate.selectable),
-      canPause: taskStatus === 'running' && task?.controlStatus === 'active',
-      canResume: taskStatus === 'running' && task?.controlStatus === 'paused',
+      canStep: taskCanBeControlled && task?.runMode === 'step' && task?.controlStatus === 'paused',
+      canPause: taskCanBeControlled && task?.controlStatus === 'active',
+      canResume: taskCanBeControlled && task?.controlStatus === 'paused',
       canCancel: !['succeeded', 'failed', 'canceled', 'timeout'].includes(taskStatus) && taskStatus !== ''
     },
     currentFocus: focusJob
@@ -191,6 +198,11 @@ function asRecord(value: unknown): Readonly<Record<string, unknown>> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Readonly<Record<string, unknown>>
     : null
+}
+
+function rawTimestamp(raw: Readonly<Record<string, unknown>>, key: string): string | null {
+  const value = raw[key]
+  return typeof value === 'string' && value.length > 0 ? value : null
 }
 
 function emptyControls(): WorkflowDebugControls {

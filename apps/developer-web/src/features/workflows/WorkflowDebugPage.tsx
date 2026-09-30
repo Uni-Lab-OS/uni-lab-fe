@@ -22,8 +22,9 @@ import { AppIcon } from "../../components/ui/Icon";
 import { AsyncState } from "../../components/ui/AsyncState";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { useBackend } from "../../app/BackendProvider";
+import { RunPreparationError } from "@unilab-fe/core";
 import { createRunPreparationReactStore } from "@unilab-fe/core/react";
-import { jsonText } from "./workflowPresentation";
+import { jsonText, nodeLabel, nodeUuid } from "./workflowPresentation";
 import { normalizeWorkflowInput, workflowInputDefaults } from "./WorkflowInputFields";
 
 export function WorkflowDebugPage({
@@ -48,8 +49,10 @@ export function WorkflowDebugPage({
   const submitted = useRunPreparationStore((state) => state.submittedRun);
   const configuration = useRunPreparationStore((state) => state.viewModel?.configuration);
   const runMode = configuration?.runMode ?? "normal";
+  const targetNodeUuid = configuration?.targetNodeUuid ?? "";
   const priority = configuration?.priority ?? "normal";
   const taskName = configuration?.description ?? "";
+  const hasTaskConflict = storeError instanceof RunPreparationError && storeError.code === "DEVELOP_TASK_CONFLICT";
   const [step, setStep] = useState(0);
   const [workflowInput, setWorkflowInput] = useState<Record<string, unknown>>({});
   const [busy, setBusy] = useState(false);
@@ -60,6 +63,17 @@ export function WorkflowDebugPage({
 
   const inputParameters = useMemo(
     () => revision?.graph.inputParameters ?? [],
+    [revision],
+  );
+  const targetNodeOptions = useMemo(
+    () =>
+      revision?.graph.nodes.map((node, index) => {
+        const uuid = nodeUuid(node, index);
+        return {
+          value: uuid,
+          label: `${nodeLabel(node, index)} (${uuid})`,
+        };
+      }) ?? [],
     [revision],
   );
   useEffect(() => {
@@ -82,6 +96,10 @@ export function WorkflowDebugPage({
     try {
       if (!taskName.trim()) {
         setFormError("请填写任务名称");
+        return;
+      }
+      if (runMode === "single_node" && !targetNodeUuid) {
+        setFormError("请选择目标节点");
         return;
       }
       const nextInput = normalizeWorkflowInput(workflowInput, inputParameters);
@@ -139,7 +157,9 @@ export function WorkflowDebugPage({
       />
       <AsyncState
         loading={storeStatus === "loading" || storeStatus === "idle"}
-        error={storeError ?? undefined}
+        // 提交/依赖检查失败时保留当前工作流页面，让步骤内的 formError 展示可操作提示；
+        // 只有初次加载还没有 revision 时才显示整页数据加载错误。
+        error={!revision ? storeError ?? undefined : undefined}
         onRetry={() => void useRunPreparationStore.getState().load(workflowUuid)}
         empty={storeStatus !== "loading" && storeStatus !== "idle" && !revision}
       >
@@ -167,9 +187,14 @@ export function WorkflowDebugPage({
                         optionFilterProp="label"
                         value={runMode}
                         onChange={(value) =>
-                          useRunPreparationStore.getState().updateConfiguration({
-                            runMode: value as typeof runMode,
-                          })
+                          useRunPreparationStore.getState().updateConfiguration(
+                            value === "single_node"
+                              ? { runMode: value as typeof runMode }
+                              : {
+                                  runMode: value as typeof runMode,
+                                  targetNodeUuid: undefined,
+                                },
+                          )
                         }
                         options={[
                           { value: "normal", label: "正常运行" },
@@ -194,6 +219,22 @@ export function WorkflowDebugPage({
                         ]}
                       />
                     </Form.Item>
+                    {runMode === "single_node" && (
+                      <Form.Item label="目标节点" required>
+                        <Select
+                          showSearch
+                          optionFilterProp="label"
+                          value={targetNodeUuid || undefined}
+                          placeholder="请选择目标节点"
+                          options={targetNodeOptions}
+                          onChange={(value) =>
+                            useRunPreparationStore.getState().updateConfiguration({
+                              targetNodeUuid: value,
+                            })
+                          }
+                        />
+                      </Form.Item>
+                    )}
                   </div>
                   <Form.Item label="任务名称" required>
                     <Input
@@ -246,6 +287,7 @@ export function WorkflowDebugPage({
                     type="error"
                     showIcon
                     message={formError}
+                    action={hasTaskConflict ? <Button type="link" onClick={() => onNavigate("tasks")}>查看任务列表</Button> : undefined}
                   />
                 )}
                 <RunSubmitConfirmation

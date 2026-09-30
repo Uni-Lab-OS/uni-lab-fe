@@ -373,31 +373,21 @@
   outline: 2px solid var(--studio-primary);
   outline-offset: -2px;
 }
-.material-inspector__link {
-  padding-inline: 0;
+.material-inspector__button:global(.ant-btn) {
+  width: fit-content;
+  min-height: 32px;
+  padding: 0 12px;
+  border-color: var(--studio-border);
+  border-radius: 8px;
+  color: var(--studio-accent);
+  background: var(--studio-surface);
+  font-weight: 600;
 }
-.material-inspector__link:global(.ant-btn-link) {
-  height: auto;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  color: var(--studio-accent) !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  line-height: 1.5;
-}
-.material-inspector__link:global(.ant-btn-link):hover {
-  color: var(--studio-accent) !important;
-  background: transparent !important;
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-}
-.material-inspector__link:global(.ant-btn-link):focus-visible {
-  background: transparent !important;
-  outline: 2px solid var(--studio-primary);
-  outline-offset: 3px;
+.material-inspector__button:global(.ant-btn):hover,
+.material-inspector__button:global(.ant-btn):focus-visible {
+  border-color: var(--studio-accent);
+  color: var(--studio-accent);
+  background: var(--studio-selection);
 }
 .definition-list {
   display: grid;
@@ -409,12 +399,16 @@
   grid-template-columns: 80px minmax(0, 1fr);
   gap: 8px;
 }
-.definition-list dt {
+.definition-list dt,
+.inspector-field-label {
   color: var(--studio-form-label-color);
   font-family: var(--studio-form-label-font-family);
   font-size: var(--studio-form-label-size);
   font-weight: var(--studio-form-label-weight);
   line-height: var(--studio-form-label-line-height);
+}
+.inspector-field-label {
+  margin-bottom: 14px;
 }
 .definition-list dd {
   margin: 0;

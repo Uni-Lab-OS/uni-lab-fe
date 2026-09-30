@@ -22,6 +22,9 @@ body,
   --studio-text-faint: var(--bh-color-text-placeholder);
   --studio-text-secondary: var(--bh-color-text-description);
   --studio-accent: var(--bh-color-primary);
+  /* 中性状态（已取消 / 已跳过 / 未到达）的前景与底色，胶囊和时间线圆点共用。 */
+  --studio-status-neutral-fg: #71809b;
+  --studio-status-neutral-bg: #f0f2f6;
   --studio-radius: var(--bh-radius-lg);
   --studio-control-radius: var(--bh-radius-md);
   --studio-shadow: none;

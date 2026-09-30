@@ -604,7 +604,7 @@
   font-weight: 600;
 }
 
-/* 全站 Tabs 使用轻量的短圆角选中条，避免默认整段基线和长下划线。 */
+/* 全站 Tabs 使用轻量的圆角选中条，宽度跟随当前标签，避免出现过短的孤立横线。 */
 :global(.ant-tabs) :global(.ant-tabs-nav)::before {
   border-bottom: 0 !important;
 }
@@ -621,7 +621,7 @@
 
 :global(.ant-tabs) :global(.ant-tabs-ink-bar)::after {
   position: absolute;
-  inset: 0 22%;
+  inset: 0;
   content: "";
   border-radius: 999px;
   background: var(--bh-color-primary);
@@ -681,6 +681,7 @@
 
 .primary-cell-link {
   display: block;
+  min-width: 0;
   width: 100%;
   padding: 0;
   border: 0;
@@ -689,6 +690,21 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+/* 总览表格的长文本只占自己的列宽，不把优先级和状态列挤到换行。 */
+.overview-table-text-cell,
+.data-section .primary-cell,
+.data-section .primary-cell-link {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.overview-table-text-cell .table-text,
+.data-section .primary-cell-link .table-text {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .task-name-link:global(.ant-btn) {
@@ -724,10 +740,10 @@
   text-align: center;
 }
 
-.data-section :global(.ant-table-placeholder) .bh-empty-state {
-  width: 100%;
-  max-width: none;
-  min-width: 0;
+.data-section :global(.ant-table-placeholder) :global(.bh-empty-state) {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
   margin-inline: auto;
 }
 
@@ -948,9 +964,10 @@ textarea {
   font-weight: 500;
 }
 
-.data-section .progress-cell .status-badge:global(.ant-tag-default) {
-  color: #71809b;
-  background: #f0f2f6;
+/* 中性状态（已取消 / 已跳过 / 未到达）全站统一为弱化灰，避免默认胶囊的近黑文字。 */
+.status-badge:global(.ant-tag-default) {
+  color: var(--studio-status-neutral-fg);
+  background: var(--studio-status-neutral-bg);
 }
 
 /* Final table refinements shared by every data-section. */

@@ -1,5 +1,7 @@
 export * from './transport/request'
 export * from './adapters/fetch'
+export * from './adapters/workflow-runtime-events'
+export * from './capabilities'
 export * from './domain/workflow-definition/model'
 export * from './domain/workflow-definition/port'
 export * from './domain/workflow-definition/errors'

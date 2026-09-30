@@ -174,8 +174,8 @@ export function ReagentsPage() {
       };
     },
   );
-  const can = (capability: Parameters<typeof backend.services.getCapabilityStatus>[0]) =>
-    backend.services.getCapabilityStatus(capability).available;
+  const can = (capability: Parameters<typeof backend.getCapabilityStatus>[0]) =>
+    backend.getCapabilityStatus(capability).available;
   const canCreateInfo = can("reagentInfo.create");
   const canUpdateInfo = can("reagentInfo.update");
   const canDeleteInfo = can("reagentInfo.delete");

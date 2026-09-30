@@ -658,7 +658,8 @@ body,
   grid-template-rows: auto minmax(0, 1fr);
 }
 
-.studio-content--workflows:has(.workflow-detail-page) {
+.studio-content--workflows:has(.workflow-detail-page),
+.studio-content--workflows:has(.workflow-debug-page) {
   display: flex;
   flex-direction: column;
   height: 100dvh;
@@ -668,6 +669,12 @@ body,
 
 .studio-content--workflows:has(.workflow-detail-page) > .workflow-detail-page {
   grid-template-rows: auto minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studio-content--workflows:has(.workflow-debug-page) > .workflow-debug-page {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;

@@ -30,7 +30,7 @@ import type {
   ReagentStructure3d,
 } from "@unilab-fe/core";
 import { useBackend } from "../../app/BackendProvider";
-import type { ServerCapability } from "@unilab/services";
+import type { ServerCapability } from "@unilab-fe/core";
 import {
   CAPACITY_UNIT_OPTIONS,
   defaultCapacityUnit,
@@ -172,7 +172,7 @@ function useCapabilityGuard() {
   const { backend } = useBackend();
   return useCallback(
     (capability: ServerCapability) => {
-      const status = backend.services.getCapabilityStatus(capability);
+      const status = backend.getCapabilityStatus(capability);
       if (!status.available) {
         throw new Error(status.reason ?? "当前端点未开放此项试剂能力");
       }
@@ -311,7 +311,7 @@ function CatalogDetail({
   onClose: () => void;
 }) {
   const { backend } = useBackend();
-  const canReadStructure = backend.services.getCapabilityStatus(
+  const canReadStructure = backend.getCapabilityStatus(
     "reagentInfo.readStructure3d",
   );
   const [structure, setStructure] = useState<ReagentStructure3d | null>(null);
@@ -440,7 +440,7 @@ function HistoryModal({
   onClose: () => void;
 }) {
   const { backend } = useBackend();
-  const status = backend.services.getCapabilityStatus(
+  const status = backend.getCapabilityStatus(
     "inventory.readReagentHistory",
   );
   const [page, setPage] = useState(1);
@@ -554,7 +554,7 @@ function InfoFormModal({
   const [lookup, setLookup] = useState<CompoundLookup | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const isCreate = state.type === "create-info";
-  const canLookup = backend.services.getCapabilityStatus(
+  const canLookup = backend.getCapabilityStatus(
     "reagentInfo.lookupCompound",
   );
 

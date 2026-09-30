@@ -101,9 +101,6 @@ importers:
       '@unilab/lab-ui':
         specifier: workspace:*
         version: link:../../packages/lab-ui
-      '@unilab/services':
-        specifier: workspace:*
-        version: link:../../packages/services
       antd:
         specifier: ^5.27.6
         version: 5.29.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

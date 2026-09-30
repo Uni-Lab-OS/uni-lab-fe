@@ -10,7 +10,7 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import { AsyncState } from "../../components/ui/AsyncState";
 import type { StudioRoute } from "../../components/AppShell";
 import { TaskTable } from "./TaskTable";
-import { toTaskRow, type TaskRow } from "./taskPresentation";
+import { taskSecondaryText, toTaskRow, type TaskRow } from "./taskPresentation";
 import { useBackend } from "../../app/BackendProvider";
 import { DebugTargetModal, type DebugTargetKind } from "./DebugTargetModal";
 
@@ -173,12 +173,60 @@ export function OverviewPage({ onNavigate }: { onNavigate: (route: StudioRoute, 
   return (
     <div className={cx("page-stack")}>
       <PageHeader title="总览" actions={<Dropdown menu={{ items: newDebugMenu }} trigger={["click"]}><Button type="primary" size="middle" icon={<AppIcon name="media/play-circle" color="white" size={16} />}>新建调试 <AppIcon name="arrows/chevron-down" color="white" size={14} /></Button></Dropdown>} />
-      <AsyncState loading={query.loading} error={query.error} onRetry={query.reload} empty={!query.loading && rows.length === 0} emptyDescription="当前后端没有返回任务记录" variant="table" tableColumns={6}>
+      <AsyncState loading={query.loading} error={query.error} onRetry={query.reload} empty={!query.loading && rows.length === 0} emptyDescription="当前后端没有返回任务记录" loadingContent={<OverviewSkeleton />}>
         <SummaryStrip rows={rows} />
         <div className={cx("overview-columns")}><TaskColumn title="活动任务" rows={activePreviewRows} onView={openTask} empty="当前没有活动任务" /><TaskColumn title="异常任务" rows={attentionPreviewRows} onView={openTask} attention empty="当前没有异常任务" /></div>
         <TaskTable rows={filteredRows} keyword={keyword} status={status} onKeywordChange={setKeyword} onStatusChange={setStatus} onView={openTask} onAbort={(row) => { Modal.confirm({ title: "中止任务？", content: "将向 Core 控制端口发送 cancel 命令，最终状态以 OS 回传为准。", okText: "中止", okButtonProps: { danger: true }, cancelText: "取消", onOk: async () => { try { const receipt = await backend.core.executionControl.sendTaskCommand(row.task.taskUuid, { type: "cancel", idempotencyKey: `studio-${row.task.taskUuid}-cancel-${Date.now()}` }); message.success(receipt.accepted ? "中止命令已接受，等待 OS 生效" : "中止命令未被接受"); query.reload(); } catch (error) { message.error(error instanceof Error ? error.message : "中止失败"); } } }); }} />
       </AsyncState>
       <DebugTargetModal kind={debugTargetKind} onCancel={() => setDebugTargetKind(null)} onConfirm={(target) => { setDebugTargetKind(null); onNavigate(target.kind === "device" ? "devices" : "workflows", target.kind === "device" ? `?debugDevice=${encodeURIComponent(target.uuid)}` : `?debugWorkflow=${encodeURIComponent(target.uuid)}`); }} />
+    </div>
+  );
+}
+
+function OverviewSkeleton() {
+  return (
+    <div className={cx("overview-skeleton")} role="status" aria-label="正在加载总览">
+      <div className={cx("overview-skeleton-summary")}>
+        {Array.from({ length: 4 }, (_, index) => (
+          <div className={cx("overview-skeleton-metric")} key={index}>
+            <span className={cx("overview-skeleton-icon")} />
+            <span className={cx("overview-skeleton-metric-copy")}>
+              <span className={cx("overview-skeleton-label")} />
+              <span className={cx("overview-skeleton-value")} />
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className={cx("overview-skeleton-columns")}>
+        {Array.from({ length: 2 }, (_, columnIndex) => (
+          <section className={cx("overview-skeleton-column")} key={columnIndex}>
+            <span className={cx("overview-skeleton-heading")} />
+            <div className={cx("overview-skeleton-task-list")}>
+              {Array.from({ length: 4 }, (_, rowIndex) => (
+                <div className={cx("overview-skeleton-task-row")} key={rowIndex}>
+                  <span className={cx("overview-skeleton-task-copy")} />
+                  <span className={cx("overview-skeleton-task-progress")} />
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+      <section className={cx("overview-skeleton-table")}>
+        <div className={cx("overview-skeleton-table-toolbar")}>
+          <span className={cx("overview-skeleton-table-title")} />
+          <span className={cx("overview-skeleton-filter", "overview-skeleton-filter--wide")} />
+          <span className={cx("overview-skeleton-filter")} />
+        </div>
+        <div className={cx("overview-skeleton-table-head")}>
+          {Array.from({ length: 6 }, (_, index) => <span key={index} />)}
+        </div>
+        {Array.from({ length: 5 }, (_, rowIndex) => (
+          <div className={cx("overview-skeleton-table-row")} key={rowIndex}>
+            {Array.from({ length: 6 }, (_, cellIndex) => <span className={cx(cellIndex === 0 ? "is-primary" : "")} key={cellIndex} />)}
+          </div>
+        ))}
+      </section>
     </div>
   );
 }
@@ -194,7 +242,7 @@ function SummaryStrip({ rows }: { rows: readonly TaskRow[] }) {
 }
 
 function TaskColumn({ title, rows, onView, attention = false, empty }: { title: string; note?: string; rows: readonly TaskRow[]; onView: (row: TaskRow) => void; attention?: boolean; empty: string }) {
-  return <section className={cx(`task-column ${attention ? "task-column--attention" : ""}`)}><div className={cx("section-title")}><div><h2>{title}</h2></div></div>{rows.length === 0 ? <EmptyState className={cx("task-column-empty")} scene={attention ? "no-data" : "no-task"} size="compact" title={empty} /> : <div className={cx("task-column-list")}>{rows.map((row) => <button type="button" className={cx("task-row")} key={row.task.taskUuid} onClick={() => onView(row)}><div className={cx("task-row-copy")}><strong>{row.name}</strong><span>{row.description ?? row.workflowName}</span></div><div className={cx("task-row-progress")}>{row.progress == null ? <div className={cx("task-row-progress-line task-row-progress-line--empty")}><span className={cx("muted-cell")}>无进度</span><TaskStatusText status={row.status} /></div> : <><div className={cx("task-row-progress-line")}><Progress percent={row.progress} showInfo={false} size="small" strokeColor={attention ? "var(--bh-color-error-default)" : row.status === "waiting" ? "var(--bh-color-warning-default)" : "var(--bh-color-primary)"} /><span>{row.progress}%</span></div><TaskStatusText status={row.status} /></>}</div></button>)}</div>}</section>;
+  return <section className={cx(`task-column ${attention ? "task-column--attention" : ""}`)}><div className={cx("section-title")}><div><h2>{title}</h2></div></div>{rows.length === 0 ? <EmptyState className={cx("task-column-empty")} scene={attention ? "no-data" : "no-task"} size="compact" title={empty} /> : <div className={cx("task-column-list")}>{rows.map((row) => { const secondaryText = taskSecondaryText(row); return <button type="button" className={cx("task-row")} key={row.task.taskUuid} onClick={() => onView(row)}><div className={cx("task-row-copy")}><strong>{row.name}</strong>{secondaryText ? <span>{secondaryText}</span> : null}</div><div className={cx("task-row-progress")}>{row.progress == null ? <div className={cx("task-row-progress-line task-row-progress-line--empty")}><span className={cx("muted-cell")}>无进度</span><TaskStatusText status={row.status} /></div> : <><div className={cx("task-row-progress-line")}><Progress percent={row.progress} showInfo={false} size="small" strokeColor={attention ? "var(--bh-color-error-default)" : row.status === "waiting" ? "var(--bh-color-warning-default)" : "var(--bh-color-primary)"} /><span>{row.progress}%</span></div><TaskStatusText status={row.status} /></>}</div></button>; })}</div>}</section>;
 }
 
 function TaskStatusText({ status }: { status: string }) {

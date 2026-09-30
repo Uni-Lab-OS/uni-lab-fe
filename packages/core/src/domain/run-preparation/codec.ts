@@ -106,15 +106,36 @@ function decodeCheck(value: RunPreparationRecord, path: string): PreflightCheck 
 
 function unwrapData(value: RunPreparationRecord): RunPreparationRecord {
   if (value.code !== undefined && value.code !== 0 && value.code !== '0') {
+    const error = asOptionalRecord(value.error)
+    const errorCode = optionalString(error?.code)
+    const message = optionalString(error?.message ?? error?.msg ?? value.message)
+    if (errorCode === 'develop_task_conflict') {
+      throw new RunPreparationError(
+        'DEVELOP_TASK_CONFLICT',
+        formatDevelopTaskConflict(message)
+      )
+    }
     throw new RunPreparationError(
       'OS_REQUEST_REJECTED',
-      optionalString(asOptionalRecord(value.error)?.message
-        ?? asOptionalRecord(value.error)?.msg
-        ?? value.message)
+      message
         ?? `OS request rejected with code ${String(value.code)}`
     )
   }
   return asOptionalRecord(value.data) ?? value
+}
+
+function formatDevelopTaskConflict(message: string | undefined): string {
+  const match = message?.match(/^develop_task_conflict:([^:]+):([^:]+)$/)
+  if (!match) return '开发模式已有未结束的任务，请先结束或取消该任务后再提交。'
+  const [, taskUuid, status] = match
+  const statusLabel = status === 'pending'
+    ? '等待中'
+    : status === 'running'
+      ? '执行中'
+      : status === 'canceling'
+        ? '取消中'
+        : status
+  return `开发模式已有未结束的任务（${statusLabel}，任务 ID：${taskUuid}），请先结束或取消该任务后再提交。`
 }
 
 function asRecord(value: unknown, path: string): RunPreparationRecord {

@@ -16,7 +16,8 @@ const statuses: Record<
 > = {
   success: { label: "已完成", tone: "success", icon: "general/check-circle" },
   completed: { label: "已完成", tone: "success", icon: "general/check-circle" },
-  running: { label: "执行中", tone: "processing", icon: "media/play-circle" },
+  // 运行中必须是橙色：蓝色留给"暂停在节点之前"，见 AGENTS.md 颜色约定。
+  running: { label: "执行中", tone: "warning", icon: "media/play-circle" },
   canceled: { label: "已取消", tone: "default", icon: "general/slash-circle-01" },
   cancelled: { label: "已取消", tone: "default", icon: "general/slash-circle-01" },
   timeout: { label: "已超时", tone: "error", icon: "alerts-feedback/alert-circle" },
@@ -45,6 +46,19 @@ const statuses: Record<
     tone: "error",
     icon: "alerts-feedback/alert-circle",
   },
+  // NodeJob / 调试时间线的节点状态，与 Task 生命周期共用同一套色调和胶囊。
+  manual: {
+    label: "待人工确认",
+    tone: "warning",
+    icon: "users/user-check-01",
+  },
+  unknown: {
+    label: "结果待核对",
+    tone: "error",
+    icon: "general/help-circle",
+  },
+  pending: { label: "未到达", tone: "default", icon: "general/minus-circle" },
+  skipped: { label: "已跳过", tone: "default", icon: "media/skip-forward" },
 };
 
 export function StatusBadge({
@@ -76,7 +90,10 @@ export function StatusBadge({
                   ? "default"
                   : meta.tone === "processing"
                     ? "primary"
-                    : "context"
+                    : // 图标没有 warning 色阶，继承胶囊文字色才能和标签同色。
+                    meta.tone === "warning"
+                      ? "inherit"
+                      : "context"
           }
         />
       }

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { TaskRuntimePresentation } from "@unilab-fe/core";
-import { formatDateTime, taskDisplayName, workflowDisplayName } from "./taskPresentation";
+import {
+  formatDateTime,
+  taskDisplayName,
+  taskSecondaryText,
+  workflowDisplayName,
+} from "./taskPresentation";
 
 const task = (raw: Readonly<Record<string, unknown>>): TaskRuntimePresentation => ({
   kind: "task_runtime_presentation",
@@ -37,5 +42,22 @@ describe("task presentation", () => {
     expect(formatDateTime("2026-09-24T05:23:58.676408Z")).toMatch(
       /^2026-09-24 \d{2}:23:58$/,
     );
+  });
+
+  it("hides a duplicate card subtitle but keeps meaningful context", () => {
+    expect(
+      taskSecondaryText({
+        name: "从实验运营控制台创建",
+        description: "从实验运营控制台创建",
+        workflowName: "从实验运营控制台创建",
+      }),
+    ).toBeNull();
+    expect(
+      taskSecondaryText({
+        name: "S06 机械臂与加液联调",
+        description: "等待设备释放",
+        workflowName: "S06 机械臂与加液联调",
+      }),
+    ).toBe("等待设备释放");
   });
 });

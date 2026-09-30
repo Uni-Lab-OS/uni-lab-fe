@@ -55,8 +55,33 @@
   inset: 0;
 }
 
+.reagent-mutation-modal {
+  box-sizing: border-box;
+  height: min(760px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px);
+  margin: 24px auto;
+  top: 0;
+  overflow: hidden;
+}
+
 .reagent-mutation-modal :global(.ant-modal-content) {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: min(760px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px);
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: hidden;
   padding: 24px;
+}
+
+.reagent-mutation-modal :global(.ant-modal-body) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding-right: 4px;
 }
 
 .reagent-form-grid {
@@ -289,7 +314,15 @@
 }
 
 @media (max-width: 640px) {
+  .reagent-mutation-modal {
+    height: calc(100dvh - 32px);
+    max-height: calc(100dvh - 32px);
+    margin: 16px auto;
+  }
+
   .reagent-mutation-modal :global(.ant-modal-content) {
+    height: calc(100dvh - 32px);
+    max-height: calc(100dvh - 32px);
     padding: 20px;
   }
 

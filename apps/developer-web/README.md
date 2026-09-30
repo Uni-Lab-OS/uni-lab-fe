@@ -1,6 +1,6 @@
 # Uni-Lab Developer Web
 
-面向实验调试人员的生产工作台。页面只通过 `@unilab-fe/core` 的领域 port 读取运行时事实，并通过 `@unilab/services` 执行需要后端能力声明的写入操作。
+面向实验调试人员的生产工作台。页面只通过 `@unilab-fe/core` 的领域 port 读取运行时事实并提交写入操作；HTTP、SSE 和能力声明均由 Core 组合根提供。
 
 ## 本地运行
 

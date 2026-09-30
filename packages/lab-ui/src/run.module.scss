@@ -142,9 +142,9 @@
 }
 
 .lab-ui-preflight {
-  border-color: var(--studio-border-soft);
-  border-radius: var(--studio-control-radius);
-  padding: 14px 16px 16px;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
 }
 
 .lab-ui-preflight__header h2 {
@@ -194,6 +194,30 @@
 
 .lab-ui-preflight__group > summary::marker {
   color: var(--studio-text-muted);
+}
+
+.lab-ui-preflight__group.is-blocked > summary,
+.lab-ui-preflight__group.is-blocked > summary::marker,
+.lab-ui-preflight__group.is-blocked > summary > span:first-child {
+  color: var(--bh-color-error-default, #b42318);
+}
+
+.lab-ui-preflight__group.is-confirmation_required > summary,
+.lab-ui-preflight__group.is-confirmation_required > summary::marker,
+.lab-ui-preflight__group.is-confirmation_required > summary > span:first-child {
+  color: var(--bh-color-primary, #315efb);
+}
+
+.lab-ui-preflight__group.is-deferred > summary,
+.lab-ui-preflight__group.is-deferred > summary::marker,
+.lab-ui-preflight__group.is-deferred > summary > span:first-child {
+  color: var(--bh-color-warning-default, #b54708);
+}
+
+.lab-ui-preflight__group.is-passed > summary,
+.lab-ui-preflight__group.is-passed > summary::marker,
+.lab-ui-preflight__group.is-passed > summary > span:first-child {
+  color: var(--bh-color-success-default, #027a48);
 }
 
 .lab-ui-preflight__group > summary:focus-visible {
@@ -300,6 +324,11 @@
   gap: 18px;
 }
 
+.lab-ui-run-preparation-summary > .lab-ui-preflight {
+  border-top: 0;
+  padding-top: 0;
+}
+
 .lab-ui-run-preparation-summary > header h2 {
   color: var(--studio-text);
   font-size: 20px;
@@ -313,8 +342,11 @@
 }
 
 .lab-ui-run-preparation-summary .lab-ui-definition-list dt {
-  color: var(--studio-text-faint);
-  font-size: 13px;
+  color: var(--studio-form-label-color, var(--studio-text-faint));
+  font-family: var(--studio-form-label-font-family, var(--bh-font-family-sans));
+  font-size: var(--studio-form-label-size, 14px);
+  font-weight: var(--studio-form-label-weight, 500);
+  line-height: var(--studio-form-label-line-height, 20px);
 }
 
 .lab-ui-run-preparation-summary .lab-ui-definition-list dd {
@@ -353,7 +385,7 @@
 .lab-ui-run-preparation-summary__basic .lab-ui-definition-list div {
   min-height: 42px;
   align-items: baseline;
-  border-bottom: 1px solid var(--studio-border-soft);
+  border-bottom: 0;
 }
 
 .lab-ui-run-preparation-summary__basic .lab-ui-definition-list dt {

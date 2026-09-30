@@ -107,8 +107,11 @@
 }
 
 .lab-ui-run-preparation-summary .lab-ui-definition-list dt {
-  color: var(--studio-text-faint);
-  font-size: 13px;
+  color: var(--studio-form-label-color, var(--studio-text-faint));
+  font-family: var(--studio-form-label-font-family, var(--bh-font-family-sans));
+  font-size: var(--studio-form-label-size, 14px);
+  font-weight: var(--studio-form-label-weight, 500);
+  line-height: var(--studio-form-label-line-height, 20px);
 }
 
 .lab-ui-run-preparation-summary .lab-ui-definition-list dd {

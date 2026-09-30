@@ -80,6 +80,22 @@ export function workflowDisplayName(task: TaskRuntimePresentation): string {
     ?? "未关联工作流";
 }
 
+/**
+ * 返回总览卡片中有实际补充信息的副标题。
+ * 任务接口的旧数据经常把 description 回退成任务名，不能把同一文本再展示一次。
+ */
+export function taskSecondaryText(
+  row: Pick<TaskRow, "name" | "workflowName" | "description">,
+): string | null {
+  const name = row.name.trim();
+  const description = row.description?.trim();
+  if (description && description !== name) return description;
+
+  const workflowName = row.workflowName.trim();
+  if (workflowName && workflowName !== name) return workflowName;
+  return null;
+}
+
 function readString(
   raw: Readonly<Record<string, unknown>> | null,
   keys: readonly string[],

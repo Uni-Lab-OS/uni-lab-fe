@@ -1,5 +1,217 @@
 /* Styles owned by the overview application components. */
 
+.overview-skeleton {
+  display: grid;
+  gap: 28px;
+  padding-top: 4px;
+}
+
+.overview-skeleton-summary,
+.overview-skeleton-columns {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.overview-skeleton-metric,
+.overview-skeleton-column {
+  min-width: 0;
+  border: 1px solid var(--studio-border-soft);
+  border-radius: var(--studio-control-radius);
+  background: var(--studio-surface);
+}
+
+.overview-skeleton-metric {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 98px;
+  padding: 16px 22px;
+}
+
+.overview-skeleton-icon {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 8px;
+}
+
+.overview-skeleton-metric-copy,
+.overview-skeleton-task-copy,
+.overview-skeleton-task-progress {
+  display: grid;
+  gap: 8px;
+}
+
+.overview-skeleton-metric-copy {
+  flex: 1;
+}
+
+.overview-skeleton-label,
+.overview-skeleton-value,
+.overview-skeleton-heading,
+.overview-skeleton-task-copy,
+.overview-skeleton-task-progress,
+.overview-skeleton-table-title,
+.overview-skeleton-filter,
+.overview-skeleton-table-head span,
+.overview-skeleton-table-row span {
+  display: block;
+  background: linear-gradient(90deg, var(--bh-color-fill-2, #edf0f5) 25%, var(--bh-color-fill-1, #f8f9fb) 37%, var(--bh-color-fill-2, #edf0f5) 63%);
+  background-size: 400% 100%;
+  animation: overview-skeleton-loading 1.4s ease infinite;
+}
+
+.overview-skeleton-label {
+  width: 44px;
+  height: 12px;
+  border-radius: 4px;
+}
+
+.overview-skeleton-value {
+  width: 28px;
+  height: 22px;
+  border-radius: 5px;
+}
+
+.overview-skeleton-columns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.overview-skeleton-column {
+  min-height: 320px;
+  padding: 15px 18px 13px;
+}
+
+.overview-skeleton-heading {
+  width: 70px;
+  height: 18px;
+  border-radius: 4px;
+}
+
+.overview-skeleton-task-list {
+  margin-top: 18px;
+  border-top: 1px solid var(--studio-border);
+}
+
+.overview-skeleton-task-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 58px;
+  border-bottom: 1px solid var(--studio-border-soft);
+}
+
+.overview-skeleton-task-copy {
+  width: min(58%, 220px);
+  height: 13px;
+  border-radius: 4px;
+}
+
+.overview-skeleton-task-progress {
+  width: 118px;
+  height: 8px;
+  border-radius: 99px;
+}
+
+.overview-skeleton-table {
+  min-width: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--studio-border-soft);
+}
+
+.overview-skeleton-table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.overview-skeleton-table-title {
+  width: 82px;
+  height: 18px;
+  margin-right: auto;
+  border-radius: 4px;
+}
+
+.overview-skeleton-filter {
+  width: 126px;
+  height: 32px;
+  border-radius: var(--studio-control-radius);
+}
+
+.overview-skeleton-filter--wide {
+  width: 220px;
+}
+
+.overview-skeleton-table-head,
+.overview-skeleton-table-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 2fr) minmax(140px, 1.7fr) minmax(76px, .7fr) minmax(108px, 1.1fr) minmax(130px, 1.3fr) minmax(76px, .8fr);
+  align-items: center;
+  gap: 20px;
+  border-top: 1px solid var(--studio-border);
+}
+
+.overview-skeleton-table-head {
+  min-height: 44px;
+}
+
+.overview-skeleton-table-row {
+  min-height: 64px;
+  border-top-color: var(--studio-border-soft);
+}
+
+.overview-skeleton-table-head span {
+  width: 44px;
+  height: 11px;
+  border-radius: 4px;
+}
+
+.overview-skeleton-table-row span {
+  width: min(100%, 86px);
+  height: 13px;
+  border-radius: 4px;
+}
+
+.overview-skeleton-table-row span.is-primary {
+  width: min(78%, 220px);
+}
+
+@keyframes overview-skeleton-loading {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overview-skeleton-label,
+  .overview-skeleton-value,
+  .overview-skeleton-heading,
+  .overview-skeleton-task-copy,
+  .overview-skeleton-task-progress,
+  .overview-skeleton-table-title,
+  .overview-skeleton-filter,
+  .overview-skeleton-table-head span,
+  .overview-skeleton-table-row span {
+    animation: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .overview-skeleton-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .overview-skeleton-columns { grid-template-columns: 1fr; }
+  .overview-skeleton-table-toolbar { flex-wrap: wrap; }
+  .overview-skeleton-table-title { width: 100%; margin-right: 0; }
+  .overview-skeleton-table-head,
+  .overview-skeleton-table-row { min-width: 760px; }
+  .overview-skeleton-table { overflow-x: auto; }
+}
+
 /* 总览指标条：四张互相独立的指标卡，不留整条容器边框。 */
 .summary-strip {
   display: grid;

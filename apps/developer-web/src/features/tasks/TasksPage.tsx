@@ -48,14 +48,6 @@ export function TasksPage() {
       }),
     [keyword, query.data, status],
   );
-  const selected = useMemo(
-    () =>
-      selectedUuid
-        ? rows.find((row) => row.task.taskUuid === selectedUuid) ?? null
-        : null,
-    [rows, selectedUuid],
-  );
-
   useEffect(() => {
     const syncSelectedTask = () => {
       setSelectedUuid(new URLSearchParams(window.location.search).get("task"));
@@ -78,9 +70,11 @@ export function TasksPage() {
     setSelectedUuid(null);
   };
 
-  if (selected)
+  // URL 中已有任务编号时直接保持详情路由。刷新期间列表请求尚未完成，
+  // 不能因为 rows 暂时为空而先回退到列表，再跳回详情。
+  if (selectedUuid)
     return (
-      <TaskDetailPage taskUuid={selected.task.taskUuid} onBack={closeTask} />
+      <TaskDetailPage taskUuid={selectedUuid} onBack={closeTask} />
     );
   const columns: TableColumnsType<TaskListRow> = [
     {

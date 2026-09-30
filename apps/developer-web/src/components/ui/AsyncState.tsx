@@ -12,6 +12,7 @@ export function AsyncState({
   emptyDescription = "暂无数据",
   variant = "default",
   tableColumns = 5,
+  loadingContent,
 }: {
   loading: boolean;
   error?: Error;
@@ -21,15 +22,16 @@ export function AsyncState({
   emptyDescription?: string;
   variant?: "default" | "table";
   tableColumns?: number;
+  loadingContent?: ReactNode;
 }) {
   if (loading)
     return (
       <div className={cx(`async-state${variant === "table" ? " async-state--table" : ""}`)}>
-        {variant === "table" ? (
+        {loadingContent ?? (variant === "table" ? (
           <TableSkeleton columns={tableColumns} />
         ) : (
           <Skeleton active paragraph={{ rows: 5 }} />
-        )}
+        ))}
       </div>
     );
   if (error)
@@ -39,7 +41,7 @@ export function AsyncState({
         type="error"
         showIcon
         message="数据加载失败"
-        description={error.message}
+        description={presentErrorMessage(error)}
         action={
           <button type="button" className={cx("text-action")} onClick={onRetry}>
             重试
@@ -50,6 +52,20 @@ export function AsyncState({
   if (empty)
     return <EmptyState className={cx("async-empty")} title={emptyDescription} />;
   return <>{children}</>;
+}
+
+function presentErrorMessage(error: Error): string {
+  const match = error.message.match(/^develop_task_conflict:([^:]+):([^:]+)$/)
+  if (!match) return error.message
+  const [, taskUuid, status] = match
+  const statusLabel = status === "pending"
+    ? "等待中"
+    : status === "running"
+      ? "执行中"
+      : status === "canceling"
+        ? "取消中"
+        : status
+  return `开发模式已有未结束的任务（${statusLabel}，任务 ID：${taskUuid}），请先在任务列表中结束或取消该任务后再重试。`
 }
 
 function TableSkeleton({ columns }: { columns: number }) {
