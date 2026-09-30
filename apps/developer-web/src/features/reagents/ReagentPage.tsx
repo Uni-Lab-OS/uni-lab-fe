@@ -28,6 +28,7 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import {
   ReagentModal,
   physicalStateLabel,
+  type ReagentListTab,
   type ReagentModalState,
 } from "./ReagentModal";
 import { TableText } from "../../components/ui/TableText";
@@ -186,6 +187,16 @@ export function ReagentsPage() {
   const canDispense = can("inventory.dispenseReagent");
   const canImportCatalog = can("reagentInfo.batchImport");
   const canImportInventory = can("inventory.batchImportReagents");
+
+  /** 写入完成后回到刚刚产生变化的列表，避免用户停留在另一份空结果上。 */
+  const handleSaved = (target: ReagentListTab) => {
+    setTab(target);
+    setKeyword("");
+    setSubmittedKeyword("");
+    setInventoryPage(1);
+    setCatalogPage(1);
+    query.reload();
+  };
 
   /**
    * 删除可能被目录引用或被任务预留而被 OS 拒绝，必须把真实原因显示出来，
@@ -405,7 +416,7 @@ export function ReagentsPage() {
         materials={query.data?.materials ?? []}
         catalog={query.data?.catalogOptions ?? []}
         onClose={() => setModal(null)}
-        onSaved={query.reload}
+        onSaved={handleSaved}
       />
     </div>
   );

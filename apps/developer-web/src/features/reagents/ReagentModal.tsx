@@ -3,7 +3,6 @@ import {
   Alert,
   Button,
   DatePicker,
-  Descriptions,
   Form,
   Input,
   InputNumber,
@@ -18,6 +17,7 @@ import {
   Upload,
 } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type {
   CapacityInput,
   CompoundLookup,
@@ -47,6 +47,8 @@ export type ReagentModalState =
   | { readonly type: "dispense"; readonly reagent: Reagent }
   | { readonly type: "history"; readonly reagent: Reagent }
   | { readonly type: "import"; readonly target: "catalog" | "inventory" };
+
+export type ReagentListTab = "inventory" | "catalog";
 
 const PHYSICAL_STATE_LABELS = {
   solid: "固体",
@@ -106,7 +108,7 @@ export function ReagentModal({
   materials: readonly MaterialSummary[];
   catalog: readonly ReagentInfo[];
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (tab: ReagentListTab) => void;
 }) {
   if (!state) return null;
   switch (state.type) {
@@ -116,19 +118,29 @@ export function ReagentModal({
       return <HistoryModal reagent={state.reagent} onClose={onClose} />;
     case "create-info":
     case "edit-info":
-      return <InfoFormModal state={state} onClose={onClose} onSaved={onSaved} />;
+      return (
+        <InfoFormModal
+          state={state}
+          onClose={onClose}
+          onSaved={() => onSaved("catalog")}
+        />
+      );
     case "dispense":
       return (
         <DispenseModal
           reagent={state.reagent}
           materials={materials}
           onClose={onClose}
-          onSaved={onSaved}
+          onSaved={() => onSaved("inventory")}
         />
       );
     case "import":
       return (
-        <ImportModal target={state.target} onClose={onClose} onSaved={onSaved} />
+        <ImportModal
+          target={state.target}
+          onClose={onClose}
+          onSaved={() => onSaved(state.target)}
+        />
       );
     default:
       return (
@@ -137,7 +149,7 @@ export function ReagentModal({
           materials={materials}
           catalog={catalog}
           onClose={onClose}
-          onSaved={onSaved}
+          onSaved={() => onSaved("inventory")}
         />
       );
   }
@@ -344,91 +356,132 @@ function CatalogDetail({
   return (
     <Modal
       open
+      className={cx("reagent-detail-modal")}
       width={640}
       title="试剂目录详情"
       footer={<Button onClick={onClose}>关闭</Button>}
       onCancel={onClose}
     >
-      <Descriptions column={1} size="small" colon={false}>
-        <Descriptions.Item label="名称">{info.name}</Descriptions.Item>
-        <Descriptions.Item label="英文名">
-          {info.nameEn ?? "未提供"}
-        </Descriptions.Item>
-        <Descriptions.Item label="别名">
-          {info.aliases.length ? info.aliases.join("、") : "未提供"}
-        </Descriptions.Item>
-        <Descriptions.Item label="CAS 号">
-          <span className={cx("reagent-identifier-text")}>{info.cas ?? "未提供"}</span>
-        </Descriptions.Item>
-        <Descriptions.Item label="分子式">
-          <span className={cx("reagent-identifier-text")}>
-            {info.molecularFormula ?? "未提供"}
-          </span>
-        </Descriptions.Item>
-        <Descriptions.Item label="SMILES">
-          <span className={cx("reagent-identifier-text")}>
-            {info.smiles ?? "未提供"}
-          </span>
-        </Descriptions.Item>
-        <Descriptions.Item label="InChIKey">
-          <span className={cx("reagent-identifier-text")}>
-            {info.inchiKey ?? "未提供"}
-          </span>
-        </Descriptions.Item>
-        <Descriptions.Item label="物态">
-          {physicalStateLabel(info.physicalState)}
-        </Descriptions.Item>
-        <Descriptions.Item label="分子量">
-          {info.molecularWeight == null
-            ? "未提供"
-            : `${info.molecularWeight} g/mol`}
-        </Descriptions.Item>
-        <Descriptions.Item label="密度">
-          {info.densityGPerMl == null ? "未提供" : `${info.densityGPerMl} g/mL`}
-        </Descriptions.Item>
-        <Descriptions.Item label="描述">
-          {info.description ?? "未提供"}
-        </Descriptions.Item>
-      </Descriptions>
-      <Typography.Title level={5}>三维结构</Typography.Title>
-      {!canReadStructure.available ? (
-        <Typography.Text type="secondary">
-          {canReadStructure.reason ?? "当前端点未开放三维结构读取能力"}
-        </Typography.Text>
-      ) : loading ? (
-        <Typography.Text type="secondary">正在读取结构缓存...</Typography.Text>
-      ) : structureError ? (
-        <Alert
-          type="error"
-          showIcon
-          message="三维结构读取失败"
-          description={structureError.message}
-        />
-      ) : structure?.content ? (
-        <Descriptions column={1} size="small" colon={false}>
-          <Descriptions.Item label="状态">
-            <Tag color="success">{structure.status}</Tag>
-          </Descriptions.Item>
-          <Descriptions.Item label="格式">
-            {structure.format ?? "未提供"}
-          </Descriptions.Item>
-          <Descriptions.Item label="来源">
-            {structure.structureSource ?? "未提供"}
-            {structure.sourceId ? ` / ${structure.sourceId}` : ""}
-          </Descriptions.Item>
-          <Descriptions.Item label="生成时间">
-            {structure.generatedAt ?? "未提供"}
-          </Descriptions.Item>
-          <Descriptions.Item label="结构内容">
-            {`已缓存 ${structure.content.length} 字符`}
-          </Descriptions.Item>
-        </Descriptions>
-      ) : (
-        <Typography.Text type="secondary">
-          {structure?.errorMessage ?? "尚未生成"}
-        </Typography.Text>
-      )}
+      <div className={cx("reagent-detail-content")}>
+        <section className={cx("reagent-detail-section")} aria-labelledby="reagent-detail-identity">
+          <h3 id="reagent-detail-identity">基础信息</h3>
+          <div className={cx("reagent-detail-grid")}>
+            <DetailField label="名称"><DetailValue value={info.name} /></DetailField>
+            <DetailField label="英文名"><DetailValue value={info.nameEn} /></DetailField>
+            <DetailField label="别名" wide><DetailValue value={info.aliases.length ? info.aliases.join("、") : null} /></DetailField>
+          </div>
+        </section>
+
+        <section className={cx("reagent-detail-section")} aria-labelledby="reagent-detail-properties">
+          <h3 id="reagent-detail-properties">化学属性</h3>
+          <div className={cx("reagent-detail-grid")}>
+            <DetailField label="CAS 号"><DetailValue value={info.cas} mono /></DetailField>
+            <DetailField label="分子式"><DetailValue value={info.molecularFormula} mono /></DetailField>
+            <DetailField label="物态"><DetailValue value={physicalStateLabel(info.physicalState)} /></DetailField>
+            <DetailField label="分子量"><DetailValue value={info.molecularWeight == null ? null : `${info.molecularWeight} g/mol`} /></DetailField>
+            <DetailField label="密度"><DetailValue value={info.densityGPerMl == null ? null : `${info.densityGPerMl} g/mL`} /></DetailField>
+          </div>
+        </section>
+
+        <section className={cx("reagent-detail-section")} aria-labelledby="reagent-detail-identifiers">
+          <h3 id="reagent-detail-identifiers">结构标识</h3>
+          <div className={cx("reagent-detail-grid")}>
+            <DetailField label="SMILES" wide><DetailValue value={info.smiles} mono /></DetailField>
+            <DetailField label="InChIKey" wide><DetailValue value={info.inchiKey} mono /></DetailField>
+          </div>
+        </section>
+
+        <section className={cx("reagent-detail-section")} aria-labelledby="reagent-detail-notes">
+          <h3 id="reagent-detail-notes">备注</h3>
+          <div className={cx("reagent-detail-grid")}>
+            <DetailField label="描述" wide><DetailValue value={info.description} /></DetailField>
+          </div>
+        </section>
+
+        <section className={cx("reagent-detail-section")} aria-labelledby="reagent-detail-structure">
+          <h3 id="reagent-detail-structure">三维结构</h3>
+          <div className={cx("reagent-detail-grid")}>
+            {!canReadStructure.available ? (
+              <div className={cx("reagent-detail-empty", "reagent-detail-field--wide")}>
+                {canReadStructure.reason ?? "当前端点未开放三维结构读取能力"}
+              </div>
+            ) : loading ? (
+              <div className={cx("reagent-detail-empty", "reagent-detail-field--wide")}>
+                正在读取结构缓存...
+              </div>
+            ) : structureError ? (
+              <Alert
+                className={cx("reagent-detail-field--wide")}
+                type="error"
+                showIcon
+                message="三维结构读取失败"
+                description={structureError.message}
+              />
+            ) : structure?.content ? (
+              <>
+                <DetailField label="状态">
+                  <Tag color="success">{structure.status}</Tag>
+                </DetailField>
+                <DetailField label="格式"><DetailValue value={structure.format} /></DetailField>
+                <DetailField label="来源">
+                  <DetailValue
+                    value={`${structure.structureSource ?? ""}${structure.sourceId ? ` / ${structure.sourceId}` : ""}`}
+                  />
+                </DetailField>
+                <DetailField label="生成时间"><DetailValue value={structure.generatedAt} /></DetailField>
+                <DetailField label="结构内容">
+                  <DetailValue value={`已缓存 ${structure.content.length} 字符`} />
+                </DetailField>
+              </>
+            ) : (
+              <div className={cx("reagent-detail-empty", "reagent-detail-field--wide")}>
+                <Tag color="warning">待生成</Tag>
+                <span>{structure?.errorMessage ?? "尚未生成"}</span>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
     </Modal>
+  );
+}
+
+function DetailField({
+  label,
+  children,
+  wide = false,
+}: {
+  label: string;
+  children: ReactNode;
+  wide?: boolean;
+}) {
+  return (
+    <div
+      className={cx("reagent-detail-field", wide && "reagent-detail-field--wide")}
+    >
+      <span className={cx("reagent-detail-label")}>{label}</span>
+      <div className={cx("reagent-detail-value")}>{children}</div>
+    </div>
+  );
+}
+
+function DetailValue({
+  value,
+  mono = false,
+}: {
+  value: ReactNode;
+  mono?: boolean;
+}) {
+  const missing = value == null || value === "";
+  return (
+    <span
+      className={cx(
+        mono && "reagent-detail-code",
+        missing && "reagent-detail-value--empty",
+      )}
+    >
+      {missing ? "未提供" : value}
+    </span>
   );
 }
 
@@ -551,6 +604,7 @@ function InfoFormModal({
   const [form] = Form.useForm<Record<string, unknown>>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [lookupError, setLookupError] = useState<Error | null>(null);
   const [lookup, setLookup] = useState<CompoundLookup | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const isCreate = state.type === "create-info";
@@ -561,10 +615,13 @@ function InfoFormModal({
   const lookupByCas = async () => {
     const cas = text(form.getFieldValue("cas"));
     if (!cas) {
-      setError(new Error("请先填写 CAS 号"));
+      setLookup(null);
+      setLookupError(new Error("请先填写 CAS 号"));
       return;
     }
     setLookupLoading(true);
+    setLookup(null);
+    setLookupError(null);
     setError(null);
     try {
       guard("reagentInfo.lookupCompound");
@@ -607,7 +664,7 @@ function InfoFormModal({
         form.setFieldsValue(patch);
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause : new Error("CAS 查询失败"));
+      setLookupError(cause instanceof Error ? cause : new Error("CAS 查询失败"));
     } finally {
       setLookupLoading(false);
     }
@@ -687,12 +744,22 @@ function InfoFormModal({
       >
         <div className={cx("reagent-form-grid")}>
           <FormSection title="化学身份" />
-          <Form.Item className={cx("reagent-form-field--wide")} label="CAS 号">
+          <Form.Item
+            className={cx("reagent-form-field--wide")}
+            label="CAS 号"
+            validateStatus={lookupError ? "error" : undefined}
+            help={lookupError?.message}
+          >
             <div className={cx("reagent-cas-lookup")}>
               <Form.Item name="cas" noStyle>
                 <Input
+                  status={lookupError ? "error" : undefined}
                   className={cx("reagent-identifier-input")}
                   placeholder="例如 75-05-8"
+                  onChange={() => {
+                    setLookup(null);
+                    if (lookupError) setLookupError(null);
+                  }}
                 />
               </Form.Item>
               <Button

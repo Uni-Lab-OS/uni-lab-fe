@@ -1025,6 +1025,12 @@ textarea {
   font-weight: 650;
 }
 
+/* 任务列表的任务名和工作流名使用同一正文字号，避免链接组件与普通文本继承不同字号。 */
+.task-list-table :global(.ant-table-tbody) > tr > td:nth-child(-n + 2),
+.task-list-table :global(.ant-table-tbody) > tr > td:nth-child(-n + 2) .table-text {
+  font-size: 14px;
+}
+
 /* Let data tables hug their content; keep spacing in the toolbar and cells. */
 .data-section {
   padding-top: 0;

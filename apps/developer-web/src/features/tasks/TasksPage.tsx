@@ -50,11 +50,13 @@ export function TasksPage() {
   );
   useEffect(() => {
     const syncSelectedTask = () => {
-      setSelectedUuid(new URLSearchParams(window.location.search).get("task"));
+      const nextTaskUuid = new URLSearchParams(window.location.search).get("task");
+      setSelectedUuid(nextTaskUuid);
+      if (!nextTaskUuid && window.location.pathname === "/tasks") query.reload();
     };
     window.addEventListener("popstate", syncSelectedTask);
     return () => window.removeEventListener("popstate", syncSelectedTask);
-  }, []);
+  }, [query.reload]);
 
   const openTask = (row: TaskListRow) => {
     window.history.pushState(
@@ -68,6 +70,7 @@ export function TasksPage() {
   const closeTask = () => {
     window.history.pushState({}, "", "/tasks");
     setSelectedUuid(null);
+    query.reload();
   };
 
   // URL 中已有任务编号时直接保持详情路由。刷新期间列表请求尚未完成，
@@ -198,6 +201,7 @@ export function TasksPage() {
           tableColumns={6}
         >
           <Table
+            className={cx("task-list-table")}
             rowKey={(row) => row.task.taskUuid}
             columns={columns}
             dataSource={rows}

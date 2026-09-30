@@ -57,6 +57,8 @@ export function WorkflowDebugPage({
   const [workflowInput, setWorkflowInput] = useState<Record<string, unknown>>({});
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const hasLocalWorkflowServiceError =
+    step === 1 && formError?.includes("本地工作流服务处理失败") === true;
   useEffect(() => {
     void useRunPreparationStore.getState().load(workflowUuid);
   }, [useRunPreparationStore, workflowUuid]);
@@ -166,6 +168,7 @@ export function WorkflowDebugPage({
         {revision && (
           <>
             <Steps
+              className={cx("workflow-debug-steps")}
               current={step}
               items={[
                 { title: "填写入参" },
@@ -287,7 +290,20 @@ export function WorkflowDebugPage({
                     type="error"
                     showIcon
                     message={formError}
-                    action={hasTaskConflict ? <Button type="link" onClick={() => onNavigate("tasks")}>查看任务列表</Button> : undefined}
+                    description={
+                      hasLocalWorkflowServiceError
+                        ? "后端可能已经创建任务，但本地调度尚未完成。请先到任务列表核对；若没有记录，确认本地工作流服务和设备动作定义后再重试。"
+                        : undefined
+                    }
+                    action={
+                      hasTaskConflict || hasLocalWorkflowServiceError
+                        ? (
+                          <Button type="link" onClick={() => onNavigate("tasks")}>
+                            查看任务列表
+                          </Button>
+                        )
+                        : undefined
+                    }
                   />
                 )}
                 <RunSubmitConfirmation

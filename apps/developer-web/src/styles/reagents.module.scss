@@ -55,6 +55,106 @@
   inset: 0;
 }
 
+/* 目录详情沿用表单的标签、字段面和栅格节奏，长标识仍保留可复制的等宽排版。 */
+.reagent-detail-modal :global(.ant-modal-body) {
+  max-height: calc(100dvh - 180px);
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+
+.reagent-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.reagent-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reagent-detail-section + .reagent-detail-section {
+  padding-top: 20px;
+  border-top: 1px solid var(--studio-border-soft);
+}
+
+.reagent-detail-section h3 {
+  margin: 0;
+  color: var(--studio-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.reagent-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.reagent-detail-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reagent-detail-field--wide {
+  grid-column: 1 / -1;
+}
+
+.reagent-detail-label {
+  color: var(--studio-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.reagent-detail-value {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-control-radius);
+  background: var(--studio-surface-muted);
+  color: var(--studio-text);
+  font-size: 13px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+
+.reagent-detail-code {
+  font-family: var(--bh-font-family-mono);
+  word-break: break-all;
+}
+
+.reagent-detail-value--empty {
+  color: var(--studio-text-faint);
+}
+
+.reagent-detail-empty {
+  display: flex;
+  min-height: 36px;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 9px 10px;
+  border: 1px dashed var(--studio-border);
+  border-radius: var(--studio-control-radius);
+  color: var(--studio-text-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.reagent-detail-grid > :global(.ant-alert) {
+  margin: 0;
+}
+
 .reagent-mutation-modal {
   box-sizing: border-box;
   height: min(760px, calc(100dvh - 48px));
@@ -314,6 +414,18 @@
 }
 
 @media (max-width: 640px) {
+  .reagent-detail-modal :global(.ant-modal-body) {
+    max-height: calc(100dvh - 160px);
+  }
+
+  .reagent-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reagent-detail-field--wide {
+    grid-column: auto;
+  }
+
   .reagent-mutation-modal {
     height: calc(100dvh - 32px);
     max-height: calc(100dvh - 32px);
