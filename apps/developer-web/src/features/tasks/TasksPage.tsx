@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import {
   Button,
   Input,
@@ -87,10 +88,10 @@ export function TasksPage() {
       key: "name",
       width: 300,
       render: (_, row) => (
-        <div className="primary-cell">
+        <div className={cx("primary-cell")}>
           <Button
             type="link"
-            className="task-name-link"
+            className={cx("task-name-link")}
             onClick={() => openTask(row)}
             aria-label={`查看任务 ${row.name}`}
           >
@@ -111,9 +112,9 @@ export function TasksPage() {
       key: "progress",
       width: 150,
       render: (_, row) => (
-        <div className="progress-cell">
+        <div className={cx("progress-cell")}>
           <span>{row.progress == null ? "—" : `${row.progress}%`}</span>
-          <span className="muted-cell">
+          <span className={cx("muted-cell")}>
             {row.completedJobs}/{row.totalJobs} 节点
           </span>
         </div>
@@ -124,7 +125,7 @@ export function TasksPage() {
       key: "time",
       width: 190,
       render: (_, row) => (
-        <span className="muted-cell">{displayTime(row.task.createdAt)}</span>
+        <span className={cx("muted-cell")}>{displayTime(row.task.createdAt)}</span>
       ),
     },
     {
@@ -137,7 +138,7 @@ export function TasksPage() {
           <Tooltip title="查看">
             <Button
               type="text"
-              className="icon-button"
+              className={cx("icon-button")}
               aria-label={`查看任务 ${row.name}`}
               icon={<AppIcon name="general/eye" size={18} />}
               onClick={() => openTask(row)}
@@ -153,24 +154,24 @@ export function TasksPage() {
     },
   ];
   return (
-    <div className="page-stack">
+    <div className={cx("page-stack")}>
       <PageHeader title="任务" />
-      <section className="data-section">
-        <div className="data-section-toolbar">
-          <div className="section-title">
+      <section className={cx("data-section")}>
+        <div className={cx("data-section-toolbar")}>
+          <div className={cx("section-title")}>
             <h2>任务列表</h2>
           </div>
           <Space>
             <Input
               allowClear
-              className="search-input"
+              className={cx("search-input")}
               prefix={<AppIcon name="general/search-md" size={16} />}
               placeholder="搜索名称、工作流或任务编号"
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
             />
             <Select
-              className="status-select"
+              className={cx("status-select")}
               value={status}
               onChange={setStatus}
               options={[
@@ -257,7 +258,7 @@ function AbortTaskButton({
         danger
         disabled={!available}
         loading={busy}
-        className="icon-button"
+        className={cx("icon-button")}
         aria-label="中止任务"
         icon={<AppIcon name="media/stop-circle" size={18} />}
         onClick={abort}

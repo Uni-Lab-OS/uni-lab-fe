@@ -11,7 +11,7 @@ it('defaults to the Uni-Lab-OS Console backend port', async () => {
     configFile: fileURLToPath(new URL('./vite.config.ts', import.meta.url)),
   }, 'serve', 'development')
   const proxy = config.server.proxy?.['/__unilab_backend']
-  expect(proxy).toMatchObject({ target: 'http://127.0.0.1:8002' })
+  expect(proxy).toMatchObject({ target: 'http://127.0.0.1:59394' })
 })
 
 it('uses the OS console Workspace Backend URL for the Studio proxy', async () => {

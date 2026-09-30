@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import { Button, Empty, Input, Tooltip, Tree, Typography } from "antd";
 import type { TreeDataNode } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -81,7 +82,7 @@ export function MaterialsPage() {
       />
     );
   return (
-    <div className="page-stack">
+    <div className={cx("page-stack")}>
       <PageHeader
         title="物料"
         actions={
@@ -100,22 +101,22 @@ export function MaterialsPage() {
         empty={!query.loading && allNodes.length === 0}
         emptyDescription="后端没有返回物料图"
       >
-        <div className="resource-toolbar">
+        <div className={cx("resource-toolbar")}>
           <Input
-            className="search-input"
+            className={cx("search-input")}
             allowClear
             prefix={<AppIcon name="general/search-md" size={16} />}
             placeholder="搜索物料名称或条码"
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
           />
-          <span className={`toolbar-hint ${normalizedKeyword ? "is-searching" : ""}`} aria-live="polite">
+          <span className={cx(`toolbar-hint ${normalizedKeyword ? "is-searching" : ""}`)} aria-live="polite">
             {normalizedKeyword
               ? `${matchingIds.size} / ${allNodes.length} 个节点匹配`
               : `${allNodes.length} 个节点`}
           </span>
         </div>
-        <div className="material-workspace">
+        <div className={cx("material-workspace")}>
           <MaterialFlowCanvas
             nodes={allNodes}
             hasSearch={Boolean(normalizedKeyword)}
@@ -152,7 +153,7 @@ function MaterialInspector({
 }) {
   if (!node || !selection)
     return (
-      <aside className="material-inspector material-inspector--empty">
+      <aside className={cx("material-inspector material-inspector--empty")}>
         <EmptyState scene="no-data" title="选择节点、库位或物料查看详情" />
       </aside>
     );
@@ -190,8 +191,8 @@ function InspectorHeading({
   iconColor?: IconColor;
 }) {
   return (
-    <div className="inspector-heading">
-      <span className="inspector-icon">
+    <div className={cx("inspector-heading")}>
+      <span className={cx("inspector-icon")}>
         <AppIcon name={icon} color={iconColor} size={22} />
       </span>
       <div>
@@ -213,12 +214,12 @@ function NodeInspector({
   const detail = node.material;
   const sites = collectNodeSites(node, nodes);
   return (
-    <aside className="material-inspector">
+    <aside className={cx("material-inspector")}>
       <InspectorHeading
         icon="shapes/cube-03"
         title={detail.name}
       />
-      <dl className="definition-list">
+      <dl className={cx("definition-list")}>
         <div>
           <dt>节点类型</dt>
           <dd>{detail.materialType ?? "未提供"}</dd>
@@ -284,7 +285,7 @@ function SiteInspector({
       : "empty"
     : "attention";
   return (
-    <aside className="material-inspector">
+    <aside className={cx("material-inspector")}>
       <InspectorHeading
         icon="shapes/cube-03"
         title={site.name || site.key}
@@ -300,7 +301,7 @@ function SiteInspector({
             : "占用未知"
         }
       />
-      <dl className="definition-list">
+      <dl className={cx("definition-list")}>
         <div>
           <dt>所属节点</dt>
           <dd>{node.material.name}</dd>
@@ -309,7 +310,7 @@ function SiteInspector({
           <dt>库位标识</dt>
           <dd>
             <Tooltip title={site.siteUuid}>
-              <span className="definition-value-tooltip">{site.siteUuid}</span>
+              <span className={cx("definition-value-tooltip")}>{site.siteUuid}</span>
             </Tooltip>
           </dd>
         </div>
@@ -323,10 +324,10 @@ function SiteInspector({
         </div>
       </dl>
       {occupied && (
-        <div className="inspector-section">
+        <div className={cx("inspector-section")}>
           <Button
             type="link"
-            className="material-inspector__link"
+            className={cx("material-inspector__link")}
             onClick={() => onSelect({ kind: "material", materialId: occupied, siteId: site.siteUuid })}
           >
             查看占用物料
@@ -360,7 +361,7 @@ function MaterialDetailInspector({
         : "empty"
       : "attention";
   return (
-    <aside className="material-inspector">
+    <aside className={cx("material-inspector")}>
       <InspectorHeading
         icon="layout/layers-two-01"
         title={detail.name}
@@ -378,7 +379,7 @@ function MaterialDetailInspector({
               : "占用未知"
         }
       />
-      <dl className="definition-list">
+      <dl className={cx("definition-list")}>
         <div>
           <dt>物料类型</dt>
           <dd>{detail.materialType ?? "未提供"}</dd>
@@ -397,7 +398,7 @@ function MaterialDetailInspector({
         </div>
       </dl>
       <SiteList sites={node.sites} onSelect={onSelect} />
-      <Typography.Text type="secondary" className="capability-note">
+      <Typography.Text type="secondary" className={cx("capability-note")}>
         当前页面仅展示物料与库位状态；变更库位需通过统一物料命令执行。
       </Typography.Text>
     </aside>
@@ -412,8 +413,8 @@ function SiteList({
   onSelect: (selection: MaterialSelection) => void;
 }) {
   return (
-    <div className="inspector-section">
-      <div className="section-title">
+    <div className={cx("inspector-section")}>
+      <div className={cx("section-title")}>
         <h3>库位</h3>
       </div>
       <SitePicker
@@ -451,12 +452,12 @@ function MaterialManagement({
     setExpandedKeys(normalizedKeyword ? collectExpandableKeys(treeData) : []);
   }, [treeData, normalizedKeyword]);
   return (
-    <div className="page-stack material-management-page">
+    <div className={cx("page-stack material-management-page")}>
       <PageHeader
         leading={
           <Button
             type="text"
-            className="page-header-back"
+            className={cx("page-header-back")}
             aria-label="返回物料关系图"
             title="返回物料关系图"
             icon={<AppIcon name="arrows/arrow-left" size={18} />}
@@ -465,8 +466,8 @@ function MaterialManagement({
         }
         title="物料管理"
       />
-      <div className="management-workspace">
-        <section className="management-tree">
+      <div className={cx("management-workspace")}>
+        <section className={cx("management-tree")}>
           <Input
             allowClear
             prefix={<AppIcon name="general/search-md" size={16} />}
@@ -475,7 +476,7 @@ function MaterialManagement({
             onChange={(event) => setKeyword(event.target.value)}
           />
           <Tree
-            className="resource-tree"
+            className={cx("resource-tree")}
             blockNode
             expandedKeys={expandedKeys}
             selectedKeys={selected ? [selected] : []}

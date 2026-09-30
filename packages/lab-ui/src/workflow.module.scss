@@ -1,0 +1,75 @@
+/* Styles owned by the workflow lab-ui components. */
+
+.lab-ui-material-list, .lab-ui-site-picker, .lab-ui-requirement-list, .lab-ui-preflight__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lab-ui-material-list__primary span, .lab-ui-material-list__meta, .lab-ui-site-picker small, .lab-ui-preflight__list small, .lab-ui-requirement-list li span, .lab-ui-definition-list dt, .lab-ui-eyebrow, .lab-ui-identity {
+  color: var(--unilab-text-secondary, #667085);
+  font-size: 12px;
+}
+
+.lab-ui-workflow-input-form {
+  display: grid;
+  gap: 16px;
+}
+
+.lab-ui-requirement-list {
+  display: grid;
+  gap: 8px;
+}
+
+.lab-ui-requirement-list li {
+  align-items: center;
+  border-bottom: 1px solid var(--unilab-border-subtle, #eaecf0);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.lab-ui-requirement-list li > div {
+  display: grid;
+  gap: 3px;
+}
+
+.lab-ui-requirement-list__quantity {
+  white-space: nowrap;
+}
+
+.lab-ui-workflow-input-form {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 0 18px;
+}
+
+/* Developer-web compatibility: keep the extracted controls on the existing studio rhythm. */
+.lab-ui-workflow-input-form {
+  gap: 0 18px;
+}
+
+.lab-ui-requirement-list li {
+  min-width: 0;
+  min-height: 52px;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.lab-ui-requirement-list li strong {
+  color: var(--studio-text);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.lab-ui-requirement-list li span {
+  color: var(--studio-text-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.lab-ui-requirement-list__quantity {
+  color: var(--studio-text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+}

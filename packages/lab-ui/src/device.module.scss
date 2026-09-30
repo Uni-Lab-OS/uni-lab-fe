@@ -1,0 +1,205 @@
+/* Styles owned by the device lab-ui components. */
+
+.lab-ui-device-action-list__empty {
+  color: var(--unilab-text-secondary, #667085);
+  margin: 0;
+  padding: 8px 0;
+}
+
+.lab-ui-device-action-list {
+  display: grid;
+  gap: 8px;
+}
+
+.lab-ui-device-action-list__busy {
+  background: #e6f4ff;
+  border-radius: 4px;
+  color: #1677ff;
+  font-size: 12px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.device-action-input-description {
+  color: var(--unilab-text-secondary, #667085);
+  font-size: 12px;
+}
+
+.device-action-input-error {
+  color: var(--unilab-color-danger, #b42318);
+  font-size: 12px;
+}
+
+.device-action-input-fields .device-action-field-slot {
+  display: grid;
+  gap: 6px;
+}
+
+.device-action-input-fields .device-action-field-slot > input:not([type=checkbox]), .device-action-input-fields .device-action-field-slot > select, .device-action-input-fields .device-action-field-slot > textarea {
+  border: 1px solid var(--unilab-border-subtle, #d0d5dd);
+  border-radius: 6px;
+  font: inherit;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.device-action-input-fields .device-action-field-slot > input[type=checkbox] {
+  justify-self: start;
+}
+
+.lab-ui-form-field input:not([type=checkbox]),
+.lab-ui-form-field select,
+.lab-ui-form-field textarea,
+.lab-ui-device-action-input-fields input:not([type=checkbox]),
+.lab-ui-device-action-input-fields select,
+.lab-ui-device-action-input-fields textarea {
+  min-width: 0;
+  min-height: 36px;
+  box-sizing: border-box;
+  border: 1px solid var(--bh-color-border-1, var(--studio-border));
+  border-radius: 8px;
+  background: var(--studio-surface);
+  color: var(--studio-text);
+  font-family: var(--bh-font-family-sans);
+  font-size: 14px;
+  line-height: 22px;
+  padding: 6px 11px;
+}
+
+.lab-ui-form-field textarea,
+.lab-ui-device-action-input-fields textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.lab-ui-form-field input::placeholder,
+.lab-ui-form-field textarea::placeholder,
+.lab-ui-device-action-input-fields input::placeholder,
+.lab-ui-device-action-input-fields textarea::placeholder {
+  color: var(--studio-text-faint);
+  opacity: 1;
+}
+
+.lab-ui-device-action-input-fields input[readonly],
+.lab-ui-device-action-input-fields textarea[readonly] {
+  color: var(--studio-text);
+  cursor: default;
+  background: var(--studio-surface);
+}
+
+.lab-ui-form-field__error,
+.device-action-input-description,
+.device-action-input-error {
+  color: var(--studio-text-faint);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.lab-ui-form-field input:not([type=checkbox]):focus,
+.lab-ui-form-field select:focus,
+.lab-ui-form-field textarea:focus,
+.lab-ui-device-action-input-fields input:not([type=checkbox]):focus,
+.lab-ui-device-action-input-fields select:focus,
+.lab-ui-device-action-input-fields textarea:focus {
+  border-color: var(--bh-color-primary-focus, var(--studio-accent));
+  outline: 2px solid color-mix(in srgb, var(--bh-color-primary-focus, var(--studio-accent)) 28%, transparent);
+  outline-offset: 0;
+}
+
+/* Local equivalents for patterns that were previously borrowed from developer-web. */
+.primary-cell,
+.amount-cell,
+.action-item,
+.device-status,
+.device-action-input-empty,
+.device-action-input-label,
+.history-list {
+  box-sizing: border-box;
+}
+
+.action-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 4px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--studio-control-radius, 8px);
+  color: var(--studio-text-secondary, var(--bh-color-text-description));
+  background: transparent;
+  text-align: left;
+}
+
+.action-item:hover,
+.action-item.is-selected {
+  color: var(--studio-accent, var(--bh-color-primary));
+  background: var(--studio-selection, var(--bh-color-primary-background));
+}
+
+.action-item-label {
+  min-width: 0;
+  flex: 1;
+}
+
+.action-item strong {
+  display: block;
+  overflow: hidden;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--studio-text-secondary, var(--bh-color-text-description));
+  font-size: var(--bh-font-size-sm, 0.875rem);
+  line-height: var(--bh-line-height-md, 1.5rem);
+}
+
+.device-status__dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--studio-text-faint, var(--bh-color-text-placeholder));
+}
+
+.device-status--offline .device-status__dot {
+  background: var(--bh-color-text-placeholder);
+}
+
+.device-status--attention .device-status__dot {
+  background: var(--bh-color-warning-default);
+}
+
+.device-status--available .device-status__dot {
+  background: var(--bh-color-success-default);
+}
+
+.device-action-input-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--studio-form-label-color, var(--studio-text-secondary, var(--bh-color-text-description)));
+  font-family: var(--studio-form-label-font-family, var(--bh-font-family-sans));
+  font-size: var(--studio-form-label-size, 14px);
+  font-weight: var(--studio-form-label-weight, 500);
+  line-height: var(--studio-form-label-line-height, 20px);
+}
+
+.device-action-input-label code {
+  color: var(--studio-text-faint, var(--bh-color-text-placeholder));
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.device-action-input-empty {
+  padding: 10px 0 16px;
+  color: var(--studio-text-faint, var(--bh-color-text-placeholder));
+}

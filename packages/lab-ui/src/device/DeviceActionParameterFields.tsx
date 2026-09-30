@@ -1,3 +1,4 @@
+import { cx } from '../classNames'
 import {
   isDeviceActionResourceParameter,
   isDeviceActionStructuredParameter,
@@ -23,18 +24,12 @@ export function DeviceActionParameterFields({
   className,
 }: DeviceActionParameterFieldsProps) {
   if (parameters.length === 0) {
-    return <div className="device-action-input-empty">该动作没有声明可填写的参数。</div>
+    return <div className={cx('device-action-input-empty')}>该动作没有声明可填写的参数。</div>
   }
 
   return (
     <div
-      className={[
-        'device-action-input-fields',
-        'lab-ui-device-action-input-fields',
-        className,
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      className={cx('device-action-input-fields', 'lab-ui-device-action-input-fields', className)}
     >
       {parameters.map((parameter) => (
         <DeviceActionParameterField
@@ -64,21 +59,21 @@ function DeviceActionParameterField({
   readonly onChange: (value: unknown) => void
 }) {
   return (
-    <label className="device-action-field-slot">
-      <span className="device-action-input-label">
+    <label className={cx('device-action-field-slot')}>
+      <span className={cx('device-action-input-label')}>
         <span>
           {parameter.title}
-          {parameter.required && <span className="lab-ui-required-mark" aria-hidden="true"> *</span>}
+          {parameter.required && <span className={cx('lab-ui-required-mark')} aria-hidden="true"> *</span>}
         </span>
         {parameter.title !== parameter.name && <code>{parameter.name}</code>}
       </span>
       {renderInput(parameter, value, editable, onChange)}
       {parameter.description && (
-        <small className="device-action-input-description">
+        <small className={cx('device-action-input-description')}>
           {parameter.description}
         </small>
       )}
-      {error && <span className="device-action-input-error">{error}</span>}
+      {error && <span className={cx('device-action-input-error')}>{error}</span>}
     </label>
   )
 }

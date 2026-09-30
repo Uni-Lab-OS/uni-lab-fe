@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import {
   Button,
   Input,
@@ -41,10 +42,10 @@ export function TaskTable({
       key: "name",
       width: 300,
       render: (_, row) => (
-        <div className="primary-cell">
+        <div className={cx("primary-cell")}>
           <button
             type="button"
-            className="primary-cell-link"
+            className={cx("primary-cell-link")}
             aria-label={`查看任务 ${row.name}`}
             onClick={() => onView(row)}
           >
@@ -71,7 +72,7 @@ export function TaskTable({
       align: "center",
       width: 170,
       render: (_, row) => (
-        <div className="progress-cell">
+        <div className={cx("progress-cell")}>
           <span>{row.progress == null ? "—" : `${row.progress}%`}</span>
           <StatusBadge status={row.status} />
         </div>
@@ -83,7 +84,7 @@ export function TaskTable({
       align: "center",
       width: 190,
       render: (_, row) => (
-        <time className="muted-cell" dateTime={row.createdAt}>
+        <time className={cx("muted-cell")} dateTime={row.createdAt}>
           {row.createdAt ? formatDateTime(row.createdAt) : "未提供"}
         </time>
       ),
@@ -97,7 +98,7 @@ export function TaskTable({
         <Space size={2}>
           <Tooltip title="查看任务">
             <Button
-              className="icon-button"
+              className={cx("icon-button")}
               type="text"
               icon={<AppIcon name="general/eye" size={18} />}
               aria-label={`查看任务 ${row.name}`}
@@ -106,7 +107,7 @@ export function TaskTable({
           </Tooltip>
           <Tooltip title="中止任务">
             <Button
-              className="icon-button"
+              className={cx("icon-button")}
               type="text"
               danger
               disabled={
@@ -123,14 +124,14 @@ export function TaskTable({
   ];
 
   return (
-    <section className="data-section">
-      <div className="data-section-toolbar">
-        <div className="section-title">
+    <section className={cx("data-section")}>
+      <div className={cx("data-section-toolbar")}>
+        <div className={cx("section-title")}>
           <h2>所有任务</h2>
         </div>
         <Space>
           <Input
-            className="search-input"
+            className={cx("search-input")}
             allowClear
             prefix={<AppIcon name="general/search-md" size={16} />}
             placeholder="搜索任务"
@@ -138,7 +139,7 @@ export function TaskTable({
             onChange={(event) => onKeywordChange(event.target.value)}
           />
           <Select
-            className="status-select"
+            className={cx("status-select")}
             value={status}
             onChange={onStatusChange}
             options={[
@@ -191,8 +192,8 @@ function PriorityLabel({ value }: { value: string | null | undefined }) {
           ? "low"
           : "normal";
   return (
-    <span className={`priority-label priority-label--${tone}`}>
-      <span className="priority-dot" aria-hidden="true" />
+    <span className={cx(`priority-label priority-label--${tone}`)}>
+      <span className={cx("priority-dot")} aria-hidden="true" />
       {label}
     </span>
   );

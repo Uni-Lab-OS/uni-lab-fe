@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import { Alert, Skeleton } from "antd";
 import { EmptyState } from "@unilab/design-v2";
 import type { ReactNode } from "react";
@@ -23,7 +24,7 @@ export function AsyncState({
 }) {
   if (loading)
     return (
-      <div className={`async-state${variant === "table" ? " async-state--table" : ""}`}>
+      <div className={cx(`async-state${variant === "table" ? " async-state--table" : ""}`)}>
         {variant === "table" ? (
           <TableSkeleton columns={tableColumns} />
         ) : (
@@ -34,30 +35,30 @@ export function AsyncState({
   if (error)
     return (
       <Alert
-        className="async-error"
+        className={cx("async-error")}
         type="error"
         showIcon
         message="数据加载失败"
         description={error.message}
         action={
-          <button type="button" className="text-action" onClick={onRetry}>
+          <button type="button" className={cx("text-action")} onClick={onRetry}>
             重试
           </button>
         }
       />
     );
   if (empty)
-    return <EmptyState className="async-empty" title={emptyDescription} />;
+    return <EmptyState className={cx("async-empty")} title={emptyDescription} />;
   return <>{children}</>;
 }
 
 function TableSkeleton({ columns }: { columns: number }) {
   const safeColumns = Math.max(2, Math.floor(columns));
   return (
-    <div className="table-skeleton" role="status" aria-label="正在加载表格">
+    <div className={cx("table-skeleton")} role="status" aria-label="正在加载表格">
       {Array.from({ length: 6 }, (_, rowIndex) => (
         <div
-          className="table-skeleton-row"
+          className={cx("table-skeleton-row")}
           key={rowIndex}
           style={{
             gridTemplateColumns: `minmax(220px, 2fr) repeat(${safeColumns - 1}, minmax(76px, 1fr))`,
@@ -65,7 +66,7 @@ function TableSkeleton({ columns }: { columns: number }) {
         >
           {Array.from({ length: safeColumns }, (_, columnIndex) => (
             <span
-              className={`table-skeleton-cell${columnIndex === 0 ? " table-skeleton-cell--primary" : ""}`}
+              className={cx(`table-skeleton-cell${columnIndex === 0 ? " table-skeleton-cell--primary" : ""}`)}
               key={columnIndex}
             />
           ))}

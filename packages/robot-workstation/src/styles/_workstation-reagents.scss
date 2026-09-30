@@ -155,10 +155,10 @@
 }
 
 .reagentIdentityParameters {
-  display: -webkit-box !important;
+  display: -webkit-box;
   max-width: 34ch;
   overflow: hidden;
-  color: var(--unilab-color-primary) !important;
+  color: var(--unilab-color-primary);
   font-size: 11px;
   line-height: 1.4;
   white-space: normal;

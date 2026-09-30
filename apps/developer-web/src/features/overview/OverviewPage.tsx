@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import { Button, Dropdown, Modal, Progress, message } from "antd";
 import type { MenuProps } from "antd";
 import { useMemo, useState } from "react";
@@ -170,11 +171,11 @@ export function OverviewPage({ onNavigate }: { onNavigate: (route: StudioRoute, 
     { key: "workflow", icon: <AppIcon name="development/dataflow-01" size={16} />, label: "调试工作流", onClick: () => setDebugTargetKind("workflow") },
   ];
   return (
-    <div className="page-stack">
+    <div className={cx("page-stack")}>
       <PageHeader title="总览" actions={<Dropdown menu={{ items: newDebugMenu }} trigger={["click"]}><Button type="primary" size="middle" icon={<AppIcon name="media/play-circle" color="white" size={16} />}>新建调试 <AppIcon name="arrows/chevron-down" color="white" size={14} /></Button></Dropdown>} />
       <AsyncState loading={query.loading} error={query.error} onRetry={query.reload} empty={!query.loading && rows.length === 0} emptyDescription="当前后端没有返回任务记录" variant="table" tableColumns={6}>
         <SummaryStrip rows={rows} />
-        <div className="overview-columns"><TaskColumn title="活动任务" rows={activePreviewRows} onView={openTask} empty="当前没有活动任务" /><TaskColumn title="异常任务" rows={attentionPreviewRows} onView={openTask} attention empty="当前没有异常任务" /></div>
+        <div className={cx("overview-columns")}><TaskColumn title="活动任务" rows={activePreviewRows} onView={openTask} empty="当前没有活动任务" /><TaskColumn title="异常任务" rows={attentionPreviewRows} onView={openTask} attention empty="当前没有异常任务" /></div>
         <TaskTable rows={filteredRows} keyword={keyword} status={status} onKeywordChange={setKeyword} onStatusChange={setStatus} onView={openTask} onAbort={(row) => { Modal.confirm({ title: "中止任务？", content: "将向 Core 控制端口发送 cancel 命令，最终状态以 OS 回传为准。", okText: "中止", okButtonProps: { danger: true }, cancelText: "取消", onOk: async () => { try { const receipt = await backend.core.executionControl.sendTaskCommand(row.task.taskUuid, { type: "cancel", idempotencyKey: `studio-${row.task.taskUuid}-cancel-${Date.now()}` }); message.success(receipt.accepted ? "中止命令已接受，等待 OS 生效" : "中止命令未被接受"); query.reload(); } catch (error) { message.error(error instanceof Error ? error.message : "中止失败"); } } }); }} />
       </AsyncState>
       <DebugTargetModal kind={debugTargetKind} onCancel={() => setDebugTargetKind(null)} onConfirm={(target) => { setDebugTargetKind(null); onNavigate(target.kind === "device" ? "devices" : "workflows", target.kind === "device" ? `?debugDevice=${encodeURIComponent(target.uuid)}` : `?debugWorkflow=${encodeURIComponent(target.uuid)}`); }} />
@@ -189,16 +190,16 @@ function SummaryStrip({ rows }: { rows: readonly TaskRow[] }) {
     { label: "执行中", value: rows.filter((row) => row.status === "running").length, icon: "media/play", tone: "blue" },
     { label: "异常", value: rows.filter((row) => ["attention", "failed"].includes(row.status)).length, icon: "alerts-feedback/alert-circle", tone: "red" },
   ] as const;
-  return <div className="summary-strip">{values.map((item) => <div className={`summary-metric summary-metric--${item.tone}`} key={item.label}><AppIcon name={item.icon} size={20} color={item.tone === "red" ? "error" : item.tone === "blue" ? "primary" : "context"} /><div><span>{item.label}</span><strong>{item.value}</strong></div></div>)}</div>;
+  return <div className={cx("summary-strip")}>{values.map((item) => <div className={cx(`summary-metric summary-metric--${item.tone}`)} key={item.label}><AppIcon name={item.icon} size={20} color={item.tone === "red" ? "error" : item.tone === "blue" ? "primary" : "context"} /><div><span>{item.label}</span><strong>{item.value}</strong></div></div>)}</div>;
 }
 
 function TaskColumn({ title, rows, onView, attention = false, empty }: { title: string; note?: string; rows: readonly TaskRow[]; onView: (row: TaskRow) => void; attention?: boolean; empty: string }) {
-  return <section className={`task-column ${attention ? "task-column--attention" : ""}`}><div className="section-title"><div><h2>{title}</h2></div></div>{rows.length === 0 ? <EmptyState className="task-column-empty" scene={attention ? "no-data" : "no-task"} size="compact" title={empty} /> : <div className="task-column-list">{rows.map((row) => <button type="button" className="task-row" key={row.task.taskUuid} onClick={() => onView(row)}><div className="task-row-copy"><strong>{row.name}</strong><span>{row.description ?? row.workflowName}</span></div><div className="task-row-progress">{row.progress == null ? <div className="task-row-progress-line task-row-progress-line--empty"><span className="muted-cell">无进度</span><TaskStatusText status={row.status} /></div> : <><div className="task-row-progress-line"><Progress percent={row.progress} showInfo={false} size="small" strokeColor={attention ? "var(--bh-color-error-default)" : row.status === "waiting" ? "var(--bh-color-warning-default)" : "var(--bh-color-primary)"} /><span>{row.progress}%</span></div><TaskStatusText status={row.status} /></>}</div></button>)}</div>}</section>;
+  return <section className={cx(`task-column ${attention ? "task-column--attention" : ""}`)}><div className={cx("section-title")}><div><h2>{title}</h2></div></div>{rows.length === 0 ? <EmptyState className={cx("task-column-empty")} scene={attention ? "no-data" : "no-task"} size="compact" title={empty} /> : <div className={cx("task-column-list")}>{rows.map((row) => <button type="button" className={cx("task-row")} key={row.task.taskUuid} onClick={() => onView(row)}><div className={cx("task-row-copy")}><strong>{row.name}</strong><span>{row.description ?? row.workflowName}</span></div><div className={cx("task-row-progress")}>{row.progress == null ? <div className={cx("task-row-progress-line task-row-progress-line--empty")}><span className={cx("muted-cell")}>无进度</span><TaskStatusText status={row.status} /></div> : <><div className={cx("task-row-progress-line")}><Progress percent={row.progress} showInfo={false} size="small" strokeColor={attention ? "var(--bh-color-error-default)" : row.status === "waiting" ? "var(--bh-color-warning-default)" : "var(--bh-color-primary)"} /><span>{row.progress}%</span></div><TaskStatusText status={row.status} /></>}</div></button>)}</div>}</section>;
 }
 
 function TaskStatusText({ status }: { status: string }) {
   const normalized = status.toLowerCase();
   const labels: Record<string, string> = { running: "执行中", waiting: "等待中", attention: "异常", failed: "失败" };
   const tone = normalized === "attention" || normalized === "failed" ? "error" : normalized;
-  return <span className={`task-row-status task-row-status--${tone}`}>{labels[normalized] ?? status}</span>;
+  return <span className={cx(`task-row-status task-row-status--${tone}`)}>{labels[normalized] ?? status}</span>;
 }

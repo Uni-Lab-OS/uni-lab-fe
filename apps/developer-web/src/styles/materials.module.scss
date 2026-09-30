@@ -1,3 +1,4 @@
+/* Source: resources.module.scss */
 .resource-toolbar {
   display: flex;
   align-items: center;
@@ -95,10 +96,10 @@
   background: #f8faff;
   box-shadow: 0 12px 30px rgba(44, 60, 91, 0.05);
 }
-.material-flow-canvas__surface .react-flow__pane {
+.material-flow-canvas__surface :global(.react-flow__pane) {
   cursor: grab;
 }
-.material-flow-canvas__surface .react-flow__pane:active {
+.material-flow-canvas__surface :global(.react-flow__pane):active {
   cursor: grabbing;
 }
 .material-flow-group {
@@ -375,7 +376,7 @@
 .material-inspector__link {
   padding-inline: 0;
 }
-.material-inspector__link.ant-btn-link {
+.material-inspector__link:global(.ant-btn-link) {
   height: auto;
   min-height: 0;
   padding: 0;
@@ -386,14 +387,14 @@
   box-shadow: none !important;
   line-height: 1.5;
 }
-.material-inspector__link.ant-btn-link:hover {
+.material-inspector__link:global(.ant-btn-link):hover {
   color: var(--studio-accent) !important;
   background: transparent !important;
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
-.material-inspector__link.ant-btn-link:focus-visible {
+.material-inspector__link:global(.ant-btn-link):focus-visible {
   background: transparent !important;
   outline: 2px solid var(--studio-primary);
   outline-offset: 3px;
@@ -409,8 +410,11 @@
   gap: 8px;
 }
 .definition-list dt {
-  color: #9aa4b3;
-  font-size: 13px;
+  color: var(--studio-form-label-color);
+  font-family: var(--studio-form-label-font-family);
+  font-size: var(--studio-form-label-size);
+  font-weight: var(--studio-form-label-weight);
+  line-height: var(--studio-form-label-line-height);
 }
 .definition-list dd {
   margin: 0;
@@ -432,20 +436,20 @@
 .inspector-section .section-title {
   margin-bottom: 14px;
 }
-.inspector-section .ant-list-item {
+.inspector-section :global(.ant-list-item) {
   padding: 4px 8px !important;
   border-block-end: 0 !important;
 }
-.inspector-section .ant-list-item strong,
-.inspector-section .ant-list-item span {
+.inspector-section :global(.ant-list-item) strong,
+.inspector-section :global(.ant-list-item) span {
   display: block;
 }
-.inspector-section .ant-list-item strong {
+.inspector-section :global(.ant-list-item) strong {
   color: #67748b;
   font-size: 13px;
   font-weight: 500;
 }
-.inspector-section .ant-list-item span {
+.inspector-section :global(.ant-list-item) span {
   margin-top: 4px;
   color: #a0a9b7;
   font-size: 12px;
@@ -456,7 +460,7 @@
   gap: 8px;
   margin-top: 18px;
 }
-.inspector-actions .ant-btn {
+.inspector-actions :global(.ant-btn) {
   min-width: 88px;
   height: 30px;
   padding: 0 13px;
@@ -493,15 +497,15 @@
   color: #637189;
   background: var(--studio-surface);
 }
-.resource-tree .ant-tree-node-content-wrapper {
+.resource-tree :global(.ant-tree-node-content-wrapper) {
   padding: 6px 8px;
 }
-.resource-tree .ant-tree-treenode {
+.resource-tree :global(.ant-tree-treenode) {
   align-items: center;
   overflow: hidden;
   border-radius: 8px;
 }
-.resource-tree .ant-tree-switcher {
+.resource-tree :global(.ant-tree-switcher) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -509,34 +513,34 @@
   height: auto;
   line-height: normal;
 }
-.resource-tree .ant-tree-switcher-icon,
-.resource-tree .ant-tree-switcher .bh-icon {
+.resource-tree :global(.ant-tree-switcher-icon),
+.resource-tree :global(.ant-tree-switcher) .bh-icon {
   display: block;
   transform: none;
 }
-.resource-tree.ant-tree .ant-tree-treenode:hover {
+.resource-tree:global(.ant-tree) :global(.ant-tree-treenode):hover {
   background: transparent !important;
 }
-.resource-tree.ant-tree .ant-tree-switcher:hover {
+.resource-tree:global(.ant-tree) :global(.ant-tree-switcher):hover {
   background: transparent !important;
 }
-.resource-tree.ant-tree .ant-tree-switcher:focus-visible {
+.resource-tree:global(.ant-tree) :global(.ant-tree-switcher):focus-visible {
   background: transparent !important;
 }
-.resource-tree.ant-tree .ant-tree-treenode:hover > .ant-tree-node-content-wrapper:not(.ant-tree-node-selected),
-.resource-tree.ant-tree .ant-tree-node-content-wrapper:hover:not(.ant-tree-node-selected) {
+.resource-tree:global(.ant-tree) :global(.ant-tree-treenode):hover > :global(.ant-tree-node-content-wrapper):not(:global(.ant-tree-node-selected)),
+.resource-tree:global(.ant-tree) :global(.ant-tree-node-content-wrapper):hover:not(:global(.ant-tree-node-selected)) {
   background: var(--studio-surface-muted) !important;
 }
-.resource-tree.ant-tree .ant-tree-treenode-selected,
-.resource-tree.ant-tree .ant-tree-treenode-selected:hover {
+.resource-tree:global(.ant-tree) :global(.ant-tree-treenode-selected),
+.resource-tree:global(.ant-tree) :global(.ant-tree-treenode-selected):hover {
   background: transparent !important;
 }
-.resource-tree.ant-tree .ant-tree-node-content-wrapper.ant-tree-node-selected,
-.resource-tree.ant-tree .ant-tree-treenode-selected > .ant-tree-node-content-wrapper {
+.resource-tree:global(.ant-tree) :global(.ant-tree-node-content-wrapper):global(.ant-tree-node-selected),
+.resource-tree:global(.ant-tree) :global(.ant-tree-treenode-selected) > :global(.ant-tree-node-content-wrapper) {
   background: var(--studio-selection) !important;
 }
-.resource-tree.ant-tree .ant-tree-treenode:hover > .ant-tree-node-content-wrapper,
-.resource-tree.ant-tree .ant-tree-treenode-selected > .ant-tree-node-content-wrapper {
+.resource-tree:global(.ant-tree) :global(.ant-tree-treenode):hover > :global(.ant-tree-node-content-wrapper),
+.resource-tree:global(.ant-tree) :global(.ant-tree-treenode-selected) > :global(.ant-tree-node-content-wrapper) {
   border-radius: 8px;
 }
 .material-management-page {
@@ -548,7 +552,7 @@
   grid-template-rows: auto minmax(0, 1fr);
 }
 .material-management-page > .management-workspace > .material-inspector,
-.material-management-page > .management-workspace > .ant-empty {
+.material-management-page > .management-workspace > :global(.ant-empty) {
   min-height: 0;
   height: 100%;
 }
@@ -590,4 +594,33 @@
   border-bottom: 1px solid var(--studio-border-soft);
   color: #778399;
   font-size: 12px;
+}
+
+
+/* Source: materials.module.scss */
+/* Styles owned by the materials application components. */
+
+.task-row-copy strong,
+.primary-cell strong,
+.resource-cell strong {
+  color: var(--studio-text);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.task-row-copy span,
+.primary-cell span,
+.resource-cell span,
+.time-cell span {
+  color: var(--studio-text-faint);
+  font-size: 10px;
+}
+
+.topology-card,
+.node-inspector,
+.debug-step-card,
+.task-identity,
+.gantt-card,
+.resource-card {
+  gap: 18px;
 }

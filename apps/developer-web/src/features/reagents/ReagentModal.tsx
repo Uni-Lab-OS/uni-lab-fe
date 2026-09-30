@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import {
   Alert,
   Button,
@@ -149,7 +150,7 @@ function ErrorAlert({ error }: { error: Error | null }) {
     .details;
   return (
     <Alert
-      className="form-error reagent-form-field--wide"
+      className={cx("form-error reagent-form-field--wide")}
       type="error"
       showIcon
       message="提交失败"
@@ -157,7 +158,7 @@ function ErrorAlert({ error }: { error: Error | null }) {
         <div>
           <div>{error.message}</div>
           {details && (
-            <pre className="reagent-error-details">
+            <pre className={cx("reagent-error-details")}>
               {JSON.stringify(details, null, 2)}
             </pre>
           )}
@@ -215,7 +216,7 @@ function ContainerSelect({
 
 function FormSection({ title }: { title: string }) {
   return (
-    <div className="reagent-form-section reagent-form-field--wide">{title}</div>
+    <div className={cx("reagent-form-section reagent-form-field--wide")}>{title}</div>
   );
 }
 
@@ -238,14 +239,14 @@ function AmountField({
 }) {
   return (
     <Form.Item label={label} required={required}>
-      <div className="reagent-amount-field">
+      <div className={cx("reagent-amount-field")}>
         <Form.Item
           name={valueName}
           noStyle
           rules={required ? [{ required: true, message: `请输入${label}` }] : []}
         >
           <InputNumber
-            className="reagent-amount-value"
+            className={cx("reagent-amount-value")}
             min={0}
             controls={false}
           />
@@ -258,7 +259,7 @@ function AmountField({
           }
         >
           <Select
-            className="reagent-amount-unit"
+            className={cx("reagent-amount-unit")}
             allowClear={!required}
             popupMatchSelectWidth={false}
             placeholder="单位"
@@ -357,20 +358,20 @@ function CatalogDetail({
           {info.aliases.length ? info.aliases.join("、") : "未提供"}
         </Descriptions.Item>
         <Descriptions.Item label="CAS 号">
-          <span className="reagent-identifier-text">{info.cas ?? "未提供"}</span>
+          <span className={cx("reagent-identifier-text")}>{info.cas ?? "未提供"}</span>
         </Descriptions.Item>
         <Descriptions.Item label="分子式">
-          <span className="reagent-identifier-text">
+          <span className={cx("reagent-identifier-text")}>
             {info.molecularFormula ?? "未提供"}
           </span>
         </Descriptions.Item>
         <Descriptions.Item label="SMILES">
-          <span className="reagent-identifier-text">
+          <span className={cx("reagent-identifier-text")}>
             {info.smiles ?? "未提供"}
           </span>
         </Descriptions.Item>
         <Descriptions.Item label="InChIKey">
-          <span className="reagent-identifier-text">
+          <span className={cx("reagent-identifier-text")}>
             {info.inchiKey ?? "未提供"}
           </span>
         </Descriptions.Item>
@@ -495,7 +496,7 @@ function HistoryModal({
       ) : history?.items.length ? (
         <>
           <List
-            className="history-list"
+            className={cx("history-list")}
             dataSource={[...history.items]}
             renderItem={(item) => (
               <List.Item>
@@ -520,7 +521,7 @@ function HistoryModal({
             )}
           />
           <Pagination
-            className="reagent-history-pagination"
+            className={cx("reagent-history-pagination")}
             simple
             current={page}
             pageSize={pageSize}
@@ -658,7 +659,7 @@ function InfoFormModal({
   return (
     <Modal
       open
-      className="reagent-mutation-modal"
+      className={cx("reagent-mutation-modal")}
       width={720}
       title={isCreate ? "新增试剂目录" : `编辑试剂目录 · ${info?.name}`}
       onCancel={onClose}
@@ -667,7 +668,7 @@ function InfoFormModal({
     >
       <Form
         form={form}
-        className="reagent-mutation-form"
+        className={cx("reagent-mutation-form")}
         layout="vertical"
         initialValues={{
           name: info?.name,
@@ -684,18 +685,18 @@ function InfoFormModal({
         }}
         onFinish={submit}
       >
-        <div className="reagent-form-grid">
+        <div className={cx("reagent-form-grid")}>
           <FormSection title="化学身份" />
-          <Form.Item className="reagent-form-field--wide" label="CAS 号">
-            <div className="reagent-cas-lookup">
+          <Form.Item className={cx("reagent-form-field--wide")} label="CAS 号">
+            <div className={cx("reagent-cas-lookup")}>
               <Form.Item name="cas" noStyle>
                 <Input
-                  className="reagent-identifier-input"
+                  className={cx("reagent-identifier-input")}
                   placeholder="例如 75-05-8"
                 />
               </Form.Item>
               <Button
-                className="reagent-lookup-button"
+                className={cx("reagent-lookup-button")}
                 loading={lookupLoading}
                 disabled={!canLookup.available}
                 onClick={() => void lookupByCas()}
@@ -706,7 +707,7 @@ function InfoFormModal({
           </Form.Item>
           {lookup && (
             <Alert
-              className="reagent-form-field--wide reagent-lookup-result"
+              className={cx("reagent-form-field--wide reagent-lookup-result")}
               type={
                 lookup.status === "ok"
                   ? "success"
@@ -733,7 +734,7 @@ function InfoFormModal({
             <Input />
           </Form.Item>
           <Form.Item
-            className="reagent-form-field--wide"
+            className={cx("reagent-form-field--wide")}
             label="别名"
             name="aliases"
           >
@@ -749,36 +750,36 @@ function InfoFormModal({
           </Form.Item>
           <Form.Item label="分子式" name="molecularFormula">
             <Input
-              className="reagent-identifier-input"
+              className={cx("reagent-identifier-input")}
               placeholder="例如 C2H3N"
             />
           </Form.Item>
           <Form.Item label="分子量 (g/mol)" name="molecularWeight">
-            <InputNumber className="full-input" min={0} />
+            <InputNumber className={cx("full-input")} min={0} />
           </Form.Item>
           <Form.Item label="密度 (g/mL)" name="densityGPerMl">
-            <InputNumber className="full-input" min={0} />
+            <InputNumber className={cx("full-input")} min={0} />
           </Form.Item>
           <FormSection title="结构标识" />
           <Form.Item label="SMILES" name="smiles">
-            <Input className="reagent-identifier-input" placeholder="例如 CC#N" />
+            <Input className={cx("reagent-identifier-input")} placeholder="例如 CC#N" />
           </Form.Item>
           <Form.Item label="InChIKey" name="inchiKey">
             <Input
-              className="reagent-identifier-input"
+              className={cx("reagent-identifier-input")}
               placeholder="例如 WEVYAHXRMPXWCK-UHFFFAOYSA-N"
             />
           </Form.Item>
           <FormSection title="备注" />
           <Form.Item
-            className="reagent-form-field--wide"
+            className={cx("reagent-form-field--wide")}
             label="描述"
             name="description"
           >
             <Input.TextArea rows={3} />
           </Form.Item>
           <ErrorAlert error={error} />
-          <div className="modal-actions reagent-form-field--wide">
+          <div className={cx("modal-actions reagent-form-field--wide")}>
             <Button onClick={onClose}>取消</Button>
             <Button type="primary" htmlType="submit" loading={loading}>
               保存
@@ -884,7 +885,7 @@ function InventoryFormModal({
   return (
     <Modal
       open
-      className="reagent-mutation-modal"
+      className={cx("reagent-mutation-modal")}
       width={720}
       title={isCreate ? "录入试剂库存" : `编辑试剂库存 · ${reagent?.name}`}
       onCancel={onClose}
@@ -893,7 +894,7 @@ function InventoryFormModal({
     >
       <Form
         form={form}
-        className="reagent-mutation-form"
+        className={cx("reagent-mutation-form")}
         layout="vertical"
         initialValues={{
           materialUuid: reagent?.materialUuid,
@@ -909,10 +910,10 @@ function InventoryFormModal({
         }}
         onFinish={submit}
       >
-        <div className="reagent-form-grid">
+        <div className={cx("reagent-form-grid")}>
           <FormSection title="容器与身份" />
           <Form.Item
-            className="reagent-form-field--wide"
+            className={cx("reagent-form-field--wide")}
             label="容器物料"
             name="materialUuid"
             rules={[{ required: true, message: "请选择承载试剂的容器物料" }]}
@@ -921,7 +922,7 @@ function InventoryFormModal({
           </Form.Item>
           {isCreate &&
             (presetInfo ? (
-              <Form.Item className="reagent-form-field--wide" label="试剂身份">
+              <Form.Item className={cx("reagent-form-field--wide")} label="试剂身份">
                 <Input
                   readOnly
                   value={
@@ -994,13 +995,13 @@ function InventoryFormModal({
           />
           {isCreate && (
             <Form.Item label="密度 (g/mL)" name="densityGPerMl">
-              <InputNumber className="full-input" min={0} />
+              <InputNumber className={cx("full-input")} min={0} />
             </Form.Item>
           )}
           <FormSection title="容器装料上限" />
           {reagent && (
             <Alert
-              className="reagent-form-field--wide reagent-capacity-note"
+              className={cx("reagent-form-field--wide reagent-capacity-note")}
               type="info"
               showIcon
               message={`当前生效上限 ${formatCapacity(reagent.maximumCapacity)}，试剂版本 ${reagent.revision ?? "未提供"}`}
@@ -1018,20 +1019,20 @@ function InventoryFormModal({
           </Form.Item>
           <Form.Item label="观测时间" name="observedAt">
             <DatePicker
-              className="full-input"
+              className={cx("full-input")}
               showTime
               placeholder="选择时间"
             />
           </Form.Item>
           <Form.Item
-            className="reagent-form-field--wide"
+            className={cx("reagent-form-field--wide")}
             label="说明"
             name="description"
           >
             <Input.TextArea rows={3} />
           </Form.Item>
           <ErrorAlert error={error} />
-          <div className="modal-actions reagent-form-field--wide">
+          <div className={cx("modal-actions reagent-form-field--wide")}>
             <Button onClick={onClose}>取消</Button>
             <Button type="primary" htmlType="submit" loading={loading}>
               保存
@@ -1099,7 +1100,7 @@ function DispenseModal({
   return (
     <Modal
       open
-      className="reagent-mutation-modal"
+      className={cx("reagent-mutation-modal")}
       width={720}
       title={`试剂分装 · ${reagent.name}`}
       onCancel={onClose}
@@ -1107,14 +1108,14 @@ function DispenseModal({
       destroyOnHidden
     >
       <Alert
-        className="reagent-dispense-source"
+        className={cx("reagent-dispense-source")}
         type="info"
         showIcon
         message={`源瓶余量 ${reagent.quantity ?? "未提供"} ${reagent.quantityUnit ?? ""}`}
       />
       <Form
         form={form}
-        className="reagent-mutation-form"
+        className={cx("reagent-mutation-form")}
         layout="vertical"
         initialValues={{
           quantityUnit: reagent.quantityUnit ?? "mL",
@@ -1123,7 +1124,7 @@ function DispenseModal({
         }}
         onFinish={submit}
       >
-        <div className="reagent-form-grid">
+        <div className={cx("reagent-form-grid")}>
           <FormSection title="分装" />
           <Form.Item
             label="分装单位"
@@ -1149,9 +1150,9 @@ function DispenseModal({
           />
           <Form.List name="targets">
             {(fields, { add, remove }) => (
-              <div className="reagent-form-field--wide reagent-dispense-targets">
+              <div className={cx("reagent-form-field--wide reagent-dispense-targets")}>
                 {fields.map((field, index) => (
-                  <div className="reagent-dispense-target" key={field.key}>
+                  <div className={cx("reagent-dispense-target")} key={field.key}>
                     <Form.Item
                       name={[field.name, "materialUuid"]}
                       label={index === 0 ? "目标容器" : undefined}
@@ -1168,7 +1169,7 @@ function DispenseModal({
                       label={index === 0 ? "分装量" : undefined}
                       rules={[{ required: true, message: "请输入分装量" }]}
                     >
-                      <InputNumber className="full-input" min={0} controls={false} />
+                      <InputNumber className={cx("full-input")} min={0} controls={false} />
                     </Form.Item>
                     <Button
                       type="text"
@@ -1186,7 +1187,7 @@ function DispenseModal({
           </Form.List>
           {result && (
             <Alert
-              className="reagent-form-field--wide"
+              className={cx("reagent-form-field--wide")}
               type={result.errorCode ? "error" : "success"}
               showIcon
               message={`命令状态 ${result.status}`}
@@ -1198,7 +1199,7 @@ function DispenseModal({
             />
           )}
           <ErrorAlert error={error} />
-          <div className="modal-actions reagent-form-field--wide">
+          <div className={cx("modal-actions reagent-form-field--wide")}>
             <Button onClick={onClose}>取消</Button>
             <Button type="primary" htmlType="submit" loading={loading}>
               执行分装
@@ -1255,7 +1256,7 @@ function ImportModal({
   return (
     <Modal
       open
-      className="reagent-mutation-modal"
+      className={cx("reagent-mutation-modal")}
       width={640}
       title={target === "catalog" ? "导入试剂目录" : "导入试剂库存"}
       onCancel={onClose}
@@ -1268,7 +1269,7 @@ function ImportModal({
         </Space>
       }
     >
-      <div className="reagent-import-body">
+      <div className={cx("reagent-import-body")}>
         <Upload
           maxCount={1}
           accept=".json,.csv,.tsv,.xlsx"

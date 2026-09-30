@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import {
   Alert,
   Button,
@@ -121,14 +122,14 @@ export function WorkflowDebugPage({
     }
   };
   return (
-    <div className="page-stack workflow-debug-page">
+    <div className={cx("page-stack workflow-debug-page")}>
       <PageHeader
         title={revision?.name ?? "工作流调试"}
         leading={
           <Tooltip title="返回工作流">
             <Button
               type="text"
-              className="page-header-back"
+              className={cx("page-header-back")}
               aria-label="返回工作流"
               onClick={onBack}
               icon={<AppIcon name="arrows/arrow-left" size={18} />}
@@ -153,13 +154,13 @@ export function WorkflowDebugPage({
               ]}
             />
             {step === 0 && (
-              <section className="detail-card debug-step-card">
-                <div className="section-title">
+              <section className={cx("detail-card debug-step-card")}>
+                <div className={cx("section-title")}>
                   <h2>填写运行参数</h2>
                   <Tag color="blue">v{revision.revision}</Tag>
                 </div>
                 <Form layout="vertical">
-                  <div className="debug-run-options">
+                  <div className={cx("debug-run-options")}>
                     <Form.Item label="运行模式">
                       <Select
                         showSearch
@@ -206,9 +207,9 @@ export function WorkflowDebugPage({
                     />
                   </Form.Item>
                   <div
-                    className={`workflow-input-section ${inputParameters.length === 0 ? "workflow-input-section--empty" : ""}`}
+                    className={cx(`workflow-input-section ${inputParameters.length === 0 ? "workflow-input-section--empty" : ""}`)}
                   >
-                    <div className="workflow-input-section__heading">
+                    <div className={cx("workflow-input-section__heading")}>
                       <strong>工作流参数</strong>
                     </div>
                     <WorkflowInputForm
@@ -219,7 +220,7 @@ export function WorkflowDebugPage({
                   </div>
                   {formError && (
                     <Alert
-                      className="form-error"
+                      className={cx("form-error")}
                       type="error"
                       showIcon
                       message={formError}
@@ -232,7 +233,7 @@ export function WorkflowDebugPage({
               </section>
             )}
             {step === 1 && (
-              <section className="detail-card debug-step-card">
+              <section className={cx("detail-card debug-step-card")}>
                 {viewModel && (
                   <RunPreparationSummary
                     viewModel={viewModel}
@@ -241,7 +242,7 @@ export function WorkflowDebugPage({
                 )}
                 {formError && (
                   <Alert
-                    className="form-error"
+                    className={cx("form-error")}
                     type="error"
                     showIcon
                     message={formError}
@@ -257,7 +258,7 @@ export function WorkflowDebugPage({
               </section>
             )}
             {step === 2 && (
-              <section className="detail-card debug-step-card debug-step-card--submitted">
+              <section className={cx("detail-card debug-step-card debug-step-card--submitted")}>
                 <Alert
                   type="success"
                   showIcon
@@ -265,7 +266,7 @@ export function WorkflowDebugPage({
                   description={
                     submitted
                       ? (
-                        <span className="debug-result-summary">
+                        <span className={cx("debug-result-summary")}>
                           <span>任务名称：{taskName}</span>
                           <span>任务编号：{submitted.taskUuid}</span>
                         </span>
@@ -273,13 +274,13 @@ export function WorkflowDebugPage({
                       : "后端已接受本次运行"
                   }
                 />
-                <Space className="debug-result-actions">
+                <Space className={cx("debug-result-actions")}>
                   <Button type="primary" onClick={() => onNavigate("tasks")}>
                     查看任务
                   </Button>
                   <Button onClick={onBack}>返回工作流</Button>
                 </Space>
-                <pre className="schema-block-pre">
+                <pre className={cx("schema-block-pre")}>
                   {jsonText(submitted?.raw)}
                 </pre>
               </section>

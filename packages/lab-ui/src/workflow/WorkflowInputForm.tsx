@@ -1,5 +1,6 @@
 import type { WorkflowInputParameter } from '@unilab-fe/core'
 
+import { cx } from '../classNames'
 export type WorkflowInputValues = Readonly<Record<string, unknown>>
 
 export interface WorkflowInputFormProps {
@@ -20,7 +21,7 @@ export function WorkflowInputForm({
 }: WorkflowInputFormProps) {
   if (parameters.length === 0) {
     return (
-      <p className="lab-ui-form-empty">
+      <p className={cx('lab-ui-form-empty')}>
         该工作流没有声明需要填写的运行参数。
       </p>
     )
@@ -31,7 +32,7 @@ export function WorkflowInputForm({
   }
 
   return (
-    <div className="lab-ui-workflow-input-form">
+    <div className={cx('lab-ui-workflow-input-form')}>
       {parameters.map((parameter) => (
         <WorkflowInputField
           key={parameter.name}
@@ -62,17 +63,17 @@ function WorkflowInputField({
   const label = parameter.title || parameter.name
 
   return (
-    <label className="lab-ui-form-field">
-      <span className="lab-ui-form-field__label">
+    <label className={cx('lab-ui-form-field')}>
+      <span className={cx('lab-ui-form-field__label')}>
         <span>
           {label}
-          {parameter.required && <span className="lab-ui-required-mark" aria-hidden="true"> *</span>}
+          {parameter.required && <span className={cx('lab-ui-required-mark')} aria-hidden="true"> *</span>}
         </span>
         <code>{parameter.name}</code>
       </span>
       {renderInput(parameter, value, disabled, onChange)}
       {parameter.description && <small>{parameter.description}</small>}
-      {error && <span className="lab-ui-form-field__error">{error}</span>}
+      {error && <span className={cx('lab-ui-form-field__error')}>{error}</span>}
     </label>
   )
 }

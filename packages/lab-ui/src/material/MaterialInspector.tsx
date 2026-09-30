@@ -2,6 +2,7 @@ import { Icon } from '@unilab/design-v2/icons'
 import type { MaterialGraphNode, SiteSummary } from '@unilab-fe/core'
 import { SitePicker } from './SitePicker'
 
+import { cx } from '../classNames'
 export interface MaterialInspectorProps {
   readonly node: MaterialGraphNode
   readonly selectedSiteUuid?: string
@@ -24,20 +25,20 @@ export function MaterialInspector({
 
   return (
     <aside
-      className="lab-ui-material-inspector"
+      className={cx('lab-ui-material-inspector')}
       aria-label={`${detail.name} 物料详情`}
     >
-      <header className="lab-ui-material-inspector__header">
-        <span className="lab-ui-material-inspector__icon" aria-hidden="true">
+      <header className={cx('lab-ui-material-inspector__header')}>
+        <span className={cx('lab-ui-material-inspector__icon')} aria-hidden="true">
           <Icon name="shapes/cube-03" color="primary" size={22} />
         </span>
         <div>
-          <span className="lab-ui-eyebrow">物料</span>
+          <span className={cx('lab-ui-eyebrow')}>物料</span>
           <h2>{detail.name || detail.materialUuid}</h2>
         </div>
       </header>
       <MaterialFacts node={node} />
-      <section className="lab-ui-material-inspector__sites">
+      <section className={cx('lab-ui-material-inspector__sites')}>
         <h3>库位</h3>
         <SitePicker
           sites={node.sites}
@@ -58,7 +59,7 @@ export function MaterialInspector({
 function MaterialFacts({ node }: { readonly node: MaterialGraphNode }) {
   const detail = node.material
   return (
-    <dl className="lab-ui-definition-list">
+    <dl className={cx('lab-ui-definition-list')}>
       <div>
         <dt>物料 ID</dt>
         <dd title={detail.materialUuid}>{detail.materialUuid}</dd>
@@ -91,7 +92,7 @@ function OccupiedMaterialList({
   readonly onSelectMaterial?: (materialUuid: string) => void
 }) {
   return (
-    <div className="lab-ui-material-inspector__occupants">
+    <div className={cx('lab-ui-material-inspector__occupants')}>
       {sites.map((site) => {
         const materialUuid = site.occupancy.occupiedMaterialUuid
         if (!materialUuid) return null

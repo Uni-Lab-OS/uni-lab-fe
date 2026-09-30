@@ -25,7 +25,14 @@ const allowedPlainCss = (file) => (
   file === 'apps/kernel-web/src/styles/global.css' ||
   file.startsWith('apps/kernel-web/src/styles/global/') ||
   file === 'apps/workbench/desktop/welcome.css' ||
+  file === 'apps/workbench/desktop/app-update-status.css' ||
+  // developer-web keeps one explicit global contract for tokens/reset only;
+  // page and component styles must be CSS Modules.
+  file === 'apps/developer-web/src/styles/global.css' ||
   file === 'packages/design-system/src/theme.css' ||
+  // design-v2 owns the global token, reset and adapter contracts.
+  file.startsWith('packages/design-v2/src/') ||
+  file === 'packages/design-v2/examples/preview/src/styles.css' ||
   file === 'packages/material/src/UnifiedMaterialViewport.css' ||
   file.startsWith('packages/pascal-host/src/styles/') ||
   file.startsWith('packages/workbench-theia/src/browser/style/') ||

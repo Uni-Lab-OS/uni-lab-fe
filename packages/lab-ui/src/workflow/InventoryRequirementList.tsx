@@ -1,5 +1,6 @@
 import type { InventoryRequirement } from '@unilab-fe/core'
 
+import { cx } from '../classNames'
 export interface InventoryRequirementListProps {
   readonly requirements: readonly InventoryRequirement[]
   readonly emptyDescription?: string
@@ -11,11 +12,11 @@ export function InventoryRequirementList({
   emptyDescription = '该工作流没有声明库存需求',
 }: InventoryRequirementListProps) {
   if (requirements.length === 0) {
-    return <p className="lab-ui-list-empty">{emptyDescription}</p>
+    return <p className={cx('lab-ui-list-empty')}>{emptyDescription}</p>
   }
 
   return (
-    <ul className="lab-ui-requirement-list" aria-label="库存需求列表">
+    <ul className={cx('lab-ui-requirement-list')} aria-label="库存需求列表">
       {requirements.map((requirement) => (
         <InventoryRequirementItem
           key={requirement.uuid}
@@ -37,7 +38,7 @@ function InventoryRequirementItem({
         <strong>{requirement.requirementKey}</strong>
         {requirement.description && <span>{requirement.description}</span>}
       </div>
-      <span className="lab-ui-requirement-list__quantity">
+      <span className={cx('lab-ui-requirement-list__quantity')}>
         {requirement.requiredQuantity} {requirement.quantityUnit}
         {requirement.allowSplit ? ' · 可拆分' : ''}
       </span>

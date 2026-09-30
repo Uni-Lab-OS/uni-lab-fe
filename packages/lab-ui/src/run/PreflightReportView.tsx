@@ -1,6 +1,7 @@
 import { Icon } from '@unilab/design-v2/icons'
 import type { PreflightCheckStatus, PreflightReport } from '@unilab-fe/core'
 
+import { cx } from '../classNames'
 export interface PreflightReportViewProps {
   readonly report: PreflightReport
 }
@@ -11,29 +12,29 @@ export function PreflightReportView({ report }: PreflightReportViewProps) {
 
   return (
     <section
-      className={`lab-ui-preflight lab-ui-preflight--${report.status}`}
+      className={cx('lab-ui-preflight', `lab-ui-preflight--${report.status}`)}
       aria-label="运行前检查"
     >
-      <header className="lab-ui-preflight__header">
+      <header className={cx('lab-ui-preflight__header')}>
         <h2>运行前检查</h2>
       </header>
       {report.checks.length === 0 ? (
-        <p className="lab-ui-list-empty">后端没有返回检查项。</p>
+        <p className={cx('lab-ui-list-empty')}>后端没有返回检查项。</p>
       ) : (
-        <div className="lab-ui-preflight__groups">
+        <div className={cx('lab-ui-preflight__groups')}>
           {groups.map((group) => (
             <details
-              className={`lab-ui-preflight__group is-${group.status}`}
+              className={cx('lab-ui-preflight__group', `is-${group.status}`)}
               key={group.status}
               open={group.status === 'blocked' || group.status === 'confirmation_required'}
             >
               <summary>
                 <span>{group.title}</span>
-                <span className={`lab-ui-preflight__tag is-${group.status}`}>
+                <span className={cx('lab-ui-preflight__tag', `is-${group.status}`)}>
                   {group.checks.length}
                 </span>
               </summary>
-              <ul className="lab-ui-preflight__list">
+              <ul className={cx('lab-ui-preflight__list')}>
                 {group.checks.map((check, index) => (
                   <PreflightCheckItem
                     key={`${check.code}-${check.nodeUuid ?? 'global'}-${index}`}
@@ -46,7 +47,7 @@ export function PreflightReportView({ report }: PreflightReportViewProps) {
         </div>
       )}
       {!report.canRun && (
-        <div className="lab-ui-preflight__alert" role="alert">
+        <div className={cx('lab-ui-preflight__alert')} role="alert">
           <Icon
             name="alerts-feedback/alert-circle"
             color="error"
@@ -69,8 +70,8 @@ function PreflightCheckItem({
   readonly check: PreflightReport['checks'][number]
 }) {
   return (
-    <li className={`is-${check.status}`}>
-      <span className="lab-ui-preflight__indicator" aria-hidden="true" />
+    <li className={cx(`is-${check.status}`)}>
+      <span className={cx('lab-ui-preflight__indicator')} aria-hidden="true" />
       <div>
         <strong>{check.message}</strong>
         <small>
@@ -78,7 +79,7 @@ function PreflightCheckItem({
           {check.nodeName ? ` · ${check.nodeName}` : ''}
         </small>
       </div>
-      <span className={`lab-ui-preflight__status-tag is-${check.status}`}>
+      <span className={cx('lab-ui-preflight__status-tag', `is-${check.status}`)}>
         {checkStatusLabel(check.status)}
       </span>
     </li>

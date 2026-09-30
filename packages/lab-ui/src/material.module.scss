@@ -1,3 +1,145 @@
+/* Styles owned by the material lab-ui components. */
+
+.lab-ui-material-list, .lab-ui-site-picker, .lab-ui-requirement-list, .lab-ui-preflight__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lab-ui-material-list__item, .lab-ui-site-picker__item {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--unilab-border-subtle, #e4e7ec);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.lab-ui-material-list li + li, .lab-ui-site-picker__item + .lab-ui-site-picker__item {
+  margin-top: 8px;
+}
+
+.lab-ui-material-list__item:hover, .lab-ui-material-list__item.is-selected, .lab-ui-site-picker__item:hover, .lab-ui-site-picker__item.is-selected {
+  background: var(--unilab-surface-selected, #f9f5ff);
+  border-color: var(--unilab-border-accent, #7f56d9);
+}
+
+.lab-ui-material-list__primary, .lab-ui-site-picker__item > span:first-child, .lab-ui-preflight__list li > div {
+  display: grid;
+  gap: 3px;
+}
+
+.lab-ui-material-list__primary span, .lab-ui-material-list__meta, .lab-ui-site-picker small, .lab-ui-preflight__list small, .lab-ui-requirement-list li span, .lab-ui-definition-list dt, .lab-ui-eyebrow, .lab-ui-identity {
+  color: var(--unilab-text-secondary, #667085);
+  font-size: 12px;
+}
+
+.lab-ui-site-picker__status.is-occupied {
+  color: var(--unilab-color-warning, #b54708);
+}
+
+.lab-ui-site-picker__status.is-empty {
+  color: var(--unilab-color-success, #027a48);
+}
+
+.lab-ui-site-picker__status.is-unknown {
+  color: var(--unilab-color-danger, #b42318);
+}
+
+.lab-ui-definition-list {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.lab-ui-definition-list div {
+  align-items: baseline;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.lab-ui-definition-list dd {
+  margin: 0;
+  text-align: right;
+}
+
+.lab-ui-material-inspector__header, .lab-ui-preflight__header, .lab-ui-run-preparation-summary > header {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.lab-ui-material-inspector h2, .lab-ui-preflight h2, .lab-ui-run-preparation-summary h2 {
+  margin: 4px 0 0;
+}
+
+.lab-ui-material-inspector h3, .lab-ui-run-preparation-summary h3 {
+  margin: 20px 0 10px;
+}
+
+.lab-ui-material-inspector__occupants {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.lab-ui-material-inspector__occupants button {
+  background: none;
+  border: 0;
+  color: var(--unilab-color-link, #6941c6);
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.lab-ui-eyebrow,
+.lab-ui-identity {
+  color: var(--studio-text-faint);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.lab-ui-run-preparation-summary .lab-ui-definition-list dt {
+  color: var(--studio-text-faint);
+  font-size: 13px;
+}
+
+.lab-ui-run-preparation-summary .lab-ui-definition-list dd {
+  color: var(--studio-text);
+  font-size: 14px;
+}
+
+.lab-ui-run-preparation-summary__basic .lab-ui-definition-list {
+  gap: 0;
+  margin: 0;
+}
+
+.lab-ui-run-preparation-summary__basic .lab-ui-definition-list div {
+  min-height: 42px;
+  align-items: baseline;
+  border-bottom: 1px solid var(--studio-border-soft);
+}
+
+.lab-ui-run-preparation-summary__basic .lab-ui-definition-list dt {
+  white-space: nowrap;
+}
+
+.lab-ui-run-preparation-summary__basic .lab-ui-definition-list dd {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 90px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .lab-ui-material-inspector {
   box-sizing: border-box;
   min-width: 0;
@@ -65,9 +207,11 @@
 }
 
 .lab-ui-material-inspector .lab-ui-definition-list dt {
-  color: var(--studio-text-faint, #9aa4b3);
-  font-size: 13px;
-  line-height: 1.5;
+  color: var(--studio-form-label-color, var(--studio-text-faint, #9aa4b3));
+  font-family: var(--studio-form-label-font-family, var(--bh-font-family-sans));
+  font-size: var(--studio-form-label-size, 14px);
+  font-weight: var(--studio-form-label-weight, 500);
+  line-height: var(--studio-form-label-line-height, 20px);
 }
 
 .lab-ui-material-inspector__sites h3 {

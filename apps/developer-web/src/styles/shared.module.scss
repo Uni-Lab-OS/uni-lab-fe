@@ -1,0 +1,1213 @@
+/* Source: tables.module.scss */
+.page-stack {
+  display: grid;
+  gap: 29px;
+}
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.page-header-title-row {
+  min-height: 16px;
+}
+.page-eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: #8f99aa;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.page-header h1:global(.ant-typography) {
+  margin: 0;
+  color: var(--studio-text);
+  font-size: var(--studio-page-title-size, 22px);
+  font-weight: var(--studio-page-title-weight, 500);
+  letter-spacing: -0.03em;
+  line-height: var(--studio-page-title-line-height, 28px);
+}
+.page-header p:global(.ant-typography) {
+  max-width: 680px;
+  margin: 10px 0 0;
+  color: var(--studio-text-muted);
+  font-size: 14px;
+}
+.page-header-actions {
+  padding-bottom: 2px;
+}
+.page-header-actions :global(.ant-btn-primary) {
+  box-shadow: 0 7px 18px rgba(83, 103, 217, 0.18);
+}
+.async-state {
+  padding: 24px 0;
+}
+.async-state :global(.ant-skeleton) {
+  max-width: 860px;
+}
+.async-state--table {
+  padding: 4px 20px 20px;
+}
+.table-skeleton {
+  width: 100%;
+  border-top: 1px solid var(--studio-border);
+}
+.table-skeleton-row {
+  display: grid;
+  align-items: center;
+  gap: 24px;
+  min-height: 74px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--studio-border-soft);
+}
+.table-skeleton-cell {
+  display: block;
+  width: min(100%, 120px);
+  height: 14px;
+  border-radius: 5px;
+  background: linear-gradient(
+    90deg,
+    var(--bh-color-fill-2, #f0f2f7) 25%,
+    var(--bh-color-fill-1, #f8f9fb) 37%,
+    var(--bh-color-fill-2, #f0f2f7) 63%
+  );
+  background-size: 400% 100%;
+  animation: table-skeleton-loading 1.4s ease infinite;
+}
+.table-skeleton-cell--primary {
+  width: min(78%, 300px);
+}
+.table-skeleton-row:nth-child(3n) .table-skeleton-cell--primary {
+  width: min(64%, 250px);
+}
+.table-skeleton-row:nth-child(4n) .table-skeleton-cell:not(.table-skeleton-cell--primary) {
+  width: min(86%, 150px);
+}
+@keyframes table-skeleton-loading {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .table-skeleton-cell {
+    animation: none;
+  }
+}
+.async-error {
+  border-radius: var(--studio-radius);
+}
+.text-action {
+  padding: 0;
+  border: 0;
+  color: var(--studio-accent);
+  background: transparent;
+}
+.async-empty {
+  margin-inline: auto;
+}
+.overview-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.24fr) minmax(0, 1fr);
+  gap: 34px;
+}
+.task-column {
+  min-width: 0;
+}
+.task-column--attention {
+  padding-left: 32px;
+  border-left: 1px solid var(--studio-border-soft);
+}
+.section-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+}
+.section-title h2,
+.section-title h3 {
+  margin: 0;
+  color: #41506a;
+  font-size: 16px;
+  font-weight: 620;
+}
+.section-title h3 {
+  font-size: 14px;
+}
+.section-title > span {
+  display: block;
+  margin-top: 4px;
+  color: var(--studio-text-faint);
+  font-size: 12px;
+}
+.task-column-list {
+  margin-top: 15px;
+  border-top: 1px solid var(--studio-border);
+}
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-height: 78px;
+  border-bottom: 1px solid var(--studio-border-soft);
+}
+.task-row-copy {
+  min-width: 0;
+  flex: 1;
+}
+.task-row-copy strong,
+.task-row-copy span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-row-copy strong {
+  color: #526078;
+  font-size: 13px;
+  font-weight: 600;
+}
+.task-row-copy span {
+  margin-top: 5px;
+  color: #a0a9b7;
+  font-size: 11px;
+}
+.task-row-progress {
+  width: 136px;
+  flex: 0 0 136px;
+}
+.task-row-progress :global(.ant-progress) {
+  margin-bottom: 3px;
+}
+.task-row-progress > span {
+  display: block;
+  color: #8c98aa;
+  font-size: 11px;
+}
+.task-row-progress .status-badge {
+  float: right;
+  margin-top: -20px !important;
+}
+.data-section {
+  min-width: 0;
+}
+.data-section-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.data-section-toolbar > :global(.ant-space) {
+  align-items: center;
+}
+.data-section-toolbar--search-only {
+  justify-content: flex-end;
+}
+.search-input {
+  width: 300px;
+}
+.status-select {
+  width: 126px;
+}
+.table-section,
+.data-section {
+  padding-top: 3px;
+}
+.data-section :global(.ant-table-container) {
+  border-top: 1px solid var(--studio-border);
+}
+.data-section :global(.ant-table) {
+  background: transparent;
+}
+.data-section :global(.ant-table-thead) > tr > th {
+  padding: 13px 12px;
+  border-bottom: 1px solid var(--studio-border);
+  color: #8f99aa;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+}
+.data-section :global(.ant-table-thead) > tr > th::before {
+  display: none;
+}
+.data-section :global(.ant-table-tbody) > tr > td {
+  padding: 15px 12px;
+  border-bottom: 1px solid var(--studio-border-soft);
+  color: #59677e;
+  background: transparent;
+  font-size: 12px;
+}
+.data-section :global(.ant-table-tbody) > tr:hover > td {
+  background: #fbfcfe !important;
+}
+.primary-cell strong,
+.primary-cell span,
+.resource-cell strong,
+.resource-cell span,
+.time-cell strong,
+.time-cell span {
+  display: block;
+}
+.primary-cell strong,
+.resource-cell strong {
+  color: #4b5972;
+  font-weight: 600;
+}
+.primary-cell span,
+.resource-cell span,
+.time-cell span {
+  margin-top: 4px;
+  color: var(--studio-text-faint);
+  font-size: 11px;
+}
+.muted-cell {
+  color: #8591a4;
+}
+.priority-value {
+  color: #68758a;
+}
+.progress-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 150px;
+  min-height: 38px;
+  text-align: center;
+}
+.progress-cell > span:first-child {
+  line-height: 1.1;
+}
+.progress-cell .status-badge {
+  margin: 0 !important;
+}
+.data-section :global(.ant-table-tbody) > tr > td {
+  vertical-align: middle;
+}
+.data-section :global(.ant-table-tbody) > tr > td time {
+  white-space: nowrap;
+}
+.progress-value-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  color: #8793a6;
+  font-size: 11px;
+}
+.progress-cell :global(.ant-progress) {
+  margin: 0;
+}
+.time-cell strong {
+  color: #617088;
+  font-size: 12px;
+  font-weight: 500;
+}
+.icon-button {
+  display: inline-grid !important;
+  width: 29px;
+  height: 29px;
+  place-items: center;
+  padding: 0 !important;
+  border-radius: 7px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.icon-button:hover {
+  background: transparent !important;
+  color: var(--studio-accent) !important;
+}
+.icon-button:focus,
+.icon-button:active,
+.icon-button:global(.ant-btn-dangerous),
+.icon-button:global(.ant-btn-dangerous):hover {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.icon-button:disabled,
+.icon-button:global(.ant-btn-dangerous):disabled {
+  color: var(--studio-text-faint) !important;
+  background: transparent !important;
+  opacity: 0.6;
+}
+.status-badge {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 2px;
+  min-height: 21px;
+  margin: 0 !important;
+  padding: 0 7px !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+}
+.resource-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.device-cell__name {
+  display: block;
+  padding: 0;
+  border: 0;
+  color: var(--studio-text);
+  font-size: var(--bh-font-size-sm);
+  font-weight: var(--bh-font-weight-normal);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.device-cell__name:hover,
+.device-cell__name:focus-visible {
+  color: var(--studio-accent);
+}
+
+.device-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--studio-text-secondary);
+  font-size: var(--bh-font-size-sm);
+  line-height: var(--bh-line-height-md);
+}
+
+.device-status__dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--studio-text-faint);
+}
+
+.device-status--offline .device-status__dot {
+  background: var(--bh-color-text-placeholder);
+}
+
+.device-status--attention .device-status__dot {
+  background: var(--bh-color-warning-default);
+}
+
+.device-status--available .device-status__dot {
+  background: var(--bh-color-success-default);
+}
+.resource-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 10px;
+  background: #edf0ff;
+}
+.resource-icon--muted {
+  background: #f0f2f5;
+}
+
+
+/* Source: shared.module.scss */
+/* Styles owned by the shared application components. */
+
+.page-stack {
+  gap: 16px;
+}
+
+.devices-list-page {
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.devices-list-page > .data-section {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.page-header {
+  align-items: center;
+  min-height: 40px;
+}
+
+.page-eyebrow {
+  margin-bottom: 6px;
+  color: var(--studio-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.page-header h1:global(.ant-typography) {
+  color: var(--studio-text);
+  font-size: var(--studio-page-title-size);
+  font-weight: var(--studio-page-title-weight);
+  letter-spacing: -0.03em;
+  line-height: var(--studio-page-title-line-height);
+}
+
+.page-header p:global(.ant-typography) {
+  max-width: 620px;
+  margin-top: 8px;
+  color: var(--studio-text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.page-header-actions {
+  padding-top: 1px;
+}
+
+.page-header-title-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+}
+
+.page-header-back {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  padding: 0;
+  color: var(--studio-text-secondary);
+}
+
+.page-header-back:hover {
+  color: var(--studio-accent) !important;
+  background: var(--bh-color-primary-background) !important;
+}
+
+:global(.ant-btn) {
+  border-radius: var(--studio-control-radius);
+  font-weight: 550;
+  box-shadow: none;
+}
+
+.page-header-actions :global(.ant-btn) {
+  min-height: 32px;
+  height: 32px;
+  padding-inline: 13px;
+}
+
+:global(.ant-btn):not(:global(.ant-btn-text)):not(:global(.ant-btn-link)) {
+  border-color: var(--studio-border);
+}
+
+:global(.ant-btn-primary):not(:global(.ant-btn-dangerous)):not(:global(.ant-btn-color-dangerous)) {
+  border-color: var(--studio-accent) !important;
+  background: var(--studio-accent) !important;
+  box-shadow: none !important;
+}
+
+:global(.ant-btn-primary):not(:global(.ant-btn-dangerous)):not(:global(.ant-btn-color-dangerous)):hover {
+  border-color: var(--bh-color-primary-hover) !important;
+  background: var(--bh-color-primary-hover) !important;
+}
+
+/* 删除确认是 primary + danger。主色规则不能把它刷成蓝色。 */
+:global(.ant-btn-primary):global(.ant-btn-dangerous):not(:disabled):not(:global(.ant-btn-disabled)),
+:global(.ant-btn-primary):global(.ant-btn-color-dangerous):not(:disabled):not(:global(.ant-btn-disabled)) {
+  color: var(--bh-color-primary-foreground, #fff) !important;
+  background: var(--bh-color-error-default) !important;
+  border-color: var(--bh-color-error-default) !important;
+  box-shadow: none !important;
+}
+
+:global(.ant-btn-primary):global(.ant-btn-dangerous):not(:disabled):not(:global(.ant-btn-disabled)):hover,
+:global(.ant-btn-primary):global(.ant-btn-color-dangerous):not(:disabled):not(:global(.ant-btn-disabled)):hover {
+  color: var(--bh-color-primary-foreground, #fff) !important;
+  background: var(--bh-color-error-hover) !important;
+  border-color: var(--bh-color-error-hover) !important;
+}
+
+:global(.ant-btn-primary):global(.ant-btn-dangerous):not(:disabled):not(:global(.ant-btn-disabled)):active,
+:global(.ant-btn-primary):global(.ant-btn-color-dangerous):not(:disabled):not(:global(.ant-btn-disabled)):active {
+  background: var(--bh-color-error-pressed) !important;
+  border-color: var(--bh-color-error-pressed) !important;
+}
+
+:global(.ant-btn-dangerous):not(:global(.ant-btn-text)) {
+  box-shadow: none;
+}
+
+:global(.ant-input),
+:global(.ant-input-affix-wrapper),
+:global(.ant-select-selector) {
+  border-radius: var(--studio-control-radius) !important;
+  box-shadow: none !important;
+}
+
+:global(.ant-input-affix-wrapper-focused),
+:global(.ant-input):focus,
+:global(.ant-select-focused) :global(.ant-select-selector) {
+  border-color: var(--studio-accent) !important;
+  box-shadow: 0 0 0 2px var(--bh-color-primary-focus) !important;
+}
+
+.section-title h2,
+.section-title h3 {
+  color: var(--studio-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.section-title > span {
+  color: var(--studio-text-secondary);
+  font-size: 11px;
+}
+
+.data-section-toolbar {
+  margin-bottom: 13px;
+}
+
+.data-section :global(.ant-table-thead) > tr > th {
+  padding: 14px 20px;
+  border-bottom-color: var(--studio-border);
+  color: var(--studio-text-secondary);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.data-section :global(.ant-table-tbody) > tr > td {
+  padding: 16px 20px;
+  border-bottom-color: var(--studio-border-soft);
+  color: var(--studio-text-secondary);
+  font-size: 12px;
+}
+
+.data-section :global(.ant-table-tbody) > tr:hover > td {
+  background: var(--bh-color-primary-background) !important;
+}
+
+.icon-button {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--studio-control-radius) !important;
+}
+
+.icon-button:hover {
+  color: var(--studio-accent) !important;
+  background: var(--bh-color-primary-background) !important;
+}
+
+.status-badge {
+  min-height: 20px;
+  padding: 0 6px !important;
+  border-radius: 5px !important;
+  font-size: 10px !important;
+  font-weight: 600;
+}
+
+/* 全站 Tabs 使用轻量的短圆角选中条，避免默认整段基线和长下划线。 */
+:global(.ant-tabs) :global(.ant-tabs-nav)::before {
+  border-bottom: 0 !important;
+}
+
+:global(.ant-tabs) :global(.ant-tabs-tab) {
+  padding: 8px 0 10px;
+}
+
+:global(.ant-tabs) :global(.ant-tabs-ink-bar) {
+  height: 3px !important;
+  background: transparent !important;
+  transform: none;
+}
+
+:global(.ant-tabs) :global(.ant-tabs-ink-bar)::after {
+  position: absolute;
+  inset: 0 22%;
+  content: "";
+  border-radius: 999px;
+  background: var(--bh-color-primary);
+}
+
+.gantt-track {
+  min-height: 28px;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent calc(25% - 1px),
+    var(--studio-border-soft) calc(25% - 1px),
+    var(--studio-border-soft) 25%
+  );
+}
+
+.preview-panel {
+  background: var(--studio-surface);
+  box-shadow: var(--studio-overlay-shadow);
+}
+
+/* Tables share the default design-v2 surface and type scale. */
+.data-section :global(.ant-table-container) {
+  overflow: hidden;
+  border: 1px solid var(--studio-border-soft);
+  border-radius: var(--studio-radius);
+  background: var(--bh-color-card);
+  padding: 0 12px 12px;
+}
+
+.data-section :global(.ant-table),
+.data-section :global(.ant-table-content) {
+  overflow: hidden;
+  border-radius: calc(var(--studio-radius) - 2px);
+}
+
+.data-section :global(.ant-table),
+.data-section :global(.ant-table-container),
+.data-section :global(.ant-table-thead) > tr > th,
+.data-section :global(.ant-table-tbody) > tr > td {
+  background: var(--bh-color-card) !important;
+}
+
+.data-section :global(.ant-table-thead) > tr > th {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--bh-color-border) !important;
+  color: var(--bh-color-foreground);
+  font-size: var(--bh-font-size-sm);
+  font-weight: 500;
+  letter-spacing: normal;
+}
+
+.data-section :global(.ant-table-tbody) > tr > td {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--bh-color-border) !important;
+}
+
+.primary-cell-link {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.task-name-link:global(.ant-btn) {
+  display: block;
+  width: 100%;
+  height: auto;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+}
+
+.task-name-link:global(.ant-btn):hover,
+.task-name-link:global(.ant-btn):focus-visible {
+  color: var(--studio-accent);
+}
+
+.task-name-link:global(.ant-btn):hover .table-text,
+.task-name-link:global(.ant-btn):focus-visible .table-text {
+  color: var(--studio-accent);
+}
+
+.primary-cell-link:hover strong,
+.primary-cell-link:focus-visible strong {
+  color: var(--studio-accent);
+}
+
+/* Keep reagent table empty states centered inside the full table body. */
+.data-section :global(.ant-table-placeholder) > td {
+  padding: 0 !important;
+  text-align: center;
+}
+
+.data-section :global(.ant-table-placeholder) .bh-empty-state {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin-inline: auto;
+}
+
+/* 空数据占位行不是可交互数据行，不参与表格 hover 高亮。 */
+.data-section :global(.ant-table-tbody) > tr:global(.ant-table-placeholder),
+.data-section :global(.ant-table-tbody) > tr:global(.ant-table-placeholder):hover,
+.data-section :global(.ant-table-tbody) > tr:global(.ant-table-placeholder) > td,
+.data-section :global(.ant-table-tbody) > tr:global(.ant-table-placeholder):hover > td {
+  background: var(--bh-color-card) !important;
+  cursor: default;
+}
+
+/* Studio product tokens: keep these preferences local to the Studio shell. */
+:root {
+  --studio-background: #f5f6fb;
+  --studio-surface: #ffffff;
+  --studio-surface-muted: #fafbff;
+  --studio-border: #dfe4ef;
+  --studio-border-soft: #e9edf5;
+  --studio-selection: #eef0ff;
+  --studio-accent: #3c49dd;
+  --studio-radius: 12px;
+  --studio-control-radius: 8px;
+
+  --bh-font-family-sans: "PingFang SC", "Microsoft YaHei", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --bh-color-fill-0: #f5f6fb;
+  --bh-color-background: #f5f6fb;
+  --bh-color-muted: #f5f6fb;
+  --bh-color-primary-background: #eef0ff;
+  --bh-color-primary-background-hover: #eef0ff;
+  --bh-color-control-hover: #eef0ff;
+  --bh-color-accent: #eef0ff;
+  --bh-color-sidebar-selected: #eef0ff;
+  --bh-color-sidebar-accent: #eef0ff;
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--bh-font-family-sans);
+}
+
+:global(.ant-modal) :global(.ant-modal-content),
+:global(.ant-dropdown),
+:global(.ant-popover-inner),
+:global(.ant-select-dropdown),
+:global(.ant-picker-dropdown) {
+  border-radius: var(--studio-radius);
+}
+
+/* Match design-v2's light preset specificity so AntD reads the Studio values too. */
+:root[data-color-mode='light'][data-design-preset='default'],
+:root[data-color-mode='light']:not([data-design-preset]) {
+  --bh-font-family-sans: "PingFang SC", "Microsoft YaHei", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --bh-color-fill-0: #f5f6fb;
+  --bh-color-background: #f5f6fb;
+  --bh-color-muted: #f5f6fb;
+  --bh-color-primary-background: #eef0ff;
+  --bh-color-primary-background-hover: #eef0ff;
+  --bh-color-control-hover: #eef0ff;
+  --bh-color-accent: #eef0ff;
+  --bh-color-sidebar-selected: #eef0ff;
+  --bh-color-sidebar-accent: #eef0ff;
+}
+
+/* Studio blocks use the tighter 8px radius; overlays keep their 12px shape. */
+:root {
+  --studio-radius: 8px;
+  --studio-overlay-radius: 12px;
+}
+
+:global(.ant-modal) :global(.ant-modal-content),
+:global(.ant-dropdown),
+:global(.ant-popover-inner),
+:global(.ant-select-dropdown),
+:global(.ant-picker-dropdown) {
+  border-radius: var(--studio-overlay-radius);
+}
+
+:global(.ant-dropdown-menu-item) {
+  column-gap: 8px;
+}
+
+:global(.ant-dropdown-menu-item) > .bh-icon {
+  flex: 0 0 auto;
+}
+
+/* Shared table treatment: every .data-section uses the same toolbar, table and status rhythm. */
+.data-section {
+  overflow: hidden;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius);
+  background: var(--studio-surface);
+}
+
+.data-section-toolbar {
+  min-height: 76px;
+  margin: 0;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--studio-border);
+  background: #ffffff;
+}
+
+.data-section-toolbar .section-title {
+  align-items: center;
+}
+
+.data-section-toolbar .section-title h2 {
+  color: #202b47;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.data-section-toolbar .section-title > span {
+  margin-top: 0;
+  color: #8b97b0;
+  font-size: 11px;
+}
+
+.data-section-toolbar :global(.ant-space) {
+  gap: 10px !important;
+}
+
+.data-section-toolbar .search-input,
+.data-section-toolbar .status-select {
+  height: 40px;
+}
+
+.data-section-toolbar .search-input {
+  width: 300px;
+}
+
+.data-section-toolbar .status-select {
+  width: 130px;
+}
+
+.data-section :global(.ant-table-container) {
+  overflow: hidden;
+  border: 0 !important;
+  border-radius: 0;
+  padding: 0 12px 12px;
+}
+
+.data-section :global(.ant-table),
+.data-section :global(.ant-table-content) {
+  overflow: hidden;
+  border-radius: 0;
+}
+
+.data-section :global(.ant-table-thead) > tr > th {
+  padding: 15px 20px;
+  border-bottom: 1px solid #e1e6f1 !important;
+  color: #7d89a5;
+  background: #f7f8fd !important;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.data-section :global(.ant-table-tbody) > tr > td {
+  min-height: 68px;
+  padding: 17px 20px;
+  border-bottom: 1px solid #edf0f5 !important;
+  color: #596783;
+  background: #ffffff !important;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.data-section :global(.ant-table-tbody) > tr:hover > td {
+  background: var(--studio-selection) !important;
+}
+
+.data-section .primary-cell strong,
+.data-section .primary-cell-link strong {
+  color: #202b47;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.data-section .muted-cell,
+.data-section time {
+  color: #74819d;
+}
+
+.data-section time {
+  font-family: var(--bh-font-family-mono);
+  font-size: 11px;
+}
+
+.data-section .progress-cell {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 28px;
+  white-space: nowrap;
+}
+
+.data-section .progress-cell > span:first-child {
+  color: #66738e;
+  font-family: var(--bh-font-family-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.data-section .progress-cell .status-badge {
+  min-height: 24px;
+  padding: 0 8px !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+  font-weight: 500;
+}
+
+.data-section .progress-cell .status-badge:global(.ant-tag-default) {
+  color: #71809b;
+  background: #f0f2f6;
+}
+
+/* Final table refinements shared by every data-section. */
+.section-title h2,
+.section-title h3,
+.data-section-toolbar .section-title h2 {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.data-section-toolbar {
+  background: #ffffff !important;
+}
+
+.data-section-toolbar .search-input,
+.data-section-toolbar .search-input:global(.ant-input-affix-wrapper),
+.data-section-toolbar .status-select,
+.data-section-toolbar .status-select :global(.ant-select-selector) {
+  height: 36px;
+  min-height: 36px;
+}
+
+.data-section-toolbar .status-select :global(.ant-select-selector) {
+  display: flex;
+  align-items: center;
+}
+
+/* The toolbar should hug its 36px controls instead of reserving an extra row. */
+.data-section-toolbar {
+  min-height: 0 !important;
+}
+
+.data-section td > :global(.ant-space),
+.data-section td > :global(.ant-space-horizontal) {
+  gap: 0 !important;
+}
+
+.table-text {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-secondary-text {
+  color: var(--studio-text-faint) !important;
+  font-size: 11px;
+}
+
+.data-section .primary-cell .table-text,
+.data-section .primary-cell-link .table-text {
+  color: #202b47;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+/* Let data tables hug their content; keep spacing in the toolbar and cells. */
+.data-section {
+  padding-top: 0;
+}
+
+.data-section :global(.ant-table-container) {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.data-section :global(.ant-table),
+.data-section :global(.ant-table-content) {
+  overflow: visible;
+}
+
+/* Tables are edge-to-edge surfaces; their outer frame does not use card corners. */
+.data-section,
+.data-section :global(.ant-table-container),
+.data-section :global(.ant-table),
+.data-section :global(.ant-table-content) {
+  border-radius: 0 !important;
+}
+
+.workflow-uuid-cell .table-text {
+  min-width: 0;
+}
+
+.workflow-name-link:hover .table-text,
+.workflow-name-link:focus-visible .table-text {
+  color: var(--studio-accent);
+}
+
+/* Shared table density: list rows use the same compact rhythm on overview,
+ * devices, reagents, tasks and workflows. Keep page-specific layout rules out
+ * of the individual table implementations. */
+.data-section :global(.ant-table-tbody) > tr > td {
+  padding: 10px 20px;
+}
+
+/* Keep table footers in the content flow instead of pinning pagination to a flex card edge. */
+.data-section :global(.ant-table-pagination) {
+  margin: 0 !important;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--studio-border-soft);
+  background: var(--studio-surface);
+}
+
+.data-section :global(.ant-table-pagination) :global(.ant-pagination) {
+  margin: 0;
+}
+
+/* The device table should end after its rows and footer; it does not need a viewport-height body. */
+.devices-list-page {
+  grid-template-rows: auto auto;
+}
+
+/* Debug menu options are lightweight actions; keep their hover state on both text and icon. */
+:global(.ant-dropdown-menu) {
+  border: 0 !important;
+}
+
+:global(.ant-dropdown-menu-item) {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+:global(.ant-dropdown-menu-item) > .bh-icon {
+  color: var(--studio-text-muted) !important;
+  background: transparent !important;
+  transition: color var(--bh-motion-fast) ease, background var(--bh-motion-fast) ease;
+}
+
+:global(.ant-dropdown-menu-item):hover > .bh-icon,
+:global(.ant-dropdown-menu-item-selected) > .bh-icon {
+  color: var(--studio-accent) !important;
+  background: var(--studio-selection) !important;
+}
+
+/* Disabled actions use the shared neutral disabled surface, including primary buttons. */
+:global(.ant-btn):disabled,
+:global(.ant-btn):global(.ant-btn-disabled) {
+  color: var(--bh-color-text-disabled) !important;
+  background: var(--bh-color-fill-1) !important;
+  border-color: var(--bh-color-border-1) !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+
+/* AntD adds rounded corners to the first and last header cells by default.
+ * Keep the outer card radius, but let the header background fill the table edge. */
+.data-section :global(.ant-table-thead) > tr > th:first-child,
+.data-section :global(.ant-table-thead) > tr > th:last-child {
+  border-radius: 0 !important;
+}
+
+/* Keep the table card rounded while the header/body surfaces stay edge-to-edge. */
+.data-section {
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+.data-section :global(.ant-table-container),
+.data-section :global(.ant-table),
+.data-section :global(.ant-table-content) {
+  border-radius: 0 !important;
+}
+
+
+/* Source: responsive.module.scss */
+@media (max-width: 1180px) {
+  .studio-content {
+    padding-right: 30px;
+    padding-left: 30px;
+  }
+  .material-workspace {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+}
+@media (max-width: 820px) {
+  body {
+    min-width: 0;
+  }
+  .studio-sidebar {
+    width: 72px;
+    flex-basis: 72px;
+    padding-right: 11px;
+    padding-left: 11px;
+  }
+  .studio-brand {
+    justify-content: center;
+    padding-right: 0;
+    padding-left: 0;
+  }
+  .studio-brand > div,
+  .backend-switch span:not(.connection-indicator),
+  .backend-switch-arrow,
+  .studio-nav-item span,
+  .studio-sidebar-footer > div:not(.user-avatar),
+  .studio-sidebar-footer :global(.ant-btn) {
+    display: none;
+  }
+  .backend-switch {
+    justify-content: center;
+    padding: 0;
+  }
+  .studio-nav-item {
+    justify-content: center;
+    padding: 0;
+  }
+  .studio-nav-item.is-active::before {
+    left: -11px;
+  }
+  .studio-content {
+    padding: 28px 20px 52px;
+  }
+  .page-header,
+  .data-section-toolbar,
+  .resource-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .data-section-toolbar > :global(.ant-space) {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .overview-columns,
+  .material-workspace,
+  .management-workspace {
+    grid-template-columns: 1fr;
+  }
+  .studio-content--materials {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .studio-content--materials > .page-stack {
+    height: auto;
+    grid-template-rows: none;
+  }
+  .studio-content--materials .material-workspace {
+    height: auto;
+  }
+  .material-flow-canvas__surface {
+    min-height: 480px;
+    flex: 0 0 60vh;
+  }
+  .workflow-input-fields {
+    grid-template-columns: 1fr;
+  }
+  .task-column--attention,
+  .material-inspector,
+  .management-tree {
+    padding-left: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+  .search-input {
+    width: 100%;
+  }
+  .preview-panel {
+    width: min(420px, 86vw);
+  }
+}

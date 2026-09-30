@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import { Form, Input, InputNumber, Select, Switch } from "antd";
 import type { WorkflowInputParameter } from "@unilab-fe/core";
 
@@ -12,14 +13,14 @@ export function WorkflowInputFields({
 }: WorkflowInputFieldsProps) {
   if (parameters.length === 0) {
     return (
-      <div className="workflow-input-empty">
+      <div className={cx("workflow-input-empty")}>
         该工作流没有声明需要填写的运行参数。
       </div>
     );
   }
 
   return (
-    <div className="workflow-input-fields">
+    <div className={cx("workflow-input-fields")}>
       {parameters.map((parameter) => (
         <WorkflowInputField key={parameter.name} parameter={parameter} />
       ))}
@@ -73,7 +74,7 @@ function WorkflowInputField({
     return (
       <Form.Item {...itemProps}>
         <InputNumber
-          className="full-input"
+          className={cx("full-input")}
           min={numberValue(schema.minimum)}
           max={numberValue(schema.maximum)}
           step={schema.type === "integer" ? 1 : undefined}
@@ -115,7 +116,7 @@ function ParameterLabel({
   readonly parameter: WorkflowInputParameter;
 }) {
   return (
-    <span className="workflow-input-label">
+    <span className={cx("workflow-input-label")}>
       <span>{parameterLabel(parameter)}</span>
       <code>{parameter.name}</code>
     </span>

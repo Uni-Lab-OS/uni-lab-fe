@@ -1,5 +1,6 @@
 import type { ReagentInfo } from '@unilab-fe/core'
 
+import { cx } from '../classNames'
 export function ReagentCatalogDetail({ info }: { readonly info: ReagentInfo }) {
   const rows = [
     ['名称', info.name],
@@ -11,7 +12,7 @@ export function ReagentCatalogDetail({ info }: { readonly info: ReagentInfo }) {
     ['描述', info.description],
   ] as const
   return (
-    <dl className="lab-ui-reagent-catalog-detail">
+    <dl className={cx('lab-ui-reagent-catalog-detail')}>
       {rows.map(([label, value]) => (
         <div key={label}>
           <dt>{label}</dt>

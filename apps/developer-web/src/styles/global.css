@@ -20,16 +20,27 @@ body,
   --studio-text: var(--bh-color-text-default);
   --studio-text-muted: var(--bh-color-text-description);
   --studio-text-faint: var(--bh-color-text-placeholder);
+  --studio-text-secondary: var(--bh-color-text-description);
   --studio-accent: var(--bh-color-primary);
   --studio-radius: var(--bh-radius-lg);
   --studio-control-radius: var(--bh-radius-md);
+  --studio-shadow: none;
+  --studio-overlay-shadow: var(--bh-shadow-card);
+  --studio-selection: var(--bh-color-sidebar-selected);
+  --studio-page-title-size: 22px;
+  --studio-page-title-line-height: 28px;
+  --studio-page-title-weight: 500;
+  --studio-form-label-font-family: var(--bh-font-family-sans);
+  --studio-form-label-size: 14px;
+  --studio-form-label-weight: 500;
+  --studio-form-label-line-height: 20px;
+  --studio-form-label-color: var(--studio-text-secondary);
 }
 
 * {
   box-sizing: border-box;
 }
 body {
-  min-width: 1024px;
   margin: 0;
   color: var(--studio-text);
   background: var(--studio-background);
@@ -45,4 +56,13 @@ textarea {
 }
 button {
   cursor: pointer;
+}
+
+.ant-form-item-label > label,
+.ant-descriptions-item-label {
+  color: var(--studio-form-label-color);
+  font-family: var(--studio-form-label-font-family);
+  font-size: var(--studio-form-label-size);
+  font-weight: var(--studio-form-label-weight);
+  line-height: var(--studio-form-label-line-height);
 }

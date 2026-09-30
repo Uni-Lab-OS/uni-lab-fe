@@ -2,6 +2,7 @@ import type { PreflightReport, RunPreparationViewModel } from '@unilab-fe/core'
 import { InventoryRequirementList } from '../workflow/InventoryRequirementList'
 import { PreflightReportView } from './PreflightReportView'
 
+import { cx } from '../classNames'
 export interface RunPreparationSummaryProps {
   readonly viewModel: RunPreparationViewModel
   readonly preflight?: PreflightReport | null
@@ -17,20 +18,20 @@ export function RunPreparationSummary({
 
   return (
     <section
-      className="lab-ui-run-preparation-summary"
+      className={cx('lab-ui-run-preparation-summary')}
       aria-label="运行准备摘要"
     >
       <header>
         <div>
-          <span className="lab-ui-eyebrow">工作流</span>
+          <span className={cx('lab-ui-eyebrow')}>工作流</span>
           <h2>{revision.name}</h2>
         </div>
         <span>版本 {revision.revision}</span>
       </header>
-      <div className="lab-ui-run-preparation-summary__columns">
-        <section className="lab-ui-run-preparation-summary__basic">
+      <div className={cx('lab-ui-run-preparation-summary__columns')}>
+        <section className={cx('lab-ui-run-preparation-summary__basic')}>
           <h3>基础信息</h3>
-          <dl className="lab-ui-definition-list">
+          <dl className={cx('lab-ui-definition-list')}>
             <div>
               <dt>运行模式</dt>
               <dd>{runModeLabel(configuration.runMode)}</dd>
@@ -49,7 +50,7 @@ export function RunPreparationSummary({
             </div>
           </dl>
         </section>
-        <section className="lab-ui-run-preparation-summary__inventory">
+        <section className={cx('lab-ui-run-preparation-summary__inventory')}>
           <h3>库存需求</h3>
           <InventoryRequirementList requirements={viewModel.requirements} />
         </section>

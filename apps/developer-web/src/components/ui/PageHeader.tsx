@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import { Typography } from "antd";
 import type { ReactNode } from "react";
 
@@ -11,14 +12,14 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="page-header">
-      <div className="page-header-title-row">
+    <header className={cx("page-header")}>
+      <div className={cx("page-header-title-row")}>
         {leading}
-        <Typography.Title className="page-header-title" level={1}>
+        <Typography.Title className={cx("page-header-title")} level={1}>
           {title}
         </Typography.Title>
       </div>
-      {actions && <div className="page-header-actions">{actions}</div>}
+      {actions && <div className={cx("page-header-actions")}>{actions}</div>}
     </header>
   );
 }

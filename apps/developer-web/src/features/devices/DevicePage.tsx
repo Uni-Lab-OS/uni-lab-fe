@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import { Button, Input, Table, Tooltip } from "antd";
 import type { TableColumnsType } from "antd";
 import { useEffect, useMemo, useState } from "react";
@@ -53,12 +54,12 @@ export function DevicesPage() {
       />
     );
   return (
-    <div className="page-stack devices-list-page">
+    <div className={cx("page-stack devices-list-page")}>
       <PageHeader
         title="设备"
         actions={
           <Input
-            className="search-input device-page-search"
+            className={cx("search-input device-page-search")}
             allowClear
             prefix={<AppIcon name="general/search-md" size={16} />}
             placeholder="搜索设备名称或设备键"
@@ -76,7 +77,7 @@ export function DevicesPage() {
         variant="table"
         tableColumns={5}
       >
-        <section className="data-section">
+        <section className={cx("data-section")}>
           <DeviceTable rows={rows} onView={setSelected} />
         </section>
       </AsyncState>
@@ -97,10 +98,10 @@ function DeviceTable({
       key: "device",
       width: 360,
       render: (_, row) => (
-        <div className="device-cell">
+        <div className={cx("device-cell")}>
           <button
             type="button"
-            className="device-cell__name"
+            className={cx("device-cell__name")}
             onClick={() => onView(row)}
           >
             <TableText text={row.label} />
@@ -114,7 +115,7 @@ function DeviceTable({
       width: 120,
       align: "center",
       render: (_, row) => (
-        <span className="muted-cell">{row.actions.length} 个动作</span>
+        <span className={cx("muted-cell")}>{row.actions.length} 个动作</span>
       ),
     },
     {
@@ -133,9 +134,9 @@ function DeviceTable({
       render: (_, row) => {
         const busy = row.actions.find((action) => action.isBusy);
         return busy ? (
-          <span className="muted-cell">{busy.label}</span>
+          <span className={cx("muted-cell")}>{busy.label}</span>
         ) : (
-          <span className="muted-cell">空闲</span>
+          <span className={cx("muted-cell")}>空闲</span>
         );
       },
     },
@@ -147,7 +148,7 @@ function DeviceTable({
       render: (_, row) => (
         <Tooltip title="查看设备">
           <Button
-            className="icon-button"
+            className={cx("icon-button")}
             type="text"
             icon={<AppIcon name="general/eye" size={18} />}
             aria-label={`查看设备 ${row.label}`}
@@ -160,7 +161,7 @@ function DeviceTable({
   return (
     <Table<DeviceSummary>
       rowKey="deviceUuid"
-      className="device-table"
+      className={cx("device-table")}
       columns={columns}
       dataSource={rows}
       locale={{ emptyText: <EmptyState scene="no-data" size="compact" title="暂无设备" /> }}

@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import { useMemo } from "react";
 import ReactFlow, {
   Background,
@@ -76,15 +77,15 @@ export function MaterialFlowCanvas({
   );
 
   return (
-    <section className="material-flow-canvas" aria-label="设备与库位关系图">
-      <div className="material-flow-canvas__legend">
-        <span><i className="material-flow-dot material-flow-dot--device" />设备 / 台面分组</span>
-        <span><i className="material-flow-dot material-flow-dot--occupied" />已占用库位</span>
-        <span><i className="material-flow-dot material-flow-dot--empty" />空库位</span>
-        {hasSearch && <span><i className="material-flow-dot material-flow-dot--match" />搜索匹配</span>}
-        <span className="material-flow-canvas__hint">拖动画布、滚轮缩放，点击节点、库位或物料查看详情</span>
+    <section className={cx("material-flow-canvas")} aria-label="设备与库位关系图">
+      <div className={cx("material-flow-canvas__legend")}>
+        <span><i className={cx("material-flow-dot material-flow-dot--device")} />设备 / 台面分组</span>
+        <span><i className={cx("material-flow-dot material-flow-dot--occupied")} />已占用库位</span>
+        <span><i className={cx("material-flow-dot material-flow-dot--empty")} />空库位</span>
+        {hasSearch && <span><i className={cx("material-flow-dot material-flow-dot--match")} />搜索匹配</span>}
+        <span className={cx("material-flow-canvas__hint")}>拖动画布、滚轮缩放，点击节点、库位或物料查看详情</span>
       </div>
-      <div className="material-flow-canvas__surface">
+      <div className={cx("material-flow-canvas__surface")}>
         <ReactFlow
           nodes={projected}
           edges={[]}
@@ -110,16 +111,16 @@ export function MaterialFlowCanvas({
 
 function ResourceGroupNode({ data }: NodeProps<GroupNodeData>) {
   return (
-    <div className={`material-flow-group ${data.selected ? "is-selected" : ""} ${data.highlighted ? "is-search-match" : ""} ${data.hasSearch && !data.highlighted ? "is-search-dimmed" : ""} nodrag nopan`}>
+    <div className={cx(`material-flow-group ${data.selected ? "is-selected" : ""} ${data.highlighted ? "is-search-match" : ""} ${data.hasSearch && !data.highlighted ? "is-search-dimmed" : ""} nodrag nopan`)}>
       <button
         type="button"
-        className="material-flow-group__header"
+        className={cx("material-flow-group__header")}
         onClick={(event) => {
           event.stopPropagation();
           data.onSelect?.({ kind: "node", nodeId: data.selectionId });
         }}
       >
-        <span className="material-flow-group__icon"><AppIcon name={data.kind === "device" ? "development/cpu-chip-01" : "shapes/cube-03"} size={16} /></span>
+        <span className={cx("material-flow-group__icon")}><AppIcon name={data.kind === "device" ? "development/cpu-chip-01" : "shapes/cube-03"} size={16} /></span>
         <div>
           <strong>{data.name}</strong>
           <small>{data.kind === "device" ? "设备" : "资源台面"} · {data.materialCount} 个物料 · {data.siteCount} 个库位</small>
@@ -134,10 +135,10 @@ function ResourceBlockNode({ data }: NodeProps<BlockNodeData>) {
   const grid = gridShape(sites);
   const occupied = sites.filter((site) => Boolean(occupantBySite.get(site.siteUuid))).length;
   return (
-    <div className={`material-flow-block ${highlighted ? "is-search-match" : ""} ${hasSearch && !highlighted ? "is-search-dimmed" : ""}`}>
+    <div className={cx(`material-flow-block ${highlighted ? "is-search-match" : ""} ${hasSearch && !highlighted ? "is-search-dimmed" : ""}`)}>
       <button
         type="button"
-        className="material-flow-block__header"
+        className={cx("material-flow-block__header")}
         onClick={(event) => {
           event.stopPropagation();
           onSelect({ kind: "node", nodeId: selectionId });
@@ -147,9 +148,9 @@ function ResourceBlockNode({ data }: NodeProps<BlockNodeData>) {
           <strong>{label}</strong>
           <small>{occupied}/{sites.length} 有料</small>
         </div>
-        <span className="material-flow-block__type">{typeLabel}</span>
+        <span className={cx("material-flow-block__type")}>{typeLabel}</span>
       </button>
-      <div className="material-flow-block__grid" style={{ gridTemplateColumns: `repeat(${grid.columns}, minmax(0, 1fr))` }}>
+      <div className={cx("material-flow-block__grid")} style={{ gridTemplateColumns: `repeat(${grid.columns}, minmax(0, 1fr))` }}>
         {sites.map((site) => {
           const occupant = occupantBySite.get(site.siteUuid);
           const active = isMaterialSiteSelected(
@@ -163,7 +164,7 @@ function ResourceBlockNode({ data }: NodeProps<BlockNodeData>) {
             <button
               type="button"
               key={site.siteUuid}
-              className={`material-flow-site ${occupant ? "is-occupied" : "is-empty"} ${active ? "is-selected" : ""} ${siteHighlighted ? "is-search-match" : ""} ${hasSearch && !highlighted && !siteHighlighted ? "is-search-dimmed" : ""} nodrag nopan`}
+              className={cx(`material-flow-site ${occupant ? "is-occupied" : "is-empty"} ${active ? "is-selected" : ""} ${siteHighlighted ? "is-search-match" : ""} ${hasSearch && !highlighted && !siteHighlighted ? "is-search-dimmed" : ""} nodrag nopan`)}
               title={occupant ? `${site.name} · ${occupant.name}` : `${site.name} · 空库位`}
               aria-label={occupant ? `${site.name} · ${occupant.name}` : `${site.name} · 空库位`}
               data-selected={active ? "true" : undefined}

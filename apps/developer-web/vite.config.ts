@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
   const apiTarget =
     env.VITE_UNILAB_PROXY_TARGET ||
     env.VITE_EDGE_API_URL ||
-    'http://127.0.0.1:8002'
+    'http://127.0.0.1:59394'
 
   return {
     plugins: [react()],

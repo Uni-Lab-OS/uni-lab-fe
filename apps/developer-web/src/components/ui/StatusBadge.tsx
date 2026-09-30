@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import { Tag } from "antd";
 import type { IconName } from "@unilab/design-v2/icons";
 import { AppIcon } from "./Icon";
@@ -60,7 +61,7 @@ export function StatusBadge({
   };
   return (
     <Tag
-      className="status-badge"
+      className={cx("status-badge")}
       color={meta.tone}
       icon={
         <AppIcon

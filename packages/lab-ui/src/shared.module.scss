@@ -1,0 +1,171 @@
+/* Styles owned by the shared lab-ui components. */
+
+.lab-ui-empty-region, .lab-ui-list-empty, .lab-ui-form-empty {
+  color: var(--unilab-text-secondary, #667085);
+  padding: 16px;
+}
+
+.lab-ui-form-field {
+  display: grid;
+  gap: 6px;
+}
+
+.lab-ui-form-field__label {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.lab-ui-form-field__label code {
+  color: var(--unilab-text-secondary, #667085);
+  font-size: 12px;
+}
+
+.lab-ui-form-field input:not([type=checkbox]), .lab-ui-form-field select, .lab-ui-form-field textarea {
+  border: 1px solid var(--unilab-border-subtle, #d0d5dd);
+  border-radius: 6px;
+  font: inherit;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.lab-ui-form-field input[type=checkbox] {
+  justify-self: start;
+}
+
+.lab-ui-form-field small {
+  color: var(--unilab-text-secondary, #667085);
+}
+
+.lab-ui-form-field__error {
+  color: var(--unilab-color-danger, #b42318);
+  font-size: 12px;
+}
+
+.lab-ui-form-field {
+  min-width: 0;
+}
+
+.lab-ui-form-field__label {
+  color: var(--studio-text, var(--unilab-text-default, #1d2939));
+  font-weight: 500;
+}
+
+.lab-ui-form-field input:not([type=checkbox]), .lab-ui-form-field select, .lab-ui-form-field textarea {
+  background: var(--studio-surface, var(--unilab-surface, #fff));
+  color: var(--studio-text, var(--unilab-text-default, #1d2939));
+  border-color: var(--studio-border, var(--unilab-border-subtle, #d0d5dd));
+}
+
+.lab-ui-form-field input:not([type=checkbox]):focus, .lab-ui-form-field select:focus, .lab-ui-form-field textarea:focus {
+  border-color: var(--studio-accent, var(--unilab-color-link, #6941c6));
+  outline: 2px solid color-mix(in srgb, var(--studio-accent, #6941c6) 18%, transparent);
+  outline-offset: 0;
+}
+
+.lab-ui-form-field {
+  gap: 6px;
+  min-width: 0;
+  margin-bottom: 16px;
+}
+
+.lab-ui-form-field__label {
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 7px;
+  color: var(--studio-form-label-color, var(--studio-text));
+  font-family: var(--studio-form-label-font-family, var(--bh-font-family-sans));
+  font-size: var(--studio-form-label-size, 14px);
+  font-weight: var(--studio-form-label-weight, 500);
+  line-height: var(--studio-form-label-line-height, 20px);
+}
+
+.lab-ui-form-field__label code {
+  color: var(--studio-text-faint);
+  font-family: var(--bh-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.lab-ui-required-mark {
+  color: var(--bh-color-error-default, #dc2626);
+  font-weight: 650;
+}
+
+.lab-ui-list-empty,
+.lab-ui-empty-region,
+.lab-ui-form-empty {
+  color: var(--studio-text-muted);
+}
+
+.lab-ui-form-field input:not([type=checkbox]),
+.lab-ui-form-field select,
+.lab-ui-form-field textarea,
+.lab-ui-device-action-input-fields input:not([type=checkbox]),
+.lab-ui-device-action-input-fields select,
+.lab-ui-device-action-input-fields textarea {
+  min-width: 0;
+  min-height: 36px;
+  box-sizing: border-box;
+  border: 1px solid var(--bh-color-border-1, var(--studio-border));
+  border-radius: 8px;
+  background: var(--studio-surface);
+  color: var(--studio-text);
+  font-family: var(--bh-font-family-sans);
+  font-size: 14px;
+  line-height: 22px;
+  padding: 6px 11px;
+}
+
+.lab-ui-form-field textarea,
+.lab-ui-device-action-input-fields textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.lab-ui-form-field input::placeholder,
+.lab-ui-form-field textarea::placeholder,
+.lab-ui-device-action-input-fields input::placeholder,
+.lab-ui-device-action-input-fields textarea::placeholder {
+  color: var(--studio-text-faint);
+  opacity: 1;
+}
+
+.lab-ui-form-field small {
+  min-height: 27px;
+  color: var(--studio-text-muted);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.lab-ui-form-field__error,
+.device-action-input-description,
+.device-action-input-error {
+  color: var(--studio-text-faint);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.lab-ui-form-field input:not([type=checkbox]):focus,
+.lab-ui-form-field select:focus,
+.lab-ui-form-field textarea:focus,
+.lab-ui-device-action-input-fields input:not([type=checkbox]):focus,
+.lab-ui-device-action-input-fields select:focus,
+.lab-ui-device-action-input-fields textarea:focus {
+  border-color: var(--bh-color-primary-focus, var(--studio-accent));
+  outline: 2px solid color-mix(in srgb, var(--bh-color-primary-focus, var(--studio-accent)) 28%, transparent);
+  outline-offset: 0;
+}
+
+.lab-ui-material-inspector__sites > .lab-ui-empty-region {
+  display: flex;
+  min-height: 220px;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.lab-ui-material-inspector__sites > .lab-ui-empty-region .bh-empty-state {
+  margin-inline: auto;
+}

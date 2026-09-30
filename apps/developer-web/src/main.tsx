@@ -9,10 +9,8 @@ import {
   watchTheme,
 } from "@unilab/design-v2";
 import "@unilab/design-v2/icons/styles.css";
-import "@unilab/lab-ui/styles.css";
-import "@unilab/lab-ui/material-inspector.css";
 import "antd/dist/reset.css";
-import "./styles/index.css";
+import "./styles/global.css";
 import { App } from "./App";
 
 configureTheme({ defaultMode: "light", defaultPreset: "default" });

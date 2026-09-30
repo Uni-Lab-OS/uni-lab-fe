@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import { Typography } from "antd";
 import type { CSSProperties } from "react";
 
@@ -12,7 +13,7 @@ export function TableText({
 }) {
   return (
     <Typography.Text
-      className={["table-text", className].filter(Boolean).join(" ")}
+      className={cx(["table-text", className].filter(Boolean).join(" "))}
       ellipsis={{ tooltip: text }}
       style={{ display: "block", maxWidth: "100%", ...style }}
     >

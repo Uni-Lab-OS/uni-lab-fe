@@ -1,0 +1,303 @@
+/* Styles owned by the reagents application components. */
+
+.reagent-list-page {
+  flex: 1 1 auto;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.reagent-list-page > .data-section,
+.reagent-list-page > .async-state,
+.reagent-list-page > .async-state--table {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.reagent-list-page > .data-section {
+  flex: 1 1 auto;
+}
+
+.reagent-list-page .reagent-table,
+.reagent-list-page .reagent-table :global(.ant-spin-nested-loading),
+.reagent-list-page .reagent-table :global(.ant-spin-container),
+.reagent-list-page .reagent-table :global(.ant-table),
+.reagent-list-page .reagent-table :global(.ant-table-container) {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.reagent-list-page .reagent-table :global(.ant-table-container) {
+  overflow: hidden;
+}
+
+.reagent-list-page .reagent-table :global(.ant-table-content) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.reagent-list-page .reagent-table :global(.ant-table-thead) > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--studio-surface);
+}
+
+.reagent-list-page .reagent-table :global(.ant-pagination) {
+  flex: 0 0 auto;
+  margin: 12px 16px;
+}
+
+.reagent-tabs :global(.ant-tabs-ink-bar)::after {
+  inset: 0;
+}
+
+.reagent-mutation-modal :global(.ant-modal-content) {
+  padding: 24px;
+}
+
+.reagent-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+
+.reagent-form-field--wide {
+  grid-column: 1 / -1;
+}
+
+.reagent-form-grid :global(.ant-form-item) {
+  min-width: 0;
+}
+
+.amount-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.amount-cell__line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.amount-cell__line :global(.ant-tag) {
+  margin: 0;
+}
+
+.amount-cell strong {
+  color: var(--studio-text);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.amount-cell > span {
+  color: var(--studio-text-faint);
+  font-size: 10px;
+}
+
+/* antd 的 InputNumber/DatePicker 默认按内容宽度收缩，表单里需要撑满列宽。 */
+.reagent-mutation-form .full-input {
+  width: 100%;
+}
+
+.reagent-form-section {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 0 14px;
+  padding-left: 10px;
+  color: var(--studio-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.reagent-form-section::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+  height: 22px;
+  background: var(--studio-accent);
+}
+
+/* 横线放在上一块字段和下一组标题的正中，不贴着标题。 */
+.reagent-form-grid > .reagent-form-section:not(:first-child) {
+  margin-top: 0;
+  padding-top: 24px;
+}
+
+.reagent-form-grid > .reagent-form-section:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  border-top: 1px solid var(--studio-border);
+}
+
+.reagent-capacity-note {
+  margin-bottom: 16px;
+}
+
+.reagent-dispense-source {
+  margin-bottom: 16px;
+}
+
+.reagent-dispense-targets {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.reagent-dispense-target {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px auto;
+  gap: 12px;
+  align-items: end;
+  width: 100%;
+}
+
+.reagent-dispense-target :global(.ant-select),
+.reagent-dispense-target :global(.ant-input-number) {
+  width: 100%;
+}
+
+.reagent-dispense-target :global(.ant-form-item) {
+  margin-bottom: 0;
+}
+
+.reagent-cas-lookup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reagent-cas-lookup :global(.ant-input) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.reagent-lookup-result {
+  margin: 4px 0 12px;
+}
+
+.reagent-lookup-button:global(.ant-btn) {
+  flex: none;
+  height: 32px;
+  padding-inline: 12px;
+  color: var(--studio-accent);
+  background: var(--studio-surface);
+  border-color: var(--studio-border);
+}
+
+.reagent-lookup-button:global(.ant-btn):not(:disabled):hover {
+  color: var(--studio-accent);
+  border-color: var(--studio-accent);
+  background: var(--studio-selection);
+}
+
+/* 弹窗挂在页面外，占位符沿用正文色会看起来像已经填过。提示用浅色和无衬线字体。 */
+.reagent-mutation-modal input::placeholder,
+.reagent-mutation-modal textarea::placeholder {
+  color: var(--studio-text-faint) !important;
+  font-family: var(--bh-font-family-sans);
+  font-weight: 400;
+  opacity: 1;
+}
+
+.reagent-amount-field {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: 32px;
+  overflow: hidden;
+  background: var(--studio-surface);
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-control-radius);
+}
+
+.reagent-amount-field:focus-within {
+  border-color: var(--studio-accent);
+}
+
+.reagent-amount-field .reagent-amount-value {
+  flex: 1 1 auto;
+  width: auto;
+  height: 30px;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.reagent-amount-field .reagent-amount-value :global(.ant-input-number-input) {
+  height: 30px;
+}
+
+.reagent-amount-field .reagent-amount-value:global(.ant-input-number-focused) {
+  box-shadow: none;
+}
+
+.reagent-amount-field .reagent-amount-unit {
+  flex: 0 0 88px;
+}
+
+.reagent-amount-field .reagent-amount-unit :global(.ant-select-selector) {
+  height: 30px !important;
+  border: 0 !important;
+  border-left: 1px solid var(--studio-border) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* CAS、SMILES、InChIKey 是机器标识符，等宽字体才好分辨 0/O 与 1/l。 */
+.reagent-identifier-input,
+.reagent-identifier-text {
+  font-family: var(--bh-font-family-mono);
+}
+
+.reagent-identifier-text {
+  word-break: break-all;
+}
+
+.reagent-error-details {
+  margin: 8px 0 0;
+  max-height: 160px;
+  overflow: auto;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.reagent-history-pagination {
+  margin-top: 12px;
+  text-align: right;
+}
+
+.reagent-import-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .reagent-mutation-modal :global(.ant-modal-content) {
+    padding: 20px;
+  }
+
+  .reagent-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reagent-form-field--wide {
+    grid-column: auto;
+  }
+}

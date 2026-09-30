@@ -1,3 +1,4 @@
+import { cx } from "../styles/styleMaps";
 import { type ReactNode, useState } from "react";
 import { Badge, Button, Tooltip } from "antd";
 import type { IconName } from "@unilab/design-v2/icons";
@@ -37,16 +38,16 @@ export function AppShell({
   const { connection } = useBackend();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   return (
-    <div className={`studio-shell ${sidebarCollapsed ? "studio-shell--collapsed" : ""}`}>
-      <aside className="studio-sidebar">
-        <div className="studio-brand">
-          <span className="studio-brand-mark">U</span>
-          <div className="studio-brand-copy">
+    <div className={cx(`developer-web studio-shell ${sidebarCollapsed ? "studio-shell--collapsed" : ""}`)}>
+      <aside className={cx("studio-sidebar")}>
+        <div className={cx("studio-brand")}>
+          <span className={cx("studio-brand-mark")}>U</span>
+          <div className={cx("studio-brand-copy")}>
             <strong>Uni-Lab</strong>
           </div>
           <Button
             type="text"
-            className="studio-sidebar-toggle"
+            className={cx("studio-sidebar-toggle")}
             aria-label={sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}
             aria-expanded={!sidebarCollapsed}
             title={sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}
@@ -59,8 +60,8 @@ export function AppShell({
             onClick={() => setSidebarCollapsed((value) => !value)}
           />
         </div>
-        <nav className="studio-nav" aria-label="主导航">
-          <span className="studio-nav-label">工作台</span>
+        <nav className={cx("studio-nav")} aria-label="主导航">
+          <span className={cx("studio-nav-label")}>工作台</span>
           {navigation.slice(0, 3).map((item) => (
             <NavItem
               key={item.key}
@@ -71,7 +72,7 @@ export function AppShell({
               onNavigate={onNavigate}
             />
           ))}
-          <span className="studio-nav-label studio-nav-label--resources">资源</span>
+          <span className={cx("studio-nav-label studio-nav-label--resources")}>资源</span>
           {navigation.slice(3).map((item) => (
             <NavItem
               key={item.key}
@@ -84,8 +85,8 @@ export function AppShell({
           ))}
         </nav>
       </aside>
-      <div className={`studio-main studio-main--${route}`}>
-        <main className={`studio-content studio-content--${route}`}>{children}</main>
+      <div className={cx(`studio-main studio-main--${route}`)}>
+        <main className={cx(`studio-content studio-content--${route}`)}>{children}</main>
       </div>
     </div>
   );
@@ -107,7 +108,7 @@ function NavItem({
   const navButton = (
     <button
       type="button"
-      className={`studio-nav-item ${route === item.key ? "is-active" : ""}`}
+      className={cx(`studio-nav-item ${route === item.key ? "is-active" : ""}`)}
       aria-label={collapsed ? item.label : undefined}
       onClick={() => onNavigate(item.key)}
     >
@@ -116,7 +117,7 @@ function NavItem({
         size={16}
         color={route === item.key ? "primary" : "context"}
       />
-      <span className="studio-nav-item__label">{item.label}</span>
+      <span className={cx("studio-nav-item__label")}>{item.label}</span>
       {item.key === "overview" && (
         <Badge count={connection === "error" ? 1 : 0} size="small" />
       )}

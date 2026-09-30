@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import {
   Alert,
   Button,
@@ -136,16 +137,16 @@ export function WorkflowsPage({
       title: "名称",
       key: "name",
       render: (_, row) => (
-        <div className="primary-cell">
+        <div className={cx("primary-cell")}>
           <button
             type="button"
-            className="workflow-name-link"
+            className={cx("workflow-name-link")}
             onClick={() => openWorkflow(row.workflowUuid)}
           >
             <TableText text={row.name} />
           </button>
-          <div className="workflow-uuid-cell">
-            <TableText className="table-secondary-text" text={row.workflowUuid} />
+          <div className={cx("workflow-uuid-cell")}>
+            <TableText className={cx("table-secondary-text")} text={row.workflowUuid} />
             <CopyWorkflowUuidButton workflow={row} />
           </div>
         </div>
@@ -167,7 +168,7 @@ export function WorkflowsPage({
         value === "published" ? (
           <Tag color="green">已发布</Tag>
         ) : value === "source" ? (
-          <Tag className="status-badge" color="default">
+          <Tag className={cx("status-badge")} color="default">
             未发布
           </Tag>
         ) : (
@@ -185,7 +186,7 @@ export function WorkflowsPage({
           <Tooltip title="查看">
             <Button
               type="text"
-              className="icon-button"
+              className={cx("icon-button")}
               aria-label={`查看工作流 ${row.name}`}
               icon={<AppIcon name="general/eye" size={18} />}
               onClick={() => openWorkflow(row.workflowUuid)}
@@ -194,7 +195,7 @@ export function WorkflowsPage({
           <Tooltip title="调试">
             <Button
               type="text"
-              className="icon-button"
+              className={cx("icon-button")}
               aria-label={`调试工作流 ${row.name}`}
               icon={<AppIcon name="media/play-circle" size={18} />}
               onClick={() => setDebugUuid(row.workflowUuid)}
@@ -207,14 +208,14 @@ export function WorkflowsPage({
   ];
 
   return (
-    <div className="page-stack workflow-list-page">
+    <div className={cx("page-stack workflow-list-page")}>
       <PageHeader
         title="工作流"
       />
-      <section className="data-section workflow-data-section">
-        <div className="data-section-toolbar workflow-toolbar">
+      <section className={cx("data-section workflow-data-section")}>
+        <div className={cx("data-section-toolbar workflow-toolbar")}>
           <Tabs
-            className="workflow-tabs"
+            className={cx("workflow-tabs")}
             activeKey={kind}
             onChange={(value) => setKind(value as typeof kind)}
             items={[
@@ -238,7 +239,7 @@ export function WorkflowsPage({
           <Space>
             <Input
               allowClear
-              className="search-input"
+              className={cx("search-input")}
               prefix={<AppIcon name="general/search-md" size={16} />}
               placeholder="搜索名称或 UUID"
               value={keyword}
@@ -256,7 +257,7 @@ export function WorkflowsPage({
         tableColumns={4}
       >
           <Table
-            className="workflow-table"
+            className={cx("workflow-table")}
             rowKey="workflowUuid"
             columns={columns}
             dataSource={[...rows]}
@@ -291,7 +292,7 @@ function CopyWorkflowUuidButton({
     <Tooltip title="复制 UUID">
       <Button
         type="text"
-        className="workflow-uuid-copy icon-button"
+        className={cx("workflow-uuid-copy icon-button")}
         aria-label={`复制工作流 ${workflow.name} 的 UUID`}
         icon={<AppIcon name="general/copy-01" size={14} />}
         onClick={copy}
@@ -341,7 +342,7 @@ function DeleteWorkflowButton({
         danger
         disabled={!available}
         loading={busy}
-        className="icon-button"
+        className={cx("icon-button")}
         aria-label={`删除工作流 ${workflow.name}`}
         icon={<AppIcon name="general/trash-01" size={18} />}
         onClick={remove}
@@ -405,7 +406,7 @@ function WorkflowDetail({
     devices: [],
   } satisfies WorkflowResourceDirectory;
   return (
-    <div className="page-stack workflow-detail-page">
+    <div className={cx("page-stack workflow-detail-page")}>
       <AsyncState
         loading={query.loading}
         error={query.error}
@@ -414,24 +415,24 @@ function WorkflowDetail({
       >
         {query.data && (
           <>
-            <div className="workflow-detail-heading">
-              <div className="workflow-detail-title">
+            <div className={cx("workflow-detail-heading")}>
+              <div className={cx("workflow-detail-title")}>
                 <Tooltip title="返回工作流">
                   <Button
                     type="text"
-                    className="page-header-back workflow-back-icon"
+                    className={cx("page-header-back workflow-back-icon")}
                     aria-label="返回工作流"
                     onClick={onBack}
                     icon={<AppIcon name="arrows/arrow-left" size={18} />}
                   />
                 </Tooltip>
-                <div className="workflow-detail-title-copy">
+                <div className={cx("workflow-detail-title-copy")}>
                   <Tooltip title={query.data.name} mouseEnterDelay={0.2}>
                     <h1>{query.data.name}</h1>
                   </Tooltip>
                 </div>
               </div>
-              <div className="workflow-detail-heading-actions">
+              <div className={cx("workflow-detail-heading-actions")}>
                 <Tag color={query.data.status === "published" ? "green" : "blue"}>
                   {workflowStatusLabel(query.data.status)}
                 </Tag>
@@ -480,13 +481,13 @@ function WorkflowTopology({
     (item, index) => nodeUuid(item, index) === activeNodeId,
   );
   return (
-    <div className="workflow-topology-layout">
-        <section className="detail-card topology-card">
-          <div className="workflow-panel-heading">
+    <div className={cx("workflow-topology-layout")}>
+        <section className={cx("detail-card topology-card")}>
+          <div className={cx("workflow-panel-heading")}>
             <h2>拓扑结构</h2>
             <Tag>{counts.nodes} 个节点</Tag>
           </div>
-          <div className="topology-canvas">
+          <div className={cx("topology-canvas")}>
             {revision.graph.nodes.length === 0 ? (
               <Empty description="后端没有返回节点" />
             ) : (
@@ -498,8 +499,8 @@ function WorkflowTopology({
             )}
           </div>
         </section>
-        <section className="detail-card node-inspector">
-          <div className="workflow-panel-heading node-inspector-heading">
+        <section className={cx("detail-card node-inspector")}>
+          <div className={cx("workflow-panel-heading node-inspector-heading")}>
             <h2>{activeNode ? "节点信息" : "工作流信息"}</h2>
           </div>
           {activeNode ? (
@@ -524,8 +525,8 @@ function WorkflowInfoPanel({
   counts: ReturnType<typeof workflowCounts>;
 }) {
   return (
-    <div className="workflow-info-panel">
-      <div className="workflow-info-form">
+    <div className={cx("workflow-info-panel")}>
+      <div className={cx("workflow-info-form")}>
         <div>
           <span>uuid</span>
           <code>{revision.workflowUuid}</code>
@@ -551,7 +552,7 @@ function WorkflowInfoPanel({
 function WorkflowContractSummary({ revision }: { revision: PublishedWorkflowRevision }) {
   const contracts = workflowContracts(revision);
   return (
-    <div className="workflow-contract-summary">
+    <div className={cx("workflow-contract-summary")}>
       <ContractGroup title="工作流输入" fields={contracts.inputs} empty="未声明输入参数" />
       <ContractGroup title="工作流输出" fields={contracts.outputs} empty="未声明输出参数" />
     </div>
@@ -568,19 +569,19 @@ function ContractGroup({
   empty: string;
 }) {
   return (
-    <div className="workflow-contract-group">
+    <div className={cx("workflow-contract-group")}>
       <strong>{title}</strong>
       {fields.length ? (
-        <div className="workflow-contract-list">
+        <div className={cx("workflow-contract-list")}>
           {fields.map((field) => (
-            <span key={field.name} className="workflow-contract-chip">
+            <span key={field.name} className={cx("workflow-contract-chip")}>
               {field.name}
               {field.required ? <em>必填</em> : null}
             </span>
           ))}
         </div>
       ) : (
-        <span className="workflow-contract-empty">{empty}</span>
+        <span className={cx("workflow-contract-empty")}>{empty}</span>
       )}
     </div>
   );
@@ -603,7 +604,7 @@ function NodeInspector({
           key: "base",
           label: "基础信息",
           children: (
-            <Descriptions className="workflow-node-descriptions" column={1} size="small">
+            <Descriptions className={cx("workflow-node-descriptions")} column={1} size="small">
               <Descriptions.Item label="节点 UUID">
                 {readString(node, ["uuid", "node_uuid"]) ?? "暂无"}
               </Descriptions.Item>
@@ -629,7 +630,7 @@ function NodeInspector({
           key: "io",
           label: `输入输出 (${details.inputs.length}/${details.outputs.length})`,
           children: (
-            <div className="workflow-node-io">
+            <div className={cx("workflow-node-io")}>
               <NodeHandleGroup
                 title="输入参数"
                 handles={details.inputs}
@@ -649,9 +650,9 @@ function NodeInspector({
           key: "resources",
           label: `资源需求 (${details.resources.length})`,
           children: details.resources.length ? (
-            <div className="workflow-resource-list">
+            <div className={cx("workflow-resource-list")}>
               {details.resources.map((resource, index) => (
-                <div className="workflow-resource-row" key={`${resource.kind}-${resource.value}-${index}`}>
+                <div className={cx("workflow-resource-row")} key={`${resource.kind}-${resource.value}-${index}`}>
                   <strong>{resource.kindLabel}</strong>
                   <span>{resolveWorkflowResourceName(resource.kind, resource.value, resourceDirectory)}</span>
                 </div>
@@ -678,15 +679,15 @@ function NodeHandleGroup({
   resourceDirectory: WorkflowResourceDirectory;
 }) {
   return (
-    <section className="workflow-handle-group">
-      <div className="workflow-handle-group__title">
+    <section className={cx("workflow-handle-group")}>
+      <div className={cx("workflow-handle-group__title")}>
         <strong>{title}</strong>
         <span>{handles.length}</span>
       </div>
       {handles.length ? (
-        <div className="workflow-handle-grid">
+        <div className={cx("workflow-handle-grid")}>
           {handles.map((handle) => (
-            <div className="workflow-handle-card" key={handle.name}>
+            <div className={cx("workflow-handle-card")} key={handle.name}>
               <div>
                 <strong>{handle.name}</strong>
                 {handle.required ? <em>必填</em> : <small>可选</small>}
@@ -698,7 +699,7 @@ function NodeHandleGroup({
           ))}
         </div>
       ) : (
-        <span className="workflow-contract-empty">{empty}</span>
+        <span className={cx("workflow-contract-empty")}>{empty}</span>
       )}
     </section>
   );

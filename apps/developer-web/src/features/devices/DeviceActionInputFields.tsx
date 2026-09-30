@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import { Form, Input, InputNumber, Select, Switch, Tooltip } from "antd";
 import type { ReactNode } from "react";
 import {
@@ -22,10 +23,10 @@ export function DeviceActionInputFields({
   readonly editable?: boolean;
 }) {
   if (parameters.length === 0) {
-    return <div className="device-action-input-empty">该动作没有声明可填写的参数。</div>;
+    return <div className={cx("device-action-input-empty")}>该动作没有声明可填写的参数。</div>;
   }
   return (
-    <div className="device-action-input-fields">
+    <div className={cx("device-action-input-fields")}>
       {parameters.map((parameter) => {
         const field = (
           <DeviceActionInputField
@@ -34,7 +35,7 @@ export function DeviceActionInputFields({
           />
         );
         return editable ? (
-          <div className="device-action-field-slot" key={parameter.name}>
+          <div className={cx("device-action-field-slot")} key={parameter.name}>
             {field}
           </div>
         ) : (
@@ -48,7 +49,7 @@ export function DeviceActionInputFields({
 }
 
 export function ReadOnlyFieldTooltip({ children }: { readonly children: ReactNode }) {
-  return <div className="device-action-readonly-field">{children}</div>;
+  return <div className={cx("device-action-readonly-field")}>{children}</div>;
 }
 
 function DeviceActionInputField({
@@ -91,7 +92,7 @@ function DeviceActionInputField({
     return (
       <Form.Item {...itemProps}>
         <InputNumber
-          className="full-input"
+          className={cx("full-input")}
           min={numberValue(parameter.schema.minimum)}
           max={numberValue(parameter.schema.maximum)}
           step={type === "integer" ? 1 : undefined}
@@ -128,7 +129,7 @@ function DeviceActionInputField({
 
 function ParameterLabel({ parameter }: { readonly parameter: DeviceActionParameter }) {
   return (
-    <span className="device-action-input-label">
+    <span className={cx("device-action-input-label")}>
       <span>{parameter.title}</span>
       {parameter.title !== parameter.name && <code>{parameter.name}</code>}
       {parameter.description ? (
@@ -137,7 +138,7 @@ function ParameterLabel({ parameter }: { readonly parameter: DeviceActionParamet
           align={{ offset: [0, 0] }}
         >
           <span
-            className="device-action-help-icon"
+            className={cx("device-action-help-icon")}
             aria-label={`${parameter.title}说明`}
           >
             <AppIcon name="general/help-circle" size={14} />

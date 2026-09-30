@@ -1,3 +1,4 @@
+import { cx } from '../classNames'
 export interface ReagentHistoryItem {
   readonly eventType: string
   readonly quantityDelta?: number | null
@@ -17,12 +18,12 @@ export function ReagentHistoryList({
 }: ReagentHistoryListProps) {
   if (items.length === 0) {
     return (
-      <p className="lab-ui-reagent-history__empty">{emptyDescription}</p>
+      <p className={cx('lab-ui-reagent-history__empty')}>{emptyDescription}</p>
     )
   }
 
   return (
-    <ul className="history-list lab-ui-reagent-history">
+    <ul className={cx('history-list', 'lab-ui-reagent-history')}>
       {items.map((item, index) => (
         <ReagentHistoryItemView
           key={`${item.recordedAt}-${item.eventType}-${index}`}

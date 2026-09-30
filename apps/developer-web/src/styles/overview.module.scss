@@ -1,0 +1,250 @@
+/* Styles owned by the overview application components. */
+
+/* 总览指标条：四张互相独立的指标卡，不留整条容器边框。 */
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.summary-metric {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 98px;
+  padding: 16px 22px;
+  border: 1px solid var(--studio-border-soft);
+  border-radius: var(--studio-control-radius);
+  background: var(--studio-surface);
+  box-shadow: none;
+}
+
+/* 指标图标落在浅色圆角色块上，色相跟随指标语义。 */
+.summary-metric > svg {
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  border-radius: 8px;
+  color: var(--studio-text-secondary);
+  background: color-mix(in srgb, var(--studio-text-secondary) 12%, transparent);
+}
+
+.summary-metric--blue > svg {
+  color: var(--studio-accent);
+  background: color-mix(in srgb, var(--studio-accent) 12%, transparent);
+}
+
+.summary-metric--amber > svg {
+  color: var(--bh-color-warning-default);
+  background: color-mix(in srgb, var(--bh-color-warning-default) 14%, transparent);
+}
+
+.summary-metric--red > svg {
+  color: var(--bh-color-error-default);
+  background: color-mix(in srgb, var(--bh-color-error-default) 12%, transparent);
+}
+
+.summary-metric span,
+.summary-metric strong {
+  display: block;
+}
+
+.summary-metric span {
+  color: var(--studio-text-faint);
+  font-size: 12px;
+}
+
+.summary-metric strong {
+  margin-top: 4px;
+  color: var(--studio-text);
+  font-size: 25px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.overview-columns {
+  gap: 28px;
+}
+
+.task-column--attention {
+  padding-left: 28px;
+  border-left-color: var(--studio-border);
+}
+
+.task-column-list,
+.data-section :global(.ant-table-container) {
+  border-top-color: var(--studio-border);
+}
+
+.task-row {
+  width: 100%;
+  min-height: 58px;
+  gap: 16px;
+  padding: 0 10px;
+  border-top: 0;
+  border-right: 0;
+  border-left: 0;
+  border-bottom-color: var(--studio-border-soft);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.task-column-list .task-row:last-child {
+  border-bottom: 0;
+}
+
+.task-row:hover {
+  background: var(--bh-color-primary-background);
+}
+
+.task-row-progress-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 16px;
+  min-height: 16px;
+  line-height: 16px;
+}
+
+.task-row-progress-line--empty {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.task-row-progress-line--empty .task-row-status {
+  margin-top: 0;
+}
+
+.task-row-progress {
+  display: flex;
+  flex: 0 0 136px;
+  flex-direction: column;
+  justify-content: center;
+  width: 136px;
+  min-height: 34px;
+}
+
+.task-row-progress-line :global(.ant-progress) {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.task-row-progress-line > span {
+  flex: 0 0 auto;
+  color: var(--studio-text-faint);
+  font-size: 10px;
+}
+
+.task-row-status {
+  display: block;
+  height: 16px;
+  margin-top: 3px;
+  color: var(--studio-text-secondary);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: right;
+}
+
+.task-row-progress .task-row-status {
+  color: var(--studio-text-secondary);
+}
+
+.task-row-status--running {
+  color: var(--bh-color-primary);
+}
+
+.task-row-status--waiting {
+  color: var(--bh-color-warning-default);
+}
+
+.task-row-status--error {
+  color: var(--bh-color-error-default);
+}
+
+.task-row-progress .task-row-status--running {
+  color: var(--bh-color-primary);
+}
+
+.task-row-progress .task-row-status--waiting {
+  color: var(--bh-color-warning-default);
+}
+
+.task-row-progress .task-row-status--error {
+  color: var(--bh-color-error-default);
+}
+
+.priority-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--studio-text-muted);
+  font-size: 12px;
+}
+
+.priority-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--studio-text-faint);
+}
+
+.priority-label--low .priority-dot {
+  background: var(--bh-color-primary-information);
+}
+
+.priority-label--high .priority-dot {
+  background: var(--bh-color-warning-default);
+}
+
+.priority-label--urgent .priority-dot {
+  background: var(--bh-color-error-default);
+}
+
+/* Empty state is the only child that must fill the card and center itself. */
+.task-column-empty {
+  flex: 1 1 auto;
+  width: min(100%, 19.25rem);
+  min-width: 0;
+  margin: auto;
+}
+
+.task-column :global(.ant-empty) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  margin: 15px 0 2px;
+  text-align: left;
+}
+
+.task-column :global(.ant-empty-image) {
+  margin: 0;
+}
+
+.task-column :global(.ant-empty-description) {
+  color: var(--studio-text-secondary);
+}
+
+.data-section .priority-label {
+  color: #5e6b86;
+  font-size: 12px;
+}
+
+.data-section .priority-dot {
+  width: 7px;
+  height: 7px;
+}
+
+@media (max-width: 820px) {
+  .summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

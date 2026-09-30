@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import {
   Button,
   Dropdown,
@@ -215,7 +216,7 @@ export function ReagentsPage() {
   };
 
   return (
-    <div className="page-stack reagent-list-page">
+    <div className={cx("page-stack reagent-list-page")}>
       <PageHeader
         title="试剂"
         actions={
@@ -298,10 +299,10 @@ export function ReagentsPage() {
         variant="table"
         tableColumns={5}
       >
-        <section className="data-section">
-          <div className="data-section-toolbar">
+        <section className={cx("data-section")}>
+          <div className={cx("data-section-toolbar")}>
             <Tabs
-              className="reagent-tabs"
+              className={cx("reagent-tabs")}
               activeKey={tab}
               onChange={(key) => {
                 setTab(key as "inventory" | "catalog");
@@ -322,7 +323,7 @@ export function ReagentsPage() {
               ]}
             />
             <Input
-              className="search-input"
+              className={cx("search-input")}
               allowClear
               prefix={<AppIcon name="general/search-md" size={16} />}
               placeholder={
@@ -460,7 +461,7 @@ function InventoryTable({
       key: "name",
       width: 260,
       render: (_, item) => (
-        <div className="primary-cell">
+        <div className={cx("primary-cell")}>
           <TableText text={item.name} />
           <span>
             {item.containerName ?? "容器未提供"}
@@ -474,7 +475,7 @@ function InventoryTable({
       key: "identity",
       width: 140,
       render: (_, item) => (
-        <div className="primary-cell reagent-identifier-text">
+        <div className={cx("primary-cell reagent-identifier-text")}>
           <span>{item.cas ?? "无 CAS"}</span>
           <span>{item.molecularFormula ?? "分子式未提供"}</span>
         </div>
@@ -493,7 +494,7 @@ function InventoryTable({
       key: "property",
       width: 185,
       render: (_, item) => (
-        <div className="primary-cell">
+        <div className={cx("primary-cell")}>
           <span>
             {physicalStateLabel(item.physicalState)}
             {item.concentrationValue != null
@@ -522,7 +523,7 @@ function InventoryTable({
             </>
           }
         >
-          <span className="muted-cell">
+          <span className={cx("muted-cell")}>
             {formatCapacity(item.maximumCapacity)}
           </span>
         </Tooltip>
@@ -533,7 +534,7 @@ function InventoryTable({
       key: "updatedAt",
       width: 165,
       render: (_, item) => (
-        <div className="primary-cell">
+        <div className={cx("primary-cell")}>
           <span>{item.updatedAt ?? "未提供"}</span>
           <span>
             版本 {item.revision ?? "未提供"} · 物料{" "}
@@ -551,7 +552,7 @@ function InventoryTable({
         <Space size={2}>
           <Tooltip title={canReadHistory ? "查看历史" : "当前端点不支持库存历史"}>
             <Button
-              className="icon-button"
+              className={cx("icon-button")}
               type="text"
               icon={<AppIcon name="time/clock-refresh" size={18} />}
               onClick={() => onHistory(item)}
@@ -560,7 +561,7 @@ function InventoryTable({
           </Tooltip>
           <Tooltip title={canDispense ? "分装到其他容器" : "当前端点不支持分装"}>
             <Button
-              className="icon-button"
+              className={cx("icon-button")}
               type="text"
               disabled={!canDispense}
               icon={
@@ -575,7 +576,7 @@ function InventoryTable({
           </Tooltip>
           <Tooltip title={canMutate ? "编辑库存" : "当前端点不支持此项写入"}>
             <Button
-              className="icon-button"
+              className={cx("icon-button")}
               type="text"
               disabled={!canMutate}
               icon={
@@ -590,7 +591,7 @@ function InventoryTable({
           </Tooltip>
           <Tooltip title={canDelete ? "删除库存" : "当前端点不支持删除"}>
             <Button
-              className="icon-button"
+              className={cx("icon-button")}
               type="text"
               danger
               disabled={!canDelete}
@@ -604,7 +605,7 @@ function InventoryTable({
   ];
   return (
     <Table<Reagent>
-      className="reagent-table"
+      className={cx("reagent-table")}
       rowKey="reagentUuid"
       columns={columns}
       dataSource={[...data]}
@@ -653,7 +654,7 @@ function CatalogTable({
       dataIndex: "cas",
       width: 175,
       render: (value: string | null) => (
-        <span className="reagent-identifier-text">{value ?? "未提供"}</span>
+        <span className={cx("reagent-identifier-text")}>{value ?? "未提供"}</span>
       ),
     },
     {
@@ -669,7 +670,7 @@ function CatalogTable({
       dataIndex: "molecularFormula",
       width: 120,
       render: (value: string | null) => (
-        <span className="reagent-identifier-text">{value ?? "未提供"}</span>
+        <span className={cx("reagent-identifier-text")}>{value ?? "未提供"}</span>
       ),
     },
     {
@@ -678,7 +679,7 @@ function CatalogTable({
       width: 180,
       render: (value: string | null) =>
         value ? (
-          <TableText className="reagent-identifier-text" text={value} />
+          <TableText className={cx("reagent-identifier-text")} text={value} />
         ) : (
           "未提供"
         ),
@@ -699,7 +700,7 @@ function CatalogTable({
         <Space size={2}>
           <Tooltip title="查看详情">
             <Button
-              className="icon-button"
+              className={cx("icon-button")}
               type="text"
               icon={<AppIcon name="general/eye" size={18} />}
               onClick={() => onDetail(item)}
@@ -707,7 +708,7 @@ function CatalogTable({
           </Tooltip>
           <Tooltip title={canMutate ? "录入库存" : "当前端点不支持此项写入"}>
             <Button
-              className="icon-button"
+              className={cx("icon-button")}
               type="text"
               disabled={!canMutate}
               icon={
@@ -722,7 +723,7 @@ function CatalogTable({
           </Tooltip>
           <Tooltip title={canEdit ? "编辑目录" : "当前端点不支持目录修改"}>
             <Button
-              className="icon-button"
+              className={cx("icon-button")}
               type="text"
               disabled={!canEdit}
               icon={
@@ -737,7 +738,7 @@ function CatalogTable({
           </Tooltip>
           <Tooltip title={canDelete ? "删除目录" : "当前端点不支持目录删除"}>
             <Button
-              className="icon-button"
+              className={cx("icon-button")}
               type="text"
               danger
               disabled={!canDelete}
@@ -751,7 +752,7 @@ function CatalogTable({
   ];
   return (
     <Table<ReagentInfo>
-      className="reagent-table"
+      className={cx("reagent-table")}
       rowKey="reagentInfoUuid"
       columns={columns}
       dataSource={[...data]}

@@ -1,6 +1,7 @@
 import { EmptyState } from '@unilab/design-v2'
 import type { MaterialSummary } from '@unilab-fe/core'
 
+import { cx } from '../classNames'
 export interface MaterialListProps {
   readonly items: readonly MaterialSummary[]
   readonly selectedMaterialUuid?: string
@@ -17,7 +18,7 @@ export function MaterialList({
 }: MaterialListProps) {
   if (items.length === 0) {
     return (
-      <div className="lab-ui-empty-region">
+      <div className={cx('lab-ui-empty-region')}>
         <EmptyState
           scene="no-data"
           size="compact"
@@ -28,7 +29,7 @@ export function MaterialList({
   }
 
   return (
-    <ul className="lab-ui-material-list" aria-label="物料列表">
+    <ul className={cx('lab-ui-material-list')} aria-label="物料列表">
       {items.map((item) => (
         <MaterialListItem
           key={item.materialUuid}
@@ -54,15 +55,15 @@ function MaterialListItem({
     <li>
       <button
         type="button"
-        className={`lab-ui-material-list__item${selected ? ' is-selected' : ''}`}
+        className={cx('lab-ui-material-list__item', selected && 'is-selected')}
         aria-pressed={selected}
         onClick={() => onSelect?.(item.materialUuid)}
       >
-        <span className="lab-ui-material-list__primary">
+        <span className={cx('lab-ui-material-list__primary')}>
           <strong>{item.name || item.materialUuid}</strong>
           <span>{item.materialType || '未分类物料'}</span>
         </span>
-        <span className="lab-ui-material-list__meta">
+        <span className={cx('lab-ui-material-list__meta')}>
           {item.barcode || item.materialUuid}
         </span>
       </button>

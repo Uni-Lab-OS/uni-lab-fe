@@ -1,3 +1,4 @@
+import { cx } from "../../styles/styleMaps";
 import {
   Alert,
   Button,
@@ -90,12 +91,12 @@ export function DeviceDetail({
     setParameterView("form");
   }, [selectedActionUuid]);
   return (
-    <div className="page-stack device-detail-page">
+    <div className={cx("page-stack device-detail-page")}>
       <PageHeader
         title={
-          <span className="device-detail-title">
+          <span className={cx("device-detail-title")}>
             <Tooltip title={device.label} placement="bottomLeft">
-              <span className="device-detail-title__name">{device.label}</span>
+              <span className={cx("device-detail-title__name")}>{device.label}</span>
             </Tooltip>
             <Tag
               color={
@@ -127,7 +128,7 @@ export function DeviceDetail({
         }
         leading={
           <Button
-            className="page-header-back"
+            className={cx("page-header-back")}
             type="text"
             aria-label="返回设备"
             icon={<AppIcon name="arrows/arrow-left" size={18} />}
@@ -135,9 +136,9 @@ export function DeviceDetail({
           />
         }
       />
-      <div className="detail-columns">
-        <section className="detail-sidebar">
-          <div className="section-title">
+      <div className={cx("detail-columns")}>
+        <section className={cx("detail-sidebar")}>
+          <div className={cx("section-title")}>
             <h2>动作</h2>
             <span>{device.actions.length} 个动作</span>
           </div>
@@ -152,11 +153,11 @@ export function DeviceDetail({
             }}
           />
         </section>
-        <section className="detail-main">
-          <div className="section-title detail-main__action-heading">
+        <section className={cx("detail-main")}>
+          <div className={cx("section-title detail-main__action-heading")}>
             <div>
               <Tooltip title={selectedAction?.label} placement="topLeft">
-                <span className="action-detail-title">
+                <span className={cx("action-detail-title")}>
                   {selectedAction?.label ?? "未选择动作"}
                 </span>
               </Tooltip>
@@ -164,7 +165,7 @@ export function DeviceDetail({
             <Space size={8}>
               {selectedAction?.isBusy && <StatusBadge status="running" />}
               <Button
-                className="detail-main__debug-button"
+                className={cx("detail-main__debug-button")}
                 type={debugEditing ? "default" : "primary"}
                 disabled={!selectedAction}
                 icon={
@@ -197,11 +198,11 @@ export function DeviceDetail({
             />
           ) : selectedAction ? (
             <div
-              className={`definition-view-shell ${definitionQuery.loading ? "is-loading" : ""}`}
+              className={cx(`definition-view-shell ${definitionQuery.loading ? "is-loading" : ""}`)}
               aria-busy={definitionQuery.loading}
             >
               {definitionQuery.loading && (
-                <span className="definition-view-shell__loading">
+                <span className={cx("definition-view-shell__loading")}>
                   <Spin size="small" /> 更新中
                 </span>
               )}
@@ -217,7 +218,7 @@ export function DeviceDetail({
               <ActionDefinitionMeta
                 definition={actionDefinition}
               />
-              <div className="action-parameter-toolbar">
+              <div className={cx("action-parameter-toolbar")}>
                 <Segmented
                   size="middle"
                   value={parameterView}
@@ -264,7 +265,7 @@ export function DeviceDetail({
           )}
           {accepted && (
             <Alert
-              className="accepted-result"
+              className={cx("accepted-result")}
               type="info"
               showIcon
               message="调试命令已被 OS 接受"
@@ -294,7 +295,7 @@ function ActionDefinitionMeta({
     );
   }
   return (
-    <Descriptions className="definition-meta" column={2} size="small" colon={false}>
+    <Descriptions className={cx("definition-meta")} column={2} size="small" colon={false}>
       <Descriptions.Item label="动作类型">{definition.actionType}</Descriptions.Item>
       <Descriptions.Item label="节点类型">{definition.nodeType}</Descriptions.Item>
       <Descriptions.Item label="动作类" span={2}>
@@ -327,14 +328,14 @@ function ActionSchemaView({
     }
   };
   return (
-    <div className="schema-block">
-      <div className="schema-block__header">
+    <div className={cx("schema-block")}>
+      <div className={cx("schema-block__header")}>
         <span>Schema</span>
         <Tooltip title={copied ? "已复制" : "复制 Schema"}>
           <Button
             type="text"
             size="small"
-            className="schema-block__copy"
+            className={cx("schema-block__copy")}
             aria-label="复制 Schema"
             icon={<AppIcon name="general/copy-01" size={14} />}
             onClick={copySchema}
@@ -348,13 +349,13 @@ function ActionSchemaView({
 
 function DeviceMaterialLabel() {
   return (
-    <span className="device-action-input-label">
+    <span className={cx("device-action-input-label")}>
       <span>设备物料 UUID</span>
       <Tooltip
         title="动作任务绑定的当前设备资源"
         align={{ offset: [0, 0] }}
       >
-        <span className="device-action-help-icon" aria-label="设备物料 UUID 说明">
+        <span className={cx("device-action-help-icon")} aria-label="设备物料 UUID 说明">
           <AppIcon name="general/help-circle" size={14} />
         </span>
       </Tooltip>
@@ -443,7 +444,7 @@ function DeviceActionEditor({
     }
   };
   return (
-    <div className={`device-action-editor ${editing ? "is-editing" : ""}`}>
+    <div className={cx(`device-action-editor ${editing ? "is-editing" : ""}`)}>
       {submitError ? (
         <Alert
           type="error"
@@ -485,7 +486,7 @@ function DeviceActionEditor({
         }}
         onFinish={submit}
       >
-        <div className="device-action-form-grid">
+        <div className={cx("device-action-form-grid")}>
           {editing ? (
             <Form.Item
               label={<DeviceMaterialLabel />}
@@ -507,7 +508,7 @@ function DeviceActionEditor({
             parameters={parameters}
             value={parameterValues}
             editable={editing}
-            className="device-action-input-fields"
+            className={cx("device-action-input-fields")}
             onChange={(name, next) =>
               setParameterValues((current) => ({ ...current, [name]: next }))
             }
@@ -519,7 +520,7 @@ function DeviceActionEditor({
           </Form.Item>
         )}
         {editing && (
-          <div className="action-editor-actions">
+          <div className={cx("action-editor-actions")}>
             <Button onClick={onCancel}>取消编辑</Button>
             <Button
               type="primary"

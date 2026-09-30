@@ -9,15 +9,15 @@ pnpm install
 pnpm --filter @unilab/developer-web dev
 ```
 
-默认页面地址为 `http://127.0.0.1:4176`，开发代理将 `/__unilab_backend/*` 转发到 `http://127.0.0.1:8002`。真实环境可以通过环境变量覆盖：
+默认页面地址为 `http://127.0.0.1:4176`，开发代理将 `/__unilab_backend/*` 转发到当前 workspace backend 的 `http://127.0.0.1:59394`。真实环境可以通过环境变量覆盖：
 
 - `VITE_UNILAB_API_URL`：后端 API 根地址；相对地址会解析为当前页面同源地址。
 - `VITE_UNILAB_PROXY_TARGET`：Vite 开发代理目标地址。
-- `VITE_EDGE_API_URL`：与 Uni-Lab-OS Console 共用的 workspace backend 地址，优先级高于默认的 8002。
+- `VITE_EDGE_API_URL`：与 Uni-Lab-OS Console 共用的 workspace backend 地址，优先级高于默认的 59394。
 - `VITE_UNILAB_BACKEND_ID`：后端 profile，默认 `local-python`；使用 Go backend 时设为 `local-go`。
 - `sessionStorage.unilab.access_token`：可选访问令牌，写入请求由 composition root 统一读取。
 
-默认代理目标与 Uni-Lab-OS 前端一致，为 `http://127.0.0.1:8002`。SZLab workspace backend
+默认代理目标与当前 Uni-Lab-SZLab workspace backend 一致，为 `http://127.0.0.1:59394`。SZLab workspace backend
 通常使用动态端口，真实联调时将 `VITE_EDGE_API_URL` 设置为启动日志中的地址（例如
 `http://127.0.0.1:49307`），并在
 `Uni-Lab-SZLab` 仓库使用与当前 Uni-Lab-OS 匹配的启动脚本。当前页面不会内置 SZLab

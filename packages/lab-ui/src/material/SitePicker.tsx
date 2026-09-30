@@ -1,6 +1,7 @@
 import { EmptyState } from '@unilab/design-v2'
 import type { SiteSummary } from '@unilab-fe/core'
 
+import { cx } from '../classNames'
 export interface SitePickerProps {
   readonly sites: readonly SiteSummary[]
   readonly selectedSiteUuid?: string
@@ -22,7 +23,7 @@ export function SitePicker({
 }: SitePickerProps) {
   if (sites.length === 0) {
     return (
-      <div className="lab-ui-empty-region">
+      <div className={cx('lab-ui-empty-region')}>
         <EmptyState
           scene="no-data"
           size={variant === 'default' ? 'default' : 'compact'}
@@ -34,7 +35,7 @@ export function SitePicker({
 
   return (
     <div
-      className={`lab-ui-site-picker${variant === 'inspector' ? ' lab-ui-site-picker--inspector' : ''}`}
+      className={cx('lab-ui-site-picker', variant === 'inspector' && 'lab-ui-site-picker--inspector')}
       role="listbox"
       aria-label="库位选择"
     >
@@ -76,13 +77,13 @@ function SitePickerItem({
       role="option"
       aria-selected={selected}
       disabled={disabled}
-      className={`lab-ui-site-picker__item${selected ? ' is-selected' : ''}`}
+      className={cx('lab-ui-site-picker__item', selected && 'is-selected')}
       onClick={() => onSelect?.(site.siteUuid)}
     >
       {isInspector ? (
-        <span className="lab-ui-site-picker__content">
+        <span className={cx('lab-ui-site-picker__content')}>
           <strong>{displayName}</strong>
-          <span className={`lab-ui-site-picker__status is-${occupancy.kind}`}>
+          <span className={cx('lab-ui-site-picker__status', `is-${occupancy.kind}`)}>
             {occupancy.inspectorLabel}
           </span>
         </span>
@@ -93,13 +94,13 @@ function SitePickerItem({
         </span>
       )}
       {!isInspector && (
-        <span className={`lab-ui-site-picker__status is-${occupancy.kind}`}>
+        <span className={cx('lab-ui-site-picker__status', `is-${occupancy.kind}`)}>
           {occupancy.label}
         </span>
       )}
       {isInspector && site.key && site.key !== displayName && (
         <span
-          className={`lab-ui-site-picker__key-tag is-${occupancy.kind}`}
+          className={cx('lab-ui-site-picker__key-tag', `is-${occupancy.kind}`)}
           title={site.key}
         >
           {site.key}
