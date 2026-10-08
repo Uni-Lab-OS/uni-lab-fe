@@ -345,7 +345,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: var(--studio-border) transparent;
+  scrollbar-color: var(--bh-color-border-1) transparent;
 }
 .debug-timeline-empty {
   width: min(100%, 21rem);
@@ -369,9 +369,9 @@
   align-items: flex-start;
   gap: 12px;
   padding: 14px 16px;
-  border: 1px solid var(--studio-border-soft);
-  border-radius: var(--studio-radius);
-  background: var(--studio-surface);
+  border: 1px solid var(--bh-color-border-0);
+  border-radius: var(--bh-radius-md);
+  background: var(--bh-color-primary-white);
   box-shadow: none;
 }
 .debug-summary-icon {
@@ -381,9 +381,9 @@
   width: 32px;
   height: 32px;
   flex: 0 0 32px;
-  border-radius: var(--studio-control-radius);
+  border-radius: var(--bh-radius-md);
   background: var(--bh-color-primary-background);
-  color: var(--studio-accent);
+  color: var(--bh-color-primary);
 }
 .debug-summary-body {
   display: flex;
@@ -411,11 +411,11 @@
   flex: 0 0 auto;
 }
 .debug-summary-label {
-  color: var(--studio-text-secondary);
+  color: var(--bh-color-text-description);
   font-size: 12px;
 }
 .debug-summary-value {
-  color: var(--studio-accent);
+  color: var(--bh-color-primary);
   font-size: 18px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
@@ -431,7 +431,7 @@
 .debug-summary-meta {
   min-width: 0;
   flex: 0 1 auto;
-  color: var(--studio-text-secondary);
+  color: var(--bh-color-text-description);
 }
 /* Both blocks keep the same 16px second row so their facts line up across the row. */
 .debug-summary-line {
@@ -448,18 +448,18 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--studio-accent);
+  background: var(--bh-color-primary);
   transition: width var(--bh-motion-fast) ease;
 }
 .debug-summary-progress-track.is-unavailable span {
-  background: var(--studio-border);
+  background: var(--bh-color-border-1);
 }
 .debug-summary-focus {
-  color: var(--studio-text);
+  color: var(--bh-color-text-default);
 }
 .debug-summary-focus-label {
   margin-right: 6px;
-  color: var(--studio-text-secondary);
+  color: var(--bh-color-text-description);
 }
 .debug-summary-head .debug-current-status {
   display: inline-flex;

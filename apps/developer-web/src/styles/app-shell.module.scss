@@ -358,6 +358,30 @@
   padding: 16px 20px 24px;
 }
 
+/* Material graph and management views share the full-height workbench area. */
+.studio-content--materials {
+  display: flex;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.studio-content--materials > .page-stack {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+
+.studio-content--materials > .page-stack.material-management-page {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.studio-content--materials .material-workspace {
+  height: 100%;
+  min-height: 0;
+}
+
 .studio-content--devices:not(:has(.device-detail-page)) {
   display: flex;
   flex-direction: column;
@@ -729,10 +753,10 @@ body,
 .studio-shell--collapsed .studio-sidebar {
   position: relative;
   z-index: 3;
-  flex-basis: 72px;
-  width: 72px;
-  padding-right: 11px;
-  padding-left: 11px;
+  flex-basis: 64px;
+  width: 64px;
+  padding-right: 8px;
+  padding-left: 8px;
   overflow: visible;
 }
 

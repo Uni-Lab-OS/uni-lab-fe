@@ -38,6 +38,7 @@ export function MaterialInspector({
         <h3>库位</h3>
         <SitePicker
           sites={node.sites}
+          variant="inspector"
           selectedSiteUuid={selectedSite}
           onSelectSite={onSelectSite}
         />

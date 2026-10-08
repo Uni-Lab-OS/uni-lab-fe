@@ -7,11 +7,9 @@ import { DeviceActionError } from './errors'
 import type {
   ActionDefinition,
   ActionDefinitionSummary,
-  ActionEditorControl,
   ActionHandle,
   ActionResourceContract,
   ActionResourceParameter,
-  ActionResourceRole,
   DeviceActionRunAccepted,
   DeviceExecutionOccupancy,
   DeviceSummary,

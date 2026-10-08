@@ -3,7 +3,6 @@ import { Button, Input, Modal, Select, Space, Table, Tooltip, message } from 'an
 import type { TableColumnsType } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
 import { useEffect, useMemo, useState } from 'react'
-import type { TaskRuntimePresentation } from '@unilab-fe/core'
 import { TaskProgress, TaskStatusBadge } from '@unilab/lab-ui'
 import { useBackend } from '../../app/BackendProvider'
 import { AppIcon } from '../../components/ui/Icon'

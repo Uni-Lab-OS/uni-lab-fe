@@ -1,4 +1,4 @@
-import { cx } from '../../styles/styleMaps'
+import { cx } from './workflowClassNames'
 import { useMemo } from 'react'
 import ReactFlow, {
   Background,

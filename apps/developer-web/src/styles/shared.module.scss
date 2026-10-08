@@ -417,6 +417,11 @@
   gap: 16px;
 }
 
+/* Grid items must be allowed to shrink inside the available workspace. */
+.page-stack > * {
+  min-width: 0;
+}
+
 .devices-list-page {
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
@@ -1084,6 +1089,12 @@ textarea {
   border-radius: 0 !important;
 }
 
+/* 空表格只有占位内容，不应留下像数据行一样的底部分割线。 */
+.data-section :global(.ant-table-tbody) > tr:global(.ant-table-placeholder) > td,
+.data-section :global(.ant-table-tbody) > tr:global(.ant-table-placeholder):hover > td {
+  border-bottom: 0 !important;
+}
+
 .workflow-uuid-cell .table-text {
   min-width: 0;
 }
@@ -1185,10 +1196,10 @@ textarea {
     min-width: 0;
   }
   .studio-sidebar {
-    width: 72px;
-    flex-basis: 72px;
-    padding-right: 11px;
-    padding-left: 11px;
+    width: 64px;
+    flex-basis: 64px;
+    padding-right: 8px;
+    padding-left: 8px;
   }
   .studio-brand {
     justify-content: center;

@@ -1,4 +1,4 @@
-import { cx } from '../../styles/styleMaps'
+import { cx } from './workflowClassNames'
 import { Alert, Button, Form, Input, Select, Space, Steps, Tag, Tooltip, message } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import { RunPreparationSummary, RunSubmitConfirmation, WorkflowInputForm } from '@unilab/lab-ui'

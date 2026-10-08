@@ -1,0 +1,121 @@
+.device-action-input-fields {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  column-gap: 18px;
+  row-gap: 18px;
+}
+
+.device-action-input-fields :global(.ant-form-item) {
+  min-width: 0;
+}
+
+.device-action-field-slot,
+.device-action-readonly-field {
+  min-width: 0;
+}
+
+.device-action-input-fields .device-action-field-slot {
+  align-content: start;
+  gap: 8px;
+}
+
+.device-action-form-grid :global(.ant-input),
+.device-action-form-grid :global(.ant-input-number),
+.device-action-form-grid :global(.ant-select-selector),
+.device-action-input-fields input:not([type='checkbox']),
+.device-action-input-fields select {
+  box-sizing: border-box;
+  height: 36px;
+  min-height: 36px;
+}
+
+.device-action-editor .device-action-readonly-field :global(.ant-form-item) {
+  margin-bottom: 10px;
+}
+
+.device-action-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+
+.device-action-form-grid > :global(.ant-form-item),
+.device-action-form-grid > .device-action-readonly-field {
+  grid-column: 1 / -1;
+}
+
+.device-action-editor {
+  min-height: 180px;
+  padding: 2px 10px 4px 0;
+}
+
+.device-action-editor :global(.ant-form-item) {
+  margin-bottom: 16px;
+}
+
+.device-action-editor :global(.ant-input)[readonly],
+.device-action-editor :global(.ant-input-number) input[readonly],
+.device-action-editor textarea[readonly] {
+  color: var(--bh-color-text-description);
+  cursor: default;
+}
+
+.device-action-editor :global(.ant-input):disabled {
+  color: var(--bh-color-text-placeholder) !important;
+  -webkit-text-fill-color: var(--bh-color-text-placeholder);
+  background: var(--bh-color-fill-1) !important;
+  border-color: var(--bh-color-border-1) !important;
+  cursor: not-allowed;
+}
+
+.action-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding-top: 16px;
+  border-top: 1px solid var(--bh-color-border-0);
+}
+
+.action-editor-actions :global(.ant-btn-primary:disabled),
+.action-editor-actions :global(.ant-btn-primary.ant-btn-disabled) {
+  color: var(--bh-color-text-disabled) !important;
+  -webkit-text-fill-color: var(--bh-color-text-disabled);
+}
+
+.device-action-input-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--bh-color-text-description);
+  font-family: var(--bh-font-family-sans);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.device-action-input-label code {
+  color: var(--bh-color-text-placeholder);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.device-action-help-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--bh-color-text-placeholder);
+  cursor: help;
+  line-height: 1;
+}
+
+.device-action-input-empty {
+  padding: 10px 0 16px;
+  color: var(--bh-color-text-placeholder);
+}
+
+@media (max-width: 900px) {
+  .device-action-input-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

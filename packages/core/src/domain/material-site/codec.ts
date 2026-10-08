@@ -4,7 +4,6 @@ import type {
   MaterialGraphResponse,
   MaterialListResponse,
   MaterialSiteRecord,
-  SiteListResponse,
 } from './api'
 import type {
   MaterialDetail,

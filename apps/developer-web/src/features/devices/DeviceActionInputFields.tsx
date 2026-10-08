@@ -1,4 +1,4 @@
-import { cx } from '../../styles/styleMaps'
+import { cx } from './deviceClassNames'
 import { Form, Input, InputNumber, Select, Switch, Tooltip } from 'antd'
 import type { ReactNode } from 'react'
 import { isDeviceActionResourceParameter, isDeviceActionStructuredParameter } from '@unilab-fe/core'

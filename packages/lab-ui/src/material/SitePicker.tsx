@@ -86,14 +86,16 @@ function SitePickerItem({
       {isInspector ? (
         <span className={cx('lab-ui-site-picker__content')}>
           <strong>{displayName}</strong>
-          <span className={cx('lab-ui-site-picker__status', `is-${occupancy.kind}`)}>
-            {occupancy.inspectorLabel}
-          </span>
         </span>
       ) : (
         <span>
           <strong>{displayName}</strong>
           {site.key && site.key !== site.name && <small>{site.key}</small>}
+        </span>
+      )}
+      {isInspector && (
+        <span className={cx('lab-ui-site-picker__status', `is-${occupancy.kind}`)}>
+          {occupancy.inspectorLabel}
         </span>
       )}
       {!isInspector && (

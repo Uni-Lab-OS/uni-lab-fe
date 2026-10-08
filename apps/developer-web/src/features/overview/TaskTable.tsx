@@ -1,5 +1,5 @@
-import { cx } from '../../styles/styleMaps'
-import { Button, Input, Modal, Select, Space, Table, Tooltip, message } from 'antd'
+import { cx } from './overviewClassNames'
+import { Button, Input, Select, Space, Table, Tooltip } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
 import { AppIcon } from '../../components/ui/Icon'
@@ -31,7 +31,7 @@ export function TaskTable({
     {
       title: '任务',
       key: 'name',
-      width: 280,
+      width: 250,
       render: (_, row) => (
         <div className={cx('primary-cell')}>
           <button
@@ -48,7 +48,7 @@ export function TaskTable({
     {
       title: '工作流',
       key: 'workflowName',
-      width: 240,
+      width: 220,
       render: (_, row) => (
         <div className={cx('overview-table-text-cell')}>
           <TableText text={row.workflowName} />
@@ -58,14 +58,14 @@ export function TaskTable({
     {
       title: '优先级',
       dataIndex: ['task', 'priority'],
-      width: 100,
+      width: 90,
       render: (value: string | null) => <PriorityLabel value={value} />,
     },
     {
       title: '进度',
       key: 'progress',
       align: 'center',
-      width: 170,
+      width: 150,
       render: (_, row) => (
         <div className={cx('progress-cell')}>
           <span>{row.progress == null ? '—' : `${row.progress}%`}</span>
@@ -77,7 +77,7 @@ export function TaskTable({
       title: '时间',
       key: 'time',
       align: 'center',
-      width: 190,
+      width: 175,
       render: (_, row) => (
         <time className={cx('muted-cell')} dateTime={row.createdAt}>
           {row.createdAt ? formatDateTime(row.createdAt) : '未提供'}

@@ -1,0 +1,220 @@
+.topology-card,
+.node-inspector,
+.debug-step-card,
+.task-identity,
+.execution-timeline-card,
+.resource-card {
+  display: grid;
+  gap: 20px;
+}
+
+.topology-canvas {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 20px 0 9px;
+}
+
+.node-inspector pre,
+.schema-block-pre,
+.task-job-inspector pre {
+  max-height: 300px;
+  overflow: auto;
+  margin: 0;
+  padding: 14px;
+  border-radius: 8px;
+  color: #d6e0f1;
+  background: #202735;
+  font:
+    12px/1.65 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  white-space: pre;
+}
+
+.topology-canvas {
+  display: block;
+  min-height: 0;
+  padding: 0;
+  overflow: visible;
+}
+
+.workflow-flow-canvas {
+  width: 100%;
+  height: clamp(420px, 58vh, 640px);
+  overflow: hidden;
+  border: 1px solid var(--bh-color-border-0);
+  border-radius: var(--bh-radius-md);
+  background: #f8faff;
+}
+
+.workflow-flow-canvas :global(.react-flow__attribution) {
+  display: none;
+}
+
+.workflow-flow-canvas :global(.react-flow__controls) {
+  overflow: hidden;
+  border: 1px solid var(--bh-color-border-1);
+  border-radius: var(--bh-radius-md);
+  box-shadow: 0 5px 14px rgba(31, 45, 76, 0.08);
+}
+
+.workflow-flow-canvas :global(.react-flow__controls-button) {
+  width: 29px;
+  height: 29px;
+  border-bottom-color: var(--bh-color-border-0);
+  background: var(--bh-color-primary-white);
+  fill: var(--bh-color-text-description);
+}
+
+.workflow-flow-node {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 224px;
+  min-height: 76px;
+  gap: 10px;
+  padding: 13px 14px;
+  border: 1px solid var(--bh-color-border-1);
+  border-radius: var(--bh-radius-md);
+  color: var(--bh-color-text-default);
+  background: var(--bh-color-primary-white);
+  box-shadow: 0 7px 18px rgba(31, 45, 76, 0.07);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.workflow-flow-node:hover,
+.workflow-flow-node.is-selected {
+  border-color: var(--bh-color-primary);
+  background: var(--bh-color-primary-background);
+  box-shadow: 0 8px 22px rgba(67, 83, 226, 0.16);
+  transform: translateY(-1px);
+}
+
+.workflow-flow-node.is-disabled {
+  opacity: 0.62;
+}
+
+.workflow-flow-node__index {
+  align-self: flex-start;
+  color: var(--bh-color-primary);
+  font:
+    600 11px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+
+.workflow-flow-node__body {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 5px;
+}
+
+.workflow-flow-node__body strong,
+.workflow-flow-node__body small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-flow-node__body strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.workflow-flow-node__body small {
+  color: var(--bh-color-text-placeholder);
+  font-size: 11px;
+}
+
+.workflow-flow-node__icon {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  place-items: center;
+  border-radius: 7px;
+  color: var(--bh-color-primary);
+  background: var(--bh-color-primary-background);
+}
+
+.workflow-flow-handle {
+  width: 7px;
+  height: 7px;
+  border: 2px solid var(--bh-color-primary-white);
+  background: var(--bh-color-primary);
+}
+
+.workflow-topology-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.32fr) minmax(340px, 0.68fr);
+  align-items: stretch;
+  min-height: 0;
+  gap: 16px;
+}
+
+.workflow-topology-layout > * {
+  min-width: 0;
+}
+
+.workflow-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.workflow-panel-heading h2 {
+  margin: 0;
+  color: var(--bh-color-text-default);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: normal;
+  line-height: 24px;
+}
+
+.workflow-topology-layout .topology-card,
+.workflow-topology-layout .node-inspector {
+  min-height: 0;
+  height: 100%;
+  gap: 16px;
+}
+
+.workflow-topology-layout .node-inspector {
+  align-content: start;
+  overflow-y: auto;
+}
+
+.workflow-topology-layout .topology-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.workflow-topology-layout .topology-canvas {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.workflow-topology-layout .workflow-flow-canvas {
+  height: 100%;
+  min-height: 0;
+}
+
+.workflow-topology-layout .node-inspector :global(.ant-tabs) {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .workflow-topology-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

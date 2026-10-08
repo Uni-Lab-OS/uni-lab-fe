@@ -1,0 +1,291 @@
+.material-flow-canvas {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--bh-color-border-1);
+  border-radius: var(--bh-radius-lg);
+  background: var(--bh-color-primary-white);
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+.material-flow-canvas__legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 12px;
+  color: #7f8ca0;
+  font-size: 11px;
+}
+.material-flow-canvas__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.material-flow-canvas__hint {
+  margin-left: auto;
+  color: #a0aaba;
+}
+.material-flow-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.material-flow-dot--device {
+  background: #5264dc;
+}
+.material-flow-dot--occupied {
+  background: #4ca477;
+}
+.material-flow-dot--empty {
+  border: 1px solid #c4cbd6;
+  background: #fff;
+}
+.material-flow-dot--match {
+  background: #7c3aed;
+  box-shadow: 0 0 0 3px rgb(124 58 237 / 14%);
+}
+.material-flow-canvas__surface {
+  height: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  border: 1px solid #e3e8f0;
+  border-radius: 12px;
+  background: #f8faff;
+  box-shadow: 0 12px 30px rgba(44, 60, 91, 0.05);
+}
+.material-flow-canvas__surface :global(.react-flow__pane) {
+  cursor: grab;
+}
+.material-flow-canvas__surface :global(.react-flow__pane):active {
+  cursor: grabbing;
+}
+.material-flow-group {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid #cbd6f5;
+  border-radius: 14px;
+  background: rgba(239, 243, 255, 0.8);
+  box-shadow: 0 12px 24px rgba(62, 81, 160, 0.08);
+}
+.material-flow-group.is-selected {
+  border-color: #5264dc;
+  background: rgba(232, 237, 255, 0.9);
+  box-shadow:
+    0 0 0 3px rgba(82, 100, 220, 0.2),
+    0 14px 28px rgba(62, 81, 160, 0.14);
+}
+.material-flow-group.is-selected .material-flow-group__header {
+  border-bottom-color: #b9c5ff;
+  background: rgba(232, 237, 255, 0.92);
+}
+.material-flow-group,
+.material-flow-block,
+.material-flow-site {
+  transition:
+    opacity 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease,
+    filter 140ms ease;
+}
+.material-flow-group.is-search-dimmed,
+.material-flow-block.is-search-dimmed {
+  opacity: 0.86;
+  filter: none;
+}
+.material-flow-group.is-search-match {
+  border-color: #7c3aed;
+  position: relative;
+  z-index: 2;
+  box-shadow:
+    0 0 0 3px rgb(124 58 237 / 28%),
+    0 14px 28px rgb(62 81 160 / 14%);
+}
+.material-flow-group.is-search-match .material-flow-group__header {
+  border-bottom-color: rgb(124 58 237 / 26%);
+  background: rgb(245 240 255 / 92%);
+}
+.material-flow-group__header {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  height: 52px;
+  padding: 0 14px;
+  border-top: 0;
+  border-bottom: 1px solid #dbe2f7;
+  border-right: 0;
+  border-left: 0;
+  background: rgba(255, 255, 255, 0.72);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.material-flow-group__icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 8px;
+  color: #5264dc;
+  background: #e8edff;
+}
+.material-flow-group__header strong,
+.material-flow-group__header small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.material-flow-group__header strong {
+  max-width: 440px;
+  color: #354461;
+  font-size: 13px;
+}
+.material-flow-group__header small {
+  margin-top: 3px;
+  color: #8793aa;
+  font-size: 10px;
+}
+.material-flow-group__header > div,
+.material-flow-block__header > div {
+  min-width: 0;
+}
+.material-flow-block {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  overflow: hidden;
+  border: 1px solid #dbe2eb;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 5px 14px rgba(49, 63, 91, 0.07);
+}
+.material-flow-block.is-search-match {
+  border-color: #a78bfa;
+  position: relative;
+  z-index: 2;
+  box-shadow:
+    0 0 0 2px rgb(124 58 237 / 30%),
+    0 8px 18px rgb(62 81 160 / 10%);
+}
+.material-flow-block__header {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 35px;
+  padding: 0 2px 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.material-flow-block__header strong,
+.material-flow-block__header small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.material-flow-block__header strong {
+  color: #4e5d76;
+  font-size: 11px;
+}
+.material-flow-block__header small {
+  margin-top: 3px;
+  color: #9aa6b7;
+  font-size: 9px;
+}
+.material-flow-block__type {
+  flex: 0 0 auto;
+  color: #9aa6b7;
+  font-size: 9px;
+}
+.material-flow-block__grid {
+  display: grid;
+  grid-auto-rows: 37px;
+  gap: 4px;
+  height: calc(100% - 35px);
+}
+.material-flow-site {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 1px solid #d9dfe8;
+  border-radius: 6px;
+  color: #6e7b90;
+  background: #f7f9fc;
+  cursor: pointer;
+  text-align: center;
+}
+.material-flow-site:hover {
+  border-color: #7182e6;
+  box-shadow: 0 0 0 2px rgba(82, 100, 220, 0.12);
+}
+.material-flow-site.is-selected {
+  border-color: #5264dc;
+  background: #e8edff;
+  box-shadow:
+    0 0 0 3px rgba(82, 100, 220, 0.24),
+    0 4px 12px rgba(82, 100, 220, 0.18);
+}
+.material-flow-site.is-occupied {
+  border-color: #91d2b0;
+  background: #edf9f2;
+}
+.material-flow-site.is-occupied.is-selected {
+  border-color: #5264dc;
+  background: #e8edff;
+}
+.material-flow-site.is-search-dimmed {
+  opacity: 0.8;
+  filter: none;
+}
+.material-flow-site.is-search-match {
+  border-color: #7c3aed;
+  color: #5b21b6;
+  background: #f3edff;
+  position: relative;
+  z-index: 3;
+  box-shadow:
+    0 0 0 3px rgb(124 58 237 / 34%),
+    0 3px 10px rgb(124 58 237 / 18%);
+}
+.material-flow-site:focus-visible {
+  outline: 2px solid #5264dc;
+  outline-offset: -2px;
+}
+.material-flow-site strong,
+.material-flow-site small {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.material-flow-site strong {
+  color: #52637b;
+  font-size: 9px;
+}
+.material-flow-site small {
+  margin-top: 2px;
+  color: #8a98aa;
+  font-size: 8px;
+}
+.material-flow-site.is-occupied small {
+  color: #3d9165;
+}
+.material-flow-group__header:focus-visible,
+.material-flow-block__header:focus-visible {
+  outline: 2px solid var(--bh-color-primary);
+  outline-offset: -2px;
+}

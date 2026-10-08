@@ -1,0 +1,114 @@
+.management-workspace {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+.management-tree {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  padding: 12px 16px 8px;
+  overflow: hidden;
+  border: 1px solid var(--bh-color-border-1);
+  border-radius: var(--bh-radius-lg);
+  background: var(--bh-color-primary-white);
+}
+.resource-tree {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  margin-top: 17px;
+  color: #637189;
+  background: var(--bh-color-primary-white);
+}
+.resource-tree :global(.ant-tree-node-content-wrapper) {
+  padding: 6px 8px;
+}
+.resource-tree :global(.ant-tree-treenode) {
+  align-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.resource-tree :global(.ant-tree-switcher) {
+  display: flex;
+  flex: 0 0 27px;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  width: 27px;
+  height: auto;
+  line-height: normal;
+  border-radius: 8px;
+  transition:
+    color 0.16s ease,
+    background 0.16s ease;
+}
+.resource-tree :global(.ant-tree-switcher-icon),
+.resource-tree :global(.ant-tree-switcher) .bh-icon {
+  display: block;
+  transform: none;
+}
+.resource-tree:global(.ant-tree) :global(.ant-tree-treenode):hover {
+  background: transparent !important;
+}
+.resource-tree:global(.ant-tree) :global(.ant-tree-switcher):hover {
+  color: var(--bh-color-primary) !important;
+  background: var(--bh-color-fill-1) !important;
+}
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-switcher:not(.ant-tree-switcher-noop)):hover::before {
+  display: none !important;
+}
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-switcher:not(.ant-tree-switcher-noop)):hover
+  .bh-icon {
+  position: relative;
+  z-index: 1;
+  color: var(--bh-color-primary, #3c49dd) !important;
+  --bh-icon-color: var(--bh-color-primary, #3c49dd) !important;
+}
+.resource-tree:global(.ant-tree) :global(.ant-tree-switcher):focus-visible {
+  color: var(--bh-color-primary) !important;
+  background: var(--bh-color-fill-1) !important;
+  outline: 2px solid var(--bh-color-primary);
+  outline-offset: -2px;
+}
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-node-content-wrapper):hover:not(:global(.ant-tree-node-selected)) {
+  background: var(--bh-color-fill-1) !important;
+}
+.resource-tree:global(.ant-tree) :global(.ant-tree-treenode-selected),
+.resource-tree:global(.ant-tree) :global(.ant-tree-treenode-selected):hover {
+  background: transparent !important;
+}
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-node-content-wrapper):global(.ant-tree-node-selected),
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-treenode-selected)
+  > :global(.ant-tree-node-content-wrapper) {
+  background: var(--bh-color-sidebar-selected) !important;
+}
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-treenode):hover
+  > :global(.ant-tree-node-content-wrapper),
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-treenode-selected)
+  > :global(.ant-tree-node-content-wrapper) {
+  border-radius: 8px;
+}
+.material-management-page {
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+.studio-content--materials > .material-management-page {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.material-management-page > .management-workspace > .material-inspector,
+.material-management-page > .management-workspace > :global(.ant-empty) {
+  min-height: 0;
+  height: 100%;
+}

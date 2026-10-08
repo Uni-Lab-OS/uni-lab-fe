@@ -1,0 +1,25 @@
+.resource-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 36px;
+}
+.resource-toolbar .search-input {
+  width: min(520px, 100%);
+}
+.toolbar-hint {
+  color: #98a2b2;
+  font-size: 12px;
+}
+.toolbar-hint.is-searching {
+  color: var(--bh-color-primary);
+  font-weight: 600;
+}
+.material-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 350px;
+  align-items: stretch;
+  gap: 20px;
+  min-height: 0;
+}

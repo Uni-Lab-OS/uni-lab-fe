@@ -1,0 +1,172 @@
+.material-inspector {
+  min-width: 0;
+  padding: 16px 20px 12px;
+  overflow: auto;
+  border: 1px solid var(--bh-color-border-1);
+  border-radius: var(--bh-radius-lg);
+  background: var(--bh-color-primary-white);
+}
+.material-inspector--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.material-inspector--empty .bh-empty-state {
+  margin: 0;
+}
+.inspector-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.material-inspector .inspector-heading {
+  justify-content: flex-start;
+  margin-bottom: 0;
+}
+.inspector-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 10px;
+  background: #edf0ff;
+}
+.inspector-heading h2 {
+  margin: 0;
+  color: #40506a;
+  font-size: 17px;
+}
+.material-inspector__status {
+  margin: 8px 0 12px;
+}
+
+.material-inspector__status :global(.status-badge) {
+  margin: 0 !important;
+}
+.material-inspector__site-item {
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 0 -8px 6px;
+  padding: 4px 8px !important;
+  cursor: pointer;
+  border-radius: 8px;
+  border-block-end: 0 !important;
+  transition: background-color 120ms ease;
+}
+.material-inspector__site-item:last-child {
+  margin-bottom: 0;
+}
+.material-inspector__site-item:hover {
+  background: var(--bh-color-fill-1);
+}
+.material-inspector__site-item:focus-visible {
+  outline: 2px solid var(--bh-color-primary);
+  outline-offset: -2px;
+}
+.material-inspector__button:global(.ant-btn) {
+  width: fit-content;
+  min-width: 120px;
+  min-height: 30px;
+  height: 30px;
+  padding: 0 10px;
+  border-color: var(--bh-color-border-1);
+  border-radius: 8px;
+  color: var(--bh-color-primary);
+  background: var(--bh-color-primary-white);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+.material-inspector__button:global(.ant-btn):hover,
+.material-inspector__button:global(.ant-btn):focus-visible {
+  border-color: var(--bh-color-primary);
+  color: var(--bh-color-primary);
+  background: var(--bh-color-sidebar-selected);
+}
+.definition-list {
+  display: grid;
+  gap: 11px;
+  margin: 17px 0 0;
+}
+.definition-list div {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 32px;
+}
+.definition-list dt,
+.inspector-field-label {
+  color: var(--bh-color-text-description);
+  font-family: var(--bh-font-family-sans);
+  font-size: var(--studio-form-label-size, 14px);
+  font-weight: var(--studio-form-label-weight, 500);
+  line-height: var(--studio-form-label-line-height, 20px);
+}
+.inspector-field-label {
+  margin-bottom: 8px;
+  color: var(--studio-form-label-color, var(--bh-color-text-description));
+  font-size: var(--studio-form-label-size, 14px);
+  font-weight: var(--studio-form-label-weight, 500);
+  line-height: var(--studio-form-label-line-height, 20px);
+}
+.definition-list dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: #647188;
+  font-size: 13px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.definition-value-tooltip {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inspector-section {
+  margin-top: 12px;
+}
+.inspector-section .section-title {
+  margin-bottom: 14px;
+}
+.inspector-section :global(.ant-list-item) {
+  padding: 4px 8px !important;
+  border-block-end: 0 !important;
+}
+.inspector-section :global(.ant-list-item) strong,
+.inspector-section :global(.ant-list-item) span {
+  display: block;
+}
+.inspector-section :global(.ant-list-item) strong {
+  color: #67748b;
+  font-size: 13px;
+  font-weight: 500;
+}
+.inspector-section :global(.ant-list-item) span {
+  margin-top: 4px;
+  color: #a0a9b7;
+  font-size: 12px;
+}
+.inspector-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+.inspector-actions :global(.ant-btn) {
+  min-width: 88px;
+  height: 30px;
+  padding: 0 13px;
+}
+.inspector-actions .material-site-action:global(.ant-btn) {
+  min-width: 96px;
+}
+.capability-note {
+  display: block;
+  margin-top: 12px;
+  color: #a0a9b7;
+  font-size: 11px;
+}

@@ -283,9 +283,7 @@ export function TaskDetailPage({
                 tooltip={
                   storeStatus === 'commanding'
                     ? '命令提交中，请等待 Core 回执'
-                    : viewModel?.controls.canStep
-                      ? '执行下一步'
-                      : '仅暂停中的单步任务可以执行下一步'
+                    : '执行下一步'
                 }
                 disabled={!viewModel?.controls.canStep || storeStatus === 'commanding'}
                 onClick={() => submitCommand('step')}

@@ -1,12 +1,7 @@
 import appShell from './app-shell.module.scss'
-import devices from './devices.module.scss'
-import materials from './materials.module.scss'
-import overview from './overview.module.scss'
-import reagents from './reagents.module.scss'
 import shared from './shared.module.scss'
-import workflows from './workflows.module.scss'
 
-const maps = [appShell, shared, overview, materials, devices, reagents, workflows]
+const maps = [appShell, shared]
 
 /** Resolve app classes through the module that owns them.
  * Unknown values are preserved for third-party utility classes such as

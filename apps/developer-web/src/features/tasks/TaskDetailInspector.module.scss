@@ -446,11 +446,11 @@
   border-bottom: 1px solid #edf0f4;
 }
 .debug-output-meta dt {
-  color: var(--studio-form-label-color);
-  font-family: var(--studio-form-label-font-family);
-  font-size: var(--studio-form-label-size);
-  font-weight: var(--studio-form-label-weight);
-  line-height: var(--studio-form-label-line-height);
+  color: var(--bh-color-text-description);
+  font-family: var(--bh-font-family-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
 }
 .debug-output-meta dd {
   margin: 0;

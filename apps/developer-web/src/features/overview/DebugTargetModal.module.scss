@@ -7,7 +7,7 @@
 .debug-target-picker__meta {
   display: flex;
   justify-content: space-between;
-  color: var(--studio-text-faint);
+  color: var(--bh-color-text-placeholder);
   font-size: 11px;
 }
 .debug-target-picker__list {
@@ -21,7 +21,7 @@
   display: grid;
   min-height: 140px;
   place-items: center;
-  color: var(--studio-text-muted);
+  color: var(--bh-color-text-description);
   font-size: 12px;
 }
 .debug-target-picker__state--error {
@@ -34,9 +34,9 @@
   min-height: 46px;
   padding: 8px 10px;
   border: 0 !important;
-  border-radius: var(--studio-control-radius);
-  background: var(--studio-surface);
-  color: var(--studio-text);
+  border-radius: var(--bh-radius-md);
+  background: var(--bh-color-primary-white);
+  color: var(--bh-color-text-default);
   text-align: left;
   cursor: pointer;
   transition:
@@ -66,17 +66,17 @@
   flex: 0 0 16px;
   margin: 0;
   appearance: none;
-  border: 1.5px solid var(--studio-text-faint);
+  border: 1.5px solid var(--bh-color-text-placeholder);
   border-radius: 50%;
-  background: var(--studio-surface);
+  background: var(--bh-color-primary-white);
   cursor: pointer;
 }
 .debug-target-option__radio:checked {
-  border-color: var(--studio-accent);
-  background: radial-gradient(circle, var(--studio-accent) 0 4px, transparent 4.5px);
+  border-color: var(--bh-color-primary);
+  background: radial-gradient(circle, var(--bh-color-primary) 0 4px, transparent 4.5px);
 }
 .debug-target-option__radio:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--studio-accent) 24%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--bh-color-primary) 24%, transparent);
   outline-offset: 2px;
 }
 .debug-target-option__copy {
@@ -91,13 +91,13 @@
   white-space: nowrap;
 }
 .debug-target-option__copy strong {
-  color: var(--studio-text);
+  color: var(--bh-color-text-default);
   font-size: 12px;
   font-weight: 500;
 }
 .debug-target-option__copy small {
   margin-top: 2px;
-  color: var(--studio-text-faint);
+  color: var(--bh-color-text-placeholder);
   font-size: 10px;
 }
 .debug-target-option :global(.ant-tag) {
@@ -119,5 +119,5 @@
   align-content: start;
   gap: 0;
   scrollbar-width: thin;
-  scrollbar-color: var(--studio-border) transparent;
+  scrollbar-color: var(--bh-color-border-1) transparent;
 }

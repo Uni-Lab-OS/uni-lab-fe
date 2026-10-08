@@ -1,0 +1,109 @@
+/* Source: workflows-tasks.module.scss */
+.workflow-toolbar {
+  align-items: center;
+}
+
+/* Source: workflows.module.scss */
+/* Styles owned by the workflows application components. */
+
+.workflow-tabs :global(.ant-tabs-nav) {
+  margin-bottom: 0;
+}
+
+.workflow-tabs :global(.ant-tabs-tab) {
+  padding: 8px 0 11px;
+  color: var(--bh-color-text-description);
+  font-size: 13px;
+}
+
+.workflow-tabs :global(.ant-tabs-tab) + :global(.ant-tabs-tab) {
+  margin-left: 23px;
+}
+
+.workflow-tabs :global(.ant-tabs-ink-bar) {
+  height: 2px;
+}
+
+.workflow-data-section {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.workflow-data-section .workflow-table,
+.workflow-data-section .workflow-table :global(.ant-spin-nested-loading),
+.workflow-data-section .workflow-table :global(.ant-spin-container) {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.workflow-data-section .workflow-table :global(.ant-table) {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.workflow-data-section .workflow-table :global(.ant-table-container) {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.workflow-uuid-cell {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+}
+
+.workflow-uuid-copy {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  color: var(--bh-color-text-placeholder);
+  opacity: 0;
+  transition:
+    opacity 0.14s ease,
+    color 0.14s ease,
+    background 0.14s ease;
+}
+
+.workflow-data-section :global(.ant-table-tbody) > tr:hover .workflow-uuid-copy,
+.workflow-uuid-copy:focus-visible {
+  opacity: 1;
+}
+
+.workflow-uuid-copy:hover {
+  color: var(--bh-color-primary) !important;
+  background: var(--bh-color-sidebar-selected) !important;
+}
+
+.workflow-name-link {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-uuid-copy {
+    transition: none;
+  }
+}
+
+/* Workflow tabs keep their labels close to the toolbar and use an underline
+ * wide enough to read as an active tab rather than a short accent mark. */
+.workflow-tabs :global(.ant-tabs-tab) {
+  padding: 4px 0 6px;
+}
+
+.workflow-tabs :global(.ant-tabs-ink-bar)::after {
+  inset: 0;
+}

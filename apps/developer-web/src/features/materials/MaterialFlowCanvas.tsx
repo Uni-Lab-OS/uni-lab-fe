@@ -1,45 +1,18 @@
-import { cx } from '../../styles/styleMaps'
+import { cx } from './materialClassNames'
 import { useMemo } from 'react'
-import ReactFlow, { Background, Controls, type Node, type NodeProps } from 'reactflow'
+import ReactFlow, { Background, Controls, type Node } from 'reactflow'
 import 'reactflow/dist/style.css'
+import { ResourceBlockNode, ResourceGroupNode } from './MaterialFlowNodes'
+import {
+  comparePosition,
+  gridShape,
+  isMaterialGraphNodeHidden,
+  type GroupNodeData,
+  type MaterialSelection,
+  type ResourceNode,
+  type SiteEntry,
+} from './materialFlowModel'
 import type { MaterialGraphNode } from '@unilab-fe/core'
-import { AppIcon } from '../../components/ui/Icon'
-
-type GroupNodeData = {
-  name: string
-  kind: string
-  selectionId: string
-  selected: boolean
-  hasSearch: boolean
-  highlighted: boolean
-  materialCount: number
-  siteCount: number
-  onSelect: (selection: MaterialSelection) => void
-}
-
-type SiteEntry = MaterialGraphNode['sites'][number]
-
-export type MaterialSelection =
-  | { kind: 'node'; nodeId: string }
-  | { kind: 'site'; siteId: string }
-  | { kind: 'material'; materialId: string; siteId?: string }
-
-type BlockNodeData = {
-  node: MaterialGraphNode
-  sites: readonly SiteEntry[]
-  occupantBySite: ReadonlyMap<string, MaterialGraphNode['material']>
-  selectedId?: string
-  selectedSiteId?: string
-  selectionId: string
-  label: string
-  typeLabel: string
-  hasSearch: boolean
-  highlighted: boolean
-  highlightedIds: ReadonlySet<string>
-  onSelect: (selection: MaterialSelection) => void
-}
-
-type ResourceNode = Node<GroupNodeData, 'resourceGroup'> | Node<BlockNodeData, 'resourceBlock'>
 
 const EMPTY_EDGE_TYPES = {}
 const EMPTY_SEARCH_IDS = new Set<string>()
@@ -118,122 +91,6 @@ export function MaterialFlowCanvas({
         </ReactFlow>
       </div>
     </section>
-  )
-}
-
-function ResourceGroupNode({ data }: NodeProps<GroupNodeData>) {
-  return (
-    <div
-      className={cx(
-        `material-flow-group ${data.selected ? 'is-selected' : ''} ${data.highlighted ? 'is-search-match' : ''} ${data.hasSearch && !data.highlighted ? 'is-search-dimmed' : ''} nodrag nopan`,
-      )}
-    >
-      <button
-        type="button"
-        className={cx('material-flow-group__header')}
-        onClick={(event) => {
-          event.stopPropagation()
-          data.onSelect?.({ kind: 'node', nodeId: data.selectionId })
-        }}
-      >
-        <span className={cx('material-flow-group__icon')}>
-          <AppIcon
-            name={data.kind === 'device' ? 'development/cpu-chip-01' : 'shapes/cube-03'}
-            size={16}
-          />
-        </span>
-        <div>
-          <strong>{data.name}</strong>
-          <small>
-            {data.kind === 'device' ? '设备' : '资源台面'} · {data.materialCount} 个物料 ·{' '}
-            {data.siteCount} 个库位
-          </small>
-        </div>
-      </button>
-    </div>
-  )
-}
-
-function ResourceBlockNode({ data }: NodeProps<BlockNodeData>) {
-  const {
-    sites,
-    occupantBySite,
-    selectedId,
-    selectedSiteId,
-    selectionId,
-    label,
-    typeLabel,
-    hasSearch,
-    highlighted,
-    highlightedIds,
-    onSelect,
-  } = data
-  const grid = gridShape(sites)
-  const occupied = sites.filter((site) => Boolean(occupantBySite.get(site.siteUuid))).length
-  return (
-    <div
-      className={cx(
-        `material-flow-block ${highlighted ? 'is-search-match' : ''} ${hasSearch && !highlighted ? 'is-search-dimmed' : ''}`,
-      )}
-    >
-      <button
-        type="button"
-        className={cx('material-flow-block__header')}
-        onClick={(event) => {
-          event.stopPropagation()
-          onSelect({ kind: 'node', nodeId: selectionId })
-        }}
-      >
-        <div>
-          <strong>{label}</strong>
-          <small>
-            {occupied}/{sites.length} 有料
-          </small>
-        </div>
-        <span className={cx('material-flow-block__type')}>{typeLabel}</span>
-      </button>
-      <div
-        className={cx('material-flow-block__grid')}
-        style={{ gridTemplateColumns: `repeat(${grid.columns}, minmax(0, 1fr))` }}
-      >
-        {sites.map((site) => {
-          const occupant = occupantBySite.get(site.siteUuid)
-          const active = isMaterialSiteSelected(
-            site.siteUuid,
-            occupant?.materialUuid,
-            selectedId,
-            selectedSiteId,
-          )
-          const siteHighlighted = Boolean(
-            occupant && hasSearch && highlightedIds.has(occupant.materialUuid),
-          )
-          return (
-            <button
-              type="button"
-              key={site.siteUuid}
-              className={cx(
-                `material-flow-site ${occupant ? 'is-occupied' : 'is-empty'} ${active ? 'is-selected' : ''} ${siteHighlighted ? 'is-search-match' : ''} ${hasSearch && !highlighted && !siteHighlighted ? 'is-search-dimmed' : ''} nodrag nopan`,
-              )}
-              title={occupant ? `${site.name} · ${occupant.name}` : `${site.name} · 空库位`}
-              aria-label={occupant ? `${site.name} · ${occupant.name}` : `${site.name} · 空库位`}
-              data-selected={active ? 'true' : undefined}
-              onMouseDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation()
-                onSelect(
-                  occupant
-                    ? { kind: 'material', materialId: occupant.materialUuid, siteId: site.siteUuid }
-                    : { kind: 'site', siteId: site.siteUuid },
-                )
-              }}
-            >
-              <strong>{site.key || site.name}</strong>
-              <small>{occupant ? compactName(occupant.name) : '空'}</small>
-            </button>
-          )
-        })}
-      </div>
-    </div>
   )
 }
 
@@ -445,57 +302,8 @@ function displaySelectionId(
     : node.material.materialUuid
 }
 
-export function isMaterialGraphNodeHidden(node: MaterialGraphNode): boolean {
-  const config = node.material.config
-  return (
-    config.virtual === true ||
-    config.logical_mount === true ||
-    config.logicalMount === true ||
-    node.material.materialType === 'deck' ||
-    node.material.className === 'host_node'
-  )
-}
-
-export function isMaterialSiteSelected(
-  siteId: string,
-  occupantMaterialId: string | undefined,
-  selectedMaterialId: string | undefined,
-  selectedSiteId: string | undefined,
-): boolean {
-  return (
-    selectedSiteId === siteId ||
-    (occupantMaterialId !== undefined && selectedMaterialId === occupantMaterialId)
-  )
-}
-
-function comparePosition(left: MaterialGraphNode, right: MaterialGraphNode): number {
-  const ly = left.relativePosition?.positionMm[1] ?? 0
-  const ry = right.relativePosition?.positionMm[1] ?? 0
-  const lx = left.relativePosition?.positionMm[0] ?? 0
-  const rx = right.relativePosition?.positionMm[0] ?? 0
-  return (
-    ry - ly ||
-    lx - rx ||
-    left.material.name.localeCompare(right.material.name, 'zh-CN', { numeric: true })
-  )
-}
-
-function gridShape(sites: readonly SiteEntry[]): { columns: number } {
-  const xs = new Set(
-    sites
-      .map((site) => site.geometry?.positionMm[0])
-      .filter((value): value is number => value != null),
-  )
-  const ys = new Set(
-    sites
-      .map((site) => site.geometry?.positionMm[1])
-      .filter((value): value is number => value != null),
-  )
-  if (xs.size > 0 && ys.size > 0 && xs.size * ys.size <= sites.length * 1.5 && xs.size <= 8)
-    return { columns: xs.size }
-  return { columns: Math.min(8, Math.max(1, Math.ceil(Math.sqrt(sites.length)))) }
-}
-
-function compactName(value: string): string {
-  return value.length > 9 ? `${value.slice(0, 8)}…` : value
-}
+export {
+  isMaterialGraphNodeHidden,
+  isMaterialSiteSelected,
+  type MaterialSelection,
+} from './materialFlowModel'

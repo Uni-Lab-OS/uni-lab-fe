@@ -1,4 +1,4 @@
-import { cx } from '../../styles/styleMaps'
+import { cx } from './workflowClassNames'
 import { Form, Input, InputNumber, Select, Switch } from 'antd'
 import type { WorkflowInputParameter } from '@unilab-fe/core'
 
