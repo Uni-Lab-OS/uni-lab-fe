@@ -1,0 +1,139 @@
+/* Task detail summary owns its grid and metric cards. */
+
+.debug-summary-grid {
+  display: grid;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.debug-summary-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--bh-color-border-0);
+  border-radius: var(--bh-radius-md);
+  background: var(--bh-color-primary-white);
+  box-shadow: none;
+}
+
+.debug-summary-icon {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--bh-radius-md);
+  color: var(--bh-color-primary);
+  background: var(--bh-color-primary-background);
+}
+
+.debug-summary-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.debug-summary-head,
+.debug-summary-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.debug-summary-head {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.debug-summary-metric {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.debug-summary-label {
+  color: var(--bh-color-text-description);
+  font-size: 12px;
+}
+
+.debug-summary-value {
+  color: var(--bh-color-primary);
+  font-size: 18px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.debug-summary-meta,
+.debug-summary-focus {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debug-summary-meta {
+  min-width: 0;
+  flex: 0 1 auto;
+  color: var(--bh-color-text-description);
+}
+
+.debug-summary-line {
+  min-height: 16px;
+}
+
+.debug-summary-progress-track {
+  height: 6px;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--bh-color-fill-1);
+}
+
+.debug-summary-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--bh-color-primary);
+  transition: width var(--bh-motion-fast) ease;
+}
+
+.debug-summary-progress-track.is-unavailable span {
+  background: var(--bh-color-border-1);
+}
+
+.debug-summary-focus {
+  color: var(--bh-color-text-default);
+}
+
+.debug-summary-focus-label {
+  margin-right: 6px;
+  color: var(--bh-color-text-description);
+}
+
+.debug-summary-head .debug-current-status {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+}
+
+@media (max-width: 720px) {
+  .debug-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .debug-summary-progress-track span {
+    transition: none;
+  }
+}

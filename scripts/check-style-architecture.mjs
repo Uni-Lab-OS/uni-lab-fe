@@ -130,6 +130,31 @@ for (const file of styleFiles.filter((candidate) =>
   }
 }
 
+const pageStyleOwners = [
+  [
+    'apps/developer-web/src/features/tasks/TaskDetailPage.module.scss',
+    'apps/developer-web/src/features/tasks/TaskDetailPage.tsx',
+  ],
+  [
+    'apps/developer-web/src/features/devices/DeviceDetailPage.module.scss',
+    'apps/developer-web/src/features/devices/DeviceDetailPage.tsx',
+  ],
+  [
+    'apps/developer-web/src/features/workflows/WorkflowDebugPage.module.scss',
+    'apps/developer-web/src/features/workflows/WorkflowDebugPage.tsx',
+  ],
+]
+for (const [styleFile, ownerFile] of pageStyleOwners) {
+  const featurePrefix = styleFile.slice(0, styleFile.lastIndexOf('/'))
+  const importName = `./${styleFile.slice(styleFile.lastIndexOf('/') + 1)}`
+  for (const file of sourceFiles.filter((candidate) => candidate.startsWith(`${featurePrefix}/`))) {
+    if (file === ownerFile) continue
+    if (readFileSync(file, 'utf8').includes(importName)) {
+      violations.push(`${file}: 页面根样式 ${styleFile} 只能由 ${ownerFile} 引用`)
+    }
+  }
+}
+
 const totalLines = styleFiles.reduce(
   (sum, file) => sum + readFileSync(file, 'utf8').split(/\r?\n/).length,
   0,

@@ -1,5 +1,4 @@
 import { clsx } from 'clsx'
-import workflowDebugStyles from './WorkflowDebug.module.scss'
 import workflowDetailStyles from './WorkflowDetail.module.scss'
 import workflowSharedStyles from './WorkflowShared.module.scss'
 import workflowTopologyStyles from './WorkflowTopology.module.scss'
@@ -166,7 +165,6 @@ function WorkflowTopology({
           workflowSharedStyles['detail-card'],
           appShellStyles['detail-card'],
           workflowTopologyStyles['topology-card'],
-          workflowDebugStyles['topology-card'],
         )}
       >
         <div className={clsx(workflowTopologyStyles['workflow-panel-heading'])}>
@@ -190,7 +188,6 @@ function WorkflowTopology({
           workflowSharedStyles['detail-card'],
           appShellStyles['detail-card'],
           workflowTopologyStyles['node-inspector'],
-          workflowDebugStyles['node-inspector'],
         )}
       >
         <div

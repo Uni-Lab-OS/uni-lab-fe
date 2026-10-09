@@ -1,7 +1,7 @@
 import { clsx } from 'clsx'
 import { Button, Tag, Tooltip } from 'antd'
 import type { DeviceSummary } from '@unilab-fe/core'
-import deviceDetailPageStyles from './DeviceDetailPage.module.scss'
+import deviceDetailHeaderStyles from './DeviceDetailHeader.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
 import { AppIcon } from '../../components/ui/Icon'
 import { PageHeader } from '../../components/ui/PageHeader'
@@ -22,9 +22,9 @@ export function DeviceDetailHeader({
   return (
     <PageHeader
       title={
-        <span className={clsx(deviceDetailPageStyles['device-detail-title'])}>
+        <span className={clsx(deviceDetailHeaderStyles['device-detail-title'])}>
           <Tooltip title={device.label} placement="bottomLeft">
-            <span className={clsx(deviceDetailPageStyles['device-detail-title__name'])}>
+            <span className={clsx(deviceDetailHeaderStyles['device-detail-title__name'])}>
               {device.label}
             </span>
           </Tooltip>

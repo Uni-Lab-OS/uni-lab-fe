@@ -1,0 +1,187 @@
+/* Task detail timeline owns the timeline surface and command controls. */
+
+.debug-workspace {
+  display: grid;
+  width: 100%;
+  max-width: 1600px;
+  min-height: 0;
+  margin: 0 auto;
+  flex: 1 1 auto;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+
+.debug-timeline-panel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  padding: 18px 20px;
+  border: 1px solid #e0e6f0;
+  border-radius: 15px;
+  background: #fff;
+}
+
+.debug-panel-heading {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.debug-panel-heading h2 {
+  margin: 6px 0 0;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+
+.debug-timeline-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.debug-command-feedback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 2px;
+  padding: 9px 12px;
+  border: 1px solid #dce5fa;
+  border-radius: 8px;
+  color: #536b9b;
+  background: #f3f6ff;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.debug-command-feedback > span {
+  display: inline-flex;
+  align-items: center;
+  color: currentColor;
+}
+
+.debug-command-feedback.is-pending {
+  border-color: #cbd7fb;
+  color: #536b9b;
+  background: #f3f6ff;
+}
+
+.debug-command-feedback.is-success {
+  border-color: #bfe6d0;
+  color: #2b8b60;
+  background: #f0faf4;
+}
+
+.debug-command-feedback.is-error {
+  border-color: #f0c6c4;
+  color: #b6504c;
+  background: #fff5f4;
+}
+
+.debug-timeline-list {
+  position: relative;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 8px 16px;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--bh-color-border-1) transparent;
+  scrollbar-width: thin;
+}
+
+.debug-error-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 10px;
+  border-radius: 7px;
+  color: #b45a53;
+  background: #fff3f2;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.debug-timeline-action-hitarea {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.debug-timeline-action {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  color: #687893;
+  background: transparent;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.debug-timeline-action:hover:not(:disabled) {
+  color: #3f5fc0;
+  background: #f0f3fa;
+}
+
+.debug-timeline-action-primary {
+  color: #4e63cb;
+  background: transparent;
+}
+
+.debug-timeline-action-primary:hover:not(:disabled) {
+  color: #3f55b7;
+  background: #eef1ff;
+}
+
+.debug-timeline-action-danger {
+  color: #c34f53;
+  background: transparent;
+}
+
+.debug-timeline-action-danger:hover:not(:disabled) {
+  color: #ae363d;
+  background: #fff0f0;
+}
+
+.debug-timeline-action:disabled {
+  background: transparent;
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.debug-timeline-action:focus-visible {
+  outline: 2px solid #6f86e7;
+  outline-offset: 2px;
+}
+
+.debug-timeline-empty {
+  width: min(100%, 21rem);
+  min-width: 0;
+  min-height: 15rem;
+  margin: auto;
+}
+
+.debug-timeline-empty :global(.bh-empty-state__illustration) {
+  min-height: 4.5rem;
+}
+
+@media (max-width: 900px) {
+  .debug-timeline-panel {
+    padding: 16px;
+  }
+
+  .debug-timeline-panel .debug-panel-heading {
+    gap: 12px;
+  }
+
+  .debug-timeline-list {
+    padding: 8px;
+  }
+}

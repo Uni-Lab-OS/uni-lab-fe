@@ -1,0 +1,34 @@
+/* Workflow input fields own their reusable form field layout. */
+
+.workflow-input-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 0 18px;
+}
+
+.workflow-input-fields :global(.ant-form-item) {
+  min-width: 0;
+}
+
+.workflow-input-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  color: var(--bh-color-text-description);
+  font-family: var(--bh-font-family-sans);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.workflow-input-label code {
+  color: var(--bh-color-text-placeholder);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.workflow-input-empty {
+  padding: 16px 0 5px;
+  color: var(--bh-color-text-placeholder);
+  font-size: 12px;
+}

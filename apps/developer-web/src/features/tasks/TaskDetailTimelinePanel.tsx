@@ -1,6 +1,6 @@
 import { clsx } from 'clsx'
 import { EmptyState } from '@unilab/design-v2'
-import taskDetailPageStyles from './TaskDetailPage.module.scss'
+import taskDetailTimelineStyles from './TaskDetailTimelinePanel.module.scss'
 import { TaskExecutionTimeline } from './TaskExecutionTimeline'
 import { TaskParallelTimelineRow } from './TaskParallelTimelineRow'
 import { DebugActionButton, DebugIcon } from './TaskDetailIcons'
@@ -27,10 +27,10 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
   } = controller
   const commandFeedbackTone =
     storeError || storeCommand?.lifecycle === 'rejected'
-      ? taskDetailPageStyles['is-error']
+      ? taskDetailTimelineStyles['is-error']
       : storeStatus === 'commanding'
-        ? taskDetailPageStyles['is-pending']
-        : taskDetailPageStyles['is-success']
+        ? taskDetailTimelineStyles['is-pending']
+        : taskDetailTimelineStyles['is-success']
   const commandFeedbackIcon =
     storeError || storeCommand?.lifecycle === 'rejected'
       ? 'alert-circle'
@@ -39,20 +39,19 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
         : 'check-circle'
 
   return (
-    <section className={clsx(taskDetailPageStyles['debug-workspace'])}>
-      <div className={clsx(taskDetailPageStyles['debug-timeline-panel'])}>
-        <div className={clsx(taskDetailPageStyles['debug-panel-heading'])}>
+    <section className={clsx(taskDetailTimelineStyles['debug-workspace'])}>
+      <div className={clsx(taskDetailTimelineStyles['debug-timeline-panel'])}>
+        <div className={clsx(taskDetailTimelineStyles['debug-panel-heading'])}>
           <div>
             <h2>执行时间线</h2>
           </div>
           <div
-            className={clsx(taskDetailPageStyles['debug-timeline-actions'])}
+            className={clsx(taskDetailTimelineStyles['debug-timeline-actions'])}
             aria-label="任务调试操作"
           >
             {controlStatus === 'active' ? (
               <DebugActionButton
                 label="暂停任务"
-                className="debug-timeline-action-pause"
                 disabled={!viewModel?.controls.canPause || storeStatus === 'commanding'}
                 onClick={() => controller.submitCommand('pause')}
               >
@@ -61,7 +60,7 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
             ) : (
               <DebugActionButton
                 label="继续任务"
-                className="debug-timeline-action-primary"
+                className={taskDetailTimelineStyles['debug-timeline-action-primary']}
                 disabled={!viewModel?.controls.canResume || storeStatus === 'commanding'}
                 onClick={() => controller.submitCommand('resume')}
               >
@@ -78,7 +77,7 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
             </DebugActionButton>
             <DebugActionButton
               label="取消任务"
-              className="debug-timeline-action-danger"
+              className={taskDetailTimelineStyles['debug-timeline-action-danger']}
               disabled={!viewModel?.controls.canCancel || storeStatus === 'commanding'}
               onClick={() => controller.submitCommand('cancel')}
             >
@@ -88,24 +87,27 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
         </div>
         {commandResultMessage && (
           <div
-            className={clsx(taskDetailPageStyles['debug-command-feedback'], commandFeedbackTone)}
+            className={clsx(
+              taskDetailTimelineStyles['debug-command-feedback'],
+              commandFeedbackTone,
+            )}
             role="status"
           >
             <DebugIcon name={commandFeedbackIcon} size={15} />
             <span>{commandResultMessage}</span>
           </div>
         )}
-        <div className={clsx(taskDetailPageStyles['debug-timeline-list'])}>
+        <div className={clsx(taskDetailTimelineStyles['debug-timeline-list'])}>
           {timelineLoading ? (
             <TaskExecutionTimeline items={[]} loading />
           ) : storeError ? (
-            <div className={clsx(taskDetailPageStyles['debug-error-line'])} role="alert">
+            <div className={clsx(taskDetailTimelineStyles['debug-error-line'])} role="alert">
               <DebugIcon name="alert-circle" size={15} />
               <span>{storeError.message}</span>
             </div>
           ) : timelineEvents.length === 0 ? (
             <EmptyState
-              className={clsx(taskDetailPageStyles['debug-timeline-empty'])}
+              className={clsx(taskDetailTimelineStyles['debug-timeline-empty'])}
               scene="no-data"
               size="compact"
               title="暂无可展示的 NodeJob"

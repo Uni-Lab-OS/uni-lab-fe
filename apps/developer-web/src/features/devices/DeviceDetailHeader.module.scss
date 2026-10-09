@@ -1,0 +1,22 @@
+/* Device detail header owns its title and status tag layout. */
+
+.device-detail-title {
+  display: flex;
+  min-width: 0;
+  max-width: min(100%, 760px);
+  align-items: center;
+  gap: 8px;
+}
+
+.device-detail-title__name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-detail-title :global(.ant-tag) {
+  flex: 0 0 auto;
+  margin-inline-end: 0;
+}

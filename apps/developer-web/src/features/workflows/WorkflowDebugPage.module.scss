@@ -1,0 +1,126 @@
+/* Workflow debug page owns its step surface and page-only form composition. */
+
+.workflow-debug-surface {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: auto;
+}
+
+.workflow-debug-steps {
+  width: min(100%, 760px);
+  max-width: 100%;
+  margin: 0 auto;
+  justify-self: center;
+  overflow-x: auto;
+}
+
+.debug-step-card {
+  box-sizing: border-box;
+  display: grid;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  align-content: start;
+  gap: 20px;
+  overflow: auto;
+  border: 1px solid var(--studio-border, var(--bh-color-border-1));
+  border-radius: var(--studio-panel-radius, 12px);
+  background: var(--studio-surface, var(--bh-color-primary-white));
+}
+
+.debug-step-card :global(.ant-form) {
+  width: 100%;
+  max-width: none;
+}
+
+.debug-step-card--submitted {
+  height: 100%;
+  min-height: 0;
+  align-content: stretch;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 14px;
+  overflow: hidden;
+}
+
+.debug-step-card--submitted :global(.ant-alert) {
+  margin: 0;
+  padding: 12px 16px;
+}
+
+.debug-step-card--submitted .schema-block-pre {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.schema-block-pre {
+  max-height: 300px;
+  overflow: auto;
+  margin: 0;
+  padding: 14px;
+  border-radius: 8px;
+  color: #d6e0f1;
+  background: #202735;
+  font:
+    12px/1.65 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  white-space: pre;
+}
+
+.debug-result-summary {
+  display: grid;
+  gap: 2px;
+}
+
+.debug-run-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 0 18px;
+}
+
+.debug-run-options :global(.ant-form-item) {
+  min-width: 0;
+}
+
+.debug-result-actions {
+  margin-top: 0;
+}
+
+.workflow-input-section {
+  margin-top: 9px;
+  padding-top: 10px;
+}
+
+.workflow-input-section__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 17px;
+}
+
+.workflow-input-section__heading strong {
+  color: var(--bh-color-text-default);
+  font-size: 15px;
+  font-weight: 620;
+}
+
+.workflow-input-section__heading span {
+  color: var(--bh-color-text-placeholder);
+  font-size: 12px;
+}
+
+.workflow-input-section--empty .workflow-input-section__heading {
+  margin-bottom: 5px;
+}
+
+@media (max-width: 700px) {
+  .debug-run-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

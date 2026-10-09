@@ -3,7 +3,7 @@ import { TaskStatusBadge } from '@unilab/lab-ui'
 import type { WorkflowDebugFacts } from '@unilab-fe/core'
 import { DebugIcon } from './TaskDetailIcons'
 import type { TimelineEvent } from './taskDetailModel'
-import styles from './TaskDetailPage.module.scss'
+import styles from './TaskDetailSummary.module.scss'
 
 export function TaskDetailSummary({
   facts,

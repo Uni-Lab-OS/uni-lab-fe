@@ -1,0 +1,86 @@
+/* Device action definition owns metadata, schema and parameter controls. */
+
+.definition-view-shell {
+  position: relative;
+  min-height: 180px;
+}
+
+.definition-view-shell.is-loading {
+  opacity: 0.78;
+  transition: opacity 160ms ease;
+}
+
+.definition-view-shell__loading {
+  position: absolute;
+  top: -8px;
+  right: 0;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--bh-color-text-description);
+  font-size: 11px;
+}
+
+.definition-meta {
+  margin-top: 2px;
+}
+
+.definition-meta :global(.ant-descriptions-item-label),
+.definition-meta :global(.ant-descriptions-item-content) {
+  color: var(--bh-color-text-description);
+}
+
+.action-parameter-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bh-color-border-0);
+}
+
+.schema-block {
+  margin-top: 24px;
+}
+
+.schema-block__header {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.schema-block__header > span {
+  display: block;
+  color: var(--bh-color-text-placeholder);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.schema-block__copy {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  color: var(--bh-color-text-description);
+}
+
+.schema-block pre {
+  min-height: 360px;
+  max-height: min(560px, 58vh);
+  overflow: auto;
+  margin: 0;
+  padding: 16px;
+  border-radius: var(--bh-radius-md);
+  color: #dce5ff;
+  background: #1d2129;
+  font:
+    12px/1.65 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}

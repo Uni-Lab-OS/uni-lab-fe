@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import workflowDebugStyles from './WorkflowDebug.module.scss'
+import workflowInputStyles from './WorkflowInputFields.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
 import { Form, Input, InputNumber, Select, Switch } from 'antd'
 import type { WorkflowInputParameter } from '@unilab-fe/core'
@@ -13,7 +13,7 @@ export { normalizeWorkflowInput, workflowInputDefaults } from '@unilab-fe/core'
 export function WorkflowInputFields({ parameters }: WorkflowInputFieldsProps) {
   if (parameters.length === 0) {
     return (
-      <div className={clsx(workflowDebugStyles['workflow-input-empty'])}>
+      <div className={clsx(workflowInputStyles['workflow-input-empty'])}>
         该工作流没有声明需要填写的运行参数。
       </div>
     )
@@ -22,7 +22,7 @@ export function WorkflowInputFields({ parameters }: WorkflowInputFieldsProps) {
   return (
     <div
       className={clsx(
-        workflowDebugStyles['workflow-input-fields'],
+        workflowInputStyles['workflow-input-fields'],
         sharedStyles['workflow-input-fields'],
       )}
     >
@@ -108,7 +108,7 @@ function WorkflowInputField({ parameter }: { readonly parameter: WorkflowInputPa
 
 function ParameterLabel({ parameter }: { readonly parameter: WorkflowInputParameter }) {
   return (
-    <span className={clsx(workflowDebugStyles['workflow-input-label'])}>
+    <span className={clsx(workflowInputStyles['workflow-input-label'])}>
       <span>{parameterLabel(parameter)}</span>
       <code>{parameter.name}</code>
     </span>

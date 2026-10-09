@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import taskDetailPageStyles from './TaskDetailPage.module.scss'
+import taskDetailTimelineStyles from './TaskDetailTimelinePanel.module.scss'
 import type { ReactNode } from 'react'
 
 import { Tooltip } from 'antd'
@@ -89,10 +89,10 @@ export function DebugActionButton({
 }) {
   return (
     <Tooltip title={tooltip ?? label} placement="top">
-      <span className={clsx(taskDetailPageStyles['debug-timeline-action-hitarea'])}>
+      <span className={clsx(taskDetailTimelineStyles['debug-timeline-action-hitarea'])}>
         <button
           type="button"
-          className={clsx(taskDetailPageStyles['debug-timeline-action'], className ?? '')}
+          className={clsx(taskDetailTimelineStyles['debug-timeline-action'], className ?? '')}
           aria-label={label}
           disabled={disabled}
           onClick={onClick}

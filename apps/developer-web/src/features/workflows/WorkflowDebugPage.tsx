@@ -1,7 +1,6 @@
 import { clsx } from 'clsx'
-import workflowDebugStyles from './WorkflowDebug.module.scss'
+import workflowDebugPageStyles from './WorkflowDebugPage.module.scss'
 import workflowSharedStyles from './WorkflowShared.module.scss'
-import workflowTopologyStyles from './WorkflowTopology.module.scss'
 import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
 import { Alert, Button, Form, Input, Select, Space, Steps, Tag, Tooltip } from 'antd'
@@ -54,7 +53,7 @@ export function WorkflowDebugPage({
       className={clsx(
         appShellStyles['page-stack'],
         sharedStyles['page-stack'],
-        workflowDebugStyles['workflow-debug-page'],
+        workflowDebugPageStyles['workflow-debug-surface'],
         appShellStyles['workflow-debug-page'],
       )}
     >
@@ -84,7 +83,7 @@ export function WorkflowDebugPage({
         {revision && (
           <>
             <Steps
-              className={clsx(workflowDebugStyles['workflow-debug-steps'])}
+              className={clsx(workflowDebugPageStyles['workflow-debug-steps'])}
               current={step}
               items={[{ title: '填写入参' }, { title: '依赖检查' }, { title: '提交任务' }]}
             />
@@ -93,8 +92,7 @@ export function WorkflowDebugPage({
                 className={clsx(
                   workflowSharedStyles['detail-card'],
                   appShellStyles['detail-card'],
-                  workflowTopologyStyles['debug-step-card'],
-                  workflowDebugStyles['debug-step-card'],
+                  workflowDebugPageStyles['debug-step-card'],
                 )}
               >
                 <div className={clsx(sharedStyles['section-title'])}>
@@ -102,7 +100,7 @@ export function WorkflowDebugPage({
                   <Tag color="blue">v{revision.revision}</Tag>
                 </div>
                 <Form layout="vertical">
-                  <div className={clsx(workflowDebugStyles['debug-run-options'])}>
+                  <div className={clsx(workflowDebugPageStyles['debug-run-options'])}>
                     <Form.Item label="运行模式">
                       <Select
                         showSearch
@@ -171,13 +169,15 @@ export function WorkflowDebugPage({
                   </Form.Item>
                   <div
                     className={clsx(
-                      workflowDebugStyles['workflow-input-section'],
+                      workflowDebugPageStyles['workflow-input-section'],
                       inputParameters.length === 0
-                        ? workflowDebugStyles['workflow-input-section--empty']
+                        ? workflowDebugPageStyles['workflow-input-section--empty']
                         : '',
                     )}
                   >
-                    <div className={clsx(workflowDebugStyles['workflow-input-section__heading'])}>
+                    <div
+                      className={clsx(workflowDebugPageStyles['workflow-input-section__heading'])}
+                    >
                       <strong>工作流参数</strong>
                     </div>
                     <WorkflowInputForm
@@ -213,8 +213,7 @@ export function WorkflowDebugPage({
                 className={clsx(
                   workflowSharedStyles['detail-card'],
                   appShellStyles['detail-card'],
-                  workflowTopologyStyles['debug-step-card'],
-                  workflowDebugStyles['debug-step-card'],
+                  workflowDebugPageStyles['debug-step-card'],
                 )}
               >
                 {viewModel && <RunPreparationSummary viewModel={viewModel} preflight={preflight} />}
@@ -252,9 +251,8 @@ export function WorkflowDebugPage({
                 className={clsx(
                   workflowSharedStyles['detail-card'],
                   appShellStyles['detail-card'],
-                  workflowTopologyStyles['debug-step-card'],
-                  workflowDebugStyles['debug-step-card'],
-                  workflowDebugStyles['debug-step-card--submitted'],
+                  workflowDebugPageStyles['debug-step-card'],
+                  workflowDebugPageStyles['debug-step-card--submitted'],
                 )}
               >
                 <Alert
@@ -263,7 +261,7 @@ export function WorkflowDebugPage({
                   message="任务已提交"
                   description={
                     submitted ? (
-                      <span className={clsx(workflowDebugStyles['debug-result-summary'])}>
+                      <span className={clsx(workflowDebugPageStyles['debug-result-summary'])}>
                         <span>任务名称：{taskName}</span>
                         <span>任务编号：{submitted.taskUuid}</span>
                       </span>
@@ -272,18 +270,13 @@ export function WorkflowDebugPage({
                     )
                   }
                 />
-                <Space className={clsx(workflowDebugStyles['debug-result-actions'])}>
+                <Space className={clsx(workflowDebugPageStyles['debug-result-actions'])}>
                   <Button type="primary" onClick={() => onNavigate('tasks')}>
                     查看任务
                   </Button>
                   <Button onClick={onBack}>返回工作流</Button>
                 </Space>
-                <pre
-                  className={clsx(
-                    workflowTopologyStyles['schema-block-pre'],
-                    workflowDebugStyles['schema-block-pre'],
-                  )}
-                >
+                <pre className={clsx(workflowDebugPageStyles['schema-block-pre'])}>
                   {jsonText(submitted?.raw)}
                 </pre>
               </section>

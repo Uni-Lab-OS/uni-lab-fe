@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import deviceDetailPageStyles from './DeviceDetailPage.module.scss'
+import deviceActionDefinitionStyles from './DeviceActionDefinition.module.scss'
 import { Alert, Button, Descriptions, Tooltip, Typography } from 'antd'
 import { useState } from 'react'
 import type { ActionDefinition } from '@unilab-fe/core'
@@ -19,7 +19,7 @@ export function ActionDefinitionMeta({ definition }: { definition?: ActionDefini
   }
   return (
     <Descriptions
-      className={clsx(deviceDetailPageStyles['definition-meta'])}
+      className={clsx(deviceActionDefinitionStyles['definition-meta'])}
       column={2}
       size="small"
       colon={false}
@@ -56,14 +56,14 @@ export function ActionSchemaView({
     }
   }
   return (
-    <div className={clsx(deviceDetailPageStyles['schema-block'])}>
-      <div className={clsx(deviceDetailPageStyles['schema-block__header'])}>
+    <div className={clsx(deviceActionDefinitionStyles['schema-block'])}>
+      <div className={clsx(deviceActionDefinitionStyles['schema-block__header'])}>
         <span>Schema</span>
         <Tooltip title={copied ? '已复制' : '复制 Schema'}>
           <Button
             type="text"
             size="small"
-            className={clsx(deviceDetailPageStyles['schema-block__copy'])}
+            className={clsx(deviceActionDefinitionStyles['schema-block__copy'])}
             aria-label="复制 Schema"
             icon={<AppIcon name="general/copy-01" size={14} />}
             onClick={copySchema}

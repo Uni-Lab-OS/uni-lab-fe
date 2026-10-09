@@ -1,29 +1,10 @@
-.device-detail-title {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  max-width: min(100%, 760px);
-  gap: 8px;
-}
-
-.device-detail-title__name {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.device-detail-title :global(.ant-tag) {
-  flex: 0 0 auto;
-  margin-inline-end: 0;
-}
+/* Device detail page layout only. Child surfaces own their local modules. */
 
 .detail-columns {
   display: grid;
-  grid-template-columns: 292px minmax(0, 1fr);
   height: 100%;
   min-height: 470px;
+  grid-template-columns: 292px minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid var(--bh-color-border-1);
   border-radius: var(--bh-radius-lg);
@@ -40,9 +21,9 @@
   display: flex;
   flex-direction: column;
   padding: 18px 14px 10px;
+  overflow: hidden;
   border-right: 1px solid var(--bh-color-border-1);
   background: var(--bh-color-primary-white);
-  overflow: hidden;
 }
 
 .detail-sidebar .section-title {
@@ -72,8 +53,8 @@
   width: 100%;
   max-width: none;
   padding: 14px 18px 16px;
-  background: var(--bh-color-primary-white);
   overflow-y: auto;
+  background: var(--bh-color-primary-white);
 }
 
 .action-detail-title {
@@ -106,8 +87,8 @@
 }
 
 .detail-main__action-heading .detail-main__debug-button {
-  min-height: 32px;
   height: 32px;
+  min-height: 32px;
   padding-inline: 13px;
   font-size: 13px;
   line-height: 14.95px;
@@ -115,94 +96,6 @@
 
 .detail-main > .section-title {
   margin-bottom: 10px;
-}
-
-.definition-view-shell {
-  position: relative;
-  min-height: 180px;
-}
-
-.definition-view-shell.is-loading {
-  opacity: 0.78;
-  transition: opacity 160ms ease;
-}
-
-.definition-view-shell__loading {
-  position: absolute;
-  top: -8px;
-  right: 0;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--bh-color-text-description);
-  font-size: 11px;
-}
-
-.definition-meta {
-  margin-top: 2px;
-}
-
-.definition-meta :global(.ant-descriptions-item-label) {
-  color: var(--bh-color-text-description);
-}
-
-.definition-meta :global(.ant-descriptions-item-content) {
-  color: var(--bh-color-text-description);
-}
-
-.action-parameter-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 14px 0 10px;
-  padding-top: 12px;
-  border-top: 1px solid var(--bh-color-border-0);
-}
-
-.schema-block {
-  margin-top: 24px;
-}
-
-.schema-block__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 28px;
-  margin-bottom: 8px;
-}
-
-.schema-block__header > span {
-  display: block;
-  color: var(--bh-color-text-placeholder);
-  font-size: 11px;
-  text-transform: uppercase;
-}
-
-.schema-block__copy {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  place-items: center;
-  color: var(--bh-color-text-description);
-}
-
-.schema-block pre {
-  min-height: 360px;
-  max-height: min(560px, 58vh);
-  overflow: auto;
-  margin: 0;
-  padding: 16px;
-  border-radius: var(--bh-radius-md);
-  color: #dce5ff;
-  background: #1d2129;
-  font:
-    12px/1.65 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
 }
 
 .accepted-result {

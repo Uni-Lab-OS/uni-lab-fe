@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import deviceDetailPageStyles from './DeviceDetailPage.module.scss'
+import deviceActionDefinitionStyles from './DeviceActionDefinition.module.scss'
 import { Alert, Segmented, Spin, Typography } from 'antd'
 import type { ActionDefinition, DeviceActionState, DeviceSummary } from '@unilab-fe/core'
 import { ActionDefinitionMeta, ActionSchemaView } from './DeviceActionDefinition'
@@ -47,13 +47,13 @@ export function DeviceActionDefinitionPanel({
   return (
     <div
       className={clsx(
-        deviceDetailPageStyles['definition-view-shell'],
-        definitionQuery.loading ? deviceDetailPageStyles['is-loading'] : '',
+        deviceActionDefinitionStyles['definition-view-shell'],
+        definitionQuery.loading ? deviceActionDefinitionStyles['is-loading'] : '',
       )}
       aria-busy={definitionQuery.loading}
     >
       {definitionQuery.loading && (
-        <span className={clsx(deviceDetailPageStyles['definition-view-shell__loading'])}>
+        <span className={clsx(deviceActionDefinitionStyles['definition-view-shell__loading'])}>
           <Spin size="small" /> 更新中
         </span>
       )}
@@ -67,7 +67,7 @@ export function DeviceActionDefinitionPanel({
         />
       )}
       <ActionDefinitionMeta definition={actionDefinition} />
-      <div className={clsx(deviceDetailPageStyles['action-parameter-toolbar'])}>
+      <div className={clsx(deviceActionDefinitionStyles['action-parameter-toolbar'])}>
         <Segmented
           size="middle"
           value={parameterView}
