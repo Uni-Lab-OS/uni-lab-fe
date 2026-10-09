@@ -1,8 +1,6 @@
 import { clsx } from 'clsx'
 import taskDetailInspectorStyles from './TaskDetailInspector.module.scss'
 import taskDetailStyles from './taskDetail.module.scss'
-import appShellStyles from '../../styles/app-shell.module.scss'
-import sharedStyles from '../../styles/shared.module.scss'
 import { TaskStatusBadge } from '@unilab/lab-ui'
 import { DebugIcon } from './TaskDetailIcons'
 import {
@@ -55,13 +53,7 @@ export function TaskDetailInspectorDrawer({ controller }: { controller: Controll
               type="button"
               key={tab.id}
               className={clsx(
-                activeTab === tab.id
-                  ? clsx(
-                      taskDetailInspectorStyles['is-active'],
-                      appShellStyles['is-active'],
-                      sharedStyles['is-active'],
-                    )
-                  : '',
+                activeTab === tab.id ? clsx(taskDetailInspectorStyles['is-active']) : '',
               )}
               onClick={() => setActiveTab(tab.id)}
             >

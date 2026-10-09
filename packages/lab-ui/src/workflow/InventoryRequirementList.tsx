@@ -1,6 +1,4 @@
 import { clsx } from 'clsx'
-import materialStyles from '../material.module.scss'
-import runStyles from '../run.module.scss'
 import sharedStyles from '../shared.module.scss'
 import workflowStyles from '../workflow.module.scss'
 import type { InventoryRequirement } from '@unilab-fe/core'
@@ -20,14 +18,7 @@ export function InventoryRequirementList({
   }
 
   return (
-    <ul
-      className={clsx(
-        materialStyles['lab-ui-requirement-list'],
-        runStyles['lab-ui-requirement-list'],
-        workflowStyles['lab-ui-requirement-list'],
-      )}
-      aria-label="库存需求列表"
-    >
+    <ul className={clsx(workflowStyles['lab-ui-requirement-list'])} aria-label="库存需求列表">
       {requirements.map((requirement) => (
         <InventoryRequirementItem key={requirement.uuid} requirement={requirement} />
       ))}

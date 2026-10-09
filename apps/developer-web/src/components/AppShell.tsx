@@ -1,6 +1,5 @@
 import { clsx } from 'clsx'
 import appShellStyles from '../styles/app-shell.module.scss'
-import sharedStyles from '../styles/shared.module.scss'
 import { type ReactNode, useState } from 'react'
 import { Badge, Button, Tooltip } from 'antd'
 import type { IconName } from '@unilab/design-v2/icons'
@@ -41,8 +40,8 @@ export function AppShell({
         sidebarCollapsed ? appShellStyles['studio-shell--collapsed'] : '',
       )}
     >
-      <aside className={clsx(appShellStyles['studio-sidebar'], sharedStyles['studio-sidebar'])}>
-        <div className={clsx(appShellStyles['studio-brand'], sharedStyles['studio-brand'])}>
+      <aside className={clsx(appShellStyles['studio-sidebar'])}>
+        <div className={clsx(appShellStyles['studio-brand'])}>
           <span className={clsx(appShellStyles['studio-brand-mark'])}>U</span>
           <div className={clsx(appShellStyles['studio-brand-copy'])}>
             <strong>Uni-Lab</strong>
@@ -98,9 +97,7 @@ export function AppShell({
         <main
           className={clsx(
             appShellStyles['studio-content'],
-            sharedStyles['studio-content'],
             appShellStyles[`studio-content--${route}`],
-            sharedStyles[`studio-content--${route}`],
           )}
         >
           {children}
@@ -128,8 +125,7 @@ function NavItem({
       type="button"
       className={clsx(
         appShellStyles['studio-nav-item'],
-        sharedStyles['studio-nav-item'],
-        route === item.key ? clsx(appShellStyles['is-active'], sharedStyles['is-active']) : '',
+        route === item.key ? appShellStyles['is-active'] : '',
       )}
       aria-label={collapsed ? item.label : undefined}
       onClick={() => onNavigate(item.key)}

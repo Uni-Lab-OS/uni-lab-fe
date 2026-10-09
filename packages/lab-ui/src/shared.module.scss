@@ -107,12 +107,15 @@
   color: var(--studio-text-muted);
 }
 
+.lab-ui-eyebrow {
+  color: var(--studio-text-faint, var(--unilab-text-secondary, #667085));
+  font-size: 12px;
+  line-height: 18px;
+}
+
 .lab-ui-form-field input:not([type='checkbox']),
 .lab-ui-form-field select,
-.lab-ui-form-field textarea,
-.lab-ui-device-action-input-fields input:not([type='checkbox']),
-.lab-ui-device-action-input-fields select,
-.lab-ui-device-action-input-fields textarea {
+.lab-ui-form-field textarea {
   min-width: 0;
   min-height: 36px;
   box-sizing: border-box;
@@ -126,16 +129,13 @@
   padding: 6px 11px;
 }
 
-.lab-ui-form-field textarea,
-.lab-ui-device-action-input-fields textarea {
+.lab-ui-form-field textarea {
   min-height: 88px;
   resize: vertical;
 }
 
 .lab-ui-form-field input::placeholder,
-.lab-ui-form-field textarea::placeholder,
-.lab-ui-device-action-input-fields input::placeholder,
-.lab-ui-device-action-input-fields textarea::placeholder {
+.lab-ui-form-field textarea::placeholder {
   color: var(--studio-text-faint);
   opacity: 1;
 }
@@ -169,26 +169,11 @@
 
 .lab-ui-form-field input:not([type='checkbox']):focus,
 .lab-ui-form-field select:focus,
-.lab-ui-form-field textarea:focus,
-.lab-ui-device-action-input-fields input:not([type='checkbox']):focus,
-.lab-ui-device-action-input-fields select:focus,
-.lab-ui-device-action-input-fields textarea:focus {
+.lab-ui-form-field textarea:focus {
   border-color: var(--bh-color-primary-focus, var(--studio-accent));
   outline: 2px solid
     color-mix(in srgb, var(--bh-color-primary-focus, var(--studio-accent)) 28%, transparent);
   outline-offset: 0;
-}
-
-.lab-ui-material-inspector__sites > .lab-ui-empty-region {
-  display: flex;
-  min-height: 220px;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.lab-ui-material-inspector__sites > .lab-ui-empty-region .bh-empty-state {
-  margin-inline: auto;
 }
 
 /* 只读事实既可作为紧凑行，也可作为详情表单面展示。 */

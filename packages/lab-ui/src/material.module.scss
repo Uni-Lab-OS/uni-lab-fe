@@ -1,9 +1,7 @@
 /* Styles owned by the material lab-ui components. */
 
 .lab-ui-material-list,
-.lab-ui-site-picker,
-.lab-ui-requirement-list,
-.lab-ui-preflight__list {
+.lab-ui-site-picker {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -38,20 +36,14 @@
 }
 
 .lab-ui-material-list__primary,
-.lab-ui-site-picker__item > span:first-child,
-.lab-ui-preflight__list li > div {
+.lab-ui-site-picker__item > span:first-child {
   display: grid;
   gap: 3px;
 }
 
 .lab-ui-material-list__primary span,
 .lab-ui-material-list__meta,
-.lab-ui-site-picker small,
-.lab-ui-preflight__list small,
-.lab-ui-requirement-list li span,
-.lab-ui-definition-list dt,
-.lab-ui-eyebrow,
-.lab-ui-identity {
+.lab-ui-site-picker small {
   color: var(--unilab-text-secondary, #667085);
   font-size: 12px;
 }
@@ -68,41 +60,18 @@
   color: var(--unilab-color-danger, #b42318);
 }
 
-.lab-ui-definition-list {
-  display: grid;
-  gap: 10px;
-  margin: 16px 0;
-}
-
-.lab-ui-definition-list div {
-  align-items: baseline;
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-}
-
-.lab-ui-definition-list dd {
-  margin: 0;
-  text-align: right;
-}
-
-.lab-ui-material-inspector__header,
-.lab-ui-preflight__header,
-.lab-ui-run-preparation-summary > header {
+.lab-ui-material-inspector__header {
   align-items: flex-start;
   display: flex;
   gap: 12px;
   justify-content: space-between;
 }
 
-.lab-ui-material-inspector h2,
-.lab-ui-preflight h2,
-.lab-ui-run-preparation-summary h2 {
+.lab-ui-material-inspector h2 {
   margin: 4px 0 0;
 }
 
-.lab-ui-material-inspector h3,
-.lab-ui-run-preparation-summary h3 {
+.lab-ui-material-inspector h3 {
   margin: 20px 0 10px;
 }
 
@@ -119,50 +88,6 @@
   cursor: pointer;
   padding: 0;
   text-align: left;
-}
-
-.lab-ui-eyebrow,
-.lab-ui-identity {
-  color: var(--studio-text-faint);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.lab-ui-run-preparation-summary .lab-ui-definition-list dt {
-  color: var(--studio-form-label-color, var(--studio-text-faint));
-  font-family: var(--studio-form-label-font-family, var(--bh-font-family-sans));
-  font-size: var(--studio-form-label-size, 14px);
-  font-weight: var(--studio-form-label-weight, 500);
-  line-height: var(--studio-form-label-line-height, 20px);
-}
-
-.lab-ui-run-preparation-summary .lab-ui-definition-list dd {
-  color: var(--studio-text);
-  font-size: 14px;
-}
-
-.lab-ui-run-preparation-summary__basic .lab-ui-definition-list {
-  gap: 0;
-  margin: 0;
-}
-
-.lab-ui-run-preparation-summary__basic .lab-ui-definition-list div {
-  min-height: 42px;
-  align-items: baseline;
-  border-bottom: 1px solid var(--studio-border-soft);
-}
-
-.lab-ui-run-preparation-summary__basic .lab-ui-definition-list dt {
-  white-space: nowrap;
-}
-
-.lab-ui-run-preparation-summary__basic .lab-ui-definition-list dd {
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: calc(100% - 90px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .lab-ui-material-inspector {
@@ -208,20 +133,20 @@
   flex: 1 1 auto;
 }
 
-.lab-ui-material-inspector .lab-ui-definition-list {
+.lab-ui-material-inspector .lab-ui-definition {
   display: grid;
   gap: 11px;
   margin: 17px 0 0;
 }
 
-.lab-ui-material-inspector .lab-ui-definition-list div {
+.lab-ui-material-inspector .lab-ui-definition > div {
   display: grid;
   grid-template-columns: 80px minmax(0, 1fr);
   gap: 8px;
   align-items: baseline;
 }
 
-.lab-ui-material-inspector .lab-ui-definition-list dd {
+.lab-ui-material-inspector .lab-ui-definition dd {
   color: var(--studio-text-secondary, #647188);
   font-size: 13px;
   line-height: 1.5;
@@ -231,7 +156,7 @@
   white-space: nowrap;
 }
 
-.lab-ui-material-inspector .lab-ui-definition-list dt {
+.lab-ui-material-inspector .lab-ui-definition dt {
   color: var(--studio-form-label-color, var(--studio-text-faint, #9aa4b3));
   font-family: var(--studio-form-label-font-family, var(--bh-font-family-sans));
   font-size: var(--studio-form-label-size, 14px);

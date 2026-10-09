@@ -49,9 +49,6 @@
   justify-self: start;
 }
 
-.lab-ui-form-field input:not([type='checkbox']),
-.lab-ui-form-field select,
-.lab-ui-form-field textarea,
 .lab-ui-device-action-input-fields input:not([type='checkbox']),
 .lab-ui-device-action-input-fields select,
 .lab-ui-device-action-input-fields textarea {
@@ -68,14 +65,11 @@
   padding: 6px 11px;
 }
 
-.lab-ui-form-field textarea,
 .lab-ui-device-action-input-fields textarea {
   min-height: 88px;
   resize: vertical;
 }
 
-.lab-ui-form-field input::placeholder,
-.lab-ui-form-field textarea::placeholder,
 .lab-ui-device-action-input-fields input::placeholder,
 .lab-ui-device-action-input-fields textarea::placeholder {
   color: var(--studio-text-faint);
@@ -89,7 +83,6 @@
   background: var(--studio-surface);
 }
 
-.lab-ui-form-field__error,
 .device-action-input-description,
 .device-action-input-error {
   color: var(--studio-text-faint);
@@ -97,9 +90,6 @@
   line-height: 18px;
 }
 
-.lab-ui-form-field input:not([type='checkbox']):focus,
-.lab-ui-form-field select:focus,
-.lab-ui-form-field textarea:focus,
 .lab-ui-device-action-input-fields input:not([type='checkbox']):focus,
 .lab-ui-device-action-input-fields select:focus,
 .lab-ui-device-action-input-fields textarea:focus {

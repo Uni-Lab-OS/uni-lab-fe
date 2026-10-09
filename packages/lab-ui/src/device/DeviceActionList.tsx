@@ -1,7 +1,5 @@
 import { clsx } from 'clsx'
 import deviceStyles from '../device.module.scss'
-import materialStyles from '../material.module.scss'
-import reagentStyles from '../reagent.module.scss'
 import type { DeviceActionState } from '@unilab-fe/core'
 
 export interface DeviceActionListProps {
@@ -31,9 +29,7 @@ export function DeviceActionList({
           key={action.actionRef}
           className={clsx(
             deviceStyles['action-item'],
-            reagentStyles['action-item'],
-            selectedActionRef === action.actionRef &&
-              clsx(deviceStyles['is-selected'], materialStyles['is-selected']),
+            selectedActionRef === action.actionRef && deviceStyles['is-selected'],
           )}
           aria-pressed={selectedActionRef === action.actionRef}
           onClick={() => onSelectAction?.(action)}

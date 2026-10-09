@@ -1,12 +1,11 @@
 import { clsx } from 'clsx'
-import deviceStyles from '../device.module.scss'
 import reagentStyles from '../reagent.module.scss'
 import type { Reagent } from '@unilab-fe/core'
 import { ReagentStatusBadge } from './ReagentStatusBadge'
 
 export function ReagentInventorySummary({ reagent }: { readonly reagent: Reagent }) {
   return (
-    <div className={clsx(deviceStyles['primary-cell'], reagentStyles['primary-cell'])}>
+    <div className={clsx(reagentStyles['primary-cell'])}>
       <strong>{reagent.name}</strong>
       <span>
         {reagent.containerName ?? '容器未提供'}
@@ -18,7 +17,7 @@ export function ReagentInventorySummary({ reagent }: { readonly reagent: Reagent
 
 export function ReagentQuantitySummary({ reagent }: { readonly reagent: Reagent }) {
   return (
-    <div className={clsx(deviceStyles['amount-cell'], reagentStyles['amount-cell'])}>
+    <div className={clsx(reagentStyles['amount-cell'])}>
       <strong>
         {reagent.quantity == null ? '未提供' : `${reagent.quantity} ${reagent.quantityUnit ?? ''}`}
       </strong>

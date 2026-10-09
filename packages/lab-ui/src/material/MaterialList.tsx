@@ -1,9 +1,6 @@
 import { clsx } from 'clsx'
-import deviceStyles from '../device.module.scss'
 import materialStyles from '../material.module.scss'
-import runStyles from '../run.module.scss'
 import sharedStyles from '../shared.module.scss'
-import workflowStyles from '../workflow.module.scss'
 import { EmptyState } from '@unilab/design-v2'
 import type { MaterialSummary } from '@unilab-fe/core'
 
@@ -32,14 +29,7 @@ export function MaterialList({
   }
 
   return (
-    <ul
-      className={clsx(
-        materialStyles['lab-ui-material-list'],
-        runStyles['lab-ui-material-list'],
-        workflowStyles['lab-ui-material-list'],
-      )}
-      aria-label="物料列表"
-    >
+    <ul className={clsx(materialStyles['lab-ui-material-list'])} aria-label="物料列表">
       {items.map((item) => (
         <MaterialListItem
           key={item.materialUuid}
@@ -67,28 +57,16 @@ function MaterialListItem({
         type="button"
         className={clsx(
           materialStyles['lab-ui-material-list__item'],
-          selected && clsx(deviceStyles['is-selected'], materialStyles['is-selected']),
+          selected && materialStyles['is-selected'],
         )}
         aria-pressed={selected}
         onClick={() => onSelect?.(item.materialUuid)}
       >
-        <span
-          className={clsx(
-            materialStyles['lab-ui-material-list__primary'],
-            runStyles['lab-ui-material-list__primary'],
-            workflowStyles['lab-ui-material-list__primary'],
-          )}
-        >
+        <span className={clsx(materialStyles['lab-ui-material-list__primary'])}>
           <strong>{item.name || item.materialUuid}</strong>
           <span>{item.materialType || '未分类物料'}</span>
         </span>
-        <span
-          className={clsx(
-            materialStyles['lab-ui-material-list__meta'],
-            runStyles['lab-ui-material-list__meta'],
-            workflowStyles['lab-ui-material-list__meta'],
-          )}
-        >
+        <span className={clsx(materialStyles['lab-ui-material-list__meta'])}>
           {item.barcode || item.materialUuid}
         </span>
       </button>

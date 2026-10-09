@@ -1,5 +1,4 @@
 import { clsx } from 'clsx'
-import deviceStyles from '../device.module.scss'
 import reagentStyles from '../reagent.module.scss'
 export interface ReagentHistoryItem {
   readonly eventType: string
@@ -25,13 +24,7 @@ export function ReagentHistoryList({
   }
 
   return (
-    <ul
-      className={clsx(
-        deviceStyles['history-list'],
-        reagentStyles['history-list'],
-        reagentStyles['lab-ui-reagent-history'],
-      )}
-    >
+    <ul className={clsx(reagentStyles['history-list'], reagentStyles['lab-ui-reagent-history'])}>
       {items.map((item, index) => (
         <ReagentHistoryItemView key={`${item.recordedAt}-${item.eventType}-${index}`} item={item} />
       ))}

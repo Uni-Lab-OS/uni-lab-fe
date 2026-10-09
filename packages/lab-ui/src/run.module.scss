@@ -1,34 +1,21 @@
 /* Styles owned by the run lab-ui components. */
 
-.lab-ui-material-list,
-.lab-ui-site-picker,
-.lab-ui-requirement-list,
 .lab-ui-preflight__list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.lab-ui-material-list__primary,
-.lab-ui-site-picker__item > span:first-child,
 .lab-ui-preflight__list li > div {
   display: grid;
   gap: 3px;
 }
 
-.lab-ui-material-list__primary span,
-.lab-ui-material-list__meta,
-.lab-ui-site-picker small,
-.lab-ui-preflight__list small,
-.lab-ui-requirement-list li span,
-.lab-ui-definition-list dt,
-.lab-ui-eyebrow,
-.lab-ui-identity {
+.lab-ui-preflight__list small {
   color: var(--unilab-text-secondary, #667085);
   font-size: 12px;
 }
 
-.lab-ui-material-inspector__header,
 .lab-ui-preflight__header,
 .lab-ui-run-preparation-summary > header {
   align-items: flex-start;
@@ -37,13 +24,11 @@
   justify-content: space-between;
 }
 
-.lab-ui-material-inspector h2,
 .lab-ui-preflight h2,
 .lab-ui-run-preparation-summary h2 {
   margin: 4px 0 0;
 }
 
-.lab-ui-material-inspector h3,
 .lab-ui-run-preparation-summary h3 {
   margin: 20px 0 12px;
 }
@@ -358,7 +343,7 @@
   font-size: 14px;
 }
 
-.lab-ui-run-preparation-summary .lab-ui-definition-list dt {
+.lab-ui-run-preparation-summary .lab-ui-definition dt {
   color: var(--studio-form-label-color, var(--studio-text-faint));
   font-family: var(--studio-form-label-font-family, var(--bh-font-family-sans));
   font-size: var(--studio-form-label-size, 14px);
@@ -366,7 +351,7 @@
   line-height: var(--studio-form-label-line-height, 20px);
 }
 
-.lab-ui-run-preparation-summary .lab-ui-definition-list dd {
+.lab-ui-run-preparation-summary .lab-ui-definition dd {
   color: var(--studio-text);
   font-size: 14px;
 }
@@ -394,22 +379,22 @@
   line-height: 26px;
 }
 
-.lab-ui-run-preparation-summary__basic .lab-ui-definition-list {
+.lab-ui-run-preparation-summary__basic .lab-ui-definition {
   gap: 0;
   margin: 0;
 }
 
-.lab-ui-run-preparation-summary__basic .lab-ui-definition-list div {
+.lab-ui-run-preparation-summary__basic .lab-ui-definition > div {
   min-height: 42px;
   align-items: baseline;
   border-bottom: 0;
 }
 
-.lab-ui-run-preparation-summary__basic .lab-ui-definition-list dt {
+.lab-ui-run-preparation-summary__basic .lab-ui-definition dt {
   white-space: nowrap;
 }
 
-.lab-ui-run-preparation-summary__basic .lab-ui-definition-list dd {
+.lab-ui-run-preparation-summary__basic .lab-ui-definition dd {
   flex: 1 1 auto;
   min-width: 0;
   max-width: calc(100% - 90px);

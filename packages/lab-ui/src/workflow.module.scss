@@ -1,26 +1,5 @@
 /* Styles owned by the workflow lab-ui components. */
 
-.lab-ui-material-list,
-.lab-ui-site-picker,
-.lab-ui-requirement-list,
-.lab-ui-preflight__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.lab-ui-material-list__primary span,
-.lab-ui-material-list__meta,
-.lab-ui-site-picker small,
-.lab-ui-preflight__list small,
-.lab-ui-requirement-list li span,
-.lab-ui-definition-list dt,
-.lab-ui-eyebrow,
-.lab-ui-identity {
-  color: var(--unilab-text-secondary, #667085);
-  font-size: 12px;
-}
-
 .lab-ui-workflow-input-form {
   display: grid;
   gap: 16px;

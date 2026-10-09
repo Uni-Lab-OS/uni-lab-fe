@@ -1,9 +1,6 @@
 import { clsx } from 'clsx'
-import deviceStyles from '../device.module.scss'
-import materialStyles from '../material.module.scss'
 import runStyles from '../run.module.scss'
 import sharedStyles from '../shared.module.scss'
-import workflowStyles from '../workflow.module.scss'
 import { Icon } from '@unilab/design-v2/icons'
 import type { PreflightCheckStatus, PreflightReport } from '@unilab-fe/core'
 
@@ -18,18 +15,12 @@ export function PreflightReportView({ report }: PreflightReportViewProps) {
   return (
     <section
       className={clsx(
-        materialStyles['lab-ui-preflight'],
         runStyles['lab-ui-preflight'],
         runStyles[`lab-ui-preflight--${report.status}`],
       )}
       aria-label="运行前检查"
     >
-      <header
-        className={clsx(
-          materialStyles['lab-ui-preflight__header'],
-          runStyles['lab-ui-preflight__header'],
-        )}
-      >
+      <header className={clsx(runStyles['lab-ui-preflight__header'])}>
         <h2>运行前检查</h2>
       </header>
       {report.checks.length === 0 ? (
@@ -40,8 +31,6 @@ export function PreflightReportView({ report }: PreflightReportViewProps) {
             <details
               className={clsx(
                 runStyles['lab-ui-preflight__group'],
-                deviceStyles[`is-${group.status}`],
-                materialStyles[`is-${group.status}`],
                 runStyles[`is-${group.status}`],
               )}
               key={group.status}
@@ -52,21 +41,13 @@ export function PreflightReportView({ report }: PreflightReportViewProps) {
                 <span
                   className={clsx(
                     runStyles['lab-ui-preflight__tag'],
-                    deviceStyles[`is-${group.status}`],
-                    materialStyles[`is-${group.status}`],
                     runStyles[`is-${group.status}`],
                   )}
                 >
                   {group.checks.length}
                 </span>
               </summary>
-              <ul
-                className={clsx(
-                  materialStyles['lab-ui-preflight__list'],
-                  runStyles['lab-ui-preflight__list'],
-                  workflowStyles['lab-ui-preflight__list'],
-                )}
-              >
+              <ul className={clsx(runStyles['lab-ui-preflight__list'])}>
                 {group.checks.map((check, index) => (
                   <PreflightCheckItem
                     key={`${check.code}-${check.nodeUuid ?? 'global'}-${index}`}
@@ -93,13 +74,7 @@ export function PreflightReportView({ report }: PreflightReportViewProps) {
 
 function PreflightCheckItem({ check }: { readonly check: PreflightReport['checks'][number] }) {
   return (
-    <li
-      className={clsx(
-        deviceStyles[`is-${check.status}`],
-        materialStyles[`is-${check.status}`],
-        runStyles[`is-${check.status}`],
-      )}
-    >
+    <li className={clsx(runStyles[`is-${check.status}`])}>
       <span className={clsx(runStyles['lab-ui-preflight__indicator'])} aria-hidden="true" />
       <div>
         <strong>{check.message}</strong>
@@ -109,12 +84,7 @@ function PreflightCheckItem({ check }: { readonly check: PreflightReport['checks
         </small>
       </div>
       <span
-        className={clsx(
-          runStyles['lab-ui-preflight__status-tag'],
-          deviceStyles[`is-${check.status}`],
-          materialStyles[`is-${check.status}`],
-          runStyles[`is-${check.status}`],
-        )}
+        className={clsx(runStyles['lab-ui-preflight__status-tag'], runStyles[`is-${check.status}`])}
       >
         {checkStatusLabel(check.status)}
       </span>

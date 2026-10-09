@@ -1,5 +1,4 @@
 import { clsx } from 'clsx'
-import deviceStyles from '../device.module.scss'
 import sharedStyles from '../shared.module.scss'
 import type { ReactNode } from 'react'
 
@@ -49,7 +48,6 @@ export function SchemaInputField({
   return (
     <label
       className={clsx(
-        deviceStyles['lab-ui-form-field'],
         sharedStyles['lab-ui-form-field'],
         Boolean(error) && sharedStyles['lab-ui-form-field--error'],
       )}
@@ -69,13 +67,7 @@ export function SchemaInputField({
       {input}
       {description && <small>{description}</small>}
       {error && (
-        <span
-          className={clsx(
-            deviceStyles['lab-ui-form-field__error'],
-            sharedStyles['lab-ui-form-field__error'],
-          )}
-          role="alert"
-        >
+        <span className={clsx(sharedStyles['lab-ui-form-field__error'])} role="alert">
           {error}
         </span>
       )}

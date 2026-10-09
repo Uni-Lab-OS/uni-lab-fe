@@ -1,6 +1,5 @@
 import { clsx } from 'clsx'
 import deviceStyles from '../device.module.scss'
-import reagentStyles from '../reagent.module.scss'
 import { deviceDispatchStatus } from '@unilab-fe/core'
 import type { DeviceSummary } from '@unilab-fe/core'
 
@@ -17,13 +16,7 @@ export function DeviceStatusBadge({ device, status, label }: DeviceStatusBadgePr
     resolvedStatus === 'blocked' || resolvedStatus === 'unknown' ? 'attention' : resolvedStatus
   const resolvedLabel = label ?? defaultLabel(resolvedStatus, device?.dispatchBlockReason)
   return (
-    <span
-      className={clsx(
-        deviceStyles['device-status'],
-        reagentStyles['device-status'],
-        deviceStyles[`device-status--${tone}`],
-      )}
-    >
+    <span className={clsx(deviceStyles['device-status'], deviceStyles[`device-status--${tone}`])}>
       <span className={clsx(deviceStyles['device-status__dot'])} aria-hidden="true" />
       {resolvedLabel}
     </span>

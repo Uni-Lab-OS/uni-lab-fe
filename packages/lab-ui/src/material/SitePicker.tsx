@@ -1,9 +1,6 @@
 import { clsx } from 'clsx'
-import deviceStyles from '../device.module.scss'
 import materialStyles from '../material.module.scss'
-import runStyles from '../run.module.scss'
 import sharedStyles from '../shared.module.scss'
-import workflowStyles from '../workflow.module.scss'
 import { EmptyState } from '@unilab/design-v2'
 import type { SiteSummary } from '@unilab-fe/core'
 
@@ -44,8 +41,6 @@ export function SitePicker({
     <div
       className={clsx(
         materialStyles['lab-ui-site-picker'],
-        runStyles['lab-ui-site-picker'],
-        workflowStyles['lab-ui-site-picker'],
         variant === 'inspector' && materialStyles['lab-ui-site-picker--inspector'],
       )}
       role="listbox"
@@ -91,8 +86,7 @@ function SitePickerItem({
       disabled={disabled}
       className={clsx(
         materialStyles['lab-ui-site-picker__item'],
-        runStyles['lab-ui-site-picker__item'],
-        selected && clsx(deviceStyles['is-selected'], materialStyles['is-selected']),
+        selected && materialStyles['is-selected'],
       )}
       onClick={() => onSelect?.(site.siteUuid)}
     >
@@ -110,9 +104,7 @@ function SitePickerItem({
         <span
           className={clsx(
             materialStyles['lab-ui-site-picker__status'],
-            deviceStyles[`is-${occupancy.kind}`],
             materialStyles[`is-${occupancy.kind}`],
-            runStyles[`is-${occupancy.kind}`],
           )}
         >
           {occupancy.inspectorLabel}
@@ -122,9 +114,7 @@ function SitePickerItem({
         <span
           className={clsx(
             materialStyles['lab-ui-site-picker__status'],
-            deviceStyles[`is-${occupancy.kind}`],
             materialStyles[`is-${occupancy.kind}`],
-            runStyles[`is-${occupancy.kind}`],
           )}
         >
           {occupancy.label}
@@ -134,9 +124,7 @@ function SitePickerItem({
         <span
           className={clsx(
             materialStyles['lab-ui-site-picker__key-tag'],
-            deviceStyles[`is-${occupancy.kind}`],
             materialStyles[`is-${occupancy.kind}`],
-            runStyles[`is-${occupancy.kind}`],
           )}
           title={site.key}
         >

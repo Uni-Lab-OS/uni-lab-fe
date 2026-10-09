@@ -15,13 +15,15 @@ const files = execFileSync(
   .split('\n')
   .filter(Boolean)
   .filter((file) => existsSync(file))
-  .filter((file) => !/(?:^|\/)(?:dist|coverage|node_modules|playwright-report|test-results)\//.test(file))
+  .filter(
+    (file) => !/(?:^|\/)(?:dist|coverage|node_modules|playwright-report|test-results)\//.test(file),
+  )
 
 const styleFiles = files.filter((file) => STYLE_EXTENSIONS.has(extname(file)))
 const sourceFiles = files.filter((file) => SOURCE_EXTENSIONS.has(extname(file)))
 const violations = []
 
-const allowedPlainCss = (file) => (
+const allowedPlainCss = (file) =>
   file === 'apps/kernel-web/src/styles/global.css' ||
   file.startsWith('apps/kernel-web/src/styles/global/') ||
   file === 'apps/workbench/desktop/welcome.css' ||
@@ -37,7 +39,6 @@ const allowedPlainCss = (file) => (
   file.startsWith('packages/pascal-host/src/styles/') ||
   file.startsWith('packages/workbench-theia/src/browser/style/') ||
   file.startsWith('e2e/')
-)
 
 const ownerOf = (file) => {
   const [scope, name] = file.split('/')
@@ -65,20 +66,67 @@ for (const file of styleFiles) {
   }
 
   if (
-    (file.startsWith('packages/device-management/') || file.startsWith('packages/robot-workstation/')) &&
+    (file.startsWith('packages/device-management/') ||
+      file.startsWith('packages/robot-workstation/')) &&
     readFileSync(file, 'utf8').includes('!important')
   ) {
     violations.push(`${file}: 新收口的业务模块禁止新增 !important`)
   }
 }
 
-for (const file of sourceFiles.filter((candidate) => candidate.startsWith('packages/device-management/src/'))) {
+for (const file of sourceFiles.filter((candidate) =>
+  candidate.startsWith('packages/device-management/src/'),
+)) {
   const source = readFileSync(file, 'utf8')
   if (/className\s*=\s*["`][^"`]*(?:edge-device|device-list|device-empty|section__)/.test(source)) {
     violations.push(`${file}: 设备管理 BEM 类必须通过 CSS Module 映射，不得回退到全局类名`)
   }
   if (/DeviceManagement(?:Actions)?\.css/.test(source)) {
     violations.push(`${file}: 不得重新导入已迁移的设备管理全局 CSS`)
+  }
+}
+
+// lab-ui component styles have one domain owner. A component may consume its
+// own domain module and the shared semantic module, but it must not borrow a
+// sibling domain's CSS Module just to make a selector match.
+for (const file of sourceFiles.filter((candidate) =>
+  candidate.startsWith('packages/lab-ui/src/'),
+)) {
+  const match = file.match(
+    /^packages\/lab-ui\/src\/(device|material|reagent|run|workflow|task|shared)\//,
+  )
+  if (!match) continue
+  const domain = match[1]
+  const source = readFileSync(file, 'utf8')
+  for (const importedDomain of source.matchAll(
+    /from ['"]\.\.\/(device|material|reagent|run|workflow|task|shared)\.module\.scss['"]/g,
+  )) {
+    if (importedDomain[1] !== domain && importedDomain[1] !== 'shared') {
+      violations.push(
+        `${file}: lab-ui ${domain} 组件不得跨域导入 ${importedDomain[1]}.module.scss；共享语义请归属 shared.module.scss`,
+      )
+    }
+  }
+}
+
+const appShellSource = 'apps/developer-web/src/components/AppShell.tsx'
+if (sourceFiles.includes(appShellSource)) {
+  const source = readFileSync(appShellSource, 'utf8')
+  if (source.includes('../styles/shared.module.scss') || source.includes("sharedStyles['studio-")) {
+    violations.push(
+      `${appShellSource}: 应用壳只能消费 app-shell.module.scss，不得从 shared.module.scss 借用壳层类`,
+    )
+  }
+}
+
+for (const file of styleFiles.filter((candidate) =>
+  candidate.startsWith('apps/developer-web/src/styles/_shared-'),
+)) {
+  const source = readFileSync(file, 'utf8')
+  if (/^\s*\.studio-[A-Za-z0-9_-]+/m.test(source)) {
+    violations.push(
+      `${file}: shared 样式不得定义 studio-* 应用壳选择器；壳层规则归 app-shell.module.scss`,
+    )
   }
 }
 
@@ -92,7 +140,7 @@ const partialCount = styleFiles.filter((file) => basename(file).startsWith('_'))
 
 console.log(
   `[styles] ${styleFiles.length} 个样式文件，${totalLines} 行；` +
-  `${plainCssCount} 个受控普通 CSS，${moduleCount} 个 CSS Module，${partialCount} 个 Module partial。`,
+    `${plainCssCount} 个受控普通 CSS，${moduleCount} 个 CSS Module，${partialCount} 个 Module partial。`,
 )
 
 if (violations.length > 0) {
