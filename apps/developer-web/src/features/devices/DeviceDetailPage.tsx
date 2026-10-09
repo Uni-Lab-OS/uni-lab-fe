@@ -3,12 +3,11 @@ import deviceDetailPageStyles from './DeviceDetailPage.module.scss'
 import devicePageStyles from './DevicePage.module.scss'
 import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
-import { Alert, Button, Space, Tag, Tooltip } from 'antd'
+import { Alert, Button, Space, Tooltip } from 'antd'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { deviceOccupancyStatus } from '@unilab-fe/core'
 import type { DeviceActionState, DeviceSummary } from '@unilab-fe/core'
 import { DeviceActionList } from '@unilab/lab-ui'
-import { useBackend } from '../../app/BackendProvider'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { deviceActionParameters, deviceActionParametersFromSchema } from './DeviceActionInputFields'
@@ -24,7 +23,6 @@ export function DeviceDetail({
   startDebug?: boolean
   onBack: () => void
 }) {
-  const { backend } = useBackend()
   const [selectedAction, setSelectedAction] = useState<DeviceActionState | null>(
     device.actions[0] ?? null,
   )

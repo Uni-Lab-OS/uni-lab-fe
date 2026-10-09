@@ -11,7 +11,6 @@ import { AsyncState } from '../../components/ui/AsyncState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useWorkflowDebugController } from './useWorkflowDebugController'
 import { jsonText } from './workflowPresentation'
-import { useBackend } from '../../app/BackendProvider'
 
 export function WorkflowDebugPage({
   workflowUuid,

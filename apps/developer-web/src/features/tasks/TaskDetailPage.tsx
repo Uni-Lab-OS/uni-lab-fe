@@ -1,13 +1,11 @@
 import { clsx } from 'clsx'
 import taskDetailPageStyles from './TaskDetailPage.module.scss'
-import sharedStyles from '../../styles/shared.module.scss'
 import { TaskDetailSummary } from './TaskDetailSummary'
 import { TaskDetailTimelinePanel } from './TaskDetailTimelinePanel'
 import { TaskDetailInspectorDrawer } from './TaskDetailInspectorDrawer'
 import { DebugIcon } from './TaskDetailIcons'
 import { ParallelDrawer } from './TaskParallelDrawer'
 import { useTaskDetailController } from './useTaskDetailController'
-import { type EventStatus, markerGlyph, tabLabels } from './taskDetailModel'
 
 export function TaskDetailPage({
   taskUuid: requestedTaskUuid,
@@ -16,33 +14,16 @@ export function TaskDetailPage({
   const controller = useTaskDetailController(requestedTaskUuid)
   const {
     viewModel,
-    storeCommand,
-    storeError,
-    storeStatus,
-    inspectJob,
-    selectedId,
-    setSelectedId,
-    activeTab,
-    setActiveTab,
     parallelOpen,
     setParallelOpen,
     selectedBranch,
     setSelectedBranch,
     parallelNotice,
     facts,
-    joins,
-    readyFrontier,
-    timelineEvents,
     currentTimelineEvent,
     statusTooltip,
-    selectedEvent,
     submittedNodeUuid,
     submittedLifecycle,
-    controlStatus,
-    timelineLoading,
-    commandResultMessage,
-    openEvent,
-    submitCommand,
     submitBranch,
   } = controller
   return (

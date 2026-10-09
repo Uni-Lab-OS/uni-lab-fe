@@ -8,7 +8,6 @@ import ReactFlow, {
   Handle,
   MarkerType,
   Position,
-  type Node,
   type NodeProps,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
@@ -25,8 +24,6 @@ type WorkflowFlowNodeData = {
   disabled: boolean
   onSelect: (id: string | null) => void
 }
-
-type WorkflowFlowNode = Node<WorkflowFlowNodeData, 'workflowNode'>
 
 const nodeTypes = { workflowNode: WorkflowNode }
 
