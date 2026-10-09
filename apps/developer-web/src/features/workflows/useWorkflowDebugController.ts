@@ -1,6 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message } from 'antd'
-import { normalizeWorkflowInput, RunPreparationError, workflowInputDefaults } from '@unilab-fe/core'
+import {
+  normalizeWorkflowInput,
+  RunPreparationError,
+  workflowInputDefaults,
+  type RunConfiguration,
+} from '@unilab-fe/core'
 import { createRunPreparationReactStore } from '@unilab-fe/core/react'
 import { useBackend } from '../../app/BackendProvider'
 import { nodeLabel, nodeUuid } from './workflowPresentation'
@@ -30,9 +35,38 @@ export function useWorkflowDebugController(workflowUuid: string) {
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
+  const reload = useCallback(
+    () => useRunPreparationStore.getState().load(workflowUuid),
+    [useRunPreparationStore, workflowUuid],
+  )
+  const updateConfiguration = useCallback(
+    (patch: Partial<RunConfiguration>) =>
+      useRunPreparationStore.getState().updateConfiguration(patch),
+    [useRunPreparationStore],
+  )
+  const setRunMode = useCallback(
+    (next: RunConfiguration['runMode']) =>
+      updateConfiguration(
+        next === 'single_node' ? { runMode: next } : { runMode: next, targetNodeUuid: undefined },
+      ),
+    [updateConfiguration],
+  )
+  const setPriority = useCallback(
+    (next: NonNullable<RunConfiguration['priority']>) => updateConfiguration({ priority: next }),
+    [updateConfiguration],
+  )
+  const setTargetNodeUuid = useCallback(
+    (next: string) => updateConfiguration({ targetNodeUuid: next }),
+    [updateConfiguration],
+  )
+  const setTaskName = useCallback(
+    (next: string) => updateConfiguration({ description: next }),
+    [updateConfiguration],
+  )
+
   useEffect(() => {
-    void useRunPreparationStore.getState().load(workflowUuid)
-  }, [useRunPreparationStore, workflowUuid])
+    void reload()
+  }, [reload])
 
   const inputParameters = useMemo(() => revision?.graph.inputParameters ?? [], [revision])
   const targetNodeOptions = useMemo(
@@ -50,12 +84,12 @@ export function useWorkflowDebugController(workflowUuid: string) {
     setWorkflowInput(configuration?.input ?? defaults)
     const current = useRunPreparationStore.getState().viewModel?.configuration
     if (!current?.description) {
-      useRunPreparationStore.getState().updateConfiguration({
+      updateConfiguration({
         description: revision.name,
         input: configuration?.input ?? defaults,
       })
     }
-  }, [configuration?.input, inputParameters, revision, useRunPreparationStore])
+  }, [configuration?.input, inputParameters, revision, updateConfiguration, useRunPreparationStore])
 
   const runPreflight = async () => {
     if (!revision) return
@@ -108,7 +142,11 @@ export function useWorkflowDebugController(workflowUuid: string) {
   }
 
   return {
-    useRunPreparationStore,
+    reload,
+    setRunMode,
+    setPriority,
+    setTargetNodeUuid,
+    setTaskName,
     storeStatus,
     storeError,
     viewModel,

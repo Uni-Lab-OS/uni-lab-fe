@@ -22,7 +22,6 @@ export function WorkflowDebugPage({
   onNavigate: (route: StudioRoute) => void
 }) {
   const {
-    useRunPreparationStore,
     storeStatus,
     storeError,
     viewModel,
@@ -46,6 +45,11 @@ export function WorkflowDebugPage({
     runPreflight,
     submit,
     messageContextHolder,
+    reload,
+    setRunMode,
+    setPriority,
+    setTargetNodeUuid,
+    setTaskName,
   } = useWorkflowDebugController(workflowUuid)
   return (
     <div
@@ -76,7 +80,7 @@ export function WorkflowDebugPage({
         // 提交/依赖检查失败时保留当前工作流页面，让步骤内的 formError 展示可操作提示；
         // 只有初次加载还没有 revision 时才显示整页数据加载错误。
         error={!revision ? (storeError ?? undefined) : undefined}
-        onRetry={() => void useRunPreparationStore.getState().load(workflowUuid)}
+        onRetry={() => void reload()}
         empty={storeStatus !== 'loading' && storeStatus !== 'idle' && !revision}
       >
         {revision && (
@@ -105,16 +109,7 @@ export function WorkflowDebugPage({
                         showSearch
                         optionFilterProp="label"
                         value={runMode}
-                        onChange={(value) =>
-                          useRunPreparationStore.getState().updateConfiguration(
-                            value === 'single_node'
-                              ? { runMode: value as typeof runMode }
-                              : {
-                                  runMode: value as typeof runMode,
-                                  targetNodeUuid: undefined,
-                                },
-                          )
-                        }
+                        onChange={(value) => setRunMode(value as typeof runMode)}
                         options={[
                           { value: 'normal', label: '正常运行' },
                           { value: 'step', label: '单步运行' },
@@ -127,11 +122,7 @@ export function WorkflowDebugPage({
                         showSearch
                         optionFilterProp="label"
                         value={priority}
-                        onChange={(value) =>
-                          useRunPreparationStore.getState().updateConfiguration({
-                            priority: value as 'normal' | 'high',
-                          })
-                        }
+                        onChange={(value) => setPriority(value as 'normal' | 'high')}
                         options={[
                           { value: 'normal', label: '普通' },
                           { value: 'high', label: '高' },
@@ -146,11 +137,7 @@ export function WorkflowDebugPage({
                           value={targetNodeUuid || undefined}
                           placeholder="请选择目标节点"
                           options={targetNodeOptions}
-                          onChange={(value) =>
-                            useRunPreparationStore.getState().updateConfiguration({
-                              targetNodeUuid: value,
-                            })
-                          }
+                          onChange={setTargetNodeUuid}
                         />
                       </Form.Item>
                     )}
@@ -158,11 +145,7 @@ export function WorkflowDebugPage({
                   <Form.Item label="任务名称" required>
                     <Input
                       value={taskName}
-                      onChange={(event) =>
-                        useRunPreparationStore.getState().updateConfiguration({
-                          description: event.target.value,
-                        })
-                      }
+                      onChange={(event) => setTaskName(event.target.value)}
                       placeholder="请输入任务名称"
                     />
                   </Form.Item>
