@@ -4,7 +4,7 @@ import materialManagementStyles from './MaterialManagement.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Tooltip, Typography } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
-import type { MaterialGraphNode, SiteSummary } from '@unilab-fe/core'
+import type { MaterialGraphNode, MaterialInspectionProjection, SiteSummary } from '@unilab-fe/core'
 import type { IconColor, IconName } from '@unilab/design-v2/icons'
 import { SitePicker } from '@unilab/lab-ui'
 import { AppIcon } from '../../components/ui/Icon'
@@ -13,19 +13,15 @@ import { type MaterialSelection } from './MaterialFlowCanvas'
 import { resolveMaterialSiteAction } from './materialSiteActions'
 
 export function MaterialInspector({
-  node,
-  nodes,
-  selectedSite,
+  projection,
   selection,
   onSelect,
 }: {
-  node?: MaterialGraphNode
-  nodes: readonly MaterialGraphNode[]
-  selectedSite?: SiteSummary
+  projection?: MaterialInspectionProjection
   selection: MaterialSelection | null
   onSelect: (selection: MaterialSelection) => void
 }) {
-  if (!node || !selection)
+  if (!projection || !selection)
     return (
       <aside
         className={clsx(
@@ -39,22 +35,17 @@ export function MaterialInspector({
       </aside>
     )
 
-  if (selection.kind === 'site' && selectedSite) {
-    return <SiteInspector node={node} site={selectedSite} onSelect={onSelect} />
+  if (selection.kind === 'site' && projection.selectedSite) {
+    return (
+      <SiteInspector node={projection.node} site={projection.selectedSite} onSelect={onSelect} />
+    )
   }
 
   if (selection.kind === 'node') {
-    return <NodeInspector node={node} nodes={nodes} onSelect={onSelect} />
+    return <NodeInspector node={projection.node} sites={projection.sites} onSelect={onSelect} />
   }
 
-  return (
-    <MaterialDetailInspector
-      node={node}
-      nodes={nodes}
-      selectedSite={selectedSite}
-      onSelect={onSelect}
-    />
-  )
+  return <MaterialDetailInspector projection={projection} onSelect={onSelect} />
 }
 
 function InspectorHeading({
@@ -80,15 +71,14 @@ function InspectorHeading({
 
 function NodeInspector({
   node,
-  nodes,
+  sites,
   onSelect,
 }: {
   node: MaterialGraphNode
-  nodes: readonly MaterialGraphNode[]
+  sites: readonly SiteSummary[]
   onSelect: (selection: MaterialSelection) => void
 }) {
   const detail = node.material
-  const sites = collectNodeSites(node, nodes)
   return (
     <aside
       className={clsx(
@@ -119,30 +109,6 @@ function NodeInspector({
       <SiteList sites={sites} onSelect={onSelect} />
     </aside>
   )
-}
-
-export function collectNodeSites(
-  node: MaterialGraphNode,
-  nodes: readonly MaterialGraphNode[],
-): SiteSummary[] {
-  const related = new Set<string>([node.material.materialUuid])
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const candidate of nodes) {
-      const parentId = candidate.material.parentMaterialUuid
-      if (parentId && related.has(parentId) && !related.has(candidate.material.materialUuid)) {
-        related.add(candidate.material.materialUuid)
-        changed = true
-      }
-    }
-  }
-  const sites = new Map<string, SiteSummary>()
-  for (const candidate of nodes) {
-    if (!related.has(candidate.material.materialUuid)) continue
-    for (const site of candidate.sites) sites.set(site.siteUuid, site)
-  }
-  return [...sites.values()]
 }
 
 function SiteInspector({
@@ -227,27 +193,14 @@ function SiteInspector({
 }
 
 function MaterialDetailInspector({
-  node,
-  nodes,
-  selectedSite,
+  projection,
   onSelect,
 }: {
-  node: MaterialGraphNode
-  nodes: readonly MaterialGraphNode[]
-  selectedSite?: SiteSummary
+  projection: MaterialInspectionProjection
   onSelect: (selection: MaterialSelection) => void
 }) {
-  const currentSite = node.currentSiteUuid
-    ? (node.sites.find((item) => item.siteUuid === node.currentSiteUuid) ?? node.sites[0])
-    : node.sites[0]
-  const graphSite = node.currentSiteUuid
-    ? nodes.flatMap((item) => item.sites).find((item) => item.siteUuid === node.currentSiteUuid)
-    : undefined
-  const detail = node.material
-  const occupiedSite = nodes
-    .flatMap((item) => item.sites)
-    .find((item) => item.occupancy.occupiedMaterialUuid === detail.materialUuid)
-  const site = selectedSite ?? currentSite ?? graphSite ?? occupiedSite
+  const detail = projection.node.material
+  const site = projection.activeSite
   const siteAction = site ? resolveMaterialSiteAction(site.occupancy) : 'unavailable'
   const status = !site
     ? 'empty'
@@ -301,7 +254,7 @@ function MaterialDetailInspector({
           <dd>{detail.revision == null ? '未提供' : detail.revision}</dd>
         </div>
       </dl>
-      <SiteList sites={site ? [site] : node.sites} onSelect={onSelect} />
+      <SiteList sites={site ? [site] : projection.sites} onSelect={onSelect} />
       <SiteHandlingActions action={siteAction} />
       <Typography.Text
         type="secondary"

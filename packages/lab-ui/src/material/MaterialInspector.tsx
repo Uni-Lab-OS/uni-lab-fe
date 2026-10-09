@@ -2,27 +2,24 @@ import { clsx } from 'clsx'
 import materialStyles from '../material.module.scss'
 import sharedStyles from '../shared.module.scss'
 import { Icon } from '@unilab/design-v2/icons'
-import type { MaterialGraphNode, SiteSummary } from '@unilab-fe/core'
+import type { MaterialInspectionProjection, MaterialGraphNode, SiteSummary } from '@unilab-fe/core'
 import { SitePicker } from './SitePicker'
 import { DefinitionList } from '../shared/DefinitionList'
 
 export interface MaterialInspectorProps {
-  readonly node: MaterialGraphNode
-  readonly selectedSiteUuid?: string
+  readonly projection: MaterialInspectionProjection
   readonly onSelectSite?: (siteUuid: string) => void
   readonly onSelectOccupiedMaterial?: (materialUuid: string) => void
 }
 
 /** 物料节点的事实展示，不包含页面导航和物料变更命令。 */
 export function MaterialInspector({
-  node,
-  selectedSiteUuid,
+  projection,
   onSelectSite,
   onSelectOccupiedMaterial,
 }: MaterialInspectorProps) {
-  const detail = node.material
-  const selectedSite = selectedSiteUuid ?? node.currentSiteUuid ?? undefined
-  const occupiedSites = node.sites.filter((site) => site.occupancy.occupiedMaterialUuid)
+  const detail = projection.node.material
+  const selectedSite = projection.selectedSite?.siteUuid ?? projection.currentSite?.siteUuid
 
   return (
     <aside
@@ -41,17 +38,20 @@ export function MaterialInspector({
           <h2>{detail.name || detail.materialUuid}</h2>
         </div>
       </header>
-      <MaterialFacts node={node} />
+      <MaterialFacts node={projection.node} />
       <section className={clsx(materialStyles['lab-ui-material-inspector__sites'])}>
         <h3>库位</h3>
         <SitePicker
-          sites={node.sites}
+          sites={projection.sites}
           variant="inspector"
           selectedSiteUuid={selectedSite}
           onSelectSite={onSelectSite}
         />
-        {occupiedSites.length > 0 && (
-          <OccupiedMaterialList sites={occupiedSites} onSelectMaterial={onSelectOccupiedMaterial} />
+        {projection.occupiedSites.length > 0 && (
+          <OccupiedMaterialList
+            sites={projection.occupiedSites}
+            onSelectMaterial={onSelectOccupiedMaterial}
+          />
         )}
       </section>
     </aside>

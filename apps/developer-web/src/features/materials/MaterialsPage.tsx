@@ -8,6 +8,7 @@ import { useBackendQuery } from '../../hooks/useBackendQuery'
 import { AppIcon } from '../../components/ui/Icon'
 import { AsyncState } from '../../components/ui/AsyncState'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { projectMaterialInspection } from '@unilab-fe/core'
 import {
   isMaterialGraphNodeHidden,
   MaterialFlowCanvas,
@@ -66,24 +67,10 @@ export function MaterialsPage() {
       ),
     [allNodes, normalizedKeyword],
   )
-  const selectedSite =
-    selection?.kind === 'site' || selection?.kind === 'material'
-      ? allNodes
-          .flatMap((node) => node.sites)
-          .find(
-            (site) =>
-              site.siteUuid === (selection.kind === 'site' ? selection.siteId : selection.siteId),
-          )
-      : undefined
-  const selected = selection
-    ? nodeById.get(
-        selection.kind === 'node'
-          ? selection.nodeId
-          : selection.kind === 'material'
-            ? selection.materialId
-            : (selectedSite?.ownerMaterialUuid ?? ''),
-      )
-    : undefined
+  const inspection = useMemo(() => {
+    if (!query.data || !selection) return undefined
+    return projectMaterialInspection(query.data, toInspectionSelection(selection)) ?? undefined
+  }, [query.data, selection])
   if (management)
     return <MaterialManagement graph={query.data} onBack={() => setManagement(false)} />
   return (
@@ -160,9 +147,7 @@ export function MaterialsPage() {
             onSelect={handleSelection}
           />
           <MaterialInspector
-            node={selected}
-            nodes={allNodes}
-            selectedSite={selectedSite}
+            projection={inspection}
             selection={selection}
             onSelect={handleSelection}
           />
@@ -170,4 +155,18 @@ export function MaterialsPage() {
       </AsyncState>
     </div>
   )
+}
+
+function toInspectionSelection(selection: MaterialSelection) {
+  if (selection.kind === 'node') {
+    return { kind: 'node' as const, materialUuid: selection.nodeId }
+  }
+  if (selection.kind === 'site') {
+    return { kind: 'site' as const, siteUuid: selection.siteId }
+  }
+  return {
+    kind: 'material' as const,
+    materialUuid: selection.materialId,
+    siteUuid: selection.siteId,
+  }
 }

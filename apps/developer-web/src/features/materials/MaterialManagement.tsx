@@ -2,13 +2,12 @@ import { clsx } from 'clsx'
 import materialManagementStyles from './MaterialManagement.module.scss'
 import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
-import { collectNodeSites } from './MaterialInspector'
 import { Button, Empty, Input, Tree } from 'antd'
 import type { TreeDataNode } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import ChevronDownIcon from '@unilab/design-v2/icons/static/arrows/chevron-down'
 import ChevronRightIcon from '@unilab/design-v2/icons/static/arrows/chevron-right'
-import type { MaterialGraphNode } from '@unilab-fe/core'
+import { projectMaterialInspection, type MaterialGraphNode } from '@unilab-fe/core'
 import { MaterialInspector as LabMaterialInspector } from '@unilab/lab-ui'
 import { AppIcon } from '../../components/ui/Icon'
 import { PageHeader } from '../../components/ui/PageHeader'
@@ -31,6 +30,16 @@ export function MaterialManagement({
     [allNodes, normalizedKeyword],
   )
   const node = nodes.find((item) => item.material.materialUuid === selected) ?? nodes[0]
+  const inspection = useMemo(
+    () =>
+      graph && node
+        ? projectMaterialInspection(graph, {
+            kind: 'node',
+            materialUuid: node.material.materialUuid,
+          })
+        : undefined,
+    [graph, node],
+  )
   const treeData = useMemo(() => buildTree(nodes), [nodes])
   const [expandedKeys, setExpandedKeys] = useState<string[]>([])
   useEffect(() => {
@@ -94,11 +103,8 @@ export function MaterialManagement({
             onSelect={(keys) => setSelected(keys[0] as string)}
           />
         </section>
-        {node ? (
-          <LabMaterialInspector
-            node={{ ...node, sites: collectNodeSites(node, allNodes) }}
-            onSelectOccupiedMaterial={setSelected}
-          />
+        {inspection ? (
+          <LabMaterialInspector projection={inspection} onSelectOccupiedMaterial={setSelected} />
         ) : (
           <Empty description="没有匹配的物料" />
         )}
