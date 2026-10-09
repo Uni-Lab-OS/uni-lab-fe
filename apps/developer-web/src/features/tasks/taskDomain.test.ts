@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { TaskJobSummary } from '@unilab-fe/core'
-import { jobLabel, taskNodeNames, toTaskListRow, toTimelineItems } from './taskDomain'
+import {
+  filterTaskListRows,
+  jobLabel,
+  taskNodeNames,
+  toTaskListRow,
+  toTimelineItems,
+  type TaskListRow,
+} from './taskDomain'
 
 describe('task domain presentation', () => {
   it('uses the progress fact projected by Core', () => {
@@ -66,6 +73,24 @@ describe('task domain presentation', () => {
     expect(row.name).toBe('测试任务')
     expect(row.progress).toBe(50)
     expect(row.status).toBe('running')
+  })
+
+  it('filters task rows by searchable identity and normalized status', () => {
+    const makeRow = (name: string, status: string) =>
+      ({
+        name,
+        workflowName: 'S06 workflow',
+        status,
+        progress: null,
+        completedJobs: 0,
+        totalJobs: 0,
+        task: { taskUuid: `${name}-uuid` },
+      }) as TaskListRow
+    const rows = [makeRow('搬运任务', 'running'), makeRow('检测任务', 'completed')]
+
+    expect(filterTaskListRows(rows, '  UUID  ', 'all')).toEqual([rows[0], rows[1]])
+    expect(filterTaskListRows(rows, '检测', 'completed')).toEqual([rows[1]])
+    expect(filterTaskListRows(rows, '', 'waiting')).toEqual([])
   })
 
   it('preserves parallel jobs with missing timestamps as unknown timing', () => {

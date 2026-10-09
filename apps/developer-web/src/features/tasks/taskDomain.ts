@@ -20,6 +20,21 @@ export interface TaskListRow {
   readonly totalJobs: number
 }
 
+export function filterTaskListRows(
+  rows: readonly TaskListRow[],
+  keyword: string,
+  status: string,
+): TaskListRow[] {
+  const normalizedKeyword = keyword.trim().toLowerCase()
+  return rows.filter((row) => {
+    const text = `${row.name} ${row.workflowName} ${row.task.taskUuid}`.toLowerCase()
+    return (
+      (!normalizedKeyword || text.includes(normalizedKeyword)) &&
+      (status === 'all' || row.status === status)
+    )
+  })
+}
+
 export function toTaskListRow(task: TaskRuntimePresentation): TaskListRow {
   const totalJobs = task.progress?.total ?? task.jobs.length
   const completedJobs = task.progress?.completed ?? 0

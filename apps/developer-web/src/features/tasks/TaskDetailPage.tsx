@@ -5,13 +5,6 @@ import { TaskDetailSummary } from './TaskDetailSummary'
 import { TaskDetailTimelinePanel } from './TaskDetailTimelinePanel'
 import { TaskDetailInspectorDrawer } from './TaskDetailInspectorDrawer'
 import { DebugIcon } from './TaskDetailIcons'
-import {
-  EvidenceTab,
-  IssuesTab,
-  LocksTab,
-  ObservabilityTab,
-  ResourcesTab,
-} from './TaskDetailInspector'
 import { ParallelDrawer } from './TaskParallelDrawer'
 import { useTaskDetailController } from './useTaskDetailController'
 import { type EventStatus, markerGlyph, tabLabels } from './taskDetailModel'
