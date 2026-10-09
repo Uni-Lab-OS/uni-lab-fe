@@ -11,14 +11,8 @@
   min-width: 0;
 }
 
-.device-action-field-slot,
 .device-action-readonly-field {
   min-width: 0;
-}
-
-.device-action-input-fields .device-action-field-slot {
-  align-content: start;
-  gap: 8px;
 }
 
 .device-action-form-grid :global(.ant-input),
@@ -107,11 +101,6 @@
   color: var(--bh-color-text-placeholder);
   cursor: help;
   line-height: 1;
-}
-
-.device-action-input-empty {
-  padding: 10px 0 16px;
-  color: var(--bh-color-text-placeholder);
 }
 
 @media (max-width: 900px) {

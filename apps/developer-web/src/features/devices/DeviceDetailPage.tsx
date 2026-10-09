@@ -5,12 +5,14 @@ import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
 import { Alert, Button, Space, Tooltip } from 'antd'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { deviceOccupancyStatus } from '@unilab-fe/core'
+import {
+  deviceActionParameters,
+  deviceActionParametersFromSchema,
+  deviceOccupancyStatus,
+} from '@unilab-fe/core'
 import type { DeviceActionState, DeviceSummary } from '@unilab-fe/core'
-import { DeviceActionList } from '@unilab/lab-ui'
+import { DeviceActionList, StatusBadge } from '@unilab/lab-ui'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
-import { StatusBadge } from '../../components/ui/StatusBadge'
-import { deviceActionParameters, deviceActionParametersFromSchema } from './DeviceActionInputFields'
 import { DeviceDetailHeader } from './DeviceDetailHeader'
 import { DeviceActionDefinitionPanel } from './DeviceActionDefinitionPanel'
 
@@ -113,7 +115,9 @@ export function DeviceDetail({
               </Tooltip>
             </div>
             <Space size={8}>
-              {selectedAction?.isBusy && <StatusBadge status="running" />}
+              {selectedAction?.isBusy && (
+                <StatusBadge status="running" className={clsx(sharedStyles['status-badge'])} />
+              )}
               <Button
                 className={clsx(deviceDetailPageStyles['detail-main__debug-button'])}
                 type={debugEditing ? 'default' : 'primary'}

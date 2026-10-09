@@ -1,13 +1,11 @@
 /* Styles owned by the material lab-ui components. */
 
-.lab-ui-material-list,
 .lab-ui-site-picker {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.lab-ui-material-list__item,
 .lab-ui-site-picker__item {
   align-items: center;
   background: transparent;
@@ -22,27 +20,21 @@
   width: 100%;
 }
 
-.lab-ui-material-list li + li,
 .lab-ui-site-picker__item + .lab-ui-site-picker__item {
   margin-top: 8px;
 }
 
-.lab-ui-material-list__item:hover,
-.lab-ui-material-list__item.is-selected,
 .lab-ui-site-picker__item:hover,
 .lab-ui-site-picker__item.is-selected {
   background: var(--unilab-surface-selected, #f9f5ff);
   border-color: var(--unilab-border-accent, #7f56d9);
 }
 
-.lab-ui-material-list__primary,
 .lab-ui-site-picker__item > span:first-child {
   display: grid;
   gap: 3px;
 }
 
-.lab-ui-material-list__primary span,
-.lab-ui-material-list__meta,
 .lab-ui-site-picker small {
   color: var(--unilab-text-secondary, #667085);
   font-size: 12px;

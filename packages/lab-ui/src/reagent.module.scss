@@ -1,70 +1,8 @@
 /* Styles owned by the reagent lab-ui components. */
 
-.lab-ui-reagent-status {
-  border-radius: 4px;
-  font-size: 12px;
-  padding: 2px 6px;
-}
-
-.lab-ui-reagent-status--available {
-  background: #f6ffed;
-  color: #389e0d;
-}
-
-.lab-ui-reagent-status--empty {
-  background: #f5f5f5;
-  color: #8c8c8c;
-}
-
-.lab-ui-reagent-status--warning {
-  background: #fff7e6;
-  color: #d46b08;
-}
-
-.lab-ui-reagent-status--inline {
-  display: inline-block;
-  margin-top: 4px;
-  width: max-content;
-}
-
-.lab-ui-reagent-catalog-detail {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-}
-
-.lab-ui-reagent-catalog-detail > div {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 72px 1fr;
-}
-
-.lab-ui-reagent-catalog-detail dt {
-  color: var(--studio-form-label-color, var(--unilab-text-secondary, #667085));
-  font-family: var(--studio-form-label-font-family, var(--bh-font-family-sans));
-  font-size: var(--studio-form-label-size, 14px);
-  font-weight: var(--studio-form-label-weight, 500);
-  line-height: var(--studio-form-label-line-height, 20px);
-}
-
-.lab-ui-reagent-catalog-detail dd {
-  margin: 0;
-}
-
-.lab-ui-reagent-history__empty {
-  color: var(--unilab-text-secondary, #667085);
-}
-
-.lab-ui-reagent-history {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
 /* Local equivalents for patterns that were previously borrowed from developer-web. */
 .primary-cell,
-.amount-cell,
-.history-list {
+.amount-cell {
   box-sizing: border-box;
 }
 
@@ -106,24 +44,4 @@
   margin-left: 8px;
   border: 0;
   font-size: 10px;
-}
-
-.history-list {
-  margin-top: 12px;
-}
-
-.history-list strong,
-.history-list span {
-  display: block;
-}
-
-.history-list span {
-  margin-top: 4px;
-  color: var(--studio-text-muted, var(--bh-color-text-description));
-  font-size: 12px;
-}
-
-.history-list small {
-  color: var(--studio-text-faint, var(--bh-color-text-placeholder));
-  font-size: 11px;
 }

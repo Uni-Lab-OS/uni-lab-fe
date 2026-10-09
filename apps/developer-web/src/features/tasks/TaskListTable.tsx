@@ -3,7 +3,7 @@ import { Button, Modal, Space, Table, Tooltip, message } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
 import { useState } from 'react'
-import { TaskProgress, TaskStatusBadge } from '@unilab/lab-ui'
+import { StatusBadge, TaskProgress } from '@unilab/lab-ui'
 import { useBackend } from '../../app/BackendProvider'
 import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
@@ -48,7 +48,7 @@ export function TaskListTable({
       title: '状态',
       dataIndex: 'status',
       width: 125,
-      render: (value) => <TaskStatusBadge status={value} />,
+      render: (value) => <StatusBadge status={value} />,
     },
     {
       title: '进度',

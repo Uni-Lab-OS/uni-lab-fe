@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { TaskStatusBadge } from '@unilab/lab-ui'
+import { StatusBadge } from '@unilab/lab-ui'
 import type { WorkflowDebugFacts } from '@unilab-fe/core'
 import { DebugIcon } from './TaskDetailIcons'
 import type { TimelineEvent } from './taskDetailModel'
@@ -69,11 +69,7 @@ export function TaskDetailSummary({
             <span className={clsx(styles['debug-summary-metric'])}>
               <span className={clsx(styles['debug-summary-label'])}>状态</span>
               <span className={clsx(styles['debug-current-status'])}>
-                {currentTimelineEvent ? (
-                  <TaskStatusBadge status={currentTimelineEvent.status} />
-                ) : (
-                  '—'
-                )}
+                {currentTimelineEvent ? <StatusBadge status={currentTimelineEvent.status} /> : '—'}
               </span>
             </span>
             <span className={clsx(styles['debug-summary-meta'])}>{statusTooltip}</span>

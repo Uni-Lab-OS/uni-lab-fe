@@ -1,10 +1,10 @@
 import { clsx } from 'clsx'
 import deviceActionDefinitionStyles from './DeviceActionDefinition.module.scss'
 import { Alert, Segmented, Spin, Typography } from 'antd'
+import { deviceActionParameters } from '@unilab-fe/core'
 import type { ActionDefinition, DeviceActionState, DeviceSummary } from '@unilab-fe/core'
 import { ActionDefinitionMeta, ActionSchemaView } from './DeviceActionDefinition'
 import { DeviceActionEditor, isRecord } from './DeviceActionEditor'
-import { deviceActionParameters } from './DeviceActionInputFields'
 
 export function DeviceActionDefinitionPanel({
   device,

@@ -3,12 +3,12 @@ import { Button, Modal, Space, Table, Tag, Tooltip, message } from 'antd'
 import type { TableColumnsType } from 'antd'
 import type { PublishedWorkflowRevisionSummary } from '@unilab-fe/core'
 import { EmptyState } from '@unilab/design-v2'
+import { StatusBadge } from '@unilab/lab-ui'
 import { useState } from 'react'
 import { useBackend } from '../../app/BackendProvider'
 import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
 import { AppIcon } from '../../components/ui/Icon'
-import { StatusBadge } from '../../components/ui/StatusBadge'
 import { TableText } from '../../components/ui/TableText'
 import workflowListStyles from './WorkflowList.module.scss'
 import { workflowStatusLabel } from './workflowPresentation'
@@ -75,7 +75,11 @@ export function WorkflowCatalogTable({
             未发布
           </Tag>
         ) : (
-          <StatusBadge status={value} label={workflowStatusLabel(value)} />
+          <StatusBadge
+            status={value}
+            label={workflowStatusLabel(value)}
+            className={clsx(sharedStyles['status-badge'])}
+          />
         ),
     },
     {

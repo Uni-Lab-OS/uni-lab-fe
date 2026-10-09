@@ -1,7 +1,7 @@
 import { clsx } from 'clsx'
 import taskDetailInspectorStyles from './TaskDetailInspector.module.scss'
 import taskDetailStyles from './taskDetail.module.scss'
-import { TaskStatusBadge } from '@unilab/lab-ui'
+import { StatusBadge } from '@unilab/lab-ui'
 import { DebugIcon } from './TaskDetailIcons'
 import {
   EvidenceTab,
@@ -40,7 +40,7 @@ export function TaskDetailInspectorDrawer({ controller }: { controller: Controll
           </button>
         </div>
         <div className={clsx(taskDetailInspectorStyles['debug-inspector-state'])}>
-          <TaskStatusBadge status={selectedEvent.status} />
+          <StatusBadge status={selectedEvent.status} />
           <span>{selectedEvent.device ?? 'OS NodeJob'}</span>
           <span>{selectedEvent.time}</span>
         </div>

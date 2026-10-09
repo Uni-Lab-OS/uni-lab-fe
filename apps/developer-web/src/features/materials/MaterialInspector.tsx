@@ -6,9 +6,8 @@ import { Button, Tooltip, Typography } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
 import type { MaterialGraphNode, MaterialInspectionProjection, SiteSummary } from '@unilab-fe/core'
 import type { IconColor, IconName } from '@unilab/design-v2/icons'
-import { SitePicker } from '@unilab/lab-ui'
+import { SitePicker, StatusBadge } from '@unilab/lab-ui'
 import { AppIcon } from '../../components/ui/Icon'
-import { StatusBadge } from '../../components/ui/StatusBadge'
 import { type MaterialSelection } from './MaterialFlowCanvas'
 import { resolveMaterialSiteAction } from './materialSiteActions'
 
@@ -140,6 +139,7 @@ function SiteInspector({
         <StatusBadge
           status={status}
           label={site.occupancy.known ? (occupied ? '已占用' : '空闲') : '占用未知'}
+          className={clsx(sharedStyles['status-badge'])}
         />
       </div>
       <dl className={clsx(materialInspectorStyles['definition-list'])}>
@@ -225,6 +225,7 @@ function MaterialDetailInspector({
       <div className={clsx(materialInspectorStyles['material-inspector__status'])}>
         <StatusBadge
           status={status}
+          className={clsx(sharedStyles['status-badge'])}
           label={
             !site
               ? '未绑定库位'

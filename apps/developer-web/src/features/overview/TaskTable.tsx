@@ -5,8 +5,8 @@ import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Input, Select, Space, Table, Tooltip } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
+import { StatusBadge } from '@unilab/lab-ui'
 import { AppIcon } from '../../components/ui/Icon'
-import { StatusBadge } from '../../components/ui/StatusBadge'
 import { formatDateTime, type TaskRow } from './taskPresentation'
 import { TableText } from '../../components/ui/TableText'
 
@@ -72,7 +72,7 @@ export function TaskTable({
       render: (_, row) => (
         <div className={clsx(sharedStyles['progress-cell'])}>
           <span>{row.progress == null ? '—' : `${row.progress}%`}</span>
-          <StatusBadge status={row.status} />
+          <StatusBadge status={row.status} className={clsx(sharedStyles['status-badge'])} />
         </div>
       ),
     },

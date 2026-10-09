@@ -1,18 +1,18 @@
 import { clsx } from 'clsx'
 import deviceActionEditorStyles from './DeviceActionEditor.module.scss'
 import { Alert, Button, Form, Input, Tooltip } from 'antd'
-import { useEffect, useState } from 'react'
-import { deviceDispatchStatus, createDeviceActionDebuggingViewModel } from '@unilab-fe/core'
+import { type ReactNode, useEffect, useState } from 'react'
+import {
+  createDeviceActionDebuggingViewModel,
+  deviceActionDefaults,
+  deviceActionParameters,
+  deviceDispatchStatus,
+  normalizeDeviceActionParameters,
+} from '@unilab-fe/core'
 import type { DeviceActionState, DeviceSummary } from '@unilab-fe/core'
 import { DeviceActionParameterFields } from '@unilab/lab-ui'
 import { useBackend } from '../../app/BackendProvider'
 import { AppIcon } from '../../components/ui/Icon'
-import {
-  deviceActionDefaults,
-  deviceActionParameters,
-  normalizeDeviceActionParameters,
-  ReadOnlyFieldTooltip,
-} from './DeviceActionInputFields'
 
 function DeviceMaterialLabel() {
   return (
@@ -27,6 +27,12 @@ function DeviceMaterialLabel() {
         </span>
       </Tooltip>
     </span>
+  )
+}
+
+function ReadOnlyFieldTooltip({ children }: { readonly children: ReactNode }) {
+  return (
+    <div className={clsx(deviceActionEditorStyles['device-action-readonly-field'])}>{children}</div>
   )
 }
 

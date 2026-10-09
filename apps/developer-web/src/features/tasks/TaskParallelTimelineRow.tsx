@@ -1,5 +1,5 @@
 import { Icon } from '@unilab/design-v2/icons'
-import { TaskStatusBadge } from '@unilab/lab-ui'
+import { StatusBadge } from '@unilab/lab-ui'
 import type { WorkflowReadyFrontierCandidate } from '@unilab-fe/core'
 
 import styles from './TaskExecutionTimeline.module.scss'
@@ -31,7 +31,7 @@ export function TaskParallelTimelineRow({
       <span className={styles.content}>
         <span className={styles.head}>
           <span className={styles.title}>OS 返回的并行候选</span>
-          <TaskStatusBadge status="manual" label="待选择" />
+          <StatusBadge status="manual" label="待选择" />
         </span>
         <span className={styles.meta}>
           <span>{selectableCount} 个可选择节点</span>

@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { message } from 'antd'
-import { RunPreparationError } from '@unilab-fe/core'
+import { normalizeWorkflowInput, RunPreparationError, workflowInputDefaults } from '@unilab-fe/core'
 import { createRunPreparationReactStore } from '@unilab-fe/core/react'
 import { useBackend } from '../../app/BackendProvider'
 import { nodeLabel, nodeUuid } from './workflowPresentation'
-import { normalizeWorkflowInput, workflowInputDefaults } from './WorkflowInputFields'
 
 export function useWorkflowDebugController(workflowUuid: string) {
   const { backend } = useBackend()
