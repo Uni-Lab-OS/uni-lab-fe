@@ -1,4 +1,6 @@
-import { cx } from './materialClassNames'
+import { clsx } from 'clsx'
+import materialFlowCanvasStyles from './MaterialFlowCanvas.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { useMemo } from 'react'
 import ReactFlow, { Background, Controls, type Node } from 'reactflow'
 import 'reactflow/dist/style.css'
@@ -46,31 +48,59 @@ export function MaterialFlowCanvas({
   )
 
   return (
-    <section className={cx('material-flow-canvas')} aria-label="设备与库位关系图">
-      <div className={cx('material-flow-canvas__legend')}>
+    <section
+      className={clsx(materialFlowCanvasStyles['material-flow-canvas'])}
+      aria-label="设备与库位关系图"
+    >
+      <div className={clsx(materialFlowCanvasStyles['material-flow-canvas__legend'])}>
         <span>
-          <i className={cx('material-flow-dot material-flow-dot--device')} />
+          <i
+            className={clsx(
+              materialFlowCanvasStyles['material-flow-dot'],
+              materialFlowCanvasStyles['material-flow-dot--device'],
+            )}
+          />
           设备 / 台面分组
         </span>
         <span>
-          <i className={cx('material-flow-dot material-flow-dot--occupied')} />
+          <i
+            className={clsx(
+              materialFlowCanvasStyles['material-flow-dot'],
+              materialFlowCanvasStyles['material-flow-dot--occupied'],
+            )}
+          />
           已占用库位
         </span>
         <span>
-          <i className={cx('material-flow-dot material-flow-dot--empty')} />
+          <i
+            className={clsx(
+              materialFlowCanvasStyles['material-flow-dot'],
+              materialFlowCanvasStyles['material-flow-dot--empty'],
+            )}
+          />
           空库位
         </span>
         {hasSearch && (
           <span>
-            <i className={cx('material-flow-dot material-flow-dot--match')} />
+            <i
+              className={clsx(
+                materialFlowCanvasStyles['material-flow-dot'],
+                materialFlowCanvasStyles['material-flow-dot--match'],
+              )}
+            />
             搜索匹配
           </span>
         )}
-        <span className={cx('material-flow-canvas__hint')}>
+        <span className={clsx(materialFlowCanvasStyles['material-flow-canvas__hint'])}>
           拖动画布、滚轮缩放，点击节点、库位或物料查看详情
         </span>
       </div>
-      <div className={cx('material-flow-canvas__surface')}>
+      <div
+        className={clsx(
+          materialFlowCanvasStyles['material-flow-canvas__surface'],
+          sharedStyles['material-flow-canvas__surface'],
+        )}
+      >
         <ReactFlow
           nodes={projected}
           edges={[]}

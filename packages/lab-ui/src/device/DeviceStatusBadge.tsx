@@ -1,7 +1,9 @@
+import { clsx } from 'clsx'
+import deviceStyles from '../device.module.scss'
+import reagentStyles from '../reagent.module.scss'
 import { deviceDispatchStatus } from '@unilab-fe/core'
 import type { DeviceSummary } from '@unilab-fe/core'
 
-import { cx } from '../classNames'
 export interface DeviceStatusBadgeProps {
   readonly device?: Pick<DeviceSummary, 'online' | 'dispatchable' | 'dispatchBlockReason'>
   readonly status?: 'offline' | 'blocked' | 'available' | 'unknown'
@@ -15,8 +17,14 @@ export function DeviceStatusBadge({ device, status, label }: DeviceStatusBadgePr
     resolvedStatus === 'blocked' || resolvedStatus === 'unknown' ? 'attention' : resolvedStatus
   const resolvedLabel = label ?? defaultLabel(resolvedStatus, device?.dispatchBlockReason)
   return (
-    <span className={cx('device-status', `device-status--${tone}`)}>
-      <span className={cx('device-status__dot')} aria-hidden="true" />
+    <span
+      className={clsx(
+        deviceStyles['device-status'],
+        reagentStyles['device-status'],
+        deviceStyles[`device-status--${tone}`],
+      )}
+    >
+      <span className={clsx(deviceStyles['device-status__dot'])} aria-hidden="true" />
       {resolvedLabel}
     </span>
   )

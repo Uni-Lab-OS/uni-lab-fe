@@ -1,4 +1,8 @@
-import { cx } from './overviewClassNames'
+import { clsx } from 'clsx'
+import overviewPageStyles from './OverviewPage.module.scss'
+import overviewSkeletonStyles from './OverviewSkeleton.module.scss'
+import appShellStyles from '../../styles/app-shell.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Progress } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
 import { AppIcon } from '../../components/ui/Icon'
@@ -7,48 +11,71 @@ import { taskSecondaryText } from './taskPresentation'
 
 export function OverviewSkeleton() {
   return (
-    <div className={cx('overview-skeleton')} role="status" aria-label="正在加载总览">
-      <div className={cx('overview-skeleton-summary')}>
+    <div
+      className={clsx(overviewSkeletonStyles['overview-skeleton'])}
+      role="status"
+      aria-label="正在加载总览"
+    >
+      <div className={clsx(overviewSkeletonStyles['overview-skeleton-summary'])}>
         {Array.from({ length: 4 }, (_, index) => (
-          <div className={cx('overview-skeleton-metric')} key={index}>
-            <span className={cx('overview-skeleton-icon')} />
-            <span className={cx('overview-skeleton-metric-copy')}>
-              <span className={cx('overview-skeleton-label')} />
-              <span className={cx('overview-skeleton-value')} />
+          <div className={clsx(overviewSkeletonStyles['overview-skeleton-metric'])} key={index}>
+            <span className={clsx(overviewSkeletonStyles['overview-skeleton-icon'])} />
+            <span className={clsx(overviewSkeletonStyles['overview-skeleton-metric-copy'])}>
+              <span className={clsx(overviewSkeletonStyles['overview-skeleton-label'])} />
+              <span className={clsx(overviewSkeletonStyles['overview-skeleton-value'])} />
             </span>
           </div>
         ))}
       </div>
-      <div className={cx('overview-skeleton-columns')}>
+      <div className={clsx(overviewSkeletonStyles['overview-skeleton-columns'])}>
         {Array.from({ length: 2 }, (_, columnIndex) => (
-          <section className={cx('overview-skeleton-column')} key={columnIndex}>
-            <span className={cx('overview-skeleton-heading')} />
-            <div className={cx('overview-skeleton-task-list')}>
+          <section
+            className={clsx(overviewSkeletonStyles['overview-skeleton-column'])}
+            key={columnIndex}
+          >
+            <span className={clsx(overviewSkeletonStyles['overview-skeleton-heading'])} />
+            <div className={clsx(overviewSkeletonStyles['overview-skeleton-task-list'])}>
               {Array.from({ length: 4 }, (_, rowIndex) => (
-                <div className={cx('overview-skeleton-task-row')} key={rowIndex}>
-                  <span className={cx('overview-skeleton-task-copy')} />
-                  <span className={cx('overview-skeleton-task-progress')} />
+                <div
+                  className={clsx(overviewSkeletonStyles['overview-skeleton-task-row'])}
+                  key={rowIndex}
+                >
+                  <span className={clsx(overviewSkeletonStyles['overview-skeleton-task-copy'])} />
+                  <span
+                    className={clsx(overviewSkeletonStyles['overview-skeleton-task-progress'])}
+                  />
                 </div>
               ))}
             </div>
           </section>
         ))}
       </div>
-      <section className={cx('overview-skeleton-table')}>
-        <div className={cx('overview-skeleton-table-toolbar')}>
-          <span className={cx('overview-skeleton-table-title')} />
-          <span className={cx('overview-skeleton-filter', 'overview-skeleton-filter--wide')} />
-          <span className={cx('overview-skeleton-filter')} />
+      <section className={clsx(overviewSkeletonStyles['overview-skeleton-table'])}>
+        <div className={clsx(overviewSkeletonStyles['overview-skeleton-table-toolbar'])}>
+          <span className={clsx(overviewSkeletonStyles['overview-skeleton-table-title'])} />
+          <span
+            className={clsx(
+              overviewSkeletonStyles['overview-skeleton-filter'],
+              overviewSkeletonStyles['overview-skeleton-filter--wide'],
+            )}
+          />
+          <span className={clsx(overviewSkeletonStyles['overview-skeleton-filter'])} />
         </div>
-        <div className={cx('overview-skeleton-table-head')}>
+        <div className={clsx(overviewSkeletonStyles['overview-skeleton-table-head'])}>
           {Array.from({ length: 6 }, (_, index) => (
             <span key={index} />
           ))}
         </div>
         {Array.from({ length: 5 }, (_, rowIndex) => (
-          <div className={cx('overview-skeleton-table-row')} key={rowIndex}>
+          <div
+            className={clsx(overviewSkeletonStyles['overview-skeleton-table-row'])}
+            key={rowIndex}
+          >
             {Array.from({ length: 6 }, (_, cellIndex) => (
-              <span className={cx(cellIndex === 0 ? 'is-primary' : '')} key={cellIndex} />
+              <span
+                className={clsx(cellIndex === 0 ? overviewSkeletonStyles['is-primary'] : '')}
+                key={cellIndex}
+              />
             ))}
           </div>
         ))}
@@ -80,9 +107,16 @@ export function SummaryStrip({ rows }: { rows: readonly TaskRow[] }) {
     },
   ] as const
   return (
-    <div className={cx('summary-strip')}>
+    <div className={clsx(overviewPageStyles['summary-strip'])}>
       {values.map((item) => (
-        <div className={cx(`summary-metric summary-metric--${item.tone}`)} key={item.label}>
+        <div
+          className={clsx(
+            overviewPageStyles['summary-metric'],
+            appShellStyles['summary-metric'],
+            overviewPageStyles[`summary-metric--${item.tone}`],
+          )}
+          key={item.label}
+        >
           <AppIcon
             name={item.icon}
             size={20}
@@ -113,43 +147,72 @@ export function TaskColumn({
   empty: string
 }) {
   return (
-    <section className={cx(`task-column ${attention ? 'task-column--attention' : ''}`)}>
-      <div className={cx('section-title')}>
+    <section
+      className={clsx(
+        overviewPageStyles['task-column'],
+        appShellStyles['task-column'],
+        sharedStyles['task-column'],
+        attention
+          ? clsx(
+              overviewPageStyles['task-column--attention'],
+              appShellStyles['task-column--attention'],
+              sharedStyles['task-column--attention'],
+            )
+          : '',
+      )}
+    >
+      <div className={clsx(sharedStyles['section-title'])}>
         <div>
           <h2>{title}</h2>
         </div>
       </div>
       {rows.length === 0 ? (
         <EmptyState
-          className={cx('task-column-empty')}
+          className={clsx(overviewPageStyles['task-column-empty'])}
           scene={attention ? 'no-data' : 'no-task'}
           size="compact"
           title={empty}
         />
       ) : (
-        <div className={cx('task-column-list')}>
+        <div
+          className={clsx(
+            overviewPageStyles['task-column-list'],
+            appShellStyles['task-column-list'],
+            sharedStyles['task-column-list'],
+          )}
+        >
           {rows.map((row) => {
             const secondaryText = taskSecondaryText(row)
             return (
               <button
                 type="button"
-                className={cx('task-row')}
+                className={clsx(overviewPageStyles['task-row'], sharedStyles['task-row'])}
                 key={row.task.taskUuid}
                 onClick={() => onView(row)}
               >
-                <div className={cx('task-row-copy')}>
+                <div className={clsx(sharedStyles['task-row-copy'])}>
                   <strong>{row.name}</strong>
                   {secondaryText ? <span>{secondaryText}</span> : null}
                 </div>
-                <div className={cx('task-row-progress')}>
+                <div
+                  className={clsx(
+                    overviewPageStyles['task-row-progress'],
+                    sharedStyles['task-row-progress'],
+                  )}
+                >
                   {row.progress == null ? (
-                    <div className={cx('task-row-progress-line task-row-progress-line--empty')}>
-                      <span className={cx('muted-cell')}>无进度</span>
+                    <div
+                      className={clsx(
+                        overviewPageStyles['task-row-progress-line'],
+                        overviewPageStyles['task-row-progress-line--empty'],
+                      )}
+                    >
+                      <span className={clsx(sharedStyles['muted-cell'])}>无进度</span>
                       <TaskStatusText status={row.status} />
                     </div>
                   ) : (
                     <>
-                      <div className={cx('task-row-progress-line')}>
+                      <div className={clsx(overviewPageStyles['task-row-progress-line'])}>
                         <Progress
                           percent={row.progress}
                           showInfo={false}
@@ -187,7 +250,12 @@ function TaskStatusText({ status }: { status: string }) {
   }
   const tone = normalized === 'attention' || normalized === 'failed' ? 'error' : normalized
   return (
-    <span className={cx(`task-row-status task-row-status--${tone}`)}>
+    <span
+      className={clsx(
+        overviewPageStyles['task-row-status'],
+        overviewPageStyles[`task-row-status--${tone}`],
+      )}
+    >
       {labels[normalized] ?? status}
     </span>
   )

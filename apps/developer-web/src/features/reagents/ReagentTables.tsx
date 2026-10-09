@@ -1,3 +1,6 @@
+import { clsx } from 'clsx'
+import appShellStyles from '../../styles/app-shell.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Space, Table, Tag, Tooltip } from 'antd'
 import type { TableColumnsType } from 'antd'
 import type { Reagent, ReagentInfo } from '@unilab-fe/core'
@@ -5,7 +8,6 @@ import { ReagentCatalogSummary, ReagentQuantitySummary } from '@unilab/lab-ui'
 import { EmptyState } from '@unilab/design-v2'
 import { AppIcon } from '../../components/ui/Icon'
 import { TableText } from '../../components/ui/TableText'
-import { cx } from '../../styles/styleMaps'
 import { formatCapacity } from './reagentCapacity'
 import { physicalStateLabel } from './ReagentModal'
 import styles from './ReagentPage.module.scss'
@@ -58,7 +60,7 @@ export function InventoryTable({
       key: 'name',
       width: 260,
       render: (_, item) => (
-        <div className={cx('primary-cell')}>
+        <div className={clsx(appShellStyles['primary-cell'], sharedStyles['primary-cell'])}>
           <TableText text={item.name} />
           <span>
             {item.containerName ?? '容器未提供'}
@@ -72,7 +74,13 @@ export function InventoryTable({
       key: 'identity',
       width: 140,
       render: (_, item) => (
-        <div className={cx('primary-cell reagent-identifier-text')}>
+        <div
+          className={clsx(
+            appShellStyles['primary-cell'],
+            sharedStyles['primary-cell'],
+            'reagent-identifier-text',
+          )}
+        >
           <span>{item.cas ?? '无 CAS'}</span>
           <span>{item.molecularFormula ?? '分子式未提供'}</span>
         </div>
@@ -89,7 +97,7 @@ export function InventoryTable({
       key: 'property',
       width: 185,
       render: (_, item) => (
-        <div className={cx('primary-cell')}>
+        <div className={clsx(appShellStyles['primary-cell'], sharedStyles['primary-cell'])}>
           <span>
             {physicalStateLabel(item.physicalState)}
             {item.concentrationValue != null
@@ -118,7 +126,9 @@ export function InventoryTable({
             </>
           }
         >
-          <span className={cx('muted-cell')}>{formatCapacity(item.maximumCapacity)}</span>
+          <span className={clsx(sharedStyles['muted-cell'])}>
+            {formatCapacity(item.maximumCapacity)}
+          </span>
         </Tooltip>
       ),
     },
@@ -127,7 +137,7 @@ export function InventoryTable({
       key: 'updatedAt',
       width: 165,
       render: (_, item) => (
-        <div className={cx('primary-cell')}>
+        <div className={clsx(appShellStyles['primary-cell'], sharedStyles['primary-cell'])}>
           <span>{item.updatedAt ?? '未提供'}</span>
           <span>
             版本 {item.revision ?? '未提供'} · 物料 {item.materialRevision ?? '未提供'}
@@ -144,7 +154,7 @@ export function InventoryTable({
         <Space size={2}>
           <Tooltip title={canReadHistory ? '查看历史' : '当前端点不支持库存历史'}>
             <Button
-              className={cx('icon-button')}
+              className={clsx(sharedStyles['icon-button'])}
               type="text"
               icon={<AppIcon name="time/clock-refresh" size={18} />}
               onClick={() => onHistory(item)}
@@ -153,7 +163,7 @@ export function InventoryTable({
           </Tooltip>
           <Tooltip title={canDispense ? '分装到其他容器' : '当前端点不支持分装'}>
             <Button
-              className={cx('icon-button')}
+              className={clsx(sharedStyles['icon-button'])}
               type="text"
               disabled={!canDispense}
               icon={
@@ -168,7 +178,7 @@ export function InventoryTable({
           </Tooltip>
           <Tooltip title={canMutate ? '编辑库存' : '当前端点不支持此项写入'}>
             <Button
-              className={cx('icon-button')}
+              className={clsx(sharedStyles['icon-button'])}
               type="text"
               disabled={!canMutate}
               icon={
@@ -183,7 +193,7 @@ export function InventoryTable({
           </Tooltip>
           <Tooltip title={canDelete ? '删除库存' : '当前端点不支持删除'}>
             <Button
-              className={cx('icon-button')}
+              className={clsx(sharedStyles['icon-button'])}
               type="text"
               danger
               disabled={!canDelete}
@@ -244,7 +254,7 @@ export function CatalogTable({
       dataIndex: 'cas',
       width: 175,
       render: (value: string | null) => (
-        <span className={cx('reagent-identifier-text')}>{value ?? '未提供'}</span>
+        <span className={clsx('reagent-identifier-text')}>{value ?? '未提供'}</span>
       ),
     },
     {
@@ -258,7 +268,7 @@ export function CatalogTable({
       dataIndex: 'molecularFormula',
       width: 120,
       render: (value: string | null) => (
-        <span className={cx('reagent-identifier-text')}>{value ?? '未提供'}</span>
+        <span className={clsx('reagent-identifier-text')}>{value ?? '未提供'}</span>
       ),
     },
     {
@@ -266,7 +276,7 @@ export function CatalogTable({
       dataIndex: 'smiles',
       width: 180,
       render: (value: string | null) =>
-        value ? <TableText className={cx('reagent-identifier-text')} text={value} /> : '未提供',
+        value ? <TableText className={clsx('reagent-identifier-text')} text={value} /> : '未提供',
     },
     {
       title: '分子量',
@@ -283,7 +293,7 @@ export function CatalogTable({
         <Space size={2}>
           <Tooltip title="查看详情">
             <Button
-              className={cx('icon-button')}
+              className={clsx(sharedStyles['icon-button'])}
               type="text"
               icon={<AppIcon name="general/eye" size={18} />}
               onClick={() => onDetail(item)}
@@ -291,7 +301,7 @@ export function CatalogTable({
           </Tooltip>
           <Tooltip title={canMutate ? '录入库存' : '当前端点不支持此项写入'}>
             <Button
-              className={cx('icon-button')}
+              className={clsx(sharedStyles['icon-button'])}
               type="text"
               disabled={!canMutate}
               icon={
@@ -302,7 +312,7 @@ export function CatalogTable({
           </Tooltip>
           <Tooltip title={canEdit ? '编辑目录' : '当前端点不支持目录修改'}>
             <Button
-              className={cx('icon-button')}
+              className={clsx(sharedStyles['icon-button'])}
               type="text"
               disabled={!canEdit}
               icon={
@@ -313,7 +323,7 @@ export function CatalogTable({
           </Tooltip>
           <Tooltip title={canDelete ? '删除目录' : '当前端点不支持目录删除'}>
             <Button
-              className={cx('icon-button')}
+              className={clsx(sharedStyles['icon-button'])}
               type="text"
               danger
               disabled={!canDelete}

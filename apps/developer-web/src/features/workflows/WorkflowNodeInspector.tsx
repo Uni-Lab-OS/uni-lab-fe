@@ -1,6 +1,7 @@
+import { clsx } from 'clsx'
+import workflowDetailStyles from './WorkflowDetail.module.scss'
 import { Descriptions, Empty, Tabs } from 'antd'
 import type { PublishedWorkflowRevision } from '@unilab-fe/core'
-import { cx } from './workflowClassNames'
 import {
   readString,
   resolveWorkflowResourceName,
@@ -26,7 +27,11 @@ export function NodeInspector({
           key: 'base',
           label: '基础信息',
           children: (
-            <Descriptions className={cx('workflow-node-descriptions')} column={1} size="small">
+            <Descriptions
+              className={clsx(workflowDetailStyles['workflow-node-descriptions'])}
+              column={1}
+              size="small"
+            >
               <Descriptions.Item label="节点 UUID">
                 {readString(node, ['uuid', 'node_uuid']) ?? '暂无'}
               </Descriptions.Item>
@@ -52,7 +57,7 @@ export function NodeInspector({
           key: 'io',
           label: `输入输出 (${details.inputs.length}/${details.outputs.length})`,
           children: (
-            <div className={cx('workflow-node-io')}>
+            <div className={clsx(workflowDetailStyles['workflow-node-io'])}>
               <NodeHandleGroup
                 title="输入参数"
                 handles={details.inputs}
@@ -72,10 +77,10 @@ export function NodeInspector({
           key: 'resources',
           label: `资源需求 (${details.resources.length})`,
           children: details.resources.length ? (
-            <div className={cx('workflow-resource-list')}>
+            <div className={clsx(workflowDetailStyles['workflow-resource-list'])}>
               {details.resources.map((resource, index) => (
                 <div
-                  className={cx('workflow-resource-row')}
+                  className={clsx(workflowDetailStyles['workflow-resource-row'])}
                   key={`${resource.kind}-${resource.value}-${index}`}
                 >
                   <strong>{resource.kindLabel}</strong>
@@ -106,15 +111,15 @@ function NodeHandleGroup({
   resourceDirectory: WorkflowResourceDirectory
 }) {
   return (
-    <section className={cx('workflow-handle-group')}>
-      <div className={cx('workflow-handle-group__title')}>
+    <section className={clsx(workflowDetailStyles['workflow-handle-group'])}>
+      <div className={clsx(workflowDetailStyles['workflow-handle-group__title'])}>
         <strong>{title}</strong>
         <span>{handles.length}</span>
       </div>
       {handles.length ? (
-        <div className={cx('workflow-handle-grid')}>
+        <div className={clsx(workflowDetailStyles['workflow-handle-grid'])}>
           {handles.map((handle) => (
-            <div className={cx('workflow-handle-card')} key={handle.name}>
+            <div className={clsx(workflowDetailStyles['workflow-handle-card'])} key={handle.name}>
               <div>
                 <strong>{handle.name}</strong>
                 {handle.required ? <em>必填</em> : <small>可选</small>}
@@ -128,7 +133,7 @@ function NodeHandleGroup({
           ))}
         </div>
       ) : (
-        <span className={cx('workflow-contract-empty')}>{empty}</span>
+        <span className={clsx(workflowDetailStyles['workflow-contract-empty'])}>{empty}</span>
       )}
     </section>
   )

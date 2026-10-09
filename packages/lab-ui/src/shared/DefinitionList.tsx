@@ -1,6 +1,6 @@
+import { clsx } from 'clsx'
+import sharedStyles from '../shared.module.scss'
 import type { ReactNode } from 'react'
-
-import { cx } from '../classNames'
 
 export interface DefinitionListItem {
   readonly key?: string
@@ -35,10 +35,10 @@ export function DefinitionList({
 }: DefinitionListProps) {
   return (
     <dl
-      className={cx(
-        'lab-ui-definition',
-        variant === 'form' && 'lab-ui-definition--form',
-        variant === 'form' && `lab-ui-definition--columns-${columns}`,
+      className={clsx(
+        sharedStyles['lab-ui-definition'],
+        variant === 'form' && sharedStyles['lab-ui-definition--form'],
+        variant === 'form' && sharedStyles[`lab-ui-definition--columns-${columns}`],
         className,
       )}
       aria-label={ariaLabel}
@@ -48,13 +48,16 @@ export function DefinitionList({
         return (
           <div
             key={item.key ?? `${String(item.label)}-${index}`}
-            className={cx(item.wide && 'lab-ui-definition__item--wide', item.className)}
+            className={clsx(
+              item.wide && sharedStyles['lab-ui-definition__item--wide'],
+              item.className,
+            )}
           >
             <dt>{item.label}</dt>
             <dd
-              className={cx(
-                item.mono && 'lab-ui-definition__value--mono',
-                missing && 'lab-ui-definition__value--missing',
+              className={clsx(
+                item.mono && sharedStyles['lab-ui-definition__value--mono'],
+                missing && sharedStyles['lab-ui-definition__value--missing'],
               )}
             >
               {missing ? (item.missingText ?? emptyValue) : item.value}

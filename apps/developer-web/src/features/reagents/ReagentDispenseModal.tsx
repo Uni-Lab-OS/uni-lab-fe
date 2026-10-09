@@ -1,4 +1,5 @@
-import { cx } from './reagentModalClassNames'
+import { clsx } from 'clsx'
+import reagentModalStyles from './ReagentModal.module.scss'
 import { Alert, Button, Form, Input, InputNumber, Modal, Select } from 'antd'
 import { useRef, useState } from 'react'
 import type { MaterialSummary, Reagent, ReagentDispenseResult } from '@unilab-fe/core'
@@ -70,7 +71,7 @@ export function DispenseModal({
   return (
     <Modal
       open
-      className={cx('reagent-mutation-modal')}
+      className={clsx(reagentModalStyles['reagent-mutation-modal'])}
       width={720}
       title={`试剂分装 · ${reagent.name}`}
       onCancel={onClose}
@@ -78,14 +79,14 @@ export function DispenseModal({
       destroyOnHidden
     >
       <Alert
-        className={cx('reagent-dispense-source')}
+        className={clsx(reagentModalStyles['reagent-dispense-source'])}
         type="info"
         showIcon
         message={`源瓶余量 ${reagent.quantity ?? '未提供'} ${reagent.quantityUnit ?? ''}`}
       />
       <Form
         form={form}
-        className={cx('reagent-mutation-form')}
+        className={clsx(reagentModalStyles['reagent-mutation-form'])}
         layout="vertical"
         initialValues={{
           quantityUnit: reagent.quantityUnit ?? 'mL',
@@ -94,7 +95,7 @@ export function DispenseModal({
         }}
         onFinish={submit}
       >
-        <div className={cx('reagent-form-grid')}>
+        <div className={clsx(reagentModalStyles['reagent-form-grid'])}>
           <FormSection title="分装" />
           <Form.Item
             label="分装单位"
@@ -120,9 +121,17 @@ export function DispenseModal({
           />
           <Form.List name="targets">
             {(fields, { add, remove }) => (
-              <div className={cx('reagent-form-field--wide reagent-dispense-targets')}>
+              <div
+                className={clsx(
+                  reagentModalStyles['reagent-form-field--wide'],
+                  reagentModalStyles['reagent-dispense-targets'],
+                )}
+              >
                 {fields.map((field, index) => (
-                  <div className={cx('reagent-dispense-target')} key={field.key}>
+                  <div
+                    className={clsx(reagentModalStyles['reagent-dispense-target'])}
+                    key={field.key}
+                  >
                     <Form.Item
                       name={[field.name, 'materialUuid']}
                       label={index === 0 ? '目标容器' : undefined}
@@ -139,7 +148,11 @@ export function DispenseModal({
                       label={index === 0 ? '分装量' : undefined}
                       rules={[{ required: true, message: '请输入分装量' }]}
                     >
-                      <InputNumber className={cx('full-input')} min={0} controls={false} />
+                      <InputNumber
+                        className={clsx(reagentModalStyles['full-input'])}
+                        min={0}
+                        controls={false}
+                      />
                     </Form.Item>
                     <Button
                       type="text"
@@ -157,7 +170,7 @@ export function DispenseModal({
           </Form.List>
           {result && (
             <Alert
-              className={cx('reagent-form-field--wide')}
+              className={clsx(reagentModalStyles['reagent-form-field--wide'])}
               type={result.errorCode ? 'error' : 'success'}
               showIcon
               message={`命令状态 ${result.status}`}
@@ -169,7 +182,7 @@ export function DispenseModal({
             />
           )}
           <ErrorAlert error={error} />
-          <div className={cx('modal-actions reagent-form-field--wide')}>
+          <div className={clsx('modal-actions', reagentModalStyles['reagent-form-field--wide'])}>
             <Button onClick={onClose}>取消</Button>
             <Button type="primary" htmlType="submit" loading={loading}>
               执行分装

@@ -1,4 +1,6 @@
-import { cx } from '../../styles/styleMaps'
+import { clsx } from 'clsx'
+import appShellStyles from '../../styles/app-shell.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Dropdown, Input, Modal, Space, Tabs, Tooltip, message } from 'antd'
 import { useEffect, useRef, useState } from 'react'
 import type { MaterialSummary, Reagent, ReagentInfo } from '@unilab-fe/core'
@@ -194,7 +196,13 @@ export function ReagentsPage() {
   }
 
   return (
-    <div className={cx('page-stack', styles.reagentListPage)}>
+    <div
+      className={clsx(
+        appShellStyles['page-stack'],
+        sharedStyles['page-stack'],
+        styles.reagentListPage,
+      )}
+    >
       <PageHeader
         title="试剂"
         actions={
@@ -257,8 +265,13 @@ export function ReagentsPage() {
         variant="table"
         tableColumns={5}
       >
-        <section className={cx('data-section')}>
-          <div className={cx('data-section-toolbar')}>
+        <section className={clsx(appShellStyles['data-section'], sharedStyles['data-section'])}>
+          <div
+            className={clsx(
+              appShellStyles['data-section-toolbar'],
+              sharedStyles['data-section-toolbar'],
+            )}
+          >
             <Tabs
               className={styles.reagentTabs}
               activeKey={tab}
@@ -281,7 +294,7 @@ export function ReagentsPage() {
               ]}
             />
             <Input
-              className={cx('search-input')}
+              className={clsx(sharedStyles['search-input'])}
               allowClear
               prefix={<AppIcon name="general/search-md" size={16} />}
               placeholder={tab === 'inventory' ? '搜索库存、容器或 CAS' : '搜索名称或 CAS 号'}

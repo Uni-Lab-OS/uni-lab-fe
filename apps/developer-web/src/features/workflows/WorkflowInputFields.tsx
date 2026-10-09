@@ -1,4 +1,6 @@
-import { cx } from './workflowClassNames'
+import { clsx } from 'clsx'
+import workflowDebugStyles from './WorkflowDebug.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Form, Input, InputNumber, Select, Switch } from 'antd'
 import type { WorkflowInputParameter } from '@unilab-fe/core'
 
@@ -10,11 +12,20 @@ export { normalizeWorkflowInput, workflowInputDefaults } from '@unilab-fe/core'
 
 export function WorkflowInputFields({ parameters }: WorkflowInputFieldsProps) {
   if (parameters.length === 0) {
-    return <div className={cx('workflow-input-empty')}>该工作流没有声明需要填写的运行参数。</div>
+    return (
+      <div className={clsx(workflowDebugStyles['workflow-input-empty'])}>
+        该工作流没有声明需要填写的运行参数。
+      </div>
+    )
   }
 
   return (
-    <div className={cx('workflow-input-fields')}>
+    <div
+      className={clsx(
+        workflowDebugStyles['workflow-input-fields'],
+        sharedStyles['workflow-input-fields'],
+      )}
+    >
       {parameters.map((parameter) => (
         <WorkflowInputField key={parameter.name} parameter={parameter} />
       ))}
@@ -62,7 +73,7 @@ function WorkflowInputField({ parameter }: { readonly parameter: WorkflowInputPa
     return (
       <Form.Item {...itemProps}>
         <InputNumber
-          className={cx('full-input')}
+          className={clsx('full-input')}
           min={numberValue(schema.minimum)}
           max={numberValue(schema.maximum)}
           step={schema.type === 'integer' ? 1 : undefined}
@@ -97,7 +108,7 @@ function WorkflowInputField({ parameter }: { readonly parameter: WorkflowInputPa
 
 function ParameterLabel({ parameter }: { readonly parameter: WorkflowInputParameter }) {
   return (
-    <span className={cx('workflow-input-label')}>
+    <span className={clsx(workflowDebugStyles['workflow-input-label'])}>
       <span>{parameterLabel(parameter)}</span>
       <code>{parameter.name}</code>
     </span>

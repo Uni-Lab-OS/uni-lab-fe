@@ -1,4 +1,6 @@
-import { cx } from '../classNames'
+import { clsx } from 'clsx'
+import deviceStyles from '../device.module.scss'
+import reagentStyles from '../reagent.module.scss'
 export interface ReagentHistoryItem {
   readonly eventType: string
   readonly quantityDelta?: number | null
@@ -17,11 +19,19 @@ export function ReagentHistoryList({
   emptyDescription = '暂无库存变更记录',
 }: ReagentHistoryListProps) {
   if (items.length === 0) {
-    return <p className={cx('lab-ui-reagent-history__empty')}>{emptyDescription}</p>
+    return (
+      <p className={clsx(reagentStyles['lab-ui-reagent-history__empty'])}>{emptyDescription}</p>
+    )
   }
 
   return (
-    <ul className={cx('history-list', 'lab-ui-reagent-history')}>
+    <ul
+      className={clsx(
+        deviceStyles['history-list'],
+        reagentStyles['history-list'],
+        reagentStyles['lab-ui-reagent-history'],
+      )}
+    >
       {items.map((item, index) => (
         <ReagentHistoryItemView key={`${item.recordedAt}-${item.eventType}-${index}`} item={item} />
       ))}

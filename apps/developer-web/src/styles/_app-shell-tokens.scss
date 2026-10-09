@@ -1,0 +1,109 @@
+/* Unified surface pass: keep application-owned styling on design-v2 tokens. */
+.studio-sidebar {
+  background: var(--studio-surface);
+}
+
+.studio-brand-mark {
+  color: var(--bh-color-primary-foreground);
+  box-shadow: none;
+}
+
+.connection-indicator--connected,
+.backend-status--connected .connection-indicator {
+  background: var(--bh-color-success-default);
+  box-shadow: none;
+}
+
+.connection-indicator--error,
+.backend-status--error .connection-indicator {
+  background: var(--bh-color-error-default);
+  box-shadow: none;
+}
+
+.connection-indicator--unknown {
+  background: var(--bh-color-warning-default);
+  box-shadow: none;
+}
+
+.studio-content .summary-metric,
+.studio-content .detail-card {
+  box-shadow: none;
+}
+
+.studio-content .summary-metric,
+.studio-content .task-column {
+  box-shadow: none;
+}
+
+.studio-content .graph-row,
+.studio-content .detail-card,
+.studio-content .resource-card,
+.studio-content .task-identity,
+.studio-content .gantt-card,
+.studio-content .resource-inline,
+.studio-content .task-job-inspector {
+  border-color: var(--studio-border);
+  background: var(--studio-surface);
+}
+
+.studio-content .graph-row {
+  border-left: 1px solid var(--studio-border);
+  border-right: 1px solid var(--studio-border);
+}
+
+.studio-content .graph-node:hover,
+.studio-content .graph-node.is-selected,
+.studio-content .topology-node:hover,
+.studio-content .topology-node.is-selected,
+.studio-content .debug-target-option:hover:not(:disabled),
+.studio-content .debug-target-option.is-selected {
+  border-color: var(--studio-accent);
+  background: var(--bh-color-primary-background);
+  box-shadow: none;
+}
+
+.studio-content .task-job-item:hover,
+.studio-content .task-job-item.is-selected,
+.studio-content .action-item:hover,
+.studio-content .action-item.is-selected {
+  border-color: var(--studio-border);
+  background: var(--studio-selection);
+}
+
+.studio-content .data-section :global(.ant-table-thead) > tr > th {
+  background: var(--studio-surface-muted);
+}
+
+.studio-content .data-section :global(.ant-table-tbody) > tr > td {
+  background: var(--studio-surface);
+}
+
+.studio-content .data-section :global(.ant-table-tbody) > tr:hover > td {
+  background: var(--bh-color-primary-background) !important;
+}
+
+/* Keep the overview table in the same surface flow as every other table. */
+.studio-content--overview .data-section {
+  min-height: 260px;
+}
+
+.studio-content--overview .data-section :global(.ant-table-container) {
+  min-height: 260px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--studio-border-soft) !important;
+  border-radius: var(--studio-radius);
+  background: var(--bh-color-card);
+  box-shadow: none;
+  padding: 0 12px 12px;
+}
+
+.studio-content--overview .data-section :global(.ant-table) {
+  overflow: hidden;
+  border-radius: calc(var(--studio-radius) - 2px);
+}
+
+.studio-content--overview .data-section .primary-cell strong,
+.studio-content--overview .data-section .primary-cell-link strong {
+  font-weight: 400;
+}

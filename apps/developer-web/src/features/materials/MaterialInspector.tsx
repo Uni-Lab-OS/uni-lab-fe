@@ -1,4 +1,7 @@
-import { cx } from './materialClassNames'
+import { clsx } from 'clsx'
+import materialInspectorStyles from './MaterialInspector.module.scss'
+import materialManagementStyles from './MaterialManagement.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Tooltip, Typography } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
 import type { MaterialGraphNode, SiteSummary } from '@unilab-fe/core'
@@ -24,7 +27,14 @@ export function MaterialInspector({
 }) {
   if (!node || !selection)
     return (
-      <aside className={cx('material-inspector material-inspector--empty')}>
+      <aside
+        className={clsx(
+          materialInspectorStyles['material-inspector'],
+          materialManagementStyles['material-inspector'],
+          sharedStyles['material-inspector'],
+          materialInspectorStyles['material-inspector--empty'],
+        )}
+      >
         <EmptyState scene="no-data" title="选择节点、库位或物料查看详情" />
       </aside>
     )
@@ -57,8 +67,8 @@ function InspectorHeading({
   iconColor?: IconColor
 }) {
   return (
-    <div className={cx('inspector-heading')}>
-      <span className={cx('inspector-icon')}>
+    <div className={clsx(materialInspectorStyles['inspector-heading'])}>
+      <span className={clsx(materialInspectorStyles['inspector-icon'])}>
         <AppIcon name={icon} color={iconColor} size={22} />
       </span>
       <div>
@@ -80,9 +90,15 @@ function NodeInspector({
   const detail = node.material
   const sites = collectNodeSites(node, nodes)
   return (
-    <aside className={cx('material-inspector')}>
+    <aside
+      className={clsx(
+        materialInspectorStyles['material-inspector'],
+        materialManagementStyles['material-inspector'],
+        sharedStyles['material-inspector'],
+      )}
+    >
       <InspectorHeading icon="shapes/cube-03" title={detail.name} />
-      <dl className={cx('definition-list')}>
+      <dl className={clsx(materialInspectorStyles['definition-list'])}>
         <div>
           <dt>节点类型</dt>
           <dd>{detail.materialType ?? '未提供'}</dd>
@@ -142,19 +158,25 @@ function SiteInspector({
   const siteAction = resolveMaterialSiteAction(site.occupancy)
   const status = site.occupancy.known ? (occupied ? 'available' : 'empty') : 'attention'
   return (
-    <aside className={cx('material-inspector')}>
+    <aside
+      className={clsx(
+        materialInspectorStyles['material-inspector'],
+        materialManagementStyles['material-inspector'],
+        sharedStyles['material-inspector'],
+      )}
+    >
       <InspectorHeading
         icon="shapes/cube-03"
         title={site.name || site.key}
         iconColor={status === 'available' ? 'success' : status === 'empty' ? 'default' : 'error'}
       />
-      <div className={cx('material-inspector__status')}>
+      <div className={clsx(materialInspectorStyles['material-inspector__status'])}>
         <StatusBadge
           status={status}
           label={site.occupancy.known ? (occupied ? '已占用' : '空闲') : '占用未知'}
         />
       </div>
-      <dl className={cx('definition-list')}>
+      <dl className={clsx(materialInspectorStyles['definition-list'])}>
         <div>
           <dt>所属节点</dt>
           <dd>{node.material.name}</dd>
@@ -163,7 +185,9 @@ function SiteInspector({
           <dt>库位标识</dt>
           <dd>
             <Tooltip title={site.siteUuid}>
-              <span className={cx('definition-value-tooltip')}>{site.siteUuid}</span>
+              <span className={clsx(materialInspectorStyles['definition-value-tooltip'])}>
+                {site.siteUuid}
+              </span>
             </Tooltip>
           </dd>
         </div>
@@ -177,10 +201,10 @@ function SiteInspector({
         </div>
       </dl>
       {occupied && (
-        <div className={cx('inspector-section')}>
+        <div className={clsx(materialInspectorStyles['inspector-section'])}>
           <Button
             type="default"
-            className={cx('material-inspector__button')}
+            className={clsx(materialInspectorStyles['material-inspector__button'])}
             onClick={() =>
               onSelect({ kind: 'material', materialId: occupied, siteId: site.siteUuid })
             }
@@ -191,7 +215,10 @@ function SiteInspector({
       )}
       <SiteHandlingActions action={siteAction} />
       {siteAction === 'unavailable' && (
-        <Typography.Text type="secondary" className={cx('capability-note')}>
+        <Typography.Text
+          type="secondary"
+          className={clsx(materialInspectorStyles['capability-note'])}
+        >
           库位占用状态未知，暂不提供上下料操作。
         </Typography.Text>
       )}
@@ -230,13 +257,19 @@ function MaterialDetailInspector({
         : 'empty'
       : 'attention'
   return (
-    <aside className={cx('material-inspector')}>
+    <aside
+      className={clsx(
+        materialInspectorStyles['material-inspector'],
+        materialManagementStyles['material-inspector'],
+        sharedStyles['material-inspector'],
+      )}
+    >
       <InspectorHeading
         icon="layout/layers-two-01"
         title={detail.name}
         iconColor={status === 'available' ? 'success' : status === 'empty' ? 'default' : 'error'}
       />
-      <div className={cx('material-inspector__status')}>
+      <div className={clsx(materialInspectorStyles['material-inspector__status'])}>
         <StatusBadge
           status={status}
           label={
@@ -250,7 +283,7 @@ function MaterialDetailInspector({
           }
         />
       </div>
-      <dl className={cx('definition-list')}>
+      <dl className={clsx(materialInspectorStyles['definition-list'])}>
         <div>
           <dt>物料类型</dt>
           <dd>{detail.materialType ?? '未提供'}</dd>
@@ -270,7 +303,10 @@ function MaterialDetailInspector({
       </dl>
       <SiteList sites={site ? [site] : node.sites} onSelect={onSelect} />
       <SiteHandlingActions action={siteAction} />
-      <Typography.Text type="secondary" className={cx('capability-note')}>
+      <Typography.Text
+        type="secondary"
+        className={clsx(materialInspectorStyles['capability-note'])}
+      >
         {siteAction === 'unavailable'
           ? '当前页面仅展示物料与库位状态；库位占用状态未知。'
           : '当前只展示库位允许的操作方向；统一物料命令接入后可执行。'}
@@ -283,9 +319,9 @@ function SiteHandlingActions({ action }: { action: ReturnType<typeof resolveMate
   if (action === 'unavailable') return null
   const isLoad = action === 'load'
   return (
-    <div className={cx('inspector-actions')} aria-label="库位上下料">
+    <div className={clsx(materialInspectorStyles['inspector-actions'])} aria-label="库位上下料">
       <Button
-        className={cx('material-site-action')}
+        className={clsx(materialInspectorStyles['material-site-action'])}
         disabled
         icon={
           <AppIcon
@@ -310,8 +346,8 @@ function SiteList({
   onSelect: (selection: MaterialSelection) => void
 }) {
   return (
-    <div className={cx('inspector-section')}>
-      <div className={cx('inspector-field-label')}>库位</div>
+    <div className={clsx(materialInspectorStyles['inspector-section'])}>
+      <div className={clsx(materialInspectorStyles['inspector-field-label'])}>库位</div>
       <SitePicker
         sites={sites}
         variant="inspector"

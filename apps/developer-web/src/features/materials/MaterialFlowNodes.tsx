@@ -1,4 +1,6 @@
-import { cx } from './materialClassNames'
+import { clsx } from 'clsx'
+import materialFlowCanvasStyles from './MaterialFlowCanvas.module.scss'
+import appShellStyles from '../../styles/app-shell.module.scss'
 import { type NodeProps } from 'reactflow'
 import { AppIcon } from '../../components/ui/Icon'
 import {
@@ -12,19 +14,26 @@ import {
 export function ResourceGroupNode({ data }: NodeProps<GroupNodeData>) {
   return (
     <div
-      className={cx(
-        `material-flow-group ${data.selected ? 'is-selected' : ''} ${data.highlighted ? 'is-search-match' : ''} ${data.hasSearch && !data.highlighted ? 'is-search-dimmed' : ''} nodrag nopan`,
+      className={clsx(
+        materialFlowCanvasStyles['material-flow-group'],
+        data.selected
+          ? clsx(materialFlowCanvasStyles['is-selected'], appShellStyles['is-selected'])
+          : '',
+        data.highlighted ? materialFlowCanvasStyles['is-search-match'] : '',
+        data.hasSearch && !data.highlighted ? materialFlowCanvasStyles['is-search-dimmed'] : '',
+        'nodrag',
+        'nopan',
       )}
     >
       <button
         type="button"
-        className={cx('material-flow-group__header')}
+        className={clsx(materialFlowCanvasStyles['material-flow-group__header'])}
         onClick={(event) => {
           event.stopPropagation()
           data.onSelect?.({ kind: 'node', nodeId: data.selectionId })
         }}
       >
-        <span className={cx('material-flow-group__icon')}>
+        <span className={clsx(materialFlowCanvasStyles['material-flow-group__icon'])}>
           <AppIcon
             name={data.kind === 'device' ? 'development/cpu-chip-01' : 'shapes/cube-03'}
             size={16}
@@ -60,13 +69,15 @@ export function ResourceBlockNode({ data }: NodeProps<BlockNodeData>) {
   const occupied = sites.filter((site) => Boolean(occupantBySite.get(site.siteUuid))).length
   return (
     <div
-      className={cx(
-        `material-flow-block ${highlighted ? 'is-search-match' : ''} ${hasSearch && !highlighted ? 'is-search-dimmed' : ''}`,
+      className={clsx(
+        materialFlowCanvasStyles['material-flow-block'],
+        highlighted ? materialFlowCanvasStyles['is-search-match'] : '',
+        hasSearch && !highlighted ? materialFlowCanvasStyles['is-search-dimmed'] : '',
       )}
     >
       <button
         type="button"
-        className={cx('material-flow-block__header')}
+        className={clsx(materialFlowCanvasStyles['material-flow-block__header'])}
         onClick={(event) => {
           event.stopPropagation()
           onSelect({ kind: 'node', nodeId: selectionId })
@@ -78,10 +89,12 @@ export function ResourceBlockNode({ data }: NodeProps<BlockNodeData>) {
             {occupied}/{sites.length} 有料
           </small>
         </div>
-        <span className={cx('material-flow-block__type')}>{typeLabel}</span>
+        <span className={clsx(materialFlowCanvasStyles['material-flow-block__type'])}>
+          {typeLabel}
+        </span>
       </button>
       <div
-        className={cx('material-flow-block__grid')}
+        className={clsx(materialFlowCanvasStyles['material-flow-block__grid'])}
         style={{ gridTemplateColumns: `repeat(${grid.columns}, minmax(0, 1fr))` }}
       >
         {sites.map((site) => {
@@ -99,8 +112,18 @@ export function ResourceBlockNode({ data }: NodeProps<BlockNodeData>) {
             <button
               type="button"
               key={site.siteUuid}
-              className={cx(
-                `material-flow-site ${occupant ? 'is-occupied' : 'is-empty'} ${active ? 'is-selected' : ''} ${siteHighlighted ? 'is-search-match' : ''} ${hasSearch && !highlighted && !siteHighlighted ? 'is-search-dimmed' : ''} nodrag nopan`,
+              className={clsx(
+                materialFlowCanvasStyles['material-flow-site'],
+                occupant ? materialFlowCanvasStyles['is-occupied'] : 'is-empty',
+                active
+                  ? clsx(materialFlowCanvasStyles['is-selected'], appShellStyles['is-selected'])
+                  : '',
+                siteHighlighted ? materialFlowCanvasStyles['is-search-match'] : '',
+                hasSearch && !highlighted && !siteHighlighted
+                  ? materialFlowCanvasStyles['is-search-dimmed']
+                  : '',
+                'nodrag',
+                'nopan',
               )}
               title={occupant ? `${site.name} · ${occupant.name}` : `${site.name} · 空库位`}
               aria-label={occupant ? `${site.name} · ${occupant.name}` : `${site.name} · 空库位`}

@@ -1,4 +1,7 @@
-import { cx } from './materialClassNames'
+import { clsx } from 'clsx'
+import materialsPageStyles from './MaterialsPage.module.scss'
+import appShellStyles from '../../styles/app-shell.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Input } from 'antd'
 import { useCallback, useMemo, useState } from 'react'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
@@ -84,7 +87,7 @@ export function MaterialsPage() {
   if (management)
     return <MaterialManagement graph={query.data} onBack={() => setManagement(false)} />
   return (
-    <div className={cx('page-stack')}>
+    <div className={clsx(appShellStyles['page-stack'], sharedStyles['page-stack'])}>
       <PageHeader
         title="物料"
         actions={
@@ -103,9 +106,14 @@ export function MaterialsPage() {
         empty={!query.loading && allNodes.length === 0}
         emptyDescription="后端没有返回物料图"
       >
-        <div className={cx('resource-toolbar')}>
+        <div
+          className={clsx(
+            materialsPageStyles['resource-toolbar'],
+            sharedStyles['resource-toolbar'],
+          )}
+        >
           <Input
-            className={cx('search-input')}
+            className={clsx(materialsPageStyles['search-input'], sharedStyles['search-input'])}
             allowClear
             prefix={<AppIcon name="general/search-md" size={16} />}
             placeholder="搜索物料名称或条码"
@@ -113,7 +121,10 @@ export function MaterialsPage() {
             onChange={(event) => setKeyword(event.target.value)}
           />
           <span
-            className={cx(`toolbar-hint ${normalizedKeyword ? 'is-searching' : ''}`)}
+            className={clsx(
+              materialsPageStyles['toolbar-hint'],
+              normalizedKeyword ? materialsPageStyles['is-searching'] : '',
+            )}
             aria-live="polite"
           >
             {normalizedKeyword
@@ -121,7 +132,13 @@ export function MaterialsPage() {
               : `${allNodes.length} 个节点`}
           </span>
         </div>
-        <div className={cx('material-workspace')}>
+        <div
+          className={clsx(
+            materialsPageStyles['material-workspace'],
+            appShellStyles['material-workspace'],
+            sharedStyles['material-workspace'],
+          )}
+        >
           <MaterialFlowCanvas
             nodes={allNodes}
             hasSearch={Boolean(normalizedKeyword)}

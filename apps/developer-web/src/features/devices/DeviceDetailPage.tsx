@@ -1,17 +1,19 @@
-import { cx } from './deviceClassNames'
-import { Alert, Button, Segmented, Space, Spin, Tag, Tooltip, Typography } from 'antd'
+import { clsx } from 'clsx'
+import deviceDetailPageStyles from './DeviceDetailPage.module.scss'
+import devicePageStyles from './DevicePage.module.scss'
+import appShellStyles from '../../styles/app-shell.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
+import { Alert, Button, Space, Tag, Tooltip } from 'antd'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { deviceOccupancyStatus } from '@unilab-fe/core'
 import type { DeviceActionState, DeviceSummary } from '@unilab-fe/core'
 import { DeviceActionList } from '@unilab/lab-ui'
-import { ActionDefinitionMeta, ActionSchemaView } from './DeviceActionDefinition'
-import { DeviceActionEditor, isRecord } from './DeviceActionEditor'
 import { useBackend } from '../../app/BackendProvider'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
-import { AppIcon } from '../../components/ui/Icon'
-import { PageHeader } from '../../components/ui/PageHeader'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { deviceActionParameters, deviceActionParametersFromSchema } from './DeviceActionInputFields'
+import { DeviceDetailHeader } from './DeviceDetailHeader'
+import { DeviceActionDefinitionPanel } from './DeviceActionDefinitionPanel'
 
 export function DeviceDetail({
   device,
@@ -28,10 +30,7 @@ export function DeviceDetail({
   )
   const [debugEditing, setDebugEditing] = useState(false)
   const [parameterView, setParameterView] = useState<'form' | 'schema'>('form')
-  const [accepted, setAccepted] = useState<{
-    taskUuid: string
-    jobUuid: string
-  } | null>(null)
+  const [accepted, setAccepted] = useState<{ taskUuid: string; jobUuid: string } | null>(null)
   const autoOpenedDebug = useRef(false)
   const selectedActionUuid = selectedAction?.actionDefinitionUuid ?? ''
   const definitionQuery = useBackendQuery(`action-definition-${selectedActionUuid}`, (current) =>
@@ -45,85 +44,72 @@ export function DeviceDetail({
     const defined = deviceActionParameters(actionDefinition)
     if (defined.length || actionDefinition) return defined
     const rawSchema = selectedAction?.raw.inputSchema ?? selectedAction?.raw.input_schema
-    return isRecord(rawSchema) ? deviceActionParametersFromSchema(rawSchema) : []
+    return rawSchema && typeof rawSchema === 'object'
+      ? deviceActionParametersFromSchema(rawSchema as Record<string, unknown>)
+      : []
   }, [actionDefinition, selectedAction])
+
   useEffect(() => {
-    if (startDebug && !autoOpenedDebug.current && selectedAction) {
-      autoOpenedDebug.current = true
-      setDebugEditing(true)
-      setParameterView('form')
-    }
+    if (!startDebug || autoOpenedDebug.current || !selectedAction) return
+    autoOpenedDebug.current = true
+    setDebugEditing(true)
+    setParameterView('form')
   }, [selectedAction, startDebug])
+
   useEffect(() => {
     setDebugEditing(false)
     setParameterView('form')
   }, [selectedActionUuid])
+
+  const selectAction = (action: DeviceActionState) => {
+    setSelectedAction(action)
+    setAccepted(null)
+    setDebugEditing(false)
+    setParameterView('form')
+  }
+  const toggleDebug = () => {
+    setAccepted(null)
+    setDebugEditing((value) => !value)
+    setParameterView('form')
+  }
+
   return (
-    <div className={cx('page-stack device-detail-page')}>
-      <PageHeader
-        title={
-          <span className={cx('device-detail-title')}>
-            <Tooltip title={device.label} placement="bottomLeft">
-              <span className={cx('device-detail-title__name')}>{device.label}</span>
-            </Tooltip>
-            <Tag
-              color={
-                device.online === false ? 'default' : device.online === true ? 'success' : undefined
-              }
-            >
-              {device.online === false ? '离线' : device.online === true ? '在线' : '连接未知'}
-            </Tag>
-            <Tag
-              color={
-                occupancyStatus === 'occupied'
-                  ? 'warning'
-                  : occupancyStatus === 'idle'
-                    ? 'processing'
-                    : 'default'
-              }
-            >
-              {occupancyStatus === 'occupied'
-                ? '占用'
-                : occupancyStatus === 'idle'
-                  ? '空闲'
-                  : '占用未知'}
-            </Tag>
-          </span>
-        }
-        leading={
-          <Button
-            className={cx('page-header-back')}
-            type="text"
-            aria-label="返回设备"
-            icon={<AppIcon name="arrows/arrow-left" size={18} />}
-            onClick={onBack}
-          />
-        }
-      />
-      <div className={cx('detail-columns')}>
-        <section className={cx('detail-sidebar')}>
-          <div className={cx('section-title')}>
+    <div
+      className={clsx(
+        appShellStyles['page-stack'],
+        sharedStyles['page-stack'],
+        devicePageStyles['device-detail-page'],
+        appShellStyles['device-detail-page'],
+      )}
+    >
+      <DeviceDetailHeader device={device} occupancyStatus={occupancyStatus} onBack={onBack} />
+      <div className={clsx(deviceDetailPageStyles['detail-columns'])}>
+        <section className={clsx(deviceDetailPageStyles['detail-sidebar'])}>
+          <div
+            className={clsx(deviceDetailPageStyles['section-title'], sharedStyles['section-title'])}
+          >
             <h2>动作</h2>
             <span>{device.actions.length} 个动作</span>
           </div>
-          <div className={cx('detail-sidebar__action-list')}>
+          <div className={clsx(deviceDetailPageStyles['detail-sidebar__action-list'])}>
             <DeviceActionList
               actions={device.actions}
               selectedActionRef={selectedAction?.actionRef}
-              onSelectAction={(action) => {
-                setSelectedAction(action)
-                setAccepted(null)
-                setDebugEditing(false)
-                setParameterView('form')
-              }}
+              onSelectAction={selectAction}
             />
           </div>
         </section>
-        <section className={cx('detail-main')}>
-          <div className={cx('section-title detail-main__action-heading')}>
+        <section className={clsx(deviceDetailPageStyles['detail-main'])}>
+          <div
+            className={clsx(
+              deviceDetailPageStyles['section-title'],
+              sharedStyles['section-title'],
+              deviceDetailPageStyles['detail-main__action-heading'],
+            )}
+          >
             <div>
               <Tooltip title={selectedAction?.label} placement="topLeft">
-                <span className={cx('action-detail-title')}>
+                <span className={clsx(deviceDetailPageStyles['action-detail-title'])}>
                   {selectedAction?.label ?? '未选择动作'}
                 </span>
               </Tooltip>
@@ -131,101 +117,33 @@ export function DeviceDetail({
             <Space size={8}>
               {selectedAction?.isBusy && <StatusBadge status="running" />}
               <Button
-                className={cx('detail-main__debug-button')}
+                className={clsx(deviceDetailPageStyles['detail-main__debug-button'])}
                 type={debugEditing ? 'default' : 'primary'}
                 disabled={!selectedAction}
-                icon={
-                  <AppIcon
-                    name={debugEditing ? 'arrows/arrow-left' : 'general/tool-01'}
-                    color="inherit"
-                    size={16}
-                  />
-                }
-                onClick={() => {
-                  setAccepted(null)
-                  setDebugEditing((value) => !value)
-                  setParameterView('form')
-                }}
+                onClick={toggleDebug}
               >
                 {debugEditing ? '退出调试' : '调试动作'}
               </Button>
             </Space>
           </div>
-          {definitionQuery.loading && !actionDefinition && actionParameters.length === 0 ? (
-            <Typography.Text type="secondary">正在读取动作定义...</Typography.Text>
-          ) : definitionQuery.error && actionParameters.length === 0 ? (
-            <Alert
-              type="error"
-              showIcon
-              message="动作定义读取失败"
-              description={definitionQuery.error.message}
-            />
-          ) : selectedAction ? (
-            <div
-              className={cx(`definition-view-shell ${definitionQuery.loading ? 'is-loading' : ''}`)}
-              aria-busy={definitionQuery.loading}
-            >
-              {definitionQuery.loading && (
-                <span className={cx('definition-view-shell__loading')}>
-                  <Spin size="small" /> 更新中
-                </span>
-              )}
-              {definitionQuery.error && (
-                <Alert
-                  type="warning"
-                  showIcon
-                  message="动作定义读取失败"
-                  description={`${definitionQuery.error.message}，当前先展示设备包参数。`}
-                  style={{ marginBottom: 18 }}
-                />
-              )}
-              <ActionDefinitionMeta definition={actionDefinition} />
-              <div className={cx('action-parameter-toolbar')}>
-                <Segmented
-                  size="middle"
-                  value={parameterView}
-                  disabled={debugEditing}
-                  onChange={(value) => setParameterView(value as 'form' | 'schema')}
-                  options={[
-                    { label: '参数', value: 'form' },
-                    { label: 'Schema', value: 'schema' },
-                  ]}
-                />
-                {debugEditing && (
-                  <Typography.Text type="secondary">调试模式：参数可编辑</Typography.Text>
-                )}
-              </div>
-              {parameterView === 'schema' ? (
-                <ActionSchemaView
-                  definition={actionDefinition}
-                  fallbackSchema={
-                    isRecord(selectedAction?.raw.inputSchema)
-                      ? selectedAction?.raw.inputSchema
-                      : isRecord(selectedAction?.raw.input_schema)
-                        ? selectedAction?.raw.input_schema
-                        : undefined
-                  }
-                />
-              ) : (
-                <DeviceActionEditor
-                  action={selectedAction}
-                  device={device}
-                  parameters={actionParameters}
-                  editing={debugEditing}
-                  onCancel={() => setDebugEditing(false)}
-                  onAccepted={(result) => {
-                    setAccepted(result)
-                    setDebugEditing(false)
-                  }}
-                />
-              )}
-            </div>
-          ) : (
-            <Typography.Text type="secondary">当前设备没有动作</Typography.Text>
-          )}
+          <DeviceActionDefinitionPanel
+            device={device}
+            selectedAction={selectedAction}
+            actionDefinition={actionDefinition}
+            actionParameters={actionParameters}
+            definitionQuery={definitionQuery}
+            debugEditing={debugEditing}
+            parameterView={parameterView}
+            onParameterViewChange={setParameterView}
+            onCancelDebug={() => setDebugEditing(false)}
+            onAccepted={(result) => {
+              setAccepted(result)
+              setDebugEditing(false)
+            }}
+          />
           {accepted && (
             <Alert
-              className={cx('accepted-result')}
+              className={clsx(deviceDetailPageStyles['accepted-result'])}
               type="info"
               showIcon
               message="调试命令已被 OS 接受"

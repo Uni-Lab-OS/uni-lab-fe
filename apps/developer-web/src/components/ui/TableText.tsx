@@ -1,4 +1,5 @@
-import { cx } from '../../styles/styleMaps'
+import { clsx } from 'clsx'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Typography } from 'antd'
 import type { CSSProperties } from 'react'
 
@@ -13,7 +14,7 @@ export function TableText({
 }) {
   return (
     <Typography.Text
-      className={cx(['table-text', className].filter(Boolean).join(' '))}
+      className={clsx([sharedStyles['table-text'], className].filter(Boolean).join(' '))}
       ellipsis={{ tooltip: text }}
       style={{ display: 'block', maxWidth: '100%', ...style }}
     >

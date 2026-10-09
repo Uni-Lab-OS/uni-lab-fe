@@ -1,3 +1,4 @@
+import { clsx } from 'clsx'
 import type { CSSProperties, ReactNode } from 'react'
 
 import { Icon } from '@unilab/design-v2/icons'
@@ -46,10 +47,6 @@ const markerGlyph: Record<TaskExecutionStatus, string> = {
   skipped: 'media/skip-forward',
 }
 
-function cx(...names: Array<string | false | null | undefined>) {
-  return names.filter((name): name is string => Boolean(name)).join(' ')
-}
-
 export function TaskExecutionTimeline({
   items,
   selectedId = null,
@@ -75,7 +72,7 @@ export function TaskExecutionTimeline({
               <button
                 type="button"
                 key={item.id}
-                className={cx(styles.row, selectedId === item.id && styles.isSelected)}
+                className={clsx(styles.row, selectedId === item.id && styles.isSelected)}
                 data-status={item.status}
                 data-last={last ? 'true' : undefined}
                 onClick={() => onSelect?.(item)}

@@ -1,7 +1,7 @@
+import { clsx } from 'clsx'
+import sharedStyles from '../shared.module.scss'
 import { Icon } from '@unilab/design-v2/icons'
 import type { IconName } from '@unilab/design-v2/icons'
-
-import { cx } from '../classNames'
 
 export type StatusTone = 'success' | 'warning' | 'error' | 'neutral' | 'info'
 
@@ -59,10 +59,14 @@ export function StatusBadge({ status = 'unknown', meta, label, className }: Stat
   const resolved = meta ?? statusMeta(status)
   return (
     <span
-      className={cx('lab-ui-status-badge', `lab-ui-status-badge--${resolved.tone}`, className)}
+      className={clsx(
+        sharedStyles['lab-ui-status-badge'],
+        sharedStyles[`lab-ui-status-badge--${resolved.tone}`],
+        className,
+      )}
       role="status"
     >
-      <span className={cx('lab-ui-status-badge__icon')} aria-hidden="true">
+      <span className={clsx(sharedStyles['lab-ui-status-badge__icon'])} aria-hidden="true">
         <Icon name={resolved.icon} size={14} color="inherit" />
       </span>
       <span>{label ?? resolved.label}</span>

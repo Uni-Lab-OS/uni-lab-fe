@@ -1,4 +1,6 @@
-import { cx } from './workflowClassNames'
+import { clsx } from 'clsx'
+import workflowTopologyStyles from './WorkflowTopology.module.scss'
+import appShellStyles from '../../styles/app-shell.module.scss'
 import { useMemo } from 'react'
 import ReactFlow, {
   Background,
@@ -69,7 +71,7 @@ export function WorkflowFlowCanvas({
   if (graph.nodes.length === 0) return null
 
   return (
-    <div className={cx('workflow-flow-canvas')} aria-label="工作流拓扑图">
+    <div className={clsx(workflowTopologyStyles['workflow-flow-canvas'])} aria-label="工作流拓扑图">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -97,8 +99,14 @@ function WorkflowNode({ id, data }: NodeProps<WorkflowFlowNodeData>) {
   return (
     <button
       type="button"
-      className={cx(
-        `workflow-flow-node nodrag nopan ${data.selected ? 'is-selected' : ''} ${data.disabled ? 'is-disabled' : ''}`,
+      className={clsx(
+        workflowTopologyStyles['workflow-flow-node'],
+        'nodrag',
+        'nopan',
+        data.selected
+          ? clsx(workflowTopologyStyles['is-selected'], appShellStyles['is-selected'])
+          : '',
+        data.disabled ? workflowTopologyStyles['is-disabled'] : '',
       )}
       onMouseDown={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
@@ -108,24 +116,32 @@ function WorkflowNode({ id, data }: NodeProps<WorkflowFlowNodeData>) {
       }}
       aria-label={`查看节点 ${data.label}`}
     >
-      <Handle type="target" position={Position.Left} className={cx('workflow-flow-handle')} />
-      <span className={cx('workflow-flow-node__index')}>
+      <Handle
+        type="target"
+        position={Position.Left}
+        className={clsx(workflowTopologyStyles['workflow-flow-handle'])}
+      />
+      <span className={clsx(workflowTopologyStyles['workflow-flow-node__index'])}>
         {String(data.index + 1).padStart(2, '0')}
       </span>
-      <span className={cx('workflow-flow-node__body')}>
+      <span className={clsx(workflowTopologyStyles['workflow-flow-node__body'])}>
         <strong title={data.label}>{data.label}</strong>
         <small title={data.typeLabel}>
           {data.typeLabel}
           {data.childCount > 0 ? ` · ${data.childCount} 个内部节点` : ''}
         </small>
       </span>
-      <span className={cx('workflow-flow-node__icon')}>
+      <span className={clsx(workflowTopologyStyles['workflow-flow-node__icon'])}>
         <AppIcon
           name={data.disabled ? 'general/slash-circle-01' : 'development/dataflow-02'}
           size={15}
         />
       </span>
-      <Handle type="source" position={Position.Right} className={cx('workflow-flow-handle')} />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className={clsx(workflowTopologyStyles['workflow-flow-handle'])}
+      />
     </button>
   )
 }

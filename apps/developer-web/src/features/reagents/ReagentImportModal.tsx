@@ -1,4 +1,5 @@
-import { cx } from './reagentModalClassNames'
+import { clsx } from 'clsx'
+import reagentModalStyles from './ReagentModal.module.scss'
 import { Alert, Button, List, Modal, Space, Switch, Typography, Upload } from 'antd'
 import { useState } from 'react'
 import { useBackend } from '../../app/BackendProvider'
@@ -50,7 +51,7 @@ export function ImportModal({
   return (
     <Modal
       open
-      className={cx('reagent-mutation-modal')}
+      className={clsx(reagentModalStyles['reagent-mutation-modal'])}
       width={640}
       title={target === 'catalog' ? '导入试剂目录' : '导入试剂库存'}
       onCancel={onClose}
@@ -63,7 +64,7 @@ export function ImportModal({
         </Space>
       }
     >
-      <div className={cx('reagent-import-body')}>
+      <div className={clsx(reagentModalStyles['reagent-import-body'])}>
         <Upload
           maxCount={1}
           accept=".json,.csv,.tsv,.xlsx"

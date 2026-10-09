@@ -1,0 +1,80 @@
+:root {
+  --studio-background: #f5f6fb;
+  --studio-surface: #ffffff;
+  --studio-surface-muted: #fafbff;
+  --studio-border: #dfe4ef;
+  --studio-border-soft: #e9edf5;
+  --studio-selection: #eef0ff;
+  --studio-accent: #3c49dd;
+  --studio-radius: 12px;
+  --studio-control-radius: 8px;
+
+  --bh-font-family-sans:
+    'PingFang SC', 'Microsoft YaHei', Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --bh-color-fill-0: #f5f6fb;
+  --bh-color-background: #f5f6fb;
+  --bh-color-muted: #f5f6fb;
+  --bh-color-primary-background: #eef0ff;
+  --bh-color-primary-background-hover: #eef0ff;
+  --bh-color-control-hover: #eef0ff;
+  --bh-color-accent: #eef0ff;
+  --bh-color-sidebar-selected: #eef0ff;
+  --bh-color-sidebar-accent: #eef0ff;
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--bh-font-family-sans);
+}
+
+:global(.ant-modal) :global(.ant-modal-content),
+:global(.ant-dropdown),
+:global(.ant-popover-inner),
+:global(.ant-select-dropdown),
+:global(.ant-picker-dropdown) {
+  border-radius: var(--studio-radius);
+}
+
+/* Match design-v2's light preset specificity so AntD reads the Studio values too. */
+:root[data-color-mode='light'][data-design-preset='default'],
+:root[data-color-mode='light']:not([data-design-preset]) {
+  --bh-font-family-sans:
+    'PingFang SC', 'Microsoft YaHei', Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --bh-color-fill-0: #f5f6fb;
+  --bh-color-background: #f5f6fb;
+  --bh-color-muted: #f5f6fb;
+  --bh-color-primary-background: #eef0ff;
+  --bh-color-primary-background-hover: #eef0ff;
+  --bh-color-control-hover: #eef0ff;
+  --bh-color-accent: #eef0ff;
+  --bh-color-sidebar-selected: #eef0ff;
+  --bh-color-sidebar-accent: #eef0ff;
+}
+
+/* Studio blocks use the tighter 8px radius; overlays keep their 12px shape. */
+:root {
+  --studio-radius: 8px;
+  --studio-overlay-radius: 12px;
+}
+
+:global(.ant-modal) :global(.ant-modal-content),
+:global(.ant-dropdown),
+:global(.ant-popover-inner),
+:global(.ant-select-dropdown),
+:global(.ant-picker-dropdown) {
+  border-radius: var(--studio-overlay-radius);
+}
+
+:global(.ant-dropdown-menu-item) {
+  column-gap: 8px;
+}
+
+:global(.ant-dropdown-menu-item) > .bh-icon {
+  flex: 0 0 auto;
+}

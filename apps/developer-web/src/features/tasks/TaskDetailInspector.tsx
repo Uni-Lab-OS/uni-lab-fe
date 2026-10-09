@@ -1,3 +1,6 @@
+import { clsx } from 'clsx'
+import taskDetailInspectorStyles from './TaskDetailInspector.module.scss'
+import taskDetailStyles from './taskDetail.module.scss'
 import type {
   NodeJobFeedbackPage,
   WorkflowExecutionLockFact,
@@ -6,7 +9,6 @@ import type {
   WorkflowResourceWaitFact,
 } from '@unilab-fe/core'
 
-import { cx } from './taskDetailClassNames'
 import { DebugIcon } from './TaskDetailIcons'
 import {
   type TimelineEvent,
@@ -27,21 +29,28 @@ export function EvidenceTab({
   } | null
 }) {
   return (
-    <div className={cx('debug-tab-content')}>
-      <div className={cx('debug-detail-section')}>
-        <div className={cx('debug-detail-section-head')}>
+    <div className={clsx(taskDetailInspectorStyles['debug-tab-content'])}>
+      <div className={clsx(taskDetailInspectorStyles['debug-detail-section'])}>
+        <div className={clsx(taskDetailStyles['debug-detail-section-head'])}>
           <h3>运行输入</h3>
         </div>
-        <pre className={cx('debug-code-block')}>{formatJson(job?.param ?? {})}</pre>
+        <pre className={clsx(taskDetailInspectorStyles['debug-code-block'])}>
+          {formatJson(job?.param ?? {})}
+        </pre>
       </div>
-      <div className={cx('debug-detail-section')}>
-        <div className={cx('debug-detail-section-head')}>
+      <div className={clsx(taskDetailInspectorStyles['debug-detail-section'])}>
+        <div className={clsx(taskDetailStyles['debug-detail-section-head'])}>
           <h3>当前输出</h3>
         </div>
-        <pre className={cx('debug-code-block debug-output-block')}>
+        <pre
+          className={clsx(
+            taskDetailInspectorStyles['debug-code-block'],
+            taskDetailInspectorStyles['debug-output-block'],
+          )}
+        >
           {formatJson(job?.returnInfo ?? {})}
         </pre>
-        <dl className={cx('debug-output-meta')}>
+        <dl className={clsx(taskDetailInspectorStyles['debug-output-meta'])}>
           <div>
             <dt>反馈</dt>
             <dd>{event.status === 'success' ? '已返回成功状态' : '尚未形成终态回执'}</dd>
@@ -93,16 +102,23 @@ export function ResourcesTab({
         ? 'OS 未返回 resource_waits；当前节点没有处于资源等待。'
         : null
   return (
-    <div className={cx('debug-tab-content')}>
-      <div className={cx('debug-resource-summary')}>
+    <div className={clsx(taskDetailInspectorStyles['debug-tab-content'])}>
+      <div className={clsx(taskDetailInspectorStyles['debug-resource-summary'])}>
         <span>
           <DebugIcon name="cube" size={17} />
           <b>{waits.length}</b> 项待分配资源
         </span>
       </div>
-      <div className={cx('debug-resource-list')}>
+      <div className={clsx(taskDetailInspectorStyles['debug-resource-list'])}>
         {waits.length === 0 ? (
-          <div className={cx('debug-empty-state debug-resource-empty-state')}>暂无资源等待。</div>
+          <div
+            className={clsx(
+              taskDetailInspectorStyles['debug-empty-state'],
+              taskDetailInspectorStyles['debug-resource-empty-state'],
+            )}
+          >
+            暂无资源等待。
+          </div>
         ) : (
           waits.map((wait, index) => (
             <ResourceRow
@@ -116,7 +132,7 @@ export function ResourcesTab({
         )}
       </div>
       {(statusMessage || materialUuid || deviceId || noInventoryChange) && (
-        <div className={cx('debug-resource-diagnostic')} role="status">
+        <div className={clsx(taskDetailInspectorStyles['debug-resource-diagnostic'])} role="status">
           <DebugIcon name="info" size={15} />
           <div>
             <strong>资源事实</strong>
@@ -130,9 +146,12 @@ export function ResourcesTab({
         </div>
       )}
       {showSiteMap && (
-        <div className={cx('debug-site-choice')}>
+        <div className={clsx(taskDetailInspectorStyles['debug-site-choice'])}>
           <h3>库位图</h3>
-          <div className={cx('debug-site-map-unavailable')} role="status">
+          <div
+            className={clsx(taskDetailInspectorStyles['debug-site-map-unavailable'])}
+            role="status"
+          >
             <DebugIcon name="layout-grid" size={15} />
             <span>OS 已返回 Site 事实，但当前检查面板尚未接入可绘制的库位图数据。</span>
           </div>
@@ -146,13 +165,18 @@ export function IssuesTab({ event }: { event: TimelineEvent }) {
   const intervention = event.status === 'manual'
   const unknown = event.status === 'unknown'
   return (
-    <div className={cx('debug-tab-content')}>
+    <div className={clsx(taskDetailInspectorStyles['debug-tab-content'])}>
       <div
-        className={cx(
-          `debug-intervention-card ${intervention ? 'debug-intervention-manual' : unknown ? 'debug-intervention-unknown' : 'debug-intervention-waiting'}`,
+        className={clsx(
+          taskDetailInspectorStyles['debug-intervention-card'],
+          intervention
+            ? 'debug-intervention-manual'
+            : unknown
+              ? taskDetailInspectorStyles['debug-intervention-unknown']
+              : taskDetailInspectorStyles['debug-intervention-waiting'],
         )}
       >
-        <div className={cx('debug-intervention-title')}>
+        <div className={clsx(taskDetailInspectorStyles['debug-intervention-title'])}>
           <DebugIcon
             name={intervention ? 'user-check' : unknown ? 'help-circle' : 'info'}
             size={18}
@@ -170,7 +194,7 @@ export function IssuesTab({ event }: { event: TimelineEvent }) {
           </div>
         </div>
         {event.description && (
-          <div className={cx('debug-context-box')}>
+          <div className={clsx(taskDetailInspectorStyles['debug-context-box'])}>
             <span>状态</span>
             <strong>{event.description}</strong>
           </div>
@@ -192,18 +216,30 @@ export function LocksTab({
     locks.every((lock) => lock.canRelease === true) &&
     !recovery?.requiresReconciliation
   return (
-    <div className={cx('debug-tab-content')}>
-      <div className={cx(`debug-lock-guard ${canRelease ? 'is-ready' : ''}`)}>
-        <div className={cx('debug-lock-guard-head')}>
+    <div className={clsx(taskDetailInspectorStyles['debug-tab-content'])}>
+      <div
+        className={clsx(
+          taskDetailInspectorStyles['debug-lock-guard'],
+          canRelease ? taskDetailInspectorStyles['is-ready'] : '',
+        )}
+      >
+        <div className={clsx(taskDetailInspectorStyles['debug-lock-guard-head'])}>
           <DebugIcon name={canRelease ? 'unlock' : 'shield-alert'} size={18} />
           <div>
             <strong>{canRelease ? '可释放执行锁' : '当前不可直接释放执行锁'}</strong>
           </div>
         </div>
       </div>
-      <div className={cx('debug-lock-group')}>
+      <div className={clsx(taskDetailInspectorStyles['debug-lock-group'])}>
         {locks.length === 0 ? (
-          <div className={cx('debug-empty-state debug-lock-empty-state')}>暂无执行锁快照。</div>
+          <div
+            className={clsx(
+              taskDetailInspectorStyles['debug-empty-state'],
+              taskDetailInspectorStyles['debug-lock-empty-state'],
+            )}
+          >
+            暂无执行锁快照。
+          </div>
         ) : (
           locks.map((lock, index) => (
             <LockRow
@@ -221,8 +257,12 @@ export function LocksTab({
           ))
         )}
       </div>
-      <div className={cx('debug-lock-actions')}>
-        <button type="button" className={cx('debug-danger-outline-button')} disabled>
+      <div className={clsx(taskDetailInspectorStyles['debug-lock-actions'])}>
+        <button
+          type="button"
+          className={clsx(taskDetailStyles['debug-danger-outline-button'])}
+          disabled
+        >
           <DebugIcon name="unlock" size={15} /> 人工解除整组锁
         </button>
       </div>
@@ -236,16 +276,16 @@ export function ObservabilityTab({
   feedback: NodeJobFeedbackPage | null | undefined
 }) {
   return (
-    <div className={cx('debug-tab-content')}>
-      <div className={cx('debug-trace-banner')}>
-        <span className={cx('debug-trace-id')}>Trace / feedback</span>
+    <div className={clsx(taskDetailInspectorStyles['debug-tab-content'])}>
+      <div className={clsx(taskDetailInspectorStyles['debug-trace-banner'])}>
+        <span className={clsx(taskDetailInspectorStyles['debug-trace-id'])}>Trace / feedback</span>
         <span>{feedback?.items.length ?? 0} 条反馈</span>
       </div>
-      <div className={cx('debug-observe-section')}>
-        <div className={cx('debug-detail-section-head')}>
+      <div className={clsx(taskDetailInspectorStyles['debug-observe-section'])}>
+        <div className={clsx(taskDetailStyles['debug-detail-section-head'])}>
           <h3>反馈事件</h3>
         </div>
-        <div className={cx('debug-event-log')}>
+        <div className={clsx(taskDetailInspectorStyles['debug-event-log'])}>
           {feedback?.items.length ? (
             feedback.items.map((item) => (
               <span key={item.feedbackUuid}>
@@ -255,7 +295,7 @@ export function ObservabilityTab({
               </span>
             ))
           ) : (
-            <span className={cx('debug-event-log-empty')}>
+            <span className={clsx(taskDetailInspectorStyles['debug-event-log-empty'])}>
               <small>暂无反馈事件。</small>
             </span>
           )}
@@ -277,8 +317,8 @@ function ResourceRow({
   state: string
 }) {
   return (
-    <div className={cx('debug-resource-row')}>
-      <span className={cx('debug-resource-icon')}>
+    <div className={clsx(taskDetailInspectorStyles['debug-resource-row'])}>
+      <span className={clsx(taskDetailInspectorStyles['debug-resource-icon'])}>
         <DebugIcon name={icon} size={16} />
       </span>
       <span>
@@ -291,17 +331,21 @@ function ResourceRow({
 }
 function LockRow({ title, scope, state }: { title: string; scope: string; state: string }) {
   return (
-    <div className={cx('debug-lock-row')}>
+    <div className={clsx(taskDetailInspectorStyles['debug-lock-row'])}>
       <span>
         <strong>{title}</strong>
         <small>{scope}</small>
       </span>
       <span
-        className={cx(
-          state === '可释放' ? 'lock-ready' : state === '状态不明' ? 'lock-unknown' : 'lock-held',
+        className={clsx(
+          state === '可释放'
+            ? taskDetailInspectorStyles['lock-ready']
+            : state === '状态不明'
+              ? taskDetailInspectorStyles['lock-unknown']
+              : taskDetailInspectorStyles['lock-held'],
         )}
       >
-        <span className={cx('debug-state-dot')} />
+        <span className={clsx(taskDetailStyles['debug-state-dot'])} />
         {state}
       </span>
     </div>

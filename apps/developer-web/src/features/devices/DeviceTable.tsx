@@ -1,3 +1,7 @@
+import { clsx } from 'clsx'
+import devicePageStyles from './DevicePage.module.scss'
+import appShellStyles from '../../styles/app-shell.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Table, Tooltip } from 'antd'
 import type { TableColumnsType } from 'antd'
 import type { DeviceSummary } from '@unilab-fe/core'
@@ -5,7 +9,6 @@ import { DeviceStatusBadge } from '@unilab/lab-ui'
 import { EmptyState } from '@unilab/design-v2'
 import { AppIcon } from '../../components/ui/Icon'
 import { TableText } from '../../components/ui/TableText'
-import { cx } from './deviceClassNames'
 
 export function DeviceTable({
   rows,
@@ -20,8 +23,16 @@ export function DeviceTable({
       key: 'device',
       width: 360,
       render: (_, row) => (
-        <div className={cx('device-cell')}>
-          <button type="button" className={cx('device-cell__name')} onClick={() => onView(row)}>
+        <div className={clsx('device-cell')}>
+          <button
+            type="button"
+            className={clsx(
+              devicePageStyles['device-cell__name'],
+              appShellStyles['device-cell__name'],
+              sharedStyles['device-cell__name'],
+            )}
+            onClick={() => onView(row)}
+          >
             <TableText text={row.label} />
           </button>
         </div>
@@ -32,7 +43,9 @@ export function DeviceTable({
       key: 'actions',
       width: 120,
       align: 'center',
-      render: (_, row) => <span className={cx('muted-cell')}>{row.actions.length} 个动作</span>,
+      render: (_, row) => (
+        <span className={clsx(sharedStyles['muted-cell'])}>{row.actions.length} 个动作</span>
+      ),
     },
     {
       title: '状态',
@@ -48,9 +61,9 @@ export function DeviceTable({
       render: (_, row) => {
         const busy = row.actions.find((action) => action.isBusy)
         return busy ? (
-          <span className={cx('muted-cell')}>{busy.label}</span>
+          <span className={clsx(sharedStyles['muted-cell'])}>{busy.label}</span>
         ) : (
-          <span className={cx('muted-cell')}>空闲</span>
+          <span className={clsx(sharedStyles['muted-cell'])}>空闲</span>
         )
       },
     },
@@ -62,7 +75,7 @@ export function DeviceTable({
       render: (_, row) => (
         <Tooltip title="查看设备">
           <Button
-            className={cx('icon-button')}
+            className={clsx(sharedStyles['icon-button'])}
             type="text"
             icon={<AppIcon name="general/eye" size={18} />}
             aria-label={`查看设备 ${row.label}`}
@@ -75,7 +88,7 @@ export function DeviceTable({
   return (
     <Table<DeviceSummary>
       rowKey="deviceUuid"
-      className={cx('device-table')}
+      className={clsx(devicePageStyles['device-table'])}
       columns={columns}
       dataSource={rows}
       locale={{ emptyText: <EmptyState scene="no-data" size="compact" title="暂无设备" /> }}

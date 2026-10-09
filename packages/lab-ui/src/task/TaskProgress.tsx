@@ -1,6 +1,6 @@
+import { clsx } from 'clsx'
+import taskStyles from '../task.module.scss'
 import type { HTMLAttributes } from 'react'
-
-import { cx } from '../classNames'
 
 export interface TaskProgressProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
   readonly percent: number | null | undefined
@@ -27,18 +27,22 @@ export function TaskProgress({
   const meta = `${completed}/${total} 节点`
   return (
     <div
-      className={cx('lab-ui-task-progress', `lab-ui-task-progress--${variant}`, className)}
+      className={clsx(
+        taskStyles['lab-ui-task-progress'],
+        taskStyles[`lab-ui-task-progress--${variant}`],
+        className,
+      )}
       {...props}
     >
-      <span className={cx('lab-ui-task-progress__value')}>
+      <span className={clsx(taskStyles['lab-ui-task-progress__value'])}>
         {normalizedPercent == null ? '—' : `${normalizedPercent}%`}
       </span>
-      <span className={cx('lab-ui-task-progress__meta', metaClassName)}>{meta}</span>
+      <span className={clsx(taskStyles['lab-ui-task-progress__meta'], metaClassName)}>{meta}</span>
       {variant === 'bar' && (
         <div
-          className={cx(
-            'lab-ui-task-progress__track',
-            normalizedPercent == null && 'lab-ui-task-progress__track--unavailable',
+          className={clsx(
+            taskStyles['lab-ui-task-progress__track'],
+            normalizedPercent == null && taskStyles['lab-ui-task-progress__track--unavailable'],
           )}
           role="progressbar"
           aria-label={
@@ -49,7 +53,7 @@ export function TaskProgress({
           aria-valuenow={normalizedPercent ?? 0}
         >
           <span
-            className={cx('lab-ui-task-progress__fill')}
+            className={clsx(taskStyles['lab-ui-task-progress__fill'])}
             style={{ width: `${normalizedPercent ?? 0}%` }}
           />
         </div>

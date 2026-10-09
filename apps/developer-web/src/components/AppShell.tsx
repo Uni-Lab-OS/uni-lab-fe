@@ -1,4 +1,6 @@
-import { cx } from '../styles/styleMaps'
+import { clsx } from 'clsx'
+import appShellStyles from '../styles/app-shell.module.scss'
+import sharedStyles from '../styles/shared.module.scss'
 import { type ReactNode, useState } from 'react'
 import { Badge, Button, Tooltip } from 'antd'
 import type { IconName } from '@unilab/design-v2/icons'
@@ -33,19 +35,21 @@ export function AppShell({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   return (
     <div
-      className={cx(
-        `developer-web studio-shell ${sidebarCollapsed ? 'studio-shell--collapsed' : ''}`,
+      className={clsx(
+        'developer-web',
+        appShellStyles['studio-shell'],
+        sidebarCollapsed ? appShellStyles['studio-shell--collapsed'] : '',
       )}
     >
-      <aside className={cx('studio-sidebar')}>
-        <div className={cx('studio-brand')}>
-          <span className={cx('studio-brand-mark')}>U</span>
-          <div className={cx('studio-brand-copy')}>
+      <aside className={clsx(appShellStyles['studio-sidebar'], sharedStyles['studio-sidebar'])}>
+        <div className={clsx(appShellStyles['studio-brand'], sharedStyles['studio-brand'])}>
+          <span className={clsx(appShellStyles['studio-brand-mark'])}>U</span>
+          <div className={clsx(appShellStyles['studio-brand-copy'])}>
             <strong>Uni-Lab</strong>
           </div>
           <Button
             type="text"
-            className={cx('studio-sidebar-toggle')}
+            className={clsx(appShellStyles['studio-sidebar-toggle'])}
             aria-label={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
             aria-expanded={!sidebarCollapsed}
             title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
@@ -58,8 +62,8 @@ export function AppShell({
             onClick={() => setSidebarCollapsed((value) => !value)}
           />
         </div>
-        <nav className={cx('studio-nav')} aria-label="主导航">
-          <span className={cx('studio-nav-label')}>工作台</span>
+        <nav className={clsx(appShellStyles['studio-nav'])} aria-label="主导航">
+          <span className={clsx(appShellStyles['studio-nav-label'])}>工作台</span>
           {navigation.slice(0, 3).map((item) => (
             <NavItem
               key={item.key}
@@ -70,7 +74,14 @@ export function AppShell({
               onNavigate={onNavigate}
             />
           ))}
-          <span className={cx('studio-nav-label studio-nav-label--resources')}>资源</span>
+          <span
+            className={clsx(
+              appShellStyles['studio-nav-label'],
+              appShellStyles['studio-nav-label--resources'],
+            )}
+          >
+            资源
+          </span>
           {navigation.slice(3).map((item) => (
             <NavItem
               key={item.key}
@@ -83,8 +94,17 @@ export function AppShell({
           ))}
         </nav>
       </aside>
-      <div className={cx(`studio-main studio-main--${route}`)}>
-        <main className={cx(`studio-content studio-content--${route}`)}>{children}</main>
+      <div className={clsx(appShellStyles['studio-main'], appShellStyles[`studio-main--${route}`])}>
+        <main
+          className={clsx(
+            appShellStyles['studio-content'],
+            sharedStyles['studio-content'],
+            appShellStyles[`studio-content--${route}`],
+            sharedStyles[`studio-content--${route}`],
+          )}
+        >
+          {children}
+        </main>
       </div>
     </div>
   )
@@ -106,12 +126,16 @@ function NavItem({
   const navButton = (
     <button
       type="button"
-      className={cx(`studio-nav-item ${route === item.key ? 'is-active' : ''}`)}
+      className={clsx(
+        appShellStyles['studio-nav-item'],
+        sharedStyles['studio-nav-item'],
+        route === item.key ? clsx(appShellStyles['is-active'], sharedStyles['is-active']) : '',
+      )}
       aria-label={collapsed ? item.label : undefined}
       onClick={() => onNavigate(item.key)}
     >
       <AppIcon name={item.icon} size={16} color={route === item.key ? 'primary' : 'context'} />
-      <span className={cx('studio-nav-item__label')}>{item.label}</span>
+      <span className={clsx(appShellStyles['studio-nav-item__label'])}>{item.label}</span>
       {item.key === 'overview' && <Badge count={connection === 'error' ? 1 : 0} size="small" />}
     </button>
   )

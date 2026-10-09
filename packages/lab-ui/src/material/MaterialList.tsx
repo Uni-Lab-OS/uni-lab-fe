@@ -1,7 +1,12 @@
+import { clsx } from 'clsx'
+import deviceStyles from '../device.module.scss'
+import materialStyles from '../material.module.scss'
+import runStyles from '../run.module.scss'
+import sharedStyles from '../shared.module.scss'
+import workflowStyles from '../workflow.module.scss'
 import { EmptyState } from '@unilab/design-v2'
 import type { MaterialSummary } from '@unilab-fe/core'
 
-import { cx } from '../classNames'
 export interface MaterialListProps {
   readonly items: readonly MaterialSummary[]
   readonly selectedMaterialUuid?: string
@@ -18,14 +23,23 @@ export function MaterialList({
 }: MaterialListProps) {
   if (items.length === 0) {
     return (
-      <div className={cx('lab-ui-empty-region')}>
+      <div
+        className={clsx(materialStyles['lab-ui-empty-region'], sharedStyles['lab-ui-empty-region'])}
+      >
         <EmptyState scene="no-data" size="compact" title={emptyDescription} />
       </div>
     )
   }
 
   return (
-    <ul className={cx('lab-ui-material-list')} aria-label="物料列表">
+    <ul
+      className={clsx(
+        materialStyles['lab-ui-material-list'],
+        runStyles['lab-ui-material-list'],
+        workflowStyles['lab-ui-material-list'],
+      )}
+      aria-label="物料列表"
+    >
       {items.map((item) => (
         <MaterialListItem
           key={item.materialUuid}
@@ -51,15 +65,30 @@ function MaterialListItem({
     <li>
       <button
         type="button"
-        className={cx('lab-ui-material-list__item', selected && 'is-selected')}
+        className={clsx(
+          materialStyles['lab-ui-material-list__item'],
+          selected && clsx(deviceStyles['is-selected'], materialStyles['is-selected']),
+        )}
         aria-pressed={selected}
         onClick={() => onSelect?.(item.materialUuid)}
       >
-        <span className={cx('lab-ui-material-list__primary')}>
+        <span
+          className={clsx(
+            materialStyles['lab-ui-material-list__primary'],
+            runStyles['lab-ui-material-list__primary'],
+            workflowStyles['lab-ui-material-list__primary'],
+          )}
+        >
           <strong>{item.name || item.materialUuid}</strong>
           <span>{item.materialType || '未分类物料'}</span>
         </span>
-        <span className={cx('lab-ui-material-list__meta')}>
+        <span
+          className={clsx(
+            materialStyles['lab-ui-material-list__meta'],
+            runStyles['lab-ui-material-list__meta'],
+            workflowStyles['lab-ui-material-list__meta'],
+          )}
+        >
           {item.barcode || item.materialUuid}
         </span>
       </button>

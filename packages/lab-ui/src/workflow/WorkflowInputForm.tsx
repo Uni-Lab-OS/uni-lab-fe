@@ -1,6 +1,8 @@
+import { clsx } from 'clsx'
+import sharedStyles from '../shared.module.scss'
+import workflowStyles from '../workflow.module.scss'
 import type { WorkflowInputParameter } from '@unilab-fe/core'
 
-import { cx } from '../classNames'
 import { SchemaInputField } from '../shared/SchemaInputField'
 export type WorkflowInputValues = Readonly<Record<string, unknown>>
 
@@ -21,7 +23,11 @@ export function WorkflowInputForm({
   errors = {},
 }: WorkflowInputFormProps) {
   if (parameters.length === 0) {
-    return <p className={cx('lab-ui-form-empty')}>该工作流没有声明需要填写的运行参数。</p>
+    return (
+      <p className={clsx(sharedStyles['lab-ui-form-empty'])}>
+        该工作流没有声明需要填写的运行参数。
+      </p>
+    )
   }
 
   const setValue = (name: string, next: unknown) => {
@@ -29,7 +35,7 @@ export function WorkflowInputForm({
   }
 
   return (
-    <div className={cx('lab-ui-workflow-input-form')}>
+    <div className={clsx(workflowStyles['lab-ui-workflow-input-form'])}>
       {parameters.map((parameter) => (
         <WorkflowInputField
           key={parameter.name}

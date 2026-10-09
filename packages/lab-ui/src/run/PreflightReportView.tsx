@@ -1,7 +1,12 @@
+import { clsx } from 'clsx'
+import deviceStyles from '../device.module.scss'
+import materialStyles from '../material.module.scss'
+import runStyles from '../run.module.scss'
+import sharedStyles from '../shared.module.scss'
+import workflowStyles from '../workflow.module.scss'
 import { Icon } from '@unilab/design-v2/icons'
 import type { PreflightCheckStatus, PreflightReport } from '@unilab-fe/core'
 
-import { cx } from '../classNames'
 export interface PreflightReportViewProps {
   readonly report: PreflightReport
 }
@@ -12,29 +17,56 @@ export function PreflightReportView({ report }: PreflightReportViewProps) {
 
   return (
     <section
-      className={cx('lab-ui-preflight', `lab-ui-preflight--${report.status}`)}
+      className={clsx(
+        materialStyles['lab-ui-preflight'],
+        runStyles['lab-ui-preflight'],
+        runStyles[`lab-ui-preflight--${report.status}`],
+      )}
       aria-label="运行前检查"
     >
-      <header className={cx('lab-ui-preflight__header')}>
+      <header
+        className={clsx(
+          materialStyles['lab-ui-preflight__header'],
+          runStyles['lab-ui-preflight__header'],
+        )}
+      >
         <h2>运行前检查</h2>
       </header>
       {report.checks.length === 0 ? (
-        <p className={cx('lab-ui-list-empty')}>后端没有返回检查项。</p>
+        <p className={clsx(sharedStyles['lab-ui-list-empty'])}>后端没有返回检查项。</p>
       ) : (
-        <div className={cx('lab-ui-preflight__groups')}>
+        <div className={clsx(runStyles['lab-ui-preflight__groups'])}>
           {groups.map((group) => (
             <details
-              className={cx('lab-ui-preflight__group', `is-${group.status}`)}
+              className={clsx(
+                runStyles['lab-ui-preflight__group'],
+                deviceStyles[`is-${group.status}`],
+                materialStyles[`is-${group.status}`],
+                runStyles[`is-${group.status}`],
+              )}
               key={group.status}
               open={group.status === 'blocked' || group.status === 'confirmation_required'}
             >
               <summary>
                 <span>{group.title}</span>
-                <span className={cx('lab-ui-preflight__tag', `is-${group.status}`)}>
+                <span
+                  className={clsx(
+                    runStyles['lab-ui-preflight__tag'],
+                    deviceStyles[`is-${group.status}`],
+                    materialStyles[`is-${group.status}`],
+                    runStyles[`is-${group.status}`],
+                  )}
+                >
                   {group.checks.length}
                 </span>
               </summary>
-              <ul className={cx('lab-ui-preflight__list')}>
+              <ul
+                className={clsx(
+                  materialStyles['lab-ui-preflight__list'],
+                  runStyles['lab-ui-preflight__list'],
+                  workflowStyles['lab-ui-preflight__list'],
+                )}
+              >
                 {group.checks.map((check, index) => (
                   <PreflightCheckItem
                     key={`${check.code}-${check.nodeUuid ?? 'global'}-${index}`}
@@ -47,7 +79,7 @@ export function PreflightReportView({ report }: PreflightReportViewProps) {
         </div>
       )}
       {!report.canRun && (
-        <div className={cx('lab-ui-preflight__alert')} role="alert">
+        <div className={clsx(runStyles['lab-ui-preflight__alert'])} role="alert">
           <Icon name="alerts-feedback/alert-circle" color="error" size={16} decorative />
           <div>
             <strong>当前不能提交</strong>
@@ -61,8 +93,14 @@ export function PreflightReportView({ report }: PreflightReportViewProps) {
 
 function PreflightCheckItem({ check }: { readonly check: PreflightReport['checks'][number] }) {
   return (
-    <li className={cx(`is-${check.status}`)}>
-      <span className={cx('lab-ui-preflight__indicator')} aria-hidden="true" />
+    <li
+      className={clsx(
+        deviceStyles[`is-${check.status}`],
+        materialStyles[`is-${check.status}`],
+        runStyles[`is-${check.status}`],
+      )}
+    >
+      <span className={clsx(runStyles['lab-ui-preflight__indicator'])} aria-hidden="true" />
       <div>
         <strong>{check.message}</strong>
         <small>
@@ -70,7 +108,14 @@ function PreflightCheckItem({ check }: { readonly check: PreflightReport['checks
           {check.nodeName ? ` · ${check.nodeName}` : ''}
         </small>
       </div>
-      <span className={cx('lab-ui-preflight__status-tag', `is-${check.status}`)}>
+      <span
+        className={clsx(
+          runStyles['lab-ui-preflight__status-tag'],
+          deviceStyles[`is-${check.status}`],
+          materialStyles[`is-${check.status}`],
+          runStyles[`is-${check.status}`],
+        )}
+      >
         {checkStatusLabel(check.status)}
       </span>
     </li>

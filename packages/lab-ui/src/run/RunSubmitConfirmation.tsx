@@ -1,4 +1,5 @@
-import { cx } from '../classNames'
+import { clsx } from 'clsx'
+import runStyles from '../run.module.scss'
 export interface RunSubmitConfirmationProps {
   readonly canSubmit: boolean
   readonly busy?: boolean
@@ -16,8 +17,8 @@ export function RunSubmitConfirmation({
   submitLabel = '提交运行',
 }: RunSubmitConfirmationProps) {
   return (
-    <div className={cx('lab-ui-run-submit-confirmation')}>
-      <div className={cx('lab-ui-run-submit-confirmation__actions')}>
+    <div className={clsx(runStyles['lab-ui-run-submit-confirmation'])}>
+      <div className={clsx(runStyles['lab-ui-run-submit-confirmation__actions'])}>
         {onEdit && (
           <button type="button" onClick={onEdit} disabled={busy}>
             返回修改
@@ -25,7 +26,7 @@ export function RunSubmitConfirmation({
         )}
         <button
           type="button"
-          className={cx('is-primary')}
+          className={clsx(runStyles['is-primary'])}
           onClick={onSubmit}
           disabled={!canSubmit || busy}
           aria-busy={busy}

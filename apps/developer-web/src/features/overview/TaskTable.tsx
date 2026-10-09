@@ -1,4 +1,7 @@
-import { cx } from './overviewClassNames'
+import { clsx } from 'clsx'
+import overviewPageStyles from './OverviewPage.module.scss'
+import appShellStyles from '../../styles/app-shell.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Input, Select, Space, Table, Tooltip } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
@@ -33,10 +36,10 @@ export function TaskTable({
       key: 'name',
       width: 250,
       render: (_, row) => (
-        <div className={cx('primary-cell')}>
+        <div className={clsx(appShellStyles['primary-cell'], sharedStyles['primary-cell'])}>
           <button
             type="button"
-            className={cx('primary-cell-link')}
+            className={clsx(appShellStyles['primary-cell-link'], sharedStyles['primary-cell-link'])}
             aria-label={`查看任务 ${row.name}`}
             onClick={() => onView(row)}
           >
@@ -50,7 +53,7 @@ export function TaskTable({
       key: 'workflowName',
       width: 220,
       render: (_, row) => (
-        <div className={cx('overview-table-text-cell')}>
+        <div className={clsx(sharedStyles['overview-table-text-cell'])}>
           <TableText text={row.workflowName} />
         </div>
       ),
@@ -67,7 +70,7 @@ export function TaskTable({
       align: 'center',
       width: 150,
       render: (_, row) => (
-        <div className={cx('progress-cell')}>
+        <div className={clsx(sharedStyles['progress-cell'])}>
           <span>{row.progress == null ? '—' : `${row.progress}%`}</span>
           <StatusBadge status={row.status} />
         </div>
@@ -79,7 +82,7 @@ export function TaskTable({
       align: 'center',
       width: 175,
       render: (_, row) => (
-        <time className={cx('muted-cell')} dateTime={row.createdAt}>
+        <time className={clsx(sharedStyles['muted-cell'])} dateTime={row.createdAt}>
           {row.createdAt ? formatDateTime(row.createdAt) : '未提供'}
         </time>
       ),
@@ -93,7 +96,7 @@ export function TaskTable({
         <Space size={2}>
           <Tooltip title="查看任务">
             <Button
-              className={cx('icon-button')}
+              className={clsx(sharedStyles['icon-button'])}
               type="text"
               icon={<AppIcon name="general/eye" size={18} />}
               aria-label={`查看任务 ${row.name}`}
@@ -102,7 +105,7 @@ export function TaskTable({
           </Tooltip>
           <Tooltip title="中止任务">
             <Button
-              className={cx('icon-button')}
+              className={clsx(sharedStyles['icon-button'])}
               type="text"
               danger
               disabled={!['running', 'waiting', 'attention'].includes(row.status)}
@@ -117,14 +120,25 @@ export function TaskTable({
   ]
 
   return (
-    <section className={cx('data-section')}>
-      <div className={cx('data-section-toolbar')}>
-        <div className={cx('section-title')}>
+    <section
+      className={clsx(
+        overviewPageStyles['data-section'],
+        appShellStyles['data-section'],
+        sharedStyles['data-section'],
+      )}
+    >
+      <div
+        className={clsx(
+          appShellStyles['data-section-toolbar'],
+          sharedStyles['data-section-toolbar'],
+        )}
+      >
+        <div className={clsx(sharedStyles['section-title'])}>
           <h2>所有任务</h2>
         </div>
         <Space>
           <Input
-            className={cx('search-input')}
+            className={clsx(sharedStyles['search-input'])}
             allowClear
             prefix={<AppIcon name="general/search-md" size={16} />}
             placeholder="搜索任务"
@@ -132,7 +146,7 @@ export function TaskTable({
             onChange={(event) => onKeywordChange(event.target.value)}
           />
           <Select
-            className={cx('status-select')}
+            className={clsx(sharedStyles['status-select'])}
             value={status}
             onChange={onStatusChange}
             options={[
@@ -186,8 +200,13 @@ function PriorityLabel({ value }: { value: string | null | undefined }) {
           ? 'low'
           : 'normal'
   return (
-    <span className={cx(`priority-label priority-label--${tone}`)}>
-      <span className={cx('priority-dot')} aria-hidden="true" />
+    <span
+      className={clsx(
+        overviewPageStyles['priority-label'],
+        overviewPageStyles[`priority-label--${tone}`],
+      )}
+    >
+      <span className={clsx(overviewPageStyles['priority-dot'])} aria-hidden="true" />
       {label}
     </span>
   )

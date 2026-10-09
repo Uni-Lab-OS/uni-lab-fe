@@ -1,8 +1,9 @@
+import { clsx } from 'clsx'
+import taskDetailPageStyles from './TaskDetailPage.module.scss'
 import type { ReactNode } from 'react'
 
 import { Tooltip } from 'antd'
 
-import { cx } from './taskDetailClassNames'
 import { AppIcon } from '../../components/ui/Icon'
 
 const iconMap: Record<string, string> = {
@@ -88,10 +89,10 @@ export function DebugActionButton({
 }) {
   return (
     <Tooltip title={tooltip ?? label} placement="top">
-      <span className={cx('debug-timeline-action-hitarea')}>
+      <span className={clsx(taskDetailPageStyles['debug-timeline-action-hitarea'])}>
         <button
           type="button"
-          className={cx(`debug-timeline-action ${className ?? ''}`)}
+          className={clsx(taskDetailPageStyles['debug-timeline-action'], className ?? '')}
           aria-label={label}
           disabled={disabled}
           onClick={onClick}

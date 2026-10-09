@@ -1,4 +1,5 @@
-import { cx } from './reagentModalClassNames'
+import { clsx } from 'clsx'
+import reagentModalStyles from './ReagentModal.module.scss'
 import { Alert, Button, List, Modal, Pagination, Typography } from 'antd'
 import { useEffect, useState } from 'react'
 import type { Reagent, ReagentHistoryPage } from '@unilab-fe/core'
@@ -54,7 +55,7 @@ export function HistoryModal({ reagent, onClose }: { reagent: Reagent; onClose: 
       ) : history?.items.length ? (
         <>
           <List
-            className={cx('history-list')}
+            className={clsx('history-list')}
             dataSource={[...history.items]}
             renderItem={(item) => (
               <List.Item>
@@ -78,7 +79,7 @@ export function HistoryModal({ reagent, onClose }: { reagent: Reagent; onClose: 
             )}
           />
           <Pagination
-            className={cx('reagent-history-pagination')}
+            className={clsx(reagentModalStyles['reagent-history-pagination'])}
             simple
             current={page}
             pageSize={pageSize}

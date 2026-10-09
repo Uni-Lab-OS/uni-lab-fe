@@ -1,4 +1,7 @@
-import { cx } from './overviewClassNames'
+import { clsx } from 'clsx'
+import overviewPageStyles from './OverviewPage.module.scss'
+import appShellStyles from '../../styles/app-shell.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Dropdown, Modal, message } from 'antd'
 import type { MenuProps } from 'antd'
 import { useMemo, useState } from 'react'
@@ -190,7 +193,7 @@ export function OverviewPage({
     },
   ]
   return (
-    <div className={cx('page-stack')}>
+    <div className={clsx(appShellStyles['page-stack'], sharedStyles['page-stack'])}>
       <PageHeader
         title="总览"
         actions={
@@ -214,7 +217,13 @@ export function OverviewPage({
         loadingContent={<OverviewSkeleton />}
       >
         <SummaryStrip rows={rows} />
-        <div className={cx('overview-columns')}>
+        <div
+          className={clsx(
+            overviewPageStyles['overview-columns'],
+            appShellStyles['overview-columns'],
+            sharedStyles['overview-columns'],
+          )}
+        >
           <TaskColumn
             title="活动任务"
             rows={activePreviewRows}

@@ -1,3 +1,5 @@
+import { clsx } from 'clsx'
+import deviceActionEditorStyles from './DeviceActionEditor.module.scss'
 import { Alert, Button, Form, Input, Tooltip } from 'antd'
 import { useEffect, useState } from 'react'
 import { deviceDispatchStatus, createDeviceActionDebuggingViewModel } from '@unilab-fe/core'
@@ -5,7 +7,6 @@ import type { DeviceActionState, DeviceSummary } from '@unilab-fe/core'
 import { DeviceActionParameterFields } from '@unilab/lab-ui'
 import { useBackend } from '../../app/BackendProvider'
 import { AppIcon } from '../../components/ui/Icon'
-import { cx } from './deviceClassNames'
 import {
   deviceActionDefaults,
   deviceActionParameters,
@@ -15,10 +16,13 @@ import {
 
 function DeviceMaterialLabel() {
   return (
-    <span className={cx('device-action-input-label')}>
+    <span className={clsx(deviceActionEditorStyles['device-action-input-label'])}>
       <span>设备物料 UUID</span>
       <Tooltip title="动作任务绑定的当前设备资源" align={{ offset: [0, 0] }}>
-        <span className={cx('device-action-help-icon')} aria-label="设备物料 UUID 说明">
+        <span
+          className={clsx(deviceActionEditorStyles['device-action-help-icon'])}
+          aria-label="设备物料 UUID 说明"
+        >
           <AppIcon name="general/help-circle" size={14} />
         </span>
       </Tooltip>
@@ -100,7 +104,12 @@ export function DeviceActionEditor({
     }
   }
   return (
-    <div className={cx(`device-action-editor ${editing ? 'is-editing' : ''}`)}>
+    <div
+      className={clsx(
+        deviceActionEditorStyles['device-action-editor'],
+        editing ? 'is-editing' : '',
+      )}
+    >
       {submitError ? (
         <Alert
           type="error"
@@ -142,7 +151,7 @@ export function DeviceActionEditor({
         }}
         onFinish={submit}
       >
-        <div className={cx('device-action-form-grid')}>
+        <div className={clsx(deviceActionEditorStyles['device-action-form-grid'])}>
           {editing ? (
             <Form.Item label={<DeviceMaterialLabel />} name="materialUuid">
               <Input />
@@ -158,7 +167,7 @@ export function DeviceActionEditor({
             parameters={parameters}
             value={parameterValues}
             editable={editing}
-            className={cx('device-action-input-fields')}
+            className={clsx(deviceActionEditorStyles['device-action-input-fields'])}
             onChange={(name, next) =>
               setParameterValues((current) => ({ ...current, [name]: next }))
             }
@@ -170,15 +179,13 @@ export function DeviceActionEditor({
           </Form.Item>
         )}
         {editing && (
-          <div className={cx('action-editor-actions')}>
+          <div className={clsx(deviceActionEditorStyles['action-editor-actions'])}>
             <Button onClick={onCancel}>取消编辑</Button>
             <Button
               type="primary"
               htmlType="submit"
               loading={submitting}
-              disabled={
-                !canSubmit || submitting
-              }
+              disabled={!canSubmit || submitting}
               icon={<AppIcon name="media/play" color={canSubmit ? 'white' : 'default'} size={16} />}
             >
               发送调试命令

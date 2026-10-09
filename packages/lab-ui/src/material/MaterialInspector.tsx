@@ -1,9 +1,13 @@
+import { clsx } from 'clsx'
+import materialStyles from '../material.module.scss'
+import runStyles from '../run.module.scss'
+import sharedStyles from '../shared.module.scss'
+import workflowStyles from '../workflow.module.scss'
 import { Icon } from '@unilab/design-v2/icons'
 import type { MaterialGraphNode, SiteSummary } from '@unilab-fe/core'
 import { SitePicker } from './SitePicker'
 import { DefinitionList } from '../shared/DefinitionList'
 
-import { cx } from '../classNames'
 export interface MaterialInspectorProps {
   readonly node: MaterialGraphNode
   readonly selectedSiteUuid?: string
@@ -23,18 +27,45 @@ export function MaterialInspector({
   const occupiedSites = node.sites.filter((site) => site.occupancy.occupiedMaterialUuid)
 
   return (
-    <aside className={cx('lab-ui-material-inspector')} aria-label={`${detail.name} 物料详情`}>
-      <header className={cx('lab-ui-material-inspector__header')}>
-        <span className={cx('lab-ui-material-inspector__icon')} aria-hidden="true">
+    <aside
+      className={clsx(
+        materialStyles['lab-ui-material-inspector'],
+        runStyles['lab-ui-material-inspector'],
+      )}
+      aria-label={`${detail.name} 物料详情`}
+    >
+      <header
+        className={clsx(
+          materialStyles['lab-ui-material-inspector__header'],
+          runStyles['lab-ui-material-inspector__header'],
+        )}
+      >
+        <span
+          className={clsx(materialStyles['lab-ui-material-inspector__icon'])}
+          aria-hidden="true"
+        >
           <Icon name="shapes/cube-03" color="primary" size={22} />
         </span>
         <div>
-          <span className={cx('lab-ui-eyebrow')}>物料</span>
+          <span
+            className={clsx(
+              materialStyles['lab-ui-eyebrow'],
+              runStyles['lab-ui-eyebrow'],
+              workflowStyles['lab-ui-eyebrow'],
+            )}
+          >
+            物料
+          </span>
           <h2>{detail.name || detail.materialUuid}</h2>
         </div>
       </header>
       <MaterialFacts node={node} />
-      <section className={cx('lab-ui-material-inspector__sites')}>
+      <section
+        className={clsx(
+          materialStyles['lab-ui-material-inspector__sites'],
+          sharedStyles['lab-ui-material-inspector__sites'],
+        )}
+      >
         <h3>库位</h3>
         <SitePicker
           sites={node.sites}
@@ -54,7 +85,11 @@ function MaterialFacts({ node }: { readonly node: MaterialGraphNode }) {
   const detail = node.material
   return (
     <DefinitionList
-      className={cx('lab-ui-definition-list')}
+      className={clsx(
+        materialStyles['lab-ui-definition-list'],
+        runStyles['lab-ui-definition-list'],
+        workflowStyles['lab-ui-definition-list'],
+      )}
       items={[
         { label: '物料 ID', value: detail.materialUuid, mono: true },
         { label: '物料类型', value: detail.materialType },
@@ -74,7 +109,7 @@ function OccupiedMaterialList({
   readonly onSelectMaterial?: (materialUuid: string) => void
 }) {
   return (
-    <div className={cx('lab-ui-material-inspector__occupants')}>
+    <div className={clsx(materialStyles['lab-ui-material-inspector__occupants'])}>
       {sites.map((site) => {
         const materialUuid = site.occupancy.occupiedMaterialUuid
         if (!materialUuid) return null

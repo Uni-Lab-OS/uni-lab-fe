@@ -1,9 +1,12 @@
+import { clsx } from 'clsx'
+import materialStyles from '../material.module.scss'
+import runStyles from '../run.module.scss'
+import workflowStyles from '../workflow.module.scss'
 import type { PreflightReport, RunPreparationViewModel } from '@unilab-fe/core'
 import { InventoryRequirementList } from '../workflow/InventoryRequirementList'
 import { PreflightReportView } from './PreflightReportView'
 import { DefinitionList } from '../shared/DefinitionList'
 
-import { cx } from '../classNames'
 export interface RunPreparationSummaryProps {
   readonly viewModel: RunPreparationViewModel
   readonly preflight?: PreflightReport | null
@@ -15,19 +18,42 @@ export function RunPreparationSummary({ viewModel, preflight }: RunPreparationSu
   const inputCount = Object.keys(configuration.input).length
 
   return (
-    <section className={cx('lab-ui-run-preparation-summary')} aria-label="运行准备摘要">
+    <section
+      className={clsx(
+        materialStyles['lab-ui-run-preparation-summary'],
+        runStyles['lab-ui-run-preparation-summary'],
+      )}
+      aria-label="运行准备摘要"
+    >
       <header>
         <div>
-          <span className={cx('lab-ui-eyebrow')}>工作流</span>
+          <span
+            className={clsx(
+              materialStyles['lab-ui-eyebrow'],
+              runStyles['lab-ui-eyebrow'],
+              workflowStyles['lab-ui-eyebrow'],
+            )}
+          >
+            工作流
+          </span>
           <h2>{revision.name}</h2>
         </div>
         <span>版本 {revision.revision}</span>
       </header>
-      <div className={cx('lab-ui-run-preparation-summary__columns')}>
-        <section className={cx('lab-ui-run-preparation-summary__basic')}>
+      <div className={clsx(runStyles['lab-ui-run-preparation-summary__columns'])}>
+        <section
+          className={clsx(
+            materialStyles['lab-ui-run-preparation-summary__basic'],
+            runStyles['lab-ui-run-preparation-summary__basic'],
+          )}
+        >
           <h3>基础信息</h3>
           <DefinitionList
-            className={cx('lab-ui-definition-list')}
+            className={clsx(
+              materialStyles['lab-ui-definition-list'],
+              runStyles['lab-ui-definition-list'],
+              workflowStyles['lab-ui-definition-list'],
+            )}
             items={[
               { label: '运行模式', value: runModeLabel(configuration.runMode) },
               { label: '优先级', value: configuration.priority === 'high' ? '高' : '普通' },
@@ -36,7 +62,7 @@ export function RunPreparationSummary({ viewModel, preflight }: RunPreparationSu
             ]}
           />
         </section>
-        <section className={cx('lab-ui-run-preparation-summary__inventory')}>
+        <section className={clsx('lab-ui-run-preparation-summary__inventory')}>
           <h3>库存需求</h3>
           <InventoryRequirementList requirements={viewModel.requirements} />
         </section>

@@ -1,4 +1,10 @@
-import { cx } from './workflowClassNames'
+import { clsx } from 'clsx'
+import workflowDebugStyles from './WorkflowDebug.module.scss'
+import workflowDetailStyles from './WorkflowDetail.module.scss'
+import workflowSharedStyles from './WorkflowShared.module.scss'
+import workflowTopologyStyles from './WorkflowTopology.module.scss'
+import appShellStyles from '../../styles/app-shell.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Empty, Tag, Tooltip, message } from 'antd'
 import { useState } from 'react'
 import type { PublishedWorkflowRevision } from '@unilab-fe/core'
@@ -72,7 +78,14 @@ export function WorkflowDetail({
       devices: [],
     } satisfies WorkflowResourceDirectory)
   return (
-    <div className={cx('page-stack workflow-detail-page')}>
+    <div
+      className={clsx(
+        appShellStyles['page-stack'],
+        sharedStyles['page-stack'],
+        workflowDetailStyles['workflow-detail-page'],
+        appShellStyles['workflow-detail-page'],
+      )}
+    >
       <AsyncState
         loading={query.loading}
         error={query.error}
@@ -81,24 +94,27 @@ export function WorkflowDetail({
       >
         {query.data && (
           <>
-            <div className={cx('workflow-detail-heading')}>
-              <div className={cx('workflow-detail-title')}>
+            <div className={clsx(workflowDetailStyles['workflow-detail-heading'])}>
+              <div className={clsx(workflowDetailStyles['workflow-detail-title'])}>
                 <Tooltip title="返回工作流">
                   <Button
                     type="text"
-                    className={cx('page-header-back workflow-back-icon')}
+                    className={clsx(
+                      sharedStyles['page-header-back'],
+                      workflowDetailStyles['workflow-back-icon'],
+                    )}
                     aria-label="返回工作流"
                     onClick={onBack}
                     icon={<AppIcon name="arrows/arrow-left" size={18} />}
                   />
                 </Tooltip>
-                <div className={cx('workflow-detail-title-copy')}>
+                <div className={clsx(workflowDetailStyles['workflow-detail-title-copy'])}>
                   <Tooltip title={query.data.name} mouseEnterDelay={0.2}>
                     <h1>{query.data.name}</h1>
                   </Tooltip>
                 </div>
               </div>
-              <div className={cx('workflow-detail-heading-actions')}>
+              <div className={clsx(workflowDetailStyles['workflow-detail-heading-actions'])}>
                 <Tag color={query.data.status === 'published' ? 'green' : 'blue'}>
                   {workflowStatusLabel(query.data.status)}
                 </Tag>
@@ -144,13 +160,20 @@ function WorkflowTopology({
     (item, index) => nodeUuid(item, index) === activeNodeId,
   )
   return (
-    <div className={cx('workflow-topology-layout')}>
-      <section className={cx('detail-card topology-card')}>
-        <div className={cx('workflow-panel-heading')}>
+    <div className={clsx(workflowTopologyStyles['workflow-topology-layout'])}>
+      <section
+        className={clsx(
+          workflowSharedStyles['detail-card'],
+          appShellStyles['detail-card'],
+          workflowTopologyStyles['topology-card'],
+          workflowDebugStyles['topology-card'],
+        )}
+      >
+        <div className={clsx(workflowTopologyStyles['workflow-panel-heading'])}>
           <h2>拓扑结构</h2>
           <Tag>{counts.nodes} 个节点</Tag>
         </div>
-        <div className={cx('topology-canvas')}>
+        <div className={clsx(workflowTopologyStyles['topology-canvas'])}>
           {revision.graph.nodes.length === 0 ? (
             <Empty description="后端没有返回节点" />
           ) : (
@@ -162,8 +185,20 @@ function WorkflowTopology({
           )}
         </div>
       </section>
-      <section className={cx('detail-card node-inspector')}>
-        <div className={cx('workflow-panel-heading node-inspector-heading')}>
+      <section
+        className={clsx(
+          workflowSharedStyles['detail-card'],
+          appShellStyles['detail-card'],
+          workflowTopologyStyles['node-inspector'],
+          workflowDebugStyles['node-inspector'],
+        )}
+      >
+        <div
+          className={clsx(
+            workflowTopologyStyles['workflow-panel-heading'],
+            'node-inspector-heading',
+          )}
+        >
           <h2>{activeNode ? '节点信息' : '工作流信息'}</h2>
         </div>
         {activeNode ? (
@@ -188,8 +223,8 @@ function WorkflowInfoPanel({
   counts: ReturnType<typeof workflowCounts>
 }) {
   return (
-    <div className={cx('workflow-info-panel')}>
-      <div className={cx('workflow-info-form')}>
+    <div className={clsx(workflowDetailStyles['workflow-info-panel'])}>
+      <div className={clsx(workflowDetailStyles['workflow-info-form'])}>
         <div>
           <span>uuid</span>
           <code>{revision.workflowUuid}</code>
@@ -215,7 +250,7 @@ function WorkflowInfoPanel({
 function WorkflowContractSummary({ revision }: { revision: PublishedWorkflowRevision }) {
   const contracts = workflowContracts(revision)
   return (
-    <div className={cx('workflow-contract-summary')}>
+    <div className={clsx(workflowDetailStyles['workflow-contract-summary'])}>
       <ContractGroup title="工作流输入" fields={contracts.inputs} empty="未声明输入参数" />
       <ContractGroup title="工作流输出" fields={contracts.outputs} empty="未声明输出参数" />
     </div>
@@ -232,19 +267,19 @@ function ContractGroup({
   empty: string
 }) {
   return (
-    <div className={cx('workflow-contract-group')}>
+    <div className={clsx(workflowDetailStyles['workflow-contract-group'])}>
       <strong>{title}</strong>
       {fields.length ? (
-        <div className={cx('workflow-contract-list')}>
+        <div className={clsx(workflowDetailStyles['workflow-contract-list'])}>
           {fields.map((field) => (
-            <span key={field.name} className={cx('workflow-contract-chip')}>
+            <span key={field.name} className={clsx(workflowDetailStyles['workflow-contract-chip'])}>
               {field.name}
               {field.required ? <em>必填</em> : null}
             </span>
           ))}
         </div>
       ) : (
-        <span className={cx('workflow-contract-empty')}>{empty}</span>
+        <span className={clsx(workflowDetailStyles['workflow-contract-empty'])}>{empty}</span>
       )}
     </div>
   )

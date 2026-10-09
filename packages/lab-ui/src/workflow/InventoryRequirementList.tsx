@@ -1,6 +1,10 @@
+import { clsx } from 'clsx'
+import materialStyles from '../material.module.scss'
+import runStyles from '../run.module.scss'
+import sharedStyles from '../shared.module.scss'
+import workflowStyles from '../workflow.module.scss'
 import type { InventoryRequirement } from '@unilab-fe/core'
 
-import { cx } from '../classNames'
 export interface InventoryRequirementListProps {
   readonly requirements: readonly InventoryRequirement[]
   readonly emptyDescription?: string
@@ -12,11 +16,18 @@ export function InventoryRequirementList({
   emptyDescription = '该工作流没有声明库存需求',
 }: InventoryRequirementListProps) {
   if (requirements.length === 0) {
-    return <p className={cx('lab-ui-list-empty')}>{emptyDescription}</p>
+    return <p className={clsx(sharedStyles['lab-ui-list-empty'])}>{emptyDescription}</p>
   }
 
   return (
-    <ul className={cx('lab-ui-requirement-list')} aria-label="库存需求列表">
+    <ul
+      className={clsx(
+        materialStyles['lab-ui-requirement-list'],
+        runStyles['lab-ui-requirement-list'],
+        workflowStyles['lab-ui-requirement-list'],
+      )}
+      aria-label="库存需求列表"
+    >
       {requirements.map((requirement) => (
         <InventoryRequirementItem key={requirement.uuid} requirement={requirement} />
       ))}
@@ -31,7 +42,7 @@ function InventoryRequirementItem({ requirement }: { readonly requirement: Inven
         <strong>{requirement.requirementKey}</strong>
         {requirement.description && <span>{requirement.description}</span>}
       </div>
-      <span className={cx('lab-ui-requirement-list__quantity')}>
+      <span className={clsx(workflowStyles['lab-ui-requirement-list__quantity'])}>
         {requirement.requiredQuantity} {requirement.quantityUnit}
         {requirement.allowSplit ? ' · 可拆分' : ''}
       </span>

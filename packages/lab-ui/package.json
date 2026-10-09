@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@unilab-fe/core": "workspace:*",
-    "@unilab/design-v2": "workspace:*"
+    "@unilab/design-v2": "workspace:*",
+    "clsx": "^2.1.1"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",

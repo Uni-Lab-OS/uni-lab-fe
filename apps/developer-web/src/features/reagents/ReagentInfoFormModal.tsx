@@ -1,4 +1,5 @@
-import { cx } from './reagentModalClassNames'
+import { clsx } from 'clsx'
+import reagentModalStyles from './ReagentModal.module.scss'
 import { Alert, Button, Form, Input, InputNumber, Modal, Select } from 'antd'
 import { useState } from 'react'
 import type { CompoundLookup } from '@unilab-fe/core'
@@ -123,7 +124,7 @@ export function InfoFormModal({
   return (
     <Modal
       open
-      className={cx('reagent-mutation-modal')}
+      className={clsx(reagentModalStyles['reagent-mutation-modal'])}
       width={720}
       title={isCreate ? '新增试剂目录' : `编辑试剂目录 · ${info?.name}`}
       onCancel={onClose}
@@ -132,7 +133,7 @@ export function InfoFormModal({
     >
       <Form
         form={form}
-        className={cx('reagent-mutation-form')}
+        className={clsx(reagentModalStyles['reagent-mutation-form'])}
         layout="vertical"
         initialValues={{
           name: info?.name,
@@ -149,19 +150,19 @@ export function InfoFormModal({
         }}
         onFinish={submit}
       >
-        <div className={cx('reagent-form-grid')}>
+        <div className={clsx(reagentModalStyles['reagent-form-grid'])}>
           <FormSection title="化学身份" />
           <Form.Item
-            className={cx('reagent-form-field--wide')}
+            className={clsx(reagentModalStyles['reagent-form-field--wide'])}
             label="CAS 号"
             validateStatus={lookupError ? 'error' : undefined}
             help={lookupError?.message}
           >
-            <div className={cx('reagent-cas-lookup')}>
+            <div className={clsx(reagentModalStyles['reagent-cas-lookup'])}>
               <Form.Item name="cas" noStyle>
                 <Input
                   status={lookupError ? 'error' : undefined}
-                  className={cx('reagent-identifier-input')}
+                  className={clsx(reagentModalStyles['reagent-identifier-input'])}
                   placeholder="例如 75-05-8"
                   onChange={() => {
                     setLookup(null)
@@ -170,7 +171,7 @@ export function InfoFormModal({
                 />
               </Form.Item>
               <Button
-                className={cx('reagent-lookup-button')}
+                className={clsx(reagentModalStyles['reagent-lookup-button'])}
                 loading={lookupLoading}
                 disabled={!canLookup.available}
                 onClick={() => void lookupByCas()}
@@ -181,7 +182,10 @@ export function InfoFormModal({
           </Form.Item>
           {lookup && (
             <Alert
-              className={cx('reagent-form-field--wide reagent-lookup-result')}
+              className={clsx(
+                reagentModalStyles['reagent-form-field--wide'],
+                reagentModalStyles['reagent-lookup-result'],
+              )}
               type={
                 lookup.status === 'ok'
                   ? 'success'
@@ -207,7 +211,11 @@ export function InfoFormModal({
           <Form.Item label="英文名" name="nameEn">
             <Input />
           </Form.Item>
-          <Form.Item className={cx('reagent-form-field--wide')} label="别名" name="aliases">
+          <Form.Item
+            className={clsx(reagentModalStyles['reagent-form-field--wide'])}
+            label="别名"
+            name="aliases"
+          >
             <Input placeholder="逗号或空格分隔" />
           </Form.Item>
           <FormSection title="物理性质" />
@@ -219,30 +227,40 @@ export function InfoFormModal({
             <Select options={PHYSICAL_STATE_OPTIONS} />
           </Form.Item>
           <Form.Item label="分子式" name="molecularFormula">
-            <Input className={cx('reagent-identifier-input')} placeholder="例如 C2H3N" />
+            <Input
+              className={clsx(reagentModalStyles['reagent-identifier-input'])}
+              placeholder="例如 C2H3N"
+            />
           </Form.Item>
           <Form.Item label="分子量 (g/mol)" name="molecularWeight">
-            <InputNumber className={cx('full-input')} min={0} />
+            <InputNumber className={clsx(reagentModalStyles['full-input'])} min={0} />
           </Form.Item>
           <Form.Item label="密度 (g/mL)" name="densityGPerMl">
-            <InputNumber className={cx('full-input')} min={0} />
+            <InputNumber className={clsx(reagentModalStyles['full-input'])} min={0} />
           </Form.Item>
           <FormSection title="结构标识" />
           <Form.Item label="SMILES" name="smiles">
-            <Input className={cx('reagent-identifier-input')} placeholder="例如 CC#N" />
+            <Input
+              className={clsx(reagentModalStyles['reagent-identifier-input'])}
+              placeholder="例如 CC#N"
+            />
           </Form.Item>
           <Form.Item label="InChIKey" name="inchiKey">
             <Input
-              className={cx('reagent-identifier-input')}
+              className={clsx(reagentModalStyles['reagent-identifier-input'])}
               placeholder="例如 WEVYAHXRMPXWCK-UHFFFAOYSA-N"
             />
           </Form.Item>
           <FormSection title="备注" />
-          <Form.Item className={cx('reagent-form-field--wide')} label="描述" name="description">
+          <Form.Item
+            className={clsx(reagentModalStyles['reagent-form-field--wide'])}
+            label="描述"
+            name="description"
+          >
             <Input.TextArea rows={3} />
           </Form.Item>
           <ErrorAlert error={error} />
-          <div className={cx('modal-actions reagent-form-field--wide')}>
+          <div className={clsx('modal-actions', reagentModalStyles['reagent-form-field--wide'])}>
             <Button onClick={onClose}>取消</Button>
             <Button type="primary" htmlType="submit" loading={loading}>
               保存

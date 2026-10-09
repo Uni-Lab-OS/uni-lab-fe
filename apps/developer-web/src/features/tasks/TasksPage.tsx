@@ -1,4 +1,6 @@
-import { cx } from '../../styles/styleMaps'
+import { clsx } from 'clsx'
+import appShellStyles from '../../styles/app-shell.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Input, Modal, Select, Space, Table, Tooltip, message } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
@@ -67,10 +69,10 @@ export function TasksPage() {
       key: 'name',
       width: 300,
       render: (_, row) => (
-        <div className={cx('primary-cell')}>
+        <div className={clsx(appShellStyles['primary-cell'], sharedStyles['primary-cell'])}>
           <Button
             type="link"
-            className={cx('task-name-link')}
+            className={clsx(sharedStyles['task-name-link'])}
             onClick={() => openTask(row)}
             aria-label={`查看任务 ${row.name}`}
           >
@@ -97,8 +99,8 @@ export function TasksPage() {
       width: 150,
       render: (_, row) => (
         <TaskProgress
-          className={cx('progress-cell')}
-          metaClassName={cx('muted-cell')}
+          className={clsx(sharedStyles['progress-cell'])}
+          metaClassName={clsx(sharedStyles['muted-cell'])}
           percent={row.progress}
           completed={row.completedJobs}
           total={row.totalJobs}
@@ -110,7 +112,7 @@ export function TasksPage() {
       key: 'time',
       width: 190,
       render: (_, row) => (
-        <span className={cx('muted-cell')}>{displayTime(row.task.createdAt)}</span>
+        <span className={clsx(sharedStyles['muted-cell'])}>{displayTime(row.task.createdAt)}</span>
       ),
     },
     {
@@ -123,7 +125,7 @@ export function TasksPage() {
           <Tooltip title="查看">
             <Button
               type="text"
-              className={cx('icon-button')}
+              className={clsx(sharedStyles['icon-button'])}
               aria-label={`查看任务 ${row.name}`}
               icon={<AppIcon name="general/eye" size={18} />}
               onClick={() => openTask(row)}
@@ -135,24 +137,29 @@ export function TasksPage() {
     },
   ]
   return (
-    <div className={cx('page-stack')}>
+    <div className={clsx(appShellStyles['page-stack'], sharedStyles['page-stack'])}>
       <PageHeader title="任务" />
-      <section className={cx('data-section')}>
-        <div className={cx('data-section-toolbar')}>
-          <div className={cx('section-title')}>
+      <section className={clsx(appShellStyles['data-section'], sharedStyles['data-section'])}>
+        <div
+          className={clsx(
+            appShellStyles['data-section-toolbar'],
+            sharedStyles['data-section-toolbar'],
+          )}
+        >
+          <div className={clsx(sharedStyles['section-title'])}>
             <h2>任务列表</h2>
           </div>
           <Space>
             <Input
               allowClear
-              className={cx('search-input')}
+              className={clsx(sharedStyles['search-input'])}
               prefix={<AppIcon name="general/search-md" size={16} />}
               placeholder="搜索名称、工作流或任务编号"
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
             />
             <Select
-              className={cx('status-select')}
+              className={clsx(sharedStyles['status-select'])}
               value={status}
               onChange={setStatus}
               options={[
@@ -185,7 +192,7 @@ export function TasksPage() {
           tableColumns={6}
         >
           <Table
-            className={cx('task-list-table')}
+            className={clsx(sharedStyles['task-list-table'])}
             tableLayout="fixed"
             rowKey={(row) => row.task.taskUuid}
             columns={columns}
@@ -241,7 +248,7 @@ function AbortTaskButton({
         danger
         disabled={!available}
         loading={busy}
-        className={cx('icon-button')}
+        className={clsx(sharedStyles['icon-button'])}
         aria-label="中止任务"
         icon={<AppIcon name="media/stop-circle" size={18} />}
         onClick={abort}

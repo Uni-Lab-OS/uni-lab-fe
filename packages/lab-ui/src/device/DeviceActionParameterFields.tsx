@@ -1,4 +1,7 @@
-import { cx } from '../classNames'
+import { clsx } from 'clsx'
+import deviceStyles from '../device.module.scss'
+import reagentStyles from '../reagent.module.scss'
+import sharedStyles from '../shared.module.scss'
 import { isDeviceActionResourceParameter } from '@unilab-fe/core'
 import type { DeviceActionParameter } from '@unilab-fe/core'
 import { SchemaInputField } from '../shared/SchemaInputField'
@@ -22,12 +25,26 @@ export function DeviceActionParameterFields({
   className,
 }: DeviceActionParameterFieldsProps) {
   if (parameters.length === 0) {
-    return <div className={cx('device-action-input-empty')}>该动作没有声明可填写的参数。</div>
+    return (
+      <div
+        className={clsx(
+          deviceStyles['device-action-input-empty'],
+          reagentStyles['device-action-input-empty'],
+        )}
+      >
+        该动作没有声明可填写的参数。
+      </div>
+    )
   }
 
   return (
     <div
-      className={cx('device-action-input-fields', 'lab-ui-device-action-input-fields', className)}
+      className={clsx(
+        deviceStyles['device-action-input-fields'],
+        deviceStyles['lab-ui-device-action-input-fields'],
+        sharedStyles['lab-ui-device-action-input-fields'],
+        className,
+      )}
     >
       {parameters.map((parameter) => (
         <DeviceActionParameterField

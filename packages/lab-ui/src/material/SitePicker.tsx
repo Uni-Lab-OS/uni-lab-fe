@@ -1,7 +1,12 @@
+import { clsx } from 'clsx'
+import deviceStyles from '../device.module.scss'
+import materialStyles from '../material.module.scss'
+import runStyles from '../run.module.scss'
+import sharedStyles from '../shared.module.scss'
+import workflowStyles from '../workflow.module.scss'
 import { EmptyState } from '@unilab/design-v2'
 import type { SiteSummary } from '@unilab-fe/core'
 
-import { cx } from '../classNames'
 export interface SitePickerProps {
   readonly sites: readonly SiteSummary[]
   readonly selectedSiteUuid?: string
@@ -23,7 +28,9 @@ export function SitePicker({
 }: SitePickerProps) {
   if (sites.length === 0) {
     return (
-      <div className={cx('lab-ui-empty-region')}>
+      <div
+        className={clsx(materialStyles['lab-ui-empty-region'], sharedStyles['lab-ui-empty-region'])}
+      >
         <EmptyState
           scene="no-data"
           size={variant === 'default' ? 'default' : 'compact'}
@@ -35,9 +42,11 @@ export function SitePicker({
 
   return (
     <div
-      className={cx(
-        'lab-ui-site-picker',
-        variant === 'inspector' && 'lab-ui-site-picker--inspector',
+      className={clsx(
+        materialStyles['lab-ui-site-picker'],
+        runStyles['lab-ui-site-picker'],
+        workflowStyles['lab-ui-site-picker'],
+        variant === 'inspector' && materialStyles['lab-ui-site-picker--inspector'],
       )}
       role="listbox"
       aria-label="库位选择"
@@ -80,11 +89,15 @@ function SitePickerItem({
       role="option"
       aria-selected={selected}
       disabled={disabled}
-      className={cx('lab-ui-site-picker__item', selected && 'is-selected')}
+      className={clsx(
+        materialStyles['lab-ui-site-picker__item'],
+        runStyles['lab-ui-site-picker__item'],
+        selected && clsx(deviceStyles['is-selected'], materialStyles['is-selected']),
+      )}
       onClick={() => onSelect?.(site.siteUuid)}
     >
       {isInspector ? (
-        <span className={cx('lab-ui-site-picker__content')}>
+        <span className={clsx(materialStyles['lab-ui-site-picker__content'])}>
           <strong>{displayName}</strong>
         </span>
       ) : (
@@ -94,18 +107,37 @@ function SitePickerItem({
         </span>
       )}
       {isInspector && (
-        <span className={cx('lab-ui-site-picker__status', `is-${occupancy.kind}`)}>
+        <span
+          className={clsx(
+            materialStyles['lab-ui-site-picker__status'],
+            deviceStyles[`is-${occupancy.kind}`],
+            materialStyles[`is-${occupancy.kind}`],
+            runStyles[`is-${occupancy.kind}`],
+          )}
+        >
           {occupancy.inspectorLabel}
         </span>
       )}
       {!isInspector && (
-        <span className={cx('lab-ui-site-picker__status', `is-${occupancy.kind}`)}>
+        <span
+          className={clsx(
+            materialStyles['lab-ui-site-picker__status'],
+            deviceStyles[`is-${occupancy.kind}`],
+            materialStyles[`is-${occupancy.kind}`],
+            runStyles[`is-${occupancy.kind}`],
+          )}
+        >
           {occupancy.label}
         </span>
       )}
       {isInspector && site.key && site.key !== displayName && (
         <span
-          className={cx('lab-ui-site-picker__key-tag', `is-${occupancy.kind}`)}
+          className={clsx(
+            materialStyles['lab-ui-site-picker__key-tag'],
+            deviceStyles[`is-${occupancy.kind}`],
+            materialStyles[`is-${occupancy.kind}`],
+            runStyles[`is-${occupancy.kind}`],
+          )}
           title={site.key}
         >
           {site.key}

@@ -1,4 +1,7 @@
-import { cx } from './workflowClassNames'
+import { clsx } from 'clsx'
+import workflowListStyles from './WorkflowList.module.scss'
+import appShellStyles from '../../styles/app-shell.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Input, Modal, Space, Table, Tabs, Tag, Tooltip, message } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
@@ -103,16 +106,27 @@ export function WorkflowsPage({
       title: '名称',
       key: 'name',
       render: (_, row) => (
-        <div className={cx('primary-cell')}>
+        <div className={clsx(appShellStyles['primary-cell'], sharedStyles['primary-cell'])}>
           <button
             type="button"
-            className={cx('workflow-name-link')}
+            className={clsx(
+              workflowListStyles['workflow-name-link'],
+              sharedStyles['workflow-name-link'],
+            )}
             onClick={() => openWorkflow(row.workflowUuid)}
           >
             <TableText text={row.name} />
           </button>
-          <div className={cx('workflow-uuid-cell')}>
-            <TableText className={cx('table-secondary-text')} text={row.workflowUuid} />
+          <div
+            className={clsx(
+              workflowListStyles['workflow-uuid-cell'],
+              sharedStyles['workflow-uuid-cell'],
+            )}
+          >
+            <TableText
+              className={clsx(sharedStyles['table-secondary-text'])}
+              text={row.workflowUuid}
+            />
             <CopyWorkflowUuidButton workflow={row} />
           </div>
         </div>
@@ -134,7 +148,7 @@ export function WorkflowsPage({
         value === 'published' ? (
           <Tag color="green">已发布</Tag>
         ) : value === 'source' ? (
-          <Tag className={cx('status-badge')} color="default">
+          <Tag className={clsx(sharedStyles['status-badge'])} color="default">
             未发布
           </Tag>
         ) : (
@@ -151,7 +165,7 @@ export function WorkflowsPage({
           <Tooltip title="查看">
             <Button
               type="text"
-              className={cx('icon-button')}
+              className={clsx(sharedStyles['icon-button'])}
               aria-label={`查看工作流 ${row.name}`}
               icon={<AppIcon name="general/eye" size={18} />}
               onClick={() => openWorkflow(row.workflowUuid)}
@@ -160,7 +174,7 @@ export function WorkflowsPage({
           <Tooltip title="调试">
             <Button
               type="text"
-              className={cx('icon-button')}
+              className={clsx(sharedStyles['icon-button'])}
               aria-label={`调试工作流 ${row.name}`}
               icon={<AppIcon name="media/play-circle" size={18} />}
               onClick={() => setDebugUuid(row.workflowUuid)}
@@ -173,12 +187,31 @@ export function WorkflowsPage({
   ]
 
   return (
-    <div className={cx('page-stack workflow-list-page')}>
+    <div
+      className={clsx(
+        appShellStyles['page-stack'],
+        sharedStyles['page-stack'],
+        appShellStyles['workflow-list-page'],
+      )}
+    >
       <PageHeader title="工作流" />
-      <section className={cx('data-section workflow-data-section')}>
-        <div className={cx('data-section-toolbar workflow-toolbar')}>
+      <section
+        className={clsx(
+          appShellStyles['data-section'],
+          sharedStyles['data-section'],
+          workflowListStyles['workflow-data-section'],
+        )}
+      >
+        <div
+          className={clsx(
+            appShellStyles['data-section-toolbar'],
+            sharedStyles['data-section-toolbar'],
+            workflowListStyles['workflow-toolbar'],
+            appShellStyles['workflow-toolbar'],
+          )}
+        >
           <Tabs
-            className={cx('workflow-tabs')}
+            className={clsx(workflowListStyles['workflow-tabs'])}
             activeKey={kind}
             onChange={(value) => setKind(value as typeof kind)}
             items={[
@@ -200,7 +233,7 @@ export function WorkflowsPage({
           <Space>
             <Input
               allowClear
-              className={cx('search-input')}
+              className={clsx(sharedStyles['search-input'])}
               prefix={<AppIcon name="general/search-md" size={16} />}
               placeholder="搜索名称或 UUID"
               value={keyword}
@@ -218,7 +251,7 @@ export function WorkflowsPage({
           tableColumns={4}
         >
           <Table
-            className={cx('workflow-table')}
+            className={clsx(workflowListStyles['workflow-table'])}
             rowKey="workflowUuid"
             columns={columns}
             dataSource={[...rows]}
@@ -249,7 +282,7 @@ function CopyWorkflowUuidButton({ workflow }: { workflow: PublishedWorkflowRevis
     <Tooltip title="复制 UUID">
       <Button
         type="text"
-        className={cx('workflow-uuid-copy icon-button')}
+        className={clsx(workflowListStyles['workflow-uuid-copy'], sharedStyles['icon-button'])}
         aria-label={`复制工作流 ${workflow.name} 的 UUID`}
         icon={<AppIcon name="general/copy-01" size={14} />}
         onClick={copy}
@@ -295,7 +328,7 @@ function DeleteWorkflowButton({
         danger
         disabled={!available}
         loading={busy}
-        className={cx('icon-button')}
+        className={clsx(sharedStyles['icon-button'])}
         aria-label={`删除工作流 ${workflow.name}`}
         icon={<AppIcon name="general/trash-01" size={18} />}
         onClick={remove}

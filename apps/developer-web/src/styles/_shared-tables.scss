@@ -1,0 +1,326 @@
+/* Shared table treatment: every .data-section uses the same toolbar, table and status rhythm. */
+.data-section {
+  overflow: hidden;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius);
+  background: var(--studio-surface);
+}
+
+.data-section-toolbar {
+  min-height: 76px;
+  margin: 0;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--studio-border);
+  background: #ffffff;
+}
+
+.data-section-toolbar .section-title {
+  align-items: center;
+}
+
+.data-section-toolbar .section-title h2 {
+  color: #202b47;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.data-section-toolbar .section-title > span {
+  margin-top: 0;
+  color: #8b97b0;
+  font-size: 11px;
+}
+
+.data-section-toolbar :global(.ant-space) {
+  gap: 10px !important;
+}
+
+.data-section-toolbar .search-input,
+.data-section-toolbar .status-select {
+  height: 40px;
+}
+
+.data-section-toolbar .search-input {
+  width: 300px;
+}
+
+.data-section-toolbar .status-select {
+  width: 130px;
+}
+
+.data-section :global(.ant-table-container) {
+  overflow: hidden;
+  border: 0 !important;
+  border-radius: 0;
+  padding: 0 12px 12px;
+}
+
+.data-section :global(.ant-table),
+.data-section :global(.ant-table-content) {
+  overflow: hidden;
+  border-radius: 0;
+}
+
+.data-section :global(.ant-table-thead) > tr > th {
+  padding: 15px 20px;
+  border-bottom: 1px solid #e1e6f1 !important;
+  color: #7d89a5;
+  background: #f7f8fd !important;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.data-section :global(.ant-table-tbody) > tr > td {
+  min-height: 68px;
+  padding: 17px 20px;
+  border-bottom: 1px solid #edf0f5 !important;
+  color: #596783;
+  background: #ffffff !important;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.data-section :global(.ant-table-tbody) > tr:hover > td {
+  background: var(--studio-selection) !important;
+}
+
+.data-section .primary-cell strong,
+.data-section .primary-cell-link strong {
+  color: #202b47;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.data-section .muted-cell,
+.data-section time {
+  color: #74819d;
+}
+
+.data-section time {
+  font-family: var(--bh-font-family-mono);
+  font-size: 11px;
+}
+
+.data-section .progress-cell {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 28px;
+  white-space: nowrap;
+}
+
+.data-section .progress-cell > span:first-child {
+  color: #66738e;
+  font-family: var(--bh-font-family-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.data-section .progress-cell .status-badge {
+  min-height: 24px;
+  padding: 0 8px !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+  font-weight: 500;
+}
+
+/* 中性状态（已取消 / 已跳过 / 未到达）全站统一为弱化灰，避免默认胶囊的近黑文字。 */
+.status-badge:global(.ant-tag-default) {
+  color: var(--studio-status-neutral-fg);
+  background: var(--studio-status-neutral-bg);
+}
+
+/* Final table refinements shared by every data-section. */
+.section-title h2,
+.section-title h3,
+.data-section-toolbar .section-title h2 {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.data-section-toolbar {
+  background: #ffffff !important;
+}
+
+.data-section-toolbar .search-input,
+.data-section-toolbar .search-input:global(.ant-input-affix-wrapper),
+.data-section-toolbar .status-select,
+.data-section-toolbar .status-select :global(.ant-select-selector) {
+  height: 36px;
+  min-height: 36px;
+}
+
+.data-section-toolbar .status-select :global(.ant-select-selector) {
+  display: flex;
+  align-items: center;
+}
+
+/* The toolbar should hug its 36px controls instead of reserving an extra row. */
+.data-section-toolbar {
+  min-height: 0 !important;
+}
+
+.data-section td > :global(.ant-space),
+.data-section td > :global(.ant-space-horizontal) {
+  gap: 0 !important;
+}
+
+.table-text {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-secondary-text {
+  color: var(--studio-text-faint) !important;
+  font-size: 11px;
+}
+
+.data-section .primary-cell .table-text,
+.data-section .primary-cell-link .table-text {
+  color: #202b47;
+  font-size: 13px;
+  font-weight: 400 !important;
+}
+
+/* 任务列表的任务名和工作流名使用同一正文字号，避免链接组件与普通文本继承不同字号。 */
+.task-list-table :global(.ant-table-tbody) > tr > td:nth-child(-n + 2),
+.task-list-table :global(.ant-table-tbody) > tr > td:nth-child(-n + 2) .table-text {
+  font-size: 14px;
+}
+
+/* 固定列宽后，长任务/工作流名称才会在自己的单元格内省略，Typography.Text 才能触发 hover tooltip。 */
+.task-list-table :global(.ant-table) {
+  table-layout: fixed;
+}
+
+.task-list-table :global(.ant-table-cell),
+.task-list-table :global(.ant-table-tbody) > tr > td:nth-child(-n + 2) > * {
+  min-width: 0;
+}
+
+.task-list-table :global(.ant-table-tbody) > tr > td:nth-child(-n + 2) > * {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Let data tables hug their content; keep spacing in the toolbar and cells. */
+.data-section {
+  padding-top: 0;
+}
+
+.data-section :global(.ant-table-container) {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.data-section :global(.ant-table),
+.data-section :global(.ant-table-content) {
+  overflow: visible;
+}
+
+/* Tables are edge-to-edge surfaces; their outer frame does not use card corners. */
+.data-section,
+.data-section :global(.ant-table-container),
+.data-section :global(.ant-table),
+.data-section :global(.ant-table-content) {
+  border-radius: 0 !important;
+}
+
+/* 空表格只有占位内容，不应留下像数据行一样的底部分割线。 */
+.data-section :global(.ant-table-tbody) > tr:global(.ant-table-placeholder) > td,
+.data-section :global(.ant-table-tbody) > tr:global(.ant-table-placeholder):hover > td {
+  border-bottom: 0 !important;
+}
+
+.workflow-uuid-cell .table-text {
+  min-width: 0;
+}
+
+.workflow-name-link:hover .table-text,
+.workflow-name-link:focus-visible .table-text {
+  color: var(--studio-accent);
+}
+
+/* Shared table density: list rows use the same compact rhythm on overview,
+ * devices, reagents, tasks and workflows. Keep page-specific layout rules out
+ * of the individual table implementations. */
+.data-section :global(.ant-table-tbody) > tr > td {
+  padding: 10px 20px;
+}
+
+/* Keep table footers in the content flow instead of pinning pagination to a flex card edge. */
+.data-section :global(.ant-table-pagination) {
+  margin: 0 !important;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--studio-border-soft);
+  background: var(--studio-surface);
+}
+
+.data-section :global(.ant-table-pagination) :global(.ant-pagination) {
+  margin: 0;
+}
+
+/* The device table should end after its rows and footer; it does not need a viewport-height body. */
+.devices-list-page {
+  grid-template-rows: auto auto;
+}
+
+/* Debug menu options are lightweight actions; keep their hover state on both text and icon. */
+:global(.ant-dropdown-menu) {
+  border: 0 !important;
+}
+
+:global(.ant-dropdown-menu-item) {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+:global(.ant-dropdown-menu-item) .bh-icon {
+  --bh-icon-color: var(--studio-text-muted) !important;
+  background: transparent !important;
+  transition:
+    color var(--bh-motion-fast) ease,
+    background var(--bh-motion-fast) ease;
+}
+
+:global(.ant-dropdown-menu-item):hover .bh-icon,
+:global(.ant-dropdown-menu-item-selected) .bh-icon {
+  --bh-icon-color: var(--studio-accent) !important;
+  background: var(--studio-selection) !important;
+}
+
+/* Disabled actions use the shared neutral disabled surface, including primary buttons. */
+:global(.ant-btn):disabled,
+:global(.ant-btn):global(.ant-btn-disabled) {
+  color: var(--bh-color-text-disabled) !important;
+  background: var(--bh-color-fill-1) !important;
+  border-color: var(--bh-color-border-1) !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+
+/* AntD adds rounded corners to the first and last header cells by default.
+ * Keep the outer card radius, but let the header background fill the table edge. */
+.data-section :global(.ant-table-thead) > tr > th:first-child,
+.data-section :global(.ant-table-thead) > tr > th:last-child {
+  border-radius: 0 !important;
+}
+
+/* Keep the table card rounded while the header/body surfaces stay edge-to-edge. */
+.data-section {
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+.data-section :global(.ant-table-container),
+.data-section :global(.ant-table),
+.data-section :global(.ant-table-content) {
+  border-radius: 0 !important;
+}

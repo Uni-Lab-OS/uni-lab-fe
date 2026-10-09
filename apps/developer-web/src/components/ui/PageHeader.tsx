@@ -1,4 +1,5 @@
-import { cx } from '../../styles/styleMaps'
+import { clsx } from 'clsx'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Typography } from 'antd'
 import type { ReactNode } from 'react'
 
@@ -12,14 +13,14 @@ export function PageHeader({
   actions?: ReactNode
 }) {
   return (
-    <header className={cx('page-header')}>
-      <div className={cx('page-header-title-row')}>
+    <header className={clsx(sharedStyles['page-header'])}>
+      <div className={clsx(sharedStyles['page-header-title-row'])}>
         {leading}
-        <Typography.Title className={cx('page-header-title')} level={1}>
+        <Typography.Title className={clsx('page-header-title')} level={1}>
           {title}
         </Typography.Title>
       </div>
-      {actions && <div className={cx('page-header-actions')}>{actions}</div>}
+      {actions && <div className={clsx(sharedStyles['page-header-actions'])}>{actions}</div>}
     </header>
   )
 }

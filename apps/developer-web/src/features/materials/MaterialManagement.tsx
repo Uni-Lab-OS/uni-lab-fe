@@ -1,4 +1,7 @@
-import { cx } from './materialClassNames'
+import { clsx } from 'clsx'
+import materialManagementStyles from './MaterialManagement.module.scss'
+import appShellStyles from '../../styles/app-shell.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { collectNodeSites } from './MaterialInspector'
 import { Button, Empty, Input, Tree } from 'antd'
 import type { TreeDataNode } from 'antd'
@@ -34,12 +37,19 @@ export function MaterialManagement({
     setExpandedKeys(normalizedKeyword ? collectExpandableKeys(treeData) : [])
   }, [treeData, normalizedKeyword])
   return (
-    <div className={cx('page-stack material-management-page')}>
+    <div
+      className={clsx(
+        appShellStyles['page-stack'],
+        sharedStyles['page-stack'],
+        materialManagementStyles['material-management-page'],
+        appShellStyles['material-management-page'],
+      )}
+    >
       <PageHeader
         leading={
           <Button
             type="text"
-            className={cx('page-header-back')}
+            className={clsx(sharedStyles['page-header-back'])}
             aria-label="返回物料关系图"
             title="返回物料关系图"
             icon={<AppIcon name="arrows/arrow-left" size={18} />}
@@ -48,8 +58,18 @@ export function MaterialManagement({
         }
         title="物料管理"
       />
-      <div className={cx('management-workspace')}>
-        <section className={cx('management-tree')}>
+      <div
+        className={clsx(
+          materialManagementStyles['management-workspace'],
+          sharedStyles['management-workspace'],
+        )}
+      >
+        <section
+          className={clsx(
+            materialManagementStyles['management-tree'],
+            sharedStyles['management-tree'],
+          )}
+        >
           <Input
             allowClear
             prefix={<AppIcon name="general/search-md" size={16} />}
@@ -58,7 +78,7 @@ export function MaterialManagement({
             onChange={(event) => setKeyword(event.target.value)}
           />
           <Tree
-            className={cx('resource-tree')}
+            className={clsx(materialManagementStyles['resource-tree'])}
             blockNode
             expandedKeys={expandedKeys}
             selectedKeys={selected ? [selected] : []}

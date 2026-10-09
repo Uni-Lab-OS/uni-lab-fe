@@ -1,4 +1,7 @@
-import { cx } from './deviceClassNames'
+import { clsx } from 'clsx'
+import devicePageStyles from './DevicePage.module.scss'
+import appShellStyles from '../../styles/app-shell.module.scss'
+import sharedStyles from '../../styles/shared.module.scss'
 import { Input } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import type { DeviceSummary } from '@unilab-fe/core'
@@ -47,12 +50,19 @@ export function DevicesPage() {
       />
     )
   return (
-    <div className={cx('page-stack devices-list-page')}>
+    <div
+      className={clsx(
+        appShellStyles['page-stack'],
+        sharedStyles['page-stack'],
+        devicePageStyles['devices-list-page'],
+        sharedStyles['devices-list-page'],
+      )}
+    >
       <PageHeader
         title="设备"
         actions={
           <Input
-            className={cx('search-input device-page-search')}
+            className={clsx(sharedStyles['search-input'], devicePageStyles['device-page-search'])}
             allowClear
             prefix={<AppIcon name="general/search-md" size={16} />}
             placeholder="搜索设备名称或设备键"
@@ -70,7 +80,7 @@ export function DevicesPage() {
         variant="table"
         tableColumns={5}
       >
-        <section className={cx('data-section')}>
+        <section className={clsx(appShellStyles['data-section'], sharedStyles['data-section'])}>
           <DeviceTable rows={rows} onView={setSelected} />
         </section>
       </AsyncState>

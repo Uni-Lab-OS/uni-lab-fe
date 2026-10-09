@@ -1,4 +1,5 @@
-import { cx } from './reagentModalClassNames'
+import { clsx } from 'clsx'
+import reagentModalStyles from './ReagentModal.module.scss'
 import { Alert, Form, InputNumber, Select } from 'antd'
 import { useCallback, useMemo } from 'react'
 import type {
@@ -76,7 +77,7 @@ export function ErrorAlert({ error }: { error: Error | null }) {
   const details = (error as { details?: Readonly<Record<string, unknown>> }).details
   return (
     <Alert
-      className={cx('form-error reagent-form-field--wide')}
+      className={clsx('form-error', reagentModalStyles['reagent-form-field--wide'])}
       type="error"
       showIcon
       message="提交失败"
@@ -84,7 +85,9 @@ export function ErrorAlert({ error }: { error: Error | null }) {
         <div>
           <div>{error.message}</div>
           {details && (
-            <pre className={cx('reagent-error-details')}>{JSON.stringify(details, null, 2)}</pre>
+            <pre className={clsx(reagentModalStyles['reagent-error-details'])}>
+              {JSON.stringify(details, null, 2)}
+            </pre>
           )}
         </div>
       }
@@ -139,7 +142,16 @@ export function ContainerSelect({
 }
 
 export function FormSection({ title }: { title: string }) {
-  return <div className={cx('reagent-form-section reagent-form-field--wide')}>{title}</div>
+  return (
+    <div
+      className={clsx(
+        reagentModalStyles['reagent-form-section'],
+        reagentModalStyles['reagent-form-field--wide'],
+      )}
+    >
+      {title}
+    </div>
+  )
 }
 
 export const QUANTITY_UNITS = ['uL', 'mL', 'L', 'mg', 'g', 'kg'] as const
@@ -161,13 +173,17 @@ export function AmountField({
 }) {
   return (
     <Form.Item label={label} required={required}>
-      <div className={cx('reagent-amount-field')}>
+      <div className={clsx(reagentModalStyles['reagent-amount-field'])}>
         <Form.Item
           name={valueName}
           noStyle
           rules={required ? [{ required: true, message: `请输入${label}` }] : []}
         >
-          <InputNumber className={cx('reagent-amount-value')} min={0} controls={false} />
+          <InputNumber
+            className={clsx(reagentModalStyles['reagent-amount-value'])}
+            min={0}
+            controls={false}
+          />
         </Form.Item>
         <Form.Item
           name={unitName}
@@ -175,7 +191,7 @@ export function AmountField({
           rules={required ? [{ required: true, message: `请选择${label}单位` }] : []}
         >
           <Select
-            className={cx('reagent-amount-unit')}
+            className={clsx(reagentModalStyles['reagent-amount-unit'])}
             allowClear={!required}
             popupMatchSelectWidth={false}
             placeholder="单位"

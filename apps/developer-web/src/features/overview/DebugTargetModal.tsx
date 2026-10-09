@@ -1,4 +1,5 @@
-import { cx } from './debugTargetClassNames'
+import { clsx } from 'clsx'
+import debugTargetModalStyles from './DebugTargetModal.module.scss'
 import { Input, Modal, Spin, Tag } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import { EmptyState } from '@unilab/design-v2'
@@ -74,7 +75,7 @@ export function DebugTargetModal({
       }}
       destroyOnHidden
     >
-      <div className={cx('debug-target-picker')}>
+      <div className={clsx(debugTargetModalStyles['debug-target-picker'])}>
         <Input
           allowClear
           autoFocus
@@ -83,24 +84,33 @@ export function DebugTargetModal({
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
         />
-        <div className={cx('debug-target-picker__meta')}>
+        <div className={clsx(debugTargetModalStyles['debug-target-picker__meta'])}>
           <span>
             {kind === 'device' ? `${devices.length} 台设备` : `${workflows.length} 个工作流`}
           </span>
           <span>请选择一项</span>
         </div>
-        <div className={cx('debug-target-picker__list')} role="radiogroup" aria-label="调试对象">
+        <div
+          className={clsx(debugTargetModalStyles['debug-target-picker__list'])}
+          role="radiogroup"
+          aria-label="调试对象"
+        >
           {loading ? (
-            <div className={cx('debug-target-picker__state')}>
+            <div className={clsx(debugTargetModalStyles['debug-target-picker__state'])}>
               <Spin size="small" />
             </div>
           ) : error ? (
-            <div className={cx('debug-target-picker__state debug-target-picker__state--error')}>
+            <div
+              className={clsx(
+                debugTargetModalStyles['debug-target-picker__state'],
+                debugTargetModalStyles['debug-target-picker__state--error'],
+              )}
+            >
               {error.message}
             </div>
           ) : items.length === 0 ? (
             <EmptyState
-              className={cx('debug-target-picker__empty')}
+              className={clsx(debugTargetModalStyles['debug-target-picker__empty'])}
               scene="no-results"
               size="compact"
               title="没有匹配的对象"
@@ -152,18 +162,20 @@ function DeviceOption({
           : '可调试'
   return (
     <label
-      className={cx(
-        `debug-target-option ${selected ? 'is-selected' : ''} ${unavailable ? 'is-unavailable' : ''}`,
+      className={clsx(
+        debugTargetModalStyles['debug-target-option'],
+        selected ? debugTargetModalStyles['is-selected'] : '',
+        unavailable ? debugTargetModalStyles['is-unavailable'] : '',
       )}
     >
       <input
-        className={cx('debug-target-option__radio')}
+        className={clsx(debugTargetModalStyles['debug-target-option__radio'])}
         type="radio"
         name="debug-target"
         checked={selected}
         onChange={() => onSelect(device.deviceUuid)}
       />
-      <span className={cx('debug-target-option__copy')}>
+      <span className={clsx(debugTargetModalStyles['debug-target-option__copy'])}>
         <strong>{device.label}</strong>
       </span>
       <Tag color={unavailable ? 'default' : 'green'}>{availabilityLabel}</Tag>
@@ -181,15 +193,20 @@ function WorkflowOption({
   onSelect: (uuid: string) => void
 }) {
   return (
-    <label className={cx(`debug-target-option ${selected ? 'is-selected' : ''}`)}>
+    <label
+      className={clsx(
+        debugTargetModalStyles['debug-target-option'],
+        selected ? debugTargetModalStyles['is-selected'] : '',
+      )}
+    >
       <input
-        className={cx('debug-target-option__radio')}
+        className={clsx(debugTargetModalStyles['debug-target-option__radio'])}
         type="radio"
         name="debug-target"
         checked={selected}
         onChange={() => onSelect(workflow.workflowUuid)}
       />
-      <span className={cx('debug-target-option__copy')}>
+      <span className={clsx(debugTargetModalStyles['debug-target-option__copy'])}>
         <strong>{workflow.name}</strong>
         <small>版本 v{workflow.revision}</small>
       </span>

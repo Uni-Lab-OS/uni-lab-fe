@@ -1,3 +1,8 @@
+import { clsx } from 'clsx'
+import taskDetailInspectorStyles from './TaskDetailInspector.module.scss'
+import taskParallelDrawerStyles from './TaskParallelDrawer.module.scss'
+import taskDetailStyles from './taskDetail.module.scss'
+import appShellStyles from '../../styles/app-shell.module.scss'
 import { Fragment } from 'react'
 import type {
   WorkflowJoinFact,
@@ -5,7 +10,6 @@ import type {
   WorkflowTaskCommandLifecycle,
 } from '@unilab-fe/core'
 
-import { cx } from './taskDetailClassNames'
 import { DebugIcon } from './TaskDetailIcons'
 import type { BranchId } from './taskDetailModel'
 
@@ -45,37 +49,53 @@ export function ParallelDrawer({
     return (
       <button
         type="button"
-        className={cx(
-          `debug-branch-card ${selected ? 'is-selected' : ''} ${submitted ? 'is-submitted' : ''}`,
+        className={clsx(
+          taskParallelDrawerStyles['debug-branch-card'],
+          selected
+            ? clsx(
+                taskDetailInspectorStyles['is-selected'],
+                taskParallelDrawerStyles['is-selected'],
+                appShellStyles['is-selected'],
+              )
+            : '',
+          submitted ? taskParallelDrawerStyles['is-submitted'] : '',
         )}
         onClick={() => onSelect(id)}
       >
-        <span className={cx('debug-branch-card-icon')}>
+        <span className={clsx(taskParallelDrawerStyles['debug-branch-card-icon'])}>
           <DebugIcon name="git-branch" size={18} />
         </span>
-        <span className={cx('debug-branch-card-body')}>
-          <span className={cx('debug-branch-card-head')}>
+        <span className={clsx(taskParallelDrawerStyles['debug-branch-card-body'])}>
+          <span className={clsx(taskParallelDrawerStyles['debug-branch-card-head'])}>
             <strong>{candidate.label ?? candidate.nodeUuid}</strong>
             <span
-              className={cx(
-                `debug-branch-state ${submitted ? 'is-submitted' : candidate.selectable ? 'is-ready' : 'is-blocked'}`,
+              className={clsx(
+                taskDetailInspectorStyles['debug-branch-state'],
+                taskParallelDrawerStyles['debug-branch-state'],
+                submitted
+                  ? taskParallelDrawerStyles['is-submitted']
+                  : candidate.selectable
+                    ? taskDetailInspectorStyles['is-ready']
+                    : 'is-blocked',
               )}
             >
               {submitted ? lifecycleLabel : candidate.selectable ? '可选择' : '不可选择'}
             </span>
           </span>
-          <span className={cx('debug-branch-node')}>node {candidate.nodeUuid}</span>
-          <span className={cx('debug-branch-detail')}>
+          <span className={clsx(taskParallelDrawerStyles['debug-branch-node'])}>
+            node {candidate.nodeUuid}
+          </span>
+          <span className={clsx(taskParallelDrawerStyles['debug-branch-detail'])}>
             {candidate.blockedBy.join(' · ') ||
               candidate.waitReason.reason?.toString() ||
               'OS 未提供阻塞原因'}
           </span>
         </span>
-        <span className={cx('debug-branch-card-check')}>
+        <span className={clsx(taskParallelDrawerStyles['debug-branch-card-check'])}>
           {selected ? (
             <DebugIcon name="check-circle" size={18} />
           ) : (
-            <span className={cx('debug-radio')} />
+            <span className={clsx(taskParallelDrawerStyles['debug-radio'])} />
           )}
         </span>
       </button>
@@ -83,51 +103,59 @@ export function ParallelDrawer({
   }
   const join = joins[0]
   return (
-    <div className={cx('debug-drawer-backdrop')} onClick={onClose}>
+    <div className={clsx(taskDetailStyles['debug-drawer-backdrop'])} onClick={onClose}>
       <aside
-        className={cx('debug-parallel-drawer')}
+        className={clsx(taskParallelDrawerStyles['debug-parallel-drawer'])}
         onClick={(event) => event.stopPropagation()}
         aria-label="并行分支选择"
       >
-        <div className={cx('debug-inspector-head')}>
+        <div className={clsx(taskDetailStyles['debug-inspector-head'])}>
           <h2>选择分支</h2>
           <button
             type="button"
-            className={cx('debug-icon-button')}
+            className={clsx(taskDetailStyles['debug-icon-button'])}
             aria-label="关闭并行分支"
             onClick={onClose}
           >
             <DebugIcon name="x" size={18} />
           </button>
         </div>
-        <div className={cx('debug-parallel-summary')}>
+        <div className={clsx(taskParallelDrawerStyles['debug-parallel-summary'])}>
           <span>
             <DebugIcon name="git-branch" size={16} /> {candidates.length} 个候选
           </span>
           <span>
             <b>{candidates.filter((candidate) => candidate.selectable).length}</b> 个可选择
           </span>
-          <span className={cx('debug-parallel-join')}>
+          <span className={clsx(taskParallelDrawerStyles['debug-parallel-join'])}>
             <DebugIcon name="lock" size={14} /> {join?.ready ? 'Join 已满足' : 'Join 等待前置条件'}
           </span>
         </div>
-        <div className={cx('debug-parallel-body')}>
-          <div className={cx('debug-parallel-section')}>
-            <div className={cx('debug-detail-section-head debug-parallel-section-title')}>
+        <div className={clsx(taskParallelDrawerStyles['debug-parallel-body'])}>
+          <div className={clsx(taskParallelDrawerStyles['debug-parallel-section'])}>
+            <div
+              className={clsx(
+                taskDetailStyles['debug-detail-section-head'],
+                taskParallelDrawerStyles['debug-parallel-section-title'],
+              )}
+            >
               <h3>选择下一步</h3>
             </div>
-            <div className={cx('debug-branch-list')}>
+            <div className={clsx(taskParallelDrawerStyles['debug-branch-list'])}>
               {candidates.map((candidate) => (
                 <Fragment key={candidate.nodeUuid}>{branchCard(candidate)}</Fragment>
               ))}
             </div>
-            <div className={cx('debug-selection-note')}>
+            <div className={clsx(taskParallelDrawerStyles['debug-selection-note'])}>
               <DebugIcon name="info" size={15} />
               <span>{notice}</span>
             </div>
             <button
               type="button"
-              className={cx('debug-primary-button debug-submit-branch')}
+              className={clsx(
+                taskDetailStyles['debug-primary-button'],
+                taskParallelDrawerStyles['debug-submit-branch'],
+              )}
               disabled={
                 !selectedBranch ||
                 !candidates.some(
@@ -141,11 +169,16 @@ export function ParallelDrawer({
               <DebugIcon name="skip-forward" size={16} /> 执行选中节点
             </button>
           </div>
-          <div className={cx('debug-parallel-section')}>
-            <div className={cx('debug-detail-section-head debug-parallel-section-title')}>
+          <div className={clsx(taskParallelDrawerStyles['debug-parallel-section'])}>
+            <div
+              className={clsx(
+                taskDetailStyles['debug-detail-section-head'],
+                taskParallelDrawerStyles['debug-parallel-section-title'],
+              )}
+            >
               <h3>汇合条件</h3>
             </div>
-            <div className={cx('debug-join-checks')}>
+            <div className={clsx(taskParallelDrawerStyles['debug-join-checks'])}>
               {join ? (
                 <>
                   {join.requiredBranchUuids.map((branch) => (

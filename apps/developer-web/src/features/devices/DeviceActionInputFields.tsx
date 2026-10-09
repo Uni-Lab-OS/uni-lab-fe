@@ -1,4 +1,5 @@
-import { cx } from './deviceClassNames'
+import { clsx } from 'clsx'
+import deviceActionEditorStyles from './DeviceActionEditor.module.scss'
 import { Form, Input, InputNumber, Select, Switch, Tooltip } from 'antd'
 import type { ReactNode } from 'react'
 import { isDeviceActionResourceParameter, isDeviceActionStructuredParameter } from '@unilab-fe/core'
@@ -20,14 +21,21 @@ export function DeviceActionInputFields({
   readonly editable?: boolean
 }) {
   if (parameters.length === 0) {
-    return <div className={cx('device-action-input-empty')}>该动作没有声明可填写的参数。</div>
+    return (
+      <div className={clsx(deviceActionEditorStyles['device-action-input-empty'])}>
+        该动作没有声明可填写的参数。
+      </div>
+    )
   }
   return (
-    <div className={cx('device-action-input-fields')}>
+    <div className={clsx(deviceActionEditorStyles['device-action-input-fields'])}>
       {parameters.map((parameter) => {
         const field = <DeviceActionInputField parameter={parameter} editable={editable} />
         return editable ? (
-          <div className={cx('device-action-field-slot')} key={parameter.name}>
+          <div
+            className={clsx(deviceActionEditorStyles['device-action-field-slot'])}
+            key={parameter.name}
+          >
             {field}
           </div>
         ) : (
@@ -39,7 +47,9 @@ export function DeviceActionInputFields({
 }
 
 export function ReadOnlyFieldTooltip({ children }: { readonly children: ReactNode }) {
-  return <div className={cx('device-action-readonly-field')}>{children}</div>
+  return (
+    <div className={clsx(deviceActionEditorStyles['device-action-readonly-field'])}>{children}</div>
+  )
 }
 
 function DeviceActionInputField({
@@ -85,7 +95,7 @@ function DeviceActionInputField({
     return (
       <Form.Item {...itemProps}>
         <InputNumber
-          className={cx('full-input')}
+          className={clsx('full-input')}
           min={numberValue(parameter.schema.minimum)}
           max={numberValue(parameter.schema.maximum)}
           step={type === 'integer' ? 1 : undefined}
@@ -122,12 +132,15 @@ function DeviceActionInputField({
 
 function ParameterLabel({ parameter }: { readonly parameter: DeviceActionParameter }) {
   return (
-    <span className={cx('device-action-input-label')}>
+    <span className={clsx(deviceActionEditorStyles['device-action-input-label'])}>
       <span>{parameter.title}</span>
       {parameter.title !== parameter.name && <code>{parameter.name}</code>}
       {parameter.description ? (
         <Tooltip title={parameter.description} align={{ offset: [0, 0] }}>
-          <span className={cx('device-action-help-icon')} aria-label={`${parameter.title}说明`}>
+          <span
+            className={clsx(deviceActionEditorStyles['device-action-help-icon'])}
+            aria-label={`${parameter.title}说明`}
+          >
             <AppIcon name="general/help-circle" size={14} />
           </span>
         </Tooltip>

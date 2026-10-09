@@ -1,0 +1,362 @@
+/* Styles owned by the shared application components. */
+
+.page-stack {
+  gap: 16px;
+}
+
+/* Grid items must be allowed to shrink inside the available workspace. */
+.page-stack > * {
+  min-width: 0;
+}
+
+.devices-list-page {
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.devices-list-page > .data-section {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.page-header {
+  align-items: center;
+  min-height: 40px;
+}
+
+.page-eyebrow {
+  margin-bottom: 6px;
+  color: var(--studio-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.page-header h1:global(.ant-typography) {
+  color: var(--studio-text);
+  font-size: var(--studio-page-title-size);
+  font-weight: var(--studio-page-title-weight);
+  letter-spacing: -0.03em;
+  line-height: var(--studio-page-title-line-height);
+}
+
+.page-header p:global(.ant-typography) {
+  max-width: 620px;
+  margin-top: 8px;
+  color: var(--studio-text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.page-header-actions {
+  padding-top: 1px;
+}
+
+.page-header-title-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+}
+
+.page-header-back {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  padding: 0;
+  color: var(--studio-text-secondary);
+}
+
+.page-header-back:hover {
+  color: var(--studio-accent) !important;
+  background: var(--bh-color-primary-background) !important;
+}
+
+:global(.ant-btn) {
+  border-radius: var(--studio-control-radius);
+  font-weight: 550;
+  box-shadow: none;
+}
+
+.page-header-actions :global(.ant-btn) {
+  min-height: 32px;
+  height: 32px;
+  padding-inline: 13px;
+}
+
+:global(.ant-btn):not(:global(.ant-btn-text)):not(:global(.ant-btn-link)) {
+  border-color: var(--studio-border);
+}
+
+:global(.ant-btn-primary):not(:global(.ant-btn-dangerous)):not(:global(.ant-btn-color-dangerous)) {
+  border-color: var(--studio-accent) !important;
+  background: var(--studio-accent) !important;
+  box-shadow: none !important;
+}
+
+:global(.ant-btn-primary):not(:global(.ant-btn-dangerous)):not(
+    :global(.ant-btn-color-dangerous)
+  ):hover {
+  border-color: var(--bh-color-primary-hover) !important;
+  background: var(--bh-color-primary-hover) !important;
+}
+
+/* 删除确认是 primary + danger。主色规则不能把它刷成蓝色。 */
+:global(.ant-btn-primary):global(.ant-btn-dangerous):not(:disabled):not(:global(.ant-btn-disabled)),
+:global(.ant-btn-primary):global(.ant-btn-color-dangerous):not(:disabled):not(
+    :global(.ant-btn-disabled)
+  ) {
+  color: var(--bh-color-primary-foreground, #fff) !important;
+  background: var(--bh-color-error-default) !important;
+  border-color: var(--bh-color-error-default) !important;
+  box-shadow: none !important;
+}
+
+:global(.ant-btn-primary):global(.ant-btn-dangerous):not(:disabled):not(
+    :global(.ant-btn-disabled)
+  ):hover,
+:global(.ant-btn-primary):global(.ant-btn-color-dangerous):not(:disabled):not(
+    :global(.ant-btn-disabled)
+  ):hover {
+  color: var(--bh-color-primary-foreground, #fff) !important;
+  background: var(--bh-color-error-hover) !important;
+  border-color: var(--bh-color-error-hover) !important;
+}
+
+:global(.ant-btn-primary):global(.ant-btn-dangerous):not(:disabled):not(
+    :global(.ant-btn-disabled)
+  ):active,
+:global(.ant-btn-primary):global(.ant-btn-color-dangerous):not(:disabled):not(
+    :global(.ant-btn-disabled)
+  ):active {
+  background: var(--bh-color-error-pressed) !important;
+  border-color: var(--bh-color-error-pressed) !important;
+}
+
+:global(.ant-btn-dangerous):not(:global(.ant-btn-text)) {
+  box-shadow: none;
+}
+
+:global(.ant-input),
+:global(.ant-input-affix-wrapper),
+:global(.ant-select-selector) {
+  border-radius: var(--studio-control-radius) !important;
+  box-shadow: none !important;
+}
+
+:global(.ant-input-affix-wrapper-focused),
+:global(.ant-input):focus,
+:global(.ant-select-focused) :global(.ant-select-selector) {
+  border-color: var(--studio-accent) !important;
+  box-shadow: 0 0 0 2px var(--bh-color-primary-focus) !important;
+}
+
+.section-title h2,
+.section-title h3 {
+  color: var(--studio-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.section-title > span {
+  color: var(--studio-text-secondary);
+  font-size: 11px;
+}
+
+.data-section-toolbar {
+  margin-bottom: 13px;
+}
+
+.data-section :global(.ant-table-thead) > tr > th {
+  padding: 14px 20px;
+  border-bottom-color: var(--studio-border);
+  color: var(--studio-text-secondary);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.data-section :global(.ant-table-tbody) > tr > td {
+  padding: 16px 20px;
+  border-bottom-color: var(--studio-border-soft);
+  color: var(--studio-text-secondary);
+  font-size: 12px;
+}
+
+.data-section :global(.ant-table-tbody) > tr:hover > td {
+  background: var(--bh-color-primary-background) !important;
+}
+
+.icon-button {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--studio-control-radius) !important;
+}
+
+.icon-button:hover {
+  color: var(--studio-accent) !important;
+  background: var(--bh-color-primary-background) !important;
+}
+
+.status-badge {
+  min-height: 20px;
+  padding: 0 6px !important;
+  border-radius: 5px !important;
+  font-size: 10px !important;
+  font-weight: 600;
+}
+
+/* 全站 Tabs 使用轻量的圆角选中条，宽度跟随当前标签，避免出现过短的孤立横线。 */
+:global(.ant-tabs) :global(.ant-tabs-nav)::before {
+  border-bottom: 0 !important;
+}
+
+:global(.ant-tabs) :global(.ant-tabs-tab) {
+  padding: 8px 0 10px;
+}
+
+:global(.ant-tabs) :global(.ant-tabs-ink-bar) {
+  height: 3px !important;
+  background: transparent !important;
+  transform: none;
+}
+
+:global(.ant-tabs) :global(.ant-tabs-ink-bar)::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  border-radius: 999px;
+  background: var(--bh-color-primary);
+}
+
+.gantt-track {
+  min-height: 28px;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent calc(25% - 1px),
+    var(--studio-border-soft) calc(25% - 1px),
+    var(--studio-border-soft) 25%
+  );
+}
+
+.preview-panel {
+  background: var(--studio-surface);
+  box-shadow: var(--studio-overlay-shadow);
+}
+
+/* Tables share the default design-v2 surface and type scale. */
+.data-section :global(.ant-table-container) {
+  overflow: hidden;
+  border: 1px solid var(--studio-border-soft);
+  border-radius: var(--studio-radius);
+  background: var(--bh-color-card);
+  padding: 0 12px 12px;
+}
+
+.data-section :global(.ant-table),
+.data-section :global(.ant-table-content) {
+  overflow: hidden;
+  border-radius: calc(var(--studio-radius) - 2px);
+}
+
+.data-section :global(.ant-table),
+.data-section :global(.ant-table-container),
+.data-section :global(.ant-table-thead) > tr > th,
+.data-section :global(.ant-table-tbody) > tr > td {
+  background: var(--bh-color-card) !important;
+}
+
+.data-section :global(.ant-table-thead) > tr > th {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--bh-color-border) !important;
+  color: var(--bh-color-foreground);
+  font-size: var(--bh-font-size-sm);
+  font-weight: 500;
+  letter-spacing: normal;
+}
+
+.data-section :global(.ant-table-tbody) > tr > td {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--bh-color-border) !important;
+}
+
+.primary-cell-link {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* 总览表格的长文本只占自己的列宽，不把优先级和状态列挤到换行。 */
+.overview-table-text-cell,
+.data-section .primary-cell,
+.data-section .primary-cell-link {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.overview-table-text-cell .table-text,
+.data-section .primary-cell-link .table-text {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.task-name-link:global(.ant-btn) {
+  display: block;
+  width: 100%;
+  height: auto;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+}
+
+.task-name-link:global(.ant-btn):hover,
+.task-name-link:global(.ant-btn):focus-visible {
+  color: var(--studio-accent);
+}
+
+.task-name-link:global(.ant-btn):hover .table-text,
+.task-name-link:global(.ant-btn):focus-visible .table-text {
+  color: var(--studio-accent);
+}
+
+.primary-cell-link:hover strong,
+.primary-cell-link:focus-visible strong {
+  color: var(--studio-accent);
+}
+
+/* Keep reagent table empty states centered inside the full table body. */
+.data-section :global(.ant-table-placeholder) > td {
+  padding: 0 !important;
+  text-align: center;
+}
+
+.data-section :global(.ant-table-placeholder) :global(.bh-empty-state) {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  margin-inline: auto;
+}
+
+/* 空数据占位行不是可交互数据行，不参与表格 hover 高亮。 */
+.data-section :global(.ant-table-tbody) > tr:global(.ant-table-placeholder),
+.data-section :global(.ant-table-tbody) > tr:global(.ant-table-placeholder):hover,
+.data-section :global(.ant-table-tbody) > tr:global(.ant-table-placeholder) > td,
+.data-section :global(.ant-table-tbody) > tr:global(.ant-table-placeholder):hover > td {
+  background: var(--bh-color-card) !important;
+  cursor: default;
+}
+
+/* Studio product tokens: keep these preferences local to the Studio shell. */

@@ -260,15 +260,16 @@ packages/lab-ui/src/index.ts
 
 ### 5.3 禁止事项
 
-- 新增 `styleMaps.ts` 或扩大现有全量 class 聚合
+- 新增全量 class 聚合或运行时样式映射工厂
 - 在多个业务 Module 定义相同的全局 class owner
 - 从 `developer-web` 反向给 `lab-ui` 提供内部样式
 - 用 `!important` 解决 owner 不清或加载顺序问题
 - 在业务样式中复制 design-v2 token 的定义
 - 通过 import 顺序决定两个 Module 的最终视觉结果
 
-迁移期间允许保留 `styleMaps.ts` 作为兼容层，但只能减少引用，不能增加新 caller。
-每次迁移必须同时删除旧 style owner 或标记明确的删除任务。
+CSS Module 已经提供局部命名隔离，组件应直接 import 自己的 Module，并用 `clsx` 组合
+条件类名；不得通过运行时聚合把多个业务域的同名类拼到一个元素上。每次迁移必须同时
+删除旧 style owner 或标记明确的删除任务。
 
 ## 6. 拆分触发器
 
@@ -281,7 +282,7 @@ packages/lab-ui/src/index.ts
 - 组件需要 8 个以上 Hook，且 Hook 跨越多个职责
 - 组件通过 5 个以上 style slot 接收外部样式
 - 同一个样式文件覆盖两个以上业务领域
-- 修改一个状态需要同时编辑页面、共享样式和 `styleMaps`
+- 修改一个状态需要同时编辑页面、跨域共享样式和样式映射工厂
 
 ### 辅助信号
 
