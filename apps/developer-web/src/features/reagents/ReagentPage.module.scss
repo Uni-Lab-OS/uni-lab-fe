@@ -52,3 +52,7 @@
 .reagentTabs :global(.ant-tabs-ink-bar)::after {
   inset: 0;
 }
+.reagent-identifier-text {
+  font-family: var(--bh-font-family-mono);
+  word-break: break-all;
+}

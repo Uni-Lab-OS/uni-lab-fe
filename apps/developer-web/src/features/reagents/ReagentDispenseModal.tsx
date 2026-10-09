@@ -182,7 +182,7 @@ export function DispenseModal({
             />
           )}
           <ErrorAlert error={error} />
-          <div className={clsx('modal-actions', reagentModalStyles['reagent-form-field--wide'])}>
+          <div className={clsx(reagentModalStyles['reagent-form-field--wide'])}>
             <Button onClick={onClose}>取消</Button>
             <Button type="primary" htmlType="submit" loading={loading}>
               执行分装

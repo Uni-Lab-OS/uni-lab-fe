@@ -55,7 +55,6 @@ export function HistoryModal({ reagent, onClose }: { reagent: Reagent; onClose: 
       ) : history?.items.length ? (
         <>
           <List
-            className={clsx('history-list')}
             dataSource={[...history.items]}
             renderItem={(item) => (
               <List.Item>

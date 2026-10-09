@@ -185,14 +185,7 @@ export function WorkflowDebugPage({
                       onChange={setWorkflowInput}
                     />
                   </div>
-                  {formError && (
-                    <Alert
-                      className={clsx('form-error')}
-                      type="error"
-                      showIcon
-                      message={formError}
-                    />
-                  )}
+                  {formError && <Alert type="error" showIcon message={formError} />}
                   <Button type="primary" loading={busy} onClick={runPreflight}>
                     {busy ? '正在检查运行条件…' : '下一步：依赖检查'}
                   </Button>
@@ -218,7 +211,6 @@ export function WorkflowDebugPage({
                 {viewModel && <RunPreparationSummary viewModel={viewModel} preflight={preflight} />}
                 {formError && (
                   <Alert
-                    className={clsx('form-error')}
                     type="error"
                     showIcon
                     message={formError}

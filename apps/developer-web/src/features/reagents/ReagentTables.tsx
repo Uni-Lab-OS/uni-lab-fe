@@ -78,7 +78,7 @@ export function InventoryTable({
           className={clsx(
             appShellStyles['primary-cell'],
             sharedStyles['primary-cell'],
-            'reagent-identifier-text',
+            styles['reagent-identifier-text'],
           )}
         >
           <span>{item.cas ?? '无 CAS'}</span>
@@ -254,7 +254,7 @@ export function CatalogTable({
       dataIndex: 'cas',
       width: 175,
       render: (value: string | null) => (
-        <span className={clsx('reagent-identifier-text')}>{value ?? '未提供'}</span>
+        <span className={clsx(styles['reagent-identifier-text'])}>{value ?? '未提供'}</span>
       ),
     },
     {
@@ -268,7 +268,7 @@ export function CatalogTable({
       dataIndex: 'molecularFormula',
       width: 120,
       render: (value: string | null) => (
-        <span className={clsx('reagent-identifier-text')}>{value ?? '未提供'}</span>
+        <span className={clsx(styles['reagent-identifier-text'])}>{value ?? '未提供'}</span>
       ),
     },
     {
@@ -276,7 +276,11 @@ export function CatalogTable({
       dataIndex: 'smiles',
       width: 180,
       render: (value: string | null) =>
-        value ? <TableText className={clsx('reagent-identifier-text')} text={value} /> : '未提供',
+        value ? (
+          <TableText className={clsx(styles['reagent-identifier-text'])} text={value} />
+        ) : (
+          '未提供'
+        ),
     },
     {
       title: '分子量',

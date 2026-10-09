@@ -302,13 +302,8 @@
 }
 
 /* CAS、SMILES、InChIKey 是机器标识符，等宽字体才好分辨 0/O 与 1/l。 */
-.reagent-identifier-input,
-.reagent-identifier-text {
+.reagent-identifier-input {
   font-family: var(--bh-font-family-mono);
-}
-
-.reagent-identifier-text {
-  word-break: break-all;
 }
 
 .reagent-error-details {

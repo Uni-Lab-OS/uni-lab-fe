@@ -251,7 +251,7 @@ export function InventoryFormModal({
             <Input.TextArea rows={3} />
           </Form.Item>
           <ErrorAlert error={error} />
-          <div className={clsx('modal-actions', reagentModalStyles['reagent-form-field--wide'])}>
+          <div className={clsx(reagentModalStyles['reagent-form-field--wide'])}>
             <Button onClick={onClose}>取消</Button>
             <Button type="primary" htmlType="submit" loading={loading}>
               保存

@@ -16,9 +16,7 @@ export function PageHeader({
     <header className={clsx(sharedStyles['page-header'])}>
       <div className={clsx(sharedStyles['page-header-title-row'])}>
         {leading}
-        <Typography.Title className={clsx('page-header-title')} level={1}>
-          {title}
-        </Typography.Title>
+        <Typography.Title level={1}>{title}</Typography.Title>
       </div>
       {actions && <div className={clsx(sharedStyles['page-header-actions'])}>{actions}</div>}
     </header>

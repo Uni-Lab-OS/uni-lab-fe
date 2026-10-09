@@ -23,7 +23,7 @@ export function DeviceTable({
       key: 'device',
       width: 360,
       render: (_, row) => (
-        <div className={clsx('device-cell')}>
+        <div>
           <button
             type="button"
             className={clsx(

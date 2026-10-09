@@ -77,7 +77,7 @@ export function ErrorAlert({ error }: { error: Error | null }) {
   const details = (error as { details?: Readonly<Record<string, unknown>> }).details
   return (
     <Alert
-      className={clsx('form-error', reagentModalStyles['reagent-form-field--wide'])}
+      className={clsx(reagentModalStyles['reagent-form-field--wide'])}
       type="error"
       showIcon
       message="提交失败"
