@@ -2,9 +2,9 @@ import { clsx } from 'clsx'
 import materialStyles from '../material.module.scss'
 import sharedStyles from '../shared.module.scss'
 import { Icon } from '@unilab/design-v2/icons'
-import type { MaterialInspectionProjection, MaterialGraphNode, SiteSummary } from '@unilab-fe/core'
-import { SitePicker } from './SitePicker'
+import type { MaterialInspectionProjection, MaterialGraphNode } from '@unilab-fe/core'
 import { DefinitionList } from '../shared/DefinitionList'
+import { MaterialSitePresentation } from './MaterialSitePresentation'
 
 export interface MaterialInspectorProps {
   readonly projection: MaterialInspectionProjection
@@ -39,21 +39,12 @@ export function MaterialInspector({
         </div>
       </header>
       <MaterialFacts node={projection.node} />
-      <section className={clsx(materialStyles['lab-ui-material-inspector__sites'])}>
-        <h3>库位</h3>
-        <SitePicker
-          sites={projection.sites}
-          variant="inspector"
-          selectedSiteUuid={selectedSite}
-          onSelectSite={onSelectSite}
-        />
-        {projection.occupiedSites.length > 0 && (
-          <OccupiedMaterialList
-            sites={projection.occupiedSites}
-            onSelectMaterial={onSelectOccupiedMaterial}
-          />
-        )}
-      </section>
+      <MaterialSitePresentation
+        sites={projection.sites}
+        selectedSiteUuid={selectedSite}
+        onSelectSite={onSelectSite}
+        onSelectOccupiedMaterial={(materialUuid) => onSelectOccupiedMaterial?.(materialUuid)}
+      />
     </aside>
   )
 }
@@ -71,31 +62,5 @@ function MaterialFacts({ node }: { readonly node: MaterialGraphNode }) {
         { label: '当前库位', value: node.currentSiteUuid, missingText: '未绑定库位', mono: true },
       ]}
     />
-  )
-}
-
-function OccupiedMaterialList({
-  sites,
-  onSelectMaterial,
-}: {
-  readonly sites: readonly SiteSummary[]
-  readonly onSelectMaterial?: (materialUuid: string) => void
-}) {
-  return (
-    <div className={clsx(materialStyles['lab-ui-material-inspector__occupants'])}>
-      {sites.map((site) => {
-        const materialUuid = site.occupancy.occupiedMaterialUuid
-        if (!materialUuid) return null
-        return (
-          <button
-            key={`${site.siteUuid}-occupant`}
-            type="button"
-            onClick={() => onSelectMaterial?.(materialUuid)}
-          >
-            查看 {site.name || site.key} 中的物料
-          </button>
-        )
-      })}
-    </div>
   )
 }

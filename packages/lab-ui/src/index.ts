@@ -1,4 +1,8 @@
 export { MaterialInspector, type MaterialInspectorProps } from './material/MaterialInspector'
+export {
+  MaterialSitePresentation,
+  type MaterialSitePresentationProps,
+} from './material/MaterialSitePresentation'
 export { SitePicker, type SitePickerProps } from './material/SitePicker'
 export {
   WorkflowInputForm,

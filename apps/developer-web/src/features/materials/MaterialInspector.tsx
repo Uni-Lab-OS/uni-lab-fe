@@ -6,7 +6,7 @@ import { Button, Tooltip, Typography } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
 import type { MaterialGraphNode, MaterialInspectionProjection, SiteSummary } from '@unilab-fe/core'
 import type { IconColor, IconName } from '@unilab/design-v2/icons'
-import { SitePicker, StatusBadge } from '@unilab/lab-ui'
+import { DefinitionList, MaterialSitePresentation, StatusBadge } from '@unilab/lab-ui'
 import { AppIcon } from '../../components/ui/Icon'
 import { type MaterialSelection } from './MaterialFlowCanvas'
 import { resolveMaterialSiteAction } from './materialSiteActions'
@@ -87,25 +87,22 @@ function NodeInspector({
       )}
     >
       <InspectorHeading icon="shapes/cube-03" title={detail.name} />
-      <dl className={clsx(materialInspectorStyles['definition-list'])}>
-        <div>
-          <dt>节点类型</dt>
-          <dd>{detail.materialType ?? '未提供'}</dd>
-        </div>
-        <div>
-          <dt>资源模板</dt>
-          <dd>{node.resourceTemplate?.name ?? '未提供'}</dd>
-        </div>
-        <div>
-          <dt>父节点</dt>
-          <dd>{detail.parentMaterialUuid ?? '根节点'}</dd>
-        </div>
-        <div>
-          <dt>库位数量</dt>
-          <dd>{sites.length}</dd>
-        </div>
-      </dl>
-      <SiteList sites={sites} onSelect={onSelect} />
+      <DefinitionList
+        className={clsx(materialInspectorStyles['definition-list'])}
+        items={[
+          { label: '节点类型', value: detail.materialType },
+          { label: '资源模板', value: node.resourceTemplate?.name },
+          { label: '父节点', value: detail.parentMaterialUuid ?? '根节点' },
+          { label: '库位数量', value: sites.length },
+        ]}
+      />
+      <MaterialSitePresentation
+        sites={sites}
+        onSelectSite={(siteUuid) => onSelect({ kind: 'site', siteId: siteUuid })}
+        onSelectOccupiedMaterial={(materialId, siteId) =>
+          onSelect({ kind: 'material', materialId, siteId })
+        }
+      />
     </aside>
   )
 }
@@ -142,30 +139,24 @@ function SiteInspector({
           className={clsx(sharedStyles['status-badge'])}
         />
       </div>
-      <dl className={clsx(materialInspectorStyles['definition-list'])}>
-        <div>
-          <dt>所属节点</dt>
-          <dd>{node.material.name}</dd>
-        </div>
-        <div>
-          <dt>库位标识</dt>
-          <dd>
-            <Tooltip title={site.siteUuid}>
-              <span className={clsx(materialInspectorStyles['definition-value-tooltip'])}>
-                {site.siteUuid}
-              </span>
-            </Tooltip>
-          </dd>
-        </div>
-        <div>
-          <dt>允许资源</dt>
-          <dd>{site.allowedResourceTemplateUuids?.length ?? 0} 种</dd>
-        </div>
-        <div>
-          <dt>当前物料</dt>
-          <dd>{occupied ?? '空库位'}</dd>
-        </div>
-      </dl>
+      <DefinitionList
+        className={clsx(materialInspectorStyles['definition-list'])}
+        items={[
+          { label: '所属节点', value: node.material.name },
+          {
+            label: '库位标识',
+            value: (
+              <Tooltip title={site.siteUuid}>
+                <span className={clsx(materialInspectorStyles['definition-value-tooltip'])}>
+                  {site.siteUuid}
+                </span>
+              </Tooltip>
+            ),
+          },
+          { label: '允许资源', value: `${site.allowedResourceTemplateUuids?.length ?? 0} 种` },
+          { label: '当前物料', value: occupied ?? '空库位' },
+        ]}
+      />
       {occupied && (
         <div className={clsx(materialInspectorStyles['inspector-section'])}>
           <Button
@@ -237,25 +228,23 @@ function MaterialDetailInspector({
           }
         />
       </div>
-      <dl className={clsx(materialInspectorStyles['definition-list'])}>
-        <div>
-          <dt>物料类型</dt>
-          <dd>{detail.materialType ?? '未提供'}</dd>
-        </div>
-        <div>
-          <dt>当前库位</dt>
-          <dd>{site?.name ?? '未绑定库位'}</dd>
-        </div>
-        <div>
-          <dt>父物料</dt>
-          <dd>{detail.parentMaterialUuid ?? '根节点'}</dd>
-        </div>
-        <div>
-          <dt>修订版本</dt>
-          <dd>{detail.revision == null ? '未提供' : detail.revision}</dd>
-        </div>
-      </dl>
-      <SiteList sites={site ? [site] : projection.sites} onSelect={onSelect} />
+      <DefinitionList
+        className={clsx(materialInspectorStyles['definition-list'])}
+        items={[
+          { label: '物料类型', value: detail.materialType },
+          { label: '当前库位', value: site?.name ?? '未绑定库位' },
+          { label: '父物料', value: detail.parentMaterialUuid ?? '根节点' },
+          { label: '修订版本', value: detail.revision },
+        ]}
+      />
+      <MaterialSitePresentation
+        sites={site ? [site] : projection.sites}
+        selectedSiteUuid={site?.siteUuid}
+        onSelectSite={(siteUuid) => onSelect({ kind: 'site', siteId: siteUuid })}
+        onSelectOccupiedMaterial={(materialId, siteId) =>
+          onSelect({ kind: 'material', materialId, siteId })
+        }
+      />
       <SiteHandlingActions action={siteAction} />
       <Typography.Text
         type="secondary"
@@ -288,26 +277,6 @@ function SiteHandlingActions({ action }: { action: ReturnType<typeof resolveMate
       >
         {isLoad ? '上料' : '下料'}
       </Button>
-    </div>
-  )
-}
-
-function SiteList({
-  sites,
-  onSelect,
-}: {
-  sites: readonly SiteSummary[]
-  onSelect: (selection: MaterialSelection) => void
-}) {
-  return (
-    <div className={clsx(materialInspectorStyles['inspector-section'])}>
-      <div className={clsx(materialInspectorStyles['inspector-field-label'])}>库位</div>
-      <SitePicker
-        sites={sites}
-        variant="inspector"
-        emptyDescription="没有库位信息"
-        onSelectSite={(siteUuid) => onSelect({ kind: 'site', siteId: siteUuid })}
-      />
     </div>
   )
 }
