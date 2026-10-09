@@ -3,7 +3,6 @@ export {
   MaterialSitePresentation,
   type MaterialSitePresentationProps,
 } from './material/MaterialSitePresentation'
-export { SitePicker, type SitePickerProps } from './material/SitePicker'
 export {
   WorkflowInputForm,
   type WorkflowInputFormProps,

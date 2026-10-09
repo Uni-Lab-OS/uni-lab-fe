@@ -21,6 +21,7 @@
     "build:desktop": "pnpm --filter @unilab/desktop build",
     "quality:frontend": "node scripts/check-frontend-quality.mjs",
     "quality:styles": "node scripts/check-style-architecture.mjs",
+    "quality:lab-ui": "node scripts/check-lab-ui-boundaries.mjs",
     "format": "prettier --write apps/developer-web packages/core packages/lab-ui packages/design-v2",
     "format:check": "prettier --check apps/developer-web packages/core packages/lab-ui packages/design-v2",
     "card": "pnpm --filter @unilab/device-card-tooling build && node packages/device-card-tooling/dist/cli.mjs",
