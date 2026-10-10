@@ -4,7 +4,7 @@ import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Dropdown, Modal, message } from 'antd'
 import type { MenuProps } from 'antd'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { TaskRuntimePresentation } from '@unilab-fe/core'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
 import { AppIcon } from '../../components/ui/Icon'
@@ -149,8 +149,10 @@ function previewTaskRow(
 
 export function OverviewPage({
   onNavigate,
+  onAttentionChange,
 }: {
   onNavigate: (route: StudioRoute, search?: string) => void
+  onAttentionChange?: (hasAttention: boolean) => void
 }) {
   const { backend } = useBackend()
   const query = useBackendQuery('workflow-task-presentations', (backend) =>
@@ -172,6 +174,9 @@ export function OverviewPage({
   })
   const activeRows = rows.filter((row) => ['running', 'waiting'].includes(row.status))
   const attentionRows = rows.filter((row) => row.status === 'attention' || row.status === 'failed')
+  useEffect(() => {
+    onAttentionChange?.(attentionRows.length > 0)
+  }, [attentionRows.length, onAttentionChange])
   const activePreviewRows =
     previewTasksEnabled && activeRows.length === 0 ? previewActiveRows : activeRows
   const attentionPreviewRows =

@@ -7,12 +7,14 @@ import { TasksPage } from './features/tasks/TasksPage'
 import { BackendProvider } from './app/BackendProvider'
 import { navigateTo, useStudioRoute } from './app/navigation'
 import { AppShell } from './components/AppShell'
+import { useState } from 'react'
 
 function StudioRoutes() {
   const route = useStudioRoute()
+  const [hasOverviewAttention, setHasOverviewAttention] = useState(false)
   const page =
     route === 'overview' ? (
-      <OverviewPage onNavigate={navigateTo} />
+      <OverviewPage onNavigate={navigateTo} onAttentionChange={setHasOverviewAttention} />
     ) : route === 'devices' ? (
       <DevicesPage />
     ) : route === 'reagents' ? (
@@ -25,7 +27,11 @@ function StudioRoutes() {
       <MaterialsPage />
     )
   return (
-    <AppShell route={route} onNavigate={navigateTo}>
+    <AppShell
+      route={route}
+      onNavigate={navigateTo}
+      hasOverviewAttention={hasOverviewAttention}
+    >
       {page}
     </AppShell>
   )

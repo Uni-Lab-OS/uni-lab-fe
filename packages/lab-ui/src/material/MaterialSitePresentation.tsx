@@ -23,7 +23,6 @@ export function MaterialSitePresentation({
   onSelectOccupiedMaterial,
   className,
 }: MaterialSitePresentationProps) {
-  const occupiedSites = sites.filter((site) => Boolean(site.occupancy.occupiedMaterialUuid))
   return (
     <section className={clsx(materialStyles['lab-ui-material-sites'], className)}>
       <h3>库位</h3>
@@ -33,24 +32,8 @@ export function MaterialSitePresentation({
         selectedSiteUuid={selectedSiteUuid}
         emptyDescription={emptyDescription}
         onSelectSite={onSelectSite}
+        onSelectOccupiedMaterial={onSelectOccupiedMaterial}
       />
-      {occupiedSites.length > 0 && (
-        <div className={clsx(materialStyles['lab-ui-material-sites__occupants'])}>
-          {occupiedSites.map((site) => {
-            const materialUuid = site.occupancy.occupiedMaterialUuid
-            if (!materialUuid) return null
-            return (
-              <button
-                key={`${site.siteUuid}-occupant`}
-                type="button"
-                onClick={() => onSelectOccupiedMaterial?.(materialUuid, site.siteUuid)}
-              >
-                查看 {site.name || site.key} 中的物料
-              </button>
-            )
-          })}
-        </div>
-      )}
     </section>
   )
 }

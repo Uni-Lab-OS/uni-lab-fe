@@ -20,6 +20,25 @@
   width: 100%;
 }
 
+.lab-ui-site-picker__select {
+  align-items: center;
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.lab-ui-site-picker__select > span:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
 .lab-ui-site-picker__item + .lab-ui-site-picker__item {
   margin-top: 8px;
 }
@@ -78,21 +97,6 @@
   font-size: var(--studio-form-label-size, 14px);
   font-weight: var(--studio-form-label-weight, 500);
   line-height: var(--studio-form-label-line-height, 20px);
-}
-
-.lab-ui-material-sites__occupants {
-  display: grid;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.lab-ui-material-sites__occupants button {
-  padding: 0;
-  border: 0;
-  color: var(--unilab-color-link, #6941c6);
-  background: none;
-  text-align: left;
-  cursor: pointer;
 }
 
 .lab-ui-material-inspector {
@@ -198,15 +202,15 @@
 .lab-ui-site-picker--inspector .lab-ui-site-picker__item {
   align-items: center;
   background: var(--studio-surface, #fff);
-  border: 1px solid var(--studio-border, #dfe4ef);
-  border-radius: 8px;
+  border: 0;
+  border-radius: 0;
   box-sizing: border-box;
   color: inherit;
   font: inherit;
   gap: 8px;
   justify-content: flex-start;
   margin: 0 0 4px;
-  padding: 5px 8px;
+  padding: 2px 0;
   transition: background-color 120ms ease;
 }
 
@@ -217,12 +221,47 @@
 .lab-ui-site-picker--inspector .lab-ui-site-picker__item:hover,
 .lab-ui-site-picker--inspector .lab-ui-site-picker__item.is-selected {
   background: var(--studio-surface-muted, #f2f4f7);
-  border-color: var(--studio-border, #dfe4ef);
 }
 
-.lab-ui-site-picker--inspector .lab-ui-site-picker__item:focus-visible {
+.lab-ui-site-picker--inspector .lab-ui-site-picker__select {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.lab-ui-site-picker--inspector .lab-ui-site-picker__select:hover {
+  background: transparent;
+}
+
+.lab-ui-site-picker--inspector .lab-ui-site-picker__select:focus-visible,
+.lab-ui-site-picker--inspector .lab-ui-site-picker__occupant-action:focus-visible {
   outline: 2px solid var(--studio-primary, #4f46e5);
   outline-offset: -2px;
+}
+
+.lab-ui-site-picker--inspector .lab-ui-site-picker__occupant-action {
+  flex: 0 0 auto;
+  margin-right: 8px;
+  padding: 4px 0;
+  border: 0;
+  color: var(--studio-accent, #6941c6);
+  background: transparent;
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.lab-ui-site-picker--inspector .lab-ui-site-picker__occupant-action:hover {
+  color: var(--studio-primary, #4f46e5);
 }
 
 .lab-ui-site-picker--inspector .lab-ui-site-picker__item > .lab-ui-site-picker__content {

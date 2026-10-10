@@ -8,6 +8,7 @@ export interface SitePickerProps {
   readonly sites: readonly SiteSummary[]
   readonly selectedSiteUuid?: string
   readonly onSelectSite?: (siteUuid: string) => void
+  readonly onSelectOccupiedMaterial?: (materialUuid: string, siteUuid: string) => void
   readonly disabled?: boolean
   readonly emptyDescription?: string
   /** 物料详情页的兼容外观；不改变库位选择语义。 */
@@ -19,6 +20,7 @@ export function SitePicker({
   sites,
   selectedSiteUuid,
   onSelectSite,
+  onSelectOccupiedMaterial,
   disabled = false,
   emptyDescription = '暂无可用库位',
   variant = 'default',
@@ -54,6 +56,7 @@ export function SitePicker({
           disabled={disabled}
           variant={variant}
           onSelect={onSelectSite}
+          onSelectOccupiedMaterial={onSelectOccupiedMaterial}
         />
       ))}
     </div>
@@ -66,72 +69,80 @@ function SitePickerItem({
   disabled,
   variant,
   onSelect,
+  onSelectOccupiedMaterial,
 }: {
   readonly site: SiteSummary
   readonly selected: boolean
   readonly disabled: boolean
   readonly variant: NonNullable<SitePickerProps['variant']>
   readonly onSelect?: (siteUuid: string) => void
+  readonly onSelectOccupiedMaterial?: (materialUuid: string, siteUuid: string) => void
 }) {
   const occupancy = occupancyLabel(site)
   const displayName = site.name || site.key || site.siteUuid
   const isInspector = variant === 'inspector'
 
   return (
-    <button
+    <div
       key={site.siteUuid}
-      type="button"
       role="option"
       aria-selected={selected}
-      disabled={disabled}
       className={clsx(
         materialStyles['lab-ui-site-picker__item'],
         selected && materialStyles['is-selected'],
       )}
-      onClick={() => onSelect?.(site.siteUuid)}
     >
-      {isInspector ? (
-        <span className={clsx(materialStyles['lab-ui-site-picker__content'])}>
-          <strong>{displayName}</strong>
-        </span>
-      ) : (
-        <span>
-          <strong>{displayName}</strong>
-          {site.key && site.key !== site.name && <small>{site.key}</small>}
-        </span>
-      )}
-      {isInspector && (
+      <button
+        type="button"
+        disabled={disabled}
+        className={clsx(materialStyles['lab-ui-site-picker__select'])}
+        onClick={() => onSelect?.(site.siteUuid)}
+      >
+        {isInspector ? (
+          <span className={clsx(materialStyles['lab-ui-site-picker__content'])}>
+            <strong>{displayName}</strong>
+          </span>
+        ) : (
+          <span>
+            <strong>{displayName}</strong>
+            {site.key && site.key !== site.name && <small>{site.key}</small>}
+          </span>
+        )}
         <span
           className={clsx(
             materialStyles['lab-ui-site-picker__status'],
             materialStyles[`is-${occupancy.kind}`],
           )}
         >
-          {occupancy.inspectorLabel}
+          {isInspector ? occupancy.inspectorLabel : occupancy.label}
         </span>
-      )}
-      {!isInspector && (
-        <span
-          className={clsx(
-            materialStyles['lab-ui-site-picker__status'],
-            materialStyles[`is-${occupancy.kind}`],
-          )}
+        {isInspector && site.key && site.key !== displayName && (
+          <span
+            className={clsx(
+              materialStyles['lab-ui-site-picker__key-tag'],
+              materialStyles[`is-${occupancy.kind}`],
+            )}
+            title={site.key}
+          >
+            {site.key}
+          </span>
+        )}
+      </button>
+      {isInspector && site.occupancy.occupiedMaterialUuid && onSelectOccupiedMaterial && (
+        <button
+          type="button"
+          disabled={disabled}
+          className={clsx(materialStyles['lab-ui-site-picker__occupant-action'])}
+          aria-label={`查看 ${displayName} 中的物料`}
+          title={`查看 ${displayName} 中的物料`}
+          onClick={() =>
+            onSelectOccupiedMaterial(site.occupancy.occupiedMaterialUuid!, site.siteUuid)
+          }
         >
-          {occupancy.label}
-        </span>
+          查看物料
+        </button>
       )}
-      {isInspector && site.key && site.key !== displayName && (
-        <span
-          className={clsx(
-            materialStyles['lab-ui-site-picker__key-tag'],
-            materialStyles[`is-${occupancy.kind}`],
-          )}
-          title={site.key}
-        >
-          {site.key}
-        </span>
-      )}
-    </button>
+    </div>
   )
 }
 

@@ -54,9 +54,15 @@
 .resource-tree:global(.ant-tree) :global(.ant-tree-treenode):hover {
   background: transparent !important;
 }
-.resource-tree:global(.ant-tree) :global(.ant-tree-switcher):hover {
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-switcher:not(.ant-tree-switcher-noop)):hover {
   color: var(--bh-color-primary) !important;
   background: var(--bh-color-fill-1) !important;
+}
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-switcher.ant-tree-switcher-noop):hover {
+  color: inherit !important;
+  background: transparent !important;
 }
 .resource-tree:global(.ant-tree)
   :global(.ant-tree-switcher:not(.ant-tree-switcher-noop)):hover::before {
@@ -79,6 +85,11 @@
 .resource-tree:global(.ant-tree)
   :global(.ant-tree-node-content-wrapper):hover:not(:global(.ant-tree-node-selected)) {
   background: var(--bh-color-fill-1) !important;
+}
+.resource-tree:global(.ant-tree)
+  :global(.ant-tree-treenode:has(> .ant-tree-switcher-noop))
+  > :global(.ant-tree-node-content-wrapper):hover:not(:global(.ant-tree-node-selected)) {
+  background: transparent !important;
 }
 .resource-tree:global(.ant-tree) :global(.ant-tree-treenode-selected),
 .resource-tree:global(.ant-tree) :global(.ant-tree-treenode-selected):hover {

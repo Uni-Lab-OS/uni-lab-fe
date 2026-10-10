@@ -102,7 +102,7 @@ describe('lab-ui domain components', () => {
     const { rerender } = render(<MaterialSitePresentation sites={[site()]} selectedSiteUuid="site-1" onSelectSite={onSelectSite} />)
     const selected = screen.getByRole('option', { name: /台面.*空闲/ })
     expect(selected).toHaveAttribute('aria-selected', 'true')
-    fireEvent.click(selected)
+    fireEvent.click(screen.getByRole('button', { name: /台面.*空闲/ }))
     expect(onSelectSite).toHaveBeenCalledWith('site-1')
     rerender(<MaterialSitePresentation sites={[]} emptyDescription="没有库位" />)
     expect(screen.getByText('没有库位')).toBeInTheDocument()
@@ -118,7 +118,7 @@ describe('lab-ui domain components', () => {
     render(<MaterialInspector projection={projection} onSelectSite={onSelect} />)
     expect(screen.getByRole('complementary', { name: '板 物料详情' })).toBeInTheDocument()
     expect(screen.getByText('板模板')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('option', { name: /台面/ }))
+    fireEvent.click(screen.getByRole('button', { name: /台面.*空闲/ }))
     expect(onSelect).toHaveBeenCalledWith('site-1')
   })
 

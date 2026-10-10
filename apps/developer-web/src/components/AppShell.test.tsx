@@ -37,6 +37,17 @@ describe('AppShell', () => {
     expect(screen.getByRole('button', { name: '总览' })).toBeInTheDocument()
   })
 
+  it('marks the overview navigation item when a task needs attention', () => {
+    render(
+      <BackendProvider>
+        <AppShell route="tasks" onNavigate={vi.fn()} hasOverviewAttention>
+          <p>内容</p>
+        </AppShell>
+      </BackendProvider>,
+    )
+    expect(screen.getByRole('navigation', { name: '主导航' })).toHaveTextContent('总览1')
+  })
+
   it('rejects useBackend outside provider', async () => {
     const { useBackend } = await import('../app/BackendProvider')
     function Consumer() {

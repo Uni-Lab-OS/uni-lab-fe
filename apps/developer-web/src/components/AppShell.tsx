@@ -24,10 +24,12 @@ const navigation: readonly {
 export function AppShell({
   route,
   onNavigate,
+  hasOverviewAttention = false,
   children,
 }: {
   route: StudioRoute
   onNavigate: (route: StudioRoute) => void
+  hasOverviewAttention?: boolean
   children: ReactNode
 }) {
   const { connection } = useBackend()
@@ -69,6 +71,7 @@ export function AppShell({
               item={item}
               route={route}
               connection={connection}
+              hasOverviewAttention={hasOverviewAttention}
               collapsed={sidebarCollapsed}
               onNavigate={onNavigate}
             />
@@ -87,6 +90,7 @@ export function AppShell({
               item={item}
               route={route}
               connection={connection}
+              hasOverviewAttention={hasOverviewAttention}
               collapsed={sidebarCollapsed}
               onNavigate={onNavigate}
             />
@@ -111,12 +115,14 @@ function NavItem({
   item,
   route,
   connection,
+  hasOverviewAttention,
   collapsed,
   onNavigate,
 }: {
   item: (typeof navigation)[number]
   route: StudioRoute
   connection: 'unknown' | 'connected' | 'error'
+  hasOverviewAttention: boolean
   collapsed: boolean
   onNavigate: (route: StudioRoute) => void
 }) {
@@ -132,7 +138,9 @@ function NavItem({
     >
       <AppIcon name={item.icon} size={16} color={route === item.key ? 'primary' : 'context'} />
       <span className={clsx(appShellStyles['studio-nav-item__label'])}>{item.label}</span>
-      {item.key === 'overview' && <Badge count={connection === 'error' ? 1 : 0} size="small" />}
+      {item.key === 'overview' && (
+        <Badge count={connection === 'error' || hasOverviewAttention ? 1 : 0} size="small" />
+      )}
     </button>
   )
 
