@@ -226,6 +226,66 @@
   font-size: 11px;
   color: #95836a;
 }
+.debug-manual-confirmation {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 13px 26px;
+  border-bottom: 1px solid #e8ecf3;
+  background: #fffaf0;
+}
+.debug-manual-confirmation-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: #a87321;
+}
+.debug-manual-confirmation-copy > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.debug-manual-confirmation-copy strong {
+  color: #55472e;
+  font-size: 12px;
+}
+.debug-manual-confirmation-copy span {
+  color: #95836a;
+  font-size: 10px;
+  line-height: 1.45;
+}
+.debug-manual-confirmation-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.debug-manual-confirmation-actions button {
+  min-width: 64px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.debug-manual-confirmation-actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.debug-manual-confirmation-reject {
+  border: 1px solid #e6b9b2;
+  color: #b95a51;
+  background: #fff;
+}
+.debug-manual-confirmation-approve {
+  border: 1px solid #4d6eef;
+  color: #fff;
+  background: #4d6eef;
+}
+.debug-manual-confirmation-error {
+  margin: 0;
+  color: #b95a51;
+  font-size: 10px;
+}
 .debug-context-box {
   display: flex;
   flex-direction: column;

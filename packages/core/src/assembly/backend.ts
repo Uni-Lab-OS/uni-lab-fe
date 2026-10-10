@@ -13,6 +13,8 @@ import { ReagentInventoryClient } from '../domain/reagent-inventory/client'
 import type { ReagentInventoryPort } from '../domain/reagent-inventory/port'
 import { EvidenceInterventionClient } from '../domain/evidence-intervention/client'
 import type { EvidenceInterventionPort } from '../domain/evidence-intervention/port'
+import { WorkflowManualConfirmationClient } from '../domain/workflow-manual-confirmation/client'
+import type { WorkflowManualConfirmationPort } from '../domain/workflow-manual-confirmation/port'
 import type { RequestTransport } from '../transport/request'
 import { createRunPreparationScenario } from '../scenarios/run-preparation/scenario'
 import { createWorkflowDebuggingScenario } from '../scenarios/workflow-debugging/scenario'
@@ -31,6 +33,7 @@ export interface BackendCore {
   readonly materialSite: MaterialSitePort
   readonly reagentInventory: ReagentInventoryPort
   readonly evidenceIntervention: EvidenceInterventionPort
+  readonly manualConfirmation: WorkflowManualConfirmationPort
   readonly runPreparation: ReturnType<typeof createRunPreparationScenario>
   readonly workflowDebugging: ReturnType<typeof createWorkflowDebuggingScenario>
   readonly deviceActionDebugging: ReturnType<typeof createDeviceActionDebuggingScenario>
@@ -61,6 +64,7 @@ export function createBackendCoreFromTransport(
   const materialSite = new MaterialSiteClient(transport)
   const reagentInventory = new ReagentInventoryClient(transport)
   const evidenceIntervention = new EvidenceInterventionClient(transport)
+  const manualConfirmation = new WorkflowManualConfirmationClient(transport)
   return {
     transport,
     workflowDefinitions,
@@ -73,6 +77,7 @@ export function createBackendCoreFromTransport(
     materialSite,
     reagentInventory,
     evidenceIntervention,
+    manualConfirmation,
     runPreparation: createRunPreparationScenario(workflowDefinitions, runPreparationPort, {
       deviceActions,
       materialSite,

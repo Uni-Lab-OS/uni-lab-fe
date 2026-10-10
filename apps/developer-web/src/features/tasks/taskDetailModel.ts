@@ -1,4 +1,5 @@
 import type {
+  ManualConfirmationAction,
   WorkflowDebugTimelineItem,
   WorkflowNodeJobDetail,
   WorkflowResourceWaitFact,
@@ -123,6 +124,30 @@ function asReadonlyRecord(value: unknown): Readonly<Record<string, unknown>> | n
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Readonly<Record<string, unknown>>)
     : null
+}
+
+export interface ManualConfirmationView {
+  readonly status: string
+  readonly deadlineAt: string | null
+  readonly actions: readonly ManualConfirmationAction[]
+}
+
+/** Read only the explicit OS projection; malformed or absent data fails closed. */
+export function readManualConfirmation(
+  job: WorkflowNodeJobDetail | null,
+): ManualConfirmationView | null {
+  const raw = asReadonlyRecord(job?.raw.manual_confirmation ?? job?.controlData.manual_confirmation)
+  if (!raw || typeof raw.status !== 'string') return null
+  const actions = Array.isArray(raw.actions)
+    ? raw.actions.filter(
+        (action): action is ManualConfirmationAction => action === 'approve' || action === 'reject',
+      )
+    : []
+  return {
+    status: raw.status,
+    deadlineAt: typeof raw.deadline_at === 'string' ? raw.deadline_at : null,
+    actions,
+  }
 }
 
 /**

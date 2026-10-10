@@ -8,6 +8,7 @@ import type {
   WorkflowResourceWaitFact,
 } from '@unilab-fe/core'
 import { IssuesTab } from './TaskDetailIssuesTab'
+import { ManualConfirmationActions } from './TaskDetailManualConfirmation'
 import { LocksTab } from './TaskDetailLocksTab'
 import { ObservabilityTab } from './TaskDetailObservabilityTab'
 import { ResourcesTab } from './TaskDetailResourcesTab'
@@ -104,6 +105,34 @@ describe('developer-web task inspector components', () => {
   ] as const)('renders the %s issue state without collapsing it into failure', (status, label) => {
     render(<IssuesTab event={event(status)} />)
     expect(screen.getByText(label)).toBeInTheDocument()
+  })
+
+  it('shows manual confirmation actions from the authoritative node job projection', () => {
+    const onDecide = vi.fn().mockResolvedValue(undefined)
+    const job = {
+      jobUuid: 'job-1',
+      status: 'running',
+      controlData: {},
+      raw: { manual_confirmation: { status: 'pending', actions: ['approve', 'reject'] } },
+    } as unknown as WorkflowNodeJobDetail
+
+    render(<ManualConfirmationActions job={job} onDecide={onDecide} />)
+
+    expect(screen.getByText('等待人工确认')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '批准' }))
+    expect(onDecide).toHaveBeenCalledWith('job-1', 'approve')
+  })
+
+  it('recognizes a pending confirmation even when the timeline status is still running', () => {
+    const job = {
+      jobUuid: 'job-1',
+      status: 'running',
+      controlData: {},
+      raw: { manual_confirmation: { status: 'pending', actions: ['approve'] } },
+    } as unknown as WorkflowNodeJobDetail
+
+    render(<IssuesTab event={event('running')} job={job} />)
+    expect(screen.getByText('需要人工确认')).toBeInTheDocument()
   })
 
   it('shows resource absence, explicit site facts and no-inventory diagnostics', () => {

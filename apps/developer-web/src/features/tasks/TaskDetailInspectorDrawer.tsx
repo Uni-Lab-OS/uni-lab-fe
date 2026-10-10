@@ -10,14 +10,25 @@ import {
   ObservabilityTab,
   ResourcesTab,
 } from './TaskDetailInspector'
+import { ManualConfirmationActions } from './TaskDetailManualConfirmation'
 import { tabLabels } from './taskDetailModel'
 import type { useTaskDetailController } from './useTaskDetailController'
 
 type Controller = ReturnType<typeof useTaskDetailController>
 
 export function TaskDetailInspectorDrawer({ controller }: { controller: Controller }) {
-  const { selectedEvent, setSelectedId, activeTab, setActiveTab, facts, viewModel } = controller
+  const {
+    selectedEvent,
+    setSelectedId,
+    activeTab,
+    setActiveTab,
+    facts,
+    viewModel,
+    decideManualConfirmation,
+  } = controller
   if (!selectedEvent) return null
+  const selectedJob =
+    viewModel?.selectedJobUuid === selectedEvent.id ? (viewModel.selectedJob ?? null) : null
   return (
     <div
       className={clsx(taskDetailStyles['debug-drawer-backdrop'])}
@@ -66,18 +77,23 @@ export function TaskDetailInspectorDrawer({ controller }: { controller: Controll
             </button>
           ))}
         </nav>
+        <ManualConfirmationActions job={selectedJob} onDecide={decideManualConfirmation} />
         <div className={clsx(taskDetailInspectorStyles['debug-inspector-body'])}>
-          {activeTab === 'evidence' && (
-            <EvidenceTab event={selectedEvent} job={viewModel?.selectedJob ?? null} />
-          )}
+          {activeTab === 'evidence' && <EvidenceTab event={selectedEvent} job={selectedJob} />}
           {activeTab === 'resources' && (
-            <ResourcesTab waits={facts?.resourceWaits ?? []} job={viewModel?.selectedJob ?? null} />
+            <ResourcesTab waits={facts?.resourceWaits ?? []} job={selectedJob} />
           )}
-          {activeTab === 'issues' && <IssuesTab event={selectedEvent} />}
+          {activeTab === 'issues' && <IssuesTab event={selectedEvent} job={selectedJob} />}
           {activeTab === 'locks' && (
             <LocksTab locks={facts?.recovery.locks ?? []} recovery={facts?.recovery} />
           )}
-          {activeTab === 'observability' && <ObservabilityTab feedback={viewModel?.feedback} />}
+          {activeTab === 'observability' && (
+            <ObservabilityTab
+              feedback={
+                viewModel?.selectedJobUuid === selectedEvent.id ? viewModel?.feedback : null
+              }
+            />
+          )}
         </div>
       </aside>
     </div>

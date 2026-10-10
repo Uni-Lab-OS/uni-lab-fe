@@ -1,10 +1,18 @@
 import { clsx } from 'clsx'
 import taskDetailInspectorStyles from './TaskDetailInspector.module.scss'
 import { DebugIcon } from './TaskDetailIcons'
-import { type TimelineEvent } from './taskDetailModel'
+import { readManualConfirmation, type TimelineEvent } from './taskDetailModel'
+import type { WorkflowNodeJobDetail } from '@unilab-fe/core'
 
-export function IssuesTab({ event }: { event: TimelineEvent }) {
-  const intervention = event.status === 'manual'
+export function IssuesTab({
+  event,
+  job = null,
+}: {
+  event: TimelineEvent
+  job?: WorkflowNodeJobDetail | null
+}) {
+  const intervention =
+    event.status === 'manual' || readManualConfirmation(job)?.status === 'pending'
   const unknown = event.status === 'unknown'
   return (
     <div className={clsx(taskDetailInspectorStyles['debug-tab-content'])}>

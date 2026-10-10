@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatJson, formatTimelineDuration, formatTimelineTime, hasWorkflowSiteFact, mapJobStatus, readExpectedChangeSetKind, toTimelineEvent } from './taskDetailModel'
+import { formatJson, formatTimelineDuration, formatTimelineTime, hasWorkflowSiteFact, mapJobStatus, readExpectedChangeSetKind, readManualConfirmation, toTimelineEvent } from './taskDetailModel'
 
 const detail = (raw: Record<string, unknown> = {}) => ({ jobUuid: 'j-1', controlData: {}, raw }) as never
 
@@ -40,5 +40,15 @@ describe('task detail model', () => {
     expect(hasWorkflowSiteFact(null, [])).toBe(false)
     expect(formatJson({ a: 1 })).toContain('"a": 1')
     expect(formatJson(undefined)).toBe('{}')
+  })
+
+  it('reads pending manual confirmation only from explicit OS data', () => {
+    expect(readManualConfirmation(detail({ manual_confirmation: { status: 'pending', deadline_at: '2026-10-10T11:00:00Z', actions: ['approve', 'reject', 'other'] } }))).toEqual({
+      status: 'pending',
+      deadlineAt: '2026-10-10T11:00:00Z',
+      actions: ['approve', 'reject'],
+    })
+    expect(readManualConfirmation(detail({ manual_confirmation: { status: 'approved' } }))).toMatchObject({ status: 'approved', actions: [] })
+    expect(readManualConfirmation(detail({}))).toBeNull()
   })
 })

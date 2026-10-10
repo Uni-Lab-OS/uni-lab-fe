@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createWorkflowDebuggingReactStore } from '@unilab-fe/core/react'
 import { useBackend } from '../../app/BackendProvider'
 import {
@@ -103,6 +103,14 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
     void inspectJob(id)
   }
 
+  const decideManualConfirmation = useCallback(
+    async (jobUuid: string, action: 'approve' | 'reject') => {
+      await backend.core.manualConfirmation.decide(jobUuid, action)
+      await inspectJob(jobUuid)
+    },
+    [backend.core.manualConfirmation, inspectJob],
+  )
+
   const submitCommand = (type: DebugCommandType, targetNodeUuid?: string) => {
     if (!selectedTask) return
     setLastCommandType(type)
@@ -178,6 +186,7 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
     timelineLoading,
     commandResultMessage,
     openEvent,
+    decideManualConfirmation,
     submitCommand,
     submitBranch,
   }
