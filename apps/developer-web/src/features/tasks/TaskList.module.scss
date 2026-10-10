@@ -1,0 +1,50 @@
+.task-name-link {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+}
+
+.task-name-link:hover,
+.task-name-link:focus-visible {
+  color: var(--studio-accent);
+}
+
+.task-uuid-cell {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-uuid-copy {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  color: var(--bh-color-text-placeholder);
+  opacity: 0;
+  transition:
+    opacity 0.14s ease,
+    color 0.14s ease,
+    background 0.14s ease;
+}
+
+.task-table :global(.ant-table-tbody) > tr:hover .task-uuid-copy,
+.task-uuid-copy:focus-visible {
+  opacity: 1;
+}
+
+.task-uuid-copy:hover {
+  color: var(--bh-color-primary) !important;
+  background: var(--bh-color-sidebar-selected) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-uuid-copy {
+    transition: none;
+  }
+}

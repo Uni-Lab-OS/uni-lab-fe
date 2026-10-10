@@ -189,9 +189,8 @@
   font-weight: 400 !important;
 }
 
-/* 任务列表的任务名和工作流名使用同一正文字号，避免链接组件与普通文本继承不同字号。 */
-.task-list-table :global(.ant-table-tbody) > tr > td:nth-child(-n + 2),
-.task-list-table :global(.ant-table-tbody) > tr > td:nth-child(-n + 2) .table-text {
+/* 任务列表前两列沿用表格正文尺寸；具体的 TableText 字号由自身语义样式决定。 */
+.task-list-table :global(.ant-table-tbody) > tr > td:nth-child(-n + 2) {
   font-size: 14px;
 }
 

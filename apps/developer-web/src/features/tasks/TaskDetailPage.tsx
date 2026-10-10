@@ -22,10 +22,12 @@ export function TaskDetailPage({
     facts,
     currentTimelineEvent,
     statusTooltip,
+    selectedTask,
     submittedNodeUuid,
     submittedLifecycle,
     submitBranch,
   } = controller
+  const taskUuid = selectedTask?.taskUuid ?? requestedTaskUuid
   return (
     <main className={clsx(taskDetailPageStyles['debug-page'])}>
       <header className={clsx(taskDetailPageStyles['debug-header'])}>
@@ -40,7 +42,14 @@ export function TaskDetailPage({
               <DebugIcon name="arrow-left" size={19} />
             </button>
           )}
-          <h1>{viewModel?.selectedTaskTitle ?? 'Task 详情'}</h1>
+          <div className={clsx(taskDetailPageStyles['debug-header-title-copy'])}>
+            <h1>{viewModel?.selectedTaskTitle ?? 'Task 详情'}</h1>
+            {taskUuid && (
+              <span className={clsx(taskDetailPageStyles['debug-task-id'])}>
+                任务 ID：<code>{taskUuid}</code>
+              </span>
+            )}
+          </div>
         </div>
       </header>
       <TaskDetailSummary

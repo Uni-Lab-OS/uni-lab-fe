@@ -10,6 +10,7 @@ import sharedStyles from '../../styles/shared.module.scss'
 import { AppIcon } from '../../components/ui/Icon'
 import { TableText } from '../../components/ui/TableText'
 import { displayTime, type TaskListRow } from './taskDomain'
+import taskListStyles from './TaskList.module.scss'
 
 export function TaskListTable({
   rows,
@@ -27,14 +28,21 @@ export function TaskListTable({
       width: 300,
       render: (_, row) => (
         <div className={clsx(appShellStyles['primary-cell'], sharedStyles['primary-cell'])}>
-          <Button
-            type="link"
-            className={clsx(sharedStyles['task-name-link'])}
+          <button
+            type="button"
+            className={clsx(taskListStyles['task-name-link'])}
             onClick={() => onOpen(row)}
             aria-label={`查看任务 ${row.name}`}
           >
             <TableText text={row.name} />
-          </Button>
+          </button>
+          <div className={clsx(taskListStyles['task-uuid-cell'])}>
+            <TableText
+              className={clsx(sharedStyles['table-secondary-text'])}
+              text={row.task.taskUuid}
+            />
+            <CopyTaskUuidButton task={row} />
+          </div>
         </div>
       ),
     },
@@ -96,7 +104,7 @@ export function TaskListTable({
 
   return (
     <Table
-      className={clsx(sharedStyles['task-list-table'])}
+      className={clsx(sharedStyles['task-list-table'], taskListStyles['task-table'])}
       tableLayout="fixed"
       rowKey={(row) => row.task.taskUuid}
       columns={columns}
@@ -104,6 +112,29 @@ export function TaskListTable({
       locale={{ emptyText: <EmptyState scene="no-data" size="compact" title="暂无任务" /> }}
       pagination={{ pageSize: 10, hideOnSinglePage: true }}
     />
+  )
+}
+
+function CopyTaskUuidButton({ task }: { task: TaskListRow }) {
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(task.task.taskUuid)
+      message.success('UUID 已复制')
+    } catch {
+      message.error('复制失败，请检查浏览器剪贴板权限')
+    }
+  }
+
+  return (
+    <Tooltip title="复制 UUID">
+      <Button
+        type="text"
+        className={clsx(taskListStyles['task-uuid-copy'], sharedStyles['icon-button'])}
+        aria-label={`复制任务 ${task.name} 的 UUID`}
+        icon={<AppIcon name="general/copy-01" size={14} />}
+        onClick={copy}
+      />
+    </Tooltip>
   )
 }
 

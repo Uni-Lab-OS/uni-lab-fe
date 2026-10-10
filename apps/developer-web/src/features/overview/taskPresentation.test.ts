@@ -71,8 +71,23 @@ describe('task presentation', () => {
     expect(normalizeStatus('blocked')).toBe('attention')
     expect(normalizeStatus('canceled')).toBe('canceled')
     expect(normalizeStatus('custom')).toBe('custom')
-    const row = toTaskRow({ ...task({}), status: 'queued', jobs: [{ status: 'success' }, { status: 'completed' }, { status: 'running' }] } as never)
-    expect(row).toMatchObject({ progress: 67, status: 'waiting', name: '未命名任务', workflowName: 'workflow-1' })
+    const row = toTaskRow({
+      ...task({}),
+      status: 'queued',
+      progress: { completed: 1, total: 4, percent: 25, raw: {} },
+      jobs: [
+        { status: 'failed' },
+        { status: 'running' },
+        { status: 'pending' },
+        { status: 'pending' },
+      ],
+    } as never)
+    expect(row).toMatchObject({
+      progress: 25,
+      status: 'waiting',
+      name: '未命名任务',
+      workflowName: 'workflow-1',
+    })
     expect(taskDisplayName(task({ title: '标题' }))).toBe('标题')
     expect(workflowDisplayName(task({ workflowName: '工作流名' }))).toBe('工作流名')
     expect(formatDateTime('bad')).toBe('bad')

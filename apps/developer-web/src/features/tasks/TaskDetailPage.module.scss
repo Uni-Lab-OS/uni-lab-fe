@@ -42,6 +42,26 @@
   letter-spacing: -0.025em;
 }
 
+.debug-header-title-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.debug-task-id {
+  color: #6c7b96;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.debug-task-id code {
+  color: #53647f;
+  font-family: var(--bh-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+}
+
 .debug-back-button {
   display: inline-flex;
   width: 34px;

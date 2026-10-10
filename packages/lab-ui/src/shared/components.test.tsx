@@ -68,7 +68,7 @@ describe('lab-ui shared components', () => {
       schema.enum
         ? 'combobox'
         : schema.type === 'boolean'
-          ? 'checkbox'
+          ? 'switch'
           : schema.type === 'number' || schema.type === 'integer'
             ? 'spinbutton'
             : 'textbox',

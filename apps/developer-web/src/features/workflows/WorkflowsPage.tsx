@@ -2,14 +2,19 @@ import { clsx } from 'clsx'
 import workflowListStyles from './WorkflowList.module.scss'
 import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
-import { Input, Space, Tabs } from 'antd'
+import { Input, Select, Space, Tabs } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
+import type { PublishedWorkflowRevisionSummary } from '@unilab-fe/core'
 import type { StudioRoute } from '../../components/AppShell'
 import { AppIcon } from '../../components/ui/Icon'
 import { AsyncState } from '../../components/ui/AsyncState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
-import { countWorkflowKinds, filterWorkflowCatalog } from './workflowCatalogModel'
+import {
+  countWorkflowKinds,
+  filterWorkflowCatalog,
+  type WorkflowCatalogStatusFilter,
+} from './workflowCatalogModel'
 import { WorkflowCatalogTable } from './WorkflowCatalogTable'
 import { WorkflowDebugPage } from './WorkflowDebugPage'
 import { WorkflowDetail } from './WorkflowDetail'
@@ -29,6 +34,7 @@ export function WorkflowsPage({
   )
   const [kind, setKind] = useState<'workflow' | 'experiment_operation'>('workflow')
   const [keyword, setKeyword] = useState('')
+  const [status, setStatus] = useState<WorkflowCatalogStatusFilter>('all')
   const [selected, setSelected] = useState<string | null>(() =>
     new URLSearchParams(window.location.search).get('workflow'),
   )
@@ -59,8 +65,8 @@ export function WorkflowsPage({
   }, [])
 
   const rows = useMemo(
-    () => filterWorkflowCatalog(query.data ?? [], kind, keyword),
-    [kind, keyword, query.data],
+    () => filterWorkflowCatalog(query.data ?? [], kind, keyword, status),
+    [kind, keyword, query.data, status],
   )
   const kindCounts = useMemo(() => countWorkflowKinds(query.data), [query.data])
 
@@ -138,6 +144,23 @@ export function WorkflowsPage({
               placeholder="搜索名称或 UUID"
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
+            />
+            <Select
+              className={clsx(sharedStyles['status-select'])}
+              value={status}
+              onChange={(value) => setStatus(value as WorkflowCatalogStatusFilter)}
+              aria-label="按发布状态筛选工作流"
+              options={[
+                { value: 'all', label: '全部' },
+                {
+                  value: 'published' satisfies PublishedWorkflowRevisionSummary['status'],
+                  label: '已发布',
+                },
+                {
+                  value: 'source' satisfies PublishedWorkflowRevisionSummary['status'],
+                  label: '未发布',
+                },
+              ]}
             />
           </Space>
         </div>

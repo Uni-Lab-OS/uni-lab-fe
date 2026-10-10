@@ -13,17 +13,15 @@ export interface TaskRow {
 }
 
 export function toTaskRow(task: TaskRuntimePresentation): TaskRow {
-  const completed = task.jobs.filter((job) =>
-    ['success', 'completed'].includes(job.status.toLowerCase()),
-  ).length
-  const progress = task.jobs.length > 0 ? Math.round((completed / task.jobs.length) * 100) : null
   return {
     task,
     name: taskDisplayName(task),
     workflowName: workflowDisplayName(task),
     description:
       task.description ?? readString(task.raw, ['description', 'task_description', 'subtitle']),
-    progress,
+    // Core 已经从 OS 的 Task presentation 统一投影进度；页面不能再次按 Job
+    // 状态估算，否则会与任务列表及 OS 权威进度产生分歧。
+    progress: task.progress?.percent ?? null,
     priority: task.priority,
     status: normalizeStatus(task.status, task.attentionReason),
     createdAt: task.createdAt,

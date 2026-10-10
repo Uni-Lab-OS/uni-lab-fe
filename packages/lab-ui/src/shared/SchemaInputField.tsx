@@ -35,6 +35,7 @@ export function SchemaInputField({
 }: SchemaInputFieldProps) {
   const structured = isStructuredSchema(schema)
   const input = renderInput({
+    name,
     schema,
     value,
     disabled,
@@ -76,6 +77,7 @@ export function SchemaInputField({
 }
 
 function renderInput({
+  name,
   schema,
   value,
   disabled,
@@ -85,6 +87,7 @@ function renderInput({
   placeholder,
   onChange,
 }: {
+  readonly name?: string
   readonly schema: Readonly<Record<string, unknown>>
   readonly value: unknown
   readonly disabled: boolean
@@ -115,11 +118,14 @@ function renderInput({
   const type = schemaType(schema)
   if (type === 'boolean') {
     return (
-      <input
-        type="checkbox"
+      <button
+        type="button"
+        className={clsx(sharedStyles['lab-ui-switch'])}
+        role="switch"
+        aria-label={name || '布尔参数'}
+        aria-checked={value === true}
         disabled={disabled}
-        checked={value === true}
-        onChange={(event) => onChange(event.currentTarget.checked)}
+        onClick={() => onChange(value !== true)}
       />
     )
   }
