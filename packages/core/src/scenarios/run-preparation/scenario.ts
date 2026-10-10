@@ -24,7 +24,8 @@ export interface RunPreparationScenario {
 export interface RunPreparationCandidatePorts {
   readonly deviceActions?: Pick<DeviceActionPort, 'listDevices'>
   readonly materialSite?: Pick<MaterialSitePort, 'getGraph'>
-  readonly reagentInventory?: Pick<ReagentInventoryPort, 'listInventoryInstances'>
+  readonly reagentInventory?: Pick<ReagentInventoryPort, 'listInventoryInstances'> &
+    Partial<Pick<ReagentInventoryPort, 'listReagents'>>
 }
 
 export function createRunPreparationScenario(
@@ -66,6 +67,7 @@ async function loadCandidates(ports: RunPreparationCandidatePorts): Promise<{
     ports.deviceActions?.listDevices(),
     ports.materialSite?.getGraph(),
     ports.reagentInventory?.listInventoryInstances(),
+    ports.reagentInventory?.listReagents?.({ page: 1, pageSize: 1000 }),
   ])
   const candidates: ResourceCandidate[] = []
   const issues: ResourceCandidateIssue[] = []
@@ -87,9 +89,31 @@ async function loadCandidates(ports: RunPreparationCandidatePorts): Promise<{
   }
 
   const graph = settledValue(results[1], 'material', issues)
+  const reagents = settledValue(results[3], 'inventory', issues)
+  const reagentByMaterial = new Map(
+    (reagents?.items ?? []).map((reagent) => [reagent.materialUuid, reagent] as const),
+  )
+  for (const reagent of reagents?.items ?? []) {
+    candidates.push({
+      kind: 'resource_candidate',
+      id: reagent.reagentUuid,
+      resourceKind: 'inventory',
+      label: reagent.name,
+      status: reagent.status,
+      source: reagent.source,
+      observedAt: reagent.updatedAt,
+      metadata: {
+        ...reagent.raw,
+        container_name: reagent.containerName,
+        container_barcode: reagent.containerBarcode,
+        material_uuid: reagent.materialUuid,
+      },
+    })
+  }
   if (graph) {
     for (const node of graph.nodes) {
       const material = node.material
+      const reagent = reagentByMaterial.get(material.materialUuid)
       candidates.push({
         kind: 'resource_candidate',
         id: material.materialUuid,
@@ -98,7 +122,17 @@ async function loadCandidates(ports: RunPreparationCandidatePorts): Promise<{
         status: null,
         source: material.source,
         observedAt: material.updatedAt,
-        metadata: node.raw,
+        metadata: {
+          ...node.raw,
+          ...(reagent
+            ? {
+                reagent_uuid: reagent.reagentUuid,
+                reagent_name: reagent.name,
+                container_name: reagent.containerName ?? material.name,
+                container_barcode: reagent.containerBarcode,
+              }
+            : {}),
+        },
       })
       for (const site of node.sites) {
         candidates.push({

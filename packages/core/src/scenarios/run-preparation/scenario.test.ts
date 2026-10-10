@@ -5,6 +5,7 @@ import type { RunPreparationPort } from '../../domain/run-preparation/port'
 import type { DeviceActionPort } from '../../domain/device-action/port'
 import type { MaterialSitePort } from '../../domain/material-site/port'
 import type { ReagentInventoryPort } from '../../domain/reagent-inventory/port'
+import type { Reagent } from '../../domain/reagent-inventory/model'
 
 describe('run preparation scenario', () => {
   it('loads a revision through a port and creates a scenario view model', async () => {
@@ -240,7 +241,43 @@ describe('run preparation scenario', () => {
           },
         ]
       },
-    } satisfies Pick<ReagentInventoryPort, 'listInventoryInstances'>
+      async listReagents() {
+        const reagent: Reagent = {
+          kind: 'reagent',
+          source: 'fixture',
+          reagentUuid: 'reagent-1',
+          materialUuid: 'material-1',
+          reagentInfoUuid: 'reagent-info-1',
+          name: '乙醇',
+          nameEn: null,
+          cas: null,
+          molecularFormula: null,
+          physicalState: 'liquid',
+          quantity: 10,
+          quantityUnit: 'mL',
+          reservedQuantity: 0,
+          concentrationValue: null,
+          concentrationUnit: null,
+          densityGPerMl: null,
+          densitySource: null,
+          revision: 1,
+          materialRevision: 1,
+          containerBarcode: 'tube-1',
+          containerName: '来源容器 R1C4',
+          maximumCapacity: null,
+          configuredCapacity: null,
+          ratedCapacity: null,
+          reagentInfo: null,
+          description: null,
+          metadata: {},
+          createdAt: null,
+          updatedAt: 'now',
+          status: 'available',
+          raw: {},
+        }
+        return { items: [reagent], total: 1, page: 1, pageSize: 1000, raw: {} }
+      },
+    } satisfies Pick<ReagentInventoryPort, 'listInventoryInstances' | 'listReagents'>
 
     const binding = { source: 'fixture' as const, inventoryBindings: [], selectedResources: {} }
     const view = await createRunPreparationScenario(workflowDefinitions, runPreparation, {
@@ -252,19 +289,32 @@ describe('run preparation scenario', () => {
       binding,
     })
 
-    expect(view.candidates).toEqual([
-      expect.objectContaining({ id: 'device-1', resourceKind: 'device', status: 'available' }),
-      expect.objectContaining({ id: 'device-2', resourceKind: 'device', status: 'offline' }),
-      expect.objectContaining({ id: 'material-1', resourceKind: 'material', observedAt: 'now' }),
-      expect.objectContaining({ id: 'site-1', resourceKind: 'site', status: 'available' }),
-      expect.objectContaining({ id: 'site-2', resourceKind: 'site', status: 'occupied' }),
-      expect.objectContaining({ id: 'site-3', resourceKind: 'site', label: 'C1', status: 'unknown' }),
-      expect.objectContaining({
-        id: 'inventory-1',
-        resourceKind: 'inventory',
-        status: 'available',
-      }),
-    ])
+    expect(view.candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'device-1', resourceKind: 'device', status: 'available' }),
+        expect.objectContaining({ id: 'device-2', resourceKind: 'device', status: 'offline' }),
+        expect.objectContaining({
+          id: 'reagent-1',
+          resourceKind: 'inventory',
+          label: '乙醇',
+          metadata: expect.objectContaining({ container_name: '来源容器 R1C4' }),
+        }),
+        expect.objectContaining({
+          id: 'material-1',
+          resourceKind: 'material',
+          observedAt: 'now',
+          metadata: expect.objectContaining({ reagent_name: '乙醇' }),
+        }),
+        expect.objectContaining({ id: 'site-1', resourceKind: 'site', status: 'available' }),
+        expect.objectContaining({ id: 'site-2', resourceKind: 'site', status: 'occupied' }),
+        expect.objectContaining({ id: 'site-3', resourceKind: 'site', label: 'C1', status: 'unknown' }),
+        expect.objectContaining({
+          id: 'inventory-1',
+          resourceKind: 'inventory',
+          status: 'available',
+        }),
+      ]),
+    )
     expect(view.binding).toBe(binding)
   })
 

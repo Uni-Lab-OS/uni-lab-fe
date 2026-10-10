@@ -2,14 +2,16 @@ import { clsx } from 'clsx'
 import runStyles from '../run.module.scss'
 import sharedStyles from '../shared.module.scss'
 import { Icon } from '@unilab/design-v2/icons'
-import type { PreflightCheckStatus, PreflightReport } from '@unilab-fe/core'
+import type { PreflightCheckStatus, PreflightReport, ResourceCandidate } from '@unilab-fe/core'
+import { formatPreflightCheckMessage } from './preflightPresentation'
 
 export interface PreflightReportViewProps {
   readonly report: PreflightReport
+  readonly candidates?: readonly ResourceCandidate[]
 }
 
 /** 后端 preflight 权威结果的展示，不根据 HTTP 接受结果推断运行状态。 */
-export function PreflightReportView({ report }: PreflightReportViewProps) {
+export function PreflightReportView({ report, candidates = [] }: PreflightReportViewProps) {
   const groups = groupChecks(report.checks)
 
   return (
@@ -52,6 +54,7 @@ export function PreflightReportView({ report }: PreflightReportViewProps) {
                   <PreflightCheckItem
                     key={`${check.code}-${check.nodeUuid ?? 'global'}-${index}`}
                     check={check}
+                    candidates={candidates}
                   />
                 ))}
               </ul>
@@ -72,12 +75,18 @@ export function PreflightReportView({ report }: PreflightReportViewProps) {
   )
 }
 
-function PreflightCheckItem({ check }: { readonly check: PreflightReport['checks'][number] }) {
+function PreflightCheckItem({
+  check,
+  candidates,
+}: {
+  readonly check: PreflightReport['checks'][number]
+  readonly candidates: readonly ResourceCandidate[]
+}) {
   return (
     <li className={clsx(runStyles[`is-${check.status}`])}>
       <span className={clsx(runStyles['lab-ui-preflight__indicator'])} aria-hidden="true" />
       <div>
-        <strong>{check.message}</strong>
+        <strong>{formatPreflightCheckMessage(check, candidates)}</strong>
         <small>
           {check.code}
           {check.nodeName ? ` · ${check.nodeName}` : ''}
