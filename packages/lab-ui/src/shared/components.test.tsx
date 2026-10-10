@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { DefinitionList } from './DefinitionList'
+import userEvent from '@testing-library/user-event'
+import { DefinitionList, StatusBadge, TaskProgress } from '../index'
+// SchemaInputField is an internal primitive shared by the public workflow/device forms.
 import { SchemaInputField } from './SchemaInputField'
-import { StatusBadge, statusMeta } from './StatusBadge'
-import { TaskProgress } from '../task/TaskProgress'
 
 describe('lab-ui shared components', () => {
   it('renders definition values, missing text and variants', () => {
@@ -26,15 +26,15 @@ describe('lab-ui shared components', () => {
   })
 
   it('maps known and unknown statuses and permits explicit metadata', () => {
-    expect(statusMeta('RUNNING')).toMatchObject({ label: '执行中', tone: 'warning' })
-    expect(statusMeta('new_status')).toMatchObject({ label: 'new_status', tone: 'neutral' })
     render(
       <>
         <StatusBadge status="failed" label="设备报错" />
+        <StatusBadge status="new_status" />
         <StatusBadge meta={{ label: '自定义', tone: 'info', icon: 'general/info-circle' }} />
       </>,
     )
     expect(screen.getByText('设备报错')).toBeInTheDocument()
+    expect(screen.getByText('new_status')).toBeInTheDocument()
     expect(screen.getByText('自定义')).toBeInTheDocument()
   })
 
@@ -88,9 +88,10 @@ describe('lab-ui shared components', () => {
     }
   })
 
-  it('supports nullable schema types, object values and disabled fields', () => {
+  it('supports nullable schema types, object values and disabled fields', async () => {
     const onChange = vi.fn()
-    render(
+    const user = userEvent.setup()
+    const { rerender } = render(
       <SchemaInputField
         label="备注"
         schema={{ type: ['null', 'string'] }}
@@ -103,6 +104,48 @@ describe('lab-ui shared components', () => {
     const input = screen.getByDisplayValue('{"hello":"world"}')
     expect(input).toBeDisabled()
     expect(input).toHaveAttribute('placeholder', '占位')
+    await user.type(input, 'ignored')
+    expect(onChange).not.toHaveBeenCalled()
+
+    rerender(
+      <SchemaInputField
+        label="对象"
+        schema={{ type: 'object' }}
+        value={{ hello: 'world' }}
+        onChange={onChange}
+      />,
+    )
+    const objectInput = screen.getByDisplayValue('{"hello":"world"}')
+    expect(objectInput.tagName).toBe('TEXTAREA')
+    fireEvent.change(objectInput, { target: { value: '{"next":true}' } })
+    expect(onChange).toHaveBeenCalledWith('{"next":true}')
+
+    rerender(
+      <SchemaInputField
+        label="资源"
+        schema={{ $slot: 'ResourceSlot' }}
+        value=""
+        resource
+        placeholder="资源 UUID"
+        onChange={onChange}
+      />,
+    )
+    const resourceInput = screen.getByPlaceholderText('资源 UUID')
+    expect(resourceInput.tagName).toBe('INPUT')
+    fireEvent.change(resourceInput, { target: { value: 'resource-1' } })
+    expect(onChange).toHaveBeenCalledWith('resource-1')
+
+    rerender(
+      <SchemaInputField
+        label="数量"
+        schema={{ type: 'number' }}
+        value={3}
+        onChange={onChange}
+      />,
+    )
+    const numberInput = screen.getByRole('spinbutton')
+    fireEvent.change(numberInput, { target: { value: '' } })
+    expect(onChange).toHaveBeenCalledWith('')
   })
 
   it('normalizes task progress and exposes an accessible bar', () => {
@@ -115,6 +158,8 @@ describe('lab-ui shared components', () => {
     expect(screen.getByText('0%')).toBeInTheDocument()
     rerender(<TaskProgress percent={Number.NaN} completed={0} total={3} variant="bar" />)
     expect(screen.getByText('—')).toBeInTheDocument()
-    expect(screen.getByRole('progressbar')).toHaveAccessibleName('任务进度未提供')
+    const progressbar = screen.getByRole('progressbar')
+    expect(progressbar).toHaveAccessibleName('任务进度未提供')
+    expect(progressbar).not.toHaveAttribute('aria-valuenow')
   })
 })

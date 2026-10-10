@@ -267,4 +267,37 @@ describe('DeviceActionClient', () => {
       job: { jobUuid: 'job-1' },
     })
   })
+
+  it('rejects action runs whose task projection has zero or multiple jobs', async () => {
+    const task = {
+      kind: 'task_runtime_detail',
+      source: 'os',
+      taskUuid: 'task-1',
+      workflowUuid: null,
+      executionKind: 'device_action',
+      status: 'pending',
+      runMode: 'single_action',
+      controlStatus: 'active',
+      cleanupStatus: 'none',
+      createdAt: 'now',
+      updatedAt: 'now',
+      raw: {},
+    } as const
+    const executionRead = {
+      async getTaskDetail() { return task },
+      async listTaskJobs() { return [] },
+    }
+    const client = new DeviceActionClient({ request: async () => { throw new Error('unused') } }, executionRead)
+    await expect(client.getActionRun('task-1')).rejects.toMatchObject({
+      code: 'INVALID_ACTION_RUN_RESPONSE',
+    })
+
+    const multipleJobsClient = new DeviceActionClient({ request: async () => { throw new Error('unused') } }, {
+      async getTaskDetail() { return task },
+      async listTaskJobs() { return [{}, {}] },
+    } as never)
+    await expect(multipleJobsClient.getActionRun('task-1')).rejects.toMatchObject({
+      code: 'INVALID_ACTION_RUN_RESPONSE',
+    })
+  })
 })

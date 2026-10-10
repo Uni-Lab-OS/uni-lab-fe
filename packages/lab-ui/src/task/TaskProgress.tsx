@@ -50,7 +50,7 @@ export function TaskProgress({
           }
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={normalizedPercent ?? 0}
+          {...(normalizedPercent == null ? {} : { 'aria-valuenow': normalizedPercent })}
         >
           <span
             className={clsx(taskStyles['lab-ui-task-progress__fill'])}

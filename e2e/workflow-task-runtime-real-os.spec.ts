@@ -10,6 +10,7 @@ import {
   installWorkflowPanel,
   prepareAppliedWorkflow
 } from './helpers/workflow-runtime-ui'
+import { attachBrowserDiagnostics } from './helpers/browser-diagnostics'
 
 let os: PersistentAuthoringOs
 
@@ -38,10 +39,7 @@ test('existing Workflow UI drives Task/Jobs/commands through real OS HTTP and SS
   mkdirSync(artifactDirectory, { recursive: true })
   const browserErrors: string[] = []
   const runtimeRequests: Array<{ method: string; path: string }> = []
-  page.on('console', (message) => {
-    if (message.type() === 'error') browserErrors.push(message.text())
-  })
-  page.on('pageerror', (error) => browserErrors.push(error.message))
+  attachBrowserDiagnostics(page, browserErrors)
   page.on('request', (request) => {
     const url = new URL(request.url())
     if (

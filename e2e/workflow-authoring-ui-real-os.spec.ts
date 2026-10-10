@@ -19,6 +19,7 @@ import {
   applyWorkflowCandidateWithoutTask,
   saveWorkflowDraftOnly
 } from './helpers/workflow-runtime-ui'
+import { attachBrowserDiagnostics } from './helpers/browser-diagnostics'
 
 let os: PersistentAuthoringOs
 
@@ -57,10 +58,7 @@ test('Candidate Workflow I/O survives real OS apply and result-record round-trip
   const applicationErrors: string[] = []
   const webSockets: string[] = []
   const requests: Array<{ method: string; url: string; path: string }> = []
-  page.on('console', (message) => {
-    if (message.type() === 'error') browserErrors.push(message.text())
-  })
-  page.on('pageerror', (error) => browserErrors.push(error.message))
+  attachBrowserDiagnostics(page, browserErrors)
   page.on('websocket', (webSocket) => webSockets.push(webSocket.url()))
   page.on('request', (request) => {
     requests.push({

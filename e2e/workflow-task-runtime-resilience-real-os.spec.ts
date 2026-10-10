@@ -10,6 +10,7 @@ import {
   installWorkflowPanel,
   prepareAppliedWorkflow
 } from './helpers/workflow-runtime-ui'
+import { attachBrowserDiagnostics } from './helpers/browser-diagnostics'
 
 let os: PersistentAuthoringOs
 
@@ -44,10 +45,7 @@ test('original Runtime UI incrementally restores feedback and coherent state thr
   }> = []
   const osResponses: Array<{ method: string; path: string; status: number }> = []
   const websocketUrls: string[] = []
-  page.on('console', (message) => {
-    if (message.type() === 'error') browserErrors.push(message.text())
-  })
-  page.on('pageerror', (error) => browserErrors.push(error.message))
+  attachBrowserDiagnostics(page, browserErrors)
   page.on('request', (request) => {
     const url = new URL(request.url())
     if (url.origin === new URL(os.url).origin) {

@@ -8,6 +8,24 @@ import type { RunPreparationScenario } from './scenario'
 import { createRunPreparationStore } from './store'
 
 describe('createRunPreparationStore', () => {
+  it('keeps commands as safe no-ops before a workflow is loaded', async () => {
+    const store = createRunPreparationStore({} as RunPreparationScenario)
+
+    await store.getState().requestPreflight()
+    await store.getState().submitRun()
+    await store.getState().inspectNodeJob('job-1')
+    store.getState().updateConfiguration({ description: 'ignored' })
+    store.getState().updateBinding({ selectedResources: { device: 'ignored' } })
+
+    expect(store.getState()).toMatchObject({
+      status: 'idle',
+      viewModel: null,
+      preflight: null,
+      submittedRun: null,
+      error: null,
+    })
+  })
+
   it('keeps draft state in Zustand and sends the latest draft through the scenario', async () => {
     let receivedConfiguration: RunConfiguration | undefined
     const scenario: RunPreparationScenario = {

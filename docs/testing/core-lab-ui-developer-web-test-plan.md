@@ -51,6 +51,18 @@
 | D-009 | 用户旅程 | runtime recovery | pause/resume/step/cancel accepted 与实际状态分离，SSE 重连后 rehydrate |
 | D-010 | 用户旅程 | failure recovery | backend error、partial read、retry、unknown/reconciling 文案可行动 |
 
+### E2E 实现映射
+
+上述 D-008～D-010 不由 route smoke 用例重复实现，统一落在已有真实 OS E2E：
+
+| Case | 真实实现 | 验收边界 |
+| --- | --- | --- |
+| D-008 | `e2e/workflow-task-runtime-real-os.spec.ts` | 真实 workflow UI 创建 Task、读取 Jobs，并验证 command accepted → applied 和 reload 恢复 |
+| D-009 | `e2e/workflow-task-runtime-real-os.spec.ts`、`e2e/workflow-runtime-final-gate-real-os.spec.ts` | pause/resume/step/cancel、幂等重放、终态竞态和 Task/Job 投影 |
+| D-010 | `e2e/workflow-task-runtime-resilience-real-os.spec.ts`、`e2e/workflow-runtime-final-gate-real-os.spec.ts` | partial read、feedback cursor、SSE reconnect、OS restart、unknown/reconciling 和失败恢复 |
+
+`e2e/helpers/browser-diagnostics.ts` 是 developer-web 与真实 OS workflow E2E 共用的浏览器诊断入口；每个 suite 都必须把 `console.error` 和 `pageerror` 纳入最终断言。真实 OS E2E 仍需由运行环境提供 OS/Backend，缺少前置条件时只能带原因 skip，不能用路由 mock 替代。
+
 ## 测试数据与隔离
 
 - Core 和 lab-ui 使用最小领域 fixture，所有 UUID、revision、sequence 固定，避免按名称猜实体。

@@ -92,4 +92,29 @@ describe('device action parameter projection', () => {
       '必须是合法 JSON',
     )
   })
+
+  it('handles absent definitions, nullable schemas, optional empty values and object defaults', () => {
+    expect(deviceActionParameters()).toEqual([])
+    const parameters = deviceActionParametersFromSchema({
+      properties: {
+        count: { type: ['null', 'number'], default: 0 },
+        payload: { type: ['null', 'object'], default: { enabled: true } },
+        resource: { $slot: 'ResourceSlot', default: { uuid: 'resource-1' } },
+        optional: { type: 'string' },
+      },
+      required: ['count', 42],
+    })
+
+    expect(deviceActionDefaults(parameters)).toEqual({
+      count: 0,
+      payload: '{\n  "enabled": true\n}',
+      resource: 'resource-1',
+    })
+    expect(
+      normalizeDeviceActionParameters(
+        { count: 0, payload: { enabled: false }, resource: { uuid: 'resource-2' }, optional: '' },
+        parameters,
+      ),
+    ).toEqual({ count: 0, payload: { enabled: false }, resource: { uuid: 'resource-2' } })
+  })
 })

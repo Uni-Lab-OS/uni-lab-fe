@@ -48,6 +48,33 @@ describe('createFetchTransport', () => {
     })
   })
 
+  it('preserves top-level error details and marks client failures non-retryable', async () => {
+    const transport = createFetchTransport({
+      baseUrl: 'https://os.example.test',
+      fetcher: async () =>
+        new Response(JSON.stringify({ code: 'INVALID_INPUT', message: '参数无效' }), {
+          status: 422,
+        }),
+    })
+
+    await expect(transport.request({ method: 'POST', url: '/validate' })).rejects.toMatchObject({
+      code: 'INVALID_INPUT',
+      message: '参数无效',
+      status: 422,
+      retryable: false,
+    })
+
+    const textTransport = createFetchTransport({
+      baseUrl: 'https://os.example.test',
+      fetcher: async () => new Response('gateway unavailable', { status: 502 }),
+    })
+    await expect(textTransport.request({ method: 'GET', url: '/health' })).rejects.toMatchObject({
+      code: 'HTTP_REQUEST_FAILED',
+      message: 'HTTP 502',
+      retryable: true,
+    })
+  })
+
   it('supports passthrough bodies, absolute URLs and text responses', async () => {
     const calls: RequestInit[] = []
     const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -71,5 +98,25 @@ describe('createFetchTransport', () => {
     await expect(aborted.request({ method: 'GET', url: '/slow' })).rejects.toMatchObject({ code: 'HTTP_REQUEST_ABORTED', retryable: false })
     const failed = createFetchTransport({ baseUrl: 'https://os.example.test', getAccessToken: () => null, fetcher: async () => { throw new Error('offline') } })
     await expect(failed.request({ method: 'GET', url: '/offline' })).rejects.toMatchObject({ code: 'HTTP_REQUEST_FAILED', message: 'offline', retryable: true })
+  })
+
+  it('propagates a caller abort to the underlying fetch request', async () => {
+    const controller = new AbortController()
+    let markFetchStarted!: () => void
+    const fetchStarted = new Promise<void>((resolve) => { markFetchStarted = resolve })
+    const transport = createFetchTransport({
+      baseUrl: 'https://os.example.test',
+      fetcher: async (_input, init) => await new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new Error('caller aborted')), { once: true })
+        markFetchStarted()
+      }),
+    })
+    const outcome = transport.request({ method: 'GET', url: '/slow', signal: controller.signal })
+    await fetchStarted
+    controller.abort()
+    await expect(outcome).rejects.toMatchObject({
+      code: 'HTTP_REQUEST_ABORTED',
+      retryable: false,
+    })
   })
 })

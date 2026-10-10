@@ -12,14 +12,9 @@ import {
   RunSubmitConfirmation,
   WorkflowInputForm,
 } from './index'
-import { InventoryRequirementList } from './workflow/InventoryRequirementList'
-import { PreflightReportView } from './run/PreflightReportView'
-import { SitePicker } from './material/SitePicker'
-import { ReagentStatusBadge } from './reagent/ReagentStatusBadge'
 import type {
   DeviceActionParameter,
   DeviceActionState,
-  InventoryRequirement,
   MaterialGraphNode,
   MaterialInspectionProjection,
   PreflightReport,
@@ -78,28 +73,39 @@ describe('lab-ui domain components', () => {
     const base = { online: true, dispatchable: true, dispatchBlockReason: null } as const
     const { rerender } = render(<DeviceStatusBadge device={base} />)
     expect(screen.getByText('在线，可调试')).toBeInTheDocument()
+    rerender(<DeviceStatusBadge device={{ online: true, dispatchable: false, dispatchBlockReason: '动作被锁定' }} />)
+    expect(screen.getByText('动作被锁定')).toBeInTheDocument()
     rerender(<DeviceStatusBadge device={{ online: false, dispatchable: null, dispatchBlockReason: '边缘离线' }} />)
     expect(screen.getByText('边缘离线')).toBeInTheDocument()
     rerender(<DeviceStatusBadge status="blocked" />)
     expect(screen.getByText('不可调度')).toBeInTheDocument()
+    rerender(<DeviceStatusBadge device={base} status="offline" />)
+    expect(screen.getByText('离线')).toBeInTheDocument()
+    rerender(<DeviceStatusBadge status="unknown" />)
+    expect(screen.getByText('状态未知')).toBeInTheDocument()
     rerender(<DeviceStatusBadge status="unknown" label="未连接" />)
     expect(screen.getByText('未连接')).toBeInTheDocument()
   })
 
   it('selects sites, shows occupancy and supports inspector actions', () => {
-    const onSelect = vi.fn()
     const onOccupied = vi.fn()
     const sites = [site(), site({ siteUuid: 'site-2', key: 'slot', name: '', occupancy: { known: true, occupiedMaterialUuid: 'child-1' } }), site({ siteUuid: 'site-3', key: 'unknown', name: '未知', occupancy: { known: false, occupiedMaterialUuid: null } })]
-    render(<SitePicker sites={sites} selectedSiteUuid="site-1" onSelectSite={onSelect} />)
-    expect(screen.getByRole('option', { name: /台面.*空闲/ })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('option', { name: /slot.*已占用/ })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('option', { name: /slot.*已占用/ }))
-    expect(onSelect).toHaveBeenCalledWith('site-2')
     render(<MaterialSitePresentation sites={sites} onSelectOccupiedMaterial={onOccupied} />)
+    expect(screen.getByRole('option', { name: /slot.*已占用/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /未知.*占用未知/ })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '查看 slot 中的物料' }))
     expect(onOccupied).toHaveBeenCalledWith('child-1', 'site-2')
-    render(<SitePicker sites={[]} variant="inspector" emptyDescription="空库位" />)
-    expect(screen.getByText('空库位')).toBeInTheDocument()
+  })
+
+  it('forwards site selection and renders the material presentation empty state', () => {
+    const onSelectSite = vi.fn()
+    const { rerender } = render(<MaterialSitePresentation sites={[site()]} selectedSiteUuid="site-1" onSelectSite={onSelectSite} />)
+    const selected = screen.getByRole('option', { name: /台面.*空闲/ })
+    expect(selected).toHaveAttribute('aria-selected', 'true')
+    fireEvent.click(selected)
+    expect(onSelectSite).toHaveBeenCalledWith('site-1')
+    rerender(<MaterialSitePresentation sites={[]} emptyDescription="没有库位" />)
+    expect(screen.getByText('没有库位')).toBeInTheDocument()
   })
 
   it('renders material facts and forwards site selection', () => {
@@ -116,23 +122,26 @@ describe('lab-ui domain components', () => {
     expect(onSelect).toHaveBeenCalledWith('site-1')
   })
 
+  it('forwards an occupied material selection from the material inspector', () => {
+    const occupiedSite = site({ siteUuid: 'site-2', key: 'slot', name: '槽位', occupancy: { known: true, occupiedMaterialUuid: 'child-1' } })
+    const node: MaterialGraphNode = {
+      material: { kind: 'material_summary', source: 'os', materialUuid: 'material-1', resourceTemplateUuid: 'plate', materialType: 'plate', className: null, parentMaterialUuid: null, barcode: null, name: '板', description: null, revision: 1, config: {}, metadata: {}, createdAt: null, updatedAt: null, raw: {} },
+      resourceTemplate: null, relativePosition: null, sites: [occupiedSite], currentSiteUuid: occupiedSite.siteUuid, raw: {},
+    }
+    const projection = { node, sites: node.sites, selectedSite: null, currentSite: occupiedSite } as MaterialInspectionProjection
+    const onSelectOccupiedMaterial = vi.fn()
+    render(<MaterialInspector projection={projection} onSelectOccupiedMaterial={onSelectOccupiedMaterial} />)
+    fireEvent.click(screen.getByRole('button', { name: '查看 槽位 中的物料' }))
+    expect(onSelectOccupiedMaterial).toHaveBeenCalledWith('child-1')
+  })
+
   it('renders reagent summaries and status variants', () => {
     const info: ReagentInfo = { kind: 'reagent_info', source: 'os', reagentInfoUuid: 'i-1', name: '乙醇', nameEn: null, aliases: [], cas: null, molecularFormula: null, smiles: null, inchiKey: null, molecularWeight: null, densityGPerMl: null, physicalState: 'liquid', description: null, metadata: {}, createdAt: null, updatedAt: null, raw: {} }
     const reagent: Reagent = { kind: 'reagent', source: 'os', reagentUuid: 'r-1', materialUuid: 'm-1', reagentInfoUuid: 'i-1', name: '乙醇', nameEn: null, cas: null, molecularFormula: null, physicalState: null, quantity: null, quantityUnit: null, reservedQuantity: null, concentrationValue: null, concentrationUnit: null, densityGPerMl: null, densitySource: null, revision: null, materialRevision: null, containerBarcode: null, containerName: null, maximumCapacity: null, configuredCapacity: null, ratedCapacity: null, reagentInfo: info, description: null, metadata: {}, createdAt: null, updatedAt: null, status: 'empty', raw: {} }
-    render(<><ReagentCatalogSummary info={info} /><ReagentQuantitySummary reagent={reagent} /><ReagentStatusBadge status="available" /><ReagentStatusBadge status="custom" label="自定义" /></>)
+    render(<><ReagentCatalogSummary info={info} /><ReagentQuantitySummary reagent={reagent} /></>)
     expect(screen.getByText('未提供英文名')).toBeInTheDocument()
     expect(screen.getByText('未提供')).toBeInTheDocument()
     expect(screen.getByText('空')).toBeInTheDocument()
-    expect(screen.getByText('自定义')).toBeInTheDocument()
-  })
-
-  it('renders workflow requirements and empty state', () => {
-    const requirement: InventoryRequirement = { uuid: 'req-1', consumeNodeUuid: 'node-1', requirementKey: 'water', targetType: 'liquid', requiredQuantity: 2, quantityUnit: 'mL', allowSplit: true, description: '纯水', metadata: {} }
-    render(<InventoryRequirementList requirements={[requirement]} />)
-    expect(screen.getByRole('list', { name: '库存需求列表' })).toHaveTextContent('water')
-    expect(screen.getByText('2 mL · 可拆分')).toBeInTheDocument()
-    render(<InventoryRequirementList requirements={[]} />)
-    expect(screen.getByText('该工作流没有声明库存需求')).toBeInTheDocument()
   })
 
   it('renders workflow inputs and emits merged form values', () => {
@@ -156,14 +165,34 @@ describe('lab-ui domain components', () => {
       { type: 'resource', status: 'deferred', code: 'WAIT', message: '稍后复核', blocking: false, details: {} },
       { type: 'resource', status: 'passed', code: 'OK', message: '通过', blocking: false, details: {} },
     ] }
-    render(<PreflightReportView report={report} />)
+    const viewModel = { revision: { kind: 'published_revision', source: 'os', workflowUuid: 'wf-1', name: '测试工作流', revision: 3, workflowType: 'workflow', status: 'published', graph: { workflow: {}, nodes: [], edges: [], nodeTemplates: [], handleTemplates: [], inventoryRequirements: [] } }, configuration: { runMode: 'single_node', priority: 'high', description: '', input: { a: 1 } }, binding: { source: 'user', inventoryBindings: [], selectedResources: {} }, requirements: [{ uuid: 'req-1', consumeNodeUuid: 'node-1', requirementKey: 'water', targetType: 'liquid', requiredQuantity: 2, quantityUnit: 'mL', allowSplit: true, description: '纯水', metadata: {} }], nodeJob: null } as unknown as RunPreparationViewModel
+    render(<RunPreparationSummary viewModel={viewModel} preflight={report} />)
     expect(screen.getByRole('alert')).toHaveTextContent('当前不能提交')
     expect(screen.getByText('设备不可用')).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: '库存需求列表' })).toHaveTextContent('2 mL · 可拆分')
     expect(screen.getAllByText('待确认')).toHaveLength(2)
     const submit = vi.fn(); const edit = vi.fn()
     render(<RunSubmitConfirmation canSubmit={false} busy onSubmit={submit} onEdit={edit} />)
     expect(screen.getByRole('button', { name: '提交中…' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '返回修改' })).toBeDisabled()
+  })
+
+  it('keeps a runnable preflight report quiet when there are no checks', () => {
+    const report: PreflightReport = { kind: 'preflight_report', source: 'os', workflowUuid: 'wf-1', workflowRevision: 2, runMode: 'normal', status: 'runnable_now', canRun: true, checkedAt: 'now', checks: [] }
+    const viewModel = { revision: { kind: 'published_revision', source: 'os', workflowUuid: 'wf-1', name: '测试工作流', revision: 3, workflowType: 'workflow', status: 'published', graph: { workflow: {}, nodes: [], edges: [], nodeTemplates: [], handleTemplates: [], inventoryRequirements: [] } }, configuration: { runMode: 'normal', priority: 'normal', description: '', input: {} }, binding: { source: 'user', inventoryBindings: [], selectedResources: {} }, requirements: [], nodeJob: null } as unknown as RunPreparationViewModel
+    render(<RunPreparationSummary viewModel={viewModel} preflight={report} />)
+    expect(screen.getByText('后端没有返回检查项。')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('does not submit a disabled confirmation and omits the edit action when absent', () => {
+    const onSubmit = vi.fn()
+    render(<RunSubmitConfirmation canSubmit={false} onSubmit={onSubmit} />)
+    const submit = screen.getByRole('button', { name: '提交运行' })
+    expect(submit).toBeDisabled()
+    expect(screen.queryByRole('button', { name: '返回修改' })).not.toBeInTheDocument()
+    fireEvent.click(submit)
+    expect(onSubmit).not.toHaveBeenCalled()
   })
 
   it('renders run preparation summary for modes and preflight', () => {
