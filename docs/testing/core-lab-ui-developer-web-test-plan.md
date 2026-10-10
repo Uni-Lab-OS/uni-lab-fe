@@ -47,17 +47,17 @@
 | D-005 | 组件 | AppShell | 主导航、active route、折叠侧边栏、BackendProvider 生命周期 |
 | D-006 | 端侧 E2E | route smoke | 总览、工作流、任务、设备、物料、试剂入口均可打开 |
 | D-007 | 用户旅程 | debug target gate | 未选工作流/设备时禁止进入调试 |
-| D-008 | 用户旅程 | workflow-to-task | 从工作流目录打开详情、配置输入、提交后以 OS Task/Job 投影确认 |
+| D-008 | 用户旅程 | workflow-to-preflight | 从 developer-web 工作流目录打开详情、进入调试并完成运行前检查；阻塞时禁止误提交 |
 | D-009 | 用户旅程 | runtime recovery | pause/resume/step/cancel accepted 与实际状态分离，SSE 重连后 rehydrate |
 | D-010 | 用户旅程 | failure recovery | backend error、partial read、retry、unknown/reconciling 文案可行动 |
 
 ### E2E 实现映射
 
-上述 D-008～D-010 不由 route smoke 用例重复实现，统一落在已有真实 OS E2E：
+developer-web 的页面入口由 `e2e/developer-web-user-journeys.spec.ts` 覆盖；真实 Task/Job 运行和故障恢复由 Workbench 真实 OS E2E 覆盖，两者不混用入口：
 
 | Case | 真实实现 | 验收边界 |
 | --- | --- | --- |
-| D-008 | `e2e/workflow-task-runtime-real-os.spec.ts` | 真实 workflow UI 创建 Task、读取 Jobs，并验证 command accepted → applied 和 reload 恢复 |
+| D-008 | `e2e/developer-web-user-journeys.spec.ts`、`e2e/workflow-task-runtime-real-os.spec.ts` | developer-web 目录 → 详情 → 调试 → preflight；Workbench 真实 workflow UI 创建 Task、读取 Jobs |
 | D-009 | `e2e/workflow-task-runtime-real-os.spec.ts`、`e2e/workflow-runtime-final-gate-real-os.spec.ts` | pause/resume/step/cancel、幂等重放、终态竞态和 Task/Job 投影 |
 | D-010 | `e2e/workflow-task-runtime-resilience-real-os.spec.ts`、`e2e/workflow-runtime-final-gate-real-os.spec.ts` | partial read、feedback cursor、SSE reconnect、OS restart、unknown/reconciling 和失败恢复 |
 
