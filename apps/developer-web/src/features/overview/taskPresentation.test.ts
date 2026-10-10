@@ -64,6 +64,9 @@ describe('task presentation', () => {
   it('normalizes runtime statuses and derives task rows from jobs', () => {
     expect(normalizeStatus('queued')).toBe('waiting')
     expect(normalizeStatus('running', '设备离线')).toBe('attention')
+    expect(normalizeStatus('running', null, 'error_waiting')).toBe('attention')
+    expect(normalizeStatus('running', null, 'waiting_intervention')).toBe('attention')
+    expect(normalizeStatus('running', null, 'open', 'requires_attention')).toBe('attention')
     expect(normalizeStatus('in_progress')).toBe('running')
     expect(normalizeStatus('executing')).toBe('running')
     expect(normalizeStatus('succeeded')).toBe('completed')
@@ -88,6 +91,11 @@ describe('task presentation', () => {
       name: '未命名任务',
       workflowName: 'workflow-1',
     })
+    const attentionRow = toTaskRow({
+      ...task({}),
+      controlStatus: 'error_waiting',
+    } as never)
+    expect(attentionRow.status).toBe('attention')
     expect(taskDisplayName(task({ title: '标题' }))).toBe('标题')
     expect(workflowDisplayName(task({ workflowName: '工作流名' }))).toBe('工作流名')
     expect(formatDateTime('bad')).toBe('bad')

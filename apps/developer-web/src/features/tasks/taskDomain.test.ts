@@ -76,6 +76,11 @@ describe('task domain presentation', () => {
     expect(row.name).toBe('测试任务')
     expect(row.progress).toBe(50)
     expect(row.status).toBe('running')
+    const attentionRow = toTaskListRow({
+      ...row.task,
+      controlStatus: 'error_waiting',
+    } as never)
+    expect(attentionRow.status).toBe('attention')
   })
 
   it('filters task rows by searchable identity and normalized status', () => {

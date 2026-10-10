@@ -42,7 +42,12 @@ export function toTaskListRow(task: TaskRuntimePresentation): TaskListRow {
     task,
     name: taskDisplayName(task),
     workflowName: workflowDisplayName(task),
-    status: normalizeStatus(task.status, task.attentionReason),
+    status: normalizeStatus(
+      task.status,
+      task.attentionReason,
+      task.controlStatus,
+      task.cleanupStatus,
+    ),
     progress:
       task.progress?.percent ?? (totalJobs ? Math.round((completedJobs / totalJobs) * 100) : null),
     completedJobs,

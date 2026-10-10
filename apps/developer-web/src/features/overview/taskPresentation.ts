@@ -23,14 +23,33 @@ export function toTaskRow(task: TaskRuntimePresentation): TaskRow {
     // 状态估算，否则会与任务列表及 OS 权威进度产生分歧。
     progress: task.progress?.percent ?? null,
     priority: task.priority,
-    status: normalizeStatus(task.status, task.attentionReason),
+    status: normalizeStatus(
+      task.status,
+      task.attentionReason,
+      task.controlStatus,
+      task.cleanupStatus,
+    ),
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
   }
 }
 
-export function normalizeStatus(status: string, attentionReason: string | null = null): string {
+export function normalizeStatus(
+  status: string,
+  attentionReason: string | null = null,
+  controlStatus: string | null = null,
+  cleanupStatus: string | null = null,
+): string {
   const normalized = status.toLowerCase()
+  const normalizedControlStatus = controlStatus?.toLowerCase()
+  const normalizedCleanupStatus = cleanupStatus?.toLowerCase()
+  if (
+    normalizedControlStatus === 'error_waiting' ||
+    normalizedControlStatus === 'waiting_intervention' ||
+    normalizedCleanupStatus === 'requires_attention'
+  ) {
+    return 'attention'
+  }
   if (attentionReason && ['running', 'waiting', 'queued'].includes(normalized)) return 'attention'
   if (['pending', 'queued', 'waiting_for_resource', 'waiting'].includes(normalized))
     return 'waiting'
