@@ -6,6 +6,9 @@ import {
   taskNodeNames,
   toTaskListRow,
   toTimelineItems,
+  displayTime,
+  jobStatus,
+  resourceEntries,
   type TaskListRow,
 } from './taskDomain'
 
@@ -184,5 +187,17 @@ describe('task domain presentation', () => {
         names,
       ),
     ).toBe('工作流输入')
+  })
+
+  it('covers fallback node names, snapshots and resource entries', () => {
+    expect(jobStatus({ status: 'timeout' } as never)).toBe('timeout')
+    expect(jobLabel({ workflowNodeUuid: 'missing', executorKind: 'unknown' } as never, 2)).toBe('节点 3')
+    expect(taskNodeNames({ execution_plan: { nodes: [{ uuid: 'n', action_name: 'transfer_material_atomic' }] } }).get('n')).toBe('原子物料搬运')
+    expect(taskNodeNames({ workflow_snapshot: 'bad' })).toEqual(new Map())
+    expect(displayTime(null)).toBe('未提供')
+    expect(resourceEntries(null)).toEqual([])
+    expect(resourceEntries({ a: 'x', b: { c: 1 } })).toEqual([['a', 'x'], ['b', '{"c":1}']])
+    const item = toTimelineItems([{ workflowNodeUuid: '', jobUuid: 'j', status: 'queued', startedAt: null, finishedAt: null, raw: {} } as never])[0]
+    expect(item).toMatchObject({ label: '节点 1', start: null, end: null })
   })
 })

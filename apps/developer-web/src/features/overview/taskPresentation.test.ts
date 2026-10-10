@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { TaskRuntimePresentation } from '@unilab-fe/core'
 import {
   formatDateTime,
+  normalizeStatus,
+  toTaskRow,
   taskDisplayName,
   taskSecondaryText,
   workflowDisplayName,
@@ -57,5 +59,22 @@ describe('task presentation', () => {
         workflowName: 'S06 机械臂与加液联调',
       }),
     ).toBe('等待设备释放')
+  })
+
+  it('normalizes runtime statuses and derives task rows from jobs', () => {
+    expect(normalizeStatus('queued')).toBe('waiting')
+    expect(normalizeStatus('running', '设备离线')).toBe('attention')
+    expect(normalizeStatus('in_progress')).toBe('running')
+    expect(normalizeStatus('executing')).toBe('running')
+    expect(normalizeStatus('succeeded')).toBe('completed')
+    expect(normalizeStatus('finished')).toBe('completed')
+    expect(normalizeStatus('blocked')).toBe('attention')
+    expect(normalizeStatus('canceled')).toBe('canceled')
+    expect(normalizeStatus('custom')).toBe('custom')
+    const row = toTaskRow({ ...task({}), status: 'queued', jobs: [{ status: 'success' }, { status: 'completed' }, { status: 'running' }] } as never)
+    expect(row).toMatchObject({ progress: 67, status: 'waiting', name: '未命名任务', workflowName: 'workflow-1' })
+    expect(taskDisplayName(task({ title: '标题' }))).toBe('标题')
+    expect(workflowDisplayName(task({ workflowName: '工作流名' }))).toBe('工作流名')
+    expect(formatDateTime('bad')).toBe('bad')
   })
 })

@@ -8,6 +8,9 @@ import {
   workflowNodeDetails,
   workflowTypeLabel,
   workflowValueText,
+  workflowStatusLabel,
+  jsonText,
+  readString,
 } from './workflowPresentation'
 
 describe('workflow presentation helpers', () => {
@@ -175,5 +178,34 @@ describe('workflow presentation helpers', () => {
     }
 
     expect(workflowNodeDetails(revision, revision.graph.nodes[0]).resources).toEqual([])
+  })
+
+  it('covers fallback resource names, contracts and value forms', () => {
+    const directory = {
+      resourceTemplates: [],
+      materials: [],
+      sites: [],
+      devices: [{ deviceUuid: 'd-1', deviceKey: 'key-1', label: '设备' }],
+    }
+    expect(resolveWorkflowResourceName('device', 'key-1', directory)).toBe('设备')
+    expect(resolveWorkflowResourceName('material', 'missing', directory)).toBe('missing')
+    expect(resolveWorkflowResourceName('resource', 'x', directory)).toBe('x')
+    expect(workflowValueText(null)).toBe('未填写')
+    expect(workflowValueText({ a: 1 })).toContain('"a": 1')
+    expect(workflowValueText('unknown', directory)).toBe('unknown')
+    expect(workflowStatusLabel('published')).toBe('已发布')
+    expect(workflowStatusLabel('source')).toBe('未发布')
+    expect(readString({ title: '标题' }, ['name', 'title'])).toBe('标题')
+    expect(readString(undefined, ['name'])).toBeNull()
+    expect(jsonText(null)).toBe('暂无后端数据')
+    const revision = {
+      source: 'os' as const, workflowUuid: 'wf', name: 'W', revision: 1, workflowType: 'experiment_operation' as const, status: 'source' as const, kind: 'published_revision' as const,
+      graph: {
+        workflow: { meta_data: { unilab: { input_contract: { parameters: [{ display_name: '输入', required: true, schema: { type: 'string' } }, null] }, output_contract: { outputs: [{ display_name: '输出', required: true, implicit: true }, null] } } } },
+        nodes: [], edges: [], nodeTemplates: [], handleTemplates: [], inventoryRequirements: [],
+      },
+    }
+    expect(workflowContracts(revision).inputs[0]).toMatchObject({ name: '输入', required: true })
+    expect(workflowContracts(revision).outputs[0]).toMatchObject({ name: '输出', implicit: true })
   })
 })
