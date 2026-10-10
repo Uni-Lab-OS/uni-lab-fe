@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { DefinitionList, StatusBadge, TaskProgress } from '../index'
 // SchemaInputField is an internal primitive shared by the public workflow/device forms.
 import { SchemaInputField } from './SchemaInputField'
+import { statusMeta } from './StatusBadge'
 
 describe('lab-ui shared components', () => {
   it('renders definition values, missing text and variants', () => {
@@ -36,6 +37,15 @@ describe('lab-ui shared components', () => {
     expect(screen.getByText('设备报错')).toBeInTheDocument()
     expect(screen.getByText('new_status')).toBeInTheDocument()
     expect(screen.getByText('自定义')).toBeInTheDocument()
+  })
+
+  it('keeps core status meanings stable across terminal, waiting and recovery states', () => {
+    expect(statusMeta('succeeded')).toMatchObject({ label: '已完成', tone: 'success' })
+    expect(statusMeta('running')).toMatchObject({ label: '执行中', tone: 'warning' })
+    expect(statusMeta('waiting')).toMatchObject({ label: '等待中', tone: 'warning' })
+    expect(statusMeta('unknown')).toMatchObject({ label: '结果待核对', tone: 'error' })
+    expect(statusMeta('quarantined')).toMatchObject({ label: '隔离', tone: 'error' })
+    expect(statusMeta('')).toMatchObject({ label: '状态未知', tone: 'neutral' })
   })
 
   it.each([
@@ -136,15 +146,19 @@ describe('lab-ui shared components', () => {
     expect(onChange).toHaveBeenCalledWith('resource-1')
 
     rerender(
-      <SchemaInputField
-        label="数量"
-        schema={{ type: 'number' }}
-        value={3}
-        onChange={onChange}
-      />,
+      <SchemaInputField label="数量" schema={{ type: 'number' }} value={3} onChange={onChange} />,
     )
     const numberInput = screen.getByRole('spinbutton')
     fireEvent.change(numberInput, { target: { value: '' } })
+    expect(onChange).toHaveBeenCalledWith('')
+  })
+
+  it('keeps an invalid numeric input visible for the caller to validate', () => {
+    const onChange = vi.fn()
+    render(
+      <SchemaInputField label="数量" schema={{ type: 'number' }} value={1} onChange={onChange} />,
+    )
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: 'not-a-number' } })
     expect(onChange).toHaveBeenCalledWith('')
   })
 

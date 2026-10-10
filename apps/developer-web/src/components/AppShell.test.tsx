@@ -3,8 +3,10 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { AppShell } from './AppShell'
 import { BackendProvider } from '../app/BackendProvider'
 
+const backendDispose = vi.hoisted(() => vi.fn())
+
 vi.mock('../app/backend', () => ({
-  createStudioBackend: () => ({ dispose: vi.fn() }),
+  createStudioBackend: () => ({ dispose: backendDispose }),
 }))
 
 function renderShell(connection = 'unknown' as const) {
@@ -42,5 +44,16 @@ describe('AppShell', () => {
       return null
     }
     expect(() => render(<Consumer />)).toThrow('useBackend 必须在 BackendProvider 内使用')
+  })
+
+  it('disposes the backend composition when the provider unmounts', () => {
+    backendDispose.mockClear()
+    const view = render(
+      <BackendProvider>
+        <AppShell route="overview" onNavigate={vi.fn()}><p>内容</p></AppShell>
+      </BackendProvider>,
+    )
+    view.unmount()
+    expect(backendDispose).toHaveBeenCalledOnce()
   })
 })

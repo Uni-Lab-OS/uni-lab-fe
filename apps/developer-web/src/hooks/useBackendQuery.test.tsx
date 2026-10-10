@@ -25,4 +25,31 @@ describe('useBackendQuery', () => {
     await waitFor(() => expect(valueResult.current.loading).toBe(false))
     expect(valueResult.current.error?.message).toBe('请求失败')
   })
+
+  it('ignores an older generation after the query key changes', async () => {
+    let resolveFirst!: (value: string) => void
+    let resolveSecond!: (value: string) => void
+    const first = new Promise<string>((resolve) => {
+      resolveFirst = resolve
+    })
+    const second = new Promise<string>((resolve) => {
+      resolveSecond = resolve
+    })
+    const loader = vi
+      .fn()
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second)
+    const { result, rerender } = renderHook(
+      ({ key }) => useBackendQuery(key, loader),
+      { initialProps: { key: 'first' }, wrapper: BackendProvider },
+    )
+
+    rerender({ key: 'second' })
+    resolveSecond('new value')
+    await waitFor(() => expect(result.current.data).toBe('new value'))
+    resolveFirst('stale value')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(result.current.data).toBe('new value')
+    expect(result.current.error).toBeUndefined()
+  })
 })

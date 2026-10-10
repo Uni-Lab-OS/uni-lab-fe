@@ -110,6 +110,10 @@ describe('createRunPreparationStore', () => {
     expect(store.getState().preflight?.canRun).toBe(true)
     expect(store.getState().status).toBe('ready')
 
+    await store.getState().submitRun()
+    expect(store.getState().submittedRun).toMatchObject({ taskUuid: 'task-1' })
+    expect(store.getState().status).toBe('ready')
+
     await store.getState().inspectNodeJob('job-1')
     expect(store.getState().viewModel?.nodeJob?.jobUuid).toBe('job-1')
   })

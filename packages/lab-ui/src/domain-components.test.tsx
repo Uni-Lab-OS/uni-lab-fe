@@ -144,6 +144,66 @@ describe('lab-ui domain components', () => {
     expect(screen.getByText('空')).toBeInTheDocument()
   })
 
+  it('renders complete reagent identity and quantity facts when provided', () => {
+    const info: ReagentInfo = {
+      kind: 'reagent_info',
+      source: 'os',
+      reagentInfoUuid: 'i-2',
+      name: '乙醇',
+      nameEn: 'Ethanol',
+      aliases: ['EtOH'],
+      cas: '64-17-5',
+      molecularFormula: 'C2H6O',
+      smiles: null,
+      inchiKey: null,
+      molecularWeight: 46.07,
+      densityGPerMl: 0.789,
+      physicalState: 'liquid',
+      description: null,
+      metadata: {},
+      createdAt: null,
+      updatedAt: null,
+      raw: {},
+    }
+    const reagent: Reagent = {
+      kind: 'reagent',
+      source: 'os',
+      reagentUuid: 'r-2',
+      materialUuid: 'm-2',
+      reagentInfoUuid: 'i-2',
+      name: '乙醇',
+      nameEn: 'Ethanol',
+      cas: '64-17-5',
+      molecularFormula: 'C2H6O',
+      physicalState: 'liquid',
+      quantity: 500,
+      quantityUnit: 'mL',
+      reservedQuantity: 100,
+      concentrationValue: null,
+      concentrationUnit: null,
+      densityGPerMl: 0.789,
+      densitySource: 'dictionary',
+      revision: 1,
+      materialRevision: 1,
+      containerBarcode: 'B-2',
+      containerName: '瓶 2',
+      maximumCapacity: null,
+      configuredCapacity: null,
+      ratedCapacity: null,
+      reagentInfo: info,
+      description: null,
+      metadata: {},
+      createdAt: null,
+      updatedAt: null,
+      status: 'available',
+      raw: {},
+    }
+    render(<><ReagentCatalogSummary info={info} /><ReagentQuantitySummary reagent={reagent} /></>)
+    expect(screen.getByText('Ethanol / C2H6O')).toBeInTheDocument()
+    expect(screen.getByText('500 mL')).toBeInTheDocument()
+    expect(screen.getByText('可用')).toBeInTheDocument()
+  })
+
   it('renders workflow inputs and emits merged form values', () => {
     const onChange = vi.fn()
     const params: WorkflowInputParameter[] = [
@@ -206,5 +266,20 @@ describe('lab-ui domain components', () => {
     fireEvent.click(screen.getByRole('button', { name: '返回修改' }))
     fireEvent.click(screen.getByRole('button', { name: '开始' }))
     expect(onEdit).toHaveBeenCalledOnce(); expect(onSubmit).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    ['normal', '正常运行'],
+    ['step', '单步运行'],
+  ] as const)('labels the %s run mode without changing the summary contract', (runMode, label) => {
+    const viewModel = {
+      revision: { kind: 'published_revision', source: 'os', workflowUuid: 'wf-1', name: '测试工作流', revision: 3, workflowType: 'workflow', status: 'published', graph: { workflow: {}, nodes: [], edges: [], nodeTemplates: [], handleTemplates: [], inventoryRequirements: [] } },
+      configuration: { runMode, priority: 'normal', description: '', input: {} },
+      binding: { source: 'user', inventoryBindings: [], selectedResources: {} },
+      requirements: [],
+      nodeJob: null,
+    } as unknown as RunPreparationViewModel
+    render(<RunPreparationSummary viewModel={viewModel} preflight={null} />)
+    expect(screen.getByText(label)).toBeInTheDocument()
   })
 })

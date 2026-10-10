@@ -52,4 +52,36 @@ describe('workflow flow projection', () => {
     expect(projected.nodes[0]?.childCount).toBe(1)
     expect(projected.edges).toHaveLength(1)
   })
+
+  it('collapses child edges, removes duplicate/self edges and promotes child selection', () => {
+    const projected = projectWorkflowGraphModel(
+      {
+        workflow: {},
+        nodes: [
+          { uuid: 'root-a', name: '复合 A', type: 'workflow' },
+          { uuid: 'child-a', name: '内部 A', type: 'ILab', parent_uuid: 'root-a' },
+          { uuid: 'root-b', name: '复合 B', type: 'workflow' },
+          { uuid: 'orphan', name: '孤立节点', type: 'ILab' },
+        ],
+        edges: [
+          { uuid: 'child-edge', source_node_uuid: 'child-a', target_node_uuid: 'root-b' },
+          { uuid: 'duplicate-edge', source_node_uuid: 'root-a', target_node_uuid: 'root-b' },
+          { uuid: 'self-edge', source_node_uuid: 'root-a', target_node_uuid: 'root-a' },
+          { uuid: 'missing-edge', source_node_uuid: 'missing', target_node_uuid: 'root-b' },
+        ],
+        nodeTemplates: [],
+        handleTemplates: [],
+        inventoryRequirements: [],
+      },
+      'child-a',
+    )
+
+    expect(projected.nodes.find((node) => node.id === 'root-a')).toMatchObject({
+      selected: true,
+      childCount: 1,
+    })
+    expect(projected.edges).toEqual([
+      expect.objectContaining({ source: 'root-a', target: 'root-b' }),
+    ])
+  })
 })
