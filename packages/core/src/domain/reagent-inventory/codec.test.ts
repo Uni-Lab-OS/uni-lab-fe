@@ -387,11 +387,13 @@ describe('reagent inventory codec', () => {
       decodeReagentDispenseResult({
         command_id: 'dispense-1',
         status: 'rejected',
-        error_code: 'version_conflict',
+        error_code: '1000',
+        error: '缺少适用的最大装料量',
       }),
     ).toMatchObject({
       status: 'rejected',
-      errorCode: 'version_conflict',
+      errorCode: '1000',
+      errorMessage: '缺少适用的最大装料量',
       sourceLine: null,
       targets: [],
     })

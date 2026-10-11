@@ -4,16 +4,15 @@
   min-height: 0;
 }
 
-.reagentListPage > :global(.data-section),
-.reagentListPage > :global(.async-state),
-.reagentListPage > :global(.async-state--table) {
+.reagentBoard {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
-.reagentListPage > :global(.data-section) {
-  flex: 1 1 auto;
+.reagentBoard > :first-child {
+  flex: 0 0 auto;
 }
 
 .reagentListPage .reagentTable,

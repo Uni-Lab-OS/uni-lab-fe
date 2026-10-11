@@ -2,7 +2,7 @@ import { clsx } from 'clsx'
 import reagentModalStyles from './ReagentModal.module.scss'
 import { Alert, Button, Form, Input, InputNumber, Modal, Select } from 'antd'
 import { useRef, useState } from 'react'
-import type { MaterialSummary, Reagent, ReagentDispenseResult } from '@unilab-fe/core'
+import type { Reagent, ReagentDispenseResult } from '@unilab-fe/core'
 import { useBackend } from '../../app/BackendProvider'
 import { CAPACITY_UNIT_OPTIONS, defaultCapacityUnit } from './reagentCapacity'
 
@@ -17,14 +17,36 @@ import {
   text,
 } from './reagentModalShared'
 
+function DispenseQuantity({
+  unit,
+  value,
+  onChange,
+}: {
+  unit: string
+  value?: number | null
+  onChange?: (next: number | null) => void
+}) {
+  return (
+    <div className={clsx(reagentModalStyles['reagent-amount-field'])}>
+      <InputNumber
+        className={clsx(reagentModalStyles['reagent-amount-value'])}
+        min={0}
+        controls={false}
+        placeholder="数量"
+        value={value}
+        onChange={(next) => onChange?.(typeof next === 'number' ? next : null)}
+      />
+      <span className={clsx(reagentModalStyles['reagent-amount-suffix'])}>{unit}</span>
+    </div>
+  )
+}
+
 export function DispenseModal({
   reagent,
-  materials,
   onClose,
   onSaved,
 }: {
   reagent: Reagent
-  materials: readonly MaterialSummary[]
   onClose: () => void
   onSaved: () => void
 }) {
@@ -34,10 +56,13 @@ export function DispenseModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const [result, setResult] = useState<ReagentDispenseResult | null>(null)
-  // 幂等键在弹窗生命周期内固定，重试同一次分装不会重复扣减。
+  const watchedUnit = Form.useWatch('quantityUnit', form)
+  const quantityUnit =
+    typeof watchedUnit === 'string' && watchedUnit ? watchedUnit : (reagent.quantityUnit ?? 'mL')
   const commandId = useRef(crypto.randomUUID())
 
   const submit = async (values: Record<string, unknown>) => {
+    if (result?.status === 'rejected') commandId.current = crypto.randomUUID()
     setLoading(true)
     setError(null)
     setResult(null)
@@ -117,6 +142,8 @@ export function DispenseModal({
             label="装料上限"
             valueName="capacityValue"
             unitName="capacityUnit"
+            required
+            positive
             unitOptions={CAPACITY_UNIT_OPTIONS}
           />
           <Form.List name="targets">
@@ -137,24 +164,20 @@ export function DispenseModal({
                       label={index === 0 ? '目标容器' : undefined}
                       rules={[{ required: true, message: '请选择目标容器' }]}
                     >
-                      <ContainerSelect
-                        materials={materials.filter(
-                          (item) => item.materialUuid !== reagent.materialUuid,
-                        )}
-                      />
+                      <ContainerSelect excludeMaterialUuid={reagent.materialUuid} />
                     </Form.Item>
                     <Form.Item
                       name={[field.name, 'quantity']}
                       label={index === 0 ? '分装量' : undefined}
                       rules={[{ required: true, message: '请输入分装量' }]}
                     >
-                      <InputNumber
-                        className={clsx(reagentModalStyles['full-input'])}
-                        min={0}
-                        controls={false}
-                      />
+                      <DispenseQuantity unit={quantityUnit} />
                     </Form.Item>
                     <Button
+                      className={clsx(
+                        reagentModalStyles['reagent-dispense-remove'],
+                        index === 0 && reagentModalStyles['reagent-dispense-remove--labeled'],
+                      )}
                       type="text"
                       danger
                       disabled={fields.length === 1}
@@ -170,23 +193,33 @@ export function DispenseModal({
           </Form.List>
           {result && (
             <Alert
-              className={clsx(reagentModalStyles['reagent-form-field--wide'])}
+              className={clsx(
+                reagentModalStyles['reagent-form-field--wide'],
+                reagentModalStyles['reagent-dispense-result'],
+              )}
               type={result.errorCode ? 'error' : 'success'}
               showIcon
-              message={`命令状态 ${result.status}`}
-              description={
+              message={
                 result.errorCode
-                  ? `${result.errorCode}：${result.errorMessage ?? '未提供原因'}`
+                  ? (result.errorMessage ?? '分装被拒绝，服务端没有返回原因')
                   : `已写入 ${result.targets.length} 个目标容器`
               }
+              description={result.errorCode ? `错误码 ${result.errorCode}` : undefined}
             />
           )}
-          <ErrorAlert error={error} />
-          <div className={clsx(reagentModalStyles['reagent-form-field--wide'])}>
-            <Button onClick={onClose}>取消</Button>
-            <Button type="primary" htmlType="submit" loading={loading}>
-              执行分装
-            </Button>
+          <div
+            className={clsx(
+              reagentModalStyles['reagent-form-field--wide'],
+              reagentModalStyles['reagent-form-footer'],
+            )}
+          >
+            <ErrorAlert error={error} />
+            <div className={clsx(reagentModalStyles['reagent-form-actions'])}>
+              <Button onClick={onClose}>取消</Button>
+              <Button type="primary" htmlType="submit" loading={loading}>
+                执行分装
+              </Button>
+            </div>
           </div>
         </div>
       </Form>

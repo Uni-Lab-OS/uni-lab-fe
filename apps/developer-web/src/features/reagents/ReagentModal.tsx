@@ -1,4 +1,4 @@
-import type { MaterialSummary, ReagentInfo } from '@unilab-fe/core'
+import type { ReagentInfo } from '@unilab-fe/core'
 import { CatalogDetail as ReagentCatalogDetail } from './ReagentCatalogDetail'
 import { DispenseModal as ReagentDispenseModal } from './ReagentDispenseModal'
 import { HistoryModal as ReagentHistoryModal } from './ReagentHistoryModal'
@@ -12,13 +12,11 @@ export { physicalStateLabel } from './reagentModalShared'
 
 export function ReagentModal({
   state,
-  materials,
   catalog,
   onClose,
   onSaved,
 }: {
   state: ReagentModalState | null
-  materials: readonly MaterialSummary[]
   catalog: readonly ReagentInfo[]
   onClose: () => void
   onSaved: (tab: ReagentListTab) => void
@@ -38,7 +36,6 @@ export function ReagentModal({
       return (
         <ReagentDispenseModal
           reagent={state.reagent}
-          materials={materials}
           onClose={onClose}
           onSaved={() => onSaved('inventory')}
         />
@@ -55,7 +52,6 @@ export function ReagentModal({
       return (
         <ReagentInventoryFormModal
           state={state}
-          materials={materials}
           catalog={catalog}
           onClose={onClose}
           onSaved={() => onSaved('inventory')}

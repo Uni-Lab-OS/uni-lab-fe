@@ -197,14 +197,15 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: 16px;
+  margin-bottom: 8px;
 }
 
 .reagent-dispense-target {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 140px auto;
-  gap: 12px;
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr) 220px auto;
+  gap: 16px;
+  align-items: start;
   width: 100%;
 }
 
@@ -215,6 +216,34 @@
 
 .reagent-dispense-target :global(.ant-form-item) {
   margin-bottom: 0;
+}
+
+.reagent-dispense-target :global(.ant-form-item-has-error) .reagent-amount-field {
+  border-color: var(--bh-color-error-default);
+}
+
+.reagent-dispense-target :global(.ant-form-item-explain) {
+  min-height: 0;
+}
+
+.reagent-amount-suffix {
+  display: flex;
+  flex: 0 0 56px;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid var(--bh-color-border-1);
+  color: var(--bh-color-text-description);
+  background: var(--bh-color-fill-1, #f7f8fb);
+  font-size: 13px;
+}
+
+.reagent-dispense-remove:global(.ant-btn) {
+  height: 32px;
+  padding-inline: 8px;
+}
+
+.reagent-dispense-remove--labeled:global(.ant-btn) {
+  margin-top: 30px;
 }
 
 .reagent-cas-lookup {
@@ -254,6 +283,17 @@
   font-family: var(--bh-font-family-sans);
   font-weight: 400;
   opacity: 1;
+}
+
+/* 校验失败只把边框和错误说明标红，占位文字和箭头保持原来的灰色。 */
+.reagent-mutation-modal :global(.ant-select-status-error) :global(.ant-select-selector) {
+  color: var(--bh-color-text-default);
+}
+
+.reagent-mutation-modal :global(.ant-select-status-error) :global(.ant-select-selection-placeholder),
+.reagent-mutation-modal :global(.ant-select-status-error) :global(.ant-select-selection-search-input),
+.reagent-mutation-modal :global(.ant-select-status-error) :global(.ant-select-arrow) {
+  color: var(--bh-color-text-placeholder) !important;
 }
 
 .reagent-amount-field {
@@ -304,6 +344,42 @@
 /* CAS、SMILES、InChIKey 是机器标识符，等宽字体才好分辨 0/O 与 1/l。 */
 .reagent-identifier-input {
   font-family: var(--bh-font-family-mono);
+}
+
+.reagent-form-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.reagent-dispense-result:global(.ant-alert) {
+  margin-top: 16px;
+}
+
+.reagent-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.reagent-form-error:global(.ant-alert) {
+  align-items: flex-start;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--bh-radius-md);
+}
+
+.reagent-form-error :global(.ant-alert-message) {
+  margin-bottom: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.reagent-form-error :global(.ant-alert-description) {
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .reagent-error-details {

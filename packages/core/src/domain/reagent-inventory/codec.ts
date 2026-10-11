@@ -287,7 +287,8 @@ export function decodeReagentDispenseResult(value: unknown): ReagentDispenseResu
     commandId: requiredString(raw.command_id, 'dispense.command_id'),
     status: requiredString(raw.status, 'dispense.status'),
     errorCode: nullableString(raw.error_code, 'dispense.error_code'),
-    errorMessage: nullableString(raw.error_message, 'dispense.error_message'),
+    // 库存命令把拒绝原因放在 `error`，不是 `error_message`。
+    errorMessage: nullableString(raw.error ?? raw.error_message, 'dispense.error'),
     sourceLine:
       result?.source == null
         ? null

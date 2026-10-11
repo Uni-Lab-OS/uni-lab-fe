@@ -2,7 +2,7 @@ import { clsx } from 'clsx'
 import reagentModalStyles from './ReagentModal.module.scss'
 import { Alert, Button, DatePicker, Form, Input, InputNumber, Modal, Select } from 'antd'
 import { useState } from 'react'
-import type { MaterialSummary, ReagentInfo } from '@unilab-fe/core'
+import type { ReagentInfo } from '@unilab-fe/core'
 import { useBackend } from '../../app/BackendProvider'
 import { CAPACITY_UNIT_OPTIONS, defaultCapacityUnit, formatCapacity } from './reagentCapacity'
 
@@ -23,13 +23,11 @@ import type { ReagentModalState } from './reagentModalShared'
 
 export function InventoryFormModal({
   state,
-  materials,
   catalog,
   onClose,
   onSaved,
 }: {
   state: Extract<ReagentModalState, { type: 'create-inventory' | 'edit-inventory' }>
-  materials: readonly MaterialSummary[]
   catalog: readonly ReagentInfo[]
   onClose: () => void
   onSaved: () => void
@@ -135,7 +133,7 @@ export function InventoryFormModal({
             name="materialUuid"
             rules={[{ required: true, message: '请选择承载试剂的容器物料' }]}
           >
-            <ContainerSelect materials={materials} disabled={!isCreate} />
+            <ContainerSelect disabled={!isCreate} />
           </Form.Item>
           {isCreate &&
             (presetInfo ? (
@@ -230,6 +228,8 @@ export function InventoryFormModal({
             label="装料上限"
             valueName="capacityValue"
             unitName="capacityUnit"
+            required={isCreate}
+            positive={isCreate}
             unitOptions={CAPACITY_UNIT_OPTIONS}
           />
           <FormSection title="记录来源" />
@@ -250,12 +250,19 @@ export function InventoryFormModal({
           >
             <Input.TextArea rows={3} />
           </Form.Item>
-          <ErrorAlert error={error} />
-          <div className={clsx(reagentModalStyles['reagent-form-field--wide'])}>
-            <Button onClick={onClose}>取消</Button>
-            <Button type="primary" htmlType="submit" loading={loading}>
-              保存
-            </Button>
+          <div
+            className={clsx(
+              reagentModalStyles['reagent-form-field--wide'],
+              reagentModalStyles['reagent-form-footer'],
+            )}
+          >
+            <ErrorAlert error={error} />
+            <div className={clsx(reagentModalStyles['reagent-form-actions'])}>
+              <Button onClick={onClose}>取消</Button>
+              <Button type="primary" htmlType="submit" loading={loading}>
+                保存
+              </Button>
+            </div>
           </div>
         </div>
       </Form>

@@ -3,7 +3,7 @@ import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Dropdown, Input, Modal, Space, Tabs, Tooltip, message } from 'antd'
 import { useEffect, useRef, useState } from 'react'
-import type { MaterialSummary, Reagent, ReagentInfo } from '@unilab-fe/core'
+import type { Reagent, ReagentInfo } from '@unilab-fe/core'
 import { useBackend } from '../../app/BackendProvider'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
 import { AppIcon } from '../../components/ui/Icon'
@@ -20,7 +20,6 @@ interface ReagentData {
   readonly catalogTotal: number
   /** 录入库存时要选全部目录身份，不能只用当前这一页。 */
   readonly catalogOptions: readonly ReagentInfo[]
-  readonly materials: readonly MaterialSummary[]
 }
 
 const PAGE_SIZE = 10
@@ -57,8 +56,8 @@ function matchesCatalog(item: ReagentInfo, keyword: string): boolean {
 
 async function listAllPages<T>(
   load: (page: number, pageSize: number) => Promise<{ items: readonly T[]; total: number | null }>,
+  pageSize = 500,
 ): Promise<T[]> {
-  const pageSize = 500
   const first = await load(1, pageSize)
   const total = first.total ?? first.items.length
   const items = [...first.items]
@@ -104,7 +103,7 @@ export function ReagentsPage() {
   const query = useBackendQuery<ReagentData>(
     `reagent-resources:${tab}:${inventoryPage}:${catalogPage}:${submittedKeyword}`,
     async (current) => {
-      const [inventory, catalog, catalogOptions, materials] = await Promise.all([
+      const [inventory, catalog, catalogOptions] = await Promise.all([
         tab === 'inventory' && submittedKeyword.trim()
           ? listAllReagents(current.core.reagentInventory).then((items) => {
               const matched = items.filter((item) => matchesInventory(item, submittedKeyword))
@@ -136,7 +135,6 @@ export function ReagentsPage() {
           page: 1,
           pageSize: 500,
         }),
-        current.core.materialSite.listMaterials({ page: 1, pageSize: 500 }),
       ])
       return {
         inventory: inventory.items,
@@ -144,7 +142,6 @@ export function ReagentsPage() {
         catalog: catalog.items,
         catalogTotal: catalog.total ?? catalog.items.length,
         catalogOptions: catalogOptions.items,
-        materials: materials.items,
       }
     },
   )
@@ -265,7 +262,13 @@ export function ReagentsPage() {
         variant="table"
         tableColumns={5}
       >
-        <section className={clsx(appShellStyles['data-section'], sharedStyles['data-section'])}>
+        <section
+          className={clsx(
+            appShellStyles['data-section'],
+            sharedStyles['data-section'],
+            styles.reagentBoard,
+          )}
+        >
           <div
             className={clsx(
               appShellStyles['data-section-toolbar'],
@@ -353,7 +356,6 @@ export function ReagentsPage() {
       </AsyncState>
       <ReagentModal
         state={modal}
-        materials={query.data?.materials ?? []}
         catalog={query.data?.catalogOptions ?? []}
         onClose={() => setModal(null)}
         onSaved={handleSaved}
