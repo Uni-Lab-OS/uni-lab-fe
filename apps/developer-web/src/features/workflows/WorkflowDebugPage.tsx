@@ -35,6 +35,7 @@ export function WorkflowDebugPage({
     hasTaskConflict,
     step,
     setStep,
+    restoredDraft,
     workflowInput,
     setWorkflowInput,
     busy,
@@ -168,6 +169,14 @@ export function WorkflowDebugPage({
                       onChange={setWorkflowInput}
                     />
                   </div>
+                  {restoredDraft && !busy && (
+                    <Alert
+                      type="info"
+                      showIcon
+                      message="已保留你之前填写的参数"
+                      description="物料或试剂可能已变化，之前的依赖检查结果已作废，请重新点击“下一步：依赖检查”。"
+                    />
+                  )}
                   {formError && <Alert type="error" showIcon message={formError} />}
                   <Button type="primary" loading={busy} onClick={runPreflight}>
                     {busy ? '正在检查运行条件…' : '下一步：依赖检查'}

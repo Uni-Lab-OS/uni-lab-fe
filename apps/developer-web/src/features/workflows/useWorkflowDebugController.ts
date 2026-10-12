@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { message } from 'antd'
 import {
   normalizeWorkflowInput,
@@ -6,7 +6,7 @@ import {
   workflowInputDefaults,
   type RunConfiguration,
 } from '@unilab-fe/core'
-import { createRunPreparationReactStore } from '@unilab-fe/core/react'
+import { getRunPreparationReactStore } from '@unilab-fe/core/react'
 import { useBackend } from '../../app/BackendProvider'
 import { nodeLabel, nodeUuid } from './workflowPresentation'
 
@@ -14,9 +14,11 @@ export function useWorkflowDebugController(workflowUuid: string) {
   const { backend } = useBackend()
   const [messageApi, messageContextHolder] = message.useMessage()
   const useRunPreparationStore = useMemo(
-    () => createRunPreparationReactStore(backend.core.runPreparation),
-    [backend.core.runPreparation],
+    () => getRunPreparationReactStore(backend.core.runPreparation, workflowUuid),
+    [backend.core.runPreparation, workflowUuid],
   )
+  // 复用的 store 在挂载前已有草稿，说明用户是离开后返回；入参已保留，检查结果需重新获取。
+  const restoredDraft = useRef(useRunPreparationStore.getState().viewModel !== null).current
   const storeStatus = useRunPreparationStore((state) => state.status)
   const storeError = useRunPreparationStore((state) => state.error)
   const viewModel = useRunPreparationStore((state) => state.viewModel)
@@ -31,7 +33,7 @@ export function useWorkflowDebugController(workflowUuid: string) {
   const hasTaskConflict =
     storeError instanceof RunPreparationError && storeError.code === 'DEVELOP_TASK_CONFLICT'
   const [step, setStep] = useState(0)
-  const [workflowInput, setWorkflowInput] = useState<Record<string, unknown>>({})
+  const [workflowInput, setWorkflowInputState] = useState<Record<string, unknown>>({})
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -64,6 +66,15 @@ export function useWorkflowDebugController(workflowUuid: string) {
     [updateConfiguration],
   )
 
+  // 入参随输入同步进 store，离开页面时尚未点“依赖检查”的内容也不会丢。
+  const setWorkflowInput = useCallback(
+    (next: Record<string, unknown>) => {
+      setWorkflowInputState(next)
+      useRunPreparationStore.getState().updateConfiguration({ input: next })
+    },
+    [useRunPreparationStore],
+  )
+
   useEffect(() => {
     void reload()
   }, [reload])
@@ -81,7 +92,7 @@ export function useWorkflowDebugController(workflowUuid: string) {
   useEffect(() => {
     if (!revision) return
     const defaults = workflowInputDefaults(inputParameters)
-    setWorkflowInput(configuration?.input ?? defaults)
+    setWorkflowInputState(configuration?.input ?? defaults)
     const current = useRunPreparationStore.getState().viewModel?.configuration
     if (!current?.description) {
       updateConfiguration({
@@ -160,6 +171,7 @@ export function useWorkflowDebugController(workflowUuid: string) {
     hasTaskConflict,
     step,
     setStep,
+    restoredDraft,
     workflowInput,
     setWorkflowInput,
     busy,
