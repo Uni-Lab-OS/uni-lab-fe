@@ -117,4 +117,72 @@ describe('createRunPreparationStore', () => {
     await store.getState().inspectNodeJob('job-1')
     expect(store.getState().viewModel?.nodeJob?.jobUuid).toBe('job-1')
   })
+
+  it('卸载期间进行中的检查不被重新加载覆盖，已完成的旧结果在离开时丢弃', async () => {
+    let finishPreflight!: (report: PreflightReport) => void
+    let loads = 0
+    const scenario: RunPreparationScenario = {
+      async load(workflowUuid, state) {
+        loads += 1
+        return {
+          kind: 'run_preparation',
+          revision: {
+            kind: 'published_revision',
+            source: 'fixture',
+            workflowUuid,
+            name: 'Example workflow',
+            revision: 1,
+            workflowType: 'workflow',
+            status: 'published',
+            graph: {
+              workflow: { uuid: workflowUuid },
+              nodes: [],
+              edges: [],
+              nodeTemplates: [],
+              handleTemplates: [],
+              inventoryRequirements: [],
+            },
+          },
+          ...state,
+          requirements: [],
+          nodeJob: null,
+        }
+      },
+      requestPreflight() {
+        return new Promise<PreflightReport>((resolve) => {
+          finishPreflight = resolve
+        })
+      },
+      async submitRun(): Promise<SubmittedRun> {
+        throw new Error('not used')
+      },
+      async inspectNodeJob() {
+        throw new Error('not used')
+      },
+    }
+    const store = createRunPreparationStore(scenario)
+    await store.getState().load('wf-1')
+    const pending = store.getState().requestPreflight()
+    expect(store.getState().status).toBe('preflighting')
+
+    await store.getState().load('wf-1')
+    expect(loads).toBe(1)
+    expect(store.getState().status).toBe('preflighting')
+
+    store.getState().discardSettledResults()
+    expect(store.getState().status).toBe('preflighting')
+
+    const report = { kind: 'preflight_report', canRun: true } as unknown as PreflightReport
+    finishPreflight(report)
+    await pending
+    expect(store.getState().preflight).toBe(report)
+
+    await store.getState().load('wf-1')
+    expect(loads).toBe(1)
+
+    store.getState().discardSettledResults()
+    expect(store.getState().preflight).toBeNull()
+    await store.getState().load('wf-1')
+    expect(loads).toBe(2)
+  })
 })

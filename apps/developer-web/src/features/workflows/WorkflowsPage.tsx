@@ -19,6 +19,10 @@ import { WorkflowCatalogTable } from './WorkflowCatalogTable'
 import { WorkflowDebugPage } from './WorkflowDebugPage'
 import { WorkflowDetail } from './WorkflowDetail'
 
+// 切到其他模块再切回时，WorkflowsPage 会被重建；记住正在调试的工作流，
+// 回来仍停在运行向导（含进行中的依赖检查），而不是退回列表。
+let retainedDebugUuid: string | null = null
+
 export function WorkflowsPage({
   onNavigate,
 }: {
@@ -38,9 +42,13 @@ export function WorkflowsPage({
   const [selected, setSelected] = useState<string | null>(() =>
     new URLSearchParams(window.location.search).get('workflow'),
   )
-  const [debugUuid, setDebugUuid] = useState<string | null>(() =>
-    new URLSearchParams(window.location.search).get('debugWorkflow'),
+  const [debugUuid, setDebugUuidState] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get('debugWorkflow') ?? retainedDebugUuid,
   )
+  const setDebugUuid = (next: string | null) => {
+    retainedDebugUuid = next
+    setDebugUuidState(next)
+  }
 
   // SZLab 当前发布的标准物料转运属于“实验操作”类型。首屏不能固定
   // 假设一定存在 workflow，否则真实后端有数据时仍会显示空状态。

@@ -31,6 +31,8 @@ export interface RunPreparationStoreState {
   updateConfiguration(patch: Partial<RunConfiguration>): void
   updateBinding(patch: Partial<BindingDraft>): void
   clearError(): void
+  /** 离开页面时丢弃已过期的检查/提交结果；仍在进行中的请求不受影响。 */
+  discardSettledResults(): void
 }
 
 export type RunPreparationStore = StoreApi<RunPreparationStoreState>
@@ -51,6 +53,18 @@ export function createRunPreparationStoreState(
     error: null,
 
     async load(workflowUuid) {
+      const current = get()
+      if (
+        current.workflowUuid === workflowUuid &&
+        current.viewModel &&
+        (current.status === 'preflighting' ||
+          current.status === 'submitting' ||
+          current.preflight ||
+          current.submittedRun)
+      ) {
+        // 页面被卸载期间请求仍在进行或已返回：保留现场，重载会清掉进行中的状态和刚到的结果。
+        return
+      }
       set({ status: 'loading', workflowUuid, error: null })
 
       try {
@@ -149,6 +163,14 @@ export function createRunPreparationStoreState(
 
     clearError() {
       set({ error: null })
+    },
+
+    discardSettledResults() {
+      set((state) =>
+        state.status === 'preflighting' || state.status === 'submitting'
+          ? state
+          : { preflight: null, submittedRun: null },
+      )
     },
   })
 }
