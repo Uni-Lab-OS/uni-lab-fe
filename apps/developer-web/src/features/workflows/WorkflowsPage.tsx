@@ -9,7 +9,9 @@ import type { StudioRoute } from '../../components/AppShell'
 import { AppIcon } from '../../components/ui/Icon'
 import { AsyncState } from '../../components/ui/AsyncState'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { useBackend } from '../../app/BackendProvider'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
+import { readDebugWorkflow, writeDebugWorkflow } from './runDraftStorage'
 import {
   countWorkflowKinds,
   filterWorkflowCatalog,
@@ -18,10 +20,6 @@ import {
 import { WorkflowCatalogTable } from './WorkflowCatalogTable'
 import { WorkflowDebugPage } from './WorkflowDebugPage'
 import { WorkflowDetail } from './WorkflowDetail'
-
-// 切到其他模块再切回时，WorkflowsPage 会被重建；记住正在调试的工作流，
-// 回来仍停在运行向导（含进行中的依赖检查），而不是退回列表。
-let retainedDebugUuid: string | null = null
 
 export function WorkflowsPage({
   onNavigate,
@@ -42,11 +40,16 @@ export function WorkflowsPage({
   const [selected, setSelected] = useState<string | null>(() =>
     new URLSearchParams(window.location.search).get('workflow'),
   )
+  const { backend } = useBackend()
+  // 切换模块或刷新页面后 WorkflowsPage 会被重建；记住正在调试的工作流（存于 sessionStorage），
+  // 回来仍停在运行向导，而不是退回列表。
   const [debugUuid, setDebugUuidState] = useState<string | null>(
-    () => new URLSearchParams(window.location.search).get('debugWorkflow') ?? retainedDebugUuid,
+    () =>
+      new URLSearchParams(window.location.search).get('debugWorkflow') ??
+      readDebugWorkflow(`${backend.config.id}@${backend.config.apiUrl}`),
   )
   const setDebugUuid = (next: string | null) => {
-    retainedDebugUuid = next
+    writeDebugWorkflow(`${backend.config.id}@${backend.config.apiUrl}`, next)
     setDebugUuidState(next)
   }
 

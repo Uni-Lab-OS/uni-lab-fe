@@ -185,4 +185,37 @@ describe('createRunPreparationStore', () => {
     await store.getState().load('wf-1')
     expect(loads).toBe(2)
   })
+
+  it('restoreDraft 恢复入参与检查结果且不发起请求，未加载时为空操作', async () => {
+    let loads = 0
+    const scenario = {
+      async load(workflowUuid: string, state: unknown) {
+        loads += 1
+        return {
+          kind: 'run_preparation',
+          revision: { workflowUuid, graph: { nodes: [], edges: [] } },
+          ...(state as object),
+          requirements: [],
+          nodeJob: null,
+        }
+      },
+    } as unknown as RunPreparationScenario
+    const store = createRunPreparationStore(scenario)
+    const report = { kind: 'preflight_report', canRun: false } as unknown as PreflightReport
+    const configuration: RunConfiguration = {
+      runMode: 'normal',
+      description: '恢复的任务',
+      input: { sample_id: 'sim-01' },
+    }
+
+    store.getState().restoreDraft({ configuration, preflight: report })
+    expect(store.getState().viewModel).toBeNull()
+
+    await store.getState().load('wf-1')
+    store.getState().restoreDraft({ configuration, preflight: report })
+
+    expect(loads).toBe(1)
+    expect(store.getState().viewModel?.configuration).toEqual(configuration)
+    expect(store.getState().preflight).toBe(report)
+  })
 })
