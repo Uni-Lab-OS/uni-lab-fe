@@ -3,15 +3,23 @@ import runStyles from '../run.module.scss'
 import sharedStyles from '../shared.module.scss'
 import { Icon } from '@unilab/design-v2/icons'
 import type { PreflightCheckStatus, PreflightReport, ResourceCandidate } from '@unilab-fe/core'
-import { formatPreflightCheckMessage } from './preflightPresentation'
+import {
+  formatPreflightCheckMessage,
+  type PreflightMessageContext,
+} from './preflightPresentation'
 
 export interface PreflightReportViewProps {
   readonly report: PreflightReport
   readonly candidates?: readonly ResourceCandidate[]
+  readonly messageContext?: PreflightMessageContext
 }
 
 /** 后端 preflight 权威结果的展示，不根据 HTTP 接受结果推断运行状态。 */
-export function PreflightReportView({ report, candidates = [] }: PreflightReportViewProps) {
+export function PreflightReportView({
+  report,
+  candidates = [],
+  messageContext,
+}: PreflightReportViewProps) {
   const groups = groupChecks(report.checks)
 
   return (
@@ -51,11 +59,12 @@ export function PreflightReportView({ report, candidates = [] }: PreflightReport
               </summary>
               <ul className={clsx(runStyles['lab-ui-preflight__list'])}>
                 {group.checks.map((check, index) => (
-                  <PreflightCheckItem
-                    key={`${check.code}-${check.nodeUuid ?? 'global'}-${index}`}
-                    check={check}
-                    candidates={candidates}
-                  />
+                    <PreflightCheckItem
+                      key={`${check.code}-${check.nodeUuid ?? 'global'}-${index}`}
+                      check={check}
+                      candidates={candidates}
+                      messageContext={messageContext}
+                    />
                 ))}
               </ul>
             </details>
@@ -78,15 +87,17 @@ export function PreflightReportView({ report, candidates = [] }: PreflightReport
 function PreflightCheckItem({
   check,
   candidates,
+  messageContext,
 }: {
   readonly check: PreflightReport['checks'][number]
   readonly candidates: readonly ResourceCandidate[]
+  readonly messageContext?: PreflightMessageContext
 }) {
   return (
     <li className={clsx(runStyles[`is-${check.status}`])}>
       <span className={clsx(runStyles['lab-ui-preflight__indicator'])} aria-hidden="true" />
       <div>
-        <strong>{formatPreflightCheckMessage(check, candidates)}</strong>
+        <strong>{formatPreflightCheckMessage(check, candidates, messageContext)}</strong>
         <small>
           {check.code}
           {check.nodeName ? ` · ${check.nodeName}` : ''}

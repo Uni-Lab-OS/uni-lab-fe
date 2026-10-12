@@ -45,6 +45,42 @@ describe('formatPreflightCheckMessage', () => {
     expect(message).toBe('设备 来源容器 R1C4 需要复核')
   })
 
+  it('names the matched material container when the check only identifies its current site', () => {
+    const message = formatPreflightCheckMessage(
+      check({
+        message: '数量需求引用的来源库位 site-1 没有可用数量',
+      }),
+      [
+        {
+          ...material,
+          metadata: { current_site_uuid: 'site-1' },
+        },
+      ],
+    )
+
+    expect(message).toBe('容器“来源容器 R1C4”中的试剂没有可用数量')
+  })
+
+  it('falls back to the reagent source container from workflow input', () => {
+    const message = formatPreflightCheckMessage(
+      check({ message: '库存实例可用数量不足，无法完成整任务预留' }),
+      [],
+      { workflowInput: { reagent_source_site: 'R1C1' } },
+    )
+
+    expect(message).toBe('容器“R1C1”中的试剂数量不足')
+  })
+
+  it('explains that the reagent source container is missing when the input is empty', () => {
+    const message = formatPreflightCheckMessage(
+      check({ message: '工作流任务缺少必填输入' }),
+      [],
+      { workflowInput: { reagent_source_site: '' } },
+    )
+
+    expect(message).toBe('液体试剂来源容器未填写，无法确认试剂库存')
+  })
+
   it('masks an unresolved UUID instead of showing it directly', () => {
     const message = formatPreflightCheckMessage(
       check({ message: '来源容器 11111111-1111-4111-8111-111111111111 不可用' }),

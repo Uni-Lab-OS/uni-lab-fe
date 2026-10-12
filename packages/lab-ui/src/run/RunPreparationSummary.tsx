@@ -46,7 +46,13 @@ export function RunPreparationSummary({ viewModel, preflight }: RunPreparationSu
           <InventoryRequirementList requirements={viewModel.requirements} />
         </section>
       </div>
-      {preflight && <PreflightReportView report={preflight} candidates={viewModel.candidates} />}
+      {preflight && (
+        <PreflightReportView
+          report={preflight}
+          candidates={viewModel.candidates}
+          messageContext={{ workflowInput: configuration.input }}
+        />
+      )}
     </section>
   )
 }

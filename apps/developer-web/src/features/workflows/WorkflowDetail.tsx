@@ -125,7 +125,7 @@ export function WorkflowDetail({
                   onClick={() => onDebug(workflowUuid)}
                   icon={<AppIcon name="media/play-circle" size={16} color="white" />}
                 >
-                  调试工作流
+                  运行
                 </Button>
               </div>
             </div>

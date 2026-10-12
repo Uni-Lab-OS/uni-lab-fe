@@ -113,7 +113,6 @@ export function WorkflowDebugPage({
                         options={[
                           { value: 'normal', label: '正常运行' },
                           { value: 'step', label: '单步运行' },
-                          { value: 'single_node', label: '单节点运行' },
                         ]}
                       />
                     </Form.Item>
@@ -169,17 +168,19 @@ export function WorkflowDebugPage({
                     />
                   </div>
                   {formError && <Alert type="error" showIcon message={formError} />}
-                  <Button type="primary" loading={busy} onClick={runPreflight}>
-                    {busy ? '正在检查运行条件…' : '下一步：依赖检查'}
-                  </Button>
-                  {busy && (
-                    <Alert
-                      type="info"
-                      showIcon
-                      message="正在等待 OS 校验结果"
-                      description="大型工作流可能需要几分钟，请等待校验完成。"
-                    />
-                  )}
+                  <div className={clsx(workflowDebugPageStyles['debug-form-actions'])}>
+                    <Button type="primary" loading={busy} onClick={runPreflight}>
+                      {busy ? '正在检查运行条件…' : '下一步：依赖检查'}
+                    </Button>
+                    {busy && (
+                      <Alert
+                        type="info"
+                        showIcon
+                        message="正在等待 OS 校验结果"
+                        description="大型工作流可能需要几分钟，请等待校验完成。"
+                      />
+                    )}
+                  </div>
                 </Form>
               </section>
             )}

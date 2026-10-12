@@ -88,6 +88,19 @@
   min-width: 0;
 }
 
+.debug-form-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 16px;
+  padding-bottom: 4px;
+}
+
+.debug-form-actions > :global(.ant-alert) {
+  align-self: stretch;
+}
+
 .debug-result-actions {
   margin-top: 0;
 }

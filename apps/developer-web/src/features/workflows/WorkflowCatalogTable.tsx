@@ -98,11 +98,11 @@ export function WorkflowCatalogTable({
               onClick={() => onOpen(row.workflowUuid)}
             />
           </Tooltip>
-          <Tooltip title="调试">
+          <Tooltip title="运行">
             <Button
               type="text"
               className={clsx(sharedStyles['icon-button'])}
-              aria-label={`调试工作流 ${row.name}`}
+              aria-label={`运行工作流 ${row.name}`}
               icon={<AppIcon name="media/play-circle" size={18} />}
               onClick={() => onDebug(row.workflowUuid)}
             />
