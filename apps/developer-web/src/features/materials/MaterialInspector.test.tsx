@@ -70,9 +70,22 @@ const graph = {
       // L1C2 限定了模板，但图里没有任何节点使用该模板。
       site('L1C2', 'warehouse', null, ['template-unused']),
       site('L1C3', 'warehouse', 'bottle'),
+      // L1C4 只接受自带库位的载具（如 TIP 盒）。
+      site('L1C4', 'warehouse', null, ['template-rack']),
+      // L1C5 只接受默认模板；刚下料的物料属于这一类。
+      site('L1C5', 'warehouse', null, ['template-1']),
     ]),
     node('bottle', 'L1C3 注粉瓶', [], 'L1C3'),
     node('free', '待分配物料', []),
+    // 刚从库位下料：OS 只解除库位占用，父物料仍指向原承载方。
+    node('unloaded', '刚下料的注粉瓶', [], null, { parentMaterialUuid: 'warehouse' }),
+    // 自带 24 个孔位的载具仍是可放置到库位上的实例。
+    node('rack', 'TIP 盒', [site('RACK-1', 'rack', null)], null, {
+      resourceTemplateUuid: 'template-rack',
+      parentMaterialUuid: 'warehouse',
+    }),
+    // 设备是固定装置，不是可搬运的物料实例。
+    node('device', 'S04 磁搅', [], null, { materialType: 'device' }),
     // 画布本来就不展示的节点：不能出现在上料候选里。
     node('virtual', '虚拟传送位', [], null, { config: { virtual: true } }),
     node('logical', '逻辑挂载位', [], null, { config: { logical_mount: true } }),
@@ -168,27 +181,68 @@ describe('material inspector site presentation', () => {
     expect(within(row).getAllByRole('button')).toHaveLength(2)
   })
 
-  it('offers only unassigned non-structural materials when loading an empty site', async () => {
-    const onChangeSite = vi.fn(async () => undefined)
+  it('offers the material that was just unloaded from a site', () => {
+    render(
+      <MaterialInspector
+        graph={graph}
+        projection={projectionFor({ kind: 'site', siteUuid: 'L1C5' })}
+        selection={{ kind: 'site', siteId: 'L1C5' }}
+        onSelect={vi.fn()}
+        onChangeSite={vi.fn(async () => undefined)}
+      />,
+    )
+
+    // 下料只解除库位占用，父物料仍指向原承载方；它必须能重新上料。
+    fireEvent.click(screen.getByRole('button', { name: '上料' }))
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: '选择待上料物料' }))
+    expect(screen.getByText('刚下料的注粉瓶')).toBeInTheDocument()
+    expect(screen.getByText('待分配物料')).toBeInTheDocument()
+    // 仍占用库位的物料不能再被上料。
+    expect(screen.queryByText('L1C3 注粉瓶')).not.toBeInTheDocument()
+  })
+
+  it('offers a carrier that owns sites when the target site accepts its template', () => {
+    render(
+      <MaterialInspector
+        graph={graph}
+        projection={projectionFor({ kind: 'site', siteUuid: 'L1C4' })}
+        selection={{ kind: 'site', siteId: 'L1C4' }}
+        onSelect={vi.fn()}
+        onChangeSite={vi.fn(async () => undefined)}
+      />,
+    )
+
+    // TIP 盒自带孔位，同时又是上料过渡仓库位上的可放置实例。
+    fireEvent.click(screen.getByRole('button', { name: '上料' }))
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: '选择待上料物料' }))
+    expect(screen.getByText('TIP 盒')).toBeInTheDocument()
+    expect(screen.queryByText('待分配物料')).not.toBeInTheDocument()
+  })
+
+  it('offers only unoccupied non-structural materials when loading an empty site', () => {
     render(
       <MaterialInspector
         graph={graph}
         projection={projectionFor({ kind: 'site', siteUuid: 'L1C1' })}
         selection={{ kind: 'site', siteId: 'L1C1' }}
         onSelect={vi.fn()}
-        onChangeSite={onChangeSite}
+        onChangeSite={vi.fn(async () => undefined)}
       />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: '上料' }))
     fireEvent.mouseDown(screen.getByRole('combobox', { name: '选择待上料物料' }))
     expect(screen.getByText('待分配物料')).toBeInTheDocument()
+    expect(screen.getByText('刚下料的注粉瓶')).toBeInTheDocument()
+    expect(screen.getByText('TIP 盒')).toBeInTheDocument()
     expect(screen.queryByText('L1C3 注粉瓶')).not.toBeInTheDocument()
     // 画布不展示的节点（virtual / logical mount / deck / host_node）不是可放置实例。
     expect(screen.queryByText('虚拟传送位')).not.toBeInTheDocument()
     expect(screen.queryByText('逻辑挂载位')).not.toBeInTheDocument()
     expect(screen.queryByText('host_node')).not.toBeInTheDocument()
     expect(screen.queryByText('聚合物工作站台面')).not.toBeInTheDocument()
+    // 设备是固定装置，不是可搬运的物料实例。
+    expect(screen.queryByText('S04 磁搅')).not.toBeInTheDocument()
   })
 
   it('reports the template restriction instead of offering unrelated materials', () => {
@@ -204,7 +258,7 @@ describe('material inspector site presentation', () => {
 
     // L1C2 只接受 template-unused，图里没有任何节点使用该模板。
     fireEvent.click(screen.getByRole('button', { name: '上料' }))
-    expect(screen.getByText('没有符合该库位模板限制的未分配物料。')).toBeInTheDocument()
+    expect(screen.getByText('没有符合该库位模板限制、且未占用库位的物料。')).toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: '选择待上料物料' })).not.toBeInTheDocument()
   })
 })

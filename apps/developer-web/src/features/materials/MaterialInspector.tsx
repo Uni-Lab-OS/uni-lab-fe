@@ -284,21 +284,29 @@ function MaterialDetailInspector({ projection }: { projection: MaterialInspectio
 }
 
 /**
- * 上料候选必须是「可以放到库位上的物料实例」。
+ * 上料候选必须是「当前没有占用任何库位、可以放到目标库位上的物料实例」。
  *
- * 这里复用画布隐藏节点的同一判定（virtual / logical mount / deck / host_node），
- * 否则画布上根本看不见的节点会作为候选项出现在上料弹窗里。自带库位的堆栈、台面
- * 是承载方而不是可放置实例，也一并排除。
+ * 「未分配」只看库位占用事实（`currentSiteUuid`），不能看父物料：OS 的
+ * `site_placement: remove` 只解除库位占用，`parent_uuid` 仍指向原承载方
+ * （见 Uni-Lab-OS backend_contract._apply_site_placement 与其用例
+ * test_material_update_places_moves_and_removes_atomically）。若把父物料为空
+ * 当作未分配，刚下料的物料就再也回不到上料列表。
+ *
+ * 同理也不能按「自带库位」排除：TIP 盒自带 24 个孔位，同时又是上料过渡仓
+ * 库位上的可放置实例；能否放进目标库位由库位的 allowed_resource_template_uuids
+ * 决定，不由它自己有没有库位决定。
+ *
+ * 画布隐藏节点（virtual / logical mount / deck / host_node）与设备实例不是可
+ * 搬运的物料实例，仍然排除；前者复用画布同一判定，避免两处各写一份而分叉。
  */
 function isLoadCandidate(
   node: MaterialGraphNode,
   allowed: readonly string[] | null | undefined,
 ): boolean {
   if (isMaterialGraphNodeHidden(node)) return false
-  if (node.sites.length > 0) return false
-  const material = node.material
-  if (material.parentMaterialUuid !== null || node.currentSiteUuid !== null) return false
-  return !allowed?.length || allowed.includes(material.resourceTemplateUuid)
+  if (node.material.materialType === 'device') return false
+  if (node.currentSiteUuid !== null) return false
+  return !allowed?.length || allowed.includes(node.material.resourceTemplateUuid)
 }
 
 function SiteHandlingAction({
@@ -397,7 +405,7 @@ function SiteHandlingAction({
             <Select
               aria-label="选择待上料物料"
               className={clsx(materialInspectorStyles['material-site-select'])}
-              placeholder="选择未分配物料"
+              placeholder="选择未占用库位的物料"
               value={candidateId}
               onChange={setCandidateId}
               options={candidates.map((candidate) => ({
@@ -408,13 +416,13 @@ function SiteHandlingAction({
           ) : (
             <Typography.Text type="secondary">
               {allowed?.length
-                ? '没有符合该库位模板限制的未分配物料。'
-                : '当前没有可上料的未分配物料。'}
+                ? '没有符合该库位模板限制、且未占用库位的物料。'
+                : '当前没有未占用库位、可上料的物料。'}
             </Typography.Text>
           )
         ) : (
           <Typography.Text type="secondary">
-            下料后物料会回到未分配库存，不会删除物料实例。
+            下料只解除该库位的占用，不会删除物料实例；物料仍挂在原父级承载方下。
           </Typography.Text>
         )}
       </Modal>
