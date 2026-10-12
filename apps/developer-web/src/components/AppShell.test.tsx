@@ -6,7 +6,7 @@ import { BackendProvider } from '../app/BackendProvider'
 const backendDispose = vi.hoisted(() => vi.fn())
 
 vi.mock('../app/backend', () => ({
-  createStudioBackend: () => ({ dispose: backendDispose }),
+  createStudioBackend: () => ({ dispose: backendDispose, core: {} }),
 }))
 
 function renderShell(connection = 'unknown' as const) {

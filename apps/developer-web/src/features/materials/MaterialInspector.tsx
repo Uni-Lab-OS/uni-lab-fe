@@ -44,7 +44,7 @@ export function MaterialInspector({
     return <NodeInspector node={projection.node} sites={projection.sites} onSelect={onSelect} />
   }
 
-  return <MaterialDetailInspector projection={projection} onSelect={onSelect} />
+  return <MaterialDetailInspector projection={projection} />
 }
 
 function InspectorHeading({
@@ -96,12 +96,10 @@ function NodeInspector({
           { label: '库位数量', value: sites.length },
         ]}
       />
+      {/* 节点视图的库位列表只展示占用状态；查看占用物料走「库位详情 → 查看占用物料」。 */}
       <MaterialSitePresentation
         sites={sites}
         onSelectSite={(siteUuid) => onSelect({ kind: 'site', siteId: siteUuid })}
-        onSelectOccupiedMaterial={(materialId, siteId) =>
-          onSelect({ kind: 'material', materialId, siteId })
-        }
       />
     </aside>
   )
@@ -183,13 +181,7 @@ function SiteInspector({
   )
 }
 
-function MaterialDetailInspector({
-  projection,
-  onSelect,
-}: {
-  projection: MaterialInspectionProjection
-  onSelect: (selection: MaterialSelection) => void
-}) {
+function MaterialDetailInspector({ projection }: { projection: MaterialInspectionProjection }) {
   const detail = projection.node.material
   const site = projection.activeSite
   const siteAction = site ? resolveMaterialSiteAction(site.occupancy) : 'unavailable'
@@ -236,14 +228,6 @@ function MaterialDetailInspector({
           { label: '父物料', value: detail.parentMaterialUuid ?? '根节点' },
           { label: '修订版本', value: detail.revision },
         ]}
-      />
-      <MaterialSitePresentation
-        sites={site ? [site] : projection.sites}
-        selectedSiteUuid={site?.siteUuid}
-        onSelectSite={(siteUuid) => onSelect({ kind: 'site', siteId: siteUuid })}
-        onSelectOccupiedMaterial={(materialId, siteId) =>
-          onSelect({ kind: 'material', materialId, siteId })
-        }
       />
       <SiteHandlingActions action={siteAction} />
       <Typography.Text

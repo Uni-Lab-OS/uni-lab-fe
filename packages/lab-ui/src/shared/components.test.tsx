@@ -48,6 +48,46 @@ describe('lab-ui shared components', () => {
     expect(statusMeta('')).toMatchObject({ label: '状态未知', tone: 'neutral' })
   })
 
+  it('labels the boolean switch with a visible 是/否 state text', () => {
+    const onChange = vi.fn()
+    const { rerender } = render(
+      <SchemaInputField
+        label="参数"
+        name="value"
+        schema={{ type: 'boolean' }}
+        value
+        onChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByText('是')).toBeInTheDocument()
+    expect(screen.queryByText('否')).not.toBeInTheDocument()
+
+    rerender(
+      <SchemaInputField
+        label="参数"
+        name="value"
+        schema={{ type: 'boolean' }}
+        value={false}
+        onChange={onChange}
+      />,
+    )
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByText('否')).toBeInTheDocument()
+    expect(screen.queryByText('是')).not.toBeInTheDocument()
+
+    rerender(
+      <SchemaInputField
+        label="参数"
+        name="value"
+        schema={{ type: 'boolean' }}
+        value={undefined}
+        onChange={onChange}
+      />,
+    )
+    expect(screen.getByText('否')).toBeInTheDocument()
+  })
+
   it.each([
     ['enum', { enum: ['a', 'b'] }, 'a'],
     ['boolean', { type: 'boolean' }, true],

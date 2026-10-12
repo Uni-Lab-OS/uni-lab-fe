@@ -117,16 +117,23 @@ function renderInput({
 
   const type = schemaType(schema)
   if (type === 'boolean') {
+    const checked = value === true
     return (
-      <button
-        type="button"
-        className={clsx(sharedStyles['lab-ui-switch'])}
-        role="switch"
-        aria-label={name || '布尔参数'}
-        aria-checked={value === true}
-        disabled={disabled}
-        onClick={() => onChange(value !== true)}
-      />
+      <span className={clsx(sharedStyles['lab-ui-switch-control'])}>
+        <button
+          type="button"
+          className={clsx(sharedStyles['lab-ui-switch'])}
+          role="switch"
+          aria-label={name || '布尔参数'}
+          aria-checked={checked}
+          disabled={disabled}
+          onClick={() => onChange(!checked)}
+        />
+        {/* 文案只是开关状态的视觉补充，role="switch" 已通过 aria-checked 表达状态。 */}
+        <span className={clsx(sharedStyles['lab-ui-switch-state'])} aria-hidden="true">
+          {checked ? '是' : '否'}
+        </span>
+      </span>
     )
   }
 

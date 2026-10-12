@@ -56,13 +56,6 @@ export function WorkflowCatalogTable({
       ),
     },
     {
-      title: '版本',
-      dataIndex: 'revision',
-      align: 'center',
-      width: 90,
-      render: (value) => `v${value}`,
-    },
-    {
       title: '状态',
       dataIndex: 'status',
       align: 'center',

@@ -155,12 +155,15 @@ export function OverviewPage({
   onAttentionChange?: (hasAttention: boolean) => void
 }) {
   const { backend } = useBackend()
-  const query = useBackendQuery('workflow-task-presentations', (backend) =>
-    backend.core.executionRead.listTaskPresentations({
-      page: 1,
-      pageSize: 100,
-      terminalLimit: 100,
-    }),
+  const query = useBackendQuery(
+    'workflow-task-presentations',
+    (backend) =>
+      backend.core.executionRead.listTaskPresentations({
+        page: 1,
+        pageSize: 100,
+        terminalLimit: 100,
+      }),
+    { live: true },
   )
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('all')

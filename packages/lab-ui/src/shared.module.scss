@@ -37,6 +37,20 @@
   justify-self: start;
 }
 
+.lab-ui-switch-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+}
+
+.lab-ui-switch-state {
+  color: var(--studio-text, var(--unilab-text-default, #1d2939));
+  font-size: 13px;
+  line-height: 22px;
+  min-width: 1em;
+}
+
 .lab-ui-switch {
   position: relative;
   display: inline-flex;
@@ -44,7 +58,6 @@
   height: 22px;
   flex: 0 0 auto;
   align-items: center;
-  justify-self: start;
   padding: 0;
   border: 1px solid var(--bh-color-border-1, var(--studio-border, #d0d5dd));
   border-radius: 999px;
