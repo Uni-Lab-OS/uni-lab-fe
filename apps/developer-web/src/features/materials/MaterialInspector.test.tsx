@@ -1,10 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { MaterialGraph, MaterialGraphNode, SiteSummary } from '@unilab-fe/core'
 import { projectMaterialInspection } from '@unilab-fe/core'
 import { MaterialInspector } from './MaterialInspector'
 
-function site(siteUuid: string, ownerMaterialUuid: string, occupiedMaterialUuid: string | null) {
+function site(
+  siteUuid: string,
+  ownerMaterialUuid: string,
+  occupiedMaterialUuid: string | null,
+  allowedResourceTemplateUuids: readonly string[] | null = null,
+) {
   return {
     kind: 'site',
     source: 'fixture',
@@ -13,7 +18,7 @@ function site(siteUuid: string, ownerMaterialUuid: string, occupiedMaterialUuid:
     key: siteUuid,
     name: siteUuid,
     sortOrder: null,
-    allowedResourceTemplateUuids: null,
+    allowedResourceTemplateUuids,
     occupancy: { known: true, occupiedMaterialUuid },
     geometry: null,
     metadata: {},
@@ -26,6 +31,7 @@ function node(
   name: string,
   sites: readonly SiteSummary[],
   currentSiteUuid: string | null = null,
+  materialOverrides: Partial<MaterialGraphNode['material']> = {},
 ) {
   return {
     material: {
@@ -45,6 +51,7 @@ function node(
       createdAt: null,
       updatedAt: null,
       raw: {},
+      ...materialOverrides,
     },
     resourceTemplate: null,
     relativePosition: null,
@@ -60,9 +67,17 @@ const graph = {
   nodes: [
     node('warehouse', '固体粉桶堆栈', [
       site('L1C1', 'warehouse', null),
+      // L1C2 限定了模板，但图里没有任何节点使用该模板。
+      site('L1C2', 'warehouse', null, ['template-unused']),
       site('L1C3', 'warehouse', 'bottle'),
     ]),
     node('bottle', 'L1C3 注粉瓶', [], 'L1C3'),
+    node('free', '待分配物料', []),
+    // 画布本来就不展示的节点：不能出现在上料候选里。
+    node('virtual', '虚拟传送位', [], null, { config: { virtual: true } }),
+    node('logical', '逻辑挂载位', [], null, { config: { logical_mount: true } }),
+    node('host', 'host_node', [], null, { className: 'host_node' }),
+    node('deck', '聚合物工作站台面', [], null, { materialType: 'deck' }),
   ],
   raw: {},
 } satisfies MaterialGraph
@@ -78,9 +93,11 @@ describe('material inspector site presentation', () => {
     const onSelect = vi.fn()
     render(
       <MaterialInspector
+        graph={graph}
         projection={projectionFor({ kind: 'node', materialUuid: 'warehouse' })}
         selection={{ kind: 'node', nodeId: 'warehouse' }}
         onSelect={onSelect}
+        onChangeSite={vi.fn(async () => undefined)}
       />,
     )
 
@@ -97,9 +114,11 @@ describe('material inspector site presentation', () => {
   it('omits the site section when inspecting an occupied material', () => {
     render(
       <MaterialInspector
+        graph={graph}
         projection={projectionFor({ kind: 'material', materialUuid: 'bottle', siteUuid: 'L1C3' })}
         selection={{ kind: 'material', materialId: 'bottle', siteId: 'L1C3' }}
         onSelect={vi.fn()}
+        onChangeSite={vi.fn(async () => undefined)}
       />,
     )
 
@@ -107,5 +126,85 @@ describe('material inspector site presentation', () => {
     expect(screen.getByText('当前库位')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '库位' })).not.toBeInTheDocument()
     expect(screen.queryByRole('listbox', { name: '库位选择' })).not.toBeInTheDocument()
+  })
+
+  it('confirms unloading the material occupying the selected site', async () => {
+    const onChangeSite = vi.fn(async () => undefined)
+    render(
+      <MaterialInspector
+        graph={graph}
+        projection={projectionFor({ kind: 'site', siteUuid: 'L1C3' })}
+        selection={{ kind: 'site', siteId: 'L1C3' }}
+        onSelect={vi.fn()}
+        onChangeSite={onChangeSite}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '下料' }))
+    expect(screen.getByRole('dialog', { name: '从 L1C3 下料' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '确认下料' }))
+
+    await waitFor(() => {
+      expect(onChangeSite).toHaveBeenCalledWith('bottle', 1, undefined)
+    })
+  })
+
+  it('keeps 查看占用物料 and the site handling action in one row', () => {
+    render(
+      <MaterialInspector
+        graph={graph}
+        projection={projectionFor({ kind: 'site', siteUuid: 'L1C3' })}
+        selection={{ kind: 'site', siteId: 'L1C3' }}
+        onSelect={vi.fn()}
+        onChangeSite={vi.fn(async () => undefined)}
+      />,
+    )
+
+    // jsdom 没有排版引擎，量不到高度；这里只锁住“同一个操作容器”，
+    // 等高的部分是 MaterialInspector.module.scss 里 .inspector-actions 的职责。
+    const row = screen.getByLabelText('库位操作')
+    expect(within(row).getByRole('button', { name: '查看占用物料' })).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: '下料' })).toBeInTheDocument()
+    expect(within(row).getAllByRole('button')).toHaveLength(2)
+  })
+
+  it('offers only unassigned non-structural materials when loading an empty site', async () => {
+    const onChangeSite = vi.fn(async () => undefined)
+    render(
+      <MaterialInspector
+        graph={graph}
+        projection={projectionFor({ kind: 'site', siteUuid: 'L1C1' })}
+        selection={{ kind: 'site', siteId: 'L1C1' }}
+        onSelect={vi.fn()}
+        onChangeSite={onChangeSite}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '上料' }))
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: '选择待上料物料' }))
+    expect(screen.getByText('待分配物料')).toBeInTheDocument()
+    expect(screen.queryByText('L1C3 注粉瓶')).not.toBeInTheDocument()
+    // 画布不展示的节点（virtual / logical mount / deck / host_node）不是可放置实例。
+    expect(screen.queryByText('虚拟传送位')).not.toBeInTheDocument()
+    expect(screen.queryByText('逻辑挂载位')).not.toBeInTheDocument()
+    expect(screen.queryByText('host_node')).not.toBeInTheDocument()
+    expect(screen.queryByText('聚合物工作站台面')).not.toBeInTheDocument()
+  })
+
+  it('reports the template restriction instead of offering unrelated materials', () => {
+    render(
+      <MaterialInspector
+        graph={graph}
+        projection={projectionFor({ kind: 'site', siteUuid: 'L1C2' })}
+        selection={{ kind: 'site', siteId: 'L1C2' }}
+        onSelect={vi.fn()}
+        onChangeSite={vi.fn(async () => undefined)}
+      />,
+    )
+
+    // L1C2 只接受 template-unused，图里没有任何节点使用该模板。
+    fireEvent.click(screen.getByRole('button', { name: '上料' }))
+    expect(screen.getByText('没有符合该库位模板限制的未分配物料。')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: '选择待上料物料' })).not.toBeInTheDocument()
   })
 })

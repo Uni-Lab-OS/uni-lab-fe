@@ -79,4 +79,16 @@ export class MaterialSiteClient implements MaterialSitePort {
     })
     return decodeSiteDetail(response.data)
   }
+
+  async changeMaterialSite(materialUuid: string, expectedRevision: number, siteUuid?: string) {
+    const response = await this.transport.request<MaterialDetailResponse>({
+      method: 'PUT',
+      url: `${this.apiPrefix}/materials/${encodeURIComponent(materialUuid)}`,
+      body: {
+        expected_revision: expectedRevision,
+        site_placement: siteUuid ? { action: 'place', site_uuid: siteUuid } : { action: 'remove' },
+      },
+    })
+    return decodeMaterialDetail(response.data)
+  }
 }

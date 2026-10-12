@@ -131,11 +131,9 @@ export function ResourceBlockNode({ data }: NodeProps<BlockNodeData>) {
               onMouseDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation()
-                onSelect(
-                  occupant
-                    ? { kind: 'material', materialId: occupant.materialUuid, siteId: site.siteUuid }
-                    : { kind: 'site', siteId: site.siteUuid },
-                )
+                // 点击对象始终是「库位」本身，落点不随占用状态而变；
+                // 占用物料通过库位详情的「查看占用物料」钻取。
+                onSelect({ kind: 'site', siteId: site.siteUuid })
               }}
             >
               <strong>{site.key || site.name}</strong>

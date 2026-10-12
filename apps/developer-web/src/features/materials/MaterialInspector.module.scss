@@ -126,43 +126,28 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.inspector-section {
-  margin-top: 12px;
-}
-.inspector-section .section-title {
-  margin-bottom: 14px;
-}
-.inspector-section :global(.ant-list-item) {
-  padding: 4px 8px !important;
-  border-block-end: 0 !important;
-}
-.inspector-section :global(.ant-list-item) strong,
-.inspector-section :global(.ant-list-item) span {
-  display: block;
-}
-.inspector-section :global(.ant-list-item) strong {
-  color: #67748b;
-  font-size: 13px;
-  font-weight: 500;
-}
-.inspector-section :global(.ant-list-item) span {
-  margin-top: 4px;
-  color: #a0a9b7;
-  font-size: 12px;
-}
 .inspector-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 18px;
 }
+/* antd 的 .ant-btn 带 min-height: 32px，只写 height 会被它撑回 32px，
+   所以这里的两个按钮必须同时覆盖 height 与 min-height 才能对齐。 */
 .inspector-actions :global(.ant-btn) {
   min-width: 88px;
   height: 30px;
+  min-height: 30px;
   padding: 0 13px;
+  font-size: 13px;
+  line-height: 20px;
 }
 .inspector-actions .material-site-action:global(.ant-btn) {
   min-width: 96px;
+}
+.material-site-select:global(.ant-select) {
+  width: 100%;
+  margin-top: 8px;
 }
 .capability-note {
   display: block;

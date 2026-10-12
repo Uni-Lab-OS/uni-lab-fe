@@ -4,6 +4,7 @@ import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Input } from 'antd'
 import { useCallback, useMemo, useState } from 'react'
+import { useBackend } from '../../app/BackendProvider'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
 import { AppIcon } from '../../components/ui/Icon'
 import { AsyncState } from '../../components/ui/AsyncState'
@@ -18,6 +19,7 @@ import { MaterialInspector } from './MaterialInspector'
 import { MaterialManagement } from './MaterialManagement'
 
 export function MaterialsPage() {
+  const { backend } = useBackend()
   const query = useBackendQuery('material-graph', (backend) => backend.core.materialSite.getGraph())
   const [selection, setSelection] = useState<MaterialSelection | null>(null)
   const [keyword, setKeyword] = useState('')
@@ -71,6 +73,13 @@ export function MaterialsPage() {
     if (!query.data || !selection) return undefined
     return projectMaterialInspection(query.data, toInspectionSelection(selection)) ?? undefined
   }, [query.data, selection])
+  const changeMaterialSite = useCallback(
+    async (materialUuid: string, expectedRevision: number, siteUuid?: string) => {
+      await backend.core.materialSite.changeMaterialSite(materialUuid, expectedRevision, siteUuid)
+      query.reload()
+    },
+    [backend, query.reload],
+  )
   if (management)
     return <MaterialManagement graph={query.data} onBack={() => setManagement(false)} />
   return (
@@ -147,9 +156,11 @@ export function MaterialsPage() {
             onSelect={handleSelection}
           />
           <MaterialInspector
+            graph={query.data!}
             projection={inspection}
             selection={selection}
             onSelect={handleSelection}
+            onChangeSite={changeMaterialSite}
           />
         </div>
       </AsyncState>

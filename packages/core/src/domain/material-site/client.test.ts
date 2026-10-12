@@ -23,17 +23,26 @@ describe('MaterialSiteClient', () => {
             }
           : request.url === '/api/v1/materials/graph'
             ? { nodes: [] }
-            : request.url === '/api/v1/materials/material%2F1'
+            : request.method === 'PUT' && request.url === '/api/v1/materials/material%2F1'
               ? {
                   uuid: 'material-1',
                   resource_template_uuid: 'template-1',
                   name: 'Vial',
+                  revision: 4,
                   sites: [],
-                  current_site: null,
+                  current_site: { uuid: 'site-1', material_uuid: 'owner-1', name: 'A1' },
                 }
-              : request.url === '/api/v1/materials/material%2F1/sites'
-                ? [{ uuid: 'site-1', material_uuid: 'material/1', name: 'A1' }]
-                : { uuid: 'site-1', material_uuid: 'material/1', name: 'A1' }
+              : request.url === '/api/v1/materials/material%2F1'
+                ? {
+                    uuid: 'material-1',
+                    resource_template_uuid: 'template-1',
+                    name: 'Vial',
+                    sites: [],
+                    current_site: null,
+                  }
+                : request.url === '/api/v1/materials/material%2F1/sites'
+                  ? [{ uuid: 'site-1', material_uuid: 'material/1', name: 'A1' }]
+                  : { uuid: 'site-1', material_uuid: 'material/1', name: 'A1' }
         return { status: 200, headers: {}, data: { code: 0, data } } as TransportResponse<Value>
       },
     }
@@ -52,6 +61,12 @@ describe('MaterialSiteClient', () => {
     })
     await expect(client.listSites('material/1')).resolves.toMatchObject([{ siteUuid: 'site-1' }])
     await expect(client.getSite('site/1')).resolves.toMatchObject({ siteUuid: 'site-1' })
+    await expect(client.changeMaterialSite('material/1', 3, 'site/1')).resolves.toMatchObject({
+      materialUuid: 'material-1',
+    })
+    await expect(client.changeMaterialSite('material/1', 4)).resolves.toMatchObject({
+      materialUuid: 'material-1',
+    })
 
     expect(requests.map(({ method, url }) => ({ method, url }))).toEqual([
       { method: 'GET', url: '/api/v1/materials?page=2&page_size=10&name=Vial' },
@@ -59,6 +74,16 @@ describe('MaterialSiteClient', () => {
       { method: 'GET', url: '/api/v1/materials/material%2F1' },
       { method: 'GET', url: '/api/v1/materials/material%2F1/sites' },
       { method: 'GET', url: '/api/v1/sites/site%2F1' },
+      { method: 'PUT', url: '/api/v1/materials/material%2F1' },
+      { method: 'PUT', url: '/api/v1/materials/material%2F1' },
     ])
+    expect(requests[5]?.body).toEqual({
+      expected_revision: 3,
+      site_placement: { action: 'place', site_uuid: 'site/1' },
+    })
+    expect(requests[6]?.body).toEqual({
+      expected_revision: 4,
+      site_placement: { action: 'remove' },
+    })
   })
 })

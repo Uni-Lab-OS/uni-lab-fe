@@ -16,4 +16,14 @@ export interface MaterialSitePort {
   listSites(materialUuid: string): Promise<readonly SiteSummary[]>
 
   getSite(siteUuid: string): Promise<SiteSummary>
+
+  /**
+   * 将物料放入目标库位，或解除其当前库位占用。
+   * siteUuid 省略时执行下料；OS 使用 expectedRevision 做并发保护。
+   */
+  changeMaterialSite(
+    materialUuid: string,
+    expectedRevision: number,
+    siteUuid?: string,
+  ): Promise<MaterialDetail>
 }
