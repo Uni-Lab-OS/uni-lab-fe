@@ -53,3 +53,47 @@ describe('useBackendQuery', () => {
     expect(result.current.error).toBeUndefined()
   })
 })
+
+describe('useBackendQuery session cache', () => {
+  it('切回页面时先显示上次数据，并在后台刷新', async () => {
+    const first = renderHook(() => useBackendQuery('cache-swr', async () => 'v1'), {
+      wrapper: BackendProvider,
+    })
+    await waitFor(() => expect(first.result.current.data).toBe('v1'))
+    first.unmount()
+
+    let resolveRefresh!: (value: string) => void
+    const refresh = new Promise<string>((resolve) => {
+      resolveRefresh = resolve
+    })
+    const second = renderHook(() => useBackendQuery('cache-swr', () => refresh), {
+      wrapper: BackendProvider,
+    })
+
+    expect(second.result.current.loading).toBe(false)
+    expect(second.result.current.data).toBe('v1')
+    resolveRefresh('v2')
+    await waitFor(() => expect(second.result.current.data).toBe('v2'))
+  })
+
+  it('后台刷新失败时保留上次数据而不是整页报错', async () => {
+    const first = renderHook(() => useBackendQuery('cache-fail', async () => 'ok'), {
+      wrapper: BackendProvider,
+    })
+    await waitFor(() => expect(first.result.current.data).toBe('ok'))
+    first.unmount()
+
+    const loader = vi.fn(async () => {
+      throw new Error('请求已中止或超时')
+    })
+    const second = renderHook(() => useBackendQuery('cache-fail', loader), {
+      wrapper: BackendProvider,
+    })
+    await waitFor(() => expect(loader).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(second.result.current.data).toBe('ok')
+    expect(second.result.current.error).toBeUndefined()
+    expect(second.result.current.loading).toBe(false)
+  })
+})

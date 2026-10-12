@@ -10,6 +10,10 @@ import { getRunPreparationReactStore } from '@unilab-fe/core/react'
 import { useBackend } from '../../app/BackendProvider'
 import { nodeLabel, nodeUuid } from './workflowPresentation'
 
+// 同一个 store 当前挂载着几个控制器。StrictMode 的模拟卸载会立刻重新挂载，
+// 因此“离开页面”必须等一个宏任务后确认没有重新挂载才算数。
+const attachedControllers = new WeakMap<object, number>()
+
 export function useWorkflowDebugController(workflowUuid: string) {
   const { backend } = useBackend()
   const [messageApi, messageContextHolder] = message.useMessage()
@@ -32,9 +36,15 @@ export function useWorkflowDebugController(workflowUuid: string) {
   const taskName = configuration?.description ?? ''
   const hasTaskConflict =
     storeError instanceof RunPreparationError && storeError.code === 'DEVELOP_TASK_CONFLICT'
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(() => {
+    const { submittedRun, preflight: settledPreflight } = useRunPreparationStore.getState()
+    return submittedRun ? 2 : settledPreflight ? 1 : 0
+  })
   const [workflowInput, setWorkflowInputState] = useState<Record<string, unknown>>({})
-  const [busy, setBusy] = useState(false)
+  const [localBusy, setBusy] = useState(false)
+  // 检查/提交的请求在 store 里继续进行；切走再切回时，转圈状态由 store 而不是本地 state 决定。
+  const busy = localBusy || storeStatus === 'preflighting' || storeStatus === 'submitting'
+  const previousStatus = useRef(storeStatus)
   const [formError, setFormError] = useState<string | null>(null)
 
   const reload = useCallback(
@@ -76,8 +86,30 @@ export function useWorkflowDebugController(workflowUuid: string) {
   )
 
   useEffect(() => {
+    const store = useRunPreparationStore
+    attachedControllers.set(store, (attachedControllers.get(store) ?? 0) + 1)
+    return () => {
+      attachedControllers.set(store, (attachedControllers.get(store) ?? 1) - 1)
+      window.setTimeout(() => {
+        if ((attachedControllers.get(store) ?? 0) === 0) {
+          store.getState().discardSettledResults()
+        }
+      }, 0)
+    }
+  }, [useRunPreparationStore])
+
+  useEffect(() => {
     void reload()
   }, [reload])
+
+  // 请求在页面卸载期间返回时，旧组件里的 setStep 已经失效，按 store 状态迁移补上。
+  useEffect(() => {
+    const previous = previousStatus.current
+    previousStatus.current = storeStatus
+    if (storeStatus !== 'ready') return
+    if (previous === 'preflighting' && preflight) setStep(1)
+    if (previous === 'submitting' && submitted) setStep(2)
+  }, [storeStatus, preflight, submitted])
 
   const inputParameters = useMemo(() => revision?.graph.inputParameters ?? [], [revision])
   const targetNodeOptions = useMemo(
