@@ -426,7 +426,7 @@ describe('reagent inventory codec', () => {
         quantityUnit: 'mL',
         containerCapacity: { maxVolumeUl: 1000, maxMassG: 1 },
       }),
-    ).toThrow('容器装料上限必须且只能提供 maxVolumeUl 或 maxMassG 之一')
+    ).toThrow('容器装料上限必须且只能提供 maxVolumeUl、maxMassG 或 maxCount 之一')
 
     expect(
       encodeReagentDraft({

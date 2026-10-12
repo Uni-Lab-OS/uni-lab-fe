@@ -304,7 +304,7 @@ export function FormSection({ title }: { title: string }) {
   )
 }
 
-export const QUANTITY_UNITS = ['uL', 'mL', 'L', 'mg', 'g', 'kg'] as const
+export const QUANTITY_UNITS = ['uL', 'mL', 'L', 'mg', 'g', 'kg', '粒'] as const
 export const CONCENTRATION_UNITS = ['%', 'mol/L', 'mmol/L', 'mg/mL', 'g/L'] as const
 
 /** 数值和单位共用一条边框，单位用下拉而不是再挤一个输入框。 */

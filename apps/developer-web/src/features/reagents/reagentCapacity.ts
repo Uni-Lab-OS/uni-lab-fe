@@ -12,10 +12,15 @@ const MASS_UNITS: Readonly<Record<string, number>> = {
   kg: 1000,
 }
 
+const COUNT_UNITS: Readonly<Record<string, number>> = {
+  粒: 1,
+}
+
 /** 单位本身已经决定了维度，因此表单只需要选单位，不必再单独选体积/质量。 */
 export const CAPACITY_UNIT_OPTIONS: readonly string[] = [
   ...Object.keys(VOLUME_UNITS),
   ...Object.keys(MASS_UNITS),
+  ...Object.keys(COUNT_UNITS),
 ]
 
 /**
@@ -27,11 +32,14 @@ export function toCapacityInput(value: number, unit: string): CapacityInput {
   if (volumeFactor != null) return { maxVolumeUl: value * volumeFactor }
   const massFactor = MASS_UNITS[unit]
   if (massFactor != null) return { maxMassG: value * massFactor }
+  const countFactor = COUNT_UNITS[unit]
+  if (countFactor != null) return { maxCount: value * countFactor }
   throw new Error(`未知装料上限单位 ${unit}`)
 }
 
-/** 按数量单位给出默认上限单位，液体按体积、粉末按质量。 */
+/** 按数量单位给出默认上限单位，液体按体积、粉末按质量、研磨珠按粒。 */
 export function defaultCapacityUnit(quantityUnit: string | null): string {
+  if (quantityUnit && Object.keys(COUNT_UNITS).includes(quantityUnit)) return quantityUnit
   if (quantityUnit && Object.keys(MASS_UNITS).includes(quantityUnit)) return quantityUnit
   if (quantityUnit && Object.keys(VOLUME_UNITS).includes(quantityUnit)) return quantityUnit
   return 'mL'
@@ -40,6 +48,7 @@ export function defaultCapacityUnit(quantityUnit: string | null): string {
 /** 以可读单位展示 OS 返回的生效上限；未声明时明确说明未提供。 */
 export function formatCapacity(capacity: CapacityLimits | null): string {
   if (!capacity) return '未提供'
+  if (capacity.maxCount != null) return `${trim(capacity.maxCount)} 粒`
   if (capacity.maxVolumeUl != null) {
     const ul = capacity.maxVolumeUl
     if (ul >= 1_000_000) return `${trim(ul / 1_000_000)} L`

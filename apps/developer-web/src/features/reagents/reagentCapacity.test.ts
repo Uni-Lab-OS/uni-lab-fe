@@ -13,6 +13,7 @@ describe('reagent capacity helpers', () => {
   it('converts volume and mass units into the OS dimensions', () => {
     expect(toCapacityInput(1.5, 'mL')).toEqual({ maxVolumeUl: 1500 })
     expect(toCapacityInput(2, 'kg')).toEqual({ maxMassG: 2000 })
+    expect(toCapacityInput(12, '粒')).toEqual({ maxCount: 12 })
   })
 
   it('rejects units outside the supported capacity dimensions', () => {
@@ -22,6 +23,7 @@ describe('reagent capacity helpers', () => {
   it('keeps a declared quantity dimension and falls back to mL when absent', () => {
     expect(defaultCapacityUnit('mg')).toBe('mg')
     expect(defaultCapacityUnit('uL')).toBe('uL')
+    expect(defaultCapacityUnit('粒')).toBe('粒')
     expect(defaultCapacityUnit(null)).toBe('mL')
     expect(defaultCapacityUnit('unknown')).toBe('mL')
   })
@@ -34,6 +36,7 @@ describe('reagent capacity helpers', () => {
     [capacity({ maxMassG: 2_000 }), '2 kg'],
     [capacity({ maxMassG: 0.25 }), '250 mg'],
     [capacity({ maxMassG: 12.3456 }), '12.3456 g'],
+    [capacity({ maxCount: 80 }), '80 粒'],
     [capacity({}), '未提供'],
   ] as const)('formats %j as %s', (capacity, expected) => {
     expect(formatCapacity(capacity)).toBe(expected)

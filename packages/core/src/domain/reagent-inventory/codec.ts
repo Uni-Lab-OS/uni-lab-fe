@@ -425,16 +425,19 @@ function encodeCapacityField(
   if (capacity === undefined) return {}
   const hasVolume = capacity.maxVolumeUl !== undefined
   const hasMass = capacity.maxMassG !== undefined
-  if (hasVolume === hasMass) {
+  const hasCount = capacity.maxCount !== undefined
+  if ([hasVolume, hasMass, hasCount].filter(Boolean).length !== 1) {
     throw new ReagentInventoryError(
       'INVALID_REAGENT_WRITE_INPUT',
-      '容器装料上限必须且只能提供 maxVolumeUl 或 maxMassG 之一',
+      '容器装料上限必须且只能提供 maxVolumeUl、maxMassG 或 maxCount 之一',
     )
   }
   return {
     container_capacity: hasVolume
       ? { max_volume_ul: capacity.maxVolumeUl }
-      : { max_mass_g: capacity.maxMassG },
+      : hasMass
+        ? { max_mass_g: capacity.maxMassG }
+        : { max_count: capacity.maxCount },
   }
 }
 
@@ -496,9 +499,10 @@ function nullableCapacity(value: unknown, path: string): CapacityLimits | null {
   const raw = asRecord(value, path)
   const maxVolumeUl = nullableFiniteNumber(raw.max_volume_ul, `${path}.max_volume_ul`)
   const maxMassG = nullableFiniteNumber(raw.max_mass_g, `${path}.max_mass_g`)
+  const maxCount = nullableFiniteNumber(raw.max_count, `${path}.max_count`)
   // OS 用空对象表示“这一层没有声明上限”，不能当成上限为 0。
-  if (maxVolumeUl === null && maxMassG === null) return null
-  return { maxVolumeUl, maxMassG, raw }
+  if (maxVolumeUl === null && maxMassG === null && maxCount === null) return null
+  return { maxVolumeUl, maxMassG, maxCount, raw }
 }
 
 export function decodeInventoryInstances(value: unknown): readonly InventoryInstance[] {

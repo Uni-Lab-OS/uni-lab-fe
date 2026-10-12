@@ -5,6 +5,7 @@
 export interface CapacityLimits {
   readonly maxVolumeUl: number | null
   readonly maxMassG: number | null
+  readonly maxCount?: number | null
   readonly raw: Readonly<Record<string, unknown>>
 }
 
@@ -172,10 +173,11 @@ export interface ReagentInfoDraft {
  */
 export type ReagentInfoPatch = Partial<ReagentInfoDraft>
 
-/** 手工设置的容器装料上限。体积与质量只能给其中一个维度。 */
+/** 手工设置的容器装料上限。体积、质量、粒数只能给其中一个维度。 */
 export interface CapacityInput {
   readonly maxVolumeUl?: number
   readonly maxMassG?: number
+  readonly maxCount?: number
 }
 
 /**
