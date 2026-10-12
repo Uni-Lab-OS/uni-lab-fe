@@ -9,6 +9,7 @@ import {
 import { getRunPreparationReactStore } from '@unilab-fe/core/react'
 import { useBackend } from '../../app/BackendProvider'
 import { nodeLabel, nodeUuid } from './workflowPresentation'
+import { clearRunDraft, readRunDraft, writeRunDraft } from './runDraftStorage'
 
 // 同一个 store 当前挂载着几个控制器。StrictMode 的模拟卸载会立刻重新挂载，
 // 因此“离开页面”必须等一个宏任务后确认没有重新挂载才算数。
@@ -45,7 +46,10 @@ export function useWorkflowDebugController(workflowUuid: string) {
   // 检查/提交的请求在 store 里继续进行；切走再切回时，转圈状态由 store 而不是本地 state 决定。
   const busy = localBusy || storeStatus === 'preflighting' || storeStatus === 'submitting'
   const previousStatus = useRef(storeStatus)
+  const storageScope = `${backend.config.id}@${backend.config.apiUrl}`
   const [formError, setFormError] = useState<string | null>(null)
+  // 页面刷新后从 sessionStorage 恢复了草稿（区别于应用内切换时的内存保留）。
+  const [restoredFromStorage, setRestoredFromStorage] = useState(false)
 
   const reload = useCallback(
     () => useRunPreparationStore.getState().load(workflowUuid),
@@ -99,8 +103,44 @@ export function useWorkflowDebugController(workflowUuid: string) {
   }, [useRunPreparationStore])
 
   useEffect(() => {
-    void reload()
-  }, [reload])
+    const store = useRunPreparationStore
+    const apiUrl = storageScope
+    // 内存里已有草稿（应用内切换）时不读存储；只有整页刷新后的首次挂载才恢复。
+    const persisted = restoredDraft ? null : readRunDraft(apiUrl, workflowUuid)
+    let cancelled = false
+    let persistenceReady = false
+
+    void store
+      .getState()
+      .load(workflowUuid)
+      .then(() => {
+        if (cancelled) return
+        const loaded = store.getState().viewModel
+        if (persisted && loaded?.revision.workflowUuid === workflowUuid) {
+          store.getState().restoreDraft(persisted)
+          setRestoredFromStorage(true)
+          if (persisted.preflight) setStep(1)
+        }
+        persistenceReady = true
+      })
+
+    // 草稿写入等恢复完成之后才开始，避免默认空值覆盖刚读到的刷新前内容。
+    const unsubscribe = store.subscribe((state) => {
+      if (!persistenceReady || !state.viewModel) return
+      if (state.submittedRun) {
+        clearRunDraft(apiUrl, workflowUuid)
+        return
+      }
+      writeRunDraft(apiUrl, workflowUuid, {
+        configuration: state.viewModel.configuration,
+        preflight: state.preflight,
+      })
+    })
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
+  }, [storageScope, restoredDraft, useRunPreparationStore, workflowUuid])
 
   // 请求在页面卸载期间返回时，旧组件里的 setStep 已经失效，按 store 状态迁移补上。
   useEffect(() => {
@@ -203,7 +243,8 @@ export function useWorkflowDebugController(workflowUuid: string) {
     hasTaskConflict,
     step,
     setStep,
-    restoredDraft,
+    restoredDraft: restoredDraft || restoredFromStorage,
+    restoredFromStorage,
     workflowInput,
     setWorkflowInput,
     busy,

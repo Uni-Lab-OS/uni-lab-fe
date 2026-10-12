@@ -12,6 +12,13 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { useWorkflowDebugController } from './useWorkflowDebugController'
 import { jsonText } from './workflowPresentation'
 
+function formatCheckedAt(checkedAt: string): string {
+  const time = Date.parse(checkedAt)
+  if (Number.isNaN(time)) return checkedAt
+  const minutes = Math.max(0, Math.round((Date.now() - time) / 60_000))
+  return minutes < 1 ? '刚刚' : `${minutes} 分钟前`
+}
+
 export function WorkflowDebugPage({
   workflowUuid,
   onBack,
@@ -36,6 +43,7 @@ export function WorkflowDebugPage({
     step,
     setStep,
     restoredDraft,
+    restoredFromStorage,
     workflowInput,
     setWorkflowInput,
     busy,
@@ -200,6 +208,14 @@ export function WorkflowDebugPage({
                   workflowDebugPageStyles['debug-step-card'],
                 )}
               >
+                {restoredFromStorage && preflight && (
+                  <Alert
+                    type="warning"
+                    showIcon
+                    message={`这是页面刷新前的检查结果（${formatCheckedAt(preflight.checkedAt)}）`}
+                    description="期间若补过物料或试剂，请返回上一步重新检查；提交时 OS 仍会再次校验。"
+                  />
+                )}
                 {viewModel && <RunPreparationSummary viewModel={viewModel} preflight={preflight} />}
                 {formError && (
                   <Alert

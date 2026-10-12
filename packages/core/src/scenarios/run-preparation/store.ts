@@ -33,6 +33,8 @@ export interface RunPreparationStoreState {
   clearError(): void
   /** 离开页面时丢弃已过期的检查/提交结果；仍在进行中的请求不受影响。 */
   discardSettledResults(): void
+  /** 页面刷新后用持久化的草稿恢复入参与最近一次检查结果，不触发任何请求。 */
+  restoreDraft(draft: { configuration: RunConfiguration; preflight: PreflightReport | null }): void
 }
 
 export type RunPreparationStore = StoreApi<RunPreparationStoreState>
@@ -163,6 +165,18 @@ export function createRunPreparationStoreState(
 
     clearError() {
       set({ error: null })
+    },
+
+    restoreDraft(draft) {
+      set((state) =>
+        state.viewModel
+          ? {
+              viewModel: { ...state.viewModel, configuration: draft.configuration, nodeJob: null },
+              preflight: draft.preflight,
+              submittedRun: null,
+            }
+          : state,
+      )
     },
 
     discardSettledResults() {
