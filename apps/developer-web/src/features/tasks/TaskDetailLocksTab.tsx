@@ -61,8 +61,9 @@ export function LocksTab({
   const [submittedRequest, setSubmittedRequest] = useState<UnlockRequest | null>(null)
 
   const snapshot = query.data ?? null
-  const hasResources =
-    (snapshot?.locks.length ?? 0) > 0 || (snapshot?.activeDeviceTenancyCount ?? 0) > 0
+  // 面板首先要回答的是「这个任务有锁没有」，所以先把这个量单独拿出来。
+  const lockCount = snapshot?.locks.length ?? 0
+  const hasResources = lockCount > 0 || (snapshot?.activeDeviceTenancyCount ?? 0) > 0
   const readiness = taskResourceUnlockReadiness({
     taskStatus: snapshot?.taskStatus ?? null,
     lockCount: snapshot?.locks.length ?? 0,
@@ -199,8 +200,13 @@ export function LocksTab({
             <div className={clsx(taskDetailInspectorStyles['debug-lock-guard-head'])}>
               <DebugIcon name={readiness.kind === 'ready' ? 'unlock' : 'shield-alert'} size={18} />
               <div>
-                <strong>{readiness.kind === 'ready' ? '可整组解锁' : '当前不能整组解锁'}</strong>
-                {/* 有资源却仍不能解锁时必须说出为什么，不能只把按钮禁用。 */}
+                {/* 用户打开这个 tab 先要知道「有锁没有」。所以首行回答持有情况，
+                    门禁说明降为下面的补充（有资源却仍不能解锁时必须说清为什么）。 */}
+                <strong>
+                  {readiness.kind === 'ready'
+                    ? `持有 ${lockCount} 把执行锁，可整组解锁`
+                    : `持有 ${lockCount} 把执行锁`}
+                </strong>
                 {readiness.kind !== 'ready' && <p>{readiness.reason}</p>}
               </div>
             </div>
