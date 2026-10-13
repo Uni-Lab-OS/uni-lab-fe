@@ -154,12 +154,19 @@ function firstTaskMetadataText(
   return null
 }
 
-/** 返回任务命令的中文显示名。 */
+/**
+ * 返回任务命令的中文显示名。
+ *
+ * `unlock_resources`（解除任务全部锁）**仅供调试场景**的整组解锁使用，**不在
+ * AGENTS.md 的生产共享 Runtime 命令白名单内**（生产白名单只有 step / pause /
+ * resume / cancel）。这里补标签只为补齐类型与调试文案，不代表生产面板可下发它。
+ */
 function workflowTaskCommandLabel(type: WorkflowTaskCommandType): string {
   return {
     pause: '暂停',
     resume: '继续',
     step: '单步',
-    cancel: '取消'
+    cancel: '取消',
+    unlock_resources: '解除任务全部锁'
   }[type]
 }

@@ -5,6 +5,7 @@ import type {
   TaskRuntimePage,
   TaskRuntimeDetail,
   TaskRuntimePresentationPage,
+  WorkflowTaskExecutionLockSnapshot,
 } from './model'
 
 export interface WorkflowExecutionReadPort {
@@ -28,6 +29,14 @@ export interface WorkflowExecutionReadPort {
   }): Promise<TaskRuntimePage>
   getTaskDetail(taskUuid: string): Promise<TaskRuntimeDetail>
   listTaskJobs(taskUuid: string): Promise<readonly TaskJobSummary[]>
+  /**
+   * 读取任务级整组解锁（调试场景）所需的执行锁快照，只读不写。
+   * 真正解锁要另发 `unlock_resources` 命令；快照为空不代表解锁会成功。
+   */
+  getTaskExecutionLocks(
+    taskUuid: string,
+    signal?: AbortSignal,
+  ): Promise<WorkflowTaskExecutionLockSnapshot>
   getNodeJobDetail(jobUuid: string): Promise<WorkflowNodeJobDetail>
   listNodeJobFeedback(
     jobUuid: string,

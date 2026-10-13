@@ -5,7 +5,11 @@ import {
   decodeTaskPresentationPage,
   decodeTaskRuntimeDetail,
 } from './codec'
-import { decodeNodeJobDetail, decodeNodeJobFeedbackPage } from './codec'
+import {
+  decodeNodeJobDetail,
+  decodeNodeJobFeedbackPage,
+  decodeTaskExecutionLockSnapshot,
+} from './codec'
 import type { WorkflowExecutionReadPort } from './port'
 import type {
   NodeJobFeedbackResponse,
@@ -90,6 +94,16 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
       url: `${this.apiPrefix}/workflow-tasks/${encodeURIComponent(taskUuid)}/jobs`,
     })
     return decodeTaskJobs(response.data)
+  }
+
+  /** 读取任务级整组解锁的锁快照；它只读，解锁结果必须由后续投影确认。 */
+  async getTaskExecutionLocks(taskUuid: string, signal?: AbortSignal) {
+    const response = await this.transport.request<WorkflowExecutionRecord>({
+      method: 'GET',
+      url: `${this.apiPrefix}/workflow-tasks/${encodeURIComponent(taskUuid)}/execution-locks`,
+      ...(signal === undefined ? {} : { signal }),
+    })
+    return decodeTaskExecutionLockSnapshot(response.data)
   }
 
   async getNodeJobDetail(jobUuid: string) {

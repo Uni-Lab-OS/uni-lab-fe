@@ -210,4 +210,71 @@ describe('WorkflowExecutionReadClient', () => {
       items: [{ feedbackUuid: 'feedback-1', sequence: 1 }],
     })
   })
+
+  it('reads the task execution locks snapshot from the task-scoped endpoint', async () => {
+    let request: TransportRequest | undefined
+    const transport: RequestTransport = {
+      async request<Value>(input: TransportRequest): Promise<TransportResponse<Value>> {
+        request = input
+        return {
+          status: 200,
+          headers: {},
+          data: {
+            workflow_task_uuid: 'task-1',
+            task_status: 'failed',
+            active_device_tenancy_count: 2,
+            locks: [
+              {
+                uuid: 'lock-1',
+                workflow_task_uuid: 'task-1',
+                workflow_node_job_uuid: 'job-1',
+                lock_key: 'device:robot-1',
+                scope: 'device',
+                material_uuid: 'material-1',
+                site_uuid: null,
+                state: 'reserved',
+                claim_uuid: 'claim-1',
+                fencing_token: '7',
+                job_status: 'failed',
+                claim_state: 'held',
+                can_release: true,
+              },
+            ],
+          } as Value,
+        }
+      },
+    }
+    const controller = new AbortController()
+    const client = new WorkflowExecutionReadClient(transport)
+    const snapshot = await client.getTaskExecutionLocks('task/1', controller.signal)
+
+    expect(request).toMatchObject({
+      method: 'GET',
+      url: '/api/v1/workflow-tasks/task%2F1/execution-locks',
+      signal: controller.signal,
+    })
+    expect(snapshot).toMatchObject({
+      kind: 'workflow_task_execution_lock_snapshot',
+      source: 'os',
+      workflowTaskUuid: 'task-1',
+      taskStatus: 'failed',
+      activeDeviceTenancyCount: 2,
+      locks: [
+        {
+          uuid: 'lock-1',
+          workflowTaskUuid: 'task-1',
+          workflowNodeJobUuid: 'job-1',
+          lockKey: 'device:robot-1',
+          scope: 'device',
+          materialUuid: 'material-1',
+          state: 'reserved',
+          canRelease: true,
+        },
+      ],
+    })
+    // 线协议里的 site_uuid: null 与 release_block_reason 缺失都投影成「键缺席」：
+    // 这几个字段在契约里是可选项，不能补成空字符串伪造出一个安装位或原因。
+    expect(snapshot.locks[0]).not.toHaveProperty('siteUuid')
+    expect(snapshot.locks[0]).not.toHaveProperty('releaseBlockReason')
+  })
 })

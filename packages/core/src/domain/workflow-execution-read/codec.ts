@@ -10,6 +10,8 @@ import type {
   TaskRuntimePresentation,
   TaskRuntimePresentationJob,
   TaskRuntimePresentationPage,
+  WorkflowTaskExecutionLock,
+  WorkflowTaskExecutionLockSnapshot,
 } from './model'
 import { deriveWorkflowProgress } from './debug-facts'
 
@@ -148,6 +150,63 @@ export function decodeTaskJobs(value: unknown): readonly TaskJobSummary[] {
           ? value
           : []
   return items.map((item, index) => decodeTaskJob(asRecord(item, `task jobs[${index}]`)))
+}
+
+/**
+ * 解码任务级整组解锁的锁快照。`task_status` 与 `active_device_tenancy_count`
+ * 是解锁门禁的依据：缺失时宁可报错让面板显示可行动的错误，也不静默当成 0 或终态。
+ */
+export function decodeTaskExecutionLockSnapshot(value: unknown): WorkflowTaskExecutionLockSnapshot {
+  const raw = unwrapData(asRecord(value, 'task execution locks'))
+  const locks = raw.locks
+  if (!Array.isArray(locks)) invalid('task execution locks.locks must be an array')
+  return {
+    kind: 'workflow_task_execution_lock_snapshot',
+    source: 'os',
+    workflowTaskUuid: requiredString(
+      raw.workflow_task_uuid,
+      'task execution locks.workflow_task_uuid',
+    ),
+    taskStatus: requiredString(raw.task_status, 'task execution locks.task_status'),
+    locks: locks.map((lock, index) =>
+      decodeTaskExecutionLock(asRecord(lock, `task execution locks.locks[${index}]`)),
+    ),
+    activeDeviceTenancyCount: nonNegativeInteger(
+      raw.active_device_tenancy_count,
+      'task execution locks.active_device_tenancy_count',
+    ),
+    raw,
+  }
+}
+
+function decodeTaskExecutionLock(value: WorkflowExecutionRecord): WorkflowTaskExecutionLock {
+  // material_uuid / site_uuid / release_block_reason 在契约里是「可选」而非「可空」：
+  // 线协议给 null 或整段缺失都投影成「该键缺席」，避免 UI 把空值当成真实物料/安装位。
+  const materialUuid = optionalString(value.material_uuid)
+  const siteUuid = optionalString(value.site_uuid)
+  const releaseBlockReason = optionalString(value.release_block_reason)
+  return {
+    uuid: requiredString(value.uuid, 'task execution lock.uuid'),
+    workflowTaskUuid: requiredString(
+      value.workflow_task_uuid,
+      'task execution lock.workflow_task_uuid',
+    ),
+    workflowNodeJobUuid: nullableString(
+      value.workflow_node_job_uuid,
+      'task execution lock.workflow_node_job_uuid',
+    ),
+    lockKey: requiredString(value.lock_key, 'task execution lock.lock_key'),
+    scope: requiredString(value.scope, 'task execution lock.scope'),
+    ...(materialUuid === undefined ? {} : { materialUuid }),
+    ...(siteUuid === undefined ? {} : { siteUuid }),
+    state: requiredString(value.state, 'task execution lock.state'),
+    claimUuid: nullableString(value.claim_uuid, 'task execution lock.claim_uuid'),
+    fencingToken: nullableString(value.fencing_token, 'task execution lock.fencing_token'),
+    jobStatus: nullableString(value.job_status, 'task execution lock.job_status'),
+    claimState: nullableString(value.claim_state, 'task execution lock.claim_state'),
+    canRelease: booleanValue(value.can_release, 'task execution lock.can_release'),
+    ...(releaseBlockReason === undefined ? {} : { releaseBlockReason }),
+  }
 }
 
 export function decodeNodeJobDetail(value: unknown): WorkflowNodeJobDetail {

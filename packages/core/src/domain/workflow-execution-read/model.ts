@@ -152,8 +152,16 @@ export interface NodeJobFeedbackPage {
   readonly raw: Readonly<Record<string, unknown>>
 }
 
-/** Task 命令只表达意图；命令回执与 Task/Job 投影分开保存。 */
-export type WorkflowTaskCommandType = 'step' | 'pause' | 'resume' | 'cancel'
+/**
+ * Task 命令只表达意图；命令回执与 Task/Job 投影分开保存。
+ *
+ * `unlock_resources` 为任务级整组解锁，**仅供调试场景使用**：它绕过按节点粒度的
+ * 处置路径，一次性解除整个 Task 的执行锁与资源占用。
+ * **它不在 AGENTS.md 的生产共享 Runtime 命令白名单内**（生产白名单只有
+ * step/pause/resume/cancel），不得据此把生产命令面扩大；生产 UI 仍只应下发
+ * 这四类命令。
+ */
+export type WorkflowTaskCommandType = 'step' | 'pause' | 'resume' | 'cancel' | 'unlock_resources'
 
 export interface WorkflowTaskCommandRequest {
   readonly type: WorkflowTaskCommandType
@@ -172,12 +180,63 @@ export interface WorkflowTaskCommandReceipt {
   readonly type: WorkflowTaskCommandType
   readonly targetNodeUuid: string | null
   readonly idempotencyKey: string
+  /** HTTP 是否 durable accepted；不等于命令已生效，真实结果看 lifecycle 与 result。 */
   readonly accepted: boolean
   readonly lifecycle: WorkflowTaskCommandLifecycle
   readonly statusCode: number | null
   readonly result: Readonly<Record<string, unknown>>
   readonly createdAt: string | null
   readonly updatedAt: string | null
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+/**
+ * 任务级整组解锁专用端点（`GET /api/v1/workflow-tasks/{task_uuid}/execution-locks`）
+ * 返回的单把执行锁。
+ *
+ * 与任务详情投影里的 `WorkflowExecutionLockFact` **不是同一份数据**：后者取自
+ * Task 详情，常常为空，且形状不同（`lockUuid`/`blockingReasons` 等）。
+ * 本类型的字段一一对应锁快照端点的 snake_case 线协议字段。
+ */
+export interface WorkflowTaskExecutionLock {
+  readonly uuid: string
+  readonly workflowTaskUuid: string
+  /** 锁归属的节点 Job；任务级或尚未派发的锁为 null。 */
+  readonly workflowNodeJobUuid: string | null
+  readonly lockKey: string
+  readonly scope: string
+  /** 锁定的物料；非物料锁或未绑定时缺省。 */
+  readonly materialUuid?: string
+  /** 锁定的安装位；非安装位锁或未绑定时缺省。 */
+  readonly siteUuid?: string
+  /** 原始锁状态字符串；未知取值如实透传，不在 core 折叠成枚举。 */
+  readonly state: string
+  readonly claimUuid: string | null
+  readonly fencingToken: string | null
+  readonly jobStatus: string | null
+  readonly claimState: string | null
+  /** OS 判定这一把锁当前是否可释放；**不是**「整个任务能不能整组解锁」。 */
+  readonly canRelease: boolean
+  /** OS 给出的不可释放原因，用于向用户说明还差什么才能解锁。 */
+  readonly releaseBlockReason?: string
+}
+
+/**
+ * 任务级整组解锁所需的锁快照。它只是读取投影，**不代表已经解锁**；
+ * 解锁必须另发 unlock_resources 命令并以后续 Task/锁投影确认。
+ */
+export interface WorkflowTaskExecutionLockSnapshot {
+  readonly kind: 'workflow_task_execution_lock_snapshot'
+  readonly source: 'os'
+  readonly workflowTaskUuid: string
+  readonly taskStatus: string
+  readonly locks: readonly WorkflowTaskExecutionLock[]
+  /**
+   * 仍持有设备租约的数量。必须和 locks 一起看：整组解锁要解除的是任务持有的
+   * 全部资源，设备占用也算可解资源；只看 locks 会把「有占用但没锁」的任务
+   * 误判成无可解资源。
+   */
+  readonly activeDeviceTenancyCount: number
   readonly raw: Readonly<Record<string, unknown>>
 }
 
