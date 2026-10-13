@@ -24,7 +24,10 @@ export function MaterialManagement({
   )
   const [keyword, setKeyword] = useState('')
   const normalizedKeyword = keyword.trim().toLowerCase()
-  const allNodes = graph?.nodes ?? []
+  // 图还没加载/加载失败时也必须给出稳定引用：`?? []` 每次渲染都是新数组，
+  // 会让 nodes/treeData 与下面的 effect 每次都变化，触发 React 的无限更新保护
+  // （表现为刚点开「物料管理」就整页空白）。
+  const allNodes = useMemo(() => graph?.nodes ?? [], [graph])
   const nodes = useMemo(
     () => filterMaterialNodes(allNodes, normalizedKeyword),
     [allNodes, normalizedKeyword],
@@ -43,7 +46,9 @@ export function MaterialManagement({
   const treeData = useMemo(() => buildTree(nodes), [nodes])
   const [expandedKeys, setExpandedKeys] = useState<string[]>([])
   useEffect(() => {
-    setExpandedKeys(normalizedKeyword ? collectExpandableKeys(treeData) : [])
+    const next = normalizedKeyword ? collectExpandableKeys(treeData) : EMPTY_EXPANDED_KEYS
+    // 内容没变就不写 state：即使 deps 因外部引用变化重跑，也不能制造新数组。
+    setExpandedKeys((current) => (sameKeys(current, next) ? current : next))
   }, [treeData, normalizedKeyword])
   return (
     <div
@@ -159,4 +164,11 @@ function collectExpandableKeys(treeData: readonly TreeDataNode[]): string[] {
     ...(node.children?.length ? [String(node.key)] : []),
     ...collectExpandableKeys(node.children ?? []),
   ])
+}
+
+/** 空展开集必须是同一个常量引用，避免每次渲染都产生新数组。 */
+const EMPTY_EXPANDED_KEYS: string[] = []
+
+function sameKeys(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((key, index) => key === right[index])
 }
