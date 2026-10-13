@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type {
   NodeJobFeedbackPage,
   WorkflowExecutionLockFact,
@@ -14,6 +14,22 @@ import { ObservabilityTab } from './TaskDetailObservabilityTab'
 import { ResourcesTab } from './TaskDetailResourcesTab'
 import { TaskExecutionTimeline, type TaskExecutionTimelineItem } from './TaskExecutionTimeline'
 import type { TimelineEvent } from './taskDetailModel'
+import {
+  createStationPortStub,
+  createStudioBackendStub,
+  makeStationError,
+  makeStationSnapshot,
+  StationProviders,
+} from '../../../test/stationHandlingStub'
+
+const stationPort = createStationPortStub()
+const backend = createStudioBackendStub({ core: { stationErrorHandling: stationPort } })
+vi.mock('../../app/backend', () => ({ createStudioBackend: () => backend }))
+
+// 每个用例后把工站快照还原成「运行中、无错误」的安静基线，避免用例相互污染。
+afterEach(() => {
+  stationPort.getSnapshot.mockImplementation(async () => makeStationSnapshot())
+})
 
 const event = (status: TimelineEvent['status']): TimelineEvent => ({
   id: 'job-1',
@@ -101,10 +117,104 @@ describe('developer-web task inspector components', () => {
     ['manual', '需要人工确认'],
     ['unknown', '结果待核对'],
     ['waiting', '等待资源'],
-    ['success', '没有待处理异常'],
+    ['success', '这个节点没有异常'],
+    ['failed', '节点执行失败'],
   ] as const)('renders the %s issue state without collapsing it into failure', (status, label) => {
-    render(<IssuesTab event={event(status)} />)
+    render(<IssuesTab event={event(status)} />, { wrapper: StationProviders })
     expect(screen.getByText(label)).toBeInTheDocument()
+  })
+
+  it('never reports a failed node as having nothing to handle', () => {
+    // 回归：failed 曾经落到 else 分支被显示成「没有待处理异常」。
+    render(<IssuesTab event={event('failed')} />, { wrapper: StationProviders })
+    expect(screen.queryByText('没有待处理异常')).not.toBeInTheDocument()
+    expect(screen.getByText('节点执行失败')).toBeInTheDocument()
+  })
+
+  it('keeps a node traceback out of the summary and folds the raw text', async () => {
+    const traceback = [
+      'Traceback (most recent call last):',
+      '  File "/os/unilabos/ros/nodes/base_device_node.py", line 3959, in safe_task_wrapper',
+      '    result = await func(**kwargs)',
+      'RuntimeError: SZLAB_TEST_NODE_FAILURE：预期的节点测试错误，剩余失败次数 0',
+    ].join('\n')
+    const job = {
+      jobUuid: 'job-1',
+      status: 'failed',
+      controlData: {},
+      errorInfo: [{ message: traceback }],
+      raw: {},
+    } as unknown as WorkflowNodeJobDetail
+
+    render(<IssuesTab event={event('failed')} job={job} />, { wrapper: StationProviders })
+
+    // 摘要区只出现最后一行异常，不出现 "Traceback (most recent call last)"。
+    expect(
+      screen.getByText('RuntimeError: SZLAB_TEST_NODE_FAILURE：预期的节点测试错误，剩余失败次数 0'),
+    ).toBeInTheDocument()
+    const summaryBox = screen.getByText('节点状态').parentElement
+    expect(summaryBox?.textContent).toContain('RuntimeError: SZLAB_TEST_NODE_FAILURE')
+    expect(summaryBox?.textContent).not.toContain('Traceback (most recent call last)')
+    // 完整原文仍然保留，只是折进手风琴（antd Collapse 默认收起、面板懒渲染）。
+    const rawHeader = screen.getByText(/OS 返回的完整错误信息/)
+    expect(rawHeader.closest('.ant-collapse-header')).not.toBeNull()
+    fireEvent.click(rawHeader)
+    await waitFor(() =>
+      expect(document.querySelector('pre')?.textContent).toContain(
+        'Traceback (most recent call last):',
+      ),
+    )
+  })
+
+  it('re-reads the station snapshot once when a failed node has no error fact yet', async () => {
+    render(<IssuesTab event={event('failed')} />, { wrapper: StationProviders })
+
+    const button = await screen.findByRole('button', { name: '重新读取工站处置状态' })
+    const callsBeforeClick = stationPort.getSnapshot.mock.calls.length
+    // 首次挂载读取之后，failed 节点还必须主动补读一次，否则页面会停在旧快照上。
+    expect(callsBeforeClick).toBeGreaterThan(1)
+
+    fireEvent.click(button)
+    expect(stationPort.getSnapshot.mock.calls.length).toBeGreaterThan(callsBeforeClick)
+  })
+
+  it('re-reads the station snapshot only once per failed node', async () => {
+    const { rerender } = render(<IssuesTab event={event('failed')} />, {
+      wrapper: StationProviders,
+    })
+    await waitFor(() => expect(stationPort.getSnapshot.mock.calls.length).toBeGreaterThan(1))
+    const settled = stationPort.getSnapshot.mock.calls.length
+
+    // 同一个失败节点重复渲染不能反复补读，否则会把工站接口打爆。
+    rerender(<IssuesTab event={event('failed')} />)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(stationPort.getSnapshot.mock.calls.length).toBe(settled)
+  })
+
+  it.each([
+    ['waiting', '节点在等待运行时条件'],
+    ['manual', '等待的是人工确认'],
+    ['success', '已经成功'],
+    ['unknown', '结果未知'],
+  ] as const)('explains why a %s node has no station decision', async (status, expected) => {
+    render(<IssuesTab event={event(status)} />, { wrapper: StationProviders })
+    expect(await screen.findByText(new RegExp(expected))).toBeInTheDocument()
+  })
+
+  it('renders the decision entry for the station error bound to this node job', async () => {
+    stationPort.getSnapshot.mockResolvedValue(
+      makeStationSnapshot({
+        mode: 'PAUSED',
+        errors: [makeStationError({ sourceJobUuid: 'job-1' })],
+      }),
+    )
+
+    render(<IssuesTab event={event('failed')} />, { wrapper: StationProviders })
+
+    expect(await screen.findByRole('button', { name: '重试节点' })).toBeInTheDocument()
+    expect(screen.getByText('异常信息')).toBeInTheDocument()
+    // 有错误事实时不再给出「没有处置入口」的说明。
+    expect(screen.queryByRole('button', { name: '重新读取工站处置状态' })).not.toBeInTheDocument()
   })
 
   it('shows manual confirmation actions from the authoritative node job projection', () => {
@@ -131,7 +241,7 @@ describe('developer-web task inspector components', () => {
       raw: { manual_confirmation: { status: 'pending', actions: ['approve'] } },
     } as unknown as WorkflowNodeJobDetail
 
-    render(<IssuesTab event={event('running')} job={job} />)
+    render(<IssuesTab event={event('running')} job={job} />, { wrapper: StationProviders })
     expect(screen.getByText('需要人工确认')).toBeInTheDocument()
   })
 

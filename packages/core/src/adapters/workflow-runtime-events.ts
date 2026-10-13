@@ -238,11 +238,27 @@ function parseSseFrame(value: string): SseFrame | null {
 }
 
 function parseRuntimeEvent(frame: SseFrame): WorkflowRuntimeInvalidation | null {
-  if (frame.event !== 'workflow.runtime.changed' && frame.event !== 'device_action_task.changed') {
+  if (
+    frame.event !== 'workflow.runtime.changed' &&
+    frame.event !== 'device_action_task.changed' &&
+    frame.event !== 'station.error_handling.changed'
+  ) {
     return null
   }
   try {
     const data = JSON.parse(frame.data) as Record<string, unknown>
+    // 工站级失效通知只带 station_id，指向的是一条工站事实而不是某个 Task：
+    // 它同样只是 invalidation，前端收到后必须重新读取工站快照。
+    if (frame.event === 'station.error_handling.changed') {
+      const stationId = data.station_id
+      return {
+        id: frame.id,
+        event: frame.event,
+        workflowTaskUuid: null,
+        stationId: typeof stationId === 'string' && stationId.trim() !== '' ? stationId : null,
+        raw: data,
+      }
+    }
     const key = frame.event === 'workflow.runtime.changed' ? 'workflow_task_uuid' : 'task_uuid'
     // OS 允许在失效通知中附带 dispatch_gate 等诊断字段；前端只依赖稳定的
     // Task UUID，不能因为扩展字段存在而丢弃整条刷新通知。
@@ -253,6 +269,7 @@ function parseRuntimeEvent(frame: SseFrame): WorkflowRuntimeInvalidation | null 
       id: frame.id,
       event: frame.event,
       workflowTaskUuid: data[key],
+      stationId: null,
       raw: data,
     }
   } catch {

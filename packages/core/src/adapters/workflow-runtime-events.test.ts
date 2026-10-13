@@ -40,10 +40,56 @@ describe('createWorkflowRuntimeEvents', () => {
       id: 'event-1',
       event: 'workflow.runtime.changed',
       workflowTaskUuid: 'task-1',
+      stationId: null,
       raw: { dispatch_gate: 'active', workflow_task_uuid: 'task-1' },
     })
 
     subscription.dispose()
+    runtime.dispose()
+  })
+
+  it('treats the station error invalidation as a first-class refresh signal', async () => {
+    const controllers: ReadableStreamDefaultController<Uint8Array>[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controllers.push(controller)
+          },
+        })
+        return new Response(stream, { status: 200 })
+      }),
+    )
+
+    const events: Array<Record<string, unknown>> = []
+    const runtime = createWorkflowRuntimeEvents({ baseUrl: 'https://os.example.test' })
+    runtime.subscribe((event) => events.push(event as unknown as Record<string, unknown>))
+
+    await vi.waitFor(() => expect(controllers).toHaveLength(1))
+    controllers[0]?.enqueue(
+      new TextEncoder().encode(
+        'id: event-2\nevent: station.error_handling.changed\ndata: {"station_id":"local"}\n\n',
+      ),
+    )
+    await vi.waitFor(() => expect(events).toHaveLength(1))
+    // 工站事件指向工站而不是 Task：不能编造 workflowTaskUuid。
+    expect(events[0]).toMatchObject({
+      id: 'event-2',
+      event: 'station.error_handling.changed',
+      workflowTaskUuid: null,
+      stationId: 'local',
+    })
+
+    // 载荷损坏时宁可丢弃这一帧，也不发一条身份不明的失效通知。
+    controllers[0]?.enqueue(
+      new TextEncoder().encode(
+        'id: event-3\nevent: station.error_handling.changed\ndata: {oops\n\n',
+      ),
+    )
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(events).toHaveLength(1)
+
     runtime.dispose()
   })
 
@@ -151,9 +197,12 @@ describe('createWorkflowRuntimeEvents', () => {
     await vi.waitFor(() => expect(events).toHaveLength(1))
     controllers[0]?.enqueue(
       new TextEncoder().encode(
-        ['id: event-2', 'event: device_action_task.changed', 'data: {"task_uuid":"task-2"}', ''].join(
-          '\n',
-        ) + '\n',
+        [
+          'id: event-2',
+          'event: device_action_task.changed',
+          'data: {"task_uuid":"task-2"}',
+          '',
+        ].join('\n') + '\n',
       ),
     )
     await vi.waitFor(() => expect(events).toHaveLength(2))

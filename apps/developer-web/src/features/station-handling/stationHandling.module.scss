@@ -1,0 +1,453 @@
+/* 工站异常处置：横幅（发现）、总览工站区（工站级决策）、节点抽屉决定区。
+   状态一律 tone + 文案 + 图标三重表达，颜色只作辅助。 */
+
+/* ── 应用壳常驻横幅 ─────────────────────────────────────── */
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--bh-color-border-1);
+  background: var(--bh-color-fill-2);
+}
+
+.banner--attention {
+  border-bottom-color: var(--bh-color-warning-focus);
+  background: var(--bh-color-warning-subtle);
+}
+
+.banner--error {
+  border-bottom-color: var(--bh-color-error-focus);
+  background: var(--bh-color-error-subtle);
+}
+
+.banner--ok {
+  border-bottom-color: var(--bh-color-success-focus);
+  background: var(--bh-color-success-subtle);
+}
+
+.status-icon {
+  display: grid;
+  place-items: center;
+  margin-top: 1px;
+  color: var(--bh-color-text-description);
+}
+
+.banner--attention .status-icon {
+  color: var(--bh-color-warning-default);
+}
+
+.banner--error .status-icon {
+  color: var(--bh-color-error-default);
+}
+
+.banner--ok .status-icon {
+  color: var(--bh-color-success-default);
+}
+
+.banner-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.banner-title {
+  display: block;
+  font-size: var(--bh-font-size-md);
+  font-weight: var(--bh-font-weight-semibold);
+  color: var(--bh-color-text-default);
+  overflow-wrap: anywhere;
+}
+
+.banner-text {
+  margin: 3px 0 0;
+  font-size: var(--bh-font-size-xs);
+  line-height: 1.6;
+  color: var(--bh-color-text-description);
+  overflow-wrap: anywhere;
+}
+
+.banner-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.banner-problem {
+  margin: 6px 0 0;
+  font-size: var(--bh-font-size-xs);
+  line-height: 1.6;
+  color: var(--bh-color-error-default);
+  overflow-wrap: anywhere;
+}
+
+/* ── 总览：工站状态与错误列表 ───────────────────────────── */
+
+.station-card {
+  padding: 16px;
+  border: 1px solid var(--bh-color-border-1);
+  border-radius: var(--bh-radius-lg);
+  background: var(--bh-color-primary-white);
+  min-width: 0;
+}
+
+.station-card--attention {
+  border-color: var(--bh-color-warning-focus);
+  background: var(--bh-color-warning-subtle);
+}
+
+.station-card--error {
+  border-color: var(--bh-color-error-focus);
+  background: var(--bh-color-error-subtle);
+}
+
+.station-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.station-head .status-icon {
+  margin-top: 2px;
+}
+
+.station-title {
+  display: block;
+  font-size: var(--bh-font-size-lg);
+  font-weight: var(--bh-font-weight-semibold);
+  color: var(--bh-color-text-default);
+  overflow-wrap: anywhere;
+}
+
+.station-detail {
+  margin: 4px 0 0;
+  font-size: var(--bh-font-size-xs);
+  line-height: 1.6;
+  color: var(--bh-color-text-description);
+  overflow-wrap: anywhere;
+}
+
+.station-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.error-list {
+  margin-top: 14px;
+  border: 1px solid var(--bh-color-border-1);
+  border-radius: var(--bh-radius-md);
+  background: var(--bh-color-primary-white);
+  overflow: hidden;
+}
+
+.error-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--bh-color-border-0);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--bh-motion-fast) ease;
+}
+
+.error-row:last-child {
+  border-bottom: 0;
+}
+
+.error-row:not(.error-row--pending-command):hover {
+  background: var(--bh-color-fill-1);
+}
+
+.error-row:not(.error-row--pending-command):active {
+  background: var(--bh-color-fill-2);
+}
+
+.error-row:focus-visible {
+  outline: 2px solid var(--bh-color-primary-focus);
+  outline-offset: -2px;
+}
+
+/* 待应用命令不是「可点进去」的错误行：不继承 pointer/hover 暗示。 */
+.error-row--pending-command {
+  cursor: default;
+}
+
+.error-row-icon {
+  color: var(--bh-color-error-default);
+}
+
+.error-row--pending-command .error-row-icon {
+  color: var(--bh-color-warning-default);
+}
+
+.error-row-main {
+  min-width: 0;
+}
+
+.error-row-title {
+  display: block;
+  font-size: var(--bh-font-size-xs);
+  font-weight: var(--bh-font-weight-semibold);
+  color: var(--bh-color-text-default);
+  overflow-wrap: anywhere;
+}
+
+.error-row-text {
+  display: block;
+  margin-top: 3px;
+  font-size: var(--bh-font-size-xs);
+  line-height: 1.5;
+  color: var(--bh-color-text-description);
+  overflow-wrap: anywhere;
+}
+
+.error-row-meta {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--bh-font-family-mono);
+  font-size: 11px;
+  color: var(--bh-color-text-description);
+  overflow-wrap: anywhere;
+}
+
+.error-row-action {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.error-row-go {
+  color: var(--bh-color-primary);
+  font-size: var(--bh-font-size-xs);
+  font-weight: var(--bh-font-weight-semibold);
+  white-space: nowrap;
+}
+
+/* 工站级恢复卡片：与节点决定区分开，避免被读成「同一次提交的一部分」。
+   只在真的可以恢复时出现卡片；不能恢复时退化成一行当前状态说明。 */
+.station-resume {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--bh-color-border-1);
+  border-radius: var(--bh-radius-lg);
+  background: var(--bh-color-primary-white);
+  min-width: 0;
+}
+
+/* ── 节点抽屉：决定区 ───────────────────────────────────── */
+
+/* 与上方卡片的间距由外层 `.debug-tab-content` 的 gap 统一负责，
+   这里不能再加 margin，否则两处间距会不相等。 */
+.decision {
+  margin-top: 0;
+  padding: 16px;
+  border: 1px solid var(--bh-color-border-1);
+  border-radius: var(--bh-radius-lg);
+  background: var(--bh-color-primary-white);
+  min-width: 0;
+}
+
+.decision-title {
+  display: block;
+  font-size: var(--bh-font-size-lg);
+  font-weight: var(--bh-font-weight-semibold);
+  color: var(--bh-color-text-default);
+  overflow-wrap: anywhere;
+}
+
+.decision-detail {
+  margin: 4px 0 0;
+  font-size: var(--bh-font-size-xs);
+  line-height: 1.6;
+  color: var(--bh-color-text-description);
+  overflow-wrap: anywhere;
+}
+
+.decision-field {
+  display: block;
+  margin-top: 12px;
+}
+
+.decision-field > span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: var(--bh-font-size-xs);
+  font-weight: var(--bh-font-weight-semibold);
+  color: var(--bh-color-text-description);
+}
+
+/* 说明输入框必须和设计系统同源：白底、令牌边框、清晰焦点环，
+   不能露出浏览器原生 textarea 的灰底默认样式。 */
+.decision-field textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 68px;
+  padding: 9px 11px;
+  border: 1px solid var(--bh-color-border-1);
+  border-radius: var(--bh-radius-md);
+  background: var(--bh-color-primary-white);
+  color: var(--bh-color-text-default);
+  font-family: inherit;
+  font-size: var(--bh-font-size-xs);
+  line-height: 1.6;
+  resize: vertical;
+  transition:
+    border-color var(--bh-motion-fast) ease,
+    box-shadow var(--bh-motion-fast) ease;
+}
+
+.decision-field textarea::placeholder {
+  color: var(--bh-color-text-placeholder);
+}
+
+.decision-field textarea:hover:not(:disabled) {
+  border-color: var(--bh-color-primary-border);
+}
+
+.decision-field textarea:focus,
+.decision-field textarea:focus-visible {
+  outline: none;
+  border-color: var(--bh-color-primary-default);
+  box-shadow: 0 0 0 3px var(--bh-color-primary-focus);
+}
+
+.decision-field textarea:disabled {
+  background: var(--bh-color-fill-1);
+  cursor: not-allowed;
+}
+
+.decision-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--bh-color-border-1);
+  border-radius: var(--bh-radius-md);
+  background: var(--bh-color-primary-white);
+  font-size: var(--bh-font-size-xs);
+  line-height: 1.55;
+  cursor: pointer;
+  transition:
+    border-color var(--bh-motion-fast) ease,
+    background-color var(--bh-motion-fast) ease;
+}
+
+.decision-check:hover {
+  border-color: var(--bh-color-primary-border);
+  background: var(--bh-color-fill-0);
+}
+
+.decision-check:focus-within {
+  outline: 2px solid var(--bh-color-primary-focus);
+  outline-offset: 1px;
+}
+
+.decision-check input {
+  flex: 0 0 auto;
+  margin: 2px 0 0;
+  width: 15px;
+  height: 15px;
+}
+
+.decision-hint {
+  margin: 8px 0 0;
+  font-size: var(--bh-font-size-xs);
+  line-height: 1.6;
+  color: var(--bh-color-text-description);
+  overflow-wrap: anywhere;
+}
+
+.decision-hint--warn {
+  color: var(--bh-color-warning-default);
+}
+
+.decision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* 只负责布局高度：字号与字重由 ConfigProvider 的 Button 令牌统一给出。 */
+.decision-actions :global(.ant-btn) {
+  height: 28px;
+}
+
+.confirm {
+  margin-top: 12px;
+  padding: 11px;
+  border: 1px solid var(--bh-color-error-focus);
+  border-radius: var(--bh-radius-md);
+  background: var(--bh-color-error-subtle);
+}
+
+.confirm p {
+  margin: 0;
+  font-size: var(--bh-font-size-xs);
+  line-height: 1.6;
+  color: var(--bh-color-text-default);
+  overflow-wrap: anywhere;
+}
+
+.confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.problem {
+  margin: 10px 0 0;
+  font-size: var(--bh-font-size-xs);
+  line-height: 1.6;
+  color: var(--bh-color-error-default);
+  overflow-wrap: anywhere;
+}
+
+.note {
+  margin: 10px 0 0;
+  font-size: var(--bh-font-size-xs);
+  line-height: 1.6;
+  color: var(--bh-color-text-description);
+  overflow-wrap: anywhere;
+}
+
+/* 窄屏：横幅按钮换行到下一行，卡片内边距收紧；异常处置必须在窄抽屉里可用。 */
+@media (max-width: 720px) {
+  .banner {
+    padding: 10px 14px;
+  }
+
+  .banner-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .station-card,
+  .decision {
+    padding: 12px;
+  }
+
+  .error-row {
+    grid-template-columns: 20px minmax(0, 1fr);
+    row-gap: 8px;
+  }
+
+  .error-row-action,
+  .error-row-go {
+    grid-column: 2;
+    justify-self: start;
+  }
+}

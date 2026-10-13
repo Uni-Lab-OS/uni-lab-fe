@@ -13,6 +13,9 @@ import { AsyncState } from '../../components/ui/AsyncState'
 import type { StudioRoute } from '../../components/AppShell'
 import { TaskTable } from './TaskTable'
 import { OverviewSkeleton, SummaryStrip, TaskColumn } from './OverviewSections'
+import { StationHandlingSection } from '../station-handling/StationHandlingSection'
+import { useStationHandling } from '../station-handling/StationHandlingProvider'
+import { stationStatusPresentation } from '../station-handling/stationHandlingPresentation'
 import { toTaskRow, type TaskRow } from './taskPresentation'
 import { useBackend } from '../../app/BackendProvider'
 import { DebugTargetModal, type DebugTargetKind } from './DebugTargetModal'
@@ -168,6 +171,9 @@ export function OverviewPage({
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('all')
   const [debugTargetKind, setDebugTargetKind] = useState<DebugTargetKind | null>(null)
+  const [stationDialogOpen, setStationDialogOpen] = useState(false)
+  const { snapshot, readError } = useStationHandling()
+  const stationStatus = stationStatusPresentation(snapshot, readError)
   const rows = useMemo(() => (query.data?.items ?? []).map(toTaskRow), [query.data])
   const filteredRows = rows.filter((row) => {
     const matchesKeyword = `${row.name} ${row.workflowName} ${row.task.taskUuid}`
@@ -186,6 +192,29 @@ export function OverviewPage({
     previewTasksEnabled && attentionRows.length === 0 ? previewAttentionRows : attentionRows
   const openTask = (row: TaskRow) =>
     onNavigate('tasks', `?task=${encodeURIComponent(row.task.taskUuid)}`)
+  const openTaskByUuid = (taskUuid: string) =>
+    onNavigate('tasks', `?task=${encodeURIComponent(taskUuid)}`)
+  // 工站错误事实只带 sourceTaskUuid，名称要从任务投影里补。
+  const taskNames = useMemo(() => new Map(rows.map((row) => [row.task.taskUuid, row.name])), [rows])
+  // 工站级入口收敛到「异常」指标卡：发现 + 去处置都在这里，首屏不再重复横幅与工站卡片。
+  const openErrors = (snapshot?.errors ?? []).filter((item) => item.status === 'open')
+  const pendingCommands = (snapshot?.controlCommands ?? []).filter((item) => item.needsApply).length
+  const stationAlert = stationStatus.needsAction
+    ? {
+        hint: stationStatus.label,
+        primary:
+          openErrors.length > 0
+            ? { label: '去处置', onClick: () => openTaskByUuid(openErrors[0].sourceTaskUuid) }
+            : {
+                label: pendingCommands > 0 ? '继续应用' : '恢复调度',
+                onClick: () => setStationDialogOpen(true),
+              },
+        secondary:
+          openErrors.length > 1 || pendingCommands > 0
+            ? { label: '查看全部', onClick: () => setStationDialogOpen(true) }
+            : undefined,
+      }
+    : undefined
   const newDebugMenu: MenuProps['items'] = [
     {
       key: 'device',
@@ -224,7 +253,24 @@ export function OverviewPage({
         emptyDescription="当前后端没有返回任务记录"
         loadingContent={<OverviewSkeleton />}
       >
-        <SummaryStrip rows={rows} />
+        <SummaryStrip rows={rows} stationAlert={stationAlert} />
+        {/* 工站级动作（恢复调度、继续应用、跨任务错误清单）收在按需打开的对话框里，
+            默认不占用首屏；错误事实本身仍由每条错误所在的节点抽屉处置。 */}
+        <Modal
+          open={stationDialogOpen}
+          onCancel={() => setStationDialogOpen(false)}
+          footer={null}
+          width={620}
+          title="工站异常处置"
+        >
+          <StationHandlingSection
+            taskNames={taskNames}
+            onOpenTask={(taskUuid) => {
+              setStationDialogOpen(false)
+              openTaskByUuid(taskUuid)
+            }}
+          />
+        </Modal>
         <div
           className={clsx(
             overviewPageStyles['overview-columns'],

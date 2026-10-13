@@ -44,6 +44,23 @@ describe('task presentation', () => {
     expect(formatDateTime('2026-09-24T05:23:58.676408Z')).toMatch(/^2026-09-24 \d{2}:23:58$/)
   })
 
+  it('falls back to the workflow snapshot name and ignores generic console descriptions', () => {
+    // 列表 DTO 经常没有 description，但有 workflow_snapshot：必须和详情页给出同一个名字。
+    expect(
+      taskDisplayName(task({ workflow_snapshot: { workflow: { name: 'SZLab 标准物料转运' } } })),
+    ).toBe('SZLab 标准物料转运')
+    expect(
+      taskDisplayName(
+        task({
+          description: '从实验运营控制台创建',
+          workflow_snapshot: { workflow: { name: '错误处置验收：失败后重试' } },
+        }),
+      ),
+    ).toBe('错误处置验收：失败后重试')
+    // 什么名字都取不到时给出可定位的短 UUID，而不是含糊的「未命名任务」。
+    expect(taskDisplayName(task({}))).toBe('任务 task-1')
+  })
+
   it('hides a duplicate card subtitle but keeps meaningful context', () => {
     expect(
       taskSecondaryText({
@@ -88,7 +105,8 @@ describe('task presentation', () => {
     expect(row).toMatchObject({
       progress: 25,
       status: 'waiting',
-      name: '未命名任务',
+      // 没有任何可读名字时退到短 UUID：含糊的「未命名任务」无法区分多条错误事实。
+      name: '任务 task-1',
       workflowName: 'workflow-1',
     })
     const attentionRow = toTaskRow({

@@ -1,0 +1,146 @@
+import { vi } from 'vitest'
+import type { ReactNode } from 'react'
+import type {
+  StationCommandOptions,
+  StationCommandReceipt,
+  StationDecisionRequest,
+  StationErrorFact,
+  StationHandlingSnapshot,
+  StationResumeRequest,
+  StationSessionCompleteRequest,
+} from '@unilab-fe/core'
+import { BackendProvider } from '../src/app/BackendProvider'
+import { StationHandlingProvider } from '../src/features/station-handling/StationHandlingProvider'
+
+/** 测试用的工站快照。默认是「工站正常运行、没有错误事实」这个安静状态。 */
+export function makeStationSnapshot(
+  overrides: Partial<StationHandlingSnapshot> = {},
+): StationHandlingSnapshot {
+  return {
+    kind: 'station_handling_snapshot',
+    source: 'os',
+    stationId: 'local',
+    mode: 'RUNNING',
+    stationVersion: 1,
+    errorEpoch: 0,
+    snapshotId: 'local:1:0',
+    activeSessionId: null,
+    activeSession: null,
+    errors: [],
+    controlCommands: [],
+    raw: {},
+    ...overrides,
+  }
+}
+
+export function makeStationError(overrides: Partial<StationErrorFact> = {}): StationErrorFact {
+  return {
+    kind: 'station_error_fact',
+    source: 'os',
+    decisionId: 'decision-1',
+    decisionVersion: 2,
+    stage: 'DECISION_REQUIRED',
+    status: 'open',
+    // 默认与 OS 的 OPTIONS 一致；用例可以覆盖成空数组表示 OS 没有声明选项。
+    options: [
+      { id: 'cancel_task', label: '取消当前任务' },
+      { id: 'retry_current_node', label: '重试当前节点' },
+      { id: 'enter_manual_handling', label: '进入手动处理' },
+    ],
+    sessionId: null,
+    sourceTaskUuid: 'task-1',
+    sourceJobUuid: 'job-1',
+    message: 'SZLAB_TEST_NODE_FAILURE：预期的节点测试错误',
+    sourceNodeId: null,
+    errorPhase: 'execution',
+    openedAt: '2026-01-01T00:00:00Z',
+    raw: {},
+    ...overrides,
+  }
+}
+
+export function makeStationReceipt(
+  overrides: Partial<StationCommandReceipt> = {},
+): StationCommandReceipt {
+  return {
+    kind: 'station_command_receipt',
+    source: 'os',
+    commandUuid: 'command-1',
+    operation: 'retry_current_node',
+    status: 'APPLIED',
+    snapshot: null,
+    applicationError: null,
+    dispatchError: null,
+    raw: {},
+    ...overrides,
+  }
+}
+
+/** 只暴露被测组件真正读取的字段；不模拟真实 HTTP 语义。 */
+export function createStationPortStub(snapshot: StationHandlingSnapshot = makeStationSnapshot()) {
+  return {
+    getSnapshot: vi.fn(async (_signal?: AbortSignal) => snapshot),
+    // 参数必须显式声明：否则 mock.calls 的元组是空的，断言请求字段时拿不到类型。
+    decide: vi.fn(
+      async (
+        _decisionId: string,
+        _request: StationDecisionRequest,
+        _options: StationCommandOptions,
+      ) => makeStationReceipt(),
+    ),
+    resume: vi.fn(async (_request: StationResumeRequest, _options: StationCommandOptions) =>
+      makeStationReceipt({ operation: 'resume' }),
+    ),
+    applyControlCommand: vi.fn(async (_commandUuid: string) =>
+      makeStationReceipt({ operation: 'apply' }),
+    ),
+    completeSession: vi.fn(
+      async (
+        _sessionId: string,
+        _request: StationSessionCompleteRequest,
+        _options: StationCommandOptions,
+      ) => makeStationReceipt({ operation: 'complete-session' }),
+    ),
+    returnSession: vi.fn(
+      async (
+        _sessionId: string,
+        _request: StationSessionCompleteRequest,
+        _options: StationCommandOptions,
+      ) => makeStationReceipt({ operation: 'return-session' }),
+    ),
+  }
+}
+
+export function createStudioBackendStub(
+  options: {
+    readonly dispose?: () => void
+    readonly core?: Record<string, unknown>
+    readonly config?: Record<string, unknown>
+  } = {},
+) {
+  return {
+    dispose: options.dispose ?? vi.fn(),
+    config: {
+      id: 'test-backend',
+      name: 'Test OS',
+      protocol: 'unilab/v1',
+      apiUrl: 'http://os.test',
+      auth: 'none',
+      serverKind: 'edge',
+      workspaceMode: 'singleton',
+      stationId: 'local',
+      ...options.config,
+    },
+    core: { ...options.core },
+    getCapabilityStatus: () => ({ available: true, reason: null }),
+  }
+}
+
+/** 需要工站处置上下文的组件都必须在这些 provider 里渲染。 */
+export function StationProviders({ children }: { children: ReactNode }) {
+  return (
+    <BackendProvider>
+      <StationHandlingProvider>{children}</StationHandlingProvider>
+    </BackendProvider>
+  )
+}

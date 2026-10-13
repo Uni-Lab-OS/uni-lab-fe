@@ -183,8 +183,14 @@ export interface WorkflowTaskCommandReceipt {
 
 export interface WorkflowRuntimeInvalidation {
   readonly id: string
-  readonly event: 'workflow.runtime.changed' | 'device_action_task.changed'
-  readonly workflowTaskUuid: string
+  readonly event:
+    | 'workflow.runtime.changed'
+    | 'device_action_task.changed'
+    | 'station.error_handling.changed'
+  /** 事件指向的 Task；工站级事件与单个 Task 无关，如实为 null，不编造 UUID。 */
+  readonly workflowTaskUuid: string | null
+  /** 事件指向的工站；非工站级事件为 null。 */
+  readonly stationId: string | null
   readonly raw: Readonly<Record<string, unknown>>
 }
 

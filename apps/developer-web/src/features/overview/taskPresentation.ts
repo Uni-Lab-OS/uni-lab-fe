@@ -67,8 +67,22 @@ export function formatDateTime(value: string): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
+/**
+ * 任务的展示名。列表、总览工站区和任务详情必须给出同一个名字：
+ * 解析顺序与任务详情标题保持一致（显式名 > 可读描述 > 工作流快照名 > 短 UUID）。
+ */
 export function taskDisplayName(task: TaskRuntimePresentation): string {
-  return readString(task.raw, ['name', 'task_name', 'title', 'description']) ?? '未命名任务'
+  const explicit = readString(task.raw, ['name', 'task_name', 'title'])
+  if (explicit) return explicit
+  // 控制台创建的任务 description 是通用占位，不能当成名字。
+  const description = readString(task.raw, ['description'])
+  if (description && !/^从.+创建$/.test(description)) return description
+  const snapshot = asRecord(task.raw.workflow_snapshot)
+  const workflow = asRecord(snapshot?.workflow)
+  const workflowName = readString(workflow, ['name', 'title'])
+  if (workflowName) return workflowName
+  // 至少要能定位到具体任务：含糊的「未命名任务」会让工站错误区无法区分多条错误。
+  return `任务 ${task.taskUuid.slice(0, 8)}`
 }
 
 export function workflowDisplayName(task: TaskRuntimePresentation): string {

@@ -3,7 +3,7 @@ import overviewPageStyles from './OverviewPage.module.scss'
 import overviewSkeletonStyles from './OverviewSkeleton.module.scss'
 import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
-import { Progress } from 'antd'
+import { Button, Progress } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
 import { AppIcon } from '../../components/ui/Icon'
 import type { TaskRow } from './taskPresentation'
@@ -84,7 +84,23 @@ export function OverviewSkeleton() {
   )
 }
 
-export function SummaryStrip({ rows }: { rows: readonly TaskRow[] }) {
+/**
+ * 工站级异常的入口。首页不再放醒目的暂停横幅或工站卡片，
+ * 「异常」指标卡自己承担发现与去处置，避免同一件事在首屏出现三次。
+ */
+export interface SummaryStationAlert {
+  readonly hint: string
+  readonly primary: { readonly label: string; readonly onClick: () => void }
+  readonly secondary?: { readonly label: string; readonly onClick: () => void }
+}
+
+export function SummaryStrip({
+  rows,
+  stationAlert,
+}: {
+  rows: readonly TaskRow[]
+  stationAlert?: SummaryStationAlert
+}) {
   const values = [
     { label: '全部', value: rows.length, icon: 'layout/grid-01', tone: 'neutral' },
     {
@@ -108,26 +124,52 @@ export function SummaryStrip({ rows }: { rows: readonly TaskRow[] }) {
   ] as const
   return (
     <div className={clsx(overviewPageStyles['summary-strip'])}>
-      {values.map((item) => (
-        <div
-          className={clsx(
-            overviewPageStyles['summary-metric'],
-            appShellStyles['summary-metric'],
-            overviewPageStyles[`summary-metric--${item.tone}`],
-          )}
-          key={item.label}
-        >
-          <AppIcon
-            name={item.icon}
-            size={20}
-            color={item.tone === 'red' ? 'error' : item.tone === 'blue' ? 'primary' : 'context'}
-          />
-          <div>
-            <span>{item.label}</span>
-            <strong>{item.value}</strong>
+      {values.map((item) => {
+        const alert = item.label === '异常' ? stationAlert : undefined
+        return (
+          <div
+            className={clsx(
+              overviewPageStyles['summary-metric'],
+              appShellStyles['summary-metric'],
+              overviewPageStyles[`summary-metric--${item.tone}`],
+              alert && overviewPageStyles['summary-metric--alert'],
+            )}
+            key={item.label}
+          >
+            <AppIcon
+              name={item.icon}
+              size={20}
+              color={item.tone === 'red' ? 'error' : item.tone === 'blue' ? 'primary' : 'context'}
+            />
+            {alert ? (
+              <div className={clsx(overviewPageStyles['summary-alert-layout'])}>
+                <div className={clsx(overviewPageStyles['summary-alert-metric'])}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
+                <div className={clsx(overviewPageStyles['summary-alert-action'])}>
+                  <span className={clsx(overviewPageStyles['summary-hint'])}>{alert.hint}</span>
+                  <div className={clsx(overviewPageStyles['summary-metric-actions'])}>
+                    <Button type="primary" danger size="small" onClick={alert.primary.onClick}>
+                      {alert.primary.label}
+                    </Button>
+                    {alert.secondary && (
+                      <Button size="small" onClick={alert.secondary.onClick}>
+                        {alert.secondary.label}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

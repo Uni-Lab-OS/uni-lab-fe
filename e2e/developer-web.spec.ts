@@ -30,19 +30,23 @@ test.describe("Uni-Lab Developer Web", () => {
 
   test("returns to the device list after entering from a debug-device target", async ({ page }) => {
     const browserErrors = attachBrowserDiagnostics(page);
-    const catalogResponse = await page.request.get(
-      "/__unilab_backend/api/v1/authoring/device-catalog",
-    );
-    test.skip(!catalogResponse.ok(), "需要连接真实 OS 设备目录才能验证入口参数");
-    const catalog = (await catalogResponse.json()) as {
-      items?: readonly { id?: string; materialUuid?: string }[];
-      data?: { items?: readonly { id?: string; materialUuid?: string }[] };
+    // 深链参数是设备列表里的 deviceUuid（解码后等于 material.uuid）。
+    // 设备目录（authoring/device-catalog）的 materialUuid 属于另一套身份，
+    // 拿它拼深链永远匹配不到设备，页面会静默停在列表页。
+    const devicesResponse = await page.request.get("/__unilab_backend/api/v1/devices");
+    test.skip(!devicesResponse.ok(), "需要连接真实 OS 设备列表才能验证入口参数");
+    const payload = (await devicesResponse.json()) as {
+      data?: readonly { material?: { uuid?: string } }[];
+      items?: readonly { material?: { uuid?: string } }[];
     };
-    const deviceId = (catalog.items ?? catalog.data?.items)?.[0]?.materialUuid;
-    test.skip(!deviceId, "设备目录为空");
+    const devices = payload.data ?? payload.items ?? [];
+    const target = devices.find((item) => item.material?.uuid);
+    const deviceId = target?.material?.uuid;
+    test.skip(!deviceId, "设备列表为空");
 
     await page.goto(`/devices?debugDevice=${encodeURIComponent(deviceId)}`);
     await expect(page.getByRole("button", { name: "返回设备" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "调试动作" })).toBeVisible();
     await page.getByRole("button", { name: "返回设备" }).click();
     await expect(page.getByRole("heading", { name: "设备", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "返回设备" })).toHaveCount(0);

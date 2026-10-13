@@ -16,6 +16,12 @@ export interface BackendConfig {
   readonly auth: 'none' | 'token' | 'oauth'
   readonly serverKind: 'backend' | 'edge'
   readonly workspaceMode: 'singleton' | 'laboratory'
+  /**
+   * 工站级接口的作用域。OS 目前 StationExecutionControl 的 station_id 恒为 "local"，
+   * 还没有多工站支持；这里把它作为**部署事实**显式声明（可用 VITE_UNILAB_STATION_ID
+   * 覆盖），而不是散落在组件里硬编码，等 OS 支持多工站后由 Profile 提供。
+   */
+  readonly stationId: string
 }
 
 export interface StudioBackend {
@@ -43,6 +49,7 @@ export function createStudioBackend(): StudioBackend {
     auth: 'none',
     serverKind: backendId === 'local-go' ? 'backend' : 'edge',
     workspaceMode: 'singleton',
+    stationId: import.meta.env.VITE_UNILAB_STATION_ID || 'local',
   }
   const accessToken = () => window.sessionStorage.getItem('unilab.access_token')
   const capabilities = resolveServerCapabilities(config)
@@ -58,6 +65,7 @@ export function createStudioBackend(): StudioBackend {
     },
     {
       runtimeEvents,
+      stationId: config.stationId,
     },
   )
   return {

@@ -1,31 +1,37 @@
-import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { AppShell } from './AppShell'
-import { BackendProvider } from '../app/BackendProvider'
+import {
+  createStationPortStub,
+  createStudioBackendStub,
+  makeStationError,
+  makeStationSnapshot,
+  StationProviders,
+} from '../../test/stationHandlingStub'
 
 const backendDispose = vi.hoisted(() => vi.fn())
 
-vi.mock('../app/backend', () => ({
-  createStudioBackend: () => ({ dispose: backendDispose, core: {} }),
-}))
+const stationPort = createStationPortStub()
+const backend = createStudioBackendStub({
+  dispose: backendDispose,
+  core: { stationErrorHandling: stationPort },
+})
+vi.mock('../app/backend', () => ({ createStudioBackend: () => backend }))
 
-function renderShell(connection = 'unknown' as const) {
-  return render(
-    <BackendProvider>
-      <AppShell route="overview" onNavigate={vi.fn()}>
-        <p>内容</p>
-      </AppShell>
-    </BackendProvider>,
-  )
-}
+beforeEach(() => {
+  stationPort.getSnapshot.mockReset()
+  stationPort.getSnapshot.mockResolvedValue(makeStationSnapshot())
+})
 
 describe('AppShell', () => {
   it('renders navigation and toggles collapsed sidebar', () => {
     const onNavigate = vi.fn()
     render(
-      <BackendProvider>
-        <AppShell route="workflows" onNavigate={onNavigate}><p>内容</p></AppShell>
-      </BackendProvider>,
+      <StationProviders>
+        <AppShell route="workflows" onNavigate={onNavigate}>
+          <p>内容</p>
+        </AppShell>
+      </StationProviders>,
     )
     expect(screen.getByRole('navigation', { name: '主导航' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '工作流' }).className).toContain('is-active')
@@ -39,13 +45,44 @@ describe('AppShell', () => {
 
   it('marks the overview navigation item when a task needs attention', () => {
     render(
-      <BackendProvider>
+      <StationProviders>
         <AppShell route="tasks" onNavigate={vi.fn()} hasOverviewAttention>
           <p>内容</p>
         </AppShell>
-      </BackendProvider>,
+      </StationProviders>,
     )
     expect(screen.getByRole('navigation', { name: '主导航' })).toHaveTextContent('总览1')
+  })
+
+  it('does not render a persistent station banner on any route', async () => {
+    stationPort.getSnapshot.mockResolvedValue(
+      makeStationSnapshot({ mode: 'PAUSED', errors: [makeStationError()] }),
+    )
+    // role=status 的文本不参与可访问名，按内容过滤而不是按 name 匹配。
+    const banners = () =>
+      screen.queryAllByRole('status').filter((node) => node.textContent?.includes('工站调度已暂停'))
+
+    const overview = render(
+      <StationProviders>
+        <AppShell route="overview" onNavigate={vi.fn()}>
+          <p>内容</p>
+        </AppShell>
+      </StationProviders>,
+    )
+    await waitFor(() => expect(stationPort.getSnapshot).toHaveBeenCalled())
+    // 总览异常指标卡承担入口，应用壳不再渲染常驻横幅。
+    expect(banners()).toHaveLength(0)
+    overview.unmount()
+
+    render(
+      <StationProviders>
+        <AppShell route="tasks" onNavigate={vi.fn()}>
+          <p>内容</p>
+        </AppShell>
+      </StationProviders>,
+    )
+    await waitFor(() => expect(stationPort.getSnapshot).toHaveBeenCalled())
+    expect(banners()).toHaveLength(0)
   })
 
   it('rejects useBackend outside provider', async () => {
@@ -60,9 +97,11 @@ describe('AppShell', () => {
   it('disposes the backend composition when the provider unmounts', () => {
     backendDispose.mockClear()
     const view = render(
-      <BackendProvider>
-        <AppShell route="overview" onNavigate={vi.fn()}><p>内容</p></AppShell>
-      </BackendProvider>,
+      <StationProviders>
+        <AppShell route="overview" onNavigate={vi.fn()}>
+          <p>内容</p>
+        </AppShell>
+      </StationProviders>,
     )
     view.unmount()
     expect(backendDispose).toHaveBeenCalledOnce()

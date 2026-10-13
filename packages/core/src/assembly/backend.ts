@@ -15,6 +15,8 @@ import { EvidenceInterventionClient } from '../domain/evidence-intervention/clie
 import type { EvidenceInterventionPort } from '../domain/evidence-intervention/port'
 import { WorkflowManualConfirmationClient } from '../domain/workflow-manual-confirmation/client'
 import type { WorkflowManualConfirmationPort } from '../domain/workflow-manual-confirmation/port'
+import { StationErrorHandlingClient } from '../domain/station-error-handling/client'
+import type { StationErrorHandlingPort } from '../domain/station-error-handling/port'
 import type { RequestTransport } from '../transport/request'
 import { createRunPreparationScenario } from '../scenarios/run-preparation/scenario'
 import { createWorkflowDebuggingScenario } from '../scenarios/workflow-debugging/scenario'
@@ -34,6 +36,7 @@ export interface BackendCore {
   readonly reagentInventory: ReagentInventoryPort
   readonly evidenceIntervention: EvidenceInterventionPort
   readonly manualConfirmation: WorkflowManualConfirmationPort
+  readonly stationErrorHandling: StationErrorHandlingPort
   readonly runPreparation: ReturnType<typeof createRunPreparationScenario>
   readonly workflowDebugging: ReturnType<typeof createWorkflowDebuggingScenario>
   readonly deviceActionDebugging: ReturnType<typeof createDeviceActionDebuggingScenario>
@@ -42,6 +45,8 @@ export interface BackendCore {
 
 export interface BackendCoreIntegrations {
   readonly runtimeEvents?: WorkflowRuntimeEventsPort
+  /** 工站作用域是部署事实，由 profile 决定，不是前端业务常量。 */
+  readonly stationId?: string
 }
 
 export function createBackendCore(
@@ -65,6 +70,12 @@ export function createBackendCoreFromTransport(
   const reagentInventory = new ReagentInventoryClient(transport)
   const evidenceIntervention = new EvidenceInterventionClient(transport)
   const manualConfirmation = new WorkflowManualConfirmationClient(transport)
+  // OS 目前 StationExecutionControl 的 station_id 恒为默认 "local"，还没有多工站支持；
+  // 这里由 profile 提供部署事实，待 OS 支持多工站后不再是常量。
+  const stationErrorHandling = new StationErrorHandlingClient(
+    transport,
+    integrations.stationId ?? 'local',
+  )
   return {
     transport,
     workflowDefinitions,
@@ -78,6 +89,7 @@ export function createBackendCoreFromTransport(
     reagentInventory,
     evidenceIntervention,
     manualConfirmation,
+    stationErrorHandling,
     runPreparation: createRunPreparationScenario(workflowDefinitions, runPreparationPort, {
       deviceActions,
       materialSite,

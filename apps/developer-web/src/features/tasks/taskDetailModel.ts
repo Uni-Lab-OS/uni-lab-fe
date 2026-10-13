@@ -39,7 +39,8 @@ export const markerGlyph: Record<EventStatus, string> = {
   manual: 'user-check',
   unknown: 'help',
   pending: 'minus',
-  failed: 'alert-triangle',
+  // 失败用「叉」：警告三角与「结果待核对」太像，不够醒目。
+  failed: 'x',
   skipped: 'skip-forward',
 }
 
@@ -94,6 +95,70 @@ export function formatTimelineDuration(
   return ['running', 'dispatched', 'pending'].includes(status) ? '执行中' : '时间未提供'
 }
 
+/**
+ * 把 OS 返回的 error_info 条目转成可读文本。
+ *
+ * OS 的 error_info 是开放数组（可能是字符串、字符串数组或任意对象），
+ * 这里只做展示投影：能取出 message/code 就用，取不出就退化成 JSON，
+ * 但绝不丢掉原始事实、也不编造文案。
+ */
+export function formatErrorInfoEntries(errorInfo: readonly unknown[]): readonly string[] {
+  return errorInfo
+    .map((entry) => {
+      if (typeof entry === 'string') return entry.trim()
+      if (entry == null) return ''
+      if (typeof entry === 'object') {
+        const record = entry as Record<string, unknown>
+        const code = typeof record.code === 'string' ? record.code : undefined
+        const message =
+          typeof record.message === 'string'
+            ? record.message
+            : typeof record.msg === 'string'
+              ? record.msg
+              : typeof record.reason === 'string'
+                ? record.reason
+                : undefined
+        if (code && message) return `${code}：${message}`
+        if (message) return message
+        if (code) return code
+        return formatJson(entry)
+      }
+      return String(entry)
+    })
+    .filter((text) => text.length > 0)
+}
+
+/** 时间线上只需要一句摘要；取不到可读内容时明确说明还有多少条原文。 */
+export function summarizeErrorInfo(errorInfo: readonly unknown[]): string | null {
+  const entries = formatErrorInfoEntries(errorInfo)
+  if (entries.length === 0) {
+    return errorInfo.length > 0 ? `${errorInfo.length} 条错误信息，详情见异常处置` : null
+  }
+  return entries[0]
+}
+
+/**
+ * 把可能是一整段 Python traceback 的原文压成一句话。
+ *
+ * 摘要区域不能直接放多行堆栈：既读不出重点，也会把布局撑破。traceback 只取
+ * 最后一行（异常类型与消息），其余长文本按长度截断；完整原文始终由异常处置的
+ * 折叠详情原样展示，不做有损替换。
+ */
+export function summarizeErrorText(value: string, maxLength = 240): string {
+  const text = value.trim()
+  if (!text) return ''
+  const lines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+  const candidate =
+    text.includes('Traceback (most recent call last)') && lines.length > 0
+      ? lines[lines.length - 1]
+      : text
+  if (candidate.length <= maxLength) return candidate
+  return `${candidate.slice(0, Math.max(1, maxLength - 1))}…`
+}
+
 export function toTimelineEvent(job: WorkflowDebugTimelineItem): TimelineEvent {
   return {
     id: job.jobUuid,
@@ -103,9 +168,7 @@ export function toTimelineEvent(job: WorkflowDebugTimelineItem): TimelineEvent {
     description:
       Object.keys(job.waitReason).length > 0
         ? String(job.waitReason.reason ?? job.waitReason.message ?? '等待运行时条件')
-        : job.errorInfo.length > 0
-          ? 'OS 返回异常事实'
-          : '',
+        : summarizeErrorText(summarizeErrorInfo(job.errorInfo) ?? ''),
     status: mapJobStatus(job.status),
     device: job.executorKind,
     duration: formatTimelineDuration(job.startedAt, job.finishedAt, job.status),

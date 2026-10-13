@@ -53,9 +53,18 @@
 .debug-tab-count {
   font-size: 9px;
   border-radius: 99px;
-  background: #fff0ed;
-  color: #c15852;
+  background: var(--bh-color-error-subtle);
+  color: var(--bh-color-error-default);
   padding: 2px 5px;
+}
+
+/* 有待处置异常时标签旁的实心红点：颜色不作为唯一表达，按钮另有 title 说明。 */
+.debug-tab-alert {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--bh-color-error-default);
+  box-shadow: 0 0 0 2px var(--bh-color-error-subtle);
 }
 .debug-inspector-body {
   overflow: auto;
@@ -75,17 +84,20 @@
 .debug-code-block,
 .debug-log-block {
   font:
-    11px/1.75 ui-monospace,
+    11px/1.75 var(--bh-font-family-mono),
+    ui-monospace,
     SFMono-Regular,
     Menlo,
     monospace;
-  color: #53627d;
-  background: #f5f7fa;
-  border: 1px solid #e4e9f0;
+  color: var(--bh-color-text-description);
+  background: var(--bh-color-fill-1);
+  border: 1px solid var(--bh-color-border-1);
   padding: 12px;
-  border-radius: 8px;
+  border-radius: var(--bh-radius-md);
   margin: 0;
   overflow: auto;
+  /* 没有上限的代码块会把抽屉无限拉长；长内容一律在块内滚动。 */
+  max-height: 320px;
 }
 .debug-resource-summary {
   display: flex;
@@ -184,78 +196,92 @@
   border-color: #e19a59;
 }
 .debug-intervention-card {
-  border: 1px solid #e8d5ae;
-  background: #fffaf0;
+  border: 1px solid var(--bh-color-border-1);
+  background: var(--bh-color-fill-1);
   padding: 14px;
-  border-radius: 10px;
+  border-radius: var(--bh-radius-lg);
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-width: 0;
+}
+/* 优先级从高到低：待处置/失败（红）> 结果待核对（黄）> 等待（中性）。 */
+.debug-intervention-manual {
+  border-color: var(--bh-color-error-default);
+  background: var(--bh-color-error-subtle);
 }
 .debug-intervention-unknown {
-  border-color: #efcbc7;
-  background: #fff7f6;
+  border-color: var(--bh-color-warning-default);
+  background: var(--bh-color-warning-subtle);
 }
 .debug-intervention-waiting {
-  border-color: #ecd9ae;
-  background: #fffaf0;
+  border-color: var(--bh-color-border-1);
+  background: var(--bh-color-fill-2);
 }
 .debug-intervention-title {
   display: flex;
   align-items: flex-start;
   gap: 9px;
-  color: #a87321;
+  color: var(--bh-color-text-description);
+}
+.debug-intervention-manual .debug-intervention-title {
+  color: var(--bh-color-error-default);
 }
 .debug-intervention-unknown .debug-intervention-title {
-  color: #bf5b53;
+  color: var(--bh-color-warning-default);
 }
 .debug-intervention-title > div {
   display: flex;
   flex-direction: column;
   gap: 4px;
   flex: 1;
+  min-width: 0;
 }
 .debug-intervention-title strong {
-  font-size: 13px;
-  color: #55472e;
-}
-.debug-intervention-unknown .debug-intervention-title strong {
-  color: #633c38;
+  font-size: var(--bh-font-size-md);
+  font-weight: var(--bh-font-weight-semibold);
+  color: var(--bh-color-text-default);
+  overflow-wrap: anywhere;
 }
 .debug-intervention-title span:not(.debug-countdown) {
-  font-size: 11px;
-  color: #95836a;
+  font-size: var(--bh-font-size-xs);
+  color: var(--bh-color-text-description);
+  overflow-wrap: anywhere;
 }
 .debug-manual-confirmation {
   display: flex;
   flex-direction: column;
   gap: 11px;
   padding: 13px 26px;
-  border-bottom: 1px solid #e8ecf3;
-  background: #fffaf0;
+  border-bottom: 1px solid var(--bh-color-border-0);
+  background: var(--bh-color-warning-subtle);
 }
 .debug-manual-confirmation-copy {
   display: flex;
   align-items: flex-start;
   gap: 9px;
-  color: #a87321;
+  color: var(--bh-color-warning-default);
 }
 .debug-manual-confirmation-copy > div {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  min-width: 0;
 }
 .debug-manual-confirmation-copy strong {
-  color: #55472e;
-  font-size: 12px;
+  color: var(--bh-color-text-default);
+  font-size: var(--bh-font-size-xs);
+  overflow-wrap: anywhere;
 }
 .debug-manual-confirmation-copy span {
-  color: #95836a;
+  color: var(--bh-color-text-description);
   font-size: 10px;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 .debug-manual-confirmation-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
 }
@@ -263,7 +289,7 @@
   min-width: 64px;
   height: 30px;
   padding: 0 12px;
-  border-radius: 7px;
+  border-radius: var(--bh-radius-sm);
   font-size: 11px;
   cursor: pointer;
 }
@@ -272,40 +298,102 @@
   opacity: 0.65;
 }
 .debug-manual-confirmation-reject {
-  border: 1px solid #e6b9b2;
-  color: #b95a51;
-  background: #fff;
+  border: 1px solid var(--bh-color-error-focus);
+  color: var(--bh-color-error-default);
+  background: var(--bh-color-primary-white);
 }
 .debug-manual-confirmation-approve {
-  border: 1px solid #4d6eef;
-  color: #fff;
-  background: #4d6eef;
+  border: 1px solid var(--bh-color-primary-default);
+  color: var(--bh-color-primary-white);
+  background: var(--bh-color-primary-default);
 }
 .debug-manual-confirmation-error {
   margin: 0;
-  color: #b95a51;
+  color: var(--bh-color-error-default);
   font-size: 10px;
+  overflow-wrap: anywhere;
 }
 .debug-context-box {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 11px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.7);
+  border-radius: var(--bh-radius-md);
+  background: var(--bh-color-primary-white);
+  border: 1px solid var(--bh-color-border-0);
+  min-width: 0;
 }
 .debug-context-box span {
   font-size: 10px;
-  color: #a08b6c;
+  color: var(--bh-color-text-description);
+  overflow-wrap: anywhere;
 }
 .debug-context-box strong {
-  font-size: 12px;
-  color: #53442f;
+  font-size: var(--bh-font-size-xs);
+  color: var(--bh-color-text-default);
   line-height: 1.5;
+  /* 设备异常原文可能含长路径或无空格的标识符，必须允许在任意位置断行。 */
+  overflow-wrap: anywhere;
 }
 .debug-context-box small {
   font-size: 10px;
-  color: #9b886f;
+  color: var(--bh-color-text-description);
+  overflow-wrap: anywhere;
+}
+/* 节点异常原文：折叠 + 等宽可滚动，摘要区只放一句结论。 */
+/* 折叠原文容器：内边距与分割线都由这里统一决定，标题下方不留分割线。 */
+.debug-error-block {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border-radius: var(--bh-radius-md);
+  background: var(--bh-color-primary-white);
+  border: 1px solid var(--bh-color-border-0);
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 结构化选择器：antd 的 small 尺寸规则权重更高，简单后代选择器压不住。 */
+.debug-error-block :global(.ant-collapse > .ant-collapse-item > .ant-collapse-header) {
+  align-items: center;
+  padding: 9px 12px;
+  color: var(--bh-color-text-description);
+  font-size: var(--bh-font-size-xs);
+}
+
+.debug-error-block :global(.ant-collapse-content) {
+  border-top: 0;
+}
+
+.debug-error-block
+  :global(.ant-collapse > .ant-collapse-item > .ant-collapse-content > .ant-collapse-content-box) {
+  padding: 0 12px 10px;
+}
+.debug-error-block > summary {
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--bh-color-text-description);
+  overflow-wrap: anywhere;
+  border-radius: var(--bh-radius-sm);
+  transition: color var(--bh-motion-fast) ease;
+}
+.debug-error-block > summary:hover {
+  color: var(--bh-color-text-description);
+}
+.debug-error-block > summary:focus-visible {
+  outline: 2px solid var(--bh-color-primary-focus);
+  outline-offset: 2px;
+}
+.debug-error-detail {
+  max-height: 220px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.debug-refresh-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
 }
 .debug-empty-state {
   text-align: center;
@@ -466,6 +554,22 @@
 @media (max-width: 900px) {
   .debug-inspector {
     width: 100%;
+  }
+
+  /* 异常处置在窄抽屉里必须仍然可读可点：收紧内边距，操作按钮换行。
+     折叠原文容器的内边距由 antd header 自己负责，这里不能加，否则和 header
+     的 padding 叠加，标题上下间距会不一致。 */
+  .debug-intervention-card,
+  .debug-context-box {
+    padding: 10px;
+  }
+
+  .debug-manual-confirmation {
+    padding: 12px 14px;
+  }
+
+  .debug-refresh-row {
+    flex-wrap: wrap;
   }
 }
 .debug-branch-state.is-ready {
