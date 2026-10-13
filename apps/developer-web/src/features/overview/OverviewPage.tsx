@@ -174,6 +174,12 @@ export function OverviewPage({
   const [stationDialogOpen, setStationDialogOpen] = useState(false)
   const { snapshot, readError } = useStationHandling()
   const stationStatus = stationStatusPresentation(snapshot, readError)
+  // 对话框只是工站决策的容器：恢复调度（或继续应用）在 OS 侧生效后快照就不再
+  // needsAction，此时必须自动收起 —— StationHandlingSection 按同一判定自己隐藏，
+  // 不收就会留下一个只有标题的空壳弹窗。判定只认重新读到的快照，不是命令回执。
+  useEffect(() => {
+    if (stationDialogOpen && !stationStatus.needsAction) setStationDialogOpen(false)
+  }, [stationDialogOpen, stationStatus.needsAction])
   const rows = useMemo(() => (query.data?.items ?? []).map(toTaskRow), [query.data])
   const filteredRows = rows.filter((row) => {
     const matchesKeyword = `${row.name} ${row.workflowName} ${row.task.taskUuid}`

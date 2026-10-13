@@ -200,6 +200,8 @@ test.describe('工站异常处置（真实 OS）', () => {
     await page.getByRole('button', { name: '恢复工站调度' }).click()
 
     await waitForStationMode(request, 'RUNNING')
+    // 恢复生效后对话框必须自己收起：留着只会剩一个没有内容的空壳。
+    await expect(page.getByRole('dialog')).not.toBeVisible()
     expect(browserErrors).toEqual([])
   })
 })
