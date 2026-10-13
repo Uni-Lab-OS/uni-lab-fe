@@ -5,7 +5,13 @@ import type {
   StationCommandReceipt,
   StationDecisionRequest,
   StationErrorFact,
+  StationHandlingInventory,
   StationHandlingSnapshot,
+  StationInventoryCorrectionRequest,
+  StationManualActionRequest,
+  StationManualDeviceAction,
+  StationOccupancyReleaseRequest,
+  StationResourceOccupancy,
   StationResumeRequest,
   StationSessionCompleteRequest,
 } from '@unilab-fe/core'
@@ -27,6 +33,7 @@ export function makeStationSnapshot(
     activeSessionId: null,
     activeSession: null,
     errors: [],
+    manualActions: [],
     controlCommands: [],
     raw: {},
     ...overrides,
@@ -100,6 +107,46 @@ export function createStationPortStub(snapshot: StationHandlingSnapshot = makeSt
         _request: StationSessionCompleteRequest,
         _options: StationCommandOptions,
       ) => makeStationReceipt({ operation: 'complete-session' }),
+    ),
+    // 人工处置：默认给空目录/空库存，单个用例要什么自己 mockResolvedValue。
+    listManualDeviceActions: vi.fn(
+      async (_sessionId: string, _deviceId: string, _signal?: AbortSignal) =>
+        [] as readonly StationManualDeviceAction[],
+    ),
+    executeManualAction: vi.fn(
+      async (
+        _sessionId: string,
+        _request: StationManualActionRequest,
+        _options: StationCommandOptions,
+      ) => makeStationReceipt(),
+    ),
+    stopManualAction: vi.fn(
+      async (_commandUuid: string, _reason: string, _options: StationCommandOptions) =>
+        makeStationReceipt(),
+    ),
+    getHandlingInventory: vi.fn(
+      async (_sessionId: string, _signal?: AbortSignal) =>
+        ({
+          kind: 'station_handling_inventory',
+          source: 'os',
+          instances: [],
+          sites: [],
+          raw: {},
+        }) as StationHandlingInventory,
+    ),
+    correctInventory: vi.fn(
+      async (
+        _sessionId: string,
+        _request: StationInventoryCorrectionRequest,
+        _options: StationCommandOptions,
+      ) => makeStationReceipt(),
+    ),
+    listResourceOccupancies: vi.fn(
+      async (_signal?: AbortSignal) => [] as readonly StationResourceOccupancy[],
+    ),
+    releaseOccupancies: vi.fn(
+      async (_request: StationOccupancyReleaseRequest, _options: StationCommandOptions) =>
+        makeStationReceipt(),
     ),
     returnSession: vi.fn(
       async (

@@ -72,6 +72,30 @@ export interface StationControlCommand {
   readonly needsApply: boolean
 }
 
+/**
+ * 人工处置会话里执行过的设备动作（OS `manual_actions` 的投影）。
+ *
+ * `uncertaintyReason` 非空表示动作已结束但结果不确定：在完成现场核对之前，
+ * OS 会以 `manual_actions_unresolved` 拒绝完成会话，所以界面必须把它如实显示成
+ * 「待核对」，不能折叠成失败或成功。
+ */
+export interface StationManualActionJob {
+  readonly kind: 'station_manual_action_job'
+  readonly source: 'os'
+  readonly jobUuid: string
+  readonly sessionId: string | null
+  readonly status: string
+  readonly deviceId: string | null
+  readonly actionName: string | null
+  readonly edgeCommandUuid: string | null
+  readonly uncertaintyReason: string | null
+  readonly resultReviewed: boolean
+  readonly reviewVersion: string | null
+  readonly startedAt: string | null
+  readonly finishedAt: string | null
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
 export interface StationHandlingSnapshot {
   readonly kind: 'station_handling_snapshot'
   readonly source: 'os'
@@ -83,6 +107,7 @@ export interface StationHandlingSnapshot {
   readonly activeSessionId: string | null
   readonly activeSession: StationHandlingSession | null
   readonly errors: readonly StationErrorFact[]
+  readonly manualActions: readonly StationManualActionJob[]
   readonly controlCommands: readonly StationControlCommand[]
   readonly raw: Readonly<Record<string, unknown>>
 }
@@ -140,4 +165,133 @@ export interface StationSessionCompleteRequest {
 /** 所有写操作都要求幂等键；同一意图重试必须复用同一个键。 */
 export interface StationCommandOptions {
   readonly idempotencyKey: string
+}
+
+/**
+ * 一台设备在当前会话里可选的手动动作。
+ *
+ * `actionVersion` 是动作定义的版本：执行时必须原样回传，动作定义在读取之后被改过时
+ * OS 会以 `action_definition_changed` 拒绝，而不是照旧执行一个已经变了的动作。
+ */
+export interface StationManualDeviceAction {
+  readonly kind: 'station_manual_device_action'
+  readonly source: 'os'
+  readonly actionId: string
+  readonly actionVersion: string
+  readonly name: string
+  readonly displayName: string
+  readonly parameterSchema: Readonly<Record<string, unknown>>
+  readonly defaults: Readonly<Record<string, unknown>>
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+export interface StationManualActionRequest {
+  readonly deviceId: string
+  readonly actionId: string
+  readonly actionVersion: string
+  readonly parameters: Readonly<Record<string, unknown>>
+  readonly expectedStationVersion: number
+  readonly expectedSessionVersion: number
+}
+
+/**
+ * 手动执行设备动作。
+ *
+ * 手动动作**不检查逻辑锁**：它可能作用在别的任务正在使用的设备上。所以这不是
+ * 「安全的默认行为」，界面必须在跨任务设备上把这个后果显式说出来。
+ */
+/**
+ * 手动执行设备动作的选项。
+ *
+ * **没有 reason**：OS 的 `ManualActionRequest` 是 `extra="forbid"` 且不声明 reason 字段，
+ * 多传会被 422 拒掉。动作的意图写在动作参数里，不另开一个说明字段。
+ */
+export type StationManualActionOptions = StationCommandOptions
+
+export interface StationInventoryInstance {
+  readonly edgeUuid: string
+  readonly name: string
+  /** 当前所在容器；空串表示不在任何库位（与线协议一致，不是 null）。 */
+  readonly parentUuid: string
+  readonly version: number | string
+}
+
+export interface StationInventorySite {
+  readonly siteUuid: string
+  readonly materialUuid: string
+  readonly name: string
+  readonly occupiedMaterialUuid: string | null
+  readonly updateTime: string
+}
+
+/** 上下料登记用的库存投影：可选物料与可选库位，都是 OS 的当前状态。 */
+export interface StationHandlingInventory {
+  readonly kind: 'station_handling_inventory'
+  readonly source: 'os'
+  readonly instances: readonly StationInventoryInstance[]
+  readonly sites: readonly StationInventorySite[]
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+export interface StationInventoryChange {
+  readonly materialUuid: string
+  /**
+   * 目标设备或容器。**空串**表示移出当前库位。
+   *
+   * 不是 null：OS 的 `InventoryChange.parent_uuid` 是 `str = ""`（不是 Optional），
+   * 下发 null 会被 pydantic 以 422 拒掉。语义上空值就是「移出 / 不指定」。
+   */
+  readonly parentUuid: string
+  readonly siteUuid: string
+}
+
+/**
+ * 登记物料实际位置。
+ *
+ * 同一批里同一物料只能出现一次；`expectedInventoryVersions` 要同时覆盖被移动的物料
+ * 和它的目标库位，任一项版本不符 OS 会整批拒绝（不做部分应用）。
+ */
+export interface StationInventoryCorrectionRequest {
+  readonly changes: readonly StationInventoryChange[]
+  readonly expectedInventoryVersions: Readonly<Record<string, string | number>>
+  readonly reason: string
+  /**
+   * 关联到刚执行的那条手动动作。OS 预留了这个字段，界面据此把「执行动作」和
+   * 「登记位置」两条底层记录串成同一次处理。
+   */
+  readonly relatedManualCommandId?: string
+  readonly expectedStationVersion: number
+  readonly expectedSessionVersion: number
+}
+
+export interface StationResourceOccupancy {
+  readonly kind: 'station_resource_occupancy'
+  readonly source: 'os'
+  readonly occupancyUuid: string
+  readonly lockKey: string
+  readonly state: string
+  readonly occupancyKind: string
+  /** 释放时必须原样回传；版本不符 OS 会整批拒绝。 */
+  readonly version: string
+  readonly taskUuid: string | null
+  readonly jobUuid: string | null
+  readonly materialUuid: string | null
+  readonly deviceId: string | null
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+/**
+ * 释放选中的逻辑占用。
+ *
+ * OS 的释放是**整批原子**的：任一项不存在、版本不符或重复，整批拒绝。所以界面
+ * 一条结果就够，不需要逐项结果；但反过来也不能把「一批」拆成多次提交来绕开校验。
+ */
+export interface StationOccupancyReleaseRequest {
+  readonly decisionId: string
+  readonly sessionId: string
+  readonly occupancyIds: readonly string[]
+  readonly expectedVersions: Readonly<Record<string, string>>
+  readonly reason: string
+  readonly expectedStationVersion: number
+  readonly expectedSessionVersion: number
 }

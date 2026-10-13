@@ -451,3 +451,275 @@
     justify-self: start;
   }
 }
+
+/* ── 人工处理弹窗 ─────────────────────────────────────── */
+
+.manual-modal :global(.ant-modal-body) {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* 报错条：保留红底与图标，但只占一行的高度 */
+.manual-error-strip {
+  padding: 7px 12px;
+}
+
+.manual-error-strip :global(.ant-alert-message) {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.manual-error-text {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 颜色继承 Alert 的报错色，这里只做字重区分 */
+.manual-error-code {
+  font-weight: 650;
+}
+
+.manual-error-detail {
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.manual-block-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 标题右侧的添加入口：比正文按钮收一号，不跟底部主操作抢视觉 */
+.manual-block-actions :global(.ant-btn) {
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+/* 处理说明的表单不能带内边距：否则它的控件比上面的操作列表窄 14px，两边对不齐。
+   操作表单在 .manual-sheet 里才需要那圈内边距。 */
+.manual-note-form {
+  padding: 0;
+}
+
+.manual-note-form :global(.ant-form-item) {
+  margin-bottom: 0;
+}
+
+.manual-subtitle {
+  margin: 0;
+  color: var(--bh-color-text-description, #55616f);
+  font-size: 13px;
+}
+
+.manual-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.manual-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.manual-block-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.manual-block-head span {
+  color: var(--bh-color-text-description, #667381);
+  font-size: 12.5px;
+}
+
+.manual-ops {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--bh-color-border-1, #d5dfe9);
+  border-radius: var(--bh-radius-md, 10px);
+  overflow: hidden;
+}
+
+.manual-op {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--bh-color-border-1, #d5dfe9);
+}
+
+.manual-op:last-child {
+  border-bottom: 0;
+}
+
+.manual-op-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.manual-op-kind {
+  color: var(--bh-color-text-description, #55616f);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.manual-op-label {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.manual-op-detail {
+  margin: 5px 0 0;
+  color: var(--bh-color-text-description, #667381);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.manual-sheet {
+  border: 1px solid var(--bh-color-border-1, #b9c8d6);
+  border-radius: var(--bh-radius-md, 10px);
+  background: var(--bh-color-fill-1, #f6f9fc);
+  overflow: hidden;
+}
+
+.manual-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--bh-color-border-1, #d5dfe9);
+  background: var(--bh-color-primary-white, #fff);
+}
+
+.manual-sheet-head strong {
+  flex: 1;
+  font-size: 14px;
+}
+
+.manual-kind-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  min-height: 56px;
+  padding: 11px 14px;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--bh-color-border-1, #d5dfe9);
+  background: transparent;
+  cursor: pointer;
+}
+
+.manual-kind-row:last-child {
+  border-bottom: 0;
+}
+
+.manual-kind-row:hover {
+  background: var(--bh-color-primary-white, #fff);
+}
+
+.manual-kind-row strong {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.manual-kind-row small {
+  color: var(--bh-color-text-description, #55616f);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.manual-form {
+  padding: 14px;
+}
+
+.manual-form-wide {
+  grid-column: 1 / -1;
+}
+
+.manual-form :global(.ant-form-item) {
+  margin-bottom: 10px;
+}
+
+.manual-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.manual-pick-list {
+  border: 1px solid var(--bh-color-border-1, #b9c8d6);
+  border-radius: var(--bh-radius-md, 10px);
+  background: var(--bh-color-primary-white, #fff);
+  overflow: hidden;
+}
+
+.manual-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--bh-color-border-1, #d5dfe9);
+  cursor: pointer;
+}
+
+.manual-pick-row:last-child {
+  border-bottom: 0;
+}
+
+.manual-pick-row:hover {
+  background: var(--bh-color-fill-1, #f6f9fc);
+}
+
+.manual-pick-main {
+  min-width: 0;
+}
+
+.manual-pick-main strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.manual-pick-main small {
+  display: block;
+  margin-top: 2px;
+  color: var(--bh-color-text-description, #55616f);
+  font-size: 12.5px;
+}
+
+.manual-empty-line {
+  margin: 0;
+  color: var(--bh-color-text-description, #667381);
+  font-size: 13px;
+}
+
+.manual-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bh-color-border-1, #d5dfe9);
+}
+
+.manual-footer-info {
+  flex: 1;
+  min-width: 0;
+  color: var(--bh-color-error-default, #a92118);
+  font-size: 13px;
+  line-height: 1.5;
+}

@@ -13,10 +13,20 @@ import type {
   StationDecisionRequest,
   StationErrorFact,
   StationErrorStatus,
+  StationHandlingInventory,
   StationHandlingSession,
   StationHandlingSnapshot,
   StationHandlingStage,
+  StationInventoryCorrectionRequest,
+  StationInventoryInstance,
+  StationInventorySite,
+  StationManualActionJob,
+  StationManualActionOptions,
+  StationManualActionRequest,
+  StationManualDeviceAction,
   StationMode,
+  StationOccupancyReleaseRequest,
+  StationResourceOccupancy,
   StationResumeRequest,
   StationSessionCompleteRequest,
 } from './model'
@@ -127,6 +137,145 @@ export class StationErrorHandlingClient implements StationErrorHandlingPort {
     )
   }
 
+  async listManualDeviceActions(
+    sessionId: string,
+    deviceId: string,
+    signal?: AbortSignal,
+  ): Promise<readonly StationManualDeviceAction[]> {
+    const payload = await this.send({
+      method: 'GET',
+      url: `${this.sessionRoot(sessionId)}/devices/${encodeURIComponent(deviceId)}/actions`,
+      signal,
+    })
+    return unwrapItems(payload).map(decodeManualDeviceAction)
+  }
+
+  async executeManualAction(
+    sessionId: string,
+    request: StationManualActionRequest,
+    options: StationManualActionOptions,
+  ): Promise<StationCommandReceipt> {
+    // OS 的 ManualActionRequest 继承 SessionVersion，且 extra="forbid"：body 恰好
+    // 只有这 6 个键。options.reason 不在其中（多传会被 422 拒绝），所以不下发。
+    const payload = await this.send({
+      method: 'POST',
+      url: `${this.sessionRoot(sessionId)}/manual-actions`,
+      headers: { 'Idempotency-Key': options.idempotencyKey },
+      body: {
+        expected_station_version: request.expectedStationVersion,
+        expected_session_version: request.expectedSessionVersion,
+        device_id: request.deviceId,
+        action_id: request.actionId,
+        action_version: request.actionVersion,
+        parameters: request.parameters,
+      },
+    })
+    return decodeReceipt(unwrapEnvelope(payload), `manual:${sessionId}`, 'manual action receipt')
+  }
+
+  async stopManualAction(
+    commandUuid: string,
+    reason: string,
+    options: StationCommandOptions,
+  ): Promise<StationCommandReceipt> {
+    // OS 的 StopRequest 是 extra="forbid" 的裸 BaseModel：body 只有 reason，
+    // 不能携带任何版本字段（带了会被 422 拒绝）。
+    const payload = await this.send({
+      method: 'POST',
+      url: `${this.stationRoot}/manual-actions/${encodeURIComponent(commandUuid)}/stop`,
+      headers: { 'Idempotency-Key': options.idempotencyKey },
+      body: { reason },
+    })
+    return decodeReceipt(
+      unwrapEnvelope(payload),
+      `stop:${commandUuid}`,
+      'stop manual action receipt',
+    )
+  }
+
+  async getHandlingInventory(
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<StationHandlingInventory> {
+    const payload = await this.send({
+      method: 'GET',
+      url: `${this.sessionRoot(sessionId)}/inventory`,
+      signal,
+    })
+    return decodeInventory(unwrapEnvelope(payload))
+  }
+
+  async correctInventory(
+    sessionId: string,
+    request: StationInventoryCorrectionRequest,
+    options: StationCommandOptions,
+  ): Promise<StationCommandReceipt> {
+    const body: Record<string, unknown> = {
+      expected_station_version: request.expectedStationVersion,
+      expected_session_version: request.expectedSessionVersion,
+      changes: request.changes.map(inventoryChangeBody),
+      expected_inventory_versions: request.expectedInventoryVersions,
+      reason: request.reason,
+    }
+    // OS 侧该字段默认 None；省略表示「不关联」，不能补一个 null 表达同一件事。
+    if (request.relatedManualCommandId !== undefined) {
+      body.related_manual_command_id = request.relatedManualCommandId
+    }
+    const payload = await this.send({
+      method: 'POST',
+      url: `${this.sessionRoot(sessionId)}/inventory-corrections`,
+      headers: { 'Idempotency-Key': options.idempotencyKey },
+      body,
+    })
+    return decodeReceipt(
+      unwrapEnvelope(payload),
+      `inventory:${sessionId}`,
+      'inventory correction receipt',
+    )
+  }
+
+  async listResourceOccupancies(
+    signal?: AbortSignal,
+  ): Promise<readonly StationResourceOccupancy[]> {
+    // 注意：该端点挂在工站根下，**不在** sessions 下。
+    const payload = await this.send({
+      method: 'GET',
+      url: `${this.stationRoot}/resource-dispositions`,
+      signal,
+    })
+    return unwrapItems(payload).map(decodeResourceOccupancy)
+  }
+
+  async releaseOccupancies(
+    request: StationOccupancyReleaseRequest,
+    options: StationCommandOptions,
+  ): Promise<StationCommandReceipt> {
+    const payload = await this.send({
+      method: 'POST',
+      url: `${this.stationRoot}/resource-dispositions`,
+      headers: { 'Idempotency-Key': options.idempotencyKey },
+      body: {
+        expected_station_version: request.expectedStationVersion,
+        expected_session_version: request.expectedSessionVersion,
+        decision_id: request.decisionId,
+        session_id: request.sessionId,
+        occupancy_ids: request.occupancyIds,
+        expected_versions: request.expectedVersions,
+        operation: 'release',
+        reason: request.reason,
+      },
+    })
+    return decodeReceipt(
+      unwrapEnvelope(payload),
+      `resource:${request.decisionId}`,
+      'occupancy release receipt',
+    )
+  }
+
+  private sessionRoot(sessionId: string): string {
+    return `${this.stationRoot}/sessions/${encodeURIComponent(sessionId)}`
+  }
+
   private get stationRoot(): string {
     return `${this.apiPrefix}/stations/${encodeURIComponent(this.stationId)}`
   }
@@ -146,6 +295,18 @@ export class StationErrorHandlingClient implements StationErrorHandlingPort {
 function unwrapEnvelope(value: unknown): unknown {
   const raw = asRecord(value) ?? {}
   return asRecord(raw.data) ?? raw
+}
+
+/**
+ * 数组型 data 的拆包。
+ *
+ * `unwrapEnvelope` 只认对象 data（`asRecord` 排除数组），列表端点必须走这里：
+ * 既要拆 `{ code: 0, data: [...] }`，也要兼容直接返回数组的形态。
+ */
+function unwrapItems(value: unknown): readonly unknown[] {
+  const raw = asRecord(value)
+  if (raw && Array.isArray(raw.data)) return raw.data
+  return itemsOf(value)
 }
 
 function decisionBody(request: StationDecisionRequest): Record<string, unknown> {
@@ -169,6 +330,22 @@ function decisionBody(request: StationDecisionRequest): Record<string, unknown> 
   return body
 }
 
+/**
+ * 单个库存更正项。OS 的 `InventoryChange` 用空值表达「移出当前库位」/「不指定库位」，
+ * 所以 null 要如实下发，不能悄悄替换成空串。
+ */
+function inventoryChangeBody(change: {
+  readonly materialUuid: string
+  readonly parentUuid: string | null
+  readonly siteUuid: string | null
+}): Record<string, unknown> {
+  return {
+    material_uuid: change.materialUuid,
+    parent_uuid: change.parentUuid,
+    site_uuid: change.siteUuid,
+  }
+}
+
 function decodeSnapshot(value: unknown, path: string): StationHandlingSnapshot {
   const raw = asRecord(value) ?? {}
   // error_epoch 和版本号一样参与乐观并发（要原样回传 observed_error_epoch），
@@ -189,6 +366,8 @@ function decodeSnapshot(value: unknown, path: string): StationHandlingSnapshot {
     activeSessionId,
     activeSession: decodeSession(raw.active_session, activeSessionId),
     errors: itemsOf(raw.errors).map(decodeErrorFact),
+    // 手动动作未完成/未核对会阻塞恢复，必须与错误事实一起进入快照。
+    manualActions: itemsOf(raw.manual_actions).map(decodeManualActionJob),
     controlCommands: itemsOf(raw.control_commands).map(decodeControlCommand),
     raw,
   }
@@ -234,6 +413,35 @@ function decodeErrorFact(value: unknown): StationErrorFact {
   }
 }
 
+/**
+ * 一条手动动作投影。
+ *
+ * `deviceId` / `actionName` 在线上没有稳定顶层字段：优先读顶层，缺失时回落到
+ * `control_data.dispatch_payload`，两者都没有就如实保留 null（界面不得自己编一个）。
+ */
+function decodeManualActionJob(value: unknown): StationManualActionJob {
+  const raw = asRecord(value) ?? {}
+  const metaData = decodeMetaData(raw.meta_data)
+  const dispatchPayload = asRecord(asRecord(raw.control_data)?.dispatch_payload)
+  return {
+    kind: 'station_manual_action_job',
+    source: 'os',
+    jobUuid: optionalString(raw.uuid) ?? '',
+    sessionId: optionalString(metaData?.session_id),
+    status: optionalString(raw.status) ?? '',
+    deviceId: optionalString(raw.device_id) ?? optionalString(dispatchPayload?.device_id),
+    actionName: optionalString(raw.action_name) ?? optionalString(dispatchPayload?.action),
+    edgeCommandUuid: optionalString(raw.edge_command_uuid),
+    uncertaintyReason: optionalString(raw.uncertainty_reason),
+    // 未知核对状态一律按「未核对」处理：宁可要求再核对一次，也不能谎报已核对。
+    resultReviewed: booleanValue(raw.result_reviewed) ?? false,
+    reviewVersion: optionalString(raw.review_version),
+    startedAt: optionalString(raw.started_at),
+    finishedAt: optionalString(raw.finished_at),
+    raw,
+  }
+}
+
 const DECISION_ACTIONS: readonly StationDecisionAction[] = [
   'cancel_task',
   'retry_current_node',
@@ -266,6 +474,78 @@ function decodeControlCommand(value: unknown): StationControlCommand {
     operation: optionalString(raw.operation) ?? '',
     status: decodeCommandStatus(raw.status),
     needsApply: booleanValue(raw.needs_apply) ?? false,
+  }
+}
+
+function decodeManualDeviceAction(value: unknown): StationManualDeviceAction {
+  const raw = asRecord(value) ?? {}
+  const name = optionalString(raw.name) ?? ''
+  return {
+    kind: 'station_manual_device_action',
+    source: 'os',
+    actionId: optionalString(raw.action_id) ?? '',
+    // 动作定义版本必须原样回传；缺失是空串不是 0，执行时 OS 会以
+    // action_definition_changed 拒绝，而不是误执行一个已经变了的动作。
+    actionVersion: optionalString(raw.action_version) ?? '',
+    name,
+    // OS 自己在 display_name 缺失时回落到 name，这里照抄同一规则，不另造文案。
+    displayName: optionalString(raw.display_name) ?? name,
+    parameterSchema: asRecord(raw.parameter_schema) ?? {},
+    defaults: asRecord(raw.defaults) ?? {},
+    raw,
+  }
+}
+
+function decodeInventory(value: unknown): StationHandlingInventory {
+  const raw = asRecord(value) ?? {}
+  return {
+    kind: 'station_handling_inventory',
+    source: 'os',
+    instances: itemsOf(raw.instances).map(decodeInventoryInstance),
+    sites: itemsOf(raw.sites).map(decodeInventorySite),
+    raw,
+  }
+}
+
+function decodeInventoryInstance(value: unknown): StationInventoryInstance {
+  const raw = asRecord(value) ?? {}
+  return {
+    edgeUuid: optionalString(raw.edge_uuid) ?? '',
+    name: optionalString(raw.name) ?? '',
+    parentUuid: optionalString(raw.parent_uuid) ?? '',
+    version: optionalNumber(raw.version) ?? optionalString(raw.version) ?? '',
+  }
+}
+
+function decodeInventorySite(value: unknown): StationInventorySite {
+  const raw = asRecord(value) ?? {}
+  return {
+    // 线上库位标识叫 uuid，投影里叫 siteUuid：改名只发生在这里。
+    siteUuid: optionalString(raw.uuid) ?? '',
+    materialUuid: optionalString(raw.material_uuid) ?? '',
+    name: optionalString(raw.name) ?? '',
+    occupiedMaterialUuid: optionalString(raw.occupied_material_uuid),
+    updateTime: optionalString(raw.update_time) ?? '',
+  }
+}
+
+function decodeResourceOccupancy(value: unknown): StationResourceOccupancy {
+  const raw = asRecord(value) ?? {}
+  return {
+    kind: 'station_resource_occupancy',
+    source: 'os',
+    occupancyUuid: optionalString(raw.uuid) ?? '',
+    lockKey: optionalString(raw.lock_key) ?? '',
+    state: optionalString(raw.state) ?? '',
+    occupancyKind: optionalString(raw.occupancy_kind) ?? '',
+    // 释放时必须原样回传；缺失是空串，宁可让 OS 拒绝也不能猜一个版本。
+    version: optionalString(raw.version) ?? '',
+    // 两种占用来源的字段名不同（工作流锁 / 设备租借），两个都要认。
+    taskUuid: optionalString(raw.workflow_task_uuid) ?? optionalString(raw.task_uuid),
+    jobUuid: optionalString(raw.workflow_node_job_uuid),
+    materialUuid: optionalString(raw.material_uuid),
+    deviceId: optionalString(raw.device_id),
+    raw,
   }
 }
 
@@ -359,6 +639,11 @@ const DETAIL_CODES: Readonly<Partial<Record<string, StationHandlingErrorCode>>> 
   manual_review_version_conflict: 'MANUAL_REVIEW_VERSION_CONFLICT',
   occupancy_version_conflict: 'OCCUPANCY_VERSION_CONFLICT',
   action_definition_changed: 'ACTION_DEFINITION_CHANGED',
+  // OS 在 `error_control.begin_execution` 里用这个码表示「命令与作业的执行身份不一致」，
+  // 是派发凭据不匹配，不是用户能自己修好的字段问题。port.ts 的联合类型里没有更贴切的
+  // 码，也不宜为此新增一个码，所以统一落到 OS_REQUEST_REJECTED（界面据此提示重新读取
+  // 工站状态后再试），并保持 detail 不暴露给用户。
+  execution_identity_conflict: 'OS_REQUEST_REJECTED',
 }
 
 /**
@@ -372,6 +657,9 @@ const NOT_FOUND_CODES: Readonly<Partial<Record<string, StationHandlingErrorCode>
   手动执行命令不存在: 'STATION_MANUAL_ACTION_NOT_FOUND',
   手动动作不存在: 'STATION_MANUAL_ACTION_NOT_FOUND',
   本工站的手动动作不存在: 'STATION_MANUAL_ACTION_NOT_FOUND',
+  // error_control._review_manual 里另一条手动动作缺失文案；不补会被 404 兜底
+  // 误读成「工站不存在」。
+  当前会话的手动动作不存在: 'STATION_MANUAL_ACTION_NOT_FOUND',
   控制命令不存在: 'STATION_COMMAND_NOT_FOUND',
   资源占用不存在: 'STATION_OCCUPANCY_NOT_FOUND',
 }

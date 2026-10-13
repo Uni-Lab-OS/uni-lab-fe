@@ -193,7 +193,7 @@ describe('station decision panel', () => {
     expect(stationPort.returnSession.mock.calls[0][1]).toMatchObject({ expectedSessionVersion: 3 })
   })
 
-  it('is honest that the manual workbench is not wired up yet', async () => {
+  it('opens the manual handling dialog for the active session and completes it', async () => {
     const error = makeStationError({ stage: 'MANUAL_HANDLING', sessionId: 'session-1' })
     stationPort.getSnapshot.mockResolvedValue(
       makeStationSnapshot({
@@ -213,16 +213,56 @@ describe('station decision panel', () => {
       }),
     )
     render(<StationDecisionPanel error={error} />, { wrapper: StationProviders })
+
     await waitFor(() => expect(screen.getByText('人工处置中')).toBeInTheDocument())
     // 会话身份必须显示出来，便于和 OS 控制台上的同一条会话对齐。
     expect(screen.getByText(/处置会话 session-/)).toBeInTheDocument()
+    // 进入人工处置后弹窗自动打开：点了「手动处理」不该什么都不发生。
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
+    expect(screen.getByText('处理操作')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '完成手动处理' }))
+    // 处理说明必填：没填之前不能提交。
+    // antd 默认给两个汉字的按钮插一个空格（应用没关 autoInsertSpace），所以按渲染结果匹配。
+    const submit = screen.getByRole('button', { name: /提\s*交/ })
+    expect(submit).toBeDisabled()
+    fireEvent.change(screen.getByPlaceholderText('做了什么、现场现在什么状态'), {
+      target: { value: '夹爪内无残留，注粉瓶已放回 L2C2。' },
+    })
+    await waitFor(() => expect(screen.getByRole('button', { name: /提\s*交/ })).toBeEnabled())
+
+    fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }))
     await waitFor(() => expect(stationPort.completeSession).toHaveBeenCalledTimes(1))
     expect(stationPort.completeSession.mock.calls[0][0]).toBe('session-1')
     expect(stationPort.completeSession.mock.calls[0][1]).toMatchObject({
       expectedSessionVersion: 2,
+      summary: '夹爪内无残留，注粉瓶已放回 L2C2。',
     })
+  })
+
+  it('refuses to open the dialog when the active session belongs to another error', async () => {
+    const error = makeStationError({ stage: 'MANUAL_HANDLING', sessionId: 'session-9' })
+    stationPort.getSnapshot.mockResolvedValue(
+      makeStationSnapshot({
+        mode: 'PAUSED',
+        errors: [error],
+        activeSessionId: 'session-9',
+        activeSession: {
+          kind: 'station_handling_session',
+          source: 'os',
+          sessionId: 'session-9',
+          decisionId: 'decision-other',
+          stage: 'MANUAL_HANDLING',
+          version: 3,
+          summary: '',
+          raw: {},
+        },
+      }),
+    )
+    render(<StationDecisionPanel error={error} />, { wrapper: StationProviders })
+
+    await waitFor(() => expect(screen.getByText(/会话与这条错误对不上/)).toBeInTheDocument())
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(stationPort.completeSession).not.toHaveBeenCalled()
   })
 
   it('blocks a decision when another error holds the single station session', async () => {

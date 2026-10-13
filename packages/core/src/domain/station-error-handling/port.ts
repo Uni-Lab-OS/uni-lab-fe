@@ -2,7 +2,14 @@ import type {
   StationCommandOptions,
   StationCommandReceipt,
   StationDecisionRequest,
+  StationHandlingInventory,
   StationHandlingSnapshot,
+  StationInventoryCorrectionRequest,
+  StationManualActionOptions,
+  StationManualActionRequest,
+  StationManualDeviceAction,
+  StationOccupancyReleaseRequest,
+  StationResourceOccupancy,
   StationResumeRequest,
   StationSessionCompleteRequest,
 } from './model'
@@ -51,6 +58,54 @@ export interface StationErrorHandlingPort {
   returnSession(
     sessionId: string,
     request: StationSessionCompleteRequest,
+    options: StationCommandOptions,
+  ): Promise<StationCommandReceipt>
+
+  /**
+   * 读取一台设备在这次会话里可选的手动动作。
+   *
+   * 目录是按会话和设备读的，不是全局常量：动作定义可能随部署变化，
+   * 所以界面不能缓存一份自己的设备-动作表。
+   */
+  listManualDeviceActions(
+    sessionId: string,
+    deviceId: string,
+    signal?: AbortSignal,
+  ): Promise<readonly StationManualDeviceAction[]>
+  /**
+   * 手动执行一个设备动作。**不检查逻辑锁** —— 可能作用在别的任务正在使用的设备上。
+   *
+   * 返回的 commandUuid 要留下来跟「登记位置」关联，而不是丢掉。
+   */
+  executeManualAction(
+    sessionId: string,
+    request: StationManualActionRequest,
+    options: StationManualActionOptions,
+  ): Promise<StationCommandReceipt>
+  /**
+   * 请求停止一个手动动作。
+   *
+   * 停止只解除「动作未结束」；若动作结束时带了不确定原因，它仍然需要现场核对，
+   * 界面不得把「已停止」说成「已解决」。
+   */
+  stopManualAction(
+    commandUuid: string,
+    reason: string,
+    options: StationCommandOptions,
+  ): Promise<StationCommandReceipt>
+  /** 读取会话范围内的库存投影（可比物料与可比库位）。 */
+  getHandlingInventory(sessionId: string, signal?: AbortSignal): Promise<StationHandlingInventory>
+  /** 登记物料实际位置。同一批里同一物料只能出现一次。 */
+  correctInventory(
+    sessionId: string,
+    request: StationInventoryCorrectionRequest,
+    options: StationCommandOptions,
+  ): Promise<StationCommandReceipt>
+  /** 读取当前逻辑资源占用。 */
+  listResourceOccupancies(signal?: AbortSignal): Promise<readonly StationResourceOccupancy[]>
+  /** 释放选中的逻辑占用；整批原子，不做部分应用。 */
+  releaseOccupancies(
+    request: StationOccupancyReleaseRequest,
     options: StationCommandOptions,
   ): Promise<StationCommandReceipt>
 }

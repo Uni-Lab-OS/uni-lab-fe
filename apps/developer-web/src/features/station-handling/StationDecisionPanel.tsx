@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { Button } from 'antd'
 import stationStyles from './stationHandling.module.scss'
@@ -9,6 +9,7 @@ import {
   isTaskTerminal,
   terminalTaskErrorCopy,
 } from './stationHandlingPresentation'
+import { ManualHandlingDialog } from './ManualHandlingDialog'
 
 /**
  * 一条错误事实的处置决定。作用域是**节点级**（这条错误挂在哪个 Job 上），
@@ -25,20 +26,30 @@ export function StationDecisionPanel({
   /** 所属任务的状态：终态任务的错误事实只能被关闭。 */
   taskStatus?: string | null
 }) {
-  const {
-    snapshot,
-    readError,
-    pending,
-    submitError,
-    decide,
-    enterManualHandling,
-    completeSession,
-    returnSession,
-  } = useStationHandling()
+  const { snapshot, readError, pending, submitError, decide, enterManualHandling, returnSession } =
+    useStationHandling()
   const [reason, setReason] = useState('')
   const [confirmingCancel, setConfirmingCancel] = useState(false)
-  const [completionSummary, setCompletionSummary] = useState('')
+  const [manualOpen, setManualOpen] = useState(false)
   const availability = decisionAvailability(snapshot, error, readError)
+  const activeSession = snapshot?.activeSession ?? null
+  const manualSessionId =
+    activeSession && activeSession.decisionId === error.decisionId ? activeSession.sessionId : null
+  const manualStage = manualSessionId != null && activeSession?.stage === 'MANUAL_HANDLING'
+
+  // 刚进入人工处理时自动打开弹窗：点了「手动处理」之后不该什么都不发生。
+  // 用 ref 记住已经开过哪个会话，避免每次快照刷新把用户刚关掉的弹窗又顶开。
+  const openedSession = useRef<string | null>(null)
+  useEffect(() => {
+    if (!manualStage || !manualSessionId) {
+      openedSession.current = null
+      return
+    }
+    if (openedSession.current !== manualSessionId) {
+      openedSession.current = manualSessionId
+      setManualOpen(true)
+    }
+  }, [manualStage, manualSessionId])
 
   useEffect(() => {
     setConfirmingCancel(false)
@@ -60,63 +71,42 @@ export function StationDecisionPanel({
 
   if (availability.kind === 'manual') {
     // 进入手动处理后不能是死路：会话身份以错误事实为准，只有当前活跃会话
-    // 和它对得上时才能完成会话，否则先重新读取，避免顶掉别人的现场核对。
-    const sessionId = error.sessionId ?? snapshot?.activeSession?.sessionId ?? null
-    const active = snapshot?.activeSession
-    const sessionMatches = Boolean(sessionId && active && active.sessionId === sessionId)
+    // 和它对得上时才能打开处理弹窗，否则先重新读取，避免顶掉别人的现场核对。
+    if (!manualStage || !activeSession || !manualSessionId) {
+      return (
+        <div className={clsx(stationStyles['decision'])}>
+          <strong className={clsx(stationStyles['decision-title'])}>人工处置中</strong>
+          <p className={clsx(stationStyles['decision-detail'])}>{availability.reason}</p>
+          <p className={clsx(stationStyles['decision-hint'], stationStyles['decision-hint--warn'])}>
+            本页读到的会话与这条错误对不上（可能已被别人推进）。请先重新读取工站处置状态。
+          </p>
+        </div>
+      )
+    }
     return (
       <div className={clsx(stationStyles['decision'])}>
         <strong className={clsx(stationStyles['decision-title'])}>人工处置中</strong>
-        <p className={clsx(stationStyles['decision-detail'])}>{availability.reason}</p>
-        {active && (
-          <p className={clsx(stationStyles['decision-hint'])}>
-            处置会话 {active.sessionId.slice(0, 8)}（版本 {active.version}）
-            {active.summary ? `：${active.summary}` : ''}
-          </p>
-        )}
-
-        {sessionId && sessionMatches && (
-          <label className={clsx(stationStyles['decision-field'])}>
-            <span>处理记录（选填）</span>
-            <textarea
-              rows={2}
-              value={completionSummary}
-              disabled={pending}
-              placeholder="记录这次现场处理做了什么"
-              onChange={(event) => setCompletionSummary(event.currentTarget.value)}
-            />
-          </label>
-        )}
-
-        {sessionId && sessionMatches && (
-          <div className={clsx(stationStyles['decision-actions'])}>
-            <Button
-              type="primary"
-              size="small"
-              loading={pending}
-              onClick={() => void completeSession(sessionId, completionSummary)}
-            >
-              完成手动处理
-            </Button>
-          </div>
-        )}
-
-        {sessionId && !sessionMatches && (
-          <p className={clsx(stationStyles['decision-hint'], stationStyles['decision-hint--warn'])}>
-            本页读到的会话与这条错误对不上（可能已被别人推进）。请先重新读取工站处置状态，再完成会话。
-          </p>
-        )}
-
-        {submitError && (
-          <p className={clsx(stationStyles['problem'])} role="alert">
-            {submitError}
-          </p>
-        )}
-
-        <p className={clsx(stationStyles['decision-hint'])}>
-          手动执行设备动作、上下料登记与逻辑占用释放仍在 Uni-Lab OS
-          控制台完成；这里只结束会话，让这个节点重新可以取消或重试。
+        <p className={clsx(stationStyles['decision-detail'])}>
+          手动执行设备动作、登记物料位置与释放逻辑占用都在「人工处理」里；完成会话后这条错误会回到
+          「等待处置决定」。
         </p>
+        <p className={clsx(stationStyles['decision-hint'])}>
+          处置会话 {activeSession.sessionId.slice(0, 8)}（版本 {activeSession.version}）
+          {activeSession.summary ? `：${activeSession.summary}` : ''}
+        </p>
+        <div className={clsx(stationStyles['decision-actions'])}>
+          <Button size="small" onClick={() => setManualOpen(true)}>
+            打开人工处理
+          </Button>
+        </div>
+        {manualOpen && (
+          <ManualHandlingDialog
+            key={manualSessionId}
+            error={error}
+            session={activeSession}
+            onClose={() => setManualOpen(false)}
+          />
+        )}
       </div>
     )
   }
