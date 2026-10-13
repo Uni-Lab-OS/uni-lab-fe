@@ -234,7 +234,7 @@ describe('WorkflowExecutionReadClient', () => {
                 site_uuid: null,
                 state: 'reserved',
                 claim_uuid: 'claim-1',
-                fencing_token: '7',
+                fencing_token: 7,
                 job_status: 'failed',
                 claim_state: 'held',
                 can_release: true,

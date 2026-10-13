@@ -201,7 +201,11 @@ function decodeTaskExecutionLock(value: WorkflowExecutionRecord): WorkflowTaskEx
     ...(siteUuid === undefined ? {} : { siteUuid }),
     state: requiredString(value.state, 'task execution lock.state'),
     claimUuid: nullableString(value.claim_uuid, 'task execution lock.claim_uuid'),
-    fencingToken: nullableString(value.fencing_token, 'task execution lock.fencing_token'),
+    // OS 回传数字围栏令牌；按 string 解会把一次成功的读取伪装成契约问题，并挡住整个面板。
+    fencingToken: nullableNonNegativeInteger(
+      value.fencing_token,
+      'task execution lock.fencing_token',
+    ),
     jobStatus: nullableString(value.job_status, 'task execution lock.job_status'),
     claimState: nullableString(value.claim_state, 'task execution lock.claim_state'),
     canRelease: booleanValue(value.can_release, 'task execution lock.can_release'),

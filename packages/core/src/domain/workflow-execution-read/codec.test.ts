@@ -105,7 +105,7 @@ describe('workflow execution read codec', () => {
             scope: 'site',
             state: 'running',
             claim_uuid: 'claim-2',
-            fencing_token: '12',
+            fencing_token: 12,
             job_status: 'running',
             claim_state: 'held',
             can_release: true,

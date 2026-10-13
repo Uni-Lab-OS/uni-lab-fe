@@ -212,7 +212,8 @@ export interface WorkflowTaskExecutionLock {
   /** 原始锁状态字符串；未知取值如实透传，不在 core 折叠成枚举。 */
   readonly state: string
   readonly claimUuid: string | null
-  readonly fencingToken: string | null
+  /** OS 回传的是**数字**围栏令牌（实测值形如 1），不是字符串。 */
+  readonly fencingToken: number | null
   readonly jobStatus: string | null
   readonly claimState: string | null
   /** OS 判定这一把锁当前是否可释放；**不是**「整个任务能不能整组解锁」。 */
