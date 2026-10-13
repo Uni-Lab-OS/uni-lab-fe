@@ -164,6 +164,44 @@ const manualActionJobPayload = (
   ...overrides,
 })
 
+const manualReviewAuditPayload = (
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> => ({
+  review_version: 'review-1',
+  operator_id: 'local-workspace',
+  reviewed_at: '2026-01-02T00:05:00Z',
+  reason: '现场确认孔板已抓取到位',
+  ...overrides,
+})
+
+const manualReviewContextPayload = (
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> => ({
+  station_id: 'local',
+  session_id: 'session/1',
+  session_stage: 'MANUAL_HANDLING',
+  job: manualActionJobPayload(),
+  review_version: 'review-1',
+  result_reviewed: false,
+  manual_review: null,
+  ...overrides,
+})
+
+const sessionManualReviewRequest = {
+  sessionId: 'session/1',
+  expectedReviewVersion: 'review-1',
+  reason: '现场确认夹爪已夹住孔板',
+  operatorConfirmed: true,
+  expectedStationVersion: 7,
+  expectedSessionVersion: 4,
+}
+
+const manualReviewRequest = {
+  expectedReviewVersion: 'review-1',
+  reason: '现场确认孔板已抓取到位',
+  operatorConfirmed: true,
+}
+
 const inventoryCorrectionRequest = {
   changes: [{ materialUuid: 'mat/1', parentUuid: '', siteUuid: '' }],
   expectedInventoryVersions: { 'mat/1': 3 },
@@ -817,6 +855,254 @@ describe('StationErrorHandlingClient 人工处置新能力', () => {
     expect(error.status).toBe(409)
     expect(error.message).toMatch(/[\u4e00-\u9fa5]/)
     expect(error.message).not.toContain('occupancy_version_conflict')
+  })
+})
+
+describe('StationErrorHandlingClient 手动动作结果核对', () => {
+  it('reviewSessionManualAction 用会话内路由、幂等头，body 恰好只有 OS 允许的 6 个键', async () => {
+    const { transport, requests } = fakeTransport(() => ({ code: 0, data: receiptPayload() }))
+
+    await new StationErrorHandlingClient(transport, 'station/1').reviewSessionManualAction(
+      'command/1',
+      sessionManualReviewRequest,
+      { idempotencyKey: 'key-review' },
+    )
+
+    expect(requests[0]).toMatchObject({
+      method: 'POST',
+      url: '/api/v1/stations/station%2F1/manual-actions/command%2F1/review',
+      headers: { 'Idempotency-Key': 'key-review' },
+    })
+    expect(Object.keys(requests[0]?.body as object).sort()).toEqual([
+      'expected_review_version',
+      'expected_session_version',
+      'expected_station_version',
+      'operator_confirmed',
+      'reason',
+      'session_id',
+    ])
+    expect(requests[0]?.body).toEqual({
+      expected_station_version: 7,
+      expected_session_version: 4,
+      session_id: 'session/1',
+      expected_review_version: 'review-1',
+      reason: '现场确认夹爪已夹住孔板',
+      operator_confirmed: true,
+    })
+  })
+
+  it('submitManualActionReview 用非会话路由、幂等头，body 恰好只有 3 个键且不带任何版本字段', async () => {
+    const { transport, requests } = fakeTransport(() => ({ code: 0, data: receiptPayload() }))
+
+    await new StationErrorHandlingClient(transport, 'station/1').submitManualActionReview(
+      'job/1',
+      manualReviewRequest,
+      { idempotencyKey: 'key-review-job' },
+    )
+
+    expect(requests[0]).toMatchObject({
+      method: 'POST',
+      url: '/api/v1/stations/station%2F1/manual-action-jobs/job%2F1/review',
+      headers: { 'Idempotency-Key': 'key-review-job' },
+    })
+    expect(Object.keys(requests[0]?.body as object).sort()).toEqual([
+      'expected_review_version',
+      'operator_confirmed',
+      'reason',
+    ])
+    expect(requests[0]?.body).toEqual({
+      expected_review_version: 'review-1',
+      reason: '现场确认孔板已抓取到位',
+      operator_confirmed: true,
+    })
+    // 会话可能已经关闭：带上会话/工站版本字段会被 OS 以 422 拒绝。
+    expect(requests[0]?.body).not.toHaveProperty('expected_station_version')
+    expect(requests[0]?.body).not.toHaveProperty('expected_session_version')
+    expect(requests[0]?.body).not.toHaveProperty('session_id')
+  })
+
+  it('getManualActionReview 走工站根下的 manual-action-jobs 路由并把 review_version 读出', async () => {
+    const { transport, requests, spy } = fakeTransport(() => ({
+      code: 0,
+      data: manualReviewContextPayload(),
+    }))
+    const controller = new AbortController()
+
+    const context = await new StationErrorHandlingClient(
+      transport,
+      'station/1',
+    ).getManualActionReview('job/1', controller.signal)
+
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(requests[0]).toMatchObject({
+      method: 'GET',
+      url: '/api/v1/stations/station%2F1/manual-action-jobs/job%2F1/review',
+    })
+    expect(requests[0]?.signal).toBe(controller.signal)
+    expect(requests[0]?.headers).toBeUndefined()
+    expect(context).toMatchObject({
+      kind: 'station_manual_review_context',
+      source: 'os',
+      stationId: 'local',
+      sessionId: 'session/1',
+      sessionStage: 'MANUAL_HANDLING',
+      reviewVersion: 'review-1',
+      resultReviewed: false,
+      // manual_review 为 null 表示这条动作还没有核对过。
+      audit: null,
+    })
+  })
+
+  it('manual_review 非 null 时解出审计记录，字段用 snake_case 映射', async () => {
+    const { transport } = fakeTransport(() => ({
+      code: 0,
+      data: manualReviewContextPayload({
+        result_reviewed: true,
+        manual_review: manualReviewAuditPayload(),
+      }),
+    }))
+
+    const context = await new StationErrorHandlingClient(transport, 'local').getManualActionReview(
+      'job/1',
+    )
+
+    expect(context.resultReviewed).toBe(true)
+    expect(context.audit).toEqual({
+      reviewVersion: 'review-1',
+      operatorId: 'local-workspace',
+      reviewedAt: '2026-01-02T00:05:00Z',
+      reason: '现场确认孔板已抓取到位',
+    })
+    // 线上字段名不得泄漏到投影里。
+    expect(context.audit).not.toHaveProperty('operator_id')
+  })
+
+  it('会话已关闭时 session_id 与 session_stage 如实保留 null', async () => {
+    const { transport } = fakeTransport(() => ({
+      code: 0,
+      data: manualReviewContextPayload({ session_id: null, session_stage: null }),
+    }))
+
+    const context = await new StationErrorHandlingClient(transport, 'local').getManualActionReview(
+      'job/1',
+    )
+
+    expect(context.sessionId).toBeNull()
+    expect(context.sessionStage).toBeNull()
+  })
+
+  it('上下文里的 job 与快照 manual_actions 用同一套解码结果', async () => {
+    const { transport } = fakeTransport((request) =>
+      request.url.endsWith('/error-handling')
+        ? { code: 0, data: snapshotPayload({ manual_actions: [manualActionJobPayload()] }) }
+        : { code: 0, data: manualReviewContextPayload() },
+    )
+    const client = new StationErrorHandlingClient(transport, 'local')
+
+    const snapshot = await client.getSnapshot()
+    const context = await client.getManualActionReview('job/1')
+
+    // 两侧在 OS 上都是 WorkflowStore._job_row 投影，前端也必须只解一次。
+    expect(context.job).toEqual(snapshot.manualActions[0])
+    expect(context.job).toMatchObject({
+      kind: 'station_manual_action_job',
+      source: 'os',
+      jobUuid: 'job/1',
+      sessionId: 'session/1',
+      status: 'succeeded',
+      deviceId: 'top-device',
+      actionName: 'top-action',
+      edgeCommandUuid: 'command/1',
+      uncertaintyReason: '抓取结果未知',
+      resultReviewed: false,
+      reviewVersion: 'review-1',
+      raw: manualActionJobPayload(),
+    })
+  })
+
+  it('上下文里的 job 缺顶层 device_id/action_name 时仍回落到 dispatch_payload', async () => {
+    const { transport } = fakeTransport(() => ({
+      code: 0,
+      data: manualReviewContextPayload({
+        job: manualActionJobPayload({ device_id: undefined, action_name: undefined }),
+      }),
+    }))
+
+    const context = await new StationErrorHandlingClient(transport, 'local').getManualActionReview(
+      'job/1',
+    )
+
+    expect(context.job).toMatchObject({
+      deviceId: 'control-device',
+      actionName: 'control-action',
+    })
+  })
+
+  it('上下文缺 review_version 时拒绝解码，而不是给出空版本', async () => {
+    const { transport } = fakeTransport(() => ({
+      code: 0,
+      data: withoutField(manualReviewContextPayload(), 'review_version'),
+    }))
+
+    const error = await rejectionOf(
+      new StationErrorHandlingClient(transport, 'local').getManualActionReview('job/1'),
+    )
+
+    expect(error).toBeInstanceOf(StationHandlingError)
+    expect(error.code).toBe('INVALID_STATION_RESPONSE')
+    expect(error.message).toContain('缺少必需字段')
+    expect(error.message).toMatch(/[\u4e00-\u9fa5]/)
+  })
+
+  it('上下文缺 station_id 时同样拒绝解码', async () => {
+    const { transport } = fakeTransport(() => ({
+      code: 0,
+      data: withoutField(manualReviewContextPayload(), 'station_id'),
+    }))
+
+    const error = await rejectionOf(
+      new StationErrorHandlingClient(transport, 'local').getManualActionReview('job/1'),
+    )
+
+    expect(error.code).toBe('INVALID_STATION_RESPONSE')
+    expect(error.message).toContain('manual_review.station_id')
+  })
+
+  it('事后核对 404 按 detail 区分成手动动作缺失，而不是工站不存在', async () => {
+    const { transport } = fakeTransport(() =>
+      transportError(404, { detail: '本工站的手动动作不存在' }),
+    )
+
+    const error = await rejectionOf(
+      new StationErrorHandlingClient(transport, 'local').getManualActionReview('job/1'),
+    )
+
+    expect(error).toMatchObject({ code: 'STATION_MANUAL_ACTION_NOT_FOUND', status: 404 })
+    expect(error.message).not.toContain('未找到该工站')
+  })
+
+  it('真实 fetch 适配器下 409 manual_review_version_conflict 只能经 cause 取到 detail', async () => {
+    const transport = createFetchTransport({
+      baseUrl: 'https://os.example.test',
+      fetcher: async () =>
+        new Response(JSON.stringify({ detail: 'manual_review_version_conflict' }), {
+          status: 409,
+        }),
+    })
+
+    const error = await rejectionOf(
+      new StationErrorHandlingClient(transport, 'local').submitManualActionReview(
+        'job/1',
+        manualReviewRequest,
+        { idempotencyKey: 'key-review-job' },
+      ),
+    )
+
+    expect(error).toBeInstanceOf(StationHandlingError)
+    expect(error.code).toBe('MANUAL_REVIEW_VERSION_CONFLICT')
+    expect(error.status).toBe(409)
+    expect(error.message).toMatch(/[\u4e00-\u9fa5]/)
+    expect(error.message).not.toContain('manual_review_version_conflict')
   })
 })
 

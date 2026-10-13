@@ -295,3 +295,52 @@ export interface StationOccupancyReleaseRequest {
   readonly expectedStationVersion: number
   readonly expectedSessionVersion: number
 }
+
+/**
+ * 一条手动动作的现场核对记录（审计）。
+ *
+ * 核对**只记录现场检查结论**，不改变动作的实际执行结果，也不清除不确定事实 ——
+ * 界面把它说成「已解决」就是撒谎。
+ */
+export interface StationManualReviewAudit {
+  readonly reviewVersion: string
+  readonly operatorId: string
+  readonly reviewedAt: string
+  readonly reason: string
+}
+
+/**
+ * 事后核对上下文：手动动作已经结束（甚至会话已经关闭）时用来核对它的现场结果。
+ *
+ * `reviewVersion` 必须原样回传：期间别人核对过或结果变了，提交会被 OS 以
+ * `manual_review_version_conflict` 拒绝，而不是把别人的核对顶掉。
+ */
+export interface StationManualReviewContext {
+  readonly kind: 'station_manual_review_context'
+  readonly source: 'os'
+  readonly stationId: string
+  readonly sessionId: string | null
+  readonly sessionStage: StationHandlingStage | null
+  readonly job: StationManualActionJob
+  readonly reviewVersion: string
+  readonly resultReviewed: boolean
+  readonly audit: StationManualReviewAudit | null
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+/** 会话内核对：OS 会校验会话身份与版本，避免顶掉别人的现场核对。 */
+export interface StationSessionManualReviewRequest {
+  readonly sessionId: string
+  readonly expectedReviewVersion: string
+  readonly reason: string
+  readonly operatorConfirmed: boolean
+  readonly expectedStationVersion: number
+  readonly expectedSessionVersion: number
+}
+
+/** 事后核对：会话可能已经关闭，所以只带核对版本。 */
+export interface StationManualReviewRequest {
+  readonly expectedReviewVersion: string
+  readonly reason: string
+  readonly operatorConfirmed: boolean
+}

@@ -8,10 +8,13 @@ import type {
   StationManualActionOptions,
   StationManualActionRequest,
   StationManualDeviceAction,
+  StationManualReviewContext,
+  StationManualReviewRequest,
   StationOccupancyReleaseRequest,
   StationResourceOccupancy,
   StationResumeRequest,
   StationSessionCompleteRequest,
+  StationSessionManualReviewRequest,
 } from './model'
 
 /**
@@ -99,6 +102,30 @@ export interface StationErrorHandlingPort {
   correctInventory(
     sessionId: string,
     request: StationInventoryCorrectionRequest,
+    options: StationCommandOptions,
+  ): Promise<StationCommandReceipt>
+  /**
+   * 会话内确认一条已结束手动动作的现场核对结果。
+   *
+   * 核对只记录结论，不改执行结果、不清除不确定事实；在它成功之前，OS 会以
+   * `manual_actions_unresolved` 拒绝完成会话。
+   */
+  reviewSessionManualAction(
+    commandUuid: string,
+    request: StationSessionManualReviewRequest,
+    options: StationCommandOptions,
+  ): Promise<StationCommandReceipt>
+  /**
+   * 读取一条手动动作的事后核对上下文。
+   *
+   * 用于会话已经关闭（错误已消解、任务已终态）之后仍需核对的情况 ——
+   * 这时没有活跃会话，只能靠 job 自己的核对版本。
+   */
+  getManualActionReview(jobUuid: string, signal?: AbortSignal): Promise<StationManualReviewContext>
+  /** 保存事后核对记录。 */
+  submitManualActionReview(
+    jobUuid: string,
+    request: StationManualReviewRequest,
     options: StationCommandOptions,
   ): Promise<StationCommandReceipt>
   /** 读取当前逻辑资源占用。 */

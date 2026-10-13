@@ -24,11 +24,15 @@ import type {
   StationManualActionOptions,
   StationManualActionRequest,
   StationManualDeviceAction,
+  StationManualReviewAudit,
+  StationManualReviewContext,
+  StationManualReviewRequest,
   StationMode,
   StationOccupancyReleaseRequest,
   StationResourceOccupancy,
   StationResumeRequest,
   StationSessionCompleteRequest,
+  StationSessionManualReviewRequest,
 } from './model'
 import {
   StationHandlingError,
@@ -231,6 +235,66 @@ export class StationErrorHandlingClient implements StationErrorHandlingPort {
       unwrapEnvelope(payload),
       `inventory:${sessionId}`,
       'inventory correction receipt',
+    )
+  }
+
+  async reviewSessionManualAction(
+    commandUuid: string,
+    request: StationSessionManualReviewRequest,
+    options: StationCommandOptions,
+  ): Promise<StationCommandReceipt> {
+    // OS 的 ManualReviewRequest 继承 SessionVersion，且 extra="forbid"：body 恰好
+    // 只有这 6 个键。核对只写现场检查结论，不下发任何动作或结果字段。
+    const payload = await this.send({
+      method: 'POST',
+      url: `${this.stationRoot}/manual-actions/${encodeURIComponent(commandUuid)}/review`,
+      headers: { 'Idempotency-Key': options.idempotencyKey },
+      body: {
+        expected_station_version: request.expectedStationVersion,
+        expected_session_version: request.expectedSessionVersion,
+        session_id: request.sessionId,
+        expected_review_version: request.expectedReviewVersion,
+        reason: request.reason,
+        operator_confirmed: request.operatorConfirmed,
+      },
+    })
+    return decodeReceipt(unwrapEnvelope(payload), `review:${commandUuid}`, 'manual review receipt')
+  }
+
+  async getManualActionReview(
+    jobUuid: string,
+    signal?: AbortSignal,
+  ): Promise<StationManualReviewContext> {
+    // 该端点挂在工站根下（不是 sessions 下）：会话可能已经关闭，只能靠 job 自己的核对版本。
+    const payload = await this.send({
+      method: 'GET',
+      url: `${this.stationRoot}/manual-action-jobs/${encodeURIComponent(jobUuid)}/review`,
+      signal,
+    })
+    return decodeManualReviewContext(unwrapEnvelope(payload))
+  }
+
+  async submitManualActionReview(
+    jobUuid: string,
+    request: StationManualReviewRequest,
+    options: StationCommandOptions,
+  ): Promise<StationCommandReceipt> {
+    // OS 的 HistoricalManualReviewRequest 是 extra="forbid" 的裸 BaseModel：body 恰好
+    // 只有这 3 个键。这里**不能**带会话/工站版本字段 —— 会话可能已经关闭，带了会被 422 拒绝。
+    const payload = await this.send({
+      method: 'POST',
+      url: `${this.stationRoot}/manual-action-jobs/${encodeURIComponent(jobUuid)}/review`,
+      headers: { 'Idempotency-Key': options.idempotencyKey },
+      body: {
+        expected_review_version: request.expectedReviewVersion,
+        reason: request.reason,
+        operator_confirmed: request.operatorConfirmed,
+      },
+    })
+    return decodeReceipt(
+      unwrapEnvelope(payload),
+      `review-job:${jobUuid}`,
+      'manual job review receipt',
     )
   }
 
@@ -439,6 +503,48 @@ function decodeManualActionJob(value: unknown): StationManualActionJob {
     startedAt: optionalString(raw.started_at),
     finishedAt: optionalString(raw.finished_at),
     raw,
+  }
+}
+
+/**
+ * 事后核对上下文。
+ *
+ * `job` 与快照里的 `manual_actions` 是同一份投影（OS 两侧都走 `WorkflowStore._job_row`
+ * 加 `manual_review_projection`），所以直接复用 `decodeManualActionJob`，不另写一套解码。
+ *
+ * `reviewVersion` 是乐观并发凭据，提交时要原样回传：缺失时宁可拒绝解码，也不能给一个
+ * 空串版本 —— 那只会被 OS 当成版本不符拒掉，把「数据不完整」说成「别人先核对过了」。
+ */
+function decodeManualReviewContext(value: unknown): StationManualReviewContext {
+  const raw = asRecord(value) ?? {}
+  return {
+    kind: 'station_manual_review_context',
+    source: 'os',
+    stationId: requiredString(raw.station_id, 'manual_review.station_id'),
+    // 会话可能已经关闭，这里如实保留 null，界面上「没有活跃会话」与「会话已结束」不同。
+    sessionId: optionalString(raw.session_id),
+    sessionStage:
+      raw.session_stage === null || raw.session_stage === undefined
+        ? null
+        : decodeStage(raw.session_stage),
+    job: decodeManualActionJob(raw.job),
+    reviewVersion: requiredString(raw.review_version, 'manual_review.review_version'),
+    // 未知核对状态一律按「未核对」处理，不能谎报已核对。
+    resultReviewed: booleanValue(raw.result_reviewed) ?? false,
+    audit: decodeManualReviewAudit(raw.manual_review),
+    raw,
+  }
+}
+
+/** 一条审计记录；`manual_review` 为 null 表示这条动作还没有核对过。 */
+function decodeManualReviewAudit(value: unknown): StationManualReviewAudit | null {
+  const raw = asRecord(value)
+  if (!raw) return null
+  return {
+    reviewVersion: optionalString(raw.review_version) ?? '',
+    operatorId: optionalString(raw.operator_id) ?? '',
+    reviewedAt: optionalString(raw.reviewed_at) ?? '',
+    reason: optionalString(raw.reason) ?? '',
   }
 }
 
