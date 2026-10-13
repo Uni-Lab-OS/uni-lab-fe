@@ -12,12 +12,18 @@ import { TaskListTable } from './TaskListTable'
 import { TaskDetailPage } from './TaskDetailPage'
 
 export function TasksPage() {
-  const query = useBackendQuery('task-presentations', (backend) =>
-    backend.core.executionRead.listTaskPresentations({
-      page: 1,
-      pageSize: 200,
-      terminalLimit: 200,
-    }),
+  // 跟随全局 SSE 失效重读。事件只是「需要重读」，不带状态，也不允许乐观 patch；
+  // useBackendQuery 只在首次加载时置 loading，所以后台重读是无感的（不闪骨架屏、
+  // 不丢筛选与滚动位置）。
+  const query = useBackendQuery(
+    'task-presentations',
+    (backend) =>
+      backend.core.executionRead.listTaskPresentations({
+        page: 1,
+        pageSize: 200,
+        terminalLimit: 200,
+      }),
+    { live: true },
   )
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('all')
