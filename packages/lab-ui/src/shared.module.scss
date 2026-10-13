@@ -364,8 +364,10 @@
 }
 
 .lab-ui-status-badge--error {
-  color: #ca5f57;
-  background: #fff0ee;
+  /* 失败类标签统一用设计系统的 error 令牌（浅色主题即 #ff4747），
+     不再使用比它更暗的一次性色值。 */
+  color: var(--bh-color-error-default, #ff4747);
+  background: var(--bh-color-error-subtle, #ffeded);
 }
 
 .lab-ui-status-badge--info {

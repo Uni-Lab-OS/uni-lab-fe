@@ -27,9 +27,11 @@
   box-shadow: none;
 }
 
+/* 按钮排版只由 ConfigProvider 的 Button 令牌决定（见 adapters/antdTheme.ts）。
+   这里不再声明 font-weight：同权重下本文件后加载，会把主题令牌盖掉，
+   结果就是“主题说常规字重、页面看起来还是加粗”。 */
 .ant-btn {
   min-height: 32px;
-  font-weight: 500;
   box-shadow: none !important;
 }
 

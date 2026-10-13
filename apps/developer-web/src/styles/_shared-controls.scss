@@ -76,7 +76,7 @@
 
 :global(.ant-btn) {
   border-radius: var(--studio-control-radius);
-  font-weight: 550;
+  /* 字号与字重由 ConfigProvider 的 Button 令牌统一给出，这里不再各自覆盖。 */
   box-shadow: none;
 }
 

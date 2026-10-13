@@ -8,6 +8,11 @@ export interface AntdThemeAlgorithms<TAlgorithm> {
 export interface AntdThemeConfig<TAlgorithm> {
   algorithm: TAlgorithm
   token: Record<string, string | number>
+  /**
+   * 组件级令牌。按钮这类“通用控件”的排版必须在这里定义一次，
+   * 否则每个页面都会为了“看起来对”而各自覆盖一遍，同一屏里出现多种字号字重。
+   */
+  components: Record<string, Record<string, string | number>>
 }
 
 function themeColor(name: string, fallback: string): string {
@@ -18,6 +23,15 @@ function themeColor(name: string, fallback: string): string {
 function themeFont(name: string, fallback: string): string {
   if (typeof document === 'undefined') return fallback
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
+}
+
+/** 把 `--bh-font-size-*`（rem/px）换算成 antd 组件令牌需要的像素数值。 */
+function themePx(name: string, fallback: number): number {
+  const raw = themeFont(name, '')
+  if (!raw) return fallback
+  const value = Number.parseFloat(raw)
+  if (!Number.isFinite(value)) return fallback
+  return raw.endsWith('rem') ? Math.round(value * 16) : value
 }
 
 /**
@@ -79,6 +93,15 @@ export function createAntdTheme<TAlgorithm>(
       colorInfoBg: themeColor('--bh-color-primary-information-light', '#eef1ff'),
       controlOutline: themeColor('--bh-color-ring', '#5363a6'),
       controlOutlineWidth: 2,
+    },
+    components: {
+      Button: {
+        // 常规字重：按钮不该默认加粗，强调交给颜色与层级。
+        fontWeight: 400,
+        contentFontSize: themePx('--bh-font-size-sm', 14),
+        contentFontSizeSM: themePx('--bh-font-size-xs', 12),
+        contentFontSizeLG: themePx('--bh-font-size-sm', 14),
+      },
     },
   }
 }
