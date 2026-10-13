@@ -25,6 +25,20 @@ pnpm --filter @unilab/developer-web dev
 入参会提交到 core 的 `run-preflight` 与 `workflow-tasks` 接口，任务详情读取
 `workflow-task-presentations`、`workflow-tasks/:id/jobs` 和节点 feedback 接口。
 
+## 发布产物自带启动能力
+
+`pnpm --filter @unilab/developer-web build` 除了产出 `dist/`，还会把 `scripts/` 下的
+启动脚本和文档一并写进产物：
+
+- `dist/README.md`：面向领域开发者与 AI 的启动/排障手册（源文件 `scripts/README.md`）。
+- `dist/start-frontend.sh`：启动静态服务并代理到 workspace backend，支持 `--check`、
+  `--frontend-only`（默认）、`--restart-os`。
+- `dist/serve-dist.py`：纯标准库的静态托管 + `/api`、`/__unilab_backend` 反向代理。
+
+因此使用者拿到 `dist` 后不需要 node/pnpm，用系统 python3 即可起前端调试界面。
+注意 API 根地址是**构建期**烧进产物的（默认 `/__unilab_backend`，用
+`VITE_UNILAB_API_URL=/` 构建则为 `/api/v1`），给 `dist` 换后端要改代理目标而不是前端环境变量。
+
 ## 代码边界
 
 - `src/app/backend.ts` 是唯一 composition root，负责装配 core、services 和 transport。
