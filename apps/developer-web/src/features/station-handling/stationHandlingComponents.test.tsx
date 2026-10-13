@@ -29,6 +29,8 @@ describe('station decision panel', () => {
     await waitFor(() => expect(screen.getByText('异常处理')).toBeInTheDocument())
 
     fireEvent.click(screen.getByRole('button', { name: '重试节点' }))
+    // popover 二次确认：动作按钮本身不提交
+    fireEvent.click(await screen.findByRole('button', { name: '确认重试' }))
 
     await waitFor(() => expect(stationPort.decide).toHaveBeenCalledTimes(1))
     // 节点决定只决定节点：恢复是工站级事实，绝不跟着这次提交一起下发。
@@ -73,12 +75,14 @@ describe('station decision panel', () => {
     })
     await waitFor(() => expect(screen.getByText(/任务已结束/)).toBeInTheDocument())
 
-    // 任务已取消：重试与手动处理都是死路，不能出现。
+    // 任务已取消：重试与人工处理都是死路，不能出现。
     expect(screen.queryByRole('button', { name: '重试节点' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '手动处理' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '人工处理' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '取消任务' })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '关闭异常事实' }))
+    // popover 二次确认：动作按钮本身不提交
+    fireEvent.click(await screen.findByRole('button', { name: '确认关闭' }))
     await waitFor(() => expect(stationPort.decide).toHaveBeenCalledTimes(1))
     // 关闭动作走 OS 的 cancel_task 语义（它同时收尾该任务剩余的错误事实）。
     expect(stationPort.decide.mock.calls[0][1]).toMatchObject({
@@ -101,7 +105,7 @@ describe('station decision panel', () => {
     expect(screen.queryByRole('button', { name: '关闭异常事实' })).not.toBeInTheDocument()
   })
 
-  it('never submits a destructive cancel without an explicit inline confirmation', async () => {
+  it('never submits a destructive cancel without an explicit popover confirmation', async () => {
     const error = makeStationError()
     stationPort.getSnapshot.mockResolvedValue(
       makeStationSnapshot({ mode: 'PAUSED', errors: [error] }),
@@ -109,11 +113,12 @@ describe('station decision panel', () => {
     render(<StationDecisionPanel error={error} />, { wrapper: StationProviders })
     await waitFor(() => expect(screen.getByText('异常处理')).toBeInTheDocument())
 
+    // 点动作按钮本身不能提交：破坏性动作必须先经过浮层确认。
     fireEvent.click(screen.getByRole('button', { name: '取消任务' }))
     expect(stationPort.decide).not.toHaveBeenCalled()
     expect(screen.getByText(/无法撤销/)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '确认取消任务' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认取消' }))
     await waitFor(() => expect(stationPort.decide).toHaveBeenCalledTimes(1))
     expect(stationPort.decide.mock.calls[0][1]).toMatchObject({
       action: 'cancel_task',
@@ -142,11 +147,14 @@ describe('station decision panel', () => {
     await waitFor(() => expect(screen.getByText('异常处理')).toBeInTheDocument())
 
     // 文案来自 OS 的 options，不是前端自己起的名字。
-    fireEvent.click(screen.getByRole('button', { name: '手动处理' }))
+    // 术语统一成「人工处理」：原来弹窗叫人工处理、入口叫手动处理、状态叫人工处置中。
+    fireEvent.click(screen.getByRole('button', { name: '人工处理' }))
+    // popover 二次确认：动作按钮本身不提交
+    fireEvent.click(await screen.findByRole('button', { name: '进入现场处理' }))
     await waitFor(() => expect(stationPort.decide).toHaveBeenCalledTimes(1))
     expect(stationPort.decide.mock.calls[0][1]).toMatchObject({
       action: 'enter_manual_handling',
-      // 进入手动处理时不能顺带恢复调度，工站必须保持暂停。
+      // 进入人工处理时不能顺带恢复调度，工站必须保持暂停。
       resumeRequested: false,
       operatorConfirmed: false,
     })
@@ -160,7 +168,7 @@ describe('station decision panel', () => {
     render(<StationDecisionPanel error={error} />, { wrapper: StationProviders })
     await waitFor(() => expect(screen.getByText('异常处理')).toBeInTheDocument())
 
-    expect(screen.queryByRole('button', { name: '手动处理' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '人工处理' })).not.toBeInTheDocument()
   })
 
   it('returns to the same session instead of a doomed second enter', async () => {
@@ -185,9 +193,10 @@ describe('station decision panel', () => {
     render(<StationDecisionPanel error={error} />, { wrapper: StationProviders })
     await waitFor(() => expect(screen.getByText('异常处理')).toBeInTheDocument())
 
-    // 会话已存在时 OS 会拒绝 enter，界面只能提供「返回手动处理」。
-    expect(screen.queryByRole('button', { name: '手动处理' })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '返回手动处理' }))
+    // 会话已存在时 OS 会拒绝 enter，界面只能提供「继续现场处理」。
+    expect(screen.queryByRole('button', { name: '人工处理' })).not.toBeInTheDocument()
+    // 行为不变（复用同一会话，不再 enter），只是标签改成了「继续现场处理」。
+    fireEvent.click(screen.getByRole('button', { name: /继续现场处理/ }))
     await waitFor(() => expect(stationPort.returnSession).toHaveBeenCalledTimes(1))
     expect(stationPort.returnSession.mock.calls[0][0]).toBe('session-1')
     expect(stationPort.returnSession.mock.calls[0][1]).toMatchObject({ expectedSessionVersion: 3 })
@@ -214,22 +223,23 @@ describe('station decision panel', () => {
     )
     render(<StationDecisionPanel error={error} />, { wrapper: StationProviders })
 
-    await waitFor(() => expect(screen.getByText('人工处置中')).toBeInTheDocument())
-    // 会话身份必须显示出来，便于和 OS 控制台上的同一条会话对齐。
-    expect(screen.getByText(/处置会话 session-/)).toBeInTheDocument()
+    // OS 的 enter 会立刻建会话：还没做任何操作时，标题必须如实说"还没记录任何操作"，
+    // 不能笼统说成「人工处置中」。
+    await waitFor(() =>
+      expect(screen.getByText('已进入现场处理，还没有记录任何操作')).toBeInTheDocument(),
+    )
+    // 并且给一条不用打开弹窗就能回到决定的出口 —— 误进入时不必再走一遍弹窗。
+    expect(screen.getByRole('button', { name: /不需要现场处理，直接回到决定/ })).toBeInTheDocument()
     // 进入人工处置后弹窗自动打开：点了「手动处理」不该什么都不发生。
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
     expect(screen.getByText('处理操作')).toBeInTheDocument()
 
-    // 处理说明必填：没填之前不能提交。
+    // 处理说明是选填：不填也能提交。
     // antd 默认给两个汉字的按钮插一个空格（应用没关 autoInsertSpace），所以按渲染结果匹配。
-    const submit = screen.getByRole('button', { name: /提\s*交/ })
-    expect(submit).toBeDisabled()
-    fireEvent.change(screen.getByPlaceholderText('做了什么、现场现在什么状态'), {
+    await waitFor(() => expect(screen.getByRole('button', { name: /提\s*交/ })).toBeEnabled())
+    fireEvent.change(screen.getByPlaceholderText(/机械臂已复位并断电/), {
       target: { value: '夹爪内无残留，注粉瓶已放回 L2C2。' },
     })
-    await waitFor(() => expect(screen.getByRole('button', { name: /提\s*交/ })).toBeEnabled())
-
     fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }))
     await waitFor(() => expect(stationPort.completeSession).toHaveBeenCalledTimes(1))
     expect(stationPort.completeSession.mock.calls[0][0]).toBe('session-1')
@@ -263,6 +273,50 @@ describe('station decision panel', () => {
     await waitFor(() => expect(screen.getByText(/会话与这条错误对不上/)).toBeInTheDocument())
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(stationPort.completeSession).not.toHaveBeenCalled()
+  })
+
+  it('says the on-site handling is already recorded when the error has been through a session', async () => {
+    // 回归：complete 之后错误回到「等待处置决定」，按钮和进门之前长得一样。
+    // 没有这句话，用户会以为刚才的提交没生效。
+    const error = makeStationError({ sessionId: 'session-1' })
+    stationPort.getSnapshot.mockResolvedValue(
+      makeStationSnapshot({
+        mode: 'PAUSED',
+        errors: [error],
+        activeSessionId: 'session-1',
+        activeSession: {
+          kind: 'station_handling_session',
+          source: 'os',
+          sessionId: 'session-1',
+          decisionId: error.decisionId,
+          // 会话收尾后回到「等待处置决定」，错误也是这个阶段 —— 决定面板此时才可用。
+          stage: 'DECISION_REQUIRED',
+          version: 3,
+          summary: '夹爪已复位',
+          raw: {},
+        },
+      }),
+    )
+    render(<StationDecisionPanel error={error} />, { wrapper: StationProviders })
+
+    // 提示必须指向「重试/取消」，并说明「继续现场处理」是例外路径 ——
+    // 那条路径会把会话退回 MANUAL_HANDLING，等于撤销这次提交。
+    await waitFor(() => expect(screen.getByText(/现场处理已完成并已记录/)).toBeInTheDocument())
+    // 例外出口必须和「重试/取消」分开表达，否则看起来是第三个平级决定。
+    expect(screen.getByText(/还需要到现场再动手/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /继续现场处理/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /返回手动处理/ })).not.toBeInTheDocument()
+  })
+
+  it('does not claim a session happened for an error that never entered manual handling', async () => {
+    const error = makeStationError()
+    stationPort.getSnapshot.mockResolvedValue(
+      makeStationSnapshot({ mode: 'PAUSED', errors: [error] }),
+    )
+    render(<StationDecisionPanel error={error} />, { wrapper: StationProviders })
+
+    await waitFor(() => expect(screen.getByText('异常处理')).toBeInTheDocument())
+    expect(screen.queryByText(/现场处理已完成并已记录/)).not.toBeInTheDocument()
   })
 
   it('blocks a decision when another error holds the single station session', async () => {

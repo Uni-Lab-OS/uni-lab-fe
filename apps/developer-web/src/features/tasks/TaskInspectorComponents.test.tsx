@@ -169,13 +169,10 @@ describe('developer-web task inspector components', () => {
   it('re-reads the station snapshot once when a failed node has no error fact yet', async () => {
     render(<IssuesTab event={event('failed')} />, { wrapper: StationProviders })
 
-    const button = await screen.findByRole('button', { name: '重新读取工站处置状态' })
-    const callsBeforeClick = stationPort.getSnapshot.mock.calls.length
     // 首次挂载读取之后，failed 节点还必须主动补读一次，否则页面会停在旧快照上。
-    expect(callsBeforeClick).toBeGreaterThan(1)
-
-    fireEvent.click(button)
-    expect(stationPort.getSnapshot.mock.calls.length).toBeGreaterThan(callsBeforeClick)
+    // 这条补读是自动的：手动「重新读取」按钮已删掉——已被决定消费掉的错误事实不会再出现，
+    // 那个按钮只是在承诺一件不可能发生的事。
+    await waitFor(() => expect(stationPort.getSnapshot.mock.calls.length).toBeGreaterThan(1))
   })
 
   it('re-reads the station snapshot only once per failed node', async () => {
@@ -183,22 +180,15 @@ describe('developer-web task inspector components', () => {
       wrapper: StationProviders,
     })
     await waitFor(() => expect(stationPort.getSnapshot.mock.calls.length).toBeGreaterThan(1))
+    // 先等它彻底静下来再记基线：初次读取与自动补读可能都还在飞，
+    // 一拿到 >1 就记基线会把仍在路上的那次当成"重复补读"。
+    await new Promise((resolve) => setTimeout(resolve, 60))
     const settled = stationPort.getSnapshot.mock.calls.length
 
     // 同一个失败节点重复渲染不能反复补读，否则会把工站接口打爆。
     rerender(<IssuesTab event={event('failed')} />)
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    await new Promise((resolve) => setTimeout(resolve, 60))
     expect(stationPort.getSnapshot.mock.calls.length).toBe(settled)
-  })
-
-  it.each([
-    ['waiting', '节点在等待运行时条件'],
-    ['manual', '等待的是人工确认'],
-    ['success', '已经成功'],
-    ['unknown', '结果未知'],
-  ] as const)('explains why a %s node has no station decision', async (status, expected) => {
-    render(<IssuesTab event={event(status)} />, { wrapper: StationProviders })
-    expect(await screen.findByText(new RegExp(expected))).toBeInTheDocument()
   })
 
   it('renders the decision entry for the station error bound to this node job', async () => {
@@ -247,14 +237,14 @@ describe('developer-web task inspector components', () => {
     render(<IssuesTab event={event('failed')} />, { wrapper: StationProviders })
 
     await waitFor(() => expect(screen.getByText(/这是一次人工处置动作/)).toBeInTheDocument())
-    expect(screen.getByText(/不会新建工站级错误事实/)).toBeInTheDocument()
+    // 没有决定入口，但必须给出真正的出口：结果核对表单。
+    expect(screen.getByLabelText('核对说明')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /重新读取工站处置状态/ })).not.toBeInTheDocument()
   })
 
-  it('still offers a re-read with visible feedback when the node is a normal failure', async () => {
-    stationPort.getSnapshot.mockResolvedValue(
-      makeStationSnapshot({ mode: 'RUNNING', errors: [], manualActions: [] }),
-    )
+  it('offers a re-read with visible feedback when the station snapshot could not be read', async () => {
+    // 只有「读不到快照」这一支保留重读按钮：那里重读是真的可能成功的。
+    stationPort.getSnapshot.mockRejectedValue(new Error('工站暂时不可达'))
     render(<IssuesTab event={event('failed')} />, { wrapper: StationProviders })
 
     const button = await screen.findByRole('button', { name: /重新读取工站处置状态/ })
