@@ -36,8 +36,13 @@ pnpm --filter @unilab/developer-web dev
 - `dist/serve-dist.py`：纯标准库的静态托管 + `/api`、`/__unilab_backend` 反向代理。
 
 因此使用者拿到 `dist` 后不需要 node/pnpm，用系统 python3 即可起前端调试界面。
-注意 API 根地址是**构建期**烧进产物的（默认 `/__unilab_backend`，用
-`VITE_UNILAB_API_URL=/` 构建则为 `/api/v1`），给 `dist` 换后端要改代理目标而不是前端环境变量。
+
+API 根地址是**构建期**烧进产物的，`.env.production` 已把它固定为 `/`（请求本页
+`/api/v1`，交给随产物发布的服务器或任何转发 `/api` 的反代）。临时指向别的后端时用
+`VITE_UNILAB_API_URL=http://host:port pnpm --filter @unilab/developer-web build`
+覆盖即可（环境变量优先级高于 `.env` 文件；注意 `VITE_UNILAB_API_URL=` 置空不等于取消，
+会退回代码默认的 `/__unilab_backend`）。给已构建的 `dist` 换后端则只能改代理目标
+`UNILAB_BACKEND`，改前端环境变量对成品无效。
 
 ## 代码边界
 

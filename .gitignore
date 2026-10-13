@@ -18,3 +18,7 @@ apps/workbench/desktop/main.cjs
 
 # 本机启动事实（start-frontend.sh 读取），不要提交
 apps/developer-web/scripts/start-frontend.local.env
+
+# Vite 本机环境覆盖（含 dev proxy 目标、访问令牌等），不入库
+.env.local
+.env.*.local
