@@ -15,8 +15,10 @@ const UUID_PATTERN = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{
 export function formatPreflightCheckMessage(
   check: PreflightCheck,
   candidates: readonly ResourceCandidate[] = [],
-  context: PreflightMessageContext = {},
+  _context: PreflightMessageContext = {},
 ): string {
+  // 数量库存的文案由 OS 写好库位名。这里再拼一句会只留下第一只瓶子。
+  if (check.code === 'quantity_inventory_unavailable') return check.message
   const matched = candidates.filter(
     (candidate) =>
       check.message.includes(candidate.id) ||
@@ -25,36 +27,6 @@ export function formatPreflightCheckMessage(
         (id) => check.message.includes(id) || containsString(check.details, id),
       ),
   )
-  const material = matched.find((candidate) => candidate.resourceKind === 'material')
-  const inventory = matched.find((candidate) => candidate.resourceKind === 'inventory')
-  const site = matched.find((candidate) => candidate.resourceKind === 'site')
-  const reagentName =
-    textFromMetadata(material?.metadata, ['reagent_name', 'reagentName']) ??
-    textFromDetails(check.details, ['reagent_name', 'reagentName']) ??
-    inventory?.label
-  const containerName =
-    textFromMetadata(material?.metadata, ['container_name', 'containerName']) ??
-    textFromDetails(check.details, ['container_name', 'containerName']) ??
-    material?.label ??
-    textFromMetadata(inventory?.metadata, ['container_name', 'containerName']) ??
-    site?.label
-
-  if (
-    check.code === 'quantity_inventory_unavailable' &&
-    (/库存|数量|试剂|预留/.test(check.message) || hasReagentSourceField(context.workflowInput))
-  ) {
-    const availability = /不足|小于|不够/.test(check.message) ? '数量不足' : '没有可用数量'
-    if (reagentName && containerName) {
-      return `试剂“${reagentName}”在容器“${containerName}”中${availability}`
-    }
-    if (containerName) return `容器“${containerName}”中的试剂${availability}`
-
-    const sourceContainer = reagentSourceContainer(context.workflowInput)
-    if (sourceContainer) return `容器“${sourceContainer}”中的试剂${availability}`
-
-    return '液体试剂来源容器未填写，无法确认试剂库存'
-  }
-
   const replacements = matched
     .flatMap((candidate) =>
       [candidate.id, ...candidateIdentityValues(candidate.metadata)].map(
@@ -68,28 +40,6 @@ export function formatPreflightCheckMessage(
   )
   // 候选读取失败时也不能把原始 UUID 直接暴露给操作员。
   return message.replace(UUID_PATTERN, '相关资源')
-}
-
-function reagentSourceContainer(
-  workflowInput: Readonly<Record<string, unknown>> | undefined,
-): string | undefined {
-  if (!workflowInput) return undefined
-  const preferred = Object.entries(workflowInput).find(
-    ([key, value]) =>
-      /reagent/i.test(key) && /source.*site|site.*source/i.test(key) && isText(value),
-  )
-  if (preferred && isText(preferred[1])) return preferred[1].trim()
-  return undefined
-}
-
-function hasReagentSourceField(workflowInput: Readonly<Record<string, unknown>> | undefined): boolean {
-  return Object.keys(workflowInput ?? {}).some(
-    (key) => /reagent/i.test(key) && /source.*site|site.*source/i.test(key),
-  )
-}
-
-function isText(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0
 }
 
 function containsString(value: unknown, target: string): boolean {
@@ -110,23 +60,6 @@ function candidateIdentityValues(metadata: Readonly<Record<string, unknown>>): s
     }
   }
   return values
-}
-
-function textFromMetadata(
-  metadata: Readonly<Record<string, unknown>> | undefined,
-  keys: readonly string[],
-): string | undefined {
-  if (!metadata) return undefined
-  return keys
-    .map((key) => metadata[key])
-    .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
-}
-
-function textFromDetails(
-  details: Readonly<Record<string, unknown>>,
-  keys: readonly string[],
-): string | undefined {
-  return textFromMetadata(details, keys)
 }
 
 function escapeRegExp(value: string): string {

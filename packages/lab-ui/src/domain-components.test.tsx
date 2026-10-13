@@ -225,11 +225,12 @@ describe('lab-ui domain components', () => {
       { type: 'resource', status: 'deferred', code: 'WAIT', message: '稍后复核', blocking: false, details: {} },
       { type: 'resource', status: 'passed', code: 'OK', message: '通过', blocking: false, details: {} },
     ] }
-    const viewModel = { revision: { kind: 'published_revision', source: 'os', workflowUuid: 'wf-1', name: '测试工作流', revision: 3, workflowType: 'workflow', status: 'published', graph: { workflow: {}, nodes: [], edges: [], nodeTemplates: [], handleTemplates: [], inventoryRequirements: [] } }, configuration: { runMode: 'single_node', priority: 'high', description: '', input: { a: 1 } }, binding: { source: 'user', inventoryBindings: [], selectedResources: {} }, requirements: [{ uuid: 'req-1', consumeNodeUuid: 'node-1', requirementKey: 'water', targetType: 'liquid', requiredQuantity: 2, quantityUnit: 'mL', allowSplit: true, description: '纯水', metadata: {} }], nodeJob: null } as unknown as RunPreparationViewModel
+    const viewModel = { revision: { kind: 'published_revision', source: 'os', workflowUuid: 'wf-1', name: '测试工作流', revision: 3, workflowType: 'workflow', status: 'published', graph: { workflow: {}, nodes: [{ uuid: 'source-1', param: { site: 'site-r1c4' } }], edges: [], nodeTemplates: [], handleTemplates: [], inventoryRequirements: [] } }, configuration: { runMode: 'single_node', priority: 'high', description: '', input: { a: 1 } }, binding: { source: 'user', inventoryBindings: [], selectedResources: {} }, requirements: [{ uuid: 'req-1', consumeNodeUuid: 'node-1', requirementKey: 'water', targetType: 'liquid', requiredQuantity: 2, quantityUnit: 'mL', allowSplit: true, description: '纯水', metadata: { unilab: { material_source_node_uuid: 'source-1' } } }], candidates: [{ kind: 'resource_candidate', id: 'site-r1c4', resourceKind: 'site', label: 'R1C4', status: null, source: 'os', observedAt: null, metadata: {} }], nodeJob: null } as unknown as RunPreparationViewModel
     render(<RunPreparationSummary viewModel={viewModel} preflight={report} />)
     expect(screen.getByRole('alert')).toHaveTextContent('当前不能提交')
     expect(screen.getByText('设备不可用')).toBeInTheDocument()
     expect(screen.getByRole('list', { name: '库存需求列表' })).toHaveTextContent('2 mL · 可拆分')
+    expect(screen.getByText('库位 R1C4')).toBeInTheDocument()
     expect(screen.getAllByText('待确认')).toHaveLength(2)
     const submit = vi.fn(); const edit = vi.fn()
     render(<RunSubmitConfirmation canSubmit={false} busy onSubmit={submit} onEdit={edit} />)

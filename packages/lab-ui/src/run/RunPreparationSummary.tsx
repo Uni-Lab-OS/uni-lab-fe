@@ -43,7 +43,10 @@ export function RunPreparationSummary({ viewModel, preflight }: RunPreparationSu
         </section>
         <section>
           <h3>库存需求</h3>
-          <InventoryRequirementList requirements={viewModel.requirements} />
+          <InventoryRequirementList
+            requirements={viewModel.requirements}
+            siteNames={requirementSiteNames(viewModel)}
+          />
         </section>
       </div>
       {preflight && (
@@ -55,6 +58,33 @@ export function RunPreparationSummary({ viewModel, preflight }: RunPreparationSu
       )}
     </section>
   )
+}
+
+/** 库存需求键来自工作流图；库位名用来源节点上的库位 UUID 对物料图候选。 */
+function requirementSiteNames(viewModel: RunPreparationViewModel): Record<string, string> {
+  const siteLabels = new Map(
+    (viewModel.candidates ?? [])
+      .filter((candidate) => candidate.resourceKind === 'site' && candidate.label)
+      .map((candidate) => [candidate.id, candidate.label]),
+  )
+  const sites: Record<string, string> = {}
+  for (const requirement of viewModel.requirements) {
+    const sourceNodeUuid = nestedString(requirement.metadata, ['unilab', 'material_source_node_uuid'])
+    const node = viewModel.revision.graph.nodes.find((item) => item.uuid === sourceNodeUuid)
+    const siteUuid = nestedString(node, ['param', 'site'])
+    const siteName = siteUuid ? siteLabels.get(siteUuid) : undefined
+    if (siteName) sites[requirement.requirementKey] = siteName
+  }
+  return sites
+}
+
+function nestedString(value: unknown, path: readonly string[]): string {
+  let current = value
+  for (const key of path) {
+    if (!current || typeof current !== 'object') return ''
+    current = (current as Record<string, unknown>)[key]
+  }
+  return typeof current === 'string' ? current.trim() : ''
 }
 
 function runModeLabel(mode: RunPreparationViewModel['configuration']['runMode']): string {
