@@ -303,16 +303,10 @@ describe('developer-web task inspector components', () => {
     expect(screen.getByText(/不产生物料库位占用/)).toBeInTheDocument()
   })
 
-  it('keeps lock release fail-closed and preserves feedback or empty states', () => {
-    const releaseable = lock({ canRelease: true })
-    const { rerender } = render(<LocksTab locks={[releaseable]} recovery={recovery} />)
-    expect(screen.getByText('可释放执行锁')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /人工解除整组锁/ })).toBeDisabled()
-
-    rerender(<LocksTab locks={[]} recovery={recovery} />)
-    expect(screen.getByText('暂无执行锁快照。')).toBeInTheDocument()
-
-    rerender(<ObservabilityTab feedback={feedback} />)
+  it('preserves feedback or empty states', () => {
+    // 执行锁 tab 已改为读专用的任务级锁快照（并复用 taskLockPresentation 的门禁），
+    // 不再是"任务详情投影里的锁事实 + 一个写死 disabled 的死按钮"，所以这里只留反馈部分。
+    const { rerender } = render(<ObservabilityTab feedback={feedback} />)
     expect(screen.getByText('1 条反馈')).toBeInTheDocument()
     expect(screen.getByText('半程')).toBeInTheDocument()
     rerender(<ObservabilityTab feedback={null} />)

@@ -107,7 +107,7 @@ export function TaskDetailInspectorDrawer({ controller }: { controller: Controll
             />
           )}
           {activeTab === 'locks' && (
-            <LocksTab locks={facts?.recovery.locks ?? []} recovery={facts?.recovery} />
+            <LocksTab taskUuid={controller.selectedTask?.taskUuid ?? null} />
           )}
           {activeTab === 'observability' && (
             <ObservabilityTab
