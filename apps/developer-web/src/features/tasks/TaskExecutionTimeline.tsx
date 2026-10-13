@@ -43,7 +43,8 @@ const markerGlyph: Record<TaskExecutionStatus, string> = {
   manual: 'users/user-check-01',
   unknown: 'general/help',
   pending: 'general/minus',
-  failed: 'alerts-feedback/alert-triangle',
+  // 失败用「叉」而不是警告三角：三角与「结果待核对」语义接近，不够醒目。
+  failed: 'general/x',
   skipped: 'media/skip-forward',
 }
 

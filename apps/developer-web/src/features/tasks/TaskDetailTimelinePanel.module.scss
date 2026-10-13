@@ -141,13 +141,14 @@
 }
 
 .debug-timeline-action-danger {
-  color: #c34f53;
+  /* 与全站失败/危险色同源：不再用一次性砖红。 */
+  color: var(--bh-color-error-default);
   background: transparent;
 }
 
 .debug-timeline-action-danger:hover:not(:disabled) {
-  color: #ae363d;
-  background: #fff0f0;
+  color: var(--bh-color-error-default);
+  background: var(--bh-color-error-subtle);
 }
 
 .debug-timeline-action:disabled {

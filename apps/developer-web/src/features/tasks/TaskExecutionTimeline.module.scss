@@ -83,6 +83,17 @@
   line-height: 1;
 }
 
+/* 图标必须按块级盒子参与居中：作为 inline-level 盒子（或被 DebugIcon 的 span
+   包成 inline-level）时，marker 的 line-height 会把它整体压下去约 1.4px，
+   叉号这类实心字形看起来就是不居中。 */
+.marker > span {
+  display: flex;
+}
+
+.marker svg {
+  display: block;
+}
+
 .marker[data-status='success'] {
   --timeline-status-bg: var(--bh-color-success-subtle, #ecfdf3);
   --timeline-status-fg: var(--bh-color-success-default, #16a34a);
@@ -97,11 +108,20 @@
   --timeline-status-ring: var(--bh-color-warning-focus, #f5c76b);
 }
 
-.marker[data-status='unknown'],
-.marker[data-status='failed'] {
+.marker[data-status='unknown'] {
   --timeline-status-bg: var(--bh-color-error-subtle, #fff0ee);
   --timeline-status-fg: var(--bh-color-error-default, #dc2626);
   --timeline-status-ring: var(--bh-color-error-focus, #f5a5a0);
+}
+
+/* 失败是时间线上最需要被一眼看到的节点：实心红 + 加粗描边 + 外圈光晕，
+   与「结果待核对」的浅红描边明确区分，不再只靠一处小色差。 */
+.marker[data-status='failed'] {
+  --timeline-status-bg: var(--bh-color-error-default);
+  --timeline-status-fg: var(--bh-color-primary-white);
+  border-width: 2px;
+  border-color: var(--bh-color-error-default);
+  box-shadow: 0 0 0 3px var(--bh-color-error-subtle);
 }
 
 .marker[data-status='pending'],
