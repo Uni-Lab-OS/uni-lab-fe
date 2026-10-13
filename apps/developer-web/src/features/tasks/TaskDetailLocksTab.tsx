@@ -191,26 +191,28 @@ export function LocksTab({
         </div>
       ) : (
         <>
-          <div
-            className={clsx(
-              taskDetailInspectorStyles['debug-lock-guard'],
-              readiness.kind === 'ready' ? taskDetailInspectorStyles['is-ready'] : '',
-            )}
-          >
-            <div className={clsx(taskDetailInspectorStyles['debug-lock-guard-head'])}>
-              <DebugIcon name={readiness.kind === 'ready' ? 'unlock' : 'shield-alert'} size={18} />
-              <div>
-                {/* 用户打开这个 tab 先要知道「有锁没有」。所以首行回答持有情况，
-                    门禁说明降为下面的补充（有资源却仍不能解锁时必须说清为什么）。 */}
-                <strong>
-                  {readiness.kind === 'ready'
-                    ? `持有 ${lockCount} 把执行锁，可整组解锁`
-                    : `持有 ${lockCount} 把执行锁`}
-                </strong>
-                {readiness.kind !== 'ready' && <p>{readiness.reason}</p>}
+          {readiness.kind === 'ready' ? (
+            <div
+              className={clsx(
+                taskDetailInspectorStyles['debug-lock-guard'],
+                taskDetailInspectorStyles['is-ready'],
+              )}
+            >
+              <div className={clsx(taskDetailInspectorStyles['debug-lock-guard-head'])}>
+                <DebugIcon name="unlock" size={18} />
+                <div>
+                  <strong>持有 {lockCount} 把执行锁，可整组解锁</strong>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            /* 执行中的任务持有锁是**正常状态**，不该用警告色说成问题。
+               这里只陈述事实；「为什么暂时不能解锁」降到锁列表下面作为补充。 */
+            <p className={clsx(taskDetailInspectorStyles['debug-lock-summary'])}>
+              <DebugIcon name="shield-alert" size={15} />
+              持有 {lockCount} 把执行锁
+            </p>
+          )}
 
           <div className={clsx(taskDetailInspectorStyles['debug-lock-group'])}>
             {snapshot?.locks.map((lock) => (
@@ -222,6 +224,10 @@ export function LocksTab({
             <p className={clsx(taskDetailInspectorStyles['debug-lock-guard'])}>
               另有 {snapshot.activeDeviceTenancyCount} 项设备占用会一并解除。
             </p>
+          )}
+
+          {readiness.kind !== 'ready' && (
+            <p className={clsx(taskDetailInspectorStyles['debug-lock-note'])}>{readiness.reason}</p>
           )}
 
           {readiness.kind === 'ready' && (

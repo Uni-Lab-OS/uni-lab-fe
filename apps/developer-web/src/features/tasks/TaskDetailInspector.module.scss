@@ -729,3 +729,22 @@
 .lock-ready {
   color: #328b65;
 }
+
+/* 执行锁持有情况：只陈述事实，不用警告色（执行中持有锁是正常状态） */
+.debug-lock-summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: #64738b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 「为什么暂时不能解锁」作为锁列表之后的补充说明 */
+.debug-lock-note {
+  margin: 0;
+  color: #64738b;
+  font-size: 11px;
+  line-height: 1.5;
+}
