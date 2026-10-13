@@ -392,8 +392,13 @@
 }
 .debug-refresh-row {
   display: flex;
+  align-items: center;
   gap: 8px;
   margin-top: 2px;
+}
+.debug-refresh-note {
+  color: var(--bh-color-text-description, #667381);
+  font-size: 12.5px;
 }
 .debug-empty-state {
   text-align: center;

@@ -217,6 +217,52 @@ describe('developer-web task inspector components', () => {
     expect(screen.queryByRole('button', { name: '重新读取工站处置状态' })).not.toBeInTheDocument()
   })
 
+  it('explains a manual-action result instead of offering a useless re-read', async () => {
+    // 回归：人工处置动作的执行任务按设计不会新建工站级错误事实。
+    // 原来这里只劝用户「重新读取工站处置状态」，而那个按钮读了永远也没用。
+    stationPort.getSnapshot.mockResolvedValue(
+      makeStationSnapshot({
+        mode: 'RUNNING',
+        errors: [],
+        manualActions: [
+          {
+            kind: 'station_manual_action_job',
+            source: 'os',
+            jobUuid: 'job-1',
+            sessionId: 'session-1',
+            status: 'failed',
+            deviceId: 'device_action',
+            actionName: '目标转到放料位',
+            edgeCommandUuid: 'edge-1',
+            uncertaintyReason: null,
+            resultReviewed: false,
+            reviewVersion: null,
+            startedAt: null,
+            finishedAt: null,
+            raw: {},
+          },
+        ],
+      }),
+    )
+    render(<IssuesTab event={event('failed')} />, { wrapper: StationProviders })
+
+    await waitFor(() => expect(screen.getByText(/这是一次人工处置动作/)).toBeInTheDocument())
+    expect(screen.getByText(/不会新建工站级错误事实/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /重新读取工站处置状态/ })).not.toBeInTheDocument()
+  })
+
+  it('still offers a re-read with visible feedback when the node is a normal failure', async () => {
+    stationPort.getSnapshot.mockResolvedValue(
+      makeStationSnapshot({ mode: 'RUNNING', errors: [], manualActions: [] }),
+    )
+    render(<IssuesTab event={event('failed')} />, { wrapper: StationProviders })
+
+    const button = await screen.findByRole('button', { name: /重新读取工站处置状态/ })
+    fireEvent.click(button)
+    // 点完之后必须有可见反馈，否则用户会以为按钮坏了。
+    await waitFor(() => expect(screen.getByText('已重新读取')).toBeInTheDocument())
+  })
+
   it('shows manual confirmation actions from the authoritative node job projection', () => {
     const onDecide = vi.fn().mockResolvedValue(undefined)
     const job = {
