@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { clsx } from 'clsx'
-import { Alert, Button, Form, Input, Modal, Tag } from 'antd'
+import { Alert, Button, Checkbox, Form, Input, Modal, Tag } from 'antd'
 import type { StationErrorFact, StationHandlingSession } from '@unilab-fe/core'
 import stationStyles from './stationHandling.module.scss'
 import { DeviceActionForm, MaterialPositionForm, OccupancyReleaseForm } from './ManualHandlingForms'
+import { ManualReviewForm } from './ManualReviewForm'
 import { useManualHandling } from './useManualHandling'
 import type { ManualOperationKind, ManualOperationView } from './manualHandlingModel'
 
@@ -28,7 +29,7 @@ const TONE_TAG: Readonly<Record<ManualOperationView['tone'], string>> = {
 /**
  * 人工处理弹窗。
  *
- * 三件事：添加处理操作、写处理说明、提交。
+ * 三件事：添加处理操作、写处理说明（选填）、提交。
  *
  * 两个刻意的语义，写在这里免得后来的人改错：
  * 1. **操作即执行**：设备动作一旦执行就作用于真实设备，不能「先攒着再一起发」。
@@ -53,11 +54,6 @@ export function ManualHandlingDialog({
   const { blockers, views } = controller
 
   const submit = async () => {
-    try {
-      await noteForm.validateFields()
-    } catch {
-      return
-    }
     if (await controller.completeSession()) onClose()
   }
 
@@ -210,17 +206,12 @@ export function ManualHandlingDialog({
       </section>
 
       <Form form={noteForm} layout="vertical" className={clsx(stationStyles['manual-note-form'])}>
-        <Form.Item
-          label="处理说明"
-          name="note"
-          required
-          rules={[{ required: true, message: '请填写处理说明' }]}
-        >
+        <Form.Item label="处理说明（选填）" name="note">
           <Input.TextArea
             rows={3}
             value={controller.note}
             onChange={(event) => controller.setNote(event.target.value)}
-            placeholder="做了什么、现场现在什么状态"
+            placeholder="例如：机械臂已复位并断电，注粉瓶放回 L2C2"
           />
         </Form.Item>
       </Form>
@@ -251,63 +242,36 @@ export function ManualHandlingDialog({
           message={controller.submitError}
         />
       )}
+      {/* 这不是「承担风险」那种吓人的措辞能解决的事：真实情况是系统不知道东西在哪。
+          所以给两条路 —— 去登记（建设性），或声明位置没变（确认）。 */}
       {controller.riskAckRequired && !blockers.blocked && (
-        <Alert
-          type="warning"
-          showIcon
-          className={clsx(stationStyles['manual-form-wide'])}
-          message="物料位置可能和现场不一致"
-          description="你做了设备动作，但没有登记物料位置。系统不知道东西现在在哪。"
-          action={
-            <Button size="small" onClick={() => controller.setRiskAck(!controller.riskAck)}>
-              {controller.riskAck ? '已确认承担' : '我确认承担'}
+        <div className={clsx(stationStyles['manual-risk-block'])}>
+          <strong className={clsx(stationStyles['manual-risk-title'])}>还没有登记物料的位置</strong>
+          <p className={clsx(stationStyles['manual-risk-text'])}>
+            你执行了设备动作，但没有登记物料现在在哪。如果实际位置变了，后续调度会按旧位置去找。
+          </p>
+          <Checkbox
+            checked={controller.riskAck}
+            onChange={(event) => controller.setRiskAck(event.target.checked)}
+          >
+            位置没有变，我确认可以按现有记录继续
+          </Checkbox>
+          <div className={clsx(stationStyles['manual-form-actions'])}>
+            <Button size="small" onClick={() => setSheet('material')} disabled={controller.pending}>
+              去登记物料位置
             </Button>
-          }
-        />
+          </div>
+        </div>
       )}
-
-      {blockers.blocked && (
-        <Alert
-          type="error"
-          showIcon
-          className={clsx(stationStyles['manual-form-wide'])}
-          message={
-            blockers.unresolved.length > 0 && blockers.running.length === 0
-              ? '有动作结果待核对，还不能提交'
-              : '有动作还没结束，还不能提交'
-          }
-          description={
-            <>
-              {blockers.running.length > 0 && (
-                <p>
-                  还在执行：
-                  {blockers.running
-                    .map((job) => job.actionName ?? job.jobUuid.slice(0, 8))
-                    .join('、')}
-                  。等它结束，或到 Uni-Lab OS 控制台停止动作。
-                </p>
-              )}
-              {blockers.unresolved.length > 0 && (
-                <p>
-                  结果不确定：
-                  {blockers.unresolved
-                    .map((job) => job.actionName ?? job.jobUuid.slice(0, 8))
-                    .join('、')}
-                  。OS 要求现场核对之后才允许提交；核对入口尚未接入本前端，请先在 Uni-Lab OS
-                  控制台完成核对。
-                </p>
-              )}
-            </>
-          }
-        />
-      )}
+      <p className={clsx(stationStyles['manual-consequence'])}>
+        提交只结束现场处理这一段：这条错误会回到「等待处置决定」，还需要再选一次
+        「重试节点」或「取消任务」，它才算处理完。
+      </p>
       <div className={clsx(stationStyles['manual-footer'])}>
         <div className={clsx(stationStyles['manual-footer-info'])}>
           {blockers.blocked
             ? `${blockers.running.length + blockers.unresolved.length} 项未结束，不能提交`
-            : controller.riskAckRequired && !controller.riskAck
-              ? '需先确认承担物料位置不一致'
-              : ''}
+            : ''}
         </div>
         <div className={clsx(stationStyles['manual-form-actions'])}>
           <Button onClick={onClose}>取消</Button>

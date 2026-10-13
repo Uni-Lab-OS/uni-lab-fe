@@ -8,8 +8,12 @@ import type {
   StationHandlingInventory,
   StationHandlingSnapshot,
   StationInventoryCorrectionRequest,
+  StationManualActionJob,
   StationManualActionRequest,
   StationManualDeviceAction,
+  StationManualReviewContext,
+  StationManualReviewRequest,
+  StationSessionManualReviewRequest,
   StationOccupancyReleaseRequest,
   StationResourceOccupancy,
   StationResumeRequest,
@@ -61,6 +65,46 @@ export function makeStationError(overrides: Partial<StationErrorFact> = {}): Sta
     sourceNodeId: null,
     errorPhase: 'execution',
     openedAt: '2026-01-01T00:00:00Z',
+    raw: {},
+    ...overrides,
+  }
+}
+
+export function makeManualActionJob(
+  overrides: Partial<StationManualActionJob> = {},
+): StationManualActionJob {
+  return {
+    kind: 'station_manual_action_job',
+    source: 'os',
+    jobUuid: 'job-1',
+    sessionId: 'session-1',
+    status: 'failed',
+    deviceId: 'S06 机械臂',
+    actionName: '夹爪闭合',
+    edgeCommandUuid: 'edge-1',
+    uncertaintyReason: null,
+    resultReviewed: false,
+    reviewVersion: 'review-v1',
+    startedAt: null,
+    finishedAt: null,
+    raw: {},
+    ...overrides,
+  }
+}
+
+export function makeManualReviewContext(
+  overrides: Partial<StationManualReviewContext> = {},
+): StationManualReviewContext {
+  return {
+    kind: 'station_manual_review_context',
+    source: 'os',
+    stationId: 'local',
+    sessionId: 'session-1',
+    sessionStage: 'DECISION_REQUIRED',
+    job: makeManualActionJob(),
+    reviewVersion: 'review-v1',
+    resultReviewed: false,
+    audit: null,
     raw: {},
     ...overrides,
   }
@@ -147,6 +191,23 @@ export function createStationPortStub(snapshot: StationHandlingSnapshot = makeSt
     releaseOccupancies: vi.fn(
       async (_request: StationOccupancyReleaseRequest, _options: StationCommandOptions) =>
         makeStationReceipt(),
+    ),
+    reviewSessionManualAction: vi.fn(
+      async (
+        _commandUuid: string,
+        _request: StationSessionManualReviewRequest,
+        _options: StationCommandOptions,
+      ) => makeStationReceipt(),
+    ),
+    getManualActionReview: vi.fn(async (_jobUuid: string, _signal?: AbortSignal) =>
+      makeManualReviewContext(),
+    ),
+    submitManualActionReview: vi.fn(
+      async (
+        _jobUuid: string,
+        _request: StationManualReviewRequest,
+        _options: StationCommandOptions,
+      ) => makeStationReceipt(),
     ),
     returnSession: vi.fn(
       async (

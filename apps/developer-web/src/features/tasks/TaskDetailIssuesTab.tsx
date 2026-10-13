@@ -11,6 +11,7 @@ import {
 } from './taskDetailModel'
 import type { StationManualActionJob, WorkflowNodeJobDetail } from '@unilab-fe/core'
 import { useStationHandling } from '../station-handling/StationHandlingProvider'
+import { ManualActionReviewSection } from '../station-handling/ManualActionReviewSection'
 import { stationErrorForJob } from '../station-handling/stationHandlingPresentation'
 import { StationDecisionPanel } from '../station-handling/StationDecisionPanel'
 import { StationResumeCard } from '../station-handling/StationResumeCard'
@@ -58,23 +59,6 @@ function StationRereadButton({ onReread }: { onReread: () => Promise<void> }) {
       )}
     </div>
   )
-}
-
-function manualActionAbsenceReason(action: StationManualActionJob): string {
-  const status =
-    action.status === 'succeeded'
-      ? '已成功'
-      : action.status === 'canceled'
-        ? '已停止'
-        : action.status === 'timeout'
-          ? '超时'
-          : '失败'
-  const review = action.resultReviewed
-    ? '结果已人工核对'
-    : action.uncertaintyReason
-      ? '结果待现场核对'
-      : 'OS 未标记为需要核对'
-  return `这是一次人工处置动作（${status}，${review}），不是工作流节点错误：它的结果记在这次处置会话的手动动作记录里，不会新建工站级错误事实，所以这里没有重试／取消的决定入口。结果核对的入口尚未接入本前端，需要核对时请到 Uni-Lab OS 控制台。`
 }
 
 export function IssuesTab({
@@ -195,19 +179,14 @@ export function IssuesTab({
       {stationError ? (
         <StationDecisionPanel error={stationError} taskStatus={taskStatus} />
       ) : (
+        // 没有错误事实时**不再解释「为什么没有」**：那只是在叙述一个缺失，用的是
+        // 「工站级错误事实」「工站处置流程」这类内部术语，用户看不懂也不需要。
+        // 唯一有意义的是人工处置动作的结果核对 —— 那里有真正要做的事。
         !readError &&
-        !loading && (
-          <div className={clsx(taskDetailInspectorStyles['debug-context-box'])}>
-            <span>可做的处置</span>
-            <strong>
-              {manualAction ? manualActionAbsenceReason(manualAction) : stationAbsenceReason(event)}
-            </strong>
-            {/* 人工处置动作按设计不会有工站级错误事实，再读快照永远读不出处置入口，
-                所以这种情况不给「重新读取」——那是个骗人的按钮。 */}
-            {!manualAction && <StationRereadButton onReread={refresh} />}
-          </div>
-        )
+        !loading &&
+        manualAction && <ManualActionReviewSection action={manualAction} />
       )}
+
       {/* 工站级事实与节点无关：这个节点没有错误、或错误刚被处置完时，
           工站仍可能处于暂停，恢复入口必须留在这里，而不是挂在某个节点的决定上。 */}
       <StationResumeCard />
@@ -232,27 +211,4 @@ function nodeIssueTitle(
   if (event.status === 'waiting') return '等待资源'
   if (event.status === 'running') return '节点正在执行'
   return '这个节点没有异常'
-}
-
-/**
- * 有错误事实才有处置入口。没有时要把「为什么没有」说清楚，
- * 否则一个 failed 的节点会让人以为系统把它漏了。
- */
-function stationAbsenceReason(event: TimelineEvent): string {
-  if (event.status === 'failed') {
-    return 'OS 没有为这个节点建立工站级错误事实：可能这次失败没有进入工站处置流程，也可能是本页读到的工站快照早于失败发生。先点下面的「重新读取工站处置状态」；补读后仍没有处置入口时，请以节点执行记录和 OS 日志为准。'
-  }
-  if (event.status === 'unknown') {
-    return '节点结果未知，但 OS 没有建立工站级错误事实。请核对现场后再回去决定是否恢复调度。'
-  }
-  if (event.status === 'waiting') {
-    return '节点在等待运行时条件，不是异常，没有需要处置的内容。'
-  }
-  if (event.status === 'manual') {
-    return '这个节点等待的是人工确认，不属于工站级节点错误处置。'
-  }
-  if (event.status === 'success') {
-    return '这个节点已经成功，没有需要处置的内容。'
-  }
-  return '当前没有与这个节点关联的工站级异常事实。'
 }

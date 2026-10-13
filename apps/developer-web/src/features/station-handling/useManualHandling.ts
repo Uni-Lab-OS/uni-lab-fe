@@ -4,6 +4,7 @@ import { useStationHandling } from './StationHandlingProvider'
 import { StationHandlingError } from '@unilab-fe/core'
 import type {
   StationCommandReceipt,
+  StationManualActionJob,
   StationHandlingSession,
   StationInventoryChange,
   StationInventoryCorrectionRequest,
@@ -80,6 +81,8 @@ export interface ManualHandlingController {
   readonly unconfirmed: ManualOperationIntent | undefined
   readonly submitOperation: (intent: ManualOperationIntent) => Promise<boolean>
   readonly retryUnconfirmed: () => Promise<boolean>
+  /** 会话内核对一条已结束手动动作；核对成功前 OS 会拒绝结束会话。 */
+  readonly reviewAction: (job: StationManualActionJob, reason: string) => Promise<boolean>
   readonly completeSession: () => Promise<boolean>
   readonly resetRiskAck: () => void
 }
@@ -143,7 +146,9 @@ export function useManualHandling(session: StationHandlingSession): ManualHandli
   )
   const riskAckRequired = needsInventoryRiskAck(views)
   const canSubmit =
-    !blockers.blocked && draft.note.trim().length > 0 && (!riskAckRequired || riskAck)
+    // 处理说明是选填：OS 的 complete 也允许空 summary。真正的门禁是「动作都结束且已核对」，
+    // 以及没登记物料位置时的显式确认。
+    !blockers.blocked && (!riskAckRequired || riskAck)
 
   const run = useCallback(
     async (intent: ManualOperationIntent, idempotencyKey: string): Promise<boolean> => {
@@ -287,6 +292,52 @@ export function useManualHandling(session: StationHandlingSession): ManualHandli
     }
   }, [pendingIntent, run])
 
+  const reviewAction = useCallback(
+    async (job: StationManualActionJob, reason: string): Promise<boolean> => {
+      if (inFlight.current) return false
+      const commandUuid = job.edgeCommandUuid
+      const reviewVersion = job.reviewVersion
+      if (!commandUuid || !reviewVersion) {
+        setSubmitError('这条动作没有可用的核对版本，请重新读取工站状态。')
+        return false
+      }
+      inFlight.current = true
+      setPending(true)
+      setSubmitError(undefined)
+      try {
+        const receipt = await backend.core.stationErrorHandling.reviewSessionManualAction(
+          commandUuid,
+          {
+            sessionId: session.sessionId,
+            expectedReviewVersion: reviewVersion,
+            reason,
+            operatorConfirmed: true,
+            expectedStationVersion: snapshot?.stationVersion ?? 0,
+            expectedSessionVersion: snapshot?.activeSession?.version ?? session.version,
+          },
+          { idempotencyKey: crypto.randomUUID() },
+        )
+        if (receipt.status !== 'APPLIED') {
+          setSubmitError('核对请求已受理但尚未生效，请重新读取工站状态确认。')
+        }
+        await refresh()
+        return receipt.status === 'APPLIED'
+      } catch (cause) {
+        setSubmitError(
+          isDefiniteRejection(cause)
+            ? messageOf(cause, '核对被拒绝。')
+            : '核对提交结果尚未确认，请重新读取工站状态后再决定是否重试。',
+        )
+        await refresh()
+        return false
+      } finally {
+        inFlight.current = false
+        setPending(false)
+      }
+    },
+    [backend, refresh, session, snapshot],
+  )
+
   const completeSession = useCallback(async (): Promise<boolean> => {
     if (!canSubmit || inFlight.current) return false
     inFlight.current = true
@@ -343,6 +394,7 @@ export function useManualHandling(session: StationHandlingSession): ManualHandli
     submitError,
     unconfirmed: pendingIntent?.intent,
     submitOperation,
+    reviewAction,
     retryUnconfirmed,
     completeSession,
     resetRiskAck: () => setRiskAck(false),

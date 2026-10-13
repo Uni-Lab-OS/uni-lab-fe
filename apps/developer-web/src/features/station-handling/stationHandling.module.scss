@@ -723,3 +723,96 @@
   font-size: 13px;
   line-height: 1.5;
 }
+
+/* ── 手动动作的现场核对 ───────────────────────────────── */
+
+.manual-review-section {
+  padding: 12px 14px;
+  border: 1px solid #f0d9b0;
+  border-radius: var(--bh-radius-md, 10px);
+  background: var(--bh-color-warning-subtle, #fff3df);
+}
+
+.manual-review-title {
+  margin: 0 0 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--bh-color-warning-default, #8a4f06);
+}
+
+.manual-review-note {
+  margin: 0 0 10px;
+  color: var(--bh-color-text-description, #667381);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.manual-review-check {
+  margin-bottom: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.manual-review-done {
+  padding: 10px 12px;
+  border: 1px solid #b6e2c8;
+  border-radius: var(--bh-radius-md, 10px);
+  background: var(--bh-color-success-subtle, #e5f6ec);
+}
+
+.manual-review-done strong {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--bh-color-success-default, #12683a);
+}
+
+.manual-review-done-meta {
+  margin: 5px 0 0;
+  color: var(--bh-color-text-description, #55616f);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* 未登记物料位置：给一条建设性出路，而不是只让人「承担风险」 */
+.manual-risk-block {
+  padding: 12px 14px;
+  border: 1px solid #f0d9b0;
+  border-radius: var(--bh-radius-md, 10px);
+  background: var(--bh-color-warning-subtle, #fff3df);
+}
+
+.manual-risk-title {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--bh-color-warning-default, #8a4f06);
+}
+
+.manual-risk-text {
+  margin: 6px 0 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #6d3f05;
+}
+
+.decision-hint--done {
+  color: var(--bh-color-success-default, #12683a);
+  font-weight: 600;
+}
+
+/* 提交前必须说清后果：提交不等于处理完，后面还差一次重试/取消的决定 */
+.manual-consequence {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--bh-color-border-1, #d5dfe9);
+  color: var(--bh-color-text-description, #55616f);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+/* 支路入口后面的注解：说清这条路的后果，避免它被当成第三个解法 */
+.decision-hint-note {
+  margin-left: 6px;
+  color: var(--bh-color-text-description, #667381);
+  font-size: 12.5px;
+}
