@@ -636,6 +636,16 @@
 .debug-lock-empty-state strong {
   color: #64738b;
 }
+/*
+ * 执行锁的空态是**次级说明**，字号必须和抽屉里其它说明文字（`.debug-empty-state p`、
+ * `.debug-lock-guard-head span`）同一档，不能继承全局正文字号看起来像标题。
+ * 只覆盖执行锁这一处：`.debug-empty-state` 是资源空态复用的共享 class，不动它。
+ */
+.debug-lock-empty-state {
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+}
 .debug-site-choice {
   gap: 10px;
 }

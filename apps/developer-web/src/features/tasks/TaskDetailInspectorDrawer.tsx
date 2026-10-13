@@ -27,6 +27,9 @@ export function TaskDetailInspectorDrawer({ controller }: { controller: Controll
     facts,
     viewModel,
     decideManualConfirmation,
+    // 执行锁是按任务作用域读的，不是按节点；整组解锁成功后还要重读任务详情。
+    taskUuid,
+    reloadSelectedTask,
   } = controller
   // 标签上的红点必须和面板里的结论同源：同一个 OS 错误事实谓词 + 节点自身的失败状态。
   const { snapshot } = useStationHandling()
@@ -85,11 +88,11 @@ export function TaskDetailInspectorDrawer({ controller }: { controller: Controll
                   aria-hidden="true"
                 />
               )}
-              {tab.id === 'locks' && (
-                <span className={clsx(taskDetailInspectorStyles['debug-tab-count'])}>
-                  {facts?.recovery.locks.length ?? 0}
-                </span>
-              )}
+              {/*
+                这里**不再**显示来自任务详情投影的锁数量角标：那份数据常常是空的，
+                角标会固定在 0，而面板里读的是专用锁快照端点，两处对不上就是新的谎。
+                真实数量由面板自己按快照渲染，标签上不再重复一个不可信的计数。
+              */}
             </button>
           ))}
         </nav>
@@ -107,7 +110,11 @@ export function TaskDetailInspectorDrawer({ controller }: { controller: Controll
             />
           )}
           {activeTab === 'locks' && (
-            <LocksTab taskUuid={controller.selectedTask?.taskUuid ?? null} />
+            <LocksTab
+              taskUuid={taskUuid}
+              cleanupStatus={viewModel?.selectedTask?.cleanupStatus ?? null}
+              onReloadTaskDetail={reloadSelectedTask}
+            />
           )}
           {activeTab === 'observability' && (
             <ObservabilityTab

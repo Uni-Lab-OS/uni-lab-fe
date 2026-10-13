@@ -111,6 +111,21 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
     [backend.core.manualConfirmation, inspectJob],
   )
 
+  // 任务级操作（整组解锁等）需要稳定的 Task 作用域：优先用 OS 投影读回来的 taskUuid，
+  // 只有还没读到投影时才退回路由传进来的 requestedTaskUuid。
+  const taskUuid = selectedTask?.taskUuid ?? requestedTaskUuid ?? null
+
+  /**
+   * 重读当前任务的权威投影。
+   *
+   * 命令回执只说明命令被 OS 受理/生效，任务状态与锁的最终状态只能由后续 REST 投影确认，
+   * 所以整组解锁成功后必须调用它，不能拿回执当终态。
+   */
+  const reloadSelectedTask = useCallback(async () => {
+    if (!taskUuid) return
+    await inspectTask(taskUuid)
+  }, [inspectTask, taskUuid])
+
   const submitCommand = (type: DebugCommandType, targetNodeUuid?: string) => {
     if (!selectedTask) return
     setLastCommandType(type)
@@ -189,5 +204,7 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
     decideManualConfirmation,
     submitCommand,
     submitBranch,
+    taskUuid,
+    reloadSelectedTask,
   }
 }

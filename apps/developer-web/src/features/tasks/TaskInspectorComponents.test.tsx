@@ -2,14 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type {
   NodeJobFeedbackPage,
-  WorkflowExecutionLockFact,
   WorkflowNodeJobDetail,
-  WorkflowRecoveryFact,
   WorkflowResourceWaitFact,
 } from '@unilab-fe/core'
 import { IssuesTab } from './TaskDetailIssuesTab'
 import { ManualConfirmationActions } from './TaskDetailManualConfirmation'
-import { LocksTab } from './TaskDetailLocksTab'
 import { ObservabilityTab } from './TaskDetailObservabilityTab'
 import { ResourcesTab } from './TaskDetailResourcesTab'
 import { TaskExecutionTimeline, type TaskExecutionTimelineItem } from './TaskExecutionTimeline'
@@ -50,27 +47,6 @@ const timelineItem: TaskExecutionTimelineItem = {
   device: 'robot-1',
   duration: '执行中',
   progress: 140,
-}
-
-const lock = (overrides: Partial<WorkflowExecutionLockFact> = {}): WorkflowExecutionLockFact => ({
-  lockUuid: 'lock-1',
-  jobUuid: 'job-1',
-  lockKey: 'robot-1',
-  scope: 'device',
-  claimUuid: null,
-  fencingToken: null,
-  state: 'reserved',
-  canRelease: false,
-  blockingReasons: [],
-  raw: {},
-  ...overrides,
-})
-
-const recovery: WorkflowRecoveryFact = {
-  executionUnknown: false,
-  requiresReconciliation: false,
-  locks: [],
-  raw: {},
 }
 
 const feedback: NodeJobFeedbackPage = {
