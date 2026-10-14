@@ -117,7 +117,8 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         try:
             while True:
-                chunk = upstream.read(8192)
+                # read(n) 会阻塞到攒满 n 字节，SSE 的小帧会被扣在这里；read1 有多少转多少。
+                chunk = upstream.read1(8192)
                 if not chunk:
                     break
                 self.wfile.write(chunk)
