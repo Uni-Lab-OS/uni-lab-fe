@@ -14,10 +14,22 @@ import taskListStyles from './TaskList.module.scss'
 
 export function TaskListTable({
   rows,
+  total,
+  page,
+  pageSize,
+  filtered = false,
+  onPageChange,
   onOpen,
   onDone,
 }: {
   rows: readonly TaskListRow[]
+  /** 后端返回的任务总数；分页器按它算页数，不按当前这一页的长度。 */
+  total: number
+  page: number
+  pageSize: number
+  /** 是否正在按关键字/状态过滤，决定空表文案。 */
+  filtered?: boolean
+  onPageChange: (page: number) => void
   onOpen: (row: TaskListRow) => void
   onDone: () => void
 }) {
@@ -109,8 +121,26 @@ export function TaskListTable({
       rowKey={(row) => row.task.taskUuid}
       columns={columns}
       dataSource={[...rows]}
-      locale={{ emptyText: <EmptyState scene="no-data" size="compact" title="暂无任务" /> }}
-      pagination={{ pageSize: 10, hideOnSinglePage: true }}
+      locale={{
+        emptyText: (
+          <EmptyState
+            scene="no-data"
+            size="compact"
+            title={filtered ? '当前页没有匹配的任务' : '暂无任务'}
+          />
+        ),
+      }}
+      // 服务端分页：total 来自后端，dataSource 只有当前页。antd 在
+      // dataSource.length < total 且不大于 pageSize 时不会再切片，正好是异步模式。
+      pagination={{
+        current: page,
+        pageSize,
+        total,
+        showSizeChanger: false,
+        // 只看后端 total：一页装得下就不显示分页器，多页时正常显示。
+        hideOnSinglePage: true,
+        onChange: onPageChange,
+      }}
     />
   )
 }

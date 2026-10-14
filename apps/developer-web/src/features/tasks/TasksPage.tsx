@@ -11,17 +11,23 @@ import { filterTaskListRows, toTaskListRow, type TaskListRow } from './taskDomai
 import { TaskListTable } from './TaskListTable'
 import { TaskDetailPage } from './TaskDetailPage'
 
+/**
+ * 服务端分页的页大小。OS 的 `_normalize_page` 会把 page_size 截断到 100，而每个
+ * Task 投影都内嵌它自己的全部 Job，所以页越大投影越重、越容易拖慢首屏。
+ */
+const TASK_PAGE_SIZE = 20
+
 export function TasksPage() {
-  // 跟随全局 SSE 失效重读。事件只是「需要重读」，不带状态，也不允许乐观 patch；
-  // useBackendQuery 只在首次加载时置 loading，所以后台重读是无感的（不闪骨架屏、
-  // 不丢筛选与滚动位置）。
+  const [page, setPage] = useState(1)
+  // 分页由后端做：page 进查询身份，切页是换一份投影，不是在这一批数据上切片。
+  // live 只表示「收到全局 SSE 失效后重读当前页」；事件不携带状态，也不允许乐观 patch。
+  // useBackendQuery 只在新身份首读时置 loading，所以后台重读是无感的（不闪骨架屏）。
   const query = useBackendQuery(
-    'task-presentations',
+    `task-presentations:${page}`,
     (backend) =>
       backend.core.executionRead.listTaskPresentations({
-        page: 1,
-        pageSize: 200,
-        terminalLimit: 200,
+        page,
+        pageSize: TASK_PAGE_SIZE,
       }),
     { live: true },
   )
@@ -30,10 +36,14 @@ export function TasksPage() {
   const [selectedUuid, setSelectedUuid] = useState<string | null>(() =>
     new URLSearchParams(window.location.search).get('task'),
   )
+  const items = query.data?.items
+  // 关键字与状态仍在前端过滤，因此只作用于当前页：展示接口没有 keyword 参数，
+  // 而 attention/completed 属于前端状态词汇表，不是 OS 的 status 枚举。
   const rows = useMemo(
-    () => filterTaskListRows((query.data?.items ?? []).map(toTaskListRow), keyword, status),
-    [keyword, query.data, status],
+    () => filterTaskListRows((items ?? []).map(toTaskListRow), keyword, status),
+    [items, keyword, status],
   )
+  const filtering = keyword.trim() !== '' || status !== 'all'
   useEffect(() => {
     const syncSelectedTask = () => {
       const nextTaskUuid = new URLSearchParams(window.location.search).get('task')
@@ -78,12 +88,19 @@ export function TasksPage() {
               prefix={<AppIcon name="general/search-md" size={16} />}
               placeholder="搜索名称、工作流或任务编号"
               value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
+              onChange={(event) => {
+                setKeyword(event.target.value)
+                // 过滤只覆盖当前页，换条件就回到第一页，不要停在一个被筛空的页上。
+                setPage(1)
+              }}
             />
             <Select
               className={clsx(sharedStyles['status-select'])}
               value={status}
-              onChange={setStatus}
+              onChange={(value) => {
+                setStatus(value)
+                setPage(1)
+              }}
               options={[
                 { value: 'all', label: '全部状态' },
                 { value: 'waiting', label: '等待中' },
@@ -108,12 +125,23 @@ export function TasksPage() {
           loading={query.loading}
           error={query.error}
           onRetry={query.reload}
-          empty={!query.loading && rows.length === 0}
+          // 只有「这一页真的没有任务」才整块空态；被筛选筛空时要留着分页器，
+          // 否则当前页没有匹配项就再也翻不到下一页。
+          empty={!query.loading && (items?.length ?? 0) === 0 && !filtering}
           emptyDescription="当前后端没有任务记录"
           variant="table"
           tableColumns={6}
         >
-          <TaskListTable rows={rows} onOpen={openTask} onDone={query.reload} />
+          <TaskListTable
+            rows={rows}
+            total={query.data?.total ?? 0}
+            page={page}
+            pageSize={TASK_PAGE_SIZE}
+            filtered={filtering}
+            onPageChange={setPage}
+            onOpen={openTask}
+            onDone={query.reload}
+          />
         </AsyncState>
       </section>
     </div>
