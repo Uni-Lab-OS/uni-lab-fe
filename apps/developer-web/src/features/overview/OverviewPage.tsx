@@ -150,6 +150,12 @@ function previewTaskRow(
   }
 }
 
+/**
+ * 看板窗口与「所有任务」表格共用的页大小：投影按 Task 内嵌它自己的全部 Job，
+ * 页越大越重，而 OS 的 `_normalize_page` 也会把 page_size 截断到 100。
+ */
+const TASK_PAGE_SIZE = 20
+
 export function OverviewPage({
   onNavigate,
   onAttentionChange,
@@ -158,20 +164,36 @@ export function OverviewPage({
   onAttentionChange?: (hasAttention: boolean) => void
 }) {
   const { backend } = useBackend()
-  const query = useBackendQuery(
-    'workflow-task-presentations',
+  const [page, setPage] = useState(1)
+  const [keyword, setKeyword] = useState('')
+  const [status, setStatus] = useState('all')
+  const [totalTasks, setTotalTasks] = useState(0)
+  const [debugTargetKind, setDebugTargetKind] = useState<DebugTargetKind | null>(null)
+  const [stationDialogOpen, setStationDialogOpen] = useState(false)
+  // 看板（指标条、活动/异常两列、导航红点）不能只统计当前页，否则异常任务落在
+  // 第 2 页时指标会显示「异常 0」、导航红点会灭。所以它单独读 OS 的矩阵窗口：
+  // 一次返回全部活动/需关注 Task 加最近若干条终态，也不必按状态拆成一串请求。
+  const windowQuery = useBackendQuery(
+    'overview-task-window',
     (backend) =>
       backend.core.executionRead.listTaskPresentations({
+        view: 'matrix',
         page: 1,
-        pageSize: 100,
-        terminalLimit: 100,
+        terminalLimit: TASK_PAGE_SIZE,
       }),
     { live: true },
   )
-  const [keyword, setKeyword] = useState('')
-  const [status, setStatus] = useState('all')
-  const [debugTargetKind, setDebugTargetKind] = useState<DebugTargetKind | null>(null)
-  const [stationDialogOpen, setStationDialogOpen] = useState(false)
+  // 「所有任务」表格读真分页：page 进查询身份，切页是向后端要新的一页，
+  // 不是在这一批数据上切片。live 仍然只表示「收到全局 SSE 失效后重读当前页」。
+  const tableQuery = useBackendQuery(
+    `overview-task-page:${page}`,
+    (backend) =>
+      backend.core.executionRead.listTaskPresentations({
+        page,
+        pageSize: TASK_PAGE_SIZE,
+      }),
+    { live: true },
+  )
   const { snapshot, readError } = useStationHandling()
   const stationStatus = stationStatusPresentation(snapshot, readError)
   // 对话框只是工站决策的容器：恢复调度（或继续应用）在 OS 侧生效后快照就不再
@@ -180,15 +202,30 @@ export function OverviewPage({
   useEffect(() => {
     if (stationDialogOpen && !stationStatus.needsAction) setStationDialogOpen(false)
   }, [stationDialogOpen, stationStatus.needsAction])
-  const rows = useMemo(() => (query.data?.items ?? []).map(toTaskRow), [query.data])
-  const filteredRows = rows.filter((row) => {
+  const windowRows = useMemo(
+    () => (windowQuery.data?.items ?? []).map(toTaskRow),
+    [windowQuery.data],
+  )
+  const pageRows = useMemo(() => (tableQuery.data?.items ?? []).map(toTaskRow), [tableQuery.data])
+  // 「全部」是权威总数，只有普通分页查询会带；切页会短暂清空它的投影，所以记住
+  // 上一次读到的总数，避免指标条在翻页时闪成 0。
+  useEffect(() => {
+    if (tableQuery.data) setTotalTasks(tableQuery.data.total)
+  }, [tableQuery.data])
+  // 首屏要等两份投影都到齐：总数还没读到时先渲染「全部 0」会闪一下。
+  const totalPending = tableQuery.loading && totalTasks === 0
+  const hasTableFilter = Boolean(keyword.trim()) || status !== 'all'
+  // 关键字与状态仍在前端过滤，因此只作用于当前页（展示接口没有 keyword 参数）。
+  const filteredRows = pageRows.filter((row) => {
     const matchesKeyword = `${row.name} ${row.workflowName} ${row.task.taskUuid}`
       .toLowerCase()
       .includes(keyword.toLowerCase())
     return matchesKeyword && (status === 'all' || row.status === status)
   })
-  const activeRows = rows.filter((row) => ['running', 'waiting'].includes(row.status))
-  const attentionRows = rows.filter((row) => row.status === 'attention' || row.status === 'failed')
+  const activeRows = windowRows.filter((row) => ['running', 'waiting'].includes(row.status))
+  const attentionRows = windowRows.filter(
+    (row) => row.status === 'attention' || row.status === 'failed',
+  )
   useEffect(() => {
     onAttentionChange?.(attentionRows.length > 0)
   }, [attentionRows.length, onAttentionChange])
@@ -200,8 +237,12 @@ export function OverviewPage({
     onNavigate('tasks', `?task=${encodeURIComponent(row.task.taskUuid)}`)
   const openTaskByUuid = (taskUuid: string) =>
     onNavigate('tasks', `?task=${encodeURIComponent(taskUuid)}`)
-  // 工站错误事实只带 sourceTaskUuid，名称要从任务投影里补。
-  const taskNames = useMemo(() => new Map(rows.map((row) => [row.task.taskUuid, row.name])), [rows])
+  // 工站错误事实只带 sourceTaskUuid，名称要从任务投影里补。看板窗口保证覆盖
+  // 活动/需关注任务，当前页再补上翻到的历史任务。
+  const taskNames = useMemo(
+    () => new Map([...windowRows, ...pageRows].map((row) => [row.task.taskUuid, row.name])),
+    [windowRows, pageRows],
+  )
   // 工站级入口收敛到「异常」指标卡：发现 + 去处置都在这里，首屏不再重复横幅与工站卡片。
   const openErrors = (snapshot?.errors ?? []).filter((item) => item.status === 'open')
   const pendingCommands = (snapshot?.controlCommands ?? []).filter((item) => item.needsApply).length
@@ -252,14 +293,14 @@ export function OverviewPage({
         }
       />
       <AsyncState
-        loading={query.loading}
-        error={query.error}
-        onRetry={query.reload}
-        empty={!query.loading && rows.length === 0}
+        loading={windowQuery.loading || totalPending}
+        error={windowQuery.error}
+        onRetry={windowQuery.reload}
+        empty={!windowQuery.loading && windowRows.length === 0}
         emptyDescription="当前后端没有返回任务记录"
         loadingContent={<OverviewSkeleton />}
       >
-        <SummaryStrip rows={rows} stationAlert={stationAlert} />
+        <SummaryStrip rows={windowRows} total={totalTasks} stationAlert={stationAlert} />
         {/* 工站级动作（恢复调度、继续应用、跨任务错误清单）收在按需打开的对话框里，
             默认不占用首屏；错误事实本身仍由每条错误所在的节点抽屉处置。 */}
         <Modal
@@ -298,12 +339,35 @@ export function OverviewPage({
             empty="当前没有异常任务"
           />
         </div>
+      </AsyncState>
+      {/* 表格单独一道异步门：翻页时只有表格回到加载态，指标条与两列不能被它
+          打回骨架屏；看板窗口失败时上面那层已经整页报错，不会重复报一次。 */}
+      <AsyncState
+        loading={tableQuery.loading}
+        error={tableQuery.error}
+        onRetry={tableQuery.reload}
+        empty={!tableQuery.loading && pageRows.length === 0 && !hasTableFilter}
+        emptyDescription="当前后端没有任务记录"
+        variant="table"
+        tableColumns={6}
+      >
         <TaskTable
           rows={filteredRows}
+          total={totalTasks}
+          page={page}
+          pageSize={TASK_PAGE_SIZE}
+          onPageChange={setPage}
           keyword={keyword}
           status={status}
-          onKeywordChange={setKeyword}
-          onStatusChange={setStatus}
+          onKeywordChange={(value) => {
+            setKeyword(value)
+            // 过滤只覆盖当前页，换条件回第一页，不要停在一个被筛空的页上。
+            setPage(1)
+          }}
+          onStatusChange={(value) => {
+            setStatus(value)
+            setPage(1)
+          }}
           onView={openTask}
           onAbort={(row) => {
             Modal.confirm({
@@ -324,7 +388,9 @@ export function OverviewPage({
                   message.success(
                     receipt.accepted ? '中止命令已接受，等待 OS 生效' : '中止命令未被接受',
                   )
-                  query.reload()
+                  // 中止会同时改变表格那一行和看板窗口里的活动/异常计数，两边都重读。
+                  windowQuery.reload()
+                  tableQuery.reload()
                 } catch (error) {
                   message.error(error instanceof Error ? error.message : '中止失败')
                 }

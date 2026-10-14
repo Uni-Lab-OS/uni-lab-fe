@@ -96,13 +96,21 @@ export interface SummaryStationAlert {
 
 export function SummaryStrip({
   rows,
+  total,
   stationAlert,
 }: {
+  /** 看板窗口内的任务；「等待中/执行中/异常」都按它统计。 */
   rows: readonly TaskRow[]
+  /**
+   * 后端返回的任务总数。看板窗口只覆盖活动/需关注任务加最近终态，
+   * 所以「全部」必须用权威总数，否则窗口一小它就不是「全部」了。
+   * 缺省时退回窗口条数，供只有一份投影的调用方使用。
+   */
+  total?: number
   stationAlert?: SummaryStationAlert
 }) {
   const values = [
-    { label: '全部', value: rows.length, icon: 'layout/grid-01', tone: 'neutral' },
+    { label: '全部', value: total ?? rows.length, icon: 'layout/grid-01', tone: 'neutral' },
     {
       label: '等待中',
       value: rows.filter((row) => row.status === 'waiting').length,

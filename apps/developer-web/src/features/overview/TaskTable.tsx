@@ -12,16 +12,25 @@ import { TableText } from '../../components/ui/TableText'
 
 interface TaskTableProps {
   rows: readonly TaskRow[]
+  /** 后端返回的任务总数；分页器按它算页数，不按当前这一页的长度。 */
+  total: number
+  page: number
+  pageSize: number
   keyword: string
   status: string
   onKeywordChange: (value: string) => void
   onStatusChange: (value: string) => void
+  onPageChange: (page: number) => void
   onView: (row: TaskRow) => void
   onAbort: (row: TaskRow) => void
 }
 
 export function TaskTable({
   rows,
+  total,
+  page,
+  pageSize,
+  onPageChange,
   keyword,
   status,
   onKeywordChange,
@@ -173,7 +182,16 @@ export function TaskTable({
             />
           ),
         }}
-        pagination={{ pageSize: 10, hideOnSinglePage: true }}
+        // 服务端分页：total 来自后端，dataSource 只有当前页。每页条数固定，
+        // 不提供 size changer —— 页越大这条投影越重。
+        pagination={{
+          current: page,
+          pageSize,
+          total,
+          showSizeChanger: false,
+          hideOnSinglePage: true,
+          onChange: onPageChange,
+        }}
       />
     </section>
   )
