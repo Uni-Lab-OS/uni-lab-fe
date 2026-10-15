@@ -169,7 +169,11 @@ function decodeSummary(value: DeviceActionRecord): ActionDefinitionSummary {
     source: 'os',
     actionUuid: requiredString(value.uuid, 'action.uuid'),
     name: requiredString(value.name, 'action.name'),
-    displayName: requiredString(value.display_name, 'action.display_name'),
+    displayName:
+      optionalString(value.display_name) && value.display_name !== value.name
+        ? String(value.display_name)
+        : (optionalString(value.description) ??
+          requiredString(value.display_name, 'action.display_name')),
     actionType: requiredString(value.type, 'action.type'),
     nodeType: requiredString(value.node_type, 'action.node_type'),
     resourceTemplateUuid: requiredString(
@@ -204,7 +208,11 @@ function decodeDevice(value: DeviceActionRecord): DeviceSummary {
     resourceTemplateUuid,
     deviceKey,
     namespace,
-    label: optionalString(material.name) ?? optionalString(binding.name) ?? deviceKey,
+    label:
+      optionalString(material.display_name) ??
+      optionalString(material.name) ??
+      optionalString(binding.name) ??
+      deviceKey,
     online: optionalBoolean(value.online, 'device.online'),
     edgeStatus: nullableString(value.edge_status ?? value.edgeStatus, 'device.edge_status'),
     dispatchable: optionalBoolean(
