@@ -98,6 +98,8 @@ function renderInput({
   readonly onChange: (value: unknown) => void
 }) {
   const enumValues = Array.isArray(schema.enum) ? schema.enum : undefined
+  // x-enum-labels 与 enum 一一对应，只改变显示文字，提交值仍为 enum 原值。
+  const enumLabels = Array.isArray(schema['x-enum-labels']) ? schema['x-enum-labels'] : undefined
   if (enumValues) {
     return (
       <select
@@ -106,9 +108,9 @@ function renderInput({
         onChange={(event) => onChange(event.currentTarget.value)}
       >
         {!required && <option value="">请选择</option>}
-        {enumValues.map((option) => (
+        {enumValues.map((option, index) => (
           <option key={String(option)} value={String(option)}>
-            {String(option)}
+            {typeof enumLabels?.[index] === 'string' ? enumLabels[index] : String(option)}
           </option>
         ))}
       </select>

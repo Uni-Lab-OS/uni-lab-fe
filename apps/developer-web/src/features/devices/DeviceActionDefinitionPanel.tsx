@@ -2,9 +2,16 @@ import { clsx } from 'clsx'
 import deviceActionDefinitionStyles from './DeviceActionDefinition.module.scss'
 import { Alert, Segmented, Spin, Typography } from 'antd'
 import { deviceActionParameters } from '@unilab-fe/core'
-import type { ActionDefinition, DeviceActionState, DeviceSummary } from '@unilab-fe/core'
+import type {
+  ActionDefinition,
+  DeviceActionPresentation,
+  DeviceActionPresentations,
+  DeviceActionState,
+  DeviceSummary,
+} from '@unilab-fe/core'
 import { ActionDefinitionMeta, ActionSchemaView } from './DeviceActionDefinition'
 import { DeviceActionEditor, isRecord } from './DeviceActionEditor'
+import { DeviceActionSummary } from './DeviceActionSummary'
 
 export function DeviceActionDefinitionPanel({
   device,
@@ -17,6 +24,8 @@ export function DeviceActionDefinitionPanel({
   onParameterViewChange,
   onCancelDebug,
   onAccepted,
+  presentation,
+  presentations,
 }: {
   device: DeviceSummary
   selectedAction: DeviceActionState | null
@@ -28,6 +37,8 @@ export function DeviceActionDefinitionPanel({
   onParameterViewChange: (value: 'form' | 'schema') => void
   onCancelDebug: () => void
   onAccepted: (result: { taskUuid: string; jobUuid: string }) => void
+  presentation?: DeviceActionPresentation
+  presentations?: DeviceActionPresentations
 }) {
   if (definitionQuery.loading && !actionDefinition && actionParameters.length === 0) {
     return <Typography.Text type="secondary">正在读取动作定义...</Typography.Text>
@@ -66,7 +77,11 @@ export function DeviceActionDefinitionPanel({
           style={{ marginBottom: 18 }}
         />
       )}
-      <ActionDefinitionMeta definition={actionDefinition} />
+      {presentation && presentations ? (
+        <DeviceActionSummary presentation={presentation} presentations={presentations} />
+      ) : (
+        <ActionDefinitionMeta definition={actionDefinition} />
+      )}
       <div className={clsx(deviceActionDefinitionStyles['action-parameter-toolbar'])}>
         <Segmented
           size="middle"
@@ -97,6 +112,7 @@ export function DeviceActionDefinitionPanel({
           device={device}
           parameters={actionParameters}
           editing={debugEditing}
+          presentation={presentation}
           onCancel={onCancelDebug}
           onAccepted={onAccepted}
         />

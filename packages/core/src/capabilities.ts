@@ -13,6 +13,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'inventory.readReagentHistory',
   'inventory.batchImportReagents',
   'inventory.dispenseReagent',
+  'deviceAction.presentation',
 ] as const
 
 export type ServerCapability = (typeof SERVER_CAPABILITY_KEYS)[number]
@@ -47,11 +48,21 @@ const LOCAL_PYTHON_CAPABILITIES = new Set<ServerCapability>([
   'inventory.dispenseReagent',
 ])
 
+/**
+ * pTLC 设备包启动的 OS 控制台（Uni-Lab-pTLC tools/ptlc_migration/preview.py）。
+ * 在本地 Python OS 能力之上额外提供设备动作展示元数据（中文标签、范围、枚举、点位、类别）。
+ */
+const PTLC_NATIVE_CAPABILITIES = new Set<ServerCapability>([
+  ...LOCAL_PYTHON_CAPABILITIES,
+  'deviceAction.presentation',
+])
+
 /** 返回当前 profile 已完成联调的能力集合；未知 profile 默认关闭。 */
 export function resolveServerCapabilities(
   target: Pick<BackendCapabilityTarget, 'id'>,
 ): ReadonlySet<ServerCapability> {
   if (target.id === 'local-python') return LOCAL_PYTHON_CAPABILITIES
+  if (target.id === 'ptlc-native') return PTLC_NATIVE_CAPABILITIES
   if (target.id === 'local-go') return LOCAL_GO_CAPABILITIES
   return new Set<ServerCapability>()
 }

@@ -69,6 +69,19 @@ describe('lab-ui domain components', () => {
     expect(screen.getByText('该动作没有声明可填写的参数。')).toBeInTheDocument()
   })
 
+  it('shows enum option labels while submitting the original values', () => {
+    const onChange = vi.fn()
+    const field = parameter({
+      name: 'magazine',
+      title: '板仓',
+      schema: { type: 'string', enum: ['feed', 'waste'], 'x-enum-labels': ['上料仓', '下料仓'] },
+    })
+    render(<DeviceActionParameterFields parameters={[field]} value={{ magazine: 'feed' }} onChange={onChange} />)
+    expect(screen.getByRole('option', { name: '下料仓' })).toHaveValue('waste')
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'waste' } })
+    expect(onChange).toHaveBeenCalledWith('magazine', 'waste')
+  })
+
   it('maps device dispatch states and explicit labels', () => {
     const base = { online: true, dispatchable: true, dispatchBlockReason: null } as const
     const { rerender } = render(<DeviceStatusBadge device={base} />)

@@ -1,0 +1,85 @@
+/* Device action presentation: grouped action list, action summary and run result. */
+
+.action-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.action-group__title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 6px;
+  color: var(--bh-color-text-description);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.action-group__hint {
+  margin: -2px 0 6px;
+  color: var(--bh-color-text-description);
+  font-size: 11px;
+}
+
+.action-groups__toggle {
+  align-self: flex-start;
+  padding: 0;
+  font-size: 12px;
+}
+
+.action-summary {
+  margin-bottom: 16px;
+}
+
+.action-summary__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.action-summary__hint {
+  margin: 0 0 8px;
+  font-weight: 500;
+}
+
+.action-summary__desc {
+  margin: 0;
+  color: var(--bh-color-text-description);
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.action-summary__alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.run-result {
+  margin-top: 18px;
+}
+
+.run-result__values {
+  margin-top: 12px;
+}
+
+.run-result__values :global(.ant-descriptions-item-content) {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.run-result__errors {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.run-result__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
