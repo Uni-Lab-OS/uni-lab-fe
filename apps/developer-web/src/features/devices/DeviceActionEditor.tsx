@@ -3,7 +3,6 @@ import deviceActionEditorStyles from './DeviceActionEditor.module.scss'
 import { Alert, Button, Form, Input, Modal, Tooltip } from 'antd'
 import { type ReactNode, useEffect, useState } from 'react'
 import {
-  createDeviceActionDebuggingViewModel,
   deviceActionDefaults,
   deviceActionParameters,
   deviceDispatchStatus,
@@ -13,6 +12,7 @@ import type { DeviceActionPresentation, DeviceActionState, DeviceSummary } from 
 import { DeviceActionParameterFields } from '@unilab/lab-ui'
 import { useBackend } from '../../app/BackendProvider'
 import { AppIcon } from '../../components/ui/Icon'
+import { deviceActionTaskName, startDeviceActionRun } from './deviceActionDispatch'
 
 function DeviceMaterialLabel() {
   return (
@@ -66,8 +66,7 @@ export function DeviceActionEditor({
     deviceDispatchStatus(device) === 'available' &&
     Boolean(action?.actionDefinitionUuid) &&
     presentation?.executable !== false
-  // 任务名“设备 · 动作”，便于在任务列表中辨认（现场 11.14：避免“未命名任务”）。
-  const taskName = `${device.label} · ${presentation?.label ?? action?.label ?? ''}`
+  const taskName = deviceActionTaskName(device, presentation?.label ?? action?.label ?? '')
   useEffect(() => {
     setSubmitError(null)
     setParameterValues(deviceActionDefaults(parameters))
@@ -98,18 +97,14 @@ export function DeviceActionEditor({
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const viewModel = createDeviceActionDebuggingViewModel({}, [], [])
-      const nextViewModel = await backend.core.deviceActionDebugging.startRun(viewModel, {
-        // 单动作始终作用于当前设备，不允许改写物料身份。
-        materialUuid: device.materialUuid,
-        workflowNodeTemplateUuid: action.actionDefinitionUuid,
-        param,
-        idempotencyKey: crypto.randomUUID(),
-        description: values.description?.trim() || taskName,
-      })
-      const acceptedRun = nextViewModel.acceptedRun
-      if (!acceptedRun) throw new Error('OS 未返回已接受的动作任务')
-      onAccepted({ taskUuid: acceptedRun.taskUuid, jobUuid: acceptedRun.jobUuid })
+      onAccepted(
+        await startDeviceActionRun(backend, {
+          device,
+          action,
+          param,
+          description: values.description?.trim() || taskName,
+        }),
+      )
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : '调试命令发送失败')
     } finally {

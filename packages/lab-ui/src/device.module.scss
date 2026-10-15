@@ -123,10 +123,18 @@
   text-align: left;
 }
 
-.action-item:hover,
+.action-item:hover {
+  background: var(--studio-hover, var(--bh-color-fill-0, #f5f6fb));
+}
+
 .action-item.is-selected {
   color: var(--studio-accent, var(--bh-color-primary));
   background: var(--studio-selection, var(--bh-color-primary-background));
+  box-shadow: inset 3px 0 0 var(--studio-accent, var(--bh-color-primary));
+}
+
+.action-item.is-selected strong {
+  font-weight: 600;
 }
 
 .action-item-label {

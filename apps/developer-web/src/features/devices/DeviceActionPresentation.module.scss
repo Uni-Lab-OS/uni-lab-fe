@@ -41,7 +41,18 @@
 
 .action-summary__hint {
   margin: 0 0 8px;
+  color: var(--bh-color-text-default);
+  font-size: 14px;
   font-weight: 500;
+  line-height: 1.6;
+}
+
+.action-summary__sections {
+  margin-top: 6px;
+}
+
+.action-summary__sections :global(.ant-collapse-header-text) {
+  font-weight: 600;
 }
 
 .action-summary__desc {
