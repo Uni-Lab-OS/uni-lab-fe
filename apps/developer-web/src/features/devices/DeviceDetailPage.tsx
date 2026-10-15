@@ -9,15 +9,18 @@ import {
   applyActionPresentation,
   deviceActionParameters,
   deviceActionParametersFromSchema,
+  deviceDispatchStatus,
   deviceOccupancyStatus,
   findActionPresentation,
 } from '@unilab-fe/core'
 import type { DeviceActionState, DeviceSummary } from '@unilab-fe/core'
 import { StatusBadge } from '@unilab/lab-ui'
+import { useBackend } from '../../app/BackendProvider'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
 import { useDeviceActionPresentations } from '../../hooks/useDeviceActionPresentations'
 import { DeviceActionGroups } from './DeviceActionGroups'
 import { DeviceActionRunResult } from './DeviceActionRunResult'
+import { deviceActionTaskName, startDeviceActionRun } from './deviceActionDispatch'
 import { DeviceDetailHeader } from './DeviceDetailHeader'
 import { DeviceActionDefinitionPanel } from './DeviceActionDefinitionPanel'
 
@@ -36,6 +39,9 @@ export function DeviceDetail({
   const [debugEditing, setDebugEditing] = useState(false)
   const [parameterView, setParameterView] = useState<'form' | 'schema'>('form')
   const [accepted, setAccepted] = useState<{ taskUuid: string; jobUuid: string } | null>(null)
+  const [quickRunning, setQuickRunning] = useState(false)
+  const [quickError, setQuickError] = useState<string | null>(null)
+  const { backend } = useBackend()
   const autoOpenedDebug = useRef(false)
   const selectedActionUuid = selectedAction?.actionDefinitionUuid ?? ''
   const definitionQuery = useBackendQuery(`action-definition-${selectedActionUuid}`, (current) =>
@@ -82,8 +88,51 @@ export function DeviceDetail({
   }
   const toggleDebug = () => {
     setAccepted(null)
+    setQuickError(null)
     setDebugEditing((value) => !value)
     setParameterView('form')
+  }
+
+  const dispatchStatus = deviceDispatchStatus(device)
+  const canDispatch =
+    dispatchStatus === 'available' &&
+    Boolean(selectedAction?.actionDefinitionUuid) &&
+    presentation?.executable !== false
+  const blockedReason =
+    dispatchStatus === 'offline'
+      ? '设备离线'
+      : dispatchStatus === 'blocked'
+        ? '设备当前不可调度'
+        : dispatchStatus === 'unknown'
+          ? '设备可调度状态未知'
+          : presentation?.executable === false
+            ? '该动作尚未注册为可执行能力'
+            : !selectedAction?.actionDefinitionUuid
+              ? '动作定义尚未同步'
+              : ''
+  // 无参数的查看/计算类动作一键执行、直接出结果，不必先打开参数表单。
+  const quickRunnable =
+    (presentation?.category === 'read' || presentation?.category === 'compute') &&
+    actionParameters.length === 0
+  const quickRun = async () => {
+    if (!selectedAction || !canDispatch) return
+    setAccepted(null)
+    setQuickError(null)
+    setQuickRunning(true)
+    try {
+      setAccepted(
+        await startDeviceActionRun(backend, {
+          device,
+          action: selectedAction,
+          param: {},
+          description: deviceActionTaskName(device, presentation?.label ?? selectedAction.label),
+        }),
+      )
+    } catch (error) {
+      setQuickError(error instanceof Error ? error.message : '动作下发失败')
+    } finally {
+      setQuickRunning(false)
+    }
   }
 
   return (
@@ -133,20 +182,40 @@ export function DeviceDetail({
               {selectedAction?.isBusy && (
                 <StatusBadge status="running" className={clsx(sharedStyles['status-badge'])} />
               )}
-              <Button
-                className={clsx(deviceDetailPageStyles['detail-main__debug-button'])}
-                type={debugEditing ? 'default' : 'primary'}
-                disabled={!selectedAction}
-                onClick={toggleDebug}
-              >
-                {debugEditing
-                  ? '退出'
-                  : presentation?.category === 'read' || presentation?.category === 'compute'
-                    ? '执行'
-                    : '调试动作'}
-              </Button>
+              <Tooltip title={!debugEditing && blockedReason ? `${blockedReason}，不能下发` : undefined}>
+                <Button
+                  className={clsx(deviceDetailPageStyles['detail-main__debug-button'])}
+                  type={debugEditing ? 'default' : 'primary'}
+                  disabled={!selectedAction || (!debugEditing && !canDispatch)}
+                  loading={quickRunning}
+                  onClick={quickRunnable && !debugEditing ? () => void quickRun() : toggleDebug}
+                >
+                  {debugEditing ? '退出' : quickRunnable ? '执行' : '填写参数并下发'}
+                </Button>
+              </Tooltip>
             </Space>
           </div>
+          {dispatchStatus !== 'available' && (
+            <Alert
+              type={dispatchStatus === 'unknown' ? 'warning' : 'error'}
+              showIcon
+              message={`${blockedReason}，当前不能下发动作`}
+              description={
+                device.dispatchBlockReason ??
+                '请确认 OS 已连接现场设备（PLC、机械臂、液位），或是否以离线模式（PTLC_CONNECT_PLC=0）启动。'
+              }
+              style={{ marginBottom: 12 }}
+            />
+          )}
+          {quickError && (
+            <Alert
+              type="error"
+              showIcon
+              message="动作下发失败"
+              description={quickError}
+              style={{ marginBottom: 12 }}
+            />
+          )}
           {presentationError && (
             <Alert
               type="warning"

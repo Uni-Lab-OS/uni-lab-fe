@@ -196,6 +196,67 @@ export function describeActionResult(
   return entries
 }
 
+export type DeviceActionDescriptionKey = 'steps' | 'safety' | 'outcome' | 'technical' | 'other'
+
+export interface DeviceActionDescriptionSection {
+  readonly key: DeviceActionDescriptionKey
+  readonly title: string
+  readonly body: string
+}
+
+export interface DeviceActionDescription {
+  /** 一句话提示：优先 hint，否则取“执行步骤”的第一句。 */
+  readonly summary: string
+  readonly sections: readonly DeviceActionDescriptionSection[]
+}
+
+const DESCRIPTION_HEADINGS: Readonly<Record<string, DeviceActionDescriptionKey>> = {
+  执行步骤: 'steps',
+  前置与安全: 'safety',
+  完成与异常: 'outcome',
+  PLC核对: 'technical',
+  实现核对: 'technical',
+}
+
+const SECTION_TITLES: Readonly<Record<DeviceActionDescriptionKey, string>> = {
+  steps: '执行步骤',
+  safety: '前置与安全',
+  outcome: '完成与异常',
+  technical: '技术信息',
+  other: '说明',
+}
+
+/**
+ * 把 PlatformUI 动作说明拆成“执行步骤 / 前置与安全 / 完成与异常 / 技术信息”，
+ * 供界面分段折叠；“PLC核对”“实现核对”属于开发信息，合并为技术信息。
+ */
+export function splitActionDescription(
+  presentation: Pick<DeviceActionPresentation, 'desc' | 'hint'>,
+): DeviceActionDescription {
+  const pattern = new RegExp(`(^|\\n)\\s*(${Object.keys(DESCRIPTION_HEADINGS).join('|')})[：:]`, 'g')
+  const marks = [...presentation.desc.matchAll(pattern)].map((match) => ({
+    key: DESCRIPTION_HEADINGS[match[2]!]!,
+    start: match.index! + match[1]!.length,
+    bodyStart: match.index! + match[0].length,
+  }))
+  const sections: DeviceActionDescriptionSection[] = []
+  const lead = presentation.desc.slice(0, marks[0]?.start ?? presentation.desc.length).trim()
+  if (lead) sections.push({ key: 'other', title: SECTION_TITLES.other, body: lead })
+  marks.forEach((mark, index) => {
+    const body = presentation.desc.slice(mark.bodyStart, marks[index + 1]?.start).trim()
+    if (!body) return
+    const existing = sections.find((section) => section.key === mark.key)
+    if (existing) {
+      sections[sections.indexOf(existing)] = { ...existing, body: `${existing.body}\n${body}` }
+    } else {
+      sections.push({ key: mark.key, title: SECTION_TITLES[mark.key], body })
+    }
+  })
+  const steps = sections.find((section) => section.key === 'steps')?.body ?? ''
+  const firstSentence = steps.split(/(?<=[。；])/)[0]?.trim() ?? ''
+  return { summary: presentation.hint.trim() || firstSentence, sections }
+}
+
 export interface DeviceActionGroup<T> {
   readonly category: DeviceActionCategory
   readonly info: DeviceActionCategoryInfo

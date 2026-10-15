@@ -5,6 +5,7 @@ import {
   describeActionResult,
   findActionPresentation,
   groupActionsByCategory,
+  splitActionDescription,
 } from './action-presentation'
 import { DeviceActionClient } from './client'
 import { deviceActionParametersFromSchema, normalizeDeviceActionParameters } from './parameters'
@@ -189,6 +190,33 @@ describe('device action presentation', () => {
       ['hook', ['vacuum_on']],
     ])
     expect(groups[1]?.info.manual).toBe(false)
+  })
+
+  it('splits PlatformUI descriptions into operator sections and technical notes', () => {
+    const desc = [
+      '执行步骤：读输入字节 IX8 与 PLC_Ready，按板仓取出接近开关与光电开关状态。与 PLC 侧前置门比对。',
+      '前置与安全：纯读动作，不下发任何 PLC 指令、不驱动轴运动，任何时刻可调用。',
+      '完成与异常：可见前置全部满足时返回各开关现值与 ok 为真。',
+      '实现核对：runtime/bootstrap.py::_feedlift_preflight 读 PLC 镜像。',
+    ].join('\n')
+    const result = splitActionDescription({ desc, hint: '' })
+    expect(result.sections.map((section) => section.key)).toEqual(['steps', 'safety', 'outcome', 'technical'])
+    expect(result.sections[1]?.body).toBe('纯读动作，不下发任何 PLC 指令、不驱动轴运动，任何时刻可调用。')
+    expect(result.sections[3]?.title).toBe('技术信息')
+    expect(result.summary).toBe('读输入字节 IX8 与 PLC_Ready，按板仓取出接近开关与光电开关状态。')
+    expect(splitActionDescription({ desc, hint: '读板仓前置开关' }).summary).toBe('读板仓前置开关')
+  })
+
+  it('merges PLC and implementation notes and keeps free text as a lead section', () => {
+    const result = splitActionDescription({
+      desc: '概述文字\nPLC核对：动作码 21\n实现核对：executor',
+      hint: '',
+    })
+    expect(result.sections).toEqual([
+      { key: 'other', title: '说明', body: '概述文字' },
+      { key: 'technical', title: '技术信息', body: '动作码 21\nexecutor' },
+    ])
+    expect(result.summary).toBe('')
   })
 
   it('reads the presentation route through the OS envelope', async () => {

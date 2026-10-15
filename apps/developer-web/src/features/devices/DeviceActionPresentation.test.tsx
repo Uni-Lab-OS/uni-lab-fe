@@ -4,7 +4,7 @@ import { decodeDeviceActionPresentations } from '@unilab-fe/core'
 import type { DeviceActionState } from '@unilab-fe/core'
 import { DeviceActionGroups } from './DeviceActionGroups'
 import { DeviceActionRunResult } from './DeviceActionRunResult'
-import { runView } from './deviceActionRunModel.test'
+import { runView } from './deviceActionRunView.fixture'
 
 beforeAll(() => {
   // antd Descriptions 依赖 matchMedia 做响应式列数；jsdom 未实现。
