@@ -1,3 +1,4 @@
+import { RuntimeReadinessClient } from '../domain/runtime-readiness/readiness'
 import { createFetchTransport, type FetchTransportOptions } from '../adapters/fetch'
 import { WorkflowDefinitionClient } from '../domain/workflow-definition/client'
 import { RunPreparationClient } from '../domain/run-preparation/client'
@@ -31,6 +32,7 @@ export interface BackendCore {
   readonly workflowRuntimeEvents?: WorkflowRuntimeEventsPort
   readonly deviceActions: DeviceActionPort
   readonly deviceActionPresentations: DeviceActionPresentationPort
+  readonly runtimeReadiness: RuntimeReadinessClient
   readonly materialSite: MaterialSitePort
   readonly reagentInventory: ReagentInventoryPort
   readonly evidenceIntervention: EvidenceInterventionPort
@@ -76,6 +78,7 @@ export function createBackendCoreFromTransport(
     workflowRuntimeEvents: integrations.runtimeEvents,
     deviceActions,
     deviceActionPresentations: deviceActions,
+    runtimeReadiness: new RuntimeReadinessClient(transport),
     materialSite,
     reagentInventory,
     evidenceIntervention,

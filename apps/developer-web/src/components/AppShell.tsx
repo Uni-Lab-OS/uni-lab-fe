@@ -1,3 +1,4 @@
+import type { BackendConnection } from '../app/BackendProvider'
 import { clsx } from 'clsx'
 import appShellStyles from '../styles/app-shell.module.scss'
 import { type ReactNode, useState } from 'react'
@@ -121,7 +122,7 @@ function NavItem({
 }: {
   item: (typeof navigation)[number]
   route: StudioRoute
-  connection: 'unknown' | 'connected' | 'error'
+  connection: BackendConnection
   hasOverviewAttention: boolean
   collapsed: boolean
   onNavigate: (route: StudioRoute) => void

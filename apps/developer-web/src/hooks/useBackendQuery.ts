@@ -30,7 +30,7 @@ export function useBackendQuery<Value>(
   key: string,
   loader: (backend: Backend) => Promise<Value>,
 ): BackendQueryState<Value> {
-  const { backend, reportSuccess, reportError } = useBackend()
+  const { backend, reportSuccess, reportError, readyEpoch } = useBackend()
   const [state, setState] = useState<Omit<BackendQueryState<Value>, 'reload'>>(() => {
     const cache = cacheFor(backend)
     return cache.has(key)
@@ -73,7 +73,8 @@ export function useBackendQuery<Value>(
     return () => {
       active = false
     }
-  }, [backend, key, reportError, reportSuccess, revision])
+    // readyEpoch：后端由启动中转为就绪时自动重新加载，无需用户点“重试”。
+  }, [backend, key, readyEpoch, reportError, reportSuccess, revision])
 
   return { ...state, reload }
 }
