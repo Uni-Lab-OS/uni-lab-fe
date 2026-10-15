@@ -6,13 +6,18 @@ import sharedStyles from '../../styles/shared.module.scss'
 import { Alert, Button, Space, Tooltip } from 'antd'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  applyActionPresentation,
   deviceActionParameters,
   deviceActionParametersFromSchema,
   deviceOccupancyStatus,
+  findActionPresentation,
 } from '@unilab-fe/core'
 import type { DeviceActionState, DeviceSummary } from '@unilab-fe/core'
-import { DeviceActionList, StatusBadge } from '@unilab/lab-ui'
+import { StatusBadge } from '@unilab/lab-ui'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
+import { useDeviceActionPresentations } from '../../hooks/useDeviceActionPresentations'
+import { DeviceActionGroups } from './DeviceActionGroups'
+import { DeviceActionRunResult } from './DeviceActionRunResult'
 import { DeviceDetailHeader } from './DeviceDetailHeader'
 import { DeviceActionDefinitionPanel } from './DeviceActionDefinitionPanel'
 
@@ -40,14 +45,22 @@ export function DeviceDetail({
   )
   const actionDefinition = definitionQuery.data
   const occupancyStatus = deviceOccupancyStatus(device)
+  const { presentations, error: presentationError } = useDeviceActionPresentations()
+  const presentation = selectedAction
+    ? findActionPresentation(presentations, device.deviceKey, selectedAction.actionName)
+    : undefined
   const actionParameters = useMemo(() => {
     const defined = deviceActionParameters(actionDefinition)
-    if (defined.length || actionDefinition) return defined
     const rawSchema = selectedAction?.raw.inputSchema ?? selectedAction?.raw.input_schema
-    return rawSchema && typeof rawSchema === 'object'
-      ? deviceActionParametersFromSchema(rawSchema as Record<string, unknown>)
-      : []
-  }, [actionDefinition, selectedAction])
+    const base =
+      defined.length || actionDefinition
+        ? defined
+        : rawSchema && typeof rawSchema === 'object'
+          ? deviceActionParametersFromSchema(rawSchema as Record<string, unknown>)
+          : []
+    // 中文标签、范围、枚举、点位来自设备包展示元数据；参数集合仍以 OS Schema 为准。
+    return applyActionPresentation(base, presentation)
+  }, [actionDefinition, selectedAction, presentation])
 
   useEffect(() => {
     if (!startDebug || autoOpenedDebug.current || !selectedAction) return
@@ -92,8 +105,10 @@ export function DeviceDetail({
             <span>{device.actions.length} 个动作</span>
           </div>
           <div className={clsx(deviceDetailPageStyles['detail-sidebar__action-list'])}>
-            <DeviceActionList
+            <DeviceActionGroups
               actions={device.actions}
+              presentations={presentations}
+              deviceKey={device.deviceKey}
               selectedActionRef={selectedAction?.actionRef}
               onSelectAction={selectAction}
             />
@@ -124,12 +139,27 @@ export function DeviceDetail({
                 disabled={!selectedAction}
                 onClick={toggleDebug}
               >
-                {debugEditing ? '退出调试' : '调试动作'}
+                {debugEditing
+                  ? '退出'
+                  : presentation?.category === 'read' || presentation?.category === 'compute'
+                    ? '执行'
+                    : '调试动作'}
               </Button>
             </Space>
           </div>
+          {presentationError && (
+            <Alert
+              type="warning"
+              showIcon
+              message="动作展示元数据读取失败，参数按 OS Schema 显示"
+              description={presentationError.message}
+              style={{ marginBottom: 12 }}
+            />
+          )}
           <DeviceActionDefinitionPanel
             device={device}
+            presentation={presentation}
+            presentations={presentations}
             selectedAction={selectedAction}
             actionDefinition={actionDefinition}
             actionParameters={actionParameters}
@@ -144,13 +174,7 @@ export function DeviceDetail({
             }}
           />
           {accepted && (
-            <Alert
-              className={clsx(deviceDetailPageStyles['accepted-result'])}
-              type="info"
-              showIcon
-              message="调试命令已被 OS 接受"
-              description={`Task ${accepted.taskUuid} / Job ${accepted.jobUuid}。接受不代表动作已经完成，请在任务页面读取运行状态。`}
-            />
+            <DeviceActionRunResult taskUuid={accepted.taskUuid} presentation={presentation} />
           )}
         </section>
       </div>

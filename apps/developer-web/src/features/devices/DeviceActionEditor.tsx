@@ -1,6 +1,6 @@
 import { clsx } from 'clsx'
 import deviceActionEditorStyles from './DeviceActionEditor.module.scss'
-import { Alert, Button, Form, Input, Tooltip } from 'antd'
+import { Alert, Button, Form, Input, Modal, Tooltip } from 'antd'
 import { type ReactNode, useEffect, useState } from 'react'
 import {
   createDeviceActionDebuggingViewModel,
@@ -9,7 +9,7 @@ import {
   deviceDispatchStatus,
   normalizeDeviceActionParameters,
 } from '@unilab-fe/core'
-import type { DeviceActionState, DeviceSummary } from '@unilab-fe/core'
+import type { DeviceActionPresentation, DeviceActionState, DeviceSummary } from '@unilab-fe/core'
 import { DeviceActionParameterFields } from '@unilab/lab-ui'
 import { useBackend } from '../../app/BackendProvider'
 import { AppIcon } from '../../components/ui/Icon'
@@ -41,6 +41,7 @@ export function DeviceActionEditor({
   action,
   parameters,
   editing,
+  presentation,
   onCancel,
   onAccepted,
 }: {
@@ -48,6 +49,7 @@ export function DeviceActionEditor({
   action: DeviceActionState | null
   parameters: ReturnType<typeof deviceActionParameters>
   editing: boolean
+  presentation?: DeviceActionPresentation
   onCancel: () => void
   onAccepted: (result: { taskUuid: string; jobUuid: string }) => void
 }) {
@@ -61,7 +63,11 @@ export function DeviceActionEditor({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [parameterValues, setParameterValues] = useState<Record<string, unknown>>({})
   const canSubmit =
-    deviceDispatchStatus(device) === 'available' && Boolean(action?.actionDefinitionUuid)
+    deviceDispatchStatus(device) === 'available' &&
+    Boolean(action?.actionDefinitionUuid) &&
+    presentation?.executable !== false
+  // 任务名“设备 · 动作”，便于在任务列表中辨认（现场 11.14：避免“未命名任务”）。
+  const taskName = `${device.label} · ${presentation?.label ?? action?.label ?? ''}`
   useEffect(() => {
     setSubmitError(null)
     setParameterValues(deviceActionDefaults(parameters))
@@ -80,8 +86,7 @@ export function DeviceActionEditor({
     [key: string]: unknown
     description?: string
   }) => {
-    if (!editing || deviceDispatchStatus(device) !== 'available' || !action?.actionDefinitionUuid)
-      return
+    if (!editing || !canSubmit || !action?.actionDefinitionUuid) return
     let param: Record<string, unknown>
     try {
       param = normalizeDeviceActionParameters({ ...values, ...parameterValues }, parameters)
@@ -89,16 +94,18 @@ export function DeviceActionEditor({
       setSubmitError(error instanceof Error ? error.message : '动作参数无效')
       return
     }
+    if (presentation?.confirm && !(await confirmDispatch(taskName, presentation))) return
     setSubmitting(true)
     setSubmitError(null)
     try {
       const viewModel = createDeviceActionDebuggingViewModel({}, [], [])
       const nextViewModel = await backend.core.deviceActionDebugging.startRun(viewModel, {
-        materialUuid: values.materialUuid,
+        // 单动作始终作用于当前设备，不允许改写物料身份。
+        materialUuid: device.materialUuid,
         workflowNodeTemplateUuid: action.actionDefinitionUuid,
         param,
         idempotencyKey: crypto.randomUUID(),
-        description: values.description,
+        description: values.description?.trim() || taskName,
       })
       const acceptedRun = nextViewModel.acceptedRun
       if (!acceptedRun) throw new Error('OS 未返回已接受的动作任务')
@@ -158,17 +165,11 @@ export function DeviceActionEditor({
         onFinish={submit}
       >
         <div className={clsx(deviceActionEditorStyles['device-action-form-grid'])}>
-          {editing ? (
+          <ReadOnlyFieldTooltip>
             <Form.Item label={<DeviceMaterialLabel />} name="materialUuid">
-              <Input />
+              <Input disabled />
             </Form.Item>
-          ) : (
-            <ReadOnlyFieldTooltip>
-              <Form.Item label={<DeviceMaterialLabel />} name="materialUuid">
-                <Input disabled />
-              </Form.Item>
-            </ReadOnlyFieldTooltip>
-          )}
+          </ReadOnlyFieldTooltip>
           <DeviceActionParameterFields
             parameters={parameters}
             value={parameterValues}
@@ -181,7 +182,7 @@ export function DeviceActionEditor({
         </div>
         {editing && (
           <Form.Item label="调试说明" name="description">
-            <Input.TextArea rows={2} placeholder="可选" />
+            <Input.TextArea rows={2} placeholder={`可选，缺省为任务名“${taskName}”`} />
           </Form.Item>
         )}
         {editing && (
@@ -205,4 +206,19 @@ export function DeviceActionEditor({
 
 export function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** 驱动、写参数、停止与调试类动作下发前的二次确认（同 PlatformUI“将向真实设备下发一次原子动作”）。 */
+function confirmDispatch(taskName: string, presentation: DeviceActionPresentation): Promise<boolean> {
+  return new Promise((resolve) => {
+    Modal.confirm({
+      title: `下发：${taskName}`,
+      content: presentation.hint || '将向真实设备下发一次原子动作，请确认现场安全条件已满足。',
+      okText: '确认下发',
+      cancelText: '取消',
+      okButtonProps: { danger: presentation.category !== 'read' && presentation.category !== 'compute' },
+      onOk: () => resolve(true),
+      onCancel: () => resolve(false),
+    })
+  })
 }

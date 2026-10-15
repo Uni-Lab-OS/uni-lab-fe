@@ -97,6 +97,27 @@ export function normalizeDeviceActionParameters(
       result[parameter.name] = typeof value === 'string' ? { uuid: value.trim() } : value
       continue
     }
+    const enumValues = Array.isArray(parameter.schema.enum) ? parameter.schema.enum : undefined
+    if (enumValues) {
+      // 下拉框回传字符串；按选项原值还原类型（整数枚举仍下发整数）。
+      const matched = enumValues.find((option) => option === value || String(option) === String(value))
+      if (matched === undefined) throw new Error('参数“' + parameter.title + '”须从选项中选择')
+      result[parameter.name] = matched
+      continue
+    }
+    if (typeof value === 'number') {
+      const minimum = numberOrUndefined(parameter.schema.minimum)
+      const maximum = numberOrUndefined(parameter.schema.maximum)
+      if (!Number.isFinite(value)) throw new Error('参数“' + parameter.title + '”必须是数字')
+      if (schemaType(parameter.schema) === 'integer' && !Number.isInteger(value)) {
+        throw new Error('参数“' + parameter.title + '”必须是整数')
+      }
+      if ((minimum !== undefined && value < minimum) || (maximum !== undefined && value > maximum)) {
+        throw new Error(
+          '参数“' + parameter.title + '”须在 ' + (minimum ?? '-∞') + ' – ' + (maximum ?? '+∞') + ' 之间',
+        )
+      }
+    }
     if (isDeviceActionStructuredParameter(parameter)) {
       if (typeof value !== 'string') {
         result[parameter.name] = value
@@ -159,4 +180,8 @@ function stringArray(value: unknown): readonly string[] {
 
 function stringValue(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value : undefined
+}
+
+function numberOrUndefined(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }

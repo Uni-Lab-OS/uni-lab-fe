@@ -4,9 +4,10 @@ import {
   decodeActionDefinitionList,
   decodeActionRunAccepted,
   decodeAuthoringDeviceCatalog,
+  decodeDeviceActionPresentationResponse,
   decodeDeviceList,
 } from './codec'
-import type { DeviceActionPort } from './port'
+import type { DeviceActionPort, DeviceActionPresentationPort } from './port'
 import type {
   ActionDefinitionDetailResponse,
   ActionDefinitionListResponse,
@@ -23,7 +24,7 @@ type DeviceActionExecutionReadPort = Pick<
   'getTaskDetail' | 'listTaskJobs'
 >
 
-export class DeviceActionClient implements DeviceActionPort {
+export class DeviceActionClient implements DeviceActionPort, DeviceActionPresentationPort {
   private readonly executionRead: DeviceActionExecutionReadPort
   private readonly apiPrefix: string
 
@@ -122,6 +123,14 @@ export class DeviceActionClient implements DeviceActionPort {
       url: `${this.apiPrefix}/workflow-node-templates/${encodeURIComponent(actionUuid)}`,
     })
     return decodeActionDefinition(response.data)
+  }
+
+  async getActionPresentations() {
+    const response = await this.transport.request<unknown>({
+      method: 'GET',
+      url: `${this.apiPrefix}/device-action-presentations`,
+    })
+    return decodeDeviceActionPresentationResponse(response.data)
   }
 
   async createActionRun(request: DeviceActionRunRequest) {

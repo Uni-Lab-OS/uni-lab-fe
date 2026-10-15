@@ -6,7 +6,7 @@ import { WorkflowExecutionControlClient } from '../domain/workflow-execution-con
 import type { WorkflowRuntimeEventsPort } from '../domain/workflow-runtime-events/port'
 import { WorkflowExecutionRecoveryClient } from '../domain/workflow-execution-recovery/client'
 import { DeviceActionClient } from '../domain/device-action/client'
-import type { DeviceActionPort } from '../domain/device-action/port'
+import type { DeviceActionPort, DeviceActionPresentationPort } from '../domain/device-action/port'
 import { MaterialSiteClient } from '../domain/material-site/client'
 import type { MaterialSitePort } from '../domain/material-site/port'
 import { ReagentInventoryClient } from '../domain/reagent-inventory/client'
@@ -30,6 +30,7 @@ export interface BackendCore {
   readonly executionRecovery: WorkflowExecutionRecoveryClient
   readonly workflowRuntimeEvents?: WorkflowRuntimeEventsPort
   readonly deviceActions: DeviceActionPort
+  readonly deviceActionPresentations: DeviceActionPresentationPort
   readonly materialSite: MaterialSitePort
   readonly reagentInventory: ReagentInventoryPort
   readonly evidenceIntervention: EvidenceInterventionPort
@@ -74,6 +75,7 @@ export function createBackendCoreFromTransport(
     executionRecovery,
     workflowRuntimeEvents: integrations.runtimeEvents,
     deviceActions,
+    deviceActionPresentations: deviceActions,
     materialSite,
     reagentInventory,
     evidenceIntervention,

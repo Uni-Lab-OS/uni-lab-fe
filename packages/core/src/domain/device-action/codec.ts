@@ -1,3 +1,7 @@
+import {
+  decodeDeviceActionPresentations,
+  type DeviceActionPresentations,
+} from './action-presentation'
 import type {
   ActionDefinitionDetailResponse,
   ActionDefinitionListResponse,
@@ -506,4 +510,9 @@ function camelCase(value: string): string {
 
 function invalid(message: string): never {
   throw new DeviceActionError('INVALID_ACTION_DEFINITION', message)
+}
+
+/** 解析设备动作展示元数据响应（{code, data} 信封或裸对象）。 */
+export function decodeDeviceActionPresentationResponse(value: unknown): DeviceActionPresentations {
+  return decodeDeviceActionPresentations(unwrapEnvelope(value))
 }
