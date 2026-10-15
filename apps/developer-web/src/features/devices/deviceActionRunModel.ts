@@ -108,6 +108,7 @@ const ERROR_TITLES: Record<string, string> = {
   ptlc_action_rejected: '设备拒绝执行',
   ptlc_device_offline: '设备离线',
   ptlc_action_failed: '执行异常',
+  ptlc_action_canceled: '已取消',
   legacy_edge_scheduler_action_failed: '设备动作执行失败',
 }
 

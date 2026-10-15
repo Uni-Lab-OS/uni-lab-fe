@@ -81,3 +81,13 @@
 .async-empty {
   margin-inline: auto;
 }
+
+.async-starting {
+  border-color: var(--bh-color-border-1);
+}
+
+.async-starting__hint {
+  margin-top: 6px;
+  color: var(--bh-color-text-description);
+  font-size: 12px;
+}

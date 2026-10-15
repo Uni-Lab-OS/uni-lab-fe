@@ -3,6 +3,8 @@ import styles from './AsyncState.module.scss'
 import { Alert, Skeleton } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
 import type { ReactNode } from 'react'
+import { isBackendUnavailableError } from '@unilab-fe/core'
+import { BackendStartupNotice } from './BackendStartupNotice'
 
 export function AsyncState({
   loading,
@@ -41,6 +43,8 @@ export function AsyncState({
           ))}
       </div>
     )
+  // 后端尚未就绪（冷启动、未启动或代理连不上）不是业务失败：显示启动阶段与进度并自动重试。
+  if (error && isBackendUnavailableError(error)) return <BackendStartupNotice onRetry={onRetry} />
   if (error)
     return (
       <Alert
