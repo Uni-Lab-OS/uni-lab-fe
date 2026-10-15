@@ -284,20 +284,96 @@ describe('DeviceActionClient', () => {
       raw: {},
     } as const
     const executionRead = {
-      async getTaskDetail() { return task },
-      async listTaskJobs() { return [] },
+      async getTaskDetail() {
+        return task
+      },
+      async listTaskJobs() {
+        return []
+      },
     }
-    const client = new DeviceActionClient({ request: async () => { throw new Error('unused') } }, executionRead)
+    const client = new DeviceActionClient(
+      {
+        request: async () => {
+          throw new Error('unused')
+        },
+      },
+      executionRead,
+    )
     await expect(client.getActionRun('task-1')).rejects.toMatchObject({
       code: 'INVALID_ACTION_RUN_RESPONSE',
     })
 
-    const multipleJobsClient = new DeviceActionClient({ request: async () => { throw new Error('unused') } }, {
-      async getTaskDetail() { return task },
-      async listTaskJobs() { return [{}, {}] },
-    } as never)
+    const multipleJobsClient = new DeviceActionClient(
+      {
+        request: async () => {
+          throw new Error('unused')
+        },
+      },
+      {
+        async getTaskDetail() {
+          return task
+        },
+        async listTaskJobs() {
+          return [{}, {}]
+        },
+      } as never,
+    )
     await expect(multipleJobsClient.getActionRun('task-1')).rejects.toMatchObject({
       code: 'INVALID_ACTION_RUN_RESPONSE',
+    })
+  })
+})
+
+describe('device display metadata', () => {
+  it('joins Chinese descriptions by UUID without changing action identity or runtime state', async () => {
+    const transport: RequestTransport = {
+      async request<Value>(request: TransportRequest): Promise<TransportResponse<Value>> {
+        const data = request.url.endsWith('/devices')
+          ? {
+              data: [
+                {
+                  material: { uuid: 'm1', name: '收集工位', resource_template_uuid: 'r1' },
+                  binding: { local_id: 'collect', edge_uuid: 'edge1' },
+                  online: false,
+                  dispatchable: false,
+                  actions: [{ name: 'clamp', type: 'ILab', workflow_node_template_uuid: 'a1' }],
+                },
+              ],
+            }
+          : {
+              data: {
+                items: [
+                  {
+                    uuid: 'a2',
+                    name: 'clamp',
+                    display_name: 'clamp',
+                    description: '另一个设备夹紧',
+                    type: 'ILab',
+                    node_type: 'ILab',
+                    resource_template_uuid: 'r2',
+                  },
+                  {
+                    uuid: 'a1',
+                    name: 'clamp',
+                    display_name: 'clamp',
+                    description: '收集-夹持气缸夹紧',
+                    type: 'ILab',
+                    node_type: 'ILab',
+                    resource_template_uuid: 'r1',
+                  },
+                ],
+              },
+            }
+        return { status: 200, headers: {}, data } as TransportResponse<Value>
+      },
+    }
+    const [device] = await new DeviceActionClient(transport).listDevices()
+    expect(device).toMatchObject({
+      label: '收集工位',
+      deviceKey: 'collect',
+      online: false,
+      dispatchable: false,
+      actions: [{ actionName: 'clamp', actionDefinitionUuid: 'a1', label: '收集-夹持气缸夹紧' }],
     })
   })
 })

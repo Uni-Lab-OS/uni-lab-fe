@@ -47,7 +47,39 @@ export class DeviceActionClient implements DeviceActionPort {
       url: `${this.apiPrefix}/devices`,
     })
     const devices = decodeDeviceList(response.data)
-    if (devices.length > 0) return devices
+    if (devices.length > 0) {
+      const missing = new Set(
+        devices.flatMap((device) =>
+          device.actions
+            .filter((action) => action.label === action.actionName && action.actionDefinitionUuid)
+            .map((action) => action.actionDefinitionUuid),
+        ),
+      )
+      if (missing.size === 0) return devices
+      const labels = new Map<string, string>()
+      for (let page = 1; missing.size > 0; page += 1) {
+        const response = await this.transport.request({
+          method: 'GET',
+          url: `${this.apiPrefix}/workflow-node-templates?page=${page}&page_size=100`,
+        })
+        const definitions = decodeActionDefinitionList(response.data)
+        for (const definition of definitions) {
+          labels.set(definition.actionUuid, definition.displayName)
+          missing.delete(definition.actionUuid)
+        }
+        if (definitions.length < 100) break
+      }
+      return devices.map((device) => ({
+        ...device,
+        actions: device.actions.map((action) => ({
+          ...action,
+          label:
+            action.label === action.actionName
+              ? (labels.get(action.actionDefinitionUuid ?? '') ?? action.label)
+              : action.label,
+        })),
+      }))
+    }
 
     // Local Workspace 尚未建立运行时 binding 时，/devices 会明确返回空数组。
     // 4174 控制台此时回退到 authoring/device-catalog；这里保持同一语义，
