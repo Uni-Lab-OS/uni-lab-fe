@@ -87,15 +87,26 @@ export interface SchedulerTimeline {
 }
 
 /**
- * 结构性“时间待定”原因：节点还没到可规划的时候（前面有分支/人工确认/循环未定），属正常等待。
- * 其余原因（如“动作耗时尚无可用估计”）表示 OS 无法为已就绪的节点排程，节点会一直不派发，
- * 必须显式提示，不能和正常等待混在一起。
+ * 结构性“时间待定”原因：节点还没到可规划的时候（前面有分支/人工确认/循环未定、前驱失败等待
+ * 处置、调度暂停等），属正常等待。OS 用 snake_case 代码表达这类状态；无法排程的问题（如
+ * “动作耗时尚无可用估计”“排程没有当前已注册且满足要求的设备候选”）是说明文字。
+ * 未列出的代码也按结构性处理，只有说明文字才视为无法排程，避免把正常等待误报为停住。
  */
 export const STRUCTURAL_BLOCK_REASONS: ReadonlySet<string> = new Set([
   'human_confirmation_required',
   'condition_unresolved',
   'loop_tail_unknown',
+  'predecessor_not_successful',
+  'new_open_scope_deferred',
+  'workflow_dispatch_paused',
+  'manual_continuation_pending',
+  'site_group_unresolved',
+  'replay_pending_projections',
 ])
+
+function isStructuralKind(kind: string): boolean {
+  return STRUCTURAL_BLOCK_REASONS.has(kind) || /^[a-z][a-z0-9_]*$/.test(kind)
+}
 
 /** 原因串形如 condition_unresolved:<节点>;loop_tail_unknown:<节点>，逐段取类型。 */
 export function blockReasonKinds(reason: string): string[] {
@@ -118,7 +129,7 @@ export function stalledPlanNodes(
   return plan.blocked.filter(
     (item) =>
       (taskId === undefined || item.taskId === taskId) &&
-      blockReasonKinds(item.reason).some((kind) => !STRUCTURAL_BLOCK_REASONS.has(kind)),
+      blockReasonKinds(item.reason).some((kind) => !isStructuralKind(kind)),
   )
 }
 

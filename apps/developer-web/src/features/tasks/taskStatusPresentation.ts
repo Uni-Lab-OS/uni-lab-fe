@@ -29,7 +29,8 @@ export function jobCountParts(counts: WorkflowJobStatusCounts): JobCountPart[] {
 export function formatJobCounts(counts: WorkflowJobStatusCounts): string {
   const parts = jobCountParts(counts).map((part) => `${part.label} ${part.value}`)
   if (parts.length === 0) return '暂无节点'
-  const history = counts.historicalAttempts > 0 ? `（另有历史重试 ${counts.historicalAttempts}）` : ''
+  const history =
+    counts.historicalAttempts > 0 ? `（另有历史重试 ${counts.historicalAttempts}）` : ''
   return `${parts.join(' · ')}${history}`
 }
 
@@ -38,6 +39,13 @@ const ATTENTION_LABELS: Readonly<Record<string, string>> = {
   local_cancel_acceptance_unavailable: '取消未获设备受理',
   edge_disconnected: '执行端断开',
   manual_confirmation_rejected: '人工确认被拒绝',
+  edge_reported_unknown_commands: '设备命令结果未知，需现场核对',
+}
+
+/** OS 的原因可能带“:<命令号>”后缀，按代码部分取中文说明，未收录的代码原样显示。 */
+function attentionLabel(reason: string): string {
+  const code = reason.split(':')[0]!
+  return ATTENTION_LABELS[reason] ?? ATTENTION_LABELS[code] ?? reason
 }
 
 /**
@@ -50,9 +58,11 @@ export function taskAttention(task: {
   readonly cleanupStatus: string
   readonly attentionReason?: string | null
 }): string | null {
-  const reason = task.attentionReason ? (ATTENTION_LABELS[task.attentionReason] ?? task.attentionReason) : null
-  if (task.cleanupStatus === 'requires_attention') return reason ? `待人工收尾：${reason}` : '待人工收尾'
-  if (task.controlStatus === 'waiting_reconciliation') return reason ? `待物理对账：${reason}` : '待物理对账'
+  const reason = task.attentionReason ? attentionLabel(task.attentionReason) : null
+  if (task.cleanupStatus === 'requires_attention')
+    return reason ? `待人工收尾：${reason}` : '待人工收尾'
+  if (task.controlStatus === 'waiting_reconciliation')
+    return reason ? `待物理对账：${reason}` : '待物理对账'
   if (['error_waiting', 'waiting_intervention'].includes(task.controlStatus)) {
     return reason ? `等待人工处置：${reason}` : '等待人工处置'
   }

@@ -169,4 +169,22 @@ describe('StationErrorHandling', () => {
     fireEvent.click(screen.getByRole('button', { name: /取消当前任务/ }))
     expect(await screen.findByText(/仍持有 1 个逻辑占用/)).toBeTruthy()
   })
+
+  it('warns before retrying a node whose device result is unknown', async () => {
+    getSnapshot.mockResolvedValue(
+      decodeStationSnapshot({
+        ...paused.raw,
+        errors: [
+          {
+            ...(paused.raw.errors as Record<string, unknown>[])[0],
+            meta_data: { message: '执行结果未知：job-1' },
+          },
+        ],
+      }),
+    )
+    render(<StationErrorHandling />)
+    expect(await screen.findByText('该节点的设备动作结果未知')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /重试当前节点/ }))
+    expect(await screen.findByText(/确认已核对现场并完成收尾/)).toBeTruthy()
+  })
 })
