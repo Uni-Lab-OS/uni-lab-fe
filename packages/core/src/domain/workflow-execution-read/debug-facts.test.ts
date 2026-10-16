@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deriveWorkflowDebugFacts } from './debug-facts'
+import { countWorkflowJobs, deriveWorkflowDebugFacts, deriveWorkflowProgress } from './debug-facts'
 import type { TaskJobSummary, TaskRuntimeDetail } from './model'
 
 describe('deriveWorkflowDebugFacts', () => {
@@ -64,5 +64,39 @@ describe('deriveWorkflowDebugFacts', () => {
     expect(facts.resourceWaits[0]).toMatchObject({ reason: 'claim held', blocking: true })
     expect(facts.recovery).toMatchObject({ executionUnknown: false, requiresReconciliation: true })
     expect(facts.recovery.locks[0]).toMatchObject({ state: 'uncertain', canRelease: false })
+  })
+})
+
+describe('job status counts (field 13.11: a canceled run must not read as 100%)', () => {
+  const jobs = (status: string, count: number, extra: Record<string, unknown> = {}) =>
+    Array.from({ length: count }, () => ({ status, currentAttempt: true, raw: {}, ...extra }))
+
+  it('counts the canceled task as-is and keeps the superseded attempt in history', () => {
+    const counts = countWorkflowJobs([
+      ...jobs('succeeded', 66),
+      ...jobs('skipped', 232),
+      ...jobs('canceled', 5211),
+      ...jobs('failed', 1),
+      ...jobs('failed', 1, { currentAttempt: false }),
+    ])
+    expect(counts).toMatchObject({
+      total: 5510,
+      succeeded: 66,
+      skipped: 232,
+      canceled: 5211,
+      failed: 1,
+      historicalAttempts: 1,
+    })
+    expect(deriveWorkflowProgress(undefined)).toBeNull()
+  })
+
+  it('separates OS-uncertain running jobs from running ones', () => {
+    const counts = countWorkflowJobs([
+      ...jobs('running', 1),
+      ...jobs('running', 1, { raw: { uncertainty_reason: 'ptlc_action_timeout' } }),
+      ...jobs('execution_unknown', 1),
+      ...jobs('pending', 2),
+    ])
+    expect(counts).toMatchObject({ running: 1, unknown: 2, waiting: 2, total: 5 })
   })
 })

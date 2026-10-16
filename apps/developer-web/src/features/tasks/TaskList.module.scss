@@ -48,3 +48,16 @@
     transition: none;
   }
 }
+
+.status-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.attention-note {
+  color: #b5671c;
+  font-size: 12px;
+  line-height: 1.4;
+}

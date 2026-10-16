@@ -18,16 +18,22 @@ export function TaskHumanInteractionPanel({
   taskUuid,
   timeline,
   taskVersion,
+  humanNodeIds,
 }: {
   taskUuid: string | null
   timeline: readonly WorkflowDebugTimelineItem[]
   /** Task 快照版本（如 updatedAt）；与时间线签名共同决定何时重读。 */
   taskVersion: string
+  /** 冻结快照中的人工交互命令节点。 */
+  humanNodeIds?: ReadonlySet<string>
 }) {
   const refreshKey = `${taskVersion}#${timelineSignature(timeline)}`
   const state = useTaskHumanInteractions(taskUuid, refreshKey)
   const [openUuid, setOpenUuid] = useState<string | null>(null)
-  const summary = useMemo(() => summarizeHumanWork(timeline, state.items), [state.items, timeline])
+  const summary = useMemo(
+    () => summarizeHumanWork(timeline, state.items, humanNodeIds),
+    [humanNodeIds, state.items, timeline],
+  )
   const labels = useMemo(
     () => new Map(timeline.map((job) => [job.jobUuid, job.nodeLabel])),
     [timeline],

@@ -15,6 +15,7 @@ export type TaskExecutionStatus =
   | 'pending'
   | 'failed'
   | 'skipped'
+  | 'canceled'
 
 export interface TaskExecutionTimelineItem {
   readonly id: string
@@ -45,6 +46,7 @@ const markerGlyph: Record<TaskExecutionStatus, string> = {
   pending: 'general/minus',
   failed: 'alerts-feedback/alert-triangle',
   skipped: 'media/skip-forward',
+  canceled: 'general/slash-circle-01',
 }
 
 export function TaskExecutionTimeline({

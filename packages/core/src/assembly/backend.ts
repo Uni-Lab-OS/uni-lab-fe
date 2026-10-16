@@ -18,6 +18,8 @@ import { WorkflowManualConfirmationClient } from '../domain/workflow-manual-conf
 import type { WorkflowManualConfirmationPort } from '../domain/workflow-manual-confirmation/port'
 import { WorkflowHumanInteractionClient } from '../domain/workflow-human-interaction/client'
 import type { WorkflowHumanInteractionPort } from '../domain/workflow-human-interaction/port'
+import { SchedulerTimePlanClient } from '../domain/scheduler-time-plan/client'
+import type { SchedulerTimePlanPort } from '../domain/scheduler-time-plan/port'
 import type { RequestTransport } from '../transport/request'
 import { createRunPreparationScenario } from '../scenarios/run-preparation/scenario'
 import { createWorkflowDebuggingScenario } from '../scenarios/workflow-debugging/scenario'
@@ -40,6 +42,7 @@ export interface BackendCore {
   readonly evidenceIntervention: EvidenceInterventionPort
   readonly manualConfirmation: WorkflowManualConfirmationPort
   readonly humanInteractions: WorkflowHumanInteractionPort
+  readonly schedulerTimePlan: SchedulerTimePlanPort
   readonly runPreparation: ReturnType<typeof createRunPreparationScenario>
   readonly workflowDebugging: ReturnType<typeof createWorkflowDebuggingScenario>
   readonly deviceActionDebugging: ReturnType<typeof createDeviceActionDebuggingScenario>
@@ -96,6 +99,7 @@ export function createBackendCoreFromTransport(
     evidenceIntervention,
     manualConfirmation,
     humanInteractions,
+    schedulerTimePlan: new SchedulerTimePlanClient(transport),
     runPreparation: createRunPreparationScenario(workflowDefinitions, runPreparationPort, {
       deviceActions,
       materialSite,

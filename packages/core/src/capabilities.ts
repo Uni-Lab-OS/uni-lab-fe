@@ -16,6 +16,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'deviceAction.presentation',
   'workflow.humanInteraction',
   'workflow.resolveUncertain',
+  'scheduler.timePlan',
 ] as const
 
 export type ServerCapability = (typeof SERVER_CAPABILITY_KEYS)[number]
@@ -61,6 +62,8 @@ const PTLC_NATIVE_CAPABILITIES = new Set<ServerCapability>([
   'deviceAction.presentation',
   // 设备包实现了 OS UNKNOWN 处置执行端（tools/ptlc_migration/unknown_resolution.py）。
   'workflow.resolveUncertain',
+  // OS 调度器只读观测：/api/v1/scheduler/time-plan 与 /api/v1/timeline（pTLC 控制台挂载了调度路由）。
+  'scheduler.timePlan',
 ])
 
 /** 返回当前 profile 已完成联调的能力集合；未知 profile 默认关闭。 */

@@ -97,9 +97,14 @@ const job = (overrides: Partial<WorkflowDebugTimelineItem> = {}): WorkflowDebugT
   ...overrides,
 })
 
-function renderPanel(timeline = [job()]) {
+function renderPanel(timeline = [job()], humanNodeIds: ReadonlySet<string> = new Set(['node-review'])) {
   return render(
-    <TaskHumanInteractionPanel taskUuid="task-1" timeline={timeline} taskVersion="running:1" />,
+    <TaskHumanInteractionPanel
+      taskUuid="task-1"
+      timeline={timeline}
+      taskVersion="running:1"
+      humanNodeIds={humanNodeIds}
+    />,
   )
 }
 
@@ -218,6 +223,14 @@ describe('TaskHumanInteractionPanel', () => {
     await waitFor(() => expect(listForTask).toHaveBeenCalledTimes(2))
   })
 
+  it('does not mistake inventory commands for pending human interactions', async () => {
+    listForTask.mockResolvedValue([])
+    const { container } = renderPanel([job({ jobUuid: 'locate', workflowNodeUuid: 'node-locate' })])
+    await waitFor(() => expect(listForTask).toHaveBeenCalled())
+    expect(screen.queryByText(/OS 尚未返回人工交互请求/)).toBeNull()
+    expect(container.textContent).toBe('')
+  })
+
   it('fails visibly when the backend has not declared the capability', async () => {
     capability.available = false
     capability.reason = 'Uni-Lab OS 尚未声明 workflow.humanInteraction 能力'
@@ -251,8 +264,14 @@ describe('humanInteractionModel', () => {
   it('separates pending, settled and not-yet-opened requests', () => {
     const pending = decodeHumanInteraction(reviewRow())
     const summary = summarizeHumanWork(
-      [job(), job({ jobUuid: 'job-2' }), job({ jobUuid: 'job-3', executorKind: 'device_action' })],
+      [
+        job(),
+        job({ jobUuid: 'job-2' }),
+        job({ jobUuid: 'job-3', executorKind: 'device_action' }),
+        job({ jobUuid: 'job-4', workflowNodeUuid: 'node-inventory' }),
+      ],
       [pending],
+      new Set(['node-review']),
     )
     expect(summary.pending).toHaveLength(1)
     expect(summary.awaitingRequest.map((item) => item.jobUuid)).toEqual(['job-2'])

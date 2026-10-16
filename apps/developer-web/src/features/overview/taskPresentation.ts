@@ -1,4 +1,5 @@
-import type { TaskRuntimePresentation } from '@unilab-fe/core'
+import type { TaskRuntimePresentation, WorkflowJobStatusCounts } from '@unilab-fe/core'
+import { taskAttention } from '../tasks/taskStatusPresentation'
 
 export interface TaskRow {
   readonly task: TaskRuntimePresentation
@@ -6,6 +7,8 @@ export interface TaskRow {
   readonly workflowName: string
   readonly description: string | null
   readonly progress: number | null
+  readonly jobCounts: WorkflowJobStatusCounts
+  readonly attention: string | null
   readonly priority: string | null
   readonly status: string
   readonly createdAt: string
@@ -22,6 +25,8 @@ export function toTaskRow(task: TaskRuntimePresentation): TaskRow {
     // Core 已经从 OS 的 Task presentation 统一投影进度；页面不能再次按 Job
     // 状态估算，否则会与任务列表及 OS 权威进度产生分歧。
     progress: task.progress?.percent ?? null,
+    jobCounts: task.jobCounts,
+    attention: taskAttention(task),
     priority: task.priority,
     status: normalizeStatus(
       task.status,
@@ -43,6 +48,9 @@ export function normalizeStatus(
   const normalized = status.toLowerCase()
   const normalizedControlStatus = controlStatus?.toLowerCase()
   const normalizedCleanupStatus = cleanupStatus?.toLowerCase()
+  // Task 终态以 OS 为准，优先于“需关注”；待收尾等事项由 taskAttention 另行展示。
+  if (['succeeded', 'success', 'completed', 'finished'].includes(normalized)) return 'completed'
+  if (['cancelled', 'canceled', 'failed', 'timeout'].includes(normalized)) return normalized
   if (
     normalizedControlStatus === 'error_waiting' ||
     normalizedControlStatus === 'waiting_intervention' ||

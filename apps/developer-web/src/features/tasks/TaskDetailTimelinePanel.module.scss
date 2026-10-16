@@ -185,3 +185,24 @@
     padding: 8px;
   }
 }
+
+.debug-timeline-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 0 0 10px;
+  font-size: 12px;
+}
+
+.debug-timeline-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #5b6475;
+  cursor: pointer;
+}
+
+.debug-timeline-hint {
+  color: #8a93a3;
+}

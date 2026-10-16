@@ -7,7 +7,8 @@ export function routeFromPath(pathname: string): StudioRoute {
     segment === 'reagents' ||
     segment === 'materials' ||
     segment === 'workflows' ||
-    segment === 'tasks'
+    segment === 'tasks' ||
+    segment === 'schedule'
     ? segment
     : 'overview'
 }

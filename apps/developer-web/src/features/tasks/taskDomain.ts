@@ -1,8 +1,10 @@
 import type {
   TaskJobSummary,
   TaskRuntimePresentation,
+  WorkflowJobStatusCounts,
   WorkflowNodeJobDetail,
 } from '@unilab-fe/core'
+import { taskAttention } from './taskStatusPresentation'
 import {
   formatDateTime,
   normalizeStatus,
@@ -15,9 +17,10 @@ export interface TaskListRow {
   readonly name: string
   readonly workflowName: string
   readonly status: string
+  /** 仅 OS 提供业务进度时有值；不按 Job 状态估算。 */
   readonly progress: number | null
-  readonly completedJobs: number
-  readonly totalJobs: number
+  readonly jobCounts: WorkflowJobStatusCounts
+  readonly attention: string | null
 }
 
 export function filterTaskListRows(
@@ -36,8 +39,6 @@ export function filterTaskListRows(
 }
 
 export function toTaskListRow(task: TaskRuntimePresentation): TaskListRow {
-  const totalJobs = task.progress?.total ?? task.jobs.length
-  const completedJobs = task.progress?.completed ?? 0
   return {
     task,
     name: taskDisplayName(task),
@@ -48,10 +49,9 @@ export function toTaskListRow(task: TaskRuntimePresentation): TaskListRow {
       task.controlStatus,
       task.cleanupStatus,
     ),
-    progress:
-      task.progress?.percent ?? (totalJobs ? Math.round((completedJobs / totalJobs) * 100) : null),
-    completedJobs,
-    totalJobs,
+    progress: task.progress?.percent ?? null,
+    jobCounts: task.jobCounts,
+    attention: taskAttention(task),
   }
 }
 
@@ -76,6 +76,29 @@ export function jobLabel(
 }
 
 /** 从任务冻结快照提取节点显示名称，避免把内部 UUID 暴露给操作员。 */
+/** 冻结快照中属于 OS 人工交互命令（HumanCommands）的节点；库存命令等其他 workflow_command 不计入。 */
+export function humanCommandNodeIds(raw?: Readonly<Record<string, unknown>>): ReadonlySet<string> {
+  const snapshot = recordValue(raw, 'workflow_snapshot')
+  const templates = recordValue(snapshot, 'node_templates')
+  const nodes = recordValue(snapshot, 'nodes')
+  const human = new Set<string>()
+  if (!Array.isArray(templates) || !Array.isArray(nodes)) return human
+  const humanTemplates = new Set(
+    templates
+      .map(asRecord)
+      .filter((template) => stringValue(template?.class)?.endsWith(':HumanCommands'))
+      .map((template) => stringValue(template?.uuid))
+      .filter((uuid): uuid is string => Boolean(uuid)),
+  )
+  for (const item of nodes) {
+    const node = asRecord(item)
+    const template = stringValue(node?.workflow_node_template_uuid)
+    const uuid = stringValue(node?.uuid)
+    if (uuid && template && humanTemplates.has(template)) human.add(uuid)
+  }
+  return human
+}
+
 export function taskNodeNames(
   raw?: Readonly<Record<string, unknown>>,
 ): ReadonlyMap<string, string> {

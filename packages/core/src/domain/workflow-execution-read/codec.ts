@@ -11,7 +11,7 @@ import type {
   TaskRuntimePresentationJob,
   TaskRuntimePresentationPage,
 } from './model'
-import { deriveWorkflowProgress } from './debug-facts'
+import { countWorkflowJobs, deriveWorkflowProgress } from './debug-facts'
 
 export function decodeTaskRuntimeDetail(value: unknown): TaskRuntimeDetail {
   const raw = unwrapData(asRecord(value, 'task'))
@@ -81,6 +81,9 @@ export function decodeTaskPresentationPage(value: unknown): TaskRuntimePresentat
 function decodeTaskPresentation(value: WorkflowExecutionRecord): TaskRuntimePresentation {
   const jobs = value.jobs
   if (!Array.isArray(jobs)) invalid('task presentation.jobs must be an array')
+  const decodedJobs = jobs.map((job, index) =>
+    decodePresentationJob(asRecord(job, `presentation.jobs[${index}]`)),
+  )
   return {
     kind: 'task_runtime_presentation',
     source: 'os',
@@ -97,10 +100,9 @@ function decodeTaskPresentation(value: WorkflowExecutionRecord): TaskRuntimePres
     updatedAt: requiredString(value.update_time, 'presentation.update_time'),
     finishedAt: nullableString(value.finished_at, 'presentation.finished_at'),
     attentionReason: nullableString(value.attention_reason, 'presentation.attention_reason'),
-    progress: deriveWorkflowProgress(value.progress, jobs),
-    jobs: jobs.map((job, index) =>
-      decodePresentationJob(asRecord(job, `presentation.jobs[${index}]`)),
-    ),
+    progress: deriveWorkflowProgress(value.progress),
+    jobCounts: countWorkflowJobs(decodedJobs),
+    jobs: decodedJobs,
     raw: value,
   }
 }

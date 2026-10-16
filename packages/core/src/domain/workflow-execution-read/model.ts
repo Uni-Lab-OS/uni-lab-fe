@@ -63,6 +63,7 @@ export interface TaskRuntimePresentation {
   readonly finishedAt: string | null
   readonly attentionReason: string | null
   readonly progress: WorkflowProgressFact | null
+  readonly jobCounts: WorkflowJobStatusCounts
   readonly jobs: readonly TaskRuntimePresentationJob[]
   readonly raw: Readonly<Record<string, unknown>>
 }
@@ -254,10 +255,31 @@ export interface WorkflowRecoveryFact {
   readonly raw: Readonly<Record<string, unknown>>
 }
 
+/**
+ * 节点作业按状态计数。只统计当前 attempt；被重试替代的旧 attempt 计入 historicalAttempts。
+ * 这是 OS Job 状态的如实汇总，不是“实验完成度”：canceled/skipped 是未执行，
+ * succeeded 也包含控制、数据等非设备节点。
+ */
+export interface WorkflowJobStatusCounts {
+  readonly total: number
+  readonly succeeded: number
+  readonly failed: number
+  readonly timeout: number
+  readonly canceled: number
+  readonly skipped: number
+  readonly running: number
+  readonly waiting: number
+  /** 结果未知：execution_unknown，或 OS 记录了 uncertainty_reason 的运行中/失败作业。 */
+  readonly unknown: number
+  readonly historicalAttempts: number
+}
+
 export interface WorkflowDebugFacts {
   readonly readyFrontier: readonly WorkflowReadyFrontierCandidate[]
   readonly joins: readonly WorkflowJoinFact[]
+  /** 仅当 OS 提供业务进度时存在；前端不按 Job 状态估算百分比。 */
   readonly progress: WorkflowProgressFact | null
+  readonly jobCounts: WorkflowJobStatusCounts
   readonly resourceWaits: readonly WorkflowResourceWaitFact[]
   readonly recovery: WorkflowRecoveryFact
 }
