@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SchedulerTimeline, TaskRuntimePresentation, TimePlanSnapshot } from '@unilab-fe/core'
 import { useBackend } from '../../app/BackendProvider'
+import { useRuntimeInvalidation } from '../../hooks/useRuntimeInvalidation'
 
 export interface ScheduleData {
   readonly available: boolean
@@ -45,7 +46,11 @@ export function useScheduleData(): ScheduleData {
       const [plan, timeline, tasks] = await Promise.all([
         backend.core.schedulerTimePlan.getTimePlan(),
         backend.core.schedulerTimePlan.getTimeline(),
-        backend.core.executionRead.listTaskPresentations({ page: 1, pageSize: 200, terminalLimit: 50 }),
+        backend.core.executionRead.listTaskPresentations({
+          page: 1,
+          pageSize: 200,
+          terminalLimit: 50,
+        }),
       ])
       if (current !== sequence.current) return
       setState({
@@ -74,30 +79,14 @@ export function useScheduleData(): ScheduleData {
     void load()
   }, [load, readyEpoch])
 
-  useEffect(() => {
-    const events = backend.core.workflowRuntimeEvents
-    if (!events || !capability.available) return
-    let scheduled: ReturnType<typeof setTimeout> | null = null
-    const subscription = events.subscribe(
-      () => {
-        // 同一轮派发/结算常连发多条失效通知，合并为一次重读。
-        if (scheduled !== null) return
-        scheduled = setTimeout(() => {
-          scheduled = null
-          void load()
-        }, 300)
-      },
-      { onOpen: ({ reconnected }) => reconnected && void load() },
-    )
-    return () => {
-      if (scheduled !== null) clearTimeout(scheduled)
-      subscription.dispose()
-    }
-  }, [backend, capability.available, load])
+  // 运行中失效通知几乎连续到达；调度快照至多 2 秒重读一次。
+  useRuntimeInvalidation(load, { enabled: capability.available })
 
   return {
     available: capability.available,
-    unavailableReason: capability.available ? null : (capability.reason ?? '当前后端不支持调度观测'),
+    unavailableReason: capability.available
+      ? null
+      : (capability.reason ?? '当前后端不支持调度观测'),
     plan: state.plan,
     timeline: state.timeline,
     tasks: state.tasks,

@@ -6,6 +6,7 @@ import {
   type StationHandlingSnapshot,
 } from '@unilab-fe/core'
 import { useBackend } from '../../app/BackendProvider'
+import { useRuntimeInvalidation } from '../../hooks/useRuntimeInvalidation'
 
 export interface StationHandlingState {
   readonly available: boolean
@@ -21,7 +22,7 @@ export interface StationHandlingState {
 }
 
 /**
- * 工站错误处置状态。读取时机：首次进入、全局 SSE 失效通知、每次提交之后与手动刷新；不轮询。
+ * 工站错误处置状态。读取时机：首次进入、station.error_handling.changed 通知、每次提交之后与手动刷新；不轮询。
  * 读取失败时禁止写操作（快照版本未知时提交只会产生冲突或误操作）。
  */
 export function useStationHandling(): StationHandlingState {
@@ -53,25 +54,15 @@ export function useStationHandling(): StationHandlingState {
     void reload()
   }, [reload, readyEpoch])
 
-  useEffect(() => {
-    const events = backend.core.workflowRuntimeEvents
-    if (!events || !available) return
-    let timer: ReturnType<typeof setTimeout> | null = null
-    const subscription = events.subscribe(
-      () => {
-        if (timer !== null) return
-        timer = setTimeout(() => {
-          timer = null
-          void reload()
-        }, 300)
-      },
-      { onOpen: ({ reconnected }) => reconnected && void reload() },
-    )
-    return () => {
-      if (timer !== null) clearTimeout(timer)
-      subscription.dispose()
-    }
-  }, [available, backend, reload])
+  // 只在工站错误处置通知（及重连）时重读；任务运行通知与工站快照无关。
+  // 上次读取失败时，任何后续通知都触发重试，避免横幅停在“暂不可用”。
+  const failed = useRef(false)
+  failed.current = readError !== null
+  useRuntimeInvalidation(reload, {
+    enabled: available,
+    minIntervalMs: 500,
+    accept: (event) => failed.current || event.event === 'station.error_handling.changed',
+  })
 
   const run = useCallback(
     async (intent: StationHandlingIntent) => {

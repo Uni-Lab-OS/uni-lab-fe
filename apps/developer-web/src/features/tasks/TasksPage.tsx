@@ -20,12 +20,13 @@ export function TasksPage() {
       terminalLimit: 200,
     }),
   )
-  useRuntimeInvalidation(query.reload)
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('all')
   const [selectedUuid, setSelectedUuid] = useState<string | null>(() =>
     new URLSearchParams(window.location.search).get('task'),
   )
+  // 打开详情时列表不可见，不随运行通知重读（大工作流的展示投影单条可达 10 MB）；返回列表时会重读。
+  useRuntimeInvalidation(query.reload, { enabled: !selectedUuid })
   const rows = useMemo(
     () => filterTaskListRows((query.data?.items ?? []).map(toTaskListRow), keyword, status),
     [keyword, query.data, status],

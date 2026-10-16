@@ -16,6 +16,12 @@ import type {
 } from './api'
 import { WorkflowExecutionReadError } from './errors'
 
+/**
+ * Task 详情/作业/展示列表会内嵌完整 execution_plan；大工作流（数千节点）单次可达数十 MB，
+ * OS 繁忙时超过通用 12 秒超时，因此单独放宽。
+ */
+const TASK_PROJECTION_TIMEOUT_MS = 45_000
+
 export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
   constructor(
     private readonly transport: RequestTransport,
@@ -26,6 +32,7 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
     const response = await this.transport.request<WorkflowExecutionRecord>({
       method: 'GET',
       url: `${this.apiPrefix}/workflow-tasks/${encodeURIComponent(taskUuid)}`,
+      timeoutMs: TASK_PROJECTION_TIMEOUT_MS,
     })
     return decodeTaskRuntimeDetail(response.data)
   }
@@ -80,6 +87,7 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
     const response = await this.transport.request<TaskPresentationResponse>({
       method: 'GET',
       url: `${this.apiPrefix}/workflow-task-presentations?${params.toString()}`,
+      timeoutMs: TASK_PROJECTION_TIMEOUT_MS,
     })
     return decodeTaskPresentationPage(response.data)
   }
@@ -88,6 +96,7 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
     const response = await this.transport.request<TaskJobsResponse>({
       method: 'GET',
       url: `${this.apiPrefix}/workflow-tasks/${encodeURIComponent(taskUuid)}/jobs`,
+      timeoutMs: TASK_PROJECTION_TIMEOUT_MS,
     })
     return decodeTaskJobs(response.data)
   }
