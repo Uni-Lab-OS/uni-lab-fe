@@ -48,8 +48,8 @@ export function useScheduleData(): ScheduleData {
         backend.core.schedulerTimePlan.getTimeline(),
         backend.core.executionRead.listTaskPresentations({
           page: 1,
-          pageSize: 200,
-          terminalLimit: 50,
+          // 只用于任务名称与作业执行种类；每条约 10 MB，只取最近 10 个任务。
+          pageSize: 10,
         }),
       ])
       if (current !== sequence.current) return

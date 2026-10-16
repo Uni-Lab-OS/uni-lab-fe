@@ -162,8 +162,8 @@ export function OverviewPage({
   const query = useBackendQuery('workflow-task-presentations', (backend) =>
     backend.core.executionRead.listTaskPresentations({
       page: 1,
-      pageSize: 100,
-      terminalLimit: 100,
+      // 每条展示投影内嵌完整执行计划，大工作流单条约 10 MB；总览只需最近的任务。
+      pageSize: 20,
     }),
   )
   // 任务状态变化时重读列表（取消、完成、待收尾等），不轮询。

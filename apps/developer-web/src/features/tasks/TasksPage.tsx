@@ -12,13 +12,16 @@ import { filterTaskListRows, toTaskListRow, type TaskListRow } from './taskDomai
 import { TaskListTable } from './TaskListTable'
 import { TaskDetailPage } from './TaskDetailPage'
 
+/**
+ * OS 的任务展示投影每条内嵌完整执行计划与作业（大工作流单条约 10 MB），一次取几百条会让
+ * 页面和 OS 都卡住。按 20 条一页加载，需要时再“加载更多”。
+ */
+const PAGE = 20
+
 export function TasksPage() {
-  const query = useBackendQuery('task-presentations', (backend) =>
-    backend.core.executionRead.listTaskPresentations({
-      page: 1,
-      pageSize: 200,
-      terminalLimit: 200,
-    }),
+  const [limit, setLimit] = useState(PAGE)
+  const query = useBackendQuery(`task-presentations:${limit}`, (backend) =>
+    backend.core.executionRead.listTaskPresentations({ page: 1, pageSize: limit }),
   )
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('all')
@@ -111,6 +114,23 @@ export function TasksPage() {
           tableColumns={6}
         >
           <TaskListTable rows={rows} onOpen={openTask} onDone={query.reload} />
+          {query.data && (
+            <div className={clsx(sharedStyles['list-footer'])}>
+              <span>
+                已加载 {query.data.items.length} / 共 {query.data.total} 个任务
+                {keyword || status !== 'all' ? '（筛选只作用于已加载的任务）' : ''}
+              </span>
+              {query.data.total > query.data.items.length && (
+                <Button
+                  size="small"
+                  loading={query.loading}
+                  onClick={() => setLimit((value) => value + PAGE)}
+                >
+                  加载更多
+                </Button>
+              )}
+            </div>
+          )}
         </AsyncState>
       </section>
     </div>

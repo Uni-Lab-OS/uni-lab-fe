@@ -3,3 +3,13 @@
 @import './_shared-tokens.scss';
 @import './_shared-tables.scss';
 @import './_shared-responsive.scss';
+
+.list-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 4px 0;
+  color: #6b7383;
+  font-size: 12px;
+}
