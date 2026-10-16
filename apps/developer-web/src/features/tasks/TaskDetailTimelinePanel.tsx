@@ -6,7 +6,12 @@ import taskDetailTimelineStyles from './TaskDetailTimelinePanel.module.scss'
 import { TaskExecutionTimeline } from './TaskExecutionTimeline'
 import { TaskParallelTimelineRow } from './TaskParallelTimelineRow'
 import { DebugActionButton, DebugIcon } from './TaskDetailIcons'
-import { arrangeTimeline, type EventStatus, markerGlyph, type TimelineOrder } from './taskDetailModel'
+import {
+  arrangeTimeline,
+  type EventStatus,
+  markerGlyph,
+  type TimelineOrder,
+} from './taskDetailModel'
 import type { useTaskDetailController } from './useTaskDetailController'
 
 type Controller = ReturnType<typeof useTaskDetailController>
@@ -90,6 +95,10 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
               label="取消任务"
               className={taskDetailTimelineStyles['debug-timeline-action-danger']}
               disabled={!viewModel?.controls.canCancel || storeStatus === 'commanding'}
+              confirm={{
+                title: '取消该任务？未执行的节点不再执行，已开始的设备动作按 OS 规则收尾。',
+                okText: '确认取消',
+              }}
               onClick={() => controller.submitCommand('cancel')}
             >
               <DebugIcon name="square" size={16} />
@@ -121,8 +130,8 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
           {collapsedTotal > 0 && (
             <label className={clsx(taskDetailTimelineStyles['debug-timeline-toggle'])}>
               <Switch size="small" checked={showUnexecuted} onChange={setShowUnexecuted} />
-              显示未执行节点（取消 {arranged.collapsed.canceled} · 跳过 {arranged.collapsed.skipped} · 未到达{' '}
-              {arranged.collapsed.pending}）
+              显示未执行节点（取消 {arranged.collapsed.canceled} · 跳过 {arranged.collapsed.skipped}{' '}
+              · 未到达 {arranged.collapsed.pending}）
             </label>
           )}
           {arranged.historical > 0 && (
