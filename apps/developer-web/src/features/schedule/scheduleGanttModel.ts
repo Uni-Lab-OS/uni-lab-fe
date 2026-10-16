@@ -80,6 +80,11 @@ export function buildScheduleGantt(input: {
   readonly label?: (taskId: string, nodeId: string, fallback: string) => string
   /** 作业执行种类（来自 Task/Jobs 投影）；用于区分人工确认等待与设备动作。 */
   readonly executorKind?: (taskId: string, nodeId: string) => string | undefined
+  /**
+   * 人工确认的批准时刻（秒，来自作业 manual_confirmation.decided_at）。批准后作业执行种类
+   * 变为设备动作，但调度器的在途区间从登记时开始，包含人的等待，需要拆开画。
+   */
+  readonly manualDecidedAt?: (taskId: string, nodeId: string) => number | undefined
 }): ScheduleGantt {
   const label = input.label ?? ((_task: string, _node: string, fallback: string) => fallback)
   const bars: GanttBar[] = []
@@ -133,6 +138,21 @@ export function buildScheduleGantt(input: {
         state: entry.state,
       })
     } else {
+      const decidedAt = input.manualDecidedAt?.(entry.taskId, entry.nodeId)
+      let start = entry.startedAt
+      if (decidedAt !== undefined && decidedAt > entry.startedAt && decidedAt < entry.endedAt) {
+        bars.push({
+          id: `${entry.jobId}:manual`,
+          kind: 'manual',
+          taskId: entry.taskId,
+          nodeId: entry.nodeId,
+          deviceId,
+          label: `人工确认等待：${name}`,
+          start: entry.startedAt,
+          end: decidedAt,
+        })
+        start = decidedAt
+      }
       bars.push({
         id: entry.jobId,
         kind: 'actual',
@@ -140,8 +160,8 @@ export function buildScheduleGantt(input: {
         nodeId: entry.nodeId,
         deviceId,
         label: name,
-        start: entry.startedAt,
-        end: Math.max(entry.startedAt, entry.endedAt),
+        start,
+        end: Math.max(start, entry.endedAt),
         state: entry.state,
       })
     }
