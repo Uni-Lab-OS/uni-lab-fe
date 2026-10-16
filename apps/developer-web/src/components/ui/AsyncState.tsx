@@ -16,6 +16,7 @@ export function AsyncState({
   variant = 'default',
   tableColumns = 5,
   loadingContent,
+  loadingDescription = '正在加载数据…',
 }: {
   loading: boolean
   error?: Error
@@ -26,6 +27,7 @@ export function AsyncState({
   variant?: 'default' | 'table'
   tableColumns?: number
   loadingContent?: ReactNode
+  loadingDescription?: string
 }) {
   if (loading)
     return (
@@ -39,7 +41,10 @@ export function AsyncState({
           (variant === 'table' ? (
             <TableSkeleton columns={tableColumns} />
           ) : (
-            <Skeleton active paragraph={{ rows: 5 }} />
+            <div role="status" aria-live="polite">
+              <p>{loadingDescription}</p>
+              <Skeleton active paragraph={{ rows: 5 }} />
+            </div>
           ))}
       </div>
     )

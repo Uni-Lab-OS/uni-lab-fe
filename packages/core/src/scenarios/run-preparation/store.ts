@@ -46,147 +46,171 @@ export function createRunPreparationStore(scenario: RunPreparationScenario): Run
 export function createRunPreparationStoreState(
   scenario: RunPreparationScenario,
 ): StateCreator<RunPreparationStoreState> {
-  return (set, get) => ({
-    status: 'idle',
-    workflowUuid: null,
-    viewModel: null,
-    preflight: null,
-    submittedRun: null,
-    error: null,
+  return (set, get) => {
+    let pendingLoad: { workflowUuid: string; promise: Promise<void> } | undefined
+    let loadGeneration = 0
+    return {
+      status: 'idle',
+      workflowUuid: null,
+      viewModel: null,
+      preflight: null,
+      submittedRun: null,
+      error: null,
 
-    async load(workflowUuid) {
-      const current = get()
-      if (
-        current.workflowUuid === workflowUuid &&
-        current.viewModel &&
-        (current.status === 'preflighting' ||
-          current.status === 'submitting' ||
-          current.preflight ||
-          current.submittedRun)
-      ) {
-        // 页面被卸载期间请求仍在进行或已返回：保留现场，重载会清掉进行中的状态和刚到的结果。
-        return
-      }
-      set({ status: 'loading', workflowUuid, error: null })
-
-      try {
-        const state = get()
-        const draft =
-          state.viewModel?.revision.workflowUuid === workflowUuid ? state.viewModel : undefined
-        const viewModel = await scenario.load(workflowUuid, {
-          configuration: draft?.configuration ?? defaultConfiguration,
-          binding: draft?.binding ?? defaultBinding,
-        })
+      load(workflowUuid) {
+        if (pendingLoad?.workflowUuid === workflowUuid) return pendingLoad.promise
+        const current = get()
+        if (
+          current.workflowUuid === workflowUuid &&
+          current.viewModel &&
+          (current.status === 'preflighting' ||
+            current.status === 'submitting' ||
+            current.preflight ||
+            current.submittedRun)
+        ) {
+          // 页面被卸载期间请求仍在进行或已返回：保留现场，重载会清掉进行中的状态和刚到的结果。
+          return Promise.resolve()
+        }
+        const generation = ++loadGeneration
         set({
-          status: 'ready',
-          viewModel,
-          preflight: null,
-          submittedRun: null,
+          status: 'loading',
+          workflowUuid,
           error: null,
+          ...(current.workflowUuid !== workflowUuid
+            ? { viewModel: null, preflight: null, submittedRun: null }
+            : {}),
         })
-      } catch (error) {
-        set({ status: 'error', error: toError(error) })
-      }
-    },
-
-    async requestPreflight() {
-      const state = get()
-      if (!state.viewModel) return
-
-      set({ status: 'preflighting', error: null })
-
-      try {
-        const preflight = await scenario.requestPreflight(currentScenarioState(get()))
-        set({ status: 'ready', preflight, error: null })
-      } catch (error) {
-        set({ status: 'error', error: toError(error) })
-      }
-    },
-
-    async submitRun() {
-      const state = get()
-      if (!state.viewModel) return
-
-      set({ status: 'submitting', error: null })
-
-      try {
-        const submittedRun = await scenario.submitRun(currentScenarioState(get()))
-        set({ status: 'ready', submittedRun, error: null })
-      } catch (error) {
-        set({ status: 'error', error: toError(error) })
-      }
-    },
-
-    async inspectNodeJob(jobUuid) {
-      const state = get()
-      if (!state.viewModel) return
-
-      set({ status: 'loading', error: null })
-
-      try {
-        const viewModel = await scenario.inspectNodeJob(state.viewModel, jobUuid)
-        set({ status: 'ready', viewModel, error: null })
-      } catch (error) {
-        set({ status: 'error', error: toError(error) })
-      }
-    },
-
-    updateConfiguration(patch) {
-      set((state) =>
-        state.viewModel
-          ? {
-              viewModel: {
-                ...state.viewModel,
-                configuration: { ...state.viewModel.configuration, ...patch },
-                nodeJob: null,
-              },
+        const promise = (async () => {
+          try {
+            const state = get()
+            const draft =
+              state.viewModel?.revision.workflowUuid === workflowUuid ? state.viewModel : undefined
+            const viewModel = await scenario.load(workflowUuid, {
+              configuration: draft?.configuration ?? defaultConfiguration,
+              binding: draft?.binding ?? defaultBinding,
+            })
+            if (generation !== loadGeneration) return
+            set({
+              status: 'ready',
+              viewModel,
               preflight: null,
               submittedRun: null,
-            }
-          : state,
-      )
-    },
+              error: null,
+            })
+          } catch (error) {
+            if (generation === loadGeneration) set({ status: 'error', error: toError(error) })
+          }
+        })()
+        pendingLoad = { workflowUuid, promise }
+        void promise.finally(() => {
+          if (pendingLoad?.promise === promise) pendingLoad = undefined
+        })
+        return promise
+      },
 
-    updateBinding(patch) {
-      set((state) =>
-        state.viewModel
-          ? {
-              viewModel: {
-                ...state.viewModel,
-                binding: { ...state.viewModel.binding, ...patch },
-                nodeJob: null,
-              },
-              preflight: null,
-              submittedRun: null,
-            }
-          : state,
-      )
-    },
+      async requestPreflight() {
+        const state = get()
+        if (!state.viewModel) return
 
-    clearError() {
-      set({ error: null })
-    },
+        set({ status: 'preflighting', error: null })
 
-    restoreDraft(draft) {
-      set((state) =>
-        state.viewModel
-          ? {
-              viewModel: { ...state.viewModel, configuration: draft.configuration, nodeJob: null },
-              preflight: draft.preflight,
-              submittedRun: null,
-            }
-          : state,
-      )
-    },
+        try {
+          const preflight = await scenario.requestPreflight(currentScenarioState(get()))
+          set({ status: 'ready', preflight, error: null })
+        } catch (error) {
+          set({ status: 'error', error: toError(error) })
+        }
+      },
 
-    discardSettledResults() {
-      set((state) =>
-        state.status === 'preflighting' || state.status === 'submitting'
-          ? state
-          : { preflight: null, submittedRun: null },
-      )
-    },
-  })
+      async submitRun() {
+        const state = get()
+        if (!state.viewModel) return
+
+        set({ status: 'submitting', error: null })
+
+        try {
+          const submittedRun = await scenario.submitRun(currentScenarioState(get()))
+          set({ status: 'ready', submittedRun, error: null })
+        } catch (error) {
+          set({ status: 'error', error: toError(error) })
+        }
+      },
+
+      async inspectNodeJob(jobUuid) {
+        const state = get()
+        if (!state.viewModel) return
+
+        set({ status: 'loading', error: null })
+
+        try {
+          const viewModel = await scenario.inspectNodeJob(state.viewModel, jobUuid)
+          set({ status: 'ready', viewModel, error: null })
+        } catch (error) {
+          set({ status: 'error', error: toError(error) })
+        }
+      },
+
+      updateConfiguration(patch) {
+        set((state) =>
+          state.viewModel
+            ? {
+                viewModel: {
+                  ...state.viewModel,
+                  configuration: { ...state.viewModel.configuration, ...patch },
+                  nodeJob: null,
+                },
+                preflight: null,
+                submittedRun: null,
+              }
+            : state,
+        )
+      },
+
+      updateBinding(patch) {
+        set((state) =>
+          state.viewModel
+            ? {
+                viewModel: {
+                  ...state.viewModel,
+                  binding: { ...state.viewModel.binding, ...patch },
+                  nodeJob: null,
+                },
+                preflight: null,
+                submittedRun: null,
+              }
+            : state,
+        )
+      },
+
+      clearError() {
+        set({ error: null })
+      },
+
+      restoreDraft(draft) {
+        set((state) =>
+          state.viewModel
+            ? {
+                viewModel: {
+                  ...state.viewModel,
+                  configuration: draft.configuration,
+                  nodeJob: null,
+                },
+                preflight: draft.preflight,
+                submittedRun: null,
+              }
+            : state,
+        )
+      },
+
+      discardSettledResults() {
+        set((state) =>
+          state.status === 'preflighting' || state.status === 'submitting'
+            ? state
+            : { preflight: null, submittedRun: null },
+        )
+      },
+    }
+  }
 }
 
 function currentScenarioState(state: RunPreparationStoreState) {

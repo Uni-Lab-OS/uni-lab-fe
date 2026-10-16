@@ -86,6 +86,7 @@ export function WorkflowDebugPage({
       />
       <AsyncState
         loading={storeStatus === 'loading' || storeStatus === 'idle'}
+        loadingDescription="正在读取工作流图与运行参数，请稍候…"
         // 提交/依赖检查失败时保留当前工作流页面，让步骤内的 formError 展示可操作提示；
         // 只有初次加载还没有 revision 时才显示整页数据加载错误。
         error={!revision ? (storeError ?? undefined) : undefined}

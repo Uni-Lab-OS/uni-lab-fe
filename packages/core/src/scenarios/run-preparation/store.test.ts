@@ -8,6 +8,40 @@ import type { RunPreparationScenario } from './scenario'
 import { createRunPreparationStore } from './store'
 
 describe('createRunPreparationStore', () => {
+  it('合并同一工作流的并发加载，切换后忽略旧请求，并允许失败后重试', async () => {
+    const pending: {
+      uuid: string
+      resolve: (value: any) => void
+      reject: (error: Error) => void
+    }[] = []
+    const scenario = {
+      load(uuid: string) {
+        return new Promise((resolve, reject) => pending.push({ uuid, resolve, reject }))
+      },
+    } as unknown as RunPreparationScenario
+    const store = createRunPreparationStore(scenario)
+    const first = store.getState().load('a')
+    const duplicate = store.getState().load('a')
+    expect(duplicate).toBe(first)
+    expect(pending).toHaveLength(1)
+    const next = store.getState().load('b')
+    pending[1]!.resolve({ revision: { workflowUuid: 'b' } })
+    await next
+    pending[0]!.reject(new Error('旧请求超时'))
+    await first
+    expect(store.getState()).toMatchObject({ status: 'ready', workflowUuid: 'b', error: null })
+    expect(store.getState().viewModel?.revision.workflowUuid).toBe('b')
+    const failed = store.getState().load('c')
+    expect(store.getState().viewModel).toBeNull()
+    pending[2]!.reject(new Error('读取失败'))
+    await failed
+    expect(store.getState().status).toBe('error')
+    const retry = store.getState().load('c')
+    pending[3]!.resolve({ revision: { workflowUuid: 'c' } })
+    await retry
+    expect(store.getState().status).toBe('ready')
+  })
+
   it('keeps commands as safe no-ops before a workflow is loaded', async () => {
     const store = createRunPreparationStore({} as RunPreparationScenario)
 
