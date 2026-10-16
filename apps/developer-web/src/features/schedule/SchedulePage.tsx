@@ -17,6 +17,7 @@ import {
 } from './scheduleGanttModel'
 import { useScheduleData } from './useScheduleData'
 import { blockReasonKinds, stalledPlanNodes } from '@unilab-fe/core'
+import { usePersistentStalls } from './usePersistentStalls'
 import styles from './SchedulePage.module.scss'
 
 const LANE_HEIGHT = 34
@@ -96,7 +97,9 @@ export function ScheduleGantt({ taskId }: { taskId?: string } = {}) {
     [data.plan, data.timeline, decided, kinds, names, now],
   )
 
-  const stalled = useMemo(() => stalledPlanNodes(data.plan), [data.plan])
+  // 只提示持续 60 秒以上的无法排程节点；派发间隙短暂出现的阻塞不提示。
+  const rawStalls = useMemo(() => stalledPlanNodes(data.plan), [data.plan])
+  const stalled = usePersistentStalls(rawStalls)
 
   const frame = useRef<HTMLDivElement | null>(null)
   const [width, setWidth] = useState(900)
