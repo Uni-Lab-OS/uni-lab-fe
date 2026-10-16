@@ -57,3 +57,12 @@ describe('TaskPendingActions', () => {
     expect(container.textContent).toBe('')
   })
 })
+
+describe('activeEventsLabel', () => {
+  it('lists parallel active nodes with their device and folds the rest', async () => {
+    const { activeEventsLabel } = await import('./TaskDetailSummary')
+    const events = ['a', 'b', 'c', 'd'].map((id) => event(id, 'running', { device: 'robot' }))
+    expect(activeEventsLabel(events.slice(0, 2))).toBe('robot·节点 a，robot·节点 b')
+    expect(activeEventsLabel(events)).toBe('robot·节点 a，robot·节点 b，robot·节点 c 等 4 个')
+  })
+})

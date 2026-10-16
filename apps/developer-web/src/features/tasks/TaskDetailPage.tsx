@@ -29,6 +29,7 @@ export function TaskDetailPage({
     parallelNotice,
     facts,
     currentTimelineEvent,
+    activeTimelineEvents,
     statusTooltip,
     selectedTask,
     submittedNodeUuid,
@@ -68,6 +69,7 @@ export function TaskDetailPage({
         task={selectedTask}
         facts={facts}
         currentTimelineEvent={currentTimelineEvent}
+        activeEvents={activeTimelineEvents}
         statusTooltip={statusTooltip}
       />
       <TaskResourceHandoff task={selectedTask} onChanged={controller.reloadTask} />
