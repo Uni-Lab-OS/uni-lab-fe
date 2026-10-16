@@ -85,8 +85,13 @@ export function buildScheduleGantt(input: {
   const bars: GanttBar[] = []
   const runningKeys = new Set<string>()
   for (const entry of input.timeline?.entries ?? []) {
-    const name = label(entry.taskId, entry.nodeId, entry.actionName || entry.deviceActionKey || entry.nodeId)
-    const deviceId = entry.deviceId || entry.deviceActionKey.split('/').filter(Boolean)[1] || '未知设备'
+    const name = label(
+      entry.taskId,
+      entry.nodeId,
+      entry.actionName || entry.deviceActionKey || entry.nodeId,
+    )
+    const deviceId =
+      entry.deviceId || entry.deviceActionKey.split('/').filter(Boolean)[1] || '未知设备'
     if (entry.endedAt == null) {
       runningKeys.add(`${entry.taskId}|${entry.nodeId}`)
       if (input.executorKind?.(entry.taskId, entry.nodeId) === 'manual_confirm') {
@@ -193,7 +198,14 @@ export function buildScheduleGantt(input: {
   const range = times.length
     ? { start: Math.min(...times), end: Math.max(input.now, ...times) }
     : null
-  return { lanes, tasks, range, candidate, candidateProblem: problem, candidateTransient: transient }
+  return {
+    lanes,
+    tasks,
+    range,
+    candidate,
+    candidateProblem: problem,
+    candidateTransient: transient,
+  }
 }
 
 /** 任务稳定配色：同一任务在所有泳道颜色一致，便于看样品交错；不表达状态。 */
