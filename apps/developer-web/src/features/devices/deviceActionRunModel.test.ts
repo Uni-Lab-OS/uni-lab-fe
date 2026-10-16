@@ -1,16 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { deviceActionErrors, deviceActionReturnInfo, deviceActionRunState } from './deviceActionRunModel'
+import {
+  deviceActionErrors,
+  deviceActionReturnInfo,
+  deviceActionRunState,
+} from './deviceActionRunModel'
 import { runView } from './deviceActionRunView.fixture'
 
 describe('deviceActionRunState', () => {
   it('separates accepted, running and succeeded', () => {
-    expect(deviceActionRunState(runView({}, { waitReason: { wait_message: '设备忙' } }))).toMatchObject({
+    expect(
+      deviceActionRunState(runView({}, { waitReason: { wait_message: '设备忙' } })),
+    ).toMatchObject({
       phase: 'accepted',
       settled: false,
       detail: '等待原因：设备忙',
     })
     expect(deviceActionRunState(runView({}, { status: 'running' })).phase).toBe('running')
-    expect(deviceActionRunState(runView({ status: 'succeeded' }, { status: 'succeeded' }))).toMatchObject({
+    expect(
+      deviceActionRunState(runView({ status: 'succeeded' }, { status: 'succeeded' })),
+    ).toMatchObject({
       phase: 'succeeded',
       settled: true,
       tone: 'success',
@@ -20,12 +28,24 @@ describe('deviceActionRunState', () => {
   it('reports a cancel without device receipt as canceling, not as terminated (field 11.14)', () => {
     const state = deviceActionRunState(
       runView(
-        { status: 'canceling', cleanupStatus: 'waiting_reconciliation', attentionReason: 'local_cancel_acceptance_unavailable' },
+        {
+          status: 'canceling',
+          cleanupStatus: 'waiting_reconciliation',
+          attentionReason: 'local_cancel_acceptance_unavailable',
+        },
         { status: 'running' },
       ),
     )
     expect(state).toMatchObject({ phase: 'canceling', tone: 'warning', settled: true })
     expect(state.detail).toContain('不要重复提交取消')
+  })
+
+  it('treats a running job with an OS uncertainty reason as unknown, not running', () => {
+    const state = deviceActionRunState(
+      runView({}, { status: 'running', raw: { uncertainty_reason: 'ptlc_action_timeout' } }),
+    )
+    expect(state.phase).toBe('unknown')
+    expect(state.detail).toContain('按“已取消”收尾')
   })
 
   it('reports unknown outcomes for on-site verification', () => {
@@ -45,13 +65,21 @@ describe('deviceActionRunState', () => {
             message: "robot.enable: REJECTED: 当前模式 RUN 不允许动作 robot.enable (需 ['DEBUG'])",
             protocol_status: 'REJECTED',
           },
-          { code: 'ptlc_action_rejected', message: 'collect.extend: ERROR', protocol_error_code: 421 },
+          {
+            code: 'ptlc_action_rejected',
+            message: 'collect.extend: ERROR',
+            protocol_error_code: 421,
+          },
         ],
       },
     )
     expect(deviceActionRunState(view).phase).toBe('failed')
     expect(deviceActionErrors(view)).toEqual([
-      { code: '设备拒绝执行', message: expect.stringContaining('需 [\'DEBUG\']'), detail: '协议状态 REJECTED' },
+      {
+        code: '设备拒绝执行',
+        message: expect.stringContaining("需 ['DEBUG']"),
+        detail: '协议状态 REJECTED',
+      },
       { code: '设备拒绝执行', message: 'collect.extend: ERROR', detail: 'PLC 错误码 421' },
     ])
   })
