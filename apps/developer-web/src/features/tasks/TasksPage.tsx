@@ -7,6 +7,7 @@ import { AppIcon } from '../../components/ui/Icon'
 import { AsyncState } from '../../components/ui/AsyncState'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
+import { useRuntimeInvalidation } from '../../hooks/useRuntimeInvalidation'
 import { filterTaskListRows, toTaskListRow, type TaskListRow } from './taskDomain'
 import { TaskListTable } from './TaskListTable'
 import { TaskDetailPage } from './TaskDetailPage'
@@ -19,6 +20,7 @@ export function TasksPage() {
       terminalLimit: 200,
     }),
   )
+  useRuntimeInvalidation(query.reload)
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('all')
   const [selectedUuid, setSelectedUuid] = useState<string | null>(() =>

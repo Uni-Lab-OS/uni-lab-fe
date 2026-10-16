@@ -1,0 +1,94 @@
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 12px;
+  padding: 12px 16px;
+  border: 1px solid #f0c987;
+  border-radius: 10px;
+  background: #fff6e8;
+}
+
+.banner > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.banner strong {
+  color: #8a4b0f;
+}
+
+.banner span {
+  color: #8a6a45;
+  font-size: 12px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.scope {
+  margin: 0;
+  color: #7a8291;
+  font-size: 12px;
+}
+
+.context {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fbf3f2;
+}
+
+.context code {
+  display: block;
+  font-size: 11px;
+}
+
+.message {
+  margin: 0;
+  color: #5a2a24;
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.decision {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.note {
+  margin: 0;
+  color: #5b6475;
+}
+
+.hint {
+  margin: 0;
+  color: #7a8291;
+  font-size: 12px;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  color: #7a8291;
+  font-size: 12px;
+}

@@ -7,6 +7,7 @@ import type { MenuProps } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import { countWorkflowJobs, type TaskRuntimePresentation } from '@unilab-fe/core'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
+import { useRuntimeInvalidation } from '../../hooks/useRuntimeInvalidation'
 import { AppIcon } from '../../components/ui/Icon'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { AsyncState } from '../../components/ui/AsyncState'
@@ -165,6 +166,8 @@ export function OverviewPage({
       terminalLimit: 100,
     }),
   )
+  // 任务状态变化时重读列表（取消、完成、待收尾等），不轮询。
+  useRuntimeInvalidation(query.reload)
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('all')
   const [debugTargetKind, setDebugTargetKind] = useState<DebugTargetKind | null>(null)
@@ -176,7 +179,10 @@ export function OverviewPage({
     return matchesKeyword && (status === 'all' || row.status === status)
   })
   const activeRows = rows.filter((row) => ['running', 'waiting'].includes(row.status))
-  const attentionRows = rows.filter((row) => row.status === 'attention' || row.status === 'failed')
+  // 已取消但待物料交接等“待人工收尾”的任务也需要关注，不能因终态而从异常列表消失。
+  const attentionRows = rows.filter(
+    (row) => row.status === 'attention' || row.status === 'failed' || Boolean(row.attention),
+  )
   useEffect(() => {
     onAttentionChange?.(attentionRows.length > 0)
   }, [attentionRows.length, onAttentionChange])
