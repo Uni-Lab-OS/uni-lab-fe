@@ -30,3 +30,5 @@ export {
   type StatusTone,
 } from './shared/StatusBadge'
 export { TaskProgress, type TaskProgressProps } from './task/TaskProgress'
+
+export { CopyableIdentifier } from './shared/CopyableIdentifier'
