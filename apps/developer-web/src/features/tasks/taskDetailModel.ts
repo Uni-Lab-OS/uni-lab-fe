@@ -68,7 +68,7 @@ export function mapJobStatus(status: string): EventStatus {
   if (status === 'intervention_required') return 'manual'
   if (status === 'execution_unknown') return 'unknown'
   if (status === 'failed' || status === 'timeout') return 'failed'
-  if (status === 'canceled') return 'skipped'
+  if (status === 'canceled' || status === 'skipped') return 'skipped'
   if (status === 'pending') return 'pending'
   return 'waiting'
 }
