@@ -75,6 +75,8 @@ export interface WorkflowDebugTimelineItem {
   readonly currentAttempt?: boolean
   /** OS 作业创建时间（job.create_time），用于未开始节点的稳定排序与展示。 */
   readonly createdAt?: string | null
+  /** 执行设备（实际执行者或快照固定绑定）；人工确认、物料来源等非设备节点为 null。 */
+  readonly deviceId?: string | null
 }
 
 export interface WorkflowDebugControls {
@@ -126,6 +128,8 @@ export function projectWorkflowDebugFacts(
   jobs = viewModel.selectedJobs,
   task = viewModel.selectedTask,
 ): WorkflowDebuggingViewModel {
+  // 大工作流有数千节点：快照节点只建一次索引，不能每个作业线性查找。
+  const nodes = snapshotNodeIndex(task)
   const timeline = jobs
     .slice()
     .sort((left, right) => left.topologicalIndex - right.topologicalIndex)
@@ -138,7 +142,8 @@ export function projectWorkflowDebugFacts(
       return {
         jobUuid: job.jobUuid,
         workflowNodeUuid: job.workflowNodeUuid,
-        nodeLabel: resolveNodeLabel(task, job.workflowNodeUuid, job.topologicalIndex),
+        nodeLabel: resolveNodeLabel(nodes.get(job.workflowNodeUuid), job.topologicalIndex),
+        deviceId: resolveDeviceId(job.controlData, nodes.get(job.workflowNodeUuid)),
         status: job.status,
         attempt: job.attempt,
         topologicalIndex: job.topologicalIndex,
@@ -209,14 +214,36 @@ function resolveTaskTitle(task: TaskRuntimeDetail): string {
   return `Task ${task.taskUuid.slice(0, 8)}`
 }
 
-function resolveNodeLabel(
+function snapshotNodeIndex(
   task: TaskRuntimeDetail | null,
-  nodeUuid: string,
+): ReadonlyMap<string, Readonly<Record<string, unknown>>> {
+  const snapshot = asRecord(task?.raw.workflow_snapshot)
+  const index = new Map<string, Readonly<Record<string, unknown>>>()
+  for (const item of Array.isArray(snapshot?.nodes) ? snapshot.nodes : []) {
+    const node = asRecord(item)
+    if (node && typeof node.uuid === 'string') index.set(node.uuid, node)
+  }
+  return index
+}
+
+/**
+ * 执行设备：已派发作业以 OS 记录的实际执行者为准（control_data.actual_executor），
+ * 未派发时用快照节点的固定执行绑定；都没有（如人工确认、物料来源）时为 null。
+ */
+function resolveDeviceId(
+  controlData: Readonly<Record<string, unknown>>,
+  node: Readonly<Record<string, unknown>> | undefined,
+): string | null {
+  const actual = asRecord(controlData.actual_executor)?.local_device_id
+  if (typeof actual === 'string' && actual) return actual
+  const binding = asRecord(asRecord(asRecord(node?.meta_data)?.unilab)?.executor_binding)?.device_id
+  return typeof binding === 'string' && binding ? binding : null
+}
+
+function resolveNodeLabel(
+  node: Readonly<Record<string, unknown>> | undefined,
   topologicalIndex: number,
 ): string {
-  const snapshot = asRecord(task?.raw.workflow_snapshot)
-  const nodes = Array.isArray(snapshot?.nodes) ? snapshot.nodes : []
-  const node = nodes.map(asRecord).find((candidate) => candidate?.uuid === nodeUuid)
   const explicit = [node?.name, node?.action_name, node?.description].find(
     (value): value is string => typeof value === 'string' && value.trim().length > 0,
   )

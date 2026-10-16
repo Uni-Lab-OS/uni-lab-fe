@@ -115,4 +115,75 @@ describe('workflow debugging controls', () => {
       finishedAt: '2026-09-30T04:03:23.700064Z',
     })
   })
+
+  it('resolves node label and executing device from the snapshot binding or the actual executor', () => {
+    const task: TaskRuntimeDetail = {
+      kind: 'task_runtime_detail',
+      source: 'os',
+      taskUuid: 'task-1',
+      workflowUuid: 'workflow-1',
+      executionKind: 'workflow',
+      status: 'running',
+      runMode: 'normal',
+      controlStatus: 'active',
+      cleanupStatus: 'none',
+      createdAt: '2026-09-30T04:03:23Z',
+      updatedAt: '2026-09-30T04:03:23Z',
+      raw: {
+        workflow_snapshot: {
+          nodes: [
+            {
+              uuid: 'n1',
+              name: '校验锚点',
+              meta_data: { unilab: { executor_binding: { device_id: 'robot', mode: 'fixed' } } },
+            },
+            { uuid: 'n2', action_name: 'move' },
+          ],
+        },
+      },
+    }
+    const job = (
+      uuid: string,
+      node: string,
+      controlData: Record<string, unknown>,
+    ): TaskJobSummary => ({
+      kind: 'task_job_summary',
+      source: 'os',
+      jobUuid: uuid,
+      workflowNodeUuid: node,
+      topologicalIndex: 0,
+      executorKind: 'device_action',
+      status: 'pending',
+      attempt: 1,
+      currentAttempt: true,
+      controlData,
+      errorInfo: [],
+      waitReason: {},
+      expectedChangeSet: {},
+      raw: {},
+    })
+    const jobs = [
+      job('j1', 'n1', {}),
+      job('j2', 'n2', { actual_executor: { local_device_id: 'rail' } }),
+      job('j3', 'n3', {}),
+    ]
+    const view = projectWorkflowDebugFacts(
+      {
+        ...createWorkflowDebuggingViewModel(
+          {},
+          { items: [], total: 0, page: 1, pageSize: 20, raw: {} },
+        ),
+        selectedTask: task,
+        selectedJobs: jobs,
+      },
+      deriveWorkflowDebugFacts(task, jobs),
+      jobs,
+      task,
+    )
+    expect(view.timeline.map((item) => [item.nodeLabel, item.deviceId])).toEqual([
+      ['校验锚点', 'robot'],
+      ['move', 'rail'],
+      ['节点 1', null],
+    ])
+  })
 })
