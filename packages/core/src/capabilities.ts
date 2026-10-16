@@ -16,6 +16,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'deviceAction.presentation',
   'workflow.humanInteraction',
   'workflow.resolveUncertain',
+  'workflow.unlockResources',
   'scheduler.timePlan',
   'station.errorHandling',
 ] as const
@@ -63,6 +64,8 @@ const PTLC_NATIVE_CAPABILITIES = new Set<ServerCapability>([
   'deviceAction.presentation',
   // 设备包实现了 OS UNKNOWN 处置执行端（tools/ptlc_migration/unknown_resolution.py）。
   'workflow.resolveUncertain',
+  // OS 任务命令 unlock_resources：异常终态任务确认现场安全后整组释放资源（本机仿真验证）。
+  'workflow.unlockResources',
   // OS 调度器只读观测：/api/v1/scheduler/time-plan 与 /api/v1/timeline（pTLC 控制台挂载了调度路由）。
   'scheduler.timePlan',
   // OS 工站错误处置：/api/v1/stations/local/error-handling 及决定/会话/恢复（本机仿真验证）。

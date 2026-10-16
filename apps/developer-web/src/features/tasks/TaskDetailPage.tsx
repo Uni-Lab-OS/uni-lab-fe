@@ -8,6 +8,7 @@ import { TaskDetailSummary } from './TaskDetailSummary'
 import { TaskDetailTimelinePanel } from './TaskDetailTimelinePanel'
 import { TaskDetailInspectorDrawer } from './TaskDetailInspectorDrawer'
 import { TaskHumanInteractionPanel } from './TaskHumanInteractionPanel'
+import { TaskResourceHandoff } from './TaskResourceHandoff'
 import { humanCommandNodeIds } from './taskDomain'
 import { DebugIcon } from './TaskDetailIcons'
 import { ParallelDrawer } from './TaskParallelDrawer'
@@ -68,6 +69,7 @@ export function TaskDetailPage({
         currentTimelineEvent={currentTimelineEvent}
         statusTooltip={statusTooltip}
       />
+      <TaskResourceHandoff task={selectedTask} onChanged={controller.reloadTask} />
       <TaskHumanInteractionPanel
         taskUuid={selectedTask?.taskUuid ?? null}
         timeline={viewModel?.timeline ?? []}

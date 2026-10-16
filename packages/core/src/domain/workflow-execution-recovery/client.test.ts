@@ -46,3 +46,76 @@ describe('WorkflowExecutionRecoveryClient.resolveUncertainJob', () => {
     await expect(client.resolveUncertainJob('job-1', ' ')).rejects.toThrow('核对结论')
   })
 })
+
+describe('WorkflowExecutionRecoveryClient task resource unlock', () => {
+  const transportReturning = (data: unknown, seen: TransportRequest[]): RequestTransport => ({
+    async request<Value>(input: TransportRequest): Promise<TransportResponse<Value>> {
+      seen.push(input)
+      return { status: 200, headers: {}, data: { code: 0, data } as Value }
+    },
+  })
+
+  it('reads locks with the OS release eligibility', async () => {
+    const seen: TransportRequest[] = []
+    const client = new WorkflowExecutionRecoveryClient(
+      {} as WorkflowExecutionReadPort,
+      transportReturning(
+        {
+          task_status: 'canceled',
+          active_device_tenancy_count: 0,
+          locks: [
+            {
+              uuid: 'l1',
+              lock_key: '/devices/a',
+              scope: 'device',
+              state: 'running',
+              workflow_node_job_uuid: 'j1',
+              job_status: 'failed',
+              can_release: false,
+              release_block_reason: '连续区间锁必须通过任务级人工解锁整组释放',
+            },
+          ],
+        },
+        seen,
+      ),
+    )
+    const locks = await client.listTaskExecutionLocks('t1')
+    expect(seen[0]).toMatchObject({
+      method: 'GET',
+      url: '/api/v1/workflow-tasks/t1/execution-locks',
+    })
+    expect(locks.locks[0]).toMatchObject({
+      uuid: 'l1',
+      scope: 'device',
+      canRelease: false,
+      jobStatus: 'failed',
+    })
+  })
+
+  it('sends unlock_resources with physical-safe confirmation and surfaces OS rejection', async () => {
+    const seen: TransportRequest[] = []
+    const client = new WorkflowExecutionRecoveryClient(
+      {} as WorkflowExecutionReadPort,
+      transportReturning(
+        { uuid: 'c1', status: 'rejected', result: { reason: '任务仍有已派发或运行中的作业' } },
+        seen,
+      ),
+    )
+    const receipt = await client.unlockTaskResources('t1', ' 板已取下 ', 'k1')
+    expect(seen[0]).toMatchObject({
+      method: 'POST',
+      url: '/api/v1/workflow-tasks/t1/commands',
+      body: {
+        type: 'unlock_resources',
+        idempotency_key: 'k1',
+        description: '板已取下',
+        meta_data: { confirmed_physical_safe: true },
+      },
+    })
+    expect(receipt).toMatchObject({
+      status: 'rejected',
+      rejectReason: '任务仍有已派发或运行中的作业',
+    })
+    await expect(client.unlockTaskResources('t1', '  ', 'k2')).rejects.toThrow('现场处置说明')
+  })
+})
