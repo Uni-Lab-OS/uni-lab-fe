@@ -5,6 +5,7 @@ import { MaterialsPage } from './features/materials/MaterialsPage'
 import { WorkflowsPage } from './features/workflows/WorkflowsPage'
 import { TasksPage } from './features/tasks/TasksPage'
 import { SchedulePage } from './features/schedule/SchedulePage'
+import { StationErrorHandling } from './features/station/StationErrorHandling'
 import { BackendProvider } from './app/BackendProvider'
 import { navigateTo, useStudioRoute } from './app/navigation'
 import { AppShell } from './components/AppShell'
@@ -35,6 +36,7 @@ function StudioRoutes() {
       onNavigate={navigateTo}
       hasOverviewAttention={hasOverviewAttention}
     >
+      <StationErrorHandling />
       {page}
     </AppShell>
   )

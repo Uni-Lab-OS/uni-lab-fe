@@ -17,6 +17,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'workflow.humanInteraction',
   'workflow.resolveUncertain',
   'scheduler.timePlan',
+  'station.errorHandling',
 ] as const
 
 export type ServerCapability = (typeof SERVER_CAPABILITY_KEYS)[number]
@@ -64,6 +65,8 @@ const PTLC_NATIVE_CAPABILITIES = new Set<ServerCapability>([
   'workflow.resolveUncertain',
   // OS 调度器只读观测：/api/v1/scheduler/time-plan 与 /api/v1/timeline（pTLC 控制台挂载了调度路由）。
   'scheduler.timePlan',
+  // OS 工站错误处置：/api/v1/stations/local/error-handling 及决定/会话/恢复（本机仿真验证）。
+  'station.errorHandling',
 ])
 
 /** 返回当前 profile 已完成联调的能力集合；未知 profile 默认关闭。 */
