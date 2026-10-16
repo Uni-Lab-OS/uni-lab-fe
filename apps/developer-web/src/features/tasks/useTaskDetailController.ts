@@ -73,7 +73,9 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
     if (active) return active
     const happened = timelineEvents.filter((event) => event.sortTime != null)
     return happened.length
-      ? happened.reduce((latest, event) => ((event.sortTime ?? 0) > (latest.sortTime ?? 0) ? event : latest))
+      ? happened.reduce((latest, event) =>
+          (event.sortTime ?? 0) > (latest.sortTime ?? 0) ? event : latest,
+        )
       : null
   }, [timelineEvents, viewModel?.currentFocus?.jobUuid])
   const statusTooltip = useMemo(() => {
@@ -122,6 +124,10 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
     },
     [backend.core.executionRecovery, inspectJob],
   )
+
+  const reloadTask = useCallback(() => {
+    if (selectedTask) void inspectTask(selectedTask.taskUuid)
+  }, [inspectTask, selectedTask])
 
   const submitCommand = (type: DebugCommandType, targetNodeUuid?: string) => {
     if (!selectedTask) return
@@ -200,6 +206,7 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
     openEvent,
     decideManualConfirmation,
     resolveUncertainJob,
+    reloadTask,
     submitCommand,
     submitBranch,
   }
