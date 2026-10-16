@@ -105,3 +105,18 @@
     font-size: 21px;
   }
 }
+
+.debug-view-switch {
+  margin: 0 24px 10px;
+}
+
+.debug-gantt {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 24px 24px;
+  padding: 16px;
+  border: 1px solid #e8ecf3;
+  border-radius: 10px;
+  background: #fff;
+}

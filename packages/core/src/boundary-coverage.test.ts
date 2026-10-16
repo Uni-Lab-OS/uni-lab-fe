@@ -88,9 +88,9 @@ describe('core boundary and failure contracts', () => {
     expect(facts.joins[0]).toMatchObject({ ready: false, missingConditions: [] })
     expect(facts.resourceWaits).toHaveLength(2)
     expect(facts.recovery).toMatchObject({ locks: [{ state: 'uncertain' }], requiresReconciliation: false })
-    expect(deriveWorkflowProgress(undefined, [job('succeeded'), job('failed'), job('skipped')])).toMatchObject({ completed: 3, total: 3, percent: 100 })
-    expect(deriveWorkflowProgress(undefined, [])).toBeNull()
-    expect(deriveWorkflowProgress({ total: 0, completed: 0 }, [])).toMatchObject({ percent: 0 })
+    // OS 未提供进度时不按终态 Job 估算（成功+失败+跳过不是 100% 完成）。
+    expect(deriveWorkflowProgress(undefined)).toBeNull()
+    expect(deriveWorkflowProgress({ total: 0, completed: 0 })).toMatchObject({ percent: 0 })
     expect(deriveWorkflowDebugFacts(task({}, { status: 'execution_unknown' }), [])).toMatchObject({ recovery: { executionUnknown: true, requiresReconciliation: true } })
   })
 

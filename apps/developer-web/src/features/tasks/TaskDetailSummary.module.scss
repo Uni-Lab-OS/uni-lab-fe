@@ -137,3 +137,40 @@
     transition: none;
   }
 }
+
+.debug-summary-attention {
+  color: #b5671c;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.debug-summary-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.debug-summary-count {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #f1f3f6;
+  color: #4a5262;
+  font-size: 12px;
+}
+
+.debug-summary-count.is-succeeded {
+  background: #e8f6ee;
+  color: #1f7a45;
+}
+
+.debug-summary-count.is-running {
+  background: #fff1e0;
+  color: #b5671c;
+}
+
+.debug-summary-count.is-failed,
+.debug-summary-count.is-timeout,
+.debug-summary-count.is-unknown {
+  background: #fdecec;
+  color: #b13d3d;
+}

@@ -14,6 +14,7 @@ export type EventStatus =
   | 'pending'
   | 'failed'
   | 'skipped'
+  | 'canceled'
 
 export type InspectorTab = 'evidence' | 'resources' | 'issues' | 'locks' | 'observability'
 export type ControlStatus = 'active' | 'paused' | 'canceling'
@@ -30,6 +31,12 @@ export interface TimelineEvent {
   readonly device?: string
   readonly duration: string
   readonly progress?: number
+  /** 服务端时间排序键：开始时间，缺失时用结束时间；都没有则为 null（显示“未开始”）。 */
+  readonly sortTime?: number | null
+  readonly topologicalIndex?: number
+  readonly attempt?: number
+  /** false 表示已被重试替代的历史 attempt。 */
+  readonly currentAttempt?: boolean
 }
 
 export const markerGlyph: Record<EventStatus, string> = {
@@ -41,6 +48,7 @@ export const markerGlyph: Record<EventStatus, string> = {
   pending: 'minus',
   failed: 'alert-triangle',
   skipped: 'skip-forward',
+  canceled: 'slash',
 }
 
 export const statusLabels: Record<EventStatus, string> = {
@@ -51,7 +59,8 @@ export const statusLabels: Record<EventStatus, string> = {
   unknown: '结果待核对',
   pending: '未到达',
   failed: '失败',
-  skipped: '已跳过',
+  skipped: '已跳过（分支未选中）',
+  canceled: '已取消（未执行）',
 }
 
 export const tabLabels: Array<{ id: InspectorTab; label: string; icon: string }> = [
@@ -68,7 +77,9 @@ export function mapJobStatus(status: string): EventStatus {
   if (status === 'intervention_required') return 'manual'
   if (status === 'execution_unknown') return 'unknown'
   if (status === 'failed' || status === 'timeout') return 'failed'
-  if (status === 'canceled' || status === 'skipped') return 'skipped'
+  // 取消（因任务取消未执行）与跳过（条件分支未选中）语义不同，分开呈现。
+  if (status === 'canceled' || status === 'cancelled') return 'canceled'
+  if (status === 'skipped') return 'skipped'
   if (status === 'pending') return 'pending'
   return 'waiting'
 }
@@ -99,18 +110,19 @@ export function toTimelineEvent(job: WorkflowDebugTimelineItem): TimelineEvent {
     // OS 保持占用、等待物理对账：不能显示成“执行中”或普通失败。
     return {
       id: job.jobUuid,
-      time: formatTimelineTime(job.startedAt),
+      time: timelineTimeLabel(job),
       title: job.nodeLabel,
       group: job.executorKind,
       description: `结果未知，需现场核对后处置：${job.uncertaintyReason}`,
       status: 'unknown',
       device: job.executorKind,
       duration: formatTimelineDuration(job.startedAt, job.finishedAt, job.status),
+      ...timelineOrder(job),
     }
   }
   return {
     id: job.jobUuid,
-    time: formatTimelineTime(job.startedAt),
+    time: timelineTimeLabel(job),
     title: job.nodeLabel,
     group: job.executorKind,
     description:
@@ -119,10 +131,82 @@ export function toTimelineEvent(job: WorkflowDebugTimelineItem): TimelineEvent {
         : job.errorInfo.length > 0
           ? 'OS 返回异常事实'
           : '',
-    status: mapJobStatus(job.status),
+    // 人工确认节点的 running 表示在等人批准，设备尚未动作。
+    status:
+      job.executorKind === 'manual_confirm' && job.status === 'running' ? 'manual' : mapJobStatus(job.status),
     device: job.executorKind,
     duration: formatTimelineDuration(job.startedAt, job.finishedAt, job.status),
+    ...timelineOrder(job),
   }
+}
+
+function timelineTimeLabel(job: WorkflowDebugTimelineItem): string {
+  if (job.startedAt) return formatTimelineTime(job.startedAt)
+  if (job.finishedAt) return formatTimelineTime(job.finishedAt)
+  return '未开始'
+}
+
+function timelineOrder(job: WorkflowDebugTimelineItem) {
+  const parse = (value: string | null | undefined) => {
+    const time = value ? Date.parse(value) : Number.NaN
+    return Number.isFinite(time) ? time : null
+  }
+  return {
+    sortTime: parse(job.startedAt) ?? parse(job.finishedAt),
+    topologicalIndex: job.topologicalIndex,
+    attempt: job.attempt,
+    currentAttempt: job.currentAttempt !== false,
+  }
+}
+
+export type TimelineOrder = 'time' | 'steps'
+
+export interface ArrangedTimeline {
+  readonly items: readonly TimelineEvent[]
+  /** 默认折叠的未执行节点（取消、跳过、未到达）计数。 */
+  readonly collapsed: { readonly canceled: number; readonly skipped: number; readonly pending: number }
+  readonly historical: number
+}
+
+const UNEXECUTED: readonly EventStatus[] = ['canceled', 'skipped', 'pending']
+
+/**
+ * 整理时间线：
+ * - time：按服务端开始时间（缺失用结束时间）排序；没有时间的节点排在后面并显示“未开始”，
+ *   同一时间按拓扑序稳定排序。并行与重试按真实发生先后理解。
+ * - steps：按步骤（拓扑）顺序，仅用于理解 DAG 结构，不表示先后。
+ * 未执行节点与历史 attempt 默认折叠，避免几千个取消节点淹没真正执行过的节点。
+ */
+export function arrangeTimeline(
+  events: readonly TimelineEvent[],
+  options: { order: TimelineOrder; showUnexecuted: boolean; showHistory: boolean },
+): ArrangedTimeline {
+  const collapsed = { canceled: 0, skipped: 0, pending: 0 }
+  let historical = 0
+  const visible = events.filter((event) => {
+    if (event.currentAttempt === false) {
+      historical += 1
+      if (!options.showHistory) return false
+    }
+    if (UNEXECUTED.includes(event.status) && event.sortTime == null) {
+      collapsed[event.status as keyof typeof collapsed] += 1
+      return options.showUnexecuted
+    }
+    return true
+  })
+  const byStep = (a: TimelineEvent, b: TimelineEvent) =>
+    (a.topologicalIndex ?? 0) - (b.topologicalIndex ?? 0) || (a.attempt ?? 0) - (b.attempt ?? 0)
+  const sorted = [...visible].sort(
+    options.order === 'steps'
+      ? byStep
+      : (a, b) => {
+          if (a.sortTime != null && b.sortTime != null) return a.sortTime - b.sortTime || byStep(a, b)
+          if (a.sortTime != null) return -1
+          if (b.sortTime != null) return 1
+          return byStep(a, b)
+        },
+  )
+  return { items: sorted, collapsed, historical }
 }
 
 export function formatJson(value: unknown): string {

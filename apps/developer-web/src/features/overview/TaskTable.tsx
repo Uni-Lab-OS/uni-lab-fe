@@ -1,4 +1,5 @@
 import { clsx } from 'clsx'
+import { formatJobCounts } from '../tasks/taskStatusPresentation'
 import overviewPageStyles from './OverviewPage.module.scss'
 import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
@@ -65,14 +66,17 @@ export function TaskTable({
       render: (value: string | null) => <PriorityLabel value={value} />,
     },
     {
-      title: '进度',
+      title: '状态与节点',
       key: 'progress',
       align: 'center',
-      width: 150,
+      width: 200,
       render: (_, row) => (
         <div className={clsx(sharedStyles['progress-cell'])}>
-          <span>{row.progress == null ? '—' : `${row.progress}%`}</span>
           <StatusBadge status={row.status} className={clsx(sharedStyles['status-badge'])} />
+          {/* OS 未提供业务进度时只列当前 attempt 各状态数量，不估算百分比 */}
+          <span title={row.attention ?? undefined}>
+            {row.progress != null ? `${row.progress}%` : formatJobCounts(row.jobCounts)}
+          </span>
         </div>
       ),
     },

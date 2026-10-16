@@ -7,7 +7,14 @@ import type { IconName } from '@unilab/design-v2/icons'
 import { useBackend } from '../app/BackendProvider'
 import { AppIcon } from './ui/Icon'
 
-export type StudioRoute = 'overview' | 'devices' | 'reagents' | 'materials' | 'workflows' | 'tasks'
+export type StudioRoute =
+  | 'overview'
+  | 'devices'
+  | 'reagents'
+  | 'materials'
+  | 'workflows'
+  | 'tasks'
+  | 'schedule'
 
 const navigation: readonly {
   key: StudioRoute
@@ -17,6 +24,7 @@ const navigation: readonly {
   { key: 'overview', label: '总览', icon: 'general/home-02' },
   { key: 'workflows', label: '工作流', icon: 'development/dataflow-01' },
   { key: 'tasks', label: '任务', icon: 'time/clock' },
+  { key: 'schedule', label: '调度', icon: 'charts/bar-chart-square-02' },
   { key: 'materials', label: '物料', icon: 'shapes/cube-03' },
   { key: 'devices', label: '设备', icon: 'development/cpu-chip-01' },
   { key: 'reagents', label: '试剂', icon: 'education/beaker-01' },
@@ -66,7 +74,7 @@ export function AppShell({
         </div>
         <nav className={clsx(appShellStyles['studio-nav'])} aria-label="主导航">
           <span className={clsx(appShellStyles['studio-nav-label'])}>工作台</span>
-          {navigation.slice(0, 3).map((item) => (
+          {navigation.slice(0, 4).map((item) => (
             <NavItem
               key={item.key}
               item={item}
@@ -85,7 +93,7 @@ export function AppShell({
           >
             资源
           </span>
-          {navigation.slice(3).map((item) => (
+          {navigation.slice(4).map((item) => (
             <NavItem
               key={item.key}
               item={item}

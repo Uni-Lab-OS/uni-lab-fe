@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { TaskRuntimePresentation } from '@unilab-fe/core'
+import { countWorkflowJobs, type TaskRuntimePresentation } from '@unilab-fe/core'
 import {
   formatDateTime,
   normalizeStatus,
@@ -26,6 +26,7 @@ const task = (raw: Readonly<Record<string, unknown>>): TaskRuntimePresentation =
   finishedAt: null,
   attentionReason: null,
   progress: null,
+  jobCounts: countWorkflowJobs([]),
   raw,
   jobs: [],
 })

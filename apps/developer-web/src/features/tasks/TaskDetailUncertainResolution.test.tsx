@@ -2,7 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { WorkflowDebugTimelineItem, WorkflowNodeJobDetail } from '@unilab-fe/core'
 import { UncertainJobResolution } from './TaskDetailUncertainResolution'
-import { toTimelineEvent } from './taskDetailModel'
+import { arrangeTimeline, toTimelineEvent } from './taskDetailModel'
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -135,5 +135,51 @@ describe('timeline uncertainty', () => {
       description: expect.stringContaining('结果未知'),
     })
     expect(toTimelineEvent({ ...item, uncertaintyReason: null }).status).toBe('running')
+  })
+})
+
+describe('arrangeTimeline (field 13.11)', () => {
+  const ev = (over: Partial<WorkflowDebugTimelineItem>): WorkflowDebugTimelineItem => ({
+    jobUuid: 'j',
+    workflowNodeUuid: 'n',
+    nodeLabel: '节点',
+    status: 'succeeded',
+    attempt: 1,
+    topologicalIndex: 0,
+    executorKind: 'device_action',
+    startedAt: null,
+    finishedAt: null,
+    waitReason: {},
+    errorInfo: [],
+    currentAttempt: true,
+    ...over,
+  })
+
+  it('orders by server start time so a retry never appears before the first attempt', () => {
+    const events = [
+      ev({ jobUuid: 'retry', topologicalIndex: 298, attempt: 2, status: 'failed', startedAt: '2026-10-16T10:27:57Z' }),
+      ev({ jobUuid: 'first', topologicalIndex: 298, attempt: 1, status: 'failed', currentAttempt: false, startedAt: '2026-10-16T10:23:21Z' }),
+      ev({ jobUuid: 'early', topologicalIndex: 10, startedAt: '2026-10-16T10:12:00Z' }),
+    ].map(toTimelineEvent)
+    const shown = arrangeTimeline(events, { order: 'time', showUnexecuted: false, showHistory: true })
+    expect(shown.items.map((item) => item.id)).toEqual(['early', 'first', 'retry'])
+    const current = arrangeTimeline(events, { order: 'time', showUnexecuted: false, showHistory: false })
+    expect(current.items.map((item) => item.id)).toEqual(['early', 'retry'])
+    expect(current.historical).toBe(1)
+  })
+
+  it('collapses canceled, skipped and unreached nodes and keeps them distinct', () => {
+    const events = [
+      ev({ jobUuid: 'ran', startedAt: '2026-10-16T10:12:00Z' }),
+      ev({ jobUuid: 'c1', status: 'canceled', topologicalIndex: 2 }),
+      ev({ jobUuid: 'c2', status: 'canceled', topologicalIndex: 3 }),
+      ev({ jobUuid: 's1', status: 'skipped', topologicalIndex: 4 }),
+      ev({ jobUuid: 'p1', status: 'pending', topologicalIndex: 5 }),
+    ].map(toTimelineEvent)
+    const arranged = arrangeTimeline(events, { order: 'time', showUnexecuted: false, showHistory: false })
+    expect(arranged.items.map((item) => item.id)).toEqual(['ran'])
+    expect(arranged.collapsed).toEqual({ canceled: 2, skipped: 1, pending: 1 })
+    expect(events.find((item) => item.id === 'c1')).toMatchObject({ status: 'canceled', time: '未开始' })
+    expect(events.find((item) => item.id === 's1')?.status).toBe('skipped')
   })
 })

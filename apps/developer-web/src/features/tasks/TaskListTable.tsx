@@ -10,6 +10,7 @@ import sharedStyles from '../../styles/shared.module.scss'
 import { AppIcon } from '../../components/ui/Icon'
 import { TableText } from '../../components/ui/TableText'
 import { displayTime, type TaskListRow } from './taskDomain'
+import { formatJobCounts } from './taskStatusPresentation'
 import taskListStyles from './TaskList.module.scss'
 
 export function TaskListTable({
@@ -55,22 +56,33 @@ export function TaskListTable({
     {
       title: '状态',
       dataIndex: 'status',
-      width: 125,
-      render: (value) => <StatusBadge status={value} />,
+      width: 150,
+      render: (value, row) => (
+        <div className={clsx(taskListStyles['status-cell'])}>
+          <StatusBadge status={value} />
+          {row.attention && (
+            <span className={clsx(taskListStyles['attention-note'])}>{row.attention}</span>
+          )}
+        </div>
+      ),
     },
     {
-      title: '进度',
+      title: '节点概况',
       key: 'progress',
-      width: 150,
-      render: (_, row) => (
-        <TaskProgress
-          className={clsx(sharedStyles['progress-cell'])}
-          metaClassName={clsx(sharedStyles['muted-cell'])}
-          percent={row.progress}
-          completed={row.completedJobs}
-          total={row.totalJobs}
-        />
-      ),
+      width: 200,
+      render: (_, row) =>
+        row.progress != null ? (
+          <TaskProgress
+            className={clsx(sharedStyles['progress-cell'])}
+            metaClassName={clsx(sharedStyles['muted-cell'])}
+            percent={row.progress}
+            completed={row.task.progress?.completed ?? 0}
+            total={row.task.progress?.total ?? 0}
+          />
+        ) : (
+          // OS 未提供业务进度：只如实列出当前 attempt 各状态数量，不估算百分比。
+          <TableText className={clsx(sharedStyles['muted-cell'])} text={formatJobCounts(row.jobCounts)} />
+        ),
     },
     {
       title: '时间',

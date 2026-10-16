@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { TaskJobSummary } from '@unilab-fe/core'
+import { countWorkflowJobs, type TaskJobSummary } from '@unilab-fe/core'
 import {
   filterTaskListRows,
   jobLabel,
@@ -29,6 +29,7 @@ describe('task domain presentation', () => {
       finishedAt: null,
       attentionReason: null,
       progress: { completed: 1, total: 2, percent: 50, raw: {} },
+      jobCounts: countWorkflowJobs([]),
       raw: { name: '测试任务' },
       kind: 'task_runtime_presentation',
       source: 'os',
@@ -83,6 +84,33 @@ describe('task domain presentation', () => {
     expect(attentionRow.status).toBe('attention')
   })
 
+  it('keeps a canceled task canceled and shows pending cleanup separately (field 13.11)', () => {
+    const base = toTaskListRow({
+      taskUuid: 't',
+      workflowUuid: null,
+      executionKind: 'workflow',
+      status: 'canceled',
+      runMode: 'normal',
+      controlStatus: 'closed',
+      cleanupStatus: 'requires_attention',
+      priority: null,
+      description: null,
+      createdAt: '2026-10-16T10:09:12Z',
+      updatedAt: '2026-10-16T10:45:50Z',
+      finishedAt: '2026-10-16T10:45:50Z',
+      attentionReason: 'resource_handoff_required',
+      progress: null,
+      jobCounts: countWorkflowJobs([]),
+      raw: {},
+      kind: 'task_runtime_presentation',
+      source: 'os',
+      jobs: [],
+    })
+    expect(base.status).toBe('canceled')
+    expect(base.attention).toBe('待人工收尾：需要物料交接')
+    expect(base.progress).toBeNull()
+  })
+
   it('filters task rows by searchable identity and normalized status', () => {
     const makeRow = (name: string, status: string) =>
       ({
@@ -90,8 +118,8 @@ describe('task domain presentation', () => {
         workflowName: 'S06 workflow',
         status,
         progress: null,
-        completedJobs: 0,
-        totalJobs: 0,
+        jobCounts: countWorkflowJobs([]),
+        attention: null,
         task: { taskUuid: `${name}-uuid` },
       }) as TaskListRow
     const rows = [makeRow('搬运任务', 'running'), makeRow('检测任务', 'completed')]

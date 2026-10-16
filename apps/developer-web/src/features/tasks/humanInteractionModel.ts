@@ -30,6 +30,8 @@ export interface HumanWorkSummary {
 export function summarizeHumanWork(
   timeline: readonly WorkflowDebugTimelineItem[],
   interactions: readonly WorkflowHumanInteraction[],
+  /** 快照中确认为 HumanCommands 的节点；库存命令等其他 workflow_command 不提示。 */
+  humanNodeIds: ReadonlySet<string> = new Set(),
 ): HumanWorkSummary {
   const known = new Set(interactions.map((item) => item.jobUuid))
   return {
@@ -41,6 +43,7 @@ export function summarizeHumanWork(
     awaitingRequest: timeline.filter(
       (job) =>
         job.executorKind === 'workflow_command' &&
+        humanNodeIds.has(job.workflowNodeUuid) &&
         (job.status === 'pending' || job.status === 'waiting') &&
         !known.has(job.jobUuid),
     ),

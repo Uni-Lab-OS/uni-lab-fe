@@ -64,13 +64,17 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
       const focusedEvent = timelineEvents.find((event) => event.id === focusedJobUuid)
       if (focusedEvent) return focusedEvent
     }
-    return (
-      timelineEvents.find((event) =>
-        ['running', 'waiting', 'manual', 'unknown', 'pending'].includes(event.status),
-      ) ??
-      timelineEvents.at(-1) ??
-      null
+    // 只聚焦真正在进行或等待处置的节点，不突出“尚未到达”的节点；都没有时取最近发生的节点。
+    const active = timelineEvents.find(
+      (event) =>
+        event.currentAttempt !== false &&
+        ['running', 'manual', 'unknown', 'waiting'].includes(event.status),
     )
+    if (active) return active
+    const happened = timelineEvents.filter((event) => event.sortTime != null)
+    return happened.length
+      ? happened.reduce((latest, event) => ((event.sortTime ?? 0) > (latest.sortTime ?? 0) ? event : latest))
+      : null
   }, [timelineEvents, viewModel?.currentFocus?.jobUuid])
   const statusTooltip = useMemo(() => {
     const counts = timelineEvents.reduce<Partial<Record<EventStatus, number>>>((result, event) => {

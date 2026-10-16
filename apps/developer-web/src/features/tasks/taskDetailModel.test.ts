@@ -11,7 +11,7 @@ describe('task detail model', () => {
     expect(mapJobStatus('execution_unknown')).toBe('unknown')
     expect(mapJobStatus('failed')).toBe('failed')
     expect(mapJobStatus('timeout')).toBe('failed')
-    expect(mapJobStatus('canceled')).toBe('skipped')
+    expect(mapJobStatus('canceled')).toBe('canceled')
     expect(mapJobStatus('skipped')).toBe('skipped')
     expect(mapJobStatus('pending')).toBe('pending')
     expect(mapJobStatus('dispatched')).toBe('waiting')

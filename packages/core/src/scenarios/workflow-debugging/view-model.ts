@@ -71,6 +71,10 @@ export interface WorkflowDebugTimelineItem {
    * running/failed，但实际在等待现场核对与人工处置，界面须如实区分。
    */
   readonly uncertaintyReason?: string | null
+  /** false 表示已被重试替代的历史 attempt；时间线默认只突出当前 attempt。 */
+  readonly currentAttempt?: boolean
+  /** OS 作业创建时间（job.create_time），用于未开始节点的稳定排序与展示。 */
+  readonly createdAt?: string | null
 }
 
 export interface WorkflowDebugControls {
@@ -147,6 +151,8 @@ export function projectWorkflowDebugFacts(
           typeof job.raw.uncertainty_reason === 'string' && job.raw.uncertainty_reason
             ? job.raw.uncertainty_reason
             : null,
+        currentAttempt: job.currentAttempt,
+        createdAt: rawTimestamp(job.raw, 'create_time'),
       }
     })
   const focusJob = jobs.find((job) =>

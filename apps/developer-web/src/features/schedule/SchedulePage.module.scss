@@ -1,0 +1,187 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.metric {
+  color: #4a5262;
+  font-size: 13px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  color: #5b6475;
+  font-size: 12px;
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend i {
+  display: inline-block;
+  width: 22px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.legendActual {
+  background: hsl(210 60% 55%);
+}
+
+.legendRunning {
+  border: 2px solid #e08a1e;
+  background: hsl(210 60% 55%);
+}
+
+.legendPlanned {
+  border: 1px dashed hsl(210 60% 45%);
+  background: hsl(210 70% 55% / 0.12);
+}
+
+.legendManual {
+  border: 1px solid #b5671c;
+  background: repeating-linear-gradient(45deg, #fff4e3 0 3px, #f2cf98 3px 6px);
+}
+
+.legendFailed {
+  border: 2px solid #c0392b;
+  background: hsl(210 60% 55%);
+}
+
+.legendNote {
+  color: #8a93a3;
+}
+
+.frame {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e8ecf3;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.empty {
+  margin: 0;
+  padding: 32px;
+  color: #8a93a3;
+  text-align: center;
+}
+
+.chart {
+  display: flex;
+}
+
+.labels {
+  flex: none;
+  border-right: 1px solid #e8ecf3;
+}
+
+.laneLabel {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding: 0 10px;
+  color: #3d4555;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plot {
+  display: block;
+  flex: none;
+}
+
+.laneBg {
+  fill: #fff;
+}
+
+.laneBg[data-odd='1'] {
+  fill: #f8f9fb;
+}
+
+.grid {
+  stroke: #eef0f4;
+}
+
+.tick {
+  fill: #8a93a3;
+  font-size: 10px;
+}
+
+.nowLine {
+  stroke: #d64545;
+  stroke-width: 1.5;
+}
+
+.bar {
+  cursor: pointer;
+}
+
+.bar:hover rect {
+  filter: brightness(1.08);
+}
+
+.barText {
+  fill: #fff;
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.barTextPlanned {
+  fill: #2f3542;
+}
+
+.summary {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.summary th,
+.summary td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #eef0f4;
+  text-align: left;
+}
+
+.summary th {
+  color: #6b7383;
+  font-weight: 500;
+}
+
+.taskLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #2b5fd9;
+  cursor: pointer;
+}
+
+.taskLink i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.muted {
+  color: #8a93a3;
+}

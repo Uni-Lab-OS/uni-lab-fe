@@ -1,10 +1,12 @@
 import { clsx } from 'clsx'
+import { useMemo, useState } from 'react'
+import { Segmented, Switch } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
 import taskDetailTimelineStyles from './TaskDetailTimelinePanel.module.scss'
 import { TaskExecutionTimeline } from './TaskExecutionTimeline'
 import { TaskParallelTimelineRow } from './TaskParallelTimelineRow'
 import { DebugActionButton, DebugIcon } from './TaskDetailIcons'
-import { type EventStatus, markerGlyph } from './taskDetailModel'
+import { arrangeTimeline, type EventStatus, markerGlyph, type TimelineOrder } from './taskDetailModel'
 import type { useTaskDetailController } from './useTaskDetailController'
 
 type Controller = ReturnType<typeof useTaskDetailController>
@@ -25,6 +27,15 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
     setParallelOpen,
     openEvent,
   } = controller
+  const [order, setOrder] = useState<TimelineOrder>('time')
+  const [showUnexecuted, setShowUnexecuted] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const arranged = useMemo(
+    () => arrangeTimeline(timelineEvents, { order, showUnexecuted, showHistory }),
+    [order, showHistory, showUnexecuted, timelineEvents],
+  )
+  const collapsedTotal =
+    arranged.collapsed.canceled + arranged.collapsed.skipped + arranged.collapsed.pending
   const commandFeedbackTone =
     storeError || storeCommand?.lifecycle === 'rejected'
       ? taskDetailTimelineStyles['is-error']
@@ -97,6 +108,35 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
             <span>{commandResultMessage}</span>
           </div>
         )}
+        <div className={clsx(taskDetailTimelineStyles['debug-timeline-filters'])}>
+          <Segmented
+            size="small"
+            value={order}
+            onChange={(value) => setOrder(value as TimelineOrder)}
+            options={[
+              { label: '按发生时间', value: 'time' },
+              { label: '按步骤顺序', value: 'steps' },
+            ]}
+          />
+          {collapsedTotal > 0 && (
+            <label className={clsx(taskDetailTimelineStyles['debug-timeline-toggle'])}>
+              <Switch size="small" checked={showUnexecuted} onChange={setShowUnexecuted} />
+              显示未执行节点（取消 {arranged.collapsed.canceled} · 跳过 {arranged.collapsed.skipped} · 未到达{' '}
+              {arranged.collapsed.pending}）
+            </label>
+          )}
+          {arranged.historical > 0 && (
+            <label className={clsx(taskDetailTimelineStyles['debug-timeline-toggle'])}>
+              <Switch size="small" checked={showHistory} onChange={setShowHistory} />
+              显示历史重试（{arranged.historical}）
+            </label>
+          )}
+          {order === 'steps' && (
+            <span className={clsx(taskDetailTimelineStyles['debug-timeline-hint'])}>
+              步骤顺序只反映 DAG 结构，不代表执行先后
+            </span>
+          )}
+        </div>
         <div className={clsx(taskDetailTimelineStyles['debug-timeline-list'])}>
           {timelineLoading ? (
             <TaskExecutionTimeline items={[]} loading />
@@ -114,11 +154,11 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
             />
           ) : (
             <TaskExecutionTimeline
-              items={timelineEvents}
+              items={arranged.items}
               selectedId={selectedId}
               onSelect={(event) => openEvent(event.id)}
               isLast={(_, index) =>
-                readyFrontier.length <= 1 && index === timelineEvents.length - 1
+                readyFrontier.length <= 1 && index === arranged.items.length - 1
               }
               renderMarker={(event) => (
                 <DebugIcon

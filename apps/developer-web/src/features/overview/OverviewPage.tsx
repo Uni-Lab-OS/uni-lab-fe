@@ -5,7 +5,7 @@ import sharedStyles from '../../styles/shared.module.scss'
 import { Button, Dropdown, Modal, message } from 'antd'
 import type { MenuProps } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
-import type { TaskRuntimePresentation } from '@unilab-fe/core'
+import { countWorkflowJobs, type TaskRuntimePresentation } from '@unilab-fe/core'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
 import { AppIcon } from '../../components/ui/Icon'
 import { PageHeader } from '../../components/ui/PageHeader'
@@ -131,6 +131,7 @@ function previewTaskRow(
     finishedAt: null,
     attentionReason: status === 'attention' ? '设备或资源需要关注' : null,
     progress: null,
+    jobCounts: countWorkflowJobs([]),
     jobs: [],
     raw: { name, workflow_name: workflowName },
   }
@@ -140,6 +141,8 @@ function previewTaskRow(
     workflowName,
     description,
     progress,
+    jobCounts: task.jobCounts,
+    attention: null,
     priority: 'normal',
     status,
     createdAt: '2026-09-28T10:00:00.000Z',

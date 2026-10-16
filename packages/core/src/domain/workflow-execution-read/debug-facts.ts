@@ -3,6 +3,7 @@ import type {
   TaskRuntimeDetail,
   WorkflowDebugFacts,
   WorkflowExecutionLockFact,
+  WorkflowJobStatusCounts,
   WorkflowProgressFact,
   WorkflowJoinFact,
   WorkflowReadyFrontierCandidate,
@@ -23,7 +24,7 @@ export function deriveWorkflowDebugFacts(
   const joins = readArray(taskRaw.joins ?? asRecord(taskRaw.execution_plan)?.joins)
     .map(readJoin)
     .filter((join): join is WorkflowJoinFact => join !== null)
-  const progress = readProgress(taskRaw.progress, jobs)
+  const progress = readProgress(taskRaw.progress)
   const resourceWaits = [
     ...readArray(taskRaw.resource_waits).map(readResourceWait),
     ...jobs
@@ -55,6 +56,7 @@ export function deriveWorkflowDebugFacts(
     readyFrontier: frontier,
     joins,
     progress,
+    jobCounts: countWorkflowJobs(jobs),
     resourceWaits,
     recovery: {
       executionUnknown,
@@ -65,12 +67,53 @@ export function deriveWorkflowDebugFacts(
   }
 }
 
-/** 将列表投影中的进度也规范化为同一份 Core 事实，避免页面按 job 状态自行估算。 */
-export function deriveWorkflowProgress(
-  value: unknown,
-  jobs: readonly { readonly status: string }[],
-): WorkflowProgressFact | null {
-  return readProgress(value, jobs)
+/** 将列表投影中的进度也规范化为同一份 Core 事实；OS 未提供时为 null，不按 job 状态估算。 */
+export function deriveWorkflowProgress(value: unknown): WorkflowProgressFact | null {
+  return readProgress(value)
+}
+
+interface CountableJob {
+  readonly status: string
+  readonly currentAttempt?: boolean
+  readonly raw?: Readonly<Record<string, unknown>>
+}
+
+/**
+ * 按 OS Job 状态如实计数（只算当前 attempt）。取消与跳过分开计；运行中/失败但带
+ * uncertainty_reason 的作业计为结果未知，不算运行中或普通失败。
+ */
+export function countWorkflowJobs(jobs: readonly CountableJob[]): WorkflowJobStatusCounts {
+  const counts = {
+    total: 0,
+    succeeded: 0,
+    failed: 0,
+    timeout: 0,
+    canceled: 0,
+    skipped: 0,
+    running: 0,
+    waiting: 0,
+    unknown: 0,
+    historicalAttempts: 0,
+  }
+  for (const job of jobs) {
+    if (job.currentAttempt === false) {
+      counts.historicalAttempts += 1
+      continue
+    }
+    counts.total += 1
+    const uncertain = typeof job.raw?.uncertainty_reason === 'string' && job.raw.uncertainty_reason !== ''
+    const status = job.status
+    if (status === 'execution_unknown' || (uncertain && (status === 'running' || status === 'failed'))) {
+      counts.unknown += 1
+    } else if (status === 'succeeded') counts.succeeded += 1
+    else if (status === 'failed') counts.failed += 1
+    else if (status === 'timeout') counts.timeout += 1
+    else if (status === 'canceled' || status === 'cancelled') counts.canceled += 1
+    else if (status === 'skipped') counts.skipped += 1
+    else if (['running', 'dispatched', 'cancel_requested'].includes(status)) counts.running += 1
+    else counts.waiting += 1
+  }
+  return counts
 }
 
 function readFrontier(value: unknown): WorkflowReadyFrontierCandidate | null {
@@ -106,7 +149,7 @@ function readJoin(value: unknown): WorkflowJoinFact | null {
   }
 }
 
-function readProgress(value: unknown, jobs: readonly { readonly status: string }[]) {
+function readProgress(value: unknown): WorkflowProgressFact | null {
   const raw = asRecord(value)
   const completed = nonNegative(raw.completed ?? raw.completed_count)
   const total = nonNegative(raw.total ?? raw.total_count)
@@ -120,16 +163,8 @@ function readProgress(value: unknown, jobs: readonly { readonly status: string }
       raw,
     }
   }
-  if (jobs.length === 0) return null
-  const done = jobs.filter((job) =>
-    ['succeeded', 'failed', 'canceled', 'timeout', 'skipped'].includes(job.status),
-  ).length
-  return {
-    completed: done,
-    total: jobs.length,
-    percent: Math.round((done / jobs.length) * 100),
-    raw: {},
-  }
+  // OS 未提供业务进度：不把“已进入终态的 Job 数”冒充完成度（取消会让它变成 100%）。
+  return null
 }
 
 function readResourceWait(value: unknown): WorkflowResourceWaitFact {

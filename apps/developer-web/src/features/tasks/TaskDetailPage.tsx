@@ -1,9 +1,14 @@
 import { clsx } from 'clsx'
+import { useMemo, useState } from 'react'
+import { Segmented } from 'antd'
+import { ScheduleGantt } from '../schedule/SchedulePage'
+import { useBackend } from '../../app/BackendProvider'
 import taskDetailPageStyles from './TaskDetailPage.module.scss'
 import { TaskDetailSummary } from './TaskDetailSummary'
 import { TaskDetailTimelinePanel } from './TaskDetailTimelinePanel'
 import { TaskDetailInspectorDrawer } from './TaskDetailInspectorDrawer'
 import { TaskHumanInteractionPanel } from './TaskHumanInteractionPanel'
+import { humanCommandNodeIds } from './taskDomain'
 import { DebugIcon } from './TaskDetailIcons'
 import { ParallelDrawer } from './TaskParallelDrawer'
 import { useTaskDetailController } from './useTaskDetailController'
@@ -29,6 +34,10 @@ export function TaskDetailPage({
     submitBranch,
   } = controller
   const taskUuid = selectedTask?.taskUuid ?? requestedTaskUuid
+  const { backend } = useBackend()
+  const ganttAvailable = backend.getCapabilityStatus('scheduler.timePlan').available
+  const [view, setView] = useState<'timeline' | 'gantt'>('timeline')
+  const humanNodeIds = useMemo(() => humanCommandNodeIds(selectedTask?.raw), [selectedTask?.raw])
   return (
     <main className={clsx(taskDetailPageStyles['debug-page'])}>
       <header className={clsx(taskDetailPageStyles['debug-header'])}>
@@ -54,6 +63,7 @@ export function TaskDetailPage({
         </div>
       </header>
       <TaskDetailSummary
+        task={selectedTask}
         facts={facts}
         currentTimelineEvent={currentTimelineEvent}
         statusTooltip={statusTooltip}
@@ -62,8 +72,27 @@ export function TaskDetailPage({
         taskUuid={selectedTask?.taskUuid ?? null}
         timeline={viewModel?.timeline ?? []}
         taskVersion={`${selectedTask?.status ?? ''}:${selectedTask?.updatedAt ?? ''}`}
+        humanNodeIds={humanNodeIds}
       />
-      <TaskDetailTimelinePanel controller={controller} />
+      {ganttAvailable && (
+        <div className={clsx(taskDetailPageStyles['debug-view-switch'])}>
+          <Segmented
+            value={view}
+            onChange={(value) => setView(value as 'timeline' | 'gantt')}
+            options={[
+              { label: '执行时间线', value: 'timeline' },
+              { label: '调度甘特图', value: 'gantt' },
+            ]}
+          />
+        </div>
+      )}
+      {view === 'gantt' && ganttAvailable ? (
+        <section className={clsx(taskDetailPageStyles['debug-gantt'])} aria-label="调度甘特图">
+          <ScheduleGantt taskId={taskUuid} />
+        </section>
+      ) : (
+        <TaskDetailTimelinePanel controller={controller} />
+      )}
       <TaskDetailInspectorDrawer controller={controller} />
       {parallelOpen && (
         <ParallelDrawer
