@@ -272,6 +272,8 @@ function DecisionPanel({
     error &&
     void state.submit(port.decisionIntent(snapshot, error, action, { resume: confirmed, reason }))
 
+  // 设备动作结果未知时重试会再次下发同一动作；OS 仍提供该选项，界面必须先提示核对。
+  const uncertainResult = Boolean(error && /结果未知/.test(error.message))
   if (error?.stage === 'APPLYING')
     return <p className={clsx(styles.note)}>当前选择已受理，正在应用，请等待处理结果。</p>
   if (anotherSession)
@@ -282,6 +284,24 @@ function DecisionPanel({
         <p className={clsx(styles.note)}>
           现场处理已完成，调度仍暂停。请选择重试当前节点或取消当前任务。
         </p>
+      )}
+      {uncertainResult && error && (
+        <Alert
+          type="warning"
+          showIcon
+          message="该节点的设备动作结果未知"
+          description="动作可能已经执行。直接重试会再次下发同一动作；请先到任务详情核对现场并“按已取消收尾”，或进入手动处理确认设备状态后再重试。"
+          action={
+            <Button
+              size="small"
+              onClick={() =>
+                navigateTo('tasks', `?task=${encodeURIComponent(error.sourceTaskUuid)}`)
+              }
+            >
+              打开任务
+            </Button>
+          }
+        />
       )}
       {error ? (
         <label className={clsx(styles.field)}>
@@ -340,7 +360,11 @@ function DecisionPanel({
             )}
             {offered.has('retry_current_node') && (
               <Popconfirm
-                title="重试当前节点？请确认现场已具备重新执行的条件。"
+                title={
+                  uncertainResult
+                    ? '该节点结果未知，重试会再次下发同一动作。确认已核对现场并完成收尾？'
+                    : '重试当前节点？请确认现场已具备重新执行的条件。'
+                }
                 okText="确认重试"
                 cancelText="再看看"
                 onConfirm={() => decide('retry_current_node')}
@@ -506,6 +530,11 @@ function OccupancyRelease({
       <p className={clsx(styles.hint)}>
         出错或取消的任务不会自动放掉占用，避免现场还没清理就被新任务使用。确认设备与物料已复位、可交给其他任务后再释放。
       </p>
+      {visible.some((item) => item.state === 'uncertain') && (
+        <p className={clsx(styles.hint)}>
+          标记为 uncertain 的占用对应结果未知的动作，需先在任务详情中核对并收尾，之后才能释放。
+        </p>
+      )}
       {items.length > own.length && (
         <Checkbox checked={showAll} onChange={(event) => setShowAll(event.target.checked)}>
           显示其他任务的占用
@@ -518,6 +547,8 @@ function OccupancyRelease({
         onChange={(values) => setSelected(values as string[])}
         options={visible.map((item) => ({
           value: item.uuid,
+          // 结果未知的占用 OS 不允许直接释放，须先完成物理结算（核对并收尾对应作业）。
+          disabled: item.state === 'uncertain',
           label: (
             <span>
               <Tag>{SCOPE_LABELS[item.scope] ?? item.scope ?? '资源'}</Tag>
