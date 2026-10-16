@@ -49,7 +49,11 @@ export interface TimePlanSnapshot {
   readonly inputRevision: string
   readonly partialTasks: readonly string[]
   /** 尚不能排程的节点及原因（if 未决、人工确认、参数待定等）。 */
-  readonly blocked: readonly { readonly taskId: string; readonly nodeId: string; readonly reason: string }[]
+  readonly blocked: readonly {
+    readonly taskId: string
+    readonly nodeId: string
+    readonly reason: string
+  }[]
   readonly latest: TimePlanCandidate | null
   readonly raw: Readonly<Record<string, unknown>>
 }
@@ -80,4 +84,40 @@ export interface SchedulerTimeline {
   readonly entries: readonly SchedulerTimelineEntry[]
   readonly estimator: Readonly<Record<string, unknown>>
   readonly raw: Readonly<Record<string, unknown>>
+}
+
+/**
+ * 结构性“时间待定”原因：节点还没到可规划的时候（前面有分支/人工确认/循环未定），属正常等待。
+ * 其余原因（如“动作耗时尚无可用估计”）表示 OS 无法为已就绪的节点排程，节点会一直不派发，
+ * 必须显式提示，不能和正常等待混在一起。
+ */
+export const STRUCTURAL_BLOCK_REASONS: ReadonlySet<string> = new Set([
+  'human_confirmation_required',
+  'condition_unresolved',
+  'loop_tail_unknown',
+])
+
+/** 原因串形如 condition_unresolved:<节点>;loop_tail_unknown:<节点>，逐段取类型。 */
+export function blockReasonKinds(reason: string): string[] {
+  return [
+    ...new Set(
+      reason
+        .split(';')
+        .map((part) => part.split(':')[0]!.trim())
+        .filter(Boolean),
+    ),
+  ]
+}
+
+/** 无法排程（非结构性原因）的节点；传入 taskId 时只看该任务。 */
+export function stalledPlanNodes(
+  plan: TimePlanSnapshot | null,
+  taskId?: string,
+): TimePlanSnapshot['blocked'] {
+  if (!plan) return []
+  return plan.blocked.filter(
+    (item) =>
+      (taskId === undefined || item.taskId === taskId) &&
+      blockReasonKinds(item.reason).some((kind) => !STRUCTURAL_BLOCK_REASONS.has(kind)),
+  )
 }

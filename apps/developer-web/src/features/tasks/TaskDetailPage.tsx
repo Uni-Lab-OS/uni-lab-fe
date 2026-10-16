@@ -9,7 +9,8 @@ import { TaskDetailTimelinePanel } from './TaskDetailTimelinePanel'
 import { TaskDetailInspectorDrawer } from './TaskDetailInspectorDrawer'
 import { TaskHumanInteractionPanel } from './TaskHumanInteractionPanel'
 import { TaskResourceHandoff } from './TaskResourceHandoff'
-import { TaskPendingActions } from './TaskPendingActions'
+import { TaskPendingActions, type PlanStallItem } from './TaskPendingActions'
+import { useTaskPlanStalls } from './useTaskPlanStalls'
 import { humanCommandNodeIds } from './taskDomain'
 import { DebugIcon } from './TaskDetailIcons'
 import { ParallelDrawer } from './TaskParallelDrawer'
@@ -40,6 +41,27 @@ export function TaskDetailPage({
   const { backend } = useBackend()
   const ganttAvailable = backend.getCapabilityStatus('scheduler.timePlan').available
   const [view, setView] = useState<'timeline' | 'gantt'>('timeline')
+  const planStalls = useTaskPlanStalls(
+    taskUuid ?? null,
+    ['pending', 'running'].includes(selectedTask?.status ?? ''),
+  )
+  const stallItems = useMemo<PlanStallItem[]>(() => {
+    if (planStalls.length === 0) return []
+    const jobByNode = new Map(
+      (viewModel?.timeline ?? [])
+        .filter((item) => item.currentAttempt !== false)
+        .map((item) => [item.workflowNodeUuid, item.jobUuid]),
+    )
+    const eventById = new Map(controller.timelineEvents.map((event) => [event.id, event]))
+    return planStalls.map((stall) => {
+      const jobUuid = jobByNode.get(stall.nodeId)
+      return {
+        nodeId: stall.nodeId,
+        reason: stall.reason,
+        event: (jobUuid && eventById.get(jobUuid)) || null,
+      }
+    })
+  }, [controller.timelineEvents, planStalls, viewModel?.timeline])
   const humanNodeIds = useMemo(() => humanCommandNodeIds(selectedTask?.raw), [selectedTask?.raw])
   return (
     <main className={clsx(taskDetailPageStyles['debug-page'])}>
@@ -75,6 +97,7 @@ export function TaskDetailPage({
       <TaskResourceHandoff task={selectedTask} onChanged={controller.reloadTask} />
       <TaskPendingActions
         events={controller.timelineEvents}
+        stalls={stallItems}
         onOpen={(id) => controller.openEvent(id)}
       />
       <TaskHumanInteractionPanel

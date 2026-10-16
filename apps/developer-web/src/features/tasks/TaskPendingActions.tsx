@@ -15,23 +15,52 @@ export function pendingOperatorEvents(events: readonly TimelineEvent[]): Timelin
  * 任务详情顶部的待处理入口。大工作流有数千个节点，等待人工确认的节点往往埋在时间线中段，
  * 这里直接列出并可一键打开详情处理；状态来自 OS 作业投影，处理结果以 OS 重读为准。
  */
+export interface PlanStallItem {
+  readonly nodeId: string
+  readonly reason: string
+  /** 对应的时间线事件（作业）；找不到时只显示节点号。 */
+  readonly event: TimelineEvent | null
+}
+
 export function TaskPendingActions({
   events,
+  stalls = [],
   onOpen,
 }: {
   events: readonly TimelineEvent[]
+  /** OS 无法排程的节点（不会被派发，任务会停住）。 */
+  stalls?: readonly PlanStallItem[]
   onOpen: (eventId: string) => void
 }) {
   const pending = pendingOperatorEvents(events)
-  if (pending.length === 0) return null
+  if (pending.length === 0 && stalls.length === 0) return null
   return (
     <section className={clsx(styles['panel'])} aria-label="待处理节点">
       <div className={clsx(styles['panel-header'])}>
-        <strong>待处理 {pending.length}</strong>
+        <strong>待处理 {pending.length + stalls.length}</strong>
         <span className={clsx(styles['hint'])}>
           这些节点在等待操作员，处理前任务不会继续推进相关分支
         </span>
       </div>
+      {stalls.map((stall) => (
+        <div key={`stall:${stall.nodeId}`} className={clsx(styles['item'], styles['item-pending'])}>
+          <Tag color="red">无法排程</Tag>
+          <div className={clsx(styles['item-copy'])}>
+            <span className={clsx(styles['item-title'])}>
+              {stall.event?.title ?? `节点 ${stall.nodeId.slice(0, 8)}`}
+            </span>
+            <span className={clsx(styles['item-meta'])}>
+              OS 时间排程：{stall.reason}。该节点不会被派发，任务会停在这里；请检查估时规则或联系 OS
+              维护者。
+            </span>
+          </div>
+          {stall.event && (
+            <Button size="small" onClick={() => onOpen(stall.event!.id)}>
+              查看节点
+            </Button>
+          )}
+        </div>
+      ))}
       {pending.map((event) => (
         <div key={event.id} className={clsx(styles['item'], styles['item-pending'])}>
           <Tag color={event.status === 'manual' ? 'gold' : 'orange'}>

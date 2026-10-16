@@ -16,6 +16,7 @@ import {
   type GanttBar,
 } from './scheduleGanttModel'
 import { useScheduleData } from './useScheduleData'
+import { blockReasonKinds, stalledPlanNodes } from '@unilab-fe/core'
 import styles from './SchedulePage.module.scss'
 
 const LANE_HEIGHT = 34
@@ -94,6 +95,8 @@ export function ScheduleGantt({ taskId }: { taskId?: string } = {}) {
       }),
     [data.plan, data.timeline, decided, kinds, names, now],
   )
+
+  const stalled = useMemo(() => stalledPlanNodes(data.plan), [data.plan])
 
   const frame = useRef<HTMLDivElement | null>(null)
   const [width, setWidth] = useState(900)
@@ -181,6 +184,25 @@ export function ScheduleGantt({ taskId }: { taskId?: string } = {}) {
           showIcon
           message="读取调度数据失败"
           description={`${data.error}。预测已隐藏，可点“刷新”重试。`}
+        />
+      )}
+      {stalled.length > 0 && (
+        <Alert
+          type="error"
+          showIcon
+          message={`OS 无法为 ${stalled.length} 个已就绪节点排程，这些节点不会被派发`}
+          description={
+            <ul className={styles.stallList}>
+              {stalled.slice(0, 5).map((item) => (
+                <li key={`${item.taskId}:${item.nodeId}`}>
+                  {names.tasks.get(item.taskId) ?? item.taskId.slice(0, 8)} ·{' '}
+                  {names.nodes.get(item.taskId)?.get(item.nodeId) ?? item.nodeId.slice(0, 8)}：
+                  {item.reason}
+                </li>
+              ))}
+              {stalled.length > 5 && <li>另有 {stalled.length - 5} 个</li>}
+            </ul>
+          }
         />
       )}
       {gantt.candidateProblem && !gantt.candidateTransient && data.available && !data.error && (
@@ -356,12 +378,7 @@ const BLOCKED_REASONS: Record<string, string> = {
 function blockedSummary(blocked: readonly { readonly reason: string }[]): string {
   const counts = new Map<string, number>()
   for (const item of blocked) {
-    const kinds = new Set(
-      item.reason
-        .split(';')
-        .map((part) => part.split(':')[0]!.trim())
-        .filter(Boolean),
-    )
+    const kinds = blockReasonKinds(item.reason)
     for (const kind of kinds) counts.set(kind, (counts.get(kind) ?? 0) + 1)
   }
   return [...counts.entries()]

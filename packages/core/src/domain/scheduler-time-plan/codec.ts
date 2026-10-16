@@ -34,7 +34,8 @@ export function decodeTimePlan(value: unknown): TimePlanSnapshot {
     activeSolves: raw.active_solves === undefined ? 0 : finite(raw.active_solves, 'active_solves'),
     inputError: raw.input_error === undefined ? '' : text(raw.input_error, 'input_error'),
     inputRevision: input.revision === undefined ? '' : text(input.revision, 'input.revision'),
-    partialTasks: input.partial_tasks === undefined ? [] : strings(input.partial_tasks, 'partial_tasks'),
+    partialTasks:
+      input.partial_tasks === undefined ? [] : strings(input.partial_tasks, 'partial_tasks'),
     blocked,
     latest: raw.latest == null ? null : decodeCandidate(raw.latest),
     raw,
@@ -50,7 +51,10 @@ function decodeCandidate(value: unknown): TimePlanCandidate {
     status: text(latest.status, 'latest.status'),
     validated: latest.validated,
     error: latest.error === undefined ? '' : text(latest.error, 'latest.error'),
-    partialTasks: latest.partial_tasks === undefined ? [] : strings(latest.partial_tasks, 'latest.partial_tasks'),
+    partialTasks:
+      latest.partial_tasks === undefined
+        ? []
+        : strings(latest.partial_tasks, 'latest.partial_tasks'),
     completionTargets: completionTargets(latest.completion_targets),
     nodes: list(latest.nodes, 'latest.nodes').map((item) => {
       const node = record(item, 'latest.nodes[]')
@@ -58,7 +62,13 @@ function decodeCandidate(value: unknown): TimePlanCandidate {
       const startMs = finite(node.start_ms, 'node.start_ms')
       const endMs = finite(node.end_ms, 'node.end_ms')
       const parametersFinal = node.parameters_final === undefined ? true : node.parameters_final
-      if (key.length !== 2 || startMs < 0 || endMs < startMs || typeof node.fixed !== 'boolean' || typeof parametersFinal !== 'boolean') {
+      if (
+        key.length !== 2 ||
+        startMs < 0 ||
+        endMs < startMs ||
+        typeof node.fixed !== 'boolean' ||
+        typeof parametersFinal !== 'boolean'
+      ) {
         fail('候选节点身份或时间区间无效')
       }
       return {
@@ -78,7 +88,8 @@ function completionTargets(value: unknown): TimePlanCompletionTarget[] {
   if (value === undefined) return []
   return list(value, 'completion_targets').map((item) => {
     const target = record(item, 'completion_target')
-    const kind = target.kind === undefined ? 'task_completion' : text(target.kind, 'completion_target.kind')
+    const kind =
+      target.kind === undefined ? 'task_completion' : text(target.kind, 'completion_target.kind')
     if (!KINDS.includes(kind as TimePlanCompletionKind)) fail('时间计划完成目标类型无效')
     return {
       taskId: text(target.task_id, 'completion_target.task_id'),
@@ -96,13 +107,18 @@ function completionTargets(value: unknown): TimePlanCompletionTarget[] {
 export function decodeSchedulerTimeline(value: unknown): SchedulerTimeline {
   const raw = record(value, 'timeline')
   const running = list(raw.running ?? [], 'timeline.running').map((item) => entry(item, true))
-  const completed = list(raw.completed ?? [], 'timeline.completed').map((item) => entry(item, false))
+  const completed = list(raw.completed ?? [], 'timeline.completed').map((item) =>
+    entry(item, false),
+  )
   return {
     kind: 'scheduler_timeline',
     source: 'os',
     now: finite(raw.now, 'timeline.now'),
     entries: [...completed, ...running],
-    estimator: raw.estimator && typeof raw.estimator === 'object' ? (raw.estimator as Record<string, unknown>) : {},
+    estimator:
+      raw.estimator && typeof raw.estimator === 'object'
+        ? (raw.estimator as Record<string, unknown>)
+        : {},
     raw,
   }
 }
