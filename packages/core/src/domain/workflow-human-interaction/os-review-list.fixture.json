@@ -1,0 +1,60 @@
+{
+  "code": 0,
+  "data": [
+    {
+      "uuid": "3246704d-d0c0-4b26-b5bd-c24fe023c17d",
+      "job_uuid": "3ff3caa2-17ce-4023-b7eb-277bf326a3b9",
+      "task_uuid": "9145cb6d-c162-4045-ad8d-a8b62fd61f0a",
+      "kind": "review",
+      "arguments": {
+        "forms": [
+          "none",
+          "text",
+          "numbers",
+          "sketch",
+          "none",
+          "none"
+        ],
+        "image": "/api/vision/image/a.png",
+        "labels": [
+          "下发当前路径",
+          "更换条带",
+          "重新识别并预览",
+          "手绘并预览",
+          "跳过刮板",
+          "中止并释放板"
+        ],
+        "number_defaults": [
+          0.0,
+          1.0,
+          0.5,
+          5.0,
+          -2.43
+        ],
+        "number_labels": [
+          "板朝向",
+          "自动矫正",
+          "最小矫正角",
+          "行评分阈值",
+          "相机滚转角"
+        ],
+        "options": [
+          "dispatch",
+          "select_band",
+          "reanalyze",
+          "sketch",
+          "skip",
+          "abort"
+        ],
+        "prompt": "识别完成",
+        "text_default": "band_01",
+        "timeout_seconds": 600
+      },
+      "status": "pending",
+      "result": null,
+      "opened_at": "2026-10-16T07:30:31.769936+00:00",
+      "deadline_at": "2026-10-16T07:40:31.769936+00:00",
+      "decided_at": null
+    }
+  ]
+}

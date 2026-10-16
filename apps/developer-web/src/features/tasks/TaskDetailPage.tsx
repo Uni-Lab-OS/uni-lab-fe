@@ -3,6 +3,7 @@ import taskDetailPageStyles from './TaskDetailPage.module.scss'
 import { TaskDetailSummary } from './TaskDetailSummary'
 import { TaskDetailTimelinePanel } from './TaskDetailTimelinePanel'
 import { TaskDetailInspectorDrawer } from './TaskDetailInspectorDrawer'
+import { TaskHumanInteractionPanel } from './TaskHumanInteractionPanel'
 import { DebugIcon } from './TaskDetailIcons'
 import { ParallelDrawer } from './TaskParallelDrawer'
 import { useTaskDetailController } from './useTaskDetailController'
@@ -56,6 +57,11 @@ export function TaskDetailPage({
         facts={facts}
         currentTimelineEvent={currentTimelineEvent}
         statusTooltip={statusTooltip}
+      />
+      <TaskHumanInteractionPanel
+        taskUuid={selectedTask?.taskUuid ?? null}
+        timeline={viewModel?.timeline ?? []}
+        taskVersion={`${selectedTask?.status ?? ''}:${selectedTask?.updatedAt ?? ''}`}
       />
       <TaskDetailTimelinePanel controller={controller} />
       <TaskDetailInspectorDrawer controller={controller} />
