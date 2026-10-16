@@ -4,6 +4,7 @@ import type {
   StationHandlingIntent,
   StationHandlingSession,
   StationHandlingSnapshot,
+  StationOccupancy,
 } from './model'
 
 /**
@@ -23,8 +24,23 @@ export interface StationErrorHandlingPort {
     session: StationHandlingSession,
     summary: string,
   ): StationHandlingIntent
-  returnToSessionIntent(snapshot: StationHandlingSnapshot, session: StationHandlingSession): StationHandlingIntent
+  returnToSessionIntent(
+    snapshot: StationHandlingSnapshot,
+    session: StationHandlingSession,
+  ): StationHandlingIntent
   resumeIntent(snapshot: StationHandlingSnapshot): StationHandlingIntent
   applyCommandIntent(commandUuid: string): StationHandlingIntent
+  /** 当前逻辑资源占用（执行锁、设备托管）。 */
+  listOccupancies(): Promise<readonly StationOccupancy[]>
+  /**
+   * 释放选中的占用。OS 要求工站暂停、填写原因，并挂在一条待决定或人工处置中的错误上；
+   * 若该错误正处于人工处置会话，则带上会话版本。
+   */
+  releaseOccupanciesIntent(
+    snapshot: StationHandlingSnapshot,
+    error: StationError,
+    occupancies: readonly StationOccupancy[],
+    reason: string,
+  ): StationHandlingIntent
   submit(intent: StationHandlingIntent): Promise<Readonly<Record<string, unknown>>>
 }

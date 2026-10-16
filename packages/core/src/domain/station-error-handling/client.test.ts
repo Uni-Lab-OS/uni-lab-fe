@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { TransportError, type RequestTransport, type TransportRequest, type TransportResponse } from '../../transport/request'
+import {
+  TransportError,
+  type RequestTransport,
+  type TransportRequest,
+  type TransportResponse,
+} from '../../transport/request'
 import { decodeStationSnapshot } from './codec'
-import { StationErrorHandlingClient, handlingErrorMessage, isAmbiguousHandlingError } from './client'
+import {
+  StationErrorHandlingClient,
+  handlingErrorMessage,
+  isAmbiguousHandlingError,
+} from './client'
 
 /** 与 10-16 本机仿真中 OS 实际返回的工站快照同形（刮取复核前预览失败）。 */
 const SNAPSHOT = {
@@ -59,10 +68,20 @@ describe('station error handling', () => {
   })
 
   it('builds versioned decisions and only resumes with explicit operator confirmation', () => {
-    const client = new StationErrorHandlingClient({} as RequestTransport, 'local', '/api/v1', () => 'key-1')
+    const client = new StationErrorHandlingClient(
+      {} as RequestTransport,
+      'local',
+      '/api/v1',
+      () => 'key-1',
+    )
     const snapshot = decodeStationSnapshot(SNAPSHOT)
     const error = snapshot.errors[0]!
-    expect(client.decisionIntent(snapshot, error, 'retry_current_node', { resume: false, reason: ' 核对 ' })).toEqual({
+    expect(
+      client.decisionIntent(snapshot, error, 'retry_current_node', {
+        resume: false,
+        reason: ' 核对 ',
+      }),
+    ).toEqual({
       path: '/errors/d10cdc01/decision',
       label: '重试当前节点',
       idempotencyKey: 'key-1',
@@ -76,10 +95,20 @@ describe('station error handling', () => {
         reason: '核对',
       },
     })
-    const resume = client.decisionIntent(snapshot, error, 'cancel_task', { resume: true, reason: '' })
-    expect(resume.body).toMatchObject({ resume_requested: true, operator_confirmed: true, confirm_snapshot_id: 'local:2:1' })
+    const resume = client.decisionIntent(snapshot, error, 'cancel_task', {
+      resume: true,
+      reason: '',
+    })
+    expect(resume.body).toMatchObject({
+      resume_requested: true,
+      operator_confirmed: true,
+      confirm_snapshot_id: 'local:2:1',
+    })
     // 进入手动处理时不会一并恢复调度。
-    expect(client.decisionIntent(snapshot, error, 'enter_manual_handling', { resume: true, reason: '' }).body).toMatchObject({
+    expect(
+      client.decisionIntent(snapshot, error, 'enter_manual_handling', { resume: true, reason: '' })
+        .body,
+    ).toMatchObject({
       resume_requested: false,
       operator_confirmed: false,
     })
@@ -100,11 +129,103 @@ describe('station error handling', () => {
       method: 'POST',
       url: '/api/v1/stations/local/resume',
       headers: { 'Idempotency-Key': 'key-2' },
-      body: { expected_station_version: 2, observed_error_epoch: 1, operator_confirmed: true, confirm_snapshot_id: 'local:2:1' },
+      body: {
+        expected_station_version: 2,
+        observed_error_epoch: 1,
+        operator_confirmed: true,
+        confirm_snapshot_id: 'local:2:1',
+      },
     })
-    expect(isAmbiguousHandlingError(new TransportError({ code: 'network', message: 'x' }))).toBe(true)
-    expect(isAmbiguousHandlingError(new TransportError({ code: 'http', message: 'x', status: 503 }))).toBe(true)
-    expect(isAmbiguousHandlingError(new TransportError({ code: 'http', message: 'x', status: 409 }))).toBe(false)
+    expect(isAmbiguousHandlingError(new TransportError({ code: 'network', message: 'x' }))).toBe(
+      true,
+    )
+    expect(
+      isAmbiguousHandlingError(new TransportError({ code: 'http', message: 'x', status: 503 })),
+    ).toBe(true)
+    expect(
+      isAmbiguousHandlingError(new TransportError({ code: 'http', message: 'x', status: 409 })),
+    ).toBe(false)
     expect(handlingErrorMessage(new Error('station_version_conflict'))).toContain('工站状态已变化')
+  })
+})
+
+describe('resource release', () => {
+  it('releases selected occupancies inside the manual session with their versions', () => {
+    const client = new StationErrorHandlingClient(
+      {} as RequestTransport,
+      'local',
+      '/api/v1',
+      () => 'key-3',
+    )
+    const snapshot = decodeStationSnapshot({
+      ...SNAPSHOT,
+      active_session: {
+        session_id: 's1',
+        decision_id: 'd10cdc01',
+        stage: 'MANUAL_HANDLING',
+        version: 4,
+        summary: '',
+      },
+    })
+    const lock = {
+      uuid: 'lock-1',
+      lockKey: '/devices/robot',
+      state: 'running',
+      occupancyKind: 'execution_lock',
+      scope: 'device',
+      version: 'v7',
+      taskUuid: 'task-1',
+      materialUuid: null,
+      deviceId: null,
+    }
+    const error = { ...snapshot.errors[0]!, decisionId: 'd10cdc01' }
+    const intent = client.releaseOccupanciesIntent(snapshot, error, [lock], ' 板已人工取下 ')
+    expect(intent).toMatchObject({
+      path: '/resource-dispositions',
+      body: {
+        expected_station_version: 2,
+        expected_session_version: 4,
+        decision_id: 'd10cdc01',
+        session_id: 's1',
+        occupancy_ids: ['lock-1'],
+        expected_versions: { 'lock-1': 'v7' },
+        operation: 'release',
+        reason: '板已人工取下',
+      },
+    })
+  })
+})
+
+describe('resource release before manual handling', () => {
+  it('attaches to the pending decision without session fields', () => {
+    const client = new StationErrorHandlingClient(
+      {} as RequestTransport,
+      'local',
+      '/api/v1',
+      () => 'key-4',
+    )
+    const snapshot = decodeStationSnapshot(SNAPSHOT)
+    const lock = {
+      uuid: 'lock-1',
+      lockKey: '/devices/robot',
+      state: 'running',
+      occupancyKind: 'execution_lock',
+      scope: 'device',
+      version: 'v7',
+      taskUuid: 'task-1',
+      materialUuid: null,
+      deviceId: null,
+    }
+    const intent = client.releaseOccupanciesIntent(
+      snapshot,
+      snapshot.errors[0]!,
+      [lock],
+      '取消前释放',
+    )
+    expect(intent.body).not.toHaveProperty('session_id')
+    expect(intent.body).toMatchObject({
+      decision_id: snapshot.errors[0]!.decisionId,
+      operation: 'release',
+    })
   })
 })

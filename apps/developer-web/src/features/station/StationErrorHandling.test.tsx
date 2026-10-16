@@ -46,12 +46,14 @@ const paused = decodeStationSnapshot({
   ],
 })
 
-const { getSnapshot, submit, backend } = vi.hoisted(() => {
+const { getSnapshot, submit, listOccupancies, backend } = vi.hoisted(() => {
   const getSnapshot = vi.fn()
   const submit = vi.fn()
+  const listOccupancies = vi.fn()
   return {
     getSnapshot,
     submit,
+    listOccupancies,
     backend: {
       getCapabilityStatus: () => ({ available: true }),
       core: { stationErrorHandling: {} as Record<string, unknown> },
@@ -61,12 +63,20 @@ const { getSnapshot, submit, backend } = vi.hoisted(() => {
 vi.mock('../../app/BackendProvider', () => ({ useBackend: () => ({ backend, readyEpoch: 0 }) }))
 
 beforeEach(() => {
-  const real = new StationErrorHandlingClient({ request: vi.fn() } as never, 'local', '/api/v1', () => 'key-1')
+  const real = new StationErrorHandlingClient(
+    { request: vi.fn() } as never,
+    'local',
+    '/api/v1',
+    () => 'key-1',
+  )
   getSnapshot.mockReset().mockResolvedValue(paused)
   submit.mockReset().mockResolvedValue({})
+  listOccupancies.mockReset().mockResolvedValue([])
   backend.core.stationErrorHandling = {
     getSnapshot,
     submit,
+    listOccupancies,
+    releaseOccupanciesIntent: real.releaseOccupanciesIntent.bind(real),
     decisionIntent: real.decisionIntent.bind(real),
     completeSessionIntent: real.completeSessionIntent.bind(real),
     returnToSessionIntent: real.returnToSessionIntent.bind(real),
@@ -93,7 +103,9 @@ describe('StationErrorHandling', () => {
   })
 
   it('keeps an ambiguous submission for resend with the same idempotency key', async () => {
-    submit.mockRejectedValueOnce(new TransportError({ code: 'network', message: '请求已中止或超时' }))
+    submit.mockRejectedValueOnce(
+      new TransportError({ code: 'network', message: '请求已中止或超时' }),
+    )
     render(<StationErrorHandling />)
     fireEvent.click(await screen.findByRole('button', { name: '进入手动处理' }))
     expect(await screen.findByText('进入手动处理：结果待确认')).toBeTruthy()
@@ -109,5 +121,52 @@ describe('StationErrorHandling', () => {
     const { container } = render(<StationErrorHandling />)
     await waitFor(() => expect(getSnapshot).toHaveBeenCalled())
     expect(container.textContent).toBe('')
+  })
+
+  it('releases the failed task occupancies with a reason before deciding, and warns on cancel', async () => {
+    listOccupancies.mockResolvedValue([
+      {
+        uuid: 'lock-1',
+        lockKey: '/devices/7b07fed4-aaaa',
+        state: 'running',
+        occupancyKind: 'execution_lock',
+        scope: 'device',
+        version: 't:7',
+        taskUuid: 'task-1',
+        materialUuid: null,
+        deviceId: null,
+      },
+      {
+        uuid: 'lock-2',
+        lockKey: '/devices/other',
+        state: 'running',
+        occupancyKind: 'execution_lock',
+        scope: 'device',
+        version: 't:8',
+        taskUuid: 'task-2',
+        materialUuid: null,
+        deviceId: null,
+      },
+    ])
+    render(<StationErrorHandling />)
+    expect(await screen.findByText(/逻辑占用：本任务 1 个，其他任务 1 个/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('checkbox', { name: /执行锁/ }))
+    const release = screen.getByRole('button', { name: /释放选中的 1 个占用/ })
+    expect((release as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.change(screen.getByLabelText(/释放原因/), { target: { value: '板已人工取下' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: /可以交给其他任务/ }))
+    fireEvent.click(release)
+    await waitFor(() => expect(submit).toHaveBeenCalled())
+    expect(submit.mock.calls[0]![0]).toMatchObject({
+      path: '/resource-dispositions',
+      body: {
+        decision_id: 'd1',
+        occupancy_ids: ['lock-1'],
+        expected_versions: { 'lock-1': 't:7' },
+        reason: '板已人工取下',
+      },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /取消当前任务/ }))
+    expect(await screen.findByText(/仍持有 1 个逻辑占用/)).toBeTruthy()
   })
 })

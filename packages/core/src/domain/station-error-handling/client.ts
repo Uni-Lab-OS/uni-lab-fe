@@ -1,11 +1,12 @@
 import { TransportError, type RequestTransport } from '../../transport/request'
-import { decodeStationSnapshot } from './codec'
+import { decodeOccupancies, decodeStationSnapshot } from './codec'
 import type {
   StationError,
   StationErrorAction,
   StationHandlingIntent,
   StationHandlingSession,
   StationHandlingSnapshot,
+  StationOccupancy,
 } from './model'
 import type { StationErrorHandlingPort } from './port'
 
@@ -17,6 +18,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   operator_confirmation_required: '请重新核对现场，并勾选本次操作的确认项。',
   manual_actions_running: '本次人工处置仍有手动动作未结束，请等待动作结束后继续。',
   manual_actions_unresolved: '本次人工处置仍有动作结果待核对，请完成现场核对后继续。',
+  occupancy_version_conflict: '逻辑占用已变化，请刷新后重新选择。',
 }
 
 /** 结果不明确（未到达服务端或服务端异常）时为 true：必须用同一幂等键重发。 */
@@ -36,7 +38,8 @@ export class StationErrorHandlingClient implements StationErrorHandlingPort {
     private readonly transport: RequestTransport,
     private readonly stationId = 'local',
     private readonly apiPrefix = '/api/v1',
-    private readonly newKey: () => string = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+    private readonly newKey: () => string = () =>
+      globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
   ) {}
 
   private get root() {
@@ -44,7 +47,10 @@ export class StationErrorHandlingClient implements StationErrorHandlingPort {
   }
 
   async getSnapshot(): Promise<StationHandlingSnapshot> {
-    const response = await this.transport.request<unknown>({ method: 'GET', url: `${this.root}/error-handling` })
+    const response = await this.transport.request<unknown>({
+      method: 'GET',
+      url: `${this.root}/error-handling`,
+    })
     return decodeStationSnapshot(unwrap(response.data))
   }
 
@@ -58,7 +64,12 @@ export class StationErrorHandlingClient implements StationErrorHandlingPort {
     const resumeNow = action !== 'enter_manual_handling' && resume
     return {
       path: `/errors/${encodeURIComponent(error.decisionId)}/decision`,
-      label: action === 'cancel_task' ? '取消当前任务' : action === 'retry_current_node' ? '重试当前节点' : '进入手动处理',
+      label:
+        action === 'cancel_task'
+          ? '取消当前任务'
+          : action === 'retry_current_node'
+            ? '重试当前节点'
+            : '进入手动处理',
       idempotencyKey: this.newKey(),
       body: {
         expected_station_version: snapshot.stationVersion,
@@ -93,12 +104,18 @@ export class StationErrorHandlingClient implements StationErrorHandlingPort {
     }
   }
 
-  returnToSessionIntent(snapshot: StationHandlingSnapshot, session: StationHandlingSession): StationHandlingIntent {
+  returnToSessionIntent(
+    snapshot: StationHandlingSnapshot,
+    session: StationHandlingSession,
+  ): StationHandlingIntent {
     return {
       path: `/sessions/${encodeURIComponent(session.sessionId)}/return`,
       label: '返回手动处理',
       idempotencyKey: this.newKey(),
-      body: { expected_station_version: snapshot.stationVersion, expected_session_version: session.version },
+      body: {
+        expected_station_version: snapshot.stationVersion,
+        expected_session_version: session.version,
+      },
     }
   }
 
@@ -122,6 +139,43 @@ export class StationErrorHandlingClient implements StationErrorHandlingPort {
       label: '继续应用原操作',
       idempotencyKey: this.newKey(),
       body: {},
+    }
+  }
+
+  async listOccupancies(): Promise<readonly StationOccupancy[]> {
+    const response = await this.transport.request<unknown>({
+      method: 'GET',
+      url: `${this.root}/resource-dispositions`,
+    })
+    return decodeOccupancies(unwrap(response.data))
+  }
+
+  releaseOccupanciesIntent(
+    snapshot: StationHandlingSnapshot,
+    error: StationError,
+    occupancies: readonly StationOccupancy[],
+    reason: string,
+  ): StationHandlingIntent {
+    const session =
+      snapshot.activeSession?.decisionId === error.decisionId &&
+      snapshot.activeSession.stage === 'MANUAL_HANDLING'
+        ? snapshot.activeSession
+        : null
+    return {
+      path: '/resource-dispositions',
+      label: '释放逻辑占用',
+      idempotencyKey: this.newKey(),
+      body: {
+        expected_station_version: snapshot.stationVersion,
+        decision_id: error.decisionId,
+        ...(session
+          ? { session_id: session.sessionId, expected_session_version: session.version }
+          : {}),
+        occupancy_ids: occupancies.map((item) => item.uuid),
+        expected_versions: Object.fromEntries(occupancies.map((item) => [item.uuid, item.version])),
+        operation: 'release',
+        reason: reason.trim(),
+      },
     }
   }
 

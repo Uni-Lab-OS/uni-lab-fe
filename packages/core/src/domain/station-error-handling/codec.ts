@@ -4,6 +4,7 @@ import type {
   StationHandlingSession,
   StationHandlingSnapshot,
   StationManualAction,
+  StationOccupancy,
 } from './model'
 
 export function decodeStationSnapshot(value: unknown): StationHandlingSnapshot {
@@ -19,14 +20,21 @@ export function decodeStationSnapshot(value: unknown): StationHandlingSnapshot {
     snapshotId: text(raw.snapshot_id, 'snapshot_id'),
     activeSession: session ? decodeSession(session) : null,
     errors: list(raw.errors).map((item) => decodeError(record(item, 'error'))),
-    manualActions: list(raw.manual_actions).map((item) => decodeManualAction(record(item, 'manual_action'))),
-    controlCommands: list(raw.control_commands).map((item) => decodeCommand(record(item, 'control_command'))),
+    manualActions: list(raw.manual_actions).map((item) =>
+      decodeManualAction(record(item, 'manual_action')),
+    ),
+    controlCommands: list(raw.control_commands).map((item) =>
+      decodeCommand(record(item, 'control_command')),
+    ),
     raw,
   }
 }
 
 function decodeError(raw: Record<string, unknown>): StationError {
-  const meta = (raw.meta_data && typeof raw.meta_data === 'object' ? raw.meta_data : {}) as Record<string, unknown>
+  const meta = (raw.meta_data && typeof raw.meta_data === 'object' ? raw.meta_data : {}) as Record<
+    string,
+    unknown
+  >
   return {
     decisionId: text(raw.decision_id ?? raw.uuid, 'decision_id'),
     decisionVersion: integer(raw.decision_version ?? raw.revision, 'decision_version'),
@@ -38,7 +46,10 @@ function decodeError(raw: Record<string, unknown>): StationError {
     message: readableMessage(meta.message),
     options: list(raw.options).map((item) => {
       const option = record(item, 'option')
-      return { id: text(option.id, 'option.id'), label: typeof option.label === 'string' ? option.label : String(option.id) }
+      return {
+        id: text(option.id, 'option.id'),
+        label: typeof option.label === 'string' ? option.label : String(option.id),
+      }
     }),
     sessionId: typeof raw.session_id === 'string' ? raw.session_id : null,
     openedAt: typeof raw.opened_at === 'string' ? raw.opened_at : null,
@@ -65,18 +76,52 @@ function decodeCommand(raw: Record<string, unknown>): StationControlCommand {
 }
 
 function decodeManualAction(raw: Record<string, unknown>): StationManualAction {
-  const meta = (raw.meta_data && typeof raw.meta_data === 'object' ? raw.meta_data : {}) as Record<string, unknown>
-  const control = (raw.control_data && typeof raw.control_data === 'object' ? raw.control_data : {}) as Record<string, unknown>
-  const payload = (control.dispatch_payload && typeof control.dispatch_payload === 'object' ? control.dispatch_payload : {}) as Record<string, unknown>
+  const meta = (raw.meta_data && typeof raw.meta_data === 'object' ? raw.meta_data : {}) as Record<
+    string,
+    unknown
+  >
+  const control = (
+    raw.control_data && typeof raw.control_data === 'object' ? raw.control_data : {}
+  ) as Record<string, unknown>
+  const payload = (
+    control.dispatch_payload && typeof control.dispatch_payload === 'object'
+      ? control.dispatch_payload
+      : {}
+  ) as Record<string, unknown>
   return {
     jobUuid: text(raw.uuid, 'manual_action.uuid'),
     status: typeof raw.status === 'string' ? raw.status : '',
     sessionId: typeof meta.session_id === 'string' ? meta.session_id : null,
     actionName: String(raw.action_name ?? payload.action ?? ''),
     deviceId: String(raw.device_id ?? payload.device_id ?? ''),
-    uncertaintyReason: typeof raw.uncertainty_reason === 'string' && raw.uncertainty_reason ? raw.uncertainty_reason : null,
+    uncertaintyReason:
+      typeof raw.uncertainty_reason === 'string' && raw.uncertainty_reason
+        ? raw.uncertainty_reason
+        : null,
     resultReviewed: raw.result_reviewed === true,
   }
+}
+
+export function decodeOccupancies(value: unknown): StationOccupancy[] {
+  return list(value).map((item) => {
+    const raw = record(item, 'occupancy')
+    return {
+      uuid: text(raw.uuid, 'occupancy.uuid'),
+      lockKey: typeof raw.lock_key === 'string' ? raw.lock_key : '',
+      state: typeof raw.state === 'string' ? raw.state : '',
+      occupancyKind: typeof raw.occupancy_kind === 'string' ? raw.occupancy_kind : '',
+      scope: typeof raw.scope === 'string' ? raw.scope : '',
+      version: text(raw.version, 'occupancy.version'),
+      taskUuid:
+        typeof raw.workflow_task_uuid === 'string'
+          ? raw.workflow_task_uuid
+          : typeof raw.task_uuid === 'string'
+            ? raw.task_uuid
+            : null,
+      materialUuid: typeof raw.material_uuid === 'string' ? raw.material_uuid : null,
+      deviceId: typeof raw.device_id === 'string' ? raw.device_id : null,
+    }
+  })
 }
 
 /** OS 把设备错误列表序列化成 Python repr 字符串；尽量提取其中的 message 便于阅读，原文保留在 raw。 */
@@ -87,7 +132,8 @@ function readableMessage(value: unknown): string {
 }
 
 function record(value: unknown, field: string): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`工站处置数据 ${field} 格式无效`)
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error(`工站处置数据 ${field} 格式无效`)
   return value as Record<string, unknown>
 }
 
@@ -101,6 +147,7 @@ function text(value: unknown, field: string): string {
 }
 
 function integer(value: unknown, field: string): number {
-  if (typeof value !== 'number' || !Number.isInteger(value)) throw new Error(`工站处置数据 ${field} 不是整数`)
+  if (typeof value !== 'number' || !Number.isInteger(value))
+    throw new Error(`工站处置数据 ${field} 不是整数`)
   return value
 }
