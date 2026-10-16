@@ -14,6 +14,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'inventory.batchImportReagents',
   'inventory.dispenseReagent',
   'deviceAction.presentation',
+  'workflow.humanInteraction',
 ] as const
 
 export type ServerCapability = (typeof SERVER_CAPABILITY_KEYS)[number]
@@ -41,6 +42,8 @@ const LOCAL_GO_CAPABILITIES = new Set<ServerCapability>([
 
 const LOCAL_PYTHON_CAPABILITIES = new Set<ServerCapability>([
   ...LOCAL_GO_CAPABILITIES,
+  // OS 工作流人工交互（HumanCommands）读取与回复：/workflow-tasks/{task}/human-interactions。
+  'workflow.humanInteraction',
   'reagentInfo.batchImport',
   'reagentInfo.readStructure3d',
   'reagentInfo.lookupCompound',

@@ -16,6 +16,8 @@ import { EvidenceInterventionClient } from '../domain/evidence-intervention/clie
 import type { EvidenceInterventionPort } from '../domain/evidence-intervention/port'
 import { WorkflowManualConfirmationClient } from '../domain/workflow-manual-confirmation/client'
 import type { WorkflowManualConfirmationPort } from '../domain/workflow-manual-confirmation/port'
+import { WorkflowHumanInteractionClient } from '../domain/workflow-human-interaction/client'
+import type { WorkflowHumanInteractionPort } from '../domain/workflow-human-interaction/port'
 import type { RequestTransport } from '../transport/request'
 import { createRunPreparationScenario } from '../scenarios/run-preparation/scenario'
 import { createWorkflowDebuggingScenario } from '../scenarios/workflow-debugging/scenario'
@@ -37,6 +39,7 @@ export interface BackendCore {
   readonly reagentInventory: ReagentInventoryPort
   readonly evidenceIntervention: EvidenceInterventionPort
   readonly manualConfirmation: WorkflowManualConfirmationPort
+  readonly humanInteractions: WorkflowHumanInteractionPort
   readonly runPreparation: ReturnType<typeof createRunPreparationScenario>
   readonly workflowDebugging: ReturnType<typeof createWorkflowDebuggingScenario>
   readonly deviceActionDebugging: ReturnType<typeof createDeviceActionDebuggingScenario>
@@ -45,13 +48,18 @@ export interface BackendCore {
 
 export interface BackendCoreIntegrations {
   readonly runtimeEvents?: WorkflowRuntimeEventsPort
+  /** 后端根地址；OS 返回的 /api/... 资源（如人工复核图片）据此解析为可加载地址。 */
+  readonly assetBaseUrl?: string
 }
 
 export function createBackendCore(
   options: FetchTransportOptions,
   integrations: BackendCoreIntegrations = {},
 ): BackendCore {
-  return createBackendCoreFromTransport(createFetchTransport(options), integrations)
+  return createBackendCoreFromTransport(createFetchTransport(options), {
+    assetBaseUrl: options.baseUrl,
+    ...integrations,
+  })
 }
 
 export function createBackendCoreFromTransport(
@@ -68,6 +76,10 @@ export function createBackendCoreFromTransport(
   const reagentInventory = new ReagentInventoryClient(transport)
   const evidenceIntervention = new EvidenceInterventionClient(transport)
   const manualConfirmation = new WorkflowManualConfirmationClient(transport)
+  const humanInteractions = new WorkflowHumanInteractionClient(
+    transport,
+    integrations.assetBaseUrl ?? null,
+  )
   return {
     transport,
     workflowDefinitions,
@@ -83,6 +95,7 @@ export function createBackendCoreFromTransport(
     reagentInventory,
     evidenceIntervention,
     manualConfirmation,
+    humanInteractions,
     runPreparation: createRunPreparationScenario(workflowDefinitions, runPreparationPort, {
       deviceActions,
       materialSite,
