@@ -2,7 +2,7 @@ import { clsx } from 'clsx'
 import taskDetailTimelineStyles from './TaskDetailTimelinePanel.module.scss'
 import type { ReactNode } from 'react'
 
-import { Tooltip } from 'antd'
+import { Popconfirm, Tooltip } from 'antd'
 
 import { AppIcon } from '../../components/ui/Icon'
 
@@ -77,6 +77,7 @@ export function DebugActionButton({
   tooltip,
   className,
   disabled,
+  confirm,
   onClick,
   children,
 }: {
@@ -84,21 +85,39 @@ export function DebugActionButton({
   readonly tooltip?: string
   readonly className?: string
   readonly disabled?: boolean
+  /** 不可撤销的操作（如取消任务）先二次确认，确认后才执行 onClick。 */
+  readonly confirm?: { readonly title: string; readonly okText: string }
   readonly onClick: () => void
   readonly children: ReactNode
 }) {
+  const button = (
+    <button
+      type="button"
+      className={clsx(taskDetailTimelineStyles['debug-timeline-action'], className ?? '')}
+      aria-label={label}
+      disabled={disabled}
+      onClick={confirm ? undefined : onClick}
+    >
+      {children}
+    </button>
+  )
   return (
     <Tooltip title={tooltip ?? label} placement="top">
       <span className={clsx(taskDetailTimelineStyles['debug-timeline-action-hitarea'])}>
-        <button
-          type="button"
-          className={clsx(taskDetailTimelineStyles['debug-timeline-action'], className ?? '')}
-          aria-label={label}
-          disabled={disabled}
-          onClick={onClick}
-        >
-          {children}
-        </button>
+        {confirm ? (
+          <Popconfirm
+            title={confirm.title}
+            okText={confirm.okText}
+            cancelText="再看看"
+            okButtonProps={{ danger: true }}
+            disabled={disabled}
+            onConfirm={onClick}
+          >
+            {button}
+          </Popconfirm>
+        ) : (
+          button
+        )}
       </span>
     </Tooltip>
   )
