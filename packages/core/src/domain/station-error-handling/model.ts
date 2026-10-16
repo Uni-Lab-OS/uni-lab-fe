@@ -72,3 +72,17 @@ export interface StationHandlingIntent {
   readonly idempotencyKey: string
   readonly label: string
 }
+
+/** 逻辑资源占用（/resource-dispositions）：执行锁或设备托管，释放前须现场核对。 */
+export interface StationOccupancy {
+  readonly uuid: string
+  readonly lockKey: string
+  readonly state: string
+  readonly occupancyKind: string
+  /** device / material / material_site / resource */
+  readonly scope: string
+  readonly version: string
+  readonly taskUuid: string | null
+  readonly materialUuid: string | null
+  readonly deviceId: string | null
+}
