@@ -6,7 +6,12 @@ import { Button, Tooltip, Typography } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
 import type { MaterialGraphNode, MaterialInspectionProjection, SiteSummary } from '@unilab-fe/core'
 import type { IconColor, IconName } from '@unilab/design-v2/icons'
-import { DefinitionList, MaterialSitePresentation, StatusBadge } from '@unilab/lab-ui'
+import {
+  CopyableIdentifier,
+  DefinitionList,
+  MaterialSitePresentation,
+  StatusBadge,
+} from '@unilab/lab-ui'
 import { AppIcon } from '../../components/ui/Icon'
 import { type MaterialSelection } from './MaterialFlowCanvas'
 import { resolveMaterialSiteAction } from './materialSiteActions'
@@ -90,6 +95,16 @@ function NodeInspector({
       <DefinitionList
         className={clsx(materialInspectorStyles['definition-list'])}
         items={[
+          {
+            label: '物料 UUID',
+            value: (
+              <CopyableIdentifier
+                key={detail.materialUuid}
+                value={detail.materialUuid}
+                label={`${detail.name}的物料 UUID`}
+              />
+            ),
+          },
           { label: '节点类型', value: detail.materialType },
           { label: '资源模板', value: node.resourceTemplate?.name },
           { label: '父节点', value: detail.parentMaterialUuid ?? '根节点' },
@@ -154,7 +169,18 @@ function SiteInspector({
             ),
           },
           { label: '允许资源', value: `${site.allowedResourceTemplateUuids?.length ?? 0} 种` },
-          { label: '当前物料', value: occupied ?? '空库位' },
+          {
+            label: '物料 UUID',
+            value: occupied ? (
+              <CopyableIdentifier
+                key={occupied}
+                value={occupied}
+                label={`${site.name || site.key}当前物料 UUID`}
+              />
+            ) : (
+              '空库位'
+            ),
+          },
         ]}
       />
       {occupied && (
@@ -231,6 +257,16 @@ function MaterialDetailInspector({
       <DefinitionList
         className={clsx(materialInspectorStyles['definition-list'])}
         items={[
+          {
+            label: '物料 UUID',
+            value: (
+              <CopyableIdentifier
+                key={detail.materialUuid}
+                value={detail.materialUuid}
+                label={`${detail.name}的物料 UUID`}
+              />
+            ),
+          },
           { label: '物料类型', value: detail.materialType },
           { label: '当前库位', value: site?.name ?? '未绑定库位' },
           { label: '父物料', value: detail.parentMaterialUuid ?? '根节点' },
@@ -241,9 +277,6 @@ function MaterialDetailInspector({
         sites={site ? [site] : projection.sites}
         selectedSiteUuid={site?.siteUuid}
         onSelectSite={(siteUuid) => onSelect({ kind: 'site', siteId: siteUuid })}
-        onSelectOccupiedMaterial={(materialId, siteId) =>
-          onSelect({ kind: 'material', materialId, siteId })
-        }
       />
       <SiteHandlingActions action={siteAction} />
       <Typography.Text

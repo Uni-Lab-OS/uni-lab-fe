@@ -1,0 +1,44 @@
+.identifier {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+  white-space: normal;
+}
+.value {
+  flex: 1 1 160px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  user-select: text;
+  font-size: 12px;
+  line-height: 20px;
+}
+.copy {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--bh-color-primary, #4542e8);
+  font: inherit;
+  font-size: 12px;
+  line-height: 20px;
+  cursor: pointer;
+}
+.copy:focus-visible {
+  outline: 2px solid var(--bh-color-primary, #4542e8);
+  outline-offset: 2px;
+}
+.error {
+  flex-basis: 100%;
+  color: var(--bh-color-error, #d9363e);
+  font-size: 12px;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
