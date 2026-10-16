@@ -121,3 +121,26 @@ export function stalledPlanNodes(
       blockReasonKinds(item.reason).some((kind) => !STRUCTURAL_BLOCK_REASONS.has(kind)),
   )
 }
+
+/**
+ * 只保留持续出现的无法排程节点。部分原因（如连续资源区间交接）在派发间隙短暂出现又消失，
+ * 不能当作停住提示。firstSeen 由调用方跨次读取保存：本次出现且首次出现已超过 minAgeMs 才返回。
+ */
+export function persistentStalls(
+  stalls: TimePlanSnapshot['blocked'],
+  firstSeen: Map<string, number>,
+  now: number,
+  minAgeMs: number,
+): TimePlanSnapshot['blocked'] {
+  const present = new Set<string>()
+  const result: TimePlanSnapshot['blocked'][number][] = []
+  for (const stall of stalls) {
+    const key = `${stall.taskId}|${stall.nodeId}|${stall.reason}`
+    present.add(key)
+    const since = firstSeen.get(key) ?? now
+    firstSeen.set(key, since)
+    if (now - since >= minAgeMs) result.push(stall)
+  }
+  for (const key of [...firstSeen.keys()]) if (!present.has(key)) firstSeen.delete(key)
+  return result
+}

@@ -29,3 +29,16 @@ describe('stalled plan nodes', () => {
     expect(stalledPlanNodes(null)).toEqual([])
   })
 })
+
+describe('persistent stalls', () => {
+  it('ignores blocks that disappear between reads and reports ones that persist', async () => {
+    const { persistentStalls } = await import('./model')
+    const seen = new Map<string, number>()
+    const a = { taskId: 't', nodeId: 'a', reason: '已打开的连续资源区间缺少可继承所有权' }
+    const b = { taskId: 't', nodeId: 'b', reason: '动作耗时尚无可用估计' }
+    expect(persistentStalls([a, b], seen, 0, 60_000)).toEqual([])
+    expect(persistentStalls([b], seen, 30_000, 60_000)).toEqual([])
+    expect(persistentStalls([a, b], seen, 70_000, 60_000)).toEqual([b])
+    expect(seen.has('t|a|已打开的连续资源区间缺少可继承所有权')).toBe(true)
+  })
+})
