@@ -69,13 +69,18 @@ export function ScheduleGantt({ taskId }: { taskId?: string } = {}) {
     }
     return { tasks, nodes }
   }, [data.tasks])
-  const kinds = useMemo(() => {
-    const map = new Map<string, string>()
+  const { kinds, decided } = useMemo(() => {
+    const kinds = new Map<string, string>()
+    const decided = new Map<string, number>()
     for (const task of data.tasks) {
-      for (const job of task.jobs)
-        map.set(`${task.taskUuid}|${job.workflowNodeUuid}`, job.executorKind)
+      for (const job of task.jobs) {
+        const key = `${task.taskUuid}|${job.workflowNodeUuid}`
+        kinds.set(key, job.executorKind)
+        const at = manualDecidedAt(job.raw)
+        if (at !== undefined) decided.set(key, at)
+      }
     }
-    return map
+    return { kinds, decided }
   }, [data.tasks])
   const gantt = useMemo(
     () =>
@@ -85,8 +90,9 @@ export function ScheduleGantt({ taskId }: { taskId?: string } = {}) {
         now,
         label: (taskId, nodeId, fallback) => names.nodes.get(taskId)?.get(nodeId) ?? fallback,
         executorKind: (taskId, nodeId) => kinds.get(`${taskId}|${nodeId}`),
+        manualDecidedAt: (taskId, nodeId) => decided.get(`${taskId}|${nodeId}`),
       }),
-    [data.plan, data.timeline, kinds, names, now],
+    [data.plan, data.timeline, decided, kinds, names, now],
   )
 
   const frame = useRef<HTMLDivElement | null>(null)
@@ -500,4 +506,13 @@ function Bar({
       )}
     </g>
   )
+}
+
+/** OS 作业投影中人工确认的批准时刻（秒）；未批准或字段缺失时为 undefined。 */
+function manualDecidedAt(raw: Readonly<Record<string, unknown>>): number | undefined {
+  const confirmation = raw.manual_confirmation
+  if (typeof confirmation !== 'object' || confirmation === null) return undefined
+  const decided = (confirmation as Record<string, unknown>).decided_at
+  const time = typeof decided === 'string' ? Date.parse(decided) : Number.NaN
+  return Number.isFinite(time) ? time / 1000 : undefined
 }

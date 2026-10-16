@@ -150,3 +150,19 @@ describe('manual confirmation waits', () => {
     expect(bar.estimatedEnd).toBeUndefined()
   })
 })
+
+describe('approved manual confirmations', () => {
+  it('splits the human wait from the device execution once the OS records the approval time', () => {
+    const gantt = buildScheduleGantt({
+      timeline,
+      plan: plan(),
+      now: 1005,
+      manualDecidedAt: (_task, node) => (node === 'n1' ? 995 : undefined),
+    })
+    const bars = gantt.lanes.find((lane) => lane.deviceId === 'feedlift')!.bars
+    expect(bars.map((bar) => [bar.kind, bar.start, bar.end])).toEqual([
+      ['manual', 980, 995],
+      ['actual', 995, 999],
+    ])
+  })
+})
