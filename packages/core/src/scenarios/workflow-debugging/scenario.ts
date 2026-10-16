@@ -43,7 +43,12 @@ export interface WorkflowDebuggingScenario {
   subscribeRuntime(
     viewModel: WorkflowDebuggingViewModel,
     listener: (viewModel: WorkflowDebuggingViewModel, event: WorkflowRuntimeInvalidation) => void,
-    options?: { readonly lastEventId?: string; readonly onError?: (error: Error) => void },
+    options?: {
+      readonly lastEventId?: string
+      readonly onError?: (error: Error) => void
+      /** 两次详情重读之间的最小间隔（毫秒），默认 1000。 */
+      readonly minRefreshGapMs?: number
+    },
   ): WorkflowRuntimeSubscription
 }
 
@@ -167,8 +172,10 @@ export function createWorkflowDebuggingScenario(
       let currentViewModel = viewModel
       let pendingEvent: WorkflowRuntimeInvalidation | null = null
       let refreshInFlight: Promise<void> | null = null
+      let gapTimer: ReturnType<typeof setTimeout> | null = null
+      let disposed = false
       const refresh = (): void => {
-        if (refreshInFlight || !pendingEvent) return
+        if (disposed || refreshInFlight || gapTimer !== null || !pendingEvent) return
         const event = pendingEvent
         pendingEvent = null
         refreshInFlight = scenario
@@ -180,14 +187,26 @@ export function createWorkflowDebuggingScenario(
           .catch(options?.onError)
           .finally(() => {
             refreshInFlight = null
-            refresh()
+            // 运行中失效通知几乎连续到达；大任务详情（含整图快照）可达数十 MB，
+            // 两次重读之间留出间隔，避免把 OS 压满，期间到达的通知合并为下一次。
+            gapTimer = setTimeout(() => {
+              gapTimer = null
+              refresh()
+            }, options?.minRefreshGapMs ?? 1_000)
           })
       }
-      return runtimeEvents.subscribe((event) => {
+      const subscription = runtimeEvents.subscribe((event) => {
         if (event.workflowTaskUuid !== currentViewModel.selectedTaskUuid) return
         pendingEvent = event
         refresh()
       }, options)
+      return {
+        dispose: () => {
+          disposed = true
+          if (gapTimer !== null) clearTimeout(gapTimer)
+          subscription.dispose()
+        },
+      }
     },
   }
   return scenario

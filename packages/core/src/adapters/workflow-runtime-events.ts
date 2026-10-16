@@ -238,6 +238,15 @@ function parseSseFrame(value: string): SseFrame | null {
 }
 
 function parseRuntimeEvent(frame: SseFrame): WorkflowRuntimeInvalidation | null {
+  if (frame.event === 'station.error_handling.changed') {
+    // 工站级失效通知：只说明错误处置快照变了，订阅方重读工站快照。
+    try {
+      const data = JSON.parse(frame.data) as Record<string, unknown>
+      return { id: frame.id, event: frame.event, workflowTaskUuid: '', raw: data }
+    } catch {
+      return null
+    }
+  }
   if (frame.event !== 'workflow.runtime.changed' && frame.event !== 'device_action_task.changed') {
     return null
   }

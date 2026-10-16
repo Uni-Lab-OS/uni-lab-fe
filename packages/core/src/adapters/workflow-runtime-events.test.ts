@@ -151,12 +151,19 @@ describe('createWorkflowRuntimeEvents', () => {
     await vi.waitFor(() => expect(events).toHaveLength(1))
     controllers[0]?.enqueue(
       new TextEncoder().encode(
-        ['id: event-2', 'event: device_action_task.changed', 'data: {"task_uuid":"task-2"}', ''].join(
-          '\n',
-        ) + '\n',
+        [
+          'id: event-2',
+          'event: device_action_task.changed',
+          'data: {"task_uuid":"task-2"}',
+          '',
+          'id: event-3',
+          'event: station.error_handling.changed',
+          'data: {"station_id":"local"}',
+          '',
+        ].join('\n') + '\n',
       ),
     )
-    await vi.waitFor(() => expect(events).toHaveLength(2))
+    await vi.waitFor(() => expect(events).toHaveLength(3))
     expect(events).toEqual([
       expect.objectContaining({
         id: 'event-1',
@@ -167,6 +174,12 @@ describe('createWorkflowRuntimeEvents', () => {
         id: 'event-2',
         event: 'device_action_task.changed',
         workflowTaskUuid: 'task-2',
+      }),
+      expect.objectContaining({
+        id: 'event-3',
+        event: 'station.error_handling.changed',
+        workflowTaskUuid: '',
+        raw: { station_id: 'local' },
       }),
     ])
 
