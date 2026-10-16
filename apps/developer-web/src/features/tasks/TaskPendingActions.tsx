@@ -3,11 +3,15 @@ import { Button, Tag } from 'antd'
 import { statusLabels, type TimelineEvent } from './taskDetailModel'
 import styles from './TaskHumanInteraction.module.scss'
 
-/** 需要操作员处理的节点：待人工确认，或设备动作结果未知需现场核对。只看当前 attempt。 */
+/**
+ * 需要操作员关注的节点：待人工确认、结果未知需现场核对、或已就绪但在等资源（OS 给出等待原因，
+ * 如库位被占用；常见于取消后现场物料未清理）。只看当前 attempt。
+ */
 export function pendingOperatorEvents(events: readonly TimelineEvent[]): TimelineEvent[] {
   return events.filter(
     (event) =>
-      event.currentAttempt !== false && (event.status === 'manual' || event.status === 'unknown'),
+      event.currentAttempt !== false &&
+      (event.status === 'manual' || event.status === 'unknown' || event.status === 'waiting'),
   )
 }
 
@@ -63,7 +67,11 @@ export function TaskPendingActions({
       ))}
       {pending.map((event) => (
         <div key={event.id} className={clsx(styles['item'], styles['item-pending'])}>
-          <Tag color={event.status === 'manual' ? 'gold' : 'orange'}>
+          <Tag
+            color={
+              event.status === 'manual' ? 'gold' : event.status === 'waiting' ? 'default' : 'orange'
+            }
+          >
             {statusLabels[event.status]}
           </Tag>
           <div className={clsx(styles['item-copy'])}>
@@ -73,7 +81,7 @@ export function TaskPendingActions({
             )}
           </div>
           <Button size="small" type="primary" onClick={() => onOpen(event.id)}>
-            {event.status === 'manual' ? '去确认' : '去核对'}
+            {event.status === 'manual' ? '去确认' : event.status === 'waiting' ? '查看' : '去核对'}
           </Button>
         </div>
       ))}

@@ -131,11 +131,14 @@ export function toTimelineEvent(job: WorkflowDebugTimelineItem): TimelineEvent {
         : job.errorInfo.length > 0
           ? 'OS 返回异常事实'
           : '',
-    // 人工确认节点的 running 表示在等人批准，设备尚未动作。
+    // 人工确认节点的 running 表示在等人批准，设备尚未动作；pending 且带 OS 等待原因
+    // （如库位被占用、资源等待）表示已就绪但在等资源，不是“未到达”。
     status:
       job.executorKind === 'manual_confirm' && job.status === 'running'
         ? 'manual'
-        : mapJobStatus(job.status),
+        : job.status === 'pending' && Object.keys(job.waitReason).length > 0
+          ? 'waiting'
+          : mapJobStatus(job.status),
     device: timelineDevice(job),
     duration: formatTimelineDuration(job.startedAt, job.finishedAt, job.status),
     ...timelineOrder(job),
