@@ -12,6 +12,7 @@ describe('task detail model', () => {
     expect(mapJobStatus('failed')).toBe('failed')
     expect(mapJobStatus('timeout')).toBe('failed')
     expect(mapJobStatus('canceled')).toBe('skipped')
+    expect(mapJobStatus('skipped')).toBe('skipped')
     expect(mapJobStatus('pending')).toBe('pending')
     expect(mapJobStatus('dispatched')).toBe('waiting')
     expect(formatTimelineTime(null)).toBe('—')
@@ -26,6 +27,15 @@ describe('task detail model', () => {
     expect(toTimelineEvent({ jobUuid: 'j', nodeLabel: '节点', executorKind: 'device', status: 'running', startedAt: null, finishedAt: null, waitReason: { message: '等待设备' }, errorInfo: [] } as never)).toMatchObject({ description: '等待设备', duration: '时间未提供' })
     expect(toTimelineEvent({ jobUuid: 'j2', nodeLabel: '节点', executorKind: 'device', status: 'failed', startedAt: '2026-01-01T00:00:00Z', finishedAt: '2026-01-01T00:00:02Z', waitReason: {}, errorInfo: ['x'] } as never)).toMatchObject({ description: 'OS 返回异常事实', duration: '2 秒' })
     expect(toTimelineEvent({ jobUuid: 'j3', nodeLabel: '节点', executorKind: 'device', status: 'pending', startedAt: '2026-01-01T00:00:00Z', finishedAt: null, waitReason: {}, errorInfo: [] } as never).description).toBe('')
+  })
+
+  it('keeps an OS-skipped alternative branch terminal in the timeline', () => {
+    const event = toTimelineEvent({
+      jobUuid: 'skipped-branch', nodeLabel: '未选中分支', executorKind: 'device_action',
+      status: 'skipped', startedAt: null, finishedAt: null, waitReason: {}, errorInfo: [],
+    } as never)
+    expect(event).toMatchObject({ status: 'skipped', description: '', duration: '时间未提供' })
+    expect(['running', 'waiting', 'manual', 'unknown', 'pending']).not.toContain(event.status)
   })
 
   it('reads expected change set from all supported projections and site waits', () => {
