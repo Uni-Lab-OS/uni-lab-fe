@@ -15,15 +15,23 @@ export function TaskDetailSummary({
   task,
   facts,
   currentTimelineEvent,
+  activeEvents = [],
   statusTooltip,
 }: {
   task: TaskRuntimeDetail | null
   facts: WorkflowDebugFacts | null | undefined
   currentTimelineEvent: TimelineEvent | null
+  /** 当前 attempt 中正在执行或等待处置的全部节点（多分支并行时不止一个）。 */
+  activeEvents?: readonly TimelineEvent[]
   statusTooltip: string
 }) {
   const status = task
-    ? normalizeStatus(task.status, task.attentionReason ?? null, task.controlStatus, task.cleanupStatus)
+    ? normalizeStatus(
+        task.status,
+        task.attentionReason ?? null,
+        task.controlStatus,
+        task.cleanupStatus,
+      )
     : null
   const attention = task ? taskAttention(task) : null
   const counts = facts?.jobCounts
@@ -51,8 +59,12 @@ export function TaskDetailSummary({
               </span>
             ) : (
               <span className={clsx(styles['debug-summary-focus'])}>
-                <span className={clsx(styles['debug-summary-focus-label'])}>当前节点</span>
-                {currentTimelineEvent?.title ?? '—'}
+                <span className={clsx(styles['debug-summary-focus-label'])}>
+                  {activeEvents.length > 1 ? `进行中 ${activeEvents.length} 个` : '当前节点'}
+                </span>
+                {activeEvents.length > 1
+                  ? activeEventsLabel(activeEvents)
+                  : (currentTimelineEvent?.title ?? '—')}
               </span>
             )}
           </div>
@@ -82,7 +94,10 @@ export function TaskDetailSummary({
             ) : (
               <span className={clsx(styles['debug-summary-counts'])}>
                 {parts.map((part) => (
-                  <span key={part.key} className={clsx(styles['debug-summary-count'], styles[`is-${part.key}`])}>
+                  <span
+                    key={part.key}
+                    className={clsx(styles['debug-summary-count'], styles[`is-${part.key}`])}
+                  >
                     {part.label} {part.value}
                   </span>
                 ))}
@@ -98,4 +113,12 @@ export function TaskDetailSummary({
       </div>
     </section>
   )
+}
+
+/** 并行节点摘要：最多列 3 个“设备·节点”，其余以数量表示。 */
+export function activeEventsLabel(events: readonly TimelineEvent[]): string {
+  const names = events
+    .slice(0, 3)
+    .map((event) => (event.device ? `${event.device}·${event.title}` : event.title))
+  return events.length > 3 ? `${names.join('，')} 等 ${events.length} 个` : names.join('，')
 }

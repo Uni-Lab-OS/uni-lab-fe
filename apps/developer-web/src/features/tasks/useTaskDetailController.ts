@@ -58,6 +58,16 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
     () => (viewModel?.timeline ?? []).map(toTimelineEvent),
     [viewModel?.timeline],
   )
+  // 多分支并行时可能同时有多个节点在执行或等待处置，概览需要全部列出。
+  const activeTimelineEvents = useMemo(
+    () =>
+      timelineEvents.filter(
+        (event) =>
+          event.currentAttempt !== false &&
+          ['running', 'manual', 'unknown', 'waiting'].includes(event.status),
+      ),
+    [timelineEvents],
+  )
   const currentTimelineEvent = useMemo(() => {
     const focusedJobUuid = viewModel?.currentFocus?.jobUuid
     if (focusedJobUuid) {
@@ -196,6 +206,7 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
     readyFrontier,
     timelineEvents,
     currentTimelineEvent,
+    activeTimelineEvents,
     statusTooltip,
     selectedEvent,
     submittedNodeUuid,
