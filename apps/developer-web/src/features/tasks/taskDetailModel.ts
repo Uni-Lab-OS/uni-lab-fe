@@ -115,7 +115,7 @@ export function toTimelineEvent(job: WorkflowDebugTimelineItem): TimelineEvent {
       group: job.executorKind,
       description: `结果未知，需现场核对后处置：${job.uncertaintyReason}`,
       status: 'unknown',
-      device: job.executorKind,
+      device: timelineDevice(job),
       duration: formatTimelineDuration(job.startedAt, job.finishedAt, job.status),
       ...timelineOrder(job),
     }
@@ -133,11 +133,31 @@ export function toTimelineEvent(job: WorkflowDebugTimelineItem): TimelineEvent {
           : '',
     // 人工确认节点的 running 表示在等人批准，设备尚未动作。
     status:
-      job.executorKind === 'manual_confirm' && job.status === 'running' ? 'manual' : mapJobStatus(job.status),
-    device: job.executorKind,
+      job.executorKind === 'manual_confirm' && job.status === 'running'
+        ? 'manual'
+        : mapJobStatus(job.status),
+    device: timelineDevice(job),
     duration: formatTimelineDuration(job.startedAt, job.finishedAt, job.status),
     ...timelineOrder(job),
   }
+}
+
+const EXECUTOR_LABELS: Readonly<Record<string, string>> = {
+  manual_confirm: '人工确认',
+  material_source: '物料来源',
+  workflow_input: '工作流输入',
+  workflow_output: '工作流输出',
+  human_command: '人工交互',
+}
+
+/**
+ * 设备动作显示实际执行设备；人工确认等非设备类别显示类别名，若绑定了设备一并显示
+ * （如“人工确认 · robot”：批准后由该设备执行）。
+ */
+function timelineDevice(job: WorkflowDebugTimelineItem): string {
+  const kind = EXECUTOR_LABELS[job.executorKind]
+  if (!kind) return job.deviceId ?? job.executorKind
+  return job.deviceId ? `${kind} · ${job.deviceId}` : kind
 }
 
 function timelineTimeLabel(job: WorkflowDebugTimelineItem): string {
@@ -164,7 +184,11 @@ export type TimelineOrder = 'time' | 'steps'
 export interface ArrangedTimeline {
   readonly items: readonly TimelineEvent[]
   /** 默认折叠的未执行节点（取消、跳过、未到达）计数。 */
-  readonly collapsed: { readonly canceled: number; readonly skipped: number; readonly pending: number }
+  readonly collapsed: {
+    readonly canceled: number
+    readonly skipped: number
+    readonly pending: number
+  }
   readonly historical: number
 }
 
@@ -200,7 +224,8 @@ export function arrangeTimeline(
     options.order === 'steps'
       ? byStep
       : (a, b) => {
-          if (a.sortTime != null && b.sortTime != null) return a.sortTime - b.sortTime || byStep(a, b)
+          if (a.sortTime != null && b.sortTime != null)
+            return a.sortTime - b.sortTime || byStep(a, b)
           if (a.sortTime != null) return -1
           if (b.sortTime != null) return 1
           return byStep(a, b)
