@@ -66,3 +66,26 @@ describe('activeEventsLabel', () => {
     expect(activeEventsLabel(events)).toBe('robot·节点 a，robot·节点 b，robot·节点 c 等 4 个')
   })
 })
+
+describe('plan stalls', () => {
+  it('shows nodes the OS cannot schedule as a separate red item with a link to the node', () => {
+    const onOpen = vi.fn()
+    render(
+      <TaskPendingActions
+        events={[]}
+        stalls={[
+          {
+            nodeId: 'n-1',
+            reason: '动作耗时尚无可用估计',
+            event: event('job-1', 'pending', { title: '等待液位' }),
+          },
+        ]}
+        onOpen={onOpen}
+      />,
+    )
+    expect(screen.getByText('无法排程')).toBeTruthy()
+    expect(screen.getByText(/动作耗时尚无可用估计/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /查看节点/ }))
+    expect(onOpen).toHaveBeenCalledWith('job-1')
+  })
+})
