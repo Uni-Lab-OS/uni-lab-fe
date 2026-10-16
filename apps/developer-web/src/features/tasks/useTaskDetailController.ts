@@ -111,6 +111,14 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
     [backend.core.manualConfirmation, inspectJob],
   )
 
+  const resolveUncertainJob = useCallback(
+    async (jobUuid: string, reason: string) => {
+      await backend.core.executionRecovery.resolveUncertainJob(jobUuid, reason)
+      await inspectJob(jobUuid)
+    },
+    [backend.core.executionRecovery, inspectJob],
+  )
+
   const submitCommand = (type: DebugCommandType, targetNodeUuid?: string) => {
     if (!selectedTask) return
     setLastCommandType(type)
@@ -187,6 +195,7 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
     commandResultMessage,
     openEvent,
     decideManualConfirmation,
+    resolveUncertainJob,
     submitCommand,
     submitBranch,
   }

@@ -15,6 +15,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'inventory.dispenseReagent',
   'deviceAction.presentation',
   'workflow.humanInteraction',
+  'workflow.resolveUncertain',
 ] as const
 
 export type ServerCapability = (typeof SERVER_CAPABILITY_KEYS)[number]
@@ -58,6 +59,8 @@ const LOCAL_PYTHON_CAPABILITIES = new Set<ServerCapability>([
 const PTLC_NATIVE_CAPABILITIES = new Set<ServerCapability>([
   ...LOCAL_PYTHON_CAPABILITIES,
   'deviceAction.presentation',
+  // 设备包实现了 OS UNKNOWN 处置执行端（tools/ptlc_migration/unknown_resolution.py）。
+  'workflow.resolveUncertain',
 ])
 
 /** 返回当前 profile 已完成联调的能力集合；未知 profile 默认关闭。 */

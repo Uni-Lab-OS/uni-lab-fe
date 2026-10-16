@@ -66,6 +66,11 @@ export interface WorkflowDebugTimelineItem {
   readonly finishedAt: string | null
   readonly waitReason: Readonly<Record<string, unknown>>
   readonly errorInfo: readonly unknown[]
+  /**
+   * OS 记录的物理不确定原因（job.uncertainty_reason）。结果未知的作业主状态可能仍是
+   * running/failed，但实际在等待现场核对与人工处置，界面须如实区分。
+   */
+  readonly uncertaintyReason?: string | null
 }
 
 export interface WorkflowDebugControls {
@@ -138,6 +143,10 @@ export function projectWorkflowDebugFacts(
         finishedAt: job.finishedAt ?? rawFinishedAt,
         waitReason: job.waitReason,
         errorInfo: job.errorInfo,
+        uncertaintyReason:
+          typeof job.raw.uncertainty_reason === 'string' && job.raw.uncertainty_reason
+            ? job.raw.uncertainty_reason
+            : null,
       }
     })
   const focusJob = jobs.find((job) =>

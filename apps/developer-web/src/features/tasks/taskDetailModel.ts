@@ -95,6 +95,19 @@ export function formatTimelineDuration(
 }
 
 export function toTimelineEvent(job: WorkflowDebugTimelineItem): TimelineEvent {
+  if (job.uncertaintyReason && (job.status === 'running' || job.status === 'failed')) {
+    // OS 保持占用、等待物理对账：不能显示成“执行中”或普通失败。
+    return {
+      id: job.jobUuid,
+      time: formatTimelineTime(job.startedAt),
+      title: job.nodeLabel,
+      group: job.executorKind,
+      description: `结果未知，需现场核对后处置：${job.uncertaintyReason}`,
+      status: 'unknown',
+      device: job.executorKind,
+      duration: formatTimelineDuration(job.startedAt, job.finishedAt, job.status),
+    }
+  }
   return {
     id: job.jobUuid,
     time: formatTimelineTime(job.startedAt),

@@ -11,6 +11,7 @@ import {
   ResourcesTab,
 } from './TaskDetailInspector'
 import { ManualConfirmationActions } from './TaskDetailManualConfirmation'
+import { UncertainJobResolution } from './TaskDetailUncertainResolution'
 import { tabLabels } from './taskDetailModel'
 import type { useTaskDetailController } from './useTaskDetailController'
 
@@ -25,6 +26,7 @@ export function TaskDetailInspectorDrawer({ controller }: { controller: Controll
     facts,
     viewModel,
     decideManualConfirmation,
+    resolveUncertainJob,
   } = controller
   if (!selectedEvent) return null
   const selectedJob =
@@ -78,6 +80,7 @@ export function TaskDetailInspectorDrawer({ controller }: { controller: Controll
           ))}
         </nav>
         <ManualConfirmationActions job={selectedJob} onDecide={decideManualConfirmation} />
+        <UncertainJobResolution job={selectedJob} onResolve={resolveUncertainJob} />
         <div className={clsx(taskDetailInspectorStyles['debug-inspector-body'])}>
           {activeTab === 'evidence' && <EvidenceTab event={selectedEvent} job={selectedJob} />}
           {activeTab === 'resources' && (

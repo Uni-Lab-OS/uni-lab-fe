@@ -70,7 +70,7 @@ export function createBackendCoreFromTransport(
   const runPreparationPort = new RunPreparationClient(transport)
   const executionRead = new WorkflowExecutionReadClient(transport)
   const executionControl = new WorkflowExecutionControlClient(transport)
-  const executionRecovery = new WorkflowExecutionRecoveryClient(executionRead)
+  const executionRecovery = new WorkflowExecutionRecoveryClient(executionRead, transport)
   const deviceActions = new DeviceActionClient(transport, executionRead)
   const materialSite = new MaterialSiteClient(transport)
   const reagentInventory = new ReagentInventoryClient(transport)
