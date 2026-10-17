@@ -4,6 +4,8 @@ import type {
   StationHandlingIntent,
   StationHandlingSession,
   StationHandlingSnapshot,
+  StationDeviceAction,
+  StationManualAction,
   StationOccupancy,
 } from './model'
 
@@ -40,6 +42,23 @@ export interface StationErrorHandlingPort {
     snapshot: StationHandlingSnapshot,
     error: StationError,
     occupancies: readonly StationOccupancy[],
+    reason: string,
+  ): StationHandlingIntent
+  /** 人工处置会话中某设备（物料 UUID）的全部可用动作。 */
+  listDeviceActions(sessionId: string, deviceUuid: string): Promise<readonly StationDeviceAction[]>
+  /** 在人工处置会话中下发一个手动设备动作（会真实驱动设备）。 */
+  manualActionIntent(
+    snapshot: StationHandlingSnapshot,
+    session: StationHandlingSession,
+    deviceUuid: string,
+    action: StationDeviceAction,
+    parameters: Readonly<Record<string, unknown>>,
+  ): StationHandlingIntent
+  /** 结果未知的手动动作在现场核对后登记核对结论（不改执行结论，不清除占用）。 */
+  reviewManualActionIntent(
+    snapshot: StationHandlingSnapshot,
+    session: StationHandlingSession,
+    action: StationManualAction,
     reason: string,
   ): StationHandlingIntent
   submit(intent: StationHandlingIntent): Promise<Readonly<Record<string, unknown>>>

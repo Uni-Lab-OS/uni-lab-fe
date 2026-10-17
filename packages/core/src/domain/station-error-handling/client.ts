@@ -1,11 +1,13 @@
 import { TransportError, type RequestTransport } from '../../transport/request'
-import { decodeOccupancies, decodeStationSnapshot } from './codec'
+import { decodeDeviceActions, decodeOccupancies, decodeStationSnapshot } from './codec'
 import type {
   StationError,
   StationErrorAction,
   StationHandlingIntent,
   StationHandlingSession,
   StationHandlingSnapshot,
+  StationDeviceAction,
+  StationManualAction,
   StationOccupancy,
 } from './model'
 import type { StationErrorHandlingPort } from './port'
@@ -19,6 +21,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   manual_actions_running: '本次人工处置仍有手动动作未结束，请等待动作结束后继续。',
   manual_actions_unresolved: '本次人工处置仍有动作结果待核对，请完成现场核对后继续。',
   occupancy_version_conflict: '逻辑占用已变化，请刷新后重新选择。',
+  action_definition_changed: '设备动作定义已更新，请重新选择动作后再下发。',
+  manual_review_version_conflict: '动作的核对证据已更新，请刷新后重新核对。',
+  manual_action_not_finished: '该手动动作尚未结束；结果未知时请先按“已取消”收尾，再登记核对结论。',
 }
 
 /** 结果不明确（未到达服务端或服务端异常）时为 true：必须用同一幂等键重发。 */
@@ -175,6 +180,62 @@ export class StationErrorHandlingClient implements StationErrorHandlingPort {
         expected_versions: Object.fromEntries(occupancies.map((item) => [item.uuid, item.version])),
         operation: 'release',
         reason: reason.trim(),
+      },
+    }
+  }
+
+  async listDeviceActions(
+    sessionId: string,
+    deviceUuid: string,
+  ): Promise<readonly StationDeviceAction[]> {
+    const response = await this.transport.request<unknown>({
+      method: 'GET',
+      url: `${this.root}/sessions/${encodeURIComponent(sessionId)}/devices/${encodeURIComponent(deviceUuid)}/actions`,
+    })
+    return decodeDeviceActions(unwrap(response.data))
+  }
+
+  manualActionIntent(
+    snapshot: StationHandlingSnapshot,
+    session: StationHandlingSession,
+    deviceUuid: string,
+    action: StationDeviceAction,
+    parameters: Readonly<Record<string, unknown>>,
+  ): StationHandlingIntent {
+    return {
+      path: `/sessions/${encodeURIComponent(session.sessionId)}/manual-actions`,
+      label: `手动动作 ${action.displayName}`,
+      idempotencyKey: this.newKey(),
+      body: {
+        expected_station_version: snapshot.stationVersion,
+        expected_session_version: session.version,
+        device_id: deviceUuid,
+        action_id: action.actionId,
+        action_version: action.actionVersion,
+        parameters,
+      },
+    }
+  }
+
+  reviewManualActionIntent(
+    snapshot: StationHandlingSnapshot,
+    session: StationHandlingSession,
+    action: StationManualAction,
+    reason: string,
+  ): StationHandlingIntent {
+    if (!action.commandId || !action.reviewVersion)
+      throw new Error('该手动动作缺少核对所需的命令号或证据版本')
+    return {
+      path: `/manual-actions/${encodeURIComponent(action.commandId)}/review`,
+      label: '核对手动动作结果',
+      idempotencyKey: this.newKey(),
+      body: {
+        expected_station_version: snapshot.stationVersion,
+        expected_session_version: session.version,
+        session_id: session.sessionId,
+        expected_review_version: action.reviewVersion,
+        reason: reason.trim(),
+        operator_confirmed: true,
       },
     }
   }

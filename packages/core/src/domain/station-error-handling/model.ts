@@ -48,6 +48,23 @@ export interface StationManualAction {
   readonly deviceId: string
   readonly uncertaintyReason: string | null
   readonly resultReviewed: boolean
+  /** 执行命令号（edge_command_uuid），核对结果时用。 */
+  readonly commandId: string | null
+  /** OS 核对证据版本；核对提交须带上，防止基于旧证据确认。 */
+  readonly reviewVersion: string | null
+  readonly errorMessage: string
+  readonly startedAt: string | null
+  readonly finishedAt: string | null
+}
+
+/** 人工处置会话中某设备可下发的动作（OS 动作目录，含当前内容版本）。 */
+export interface StationDeviceAction {
+  readonly actionId: string
+  readonly name: string
+  readonly displayName: string
+  readonly actionVersion: string
+  readonly parameterSchema: Readonly<Record<string, unknown>>
+  readonly defaults: Readonly<Record<string, unknown>>
 }
 
 export interface StationHandlingSnapshot {

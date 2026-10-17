@@ -10,6 +10,7 @@ import type {
 import { useBackend } from '../../app/BackendProvider'
 import { navigateTo } from '../../app/navigation'
 import { useStationHandling, type StationHandlingState } from './useStationHandling'
+import { ManualDeviceActions } from './ManualDeviceActions'
 import styles from './StationErrorHandling.module.scss'
 
 /**
@@ -431,7 +432,7 @@ function ManualSession({
         type="info"
         showIcon
         message="人工处置中，工站保持暂停"
-        description="请在现场处理问题（例如人工取下板、复位机构）。完成后填写处理说明并点“完成手动处理”，再选择重试或取消。本前端暂不支持在会话中下发手动设备动作。"
+        description="请在现场处理问题（例如人工取下板、复位机构），需要时可在下方下发手动设备动作（如复位）。完成后填写处理说明并点“完成手动处理”，再选择重试或取消。"
       />
       {actions.length > 0 && (
         <p className={clsx(styles.hint)}>
@@ -448,6 +449,13 @@ function ManualSession({
           onChange={(event) => setSummary(event.target.value)}
         />
       </label>
+      <ManualDeviceActions
+        snapshot={snapshot}
+        session={session}
+        error={error}
+        state={state}
+        writable={writable}
+      />
       <OccupancyRelease snapshot={snapshot} error={error} state={state} writable={writable} />
       <Button
         type="primary"
