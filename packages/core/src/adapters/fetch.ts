@@ -123,7 +123,24 @@ function responseCode(value: unknown): string | undefined {
 function responseMessage(value: unknown): string | undefined {
   const record = asRecord(value)
   const error = asRecord(record?.error)
-  return stringValue(error?.message) ?? stringValue(error?.msg) ?? stringValue(record?.message)
+  return (
+    stringValue(error?.message) ??
+    stringValue(error?.msg) ??
+    stringValue(record?.message) ??
+    detailMessage(record?.detail)
+  )
+}
+
+/** FastAPI 的 HTTPException 以 {detail} 返回：字符串原样使用，校验错误列表取各项 msg。 */
+function detailMessage(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.length > 0) return value
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => stringValue(asRecord(item)?.msg))
+      .filter((item): item is string => Boolean(item))
+    return parts.length ? parts.join('；') : undefined
+  }
+  return undefined
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {

@@ -64,6 +64,18 @@ describe('createFetchTransport', () => {
       retryable: false,
     })
 
+    const detailTransport = createFetchTransport({
+      baseUrl: 'https://os.example.test',
+      fetcher: async () =>
+        new Response(JSON.stringify({ detail: 'manual_action_not_finished' }), { status: 409 }),
+    })
+    await expect(detailTransport.request({ method: 'POST', url: '/review' })).rejects.toMatchObject(
+      {
+        message: 'manual_action_not_finished',
+        status: 409,
+      },
+    )
+
     const textTransport = createFetchTransport({
       baseUrl: 'https://os.example.test',
       fetcher: async () => new Response('gateway unavailable', { status: 502 }),
@@ -85,31 +97,63 @@ describe('createFetchTransport', () => {
     const transport = createFetchTransport({ baseUrl: 'https://os.example.test', fetcher })
     await transport.request({ method: 'POST', url: 'https://other.example.test/ping', body: 'raw' })
     expect(calls[0]?.body).toBe('raw')
-    const form = new FormData(); form.set('file', 'value')
-    await transport.request({ method: 'POST', url: '/upload', headers: { 'content-type': 'wrong' }, body: form })
+    const form = new FormData()
+    form.set('file', 'value')
+    await transport.request({
+      method: 'POST',
+      url: '/upload',
+      headers: { 'content-type': 'wrong' },
+      body: form,
+    })
     expect(new Headers(calls[1]?.headers).get('content-type')).toBeNull()
-    expect(await transport.request({ method: 'GET', url: '/text' })).toMatchObject({ headers: { 'x-request': 'ok' }, data: 'plain text' })
+    expect(await transport.request({ method: 'GET', url: '/text' })).toMatchObject({
+      headers: { 'x-request': 'ok' },
+      data: 'plain text',
+    })
   })
 
   it('maps aborts, fetch failures and missing tokens', async () => {
-    const aborted = createFetchTransport({ baseUrl: 'https://os.example.test', timeoutMs: 1, fetcher: async (_input, init) => await new Promise((_resolve, reject) => {
-      init?.signal?.addEventListener('abort', () => reject(new Error('aborted')))
-    }) })
-    await expect(aborted.request({ method: 'GET', url: '/slow' })).rejects.toMatchObject({ code: 'HTTP_REQUEST_ABORTED', retryable: false })
-    const failed = createFetchTransport({ baseUrl: 'https://os.example.test', getAccessToken: () => null, fetcher: async () => { throw new Error('offline') } })
-    await expect(failed.request({ method: 'GET', url: '/offline' })).rejects.toMatchObject({ code: 'HTTP_REQUEST_FAILED', message: 'offline', retryable: true })
+    const aborted = createFetchTransport({
+      baseUrl: 'https://os.example.test',
+      timeoutMs: 1,
+      fetcher: async (_input, init) =>
+        await new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new Error('aborted')))
+        }),
+    })
+    await expect(aborted.request({ method: 'GET', url: '/slow' })).rejects.toMatchObject({
+      code: 'HTTP_REQUEST_ABORTED',
+      retryable: false,
+    })
+    const failed = createFetchTransport({
+      baseUrl: 'https://os.example.test',
+      getAccessToken: () => null,
+      fetcher: async () => {
+        throw new Error('offline')
+      },
+    })
+    await expect(failed.request({ method: 'GET', url: '/offline' })).rejects.toMatchObject({
+      code: 'HTTP_REQUEST_FAILED',
+      message: 'offline',
+      retryable: true,
+    })
   })
 
   it('propagates a caller abort to the underlying fetch request', async () => {
     const controller = new AbortController()
     let markFetchStarted!: () => void
-    const fetchStarted = new Promise<void>((resolve) => { markFetchStarted = resolve })
+    const fetchStarted = new Promise<void>((resolve) => {
+      markFetchStarted = resolve
+    })
     const transport = createFetchTransport({
       baseUrl: 'https://os.example.test',
-      fetcher: async (_input, init) => await new Promise((_resolve, reject) => {
-        init?.signal?.addEventListener('abort', () => reject(new Error('caller aborted')), { once: true })
-        markFetchStarted()
-      }),
+      fetcher: async (_input, init) =>
+        await new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new Error('caller aborted')), {
+            once: true,
+          })
+          markFetchStarted()
+        }),
     })
     const outcome = transport.request({ method: 'GET', url: '/slow', signal: controller.signal })
     await fetchStarted

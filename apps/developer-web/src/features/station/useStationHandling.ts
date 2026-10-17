@@ -54,14 +54,18 @@ export function useStationHandling(): StationHandlingState {
     void reload()
   }, [reload, readyEpoch])
 
-  // 只在工站错误处置通知（及重连）时重读；任务运行通知与工站快照无关。
-  // 上次读取失败时，任何后续通知都触发重试，避免横幅停在“暂不可用”。
+  // 只在工站错误处置通知（及重连）时重读；任务运行通知与工站快照无关。例外：
+  // 上次读取失败时任何通知都触发重试；人工处置会话进行中时，手动动作本身是独立任务，
+  // 其进度只发任务运行通知，也要重读以更新动作状态。
   const failed = useRef(false)
   failed.current = readError !== null
+  const sessionActive = useRef(false)
+  sessionActive.current = Boolean(snapshot?.activeSession)
   useRuntimeInvalidation(reload, {
     enabled: available,
     minIntervalMs: 500,
-    accept: (event) => failed.current || event.event === 'station.error_handling.changed',
+    accept: (event) =>
+      failed.current || sessionActive.current || event.event === 'station.error_handling.changed',
   })
 
   const run = useCallback(

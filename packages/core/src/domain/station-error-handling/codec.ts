@@ -3,6 +3,7 @@ import type {
   StationError,
   StationHandlingSession,
   StationHandlingSnapshot,
+  StationDeviceAction,
   StationManualAction,
   StationOccupancy,
 } from './model'
@@ -99,7 +100,48 @@ function decodeManualAction(raw: Record<string, unknown>): StationManualAction {
         ? raw.uncertainty_reason
         : null,
     resultReviewed: raw.result_reviewed === true,
+    commandId: typeof raw.edge_command_uuid === 'string' ? raw.edge_command_uuid : null,
+    reviewVersion: typeof raw.review_version === 'string' ? raw.review_version : null,
+    errorMessage: errorText(raw.error_info),
+    startedAt: typeof raw.started_at === 'string' ? raw.started_at : null,
+    finishedAt: typeof raw.finished_at === 'string' ? raw.finished_at : null,
   }
+}
+
+function errorText(value: unknown): string {
+  if (!Array.isArray(value) || value.length === 0) return ''
+  return value
+    .map((item) =>
+      item &&
+      typeof item === 'object' &&
+      typeof (item as Record<string, unknown>).message === 'string'
+        ? String((item as Record<string, unknown>).message)
+        : typeof item === 'string'
+          ? item
+          : JSON.stringify(item),
+    )
+    .join('；')
+}
+
+export function decodeDeviceActions(value: unknown): StationDeviceAction[] {
+  return list(value).map((item) => {
+    const raw = record(item, 'device_action')
+    const object = (input: unknown) =>
+      input && typeof input === 'object' && !Array.isArray(input)
+        ? (input as Record<string, unknown>)
+        : {}
+    return {
+      actionId: text(raw.action_id, 'device_action.action_id'),
+      name: typeof raw.name === 'string' ? raw.name : '',
+      displayName:
+        typeof raw.display_name === 'string' && raw.display_name
+          ? raw.display_name
+          : String(raw.name ?? ''),
+      actionVersion: text(raw.action_version, 'device_action.action_version'),
+      parameterSchema: object(raw.parameter_schema),
+      defaults: object(raw.defaults),
+    }
+  })
 }
 
 export function decodeOccupancies(value: unknown): StationOccupancy[] {

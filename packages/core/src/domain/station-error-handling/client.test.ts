@@ -229,3 +229,108 @@ describe('resource release before manual handling', () => {
     })
   })
 })
+
+describe('manual device actions', () => {
+  const session = {
+    session_id: 's1',
+    decision_id: 'd10cdc01',
+    stage: 'MANUAL_HANDLING',
+    version: 4,
+    summary: '',
+  }
+
+  it('reads the device action catalog of the session and builds a versioned execution intent', async () => {
+    const requests: unknown[] = []
+    const transport = {
+      async request(input: unknown) {
+        requests.push(input)
+        return {
+          status: 200,
+          headers: {},
+          data: {
+            data: [
+              {
+                action_id: 'a1',
+                name: 'reset',
+                display_name: '复位(清L2故障)',
+                action_version: 'v9',
+                parameter_schema: {},
+                defaults: { force: false },
+              },
+            ],
+          },
+        }
+      },
+    } as unknown as RequestTransport
+    const client = new StationErrorHandlingClient(transport, 'local', '/api/v1', () => 'key-5')
+    const actions = await client.listDeviceActions('s1', 'dev-1')
+    expect(requests[0]).toMatchObject({
+      method: 'GET',
+      url: '/api/v1/stations/local/sessions/s1/devices/dev-1/actions',
+    })
+    expect(actions[0]).toMatchObject({
+      actionId: 'a1',
+      displayName: '复位(清L2故障)',
+      actionVersion: 'v9',
+      defaults: { force: false },
+    })
+    const snapshot = decodeStationSnapshot({ ...SNAPSHOT, active_session: session })
+    expect(
+      client.manualActionIntent(snapshot, snapshot.activeSession!, 'dev-1', actions[0]!, {
+        force: true,
+      }),
+    ).toMatchObject({
+      path: '/sessions/s1/manual-actions',
+      idempotencyKey: 'key-5',
+      body: {
+        expected_station_version: 2,
+        expected_session_version: 4,
+        device_id: 'dev-1',
+        action_id: 'a1',
+        action_version: 'v9',
+        parameters: { force: true },
+      },
+    })
+  })
+
+  it('reviews an uncertain manual action with its evidence version', () => {
+    const client = new StationErrorHandlingClient(
+      {} as RequestTransport,
+      'local',
+      '/api/v1',
+      () => 'key-6',
+    )
+    const snapshot = decodeStationSnapshot({
+      ...SNAPSHOT,
+      active_session: session,
+      manual_actions: [
+        {
+          uuid: 'j1',
+          status: 'failed',
+          meta_data: { session_id: 's1' },
+          edge_command_uuid: 'c1',
+          review_version: 'r3',
+          uncertainty_reason: 'timeout',
+          result_reviewed: false,
+        },
+      ],
+    })
+    expect(
+      client.reviewManualActionIntent(
+        snapshot,
+        snapshot.activeSession!,
+        snapshot.manualActions[0]!,
+        ' 已复位 ',
+      ),
+    ).toMatchObject({
+      path: '/manual-actions/c1/review',
+      body: {
+        session_id: 's1',
+        expected_review_version: 'r3',
+        reason: '已复位',
+        operator_confirmed: true,
+        expected_session_version: 4,
+      },
+    })
+  })
+})
