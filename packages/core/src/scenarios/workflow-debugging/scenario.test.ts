@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createWorkflowDebuggingScenario } from './scenario'
 import type { WorkflowExecutionReadPort } from '../../domain/workflow-execution-read/port'
 import type { WorkflowDefinitionPort } from '../../domain/workflow-definition/port'
@@ -56,6 +56,50 @@ describe('workflow debugging scenario', () => {
     expect(reloaded.selectedJobs).toEqual([])
   })
 
+  it.each([undefined, 500])('coalesces invalidations and respects refresh interval %s after disposal', async (minRefreshGapMs) => {
+    vi.useFakeTimers()
+    try {
+      let emit!: Parameters<WorkflowRuntimeEventsPort['subscribe']>[0]
+      const port = fakeExecutionRead()
+      const read = vi.spyOn(port, 'getTaskDetail')
+      const scenario = createWorkflowDebuggingScenario(port, fakeWorkflowDefinitions(), undefined, {
+        subscribe(listener) {
+          emit = listener
+          return { dispose() {} }
+        },
+      })
+      const initial = await scenario.inspectTask(await scenario.load(), 'task-1')
+      read.mockClear()
+      const listener = vi.fn()
+      const subscription = scenario.subscribeRuntime(initial, listener, { minRefreshGapMs })
+      const event = {
+        eventId: 'one',
+        event: 'workflow.runtime.changed' as const,
+        workflowTaskUuid: 'task-1',
+        raw: {},
+      }
+      for (let index = 0; index < 30; index++) emit(event)
+      await vi.advanceTimersByTimeAsync(minRefreshGapMs ?? 100)
+      expect(read).toHaveBeenCalledTimes(1)
+      expect(listener).toHaveBeenCalledTimes(1)
+      let complete!: (value: Awaited<ReturnType<typeof port.getTaskDetail>>) => void
+      read.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            complete = resolve
+          }),
+      )
+      emit(event)
+      await vi.advanceTimersByTimeAsync(minRefreshGapMs ?? 100)
+      subscription.dispose()
+      complete(initial.selectedTask!)
+      await vi.advanceTimersByTimeAsync(minRefreshGapMs ?? 100)
+      expect(listener).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('keeps command accepted separate and rehydrates after a matching runtime invalidation', async () => {
     let emit:
       | ((event: Parameters<Parameters<WorkflowRuntimeEventsPort['subscribe']>[0]>[0]) => void)
@@ -104,7 +148,7 @@ describe('workflow debugging scenario', () => {
       workflowTaskUuid: 'task-1',
       raw: {},
     })
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await new Promise((resolve) => setTimeout(resolve, 130))
     expect(updates).toEqual(['task-1'])
   })
 })

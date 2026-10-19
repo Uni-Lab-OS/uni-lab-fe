@@ -46,7 +46,7 @@ export interface WorkflowDebuggingScenario {
     options?: {
       readonly lastEventId?: string
       readonly onError?: (error: Error) => void
-      /** 两次详情重读之间的最小间隔（毫秒），默认 1000。 */
+      /** 保留调用方覆盖刷新间隔的能力，默认合并 100 ms 内的事件。 */
       readonly minRefreshGapMs?: number
     },
   ): WorkflowRuntimeSubscription
@@ -171,39 +171,48 @@ export function createWorkflowDebuggingScenario(
       if (!runtimeEvents) return { dispose: () => undefined }
       let currentViewModel = viewModel
       let pendingEvent: WorkflowRuntimeInvalidation | null = null
-      let refreshInFlight: Promise<void> | null = null
-      let gapTimer: ReturnType<typeof setTimeout> | null = null
+      let refreshInFlight = false
       let disposed = false
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const schedule = (): void => {
+        if (disposed || refreshInFlight || timer !== undefined || !pendingEvent) return
+        // Batch invalidations only; execution facts still come from REST.
+        timer = setTimeout(refresh, options?.minRefreshGapMs ?? 100)
+      }
       const refresh = (): void => {
-        if (disposed || refreshInFlight || gapTimer !== null || !pendingEvent) return
+        timer = undefined
+        if (disposed || refreshInFlight || !pendingEvent) return
         const event = pendingEvent
         pendingEvent = null
-        refreshInFlight = scenario
+        refreshInFlight = true
+        void scenario
           .refreshTask(currentViewModel)
           .then((next) => {
+            if (disposed) return
             currentViewModel = next
             listener(next, event)
           })
-          .catch(options?.onError)
+          .catch((error: unknown) => {
+            if (disposed) return
+            const failure = error instanceof Error ? error : new Error(String(error))
+            if (options?.onError) options.onError(failure)
+            else console.error('Workflow runtime refresh failed', failure)
+          })
           .finally(() => {
-            refreshInFlight = null
-            // 运行中失效通知几乎连续到达；大任务详情（含整图快照）可达数十 MB，
-            // 两次重读之间留出间隔，避免把 OS 压满，期间到达的通知合并为下一次。
-            gapTimer = setTimeout(() => {
-              gapTimer = null
-              refresh()
-            }, options?.minRefreshGapMs ?? 1_000)
+            refreshInFlight = false
+            schedule()
           })
       }
       const subscription = runtimeEvents.subscribe((event) => {
-        if (event.workflowTaskUuid !== currentViewModel.selectedTaskUuid) return
+        if (disposed || event.workflowTaskUuid !== currentViewModel.selectedTaskUuid) return
         pendingEvent = event
-        refresh()
+        schedule()
       }, options)
       return {
         dispose: () => {
           disposed = true
-          if (gapTimer !== null) clearTimeout(gapTimer)
+          pendingEvent = null
+          if (timer !== undefined) clearTimeout(timer)
           subscription.dispose()
         },
       }

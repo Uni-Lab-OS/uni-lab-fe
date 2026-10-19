@@ -181,6 +181,7 @@ describe('WorkflowExecutionReadClient', () => {
       '/api/v1/workflow-node-jobs/job%2F1',
       '/api/v1/workflow-node-jobs/job-1/feedback?page=1&page_size=500',
     ])
+    expect([requests[0]?.timeoutMs, requests[2]?.timeoutMs, requests[3]?.timeoutMs]).toEqual([45_000, 45_000, 45_000])
     expect(presentationPage).toMatchObject({
       total: 1,
       items: [
@@ -209,5 +210,59 @@ describe('WorkflowExecutionReadClient', () => {
       nextCursor: 1,
       items: [{ feedbackUuid: 'feedback-1', sequence: 1 }],
     })
+  })
+})
+
+describe('versioned task definitions', () => {
+  it('rehydrates fresh state, reloads changed definitions, and shares concurrent requests', async () => {
+    const requests: string[] = []
+    let version = 'v1'
+    let status = 'running'
+    const transport: RequestTransport = {
+      async request<Value>(request: TransportRequest): Promise<TransportResponse<Value>> {
+        requests.push(request.url)
+        expect(request.timeoutMs).toBe(45_000)
+        return {
+          status: 200,
+          headers: {},
+          data: {
+            uuid: 'task-1',
+            workflow_uuid: 'workflow-1',
+            execution_kind: 'workflow',
+            run_mode: 'normal',
+            control_status: 'active',
+            cleanup_status: 'none',
+            status,
+            definition_version: version,
+            create_time: '2026-10-19T00:00:00Z',
+            update_time: '2026-10-19T00:01:00Z',
+            ...(!request.url.includes('projection=state')
+              ? {
+                  workflow_snapshot: { label: version },
+                  execution_plan: { version },
+                }
+              : {}),
+          } as Value,
+        }
+      },
+    }
+    const client = new WorkflowExecutionReadClient(transport)
+    await Promise.all([client.getTaskDetail('task-1'), client.getTaskDetail('task-1')])
+    expect(requests).toHaveLength(1)
+    status = 'paused'
+    const fresh = await client.getTaskDetail('task-1')
+    expect(fresh.status).toBe('paused')
+    expect(fresh.raw.workflow_snapshot).toEqual({ label: 'v1' })
+    expect(requests[1]).toContain('projection=state')
+    version = 'v2'
+    const changed = await client.getTaskDetail('task-1')
+    expect(changed.raw.execution_plan).toEqual({ version: 'v2' })
+    expect(requests.slice(-2)).toEqual([
+      '/api/v1/workflow-tasks/task-1?projection=state',
+      '/api/v1/workflow-tasks/task-1',
+    ])
+    const otherEndpoint = new WorkflowExecutionReadClient(transport, '/other/api/v1')
+    await otherEndpoint.getTaskDetail('task-1')
+    expect(requests.at(-1)).toBe('/other/api/v1/workflow-tasks/task-1')
   })
 })

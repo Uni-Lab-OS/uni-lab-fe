@@ -16,25 +16,71 @@ import type {
 } from './api'
 import { WorkflowExecutionReadError } from './errors'
 
-/**
- * Task 详情/作业/展示列表会内嵌完整 execution_plan；大工作流（数千节点）单次可达数十 MB，
- * OS 繁忙时超过通用 12 秒超时，因此单独放宽。
- */
+// 首次完整定义、旧端点及 Jobs 仍可能很大，保留原分支的读取超时预算。
 const TASK_PROJECTION_TIMEOUT_MS = 45_000
 
 export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
+  // This client belongs to one endpoint/profile; cache immutable definitions only.
+  private readonly definitions = new Map<string, WorkflowExecutionRecord>()
+  private readonly pendingDetails = new Map<
+    string,
+    Promise<ReturnType<typeof decodeTaskRuntimeDetail>>
+  >()
+
   constructor(
     private readonly transport: RequestTransport,
     private readonly apiPrefix = '/api/v1',
   ) {}
 
-  async getTaskDetail(taskUuid: string) {
-    const response = await this.transport.request<WorkflowExecutionRecord>({
+  getTaskDetail(taskUuid: string) {
+    const pending = this.pendingDetails.get(taskUuid)
+    if (pending) return pending
+    const request = this.readTaskDetail(taskUuid).finally(() =>
+      this.pendingDetails.delete(taskUuid),
+    )
+    this.pendingDetails.set(taskUuid, request)
+    return request
+  }
+
+  private async readTaskDetail(taskUuid: string) {
+    const cached = this.definitions.get(taskUuid)
+    const url = `${this.apiPrefix}/workflow-tasks/${encodeURIComponent(taskUuid)}`
+    let response = await this.transport.request<WorkflowExecutionRecord>({
       method: 'GET',
-      url: `${this.apiPrefix}/workflow-tasks/${encodeURIComponent(taskUuid)}`,
+      url: cached ? `${url}?projection=state` : url,
       timeoutMs: TASK_PROJECTION_TIMEOUT_MS,
     })
-    return decodeTaskRuntimeDetail(response.data)
+    if (cached && response.data.definition_version === cached.definition_version) {
+      return decodeTaskRuntimeDetail({ ...cached, ...response.data })
+    }
+    if (
+      cached &&
+      (!('workflow_snapshot' in response.data) || !('execution_plan' in response.data))
+    ) {
+      response = await this.transport.request<WorkflowExecutionRecord>({
+        method: 'GET',
+        url,
+        timeoutMs: TASK_PROJECTION_TIMEOUT_MS,
+      })
+    }
+    const decoded = decodeTaskRuntimeDetail(response.data)
+    this.definitions.delete(taskUuid)
+    if (
+      typeof response.data.definition_version === 'string' &&
+      response.data.definition_version &&
+      'workflow_snapshot' in response.data &&
+      'execution_plan' in response.data
+    ) {
+      this.definitions.set(taskUuid, {
+        definition_version: response.data.definition_version,
+        workflow_snapshot: response.data.workflow_snapshot,
+        execution_plan: response.data.execution_plan,
+      })
+      // Large plans dominate memory; retain at most two task definitions.
+      while (this.definitions.size > 2)
+        this.definitions.delete(this.definitions.keys().next().value!)
+    }
+    return decoded
   }
 
   async listTasks(
