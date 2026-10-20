@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { decodeSchedulerTimeline, decodeTimePlan, type DeviceSummary } from '@unilab-fe/core'
 import { ScheduleGantt } from './SchedulePage'
+import { osTaskSummary, taskSummaryPage } from '../../../test/taskSummaryFixtures'
 
 // 替身须保持引用稳定：useBackendQuery 的副作用依赖 backend 与 report*，每次渲染换新会无限重取。
 // 每个用例换一个 backend 实例，避免按 backend 隔离的会话缓存把上一个用例的设备列表带过来。
@@ -21,7 +22,7 @@ function makeBackend() {
     }),
     core: {
       schedulerTimePlan: { getTimePlan: vi.fn(), getTimeline: vi.fn() },
-      executionRead: { listTaskPresentations: vi.fn() },
+      executionRead: { listTaskPresentations: vi.fn(), listTaskSummaries: vi.fn() },
       deviceActions: { listDevices: vi.fn() },
       deviceActionPresentations: { getActionPresentations: vi.fn() },
     },
@@ -165,5 +166,94 @@ describe('ScheduleGantt', () => {
     render(<ScheduleGantt />)
     await waitFor(() => expect(screen.getAllByText('robot').length).toBeGreaterThan(0))
     expect(screen.queryByText('机械臂')).not.toBeInTheDocument()
+  })
+})
+
+describe('ScheduleGantt with the task summary view', () => {
+  beforeEach(() => {
+    const backend = holder.current
+    backend.getCapabilityStatus = (capability: string) => ({
+      available: ['scheduler.timePlan', 'workflow.taskPresentationSummary'].includes(capability),
+    })
+    backend.core.executionRead.listTaskSummaries.mockResolvedValue(
+      taskSummaryPage([
+        osTaskSummary({
+          uuid: 'task-a',
+          description: '样品 A',
+          active_jobs: [
+            {
+              uuid: 'job-3',
+              workflow_node_uuid: 'node-3',
+              node_name: '展开',
+              executor_kind: 'device_action',
+              status: 'running',
+              attempt: 1,
+              device_id: 'robot',
+              started_at: '2026-10-20T08:01:00Z',
+            },
+            {
+              uuid: 'job-4',
+              workflow_node_uuid: 'node-4',
+              node_name: '确认点样',
+              executor_kind: 'manual_confirm',
+              status: 'intervention_required',
+              attempt: 1,
+              device_id: null,
+              started_at: null,
+            },
+          ],
+        }),
+      ]),
+    )
+    backend.core.schedulerTimePlan.getTimeline.mockResolvedValue(
+      decodeSchedulerTimeline({
+        now: NOW,
+        running: [
+          {
+            job_id: 'job-3',
+            workflow_id: 'task-a',
+            node_id: 'node-3',
+            device_id: 'robot',
+            action_name: 'develop_plate',
+            started_at: NOW - 30,
+            estimated_s: 60,
+          },
+          {
+            job_id: 'job-4',
+            workflow_id: 'task-a',
+            node_id: 'node-4',
+            device_id: 'staging_a',
+            action_name: 'confirm',
+            started_at: NOW - 10,
+          },
+        ],
+      }),
+    )
+  })
+
+  it('labels running bars with node names and executor kinds from the active jobs', async () => {
+    render(<ScheduleGantt />)
+    expect(
+      await screen.findByRole('button', { name: /样品 A · 展开 · 运行中 · 机械臂/ }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /样品 A · 确认点样 · 待人工确认/ }),
+    ).toBeInTheDocument()
+    const read = holder.current.core.executionRead
+    expect(read.listTaskSummaries).toHaveBeenCalledWith({ page: 1, pageSize: 20 })
+    expect(read.listTaskPresentations).not.toHaveBeenCalled()
+  })
+
+  it('shows the last snapshot immediately when the page is reopened within the window', async () => {
+    const first = render(<ScheduleGantt />)
+    await screen.findByRole('button', { name: /展开 · 运行中/ })
+    first.unmount()
+
+    render(<ScheduleGantt />)
+    expect(screen.getByRole('button', { name: /展开 · 运行中/ })).toBeInTheDocument()
+    expect(screen.queryByText('正在读取调度数据…')).not.toBeInTheDocument()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(holder.current.core.schedulerTimePlan.getTimeline).toHaveBeenCalledTimes(1)
+    expect(holder.current.core.executionRead.listTaskSummaries).toHaveBeenCalledTimes(1)
   })
 })

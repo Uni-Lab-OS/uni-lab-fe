@@ -1,8 +1,9 @@
-import type { TaskRuntimePresentation, WorkflowJobStatusCounts } from '@unilab-fe/core'
+import type { TaskRuntimeListItem, WorkflowJobStatusCounts } from '@unilab-fe/core'
 import { taskAttention } from '../tasks/taskStatusPresentation'
+import { taskProgress } from '../tasks/taskListSource'
 
 export interface TaskRow {
-  readonly task: TaskRuntimePresentation
+  readonly task: TaskRuntimeListItem
   readonly name: string
   readonly workflowName: string
   readonly description: string | null
@@ -15,7 +16,7 @@ export interface TaskRow {
   readonly updatedAt: string
 }
 
-export function toTaskRow(task: TaskRuntimePresentation): TaskRow {
+export function toTaskRow(task: TaskRuntimeListItem): TaskRow {
   return {
     task,
     name: taskDisplayName(task),
@@ -23,8 +24,8 @@ export function toTaskRow(task: TaskRuntimePresentation): TaskRow {
     description:
       task.description ?? readString(task.raw, ['description', 'task_description', 'subtitle']),
     // Core 已经从 OS 的 Task presentation 统一投影进度；页面不能再次按 Job
-    // 状态估算，否则会与任务列表及 OS 权威进度产生分歧。
-    progress: task.progress?.percent ?? null,
+    // 状态估算，否则会与任务列表及 OS 权威进度产生分歧。摘要视图没有进度。
+    progress: taskProgress(task)?.percent ?? null,
     jobCounts: task.jobCounts,
     attention: taskAttention(task),
     priority: task.priority,
@@ -75,11 +76,13 @@ export function formatDateTime(value: string): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
-export function taskDisplayName(task: TaskRuntimePresentation): string {
+export function taskDisplayName(task: Pick<TaskRuntimeListItem, 'raw'>): string {
   return readString(task.raw, ['name', 'task_name', 'title', 'description']) ?? '未命名任务'
 }
 
-export function workflowDisplayName(task: TaskRuntimePresentation): string {
+export function workflowDisplayName(
+  task: Pick<TaskRuntimeListItem, 'raw' | 'workflowUuid'>,
+): string {
   const snapshot = asRecord(task.raw.workflow_snapshot)
   const workflow = asRecord(snapshot?.workflow)
   return (

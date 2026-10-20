@@ -8,7 +8,6 @@ import sharedStyles from '../../styles/shared.module.scss'
 import { navigateTo } from '../../app/navigation'
 import { useDeviceNames } from '../../hooks/useDeviceNames'
 import { taskDisplayName } from '../overview/taskPresentation'
-import { taskNodeNames } from '../tasks/taskDomain'
 import { GanttChart, LegendSwatch } from './GanttChart'
 import {
   buildScheduleGantt,
@@ -18,6 +17,7 @@ import {
   type GanttBar,
 } from './scheduleGanttModel'
 import { useScheduleData } from './useScheduleData'
+import { collectScheduleNodeFacts, nodeKey } from './scheduleNodeFacts'
 import { blockReasonKinds, stalledPlanNodes } from '@unilab-fe/core'
 import { usePersistentStalls } from './usePersistentStalls'
 import styles from './SchedulePage.module.scss'
@@ -71,40 +71,27 @@ export function ScheduleGantt({
   }, [hasRunning])
 
   const now = tick / 1000 + data.serverOffset
-  const names = useMemo(() => {
-    const tasks = new Map<string, string>()
-    const nodes = new Map<string, ReadonlyMap<string, string>>()
-    for (const task of data.tasks) {
-      tasks.set(task.taskUuid, taskDisplayName(task))
-      nodes.set(task.taskUuid, taskNodeNames(task.raw))
-    }
-    return { tasks, nodes }
-  }, [data.tasks])
-  const { kinds, decided } = useMemo(() => {
-    const kinds = new Map<string, string>()
-    const decided = new Map<string, number>()
-    for (const task of data.tasks) {
-      for (const job of task.jobs) {
-        const key = `${task.taskUuid}|${job.workflowNodeUuid}`
-        kinds.set(key, job.executorKind)
-        const at = manualDecidedAt(job.raw)
-        if (at !== undefined) decided.set(key, at)
-      }
-    }
-    return { kinds, decided }
-  }, [data.tasks])
+  const taskNames = useMemo(
+    () => new Map(data.tasks.map((task) => [task.taskUuid, taskDisplayName(task)])),
+    [data.tasks],
+  )
+  const facts = useMemo(() => collectScheduleNodeFacts(data.tasks), [data.tasks])
+  const nodeName = useCallback(
+    (task: string, node: string) => facts.names.get(nodeKey(task, node)),
+    [facts],
+  )
   const gantt = useMemo(
     () =>
       buildScheduleGantt({
         timeline: data.timeline,
         plan: data.plan,
         now,
-        label: (taskId, nodeId, fallback) => names.nodes.get(taskId)?.get(nodeId) ?? fallback,
-        executorKind: (taskId, nodeId) => kinds.get(`${taskId}|${nodeId}`),
-        manualDecidedAt: (taskId, nodeId) => decided.get(`${taskId}|${nodeId}`),
+        label: (task, node, fallback) => nodeName(task, node) ?? fallback,
+        executorKind: (task, node) => facts.executorKinds.get(nodeKey(task, node)),
+        manualDecidedAt: (task, node) => facts.manualDecidedAt.get(nodeKey(task, node)),
         devices: deviceNames,
       }),
-    [data.plan, data.timeline, decided, deviceNames, kinds, names, now],
+    [data.plan, data.timeline, deviceNames, facts, nodeName, now],
   )
 
   // 只提示持续 60 秒以上的无法排程节点；派发间隙短暂出现的阻塞不提示。
@@ -112,8 +99,8 @@ export function ScheduleGantt({
   const stalled = usePersistentStalls(rawStalls)
 
   const taskName = useCallback(
-    (id: string) => names.tasks.get(id) ?? `任务 ${id.slice(0, 8)}`,
-    [names],
+    (id: string) => taskNames.get(id) ?? `任务 ${id.slice(0, 8)}`,
+    [taskNames],
   )
   const open = useCallback(
     (bar: GanttBar) => (onOpenBar ? onOpenBar(bar) : openBarInTasks(bar)),
@@ -197,9 +184,8 @@ export function ScheduleGantt({
             <ul className={styles.stallList}>
               {stalled.slice(0, 5).map((item) => (
                 <li key={`${item.taskId}:${item.nodeId}`}>
-                  {names.tasks.get(item.taskId) ?? item.taskId.slice(0, 8)} ·{' '}
-                  {names.nodes.get(item.taskId)?.get(item.nodeId) ?? item.nodeId.slice(0, 8)}：
-                  {item.reason}
+                  {taskNames.get(item.taskId) ?? item.taskId.slice(0, 8)} ·{' '}
+                  {nodeName(item.taskId, item.nodeId) ?? item.nodeId.slice(0, 8)}：{item.reason}
                 </li>
               ))}
               {stalled.length > 5 && <li>另有 {stalled.length - 5} 个</li>}
@@ -343,13 +329,4 @@ function blockedSummary(blocked: readonly { readonly reason: string }[]): string
     .sort((a, b) => b[1] - a[1])
     .map(([kind, count]) => `${BLOCKED_REASONS[kind] ?? kind}：${count} 个节点`)
     .join('\n')
-}
-
-/** OS 作业投影中人工确认的批准时刻（秒）；未批准或字段缺失时为 undefined。 */
-function manualDecidedAt(raw: Readonly<Record<string, unknown>>): number | undefined {
-  const confirmation = raw.manual_confirmation
-  if (typeof confirmation !== 'object' || confirmation === null) return undefined
-  const decided = (confirmation as Record<string, unknown>).decided_at
-  const time = typeof decided === 'string' ? Date.parse(decided) : Number.NaN
-  return Number.isFinite(time) ? time / 1000 : undefined
 }

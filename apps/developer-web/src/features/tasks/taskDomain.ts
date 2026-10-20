@@ -1,10 +1,11 @@
 import type {
   TaskJobSummary,
-  TaskRuntimePresentation,
+  TaskRuntimeListItem,
   WorkflowJobStatusCounts,
   WorkflowNodeJobDetail,
 } from '@unilab-fe/core'
 import { taskAttention } from './taskStatusPresentation'
+import { taskProgress } from './taskListSource'
 import {
   formatDateTime,
   normalizeStatus,
@@ -13,7 +14,7 @@ import {
 } from '../overview/taskPresentation'
 
 export interface TaskListRow {
-  readonly task: TaskRuntimePresentation
+  readonly task: TaskRuntimeListItem
   readonly name: string
   readonly workflowName: string
   readonly status: string
@@ -38,7 +39,7 @@ export function filterTaskListRows(
   })
 }
 
-export function toTaskListRow(task: TaskRuntimePresentation): TaskListRow {
+export function toTaskListRow(task: TaskRuntimeListItem): TaskListRow {
   return {
     task,
     name: taskDisplayName(task),
@@ -49,7 +50,7 @@ export function toTaskListRow(task: TaskRuntimePresentation): TaskListRow {
       task.controlStatus,
       task.cleanupStatus,
     ),
-    progress: task.progress?.percent ?? null,
+    progress: taskProgress(task)?.percent ?? null,
     jobCounts: task.jobCounts,
     attention: taskAttention(task),
   }
@@ -114,7 +115,7 @@ export function taskNodeNames(
       const uuid = stringValue(node?.uuid)
       const name =
         stringValue(node?.name) ?? stringValue(node?.display_name) ?? stringValue(node?.action_name)
-      if (uuid && name) names.set(uuid, technicalNodeLabel(name))
+      if (uuid && name) names.set(uuid, displayNodeName(name))
     }
   }
   return names
@@ -170,7 +171,8 @@ function recordValue(value: unknown, key: string): unknown {
   return asRecord(value)?.[key]
 }
 
-function technicalNodeLabel(value: string): string {
+/** 节点展示名：内置技术节点换成中文，其余原样。 */
+export function displayNodeName(value: string): string {
   return (
     {
       transfer_material_atomic: '原子物料搬运',

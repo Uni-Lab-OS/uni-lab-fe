@@ -11,6 +11,7 @@ import {
   statusLabels,
   toTimelineEvent,
 } from './taskDetailModel'
+import { taskListView } from './taskListSource'
 
 export function useTaskDetailController(requestedTaskUuid?: string) {
   const { backend } = useBackend()
@@ -28,12 +29,13 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
   const sendCommand = debugStore((state) => state.sendCommand)
   const stopRuntimeSubscription = debugStore((state) => state.stopRuntimeSubscription)
 
+  // 侧边任务列表只需 Task 字段：profile 声明摘要能力时读摘要视图，否则读标准 Task presentation。
+  // debug 是前端场景语义，不能作为后端 view 参数下发。
+  const listView = taskListView(backend)
   useEffect(() => {
-    // Task 详情读取标准 Task presentation；OS 只接受空 view 或 matrix，
-    // debug 是前端场景语义，不能作为后端查询参数下发。
-    void load({ page: 1, pageSize: 20 })
+    void load({ page: 1, pageSize: 20, taskListView: listView })
     return () => stopRuntimeSubscription()
-  }, [load, stopRuntimeSubscription])
+  }, [listView, load, stopRuntimeSubscription])
 
   useEffect(() => {
     const taskUuid = requestedTaskUuid ?? viewModel?.tasks[0]?.taskUuid

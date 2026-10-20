@@ -17,6 +17,9 @@ import { OverviewSkeleton, SummaryStrip, TaskColumn } from './OverviewSections'
 import { toTaskRow, type TaskRow } from './taskPresentation'
 import { useBackend } from '../../app/BackendProvider'
 import { DebugTargetModal, type DebugTargetKind } from './DebugTargetModal'
+import { loadTaskList, TASK_LIST_FRESHNESS, taskListQueryKey } from '../tasks/taskListSource'
+
+const OVERVIEW_PAGE = { page: 1, pageSize: 20 } as const
 
 const previewTasksEnabled =
   import.meta.env.DEV && new URLSearchParams(window.location.search).get('previewTasks') === '1'
@@ -159,12 +162,12 @@ export function OverviewPage({
   onAttentionChange?: (hasAttention: boolean) => void
 }) {
   const { backend } = useBackend()
-  const query = useBackendQuery('workflow-task-presentations', (backend) =>
-    backend.core.executionRead.listTaskPresentations({
-      page: 1,
-      // 每条展示投影内嵌完整执行计划，大工作流单条约 10 MB；总览只需最近的任务。
-      pageSize: 20,
-    }),
+  // 总览只需最近的任务；默认展示投影每条内嵌执行计划（大工作流约 10 MB），profile 声明
+  // 摘要能力时改读摘要视图。与任务页首页共用同一份缓存。
+  const query = useBackendQuery(
+    taskListQueryKey(backend, OVERVIEW_PAGE),
+    (current) => loadTaskList(current, OVERVIEW_PAGE),
+    TASK_LIST_FRESHNESS,
   )
   // 任务状态变化时重读列表（取消、完成、待收尾等），不轮询。
   useRuntimeInvalidation(query.reload)

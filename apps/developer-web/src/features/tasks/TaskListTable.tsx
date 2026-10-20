@@ -11,6 +11,7 @@ import { AppIcon } from '../../components/ui/Icon'
 import { TableText } from '../../components/ui/TableText'
 import { displayTime, type TaskListRow } from './taskDomain'
 import { formatJobCounts } from './taskStatusPresentation'
+import { taskProgress } from './taskListSource'
 import taskListStyles from './TaskList.module.scss'
 
 export function TaskListTable({
@@ -76,8 +77,8 @@ export function TaskListTable({
             className={clsx(sharedStyles['progress-cell'])}
             metaClassName={clsx(sharedStyles['muted-cell'])}
             percent={row.progress}
-            completed={row.task.progress?.completed ?? 0}
-            total={row.task.progress?.total ?? 0}
+            completed={taskProgress(row.task)?.completed ?? 0}
+            total={taskProgress(row.task)?.total ?? 0}
           />
         ) : (
           // OS 未提供业务进度：只如实列出当前 attempt 各状态数量，不估算百分比。

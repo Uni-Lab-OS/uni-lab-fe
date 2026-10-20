@@ -11,24 +11,30 @@ import { useRuntimeInvalidation } from '../../hooks/useRuntimeInvalidation'
 import { filterTaskListRows, toTaskListRow, type TaskListRow } from './taskDomain'
 import { TaskListTable } from './TaskListTable'
 import { TaskDetailPage } from './TaskDetailPage'
+import { loadTaskList, TASK_LIST_FRESHNESS, taskListQueryKey } from './taskListSource'
+import { useBackend } from '../../app/BackendProvider'
 
 /**
- * OS 的任务展示投影每条内嵌完整执行计划与作业（大工作流单条约 10 MB），一次取几百条会让
- * 页面和 OS 都卡住。按 20 条一页加载，需要时再“加载更多”。
+ * OS 的默认任务展示投影每条内嵌完整执行计划与作业（大工作流单条约 10 MB），一次取几百条会让
+ * 页面和 OS 都卡住；摘要视图虽小，也保持同样的分页。按 20 条一页加载，需要时再“加载更多”。
  */
 const PAGE = 20
 
 export function TasksPage() {
+  const { backend } = useBackend()
   const [limit, setLimit] = useState(PAGE)
-  const query = useBackendQuery(`task-presentations:${limit}`, (backend) =>
-    backend.core.executionRead.listTaskPresentations({ page: 1, pageSize: limit }),
+  const listInput = { page: 1, pageSize: limit }
+  const query = useBackendQuery(
+    taskListQueryKey(backend, listInput),
+    (current) => loadTaskList(current, listInput),
+    TASK_LIST_FRESHNESS,
   )
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('all')
   const [selectedUuid, setSelectedUuid] = useState<string | null>(() =>
     new URLSearchParams(window.location.search).get('task'),
   )
-  // 打开详情时列表不可见，不随运行通知重读（大工作流的展示投影单条可达 10 MB）；返回列表时会重读。
+  // 打开详情时列表不可见，不随运行通知重读；期间的通知会让缓存过期，返回列表时重读。
   useRuntimeInvalidation(query.reload, { enabled: !selectedUuid })
   const rows = useMemo(
     () => filterTaskListRows((query.data?.items ?? []).map(toTaskListRow), keyword, status),
