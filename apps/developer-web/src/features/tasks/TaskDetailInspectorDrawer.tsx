@@ -58,7 +58,7 @@ export function TaskDetailInspectorDrawer({ controller }: { controller: Controll
         </div>
         <div className={clsx(taskDetailInspectorStyles['debug-inspector-state'])}>
           <StatusBadge status={selectedEvent.status} />
-          <span>{selectedEvent.device ?? 'OS NodeJob'}</span>
+          <span title={selectedEvent.deviceTitle}>{selectedEvent.device ?? 'OS NodeJob'}</span>
           <span>{selectedEvent.time}</span>
         </div>
         <nav

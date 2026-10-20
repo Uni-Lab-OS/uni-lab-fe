@@ -1,4 +1,5 @@
 import type {
+  DeviceNameDirectory,
   ManualConfirmationAction,
   WorkflowDebugTimelineItem,
   WorkflowNodeJobDetail,
@@ -28,7 +29,10 @@ export interface TimelineEvent {
   readonly group: string
   readonly description: string
   readonly status: EventStatus
+  /** 执行列文字：设备显示中文名（OS 未提供名称时为设备身份），非设备节点为类别名。 */
   readonly device?: string
+  /** 执行设备的原始身份，用于提示；没有执行设备时为空。 */
+  readonly deviceTitle?: string
   readonly duration: string
   readonly progress?: number
   /** 服务端时间排序键：开始时间，缺失时用结束时间；都没有则为 null（显示“未开始”）。 */
@@ -121,7 +125,13 @@ export function formatTimelineDuration(
   return ['running', 'dispatched', 'pending'].includes(status) ? '执行中' : '时间未提供'
 }
 
-export function toTimelineEvent(job: WorkflowDebugTimelineItem): TimelineEvent {
+/** 设备显示名目录（OS 设备读模型与展示元数据）；缺省时执行列显示设备身份。 */
+export type TimelineDeviceNames = Pick<DeviceNameDirectory, 'resolve'>
+
+export function toTimelineEvent(
+  job: WorkflowDebugTimelineItem,
+  devices?: TimelineDeviceNames,
+): TimelineEvent {
   if (job.uncertaintyReason && (job.status === 'running' || job.status === 'failed')) {
     // OS 保持占用、等待物理对账：不能显示成“执行中”或普通失败。
     return {
@@ -131,7 +141,7 @@ export function toTimelineEvent(job: WorkflowDebugTimelineItem): TimelineEvent {
       group: job.executorKind,
       description: `结果未知，需现场核对后处置：${job.uncertaintyReason}`,
       status: 'unknown',
-      device: timelineDevice(job),
+      ...timelineDevice(job, devices),
       duration: formatTimelineDuration(job.startedAt, job.finishedAt, job.status),
       ...timelineOrder(job),
     }
@@ -155,7 +165,7 @@ export function toTimelineEvent(job: WorkflowDebugTimelineItem): TimelineEvent {
         : job.status === 'pending' && Object.keys(job.waitReason).length > 0
           ? 'waiting'
           : mapJobStatus(job.status),
-    device: timelineDevice(job),
+    ...timelineDevice(job, devices),
     duration: formatTimelineDuration(job.startedAt, job.finishedAt, job.status),
     ...timelineOrder(job),
   }
@@ -170,13 +180,19 @@ const EXECUTOR_LABELS: Readonly<Record<string, string>> = {
 }
 
 /**
- * 设备动作显示实际执行设备；人工确认等非设备类别显示类别名，若绑定了设备一并显示
- * （如“人工确认 · robot”：批准后由该设备执行）。
+ * 设备动作显示实际执行设备的中文名；人工确认等非设备类别显示类别名，若绑定了设备一并显示
+ * （如“人工确认 · 机械臂”：批准后由该设备执行）。原始设备身份放在提示里。
  */
-function timelineDevice(job: WorkflowDebugTimelineItem): string {
+function timelineDevice(
+  job: WorkflowDebugTimelineItem,
+  devices: TimelineDeviceNames | undefined,
+): { readonly device: string; readonly deviceTitle?: string } {
   const kind = EXECUTOR_LABELS[job.executorKind]
-  if (!kind) return job.deviceId ?? job.executorKind
-  return job.deviceId ? `${kind} · ${job.deviceId}` : kind
+  const deviceId = job.deviceId || null
+  const deviceName = deviceId ? (devices?.resolve(deviceId).name ?? deviceId) : null
+  const title = deviceId ? { deviceTitle: `设备 ID：${deviceId}` } : {}
+  if (!kind) return { device: deviceName ?? job.executorKind, ...title }
+  return { device: deviceName ? `${kind} · ${deviceName}` : kind, ...title }
 }
 
 function timelineTimeLabel(job: WorkflowDebugTimelineItem): string {

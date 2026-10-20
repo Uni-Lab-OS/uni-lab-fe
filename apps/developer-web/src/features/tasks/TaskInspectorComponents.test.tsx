@@ -97,6 +97,15 @@ describe('developer-web task inspector components', () => {
     expect(onSelect).toHaveBeenCalledWith(timelineItem)
   })
 
+  it('shows the raw device id as the execution column tooltip', () => {
+    render(
+      <TaskExecutionTimeline
+        items={[{ ...timelineItem, device: '机械臂', deviceTitle: '设备 ID：robot-1' }]}
+      />,
+    )
+    expect(screen.getByText('执行：机械臂')).toHaveAttribute('title', '设备 ID：robot-1')
+  })
+
   it('renders section headings and breaks the connector before each new section', () => {
     render(
       <TaskExecutionTimeline

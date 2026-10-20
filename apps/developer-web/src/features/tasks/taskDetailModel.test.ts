@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { WorkflowDebugTimelineItem } from '@unilab-fe/core'
+import {
+  buildDeviceNameDirectory,
+  type DeviceSummary,
+  type WorkflowDebugTimelineItem,
+} from '@unilab-fe/core'
 import {
   arrangeTimeline,
   findTimelineJob,
@@ -196,6 +200,72 @@ describe('resource waits', () => {
   })
 })
 
+describe('timeline execution device names', () => {
+  const robot: DeviceSummary = {
+    kind: 'device_summary',
+    source: 'os',
+    deviceUuid: 'c4190b68-adb6-5c82-952f-f1ef5a37804b',
+    materialUuid: 'c4190b68-adb6-5c82-952f-f1ef5a37804b',
+    resourceTemplateUuid: 'tpl-robot',
+    deviceKey: 'robot',
+    localDeviceId: 'robot',
+    namespace: 'edge-1',
+    label: '机械臂',
+    online: true,
+    edgeStatus: null,
+    dispatchable: true,
+    dispatchBlockReason: null,
+    executionOccupancies: null,
+    actions: [],
+    raw: {},
+  }
+  const devices = buildDeviceNameDirectory({ devices: [robot] })
+  const job = (over: Partial<WorkflowDebugTimelineItem>): WorkflowDebugTimelineItem => ({
+    jobUuid: 'j',
+    workflowNodeUuid: 'n',
+    nodeLabel: '取板',
+    status: 'succeeded',
+    attempt: 1,
+    topologicalIndex: 0,
+    executorKind: 'device_action',
+    startedAt: null,
+    finishedAt: null,
+    waitReason: {},
+    errorInfo: [],
+    currentAttempt: true,
+    ...over,
+  })
+
+  it('shows the Chinese device name and keeps the raw id for the tooltip', () => {
+    expect(toTimelineEvent(job({ deviceId: 'robot' }), devices)).toMatchObject({
+      device: '机械臂',
+      deviceTitle: '设备 ID：robot',
+    })
+    // 物料 UUID 形式的设备身份也解析到同一设备。
+    expect(
+      toTimelineEvent(job({ deviceId: 'c4190b68-adb6-5c82-952f-f1ef5a37804b' }), devices),
+    ).toMatchObject({
+      device: '机械臂',
+      deviceTitle: '设备 ID：c4190b68-adb6-5c82-952f-f1ef5a37804b',
+    })
+    expect(
+      toTimelineEvent(job({ executorKind: 'manual_confirm', deviceId: 'robot' }), devices),
+    ).toMatchObject({ device: '人工确认 · 机械臂', deviceTitle: '设备 ID：robot' })
+  })
+
+  it('falls back to the raw id when the OS has no display name, and to the category otherwise', () => {
+    expect(toTimelineEvent(job({ deviceId: 'staging_a' }), devices)).toMatchObject({
+      device: 'staging_a',
+      deviceTitle: '设备 ID：staging_a',
+    })
+    expect(toTimelineEvent(job({ deviceId: 'robot' }))).toMatchObject({ device: 'robot' })
+    const manual = toTimelineEvent(job({ executorKind: 'manual_confirm', deviceId: null }), devices)
+    expect(manual.device).toBe('人工确认')
+    expect(manual.deviceTitle).toBeUndefined()
+    expect(toTimelineEvent(job({ executorKind: 'loop_head' }), devices).device).toBe('loop_head')
+  })
+})
+
 describe('timeline ordering: current work on top, then history most recent first', () => {
   const job = (over: Partial<WorkflowDebugTimelineItem>): WorkflowDebugTimelineItem => ({
     jobUuid: 'j',
@@ -263,7 +333,7 @@ describe('timeline ordering: current work on top, then history most recent first
     }),
     job({ jobUuid: 'pending-10', topologicalIndex: 10, status: 'pending' }),
     job({ jobUuid: 'canceled-11', topologicalIndex: 11, status: 'canceled' }),
-  ].map(toTimelineEvent)
+  ].map((item) => toTimelineEvent(item))
 
   it('pins running, dispatching, manual-confirmation, unknown-result and resource-waiting entries', () => {
     const arranged = arrangeTimeline(events, {

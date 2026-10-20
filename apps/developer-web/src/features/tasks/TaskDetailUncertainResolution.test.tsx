@@ -173,7 +173,7 @@ describe('arrangeTimeline (field 13.11)', () => {
         startedAt: '2026-10-16T10:23:21Z',
       }),
       ev({ jobUuid: 'early', topologicalIndex: 10, startedAt: '2026-10-16T10:12:00Z' }),
-    ].map(toTimelineEvent)
+    ].map((item) => toTimelineEvent(item))
     const shown = arrangeTimeline(events, {
       order: 'time',
       showUnexecuted: false,
@@ -196,7 +196,7 @@ describe('arrangeTimeline (field 13.11)', () => {
       ev({ jobUuid: 'c2', status: 'canceled', topologicalIndex: 3 }),
       ev({ jobUuid: 's1', status: 'skipped', topologicalIndex: 4 }),
       ev({ jobUuid: 'p1', status: 'pending', topologicalIndex: 5 }),
-    ].map(toTimelineEvent)
+    ].map((item) => toTimelineEvent(item))
     const arranged = arrangeTimeline(events, {
       order: 'time',
       showUnexecuted: false,

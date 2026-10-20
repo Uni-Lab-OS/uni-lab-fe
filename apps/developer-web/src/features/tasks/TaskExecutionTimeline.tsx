@@ -23,6 +23,8 @@ export interface TaskExecutionTimelineItem {
   readonly title: string
   readonly status: TaskExecutionStatus
   readonly device?: string
+  /** 执行列的提示（原始设备身份）。 */
+  readonly deviceTitle?: string
   readonly duration: string
   readonly progress?: number
 }
@@ -102,7 +104,7 @@ export function TaskExecutionTimeline({
                       <StatusBadge status={item.status} />
                     </span>
                     <span className={styles.meta}>
-                      <span>执行：{item.device ?? 'OS 未提供'}</span>
+                      <span title={item.deviceTitle}>执行：{item.device ?? 'OS 未提供'}</span>
                       <span>持续时间：{item.duration}</span>
                     </span>
                     {item.status === 'running' && (

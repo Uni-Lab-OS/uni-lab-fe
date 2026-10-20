@@ -13,6 +13,7 @@ import {
 } from './taskDetailModel'
 import { taskListView } from './taskListSource'
 import { observeTaskNodes } from './observedTaskNodes'
+import { useDeviceNames } from '../../hooks/useDeviceNames'
 
 export function useTaskDetailController(requestedTaskUuid?: string) {
   const { backend } = useBackend()
@@ -61,9 +62,11 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
   const facts = viewModel?.facts
   const readyFrontier = facts?.readyFrontier ?? []
   const joins = facts?.joins ?? []
+  // 执行列显示设备中文名（与设备页、调度甘特图同一目录），原始设备身份放在提示里。
+  const deviceNames = useDeviceNames()
   const timelineEvents = useMemo(
-    () => (viewModel?.timeline ?? []).map(toTimelineEvent),
-    [viewModel?.timeline],
+    () => (viewModel?.timeline ?? []).map((job) => toTimelineEvent(job, deviceNames)),
+    [deviceNames, viewModel?.timeline],
   )
   // 多分支并行时可能同时有多个节点在执行或等待处置，概览需要全部列出。
   const activeTimelineEvents = useMemo(
