@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Segmented } from 'antd'
 import { openBarInTasks, ScheduleGantt } from '../schedule/SchedulePage'
 import type { GanttBar } from '../schedule/scheduleGanttModel'
+import { detailNodeFacts } from '../schedule/scheduleNodeFacts'
 import { useBackend } from '../../app/BackendProvider'
 import taskDetailPageStyles from './TaskDetailPage.module.scss'
 import { TaskDetailSummary } from './TaskDetailSummary'
@@ -72,6 +73,14 @@ export function TaskDetailPage({
     })
   }, [controller.timelineEvents, planStalls, viewModel?.timeline])
   const humanNodeIds = useMemo(() => humanCommandNodeIds(selectedTask?.raw), [selectedTask?.raw])
+  // 本任务的节点名与作业事实已随详情读到，甘特图直接复用，不再为标签另行请求。
+  const ganttFacts = useMemo(
+    () =>
+      taskUuid && viewModel?.selectedTaskUuid === taskUuid
+        ? detailNodeFacts(taskUuid, viewModel.timeline, viewModel.selectedJobs)
+        : undefined,
+    [taskUuid, viewModel?.selectedJobs, viewModel?.selectedTaskUuid, viewModel?.timeline],
+  )
 
   const findJob = useCallback(
     (target: TaskDetailFocus) => findTimelineJob(viewModel?.timeline ?? [], target),
@@ -160,7 +169,7 @@ export function TaskDetailPage({
       )}
       {view === 'gantt' && ganttAvailable ? (
         <section className={clsx(taskDetailPageStyles['debug-gantt'])} aria-label="调度甘特图">
-          <ScheduleGantt taskId={taskUuid} onOpenBar={openGanttBar} />
+          <ScheduleGantt taskId={taskUuid} onOpenBar={openGanttBar} focusFacts={ganttFacts} />
         </section>
       ) : (
         <TaskDetailTimelinePanel controller={controller} />

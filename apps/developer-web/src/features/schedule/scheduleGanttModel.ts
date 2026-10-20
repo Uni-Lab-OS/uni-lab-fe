@@ -4,6 +4,7 @@ import type {
   TimePlanCandidate,
   TimePlanSnapshot,
 } from '@unilab-fe/core'
+import { placeholderNodeLabel } from './scheduleNodeFacts'
 
 /** manual：人工确认等待中（OS 已为其登记在途并占用设备，但设备尚未动作）。 */
 export type GanttBarKind = 'actual' | 'running' | 'manual' | 'planned'
@@ -108,13 +109,16 @@ export function buildScheduleGantt(input: {
   /** 当前服务端时刻（秒）：读取时的服务端 now 加上本地经过的时间，仅用于画“现在”。 */
   readonly now: number
   readonly label?: (taskId: string, nodeId: string, fallback: string) => string
-  /** 作业执行种类（来自 Task/Jobs 投影）；用于区分人工确认等待与设备动作。 */
-  readonly executorKind?: (taskId: string, nodeId: string) => string | undefined
+  /**
+   * 作业执行种类（来自 Task/Jobs 投影）；用于区分人工确认等待与设备动作。
+   * 时间线条目额外给出作业身份，计划条没有作业。
+   */
+  readonly executorKind?: (taskId: string, nodeId: string, jobId?: string) => string | undefined
   /**
    * 人工确认的批准时刻（秒，来自作业 manual_confirmation.decided_at）。批准后作业执行种类
    * 变为设备动作，但调度器的在途区间从登记时开始，包含人的等待，需要拆开画。
    */
-  readonly manualDecidedAt?: (taskId: string, nodeId: string) => number | undefined
+  readonly manualDecidedAt?: (taskId: string, nodeId: string, jobId?: string) => number | undefined
   /** 设备显示名目录（OS 设备读模型与展示元数据）；缺省时泳道显示设备身份。 */
   readonly devices?: Pick<DeviceNameDirectory, 'resolve'>
 }): ScheduleGantt {
@@ -134,8 +138,9 @@ export function buildScheduleGantt(input: {
     const name = label(
       entry.taskId,
       entry.nodeId,
-      entry.actionName || entry.deviceActionKey || entry.nodeId,
+      entry.actionName || entry.deviceActionKey || placeholderNodeLabel(entry.nodeId),
     )
+    const executorKind = input.executorKind?.(entry.taskId, entry.nodeId, entry.jobId)
     const deviceId =
       entry.deviceId || entry.deviceActionKey.split('/').filter(Boolean)[1] || '未知设备'
     const base = {
@@ -147,7 +152,7 @@ export function buildScheduleGantt(input: {
     }
     if (entry.endedAt == null) {
       runningKeys.add(`${entry.taskId}|${entry.nodeId}`)
-      if (input.executorKind?.(entry.taskId, entry.nodeId) === 'manual_confirm') {
+      if (executorKind === 'manual_confirm') {
         // 调度器把人工确认节点登记为在途并占用设备，但未派发给设备；不预测人的等待时长。
         bars.push({
           ...base,
@@ -172,7 +177,7 @@ export function buildScheduleGantt(input: {
         estimatedEnd: entry.startedAt + entry.estimatedS,
         ...(planned ? { plannedStart: planned.start, plannedEnd: planned.end } : {}),
       })
-    } else if (input.executorKind?.(entry.taskId, entry.nodeId) === 'manual_confirm') {
+    } else if (executorKind === 'manual_confirm') {
       // 人工确认节点的区间包含人的等待时间，不是设备动作耗时。
       bars.push({
         ...base,
@@ -184,7 +189,7 @@ export function buildScheduleGantt(input: {
         state: entry.state,
       })
     } else {
-      const decidedAt = input.manualDecidedAt?.(entry.taskId, entry.nodeId)
+      const decidedAt = input.manualDecidedAt?.(entry.taskId, entry.nodeId, entry.jobId)
       let start = entry.startedAt
       if (decidedAt !== undefined && decidedAt > entry.startedAt && decidedAt < entry.endedAt) {
         bars.push({
@@ -216,7 +221,7 @@ export function buildScheduleGantt(input: {
       const end = candidate.timeOrigin + node.endMs / 1000
       // 已完全落在“现在”之前的预测区间属于过期计划片段，不画。
       if (end <= input.now) continue
-      const name = label(node.taskId, node.nodeId, node.nodeId.slice(0, 8))
+      const name = label(node.taskId, node.nodeId, placeholderNodeLabel(node.nodeId))
       bars.push({
         id: `plan:${node.taskId}:${node.nodeId}`,
         kind: 'planned',

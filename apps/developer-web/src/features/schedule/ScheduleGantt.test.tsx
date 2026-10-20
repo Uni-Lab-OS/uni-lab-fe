@@ -22,7 +22,11 @@ function makeBackend() {
     }),
     core: {
       schedulerTimePlan: { getTimePlan: vi.fn(), getTimeline: vi.fn() },
-      executionRead: { listTaskPresentations: vi.fn(), listTaskSummaries: vi.fn() },
+      executionRead: {
+        listTaskPresentations: vi.fn(),
+        listTaskSummaries: vi.fn(),
+        getNodeJobDetail: vi.fn(),
+      },
       deviceActions: { listDevices: vi.fn() },
       deviceActionPresentations: { getActionPresentations: vi.fn() },
     },
@@ -255,5 +259,59 @@ describe('ScheduleGantt with the task summary view', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(holder.current.core.schedulerTimePlan.getTimeline).toHaveBeenCalledTimes(1)
     expect(holder.current.core.executionRead.listTaskSummaries).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps naming finished nodes and reads only the finished manual job, never the task definition', async () => {
+    render(<ScheduleGantt />)
+    await screen.findByRole('button', { name: /确认点样 · 待人工确认/ })
+
+    const backend = holder.current
+    // 下一次读取：两个节点都已结束，摘要不再列出它们。
+    backend.core.executionRead.listTaskSummaries.mockResolvedValue(
+      taskSummaryPage([osTaskSummary({ uuid: 'task-a', description: '样品 A' })]),
+    )
+    backend.core.schedulerTimePlan.getTimeline.mockResolvedValue(
+      decodeSchedulerTimeline({
+        now: NOW,
+        completed: [
+          {
+            job_id: 'job-3',
+            workflow_id: 'task-a',
+            node_id: 'node-3',
+            device_id: 'robot',
+            action_name: 'develop_plate',
+            started_at: NOW - 30,
+            ended_at: NOW - 5,
+            state: 'succeeded',
+          },
+          {
+            job_id: 'job-4',
+            workflow_id: 'task-a',
+            node_id: 'node-4',
+            device_id: 'staging_a',
+            action_name: 'confirm',
+            started_at: NOW - 10,
+            ended_at: NOW - 2,
+            state: 'succeeded',
+          },
+        ],
+      }),
+    )
+    backend.core.executionRead.getNodeJobDetail.mockResolvedValue({
+      executorKind: 'manual_confirm',
+      raw: {},
+    })
+    // antd 按钮在两个汉字间插入空格；加载动画结束前名称还带着 loading 图标。
+    fireEvent.click(screen.getByRole('button', { name: /刷\s*新/ }))
+
+    expect(
+      await screen.findByRole('button', { name: /样品 A · 展开 · 实际执行 · 成功/ }),
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /确认点样 · 人工确认等待（已结束）/ }),
+    ).toBeInTheDocument()
+    expect(backend.core.executionRead.getNodeJobDetail).toHaveBeenCalledTimes(1)
+    expect(backend.core.executionRead.getNodeJobDetail).toHaveBeenCalledWith('job-4')
+    expect(backend.core.executionRead.listTaskPresentations).not.toHaveBeenCalled()
   })
 })

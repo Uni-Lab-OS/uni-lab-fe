@@ -17,7 +17,17 @@ import {
   type GanttBar,
 } from './scheduleGanttModel'
 import { useScheduleData } from './useScheduleData'
-import { collectScheduleNodeFacts, nodeKey } from './scheduleNodeFacts'
+import {
+  collectScheduleNodeFacts,
+  EMPTY_NODE_FACTS,
+  mergeNodeFacts,
+  placeholderNodeLabel,
+  scheduleLookups,
+  type ScheduleNodeFacts,
+} from './scheduleNodeFacts'
+import { useManualJobFacts } from './useManualJobFacts'
+import { observedTaskNodes } from '../tasks/observedTaskNodes'
+import { useBackend } from '../../app/BackendProvider'
 import { blockReasonKinds, stalledPlanNodes } from '@unilab-fe/core'
 import { usePersistentStalls } from './usePersistentStalls'
 import styles from './SchedulePage.module.scss'
@@ -58,9 +68,17 @@ export function openBarInTasks(bar: Pick<GanttBar, 'taskId' | 'nodeId' | 'jobId'
 export function ScheduleGantt({
   taskId,
   onOpenBar,
-}: { taskId?: string; onOpenBar?: (bar: GanttBar) => void } = {}) {
+  focusFacts,
+}: {
+  taskId?: string
+  onOpenBar?: (bar: GanttBar) => void
+  /** 调用方已读取的任务事实（任务详情页的当前任务），补足列表投影缺少的节点。 */
+  focusFacts?: ScheduleNodeFacts
+} = {}) {
+  const { backend } = useBackend()
   const data = useScheduleData()
   const deviceNames = useDeviceNames()
+  const manualJobs = useManualJobFacts(data.timeline)
   const [tick, setTick] = useState(() => Date.now())
   const hasRunning = (data.timeline?.entries ?? []).some((entry) => entry.endedAt == null)
 
@@ -75,23 +93,33 @@ export function ScheduleGantt({
     () => new Map(data.tasks.map((task) => [task.taskUuid, taskDisplayName(task)])),
     [data.tasks],
   )
-  const facts = useMemo(() => collectScheduleNodeFacts(data.tasks), [data.tasks])
-  const nodeName = useCallback(
-    (task: string, node: string) => facts.names.get(nodeKey(task, node)),
-    [facts],
+  // 节点名与执行种类：调用方给的任务事实（任务详情已读到的当前任务）、列表投影（摘要只含在途
+  // Job）与本会话见过的节点名、按需读取的已结束人工确认作业，后者覆盖前者。都没有时用动作名
+  // 或“节点 <身份>”占位，不为标签下载整份任务定义。
+  const lookups = useMemo(
+    () =>
+      scheduleLookups(
+        mergeNodeFacts(
+          focusFacts,
+          collectScheduleNodeFacts(data.tasks, observedTaskNodes(backend)),
+          { ...EMPTY_NODE_FACTS, jobs: manualJobs },
+        ),
+      ),
+    [backend, data.tasks, focusFacts, manualJobs],
   )
+  const nodeName = lookups.nodeName
   const gantt = useMemo(
     () =>
       buildScheduleGantt({
         timeline: data.timeline,
         plan: data.plan,
         now,
-        label: (task, node, fallback) => nodeName(task, node) ?? fallback,
-        executorKind: (task, node) => facts.executorKinds.get(nodeKey(task, node)),
-        manualDecidedAt: (task, node) => facts.manualDecidedAt.get(nodeKey(task, node)),
+        label: (task, node, fallback) => lookups.nodeName(task, node) ?? fallback,
+        executorKind: lookups.executorKind,
+        manualDecidedAt: lookups.manualDecidedAt,
         devices: deviceNames,
       }),
-    [data.plan, data.timeline, deviceNames, facts, nodeName, now],
+    [data.plan, data.timeline, deviceNames, lookups, now],
   )
 
   // 只提示持续 60 秒以上的无法排程节点；派发间隙短暂出现的阻塞不提示。
@@ -185,7 +213,8 @@ export function ScheduleGantt({
               {stalled.slice(0, 5).map((item) => (
                 <li key={`${item.taskId}:${item.nodeId}`}>
                   {taskNames.get(item.taskId) ?? item.taskId.slice(0, 8)} ·{' '}
-                  {nodeName(item.taskId, item.nodeId) ?? item.nodeId.slice(0, 8)}：{item.reason}
+                  {nodeName(item.taskId, item.nodeId) ?? placeholderNodeLabel(item.nodeId)}：
+                  {item.reason}
                 </li>
               ))}
               {stalled.length > 5 && <li>另有 {stalled.length - 5} 个</li>}

@@ -12,6 +12,7 @@ import {
   toTimelineEvent,
 } from './taskDetailModel'
 import { taskListView } from './taskListSource'
+import { observeTaskNodes } from './observedTaskNodes'
 
 export function useTaskDetailController(requestedTaskUuid?: string) {
   const { backend } = useBackend()
@@ -36,6 +37,9 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
     void load({ page: 1, pageSize: 20, taskListView: listView })
     return () => stopRuntimeSubscription()
   }, [listView, load, stopRuntimeSubscription])
+
+  // 侧边列表的在途节点名也记入会话，调度甘特图给其他任务的条命名时可用。
+  useEffect(() => observeTaskNodes(backend, viewModel?.tasks ?? []), [backend, viewModel?.tasks])
 
   useEffect(() => {
     const taskUuid = requestedTaskUuid ?? viewModel?.tasks[0]?.taskUuid

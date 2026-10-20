@@ -5,6 +5,7 @@ import type {
 } from '@unilab-fe/core'
 import type { StudioBackend } from '../../app/backend'
 import type { QueryFreshness } from '../../hooks/queryCache'
+import { observeTaskNodes } from './observedTaskNodes'
 
 export type TaskListView = 'presentation' | 'summary'
 
@@ -25,13 +26,17 @@ export interface TaskListInput {
   readonly pageSize: number
 }
 
-export function loadTaskList(
+export async function loadTaskList(
   backend: TaskListBackend,
   input: TaskListInput,
 ): Promise<TaskRuntimeListPage> {
-  return taskListView(backend) === 'summary'
-    ? backend.core.executionRead.listTaskSummaries(input)
-    : backend.core.executionRead.listTaskPresentations(input)
+  if (taskListView(backend) !== 'summary') {
+    return backend.core.executionRead.listTaskPresentations(input)
+  }
+  const page = await backend.core.executionRead.listTaskSummaries(input)
+  // 记住在途节点名，节点结束后调度甘特图仍可命名，无需下载整份任务定义。
+  observeTaskNodes(backend, page.items)
+  return page
 }
 
 /** 同一视图、同一分页的列表在总览、任务页与调度页之间共用一份缓存。 */
