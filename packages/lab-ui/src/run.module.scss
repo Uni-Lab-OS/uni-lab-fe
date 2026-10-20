@@ -16,6 +16,28 @@
   font-size: 12px;
 }
 
+.lab-ui-preflight__nodes-toggle {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--bh-color-primary, #315efb);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.lab-ui-preflight__nodes-toggle:focus-visible {
+  outline: 2px solid var(--bh-color-primary-focus, var(--studio-accent));
+  outline-offset: 2px;
+}
+
+.lab-ui-preflight__list small.lab-ui-preflight__nodes {
+  max-height: 160px;
+  overflow-y: auto;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
 .lab-ui-preflight__header,
 .lab-ui-run-preparation-summary > header {
   align-items: flex-start;
