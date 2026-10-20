@@ -1,14 +1,17 @@
 import { clsx } from 'clsx'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Alert, Button, Checkbox, Input, Modal, Popconfirm, Select, Space, Tag } from 'antd'
 import type {
   StationError,
   StationErrorAction,
   StationHandlingSnapshot,
   StationOccupancy,
+  WorkflowNodeJobDetail,
 } from '@unilab-fe/core'
 import { useBackend } from '../../app/BackendProvider'
 import { navigateTo } from '../../app/navigation'
+import { useRuntimeInvalidation } from '../../hooks/useRuntimeInvalidation'
+import { readManualResolution, retryBlockReason } from '../tasks/actionRetryGuard'
 import { useStationHandling, type StationHandlingState } from './useStationHandling'
 import { ManualDeviceActions } from './ManualDeviceActions'
 import styles from './StationErrorHandling.module.scss'
@@ -269,12 +272,17 @@ function DecisionPanel({
   const session = snapshot.activeSession
   const anotherSession = Boolean(session && error && session.decisionId !== error.decisionId)
   const offered = useMemo(() => new Set(error?.options.map((option) => option.id) ?? []), [error])
+  const retryOffered = offered.has('retry_current_node')
+  // 结果未知的动作重新执行会再次下发同一动作；OS 仍提供该选项，界面只依据 OS 作业事实放行。
+  const source = useSourceJob(snapshot, retryOffered ? error : null)
+  const retryBlocked = source.job ? retryBlockReason(source.job) : null
+  const retryReady = Boolean(source.job) && !retryBlocked
+  const retryNoteId = useId()
   const decide = (action: StationErrorAction) =>
     error &&
+    (action !== 'retry_current_node' || retryReady) &&
     void state.submit(port.decisionIntent(snapshot, error, action, { resume: confirmed, reason }))
 
-  // 设备动作结果未知时重试会再次下发同一动作；OS 仍提供该选项，界面必须先提示核对。
-  const uncertainResult = Boolean(error && /结果未知/.test(error.message))
   if (error?.stage === 'APPLYING')
     return <p className={clsx(styles.note)}>当前选择已受理，正在应用，请等待处理结果。</p>
   if (anotherSession)
@@ -286,23 +294,8 @@ function DecisionPanel({
           现场处理已完成，调度仍暂停。请选择重新执行该动作或取消当前任务。
         </p>
       )}
-      {uncertainResult && error && (
-        <Alert
-          type="warning"
-          showIcon
-          message="该节点的设备动作结果未知"
-          description="动作可能已经执行。直接重新执行会再次下发同一动作；请先到任务详情核对现场并“按已取消收尾”，或进入手动处理确认设备状态后再重新执行。"
-          action={
-            <Button
-              size="small"
-              onClick={() =>
-                navigateTo('tasks', `?task=${encodeURIComponent(error.sourceTaskUuid)}`)
-              }
-            >
-              打开任务
-            </Button>
-          }
-        />
+      {error && retryOffered && (
+        <RetryGuardNote id={retryNoteId} error={error} source={source} blocked={retryBlocked} />
       )}
       {error ? (
         <label className={clsx(styles.field)}>
@@ -359,18 +352,19 @@ function DecisionPanel({
                 </Button>
               </Popconfirm>
             )}
-            {offered.has('retry_current_node') && (
+            {retryOffered && (
               <Popconfirm
-                title={
-                  uncertainResult
-                    ? '该节点结果未知，重新执行会再次下发同一动作。确认已核对现场并完成收尾？'
-                    : '将按原参数重新执行出错的动作（OS 为该节点新建一次尝试，原失败记录保留）。请确认现场已具备重新执行的条件。'
-                }
+                title="将按原参数重新执行出错的动作（OS 为该节点新建一次尝试，原失败记录保留）。请确认现场已具备重新执行的条件。"
                 okText="确认重新执行"
                 cancelText="再看看"
+                disabled={!writable || !retryReady}
                 onConfirm={() => decide('retry_current_node')}
               >
-                <Button type="primary" disabled={!writable}>
+                <Button
+                  type="primary"
+                  disabled={!writable || !retryReady}
+                  aria-describedby={retryReady ? undefined : retryNoteId}
+                >
                   重新执行该动作
                 </Button>
               </Popconfirm>
@@ -401,6 +395,123 @@ function DecisionPanel({
         )}
       </Space>
     </section>
+  )
+}
+
+interface SourceJobFacts {
+  readonly job: WorkflowNodeJobDetail | null
+  readonly loadError: string | null
+  readonly reload: () => void
+}
+
+/**
+ * 出错作业的 OS 事实（是否结果未知、是否已结束），决定能否重新执行该动作。
+ * 打开时、工站快照变化后、该任务运行通知（例如在任务详情中按已取消收尾）后重读；
+ * 读不到时不放行重新执行。
+ */
+function useSourceJob(
+  snapshot: StationHandlingSnapshot,
+  error: StationError | null,
+): SourceJobFacts {
+  const { backend } = useBackend()
+  const executionRead = backend.core.executionRead
+  const jobUuid = error?.sourceJobUuid ?? null
+  const taskUuid = error?.sourceTaskUuid ?? null
+  const [tick, setTick] = useState(0)
+  const [facts, setFacts] = useState<{
+    readonly jobUuid: string
+    readonly job: WorkflowNodeJobDetail | null
+    readonly loadError: string | null
+  } | null>(null)
+
+  useEffect(() => {
+    if (!jobUuid) return
+    let live = true
+    executionRead.getNodeJobDetail(jobUuid).then(
+      (job) => live && setFacts({ jobUuid, job, loadError: null }),
+      (cause: unknown) =>
+        live &&
+        setFacts({
+          jobUuid,
+          job: null,
+          loadError: cause instanceof Error ? cause.message : '读取作业状态失败',
+        }),
+    )
+    return () => {
+      live = false
+    }
+  }, [executionRead, jobUuid, snapshot.snapshotId, snapshot.stationVersion, tick])
+
+  useRuntimeInvalidation(() => setTick((value) => value + 1), {
+    enabled: Boolean(taskUuid),
+    minIntervalMs: 1_000,
+    accept: (event) =>
+      event.event === 'workflow.runtime.changed' && event.workflowTaskUuid === taskUuid,
+  })
+
+  const current = facts && facts.jobUuid === jobUuid ? facts : null
+  return {
+    job: current?.job ?? null,
+    loadError: current?.loadError ?? null,
+    reload: () => setTick((value) => value + 1),
+  }
+}
+
+/** 重新执行前的 OS 作业事实说明：读取中、读取失败或结果未知/未结束时说明为何不能重新执行。 */
+function RetryGuardNote({
+  id,
+  error,
+  source,
+  blocked,
+}: {
+  id: string
+  error: StationError
+  source: SourceJobFacts
+  blocked: string | null
+}) {
+  if (source.loadError)
+    return (
+      <Alert
+        id={id}
+        type="warning"
+        showIcon
+        message="读取出错动作的作业状态失败，暂不能重新执行"
+        description={source.loadError}
+        action={
+          <Button size="small" onClick={source.reload}>
+            重新读取
+          </Button>
+        }
+      />
+    )
+  if (!source.job)
+    return (
+      <p id={id} className={clsx(styles.hint)}>
+        正在读取出错动作的作业状态，确认后才能重新执行…
+      </p>
+    )
+  if (!blocked) return null
+  const needsResolution = Boolean(source.job.uncertaintyReason) && !readManualResolution(source.job)
+  return (
+    <Alert
+      id={id}
+      type="warning"
+      showIcon
+      message="暂不能重新执行该动作"
+      description={
+        needsResolution
+          ? `${blocked}请打开任务，在该动作节点的详情中填写现场核对结论并点“现场已核对，按已取消收尾”。`
+          : blocked
+      }
+      action={
+        <Button
+          size="small"
+          onClick={() => navigateTo('tasks', `?task=${encodeURIComponent(error.sourceTaskUuid)}`)}
+        >
+          打开任务
+        </Button>
+      }
+    />
   )
 }
 

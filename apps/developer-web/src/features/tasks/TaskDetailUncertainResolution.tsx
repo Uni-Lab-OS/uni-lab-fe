@@ -3,20 +3,8 @@ import { clsx } from 'clsx'
 import { Alert, Button, Input, Popconfirm } from 'antd'
 import type { WorkflowNodeJobDetail } from '@unilab-fe/core'
 import { useBackend } from '../../app/BackendProvider'
+import { readManualResolution } from './actionRetryGuard'
 import styles from './TaskHumanInteraction.module.scss'
-
-/** OS 已登记的人工处置（control_data.manual_resolution）。 */
-export function readManualResolution(
-  job: WorkflowNodeJobDetail | null,
-): { reason: string; status: string } | null {
-  const raw = job?.controlData.manual_resolution
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null
-  const record = raw as Record<string, unknown>
-  return {
-    reason: typeof record.reason === 'string' ? record.reason : '',
-    status: typeof record.status === 'string' ? record.status : '',
-  }
-}
 
 /** 结果未知且仍占用资源、可由操作员处置的作业：运行中或失败，并带有 OS 的不确定原因。 */
 export function needsUncertainResolution(job: WorkflowNodeJobDetail | null): boolean {

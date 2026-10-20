@@ -4,27 +4,10 @@ import { Alert, Button, Checkbox, Input, Popconfirm } from 'antd'
 import type { StationError, WorkflowNodeJobDetail } from '@unilab-fe/core'
 import { useBackend } from '../../app/BackendProvider'
 import { useStationHandling, type StationHandlingState } from '../station/useStationHandling'
-import { readManualResolution } from './TaskDetailUncertainResolution'
+import { RETRYABLE_JOB_STATUSES, retryBlockReason } from './actionRetryGuard'
 import styles from './TaskHumanInteraction.module.scss'
 
-/** OS 只为这些已结束的作业创建下一次尝试；其余状态说明动作尚未结束。 */
-const RETRYABLE_JOB_STATUSES = new Set(['failed', 'timeout', 'canceled'])
 const TERMINAL_TASK_STATUSES = new Set(['succeeded', 'failed', 'canceled', 'timeout'])
-
-/**
- * 依据 OS 作业事实判断能否重新执行：结果未知（uncertainty_reason）或作业尚未结束时不能重发，
- * 否则同一动作可能被执行两次。必须先在现场核对并按“已取消”收尾，OS 清除不确定事实后才放行。
- */
-export function retryBlockReason(job: WorkflowNodeJobDetail): string | null {
-  if (job.uncertaintyReason) {
-    return readManualResolution(job)
-      ? '已请求按“已取消”收尾，等待设备侧确认；OS 记录收尾后才能重新执行。'
-      : `动作结果未知（${job.uncertaintyReason}），可能已经执行。请先现场核对并“按已取消收尾”，OS 记录收尾后才能重新执行。`
-  }
-  if (!RETRYABLE_JOB_STATUSES.has(job.status))
-    return `该动作尚未结束（OS 状态 ${job.status}），不能重新执行。`
-  return null
-}
 
 /** 已被后续尝试替代的历史 attempt（OS current_attempt=0）。 */
 function isReplacedAttempt(job: WorkflowNodeJobDetail): boolean {

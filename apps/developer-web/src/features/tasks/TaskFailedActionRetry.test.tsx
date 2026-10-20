@@ -5,7 +5,7 @@ import {
   StationErrorHandlingClient,
   type WorkflowNodeJobDetail,
 } from '@unilab-fe/core'
-import { FailedActionRetry, retryBlockReason } from './TaskFailedActionRetry'
+import { FailedActionRetry } from './TaskFailedActionRetry'
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -225,19 +225,5 @@ describe('FailedActionRetry', () => {
     rerender(<FailedActionRetry job={job()} actionLabel="x" />)
     await waitFor(() => expect(container.textContent).toBe(''))
     expect(getSnapshot).not.toHaveBeenCalled()
-  })
-
-  it('derives the block reason only from OS job facts', () => {
-    expect(retryBlockReason(job())).toBeNull()
-    expect(retryBlockReason(job({ status: 'timeout' }))).toBeNull()
-    expect(retryBlockReason(job({ status: 'running' }))).toMatch(/尚未结束/)
-    expect(
-      retryBlockReason(
-        job({
-          uncertaintyReason: 'ptlc_action_timeout',
-          controlData: { manual_resolution: { status: 'pending_edge_confirmation' } },
-        }),
-      ),
-    ).toMatch(/等待设备侧确认/)
   })
 })
