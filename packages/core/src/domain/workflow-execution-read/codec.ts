@@ -13,8 +13,13 @@ import type {
 } from './model'
 import { countWorkflowJobs, deriveWorkflowProgress } from './debug-facts'
 
+/** 取出任务对象：OS 返回 {code, data: Task}，非零 code 按拒绝处理；未包装的任务原样返回。 */
+export function unwrapTaskRecord(value: unknown): WorkflowExecutionRecord {
+  return unwrapData(asRecord(value, 'task'))
+}
+
 export function decodeTaskRuntimeDetail(value: unknown): TaskRuntimeDetail {
-  const raw = unwrapData(asRecord(value, 'task'))
+  const raw = unwrapTaskRecord(value)
   return {
     kind: 'task_runtime_detail',
     source: 'os',

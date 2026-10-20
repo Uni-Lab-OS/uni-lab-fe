@@ -214,7 +214,11 @@ describe('WorkflowExecutionReadClient', () => {
 })
 
 describe('versioned task definitions', () => {
-  it('rehydrates fresh state, reloads changed definitions, and shares concurrent requests', async () => {
+  // OS 实际返回 {code: 0, data: Task}；未包装形态保留给直连 Edge 等调用方。
+  it.each([
+    ['unwrapped task', (task: Record<string, unknown>) => task],
+    ['OS envelope', (task: Record<string, unknown>) => ({ code: 0, data: task })],
+  ])('rehydrates fresh state, reloads changed definitions, and shares concurrent requests (%s)', async (_shape, wrap) => {
     const requests: string[] = []
     let version = 'v1'
     let status = 'running'
@@ -225,7 +229,7 @@ describe('versioned task definitions', () => {
         return {
           status: 200,
           headers: {},
-          data: {
+          data: wrap({
             uuid: 'task-1',
             workflow_uuid: 'workflow-1',
             execution_kind: 'workflow',
@@ -242,7 +246,7 @@ describe('versioned task definitions', () => {
                   execution_plan: { version },
                 }
               : {}),
-          } as Value,
+          }) as Value,
         }
       },
     }
@@ -264,5 +268,20 @@ describe('versioned task definitions', () => {
     const otherEndpoint = new WorkflowExecutionReadClient(transport, '/other/api/v1')
     await otherEndpoint.getTaskDetail('task-1')
     expect(requests.at(-1)).toBe('/other/api/v1/workflow-tasks/task-1')
+  })
+
+  it('rejects an OS envelope with a non-zero code instead of caching it', async () => {
+    const transport: RequestTransport = {
+      async request<Value>(): Promise<TransportResponse<Value>> {
+        return {
+          status: 200,
+          headers: {},
+          data: { code: 4040, error: { msg: 'task not found' } } as Value,
+        }
+      },
+    }
+    await expect(
+      new WorkflowExecutionReadClient(transport).getTaskDetail('task-1'),
+    ).rejects.toMatchObject({ code: 'OS_REQUEST_REJECTED' })
   })
 })

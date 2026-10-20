@@ -4,6 +4,7 @@ import {
   decodeTaskPage,
   decodeTaskPresentationPage,
   decodeTaskRuntimeDetail,
+  unwrapTaskRecord,
 } from './codec'
 import { decodeNodeJobDetail, decodeNodeJobFeedbackPage } from './codec'
 import type { WorkflowExecutionReadPort } from './port'
@@ -45,36 +46,37 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
   private async readTaskDetail(taskUuid: string) {
     const cached = this.definitions.get(taskUuid)
     const url = `${this.apiPrefix}/workflow-tasks/${encodeURIComponent(taskUuid)}`
-    let response = await this.transport.request<WorkflowExecutionRecord>({
-      method: 'GET',
-      url: cached ? `${url}?projection=state` : url,
-      timeoutMs: TASK_PROJECTION_TIMEOUT_MS,
-    })
-    if (cached && response.data.definition_version === cached.definition_version) {
-      return decodeTaskRuntimeDetail({ ...cached, ...response.data })
+    // OS 把任务包在 {code, data} 里：版本比对、合并与缓存都必须作用于任务本身，
+    // 否则缓存永远写不进去，每次刷新都会重新读取完整定义。
+    const read = async (target: string) =>
+      unwrapTaskRecord(
+        (
+          await this.transport.request<WorkflowExecutionRecord>({
+            method: 'GET',
+            url: target,
+            timeoutMs: TASK_PROJECTION_TIMEOUT_MS,
+          })
+        ).data,
+      )
+    let task = await read(cached ? `${url}?projection=state` : url)
+    if (cached && task.definition_version === cached.definition_version) {
+      return decodeTaskRuntimeDetail({ ...cached, ...task })
     }
-    if (
-      cached &&
-      (!('workflow_snapshot' in response.data) || !('execution_plan' in response.data))
-    ) {
-      response = await this.transport.request<WorkflowExecutionRecord>({
-        method: 'GET',
-        url,
-        timeoutMs: TASK_PROJECTION_TIMEOUT_MS,
-      })
+    if (cached && (!('workflow_snapshot' in task) || !('execution_plan' in task))) {
+      task = await read(url)
     }
-    const decoded = decodeTaskRuntimeDetail(response.data)
+    const decoded = decodeTaskRuntimeDetail(task)
     this.definitions.delete(taskUuid)
     if (
-      typeof response.data.definition_version === 'string' &&
-      response.data.definition_version &&
-      'workflow_snapshot' in response.data &&
-      'execution_plan' in response.data
+      typeof task.definition_version === 'string' &&
+      task.definition_version &&
+      'workflow_snapshot' in task &&
+      'execution_plan' in task
     ) {
       this.definitions.set(taskUuid, {
-        definition_version: response.data.definition_version,
-        workflow_snapshot: response.data.workflow_snapshot,
-        execution_plan: response.data.execution_plan,
+        definition_version: task.definition_version,
+        workflow_snapshot: task.workflow_snapshot,
+        execution_plan: task.execution_plan,
       })
       // Large plans dominate memory; retain at most two task definitions.
       while (this.definitions.size > 2)
