@@ -12,6 +12,7 @@ import {
 } from './TaskDetailInspector'
 import { ManualConfirmationActions } from './TaskDetailManualConfirmation'
 import { UncertainJobResolution } from './TaskDetailUncertainResolution'
+import { FailedActionRetry } from './TaskFailedActionRetry'
 import { tabLabels } from './taskDetailModel'
 import type { useTaskDetailController } from './useTaskDetailController'
 
@@ -27,6 +28,9 @@ export function TaskDetailInspectorDrawer({ controller }: { controller: Controll
     viewModel,
     decideManualConfirmation,
     resolveUncertainJob,
+    selectedTask,
+    reloadTask,
+    inspectJob,
   } = controller
   if (!selectedEvent) return null
   const selectedJob =
@@ -81,6 +85,16 @@ export function TaskDetailInspectorDrawer({ controller }: { controller: Controll
         </nav>
         <ManualConfirmationActions job={selectedJob} onDecide={decideManualConfirmation} />
         <UncertainJobResolution job={selectedJob} onResolve={resolveUncertainJob} />
+        <FailedActionRetry
+          job={selectedJob}
+          actionLabel={selectedEvent.title}
+          device={selectedEvent.device}
+          taskStatus={selectedTask?.status}
+          onChanged={() => {
+            reloadTask()
+            void inspectJob(selectedEvent.id)
+          }}
+        />
         <div className={clsx(taskDetailInspectorStyles['debug-inspector-body'])}>
           {activeTab === 'evidence' && <EvidenceTab event={selectedEvent} job={selectedJob} />}
           {activeTab === 'resources' && (

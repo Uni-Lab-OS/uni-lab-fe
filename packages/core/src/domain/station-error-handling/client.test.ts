@@ -83,7 +83,7 @@ describe('station error handling', () => {
       }),
     ).toEqual({
       path: '/errors/d10cdc01/decision',
-      label: '重试当前节点',
+      label: '重新执行该动作',
       idempotencyKey: 'key-1',
       body: {
         expected_station_version: 2,

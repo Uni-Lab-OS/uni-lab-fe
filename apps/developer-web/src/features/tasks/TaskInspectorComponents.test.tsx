@@ -120,10 +120,21 @@ describe('developer-web task inspector components', () => {
     ['manual', '需要人工确认'],
     ['unknown', '结果待核对'],
     ['waiting', '等待资源'],
+    ['failed', '动作执行失败'],
     ['success', '没有待处理异常'],
   ] as const)('renders the %s issue state without collapsing it into failure', (status, label) => {
     render(<IssuesTab event={event(status)} />)
     expect(screen.getByText(label)).toBeInTheDocument()
+  })
+
+  it('shows the OS error text for a failed action', () => {
+    const job = {
+      errorInfo: [{ message: '电机堵转' }, 'E42'],
+      controlData: {},
+      raw: {},
+    } as unknown as WorkflowNodeJobDetail
+    render(<IssuesTab event={event('failed')} job={job} />)
+    expect(screen.getByText('电机堵转；E42')).toBeInTheDocument()
   })
 
   it('shows manual confirmation actions from the authoritative node job projection', () => {

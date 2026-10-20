@@ -1,6 +1,6 @@
 /**
  * OS 工站错误处置（/api/v1/stations/{station}/...）。节点执行出错后，工站暂停新派发，
- * 等待操作员对每条错误做决定：取消当前任务、重试当前节点或进入手动处理。
+ * 等待操作员对每条错误做决定：取消当前任务、重试当前节点（界面称“重新执行该动作”）或进入手动处理。
  * 所有写操作带幂等键；HTTP 受理不等于已应用，状态以重新读取的工站快照为准。
  */
 export type StationErrorAction = 'cancel_task' | 'retry_current_node' | 'enter_manual_handling'

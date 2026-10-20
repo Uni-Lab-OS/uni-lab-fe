@@ -90,8 +90,8 @@ describe('StationErrorHandling', () => {
     render(<StationErrorHandling />)
     expect(await screen.findByText('工站调度已暂停')).toBeTruthy()
     expect(await screen.findByText('photoscrape.candidate_status 失败')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: /重试当前节点/ }))
-    fireEvent.click(await screen.findByRole('button', { name: '确认重试' }))
+    fireEvent.click(screen.getByRole('button', { name: /重新执行该动作/ }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认重新执行' }))
     await waitFor(() => expect(submit).toHaveBeenCalled())
     expect(submit.mock.calls[0]![0]).toMatchObject({
       path: '/errors/d1/decision',
@@ -184,7 +184,7 @@ describe('StationErrorHandling', () => {
     )
     render(<StationErrorHandling />)
     expect(await screen.findByText('该节点的设备动作结果未知')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: /重试当前节点/ }))
+    fireEvent.click(screen.getByRole('button', { name: /重新执行该动作/ }))
     expect(await screen.findByText(/确认已核对现场并完成收尾/)).toBeTruthy()
   })
 })

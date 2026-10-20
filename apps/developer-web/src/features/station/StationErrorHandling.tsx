@@ -15,7 +15,7 @@ import styles from './StationErrorHandling.module.scss'
 
 /**
  * 全局工站错误处置：节点出错后 OS 暂停整个工站的新派发，在任何页面顶部提示，
- * 打开对话框逐条做决定（取消当前任务 / 重试当前节点 / 进入手动处理），手动处理完成后
+ * 打开对话框逐条做决定（取消当前任务 / 重新执行该动作 / 进入手动处理），手动处理完成后
  * 再决定，最后在确认现场后恢复调度。状态以每次提交后重读的 OS 快照为准。
  */
 export function StationErrorHandling() {
@@ -283,7 +283,7 @@ function DecisionPanel({
     <section className={clsx(styles.decision)}>
       {session && error && session.decisionId === error.decisionId && (
         <p className={clsx(styles.note)}>
-          现场处理已完成，调度仍暂停。请选择重试当前节点或取消当前任务。
+          现场处理已完成，调度仍暂停。请选择重新执行该动作或取消当前任务。
         </p>
       )}
       {uncertainResult && error && (
@@ -291,7 +291,7 @@ function DecisionPanel({
           type="warning"
           showIcon
           message="该节点的设备动作结果未知"
-          description="动作可能已经执行。直接重试会再次下发同一动作；请先到任务详情核对现场并“按已取消收尾”，或进入手动处理确认设备状态后再重试。"
+          description="动作可能已经执行。直接重新执行会再次下发同一动作；请先到任务详情核对现场并“按已取消收尾”，或进入手动处理确认设备状态后再重新执行。"
           action={
             <Button
               size="small"
@@ -363,15 +363,15 @@ function DecisionPanel({
               <Popconfirm
                 title={
                   uncertainResult
-                    ? '该节点结果未知，重试会再次下发同一动作。确认已核对现场并完成收尾？'
-                    : '重试当前节点？请确认现场已具备重新执行的条件。'
+                    ? '该节点结果未知，重新执行会再次下发同一动作。确认已核对现场并完成收尾？'
+                    : '将按原参数重新执行出错的动作（OS 为该节点新建一次尝试，原失败记录保留）。请确认现场已具备重新执行的条件。'
                 }
-                okText="确认重试"
+                okText="确认重新执行"
                 cancelText="再看看"
                 onConfirm={() => decide('retry_current_node')}
               >
                 <Button type="primary" disabled={!writable}>
-                  重试当前节点
+                  重新执行该动作
                 </Button>
               </Popconfirm>
             )}
@@ -432,7 +432,7 @@ function ManualSession({
         type="info"
         showIcon
         message="人工处置中，工站保持暂停"
-        description="请在现场处理问题（例如人工取下板、复位机构），需要时可在下方下发手动设备动作（如复位）。完成后填写处理说明并点“完成手动处理”，再选择重试或取消。"
+        description="请在现场处理问题（例如人工取下板、复位机构），需要时可在下方下发手动设备动作（如复位）。完成后填写处理说明并点“完成手动处理”，再选择“重新执行该动作”或取消任务。"
       />
       {actions.length > 0 && (
         <p className={clsx(styles.hint)}>

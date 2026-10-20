@@ -73,7 +73,7 @@ export class StationErrorHandlingClient implements StationErrorHandlingPort {
         action === 'cancel_task'
           ? '取消当前任务'
           : action === 'retry_current_node'
-            ? '重试当前节点'
+            ? '重新执行该动作'
             : '进入手动处理',
       idempotencyKey: this.newKey(),
       body: {
