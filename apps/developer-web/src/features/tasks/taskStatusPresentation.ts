@@ -40,10 +40,12 @@ const ATTENTION_LABELS: Readonly<Record<string, string>> = {
   edge_disconnected: '执行端断开',
   manual_confirmation_rejected: '人工确认被拒绝',
   edge_reported_unknown_commands: '设备命令结果未知，需现场核对',
+  device_tenancy_requires_attention: '设备托管待交接',
+  workflow_quantity_reconciliation_required: '实际用量待对账',
 }
 
 /** OS 的原因可能带“:<命令号>”后缀，按代码部分取中文说明，未收录的代码原样显示。 */
-function attentionLabel(reason: string): string {
+export function attentionLabel(reason: string): string {
   const code = reason.split(':')[0]!
   return ATTENTION_LABELS[reason] ?? ATTENTION_LABELS[code] ?? reason
 }

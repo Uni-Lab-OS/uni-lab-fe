@@ -121,7 +121,8 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
               className={taskDetailTimelineStyles['debug-timeline-action-danger']}
               disabled={!viewModel?.controls.canCancel || storeStatus === 'commanding'}
               confirm={{
-                title: '取消该任务？未执行的节点不再执行，已开始的设备动作按 OS 规则收尾。',
+                title:
+                  '取消该任务？未执行的节点不再执行，已开始的设备动作按 OS 规则收尾。停止后若 OS 仍保留设备/物料占用，会提示你核对现场后释放。',
                 okText: '确认取消',
               }}
               onClick={() => controller.submitCommand('cancel')}

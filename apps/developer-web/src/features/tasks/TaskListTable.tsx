@@ -81,7 +81,10 @@ export function TaskListTable({
           />
         ) : (
           // OS 未提供业务进度：只如实列出当前 attempt 各状态数量，不估算百分比。
-          <TableText className={clsx(sharedStyles['muted-cell'])} text={formatJobCounts(row.jobCounts)} />
+          <TableText
+            className={clsx(sharedStyles['muted-cell'])}
+            text={formatJobCounts(row.jobCounts)}
+          />
         ),
     },
     {
@@ -176,7 +179,11 @@ function AbortTaskButton({
             type: 'cancel',
             idempotencyKey: `studio-${taskUuid}-cancel-${Date.now()}`,
           })
-          message.success(receipt.accepted ? '中止命令已接受，等待 OS 生效' : '中止命令未被接受')
+          message.success(
+            receipt.accepted
+              ? '中止命令已接受，等待 OS 生效；停止后若仍占用设备/物料，请在任务详情中核对现场后释放'
+              : '中止命令未被接受',
+          )
           onDone()
         } catch (error) {
           message.error(error instanceof Error ? error.message : '中止失败')

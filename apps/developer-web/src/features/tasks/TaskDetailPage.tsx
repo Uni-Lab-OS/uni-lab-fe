@@ -94,7 +94,12 @@ export function TaskDetailPage({
         activeEvents={activeTimelineEvents}
         statusTooltip={statusTooltip}
       />
-      <TaskResourceHandoff task={selectedTask} onChanged={controller.reloadTask} />
+      <TaskResourceHandoff
+        task={selectedTask}
+        jobs={viewModel?.timeline ?? []}
+        stopRequested={controller.stopRequested}
+        onChanged={controller.reloadTask}
+      />
       <TaskPendingActions
         events={controller.timelineEvents}
         stalls={stallItems}

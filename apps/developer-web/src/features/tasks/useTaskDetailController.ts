@@ -96,6 +96,14 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
     () => timelineEvents.find((event) => event.id === selectedId) ?? null,
     [selectedId, timelineEvents],
   )
+  // 操作员在本页停止的任务：OS 受理（未拒绝）取消命令后记住任务号，用于跟进停止后的资源收尾。
+  // 重读任务会清空 store 中的命令回执，所以单独保存，不随回执消失。
+  const [stopRequestedTaskUuid, setStopRequestedTaskUuid] = useState<string | null>(null)
+  useEffect(() => {
+    if (storeCommand?.type === 'cancel' && storeCommand.lifecycle !== 'rejected')
+      setStopRequestedTaskUuid(storeCommand.workflowTaskUuid)
+  }, [storeCommand])
+  const stopRequested = Boolean(selectedTask) && stopRequestedTaskUuid === selectedTask?.taskUuid
   const submittedNodeUuid = storeCommand?.type === 'step' ? storeCommand.targetNodeUuid : null
   const submittedLifecycle = storeCommand?.type === 'step' ? storeCommand.lifecycle : null
   const controlStatus: ControlStatus =
@@ -204,6 +212,7 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
     submittedNodeUuid,
     submittedLifecycle,
     controlStatus,
+    stopRequested,
     timelineLoading,
     commandResultMessage,
     openEvent,

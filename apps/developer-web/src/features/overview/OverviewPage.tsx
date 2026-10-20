@@ -276,7 +276,9 @@ export function OverviewPage({
                     },
                   )
                   message.success(
-                    receipt.accepted ? '中止命令已接受，等待 OS 生效' : '中止命令未被接受',
+                    receipt.accepted
+                      ? '中止命令已接受，等待 OS 生效；停止后若仍占用设备/物料，请在任务详情中核对现场后释放'
+                      : '中止命令未被接受',
                   )
                   query.reload()
                 } catch (error) {
