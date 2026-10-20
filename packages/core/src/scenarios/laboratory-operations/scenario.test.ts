@@ -58,6 +58,17 @@ function fakeExecutionRead(): WorkflowExecutionReadPort {
         raw: {},
       }
     },
+    async listTaskSummaries() {
+      return {
+        view: 'summary',
+        summaryVersion: 1,
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        raw: {},
+      }
+    },
     async listTasks() {
       return { items: [], total: 0, page: 1, pageSize: 20, hasMore: false, raw: {} }
     },

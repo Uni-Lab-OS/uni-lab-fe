@@ -76,6 +76,79 @@ export interface TaskRuntimePresentationPage {
   readonly raw: Readonly<Record<string, unknown>>
 }
 
+/** 摘要视图中的在途 Job（dispatched/running/intervention_required/cancel_requested）。 */
+export interface TaskRuntimeSummaryActiveJob {
+  readonly jobUuid: string
+  readonly workflowNodeUuid: string
+  /** OS 从冻结执行计划取的节点名（name，缺失时 action_name）；都没有时为 null。 */
+  readonly nodeName: string | null
+  readonly executorKind: string
+  readonly status: string
+  readonly attempt: number
+  /** 实际执行者优先，其次执行计划固定绑定；人工确认、物料来源等非设备节点为 null。 */
+  readonly deviceId: string | null
+  readonly startedAt: string | null
+  readonly uncertaintyReason: string | null
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+/**
+ * 任务列表摘要（view=summary，summary_version=1）。Task 字段与默认展示视图同名同义；
+ * 不含执行计划与逐 Job 数组，Job 计数由 OS 聚合。OS 不提供业务进度，这里也没有进度字段。
+ */
+export interface TaskRuntimeSummary {
+  readonly kind: 'task_runtime_summary'
+  readonly source: 'os' | 'fixture'
+  readonly taskUuid: string
+  readonly workflowUuid: string | null
+  readonly executionKind: string
+  readonly status: string
+  readonly runMode: string
+  readonly controlStatus: string
+  readonly cleanupStatus: string
+  readonly priority: string | null
+  readonly description: string | null
+  readonly createdAt: string
+  readonly updatedAt: string
+  readonly startedAt: string | null
+  readonly finishedAt: string | null
+  readonly attentionReason: string | null
+  /** 由 OS 聚合计数还原，与按逐 Job 数组调用 countWorkflowJobs 的结果一致。 */
+  readonly jobCounts: WorkflowJobStatusCounts
+  /** 全部 attempt 中最早开始与最晚结束时间。 */
+  readonly jobActivity: {
+    readonly firstStartedAt: string | null
+    readonly lastFinishedAt: string | null
+  }
+  /** 当前 attempt 的在途 Job，按拓扑顺序；OS 最多列 20 个。 */
+  readonly activeJobs: readonly TaskRuntimeSummaryActiveJob[]
+  readonly activeJobsTruncated: boolean
+  readonly pendingManualConfirmationCount: number
+  readonly manualReviewAttentionResolved: boolean
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+export interface TaskRuntimeSummaryPage {
+  readonly view: 'summary'
+  readonly summaryVersion: 1
+  readonly items: readonly TaskRuntimeSummary[]
+  readonly total: number
+  readonly page: number
+  readonly pageSize: number
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
+/** 任务列表条目：默认展示投影或摘要投影；共有字段同名同义，用 kind 区分。 */
+export type TaskRuntimeListItem = TaskRuntimePresentation | TaskRuntimeSummary
+
+export interface TaskRuntimeListPage {
+  readonly items: readonly TaskRuntimeListItem[]
+  readonly total: number
+  readonly page: number
+  readonly pageSize: number
+  readonly raw: Readonly<Record<string, unknown>>
+}
+
 export interface TaskJobSummary {
   readonly kind: 'task_job_summary'
   readonly source: 'os' | 'fixture'

@@ -267,7 +267,8 @@ function decodeTaskJob(value: WorkflowExecutionRecord): TaskJobSummary {
   }
 }
 
-function unwrapData(value: WorkflowExecutionRecord): WorkflowExecutionRecord {
+// 以下解码辅助在本领域包内共享（摘要视图解码器复用），不经 index 对外导出。
+export function unwrapData(value: WorkflowExecutionRecord): WorkflowExecutionRecord {
   if (value.code !== undefined && value.code !== 0 && value.code !== '0') {
     throw new WorkflowExecutionReadError(
       'OS_REQUEST_REJECTED',
@@ -281,7 +282,7 @@ function unwrapData(value: WorkflowExecutionRecord): WorkflowExecutionRecord {
   return asOptionalRecord(value.data) ?? value
 }
 
-function asRecord(value: unknown, path: string): WorkflowExecutionRecord {
+export function asRecord(value: unknown, path: string): WorkflowExecutionRecord {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new WorkflowExecutionReadError(
       'INVALID_TASK_RUNTIME_RESPONSE',
@@ -297,7 +298,7 @@ function asOptionalRecord(value: unknown): WorkflowExecutionRecord | undefined {
     : undefined
 }
 
-function requiredString(value: unknown, path: string): string {
+export function requiredString(value: unknown, path: string): string {
   const result = optionalString(value)
   if (result === undefined) {
     throw new WorkflowExecutionReadError(
@@ -312,7 +313,7 @@ function optionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined
 }
 
-function nullableString(value: unknown, path: string): string | null {
+export function nullableString(value: unknown, path: string): string | null {
   if (value === null || value === undefined) return null
   const result = optionalString(value)
   if (result === undefined) {
@@ -324,7 +325,7 @@ function nullableString(value: unknown, path: string): string | null {
   return result
 }
 
-function nonNegativeInteger(value: unknown, path: string): number {
+export function nonNegativeInteger(value: unknown, path: string): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
     throw new WorkflowExecutionReadError(
       'INVALID_TASK_RUNTIME_RESPONSE',
@@ -334,7 +335,7 @@ function nonNegativeInteger(value: unknown, path: string): number {
   return value
 }
 
-function positiveInteger(value: unknown, path: string): number {
+export function positiveInteger(value: unknown, path: string): number {
   const result = nonNegativeInteger(value, path)
   if (result < 1) {
     throw new WorkflowExecutionReadError(
@@ -361,7 +362,7 @@ function nullableNonNegativeNumber(value: unknown, path: string): number | null 
   return value
 }
 
-function booleanValue(value: unknown, path: string): boolean {
+export function booleanValue(value: unknown, path: string): boolean {
   if (typeof value !== 'boolean') {
     throw new WorkflowExecutionReadError(
       'INVALID_TASK_RUNTIME_RESPONSE',
@@ -371,7 +372,7 @@ function booleanValue(value: unknown, path: string): boolean {
   return value
 }
 
-function invalid(
+export function invalid(
   message: string,
   code:
     | 'INVALID_TASK_RUNTIME_RESPONSE'

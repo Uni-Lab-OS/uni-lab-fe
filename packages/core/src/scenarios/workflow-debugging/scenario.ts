@@ -2,6 +2,7 @@ import type { WorkflowExecutionReadPort } from '../../domain/workflow-execution-
 import type { WorkflowDefinitionPort } from '../../domain/workflow-definition/port'
 import type { WorkflowExecutionControlPort } from '../../domain/workflow-execution-control/port'
 import type {
+  TaskRuntimeListPage,
   WorkflowTaskCommandReceipt,
   WorkflowTaskCommandRequest,
   WorkflowRuntimeInvalidation,
@@ -61,7 +62,7 @@ export function createWorkflowDebuggingScenario(
   const scenario: WorkflowDebuggingScenario = {
     async load(query = {}) {
       const [page, workflows] = await Promise.all([
-        executionRead.listTaskPresentations(query),
+        listTaskPage(executionRead, query),
         workflowDefinitions.listPublishedRevisions({
           page: query.workflowPage,
           pageSize: query.workflowPageSize ?? query.pageSize,
@@ -219,4 +220,20 @@ export function createWorkflowDebuggingScenario(
     },
   }
   return scenario
+}
+
+/** 摘要视图只接受筛选与分页，不带默认视图的 view/terminal_limit。 */
+function listTaskPage(
+  executionRead: WorkflowExecutionReadPort,
+  query: WorkflowDebuggingQuery,
+): Promise<TaskRuntimeListPage> {
+  if (query.taskListView !== 'summary') return executionRead.listTaskPresentations(query)
+  return executionRead.listTaskSummaries({
+    page: query.page,
+    pageSize: query.pageSize,
+    workflowUuid: query.workflowUuid,
+    executionKind: query.executionKind,
+    status: query.status,
+    cleanupStatus: query.cleanupStatus,
+  })
 }

@@ -2,9 +2,9 @@ import type {
   NodeJobFeedbackPage,
   TaskJobSummary,
   TaskRuntimeDetail,
-  TaskRuntimePresentation,
+  TaskRuntimeListItem,
+  TaskRuntimeListPage,
   WorkflowNodeJobDetail,
-  TaskRuntimePresentationPage,
 } from '../../domain/workflow-execution-read/model'
 import type {
   WorkflowDebugFacts,
@@ -26,13 +26,18 @@ export interface WorkflowDebuggingQuery {
   readonly cleanupStatus?: string
   readonly view?: string
   readonly terminalLimit?: number
+  /**
+   * 任务列表读取方式：summary 读摘要视图（profile 须声明 workflow.taskPresentationSummary），
+   * 缺省读默认展示投影。这是前端读取选择，不作为 view 参数原样下发。
+   */
+  readonly taskListView?: 'presentation' | 'summary'
 }
 
 export interface WorkflowDebuggingViewModel {
   readonly kind: 'workflow_debugging'
   readonly query: WorkflowDebuggingQuery
   readonly workflows: readonly PublishedWorkflowRevisionSummary[]
-  readonly tasks: readonly TaskRuntimePresentation[]
+  readonly tasks: readonly TaskRuntimeListItem[]
   readonly total: number
   readonly page: number
   readonly pageSize: number
@@ -94,7 +99,7 @@ export interface WorkflowDebugFocus {
 
 export function createWorkflowDebuggingViewModel(
   query: WorkflowDebuggingQuery,
-  page: TaskRuntimePresentationPage,
+  page: TaskRuntimeListPage,
   workflows: readonly PublishedWorkflowRevisionSummary[] = [],
 ): WorkflowDebuggingViewModel {
   return {

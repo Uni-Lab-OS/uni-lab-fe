@@ -19,6 +19,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'workflow.unlockResources',
   'scheduler.timePlan',
   'station.errorHandling',
+  'workflow.taskPresentationSummary',
 ] as const
 
 export type ServerCapability = (typeof SERVER_CAPABILITY_KEYS)[number]
@@ -70,6 +71,10 @@ const PTLC_NATIVE_CAPABILITIES = new Set<ServerCapability>([
   'scheduler.timePlan',
   // OS 工站错误处置：/api/v1/stations/local/error-handling 及决定/会话/恢复（本机仿真验证）。
   'station.errorHandling',
+  // 任务列表摘要视图 GET /api/v1/workflow-task-presentations?view=summary（summary_version=1）：
+  // 不返回执行计划与逐 Job 数组。需要包含 Uni-Lab-OS 提交 e1b7a42a 的 OS 构建；更早的 OS
+  // 以 invalid_input 拒绝该视图，部署旧 OS 时必须从本 profile 移除此能力。
+  'workflow.taskPresentationSummary',
 ])
 
 /** 返回当前 profile 已完成联调的能力集合；未知 profile 默认关闭。 */

@@ -4,6 +4,7 @@ import type { WorkflowExecutionReadPort } from '../../domain/workflow-execution-
 import type { WorkflowDefinitionPort } from '../../domain/workflow-definition/port'
 import type { WorkflowExecutionControlPort } from '../../domain/workflow-execution-control/port'
 import type { WorkflowRuntimeEventsPort } from '../../domain/workflow-runtime-events/port'
+import { countWorkflowJobs } from '../../domain/workflow-execution-read/debug-facts'
 
 describe('workflow debugging scenario', () => {
   it('loads the OS task matrix without composing a runtime summary', async () => {
@@ -21,6 +22,36 @@ describe('workflow debugging scenario', () => {
       selectedTask: null,
       selectedJob: null,
     })
+  })
+
+  it('reads the summary view only when the caller selects it, without the default view parameters', async () => {
+    const port = fakeExecutionRead()
+    const presentations = vi.spyOn(port, 'listTaskPresentations')
+    const summaries = vi.spyOn(port, 'listTaskSummaries')
+    const scenario = createWorkflowDebuggingScenario(port, fakeWorkflowDefinitions())
+
+    const summaryView = await scenario.load({
+      page: 1,
+      pageSize: 20,
+      status: 'running',
+      view: 'matrix',
+      terminalLimit: 5,
+      taskListView: 'summary',
+    })
+    expect(summaries).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 20,
+      workflowUuid: undefined,
+      executionKind: undefined,
+      status: 'running',
+      cleanupStatus: undefined,
+    })
+    expect(presentations).not.toHaveBeenCalled()
+    expect(summaryView.tasks).toMatchObject([{ kind: 'task_runtime_summary', taskUuid: 'task-1' }])
+
+    await scenario.load({ page: 1, pageSize: 20 })
+    expect(presentations).toHaveBeenCalledTimes(1)
+    expect(summaries).toHaveBeenCalledTimes(1)
   })
 
   it('reads task jobs and a selected NodeJob through the execution port', async () => {
@@ -56,49 +87,57 @@ describe('workflow debugging scenario', () => {
     expect(reloaded.selectedJobs).toEqual([])
   })
 
-  it.each([undefined, 500])('coalesces invalidations and respects refresh interval %s after disposal', async (minRefreshGapMs) => {
-    vi.useFakeTimers()
-    try {
-      let emit!: Parameters<WorkflowRuntimeEventsPort['subscribe']>[0]
-      const port = fakeExecutionRead()
-      const read = vi.spyOn(port, 'getTaskDetail')
-      const scenario = createWorkflowDebuggingScenario(port, fakeWorkflowDefinitions(), undefined, {
-        subscribe(listener) {
-          emit = listener
-          return { dispose() {} }
-        },
-      })
-      const initial = await scenario.inspectTask(await scenario.load(), 'task-1')
-      read.mockClear()
-      const listener = vi.fn()
-      const subscription = scenario.subscribeRuntime(initial, listener, { minRefreshGapMs })
-      const event = {
-        eventId: 'one',
-        event: 'workflow.runtime.changed' as const,
-        workflowTaskUuid: 'task-1',
-        raw: {},
+  it.each([undefined, 500])(
+    'coalesces invalidations and respects refresh interval %s after disposal',
+    async (minRefreshGapMs) => {
+      vi.useFakeTimers()
+      try {
+        let emit!: Parameters<WorkflowRuntimeEventsPort['subscribe']>[0]
+        const port = fakeExecutionRead()
+        const read = vi.spyOn(port, 'getTaskDetail')
+        const scenario = createWorkflowDebuggingScenario(
+          port,
+          fakeWorkflowDefinitions(),
+          undefined,
+          {
+            subscribe(listener) {
+              emit = listener
+              return { dispose() {} }
+            },
+          },
+        )
+        const initial = await scenario.inspectTask(await scenario.load(), 'task-1')
+        read.mockClear()
+        const listener = vi.fn()
+        const subscription = scenario.subscribeRuntime(initial, listener, { minRefreshGapMs })
+        const event = {
+          eventId: 'one',
+          event: 'workflow.runtime.changed' as const,
+          workflowTaskUuid: 'task-1',
+          raw: {},
+        }
+        for (let index = 0; index < 30; index++) emit(event)
+        await vi.advanceTimersByTimeAsync(minRefreshGapMs ?? 100)
+        expect(read).toHaveBeenCalledTimes(1)
+        expect(listener).toHaveBeenCalledTimes(1)
+        let complete!: (value: Awaited<ReturnType<typeof port.getTaskDetail>>) => void
+        read.mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              complete = resolve
+            }),
+        )
+        emit(event)
+        await vi.advanceTimersByTimeAsync(minRefreshGapMs ?? 100)
+        subscription.dispose()
+        complete(initial.selectedTask!)
+        await vi.advanceTimersByTimeAsync(minRefreshGapMs ?? 100)
+        expect(listener).toHaveBeenCalledTimes(1)
+      } finally {
+        vi.useRealTimers()
       }
-      for (let index = 0; index < 30; index++) emit(event)
-      await vi.advanceTimersByTimeAsync(minRefreshGapMs ?? 100)
-      expect(read).toHaveBeenCalledTimes(1)
-      expect(listener).toHaveBeenCalledTimes(1)
-      let complete!: (value: Awaited<ReturnType<typeof port.getTaskDetail>>) => void
-      read.mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            complete = resolve
-          }),
-      )
-      emit(event)
-      await vi.advanceTimersByTimeAsync(minRefreshGapMs ?? 100)
-      subscription.dispose()
-      complete(initial.selectedTask!)
-      await vi.advanceTimersByTimeAsync(minRefreshGapMs ?? 100)
-      expect(listener).toHaveBeenCalledTimes(1)
-    } finally {
-      vi.useRealTimers()
-    }
-  })
+    },
+  )
 
   it('keeps command accepted separate and rehydrates after a matching runtime invalidation', async () => {
     let emit:
@@ -176,6 +215,43 @@ function fakeExecutionRead(): WorkflowExecutionReadPort {
             attentionReason: null,
             progress: null,
             jobs: [],
+            raw: {},
+          },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+        raw: {},
+      }
+    },
+    async listTaskSummaries() {
+      return {
+        view: 'summary',
+        summaryVersion: 1,
+        items: [
+          {
+            kind: 'task_runtime_summary',
+            source: 'os',
+            taskUuid: 'task-1',
+            workflowUuid: 'workflow-1',
+            executionKind: 'workflow',
+            status: 'running',
+            runMode: 'normal',
+            controlStatus: 'active',
+            cleanupStatus: 'none',
+            priority: null,
+            description: null,
+            createdAt: 'now',
+            updatedAt: 'now',
+            startedAt: null,
+            finishedAt: null,
+            attentionReason: null,
+            jobCounts: countWorkflowJobs([]),
+            jobActivity: { firstStartedAt: null, lastFinishedAt: null },
+            activeJobs: [],
+            activeJobsTruncated: false,
+            pendingManualConfirmationCount: 0,
+            manualReviewAttentionResolved: false,
             raw: {},
           },
         ],

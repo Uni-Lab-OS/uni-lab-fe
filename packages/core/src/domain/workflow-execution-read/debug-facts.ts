@@ -101,9 +101,13 @@ export function countWorkflowJobs(jobs: readonly CountableJob[]): WorkflowJobSta
       continue
     }
     counts.total += 1
-    const uncertain = typeof job.raw?.uncertainty_reason === 'string' && job.raw.uncertainty_reason !== ''
+    const uncertain =
+      typeof job.raw?.uncertainty_reason === 'string' && job.raw.uncertainty_reason !== ''
     const status = job.status
-    if (status === 'execution_unknown' || (uncertain && (status === 'running' || status === 'failed'))) {
+    if (
+      status === 'execution_unknown' ||
+      (uncertain && (status === 'running' || status === 'failed'))
+    ) {
       counts.unknown += 1
     } else if (status === 'succeeded') counts.succeeded += 1
     else if (status === 'failed') counts.failed += 1
@@ -113,6 +117,49 @@ export function countWorkflowJobs(jobs: readonly CountableJob[]): WorkflowJobSta
     else if (['running', 'dispatched', 'cancel_requested'].includes(status)) counts.running += 1
     else counts.waiting += 1
   }
+  return counts
+}
+
+/** OS 摘要视图 job_counts 的计数形状（只统计当前 attempt；uncertain 是 by_status 的子集）。 */
+export interface WorkflowJobStatusAggregate {
+  readonly total: number
+  readonly historicalAttempts: number
+  readonly byStatus: Readonly<Record<string, number>>
+  readonly uncertainByStatus: Readonly<Record<string, number>>
+}
+
+/**
+ * 把 OS 按状态聚合的计数还原为 countWorkflowJobs 的分类，规则与逐 Job 计数逐条对应：
+ * 结果未知 = execution_unknown + 带不确定原因的 running/failed；运行中不含不确定的 running，
+ * 并计入 dispatched、cancel_requested；失败不含不确定的 failed；其余状态计为等待。
+ */
+export function countWorkflowJobsFromAggregate(
+  aggregate: WorkflowJobStatusAggregate,
+): WorkflowJobStatusCounts {
+  const count = (status: string) => aggregate.byStatus[status] ?? 0
+  const uncertain = (status: string) => aggregate.uncertainByStatus[status] ?? 0
+  const counts = {
+    total: aggregate.total,
+    succeeded: count('succeeded'),
+    failed: count('failed') - uncertain('failed'),
+    timeout: count('timeout'),
+    canceled: count('canceled') + count('cancelled'),
+    skipped: count('skipped'),
+    running:
+      count('running') - uncertain('running') + count('dispatched') + count('cancel_requested'),
+    waiting: 0,
+    unknown: count('execution_unknown') + uncertain('running') + uncertain('failed'),
+    historicalAttempts: aggregate.historicalAttempts,
+  }
+  counts.waiting =
+    counts.total -
+    counts.succeeded -
+    counts.failed -
+    counts.timeout -
+    counts.canceled -
+    counts.skipped -
+    counts.running -
+    counts.unknown
   return counts
 }
 

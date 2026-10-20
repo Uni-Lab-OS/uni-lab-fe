@@ -19,6 +19,9 @@ export interface TaskPresentationResponse extends WorkflowExecutionRecord {
   readonly total?: unknown
   readonly page?: unknown
   readonly page_size?: unknown
+  /** 仅摘要视图返回：view="summary" 与 summary_version 标明摘要合同。 */
+  readonly view?: unknown
+  readonly summary_version?: unknown
 }
 
 export interface NodeJobFeedbackResponse extends WorkflowExecutionRecord {

@@ -7,7 +7,8 @@ import {
   unwrapTaskRecord,
 } from './codec'
 import { decodeNodeJobDetail, decodeNodeJobFeedbackPage } from './codec'
-import type { WorkflowExecutionReadPort } from './port'
+import { decodeTaskSummaryPage } from './summary-codec'
+import type { TaskListFilters, WorkflowExecutionReadPort } from './port'
 import type {
   NodeJobFeedbackResponse,
   TaskJobsResponse,
@@ -138,6 +139,24 @@ export class WorkflowExecutionReadClient implements WorkflowExecutionReadPort {
       timeoutMs: TASK_PROJECTION_TIMEOUT_MS,
     })
     return decodeTaskPresentationPage(response.data)
+  }
+
+  async listTaskSummaries(input: TaskListFilters = {}) {
+    const params = new URLSearchParams({
+      page: String(input.page ?? 1),
+      page_size: String(input.pageSize ?? 20),
+    })
+    add(params, 'workflow_uuid', input.workflowUuid)
+    add(params, 'execution_kind', input.executionKind)
+    add(params, 'status', input.status)
+    add(params, 'cleanup_status', input.cleanupStatus)
+    params.set('view', 'summary')
+    // 摘要不含执行计划与逐 Job 数组，体积小；沿用传输层默认超时。
+    const response = await this.transport.request<TaskPresentationResponse>({
+      method: 'GET',
+      url: `${this.apiPrefix}/workflow-task-presentations?${params.toString()}`,
+    })
+    return decodeTaskSummaryPage(response.data)
   }
 
   async listTaskJobs(taskUuid: string) {
