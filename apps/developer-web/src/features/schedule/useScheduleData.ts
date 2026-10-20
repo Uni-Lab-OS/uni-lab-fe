@@ -3,7 +3,7 @@ import type { SchedulerTimeline, TaskRuntimeListItem, TimePlanSnapshot } from '@
 import { useBackend } from '../../app/BackendProvider'
 import type { StudioBackend } from '../../app/backend'
 import { useRuntimeInvalidation } from '../../hooks/useRuntimeInvalidation'
-import { isQueryFresh, peekQuery, readQuery } from '../../hooks/queryCache'
+import { isQueryFresh, peekQuery, readQuery, type CachedQuery } from '../../hooks/queryCache'
 import {
   loadTaskList,
   TASK_LIST_FRESHNESS,
@@ -83,6 +83,12 @@ function fromSnapshot(snapshot: ScheduleSnapshot | undefined): ScheduleState {
   return snapshot ? { ...snapshot, error: null } : EMPTY
 }
 
+/** 进入页面时的初始状态：之后的刷新若已失败，不再沿用那次之前的预测，只保留实际记录。 */
+function fromCache(cached: CachedQuery<ScheduleSnapshot> | undefined): ScheduleState {
+  const state = fromSnapshot(cached?.value)
+  return cached?.stale ? { ...state, plan: null } : state
+}
+
 /**
  * 调度观测数据：时间计划、实际执行时间线与任务列表。读取时机只有进入页面（缓存过期时）、
  * 全局 SSE 失效通知（任务/作业变化，派发前计划必然已通过验证）和手动刷新，不轮询。
@@ -92,7 +98,7 @@ export function useScheduleData(): ScheduleData {
   const { backend, readyEpoch } = useBackend()
   const capability = backend.getCapabilityStatus('scheduler.timePlan')
   const [state, setState] = useState<ScheduleState>(() =>
-    fromSnapshot(peekQuery<ScheduleSnapshot>(backend, SCHEDULE_KEY)?.value),
+    fromCache(peekQuery<ScheduleSnapshot>(backend, SCHEDULE_KEY)),
   )
   const [loading, setLoading] = useState(false)
   const sequence = useRef(0)

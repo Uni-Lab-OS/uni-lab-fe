@@ -157,6 +157,24 @@ describe('ScheduleGantt', () => {
     expect(screen.queryByText('自定义视图')).not.toBeInTheDocument()
   })
 
+  it('keeps the records but not the old prediction when reopened after a failed refresh', async () => {
+    const plan = holder.current.core.schedulerTimePlan.getTimePlan
+    const first = render(<ScheduleGantt />)
+    expect(await screen.findByText('原排序（stable-ready-order）')).toBeInTheDocument()
+    plan.mockRejectedValueOnce(new Error('OS 忙'))
+    fireEvent.click(screen.getByRole('button', { name: /刷\s*新/ }))
+    expect(await screen.findByText('读取调度数据失败')).toBeInTheDocument()
+    first.unmount()
+
+    let resolvePlan!: (value: unknown) => void
+    plan.mockImplementationOnce(() => new Promise((resolve) => (resolvePlan = resolve)))
+    render(<ScheduleGantt />)
+    expect(screen.queryByText('原排序（stable-ready-order）')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /pick_plate/ })).toBeInTheDocument()
+    resolvePlan(decodeTimePlan({ enabled: false, algorithm: 'stable-ready-order' }))
+    expect(await screen.findByText('原排序（stable-ready-order）')).toBeInTheDocument()
+  })
+
   it('shows an empty state when the scheduler has no records', async () => {
     holder.current.core.schedulerTimePlan.getTimeline.mockResolvedValue(
       decodeSchedulerTimeline({ now: NOW }),
