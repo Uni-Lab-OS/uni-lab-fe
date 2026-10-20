@@ -97,6 +97,25 @@ describe('developer-web task inspector components', () => {
     expect(onSelect).toHaveBeenCalledWith(timelineItem)
   })
 
+  it('renders section headings and breaks the connector before each new section', () => {
+    render(
+      <TaskExecutionTimeline
+        items={[timelineItem, { ...timelineItem, id: 'job-2', title: '取板', status: 'success' }]}
+        sections={[
+          { start: 0, label: '进行中（1）' },
+          { start: 1, label: '已发生 · 最近在前（1）' },
+        ]}
+        onSelect={() => undefined}
+      />,
+    )
+    const headings = screen.getAllByRole('heading')
+    expect(headings.map((heading) => heading.textContent)).toEqual([
+      '进行中（1）',
+      '已发生 · 最近在前（1）',
+    ])
+    expect(screen.getByRole('button', { name: /移动/ })).toHaveAttribute('data-last', 'true')
+  })
+
   it.each([
     ['manual', '需要人工确认'],
     ['unknown', '结果待核对'],

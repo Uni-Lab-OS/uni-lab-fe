@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import type { CSSProperties, ReactNode } from 'react'
+import { Fragment, type CSSProperties, type ReactNode } from 'react'
 
 import { Icon } from '@unilab/design-v2/icons'
 import { StatusBadge } from '@unilab/lab-ui'
@@ -35,6 +35,8 @@ export interface TaskExecutionTimelineProps {
   readonly empty?: ReactNode
   readonly isLast?: (item: TaskExecutionTimelineItem, index: number) => boolean
   readonly renderMarker?: (item: TaskExecutionTimelineItem) => ReactNode
+  /** 分段标题：在下标 `start` 的条目前显示，标题前一条不画连接线。 */
+  readonly sections?: readonly { readonly start: number; readonly label: string }[]
 }
 
 const markerGlyph: Record<TaskExecutionStatus, string> = {
@@ -57,54 +59,63 @@ export function TaskExecutionTimeline({
   empty,
   isLast,
   renderMarker,
+  sections = [],
 }: TaskExecutionTimelineProps) {
   if (loading) return <TimelineSkeleton />
+  const sectionAt = new Map(sections.map((section) => [section.start, section.label]))
 
   return (
     <div className={styles.root}>
       {items.length === 0
         ? empty
         : items.map((item, index) => {
-            const last = Boolean(isLast?.(item, index))
+            const last = Boolean(isLast?.(item, index)) || sectionAt.has(index + 1)
+            const sectionLabel = sectionAt.get(index)
             const progressStyle = {
               '--progress-width': `${Math.max(0, Math.min(100, item.progress ?? 0))}%`,
             } as CSSProperties
 
             return (
-              <button
-                type="button"
-                key={item.id}
-                className={clsx(styles.row, selectedId === item.id && styles.isSelected)}
-                data-status={item.status}
-                data-last={last ? 'true' : undefined}
-                onClick={() => onSelect?.(item)}
-                disabled={!onSelect}
-              >
-                <span className={styles.time}>{item.time}</span>
-                <span className={styles.marker} data-status={item.status} aria-hidden="true">
-                  {renderMarker?.(item) ?? (
-                    <Icon name={markerGlyph[item.status] as never} size={14} color="inherit" />
-                  )}
-                </span>
-                <span className={styles.content}>
-                  <span className={styles.head}>
-                    <span className={styles.title}>{item.title}</span>
-                    <StatusBadge status={item.status} />
+              <Fragment key={item.id}>
+                {sectionLabel && (
+                  <div className={styles.section} role="heading" aria-level={3}>
+                    {sectionLabel}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className={clsx(styles.row, selectedId === item.id && styles.isSelected)}
+                  data-status={item.status}
+                  data-last={last ? 'true' : undefined}
+                  onClick={() => onSelect?.(item)}
+                  disabled={!onSelect}
+                >
+                  <span className={styles.time}>{item.time}</span>
+                  <span className={styles.marker} data-status={item.status} aria-hidden="true">
+                    {renderMarker?.(item) ?? (
+                      <Icon name={markerGlyph[item.status] as never} size={14} color="inherit" />
+                    )}
                   </span>
-                  <span className={styles.meta}>
-                    <span>执行：{item.device ?? 'OS 未提供'}</span>
-                    <span>持续时间：{item.duration}</span>
-                  </span>
-                  {item.status === 'running' && (
-                    <span className={styles.progress} style={progressStyle}>
-                      <span />
+                  <span className={styles.content}>
+                    <span className={styles.head}>
+                      <span className={styles.title}>{item.title}</span>
+                      <StatusBadge status={item.status} />
                     </span>
-                  )}
-                </span>
-                <span className={styles.chevron} aria-hidden="true">
-                  <Icon name="arrows/chevron-right" size={16} color="inherit" />
-                </span>
-              </button>
+                    <span className={styles.meta}>
+                      <span>执行：{item.device ?? 'OS 未提供'}</span>
+                      <span>持续时间：{item.duration}</span>
+                    </span>
+                    {item.status === 'running' && (
+                      <span className={styles.progress} style={progressStyle}>
+                        <span />
+                      </span>
+                    )}
+                  </span>
+                  <span className={styles.chevron} aria-hidden="true">
+                    <Icon name="arrows/chevron-right" size={16} color="inherit" />
+                  </span>
+                </button>
+              </Fragment>
             )
           })}
     </div>

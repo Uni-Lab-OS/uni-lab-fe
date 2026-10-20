@@ -11,10 +11,17 @@ import {
   type EventStatus,
   markerGlyph,
   type TimelineOrder,
+  type TimelineSection,
 } from './taskDetailModel'
 import type { useTaskDetailController } from './useTaskDetailController'
 
 type Controller = ReturnType<typeof useTaskDetailController>
+
+const SECTION_LABELS: Record<TimelineSection['kind'], string> = {
+  active: '进行中',
+  history: '已发生 · 最近在前',
+  unstarted: '未开始 · 按步骤顺序',
+}
 
 export function TaskDetailTimelinePanel({ controller }: { controller: Controller }) {
   const {
@@ -41,6 +48,24 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
   )
   const collapsedTotal =
     arranged.collapsed.canceled + arranged.collapsed.skipped + arranged.collapsed.pending
+  const sections = useMemo(
+    () =>
+      arranged.sections.map((section) => ({
+        start: section.start,
+        label: `${SECTION_LABELS[section.kind]}（${section.count}）`,
+      })),
+    [arranged.sections],
+  )
+  // 时间视图把“正在发生”放在最上方，并行候选（等待选择下一步）也随之置顶；步骤视图保持在末尾。
+  const frontierOnTop = order === 'time'
+  const frontierRow =
+    readyFrontier.length > 1 ? (
+      <TaskParallelTimelineRow
+        candidates={readyFrontier}
+        open={parallelOpen}
+        onOpen={() => setParallelOpen(true)}
+      />
+    ) : null
   const commandFeedbackTone =
     storeError || storeCommand?.lifecycle === 'rejected'
       ? taskDetailTimelineStyles['is-error']
@@ -140,13 +165,14 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
               显示历史重试（{arranged.historical}）
             </label>
           )}
-          {order === 'steps' && (
-            <span className={clsx(taskDetailTimelineStyles['debug-timeline-hint'])}>
-              步骤顺序只反映 DAG 结构，不代表执行先后
-            </span>
-          )}
+          <span className={clsx(taskDetailTimelineStyles['debug-timeline-hint'])}>
+            {order === 'steps'
+              ? '步骤顺序只反映 DAG 结构，不代表执行先后'
+              : '进行中的节点置顶，其余按发生时间倒序（最近在前）'}
+          </span>
         </div>
         <div className={clsx(taskDetailTimelineStyles['debug-timeline-list'])}>
+          {frontierOnTop && !timelineLoading && frontierRow}
           {timelineLoading ? (
             <TaskExecutionTimeline items={[]} loading />
           ) : storeError ? (
@@ -164,10 +190,11 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
           ) : (
             <TaskExecutionTimeline
               items={arranged.items}
+              sections={sections}
               selectedId={selectedId}
               onSelect={(event) => openEvent(event.id)}
               isLast={(_, index) =>
-                readyFrontier.length <= 1 && index === arranged.items.length - 1
+                (frontierOnTop || !frontierRow) && index === arranged.items.length - 1
               }
               renderMarker={(event) => (
                 <DebugIcon
@@ -177,13 +204,7 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
               )}
             />
           )}
-          {readyFrontier.length > 1 && (
-            <TaskParallelTimelineRow
-              candidates={readyFrontier}
-              open={parallelOpen}
-              onOpen={() => setParallelOpen(true)}
-            />
-          )}
+          {!frontierOnTop && frontierRow}
         </div>
       </div>
     </section>

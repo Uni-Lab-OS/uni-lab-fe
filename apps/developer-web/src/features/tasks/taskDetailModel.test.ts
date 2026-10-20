@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import type { WorkflowDebugTimelineItem } from '@unilab-fe/core'
 import {
+  arrangeTimeline,
   formatJson,
   formatTimelineDuration,
   formatTimelineTime,
   hasWorkflowSiteFact,
+  isActiveTimelineEvent,
   mapJobStatus,
   readExpectedChangeSetKind,
   readManualConfirmation,
@@ -189,5 +192,155 @@ describe('resource waits', () => {
         errorInfo: [],
       } as never).status,
     ).toBe('pending')
+  })
+})
+
+describe('timeline ordering: current work on top, then history most recent first', () => {
+  const job = (over: Partial<WorkflowDebugTimelineItem>): WorkflowDebugTimelineItem => ({
+    jobUuid: 'j',
+    workflowNodeUuid: 'n',
+    nodeLabel: '节点',
+    status: 'succeeded',
+    attempt: 1,
+    topologicalIndex: 0,
+    executorKind: 'device_action',
+    startedAt: null,
+    finishedAt: null,
+    waitReason: {},
+    errorInfo: [],
+    currentAttempt: true,
+    ...over,
+  })
+  const events = [
+    job({ jobUuid: 'done-1', topologicalIndex: 1, startedAt: '2026-10-20T10:00:00Z' }),
+    job({
+      jobUuid: 'failed-2',
+      topologicalIndex: 2,
+      status: 'failed',
+      startedAt: '2026-10-20T10:05:00Z',
+    }),
+    job({
+      jobUuid: 'running-3',
+      topologicalIndex: 3,
+      status: 'running',
+      startedAt: '2026-10-20T10:06:00Z',
+    }),
+    job({ jobUuid: 'done-4', topologicalIndex: 4, startedAt: '2026-10-20T10:07:00Z' }),
+    job({
+      jobUuid: 'running-5',
+      topologicalIndex: 5,
+      status: 'running',
+      startedAt: '2026-10-20T10:08:00Z',
+    }),
+    // 结果未知：OS 仍记 running，但带不确定原因。
+    job({
+      jobUuid: 'unknown-6',
+      topologicalIndex: 6,
+      status: 'running',
+      uncertaintyReason: 'ptlc_action_timeout',
+      startedAt: '2026-10-20T10:01:00Z',
+    }),
+    job({
+      jobUuid: 'manual-7',
+      topologicalIndex: 7,
+      executorKind: 'manual_confirm',
+      status: 'running',
+      startedAt: '2026-10-20T10:02:00Z',
+    }),
+    // 已就绪但等待资源（未开始，没有时间）。
+    job({
+      jobUuid: 'waiting-8',
+      topologicalIndex: 8,
+      status: 'pending',
+      waitReason: { message: '等待设备' },
+    }),
+    job({
+      jobUuid: 'dispatched-9',
+      topologicalIndex: 9,
+      status: 'dispatched',
+      startedAt: '2026-10-20T10:03:00Z',
+    }),
+    job({ jobUuid: 'pending-10', topologicalIndex: 10, status: 'pending' }),
+    job({ jobUuid: 'canceled-11', topologicalIndex: 11, status: 'canceled' }),
+  ].map(toTimelineEvent)
+
+  it('pins running, dispatching, manual-confirmation, unknown-result and resource-waiting entries', () => {
+    const arranged = arrangeTimeline(events, {
+      order: 'time',
+      showUnexecuted: false,
+      showHistory: false,
+    })
+    expect(arranged.items.map((item) => item.id)).toEqual([
+      'running-5',
+      'running-3',
+      'dispatched-9',
+      'manual-7',
+      'unknown-6',
+      'waiting-8',
+      'done-4',
+      'failed-2',
+      'done-1',
+    ])
+    expect(arranged.sections).toEqual([
+      { kind: 'active', start: 0, count: 6 },
+      { kind: 'history', start: 6, count: 3 },
+    ])
+  })
+
+  it('puts unstarted nodes last in step order when they are shown', () => {
+    const arranged = arrangeTimeline(events, {
+      order: 'time',
+      showUnexecuted: true,
+      showHistory: false,
+    })
+    expect(arranged.items.slice(-2).map((item) => item.id)).toEqual(['pending-10', 'canceled-11'])
+    expect(arranged.sections.at(-1)).toEqual({ kind: 'unstarted', start: 9, count: 2 })
+  })
+
+  it('never pins a replaced attempt, even if it still looks active', () => {
+    const replaced = toTimelineEvent(
+      job({
+        jobUuid: 'old',
+        status: 'running',
+        currentAttempt: false,
+        startedAt: '2026-10-20T11:00:00Z',
+      }),
+    )
+    expect(isActiveTimelineEvent(replaced)).toBe(false)
+    const arranged = arrangeTimeline([...events, replaced], {
+      order: 'time',
+      showUnexecuted: false,
+      showHistory: true,
+    })
+    expect(arranged.items.findIndex((item) => item.id === 'old')).toBe(6)
+  })
+
+  it('keeps the step view in pure DAG order without pinning or sections', () => {
+    const arranged = arrangeTimeline(events, {
+      order: 'steps',
+      showUnexecuted: false,
+      showHistory: false,
+    })
+    expect(arranged.items.map((item) => item.id)).toEqual([
+      'done-1',
+      'failed-2',
+      'running-3',
+      'done-4',
+      'running-5',
+      'unknown-6',
+      'manual-7',
+      'waiting-8',
+      'dispatched-9',
+    ])
+    expect(arranged.sections).toEqual([])
+  })
+
+  it('shows history most recent first with no active section when nothing is in progress', () => {
+    const arranged = arrangeTimeline(
+      events.filter((event) => !isActiveTimelineEvent(event)),
+      { order: 'time', showUnexecuted: false, showHistory: false },
+    )
+    expect(arranged.items.map((item) => item.id)).toEqual(['done-4', 'failed-2', 'done-1'])
+    expect(arranged.sections).toEqual([{ kind: 'history', start: 0, count: 3 }])
   })
 })

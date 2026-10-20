@@ -155,16 +155,37 @@ describe('arrangeTimeline (field 13.11)', () => {
     ...over,
   })
 
-  it('orders by server start time so a retry never appears before the first attempt', () => {
+  it('orders by server start time, most recent first, so a retry stays above its first attempt', () => {
     const events = [
-      ev({ jobUuid: 'retry', topologicalIndex: 298, attempt: 2, status: 'failed', startedAt: '2026-10-16T10:27:57Z' }),
-      ev({ jobUuid: 'first', topologicalIndex: 298, attempt: 1, status: 'failed', currentAttempt: false, startedAt: '2026-10-16T10:23:21Z' }),
+      ev({
+        jobUuid: 'retry',
+        topologicalIndex: 298,
+        attempt: 2,
+        status: 'failed',
+        startedAt: '2026-10-16T10:27:57Z',
+      }),
+      ev({
+        jobUuid: 'first',
+        topologicalIndex: 298,
+        attempt: 1,
+        status: 'failed',
+        currentAttempt: false,
+        startedAt: '2026-10-16T10:23:21Z',
+      }),
       ev({ jobUuid: 'early', topologicalIndex: 10, startedAt: '2026-10-16T10:12:00Z' }),
     ].map(toTimelineEvent)
-    const shown = arrangeTimeline(events, { order: 'time', showUnexecuted: false, showHistory: true })
-    expect(shown.items.map((item) => item.id)).toEqual(['early', 'first', 'retry'])
-    const current = arrangeTimeline(events, { order: 'time', showUnexecuted: false, showHistory: false })
-    expect(current.items.map((item) => item.id)).toEqual(['early', 'retry'])
+    const shown = arrangeTimeline(events, {
+      order: 'time',
+      showUnexecuted: false,
+      showHistory: true,
+    })
+    expect(shown.items.map((item) => item.id)).toEqual(['retry', 'first', 'early'])
+    const current = arrangeTimeline(events, {
+      order: 'time',
+      showUnexecuted: false,
+      showHistory: false,
+    })
+    expect(current.items.map((item) => item.id)).toEqual(['retry', 'early'])
     expect(current.historical).toBe(1)
   })
 
@@ -176,10 +197,17 @@ describe('arrangeTimeline (field 13.11)', () => {
       ev({ jobUuid: 's1', status: 'skipped', topologicalIndex: 4 }),
       ev({ jobUuid: 'p1', status: 'pending', topologicalIndex: 5 }),
     ].map(toTimelineEvent)
-    const arranged = arrangeTimeline(events, { order: 'time', showUnexecuted: false, showHistory: false })
+    const arranged = arrangeTimeline(events, {
+      order: 'time',
+      showUnexecuted: false,
+      showHistory: false,
+    })
     expect(arranged.items.map((item) => item.id)).toEqual(['ran'])
     expect(arranged.collapsed).toEqual({ canceled: 2, skipped: 1, pending: 1 })
-    expect(events.find((item) => item.id === 'c1')).toMatchObject({ status: 'canceled', time: '未开始' })
+    expect(events.find((item) => item.id === 'c1')).toMatchObject({
+      status: 'canceled',
+      time: '未开始',
+    })
     expect(events.find((item) => item.id === 's1')?.status).toBe('skipped')
   })
 })

@@ -39,6 +39,22 @@ export interface TimelineEvent {
   readonly currentAttempt?: boolean
 }
 
+/**
+ * 正在进行或等待处置的状态：执行中、等待资源/派发、待人工确认、结果待核对。
+ * 时间线置顶、概览“当前节点”都以此为准，不另立一套词表。
+ */
+export const ACTIVE_EVENT_STATUSES: readonly EventStatus[] = [
+  'running',
+  'waiting',
+  'manual',
+  'unknown',
+]
+
+/** 当前 attempt 且处于进行中/待处置状态；已被重试替代的历史 attempt 不算。 */
+export function isActiveTimelineEvent(event: TimelineEvent): boolean {
+  return event.currentAttempt !== false && ACTIVE_EVENT_STATUSES.includes(event.status)
+}
+
 export const markerGlyph: Record<EventStatus, string> = {
   success: 'check',
   running: 'play',
@@ -184,8 +200,19 @@ function timelineOrder(job: WorkflowDebugTimelineItem) {
 
 export type TimelineOrder = 'time' | 'steps'
 
+/**
+ * 时间视图中的分段（按出现顺序）：进行中（置顶）→ 已发生（最近在前）→ 未开始（按步骤）。
+ * `start` 是该段第一项在 `items` 中的下标；步骤视图不分段。
+ */
+export interface TimelineSection {
+  readonly kind: 'active' | 'history' | 'unstarted'
+  readonly start: number
+  readonly count: number
+}
+
 export interface ArrangedTimeline {
   readonly items: readonly TimelineEvent[]
+  readonly sections: readonly TimelineSection[]
   /** 默认折叠的未执行节点（取消、跳过、未到达）计数。 */
   readonly collapsed: {
     readonly canceled: number
@@ -199,9 +226,11 @@ const UNEXECUTED: readonly EventStatus[] = ['canceled', 'skipped', 'pending']
 
 /**
  * 整理时间线：
- * - time：按服务端开始时间（缺失用结束时间）排序；没有时间的节点排在后面并显示“未开始”，
- *   同一时间按拓扑序稳定排序。并行与重试按真实发生先后理解。
- * - steps：按步骤（拓扑）顺序，仅用于理解 DAG 结构，不表示先后。
+ * - time：当前正在进行或等待处置的节点（见 ACTIVE_EVENT_STATUSES）置顶；其余已发生的节点按
+ *   服务端开始时间（缺失用结束时间）倒序，最近发生的在前；没有时间的节点（显示“未开始”）
+ *   放在最后并按步骤顺序。同一时间按步骤倒序，重试 attempt 总在原 attempt 之上。
+ * - steps：按步骤（拓扑）顺序，仅用于理解 DAG 结构，不表示先后，也不置顶：
+ *   置顶会打乱 DAG 结构顺序，当前节点在该视图中由状态标签区分。
  * 未执行节点与历史 attempt 默认折叠，避免几千个取消节点淹没真正执行过的节点。
  */
 export function arrangeTimeline(
@@ -223,18 +252,31 @@ export function arrangeTimeline(
   })
   const byStep = (a: TimelineEvent, b: TimelineEvent) =>
     (a.topologicalIndex ?? 0) - (b.topologicalIndex ?? 0) || (a.attempt ?? 0) - (b.attempt ?? 0)
-  const sorted = [...visible].sort(
-    options.order === 'steps'
-      ? byStep
-      : (a, b) => {
-          if (a.sortTime != null && b.sortTime != null)
-            return a.sortTime - b.sortTime || byStep(a, b)
-          if (a.sortTime != null) return -1
-          if (b.sortTime != null) return 1
-          return byStep(a, b)
-        },
-  )
-  return { items: sorted, collapsed, historical }
+  if (options.order === 'steps')
+    return { items: [...visible].sort(byStep), sections: [], collapsed, historical }
+
+  // 最近在前；没有时间的排在有时间的之后，彼此按步骤顺序。
+  const recentFirst = (a: TimelineEvent, b: TimelineEvent) => {
+    if (a.sortTime != null && b.sortTime != null) return b.sortTime - a.sortTime || byStep(b, a)
+    if (a.sortTime != null) return -1
+    if (b.sortTime != null) return 1
+    return byStep(a, b)
+  }
+  const active = visible.filter(isActiveTimelineEvent).sort(recentFirst)
+  const rest = visible.filter((event) => !isActiveTimelineEvent(event))
+  const history = rest.filter((event) => event.sortTime != null).sort(recentFirst)
+  const unstarted = rest.filter((event) => event.sortTime == null).sort(byStep)
+  const sections: TimelineSection[] = []
+  let start = 0
+  for (const [kind, group] of [
+    ['active', active],
+    ['history', history],
+    ['unstarted', unstarted],
+  ] as const) {
+    if (group.length > 0) sections.push({ kind, start, count: group.length })
+    start += group.length
+  }
+  return { items: [...active, ...history, ...unstarted], sections, collapsed, historical }
 }
 
 export function formatJson(value: unknown): string {

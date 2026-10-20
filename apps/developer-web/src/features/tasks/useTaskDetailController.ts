@@ -7,6 +7,7 @@ import {
   type DebugCommandType,
   type EventStatus,
   type InspectorTab,
+  isActiveTimelineEvent,
   statusLabels,
   toTimelineEvent,
 } from './taskDetailModel'
@@ -60,12 +61,7 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
   )
   // 多分支并行时可能同时有多个节点在执行或等待处置，概览需要全部列出。
   const activeTimelineEvents = useMemo(
-    () =>
-      timelineEvents.filter(
-        (event) =>
-          event.currentAttempt !== false &&
-          ['running', 'manual', 'unknown', 'waiting'].includes(event.status),
-      ),
+    () => timelineEvents.filter(isActiveTimelineEvent),
     [timelineEvents],
   )
   const currentTimelineEvent = useMemo(() => {
@@ -75,11 +71,7 @@ export function useTaskDetailController(requestedTaskUuid?: string) {
       if (focusedEvent) return focusedEvent
     }
     // 只聚焦真正在进行或等待处置的节点，不突出“尚未到达”的节点；都没有时取最近发生的节点。
-    const active = timelineEvents.find(
-      (event) =>
-        event.currentAttempt !== false &&
-        ['running', 'manual', 'unknown', 'waiting'].includes(event.status),
-    )
+    const active = timelineEvents.find(isActiveTimelineEvent)
     if (active) return active
     const happened = timelineEvents.filter((event) => event.sortTime != null)
     return happened.length
