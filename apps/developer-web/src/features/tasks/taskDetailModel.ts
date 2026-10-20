@@ -386,3 +386,23 @@ export function hasWorkflowSiteFact(
     )
   })
 }
+
+/**
+ * 调度甘特图条带对应的作业：优先按调度器作业身份匹配（重试后的旧尝试也能定位），
+ * 否则取该节点当前尝试的作业；都没有时返回 null（例如计划节点尚未生成作业）。
+ */
+export function findTimelineJob(
+  timeline: readonly WorkflowDebugTimelineItem[],
+  target: { readonly jobUuid?: string | null; readonly nodeUuid?: string | null },
+): WorkflowDebugTimelineItem | null {
+  if (target.jobUuid) {
+    const job = timeline.find((item) => item.jobUuid === target.jobUuid)
+    if (job) return job
+  }
+  if (!target.nodeUuid) return null
+  return (
+    timeline.find(
+      (item) => item.workflowNodeUuid === target.nodeUuid && item.currentAttempt !== false,
+    ) ?? null
+  )
+}

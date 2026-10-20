@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { WorkflowDebugTimelineItem } from '@unilab-fe/core'
 import {
   arrangeTimeline,
+  findTimelineJob,
   formatJson,
   formatTimelineDuration,
   formatTimelineTime,
@@ -342,5 +343,27 @@ describe('timeline ordering: current work on top, then history most recent first
     )
     expect(arranged.items.map((item) => item.id)).toEqual(['done-4', 'failed-2', 'done-1'])
     expect(arranged.sections).toEqual([{ kind: 'history', start: 0, count: 3 }])
+  })
+})
+
+describe('gantt bar focus', () => {
+  const item = (jobUuid: string, workflowNodeUuid: string, currentAttempt?: boolean) =>
+    ({ jobUuid, workflowNodeUuid, currentAttempt }) as WorkflowDebugTimelineItem
+  const timeline = [
+    item('job-1a', 'node-1', false),
+    item('job-1b', 'node-1'),
+    item('job-2', 'node-2'),
+  ]
+
+  it('prefers the scheduler job identity and falls back to the current attempt of the node', () => {
+    expect(findTimelineJob(timeline, { jobUuid: 'job-1a', nodeUuid: 'node-1' })?.jobUuid).toBe(
+      'job-1a',
+    )
+    expect(findTimelineJob(timeline, { jobUuid: 'gone', nodeUuid: 'node-1' })?.jobUuid).toBe(
+      'job-1b',
+    )
+    expect(findTimelineJob(timeline, { nodeUuid: 'node-2' })?.jobUuid).toBe('job-2')
+    expect(findTimelineJob(timeline, { nodeUuid: 'node-9' })).toBeNull()
+    expect(findTimelineJob(timeline, {})).toBeNull()
   })
 })

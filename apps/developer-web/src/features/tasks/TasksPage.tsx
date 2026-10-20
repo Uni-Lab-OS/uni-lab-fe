@@ -57,7 +57,18 @@ export function TasksPage() {
 
   // URL 中已有任务编号时直接保持详情路由。刷新期间列表请求尚未完成，
   // 不能因为 rows 暂时为空而先回退到列表，再跳回详情。
-  if (selectedUuid) return <TaskDetailPage taskUuid={selectedUuid} onBack={closeTask} />
+  if (selectedUuid) {
+    // 从调度甘特图进入时 URL 带 node/job，详情加载后定位该节点；换任务时重建详情页。
+    const params = new URLSearchParams(window.location.search)
+    return (
+      <TaskDetailPage
+        key={selectedUuid}
+        taskUuid={selectedUuid}
+        onBack={closeTask}
+        focus={{ nodeUuid: params.get('node'), jobUuid: params.get('job') }}
+      />
+    )
+  }
   return (
     <div className={clsx(appShellStyles['page-stack'], sharedStyles['page-stack'])}>
       <PageHeader title="任务" />

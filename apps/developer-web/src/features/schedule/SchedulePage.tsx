@@ -1,29 +1,26 @@
 import { clsx } from 'clsx'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Button, Segmented, Space, Tag, Tooltip } from 'antd'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
+import { Alert, Button, Skeleton, Space, Tag, Tooltip } from 'antd'
+import { EmptyState } from '@unilab/design-v2'
 import { PageHeader } from '../../components/ui/PageHeader'
 import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
 import { navigateTo } from '../../app/navigation'
+import { useDeviceNames } from '../../hooks/useDeviceNames'
 import { taskDisplayName } from '../overview/taskPresentation'
 import { taskNodeNames } from '../tasks/taskDomain'
+import { GanttChart, LegendSwatch } from './GanttChart'
 import {
   buildScheduleGantt,
   formatClock,
   formatSpan,
   taskHue,
-  tickStep,
   type GanttBar,
 } from './scheduleGanttModel'
 import { useScheduleData } from './useScheduleData'
 import { blockReasonKinds, stalledPlanNodes } from '@unilab-fe/core'
 import { usePersistentStalls } from './usePersistentStalls'
 import styles from './SchedulePage.module.scss'
-
-const LANE_HEIGHT = 34
-const AXIS_HEIGHT = 28
-const LABEL_WIDTH = 150
-type Window = 'fit' | '10m' | '1h'
 
 /**
  * 调度甘特图：按设备分泳道展示所有任务的实际执行与 OS 当前时间计划。
@@ -47,17 +44,29 @@ export function SchedulePage() {
   )
 }
 
-/** 可复用的调度甘特图；taskId 给定时只显示该任务的条（其他任务对设备的占用以灰色显示，便于看等待原因）。 */
-export function ScheduleGantt({ taskId }: { taskId?: string } = {}) {
+/** 默认打开方式：进入任务详情并定位到该节点（有作业身份时定位到该次作业）。 */
+export function openBarInTasks(bar: Pick<GanttBar, 'taskId' | 'nodeId' | 'jobId' | 'kind'>) {
+  const params = new URLSearchParams({ task: bar.taskId, node: bar.nodeId })
+  if (bar.jobId && bar.kind !== 'planned') params.set('job', bar.jobId)
+  navigateTo('tasks', `?${params.toString()}`)
+}
+
+/**
+ * 可复用的调度甘特图；taskId 给定时只突出该任务的条（其他任务对设备的占用以灰色显示，便于看等待原因）。
+ * onOpenBar 缺省时点击条进入任务详情并定位节点。
+ */
+export function ScheduleGantt({
+  taskId,
+  onOpenBar,
+}: { taskId?: string; onOpenBar?: (bar: GanttBar) => void } = {}) {
   const data = useScheduleData()
-  const [windowMode, setWindowMode] = useState<Window>('fit')
+  const deviceNames = useDeviceNames()
   const [tick, setTick] = useState(() => Date.now())
   const hasRunning = (data.timeline?.entries ?? []).some((entry) => entry.endedAt == null)
 
-  // 仅用于推进“现在”线与运行中条的长度（渲染时钟），不推断任何运行状态。
+  // 仅用于推进“现在”线与运行中条的长度（渲染时钟），不推断任何运行状态，也不发请求。
   useEffect(() => {
-    if (!hasRunning) return
-    const timer = setInterval(() => setTick(Date.now()), 1000)
+    const timer = setInterval(() => setTick(Date.now()), hasRunning ? 1000 : 15_000)
     return () => clearInterval(timer)
   }, [hasRunning])
 
@@ -93,37 +102,34 @@ export function ScheduleGantt({ taskId }: { taskId?: string } = {}) {
         label: (taskId, nodeId, fallback) => names.nodes.get(taskId)?.get(nodeId) ?? fallback,
         executorKind: (taskId, nodeId) => kinds.get(`${taskId}|${nodeId}`),
         manualDecidedAt: (taskId, nodeId) => decided.get(`${taskId}|${nodeId}`),
+        devices: deviceNames,
       }),
-    [data.plan, data.timeline, decided, kinds, names, now],
+    [data.plan, data.timeline, decided, deviceNames, kinds, names, now],
   )
 
   // 只提示持续 60 秒以上的无法排程节点；派发间隙短暂出现的阻塞不提示。
   const rawStalls = useMemo(() => stalledPlanNodes(data.plan), [data.plan])
   const stalled = usePersistentStalls(rawStalls)
 
-  const frame = useRef<HTMLDivElement | null>(null)
-  const [width, setWidth] = useState(900)
-  useEffect(() => {
-    const element = frame.current
-    if (!element || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(([entry]) =>
-      setWidth(Math.max(320, entry!.contentRect.width)),
-    )
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
-
-  const view = useMemo(() => {
-    if (!gantt.range) return null
-    const span = windowMode === '10m' ? 600 : windowMode === '1h' ? 3600 : null
-    const end = span ? Math.max(now + span * 0.25, gantt.range.end) : gantt.range.end
-    const start = span ? end - span : gantt.range.start
-    const total = Math.max(1, end - start)
-    const plotWidth = Math.max(200, width - LABEL_WIDTH)
-    return { start, end, total, plotWidth, x: (t: number) => ((t - start) / total) * plotWidth }
-  }, [gantt.range, now, width, windowMode])
+  const taskName = useCallback(
+    (id: string) => names.tasks.get(id) ?? `任务 ${id.slice(0, 8)}`,
+    [names],
+  )
+  const open = useCallback(
+    (bar: GanttBar) => (onOpenBar ? onOpenBar(bar) : openBarInTasks(bar)),
+    [onOpenBar],
+  )
+  const openHint = useCallback(
+    (bar: GanttBar) =>
+      taskId && bar.taskId !== taskId
+        ? '点击打开该任务（其他任务对设备的占用）'
+        : '点击打开节点详情，或按回车键',
+    [taskId],
+  )
+  const legendId = useId().replace(/[^a-zA-Z0-9_-]/g, '')
 
   const plan = data.plan
+  const firstLoad = data.loadedAt === null
   return (
     <>
       <div className={styles.toolbar}>
@@ -157,16 +163,9 @@ export function ScheduleGantt({ taskId }: { taskId?: string } = {}) {
           )}
         </Space>
         <Space size={8}>
-          <Segmented
-            size="small"
-            value={windowMode}
-            onChange={(value) => setWindowMode(value as Window)}
-            options={[
-              { label: '全部', value: 'fit' },
-              { label: '近 10 分钟', value: '10m' },
-              { label: '近 1 小时', value: '1h' },
-            ]}
-          />
+          {data.loadedAt !== null && (
+            <span className={styles.updatedAt}>更新于 {formatClock(data.loadedAt / 1000)}</span>
+          )}
           <Button size="small" loading={data.loading} onClick={data.reload}>
             刷新
           </Button>
@@ -219,105 +218,61 @@ export function ScheduleGantt({ taskId }: { taskId?: string } = {}) {
 
       <div className={styles.legend} aria-label="图例">
         <span>
-          <i className={styles.legendActual} />
+          <LegendSwatch kind="actual" patternId={`${legendId}-a`} />
           实际执行（派发 → 观察到结果）
         </span>
         <span>
-          <i className={styles.legendRunning} />
-          运行中（虚线为预计剩余）
+          <LegendSwatch kind="running" patternId={`${legendId}-r`} />
+          {'▶ 运行中（橙色描边，虚线为预计剩余）'}
         </span>
         <span>
-          <i className={styles.legendManual} />
-          待人工确认（占用设备，设备未动作）
+          <LegendSwatch kind="manual" patternId={`${legendId}-m`} />
+          待人工确认（斜纹，占用设备，设备未动作）
         </span>
         <span>
-          <i className={styles.legendPlanned} />
-          OS 当前计划（预测，非执行授权）
+          <LegendSwatch kind="planned" patternId={`${legendId}-p`} />
+          OS 当前计划（虚线框，预测，非执行授权）
         </span>
         <span>
-          <i className={styles.legendFailed} />
-          失败 / 取消
+          <LegendSwatch kind="actual" failed patternId={`${legendId}-f`} />
+          {'✕ 失败 / 取消（红色描边）'}
         </span>
-        <span className={styles.legendNote}>颜色区分任务，不表示状态</span>
+        <span>
+          <i className={styles.legendNow} aria-hidden="true" />
+          现在
+        </span>
+        <span className={styles.legendNote}>条的颜色区分任务，不表示状态</span>
       </div>
 
-      <div className={styles.frame} ref={frame}>
-        {!view ? (
-          <p className={styles.empty}>暂无调度记录。启动任务后，这里会按设备显示实际执行与计划。</p>
-        ) : (
-          <div className={styles.chart}>
-            <div className={styles.labels} style={{ width: LABEL_WIDTH }}>
-              <div style={{ height: AXIS_HEIGHT }} />
-              {gantt.lanes.map((lane) => (
-                <div
-                  key={lane.deviceId}
-                  className={styles.laneLabel}
-                  style={{ height: LANE_HEIGHT }}
-                  title={lane.deviceId}
-                >
-                  {lane.deviceId}
-                </div>
-              ))}
-            </div>
-            <svg
-              className={styles.plot}
-              width={view.plotWidth}
-              height={AXIS_HEIGHT + gantt.lanes.length * LANE_HEIGHT}
-              role="img"
-              aria-label="调度甘特图"
-            >
-              <defs>
-                <pattern
-                  id="gantt-manual"
-                  width="8"
-                  height="8"
-                  patternUnits="userSpaceOnUse"
-                  patternTransform="rotate(45)"
-                >
-                  <rect width="8" height="8" fill="#fff4e3" />
-                  <rect width="3" height="8" fill="#f2cf98" />
-                </pattern>
-              </defs>
-              <Axis view={view} height={AXIS_HEIGHT + gantt.lanes.length * LANE_HEIGHT} />
-              {gantt.lanes.map((lane, laneIndex) => (
-                <g
-                  key={lane.deviceId}
-                  transform={`translate(0, ${AXIS_HEIGHT + laneIndex * LANE_HEIGHT})`}
-                >
-                  <rect
-                    className={styles.laneBg}
-                    x={0}
-                    y={0}
-                    width={view.plotWidth}
-                    height={LANE_HEIGHT}
-                    data-odd={laneIndex % 2}
-                  />
-                  {lane.bars
-                    .filter((bar) => bar.end >= view.start && bar.start <= view.end)
-                    .map((bar) => (
-                      <Bar
-                        key={bar.id}
-                        bar={bar}
-                        dimmed={Boolean(taskId) && bar.taskId !== taskId}
-                        view={view}
-                        taskName={names.tasks.get(bar.taskId) ?? bar.taskId.slice(0, 8)}
-                      />
-                    ))}
-                </g>
-              ))}
-              {now >= view.start && now <= view.end && (
-                <line
-                  className={styles.nowLine}
-                  x1={view.x(now)}
-                  x2={view.x(now)}
-                  y1={0}
-                  y2={AXIS_HEIGHT + gantt.lanes.length * LANE_HEIGHT}
-                />
-              )}
-            </svg>
+      {data.available &&
+        (firstLoad && !data.error ? (
+          <div className={styles.placeholder} role="status" aria-live="polite">
+            <p>正在读取调度数据…</p>
+            <Skeleton active title={false} paragraph={{ rows: 5 }} />
           </div>
-        )}
-      </div>
+        ) : gantt.lanes.length === 0 ? (
+          <EmptyState
+            className={styles.placeholder}
+            scene={data.error ? 'operation-failed' : 'no-data'}
+            size="compact"
+            title={data.error ? '暂时无法显示调度记录' : '暂无调度记录'}
+            description={
+              data.error
+                ? '读取失败且没有已读取的记录，可点“刷新”重试。'
+                : '启动任务后，这里会按设备显示实际执行与 OS 计划。'
+            }
+          />
+        ) : (
+          <GanttChart
+            lanes={gantt.lanes}
+            range={gantt.range}
+            now={now}
+            focusTaskId={taskId}
+            taskName={taskName}
+            onOpen={open}
+            openHint={openHint}
+          />
+        ))}
 
       {gantt.tasks.length > 0 && (
         <table className={styles.summary}>
@@ -343,8 +298,8 @@ export function ScheduleGantt({ taskId }: { taskId?: string } = {}) {
                         navigateTo('tasks', `?task=${encodeURIComponent(task.taskId)}`)
                       }
                     >
-                      <i style={{ background: `hsl(${taskHue(task.taskId)} 60% 55%)` }} />
-                      {names.tasks.get(task.taskId) ?? task.taskId.slice(0, 8)}
+                      <i style={{ background: `hsl(${taskHue(task.taskId)} 60% 52%)` }} />
+                      {taskName(task.taskId)}
                     </button>
                   </td>
                   <td>{task.firstStart ? formatClock(task.firstStart) : '—'}</td>
@@ -388,144 +343,6 @@ function blockedSummary(blocked: readonly { readonly reason: string }[]): string
     .sort((a, b) => b[1] - a[1])
     .map(([kind, count]) => `${BLOCKED_REASONS[kind] ?? kind}：${count} 个节点`)
     .join('\n')
-}
-
-function Axis({
-  view,
-  height,
-}: {
-  view: { start: number; end: number; total: number; x: (t: number) => number }
-  height: number
-}) {
-  const step = tickStep(view.total)
-  const first = Math.ceil(view.start / step) * step
-  const ticks: number[] = []
-  for (let t = first; t <= view.end; t += step) ticks.push(t)
-  return (
-    <g>
-      {ticks.map((t) => (
-        <g key={t}>
-          <line
-            className={styles.grid}
-            x1={view.x(t)}
-            x2={view.x(t)}
-            y1={AXIS_HEIGHT - 6}
-            y2={height}
-          />
-          <text className={styles.tick} x={view.x(t) + 3} y={AXIS_HEIGHT - 10}>
-            {formatClock(t)}
-          </text>
-        </g>
-      ))}
-    </g>
-  )
-}
-
-function Bar({
-  bar,
-  view,
-  taskName,
-  dimmed = false,
-}: {
-  bar: GanttBar
-  dimmed?: boolean
-  view: { start: number; end: number; x: (t: number) => number }
-  taskName: string
-}) {
-  const hue = taskHue(bar.taskId)
-  const saturation = dimmed ? 0 : 60
-  const x = Math.max(0, view.x(bar.start))
-  const x2 = view.x(Math.min(bar.end, view.end))
-  const w = Math.max(2, x2 - x)
-  const failed =
-    bar.kind === 'actual' &&
-    bar.state &&
-    !['succeeded', 'success', 'normal', 'finished'].includes(bar.state)
-  const title = [
-    `${taskName} · ${bar.label}`,
-    `设备：${bar.deviceId}`,
-    bar.kind === 'planned'
-      ? `计划：${formatClock(bar.start)} → ${formatClock(bar.end)}${bar.parametersFinal === false ? '（参数待定，仅展示）' : ''}`
-      : `${formatClock(bar.start)} → ${bar.kind === 'running' ? '运行中' : bar.kind === 'manual' ? '等待人工确认' : formatClock(bar.end)}（${formatSpan(bar.end - bar.start)}）`,
-    bar.kind === 'running' && bar.estimatedEnd
-      ? `预计结束：${formatClock(bar.estimatedEnd)}${bar.estimatedEnd < bar.end ? '（已超预计）' : ''}`
-      : '',
-    bar.state ? `结算：${bar.state}` : '',
-  ]
-    .filter(Boolean)
-    .join('\n')
-  const open = () => navigateTo('tasks', `?task=${encodeURIComponent(bar.taskId)}`)
-  return (
-    <g
-      className={styles.bar}
-      onClick={open}
-      role="button"
-      aria-label={title.split('\n')[0]}
-      opacity={dimmed ? 0.7 : 1}
-    >
-      <title>{title}</title>
-      {bar.kind === 'manual' ? (
-        <rect
-          x={x}
-          y={6}
-          width={w}
-          height={LANE_HEIGHT - 12}
-          rx={3}
-          fill="url(#gantt-manual)"
-          stroke="#b5671c"
-          strokeWidth={1.5}
-        />
-      ) : bar.kind === 'planned' ? (
-        <rect
-          x={x}
-          y={7}
-          width={w}
-          height={LANE_HEIGHT - 14}
-          rx={3}
-          fill={`hsl(${hue} 70% 55% / 0.12)`}
-          stroke={`hsl(${hue} 60% 45%)`}
-          strokeDasharray="4 3"
-        />
-      ) : (
-        <rect
-          x={x}
-          y={6}
-          width={w}
-          height={LANE_HEIGHT - 12}
-          rx={3}
-          fill={`hsl(${hue} ${saturation}% ${dimmed ? 78 : 55}%)`}
-          stroke={failed ? '#c0392b' : bar.kind === 'running' ? '#e08a1e' : 'none'}
-          strokeWidth={failed || bar.kind === 'running' ? 2 : 0}
-        />
-      )}
-      {bar.kind === 'running' && bar.estimatedEnd && bar.estimatedEnd > bar.end && (
-        <rect
-          x={x2}
-          y={6}
-          width={Math.max(0, view.x(Math.min(bar.estimatedEnd, view.end)) - x2)}
-          height={LANE_HEIGHT - 12}
-          rx={3}
-          fill="none"
-          stroke={`hsl(${hue} 60% 45%)`}
-          strokeDasharray="4 3"
-        />
-      )}
-      {w > 60 && (
-        <text
-          className={clsx(
-            styles.barText,
-            (bar.kind === 'planned' || bar.kind === 'manual') && styles.barTextPlanned,
-          )}
-          x={x + 5}
-          y={LANE_HEIGHT / 2 + 4}
-        >
-          {bar.label.length > w / 7
-            ? `${bar.label.slice(0, Math.max(1, Math.floor(w / 7) - 1))}…`
-            : bar.label}
-        </text>
-      )}
-    </g>
-  )
 }
 
 /** OS 作业投影中人工确认的批准时刻（秒）；未批准或字段缺失时为 undefined。 */

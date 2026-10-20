@@ -1,7 +1,8 @@
 import { clsx } from 'clsx'
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Segmented } from 'antd'
-import { ScheduleGantt } from '../schedule/SchedulePage'
+import { openBarInTasks, ScheduleGantt } from '../schedule/SchedulePage'
+import type { GanttBar } from '../schedule/scheduleGanttModel'
 import { useBackend } from '../../app/BackendProvider'
 import taskDetailPageStyles from './TaskDetailPage.module.scss'
 import { TaskDetailSummary } from './TaskDetailSummary'
@@ -12,14 +13,22 @@ import { TaskResourceHandoff } from './TaskResourceHandoff'
 import { TaskPendingActions, type PlanStallItem } from './TaskPendingActions'
 import { useTaskPlanStalls } from './useTaskPlanStalls'
 import { humanCommandNodeIds } from './taskDomain'
+import { findTimelineJob } from './taskDetailModel'
 import { DebugIcon } from './TaskDetailIcons'
 import { ParallelDrawer } from './TaskParallelDrawer'
 import { useTaskDetailController } from './useTaskDetailController'
 
+/** 进入详情后要定位的节点（来自调度甘特图）；有作业身份时优先定位该次作业。 */
+export interface TaskDetailFocus {
+  readonly nodeUuid?: string | null
+  readonly jobUuid?: string | null
+}
+
 export function TaskDetailPage({
   taskUuid: requestedTaskUuid,
   onBack,
-}: { taskUuid?: string; onBack?: () => void } = {}) {
+  focus,
+}: { taskUuid?: string; onBack?: () => void; focus?: TaskDetailFocus } = {}) {
   const controller = useTaskDetailController(requestedTaskUuid)
   const {
     viewModel,
@@ -63,6 +72,32 @@ export function TaskDetailPage({
     })
   }, [controller.timelineEvents, planStalls, viewModel?.timeline])
   const humanNodeIds = useMemo(() => humanCommandNodeIds(selectedTask?.raw), [selectedTask?.raw])
+
+  const findJob = useCallback(
+    (target: TaskDetailFocus) => findTimelineJob(viewModel?.timeline ?? [], target),
+    [viewModel?.timeline],
+  )
+  // openEvent 每次渲染重建；经 ref 调用，让甘特图回调保持稳定、聚焦只在数据就绪时触发一次。
+  const openEventRef = useRef(controller.openEvent)
+  openEventRef.current = controller.openEvent
+  const pendingFocus = useRef(focus)
+  useEffect(() => {
+    const target = pendingFocus.current
+    if (!target || !taskUuid || viewModel?.selectedTaskUuid !== taskUuid) return
+    const job = findJob(target)
+    if (!job) return
+    pendingFocus.current = undefined
+    openEventRef.current(job.jobUuid)
+  }, [findJob, taskUuid, viewModel?.selectedTaskUuid])
+  const openGanttBar = useCallback(
+    (bar: GanttBar) => {
+      const job =
+        bar.taskId === taskUuid ? findJob({ jobUuid: bar.jobId, nodeUuid: bar.nodeId }) : null
+      if (job) openEventRef.current(job.jobUuid)
+      else openBarInTasks(bar)
+    },
+    [findJob, taskUuid],
+  )
   return (
     <main className={clsx(taskDetailPageStyles['debug-page'])}>
       <header className={clsx(taskDetailPageStyles['debug-header'])}>
@@ -125,7 +160,7 @@ export function TaskDetailPage({
       )}
       {view === 'gantt' && ganttAvailable ? (
         <section className={clsx(taskDetailPageStyles['debug-gantt'])} aria-label="调度甘特图">
-          <ScheduleGantt taskId={taskUuid} />
+          <ScheduleGantt taskId={taskUuid} onOpenBar={openGanttBar} />
         </section>
       ) : (
         <TaskDetailTimelinePanel controller={controller} />

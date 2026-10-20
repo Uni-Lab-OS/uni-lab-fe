@@ -92,6 +92,11 @@ export interface DeviceSummary {
   readonly materialUuid: string
   readonly resourceTemplateUuid: string
   readonly deviceKey: string
+  /**
+   * OS 本地设备实例 ID（资源图节点 id，如 robot）。调度器时间线与时间计划用它标识设备；
+   * 解码器从 binding.local_id 或设备目录 id 得到，旧 fixture 可缺省。
+   */
+  readonly localDeviceId?: string
   readonly namespace: string
   readonly label: string
   readonly online: boolean | null

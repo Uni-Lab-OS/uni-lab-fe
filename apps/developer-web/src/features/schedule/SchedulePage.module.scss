@@ -1,3 +1,7 @@
+$now-color: #d64545;
+$running-color: #e08a1e;
+$manual-color: #b5671c;
+
 .section {
   display: flex;
   flex-direction: column;
@@ -13,138 +17,459 @@
 }
 
 .metric {
-  color: #4a5262;
+  color: var(--studio-text-muted);
   font-size: 13px;
 }
+
+.updatedAt {
+  color: var(--studio-text-faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 图例 */
 
 .legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 18px;
-  color: #5b6475;
+  gap: 6px 16px;
+  color: var(--studio-text-muted);
   font-size: 12px;
 }
 
-.legend span {
+.legend > span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.legend i {
+.legendSwatch {
+  flex: none;
+  overflow: visible;
+}
+
+.legendNow {
   display: inline-block;
-  width: 22px;
-  height: 10px;
-  border-radius: 2px;
-}
-
-.legendActual {
-  background: hsl(210 60% 55%);
-}
-
-.legendRunning {
-  border: 2px solid #e08a1e;
-  background: hsl(210 60% 55%);
-}
-
-.legendPlanned {
-  border: 1px dashed hsl(210 60% 45%);
-  background: hsl(210 70% 55% / 0.12);
-}
-
-.legendManual {
-  border: 1px solid #b5671c;
-  background: repeating-linear-gradient(45deg, #fff4e3 0 3px, #f2cf98 3px 6px);
-}
-
-.legendFailed {
-  border: 2px solid #c0392b;
-  background: hsl(210 60% 55%);
+  width: 2px;
+  height: 14px;
+  border-radius: 1px;
+  background: $now-color;
 }
 
 .legendNote {
-  color: #8a93a3;
+  color: var(--studio-text-faint);
+}
+
+.legendBar {
+  pointer-events: none;
+}
+
+/* 加载、空状态 */
+
+.placeholder {
+  padding: 20px 24px;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-control-radius);
+  background: var(--studio-surface);
+
+  p {
+    margin: 0 0 8px;
+    color: var(--studio-text-muted);
+    font-size: 12px;
+  }
+}
+
+/* 视图控制 */
+
+.chartArea {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.chartControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.zoomGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.windowText {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--studio-text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.customTag {
+  margin: 0;
+}
+
+.controlHint {
+  margin-left: auto;
+  color: var(--studio-text-faint);
+  font-size: 12px;
+}
+
+/* 图表框架：表头吸顶、设备列固定 */
+
+.chartShell {
+  position: relative;
 }
 
 .frame {
-  width: 100%;
-  overflow-x: auto;
-  border: 1px solid #e8ecf3;
-  border-radius: 8px;
-  background: #fff;
+  position: relative;
+  max-height: min(640px, 72vh);
+  overflow: auto;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-control-radius);
+  background: var(--studio-surface);
 }
 
-.empty {
-  margin: 0;
-  padding: 32px;
-  color: #8a93a3;
-  text-align: center;
-}
-
-.chart {
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
   display: flex;
+  border-bottom: 1px solid var(--studio-border);
+  background: var(--studio-surface);
 }
 
-.labels {
-  flex: none;
-  border-right: 1px solid #e8ecf3;
-}
-
-.laneLabel {
+.corner {
+  position: sticky;
+  left: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
-  overflow: hidden;
-  padding: 0 10px;
-  color: #3d4555;
+  padding: 0 12px;
+  border-right: 1px solid var(--studio-border);
+  background: var(--studio-surface-muted);
+  color: var(--studio-text-muted);
   font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 500;
 }
 
-.plot {
+.axis {
   display: block;
   flex: none;
 }
 
+.axisTick {
+  stroke: var(--bh-color-border-1);
+}
+
+.axisTickDay {
+  stroke: var(--bh-color-text-placeholder);
+}
+
+.tickLabel {
+  fill: var(--studio-text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.nowLabel {
+  pointer-events: none;
+
+  rect {
+    fill: $now-color;
+  }
+
+  text {
+    fill: #fff;
+    font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  line {
+    stroke: $now-color;
+    stroke-width: 1.5;
+  }
+}
+
+.body {
+  display: flex;
+}
+
+.labels {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  flex: none;
+  border-right: 1px solid var(--studio-border);
+  background: var(--studio-surface);
+}
+
+.laneLabel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  overflow: hidden;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--studio-border-soft);
+}
+
+.laneLabel:nth-child(even) {
+  background: var(--studio-surface-muted);
+}
+
+.laneName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--studio-text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.laneNameText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.laneBusy {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: #fff3e0;
+  color: #9a5200;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.laneId {
+  overflow: hidden;
+  color: var(--studio-text-faint);
+  font-family: var(--bh-font-family-mono);
+  font-size: 10.5px;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plotWrap {
+  position: relative;
+  flex: none;
+}
+
+.plot {
+  display: block;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.plotDragging {
+  cursor: grabbing;
+}
+
 .laneBg {
-  fill: #fff;
+  fill: var(--studio-surface);
 }
 
 .laneBg[data-odd='1'] {
-  fill: #f8f9fb;
+  fill: var(--studio-surface-muted);
+}
+
+.laneRule {
+  stroke: var(--studio-border-soft);
 }
 
 .grid {
-  stroke: #eef0f4;
+  stroke: var(--bh-color-border-1);
+  stroke-opacity: 0.7;
+  pointer-events: none;
 }
 
-.tick {
-  fill: #8a93a3;
-  font-size: 10px;
+.gridDay {
+  stroke: var(--bh-color-text-placeholder);
+  stroke-opacity: 1;
 }
 
 .nowLine {
-  stroke: #d64545;
+  stroke: $now-color;
   stroke-width: 1.5;
+  pointer-events: none;
 }
+
+.windowEmpty {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  padding: 6px 12px;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-control-radius);
+  background: var(--studio-surface);
+  color: var(--studio-text-muted);
+  font-size: 12px;
+  pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* 条带：颜色区分任务（--bar-hue），状态用形状、描边与文字区分。 */
 
 .bar {
   cursor: pointer;
+  outline: none;
 }
 
-.bar:hover rect {
+.barBody {
+  fill: hsl(var(--bar-hue) 58% 50%);
+  transition: filter var(--bh-motion-fast, 120ms);
+}
+
+.bar:hover .barBody {
   filter: brightness(1.08);
+}
+
+.bar:focus-visible .barBody {
+  stroke: var(--studio-text);
+  stroke-dasharray: none;
+  stroke-width: 2.5;
 }
 
 .barText {
   fill: #fff;
   font-size: 11px;
+  font-weight: 500;
   pointer-events: none;
 }
 
-.barTextPlanned {
-  fill: #2f3542;
+.bar-dark-text .barText {
+  fill: #1f2533;
 }
+
+.bar-actual .barBody {
+  stroke: none;
+}
+
+.bar-running .barBody {
+  stroke: $running-color;
+  stroke-width: 2;
+}
+
+.barEstimate {
+  fill: none;
+  stroke: hsl(var(--bar-hue) 55% 42%);
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+
+.bar-manual .barBody {
+  stroke: $manual-color;
+  stroke-width: 1.5;
+}
+
+.bar-planned .barBody {
+  fill: hsl(var(--bar-hue) 70% 55% / 12%);
+  stroke: hsl(var(--bar-hue) 55% 42%);
+  stroke-dasharray: 4 3;
+}
+
+.bar-planned .barText,
+.bar-manual .barText {
+  fill: var(--studio-text);
+}
+
+.bar-tentative {
+  opacity: 0.6;
+}
+
+.bar-failed .barBody {
+  fill: hsl(var(--bar-hue) 35% 64%);
+  stroke: var(--bh-color-error-default);
+  stroke-width: 2;
+}
+
+.bar-failed .barText {
+  fill: #1f2533;
+}
+
+.bar-dimmed {
+  opacity: 0.85;
+}
+
+.bar-dimmed .barBody {
+  fill: #dfe3ea;
+  stroke: #c3c9d4;
+  stroke-width: 1;
+}
+
+.bar-dimmed.bar-planned .barBody {
+  fill: transparent;
+}
+
+.bar-dimmed .barText {
+  fill: #5b6475;
+}
+
+.bar-dimmed .barEstimate {
+  stroke: #c3c9d4;
+}
+
+/* 悬停提示 */
+
+.tooltip {
+  position: absolute;
+  z-index: 10;
+  width: 300px;
+  padding: 10px 12px;
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-control-radius);
+  background: var(--bh-color-popover, #fff);
+  box-shadow: var(--bh-shadow-card);
+  color: var(--studio-text);
+  font-size: 12px;
+  line-height: 18px;
+  pointer-events: none;
+
+  dl {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+  }
+
+  dt {
+    color: var(--studio-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+}
+
+.tooltipRow {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 8px;
+}
+
+.tooltipHint {
+  margin: 6px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--studio-border-soft);
+  color: var(--studio-text-faint);
+}
+
+/* 任务汇总 */
 
 .summary {
   width: 100%;
@@ -155,13 +480,17 @@
 .summary th,
 .summary td {
   padding: 6px 10px;
-  border-bottom: 1px solid #eef0f4;
+  border-bottom: 1px solid var(--studio-border-soft);
   text-align: left;
 }
 
 .summary th {
-  color: #6b7383;
+  color: var(--studio-text-muted);
   font-weight: 500;
+}
+
+.summary td {
+  font-variant-numeric: tabular-nums;
 }
 
 .taskLink {
@@ -171,7 +500,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: #2b5fd9;
+  color: var(--studio-accent);
   cursor: pointer;
 }
 
@@ -183,7 +512,7 @@
 }
 
 .muted {
-  color: #8a93a3;
+  color: var(--studio-text-faint);
 }
 
 .stallList {

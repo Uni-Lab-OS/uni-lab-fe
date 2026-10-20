@@ -69,6 +69,7 @@ export function decodeAuthoringDeviceCatalog(
       materialUuid,
       resourceTemplateUuid: optionalString(raw.deviceTypeId) ?? deviceId,
       deviceKey: optionalString(raw.deviceKey) ?? deviceId,
+      localDeviceId: deviceId,
       namespace: optionalString(raw.namespace) ?? deviceId,
       label: optionalString(raw.name) ?? deviceId,
       online: null,
@@ -211,6 +212,7 @@ function decodeDevice(value: DeviceActionRecord): DeviceSummary {
     materialUuid: deviceUuid,
     resourceTemplateUuid,
     deviceKey,
+    localDeviceId: deviceKey,
     namespace,
     label:
       optionalString(material.display_name) ??

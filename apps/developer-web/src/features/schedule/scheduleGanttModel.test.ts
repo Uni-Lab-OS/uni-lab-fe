@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { decodeSchedulerTimeline, decodeTimePlan } from '@unilab-fe/core'
-import { buildScheduleGantt, currentCandidate, tickStep } from './scheduleGanttModel'
+import {
+  buildDeviceNameDirectory,
+  decodeSchedulerTimeline,
+  decodeTimePlan,
+  type DeviceSummary,
+} from '@unilab-fe/core'
+import {
+  barStatusText,
+  buildScheduleGantt,
+  currentCandidate,
+  describeBar,
+  isUnsuccessfulBar,
+  packLaneRows,
+  tickStep,
+} from './scheduleGanttModel'
 
 const plan = (over: Record<string, unknown> = {}) =>
   decodeTimePlan({
@@ -164,5 +177,171 @@ describe('approved manual confirmations', () => {
       ['manual', 980, 995],
       ['actual', 995, 999],
     ])
+  })
+})
+
+const ROBOT_UUID = 'c4190b68-adb6-5c82-952f-f1ef5a37804b'
+const device = (localDeviceId: string, deviceUuid: string, label: string): DeviceSummary => ({
+  kind: 'device_summary',
+  source: 'os',
+  deviceUuid,
+  materialUuid: deviceUuid,
+  resourceTemplateUuid: 'tpl',
+  deviceKey: localDeviceId,
+  localDeviceId,
+  namespace: 'edge',
+  label,
+  online: true,
+  edgeStatus: null,
+  dispatchable: true,
+  dispatchBlockReason: null,
+  executionOccupancies: null,
+  actions: [],
+  raw: {},
+})
+const devices = buildDeviceNameDirectory({
+  devices: [device('robot', ROBOT_UUID, '机械臂'), device('feedlift', 'feedlift-uuid', '板仓升降')],
+})
+
+describe('device lanes', () => {
+  it('labels lanes with OS device names, keeps raw ids, and falls back to the id', () => {
+    const gantt = buildScheduleGantt({ timeline, plan: plan(), now: 1005, devices })
+    expect(gantt.lanes.map((lane) => [lane.name, lane.nameKnown, lane.deviceIds])).toEqual([
+      ['板仓升降', true, ['feedlift']],
+      ['机械臂', true, ['robot']],
+      ['collect', false, ['collect']],
+    ])
+  })
+
+  it('merges a device referenced by local id and by material UUID into one lane', () => {
+    const uuidPlan = plan({
+      latest: {
+        revision: 'r2',
+        time_origin: 1000,
+        status: 'OPTIMAL',
+        validated: true,
+        error: '',
+        nodes: [
+          {
+            key: ['task-b', 'n1'],
+            device_id: ROBOT_UUID,
+            start_ms: 20_000,
+            end_ms: 30_000,
+            fixed: false,
+          },
+        ],
+      },
+    })
+    const gantt = buildScheduleGantt({ timeline, plan: uuidPlan, now: 1005, devices })
+    const robot = gantt.lanes.find((lane) => lane.name === '机械臂')!
+    expect(robot.deviceId).toBe(ROBOT_UUID)
+    expect(robot.deviceIds).toEqual(['robot', ROBOT_UUID])
+    expect(robot.bars.map((bar) => bar.kind)).toEqual(['running', 'planned'])
+  })
+
+  it('attaches the fixed plan interval to the running bar for the tooltip', () => {
+    const gantt = buildScheduleGantt({ timeline, plan: plan(), now: 1005 })
+    const running = gantt.lanes.flatMap((lane) => lane.bars).find((bar) => bar.kind === 'running')!
+    expect(running).toMatchObject({ plannedStart: 1000, plannedEnd: 1020, open: true, jobId: 'j2' })
+  })
+})
+
+describe('packLaneRows', () => {
+  it('stacks overlapping bars into sub-rows and keeps touching bars on one row', () => {
+    const { rows, rowOf } = packLaneRows([
+      { id: 'a', start: 0, end: 10 },
+      { id: 'b', start: 10, end: 20 },
+      { id: 'c', start: 5, end: 15 },
+      { id: 'd', start: 6, end: 8 },
+    ])
+    expect(rows).toBe(3)
+    expect([...rowOf.entries()].sort()).toEqual([
+      ['a', 0],
+      ['b', 0],
+      ['c', 1],
+      ['d', 2],
+    ])
+  })
+
+  it('caps the number of sub-rows and reuses the earliest free row', () => {
+    const bars = Array.from({ length: 6 }, (_, index) => ({
+      id: `b${index}`,
+      start: index,
+      end: 100 + index,
+    }))
+    const { rows, rowOf } = packLaneRows(bars, 3)
+    expect(rows).toBe(3)
+    expect(rowOf.get('b3')).toBe(0)
+    expect(packLaneRows([]).rows).toBe(1)
+  })
+})
+
+describe('bar details', () => {
+  const base = {
+    id: 'j',
+    taskId: 't',
+    nodeId: 'n',
+    deviceId: 'robot',
+    label: '取板',
+    nodeName: '取板',
+    start: 1000,
+    end: 1030,
+  }
+  const context = { now: 1030, taskName: '样品 1', deviceName: '机械臂' }
+
+  it('describes actual, running, manual and planned bars with text, not color', () => {
+    expect(describeBar({ ...base, kind: 'actual', state: 'failed' }, context)).toEqual([
+      { label: '任务', value: '样品 1' },
+      { label: '节点', value: '取板' },
+      { label: '设备', value: '机械臂（robot）' },
+      { label: '状态', value: '实际执行 · 失败' },
+      { label: '实际', value: expect.stringContaining('（30 秒）') },
+      { label: '结算', value: '失败' },
+    ])
+    const running = describeBar(
+      {
+        ...base,
+        kind: 'running',
+        open: true,
+        estimatedEnd: 1020,
+        plannedStart: 995,
+        plannedEnd: 1020,
+      },
+      context,
+    )
+    expect(running.map((row) => row.label)).toEqual([
+      '任务',
+      '节点',
+      '设备',
+      '状态',
+      '计划',
+      '实际',
+      '预计结束',
+    ])
+    expect(running.at(-1)?.value).toContain('已超预计')
+    expect(
+      describeBar({ ...base, kind: 'manual', open: true }, context).find(
+        (row) => row.label === '等待',
+      )?.value,
+    ).toContain('不预测人的等待时长')
+    const planned = describeBar(
+      { ...base, kind: 'planned', parametersFinal: false },
+      {
+        ...context,
+        deviceName: 'robot',
+      },
+    )
+    expect(planned.find((row) => row.label === '设备')?.value).toBe('robot')
+    expect(planned.find((row) => row.label === '说明')?.value).toContain('参数待上游确认')
+  })
+
+  it('reports status text and failure from the scheduler settlement only', () => {
+    expect(isUnsuccessfulBar({ kind: 'actual', state: 'succeeded' })).toBe(false)
+    expect(isUnsuccessfulBar({ kind: 'actual', state: 'canceled' })).toBe(true)
+    expect(isUnsuccessfulBar({ kind: 'running' })).toBe(false)
+    expect(barStatusText({ kind: 'planned' })).toContain('预测')
+    expect(barStatusText({ kind: 'manual', open: true })).toBe('待人工确认')
+    expect(barStatusText({ kind: 'manual' })).toContain('已结束')
+    expect(barStatusText({ kind: 'actual', state: 'mystery' })).toBe('实际执行 · mystery')
   })
 })
