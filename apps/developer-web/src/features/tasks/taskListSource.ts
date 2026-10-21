@@ -47,10 +47,15 @@ export function taskListQueryKey(
   return `task-list:${taskListView(backend)}:${input.page}:${input.pageSize}`
 }
 
-/** 列表页缓存：30 秒内切回页面直接显示；任务运行失效通知会让它提前过期。 */
+/**
+ * 列表页缓存：30 秒内切回页面直接显示；任务运行失效通知会让它提前过期。
+ * 运行中失效通知几乎连续到达：通知驱动的重读对同一列表（总览、任务页、调度页共用）
+ * 至少间隔 2 秒且不并发；刷新按钮不受限制。
+ */
 export const TASK_LIST_FRESHNESS: QueryFreshness = {
   staleTimeMs: 30_000,
   invalidateOnRuntimeEvents: true,
+  minRefreshGapMs: 2_000,
 }
 
 /** OS 提供的业务进度；摘要视图与未提供进度的展示投影均为 null，不按 Job 状态估算。 */

@@ -3,7 +3,13 @@ import type { SchedulerTimeline, TaskRuntimeListItem, TimePlanSnapshot } from '@
 import { useBackend } from '../../app/BackendProvider'
 import type { StudioBackend } from '../../app/backend'
 import { useRuntimeInvalidation } from '../../hooks/useRuntimeInvalidation'
-import { isQueryFresh, peekQuery, readQuery, type CachedQuery } from '../../hooks/queryCache'
+import {
+  isQueryFresh,
+  peekQuery,
+  readQuery,
+  refreshQuery,
+  type CachedQuery,
+} from '../../hooks/queryCache'
 import {
   loadTaskList,
   TASK_LIST_FRESHNESS,
@@ -60,15 +66,26 @@ function scheduleTaskPage(backend: Pick<StudioBackend, 'getCapabilityStatus'>) {
   return { page: 1, pageSize: taskListView(backend) === 'summary' ? 20 : 10 }
 }
 
-async function readSchedule(backend: StudioBackend, force: boolean): Promise<ScheduleSnapshot> {
+/** mount：进入页面；explicit：刷新按钮、后端就绪；invalidation：SSE 失效通知。 */
+type ScheduleReadReason = 'mount' | 'explicit' | 'invalidation'
+
+async function readSchedule(
+  backend: StudioBackend,
+  reason: ScheduleReadReason,
+): Promise<ScheduleSnapshot> {
   const page = scheduleTaskPage(backend)
+  const listKey = taskListQueryKey(backend, page)
+  const listLoader = () => loadTaskList(backend, page)
   const [plan, timeline, tasks] = await Promise.all([
     backend.core.schedulerTimePlan.getTimePlan(),
     backend.core.schedulerTimePlan.getTimeline(),
-    readQuery(backend, taskListQueryKey(backend, page), () => loadTaskList(backend, page), {
-      force,
-      freshness: TASK_LIST_FRESHNESS,
-    }),
+    // 任务列表与总览、任务页共用缓存：通知驱动的重读遵守列表的最小刷新间隔。
+    reason === 'invalidation'
+      ? refreshQuery(backend, listKey, listLoader, TASK_LIST_FRESHNESS)
+      : readQuery(backend, listKey, listLoader, {
+          force: reason === 'explicit',
+          freshness: TASK_LIST_FRESHNESS,
+        }),
   ])
   return {
     plan,
@@ -104,15 +121,16 @@ export function useScheduleData(): ScheduleData {
   const sequence = useRef(0)
 
   const load = useCallback(
-    async (force: boolean) => {
+    async (reason: ScheduleReadReason) => {
       if (!capability.available) return
       const current = ++sequence.current
+      const force = reason !== 'mount'
       setLoading(true)
       try {
         const snapshot = await readQuery(
           backend,
           SCHEDULE_KEY,
-          () => readSchedule(backend, force),
+          () => readSchedule(backend, reason),
           { force, freshness: TASK_LIST_FRESHNESS },
         )
         if (current !== sequence.current) return
@@ -138,11 +156,11 @@ export function useScheduleData(): ScheduleData {
     const cached = peekQuery<ScheduleSnapshot>(backend, SCHEDULE_KEY)
     const ready = readyEpoch !== initialEpoch.current
     if (!ready && cached && isQueryFresh(backend, cached, TASK_LIST_FRESHNESS)) return
-    void load(ready)
+    void load(ready ? 'explicit' : 'mount')
   }, [backend, load, readyEpoch])
 
-  // 运行中失效通知几乎连续到达；调度快照至多 2 秒重读一次。
-  useRuntimeInvalidation(() => load(true), { enabled: capability.available })
+  // 运行中失效通知几乎连续到达；调度快照至多 2 秒重读一次，任务列表另按列表缓存的间隔合并。
+  useRuntimeInvalidation(() => load('invalidation'), { enabled: capability.available })
 
   return {
     available: capability.available,
@@ -156,6 +174,6 @@ export function useScheduleData(): ScheduleData {
     error: state.error,
     serverOffset: state.serverOffset,
     loadedAt: state.loadedAt,
-    reload: () => void load(true),
+    reload: () => void load('explicit'),
   }
 }

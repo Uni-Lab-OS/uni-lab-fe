@@ -35,7 +35,8 @@ export function TasksPage() {
     new URLSearchParams(window.location.search).get('task'),
   )
   // 打开详情时列表不可见，不随运行通知重读；期间的通知会让缓存过期，返回列表时重读。
-  useRuntimeInvalidation(query.reload, { enabled: !selectedUuid })
+  // 通知驱动的重读按列表缓存的最小间隔合并（refresh），刷新按钮仍立即重读（reload）。
+  useRuntimeInvalidation(query.refresh, { enabled: !selectedUuid })
   const rows = useMemo(
     () => filterTaskListRows((query.data?.items ?? []).map(toTaskListRow), keyword, status),
     [keyword, query.data, status],

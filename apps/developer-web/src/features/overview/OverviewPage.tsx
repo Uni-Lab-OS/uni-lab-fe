@@ -169,8 +169,8 @@ export function OverviewPage({
     (current) => loadTaskList(current, OVERVIEW_PAGE),
     TASK_LIST_FRESHNESS,
   )
-  // 任务状态变化时重读列表（取消、完成、待收尾等），不轮询。
-  useRuntimeInvalidation(query.reload)
+  // 任务状态变化时重读列表（取消、完成、待收尾等），不轮询；按列表缓存的最小间隔合并。
+  useRuntimeInvalidation(query.refresh)
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('all')
   const [debugTargetKind, setDebugTargetKind] = useState<DebugTargetKind | null>(null)

@@ -1,5 +1,6 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import type { WorkflowRuntimeInvalidation } from '@unilab-fe/core'
 import { taskSummaryPage } from '../../../test/taskSummaryFixtures'
 import { OverviewPage } from '../overview/OverviewPage'
 import { TasksPage } from './TasksPage'
@@ -15,11 +16,28 @@ vi.mock('../../app/BackendProvider', () => ({
 }))
 
 function makeBackend(summary: boolean) {
+  const listeners = new Set<(event: WorkflowRuntimeInvalidation) => void>()
   return {
+    /** 模拟全局 SSE 的任务运行失效通知（只是失效，不带状态）。 */
+    emit: () =>
+      listeners.forEach((listener) =>
+        listener({
+          id: String(Math.random()),
+          event: 'workflow.runtime.changed',
+          workflowTaskUuid: 'task-1',
+          raw: {},
+        }),
+      ),
     getCapabilityStatus: (capability: string) => ({
       available: summary && capability === 'workflow.taskPresentationSummary',
     }),
     core: {
+      workflowRuntimeEvents: {
+        subscribe: (listener: (event: WorkflowRuntimeInvalidation) => void) => {
+          listeners.add(listener)
+          return { dispose: () => listeners.delete(listener) }
+        },
+      },
       executionRead: {
         listTaskSummaries: vi.fn(async () => taskSummaryPage()),
         listTaskPresentations: vi.fn(async () => ({
@@ -52,6 +70,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   window.history.replaceState({}, '', '/tasks')
+})
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('task list pages', () => {
@@ -92,5 +113,35 @@ describe('task list pages', () => {
     )
     expect(await screen.findByText('当前后端没有任务记录')).toBeInTheDocument()
     expect(holder.current.core.executionRead.listTaskSummaries).not.toHaveBeenCalled()
+  })
+
+  it('rereads the list at most every 2 seconds during a run, but the refresh button is immediate', async () => {
+    vi.useFakeTimers()
+    holder.current = makeBackend(true)
+    const list = holder.current.core.executionRead.listTaskSummaries
+    const starts: number[] = []
+    list.mockImplementation(async () => {
+      starts.push(Date.now())
+      return taskSummaryPage()
+    })
+    render(<TasksPage />)
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    expect(list).toHaveBeenCalledTimes(1)
+
+    // 运行中约每 250ms 一条失效通知，持续 6 秒。
+    for (let index = 0; index < 24; index += 1) {
+      act(() => holder.current.emit())
+      await act(async () => vi.advanceTimersByTimeAsync(250))
+    }
+    await act(async () => vi.advanceTimersByTimeAsync(2_500))
+    const gaps = starts.slice(1).map((start, index) => start - starts[index]!)
+    expect(gaps.length).toBeGreaterThanOrEqual(2)
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(2_000)
+
+    // 刷新按钮不受最小间隔限制。
+    const before = list.mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: '刷新任务列表' }))
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    expect(list).toHaveBeenCalledTimes(before + 1)
   })
 })

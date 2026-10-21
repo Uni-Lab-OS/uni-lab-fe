@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { WorkflowRuntimeInvalidation } from '@unilab-fe/core'
-import { fetchQuery, isQueryFresh, peekQuery, readQuery } from './queryCache'
+import { fetchQuery, isQueryFresh, peekQuery, readQuery, refreshQuery } from './queryCache'
 import { useBackendQuery } from './useBackendQuery'
 
 type Listener = (event: WorkflowRuntimeInvalidation) => void
@@ -189,5 +189,94 @@ describe('queryCache', () => {
     expect(isQueryFresh(backend, entry, freshness, entry.fetchedAt + 9_999)).toBe(true)
     expect(isQueryFresh(backend, entry, freshness, entry.fetchedAt + 10_000)).toBe(false)
     expect(isQueryFresh(backend, entry, {}, entry.fetchedAt)).toBe(false)
+  })
+})
+
+describe('invalidation-driven refresh gap', () => {
+  const GAP = { staleTimeMs: 30_000, minRefreshGapMs: 2_000 } as const
+
+  it('rereads at most once per gap per key and merges notifications that arrive meanwhile', async () => {
+    vi.useFakeTimers()
+    const backend = {}
+    let version = 0
+    const loader = vi.fn(async () => ++version)
+    expect(await refreshQuery(backend, 'k', loader, GAP)).toBe(1)
+    // 1 秒内连续三条通知：都等到间隔结束后合并为一次读取。
+    const merged = [
+      refreshQuery(backend, 'k', loader, GAP),
+      refreshQuery(backend, 'k', loader, GAP),
+      refreshQuery(backend, 'k', loader, GAP),
+    ]
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(loader).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(await Promise.all(merged)).toEqual([2, 2, 2])
+    expect(loader).toHaveBeenCalledTimes(2)
+    // 间隔已过：下一次通知立即读取。
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(await refreshQuery(backend, 'k', loader, GAP)).toBe(3)
+    // 间隔按 key 计算：其他列表不受影响。
+    expect(await refreshQuery(backend, 'other', loader, GAP)).toBe(4)
+  })
+
+  it('never overlaps an in-flight request, even when the response is slower than the gap', async () => {
+    vi.useFakeTimers()
+    const backend = {}
+    const resolvers: Array<(value: string) => void> = []
+    const loader = vi.fn(() => new Promise<string>((done) => resolvers.push(done)))
+    const first = refreshQuery(backend, 'k', loader, GAP)
+    const second = refreshQuery(backend, 'k', loader, GAP)
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(loader).toHaveBeenCalledTimes(1)
+    resolvers[0]!('slow')
+    expect(await first).toBe('slow')
+    await vi.advanceTimersByTimeAsync(0)
+    // 慢响应结束后（已超过间隔）补读一次，覆盖期间到达的通知。
+    expect(loader).toHaveBeenCalledTimes(2)
+    resolvers[1]!('fresh')
+    expect(await second).toBe('fresh')
+  })
+
+  it('does not delay an explicit refresh and reuses its result for a pending notification', async () => {
+    vi.useFakeTimers()
+    const backend = {}
+    const loader = vi.fn().mockResolvedValueOnce('v1').mockResolvedValueOnce('v2')
+    await refreshQuery(backend, 'k', loader, GAP)
+    const pending = refreshQuery(backend, 'k', loader, GAP)
+    // 手动刷新立即读取，不等最小间隔。
+    expect(await readQuery(backend, 'k', loader, { force: true, freshness: GAP })).toBe('v2')
+    expect(loader).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(2_000)
+    // 手动刷新晚于通知发出且已成功，排定的后台刷新直接用它的结果。
+    expect(await pending).toBe('v2')
+    expect(loader).toHaveBeenCalledTimes(2)
+  })
+
+  it('useBackendQuery.refresh honours the gap while reload stays immediate', async () => {
+    vi.useFakeTimers()
+    let version = 0
+    const loader = vi.fn(async () => `v${++version}`)
+    const { result } = renderHook(() => useBackendQuery('tasks', loader, GAP))
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    expect(result.current.data).toBe('v1')
+
+    let refreshed: Promise<void> | undefined
+    act(() => {
+      refreshed = result.current.refresh()
+    })
+    await act(async () => vi.advanceTimersByTimeAsync(1_000))
+    expect(loader).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000)
+      await refreshed
+    })
+    expect(loader).toHaveBeenCalledTimes(2)
+    expect(result.current.data).toBe('v2')
+
+    // 刷新按钮：间隔内也立即重读。
+    act(() => result.current.reload())
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    expect(loader).toHaveBeenCalledTimes(3)
+    expect(result.current.data).toBe('v3')
   })
 })
