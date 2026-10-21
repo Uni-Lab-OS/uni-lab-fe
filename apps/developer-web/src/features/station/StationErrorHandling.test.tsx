@@ -52,14 +52,16 @@ const paused = decodeStationSnapshot({
   ],
 })
 
-const { getSnapshot, submit, listOccupancies, getNodeJobDetail, listeners, backend } = vi.hoisted(
-  () => {
+const { getSnapshot, submit, listOccupancies, getNodeJobDetail, listeners, backend, reportError } =
+  vi.hoisted(() => {
+    const reportError = vi.fn()
     const getSnapshot = vi.fn()
     const submit = vi.fn()
     const listOccupancies = vi.fn()
     const getNodeJobDetail = vi.fn()
     const listeners = new Set<(event: WorkflowRuntimeInvalidation) => void>()
     return {
+      reportError,
       getSnapshot,
       submit,
       listOccupancies,
@@ -79,9 +81,10 @@ const { getSnapshot, submit, listOccupancies, getNodeJobDetail, listeners, backe
         },
       },
     }
-  },
-)
-vi.mock('../../app/BackendProvider', () => ({ useBackend: () => ({ backend, readyEpoch: 0 }) }))
+  })
+vi.mock('../../app/BackendProvider', () => ({
+  useBackend: () => ({ backend, readyEpoch: 0, reportError }),
+}))
 
 /** OS 作业事实（GET /workflow-node-jobs/{job_uuid}）：默认是已失败、结果明确的出错作业。 */
 const job = (overrides: Partial<WorkflowNodeJobDetail> = {}): WorkflowNodeJobDetail => ({
@@ -184,6 +187,37 @@ describe('StationErrorHandling', () => {
     fireEvent.click(screen.getByRole('button', { name: '确认原请求结果' }))
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(2))
     expect(submit.mock.calls[1]![0].idempotencyKey).toBe(submit.mock.calls[0]![0].idempotencyKey)
+  })
+
+  it('stays quiet while the OS is starting and hands readiness to the global poll', async () => {
+    reportError.mockReset()
+    const startingError = new TransportError({
+      code: 'OS_STARTING',
+      message: 'OS 正在启动：发布工作流 76/107',
+      status: 503,
+      retryable: true,
+    })
+    getSnapshot.mockRejectedValue(startingError)
+    const { container } = render(<StationErrorHandling />)
+    await waitFor(() => expect(reportError).toHaveBeenCalledWith(startingError))
+    expect(container.textContent).toBe('')
+    expect(screen.queryByText('工站错误处置状态暂不可用')).toBeNull()
+    expect(screen.queryByRole('button', { name: '处理节点错误' })).toBeNull()
+  })
+
+  it('still reports an unreadable station once the OS is up', async () => {
+    reportError.mockReset()
+    getSnapshot.mockRejectedValue(
+      new TransportError({
+        code: 'STATION_SNAPSHOT_INVALID',
+        message: '工站快照无法解析',
+        status: 500,
+        cause: { code: 1 },
+      }),
+    )
+    render(<StationErrorHandling />)
+    expect(await screen.findByText('工站错误处置状态暂不可用')).toBeInTheDocument()
+    expect(reportError).not.toHaveBeenCalled()
   })
 
   it('renders nothing while the station runs without errors', async () => {
