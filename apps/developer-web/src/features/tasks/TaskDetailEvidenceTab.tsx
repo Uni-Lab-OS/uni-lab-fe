@@ -1,4 +1,5 @@
 import { clsx } from 'clsx'
+import { VisionImages } from '../../components/ui/VisionImages'
 import taskDetailInspectorStyles from './TaskDetailInspector.module.scss'
 import taskDetailStyles from './taskDetail.module.scss'
 import { type TimelineEvent, formatJson } from './taskDetailModel'
@@ -11,6 +12,7 @@ export function EvidenceTab({
   job: {
     readonly param: Readonly<Record<string, unknown>>
     readonly returnInfo: Readonly<Record<string, unknown>>
+    readonly errorInfo?: readonly unknown[]
     readonly attempt: number
   } | null
 }) {
@@ -36,6 +38,8 @@ export function EvidenceTab({
         >
           {formatJson(job?.returnInfo ?? {})}
         </pre>
+        {/* 拍照类动作（放板纠偏、示教、刮板拍照）的留图：成功取输出，失败取报错里附带的识别图。 */}
+        <VisionImages source={[job?.returnInfo, job?.errorInfo, event.description]} />
         <dl className={clsx(taskDetailInspectorStyles['debug-output-meta'])}>
           <div>
             <dt>反馈</dt>

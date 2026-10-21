@@ -7,6 +7,7 @@ import type { DeviceActionPresentation, DeviceActionRunView } from '@unilab-fe/c
 import { useBackend } from '../../app/BackendProvider'
 import { navigateTo } from '../../app/navigation'
 import { deviceActionErrors, deviceActionReturnInfo, deviceActionRunState } from './deviceActionRunModel'
+import { VisionImages } from '../../components/ui/VisionImages'
 
 const POLL_MS = 1000
 const MAX_READ_FAILURES = 5
@@ -123,6 +124,10 @@ export function DeviceActionRunResult({
       {state.phase === 'succeeded' && values.length === 0 && (
         <p className={clsx(styles['action-group__hint'])}>动作已完成，该动作没有返回读数。</p>
       )}
+      {/* 拍照类动作（纠偏拍照、示教零点）：成功看输出留图，失败看报错附带的识别图。 */}
+      <VisionImages
+        source={[state.phase === 'succeeded' ? deviceActionReturnInfo(view) : null, errors]}
+      />
       <div className={clsx(styles['run-result__footer'])}>
         <Button type="link" onClick={openTask}>
           在任务页查看详情与处置

@@ -9,6 +9,7 @@ import type {
   WorkflowNodeJobDetail,
 } from '@unilab-fe/core'
 import { useBackend } from '../../app/BackendProvider'
+import { VisionImages } from '../../components/ui/VisionImages'
 import { navigateTo } from '../../app/navigation'
 import { useRuntimeInvalidation } from '../../hooks/useRuntimeInvalidation'
 import { readManualResolution, retryBlockReason } from '../tasks/actionRetryGuard'
@@ -226,6 +227,8 @@ function ErrorContext({ error }: { error: StationError }) {
         </Tag>
       </Space>
       <p className={clsx(styles.message)}>{error.message || '节点执行失败，请检查现场。'}</p>
+      {/* 拍照节点出错（如放板纠偏识别不到板）时，报错附带本次识别图，处置前先看拍到了什么。 */}
+      <VisionImages source={error.message} title="本次拍照" />
       <details>
         <summary>任务与执行记录</summary>
         <code>Task：{error.sourceTaskUuid}</code>

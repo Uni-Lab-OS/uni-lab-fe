@@ -1,0 +1,38 @@
+.vision-images {
+  margin-top: 12px;
+}
+
+.vision-images-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--studio-text-secondary, rgba(0, 0, 0, 0.65));
+}
+
+.vision-images-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.vision-image {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--studio-border-soft, #eef0f4);
+  border-radius: 6px;
+  background: var(--bh-color-fill-1, #f8f9fb);
+
+  :global(.ant-image-img) {
+    border-radius: 4px;
+    background: #000;
+  }
+
+  figcaption {
+    font-size: 12px;
+    color: var(--studio-text-secondary, rgba(0, 0, 0, 0.65));
+    text-align: center;
+  }
+}
