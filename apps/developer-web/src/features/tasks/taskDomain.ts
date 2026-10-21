@@ -121,6 +121,27 @@ export function taskNodeNames(
   return names
 }
 
+/** 冻结快照/执行计划中节点的设备动作名（action_name），供按设备解析中文动作名。 */
+export function taskNodeActionNames(
+  raw?: Readonly<Record<string, unknown>>,
+): ReadonlyMap<string, string> {
+  const actions = new Map<string, string>()
+  const sources = [
+    recordValue(recordValue(raw, 'workflow_snapshot'), 'nodes'),
+    recordValue(recordValue(raw, 'execution_plan'), 'nodes'),
+  ]
+  for (const source of sources) {
+    if (!Array.isArray(source)) continue
+    for (const item of source) {
+      const node = asRecord(item)
+      const uuid = stringValue(node?.uuid)
+      const action = stringValue(node?.action_name)
+      if (uuid && action) actions.set(uuid, action)
+    }
+  }
+  return actions
+}
+
 export interface TimelineItem {
   readonly id: string
   readonly label: string

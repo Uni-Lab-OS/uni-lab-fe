@@ -1,10 +1,12 @@
-import type {
-  DeviceNameDirectory,
-  SchedulerTimeline,
-  TimePlanCandidate,
-  TimePlanSnapshot,
+import {
+  resolveNodeActionLabel,
+  type DeviceActionLabelDirectory,
+  type DeviceNameDirectory,
+  type SchedulerTimeline,
+  type TimePlanCandidate,
+  type TimePlanSnapshot,
 } from '@unilab-fe/core'
-import { placeholderNodeLabel } from './scheduleNodeFacts'
+import { PLANNED_NODE_PLACEHOLDER, UNNAMED_NODE_PLACEHOLDER } from './scheduleNodeFacts'
 
 /** manual：人工确认等待中（OS 已为其登记在途并占用设备，但设备尚未动作）。 */
 export type GanttBarKind = 'actual' | 'running' | 'manual' | 'planned'
@@ -19,8 +21,10 @@ export interface GanttBar {
   readonly deviceId: string
   /** 条上显示的文字（人工确认条带前缀）。 */
   readonly label: string
-  /** 节点名称（不带前缀），用于提示。 */
+  /** 节点显示名（不带前缀）：有意义的节点名 → 中文动作名 → 动作名 → 中文占位，用于提示。 */
   readonly nodeName: string
+  /** 原始动作引用（如 robot.move_to_point），提示中保留供排障；不知道动作时为空。 */
+  readonly actionRef?: string
   /** 绝对时间（秒，服务端时钟）。 */
   readonly start: number
   readonly end: number
@@ -108,7 +112,12 @@ export function buildScheduleGantt(input: {
   readonly plan: TimePlanSnapshot | null
   /** 当前服务端时刻（秒）：读取时的服务端 now 加上本地经过的时间，仅用于画“现在”。 */
   readonly now: number
-  readonly label?: (taskId: string, nodeId: string, fallback: string) => string
+  /** 节点名（OS 投影与本会话见过的记录）；没有时按动作名显示。 */
+  readonly nodeName?: (taskId: string, nodeId: string) => string | undefined
+  /** 节点的设备动作名（冻结定义）；计划条只有节点身份，有它才能显示中文动作名。 */
+  readonly nodeAction?: (taskId: string, nodeId: string) => string | undefined
+  /** 设备动作中文名目录（设备包展示元数据与 OS 设备读模型）；缺省时显示动作名。 */
+  readonly actions?: Pick<DeviceActionLabelDirectory, 'resolve'>
   /**
    * 作业执行种类（来自 Task/Jobs 投影）；用于区分人工确认等待与设备动作。
    * 时间线条目额外给出作业身份，计划条没有作业。
@@ -122,7 +131,29 @@ export function buildScheduleGantt(input: {
   /** 设备显示名目录（OS 设备读模型与展示元数据）；缺省时泳道显示设备身份。 */
   readonly devices?: Pick<DeviceNameDirectory, 'resolve'>
 }): ScheduleGantt {
-  const label = input.label ?? ((_task: string, _node: string, fallback: string) => fallback)
+  const nodeLabel = (
+    taskId: string,
+    nodeId: string,
+    deviceId: string,
+    actionName: string | undefined,
+    placeholder: string,
+  ) => {
+    const resolved = resolveNodeActionLabel(
+      { nodeName: input.nodeName?.(taskId, nodeId), actionName, deviceId },
+      input.actions,
+      placeholder,
+    )
+    return {
+      nodeName: resolved.text,
+      ...(resolved.actionRef ? { actionRef: resolved.actionRef } : {}),
+    }
+  }
+  // 计划条只有节点身份：同一节点在时间线上（如上一次尝试）出现过时，沿用调度器记录的动作名。
+  const timelineActions = new Map<string, string>()
+  for (const entry of input.timeline?.entries ?? []) {
+    const action = entry.actionName || entry.deviceActionKey
+    if (action) timelineActions.set(`${entry.taskId}|${entry.nodeId}`, action)
+  }
   const { candidate, problem, transient } = currentCandidate(input.plan)
   const fixedPlan = new Map<string, { start: number; end: number }>()
   for (const node of candidate?.nodes ?? []) {
@@ -135,20 +166,23 @@ export function buildScheduleGantt(input: {
   const bars: GanttBar[] = []
   const runningKeys = new Set<string>()
   for (const entry of input.timeline?.entries ?? []) {
-    const name = label(
-      entry.taskId,
-      entry.nodeId,
-      entry.actionName || entry.deviceActionKey || placeholderNodeLabel(entry.nodeId),
-    )
     const executorKind = input.executorKind?.(entry.taskId, entry.nodeId, entry.jobId)
     const deviceId =
       entry.deviceId || entry.deviceActionKey.split('/').filter(Boolean)[1] || '未知设备'
+    const named = nodeLabel(
+      entry.taskId,
+      entry.nodeId,
+      deviceId,
+      entry.actionName || entry.deviceActionKey || input.nodeAction?.(entry.taskId, entry.nodeId),
+      UNNAMED_NODE_PLACEHOLDER,
+    )
+    const name = named.nodeName
     const base = {
       taskId: entry.taskId,
       nodeId: entry.nodeId,
       jobId: entry.jobId,
       deviceId,
-      nodeName: name,
+      ...named,
     }
     if (entry.endedAt == null) {
       runningKeys.add(`${entry.taskId}|${entry.nodeId}`)
@@ -221,15 +255,22 @@ export function buildScheduleGantt(input: {
       const end = candidate.timeOrigin + node.endMs / 1000
       // 已完全落在“现在”之前的预测区间属于过期计划片段，不画。
       if (end <= input.now) continue
-      const name = label(node.taskId, node.nodeId, placeholderNodeLabel(node.nodeId))
+      const named = nodeLabel(
+        node.taskId,
+        node.nodeId,
+        node.deviceId,
+        input.nodeAction?.(node.taskId, node.nodeId) ??
+          timelineActions.get(`${node.taskId}|${node.nodeId}`),
+        PLANNED_NODE_PLACEHOLDER,
+      )
       bars.push({
         id: `plan:${node.taskId}:${node.nodeId}`,
         kind: 'planned',
         taskId: node.taskId,
         nodeId: node.nodeId,
         deviceId: node.deviceId,
-        label: name,
-        nodeName: name,
+        label: named.nodeName,
+        ...named,
         start: Math.max(start, input.now),
         end,
         parametersFinal: node.parametersFinal,
@@ -434,9 +475,16 @@ export function describeBar(
   const rows: BarDetailRow[] = [
     { label: '任务', value: context.taskName },
     { label: '节点', value: bar.nodeName },
+  ]
+  // 原始动作与节点身份保留在提示里，供与 OS 日志、任务详情对照排障。
+  if (bar.actionRef && bar.actionRef !== bar.nodeName) {
+    rows.push({ label: '动作', value: bar.actionRef })
+  }
+  rows.push(
+    { label: '节点 ID', value: bar.nodeId },
     { label: '设备', value: device },
     { label: '状态', value: barStatusText(bar) },
-  ]
+  )
   const span = (start: number, end: number) =>
     `${formatClock(start)} → ${formatClock(end)}（${formatSpan(end - start)}）`
   if (bar.kind === 'planned') {

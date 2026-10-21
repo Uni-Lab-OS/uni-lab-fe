@@ -1,6 +1,11 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { decodeSchedulerTimeline, decodeTimePlan, type DeviceSummary } from '@unilab-fe/core'
+import {
+  decodeDeviceActionPresentations,
+  decodeSchedulerTimeline,
+  decodeTimePlan,
+  type DeviceSummary,
+} from '@unilab-fe/core'
 import { ScheduleGantt } from './SchedulePage'
 import { osTaskSummary, taskSummaryPage } from '../../../test/taskSummaryFixtures'
 
@@ -181,6 +186,45 @@ describe('ScheduleGantt', () => {
     )
     render(<ScheduleGantt />)
     expect(await screen.findByText('暂无调度记录')).toBeInTheDocument()
+  })
+
+  it('labels bars with Chinese action names from the device package and keeps the raw action in the tooltip', async () => {
+    const backend = holder.current
+    backend.getCapabilityStatus = (capability: string) => ({
+      available: ['scheduler.timePlan', 'deviceAction.presentation'].includes(capability),
+    })
+    backend.core.deviceActionPresentations.getActionPresentations.mockResolvedValue(
+      decodeDeviceActionPresentations({
+        version: 1,
+        categories: Object.fromEntries(
+          ['read', 'compute', 'actuate', 'configure', 'safety', 'debug', 'flow', 'hook'].map(
+            (key) => [key, { label: key }],
+          ),
+        ),
+        devices: {
+          robot: {
+            label: '机械臂',
+            actions: {
+              pick_plate: {
+                ref: 'robot.pick_plate',
+                label: '取板',
+                category: 'actuate',
+                params: [],
+                result_fields: [],
+              },
+            },
+          },
+        },
+      }),
+    )
+    render(<ScheduleGantt />)
+    const bar = await screen.findByRole('button', { name: /取板 · 实际执行 · 成功 · 机械臂/ })
+    // 设备包没有 staging_a.locate 的中文名：回退原始动作名。
+    expect(screen.getByRole('button', { name: /locate · 实际执行 · 失败/ })).toBeInTheDocument()
+    fireEvent.mouseEnter(bar, { clientX: 100, clientY: 40 })
+    const tooltip = screen.getByRole('tooltip')
+    expect(within(tooltip).getByText('robot.pick_plate')).toBeInTheDocument()
+    expect(within(tooltip).getByText('node-1')).toBeInTheDocument()
   })
 
   it('keeps showing device ids when the device list cannot be read', async () => {

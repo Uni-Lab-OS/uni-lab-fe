@@ -185,5 +185,7 @@ describe('workflow debugging controls', () => {
       ['move', 'rail'],
       ['节点 1', null],
     ])
+    // 快照节点的设备动作名原样带出，供界面按设备解析中文动作名；没有时为 null。
+    expect(view.timeline.map((item) => item.actionName)).toEqual([null, 'move', null])
   })
 })

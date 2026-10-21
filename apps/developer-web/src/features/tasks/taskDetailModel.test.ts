@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildDeviceActionLabelDirectory,
   buildDeviceNameDirectory,
+  decodeDeviceActionPresentations,
   type DeviceSummary,
   type WorkflowDebugTimelineItem,
 } from '@unilab-fe/core'
@@ -263,6 +265,67 @@ describe('timeline execution device names', () => {
     expect(manual.device).toBe('人工确认')
     expect(manual.deviceTitle).toBeUndefined()
     expect(toTimelineEvent(job({ executorKind: 'loop_head' }), devices).device).toBe('loop_head')
+  })
+
+  const actions = buildDeviceActionLabelDirectory({
+    devices: [robot],
+    deviceNames: devices,
+    presentations: decodeDeviceActionPresentations({
+      version: 1,
+      categories: Object.fromEntries(
+        ['read', 'compute', 'actuate', 'configure', 'safety', 'debug', 'flow', 'hook'].map(
+          (key) => [key, { label: key }],
+        ),
+      ),
+      devices: {
+        robot: {
+          label: '机械臂',
+          actions: {
+            move_to_point: {
+              ref: 'robot.move_to_point',
+              label: '移动到点位',
+              category: 'actuate',
+              params: [],
+              result_fields: [],
+            },
+          },
+        },
+      },
+    }),
+  })
+
+  it('titles nodes named after the raw action with the Chinese action label', () => {
+    const moved = toTimelineEvent(
+      job({ nodeLabel: 'move_to_point', actionName: 'move_to_point', deviceId: 'robot' }),
+      devices,
+      actions,
+    )
+    expect(moved).toMatchObject({
+      title: '移动到点位',
+      titleHint: '动作：robot.move_to_point\n节点 ID：n',
+    })
+    // 有意义的节点名优先；没有中文名的动作回退原始动作名；内置技术节点显示中文。
+    expect(
+      toTimelineEvent(
+        job({ nodeLabel: '取板', actionName: 'move_to_point', deviceId: 'robot' }),
+        devices,
+        actions,
+      ).title,
+    ).toBe('取板')
+    expect(
+      toTimelineEvent(
+        job({ nodeLabel: 'dwell', actionName: 'dwell', deviceId: 'robot' }),
+        devices,
+        actions,
+      ),
+    ).toMatchObject({ title: 'dwell', titleHint: '动作：robot.dwell\n节点 ID：n' })
+    expect(
+      toTimelineEvent(job({ nodeLabel: 'workflow_input', executorKind: 'workflow_input' })).title,
+    ).toBe('工作流输入')
+    // 展示元数据不可用时保持原名。
+    expect(
+      toTimelineEvent(job({ nodeLabel: 'move_to_point', actionName: 'move_to_point' })).title,
+    ).toBe('move_to_point')
   })
 })
 

@@ -6,7 +6,7 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
 import { navigateTo } from '../../app/navigation'
-import { useDeviceNames } from '../../hooks/useDeviceNames'
+import { useDeviceDirectory } from '../../hooks/useDeviceNames'
 import { taskDisplayName } from '../overview/taskPresentation'
 import { GanttChart, LegendSwatch } from './GanttChart'
 import {
@@ -21,14 +21,14 @@ import {
   collectScheduleNodeFacts,
   EMPTY_NODE_FACTS,
   mergeNodeFacts,
-  placeholderNodeLabel,
+  PLANNED_NODE_PLACEHOLDER,
   scheduleLookups,
   type ScheduleNodeFacts,
 } from './scheduleNodeFacts'
 import { useManualJobFacts } from './useManualJobFacts'
 import { observedTaskNodes } from '../tasks/observedTaskNodes'
 import { useBackend } from '../../app/BackendProvider'
-import { blockReasonKinds, stalledPlanNodes } from '@unilab-fe/core'
+import { blockReasonKinds, resolveNodeActionLabel, stalledPlanNodes } from '@unilab-fe/core'
 import { usePersistentStalls } from './usePersistentStalls'
 import styles from './SchedulePage.module.scss'
 
@@ -77,7 +77,7 @@ export function ScheduleGantt({
 } = {}) {
   const { backend } = useBackend()
   const data = useScheduleData()
-  const deviceNames = useDeviceNames()
+  const { names: deviceNames, actions: actionLabels } = useDeviceDirectory()
   const manualJobs = useManualJobFacts(data.timeline)
   const [tick, setTick] = useState(() => Date.now())
   const hasRunning = (data.timeline?.entries ?? []).some((entry) => entry.endedAt == null)
@@ -94,8 +94,9 @@ export function ScheduleGantt({
     [data.tasks],
   )
   // 节点名与执行种类：调用方给的任务事实（任务详情已读到的当前任务）、列表投影（摘要只含在途
-  // Job）与本会话见过的节点名、按需读取的已结束人工确认作业，后者覆盖前者。都没有时用动作名
-  // 或“节点 <身份>”占位，不为标签下载整份任务定义。
+  // Job）与本会话见过的节点名、按需读取的已结束人工确认作业，后者覆盖前者。节点名只是原始
+  // 动作名或缺失时，按设备显示中文动作名（设备包展示元数据），再回退动作名或“待执行节点”等
+  // 中文占位（节点身份在提示里），不为标签下载整份任务定义。
   const lookups = useMemo(
     () =>
       scheduleLookups(
@@ -107,19 +108,20 @@ export function ScheduleGantt({
       ),
     [backend, data.tasks, focusFacts, manualJobs],
   )
-  const nodeName = lookups.nodeName
   const gantt = useMemo(
     () =>
       buildScheduleGantt({
         timeline: data.timeline,
         plan: data.plan,
         now,
-        label: (task, node, fallback) => lookups.nodeName(task, node) ?? fallback,
+        nodeName: lookups.nodeName,
+        nodeAction: lookups.nodeAction,
+        actions: actionLabels,
         executorKind: lookups.executorKind,
         manualDecidedAt: lookups.manualDecidedAt,
         devices: deviceNames,
       }),
-    [data.plan, data.timeline, deviceNames, lookups, now],
+    [actionLabels, data.plan, data.timeline, deviceNames, lookups, now],
   )
 
   // 只提示持续 60 秒以上的无法排程节点；派发间隙短暂出现的阻塞不提示。
@@ -211,10 +213,19 @@ export function ScheduleGantt({
           description={
             <ul className={styles.stallList}>
               {stalled.slice(0, 5).map((item) => (
-                <li key={`${item.taskId}:${item.nodeId}`}>
+                <li key={`${item.taskId}:${item.nodeId}`} title={`节点 ID：${item.nodeId}`}>
                   {taskNames.get(item.taskId) ?? item.taskId.slice(0, 8)} ·{' '}
-                  {nodeName(item.taskId, item.nodeId) ?? placeholderNodeLabel(item.nodeId)}：
-                  {item.reason}
+                  {
+                    resolveNodeActionLabel(
+                      {
+                        nodeName: lookups.nodeName(item.taskId, item.nodeId),
+                        actionName: lookups.nodeAction(item.taskId, item.nodeId),
+                      },
+                      actionLabels,
+                      PLANNED_NODE_PLACEHOLDER,
+                    ).text
+                  }
+                  ：{item.reason}
                 </li>
               ))}
               {stalled.length > 5 && <li>另有 {stalled.length - 5} 个</li>}

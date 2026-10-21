@@ -21,6 +21,8 @@ export interface TaskExecutionTimelineItem {
   readonly id: string
   readonly time: string
   readonly title: string
+  /** 标题的提示（原始动作引用与节点身份）。 */
+  readonly titleHint?: string
   readonly status: TaskExecutionStatus
   readonly device?: string
   /** 执行列的提示（原始设备身份）。 */
@@ -100,7 +102,9 @@ export function TaskExecutionTimeline({
                   </span>
                   <span className={styles.content}>
                     <span className={styles.head}>
-                      <span className={styles.title}>{item.title}</span>
+                      <span className={styles.title} title={item.titleHint}>
+                        {item.title}
+                      </span>
                       <StatusBadge status={item.status} />
                     </span>
                     <span className={styles.meta}>

@@ -46,7 +46,7 @@ export function TaskDetailInspectorDrawer({ controller }: { controller: Controll
         aria-label="节点详情"
       >
         <div className={clsx(taskDetailStyles['debug-inspector-head'])}>
-          <h2>{selectedEvent.title}</h2>
+          <h2 title={selectedEvent.titleHint}>{selectedEvent.title}</h2>
           <button
             type="button"
             className={clsx(taskDetailStyles['debug-icon-button'])}

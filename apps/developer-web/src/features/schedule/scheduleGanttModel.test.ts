@@ -293,6 +293,7 @@ describe('bar details', () => {
     expect(describeBar({ ...base, kind: 'actual', state: 'failed' }, context)).toEqual([
       { label: '任务', value: '样品 1' },
       { label: '节点', value: '取板' },
+      { label: '节点 ID', value: 'n' },
       { label: '设备', value: '机械臂（robot）' },
       { label: '状态', value: '实际执行 · 失败' },
       { label: '实际', value: expect.stringContaining('（30 秒）') },
@@ -312,6 +313,7 @@ describe('bar details', () => {
     expect(running.map((row) => row.label)).toEqual([
       '任务',
       '节点',
+      '节点 ID',
       '设备',
       '状态',
       '计划',
@@ -333,6 +335,24 @@ describe('bar details', () => {
     )
     expect(planned.find((row) => row.label === '设备')?.value).toBe('robot')
     expect(planned.find((row) => row.label === '说明')?.value).toContain('参数待上游确认')
+  })
+
+  it('keeps the raw action and node id in the details for troubleshooting', () => {
+    const rows = describeBar(
+      { ...base, kind: 'actual', nodeName: '移动到点位', actionRef: 'robot.move_to_point' },
+      context,
+    )
+    expect(rows.slice(1, 4)).toEqual([
+      { label: '节点', value: '移动到点位' },
+      { label: '动作', value: 'robot.move_to_point' },
+      { label: '节点 ID', value: 'n' },
+    ])
+    // 显示的就是原始动作名时不重复列出。
+    expect(
+      describeBar({ ...base, kind: 'planned', nodeName: 'dwell', actionRef: 'dwell' }, context).map(
+        (row) => row.label,
+      ),
+    ).not.toContain('动作')
   })
 
   it('reports status text and failure from the scheduler settlement only', () => {

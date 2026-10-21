@@ -82,6 +82,8 @@ export interface WorkflowDebugTimelineItem {
   readonly createdAt?: string | null
   /** 执行设备（实际执行者或快照固定绑定）；人工确认、物料来源等非设备节点为 null。 */
   readonly deviceId?: string | null
+  /** 冻结快照节点的设备动作名（action_name，如 move_to_point）；非设备节点或缺失时为 null。 */
+  readonly actionName?: string | null
 }
 
 export interface WorkflowDebugControls {
@@ -149,6 +151,7 @@ export function projectWorkflowDebugFacts(
         workflowNodeUuid: job.workflowNodeUuid,
         nodeLabel: resolveNodeLabel(nodes.get(job.workflowNodeUuid), job.topologicalIndex),
         deviceId: resolveDeviceId(job.controlData, nodes.get(job.workflowNodeUuid)),
+        actionName: resolveActionName(nodes.get(job.workflowNodeUuid)),
         status: job.status,
         attempt: job.attempt,
         topologicalIndex: job.topologicalIndex,
@@ -243,6 +246,11 @@ function resolveDeviceId(
   if (typeof actual === 'string' && actual) return actual
   const binding = asRecord(asRecord(asRecord(node?.meta_data)?.unilab)?.executor_binding)?.device_id
   return typeof binding === 'string' && binding ? binding : null
+}
+
+function resolveActionName(node: Readonly<Record<string, unknown>> | undefined): string | null {
+  const action = node?.action_name
+  return typeof action === 'string' && action.trim() ? action.trim() : null
 }
 
 function resolveNodeLabel(

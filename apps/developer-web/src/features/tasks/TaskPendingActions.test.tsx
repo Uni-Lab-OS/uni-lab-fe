@@ -88,4 +88,16 @@ describe('plan stalls', () => {
     fireEvent.click(screen.getByRole('button', { name: /查看节点/ }))
     expect(onOpen).toHaveBeenCalledWith('job-1')
   })
+
+  it('names a stalled node without a timeline event in Chinese and keeps the id in the hint', () => {
+    render(
+      <TaskPendingActions
+        events={[]}
+        stalls={[{ nodeId: '00e0058a-node', reason: '动作耗时尚无可用估计', event: null }]}
+        onOpen={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('待执行节点').getAttribute('title')).toBe('节点 ID：00e0058a-node')
+    expect(screen.queryByText(/00e0058a/)).toBeNull()
+  })
 })

@@ -4,7 +4,7 @@ import type {
   WorkflowDebugTimelineItem,
 } from '@unilab-fe/core'
 import { nodeKey, type ObservedTaskNodes } from '../tasks/observedTaskNodes'
-import { displayNodeName, taskNodeNames } from '../tasks/taskDomain'
+import { displayNodeName, taskNodeActionNames, taskNodeNames } from '../tasks/taskDomain'
 
 export { nodeKey }
 
@@ -17,6 +17,11 @@ export interface ScheduleJobFact {
 /** 甘特图使用的节点事实，节点级键为 nodeKey(taskId, nodeId)；全部来自 OS 投影，缺失即为空。 */
 export interface ScheduleNodeFacts {
   readonly names: ReadonlyMap<string, string>
+  /**
+   * 节点的设备动作名（冻结定义的 action_name）；计划条本身不带动作名，有它才能显示中文动作名。
+   * 摘要视图没有单独的动作名（节点名缺省就是动作名），这里为空。
+   */
+  readonly actions: ReadonlyMap<string, string>
   /** 作业执行种类：区分人工确认等待与设备动作。 */
   readonly executorKinds: ReadonlyMap<string, string>
   /** 人工确认的批准时刻（秒，来自作业 manual_confirmation.decided_at）。 */
@@ -27,6 +32,7 @@ export interface ScheduleNodeFacts {
 
 export const EMPTY_NODE_FACTS: ScheduleNodeFacts = {
   names: new Map(),
+  actions: new Map(),
   executorKinds: new Map(),
   manualDecidedAt: new Map(),
   jobs: new Map(),
@@ -43,6 +49,7 @@ export function collectScheduleNodeFacts(
 ): ScheduleNodeFacts {
   const names = new Map<string, string>()
   for (const [key, name] of observed?.names ?? []) names.set(key, displayNodeName(name))
+  const actions = new Map<string, string>()
   const executorKinds = new Map<string, string>()
   const manualDecidedAt = new Map<string, number>()
   for (const task of tasks) {
@@ -57,6 +64,9 @@ export function collectScheduleNodeFacts(
     for (const [nodeId, name] of taskNodeNames(task.raw)) {
       names.set(nodeKey(task.taskUuid, nodeId), name)
     }
+    for (const [nodeId, action] of taskNodeActionNames(task.raw)) {
+      actions.set(nodeKey(task.taskUuid, nodeId), action)
+    }
     for (const job of task.jobs) {
       const key = nodeKey(task.taskUuid, job.workflowNodeUuid)
       executorKinds.set(key, job.executorKind)
@@ -64,7 +74,7 @@ export function collectScheduleNodeFacts(
       if (at !== undefined) manualDecidedAt.set(key, at)
     }
   }
-  return { names, executorKinds, manualDecidedAt, jobs: new Map() }
+  return { names, actions, executorKinds, manualDecidedAt, jobs: new Map() }
 }
 
 /** 任务详情页已读取的单个任务（时间线与全部作业），给该任务的甘特条完整命名。 */
@@ -74,16 +84,18 @@ export function detailNodeFacts(
   jobs: readonly TaskJobSummary[],
 ): ScheduleNodeFacts {
   const names = new Map<string, string>()
+  const actions = new Map<string, string>()
   const executorKinds = new Map<string, string>()
   for (const item of timeline) {
     if (item.currentAttempt === false) continue
     const key = nodeKey(taskId, item.workflowNodeUuid)
     names.set(key, displayNodeName(item.nodeLabel))
+    if (item.actionName) actions.set(key, item.actionName)
     executorKinds.set(key, item.executorKind)
   }
   const jobFacts = new Map<string, ScheduleJobFact>()
   for (const job of jobs) jobFacts.set(job.jobUuid, jobFact(job.executorKind, job.raw))
-  return { names, executorKinds, manualDecidedAt: new Map(), jobs: jobFacts }
+  return { names, actions, executorKinds, manualDecidedAt: new Map(), jobs: jobFacts }
 }
 
 export function jobFact(
@@ -105,6 +117,7 @@ export function mergeNodeFacts(
     new Map(present.flatMap((facts) => [...pick(facts)]))
   return {
     names: merge((facts) => facts.names),
+    actions: merge((facts) => facts.actions),
     executorKinds: merge((facts) => facts.executorKinds),
     manualDecidedAt: merge((facts) => facts.manualDecidedAt),
     jobs: merge((facts) => facts.jobs),
@@ -116,6 +129,7 @@ export function scheduleLookups(facts: ScheduleNodeFacts) {
   const job = (jobId: string | undefined) => (jobId ? facts.jobs.get(jobId) : undefined)
   return {
     nodeName: (taskId: string, nodeId: string) => facts.names.get(nodeKey(taskId, nodeId)),
+    nodeAction: (taskId: string, nodeId: string) => facts.actions.get(nodeKey(taskId, nodeId)),
     executorKind: (taskId: string, nodeId: string, jobId?: string) => {
       const fact = job(jobId)
       return fact ? fact.executorKind : facts.executorKinds.get(nodeKey(taskId, nodeId))
@@ -127,10 +141,12 @@ export function scheduleLookups(facts: ScheduleNodeFacts) {
   }
 }
 
-/** OS 未给出节点名时的可读占位：带节点身份前缀，便于与任务详情对照。 */
-export function placeholderNodeLabel(nodeId: string): string {
-  return `节点 ${nodeId.slice(0, 8)}`
-}
+/**
+ * 既无节点名也无动作名时的中文占位；节点身份放在提示里（甘特条提示的“节点 ID”）。
+ * 计划中的节点尚未执行，用“待执行节点”；已执行的作业缺名称时用“未命名节点”。
+ */
+export const PLANNED_NODE_PLACEHOLDER = '待执行节点'
+export const UNNAMED_NODE_PLACEHOLDER = '未命名节点'
 
 /** OS 作业投影中人工确认的批准时刻（秒）；未批准或字段缺失时为 undefined。 */
 export function decidedAtSeconds(raw: Readonly<Record<string, unknown>>): number | undefined {

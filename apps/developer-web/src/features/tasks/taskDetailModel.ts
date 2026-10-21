@@ -1,10 +1,13 @@
-import type {
-  DeviceNameDirectory,
-  ManualConfirmationAction,
-  WorkflowDebugTimelineItem,
-  WorkflowNodeJobDetail,
-  WorkflowResourceWaitFact,
+import {
+  resolveNodeActionLabel,
+  type DeviceActionLabelDirectory,
+  type DeviceNameDirectory,
+  type ManualConfirmationAction,
+  type WorkflowDebugTimelineItem,
+  type WorkflowNodeJobDetail,
+  type WorkflowResourceWaitFact,
 } from '@unilab-fe/core'
+import { displayNodeName } from './taskDomain'
 
 export type EventStatus =
   | 'success'
@@ -25,7 +28,10 @@ export type DebugCommandType = 'step' | 'pause' | 'resume' | 'cancel'
 export interface TimelineEvent {
   readonly id: string
   readonly time: string
+  /** 节点显示名：有意义的节点名 → 中文动作名 → 动作名。 */
   readonly title: string
+  /** 标题提示：原始动作引用与节点身份，供排障。 */
+  readonly titleHint?: string
   readonly group: string
   readonly description: string
   readonly status: EventStatus
@@ -127,17 +133,20 @@ export function formatTimelineDuration(
 
 /** 设备显示名目录（OS 设备读模型与展示元数据）；缺省时执行列显示设备身份。 */
 export type TimelineDeviceNames = Pick<DeviceNameDirectory, 'resolve'>
+/** 设备动作中文名目录（设备包展示元数据）；缺省时标题显示节点名或动作名。 */
+export type TimelineActionLabels = Pick<DeviceActionLabelDirectory, 'resolve'>
 
 export function toTimelineEvent(
   job: WorkflowDebugTimelineItem,
   devices?: TimelineDeviceNames,
+  actions?: TimelineActionLabels,
 ): TimelineEvent {
   if (job.uncertaintyReason && (job.status === 'running' || job.status === 'failed')) {
     // OS 保持占用、等待物理对账：不能显示成“执行中”或普通失败。
     return {
       id: job.jobUuid,
       time: timelineTimeLabel(job),
-      title: job.nodeLabel,
+      ...timelineTitle(job, actions),
       group: job.executorKind,
       description: `结果未知，需现场核对后处置：${job.uncertaintyReason}`,
       status: 'unknown',
@@ -149,7 +158,7 @@ export function toTimelineEvent(
   return {
     id: job.jobUuid,
     time: timelineTimeLabel(job),
-    title: job.nodeLabel,
+    ...timelineTitle(job, actions),
     group: job.executorKind,
     description:
       Object.keys(job.waitReason).length > 0
@@ -169,6 +178,30 @@ export function toTimelineEvent(
     duration: formatTimelineDuration(job.startedAt, job.finishedAt, job.status),
     ...timelineOrder(job),
   }
+}
+
+/**
+ * 节点标题：节点名只是原始动作名（如 move_to_point）时换成设备动作中文名；原始动作引用与
+ * 节点身份放在提示里。
+ */
+function timelineTitle(
+  job: WorkflowDebugTimelineItem,
+  actions: TimelineActionLabels | undefined,
+): { readonly title: string; readonly titleHint: string } {
+  const label = resolveNodeActionLabel(
+    {
+      nodeName: displayNodeName(job.nodeLabel),
+      actionName: job.actionName,
+      deviceId: job.deviceId,
+    },
+    actions,
+    '未命名节点',
+  )
+  const hints = [
+    label.actionRef && label.actionRef !== label.text ? `动作：${label.actionRef}` : null,
+    `节点 ID：${job.workflowNodeUuid}`,
+  ]
+  return { title: label.text, titleHint: hints.filter(Boolean).join('\n') }
 }
 
 const EXECUTOR_LABELS: Readonly<Record<string, string>> = {

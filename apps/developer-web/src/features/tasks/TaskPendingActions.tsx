@@ -22,7 +22,7 @@ export function pendingOperatorEvents(events: readonly TimelineEvent[]): Timelin
 export interface PlanStallItem {
   readonly nodeId: string
   readonly reason: string
-  /** 对应的时间线事件（作业）；找不到时只显示节点号。 */
+  /** 对应的时间线事件（作业）；找不到时显示“待执行节点”，节点身份放在提示里。 */
   readonly event: TimelineEvent | null
 }
 
@@ -50,8 +50,11 @@ export function TaskPendingActions({
         <div key={`stall:${stall.nodeId}`} className={clsx(styles['item'], styles['item-pending'])}>
           <Tag color="red">无法排程</Tag>
           <div className={clsx(styles['item-copy'])}>
-            <span className={clsx(styles['item-title'])}>
-              {stall.event?.title ?? `节点 ${stall.nodeId.slice(0, 8)}`}
+            <span
+              className={clsx(styles['item-title'])}
+              title={stall.event?.titleHint ?? `节点 ID：${stall.nodeId}`}
+            >
+              {stall.event?.title ?? '待执行节点'}
             </span>
             <span className={clsx(styles['item-meta'])}>
               OS 时间排程：{stall.reason}。该节点不会被派发，任务会停在这里；请检查估时规则或联系 OS
