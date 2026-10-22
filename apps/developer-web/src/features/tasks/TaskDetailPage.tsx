@@ -11,7 +11,8 @@ import { TaskDetailTimelinePanel } from './TaskDetailTimelinePanel'
 import { TaskDetailInspectorDrawer } from './TaskDetailInspectorDrawer'
 import { TaskHumanInteractionPanel } from './TaskHumanInteractionPanel'
 import { TaskResourceHandoff } from './TaskResourceHandoff'
-import { TaskPendingActions, type PlanStallItem } from './TaskPendingActions'
+import { pendingOperatorEvents, TaskPendingActions, type PlanStallItem } from './TaskPendingActions'
+import { TaskAttentionDock } from './TaskAttentionDock'
 import { useTaskPlanStalls } from './useTaskPlanStalls'
 import { humanCommandNodeIds } from './taskDomain'
 import { findTimelineJob } from './taskDetailModel'
@@ -73,6 +74,14 @@ export function TaskDetailPage({
     })
   }, [controller.timelineEvents, planStalls, viewModel?.timeline])
   const humanNodeIds = useMemo(() => humanCommandNodeIds(selectedTask?.raw), [selectedTask?.raw])
+  // 需要操作员处理的节点身份：出现新成员时右下角“需要处理”面板自动展开
+  const attentionIds = useMemo(
+    () => [
+      ...stallItems.map((stall) => `stall:${stall.nodeId}`),
+      ...pendingOperatorEvents(controller.timelineEvents).map((event) => event.id),
+    ],
+    [controller.timelineEvents, stallItems],
+  )
   // 本任务的节点名与作业事实已随详情读到，甘特图直接复用，不再为标签另行请求。
   const ganttFacts = useMemo(
     () =>
@@ -138,23 +147,25 @@ export function TaskDetailPage({
         activeEvents={activeTimelineEvents}
         statusTooltip={statusTooltip}
       />
-      <TaskResourceHandoff
-        task={selectedTask}
-        jobs={viewModel?.timeline ?? []}
-        stopRequested={controller.stopRequested}
-        onChanged={controller.reloadTask}
-      />
-      <TaskPendingActions
-        events={controller.timelineEvents}
-        stalls={stallItems}
-        onOpen={(id) => controller.openEvent(id)}
-      />
-      <TaskHumanInteractionPanel
-        taskUuid={selectedTask?.taskUuid ?? null}
-        timeline={viewModel?.timeline ?? []}
-        taskVersion={`${selectedTask?.status ?? ''}:${selectedTask?.updatedAt ?? ''}`}
-        humanNodeIds={humanNodeIds}
-      />
+      <TaskAttentionDock count={attentionIds.length} attentionKey={attentionIds.join('|')}>
+        <TaskResourceHandoff
+          task={selectedTask}
+          jobs={viewModel?.timeline ?? []}
+          stopRequested={controller.stopRequested}
+          onChanged={controller.reloadTask}
+        />
+        <TaskPendingActions
+          events={controller.timelineEvents}
+          stalls={stallItems}
+          onOpen={(id) => controller.openEvent(id)}
+        />
+        <TaskHumanInteractionPanel
+          taskUuid={selectedTask?.taskUuid ?? null}
+          timeline={viewModel?.timeline ?? []}
+          taskVersion={`${selectedTask?.status ?? ''}:${selectedTask?.updatedAt ?? ''}`}
+          humanNodeIds={humanNodeIds}
+        />
+      </TaskAttentionDock>
       {ganttAvailable && (
         <div className={clsx(taskDetailPageStyles['debug-view-switch'])}>
           <Segmented

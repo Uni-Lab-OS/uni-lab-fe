@@ -242,33 +242,35 @@ export function ScheduleGantt({
         />
       )}
 
-      <div className={styles.legend} aria-label="图例">
-        <span>
-          <LegendSwatch kind="actual" patternId={`${legendId}-a`} />
-          实际执行（派发 → 观察到结果）
-        </span>
-        <span>
-          <LegendSwatch kind="running" patternId={`${legendId}-r`} />
-          {'▶ 运行中（橙色描边，虚线为预计剩余）'}
-        </span>
-        <span>
-          <LegendSwatch kind="manual" patternId={`${legendId}-m`} />
-          待人工确认（斜纹，占用设备，设备未动作）
-        </span>
-        <span>
-          <LegendSwatch kind="planned" patternId={`${legendId}-p`} />
-          OS 当前计划（虚线框，预测，非执行授权）
-        </span>
-        <span>
-          <LegendSwatch kind="actual" failed patternId={`${legendId}-f`} />
-          {'✕ 失败 / 取消（红色描边）'}
-        </span>
-        <span>
-          <i className={styles.legendNow} aria-hidden="true" />
-          现在
-        </span>
-        <span className={styles.legendNote}>条的颜色区分任务，不表示状态</span>
-      </div>
+      {gantt.lanes.length > 0 && (
+        <div className={styles.legend} aria-label="图例">
+          <span>
+            <LegendSwatch kind="actual" patternId={`${legendId}-a`} />
+            实际执行（派发 → 观察到结果）
+          </span>
+          <span>
+            <LegendSwatch kind="running" patternId={`${legendId}-r`} />
+            {'▶ 运行中（橙色描边，虚线为预计剩余）'}
+          </span>
+          <span>
+            <LegendSwatch kind="manual" patternId={`${legendId}-m`} />
+            待人工确认（斜纹，占用设备，设备未动作）
+          </span>
+          <span>
+            <LegendSwatch kind="planned" patternId={`${legendId}-p`} />
+            OS 当前计划（虚线框，预测，非执行授权）
+          </span>
+          <span>
+            <LegendSwatch kind="actual" failed patternId={`${legendId}-f`} />
+            {'✕ 失败 / 取消（红色描边）'}
+          </span>
+          <span>
+            <i className={styles.legendNow} aria-hidden="true" />
+            现在
+          </span>
+          <span className={styles.legendNote}>条的颜色区分任务，不表示状态</span>
+        </div>
+      )}
 
       {data.available &&
         (firstLoad && !data.error ? (
@@ -277,17 +279,19 @@ export function ScheduleGantt({
             <Skeleton active title={false} paragraph={{ rows: 5 }} />
           </div>
         ) : gantt.lanes.length === 0 ? (
-          <EmptyState
-            className={styles.placeholder}
-            scene={data.error ? 'operation-failed' : 'no-data'}
-            size="compact"
-            title={data.error ? '暂时无法显示调度记录' : '暂无调度记录'}
-            description={
-              data.error
-                ? '读取失败且没有已读取的记录，可点“刷新”重试。'
-                : '启动任务后，这里会按设备显示实际执行与 OS 计划。'
-            }
-          />
+          // 空状态占满甘特图区域并居中，外框与有数据时的甘特图一致；没有数据时不显示图例
+          <div className={styles.emptyFrame}>
+            <EmptyState
+              scene={data.error ? 'operation-failed' : 'no-data'}
+              size="compact"
+              title={data.error ? '暂时无法显示调度记录' : '暂无调度记录'}
+              description={
+                data.error
+                  ? '读取失败且没有已读取的记录，可点“刷新”重试。'
+                  : '启动任务后，这里会按设备显示实际执行与 OS 计划。'
+              }
+            />
+          </div>
         ) : (
           <GanttChart
             lanes={gantt.lanes}

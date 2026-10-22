@@ -1,0 +1,67 @@
+/* 运行时需要处理的事项：右下角浮动面板，不占文档流，不挤压执行时间线。 */
+
+.dock {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  /* 在时间线之上、节点详情抽屉（z-index 20）之下 */
+  z-index: 15;
+  display: flex;
+  width: min(460px, calc(100vw - 32px));
+  max-height: min(60dvh, 600px);
+  flex-direction: column;
+  border: 1px solid #f0d9a8;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(23, 35, 59, 0.18);
+}
+
+/* 子组件都不渲染时（没有任何待处理事项）整体隐藏 */
+.dock:has(> .dock-body:empty) {
+  display: none;
+}
+
+.dock-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid #f3e6c8;
+  color: #55472e;
+}
+
+.dock-header > :last-child {
+  margin-left: auto;
+}
+
+.dock.is-collapsed {
+  width: auto;
+}
+
+.dock.is-collapsed .dock-header {
+  border-bottom: 0;
+}
+
+.dock-body {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/* 面板在页面里自带左右外边距；放进浮动面板后去掉 */
+.dock .dock-body > * {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .dock {
+    right: 12px;
+    bottom: 12px;
+  }
+}

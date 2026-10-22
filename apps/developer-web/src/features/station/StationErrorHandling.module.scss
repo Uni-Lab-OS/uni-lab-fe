@@ -1,13 +1,28 @@
+/* 工站状态条浮在页面右上角，不占文档流：运行中出现或消失时不把页面（如任务执行时间线）往下挤 */
 .banner {
+  position: fixed;
+  z-index: 16;
+  top: 12px;
+  right: 24px;
   display: flex;
+  max-width: min(560px, calc(100vw - 48px));
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin: 0 0 12px;
+  margin: 0;
   padding: 12px 16px;
   border: 1px solid #f0c987;
   border-radius: 10px;
   background: #fff6e8;
+  box-shadow: 0 10px 28px rgba(23, 35, 59, 0.16);
+}
+
+@media (max-width: 900px) {
+  .banner {
+    right: 12px;
+    left: 12px;
+    max-width: none;
+  }
 }
 
 .banner > div:first-child {

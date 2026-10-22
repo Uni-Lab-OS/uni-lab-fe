@@ -13,6 +13,7 @@
 }
 
 .debug-timeline-panel {
+  position: relative;
   display: flex;
   min-height: 0;
   flex-direction: column;
@@ -43,11 +44,18 @@
   gap: 4px;
 }
 
+/* 命令回执浮在面板右上角（标题行下方），不占文档流：出现或消失时筛选栏与节点列表不移动 */
 .debug-command-feedback {
+  position: absolute;
+  z-index: 2;
+  top: 58px;
+  right: 20px;
+  max-width: min(520px, calc(100% - 40px));
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 12px 0 2px;
+  margin: 0;
+  box-shadow: 0 6px 18px rgba(23, 35, 59, 0.12);
   padding: 9px 12px;
   border: 1px solid #dce5fa;
   border-radius: 8px;
