@@ -1,11 +1,13 @@
 /**
- * 从作业的输入、输出、错误信息里找出 OS 开放的视觉留图地址。
+ * 从作业的输入、输出、错误信息里找出相机留图地址。
  *
- * 设备包把拍照留图挂在 `/api/vision/image/...`（刮板拍照、路径预览）和
- * `/api/vision/plate/...`（放板纠偏、零点示教）下；结果字段与报错文本里都可能出现。
- * 这里只认这两个前缀下的 png/jpg，不含 `..`，最多取前 `limit` 张。
+ * 设备包的相机设备经 OS 设备文件路由开放留图：`/api/v1/devices/{设备}/files/{根名}/{相对路径}`
+ * （刮粉紫外相机 imaging 的 images/photos、视觉标定相机 vision 的 plate、展缸相机 liquid_vision 的 tanks）；
+ * 旧版设备包的 `/api/vision/image/...`、`/api/vision/plate/...` 仍然识别。结果字段与报错文本里都可能出现。
+ * 这里只认这些前缀下的 png/jpg（路径可含百分号编码，如中文样品名），不含 `..`，最多取前 `limit` 张。
  */
-const VISION_IMAGE = /\/api\/vision\/(?:image|plate)\/[A-Za-z0-9_./-]+?\.(?:png|jpe?g)/gi
+const VISION_IMAGE =
+  /\/api\/(?:vision\/(?:image|plate)|v1\/devices\/[A-Za-z0-9_-]+\/files\/[A-Za-z0-9_-]+)\/[A-Za-z0-9_.%/-]+?\.(?:png|jpe?g)(?![A-Za-z0-9_.%/-])/gi
 
 export function extractVisionImagePaths(value: unknown, limit = 12): string[] {
   const found = new Set<string>()
