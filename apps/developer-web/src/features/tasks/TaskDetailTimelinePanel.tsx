@@ -1,6 +1,6 @@
 import { clsx } from 'clsx'
-import { useMemo, useState } from 'react'
-import { Segmented, Switch } from 'antd'
+import { useDeferredValue, useMemo, useState } from 'react'
+import { Input, Segmented, Switch } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
 import taskDetailTimelineStyles from './TaskDetailTimelinePanel.module.scss'
 import { TaskExecutionTimeline } from './TaskExecutionTimeline'
@@ -42,9 +42,14 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
   const [order, setOrder] = useState<TimelineOrder>('time')
   const [showUnexecuted, setShowUnexecuted] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [query, setQuery] = useState('')
+  // 节点可能有几千个：输入框立即响应，过滤与重绘列表延后到空闲时进行。
+  const deferredQuery = useDeferredValue(query)
+  const searching = deferredQuery.trim() !== ''
   const arranged = useMemo(
-    () => arrangeTimeline(timelineEvents, { order, showUnexecuted, showHistory }),
-    [order, showHistory, showUnexecuted, timelineEvents],
+    () =>
+      arrangeTimeline(timelineEvents, { order, showUnexecuted, showHistory, query: deferredQuery }),
+    [deferredQuery, order, showHistory, showUnexecuted, timelineEvents],
   )
   const collapsedTotal =
     arranged.collapsed.canceled + arranged.collapsed.skipped + arranged.collapsed.pending
@@ -57,9 +62,10 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
     [arranged.sections],
   )
   // 时间视图把“正在发生”放在最上方，并行候选（等待选择下一步）也随之置顶；步骤视图保持在末尾。
+  // 搜索时只列匹配的节点，不显示并行候选行。
   const frontierOnTop = order === 'time'
   const frontierRow =
-    readyFrontier.length > 1 ? (
+    readyFrontier.length > 1 && !searching ? (
       <TaskParallelTimelineRow
         candidates={readyFrontier}
         open={parallelOpen}
@@ -153,7 +159,17 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
               { label: '按步骤顺序', value: 'steps' },
             ]}
           />
-          {collapsedTotal > 0 && (
+          <Input
+            allowClear
+            size="small"
+            className={clsx(taskDetailTimelineStyles['debug-timeline-search'])}
+            prefix={<DebugIcon name="search" size={14} />}
+            placeholder="搜索节点、动作或设备"
+            aria-label="搜索时间线节点"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          {collapsedTotal > 0 && !searching && (
             <label className={clsx(taskDetailTimelineStyles['debug-timeline-toggle'])}>
               <Switch size="small" checked={showUnexecuted} onChange={setShowUnexecuted} />
               显示未执行节点（取消 {arranged.collapsed.canceled} · 跳过 {arranged.collapsed.skipped}{' '}
@@ -167,9 +183,11 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
             </label>
           )}
           <span className={clsx(taskDetailTimelineStyles['debug-timeline-hint'])}>
-            {order === 'steps'
-              ? '步骤顺序只反映 DAG 结构，不代表执行先后'
-              : '进行中的节点置顶，其余按发生时间倒序（最近在前）'}
+            {searching
+              ? `匹配 ${arranged.items.length} 个节点（含未执行节点）`
+              : order === 'steps'
+                ? '步骤顺序只反映 DAG 结构，不代表执行先后'
+                : '进行中的节点置顶，其余按发生时间倒序（最近在前）'}
           </span>
         </div>
         <div className={clsx(taskDetailTimelineStyles['debug-timeline-list'])}>
@@ -187,6 +205,13 @@ export function TaskDetailTimelinePanel({ controller }: { controller: Controller
               scene="no-data"
               size="compact"
               title="暂无可展示的 NodeJob"
+            />
+          ) : searching && arranged.items.length === 0 ? (
+            <EmptyState
+              className={clsx(taskDetailTimelineStyles['debug-timeline-empty'])}
+              scene="no-data"
+              size="compact"
+              title="没有匹配的节点"
             />
           ) : (
             <TaskExecutionTimeline

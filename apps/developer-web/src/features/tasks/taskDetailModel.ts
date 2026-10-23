@@ -274,6 +274,21 @@ export interface ArrangedTimeline {
 const UNEXECUTED: readonly EventStatus[] = ['canceled', 'skipped', 'pending']
 
 /**
+ * 时间线搜索：按空格分词、不区分大小写，每个词都须出现在节点名、动作引用与节点身份、
+ * 执行设备（中文名与设备身份）其中之一。空搜索词匹配全部。
+ */
+export function timelineEventMatches(event: TimelineEvent, query: string): boolean {
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  if (terms.length === 0) return true
+  // 提示文字是“动作：…”“节点 ID：…”“设备 ID：…”逐行排列，去掉行首标签，避免搜“节点”命中每一行。
+  const hint = (value: string | undefined) => (value ?? '').replace(/^[^：\n]{1,8}：/gm, '')
+  const text = [event.title, hint(event.titleHint), event.device, hint(event.deviceTitle)]
+    .join('\n')
+    .toLowerCase()
+  return terms.every((term) => text.includes(term))
+}
+
+/**
  * 整理时间线：
  * - time：当前正在进行或等待处置的节点（见 ACTIVE_EVENT_STATUSES）置顶；其余已发生的节点按
  *   服务端开始时间（缺失用结束时间）倒序，最近发生的在前；没有时间的节点（显示“未开始”）
@@ -284,10 +299,17 @@ const UNEXECUTED: readonly EventStatus[] = ['canceled', 'skipped', 'pending']
  */
 export function arrangeTimeline(
   events: readonly TimelineEvent[],
-  options: { order: TimelineOrder; showUnexecuted: boolean; showHistory: boolean },
+  options: {
+    order: TimelineOrder
+    showUnexecuted: boolean
+    showHistory: boolean
+    /** 搜索词（见 timelineEventMatches）；有搜索词时未执行节点一并参与匹配。 */
+    query?: string
+  },
 ): ArrangedTimeline {
   const collapsed = { canceled: 0, skipped: 0, pending: 0 }
   let historical = 0
+  const query = options.query?.trim() ?? ''
   const visible = events.filter((event) => {
     if (event.currentAttempt === false) {
       historical += 1
@@ -295,9 +317,10 @@ export function arrangeTimeline(
     }
     if (UNEXECUTED.includes(event.status) && event.sortTime == null) {
       collapsed[event.status as keyof typeof collapsed] += 1
-      return options.showUnexecuted
+      // 搜索是在找某个节点：尚未执行的节点也要能搜到，不受折叠开关限制。
+      if (!options.showUnexecuted && !query) return false
     }
-    return true
+    return !query || timelineEventMatches(event, query)
   })
   const byStep = (a: TimelineEvent, b: TimelineEvent) =>
     (a.topologicalIndex ?? 0) - (b.topologicalIndex ?? 0) || (a.attempt ?? 0) - (b.attempt ?? 0)

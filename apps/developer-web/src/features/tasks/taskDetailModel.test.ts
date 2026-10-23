@@ -14,6 +14,7 @@ import {
   formatTimelineTime,
   hasWorkflowSiteFact,
   isActiveTimelineEvent,
+  timelineEventMatches,
   mapJobStatus,
   readExpectedChangeSetKind,
   readManualConfirmation,
@@ -498,5 +499,72 @@ describe('gantt bar focus', () => {
     expect(findTimelineJob(timeline, { nodeUuid: 'node-2' })?.jobUuid).toBe('job-2')
     expect(findTimelineJob(timeline, { nodeUuid: 'node-9' })).toBeNull()
     expect(findTimelineJob(timeline, {})).toBeNull()
+  })
+})
+
+describe('timeline search: find a node among many', () => {
+  const job = (over: Partial<WorkflowDebugTimelineItem>): WorkflowDebugTimelineItem => ({
+    jobUuid: 'j',
+    workflowNodeUuid: 'n',
+    nodeLabel: '节点',
+    status: 'succeeded',
+    attempt: 1,
+    topologicalIndex: 0,
+    executorKind: 'device_action',
+    startedAt: null,
+    finishedAt: null,
+    waitReason: {},
+    errorInfo: [],
+    currentAttempt: true,
+    ...over,
+  })
+  const events = [
+    job({
+      jobUuid: 'pick',
+      workflowNodeUuid: 'node-pick',
+      nodeLabel: '上料仓取板',
+      actionName: 'robot.move_to_point',
+      deviceId: 'robot',
+      topologicalIndex: 1,
+      startedAt: '2026-10-20T10:00:00Z',
+    }),
+    job({
+      jobUuid: 'scrape',
+      workflowNodeUuid: 'node-scrape',
+      nodeLabel: '刮粉',
+      deviceId: 'photoscrape',
+      topologicalIndex: 2,
+      startedAt: '2026-10-20T10:05:00Z',
+    }),
+    job({
+      jobUuid: 'collect',
+      workflowNodeUuid: 'node-collect',
+      nodeLabel: '收集取瓶',
+      deviceId: 'robot',
+      status: 'pending',
+      topologicalIndex: 3,
+    }),
+  ].map((item) => toTimelineEvent(item))
+  const search = (query: string) =>
+    arrangeTimeline(events, { order: 'steps', showUnexecuted: false, showHistory: false, query })
+
+  it('matches node names, action refs and devices, every term required, ignoring case', () => {
+    expect(search('刮粉').items.map((item) => item.id)).toEqual(['scrape'])
+    expect(search('MOVE_TO').items.map((item) => item.id)).toEqual(['pick'])
+    expect(search('robot 取瓶').items.map((item) => item.id)).toEqual(['collect'])
+    expect(search('node-scrape').items.map((item) => item.id)).toEqual(['scrape'])
+  })
+
+  it('also finds nodes that have not run yet, while counts still describe the whole task', () => {
+    const arranged = search('取')
+    expect(arranged.items.map((item) => item.id)).toEqual(['pick', 'collect'])
+    expect(arranged.collapsed.pending).toBe(1)
+    expect(search('   ').items.map((item) => item.id)).toEqual(['pick', 'scrape'])
+  })
+
+  it('does not match the field labels of the hover hints', () => {
+    expect(timelineEventMatches(events[1]!, '节点')).toBe(false)
+    expect(timelineEventMatches(events[1]!, '设备')).toBe(false)
+    expect(search('没有这个节点').items).toEqual([])
   })
 })
