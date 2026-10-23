@@ -97,7 +97,10 @@ const job = (overrides: Partial<WorkflowDebugTimelineItem> = {}): WorkflowDebugT
   ...overrides,
 })
 
-function renderPanel(timeline = [job()], humanNodeIds: ReadonlySet<string> = new Set(['node-review'])) {
+function renderPanel(
+  timeline = [job()],
+  humanNodeIds: ReadonlySet<string> = new Set(['node-review']),
+) {
   return render(
     <TaskHumanInteractionPanel
       taskUuid="task-1"
@@ -176,6 +179,8 @@ describe('TaskHumanInteractionPanel', () => {
     overlay.getBoundingClientRect = () =>
       ({ left: 100, top: 50, width: 500, height: 250 }) as DOMRect
     expect(within(dialog).getByText('手绘轮廓至少需要 3 个点')).toBeTruthy()
+    // 设备包已停用四角矫正画布：只采轮廓点，不再提供“板角”模式。
+    expect(within(dialog).queryByText(/板角/)).toBeNull()
     for (const [x, y] of [
       [110, 60],
       [200, 60],

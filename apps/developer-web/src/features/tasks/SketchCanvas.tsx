@@ -3,10 +3,6 @@ import { clsx } from 'clsx'
 import type { HumanSketchInput } from '@unilab-fe/core'
 import styles from './TaskHumanInteraction.module.scss'
 
-export type SketchMode = 'contour' | 'corners'
-
-export const CORNER_LABELS = ['左上', '右上', '右下', '左下'] as const
-
 export const EMPTY_SKETCH: HumanSketchInput = { x: [], y: [], cornerX: [], cornerY: [] }
 
 export interface ImageState {
@@ -16,19 +12,18 @@ export interface ImageState {
 }
 
 /**
- * 在 OS 图片上标点。坐标始终换算为图片原始像素（naturalWidth/Height），
+ * 在 OS 图片上圈出刮取区域轮廓。坐标始终换算为图片原始像素（naturalWidth/Height），
  * 与显示缩放、容器滚动和设备像素比无关；不提交 CSS 屏幕坐标。
+ * 设备包已停用四角矫正画布（板角不再可作刮取来源），这里只采轮廓点，板角字段始终为空。
  */
 export function SketchCanvas({
   src,
-  mode,
   value,
   editable,
   onChange,
   onImageState,
 }: {
   src: string
-  mode: SketchMode
   value: HumanSketchInput
   editable: boolean
   onChange: (next: HumanSketchInput) => void
@@ -51,15 +46,7 @@ export function SketchCanvas({
       image,
     )
     if (!point) return
-    if (mode === 'contour') {
-      onChange({ ...value, x: [...value.x, point.x], y: [...value.y, point.y] })
-    } else if (value.cornerX.length < 4) {
-      onChange({
-        ...value,
-        cornerX: [...value.cornerX, point.x],
-        cornerY: [...value.cornerY, point.y],
-      })
-    }
+    onChange({ ...value, x: [...value.x, point.x], y: [...value.y, point.y] })
   }
 
   const radius = Math.max(4, Math.round(Math.max(image.width, image.height) / 160))
@@ -87,13 +74,7 @@ export function SketchCanvas({
           viewBox={`0 0 ${image.width} ${image.height}`}
           preserveAspectRatio="none"
           role={editable ? 'application' : 'img'}
-          aria-label={
-            editable
-              ? mode === 'contour'
-                ? '点击添加轮廓点'
-                : '按左上、右上、右下、左下点击板角'
-              : '标注预览'
-          }
+          aria-label={editable ? '点击添加轮廓点' : '标注预览'}
           onClick={addPoint}
         >
           {value.x.length >= 2 && (
@@ -111,25 +92,6 @@ export function SketchCanvas({
               cy={value.y[index]}
               r={radius}
             />
-          ))}
-          {value.cornerX.map((x, index) => (
-            <g key={`k${index}`}>
-              <rect
-                className={clsx(styles['sketch-corner'])}
-                x={x - radius}
-                y={(value.cornerY[index] ?? 0) - radius}
-                width={radius * 2}
-                height={radius * 2}
-              />
-              <text
-                className={clsx(styles['sketch-corner-label'])}
-                x={x + radius * 1.5}
-                y={(value.cornerY[index] ?? 0) - radius * 1.5}
-                fontSize={radius * 4}
-              >
-                {CORNER_LABELS[index]}
-              </text>
-            </g>
           ))}
         </svg>
       )}

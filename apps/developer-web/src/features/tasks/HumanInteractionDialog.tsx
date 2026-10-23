@@ -1,17 +1,6 @@
 import { useMemo, useState } from 'react'
 import { clsx } from 'clsx'
-import {
-  Alert,
-  Button,
-  Input,
-  InputNumber,
-  Modal,
-  Popconfirm,
-  Radio,
-  Segmented,
-  Space,
-  Tag,
-} from 'antd'
+import { Alert, Button, Input, InputNumber, Modal, Popconfirm, Radio, Space, Tag } from 'antd'
 import {
   buildHumanInteractionReply,
   formForChoice,
@@ -19,13 +8,7 @@ import {
   type HumanSketchInput,
   type WorkflowHumanInteraction,
 } from '@unilab-fe/core'
-import {
-  CORNER_LABELS,
-  EMPTY_SKETCH,
-  SketchCanvas,
-  type ImageState,
-  type SketchMode,
-} from './SketchCanvas'
+import { EMPTY_SKETCH, SketchCanvas, type ImageState } from './SketchCanvas'
 import {
   formatDeadline,
   HUMAN_KIND_LABELS,
@@ -58,7 +41,6 @@ export function HumanInteractionDialog({
   const [text, setText] = useState(interaction.textDefault)
   const [values, setValues] = useState<string[]>(interaction.numberDefaults.map(String))
   const [sketch, setSketch] = useState<HumanSketchInput>(EMPTY_SKETCH)
-  const [mode, setMode] = useState<SketchMode>('contour')
   const [image, setImage] = useState<ImageState>({ status: 'loading', width: 0, height: 0 })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -112,15 +94,7 @@ export function HumanInteractionDialog({
   }
 
   const undo = () =>
-    setSketch((current) =>
-      mode === 'contour'
-        ? { ...current, x: current.x.slice(0, -1), y: current.y.slice(0, -1) }
-        : {
-            ...current,
-            cornerX: current.cornerX.slice(0, -1),
-            cornerY: current.cornerY.slice(0, -1),
-          },
-    )
+    setSketch((current) => ({ ...current, x: current.x.slice(0, -1), y: current.y.slice(0, -1) }))
 
   const confirmText = `确认按“${choiceLabel ?? HUMAN_KIND_LABELS[kind]}”提交？OS 收到后将继续执行后续步骤。`
 
@@ -147,7 +121,6 @@ export function HumanInteractionDialog({
           <section className={clsx(styles['dialog-image'])} aria-label="复核图片">
             <SketchCanvas
               src={imageUrl}
-              mode={mode}
               value={sketch}
               editable={pending && needsSketch && !submitted}
               onChange={setSketch}
@@ -239,14 +212,7 @@ export function HumanInteractionDialog({
 
           {needsSketch && (
             <div className={clsx(styles['sketch-tools'])}>
-              <Segmented
-                value={mode}
-                onChange={(next) => setMode(next as SketchMode)}
-                options={[
-                  { label: `轮廓点（${sketch.x.length}）`, value: 'contour' },
-                  { label: `板角（${sketch.cornerX.length}/4）`, value: 'corners' },
-                ]}
-              />
+              <span>轮廓点（{sketch.x.length}）</span>
               <Space>
                 <Button size="small" onClick={undo} disabled={!pending || submitted}>
                   撤销
@@ -260,8 +226,7 @@ export function HumanInteractionDialog({
                 </Button>
               </Space>
               <p className={clsx(styles['hint'])}>
-                在图片上依次点击刮取区域轮廓（至少 3 点）。若 OS 未识别到板边界，需切到“板角”按
-                {CORNER_LABELS.join('、')}点 4 个角；也可不标板角。
+                在图片上依次点击，圈出要刮取的区域（至少 3 点）。
               </p>
             </div>
           )}
