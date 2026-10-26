@@ -2,9 +2,11 @@ import { clsx } from 'clsx'
 import materialsPageStyles from './MaterialsPage.module.scss'
 import appShellStyles from '../../styles/app-shell.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
-import { Button, Input } from 'antd'
+import { Button, Input, Space, Tooltip } from 'antd'
 import { useCallback, useMemo, useState } from 'react'
 import { useBackendQuery } from '../../hooks/useBackendQuery'
+import type { QueryFreshness } from '../../hooks/queryCache'
+import { useRuntimeInvalidation } from '../../hooks/useRuntimeInvalidation'
 import { AppIcon } from '../../components/ui/Icon'
 import { AsyncState } from '../../components/ui/AsyncState'
 import { PageHeader } from '../../components/ui/PageHeader'
@@ -17,8 +19,23 @@ import {
 import { MaterialInspector } from './MaterialInspector'
 import { MaterialManagement } from './MaterialManagement'
 
+/**
+ * 物料位置、用量和使用状态随任务执行由 OS 记账，OS 不单独发物料通知：任务/设备动作运行失效通知
+ * 到达时缓存过期并重读物料图。运行中通知几乎连续到达，通知驱动的重读至少间隔 3 秒且不并发；
+ * 刷新按钮不受限制。
+ */
+const MATERIAL_GRAPH_FRESHNESS: QueryFreshness = {
+  invalidateOnRuntimeEvents: true,
+  minRefreshGapMs: 3_000,
+}
+
 export function MaterialsPage() {
-  const query = useBackendQuery('material-graph', (backend) => backend.core.materialSite.getGraph())
+  const query = useBackendQuery(
+    'material-graph',
+    (backend) => backend.core.materialSite.getGraph(),
+    MATERIAL_GRAPH_FRESHNESS,
+  )
+  useRuntimeInvalidation(query.refresh, { minIntervalMs: MATERIAL_GRAPH_FRESHNESS.minRefreshGapMs })
   const [selection, setSelection] = useState<MaterialSelection | null>(null)
   const [keyword, setKeyword] = useState('')
   const [management, setManagement] = useState(false)
@@ -78,12 +95,23 @@ export function MaterialsPage() {
       <PageHeader
         title="物料"
         actions={
-          <Button
-            icon={<AppIcon name="layout/layers-three-01" size={16} />}
-            onClick={() => setManagement(true)}
-          >
-            物料管理
-          </Button>
+          <Space>
+            <Tooltip title="刷新">
+              <Button
+                type="text"
+                loading={query.loading}
+                aria-label="刷新物料图"
+                icon={<AppIcon name="arrows/refresh-ccw-01" size={18} />}
+                onClick={query.reload}
+              />
+            </Tooltip>
+            <Button
+              icon={<AppIcon name="layout/layers-three-01" size={16} />}
+              onClick={() => setManagement(true)}
+            >
+              物料管理
+            </Button>
+          </Space>
         }
       />
       <AsyncState
