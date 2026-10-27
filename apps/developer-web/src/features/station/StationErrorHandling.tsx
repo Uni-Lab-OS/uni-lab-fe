@@ -309,7 +309,7 @@ function DecisionPanel({
         </p>
       )}
       {error && retryOffered && (
-        <RetryGuardNote id={retryNoteId} error={error} source={source} blocked={retryBlocked} />
+        <RetryGuardNote id={retryNoteId} error={error} source={source} blocked={retryBlocked} completionOffered={completionOffered} />
       )}
       {error ? (
         <label className={clsx(styles.field)}>
@@ -494,11 +494,13 @@ function RetryGuardNote({
   error,
   source,
   blocked,
+  completionOffered,
 }: {
   id: string
   error: StationError
   source: SourceJobFacts
   blocked: string | null
+  completionOffered: boolean
 }) {
   if (source.loadError)
     return (
@@ -531,7 +533,9 @@ function RetryGuardNote({
       message="暂不能重新执行该动作"
       description={
         needsResolution
-          ? `${blocked}请打开任务，在该动作节点的详情中填写现场核对结论并点“现场已核对，按已取消收尾”。`
+          ? completionOffered
+            ? '动作结果未知，不能重发。若现场确认原动作已完成，请填写核对结论、确认可恢复调度，再选“人工确认完成并继续”；若动作未完成或已安全停止，可打开任务按已取消收尾。'
+            : `${blocked}请打开任务，在该动作节点的详情中填写现场核对结论并点“现场已核对，按已取消收尾”。`
           : blocked
       }
       action={
