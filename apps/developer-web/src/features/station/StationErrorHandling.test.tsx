@@ -351,3 +351,60 @@ describe('StationErrorHandling', () => {
     expect(getNodeJobDetail).toHaveBeenCalledTimes(2)
   })
 })
+
+it('offers manual completion only from OS options and requires the operator conclusion', async () => {
+  const snapshot = {
+    ...paused,
+    errors: paused.errors.map((error) => ({
+      ...error,
+      options: [...error.options, { id: 'manual_complete', label: '人工确认完成并继续' }],
+    })),
+  }
+  getSnapshot.mockResolvedValue(snapshot)
+  getNodeJobDetail.mockResolvedValue(unknownResult)
+  render(<StationErrorHandling />)
+  const button = (await screen.findByRole('button', {
+    name: '人工确认完成并继续',
+  })) as HTMLButtonElement
+  expect(button.disabled).toBe(true)
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: '现场确认原动作已完成' } })
+  fireEvent.click(
+    screen.getByRole('checkbox', { name: '我已核对现场，确认可以恢复工站工作流调度' }),
+  )
+  await waitFor(() => expect(button.disabled).toBe(false))
+  fireEvent.click(button)
+  const buttons = await screen.findAllByRole('button', { name: '人工确认完成并继续' })
+  fireEvent.click(buttons[buttons.length - 1]!)
+  await waitFor(() => expect(submit).toHaveBeenCalled())
+  expect(submit.mock.calls[0]![0].body).toMatchObject({
+    action: 'manual_complete',
+    reason: '现场确认原动作已完成',
+    operator_confirmed: true,
+  })
+  expect(screen.queryByText('动作已成功')).toBeNull()
+})
+
+it('does not offer manual completion against an older OS', async () => {
+  getNodeJobDetail.mockResolvedValue(unknownResult)
+  render(<StationErrorHandling />)
+  await screen.findByText('工站调度已暂停')
+  expect(screen.queryByRole('button', { name: '人工确认完成并继续' })).toBeNull()
+})
+
+it('shows the device recovery failure while the same command remains pending', async () => {
+  getSnapshot.mockResolvedValue({
+    ...paused,
+    controlCommands: [
+      {
+        commandUuid: 'recover-1',
+        status: 'PENDING',
+        operation: 'decision:d1',
+        needsApply: true,
+        applicationError: 'PLC 当前动作码与原命令不一致',
+      },
+    ],
+  })
+  render(<StationErrorHandling />)
+  expect(await screen.findByText('恢复尚未完成，工站保持暂停')).toBeTruthy()
+  expect(screen.getByText('PLC 当前动作码与原命令不一致')).toBeTruthy()
+})

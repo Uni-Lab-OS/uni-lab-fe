@@ -73,6 +73,7 @@ function decodeCommand(raw: Record<string, unknown>): StationControlCommand {
     status: typeof raw.status === 'string' ? raw.status : '',
     operation: typeof raw.operation === 'string' ? raw.operation : '',
     needsApply: raw.needs_apply === true,
+    applicationError: typeof raw.application_error === 'string' ? raw.application_error : null,
   }
 }
 

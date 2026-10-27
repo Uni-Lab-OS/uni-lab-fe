@@ -65,6 +65,9 @@ export class StationErrorHandlingClient implements StationErrorHandlingPort {
     action: StationErrorAction,
     { resume, reason }: { readonly resume: boolean; readonly reason: string },
   ): StationHandlingIntent {
+    if (action === 'manual_complete' && (!resume || !reason.trim())) {
+      throw new Error('请填写现场核对结论，并确认可以继续调度')
+    }
     const session = snapshot.activeSession
     const resumeNow = action !== 'enter_manual_handling' && resume
     return {
@@ -74,7 +77,9 @@ export class StationErrorHandlingClient implements StationErrorHandlingPort {
           ? '取消当前任务'
           : action === 'retry_current_node'
             ? '重新执行该动作'
-            : '进入手动处理',
+            : action === 'manual_complete'
+              ? '人工确认完成并继续'
+              : '进入手动处理',
       idempotencyKey: this.newKey(),
       body: {
         expected_station_version: snapshot.stationVersion,

@@ -172,8 +172,12 @@ function StationErrorDialog({
                   key={command.commandUuid}
                   type="info"
                   showIcon
-                  message="操作已受理，等待应用"
-                  description={`${command.operation} · ${command.commandUuid}`}
+                  message={
+                    command.applicationError ? '恢复尚未完成，工站保持暂停' : '操作已受理，等待应用'
+                  }
+                  description={
+                    command.applicationError ?? `${command.operation} · ${command.commandUuid}`
+                  }
                   action={
                     <Button
                       size="small"
@@ -276,14 +280,21 @@ function DecisionPanel({
   const anotherSession = Boolean(session && error && session.decisionId !== error.decisionId)
   const offered = useMemo(() => new Set(error?.options.map((option) => option.id) ?? []), [error])
   const retryOffered = offered.has('retry_current_node')
+  const completionOffered = offered.has('manual_complete')
   // 结果未知的动作重新执行会再次下发同一动作；OS 仍提供该选项，界面只依据 OS 作业事实放行。
-  const source = useSourceJob(snapshot, retryOffered ? error : null)
+  const source = useSourceJob(snapshot, retryOffered || completionOffered ? error : null)
   const retryBlocked = source.job ? retryBlockReason(source.job) : null
   const retryReady = Boolean(source.job) && !retryBlocked
+  const completionReady =
+    source.job?.status === 'running' &&
+    Boolean(source.job.uncertaintyReason) &&
+    confirmed &&
+    Boolean(reason.trim())
   const retryNoteId = useId()
   const decide = (action: StationErrorAction) =>
     error &&
     (action !== 'retry_current_node' || retryReady) &&
+    (action !== 'manual_complete' || completionReady) &&
     void state.submit(port.decisionIntent(snapshot, error, action, { resume: confirmed, reason }))
 
   if (error?.stage === 'APPLYING')
@@ -294,7 +305,7 @@ function DecisionPanel({
     <section className={clsx(styles.decision)}>
       {session && error && session.decisionId === error.decisionId && (
         <p className={clsx(styles.note)}>
-          现场处理已完成，调度仍暂停。请选择重新执行该动作或取消当前任务。
+          现场处理已完成，调度仍暂停。请根据核对结果选择后续处理。
         </p>
       )}
       {error && retryOffered && (
@@ -302,7 +313,11 @@ function DecisionPanel({
       )}
       {error ? (
         <label className={clsx(styles.field)}>
-          <span>处理说明（选填，会记入 OS）</span>
+          <span>
+            {completionOffered
+              ? '现场核对结论（人工确认完成时必填，会记入 OS）'
+              : '处理说明（选填，会记入 OS）'}
+          </span>
           <Input.TextArea
             rows={2}
             value={reason}
@@ -352,6 +367,19 @@ function DecisionPanel({
               >
                 <Button danger disabled={!writable}>
                   取消当前任务
+                </Button>
+              </Popconfirm>
+            )}
+            {completionOffered && (
+              <Popconfirm
+                title="确认原动作已经完成、现场具备继续条件？设备侧会退役原命令并保留人工完成记录；原动作不会重新下发。等待 OS 确认结算后继续后续步骤。"
+                okText="人工确认完成并继续"
+                cancelText="再核对"
+                disabled={!writable || !completionReady}
+                onConfirm={() => decide('manual_complete')}
+              >
+                <Button type="primary" disabled={!writable || !completionReady}>
+                  人工确认完成并继续
                 </Button>
               </Popconfirm>
             )}

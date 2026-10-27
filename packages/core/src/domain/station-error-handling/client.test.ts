@@ -334,3 +334,35 @@ describe('manual device actions', () => {
     })
   })
 })
+
+it('requires a confirmed snapshot and reason for manual completion', () => {
+  const client = new StationErrorHandlingClient(
+    {} as RequestTransport,
+    'local',
+    '/api/v1',
+    () => 'complete-1',
+  )
+  const snapshot = decodeStationSnapshot(SNAPSHOT)
+  const error = snapshot.errors[0]!
+  expect(() =>
+    client.decisionIntent(snapshot, error, 'manual_complete', { resume: false, reason: '已完成' }),
+  ).toThrow()
+  expect(() =>
+    client.decisionIntent(snapshot, error, 'manual_complete', { resume: true, reason: ' ' }),
+  ).toThrow()
+  expect(
+    client.decisionIntent(snapshot, error, 'manual_complete', {
+      resume: true,
+      reason: '  已完成  ',
+    }),
+  ).toMatchObject({
+    idempotencyKey: 'complete-1',
+    body: {
+      action: 'manual_complete',
+      reason: '已完成',
+      operator_confirmed: true,
+      resume_requested: true,
+      confirm_snapshot_id: snapshot.snapshotId,
+    },
+  })
+})
