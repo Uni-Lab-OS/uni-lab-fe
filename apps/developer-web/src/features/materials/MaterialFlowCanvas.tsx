@@ -124,7 +124,7 @@ export function MaterialFlowCanvas({
   )
 }
 
-function projectResourceNodes(
+export function projectResourceNodes(
   nodes: readonly MaterialGraphNode[],
   hasSearch: boolean,
   highlightedIds: ReadonlySet<string> | undefined,
@@ -164,8 +164,7 @@ function projectResourceNodes(
         )
         .map((node) => ({ node, site: mountedSiteOf(node, root) }))
         .filter((item): item is { node: MaterialGraphNode; site: SiteEntry } => Boolean(item.site))
-      const mountedSiteIds = new Set(mountedChildren.map((item) => item.site.siteUuid))
-      const rootSites = root.sites.filter((site) => !mountedSiteIds.has(site.siteUuid))
+      const rootSites = root.sites
       const blocks = mountedChildren.length
         ? [
             ...(rootSites.length
@@ -213,18 +212,25 @@ function projectResourceNodes(
   groupModels.forEach(({ root, descendants, blocks, highlighted, siteCount }, index) => {
     const groupId = `material-group-${root.material.materialUuid}`
     const columns = Math.min(2, Math.max(1, blocks.length))
+    let blockRowY = 62
+    let blockRowHeight = 0
     const blockPositions = blocks.map((block, blockIndex) => {
+      if (blockIndex > 0 && blockIndex % columns === 0) {
+        blockRowY += blockRowHeight + 18
+        blockRowHeight = 0
+      }
       const shape = gridShape(block.sites)
       const blockGap = 14
       const horizontalPadding = 18
       const width = (groupWidth - horizontalPadding * 2 - blockGap * (columns - 1)) / columns
       const height = 74 + Math.ceil(block.sites.length / shape.columns) * 42
+      blockRowHeight = Math.max(blockRowHeight, height)
       return {
         block,
         width,
         height,
         x: horizontalPadding + (blockIndex % columns) * (width + blockGap),
-        y: 62 + Math.floor(blockIndex / columns) * (height + 18),
+        y: blockRowY,
       }
     })
     const groupHeight = Math.max(122, ...blockPositions.map((item) => item.y + item.height + 18))
@@ -270,7 +276,7 @@ function projectResourceNodes(
         position: { x, y },
         data: {
           node,
-          sites: node.sites,
+          sites: block.sites,
           occupantBySite,
           selectedId,
           selectedSiteId,
