@@ -1,7 +1,29 @@
 import { describe, expect, it } from 'vitest'
-import { decodeMaterialDetail, decodeMaterialGraph, decodeSiteDetail } from './codec'
+import { decodeMaterialDetail, decodeMaterialGraph, decodeMaterialList, decodeSiteDetail } from './codec'
 
 describe('material site codec', () => {
+  it.each([undefined, null, '', '  '])('keeps materials with an unfilled barcode (%j)', (barcode) => {
+    const record = { ...material('material-unlabelled', 'template-vial', 'Unlabelled vial'), barcode }
+    expect(decodeMaterialList({ items: [record] }).items[0]?.barcode).toBeNull()
+    expect(decodeMaterialDetail({ code: 0, data: record }).barcode).toBeNull()
+    const graph = decodeMaterialGraph({ nodes: [{ material: record, sites: [] }] })
+    expect(graph.nodes).toHaveLength(1)
+    expect(graph.nodes[0]?.material).toMatchObject({
+      materialUuid: 'material-unlabelled',
+      barcode: null,
+    })
+  })
+
+  it.each([123, false, {}])('rejects a non-string barcode (%j)', (barcode) => {
+    expect(() => decodeMaterialDetail({ code: 0, data: { ...material('material-a', 'template-vial', 'Vial'), barcode } }))
+      .toThrow('material.barcode must be a string')
+  })
+
+  it('still rejects an empty material identity', () => {
+    expect(() => decodeMaterialDetail({ code: 0, data: { ...material('', 'template-vial', 'Vial'), barcode: '' } }))
+      .toThrow('material.uuid must be a non-empty string')
+  })
+
   it('maps a graph while keeping cross-node Site ownership and occupancy', () => {
     const graph = decodeMaterialGraph({
       code: 0,

@@ -164,7 +164,7 @@ function decodeMaterialSummary(value: MaterialSiteRecord): MaterialSummary {
     materialType: nullableString(value.type, 'material.type'),
     className: nullableString(value.class, 'material.class'),
     parentMaterialUuid: nullableString(value.parent_uuid, 'material.parent_uuid'),
-    barcode: nullableString(value.barcode, 'material.barcode'),
+    barcode: nullableText(value.barcode, 'material.barcode'),
     name: requiredString(value.name, 'material.name'),
     description: nullableString(value.description, 'material.description'),
     revision: nullablePositiveInteger(value.revision, 'material.revision'),
@@ -313,6 +313,12 @@ function requiredString(value: unknown, path: string): string {
 function nullableString(value: unknown, path: string): string | null {
   if (value === null || value === undefined) return null
   return requiredString(value, path)
+}
+
+function nullableText(value: unknown, path: string): string | null {
+  if (value === null || value === undefined) return null
+  if (typeof value !== 'string') invalid(`${path} must be a string`)
+  return value.trim() || null
 }
 
 function optionalString(value: unknown): string | undefined {
