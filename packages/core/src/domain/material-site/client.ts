@@ -13,7 +13,7 @@ import {
   decodeSiteDetail,
   decodeSiteList,
 } from './codec'
-import type { MaterialSitePort } from './port'
+import type { MaterialSitePlacementInput, MaterialSitePort } from './port'
 
 export class MaterialSiteClient implements MaterialSitePort {
   constructor(
@@ -78,5 +78,21 @@ export class MaterialSiteClient implements MaterialSitePort {
       url: `${this.apiPrefix}/sites/${encodeURIComponent(siteUuid)}`,
     })
     return decodeSiteDetail(response.data)
+  }
+
+  async updateSitePlacement(input: MaterialSitePlacementInput) {
+    const placement =
+      input.placement.action === 'place'
+        ? { action: 'place', site_uuid: input.placement.siteUuid }
+        : { action: 'remove' }
+    const response = await this.transport.request<MaterialDetailResponse>({
+      method: 'PUT',
+      url: `${this.apiPrefix}/materials/${encodeURIComponent(input.materialUuid)}`,
+      body: {
+        site_placement: placement,
+        ...(input.expectedRevision === null ? {} : { expected_revision: input.expectedRevision }),
+      },
+    })
+    return decodeMaterialDetail(response.data)
   }
 }

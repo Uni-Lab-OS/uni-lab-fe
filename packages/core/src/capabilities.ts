@@ -20,6 +20,7 @@ export const SERVER_CAPABILITY_KEYS = [
   'scheduler.timePlan',
   'station.errorHandling',
   'workflow.taskPresentationSummary',
+  'material.sitePlacement',
 ] as const
 
 export type ServerCapability = (typeof SERVER_CAPABILITY_KEYS)[number]
@@ -75,6 +76,10 @@ const PTLC_NATIVE_CAPABILITIES = new Set<ServerCapability>([
   // 不返回执行计划与逐 Job 数组。需要包含 Uni-Lab-OS 提交 e1b7a42a 的 OS 构建；更早的 OS
   // 以 invalid_input 拒绝该视图，部署旧 OS 时必须从本 profile 移除此能力。
   'workflow.taskPresentationSummary',
+  // OS 人工上下料 PUT /api/v1/materials/{uuid} 的 site_placement（place 放入或换到库位、remove 解除占用）：
+  // 带 expected_revision 修订校验，任务占用物料或库位时 OS 拒绝。Uni-Lab-OS feat/multi-sample 76bd1c27
+  // 本机仿真验证；不带幂等键，失败或超时不自动重试，以重读的物料图为准。
+  'material.sitePlacement',
 ])
 
 /** 返回当前 profile 已完成联调的能力集合；未知 profile 默认关闭。 */

@@ -177,7 +177,9 @@ export function MaterialsPage() {
           <MaterialInspector
             projection={inspection}
             selection={selection}
+            nodes={allNodes}
             onSelect={handleSelection}
+            onChanged={query.reload}
           />
         </div>
       </AsyncState>

@@ -61,4 +61,49 @@ describe('MaterialSiteClient', () => {
       { method: 'GET', url: '/api/v1/sites/site%2F1' },
     ])
   })
+
+  it('sends manual load and unload as a site placement with the read revision', async () => {
+    const requests: TransportRequest[] = []
+    const transport: RequestTransport = {
+      async request<Value>(request: TransportRequest): Promise<TransportResponse<Value>> {
+        requests.push(request)
+        const data = {
+          uuid: 'material-1',
+          resource_template_uuid: 'template-1',
+          name: 'Tray',
+          revision: 8,
+          sites: [],
+          current_site: null,
+        }
+        return { status: 200, headers: {}, data: { code: 0, data } } as TransportResponse<Value>
+      },
+    }
+    const client = new MaterialSiteClient(transport)
+
+    await expect(
+      client.updateSitePlacement({
+        materialUuid: 'material/1',
+        placement: { action: 'remove' },
+        expectedRevision: 7,
+      }),
+    ).resolves.toMatchObject({ kind: 'material_detail', revision: 8 })
+    await client.updateSitePlacement({
+      materialUuid: 'material/1',
+      placement: { action: 'place', siteUuid: 'site-2' },
+      expectedRevision: null,
+    })
+
+    expect(requests.map(({ method, url, body }) => ({ method, url, body }))).toEqual([
+      {
+        method: 'PUT',
+        url: '/api/v1/materials/material%2F1',
+        body: { site_placement: { action: 'remove' }, expected_revision: 7 },
+      },
+      {
+        method: 'PUT',
+        url: '/api/v1/materials/material%2F1',
+        body: { site_placement: { action: 'place', site_uuid: 'site-2' } },
+      },
+    ])
+  })
 })

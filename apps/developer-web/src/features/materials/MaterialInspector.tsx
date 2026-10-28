@@ -2,7 +2,7 @@ import { clsx } from 'clsx'
 import materialInspectorStyles from './MaterialInspector.module.scss'
 import materialManagementStyles from './MaterialManagement.module.scss'
 import sharedStyles from '../../styles/shared.module.scss'
-import { Button, Tooltip, Typography } from 'antd'
+import { Button, Tooltip } from 'antd'
 import { EmptyState } from '@unilab/design-v2'
 import type { MaterialGraphNode, MaterialInspectionProjection, SiteSummary } from '@unilab-fe/core'
 import type { IconColor, IconName } from '@unilab/design-v2/icons'
@@ -14,16 +14,22 @@ import {
 } from '@unilab/lab-ui'
 import { AppIcon } from '../../components/ui/Icon'
 import { type MaterialSelection } from './MaterialFlowCanvas'
-import { resolveMaterialSiteAction } from './materialSiteActions'
+import { SiteHandlingActions } from './MaterialSiteHandling'
 
 export function MaterialInspector({
   projection,
   selection,
+  nodes,
   onSelect,
+  onChanged,
 }: {
   projection?: MaterialInspectionProjection
   selection: MaterialSelection | null
+  /** 整张物料图：上料时据此列出可放入的物料。 */
+  nodes: readonly MaterialGraphNode[]
   onSelect: (selection: MaterialSelection) => void
+  /** 上下料提交后（无论成败）重读物料图。 */
+  onChanged: () => void
 }) {
   if (!projection || !selection)
     return (
@@ -41,7 +47,13 @@ export function MaterialInspector({
 
   if (selection.kind === 'site' && projection.selectedSite) {
     return (
-      <SiteInspector node={projection.node} site={projection.selectedSite} onSelect={onSelect} />
+      <SiteInspector
+        node={projection.node}
+        site={projection.selectedSite}
+        nodes={nodes}
+        onSelect={onSelect}
+        onChanged={onChanged}
+      />
     )
   }
 
@@ -49,7 +61,14 @@ export function MaterialInspector({
     return <NodeInspector node={projection.node} sites={projection.sites} onSelect={onSelect} />
   }
 
-  return <MaterialDetailInspector projection={projection} onSelect={onSelect} />
+  return (
+    <MaterialDetailInspector
+      projection={projection}
+      nodes={nodes}
+      onSelect={onSelect}
+      onChanged={onChanged}
+    />
+  )
 }
 
 function InspectorHeading({
@@ -125,14 +144,17 @@ function NodeInspector({
 function SiteInspector({
   node,
   site,
+  nodes,
   onSelect,
+  onChanged,
 }: {
   node: MaterialGraphNode
   site: SiteSummary
+  nodes: readonly MaterialGraphNode[]
   onSelect: (selection: MaterialSelection) => void
+  onChanged: () => void
 }) {
   const occupied = site.occupancy.occupiedMaterialUuid
-  const siteAction = resolveMaterialSiteAction(site.occupancy)
   const status = site.occupancy.known ? (occupied ? 'available' : 'empty') : 'attention'
   return (
     <aside
@@ -196,29 +218,24 @@ function SiteInspector({
           </Button>
         </div>
       )}
-      <SiteHandlingActions action={siteAction} />
-      {siteAction === 'unavailable' && (
-        <Typography.Text
-          type="secondary"
-          className={clsx(materialInspectorStyles['capability-note'])}
-        >
-          库位占用状态未知，暂不提供上下料操作。
-        </Typography.Text>
-      )}
+      <SiteHandlingActions site={site} nodes={nodes} onChanged={onChanged} />
     </aside>
   )
 }
 
 function MaterialDetailInspector({
   projection,
+  nodes,
   onSelect,
+  onChanged,
 }: {
   projection: MaterialInspectionProjection
+  nodes: readonly MaterialGraphNode[]
   onSelect: (selection: MaterialSelection) => void
+  onChanged: () => void
 }) {
   const detail = projection.node.material
   const site = projection.activeSite
-  const siteAction = site ? resolveMaterialSiteAction(site.occupancy) : 'unavailable'
   const status = !site
     ? 'empty'
     : site.occupancy.known
@@ -278,38 +295,18 @@ function MaterialDetailInspector({
         selectedSiteUuid={site?.siteUuid}
         onSelectSite={(siteUuid) => onSelect({ kind: 'site', siteId: siteUuid })}
       />
-      <SiteHandlingActions action={siteAction} />
-      <Typography.Text
-        type="secondary"
-        className={clsx(materialInspectorStyles['capability-note'])}
-      >
-        {siteAction === 'unavailable'
-          ? '当前页面仅展示物料与库位状态；库位占用状态未知。'
-          : '当前只展示库位允许的操作方向；统一物料命令接入后可执行。'}
-      </Typography.Text>
+      {site && (
+        <SiteHandlingActions
+          site={site}
+          nodes={nodes}
+          preferredMaterialUuid={detail.materialUuid}
+          onChanged={() => {
+            // 上下料后物料已不在（或刚到）这个库位：改看库位本身，避免沿用旧的“当前库位”
+            onSelect({ kind: 'site', siteId: site.siteUuid })
+            onChanged()
+          }}
+        />
+      )}
     </aside>
-  )
-}
-
-function SiteHandlingActions({ action }: { action: ReturnType<typeof resolveMaterialSiteAction> }) {
-  if (action === 'unavailable') return null
-  const isLoad = action === 'load'
-  return (
-    <div className={clsx(materialInspectorStyles['inspector-actions'])} aria-label="库位上下料">
-      <Button
-        className={clsx(materialInspectorStyles['material-site-action'])}
-        disabled
-        icon={
-          <AppIcon
-            name={isLoad ? 'general/upload-01' : 'general/download-01'}
-            color={isLoad ? 'primary' : undefined}
-            size={16}
-          />
-        }
-        title="统一物料命令尚未接入"
-      >
-        {isLoad ? '上料' : '下料'}
-      </Button>
-    </div>
   )
 }

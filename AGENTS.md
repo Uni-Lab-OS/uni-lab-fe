@@ -44,6 +44,11 @@
   隐式改写既有物料。
 - site 的新增/删除不是当前前端能力。任何 create/move/attach/detach/undo
   必须先有带 revision、幂等键和补偿语义的统一命令契约，不能拼接现有行级 CRUD。
+- 唯一例外是人工上下料：把已有物料放入库位、解除物料的库位占用，直接使用 OS
+  `PUT /api/v1/materials/{uuid}` 的 `site_placement`（`place`/`remove`），只在声明
+  `material.sitePlacement` 能力的 profile 上启用。必须带读到的 `expected_revision`；物料或
+  库位被任务占用时由 OS 拒绝。该接口没有幂等键：失败或超时不得自动重发，提交后无论成败都重读
+  物料图，以 OS 投影为准。它只登记库存，不驱动设备，也不得扩展为 move/attach/detach 的通用写入。
 
 ## 物料服务与 capability
 
