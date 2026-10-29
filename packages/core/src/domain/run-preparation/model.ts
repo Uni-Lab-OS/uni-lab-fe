@@ -64,11 +64,19 @@ export interface PreflightReport {
   readonly checks: readonly PreflightCheck[]
 }
 
+/** OS 已受理任务、但整任务物料准入受阻：补料或别的任务释放后自动开始。 */
+export interface SubmittedRunMaterialWait {
+  readonly code: string
+  readonly message: string
+  readonly resources: readonly string[]
+}
+
 export interface SubmittedRun {
   readonly kind: 'submitted_run'
   readonly source: 'os' | 'fixture'
   readonly taskUuid: string
   readonly acceptedAt?: string
+  readonly materialWait?: SubmittedRunMaterialWait
   readonly raw: Readonly<Record<string, unknown>>
 }
 

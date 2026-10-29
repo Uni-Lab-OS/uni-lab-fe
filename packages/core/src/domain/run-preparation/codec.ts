@@ -1,5 +1,11 @@
 import { RunPreparationError } from './errors'
-import type { NodeJobDetail, PreflightCheck, PreflightReport, SubmittedRun } from './model'
+import type {
+  NodeJobDetail,
+  PreflightCheck,
+  PreflightReport,
+  SubmittedRun,
+  SubmittedRunMaterialWait,
+} from './model'
 import type { RunPreparationRecord } from './api'
 import type { RunConfiguration } from './model'
 
@@ -43,6 +49,7 @@ export function decodePreflightReport(
 export function decodeSubmittedRun(value: unknown): SubmittedRun {
   const record = unwrapData(asRecord(value, 'submit run'))
   const taskUuid = stringValue(record.task_uuid ?? record.uuid, 'submit run.task_uuid')
+  const materialWait = decodeMaterialWait(record.wait_reason)
   return {
     kind: 'submitted_run',
     source: 'os',
@@ -50,7 +57,29 @@ export function decodeSubmittedRun(value: unknown): SubmittedRun {
     ...(optionalString(record.accepted_at) === undefined
       ? {}
       : { acceptedAt: optionalString(record.accepted_at) }),
+    ...(materialWait === undefined ? {} : { materialWait }),
     raw: record,
+  }
+}
+
+/** 提交即时返回的任务若停在物料准入（缺料或数量不足），把 OS 给的原因带给页面。 */
+const MATERIAL_WAIT_CODES = new Set(['material_unavailable', 'quantity_inventory_unavailable'])
+
+function decodeMaterialWait(value: unknown): SubmittedRunMaterialWait | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
+  const reason = value as Record<string, unknown>
+  const code = optionalString(reason.code)
+  if (code === undefined || !MATERIAL_WAIT_CODES.has(code)) return undefined
+  const resources = Array.isArray(reason.resources) ? reason.resources : []
+  return {
+    code,
+    message: optionalString(reason.message) ?? '任务所需物料暂不可用',
+    resources: resources.flatMap((item) => {
+      if (typeof item !== 'object' || item === null) return []
+      const resource = item as Record<string, unknown>
+      const name = optionalString(resource.material_name) ?? optionalString(resource.material_uuid)
+      return name === undefined ? [] : [name]
+    }),
   }
 }
 

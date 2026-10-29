@@ -256,14 +256,23 @@ export function WorkflowDebugPage({
                 )}
               >
                 <Alert
-                  type="success"
+                  type={submitted?.materialWait ? 'warning' : 'success'}
                   showIcon
-                  message="任务已提交"
+                  message={submitted?.materialWait ? '任务已提交，正在等待物料' : '任务已提交'}
                   description={
                     submitted ? (
                       <span className={clsx(workflowDebugPageStyles['debug-result-summary'])}>
                         <span>任务名称：{taskName}</span>
                         <span>任务编号：{submitted.taskUuid}</span>
+                        {submitted.materialWait && (
+                          <>
+                            <span>原因：{submitted.materialWait.message}</span>
+                            {submitted.materialWait.resources.length > 0 && (
+                              <span>涉及物料：{submitted.materialWait.resources.join('、')}</span>
+                            )}
+                            <span>补料或其他任务释放后会自动开始；不需要等待时可在任务页取消。</span>
+                          </>
+                        )}
                       </span>
                     ) : (
                       '后端已接受本次运行'

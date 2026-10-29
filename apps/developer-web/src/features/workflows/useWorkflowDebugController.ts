@@ -216,7 +216,8 @@ export function useWorkflowDebugController(workflowUuid: string) {
       if (nextState.error) throw nextState.error
       if (!nextState.submittedRun) throw new Error('后端未返回已接受的任务')
       setStep(2)
-      messageApi.success('任务已提交')
+      if (nextState.submittedRun.materialWait) messageApi.warning('任务已提交，但在等待物料准入')
+      else messageApi.success('任务已提交')
     } catch (error) {
       setFormError(error instanceof Error ? error.message : '提交失败')
     } finally {
