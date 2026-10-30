@@ -14,7 +14,10 @@ pnpm --filter @unilab/developer-web dev
 - `VITE_UNILAB_API_URL`：后端 API 根地址；相对地址会解析为当前页面同源地址。
 - `VITE_UNILAB_PROXY_TARGET`：Vite 开发代理目标地址。
 - `VITE_EDGE_API_URL`：与 Uni-Lab-OS Console 共用的 workspace backend 地址，优先级高于默认的 59394。
-- `VITE_UNILAB_BACKEND_ID`：后端 profile，默认 `local-python`；使用 Go backend 时设为 `local-go`。
+- `VITE_UNILAB_BACKEND_ID`：后端 profile，默认 `local-python`；使用 Go backend 时设为 `local-go`；
+  连接 pTLC 设备包启动的 OS 时必须设为 `ptlc-native`，否则人工上下料、结果未知处置、资源释放、
+  调度甘特、工站错误处置、设备动作展示和任务列表摘要都会按能力缺失禁用。`VITE_*` 在 dev 服务器
+  启动或构建时固定，修改后需重启或重新构建。
 - `sessionStorage.unilab.access_token`：可选访问令牌，写入请求由 composition root 统一读取。
 
 默认代理目标与当前 Uni-Lab-SZLab workspace backend 一致，为 `http://127.0.0.1:59394`。SZLab workspace backend
